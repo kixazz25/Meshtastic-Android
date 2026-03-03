@@ -13,7 +13,17 @@ import org.meshtastic.core.repository.NodeRepository
 import javax.inject.Inject
 
 /**
- * ConvoyViewModel — IMP-001 Task 3.2
+ * HUD display modes — IMP-001 Task 4.1
+ */
+enum class HudMode {
+    GROUP,      // UNITS · ACTIVE · LOST · SPAN · LEAD · TAIL
+    MY_CART,    // Speed · Heading · Battery · Altitude · Proximity
+    NODE,       // All 22 properties for tapped marker
+    COLLAPSED   // Pill: node count + LOST count. Map maximized.
+}
+
+/**
+ * ConvoyViewModel — IMP-001 Tasks 3.2 + 4.1
  *
  * Drives the convoy tick loop every 5 seconds.
  * In simulation mode: reads from ConvoySimulation.
@@ -27,16 +37,39 @@ class ConvoyViewModel @Inject constructor(
     private val nodeRepository: NodeRepository
 ) : ViewModel() {
 
-    // ── State ─────────────────────────────────────────────────────────────
+    // ── Convoy state ──────────────────────────────────────────────────────
 
     private val _convoyState = MutableStateFlow(ConvoyEngine.ConvoyState.empty())
     val convoyState: StateFlow<ConvoyEngine.ConvoyState> = _convoyState.asStateFlow()
 
+    // ── HUD mode ──────────────────────────────────────────────────────────
+
+    private val _hudMode = MutableStateFlow(HudMode.GROUP)
+    val hudMode: StateFlow<HudMode> = _hudMode.asStateFlow()
+
+    /** Node currently shown in NODE detail HUD — set on marker tap */
+    private val _selectedNode = MutableStateFlow<ConvoyNode?>(null)
+    val selectedNode: StateFlow<ConvoyNode?> = _selectedNode.asStateFlow()
+
+    // ── Simulation mode ───────────────────────────────────────────────────
+
     private val _simulationMode = MutableStateFlow(false)
     val simulationMode: StateFlow<Boolean> = _simulationMode.asStateFlow()
 
+    // ── MY CART config ────────────────────────────────────────────────────
+
     private val _myCartId = MutableStateFlow(ConvoySimulation.MY_CART_ID)
     val myCartId: StateFlow<String> = _myCartId.asStateFlow()
+
+    // ── Lead track visibility ─────────────────────────────────────────────
+
+    private val _showLeadTrack = MutableStateFlow(true)
+    val showLeadTrack: StateFlow<Boolean> = _showLeadTrack.asStateFlow()
+
+    // ── Off-track alert (REQ-NEW-01) ──────────────────────────────────────
+
+    private val _offTrackNodes = MutableStateFlow<List<ConvoyNode>>(emptyList())
+    val offTrackNodes: StateFlow<List<ConvoyNode>> = _offTrackNodes.asStateFlow()
 
     private var tickJob: Job? = null
 
@@ -46,17 +79,35 @@ class ConvoyViewModel @Inject constructor(
         startTick()
     }
 
-    // ── Public API ────────────────────────────────────────────────────────
+    // ── Public API — HUD ─────────────────────────────────────────────────
+
+    fun setHudMode(mode: HudMode) {
+        _hudMode.value = mode
+    }
+
+    fun onMarkerTapped(node: ConvoyNode) {
+        _selectedNode.value = node
+        _hudMode.value = HudMode.NODE
+    }
+
+    fun dismissNodeHud() {
+        _selectedNode.value = null
+        _hudMode.value = HudMode.GROUP
+    }
+
+    // ── Public API — simulation ───────────────────────────────────────────
 
     fun setSimulationMode(enabled: Boolean) {
         _simulationMode.value = enabled
-        if (enabled) {
-            ConvoySimulation.start()
-        }
+        if (enabled) ConvoySimulation.start()
     }
 
     fun setMyCartId(nodeId: String) {
         _myCartId.value = nodeId
+    }
+
+    fun toggleLeadTrack() {
+        _showLeadTrack.value = !_showLeadTrack.value
     }
 
     // ── Tick loop ─────────────────────────────────────────────────────────
@@ -78,11 +129,20 @@ class ConvoyViewModel @Inject constructor(
         } else {
             readLiveNodes(nowMs)
         }
-        _convoyState.value = ConvoyEngine.compute(
+        val state = ConvoyEngine.compute(
             nodes = nodes,
             myCartId = _myCartId.value,
             nowMs = nowMs
         )
+        _convoyState.value = state
+
+        // Refresh selected node if NODE HUD is open
+        if (_hudMode.value == HudMode.NODE && _selectedNode.value != null) {
+            val refreshed = state.nodes.firstOrNull {
+                it.nodeId == _selectedNode.value?.nodeId
+            }
+            _selectedNode.value = refreshed
+        }
     }
 
     // ── Live node reading ─────────────────────────────────────────────────
@@ -98,19 +158,15 @@ class ConvoyViewModel @Inject constructor(
             val user = node.user
             val pos = node.position
             val callsign = user.longName.ifBlank { user.shortName }.ifBlank { "!${node.num}" }
-
-            // Skip nodes with no position data
             if (pos.latitudeI == 0 && pos.longitudeI == 0) return@mapNotNull null
-
             val lastSeenMs = node.lastHeard.toLong() * 1000L
-
             ConvoyNode(
                 nodeId = "!%08x".format(node.num),
                 callsign = callsign,
                 latitude = pos.latitudeI * 1e-7,
                 longitude = pos.longitudeI * 1e-7,
                 altitude_m = pos.altitude,
-                speed_mph = (pos.groundSpeed * 2.23694f), // m/s to mph
+                speed_mph = (pos.groundSpeed * 2.23694f),
                 heading_deg = pos.groundTrack.toFloat(),
                 battery_pct = node.deviceMetrics.batteryLevel,
                 snr_db = node.snr,
