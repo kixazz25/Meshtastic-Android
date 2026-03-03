@@ -175,3 +175,7 @@ object FirmwareRoutes {
 
     @Serializable data object FirmwareUpdate : Route
 }
+
+object ConvoyRoutes {
+    @Serializable data object Convoy : Route
+}
