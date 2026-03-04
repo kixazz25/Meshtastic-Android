@@ -66,6 +66,16 @@ class ConvoyViewModel @Inject constructor(
     private val _showLeadTrack = MutableStateFlow(true)
     val showLeadTrack: StateFlow<Boolean> = _showLeadTrack.asStateFlow()
 
+    // ── Lead track segments (REQ-109) ───────────────────────────────────────
+
+    private val _leadTrackSegments = MutableStateFlow<List<ConvoyEngine.LeadTrackSegment>>(emptyList())
+    val leadTrackSegments: StateFlow<List<ConvoyEngine.LeadTrackSegment>> = _leadTrackSegments.asStateFlow()
+
+    // ── Route recorder (REQ-111) ──────────────────────────────────────────
+
+    private val _routeRecording = MutableStateFlow(false)
+    val routeRecording: StateFlow<Boolean> = _routeRecording.asStateFlow()
+
     // ── Off-track alert (REQ-NEW-01) ──────────────────────────────────────
 
     private val _offTrackNodes = MutableStateFlow<List<ConvoyNode>>(emptyList())
@@ -108,6 +118,14 @@ class ConvoyViewModel @Inject constructor(
 
     fun toggleLeadTrack() {
         _showLeadTrack.value = !_showLeadTrack.value
+    }
+
+    fun setShowLeadTrack(visible: Boolean) {
+        _showLeadTrack.value = visible
+    }
+
+    fun toggleRouteRecorder() {
+        _routeRecording.value = !_routeRecording.value
     }
 
     // ── Tick loop ─────────────────────────────────────────────────────────

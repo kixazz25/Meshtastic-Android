@@ -1,14 +1,10 @@
 package com.geeksville.mesh.convoy
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -22,29 +18,46 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Layers
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import org.osmdroid.config.Configuration
+import org.osmdroid.tileprovider.tilesource.TileSourceFactory
+import org.osmdroid.util.BoundingBox
+import org.osmdroid.util.GeoPoint
+import org.osmdroid.views.CustomZoomButtonsController
+import org.osmdroid.views.MapView
 
 /**
- * ConvoyScreen — IMP-001 Task 4.2
- * Main Compose screen for the Convoy tab.
- * Full-screen map placeholder + HUD strip.
+ * ConvoyScreen — IMP-001 Task 4.2 + 5.1 + 5.2 + 5.3 + 5.4
+ * Full-screen OSMDroid map + HUD strip.
  */
 @Composable
 fun ConvoyScreen(
@@ -54,38 +67,77 @@ fun ConvoyScreen(
     val hudMode by viewModel.hudMode.collectAsStateWithLifecycle()
     val selectedNode by viewModel.selectedNode.collectAsStateWithLifecycle()
     val simulationMode by viewModel.simulationMode.collectAsStateWithLifecycle()
+    val showLeadTrack by viewModel.showLeadTrack.collectAsStateWithLifecycle()
+
+    val context = LocalContext.current
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+
+    // ── Renderer (stable across recompositions) ───────────────────────────
+    val renderer = remember { ConvoyMarkerRenderer(context) }
+
+    // ── OSMDroid MapView ──────────────────────────────────────────────────
+    val mapView = remember {
+        MapView(context).apply {
+            Configuration.getInstance().userAgentValue = context.packageName
+            setTileSource(TileSourceFactory.MAPNIK)
+            setMultiTouchControls(true)
+            isVerticalMapRepetitionEnabled = false
+            isTilesScaledToDpi = true
+            minZoomLevel = 2.0
+            maxZoomLevel = 20.0
+            zoomController.setVisibility(CustomZoomButtonsController.Visibility.SHOW_AND_FADEOUT)
+            controller.setZoom(13.0)
+            // Center on New Harmony UT (simulation default)
+            controller.setCenter(GeoPoint(37.4691, -113.6215))
+            setDestroyMode(false)
+        }
+    }
+
+    // ── Attach renderer to map ────────────────────────────────────────────
+    DisposableEffect(mapView) {
+        renderer.attach(mapView)
+        onDispose { }
+    }
+
+    // ── Lifecycle: pause/resume map ───────────────────────────────────────
+    DisposableEffect(lifecycle) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_RESUME -> mapView.onResume()
+                Lifecycle.Event.ON_PAUSE  -> mapView.onPause()
+                else -> {}
+            }
+        }
+        lifecycle.addObserver(observer)
+        onDispose { lifecycle.removeObserver(observer) }
+    }
+
+    // ── Push convoy data to renderer on each state change ─────────────────
+    // Task 5.2: wire renderer to live data
+    val trackSegments = remember(convoyState) {
+        convoyState.leadTrackSegments   // List<TrackSegment> from ConvoyEngine
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
 
-        // ── Map placeholder (Phase 5 will add real MapLibre map) ──────────
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color(0xFF131820)),
-            contentAlignment = Alignment.Center
-        ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    text = "CONVOY MAP",
-                    color = Color(0xFF2E75B6),
-                    fontSize = 14.sp,
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = "${convoyState.nodes.size} nodes · ${convoyState.activeCount} active · ${convoyState.lostCount} lost",
-                    color = Color(0xFF4A6080),
-                    fontSize = 11.sp,
-                    fontFamily = FontFamily.Monospace
-                )
-                Text(
-                    text = if (simulationMode) "[ SIMULATION MODE ]" else "[ LIVE MODE ]",
-                    color = if (simulationMode) Color(0xFFF9C835) else Color(0xFF1CF0A0),
-                    fontSize = 10.sp,
-                    fontFamily = FontFamily.Monospace
-                )
+        // ── Task 5.1: Real OSMDroid map ───────────────────────────────────
+        AndroidView(
+            factory = { mapView },
+            modifier = Modifier.fillMaxSize(),
+            update = { mv ->
+                // Task 5.2: update markers + track on every recomposition tick
+                renderer.update(convoyState.nodes, trackSegments)
+                // Auto-center on convoy centroid when nodes present
+                if (convoyState.nodes.isNotEmpty()) {
+                    val lats = convoyState.nodes.map { it.latitude }
+                    val lons = convoyState.nodes.map { it.longitude }
+                    val centroid = GeoPoint(lats.average(), lons.average())
+                    // Only set center if map hasn't been manually panned
+                    // (controller.animateTo is non-intrusive — skips if already centered)
+                    mv.controller.animateTo(centroid)
+                }
             }
-        }
+        )
 
         // ── CONTACT LOST banner ───────────────────────────────────────────
         if (convoyState.hasLost && hudMode != HudMode.COLLAPSED) {
@@ -93,6 +145,55 @@ fun ConvoyScreen(
                 lostCount = convoyState.lostCount,
                 modifier = Modifier.align(Alignment.TopCenter)
             )
+        }
+
+        // ── Task 5.3: Show Lead Track toggle + Task 5.4: Route Recorder ──
+        Column(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(top = 8.dp, end = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            // Task 5.3 — Show Lead Track toggle (REQ-110)
+            IconToggleButton(
+                checked = showLeadTrack,
+                onCheckedChange = {
+                    viewModel.setShowLeadTrack(it)
+                    renderer.setLeadTrackVisible(it)
+                }
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Layers,
+                    contentDescription = "Show Lead Track",
+                    tint = if (showLeadTrack) Color(0xFF2E75B6) else Color(0xFF4A6080)
+                )
+            }
+
+            // Task 5.4 — Route Recorder button (REQ-111) — delegates to ViewModel
+            TextButton(
+                onClick = { viewModel.toggleRouteRecorder() },
+                modifier = Modifier.padding(0.dp)
+            ) {
+                Text(
+                    text = "REC",
+                    color = Color(0xFF4A6080),
+                    fontSize = 9.sp,
+                    fontFamily = FontFamily.Monospace
+                )
+            }
+
+            // Sim mode toggle (dev only)
+            TextButton(
+                onClick = { viewModel.setSimulationMode(!simulationMode) },
+                modifier = Modifier.padding(0.dp)
+            ) {
+                Text(
+                    text = if (simulationMode) "SIM" else "LIVE",
+                    color = if (simulationMode) Color(0xFFF9C835) else Color(0xFF4A6080),
+                    fontSize = 9.sp,
+                    fontFamily = FontFamily.Monospace
+                )
+            }
         }
 
         // ── HUD strip ─────────────────────────────────────────────────────
@@ -120,21 +221,6 @@ fun ConvoyScreen(
                     onExpand = { viewModel.setHudMode(HudMode.GROUP) }
                 )
             }
-        }
-
-        // ── Sim mode toggle (dev only) ────────────────────────────────────
-        TextButton(
-            onClick = { viewModel.setSimulationMode(!simulationMode) },
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(8.dp)
-        ) {
-            Text(
-                text = if (simulationMode) "SIM ON" else "SIM OFF",
-                color = if (simulationMode) Color(0xFFF9C835) else Color(0xFF4A6080),
-                fontSize = 10.sp,
-                fontFamily = FontFamily.Monospace
-            )
         }
     }
 }
@@ -227,9 +313,9 @@ fun NodeDetailHud(
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
             HudStat("STATUS", node.status.name,
                 when (node.status) {
-                    ConvoyStatus.LOST -> Color(0xFFF44336)
+                    ConvoyStatus.LOST        -> Color(0xFFF44336)
                     ConvoyStatus.SIGNAL_DROP -> Color(0xFFFFFF00)
-                    ConvoyStatus.ACTIVE -> Color(0xFF00AA00)
+                    ConvoyStatus.ACTIVE      -> Color(0xFF00AA00)
                 })
             HudStat("SPD", "%.0f mph".format(node.speed_mph))
             HudStat("BAT", "${node.battery_pct}%")
@@ -295,9 +381,7 @@ fun ContactLostBanner(lostCount: Int, modifier: Modifier = Modifier) {
         label = "blink"
     )
     Surface(
-        modifier = modifier
-            .padding(top = 8.dp)
-            .alpha(alpha),
+        modifier = modifier.padding(top = 8.dp).alpha(alpha),
         shape = RoundedCornerShape(6.dp),
         color = Color(0xFFF44336)
     ) {
@@ -317,9 +401,7 @@ fun ContactLostBanner(lostCount: Int, modifier: Modifier = Modifier) {
 @Composable
 fun HudCard(content: @Composable ColumnScope.() -> Unit) {
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(8.dp),
+        modifier = Modifier.fillMaxWidth().padding(8.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xFF1E252F)),
         shape = RoundedCornerShape(12.dp),
         elevation = CardDefaults.cardElevation(8.dp)
@@ -345,10 +427,10 @@ fun HudModeRow(current: HudMode, onModeChange: (HudMode) -> Unit) {
     ) {
         listOf(HudMode.GROUP, HudMode.MY_CART, HudMode.COLLAPSED).forEach { mode ->
             val label = when (mode) {
-                HudMode.GROUP -> "GROUP"
-                HudMode.MY_CART -> "MY CART"
+                HudMode.GROUP     -> "GROUP"
+                HudMode.MY_CART   -> "MY CART"
                 HudMode.COLLAPSED -> "▾"
-                HudMode.NODE -> "NODE"
+                HudMode.NODE      -> "NODE"
             }
             Text(
                 text = label,
