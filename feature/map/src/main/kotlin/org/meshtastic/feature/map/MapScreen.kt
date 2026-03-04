@@ -27,12 +27,18 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.jetbrains.compose.resources.stringResource
 import org.meshtastic.core.resources.Res
 import org.meshtastic.core.resources.map
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.DirectionsCar
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.ui.res.stringResource
 import org.meshtastic.core.ui.component.MainAppBar
 
 @Composable
 fun MapScreen(
     onClickNodeChip: (Int) -> Unit,
     navigateToNodeDetails: (Int) -> Unit,
+    onNavigateToConvoy: () -> Unit = {},
     modifier: Modifier = Modifier,
     mapViewModel: MapViewModel = hiltViewModel(),
 ) {
@@ -49,7 +55,14 @@ fun MapScreen(
                 showNodeChip = ourNodeInfo != null && isConnected,
                 canNavigateUp = false,
                 onNavigateUp = {},
-                actions = {},
+                actions = {
+                    IconButton(onClick = onNavigateToConvoy) {
+                        Icon(
+                            imageVector = Icons.Rounded.DirectionsCar,
+                            contentDescription = "Convoy View"
+                        )
+                    }
+                },
                 onClickChip = { onClickNodeChip(it.num) },
             )
         },

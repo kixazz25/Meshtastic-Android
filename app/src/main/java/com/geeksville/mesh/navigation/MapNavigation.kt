@@ -36,6 +36,7 @@ fun NavGraphBuilder.mapGraph(navController: NavHostController) {
                 }
             },
             navigateToNodeDetails = { navController.navigate(NodesRoutes.NodeDetailGraph(it)) },
+            onNavigateToConvoy = { navController.navigate(org.meshtastic.core.navigation.ConvoyRoutes.Convoy) },
         )
     }
 }
