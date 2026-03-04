@@ -82,6 +82,7 @@ import com.geeksville.mesh.navigation.connectionsGraph
 import com.geeksville.mesh.navigation.contactsGraph
 import com.geeksville.mesh.navigation.firmwareGraph
 import com.geeksville.mesh.navigation.convoyGraph
+import org.meshtastic.core.navigation.ConvoyRoutes
 
 import com.geeksville.mesh.navigation.mapGraph
 import com.geeksville.mesh.navigation.nodesGraph
@@ -148,7 +149,7 @@ enum class TopLevelDestination(val label: StringResource, val icon: ImageVector,
     Map(Res.string.map, MeshtasticIcons.Map, MapRoutes.Map()),
     Settings(Res.string.bottom_nav_settings, MeshtasticIcons.Settings, SettingsRoutes.SettingsGraph()),
     Connections(Res.string.connections, MeshtasticIcons.Wifi, ConnectionsRoutes.ConnectionsGraph),
-    Convoy(Res.string.convoy, MeshtasticIcons.Route, ConvoyRoutes.Convoy),
+    Convoy(Res.string.map, MeshtasticIcons.Map, ConvoyRoutes.Convoy),
     ;
 
     companion object {
