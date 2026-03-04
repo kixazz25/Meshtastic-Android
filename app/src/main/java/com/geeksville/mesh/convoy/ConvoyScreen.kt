@@ -16,12 +16,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Layers
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.Surface
@@ -53,6 +55,8 @@ import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.BoundingBox
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.CustomZoomButtonsController
+import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider
+import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay
 import org.osmdroid.views.MapView
 
 /**
@@ -93,10 +97,21 @@ fun ConvoyScreen(
         }
     }
 
+    // ── My location overlay ──────────────────────────────────────────────────
+    val myLocationOverlay = remember(mapView) {
+        MyLocationNewOverlay(GpsMyLocationProvider(context), mapView).apply {
+            enableMyLocation()
+            enableFollowLocation()
+        }
+    }
+
     // ── Attach renderer to map ────────────────────────────────────────────
     DisposableEffect(mapView) {
         renderer.attach(mapView)
-        onDispose { }
+        mapView.overlays.add(myLocationOverlay)
+        onDispose {
+            myLocationOverlay.disableMyLocation()
+        }
     }
 
     // ── Lifecycle: pause/resume map ───────────────────────────────────────
@@ -124,7 +139,8 @@ fun ConvoyScreen(
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    Scaffold { innerPadding ->
+    Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
 
         // ── Task 5.1: Real OSMDroid map ───────────────────────────────────
         AndroidView(
@@ -157,6 +173,7 @@ fun ConvoyScreen(
         Column(
             modifier = Modifier
                 .align(Alignment.TopEnd)
+                .statusBarsPadding()
                 .padding(top = 8.dp, end = 8.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
@@ -228,6 +245,7 @@ fun ConvoyScreen(
                 )
             }
         }
+    }
     }
 }
 
