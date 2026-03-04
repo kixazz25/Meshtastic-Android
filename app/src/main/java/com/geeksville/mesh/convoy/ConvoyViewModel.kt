@@ -157,18 +157,18 @@ class ConvoyViewModel @Inject constructor(
         return nodeMap.values.mapNotNull { node ->
             val user = node.user
             val pos = node.position
-            val callsign = user.longName.ifBlank { user.shortName }.ifBlank { "!${node.num}" }
-            if (pos.latitudeI == 0 && pos.longitudeI == 0) return@mapNotNull null
+            val callsign = user.long_name.ifBlank { user.short_name }.ifBlank { "!${node.num}" }
+            if (pos.latitude_i == 0 && pos.longitude_i == 0) return@mapNotNull null
             val lastSeenMs = node.lastHeard.toLong() * 1000L
             ConvoyNode(
                 nodeId = "!%08x".format(node.num),
                 callsign = callsign,
-                latitude = pos.latitudeI * 1e-7,
-                longitude = pos.longitudeI * 1e-7,
-                altitude_m = pos.altitude,
-                speed_mph = (pos.groundSpeed * 2.23694f),
-                heading_deg = pos.groundTrack.toFloat(),
-                battery_pct = node.deviceMetrics.batteryLevel,
+                latitude = (pos.latitude_i ?: 0) * 1e-7,
+                longitude = (pos.longitude_i ?: 0) * 1e-7,
+                altitude_m = pos.altitude ?: 0,
+                speed_mph = ((pos.ground_speed ?: 0) * 2.23694f),
+                heading_deg = (pos.ground_track ?: 0).toFloat(),
+                battery_pct = node.deviceMetrics.battery_level ?: 0,
                 snr_db = node.snr,
                 lastSeenMs = lastSeenMs,
                 cotType = "a-f-G-U-C",
