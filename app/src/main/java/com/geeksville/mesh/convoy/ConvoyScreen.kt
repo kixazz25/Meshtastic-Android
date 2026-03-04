@@ -83,7 +83,7 @@ fun ConvoyScreen(
     val mapView = remember {
         MapView(context).apply {
             Configuration.getInstance().userAgentValue = context.packageName
-            setTileSource(TileSourceFactory.MAPNIK)
+            setTileSource(TileSourceFactory.USGS_SAT)
             setMultiTouchControls(true)
             isVerticalMapRepetitionEnabled = false
             isTilesScaledToDpi = true
