@@ -101,7 +101,25 @@ fun ConvoyScreen(
     val myLocationOverlay = remember(mapView) {
         MyLocationNewOverlay(GpsMyLocationProvider(context), mapView).apply {
             enableMyLocation()
-            enableFollowLocation()
+            // Draw a bullseye icon for current location
+            val sizePx = (24 * context.resources.displayMetrics.density).toInt()
+            val bmp = android.graphics.Bitmap.createBitmap(sizePx, sizePx, android.graphics.Bitmap.Config.ARGB_8888)
+            val canvas = android.graphics.Canvas(bmp)
+            val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+            val cx = sizePx / 2f
+            val r = sizePx / 2f
+            // Outer ring
+            paint.color = android.graphics.Color.argb(180, 33, 150, 243)
+            paint.style = android.graphics.Paint.Style.STROKE
+            paint.strokeWidth = sizePx * 0.12f
+            canvas.drawCircle(cx, cx, r * 0.85f, paint)
+            // Inner dot
+            paint.style = android.graphics.Paint.Style.FILL
+            paint.color = android.graphics.Color.argb(220, 33, 150, 243)
+            canvas.drawCircle(cx, cx, r * 0.35f, paint)
+            setPersonIcon(bmp)
+            setPersonAnchor(0.5f, 0.5f)
+            // Do not enableFollowLocation() - we handle zoom manually per HUD mode
         }
     }
 
@@ -149,22 +167,55 @@ fun ConvoyScreen(
             update = { mv ->
                 // Task 5.2: update markers + track on every recomposition tick
                 renderer.update(convoyState.nodes, trackSegments)
-                // Auto-center on convoy centroid when nodes present
+                // Smart zoom based on HUD mode
                 if (convoyState.nodes.isNotEmpty()) {
-                    val lats = convoyState.nodes.map { it.latitude }
-                    val lons = convoyState.nodes.map { it.longitude }
-                    val centroid = GeoPoint(lats.average(), lons.average())
-                    // Only set center if map hasn't been manually panned
-                    // (controller.animateTo is non-intrusive — skips if already centered)
-                    mv.controller.animateTo(centroid)
+                    when (hudMode) {
+                        HudMode.MY_CART -> {
+                            // Zoom to MY CART (HOTEL-10)
+                            val myCart = convoyState.nodes.firstOrNull { it.isMyCart }
+                            myCart?.let {
+                                mv.controller.animateTo(GeoPoint(it.latitude, it.longitude))
+                                mv.controller.setZoom(16.0)
+                            }
+                        }
+                        HudMode.NODE -> {
+                            // Zoom to selected node
+                            selectedNode?.let {
+                                mv.controller.animateTo(GeoPoint(it.latitude, it.longitude))
+                                mv.controller.setZoom(16.0)
+                            }
+                        }
+                        else -> {
+                            // GROUP / COLLAPSED — zoom to fit full convoy span (LEAD to TAIL)
+                            val lead = convoyState.lead
+                            val tail = convoyState.tail
+                            if (lead != null && tail != null) {
+                                val points = listOf(
+                                    GeoPoint(lead.latitude, lead.longitude),
+                                    GeoPoint(tail.latitude, tail.longitude)
+                                )
+                                val box = org.osmdroid.util.BoundingBox.fromGeoPoints(points)
+                                mv.zoomToBoundingBox(box.increaseByScale(1.4f), true)
+                            } else {
+                                // Fallback to centroid if lead/tail not yet assigned
+                                val lats = convoyState.nodes.map { it.latitude }
+                                val lons = convoyState.nodes.map { it.longitude }
+                                mv.controller.animateTo(GeoPoint(lats.average(), lons.average()))
+                            }
+                        }
+                    }
                 }
             }
         )
 
         // ── CONTACT LOST banner ───────────────────────────────────────────
         if (convoyState.hasLost && hudMode != HudMode.COLLAPSED) {
+            val lostNames = convoyState.nodes
+                .filter { it.status == ConvoyStatus.LOST }
+                .map { it.callsign }
             ContactLostBanner(
                 lostCount = convoyState.lostCount,
+                lostNames = lostNames,
                 modifier = Modifier.align(Alignment.TopCenter)
             )
         }
@@ -397,26 +448,36 @@ fun CollapsedPill(
 // ── CONTACT LOST BANNER ───────────────────────────────────────────────────────
 
 @Composable
-fun ContactLostBanner(lostCount: Int, modifier: Modifier = Modifier) {
+fun ContactLostBanner(lostCount: Int, lostNames: List<String> = emptyList(), modifier: Modifier = Modifier) {
     val infiniteTransition = rememberInfiniteTransition(label = "banner_blink")
     val alpha by infiniteTransition.animateFloat(
         initialValue = 1f, targetValue = 0.2f,
         animationSpec = infiniteRepeatable(tween(600), RepeatMode.Reverse),
         label = "blink"
     )
+    val nameStr = if (lostNames.isNotEmpty()) lostNames.joinToString(", ") else ""
     Surface(
         modifier = modifier.padding(top = 8.dp).alpha(alpha),
         shape = RoundedCornerShape(6.dp),
         color = Color(0xFFF44336)
     ) {
-        Text(
-            text = "CONTACT LOST  $lostCount NODE${if (lostCount > 1) "S" else ""}",
-            color = Color.White,
-            fontSize = 12.sp,
-            fontFamily = FontFamily.Monospace,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
-        )
+        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
+            Text(
+                text = "CONTACT LOST  $lostCount NODE${if (lostCount > 1) "S" else ""}",
+                color = Color.White,
+                fontSize = 12.sp,
+                fontFamily = FontFamily.Monospace,
+                fontWeight = FontWeight.Bold
+            )
+            if (nameStr.isNotEmpty()) {
+                Text(
+                    text = nameStr,
+                    color = Color.White,
+                    fontSize = 10.sp,
+                    fontFamily = FontFamily.Monospace
+                )
+            }
+        }
     }
 }
 
