@@ -1,6 +1,8 @@
 package com.geeksville.mesh.convoy
 
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
@@ -26,6 +28,9 @@ import org.osmdroid.views.overlay.Polyline
 class ConvoyMarkerRenderer(private val context: Context) {
 
     private var mapView: MapView? = null
+    private val blinkHandler = Handler(Looper.getMainLooper())
+    private var blinkRunnable: Runnable? = null
+    private var blinkState = true
     private val nodeMarkers = mutableListOf<Marker>()
     private val trackPolylines = mutableListOf<Polyline>()
     private var trackVisible = true
@@ -41,7 +46,10 @@ class ConvoyMarkerRenderer(private val context: Context) {
     /**
      * Refresh all overlays with latest data. Called on each 5-second tick.
      */
+    private var currentNodes: List<ConvoyNode> = emptyList()
+
     fun update(nodes: List<ConvoyNode>, trackSegments: List<TrackSegment>) {
+        currentNodes = nodes
         val map = mapView ?: return
 
         // Remove previous overlays
@@ -83,6 +91,49 @@ class ConvoyMarkerRenderer(private val context: Context) {
         }
         map.overlays.addAll(nodeMarkers)
         map.invalidate()
+
+        // Start blink loop if any nodes need blinking
+        val hasBlinking = nodes.any {
+            it.status == ConvoyStatus.LOST || it.status == ConvoyStatus.SIGNAL_DROP
+        }
+        if (hasBlinking) startBlinkLoop() else stopBlinkLoop()
+    }
+
+    private fun startBlinkLoop() {
+        if (blinkRunnable != null) return // already running
+        blinkRunnable = object : Runnable {
+            override fun run() {
+                blinkState = !blinkState
+                val map = mapView ?: return
+                var hasMore = false
+                for (marker in nodeMarkers) {
+                    // Find matching node by title (callsign)
+                    val node = currentNodes.firstOrNull { it.callsign == marker.title }
+                    when (node?.status) {
+                        ConvoyStatus.LOST -> {
+                            marker.alpha = if (blinkState) 1.0f else 0.2f
+                            hasMore = true
+                            blinkHandler.postDelayed(this, 900) // slow blink
+                        }
+                        ConvoyStatus.SIGNAL_DROP -> {
+                            marker.alpha = if (blinkState) 1.0f else 0.25f
+                            hasMore = true
+                            blinkHandler.postDelayed(this, 280) // fast blink
+                        }
+                        else -> marker.alpha = 1.0f
+                    }
+                }
+                if (hasMore) map.invalidate()
+                else stopBlinkLoop()
+            }
+        }
+        blinkHandler.post(blinkRunnable!!)
+    }
+
+    private fun stopBlinkLoop() {
+        blinkRunnable?.let { blinkHandler.removeCallbacks(it) }
+        blinkRunnable = null
+        nodeMarkers.forEach { it.alpha = 1.0f }
     }
 
     // ── REQ-110: lead track visibility toggle ─────────────────────────────
