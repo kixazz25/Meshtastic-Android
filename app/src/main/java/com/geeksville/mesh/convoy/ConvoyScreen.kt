@@ -114,8 +114,14 @@ fun ConvoyScreen(
 
     // ── Push convoy data to renderer on each state change ─────────────────
     // Task 5.2: wire renderer to live data
-    val trackSegments = remember(convoyState) {
-        convoyState.leadTrackSegments   // List<TrackSegment> from ConvoyEngine
+    val rawSegments by viewModel.leadTrackSegments.collectAsStateWithLifecycle()
+    val trackSegments = remember(rawSegments) {
+        rawSegments.map { seg ->
+            TrackSegment(
+                points = listOf(LatLngPoint(seg.startLat, seg.startLon), LatLngPoint(seg.endLat, seg.endLon)),
+                color = seg.color
+            )
+        }
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
