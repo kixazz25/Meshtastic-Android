@@ -140,7 +140,7 @@ class ConvoyViewModel @Inject constructor(
         }
     }
 
-    private fun tick() {
+    private fun tick() { try {
         val nowMs = System.currentTimeMillis()
         val nodes: List<ConvoyNode> = if (_simulationMode.value) {
             ConvoySimulation.tick(nowMs)
@@ -161,7 +161,7 @@ class ConvoyViewModel @Inject constructor(
             }
             _selectedNode.value = refreshed
         }
-    }
+    } catch (e: Exception) { /* suppress tick errors */ } }
 
     // ── Live node reading ─────────────────────────────────────────────────
 
@@ -171,7 +171,7 @@ class ConvoyViewModel @Inject constructor(
      * Read-only. Writes nothing to the database.
      */
     private fun readLiveNodes(nowMs: Long): List<ConvoyNode> {
-        val nodeMap = nodeRepository.nodeDBbyNum.value
+        val nodeMap = try { nodeRepository.nodeDBbyNum.value } catch (e: Exception) { return emptyList() }
         return nodeMap.values.mapNotNull { node ->
             val user = node.user
             val pos = node.position

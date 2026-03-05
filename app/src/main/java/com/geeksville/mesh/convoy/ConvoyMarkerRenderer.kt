@@ -105,26 +105,30 @@ class ConvoyMarkerRenderer(private val context: Context) {
             override fun run() {
                 blinkState = !blinkState
                 val map = mapView ?: return
-                var hasMore = false
+                var hasLost = false
+                var hasDrop = false
                 for (marker in nodeMarkers) {
-                    // Find matching node by title (callsign)
                     val node = currentNodes.firstOrNull { it.callsign == marker.title }
                     when (node?.status) {
                         ConvoyStatus.LOST -> {
                             marker.alpha = if (blinkState) 1.0f else 0.2f
-                            hasMore = true
-                            blinkHandler.postDelayed(this, 900) // slow blink
+                            hasLost = true
                         }
                         ConvoyStatus.SIGNAL_DROP -> {
                             marker.alpha = if (blinkState) 1.0f else 0.25f
-                            hasMore = true
-                            blinkHandler.postDelayed(this, 280) // fast blink
+                            hasDrop = true
                         }
                         else -> marker.alpha = 1.0f
                     }
                 }
-                if (hasMore) map.invalidate()
-                else stopBlinkLoop()
+                if (hasLost || hasDrop) {
+                    map.invalidate()
+                    // Use fastest interval needed — drop=280ms, lost=900ms
+                    val delay = if (hasDrop) 150L else 3000L
+                    blinkHandler.postDelayed(this, delay)
+                } else {
+                    stopBlinkLoop()
+                }
             }
         }
         blinkHandler.post(blinkRunnable!!)
