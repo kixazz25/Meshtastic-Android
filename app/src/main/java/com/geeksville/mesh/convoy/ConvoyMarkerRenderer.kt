@@ -25,7 +25,10 @@ import org.osmdroid.views.overlay.Polyline
  * Call [attach] once after the MapView is ready.
  * Call [update] on every ViewModel tick (5 s).
  */
-class ConvoyMarkerRenderer(private val context: Context) {
+class ConvoyMarkerRenderer(
+    private val context: Context,
+    private val onNodeTapped: (ConvoyNode) -> Unit = {}
+) {
 
     private var mapView: MapView? = null
     private val blinkHandler = Handler(Looper.getMainLooper())
@@ -80,12 +83,20 @@ class ConvoyMarkerRenderer(private val context: Context) {
 
         // ── Node markers ──────────────────────────────────────────────────
         for (node in nodes) {
+            val markerNode = node
             val marker = Marker(map).apply {
                 position = GeoPoint(node.latitude, node.longitude)
                 setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
                 title = node.callsign
                 snippet = buildSnippet(node)
                 icon = buildMarkerDrawable(context, node.markerColor, node.markerSymbol, node.markerSize)
+                if (node.isLead || node.isTail || node.isMyCart) {
+                    rotation = -node.heading_deg
+                }
+                setOnMarkerClickListener { _, _ ->
+                    onNodeTapped(markerNode)
+                    true
+                }
             }
             nodeMarkers.add(marker)
         }
@@ -124,7 +135,7 @@ class ConvoyMarkerRenderer(private val context: Context) {
                 if (hasLost || hasDrop) {
                     map.invalidate()
                     // Use fastest interval needed — drop=280ms, lost=900ms
-                    val delay = if (hasDrop) 150L else 3000L
+                    val delay = if (hasDrop) ConvoyConfig.BLINK_DROP_MS else ConvoyConfig.BLINK_LOST_MS
                     blinkHandler.postDelayed(this, delay)
                 } else {
                     stopBlinkLoop()
@@ -170,8 +181,8 @@ class ConvoyMarkerRenderer(private val context: Context) {
     ): android.graphics.drawable.Drawable {
         val density = context.resources.displayMetrics.density
         val sizePx = when (size) {
-            "large" -> (48 * density).toInt()
-            else    -> (36 * density).toInt()
+            "large" -> (ConvoyConfig.MARKER_SIZE_LARGE_DP * density).toInt()
+            else    -> (ConvoyConfig.MARKER_SIZE_MEDIUM_DP * density).toInt()
         }
         val bitmap = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
