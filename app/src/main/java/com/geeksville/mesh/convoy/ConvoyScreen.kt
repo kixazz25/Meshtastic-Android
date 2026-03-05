@@ -77,7 +77,7 @@ fun ConvoyScreen(
     val lifecycle = LocalLifecycleOwner.current.lifecycle
 
     // ── Renderer (stable across recompositions) ───────────────────────────
-    val renderer = remember { ConvoyMarkerRenderer(context) }
+    val renderer = remember { ConvoyMarkerRenderer(context, onNodeTapped = viewModel::onMarkerTapped) }
 
     // ── OSMDroid MapView ──────────────────────────────────────────────────
     val mapView = remember {
@@ -90,7 +90,7 @@ fun ConvoyScreen(
             minZoomLevel = 2.0
             maxZoomLevel = 20.0
             zoomController.setVisibility(CustomZoomButtonsController.Visibility.SHOW_AND_FADEOUT)
-            controller.setZoom(13.0)
+            controller.setZoom(ConvoyConfig.MAP_DEFAULT_ZOOM)
             // Center on New Harmony UT (simulation default)
             controller.setCenter(GeoPoint(37.4691, -113.6215))
             setDestroyMode(false)
@@ -101,22 +101,29 @@ fun ConvoyScreen(
     val myLocationOverlay = remember(mapView) {
         MyLocationNewOverlay(GpsMyLocationProvider(context), mapView).apply {
             enableMyLocation()
-            // Draw a bullseye icon for current location
-            val sizePx = (24 * context.resources.displayMetrics.density).toInt()
+            // Draw a small arrowhead pointing up (OSMDroid rotates it with GPS heading)
+            val sizePx = (ConvoyConfig.MARKER_SIZE_MEDIUM_DP * context.resources.displayMetrics.density).toInt()
             val bmp = android.graphics.Bitmap.createBitmap(sizePx, sizePx, android.graphics.Bitmap.Config.ARGB_8888)
             val canvas = android.graphics.Canvas(bmp)
-            val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+            val fillPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+                color = android.graphics.Color.argb(230, 33, 150, 243)
+                style = android.graphics.Paint.Style.FILL
+            }
+            val strokePaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+                color = android.graphics.Color.WHITE
+                style = android.graphics.Paint.Style.STROKE
+                strokeWidth = sizePx * 0.1f
+            }
             val cx = sizePx / 2f
-            val r = sizePx / 2f
-            // Outer ring
-            paint.color = android.graphics.Color.argb(180, 33, 150, 243)
-            paint.style = android.graphics.Paint.Style.STROKE
-            paint.strokeWidth = sizePx * 0.12f
-            canvas.drawCircle(cx, cx, r * 0.85f, paint)
-            // Inner dot
-            paint.style = android.graphics.Paint.Style.FILL
-            paint.color = android.graphics.Color.argb(220, 33, 150, 243)
-            canvas.drawCircle(cx, cx, r * 0.35f, paint)
+            val path = android.graphics.Path().apply {
+                moveTo(cx, 0f)                          // tip (north)
+                lineTo(sizePx * 0.8f, sizePx * 0.9f)   // bottom right
+                lineTo(cx, sizePx * 0.65f)              // inner notch
+                lineTo(sizePx * 0.2f, sizePx * 0.9f)   // bottom left
+                close()
+            }
+            canvas.drawPath(path, fillPaint)
+            canvas.drawPath(path, strokePaint)
             setPersonIcon(bmp)
             setPersonAnchor(0.5f, 0.5f)
             // Do not enableFollowLocation() - we handle zoom manually per HUD mode
@@ -175,14 +182,14 @@ fun ConvoyScreen(
                             val myCart = convoyState.nodes.firstOrNull { it.isMyCart }
                             myCart?.let {
                                 mv.controller.animateTo(GeoPoint(it.latitude, it.longitude))
-                                mv.controller.setZoom(16.0)
+                                mv.controller.setZoom(ConvoyConfig.MAP_CART_ZOOM)
                             }
                         }
                         HudMode.NODE -> {
                             // Zoom to selected node
                             selectedNode?.let {
                                 mv.controller.animateTo(GeoPoint(it.latitude, it.longitude))
-                                mv.controller.setZoom(16.0)
+                                mv.controller.setZoom(ConvoyConfig.MAP_CART_ZOOM)
                             }
                         }
                         else -> {
@@ -195,7 +202,7 @@ fun ConvoyScreen(
                                     GeoPoint(tail.latitude, tail.longitude)
                                 )
                                 val box = org.osmdroid.util.BoundingBox.fromGeoPoints(points)
-                                mv.zoomToBoundingBox(box.increaseByScale(1.4f), true)
+                                mv.zoomToBoundingBox(box.increaseByScale(ConvoyConfig.MAP_GROUP_ZOOM_PADDING), true)
                             } else {
                                 // Fallback to centroid if lead/tail not yet assigned
                                 val lats = convoyState.nodes.map { it.latitude }
@@ -219,6 +226,8 @@ fun ConvoyScreen(
                 modifier = Modifier.align(Alignment.TopCenter)
             )
         }
+
+        // NODE mode RETURN is inside NodeDetailHud panel
 
         // ── Task 5.3: Show Lead Track toggle + Task 5.4: Route Recorder ──
         Column(
@@ -310,22 +319,33 @@ fun GroupHud(
     HudCard {
         HudModeRow(current = HudMode.GROUP, onModeChange = onModeChange)
         Spacer(Modifier.height(8.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly
-        ) {
-            HudStat("UNITS", "${state.nodes.size}")
-            HudStat("ACTIVE", "${state.activeCount}", Color(0xFF00AA00))
-            HudStat("LOST", "${state.lostCount}", if (state.lostCount > 0) Color(0xFFF44336) else Color(0xFF7A8DA0))
-            HudStat("SPAN", "%.1f mi".format(state.span_miles))
-        }
-        Spacer(Modifier.height(6.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly
-        ) {
-            HudStat("LEAD", state.lead?.callsign ?: "--", Color(0xFF1CF0A0))
-            HudStat("TAIL", state.tail?.callsign ?: "--", Color(0xFFFF8C42))
+        Row(modifier = Modifier.fillMaxWidth()) {
+            // Left 3/4 — stats grid
+            Column(modifier = Modifier.weight(3f)) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                    HudStat("UNITS", "${state.nodes.size}")
+                    HudStat("ACTIVE", "${state.activeCount}", Color(0xFF00AA00))
+                    HudStat("LOST", "${state.lostCount}", if (state.lostCount > 0) Color(0xFFF44336) else Color(0xFF7A8DA0))
+                }
+                Spacer(Modifier.height(6.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                    HudStat("LEAD", state.lead?.callsign ?: "--", Color(0xFF1CF0A0))
+                    HudStat("TAIL", state.tail?.callsign ?: "--", Color(0xFFFF8C42))
+                }
+            }
+            // Right 1/4 — SPAN large
+            Column(
+                modifier = Modifier.weight(1f),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text("SPAN", color = Color(0xFF4A6080), fontSize = 9.sp,
+                    fontFamily = FontFamily.Monospace)
+                Text("%.1f".format(state.span_miles), color = Color(0xFFE8EEF5),
+                    fontSize = 26.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+                Text("mi", color = Color(0xFF4A6080), fontSize = 10.sp,
+                    fontFamily = FontFamily.Monospace)
+            }
         }
     }
 }
@@ -377,12 +397,19 @@ fun NodeDetailHud(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
+            Surface(
+                modifier = Modifier.clickable { onDismiss() },
+                shape = RoundedCornerShape(8.dp),
+                color = Color(0xFF2E75B6)
+            ) {
+                Text("RETURN", color = Color.White, fontSize = 12.sp,
+                    fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp))
+            }
             Text(node.callsign, color = Color(0xFFE8EEF5), fontSize = 14.sp,
                 fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
             Text("[ ${node.role} ]", color = Color(0xFF7A8DA0), fontSize = 11.sp,
                 fontFamily = FontFamily.Monospace)
-            Text("✕", color = Color(0xFF7A8DA0), fontSize = 14.sp,
-                modifier = Modifier.clickable { onDismiss() })
         }
         Spacer(Modifier.height(8.dp))
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
@@ -508,24 +535,54 @@ fun HudStat(label: String, value: String, valueColor: Color = Color(0xFFE8EEF5))
 fun HudModeRow(current: HudMode, onModeChange: (HudMode) -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceEvenly
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        listOf(HudMode.GROUP, HudMode.MY_CART, HudMode.COLLAPSED).forEach { mode ->
-            val label = when (mode) {
-                HudMode.GROUP     -> "GROUP"
-                HudMode.MY_CART   -> "MY CART"
-                HudMode.COLLAPSED -> "▾"
-                HudMode.NODE      -> "NODE"
-            }
+        // GROUP button
+        Surface(
+            modifier = Modifier.weight(1f).clickable { onModeChange(HudMode.GROUP) },
+            shape = RoundedCornerShape(10.dp),
+            color = if (current == HudMode.GROUP) Color(0xFF2E75B6) else Color(0xFF2A3545)
+        ) {
             Text(
-                text = label,
-                color = if (mode == current) Color(0xFF2E75B6) else Color(0xFF3D5066),
-                fontSize = 10.sp,
+                text = "GROUP",
+                color = if (current == HudMode.GROUP) Color.White else Color(0xFF7A8DA0),
+                fontSize = 13.sp,
                 fontFamily = FontFamily.Monospace,
-                fontWeight = if (mode == current) FontWeight.Bold else FontWeight.Normal,
-                modifier = Modifier
-                    .clickable { onModeChange(mode) }
-                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                fontWeight = FontWeight.Bold,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                modifier = Modifier.padding(vertical = 10.dp)
+            )
+        }
+        // MY CART button
+        Surface(
+            modifier = Modifier.weight(1f).clickable { onModeChange(HudMode.MY_CART) },
+            shape = RoundedCornerShape(10.dp),
+            color = if (current == HudMode.MY_CART) Color(0xFF2E75B6) else Color(0xFF2A3545)
+        ) {
+            Text(
+                text = "MY CART",
+                color = if (current == HudMode.MY_CART) Color.White else Color(0xFF7A8DA0),
+                fontSize = 13.sp,
+                fontFamily = FontFamily.Monospace,
+                fontWeight = FontWeight.Bold,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                modifier = Modifier.padding(vertical = 10.dp)
+            )
+        }
+        // HIDE button
+        Surface(
+            modifier = Modifier.clickable { onModeChange(HudMode.COLLAPSED) },
+            shape = RoundedCornerShape(10.dp),
+            color = Color(0xFF2A3545)
+        ) {
+            Text(
+                text = "HIDE",
+                color = Color(0xFF7A8DA0),
+                fontSize = 11.sp,
+                fontFamily = FontFamily.Monospace,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
             )
         }
     }
