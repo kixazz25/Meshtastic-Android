@@ -399,7 +399,7 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
                     selected = isSelected,
                     label = {
                         Text(
-                            text = stringResource(destination.label),
+                            text = if (destination == TopLevelDestination.Convoy) "Convoy" else stringResource(destination.label),
                             modifier =
                             if (navSuiteType == NavigationSuiteType.ShortNavigationBarCompact) {
                                 Modifier.width(1.dp)
