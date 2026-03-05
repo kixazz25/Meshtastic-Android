@@ -63,6 +63,8 @@ import org.osmdroid.views.MapView
  * ConvoyScreen — IMP-001 Task 4.2 + 5.1 + 5.2 + 5.3 + 5.4
  * Full-screen OSMDroid map + HUD strip.
  */
+enum class RecordingState { IDLE, RECORDING, PAUSED }
+
 @Composable
 fun ConvoyScreen(
     viewModel: ConvoyViewModel = hiltViewModel()
@@ -72,6 +74,8 @@ fun ConvoyScreen(
     val selectedNode by viewModel.selectedNode.collectAsStateWithLifecycle()
     val simulationMode by viewModel.simulationMode.collectAsStateWithLifecycle()
     val showLeadTrack by viewModel.showLeadTrack.collectAsStateWithLifecycle()
+    var recordingState by remember { mutableStateOf(RecordingState.IDLE) }
+    var showRecMenu by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
@@ -215,6 +219,73 @@ fun ConvoyScreen(
             }
         )
 
+        // ── REC button — upper left ──────────────────────────────────────────
+        Box(modifier = Modifier.align(Alignment.TopStart).statusBarsPadding().padding(8.dp)) {
+            if (!showRecMenu) {
+                // Main REC button
+                Surface(
+                    modifier = Modifier.clickable {
+                        when (recordingState) {
+                            RecordingState.IDLE -> { recordingState = RecordingState.RECORDING; viewModel.toggleRouteRecorder() }
+                            RecordingState.RECORDING -> { recordingState = RecordingState.PAUSED; showRecMenu = true }
+                            RecordingState.PAUSED -> showRecMenu = true
+                        }
+                    },
+                    shape = RoundedCornerShape(10.dp),
+                    color = when (recordingState) {
+                        RecordingState.IDLE -> Color(0xFF8B0000)
+                        RecordingState.RECORDING -> Color(0xFFCC0000)
+                        RecordingState.PAUSED -> Color(0xFF994400)
+                    },
+                    shadowElevation = 6.dp
+                ) {
+                    Text(
+                        text = when (recordingState) {
+                            RecordingState.IDLE -> "⏺  REC"
+                            RecordingState.RECORDING -> "⏸  PAUSE"
+                            RecordingState.PAUSED -> "⏺  RESUME"
+                        },
+                        color = Color.White,
+                        fontSize = 15.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                    )
+                }
+            } else {
+                // Expanded menu: RESUME and END
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Surface(
+                        modifier = Modifier.clickable {
+                            recordingState = RecordingState.RECORDING
+                            showRecMenu = false
+                        },
+                        shape = RoundedCornerShape(10.dp),
+                        color = Color(0xFF994400),
+                        shadowElevation = 6.dp
+                    ) {
+                        Text(if (recordingState == RecordingState.PAUSED) "▶  CONTINUE" else "⏸  PAUSE", color = Color.White, fontSize = 15.sp,
+                            fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp))
+                    }
+                    Surface(
+                        modifier = Modifier.clickable {
+                            recordingState = RecordingState.IDLE
+                            showRecMenu = false
+                            viewModel.toggleRouteRecorder()
+                        },
+                        shape = RoundedCornerShape(10.dp),
+                        color = Color(0xFF4A0000),
+                        shadowElevation = 6.dp
+                    ) {
+                        Text("⏹  END", color = Color.White, fontSize = 15.sp,
+                            fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp))
+                    }
+                }
+            }
+        }
+
         // ── CONTACT LOST banner ───────────────────────────────────────────
         if (convoyState.hasLost && hudMode != HudMode.COLLAPSED) {
             val lostNames = convoyState.nodes
@@ -252,18 +323,7 @@ fun ConvoyScreen(
                 )
             }
 
-            // Task 5.4 — Route Recorder button (REQ-111) — delegates to ViewModel
-            TextButton(
-                onClick = { viewModel.toggleRouteRecorder() },
-                modifier = Modifier.padding(0.dp)
-            ) {
-                Text(
-                    text = "REC",
-                    color = Color(0xFF4A6080),
-                    fontSize = 9.sp,
-                    fontFamily = FontFamily.Monospace
-                )
-            }
+            // REC button placeholder — large button added as map overlay below
 
             // Sim mode toggle (dev only)
             TextButton(
