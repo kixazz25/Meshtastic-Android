@@ -30,11 +30,18 @@ data class ConvoyNode(
     val cotType: String = "a-f-G-U-C",
     val timestampUtc: String = ""
 ) {
-    val markerColor: String get() = when {
-        status == ConvoyStatus.LOST -> "#F44336"
-        status == ConvoyStatus.SIGNAL_DROP -> "#FFFF00"
-        speed_mph <= 5f || battery_pct <= 20 -> "#FFAA00"
-        else -> "#00AA00"
+    val markerColor: String get() {
+        // Error states use blink only - keep assigned color
+        if (isLead) return "#1CF0A0"
+        if (isTail) return "#FF8C42"
+        if (isMyCart) return "#2E75B6"
+        val palette = listOf(
+            "#E91E63", "#9C27B0", "#3F51B5", "#00BCD4",
+            "#4CAF50", "#CDDC39", "#FF9800", "#FF5722",
+            "#795548", "#607D8B", "#F06292", "#CE93D8",
+            "#90CAF9", "#80DEEA", "#A5D6A7", "#FFF176"
+        )
+        return palette[(convoyPosition % palette.size).coerceAtLeast(0)]
     }
 
     val markerSymbol: String get() = when {

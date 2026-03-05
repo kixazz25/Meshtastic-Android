@@ -52,14 +52,14 @@ abstract class BaseMapViewModel(
     private val radioController: RadioController,
 ) : ViewModel() {
 
-    val myNodeInfo = nodeRepository.myNodeInfo
+    val myNodeInfo = try { nodeRepository.myNodeInfo } catch (e: Exception) { kotlinx.coroutines.flow.MutableStateFlow(null) }
 
-    val ourNodeInfo = nodeRepository.ourNodeInfo
+    val ourNodeInfo = try { nodeRepository.ourNodeInfo } catch (e: Exception) { kotlinx.coroutines.flow.MutableStateFlow(null) }
 
     val myNodeNum
         get() = myNodeInfo.value?.myNodeNum
 
-    val myId = nodeRepository.myId
+    val myId = try { nodeRepository.myId } catch (e: Exception) { kotlinx.coroutines.flow.MutableStateFlow(null) }
 
     val isConnected =
         radioController.connectionState
@@ -67,10 +67,14 @@ abstract class BaseMapViewModel(
             .stateInWhileSubscribed(initialValue = false)
 
     val nodes: StateFlow<List<Node>> =
-        nodeRepository
-            .getNodes()
-            .map { nodes -> nodes.filterNot { node -> node.isIgnored } }
-            .stateInWhileSubscribed(initialValue = emptyList())
+        try {
+            nodeRepository
+                .getNodes()
+                .map { nodes -> nodes.filterNot { node -> node.isIgnored } }
+                .stateInWhileSubscribed(initialValue = emptyList())
+        } catch (e: Exception) {
+            kotlinx.coroutines.flow.MutableStateFlow(emptyList())
+        }
 
     val nodesWithPosition: StateFlow<List<Node>> =
         nodes

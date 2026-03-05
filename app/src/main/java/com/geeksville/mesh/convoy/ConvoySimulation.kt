@@ -70,6 +70,7 @@ object ConvoySimulation {
             // KILO-13 (index 12) is permanently LOST — last seen 10 minutes ago
             val lastSeenMs = when (callsign) {
                 "KILO-13" -> nowMs - 600_000L  // 10 minutes ago = LOST
+                "NOVEMBER-16" -> nowMs - 180_000L  // 3 minutes ago = SIGNAL_DROP
                 else -> nowMs - (index * 2000L) // stagger last seen times slightly
             }
 
