@@ -5,24 +5,41 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Layers
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconToggleButton
@@ -76,6 +93,8 @@ fun ConvoyScreen(
     val simulationMode by viewModel.simulationMode.collectAsStateWithLifecycle()
     val showLeadTrack by viewModel.showLeadTrack.collectAsStateWithLifecycle()
     var recordingState by remember { mutableStateOf(RecordingState.IDLE) }
+    var showLayerMenu by remember { mutableStateOf(false) }
+    var mapTypeLabel by remember { mutableStateOf("SAT") }
     var mapInitialized by remember { mutableStateOf(false) }
     var showRecMenu by remember { mutableStateOf(false) }
 
@@ -351,7 +370,57 @@ fun ConvoyScreen(
                 .padding(top = 8.dp, end = 8.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            // Task 5.3 — Show Lead Track toggle (REQ-110)
+            // Map layer selector
+            Box {
+                Surface(
+                    modifier = Modifier.clickable { showLayerMenu = !showLayerMenu },
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color(0xCC1E252F),
+                    shadowElevation = 4.dp
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Layers,
+                            contentDescription = "Map Layers",
+                            tint = Color(0xFF2E75B6),
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Text(mapTypeLabel, color = Color(0xFF2E75B6), fontSize = 8.sp,
+                            fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+                    }
+                }
+                DropdownMenu(
+                    expanded = showLayerMenu,
+                    onDismissRequest = { showLayerMenu = false },
+                    modifier = Modifier.background(Color(0xFF1E252F))
+                ) {
+                    listOf(
+                        Triple("SAT", "Satellite", "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/"),
+                        Triple("HYB", "Hybrid", "https://mt0.google.com/vt/lyrs=y&x={x}&y={y}&z={z}"),
+                        Triple("TOPO", "Topo", "https://tile.opentopomap.org/"),
+                        Triple("ROAD", "Road", "https://tile.openstreetmap.org/")
+                    ).forEach { (label, name, url) ->
+                        DropdownMenuItem(
+                            text = { Text(name, color = if (mapTypeLabel == label) Color(0xFF2E75B6) else Color(0xFFE8EEF5),
+                                fontFamily = FontFamily.Monospace, fontSize = 13.sp) },
+                            onClick = {
+                                mapTypeLabel = label
+                                showLayerMenu = false
+                                val src = org.osmdroid.tileprovider.tilesource.XYTileSource(
+                                    name, 1, 19, 256, if (label == "SAT") ".jpg" else ".png",
+                                    arrayOf(url)
+                                )
+                                mapView.setTileSource(src)
+                                mapView.invalidate()
+                            }
+                        )
+                    }
+                }
+            }
+            // Lead Track toggle
             IconToggleButton(
                 checked = showLeadTrack,
                 onCheckedChange = {
