@@ -31,6 +31,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -75,6 +76,7 @@ fun ConvoyScreen(
     val simulationMode by viewModel.simulationMode.collectAsStateWithLifecycle()
     val showLeadTrack by viewModel.showLeadTrack.collectAsStateWithLifecycle()
     var recordingState by remember { mutableStateOf(RecordingState.IDLE) }
+    var mapInitialized by remember { mutableStateOf(false) }
     var showRecMenu by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
@@ -87,16 +89,44 @@ fun ConvoyScreen(
     val mapView = remember {
         MapView(context).apply {
             Configuration.getInstance().userAgentValue = context.packageName
-            setTileSource(TileSourceFactory.USGS_SAT)
+            // Increase tile cache for offline use
+            org.osmdroid.config.Configuration.getInstance().tileFileSystemCacheMaxBytes = 1024L * 1024 * 1024 // 1GB
+            org.osmdroid.config.Configuration.getInstance().tileFileSystemCacheTrimBytes = 900L * 1024 * 1024  // trim to 900MB
+            // Increase tile cache for offline use
+            org.osmdroid.config.Configuration.getInstance().tileFileSystemCacheMaxBytes = 1024L * 1024 * 1024 // 1GB
+            org.osmdroid.config.Configuration.getInstance().tileFileSystemCacheTrimBytes = 900L * 1024 * 1024  // trim to 900MB
+            // Esri WorldImagery supports zoom 19, better detail than USGS_SAT
+            val esriSat = org.osmdroid.tileprovider.tilesource.XYTileSource(
+                "Esri.WorldImagery", 1, 19, 256, ".jpg",
+                arrayOf("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/")
+            )
+            setTileSource(esriSat)
             setMultiTouchControls(true)
             isVerticalMapRepetitionEnabled = false
             isTilesScaledToDpi = true
             minZoomLevel = 2.0
             maxZoomLevel = 20.0
             zoomController.setVisibility(CustomZoomButtonsController.Visibility.SHOW_AND_FADEOUT)
-            controller.setZoom(ConvoyConfig.MAP_DEFAULT_ZOOM)
-            // Center on New Harmony UT (simulation default)
-            controller.setCenter(GeoPoint(37.4691, -113.6215))
+            controller.setZoom(ConvoyConfig.MAP_CART_ZOOM)
+            // Center on device GPS location using LocationManager
+            val lm = context.getSystemService(android.content.Context.LOCATION_SERVICE) as android.location.LocationManager
+            val lastKnown = try {
+                lm.getLastKnownLocation(android.location.LocationManager.GPS_PROVIDER)
+                    ?: lm.getLastKnownLocation(android.location.LocationManager.NETWORK_PROVIDER)
+            } catch (e: SecurityException) { null }
+            val startCenter = if (lastKnown != null)
+                GeoPoint(lastKnown.latitude, lastKnown.longitude)
+            else
+                GeoPoint(37.4691, -113.6215)
+            controller.setCenter(startCenter)
+            // Mark initialized after 3 seconds to allow GPS center to settle
+            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                // mapInitialized set via LaunchedEffect below
+            }, 3000)
+            // Mark initialized after 3 seconds to allow GPS center to settle
+            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                // mapInitialized set via LaunchedEffect below
+            }, 3000)
             setDestroyMode(false)
         }
     }
@@ -144,6 +174,12 @@ fun ConvoyScreen(
     }
 
     // ── Lifecycle: pause/resume map ───────────────────────────────────────
+    // Set mapInitialized after 3s so GPS center settles before auto-zoom kicks in
+    LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(3000)
+        mapInitialized = true
+    }
+
     DisposableEffect(lifecycle) {
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
@@ -178,8 +214,8 @@ fun ConvoyScreen(
             update = { mv ->
                 // Task 5.2: update markers + track on every recomposition tick
                 renderer.update(convoyState.nodes, trackSegments)
-                // Smart zoom based on HUD mode
-                if (convoyState.nodes.isNotEmpty()) {
+                // Smart zoom based on HUD mode — skip first tick to allow GPS open
+                if (convoyState.nodes.isNotEmpty() && mapInitialized) {
                     when (hudMode) {
                         HudMode.MY_CART -> {
                             // Zoom to MY CART (HOTEL-10)
@@ -208,10 +244,17 @@ fun ConvoyScreen(
                                 val box = org.osmdroid.util.BoundingBox.fromGeoPoints(points)
                                 mv.zoomToBoundingBox(box.increaseByScale(ConvoyConfig.MAP_GROUP_ZOOM_PADDING), true)
                             } else {
-                                // Fallback to centroid if lead/tail not yet assigned
+                                // Fallback — zoom to fit all nodes
                                 val lats = convoyState.nodes.map { it.latitude }
                                 val lons = convoyState.nodes.map { it.longitude }
-                                mv.controller.animateTo(GeoPoint(lats.average(), lons.average()))
+                                if (lats.size >= 2) {
+                                    val pts = convoyState.nodes.map { GeoPoint(it.latitude, it.longitude) }
+                                    val box = org.osmdroid.util.BoundingBox.fromGeoPoints(pts)
+                                    mv.zoomToBoundingBox(box.increaseByScale(ConvoyConfig.MAP_GROUP_ZOOM_PADDING), true)
+                                } else {
+                                    mv.controller.animateTo(GeoPoint(lats.average(), lons.average()))
+                                    mv.controller.setZoom(ConvoyConfig.MAP_DEFAULT_ZOOM)
+                                }
                             }
                         }
                     }
