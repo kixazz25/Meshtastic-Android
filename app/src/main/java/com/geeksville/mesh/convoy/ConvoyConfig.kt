@@ -10,13 +10,14 @@ object ConvoyConfig {
 
     // ── Map zoom levels ───────────────────────────────────────────────────
     /** Default zoom when opening convoy map — higher = more detail */
-    const val MAP_DEFAULT_ZOOM = 16.0
+    const val MAP_DEFAULT_ZOOM = 18.0
 
     /** Zoom used in GROUP mode to fit full convoy span */
     const val MAP_GROUP_ZOOM_PADDING = 1.4f
 
     /** Zoom used in MY CART and NODE modes */
-    const val MAP_CART_ZOOM = 17.0
+    const val MAP_CART_ZOOM = 18.0
+    const val MAP_MIN_ZOOM = 16.0
 
     // ── Blink rates (milliseconds) ────────────────────────────────────────
     /** LOST node blink interval — slow pulse */
