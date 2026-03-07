@@ -278,6 +278,7 @@ dependencies {
     googleImplementation(libs.play.services.maps)
 
     fdroidImplementation(libs.osmdroid.android)
+    googleImplementation(libs.osmdroid.android)
     fdroidImplementation(libs.osmdroid.geopackage) { exclude(group = "com.j256.ormlite") }
 
     androidTestImplementation(libs.androidx.test.runner)

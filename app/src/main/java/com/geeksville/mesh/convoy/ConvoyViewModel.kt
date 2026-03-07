@@ -81,6 +81,7 @@ class ConvoyViewModel @Inject constructor(
     private val _offTrackNodes = MutableStateFlow<List<ConvoyNode>>(emptyList())
     val offTrackNodes: StateFlow<List<ConvoyNode>> = _offTrackNodes.asStateFlow()
 
+    private val lastKnownPosition = mutableMapOf<String, Pair<Double, Double>>()
     private var tickJob: Job? = null
 
     // ── Init ──────────────────────────────────────────────────────────────
