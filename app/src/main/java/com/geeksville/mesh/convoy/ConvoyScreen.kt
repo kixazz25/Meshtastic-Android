@@ -9,6 +9,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.background
@@ -384,7 +386,7 @@ fun ConvoyScreen(
                 color = Color(0xEE1E252F),
                 shadowElevation = 6.dp
             ) {
-                Column(modifier = Modifier.padding(8.dp).width(180.dp)) {
+                Column(modifier = Modifier.padding(8.dp).width(200.dp).verticalScroll(rememberScrollState())) {
                     // Header row — always visible, tap to expand/collapse
                     Row(
                         modifier = Modifier.fillMaxWidth().clickable { showMapSettings = !showMapSettings },
