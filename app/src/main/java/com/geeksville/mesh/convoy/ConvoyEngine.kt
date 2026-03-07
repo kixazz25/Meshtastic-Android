@@ -57,9 +57,11 @@ object ConvoyEngine {
 
     fun computeStatus(node: ConvoyNode, nowMs: Long): ConvoyStatus {
         val ageMs = nowMs - node.lastSeenMs
+        val lostMs = (ConvoyConfig.LOST_MINUTES * 60_000f).toLong()
+        val dropMs = (ConvoyConfig.SIGNAL_DROP_MINUTES * 60_000f).toLong()
         return when {
-            ageMs >= 300_000L -> ConvoyStatus.LOST
-            ageMs >= 120_000L -> ConvoyStatus.SIGNAL_DROP
+            ageMs >= lostMs -> ConvoyStatus.LOST
+            ageMs >= dropMs -> ConvoyStatus.SIGNAL_DROP
             else -> ConvoyStatus.ACTIVE
         }
     }
