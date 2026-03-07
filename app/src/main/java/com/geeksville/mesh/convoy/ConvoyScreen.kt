@@ -262,24 +262,25 @@ fun ConvoyScreen(
                             // GROUP / COLLAPSED — zoom to fit full convoy span (LEAD to TAIL)
                             val lead = convoyState.lead
                             val tail = convoyState.tail
-                            if (lead != null && tail != null) {
-                                val points = listOf(
-                                    GeoPoint(lead.latitude, lead.longitude),
-                                    GeoPoint(tail.latitude, tail.longitude)
-                                )
-                                val box = org.osmdroid.util.BoundingBox.fromGeoPoints(points)
-                                mv.zoomToBoundingBox(box.increaseByScale(ConvoyConfig.MAP_GROUP_ZOOM_PADDING), true)
-                            } else {
-                                // Fallback — zoom to fit all nodes
-                                val lats = convoyState.nodes.map { it.latitude }
-                                val lons = convoyState.nodes.map { it.longitude }
-                                if (lats.size >= 2) {
-                                    val pts = convoyState.nodes.map { GeoPoint(it.latitude, it.longitude) }
+                            val nodes = convoyState.nodes
+                            when {
+                                lead != null && tail != null && lead.nodeId != tail.nodeId -> {
+                                    val points = listOf(
+                                        GeoPoint(lead.latitude, lead.longitude),
+                                        GeoPoint(tail.latitude, tail.longitude)
+                                    )
+                                    val box = org.osmdroid.util.BoundingBox.fromGeoPoints(points)
+                                    mv.zoomToBoundingBox(box.increaseByScale(ConvoyConfig.MAP_GROUP_ZOOM_PADDING), true)
+                                }
+                                nodes.size == 1 -> {
+                                    // Single node — center on it at cart zoom
+                                    mv.controller.animateTo(GeoPoint(nodes[0].latitude, nodes[0].longitude))
+                                    mv.controller.setZoom(ConvoyConfig.MAP_CART_ZOOM)
+                                }
+                                nodes.size >= 2 -> {
+                                    val pts = nodes.map { GeoPoint(it.latitude, it.longitude) }
                                     val box = org.osmdroid.util.BoundingBox.fromGeoPoints(pts)
                                     mv.zoomToBoundingBox(box.increaseByScale(ConvoyConfig.MAP_GROUP_ZOOM_PADDING), true)
-                                } else {
-                                    mv.controller.animateTo(GeoPoint(lats.average(), lons.average()))
-                                    mv.controller.setZoom(ConvoyConfig.MAP_DEFAULT_ZOOM)
                                 }
                             }
                         }
