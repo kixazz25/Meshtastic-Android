@@ -445,7 +445,10 @@ fun ConvoyScreen(
                         Slider(
                             value = mapZoomLevel,
                             onValueChange = { mapZoomLevel = it },
-                            onValueChangeFinished = { mapView.controller.setZoom(mapZoomLevel.toDouble()); mapView.invalidate() },
+                            onValueChangeFinished = {
+                                ConvoyConfig.DOWNLOAD_ZOOM = mapZoomLevel.toInt()
+                                mapView.post { mapView.controller.setZoom(mapZoomLevel.toDouble()); mapView.invalidate() }
+                            },
                             valueRange = 16f..19f,
                             steps = 2,
                             modifier = Modifier.fillMaxWidth()
@@ -495,16 +498,19 @@ fun ConvoyScreen(
                         Text("SIGNAL DROP  ${signalDropMinutes.toInt()} min", color = Color(0xFF4A6080), fontSize = 8.sp,
                             fontFamily = FontFamily.Monospace)
                         Slider(value = signalDropMinutes, onValueChange = { signalDropMinutes = it },
+                            onValueChangeFinished = { ConvoyConfig.SIGNAL_DROP_MINUTES = signalDropMinutes },
                             valueRange = 1f..10f, steps = 8, modifier = Modifier.fillMaxWidth())
 
                         Text("LOST  ${lostMinutes.toInt()} min", color = Color(0xFF4A6080), fontSize = 8.sp,
                             fontFamily = FontFamily.Monospace)
                         Slider(value = lostMinutes, onValueChange = { lostMinutes = it },
+                            onValueChangeFinished = { ConvoyConfig.LOST_MINUTES = lostMinutes },
                             valueRange = 5f..30f, steps = 4, modifier = Modifier.fillMaxWidth())
 
                         Text("OFF TRACK  ${"%.1f".format(offTrackMiles)} mi", color = Color(0xFF4A6080), fontSize = 8.sp,
                             fontFamily = FontFamily.Monospace)
                         Slider(value = offTrackMiles, onValueChange = { offTrackMiles = it },
+                            onValueChangeFinished = { ConvoyConfig.OFF_TRACK_MILES = offTrackMiles },
                             valueRange = 0.1f..2f, steps = 18, modifier = Modifier.fillMaxWidth())
                     }
                 }
