@@ -459,8 +459,10 @@ fun ConvoyScreen(
                                 checked = isOfflineMode,
                                 onCheckedChange = {
                                     isOfflineMode = it
-                                    mapView.setUseDataConnection(!it)
-                                    mapView.invalidate()
+                                    mapView.post {
+                                        mapView.setUseDataConnection(!it)
+                                        mapView.invalidate()
+                                    }
                                 }
                             )
                         }
