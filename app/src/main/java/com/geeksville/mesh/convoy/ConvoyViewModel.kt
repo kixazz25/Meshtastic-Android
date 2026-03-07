@@ -176,13 +176,22 @@ class ConvoyViewModel @Inject constructor(
             val user = node.user
             val pos = node.position
             val callsign = user.long_name.ifBlank { user.short_name }.ifBlank { "!${node.num}" }
-            if (pos.latitude_i == 0 && pos.longitude_i == 0) return@mapNotNull null
+            val nodeId = "!%08x".format(node.num)
+            val hasPos = (pos.latitude_i != 0 || pos.longitude_i != 0)
+            val latLon = if (hasPos) {
+                val lat = (pos.latitude_i ?: 0) * 1e-7
+                val lon = (pos.longitude_i ?: 0) * 1e-7
+                lastKnownPosition[nodeId] = Pair(lat, lon)
+                Pair(lat, lon)
+            } else {
+                lastKnownPosition[nodeId] ?: return@mapNotNull null
+            }
             val lastSeenMs = node.lastHeard.toLong() * 1000L
             ConvoyNode(
-                nodeId = "!%08x".format(node.num),
+                nodeId = nodeId,
                 callsign = callsign,
-                latitude = (pos.latitude_i ?: 0) * 1e-7,
-                longitude = (pos.longitude_i ?: 0) * 1e-7,
+                latitude = latLon.first,
+                longitude = latLon.second,
                 altitude_m = pos.altitude ?: 0,
                 speed_mph = ((pos.ground_speed ?: 0) * 2.23694f),
                 heading_deg = (pos.ground_track ?: 0).toFloat(),
