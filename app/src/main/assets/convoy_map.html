@@ -2,18 +2,32 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <style>
-    body { margin: 0; padding: 0; background: #1E3A5F; }
-    #status { 
-      color: #1CF0A0; 
-      font-family: monospace; 
-      font-size: 18px; 
-      padding: 20px;
-    }
+    body { margin: 0; padding: 0; }
+    #map { width: 100vw; height: 100vh; }
+    #status { position: fixed; top: 10px; left: 10px; z-index: 9999;
+      background: rgba(0,0,0,0.7); color: #1CF0A0;
+      font-family: monospace; font-size: 14px; padding: 8px; border-radius: 4px; }
   </style>
 </head>
 <body>
-  <div id="status">CONVOY MAP — WebView OK</div>
+  <div id="status">Loading Leaflet...</div>
+  <div id="map"></div>
+  <script>
+    document.getElementById("status").innerText = "Leaflet loaded - init map...";
+    try {
+      var map = L.map("map").setView([36.1069, -115.1711], 13);
+      document.getElementById("status").innerText = "Map init OK - loading tiles...";
+      var tileLayer = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19 });
+      tileLayer.on("tileload", function() { document.getElementById("status").innerText = "TILES OK"; });
+      tileLayer.on("tileerror", function(e) { document.getElementById("status").innerText = "TILE ERROR: " + e.error; });
+      tileLayer.addTo(map);
+    } catch(e) {
+      document.getElementById("status").innerText = "ERROR: " + e.message;
+    }
+  </script>
 </body>
 </html>
