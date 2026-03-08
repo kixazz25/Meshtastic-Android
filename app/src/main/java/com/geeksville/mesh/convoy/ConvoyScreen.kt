@@ -137,6 +137,14 @@ fun ConvoyScreen(
                     settings.javaScriptEnabled = true
                     settings.domStorageEnabled = true
                     setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null)
+                    webViewClient = object : android.webkit.WebViewClient() {
+                        override fun onPageFinished(view: android.webkit.WebView?, url: String?) {
+                            val tileUrl = ConvoyConfig.TILE_SOURCES[ConvoyConfig.ACTIVE_TILE_SOURCE] ?: return
+                            view?.postDelayed({
+                                view.evaluateJavascript("setTileUrl('$tileUrl')", null)
+                            }, 600)
+                        }
+                    }
                     loadUrl("file:///android_asset/convoy_map.html")
                 }
             },
