@@ -120,11 +120,7 @@ fun ConvoyScreen(
         MapView(context).apply {
             // OSMDroid configured in MeshUtilApplication.onCreate()
             // Esri WorldImagery supports zoom 19, better detail than USGS_SAT
-            val esriSat = org.osmdroid.tileprovider.tilesource.XYTileSource(
-                "Esri.WorldImagery", 1, 19, 256, ".jpg",
-                arrayOf("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}")
-            )
-            setTileSource(esriSat)
+            setTileSource(org.osmdroid.tileprovider.tilesource.TileSourceFactory.MAPNIK)
             setMultiTouchControls(true)
             isVerticalMapRepetitionEnabled = false
             isTilesScaledToDpi = true
@@ -239,11 +235,7 @@ fun ConvoyScreen(
                 // Enforce tile source on every update — prevents OSMDroid defaulting to Mapnik
                 val currentSource = mv.tileProvider.tileSource
                 if (currentSource == null || currentSource.name() != mapTypeLabel) {
-                    val esriSat = org.osmdroid.tileprovider.tilesource.XYTileSource(
-                        "Esri.WorldImagery", 1, 19, 256, ".jpg",
-                        arrayOf("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}")
-                    )
-                    mv.setTileSource(esriSat)
+                    mv.setTileSource(org.osmdroid.tileprovider.tilesource.TileSourceFactory.MAPNIK)
                 }
                 // Task 5.2: update markers + track on every recomposition tick
                 renderer.update(convoyState.nodes, trackSegments)
