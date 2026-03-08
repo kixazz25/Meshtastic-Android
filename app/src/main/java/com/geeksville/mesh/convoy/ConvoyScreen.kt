@@ -235,70 +235,18 @@ fun ConvoyScreen(
 
         // ── Task 5.1: Real OSMDroid map ───────────────────────────────────
         AndroidView(
-            factory = { mapView },
+            factory = { ctx ->
+                android.webkit.WebView(ctx).apply {
+                    settings.javaScriptEnabled = true
+                    settings.domStorageEnabled = true
+                    loadUrl("file:///android_asset/convoy_map.html")
+                }
+            },
             modifier = Modifier.fillMaxSize(),
-            update = { mv ->
-                // Enforce tile source on every update — prevents OSMDroid defaulting to Mapnik
-                val currentSource = mv.tileProvider.tileSource
-                if (currentSource == null || currentSource.name() != mapTypeLabel) {
-                    val esriSat = org.osmdroid.tileprovider.tilesource.XYTileSource(
-                        "Esri.WorldImagery", 1, 19, 256, ".jpg",
-                        arrayOf("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/")
-                    )
-                    mv.setTileSource(esriSat)
-                }
-                // Task 5.2: update markers + track on every recomposition tick
-                renderer.update(convoyState.nodes, trackSegments)
-                // Smart zoom based on HUD mode — skip first tick to allow GPS open
-                if (convoyState.nodes.isNotEmpty() && mapInitialized) {
-                    when (hudMode) {
-                        HudMode.MY_CART -> {
-                            // Zoom to MY CART (HOTEL-10)
-                            val myCart = convoyState.nodes.firstOrNull { it.isMyCart }
-                            myCart?.let {
-                                mv.controller.animateTo(GeoPoint(it.latitude, it.longitude))
-                                mv.controller.setZoom(ConvoyConfig.MAP_CART_ZOOM)
-                            }
-                        }
-                        HudMode.NODE -> {
-                            // Zoom to selected node
-                            selectedNode?.let {
-                                mv.controller.animateTo(GeoPoint(it.latitude, it.longitude))
-                                mv.controller.setZoom(ConvoyConfig.MAP_CART_ZOOM)
-                            }
-                        }
-                        else -> {
-                            // GROUP / COLLAPSED — zoom to fit full convoy span (LEAD to TAIL)
-                            val lead = convoyState.lead
-                            val tail = convoyState.tail
-                            val nodes = convoyState.nodes
-                            when {
-                                lead != null && tail != null && lead.nodeId != tail.nodeId -> {
-                                    val points = listOf(
-                                        GeoPoint(lead.latitude, lead.longitude),
-                                        GeoPoint(tail.latitude, tail.longitude)
-                                    )
-                                    val box = org.osmdroid.util.BoundingBox.fromGeoPoints(points)
-                                    mv.zoomToBoundingBox(box.increaseByScale(ConvoyConfig.MAP_GROUP_ZOOM_PADDING), true)
-                                }
-                                nodes.size == 1 -> {
-                                    // Single node — center on it at cart zoom
-                                    mv.controller.animateTo(GeoPoint(nodes[0].latitude, nodes[0].longitude))
-                                    mv.controller.setZoom(ConvoyConfig.MAP_CART_ZOOM)
-                                }
-                                nodes.size >= 2 -> {
-                                    val pts = nodes.map { GeoPoint(it.latitude, it.longitude) }
-                                    val box = org.osmdroid.util.BoundingBox.fromGeoPoints(pts)
-                                    mv.zoomToBoundingBox(box.increaseByScale(ConvoyConfig.MAP_GROUP_ZOOM_PADDING), true)
-                                }
-                            }
-                        }
-                    }
-                }
+            update = { _ ->
+                // OSMDroid update block cleared — JS bridge wired in A3 steps
             }
         )
-
-        // ── REC button — upper left ──────────────────────────────────────────
         Box(modifier = Modifier.align(Alignment.TopStart).statusBarsPadding().padding(8.dp)) {
             if (!showRecMenu) {
                 // Main REC button
