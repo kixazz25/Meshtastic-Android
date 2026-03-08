@@ -114,6 +114,48 @@ fun ConvoyScreen(
 
     // ── Renderer (stable across recompositions) ───────────────────────────
     val renderer = remember { ConvoyMarkerRenderer(context, onNodeTapped = viewModel::onMarkerTapped) }
+    val webViewRef = remember { androidx.compose.runtime.mutableStateOf<android.webkit.WebView?>(null) }
+
+    // ── Push node markers to Leaflet map ────────────────────────────────────
+    LaunchedEffect(convoyState) {
+        val wv = webViewRef.value ?: return@LaunchedEffect
+        val validNodes = convoyState.nodes.filter { it.latitude != 0.0 && it.longitude != 0.0 }
+        wv.post {
+            wv.evaluateJavascript("clearMarkers()", null)
+            validNodes.forEach { node ->
+                val color = node.markerColor
+                val label = node.callsign.ifEmpty { node.nodeId.takeLast(4) }
+                val isMine = node.isMyCart
+                wv.evaluateJavascript("addMarker('${node.nodeId}', ${node.latitude}, ${node.longitude}, '$color', '$label', $isMine)", null)
+            }
+        }
+    }
+
+    // ── Map zoom/center based on HUD mode ─────────────────────────────────
+    LaunchedEffect(hudMode, convoyState) {
+        val wv = webViewRef.value ?: return@LaunchedEffect
+        val nodes = convoyState.nodes
+        when (hudMode) {
+            HudMode.MY_CART -> {
+                val myCart = nodes.firstOrNull { it.isMyCart }
+                myCart?.let {
+                    wv.evaluateJavascript("setView(${it.latitude}, ${it.longitude}, ${ConvoyConfig.MAP_CART_ZOOM})", null)
+                }
+            }
+            HudMode.NODE -> {
+                // Node focus handled when node selected
+            }
+            else -> {
+                // GROUP / COLLAPSED — fit all nodes with valid GPS only
+                val validNodes = nodes.filter { it.latitude != 0.0 && it.longitude != 0.0 }
+                if (validNodes.isNotEmpty()) {
+                    val lats = validNodes.joinToString(",") { it.latitude.toString() }
+                    val lons = validNodes.joinToString(",") { it.longitude.toString() }
+                    wv.evaluateJavascript("fitBounds([$lats], [$lons])", null)
+                }
+            }
+        }
+    }
 
     // ── Push convoy data to renderer on each state change ─────────────────
     // Task 5.2: wire renderer to live data
@@ -146,7 +188,7 @@ fun ConvoyScreen(
                         }
                     }
                     loadUrl("file:///android_asset/convoy_map.html")
-                }
+                }.also { webViewRef.value = it }
             },
             modifier = Modifier.fillMaxSize(),
             update = { _ ->

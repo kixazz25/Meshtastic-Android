@@ -17,22 +17,58 @@
   <div id="status">Loading...</div>
   <div id="map"></div>
   <script>
-    var map;
-    var tileLayer;
-
+    var map, tileLayer, markers = {}, deviceMarker = null;
     function setTileUrl(url) {
-      if (tileLayer) { map.removeLayer(tileLayer); }
-      tileLayer = L.tileLayer(url, { maxZoom: 19 });
-      tileLayer.on("tileload", function() { document.getElementById("status").innerText = "TILES OK"; });
-      tileLayer.on("tileerror", function() { document.getElementById("status").innerText = "TILE ERROR"; });
+      if (tileLayer) map.removeLayer(tileLayer);
+      tileLayer = L.tileLayer(url, {maxZoom:19});
+      tileLayer.on("tileload", function(){ document.getElementById("status").innerText = "TILES OK"; });
+      tileLayer.on("tileerror", function(){ document.getElementById("status").innerText = "TILE ERROR"; });
       tileLayer.addTo(map);
     }
-
+    function setView(lat, lon, zoom) { map.setView([lat, lon], zoom); }
+    function fitBounds(lats, lons) {
+      if (!lats.length) return;
+      if (lats.length === 1) { map.setView([lats[0], lons[0]], 16); return; }
+      var b = L.latLngBounds();
+      for (var i=0; i<lats.length; i++) b.extend([lats[i], lons[i]]);
+      map.fitBounds(b, {padding:[60,60]});
+    }
+    function clearMarkers() {
+      for (var id in markers) map.removeLayer(markers[id]);
+      markers = {};
+    }
+    function addMarker(id, lat, lon, color, label, isMine) {
+      if (markers[id]) map.removeLayer(markers[id]);
+      var sz = isMine ? 20 : 14;
+      var shape = isMine ? "50%" : "3px";
+      var icon = L.divIcon({className:"",
+        html:"<div style='width:"+sz+"px;height:"+sz+"px;background:"+color+";border:2px solid white;border-radius:"+shape+";box-shadow:0 0 4px rgba(0,0,0,0.5)'></div>",
+        iconSize:[sz,sz], iconAnchor:[sz/2,sz/2]});
+      var m = L.marker([lat,lon],{icon:icon}).addTo(map);
+      m.bindTooltip(label,{permanent:true,direction:"top",offset:[0,-sz]});
+      markers[id] = m;
+    }
+    function initDeviceLocation() {
+      if (!navigator.geolocation) return;
+      navigator.geolocation.getCurrentPosition(function(pos) {
+        var lat = pos.coords.latitude, lon = pos.coords.longitude;
+        if (deviceMarker) map.removeLayer(deviceMarker);
+        var icon = L.divIcon({className:"",
+          html:"<div style='width:16px;height:16px;background:#2196F3;border:3px solid white;border-radius:50%;box-shadow:0 0 8px rgba(33,150,243,0.8)'></div>",
+          iconSize:[16,16],iconAnchor:[8,8]});
+        deviceMarker = L.marker([lat,lon],{icon:icon}).addTo(map);
+        deviceMarker.bindTooltip("ME",{permanent:true,direction:"top"});
+        map.setView([lat,lon],16);
+        document.getElementById("status").innerText = "GPS OK";
+      }, function(err) {
+        document.getElementById("status").innerText = "GPS err: "+err.code;
+      }, {enableHighAccuracy:true,timeout:10000});
+    }
     document.addEventListener("DOMContentLoaded", function() {
       setTimeout(function() {
-        map = L.map("map", { zoomControl: true }).setView([36.1069, -115.1711], 13);
+        map = L.map("map",{zoomControl:true}).setView([36.1069,-115.1711],4);
         map.invalidateSize();
-        document.getElementById("status").innerText = "Map ready";
+        initDeviceLocation();
       }, 500);
     });
   </script>
