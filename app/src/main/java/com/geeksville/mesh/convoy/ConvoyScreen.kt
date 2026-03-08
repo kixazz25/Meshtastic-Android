@@ -126,7 +126,7 @@ fun ConvoyScreen(
             // Esri WorldImagery supports zoom 19, better detail than USGS_SAT
             val esriSat = org.osmdroid.tileprovider.tilesource.XYTileSource(
                 "Esri.WorldImagery", 1, 19, 256, ".jpg",
-                arrayOf("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/")
+                arrayOf("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}")
             )
             setTileSource(esriSat)
             setMultiTouchControls(true)
@@ -413,7 +413,7 @@ fun ConvoyScreen(
                         Spacer(Modifier.height(4.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                             listOf(
-                                Triple("SAT", "Satellite", "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/"),
+                                Triple("SAT", "Satellite", "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"),
                                 Triple("HYB", "Hybrid", "https://mt0.google.com/vt/lyrs=y&x={x}&y={y}&z={z}"),
                                 Triple("TOPO", "Topo", "https://tile.opentopomap.org/"),
                                 Triple("RD", "Road", "https://tile.openstreetmap.org/")
