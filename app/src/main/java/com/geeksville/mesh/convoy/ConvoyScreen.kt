@@ -90,6 +90,7 @@ enum class RecordingState { IDLE, RECORDING, PAUSED }
 
 @Composable
 fun ConvoyScreen(
+    onNavigateToSettings: () -> Unit = {},
     viewModel: ConvoyViewModel = hiltViewModel()
 ) {
     val convoyState by viewModel.convoyState.collectAsStateWithLifecycle()
@@ -103,9 +104,6 @@ fun ConvoyScreen(
     var showMapSettings by remember { mutableStateOf(false) }
     var mapZoomLevel by remember { mutableStateOf(18f) }
     var isOfflineMode by remember { mutableStateOf(false) }
-    var signalDropMinutes by remember { mutableStateOf(2f) }
-    var lostMinutes by remember { mutableStateOf(10f) }
-    var offTrackMiles by remember { mutableStateOf(0.5f) }
     var mapInitialized by remember { mutableStateOf(false) }
     var showRecMenu by remember { mutableStateOf(false) }
 
@@ -389,29 +387,6 @@ fun ConvoyScreen(
                                 modifier = Modifier.padding(vertical = 8.dp))
                         }
 
-                        Spacer(Modifier.height(10.dp))
-
-                        // ── Alert thresholds ─────────────────────────────
-                        Text("ALERTS", color = Color(0xFF4A6080), fontSize = 9.sp, fontFamily = FontFamily.Monospace)
-                        Spacer(Modifier.height(4.dp))
-
-                        Text("SIGNAL DROP  ${signalDropMinutes.toInt()} min", color = Color(0xFF4A6080), fontSize = 8.sp,
-                            fontFamily = FontFamily.Monospace)
-                        Slider(value = signalDropMinutes, onValueChange = { signalDropMinutes = it },
-                            onValueChangeFinished = { ConvoyConfig.SIGNAL_DROP_MINUTES = signalDropMinutes },
-                            valueRange = 1f..10f, steps = 8, modifier = Modifier.fillMaxWidth())
-
-                        Text("LOST  ${lostMinutes.toInt()} min", color = Color(0xFF4A6080), fontSize = 8.sp,
-                            fontFamily = FontFamily.Monospace)
-                        Slider(value = lostMinutes, onValueChange = { lostMinutes = it },
-                            onValueChangeFinished = { ConvoyConfig.LOST_MINUTES = lostMinutes },
-                            valueRange = 5f..30f, steps = 4, modifier = Modifier.fillMaxWidth())
-
-                        Text("OFF TRACK  ${"%.1f".format(offTrackMiles)} mi", color = Color(0xFF4A6080), fontSize = 8.sp,
-                            fontFamily = FontFamily.Monospace)
-                        Slider(value = offTrackMiles, onValueChange = { offTrackMiles = it },
-                            onValueChangeFinished = { ConvoyConfig.OFF_TRACK_MILES = offTrackMiles },
-                            valueRange = 0.1f..2f, steps = 18, modifier = Modifier.fillMaxWidth())
                     }
                 }
             }
@@ -438,12 +413,14 @@ fun ConvoyScreen(
             when (hudMode) {
                 HudMode.GROUP -> GroupHud(
                     state = convoyState,
-                    onModeChange = { viewModel.setHudMode(it) }
+                    onModeChange = { viewModel.setHudMode(it) },
+                    onNavigateToSettings = onNavigateToSettings
                 )
                 HudMode.MY_CART -> MyCartHud(
                     state = convoyState,
                     myCartId = viewModel.myCartId.collectAsStateWithLifecycle().value,
-                    onModeChange = { viewModel.setHudMode(it) }
+                    onModeChange = { viewModel.setHudMode(it) },
+                    onNavigateToSettings = onNavigateToSettings
                 )
                 HudMode.NODE -> selectedNode?.let { node ->
                     NodeDetailHud(
@@ -468,10 +445,11 @@ fun ConvoyScreen(
 @Composable
 fun GroupHud(
     state: ConvoyEngine.ConvoyState,
-    onModeChange: (HudMode) -> Unit
+    onModeChange: (HudMode) -> Unit,
+    onNavigateToSettings: () -> Unit = {}
 ) {
     HudCard {
-        HudModeRow(current = HudMode.GROUP, onModeChange = onModeChange)
+        HudModeRow(current = HudMode.GROUP, onModeChange = onModeChange, onNavigateToSettings = onNavigateToSettings)
         Spacer(Modifier.height(8.dp))
         Row(modifier = Modifier.fillMaxWidth()) {
             // Left 3/4 — stats grid
@@ -510,11 +488,12 @@ fun GroupHud(
 fun MyCartHud(
     state: ConvoyEngine.ConvoyState,
     myCartId: String,
-    onModeChange: (HudMode) -> Unit
+    onModeChange: (HudMode) -> Unit,
+    onNavigateToSettings: () -> Unit = {}
 ) {
     val myCart = state.nodes.firstOrNull { it.isMyCart }
     HudCard {
-        HudModeRow(current = HudMode.MY_CART, onModeChange = onModeChange)
+        HudModeRow(current = HudMode.MY_CART, onModeChange = onModeChange, onNavigateToSettings = onNavigateToSettings)
         Spacer(Modifier.height(8.dp))
         if (myCart == null) {
             Text("MY CART not found", color = Color(0xFF7A8DA0), fontSize = 12.sp,
@@ -686,7 +665,7 @@ fun HudStat(label: String, value: String, valueColor: Color = Color(0xFFE8EEF5))
 }
 
 @Composable
-fun HudModeRow(current: HudMode, onModeChange: (HudMode) -> Unit) {
+fun HudModeRow(current: HudMode, onModeChange: (HudMode) -> Unit, onNavigateToSettings: () -> Unit = {}) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -734,6 +713,21 @@ fun HudModeRow(current: HudMode, onModeChange: (HudMode) -> Unit) {
                 text = "HIDE",
                 color = Color(0xFF7A8DA0),
                 fontSize = 11.sp,
+                fontFamily = FontFamily.Monospace,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
+            )
+        }
+        // SETTINGS gear button
+        Surface(
+            modifier = Modifier.clickable { onNavigateToSettings() },
+            shape = RoundedCornerShape(10.dp),
+            color = Color(0xFF2A3545)
+        ) {
+            Text(
+                text = "⚙",
+                color = Color(0xFF7A8DA0),
+                fontSize = 14.sp,
                 fontFamily = FontFamily.Monospace,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)

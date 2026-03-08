@@ -455,7 +455,7 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
             contactsGraph(navController, uIViewModel.scrollToTopEventFlow)
             nodesGraph(navController, uIViewModel.scrollToTopEventFlow)
             mapGraph(navController)
-            convoyGraph()
+            convoyGraph(navController)
             channelsGraph(navController)
             connectionsGraph(navController)
             settingsGraph(navController)
