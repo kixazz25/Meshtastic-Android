@@ -118,13 +118,7 @@ fun ConvoyScreen(
     // ── OSMDroid MapView ──────────────────────────────────────────────────
     val mapView = remember {
         MapView(context).apply {
-            Configuration.getInstance().userAgentValue = context.packageName
-            Configuration.getInstance().osmdroidBasePath = context.getExternalFilesDir(null) ?: context.filesDir
-            Configuration.getInstance().osmdroidTileCache = java.io.File(Configuration.getInstance().osmdroidBasePath, "tiles")
-            // Increase tile cache for offline use
-            // 1GB tile cache — tiles cached as you browse online
-            org.osmdroid.config.Configuration.getInstance().tileFileSystemCacheMaxBytes = 1024L * 1024 * 1024
-            org.osmdroid.config.Configuration.getInstance().tileFileSystemCacheTrimBytes = 900L * 1024 * 1024
+            // OSMDroid configured in MeshUtilApplication.onCreate()
             // Esri WorldImagery supports zoom 19, better detail than USGS_SAT
             val esriSat = org.osmdroid.tileprovider.tilesource.XYTileSource(
                 "Esri.WorldImagery", 1, 19, 256, ".jpg",
