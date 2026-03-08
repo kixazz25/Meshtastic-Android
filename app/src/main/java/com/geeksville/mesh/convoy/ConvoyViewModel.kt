@@ -8,6 +8,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.meshtastic.core.repository.NodeRepository
 import javax.inject.Inject
@@ -34,7 +35,8 @@ enum class HudMode {
  */
 @HiltViewModel
 class ConvoyViewModel @Inject constructor(
-    private val nodeRepository: NodeRepository
+    private val nodeRepository: NodeRepository,
+    private val settingsRepository: ConvoySettingsRepository
 ) : ViewModel() {
 
     // ── Convoy state ──────────────────────────────────────────────────────
@@ -83,10 +85,14 @@ class ConvoyViewModel @Inject constructor(
 
     private val lastKnownPosition = mutableMapOf<String, Pair<Double, Double>>()
     private var tickJob: Job? = null
+    private var admissionWindowHours: Int = 1
 
     // ── Init ──────────────────────────────────────────────────────────────
 
     init {
+        viewModelScope.launch {
+            settingsRepository.admissionWindowHours.collect { admissionWindowHours = it }
+        }
         startTick()
     }
 
@@ -173,7 +179,7 @@ class ConvoyViewModel @Inject constructor(
      */
     private fun readLiveNodes(nowMs: Long): List<ConvoyNode> {
         val nodeMap = try { nodeRepository.nodeDBbyNum.value } catch (e: Exception) { return emptyList() }
-        return nodeMap.values.mapNotNull { node ->
+        val allNodes = nodeMap.values.mapNotNull { node ->
             val user = node.user
             val pos = node.position
             val callsign = user.long_name.ifBlank { user.short_name }.ifBlank { "!${node.num}" }
@@ -203,6 +209,13 @@ class ConvoyViewModel @Inject constructor(
                 timestampUtc = java.time.Instant.ofEpochMilli(lastSeenMs).toString()
             )
         }
+        val filterInput = allNodes.map { it.nodeId to (it.lastSeenMs / 1000L) }
+        val allowedIds = ConvoyNodeFilter.filter(
+            nodes = filterInput,
+            removedCartIds = emptySet(),
+            admissionWindowHours = admissionWindowHours
+        ).toSet()
+        return allNodes.filter { it.nodeId in allowedIds }
     }
 
     // ── Cleanup ───────────────────────────────────────────────────────────
