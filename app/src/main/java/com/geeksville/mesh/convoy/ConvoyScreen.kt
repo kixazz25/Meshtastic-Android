@@ -118,6 +118,7 @@ fun ConvoyScreen(
     // ── OSMDroid MapView ──────────────────────────────────────────────────
     val mapView = remember {
         MapView(context).apply {
+            Configuration.getInstance().load(context, android.preference.PreferenceManager.getDefaultSharedPreferences(context))
             Configuration.getInstance().userAgentValue = context.packageName
             // Increase tile cache for offline use
             // 1GB tile cache — tiles cached as you browse online
