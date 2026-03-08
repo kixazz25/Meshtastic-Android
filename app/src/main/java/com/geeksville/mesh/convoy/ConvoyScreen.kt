@@ -115,109 +115,6 @@ fun ConvoyScreen(
     // ── Renderer (stable across recompositions) ───────────────────────────
     val renderer = remember { ConvoyMarkerRenderer(context, onNodeTapped = viewModel::onMarkerTapped) }
 
-    // ── OSMDroid MapView ──────────────────────────────────────────────────
-    val mapView = remember {
-        MapView(context).apply {
-            Configuration.getInstance().userAgentValue = context.packageName
-            org.osmdroid.config.Configuration.getInstance().tileFileSystemCacheMaxBytes = 1024L * 1024 * 1024
-            org.osmdroid.config.Configuration.getInstance().tileFileSystemCacheTrimBytes = 900L * 1024 * 1024
-            // Esri WorldImagery supports zoom 19, better detail than USGS_SAT
-            val esriSat = org.osmdroid.tileprovider.tilesource.XYTileSource(
-                "Esri.WorldImagery", 1, 19, 256, ".jpg",
-                arrayOf("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/")
-            )
-            setTileSource(esriSat)
-            setMultiTouchControls(true)
-            isVerticalMapRepetitionEnabled = false
-            isTilesScaledToDpi = true
-            minZoomLevel = 2.0
-            maxZoomLevel = 20.0
-            zoomController.setVisibility(CustomZoomButtonsController.Visibility.SHOW_AND_FADEOUT)
-            controller.setZoom(ConvoyConfig.MAP_CART_ZOOM)
-            // Center on device GPS location using LocationManager
-            val lm = context.getSystemService(android.content.Context.LOCATION_SERVICE) as android.location.LocationManager
-            val lastKnown = try {
-                lm.getLastKnownLocation(android.location.LocationManager.GPS_PROVIDER)
-                    ?: lm.getLastKnownLocation(android.location.LocationManager.NETWORK_PROVIDER)
-            } catch (e: SecurityException) { null }
-            val startCenter = if (lastKnown != null)
-                GeoPoint(lastKnown.latitude, lastKnown.longitude)
-            else
-                GeoPoint(37.4691, -113.6215)
-            controller.setCenter(startCenter)
-            // Mark initialized after 3 seconds to allow GPS center to settle
-            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                // mapInitialized set via LaunchedEffect below
-            }, 3000)
-            // Mark initialized after 3 seconds to allow GPS center to settle
-            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                // mapInitialized set via LaunchedEffect below
-            }, 3000)
-            setDestroyMode(false)
-        }
-    }
-
-    // ── My location overlay ──────────────────────────────────────────────────
-    val myLocationOverlay = remember(mapView) {
-        MyLocationNewOverlay(GpsMyLocationProvider(context), mapView).apply {
-            enableMyLocation()
-            // Draw a small arrowhead pointing up (OSMDroid rotates it with GPS heading)
-            val sizePx = (ConvoyConfig.MARKER_SIZE_MEDIUM_DP * context.resources.displayMetrics.density).toInt()
-            val bmp = android.graphics.Bitmap.createBitmap(sizePx, sizePx, android.graphics.Bitmap.Config.ARGB_8888)
-            val canvas = android.graphics.Canvas(bmp)
-            val fillPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-                color = android.graphics.Color.argb(230, 33, 150, 243)
-                style = android.graphics.Paint.Style.FILL
-            }
-            val strokePaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-                color = android.graphics.Color.WHITE
-                style = android.graphics.Paint.Style.STROKE
-                strokeWidth = sizePx * 0.1f
-            }
-            val cx = sizePx / 2f
-            val path = android.graphics.Path().apply {
-                moveTo(cx, 0f)                          // tip (north)
-                lineTo(sizePx * 0.8f, sizePx * 0.9f)   // bottom right
-                lineTo(cx, sizePx * 0.65f)              // inner notch
-                lineTo(sizePx * 0.2f, sizePx * 0.9f)   // bottom left
-                close()
-            }
-            canvas.drawPath(path, fillPaint)
-            canvas.drawPath(path, strokePaint)
-            setPersonIcon(bmp)
-            setPersonAnchor(0.5f, 0.5f)
-            // Do not enableFollowLocation() - we handle zoom manually per HUD mode
-        }
-    }
-
-    // ── Attach renderer to map ────────────────────────────────────────────
-    DisposableEffect(mapView) {
-        renderer.attach(mapView)
-        mapView.overlays.add(myLocationOverlay)
-        onDispose {
-            myLocationOverlay.disableMyLocation()
-        }
-    }
-
-    // ── Lifecycle: pause/resume map ───────────────────────────────────────
-    // Set mapInitialized after 3s so GPS center settles before auto-zoom kicks in
-    LaunchedEffect(Unit) {
-        kotlinx.coroutines.delay(3000)
-        mapInitialized = true
-    }
-
-    DisposableEffect(lifecycle) {
-        val observer = LifecycleEventObserver { _, event ->
-            when (event) {
-                Lifecycle.Event.ON_RESUME -> mapView.onResume()
-                Lifecycle.Event.ON_PAUSE  -> mapView.onPause()
-                else -> {}
-            }
-        }
-        lifecycle.addObserver(observer)
-        onDispose { lifecycle.removeObserver(observer) }
-    }
-
     // ── Push convoy data to renderer on each state change ─────────────────
     // Task 5.2: wire renderer to live data
     val rawSegments by viewModel.leadTrackSegments.collectAsStateWithLifecycle()
@@ -239,6 +136,7 @@ fun ConvoyScreen(
                 android.webkit.WebView(ctx).apply {
                     settings.javaScriptEnabled = true
                     settings.domStorageEnabled = true
+                    setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null)
                     loadUrl("file:///android_asset/convoy_map.html")
                 }
             },
@@ -378,8 +276,8 @@ fun ConvoyScreen(
                                         mapTypeLabel = label
                                         val src = org.osmdroid.tileprovider.tilesource.XYTileSource(
                                             name, 1, 19, 256, if (label == "SAT") ".jpg" else ".png", arrayOf(url))
-                                        mapView.setTileSource(src)
-                                        mapView.invalidate()
+                                        // TODO A2.5: setTileUrl via JS bridge
+                                        // TODO: invalidate via JS bridge
                                     },
                                     shape = RoundedCornerShape(6.dp),
                                     color = if (mapTypeLabel == label) Color(0xFF2E75B6) else Color(0xFF2A3545)
@@ -402,7 +300,7 @@ fun ConvoyScreen(
                             onValueChange = { mapZoomLevel = it },
                             onValueChangeFinished = {
                                 ConvoyConfig.DOWNLOAD_ZOOM = mapZoomLevel.toInt()
-                                mapView.post { mapView.controller.setZoom(mapZoomLevel.toDouble()); mapView.invalidate() }
+                                        // TODO: invalidate via JS bridge
                             },
                             valueRange = 16f..19f,
                             steps = 2,
@@ -420,10 +318,7 @@ fun ConvoyScreen(
                                 checked = isOfflineMode,
                                 onCheckedChange = {
                                     isOfflineMode = it
-                                    mapView.post {
-                                        mapView.setUseDataConnection(!it)
-                                        mapView.invalidate()
-                                    }
+                                    // TODO A2.5: setOffline via JS bridge
                                 }
                             )
                         }
