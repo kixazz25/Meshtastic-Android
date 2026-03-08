@@ -69,6 +69,12 @@ open class MeshUtilApplication :
     override fun onCreate() {
         super.onCreate()
         ContextServices.app = this
+        // Initialize OSMDroid for convoy map tile caching
+        org.osmdroid.config.Configuration.getInstance().userAgentValue = packageName
+        org.osmdroid.config.Configuration.getInstance().osmdroidBasePath = getExternalFilesDir(null) ?: filesDir
+        org.osmdroid.config.Configuration.getInstance().osmdroidTileCache = java.io.File(org.osmdroid.config.Configuration.getInstance().osmdroidBasePath, "tiles")
+        org.osmdroid.config.Configuration.getInstance().tileFileSystemCacheMaxBytes = 1024L * 1024 * 1024
+        org.osmdroid.config.Configuration.getInstance().tileFileSystemCacheTrimBytes = 900L * 1024 * 1024
 
         // Schedule periodic MeshLog cleanup
         scheduleMeshLogCleanup()
