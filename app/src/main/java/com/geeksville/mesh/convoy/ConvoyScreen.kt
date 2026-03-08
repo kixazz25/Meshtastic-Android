@@ -236,6 +236,15 @@ fun ConvoyScreen(
             factory = { mapView },
             modifier = Modifier.fillMaxSize(),
             update = { mv ->
+                // Enforce tile source on every update — prevents OSMDroid defaulting to Mapnik
+                val currentSource = mv.tileProvider.tileSource
+                if (currentSource == null || currentSource.name() != mapTypeLabel) {
+                    val esriSat = org.osmdroid.tileprovider.tilesource.XYTileSource(
+                        "Esri.WorldImagery", 1, 19, 256, ".jpg",
+                        arrayOf("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}")
+                    )
+                    mv.setTileSource(esriSat)
+                }
                 // Task 5.2: update markers + track on every recomposition tick
                 renderer.update(convoyState.nodes, trackSegments)
                 // Smart zoom based on HUD mode — skip first tick to allow GPS open
