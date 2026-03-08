@@ -178,4 +178,5 @@ object FirmwareRoutes {
 
 object ConvoyRoutes {
     @Serializable data object Convoy : Route
+    @Serializable data object ConvoySettings : Route
 }
