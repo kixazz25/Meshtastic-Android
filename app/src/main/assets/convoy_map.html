@@ -7,7 +7,7 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    #map { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: blue; }
+    #map { position: fixed; top: 0; left: 0; right: 0; bottom: 0; }
     #status { position: fixed; top: 10px; left: 10px; z-index: 9999;
       background: rgba(0,0,0,0.7); color: #1CF0A0;
       font-family: monospace; font-size: 14px; padding: 8px; border-radius: 4px; }
@@ -18,19 +18,22 @@
   <div id="map"></div>
   <script>
     var map;
-    function initMap() {
-      var h = document.getElementById("map").offsetHeight;
-      var w = document.getElementById("map").offsetWidth;
-      document.getElementById("status").innerText = "div " + w + "x" + h;
-      map = L.map("map", { zoomControl: true }).setView([36.1069, -115.1711], 13);
-      var tileLayer = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19 });
+    var tileLayer;
+
+    function setTileUrl(url) {
+      if (tileLayer) { map.removeLayer(tileLayer); }
+      tileLayer = L.tileLayer(url, { maxZoom: 19 });
       tileLayer.on("tileload", function() { document.getElementById("status").innerText = "TILES OK"; });
       tileLayer.on("tileerror", function() { document.getElementById("status").innerText = "TILE ERROR"; });
       tileLayer.addTo(map);
-      map.invalidateSize();
     }
+
     document.addEventListener("DOMContentLoaded", function() {
-      setTimeout(initMap, 500);
+      setTimeout(function() {
+        map = L.map("map", { zoomControl: true }).setView([36.1069, -115.1711], 13);
+        map.invalidateSize();
+        document.getElementById("status").innerText = "Map ready";
+      }, 500);
     });
   </script>
 </body>
