@@ -120,7 +120,11 @@ fun ConvoyScreen(
         MapView(context).apply {
             // OSMDroid configured in MeshUtilApplication.onCreate()
             // Esri WorldImagery supports zoom 19, better detail than USGS_SAT
-            setTileSource(org.osmdroid.tileprovider.tilesource.TileSourceFactory.MAPNIK)
+            val esriSat = org.osmdroid.tileprovider.tilesource.XYTileSource(
+                "Esri.WorldImagery", 1, 19, 256, ".jpg",
+                arrayOf("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/")
+            )
+            setTileSource(esriSat)
             setMultiTouchControls(true)
             isVerticalMapRepetitionEnabled = false
             isTilesScaledToDpi = true
@@ -235,7 +239,11 @@ fun ConvoyScreen(
                 // Enforce tile source on every update — prevents OSMDroid defaulting to Mapnik
                 val currentSource = mv.tileProvider.tileSource
                 if (currentSource == null || currentSource.name() != mapTypeLabel) {
-                    mv.setTileSource(org.osmdroid.tileprovider.tilesource.TileSourceFactory.MAPNIK)
+                    val esriSat = org.osmdroid.tileprovider.tilesource.XYTileSource(
+                        "Esri.WorldImagery", 1, 19, 256, ".jpg",
+                        arrayOf("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/")
+                    )
+                    mv.setTileSource(esriSat)
                 }
                 // Task 5.2: update markers + track on every recomposition tick
                 renderer.update(convoyState.nodes, trackSegments)
@@ -410,7 +418,7 @@ fun ConvoyScreen(
                         Spacer(Modifier.height(4.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                             listOf(
-                                Triple("SAT", "Satellite", "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"),
+                                Triple("SAT", "Satellite", "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/"),
                                 Triple("HYB", "Hybrid", "https://mt0.google.com/vt/lyrs=y&x={x}&y={y}&z={z}"),
                                 Triple("TOPO", "Topo", "https://tile.opentopomap.org/"),
                                 Triple("RD", "Road", "https://tile.openstreetmap.org/")
