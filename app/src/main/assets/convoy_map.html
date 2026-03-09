@@ -8,21 +8,15 @@
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     #map { position: fixed; top: 0; left: 0; right: 0; bottom: 0; }
-    #status { position: fixed; top: 10px; left: 10px; z-index: 9999;
-      background: rgba(0,0,0,0.7); color: #1CF0A0;
-      font-family: monospace; font-size: 14px; padding: 8px; border-radius: 4px; }
   </style>
 </head>
 <body>
-  <div id="status">Loading...</div>
   <div id="map"></div>
   <script>
     var map, tileLayer, markers = {}, deviceMarker = null;
     function setTileUrl(url) {
       if (tileLayer) map.removeLayer(tileLayer);
       tileLayer = L.tileLayer(url, {maxZoom:19});
-      tileLayer.on("tileload", function(){ document.getElementById("status").innerText = "TILES OK"; });
-      tileLayer.on("tileerror", function(){ document.getElementById("status").innerText = "TILE ERROR"; });
       tileLayer.addTo(map);
     }
     function setView(lat, lon, zoom) { map.setView([lat, lon], zoom); }
@@ -59,10 +53,20 @@
         deviceMarker = L.marker([lat,lon],{icon:icon}).addTo(map);
         deviceMarker.bindTooltip("ME",{permanent:true,direction:"top"});
         map.setView([lat,lon],16);
-        document.getElementById("status").innerText = "GPS OK";
       }, function(err) {
-        document.getElementById("status").innerText = "GPS err: "+err.code;
       }, {enableHighAccuracy:true,timeout:10000});
+    }
+    var trackLines = [];
+    function drawTrack(segments) {
+      trackLines.forEach(function(l){ map.removeLayer(l); });
+      trackLines = [];
+      segments.forEach(function(seg) {
+        var line = L.polyline(
+          [[seg.startLat, seg.startLon], [seg.endLat, seg.endLon]],
+          {color: seg.color, weight: 4, opacity: 0.85}
+        ).addTo(map);
+        trackLines.push(line);
+      });
     }
     document.addEventListener("DOMContentLoaded", function() {
       setTimeout(function() {

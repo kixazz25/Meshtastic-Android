@@ -166,6 +166,26 @@ fun ConvoyScreen(
             )
         }
     }
+    LaunchedEffect(trackSegments) {
+        val wv = webViewRef.value ?: return@LaunchedEffect
+        val parts = trackSegments.map { seg ->
+            val s = seg.points.first()
+            val e = seg.points.last()
+            buildString {
+                append("{startLat:")
+                append(s.latitude)
+                append(",startLon:")
+                append(s.longitude)
+                append(",endLat:")
+                append(e.latitude)
+                append(",endLon:")
+                append(e.longitude)
+                append(",color:  + seg.color + }") 
+            }
+        }
+        val json = "[" + parts.joinToString(",") + "]"
+        wv.evaluateJavascript("drawTrack(" + json + ")", null)
+    }
 
     Scaffold { innerPadding ->
     Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {

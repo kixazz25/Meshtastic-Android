@@ -20,4 +20,5 @@ object ConvoyConfig {
     var LOST_MINUTES = 10f
     var OFF_TRACK_MILES = 0.5f
     var DOWNLOAD_ZOOM = 18
+    var TRACK_MULTICOLOR = true
 }
