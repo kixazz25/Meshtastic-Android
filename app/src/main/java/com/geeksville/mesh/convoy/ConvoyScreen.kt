@@ -63,6 +63,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -99,6 +101,9 @@ fun ConvoyScreen(
     val simulationMode by viewModel.simulationMode.collectAsStateWithLifecycle()
     val showLeadTrack by viewModel.showLeadTrack.collectAsStateWithLifecycle()
     var recordingState by remember { mutableStateOf(RecordingState.IDLE) }
+    var showNameDialog by remember { mutableStateOf(false) }
+    var pendingTrackName by remember { mutableStateOf("") }
+    val context = LocalContext.current
     var showLayerMenu by remember { mutableStateOf(false) }
     var mapTypeLabel by remember { mutableStateOf("SAT") }
     var showMapSettings by remember { mutableStateOf(false) }
@@ -107,7 +112,6 @@ fun ConvoyScreen(
     var mapInitialized by remember { mutableStateOf(false) }
     var showRecMenu by remember { mutableStateOf(false) }
 
-    val context = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
 
     // ── Renderer (stable across recompositions) ───────────────────────────
@@ -187,6 +191,32 @@ fun ConvoyScreen(
         wv.evaluateJavascript("drawTrack(" + json + ")", null)
     }
 
+    if (showNameDialog) {
+        AlertDialog(
+            onDismissRequest = { showNameDialog = false },
+            title = { Text("Name this track") },
+            text = {
+                OutlinedTextField(
+                    value = pendingTrackName,
+                    onValueChange = { pendingTrackName = it },
+                    label = { Text("Track name") },
+                    singleLine = true
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showNameDialog = false
+                    if (pendingTrackName.isNotBlank()) {
+                        recordingState = RecordingState.RECORDING
+                        viewModel.startRecording(pendingTrackName.trim(), context)
+                    }
+                }) { Text("START") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showNameDialog = false }) { Text("CANCEL") }
+            }
+        )
+    }
     Scaffold { innerPadding ->
     Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
 
@@ -219,8 +249,8 @@ fun ConvoyScreen(
                 Surface(
                     modifier = Modifier.clickable {
                         when (recordingState) {
-                            RecordingState.IDLE -> { recordingState = RecordingState.RECORDING; viewModel.toggleRouteRecorder() }
-                            RecordingState.RECORDING -> { recordingState = RecordingState.PAUSED; showRecMenu = true }
+                            RecordingState.IDLE -> { pendingTrackName = ""; showNameDialog = true }
+                            RecordingState.RECORDING -> { showRecMenu = true }
                             RecordingState.PAUSED -> showRecMenu = true
                         }
                     },
@@ -250,7 +280,13 @@ fun ConvoyScreen(
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Surface(
                         modifier = Modifier.clickable {
-                            recordingState = RecordingState.RECORDING
+                            if (recordingState == RecordingState.PAUSED) {
+                                recordingState = RecordingState.RECORDING
+                                viewModel.resumeRecording(context)
+                            } else {
+                                recordingState = RecordingState.PAUSED
+                                viewModel.pauseRecording()
+                            }
                             showRecMenu = false
                         },
                         shape = RoundedCornerShape(10.dp),
@@ -265,7 +301,8 @@ fun ConvoyScreen(
                         modifier = Modifier.clickable {
                             recordingState = RecordingState.IDLE
                             showRecMenu = false
-                            viewModel.toggleRouteRecorder()
+                            pendingTrackName = ""
+                            viewModel.stopRecording()
                         },
                         shape = RoundedCornerShape(10.dp),
                         color = Color(0xFF4A0000),
