@@ -223,25 +223,32 @@ fun ConvoyScreen(
         // ── Task 5.1: Real OSMDroid map ───────────────────────────────────
         AndroidView(
             factory = { ctx ->
-                android.webkit.WebView(ctx).apply {
-                    settings.javaScriptEnabled = true
-                    settings.domStorageEnabled = true
-                    setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null)
-                    webViewClient = object : android.webkit.WebViewClient() {
-                        override fun onPageFinished(view: android.webkit.WebView?, url: String?) {
-                            val tileUrl = ConvoyConfig.TILE_SOURCES[ConvoyConfig.ACTIVE_TILE_SOURCE] ?: return
-                            view?.postDelayed({
-                                view.evaluateJavascript("setTileUrl('$tileUrl')", null)
-                            }, 600)
+                val existing = viewModel.persistentWebView
+                if (existing != null) {
+                    webViewRef.value = existing
+                    existing
+                } else {
+                    android.webkit.WebView(ctx).apply {
+                        settings.javaScriptEnabled = true
+                        settings.domStorageEnabled = true
+                        setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null)
+                        webViewClient = object : android.webkit.WebViewClient() {
+                            override fun onPageFinished(view: android.webkit.WebView?, url: String?) {
+                                val tileUrl = ConvoyConfig.TILE_SOURCES[ConvoyConfig.ACTIVE_TILE_SOURCE] ?: return
+                                view?.postDelayed({
+                                    view.evaluateJavascript("setTileUrl('$tileUrl')", null)
+                                }, 600)
+                            }
                         }
+                        loadUrl("file:///android_asset/convoy_map.html")
+                    }.also {
+                        viewModel.persistentWebView = it
+                        webViewRef.value = it
                     }
-                    loadUrl("file:///android_asset/convoy_map.html")
-                }.also { webViewRef.value = it }
+                }
             },
             modifier = Modifier.fillMaxSize(),
-            update = { _ ->
-                // OSMDroid update block cleared — JS bridge wired in A3 steps
-            }
+            update = { _ -> }
         )
         Box(modifier = Modifier.align(Alignment.TopStart).statusBarsPadding().padding(8.dp)) {
             if (!showRecMenu) {

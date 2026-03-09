@@ -53,6 +53,9 @@ class ConvoyViewModel @Inject constructor(
     private val _selectedNode = MutableStateFlow<ConvoyNode?>(null)
     val selectedNode: StateFlow<ConvoyNode?> = _selectedNode.asStateFlow()
 
+    // ── Persistent WebView ───────────────────────────────────────────────
+    var persistentWebView: android.webkit.WebView? = null
+
     // ── Simulation mode ───────────────────────────────────────────────────
 
     private val _simulationMode = MutableStateFlow(false)
