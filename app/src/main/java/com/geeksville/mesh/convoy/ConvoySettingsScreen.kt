@@ -24,7 +24,10 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -127,6 +130,34 @@ fun ConvoySettingsScreen(
                 steps       = 10,
                 onValueChangeFinished = { viewModel.onAdmissionWindowChanged(it.roundToInt()) }
             )
+
+            Spacer(Modifier.height(8.dp))
+
+            // ── Track Display ─────────────────────────────────────────────
+            SectionLabel("Track Display")
+
+            var trackMulticolor by remember { mutableStateOf(ConvoyConfig.TRACK_MULTICOLOR) }
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text("Multicolor Track", style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        text = if (trackMulticolor) "Track colored by node position" else "Track shown in black",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = trackMulticolor,
+                    onCheckedChange = {
+                        trackMulticolor = it
+                        ConvoyConfig.TRACK_MULTICOLOR = it
+                    }
+                )
+            }
 
             Spacer(Modifier.height(8.dp))
 

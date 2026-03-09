@@ -160,6 +160,30 @@ class ConvoyViewModel @Inject constructor(
             nowMs = nowMs
         )
         _convoyState.value = state
+        // Build lead track segments from sorted node positions
+        val sortedNodes = state.nodes
+            .filter { it.status != ConvoyStatus.LOST }
+            .sortedBy { it.convoyPosition }
+        val rawSegments = sortedNodes.zipWithNext { a, b ->
+            ConvoyEngine.LeadTrackSegment(
+                startLat = a.latitude,
+                startLon = a.longitude,
+                endLat = b.latitude,
+                endLon = b.longitude,
+                color = a.markerColor
+            )
+        }
+        _leadTrackSegments.value = if (ConvoyConfig.TRACK_MULTICOLOR) {
+            ConvoyEngine.computeLeadTrackColors(
+                segments = rawSegments,
+                nodes = state.nodes,
+                lead = state.lead,
+                tail = state.tail,
+                headingDeg = state.convoyHeading
+            )
+        } else {
+            rawSegments.map { it.copy(color = "#000000") }
+        }
 
         // Refresh selected node if NODE HUD is open
         if (_hudMode.value == HudMode.NODE && _selectedNode.value != null) {
