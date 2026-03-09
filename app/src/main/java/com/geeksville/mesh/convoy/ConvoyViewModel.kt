@@ -215,11 +215,26 @@ class ConvoyViewModel @Inject constructor(
         gpsListener = null
     }
 
+    private var lastGpsLat: Double? = null
+    private var lastGpsLon: Double? = null
+
     private fun writeKmlPoint(lat: Double, lon: Double, alt: Double) {
         try {
             kmlWriter?.write("$lon,$lat,$alt\n")
             kmlWriter?.flush()
         } catch (e: Exception) { /* ignore */ }
+        val prevLat = lastGpsLat
+        val prevLon = lastGpsLon
+        if (prevLat != null && prevLon != null) {
+            val newSeg = ConvoyEngine.LeadTrackSegment(
+                startLat = prevLat, startLon = prevLon,
+                endLat = lat, endLon = lon,
+                color = "#2E75B6"
+            )
+            _leadTrackSegments.value = _leadTrackSegments.value + newSeg
+        }
+        lastGpsLat = lat
+        lastGpsLon = lon
     }
 
 
