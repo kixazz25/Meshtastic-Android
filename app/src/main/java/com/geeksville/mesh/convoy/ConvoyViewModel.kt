@@ -53,6 +53,12 @@ class ConvoyViewModel @Inject constructor(
     private val _selectedNode = MutableStateFlow<ConvoyNode?>(null)
     val selectedNode: StateFlow<ConvoyNode?> = _selectedNode.asStateFlow()
 
+    // ── UI state — persists across navigation ────────────────────────────
+    var recordingState = androidx.compose.runtime.mutableStateOf(com.geeksville.mesh.convoy.RecordingState.IDLE)
+    var pendingTrackName = androidx.compose.runtime.mutableStateOf("")
+    var showRecMenu = androidx.compose.runtime.mutableStateOf(false)
+    var hasSeenNodes = androidx.compose.runtime.mutableStateOf(false)
+
     // ── Persistent WebView ───────────────────────────────────────────────
     var persistentWebView: android.webkit.WebView? = null
 
@@ -75,6 +81,12 @@ class ConvoyViewModel @Inject constructor(
 
     private val _leadTrackSegments = MutableStateFlow<List<ConvoyEngine.LeadTrackSegment>>(emptyList())
     val leadTrackSegments: StateFlow<List<ConvoyEngine.LeadTrackSegment>> = _leadTrackSegments.asStateFlow()
+    private val _gpsTrailSegments = MutableStateFlow<List<ConvoyEngine.LeadTrackSegment>>(emptyList())
+    val gpsTrailSegments: StateFlow<List<ConvoyEngine.LeadTrackSegment>> = _gpsTrailSegments.asStateFlow()
+    private val _routeTrailSegments = MutableStateFlow<List<ConvoyEngine.LeadTrackSegment>>(emptyList())
+    val routeTrailSegments: StateFlow<List<ConvoyEngine.LeadTrackSegment>> = _routeTrailSegments.asStateFlow()
+    private var lastLeadLat: Double? = null
+    private var lastLeadLon: Double? = null
 
     // ── Route recorder (REQ-111) ──────────────────────────────────────────
 
@@ -100,7 +112,7 @@ class ConvoyViewModel @Inject constructor(
             nodeRepository.myNodeInfo.collect { info ->
                 val num = info?.myNodeNum
                 if (num != null && !_simulationMode.value) {
-                    _myCartId.value = num.toString()
+                    _myCartId.value = "!%08x".format(num)
                 }
             }
         }
@@ -183,6 +195,9 @@ class ConvoyViewModel @Inject constructor(
     }
 
     fun stopRecording() {
+        _gpsTrailSegments.value = emptyList()
+        lastGpsLat = null
+        lastGpsLon = null
         stopGps()
         try {
             kmlWriter?.write("</coordinates></LineString></Placemark>\n")
@@ -234,7 +249,7 @@ class ConvoyViewModel @Inject constructor(
                 endLat = lat, endLon = lon,
                 color = "#2E75B6"
             )
-            _leadTrackSegments.value = _leadTrackSegments.value + newSeg
+            _gpsTrailSegments.value = _gpsTrailSegments.value + newSeg
         }
         lastGpsLat = lat
         lastGpsLon = lon
@@ -266,29 +281,34 @@ class ConvoyViewModel @Inject constructor(
             nowMs = nowMs
         )
         _convoyState.value = state
-        // Build lead track segments from sorted node positions
-        val sortedNodes = state.nodes
-            .filter { it.status != ConvoyStatus.LOST }
-            .sortedBy { it.convoyPosition }
-        val rawSegments = sortedNodes.zipWithNext { a, b ->
-            ConvoyEngine.LeadTrackSegment(
-                startLat = a.latitude,
-                startLon = a.longitude,
-                endLat = b.latitude,
-                endLon = b.longitude,
-                color = a.markerColor
-            )
+        // Accumulate lead cart route trail
+        val leadNode = state.lead
+        if (leadNode != null) {
+            val prevLat = lastLeadLat
+            val prevLon = lastLeadLon
+            if (prevLat != null && prevLon != null &&
+                (prevLat != leadNode.latitude || prevLon != leadNode.longitude)) {
+                val seg = ConvoyEngine.LeadTrackSegment(
+                    startLat = prevLat, startLon = prevLon,
+                    endLat = leadNode.latitude, endLon = leadNode.longitude,
+                    color = "#000000"
+                )
+                _routeTrailSegments.value = _routeTrailSegments.value + seg
+            }
+            lastLeadLat = leadNode.latitude
+            lastLeadLon = leadNode.longitude
         }
+        // Color route trail segments by cart positions
         _leadTrackSegments.value = if (ConvoyConfig.TRACK_MULTICOLOR) {
             ConvoyEngine.computeLeadTrackColors(
-                segments = rawSegments,
+                segments = _routeTrailSegments.value,
                 nodes = state.nodes,
                 lead = state.lead,
                 tail = state.tail,
                 headingDeg = state.convoyHeading
             )
         } else {
-            rawSegments.map { it.copy(color = "#000000") }
+            _routeTrailSegments.value.map { it.copy(color = "#000000") }
         }
 
         // Refresh selected node if NODE HUD is open
