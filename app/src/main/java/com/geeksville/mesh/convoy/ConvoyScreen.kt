@@ -82,9 +82,9 @@ fun ConvoyScreen(
     val selectedNode by viewModel.selectedNode.collectAsStateWithLifecycle()
     val simulationMode by viewModel.simulationMode.collectAsStateWithLifecycle()
     val showLeadTrack by viewModel.showLeadTrack.collectAsStateWithLifecycle()
-    var recordingState by remember { mutableStateOf(RecordingState.IDLE) }
+    var recordingState by viewModel.recordingState
     var showNameDialog by remember { mutableStateOf(false) }
-    var pendingTrackName by remember { mutableStateOf("") }
+    var pendingTrackName by viewModel.pendingTrackName
     val context = LocalContext.current
     var showLayerMenu by remember { mutableStateOf(false) }
     var mapTypeLabel by remember { mutableStateOf("SAT") }
@@ -92,7 +92,7 @@ fun ConvoyScreen(
     var mapZoomLevel by remember { mutableStateOf(18f) }
     var isOfflineMode by remember { mutableStateOf(false) }
     var mapInitialized by remember { mutableStateOf(false) }
-    var showRecMenu by remember { mutableStateOf(false) }
+    var showRecMenu by viewModel.showRecMenu
 
     val lifecycle = LocalLifecycleOwner.current.lifecycle
 
@@ -144,8 +144,10 @@ fun ConvoyScreen(
     // ── Push convoy data to renderer on each state change ─────────────────
     // Task 5.2: wire renderer to live data
     val rawSegments by viewModel.leadTrackSegments.collectAsStateWithLifecycle()
-    val trackSegments = remember(rawSegments) {
-        rawSegments.map { seg ->
+    val gpsTrail by viewModel.gpsTrailSegments.collectAsStateWithLifecycle()
+    val routeTrail by viewModel.routeTrailSegments.collectAsStateWithLifecycle()
+    val trackSegments = remember(rawSegments, gpsTrail, routeTrail) {
+        (rawSegments + gpsTrail + routeTrail).map { seg ->
             TrackSegment(
                 points = listOf(LatLngPoint(seg.startLat, seg.startLon), LatLngPoint(seg.endLat, seg.endLon)),
                 color = seg.color
@@ -232,8 +234,9 @@ fun ConvoyScreen(
             modifier = Modifier.fillMaxSize(),
             update = { _ -> }
         )
-        // ── Convoy splash screen — shown until nodes appear ─────────────
-        val showSplash = convoyState.nodes.isEmpty()
+        // ── Convoy splash screen — shown until nodes appear once ─────────
+        if (convoyState.nodes.isNotEmpty()) viewModel.hasSeenNodes.value = true
+        val showSplash = !viewModel.hasSeenNodes.value
         if (showSplash) {
             Box(
                 modifier = Modifier
