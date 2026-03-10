@@ -53,6 +53,25 @@ class ConvoyViewModel @Inject constructor(
     private val _selectedNode = MutableStateFlow<ConvoyNode?>(null)
     val selectedNode: StateFlow<ConvoyNode?> = _selectedNode.asStateFlow()
 
+    private val _trackActive = MutableStateFlow(false)
+    val trackActive: StateFlow<Boolean> = _trackActive.asStateFlow()
+
+    private val _trackLeadOnly = MutableStateFlow(true)
+    val trackLeadOnly: StateFlow<Boolean> = _trackLeadOnly.asStateFlow()
+
+    fun startGroupTrack() {
+        _routeTrailSegments.value = emptyList()
+        _trackActive.value = true
+    }
+
+    fun stopGroupTrack() {
+        _trackActive.value = false
+    }
+
+    fun toggleLeadOnly() {
+        _trackLeadOnly.value = !_trackLeadOnly.value
+    }
+
     // ── UI state — persists across navigation ────────────────────────────
     var recordingState = androidx.compose.runtime.mutableStateOf(com.geeksville.mesh.convoy.RecordingState.IDLE)
     var pendingTrackName = androidx.compose.runtime.mutableStateOf("")
@@ -87,6 +106,7 @@ class ConvoyViewModel @Inject constructor(
     val routeTrailSegments: StateFlow<List<ConvoyEngine.LeadTrackSegment>> = _routeTrailSegments.asStateFlow()
     private var lastLeadLat: Double? = null
     private var lastLeadLon: Double? = null
+    private val lastNodePositions = mutableMapOf<String, Pair<Double, Double>>()
 
     // ── Route recorder (REQ-111) ──────────────────────────────────────────
 
@@ -281,22 +301,41 @@ class ConvoyViewModel @Inject constructor(
             nowMs = nowMs
         )
         _convoyState.value = state
-        // Accumulate lead cart route trail
-        val leadNode = state.lead
-        if (leadNode != null) {
-            val prevLat = lastLeadLat
-            val prevLon = lastLeadLon
-            if (prevLat != null && prevLon != null &&
-                (prevLat != leadNode.latitude || prevLon != leadNode.longitude)) {
-                val seg = ConvoyEngine.LeadTrackSegment(
-                    startLat = prevLat, startLon = prevLon,
-                    endLat = leadNode.latitude, endLon = leadNode.longitude,
-                    color = "#000000"
-                )
-                _routeTrailSegments.value = _routeTrailSegments.value + seg
+        // Accumulate route trail — lead only or all carts
+        if (_trackLeadOnly.value) {
+            val leadNode = state.lead
+            if (leadNode != null) {
+                val prevLat = lastLeadLat
+                val prevLon = lastLeadLon
+                if (prevLat != null && prevLon != null &&
+                    (prevLat != leadNode.latitude || prevLon != leadNode.longitude)) {
+                    val seg = ConvoyEngine.LeadTrackSegment(
+                        startLat = prevLat, startLon = prevLon,
+                        endLat = leadNode.latitude, endLon = leadNode.longitude,
+                        color = "#000000"
+                    )
+                    if (_trackActive.value) _routeTrailSegments.value = _routeTrailSegments.value + seg
+                }
+                lastLeadLat = leadNode.latitude
+                lastLeadLon = leadNode.longitude
             }
-            lastLeadLat = leadNode.latitude
-            lastLeadLon = leadNode.longitude
+        } else {
+            val newSegs = mutableListOf<ConvoyEngine.LeadTrackSegment>()
+            for (node in state.nodes) {
+                if (node.latitude == 0.0 && node.longitude == 0.0) continue
+                val prev = lastNodePositions[node.nodeId]
+                if (prev != null && (prev.first != node.latitude || prev.second != node.longitude)) {
+                    newSegs.add(ConvoyEngine.LeadTrackSegment(
+                        startLat = prev.first, startLon = prev.second,
+                        endLat = node.latitude, endLon = node.longitude,
+                        color = "#000000"
+                    ))
+                }
+                lastNodePositions[node.nodeId] = Pair(node.latitude, node.longitude)
+            }
+            if (_trackActive.value && newSegs.isNotEmpty()) {
+                _routeTrailSegments.value = _routeTrailSegments.value + newSegs
+            }
         }
         // Color route trail segments by cart positions
         _leadTrackSegments.value = if (ConvoyConfig.TRACK_MULTICOLOR) {

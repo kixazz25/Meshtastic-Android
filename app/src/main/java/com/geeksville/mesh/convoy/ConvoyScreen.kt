@@ -80,6 +80,8 @@ fun ConvoyScreen(
     val convoyState by viewModel.convoyState.collectAsStateWithLifecycle()
     val hudMode by viewModel.hudMode.collectAsStateWithLifecycle()
     val selectedNode by viewModel.selectedNode.collectAsStateWithLifecycle()
+    val trackActive by viewModel.trackActive.collectAsStateWithLifecycle()
+    val trackLeadOnly by viewModel.trackLeadOnly.collectAsStateWithLifecycle()
     val simulationMode by viewModel.simulationMode.collectAsStateWithLifecycle()
     val showLeadTrack by viewModel.showLeadTrack.collectAsStateWithLifecycle()
     var recordingState by viewModel.recordingState
@@ -116,7 +118,7 @@ fun ConvoyScreen(
     }
 
     // ── Map zoom/center based on HUD mode ─────────────────────────────────
-    LaunchedEffect(hudMode, convoyState) {
+    LaunchedEffect(hudMode, convoyState, selectedNode) {
         val wv = webViewRef.value ?: return@LaunchedEffect
         val nodes = convoyState.nodes
         when (hudMode) {
@@ -127,7 +129,9 @@ fun ConvoyScreen(
                 }
             }
             HudMode.NODE -> {
-                // Node focus handled when node selected
+                selectedNode?.let {
+                    wv.evaluateJavascript("setView(\${it.latitude}, \${it.longitude}, \${ConvoyConfig.MAP_CART_ZOOM})", null)
+                }
             }
             else -> {
                 // GROUP / COLLAPSED — fit all nodes with valid GPS only
@@ -168,7 +172,7 @@ fun ConvoyScreen(
                 append(e.latitude)
                 append(",endLon:")
                 append(e.longitude)
-                append(",color:  + seg.color + }") 
+                append(",color:'" + seg.color + "'}") 
             }
         }
         val json = "[" + parts.joinToString(",") + "]"
@@ -525,7 +529,12 @@ fun ConvoyScreen(
                 HudMode.GROUP -> GroupHud(
                     state = convoyState,
                     onModeChange = { viewModel.setHudMode(it) },
-                    onNavigateToSettings = onNavigateToSettings
+                    onNavigateToSettings = onNavigateToSettings,
+                    trackActive = trackActive,
+                    trackLeadOnly = trackLeadOnly,
+                    onStartTrack = { viewModel.startGroupTrack() },
+                    onStopTrack = { viewModel.stopGroupTrack() },
+                    onToggleLeadOnly = { viewModel.toggleLeadOnly() }
                 )
                 HudMode.MY_CART -> MyCartHud(
                     state = convoyState,
@@ -557,7 +566,12 @@ fun ConvoyScreen(
 fun GroupHud(
     state: ConvoyEngine.ConvoyState,
     onModeChange: (HudMode) -> Unit,
-    onNavigateToSettings: () -> Unit = {}
+    onNavigateToSettings: () -> Unit = {},
+    trackActive: Boolean = false,
+    trackLeadOnly: Boolean = true,
+    onStartTrack: () -> Unit = {},
+    onStopTrack: () -> Unit = {},
+    onToggleLeadOnly: () -> Unit = {}
 ) {
     HudCard {
         HudModeRow(current = HudMode.GROUP, onModeChange = onModeChange, onNavigateToSettings = onNavigateToSettings)
@@ -574,6 +588,39 @@ fun GroupHud(
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                     HudStat("LEAD", state.lead?.callsign ?: "--", Color(0xFF1CF0A0))
                     HudStat("TAIL", state.tail?.callsign ?: "--", Color(0xFFFF8C42))
+                }
+                Spacer(Modifier.height(6.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                    Surface(
+                        modifier = Modifier.clickable { if (trackActive) onStopTrack() else onStartTrack() },
+                        shape = RoundedCornerShape(6.dp),
+                        color = if (trackActive) Color(0xFFCC0000) else Color(0xFF1A6B3A),
+                        shadowElevation = 4.dp
+                    ) {
+                        Text(
+                            text = if (trackActive) "STOP TRACK" else "START TRACK",
+                            color = Color.White,
+                            fontSize = 10.sp,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                        )
+                    }
+                    Surface(
+                        modifier = Modifier.clickable { onToggleLeadOnly() },
+                        shape = RoundedCornerShape(6.dp),
+                        color = if (trackLeadOnly) Color(0xFF1F4E79) else Color(0xFF4A4A4A),
+                        shadowElevation = 4.dp
+                    ) {
+                        Text(
+                            text = if (trackLeadOnly) "LEAD ONLY" else "ALL CARTS",
+                            color = Color.White,
+                            fontSize = 10.sp,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                        )
+                    }
                 }
             }
             // Right 1/4 — SPAN large
