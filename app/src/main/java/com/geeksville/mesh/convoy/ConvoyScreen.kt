@@ -82,6 +82,7 @@ fun ConvoyScreen(
     val selectedNode by viewModel.selectedNode.collectAsStateWithLifecycle()
     val trackActive by viewModel.trackActive.collectAsStateWithLifecycle()
     val trackLeadOnly by viewModel.trackLeadOnly.collectAsStateWithLifecycle()
+    val offTrackIds by viewModel.offTrackIds.collectAsStateWithLifecycle()
     val simulationMode by viewModel.simulationMode.collectAsStateWithLifecycle()
     val showLeadTrack by viewModel.showLeadTrack.collectAsStateWithLifecycle()
     var recordingState by viewModel.recordingState
@@ -112,7 +113,8 @@ fun ConvoyScreen(
                 val color = node.markerColor
                 val label = node.callsign.ifEmpty { node.nodeId.takeLast(4) }
                 val isMine = node.isMyCart
-                wv.evaluateJavascript("addMarker('${node.nodeId}', ${node.latitude}, ${node.longitude}, '$color', '$label', $isMine)", null)
+                val isOffTrack = offTrackIds.contains(node.nodeId)
+                wv.evaluateJavascript("addMarker('${node.nodeId}', ${node.latitude}, ${node.longitude}, '$color', '$label', $isMine, $isOffTrack)", null)
             }
         }
     }

@@ -31,7 +31,7 @@
       for (var id in markers) map.removeLayer(markers[id]);
       markers = {};
     }
-    function addMarker(id, lat, lon, color, label, isMine) {
+    function addMarker(id, lat, lon, color, label, isMine, offTrack) {
       if (markers[id]) map.removeLayer(markers[id]);
       var sz = isMine ? 20 : 14;
       var shape = isMine ? "50%" : "3px";
@@ -39,7 +39,8 @@
         html:"<div style='width:"+sz+"px;height:"+sz+"px;background:"+color+";border:2px solid white;border-radius:"+shape+";box-shadow:0 0 4px rgba(0,0,0,0.5)'></div>",
         iconSize:[sz,sz], iconAnchor:[sz/2,sz/2]});
       var m = L.marker([lat,lon],{icon:icon}).addTo(map);
-      m.bindTooltip(label,{permanent:true,direction:"top",offset:[0,-sz]});
+      var labelColor = offTrack ? "color:red;font-weight:bold;" : "";
+      m.bindTooltip("<span style='"+labelColor+"'>"+label+"</span>",{permanent:true,direction:"top",offset:[0,-sz]});
       markers[id] = m;
     }
     function initDeviceLocation() {
