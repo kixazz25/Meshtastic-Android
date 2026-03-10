@@ -68,7 +68,7 @@ import org.meshtastic.core.resources.Res
 
 /**
  * ConvoyScreen — IMP-001 Task 4.2 + 5.1 + 5.2 + 5.3 + 5.4
- * Full-screen OSMDroid map + HUD strip.
+ * Full-screen WebView/Leaflet map + HUD strip.
  */
 enum class RecordingState { IDLE, RECORDING, PAUSED }
 
@@ -208,7 +208,7 @@ fun ConvoyScreen(
     Scaffold { innerPadding ->
     Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
 
-        // ── Task 5.1: Real OSMDroid map ───────────────────────────────────
+        // ── WebView/Leaflet map ───────────────────────────────────
         AndroidView(
             factory = { ctx ->
                 val existing = viewModel.persistentWebView
@@ -437,10 +437,7 @@ fun ConvoyScreen(
                                 Surface(
                                     modifier = Modifier.weight(1f).clickable {
                                         mapTypeLabel = label
-                                        val src = org.osmdroid.tileprovider.tilesource.XYTileSource(
-                                            name, 1, 19, 256, if (label == "SAT") ".jpg" else ".png", arrayOf(url))
-                                        // TODO A2.5: setTileUrl via JS bridge
-                                        // TODO: invalidate via JS bridge
+                                        webViewRef.value?.evaluateJavascript("setTileUrl('$url')", null)
                                     },
                                     shape = RoundedCornerShape(6.dp),
                                     color = if (mapTypeLabel == label) Color(0xFF2E75B6) else Color(0xFF2A3545)
