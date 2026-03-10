@@ -53,6 +53,9 @@ class ConvoyViewModel @Inject constructor(
     private val _selectedNode = MutableStateFlow<ConvoyNode?>(null)
     val selectedNode: StateFlow<ConvoyNode?> = _selectedNode.asStateFlow()
 
+    private val _offTrackIds = MutableStateFlow<Set<String>>(emptySet())
+    val offTrackIds: StateFlow<Set<String>> = _offTrackIds.asStateFlow()
+
     private val _trackActive = MutableStateFlow(false)
     val trackActive: StateFlow<Boolean> = _trackActive.asStateFlow()
 
@@ -288,6 +291,27 @@ class ConvoyViewModel @Inject constructor(
         }
     }
 
+    private fun pointToSegmentDistanceMiles(
+        pLat: Double, pLon: Double,
+        aLat: Double, aLon: Double,
+        bLat: Double, bLon: Double
+    ): Float {
+        val dx = bLon - aLon
+        val dy = bLat - aLat
+        if (dx == 0.0 && dy == 0.0) {
+            val dlat = pLat - aLat
+            val dlon = pLon - aLon
+            return (Math.sqrt(dlat * dlat + dlon * dlon) * 69.0).toFloat()
+        }
+        val t = ((pLon - aLon) * dx + (pLat - aLat) * dy) / (dx * dx + dy * dy)
+        val clampedT = t.coerceIn(0.0, 1.0)
+        val nearLat = aLat + clampedT * dy
+        val nearLon = aLon + clampedT * dx
+        val dlat = pLat - nearLat
+        val dlon = pLon - nearLon
+        return (Math.sqrt(dlat * dlat + dlon * dlon) * 69.0).toFloat()
+    }
+
     private fun tick() { try {
         val nowMs = System.currentTimeMillis()
         val nodes: List<ConvoyNode> = if (_simulationMode.value) {
@@ -336,6 +360,21 @@ class ConvoyViewModel @Inject constructor(
             if (_trackActive.value && newSegs.isNotEmpty()) {
                 _routeTrailSegments.value = _routeTrailSegments.value + newSegs
             }
+        }
+        // Compute off-track nodes — any node > OFF_TRACK_MILES from nearest trail segment
+        if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
+            val threshold = ConvoyConfig.OFF_TRACK_MILES
+            val offTrack = state.nodes.filter { node ->
+                if (node.latitude == 0.0 && node.longitude == 0.0) return@filter false
+                val minDist = _routeTrailSegments.value.minOf { seg ->
+                    pointToSegmentDistanceMiles(node.latitude, node.longitude,
+                        seg.startLat, seg.startLon, seg.endLat, seg.endLon)
+                }
+                minDist > threshold
+            }.map { it.nodeId }.toSet()
+            _offTrackIds.value = offTrack
+        } else {
+            _offTrackIds.value = emptySet()
         }
         // Color route trail segments by cart positions
         _leadTrackSegments.value = if (ConvoyConfig.TRACK_MULTICOLOR) {

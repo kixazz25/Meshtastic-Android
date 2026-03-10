@@ -18,7 +18,7 @@ object ConvoyConfig {
     const val TICK_MS = 5000L
     var SIGNAL_DROP_MINUTES = 2f
     var LOST_MINUTES = 10f
-    var OFF_TRACK_MILES = 0.5f
+    var OFF_TRACK_MILES = 0.028f  // 150 feet
     var DOWNLOAD_ZOOM = 18
     var TRACK_MULTICOLOR = true
 }
