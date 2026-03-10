@@ -232,11 +232,17 @@ fun ConvoyScreen(
                 }
             },
             modifier = Modifier.fillMaxSize(),
-            update = { _ -> }
+            update = { view ->
+                view.visibility = if (viewModel.hasSeenNodes.value)
+                    android.view.View.VISIBLE else android.view.View.GONE
+            }
         )
-        // ── Convoy splash screen — shown until nodes appear once ─────────
-        if (convoyState.nodes.isNotEmpty()) viewModel.hasSeenNodes.value = true
+        // ── Convoy splash screen — 3 second timer on cold start ─────────
         val showSplash = !viewModel.hasSeenNodes.value
+        LaunchedEffect(Unit) {
+            kotlinx.coroutines.delay(3000)
+            viewModel.hasSeenNodes.value = true
+        }
         if (showSplash) {
             Box(
                 modifier = Modifier
@@ -271,15 +277,22 @@ fun ConvoyScreen(
                         fontSize = 14.sp,
                         fontFamily = FontFamily.Monospace
                     )
+                    Spacer(modifier = Modifier.height(48.dp))
+                    Text(
+                        text = "Developed by: Fred Kix",
+                        color = Color(0xFF888888),
+                        fontSize = 12.sp,
+                        fontFamily = FontFamily.Monospace
+                    )
                 }
                 Text(
                     text = "Developed by: Fred Kix",
-                    color = Color(0xFF555555),
+                    color = Color(0xFF888888),
                     fontSize = 12.sp,
                     fontFamily = FontFamily.Monospace,
                     modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(16.dp)
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 80.dp)
                 )
             }
         }
