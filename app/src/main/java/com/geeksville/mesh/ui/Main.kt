@@ -449,7 +449,7 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
     ) {
         NavHost(
             navController = navController,
-            startDestination = NodesRoutes.NodesGraph,
+            startDestination = ConvoyRoutes.Convoy,
             modifier = Modifier.fillMaxSize(),
         ) {
             contactsGraph(navController, uIViewModel.scrollToTopEventFlow)
