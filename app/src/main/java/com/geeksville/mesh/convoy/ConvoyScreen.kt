@@ -80,6 +80,8 @@ enum class RecordingState { IDLE, RECORDING, PAUSED }
 @Composable
 fun ConvoyScreen(
     onNavigateToSettings: () -> Unit = {},
+    onNavigateToCreateEvent: () -> Unit = {},
+    onNavigateToSettingsPanel: () -> Unit = {},
     viewModel: ConvoyViewModel = hiltViewModel()
 ) {
     val convoyState by viewModel.convoyState.collectAsStateWithLifecycle()
@@ -538,10 +540,12 @@ fun ConvoyScreen(
         // ── Convoy submenu bottom sheet ───────────────────────────────────────────────
         if (showConvoyMenu) {
             ConvoySubMenu(
-                sheetState        = convoyMenuSheetState,
-                onDismiss         = { showConvoyMenu = false },
-                onCreateEventRide = { showConvoyMenu = false },
-                onTransferConfig  = { showConvoyMenu = false }
+                sheetState                = convoyMenuSheetState,
+                onDismiss                 = { showConvoyMenu = false },
+                onCreateEventRide         = { showConvoyMenu = false },
+                onTransferConfig          = { showConvoyMenu = false },
+                onNavigateToCreateEvent   = onNavigateToCreateEvent,
+                onNavigateToSettingsPanel = onNavigateToSettingsPanel
             )
         }
 

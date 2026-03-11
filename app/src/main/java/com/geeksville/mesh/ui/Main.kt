@@ -82,6 +82,7 @@ import com.geeksville.mesh.navigation.channelsGraph
 import com.geeksville.mesh.navigation.connectionsGraph
 import com.geeksville.mesh.navigation.contactsGraph
 import com.geeksville.mesh.navigation.firmwareGraph
+import com.geeksville.mesh.convoy.ConvoyViewModel
 import com.geeksville.mesh.navigation.convoyGraph
 import org.meshtastic.core.navigation.ConvoyRoutes
 
@@ -162,7 +163,7 @@ enum class TopLevelDestination(val label: StringResource, val icon: ImageVector,
 @OptIn(ExperimentalMaterial3Api::class)
 @Suppress("LongMethod", "CyclomaticComplexMethod")
 @Composable
-fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerViewModel = hiltViewModel()) {
+fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerViewModel = hiltViewModel(), convoyViewModel: ConvoyViewModel = hiltViewModel()) {
     val navController = rememberNavController()
     LaunchedEffect(uIViewModel) { uIViewModel.navigationDeepLink.collectLatest { uri -> navController.navigate(uri) } }
     val connectionState by uIViewModel.connectionState.collectAsStateWithLifecycle()
@@ -455,7 +456,7 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
             contactsGraph(navController, uIViewModel.scrollToTopEventFlow)
             nodesGraph(navController, uIViewModel.scrollToTopEventFlow)
             mapGraph(navController)
-            convoyGraph(navController)
+            convoyGraph(navController, convoyViewModel)
             channelsGraph(navController)
             connectionsGraph(navController)
             settingsGraph(navController)
