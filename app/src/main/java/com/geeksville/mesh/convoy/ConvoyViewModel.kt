@@ -6,6 +6,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import org.meshtastic.core.model.MyNodeInfo
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
@@ -43,6 +44,9 @@ class ConvoyViewModel @Inject constructor(
 
     private val _convoyState = MutableStateFlow(ConvoyEngine.ConvoyState.empty())
     val convoyState: StateFlow<ConvoyEngine.ConvoyState> = _convoyState.asStateFlow()
+
+    private val _myNodeInfo = MutableStateFlow<MyNodeInfo?>(null)
+    val myNodeInfo: StateFlow<MyNodeInfo?> = _myNodeInfo.asStateFlow()
 
     // ── HUD mode ──────────────────────────────────────────────────────────
 
@@ -133,6 +137,7 @@ class ConvoyViewModel @Inject constructor(
         }
         viewModelScope.launch {
             nodeRepository.myNodeInfo.collect { info ->
+                _myNodeInfo.value = info
                 val num = info?.myNodeNum
                 if (num != null && !_simulationMode.value) {
                     _myCartId.value = "!%08x".format(num)
