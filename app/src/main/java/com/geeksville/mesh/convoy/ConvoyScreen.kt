@@ -26,6 +26,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Layers
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.SheetState
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
@@ -72,6 +76,7 @@ import org.meshtastic.core.resources.Res
  */
 enum class RecordingState { IDLE, RECORDING, PAUSED }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ConvoyScreen(
     onNavigateToSettings: () -> Unit = {},
@@ -92,6 +97,8 @@ fun ConvoyScreen(
     var showLayerMenu by remember { mutableStateOf(false) }
     var mapTypeLabel by remember { mutableStateOf("SAT") }
     var showMapSettings by remember { mutableStateOf(false) }
+    var showConvoyMenu by remember { mutableStateOf(false) }
+    val convoyMenuSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var mapZoomLevel by remember { mutableStateOf(18f) }
     var isOfflineMode by remember { mutableStateOf(false) }
     var mapInitialized by remember { mutableStateOf(false) }
@@ -520,6 +527,22 @@ fun ConvoyScreen(
                     fontFamily = FontFamily.Monospace
                 )
             }
+        }
+
+        // ── Convoy submenu bottom sheet ───────────────────────────────────────────────
+
+        // ── Convoy submenu bottom sheet ───────────────────────────────────────────────
+
+        // ── Convoy submenu bottom sheet ───────────────────────────────────────────────
+
+        // ── Convoy submenu bottom sheet ───────────────────────────────────────────────
+        if (showConvoyMenu) {
+            ConvoySubMenu(
+                sheetState        = convoyMenuSheetState,
+                onDismiss         = { showConvoyMenu = false },
+                onCreateEventRide = { showConvoyMenu = false },
+                onTransferConfig  = { showConvoyMenu = false }
+            )
         }
 
         // ── HUD strip ─────────────────────────────────────────────────────
