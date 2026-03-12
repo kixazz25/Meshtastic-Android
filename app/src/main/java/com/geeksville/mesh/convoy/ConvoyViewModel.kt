@@ -83,6 +83,7 @@ class ConvoyViewModel @Inject constructor(
     var recordingState = androidx.compose.runtime.mutableStateOf(com.geeksville.mesh.convoy.RecordingState.IDLE)
     var pendingTrackName = androidx.compose.runtime.mutableStateOf("")
     var showRecMenu = androidx.compose.runtime.mutableStateOf(false)
+    var pendingEnrollmentEmail = androidx.compose.runtime.mutableStateOf("")
     var hasSeenNodes = androidx.compose.runtime.mutableStateOf(false)
 
     // ── Persistent WebView ───────────────────────────────────────────────

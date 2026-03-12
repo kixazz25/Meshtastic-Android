@@ -31,6 +31,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -67,6 +71,8 @@ fun ConvoySettingsGate(
     onDismiss: () -> Unit
 ) {
     var password by remember { mutableStateOf("") }
+    val keyboard = LocalSoftwareKeyboardController.current
+    fun tryAuth() { keyboard?.hide(); if (sha256(password) == PASSWORD_HASH) onAuthenticated() else onDismiss() }
 
     Box(
         modifier = Modifier
@@ -105,8 +111,8 @@ fun ConvoySettingsGate(
                     value         = password,
                     onValueChange = { password = it },
                     label         = "Access Code",
-                    // Note: PasswordVisualTransformation applied via keyboardOptions
-                    // in a future pass — for now plain text entry
+                    imeAction     = ImeAction.Done,
+                    onImeAction   = { tryAuth() }
                 )
                 Spacer(Modifier.height(16.dp))
                 Row {
@@ -131,14 +137,7 @@ fun ConvoySettingsGate(
                     Surface(
                         modifier = Modifier
                             .weight(1f)
-                            .clickable {
-                                if (sha256(password) == PASSWORD_HASH) {
-                                    onAuthenticated()
-                                } else {
-                                    // Silent — no error shown
-                                    onDismiss()
-                                }
-                            },
+                            .clickable { tryAuth() },
                         shape = RoundedCornerShape(8.dp),
                         color = Color(0xFF1E3A5F)
                     ) {
