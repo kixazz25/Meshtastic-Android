@@ -49,7 +49,8 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun ConvoyMasterCaptureScreen(
     viewModel: ConvoyViewModel,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onCaptureSuccess: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val scope   = rememberCoroutineScope()
@@ -262,19 +263,42 @@ fun ConvoyMasterCaptureScreen(
                                     capturedFirmware    = ni.firmwareVersion ?: "Unknown"
                                 )
 
-                                // Save to device
-                                val deviceFile = java.io.File("C:/ConvoyProto/master_config.json")
-                                deviceFile.parentFile?.mkdirs()
-                                deviceFile.writeText(master.toJson().toString(2))
-                                log.appendLine("Saved to: ${deviceFile.absolutePath}")
+                                // ── Save to Android Downloads ────────────────
+                                val downloads = android.os.Environment.getExternalStoragePublicDirectory(
+                                    android.os.Environment.DIRECTORY_DOWNLOADS
+                                )
+                                val masterJson = master.toJson().toString(2)
+                                
+                                val masterFile = java.io.File(downloads, "master_config.json")
+                                masterFile.writeText(masterJson)
+                                log.appendLine("✓ Saved: Downloads/master_config.json")
+                                
+                                // Save apply list alongside master config
+                                val applyList = ConvoyApplyList.load(context)
+                                val applyFile = java.io.File(downloads, "convoy_apply_list.json")
+                                applyFile.writeText(applyList.toJson().toString(2))
+                                log.appendLine("✓ Saved: Downloads/convoy_apply_list.json")
+                                
+                                // ── Check PC directory ────────────────────────
+                                val pcDir = java.io.File("C:/ConvoyProto")
+                                if (pcDir.exists() && pcDir.isDirectory) {
+                                    java.io.File(pcDir, "master_config.json").writeText(masterJson)
+                                    java.io.File(pcDir, "convoy_apply_list.json")
+                                        .writeText(applyList.toJson().toString(2))
+                                    log.appendLine("✓ Copied to C:/ConvoyProto/")
+                                } else {
+                                    log.appendLine("⚠  C:/ConvoyProto/ not found")
+                                    log.appendLine("   Master NOT updated for distribution")
+                                }
+                                
                                 log.appendLine("")
-                                log.appendLine("NEXT STEP: Copy this file to")
-                                log.appendLine("app/src/main/assets/master_config.json")
-                                log.appendLine("then rebuild the APK.")
-
+                                log.appendLine("Connect PC via USB and run:")
+                                log.appendLine("  bash convoy_commit_master.sh")
+                                
                                 captureLog = log.toString()
-                                statusMsg  = "✓ Master config captured successfully."
+                                statusMsg  = "✓ Master config captured."
                                 statusOk   = true
+                                onCaptureSuccess()
                             } catch (e: Exception) {
                                 statusMsg = "✗ Capture failed: ${e.message}"
                                 statusOk  = false

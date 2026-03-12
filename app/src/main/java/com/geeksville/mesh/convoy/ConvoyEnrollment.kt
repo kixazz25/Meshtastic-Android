@@ -15,7 +15,9 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -50,13 +52,14 @@ import androidx.compose.ui.unit.sp
  */
 @Composable
 fun ConvoyEnrollmentScreen(
+    initialEmail: String = "",
     onEnrollmentComplete: () -> Unit
 ) {
     val context = LocalContext.current
 
     var firstName   by remember { mutableStateOf("") }
     var lastName    by remember { mutableStateOf("") }
-    var email       by remember { mutableStateOf("") }
+    var email       by remember { mutableStateOf(initialEmail) }
     var cellPhone   by remember { mutableStateOf("") }
     var vehicleType by remember { mutableStateOf("") }
     var userType    by remember { mutableStateOf(ConvoyUserType.RIDER) }
@@ -290,14 +293,17 @@ fun ConvoyTextField(
     onValueChange: (String) -> Unit,
     label: String,
     modifier: Modifier = Modifier.fillMaxWidth(),
-    keyboardType: KeyboardType = KeyboardType.Text
+    keyboardType: KeyboardType = KeyboardType.Text,
+    imeAction: ImeAction = ImeAction.Next,
+    onImeAction: () -> Unit = {}
 ) {
     OutlinedTextField(
         value         = value,
         onValueChange = onValueChange,
         label         = { Text(label, fontSize = 11.sp, fontFamily = FontFamily.Monospace) },
         singleLine    = true,
-        keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+        keyboardOptions = KeyboardOptions(keyboardType = keyboardType, imeAction = imeAction),
+        keyboardActions = KeyboardActions(onAny = { onImeAction() }),
         colors        = OutlinedTextFieldDefaults.colors(
             focusedBorderColor   = Color(0xFF2E75B6),
             unfocusedBorderColor = Color(0xFF2A3545),

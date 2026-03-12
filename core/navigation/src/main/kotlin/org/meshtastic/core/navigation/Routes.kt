@@ -179,4 +179,11 @@ object FirmwareRoutes {
 object ConvoyRoutes {
     @Serializable data object Convoy : Route
     @Serializable data object ConvoySettings : Route
+    @Serializable data object ConvoyEnrollment : Route
+    @Serializable data object ConvoyEmailGate   : Route
+    @Serializable data object ConvoyCreateEvent : Route
+    @Serializable data object ConvoySettingsPanel : Route
+    @Serializable data object ConvoyMasterCapture : Route
+    @Serializable data object ConvoyMasterSuccess : Route
+    @Serializable data object ConvoyApplyList     : Route
 }

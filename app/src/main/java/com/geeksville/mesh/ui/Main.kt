@@ -82,6 +82,9 @@ import com.geeksville.mesh.navigation.channelsGraph
 import com.geeksville.mesh.navigation.connectionsGraph
 import com.geeksville.mesh.navigation.contactsGraph
 import com.geeksville.mesh.navigation.firmwareGraph
+import com.geeksville.mesh.convoy.ConvoyViewModel
+import androidx.compose.material3.rememberModalBottomSheetState
+import com.geeksville.mesh.convoy.ConvoySubMenu
 import com.geeksville.mesh.navigation.convoyGraph
 import org.meshtastic.core.navigation.ConvoyRoutes
 
@@ -162,7 +165,9 @@ enum class TopLevelDestination(val label: StringResource, val icon: ImageVector,
 @OptIn(ExperimentalMaterial3Api::class)
 @Suppress("LongMethod", "CyclomaticComplexMethod")
 @Composable
-fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerViewModel = hiltViewModel()) {
+fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerViewModel = hiltViewModel(), convoyViewModel: ConvoyViewModel = hiltViewModel()) {
+    var showConvoyMenu by remember { mutableStateOf(false) }
+    val convoyMenuSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val navController = rememberNavController()
     LaunchedEffect(uIViewModel) { uIViewModel.navigationDeepLink.collectLatest { uri -> navController.navigate(uri) } }
     val connectionState by uIViewModel.connectionState.collectAsStateWithLifecycle()
@@ -434,12 +439,19 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
                                     }
                                     uIViewModel.emitScrollToTopEvent(ScrollToTopEvent.ConversationsTabPressed)
                                 }
+                                TopLevelDestination.Convoy -> {
+                                    showConvoyMenu = true
+                                }
                                 else -> Unit
                             }
                         } else {
-                            navController.navigate(destination.route) {
-                                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                                launchSingleTop = true
+                            if (destination == TopLevelDestination.Convoy) {
+                                showConvoyMenu = true
+                            } else {
+                                navController.navigate(destination.route) {
+                                    popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                    launchSingleTop = true
+                                }
                             }
                         }
                     },
@@ -449,17 +461,34 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
     ) {
         NavHost(
             navController = navController,
-            startDestination = NodesRoutes.NodesGraph,
+            startDestination = ConvoyRoutes.Convoy,
             modifier = Modifier.fillMaxSize(),
         ) {
             contactsGraph(navController, uIViewModel.scrollToTopEventFlow)
             nodesGraph(navController, uIViewModel.scrollToTopEventFlow)
             mapGraph(navController)
-            convoyGraph(navController)
+            convoyGraph(navController, convoyViewModel)
             channelsGraph(navController)
             connectionsGraph(navController)
             settingsGraph(navController)
             firmwareGraph(navController)
+        }
+
+        // ── Convoy submenu overlay ────────────────────────────────────────────
+        if (showConvoyMenu) {
+            ConvoySubMenu(
+                sheetState                = convoyMenuSheetState,
+                onDismiss                 = { showConvoyMenu = false },
+                onCreateEventRide         = { showConvoyMenu = false },
+                onTransferConfig          = { showConvoyMenu = false },
+                onNavigateToCreateEvent   = {
+                    navController.navigate(ConvoyRoutes.ConvoyEmailGate)
+                },
+                onNavigateToSettingsPanel = {
+                    showConvoyMenu = false
+                    navController.navigate(ConvoyRoutes.ConvoySettingsPanel)
+                }
+            )
         }
     }
 }

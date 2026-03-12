@@ -65,7 +65,7 @@ fun ConvoyCreateEventScreen(
     var eventName    by remember { mutableStateOf("") }
     var eventDate    by remember { mutableStateOf("") }
     var description  by remember { mutableStateOf("") }
-    var channelName  by remember { mutableStateOf("") }
+    val channelName  = remember { "CONVOY-" + (1..4).map { "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789".random() }.joinToString("") }
     var statusMsg    by remember { mutableStateOf("") }
     var statusOk     by remember { mutableStateOf(true) }
     var isProcessing by remember { mutableStateOf(false) }
@@ -73,7 +73,7 @@ fun ConvoyCreateEventScreen(
 
     val organizer    = remember { ConvoyUserStore.getActiveUser(context) }
     val masterConfig = remember { ConvoyMasterConfig.load(context) }
-    val allFilled    = eventName.isNotBlank() && eventDate.isNotBlank() && channelName.isNotBlank()
+    val allFilled    = eventName.isNotBlank() && eventDate.isNotBlank()
     val canCreate    = allFilled && organizer != null && masterConfig != null && !isProcessing
 
     Box(
@@ -180,19 +180,6 @@ fun ConvoyCreateEventScreen(
 
             Spacer(Modifier.height(20.dp))
 
-            // ── Radio channel ─────────────────────────────────────────────────
-            CellLabel("RADIO CHANNEL")
-            Spacer(Modifier.height(8.dp))
-            ConvoyTextField(value = channelName, onValueChange = { channelName = it }, label = "Channel Name")
-            Spacer(Modifier.height(6.dp))
-            Text(
-                "AES-256 key generated automatically. LoRa settings from master config.",
-                color = Color(0xFF3A4A5A), fontSize = 9.sp,
-                fontFamily = FontFamily.Monospace, modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(Modifier.height(20.dp))
-
             // ── Map area placeholder ──────────────────────────────────────────
             CellLabel("MAP AREA")
             Spacer(Modifier.height(8.dp))
@@ -251,7 +238,7 @@ fun ConvoyCreateEventScreen(
                             statusMsg = when {
                                 organizer == null    -> "Complete enrollment before creating an event."
                                 masterConfig == null -> "Master radio config missing. Contact support."
-                                else                 -> "Event Name, Date, and Channel Name are required."
+                                else                 -> "Event Name and Date are required."
                             }
                             statusOk = false
                             return@clickable
