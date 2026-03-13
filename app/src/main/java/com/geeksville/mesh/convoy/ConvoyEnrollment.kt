@@ -71,7 +71,7 @@ fun ConvoyEnrollmentScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF1A1A2E))
+            .background(Color.Transparent)
             .imePadding()
     ) {
         Column(
@@ -86,7 +86,7 @@ fun ConvoyEnrollmentScreen(
             // ── Header ────────────────────────────────────────────────────────
             Text(
                 text = "⬡",
-                color = Color(0xFF67EA94),
+                color = Color(0xFF97D5A5),
                 fontSize = 48.sp,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center
@@ -94,7 +94,7 @@ fun ConvoyEnrollmentScreen(
             Spacer(Modifier.height(8.dp))
             Text(
                 text = "CONVOY",
-                color = Color(0xFF67EA94),
+                color = Color(0xFF97D5A5),
                 fontSize = 28.sp,
                 fontFamily = FontFamily.Monospace,
                 fontWeight = FontWeight.Bold,
@@ -104,7 +104,7 @@ fun ConvoyEnrollmentScreen(
             Spacer(Modifier.height(4.dp))
             Text(
                 text = "Create Your Profile",
-                color = Color(0xFF7A8DA0),
+                color = Color(0xFF8B938A),
                 fontSize = 13.sp,
                 fontFamily = FontFamily.Monospace,
                 textAlign = TextAlign.Center
@@ -115,7 +115,7 @@ fun ConvoyEnrollmentScreen(
             // ── User Type Selection ───────────────────────────────────────────
             Text(
                 text = "I AM A",
-                color = Color(0xFF4A6080),
+                color = Color(0xFF8B938A),
                 fontSize = 10.sp,
                 fontFamily = FontFamily.Monospace,
                 fontWeight = FontWeight.Bold,
@@ -133,7 +133,7 @@ fun ConvoyEnrollmentScreen(
                             .weight(1f)
                             .clickable { userType = type },
                         shape = RoundedCornerShape(10.dp),
-                        color = if (userType == type) Color(0xFF1E3A5F) else Color(0xFF1E252F)
+                        color = if (userType == type) Color(0xFF15512C) else Color(0xFF101510)
                     ) {
                         Column(
                             modifier = Modifier.padding(12.dp),
@@ -147,7 +147,7 @@ fun ConvoyEnrollmentScreen(
                             Spacer(Modifier.height(4.dp))
                             Text(
                                 text = type.name,
-                                color = if (userType == type) Color(0xFF2E75B6) else Color(0xFF4A6080),
+                                color = if (userType == type) Color(0xFF97D5A5) else Color(0xFF8B938A),
                                 fontSize = 11.sp,
                                 fontFamily = FontFamily.Monospace,
                                 fontWeight = FontWeight.Bold,
@@ -156,7 +156,7 @@ fun ConvoyEnrollmentScreen(
                             Text(
                                 text = if (type == ConvoyUserType.ORGANIZER)
                                     "Creates rides" else "Joins rides",
-                                color = Color(0xFF3A4A5A),
+                                color = Color(0xFF8B938A),
                                 fontSize = 9.sp,
                                 fontFamily = FontFamily.Monospace,
                                 textAlign = TextAlign.Center
@@ -171,7 +171,7 @@ fun ConvoyEnrollmentScreen(
             // ── Form Fields ───────────────────────────────────────────────────
             Text(
                 text = "YOUR DETAILS",
-                color = Color(0xFF4A6080),
+                color = Color(0xFF8B938A),
                 fontSize = 10.sp,
                 fontFamily = FontFamily.Monospace,
                 fontWeight = FontWeight.Bold,
@@ -256,11 +256,11 @@ fun ConvoyEnrollmentScreen(
                         }
                     },
                 shape = RoundedCornerShape(12.dp),
-                color = if (allFilled) Color(0xFF1E3A5F) else Color(0xFF1A1F2B)
+                color = if (allFilled) Color(0xFF15512C) else Color(0xFF101510)
             ) {
                 Text(
                     text = "CREATE PROFILE",
-                    color = if (allFilled) Color(0xFF2E75B6) else Color(0xFF2A3545),
+                    color = if (allFilled) Color(0xFF97D5A5) else Color(0xFF262B26),
                     fontSize = 13.sp,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold,
@@ -274,7 +274,7 @@ fun ConvoyEnrollmentScreen(
             // ── Expiry notice ─────────────────────────────────────────────────
             Text(
                 text = "Your profile is valid for one year from creation.",
-                color = Color(0xFF2A3545),
+                color = Color(0xFF262B26),
                 fontSize = 9.sp,
                 fontFamily = FontFamily.Monospace,
                 textAlign = TextAlign.Center,
@@ -305,13 +305,13 @@ fun ConvoyTextField(
         keyboardOptions = KeyboardOptions(keyboardType = keyboardType, imeAction = imeAction),
         keyboardActions = KeyboardActions(onAny = { onImeAction() }),
         colors        = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor   = Color(0xFF2E75B6),
-            unfocusedBorderColor = Color(0xFF2A3545),
-            focusedLabelColor    = Color(0xFF2E75B6),
-            unfocusedLabelColor  = Color(0xFF4A6080),
-            focusedTextColor     = Color(0xFFE8EEF5),
-            unfocusedTextColor   = Color(0xFFE8EEF5),
-            cursorColor          = Color(0xFF2E75B6)
+            focusedBorderColor   = Color(0xFF97D5A5),
+            unfocusedBorderColor = Color(0xFF262B26),
+            focusedLabelColor    = Color(0xFF97D5A5),
+            unfocusedLabelColor  = Color(0xFF8B938A),
+            focusedTextColor     = Color(0xFFDFE4DC),
+            unfocusedTextColor   = Color(0xFFDFE4DC),
+            cursorColor          = Color(0xFF97D5A5)
         ),
         modifier = modifier
     )
