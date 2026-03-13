@@ -669,24 +669,50 @@ fun MyCartHud(
 ) {
     val myCart = state.nodes.firstOrNull { it.isMyCart }
     HudCard {
-        Spacer(Modifier.height(8.dp))
+        // Title
+        Text("My Cart  ★ HOTEL-10", color = Color(0xFFFF0000).copy(alpha = 1f), fontSize = 16.sp,
+            fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
+            letterSpacing = 2.sp, modifier = Modifier.padding(bottom = 6.dp))
         if (myCart == null) {
-            Text("MY CART not found", color = Color(0xFF7A8DA0), fontSize = 12.sp,
-                fontFamily = FontFamily.Monospace, modifier = Modifier.align(Alignment.CenterHorizontally))
+            Text("MY CART not found", color = Color(0xFFFF0000).copy(alpha = 1f), fontSize = 12.sp,
+                fontFamily = FontFamily.Monospace)
         } else {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                HudStat("SPD", "%.0f mph".format(myCart.speed_mph))
-                HudStat("HDG", "%.0f°".format(myCart.heading_deg))
-                HudStat("BAT", "${myCart.battery_pct}%",
-                    if (myCart.battery_pct <= 20) Color(0xFFFFAA00) else Color(0xFF1CF0A0))
-                HudStat("ALT", "${myCart.altitude_m}m")
+            // Row 1: Heading · Battery · Altitude
+            Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+                HudStat("Heading", "%.0f°".format(myCart.heading_deg))
+                HudStat("Battery", "${myCart.battery_pct}%")
+                HudStat("Altitude", "${myCart.altitude_m} ft")
             }
-            Spacer(Modifier.height(6.dp))
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                HudStat("AHEAD", "%.0f ft".format(myCart.feetToNodeAhead))
-                HudStat("BEHIND", "%.0f ft".format(myCart.feetToNodeBehind))
-                HudStat("TO LEAD", "%.1f mi".format(myCart.milesToLead))
-                HudStat("TO TAIL", "%.1f mi".format(myCart.milesToTail))
+            Spacer(Modifier.height(4.dp))
+            // Row 2: Speed big + 2x2 grid
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(20.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(top = 4.dp)
+            ) {
+                Column {
+                    Text("Speed", color = Color(0xFFFF0000).copy(alpha = 1f), fontSize = 11.sp,
+                        fontFamily = FontFamily.Monospace, fontWeight = FontWeight.SemiBold,
+                        letterSpacing = 1.sp)
+                    Row(verticalAlignment = Alignment.Bottom) {
+                        Text("%.0f".format(myCart.speed_mph), color = Color(0xFFFF0000).copy(alpha = 1f),
+                            fontSize = 48.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
+                            lineHeight = 48.sp)
+                        Text(" mph", color = Color(0xFFFF0000).copy(alpha = 1f), fontSize = 16.sp,
+                            fontFamily = FontFamily.Monospace,
+                            modifier = Modifier.padding(bottom = 6.dp))
+                    }
+                }
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                        HudStat("↑↑ To Lead", "%.1f mi".format(myCart.milesToLead))
+                        HudStat("↓↓ To Tail", "%.1f mi".format(myCart.milesToTail))
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                        HudStat("↑ Gap Ahead", "%.0f ft".format(myCart.feetToNodeAhead))
+                        HudStat("↓ Gap Behind", "%.0f ft".format(myCart.feetToNodeBehind))
+                    }
+                }
             }
         }
     }
@@ -700,24 +726,24 @@ fun NodeDetailHud(
     onDismiss: () -> Unit
 ) {
     HudCard {
+        // Title — cart name in its color + RETURN tap
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(bottom = 6.dp)
         ) {
+            Text(node.callsign, color = Color(0xFFFF0000).copy(alpha = 1f), fontSize = 16.sp,
+                fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
+                letterSpacing = 2.sp)
             Surface(
                 modifier = Modifier.clickable { onDismiss() },
-                shape = RoundedCornerShape(8.dp),
+                shape = RoundedCornerShape(6.dp),
                 color = Color(0xFF2E75B6)
             ) {
-                Text("RETURN", color = Color.White, fontSize = 12.sp,
+                Text("RETURN", color = Color.White, fontSize = 10.sp,
                     fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp))
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp))
             }
-            Text(node.callsign, color = Color(0xFFE8EEF5), fontSize = 14.sp,
-                fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
-            Text("[ ${node.role} ]", color = Color(0xFF7A8DA0), fontSize = 11.sp,
-                fontFamily = FontFamily.Monospace)
         }
         Spacer(Modifier.height(8.dp))
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
