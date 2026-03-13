@@ -77,7 +77,7 @@ fun ConvoySettingsGate(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF1A1A2E))
+            .background(Color.Transparent)
             .imePadding(),
         contentAlignment = Alignment.Center
     ) {
@@ -86,7 +86,7 @@ fun ConvoySettingsGate(
                 .fillMaxWidth()
                 .padding(32.dp),
             shape = RoundedCornerShape(16.dp),
-            color = Color(0xFF1A2535)
+            color = Color(0xFF1C211C)
         ) {
             Column(
                 modifier = Modifier.padding(24.dp),
@@ -100,7 +100,7 @@ fun ConvoySettingsGate(
                 Spacer(Modifier.height(12.dp))
                 Text(
                     text = "DEVELOPER ACCESS",
-                    color = Color(0xFF4A6080),
+                    color = Color(0xFF8B938A),
                     fontSize = 11.sp,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold,
@@ -121,11 +121,11 @@ fun ConvoySettingsGate(
                             .weight(1f)
                             .clickable { onDismiss() },
                         shape = RoundedCornerShape(8.dp),
-                        color = Color(0xFF1A1F2B)
+                        color = Color(0xFF101510)
                     ) {
                         Text(
                             text = "CANCEL",
-                            color = Color(0xFF4A6080),
+                            color = Color(0xFF8B938A),
                             fontSize = 11.sp,
                             fontFamily = FontFamily.Monospace,
                             fontWeight = FontWeight.Bold,
@@ -139,11 +139,11 @@ fun ConvoySettingsGate(
                             .weight(1f)
                             .clickable { tryAuth() },
                         shape = RoundedCornerShape(8.dp),
-                        color = Color(0xFF1E3A5F)
+                        color = Color(0xFF15512C)
                     ) {
                         Text(
                             text = "ENTER",
-                            color = Color(0xFF2E75B6),
+                            color = Color(0xFF97D5A5),
                             fontSize = 11.sp,
                             fontFamily = FontFamily.Monospace,
                             fontWeight = FontWeight.Bold,
@@ -170,7 +170,7 @@ fun ConvoySettingsPanelScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF1A1A2E))
+            .background(Color.Transparent)
             .imePadding()
     ) {
         Column(
@@ -188,7 +188,7 @@ fun ConvoySettingsPanelScreen(
             ) {
                 Text(
                     text     = "←",
-                    color    = Color(0xFF2E75B6),
+                    color    = Color(0xFF97D5A5),
                     fontSize = 20.sp,
                     modifier = Modifier.clickable { onBack() }.padding(end = 12.dp)
                 )
@@ -203,7 +203,7 @@ fun ConvoySettingsPanelScreen(
                 Spacer(Modifier.weight(1f))
                 Text(
                     text       = "🔒 DEV",
-                    color      = Color(0xFF4A6080),
+                    color      = Color(0xFF8B938A),
                     fontSize   = 9.sp,
                     fontFamily = FontFamily.Monospace
                 )
@@ -213,7 +213,7 @@ fun ConvoySettingsPanelScreen(
             Spacer(Modifier.height(8.dp))
             Text(
                 text       = "Select which radio fields are written to rider devices on ride install. Unchecked fields are left as-is.",
-                color      = Color(0xFF4A6080),
+                color      = Color(0xFF8B938A),
                 fontSize   = 10.sp,
                 fontFamily = FontFamily.Monospace,
                 modifier   = Modifier.fillMaxWidth()
@@ -271,7 +271,7 @@ fun ConvoySettingsPanelScreen(
             ) {
                 Text(
                     text       = "SAVE APPLY LIST",
-                    color      = Color(0xFF67EA94),
+                    color      = Color(0xFF97D5A5),
                     fontSize   = 13.sp,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold,
@@ -284,7 +284,7 @@ fun ConvoySettingsPanelScreen(
                 Spacer(Modifier.height(8.dp))
                 Text(
                     text       = savedMsg,
-                    color      = Color(0xFF67EA94),
+                    color      = Color(0xFF97D5A5),
                     fontSize   = 11.sp,
                     fontFamily = FontFamily.Monospace,
                     modifier   = Modifier.fillMaxWidth()
@@ -301,7 +301,7 @@ fun ConvoySettingsPanelScreen(
                     .fillMaxWidth()
                     .clickable { onNavigateToCapture() },
                 shape = RoundedCornerShape(12.dp),
-                color = Color(0xFF1A1F2B)
+                color = Color(0xFF101510)
             ) {
                 Column(modifier = Modifier.padding(14.dp)) {
                     Text(
@@ -313,7 +313,7 @@ fun ConvoySettingsPanelScreen(
                     )
                     Text(
                         text       = "Connect your radio and capture its full config as the master template. One-time operation.",
-                        color      = Color(0xFF4A6080),
+                        color      = Color(0xFF8B938A),
                         fontSize   = 10.sp,
                         fontFamily = FontFamily.Monospace
                     )
@@ -357,22 +357,22 @@ private fun FieldCheckRow(
             checked         = checked,
             onCheckedChange = { onToggle() },
             colors          = CheckboxDefaults.colors(
-                checkedColor   = Color(0xFF2E75B6),
-                uncheckedColor = Color(0xFF2A3545)
+                checkedColor   = Color(0xFF97D5A5),
+                uncheckedColor = Color(0xFF262B26)
             )
         )
         Spacer(Modifier.width(8.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text       = label,
-                color      = if (checked) Color(0xFFE8EEF5) else Color(0xFF4A6080),
+                color      = if (checked) Color(0xFFDFE4DC) else Color(0xFF8B938A),
                 fontSize   = 12.sp,
                 fontFamily = FontFamily.Monospace,
                 fontWeight = if (checked) FontWeight.Bold else FontWeight.Normal
             )
             Text(
                 text       = description,
-                color      = Color(0xFF2A3545),
+                color      = Color(0xFF262B26),
                 fontSize   = 9.sp,
                 fontFamily = FontFamily.Monospace
             )

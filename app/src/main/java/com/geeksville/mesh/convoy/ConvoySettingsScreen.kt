@@ -39,6 +39,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.geeksville.mesh.convoy.ConvoyViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlin.math.roundToInt
 
@@ -46,9 +47,11 @@ import kotlin.math.roundToInt
 @Composable
 fun ConvoySettingsScreen(
     onNavigateBack: () -> Unit,
-    viewModel: ConvoySettingsViewModel = hiltViewModel()
+    viewModel: ConvoySettingsViewModel = hiltViewModel(),
+    convoyViewModel: ConvoyViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val trackLeadOnly by convoyViewModel.trackLeadOnly.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(uiState.userMessage) {
@@ -159,6 +162,29 @@ fun ConvoySettingsScreen(
                 )
             }
 
+            Spacer(Modifier.height(8.dp))
+
+            // ── Track Recording ───────────────────────────────────────────
+            SectionLabel("Track Recording")
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text("Lead Cart Only", style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        text = if (trackLeadOnly) "Recording lead cart track only" else "Recording all carts",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = trackLeadOnly,
+                    onCheckedChange = { convoyViewModel.toggleLeadOnly() }
+                )
+            }
+            HorizontalDivider()
             Spacer(Modifier.height(8.dp))
 
             // ── Removed Carts ─────────────────────────────────────────────

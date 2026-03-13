@@ -66,7 +66,7 @@ fun ConvoyMasterCaptureScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF1A1A2E))
+            .background(Color.Transparent)
     ) {
         Column(
             modifier = Modifier
@@ -84,7 +84,7 @@ fun ConvoyMasterCaptureScreen(
             ) {
                 Text(
                     text     = "←",
-                    color    = Color(0xFF2E75B6),
+                    color    = Color(0xFF97D5A5),
                     fontSize = 20.sp,
                     modifier = Modifier.clickable { onBack() }.padding(end = 12.dp)
                 )
@@ -131,12 +131,12 @@ fun ConvoyMasterCaptureScreen(
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shape    = RoundedCornerShape(10.dp),
-                color    = Color(0xFF1A2535)
+                color    = Color(0xFF1C211C)
             ) {
                 Column(modifier = Modifier.padding(14.dp)) {
                     Text(
                         "CONNECTED RADIO",
-                        color      = Color(0xFF4A6080),
+                        color      = Color(0xFF8B938A),
                         fontSize   = 10.sp,
                         fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.Bold,
@@ -146,20 +146,20 @@ fun ConvoyMasterCaptureScreen(
                     if (isConnected) {
                         Text(
                             "● CONNECTED",
-                            color      = Color(0xFF67EA94),
+                            color      = Color(0xFF97D5A5),
                             fontSize   = 12.sp,
                             fontFamily = FontFamily.Monospace,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
                             "${nodeInfo!!.model ?: "Unknown"}  •  fw ${nodeInfo.firmwareVersion ?: "Unknown"}",
-                            color      = Color(0xFF4A6080),
+                            color      = Color(0xFF8B938A),
                             fontSize   = 10.sp,
                             fontFamily = FontFamily.Monospace
                         )
                         Text(
                             "ID: ${"!%08x".format(nodeInfo.myNodeNum)}  •  GPS: ${nodeInfo.hasGPS}  •  WiFi: ${nodeInfo.hasWifi}",
-                            color      = Color(0xFF4A6080),
+                            color      = Color(0xFF8B938A),
                             fontSize   = 10.sp,
                             fontFamily = FontFamily.Monospace
                         )
@@ -173,7 +173,7 @@ fun ConvoyMasterCaptureScreen(
                         )
                         Text(
                             "Connect your master radio via Bluetooth before capturing.",
-                            color      = Color(0xFF4A6080),
+                            color      = Color(0xFF8B938A),
                             fontSize   = 10.sp,
                             fontFamily = FontFamily.Monospace
                         )
@@ -192,7 +192,7 @@ fun ConvoyMasterCaptureScreen(
                 ) {
                     Text(
                         text       = captureLog,
-                        color      = Color(0xFF67EA94),
+                        color      = Color(0xFF97D5A5),
                         fontSize   = 10.sp,
                         fontFamily = FontFamily.Monospace,
                         modifier   = Modifier.padding(14.dp)
@@ -210,7 +210,7 @@ fun ConvoyMasterCaptureScreen(
                 ) {
                     Text(
                         text       = statusMsg,
-                        color      = if (statusOk) Color(0xFF67EA94) else Color(0xFFF44336),
+                        color      = if (statusOk) Color(0xFF97D5A5) else Color(0xFFF44336),
                         fontSize   = 11.sp,
                         fontFamily = FontFamily.Monospace,
                         modifier   = Modifier.padding(12.dp)
@@ -308,11 +308,11 @@ fun ConvoyMasterCaptureScreen(
                         }
                     },
                 shape = RoundedCornerShape(12.dp),
-                color = if (isConnected && !isCapturing) Color(0xFF2A3A1A) else Color(0xFF1A1F2B)
+                color = if (isConnected && !isCapturing) Color(0xFF2A3A1A) else Color(0xFF101510)
             ) {
                 Text(
                     text       = if (isCapturing) "CAPTURING..." else "CAPTURE MASTER CONFIG",
-                    color      = if (isConnected && !isCapturing) Color(0xFF67EA94) else Color(0xFF2A3545),
+                    color      = if (isConnected && !isCapturing) Color(0xFF97D5A5) else Color(0xFF262B26),
                     fontSize   = 13.sp,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold,

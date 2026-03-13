@@ -79,7 +79,7 @@ fun ConvoyCreateEventScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF1A1A2E))
+            .background(Color.Transparent)
             .imePadding()
     ) {
         Column(
@@ -98,13 +98,13 @@ fun ConvoyCreateEventScreen(
             ) {
                 Text(
                     text     = "←",
-                    color    = Color(0xFF2E75B6),
+                    color    = Color(0xFF97D5A5),
                     fontSize = 20.sp,
                     modifier = Modifier.clickable { onBack() }.padding(end = 12.dp)
                 )
                 Text(
                     text       = "CREATE EVENT / RIDE",
-                    color      = Color(0xFF67EA94),
+                    color      = Color(0xFF97D5A5),
                     fontSize   = 14.sp,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold,
@@ -112,7 +112,7 @@ fun ConvoyCreateEventScreen(
                 )
             }
             Spacer(Modifier.height(6.dp))
-            Box(Modifier.fillMaxWidth().height(1.dp).background(Color(0xFF1E3A5F)))
+            Box(Modifier.fillMaxWidth().height(1.dp).background(Color(0xFF15512C)))
             Spacer(Modifier.height(20.dp))
 
             // ── Master config warning ─────────────────────────────────────────
@@ -129,19 +129,19 @@ fun ConvoyCreateEventScreen(
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     shape    = RoundedCornerShape(10.dp),
-                    color    = Color(0xFF1A2535)
+                    color    = Color(0xFF1C211C)
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
                         CellLabel("ORGANIZER")
                         Spacer(Modifier.height(4.dp))
                         Text(
                             "${organizer.firstName} ${organizer.lastName}",
-                            color = Color(0xFFE8EEF5), fontSize = 13.sp,
+                            color = Color(0xFFDFE4DC), fontSize = 13.sp,
                             fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold
                         )
-                        Text(organizer.email,       color = Color(0xFF4A6080), fontSize = 11.sp, fontFamily = FontFamily.Monospace)
-                        Text(organizer.cellPhone,   color = Color(0xFF4A6080), fontSize = 11.sp, fontFamily = FontFamily.Monospace)
-                        Text(organizer.vehicleType, color = Color(0xFF2E75B6), fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                        Text(organizer.email,       color = Color(0xFF8B938A), fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                        Text(organizer.cellPhone,   color = Color(0xFF8B938A), fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                        Text(organizer.vehicleType, color = Color(0xFF97D5A5), fontSize = 11.sp, fontFamily = FontFamily.Monospace)
                     }
                 }
                 Spacer(Modifier.height(16.dp))
@@ -161,9 +161,9 @@ fun ConvoyCreateEventScreen(
                         CellLabel("RADIO CONFIG  (master)")
                         Spacer(Modifier.height(4.dp))
                         Text("${masterConfig.hardwareModel}  •  fw ${masterConfig.firmwareVersion}",
-                            color = Color(0xFF4A6080), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                            color = Color(0xFF8B938A), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
                         Text("Region: ${masterConfig.loraRegion}  •  ${masterConfig.loraModemPreset}  •  ${masterConfig.loraTxPower} dBm",
-                            color = Color(0xFF4A6080), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                            color = Color(0xFF8B938A), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
                     }
                 }
                 Spacer(Modifier.height(16.dp))
@@ -186,7 +186,7 @@ fun ConvoyCreateEventScreen(
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shape    = RoundedCornerShape(10.dp),
-                color    = Color(0xFF1A2535)
+                color    = Color(0xFF1C211C)
             ) {
                 Column(
                     modifier = Modifier.padding(16.dp),
@@ -194,11 +194,11 @@ fun ConvoyCreateEventScreen(
                 ) {
                     Text("🗺", fontSize = 32.sp, textAlign = TextAlign.Center)
                     Spacer(Modifier.height(6.dp))
-                    Text("MAP AREA SELECTOR", color = Color(0xFF2A3545),
+                    Text("MAP AREA SELECTOR", color = Color(0xFF262B26),
                         fontSize = 11.sp, fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
                     Text("Offline tile package — coming in V3",
-                        color = Color(0xFF2A3545), fontSize = 9.sp,
+                        color = Color(0xFF262B26), fontSize = 9.sp,
                         fontFamily = FontFamily.Monospace, textAlign = TextAlign.Center)
                 }
             }
@@ -303,11 +303,11 @@ fun ConvoyCreateEventScreen(
                         }
                     },
                 shape = RoundedCornerShape(12.dp),
-                color = if (canCreate) Color(0xFF1E3A5F) else Color(0xFF1A1F2B)
+                color = if (canCreate) Color(0xFF15512C) else Color(0xFF101510)
             ) {
                 Text(
                     text       = if (isProcessing) "PROCESSING..." else "CREATE EVENT + WRITE RADIO",
-                    color      = if (canCreate) Color(0xFF2E75B6) else Color(0xFF2A3545),
+                    color      = if (canCreate) Color(0xFF97D5A5) else Color(0xFF262B26),
                     fontSize   = 13.sp,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold,
@@ -325,7 +325,7 @@ fun ConvoyCreateEventScreen(
 private fun CellLabel(text: String) {
     Text(
         text          = text,
-        color         = Color(0xFF4A6080),
+        color         = Color(0xFF8B938A),
         fontSize      = 10.sp,
         fontFamily    = FontFamily.Monospace,
         fontWeight    = FontWeight.Bold,
@@ -337,9 +337,9 @@ private fun CellLabel(text: String) {
 @Composable
 private fun RadioStep(label: String, active: Boolean, done: Boolean) {
     val color = when {
-        done   -> Color(0xFF67EA94)
-        active -> Color(0xFF2E75B6)
-        else   -> Color(0xFF2A3545)
+        done   -> Color(0xFF97D5A5)
+        active -> Color(0xFF97D5A5)
+        else   -> Color(0xFF262B26)
     }
     val prefix = when {
         done   -> "✓ "
@@ -364,7 +364,7 @@ private fun StatusBanner(msg: String, ok: Boolean) {
     ) {
         Text(
             text       = msg,
-            color      = if (ok) Color(0xFF67EA94) else Color(0xFFF44336),
+            color      = if (ok) Color(0xFF97D5A5) else Color(0xFFF44336),
             fontSize   = 11.sp,
             fontFamily = FontFamily.Monospace,
             modifier   = Modifier.padding(12.dp)
