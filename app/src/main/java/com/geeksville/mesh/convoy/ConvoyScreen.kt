@@ -615,39 +615,6 @@ fun GroupHud(
                     HudStat("LEAD", state.lead?.callsign ?: "--", Color(0xFF1CF0A0))
                     HudStat("TAIL", state.tail?.callsign ?: "--", Color(0xFFFF8C42))
                 }
-                Spacer(Modifier.height(6.dp))
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                    Surface(
-                        modifier = Modifier.clickable { if (trackActive) onStopTrack() else onStartTrack() },
-                        shape = RoundedCornerShape(6.dp),
-                        color = if (trackActive) Color(0xFFCC0000) else Color(0xFF1A6B3A),
-                        shadowElevation = 4.dp
-                    ) {
-                        Text(
-                            text = if (trackActive) "STOP TRACK" else "START TRACK",
-                            color = Color.White,
-                            fontSize = 10.sp,
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                        )
-                    }
-                    Surface(
-                        modifier = Modifier.clickable { onToggleLeadOnly() },
-                        shape = RoundedCornerShape(6.dp),
-                        color = if (trackLeadOnly) Color(0xFF1F4E79) else Color(0xFF4A4A4A),
-                        shadowElevation = 4.dp
-                    ) {
-                        Text(
-                            text = if (trackLeadOnly) "LEAD ONLY" else "ALL CARTS",
-                            color = Color.White,
-                            fontSize = 10.sp,
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                        )
-                    }
-                }
             }
             // Right 1/4 — SPAN large
             Column(
