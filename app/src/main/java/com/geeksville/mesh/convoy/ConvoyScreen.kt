@@ -318,7 +318,7 @@ fun ConvoyScreen(
                 Surface(
                     modifier = Modifier.clickable {
                         when (recordingState) {
-                            RecordingState.IDLE -> { pendingTrackName = ""; showNameDialog = true }
+                            RecordingState.IDLE -> { pendingTrackName = ""; showNameDialog = true; viewModel.startGroupTrack(); android.widget.Toast.makeText(context, "Group track started", android.widget.Toast.LENGTH_LONG).show() }
                             RecordingState.RECORDING -> { showRecMenu = true }
                             RecordingState.PAUSED -> showRecMenu = true
                         }
@@ -372,6 +372,7 @@ fun ConvoyScreen(
                             showRecMenu = false
                             pendingTrackName = ""
                             viewModel.stopRecording()
+                            viewModel.stopGroupTrack()
                         },
                         shape = RoundedCornerShape(10.dp),
                         color = Color(0xFF4A0000),
