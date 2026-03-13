@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -54,6 +55,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -550,8 +552,16 @@ fun ConvoyScreen(
             )
         }
 
+        // ── Button bar ────────────────────────────────────────────────────
+        ConvoyButtonBar(
+            hudMode = hudMode,
+            onModeChange = { viewModel.setHudMode(it) },
+            onNavigateToSettings = onNavigateToSettings,
+            modifier = Modifier.align(Alignment.BottomCenter)
+        )
+
         // ── HUD strip ─────────────────────────────────────────────────────
-        Box(modifier = Modifier.align(Alignment.BottomCenter)) {
+        Box(modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 48.dp)) {
             when (hudMode) {
                 HudMode.GROUP -> GroupHud(
                     state = convoyState,
@@ -883,6 +893,82 @@ fun HudModeRow(current: HudMode, onModeChange: (HudMode) -> Unit, onNavigateToSe
                 fontFamily = FontFamily.Monospace,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
+            )
+        }
+    }
+}
+
+// ── CONVOY BUTTON BAR ─────────────────────────────────────────────────────────
+
+@Composable
+fun ConvoyButtonBar(
+    hudMode: HudMode,
+    onModeChange: (HudMode) -> Unit,
+    onNavigateToSettings: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(48.dp)
+            .background(Color(0xFF2B2930))
+            .drawBehind {
+                drawLine(
+                    color = Color(0xFF67EA94),
+                    start = androidx.compose.ui.geometry.Offset(0f, 0f),
+                    end = androidx.compose.ui.geometry.Offset(size.width, 0f),
+                    strokeWidth = 2f
+                )
+            },
+        horizontalArrangement = Arrangement.spacedBy(0.dp)
+    ) {
+        listOf(
+            Triple("GROUP", HudMode.GROUP, { onModeChange(HudMode.GROUP) }),
+            Triple("MY CART", HudMode.MY_CART, { onModeChange(HudMode.MY_CART) }),
+            Triple("HIDE", HudMode.COLLAPSED, { onModeChange(HudMode.COLLAPSED) }),
+        ).forEach { (label, mode, action) ->
+            val isActive = hudMode == mode
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .background(if (isActive) Color(0x1A67EA94) else Color.Transparent)
+                    .clickable { action() }
+                    .drawBehind {
+                        drawLine(
+                            color = Color(0xFF49454F),
+                            start = androidx.compose.ui.geometry.Offset(size.width, 0f),
+                            end = androidx.compose.ui.geometry.Offset(size.width, size.height),
+                            strokeWidth = 1f
+                        )
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = label,
+                    color = if (isActive) Color(0xFF67EA94) else Color(0xFFCAC4D0),
+                    fontSize = 10.sp,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = if (isActive) FontWeight.Bold else FontWeight.SemiBold,
+                    letterSpacing = 0.5.sp
+                )
+            }
+        }
+        // GEAR button
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight()
+                .background(Color.Transparent)
+                .clickable { onNavigateToSettings() },
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "⚙",
+                color = Color(0xFFCAC4D0),
+                fontSize = 14.sp,
+                fontFamily = FontFamily.Monospace,
+                fontWeight = FontWeight.Bold
             )
         }
     }
