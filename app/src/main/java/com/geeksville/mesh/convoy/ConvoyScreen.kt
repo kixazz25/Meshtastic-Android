@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -561,7 +562,7 @@ fun ConvoyScreen(
         )
 
         // ── HUD strip ─────────────────────────────────────────────────────
-        Box(modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 48.dp)) {
+        Box(modifier = Modifier.align(Alignment.BottomStart).padding(bottom = 48.dp)) {
             when (hudMode) {
                 HudMode.GROUP -> GroupHud(
                     state = convoyState,
@@ -611,34 +612,47 @@ fun GroupHud(
     onToggleLeadOnly: () -> Unit = {}
 ) {
     HudCard {
-        HudModeRow(current = HudMode.GROUP, onModeChange = onModeChange, onNavigateToSettings = onNavigateToSettings)
-        Spacer(Modifier.height(8.dp))
-        Row(modifier = Modifier.fillMaxWidth()) {
-            // Left 3/4 — stats grid
-            Column(modifier = Modifier.weight(3f)) {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                    HudStat("UNITS", "${state.nodes.size}")
-                    HudStat("ACTIVE", "${state.activeCount}", Color(0xFF00AA00))
-                    HudStat("LOST", "${state.lostCount}", if (state.lostCount > 0) Color(0xFFF44336) else Color(0xFF7A8DA0))
-                }
-                Spacer(Modifier.height(6.dp))
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                    HudStat("LEAD", state.lead?.callsign ?: "--", Color(0xFF1CF0A0))
-                    HudStat("TAIL", state.tail?.callsign ?: "--", Color(0xFFFF8C42))
+        // Title
+        Text("GROUP", color = Color(0xFFFF0000).copy(alpha = 1f), fontSize = 16.sp,
+            fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
+            letterSpacing = 2.sp, modifier = Modifier.padding(bottom = 6.dp))
+        // Row 1: Carts · Active · Lost
+        Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+            HudStat("Carts", "${state.nodes.size}")
+            HudStat("Active", "${state.activeCount}")
+            HudStat("Lost", "${state.lostCount}")
+        }
+        Spacer(Modifier.height(4.dp))
+        // Row 2: Span big + Lead + Tail
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(20.dp),
+            verticalAlignment = Alignment.Bottom,
+            modifier = Modifier.padding(top = 4.dp)
+        ) {
+            Column {
+                Text("SPAN", color = Color(0xFFFF0000).copy(alpha = 1f), fontSize = 11.sp,
+                    fontFamily = FontFamily.Monospace, fontWeight = FontWeight.SemiBold,
+                    letterSpacing = 1.sp)
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Text("%.1f".format(state.span_miles), color = Color(0xFFFF0000).copy(alpha = 1f),
+                        fontSize = 48.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
+                        lineHeight = 48.sp)
+                    Text(" mi", color = Color(0xFFFF0000).copy(alpha = 1f), fontSize = 16.sp,
+                        fontFamily = FontFamily.Monospace,
+                        modifier = Modifier.padding(bottom = 6.dp))
                 }
             }
-            // Right 1/4 — SPAN large
-            Column(
-                modifier = Modifier.weight(1f),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                Text("SPAN", color = Color(0xFF4A6080), fontSize = 9.sp,
-                    fontFamily = FontFamily.Monospace)
-                Text("%.1f".format(state.span_miles), color = Color(0xFFE8EEF5),
-                    fontSize = 26.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
-                Text("mi", color = Color(0xFF4A6080), fontSize = 10.sp,
-                    fontFamily = FontFamily.Monospace)
+            Column(modifier = Modifier.padding(bottom = 4.dp)) {
+                Text("▲ Lead", color = Color(0xFFFF0000).copy(alpha = 1f), fontSize = 11.sp,
+                    fontFamily = FontFamily.Monospace, fontWeight = FontWeight.SemiBold)
+                Text(state.lead?.callsign ?: "--", color = Color(0xFF1CF0A0),
+                    fontSize = 13.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+            }
+            Column(modifier = Modifier.padding(bottom = 4.dp)) {
+                Text("▽ Tail", color = Color(0xFFFF0000).copy(alpha = 1f), fontSize = 11.sp,
+                    fontFamily = FontFamily.Monospace, fontWeight = FontWeight.SemiBold)
+                Text(state.tail?.callsign ?: "--", color = Color(0xFFFF8C42),
+                    fontSize = 13.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -655,7 +669,6 @@ fun MyCartHud(
 ) {
     val myCart = state.nodes.firstOrNull { it.isMyCart }
     HudCard {
-        HudModeRow(current = HudMode.MY_CART, onModeChange = onModeChange, onNavigateToSettings = onNavigateToSettings)
         Spacer(Modifier.height(8.dp))
         if (myCart == null) {
             Text("MY CART not found", color = Color(0xFF7A8DA0), fontSize = 12.sp,
@@ -807,21 +820,21 @@ fun ContactLostBanner(lostCount: Int, lostNames: List<String> = emptyList(), mod
 
 @Composable
 fun HudCard(content: @Composable ColumnScope.() -> Unit) {
-    Card(
-        modifier = Modifier.fillMaxWidth().padding(8.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF1E252F)),
-        shape = RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(8.dp)
-    ) {
-        Column(modifier = Modifier.padding(12.dp), content = content)
-    }
+    Column(
+        modifier = Modifier
+            .wrapContentWidth()
+            .padding(start = 16.dp, bottom = 12.dp),
+        content = content
+    )
 }
 
 @Composable
-fun HudStat(label: String, value: String, valueColor: Color = Color(0xFFE8EEF5)) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(label, color = Color(0xFF4A6080), fontSize = 9.sp, fontFamily = FontFamily.Monospace)
-        Text(value, color = valueColor, fontSize = 13.sp,
+fun HudStat(label: String, value: String, valueColor: Color = Color(0xFFFF0000).copy(alpha = 1f)) {
+    Column(horizontalAlignment = Alignment.Start) {
+        Text(label, color = Color(0xFFFF0000).copy(alpha = 1f), fontSize = 11.sp,
+            fontFamily = FontFamily.Monospace, fontWeight = FontWeight.SemiBold,
+            letterSpacing = 1.sp)
+        Text(value, color = valueColor, fontSize = 11.sp,
             fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
     }
 }
