@@ -889,7 +889,7 @@ fun HudModeRow(current: HudMode, onModeChange: (HudMode) -> Unit, onNavigateToSe
         }
         // HIDE button
         Surface(
-            modifier = Modifier.clickable { onModeChange(HudMode.COLLAPSED) },
+            modifier = Modifier.weight(1f).clickable { onModeChange(HudMode.COLLAPSED) },
             shape = RoundedCornerShape(10.dp),
             color = Color(0xFF2A3545)
         ) {
@@ -904,7 +904,7 @@ fun HudModeRow(current: HudMode, onModeChange: (HudMode) -> Unit, onNavigateToSe
         }
         // SETTINGS gear button
         Surface(
-            modifier = Modifier.clickable { onNavigateToSettings() },
+            modifier = Modifier.weight(1f).clickable { onNavigateToSettings() },
             shape = RoundedCornerShape(10.dp),
             color = Color(0xFF2A3545)
         ) {
