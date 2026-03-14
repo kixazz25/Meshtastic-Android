@@ -173,21 +173,23 @@ data class ConvoyEventConfig(
  * Directory: C:/ConvoyProto/events/
  */
 object ConvoyEventStore {
-    private const val EVENTS_DIR = "C:/ConvoyProto/events"
-
-    fun eventsDir(): java.io.File = java.io.File(EVENTS_DIR).also { it.mkdirs() }
-
-    fun save(event: ConvoyEventConfig) {
+    private const val EVENTS_DIR = "convoy_events"
+    fun eventsDir(context: android.content.Context): java.io.File =
+        java.io.File(context.filesDir, EVENTS_DIR).also { it.mkdirs() }
+    fun save(context: android.content.Context, event: ConvoyEventConfig) {
         val safeName = event.eventName.replace(Regex("[^a-zA-Z0-9_-]"), "_")
-        val fileName = "${event.eventId}_${safeName}_${event.eventDate}.json"
-        java.io.File(eventsDir(), fileName).writeText(event.toJson().toString(2))
+        val safeDate = event.eventDate.replace("/", "-").replace(" ", "_")
+        val fileName = "${event.eventId}_${safeName}_${safeDate}.json"
+        val file = java.io.File(eventsDir(context), fileName)
+        file.parentFile?.mkdirs()
+        file.writeText(event.toJson().toString(2))
     }
-
-    fun loadAll(): List<ConvoyEventConfig> {
-        return eventsDir().listFiles { f -> f.extension == "json" }
+    fun loadAll(context: android.content.Context): List<ConvoyEventConfig> {
+        return eventsDir(context).listFiles { f -> f.extension == "json" }
             ?.mapNotNull {
                 try { ConvoyEventConfig.fromJson(org.json.JSONObject(it.readText())) }
                 catch (e: Exception) { null }
             } ?: emptyList()
     }
 }
+

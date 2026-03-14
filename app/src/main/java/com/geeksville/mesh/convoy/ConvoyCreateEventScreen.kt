@@ -66,6 +66,7 @@ fun ConvoyCreateEventScreen(
     var eventDate    by remember { mutableStateOf("") }
     var description  by remember { mutableStateOf("") }
     val channelName  = remember { "CONVOY-" + (1..4).map { "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789".random() }.joinToString("") }
+    var savedPsk     by remember { mutableStateOf("") }
     var statusMsg    by remember { mutableStateOf("") }
     var statusOk     by remember { mutableStateOf(true) }
     var isProcessing by remember { mutableStateOf(false) }
@@ -215,16 +216,53 @@ fun ConvoyCreateEventScreen(
                     Column(modifier = Modifier.padding(14.dp)) {
                         CellLabel("RADIO PROCESSING")
                         Spacer(Modifier.height(8.dp))
-                        RadioStep("① Reading current radio config",  step >= 1, step > 1)
-                        RadioStep("② Backing up config to storage",  step >= 2, step > 2)
-                        RadioStep("③ Writing convoy channel to radio",step >= 3, step > 3)
+                        RadioStep("① Reading device info",            step >= 1, step > 1)
+                        RadioStep("② Generating channel and PSK",     step >= 2, step > 2)
+                        RadioStep("③ Saving ride config",             step >= 3, step > 3)
                     }
                 }
                 Spacer(Modifier.height(16.dp))
             }
 
+            // ── Step 4: Success confirmation ──────────────────────────────────
+            if (step == 4) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape    = RoundedCornerShape(12.dp),
+                    color    = Color(0xFF0D2010)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text("\u2713 EVENT CREATED", color = Color(0xFF97D5A5), fontSize = 13.sp,
+                            fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(10.dp))
+                        Text("Channel Name", color = Color(0xFF8B938A), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                        Text(channelName, color = Color(0xFFE8EEF5), fontSize = 12.sp,
+                            fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(8.dp))
+                        Text("Encryption Key (PSK)", color = Color(0xFF8B938A), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                        Text(savedPsk, color = Color(0xFFE8EEF5), fontSize = 10.sp,
+                            fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(8.dp))
+                        Text("Saved To", color = Color(0xFF8B938A), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                        Text("Internal storage / convoy_events /", color = Color(0xFFE8EEF5),
+                            fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                        Spacer(Modifier.height(16.dp))
+                        Surface(
+                            modifier = Modifier.fillMaxWidth().clickable { onBack() },
+                            shape    = RoundedCornerShape(10.dp),
+                            color    = Color(0xFF2E75B6)
+                        ) {
+                            Text("PROCEED \u2192", color = Color.White, fontSize = 13.sp,
+                                fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
+                                textAlign  = androidx.compose.ui.text.style.TextAlign.Center,
+                                modifier   = Modifier.padding(vertical = 14.dp))
+                        }
+                    }
+                }
+                Spacer(Modifier.height(16.dp))
+            }
             // ── Status message ────────────────────────────────────────────────
-            if (statusMsg.isNotBlank()) {
+            if (statusMsg.isNotBlank() && step != 4) {
                 StatusBanner(msg = statusMsg, ok = statusOk)
                 Spacer(Modifier.height(16.dp))
             }
@@ -268,6 +306,7 @@ fun ConvoyCreateEventScreen(
                                 val pskBytes = ByteArray(32)
                                 SecureRandom().nextBytes(pskBytes)
                                 val psk = Base64.encodeToString(pskBytes, Base64.NO_WRAP)
+                                savedPsk = psk
 
                                 // Save event config
                                 val event = ConvoyEventConfig.createFromMaster(
@@ -281,7 +320,7 @@ fun ConvoyCreateEventScreen(
                                     channelName     = channelName,
                                     channelPsk      = psk
                                 )
-                                ConvoyEventStore.save(event)
+                                ConvoyEventStore.save(context, event)
 
                                 // Pair device to user silently
                                 if (hwId != "unknown") {
@@ -289,10 +328,7 @@ fun ConvoyCreateEventScreen(
                                 }
 
                                 step      = 4
-                                statusMsg = "✓ Event created\n" +
-                                            "  Channel: $channelName\n" +
-                                            "  Backup saved  |  Radio updated\n" +
-                                            "  Ready to transfer to riders via F2"
+                                statusMsg = ""
                                 statusOk  = true
                             } catch (e: Exception) {
                                 statusMsg = "✗ Error: ${e.message}"

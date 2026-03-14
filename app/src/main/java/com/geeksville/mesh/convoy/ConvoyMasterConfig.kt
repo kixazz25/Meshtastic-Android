@@ -56,7 +56,7 @@ data class ConvoyMasterConfig(
     companion object {
         private const val TAG          = "ConvoyMasterConfig"
         private const val ASSET_FILE   = "master_config.json"
-        private const val DEVICE_PATH  = "C:/ConvoyProto/master_config.json"
+        private const val DEVICE_FILE  = "master_config.json"
 
         fun fromJson(obj: JSONObject) = ConvoyMasterConfig(
             hardwareModel      = obj.optString("hardwareModel", "Unknown"),
@@ -82,7 +82,7 @@ data class ConvoyMasterConfig(
          * Returns null only if asset is also missing (should never happen in release).
          */
         fun load(context: Context): ConvoyMasterConfig? {
-            val deviceFile = File(DEVICE_PATH)
+            val deviceFile = File(context.filesDir, DEVICE_FILE)
 
             // Try device file first
             if (deviceFile.exists()) {
@@ -108,7 +108,7 @@ data class ConvoyMasterConfig(
             return try {
                 val json = context.assets.open(ASSET_FILE)
                     .bufferedReader().use { it.readText() }
-                File(DEVICE_PATH).also {
+                File(context.filesDir, DEVICE_FILE).also {
                     it.parentFile?.mkdirs()
                     it.writeText(json)
                 }
@@ -124,7 +124,7 @@ data class ConvoyMasterConfig(
          * Check if master config is present — device or asset.
          */
         fun exists(context: Context): Boolean {
-            if (File(DEVICE_PATH).exists()) return true
+            if (File(context.filesDir, DEVICE_FILE).exists()) return true
             return try {
                 context.assets.open(ASSET_FILE).close()
                 true
