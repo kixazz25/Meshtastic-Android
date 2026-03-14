@@ -487,6 +487,10 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
                 onNavigateToSettingsPanel = {
                     showConvoyMenu = false
                     navController.navigate(ConvoyRoutes.ConvoySettingsPanel)
+                },
+                onNavigateToApplyList = {
+                    showConvoyMenu = false
+                    navController.navigate(ConvoyRoutes.ConvoyApplyRadio)
                 }
             )
         }

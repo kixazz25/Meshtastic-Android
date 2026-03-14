@@ -49,7 +49,8 @@ fun ConvoySubMenu(
     onCreateEventRide: () -> Unit        = {},
     onTransferConfig: () -> Unit         = {},
     onNavigateToCreateEvent: () -> Unit  = {},
-    onNavigateToSettingsPanel: () -> Unit = {}
+    onNavigateToSettingsPanel: () -> Unit = {},
+    onNavigateToApplyList: () -> Unit = {}
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -122,9 +123,13 @@ fun ConvoySubMenu(
                     )
                     SubMenuItem(
                         label   = "Apply Ride Info to Radio",
-                        sub     = "Coming in V3",
-                        enabled = false,
-                        onClick = {}
+                        sub     = "Apply master config or ride to connected radio",
+                        enabled = true,
+                        onClick = {
+                            expanded = null
+                            onDismiss()
+                            onNavigateToApplyList()
+                        }
                     )
                     SubMenuItem(
                         label   = "Restore Prior Config Post Ride",
