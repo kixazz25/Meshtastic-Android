@@ -13,6 +13,7 @@ import com.geeksville.mesh.convoy.ConvoyEnrollmentScreen
 import com.geeksville.mesh.convoy.ConvoyMasterCaptureScreen
 import com.geeksville.mesh.convoy.ConvoyScreen
 import com.geeksville.mesh.convoy.ConvoyApplyListScreen
+import com.geeksville.mesh.convoy.ConvoyApplyRadioScreen
 import com.geeksville.mesh.convoy.ConvoyMasterSuccessScreen
 import com.geeksville.mesh.convoy.ConvoySettingsGate
 import com.geeksville.mesh.convoy.ConvoySettingsPanelScreen
@@ -77,12 +78,8 @@ fun NavGraphBuilder.convoyGraph(
             ConvoySettingsGate(
                 onAuthenticated = {
                     authenticated = true
-                    // Route based on master existence
-                    if (com.geeksville.mesh.convoy.ConvoyMasterConfig.exists(context)) {
-                        navController?.navigate(ConvoyRoutes.ConvoyApplyList)
-                    } else {
-                        navController?.navigate(ConvoyRoutes.ConvoyMasterCapture)
-                    }
+                    // Settings panel always goes to master capture
+                    navController?.navigate(ConvoyRoutes.ConvoyMasterCapture)
                 },
                 onDismiss = { navController?.popBackStack() }
             )
@@ -94,6 +91,13 @@ fun NavGraphBuilder.convoyGraph(
         ConvoyApplyListScreen(
             onDone             = { navController?.popBackStack() },
             onCaptureNewMaster = { navController?.navigate(ConvoyRoutes.ConvoyMasterCapture) }
+        )
+    }
+
+    // ── Apply radio (member function — no password gate) ────────────────────
+    composable<ConvoyRoutes.ConvoyApplyRadio> {
+        ConvoyApplyRadioScreen(
+            onDone = { navController?.popBackStack() }
         )
     }
 
