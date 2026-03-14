@@ -14,7 +14,7 @@ import java.time.format.DateTimeFormatter
  *
  * Read:   Collects current DeviceProfile + MyNodeInfo snapshot
  * Backup: Full fidelity JSON — firmware, hardware, all config, all channels
- *         Stored at C:/ConvoyProto/backups/[hardwareId]/[label]_[datetime].json
+ *         Stored at context.filesDir/convoy_backups/[hardwareId]/[label]_[datetime].json
  * Write:  Applies convoy channel + master LoRa config to paired radio
  *         Called via ChannelViewModel.setChannels() and setConfig()
  *
@@ -31,7 +31,7 @@ import java.time.format.DateTimeFormatter
 object ConvoyRadioManager {
 
     private const val TAG          = "ConvoyRadioManager"
-    private const val BACKUPS_ROOT = "C:/ConvoyProto/backups"
+    private const val BACKUPS_DIR = "convoy_backups"
 
     // ── Full radio snapshot ───────────────────────────────────────────────────
     data class RadioSnapshot(
@@ -108,11 +108,11 @@ object ConvoyRadioManager {
     }
 
     // ── Save backup ───────────────────────────────────────────────────────────
-    fun saveBackup(snapshot: RadioSnapshot, label: String = "pre_convoy"): String {
+    fun saveBackup(context: android.content.Context, snapshot: RadioSnapshot, label: String = "pre_convoy"): String {
         val fmt      = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")
         val ts       = LocalDateTime.now().format(fmt)
         val safeName = label.replace(Regex("[^a-zA-Z0-9_-]"), "_")
-        val dir      = java.io.File("$BACKUPS_ROOT/${snapshot.hardwareId}").also { it.mkdirs() }
+        val dir      = java.io.File(context.filesDir, "$BACKUPS_DIR/${snapshot.hardwareId}").also { it.mkdirs() }
         val file     = java.io.File(dir, "${safeName}_${ts}.json")
         file.writeText(snapshot.toJson().toString(2))
         Log.i(TAG, "Backup saved: ${file.absolutePath}")
@@ -120,8 +120,8 @@ object ConvoyRadioManager {
     }
 
     // ── List backups for a hardware ID ────────────────────────────────────────
-    fun listBackups(hardwareId: String): List<java.io.File> {
-        return java.io.File("$BACKUPS_ROOT/$hardwareId")
+    fun listBackups(context: android.content.Context, hardwareId: String): List<java.io.File> {
+        return java.io.File(context.filesDir, "$BACKUPS_DIR/$hardwareId")
             .takeIf { it.exists() }
             ?.listFiles { f -> f.extension == "json" }
             ?.sortedByDescending { it.lastModified() } ?: emptyList()
