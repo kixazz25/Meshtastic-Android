@@ -19,7 +19,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -59,8 +61,9 @@ fun ConvoyMasterCaptureScreen(
     var statusOk     by remember { mutableStateOf(true) }
     var isCapturing  by remember { mutableStateOf(false) }
     var captureLog   by remember { mutableStateOf("") }
+    var captureComplete by remember { mutableStateOf(false) }
 
-    val nodeInfo     = viewModel.myNodeInfo.value
+    val nodeInfo     by viewModel.myNodeInfo.collectAsState()
     val isConnected  = nodeInfo != null
 
     Box(
@@ -152,13 +155,13 @@ fun ConvoyMasterCaptureScreen(
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            "${nodeInfo!!.model ?: "Unknown"}  •  fw ${nodeInfo.firmwareVersion ?: "Unknown"}",
+                            "${nodeInfo?.model ?: "Unknown"}  •  fw ${nodeInfo?.firmwareVersion ?: "Unknown"}",
                             color      = Color(0xFF8B938A),
                             fontSize   = 10.sp,
                             fontFamily = FontFamily.Monospace
                         )
                         Text(
-                            "ID: ${"!%08x".format(nodeInfo.myNodeNum)}  •  GPS: ${nodeInfo.hasGPS}  •  WiFi: ${nodeInfo.hasWifi}",
+                            "ID: ${"!%08x".format(nodeInfo?.myNodeNum ?: 0)}  •  GPS: ${nodeInfo?.hasGPS}  •  WiFi: ${nodeInfo?.hasWifi}",
                             color      = Color(0xFF8B938A),
                             fontSize   = 10.sp,
                             fontFamily = FontFamily.Monospace
@@ -233,7 +236,7 @@ fun ConvoyMasterCaptureScreen(
                                 val log = StringBuilder()
                                 log.appendLine("Reading radio state...")
 
-                                val ni       = viewModel.myNodeInfo.value!!
+                                val ni       = nodeInfo ?: return@launch
                                 val hwId     = "!%08x".format(ni.myNodeNum)
                                 log.appendLine("Hardware ID: $hwId")
                                 log.appendLine("Model: ${ni.model}")
@@ -264,14 +267,17 @@ fun ConvoyMasterCaptureScreen(
                                 )
 
                                 // ── Save to Android Downloads ────────────────
-                                val downloads = android.os.Environment.getExternalStoragePublicDirectory(
-                                    android.os.Environment.DIRECTORY_DOWNLOADS
-                                )
+                                val downloads = context.getExternalCacheDir() ?: context.cacheDir
                                 val masterJson = master.toJson().toString(2)
                                 
                                 val masterFile = java.io.File(downloads, "master_config.json")
-                                masterFile.writeText(masterJson)
-                                log.appendLine("✓ Saved: Downloads/master_config.json")
+                                try {
+                                    masterFile.writeText(masterJson)
+                                    log.appendLine("✓ Saved: ${masterFile.absolutePath}")
+                                } catch (e: Exception) {
+                                    log.appendLine("✗ FAILED to save: ${masterFile.absolutePath}")
+                                    log.appendLine("  Error: ${e.message}")
+                                }
                                 
                                 // Save apply list alongside master config
                                 val applyList = ConvoyApplyList.load(context)
@@ -298,7 +304,7 @@ fun ConvoyMasterCaptureScreen(
                                 captureLog = log.toString()
                                 statusMsg  = "✓ Master config captured."
                                 statusOk   = true
-                                onCaptureSuccess()
+                                captureComplete = true
                             } catch (e: Exception) {
                                 statusMsg = "✗ Capture failed: ${e.message}"
                                 statusOk  = false
@@ -321,6 +327,24 @@ fun ConvoyMasterCaptureScreen(
                 )
             }
 
+            if (captureComplete) {
+                Spacer(Modifier.height(16.dp))
+                Surface(
+                    modifier = Modifier.fillMaxWidth().clickable { onCaptureSuccess() },
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xFF1A3A2A)
+                ) {
+                    Text(
+                        text = "PROCEED →",
+                        color = Color(0xFF97D5A5),
+                        fontSize = 13.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(vertical = 16.dp)
+                    )
+                }
+            }
             Spacer(Modifier.height(32.dp))
         }
     }
