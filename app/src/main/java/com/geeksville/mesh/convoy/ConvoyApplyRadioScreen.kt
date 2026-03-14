@@ -20,20 +20,36 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.geeksville.mesh.ui.sharing.ChannelViewModel
+import kotlinx.coroutines.launch
 
 @Composable
 fun ConvoyApplyRadioScreen(
-    onDone: () -> Unit
+    onDone: () -> Unit,
+    convoyViewModel: ConvoyViewModel = hiltViewModel(),
+    channelViewModel: ChannelViewModel = hiltViewModel()
 ) {
     val context      = LocalContext.current
+    val scope        = rememberCoroutineScope()
     val applyList    = remember { ConvoyApplyList.load(context) }
     val masterConfig = remember { ConvoyMasterConfig.load(context) }
     val rides        = remember { ConvoyEventStore.loadAll(context).sortedBy { it.eventDate } }
+
+    val myNodeInfo  by convoyViewModel.myNodeInfo.collectAsStateWithLifecycle()
+    val localConfig by channelViewModel.localConfig.collectAsStateWithLifecycle()
+    val channels    by channelViewModel.channels.collectAsStateWithLifecycle()
+    val isConnected = myNodeInfo != null
 
     var applyMode    by remember { mutableStateOf("MASTER") }
     var selectedRide by remember { mutableStateOf<ConvoyEventConfig?>(null) }
     var longName     by remember { mutableStateOf("") }
     var showConfirm  by remember { mutableStateOf(false) }
+    var isProcessing by remember { mutableStateOf(false) }
+    var archiveLog   by remember { mutableStateOf("") }
+    var archiveOk    by remember { mutableStateOf(true) }
+    var proceedDone  by remember { mutableStateOf(false) }
 
     var confirmLoraOpen     by remember { mutableStateOf(true) }
     var confirmChannelOpen  by remember { mutableStateOf(true) }
@@ -42,41 +58,58 @@ fun ConvoyApplyRadioScreen(
     var confirmDisplayOpen  by remember { mutableStateOf(false) }
     var confirmModuleOpen   by remember { mutableStateOf(false) }
 
-    val canProceed = applyMode == "MASTER" || selectedRide != null
+    val canReview = isConnected && (applyMode == "MASTER" || selectedRide != null)
+
+    val workingLongName = when {
+        longName.isNotBlank() -> longName
+        applyMode == "MASTER" -> masterConfig?.primaryChannelName ?: "—"
+        else -> myNodeInfo?.let { "!%08x".format(it.myNodeNum) } ?: "—"
+    }
 
     Box(modifier = Modifier.fillMaxSize().background(Color(0xFF101510))) {
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(20.dp)
+            modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp)
         ) {
             Spacer(Modifier.height(12.dp))
 
-            // ── Header ────────────────────────────────────────────────────────
+            // Header
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text("←", color = Color(0xFF97D5A5), fontSize = 20.sp,
                     modifier = Modifier.clickable { onDone() }.padding(end = 12.dp))
                 Text("APPLY RADIO CONFIG", color = Color(0xFF97D5A5), fontSize = 13.sp,
-                    fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
-                    letterSpacing = 2.sp)
+                    fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
             }
-            Spacer(Modifier.height(4.dp))
-            Text("Select operation, review changes, then proceed to update radio.",
-                color = Color(0xFF8B938A), fontSize = 10.sp,
-                fontFamily = FontFamily.Monospace, modifier = Modifier.fillMaxWidth())
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(6.dp))
+
+            // Radio status
+            Surface(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp),
+                color = if (isConnected) Color(0xFF0D2010) else Color(0xFF2A1A1A)) {
+                Row(modifier = Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(if (isConnected) "● CONNECTED" else "○ NO RADIO",
+                        color = if (isConnected) Color(0xFF97D5A5) else Color(0xFFFFB4AB),
+                        fontSize = 11.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+                    if (isConnected) {
+                        Text("  ${myNodeInfo?.model ?: ""}  fw ${myNodeInfo?.firmwareVersion ?: ""}",
+                            color = Color(0xFF8B938A), fontSize = 9.sp, fontFamily = FontFamily.Monospace,
+                            modifier = Modifier.padding(start = 8.dp))
+                    } else {
+                        Text("  Connect radio via Bluetooth to proceed",
+                            color = Color(0xFF8B938A), fontSize = 9.sp, fontFamily = FontFamily.Monospace,
+                            modifier = Modifier.padding(start = 8.dp))
+                    }
+                }
+            }
+            Spacer(Modifier.height(12.dp))
             Box(Modifier.fillMaxWidth().height(1.dp).background(Color(0xFF262B26)))
             Spacer(Modifier.height(12.dp))
 
-            // ── Operation selector ────────────────────────────────────────────
+            // Operation selector
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf("MASTER" to "Apply Master Config", "RIDE" to "Apply Ride").forEach { (mode, label) ->
                     Surface(
                         modifier = Modifier.weight(1f).clickable {
-                            applyMode = mode
-                            selectedRide = null
-                            showConfirm = false
+                            applyMode = mode; selectedRide = null
+                            showConfirm = false; proceedDone = false; archiveLog = ""
                         },
                         shape = RoundedCornerShape(10.dp),
                         color = if (applyMode == mode) Color(0xFF2E75B6) else Color(0xFF1C211C)
@@ -90,7 +123,7 @@ fun ConvoyApplyRadioScreen(
             }
             Spacer(Modifier.height(12.dp))
 
-            // ── Ride picker ───────────────────────────────────────────────────
+            // Ride picker
             if (applyMode == "RIDE") {
                 if (rides.isEmpty()) {
                     Surface(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp),
@@ -107,7 +140,7 @@ fun ConvoyApplyRadioScreen(
                         val isSelected = selectedRide?.eventId == ride.eventId
                         Surface(
                             modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp)
-                                .clickable { selectedRide = ride; showConfirm = false },
+                                .clickable { selectedRide = ride; showConfirm = false; proceedDone = false },
                             shape = RoundedCornerShape(8.dp),
                             color = if (isSelected) Color(0xFF1F4E79) else Color(0xFF1C211C)
                         ) {
@@ -129,36 +162,29 @@ fun ConvoyApplyRadioScreen(
                 Spacer(Modifier.height(12.dp))
             }
 
-            // ── Long Name ─────────────────────────────────────────────────────
-            Surface(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp),
-                color = Color(0xFF1C211C)) {
-                Column(modifier = Modifier.padding(12.dp)) {
-                    Text("LONG NAME", color = Color(0xFF8B938A), fontSize = 9.sp,
-                        fontFamily = FontFamily.Monospace, letterSpacing = 2.sp)
-                    Spacer(Modifier.height(4.dp))
-                    OutlinedTextField(
-                        value = longName,
-                        onValueChange = { longName = it },
-                        placeholder = { Text("Enter node long name", fontSize = 10.sp,
-                            fontFamily = FontFamily.Monospace, color = Color(0xFF8B938A)) },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            }
-            Spacer(Modifier.height(16.dp))
-
-            // ── REVIEW CHANGES button ─────────────────────────────────────────
+            // REVIEW CHANGES button
             Surface(
-                modifier = Modifier.fillMaxWidth().clickable(enabled = canProceed) {
-                    if (canProceed) showConfirm = true
+                modifier = Modifier.fillMaxWidth().clickable(enabled = canReview && !isProcessing) {
+                    showConfirm = true
                 },
                 shape = RoundedCornerShape(10.dp),
-                color = if (canProceed) Color(0xFF1F4E79) else Color(0xFF101510)
+                color = when {
+                    !isConnected -> Color(0xFF2A1A1A)
+                    !canReview   -> Color(0xFF101510)
+                    else         -> Color(0xFF1F4E79)
+                }
             ) {
                 Text(
-                    text = if (!canProceed) "SELECT A RIDE TO PROCEED" else "REVIEW CHANGES →",
-                    color = if (canProceed) Color.White else Color(0xFF262B26),
+                    text = when {
+                        !isConnected -> "⚠ CONNECT RADIO TO PROCEED"
+                        !canReview   -> "SELECT A RIDE TO PROCEED"
+                        else         -> "REVIEW CHANGES →"
+                    },
+                    color = when {
+                        !isConnected -> Color(0xFFFFB4AB)
+                        !canReview   -> Color(0xFF262B26)
+                        else         -> Color.White
+                    },
                     fontSize = 12.sp, fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold, textAlign = TextAlign.Center,
                     modifier = Modifier.padding(vertical = 14.dp)
@@ -166,16 +192,37 @@ fun ConvoyApplyRadioScreen(
             }
             Spacer(Modifier.height(16.dp))
 
-            // ── CONFIRMATION ACCORDION ────────────────────────────────────────
+            // Confirmation accordion
             if (showConfirm) {
                 Box(Modifier.fillMaxWidth().height(1.dp).background(Color(0xFF2E75B6)))
                 Spacer(Modifier.height(12.dp))
                 Text("CHANGES TO BE APPLIED", color = Color(0xFF2E75B6), fontSize = 11.sp,
-                    fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
-                    letterSpacing = 2.sp, modifier = Modifier.fillMaxWidth())
-                Text("Current radio values not yet available — connect radio to populate.",
-                    color = Color(0xFF8B938A), fontSize = 9.sp, fontFamily = FontFamily.Monospace,
-                    modifier = Modifier.padding(top = 4.dp, bottom = 12.dp))
+                    fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
+                Spacer(Modifier.height(4.dp))
+
+                val currentRegion    = localConfig.lora?.region?.name ?: "—"
+                val currentPreset    = localConfig.lora?.modem_preset?.name ?: "—"
+                val currentHopLimit  = localConfig.lora?.hop_limit?.toString() ?: "—"
+                val currentTxEnabled = localConfig.lora?.tx_enabled?.toString() ?: "—"
+                val currentTxPower   = localConfig.lora?.tx_power?.toString() ?: "—"
+                val currentChannel   = channels.settings.firstOrNull()?.name ?: "—"
+
+                // Long Name — shown here with working config value
+                Surface(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp),
+                    color = Color(0xFF1C211C)) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text("LONG NAME", color = Color(0xFF8B938A), fontSize = 9.sp,
+                            fontFamily = FontFamily.Monospace, letterSpacing = 2.sp)
+                        Text("Working config default: $workingLongName", color = Color(0xFF4A6080),
+                            fontSize = 8.sp, fontFamily = FontFamily.Monospace)
+                        Spacer(Modifier.height(4.dp))
+                        OutlinedTextField(value = longName, onValueChange = { longName = it },
+                            placeholder = { Text(workingLongName, fontSize = 10.sp,
+                                fontFamily = FontFamily.Monospace, color = Color(0xFF8B938A)) },
+                            singleLine = true, modifier = Modifier.fillMaxWidth())
+                    }
+                }
+                Spacer(Modifier.height(12.dp))
 
                 ConfirmHeader()
                 Spacer(Modifier.height(6.dp))
@@ -184,11 +231,19 @@ fun ConvoyApplyRadioScreen(
                 ApplyAccordionHeader("LORA", confirmLoraOpen) { confirmLoraOpen = !confirmLoraOpen }
                 AnimatedVisibility(visible = confirmLoraOpen) {
                     Column(modifier = Modifier.padding(top = 4.dp, bottom = 4.dp)) {
-                        LoraField.values().forEach { field ->
+                        listOf(
+                            Triple(LoraField.REGION,        currentRegion,    masterConfig?.loraRegion ?: "—"),
+                            Triple(LoraField.MODEM_PRESET,  currentPreset,    masterConfig?.loraModemPreset ?: "—"),
+                            Triple(LoraField.BANDWIDTH,     "—",              masterConfig?.loraBandwidth?.toString() ?: "—"),
+                            Triple(LoraField.SPREAD_FACTOR, "—",              masterConfig?.loraSpreadFactor?.toString() ?: "—"),
+                            Triple(LoraField.CODING_RATE,   "—",              masterConfig?.loraCodingRate?.toString() ?: "—"),
+                            Triple(LoraField.HOP_LIMIT,     currentHopLimit,  masterConfig?.loraHopLimit?.toString() ?: "—"),
+                            Triple(LoraField.TX_ENABLED,    currentTxEnabled, masterConfig?.loraTxEnabled?.toString() ?: "—"),
+                            Triple(LoraField.TX_POWER,      currentTxPower,   masterConfig?.loraTxPower?.toString() ?: "—"),
+                        ).forEach { (field, current, masterVal) ->
                             val checked = field in applyList.loraFields
-                            val newVal  = if (checked) masterConfig?.let { getLoraFieldValue(it, field) } ?: "—" else "—"
-                            val rule    = if (checked) "CHECKLIST" else "ORIGINAL RADIO"
-                            ConfirmRow(field.label, "—", newVal, rule, checked)
+                            ConfirmRow(field.label, current, if (checked) masterVal else current,
+                                if (checked) "CHECKLIST" else "ORIGINAL RADIO", checked)
                         }
                     }
                 }
@@ -197,12 +252,12 @@ fun ConvoyApplyRadioScreen(
                 // Channel
                 ApplyAccordionHeader("CHANNEL", confirmChannelOpen) { confirmChannelOpen = !confirmChannelOpen }
                 AnimatedVisibility(visible = confirmChannelOpen) {
-                    val src  = if (applyMode == "RIDE") "RIDE FILE" else "MASTER CFG"
-                    val ch   = if (applyMode == "RIDE") selectedRide?.channelName ?: "—"
-                              else masterConfig?.primaryChannelName ?: "—"
+                    val src   = if (applyMode == "RIDE") "RIDE FILE" else "MASTER CFG"
+                    val newCh = if (applyMode == "RIDE") selectedRide?.channelName ?: "—"
+                               else masterConfig?.primaryChannelName ?: "—"
                     Column(modifier = Modifier.padding(top = 4.dp, bottom = 4.dp)) {
-                        ConfirmRow("Channel Name", "—", ch, src, true)
-                        ConfirmRow("Encryption Key", "—", "****", src, true)
+                        ConfirmRow("Channel Name", currentChannel, newCh, src, true)
+                        ConfirmRow("Encryption Key", "****", "****", src, true)
                     }
                 }
                 Spacer(Modifier.height(6.dp))
@@ -210,9 +265,10 @@ fun ConvoyApplyRadioScreen(
                 // Device
                 ApplyAccordionHeader("DEVICE", confirmDeviceOpen) { confirmDeviceOpen = !confirmDeviceOpen }
                 AnimatedVisibility(visible = confirmDeviceOpen) {
+                    val displayName = longName.ifBlank { workingLongName }
                     Column(modifier = Modifier.padding(top = 4.dp, bottom = 4.dp)) {
-                        ConfirmRow("Long Name", "—", longName.ifBlank { "— (unchanged)" },
-                            if (longName.isBlank()) "ORIGINAL RADIO" else "EDITED", longName.isNotBlank())
+                        ConfirmRow("Long Name", workingLongName, displayName,
+                            if (longName.isBlank()) "WORKING CONFIG" else "EDITED", true)
                         DeviceField.values().filter { it.name != "LONG_NAME" }.forEach { field ->
                             val checked = field in applyList.deviceFields
                             ConfirmRow(field.label, "—", if (checked) "From master" else "—",
@@ -261,6 +317,17 @@ fun ConvoyApplyRadioScreen(
                 }
                 Spacer(Modifier.height(16.dp))
 
+                // Archive log
+                if (archiveLog.isNotBlank()) {
+                    Surface(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp),
+                        color = if (archiveOk) Color(0xFF0D2010) else Color(0xFF2A1A1A)) {
+                        Text(archiveLog, color = if (archiveOk) Color(0xFF97D5A5) else Color(0xFFFFB4AB),
+                            fontSize = 9.sp, fontFamily = FontFamily.Monospace,
+                            modifier = Modifier.padding(12.dp))
+                    }
+                    Spacer(Modifier.height(12.dp))
+                }
+
                 // PROCEED TO UPDATE / CANCEL
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Surface(
@@ -272,14 +339,71 @@ fun ConvoyApplyRadioScreen(
                             textAlign = TextAlign.Center, modifier = Modifier.padding(vertical = 16.dp))
                     }
                     Surface(
-                        modifier = Modifier.weight(1f).clickable {
-                            // TODO: wire radio write
+                        modifier = Modifier.weight(1f).clickable(enabled = !isProcessing && !proceedDone) {
+                            scope.launch {
+                                isProcessing = true
+                                archiveLog = ""
+                                try {
+                                    val ni = myNodeInfo ?: throw Exception("Radio not connected")
+                                    val log = StringBuilder()
+                                    log.appendLine("Reading current radio state...")
+
+                                    // Build archive snapshot from current radio state
+                                    val snapshot = ConvoyRadioManager.buildSnapshot(
+                                        myNodeNum       = ni.myNodeNum,
+                                        deviceId        = ni.deviceId ?: "",
+                                        model           = ni.model,
+                                        firmwareVersion = ni.firmwareVersion,
+                                        pioEnv          = ni.pioEnv,
+                                        hasGPS          = ni.hasGPS,
+                                        hasWifi         = ni.hasWifi,
+                                        maxChannels     = ni.maxChannels,
+                                        deviceProfile   = null,
+                                        localConfig     = localConfig,
+                                        channelSet      = channels
+                                    )
+
+                                    // Write archive
+                                    val archivePath = ConvoyRadioManager.saveBackup(
+                                        context  = context,
+                                        snapshot = snapshot,
+                                        label    = "pre_write"
+                                    )
+                                    log.appendLine("✓ Archive saved:")
+                                    log.appendLine("  $archivePath")
+                                    log.appendLine("")
+                                    log.appendLine("⏸ Radio write placeholder")
+                                    log.appendLine("  Working config ready. Wire setChannels() to proceed.")
+
+                                    archiveLog  = log.toString()
+                                    archiveOk   = true
+                                    proceedDone = true
+                                } catch (e: Exception) {
+                                    archiveLog = "✗ Failed: ${e.message}"
+                                    archiveOk  = false
+                                } finally {
+                                    isProcessing = false
+                                }
+                            }
                         },
-                        shape = RoundedCornerShape(10.dp), color = Color(0xFF15512C)
+                        shape = RoundedCornerShape(10.dp),
+                        color = when {
+                            proceedDone  -> Color(0xFF1A3A2A)
+                            isProcessing -> Color(0xFF101510)
+                            else         -> Color(0xFF15512C)
+                        }
                     ) {
-                        Text("PROCEED TO UPDATE", color = Color(0xFF97D5A5), fontSize = 11.sp,
-                            fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
-                            textAlign = TextAlign.Center, modifier = Modifier.padding(vertical = 16.dp))
+                        Text(
+                            text = when {
+                                isProcessing -> "ARCHIVING..."
+                                proceedDone  -> "✓ ARCHIVED"
+                                else         -> "PROCEED TO UPDATE"
+                            },
+                            color = if (isProcessing) Color(0xFF262B26) else Color(0xFF97D5A5),
+                            fontSize = 11.sp, fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Bold, textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(vertical = 16.dp)
+                        )
                     }
                 }
                 Spacer(Modifier.height(32.dp))
@@ -309,14 +433,13 @@ private fun ConfirmRow(field: String, current: String, newVal: String, rule: Str
         "MASTER CFG"     -> Color(0xFF2E75B6)
         "RIDE FILE"      -> Color(0xFFF9C835)
         "ORIGINAL RADIO" -> Color(0xFF8B938A)
+        "WORKING CONFIG" -> Color(0xFFCAC4D0)
         "EDITED"         -> Color(0xFFFFB74D)
         else             -> Color(0xFF8B938A)
     }
-    Surface(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
-        shape    = RoundedCornerShape(6.dp),
-        color    = if (changing) Color(0xFF1C211C) else Color(0xFF101510)
-    ) {
+    Surface(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+        shape = RoundedCornerShape(6.dp),
+        color = if (changing) Color(0xFF1C211C) else Color(0xFF101510)) {
         Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically) {
             Text(field, color = if (changing) Color(0xFFDFE4DC) else Color(0xFF8B938A),
@@ -334,11 +457,9 @@ private fun ConfirmRow(field: String, current: String, newVal: String, rule: Str
 
 @Composable
 private fun ApplyAccordionHeader(title: String, expanded: Boolean, onClick: () -> Unit) {
-    Surface(
-        modifier = Modifier.fillMaxWidth().clickable { onClick() },
-        shape    = RoundedCornerShape(8.dp),
-        color    = if (expanded) Color(0xFF15512C) else Color(0xFF262B26)
-    ) {
+    Surface(modifier = Modifier.fillMaxWidth().clickable { onClick() },
+        shape = RoundedCornerShape(8.dp),
+        color = if (expanded) Color(0xFF15512C) else Color(0xFF262B26)) {
         Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically) {
@@ -348,16 +469,4 @@ private fun ApplyAccordionHeader(title: String, expanded: Boolean, onClick: () -
             Text(if (expanded) "▲" else "▼", color = Color(0xFF8B938A), fontSize = 10.sp)
         }
     }
-}
-
-private fun getLoraFieldValue(master: ConvoyMasterConfig, field: LoraField): String = when (field) {
-    LoraField.REGION        -> master.loraRegion
-    LoraField.MODEM_PRESET  -> master.loraModemPreset
-    LoraField.BANDWIDTH     -> master.loraBandwidth.toString()
-    LoraField.SPREAD_FACTOR -> master.loraSpreadFactor.toString()
-    LoraField.CODING_RATE   -> master.loraCodingRate.toString()
-    LoraField.HOP_LIMIT     -> master.loraHopLimit.toString()
-    LoraField.TX_ENABLED    -> master.loraTxEnabled.toString()
-    LoraField.TX_POWER      -> master.loraTxPower.toString()
-    else                    -> "—"
 }
