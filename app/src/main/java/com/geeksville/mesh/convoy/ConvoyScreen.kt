@@ -114,6 +114,7 @@ fun ConvoyScreen(
     // ── Renderer (stable across recompositions) ───────────────────────────
     val renderer = remember { ConvoyMarkerRenderer(context, onNodeTapped = viewModel::onMarkerTapped) }
     val webViewRef = remember { androidx.compose.runtime.mutableStateOf<android.webkit.WebView?>(null) }
+    var mapReady by remember { mutableStateOf(0) } // increments each time map page finishes loading
 
     // ── Push node markers to Leaflet map ────────────────────────────────────
     LaunchedEffect(convoyState) {
@@ -172,7 +173,7 @@ fun ConvoyScreen(
             )
         }
     }
-    LaunchedEffect(trackSegments) {
+    LaunchedEffect(trackSegments, mapReady) {
         val wv = webViewRef.value ?: return@LaunchedEffect
         val parts = trackSegments.map { seg ->
             val s = seg.points.first()
@@ -240,6 +241,7 @@ fun ConvoyScreen(
                                 view?.postDelayed({
                                     view.evaluateJavascript("setTileUrl('$tileUrl')", null)
                                 }, 600)
+                                mapReady++
                             }
                         }
                         loadUrl("file:///android_asset/convoy_map.html")
