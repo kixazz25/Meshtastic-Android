@@ -440,13 +440,27 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
                                     uIViewModel.emitScrollToTopEvent(ScrollToTopEvent.ConversationsTabPressed)
                                 }
                                 TopLevelDestination.Convoy -> {
-                                    showConvoyMenu = true
+                                    navController.navigate(ConvoyRoutes.Convoy) {
+                                        popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                        launchSingleTop = true
+                                    }
+                                    kotlinx.coroutines.MainScope().launch {
+                                        kotlinx.coroutines.delay(2000)
+                                        showConvoyMenu = true
+                                    }
                                 }
                                 else -> Unit
                             }
                         } else {
                             if (destination == TopLevelDestination.Convoy) {
-                                showConvoyMenu = true
+                                navController.navigate(ConvoyRoutes.Convoy) {
+                                    popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                    launchSingleTop = true
+                                }
+                                kotlinx.coroutines.MainScope().launch {
+                                    kotlinx.coroutines.delay(2000)
+                                    showConvoyMenu = true
+                                }
                             } else {
                                 navController.navigate(destination.route) {
                                     popUpTo(navController.graph.findStartDestination().id) { saveState = true }
