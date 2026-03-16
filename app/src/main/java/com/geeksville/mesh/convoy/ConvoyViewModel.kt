@@ -89,6 +89,18 @@ class ConvoyViewModel @Inject constructor(
     var hasSeenNodes = androidx.compose.runtime.mutableStateOf(false)
 
     // ── Persistent WebView ───────────────────────────────────────────────
+    // ── Working config for radio write sequence ───────────────────────────
+    private val _workingConfig = MutableStateFlow<WorkingConfig?>(null)
+    val workingConfig: StateFlow<WorkingConfig?> = _workingConfig.asStateFlow()
+
+    fun setWorkingConfig(config: WorkingConfig) {
+        _workingConfig.value = config
+    }
+
+    fun clearWorkingConfig() {
+        _workingConfig.value = null
+    }
+
     var persistentWebView: android.webkit.WebView? = null
 
     // ── Simulation mode ───────────────────────────────────────────────────

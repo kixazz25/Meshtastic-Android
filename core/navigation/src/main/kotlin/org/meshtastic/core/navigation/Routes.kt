@@ -187,4 +187,10 @@ object ConvoyRoutes {
     @Serializable data object ConvoyMasterSuccess : Route
     @Serializable data object ConvoyApplyList     : Route
     @Serializable data object ConvoyApplyRadio    : Route
+    @Serializable data object ConvoyWriteArchive  : Route
+    @Serializable data object ConvoyWriteDevice   : Route
+    @Serializable data object ConvoyWriteLoRa     : Route
+    @Serializable data object ConvoyWritePosition : Route
+    @Serializable data object ConvoyWriteChannel  : Route
+    @Serializable data object ConvoyWriteVerify   : Route
 }
