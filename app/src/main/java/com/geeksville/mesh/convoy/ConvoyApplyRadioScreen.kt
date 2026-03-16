@@ -11,6 +11,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -21,6 +22,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.geeksville.mesh.model.UIViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.geeksville.mesh.ui.sharing.ChannelViewModel
 import kotlinx.coroutines.launch
@@ -29,7 +31,8 @@ import kotlinx.coroutines.launch
 fun ConvoyApplyRadioScreen(
     onDone: () -> Unit,
     convoyViewModel: ConvoyViewModel = hiltViewModel(),
-    channelViewModel: ChannelViewModel = hiltViewModel()
+    channelViewModel: ChannelViewModel = hiltViewModel(),
+    uiViewModel: UIViewModel = hiltViewModel()
 ) {
     val context      = LocalContext.current
     val scope        = rememberCoroutineScope()
@@ -41,6 +44,8 @@ fun ConvoyApplyRadioScreen(
     val localConfig by channelViewModel.localConfig.collectAsStateWithLifecycle()
     val channels    by channelViewModel.channels.collectAsStateWithLifecycle()
     val isConnected = myNodeInfo != null
+    val connectionState by uiViewModel.connectionState.collectAsStateWithLifecycle()
+    val writerState     by ConvoyRadioWriter.state.collectAsStateWithLifecycle()
 
     var applyMode    by remember { mutableStateOf("MASTER") }
     var selectedRide by remember { mutableStateOf<ConvoyEventConfig?>(null) }
@@ -317,93 +322,142 @@ fun ConvoyApplyRadioScreen(
                 }
                 Spacer(Modifier.height(16.dp))
 
-                // Archive log
-                if (archiveLog.isNotBlank()) {
+                // ── Writer state log ─────────────────────────────────────────
+                if (writerState.step != WriteStep.IDLE) {
                     Surface(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp),
-                        color = if (archiveOk) Color(0xFF0D2010) else Color(0xFF2A1A1A)) {
-                        Text(archiveLog, color = if (archiveOk) Color(0xFF97D5A5) else Color(0xFFFFB4AB),
-                            fontSize = 9.sp, fontFamily = FontFamily.Monospace,
-                            modifier = Modifier.padding(12.dp))
+                        color = Color(0xFF0D1A0D)) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            writerState.log.forEach { entry ->
+                                Text(entry, color = Color(0xFF97D5A5), fontSize = 9.sp,
+                                    fontFamily = FontFamily.Monospace)
+                            }
+                        }
                     }
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(8.dp))
+
+                    // BLE status during pauses
+                    if (writerState.step == WriteStep.PAUSE_1 || writerState.step == WriteStep.PAUSE_2) {
+                        Surface(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp),
+                            color = Color(0xFF1C211C)) {
+                            Row(modifier = Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = if (writerState.bleConnected) "● BLE RECONNECTED" else "○ BLE DISCONNECTED — waiting for radio...",
+                                    color = if (writerState.bleConnected) Color(0xFF97D5A5) else Color(0xFFFFB4AB),
+                                    fontSize = 11.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                        Spacer(Modifier.height(8.dp))
+                    }
                 }
 
-                // PROCEED TO UPDATE / CANCEL
+                // BLE monitor — update writer during pauses
+                LaunchedEffect(connectionState) {
+                    ConvoyRadioWriter.updateBleStatus(
+                        connectionState.toString().contains("Connected", ignoreCase = true)
+                    )
+                }
+
+                // PROCEED TO UPDATE / CANCEL / CONTINUE buttons
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Surface(
-                        modifier = Modifier.weight(1f).clickable { showConfirm = false; onDone() },
+                        modifier = Modifier.weight(1f).clickable { ConvoyRadioWriter.reset(); onDone() },
                         shape = RoundedCornerShape(10.dp), color = Color(0xFF2A1A1A)
                     ) {
                         Text("CANCEL", color = Color(0xFFFFB4AB), fontSize = 13.sp,
                             fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
                             textAlign = TextAlign.Center, modifier = Modifier.padding(vertical = 16.dp))
                     }
-                    Surface(
-                        modifier = Modifier.weight(1f).clickable(enabled = !isProcessing && !proceedDone) {
-                            scope.launch {
-                                isProcessing = true
-                                archiveLog = ""
-                                try {
-                                    val ni = myNodeInfo ?: throw Exception("Radio not connected")
-                                    val log = StringBuilder()
-                                    log.appendLine("Reading current radio state...")
 
-                                    // Build archive snapshot from current radio state
-                                    val snapshot = ConvoyRadioManager.buildSnapshot(
-                                        myNodeNum       = ni.myNodeNum,
-                                        deviceId        = ni.deviceId ?: "",
-                                        model           = ni.model,
-                                        firmwareVersion = ni.firmwareVersion,
-                                        pioEnv          = ni.pioEnv,
-                                        hasGPS          = ni.hasGPS,
-                                        hasWifi         = ni.hasWifi,
-                                        maxChannels     = ni.maxChannels,
-                                        deviceProfile   = null,
-                                        localConfig     = localConfig,
-                                        channelSet      = channels
-                                    )
-
-                                    // Write archive
-                                    val archivePath = ConvoyRadioManager.saveBackup(
-                                        context  = context,
-                                        snapshot = snapshot,
-                                        label    = "pre_write"
-                                    )
-                                    log.appendLine("✓ Archive saved:")
-                                    log.appendLine("  $archivePath")
-                                    log.appendLine("")
-                                    log.appendLine("⏸ Radio write placeholder")
-                                    log.appendLine("  Working config ready. Wire setChannels() to proceed.")
-
-                                    archiveLog  = log.toString()
-                                    archiveOk   = true
-                                    proceedDone = true
-                                } catch (e: Exception) {
-                                    archiveLog = "✗ Failed: ${e.message}"
-                                    archiveOk  = false
-                                } finally {
-                                    isProcessing = false
+                    when (writerState.step) {
+                        WriteStep.IDLE, WriteStep.ARCHIVE_DONE -> Surface(
+                            modifier = Modifier.weight(1f).clickable(enabled = !isProcessing) {
+                                val ni = myNodeInfo ?: return@clickable
+                                val channel = if (applyMode == "RIDE") selectedRide?.channelName ?: "" else masterConfig?.primaryChannelName ?: ""
+                                val psk = if (applyMode == "RIDE") selectedRide?.channelPsk ?: "" else ""
+                                val wc = WorkingConfig(
+                                    nodeId          = "!%08x".format(ni.myNodeNum),
+                                    longName        = longName.ifBlank { workingLongName },
+                                    channelName     = channel,
+                                    channelPsk      = psk,
+                                    loraRegion      = masterConfig?.loraRegion ?: "US",
+                                    loraModemPreset = masterConfig?.loraModemPreset ?: "LONG_FAST",
+                                    loraBandwidth   = masterConfig?.loraBandwidth ?: 250,
+                                    loraSpreadFactor= masterConfig?.loraSpreadFactor ?: 11,
+                                    loraCodingRate  = masterConfig?.loraCodingRate ?: 8,
+                                    loraHopLimit    = masterConfig?.loraHopLimit ?: 3,
+                                    loraTxEnabled   = masterConfig?.loraTxEnabled ?: true,
+                                    loraTxPower     = masterConfig?.loraTxPower ?: 27,
+                                    source          = if (applyMode == "RIDE") "RIDE:${selectedRide?.eventId}" else "MASTER"
+                                )
+                                val snapshot = ConvoyRadioManager.buildSnapshot(
+                                    myNodeNum = ni.myNodeNum, deviceId = ni.deviceId ?: "",
+                                    model = ni.model, firmwareVersion = ni.firmwareVersion,
+                                    pioEnv = ni.pioEnv, hasGPS = ni.hasGPS, hasWifi = ni.hasWifi,
+                                    maxChannels = ni.maxChannels, deviceProfile = null,
+                                    localConfig = localConfig, channelSet = channels
+                                )
+                                scope.launch {
+                                    ConvoyRadioWriter.execute(context, channelViewModel, uiViewModel.connectionState, snapshot, wc)
                                 }
-                            }
-                        },
-                        shape = RoundedCornerShape(10.dp),
-                        color = when {
-                            proceedDone  -> Color(0xFF1A3A2A)
-                            isProcessing -> Color(0xFF101510)
-                            else         -> Color(0xFF15512C)
-                        }
-                    ) {
-                        Text(
-                            text = when {
-                                isProcessing -> "ARCHIVING..."
-                                proceedDone  -> "✓ ARCHIVED"
-                                else         -> "PROCEED TO UPDATE"
                             },
-                            color = if (isProcessing) Color(0xFF262B26) else Color(0xFF97D5A5),
-                            fontSize = 11.sp, fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Bold, textAlign = TextAlign.Center,
-                            modifier = Modifier.padding(vertical = 16.dp)
-                        )
+                            shape = RoundedCornerShape(10.dp), color = Color(0xFF15512C)
+                        ) {
+                            Text("PROCEED TO UPDATE", color = Color(0xFF97D5A5), fontSize = 11.sp,
+                                fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center, modifier = Modifier.padding(vertical = 16.dp))
+                        }
+
+                        WriteStep.PAUSE_1 -> Surface(
+                            modifier = Modifier.weight(1f).clickable(enabled = writerState.canContinue) {
+                                ConvoyRadioWriter.proceedToLoRa()
+                            },
+                            shape = RoundedCornerShape(10.dp),
+                            color = if (writerState.canContinue) Color(0xFF1F4E79) else Color(0xFF101510)
+                        ) {
+                            Text("CONTINUE →", color = if (writerState.canContinue) Color.White else Color(0xFF262B26),
+                                fontSize = 11.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center, modifier = Modifier.padding(vertical = 16.dp))
+                        }
+
+                        WriteStep.PAUSE_2 -> Surface(
+                            modifier = Modifier.weight(1f).clickable(enabled = writerState.canContinue) {
+                                ConvoyRadioWriter.proceedToChannel()
+                            },
+                            shape = RoundedCornerShape(10.dp),
+                            color = if (writerState.canContinue) Color(0xFF1F4E79) else Color(0xFF101510)
+                        ) {
+                            Text("CONTINUE →", color = if (writerState.canContinue) Color.White else Color(0xFF262B26),
+                                fontSize = 11.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center, modifier = Modifier.padding(vertical = 16.dp))
+                        }
+
+                        WriteStep.COMPLETE -> Surface(
+                            modifier = Modifier.weight(1f).clickable { ConvoyRadioWriter.reset(); onDone() },
+                            shape = RoundedCornerShape(10.dp), color = Color(0xFF1A3A2A)
+                        ) {
+                            Text("✓ DONE", color = Color(0xFF97D5A5), fontSize = 13.sp,
+                                fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center, modifier = Modifier.padding(vertical = 16.dp))
+                        }
+
+                        WriteStep.FAILED -> Surface(
+                            modifier = Modifier.weight(1f).clickable { ConvoyRadioWriter.reset() },
+                            shape = RoundedCornerShape(10.dp), color = Color(0xFF2A1A1A)
+                        ) {
+                            Text("RETRY", color = Color(0xFFFFB4AB), fontSize = 13.sp,
+                                fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center, modifier = Modifier.padding(vertical = 16.dp))
+                        }
+
+                        else -> Surface(
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(10.dp), color = Color(0xFF101510)
+                        ) {
+                            Text("PROCESSING...", color = Color(0xFF262B26), fontSize = 11.sp,
+                                fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center, modifier = Modifier.padding(vertical = 16.dp))
+                        }
                     }
                 }
                 Spacer(Modifier.height(32.dp))

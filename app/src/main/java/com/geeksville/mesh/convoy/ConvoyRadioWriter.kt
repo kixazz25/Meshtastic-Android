@@ -3,7 +3,11 @@ package com.geeksville.mesh.convoy
 import android.content.Context
 import android.util.Log
 import com.geeksville.mesh.ui.sharing.ChannelViewModel
+import android.util.Base64
 import kotlinx.coroutines.delay
+import org.meshtastic.proto.ChannelSet
+import org.meshtastic.proto.ChannelSettings
+import org.meshtastic.proto.Config
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -91,7 +95,7 @@ object ConvoyRadioWriter {
 
             // ── Step 2: Write device config ───────────────────────────────────
             emit(WriteStep.WRITING_DEVICE, "Writing device config...")
-            // TODO: channelViewModel.setConfig(Config(device = workingConfig.deviceConfig))
+            channelViewModel.setConfig(Config(device = Config.DeviceConfig(role = Config.DeviceConfig.Role.CLIENT)))
             emit(WriteStep.DEVICE_DONE, "✓ Device config written (placeholder)")
 
             // ── PAUSE 1 ───────────────────────────────────────────────────────
@@ -108,7 +112,7 @@ object ConvoyRadioWriter {
 
             // ── Step 3: Write LoRa config ─────────────────────────────────────
             emit(WriteStep.WRITING_LORA, "Writing LoRa config...")
-            // TODO: channelViewModel.setConfig(Config(lora = workingConfig.loraConfig))
+            channelViewModel.setConfig(Config(lora = Config.LoRaConfig(hop_limit = workingConfig.loraHopLimit, tx_enabled = workingConfig.loraTxEnabled, tx_power = workingConfig.loraTxPower)))
             emit(WriteStep.LORA_DONE, "✓ LoRa config written (placeholder)")
 
             // ── PAUSE 2 ───────────────────────────────────────────────────────
@@ -122,7 +126,9 @@ object ConvoyRadioWriter {
 
             // ── Step 4: Write channel + PSK ───────────────────────────────────
             emit(WriteStep.WRITING_CHANNEL, "Writing channel and encryption key...")
-            // TODO: channelViewModel.setChannels(workingConfig.channelSet)
+            val pskBytes = okio.ByteString.of(*Base64.decode(workingConfig.channelPsk, Base64.NO_WRAP))
+            val chSettings = ChannelSettings(name = workingConfig.channelName, psk = pskBytes)
+            channelViewModel.setChannels(ChannelSet(settings = listOf(chSettings)))
             emit(WriteStep.CHANNEL_DONE, "✓ Channel written (placeholder)")
 
             // ── Complete ──────────────────────────────────────────────────────
