@@ -165,11 +165,14 @@ fun ConvoyScreen(
     val rawSegments by viewModel.leadTrackSegments.collectAsStateWithLifecycle()
     val gpsTrail by viewModel.gpsTrailSegments.collectAsStateWithLifecycle()
     val routeTrail by viewModel.routeTrailSegments.collectAsStateWithLifecycle()
-    val trackSegments = remember(rawSegments, gpsTrail, routeTrail) {
-        (rawSegments + gpsTrail + routeTrail).map { seg ->
+    val trackSegments = remember(rawSegments, gpsTrail, routeTrail, trackLeadOnly) {
+        // Apply lead-only filter — if trackLeadOnly, skip routeTrail (all-cart overlay)
+        val activeSegments = if (trackLeadOnly) rawSegments else (rawSegments + routeTrail)
+        // Apply color setting — if not multicolor, force all segments to black
+        activeSegments.map { seg ->
             TrackSegment(
                 points = listOf(LatLngPoint(seg.startLat, seg.startLon), LatLngPoint(seg.endLat, seg.endLon)),
-                color = seg.color
+                color = if (ConvoyConfig.TRACK_MULTICOLOR) seg.color else "#000000"
             )
         }
     }

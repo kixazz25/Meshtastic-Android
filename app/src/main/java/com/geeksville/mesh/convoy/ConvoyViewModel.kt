@@ -68,6 +68,8 @@ class ConvoyViewModel @Inject constructor(
 
     fun startGroupTrack() {
         _routeTrailSegments.value = emptyList()
+        _leadTrackSegments.value = emptyList()
+        _gpsTrailSegments.value = emptyList()
         _trackActive.value = true
     }
 
@@ -224,7 +226,6 @@ class ConvoyViewModel @Inject constructor(
     }
 
     fun stopRecording() {
-        _gpsTrailSegments.value = emptyList()
         lastGpsLat = null
         lastGpsLon = null
         stopGps()
@@ -383,7 +384,7 @@ class ConvoyViewModel @Inject constructor(
             _offTrackIds.value = emptySet()
         }
         // Color route trail segments by cart positions
-        _leadTrackSegments.value = if (ConvoyConfig.TRACK_MULTICOLOR) {
+        _leadTrackSegments.value = if (ConvoyConfig.TRACK_MULTICOLOR && !_trackLeadOnly.value) {
             ConvoyEngine.computeLeadTrackColors(
                 segments = _routeTrailSegments.value,
                 nodes = state.nodes,
