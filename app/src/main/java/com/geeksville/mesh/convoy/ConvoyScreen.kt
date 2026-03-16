@@ -60,6 +60,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -99,6 +100,13 @@ fun ConvoyScreen(
     var showNameDialog by remember { mutableStateOf(false) }
     var pendingTrackName by viewModel.pendingTrackName
     val context = LocalContext.current
+
+    // Keep screen on while Convoy is active — prevents GPS dropout during recording
+    val view = LocalView.current
+    DisposableEffect(Unit) {
+        view.keepScreenOn = true
+        onDispose { view.keepScreenOn = false }
+    }
     var showLayerMenu by remember { mutableStateOf(false) }
     var mapTypeLabel by remember { mutableStateOf("SAT") }
     var showMapSettings by remember { mutableStateOf(false) }
