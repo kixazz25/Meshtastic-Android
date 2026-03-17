@@ -80,13 +80,19 @@ fun NavGraphBuilder.convoyGraph(
     // ── Developer settings panel — password protected ─────────────────────────
     composable<ConvoyRoutes.ConvoySettingsPanel> {
         var authenticated by remember { mutableStateOf(false) }
+        var showPanel     by remember { mutableStateOf(false) }
         if (!authenticated) {
             ConvoySettingsGate(
-                onAuthenticated = {
-                    authenticated = true
-                    navController?.navigate(ConvoyRoutes.ConvoyMasterCapture)
-                },
-                onDismiss = { navController?.popBackStack() }
+                onAuthenticated = { authenticated = true; showPanel = true },
+                onDismiss       = { navController?.popBackStack() }
+            )
+        } else if (showPanel) {
+            ConvoySettingsPanelScreen(
+                onBack                = { navController?.popBackStack() },
+                onNavigateToCapture   = { navController?.navigate(ConvoyRoutes.ConvoyMasterCapture) },
+                onNavigateToApplyList = {
+                    navController?.navigate(ConvoyRoutes.ConvoyApplyList)
+                }
             )
         }
     }

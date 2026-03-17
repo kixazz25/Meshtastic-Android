@@ -161,7 +161,8 @@ fun ConvoySettingsGate(
 @Composable
 fun ConvoySettingsPanelScreen(
     onBack: () -> Unit,
-    onNavigateToCapture: () -> Unit
+    onNavigateToCapture: () -> Unit,
+    onNavigateToApplyList: () -> Unit = {}
 ) {
     val context     = LocalContext.current
     var applyList   by remember { mutableStateOf(ConvoyApplyList.load(context)) }
@@ -291,6 +292,34 @@ fun ConvoySettingsPanelScreen(
                 )
             }
 
+            Spacer(Modifier.height(16.dp))
+
+            // ── Apply list maintenance ───────────────────────────────────────
+            PanelSection("APPLY LIST")
+            Spacer(Modifier.height(8.dp))
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onNavigateToApplyList() },
+                shape = RoundedCornerShape(12.dp),
+                color = Color(0xFF101510)
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Text(
+                        text       = "EDIT APPLY LIST",
+                        color      = Color(0xFF97D5A5),
+                        fontSize   = 12.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text       = "Manage which radio fields are pushed to rider radios. Independent of master capture.",
+                        color      = Color(0xFF8B938A),
+                        fontSize   = 10.sp,
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
+            }
             Spacer(Modifier.height(16.dp))
 
             // ── Master config capture ─────────────────────────────────────────

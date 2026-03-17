@@ -48,6 +48,9 @@ class ConvoyViewModel @Inject constructor(
     private val _myNodeInfo = MutableStateFlow<MyNodeInfo?>(null)
     val myNodeInfo: StateFlow<MyNodeInfo?> = _myNodeInfo.asStateFlow()
 
+    // Our node from NodeRepository — exposes user.long_name
+    val ourNodeInfo: StateFlow<org.meshtastic.core.model.Node?> = nodeRepository.ourNodeInfo
+
     // ── HUD mode ──────────────────────────────────────────────────────────
 
     private val _hudMode = MutableStateFlow(HudMode.GROUP)
