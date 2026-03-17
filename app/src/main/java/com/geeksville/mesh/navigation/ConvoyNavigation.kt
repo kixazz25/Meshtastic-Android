@@ -120,7 +120,7 @@ fun NavGraphBuilder.convoyGraph(
         val vm = viewModel ?: androidx.hilt.navigation.compose.hiltViewModel<ConvoyViewModel>()
         ConvoyWriteArchiveScreen(
             convoyViewModel = vm,
-            onProceed = { navController?.navigate(ConvoyRoutes.ConvoyWriteDevice) },
+            onProceed = { navController?.navigate(ConvoyRoutes.ConvoyWriteLoRa) },
             onCancel  = { navController?.popBackStack() }
         )
     }
@@ -132,7 +132,7 @@ fun NavGraphBuilder.convoyGraph(
         if (wc == null) { android.util.Log.e("ConvoyNav", "workingConfig is NULL on WriteDevice"); return@composable }
         ConvoyDeviceConfigScreen(
             workingConfig = wc,
-            onProceed     = { navController?.navigate(ConvoyRoutes.ConvoyWriteLoRa) },
+            onProceed     = { navController?.navigate(ConvoyRoutes.ConvoyWritePosition) },
             onBack        = { navController?.popBackStack() }
         )
     }
@@ -144,7 +144,7 @@ fun NavGraphBuilder.convoyGraph(
         if (wc == null) { android.util.Log.e("ConvoyNav", "workingConfig is NULL on WriteDevice"); return@composable }
         ConvoyLoRaConfigScreen(
             workingConfig = wc,
-            onProceed     = { navController?.navigate(ConvoyRoutes.ConvoyWritePosition) },
+            onProceed     = { navController?.navigate(ConvoyRoutes.ConvoyWriteChannel) },
             onBack        = { navController?.popBackStack() }
         )
     }
@@ -156,7 +156,7 @@ fun NavGraphBuilder.convoyGraph(
         if (wc == null) { android.util.Log.e("ConvoyNav", "workingConfig is NULL on WriteDevice"); return@composable }
         ConvoyPositionConfigScreen(
             workingConfig = wc,
-            onProceed     = { navController?.navigate(ConvoyRoutes.ConvoyWriteChannel) },
+            onProceed     = { navController?.navigate(ConvoyRoutes.ConvoyWriteVerify) },
             onBack        = { navController?.popBackStack() }
         )
     }
@@ -168,7 +168,7 @@ fun NavGraphBuilder.convoyGraph(
         if (wc == null) { android.util.Log.e("ConvoyNav", "workingConfig is NULL on WriteDevice"); return@composable }
         ConvoyChannelConfigScreen(
             workingConfig = wc,
-            onComplete    = { navController?.navigate(ConvoyRoutes.ConvoyWriteVerify) },
+            onComplete    = { navController?.navigate(ConvoyRoutes.ConvoyWriteDevice) },
             onBack        = { navController?.popBackStack() }
         )
     }

@@ -375,10 +375,19 @@ fun ConvoyApplyRadioScreen(
                             val ni = myNodeInfo ?: return@clickable
                             val channel = if (applyMode == "RIDE") selectedRide?.channelName ?: "" else masterConfig?.primaryChannelName ?: ""
                             val psk = if (applyMode == "RIDE") selectedRide?.channelPsk ?: "" else masterConfig?.primaryChannelPsk ?: ""
+                            val currentRole = localConfig.device?.role?.name ?: "CLIENT"
                             val wconfig = WorkingConfig(
-                                nodeId          = "!%08x".format(ni.myNodeNum),
-                                longName        = longName.ifBlank { workingLongName },
-                                channelName     = channel,
+                                nodeId                  = "!%08x".format(ni.myNodeNum),
+                                longName                = longName.ifBlank { workingLongName },
+                                nodeRole                = masterConfig?.nodeRole ?: currentRole,
+                                isManaged               = masterConfig?.isManaged ?: false,
+                                serialEnabled           = masterConfig?.serialEnabled ?: false,
+                                positionBroadcastSecs   = masterConfig?.positionBroadcastSecs ?: 5,
+                                gpsUpdateSecs           = masterConfig?.gpsUpdateSecs ?: 1,
+                                smartPositionEnabled    = masterConfig?.smartPositionEnabled ?: true,
+                                smartMinIntervalSecs    = masterConfig?.smartMinIntervalSecs ?: 3,
+                                smartMinDistanceMeters  = masterConfig?.smartMinDistanceMeters ?: 10,
+                                channelName             = channel,
                                 channelPsk      = psk,
                                 loraRegion      = masterConfig?.loraRegion ?: "US",
                                 loraModemPreset = masterConfig?.loraModemPreset ?: "LONG_FAST",

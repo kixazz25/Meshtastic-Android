@@ -186,6 +186,14 @@ object ConvoyRadioWriter {
 data class WorkingConfig(
     val nodeId: String,
     val longName: String,
+    val nodeRole: String,          // e.g. CLIENT, ROUTER, TRACKER
+    val isManaged: Boolean,
+    val serialEnabled: Boolean,
+    val positionBroadcastSecs: Int,    // position broadcast interval seconds
+    val gpsUpdateSecs: Int,            // GPS update interval seconds
+    val smartPositionEnabled: Boolean, // smart position enabled
+    val smartMinIntervalSecs: Int,     // smart position minimum interval seconds
+    val smartMinDistanceMeters: Int,   // smart position minimum distance meters
     val channelName: String,
     val channelPsk: String,
     val loraRegion: String,
@@ -196,5 +204,5 @@ data class WorkingConfig(
     val loraHopLimit: Int,
     val loraTxEnabled: Boolean,
     val loraTxPower: Int,
-    val source: String  // "MASTER" or "RIDE:<eventId>"
+    val source: String             // "MASTER", "RIDE:<eventId>", or "ARCHIVE:<filename>"
 )

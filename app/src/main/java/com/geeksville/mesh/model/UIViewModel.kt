@@ -24,6 +24,8 @@ import androidx.navigation.NavHostController
 import co.touchlab.kermit.Logger
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -78,7 +80,7 @@ constructor(
     private val nodeDB: NodeRepository,
     private val serviceRepository: AndroidServiceRepository,
     private val radioController: RadioController,
-    radioInterfaceService: RadioInterfaceService,
+    private val radioInterfaceService: RadioInterfaceService,
     meshLogRepository: MeshLogRepository,
     firmwareReleaseRepository: FirmwareReleaseRepository,
     private val uiPreferencesDataSource: UiPreferencesDataSource,
@@ -162,6 +164,29 @@ constructor(
 
     val meshService: IMeshService?
         get() = serviceRepository.meshService
+
+    fun getDeviceAddress(): String? = radioInterfaceService.getDeviceAddress()
+
+    fun reconnectDevice(context: android.content.Context) {
+        val bluetoothManager = context.getSystemService(android.content.Context.BLUETOOTH_SERVICE)
+            as? android.bluetooth.BluetoothManager
+        val adapter = bluetoothManager?.adapter ?: return
+        android.util.Log.i("ConvoyReconnect", "Toggling Bluetooth for radio reconnect")
+        viewModelScope.launch {
+            try {
+                // Disable Bluetooth
+                @Suppress("DEPRECATION")
+                adapter.disable()
+                kotlinx.coroutines.delay(3000)
+                // Re-enable Bluetooth
+                @Suppress("DEPRECATION")
+                adapter.enable()
+                android.util.Log.i("ConvoyReconnect", "Bluetooth re-enabled — waiting for radio reconnect")
+            } catch (e: Exception) {
+                android.util.Log.e("ConvoyReconnect", "BT toggle failed: ${e.message}")
+            }
+        }
+    }
 
     fun setDeviceAddress(address: String) {
         radioController.setDeviceAddress(address)

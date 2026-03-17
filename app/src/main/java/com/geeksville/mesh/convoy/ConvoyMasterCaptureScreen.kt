@@ -328,24 +328,33 @@ fun ConvoyMasterCaptureScreen(
                                 val fmt   = DateTimeFormatter.ISO_LOCAL_DATE
                                 val today = LocalDate.now().format(fmt)
 
+                                val pos = localConfig.position
                                 val master = ConvoyMasterConfig(
-                                    hardwareModel       = ni.model ?: "Unknown",
-                                    firmwareVersion     = ni.firmwareVersion ?: "Unknown",
-                                    pioEnv              = ni.pioEnv ?: "",
-                                    loraRegion          = loraRegion,
-                                    loraModemPreset     = loraModemPreset,
-                                    loraBandwidth       = loraBandwidth,
-                                    loraSpreadFactor    = loraSpreadFactor,
-                                    loraCodingRate      = loraCodingRate,
-                                    loraHopLimit        = loraHopLimit,
-                                    loraTxEnabled       = loraTxEnabled,
-                                    loraTxPower         = loraTxPower,
-                                    primaryChannelName  = channelName,
-                                    primaryChannelPsk   = pskBase64,
-                                    longName            = longName,
-                                    deviceProfileBase64 = "",
-                                    capturedDate        = today,
-                                    capturedFirmware    = ni.firmwareVersion ?: "Unknown"
+                                    hardwareModel          = ni.model ?: "Unknown",
+                                    firmwareVersion        = ni.firmwareVersion ?: "Unknown",
+                                    pioEnv                 = ni.pioEnv ?: "",
+                                    loraRegion             = loraRegion,
+                                    loraModemPreset        = loraModemPreset,
+                                    loraBandwidth          = loraBandwidth,
+                                    loraSpreadFactor       = loraSpreadFactor,
+                                    loraCodingRate         = loraCodingRate,
+                                    loraHopLimit           = loraHopLimit,
+                                    loraTxEnabled          = loraTxEnabled,
+                                    loraTxPower            = loraTxPower,
+                                    nodeRole               = localConfig.device?.role?.name ?: "CLIENT",
+                                    isManaged              = localConfig.device?.is_managed ?: false,
+                                    serialEnabled          = false,
+                                    positionBroadcastSecs  = pos?.position_broadcast_secs ?: 5,
+                                    gpsUpdateSecs          = pos?.gps_update_interval ?: 1,
+                                    smartPositionEnabled   = pos?.position_broadcast_smart_enabled ?: true,
+                                    smartMinIntervalSecs   = pos?.broadcast_smart_minimum_interval_secs ?: 3,
+                                    smartMinDistanceMeters = pos?.broadcast_smart_minimum_distance ?: 10,
+                                    primaryChannelName     = channelName,
+                                    primaryChannelPsk      = pskBase64,
+                                    longName               = longName,
+                                    deviceProfileBase64    = "",
+                                    capturedDate           = today,
+                                    capturedFirmware       = ni.firmwareVersion ?: "Unknown"
                                 )
 
                                 // ── Save to external cache (adb-pullable) ─────

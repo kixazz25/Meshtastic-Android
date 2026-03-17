@@ -53,14 +53,23 @@ fun ConvoyVerifyConfigScreen(
         if (!isConnected) return@LaunchedEffect
         val list = mutableListOf<VerifyResult>()
 
-        // ── Device config ──────────────────────────────────────────────────
+        // ── Device config — 4 fields ───────────────────────────────────────
+        // Long name cannot be read back from localConfig — mark as written only
+        list.add(VerifyResult("Long Name", workingConfig.longName, "(written)", true))
+
         val actualRole = localConfig.device?.role?.name ?: "—"
-        list.add(VerifyResult("Node Role", "CLIENT", actualRole, actualRole == "CLIENT"))
+        list.add(VerifyResult("Node Role", workingConfig.nodeRole, actualRole,
+            actualRole == workingConfig.nodeRole))
 
         val actualManaged = localConfig.device?.is_managed?.toString() ?: "—"
-        list.add(VerifyResult("Managed Mode", "false", actualManaged, actualManaged == "false"))
+        list.add(VerifyResult("Managed Mode", workingConfig.isManaged.toString(), actualManaged,
+            actualManaged == workingConfig.isManaged.toString()))
 
-        // ── LoRa config ────────────────────────────────────────────────────
+        val actualSerial = localConfig.device?.serial_enabled?.toString() ?: "—"
+        list.add(VerifyResult("Serial Enabled", workingConfig.serialEnabled.toString(), actualSerial,
+            actualSerial == workingConfig.serialEnabled.toString()))
+
+        // ── LoRa config — 7 fields ─────────────────────────────────────────
         val actualRegion = localConfig.lora?.region?.name ?: "—"
         list.add(VerifyResult("LoRa Region", workingConfig.loraRegion, actualRegion,
             actualRegion == workingConfig.loraRegion))
@@ -68,6 +77,18 @@ fun ConvoyVerifyConfigScreen(
         val actualPreset = localConfig.lora?.modem_preset?.name ?: "—"
         list.add(VerifyResult("Modem Preset", workingConfig.loraModemPreset, actualPreset,
             actualPreset == workingConfig.loraModemPreset))
+
+        val actualBandwidth = localConfig.lora?.bandwidth?.toString() ?: "—"
+        list.add(VerifyResult("Bandwidth", workingConfig.loraBandwidth.toString(), actualBandwidth,
+            actualBandwidth == workingConfig.loraBandwidth.toString() || workingConfig.loraBandwidth == 0))
+
+        val actualSpread = localConfig.lora?.spread_factor?.toString() ?: "—"
+        list.add(VerifyResult("Spread Factor", workingConfig.loraSpreadFactor.toString(), actualSpread,
+            actualSpread == workingConfig.loraSpreadFactor.toString() || workingConfig.loraSpreadFactor == 0))
+
+        val actualCoding = localConfig.lora?.coding_rate?.toString() ?: "—"
+        list.add(VerifyResult("Coding Rate", workingConfig.loraCodingRate.toString(), actualCoding,
+            actualCoding == workingConfig.loraCodingRate.toString() || workingConfig.loraCodingRate == 0))
 
         val actualHopLimit = localConfig.lora?.hop_limit?.toString() ?: "—"
         list.add(VerifyResult("Hop Limit", workingConfig.loraHopLimit.toString(), actualHopLimit,
@@ -81,29 +102,43 @@ fun ConvoyVerifyConfigScreen(
         list.add(VerifyResult("TX Power", workingConfig.loraTxPower.toString(), actualTxPower,
             actualTxPower == workingConfig.loraTxPower.toString()))
 
-        // ── Position config ────────────────────────────────────────────────
+        // ── Position config — 6 fields ─────────────────────────────────────
         val actualBroadcast = localConfig.position?.position_broadcast_secs?.toString() ?: "—"
-        list.add(VerifyResult("Broadcast Interval", "5", actualBroadcast, actualBroadcast == "5"))
+        list.add(VerifyResult("Broadcast Interval",
+            workingConfig.positionBroadcastSecs.toString(), actualBroadcast,
+            actualBroadcast == workingConfig.positionBroadcastSecs.toString()))
 
         val actualGpsUpdate = localConfig.position?.gps_update_interval?.toString() ?: "—"
-        list.add(VerifyResult("GPS Update", "1", actualGpsUpdate, actualGpsUpdate == "1"))
+        list.add(VerifyResult("GPS Update Interval",
+            workingConfig.gpsUpdateSecs.toString(), actualGpsUpdate,
+            actualGpsUpdate == workingConfig.gpsUpdateSecs.toString()))
 
         val actualSmart = localConfig.position?.position_broadcast_smart_enabled?.toString() ?: "—"
-        list.add(VerifyResult("Smart Position", "true", actualSmart, actualSmart == "true"))
+        list.add(VerifyResult("Smart Position",
+            workingConfig.smartPositionEnabled.toString(), actualSmart,
+            actualSmart == workingConfig.smartPositionEnabled.toString()))
 
         val actualSmartMin = localConfig.position?.broadcast_smart_minimum_interval_secs?.toString() ?: "—"
-        list.add(VerifyResult("Smart Min Interval", "3", actualSmartMin, actualSmartMin == "3"))
+        list.add(VerifyResult("Smart Min Interval",
+            workingConfig.smartMinIntervalSecs.toString(), actualSmartMin,
+            actualSmartMin == workingConfig.smartMinIntervalSecs.toString()))
 
-        // ── Channel ────────────────────────────────────────────────────────
+        val actualSmartDist = localConfig.position?.broadcast_smart_minimum_distance?.toString() ?: "—"
+        list.add(VerifyResult("Smart Min Distance",
+            workingConfig.smartMinDistanceMeters.toString(), actualSmartDist,
+            actualSmartDist == workingConfig.smartMinDistanceMeters.toString()))
+
+        // ── Channel — 2 fields ─────────────────────────────────────────────
         val actualChannel = channels.settings.firstOrNull()?.name ?: "—"
         list.add(VerifyResult("Channel Name", workingConfig.channelName, actualChannel,
             actualChannel == workingConfig.channelName))
 
-        // PSK — verify it's not default/empty (can't read back exact bytes)
-        val hasPsk = (channels.settings.firstOrNull()?.psk?.size ?: 0) == 32
-        list.add(VerifyResult("Encryption Key", "32-byte AES-256",
-            if (hasPsk) "32-byte key present" else "MISSING/DEFAULT",
-            hasPsk))
+        val pskSize = channels.settings.firstOrNull()?.psk?.size ?: 0
+        val hasPsk  = pskSize == 32
+        val pskExpected = if (workingConfig.channelPsk.isNotBlank()) "32-byte AES-256" else "DEFAULT"
+        list.add(VerifyResult("Encryption Key", pskExpected,
+            if (hasPsk) "32-byte key present" else if (pskSize == 1) "DEFAULT (1-byte)" else "MISSING",
+            if (workingConfig.channelPsk.isNotBlank()) hasPsk else true))
 
         results = list
         allPassed = list.all { it.passed }
