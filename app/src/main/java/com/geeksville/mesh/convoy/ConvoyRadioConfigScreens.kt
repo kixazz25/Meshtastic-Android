@@ -381,25 +381,8 @@ fun ConvoyDeviceConfigScreen(
                 Spacer(Modifier.height(12.dp))
             }
             ConvoyProceedButton(isConnected = isConnected, isProcessing = isProcessing,
-                label = "WRITE DEVICE CONFIG \u2192") {
-                scope.launch {
-                    isProcessing = true
-                    try {
-                        channelViewModel.setConfig(org.meshtastic.proto.Config(
-                            device = org.meshtastic.proto.Config.DeviceConfig(
-                                role = org.meshtastic.proto.Config.DeviceConfig.Role.CLIENT,
-                                is_managed = false
-                            )
-                        ))
-                        statusMsg = "\u2713 Device config written"
-                        statusOk = true
-                        kotlinx.coroutines.delay(800)
-                        onProceed()
-                    } catch (e: Exception) {
-                        statusMsg = "\u2717 Failed: ${e.message}"
-                        statusOk = false
-                    } finally { isProcessing = false }
-                }
+                label = "REVIEW LORA CONFIG \u2192 [WRITE BYPASSED]") {
+                onProceed()
             }
             Spacer(Modifier.height(8.dp))
             ConvoyCancelButton { onBack() }
@@ -479,34 +462,8 @@ fun ConvoyLoRaConfigScreen(
                 ) { onProceed() }
             } else {
                 ConvoyProceedButton(isConnected = isConnected, isProcessing = isProcessing,
-                    label = "WRITE LORA CONFIG \u2192") {
-                    scope.launch {
-                        isProcessing = true
-                        try {
-                            val regionCode = try {
-                                org.meshtastic.proto.Config.LoRaConfig.RegionCode.valueOf(workingConfig.loraRegion)
-                            } catch (e: Exception) { org.meshtastic.proto.Config.LoRaConfig.RegionCode.US }
-                            val modemPreset = try {
-                                org.meshtastic.proto.Config.LoRaConfig.ModemPreset.valueOf(workingConfig.loraModemPreset)
-                            } catch (e: Exception) { org.meshtastic.proto.Config.LoRaConfig.ModemPreset.LONG_FAST }
-                            channelViewModel.setConfig(org.meshtastic.proto.Config(
-                                lora = org.meshtastic.proto.Config.LoRaConfig(
-                                    region       = regionCode,
-                                    modem_preset = modemPreset,
-                                    hop_limit    = workingConfig.loraHopLimit,
-                                    tx_enabled   = workingConfig.loraTxEnabled,
-                                    tx_power     = workingConfig.loraTxPower,
-                                    use_preset   = true
-                                )
-                            ))
-                            statusMsg = "\u2713 LoRa config written \u2014 radio rebooting...\n\u25cb Waiting for reconnect..."
-                            statusOk = true
-                            waitingReconnect = true
-                        } catch (e: Exception) {
-                            statusMsg = "\u2717 Failed: ${e.message}"
-                            statusOk = false
-                        } finally { isProcessing = false }
-                    }
+                    label = "REVIEW POSITION CONFIG \u2192 [WRITE BYPASSED]") {
+                    onProceed()
                 }
             }
             Spacer(Modifier.height(8.dp))
@@ -576,29 +533,8 @@ fun ConvoyPositionConfigScreen(
                 Spacer(Modifier.height(12.dp))
             }
             ConvoyProceedButton(isConnected = isConnected, isProcessing = isProcessing,
-                label = "WRITE POSITION CONFIG \u2192") {
-                scope.launch {
-                    isProcessing = true
-                    try {
-                        channelViewModel.setConfig(org.meshtastic.proto.Config(
-                            position = org.meshtastic.proto.Config.PositionConfig(
-                                position_broadcast_secs               = broadcastSecs,
-                                position_broadcast_smart_enabled      = smartEnabled,
-                                broadcast_smart_minimum_interval_secs = smartMinSecs,
-                                broadcast_smart_minimum_distance      = 10,
-                                gps_update_interval                   = gpsUpdateSecs,
-                                gps_mode = org.meshtastic.proto.Config.PositionConfig.GpsMode.ENABLED
-                            )
-                        ))
-                        statusMsg = "\u2713 Position config written"
-                        statusOk = true
-                        kotlinx.coroutines.delay(800)
-                        onProceed()
-                    } catch (e: Exception) {
-                        statusMsg = "\u2717 Failed: ${e.message}"
-                        statusOk = false
-                    } finally { isProcessing = false }
-                }
+                label = "REVIEW CHANNEL CONFIG \u2192 [WRITE BYPASSED]") {
+                onProceed()
             }
             Spacer(Modifier.height(8.dp))
             ConvoyCancelButton { onBack() }
@@ -679,27 +615,8 @@ fun ConvoyChannelConfigScreen(
                 ) { if (isConnected) { writeComplete = true; onComplete() } }
             } else {
                 ConvoyProceedButton(isConnected = isConnected, isProcessing = isProcessing,
-                    label = "WRITE CHANNEL + PSK \u2192") {
-                    scope.launch {
-                        isProcessing = true
-                        try {
-                            val pskBytes = okio.ByteString.of(
-                                *android.util.Base64.decode(
-                                    workingConfig.channelPsk, android.util.Base64.NO_WRAP)
-                            )
-                            channelViewModel.setChannels(org.meshtastic.proto.ChannelSet(
-                                settings = listOf(org.meshtastic.proto.ChannelSettings(
-                                    name = workingConfig.channelName, psk = pskBytes
-                                ))
-                            ))
-                            statusMsg = "\u2713 Channel written \u2014 radio rebooting...\n\u25cb Waiting for reconnect..."
-                            statusOk = true
-                            waitingReconnect = true
-                        } catch (e: Exception) {
-                            statusMsg = "\u2717 Failed: ${e.message}"
-                            statusOk = false
-                        } finally { isProcessing = false }
-                    }
+                    label = "REVIEW VERIFY SCREEN \u2192 [WRITE BYPASSED]") {
+                    onComplete()
                 }
             }
             Spacer(Modifier.height(8.dp))
