@@ -201,8 +201,10 @@ fun ConvoyWriteArchiveScreen(
 
     fun addLog(msg: String, ok: Boolean = true) { logLines = logLines + Pair(msg, ok) }
 
-    LaunchedEffect(isConnected) {
-        if (isConnected && !archiveDone && !archiveFailed && !isRunning) {
+    val channelsReady = channels.settings.isNotEmpty()
+    val configReady   = localConfig.lora != null
+    LaunchedEffect(isConnected, channelsReady, configReady) {
+        if (isConnected && channelsReady && configReady && !archiveDone && !archiveFailed && !isRunning) {
             isRunning = true
             logLines = emptyList()
             try {
@@ -222,12 +224,13 @@ fun ConvoyWriteArchiveScreen(
                 addLog("  \u25cf WiFi:     ${if (ni.hasWifi) "Yes" else "No"}")
                 addLog("")
                 addLog("WRITING ARCHIVE...")
+                val nodeLongName = convoyViewModel.ourNodeInfo.value?.user?.long_name ?: ""
                 val snapshot = ConvoyRadioManager.buildSnapshot(
                     myNodeNum = ni.myNodeNum, deviceId = ni.deviceId ?: "",
                     model = ni.model, firmwareVersion = ni.firmwareVersion,
                     pioEnv = ni.pioEnv, hasGPS = ni.hasGPS, hasWifi = ni.hasWifi,
-                    maxChannels = ni.maxChannels, deviceProfile = null,
-                    localConfig = localConfig, channelSet = channels
+                    maxChannels = ni.maxChannels, longName = nodeLongName,
+                    deviceProfile = null, localConfig = localConfig, channelSet = channels
                 )
                 val filePath = ConvoyRadioManager.saveBackup(context, snapshot, "pre_write")
                 addLog("  \u25cf File: $filePath")
@@ -381,8 +384,25 @@ fun ConvoyDeviceConfigScreen(
                 Spacer(Modifier.height(12.dp))
             }
             ConvoyProceedButton(isConnected = isConnected, isProcessing = isProcessing,
-                label = "REVIEW LORA CONFIG \u2192 [WRITE BYPASSED]") {
-                onProceed()
+                label = "WRITE DEVICE CONFIG \u2192") {
+                scope.launch {
+                    isProcessing = true
+                    try {
+                        channelViewModel.setConfig(org.meshtastic.proto.Config(
+                            device = org.meshtastic.proto.Config.DeviceConfig(
+                                role       = org.meshtastic.proto.Config.DeviceConfig.Role.CLIENT,
+                                is_managed = false
+                            )
+                        ))
+                        statusMsg = "\u2713 Device config written"
+                        statusOk  = true
+                        kotlinx.coroutines.delay(800)
+                        onProceed()
+                    } catch (e: Exception) {
+                        statusMsg = "\u2717 Failed: ${e.message}"
+                        statusOk  = false
+                    } finally { isProcessing = false }
+                }
             }
             Spacer(Modifier.height(8.dp))
             ConvoyCancelButton { onBack() }
