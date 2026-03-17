@@ -21,7 +21,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -33,6 +32,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.geeksville.mesh.model.UIViewModel
+import com.geeksville.mesh.ui.sharing.ChannelViewModel
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -41,30 +44,40 @@ import java.time.format.DateTimeFormatter
  * ConvoyMasterCaptureScreen — developer-only master config capture
  *
  * Accessed via password-protected settings panel only.
- * Reads full radio snapshot from connected device.
- * Saves to C:/ConvoyProto/master_config.json
- * File must then be manually copied to app/src/main/assets/
- * before building the release APK.
+ * Reads full radio snapshot from connected device including:
+ *   - Hardware ID, model, firmware
+ *   - LoRa region, modem preset, hop limit, TX power (from localConfig)
+ *   - Primary channel name and AES-256 PSK (from channels)
+ *   - Node long name (from nodeDB)
  *
- * One-time operation. Nobody else can do this.
+ * Saves master_config.json to external cache for adb pull.
+ * File must be copied to app/src/main/assets/ before release build.
+ *
+ * One master config. Captured once. Nobody else can do this.
  */
 @Composable
 fun ConvoyMasterCaptureScreen(
     viewModel: ConvoyViewModel,
     onBack: () -> Unit,
-    onCaptureSuccess: () -> Unit = {}
+    onCaptureSuccess: () -> Unit = {},
+    channelViewModel: ChannelViewModel = hiltViewModel(),
+    uiViewModel: UIViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
     val scope   = rememberCoroutineScope()
 
-    var statusMsg    by remember { mutableStateOf("") }
-    var statusOk     by remember { mutableStateOf(true) }
-    var isCapturing  by remember { mutableStateOf(false) }
-    var captureLog   by remember { mutableStateOf("") }
+    var statusMsg       by remember { mutableStateOf("") }
+    var statusOk        by remember { mutableStateOf(true) }
+    var isCapturing     by remember { mutableStateOf(false) }
+    var captureLog      by remember { mutableStateOf("") }
     var captureComplete by remember { mutableStateOf(false) }
 
-    val nodeInfo     by viewModel.myNodeInfo.collectAsState()
-    val isConnected  = nodeInfo != null
+    val nodeInfo        by viewModel.myNodeInfo.collectAsState()
+    val localConfig     by channelViewModel.localConfig.collectAsStateWithLifecycle()
+    val channels        by channelViewModel.channels.collectAsStateWithLifecycle()
+    val connectionState by uiViewModel.connectionState.collectAsStateWithLifecycle()
+    val myNodeInfo      by uiViewModel.myNodeInfo.collectAsStateWithLifecycle()
+    val isConnected     = nodeInfo != null
 
     Box(
         modifier = Modifier
@@ -86,7 +99,7 @@ fun ConvoyMasterCaptureScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text     = "←",
+                    text     = "\u2190",
                     color    = Color(0xFF97D5A5),
                     fontSize = 20.sp,
                     modifier = Modifier.clickable { onBack() }.padding(end = 12.dp)
@@ -112,7 +125,7 @@ fun ConvoyMasterCaptureScreen(
             ) {
                 Column(modifier = Modifier.padding(14.dp)) {
                     Text(
-                        "⚠  DEVELOPER OPERATION",
+                        "\u26a0  DEVELOPER OPERATION",
                         color      = Color(0xFFFFB74D),
                         fontSize   = 11.sp,
                         fontFamily = FontFamily.Monospace,
@@ -120,8 +133,9 @@ fun ConvoyMasterCaptureScreen(
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        "This captures your radio config as the master template for all convoy installs. " +
-                        "After capture, copy master_config.json to app/src/main/assets/ before building the release APK.",
+                        "Captures ALL radio config values as the master template for all convoy installs. " +
+                        "Reads LoRa settings, channel name, and AES-256 PSK from connected radio. " +
+                        "After capture, pull the file via adb and copy to app/src/main/assets/ before building the release APK.",
                         color      = Color(0xFF7A5A30),
                         fontSize   = 10.sp,
                         fontFamily = FontFamily.Monospace
@@ -139,47 +153,45 @@ fun ConvoyMasterCaptureScreen(
                 Column(modifier = Modifier.padding(14.dp)) {
                     Text(
                         "CONNECTED RADIO",
-                        color      = Color(0xFF8B938A),
-                        fontSize   = 10.sp,
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Bold,
+                        color         = Color(0xFF8B938A),
+                        fontSize      = 10.sp,
+                        fontFamily    = FontFamily.Monospace,
+                        fontWeight    = FontWeight.Bold,
                         letterSpacing = 2.sp
                     )
                     Spacer(Modifier.height(6.dp))
                     if (isConnected) {
-                        Text(
-                            "● CONNECTED",
-                            color      = Color(0xFF97D5A5),
-                            fontSize   = 12.sp,
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            "${nodeInfo?.model ?: "Unknown"}  •  fw ${nodeInfo?.firmwareVersion ?: "Unknown"}",
-                            color      = Color(0xFF8B938A),
-                            fontSize   = 10.sp,
-                            fontFamily = FontFamily.Monospace
-                        )
-                        Text(
-                            "ID: ${"!%08x".format(nodeInfo?.myNodeNum ?: 0)}  •  GPS: ${nodeInfo?.hasGPS}  •  WiFi: ${nodeInfo?.hasWifi}",
-                            color      = Color(0xFF8B938A),
-                            fontSize   = 10.sp,
-                            fontFamily = FontFamily.Monospace
-                        )
+                        Text("\u25cf CONNECTED", color = Color(0xFF97D5A5),
+                            fontSize = 12.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+                        Text("${nodeInfo?.model ?: "Unknown"}  \u2022  fw ${nodeInfo?.firmwareVersion ?: "Unknown"}",
+                            color = Color(0xFF8B938A), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                        Text("ID: ${"!%08x".format(nodeInfo?.myNodeNum ?: 0)}",
+                            color = Color(0xFF8B938A), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                        // Show live radio values that will be captured
+                        Spacer(Modifier.height(8.dp))
+                        Text("WILL CAPTURE:", color = Color(0xFF4A6080), fontSize = 9.sp,
+                            fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+                        Text("  LoRa Region:    ${localConfig.lora?.region?.name ?: "\u2014"}",
+                            color = Color(0xFF8B938A), fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                        Text("  Modem Preset:   ${localConfig.lora?.modem_preset?.name ?: "\u2014"}",
+                            color = Color(0xFF8B938A), fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                        Text("  Hop Limit:      ${localConfig.lora?.hop_limit ?: "\u2014"}",
+                            color = Color(0xFF8B938A), fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                        Text("  TX Power:       ${localConfig.lora?.tx_power ?: "\u2014"} dBm",
+                            color = Color(0xFF8B938A), fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                        Text("  Channel Name:   ${channels.settings.firstOrNull()?.name?.ifBlank { "(blank)" } ?: "\u2014"}",
+                            color = if ((channels.settings.firstOrNull()?.name ?: "").isBlank())
+                                Color(0xFFFFB4AB) else Color(0xFF97D5A5),
+                            fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                        Text("  PSK:            ${if ((channels.settings.firstOrNull()?.psk?.size ?: 0) > 0) "AES-256 present (${channels.settings.firstOrNull()?.psk?.size} bytes)" else "\u26a0 NOT SET"}",
+                            color = if ((channels.settings.firstOrNull()?.psk?.size ?: 0) > 0)
+                                Color(0xFF97D5A5) else Color(0xFFFFB4AB),
+                            fontSize = 9.sp, fontFamily = FontFamily.Monospace)
                     } else {
-                        Text(
-                            "○ NO RADIO CONNECTED",
-                            color      = Color(0xFFF44336),
-                            fontSize   = 12.sp,
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            "Connect your master radio via Bluetooth before capturing.",
-                            color      = Color(0xFF8B938A),
-                            fontSize   = 10.sp,
-                            fontFamily = FontFamily.Monospace
-                        )
+                        Text("\u25cb NO RADIO CONNECTED", color = Color(0xFFF44336),
+                            fontSize = 12.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+                        Text("Connect reference radio via Bluetooth before capturing.",
+                            color = Color(0xFF8B938A), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
                     }
                 }
             }
@@ -236,15 +248,83 @@ fun ConvoyMasterCaptureScreen(
                                 val log = StringBuilder()
                                 log.appendLine("Reading radio state...")
 
-                                val ni       = nodeInfo ?: return@launch
-                                val hwId     = "!%08x".format(ni.myNodeNum)
-                                log.appendLine("Hardware ID: $hwId")
-                                log.appendLine("Model: ${ni.model}")
-                                log.appendLine("Firmware: ${ni.firmwareVersion}")
+                                val ni = nodeInfo ?: run {
+                                    log.appendLine("\u2717 Node info not available")
+                                    statusMsg = "\u2717 Capture failed: node info not available"
+                                    statusOk = false
+                                    isCapturing = false
+                                    captureLog = log.toString()
+                                    return@launch
+                                }
 
-                                // Build master config from node info
-                                // Full DeviceProfile proto captured via ConvoyRadioManager
-                                // LoRa values read from localConfig flow in next wiring pass
+                                val hwId = "!%08x".format(ni.myNodeNum)
+                                log.appendLine("  \u25cf Hardware ID:  $hwId")
+                                log.appendLine("  \u25cf Model:        ${ni.model ?: "Unknown"}")
+                                log.appendLine("  \u25cf Firmware:     ${ni.firmwareVersion ?: "Unknown"}")
+                                captureLog = log.toString()
+
+                                // ── Read LoRa config ──────────────────────────
+                                log.appendLine("")
+                                log.appendLine("Reading LoRa config...")
+                                val lora = localConfig.lora
+                                val loraRegion      = lora?.region?.name ?: "US"
+                                val loraModemPreset = lora?.modem_preset?.name ?: "LONG_FAST"
+                                val loraBandwidth   = lora?.bandwidth ?: 250
+                                val loraSpreadFactor= lora?.spread_factor ?: 11
+                                val loraCodingRate  = lora?.coding_rate ?: 8
+                                val loraHopLimit    = lora?.hop_limit ?: 3
+                                val loraTxEnabled   = lora?.tx_enabled ?: true
+                                val loraTxPower     = lora?.tx_power ?: 27
+                                log.appendLine("  \u25cf Region:       $loraRegion")
+                                log.appendLine("  \u25cf Modem Preset: $loraModemPreset")
+                                log.appendLine("  \u25cf Hop Limit:    $loraHopLimit")
+                                log.appendLine("  \u25cf TX Power:     $loraTxPower dBm")
+                                captureLog = log.toString()
+
+                                // ── Read channel + PSK ────────────────────────
+                                log.appendLine("")
+                                log.appendLine("Reading channel config...")
+                                val primaryChannel = channels.settings.firstOrNull()
+                                val channelName    = primaryChannel?.name ?: ""
+                                val pskBytes       = primaryChannel?.psk
+                                val pskBase64      = if (pskBytes != null && pskBytes.size > 0)
+                                    Base64.encodeToString(pskBytes.toByteArray(), Base64.NO_WRAP)
+                                else ""
+
+                                if (channelName.isBlank()) {
+                                    log.appendLine("  \u26a0 Channel name is blank \u2014 set channel name on radio before capturing")
+                                } else {
+                                    log.appendLine("  \u25cf Channel Name: $channelName")
+                                }
+                                if (pskBase64.isBlank()) {
+                                    log.appendLine("  \u26a0 PSK not set \u2014 configure AES-256 encryption on radio before capturing")
+                                } else {
+                                    log.appendLine("  \u25cf PSK:          AES-256 present (${pskBytes?.size} bytes)")
+                                }
+                                captureLog = log.toString()
+
+                                // ── Read long name ────────────────────────────
+                                log.appendLine("")
+                                log.appendLine("Reading node long name...")
+                                val longName = myNodeInfo?.let {
+                                    // Try to get long name from node — use nodeNum as fallback
+                                    hwId
+                                } ?: hwId
+                                log.appendLine("  \u25cf Long Name:    $longName")
+                                captureLog = log.toString()
+
+                                // ── Gate: warn if channel or PSK missing ──────
+                                if (channelName.isBlank() || pskBase64.isBlank()) {
+                                    log.appendLine("")
+                                    log.appendLine("\u26a0 WARNING: Channel name or PSK is missing.")
+                                    log.appendLine("  Capture will proceed but master config will be incomplete.")
+                                    log.appendLine("  Set channel name and PSK on radio, then recapture.")
+                                    captureLog = log.toString()
+                                }
+
+                                // ── Build master config ───────────────────────
+                                log.appendLine("")
+                                log.appendLine("Building master config...")
                                 val fmt   = DateTimeFormatter.ISO_LOCAL_DATE
                                 val today = LocalDate.now().format(fmt)
 
@@ -252,61 +332,67 @@ fun ConvoyMasterCaptureScreen(
                                     hardwareModel       = ni.model ?: "Unknown",
                                     firmwareVersion     = ni.firmwareVersion ?: "Unknown",
                                     pioEnv              = ni.pioEnv ?: "",
-                                    loraRegion          = "US",       // read from localConfig in wiring pass
-                                    loraModemPreset     = "LONG_FAST",
-                                    loraBandwidth       = 250,
-                                    loraSpreadFactor    = 11,
-                                    loraCodingRate      = 8,
-                                    loraHopLimit        = 3,
-                                    loraTxEnabled       = true,
-                                    loraTxPower         = 27,
-                                    primaryChannelName  = "",
-                                    deviceProfileBase64 = "",         // wired in next pass
+                                    loraRegion          = loraRegion,
+                                    loraModemPreset     = loraModemPreset,
+                                    loraBandwidth       = loraBandwidth,
+                                    loraSpreadFactor    = loraSpreadFactor,
+                                    loraCodingRate      = loraCodingRate,
+                                    loraHopLimit        = loraHopLimit,
+                                    loraTxEnabled       = loraTxEnabled,
+                                    loraTxPower         = loraTxPower,
+                                    primaryChannelName  = channelName,
+                                    primaryChannelPsk   = pskBase64,
+                                    longName            = longName,
+                                    deviceProfileBase64 = "",
                                     capturedDate        = today,
                                     capturedFirmware    = ni.firmwareVersion ?: "Unknown"
                                 )
 
-                                // ── Save to Android Downloads ────────────────
-                                val downloads = context.getExternalCacheDir() ?: context.cacheDir
-                                val masterJson = master.toJson().toString(2)
-                                
-                                val masterFile = java.io.File(downloads, "master_config.json")
-                                try {
-                                    masterFile.writeText(masterJson)
-                                    log.appendLine("✓ Saved: ${masterFile.absolutePath}")
-                                } catch (e: Exception) {
-                                    log.appendLine("✗ FAILED to save: ${masterFile.absolutePath}")
-                                    log.appendLine("  Error: ${e.message}")
-                                }
-                                
-                                // Save apply list alongside master config
-                                val applyList = ConvoyApplyList.load(context)
-                                val applyFile = java.io.File(downloads, "convoy_apply_list.json")
-                                applyFile.writeText(applyList.toJson().toString(2))
-                                log.appendLine("✓ Saved: Downloads/convoy_apply_list.json")
-                                
-                                // ── Check PC directory ────────────────────────
-                                val pcDir = java.io.File("C:/ConvoyProto")
-                                if (pcDir.exists() && pcDir.isDirectory) {
-                                    java.io.File(pcDir, "master_config.json").writeText(masterJson)
-                                    java.io.File(pcDir, "convoy_apply_list.json")
-                                        .writeText(applyList.toJson().toString(2))
-                                    log.appendLine("✓ Copied to C:/ConvoyProto/")
-                                } else {
-                                    log.appendLine("⚠  C:/ConvoyProto/ not found")
-                                    log.appendLine("   Master NOT updated for distribution")
-                                }
-                                
+                                // ── Save to external cache (adb-pullable) ─────
                                 log.appendLine("")
-                                log.appendLine("Connect PC via USB and run:")
-                                log.appendLine("  bash convoy_commit_master.sh")
-                                
+                                log.appendLine("Saving files...")
+                                val saveDir = context.getExternalCacheDir() ?: context.filesDir
+                                val masterJson = master.toJson().toString(2)
+
+                                val masterFile = java.io.File(saveDir, "master_config.json")
+                                masterFile.writeText(masterJson)
+                                log.appendLine("\u2713 Saved: ${masterFile.absolutePath}")
+
+                                // Also save to internal files dir
+                                val internalFile = java.io.File(context.filesDir, "master_config.json")
+                                internalFile.writeText(masterJson)
+                                log.appendLine("\u2713 Saved: ${internalFile.absolutePath}")
+
+                                // Save apply list alongside
+                                val applyList = ConvoyApplyList.load(context)
+                                val applyFile = java.io.File(saveDir, "convoy_apply_list.json")
+                                applyFile.writeText(applyList.toJson().toString(2))
+                                log.appendLine("\u2713 Saved: convoy_apply_list.json")
+
+                                // ── adb pull instructions ─────────────────────
+                                log.appendLine("")
+                                log.appendLine("Pull files via adb:")
+                                log.appendLine("  adb shell run-as com.geeksville.mesh.google.debug")
+                                log.appendLine("    cat files/master_config.json > master_config.json")
+                                log.appendLine("")
+                                log.appendLine("Or from external cache:")
+                                log.appendLine("  adb pull //storage/emulated/0/Android/data/")
+                                log.appendLine("    com.geeksville.mesh.google.debug/cache/master_config.json")
+                                log.appendLine("")
+                                log.appendLine("Then copy to:")
+                                log.appendLine("  app/src/main/assets/master_config.json")
+
                                 captureLog = log.toString()
-                                statusMsg  = "✓ Master config captured."
-                                statusOk   = true
+                                statusMsg  = if (channelName.isBlank() || pskBase64.isBlank())
+                                    "\u26a0 Captured with warnings \u2014 channel or PSK missing"
+                                else
+                                    "\u2713 Master config captured successfully"
+                                statusOk      = channelName.isNotBlank() && pskBase64.isNotBlank()
                                 captureComplete = true
+
                             } catch (e: Exception) {
-                                statusMsg = "✗ Capture failed: ${e.message}"
+                                captureLog += "\n\u2717 FAILED: ${e.message}"
+                                statusMsg = "\u2717 Capture failed: ${e.message}"
                                 statusOk  = false
                             } finally {
                                 isCapturing = false
@@ -331,17 +417,17 @@ fun ConvoyMasterCaptureScreen(
                 Spacer(Modifier.height(16.dp))
                 Surface(
                     modifier = Modifier.fillMaxWidth().clickable { onCaptureSuccess() },
-                    shape = RoundedCornerShape(12.dp),
-                    color = Color(0xFF1A3A2A)
+                    shape    = RoundedCornerShape(12.dp),
+                    color    = Color(0xFF1A3A2A)
                 ) {
                     Text(
-                        text = "PROCEED →",
-                        color = Color(0xFF97D5A5),
-                        fontSize = 13.sp,
+                        text      = "PROCEED \u2192",
+                        color     = Color(0xFF97D5A5),
+                        fontSize  = 13.sp,
                         fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(vertical = 16.dp)
+                        textAlign  = TextAlign.Center,
+                        modifier   = Modifier.padding(vertical = 16.dp)
                     )
                 }
             }

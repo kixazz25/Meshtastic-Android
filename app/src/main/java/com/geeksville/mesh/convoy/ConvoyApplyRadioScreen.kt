@@ -66,9 +66,10 @@ fun ConvoyApplyRadioScreen(
 
     val canReview = isConnected && (applyMode == "MASTER" || selectedRide != null)
 
+    val ourNodeInfo    by convoyViewModel.ourNodeInfo.collectAsStateWithLifecycle()
     val workingLongName = when {
-        longName.isNotBlank() -> longName
-        applyMode == "MASTER" -> masterConfig?.primaryChannelName ?: "—"
+        longName.isNotBlank()              -> longName
+        ourNodeInfo?.user?.long_name?.isNotBlank() == true -> ourNodeInfo!!.user.long_name
         else -> myNodeInfo?.let { "!%08x".format(it.myNodeNum) } ?: "—"
     }
 
@@ -373,7 +374,7 @@ fun ConvoyApplyRadioScreen(
                         modifier = Modifier.weight(1f).clickable(enabled = !isProcessing) {
                             val ni = myNodeInfo ?: return@clickable
                             val channel = if (applyMode == "RIDE") selectedRide?.channelName ?: "" else masterConfig?.primaryChannelName ?: ""
-                            val psk = if (applyMode == "RIDE") selectedRide?.channelPsk ?: "" else ""
+                            val psk = if (applyMode == "RIDE") selectedRide?.channelPsk ?: "" else masterConfig?.primaryChannelPsk ?: ""
                             val wconfig = WorkingConfig(
                                 nodeId          = "!%08x".format(ni.myNodeNum),
                                 longName        = longName.ifBlank { workingLongName },
