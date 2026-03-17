@@ -33,6 +33,14 @@ data class ConvoyMasterConfig(
     val primaryChannelName: String,
     val primaryChannelPsk: String,     // AES-256 PSK — base64 encoded
     val longName: String,              // node long name at capture time
+    val nodeRole: String,              // e.g. CLIENT, ROUTER, TRACKER
+    val isManaged: Boolean,
+    val serialEnabled: Boolean,
+    val positionBroadcastSecs: Int,    // default 5
+    val gpsUpdateSecs: Int,            // default 1
+    val smartPositionEnabled: Boolean, // default true
+    val smartMinIntervalSecs: Int,     // default 3
+    val smartMinDistanceMeters: Int,   // default 10
     val deviceProfileBase64: String,   // full DeviceProfile proto — base64
     val capturedDate: String,
     val capturedFirmware: String
@@ -52,6 +60,14 @@ data class ConvoyMasterConfig(
         put("primaryChannelName",  primaryChannelName)
         put("primaryChannelPsk",   primaryChannelPsk)
         put("longName",            longName)
+        put("nodeRole",            nodeRole)
+        put("isManaged",           isManaged)
+        put("serialEnabled",       serialEnabled)
+        put("positionBroadcastSecs",     positionBroadcastSecs)
+        put("gpsUpdateSecs",             gpsUpdateSecs)
+        put("smartPositionEnabled",      smartPositionEnabled)
+        put("smartMinIntervalSecs",      smartMinIntervalSecs)
+        put("smartMinDistanceMeters",    smartMinDistanceMeters)
         put("deviceProfileBase64", deviceProfileBase64)
         put("capturedDate",        capturedDate)
         put("capturedFirmware",    capturedFirmware)
@@ -77,7 +93,15 @@ data class ConvoyMasterConfig(
             primaryChannelName = obj.optString("primaryChannelName", ""),
             primaryChannelPsk  = obj.optString("primaryChannelPsk", ""),
             longName           = obj.optString("longName", ""),
-            deviceProfileBase64= obj.optString("deviceProfileBase64", ""),
+            nodeRole           = obj.optString("nodeRole", "CLIENT"),
+            isManaged              = obj.optBoolean("isManaged", false),
+            serialEnabled          = obj.optBoolean("serialEnabled", false),
+            positionBroadcastSecs  = obj.optInt("positionBroadcastSecs", 5),
+            gpsUpdateSecs          = obj.optInt("gpsUpdateSecs", 1),
+            smartPositionEnabled   = obj.optBoolean("smartPositionEnabled", true),
+            smartMinIntervalSecs   = obj.optInt("smartMinIntervalSecs", 3),
+            smartMinDistanceMeters = obj.optInt("smartMinDistanceMeters", 10),
+            deviceProfileBase64    = obj.optString("deviceProfileBase64", ""),
             capturedDate       = obj.optString("capturedDate", ""),
             capturedFirmware   = obj.optString("capturedFirmware", "")
         )

@@ -344,26 +344,63 @@ fun ConvoyDeviceConfigScreen(
     channelViewModel: ChannelViewModel = hiltViewModel(),
     uiViewModel: UIViewModel = hiltViewModel()
 ) {
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val connectionState by uiViewModel.connectionState.collectAsStateWithLifecycle()
     val readiness   = connectionState.toRadioReadiness()
     val isConnected = readiness == RadioReadiness.CONNECTED
-    var isProcessing by remember { mutableStateOf(false) }
-    var statusMsg    by remember { mutableStateOf("") }
-    var statusOk     by remember { mutableStateOf(true) }
+    var isProcessing     by remember { mutableStateOf(false) }
+    var waitingReconnect by remember { mutableStateOf(false) }
+    var statusMsg        by remember { mutableStateOf("") }
+    var statusOk         by remember { mutableStateOf(true) }
+    var wasConnected     by remember { mutableStateOf(isConnected) }
+
+    var countdown        by remember { mutableStateOf(0) }
+    var reconnectFailed  by remember { mutableStateOf(false) }
+
+    LaunchedEffect(isConnected) {
+        if (waitingReconnect && !wasConnected && isConnected) {
+            statusMsg = "\u25cf Radio reconnected \u2014 ready to proceed"
+            statusOk = true
+            waitingReconnect = false
+            reconnectFailed = false
+            countdown = 0
+        }
+        wasConnected = isConnected
+    }
+
+    LaunchedEffect(waitingReconnect) {
+        if (!waitingReconnect) return@LaunchedEffect
+        for (i in 10 downTo 1) {
+            countdown = i
+            kotlinx.coroutines.delay(1000)
+        }
+        countdown = 0
+        if (!isConnected) {
+            statusMsg = "\u25cc Not reconnected \u2014 issuing reconnect..."
+            statusOk = true
+            uiViewModel.reconnectDevice(context)
+            kotlinx.coroutines.delay(3000)
+            if (!isConnected) {
+                statusMsg = "\u2717 Radio did not reconnect. Check radio and tap CANCEL to retry."
+                statusOk = false
+                reconnectFailed = true
+            }
+        }
+    }
 
     Box(modifier = Modifier.fillMaxSize().background(Color(0xFF101510))) {
         Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp)) {
             Spacer(Modifier.height(12.dp))
-            ConvoyConfigHeader("DEVICE CONFIG", "Long name, node role", 1, 4, readiness, onBack)
+            ConvoyConfigHeader("DEVICE CONFIG", "Long name, node role", 3, 4, readiness, onBack)
             ConvoyConfigSection("DEVICE SETTINGS") {
-                ConvoyConfigRow("Long Name",      workingConfig.longName, highlight = true)
+                ConvoyConfigRow("Long Name",      workingConfig.longName,        highlight = true)
                 HorizontalDivider(color = Color(0xFF262B26))
-                ConvoyConfigRow("Node Role",      "CLIENT")
+                ConvoyConfigRow("Node Role",      workingConfig.nodeRole,        highlight = true)
                 HorizontalDivider(color = Color(0xFF262B26))
-                ConvoyConfigRow("Managed Mode",   "false")
+                ConvoyConfigRow("Managed Mode",   workingConfig.isManaged.toString())
                 HorizontalDivider(color = Color(0xFF262B26))
-                ConvoyConfigRow("Serial Enabled", "false")
+                ConvoyConfigRow("Serial Enabled", workingConfig.serialEnabled.toString())
             }
             Spacer(Modifier.height(8.dp))
             Surface(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp),
@@ -383,25 +420,41 @@ fun ConvoyDeviceConfigScreen(
                 }
                 Spacer(Modifier.height(12.dp))
             }
-            ConvoyProceedButton(isConnected = isConnected, isProcessing = isProcessing,
-                label = "WRITE DEVICE CONFIG \u2192") {
-                scope.launch {
-                    isProcessing = true
-                    try {
-                        channelViewModel.setConfig(org.meshtastic.proto.Config(
-                            device = org.meshtastic.proto.Config.DeviceConfig(
-                                role       = org.meshtastic.proto.Config.DeviceConfig.Role.CLIENT,
-                                is_managed = false
-                            )
-                        ))
-                        statusMsg = "\u2713 Device config written"
-                        statusOk  = true
-                        kotlinx.coroutines.delay(800)
-                        onProceed()
-                    } catch (e: Exception) {
-                        statusMsg = "\u2717 Failed: ${e.message}"
-                        statusOk  = false
-                    } finally { isProcessing = false }
+            if (waitingReconnect) {
+                ConvoyProceedButton(
+                    isConnected  = isConnected,
+                    isProcessing = false,
+                    label = when {
+                        isConnected   -> "\u25cf RECONNECTED \u2014 PROCEED TO POSITION \u2192"
+                        countdown > 0 -> "\u25cc WAITING FOR RADIO... ${countdown}s"
+                        else          -> "\u25cc RECONNECTING..."
+                    }
+                ) { if (isConnected) onProceed() }
+            } else {
+                ConvoyProceedButton(isConnected = isConnected, isProcessing = isProcessing,
+                    label = "WRITE DEVICE CONFIG \u2192") {
+                    scope.launch {
+                        isProcessing = true
+                        try {
+                            val role = try {
+                                org.meshtastic.proto.Config.DeviceConfig.Role.valueOf(workingConfig.nodeRole)
+                            } catch (e: Exception) {
+                                org.meshtastic.proto.Config.DeviceConfig.Role.CLIENT
+                            }
+                            channelViewModel.setConfig(org.meshtastic.proto.Config(
+                                device = org.meshtastic.proto.Config.DeviceConfig(
+                                    role       = role,
+                                    is_managed = workingConfig.isManaged
+                                )
+                            ))
+                            statusMsg = "\u2713 Device config written \u2014 waiting for radio..."
+                            statusOk  = true
+                            waitingReconnect = true
+                        } catch (e: Exception) {
+                            statusMsg = "\u2717 Failed: ${e.message}"
+                            statusOk  = false
+                        } finally { isProcessing = false }
+                    }
                 }
             }
             Spacer(Modifier.height(8.dp))
@@ -421,6 +474,7 @@ fun ConvoyLoRaConfigScreen(
     channelViewModel: ChannelViewModel = hiltViewModel(),
     uiViewModel: UIViewModel = hiltViewModel()
 ) {
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val connectionState by uiViewModel.connectionState.collectAsStateWithLifecycle()
     val readiness   = connectionState.toRadioReadiness()
@@ -431,19 +485,48 @@ fun ConvoyLoRaConfigScreen(
     var statusOk         by remember { mutableStateOf(true) }
     var wasConnected     by remember { mutableStateOf(isConnected) }
 
+    var countdown        by remember { mutableStateOf(0) }
+    var reconnectFailed  by remember { mutableStateOf(false) }
+
     LaunchedEffect(isConnected) {
         if (waitingReconnect && !wasConnected && isConnected) {
-            statusMsg = "\u25cf Radio reconnected \u2014 tap PROCEED to continue"
+            statusMsg = "\u25cf Radio reconnected \u2014 ready to proceed"
             statusOk = true
             waitingReconnect = false
+            reconnectFailed = false
+            countdown = 0
         }
         wasConnected = isConnected
+    }
+
+    // Auto-reconnect sequence after reboot write
+    LaunchedEffect(waitingReconnect) {
+        if (!waitingReconnect) return@LaunchedEffect
+        // Wait 10 seconds for radio to reboot
+        for (i in 10 downTo 1) {
+            countdown = i
+            kotlinx.coroutines.delay(1000)
+        }
+        countdown = 0
+        // Check if reconnected
+        if (!isConnected) {
+            statusMsg = "\u25cc Not reconnected \u2014 issuing reconnect..."
+            statusOk = true
+            uiViewModel.reconnectDevice(context)
+            // Wait 3 more seconds after reconnect command
+            kotlinx.coroutines.delay(3000)
+            if (!isConnected) {
+                statusMsg = "\u2717 Radio did not reconnect. Check radio and tap CANCEL to retry."
+                statusOk = false
+                reconnectFailed = true
+            }
+        }
     }
 
     Box(modifier = Modifier.fillMaxSize().background(Color(0xFF101510))) {
         Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp)) {
             Spacer(Modifier.height(12.dp))
-            ConvoyConfigHeader("LORA CONFIG", "Region, modem preset, hop limit", 2, 4, readiness, onBack)
+            ConvoyConfigHeader("LORA CONFIG", "Region, modem preset, hop limit", 1, 4, readiness, onBack)
             ConvoyConfigSection("LORA SETTINGS") {
                 ConvoyConfigRow("Region",       workingConfig.loraRegion,             highlight = true)
                 HorizontalDivider(color = Color(0xFF262B26))
@@ -477,13 +560,42 @@ fun ConvoyLoRaConfigScreen(
                 ConvoyProceedButton(
                     isConnected  = isConnected,
                     isProcessing = false,
-                    label = if (isConnected) "\u25cf RECONNECTED \u2014 PROCEED TO POSITION \u2192"
-                            else             "\u25cc WAITING FOR RADIO TO RECONNECT..."
-                ) { onProceed() }
+                    label = when {
+                        isConnected  -> "\u25cf RECONNECTED \u2014 PROCEED TO CHANNEL \u2192"
+                        countdown > 0 -> "\u25cc WAITING FOR RADIO... ${countdown}s"
+                        else          -> "\u25cc RECONNECTING..."
+                    }
+                ) { if (isConnected) onProceed() }
             } else {
                 ConvoyProceedButton(isConnected = isConnected, isProcessing = isProcessing,
-                    label = "REVIEW POSITION CONFIG \u2192 [WRITE BYPASSED]") {
-                    onProceed()
+                    label = "WRITE LORA CONFIG \u2192") {
+                    scope.launch {
+                        isProcessing = true
+                        try {
+                            val regionCode = try {
+                                org.meshtastic.proto.Config.LoRaConfig.RegionCode.valueOf(workingConfig.loraRegion)
+                            } catch (e: Exception) { org.meshtastic.proto.Config.LoRaConfig.RegionCode.US }
+                            val modemPreset = try {
+                                org.meshtastic.proto.Config.LoRaConfig.ModemPreset.valueOf(workingConfig.loraModemPreset)
+                            } catch (e: Exception) { org.meshtastic.proto.Config.LoRaConfig.ModemPreset.LONG_FAST }
+                            channelViewModel.setConfig(org.meshtastic.proto.Config(
+                                lora = org.meshtastic.proto.Config.LoRaConfig(
+                                    region       = regionCode,
+                                    modem_preset = modemPreset,
+                                    hop_limit    = workingConfig.loraHopLimit,
+                                    tx_enabled   = workingConfig.loraTxEnabled,
+                                    tx_power     = workingConfig.loraTxPower,
+                                    use_preset   = true
+                                )
+                            ))
+                            statusMsg = "\u2713 LoRa config written \u2014 radio rebooting...\n\u25cb Waiting for reconnect..."
+                            statusOk = true
+                            waitingReconnect = true
+                        } catch (e: Exception) {
+                            statusMsg = "\u2717 Failed: ${e.message}"
+                            statusOk = false
+                        } finally { isProcessing = false }
+                    }
                 }
             }
             Spacer(Modifier.height(8.dp))
@@ -510,15 +622,16 @@ fun ConvoyPositionConfigScreen(
     var isProcessing by remember { mutableStateOf(false) }
     var statusMsg    by remember { mutableStateOf("") }
     var statusOk     by remember { mutableStateOf(true) }
-    val broadcastSecs = 5
-    val gpsUpdateSecs = 1
-    val smartEnabled  = true
-    val smartMinSecs  = 3
+    val broadcastSecs = workingConfig.positionBroadcastSecs
+    val gpsUpdateSecs = workingConfig.gpsUpdateSecs
+    val smartEnabled  = workingConfig.smartPositionEnabled
+    val smartMinSecs  = workingConfig.smartMinIntervalSecs
+    val smartMinDist  = workingConfig.smartMinDistanceMeters
 
     Box(modifier = Modifier.fillMaxSize().background(Color(0xFF101510))) {
         Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp)) {
             Spacer(Modifier.height(12.dp))
-            ConvoyConfigHeader("POSITION CONFIG", "GPS and broadcast intervals", 3, 4, readiness, onBack)
+            ConvoyConfigHeader("POSITION CONFIG", "GPS and broadcast intervals", 4, 4, readiness, onBack)
             ConvoyConfigSection("POSITION BROADCAST") {
                 ConvoyConfigRow("Broadcast Interval", "$broadcastSecs seconds", highlight = true)
                 HorizontalDivider(color = Color(0xFF262B26))
@@ -526,7 +639,7 @@ fun ConvoyPositionConfigScreen(
                 HorizontalDivider(color = Color(0xFF262B26))
                 ConvoyConfigRow("Smart Min Interval", "$smartMinSecs seconds", highlight = true)
                 HorizontalDivider(color = Color(0xFF262B26))
-                ConvoyConfigRow("Smart Min Distance", "10 meters")
+                ConvoyConfigRow("Smart Min Distance", "$smartMinDist meters")
             }
             Spacer(Modifier.height(8.dp))
             ConvoyConfigSection("GPS UPDATE") {
@@ -553,8 +666,29 @@ fun ConvoyPositionConfigScreen(
                 Spacer(Modifier.height(12.dp))
             }
             ConvoyProceedButton(isConnected = isConnected, isProcessing = isProcessing,
-                label = "REVIEW CHANNEL CONFIG \u2192 [WRITE BYPASSED]") {
-                onProceed()
+                label = "WRITE POSITION CONFIG \u2192") {
+                scope.launch {
+                    isProcessing = true
+                    try {
+                        channelViewModel.setConfig(org.meshtastic.proto.Config(
+                            position = org.meshtastic.proto.Config.PositionConfig(
+                                position_broadcast_secs               = broadcastSecs,
+                                position_broadcast_smart_enabled      = smartEnabled,
+                                broadcast_smart_minimum_interval_secs = smartMinSecs,
+                                broadcast_smart_minimum_distance      = smartMinDist,
+                                gps_update_interval                   = gpsUpdateSecs,
+                                gps_mode = org.meshtastic.proto.Config.PositionConfig.GpsMode.ENABLED
+                            )
+                        ))
+                        statusMsg = "\u2713 Position config written"
+                        statusOk  = true
+                        kotlinx.coroutines.delay(800)
+                        onProceed()
+                    } catch (e: Exception) {
+                        statusMsg = "\u2717 Failed: ${e.message}"
+                        statusOk  = false
+                    } finally { isProcessing = false }
+                }
             }
             Spacer(Modifier.height(8.dp))
             ConvoyCancelButton { onBack() }
@@ -573,6 +707,7 @@ fun ConvoyChannelConfigScreen(
     channelViewModel: ChannelViewModel = hiltViewModel(),
     uiViewModel: UIViewModel = hiltViewModel()
 ) {
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val connectionState by uiViewModel.connectionState.collectAsStateWithLifecycle()
     val readiness   = connectionState.toRadioReadiness()
@@ -584,20 +719,45 @@ fun ConvoyChannelConfigScreen(
     var wasConnected     by remember { mutableStateOf(isConnected) }
     var writeComplete    by remember { mutableStateOf(false) }
 
+    var countdown        by remember { mutableStateOf(0) }
+    var reconnectFailed  by remember { mutableStateOf(false) }
+
     LaunchedEffect(isConnected) {
         if (waitingReconnect && !wasConnected && isConnected) {
             statusMsg = "\u25cf Radio reconnected \u2014 write complete"
             statusOk = true
             waitingReconnect = false
             writeComplete = true
+            reconnectFailed = false
+            countdown = 0
         }
         wasConnected = isConnected
+    }
+
+    LaunchedEffect(waitingReconnect) {
+        if (!waitingReconnect) return@LaunchedEffect
+        for (i in 10 downTo 1) {
+            countdown = i
+            kotlinx.coroutines.delay(1000)
+        }
+        countdown = 0
+        if (!isConnected) {
+            statusMsg = "\u25cc Not reconnected \u2014 issuing reconnect..."
+            statusOk = true
+            uiViewModel.reconnectDevice(context)
+            kotlinx.coroutines.delay(3000)
+            if (!isConnected) {
+                statusMsg = "\u2717 Radio did not reconnect. Check radio and tap CANCEL to retry."
+                statusOk = false
+                reconnectFailed = true
+            }
+        }
     }
 
     Box(modifier = Modifier.fillMaxSize().background(Color(0xFF101510))) {
         Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp)) {
             Spacer(Modifier.height(12.dp))
-            ConvoyConfigHeader("CHANNEL + PSK", "Channel name and encryption key", 4, 4, readiness, onBack)
+            ConvoyConfigHeader("CHANNEL + PSK", "Channel name and encryption key", 2, 4, readiness, onBack)
             ConvoyConfigSection("CHANNEL SETTINGS") {
                 ConvoyConfigRow("Channel Name",   workingConfig.channelName,                          highlight = true)
                 HorizontalDivider(color = Color(0xFF262B26))
@@ -630,13 +790,35 @@ fun ConvoyChannelConfigScreen(
                     label = "\u2713 COMPLETE \u2014 RETURN TO CONVOY") { onComplete() }
             } else if (waitingReconnect) {
                 ConvoyProceedButton(isConnected = isConnected, isProcessing = false,
-                    label = if (isConnected) "\u25cf RECONNECTED \u2014 DONE"
-                            else             "\u25cc WAITING FOR RADIO TO RECONNECT..."
+                    label = when {
+                        isConnected   -> "\u25cf RECONNECTED \u2014 PROCEED TO DEVICE CONFIG \u2192"
+                        countdown > 0 -> "\u25cc WAITING FOR RADIO... ${countdown}s"
+                        else          -> "\u25cc RECONNECTING..."
+                    }
                 ) { if (isConnected) { writeComplete = true; onComplete() } }
             } else {
                 ConvoyProceedButton(isConnected = isConnected, isProcessing = isProcessing,
-                    label = "REVIEW VERIFY SCREEN \u2192 [WRITE BYPASSED]") {
-                    onComplete()
+                    label = "WRITE CHANNEL + PSK \u2192") {
+                    scope.launch {
+                        isProcessing = true
+                        try {
+                            val pskBytes = okio.ByteString.of(
+                                *android.util.Base64.decode(
+                                    workingConfig.channelPsk, android.util.Base64.NO_WRAP)
+                            )
+                            channelViewModel.setChannels(org.meshtastic.proto.ChannelSet(
+                                settings = listOf(org.meshtastic.proto.ChannelSettings(
+                                    name = workingConfig.channelName, psk = pskBytes
+                                ))
+                            ))
+                            statusMsg = "\u2713 Channel written \u2014 radio rebooting...\n\u25cb Waiting for reconnect..."
+                            statusOk = true
+                            waitingReconnect = true
+                        } catch (e: Exception) {
+                            statusMsg = "\u2717 Failed: ${e.message}"
+                            statusOk = false
+                        } finally { isProcessing = false }
+                    }
                 }
             }
             Spacer(Modifier.height(8.dp))
