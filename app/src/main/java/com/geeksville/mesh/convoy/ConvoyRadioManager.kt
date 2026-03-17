@@ -43,35 +43,47 @@ object ConvoyRadioManager {
         val hasGPS: Boolean,
         val hasWifi: Boolean,
         val maxChannels: Int,
+        val longName: String,              // node long name at snapshot time
+        val primaryChannelName: String,    // primary channel name
+        val primaryChannelPsk: String,     // AES-256 PSK base64
+        val loraRegion: String,            // LoRa region
+        val loraModemPreset: String,       // modem preset
+        val loraBandwidth: Int,            // bandwidth
+        val loraSpreadFactor: Int,         // spread factor
+        val loraCodingRate: Int,           // coding rate
+        val loraHopLimit: Int,             // hop limit
+        val loraTxEnabled: Boolean,        // TX enabled
+        val loraTxPower: Int,              // TX power dBm
         val deviceProfile: DeviceProfile?,
         val localConfig: LocalConfig?,
         val channelSet: ChannelSet?,
         val snapshotTime: String
     ) {
         fun toJson(): JSONObject = JSONObject().apply {
-            put("hardwareId",      hardwareId)
-            put("deviceId",        deviceId)
-            put("hardwareModel",   hardwareModel)
-            put("firmwareVersion", firmwareVersion)
-            put("pioEnv",          pioEnv)
-            put("hasGPS",          hasGPS)
-            put("hasWifi",         hasWifi)
-            put("maxChannels",     maxChannels)
-            put("snapshotTime",    snapshotTime)
+            put("hardwareId",          hardwareId)
+            put("deviceId",            deviceId)
+            put("hardwareModel",       hardwareModel)
+            put("firmwareVersion",     firmwareVersion)
+            put("pioEnv",              pioEnv)
+            put("hasGPS",              hasGPS)
+            put("hasWifi",             hasWifi)
+            put("maxChannels",         maxChannels)
+            put("snapshotTime",        snapshotTime)
+            put("longName",            longName)
+            put("primaryChannelName",  primaryChannelName)
+            put("primaryChannelPsk",   primaryChannelPsk)
+            put("loraRegion",          loraRegion)
+            put("loraModemPreset",     loraModemPreset)
+            put("loraBandwidth",       loraBandwidth)
+            put("loraSpreadFactor",    loraSpreadFactor)
+            put("loraCodingRate",      loraCodingRate)
+            put("loraHopLimit",        loraHopLimit)
+            put("loraTxEnabled",       loraTxEnabled)
+            put("loraTxPower",         loraTxPower)
             // Full DeviceProfile as base64 protobuf — complete restore fidelity
             deviceProfile?.let {
                 put("deviceProfileBase64",
                     Base64.encodeToString(it.encode(), Base64.NO_WRAP))
-            }
-            // Human-readable fields for quick troubleshooting reference
-            channelSet?.settings?.firstOrNull()?.let {
-                put("primaryChannelName", it.name)
-            }
-            localConfig?.lora?.let { lora ->
-                put("loraRegion",      lora.region?.name ?: "UNSET")
-                put("loraModemPreset", lora.modem_preset?.name ?: "UNSET")
-                put("loraTxPower",     lora.tx_power)
-                put("loraHopLimit",    lora.hop_limit)
             }
         }
     }
@@ -86,24 +98,43 @@ object ConvoyRadioManager {
         hasGPS: Boolean,
         hasWifi: Boolean,
         maxChannels: Int,
+        longName: String = "",
         deviceProfile: DeviceProfile?,
         localConfig: LocalConfig?,
         channelSet: ChannelSet?
     ): RadioSnapshot {
         val fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
+        // Extract all readable fields at snapshot time
+        val primaryChannel  = channelSet?.settings?.firstOrNull()
+        val channelName     = primaryChannel?.name ?: ""
+        val pskBase64       = primaryChannel?.psk?.let { psk ->
+            if (psk.size > 0) Base64.encodeToString(psk.toByteArray(), Base64.NO_WRAP) else ""
+        } ?: ""
+        val lora            = localConfig?.lora
         return RadioSnapshot(
-            hardwareId      = "!%08x".format(myNodeNum),
-            deviceId        = deviceId ?: "",
-            hardwareModel   = model ?: "Unknown",
-            firmwareVersion = firmwareVersion ?: "Unknown",
-            pioEnv          = pioEnv ?: "",
-            hasGPS          = hasGPS,
-            hasWifi         = hasWifi,
-            maxChannels     = maxChannels,
-            deviceProfile   = deviceProfile,
-            localConfig     = localConfig,
-            channelSet      = channelSet,
-            snapshotTime    = LocalDateTime.now().format(fmt)
+            hardwareId         = "!%08x".format(myNodeNum),
+            deviceId           = deviceId ?: "",
+            hardwareModel      = model ?: "Unknown",
+            firmwareVersion    = firmwareVersion ?: "Unknown",
+            pioEnv             = pioEnv ?: "",
+            hasGPS             = hasGPS,
+            hasWifi            = hasWifi,
+            maxChannels        = maxChannels,
+            longName           = longName,
+            primaryChannelName = channelName,
+            primaryChannelPsk  = pskBase64,
+            loraRegion         = lora?.region?.name ?: "US",
+            loraModemPreset    = lora?.modem_preset?.name ?: "LONG_FAST",
+            loraBandwidth      = lora?.bandwidth ?: 0,
+            loraSpreadFactor   = lora?.spread_factor ?: 0,
+            loraCodingRate     = lora?.coding_rate ?: 0,
+            loraHopLimit       = lora?.hop_limit ?: 3,
+            loraTxEnabled      = lora?.tx_enabled ?: true,
+            loraTxPower        = lora?.tx_power ?: 27,
+            deviceProfile      = deviceProfile,
+            localConfig        = localConfig,
+            channelSet         = channelSet,
+            snapshotTime       = LocalDateTime.now().format(fmt)
         )
     }
 
