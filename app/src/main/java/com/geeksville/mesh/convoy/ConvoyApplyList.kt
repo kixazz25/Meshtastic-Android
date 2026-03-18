@@ -30,6 +30,10 @@ enum class LoraField(val label: String, val description: String) {
 enum class ChannelField(val label: String, val description: String) {
     CHANNEL_NAME    ("Channel Name",       "Convoy mesh channel name (auto-generated)"),
     ENCRYPTION_KEY  ("Encryption Key",     "AES-256 PSK — required for convoy mesh"),
+    CHANNEL_ID      ("Channel ID",          "Channel index (0=primary)"),
+    UPLINK_ENABLED  ("MQTT Uplink",          "Enable MQTT uplink for this channel"),
+    DOWNLINK_ENABLED("MQTT Downlink",        "Enable MQTT downlink for this channel"),
+    MODULE_SETTINGS ("Module Settings",      "Per-channel module configuration"),
 }
 
 // ── Device fields ─────────────────────────────────────────────────────────────

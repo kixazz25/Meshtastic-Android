@@ -208,7 +208,17 @@ fun ConvoyApplyListScreen(
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp),
                     modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)) {
                     ChannelField.values().forEach { field ->
-                        FieldRow(field.label, field.description, checked = true, locked = true) {}
+                        val locked = field == ChannelField.CHANNEL_NAME || field == ChannelField.ENCRYPTION_KEY
+                        val checked = locked || field in applyList.channelFields
+                        FieldRow(field.label, field.description, checked, locked) {
+                            if (!locked) {
+                                val newFields = if (field in applyList.channelFields)
+                                    applyList.channelFields - field
+                                else applyList.channelFields + field
+                                applyList = applyList.copy(channelFields = newFields)
+                                ConvoyApplyList.save(context, applyList)
+                            }
+                        }
                     }
                 }
             }
