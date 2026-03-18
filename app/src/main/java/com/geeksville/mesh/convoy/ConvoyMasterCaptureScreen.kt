@@ -328,33 +328,75 @@ fun ConvoyMasterCaptureScreen(
                                 val fmt   = DateTimeFormatter.ISO_LOCAL_DATE
                                 val today = LocalDate.now().format(fmt)
 
-                                val pos = localConfig.position
+                                // Read all radio sections — mirrors ConvoyMasterConfig definition exactly
+                                val pos      = localConfig.position
+                                val dev      = localConfig.device
+                                val disp     = localConfig.display
+                                val primaryCh = channels.settings.firstOrNull()
                                 val master = ConvoyMasterConfig(
-                                    hardwareModel          = ni.model ?: "Unknown",
-                                    firmwareVersion        = ni.firmwareVersion ?: "Unknown",
-                                    pioEnv                 = ni.pioEnv ?: "",
-                                    loraRegion             = loraRegion,
-                                    loraModemPreset        = loraModemPreset,
-                                    loraBandwidth          = loraBandwidth,
-                                    loraSpreadFactor       = loraSpreadFactor,
-                                    loraCodingRate         = loraCodingRate,
-                                    loraHopLimit           = loraHopLimit,
-                                    loraTxEnabled          = loraTxEnabled,
-                                    loraTxPower            = loraTxPower,
-                                    nodeRole               = localConfig.device?.role?.name ?: "CLIENT",
-                                    isManaged              = localConfig.device?.is_managed ?: false,
-                                    serialEnabled          = false,
-                                    positionBroadcastSecs  = pos?.position_broadcast_secs ?: 5,
-                                    gpsUpdateSecs          = pos?.gps_update_interval ?: 1,
-                                    smartPositionEnabled   = pos?.position_broadcast_smart_enabled ?: true,
-                                    smartMinIntervalSecs   = pos?.broadcast_smart_minimum_interval_secs ?: 3,
-                                    smartMinDistanceMeters = pos?.broadcast_smart_minimum_distance ?: 10,
-                                    primaryChannelName     = channelName,
-                                    primaryChannelPsk      = pskBase64,
-                                    longName               = longName,
-                                    deviceProfileBase64    = "",
-                                    capturedDate           = today,
-                                    capturedFirmware       = ni.firmwareVersion ?: "Unknown"
+                                    hardwareModel            = ni.model ?: "Unknown",
+                                    firmwareVersion          = ni.firmwareVersion ?: "Unknown",
+                                    pioEnv                   = ni.pioEnv ?: "",
+                                    // ── Device
+                                    longName                 = longName,
+                                    shortName                = "",
+                                    nodeRole                 = dev?.role?.name ?: "CLIENT",
+                                    isManaged                = dev?.is_managed ?: false,
+                                    serialEnabled            = dev?.serial_enabled ?: false,
+                                    // ── LoRa
+                                    loraRegion               = loraRegion,
+                                    loraModemPreset          = loraModemPreset,
+                                    loraBandwidth            = loraBandwidth,
+                                    loraSpreadFactor         = loraSpreadFactor,
+                                    loraCodingRate           = loraCodingRate,
+                                    loraHopLimit             = loraHopLimit,
+                                    loraTxEnabled            = loraTxEnabled,
+                                    loraTxPower              = loraTxPower,
+                                    loraChannelNum           = localConfig.lora?.channel_num ?: 0,
+                                    // ── Channel
+                                    primaryChannelName       = channelName,
+                                    primaryChannelPsk        = pskBase64,
+                                    channelId                = primaryCh?.id ?: 0,
+                                    channelUplinkEnabled     = primaryCh?.uplink_enabled ?: false,
+                                    channelDownlinkEnabled   = primaryCh?.downlink_enabled ?: false,
+                                    // ── Position
+                                    gpsEnabled               = pos?.gps_mode?.name != "DISABLED",
+                                    gpsMode                  = pos?.gps_mode?.name ?: "ENABLED",
+                                    gpsUpdateSecs            = pos?.gps_update_interval ?: 1,
+                                    gpsAttemptTime           = pos?.gps_attempt_time ?: 900,
+                                    positionBroadcastSecs    = pos?.position_broadcast_secs ?: 5,
+                                    smartPositionEnabled     = pos?.position_broadcast_smart_enabled ?: true,
+                                    fixedPosition            = pos?.fixed_position ?: false,
+                                    positionFlags            = pos?.position_flags ?: 811,
+                                    smartMinIntervalSecs     = pos?.broadcast_smart_minimum_interval_secs ?: 3,
+                                    smartMinDistanceMeters   = pos?.broadcast_smart_minimum_distance ?: 10,
+                                    // ── Display
+                                    displayUnits             = disp?.units?.ordinal ?: 0,
+                                    screenTimeout            = disp?.screen_on_secs ?: 0,
+                                    autoScreenBrightness     = false,
+                                    compassNorthTop          = disp?.compass_north_top ?: false,
+                                    // ── Module (defaults — module config read requires separate API call)
+                                    telemetryDeviceInterval  = 0,
+                                    telemetryEnvInterval     = 0,
+                                    telemetryEnvEnabled      = false,
+                                    mqttEnabled              = false,
+                                    mqttAddress              = "",
+                                    mqttUsername             = "",
+                                    mqttEncryptionEnabled    = false,
+                                    mqttJsonEnabled          = false,
+                                    serialModuleEnabled      = false,
+                                    serialBaud               = 0,
+                                    extNotificationEnabled   = false,
+                                    extNotificationAlertMsg  = false,
+                                    rangeTestEnabled         = false,
+                                    storeForwardEnabled      = false,
+                                    neighborInfoEnabled      = false,
+                                    detectionSensorEnabled   = false,
+                                    audioEnabled             = false,
+                                    // ── Metadata
+                                    deviceProfileBase64      = "",
+                                    capturedDate             = today,
+                                    capturedFirmware         = ni.firmwareVersion ?: "Unknown"
                                 )
 
                                 // ── Save to external cache (adb-pullable) ─────
