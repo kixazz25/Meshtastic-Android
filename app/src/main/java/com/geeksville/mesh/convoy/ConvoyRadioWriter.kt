@@ -185,17 +185,13 @@ object ConvoyRadioWriter {
  */
 data class WorkingConfig(
     val nodeId: String,
+    // ── Device ────────────────────────────────────────────────────────────────
     val longName: String,
-    val nodeRole: String,          // e.g. CLIENT, ROUTER, TRACKER
+    val shortName: String,
+    val nodeRole: String,
     val isManaged: Boolean,
     val serialEnabled: Boolean,
-    val positionBroadcastSecs: Int,    // position broadcast interval seconds
-    val gpsUpdateSecs: Int,            // GPS update interval seconds
-    val smartPositionEnabled: Boolean, // smart position enabled
-    val smartMinIntervalSecs: Int,     // smart position minimum interval seconds
-    val smartMinDistanceMeters: Int,   // smart position minimum distance meters
-    val channelName: String,
-    val channelPsk: String,
+    // ── LoRa ──────────────────────────────────────────────────────────────────
     val loraRegion: String,
     val loraModemPreset: String,
     val loraBandwidth: Int,
@@ -204,5 +200,47 @@ data class WorkingConfig(
     val loraHopLimit: Int,
     val loraTxEnabled: Boolean,
     val loraTxPower: Int,
-    val source: String             // "MASTER", "RIDE:<eventId>", or "ARCHIVE:<filename>"
+    val loraChannelNum: Int,
+    // ── Channel ───────────────────────────────────────────────────────────────
+    val channelName: String,
+    val channelPsk: String,
+    val channelId: Int,
+    val channelUplinkEnabled: Boolean,
+    val channelDownlinkEnabled: Boolean,
+    // ── Position ──────────────────────────────────────────────────────────────
+    val gpsEnabled: Boolean,
+    val gpsMode: String,
+    val gpsUpdateSecs: Int,
+    val gpsAttemptTime: Int,
+    val positionBroadcastSecs: Int,
+    val smartPositionEnabled: Boolean,
+    val fixedPosition: Boolean,
+    val positionFlags: Int,
+    val smartMinIntervalSecs: Int,
+    val smartMinDistanceMeters: Int,
+    // ── Display ───────────────────────────────────────────────────────────────
+    val displayUnits: Int,
+    val screenTimeout: Int,
+    val autoScreenBrightness: Boolean,
+    val compassNorthTop: Boolean,
+    // ── Module ────────────────────────────────────────────────────────────────
+    val telemetryDeviceInterval: Int,
+    val telemetryEnvInterval: Int,
+    val telemetryEnvEnabled: Boolean,
+    val mqttEnabled: Boolean,
+    val mqttAddress: String,
+    val mqttUsername: String,
+    val mqttEncryptionEnabled: Boolean,
+    val mqttJsonEnabled: Boolean,
+    val serialModuleEnabled: Boolean,
+    val serialBaud: Int,
+    val extNotificationEnabled: Boolean,
+    val extNotificationAlertMsg: Boolean,
+    val rangeTestEnabled: Boolean,
+    val storeForwardEnabled: Boolean,
+    val neighborInfoEnabled: Boolean,
+    val detectionSensorEnabled: Boolean,
+    val audioEnabled: Boolean,
+    // ── Metadata ──────────────────────────────────────────────────────────────
+    val source: String
 )

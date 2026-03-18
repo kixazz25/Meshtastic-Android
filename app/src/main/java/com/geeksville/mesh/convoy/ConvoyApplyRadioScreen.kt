@@ -265,6 +265,13 @@ fun ConvoyApplyRadioScreen(
                     Column(modifier = Modifier.padding(top = 4.dp, bottom = 4.dp)) {
                         ConfirmRow("Channel Name", currentChannel, newCh, src, true)
                         ConfirmRow("Encryption Key", "****", "****", src, true)
+                        ChannelField.values()
+                            .filter { it != ChannelField.CHANNEL_NAME && it != ChannelField.ENCRYPTION_KEY }
+                            .forEach { field ->
+                                val checked = field in applyList.channelFields
+                                ConfirmRow(field.label, "—", if (checked) "From master" else "—",
+                                    if (checked) "CHECKLIST" else "ORIGINAL RADIO", checked)
+                            }
                     }
                 }
                 Spacer(Modifier.height(6.dp))
@@ -373,31 +380,86 @@ fun ConvoyApplyRadioScreen(
                     Surface(
                         modifier = Modifier.weight(1f).clickable(enabled = !isProcessing) {
                             val ni = myNodeInfo ?: return@clickable
-                            val channel = if (applyMode == "RIDE") selectedRide?.channelName ?: "" else masterConfig?.primaryChannelName ?: ""
-                            val psk = if (applyMode == "RIDE") selectedRide?.channelPsk ?: "" else masterConfig?.primaryChannelPsk ?: ""
-                            val currentRole = localConfig.device?.role?.name ?: "CLIENT"
+                            // ── Rules Engine — build WorkingConfig from master + radio per apply list ──
+                            val m   = masterConfig  // master config values
+                            val r   = localConfig   // current radio values
+                            val ch  = channels.settings.firstOrNull() // primary channel
+                            val al  = applyList     // apply list rules
+                            val lora = r.lora
+                            val pos  = r.position
+                            val dev  = r.device
+                            val disp = r.display
+
+                            // Channel source for RIDE vs MASTER mode
+                            val rideChannel = applyMode == "RIDE"
+                            val channelName = if (rideChannel) selectedRide?.channelName ?: "" else m?.primaryChannelName ?: ""
+                            val channelPsk  = if (rideChannel) selectedRide?.channelPsk  ?: "" else m?.primaryChannelPsk  ?: ""
+
+                            fun <T> rule(field: Any, masterVal: T, radioVal: T): T =
+                                if (field in al.loraFields || field in al.deviceFields ||
+                                    field in al.channelFields || field in al.positionFields ||
+                                    field in al.displayFields || field in al.moduleFields)
+                                    masterVal else radioVal
+
                             val wconfig = WorkingConfig(
-                                nodeId                  = "!%08x".format(ni.myNodeNum),
-                                longName                = longName.ifBlank { workingLongName },
-                                nodeRole                = masterConfig?.nodeRole ?: currentRole,
-                                isManaged               = masterConfig?.isManaged ?: false,
-                                serialEnabled           = masterConfig?.serialEnabled ?: false,
-                                positionBroadcastSecs   = masterConfig?.positionBroadcastSecs ?: 5,
-                                gpsUpdateSecs           = masterConfig?.gpsUpdateSecs ?: 1,
-                                smartPositionEnabled    = masterConfig?.smartPositionEnabled ?: true,
-                                smartMinIntervalSecs    = masterConfig?.smartMinIntervalSecs ?: 3,
-                                smartMinDistanceMeters  = masterConfig?.smartMinDistanceMeters ?: 10,
-                                channelName             = channel,
-                                channelPsk      = psk,
-                                loraRegion      = masterConfig?.loraRegion ?: "US",
-                                loraModemPreset = masterConfig?.loraModemPreset ?: "LONG_FAST",
-                                loraBandwidth   = masterConfig?.loraBandwidth ?: 250,
-                                loraSpreadFactor= masterConfig?.loraSpreadFactor ?: 11,
-                                loraCodingRate  = masterConfig?.loraCodingRate ?: 8,
-                                loraHopLimit    = masterConfig?.loraHopLimit ?: 3,
-                                loraTxEnabled   = masterConfig?.loraTxEnabled ?: true,
-                                loraTxPower     = masterConfig?.loraTxPower ?: 27,
-                                source          = if (applyMode == "RIDE") "RIDE:${selectedRide?.eventId}" else "MASTER"
+                                nodeId                   = "!%08x".format(ni.myNodeNum),
+                                // ── Device ────────────────────────────────────────────────────
+                                longName                 = longName.ifBlank { workingLongName },
+                                shortName                = if (DeviceField.SHORT_NAME in al.deviceFields) m?.shortName ?: "" else ourNodeInfo?.user?.short_name ?: "",
+                                nodeRole                 = if (DeviceField.NODE_ROLE in al.deviceFields) m?.nodeRole ?: "CLIENT" else dev?.role?.name ?: "CLIENT",
+                                isManaged                = if (DeviceField.IS_MANAGED in al.deviceFields) m?.isManaged ?: false else dev?.is_managed ?: false,
+                                serialEnabled            = if (DeviceField.SERIAL_ENABLED in al.deviceFields) m?.serialEnabled ?: false else dev?.serial_enabled ?: false,
+                                // ── LoRa ──────────────────────────────────────────────────────
+                                loraRegion               = if (LoraField.REGION in al.loraFields) m?.loraRegion ?: "US" else lora?.region?.name ?: "US",
+                                loraModemPreset          = if (LoraField.MODEM_PRESET in al.loraFields) m?.loraModemPreset ?: "LONG_FAST" else lora?.modem_preset?.name ?: "LONG_FAST",
+                                loraBandwidth            = if (LoraField.BANDWIDTH in al.loraFields) m?.loraBandwidth ?: 0 else lora?.bandwidth ?: 0,
+                                loraSpreadFactor         = if (LoraField.SPREAD_FACTOR in al.loraFields) m?.loraSpreadFactor ?: 0 else lora?.spread_factor ?: 0,
+                                loraCodingRate           = if (LoraField.CODING_RATE in al.loraFields) m?.loraCodingRate ?: 0 else lora?.coding_rate ?: 0,
+                                loraHopLimit             = if (LoraField.HOP_LIMIT in al.loraFields) m?.loraHopLimit ?: 3 else lora?.hop_limit ?: 3,
+                                loraTxEnabled            = if (LoraField.TX_ENABLED in al.loraFields) m?.loraTxEnabled ?: true else lora?.tx_enabled ?: true,
+                                loraTxPower              = if (LoraField.TX_POWER in al.loraFields) m?.loraTxPower ?: 27 else lora?.tx_power ?: 27,
+                                loraChannelNum           = if (LoraField.CHANNEL_NUM in al.loraFields) m?.loraChannelNum ?: 0 else lora?.channel_num ?: 0,
+                                // ── Channel ───────────────────────────────────────────────────
+                                channelName              = channelName,
+                                channelPsk               = channelPsk,
+                                channelId                = if (ChannelField.CHANNEL_ID in al.channelFields) m?.channelId ?: 0 else ch?.id ?: 0,
+                                channelUplinkEnabled     = if (ChannelField.UPLINK_ENABLED in al.channelFields) m?.channelUplinkEnabled ?: false else ch?.uplink_enabled ?: false,
+                                channelDownlinkEnabled   = if (ChannelField.DOWNLINK_ENABLED in al.channelFields) m?.channelDownlinkEnabled ?: false else ch?.downlink_enabled ?: false,
+                                // ── Position ──────────────────────────────────────────────────
+                                gpsEnabled               = if (PositionField.GPS_ENABLED in al.positionFields) m?.gpsEnabled ?: true else pos?.gps_mode?.name != "DISABLED",
+                                gpsMode                  = if (PositionField.GPS_MODE in al.positionFields) m?.gpsMode ?: "ENABLED" else pos?.gps_mode?.name ?: "ENABLED",
+                                gpsUpdateSecs            = if (PositionField.GPS_UPDATE_INTERVAL in al.positionFields) m?.gpsUpdateSecs ?: 1 else pos?.gps_update_interval ?: 1,
+                                gpsAttemptTime           = if (PositionField.GPS_ATTEMPT_TIME in al.positionFields) m?.gpsAttemptTime ?: 900 else pos?.gps_attempt_time ?: 900,
+                                positionBroadcastSecs    = if (PositionField.POSITION_BROADCAST_SECS in al.positionFields) m?.positionBroadcastSecs ?: 5 else pos?.position_broadcast_secs ?: 5,
+                                smartPositionEnabled     = if (PositionField.POSITION_BROADCAST_SMART in al.positionFields) m?.smartPositionEnabled ?: true else pos?.position_broadcast_smart_enabled ?: true,
+                                fixedPosition            = if (PositionField.FIXED_POSITION in al.positionFields) m?.fixedPosition ?: false else pos?.fixed_position ?: false,
+                                positionFlags            = if (PositionField.POSITION_FLAGS in al.positionFields) m?.positionFlags ?: 811 else pos?.position_flags ?: 811,
+                                smartMinIntervalSecs     = m?.smartMinIntervalSecs ?: 3,
+                                smartMinDistanceMeters   = m?.smartMinDistanceMeters ?: 10,
+                                // ── Display ───────────────────────────────────────────────────
+                                displayUnits             = if (DisplayField.UNITS in al.displayFields) m?.displayUnits ?: 0 else disp?.units?.ordinal ?: 0,
+                                screenTimeout            = if (DisplayField.SCREEN_TIMEOUT in al.displayFields) m?.screenTimeout ?: 0 else disp?.screen_on_secs ?: 0,
+                                autoScreenBrightness     = if (DisplayField.AUTO_SCREEN_BRIGHTNESS in al.displayFields) m?.autoScreenBrightness ?: false else false,
+                                compassNorthTop          = if (DisplayField.COMPASS_NORTH_TOP in al.displayFields) m?.compassNorthTop ?: false else disp?.compass_north_top ?: false,
+                                // ── Module ────────────────────────────────────────────────────
+                                telemetryDeviceInterval  = if (ModuleField.TELEMETRY_DEVICE_INTERVAL in al.moduleFields) m?.telemetryDeviceInterval ?: 0 else 0,
+                                telemetryEnvInterval     = if (ModuleField.TELEMETRY_ENV_INTERVAL in al.moduleFields) m?.telemetryEnvInterval ?: 0 else 0,
+                                telemetryEnvEnabled      = if (ModuleField.TELEMETRY_ENV_ENABLED in al.moduleFields) m?.telemetryEnvEnabled ?: false else false,
+                                mqttEnabled              = if (ModuleField.MQTT_ENABLED in al.moduleFields) m?.mqttEnabled ?: false else false,
+                                mqttAddress              = if (ModuleField.MQTT_ADDRESS in al.moduleFields) m?.mqttAddress ?: "" else "",
+                                mqttUsername             = if (ModuleField.MQTT_USERNAME in al.moduleFields) m?.mqttUsername ?: "" else "",
+                                mqttEncryptionEnabled    = if (ModuleField.MQTT_ENCRYPTION_ENABLED in al.moduleFields) m?.mqttEncryptionEnabled ?: false else false,
+                                mqttJsonEnabled          = if (ModuleField.MQTT_JSON_ENABLED in al.moduleFields) m?.mqttJsonEnabled ?: false else false,
+                                serialModuleEnabled      = if (ModuleField.SERIAL_ENABLED in al.moduleFields) m?.serialModuleEnabled ?: false else false,
+                                serialBaud               = if (ModuleField.SERIAL_BAUD in al.moduleFields) m?.serialBaud ?: 0 else 0,
+                                extNotificationEnabled   = if (ModuleField.EXT_NOTIFICATION_ENABLED in al.moduleFields) m?.extNotificationEnabled ?: false else false,
+                                extNotificationAlertMsg  = if (ModuleField.EXT_NOTIFICATION_ALERT_MSG in al.moduleFields) m?.extNotificationAlertMsg ?: false else false,
+                                rangeTestEnabled         = if (ModuleField.RANGE_TEST_ENABLED in al.moduleFields) m?.rangeTestEnabled ?: false else false,
+                                storeForwardEnabled      = if (ModuleField.STORE_FORWARD_ENABLED in al.moduleFields) m?.storeForwardEnabled ?: false else false,
+                                neighborInfoEnabled      = if (ModuleField.NEIGHBOR_INFO_ENABLED in al.moduleFields) m?.neighborInfoEnabled ?: false else false,
+                                detectionSensorEnabled   = if (ModuleField.DETECTION_SENSOR_ENABLED in al.moduleFields) m?.detectionSensorEnabled ?: false else false,
+                                audioEnabled             = if (ModuleField.AUDIO_ENABLED in al.moduleFields) m?.audioEnabled ?: false else false,
+                                source                   = if (applyMode == "RIDE") "RIDE:${selectedRide?.eventId}" else "MASTER"
                             )
                             // Archive current radio state before any write
                             try {
