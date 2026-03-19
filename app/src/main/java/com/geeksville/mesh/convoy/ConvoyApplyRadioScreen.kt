@@ -475,27 +475,14 @@ fun ConvoyApplyRadioScreen(
                                 android.util.Log.e("ConvoyApply", "Step 1: Archive FAILED -> ${archiveResult.exceptionOrNull()?.message}")
                             }
 
-                            if (applyMode == "MASTER") {
-                                // ── Step 2: Wait 3 seconds before import ──────────────────
-                                android.util.Log.i("ConvoyApply", "Step 2: Waiting 3 seconds before master.cfg import...")
-                                kotlinx.coroutines.delay(3000)
-
-                                // ── Step 3: Load master.cfg from assets ───────────────────
-                                android.util.Log.i("ConvoyApply", "Step 3: Loading master.cfg from assets...")
-                                val profileResult = ConvoyMasterApply.loadMasterProfile(context)
-                                if (profileResult.isSuccess) {
-                                    val rawProfile = profileResult.getOrThrow()
-                                    android.util.Log.i("ConvoyApply", "Step 3: master.cfg loaded OK — region=${rawProfile.config?.lora?.region?.name}")
-                                    // ── Step 4: Strip short_name — preserve rider's own name ──
-                                    val profile = rawProfile.copy(short_name = null)
-                                    // ── Step 5: Install master.cfg — radio will reboot ────────
-                                    android.util.Log.i("ConvoyApply", "Step 5: Installing master.cfg to radio ${"%08x".format(ni.myNodeNum)}...")
-                                    convoyViewModel.installProfileToRadio(ni.myNodeNum, profile)
-                                    android.util.Log.i("ConvoyApply", "Step 5: Install call complete — radio should be rebooting")
-                                } else {
-                                    android.util.Log.e("ConvoyApply", "Step 3: FAILED to load master.cfg -> ${profileResult.exceptionOrNull()?.message}")
-                                }
-                            }
+                            // Step 2: Build binary from WorkingConfig
+                            android.util.Log.i("ConvoyApply", "Step 2: Building binary from WorkingConfig mode=$applyMode...")
+                            val profile = ConvoyProfileBuilder.buildProfile(wconfig).copy(short_name = null)
+                            android.util.Log.i("ConvoyApply", "Step 2: Binary built OK")
+                            // Step 3: Install binary - radio will reboot
+                            android.util.Log.i("ConvoyApply", "Step 3: Installing to radio...")
+                            convoyViewModel.installProfileToRadio(ni.myNodeNum, profile)
+                            android.util.Log.i("ConvoyApply", "Step 3: Install complete - radio rebooting")
 
                             // ── Step 6: Set WorkingConfig and navigate to Verify ──────────
                             android.util.Log.i("ConvoyApply", "Step 6: Setting WorkingConfig and navigating to Verify...")

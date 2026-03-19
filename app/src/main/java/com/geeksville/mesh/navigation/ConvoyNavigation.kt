@@ -113,7 +113,9 @@ fun NavGraphBuilder.convoyGraph(
 
     // ── Reconnect Wait — between import and verify ───────────────────────
     composable<ConvoyRoutes.ConvoyReconnectWait> {
+        val vm = viewModel ?: androidx.hilt.navigation.compose.hiltViewModel<ConvoyViewModel>()
         ConvoyReconnectWaitScreen(
+            convoyViewModel = vm,
             onProceed = { navController?.navigate(ConvoyRoutes.ConvoyWriteVerify) },
             onCancel  = { navController?.navigate(ConvoyRoutes.Convoy) { popUpTo(ConvoyRoutes.Convoy) { inclusive = false } } }
         )
