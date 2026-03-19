@@ -11,7 +11,12 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import org.meshtastic.core.domain.usecase.settings.ExportProfileUseCase
+import org.meshtastic.core.domain.usecase.settings.ImportProfileUseCase
+import org.meshtastic.core.domain.usecase.settings.InstallProfileUseCase
 import org.meshtastic.core.repository.NodeRepository
+import org.meshtastic.core.repository.RadioConfigRepository
+import org.meshtastic.proto.DeviceProfile
 import javax.inject.Inject
 
 /**
@@ -37,7 +42,11 @@ enum class HudMode {
 @HiltViewModel
 class ConvoyViewModel @Inject constructor(
     private val nodeRepository: NodeRepository,
-    private val settingsRepository: ConvoySettingsRepository
+    private val settingsRepository: ConvoySettingsRepository,
+    private val radioConfigRepository: RadioConfigRepository,
+    private val importProfileUseCase: ImportProfileUseCase,
+    private val exportProfileUseCase: ExportProfileUseCase,
+    private val installProfileUseCase: InstallProfileUseCase,
 ) : ViewModel() {
 
     // ── Convoy state ──────────────────────────────────────────────────────
@@ -98,6 +107,78 @@ class ConvoyViewModel @Inject constructor(
 
     fun setWorkingConfig(config: WorkingConfig) {
         _workingConfig.value = config
+    }
+
+    // ── Profile Export / Import / Install ─────────────────────────────────────
+
+    /** Current radio DeviceProfile as a flow — live from radio */
+    val deviceProfileFlow = radioConfigRepository.deviceProfileFlow
+
+    /**
+     * Export current radio DeviceProfile to a file.
+     * Used for: archive before write, master.cfg capture, ride binary creation.
+     * File location is hardwired — no user prompt.
+     */
+    suspend fun exportProfileToFile(context: android.content.Context, file: java.io.File): Result<Unit> = runCatching {
+        val profile = radioConfigRepository.deviceProfileFlow.first()
+        file.parentFile?.mkdirs()
+        file.outputStream().use { outputStream ->
+            exportProfileUseCase(outputStream, profile)
+                .getOrElse { throw it }
+        }
+        android.util.Log.i("ConvoyProfile", "Exported profile to: ${file.absolutePath}")
+    }
+
+    /**
+     * Import a DeviceProfile binary from a file.
+     * Returns the decoded DeviceProfile — does NOT write to radio.
+     */
+    fun importProfileFromFile(file: java.io.File): Result<DeviceProfile> = runCatching {
+        file.inputStream().use { inputStream ->
+            importProfileUseCase(inputStream).getOrElse { throw it }
+        }
+    }
+
+    /**
+     * Install a DeviceProfile binary to the connected radio.
+     * This is the atomic write — all 47 fields, one operation.
+     * Caller must handle reboot and reconnect after this completes.
+     */
+    fun installProfileToRadio(destNum: Int, profile: DeviceProfile) {
+        val currentUser = nodeRepository.ourNodeInfo.value?.user
+        viewModelScope.launch {
+            try {
+                android.util.Log.i("ConvoyProfile", "Installing profile to radio: ${"!%08x".format(destNum)}")
+                installProfileUseCase(destNum, profile, currentUser)
+                android.util.Log.i("ConvoyProfile", "Profile install complete — radio will reboot")
+            } catch (e: Exception) {
+                android.util.Log.e("ConvoyProfile", "Profile install failed: ${e.message}")
+            }
+        }
+    }
+
+    /**
+     * Hardwired file paths for convoy profile artifacts.
+     * All paths are deterministic — no user interaction required.
+     */
+    object ConvoyProfilePaths {
+        fun masterCfg(context: android.content.Context) =
+            java.io.File(context.filesDir, "master.cfg")
+        fun archiveCfg(context: android.content.Context, nodeId: String, label: String): java.io.File {
+            val dir = java.io.File(context.filesDir, "convoy_backups/$nodeId")
+            dir.mkdirs()
+            val ts = java.time.LocalDateTime.now()
+                .format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"))
+            return java.io.File(dir, "${label}_${ts}.cfg")
+        }
+        fun rideCfg(context: android.content.Context, rideName: String, rideDate: String): java.io.File {
+            val dir = java.io.File(context.filesDir, "convoy_rides")
+            dir.mkdirs()
+            val safeName = rideName.replace(Regex("[^a-zA-Z0-9_-]"), "_")
+            return java.io.File(dir, "${safeName}_${rideDate}.cfg")
+        }
+        fun assetsMasterCfg(context: android.content.Context): java.io.File =
+            java.io.File(context.filesDir, "master.cfg")
     }
 
     fun clearWorkingConfig() {
