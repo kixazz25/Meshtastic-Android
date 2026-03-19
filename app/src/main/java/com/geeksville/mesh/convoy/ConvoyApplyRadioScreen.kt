@@ -461,21 +461,48 @@ fun ConvoyApplyRadioScreen(
                                 audioEnabled             = if (ModuleField.AUDIO_ENABLED in al.moduleFields) m?.audioEnabled ?: false else false,
                                 source                   = if (applyMode == "RIDE") "RIDE:${selectedRide?.eventId}" else "MASTER"
                             )
-                            // Archive current radio state before any write
-                            try {
-                                val snapshot = ConvoyRadioManager.buildSnapshot(
-                                    myNodeNum = ni.myNodeNum, deviceId = ni.deviceId ?: "",
-                                    model = ni.model, firmwareVersion = ni.firmwareVersion,
-                                    pioEnv = ni.pioEnv, hasGPS = ni.hasGPS, hasWifi = ni.hasWifi,
-                                    maxChannels = ni.maxChannels, deviceProfile = null,
-                                    localConfig = localConfig, channelSet = channels
-                                )
-                                ConvoyRadioManager.saveBackup(context, snapshot, "pre_write")
-                            } catch (e: Exception) {
-                                android.util.Log.w("ConvoyApply", "Archive failed: ${e.message}")
+                            scope.launch {
+                            android.util.Log.i("ConvoyApply", "=== PROCEED TO UPDATE started mode=$applyMode ===")
+
+                            // ── Step 1: Archive current radio as binary .cfg ──────────────
+                            android.util.Log.i("ConvoyApply", "Step 1: Archiving current radio state...")
+                            val archiveResult = ConvoyMasterApply.archiveCurrentRadio(
+                                context, "!%08x".format(ni.myNodeNum), convoyViewModel
+                            )
+                            if (archiveResult.isSuccess) {
+                                android.util.Log.i("ConvoyApply", "Step 1: Archive complete -> ${archiveResult.getOrThrow()}")
+                            } else {
+                                android.util.Log.e("ConvoyApply", "Step 1: Archive FAILED -> ${archiveResult.exceptionOrNull()?.message}")
                             }
+
+                            if (applyMode == "MASTER") {
+                                // ── Step 2: Wait 3 seconds before import ──────────────────
+                                android.util.Log.i("ConvoyApply", "Step 2: Waiting 3 seconds before master.cfg import...")
+                                kotlinx.coroutines.delay(3000)
+
+                                // ── Step 3: Load master.cfg from assets ───────────────────
+                                android.util.Log.i("ConvoyApply", "Step 3: Loading master.cfg from assets...")
+                                val profileResult = ConvoyMasterApply.loadMasterProfile(context)
+                                if (profileResult.isSuccess) {
+                                    val rawProfile = profileResult.getOrThrow()
+                                    android.util.Log.i("ConvoyApply", "Step 3: master.cfg loaded OK — region=${rawProfile.config?.lora?.region?.name}")
+                                    // ── Step 4: Strip short_name — preserve rider's own name ──
+                                    val profile = rawProfile.copy(short_name = null)
+                                    // ── Step 5: Install master.cfg — radio will reboot ────────
+                                    android.util.Log.i("ConvoyApply", "Step 5: Installing master.cfg to radio ${"%08x".format(ni.myNodeNum)}...")
+                                    convoyViewModel.installProfileToRadio(ni.myNodeNum, profile)
+                                    android.util.Log.i("ConvoyApply", "Step 5: Install call complete — radio should be rebooting")
+                                } else {
+                                    android.util.Log.e("ConvoyApply", "Step 3: FAILED to load master.cfg -> ${profileResult.exceptionOrNull()?.message}")
+                                }
+                            }
+
+                            // ── Step 6: Set WorkingConfig and navigate to Verify ──────────
+                            android.util.Log.i("ConvoyApply", "Step 6: Setting WorkingConfig and navigating to Verify...")
                             convoyViewModel.setWorkingConfig(wconfig)
-                            navController?.navigate(org.meshtastic.core.navigation.ConvoyRoutes.ConvoyWriteArchive)
+                            navController?.navigate(org.meshtastic.core.navigation.ConvoyRoutes.ConvoyReconnectWait)
+                            android.util.Log.i("ConvoyApply", "=== PROCEED TO UPDATE complete ===")
+                            } // end scope.launch
                         },
                         shape = RoundedCornerShape(10.dp), color = Color(0xFF15512C)
                     ) {

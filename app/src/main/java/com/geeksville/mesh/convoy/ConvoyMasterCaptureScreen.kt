@@ -419,19 +419,35 @@ fun ConvoyMasterCaptureScreen(
                                 val applyFile = java.io.File(saveDir, "convoy_apply_list.json")
                                 applyFile.writeText(applyList.toJson().toString(2))
                                 log.appendLine("\u2713 Saved: convoy_apply_list.json")
+                                // ── Export master.cfg binary ──────────────────
+                                val masterCfgResult = viewModel.exportProfileToFile(
+                                    context,
+                                    ConvoyViewModel.ConvoyProfilePaths.masterCfg(context)
+                                )
+                                if (masterCfgResult.isSuccess) {
+                                    log.appendLine("\u2713 Saved: master.cfg binary")
+                                    // Also copy to external cache for adb pull
+                                    val masterCfgExternal = java.io.File(saveDir, "master.cfg")
+                                    java.io.File(context.filesDir, "master.cfg")
+                                        .copyTo(masterCfgExternal, overwrite = true)
+                                    log.appendLine("\u2713 Saved: master.cfg to external cache")
+                                } else {
+                                    log.appendLine("\u26a0 master.cfg export failed: ${masterCfgResult.exceptionOrNull()?.message}")
+                                }
 
                                 // ── adb pull instructions ─────────────────────
                                 log.appendLine("")
-                                log.appendLine("Pull files via adb:")
-                                log.appendLine("  adb shell run-as com.geeksville.mesh.google.debug")
-                                log.appendLine("    cat files/master_config.json > master_config.json")
+                                log.appendLine("Pull all 3 assets via adb:")
+                                log.appendLine("  adb shell run-as com.geeksville.mesh.google.debug \\")
+                                log.appendLine("    cat files/master_config.json > app/src/main/assets/master_config.json")
+                                log.appendLine("  adb shell run-as com.geeksville.mesh.google.debug \\")
+                                log.appendLine("    cat files/convoy_apply_list.json > app/src/main/assets/convoy_apply_list.json")
+                                log.appendLine("  adb shell run-as com.geeksville.mesh.google.debug \\")
+                                log.appendLine("    cat files/master.cfg > app/src/main/assets/master.cfg")
                                 log.appendLine("")
-                                log.appendLine("Or from external cache:")
-                                log.appendLine("  adb pull //storage/emulated/0/Android/data/")
-                                log.appendLine("    com.geeksville.mesh.google.debug/cache/master_config.json")
-                                log.appendLine("")
-                                log.appendLine("Then copy to:")
-                                log.appendLine("  app/src/main/assets/master_config.json")
+                                log.appendLine("Then commit all 3 to assets:")
+                                log.appendLine("  git add app/src/main/assets/")
+                                log.appendLine("  git commit -m 'chore: update master config assets'")
 
                                 captureLog = log.toString()
                                 statusMsg  = if (channelName.isBlank() || pskBase64.isBlank())

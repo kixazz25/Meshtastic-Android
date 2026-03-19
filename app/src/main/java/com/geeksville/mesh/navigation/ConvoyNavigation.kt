@@ -15,17 +15,12 @@ import com.geeksville.mesh.convoy.ConvoyMasterCaptureScreen
 import com.geeksville.mesh.convoy.ConvoyScreen
 import com.geeksville.mesh.convoy.ConvoyApplyListScreen
 import com.geeksville.mesh.convoy.ConvoyApplyRadioScreen
-import com.geeksville.mesh.convoy.ConvoyWriteArchiveScreen
-import com.geeksville.mesh.convoy.ConvoyDeviceConfigScreen
-import com.geeksville.mesh.convoy.ConvoyLoRaConfigScreen
-import com.geeksville.mesh.convoy.ConvoyPositionConfigScreen
-import com.geeksville.mesh.convoy.ConvoyChannelConfigScreen
+import com.geeksville.mesh.convoy.ConvoyReconnectWaitScreen
 import com.geeksville.mesh.convoy.ConvoyVerifyConfigScreen
 import com.geeksville.mesh.convoy.ConvoyMasterSuccessScreen
 import com.geeksville.mesh.convoy.ConvoySettingsGate
 import com.geeksville.mesh.convoy.ConvoySettingsPanelScreen
 import com.geeksville.mesh.convoy.ConvoySettingsScreen
-import com.geeksville.mesh.convoy.ConvoyUserStore
 import com.geeksville.mesh.convoy.ConvoyViewModel
 import org.meshtastic.core.navigation.ConvoyRoutes
 
@@ -42,14 +37,14 @@ fun NavGraphBuilder.convoyGraph(
         )
     }
 
-    // ── Legacy settings screen ──────────────────────────────────────────
+    // ── Legacy settings screen ────────────────────────────────────────────
     composable<ConvoyRoutes.ConvoySettings> {
         ConvoySettingsScreen(
             onNavigateBack = { navController?.popBackStack() }
         )
     }
 
-    // ── Enrollment ────────────────────────────────────────────────
+    // ── Enrollment ────────────────────────────────────────────────────────
     composable<ConvoyRoutes.ConvoyEnrollment> {
         ConvoyEnrollmentScreen(
             initialEmail = viewModel?.pendingEnrollmentEmail?.value ?: "",
@@ -57,7 +52,7 @@ fun NavGraphBuilder.convoyGraph(
         )
     }
 
-    // ── F1 Create Event / Ride ──────────────────────────────────────────
+    // ── Create Event / Ride ───────────────────────────────────────────────
     composable<ConvoyRoutes.ConvoyEmailGate> {
         ConvoyEmailGateScreen(
             onProceed       = { navController?.navigate(ConvoyRoutes.ConvoyCreateEvent) },
@@ -77,7 +72,7 @@ fun NavGraphBuilder.convoyGraph(
         }
     }
 
-    // ── Developer settings panel — password protected ─────────────────────────
+    // ── Developer settings panel — password protected ─────────────────────
     composable<ConvoyRoutes.ConvoySettingsPanel> {
         var authenticated by remember { mutableStateOf(false) }
         var showPanel     by remember { mutableStateOf(false) }
@@ -90,14 +85,12 @@ fun NavGraphBuilder.convoyGraph(
             ConvoySettingsPanelScreen(
                 onBack                = { navController?.popBackStack() },
                 onNavigateToCapture   = { navController?.navigate(ConvoyRoutes.ConvoyMasterCapture) },
-                onNavigateToApplyList = {
-                    navController?.navigate(ConvoyRoutes.ConvoyApplyList)
-                }
+                onNavigateToApplyList = { navController?.navigate(ConvoyRoutes.ConvoyApplyList) }
             )
         }
     }
 
-    // ── Apply list checklist ───────────────────────────────────────────
+    // ── Apply list checklist ──────────────────────────────────────────────
     composable<ConvoyRoutes.ConvoyApplyList> {
         ConvoyApplyListScreen(
             onDone             = { navController?.popBackStack() },
@@ -105,7 +98,10 @@ fun NavGraphBuilder.convoyGraph(
         )
     }
 
-    // ── Apply radio ───────────────────────────────────────────────────
+    // ── Apply Radio Config ────────────────────────────────────────────────
+    // Entry point for both MASTER and RIDE apply processes.
+    // MASTER: builds WorkingConfig -> archives binary -> imports master.cfg -> navigates to Verify
+    // RIDE:   builds WorkingConfig -> archives binary -> imports ride.cfg -> navigates to Verify
     composable<ConvoyRoutes.ConvoyApplyRadio> {
         val vm = viewModel ?: androidx.hilt.navigation.compose.hiltViewModel<ConvoyViewModel>()
         ConvoyApplyRadioScreen(
@@ -115,69 +111,26 @@ fun NavGraphBuilder.convoyGraph(
         )
     }
 
-    // ── Phase 0: Archive — uses shared viewModel to preserve workingConfig ─────────────────
-    composable<ConvoyRoutes.ConvoyWriteArchive> {
-        val vm = viewModel ?: androidx.hilt.navigation.compose.hiltViewModel<ConvoyViewModel>()
-        ConvoyWriteArchiveScreen(
-            convoyViewModel = vm,
-            onProceed = { navController?.navigate(ConvoyRoutes.ConvoyWriteLoRa) },
-            onCancel  = { navController?.popBackStack() }
+    // ── Reconnect Wait — between import and verify ───────────────────────
+    composable<ConvoyRoutes.ConvoyReconnectWait> {
+        ConvoyReconnectWaitScreen(
+            onProceed = { navController?.navigate(ConvoyRoutes.ConvoyWriteVerify) },
+            onCancel  = { navController?.navigate(ConvoyRoutes.Convoy) { popUpTo(ConvoyRoutes.Convoy) { inclusive = false } } }
         )
     }
 
-    // ── Screen 1: Device config ───────────────────────────────────────────
-    composable<ConvoyRoutes.ConvoyWriteDevice> {
-        val vm = viewModel ?: androidx.hilt.navigation.compose.hiltViewModel<ConvoyViewModel>()
-        val wc = vm.workingConfig.collectAsState().value
-        if (wc == null) { android.util.Log.e("ConvoyNav", "workingConfig is NULL on WriteDevice"); return@composable }
-        ConvoyDeviceConfigScreen(
-            workingConfig = wc,
-            onProceed     = { navController?.navigate(ConvoyRoutes.ConvoyWritePosition) },
-            onBack        = { navController?.popBackStack() }
-        )
-    }
-
-    // ── Screen 2: LoRa config ─────────────────────────────────────────────
-    composable<ConvoyRoutes.ConvoyWriteLoRa> {
-        val vm = viewModel ?: androidx.hilt.navigation.compose.hiltViewModel<ConvoyViewModel>()
-        val wc = vm.workingConfig.collectAsState().value
-        if (wc == null) { android.util.Log.e("ConvoyNav", "workingConfig is NULL on WriteDevice"); return@composable }
-        ConvoyLoRaConfigScreen(
-            workingConfig = wc,
-            onProceed     = { navController?.navigate(ConvoyRoutes.ConvoyWriteChannel) },
-            onBack        = { navController?.popBackStack() }
-        )
-    }
-
-    // ── Screen 3: Position config ───────────────────────────────────────────
-    composable<ConvoyRoutes.ConvoyWritePosition> {
-        val vm = viewModel ?: androidx.hilt.navigation.compose.hiltViewModel<ConvoyViewModel>()
-        val wc = vm.workingConfig.collectAsState().value
-        if (wc == null) { android.util.Log.e("ConvoyNav", "workingConfig is NULL on WriteDevice"); return@composable }
-        ConvoyPositionConfigScreen(
-            workingConfig = wc,
-            onProceed     = { navController?.navigate(ConvoyRoutes.ConvoyWriteVerify) },
-            onBack        = { navController?.popBackStack() }
-        )
-    }
-
-    // ── Screen 4: Channel + PSK ─────────────────────────────────────────────
-    composable<ConvoyRoutes.ConvoyWriteChannel> {
-        val vm = viewModel ?: androidx.hilt.navigation.compose.hiltViewModel<ConvoyViewModel>()
-        val wc = vm.workingConfig.collectAsState().value
-        if (wc == null) { android.util.Log.e("ConvoyNav", "workingConfig is NULL on WriteDevice"); return@composable }
-        ConvoyChannelConfigScreen(
-            workingConfig = wc,
-            onComplete    = { navController?.navigate(ConvoyRoutes.ConvoyWriteDevice) },
-            onBack        = { navController?.popBackStack() }
-        )
-    }
-
-    // ── Screen 5: Verify config ─────────────────────────────────────────────
+    // ── Verify Config ─────────────────────────────────────────────────────
+    // Final step after master.cfg or ride.cfg import.
+    // Reads back radio and compares all fields against WorkingConfig.
+    // PASS: done, navigate to convoy map.
+    // FAIL: shows failed fields — user can cancel or retry delta corrections.
     composable<ConvoyRoutes.ConvoyWriteVerify> {
         val vm = viewModel ?: androidx.hilt.navigation.compose.hiltViewModel<ConvoyViewModel>()
         val wc = vm.workingConfig.collectAsState().value
-        if (wc == null) { android.util.Log.e("ConvoyNav", "workingConfig is NULL on WriteDevice"); return@composable }
+        if (wc == null) {
+            android.util.Log.e("ConvoyNav", "workingConfig is NULL on WriteVerify")
+            return@composable
+        }
         ConvoyVerifyConfigScreen(
             workingConfig = wc,
             onDone = {
@@ -206,7 +159,7 @@ fun NavGraphBuilder.convoyGraph(
         )
     }
 
-    // ── Master config capture — developer only ──────────────────────────────────
+    // ── Master config capture — developer only ────────────────────────────
     composable<ConvoyRoutes.ConvoyMasterCapture> {
         if (viewModel != null) {
             ConvoyMasterCaptureScreen(
