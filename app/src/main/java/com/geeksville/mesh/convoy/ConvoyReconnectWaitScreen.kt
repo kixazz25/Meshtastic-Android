@@ -33,13 +33,16 @@ import org.meshtastic.proto.ChannelSettings
  *
  * STAGE 1: Wait for binary install reboot
  *   - 60s forced countdown
- *   - BT toggle if not reconnected
- *   - PROCEED TO WRITE CHANNEL — hard button, user confirms connected
- *   - User taps → setChannels() fires → radio reboots
+ *   - Manual BT toggle instruction if not reconnected
+ *   - WRITE CHANNEL + PSK — hard button, user confirms connected
+ *   - User taps:
+ *       1. beginEditSettings(nodeNum)   — open transaction
+ *       2. setChannels()                — write channel name + PSK
+ *       3. commitEditSettings(nodeNum)  — flush to flash + radio reboots
  *
  * STAGE 2: Wait for channel write reboot
  *   - 60s forced countdown
- *   - BT toggle if not reconnected
+ *   - Manual BT toggle instruction if not reconnected
  *   - PROCEED TO VERIFY — hard button, user confirms connected
  *   - User taps → navigate to Verify
  *
@@ -56,6 +59,7 @@ fun ConvoyReconnectWaitScreen(
     val context         = LocalContext.current
     val scope           = rememberCoroutineScope()
     val connectionState by uiViewModel.connectionState.collectAsStateWithLifecycle()
+    val myNodeInfo      by uiViewModel.myNodeInfo.collectAsStateWithLifecycle()
     val rawConnected    = connectionState.toString().contains("Connected", ignoreCase = true)
 
     // Stage 1 gate — binary install reboot
@@ -69,7 +73,7 @@ fun ConvoyReconnectWaitScreen(
     val stage2Connected   = rawConnected && stage2GatePassed
 
     var countdown    by remember { mutableStateOf(60) }
-    var stage        by remember { mutableStateOf(1) }      // 1 or 2
+    var stage        by remember { mutableStateOf(1) }
     var phase        by remember { mutableStateOf("WAITING") }
     var statusMsg    by remember { mutableStateOf("Waiting for radio reboot after binary install...") }
     var logLines     by remember { mutableStateOf(listOf<String>()) }
@@ -101,60 +105,52 @@ fun ConvoyReconnectWaitScreen(
             return@LaunchedEffect
         }
 
-        // BT toggle
-        phase = "BT_TOGGLE"
-        statusMsg = "\u25cc Not connected — toggling Bluetooth..."
-        addLog("Stage 1: BT toggle...")
-        uiViewModel.reconnectDevice(context)
-        delay(3000)
+        // Not connected — show manual BT toggle instruction
+        phase = "BT_MANUAL"
+        statusMsg = "\u25cc Not connected — toggle Bluetooth OFF then ON in Android settings"
+        addLog("Stage 1: Waiting for manual BT toggle...")
 
-        phase = "RECONNECTING"
-        for (i in 30 downTo 1) {
+        for (i in 60 downTo 1) {
             if (rawConnected) {
                 phase = "CONNECTED"
                 statusMsg = "\u25cf Radio reconnected — tap WRITE CHANNEL to continue"
                 addLog("Stage 1: Connected after BT toggle \u2713")
                 return@LaunchedEffect
             }
-            statusMsg = "\u25cc Reconnecting... ${i}s"
             delay(1000)
         }
 
         if (!rawConnected) {
             phase = "FAILED"
-            statusMsg = "\u2717 Radio did not reconnect. Check radio and retry."
+            statusMsg = "\u2717 Radio did not reconnect. Check radio and Bluetooth, then retry."
             addLog("Stage 1: FAILED")
-        } else {
-            phase = "CONNECTED"
-            statusMsg = "\u25cf Radio reconnected — tap WRITE CHANNEL to continue"
-            addLog("Stage 1: Connected \u2713")
         }
     }
 
-    // Catch reconnect during stage 1 BT toggle
+    // Catch reconnect during stage 1 BT manual wait
     LaunchedEffect(rawConnected, stage1GatePassed) {
         if (rawConnected && stage1GatePassed && !channelWriteDone &&
-            (phase == "RECONNECTING" || phase == "BT_TOGGLE")) {
+            (phase == "BT_MANUAL" || phase == "FAILED")) {
             phase = "CONNECTED"
             statusMsg = "\u25cf Radio reconnected — tap WRITE CHANNEL to continue"
-            Log.i("ConvoyReconnect", "Stage 1: Reconnected during BT toggle")
+            Log.i("ConvoyReconnect", "Stage 1: Reconnected")
         }
     }
 
-    // Catch reconnect during stage 2 BT toggle
+    // Catch reconnect during stage 2 BT manual wait
     LaunchedEffect(rawConnected, stage2GatePassed) {
         if (rawConnected && stage2GatePassed &&
-            (phase == "RECONNECTING_2" || phase == "BT_TOGGLE_2")) {
+            (phase == "BT_MANUAL_2" || phase == "FAILED_2")) {
             phase = "CONNECTED_2"
             statusMsg = "\u25cf Radio reconnected — tap PROCEED TO VERIFY"
-            Log.i("ConvoyReconnect", "Stage 2: Reconnected during BT toggle")
+            Log.i("ConvoyReconnect", "Stage 2: Reconnected")
         }
     }
 
     // Block back navigation
     BackHandler(enabled = true) { }
 
-    // WRITE CHANNEL action — triggered by user tap
+    // WRITE CHANNEL action — triggered by user tap only
     fun writeChannel() {
         scope.launch {
             val wconfig = convoyViewModel.workingConfig.value
@@ -162,12 +158,24 @@ fun ConvoyReconnectWaitScreen(
                 addLog("\u2717 No WorkingConfig — cannot write channel")
                 return@launch
             }
+            val nodeNum = myNodeInfo?.myNodeNum
+            if (nodeNum == null) {
+                addLog("\u2717 No node info — cannot write channel")
+                return@launch
+            }
 
-            // Write channel
             phase = "WRITING_CHANNEL"
-            statusMsg = "\u25cc Writing channel + PSK..."
-            addLog("Stage 1 PROCEED: Writing channel ${wconfig.channelName}...")
+            statusMsg = "\u25cc Opening edit transaction..."
+            addLog("Stage 1 PROCEED: beginEditSettings($nodeNum)...")
+
             try {
+                // ── Step 1: Open edit transaction ─────────────────────────
+                channelViewModel.beginEditSettings(nodeNum)
+                delay(500)
+
+                // ── Step 2: Write channel name + PSK ──────────────────────
+                addLog("Writing channel: ${wconfig.channelName}...")
+                statusMsg = "\u25cc Writing channel + PSK..."
                 val pskBytes = okio.ByteString.of(
                     *Base64.decode(wconfig.channelPsk, Base64.DEFAULT)
                 )
@@ -178,9 +186,17 @@ fun ConvoyReconnectWaitScreen(
                     downlink_enabled = wconfig.channelDownlinkEnabled
                 )
                 channelViewModel.setChannels(ChannelSet(settings = listOf(chSettings)))
+                delay(500)
+
+                // ── Step 3: Commit — flushes to flash + triggers reboot ───
+                addLog("Committing edit settings — radio will reboot...")
+                statusMsg = "\u25cc Committing to flash — radio will reboot..."
+                channelViewModel.commitEditSettings(nodeNum)
+
                 channelWriteDone = true
-                addLog("\u2713 Channel written: ${wconfig.channelName} — radio rebooting")
-                statusMsg = "\u2713 Channel written — waiting for reboot..."
+                addLog("\u2713 Channel + PSK committed — radio rebooting")
+                statusMsg = "\u2713 Channel committed — waiting for reboot..."
+
             } catch (e: Exception) {
                 addLog("\u2717 Channel write failed: ${e.message}")
                 statusMsg = "\u2717 Channel write failed"
@@ -189,7 +205,7 @@ fun ConvoyReconnectWaitScreen(
 
             delay(1000)
 
-            // Stage 2: Wait 60s for channel write reboot
+            // ── Stage 2: Wait 60s for channel write reboot ────────────────
             stage = 2
             phase = "WAITING_2"
             addLog("Stage 2: Waiting 60s for channel write reboot...")
@@ -209,66 +225,55 @@ fun ConvoyReconnectWaitScreen(
                 return@launch
             }
 
-            // BT toggle stage 2
-            phase = "BT_TOGGLE_2"
-            statusMsg = "\u25cc Not connected — toggling Bluetooth..."
-            addLog("Stage 2: BT toggle...")
-            uiViewModel.reconnectDevice(context)
-            delay(3000)
+            // Not connected — show manual BT toggle instruction
+            phase = "BT_MANUAL_2"
+            statusMsg = "\u25cc Not connected — toggle Bluetooth OFF then ON in Android settings"
+            addLog("Stage 2: Waiting for manual BT toggle...")
 
-            phase = "RECONNECTING_2"
-            for (i in 30 downTo 1) {
+            for (i in 60 downTo 1) {
                 if (rawConnected) {
                     phase = "CONNECTED_2"
                     statusMsg = "\u25cf Radio reconnected — tap PROCEED TO VERIFY"
                     addLog("Stage 2: Connected after BT toggle \u2713")
                     return@launch
                 }
-                statusMsg = "\u25cc Reconnecting... ${i}s"
                 delay(1000)
             }
 
             if (!rawConnected) {
-                phase = "FAILED"
-                statusMsg = "\u2717 Radio did not reconnect. Check radio and retry."
+                phase = "FAILED_2"
+                statusMsg = "\u2717 Radio did not reconnect. Check radio and Bluetooth, then retry."
                 addLog("Stage 2: FAILED")
-            } else {
-                phase = "CONNECTED_2"
-                statusMsg = "\u25cf Radio reconnected — tap PROCEED TO VERIFY"
-                addLog("Stage 2: Connected \u2713")
             }
         }
     }
 
-    // ── UI ────────────────────────────────────────────────────────────────────
+    // ── UI ────────────────────────────────────────────────────────────────
     Box(modifier = Modifier.fillMaxSize().background(Color(0xFF101510))) {
         Column(
             modifier = Modifier.fillMaxSize().padding(20.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            // Stage indicator
             Text(
-                text = "STAGE ${stage} OF 2",
-                color = Color(0xFF4A6080),
-                fontSize = 10.sp,
-                fontFamily = FontFamily.Monospace,
-                letterSpacing = 2.sp
+                text = "STAGE $stage OF 2",
+                color = Color(0xFF4A6080), fontSize = 10.sp,
+                fontFamily = FontFamily.Monospace, letterSpacing = 2.sp
             )
             Spacer(Modifier.height(8.dp))
 
-            // Status icon
             Text(
                 text = when (phase) {
                     "CONNECTED", "CONNECTED_2" -> "\u25cf"
-                    "FAILED"                   -> "\u2717"
+                    "FAILED", "FAILED_2"       -> "\u2717"
                     "WRITING_CHANNEL"          -> "\u270e"
+                    "BT_MANUAL", "BT_MANUAL_2" -> "\u26a0"
                     else                       -> "\u25cc"
                 },
                 fontSize = 48.sp,
                 color = when (phase) {
                     "CONNECTED", "CONNECTED_2" -> Color(0xFF97D5A5)
-                    "FAILED"                   -> Color(0xFFFFB4AB)
+                    "FAILED", "FAILED_2"       -> Color(0xFFFFB4AB)
                     "WRITING_CHANNEL"          -> Color(0xFFF9C835)
                     else                       -> Color(0xFFFFB74D)
                 }
@@ -276,51 +281,74 @@ fun ConvoyReconnectWaitScreen(
             Spacer(Modifier.height(16.dp))
 
             Text(
-                text          = "RECONNECT CHECK",
-                color         = Color(0xFF97D5A5),
-                fontSize      = 14.sp,
-                fontFamily    = FontFamily.Monospace,
-                fontWeight    = FontWeight.Bold,
+                text = "RECONNECT CHECK",
+                color = Color(0xFF97D5A5), fontSize = 14.sp,
+                fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
                 letterSpacing = 3.sp
             )
             Spacer(Modifier.height(8.dp))
 
-            // Status message
             Surface(
                 modifier = Modifier.fillMaxWidth(),
-                shape    = RoundedCornerShape(10.dp),
-                color    = when (phase) {
+                shape = RoundedCornerShape(10.dp),
+                color = when (phase) {
                     "CONNECTED", "CONNECTED_2" -> Color(0xFF0D2010)
-                    "FAILED"                   -> Color(0xFF2A1A1A)
+                    "FAILED", "FAILED_2"       -> Color(0xFF2A1A1A)
+                    "BT_MANUAL", "BT_MANUAL_2" -> Color(0xFF2A1A08)
                     "WRITING_CHANNEL"          -> Color(0xFF1A1A08)
                     else                       -> Color(0xFF1A1A0D)
                 }
             ) {
                 Text(
-                    text       = statusMsg,
-                    color      = when (phase) {
+                    text = statusMsg,
+                    color = when (phase) {
                         "CONNECTED", "CONNECTED_2" -> Color(0xFF97D5A5)
-                        "FAILED"                   -> Color(0xFFFFB4AB)
-                        "WRITING_CHANNEL"          -> Color(0xFFF9C835)
+                        "FAILED", "FAILED_2"       -> Color(0xFFFFB4AB)
                         else                       -> Color(0xFFFFB74D)
                     },
-                    fontSize   = 12.sp,
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Bold,
-                    textAlign  = TextAlign.Center,
-                    modifier   = Modifier.padding(16.dp)
+                    fontSize = 12.sp, fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold, textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(16.dp)
                 )
+            }
+
+            // Manual BT toggle instruction
+            if (phase == "BT_MANUAL" || phase == "BT_MANUAL_2") {
+                Spacer(Modifier.height(8.dp))
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color(0xFF2A1A08)
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text("\u26a0 Manual Bluetooth Toggle Required",
+                            color = Color(0xFFFFB74D), fontSize = 11.sp,
+                            fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(6.dp))
+                        listOf(
+                            "1. Pull down notification shade",
+                            "2. Tap Bluetooth OFF",
+                            "3. Wait 3 seconds",
+                            "4. Tap Bluetooth ON"
+                        ).forEach {
+                            Text(it, color = Color(0xFFFFB74D), fontSize = 10.sp,
+                                fontFamily = FontFamily.Monospace)
+                        }
+                        Spacer(Modifier.height(4.dp))
+                        Text("Button will enable when radio reconnects.",
+                            color = Color(0xFF8B938A), fontSize = 9.sp,
+                            fontFamily = FontFamily.Monospace)
+                    }
+                }
             }
 
             // Countdown
             if (countdown > 0) {
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    text       = "$countdown",
-                    color      = Color(0xFF8B938A),
-                    fontSize   = 36.sp,
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Bold
+                    text = "$countdown",
+                    color = Color(0xFF8B938A), fontSize = 36.sp,
+                    fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold
                 )
             }
 
@@ -329,17 +357,13 @@ fun ConvoyReconnectWaitScreen(
                 Spacer(Modifier.height(12.dp))
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    shape    = RoundedCornerShape(8.dp),
-                    color    = Color(0xFF0D1A0D)
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color(0xFF0D1A0D)
                 ) {
                     Column(modifier = Modifier.padding(10.dp)) {
                         logLines.takeLast(6).forEach { line ->
-                            Text(
-                                text       = line,
-                                color      = Color(0xFF97D5A5),
-                                fontSize   = 9.sp,
-                                fontFamily = FontFamily.Monospace
-                            )
+                            Text(line, color = Color(0xFF97D5A5),
+                                fontSize = 9.sp, fontFamily = FontFamily.Monospace)
                         }
                     }
                 }
@@ -347,49 +371,43 @@ fun ConvoyReconnectWaitScreen(
 
             Spacer(Modifier.height(24.dp))
 
-            // Stage 1 PROCEED button — write channel
+            // Stage 1 — WRITE CHANNEL button
             if (!channelWriteDone) {
                 Surface(
-                    modifier = Modifier
-                        .fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth()
                         .clickable(enabled = stage1Connected) { writeChannel() },
                     shape = RoundedCornerShape(12.dp),
                     color = if (stage1Connected) Color(0xFF1F4E79) else Color(0xFF1C211C)
                 ) {
                     Text(
-                        text       = if (stage1Connected) "\u270e WRITE CHANNEL + PSK"
-                                     else if (!stage1GatePassed) "WAITING FOR REBOOT..."
-                                     else "WAITING FOR RADIO...",
-                        color      = if (stage1Connected) Color.White else Color(0xFF8B938A),
-                        fontSize   = 13.sp,
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Bold,
-                        textAlign  = TextAlign.Center,
-                        modifier   = Modifier.padding(vertical = 16.dp)
+                        text = if (stage1Connected) "\u270e WRITE CHANNEL + PSK"
+                               else if (!stage1GatePassed) "WAITING FOR REBOOT..."
+                               else "WAITING FOR RADIO...",
+                        color = if (stage1Connected) Color.White else Color(0xFF8B938A),
+                        fontSize = 13.sp, fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold, textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(vertical = 16.dp)
                     )
                 }
                 Spacer(Modifier.height(12.dp))
             }
 
-            // Stage 2 PROCEED button — go to verify
+            // Stage 2 — PROCEED TO VERIFY button
             if (channelWriteDone) {
                 Surface(
-                    modifier = Modifier
-                        .fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth()
                         .clickable(enabled = stage2Connected) { onProceed() },
                     shape = RoundedCornerShape(12.dp),
                     color = if (stage2Connected) Color(0xFF15512C) else Color(0xFF1C211C)
                 ) {
                     Text(
-                        text       = if (stage2Connected) "\u25cf PROCEED TO VERIFY"
-                                     else if (!stage2GatePassed) "WAITING FOR REBOOT..."
-                                     else "WAITING FOR RADIO...",
-                        color      = if (stage2Connected) Color(0xFF97D5A5) else Color(0xFF8B938A),
-                        fontSize   = 13.sp,
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Bold,
-                        textAlign  = TextAlign.Center,
-                        modifier   = Modifier.padding(vertical = 16.dp)
+                        text = if (stage2Connected) "\u25cf PROCEED TO VERIFY"
+                               else if (!stage2GatePassed) "WAITING FOR REBOOT..."
+                               else "WAITING FOR RADIO...",
+                        color = if (stage2Connected) Color(0xFF97D5A5) else Color(0xFF8B938A),
+                        fontSize = 13.sp, fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold, textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(vertical = 16.dp)
                     )
                 }
                 Spacer(Modifier.height(12.dp))
@@ -397,20 +415,16 @@ fun ConvoyReconnectWaitScreen(
 
             // CANCEL — always available
             Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { onCancel() },
+                modifier = Modifier.fillMaxWidth().clickable { onCancel() },
                 shape = RoundedCornerShape(12.dp),
                 color = Color(0xFF2A1A1A)
             ) {
                 Text(
-                    text       = "CANCEL",
-                    color      = Color(0xFFFFB4AB),
-                    fontSize   = 13.sp,
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Bold,
-                    textAlign  = TextAlign.Center,
-                    modifier   = Modifier.padding(vertical = 16.dp)
+                    text = "CANCEL",
+                    color = Color(0xFFFFB4AB), fontSize = 13.sp,
+                    fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(vertical = 16.dp)
                 )
             }
         }
