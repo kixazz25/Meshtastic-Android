@@ -57,9 +57,9 @@ fun ConvoyApplyRadioScreen(
     var archiveOk    by remember { mutableStateOf(true) }
     var proceedDone  by remember { mutableStateOf(false) }
 
-    var confirmLoraOpen     by remember { mutableStateOf(true) }
-    var confirmChannelOpen  by remember { mutableStateOf(true) }
-    var confirmDeviceOpen   by remember { mutableStateOf(true) }
+    var confirmLoraOpen     by remember { mutableStateOf(false) }
+    var confirmChannelOpen  by remember { mutableStateOf(false) }
+    var confirmDeviceOpen   by remember { mutableStateOf(false) }
     var confirmPositionOpen by remember { mutableStateOf(false) }
     var confirmDisplayOpen  by remember { mutableStateOf(false) }
     var confirmModuleOpen   by remember { mutableStateOf(false) }
@@ -231,6 +231,25 @@ fun ConvoyApplyRadioScreen(
                 }
                 Spacer(Modifier.height(12.dp))
 
+                // Channel name — large and prominent, always visible
+                val displayChannelName = if (applyMode == "RIDE") selectedRide?.channelName ?: "—"
+                                         else masterConfig?.primaryChannelName ?: "—"
+                Surface(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp),
+                    color = Color(0xFF0D1A2A)) {
+                    Column(modifier = Modifier.padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("NEW CHANNEL", color = Color(0xFF4A6080), fontSize = 9.sp,
+                            fontFamily = FontFamily.Monospace, letterSpacing = 2.sp)
+                        Spacer(Modifier.height(4.dp))
+                        Text(displayChannelName, color = Color(0xFF4DA6FF), fontSize = 26.sp,
+                            fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center)
+                        Spacer(Modifier.height(4.dp))
+                        Text("AES-256 ENCRYPTED", color = Color(0xFF4A6080), fontSize = 9.sp,
+                            fontFamily = FontFamily.Monospace, letterSpacing = 2.sp)
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
                 ConfirmHeader()
                 Spacer(Modifier.height(6.dp))
 
