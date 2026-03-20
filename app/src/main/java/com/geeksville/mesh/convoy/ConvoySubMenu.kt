@@ -114,8 +114,8 @@ fun ConvoySubMenu(
                         }
                     )
                     SubMenuItem(
-                        label   = "Transfer Configuration",
-                        sub     = "Send ride kit via email or Bluetooth",
+                        label   = "Transfer Event/Ride Details via Email",
+                        sub     = "Select a ride and send via email attachment",
                         enabled = true,
                         onClick = {
                             expanded = null
