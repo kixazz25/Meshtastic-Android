@@ -115,6 +115,16 @@ fun ConvoyVerifyConfigScreen(
             else "MISSING ($pskSize bytes)",
             if (workingConfig.channelPsk.isNotBlank()) hasPsk else true))
 
+        val actPrecision = channels.settings.firstOrNull()?.module_settings?.position_precision?.toString() ?: "—"
+        list.add(vr("Position Precision", "Channel",
+            workingConfig.positionPrecision.toString(), actPrecision,
+            actPrecision == workingConfig.positionPrecision.toString()))
+
+        val actMuted = channels.settings.firstOrNull()?.module_settings?.is_muted?.toString() ?: "—"
+        list.add(vr("Channel Is Muted", "Channel",
+            workingConfig.channelIsMuted.toString(), actMuted,
+            actMuted == workingConfig.channelIsMuted.toString()))
+
         // ── POSITION (6 fields) ────────────────────────────────────────────
         val actBroadcast = localConfig.position?.position_broadcast_secs?.toString() ?: "—"
         list.add(vr("Broadcast Interval", "Position",
