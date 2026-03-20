@@ -494,7 +494,7 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
                 sheetState                = convoyMenuSheetState,
                 onDismiss                 = { showConvoyMenu = false },
                 onCreateEventRide         = { showConvoyMenu = false },
-                onTransferConfig          = { showConvoyMenu = false },
+                onTransferConfig          = { showConvoyMenu = false; navController.navigate(ConvoyRoutes.ConvoyTransferRide) },
                 onNavigateToCreateEvent   = {
                     navController.navigate(ConvoyRoutes.ConvoyEmailGate)
                 },

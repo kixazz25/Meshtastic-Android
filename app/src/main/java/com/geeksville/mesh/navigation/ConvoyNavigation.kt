@@ -16,6 +16,7 @@ import com.geeksville.mesh.convoy.ConvoyScreen
 import com.geeksville.mesh.convoy.ConvoyApplyListScreen
 import com.geeksville.mesh.convoy.ConvoyApplyRadioScreen
 import com.geeksville.mesh.convoy.ConvoyArchiveRestoreScreen
+import com.geeksville.mesh.convoy.ConvoyTransferRideScreen
 import com.geeksville.mesh.convoy.ConvoyReconnectWaitScreen
 import com.geeksville.mesh.convoy.ConvoyVerifyConfigScreen
 import com.geeksville.mesh.convoy.ConvoyMasterSuccessScreen
@@ -110,6 +111,13 @@ fun NavGraphBuilder.convoyGraph(
             convoyViewModel = vm,
             onDone          = { navController?.popBackStack() },
             navController   = navController
+        )
+    }
+
+    // ── Transfer Ride ─────────────────────────────────────────────────────
+    composable<ConvoyRoutes.ConvoyTransferRide> {
+        ConvoyTransferRideScreen(
+            onBack = { navController?.popBackStack() }
         )
     }
 
