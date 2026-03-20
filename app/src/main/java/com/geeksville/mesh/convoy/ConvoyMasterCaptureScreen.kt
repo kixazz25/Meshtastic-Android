@@ -359,6 +359,8 @@ fun ConvoyMasterCaptureScreen(
                                     channelId                = primaryCh?.id ?: 0,
                                     channelUplinkEnabled     = primaryCh?.uplink_enabled ?: false,
                                     channelDownlinkEnabled   = primaryCh?.downlink_enabled ?: false,
+                                    positionPrecision        = primaryCh?.module_settings?.position_precision ?: 32,
+                                    channelIsMuted           = primaryCh?.module_settings?.is_muted ?: false,
                                     // ── Position
                                     gpsEnabled               = pos?.gps_mode?.name != "DISABLED",
                                     gpsMode                  = pos?.gps_mode?.name ?: "ENABLED",

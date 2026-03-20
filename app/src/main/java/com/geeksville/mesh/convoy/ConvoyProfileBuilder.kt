@@ -162,7 +162,11 @@ object ConvoyProfileBuilder {
             name             = config.primaryChannelName,
             psk              = pskBytes,
             uplink_enabled   = config.channelUplinkEnabled,
-            downlink_enabled = config.channelDownlinkEnabled
+            downlink_enabled = config.channelDownlinkEnabled,
+            module_settings  = org.meshtastic.proto.ModuleSettings(
+                position_precision = config.positionPrecision,
+                is_muted           = config.channelIsMuted
+            )
         )
 
         // ── ChannelSet -> channel_url
@@ -322,6 +326,8 @@ object ConvoyProfileBuilder {
             channelId              = wconfig.channelId,
             channelUplinkEnabled   = wconfig.channelUplinkEnabled,
             channelDownlinkEnabled = wconfig.channelDownlinkEnabled,
+            positionPrecision      = wconfig.positionPrecision,
+            channelIsMuted         = wconfig.channelIsMuted,
             gpsEnabled             = wconfig.gpsEnabled,
             gpsMode                = wconfig.gpsMode,
             gpsUpdateSecs          = wconfig.gpsUpdateSecs,

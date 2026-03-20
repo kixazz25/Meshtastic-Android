@@ -207,6 +207,8 @@ data class WorkingConfig(
     val channelId: Int,
     val channelUplinkEnabled: Boolean,
     val channelDownlinkEnabled: Boolean,
+    val positionPrecision: Int,
+    val channelIsMuted: Boolean,
     // ── Position ──────────────────────────────────────────────────────────────
     val gpsEnabled: Boolean,
     val gpsMode: String,

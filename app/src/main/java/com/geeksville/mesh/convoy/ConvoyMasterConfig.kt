@@ -44,6 +44,8 @@ data class ConvoyMasterConfig(
     val channelId: Int,
     val channelUplinkEnabled: Boolean,
     val channelDownlinkEnabled: Boolean,
+    val positionPrecision: Int,
+    val channelIsMuted: Boolean,
     // ── Position ──────────────────────────────────────────────────────────────
     val gpsEnabled: Boolean,
     val gpsMode: String,
@@ -106,6 +108,8 @@ data class ConvoyMasterConfig(
         put("channelId",                 channelId)
         put("channelUplinkEnabled",      channelUplinkEnabled)
         put("channelDownlinkEnabled",    channelDownlinkEnabled)
+        put("positionPrecision",         positionPrecision)
+        put("channelIsMuted",            channelIsMuted)
         put("gpsEnabled",                gpsEnabled)
         put("gpsMode",                   gpsMode)
         put("gpsUpdateSecs",             gpsUpdateSecs)
@@ -169,7 +173,9 @@ data class ConvoyMasterConfig(
             primaryChannelPsk      = obj.optString("primaryChannelPsk", ""),
             channelId              = obj.optInt("channelId", 0),
             channelUplinkEnabled   = obj.optBoolean("channelUplinkEnabled", false),
-            channelDownlinkEnabled = obj.optBoolean("channelDownlinkEnabled", false),
+            channelDownlinkEnabled  = obj.optBoolean("channelDownlinkEnabled", false),
+            positionPrecision       = obj.optInt("positionPrecision", 32),
+            channelIsMuted          = obj.optBoolean("channelIsMuted", false),
             gpsEnabled             = obj.optBoolean("gpsEnabled", true),
             gpsMode                = obj.optString("gpsMode", "ENABLED"),
             gpsUpdateSecs          = obj.optInt("gpsUpdateSecs", 1),

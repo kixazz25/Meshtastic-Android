@@ -27,6 +27,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.meshtastic.proto.ChannelSet
 import org.meshtastic.proto.ChannelSettings
+import org.meshtastic.proto.ModuleSettings
 
 /**
  * ConvoyReconnectWaitScreen — Two-stage gated reconnect
@@ -183,7 +184,11 @@ fun ConvoyReconnectWaitScreen(
                     name             = wconfig.channelName,
                     psk              = pskBytes,
                     uplink_enabled   = wconfig.channelUplinkEnabled,
-                    downlink_enabled = wconfig.channelDownlinkEnabled
+                    downlink_enabled = wconfig.channelDownlinkEnabled,
+                    module_settings  = ModuleSettings(
+                        position_precision = wconfig.positionPrecision,
+                        is_muted           = wconfig.channelIsMuted
+                    )
                 )
                 channelViewModel.setChannels(ChannelSet(settings = listOf(chSettings)))
                 delay(500)

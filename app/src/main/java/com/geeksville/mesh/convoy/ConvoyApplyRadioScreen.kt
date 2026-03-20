@@ -444,6 +444,8 @@ fun ConvoyApplyRadioScreen(
                                 channelId                = if (ChannelField.CHANNEL_ID in al.channelFields) m?.channelId ?: 0 else ch?.id ?: 0,
                                 channelUplinkEnabled     = if (ChannelField.UPLINK_ENABLED in al.channelFields) m?.channelUplinkEnabled ?: false else ch?.uplink_enabled ?: false,
                                 channelDownlinkEnabled   = if (ChannelField.DOWNLINK_ENABLED in al.channelFields) m?.channelDownlinkEnabled ?: false else ch?.downlink_enabled ?: false,
+                                positionPrecision        = if (ChannelField.MODULE_SETTINGS in al.channelFields) m?.positionPrecision ?: 32 else ch?.module_settings?.position_precision ?: 0,
+                                channelIsMuted           = if (ChannelField.MODULE_SETTINGS in al.channelFields) m?.channelIsMuted ?: false else ch?.module_settings?.is_muted ?: false,
                                 // ── Position ──────────────────────────────────────────────────
                                 gpsEnabled               = if (PositionField.GPS_ENABLED in al.positionFields) m?.gpsEnabled ?: true else pos?.gps_mode?.name != "DISABLED",
                                 gpsMode                  = if (PositionField.GPS_MODE in al.positionFields) m?.gpsMode ?: "ENABLED" else pos?.gps_mode?.name ?: "ENABLED",
