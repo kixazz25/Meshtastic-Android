@@ -50,7 +50,8 @@ fun ConvoySubMenu(
     onTransferConfig: () -> Unit         = {},
     onNavigateToCreateEvent: () -> Unit  = {},
     onNavigateToSettingsPanel: () -> Unit = {},
-    onNavigateToApplyList: () -> Unit = {}
+    onNavigateToApplyList: () -> Unit = {},
+    onNavigateToArchiveRestore: () -> Unit = {}
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -133,9 +134,9 @@ fun ConvoySubMenu(
                     )
                     SubMenuItem(
                         label   = "Restore Prior Config Post Ride",
-                        sub     = "Coming in V3",
-                        enabled = false,
-                        onClick = {}
+                        sub     = "Select and restore from saved archive",
+                        enabled = true,
+                        onClick = { onDismiss(); onNavigateToArchiveRestore() }
                     )
                 }
             }
