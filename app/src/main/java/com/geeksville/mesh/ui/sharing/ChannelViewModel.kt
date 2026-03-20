@@ -96,6 +96,12 @@ constructor(
     fun setChannel(channel: Channel) {
         viewModelScope.launch { radioController.setLocalChannel(channel) }
     }
+    fun beginEditSettings(destNum: Int) {
+        viewModelScope.launch { radioController.beginEditSettings(destNum) }
+    }
+    fun commitEditSettings(destNum: Int) {
+        viewModelScope.launch { radioController.commitEditSettings(destNum) }
+    }
 
     // Set the radio config (also updates our saved copy in preferences)
     fun setConfig(config: Config) {
