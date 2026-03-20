@@ -194,4 +194,5 @@ object ConvoyRoutes {
     @Serializable data object ConvoyWriteChannel  : Route
     @Serializable data object ConvoyWriteVerify   : Route
     @Serializable data object ConvoyReconnectWait : Route
+    @Serializable data object ConvoyArchiveRestore  : Route
 }

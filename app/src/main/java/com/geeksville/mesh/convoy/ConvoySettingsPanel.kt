@@ -144,7 +144,8 @@ fun ConvoySettingsGate(
 fun ConvoySettingsPanelScreen(
     onBack: () -> Unit,
     onNavigateToCapture: () -> Unit,
-    onNavigateToApplyList: () -> Unit = {}
+    onNavigateToApplyList: () -> Unit = {},
+    onNavigateToArchiveRestore: () -> Unit = {}
 ) {
     Box(
         modifier = Modifier
@@ -217,6 +218,8 @@ fun ConvoySettingsPanelScreen(
             }
             Spacer(Modifier.height(20.dp))
 
+            Spacer(Modifier.height(12.dp))
+            Surface(modifier=Modifier.fillMaxWidth().clickable{onNavigateToArchiveRestore()},shape=RoundedCornerShape(12.dp),color=Color(0xFF101510)){Column(modifier=Modifier.padding(14.dp)){Text("RESTORE FROM ARCHIVE",color=Color(0xFFFFB74D),fontSize=12.sp,fontFamily=FontFamily.Monospace,fontWeight=FontWeight.Bold);Text("Restore radio config from a previous backup.",color=Color(0xFF8B938A),fontSize=10.sp,fontFamily=FontFamily.Monospace)}}
             // ── Master config capture ─────────────────────────────────────────
             PanelSection("MASTER RADIO CONFIG")
             Spacer(Modifier.height(8.dp))

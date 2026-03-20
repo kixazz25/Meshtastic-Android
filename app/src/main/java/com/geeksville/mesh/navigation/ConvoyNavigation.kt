@@ -15,6 +15,7 @@ import com.geeksville.mesh.convoy.ConvoyMasterCaptureScreen
 import com.geeksville.mesh.convoy.ConvoyScreen
 import com.geeksville.mesh.convoy.ConvoyApplyListScreen
 import com.geeksville.mesh.convoy.ConvoyApplyRadioScreen
+import com.geeksville.mesh.convoy.ConvoyArchiveRestoreScreen
 import com.geeksville.mesh.convoy.ConvoyReconnectWaitScreen
 import com.geeksville.mesh.convoy.ConvoyVerifyConfigScreen
 import com.geeksville.mesh.convoy.ConvoyMasterSuccessScreen
@@ -84,8 +85,9 @@ fun NavGraphBuilder.convoyGraph(
         } else if (showPanel) {
             ConvoySettingsPanelScreen(
                 onBack                = { navController?.popBackStack() },
-                onNavigateToCapture   = { navController?.navigate(ConvoyRoutes.ConvoyMasterCapture) },
-                onNavigateToApplyList = { navController?.navigate(ConvoyRoutes.ConvoyApplyList) }
+                onNavigateToCapture          = { navController?.navigate(ConvoyRoutes.ConvoyMasterCapture) },
+                onNavigateToApplyList        = { navController?.navigate(ConvoyRoutes.ConvoyApplyList) },
+                onNavigateToArchiveRestore   = { navController?.navigate(ConvoyRoutes.ConvoyArchiveRestore) }
             )
         }
     }
@@ -108,6 +110,15 @@ fun NavGraphBuilder.convoyGraph(
             convoyViewModel = vm,
             onDone          = { navController?.popBackStack() },
             navController   = navController
+        )
+    }
+
+    // ── Archive Restore ──────────────────────────────────────────────────
+    composable<ConvoyRoutes.ConvoyArchiveRestore> {
+        val vm = viewModel ?: androidx.hilt.navigation.compose.hiltViewModel<ConvoyViewModel>()
+        ConvoyArchiveRestoreScreen(
+            onDone = { navController?.navigate(ConvoyRoutes.Convoy) { popUpTo(ConvoyRoutes.Convoy) { inclusive = false } } },
+            onBack = { navController?.popBackStack() }
         )
     }
 
