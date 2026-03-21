@@ -1,7 +1,9 @@
 package com.geeksville.mesh.convoy
 
 import androidx.lifecycle.ViewModel
+import android.content.Context
 import androidx.lifecycle.viewModelScope
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -41,6 +43,7 @@ enum class HudMode {
  */
 @HiltViewModel
 class ConvoyViewModel @Inject constructor(
+    @ApplicationContext private val appContext: Context,
     private val nodeRepository: NodeRepository,
     private val settingsRepository: ConvoySettingsRepository,
     private val radioConfigRepository: RadioConfigRepository,
@@ -64,6 +67,11 @@ class ConvoyViewModel @Inject constructor(
 
     private val _hudMode = MutableStateFlow(HudMode.GROUP)
     val hudMode: StateFlow<HudMode> = _hudMode.asStateFlow()
+
+    // Pending import banner — set when a new ride is imported from email
+    private val _pendingImportBanner = MutableStateFlow<String?>(null)
+    val pendingImportBanner: StateFlow<String?> = _pendingImportBanner.asStateFlow()
+    fun clearImportBanner() { _pendingImportBanner.value = null }
 
     /** Node currently shown in NODE detail HUD — set on marker tap */
     private val _selectedNode = MutableStateFlow<ConvoyNode?>(null)
@@ -244,6 +252,47 @@ class ConvoyViewModel @Inject constructor(
             }
         }
         startTick()
+        scanImportDirectory()
+    }
+
+    private fun scanImportDirectory() {
+        viewModelScope.launch {
+            try {
+                val importDir = java.io.File(appContext.filesDir, "convoy_import")
+                if (!importDir.exists()) return@launch
+                val files = importDir.listFiles { f -> f.extension == "convoy" || f.extension == "json" }
+                    ?: return@launch
+                var importCount = 0
+                var lastImportedName = ""
+                for (file in files) {
+                    try {
+                        val json = org.json.JSONObject(file.readText())
+                        val docType = json.optString("convoyDocType", "convoy_ride")
+                        when (docType) {
+                            "convoy_ride" -> {
+                                val event = ConvoyEventConfig.fromJson(json)
+                                ConvoyEventStore.save(appContext, event)
+                                lastImportedName = event.eventName
+                                importCount++
+                                android.util.Log.i("ConvoyImport", "Imported ride: ${event.eventName}")
+                            }
+                            else -> android.util.Log.w("ConvoyImport", "Unknown convoy doc type: $docType")
+                        }
+                        file.delete()
+                    } catch (e: Exception) {
+                        android.util.Log.e("ConvoyImport", "Failed to process ${file.name}: ${e.message}")
+                        file.delete()
+                    }
+                }
+                if (importCount > 0) {
+                    val msg = if (importCount == 1) "NEW RIDE IMPORTED: $lastImportedName"
+                              else "$importCount NEW RIDES IMPORTED"
+                    _pendingImportBanner.value = msg
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("ConvoyImport", "Import scan failed: ${e.message}")
+            }
+        }
     }
 
     // ── Public API — HUD ─────────────────────────────────────────────────

@@ -111,6 +111,18 @@ fun ConvoyScreen(
     var mapTypeLabel by remember { mutableStateOf("SAT") }
     var showMapSettings by remember { mutableStateOf(false) }
     var showConvoyMenu by remember { mutableStateOf(false) }
+    var showImportSplash by remember { mutableStateOf(false) }
+    val pendingImportBanner by viewModel.pendingImportBanner.collectAsStateWithLifecycle()
+
+    // Show import splash when menu opens if there are pending imports
+    LaunchedEffect(showConvoyMenu) {
+        if (showConvoyMenu && pendingImportBanner != null) {
+            showImportSplash = true
+            kotlinx.coroutines.delay(3000)
+            showImportSplash = false
+            viewModel.clearImportBanner()
+        }
+    }
     val convoyMenuSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var mapZoomLevel by remember { mutableStateOf(18f) }
     var isOfflineMode by remember { mutableStateOf(false) }
@@ -555,6 +567,36 @@ fun ConvoyScreen(
         // ── Convoy submenu bottom sheet ───────────────────────────────────────────────
 
         // ── Convoy submenu bottom sheet ───────────────────────────────────────────────
+        // Import splash — shown for 3 seconds when new rides have been imported
+        if (showConvoyMenu && showImportSplash && pendingImportBanner != null) {
+            androidx.compose.ui.window.Dialog(onDismissRequest = {
+                showImportSplash = false
+                viewModel.clearImportBanner()
+            }) {
+                androidx.compose.material3.Surface(
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+                    color = androidx.compose.ui.graphics.Color(0xFF0D2010)
+                ) {
+                    androidx.compose.foundation.layout.Column(
+                        modifier = androidx.compose.ui.Modifier.padding(32.dp),
+                        horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally
+                    ) {
+                        androidx.compose.material3.Text("✓",
+                            color = androidx.compose.ui.graphics.Color(0xFF97D5A5),
+                            fontSize = 48.sp,
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                        androidx.compose.foundation.layout.Spacer(androidx.compose.ui.Modifier.height(12.dp))
+                        androidx.compose.material3.Text(pendingImportBanner!!,
+                            color = androidx.compose.ui.graphics.Color(0xFF97D5A5),
+                            fontSize = 14.sp,
+                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                    }
+                }
+            }
+        }
+
         if (showConvoyMenu) {
             ConvoySubMenu(
                 sheetState                = convoyMenuSheetState,
