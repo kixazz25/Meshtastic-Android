@@ -61,16 +61,17 @@ fun ConvoyTransferRideScreen(
         try {
             val safeName = ride.eventName.replace(Regex("[^a-zA-Z0-9_-]"), "_")
             val safeDate = ride.eventDate.replace("/", "-").replace(" ", "_")
-            val fileName = "convoy_ride_${safeName}_${safeDate}.json"
+            val fileName = "convoy_ride_${safeName}_${safeDate}.convoy"
             val outFile  = File(context.cacheDir, fileName)
-            outFile.writeText(ride.toJson().toString(2))
+            val rideJson = ride.toJson().apply { put("convoyDocType", "convoy_ride") }
+            outFile.writeText(rideJson.toString(2))
 
             val uri = FileProvider.getUriForFile(
                 context, "${context.packageName}.provider", outFile
             )
 
             val intent = Intent(Intent.ACTION_SEND).apply {
-                type = "application/json"
+                type = "application/x-convoy-ride"
                 putExtra(Intent.EXTRA_SUBJECT, "Convoy Ride: ${ride.eventName} — ${ride.eventDate}")
                 putExtra(Intent.EXTRA_TEXT,
                     "You have been invited to join a convoy ride.\n\n" +

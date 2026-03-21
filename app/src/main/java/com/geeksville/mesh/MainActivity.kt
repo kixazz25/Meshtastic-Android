@@ -138,7 +138,14 @@ class MainActivity : ComponentActivity() {
 
         when (appLinkAction) {
             Intent.ACTION_VIEW -> {
-                appLinkData?.let { handleMeshtasticUri(it) }
+                val mimeType = intent.type ?: contentResolver.getType(appLinkData ?: android.net.Uri.EMPTY)
+                val isConvoyFile = mimeType == "application/x-convoy-ride" ||
+                    appLinkData?.path?.endsWith(".convoy") == true
+                if (isConvoyFile && appLinkData != null) {
+                    handleConvoyRideImport(appLinkData)
+                } else {
+                    appLinkData?.let { handleMeshtasticUri(it) }
+                }
             }
 
             NfcAdapter.ACTION_NDEF_DISCOVERED -> {
@@ -175,6 +182,23 @@ class MainActivity : ComponentActivity() {
             else -> {
                 Logger.w { "Unexpected action $appLinkAction" }
             }
+        }
+    }
+
+    private fun handleConvoyRideImport(uri: Uri) {
+        try {
+            val importDir = java.io.File(filesDir, "convoy_import").also { it.mkdirs() }
+            val fileName  = "ride_${System.currentTimeMillis()}.convoy"
+            val destFile  = java.io.File(importDir, fileName)
+            contentResolver.openInputStream(uri)?.use { input ->
+                destFile.outputStream().use { output -> input.copyTo(output) }
+            }
+            // Peek at convoyDocType to confirm valid convoy file
+            val json = org.json.JSONObject(destFile.readText())
+            val docType = json.optString("convoyDocType", "unknown")
+            android.util.Log.i("ConvoyImport", "Convoy file received — type=$docType file=$fileName")
+        } catch (e: Exception) {
+            android.util.Log.e("ConvoyImport", "Failed to copy convoy file: ${e.message}")
         }
     }
 
