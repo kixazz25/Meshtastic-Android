@@ -252,16 +252,41 @@ class ConvoyViewModel @Inject constructor(
             }
         }
         startTick()
-        scanImportDirectory()
+        viewModelScope.launch { scanImportDirectory() }
     }
 
-    private fun scanImportDirectory() {
-        viewModelScope.launch {
-            try {
-                val importDir = java.io.File(appContext.filesDir, "convoy_import")
-                if (!importDir.exists()) return@launch
+    suspend fun scanImportDirectory() {
+        try {
+                // Scan Downloads via MediaStore (works on Android 13+)
+                val importDir = java.io.File(appContext.filesDir, "convoy_import").also { it.mkdirs() }
+                val collection = android.provider.MediaStore.Downloads.getContentUri(android.provider.MediaStore.VOLUME_EXTERNAL)
+                val projection = arrayOf(
+                    android.provider.MediaStore.Downloads._ID,
+                    android.provider.MediaStore.Downloads.DISPLAY_NAME
+                )
+                val selection = android.provider.MediaStore.Downloads.DISPLAY_NAME + " LIKE ?"
+                val selectionArgs = arrayOf("%.convoy")
+                appContext.contentResolver.query(collection, projection, selection, selectionArgs, null)?.use { cursor ->
+                    val idCol = cursor.getColumnIndexOrThrow(android.provider.MediaStore.Downloads._ID)
+                    val nameCol = cursor.getColumnIndexOrThrow(android.provider.MediaStore.Downloads.DISPLAY_NAME)
+                    while (cursor.moveToNext()) {
+                        val id = cursor.getLong(idCol)
+                        val name = cursor.getString(nameCol)
+                        val uri = android.content.ContentUris.withAppendedId(collection, id)
+                        try {
+                            val destFile = java.io.File(importDir, name)
+                            appContext.contentResolver.openInputStream(uri)?.use { input ->
+                                destFile.outputStream().use { output -> input.copyTo(output) }
+                            }
+                            android.util.Log.i("ConvoyImport", "Copied from Downloads via MediaStore: $name")
+                        } catch (e: Exception) {
+                            android.util.Log.e("ConvoyImport", "Failed to copy $name: ${e.message}")
+                        }
+                    }
+                }
+                if (!importDir.exists()) return
                 val files = importDir.listFiles { f -> f.extension == "convoy" || f.extension == "json" }
-                    ?: return@launch
+                    ?: return
                 var importCount = 0
                 var lastImportedName = ""
                 for (file in files) {
@@ -290,8 +315,7 @@ class ConvoyViewModel @Inject constructor(
                     _pendingImportBanner.value = msg
                 }
             } catch (e: Exception) {
-                android.util.Log.e("ConvoyImport", "Import scan failed: ${e.message}")
-            }
+            android.util.Log.e("ConvoyImport", "Import scan failed: ${e.message}")
         }
     }
 

@@ -51,7 +51,8 @@ fun ConvoySubMenu(
     onNavigateToCreateEvent: () -> Unit  = {},
     onNavigateToSettingsPanel: () -> Unit = {},
     onNavigateToApplyList: () -> Unit = {},
-    onNavigateToArchiveRestore: () -> Unit = {}
+    onNavigateToArchiveRestore: () -> Unit = {},
+    onImportFromDownloads: () -> Unit = {}
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -120,6 +121,16 @@ fun ConvoySubMenu(
                         onClick = {
                             expanded = null
                             onTransferConfig()
+                        }
+                    )
+                    SubMenuItem(
+                        label   = "Import Ride from Downloads",
+                        sub     = "Scan Downloads for .convoy files and import",
+                        enabled = true,
+                        onClick = {
+                            expanded = null
+                            onDismiss()
+                            onImportFromDownloads()
                         }
                     )
                     SubMenuItem(

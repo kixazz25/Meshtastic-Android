@@ -49,6 +49,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -111,18 +112,12 @@ fun ConvoyScreen(
     var mapTypeLabel by remember { mutableStateOf("SAT") }
     var showMapSettings by remember { mutableStateOf(false) }
     var showConvoyMenu by remember { mutableStateOf(false) }
+    val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
     var showImportSplash by remember { mutableStateOf(false) }
     val pendingImportBanner by viewModel.pendingImportBanner.collectAsStateWithLifecycle()
 
     // Show import splash when menu opens if there are pending imports
-    LaunchedEffect(showConvoyMenu) {
-        if (showConvoyMenu && pendingImportBanner != null) {
-            showImportSplash = true
-            kotlinx.coroutines.delay(3000)
-            showImportSplash = false
-            viewModel.clearImportBanner()
-        }
-    }
+
     val convoyMenuSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var mapZoomLevel by remember { mutableStateOf(18f) }
     var isOfflineMode by remember { mutableStateOf(false) }
@@ -604,7 +599,18 @@ fun ConvoyScreen(
                 onCreateEventRide         = { showConvoyMenu = false },
                 onTransferConfig          = { showConvoyMenu = false },
                 onNavigateToCreateEvent   = onNavigateToCreateEvent,
-                onNavigateToSettingsPanel = onNavigateToSettingsPanel
+                onNavigateToSettingsPanel = onNavigateToSettingsPanel,
+                onImportFromDownloads     = {
+                    coroutineScope.launch {
+                        viewModel.scanImportDirectory()
+                        if (viewModel.pendingImportBanner.value != null) {
+                            showImportSplash = true
+                            kotlinx.coroutines.delay(3000)
+                            showImportSplash = false
+                            viewModel.clearImportBanner()
+                        }
+                    }
+                }
             )
         }
 

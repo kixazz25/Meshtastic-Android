@@ -59,6 +59,7 @@
 
     <!-- Only for debug log writing, disable for production
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
     -->
 
     <!-- We run our mesh code as a foreground service - FIXME, find a way to stop doing this -->
@@ -194,33 +195,6 @@
 
                 <data android:scheme="meshtastic" android:host="meshtastic" />
             </intent-filter>
-            <!-- Convoy .convoy file handler — catches Gmail and other email clients -->
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data android:mimeType="application/x-convoy-ride" />
-            </intent-filter>
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <data android:scheme="content" android:mimeType="application/x-convoy-ride" />
-            </intent-filter>
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <data android:scheme="content" android:mimeType="application/octet-stream" />
-            </intent-filter>
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <data android:scheme="content" android:mimeType="*/*" android:pathPattern=".*\.convoy" />
-            </intent-filter>
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <data android:scheme="file" android:mimeType="*/*" android:pathPattern=".*\.convoy" />
-            </intent-filter>
 
             <intent-filter android:autoVerify="true">
                 <!--
@@ -293,6 +267,22 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/local_stats_widget_info" />
         </receiver>
+
+        <activity
+            android:name="com.geeksville.mesh.convoy.ConvoyFileReceiver"
+            android:exported="true"
+            android:theme="@android:style/Theme.NoDisplay">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="content" android:mimeType="application/octet-stream" android:pathPattern=".*\.convoy" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="content" android:mimeType="application/x-convoy-ride" />
+            </intent-filter>
+        </activity>
 
         <!-- allow for plugin discovery -->
         <activity
