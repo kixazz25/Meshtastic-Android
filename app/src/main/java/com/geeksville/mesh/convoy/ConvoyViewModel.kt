@@ -355,105 +355,82 @@ class ConvoyViewModel @Inject constructor(
     }
 
 
-    // ── Route recorder ────────────────────────────────────────────────────
-    private var kmlWriter: java.io.BufferedWriter? = null
-    private var kmlFile: java.io.File? = null
-    private var locationManager: android.location.LocationManager? = null
-    private var gpsListener: android.location.LocationListener? = null
+    // ── Route recorder -- delegated to ConvoyGpsService ────────────────────
+    private var gpsServiceConn: android.content.ServiceConnection? = null
+    private var gpsService: ConvoyGpsService? = null
+    private var pendingTempFile: java.io.File? = null
+    private var lastGpsLat: Double? = null
+    private var lastGpsLon: Double? = null
 
-    fun startRecording(name: String, context: android.content.Context) {
-        val dir = java.io.File(
-            android.os.Environment.getExternalStoragePublicDirectory(
-                android.os.Environment.DIRECTORY_DOCUMENTS
-            ), "my_tracks"
-        )
-        if (!dir.exists()) dir.mkdirs()
-        val sdf = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.US)
-        val fileName = "${name.replace(" ", "_")}_${sdf.format(java.util.Date())}.kml"
-        val file = java.io.File(dir, fileName)
-        kmlFile = file
-        val writer = java.io.BufferedWriter(java.io.FileWriter(file))
-        kmlWriter = writer
-        writer.write("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")
-        writer.write("<kml xmlns=\"http://www.opengis.net/kml/2.2\">\n")
-        writer.write("<Document>\n")
-        writer.write("<name>${name}</name>\n")
-        writer.write("<Placemark><name>Track</name><LineString><coordinates>\n")
-        writer.flush()
-        _routeRecording.value = true
-        startGps(context)
+    private fun bindGpsService(context: android.content.Context, onBound: (ConvoyGpsService) -> Unit) {
+        val conn = object : android.content.ServiceConnection {
+            override fun onServiceConnected(name: android.content.ComponentName, service: android.os.IBinder) {
+                val svc = (service as ConvoyGpsService.LocalBinder).getService()
+                gpsService = svc
+                svc.onLocationUpdate = { lat, lon, _ ->
+                    val prevLat = lastGpsLat
+                    val prevLon = lastGpsLon
+                    if (prevLat != null && prevLon != null) {
+                        val seg = ConvoyEngine.LeadTrackSegment(
+                            startLat = prevLat, startLon = prevLon,
+                            endLat = lat, endLon = lon, color = "#2E75B6"
+                        )
+                        _gpsTrailSegments.value = _gpsTrailSegments.value + seg
+                    }
+                    lastGpsLat = lat
+                    lastGpsLon = lon
+                }
+                onBound(svc)
+            }
+            override fun onServiceDisconnected(name: android.content.ComponentName) {
+                gpsService = null
+            }
+        }
+        gpsServiceConn = conn
+        val intent = android.content.Intent(context, ConvoyGpsService::class.java)
+        context.bindService(intent, conn, android.content.Context.BIND_AUTO_CREATE)
+    }
+
+    fun startRecording(context: android.content.Context) {
+        ConvoyGpsService.start(context)
+        bindGpsService(context) { svc ->
+            svc.startTrack()
+            _routeRecording.value = true
+        }
     }
 
     fun pauseRecording() {
-        stopGps()
+        gpsService?.pauseTrack()
         _routeRecording.value = false
     }
 
     fun resumeRecording(context: android.content.Context) {
-        _routeRecording.value = true
-        startGps(context)
+        if (gpsService == null) {
+            bindGpsService(context) { svc ->
+                svc.resumeTrack()
+                _routeRecording.value = true
+            }
+        } else {
+            gpsService?.resumeTrack()
+            _routeRecording.value = true
+        }
     }
 
     fun stopRecording() {
+        pendingTempFile = gpsService?.stopTrack()
         lastGpsLat = null
         lastGpsLon = null
-        stopGps()
-        try {
-            kmlWriter?.write("</coordinates></LineString></Placemark>\n")
-            kmlWriter?.write("</Document>\n</kml>\n")
-            kmlWriter?.flush()
-            kmlWriter?.close()
-        } catch (e: Exception) { /* ignore */ }
-        kmlWriter = null
-        kmlFile = null
         _routeRecording.value = false
     }
 
-    private fun startGps(context: android.content.Context) {
-        try {
-            val lm = context.getSystemService(android.content.Context.LOCATION_SERVICE)
-                as android.location.LocationManager
-            locationManager = lm
-            val listener = android.location.LocationListener { loc ->
-                writeKmlPoint(loc.latitude, loc.longitude, loc.altitude)
-            }
-            gpsListener = listener
-            lm.requestLocationUpdates(
-                android.location.LocationManager.GPS_PROVIDER,
-                5000L, 0f, listener
-            )
-        } catch (e: SecurityException) { /* permission not granted */ }
+    fun finalizeTrack(name: String, context: android.content.Context) {
+        val temp = pendingTempFile ?: return
+        gpsService?.finalizeTrack(temp, name)
+        pendingTempFile = null
+        gpsServiceConn?.let { context.unbindService(it) }
+        gpsServiceConn = null
+        gpsService = null
     }
-
-    private fun stopGps() {
-        try {
-            gpsListener?.let { locationManager?.removeUpdates(it) }
-        } catch (e: Exception) { /* ignore */ }
-        gpsListener = null
-    }
-
-    private var lastGpsLat: Double? = null
-    private var lastGpsLon: Double? = null
-
-    private fun writeKmlPoint(lat: Double, lon: Double, alt: Double) {
-        try {
-            kmlWriter?.write("$lon,$lat,$alt\n")
-            kmlWriter?.flush()
-        } catch (e: Exception) { /* ignore */ }
-        val prevLat = lastGpsLat
-        val prevLon = lastGpsLon
-        if (prevLat != null && prevLon != null) {
-            val newSeg = ConvoyEngine.LeadTrackSegment(
-                startLat = prevLat, startLon = prevLon,
-                endLat = lat, endLon = lon,
-                color = "#2E75B6"
-            )
-            _gpsTrailSegments.value = _gpsTrailSegments.value + newSeg
-        }
-        lastGpsLat = lat
-        lastGpsLon = lon
-    }
-
 
     // ── Tick loop ─────────────────────────────────────────────────────────
 
