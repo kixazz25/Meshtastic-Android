@@ -371,6 +371,9 @@ class ConvoyViewModel @Inject constructor(
 
     // ── Route recorder -- delegated to ConvoyGpsService ────────────────────
     private var gpsServiceConn: android.content.ServiceConnection? = null
+    private val _distanceMiles = MutableStateFlow(0.0)
+    val distanceMiles: StateFlow<Double> = _distanceMiles.asStateFlow()
+
     private var gpsService: ConvoyGpsService? = null
     private var pendingTempFile: java.io.File? = null
     private var lastGpsLat: Double? = null
@@ -393,6 +396,7 @@ class ConvoyViewModel @Inject constructor(
                     }
                     lastGpsLat = lat
                     lastGpsLon = lon
+                    _distanceMiles.value = svc.totalDistanceMiles
                 }
                 onBound(svc)
             }
@@ -434,6 +438,7 @@ class ConvoyViewModel @Inject constructor(
         pendingTempFile = gpsService?.stopTrack()
         lastGpsLat = null
         lastGpsLon = null
+        _distanceMiles.value = 0.0
         _routeRecording.value = false
     }
 

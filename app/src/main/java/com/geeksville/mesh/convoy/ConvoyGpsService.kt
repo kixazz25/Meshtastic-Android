@@ -60,6 +60,17 @@ class ConvoyGpsService : Service() {
     // Callback to ViewModel for location updates (trail rendering on map)
     var onLocationUpdate: ((lat: Double, lon: Double, alt: Double) -> Unit)? = null
 
+    var totalDistanceMiles: Double = 0.0
+        private set
+
+    private fun haversineMiles(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
+        val R = 3958.8
+        val dLat = Math.toRadians(lat2 - lat1)
+        val dLon = Math.toRadians(lon2 - lon1)
+        val a = Math.sin(dLat/2)*Math.sin(dLat/2) + Math.cos(Math.toRadians(lat1))*Math.cos(Math.toRadians(lat2))*Math.sin(dLon/2)*Math.sin(dLon/2)
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))
+    }
+
     // ── Internal ─────────────────────────────────────────────────────────────
     private var wakeLock: PowerManager.WakeLock? = null
     private var locationManager: LocationManager? = null
@@ -170,6 +181,7 @@ class ConvoyGpsService : Service() {
         currentTempFile = null
         lastLat = null
         lastLon = null
+        totalDistanceMiles = 0.0
         state = State.IDLE
         updateNotification()
         Log.i(TAG, "Track recording stopped. File: ${file?.name}")
@@ -277,6 +289,9 @@ class ConvoyGpsService : Service() {
         val prevLon = lastLon
         lastLat = lat
         lastLon = lon
+        if (prevLat != null && prevLon != null) {
+            totalDistanceMiles += haversineMiles(prevLat, prevLon, lat, lon)
+        }
         // Trail update is handled via onLocationUpdate callback to ViewModel
     }
 
