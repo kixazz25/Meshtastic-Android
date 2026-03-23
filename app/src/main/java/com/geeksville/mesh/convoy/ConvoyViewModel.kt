@@ -335,6 +335,15 @@ class ConvoyViewModel @Inject constructor(
         _hudMode.value = HudMode.GROUP
     }
 
+    fun removeNode(nodeId: String) {
+        _selectedNode.value = null
+        _hudMode.value = HudMode.GROUP
+        val current = _convoyState.value
+        _convoyState.value = current.copy(
+            nodes = current.nodes.filter { it.nodeId != nodeId }
+        )
+    }
+
     // ── Public API — simulation ───────────────────────────────────────────
 
     fun setSimulationMode(enabled: Boolean) {
