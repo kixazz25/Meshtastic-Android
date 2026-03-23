@@ -214,8 +214,11 @@ fun ConvoyScreen(
 
     if (showNameDialog) {
         AlertDialog(
-            onDismissRequest = { showNameDialog = false },
-            title = { Text("Name this track") },
+            onDismissRequest = {
+                showNameDialog = false
+                viewModel.finalizeTrack("convoy_track", context)
+            },
+            title = { Text("Save Track") },
             text = {
                 OutlinedTextField(
                     value = pendingTrackName,
@@ -227,14 +230,15 @@ fun ConvoyScreen(
             confirmButton = {
                 TextButton(onClick = {
                     showNameDialog = false
-                    if (pendingTrackName.isNotBlank()) {
-                        recordingState = RecordingState.RECORDING
-                        viewModel.startRecording(pendingTrackName.trim(), context)
-                    }
-                }) { Text("START") }
+                    val name = if (pendingTrackName.isNotBlank()) pendingTrackName.trim() else "convoy_track"
+                    viewModel.finalizeTrack(name, context)
+                }) { Text("SAVE") }
             },
             dismissButton = {
-                TextButton(onClick = { showNameDialog = false }) { Text("CANCEL") }
+                TextButton(onClick = {
+                    showNameDialog = false
+                    viewModel.finalizeTrack("convoy_track", context)
+                }) { Text("SKIP") }
             }
         )
     }
@@ -341,7 +345,7 @@ fun ConvoyScreen(
                 Surface(
                     modifier = Modifier.clickable {
                         when (recordingState) {
-                            RecordingState.IDLE -> { pendingTrackName = ""; showNameDialog = true; viewModel.startGroupTrack(); android.widget.Toast.makeText(context, "Group track started", android.widget.Toast.LENGTH_LONG).show() }
+                            RecordingState.IDLE -> { recordingState = RecordingState.RECORDING; viewModel.startRecording(context); viewModel.startGroupTrack() }
                             RecordingState.RECORDING -> { showRecMenu = true }
                             RecordingState.PAUSED -> showRecMenu = true
                         }
@@ -396,6 +400,7 @@ fun ConvoyScreen(
                             pendingTrackName = ""
                             viewModel.stopRecording()
                             viewModel.stopGroupTrack()
+                            showNameDialog = true
                         },
                         shape = RoundedCornerShape(10.dp),
                         color = Color(0xFF4A0000),
