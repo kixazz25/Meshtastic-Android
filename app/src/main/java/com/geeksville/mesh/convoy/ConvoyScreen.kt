@@ -250,6 +250,13 @@ fun ConvoyScreen(
             factory = { ctx ->
                 val existing = viewModel.persistentWebView
                 if (existing != null) {
+                    existing.addJavascriptInterface(object : Any() {
+                        @android.webkit.JavascriptInterface
+                        fun onMarkerTapped(nodeId: String) {
+                            val node = viewModel.convoyState.value.nodes.firstOrNull { it.nodeId == nodeId }
+                            if (node != null) viewModel.onMarkerTapped(node)
+                        }
+                    }, "Android")
                     webViewRef.value = existing
                     existing
                 } else {
@@ -277,6 +284,23 @@ fun ConvoyScreen(
             update = { view ->
                 view.visibility = if (viewModel.hasSeenNodes.value)
                     android.view.View.VISIBLE else android.view.View.GONE
+                view.setOnTouchListener { v, event ->
+                    if (event.action == android.view.MotionEvent.ACTION_UP) {
+                        val x = event.x.toInt()
+                        val y = event.y.toInt()
+                        android.util.Log.i("ConvoyTap", "Touch UP at x=$x y=$y")
+                        view.evaluateJavascript("findNearestMarker($x, $y)") { result ->
+                            android.util.Log.i("ConvoyTap", "findNearestMarker result=$result")
+                            val nodeId = result?.trim('"') ?: ""
+                            if (nodeId.isNotEmpty()) {
+                                val node = viewModel.convoyState.value.nodes.firstOrNull { it.nodeId == nodeId }
+                                android.util.Log.i("ConvoyTap", "Node found: $node")
+                                if (node != null) viewModel.onMarkerTapped(node)
+                            }
+                        }
+                    }
+                    false
+                }
             }
         )
         // ── Convoy splash screen — 3 second timer on cold start ─────────
@@ -649,7 +673,11 @@ fun ConvoyScreen(
                 HudMode.NODE -> selectedNode?.let { node ->
                     NodeDetailHud(
                         node = node,
-                        onDismiss = { viewModel.dismissNodeHud() }
+                        onDismiss = { viewModel.dismissNodeHud() },
+                        onRemove = { n ->
+                            viewModel.removeNode(n.nodeId)
+                            webViewRef.value?.evaluateJavascript("removeMarker('${n.nodeId}')", null)
+                        }
                     )
                 }
                 HudMode.COLLAPSED -> CollapsedPill(
@@ -789,30 +817,16 @@ fun MyCartHud(
 @Composable
 fun NodeDetailHud(
     node: ConvoyNode,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    onRemove: (ConvoyNode) -> Unit = {}
 ) {
     HudCard {
-        // Title — cart name in its color + RETURN tap
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(bottom = 6.dp)
-        ) {
-            Text(node.callsign, color = Color(0xFFFF0000).copy(alpha = 1f), fontSize = 16.sp,
-                fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
-                letterSpacing = 2.sp)
-            Surface(
-                modifier = Modifier.clickable { onDismiss() },
-                shape = RoundedCornerShape(6.dp),
-                color = Color(0xFF2E75B6)
-            ) {
-                Text("RETURN", color = Color.White, fontSize = 10.sp,
-                    fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp))
-            }
-        }
+        // Title — cart callsign
+        Text(node.callsign, color = Color(0xFFFF0000).copy(alpha = 1f), fontSize = 16.sp,
+            fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
+            letterSpacing = 2.sp, modifier = Modifier.padding(bottom = 6.dp))
         Spacer(Modifier.height(8.dp))
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             HudStat("STATUS", node.status.name,
                 when (node.status) {
                     ConvoyStatus.LOST        -> Color(0xFFF44336)
@@ -821,14 +835,25 @@ fun NodeDetailHud(
                 })
             HudStat("SPD", "%.0f mph".format(node.speed_mph))
             HudStat("BAT", "${node.battery_pct}%")
-            HudStat("SNR", "%.1f dB".format(node.snr_db))
         }
         Spacer(Modifier.height(6.dp))
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             HudStat("POS", "#${node.convoyPosition}")
             HudStat("HDG", "%.0f°".format(node.heading_deg))
             HudStat("ALT", "${node.altitude_m}m")
             HudStat("SEEN", node.lastSeenAgo)
+        }
+        Spacer(Modifier.height(8.dp))
+        androidx.compose.foundation.layout.Box(contentAlignment = Alignment.Center) {
+            Surface(
+                modifier = Modifier.clickable { onRemove(node); onDismiss() },
+                shape = RoundedCornerShape(6.dp),
+                color = Color(0xFF8B0000)
+            ) {
+                Text("REMOVE FROM RIDE", color = Color.White, fontSize = 9.sp,
+                    fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp))
+            }
         }
     }
 }

@@ -27,6 +27,18 @@
       for (var i=0; i<lats.length; i++) b.extend([lats[i], lons[i]]);
       map.fitBounds(b, {padding:[60,60]});
     }
+      function findNearestMarker(screenX, screenY) {
+        var tapLatLng = map.containerPointToLatLng([screenX, screenY]);
+        var nearest = null, nearestDist = Infinity;
+        for (var id in markers) {
+          var mLatLng = markers[id].getLatLng();
+          var mPoint = map.latLngToContainerPoint(mLatLng);
+          var dx = mPoint.x - screenX, dy = mPoint.y - screenY;
+          var dist = Math.sqrt(dx*dx + dy*dy);
+          if (dist < nearestDist) { nearestDist = dist; nearest = id; }
+        }
+        return (nearestDist < 60 && nearest) ? nearest : "";
+      }
     function clearMarkers() {
       for (var id in markers) map.removeLayer(markers[id]);
       markers = {};
@@ -42,6 +54,8 @@
       var labelColor = offTrack ? "color:red;font-weight:bold;" : "";
       m.bindTooltip("<span style='"+labelColor+"'>"+label+"</span>",{permanent:true,direction:"top",offset:[0,-sz]});
       markers[id] = m;
+        var tapId = id;
+        m.on('touchend', function(e) { L.DomEvent.stopPropagation(e); if (window.Android) window.Android.onMarkerTapped(tapId); });
     }
     function initDeviceLocation() {
       if (!navigator.geolocation) return;
