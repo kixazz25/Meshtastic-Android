@@ -776,7 +776,7 @@ fun MyCartHud(
     val myCart = state.nodes.firstOrNull { it.isMyCart }
     HudCard {
         // Title
-        Text("My Cart  ★ HOTEL-10", color = Color(0xFFFF0000).copy(alpha = 1f), fontSize = 16.sp,
+        Text("My Cart  ★ ${myCart?.callsign ?: myCartId.takeLast(8)}", color = Color(0xFFFF0000).copy(alpha = 1f), fontSize = 16.sp,
             fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
             letterSpacing = 2.sp, modifier = Modifier.padding(bottom = 6.dp))
         if (myCart == null) {

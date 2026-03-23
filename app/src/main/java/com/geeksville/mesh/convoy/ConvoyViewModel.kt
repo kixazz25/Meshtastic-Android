@@ -203,6 +203,11 @@ class ConvoyViewModel @Inject constructor(
     // ── MY CART config ────────────────────────────────────────────────────
 
     private val _myCartId = MutableStateFlow(ConvoySimulation.MY_CART_ID)
+
+    private fun resolveMyCartId(): String {
+        val num = nodeRepository.myNodeInfo.value?.myNodeNum
+        return if (num != null) "!%08x".format(num) else _myCartId.value
+    }
     val myCartId: StateFlow<String> = _myCartId.asStateFlow()
 
     // ── Lead track visibility ─────────────────────────────────────────────
@@ -483,7 +488,7 @@ class ConvoyViewModel @Inject constructor(
         }
         val state = ConvoyEngine.compute(
             nodes = nodes,
-            myCartId = _myCartId.value,
+            myCartId = resolveMyCartId(),
             nowMs = nowMs
         )
         _convoyState.value = state
