@@ -340,6 +340,29 @@ class ConvoyViewModel @Inject constructor(
         _hudMode.value = HudMode.GROUP
     }
 
+    // ── GPS interval ────────────────────────────────────────────────────
+    private val _currentIntervalSecs = MutableStateFlow(5)
+    val currentIntervalSecs: StateFlow<Int> = _currentIntervalSecs.asStateFlow()
+
+    fun setGpsInterval(secs: Int, channelViewModel: com.geeksville.mesh.ui.sharing.ChannelViewModel) {
+        _currentIntervalSecs.value = secs
+        viewModelScope.launch {
+            try {
+                channelViewModel.setConfig(
+                    org.meshtastic.proto.Config(
+                        position = org.meshtastic.proto.Config.PositionConfig(
+                            gps_update_interval = secs,
+                            gps_mode = org.meshtastic.proto.Config.PositionConfig.GpsMode.ENABLED
+                        )
+                    )
+                )
+                android.util.Log.i("ConvoyGPS", "GPS interval set to ${secs}s")
+            } catch (e: Exception) {
+                android.util.Log.e("ConvoyGPS", "Failed to set GPS interval: ${e.message}")
+            }
+        }
+    }
+
     fun removeNode(nodeId: String) {
         _selectedNode.value = null
         _hudMode.value = HudMode.GROUP
@@ -373,6 +396,9 @@ class ConvoyViewModel @Inject constructor(
     private var gpsServiceConn: android.content.ServiceConnection? = null
     private val _distanceMiles = MutableStateFlow(0.0)
     val distanceMiles: StateFlow<Double> = _distanceMiles.asStateFlow()
+    private val _avgChannelUtil = MutableStateFlow(0f)
+    val avgChannelUtil: StateFlow<Float> = _avgChannelUtil.asStateFlow()
+
 
     private var gpsService: ConvoyGpsService? = null
     private var pendingTempFile: java.io.File? = null
@@ -609,6 +635,16 @@ class ConvoyViewModel @Inject constructor(
                 timestampUtc = java.time.Instant.ofEpochMilli(lastSeenMs).toString()
             )
         }
+        // Calculate average channel utilization across all nodes
+        val avgUtil = if (allNodes.isEmpty()) 0f else
+            allNodes.mapNotNull { node ->
+                try {
+                    val nodeRaw = nodeRepository.nodeDBbyNum.value[node.nodeId.removePrefix("!").toLong(16).toInt()]
+                    nodeRaw?.deviceMetrics?.channel_utilization
+                } catch (e: Exception) { null }
+            }.average().toFloat().takeIf { !it.isNaN() } ?: 0f
+        _avgChannelUtil.value = avgUtil
+
         val filterInput = allNodes.map { it.nodeId to (it.lastSeenMs / 1000L) }
         val allowedIds = ConvoyNodeFilter.filter(
             nodes = filterInput,

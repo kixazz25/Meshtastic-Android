@@ -68,6 +68,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.compose.ui.graphics.graphicsLayer
+import com.geeksville.mesh.ui.sharing.ChannelViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -89,6 +91,7 @@ fun ConvoyScreen(
     onNavigateToSettingsPanel: () -> Unit = {},
     viewModel: ConvoyViewModel = hiltViewModel()
 ) {
+    val channelViewModel: ChannelViewModel = hiltViewModel()
     val convoyState by viewModel.convoyState.collectAsStateWithLifecycle()
     val hudMode by viewModel.hudMode.collectAsStateWithLifecycle()
     val selectedNode by viewModel.selectedNode.collectAsStateWithLifecycle()
@@ -687,6 +690,8 @@ fun ConvoyScreen(
             modifier = Modifier.align(Alignment.BottomCenter)
         )
 
+        val avgChannelUtil by viewModel.avgChannelUtil.collectAsStateWithLifecycle()
+        val currentIntervalSecs by viewModel.currentIntervalSecs.collectAsStateWithLifecycle()
         // ── HUD strip ─────────────────────────────────────────────────────
         Box(modifier = Modifier.align(Alignment.BottomStart).padding(bottom = 48.dp)) {
             when (hudMode) {
@@ -698,7 +703,10 @@ fun ConvoyScreen(
                     trackLeadOnly = trackLeadOnly,
                     onStartTrack = { viewModel.startGroupTrack() },
                     onStopTrack = { viewModel.stopGroupTrack() },
-                    onToggleLeadOnly = { viewModel.toggleLeadOnly() }
+                    onToggleLeadOnly = { viewModel.toggleLeadOnly() },
+                        avgChannelUtil = avgChannelUtil,
+                        currentIntervalSecs = currentIntervalSecs,
+                        onIntervalChange = { secs -> viewModel.setGpsInterval(secs, channelViewModel) },
                 )
                 HudMode.MY_CART -> MyCartHud(
                     state = convoyState,
@@ -739,54 +747,87 @@ fun GroupHud(
     trackLeadOnly: Boolean = true,
     onStartTrack: () -> Unit = {},
     onStopTrack: () -> Unit = {},
-    onToggleLeadOnly: () -> Unit = {}
+    onToggleLeadOnly: () -> Unit = {},
+    avgChannelUtil: Float = 0f,
+    currentIntervalSecs: Int = 5,
+    onIntervalChange: (Int) -> Unit = {}
 ) {
-    HudCard {
-        // Title
-        Text("GROUP", color = Color(0xFFFF0000).copy(alpha = 1f), fontSize = 16.sp,
-            fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
-            letterSpacing = 2.sp, modifier = Modifier.padding(bottom = 6.dp))
-        // Row 1: Carts · Active · Lost
-        Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-            HudStat("Carts", "${state.nodes.size}")
-            HudStat("Active", "${state.activeCount}")
-            HudStat("Lost", "${state.lostCount}")
-        }
-        Spacer(Modifier.height(4.dp))
-        // Row 2: Span big + Lead + Tail
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(20.dp),
-            verticalAlignment = Alignment.Bottom,
-            modifier = Modifier.padding(top = 4.dp)
+    val chColor = when {
+        avgChannelUtil > 40f -> Color(0xFFFF4444)
+        avgChannelUtil > 25f -> Color(0xFFFFAA00)
+        else                 -> Color(0xFF00CC44)
+    }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        // Vertical interval slider — flush against HudCard
+        Column(
+            modifier = Modifier.padding(0.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Column {
-                Text("SPAN", color = Color(0xFFFF0000).copy(alpha = 1f), fontSize = 11.sp,
-                    fontFamily = FontFamily.Monospace, fontWeight = FontWeight.SemiBold,
-                    letterSpacing = 1.sp)
+            Text("${currentIntervalSecs}s", color = Color(0xFFFF0000).copy(alpha = 0.8f),
+                fontSize = 10.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+            androidx.compose.material3.Slider(
+                value = currentIntervalSecs.toFloat(),
+                onValueChange = { onIntervalChange(it.toInt()) },
+                valueRange = 2f..8f,
+                steps = 5,
+                modifier = Modifier
+                    .height(80.dp)
+                    .graphicsLayer { rotationZ = -90f }
+                    .width(80.dp)
+            )
+            Text("INT", color = Color(0xFFFF0000).copy(alpha = 0.6f),
+                fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+        }
+        HudCard {
+            Text("GROUP", color = Color(0xFFFF0000).copy(alpha = 1f), fontSize = 16.sp,
+                fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
+                letterSpacing = 2.sp, modifier = Modifier.padding(bottom = 4.dp))
+            // Row 1: SPAN big + CH% color block
+            Row(verticalAlignment = Alignment.Bottom,
+                horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 Row(verticalAlignment = Alignment.Bottom) {
-                    Text("%.1f".format(state.span_miles), color = Color(0xFFFF0000).copy(alpha = 1f),
-                        fontSize = 48.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
-                        lineHeight = 48.sp)
+                    Text("SPAN", color = Color(0xFFFF0000).copy(alpha = 1f), fontSize = 11.sp,
+                        fontFamily = FontFamily.Monospace, fontWeight = FontWeight.SemiBold,
+                        letterSpacing = 1.sp, modifier = Modifier.padding(end = 4.dp, bottom = 6.dp))
+                    Text("%.1f".format(state.span_miles),
+                        color = Color(0xFFFF0000).copy(alpha = 1f),
+                        fontSize = 48.sp, fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold, lineHeight = 48.sp)
                     Text(" mi", color = Color(0xFFFF0000).copy(alpha = 1f), fontSize = 16.sp,
                         fontFamily = FontFamily.Monospace,
                         modifier = Modifier.padding(bottom = 6.dp))
                 }
+                Column(horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.padding(bottom = 6.dp)) {
+                    Text("CH%", color = Color(0xFFFF0000).copy(alpha = 1f), fontSize = 11.sp,
+                        fontFamily = FontFamily.Monospace, fontWeight = FontWeight.SemiBold,
+                        letterSpacing = 1.sp)
+                    Row(verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Box(modifier = Modifier.size(8.dp).background(chColor,
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(2.dp)))
+                        Text("%.0f%%".format(avgChannelUtil), color = chColor,
+                            fontSize = 11.sp, fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Bold)
+                    }
+                }
             }
-            Column(modifier = Modifier.padding(bottom = 4.dp)) {
-                Text("▲ Lead", color = Color(0xFFFF0000).copy(alpha = 1f), fontSize = 11.sp,
-                    fontFamily = FontFamily.Monospace, fontWeight = FontWeight.SemiBold)
-                Text(state.lead?.callsign ?: "--", color = Color(0xFF1CF0A0),
-                    fontSize = 13.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
-            }
-            Column(modifier = Modifier.padding(bottom = 4.dp)) {
-                Text("▽ Tail", color = Color(0xFFFF0000).copy(alpha = 1f), fontSize = 11.sp,
-                    fontFamily = FontFamily.Monospace, fontWeight = FontWeight.SemiBold)
-                Text(state.tail?.callsign ?: "--", color = Color(0xFFFF8C42),
-                    fontSize = 13.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(4.dp))
+            // Row 2: Carts · Active · Lost · Lead · Tail
+            Row(horizontalArrangement = Arrangement.spacedBy(14.dp),
+                verticalAlignment = Alignment.Bottom) {
+                HudStat("Carts",       "${state.nodes.size}")
+                HudStat("Active",      "${state.activeCount}")
+                HudStat("Lost",        "${state.lostCount}")
+                HudStat("▲ Lead", state.lead?.callsign ?: "--", Color(0xFF1CF0A0))
+                HudStat("▽ Tail", state.tail?.callsign ?: "--", Color(0xFFFF8C42))
             }
         }
     }
 }
+
+
+
 
 // ── MY CART HUD ───────────────────────────────────────────────────────────────
 
@@ -976,7 +1017,7 @@ fun HudCard(content: @Composable ColumnScope.() -> Unit) {
     Column(
         modifier = Modifier
             .wrapContentWidth()
-            .padding(start = 16.dp, bottom = 12.dp),
+            .padding(start = 0.dp, bottom = 12.dp),
         content = content
     )
 }
