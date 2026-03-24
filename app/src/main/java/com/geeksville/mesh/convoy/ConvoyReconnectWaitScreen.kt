@@ -49,6 +49,28 @@ import org.meshtastic.proto.ModuleSettings
  *
  * Back navigation blocked — CANCEL is only exit.
  */
+
+/**
+ * Automated radio disconnect/reconnect during reboot wait countdown.
+ * At i==15 disconnects. At i==12 reconnects. BT_MANUAL fallback remains as safety net.
+ */
+private suspend fun autoReconnectTick(
+    i: Int,
+    savedAddress: String,
+    uiViewModel: com.geeksville.mesh.model.UIViewModel,
+    addLog: (String) -> Unit
+) {
+    if (savedAddress.isEmpty()) return
+    if (i == 15) {
+        addLog("Auto-disconnect: cycling radio connection...")
+        uiViewModel.setDeviceAddress("n")
+    }
+    if (i == 12) {
+        addLog("Auto-reconnect: restoring radio connection...")
+        uiViewModel.setDeviceAddress(savedAddress)
+    }
+}
+
 @Composable
 fun ConvoyReconnectWaitScreen(
     onProceed: () -> Unit,
@@ -79,79 +101,12 @@ fun ConvoyReconnectWaitScreen(
     var statusMsg    by remember { mutableStateOf("Waiting for radio reboot after binary install...") }
     var logLines     by remember { mutableStateOf(listOf<String>()) }
 
+    val savedDeviceAddress = remember { uiViewModel.getDeviceAddress() ?: "" }
     fun addLog(msg: String) {
         Log.i("ConvoyReconnect", msg)
         logLines = logLines + msg
     }
 
-    // Stage 1 sequence — binary install reboot wait
-    LaunchedEffect(Unit) {
-        stage = 1
-        phase = "WAITING"
-        addLog("Stage 1: Waiting 60s for binary install reboot...")
-
-        for (i in 60 downTo 1) {
-            countdown = i
-            statusMsg = "\u25cc Binary install reboot — please wait... ${i}s"
-            delay(1000)
-        }
-        countdown = 0
-        stage1GatePassed = true
-        addLog("Stage 1: 60s wait complete")
-
-        if (rawConnected) {
-            phase = "CONNECTED"
-            statusMsg = "\u25cf Radio reconnected — tap WRITE CHANNEL to continue"
-            addLog("Stage 1: Connected \u2713")
-            return@LaunchedEffect
-        }
-
-        // Not connected — show manual BT toggle instruction
-        phase = "BT_MANUAL"
-        statusMsg = "\u25cc Not connected — toggle Bluetooth OFF then ON in Android settings"
-        addLog("Stage 1: Waiting for manual BT toggle...")
-
-        for (i in 60 downTo 1) {
-            if (rawConnected) {
-                phase = "CONNECTED"
-                statusMsg = "\u25cf Radio reconnected — tap WRITE CHANNEL to continue"
-                addLog("Stage 1: Connected after BT toggle \u2713")
-                return@LaunchedEffect
-            }
-            delay(1000)
-        }
-
-        if (!rawConnected) {
-            phase = "FAILED"
-            statusMsg = "\u2717 Radio did not reconnect. Check radio and Bluetooth, then retry."
-            addLog("Stage 1: FAILED")
-        }
-    }
-
-    // Catch reconnect during stage 1 BT manual wait
-    LaunchedEffect(rawConnected, stage1GatePassed) {
-        if (rawConnected && stage1GatePassed && !channelWriteDone &&
-            (phase == "BT_MANUAL" || phase == "FAILED")) {
-            phase = "CONNECTED"
-            statusMsg = "\u25cf Radio reconnected — tap WRITE CHANNEL to continue"
-            Log.i("ConvoyReconnect", "Stage 1: Reconnected")
-        }
-    }
-
-    // Catch reconnect during stage 2 BT manual wait
-    LaunchedEffect(rawConnected, stage2GatePassed) {
-        if (rawConnected && stage2GatePassed &&
-            (phase == "BT_MANUAL_2" || phase == "FAILED_2")) {
-            phase = "CONNECTED_2"
-            statusMsg = "\u25cf Radio reconnected — tap PROCEED TO VERIFY"
-            Log.i("ConvoyReconnect", "Stage 2: Reconnected")
-        }
-    }
-
-    // Block back navigation
-    BackHandler(enabled = true) { }
-
-    // WRITE CHANNEL action — triggered by user tap only
     fun writeChannel() {
         scope.launch {
             val wconfig = convoyViewModel.workingConfig.value
@@ -214,19 +169,21 @@ fun ConvoyReconnectWaitScreen(
             stage = 2
             phase = "WAITING_2"
             addLog("Stage 2: Waiting 60s for channel write reboot...")
-            for (i in 60 downTo 1) {
+            for (i in 40 downTo 1) {
                 countdown = i
                 statusMsg = "\u25cc Channel write reboot — please wait... ${i}s"
                 delay(1000)
+                autoReconnectTick(i, savedDeviceAddress, uiViewModel, ::addLog)
             }
             countdown = 0
             stage2GatePassed = true
-            addLog("Stage 2: 60s wait complete")
+            addLog("Stage 2: 40s wait complete")
 
             if (rawConnected) {
                 phase = "CONNECTED_2"
-                statusMsg = "\u25cf Radio reconnected — tap PROCEED TO VERIFY"
-                addLog("Stage 2: Connected \u2713")
+                statusMsg = "\u25cc Auto-proceeding to verify..."
+                addLog("Stage 2: Connected \u2713 -- auto-proceeding")
+                onProceed()
                 return@launch
             }
 
@@ -235,7 +192,7 @@ fun ConvoyReconnectWaitScreen(
             statusMsg = "\u25cc Not connected — toggle Bluetooth OFF then ON in Android settings"
             addLog("Stage 2: Waiting for manual BT toggle...")
 
-            for (i in 60 downTo 1) {
+            for (i in 40 downTo 1) {
                 if (rawConnected) {
                     phase = "CONNECTED_2"
                     statusMsg = "\u25cf Radio reconnected — tap PROCEED TO VERIFY"
@@ -252,6 +209,80 @@ fun ConvoyReconnectWaitScreen(
             }
         }
     }
+
+    // Stage 1 sequence — binary install reboot wait
+    LaunchedEffect(Unit) {
+        stage = 1
+        phase = "WAITING"
+        addLog("Stage 1: Waiting 60s for binary install reboot...")
+
+
+        for (i in 40 downTo 1) {
+            countdown = i
+            statusMsg = "\u25cc Binary install reboot — please wait... ${i}s"
+            delay(1000)
+            autoReconnectTick(i, savedDeviceAddress, uiViewModel, ::addLog)
+        }
+        countdown = 0
+        stage1GatePassed = true
+        addLog("Stage 1: 40s wait complete")
+
+        if (rawConnected) {
+            phase = "CONNECTED"
+            statusMsg = "\u25cc Auto-proceeding to write channel..."
+            addLog("Stage 1: Connected \u2713 -- auto-proceeding")
+            scope.launch { writeChannel() }
+            return@LaunchedEffect
+        }
+
+        // Not connected — show manual BT toggle instruction
+        phase = "BT_MANUAL"
+        statusMsg = "\u25cc Not connected — toggle Bluetooth OFF then ON in Android settings"
+        addLog("Stage 1: Waiting for manual BT toggle...")
+
+        for (i in 40 downTo 1) {
+            if (rawConnected) {
+                phase = "CONNECTED"
+                statusMsg = "\u25cf Radio reconnected — tap WRITE CHANNEL to continue"
+                addLog("Stage 1: Connected after BT toggle \u2713")
+                return@LaunchedEffect
+            }
+            delay(1000)
+        }
+
+        if (!rawConnected) {
+            phase = "FAILED"
+            statusMsg = "\u2717 Radio did not reconnect. Check radio and Bluetooth, then retry."
+            addLog("Stage 1: FAILED")
+        }
+    }
+
+    // Catch reconnect during stage 1 BT manual wait
+    LaunchedEffect(rawConnected, stage1GatePassed) {
+        if (rawConnected && stage1GatePassed && !channelWriteDone &&
+            (phase == "BT_MANUAL" || phase == "FAILED")) {
+            phase = "CONNECTED"
+            statusMsg = "\u25cc Auto-proceeding to write channel..."
+            addLog("Stage 1: Reconnected \u2713 -- auto-proceeding")
+            scope.launch { writeChannel() }
+        }
+    }
+
+    // Catch reconnect during stage 2 BT manual wait
+    LaunchedEffect(rawConnected, stage2GatePassed) {
+        if (rawConnected && stage2GatePassed &&
+            (phase == "BT_MANUAL_2" || phase == "FAILED_2")) {
+            phase = "CONNECTED_2"
+            statusMsg = "\u25cc Auto-proceeding to verify..."
+            addLog("Stage 2: Reconnected \u2713 -- auto-proceeding")
+            onProceed()
+        }
+    }
+
+    // Block back navigation
+    BackHandler(enabled = true) { }
+
+    // WRITE CHANNEL action — triggered by user tap only
 
     // ── UI ────────────────────────────────────────────────────────────────
     Box(modifier = Modifier.fillMaxSize().background(Color(0xFF101510))) {
