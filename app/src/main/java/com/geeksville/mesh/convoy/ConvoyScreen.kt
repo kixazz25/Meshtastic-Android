@@ -326,16 +326,54 @@ fun ConvoyScreen(
         }
         if (showSplash) {
             Box(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color(0xFF1A1A2E)),
                 contentAlignment = Alignment.Center
             ) {
-                androidx.compose.foundation.Image(
-                    painter = androidx.compose.ui.res.painterResource(
-                        id = com.geeksville.mesh.R.drawable.grouptrack_splash
-                    ),
-                    contentDescription = "GroupTrack",
-                    contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
                     modifier = Modifier.fillMaxSize()
+                ) {
+                    Text(
+                        text = "⬡",
+                        color = Color(0xFF67EA94),
+                        fontSize = 96.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Text(
+                        text = "GroupTrack",
+                        color = Color(0xFF67EA94),
+                        fontSize = 36.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 8.sp
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Waiting for mesh nodes...",
+                        color = Color(0xFF888888),
+                        fontSize = 14.sp,
+                        fontFamily = FontFamily.Monospace
+                    )
+                    Spacer(modifier = Modifier.height(48.dp))
+                    Text(
+                        text = "Visit: www.GroupTrack.org",
+                        color = Color(0xFF888888),
+                        fontSize = 12.sp,
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
+                Text(
+                    text = "Visit: www.GroupTrack.org",
+                    color = Color(0xFF888888),
+                    fontSize = 12.sp,
+                    fontFamily = FontFamily.Monospace,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 80.dp)
                 )
             }
         }
@@ -474,7 +512,7 @@ fun ConvoyScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy((-8).dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Rounded.Layers, contentDescription = "Settings",
                                 tint = Color(0xFF2E75B6), modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(6.dp))
@@ -565,7 +603,28 @@ fun ConvoyScreen(
                         }
 
                     }
+                }
             }
+
+
+            // REC button placeholder — large button added as map overlay below
+
+            // Sim mode toggle (dev only)
+            TextButton(
+                onClick = { viewModel.setSimulationMode(!simulationMode) },
+                modifier = Modifier.padding(0.dp)
+            ) {
+                Text(
+                    text = if (simulationMode) "SIM" else "LIVE",
+                    color = if (simulationMode) Color(0xFFF9C835) else Color(0xFF4A6080),
+                    fontSize = 9.sp,
+                    fontFamily = FontFamily.Monospace
+                )
+            }
+        }
+
+        // ── Convoy submenu bottom sheet ───────────────────────────────────────────────
+
         // ── Convoy submenu bottom sheet ───────────────────────────────────────────────
 
         // ── Convoy submenu bottom sheet ───────────────────────────────────────────────
@@ -698,7 +757,7 @@ fun GroupHud(
         avgChannelUtil > 25f -> Color(0xFFFFAA00)
         else                 -> Color(0xFF00CC44)
     }
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy((-8).dp)) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
         // Vertical interval slider — flush against HudCard
         Column(
             modifier = Modifier.padding(0.dp),
