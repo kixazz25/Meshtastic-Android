@@ -495,10 +495,10 @@ fun ConvoyScreen(
                         Spacer(Modifier.height(4.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                             listOf(
-                                Triple("SAT", "Satellite", "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/"),
+                                Triple("SAT", "Satellite", "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"),
                                 Triple("HYB", "Hybrid", "https://mt0.google.com/vt/lyrs=y&x={x}&y={y}&z={z}"),
-                                Triple("TOPO", "Topo", "https://tile.opentopomap.org/"),
-                                Triple("RD", "Road", "https://tile.openstreetmap.org/")
+                                Triple("TOPO", "Topo", "https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}"),
+                                Triple("RD", "Road", "https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png")
                             ).forEach { (label, name, url) ->
                                 Surface(
                                     modifier = Modifier.weight(1f).clickable {
