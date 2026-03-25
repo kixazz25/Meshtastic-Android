@@ -326,54 +326,16 @@ fun ConvoyScreen(
         }
         if (showSplash) {
             Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color(0xFF1A1A2E)),
+                modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center,
+                androidx.compose.foundation.Image(
+                    painter = androidx.compose.ui.res.painterResource(
+                        id = com.geeksville.mesh.R.drawable.grouptrack_splash
+                    ),
+                    contentDescription = "GroupTrack",
+                    contentScale = androidx.compose.ui.layout.ContentScale.Crop,
                     modifier = Modifier.fillMaxSize()
-                ) {
-                    Text(
-                        text = "⬡",
-                        color = Color(0xFF67EA94),
-                        fontSize = 96.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.height(24.dp))
-                    Text(
-                        text = "GroupTrack",
-                        color = Color(0xFF67EA94),
-                        fontSize = 36.sp,
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 8.sp
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "Waiting for mesh nodes...",
-                        color = Color(0xFF888888),
-                        fontSize = 14.sp,
-                        fontFamily = FontFamily.Monospace
-                    )
-                    Spacer(modifier = Modifier.height(48.dp))
-                    Text(
-                        text = "Visit: www.GroupTrack.org",
-                        color = Color(0xFF888888),
-                        fontSize = 12.sp,
-                        fontFamily = FontFamily.Monospace
-                    )
-                }
-                Text(
-                    text = "Visit: www.GroupTrack.org",
-                    color = Color(0xFF888888),
-                    fontSize = 12.sp,
-                    fontFamily = FontFamily.Monospace,
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(bottom = 80.dp)
                 )
             }
         }
