@@ -67,7 +67,7 @@ fun ConvoySubMenu(
 
             // ── CONVOY header — long press = developer settings ──────────
             Text(
-                text          = "CONVOY",
+                text          = "GroupTrack",
                 color         = Color(0xFF97D5A5),
                 fontSize      = 13.sp,
                 fontFamily    = FontFamily.Monospace,
