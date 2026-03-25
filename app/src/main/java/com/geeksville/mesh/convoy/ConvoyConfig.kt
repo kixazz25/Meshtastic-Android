@@ -4,8 +4,8 @@ object ConvoyConfig {
     const val MAP_DEFAULT_ZOOM = 18.0
     var TILE_SOURCES = mutableMapOf(
         "SAT" to "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-        "TOPO" to "https://tile.opentopomap.org/{z}/{x}/{y}.png",
-        "RD" to "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+        "TOPO" to "https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
+        "RD" to "https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png"
     )
     var ACTIVE_TILE_SOURCE = "SAT" 
     const val MAP_GROUP_ZOOM_PADDING = 1.4f
@@ -20,5 +20,7 @@ object ConvoyConfig {
     var LOST_MINUTES = 10f
     var OFF_TRACK_MILES = 0.028f  // 150 feet
     var DOWNLOAD_ZOOM = 18
+    const val DOWNLOAD_ZOOM_MIN = 10
+    const val LOCAL_TILE_BASE = "file:///data/user/0/com.geeksville.mesh.google.debug/files/tiles/"
     var TRACK_MULTICOLOR = true
 }
