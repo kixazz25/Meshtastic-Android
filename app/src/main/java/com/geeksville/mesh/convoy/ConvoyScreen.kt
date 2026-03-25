@@ -554,7 +554,7 @@ fun ConvoyScreen(
                         // ── Download Region button ───────────────────────
                         Surface(
                             modifier = Modifier.fillMaxWidth().clickable {
-                                // TODO: trigger tile pre-fetch for current bounding box at mapZoomLevel
+                                webViewRef.value?.evaluateJavascript("activateDrawMode()", null)
                             },
                             shape = RoundedCornerShape(8.dp),
                             color = Color(0xFF2A3545)

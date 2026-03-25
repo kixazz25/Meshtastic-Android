@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css"/>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     #map { position: fixed; top: 0; left: 0; right: 0; bottom: 0; }
@@ -14,10 +16,48 @@
   <div id="map"></div>
   <script>
     var map, tileLayer, markers = {}, deviceMarker = null;
+    var drawnItems = null;
+    var drawControl = null;
     function setTileUrl(url) {
       if (tileLayer) map.removeLayer(tileLayer);
       tileLayer = L.tileLayer(url, {maxZoom:19});
       tileLayer.addTo(map);
+    }
+
+    // ── Draw tool functions ────────────────────────────────────────────
+    function initDrawTool() {
+      drawnItems = new L.FeatureGroup();
+      map.addLayer(drawnItems);
+      drawControl = new L.Draw.Rectangle(map, {
+        shapeOptions: { color: '#FFB74D', weight: 2, fillOpacity: 0.15 }
+      });
+      map.on(L.Draw.Event.CREATED, function(e) {
+        drawnItems.clearLayers();
+        drawnItems.addLayer(e.layer);
+        var b = e.layer.getBounds();
+        if (typeof Android !== 'undefined' && Android.onAreaSelected) {
+          Android.onAreaSelected(b.getNorth(), b.getSouth(), b.getEast(), b.getWest());
+        }
+      });
+    }
+
+    function activateDrawMode() {
+      if (drawnItems) drawnItems.clearLayers();
+      if (drawControl) drawControl.enable();
+    }
+
+    function cancelDrawMode() {
+      if (drawControl) drawControl.disable();
+      if (drawnItems) drawnItems.clearLayers();
+    }
+
+    function showDownloadArea(n, s, e, w) {
+      if (!drawnItems) return;
+      drawnItems.clearLayers();
+      var rect = L.rectangle([[s, w], [n, e]], {
+        color: '#27AE60', weight: 2, fillOpacity: 0.1, dashArray: '5,5'
+      });
+      drawnItems.addLayer(rect);
     }
     function setView(lat, lon, zoom) { map.setView([lat, lon], zoom); }
       function panTo(lat, lon) { map.panTo([lat, lon]); }
@@ -87,6 +127,7 @@
     document.addEventListener("DOMContentLoaded", function() {
       setTimeout(function() {
         map = L.map("map",{zoomControl:true}).setView([36.1069,-115.1711],4);
+    initDrawTool();
         map.invalidateSize();
         initDeviceLocation();
       }, 500);
