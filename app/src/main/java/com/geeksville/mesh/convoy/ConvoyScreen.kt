@@ -360,14 +360,14 @@ fun ConvoyScreen(
                     )
                     Spacer(modifier = Modifier.height(48.dp))
                     Text(
-                        text = "Developed by: Fred Kix",
+                        text = "Visit: www.GroupTrack.org",
                         color = Color(0xFF888888),
                         fontSize = 12.sp,
                         fontFamily = FontFamily.Monospace
                     )
                 }
                 Text(
-                    text = "Developed by: Fred Kix",
+                    text = "Visit: www.GroupTrack.org",
                     color = Color(0xFF888888),
                     fontSize = 12.sp,
                     fontFamily = FontFamily.Monospace,
