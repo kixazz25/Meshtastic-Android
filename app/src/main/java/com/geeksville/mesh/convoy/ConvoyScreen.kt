@@ -8,6 +8,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -719,10 +720,10 @@ fun GroupHud(
         avgChannelUtil > 25f -> Color(0xFFFFAA00)
         else                 -> Color(0xFF00CC44)
     }
-    Row(verticalAlignment = Alignment.CenterVertically) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy((-8).dp)) {
         // Vertical interval slider — flush against HudCard
         Column(
-            modifier = Modifier.padding(0.dp),
+            modifier = Modifier.padding(0.dp).offset(x = (-12).dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text("${currentIntervalSecs}s", color = Color(0xFFFF0000).copy(alpha = 0.8f),
