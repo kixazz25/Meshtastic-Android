@@ -416,28 +416,6 @@ fun ConvoyReconnectWaitScreen(
 
             Spacer(Modifier.height(24.dp))
 
-            // Stage 1 button — WRITE CHANNEL
-            if (!channelWriteDone) {
-                Surface(
-                    modifier = Modifier.fillMaxWidth()
-                        .clickable(enabled = stage1Connected) { writeChannel() },
-                    shape = RoundedCornerShape(12.dp),
-                    color = if (stage1Connected) Color(0xFF1F4E79) else Color(0xFF1C211C)
-                ) {
-                    Text(
-                        text = if (stage1Connected) "\u270e WRITE CHANNEL + PSK"
-                               else if (!stage1GatePassed) "WAITING FOR REBOOT..."
-                               else "WAITING FOR RADIO...",
-                        color = if (stage1Connected) Color.White else Color(0xFF8B938A),
-                        fontSize = 13.sp, fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Bold, textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(vertical = 16.dp)
-                    )
-                }
-                Spacer(Modifier.height(12.dp))
-            }
-
-            // Observation gate button
             if (channelWriteDone && !observeGatePassed) {
                 Surface(
                     modifier = Modifier.fillMaxWidth()
