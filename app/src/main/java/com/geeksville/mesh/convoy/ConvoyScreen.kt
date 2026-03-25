@@ -474,7 +474,7 @@ fun ConvoyScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy((-8).dp)) {
                             Icon(Icons.Rounded.Layers, contentDescription = "Settings",
                                 tint = Color(0xFF2E75B6), modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(6.dp))
@@ -565,28 +565,7 @@ fun ConvoyScreen(
                         }
 
                     }
-                }
             }
-
-
-            // REC button placeholder — large button added as map overlay below
-
-            // Sim mode toggle (dev only)
-            TextButton(
-                onClick = { viewModel.setSimulationMode(!simulationMode) },
-                modifier = Modifier.padding(0.dp)
-            ) {
-                Text(
-                    text = if (simulationMode) "SIM" else "LIVE",
-                    color = if (simulationMode) Color(0xFFF9C835) else Color(0xFF4A6080),
-                    fontSize = 9.sp,
-                    fontFamily = FontFamily.Monospace
-                )
-            }
-        }
-
-        // ── Convoy submenu bottom sheet ───────────────────────────────────────────────
-
         // ── Convoy submenu bottom sheet ───────────────────────────────────────────────
 
         // ── Convoy submenu bottom sheet ───────────────────────────────────────────────
@@ -719,7 +698,7 @@ fun GroupHud(
         avgChannelUtil > 25f -> Color(0xFFFFAA00)
         else                 -> Color(0xFF00CC44)
     }
-    Row(verticalAlignment = Alignment.CenterVertically) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy((-8).dp)) {
         // Vertical interval slider — flush against HudCard
         Column(
             modifier = Modifier.padding(0.dp),
