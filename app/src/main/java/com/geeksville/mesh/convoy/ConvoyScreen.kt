@@ -344,7 +344,7 @@ fun ConvoyScreen(
                     )
                     Spacer(modifier = Modifier.height(24.dp))
                     Text(
-                        text = "CONVOY",
+                        text = "GroupTrack",
                         color = Color(0xFF67EA94),
                         fontSize = 36.sp,
                         fontFamily = FontFamily.Monospace,
