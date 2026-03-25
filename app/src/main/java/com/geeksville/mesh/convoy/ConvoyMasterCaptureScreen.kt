@@ -13,7 +13,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -29,6 +32,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -39,6 +43,7 @@ import com.geeksville.mesh.ui.sharing.ChannelViewModel
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import kotlin.math.roundToInt
 
 /**
  * ConvoyMasterCaptureScreen — developer-only master config capture
@@ -50,11 +55,38 @@ import java.time.format.DateTimeFormatter
  *   - Primary channel name and AES-256 PSK (from channels)
  *   - Node long name (from nodeDB)
  *
+ * BL-02 FIX: loraChannelNum is not reliably readable from the datastore
+ * due to proto3 stripping default (0) values. A manual frequency override
+ * field is provided. User reads the frequency from the radio's LoRa settings
+ * screen (e.g. 903.125 MHz) and enters it here. The capture screen converts
+ * MHz → channel_num using the US915 LONG_FAST band formula before writing
+ * to master_config.json.
+ *
  * Saves master_config.json to external cache for adb pull.
  * File must be copied to app/src/main/assets/ before release build.
  *
  * One master config. Captured once. Nobody else can do this.
  */
+
+// ── BL-02: US915 LONG_FAST frequency conversion ──────────────────────────────
+// Formula from ChannelOption.kt: radioFreq = (freqStart + bw/2) + (channelNum-1) * bw
+// US freqStart = 902.0 MHz, LONG_FAST bandwidth = 0.250 MHz
+// → radioFreq = 902.125 + (channelNum - 1) * 0.250
+// Inverse: channelNum = round((freqMhz - 902.125) / 0.250) + 1
+private const val US915_FREQ_START_MHZ = 902.125f
+private const val LONG_FAST_BW_MHZ    = 0.250f
+private const val US915_MAX_CHANNEL    = 104  // (928.0 - 902.0) / 0.250
+
+private fun freqMhzToChannelNum(freqMhz: Float): Int =
+    ((freqMhz - US915_FREQ_START_MHZ) / LONG_FAST_BW_MHZ + 1)
+        .roundToInt()
+        .coerceIn(1, US915_MAX_CHANNEL)
+
+private fun channelNumToFreqMhz(channelNum: Int): Float =
+    US915_FREQ_START_MHZ + (channelNum - 1) * LONG_FAST_BW_MHZ
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 @Composable
 fun ConvoyMasterCaptureScreen(
     viewModel: ConvoyViewModel,
@@ -72,12 +104,22 @@ fun ConvoyMasterCaptureScreen(
     var captureLog      by remember { mutableStateOf("") }
     var captureComplete by remember { mutableStateOf(false) }
 
+    // BL-02: user-entered frequency override in MHz (e.g. "903.125")
+    var loraFreqMhzInput by remember { mutableStateOf("") }
+
     val nodeInfo        by viewModel.myNodeInfo.collectAsState()
     val localConfig     by channelViewModel.localConfig.collectAsStateWithLifecycle()
     val channels        by channelViewModel.channels.collectAsStateWithLifecycle()
     val connectionState by uiViewModel.connectionState.collectAsStateWithLifecycle()
     val myNodeInfo      by uiViewModel.myNodeInfo.collectAsStateWithLifecycle()
     val isConnected     = nodeInfo != null
+
+    // Derived display values for the frequency field
+    val rawChannelNum   = localConfig.lora?.channel_num ?: 0
+    val rawFreqDisplay  = if (rawChannelNum != 0)
+        "%.3f MHz (channel_num=$rawChannelNum)".format(channelNumToFreqMhz(rawChannelNum))
+    else
+        "0 — unset (proto3 stripped)"
 
     Box(
         modifier = Modifier
@@ -179,6 +221,10 @@ fun ConvoyMasterCaptureScreen(
                             color = Color(0xFF8B938A), fontSize = 9.sp, fontFamily = FontFamily.Monospace)
                         Text("  TX Power:       ${localConfig.lora?.tx_power ?: "\u2014"} dBm",
                             color = Color(0xFF8B938A), fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                        // BL-02: show raw datastore read — may be 0 due to proto3 stripping
+                        Text("  Freq (datastore): $rawFreqDisplay",
+                            color = if (rawChannelNum == 0) Color(0xFFFFB4AB) else Color(0xFF97D5A5),
+                            fontSize = 9.sp, fontFamily = FontFamily.Monospace)
                         Text("  Channel Name:   ${channels.settings.firstOrNull()?.name?.ifBlank { "(blank)" } ?: "\u2014"}",
                             color = if ((channels.settings.firstOrNull()?.name ?: "").isBlank())
                                 Color(0xFFFFB4AB) else Color(0xFF97D5A5),
@@ -192,6 +238,93 @@ fun ConvoyMasterCaptureScreen(
                             fontSize = 12.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
                         Text("Connect reference radio via Bluetooth before capturing.",
                             color = Color(0xFF8B938A), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(16.dp))
+
+            // ── BL-02: LoRa Frequency Override ───────────────────────────────
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape    = RoundedCornerShape(10.dp),
+                color    = Color(0xFF1A1A2A)
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Text(
+                        "LORA FREQUENCY OVERRIDE",
+                        color         = Color(0xFFFFB74D),
+                        fontSize      = 10.sp,
+                        fontFamily    = FontFamily.Monospace,
+                        fontWeight    = FontWeight.Bold,
+                        letterSpacing = 2.sp
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "The datastore may read channel_num=0 due to proto3 encoding. " +
+                        "Read the exact frequency from the radio's LoRa settings screen and enter it here. " +
+                        "Leave blank only if datastore value above is non-zero and correct.",
+                        color      = Color(0xFF6A6A8A),
+                        fontSize   = 9.sp,
+                        fontFamily = FontFamily.Monospace
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    OutlinedTextField(
+                        value         = loraFreqMhzInput,
+                        onValueChange = { loraFreqMhzInput = it.filter { c -> c.isDigit() || c == '.' } },
+                        label         = {
+                            Text("Frequency MHz (from radio screen)",
+                                fontFamily = FontFamily.Monospace, fontSize = 10.sp)
+                        },
+                        placeholder   = {
+                            Text("e.g. 903.125",
+                                fontFamily = FontFamily.Monospace,
+                                fontSize   = 10.sp,
+                                color      = Color(0xFF4A4A6A))
+                        },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        singleLine    = true,
+                        modifier      = Modifier.fillMaxWidth(),
+                        colors        = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor   = Color(0xFFFFB74D),
+                            unfocusedBorderColor = Color(0xFF3A3A5A),
+                            focusedLabelColor    = Color(0xFFFFB74D),
+                            unfocusedLabelColor  = Color(0xFF6A6A8A),
+                            focusedTextColor     = Color(0xFFE0E0E0),
+                            unfocusedTextColor   = Color(0xFFE0E0E0),
+                            cursorColor          = Color(0xFFFFB74D)
+                        )
+                    )
+                    // Live preview of computed channel_num
+                    val previewChannelNum = loraFreqMhzInput.toFloatOrNull()
+                        ?.takeIf { it > 902.0f }
+                        ?.let { freqMhzToChannelNum(it) }
+                    if (previewChannelNum != null) {
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            "\u2192 Will write channel_num = $previewChannelNum to master_config.json",
+                            color      = Color(0xFF97D5A5),
+                            fontSize   = 9.sp,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Bold
+                        )
+                    } else if (loraFreqMhzInput.isNotBlank()) {
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            "\u26a0 Enter a valid US915 frequency (902.125 – 927.875 MHz)",
+                            color      = Color(0xFFFFB4AB),
+                            fontSize   = 9.sp,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    } else {
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            "Will use datastore value: channel_num = $rawChannelNum" +
+                                if (rawChannelNum == 0) "  ⚠ may be incorrect" else "",
+                            color      = if (rawChannelNum == 0) Color(0xFFFFB4AB) else Color(0xFF8B938A),
+                            fontSize   = 9.sp,
+                            fontFamily = FontFamily.Monospace
+                        )
                     }
                 }
             }
@@ -279,6 +412,19 @@ fun ConvoyMasterCaptureScreen(
                                 log.appendLine("  \u25cf Modem Preset: $loraModemPreset")
                                 log.appendLine("  \u25cf Hop Limit:    $loraHopLimit")
                                 log.appendLine("  \u25cf TX Power:     $loraTxPower dBm")
+
+                                // BL-02: resolve channel_num from user input or datastore
+                                val datastoreChannelNum = lora?.channel_num ?: 0
+                                val resolvedChannelNum: Int
+                                val freqInputFloat = loraFreqMhzInput.toFloatOrNull()
+                                if (freqInputFloat != null && freqInputFloat > 902.0f) {
+                                    resolvedChannelNum = freqMhzToChannelNum(freqInputFloat)
+                                    log.appendLine("  \u25cf Frequency:    $loraFreqMhzInput MHz (manual override)")
+                                    log.appendLine("  \u25cf channel_num:  $resolvedChannelNum (computed from MHz)")
+                                } else {
+                                    resolvedChannelNum = datastoreChannelNum
+                                    log.appendLine("  \u25cf channel_num:  $resolvedChannelNum (datastore${if (datastoreChannelNum == 0) " — ⚠ may be incorrect" else ""})")
+                                }
                                 captureLog = log.toString()
 
                                 // ── Read channel + PSK ────────────────────────
@@ -306,10 +452,7 @@ fun ConvoyMasterCaptureScreen(
                                 // ── Read long name ────────────────────────────
                                 log.appendLine("")
                                 log.appendLine("Reading node long name...")
-                                val longName = myNodeInfo?.let {
-                                    // Try to get long name from node — use nodeNum as fallback
-                                    hwId
-                                } ?: hwId
+                                val longName = myNodeInfo?.let { hwId } ?: hwId
                                 log.appendLine("  \u25cf Long Name:    $longName")
                                 captureLog = log.toString()
 
@@ -328,10 +471,9 @@ fun ConvoyMasterCaptureScreen(
                                 val fmt   = DateTimeFormatter.ISO_LOCAL_DATE
                                 val today = LocalDate.now().format(fmt)
 
-                                // Read all radio sections — mirrors ConvoyMasterConfig definition exactly
-                                val pos      = localConfig.position
-                                val dev      = localConfig.device
-                                val disp     = localConfig.display
+                                val pos       = localConfig.position
+                                val dev       = localConfig.device
+                                val disp      = localConfig.display
                                 val primaryCh = channels.settings.firstOrNull()
                                 val master = ConvoyMasterConfig(
                                     hardwareModel            = ni.model ?: "Unknown",
@@ -352,7 +494,8 @@ fun ConvoyMasterCaptureScreen(
                                     loraHopLimit             = loraHopLimit,
                                     loraTxEnabled            = loraTxEnabled,
                                     loraTxPower              = loraTxPower,
-                                    loraChannelNum           = localConfig.lora?.channel_num ?: 0,
+                                    // BL-02 FIX: use resolved channel_num, not raw datastore value
+                                    loraChannelNum           = resolvedChannelNum,
                                     // ── Channel
                                     primaryChannelName       = channelName,
                                     primaryChannelPsk        = pskBase64,
@@ -377,7 +520,7 @@ fun ConvoyMasterCaptureScreen(
                                     screenTimeout            = disp?.screen_on_secs ?: 0,
                                     autoScreenBrightness     = false,
                                     compassNorthTop          = disp?.compass_north_top ?: false,
-                                    // ── Module (defaults — module config read requires separate API call)
+                                    // ── Module
                                     telemetryDeviceInterval  = 0,
                                     telemetryEnvInterval     = 0,
                                     telemetryEnvEnabled      = false,
@@ -411,24 +554,21 @@ fun ConvoyMasterCaptureScreen(
                                 masterFile.writeText(masterJson)
                                 log.appendLine("\u2713 Saved: ${masterFile.absolutePath}")
 
-                                // Also save to internal files dir
                                 val internalFile = java.io.File(context.filesDir, "master_config.json")
                                 internalFile.writeText(masterJson)
                                 log.appendLine("\u2713 Saved: ${internalFile.absolutePath}")
 
-                                // Save apply list alongside
                                 val applyList = ConvoyApplyList.load(context)
                                 val applyFile = java.io.File(saveDir, "convoy_apply_list.json")
                                 applyFile.writeText(applyList.toJson().toString(2))
                                 log.appendLine("\u2713 Saved: convoy_apply_list.json")
-                                // ── Export master.cfg binary ──────────────────
+
                                 val masterCfgResult = viewModel.exportProfileToFile(
                                     context,
                                     ConvoyViewModel.ConvoyProfilePaths.masterCfg(context)
                                 )
                                 if (masterCfgResult.isSuccess) {
                                     log.appendLine("\u2713 Saved: master.cfg binary")
-                                    // Also copy to external cache for adb pull
                                     val masterCfgExternal = java.io.File(saveDir, "master.cfg")
                                     java.io.File(context.filesDir, "master.cfg")
                                         .copyTo(masterCfgExternal, overwrite = true)
@@ -455,7 +595,7 @@ fun ConvoyMasterCaptureScreen(
                                 statusMsg  = if (channelName.isBlank() || pskBase64.isBlank())
                                     "\u26a0 Captured with warnings \u2014 channel or PSK missing"
                                 else
-                                    "\u2713 Master config captured successfully"
+                                    "\u2713 Master config captured — loraChannelNum=$resolvedChannelNum"
                                 statusOk      = channelName.isNotBlank() && pskBase64.isNotBlank()
                                 captureComplete = true
 
