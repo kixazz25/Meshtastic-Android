@@ -116,13 +116,9 @@ fun ConvoyReconnectWaitScreen(
             phase = "CONNECTED"
             statusMsg = "\u25cf Radio reconnected — tap WRITE CHANNEL to continue"
             addLog("Stage 1: Connected \u2713")
-            // Observation gate: verify PSK from binary before channel write
-            statusMsg = "\u25cf Radio reconnected \u2014 verify radio sees convoy nodes, then tap RADIO OK"
-            addLog("Observation gate active \u2014 waiting for user confirmation")
-            while (!observeGatePassed) { kotlinx.coroutines.delay(200) }
-            addLog("Observation gate passed")
-            statusMsg = "\u25cf Observation complete \u2014 tap WRITE CHANNEL to continue"
-            return@LaunchedEffect
+            addLog("Stage 1 complete \u2014 proceeding to Verify")
+            kotlinx.coroutines.delay(1500)
+            scope.launch { onProceed() }
         }
 
         // Not connected — show manual BT toggle instruction
