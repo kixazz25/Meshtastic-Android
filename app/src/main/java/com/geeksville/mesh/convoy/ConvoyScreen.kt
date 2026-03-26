@@ -114,6 +114,7 @@ fun ConvoyScreen(
     }
     var showLayerMenu by remember { mutableStateOf(false) }
     var mapTypeLabel by remember { mutableStateOf("SAT") }
+    var isLocalTiles by remember { mutableStateOf(false) }
     var showMapSettings by remember { mutableStateOf(false) }
     var showConvoyMenu by remember { mutableStateOf(false) }
     val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
@@ -337,8 +338,7 @@ fun ConvoyScreen(
         if (downloadState is ConvoyViewModel.DownloadState.Complete) {
             val summary = (downloadState as ConvoyViewModel.DownloadState.Complete).summary
             android.widget.Toast.makeText(context, "Map download complete — ${summary.downloaded} tiles", android.widget.Toast.LENGTH_LONG).show()
-            val localUrl = ConvoyConfig.LOCAL_TILE_BASE + ConvoyConfig.ACTIVE_TILE_SOURCE + "/{z}/{x}/{y}.png"
-            webViewRef.value?.evaluateJavascript("setTileUrl('"+localUrl+"')", null)
+            // Tile download complete — user controls online/offline via switch
         }
     }
 
@@ -614,6 +614,14 @@ fun ConvoyScreen(
                             Spacer(Modifier.width(6.dp))
                             Text("MAP  $mapTypeLabel", color = Color(0xFF2E75B6), fontSize = 11.sp,
                                 fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                if (isOfflineMode) "LOCAL" else "ONLINE",
+                                color = if (isOfflineMode) Color(0xFF4DA6FF) else Color(0xFF1CF0A0),
+                                fontSize = 8.sp,
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.Bold
+                            )
                         }
                         Text(if (showMapSettings) "▲" else "▼", color = Color(0xFF4A6080), fontSize = 10.sp,
                             fontFamily = FontFamily.Monospace)
@@ -636,6 +644,7 @@ fun ConvoyScreen(
                                 Surface(
                                     modifier = Modifier.weight(1f).clickable {
                                         mapTypeLabel = label
+                                        isLocalTiles = false
                                         webViewRef.value?.evaluateJavascript("setTileUrl('$url')", null)
                                     },
                                     shape = RoundedCornerShape(6.dp),
@@ -675,9 +684,15 @@ fun ConvoyScreen(
                                 fontSize = 10.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
                             Switch(
                                 checked = isOfflineMode,
-                                onCheckedChange = {
-                                    isOfflineMode = it
-                                    // TODO A2.5: setOffline via JS bridge
+                                onCheckedChange = { goOffline ->
+                                    isOfflineMode = goOffline
+                                    if (goOffline) {
+                                        val localUrl = ConvoyConfig.LOCAL_TILE_BASE + ConvoyConfig.ACTIVE_TILE_SOURCE + "/{z}/{x}/{y}.png"
+                                        webViewRef.value?.evaluateJavascript("setTileUrl('"+localUrl+"')", null)
+                                    } else {
+                                        val onlineUrl = ConvoyConfig.TILE_SOURCES[ConvoyConfig.ACTIVE_TILE_SOURCE] ?: ""
+                                        webViewRef.value?.evaluateJavascript("setTileUrl('"+onlineUrl+"')", null)
+                                    }
                                 }
                             )
                         }
