@@ -726,52 +726,62 @@ fun GroupHud(
             modifier = Modifier.padding(0.dp).offset(x = (-12).dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text("${currentIntervalSecs}s", color = Color(0xFFFF0000).copy(alpha = 0.8f),
-                fontSize = 10.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+            Text("${currentIntervalSecs}s", color = Color(0xFF111111), fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                style = androidx.compose.ui.text.TextStyle(shadow = androidx.compose.ui.graphics.Shadow(color = androidx.compose.ui.graphics.Color.White, offset = androidx.compose.ui.geometry.Offset(0f, 0f), blurRadius = 6f)))
             androidx.compose.material3.Slider(
                 value = currentIntervalSecs.toFloat(),
                 onValueChange = { onIntervalChange(it.toInt()) },
                 valueRange = 2f..8f,
                 steps = 5,
+                colors = androidx.compose.material3.SliderDefaults.colors(
+                    thumbColor = Color.White,
+                    activeTrackColor = Color(0xFF2E75B6),
+                    inactiveTrackColor = Color(0xFFFFFFFF).copy(alpha = 0.5f)
+                ),
                 modifier = Modifier
                     .height(80.dp)
                     .graphicsLayer { rotationZ = -90f }
                     .width(80.dp)
             )
-            Text("INT", color = Color(0xFFFF0000).copy(alpha = 0.6f),
-                fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+            Text("INT", color = Color(0xFF111111), fontSize = 9.sp,
+                fontWeight = FontWeight.SemiBold,
+                style = androidx.compose.ui.text.TextStyle(shadow = androidx.compose.ui.graphics.Shadow(color = androidx.compose.ui.graphics.Color.White, offset = androidx.compose.ui.geometry.Offset(0f, 0f), blurRadius = 6f)))
         }
         HudCard {
-            Text("GROUP", color = Color(0xFFFF0000).copy(alpha = 1f), fontSize = 16.sp,
-                fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
-                letterSpacing = 2.sp, modifier = Modifier.padding(bottom = 4.dp))
+            Text("GROUP", color = Color(0xFF111111), fontSize = 13.sp,
+                fontWeight = FontWeight.Bold, letterSpacing = 2.sp,
+                modifier = Modifier.padding(bottom = 4.dp),
+                style = androidx.compose.ui.text.TextStyle(shadow = androidx.compose.ui.graphics.Shadow(color = androidx.compose.ui.graphics.Color.White, offset = androidx.compose.ui.geometry.Offset(0f, 0f), blurRadius = 8f)))
             // Row 1: SPAN big + CH% color block
             Row(verticalAlignment = Alignment.Bottom,
                 horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 Row(verticalAlignment = Alignment.Bottom) {
-                    Text("SPAN", color = Color(0xFFFF0000).copy(alpha = 1f), fontSize = 11.sp,
-                        fontFamily = FontFamily.Monospace, fontWeight = FontWeight.SemiBold,
-                        letterSpacing = 1.sp, modifier = Modifier.padding(end = 4.dp, bottom = 6.dp))
+                    Text("SPAN", color = Color(0xFF111111), fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold, letterSpacing = 1.sp,
+                        modifier = Modifier.padding(end = 4.dp, bottom = 6.dp),
+                        style = androidx.compose.ui.text.TextStyle(shadow = androidx.compose.ui.graphics.Shadow(color = androidx.compose.ui.graphics.Color.White, offset = androidx.compose.ui.geometry.Offset(0f, 0f), blurRadius = 8f)))
                     Text("%.1f".format(state.span_miles),
-                        color = Color(0xFFFF0000).copy(alpha = 1f),
-                        fontSize = 48.sp, fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Bold, lineHeight = 48.sp)
-                    Text(" mi", color = Color(0xFFFF0000).copy(alpha = 1f), fontSize = 16.sp,
-                        fontFamily = FontFamily.Monospace,
-                        modifier = Modifier.padding(bottom = 6.dp))
+                        color = Color(0xFF111111),
+                        fontSize = 36.sp, fontWeight = FontWeight.Black, lineHeight = 36.sp,
+                        style = androidx.compose.ui.text.TextStyle(shadow = androidx.compose.ui.graphics.Shadow(color = androidx.compose.ui.graphics.Color.White, offset = androidx.compose.ui.geometry.Offset(0f, 0f), blurRadius = 10f)))
+                    Text(" mi", color = Color(0xFF111111), fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(bottom = 6.dp),
+                        style = androidx.compose.ui.text.TextStyle(shadow = androidx.compose.ui.graphics.Shadow(color = androidx.compose.ui.graphics.Color.White, offset = androidx.compose.ui.geometry.Offset(0f, 0f), blurRadius = 8f)))
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier.padding(bottom = 6.dp)) {
-                    Text("CH%", color = Color(0xFFFF0000).copy(alpha = 1f), fontSize = 11.sp,
-                        fontFamily = FontFamily.Monospace, fontWeight = FontWeight.SemiBold,
-                        letterSpacing = 1.sp)
+                    Text("CH%", color = Color(0xFF111111), fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold, letterSpacing = 1.sp,
+                        style = androidx.compose.ui.text.TextStyle(shadow = androidx.compose.ui.graphics.Shadow(color = androidx.compose.ui.graphics.Color.White, offset = androidx.compose.ui.geometry.Offset(0f, 0f), blurRadius = 8f)))
                     Row(verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(3.dp)) {
                         Box(modifier = Modifier.size(8.dp).background(chColor,
                             shape = androidx.compose.foundation.shape.RoundedCornerShape(2.dp)))
                         Text("%.0f%%".format(avgChannelUtil), color = chColor,
-                            fontSize = 11.sp, fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Bold)
+                            fontSize = 13.sp, fontWeight = FontWeight.Black,
+                            style = androidx.compose.ui.text.TextStyle(shadow = androidx.compose.ui.graphics.Shadow(color = androidx.compose.ui.graphics.Color.White, offset = androidx.compose.ui.geometry.Offset(0f, 0f), blurRadius = 8f)))
                     }
                 }
             }
@@ -780,8 +790,8 @@ fun GroupHud(
             Row(horizontalArrangement = Arrangement.spacedBy(14.dp),
                 verticalAlignment = Alignment.Bottom) {
                 HudStat("Carts",       "${state.nodes.size}")
-                HudStat("Active",      "${state.activeCount}")
-                HudStat("Lost",        "${state.lostCount}")
+                HudStat("Active", "${state.activeCount}", Color(0xFF00CC44))
+                HudStat("Lost", "${state.lostCount}", Color(0xFFFF4444))
                 HudStat("▲ Lead", state.lead?.callsign ?: "--", Color(0xFF1CF0A0))
                 HudStat("▽ Tail", state.tail?.callsign ?: "--", Color(0xFFFF8C42))
             }
@@ -804,12 +814,14 @@ fun MyCartHud(
     val myCart = state.nodes.firstOrNull { it.isMyCart }
     HudCard {
         // Title
-        Text("My Cart  ★ ${myCart?.callsign ?: myCartId.takeLast(8)}", color = Color(0xFFFF0000).copy(alpha = 1f), fontSize = 16.sp,
-            fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
-            letterSpacing = 2.sp, modifier = Modifier.padding(bottom = 6.dp))
+        Text("My Cart  ★ ${myCart?.callsign ?: myCartId.takeLast(8)}", color = Color(0xFF111111), fontSize = 13.sp,
+            fontWeight = FontWeight.Bold, letterSpacing = 2.sp,
+            modifier = Modifier.padding(bottom = 6.dp),
+            style = androidx.compose.ui.text.TextStyle(shadow = androidx.compose.ui.graphics.Shadow(color = androidx.compose.ui.graphics.Color.White, offset = androidx.compose.ui.geometry.Offset(0f, 0f), blurRadius = 8f)))
         if (myCart == null) {
-            Text("MY CART not found", color = Color(0xFFFF0000).copy(alpha = 1f), fontSize = 12.sp,
-                fontFamily = FontFamily.Monospace)
+            Text("MY CART not found", color = Color(0xFF111111), fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                style = androidx.compose.ui.text.TextStyle(shadow = androidx.compose.ui.graphics.Shadow(color = androidx.compose.ui.graphics.Color.White, offset = androidx.compose.ui.geometry.Offset(0f, 0f), blurRadius = 8f)))
         } else {
             // Row 1: Heading · Battery · Altitude
             Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
@@ -825,16 +837,17 @@ fun MyCartHud(
                 modifier = Modifier.padding(top = 4.dp)
             ) {
                 Column {
-                    Text("Speed", color = Color(0xFFFF0000).copy(alpha = 1f), fontSize = 11.sp,
-                        fontFamily = FontFamily.Monospace, fontWeight = FontWeight.SemiBold,
-                        letterSpacing = 1.sp)
+                    Text("Speed", color = Color(0xFF111111), fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold, letterSpacing = 1.sp,
+                        style = androidx.compose.ui.text.TextStyle(shadow = androidx.compose.ui.graphics.Shadow(color = androidx.compose.ui.graphics.Color.White, offset = androidx.compose.ui.geometry.Offset(0f, 0f), blurRadius = 8f)))
                     Row(verticalAlignment = Alignment.Bottom) {
-                        Text("%.0f".format(myCart.speed_mph), color = Color(0xFFFF0000).copy(alpha = 1f),
-                            fontSize = 48.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
-                            lineHeight = 48.sp)
-                        Text(" mph", color = Color(0xFFFF0000).copy(alpha = 1f), fontSize = 16.sp,
-                            fontFamily = FontFamily.Monospace,
-                            modifier = Modifier.padding(bottom = 6.dp))
+                        Text("%.0f".format(myCart.speed_mph), color = Color(0xFF111111),
+                            fontSize = 36.sp, fontWeight = FontWeight.Black, lineHeight = 36.sp,
+                            style = androidx.compose.ui.text.TextStyle(shadow = androidx.compose.ui.graphics.Shadow(color = androidx.compose.ui.graphics.Color.White, offset = androidx.compose.ui.geometry.Offset(0f, 0f), blurRadius = 10f)))
+                        Text(" mph", color = Color(0xFF111111), fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(bottom = 6.dp),
+                            style = androidx.compose.ui.text.TextStyle(shadow = androidx.compose.ui.graphics.Shadow(color = androidx.compose.ui.graphics.Color.White, offset = androidx.compose.ui.geometry.Offset(0f, 0f), blurRadius = 8f)))
                     }
                 }
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -862,16 +875,17 @@ fun NodeDetailHud(
 ) {
     HudCard {
         // Title — cart callsign
-        Text(node.callsign, color = Color(0xFFFF0000).copy(alpha = 1f), fontSize = 16.sp,
-            fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
-            letterSpacing = 2.sp, modifier = Modifier.padding(bottom = 6.dp))
+        Text(node.callsign, color = Color(0xFF111111), fontSize = 13.sp,
+            fontWeight = FontWeight.Bold, letterSpacing = 2.sp,
+            modifier = Modifier.padding(bottom = 6.dp),
+            style = androidx.compose.ui.text.TextStyle(shadow = androidx.compose.ui.graphics.Shadow(color = androidx.compose.ui.graphics.Color.White, offset = androidx.compose.ui.geometry.Offset(0f, 0f), blurRadius = 8f)))
         Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             HudStat("STATUS", node.status.name,
                 when (node.status) {
                     ConvoyStatus.LOST        -> Color(0xFFF44336)
                     ConvoyStatus.SIGNAL_DROP -> Color(0xFFFFFF00)
-                    ConvoyStatus.ACTIVE      -> Color(0xFF00AA00)
+                    ConvoyStatus.ACTIVE      -> Color(0xFF00CC44)
                 })
             HudStat("SPD", "%.0f mph".format(node.speed_mph))
             HudStat("BAT", "${node.battery_pct}%")
@@ -986,13 +1000,14 @@ fun HudCard(content: @Composable ColumnScope.() -> Unit) {
 }
 
 @Composable
-fun HudStat(label: String, value: String, valueColor: Color = Color(0xFFFF0000).copy(alpha = 1f)) {
+fun HudStat(label: String, value: String, valueColor: Color = Color(0xFF111111)) {
     Column(horizontalAlignment = Alignment.Start) {
-        Text(label, color = Color(0xFFFF0000).copy(alpha = 1f), fontSize = 11.sp,
-            fontFamily = FontFamily.Monospace, fontWeight = FontWeight.SemiBold,
-            letterSpacing = 1.sp)
-        Text(value, color = valueColor, fontSize = 11.sp,
-            fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+        Text(label, color = Color(0xFF111111), fontSize = 11.sp,
+            fontWeight = FontWeight.SemiBold, letterSpacing = 1.sp,
+            style = androidx.compose.ui.text.TextStyle(shadow = androidx.compose.ui.graphics.Shadow(color = androidx.compose.ui.graphics.Color.White, offset = androidx.compose.ui.geometry.Offset(0f, 0f), blurRadius = 8f)))
+        Text(value, color = valueColor, fontSize = 16.sp,
+            fontWeight = FontWeight.Black,
+            style = androidx.compose.ui.text.TextStyle(shadow = androidx.compose.ui.graphics.Shadow(color = androidx.compose.ui.graphics.Color.White, offset = androidx.compose.ui.geometry.Offset(0f, 0f), blurRadius = 8f)))
     }
 }
 
