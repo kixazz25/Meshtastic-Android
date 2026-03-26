@@ -119,6 +119,8 @@ fun ConvoyScreen(
     val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
     var showImportSplash by remember { mutableStateOf(false) }
     val pendingImportBanner by viewModel.pendingImportBanner.collectAsStateWithLifecycle()
+    val pendingDownload by viewModel.pendingDownload.collectAsStateWithLifecycle()
+    val downloadState by viewModel.downloadState.collectAsStateWithLifecycle()
 
     // Show import splash when menu opens if there are pending imports
 
@@ -228,6 +230,68 @@ fun ConvoyScreen(
         wv.evaluateJavascript("drawTrack(" + json + ")", null)
     }
 
+    // ── Download size estimation dialogs ─────────────────────────────────
+    pendingDownload?.let { pending ->
+        if (!pending.withinCeiling) {
+            AlertDialog(
+                onDismissRequest = { viewModel.clearPendingDownload() },
+                title = { Text("Area Too Large") },
+                text = {
+                    Text(
+                        "Estimated ${String.format("%.0f", pending.sizeMB)} MB " +
+                        "exceeds the 500 MB limit.\n\nReduce the selected area and try again."
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = { viewModel.clearPendingDownload() }) {
+                        Text("OK")
+                    }
+                }
+            )
+        } else {
+            AlertDialog(
+                onDismissRequest = { viewModel.clearPendingDownload() },
+                title = { Text("Download Map Area?") },
+                text = {
+                    androidx.compose.foundation.layout.Column(
+                        verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text("${pending.tileCount} tiles — ${"%.1f".format(pending.sizeMB)} MB estimated")
+                        Text("Source: ${pending.sourceName.uppercase()}")
+                        androidx.compose.foundation.layout.Spacer(
+                            modifier = Modifier.height(4.dp)
+                        )
+                        Text(
+                            "This may take several minutes on a slow connection.",
+                            fontSize = 12.sp
+                        )
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { viewModel.startDownload(context, pending) }) {
+                        Text("DOWNLOAD")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { viewModel.clearPendingDownload() }) {
+                        Text("CANCEL")
+                    }
+                }
+            )
+        }
+    }
+
+    if (downloadState is ConvoyViewModel.DownloadState.Error) {
+        AlertDialog(
+            onDismissRequest = { viewModel.cancelDownload() },
+            title = { Text("Download Error") },
+            text = { Text((downloadState as ConvoyViewModel.DownloadState.Error).message) },
+            confirmButton = {
+                TextButton(onClick = { viewModel.cancelDownload() }) { Text("OK") }
+            }
+        )
+    }
+
     if (showNameDialog) {
         AlertDialog(
             onDismissRequest = {
@@ -272,6 +336,27 @@ fun ConvoyScreen(
                             val node = viewModel.convoyState.value.nodes.firstOrNull { it.nodeId == nodeId }
                             if (node != null) viewModel.onMarkerTapped(node)
                         }
+
+                        @android.webkit.JavascriptInterface
+                        fun onAreaSelected(north: Double, south: Double, east: Double, west: Double) {
+                            android.util.Log.i("ConvoyDownload", "onAreaSelected N=$north S=$south E=$east W=$west zoom=${ConvoyConfig.DOWNLOAD_ZOOM_MIN}-${ConvoyConfig.DOWNLOAD_ZOOM}")
+                            val estimate = ConvoyTileCalculator.quickEstimate(north, south, east, west)
+                            android.util.Log.i("ConvoyDownload", "estimate tiles=${estimate.tileCount} mb=${estimate.estimatedMB}")
+                            val pending = ConvoyViewModel.PendingDownload(
+                                tileCount     = estimate.tileCount,
+                                sizeMB        = estimate.estimatedMB,
+                                withinCeiling = estimate.withinCeiling,
+                                north         = north,
+                                south         = south,
+                                east          = east,
+                                west          = west,
+                                sourceName    = ConvoyConfig.ACTIVE_TILE_SOURCE,
+                                sourceUrl     = ConvoyConfig.TILE_SOURCES[ConvoyConfig.ACTIVE_TILE_SOURCE] ?: ""
+                            )
+                            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                viewModel.setPendingDownload(pending)
+                            }
+                        }
                     }, "Android")
                     webViewRef.value = existing
                     existing
@@ -290,6 +375,34 @@ fun ConvoyScreen(
                             }
                         }
                         loadUrl("file:///android_asset/convoy_map.html")
+                        addJavascriptInterface(object : Any() {
+                            @android.webkit.JavascriptInterface
+                            fun onMarkerTapped(nodeId: String) {
+                                val node = viewModel.convoyState.value.nodes.firstOrNull { it.nodeId == nodeId }
+                                if (node != null) viewModel.onMarkerTapped(node)
+                            }
+
+                            @android.webkit.JavascriptInterface
+                            fun onAreaSelected(north: Double, south: Double, east: Double, west: Double) {
+                                android.util.Log.i("ConvoyDownload", "onAreaSelected N=$north S=$south E=$east W=$west zoom=${ConvoyConfig.DOWNLOAD_ZOOM_MIN}-${ConvoyConfig.DOWNLOAD_ZOOM}")
+                            val estimate = ConvoyTileCalculator.quickEstimate(north, south, east, west)
+                            android.util.Log.i("ConvoyDownload", "estimate tiles=${estimate.tileCount} mb=${estimate.estimatedMB}")
+                                val pending = ConvoyViewModel.PendingDownload(
+                                    tileCount     = estimate.tileCount,
+                                    sizeMB        = estimate.estimatedMB,
+                                    withinCeiling = estimate.withinCeiling,
+                                    north         = north,
+                                    south         = south,
+                                    east          = east,
+                                    west          = west,
+                                    sourceName    = ConvoyConfig.ACTIVE_TILE_SOURCE,
+                                    sourceUrl     = ConvoyConfig.TILE_SOURCES[ConvoyConfig.ACTIVE_TILE_SOURCE] ?: ""
+                                )
+                                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                    viewModel.setPendingDownload(pending)
+                                }
+                            }
+                        }, "Android")
                     }.also {
                         viewModel.persistentWebView = it
                         webViewRef.value = it
