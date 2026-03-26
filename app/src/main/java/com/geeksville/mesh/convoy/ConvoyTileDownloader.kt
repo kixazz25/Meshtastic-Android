@@ -1,7 +1,9 @@
 package com.geeksville.mesh.convoy
 
 import android.content.Context
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
@@ -63,18 +65,22 @@ object ConvoyTileDownloader {
         repeat(2) { attempt ->
             if (!coroutineContext.isActive) return false
             try {
-                val request = Request.Builder().url(url).build()
-                val response = client.newCall(request).execute()
-                if (response.isSuccessful) {
-                    response.body?.bytes()?.let { bytes ->
-                        dest.writeBytes(bytes)
-                        return true
+                val success = withContext(Dispatchers.IO) {
+                    val request = Request.Builder().url(url).build()
+                    val response = client.newCall(request).execute()
+                    if (response.isSuccessful) {
+                        response.body?.bytes()?.let { bytes ->
+                            dest.writeBytes(bytes)
+                            true
+                        } ?: false
+                    } else {
+                        response.close()
+                        false
                     }
                 }
-                response.close()
+                if (success) return true
             } catch (e: Exception) {
                 if (attempt == 1) return false
-                // Brief pause before retry
                 kotlinx.coroutines.delay(500)
             }
         }

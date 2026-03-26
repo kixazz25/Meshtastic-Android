@@ -268,7 +268,11 @@ fun ConvoyScreen(
                     }
                 },
                 confirmButton = {
-                    TextButton(onClick = { viewModel.startDownload(context, pending) }) {
+                    TextButton(onClick = {
+                        viewModel.startDownload(context, pending)
+                        coroutineScope.launch { convoyMenuSheetState.hide() }
+                        android.widget.Toast.makeText(context, "Downloading map tiles — keep app open", android.widget.Toast.LENGTH_LONG).show()
+                    }) {
                         Text("DOWNLOAD")
                     }
                 },
@@ -322,6 +326,15 @@ fun ConvoyScreen(
             }
         )
     }
+    LaunchedEffect(downloadState) {
+        if (downloadState is ConvoyViewModel.DownloadState.Complete) {
+            val summary = (downloadState as ConvoyViewModel.DownloadState.Complete).summary
+            android.widget.Toast.makeText(context, "Map download complete — ${summary.downloaded} tiles", android.widget.Toast.LENGTH_LONG).show()
+            val localUrl = ConvoyConfig.LOCAL_TILE_BASE + ConvoyConfig.ACTIVE_TILE_SOURCE + "/{z}/{x}/{y}.png"
+            webViewRef.value?.evaluateJavascript("setTileUrl('"+localUrl+"')", null)
+        }
+    }
+
     Scaffold { innerPadding ->
     Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
 
@@ -759,6 +772,24 @@ fun ConvoyScreen(
         }
 
         // ── Button bar ────────────────────────────────────────────────────
+        if (downloadState is ConvoyViewModel.DownloadState.Downloading) {
+            val ds = downloadState as ConvoyViewModel.DownloadState.Downloading
+            Surface(
+                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 56.dp).padding(horizontal = 16.dp),
+                shape = RoundedCornerShape(20.dp),
+                color = Color(0xE6131820),
+                shadowElevation = 4.dp
+            ) {
+                androidx.compose.foundation.layout.Row(
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    androidx.compose.material3.CircularProgressIndicator(modifier = Modifier.size(12.dp), color = Color(0xFF1CF0A0), strokeWidth = 2.dp)
+                    Text("⬇ ${ds.downloaded} / ${ds.total} tiles", color = Color(0xFF1CF0A0), fontSize = 11.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
         ConvoyButtonBar(
             hudMode = hudMode,
             onModeChange = { viewModel.setHudMode(it) },
