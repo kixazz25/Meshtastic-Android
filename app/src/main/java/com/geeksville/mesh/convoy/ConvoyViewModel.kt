@@ -684,6 +684,7 @@ class ConvoyViewModel @Inject constructor(
     val pendingDownload: StateFlow<PendingDownload?> = _pendingDownload.asStateFlow()
 
     private var downloadJob: kotlinx.coroutines.Job? = null
+    var downloadStartTime: Long = 0L
 
     fun setPendingDownload(pending: PendingDownload) {
         _pendingDownload.value = pending
@@ -695,6 +696,7 @@ class ConvoyViewModel @Inject constructor(
 
     fun startDownload(context: android.content.Context, pending: PendingDownload) {
         clearPendingDownload()
+        downloadStartTime = System.currentTimeMillis()
         downloadJob = viewModelScope.launch {
             _downloadState.value = DownloadState.Downloading(0, pending.tileCount, 0)
             val tiles = ConvoyTileCalculator.calculateTiles(

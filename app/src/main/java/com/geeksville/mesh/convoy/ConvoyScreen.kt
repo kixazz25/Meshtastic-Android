@@ -793,7 +793,16 @@ fun ConvoyScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     androidx.compose.material3.CircularProgressIndicator(modifier = Modifier.size(12.dp), color = Color(0xFF1CF0A0), strokeWidth = 2.dp)
-                    Text("⬇ ${ds.downloaded} / ${ds.total} tiles", color = Color(0xFF1CF0A0), fontSize = 11.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+                    androidx.compose.foundation.layout.Column {
+                        Text("⬇ ${ds.downloaded} / ${ds.total} tiles", color = Color(0xFF1CF0A0), fontSize = 11.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+                        val elapsedMs = System.currentTimeMillis() - viewModel.downloadStartTime
+                        val rate = if (elapsedMs > 2000 && ds.downloaded > 0) ds.downloaded.toFloat() / (elapsedMs / 1000f) else 0f
+                        if (rate > 0f) {
+                            val remaining = ((ds.total - ds.downloaded) / rate).toInt()
+                            val etaText = if (remaining >= 60) "${remaining / 60}m ${remaining % 60}s" else "${remaining}s"
+                            Text("~$etaText remaining", color = Color(0xFF4A6080), fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                        }
+                    }
                 }
             }
         }
