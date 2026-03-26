@@ -128,6 +128,9 @@ fun ConvoyScreen(
     val convoyMenuSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var mapZoomLevel by remember { mutableStateOf(18f) }
     var isOfflineMode by remember { mutableStateOf(false) }
+    var locationSearchQuery by remember { mutableStateOf("") }
+    var locationSearchResults by remember { mutableStateOf<List<android.location.Address>>(emptyList()) }
+    var locationSearchError by remember { mutableStateOf("") }
     var mapInitialized by remember { mutableStateOf(false) }
     var showRecMenu by viewModel.showRecMenu
 
@@ -668,13 +671,33 @@ fun ConvoyScreen(
                             onValueChange = { mapZoomLevel = it },
                             onValueChangeFinished = {
                                 ConvoyConfig.DOWNLOAD_ZOOM = mapZoomLevel.toInt()
-                                        // TODO: invalidate via JS bridge
                             },
                             valueRange = 16f..19f,
                             steps = 2,
                             modifier = Modifier.fillMaxWidth()
                         )
 
+                        // ── Search fly zoom slider ───────────────────────
+                        var flyZoomLevel by remember { mutableStateOf(ConvoyConfig.SEARCH_FLY_ZOOM.toFloat()) }
+                        var flyRadiusMiles by remember { mutableStateOf(10f) }
+                        Text("FLY RADIUS  ${flyRadiusMiles.toInt()} mi", color = Color(0xFF4A6080), fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                        Slider(
+                            value = flyRadiusMiles,
+                            onValueChange = { flyRadiusMiles = it },
+                            onValueChangeFinished = {
+                                // Convert miles to zoom: 10mi=z10, 5mi=z11, 2mi=z12, 1mi=z13
+                                ConvoyConfig.SEARCH_FLY_ZOOM = when {
+                                    flyRadiusMiles >= 10f -> 10
+                                    flyRadiusMiles >= 7f  -> 11
+                                    flyRadiusMiles >= 4f  -> 12
+                                    flyRadiusMiles >= 2f  -> 13
+                                    else                  -> 14
+                                }
+                            },
+                            valueRange = 1f..10f,
+                            steps = 8,
+                            modifier = Modifier.fillMaxWidth()
+                        )
                         Spacer(Modifier.height(6.dp))
 
                         // ── Online/Offline toggle ────────────────────────
@@ -699,9 +722,127 @@ fun ConvoyScreen(
 
                         Spacer(Modifier.height(6.dp))
 
+                        // ── Search + Download Region ─────────────────────
+                        androidx.compose.material3.OutlinedTextField(
+                            value = locationSearchQuery,
+                            onValueChange = {
+                                locationSearchQuery = it
+                                locationSearchError = ""
+                                locationSearchResults = emptyList()
+                            },
+                            placeholder = { Text("City, park, or region...", fontSize = 9.sp, fontFamily = FontFamily.Monospace, color = Color(0xFF4A6080)) },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            textStyle = androidx.compose.ui.text.TextStyle(fontSize = 10.sp, fontFamily = FontFamily.Monospace, color = Color.White),
+                            colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = Color(0xFF2E75B6),
+                                unfocusedBorderColor = Color(0xFF2A3545),
+                                cursorColor = Color(0xFF2E75B6)
+                            ),
+                            trailingIcon = {
+                                if (locationSearchQuery.isNotBlank()) {
+                                    androidx.compose.material3.IconButton(onClick = {
+                                        locationSearchQuery = ""
+                                        locationSearchResults = emptyList()
+                                        locationSearchError = ""
+                                    }) {
+                                        Text("x", color = Color(0xFF4A6080), fontSize = 10.sp)
+                                    }
+                                }
+                            }
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Surface(
+                            modifier = Modifier.fillMaxWidth().clickable {
+                                if (locationSearchQuery.isBlank()) return@clickable
+                                locationSearchError = ""
+                                locationSearchResults = emptyList()
+                                coroutineScope.launch {
+                                    try {
+                                        val geocoder = android.location.Geocoder(context)
+                                        @Suppress("DEPRECATION")
+                                        val results = geocoder.getFromLocationName(locationSearchQuery, 5)
+                                        if (results.isNullOrEmpty()) {
+                                            locationSearchError = "No results found"
+                                        } else if (results.size == 1) {
+                                            val addr = results[0]
+                                            val extras = addr.extras
+                                            val n = extras?.getDouble("boundingLatMax", 0.0) ?: 0.0
+                                            val s = extras?.getDouble("boundingLatMin", 0.0) ?: 0.0
+                                            val e = extras?.getDouble("boundingLonMax", 0.0) ?: 0.0
+                                            val w = extras?.getDouble("boundingLonMin", 0.0) ?: 0.0
+                                            if (n != 0.0 && s != 0.0) {
+                                                val clat = (n + s) / 2.0
+                                                val clng = (e + w) / 2.0
+                                                webViewRef.value?.evaluateJavascript("setView($clat,$clng,${ConvoyConfig.SEARCH_FLY_ZOOM})", null)
+                                                webViewRef.value?.evaluateJavascript("showAreaBoundary($n,$s,$e,$w)", null)
+                                                webViewRef.value?.evaluateJavascript("showSearchCenter($clat,$clng)", null)
+                                            } else {
+                                                webViewRef.value?.evaluateJavascript("setView(${addr.latitude},${addr.longitude},${ConvoyConfig.SEARCH_FLY_ZOOM})", null)
+                                                webViewRef.value?.evaluateJavascript("showSearchCenter(${addr.latitude},${addr.longitude})", null)
+                                            }
+                                            locationSearchQuery = listOfNotNull(addr.featureName, addr.locality, addr.adminArea).distinct().joinToString(", ")
+                                        } else {
+                                            locationSearchResults = results
+                                        }
+                                    } catch (e: Exception) {
+                                        locationSearchError = "Search unavailable"
+                                    }
+                                }
+                            },
+                            shape = RoundedCornerShape(8.dp),
+                            color = Color(0xFF1A3A5C)
+                        ) {
+                            Text("FIND AREA", color = Color(0xFF2E75B6), fontSize = 9.sp,
+                                fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                modifier = Modifier.padding(vertical = 8.dp))
+                        }
+                        if (locationSearchError.isNotEmpty()) {
+                            Spacer(Modifier.height(2.dp))
+                            Text(locationSearchError, color = Color(0xFFFF4444), fontSize = 9.sp,
+                                fontFamily = FontFamily.Monospace, modifier = Modifier.fillMaxWidth())
+                        }
+                        if (locationSearchResults.isNotEmpty()) {
+                            Spacer(Modifier.height(4.dp))
+                            locationSearchResults.forEach { addr ->
+                                val label = listOfNotNull(addr.featureName, addr.locality, addr.adminArea).distinct().joinToString(", ")
+                                Surface(
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp).clickable {
+                                        val extras = addr.extras
+                                        val n = extras?.getDouble("boundingLatMax", 0.0) ?: 0.0
+                                        val s = extras?.getDouble("boundingLatMin", 0.0) ?: 0.0
+                                        val e = extras?.getDouble("boundingLonMax", 0.0) ?: 0.0
+                                        val w = extras?.getDouble("boundingLonMin", 0.0) ?: 0.0
+                                        if (n != 0.0 && s != 0.0) {
+                                            val clat = (n + s) / 2.0
+                                            val clng = (e + w) / 2.0
+                                            webViewRef.value?.evaluateJavascript("setView($clat,$clng,${ConvoyConfig.SEARCH_FLY_ZOOM})", null)
+                                            webViewRef.value?.evaluateJavascript("showAreaBoundary($n,$s,$e,$w)", null)
+                                            webViewRef.value?.evaluateJavascript("showSearchCenter($clat,$clng)", null)
+                                        } else {
+                                            webViewRef.value?.evaluateJavascript("setView(${addr.latitude},${addr.longitude},${ConvoyConfig.SEARCH_FLY_ZOOM})", null)
+                                            webViewRef.value?.evaluateJavascript("showSearchCenter(${addr.latitude},${addr.longitude})", null)
+                                        }
+                                        locationSearchQuery = label
+                                        locationSearchResults = emptyList()
+                                    },
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = Color(0xFF1E2A3A)
+                                ) {
+                                    Text(label, color = Color(0xFF7A8DA0), fontSize = 9.sp,
+                                        fontFamily = FontFamily.Monospace,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp))
+                                }
+                            }
+                            Spacer(Modifier.height(4.dp))
+                        }
                         // ── Download Region button ───────────────────────
                         Surface(
                             modifier = Modifier.fillMaxWidth().clickable {
+                                locationSearchResults = emptyList()
+                                webViewRef.value?.evaluateJavascript("clearAreaBoundary()", null)
+                                webViewRef.value?.evaluateJavascript("clearSearchCenter()", null)
                                 webViewRef.value?.evaluateJavascript("activateDrawMode()", null)
                             },
                             shape = RoundedCornerShape(8.dp),

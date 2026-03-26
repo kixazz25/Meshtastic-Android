@@ -21,6 +21,7 @@ object ConvoyConfig {
     var LOST_MINUTES = 10f
     var OFF_TRACK_MILES = 0.028f  // 150 feet
     var DOWNLOAD_ZOOM = 18
+    var SEARCH_FLY_ZOOM = 10
     const val DOWNLOAD_ZOOM_MIN = 10
     var TRACK_MULTICOLOR = true
 }
