@@ -256,6 +256,13 @@ fun ConvoyScreen(
                     androidx.compose.foundation.layout.Column(
                         verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(4.dp)
                     ) {
+                        val widthMi = run {
+                            val dLon = Math.toRadians(pending.east - pending.west)
+                            val lat = Math.toRadians((pending.north + pending.south) / 2.0)
+                            3958.8 * Math.acos(Math.sin(lat).let { s -> s * s + Math.cos(lat).let { c -> c * c * Math.cos(dLon) } })
+                        }
+                        val heightMi = 3958.8 * Math.toRadians(pending.north - pending.south)
+                        Text("${"%.1f".format(widthMi)} mi × ${"%.1f".format(heightMi)} mi")
                         Text("${pending.tileCount} tiles — ${"%.1f".format(pending.sizeMB)} MB estimated")
                         Text("Source: ${pending.sourceName.uppercase()}")
                         androidx.compose.foundation.layout.Spacer(
