@@ -20,7 +20,9 @@
     var drawControl = null;
     function setTileUrl(url) {
       if (tileLayer) map.removeLayer(tileLayer);
-      tileLayer = L.tileLayer(url, {maxZoom:19});
+      console.log("TILE URL: " + url);
+      tileLayer = L.tileLayer(url, {maxZoom:18});
+      tileLayer.on("tileerror", function(e) { console.log("TILE ERROR: " + e.tile.src); });
       tileLayer.addTo(map);
     }
 
@@ -60,32 +62,7 @@
       drawnItems.addLayer(rect);
     }
     function setView(lat, lon, zoom) { map.setView([lat, lon], zoom); }
-    var searchCenterMarker = null;
-    var crosshairLines = [];
-    function showCrosshair(lat,lng) {
-      crosshairLines.forEach(function(l){map.removeLayer(l);});
-      crosshairLines = [];
-      var latLine = L.polyline([[lat,-180],[lat,180]], {color:'#4DA6FF',weight:1.5,opacity:0.7,dashArray:'6,4'}).addTo(map);
-      var lngLine = L.polyline([[-90,lng],[90,lng]], {color:'#4DA6FF',weight:1.5,opacity:0.7,dashArray:'6,4'}).addTo(map);
-      crosshairLines.push(latLine, lngLine);
-    }
-    function clearCrosshair() {
-      crosshairLines.forEach(function(l){map.removeLayer(l);});
-      crosshairLines = [];
-    }
-    function showSearchCenter(lat,lng) {
-      if(searchCenterMarker) map.removeLayer(searchCenterMarker);
-      searchCenterMarker = L.marker([lat,lng]).addTo(map).bindPopup(lat.toFixed(5)+", "+lng.toFixed(5)).openPopup();
-      showCrosshair(lat,lng);
-    }
-    function clearSearchCenter() {
-      if(searchCenterMarker) { map.removeLayer(searchCenterMarker); searchCenterMarker=null; }
-      clearCrosshair();
-    }
       function panTo(lat, lon) { map.panTo([lat, lon]); }
-    var areaBoundaryLayer = null;
-    function showAreaBoundary(n,s,e,w) { if(areaBoundaryLayer) map.removeLayer(areaBoundaryLayer); areaBoundaryLayer = L.rectangle([[s,w],[n,e]], {color:"#2E75B6",weight:2,fillOpacity:0.15,dashArray:"6,4"}).addTo(map); }
-    function clearAreaBoundary() { if(areaBoundaryLayer) { map.removeLayer(areaBoundaryLayer); areaBoundaryLayer=null; } }
     function fitBounds(lats, lons) {
       if (!lats.length) return;
       if (lats.length === 1) { map.setView([lats[0], lons[0]], 16); return; }
