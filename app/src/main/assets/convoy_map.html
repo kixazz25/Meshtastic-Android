@@ -61,6 +61,27 @@
       });
       drawnItems.addLayer(rect);
     }
+    var downloadedAreaLayer = null;
+    function showDownloadedAreas(bounds) {
+      if (downloadedAreaLayer) { map.removeLayer(downloadedAreaLayer); }
+      downloadedAreaLayer = L.layerGroup();
+      for (var i = 0; i < bounds.length; i++) {
+        var b = bounds[i];
+        L.rectangle([[b.s, b.w], [b.n, b.e]], {
+          color: 'transparent', weight: 0, fillColor: '#4DA6FF',
+          fillOpacity: 0.22
+        }).addTo(downloadedAreaLayer);
+      }
+      downloadedAreaLayer.addTo(map);
+    }
+    function clearDownloadedAreas() {
+      if (downloadedAreaLayer) { map.removeLayer(downloadedAreaLayer); downloadedAreaLayer = null; }
+    }
+    function getMapBounds() {
+      console.log("GETMAPBOUNDS called");
+      var b = map.getBounds();
+      Android.onMapBoundsReady(b.getNorth(), b.getSouth(), b.getEast(), b.getWest());
+    }
     function setView(lat, lon, zoom) { map.setView([lat, lon], zoom); }
       function panTo(lat, lon) { map.panTo([lat, lon]); }
     function fitBounds(lats, lons) {

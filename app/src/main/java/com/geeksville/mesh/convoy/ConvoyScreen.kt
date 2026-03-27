@@ -443,6 +443,41 @@ fun ConvoyScreen(
                                     viewModel.setPendingDownload(pending)
                                 }
                             }
+                            @android.webkit.JavascriptInterface
+                            fun onMapBoundsReady(north: Double, south: Double, east: Double, west: Double) {
+                                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                    val wv = webViewRef.value ?: return@post
+                                    val tilesDir = java.io.File(context.filesDir, "tiles/SAT/18")
+                                    Thread {
+                                        val bounds = mutableListOf<String>()
+                                        if (tilesDir.exists()) {
+                                            val z = 18
+                                            val n = 1 shl z
+                                            val xMin = ((west + 180.0) / 360.0 * n).toLong() - 1
+                                            val xMax = ((east + 180.0) / 360.0 * n).toLong() + 1
+                                            val yMin = ((1.0 - Math.log(Math.tan(Math.toRadians(north)) + 1.0 / Math.cos(Math.toRadians(north))) / Math.PI) / 2.0 * n).toLong() - 1
+                                            val yMax = ((1.0 - Math.log(Math.tan(Math.toRadians(south)) + 1.0 / Math.cos(Math.toRadians(south))) / Math.PI) / 2.0 * n).toLong() + 1
+                                            tilesDir.listFiles()?.forEach { xDir: java.io.File ->
+                                                val x = xDir.name.toLongOrNull() ?: return@forEach
+                                                if (x < xMin || x > xMax) return@forEach
+                                                xDir.listFiles()?.forEach { yFile: java.io.File ->
+                                                    val y = yFile.name.removeSuffix(".png").toLongOrNull() ?: return@forEach
+                                                    if (y < yMin || y > yMax) return@forEach
+                                                    val tileN = Math.toDegrees(Math.atan(Math.sinh(Math.PI * (1.0 - 2.0 * y / n))))
+                                                    val tileS = Math.toDegrees(Math.atan(Math.sinh(Math.PI * (1.0 - 2.0 * (y + 1) / n))))
+                                                    val tileW = x.toDouble() / n * 360.0 - 180.0
+                                                    val tileE = (x + 1).toDouble() / n * 360.0 - 180.0
+                                                    bounds.add("{\"n\":$tileN,\"s\":$tileS,\"e\":$tileE,\"w\":$tileW}")
+                                                }
+                                            }
+                                        }
+                                        val json = "[${bounds.joinToString(",")}]"
+                                        android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                            wv.evaluateJavascript("showDownloadedAreas($json)", null)
+                                        }
+                                    }.start()
+                                }
+                            }
                         }, "Android")
                     }.also {
                         viewModel.persistentWebView = it
@@ -773,41 +808,7 @@ fun ConvoyScreen(
                         Spacer(Modifier.height(4.dp))
                         Surface(
                             modifier = Modifier.fillMaxWidth().clickable {
-                                if (locationSearchQuery.isBlank()) return@clickable
-                                locationSearchError = ""
-                                locationSearchResults = emptyList()
-                                coroutineScope.launch {
-                                    try {
-                                        val geocoder = android.location.Geocoder(context)
-                                        @Suppress("DEPRECATION")
-                                        val results = geocoder.getFromLocationName(locationSearchQuery, 5)
-                                        if (results.isNullOrEmpty()) {
-                                            locationSearchError = "No results found"
-                                        } else if (results.size == 1) {
-                                            val addr = results[0]
-                                            val extras = addr.extras
-                                            val n = extras?.getDouble("boundingLatMax", 0.0) ?: 0.0
-                                            val s = extras?.getDouble("boundingLatMin", 0.0) ?: 0.0
-                                            val e = extras?.getDouble("boundingLonMax", 0.0) ?: 0.0
-                                            val w = extras?.getDouble("boundingLonMin", 0.0) ?: 0.0
-                                            if (n != 0.0 && s != 0.0) {
-                                                val clat = (n + s) / 2.0
-                                                val clng = (e + w) / 2.0
-                                                webViewRef.value?.evaluateJavascript("setView($clat,$clng,${ConvoyConfig.SEARCH_FLY_ZOOM})", null)
-                                                webViewRef.value?.evaluateJavascript("showAreaBoundary($n,$s,$e,$w)", null)
-                                                webViewRef.value?.evaluateJavascript("showSearchCenter($clat,$clng)", null)
-                                            } else {
-                                                webViewRef.value?.evaluateJavascript("setView(${addr.latitude},${addr.longitude},${ConvoyConfig.SEARCH_FLY_ZOOM})", null)
-                                                webViewRef.value?.evaluateJavascript("showSearchCenter(${addr.latitude},${addr.longitude})", null)
-                                            }
-                                            locationSearchQuery = listOfNotNull(addr.featureName, addr.locality, addr.adminArea).distinct().joinToString(", ")
-                                        } else {
-                                            locationSearchResults = results
-                                        }
-                                    } catch (e: Exception) {
-                                        locationSearchError = "Search unavailable"
-                                    }
-                                }
+                                webViewRef.value?.evaluateJavascript("getMapBounds()", null)
                             },
                             shape = RoundedCornerShape(8.dp),
                             color = Color(0xFF1A3A5C)
@@ -862,12 +863,26 @@ fun ConvoyScreen(
                                 locationSearchResults = emptyList()
                                 webViewRef.value?.evaluateJavascript("clearAreaBoundary()", null)
                                 webViewRef.value?.evaluateJavascript("clearSearchCenter()", null)
+                                webViewRef.value?.evaluateJavascript("clearDownloadedAreas()", null)
                                 webViewRef.value?.evaluateJavascript("activateDrawMode()", null)
                             },
                             shape = RoundedCornerShape(8.dp),
                             color = Color(0xFF2A3545)
                         ) {
                             Text("⬇  DOWNLOAD REGION", color = Color(0xFF7A8DA0), fontSize = 9.sp,
+                                fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                modifier = Modifier.padding(vertical = 8.dp))
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Surface(
+                            modifier = Modifier.fillMaxWidth().clickable {
+                                webViewRef.value?.evaluateJavascript("getMapBounds()", null)
+                            },
+                            shape = RoundedCornerShape(8.dp),
+                            color = Color(0xFF1E2E40)
+                        ) {
+                            Text("⬜  SHOW DOWNLOADED", color = Color(0xFF4DA6FF), fontSize = 9.sp,
                                 fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
                                 textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                                 modifier = Modifier.padding(vertical = 8.dp))
