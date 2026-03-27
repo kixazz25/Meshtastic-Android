@@ -387,6 +387,8 @@ fun ConvoyScreen(
                     android.webkit.WebView(ctx).apply {
                         settings.javaScriptEnabled = true
                         settings.domStorageEnabled = true
+                        settings.allowFileAccessFromFileURLs = true
+                        settings.allowUniversalAccessFromFileURLs = true
                         setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null)
                         webViewClient = object : android.webkit.WebViewClient() {
                             override fun onPageFinished(view: android.webkit.WebView?, url: String?) {
@@ -395,6 +397,22 @@ fun ConvoyScreen(
                                     view.evaluateJavascript("setTileUrl('$tileUrl')", null)
                                 }, 600)
                                 mapReady++
+                            }
+                            override fun shouldInterceptRequest(view: android.webkit.WebView?, request: android.webkit.WebResourceRequest?): android.webkit.WebResourceResponse? {
+                                val url = request?.url?.toString() ?: return super.shouldInterceptRequest(view, request)
+                                if (url.startsWith("convoy://tiles/")) {
+                                    val tilePath = url.removePrefix("convoy://tiles/")
+                                    val file = java.io.File(ctx.filesDir, "tiles/$tilePath")
+                                    android.util.Log.d("ConvoyIntercept", "TILE exists=${file.exists()} path=${file.absolutePath}")
+                                    if (file.exists()) return android.webkit.WebResourceResponse("image/png", "utf-8", file.inputStream())
+                                }
+                                return super.shouldInterceptRequest(view, request)
+                            }
+                        }
+                        webChromeClient = object : android.webkit.WebChromeClient() {
+                            override fun onConsoleMessage(msg: android.webkit.ConsoleMessage): Boolean {
+                                android.util.Log.d("ConvoyJS", "[${msg.messageLevel()}] ${msg.message()} (${msg.sourceId()}:${msg.lineNumber()})")
+                                return true
                             }
                         }
                         loadUrl("file:///android_asset/convoy_map.html")
@@ -711,6 +729,7 @@ fun ConvoyScreen(
                                     isOfflineMode = goOffline
                                     if (goOffline) {
                                         val localUrl = ConvoyConfig.LOCAL_TILE_BASE + ConvoyConfig.ACTIVE_TILE_SOURCE + "/{z}/{x}/{y}.png"
+                                        android.util.Log.i("ConvoyOffline", "Switching to local URL: $localUrl")
                                         webViewRef.value?.evaluateJavascript("setTileUrl('"+localUrl+"')", null)
                                     } else {
                                         val onlineUrl = ConvoyConfig.TILE_SOURCES[ConvoyConfig.ACTIVE_TILE_SOURCE] ?: ""

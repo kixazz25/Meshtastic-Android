@@ -8,7 +8,7 @@ object ConvoyConfig {
         "RD" to "https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png"
     )
     var ACTIVE_TILE_SOURCE = "SAT"
-    const val LOCAL_TILE_BASE = "file:///data/user/0/com.geeksville.mesh.google.debug/files/tiles/" 
+    const val LOCAL_TILE_BASE = "convoy://tiles/" 
     const val MAP_GROUP_ZOOM_PADDING = 1.4f
     const val MAP_CART_ZOOM = 18.0
     const val MAP_MIN_ZOOM = 16.0
