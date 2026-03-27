@@ -661,7 +661,13 @@ fun ConvoyScreen(
                 Column(modifier = Modifier.padding(8.dp).width(200.dp).verticalScroll(rememberScrollState())) {
                     // Header row — always visible, tap to expand/collapse
                     Row(
-                        modifier = Modifier.fillMaxWidth().clickable { showMapSettings = !showMapSettings },
+                        modifier = Modifier.fillMaxWidth().clickable {
+                            if (showMapSettings) {
+                                webViewRef.value?.evaluateJavascript("clearSearchCenter()", null)
+                                webViewRef.value?.evaluateJavascript("clearAreaBoundary()", null)
+                            }
+                            showMapSettings = !showMapSettings
+                        },
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
@@ -809,7 +815,26 @@ fun ConvoyScreen(
                         Spacer(Modifier.height(4.dp))
                         Surface(
                             modifier = Modifier.fillMaxWidth().clickable {
-                                webViewRef.value?.evaluateJavascript("getMapBounds()", null)
+                                if (locationSearchQuery.isBlank()) return@clickable
+                                locationSearchError = ""
+                                locationSearchResults = emptyList()
+                                Thread {
+                                    try {
+                                        val gc = android.location.Geocoder(context, java.util.Locale.getDefault())
+                                        val results = gc.getFromLocationName(locationSearchQuery, 5)
+                                        android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                            if (results.isNullOrEmpty()) {
+                                                locationSearchError = "No results — try adding state (e.g. Zion UT)"
+                                            } else {
+                                                locationSearchResults = results
+                                            }
+                                        }
+                                    } catch (e: Exception) {
+                                        android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                            locationSearchError = "Search failed: ${e.message}"
+                                        }
+                                    }
+                                }.start()
                             },
                             shape = RoundedCornerShape(8.dp),
                             color = Color(0xFF1A3A5C)
@@ -862,8 +887,6 @@ fun ConvoyScreen(
                         Surface(
                             modifier = Modifier.fillMaxWidth().clickable {
                                 locationSearchResults = emptyList()
-                                webViewRef.value?.evaluateJavascript("clearAreaBoundary()", null)
-                                webViewRef.value?.evaluateJavascript("clearSearchCenter()", null)
                                 webViewRef.value?.evaluateJavascript("activateDrawMode()", null)
                             },
                             shape = RoundedCornerShape(8.dp),
@@ -881,8 +904,30 @@ fun ConvoyScreen(
                                     showDownloaded = false
                                     webViewRef.value?.evaluateJavascript("clearDownloadedAreas()", null)
                                 } else {
-                                    showDownloaded = true
-                                    webViewRef.value?.evaluateJavascript("getMapBounds()", null)
+                                    val wv = webViewRef.value ?: return@clickable
+                                    val tilesDir = java.io.File(context.filesDir, "tiles/SAT/14")
+                                    Thread {
+                                        val bounds = mutableListOf<String>()
+                                        if (tilesDir.exists()) {
+                                            val z = 14; val n = 1 shl z
+                                            tilesDir.listFiles()?.forEach { xDir: java.io.File ->
+                                                val x = xDir.name.toLongOrNull() ?: return@forEach
+                                                xDir.listFiles()?.forEach { yFile: java.io.File ->
+                                                    val y = yFile.name.removeSuffix(".png").toLongOrNull() ?: return@forEach
+                                                    val tN = Math.toDegrees(Math.atan(Math.sinh(Math.PI * (1.0 - 2.0 * y / n))))
+                                                    val tS = Math.toDegrees(Math.atan(Math.sinh(Math.PI * (1.0 - 2.0 * (y + 1) / n))))
+                                                    val tW = x.toDouble() / n * 360.0 - 180.0
+                                                    val tE = (x + 1).toDouble() / n * 360.0 - 180.0
+                                                    bounds.add("{\"n\":$tN,\"s\":$tS,\"e\":$tE,\"w\":$tW}")
+                                                }
+                                            }
+                                        }
+                                        val json = "[" + bounds.joinToString(",") + "]"
+                                        android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                            wv.evaluateJavascript("showDownloadedAreas($json)", null)
+                                            showDownloaded = true
+                                        }
+                                    }.start()
                                 }
                             },
                             shape = RoundedCornerShape(8.dp),
