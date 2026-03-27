@@ -128,6 +128,7 @@ fun ConvoyScreen(
     val convoyMenuSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var mapZoomLevel by remember { mutableStateOf(18f) }
     var isOfflineMode by remember { mutableStateOf(false) }
+    var showDownloaded by remember { mutableStateOf(false) }
     var locationSearchQuery by remember { mutableStateOf("") }
     var locationSearchResults by remember { mutableStateOf<List<android.location.Address>>(emptyList()) }
     var locationSearchError by remember { mutableStateOf("") }
@@ -863,7 +864,6 @@ fun ConvoyScreen(
                                 locationSearchResults = emptyList()
                                 webViewRef.value?.evaluateJavascript("clearAreaBoundary()", null)
                                 webViewRef.value?.evaluateJavascript("clearSearchCenter()", null)
-                                webViewRef.value?.evaluateJavascript("clearDownloadedAreas()", null)
                                 webViewRef.value?.evaluateJavascript("activateDrawMode()", null)
                             },
                             shape = RoundedCornerShape(8.dp),
@@ -877,12 +877,21 @@ fun ConvoyScreen(
                         Spacer(modifier = Modifier.height(4.dp))
                         Surface(
                             modifier = Modifier.fillMaxWidth().clickable {
-                                webViewRef.value?.evaluateJavascript("getMapBounds()", null)
+                                if (showDownloaded) {
+                                    showDownloaded = false
+                                    webViewRef.value?.evaluateJavascript("clearDownloadedAreas()", null)
+                                } else {
+                                    showDownloaded = true
+                                    webViewRef.value?.evaluateJavascript("getMapBounds()", null)
+                                }
                             },
                             shape = RoundedCornerShape(8.dp),
-                            color = Color(0xFF1E2E40)
+                            color = if (showDownloaded) Color(0xFF1A3A2A) else Color(0xFF1E2E40)
                         ) {
-                            Text("⬜  SHOW DOWNLOADED", color = Color(0xFF4DA6FF), fontSize = 9.sp,
+                            Text(
+                                if (showDownloaded) "✅  HIDE DOWNLOADED" else "⬜  SHOW DOWNLOADED",
+                                color = if (showDownloaded) Color(0xFF4AE09A) else Color(0xFF4DA6FF),
+                                fontSize = 9.sp,
                                 fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
                                 textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                                 modifier = Modifier.padding(vertical = 8.dp))

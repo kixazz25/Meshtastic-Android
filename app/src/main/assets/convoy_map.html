@@ -82,6 +82,24 @@
       var b = map.getBounds();
       Android.onMapBoundsReady(b.getNorth(), b.getSouth(), b.getEast(), b.getWest());
     }
+    var searchCenterMarker = null;
+    var crosshairLines = [];
+    function showSearchCenter(lat, lng) {
+      if (searchCenterMarker) map.removeLayer(searchCenterMarker);
+      searchCenterMarker = L.circleMarker([lat, lng], {
+        radius: 6, color: '#FF6B35', fillColor: '#FF6B35', fillOpacity: 1, weight: 2
+      }).addTo(map);
+      crosshairLines.forEach(function(l) { map.removeLayer(l); });
+      crosshairLines = [];
+      var latLine = L.polyline([[lat, -180], [lat, 180]], {color: '#4DA6FF', weight: 1.5, opacity: 0.7, dashArray: '6,4'}).addTo(map);
+      var lngLine = L.polyline([[-90, lng], [90, lng]], {color: '#4DA6FF', weight: 1.5, opacity: 0.7, dashArray: '6,4'}).addTo(map);
+      crosshairLines.push(latLine, lngLine);
+    }
+    function clearSearchCenter() {
+      if (searchCenterMarker) { map.removeLayer(searchCenterMarker); searchCenterMarker = null; }
+      crosshairLines.forEach(function(l) { map.removeLayer(l); });
+      crosshairLines = [];
+    }
     function setView(lat, lon, zoom) { map.setView([lat, lon], zoom); }
       function panTo(lat, lon) { map.panTo([lat, lon]); }
     function fitBounds(lats, lons) {
