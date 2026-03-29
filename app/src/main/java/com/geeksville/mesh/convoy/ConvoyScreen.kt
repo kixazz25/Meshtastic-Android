@@ -172,7 +172,7 @@ fun ConvoyScreen(
             initialViewSet.value = true
         }
     }
-    LaunchedEffect(hudMode, selectedNode, mapReady, convoyState, autoPan) {
+    LaunchedEffect(hudMode, selectedNode, mapReady, autoPan) {
         val wv = webViewRef.value ?: return@LaunchedEffect
         if (!autoPan) return@LaunchedEffect
         val nodes = convoyState.nodes
@@ -873,6 +873,7 @@ fun ConvoyScreen(
                                             webViewRef.value?.evaluateJavascript("setView(${addr.latitude},${addr.longitude},${ConvoyConfig.SEARCH_FLY_ZOOM})", null)
                                             webViewRef.value?.evaluateJavascript("showSearchCenter(${addr.latitude},${addr.longitude})", null)
                                         }
+                                        autoPan = false
                                         locationSearchQuery = label
                                         locationSearchResults = emptyList()
                                     },
