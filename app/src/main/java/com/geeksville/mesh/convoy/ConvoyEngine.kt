@@ -30,13 +30,14 @@ object ConvoyEngine {
     fun compute(
         nodes: List<ConvoyNode>,
         myCartId: String = "",
-        nowMs: Long = System.currentTimeMillis()
+        nowMs: Long = System.currentTimeMillis(),
+        explicitLeadId: String? = null
     ): ConvoyState {
         if (nodes.isEmpty()) return ConvoyState.empty()
         val withStatus = nodes.map { it.copy(status = computeStatus(it, nowMs)) }
         val heading = computeHeading(withStatus)
         val sorted = computeSortPositions(withStatus, heading)
-        val withRoles = assignLeadTail(sorted)
+        val withRoles = assignLeadTail(sorted, explicitLeadId)
         val lead = withRoles.firstOrNull { it.isLead }
         val tail = withRoles.firstOrNull { it.isTail }
         val span = computeSpan(lead, tail)
@@ -86,10 +87,12 @@ object ConvoyEngine {
         return all.mapIndexed { i, node -> node.copy(convoyPosition = i + 1) }
     }
 
-    fun assignLeadTail(nodes: List<ConvoyNode>): List<ConvoyNode> {
+    fun assignLeadTail(nodes: List<ConvoyNode>, explicitLeadId: String? = null): List<ConvoyNode> {
         val active = nodes.filter { it.status == ConvoyStatus.ACTIVE }
         if (active.isEmpty()) return nodes
-        val leadNode = active.minByOrNull { it.convoyPosition }
+        val leadNode = if (explicitLeadId != null)
+            active.firstOrNull { it.nodeId == explicitLeadId } ?: active.minByOrNull { it.convoyPosition }
+        else active.minByOrNull { it.convoyPosition }
         val tailNode = active.maxByOrNull { it.convoyPosition }
         return nodes.map { node ->
             node.copy(

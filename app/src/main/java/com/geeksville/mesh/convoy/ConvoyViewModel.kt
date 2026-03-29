@@ -83,6 +83,15 @@ class ConvoyViewModel @Inject constructor(
     private val _trackActive = MutableStateFlow(false)
     val trackActive: StateFlow<Boolean> = _trackActive.asStateFlow()
 
+    // ── Lead lock state ──────────────────────────────────────────────────
+    private var explicitLeadId: String? = null
+    private var _leadLockedFlag: Boolean = false
+    private var leadLockDistanceAccum: Float = 0f
+    private var lastLeadLockLat: Double? = null
+    private var lastLeadLockLon: Double? = null
+    private val _leadLocked = MutableStateFlow(false)
+    val leadLocked: StateFlow<Boolean> = _leadLocked.asStateFlow()
+
     private val _trackLeadOnly = MutableStateFlow(true)
     val trackLeadOnly: StateFlow<Boolean> = _trackLeadOnly.asStateFlow()
 
@@ -91,10 +100,32 @@ class ConvoyViewModel @Inject constructor(
         _leadTrackSegments.value = emptyList()
         _gpsTrailSegments.value = emptyList()
         _trackActive.value = true
+        explicitLeadId = null
+        _leadLockedFlag = false
+        leadLockDistanceAccum = 0f
+        lastLeadLockLat = null
+        lastLeadLockLon = null
+        _leadLocked.value = false
     }
 
     fun stopGroupTrack() {
         _trackActive.value = false
+    }
+
+    // ── Lead lock overrides ──────────────────────────────────────────────
+    fun setExplicitLead(nodeId: String) {
+        explicitLeadId = nodeId
+        _leadLockedFlag = true
+        _leadLocked.value = true
+    }
+
+    fun recalcLead() {
+        explicitLeadId = null
+        _leadLockedFlag = false
+        leadLockDistanceAccum = 0f
+        lastLeadLockLat = null
+        lastLeadLockLon = null
+        _leadLocked.value = false
     }
 
     fun toggleLeadOnly() {
@@ -510,6 +541,16 @@ class ConvoyViewModel @Inject constructor(
         return (Math.sqrt(dlat * dlat + dlon * dlon) * 69.0).toFloat()
     }
 
+    private fun haversineMiles(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Float {
+        val R = 3958.8
+        val dLat = Math.toRadians(lat2 - lat1)
+        val dLon = Math.toRadians(lon2 - lon1)
+        val a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) *
+                Math.sin(dLon/2) * Math.sin(dLon/2)
+        return (R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))).toFloat()
+    }
+
     private fun tick() { try {
         val nowMs = System.currentTimeMillis()
         val nodes: List<ConvoyNode> = if (_simulationMode.value) {
@@ -520,9 +561,31 @@ class ConvoyViewModel @Inject constructor(
         val state = ConvoyEngine.compute(
             nodes = nodes,
             myCartId = resolveMyCartId(),
-            nowMs = nowMs
+            nowMs = nowMs,
+            explicitLeadId = if (_leadLockedFlag) explicitLeadId else null
         )
         _convoyState.value = state
+
+        // ── Lead lock — accumulate my cart distance, lock after 1/4 mile ────
+        if (_trackActive.value && !_leadLockedFlag) {
+            val myCart = state.nodes.firstOrNull { it.isMyCart }
+            if (myCart != null && myCart.latitude != 0.0 && myCart.longitude != 0.0) {
+                val prevLat = lastLeadLockLat
+                val prevLon = lastLeadLockLon
+                if (prevLat != null && prevLon != null) {
+                    val delta = haversineMiles(prevLat, prevLon, myCart.latitude, myCart.longitude)
+                    if (delta > 0f) leadLockDistanceAccum += delta
+                    if (leadLockDistanceAccum >= ConvoyConfig.LEAD_LOCK_DISTANCE_MILES) {
+                        explicitLeadId = state.lead?.nodeId
+                        _leadLockedFlag = true
+                        _leadLocked.value = true
+                    }
+                }
+                lastLeadLockLat = myCart.latitude
+                lastLeadLockLon = myCart.longitude
+            }
+        }
+
         // Accumulate route trail — lead only or all carts
         if (_trackLeadOnly.value) {
             val leadNode = state.lead

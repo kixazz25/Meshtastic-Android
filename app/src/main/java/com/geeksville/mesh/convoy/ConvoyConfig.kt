@@ -20,6 +20,7 @@ object ConvoyConfig {
     var SIGNAL_DROP_MINUTES = 2f
     var LOST_MINUTES = 10f
     var OFF_TRACK_MILES = 0.028f  // 150 feet
+    var LEAD_LOCK_DISTANCE_MILES = 0.25f  // Lock lead after 1/4 mile of movement
     var DOWNLOAD_ZOOM = 18
     var SEARCH_FLY_ZOOM = 10
     const val DOWNLOAD_ZOOM_MIN = 10
