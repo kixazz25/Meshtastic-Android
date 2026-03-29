@@ -129,6 +129,7 @@ fun ConvoyScreen(
     var mapZoomLevel by remember { mutableStateOf(18f) }
     var isOfflineMode by remember { mutableStateOf(false) }
     var showDownloaded by remember { mutableStateOf(false) }
+    var autoPan by remember { mutableStateOf(true) }
     var locationSearchQuery by remember { mutableStateOf("") }
     var locationSearchResults by remember { mutableStateOf<List<android.location.Address>>(emptyList()) }
     var locationSearchError by remember { mutableStateOf("") }
@@ -171,8 +172,9 @@ fun ConvoyScreen(
             initialViewSet.value = true
         }
     }
-    LaunchedEffect(hudMode, selectedNode, mapReady) {
+    LaunchedEffect(hudMode, selectedNode, mapReady, convoyState, autoPan) {
         val wv = webViewRef.value ?: return@LaunchedEffect
+        if (!autoPan) return@LaunchedEffect
         val nodes = convoyState.nodes
         when (hudMode) {
             HudMode.MY_CART -> {
@@ -492,6 +494,7 @@ fun ConvoyScreen(
                     android.view.View.VISIBLE else android.view.View.GONE
                 view.setOnTouchListener { v, event ->
                     if (event.action == android.view.MotionEvent.ACTION_UP) {
+                    if (event.action == android.view.MotionEvent.ACTION_MOVE) { autoPan = false }
                         val x = event.x.toInt()
                         val y = event.y.toInt()
                         android.util.Log.i("ConvoyTap", "Touch UP at x=$x y=$y")
@@ -1052,7 +1055,7 @@ fun ConvoyScreen(
         }
         ConvoyButtonBar(
             hudMode = hudMode,
-            onModeChange = { viewModel.setHudMode(it) },
+            onModeChange = { viewModel.setHudMode(it); autoPan = true },
             onNavigateToSettings = onNavigateToSettings,
             modifier = Modifier.align(Alignment.BottomCenter)
         )
