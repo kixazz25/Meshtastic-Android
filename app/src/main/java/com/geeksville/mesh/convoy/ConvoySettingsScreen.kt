@@ -193,7 +193,7 @@ fun ConvoySettingsScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column {
-                    Text("Track Export Format", style = MaterialTheme.typography.bodyLarge)
+                    Text("Track Recording Format  KML / GPX", style = MaterialTheme.typography.bodyLarge)
                     Text(
                         text = if (trackExportGpx) "GPX — Garmin, Strava, AllTrails" else "KML — Google Earth",
                         style = MaterialTheme.typography.bodySmall,
@@ -212,6 +212,48 @@ fun ConvoySettingsScreen(
             Spacer(Modifier.height(8.dp))
 
             // ── Removed Carts ─────────────────────────────────────────────
+            SectionLabel("Lead Lock")
+            val isLeadLocked by convoyViewModel.leadLocked.collectAsStateWithLifecycle()
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Lead Status", style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        text = if (isLeadLocked) "LOCKED — lead cart fixed for this ride" else "FREE — accumulating distance to lock",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (isLeadLocked) androidx.compose.ui.graphics.Color(0xFF00AA44) else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            HorizontalDivider()
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Recalculate Lead", style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        text = "Unlocks current lead. Algorithm runs freely for 1/4 mile then re-locks.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                androidx.compose.material3.Button(
+                    onClick = { convoyViewModel.recalcLead() },
+                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                        containerColor = androidx.compose.ui.graphics.Color(0xFF2E75B6)
+                    )
+                ) {
+                    Text("RECALC LEAD")
+                }
+            }
+            HorizontalDivider()
+            Spacer(Modifier.height(8.dp))
+
             SectionLabel("Removed Carts")
 
             if (uiState.removedCarts.isEmpty()) {
