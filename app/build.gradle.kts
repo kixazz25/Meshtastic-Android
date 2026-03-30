@@ -276,6 +276,7 @@ dependencies {
     debugImplementation(libs.androidx.glance.preview)
 
     googleImplementation(libs.location.services)
+    googleImplementation(libs.play.services.auth)
     googleImplementation(libs.play.services.maps)
 
     fdroidImplementation(libs.osmdroid.android)

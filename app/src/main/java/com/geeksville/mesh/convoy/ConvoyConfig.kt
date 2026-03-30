@@ -21,6 +21,8 @@ object ConvoyConfig {
     var LOST_MINUTES = 10f
     var OFF_TRACK_MILES = 0.028f  // 150 feet
     var LEAD_LOCK_DISTANCE_MILES = 0.25f  // Lock lead after 1/4 mile of movement
+    const val API_BASE_URL = "http://34.224.89.217/"  // V3.0 backend
+    const val IS_STANDALONE_BUILD = true  // true = beta APK, false = Google Play build
     var TRACK_EXPORT_FORMAT = "GPX"  // GPX = default (Garmin/Strava/AllTrails), KML = Google Earth/route donation
     var DOWNLOAD_ZOOM = 18
     var SEARCH_FLY_ZOOM = 10
