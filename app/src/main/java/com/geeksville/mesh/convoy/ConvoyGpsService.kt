@@ -196,7 +196,8 @@ class ConvoyGpsService : Service() {
         return try {
             val sdf = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US)
             val safeName = trackName.trim().replace(Regex("[^a-zA-Z0-9_\\- ]"), "").replace(" ", "_")
-            val finalName = "${safeName}_${sdf.format(Date())}.kml"
+            val ext = if (ConvoyConfig.TRACK_EXPORT_FORMAT.uppercase() == "GPX") "gpx" else "kml"
+            val finalName = "${safeName}_${sdf.format(Date())}.$ext"
             val finalFile = File(tempFile.parent, finalName)
             val success = tempFile.renameTo(finalFile)
             if (success) {
@@ -305,6 +306,55 @@ class ConvoyGpsService : Service() {
             Log.e(TAG, "KML close error: ${e.message}")
         }
         kmlWriter = null
+    }
+
+    // ── GPX ───────────────────────────────────────────────────────────────────
+    private var gpxWriter: java.io.BufferedWriter? = null
+
+    private fun createTempGpxFile(): java.io.File {
+        val dir = java.io.File(
+            android.os.Environment.getExternalStoragePublicDirectory(
+                android.os.Environment.DIRECTORY_DOCUMENTS
+            ), "my_tracks"
+        )
+        if (!dir.exists()) dir.mkdirs()
+        val sdf = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.US)
+        return java.io.File(dir, "convoy_track_temp_${sdf.format(java.util.Date())}.gpx")
+    }
+
+    private fun openGpxWriter(file: java.io.File) {
+        try {
+            val writer = java.io.BufferedWriter(java.io.FileWriter(file))
+            gpxWriter = writer
+            writer.write("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")
+            writer.write("<gpx version=\"1.1\" creator=\"GroupTrack\"\n")
+            writer.write("  xmlns=\"http://www.topografix.com/GPX/1/1\">\n")
+            writer.write("<trk><name>Convoy Track</name><trkseg>\n")
+            writer.flush()
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to open GPX writer: ${e.message}")
+        }
+    }
+
+    private fun writeGpxPoint(lat: Double, lon: Double, alt: Double) {
+        try {
+            val ts = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", java.util.Locale.US).format(java.util.Date())
+            gpxWriter?.write("<trkpt lat=\"$lat\" lon=\"$lon\"><ele>$alt</ele><time>$ts</time></trkpt>\n")
+            gpxWriter?.flush()
+        } catch (e: Exception) {
+            Log.e(TAG, "GPX write error: ${e.message}")
+        }
+    }
+
+    private fun closeGpx() {
+        try {
+            gpxWriter?.write("</trkseg></trk>\n</gpx>\n")
+            gpxWriter?.flush()
+            gpxWriter?.close()
+        } catch (e: Exception) {
+            Log.e(TAG, "GPX close error: ${e.message}")
+        }
+        gpxWriter = null
     }
 
     // ── Wake Lock ─────────────────────────────────────────────────────────────
