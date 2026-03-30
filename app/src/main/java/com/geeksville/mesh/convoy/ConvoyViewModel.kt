@@ -32,6 +32,18 @@ enum class HudMode {
 }
 
 /**
+ * RideState — three operating modes controlling map display, survey, and track donation.
+ * SOLO:      node count <= 1, no ride loaded. GPS trail only. No survey. No DB impact.
+ * CONVOY:    node count > 1, no ride loaded. Ad hoc group ride. No survey. No DB impact.
+ * ORGANIZED: ride loaded (channel name + date match). Full V3.0 experience.
+ */
+enum class RideState {
+    SOLO,       // No radio or no other nodes — personal GPS mapping mode
+    CONVOY,     // Ad hoc group ride — mesh active, no formal ride record
+    ORGANIZED   // Formal ride loaded — survey on STOP, track donation, full DB impact
+}
+
+/**
  * ConvoyViewModel — IMP-001 Tasks 3.2 + 4.1
  *
  * Drives the convoy tick loop every 5 seconds.
@@ -56,6 +68,11 @@ class ConvoyViewModel @Inject constructor(
 
     private val _convoyState = MutableStateFlow(ConvoyEngine.ConvoyState.empty())
     val convoyState: StateFlow<ConvoyEngine.ConvoyState> = _convoyState.asStateFlow()
+    // V3 Phase A — RideState and active ride
+    private val _rideState = MutableStateFlow(RideState.SOLO)
+    val rideState: StateFlow<RideState> = _rideState.asStateFlow()
+    private val _activeRide = MutableStateFlow<ConvoyEventConfig?>(null)
+    val activeRide: StateFlow<ConvoyEventConfig?> = _activeRide.asStateFlow()
 
     private val _myNodeInfo = MutableStateFlow<MyNodeInfo?>(null)
     val myNodeInfo: StateFlow<MyNodeInfo?> = _myNodeInfo.asStateFlow()
