@@ -185,6 +185,30 @@ fun ConvoySettingsScreen(
                 )
             }
             HorizontalDivider()
+
+            var trackExportGpx by remember { mutableStateOf(ConvoyConfig.TRACK_EXPORT_FORMAT.uppercase() == "GPX") }
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text("Track Export Format", style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        text = if (trackExportGpx) "GPX — Garmin, Strava, AllTrails" else "KML — Google Earth",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = trackExportGpx,
+                    onCheckedChange = {
+                        trackExportGpx = it
+                        ConvoyConfig.TRACK_EXPORT_FORMAT = if (it) "GPX" else "KML"
+                    }
+                )
+            }
+            HorizontalDivider()
             Spacer(Modifier.height(8.dp))
 
             // ── Removed Carts ─────────────────────────────────────────────
