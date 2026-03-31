@@ -110,36 +110,30 @@ class ConvoyViewModel @Inject constructor(
 
     private val _trackLeadOnly = MutableStateFlow(true)
     val trackLeadOnly: StateFlow<Boolean> = _trackLeadOnly.asStateFlow()
+    // ── Map display state — persists across recomposition ────────────────
+    private val _isOfflineMode = MutableStateFlow(false)
+    val isOfflineMode: StateFlow<Boolean> = _isOfflineMode.asStateFlow()
+    fun setOfflineMode(offline: Boolean) { _isOfflineMode.value = offline }
+    private val _mapTypeLabel = MutableStateFlow("SAT")
+    val mapTypeLabel: StateFlow<String> = _mapTypeLabel.asStateFlow()
+    fun setMapTypeLabel(label: String) { _mapTypeLabel.value = label }
+    private val _isLocalTiles = MutableStateFlow(false)
+    val isLocalTiles: StateFlow<Boolean> = _isLocalTiles.asStateFlow()
+    fun setLocalTiles(local: Boolean) { _isLocalTiles.value = local }
 
     fun startGroupTrack() {
         _routeTrailSegments.value = emptyList()
         _leadTrackSegments.value = emptyList()
         _gpsTrailSegments.value = emptyList()
         _trackActive.value = true
-        _leadLockedFlag = false
-        leadLockDistanceAccum = 0f
-        lastLeadLockLat = null
-        lastLeadLockLon = null
-        _leadLocked.value = false
     }
 
     fun stopGroupTrack() {
         _trackActive.value = false
     }
 
-    // ── Lead lock overrides ──────────────────────────────────────────────
-    fun setExplicitLead(nodeId: String) {
-        _leadLockedFlag = true
-        _leadLocked.value = true
-    }
 
-    fun recalcLead() {
-        _leadLockedFlag = false
-        leadLockDistanceAccum = 0f
-        lastLeadLockLat = null
-        lastLeadLockLon = null
-        _leadLocked.value = false
-    }
+    fun recalcLead() { /* lead determined by callsign on radio */ }
 
     fun toggleLeadOnly() {
         _trackLeadOnly.value = !_trackLeadOnly.value
@@ -575,29 +569,9 @@ class ConvoyViewModel @Inject constructor(
         val state = ConvoyEngine.compute(
             nodes = nodes,
             myCartId = resolveMyCartId(),
-            nowMs = nowMs,
-            leadLocked = _leadLockedFlag
+            nowMs = nowMs
         )
         _convoyState.value = state
-
-        // ── Lead lock — accumulate my cart distance, lock after 1/4 mile ────
-        if (_trackActive.value && !_leadLockedFlag) {
-            val myCart = state.nodes.firstOrNull { it.isMyCart }
-            if (myCart != null && myCart.latitude != 0.0 && myCart.longitude != 0.0) {
-                val prevLat = lastLeadLockLat
-                val prevLon = lastLeadLockLon
-                if (prevLat != null && prevLon != null) {
-                    val delta = haversineMiles(prevLat, prevLon, myCart.latitude, myCart.longitude)
-                    if (delta > 0f) leadLockDistanceAccum += delta
-                    if (leadLockDistanceAccum >= ConvoyConfig.LEAD_LOCK_DISTANCE_MILES) {
-                        _leadLockedFlag = true
-                        _leadLocked.value = true
-                    }
-                }
-                lastLeadLockLat = myCart.latitude
-                lastLeadLockLon = myCart.longitude
-            }
-        }
 
         // Accumulate route trail — lead only or all carts
         if (_trackLeadOnly.value) {
