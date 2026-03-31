@@ -21,7 +21,8 @@
     function setTileUrl(url) {
       if (tileLayer) map.removeLayer(tileLayer);
       console.log("TILE URL: " + url);
-      tileLayer = L.tileLayer(url, {maxZoom:18});
+      var isLocal = url.startsWith("convoy://");
+      tileLayer = L.tileLayer(url, {maxZoom:18, maxNativeZoom:18, crossOrigin:false, tileSize:256});
       tileLayer.on("tileerror", function(e) { console.log("TILE ERROR: " + e.tile.src); });
       tileLayer.addTo(map);
     }

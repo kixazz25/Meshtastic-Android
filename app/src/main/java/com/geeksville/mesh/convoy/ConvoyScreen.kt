@@ -113,8 +113,8 @@ fun ConvoyScreen(
         onDispose { view.keepScreenOn = false }
     }
     var showLayerMenu by remember { mutableStateOf(false) }
-    var mapTypeLabel by remember { mutableStateOf("SAT") }
-    var isLocalTiles by remember { mutableStateOf(false) }
+    val mapTypeLabel by viewModel.mapTypeLabel.collectAsStateWithLifecycle()
+    val isLocalTiles by viewModel.isLocalTiles.collectAsStateWithLifecycle()
     var showMapSettings by remember { mutableStateOf(false) }
     var showConvoyMenu by remember { mutableStateOf(false) }
     val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
@@ -127,7 +127,7 @@ fun ConvoyScreen(
 
     val convoyMenuSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var mapZoomLevel by remember { mutableStateOf(18f) }
-    var isOfflineMode by remember { mutableStateOf(false) }
+    val isOfflineMode by viewModel.isOfflineMode.collectAsStateWithLifecycle()
     var showDownloaded by remember { mutableStateOf(false) }
     var autoPan by remember { mutableStateOf(true) }
     var locationSearchQuery by remember { mutableStateOf("") }
@@ -493,8 +493,10 @@ fun ConvoyScreen(
                 view.visibility = if (viewModel.hasSeenNodes.value)
                     android.view.View.VISIBLE else android.view.View.GONE
                 view.setOnTouchListener { v, event ->
+                    if (event.action == android.view.MotionEvent.ACTION_MOVE ||
+                        event.action == android.view.MotionEvent.ACTION_POINTER_DOWN ||
+                        event.action == android.view.MotionEvent.ACTION_UP) { autoPan = false }
                     if (event.action == android.view.MotionEvent.ACTION_UP) {
-                    if (event.action == android.view.MotionEvent.ACTION_MOVE) { autoPan = false }
                         val x = event.x.toInt()
                         val y = event.y.toInt()
                         android.util.Log.i("ConvoyTap", "Touch UP at x=$x y=$y")
@@ -709,8 +711,8 @@ fun ConvoyScreen(
                             ).forEach { (label, name, url) ->
                                 Surface(
                                     modifier = Modifier.weight(1f).clickable {
-                                        mapTypeLabel = label
-                                        isLocalTiles = false
+                                        viewModel.setMapTypeLabel(label)
+                                        viewModel.setLocalTiles(false)
                                         webViewRef.value?.evaluateJavascript("setTileUrl('$url')", null)
                                     },
                                     shape = RoundedCornerShape(6.dp),
@@ -771,7 +773,7 @@ fun ConvoyScreen(
                             Switch(
                                 checked = isOfflineMode,
                                 onCheckedChange = { goOffline ->
-                                    isOfflineMode = goOffline
+                                    viewModel.setOfflineMode(goOffline)
                                     if (goOffline) {
                                         val localUrl = ConvoyConfig.LOCAL_TILE_BASE + ConvoyConfig.ACTIVE_TILE_SOURCE + "/{z}/{x}/{y}.png"
                                         android.util.Log.i("ConvoyOffline", "Switching to local URL: $localUrl")
