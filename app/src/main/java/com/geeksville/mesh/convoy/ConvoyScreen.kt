@@ -129,7 +129,7 @@ fun ConvoyScreen(
     var mapZoomLevel by remember { mutableStateOf(18f) }
     val isOfflineMode by viewModel.isOfflineMode.collectAsStateWithLifecycle()
     var showDownloaded by remember { mutableStateOf(false) }
-    var autoPan by remember { mutableStateOf(true) }
+    val autoPan by viewModel.autoPan.collectAsStateWithLifecycle()
     var locationSearchQuery by remember { mutableStateOf("") }
     var locationSearchResults by remember { mutableStateOf<List<android.location.Address>>(emptyList()) }
     var locationSearchError by remember { mutableStateOf("") }
@@ -172,7 +172,7 @@ fun ConvoyScreen(
             initialViewSet.value = true
         }
     }
-    LaunchedEffect(hudMode, selectedNode, mapReady, autoPan) {
+    LaunchedEffect(hudMode, selectedNode, mapReady, autoPan, if (autoPan) convoyState else null) {
         val wv = webViewRef.value ?: return@LaunchedEffect
         if (!autoPan) return@LaunchedEffect
         val nodes = convoyState.nodes
@@ -495,7 +495,7 @@ fun ConvoyScreen(
                 view.setOnTouchListener { v, event ->
                     if (event.action == android.view.MotionEvent.ACTION_MOVE ||
                         event.action == android.view.MotionEvent.ACTION_POINTER_DOWN ||
-                        event.action == android.view.MotionEvent.ACTION_UP) { autoPan = false }
+                        event.action == android.view.MotionEvent.ACTION_UP) { viewModel.setAutoPan(false) }
                     if (event.action == android.view.MotionEvent.ACTION_UP) {
                         val x = event.x.toInt()
                         val y = event.y.toInt()
@@ -875,7 +875,7 @@ fun ConvoyScreen(
                                             webViewRef.value?.evaluateJavascript("setView(${addr.latitude},${addr.longitude},${ConvoyConfig.SEARCH_FLY_ZOOM})", null)
                                             webViewRef.value?.evaluateJavascript("showSearchCenter(${addr.latitude},${addr.longitude})", null)
                                         }
-                                        autoPan = false
+                                        viewModel.setAutoPan(false)
                                         locationSearchQuery = label
                                         locationSearchResults = emptyList()
                                     },
@@ -1058,7 +1058,7 @@ fun ConvoyScreen(
         }
         ConvoyButtonBar(
             hudMode = hudMode,
-            onModeChange = { viewModel.setHudMode(it); autoPan = true },
+            onModeChange = { viewModel.setHudMode(it); viewModel.setAutoPan(true) },
             onNavigateToSettings = onNavigateToSettings,
             modifier = Modifier.align(Alignment.BottomCenter)
         )

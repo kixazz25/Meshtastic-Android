@@ -120,6 +120,9 @@ class ConvoyViewModel @Inject constructor(
     private val _isLocalTiles = MutableStateFlow(false)
     val isLocalTiles: StateFlow<Boolean> = _isLocalTiles.asStateFlow()
     fun setLocalTiles(local: Boolean) { _isLocalTiles.value = local }
+    private val _autoPan = MutableStateFlow(true)
+    val autoPan: StateFlow<Boolean> = _autoPan.asStateFlow()
+    fun setAutoPan(pan: Boolean) { _autoPan.value = pan }
 
     fun startGroupTrack() {
         _routeTrailSegments.value = emptyList()
