@@ -31,13 +31,13 @@ object ConvoyEngine {
         nodes: List<ConvoyNode>,
         myCartId: String = "",
         nowMs: Long = System.currentTimeMillis(),
-        explicitLeadId: String? = null
+        leadLocked: Boolean = false
     ): ConvoyState {
         if (nodes.isEmpty()) return ConvoyState.empty()
         val withStatus = nodes.map { it.copy(status = computeStatus(it, nowMs)) }
         val heading = computeHeading(withStatus)
         val sorted = computeSortPositions(withStatus, heading)
-        val withRoles = assignLeadTail(sorted, explicitLeadId)
+        val withRoles = assignLeadTail(sorted, leadLocked)
         val lead = withRoles.firstOrNull { it.isLead }
         val tail = withRoles.firstOrNull { it.isTail }
         val span = computeSpan(lead, tail)
@@ -87,12 +87,16 @@ object ConvoyEngine {
         return all.mapIndexed { i, node -> node.copy(convoyPosition = i + 1) }
     }
 
-    fun assignLeadTail(nodes: List<ConvoyNode>, explicitLeadId: String? = null): List<ConvoyNode> {
+    fun assignLeadTail(nodes: List<ConvoyNode>, leadLocked: Boolean = false): List<ConvoyNode> {
         val active = nodes.filter { it.status == ConvoyStatus.ACTIVE }
         if (active.isEmpty()) return nodes
-        val leadNode = if (explicitLeadId != null)
-            active.firstOrNull { it.nodeId == explicitLeadId } ?: active.minByOrNull { it.convoyPosition }
-        else active.minByOrNull { it.convoyPosition }
+        val leadNode = if (leadLocked)
+            nodes.firstOrNull { it.isLead }                    // locked — keep existing lead, no re-election
+                ?: active.minByOrNull { it.convoyPosition }     // fallback only if no lead yet
+        else
+            active.filter { it.speed_mph > 0.5f }               // must be moving to qualify
+                .minByOrNull { it.convoyPosition }
+                ?: active.minByOrNull { it.convoyPosition }     // fallback if nobody moving
         val tailNode = active.maxByOrNull { it.convoyPosition }
         return nodes.map { node ->
             node.copy(

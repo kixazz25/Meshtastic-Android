@@ -101,7 +101,6 @@ class ConvoyViewModel @Inject constructor(
     val trackActive: StateFlow<Boolean> = _trackActive.asStateFlow()
 
     // ── Lead lock state ──────────────────────────────────────────────────
-    private var explicitLeadId: String? = null
     private var _leadLockedFlag: Boolean = false
     private var leadLockDistanceAccum: Float = 0f
     private var lastLeadLockLat: Double? = null
@@ -117,7 +116,6 @@ class ConvoyViewModel @Inject constructor(
         _leadTrackSegments.value = emptyList()
         _gpsTrailSegments.value = emptyList()
         _trackActive.value = true
-        explicitLeadId = null
         _leadLockedFlag = false
         leadLockDistanceAccum = 0f
         lastLeadLockLat = null
@@ -131,13 +129,11 @@ class ConvoyViewModel @Inject constructor(
 
     // ── Lead lock overrides ──────────────────────────────────────────────
     fun setExplicitLead(nodeId: String) {
-        explicitLeadId = nodeId
         _leadLockedFlag = true
         _leadLocked.value = true
     }
 
     fun recalcLead() {
-        explicitLeadId = null
         _leadLockedFlag = false
         leadLockDistanceAccum = 0f
         lastLeadLockLat = null
@@ -273,6 +269,7 @@ class ConvoyViewModel @Inject constructor(
     val routeTrailSegments: StateFlow<List<ConvoyEngine.LeadTrackSegment>> = _routeTrailSegments.asStateFlow()
     private var lastLeadLat: Double? = null
     private var lastLeadLon: Double? = null
+    private var currentLeadNodeId: String? = null
     private val lastNodePositions = mutableMapOf<String, Pair<Double, Double>>()
 
     // ── Route recorder (REQ-111) ──────────────────────────────────────────
@@ -579,7 +576,7 @@ class ConvoyViewModel @Inject constructor(
             nodes = nodes,
             myCartId = resolveMyCartId(),
             nowMs = nowMs,
-            explicitLeadId = if (_leadLockedFlag) explicitLeadId else null
+            leadLocked = _leadLockedFlag
         )
         _convoyState.value = state
 
@@ -593,7 +590,6 @@ class ConvoyViewModel @Inject constructor(
                     val delta = haversineMiles(prevLat, prevLon, myCart.latitude, myCart.longitude)
                     if (delta > 0f) leadLockDistanceAccum += delta
                     if (leadLockDistanceAccum >= ConvoyConfig.LEAD_LOCK_DISTANCE_MILES) {
-                        explicitLeadId = state.lead?.nodeId
                         _leadLockedFlag = true
                         _leadLocked.value = true
                     }
@@ -607,6 +603,11 @@ class ConvoyViewModel @Inject constructor(
         if (_trackLeadOnly.value) {
             val leadNode = state.lead
             if (leadNode != null) {
+                if (leadNode.nodeId != currentLeadNodeId) {
+                    currentLeadNodeId = leadNode.nodeId
+                    lastLeadLat = null
+                    lastLeadLon = null
+                }
                 val prevLat = lastLeadLat
                 val prevLon = lastLeadLon
                 if (prevLat != null && prevLon != null &&
