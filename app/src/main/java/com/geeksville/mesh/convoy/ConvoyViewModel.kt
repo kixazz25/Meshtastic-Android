@@ -607,6 +607,8 @@ class ConvoyViewModel @Inject constructor(
                     if (leadLockDistanceAccum >= ConvoyConfig.LEAD_LOCK_DISTANCE_MILES) {
                         _leadLockedFlag = true
                         _leadLocked.value = true
+                        val leadName = state.lead?.callsign ?: "Unknown"
+                        android.widget.Toast.makeText(appContext, "$leadName Locked as Lead", android.widget.Toast.LENGTH_SHORT).show()
                     }
                 }
                 lastLeadLockLat = myCart.latitude
