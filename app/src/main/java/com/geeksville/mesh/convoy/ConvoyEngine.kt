@@ -167,7 +167,7 @@ object ConvoyEngine {
         }
     }
 
-    private fun haversineMiles(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Float {
+    fun haversineMiles(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Float {
         val R = 3958.8
         val dLat = Math.toRadians(lat2 - lat1)
         val dLon = Math.toRadians(lon2 - lon1)
