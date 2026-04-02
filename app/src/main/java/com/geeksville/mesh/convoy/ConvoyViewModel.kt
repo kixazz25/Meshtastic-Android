@@ -133,10 +133,29 @@ class ConvoyViewModel @Inject constructor(
 
     fun stopGroupTrack() {
         _trackActive.value = false
+        _leadLockedFlag = false
+        leadLockDistanceAccum = 0f
+        lastLeadLockLat = null
+        lastLeadLockLon = null
+        _leadLocked.value = false
+    }
+    fun recalcLead() {
+        _leadLockedFlag = false
+        leadLockDistanceAccum = 0f
+        lastLeadLockLat = null
+        lastLeadLockLon = null
+        _leadLocked.value = false
     }
 
-
-    fun recalcLead() { /* lead determined by callsign on radio */ }
+    private val _radioInactive = MutableStateFlow(false)
+    val radioInactive: StateFlow<Boolean> = _radioInactive.asStateFlow()
+    private var lastMovementMs: Long = 0L
+    private val RADIO_INACTIVE_TIMEOUT_MS = 5 * 60 * 1000L  // 5 minutes
+    fun reconnectRadio() {
+        _radioInactive.value = false
+        lastMovementMs = System.currentTimeMillis()
+        // TODO Phase B: trigger BT disconnect/reconnect via mesh service
+    }
 
     fun toggleLeadOnly() {
         _trackLeadOnly.value = !_trackLeadOnly.value
@@ -572,9 +591,28 @@ class ConvoyViewModel @Inject constructor(
         val state = ConvoyEngine.compute(
             nodes = nodes,
             myCartId = resolveMyCartId(),
-            nowMs = nowMs
+            nowMs = nowMs,
+            leadLocked = _leadLockedFlag
         )
         _convoyState.value = state
+        // ── Lead lock accumulator ────────────────────────────────────────────────
+        if (_trackActive.value && !_leadLockedFlag) {
+            val myCart = state.nodes.firstOrNull { it.isMyCart }
+            if (myCart != null && myCart.latitude != 0.0 && myCart.longitude != 0.0) {
+                val prevLat = lastLeadLockLat
+                val prevLon = lastLeadLockLon
+                if (prevLat != null && prevLon != null) {
+                    val delta = ConvoyEngine.haversineMiles(prevLat, prevLon, myCart.latitude, myCart.longitude)
+                    if (delta > 0f) leadLockDistanceAccum += delta
+                    if (leadLockDistanceAccum >= ConvoyConfig.LEAD_LOCK_DISTANCE_MILES) {
+                        _leadLockedFlag = true
+                        _leadLocked.value = true
+                    }
+                }
+                lastLeadLockLat = myCart.latitude
+                lastLeadLockLon = myCart.longitude
+            }
+        }
 
         // Accumulate route trail — lead only or all carts
         if (_trackLeadOnly.value) {
