@@ -17,6 +17,7 @@ data class ConvoySettingsUiState(
     val offTrackMiles:        Float              = 0.5f,
     val admissionWindowHours: Int                = 1,
     // Map of nodeId -> callsign for removed carts today
+    val leadLockFeet:         Float               = 330f,
     val removedCarts:         Map<String, String> = emptyMap(),
     val userMessage:          String?             = null
 )
@@ -43,7 +44,7 @@ class ConvoySettingsViewModel @Inject constructor(
                 repository.admissionWindowHours,
                 repository.removedCartsForToday
             ) { drop, lost, offTrack, window, removed ->
-                ConvoySettingsUiState(
+                _uiState.value.copy(
                     signalDropMinutes    = drop,
                     signalLostMinutes    = lost,
                     offTrackMiles        = offTrack,
@@ -51,6 +52,11 @@ class ConvoySettingsViewModel @Inject constructor(
                     removedCarts         = removed
                 )
             }.collect { _uiState.value = it }
+        }
+        viewModelScope.launch {
+            repository.leadLockFeet.collect { feet ->
+                _uiState.update { it.copy(leadLockFeet = feet) }
+            }
         }
     }
 
@@ -66,6 +72,10 @@ class ConvoySettingsViewModel @Inject constructor(
         viewModelScope.launch { repository.setOffTrackMiles(value) }
     }
 
+    fun setLeadLockFeet(value: Float) {
+        viewModelScope.launch { repository.setLeadLockFeet(value) }
+    }
+    val leadLockFeet = repository.leadLockFeet
     fun onAdmissionWindowChanged(value: Int) {
         viewModelScope.launch { repository.setAdmissionWindowHours(value) }
     }

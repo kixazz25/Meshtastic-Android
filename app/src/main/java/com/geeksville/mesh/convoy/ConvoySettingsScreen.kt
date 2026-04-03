@@ -34,6 +34,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -229,6 +231,31 @@ fun ConvoySettingsScreen(
                 }
             }
             HorizontalDivider()
+            // ── Lead Lock Distance Slider ─────────────────────────────
+            val leadLockFeet by viewModel.leadLockFeet.collectAsStateWithLifecycle(330f)
+            val coroutineScope = rememberCoroutineScope()
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Lock Distance", style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    text = "${leadLockFeet.toInt()} ft  (~${(leadLockFeet / 5280f * 60f / (20f / 60f)).toInt()} sec at 20mph)",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = androidx.compose.ui.graphics.Color(0xFF4AB8E8)
+                )
+            }
+            Slider(
+                value = leadLockFeet,
+                onValueChange = { newVal ->
+                    coroutineScope.launch { viewModel.setLeadLockFeet(newVal) }
+                },
+                valueRange = 300f..1500f,
+                steps = 11,
+                modifier = Modifier.padding(horizontal = 16.dp)
+            )
+            HorizontalDivider()
             Row(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -237,7 +264,7 @@ fun ConvoySettingsScreen(
                 Column(modifier = Modifier.weight(1f)) {
                     Text("Recalculate Lead", style = MaterialTheme.typography.bodyLarge)
                     Text(
-                        text = "Unlocks current lead. Algorithm runs freely for 1/4 mile then re-locks.",
+                        text = "Unlocks current lead. Re-locks after distance above is traveled.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

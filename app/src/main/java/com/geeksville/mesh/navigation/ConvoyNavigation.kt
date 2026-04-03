@@ -24,6 +24,12 @@ import com.geeksville.mesh.convoy.ConvoySettingsGate
 import com.geeksville.mesh.convoy.ConvoySettingsPanelScreen
 import com.geeksville.mesh.convoy.ConvoySettingsScreen
 import com.geeksville.mesh.convoy.ConvoyViewModel
+import com.geeksville.mesh.convoy.ConvoySignInScreen
+import com.geeksville.mesh.convoy.ConvoySubscriptionScreen
+import com.geeksville.mesh.convoy.ConvoyDashboardScreen
+import com.geeksville.mesh.convoy.ConvoyFieldRadioScreen
+import com.geeksville.mesh.convoy.isSignedIn
+import com.geeksville.mesh.convoy.isSubscribed
 import org.meshtastic.core.navigation.ConvoyRoutes
 
 fun NavGraphBuilder.convoyGraph(
@@ -193,5 +199,76 @@ fun NavGraphBuilder.convoyGraph(
                 }
             )
         }
+    }
+
+    // ── Sign-In — V3 Phase B ──────────────────────────────────────────────
+    // First launch gate. On success navigates to Dashboard (subscribed)
+    // or Subscription screen (free user).
+    composable<ConvoyRoutes.ConvoySignIn> {
+        val context = androidx.compose.ui.platform.LocalContext.current
+        ConvoySignInScreen(
+            onSignInComplete = {
+                if (isSubscribed(context)) {
+                    navController?.navigate(ConvoyRoutes.ConvoyDashboard) {
+                        popUpTo(ConvoyRoutes.ConvoySignIn) { inclusive = true }
+                    }
+                } else {
+                    navController?.navigate(ConvoyRoutes.ConvoySubscription) {
+                        popUpTo(ConvoyRoutes.ConvoySignIn) { inclusive = true }
+                    }
+                }
+            },
+            onSkip = {
+                navController?.navigate(ConvoyRoutes.Convoy) {
+                    popUpTo(ConvoyRoutes.ConvoySignIn) { inclusive = true }
+                }
+            }
+        )
+    }
+
+    // ── Subscription Value Prop — V3 Phase B ─────────────────────────────
+    // Shown to free users after sign-in or when tapping gated Dashboard button.
+    composable<ConvoyRoutes.ConvoySubscription> {
+        ConvoySubscriptionScreen(
+            onSubscribe = {
+                // Phase C: launch Google Play billing here
+                // For now navigate to Dashboard so flow is testable
+                navController?.navigate(ConvoyRoutes.ConvoyDashboard) {
+                    popUpTo(ConvoyRoutes.ConvoySubscription) { inclusive = true }
+                }
+            },
+            onDismiss = {
+                navController?.navigate(ConvoyRoutes.Convoy) {
+                    popUpTo(ConvoyRoutes.ConvoySubscription) { inclusive = true }
+                }
+            }
+        )
+    }
+
+    // ── Dashboard — V3 Phase B ────────────────────────────────────────────
+    // Internet-required landing screen. Five buttons.
+    // Free users routed here but buttons check subscription on tap.
+    composable<ConvoyRoutes.ConvoyDashboard> {
+        val context = androidx.compose.ui.platform.LocalContext.current
+        ConvoyDashboardScreen(
+            isSubscribed = isSubscribed(context),
+            onNavigateToRides       = { /* PB-07 */ },
+            onNavigateToExplore     = { /* PB future */ },
+            onNavigateToTracks      = { /* PB future */ },
+            onNavigateToProfile     = { /* PB future */ },
+            onNavigateToFieldRadio  = { navController?.navigate(ConvoyRoutes.ConvoyFieldRadio) },
+            onShowSubscription      = { navController?.navigate(ConvoyRoutes.ConvoySubscription) },
+            onBack                  = { navController?.popBackStack() }
+        )
+    }
+
+    // ── Field Radio — V3 Phase B ──────────────────────────────────────────
+    // Always active. No internet needed. Radio config only.
+    composable<ConvoyRoutes.ConvoyFieldRadio> {
+        ConvoyFieldRadioScreen(
+            onNavigateToApplyMaster = { navController?.navigate(ConvoyRoutes.ConvoyApplyRadio) },
+            onNavigateToVerify      = { navController?.navigate(ConvoyRoutes.ConvoyWriteVerify) },
+            onBack                  = { navController?.popBackStack() }
+        )
     }
 }

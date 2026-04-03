@@ -197,4 +197,7 @@ object ConvoyRoutes {
     @Serializable data object ConvoyArchiveRestore  : Route
     @Serializable data object ConvoyTransferRide     : Route
     @Serializable data object ConvoySignIn           : Route  // V3 Phase A
+    @Serializable data object ConvoySubscription      : Route  // V3 Phase B
+    @Serializable data object ConvoyDashboard         : Route  // V3 Phase B
+    @Serializable data object ConvoyFieldRadio        : Route  // V3 Phase B
 }
