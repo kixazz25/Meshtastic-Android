@@ -150,6 +150,7 @@ data class ConvoyMasterConfig(
         private const val TAG          = "ConvoyMasterConfig"
         private const val ASSET_FILE   = "master_config.json"
         private const val DEVICE_FILE  = "master_config.json"
+        private const val CONFIG_VERSION = 2
 
         fun fromJson(obj: JSONObject): ConvoyMasterConfig = ConvoyMasterConfig(
             hardwareModel          = obj.optString("hardwareModel", "Unknown"),
@@ -218,8 +219,14 @@ data class ConvoyMasterConfig(
             // Try device file first
             if (deviceFile.exists()) {
                 return try {
-                    fromJson(JSONObject(deviceFile.readText()))
-                        .also { Log.i(TAG, "Master config loaded from device") }
+                    val json = JSONObject(deviceFile.readText())
+                    val deviceVersion = json.optInt("configVersion", 0)
+                    if (deviceVersion < CONFIG_VERSION) {
+                        Log.i(TAG, "Master config v$deviceVersion < $CONFIG_VERSION, restoring from asset")
+                        restoreFromAsset(context)
+                    } else {
+                        fromJson(json).also { Log.i(TAG, "Master config loaded from device v$deviceVersion") }
+                    }
                 } catch (e: Exception) {
                     Log.w(TAG, "Device master config corrupt, restoring from asset", e)
                     restoreFromAsset(context)
