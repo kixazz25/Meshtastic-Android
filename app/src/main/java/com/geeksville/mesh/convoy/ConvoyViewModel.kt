@@ -33,26 +33,13 @@ enum class HudMode {
 
 /**
  * RideState — three operating modes controlling map display, survey, and track donation.
- * SOLO:      node count <= 1, no ride loaded. GPS trail only. No survey. No DB impact.
- * CONVOY:    node count > 1, no ride loaded. Ad hoc group ride. No survey. No DB impact.
- * ORGANIZED: ride loaded (channel name + date match). Full V3.0 experience.
  */
 enum class RideState {
-    SOLO,       // No radio or no other nodes — personal GPS mapping mode
-    CONVOY,     // Ad hoc group ride — mesh active, no formal ride record
-    ORGANIZED   // Formal ride loaded — survey on STOP, track donation, full DB impact
+    SOLO,
+    CONVOY,
+    ORGANIZED
 }
 
-/**
- * ConvoyViewModel — IMP-001 Tasks 3.2 + 4.1
- *
- * Drives the convoy tick loop every 5 seconds.
- * In simulation mode: reads from ConvoySimulation.
- * In live mode: reads from NodeRepository.nodeDBbyNum (existing Meshtastic data).
- *
- * NO new BLE connections. NO direct radio access.
- * The existing Meshtastic app handles all radio/BLE work.
- */
 @HiltViewModel
 class ConvoyViewModel @Inject constructor(
     @ApplicationContext private val appContext: Context,
@@ -64,53 +51,42 @@ class ConvoyViewModel @Inject constructor(
     private val installProfileUseCase: InstallProfileUseCase,
 ) : ViewModel() {
 
-    // ── Convoy state ──────────────────────────────────────────────────────
-
     private val _convoyState = MutableStateFlow(ConvoyEngine.ConvoyState.empty())
     val convoyState: StateFlow<ConvoyEngine.ConvoyState> = _convoyState.asStateFlow()
-    // V3 Phase A — RideState and active ride
     private val _rideState = MutableStateFlow(RideState.SOLO)
     val rideState: StateFlow<RideState> = _rideState.asStateFlow()
     private val _activeRide = MutableStateFlow<ConvoyEventConfig?>(null)
     val activeRide: StateFlow<ConvoyEventConfig?> = _activeRide.asStateFlow()
-
     private val _myNodeInfo = MutableStateFlow<MyNodeInfo?>(null)
     val myNodeInfo: StateFlow<MyNodeInfo?> = _myNodeInfo.asStateFlow()
-
-    // Our node from NodeRepository — exposes user.long_name
     val ourNodeInfo: StateFlow<org.meshtastic.core.model.Node?> = nodeRepository.ourNodeInfo
-
-    // ── HUD mode ──────────────────────────────────────────────────────────
 
     private val _hudMode = MutableStateFlow(HudMode.GROUP)
     val hudMode: StateFlow<HudMode> = _hudMode.asStateFlow()
-
-    // Pending import banner — set when a new ride is imported from email
     private val _pendingImportBanner = MutableStateFlow<String?>(null)
     val pendingImportBanner: StateFlow<String?> = _pendingImportBanner.asStateFlow()
     fun clearImportBanner() { _pendingImportBanner.value = null }
-
-    /** Node currently shown in NODE detail HUD — set on marker tap */
     private val _selectedNode = MutableStateFlow<ConvoyNode?>(null)
     val selectedNode: StateFlow<ConvoyNode?> = _selectedNode.asStateFlow()
-
     private val _offTrackIds = MutableStateFlow<Set<String>>(emptySet())
     val offTrackIds: StateFlow<Set<String>> = _offTrackIds.asStateFlow()
-
     private val _trackActive = MutableStateFlow(false)
     val trackActive: StateFlow<Boolean> = _trackActive.asStateFlow()
 
     // ── Lead lock state ──────────────────────────────────────────────────
     private var _leadLockedFlag: Boolean = false
-    private var leadLockDistanceAccum: Float = 0f
-    private var lastLeadLockLat: Double? = null
-    private var lastLeadLockLon: Double? = null
+    // Per-node distance accumulators — key = nodeId, value = miles traveled
+    private var nodeDistanceAccum: MutableMap<String, Float> = mutableMapOf()
+    private var nodeLastLat: MutableMap<String, Double> = mutableMapOf()
+    private var nodeLastLon: MutableMap<String, Double> = mutableMapOf()
+    // The locked lead node ID — set when first node hits 1/4 mile, never changes until RECALC
+    private var lockedLeadNodeId: String? = null
     private val _leadLocked = MutableStateFlow(false)
     val leadLocked: StateFlow<Boolean> = _leadLocked.asStateFlow()
 
     private val _trackLeadOnly = MutableStateFlow(true)
     val trackLeadOnly: StateFlow<Boolean> = _trackLeadOnly.asStateFlow()
-    // ── Map display state — persists across recomposition ────────────────
+
     private val _isOfflineMode = MutableStateFlow(false)
     val isOfflineMode: StateFlow<Boolean> = _isOfflineMode.asStateFlow()
     fun setOfflineMode(offline: Boolean) { _isOfflineMode.value = offline }
@@ -134,84 +110,62 @@ class ConvoyViewModel @Inject constructor(
     fun stopGroupTrack() {
         _trackActive.value = false
         _leadLockedFlag = false
-        leadLockDistanceAccum = 0f
-        lastLeadLockLat = null
-        lastLeadLockLon = null
+        lockedLeadNodeId = null
+        nodeDistanceAccum.clear()
+        nodeLastLat.clear()
+        nodeLastLon.clear()
         _leadLocked.value = false
     }
+
     fun recalcLead() {
         _leadLockedFlag = false
-        leadLockDistanceAccum = 0f
-        lastLeadLockLat = null
-        lastLeadLockLon = null
+        lockedLeadNodeId = null
+        nodeDistanceAccum.clear()
+        nodeLastLat.clear()
+        nodeLastLon.clear()
         _leadLocked.value = false
     }
 
     private val _radioInactive = MutableStateFlow(false)
     val radioInactive: StateFlow<Boolean> = _radioInactive.asStateFlow()
     private var lastMovementMs: Long = 0L
-    private val RADIO_INACTIVE_TIMEOUT_MS = 5 * 60 * 1000L  // 5 minutes
+    private val RADIO_INACTIVE_TIMEOUT_MS = 5 * 60 * 1000L
     fun reconnectRadio() {
         _radioInactive.value = false
         lastMovementMs = System.currentTimeMillis()
-        // TODO Phase B: trigger BT disconnect/reconnect via mesh service
     }
 
     fun toggleLeadOnly() {
         _trackLeadOnly.value = !_trackLeadOnly.value
     }
 
-    // ── UI state — persists across navigation ────────────────────────────
     var recordingState = androidx.compose.runtime.mutableStateOf(com.geeksville.mesh.convoy.RecordingState.IDLE)
     var pendingTrackName = androidx.compose.runtime.mutableStateOf("")
     var showRecMenu = androidx.compose.runtime.mutableStateOf(false)
     var pendingEnrollmentEmail = androidx.compose.runtime.mutableStateOf("")
     var hasSeenNodes = androidx.compose.runtime.mutableStateOf(false)
 
-    // ── Persistent WebView ───────────────────────────────────────────────
-    // ── Working config for radio write sequence ───────────────────────────
     private val _workingConfig = MutableStateFlow<WorkingConfig?>(null)
     val workingConfig: StateFlow<WorkingConfig?> = _workingConfig.asStateFlow()
+    fun setWorkingConfig(config: WorkingConfig) { _workingConfig.value = config }
 
-    fun setWorkingConfig(config: WorkingConfig) {
-        _workingConfig.value = config
-    }
-
-    // ── Profile Export / Import / Install ─────────────────────────────────────
-
-    /** Current radio DeviceProfile as a flow — live from radio */
     val deviceProfileFlow = radioConfigRepository.deviceProfileFlow
 
-    /**
-     * Export current radio DeviceProfile to a file.
-     * Used for: archive before write, master.cfg capture, ride binary creation.
-     * File location is hardwired — no user prompt.
-     */
     suspend fun exportProfileToFile(context: android.content.Context, file: java.io.File): Result<Unit> = runCatching {
         val profile = radioConfigRepository.deviceProfileFlow.first()
         file.parentFile?.mkdirs()
         file.outputStream().use { outputStream ->
-            exportProfileUseCase(outputStream, profile)
-                .getOrElse { throw it }
+            exportProfileUseCase(outputStream, profile).getOrElse { throw it }
         }
         android.util.Log.i("ConvoyProfile", "Exported profile to: ${file.absolutePath}")
     }
 
-    /**
-     * Import a DeviceProfile binary from a file.
-     * Returns the decoded DeviceProfile — does NOT write to radio.
-     */
     fun importProfileFromFile(file: java.io.File): Result<DeviceProfile> = runCatching {
         file.inputStream().use { inputStream ->
             importProfileUseCase(inputStream).getOrElse { throw it }
         }
     }
 
-    /**
-     * Install a DeviceProfile binary to the connected radio.
-     * This is the atomic write — all 47 fields, one operation.
-     * Caller must handle reboot and reconnect after this completes.
-     */
     fun installProfileToRadio(destNum: Int, profile: DeviceProfile) {
         val currentUser = nodeRepository.ourNodeInfo.value?.user
         viewModelScope.launch {
@@ -225,10 +179,6 @@ class ConvoyViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Hardwired file paths for convoy profile artifacts.
-     * All paths are deterministic — no user interaction required.
-     */
     object ConvoyProfilePaths {
         fun masterCfg(context: android.content.Context) =
             java.io.File(context.filesDir, "master.cfg")
@@ -249,33 +199,22 @@ class ConvoyViewModel @Inject constructor(
             java.io.File(context.filesDir, "master.cfg")
     }
 
-    fun clearWorkingConfig() {
-        _workingConfig.value = null
-    }
+    fun clearWorkingConfig() { _workingConfig.value = null }
 
     var persistentWebView: android.webkit.WebView? = null
-
-    // ── Simulation mode ───────────────────────────────────────────────────
 
     private val _simulationMode = MutableStateFlow(false)
     val simulationMode: StateFlow<Boolean> = _simulationMode.asStateFlow()
 
-    // ── MY CART config ────────────────────────────────────────────────────
-
     private val _myCartId = MutableStateFlow(ConvoySimulation.MY_CART_ID)
-
     private fun resolveMyCartId(): String {
         val num = nodeRepository.myNodeInfo.value?.myNodeNum
         return if (num != null) "!%08x".format(num) else _myCartId.value
     }
     val myCartId: StateFlow<String> = _myCartId.asStateFlow()
 
-    // ── Lead track visibility ─────────────────────────────────────────────
-
     private val _showLeadTrack = MutableStateFlow(true)
     val showLeadTrack: StateFlow<Boolean> = _showLeadTrack.asStateFlow()
-
-    // ── Lead track segments (REQ-109) ───────────────────────────────────────
 
     private val _leadTrackSegments = MutableStateFlow<List<ConvoyEngine.LeadTrackSegment>>(emptyList())
     val leadTrackSegments: StateFlow<List<ConvoyEngine.LeadTrackSegment>> = _leadTrackSegments.asStateFlow()
@@ -288,21 +227,13 @@ class ConvoyViewModel @Inject constructor(
     private var currentLeadNodeId: String? = null
     private val lastNodePositions = mutableMapOf<String, Pair<Double, Double>>()
 
-    // ── Route recorder (REQ-111) ──────────────────────────────────────────
-
     private val _routeRecording = MutableStateFlow(false)
     val routeRecording: StateFlow<Boolean> = _routeRecording.asStateFlow()
-
-    // ── Off-track alert (REQ-NEW-01) ──────────────────────────────────────
-
     private val _offTrackNodes = MutableStateFlow<List<ConvoyNode>>(emptyList())
     val offTrackNodes: StateFlow<List<ConvoyNode>> = _offTrackNodes.asStateFlow()
-
     private val lastKnownPosition = mutableMapOf<String, Pair<Double, Double>>()
     private var tickJob: Job? = null
     private var admissionWindowHours: Int = 1
-
-    // ── Init ──────────────────────────────────────────────────────────────
 
     init {
         viewModelScope.launch {
@@ -323,85 +254,68 @@ class ConvoyViewModel @Inject constructor(
 
     suspend fun scanImportDirectory() {
         try {
-                // Scan Downloads via MediaStore (works on Android 13+)
-                val importDir = java.io.File(appContext.filesDir, "convoy_import").also { it.mkdirs() }
-                val collection = android.provider.MediaStore.Downloads.getContentUri(android.provider.MediaStore.VOLUME_EXTERNAL)
-                val projection = arrayOf(
-                    android.provider.MediaStore.Downloads._ID,
-                    android.provider.MediaStore.Downloads.DISPLAY_NAME
-                )
-                val selection = android.provider.MediaStore.Downloads.DISPLAY_NAME + " LIKE ?"
-                val selectionArgs = arrayOf("%.convoy")
-                appContext.contentResolver.query(collection, projection, selection, selectionArgs, null)?.use { cursor ->
-                    val idCol = cursor.getColumnIndexOrThrow(android.provider.MediaStore.Downloads._ID)
-                    val nameCol = cursor.getColumnIndexOrThrow(android.provider.MediaStore.Downloads.DISPLAY_NAME)
-                    while (cursor.moveToNext()) {
-                        val id = cursor.getLong(idCol)
-                        val name = cursor.getString(nameCol)
-                        val uri = android.content.ContentUris.withAppendedId(collection, id)
-                        try {
-                            val destFile = java.io.File(importDir, name)
-                            appContext.contentResolver.openInputStream(uri)?.use { input ->
-                                destFile.outputStream().use { output -> input.copyTo(output) }
-                            }
-                            android.util.Log.i("ConvoyImport", "Copied from Downloads via MediaStore: $name")
-                        } catch (e: Exception) {
-                            android.util.Log.e("ConvoyImport", "Failed to copy $name: ${e.message}")
-                        }
-                    }
-                }
-                if (!importDir.exists()) return
-                val files = importDir.listFiles { f -> f.extension == "convoy" || f.extension == "json" }
-                    ?: return
-                var importCount = 0
-                var lastImportedName = ""
-                for (file in files) {
+            val importDir = java.io.File(appContext.filesDir, "convoy_import").also { it.mkdirs() }
+            val collection = android.provider.MediaStore.Downloads.getContentUri(android.provider.MediaStore.VOLUME_EXTERNAL)
+            val projection = arrayOf(
+                android.provider.MediaStore.Downloads._ID,
+                android.provider.MediaStore.Downloads.DISPLAY_NAME
+            )
+            val selection = android.provider.MediaStore.Downloads.DISPLAY_NAME + " LIKE ?"
+            val selectionArgs = arrayOf("%.convoy")
+            appContext.contentResolver.query(collection, projection, selection, selectionArgs, null)?.use { cursor ->
+                val idCol = cursor.getColumnIndexOrThrow(android.provider.MediaStore.Downloads._ID)
+                val nameCol = cursor.getColumnIndexOrThrow(android.provider.MediaStore.Downloads.DISPLAY_NAME)
+                while (cursor.moveToNext()) {
+                    val id = cursor.getLong(idCol)
+                    val name = cursor.getString(nameCol)
+                    val uri = android.content.ContentUris.withAppendedId(collection, id)
                     try {
-                        val json = org.json.JSONObject(file.readText())
-                        val docType = json.optString("convoyDocType", "convoy_ride")
-                        when (docType) {
-                            "convoy_ride" -> {
-                                val event = ConvoyEventConfig.fromJson(json)
-                                ConvoyEventStore.save(appContext, event)
-                                lastImportedName = event.eventName
-                                importCount++
-                                android.util.Log.i("ConvoyImport", "Imported ride: ${event.eventName}")
-                            }
-                            else -> android.util.Log.w("ConvoyImport", "Unknown convoy doc type: $docType")
+                        val destFile = java.io.File(importDir, name)
+                        appContext.contentResolver.openInputStream(uri)?.use { input ->
+                            destFile.outputStream().use { output -> input.copyTo(output) }
                         }
-                        file.delete()
+                        android.util.Log.i("ConvoyImport", "Copied from Downloads via MediaStore: $name")
                     } catch (e: Exception) {
-                        android.util.Log.e("ConvoyImport", "Failed to process ${file.name}: ${e.message}")
-                        file.delete()
+                        android.util.Log.e("ConvoyImport", "Failed to copy $name: ${e.message}")
                     }
                 }
-                if (importCount > 0) {
-                    val msg = if (importCount == 1) "NEW RIDE IMPORTED: $lastImportedName"
-                              else "$importCount NEW RIDES IMPORTED"
-                    _pendingImportBanner.value = msg
+            }
+            if (!importDir.exists()) return
+            val files = importDir.listFiles { f -> f.extension == "convoy" || f.extension == "json" } ?: return
+            var importCount = 0
+            var lastImportedName = ""
+            for (file in files) {
+                try {
+                    val json = org.json.JSONObject(file.readText())
+                    val docType = json.optString("convoyDocType", "convoy_ride")
+                    when (docType) {
+                        "convoy_ride" -> {
+                            val event = ConvoyEventConfig.fromJson(json)
+                            ConvoyEventStore.save(appContext, event)
+                            lastImportedName = event.eventName
+                            importCount++
+                        }
+                        else -> android.util.Log.w("ConvoyImport", "Unknown convoy doc type: $docType")
+                    }
+                    file.delete()
+                } catch (e: Exception) {
+                    android.util.Log.e("ConvoyImport", "Failed to process ${file.name}: ${e.message}")
+                    file.delete()
                 }
-            } catch (e: Exception) {
+            }
+            if (importCount > 0) {
+                val msg = if (importCount == 1) "NEW RIDE IMPORTED: $lastImportedName" else "$importCount NEW RIDES IMPORTED"
+                _pendingImportBanner.value = msg
+            }
+        } catch (e: Exception) {
             android.util.Log.e("ConvoyImport", "Import scan failed: ${e.message}")
         }
     }
 
-    // ── Public API — HUD ─────────────────────────────────────────────────
+    fun setHudMode(mode: HudMode) { _hudMode.value = mode }
+    fun onMarkerTapped(node: ConvoyNode) { _selectedNode.value = node; _hudMode.value = HudMode.NODE }
+    fun dismissNodeHud() { _selectedNode.value = null; _hudMode.value = HudMode.GROUP }
 
-    fun setHudMode(mode: HudMode) {
-        _hudMode.value = mode
-    }
-
-    fun onMarkerTapped(node: ConvoyNode) {
-        _selectedNode.value = node
-        _hudMode.value = HudMode.NODE
-    }
-
-    fun dismissNodeHud() {
-        _selectedNode.value = null
-        _hudMode.value = HudMode.GROUP
-    }
-
-    // ── GPS interval ────────────────────────────────────────────────────
     private val _currentIntervalSecs = MutableStateFlow(5)
     val currentIntervalSecs: StateFlow<Int> = _currentIntervalSecs.asStateFlow()
 
@@ -417,7 +331,6 @@ class ConvoyViewModel @Inject constructor(
                         )
                     )
                 )
-                android.util.Log.i("ConvoyGPS", "GPS interval set to ${secs}s")
             } catch (e: Exception) {
                 android.util.Log.e("ConvoyGPS", "Failed to set GPS interval: ${e.message}")
             }
@@ -428,39 +341,23 @@ class ConvoyViewModel @Inject constructor(
         _selectedNode.value = null
         _hudMode.value = HudMode.GROUP
         val current = _convoyState.value
-        _convoyState.value = current.copy(
-            nodes = current.nodes.filter { it.nodeId != nodeId }
-        )
+        _convoyState.value = current.copy(nodes = current.nodes.filter { it.nodeId != nodeId })
     }
-
-    // ── Public API — simulation ───────────────────────────────────────────
 
     fun setSimulationMode(enabled: Boolean) {
         _simulationMode.value = enabled
         if (enabled) ConvoySimulation.start()
     }
 
-    fun setMyCartId(nodeId: String) {
-        _myCartId.value = nodeId
-    }
+    fun setMyCartId(nodeId: String) { _myCartId.value = nodeId }
+    fun toggleLeadTrack() { _showLeadTrack.value = !_showLeadTrack.value }
+    fun setShowLeadTrack(visible: Boolean) { _showLeadTrack.value = visible }
 
-    fun toggleLeadTrack() {
-        _showLeadTrack.value = !_showLeadTrack.value
-    }
-
-    fun setShowLeadTrack(visible: Boolean) {
-        _showLeadTrack.value = visible
-    }
-
-
-    // ── Route recorder -- delegated to ConvoyGpsService ────────────────────
     private var gpsServiceConn: android.content.ServiceConnection? = null
     private val _distanceMiles = MutableStateFlow(0.0)
     val distanceMiles: StateFlow<Double> = _distanceMiles.asStateFlow()
     private val _avgChannelUtil = MutableStateFlow(0f)
     val avgChannelUtil: StateFlow<Float> = _avgChannelUtil.asStateFlow()
-
-
     private var gpsService: ConvoyGpsService? = null
     private var pendingTempFile: java.io.File? = null
     private var lastGpsLat: Double? = null
@@ -487,9 +384,7 @@ class ConvoyViewModel @Inject constructor(
                 }
                 onBound(svc)
             }
-            override fun onServiceDisconnected(name: android.content.ComponentName) {
-                gpsService = null
-            }
+            override fun onServiceDisconnected(name: android.content.ComponentName) { gpsService = null }
         }
         gpsServiceConn = conn
         val intent = android.content.Intent(context, ConvoyGpsService::class.java)
@@ -498,44 +393,35 @@ class ConvoyViewModel @Inject constructor(
 
     fun startRecording(context: android.content.Context) {
         ConvoyGpsService.start(context)
-        bindGpsService(context) { svc ->
-            svc.startTrack()
-            _routeRecording.value = true
-        }
+        bindGpsService(context) { svc -> svc.startTrack(); _routeRecording.value = true }
     }
-
-    fun pauseRecording() {
-        gpsService?.pauseTrack()
-        _routeRecording.value = false
-    }
-
+    fun pauseRecording() { gpsService?.pauseTrack(); _routeRecording.value = false }
     fun resumeRecording(context: android.content.Context) {
         if (gpsService == null) {
-            bindGpsService(context) { svc ->
-                svc.resumeTrack()
-                _routeRecording.value = true
-            }
-        } else {
-            gpsService?.resumeTrack()
-            _routeRecording.value = true
-        }
+            bindGpsService(context) { svc -> svc.resumeTrack(); _routeRecording.value = true }
+        } else { gpsService?.resumeTrack(); _routeRecording.value = true }
     }
-
     fun stopRecording() {
         pendingTempFile = gpsService?.stopTrack()
-        lastGpsLat = null
-        lastGpsLon = null
-        _distanceMiles.value = 0.0
-        _routeRecording.value = false
+        lastGpsLat = null; lastGpsLon = null; _distanceMiles.value = 0.0; _routeRecording.value = false
     }
-
     fun finalizeTrack(name: String, context: android.content.Context) {
         val temp = pendingTempFile ?: return
         gpsService?.finalizeTrack(temp, name)
         pendingTempFile = null
         gpsServiceConn?.let { context.unbindService(it) }
-        gpsServiceConn = null
-        gpsService = null
+        gpsServiceConn = null; gpsService = null
+    }
+
+    // ── File logger ───────────────────────────────────────────────────────
+    private val convoyLogFile: java.io.File by lazy {
+        java.io.File(appContext.filesDir, "convoy_debug.log").also {
+            it.writeText("=== GroupTrack Debug Log ${System.currentTimeMillis()} ===\n")
+        }
+    }
+    private fun convoyLog(msg: String) {
+        try { convoyLogFile.appendText("${System.currentTimeMillis() % 100000} $msg\n") }
+        catch (e: Exception) { /* ignore */ }
     }
 
     // ── Tick loop ─────────────────────────────────────────────────────────
@@ -543,38 +429,28 @@ class ConvoyViewModel @Inject constructor(
     private fun startTick() {
         tickJob?.cancel()
         tickJob = viewModelScope.launch {
-            while (true) {
-                tick()
-                delay(ConvoySimulation.TICK_MS)
-            }
+            while (true) { tick(); delay(ConvoySimulation.TICK_MS) }
         }
     }
 
     private fun pointToSegmentDistanceMiles(
-        pLat: Double, pLon: Double,
-        aLat: Double, aLon: Double,
-        bLat: Double, bLon: Double
+        pLat: Double, pLon: Double, aLat: Double, aLon: Double, bLat: Double, bLon: Double
     ): Float {
-        val dx = bLon - aLon
-        val dy = bLat - aLat
+        val dx = bLon - aLon; val dy = bLat - aLat
         if (dx == 0.0 && dy == 0.0) {
-            val dlat = pLat - aLat
-            val dlon = pLon - aLon
+            val dlat = pLat - aLat; val dlon = pLon - aLon
             return (Math.sqrt(dlat * dlat + dlon * dlon) * 69.0).toFloat()
         }
         val t = ((pLon - aLon) * dx + (pLat - aLat) * dy) / (dx * dx + dy * dy)
         val clampedT = t.coerceIn(0.0, 1.0)
-        val nearLat = aLat + clampedT * dy
-        val nearLon = aLon + clampedT * dx
-        val dlat = pLat - nearLat
-        val dlon = pLon - nearLon
+        val nearLat = aLat + clampedT * dy; val nearLon = aLon + clampedT * dx
+        val dlat = pLat - nearLat; val dlon = pLon - nearLon
         return (Math.sqrt(dlat * dlat + dlon * dlon) * 69.0).toFloat()
     }
 
     private fun haversineMiles(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Float {
         val R = 3958.8
-        val dLat = Math.toRadians(lat2 - lat1)
-        val dLon = Math.toRadians(lon2 - lon1)
+        val dLat = Math.toRadians(lat2 - lat1); val dLon = Math.toRadians(lon2 - lon1)
         val a = Math.sin(dLat/2) * Math.sin(dLat/2) +
                 Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) *
                 Math.sin(dLon/2) * Math.sin(dLon/2)
@@ -588,32 +464,66 @@ class ConvoyViewModel @Inject constructor(
         } else {
             readLiveNodes(nowMs)
         }
+
+        // ── Per-node distance accumulator — runs before compute() ─────────────
+        // Every active node accumulates distance. First to hit 1/4 mile wins lead.
+        if (_trackActive.value && !_leadLockedFlag) {
+            for (node in nodes) {
+                if (node.status == ConvoyStatus.ACTIVE &&
+                    node.latitude != 0.0 && node.longitude != 0.0) {
+                    val prevLat = nodeLastLat[node.nodeId]
+                    val prevLon = nodeLastLon[node.nodeId]
+                    if (prevLat != null && prevLon != null) {
+                        val delta = ConvoyEngine.haversineMiles(prevLat, prevLon, node.latitude, node.longitude)
+                        // Ignore GPS jumps > 0.5 miles (bad fix)
+                        if (delta > 0f && delta < 0.5f) {
+                            nodeDistanceAccum[node.nodeId] = (nodeDistanceAccum[node.nodeId] ?: 0f) + delta
+                        }
+                    }
+                    nodeLastLat[node.nodeId] = node.latitude
+                    nodeLastLon[node.nodeId] = node.longitude
+                }
+            }
+            // First node to hit 1/4 mile wins lead — locked forever until RECALC
+            val lockCandidate = nodeDistanceAccum
+                .filter { (_, dist) -> dist >= ConvoyConfig.LEAD_LOCK_DISTANCE_MILES }
+                .maxByOrNull { (_, dist) -> dist }
+            if (lockCandidate != null) {
+                lockedLeadNodeId = lockCandidate.key
+                _leadLockedFlag = true
+                _leadLocked.value = true
+                val leadName = nodes.firstOrNull { it.nodeId == lockedLeadNodeId }?.callsign ?: lockedLeadNodeId
+                convoyLog("LOCK FIRED: $leadName locked as lead at ${String.format("%.3f", lockCandidate.value)} mi")
+                viewModelScope.launch(kotlinx.coroutines.Dispatchers.Main) {
+                    android.widget.Toast.makeText(appContext, "$leadName Locked as Lead", android.widget.Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+
+        // Tail = node with minimum distance accumulator (dynamic every tick)
+        val tailNodeId: String? = if (nodeDistanceAccum.size > 1)
+            nodeDistanceAccum.minByOrNull { (_, dist) -> dist }?.key
+        else null
+
         val state = ConvoyEngine.compute(
             nodes = nodes,
             myCartId = resolveMyCartId(),
             nowMs = nowMs,
-            leadLocked = _leadLockedFlag
+            leadLocked = _leadLockedFlag,
+            lockedLeadNodeId = lockedLeadNodeId,
+            tailNodeId = tailNodeId
         )
         _convoyState.value = state
-        // ── Lead lock accumulator ────────────────────────────────────────────────
-        if (_trackActive.value && !_leadLockedFlag) {
-            val myCart = state.nodes.firstOrNull { it.isMyCart }
-            if (myCart != null && myCart.latitude != 0.0 && myCart.longitude != 0.0) {
-                val prevLat = lastLeadLockLat
-                val prevLon = lastLeadLockLon
-                if (prevLat != null && prevLon != null) {
-                    val delta = ConvoyEngine.haversineMiles(prevLat, prevLon, myCart.latitude, myCart.longitude)
-                    if (delta > 0f) leadLockDistanceAccum += delta
-                    if (leadLockDistanceAccum >= ConvoyConfig.LEAD_LOCK_DISTANCE_MILES) {
-                        _leadLockedFlag = true
-                        _leadLocked.value = true
-                        val leadName = state.lead?.callsign ?: "Unknown"
-                        android.widget.Toast.makeText(appContext, "$leadName Locked as Lead", android.widget.Toast.LENGTH_SHORT).show()
-                    }
-                }
-                lastLeadLockLat = myCart.latitude
-                lastLeadLockLon = myCart.longitude
+
+        // ── Debug log every tick ──────────────────────────────────────────────
+        if (_trackActive.value) {
+            val leadOut = state.lead?.callsign ?: "NONE"
+            val trackFrom = currentLeadNodeId ?: "NONE"
+            val accumStr = nodeDistanceAccum.entries.joinToString(" ") { (id, d) ->
+                val name = nodes.firstOrNull { it.nodeId == id }?.callsign ?: id.takeLast(4)
+                "$name=${String.format("%.3f", d)}mi"
             }
+            convoyLog("tick | lead=$leadOut | trackFrom=$trackFrom | locked=$_leadLockedFlag | [$accumStr]")
         }
 
         // Accumulate route trail — lead only or all carts
@@ -657,7 +567,7 @@ class ConvoyViewModel @Inject constructor(
                 _routeTrailSegments.value = _routeTrailSegments.value + newSegs
             }
         }
-        // Compute off-track nodes — any node > OFF_TRACK_MILES from nearest trail segment
+
         if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
             val threshold = ConvoyConfig.OFF_TRACK_MILES
             val offTrack = state.nodes.filter { node ->
@@ -672,7 +582,7 @@ class ConvoyViewModel @Inject constructor(
         } else {
             _offTrackIds.value = emptySet()
         }
-        // Color route trail segments by cart positions
+
         _leadTrackSegments.value = if (ConvoyConfig.TRACK_MULTICOLOR && !_trackLeadOnly.value) {
             ConvoyEngine.computeLeadTrackColors(
                 segments = _routeTrailSegments.value,
@@ -685,22 +595,12 @@ class ConvoyViewModel @Inject constructor(
             _routeTrailSegments.value.map { it.copy(color = "#000000") }
         }
 
-        // Refresh selected node if NODE HUD is open
         if (_hudMode.value == HudMode.NODE && _selectedNode.value != null) {
-            val refreshed = state.nodes.firstOrNull {
-                it.nodeId == _selectedNode.value?.nodeId
-            }
+            val refreshed = state.nodes.firstOrNull { it.nodeId == _selectedNode.value?.nodeId }
             _selectedNode.value = refreshed
         }
     } catch (e: Exception) { /* suppress tick errors */ } }
 
-    // ── Live node reading ─────────────────────────────────────────────────
-
-    /**
-     * Read nodes from NodeRepository — the existing Meshtastic NodeDB.
-     * Maps Meshtastic Node fields to our ConvoyNode properties.
-     * Read-only. Writes nothing to the database.
-     */
     private fun readLiveNodes(nowMs: Long): List<ConvoyNode> {
         val nodeMap = try { nodeRepository.nodeDBbyNum.value } catch (e: Exception) { return emptyList() }
         val allNodes = nodeMap.values.mapNotNull { node ->
@@ -733,7 +633,6 @@ class ConvoyViewModel @Inject constructor(
                 timestampUtc = java.time.Instant.ofEpochMilli(lastSeenMs).toString()
             )
         }
-        // Calculate average channel utilization across all nodes
         val avgUtil = if (allNodes.isEmpty()) 0f else
             allNodes.mapNotNull { node ->
                 try {
@@ -742,7 +641,6 @@ class ConvoyViewModel @Inject constructor(
                 } catch (e: Exception) { null }
             }.average().toFloat().takeIf { !it.isNaN() } ?: 0f
         _avgChannelUtil.value = avgUtil
-
         val filterInput = allNodes.map { it.nodeId to (it.lastSeenMs / 1000L) }
         val allowedIds = ConvoyNodeFilter.filter(
             nodes = filterInput,
@@ -752,9 +650,6 @@ class ConvoyViewModel @Inject constructor(
         return allNodes.filter { it.nodeId in allowedIds }
     }
 
-    // ── Cleanup ───────────────────────────────────────────────────────────
-
-    // ── Download state ──────────────────────────────────────────────────
     sealed class DownloadState {
         object Idle : DownloadState()
         data class Downloading(val downloaded: Int, val total: Int, val failCount: Int) : DownloadState()
@@ -764,47 +659,30 @@ class ConvoyViewModel @Inject constructor(
     }
 
     data class PendingDownload(
-        val tileCount: Int,
-        val sizeMB: Float,
-        val withinCeiling: Boolean,
-        val north: Double,
-        val south: Double,
-        val east: Double,
-        val west: Double,
-        val sourceName: String,
-        val sourceUrl: String
+        val tileCount: Int, val sizeMB: Float, val withinCeiling: Boolean,
+        val north: Double, val south: Double, val east: Double, val west: Double,
+        val sourceName: String, val sourceUrl: String
     )
 
     private val _downloadState = MutableStateFlow<DownloadState>(DownloadState.Idle)
     val downloadState: StateFlow<DownloadState> = _downloadState.asStateFlow()
-
     private val _pendingDownload = MutableStateFlow<PendingDownload?>(null)
     val pendingDownload: StateFlow<PendingDownload?> = _pendingDownload.asStateFlow()
-
     private var downloadJob: kotlinx.coroutines.Job? = null
     var downloadStartTime: Long = 0L
 
-    fun setPendingDownload(pending: PendingDownload) {
-        _pendingDownload.value = pending
-    }
-
-    fun clearPendingDownload() {
-        _pendingDownload.value = null
-    }
+    fun setPendingDownload(pending: PendingDownload) { _pendingDownload.value = pending }
+    fun clearPendingDownload() { _pendingDownload.value = null }
 
     fun startDownload(context: android.content.Context, pending: PendingDownload) {
         clearPendingDownload()
         downloadStartTime = System.currentTimeMillis()
         downloadJob = viewModelScope.launch {
             _downloadState.value = DownloadState.Downloading(0, pending.tileCount, 0)
-            val tiles = ConvoyTileCalculator.calculateTiles(
-                pending.north, pending.south, pending.east, pending.west
-            )
+            val tiles = ConvoyTileCalculator.calculateTiles(pending.north, pending.south, pending.east, pending.west)
             val result = ConvoyTileDownloader.downloadTiles(
-                context = context,
-                tiles = tiles,
-                sourceUrl = pending.sourceUrl,
-                sourceName = pending.sourceName
+                context = context, tiles = tiles,
+                sourceUrl = pending.sourceUrl, sourceName = pending.sourceName
             ) { downloaded, total, failCount ->
                 _downloadState.value = DownloadState.Downloading(downloaded, total, failCount)
             }
@@ -814,9 +692,7 @@ class ConvoyViewModel @Inject constructor(
                     kotlinx.coroutines.delay(3_000L)
                     _downloadState.value = DownloadState.Idle
                 },
-                onFailure = { e ->
-                    _downloadState.value = DownloadState.Error(e.message ?: "Download failed")
-                }
+                onFailure = { e -> _downloadState.value = DownloadState.Error(e.message ?: "Download failed") }
             )
         }
     }
@@ -824,10 +700,7 @@ class ConvoyViewModel @Inject constructor(
     fun cancelDownload() {
         downloadJob?.cancel()
         _downloadState.value = DownloadState.Cancelled
-        viewModelScope.launch {
-            kotlinx.coroutines.delay(2_000L)
-            _downloadState.value = DownloadState.Idle
-        }
+        viewModelScope.launch { kotlinx.coroutines.delay(2_000L); _downloadState.value = DownloadState.Idle }
     }
 
     override fun onCleared() {
