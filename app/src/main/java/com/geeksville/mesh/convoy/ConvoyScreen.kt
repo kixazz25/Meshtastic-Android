@@ -405,7 +405,7 @@ fun ConvoyScreen(
                                 val url = request?.url?.toString() ?: return super.shouldInterceptRequest(view, request)
                                 if (url.startsWith("convoy://tiles/")) {
                                     val tilePath = url.removePrefix("convoy://tiles/")
-                                    val file = java.io.File(ctx.filesDir, "tiles/$tilePath")
+                                    val file = java.io.File(ctx.getExternalFilesDir(null), "tiles/$tilePath")
                                     android.util.Log.d("ConvoyIntercept", "TILE exists=${file.exists()} path=${file.absolutePath}")
                                     if (file.exists()) return android.webkit.WebResourceResponse("image/png", "utf-8", file.inputStream())
                                 }
@@ -450,7 +450,7 @@ fun ConvoyScreen(
                             fun onMapBoundsReady(north: Double, south: Double, east: Double, west: Double) {
                                 android.os.Handler(android.os.Looper.getMainLooper()).post {
                                     val wv = webViewRef.value ?: return@post
-                                    val tilesDir = java.io.File(context.filesDir, "tiles/SAT/18")
+                                    val tilesDir = java.io.File(context.getExternalFilesDir(null), "tiles/SAT/18")
                                     Thread {
                                         val bounds = mutableListOf<String>()
                                         if (tilesDir.exists()) {

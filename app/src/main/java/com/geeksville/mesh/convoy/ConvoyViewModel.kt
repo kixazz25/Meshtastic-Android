@@ -535,7 +535,7 @@ class ConvoyViewModel @Inject constructor(
 
         // Accumulate route trail — lead only or all carts
         if (_trackLeadOnly.value) {
-            val leadNode = state.lead
+            val leadNode = if (_leadLockedFlag) state.lead else null
             if (leadNode != null) {
                 if (leadNode.nodeId != currentLeadNodeId) {
                     currentLeadNodeId = leadNode.nodeId
@@ -549,7 +549,8 @@ class ConvoyViewModel @Inject constructor(
                     val seg = ConvoyEngine.LeadTrackSegment(
                         startLat = prevLat, startLon = prevLon,
                         endLat = leadNode.latitude, endLon = leadNode.longitude,
-                        color = "#000000"
+                        color = "#000000",
+                        nodeId = leadNode.nodeId
                     )
                     if (_trackActive.value) _routeTrailSegments.value = _routeTrailSegments.value + seg
                 }
@@ -565,7 +566,8 @@ class ConvoyViewModel @Inject constructor(
                     newSegs.add(ConvoyEngine.LeadTrackSegment(
                         startLat = prev.first, startLon = prev.second,
                         endLat = node.latitude, endLon = node.longitude,
-                        color = "#000000"
+                        color = "#000000",
+                        nodeId = node.nodeId
                     ))
                 }
                 lastNodePositions[node.nodeId] = Pair(node.latitude, node.longitude)
@@ -590,16 +592,15 @@ class ConvoyViewModel @Inject constructor(
             _offTrackIds.value = emptySet()
         }
 
-        _leadTrackSegments.value = if (ConvoyConfig.TRACK_MULTICOLOR && !_trackLeadOnly.value) {
-            ConvoyEngine.computeLeadTrackColors(
-                segments = _routeTrailSegments.value,
-                nodes = state.nodes,
-                lead = state.lead,
-                tail = state.tail,
-                headingDeg = state.convoyHeading
-            )
-        } else {
+        // LEAD ONLY: single black line from locked lead node
+        // MULTI TRACK: each node draws its own trail in its own markerColor
+        _leadTrackSegments.value = if (_trackLeadOnly.value) {
             _routeTrailSegments.value.map { it.copy(color = "#000000") }
+        } else {
+            ConvoyEngine.colorSegmentsByNode(
+                segments = _routeTrailSegments.value,
+                nodes = state.nodes
+            )
         }
 
         if (_hudMode.value == HudMode.NODE && _selectedNode.value != null) {
