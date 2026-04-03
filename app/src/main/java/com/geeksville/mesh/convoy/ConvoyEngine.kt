@@ -24,7 +24,8 @@ object ConvoyEngine {
         val startLon: Double = 0.0,
         val endLat: Double = 0.0,
         val endLon: Double = 0.0,
-        val color: String = "#000000"
+        val color: String = "#000000",
+        val nodeId: String = ""
     )
 
     fun compute(
@@ -152,32 +153,17 @@ object ConvoyEngine {
         }
     }
 
-    fun computeLeadTrackColors(
+    /**
+     * Color segments by nodeId — each node gets its own markerColor.
+     * Used in MULTI TRACK mode. Segments must have nodeId set.
+     */
+    fun colorSegmentsByNode(
         segments: List<LeadTrackSegment>,
-        nodes: List<ConvoyNode>,
-        lead: ConvoyNode?,
-        tail: ConvoyNode?,
-        headingDeg: Float
+        nodes: List<ConvoyNode>
     ): List<LeadTrackSegment> {
-        if (nodes.isEmpty() || lead == null || tail == null)
-            return segments.map { it.copy(color = "#000000") }
-        val rad = Math.toRadians(headingDeg.toDouble())
-        val dx = sin(rad)
-        val dy = cos(rad)
-        val leadProj = lead.latitude * dy + lead.longitude * dx
-        val tailProj = tail.latitude * dy + tail.longitude * dx
-        val minProj = minOf(leadProj, tailProj)
-        val maxProj = maxOf(leadProj, tailProj)
+        val colorMap = nodes.associate { it.nodeId to it.markerColor }
         return segments.map { seg ->
-            val midLat = (seg.startLat + seg.endLat) / 2
-            val midLon = (seg.startLon + seg.endLon) / 2
-            val proj = midLat * dy + midLon * dx
-            if (proj in minProj..maxProj) {
-                val closest = nodes.minByOrNull { abs((it.latitude * dy + it.longitude * dx) - proj) }
-                seg.copy(color = closest?.markerColor ?: "#000000")
-            } else {
-                seg.copy(color = "#000000")
-            }
+            seg.copy(color = colorMap[seg.nodeId] ?: "#000000")
         }
     }
 

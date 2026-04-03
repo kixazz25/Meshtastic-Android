@@ -55,7 +55,7 @@ object ConvoyTileDownloader {
     // ── Build local storage path for a tile ──────────────────
     // Returns: filesDir/tiles/{sourceName}/{z}/{x}/{y}.png
     fun tilePath(context: Context, sourceName: String, tile: TileKey): File {
-        val dir = File(context.filesDir, "tiles/${sourceName}/${tile.z}/${tile.x}")
+        val dir = File(context.getExternalFilesDir(null), "tiles/${sourceName}/${tile.z}/${tile.x}")
         dir.mkdirs()
         return File(dir, "${tile.y}.png")
     }
@@ -136,7 +136,7 @@ object ConvoyTileDownloader {
 
     // ── Delete all tiles for a source ────────────────────────
     fun deleteSource(context: Context, sourceName: String): Boolean {
-        val dir = File(context.filesDir, "tiles/$sourceName")
+        val dir = File(context.getExternalFilesDir(null), "tiles/$sourceName")
         return if (dir.exists()) dir.deleteRecursively() else true
     }
 
