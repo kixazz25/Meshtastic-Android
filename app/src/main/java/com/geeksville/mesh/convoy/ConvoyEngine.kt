@@ -31,13 +31,15 @@ object ConvoyEngine {
         nodes: List<ConvoyNode>,
         myCartId: String = "",
         nowMs: Long = System.currentTimeMillis(),
-        leadLocked: Boolean = false
+        leadLocked: Boolean = false,
+        lockedLeadNodeId: String? = null,
+        tailNodeId: String? = null
     ): ConvoyState {
         if (nodes.isEmpty()) return ConvoyState.empty()
         val withStatus = nodes.map { it.copy(status = computeStatus(it, nowMs)) }
         val heading = computeHeading(withStatus)
         val sorted = computeSortPositions(withStatus, heading)
-        val withRoles = assignLeadTail(sorted, leadLocked)
+        val withRoles = assignLeadTail(sorted, lockedLeadNodeId, tailNodeId)
         val lead = withRoles.firstOrNull { it.isLead }
         val tail = withRoles.firstOrNull { it.isTail }
         val span = computeSpan(lead, tail)
@@ -87,17 +89,29 @@ object ConvoyEngine {
         return all.mapIndexed { i, node -> node.copy(convoyPosition = i + 1) }
     }
 
-    fun assignLeadTail(nodes: List<ConvoyNode>, leadLocked: Boolean = false): List<ConvoyNode> {
+    /**
+     * Assign lead and tail roles.
+     * Lead: identified by lockedLeadNodeId from ViewModel distance accumulator.
+     *       Null until first node travels 1/4 mile after RECORD pressed.
+     * Tail: identified by tailNodeId (minimum distance accumulator node), dynamic every tick.
+     */
+    fun assignLeadTail(
+        nodes: List<ConvoyNode>,
+        lockedLeadNodeId: String? = null,
+        tailNodeId: String? = null
+    ): List<ConvoyNode> {
         val active = nodes.filter { it.status == ConvoyStatus.ACTIVE }
         if (active.isEmpty()) return nodes
-        val leadNode = if (leadLocked)
-            nodes.firstOrNull { it.isLead }                    // locked — keep existing lead, no re-election
-                ?: active.minByOrNull { it.convoyPosition }     // fallback only if no lead yet
+        // Lead — locked by nodeId. Null until 1/4 mile accumulator fires in ViewModel.
+        val leadNode = if (lockedLeadNodeId != null)
+            nodes.firstOrNull { it.nodeId == lockedLeadNodeId }
         else
-            active.filter { it.speed_mph > 0.5f }               // must be moving to qualify
-                .minByOrNull { it.convoyPosition }
-                ?: active.minByOrNull { it.convoyPosition }     // fallback if nobody moving
-        val tailNode = active.maxByOrNull { it.convoyPosition }
+            null
+        // Tail — minimum distance accumulator node, provided by ViewModel. Fallback to position.
+        val tailNode = if (tailNodeId != null)
+            nodes.firstOrNull { it.nodeId == tailNodeId }
+        else
+            active.maxByOrNull { it.convoyPosition }
         return nodes.map { node ->
             node.copy(
                 isLead = node.nodeId == leadNode?.nodeId,
