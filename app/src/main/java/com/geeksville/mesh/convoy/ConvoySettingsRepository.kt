@@ -29,6 +29,7 @@ class ConvoySettingsRepository @Inject constructor(
         val KEY_ADMISSION_WINDOW_HOURS = intPreferencesKey("admission_window_hours")
         // Format: "nodeId|callsign|epochDay"
         val KEY_REMOVED_CARTS          = stringSetPreferencesKey("removed_carts")
+        val KEY_LEAD_LOCK_FEET         = floatPreferencesKey("lead_lock_feet")
     }
 
     // ── Flows ─────────────────────────────────────────────────────────────
@@ -44,6 +45,9 @@ class ConvoySettingsRepository @Inject constructor(
 
     val admissionWindowHours: Flow<Int> = context.convoyDataStore.data
         .map { it[KEY_ADMISSION_WINDOW_HOURS] ?: 1 }
+    // Lead lock distance — 300 to 1500 feet. Default 500 feet (~17 sec at 20mph)
+    val leadLockFeet: Flow<Float> = context.convoyDataStore.data
+        .map { it[KEY_LEAD_LOCK_FEET] ?: 330f }
 
     /** Map of nodeId -> callsign for carts removed today only */
     val removedCartsForToday: Flow<Map<String, String>> = context.convoyDataStore.data
@@ -76,6 +80,10 @@ class ConvoySettingsRepository @Inject constructor(
 
     suspend fun setAdmissionWindowHours(value: Int) {
         context.convoyDataStore.edit { it[KEY_ADMISSION_WINDOW_HOURS] = value }
+    }
+    suspend fun setLeadLockFeet(value: Float) {
+        context.convoyDataStore.edit { it[KEY_LEAD_LOCK_FEET] = value }
+        ConvoyConfig.LEAD_LOCK_DISTANCE_MILES = value / 5280f
     }
 
     /** Remove a cart for today — stored with callsign for display in settings */

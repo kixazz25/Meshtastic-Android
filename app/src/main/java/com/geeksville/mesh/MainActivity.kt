@@ -70,7 +70,6 @@ class MainActivity : ComponentActivity() {
     @Inject internal lateinit var meshServiceClient: MeshServiceClient
 
     @Inject internal lateinit var androidEnvironment: AndroidEnvironment
-
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
 

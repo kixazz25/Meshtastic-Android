@@ -240,6 +240,11 @@ class ConvoyViewModel @Inject constructor(
             settingsRepository.admissionWindowHours.collect { admissionWindowHours = it }
         }
         viewModelScope.launch {
+            settingsRepository.leadLockFeet.collect { feet ->
+                ConvoyConfig.LEAD_LOCK_DISTANCE_MILES = feet / 5280f
+            }
+        }
+        viewModelScope.launch {
             nodeRepository.myNodeInfo.collect { info ->
                 _myNodeInfo.value = info
                 val num = info?.myNodeNum
