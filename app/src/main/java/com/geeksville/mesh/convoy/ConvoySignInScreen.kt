@@ -79,6 +79,27 @@ fun getUserId(context: Context): String? =
 
 fun isSignedIn(context: Context): Boolean = getUserId(context) != null
 
+// ── DEV ONLY — subscription simulation toggle ─────────────────────────────────
+// Remove before Play Store submission.
+// Allows testing subscribed vs free navigation without billing.
+private const val PREF_DEV_SUBSCRIBED = "dev_subscribed_override"
+
+fun setDevSubscribed(context: Context, subscribed: Boolean) {
+    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
+        .putBoolean(PREF_DEV_SUBSCRIBED, subscribed)
+        .apply()
+    // Also write expires_at so isSubscribed() returns correct value
+    val expiresAt = if (subscribed) System.currentTimeMillis() + (365L * 24 * 60 * 60 * 1000) else 0L
+    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
+        .putLong("subscription_expires_at", expiresAt)
+        .apply()
+    android.util.Log.i("ConvoyDev", "Dev subscription override: $subscribed")
+}
+
+fun getDevSubscribed(context: Context): Boolean =
+    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        .getBoolean(PREF_DEV_SUBSCRIBED, false)
+
 // ── Sign-In Screen ────────────────────────────────────────────────────────────
 
 @Composable
@@ -252,6 +273,38 @@ fun ConvoySignInScreen(
                     )
                 }
             }
+        }
+
+        // ── DEV ONLY — subscription toggle ─────────────────────────────────────
+        // Remove before Play Store submission
+        var devSubscribed by remember { mutableStateOf(getDevSubscribed(context)) }
+        androidx.compose.foundation.layout.Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color(0xFF1A0A00))
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            androidx.compose.material3.Text(
+                text = "DEV: Simulate subscription",
+                color = Color(0xFF886633),
+                fontSize = 10.sp,
+                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+            )
+            androidx.compose.material3.Switch(
+                checked = devSubscribed,
+                onCheckedChange = { checked ->
+                    devSubscribed = checked
+                    setDevSubscribed(context, checked)
+                },
+                colors = androidx.compose.material3.SwitchDefaults.colors(
+                    checkedThumbColor = Color(0xFFFFCC44),
+                    checkedTrackColor = Color(0xFF886633),
+                    uncheckedThumbColor = Color(0xFF445566),
+                    uncheckedTrackColor = Color(0xFF223344)
+                )
+            )
         }
 
         // Footer
