@@ -215,12 +215,33 @@ class ConvoyGpsService : Service() {
 
     // ── GPS ───────────────────────────────────────────────────────────────────
 
+    // Set to true when device has no GPS — ViewModel will feed radio position instead
+    var useRadioGps: Boolean = false
+        private set
+
+    /**
+     * Called by ViewModel on each tick when useRadioGps is true.
+     * Feeds radio node position into the track recorder.
+     */
+    fun onRadioPosition(lat: Double, lon: Double, alt: Double) {
+        if (state == State.RECORDING && useRadioGps) {
+            onGpsUpdate(lat, lon, alt)
+        }
+    }
+
     private fun startLocationUpdates() {
         try {
             val lm = getSystemService(Context.LOCATION_SERVICE) as LocationManager
             locationManager = lm
+            // Check if GPS hardware exists on this device
+            if (!lm.allProviders.contains(LocationManager.GPS_PROVIDER)) {
+                Log.w(TAG, "No GPS hardware — will use radio position from mesh")
+                useRadioGps = true
+                return
+            }
+            useRadioGps = false
             val listener = LocationListener { loc ->
-                onGpsUpdate(loc)
+                onGpsUpdate(loc.latitude, loc.longitude, loc.altitude)
             }
             locationListener = listener
             lm.requestLocationUpdates(
@@ -245,9 +266,9 @@ class ConvoyGpsService : Service() {
         locationManager = null
     }
 
-    private fun onGpsUpdate(loc: Location) {
-        writeKmlPoint(loc.latitude, loc.longitude, loc.altitude)
-        onLocationUpdate?.invoke(loc.latitude, loc.longitude, loc.altitude)
+    private fun onGpsUpdate(lat: Double, lon: Double, alt: Double) {
+        writeKmlPoint(lat, lon, alt)
+        onLocationUpdate?.invoke(lat, lon, alt)
     }
 
     // ── KML ───────────────────────────────────────────────────────────────────

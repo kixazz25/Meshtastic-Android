@@ -515,6 +515,13 @@ class ConvoyViewModel @Inject constructor(
         )
         _convoyState.value = state
 
+        // ── Feed radio position to GPS service if no hardware GPS ────────────
+        if (gpsService?.useRadioGps == true && _routeRecording.value) {
+            val myCart = state.nodes.firstOrNull { it.isMyCart }
+            if (myCart != null && myCart.latitude != 0.0 && myCart.longitude != 0.0) {
+                gpsService?.onRadioPosition(myCart.latitude, myCart.longitude, myCart.altitude_m.toDouble())
+            }
+        }
         // ── Debug log every tick ──────────────────────────────────────────────
         if (_trackActive.value) {
             val leadOut = state.lead?.callsign ?: "NONE"
