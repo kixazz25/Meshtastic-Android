@@ -154,6 +154,7 @@ enum class TopLevelDestination(val label: StringResource, val icon: ImageVector,
     Settings(Res.string.bottom_nav_settings, MeshtasticIcons.Settings, SettingsRoutes.SettingsGraph()),
     Connections(Res.string.connections, MeshtasticIcons.Wifi, ConnectionsRoutes.ConnectionsGraph),
     Convoy(Res.string.map, MeshtasticIcons.Map, ConvoyRoutes.Convoy),
+    EventRideServices(Res.string.map, MeshtasticIcons.Wifi, ConvoyRoutes.Convoy),
     ;
 
     companion object {
@@ -167,6 +168,7 @@ enum class TopLevelDestination(val label: StringResource, val icon: ImageVector,
 @Composable
 fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerViewModel = hiltViewModel(), convoyViewModel: ConvoyViewModel = hiltViewModel()) {
     var showConvoyMenu by remember { mutableStateOf(false) }
+    var showServicesChooser by remember { mutableStateOf(false) }
     val convoyMenuSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val navController = rememberNavController()
     LaunchedEffect(uIViewModel) { uIViewModel.navigationDeepLink.collectLatest { uri -> navController.navigate(uri) } }
@@ -404,7 +406,7 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
                     selected = isSelected,
                     label = {
                         Text(
-                            text = if (destination == TopLevelDestination.Convoy) "GroupTrack" else stringResource(destination.label),
+                            text = when (destination) { TopLevelDestination.Convoy -> "GroupTrack"; TopLevelDestination.EventRideServices -> "Services"; else -> stringResource(destination.label) },
                             modifier =
                             if (navSuiteType == NavigationSuiteType.ShortNavigationBarCompact) {
                                 Modifier.width(1.dp)
@@ -461,6 +463,8 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
                                     kotlinx.coroutines.delay(2000)
                                     showConvoyMenu = true
                                 }
+                            } else if (destination == TopLevelDestination.EventRideServices) {
+                                showServicesChooser = true
                             } else {
                                 navController.navigate(destination.route) {
                                     popUpTo(navController.graph.findStartDestination().id) { saveState = true }
@@ -509,6 +513,21 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
                 onNavigateToArchiveRestore = {
                     showConvoyMenu = false
                     navController.navigate(ConvoyRoutes.ConvoyArchiveRestore)
+                }
+            )
+        }
+        // ── Event/Ride Services Chooser ───────────────────────────────────
+        if (showServicesChooser) {
+            com.geeksville.mesh.convoy.ConvoyServicesChooser(
+                context = androidx.compose.ui.platform.LocalContext.current,
+                onDismiss = { showServicesChooser = false },
+                onOnline = {
+                    showServicesChooser = false
+                    navController.navigate(ConvoyRoutes.ConvoySignIn)
+                },
+                onOffline = {
+                    showServicesChooser = false
+                    navController.navigate(ConvoyRoutes.ConvoyFieldRadio)
                 }
             )
         }
