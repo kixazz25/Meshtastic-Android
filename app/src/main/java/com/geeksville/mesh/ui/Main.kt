@@ -18,6 +18,7 @@
 
 package com.geeksville.mesh.ui
 
+import com.geeksville.mesh.convoy.ConvoyConfig
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.Animatable
@@ -306,7 +307,9 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
     NavigationSuiteScaffold(
         modifier = Modifier.fillMaxSize(),
         navigationSuiteItems = {
-            TopLevelDestination.entries.forEach { destination ->
+            TopLevelDestination.entries
+            .filter { it != TopLevelDestination.EventRideServices || ConvoyConfig.V3_FEATURES_ENABLED }
+            .forEach { destination ->
                 val isSelected = destination == topLevelDestination
                 val isConnectionsRoute = destination == TopLevelDestination.Connections
                 item(
