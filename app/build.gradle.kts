@@ -22,6 +22,8 @@ import org.meshtastic.buildlogic.GitVersionValueSource
 import org.meshtastic.buildlogic.configProperties
 import java.io.FileInputStream
 import java.util.Properties
+import java.util.Date
+import java.text.SimpleDateFormat
 
 val gitVersionProvider = providers.of(GitVersionValueSource::class.java) {}
 
@@ -43,6 +45,7 @@ if (keystorePropertiesFile.exists()) {
     FileInputStream(keystorePropertiesFile).use { keystoreProperties.load(it) }
 }
 
+val buildStamp: String = SimpleDateFormat("yyyyMMdd.HHmm").format(Date())
 configure<ApplicationExtension> {
     namespace = configProperties.getProperty("APPLICATION_ID")
 
@@ -72,6 +75,8 @@ configure<ApplicationExtension> {
                     ?: configProperties.getProperty("VERSION_NAME_BASE")
                 )
         buildConfigField("String", "MIN_FW_VERSION", "\"${configProperties.getProperty("MIN_FW_VERSION")}\"")
+        
+        buildConfigField("String", "BUILD_STAMP", "\"$buildStamp\"")
         buildConfigField("String", "ABS_MIN_FW_VERSION", "\"${configProperties.getProperty("ABS_MIN_FW_VERSION")}\"")
         // We have to list all translated languages here,
         // because some of our libs have bogus languages that google play
@@ -309,5 +314,17 @@ aboutLibraries {
     library {
         duplicationMode = DuplicateMode.MERGE
         duplicationRule = DuplicateRule.SIMPLE
+    }
+}
+
+
+// ── GroupTrack: Copy APK to Downloads with build stamp ──────────────────────
+tasks.register("copyApkToDownloads") {
+    dependsOn("assembleGoogleDebug")
+    doLast {
+        val apkSrc = file("build/outputs/apk/google/debug/app-google-universal-debug.apk")
+        val dest   = file("C:/Users/kixaz/Downloads/GroupTrack_v2.4_${buildStamp}.apk")
+        apkSrc.copyTo(dest, overwrite = true)
+        println("APK copied to: ${dest.absolutePath}")
     }
 }
