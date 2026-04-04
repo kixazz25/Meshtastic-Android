@@ -1,5 +1,6 @@
 package com.geeksville.mesh.convoy
 
+import com.geeksville.mesh.BuildConfig
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Arrangement
@@ -303,6 +304,16 @@ fun ConvoySettingsScreen(
                 }
             }
 
+            // ── Build stamp ──────────────────────────────────────────
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text     = "GroupTrack v2.4 — Build ${BuildConfig.BUILD_STAMP}",
+                style    = MaterialTheme.typography.labelSmall,
+                color    = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp)
+            )
             Spacer(Modifier.height(24.dp))
         }
     }
