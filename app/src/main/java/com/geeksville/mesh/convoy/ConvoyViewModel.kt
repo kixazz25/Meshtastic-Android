@@ -118,12 +118,17 @@ class ConvoyViewModel @Inject constructor(
     }
 
     fun recalcLead() {
-        _leadLockedFlag = false
-        lockedLeadNodeId = null
-        nodeDistanceAccum.clear()
-        nodeLastLat.clear()
-        nodeLastLon.clear()
-        _leadLocked.value = false
+        // Immediately lock whoever has traveled furthest as new lead
+        val newLead = nodeDistanceAccum.maxByOrNull { (_, dist) -> dist }
+        if (newLead != null) {
+            lockedLeadNodeId = newLead.key
+            _leadLockedFlag = true
+            _leadLocked.value = true
+        } else {
+            lockedLeadNodeId = null
+            _leadLockedFlag = false
+            _leadLocked.value = false
+        }
     }
 
     private val _radioInactive = MutableStateFlow(false)
