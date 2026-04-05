@@ -911,7 +911,7 @@ fun ConvoyScreen(
                                     webViewRef.value?.evaluateJavascript("clearDownloadedAreas()", null)
                                 } else {
                                     val wv = webViewRef.value ?: return@clickable
-                                    val tilesDir = java.io.File(context.filesDir, "tiles/SAT/14")
+                                    val tilesDir = java.io.File(context.getExternalFilesDir(null), "tiles/SAT/14")
                                     Thread {
                                         val bounds = mutableListOf<String>()
                                         if (tilesDir.exists()) {
