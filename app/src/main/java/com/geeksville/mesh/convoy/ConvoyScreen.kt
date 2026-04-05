@@ -456,18 +456,24 @@ fun ConvoyScreen(
                                         if (tilesDir.exists()) {
                                             val z = 18
                                             val n = 1 shl z
-                                            // Draw ALL downloaded tiles — no viewport filter
-                                            // Leaflet handles visibility. Blue boxes accurately reflect actual tiles on disk.
+                                            // Find perimeter of downloaded region from min/max tile coords
+                                            // One bounding rectangle — accurate at all zoom levels
+                                            var xMin = Long.MAX_VALUE; var xMax = Long.MIN_VALUE
+                                            var yMin = Long.MAX_VALUE; var yMax = Long.MIN_VALUE
                                             tilesDir.listFiles()?.forEach { xDir: java.io.File ->
                                                 val x = xDir.name.toLongOrNull() ?: return@forEach
                                                 xDir.listFiles()?.forEach { yFile: java.io.File ->
                                                     val y = yFile.name.removeSuffix(".png").toLongOrNull() ?: return@forEach
-                                                    val tileN = Math.toDegrees(Math.atan(Math.sinh(Math.PI * (1.0 - 2.0 * y / n))))
-                                                    val tileS = Math.toDegrees(Math.atan(Math.sinh(Math.PI * (1.0 - 2.0 * (y + 1) / n))))
-                                                    val tileW = x.toDouble() / n * 360.0 - 180.0
-                                                    val tileE = (x + 1).toDouble() / n * 360.0 - 180.0
-                                                    bounds.add("{\"n\":$tileN,\"s\":$tileS,\"e\":$tileE,\"w\":$tileW}")
+                                                    if (x < xMin) xMin = x; if (x > xMax) xMax = x
+                                                    if (y < yMin) yMin = y; if (y > yMax) yMax = y
                                                 }
+                                            }
+                                            if (xMin != Long.MAX_VALUE) {
+                                                val tileN = Math.toDegrees(Math.atan(Math.sinh(Math.PI * (1.0 - 2.0 * yMin / n))))
+                                                val tileS = Math.toDegrees(Math.atan(Math.sinh(Math.PI * (1.0 - 2.0 * (yMax + 1) / n))))
+                                                val tileW = xMin.toDouble() / n * 360.0 - 180.0
+                                                val tileE = (xMax + 1).toDouble() / n * 360.0 - 180.0
+                                                bounds.add("{\"n\":$tileN,\"s\":$tileS,\"e\":$tileE,\"w\":$tileW}")
                                             }
                                         }
                                         val json = "[${bounds.joinToString(",")}]"
