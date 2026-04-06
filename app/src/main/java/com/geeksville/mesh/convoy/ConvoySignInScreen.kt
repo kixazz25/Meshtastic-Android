@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.Context
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.compose.foundation.clickable
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -275,9 +276,10 @@ fun ConvoySignInScreen(
             }
         }
 
-        // ── DEV ONLY — subscription toggle ─────────────────────────────────────
+        // ── DEV ONLY — seed + subscription toggle ────────────────────────────────
         // Remove before Play Store submission
         var devSubscribed by remember { mutableStateOf(getDevSubscribed(context)) }
+        var seeded by remember { mutableStateOf(ConvoyDevSeeder.getRideCount(context) > 0) }
         androidx.compose.foundation.layout.Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -292,6 +294,22 @@ fun ConvoySignInScreen(
                 fontSize = 10.sp,
                 fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
             )
+            androidx.compose.foundation.layout.Row(
+                modifier = androidx.compose.ui.Modifier
+                    .clickable {
+                        if (seeded) { ConvoyDevSeeder.clear(context); seeded = false }
+                        else { ConvoyDevSeeder.seed(context); seeded = true }
+                    }
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+            ) {
+                androidx.compose.material3.Text(
+                    text = if (seeded) "🌱 SEEDED" else "SEED DATA",
+                    color = if (seeded) Color(0xFF22C55E) else Color(0xFF886633),
+                    fontSize = 10.sp,
+                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                )
+            }
             androidx.compose.material3.Switch(
                 checked = devSubscribed,
                 onCheckedChange = { checked ->
