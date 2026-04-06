@@ -177,7 +177,7 @@ object ConvoyProfileBuilder {
         val channelUrl = "https://meshtastic.org/e/#" +
             android.util.Base64.encodeToString(
                 channelSet.encode(),
-                android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP
+                android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP or android.util.Base64.NO_PADDING
             )
         // ── DeviceProfile ─────────────────────────────────────────────────────
         val profile = DeviceProfile(
