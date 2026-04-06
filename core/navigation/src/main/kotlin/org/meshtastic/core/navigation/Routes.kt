@@ -200,4 +200,6 @@ object ConvoyRoutes {
     @Serializable data object ConvoySubscription      : Route  // V3 Phase B
     @Serializable data object ConvoyDashboard         : Route  // V3 Phase B
     @Serializable data object ConvoyFieldRadio        : Route  // V3 Phase B
+    @Serializable data object ConvoyTerms            : Route  // V3 Phase B
+    @Serializable data object ConvoyPrivacy          : Route  // V3 Phase B
 }

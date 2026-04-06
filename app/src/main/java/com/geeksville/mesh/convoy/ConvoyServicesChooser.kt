@@ -35,8 +35,8 @@ fun ConvoyServicesChooser(
     onOffline: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val signedIn = isSignedIn(context)
-    val subscribed = isSubscribed(context)
+    val signedIn = ConvoySessionManager.isSignedIn(context)
+    val subscribed = ConvoySessionManager.isSubscribed(context)
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,

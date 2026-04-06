@@ -28,8 +28,9 @@ import com.geeksville.mesh.convoy.ConvoySignInScreen
 import com.geeksville.mesh.convoy.ConvoySubscriptionScreen
 import com.geeksville.mesh.convoy.ConvoyDashboardScreen
 import com.geeksville.mesh.convoy.ConvoyFieldRadioScreen
-import com.geeksville.mesh.convoy.isSignedIn
-import com.geeksville.mesh.convoy.isSubscribed
+import com.geeksville.mesh.convoy.ConvoySessionManager
+import com.geeksville.mesh.convoy.ConvoyTermsScreen
+import com.geeksville.mesh.convoy.ConvoyPrivacyScreen
 import org.meshtastic.core.navigation.ConvoyRoutes
 
 fun NavGraphBuilder.convoyGraph(
@@ -208,14 +209,15 @@ fun NavGraphBuilder.convoyGraph(
         val context = androidx.compose.ui.platform.LocalContext.current
         ConvoySignInScreen(
             onSignInComplete = {
-                if (isSubscribed(context)) {
-                    navController?.navigate(ConvoyRoutes.ConvoyDashboard) {
-                        popUpTo(ConvoyRoutes.ConvoySignIn) { inclusive = true }
-                    }
-                } else {
-                    navController?.navigate(ConvoyRoutes.ConvoySubscription) {
-                        popUpTo(ConvoyRoutes.ConvoySignIn) { inclusive = true }
-                    }
+                val route = ConvoySessionManager.resolveLaunchRoute(context, true)
+                val dest = when (route) {
+                    ConvoySessionManager.LaunchRoute.TERMS        -> ConvoyRoutes.ConvoyTerms
+                    ConvoySessionManager.LaunchRoute.PRIVACY      -> ConvoyRoutes.ConvoyPrivacy
+                    ConvoySessionManager.LaunchRoute.SUBSCRIPTION -> ConvoyRoutes.ConvoySubscription
+                    else                                          -> ConvoyRoutes.ConvoyDashboard
+                }
+                navController?.navigate(dest) {
+                    popUpTo(ConvoyRoutes.ConvoySignIn) { inclusive = true }
                 }
             },
             onSkip = {
@@ -228,6 +230,18 @@ fun NavGraphBuilder.convoyGraph(
 
     // ── Subscription Value Prop — V3 Phase B ─────────────────────────────
     // Shown to free users after sign-in or when tapping gated Dashboard button.
+    composable<ConvoyRoutes.ConvoyTerms> {
+        ConvoyTermsScreen(
+            onAccept = { navController?.navigate(ConvoyRoutes.ConvoyPrivacy) { popUpTo(ConvoyRoutes.ConvoyTerms) { inclusive = true } } },
+            onDecline = { navController?.navigate(ConvoyRoutes.Convoy) { popUpTo(ConvoyRoutes.ConvoyTerms) { inclusive = true } } }
+        )
+    }
+    composable<ConvoyRoutes.ConvoyPrivacy> {
+        ConvoyPrivacyScreen(
+            onAccept = { navController?.navigate(ConvoyRoutes.ConvoyDashboard) { popUpTo(ConvoyRoutes.ConvoyPrivacy) { inclusive = true } } },
+            onDecline = { navController?.navigate(ConvoyRoutes.Convoy) { popUpTo(ConvoyRoutes.ConvoyPrivacy) { inclusive = true } } }
+        )
+    }
     composable<ConvoyRoutes.ConvoySubscription> {
         ConvoySubscriptionScreen(
             onSubscribe = {
@@ -251,7 +265,7 @@ fun NavGraphBuilder.convoyGraph(
     composable<ConvoyRoutes.ConvoyDashboard> {
         val context = androidx.compose.ui.platform.LocalContext.current
         ConvoyDashboardScreen(
-            isSubscribed = isSubscribed(context),
+            isSubscribed = ConvoySessionManager.isSubscribed(context),
             onNavigateToRides       = { /* PB-07 */ },
             onNavigateToExplore     = { /* PB future */ },
             onNavigateToTracks      = { /* PB future */ },

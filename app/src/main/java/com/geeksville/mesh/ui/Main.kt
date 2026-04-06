@@ -526,7 +526,15 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
                 onDismiss = { showServicesChooser = false },
                 onOnline = {
                     showServicesChooser = false
-                    navController.navigate(ConvoyRoutes.ConvoySignIn)
+                    val route = com.geeksville.mesh.convoy.ConvoySessionManager.resolveLaunchRoute(android.app.Application().applicationContext, true)
+                    val dest = when (route) {
+                        com.geeksville.mesh.convoy.ConvoySessionManager.LaunchRoute.TERMS        -> ConvoyRoutes.ConvoyTerms
+                        com.geeksville.mesh.convoy.ConvoySessionManager.LaunchRoute.PRIVACY      -> ConvoyRoutes.ConvoyPrivacy
+                        com.geeksville.mesh.convoy.ConvoySessionManager.LaunchRoute.SUBSCRIPTION -> ConvoyRoutes.ConvoySubscription
+                        com.geeksville.mesh.convoy.ConvoySessionManager.LaunchRoute.DASHBOARD    -> ConvoyRoutes.ConvoyDashboard
+                        else                                                                      -> ConvoyRoutes.ConvoySignIn
+                    }
+                    navController.navigate(dest)
                 },
                 onOffline = {
                     showServicesChooser = false
