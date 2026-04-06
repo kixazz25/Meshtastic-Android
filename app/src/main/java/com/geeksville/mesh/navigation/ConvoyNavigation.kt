@@ -31,6 +31,12 @@ import com.geeksville.mesh.convoy.ConvoyFieldRadioScreen
 import com.geeksville.mesh.convoy.ConvoySessionManager
 import com.geeksville.mesh.convoy.ConvoyTermsScreen
 import com.geeksville.mesh.convoy.ConvoyPrivacyScreen
+import com.geeksville.mesh.convoy.ConvoyMyRidesScreen
+import com.geeksville.mesh.convoy.ConvoyCreateRideScreen
+import com.geeksville.mesh.convoy.ConvoyRideDetailScreen
+import com.geeksville.mesh.convoy.ConvoyProfileScreen
+import com.geeksville.mesh.convoy.ConvoyExploreScreen
+import com.geeksville.mesh.convoy.ConvoyTracksScreen
 import org.meshtastic.core.navigation.ConvoyRoutes
 
 fun NavGraphBuilder.convoyGraph(
@@ -230,6 +236,24 @@ fun NavGraphBuilder.convoyGraph(
 
     // ── Subscription Value Prop — V3 Phase B ─────────────────────────────
     // Shown to free users after sign-in or when tapping gated Dashboard button.
+    composable<ConvoyRoutes.ConvoyMyRides> {
+        ConvoyMyRidesScreen(onCreateRide = { navController?.navigate(ConvoyRoutes.ConvoyCreateRide) }, onRideDetail = { navController?.navigate(ConvoyRoutes.ConvoyRideDetail) }, onBack = { navController?.popBackStack() })
+    }
+    composable<ConvoyRoutes.ConvoyCreateRide> {
+        ConvoyCreateRideScreen(onSave = { navController?.navigate(ConvoyRoutes.ConvoyRideDetail) }, onBack = { navController?.popBackStack() })
+    }
+    composable<ConvoyRoutes.ConvoyRideDetail> {
+        ConvoyRideDetailScreen(rideId = "", onBack = { navController?.popBackStack() })
+    }
+    composable<ConvoyRoutes.ConvoyProfile> {
+        ConvoyProfileScreen(onBack = { navController?.popBackStack() })
+    }
+    composable<ConvoyRoutes.ConvoyExplore> {
+        ConvoyExploreScreen(onBack = { navController?.popBackStack() })
+    }
+    composable<ConvoyRoutes.ConvoyTracks> {
+        ConvoyTracksScreen(onBack = { navController?.popBackStack() })
+    }
     composable<ConvoyRoutes.ConvoyTerms> {
         ConvoyTermsScreen(
             onAccept = { navController?.navigate(ConvoyRoutes.ConvoyPrivacy) { popUpTo(ConvoyRoutes.ConvoyTerms) { inclusive = true } } },
@@ -266,10 +290,10 @@ fun NavGraphBuilder.convoyGraph(
         val context = androidx.compose.ui.platform.LocalContext.current
         ConvoyDashboardScreen(
             isSubscribed = ConvoySessionManager.isSubscribed(context),
-            onNavigateToRides       = { /* PB-07 */ },
-            onNavigateToExplore     = { /* PB future */ },
-            onNavigateToTracks      = { /* PB future */ },
-            onNavigateToProfile     = { /* PB future */ },
+            onNavigateToRides       = { navController?.navigate(ConvoyRoutes.ConvoyMyRides) },
+            onNavigateToExplore     = { navController?.navigate(ConvoyRoutes.ConvoyExplore) },
+            onNavigateToTracks      = { navController?.navigate(ConvoyRoutes.ConvoyTracks) },
+            onNavigateToProfile     = { navController?.navigate(ConvoyRoutes.ConvoyProfile) },
             onNavigateToFieldRadio  = { navController?.navigate(ConvoyRoutes.ConvoyFieldRadio) },
             onShowSubscription      = { navController?.navigate(ConvoyRoutes.ConvoySubscription) },
             onBack                  = { navController?.popBackStack() }
