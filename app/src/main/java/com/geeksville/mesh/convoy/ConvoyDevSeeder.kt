@@ -45,6 +45,8 @@ object ConvoyDevSeeder {
         ConvoySessionManager.acceptPrivacy(ctx)
         ConvoySessionManager.setSubscriptionExpiry(ctx, System.currentTimeMillis() + 30L * 24 * 60 * 60 * 1000)
         ConvoySessionManager.setOrganizer(ctx, true)
+        ConvoySessionManager.setZipCode(ctx, "84770")
+        ConvoySessionManager.setSearchRadius(ctx, 25)
     }
 
     private fun seedRides(ctx: Context) {
@@ -78,6 +80,26 @@ object ConvoyDevSeeder {
         prefs.apply()
     }
 
+    private fun seedPublicRides(ctx: Context) {
+        val prefs = ctx.getSharedPreferences("grouptrack_public_rides", Context.MODE_PRIVATE).edit()
+        prefs.putString("pub_001_name", "Sand Hollow SxS Weekend Run")
+        prefs.putString("pub_001_organizer", "Utah Off-Road Club")
+        prefs.putString("pub_001_email", "info@utahoffroadclub.com")
+        prefs.putString("pub_001_date", "April 12, 2026")
+        prefs.putString("pub_001_distance", "8 mi")
+        prefs.putString("pub_002_name", "Gooseberry Mesa Morning Ride")
+        prefs.putString("pub_002_organizer", "Red Rock Riders")
+        prefs.putString("pub_002_email", "rides@redrockriders.com")
+        prefs.putString("pub_002_date", "April 19, 2026")
+        prefs.putString("pub_002_distance", "12 mi")
+        prefs.putInt("pub_count", 2)
+        prefs.apply()
+    }
+    fun getPublicRideCount(ctx: Context): Int =
+        ctx.getSharedPreferences("grouptrack_public_rides", Context.MODE_PRIVATE).getInt("pub_count", 0)
+    fun getPublicRideField(ctx: Context, index: Int, field: String): String =
+        ctx.getSharedPreferences("grouptrack_public_rides", Context.MODE_PRIVATE)
+            .getString("pub_00${index+1}_$field", "") ?: ""
     private fun seedNotifications(ctx: Context) {
         val prefs = ctx.getSharedPreferences(PREFS_NOTIF, Context.MODE_PRIVATE).edit()
         prefs.putString("notif_001", "Dave H invited you to Wednesday Night Ride")

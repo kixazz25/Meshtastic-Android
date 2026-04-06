@@ -141,7 +141,7 @@ fun GroupTrackTagline(modifier: Modifier = Modifier) {
     )
 }
 // ── Bottom Navigation Bar ─────────────────────────────────────────────────────
-enum class GroupTrackTab { HOME, RIDES, MAP, PROFILE }
+enum class GroupTrackTab { HOME, RIDES, MAP, PROFILE, RADIO }
 
 @Composable
 fun GroupTrackBottomNav(
@@ -149,7 +149,8 @@ fun GroupTrackBottomNav(
     onHome: () -> Unit,
     onRides: () -> Unit,
     onMap: () -> Unit,
-    onProfile: () -> Unit
+    onProfile: () -> Unit,
+    onRadio: () -> Unit = {}
 ) {
     androidx.compose.foundation.layout.Row(
         modifier = androidx.compose.ui.Modifier
@@ -163,7 +164,8 @@ fun GroupTrackBottomNav(
             NavItem(GroupTrackTab.HOME,    "🏠", "HOME",    onHome),
             NavItem(GroupTrackTab.RIDES,   "🏁", "RIDES",   onRides),
             NavItem(GroupTrackTab.MAP,     "🗺", "MAP",     onMap),
-            NavItem(GroupTrackTab.PROFILE, "👤", "PROFILE", onProfile)
+            NavItem(GroupTrackTab.PROFILE, "👤", "PROFILE", onProfile),
+            NavItem(GroupTrackTab.RADIO,   "📡", "RADIO",   onRadio)
         ).forEach { item ->
             val tab = item.tab; val icon = item.icon; val label = item.label; val action = item.action
             val isActive = tab == activeTab

@@ -117,13 +117,23 @@ fun ConvoyDashboardScreen(
             }
         }
 
-        GroupTrackBottomNav(
-            activeTab = GroupTrackTab.HOME,
-            onHome = {},
-            onRides = onNavigateToRides,
-            onMap = onBack,
-            onProfile = onNavigateToProfile
-        )
+        // Back to map
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color(0xFF0A1628))
+                .padding(16.dp)
+                .clickable { onBack() },
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "← BACK TO MAP",
+                color = Grey,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.sp
+            )
+        }
     }
 }
 

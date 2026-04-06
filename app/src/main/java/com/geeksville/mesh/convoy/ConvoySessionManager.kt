@@ -41,6 +41,20 @@ object ConvoySessionManager {
     fun getEmail(ctx: Context): String =
         prefs(ctx).getString("email", "") ?: ""
 
+    fun getZipCode(ctx: Context): String =
+        prefs(ctx).getString("zip_code", "") ?: ""
+
+    fun getSearchRadius(ctx: Context): Int =
+        prefs(ctx).getInt("search_radius_miles", 25)
+
+    fun setZipCode(ctx: Context, zip: String) {
+        prefs(ctx).edit().putString("zip_code", zip).apply()
+    }
+
+    fun setSearchRadius(ctx: Context, miles: Int) {
+        prefs(ctx).edit().putInt("search_radius_miles", miles).apply()
+    }
+
     fun saveUser(ctx: Context, userId: String, googleId: String,
                  email: String, firstName: String, lastName: String) {
         prefs(ctx).edit().apply {
