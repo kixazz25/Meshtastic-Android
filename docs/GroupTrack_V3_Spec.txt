@@ -1,0 +1,1161 @@
+
+
+=== GroupTrack_Complete_Roadmap_v4.docx ===
+GroupTrack
+Complete Product Roadmap — v4
+Updated April 3, 2026  |  Based on grouptrack_v3_proto_v004.html (34 screens)  |  Confidential
+Change Log
+1. Product Vision
+GroupTrack is an off-grid awareness platform for any group activity in areas without cell service — off-road vehicles, hikers, mountain bikers, overlanders, search and rescue, hunting parties. The platform provides real-time group position awareness over LoRa mesh radio, organized ride management, community track sharing, and radio configuration — all without requiring cell or internet connectivity during the activity itself.
+2. Complete Screen Inventory (v004 Prototype — 34 Screens)
+Source: grouptrack_v3_proto_v004.html. All screens defined and annotated. Green = confirmed active functions. Grey = related/future functions.
+Flow 1 — First Time User (s01, s01b, s02, s03, s04)
+★  Dashboard (s04) is the LANDING SCREEN for all online services — notifications first, then enrolled rides, then pending invites. NOT a 5-button launcher.
+Flow 2 — Dashboard (s04)
+Dashboard is a single screen showing live data from three API calls. It is NOT a navigation hub with buttons — it is a data screen. Navigation to Rides, Explore, Tracks, Profile happens via the bottom nav bar inside the online section.
+Flow 3 — Profile & Account (s05, s06, s07, s08)
+Flow 4 — Rides (s09, s10, s10b, s11)
+Flow 5 — Invite & Broadcast (s12, s13)
+Flow 6 — Accept an Invite (s04, s14)
+Flow 7 — Explore Rides (s15)
+Flow 8 — Convoy Map (s16–s20c)
+Flow 9 — Map Manager (s21–s30) — OFFLINE FUNCTION
+Map Manager is a full-screen map tool. It is part of Offline Services — no internet required for core functions. Some functions (sync to RDS) are online-optional.
+Flow 10 — Field Radio (s31) — OFFLINE FUNCTION
+Flow 11 — Tracks Library (s32, s33)
+3. Navigation Architecture
+Two icons in the Meshtastic nav bar. Convoy map always running as background process.
+3.1 Online Services Path
+Event/Ride Services → ONLINE → Sign In (s01) → Subscription Paywall (s01b) → Rider Terms (s02) → Privacy Policy (s03) → Dashboard (s04)
+Dashboard bottom nav: Rides | Explore | Tracks | Profile | Field Radio
+3.2 Offline Services Bottom Sheet
+✓  V2.4 EVENT/RIDE accordion in ConvoySubMenu is legacy — removed when V3.0 ships.
+✓  Dashboard is a data screen (notifications + enrollments + invites) NOT a button launcher.
+✓  Map Manager is part of Offline Services — no internet required for tile download, GPX import, overlays.
+4. Release Roadmap
+V2.4 — COMPLETE
+V3.0 Phase A — COMPLETE
+V3.0 Phase B — ACTIVE
+5. Product Philosophy
+5.1 Freemium Model
+✓  No feature nags during a ride. Upgrade prompt only in planning phase.
+✓  Map Manager is FREE — offline tile download is core functionality, not a premium feature.
+✓  The radio is the gate — apply ride config or you are invisible to the organized ride mesh.
+6. Payment Processing
+★  All processors update users.expires_at via PHP API. One source of truth.
+GroupTrack  |  Complete Product Roadmap v4  |  April 3, 2026  |  34 Screens Defined  |  CONFIDENTIAL
+Date | Ver | Changes
+March 30 | v1 | Initial roadmap — V2.4 through V5.0.
+Apr 3 AM | v2 | SSL live. API confirmed. Product philosophy — ride types, freemium, RideState.
+Apr 3 PM | v3 | Nav architecture finalized. Online/Offline separation. Offline services scope. Lead lock slider. Per-node multitrack.
+Apr 3 EVE | v4 | FULL SCREEN INVENTORY from grouptrack_v3_proto_v004.html (34 screens). Dashboard corrected — notifications+enrollments+invites landing, not just 5 buttons. Map Manager added as separate offline function. All 11 flows documented.
+Screen | Name | Key Functions
+s01 | Sign In | Google Sign-In. Subscription check on sign-in. Route to paywall if no active subscription. Cache user_id after payment confirmed.
+s01b | Subscription Paywall | Google Play Billing $3/mo. Payment confirmation. Proceed to Rider Terms on success. DEFERRED — design complete, not wired until shakedown.
+s02 | Rider Terms | Rider Terms V1.0 display. Terms acceptance record. Version tracking.
+s03 | Privacy Policy | Privacy Policy V1.0 display. Privacy acceptance record. Name+email shared with followed organizers. Version tracking.
+s04 | Dashboard | GET /notifications + /enrollments + /invites. Accept/decline invite inline. Cancel enrollment inline. View ride detail. Organizer name+email display. Role display Organizer/Rider.
+Screen | Name | Key Functions
+s05 | Profile | GET/PUT /users/profile. Email opt-in toggle. View ride history. View following list. Subscription status display.
+s06 | Become Organizer | Organizer Terms V1.0. Google Play Billing $3/mo organizer tier. POST /users/organizer. is_organizer flag set.
+s07 | Ride History | GET /users/ride-history. Most recent first. Organizer name+email per ride. Rider list with emails. Export GPX for past ride. Inline expand panel.
+s08 | Following | GET /users/following. POST/DELETE /follows. Organizer name+email+phone display. Organizer search.
+Screen | Name | Key Functions
+s09 | My Rides | GET /rides enrolled/completed/organized. Annotated list. Search by name/date/position.
+s10 | Create Ride (locked) | All ride fields. Channel auto-generate. Public/private toggle. Trailhead REQUIRED gate — orange. Map area REQUIRED gate — orange. SAVE disabled until both set.
+s10b | Create Ride (ready) | POST /rides. All fields validated. Trailhead set from Map Manager. Map area/bounding box confirmed. SAVE RIDE enabled.
+s11 | Ride Detail | GET /rides/{id} + /enrollments/{ride_id}. Send invite entry. Broadcast entry. Trailhead + route display. Organizer name+email.
+Screen | Name | Key Functions
+s12 | Send Invite | POST /invites. QR code generate. Copy invite link. Android share sheet. grouptrack.org/invite/{token}.
+s13 | Broadcast | POST /broadcast/{ride_id}. GET /follows count. Email queue insert. One-time send gate.
+Screen | Name | Key Functions
+s14 | Invite Accept | GET /ride/{token}. Ride JSON download to convoy_events/. Auto tile download for ride area. Enrollment create. Radio config ready flag. Organizer name+email. Calendar add.
+Screen | Name | Key Functions
+s15 | Explore Rides | GET /rides (public). Zip radius search. Area/bounds search. Follow organizer. Map vignette per ride — staging area marked.
+Screen | Name | Key Functions
+s16 | Map — SOLO | GPS trail recording. RideState=SOLO. GPX track write. Offline tile serve. Auto-pan my cart. Active overlays.
+s17 | Map — CONVOY | Mesh node display. RideState=CONVOY. Lead lock. Tail calc. Convoy HUD. GPS trail. Auto-pan group. Active overlays.
+s18 | Map — ORGANIZED | RideState=ORGANIZED. Route overlay solid orange. Trailhead marker. Full HUD. Lead lock by callsign. Survey on STOP.
+s19 | Map Settings | Offline/Online toggle. SAT/HYB/TOPO selector. Track lead only. Show downloaded areas. Track format GPX/KML. Tile download region. Zoom Z14-Z18. Overlay selector entry.
+s20 | Stop — Survey | ORGANIZED stop. Difficulty + recommend survey. Track donation toggle. Track name field. POST /ride/survey. GPX save. Offline survey queue.
+s20b | Stop — Simple | SOLO/CONVOY stop. Track name field. GPX save to filesDir/my_tracks/.
+s20c | Radio Reconnect | Radio inactivity 5min. Bluetooth toggle reconnect. _radioInactive StateFlow. Green banner overlay.
+Screen | Name | Key Functions
+s21 | Map Manager Main | Full screen map. convoy:// tile serve. OFFLINE toggle. FIND AREA geocoder. Tile download, Import GPX/KML, Overlay selector, Waypoint library, Route Planner entries.
+s22 | Find Area | 4 methods: current viewport, FIND AREA geocoder, name search, waypoint radius search 1/5/10/25mi.
+s23 | Tile Download | Draw region on map. Zoom Z10-Z18. Tile count + storage estimate. ConvoyTileDownloader.downloadTiles(). Progress tracking.
+s24 | Import GPX/KML | File picker GPX/KML. Route name. Type selector Route or Track. MD5 duplicate check. Write to filesDir/routes/. Add to local library.
+s25 | Overlay Selector | Filter by viewport bounds. Routes solid orange. Tracks dashed purple. Waypoints by type. Ride history unique palette. SELECT ALL toggle.
+s26 | Waypoint Library | Waypoint list. Search by name. Filter by type Trailhead/Staging/Hazard/POI. Edit/delete.
+s27 | Create Waypoint | Long press map to drop pin. GPS coordinate capture. Name field. Type selector. Notes field. Write to filesDir/waypoints/.
+s28 | Set Trailhead | Map Manager in trailhead picker mode. Long press to drop new waypoint or select from existing library. Returns lat/lon/name to Create Ride.
+s29 | Set Map Area | Assign existing route, create new via Route Planner, import GPX/KML, or draw bounding box manually. Returns bounds to Create Ride.
+s30 | Route Planner | Full screen map. Tap waypoints to draw route. Route name. Type Loop/Out+Back/Point-to-Point. Save to library. Available in Overlay Selector and Set Map Area.
+Screen | Name | Key Functions
+s31 | Field Radio | BLE radio connection status. Active channel display. Frequency/SF/TX Power. Apply ride config. Apply master config. Verify config. Change long name to LEAD. Bluetooth toggle reconnect. Always accessible offline.
+Screen | Name | Key Functions
+s32 | Track Library | GET /ride_tracks (public). Filter difficulty/area/zip. Sort by recommend%. Map vignette per track. DOWNLOAD TO DEVICE. Auto tile download.
+s33 | Track Detail | GET /ride_tracks/{id}. Track map preview dashed purple. Difficulty/recommend%/donated by. DOWNLOAD TO DEVICE. Write to filesDir/routes/.
+Nav Icon | Always Active | Function
+🗺 GroupTrack | YES | Convoy map. Lead lock. Offline tiles. GPX recording. V2.4 complete.
+🏁 Event/Ride Services | PARTIAL | Two-button chooser: ONLINE → sign-in → Dashboard. OFFLINE → Offline Services bottom sheet.
+Function | Screen
+📡 Field Radio | s31 — Apply config, verify, change callsign. Always active.
+🗺 Map Manager | s21 — Tile download, import GPX/KML, overlays, waypoints, route planner.
+📥 Import GPX/KML | s24 — Import from device file picker.
+🗄 Archive/Restore | Existing ConvoyArchiveRestoreScreen — select and restore radio config archives.
+Platform | Status | Scope
+Android | COMPLETE | Convoy map, per-node distance accumulator lead lock (slider 300-1500ft, default 330ft), offline tiles (external storage), per-node multitrack colors, GPX/KML export, GroupTrack branding. Field tested April 2+3, 2026.
+Platform | Status | Scope
+Android | COMPLETE | 14-table RDS schema. SSL live. API routing confirmed. ConvoySignInScreen, ConvoySubscriptionScreen, ConvoyDashboardScreen stub, ConvoyFieldRadioScreen stub, ConvoyNavigation wired. V3_FEATURES_ENABLED=false.
+AWS | COMPLETE | 14 tables. Let's Encrypt SSL. certbot auto-renewal. HTTPS confirmed. Path routing fix.
+# | ID | Platform | Task | Status
+1 | PB-NAV-01 | Android | Add Event/Ride Services icon to Meshtastic nav bar (TopLevelDestination in Main.kt) | OPEN
+2 | PB-NAV-02 | Android | Online/Offline two-button chooser bottom sheet on icon tap | OPEN
+3 | PB-NAV-03 | Android | Offline services bottom sheet — Field Radio, Map Manager, Import GPX/KML, Archive/Restore | OPEN
+4 | PB-DASH-01 | Android | Build Dashboard screen (s04) — GET /notifications + /enrollments + /invites, accept/decline inline | OPEN
+5 | PB-SIGN-01 | Android | Wire full first-time user flow: s01 Sign In → s01b Paywall → s02 Rider Terms → s03 Privacy → s04 Dashboard | OPEN
+6 | PB-RIDE-01 | Android | Build Rides screens s09 My Rides + s10/s10b Create Ride + s11 Ride Detail | OPEN
+7 | PB-MAP-01 | Android | Build Map Manager s21 main screen — entry point for all offline map functions | OPEN
+8 | PB-V3-ON | Android | Flip V3_FEATURES_ENABLED=true. Full E2E test all flows. Remove legacy EVENT/RIDE submenu. | OPEN
+Tier | What You Get
+FREE — forever | Full convoy map (s16-s20c). Lead lock. Offline tile download (s23). Map Manager (s21-s30). Field Radio (s31). GPX/KML import/export (s24, s20b). Archive/Restore. Join via invite (s14). All offline services. All V2.4 features.
+$3.00/month | Dashboard (s04). Rides create/manage (s09-s11). Invite+Broadcast (s12-s13). Explore (s15). Track Library (s32-s33). Profile+History (s05-s08). Survey on STOP (s20). Track donation.
+Release | Platform | Processor | Price | Net | Notes
+V3.0 C | Android | Google Play | $3.00/mo | ~$2.55 | 15% cut after year 1
+V3.0 D | Web PC+iPad | Stripe | $3.00/mo | ~$2.61 | 2.9%+$0.30/txn
+V3.0 E | iOS | Apple IAP | $3.99/mo | ~$3.39 | 15% small biz
+V5.0 | All | All+org | TBD | TBD | Clubs/outfitters
+
+
+=== GroupTrack_RideState_PhaseB_Plan.docx ===
+GroupTrack
+RideState — Rules, Touchpoints, and Phase B Implementation Plan
+March 30, 2026  |  Branch: feature/convoy-event-ride  |  Phase B Thursday
+1. Overview
+RideState is a computed enum in ConvoyViewModel that drives three aspects of app behavior: map display, survey trigger, and public track repository eligibility. It is computed every tick from two inputs: the active node count on the mesh, and whether a formal ride record exists that matches the current radio channel name and today's date.
+RideState controls behavior through conditional checks at specific touchpoints. It does not replace any existing V2.4 logic — it gates new V3.0 behavior alongside the existing code. V2.4 behavior is the default in all states.
+⚠  RideState is declared in ConvoyViewModel.kt as of Phase A. It is computed but nothing reads it yet. All behavioral rules below are Phase B implementation tasks. No V2.4 behavior has changed.
+2. The Three States
+2.1 RideState Detection Logic
+RideState is computed in ConvoyViewModel tick loop after ConvoyEngine.compute() runs. Two inputs are required:
+1. Node count — from state.nodes.size (already computed each tick)
+2. Channel name match — radioConfigRepository.channelSetFlow.first().settings.firstOrNull()?.name
+The organized ride check loads all rides from ConvoyEventStore and matches on both channelName AND eventDate == today. This dual match prevents stale rides from triggering ORGANIZED state if the same channel name is reused on a different day.
+★  The channel name is the bridge between the radio configuration and the ride record. When an organizer creates a ride, a unique channel name is generated (CONVOY-XXXX). When the rider applies the radio config, that channel name is written to the radio. On the next tick, the channel name matches the ride record — ORGANIZED state is triggered automatically.
+3. Three Use Cases
+Mode 1 is a significant product differentiator — it expands the addressable market beyond organized convoy riders to any trail user who wants offline maps and GPS track recording. No radio hardware required.
+4. The Three Controlled Aspects
+4.1 Map Display
+Key rule for SOLO: when node count <= 1, the GPS trail segments (gpsTrailSegments already computed in ViewModel) are used as the primary map track regardless of trackLeadOnly setting. This is the real-time recording display. No code change needed for the trail itself — gpsTrailSegments already accumulates. The only change needed is the display condition in ConvoyScreen.kt.
+4.2 Survey on STOP
+The existing showNameDialog in ConvoyScreen.kt becomes a branch: if rideState == ORGANIZED show the survey+name dialog, else show the simple name dialog. The existing simple dialog code stays unchanged as the default path.
+4.3 Public Track Repository (GPX Donation)
+5. Phase B Implementation Touchpoints
+⚠  None of these changes are made until after Wednesday field test confirms V2.4 is solid. All touchpoints below are Phase B tasks.
+6. Phase A — What Is Already Built
+7. Phase B Task Order — Thursday Night
+Tasks must be executed in this order to prevent broken intermediate states. Each task builds on the previous one. V2.4 regression test runs between each group.
+GroupTrack  |  RideState Rules and Phase B Plan  |  March 30, 2026  |  Thursday Implementation
+STATE | CONDITION | DEFINITION
+SOLO | Node count <= 1
+No ride loaded | One person, no radio connected or no other nodes heard on mesh. Personal GPS mapping mode — equivalent to Gaia GPS or onX. No convoy, no mesh coordination, no database impact.
+CONVOY | Node count > 1
+No ride loaded | Ad hoc group ride. Multiple radios heard on mesh. No formal ride record in the system. Convoy tracking active. No survey. No database impact. Ride is impromptu — organizer did not pre-create a ride record.
+ORGANIZED | Ride loaded
+(channel + date match) | Formal ride record exists in convoy_events/ where channelName matches the active radio channel AND eventDate matches today. Full V3.0 platform experience. Survey on STOP. Track donation eligible. Full database impact.
+MODE | STATE | DESCRIPTION
+Mode 1
+Solo Trail Mapper | SOLO | No radio connected or no other nodes heard. User uses GroupTrack as a personal GPS mapping tool. Downloads offline map tiles. Records GPS track in real time — track draws on screen as they ride. Exports GPX. No mesh, no convoy, no database, no survey. No account required.
+Mode 2
+Ad Hoc Convoy | CONVOY | Radio connected, multiple nodes on mesh. Impromptu group ride — no formal ride created in the system. Full convoy tracking: lead lock, span, HUD, all active. No survey on STOP. Track saved locally, no donation. No database impact.
+Mode 3
+Organized Ride | ORGANIZED | Organizer pre-created ride in RDS. Rider accepted invite link, maps auto-downloaded, radio auto-configured. Full V3.0 experience: convoy tracking, lead lock, HUD, survey on STOP, track donation offered. All data flows to RDS.
+STATE | MAP DISPLAY BEHAVIOR
+SOLO | Device GPS trail drawn in real time as rider moves. Track line grows with each GPS point. No convoy nodes displayed (none exist). Imported GPX reference overlay shown if loaded (backlog: GPX-01). Single color trail from device GPS.
+CONVOY | Convoy trail from lead cart. All existing V2.4 trail logic unchanged. Lead lock active. Multi-node HUD visible.
+ORGANIZED | Convoy trail from lead cart. Route overlay from ride_tracks if route_id set on ride. All existing V2.4 trail logic unchanged.
+STATE | STOP RECORD BEHAVIOR
+SOLO | Simple track name dialog only. No survey questions. Track saved to tracks directory (filesDir/my_tracks/). No database impact. SAVE disabled until name entered.
+CONVOY | Simple track name dialog only. No survey questions. Track saved to tracks directory. No database impact.
+ORGANIZED | Full survey dialog: difficulty checkbox (Easy/Moderate/Hard), recommend checkbox (Yes/No), share track checkbox. Track name field below survey. SAVE disabled until name entered. Survey queued locally, uploaded on next connectivity. Track donation processed if share checked.
+STATE | TRACK DONATION BEHAVIOR
+SOLO | No donation. Track stays on device. No upload to ride_tracks on EC2. No database row created.
+CONVOY | No donation. Track stays on device. No upload.
+ORGANIZED | Donation offered via share track checkbox in survey dialog. If checked: MD5 computed on device, POST /ride/survey with track_donation payload, stored to EC2 ride_tracks directory, ride_tracks row created with source_ride_id set to the organized ride ID.
+# | FILE | TOUCHPOINT | CHANGE
+1 | ConvoyViewModel.kt | Tick loop — RideState compute | Wire channelSetFlow read and ConvoyEventStore match. Already declared in Phase A — just needs the computation block inserted after _convoyState.value = state.
+2 | ConvoyViewModel.kt | queueSurvey() function | New function: stores survey answers + track donation to SharedPreferences queue. Called from survey dialog on SAVE. Uploaded by background worker on next connectivity.
+3 | ConvoyScreen.kt | showNameDialog branch | Add rideState check: if ORGANIZED show survey+name dialog, else show existing simple name dialog. Existing dialog code unchanged.
+4 | ConvoyScreen.kt | GPS trail display | Add SOLO state check in trackSegments computation: if rideState == SOLO use gpsTrailSegments as primary display regardless of trackLeadOnly. All other states unchanged.
+5 | ConvoyNavigation.kt | Sign-in route wire | Add ConvoySignIn composable to nav graph. Add launch check in app start: if user_id missing navigate to ConvoySignIn.
+6 | AndroidManifest.xml | Invite intent-filter | Add intent-filter to ConvoyInviteHandler activity: scheme=https, host=grouptrack.org, pathPrefix=/invite/. Currently registered without intent-filter.
+7 | ConvoyViewModel.kt | Survey upload worker | On app start: check SharedPreferences for queued surveys. If found and connectivity available: POST /ride/survey for each. Clear queue on success.
+COMPONENT | FILE | STATUS
+RideState enum | ConvoyViewModel.kt | DECLARED — not read by anything yet
+_rideState StateFlow | ConvoyViewModel.kt | DECLARED — not read by anything yet
+_activeRide StateFlow | ConvoyViewModel.kt | DECLARED — not read by anything yet
+GroupTrackTheme.kt | New file | COMPLETE — brand colors, logo, header, button
+ConvoyApiClient.kt | New file | COMPLETE — all endpoints, not wired
+ConvoySignInScreen.kt | New file | COMPLETE — branded, not in nav graph
+ConvoyInviteHandler.kt | New file | COMPLETE — no intent-filter yet
+RDS Schema — 13 tables | AWS RDS | DEPLOYED AND VERIFIED
+Platform terms — 3 sets | AWS RDS | SEEDED V1.0
+Email template | AWS RDS | SEEDED
+ride_tracks directory | EC2 | CREATED — apache owned
+Survey dialog patch | ConvoyScreen.kt | WRITTEN — NOT APPLIED (Phase B)
+RideState tick computation | ConvoyViewModel.kt | WRITTEN — NOT APPLIED (Phase B)
+# | ID | Task | Dependency
+1 | PB-01 | Apply RideState tick computation to ConvoyViewModel.kt | Phase A complete — already declared
+2 | PB-02 | Add SOLO trail display branch to ConvoyScreen.kt | PB-01 — rideState must exist
+3 | PB-03 | Add queueSurvey() to ConvoyViewModel.kt | PB-01 — rideState must exist
+4 | PB-04 | Apply survey dialog patch to ConvoyScreen.kt showNameDialog | PB-03 — queueSurvey() must exist
+5 | PB-05 | Wire ConvoySignIn to nav graph + app launch check | PB-01 complete, V2.4 regression passed
+6 | PB-06 | Add intent-filter to ConvoyInviteHandler in AndroidManifest | PB-05 — sign-in must work before invite accepted
+7 | PB-07 | Wire ride creation to POST /rides API | PB-05 — user must be signed in
+8 | PB-08 | Wire invite generation — SEND INVITE button | PB-07 — ride must exist in RDS
+9 | PB-09 | Test invite flow E2E — organizer sends, rider accepts, radio writes | PB-08 complete
+10 | PB-10 | Add survey upload worker — process SharedPreferences queue on connectivity | PB-04 — survey queue must exist
+11 | PB-11 | SSL on EC2 — certbot before any tokens travel the wire | Before PB-05 goes to production
+12 | PB-12 | Full V3.0 E2E test — all three RideStates verified in field | All PB tasks complete
+
+
+=== GroupTrack_Thursday_PhaseB.docx ===
+GroupTrack
+Thursday — Phase B Work Sequence
+Post Wednesday Field Test  |  Branch: feature/convoy-event-ride  |  V3.0 Phase B
+⚠  Do not begin this work until Wednesday field test confirms all 8 tests pass.
+⚠  Execute tasks in exact sequence. Each task builds on the previous. Do not skip ahead.
+Block 1 — Wednesday Night Post-Test Fixes
+Fix any failures from Wednesday field test before beginning Phase B. These run Wednesday night after returning from the field.
+Block 2 — RideState Wiring (Phase B First Priority)
+RideState must be wired and tested before any new screens are built. Every new screen references RideState.
+Block 3 — Schema ALTER TABLE
+Run all new column additions against RDS before building screens that reference them. All nullable — zero impact on existing data.
+Block 4 — SSL on EC2
+Required before any Google Sign-In token travels the wire. Must be done before sign-in is wired.
+Block 5 — Sign-In Wiring
+Wire ConvoySignInScreen into the app launch flow. Check for user_id on start — if missing navigate to sign-in.
+Block 6 — Dashboard + Field Radio Screens
+Build Dashboard and Field Radio as new isolated screens. Wire to GroupTrack button entry point.
+Block 7 — New Screen Builds (Rides Section)
+Build all new screens as isolated files using GroupTrackTheme. Wire into Dashboard navigation. These replace existing V2.4 event screens in Phase B.
+Block 8 — Survey Upload Worker
+Process queued surveys on connectivity. Runs in background on app launch.
+Block 9 — Full E2E Test
+Complete end-to-end test of all three RideStates and the full V3.0 invite flow before declaring Phase B complete.
+★  Phase B is complete when Block 9 E2E test passes clean. Phase C (Google Play + payments) begins next session.
+★  New screen builds in Block 7 can be split across multiple sessions if needed. Blocks 1-6 must complete in one session.
+GroupTrack  |  Thursday Phase B Sequence  |  Post Wednesday Gate  |  Branch: feature/convoy-event-ride
+ID | Task | Est.
+☐ | WN-01 | Fix any FT failures from Wednesday field test | TBD
+☐ | WN-02 | Rebuild User Guide V2.4 PDF with all confirmed V2.4 features | 30 min
+☐ | WN-03 | Commit all Wednesday night fixes before beginning Phase B | 5 min
+ID | Task | Est.
+☐ | PB-01 | Apply RideState tick computation to ConvoyViewModel.kt — channelSetFlow read + ConvoyEventStore match. patch_ride_state_v3.py ready. | 20 min
+☐ | PB-02 | Verify RideState computes correctly — logcat shows SOLO/CONVOY/ORGANIZED on each tick | 10 min
+☐ | PB-03 | Add SOLO trail display branch in ConvoyScreen.kt — if rideState == SOLO use gpsTrailSegments as primary display | 30 min
+☐ | PB-04 | Add queueSurvey() function to ConvoyViewModel.kt — stores survey answers + track donation to SharedPreferences queue | 30 min
+☐ | PB-05 | Apply survey dialog patch to ConvoyScreen.kt showNameDialog — ORGANIZED gets survey+name, SOLO/CONVOY gets simple name dialog. patch_survey_dialog.py ready. | 30 min
+☐ | PB-06 | Build and install — verify both dialogs show correctly based on RideState | 10 min
+☐ | PB-07 | Commit: feat: V3 Phase B — RideState wired, survey dialog, SOLO trail display | 5 min
+ID | Task | Est.
+☐ | PB-08 | SSH to EC2. Run ALTER TABLE rides ADD COLUMN start_time, trailhead_lat, trailhead_lon, trailhead_name, latitude, longitude | 10 min
+☐ | PB-09 | Run ALTER TABLE users ADD COLUMN default_radius_miles, latitude, longitude, fcm_token, fcm_token_updated | 10 min
+☐ | PB-10 | Run ALTER TABLE ride_tracks ADD COLUMN bounds_north, bounds_south, bounds_east, bounds_west | 5 min
+☐ | PB-11 | Verify all columns: DESCRIBE rides; DESCRIBE users; DESCRIBE ride_tracks; | 5 min
+ID | Task | Est.
+☐ | PB-12 | SSH to EC2: sudo yum install certbot python3-certbot-apache -y | 5 min
+☐ | PB-13 | Run: sudo certbot --apache — follow prompts for grouptrack.org | 10 min
+☐ | PB-14 | Update API_BASE_URL in ConvoyConfig.kt from http:// to https://34.224.89.217/ or https://grouptrack.org/ | 5 min
+☐ | PB-15 | Test HTTPS endpoint with curl — confirm API responds over SSL | 5 min
+ID | Task | Est.
+☐ | PB-16 | Add ConvoySignIn composable to ConvoyNavigation.kt nav graph | 20 min
+☐ | PB-17 | Add launch check — if user_id missing navigate to ConvoySignIn. If offline proceed to map with banner. | 30 min
+☐ | PB-18 | Test sign-in E2E — sign in → POST /users/register → RDS row → user_id cached → app proceeds | 20 min
+☐ | PB-19 | Wire rider + privacy terms screens to first launch flow. Both must be accepted. Version tracked. | 45 min
+☐ | PB-20 | Build and install — full sign-in + terms flow tested on device | 10 min
+☐ | PB-21 | Commit: feat: V3 Phase B — sign-in wired, terms flow, launch check | 5 min
+ID | Task | Est.
+☐ | PB-22 | Build ConvoyDashboardScreen.kt — 5 buttons, notifications panel, internet gate (grey buttons if offline), RideState indicator | 2 hr
+☐ | PB-23 | Build ConvoyFieldRadioScreen.kt — Radio Config access only, always active, no internet needed | 45 min
+☐ | PB-24 | Add DASHBOARD and FIELD RADIO buttons to GroupTrack entry point in Meshtastic nav | 45 min
+☐ | PB-25 | Build and install — Dashboard and Field Radio accessible, internet gate working | 10 min
+☐ | PB-26 | Commit: feat: V3 Phase B — Dashboard, Field Radio, GroupTrack nav entry point | 5 min
+ID | Task | Est.
+☐ | PB-27 | Build ConvoyRidesScreen.kt — My Rides list, upcoming first, CREATE NEW RIDE button, organizer gated | 90 min
+☐ | PB-28 | Build ConvoyCreateRideScreen.kt — all fields: name, date, start time, trailhead, map bounds, route, visibility, channel | 2 hr
+☐ | PB-29 | Build ConvoyRideDetailScreen.kt — enrolled list, conditional buttons (private=invite, public=broadcast) | 90 min
+☐ | PB-30 | Build ConvoyInviteSendScreen.kt — QR code, copy link, share sheet. Private rides only. | 60 min
+☐ | PB-31 | Build ConvoyBroadcastScreen.kt — follower count, email count, one-time confirmation. Public rides only. | 45 min
+☐ | PB-32 | Build ConvoyRideConfirmScreen.kt — invite acceptance screen: ride name, organizer, date, time, trailhead, status checklist | 60 min
+☐ | PB-33 | Wire all Rides screens into Dashboard nav. Test ride creation E2E — create → invite → accept → radio config | 45 min
+☐ | PB-34 | Commit: feat: V3 Phase B — Rides section screens wired | 5 min
+ID | Task | Est.
+☐ | PB-35 | Add survey upload worker to ConvoyViewModel — check SharedPreferences queue on launch, POST /ride/survey for each pending, clear on success | 45 min
+☐ | PB-36 | Test survey queue — fill out survey offline, reconnect, confirm survey uploads and clears from queue | 15 min
+ID | Task | Est.
+☐ | PB-37 | SOLO state — no radio, record track, stop, confirm simple dialog, GPX saved to device | 10 min
+☐ | PB-38 | CONVOY state — two radios, no ride loaded, confirm convoy HUD, simple dialog on stop | 10 min
+☐ | PB-39 | ORGANIZED state — create ride, send invite, accept on device 2, radio config applies, convoy active, survey dialog on stop, track donation | 30 min
+☐ | PB-40 | Confirm RDS data — ride row, enrollment row, survey row, ride_tracks row if donated | 10 min
+☐ | PB-41 | Commit: feat: V3 Phase B complete — all three RideStates proven, full invite flow E2E | 5 min
+THURSDAY TOTAL ESTIMATE | ~12 HOURS — FULL SESSION
+
+
+=== GroupTrack_V3_Architecture_Plan.docx ===
+GroupTrack
+V3.0 Architecture & Migration Plan
+Monday Planning Document  |  March 28, 2026  |  AWS Backend Integration
+Executive Summary
+V3.0 migrates GroupTrack from a fully offline standalone app to a cloud-assisted platform where the AWS backend handles ride creation, user enrollment, and invite distribution while the core mesh radio operation remains entirely offline and unchanged.
+The migration strategy is built around one principle: the radio never needs a cloud connection. Everything before the ride (enrollment, ride creation, invite, map download) can use the cloud. Everything during the ride uses the mesh. The app must work transparently in both states.
+1. Current JSON Entity Inventory
+These are the data entities that exist today as local JSON files. Each must be mapped to the V3.0 hosted model.
+1.1 convoy_ride — the .convoy file
+Location: app/convoy_events/{UUID}.json
+MIGRATION: Rides created locally in V2.4 are recreated in V3.0 by posting to POST /rides. The eventId UUID is preserved as rides.ride_id so existing .convoy files remain valid. No data loss.
+1.2 master_config.json
+Location: app/src/main/assets/master_config.json — baked into APK. 47 radio config fields across 6 groups. Read-only.
+V3.0 STATUS: Unchanged. Stays in assets. Rides only override channel_name and channel_psk. Everything else is master config.
+1.3 convoy_apply_list.json
+Location: app/src/main/assets/ — defines which fields get written during Apply Radio.
+V3.0 STATUS: Unchanged. Stays in assets. Not user-configurable, not ride-specific.
+1.4 master.cfg (binary)
+Location: app/src/main/assets/ — Meshtastic DeviceProfile binary. 38 fields. Built from master_config.json.
+V3.0 STATUS: Unchanged. Not hosted in RDS.
+1.5 WorkingConfig (in-memory)
+Not persisted. Built at runtime by merging master_config.json + ride JSON + radio reads.
+1.6 Organizer Profile (SharedPreferences)
+2. V3.0 RDS Schema — Stage 1 Tables
+Four tables required for V3.0 launch. Create Monday before any Android work.
+2.1 users
+2.2 rides
+2.3 invites
+2.4 enrollments
+2.5 SQL — Create Schema
+Run from EC2 SSH session:
+mysql -h convoy-tracker-db.cudtjxrtdbql.us-east-1.rds.amazonaws.com -u convoy_admin -p convoy_tracker
+CREATE TABLE users (
+  user_id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
+  google_id VARCHAR(255) UNIQUE NOT NULL,
+  email VARCHAR(255) UNIQUE NOT NULL,
+  first_name VARCHAR(100) NOT NULL,
+  last_name VARCHAR(100) NOT NULL,
+  cell VARCHAR(20), zip_code VARCHAR(10),
+  is_active BOOLEAN DEFAULT TRUE,
+  expires_at DATETIME, created_at DATETIME DEFAULT NOW()
+);
+CREATE TABLE rides (
+  ride_id CHAR(36) PRIMARY KEY,
+  organizer_id CHAR(36) NOT NULL,
+  ride_name VARCHAR(255) NOT NULL,
+  channel_name VARCHAR(11) NOT NULL,
+  channel_psk VARCHAR(512) NOT NULL,
+  ride_date DATE NOT NULL, description TEXT,
+  zip_code VARCHAR(10), is_public BOOLEAN DEFAULT FALSE,
+  map_bounds_north DECIMAL(10,7), map_bounds_south DECIMAL(10,7),
+  map_bounds_east DECIMAL(10,7), map_bounds_west DECIMAL(10,7),
+  map_tile_source VARCHAR(10) DEFAULT "SAT", map_zoom_max INT DEFAULT 18,
+  created_at DATETIME DEFAULT NOW(), expires_at DATETIME NOT NULL,
+  FOREIGN KEY (organizer_id) REFERENCES users(user_id)
+);
+CREATE TABLE invites (
+  invite_id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
+  ride_id CHAR(36) NOT NULL, token VARCHAR(64) UNIQUE NOT NULL,
+  created_by CHAR(36) NOT NULL, claimed_by CHAR(36),
+  claimed_at DATETIME, expires_at DATETIME NOT NULL,
+  created_at DATETIME DEFAULT NOW(),
+  FOREIGN KEY (ride_id) REFERENCES rides(ride_id),
+  FOREIGN KEY (created_by) REFERENCES users(user_id)
+);
+CREATE TABLE enrollments (
+  enrollment_id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
+  ride_id CHAR(36) NOT NULL, user_id CHAR(36) NOT NULL,
+  callsign VARCHAR(50), vehicle_type VARCHAR(100),
+  enrolled_at DATETIME DEFAULT NOW(),
+  status ENUM("active","cancelled") DEFAULT "active",
+  FOREIGN KEY (ride_id) REFERENCES rides(ride_id),
+  FOREIGN KEY (user_id) REFERENCES users(user_id)
+);
+3. Authentication — Google Sign-In Strategy
+3.1 Online vs Offline States
+KEY PRINCIPLE: Never block radio operation on authentication state. If Google Sign-In fails or is unavailable, the mesh map, HUD, GPS tracking, and radio config all continue working using locally cached data.
+IMPORTANT: The organizer developer settings gate (long press header) remains independent of Google Sign-In. Uses existing hardcoded password. Do not entangle these two auth systems.
+3.2 Google Sign-In Flow
+3.3 Off-Network Behavior
+4. Radio Write Process — V3.0 Impact Assessment
+The radio write engine is the most complex and proven component in GroupTrack. V3.0 must not change it. The only change is where the ride JSON originates.
+4.1 Current Radio Write Flow — Proven in V2.4
+V3.0 CHANGE: Stage 1 only. The ride JSON source changes from local file to downloaded JSON from RDS. WorkingConfig build, binary build, and all radio write steps are UNCHANGED.
+4.2 Ride JSON Source Change
+The local JSON cache is the bridge. Downloaded rides save to convoy_events/ exactly like .convoy imports. The radio write engine never knows the difference between a local and downloaded ride.
+5. Invite Link Flow — End to End
+5.1 Organizer Creates and Sends Invite
+5.2 Rider Downloads and Uses Ride
+6. Map Area — Ride Creation Dependency
+The ride record in RDS stores the map bounding box set by the organizer during ride creation. When any rider downloads the ride via invite, the app automatically starts downloading tiles for that area. No manual selection required.
+7. Future Entity Stubs
+These do not exist yet but must be architected so they can be added in V3.x and V4.0 without rewriting V3.0 code.
+V3.0 API design principle: every GET /ride/{token} response includes an empty extensions object. Future versions populate extensions with waypoints, org info, etc. V3.0 Android clients ignore unknown fields — forward compatible by design.
+8. V3.0 Monday Build Order
+PREREQUISITE: Resolve offline maps bug first — see GroupTrack_OfflineMaps_Debug.docx. The offline map pipeline must be proven working before automated map download is built.
+9. API Reference
+10. Environment Reference
+Dimension | V2.4 Current | V3.0 Target
+User Identity | Email string in local JSON | Google Sign-In — UUID in RDS users table
+Ride Storage | Local JSON files in convoy_events/ | RDS rides table + local JSON cache
+Ride Distribution | .convoy email attachment | Invite link — GET /ride/{token} — download JSON
+Radio Config | Local master.cfg + ride JSON | Unchanged — no change to radio engine
+Map Tiles | Manual download + local storage | Same + automated download on ride enrollment
+Offline Operation | Fully offline | Fully offline — cloud only used pre-ride
+Authentication | None | Google Sign-In (pre-ride only)
+Field | Type | Description | V3.0 Migration
+convoyDocType | String | Document type: convoy_ride | Retained in local cache
+eventId | UUID | Unique ride identifier | Maps to rides.ride_id in RDS
+eventName | String | Human readable ride name | Maps to rides.ride_name
+channelName | String | Meshtastic channel (max 11 chars) | Maps to rides.channel_name
+channelPsk | String base64 | AES256 32-byte key | Maps to rides.channel_psk
+eventDate | ISO Date | Scheduled ride date | Maps to rides.ride_date
+organizerFirstName | String | Organizer first name | Maps to users.first_name via FK
+organizerLastName | String | Organizer last name | Maps to users.last_name via FK
+organizerEmail | String | Organizer email | Maps to users.email via FK
+createdDate | ISO DateTime | When ride was created | Maps to rides.created_at
+expirationDate | ISO DateTime | 30 days after event date | Maps to rides.expires_at
+Current Field | V3.0 Migration
+email | Becomes Google account email from Sign-In
+firstName | From Google profile on first login — cached locally
+lastName | From Google profile on first login — cached locally
+cell | Remains user-entered — stored in users.cell in RDS
+(new) google_id | Added — users.google_id — primary identity key
+(new) user_id | Added — users.user_id UUID from RDS — used in all API calls
+Column | Type | Notes
+user_id | CHAR(36) PK | UUID — auto-generated on registration
+google_id | VARCHAR(255) UNIQUE NOT NULL | Google subject ID — primary auth key
+email | VARCHAR(255) UNIQUE NOT NULL | Google account email
+first_name | VARCHAR(100) NOT NULL | From Google profile
+last_name | VARCHAR(100) NOT NULL | From Google profile
+cell | VARCHAR(20) NULL | User-entered optional
+zip_code | VARCHAR(10) NULL | For regional features later
+is_active | BOOLEAN DEFAULT TRUE | Account active flag
+expires_at | DATETIME NULL | Subscription expiry — NULL = free tier
+created_at | DATETIME DEFAULT NOW() | Registration timestamp
+Column | Type | Notes
+ride_id | CHAR(36) PK | Preserved from local eventId UUID
+organizer_id | CHAR(36) FK users.user_id | Who created the ride
+ride_name | VARCHAR(255) NOT NULL | Human readable name
+channel_name | VARCHAR(11) NOT NULL | Meshtastic channel max 11 chars
+channel_psk | VARCHAR(512) NOT NULL | AES256 base64 key
+ride_date | DATE NOT NULL | Scheduled date
+description | TEXT NULL | Notes, route, meeting point
+zip_code | VARCHAR(10) NULL | For regional search later
+map_bounds_north | DECIMAL(10,7) NULL | North latitude — automated map download
+map_bounds_south | DECIMAL(10,7) NULL | South latitude
+map_bounds_east | DECIMAL(10,7) NULL | East longitude
+map_bounds_west | DECIMAL(10,7) NULL | West longitude
+map_tile_source | VARCHAR(10) DEFAULT SAT | SAT/TOPO/RD/HYB
+map_zoom_max | INT DEFAULT 18 | Max zoom for tile download
+is_public | BOOLEAN DEFAULT FALSE | Public discovery — V3.x
+created_at | DATETIME DEFAULT NOW()
+expires_at | DATETIME NOT NULL | 30 days after ride_date
+Column | Type | Notes
+invite_id | CHAR(36) PK DEFAULT UUID()
+ride_id | CHAR(36) FK rides.ride_id | Which ride
+token | VARCHAR(64) UNIQUE NOT NULL | URL-safe random token
+created_by | CHAR(36) FK users.user_id | Organizer who generated it
+claimed_by | CHAR(36) FK users.user_id NULL | NULL until claimed
+claimed_at | DATETIME NULL | When rider downloaded the ride
+expires_at | DATETIME NOT NULL | 48 hours after creation
+created_at | DATETIME DEFAULT NOW()
+Column | Type | Notes
+enrollment_id | CHAR(36) PK DEFAULT UUID()
+ride_id | CHAR(36) FK rides.ride_id | Which ride
+user_id | CHAR(36) FK users.user_id | Which rider
+callsign | VARCHAR(50) NULL | Rider callsign for this ride
+vehicle_type | VARCHAR(100) NULL | UTV, motorcycle, truck, etc.
+enrolled_at | DATETIME DEFAULT NOW()
+status | ENUM active/cancelled DEFAULT active
+State | Authentication | What Works
+Online — pre-ride | Google Sign-In active | Full app — ride creation, invite links, enrollment, map download
+Offline — on trail | Cached credentials only | Full mesh operation — no sign-in required, no network calls
+Offline — first launch | Cannot sign in | App prompts to sign in when connectivity available. Existing rides work offline.
+Online — post-ride | Google Sign-In active | Sync local changes back to RDS
+Step | Action | Where
+1 | User opens GroupTrack for first time | App launch
+2 | App checks SharedPreferences for cached user_id | Local
+3 | If no user_id: show Sign In with Google button | ConvoySignInScreen (new)
+4 | Google One Tap auth — user selects Google account | Android Google SDK
+5 | App receives ID token from Google | Android
+6 | App POSTs to EC2: POST /users/register | API call to 34.224.89.217
+7 | RDS returns user_id UUID | API response
+8 | App caches user_id + google_id + name in SharedPreferences | Local cache
+9 | App proceeds to main map — normal operation
+10 | Subsequent launches: use cached credentials — no re-auth | Local
+Scenario | Behavior
+User has signed in before (cached credentials) | App loads normally using cached user_id. Full offline operation.
+User has never signed in | Shows offline banner: Sign in required to activate account. Organizer features locked. Existing local rides still work.
+Google servers unreachable — user previously signed in | Same as cached — use local cache. No re-authentication required.
+Stage | Action | Source
+1. Build WorkingConfig | Merge master_config.json + ride JSON + radio reads | Local assets + local convoy_events/
+2. Build DeviceProfile binary | ConvoyProfileBuilder serializes to Meshtastic proto | In-memory
+3. Apply binary | InstallProfileUseCase.installProfile() — 38 fields, one reboot | BLE to radio
+4. Auto-reconnect | ConvoyReconnectWaitScreen waits, auto-reconnects at i==15 | BLE
+5. Channel write | installChannels() in beginEditSettings/commitEditSettings | BLE to radio
+6. Single reboot | Radio reboots with channel + PSK applied | Radio
+7. Verify | ConvoyVerifyConfigScreen reads back 40 fields | BLE from radio
+Step | V2.4 | V3.0
+Organizer creates ride | Create screen to local JSON file | Create screen to POST /rides to RDS + local cache
+Ride distributed | Email .convoy attachment | Invite link — GET /ride/{token} — download JSON
+Rider imports ride | Opens .convoy — local JSON | Taps invite link — app opens — downloads — local cache
+Ride in RIDE tab | From local files | From local cache — identical UX
+Radio write | WorkingConfig from local JSON | WorkingConfig from local JSON cache — IDENTICAL to V2.4
+Step | Action | Technical Detail
+1 | Tap SEND INVITE in ride screen
+2 | App calls POST /rides/{ride_id}/invite | EC2 creates token in invites table
+3 | EC2 returns invite URL | Format: http://grouptrack.org/invite/{token}
+4 | App opens Android share sheet with URL | Standard ACTION_SEND intent
+5 | Organizer sends via SMS, email, WhatsApp | Standard Android sharing
+Step | Action | Technical Detail
+1 | Rider taps invite link
+2 | Android deep link opens GroupTrack | AndroidManifest intent-filter for grouptrack.org/invite/
+3 | App extracts token from URL
+4 | App calls GET /ride/{token} | EC2 validates token, returns ride JSON + map bounds
+5 | If map_bounds set: start tile download | Same OkHttp downloader as V2.4 — background
+6 | EC2 marks invite claimed | RDS update
+7 | App saves ride JSON to convoy_events/ | Same as .convoy import — identical handler
+8 | App navigates to Apply Radio RIDE tab | Ride pre-selected, ready to apply
+9 | Radio write executes | IDENTICAL to V2.4 — no change
+V2.4 Manual Flow | V3.0 Automated Flow
+Organizer: manually set map area in gear panel | Organizer: draws map area during ride creation (same draw tool, new context)
+Bounds stored nowhere — lost after session | Bounds stored in rides table in RDS with the ride
+Each rider manually downloads their own area | All riders auto-download when they accept the invite
+No guarantee riders have offline maps | All enrolled riders get the right maps automatically
+Entity | Version | Value Delivered
+follows | V3.x | Riders follow organizers. Never miss a ride from your favorite group leader.
+organizations | V4.0 | Club and outfitter accounts. Sand Hollow Adventures manages all guided tours from one dashboard.
+waypoints | V4.0 | Named points on route — staging area, fuel stop, emergency exit. All riders see them automatically.
+public_rides | V3.x | Public ride discovery by zip code. Find group rides near you.
+Priority | Task | Dep | Est.
+1 | Create RDS schema — run SQL from Section 2.5 | EC2 SSH | 30 min
+2 | Verify: SHOW TABLES; DESCRIBE users; | Schema done | 5 min
+3 | Add API_BASE_URL = http://34.224.89.217/ to ConvoyConfig.kt | 10 min
+4 | Add Google Sign-In dep to build.gradle | 10 min
+5 | Build ConvoySignInScreen — Google One Tap | Dep added | 2 hrs
+6 | POST /users/register on sign-in success | Sign-in done | 1 hr
+7 | Cache user_id in SharedPreferences | API working | 30 min
+8 | Test: sign in — RDS row created — user_id cached | Steps 5-7 | 30 min
+9 | Wire POST /rides on ride creation | user_id cached | 1 hr
+10 | Wire POST /rides/{id}/invite + share sheet | Rides in RDS | 1 hr
+11 | Wire GET /ride/{token} deep link + local save | Invites working | 1 hr
+12 | Test full invite flow end to end | Steps 9-11 | 1 hr
+13 | Add map draw to ride creation screen | Invite flow done | 1 hr
+14 | Wire automated tile download on ride download | Map bounds in rides | 2 hrs
+Method | Endpoint | Auth | Description | Status
+POST | /users/register | Google ID token | Create or update user | LIVE — tested
+POST | /rides | user_id | Create a new ride in RDS | LIVE
+POST | /rides/{id}/invite | user_id organizer | Generate invite token | LIVE
+GET | /ride/{token} | None — token is auth | Rider downloads ride JSON | LIVE
+POST | /enroll | user_id | Rider enrolls in ride | LIVE
+GET | /rides | user_id | List organizer rides | V3.x
+POST | /follows | user_id | Follow an organizer | V3.x
+Item | Value
+EC2 IP | 34.224.89.217
+EC2 SSH | ssh -i ~/.ssh/convoy-api-key-2.pem ec2-user@34.224.89.217
+RDS Endpoint | convoy-tracker-db.cudtjxrtdbql.us-east-1.rds.amazonaws.com
+RDS Database | convoy_tracker
+API Base URL | http://34.224.89.217/
+Android Branch | feature/convoy-event-ride
+Build command | ./gradlew assembleGoogleDebug 2>&1 | grep -E "^e:|BUILD"
+Device 1 | 8624SBCEDF00001789
+Device 2 | 24039703201775
+Google Play Services | com.google.android.gms:play-services-auth:21.x.x
+
+
+=== GroupTrack_V3_Complete_Task_List.docx ===
+GroupTrack
+V3.0 Complete Task List
+Design Contract + Phase B + C Task Reference
+April 1, 2026  |  Branch: feature/convoy-event-ride  |  Confidential
+1. Design Contract — grouptrack_v3_proto_v004.html
+The file grouptrack_v3_proto_v004.html is the authoritative design reference for GroupTrack V3.0. It defines all screens, navigation flows, and function assignments for the complete platform.
+No screen changes and no design changes until the full flow is built as designed in v004.
+Change requests are logged in the Change Request Log (Section 5) but not acted on until the current design is fully implemented.
+Every Phase B and C task references one or more screen IDs from v004 as its acceptance target.
+A function is DONE when its behavior matches the screen mockup it is mapped to.
+The prototype HTML file should be open alongside the codebase during all development sessions.
+2. Screen Reference Index
+34 screens across 11 user flows. Screen IDs are used throughout the task list below.
+3. Wednesday Field Test Gate
+Phase B wiring does NOT begin until all field tests below pass. No exceptions.
+4. Phase B — Platform Wiring (Post-Wednesday)
+Phase B wires the isolated Phase A components into V2.4. Each task has a target screen from v004 as its acceptance criteria.
+4.1 Backend Tasks
+4.2 Android — Phase A (Safe Before Wednesday)
+4.3 Android — Phase B Wiring (Post-Wednesday Gate)
+5. Change Request Log
+Log change requests here. Do not implement until the v004 design is fully built.
+6. Environment Reference
+ID | Screen Name | Key Functions | Flow
+s01 | Sign In | Google One Tap, subscription check, route to paywall | First Time User
+s01b | Subscription Paywall | Google Play Billing $3/mo, DEFERRED until shakedown | First Time User
+s02 | Rider Terms | Terms V1.0 display, acceptance record | First Time User
+s03 | Privacy Policy | Privacy V1.0, name+email shared with followed organizers | First Time User
+s04 | Dashboard | New Invites (accept/decline), Enrolled Rides (role/cancel), organizer email copyable | Dashboard
+s05 | Profile | Edit profile, sub status display, organizer role as data point | Profile
+s06 | Become Organizer | Organizer terms, upgrade subscription, $3/mo note for all users | Profile
+s07 | Ride History | History list, organizer email, rider list+emails, export GPX, search by date/name/area | Profile
+s08 | Following | Organizer name/email/optional phone, follow/unfollow | Profile
+s09 | My Rides | Tabs: ALL/ENROLLED/ORGANIZED/COMPLETED, search completed rides | Rides
+s10 | Create Ride (locked) | All fields, trailhead gate (orange), map area gate (orange), SAVE disabled | Rides
+s10b | Create Ride (ready) | All fields + trailhead + map area set, SAVE enabled, POST /rides | Rides
+s11 | Ride Detail | Ride info, trailhead, route, organizer email, Send Invite, Broadcast | Rides
+s12 | Send Invite | QR code, copy link, share sheet, grouptrack.org/invite/{token} | Invite
+s13 | Broadcast | Email followers, follower/opt-in count, one-time gate | Invite
+s14 | Invite Accept | Download warning, organizer email, ride JSON download, auto tiles, radio config, calendar | Accept Invite
+s15 | Explore Rides | Public rides, zip+area search, map vignette, organizer email, follow | Explore
+s16 | Map — SOLO | RideState=SOLO, GPS trail, offline tiles, active overlays display | Convoy Map
+s17 | Map — CONVOY | RideState=CONVOY, nodes, lead lock, HUD, active overlays from Overlay Selector | Convoy Map
+s18 | Map — ORGANIZED | RideState=ORGANIZED, route overlay, trailhead marker, full HUD, survey on STOP | Convoy Map
+s19 | Map Settings | Offline toggle, map type, track export, download region, overlay selector entry | Convoy Map
+s20 | Stop — Survey | Difficulty/recommend survey, track donation, GPX save, POST /ride/survey | Convoy Map
+s20b | Stop — Simple | Track name, GPX save to filesDir/my_tracks/ | Convoy Map
+s20c | Radio Reconnect Banner | 5min inactivity detection, green banner, BT toggle reconnect | Convoy Map
+s21 | Map Manager Main | Full-screen map, FIND AREA, Download/Import/Overlays/Waypoints/Routes tool grid | Map Manager
+s22 | Find Area (4 methods) | Viewport filter, geocoder, name search, waypoint radius search | Map Manager
+s23 | Tile Download | Draw region, zoom levels Z10-Z18, tile count+size estimate, ConvoyTileDownloader | Map Manager
+s24 | Import GPX/KML | File picker, route/track type, MD5 duplicate check, library add | Map Manager
+s25 | Overlay Selector | Routes/tracks/waypoints/ride history toggles, applies to ALL map states | Map Manager
+s26 | Waypoint Library | List, search, filter by type, edit, delete | Map Manager
+s27 | Create Waypoint | Long press drop, name, type Trailhead/Staging/Hazard/POI, notes, filesDir save | Map Manager
+s28 | Set Trailhead | Trailhead picker mode, drop or library select, returns to Create Ride | Map Manager
+s29 | Set Map Area | Assign route / Create new route / Import GPX-KML / Draw manually, returns bounds | Map Manager
+s30 | Route Planner | Tap to draw, route type Loop/Out+Back/P2P, save to library, assign to ride | Map Manager
+s31 | Field Radio | BLE status, apply/verify config, CHANGE LONG NAME TO LEAD, reconnect | Field Radio
+s32 | Track Library | Public tracks, zip+area filter, difficulty filter, map vignette, download+auto tiles | Tracks
+s33 | Track Detail | Track map preview, difficulty/recommend %, download to device | Tracks
+# | ID | Task | Screen(s) | Est.
+1 | FT-01 | Lead lock — drive 1/4 mile after RECORD. Lead locks. Single clean track on switchbacks. | s17 s18 | PENDING
+2 | FT-01B | RECALC LEAD button — unlocks lead, re-locks after 1/4 mile. | s17 | PENDING
+3 | FT-04 | Offline maps render cleanly at z18 across downloaded SAT area. No grey patches. | s16 s17 s18 | PENDING
+4 | FT-05 | Maps render full screen at all zoom levels. | s16 s17 s18 | PENDING
+5 | FT-06 | No snap-back on zoom, pan, or search. GROUP/MY CART re-centers correctly. | s16 s17 s18 | PENDING
+6 | FT-07 | HYB tile source switch does not reset map to radio location. | s19 | PENDING
+7 | UI-01 | Track Recording Format toggle — GPX/KML displays correctly. | s19 | PENDING
+8 | FT-08 | GPS broadcast interval disconnect/reconnect cycle verified. | s20c | PENDING
+9 | ⚠ GATE | ALL FT TESTS MUST PASS BEFORE PHASE B BEGINS. No exceptions.
+# | ID | Task | Screen(s) | Est.
+1 | B-01 | Run create_schema_v3_final.sql against RDS convoy_tracker. 13 tables. Verify SHOW TABLES. | n/a — backend | 30 min
+2 | B-02 | Verify all PHP API endpoints with curl. POST /users/register → confirm RDS row. | n/a — backend | 20 min
+3 | B-03 | SSL — certbot on EC2 before any tokens travel the wire. HTTPS required for auth. | n/a — backend | 30 min
+# | ID | Task | Screen(s) | Est.
+1 | A-01 | Add API_BASE_URL to ConvoyConfig.kt. One line. No functional impact. | n/a — config | 5 min
+2 | A-02 | Create ConvoyApiClient.kt — OkHttp wrapper. registerUser(), createRide(), createInvite(), downloadRide(), enrollRider(). New file only, not referenced yet. | n/a — service | 1.5 hr
+3 | A-03 | Add Google Sign-In dependency to build.gradle. Library only, no code path. | n/a — gradle | 10 min
+4 | A-04 | Build ConvoySignInScreen.kt — Google One Tap, POST /users/register, cache user_id. NOT wired to nav yet. | s01 | 2.5 hr
+5 | A-05 | Add invite deep link handler — AndroidManifest intent-filter + ConvoyInviteHandler.kt. GET /ride/{token} → save to convoy_events/. No-ops if user_id missing. | s14 | 1.5 hr
+6 | A-06 | Build Dashboard screen — GroupTrackDashboardScreen.kt. New Compose screen. Notifications first. Exact layout per s04 mockup. | s04 | 3 hr
+7 | A-07 | Build Field Radio screen — GroupTrackFieldRadioScreen.kt. BLE status, apply config, CHANGE LONG NAME TO LEAD button. | s31 | 1.5 hr
+8 | A-08 | Build and install. Full V2.4 regression test — no existing behavior changed. | all V2.4 | 1 hr
+# | ID | Task | Screen(s) | Est.
+1 | W-01 | Wire subscription check at sign-in. Route to s01b paywall screen. DEFERRED flag visible — does not block during shakedown. | s01 s01b | 1 hr
+2 | W-02 | Wire sign-in into app launch. Check SharedPreferences for user_id. If missing → ConvoySignInScreen. App proceeds to map if sign-in unavailable — radio never blocked. | s01 | 1 hr
+3 | W-03 | Test sign-in end to end. Sign in → POST /users/register → RDS row → user_id cached → app proceeds. | s01 s04 | 30 min
+4 | W-04 | Wire Rider Terms and Privacy Policy acceptance screens into onboarding flow. | s02 s03 | 1 hr
+5 | W-05 | Wire Dashboard into nav graph. GroupTrack button in Meshtastic nav → Dashboard. Internet gate — greyed if offline. | s04 | 1 hr
+6 | W-06 | Build Profile screen — GroupTrackProfileScreen.kt. Callsign, vehicle, zip, email opt-in. Organizer status as data display only. | s05 | 2 hr
+7 | W-07 | Build Organizer Terms screen. Upgrade flow from Profile. POST /users/organizer on subscribe. | s06 | 1.5 hr
+8 | W-08 | Build My Rides screen. Tabs: ALL / ENROLLED / ORGANIZED / COMPLETED. Search completed rides. | s09 | 2 hr
+9 | W-09 | Build Create Ride screen. All fields. Trailhead and map area required gates (orange). SAVE disabled until both set. | s10 s10b | 2.5 hr
+10 | W-10 | Wire trailhead picker — Set Trailhead screen. Long press map or library select. Returns lat/lon/name to Create Ride. | s28 | 2 hr
+11 | W-11 | Wire map area picker — Set Map Area screen. Assign route / Import GPX-KML / Draw manually. Returns bounds to Create Ride. | s29 s24 | 2.5 hr
+12 | W-12 | Wire ride creation to POST /rides. Replace local JSON write. Offline fallback — saves locally, banner shown. | s10b s11 | 1.5 hr
+13 | W-13 | Build Ride Detail screen. Trailhead, route, enrollment count, organizer email. Send Invite + Broadcast buttons. | s11 | 2 hr
+14 | W-14 | Wire invite generation — SEND INVITE → POST /rides/{id}/invite → QR code + share sheet. | s12 | 1 hr
+15 | W-15 | Wire broadcast — BROADCAST → POST /broadcast/{ride_id}. Follower count display. One-time send gate. | s13 | 1 hr
+16 | W-16 | Wire invite accept flow — Invite Accept screen. Download warning. Ride JSON + auto tiles. Radio config ready flag. Calendar add. | s14 | 2 hr
+17 | W-17 | Wire RideState tick computation. SOLO / CONVOY / ORGANIZED state transitions in ConvoyViewModel.kt. | s16 s17 s18 | 2 hr
+18 | W-18 | Wire SOLO map state. GPS trail display. No nodes. REC button. | s16 | 1 hr
+19 | W-19 | Wire survey dialog. queueSurvey() in ConvoyViewModel. Survey screen on STOP in ORGANIZED state. | s20 | 1.5 hr
+20 | W-20 | Survey upload worker. Process SharedPreferences queue on connectivity. POST /ride/survey. | s20 | 1.5 hr
+21 | W-21 | Full V3.0 E2E test — sign in, create ride, set trailhead, set map area, send invite, rider accepts, tiles auto-download, radio write, mesh operation, stop, survey submit. | s01→s20 | 2 hr
+Date | Screen | Request | Priority | Status
+(log future change requests here — do not implement until current design is complete) | PENDING
+Item | Value
+Branch | feature/convoy-event-ride
+Design Reference | grouptrack_v3_proto_v004.html
+EC2 IP | 34.224.89.217 — convoy-api-server
+EC2 SSH | ssh -i ~/.ssh/convoy-api-key-2.pem ec2-user@34.224.89.217
+RDS Endpoint | convoy-tracker-db.cudtjxrtdbql.us-east-1.rds.amazonaws.com
+RDS Database | convoy_tracker / convoy_admin
+API Base URL | https://34.224.89.217/ (HTTPS after B-03 SSL)
+API File (EC2) | /var/www/html/convoy_api.php
+Device 1 | 8624SBCEDF00001789 — primary test device
+Device 2 | 24039703201775
+Key pair | ~/.ssh/convoy-api-key-2.pem
+Google Play Services | com.google.android.gms:play-services-auth:21.x.x
+
+
+=== GroupTrack_V3_Implementation_Plan.docx ===
+GroupTrack
+V3.0 Implementation Plan — Separated Build Strategy
+March 29, 2026  |  Branch: feature/convoy-event-ride  |  Gate: Wednesday Field Test
+1. Executive Summary
+GroupTrack V3.0 migrates from a fully offline standalone app to a cloud-assisted platform. The migration must be built in two completely isolated phases with a hard gate between them — V2.4 Wednesday field test confirmation — to ensure the proven offline radio engine is never destabilized by backend integration work.
+The core principle: build everything that has no device dependency first. Schema, service layer, sign-in screen, and API wiring are all safe to build now. The single connection point — replacing the existing ride creation flow with an API-backed version — is the last thing wired, and only after Wednesday confirms V2.4 is solid.
+2. Architecture — What Changes and What Doesn't
+2.1 Unchanged in V3.0
+2.2 What V3.0 Adds
+2.3 The Single Connection Point
+There is exactly one place where V3.0 wires into existing V2.4 code: the ride creation flow. In V2.4, Create a Ride saves a local JSON file. In V3.0, it POSTs to /rides and saves the response to local cache. Everything downstream — WorkingConfig, radio write, RIDE tab display — is identical because both versions produce the same local JSON.
+⚠  This connection point is ONLY wired after Wednesday test confirms V2.4 is stable. All other V3.0 work is built in isolation before that gate.
+3. Phase 1 — Isolated Build (Safe Now, No Device Risk)
+Everything in Phase 1 can be built immediately. None of these tasks touch existing V2.4 screens, ViewModel state, or the radio engine. If Phase 1 code has a bug, it has zero impact on the working V2.4 build.
+3.1 Backend — RDS Schema
+Task B-01 — Create RDS Schema
+Task B-02 — Verify PHP API Endpoints
+3.2 Android — New Files Only (Zero Touch to Existing Code)
+Task A-01 — Add API_BASE_URL to ConvoyConfig.kt
+Task A-02 — Create ConvoyApiClient.kt (New File)
+Task A-03 — Create ConvoySignInScreen.kt (New File)
+Task A-04 — Add Invite Deep Link Handler
+Task A-05 — Lead Lock UI Buttons
+4. Wednesday Gate — V2.4 Field Test
+This is a hard gate. Phase 2 wiring does not begin until all Wednesday tests pass. The gate exists to protect the proven offline radio engine from being destabilized by backend integration.
+⚠  If FT-04 or FT-05 fail, offline maps must be resolved before Phase 2 begins. Do not start RDS wiring on a build with broken offline maps.
+5. Phase 2 — Integration Wiring (Post-Wednesday Only)
+Phase 2 wires the isolated Phase 1 components into the existing V2.4 app. Each task has a clearly defined connection point — the exact line of code or screen where the new component touches existing code for the first time.
+5.1 Wire Sign-In into App Launch
+5.2 Wire Ride Creation to POST /rides
+5.3 Wire Invite Generation and Share Sheet
+5.4 Wire Automated Map Download on Invite Accept
+6. Full Task Sequence — Ordered Build Plan
+7. Separation Rules — What Must Never Be Crossed
+These rules enforce the isolation between Phase 1 and Phase 2. They protect V2.4 stability during the build period before Wednesday.
+8. Environment Reference
+GroupTrack  |  V3.0 Implementation Plan  |  March 29, 2026  |  CONFIDENTIAL
+COMPONENT | REASON UNCHANGED
+Radio write engine | ConvoyProfileBuilder, InstallProfileUseCase, channel write — all V2.4. WorkingConfig source changes (local → downloaded JSON) but merge logic is identical.
+Mesh radio operation | All mesh, GPS tracking, HUD, map display, and node tracking is purely offline. No V3.0 change touches any of this.
+master.cfg binary | Stays in assets. Not hosted in RDS. Not modified by V3.0.
+Offline map tile system | ConvoyTileDownloader, shouldInterceptRequest, convoy:// scheme — unchanged. V3.0 adds automated trigger, not new downloader.
+Developer settings gate | Long press header → hardcoded password. Completely independent of Google Sign-In. Do not entangle these two auth systems.
+Local JSON cache structure | convoy_events/{UUID}.json format unchanged. Downloaded rides save here identically to .convoy email imports.
+NEW COMPONENT | DESCRIPTION
+RDS Schema | 4 tables: users, rides, invites, enrollments. Created on EC2/RDS before any Android work.
+PHP Service Layer | convoy_api.php already live. Endpoints: POST /users/register, POST /rides, POST /rides/{id}/invite, GET /ride/{token}, POST /enroll.
+ConvoySignInScreen.kt | New screen. Google One Tap auth. POSTs to /users/register on success. Caches user_id in SharedPreferences. Not yet wired into navigation.
+ConvoyApiClient.kt | New file. OkHttp wrapper for all API calls. No business logic — pure HTTP. Isolated, testable, not wired to UI until Phase 2.
+API_BASE_URL in ConvoyConfig | const val API_BASE_URL = "http://34.224.89.217/" — one line, no functional impact.
+Invite deep link handler | AndroidManifest intent-filter for grouptrack.org/invite/. Extracts token, calls GET /ride/{token}, saves JSON to convoy_events/.
+ITEM | DETAIL
+What | Run create_schema.sql against convoy_tracker database on RDS. Creates 4 tables: users, rides, invites, enrollments with all foreign keys.
+Where | EC2 SSH session → mysql -h convoy-tracker-db.cudtjxrtdbql.us-east-1.rds.amazonaws.com -u convoy_admin -p convoy_tracker < create_schema.sql
+Verify | SHOW TABLES; — expect 4 rows. DESCRIBE users; DESCRIBE rides; — confirm columns match spec.
+Risk | NONE — pure database, no Android code
+Est. | 30 minutes
+ITEM | DETAIL
+What | Confirm all 5 endpoints return expected responses after schema is created. Test with curl from Git Bash.
+Test | curl -X POST http://34.224.89.217/users/register -H "Content-Type: application/json" -d '{"google_id":"test123","email":"test@test.com","first_name":"Fred","last_name":"Test"}'
+Expect | JSON response with user_id UUID. Verify row appears in RDS: SELECT * FROM users;
+Risk | NONE — server-side only, no app impact
+Est. | 20 minutes
+ITEM | DETAIL
+What | Add const val API_BASE_URL = "http://34.224.89.217/" to ConvoyConfig.kt.
+File | app/src/main/java/com/geeksville/mesh/convoy/ConvoyConfig.kt
+Impact | One line addition to an existing constants file. No behaviour change. Nothing calls it yet.
+Risk | NONE
+Est. | 5 minutes
+ITEM | DETAIL
+What | New file. OkHttp-based API client. Suspend functions for each endpoint. No UI dependency. No ViewModel dependency.
+File | app/src/main/java/com/geeksville/mesh/convoy/ConvoyApiClient.kt — NEW
+Functions | registerUser(googleIdToken), createRide(rideData), createInvite(rideId), downloadRide(token), enrollRider(rideId). Each returns Result<T>.
+Impact | New file only. Not imported by any existing file. Zero risk to V2.4 operation.
+Risk | NONE — new file, not referenced by anything yet
+Est. | 1.5 hours
+ITEM | DETAIL
+What | New Compose screen. Google One Tap integration. On success: calls ConvoyApiClient.registerUser(), caches user_id + google_id + name in SharedPreferences.
+File | app/src/main/java/com/geeksville/mesh/convoy/ConvoySignInScreen.kt — NEW
+Dependency | Add to build.gradle: com.google.android.gms:play-services-auth:21.x.x — already listed in V3 Architecture Plan.
+Navigation | NOT yet wired into nav graph. Screen exists but is not reachable from the app. Tested directly via unit test or temporary debug entry point only.
+Impact | New file + one build.gradle line. No existing screen or ViewModel touched.
+Risk | NONE — unreachable screen cannot break existing flow
+Est. | 2.5 hours
+ITEM | DETAIL
+What | Add intent-filter to AndroidManifest for grouptrack.org/invite/ deep links. Handler extracts token, calls GET /ride/{token}, saves JSON to convoy_events/ using existing import handler.
+Files | AndroidManifest.xml (intent-filter only) + new ConvoyInviteHandler.kt for token extraction and ride download logic.
+Safe boundary | Downloaded ride JSON is saved to convoy_events/ identically to a .convoy email import. The existing import handler processes it. No new code path for ride loading.
+Risk | LOW — AndroidManifest change requires careful testing. Deep link must not intercept unrelated URLs.
+Est. | 1.5 hours
+ITEM | DETAIL
+What | Add SET AS LEAD button to NODE panel. Add I AM LEAD and RECALC LEAD buttons to MY CART panel. Logic already committed — buttons are UI only.
+File | ConvoyScreen.kt only. Calls viewModel.setExplicitLead() and viewModel.recalcLead() — both already exist.
+Risk | LOW — touches ConvoyScreen.kt which is the main screen. Must build and test before Wednesday.
+Est. | 1.5 hours
+# | ID | Test | Gate Status
+1 | FT-01 | Lead lock — drive 1/4 mile after RECORD, verify lead locks, single clean track line on switchbacks. | PENDING
+2 | FT-01B | SET AS LEAD, I AM LEAD, RECALC LEAD buttons — verify all three overrides work correctly. | PENDING
+3 | FT-04 | Offline maps render cleanly at z18 across downloaded SAT area. No grey patches. | PENDING
+4 | FT-05 | Maps render full screen at all zoom levels. No half-screen or spotty tile display. | PENDING
+5 | FT-06 | Auto-pan — zoom and pan do not snap back. Search result stays centered. GROUP/MY CART re-centers correctly. | PENDING
+6 | FT-02 | Channel utilization stable at 23-25% with 5 nodes. Lead at 3s interval, others at 5s. | VALIDATED — no retest needed
+7 | FT-03 | Bluetooth stability with Unrestricted battery setting. No timeout during ride. | DOCUMENTED — workaround in place
+ITEM | DETAIL
+Connection point | MainActivity.kt or ConvoyScreen.kt LaunchedEffect on startup — check SharedPreferences for cached user_id. If missing, navigate to ConvoySignInScreen.
+Key rule | If sign-in fails or is unavailable, app proceeds to main map anyway. Organizer features show a 'Sign in required' banner. Radio operation is never blocked.
+Files touched | MainActivity.kt or top-level nav graph — single if-check addition. ConvoySignInScreen already built in Phase 1.
+Risk | MEDIUM — touches app entry point. Must not block offline operation.
+Est. | 1 hour
+ITEM | DETAIL
+Connection point | ConvoyViewModel.kt createRide() function — replace local JSON write with ConvoyApiClient.createRide() POST. On success, write API response to convoy_events/ as local JSON cache.
+Fallback | If API call fails (offline), fall back to local-only ride creation. User sees a banner: 'Ride saved locally — will sync when online'. Radio write still works.
+V2.4 compatibility | Rides created in V2.4 remain valid. eventId UUID is preserved as rides.ride_id. Existing .convoy files continue to work unchanged.
+Risk | MEDIUM — touches createRide() in ViewModel. Fallback path must be solid before wiring.
+Est. | 1.5 hours
+ITEM | DETAIL
+Connection point | Ride detail screen — add SEND INVITE button. Calls ConvoyApiClient.createInvite(rideId). Opens Android ACTION_SEND share sheet with invite URL.
+URL format | http://grouptrack.org/invite/{token} — links back to deep link handler built in Phase 1 Task A-04.
+Risk | LOW-MEDIUM — new button on existing screen. Isolated API call.
+Est. | 1 hour
+ITEM | DETAIL
+Connection point | ConvoyInviteHandler.kt (Phase 1 Task A-04) — after saving ride JSON, check if map_bounds_north/south/east/west are set. If yes, call ConvoyTileDownloader.downloadTiles() for the ride area.
+Organizer setup | Ride creation screen gains the existing DOWNLOAD REGION draw tool in a new context. Drawn bounds are stored in rides table via POST /rides.
+Risk | LOW — uses existing tile downloader. New trigger only.
+Est. | 1.5 hours
+# | Phase | ID | Task | Est. | Risk
+1 | Backend | B-01 | Create RDS schema — run create_schema.sql. 4 tables: users, rides, invites, enrollments. | 30 min | NONE
+2 | Backend | B-02 | Verify PHP endpoints with curl — POST /users/register → confirm RDS row created. | 20 min | NONE
+3 | Android | A-01 | Add API_BASE_URL to ConvoyConfig.kt. One line. | 5 min | NONE
+4 | Android | A-02 | Create ConvoyApiClient.kt — OkHttp wrapper for all endpoints. New file only. | 90 min | NONE
+5 | Android | A-03 | Add Google Sign-In dependency to build.gradle. | 10 min | NONE
+6 | Android | A-04 | Build ConvoySignInScreen.kt — Google One Tap, POST /users/register, cache user_id. NOT wired to nav yet. | 2.5 hrs | NONE
+7 | Android | A-05 | Add invite deep link handler — AndroidManifest intent-filter + ConvoyInviteHandler.kt. GET /ride/{token} → save to convoy_events/. | 90 min | LOW
+8 | Android | A-06 | Lead Lock UI buttons — SET AS LEAD (NODE panel), I AM LEAD + RECALC LEAD (MY CART panel). Logic already committed. | 90 min | LOW
+9 | Android | A-07 | Build and install. Full regression test of all V2.4 features before Wednesday. | 30 min | LOW
+⚠  WEDNESDAY GATE — All FT tests must pass before proceeding to Phase 2 | ⚠  WEDNESDAY GATE — All FT tests must pass before proceeding to Phase 2 | ⚠  WEDNESDAY GATE — All FT tests must pass before proceeding to Phase 2 | ⚠  WEDNESDAY GATE — All FT tests must pass before proceeding to Phase 2 | ⚠  WEDNESDAY GATE — All FT tests must pass before proceeding to Phase 2 | ⚠  WEDNESDAY GATE — All FT tests must pass before proceeding to Phase 2
+10 | Phase 2 | W-01 | Wire sign-in check into app launch — check SharedPreferences for user_id, navigate to ConvoySignInScreen if missing. | 1 hr | MED
+11 | Phase 2 | W-02 | Test sign-in end to end — sign in → POST /users/register → RDS row created → user_id cached → app proceeds to map. | 30 min | MED
+12 | Phase 2 | W-03 | Wire ride creation to POST /rides — replace local-only save with API call + local cache. Add offline fallback. | 90 min | MED
+13 | Phase 2 | W-04 | Wire invite generation — SEND INVITE button → POST /rides/{id}/invite → share sheet with invite URL. | 1 hr | LOW
+14 | Phase 2 | W-05 | Test invite flow end to end — organizer sends invite → rider taps link → app opens → ride downloaded → radio write succeeds. | 1 hr | MED
+15 | Phase 2 | W-06 | Wire automated map download on invite accept — check map_bounds in ride JSON → trigger ConvoyTileDownloader. | 90 min | LOW
+16 | Phase 2 | W-07 | Full V3.0 end-to-end test — sign in, create ride with map area, send invite, rider accepts, tiles auto-download, radio write, mesh operation. | 1 hr | MED
+RULE | RATIONALE
+ConvoySignInScreen must NOT be in the nav graph until Phase 2 Task W-01 | An unreachable screen cannot break launch flow. The moment it is wired in, every app start depends on it.
+ConvoyApiClient must NOT be called from any existing ViewModel until Phase 2 | All existing ViewModel code operates offline. Introducing network calls before Wednesday risks timeouts and crashes during field test.
+createRide() must NOT call the API until Phase 2 Task W-03 | The existing ride creation flow is proven working. Do not touch it until Wednesday confirms V2.4 is solid.
+build.gradle Google Sign-In dependency may be added in Phase 1 — it is a library, not a code path | Adding a dependency to build.gradle has zero runtime impact if nothing calls it. Safe to add any time.
+AndroidManifest deep link intent-filter is safe in Phase 1 if handler gracefully no-ops when user_id is missing | A deep link that silently does nothing when prerequisites aren't met cannot break the existing app.
+Radio write engine, ConvoyProfileBuilder, and InstallProfileUseCase must NOT be touched at all in V3.0 | The radio write process is the most complex proven component. V3.0 only changes where ride JSON originates, not how it is applied.
+ITEM | VALUE
+Branch | feature/convoy-event-ride
+EC2 IP | 34.224.89.217 — convoy-api-server
+EC2 SSH | ssh -i ~/.ssh/convoy-api-key-2.pem ec2-user@34.224.89.217
+RDS Endpoint | convoy-tracker-db.cudtjxrtdbql.us-east-1.rds.amazonaws.com
+RDS Database | convoy_tracker / convoy_admin
+API Base URL | http://34.224.89.217/
+API File (EC2) | /var/www/html/convoy_api.php
+Web Root | /var/www/html/
+Website | http://grouptrack.org — LIVE
+Device 1 | 8624SBCEDF00001789 — primary test device
+Device 2 | 24039703201775
+Key pair | ~/.ssh/convoy-api-key-2.pem
+Google Play Services dep | com.google.android.gms:play-services-auth:21.x.x
+
+
+=== GroupTrack_V3_PhaseB_Tasks_v1.docx ===
+GroupTrack
+V3.0 Phase B Task List — April 4, 2026  v1
+Branch: feature/convoy-event-ride  |  V3_FEATURES_ENABLED = false  |  Last commit: 649d350f6
+Completed — April 3, 2026
+Block 1 — Nav Icon Cleanup (30 min)
+Block 2 — Offline Services Bottom Sheet (2 hr)
+Replace ConvoyFieldRadioScreen stub with full Offline Services bottom sheet matching s21-s31 from prototype.
+Block 3 — Dashboard Screen (2 hr)
+Build proper s04 Dashboard — notifications + enrollments + invites. NOT a button launcher.
+Block 4 — App Launch Check (45 min)
+If wifi connected + signed in + subscribed → auto-navigate to Dashboard on app launch.
+Block 5 — Rides Screens (3 hr)
+Build s09 My Rides, s10/s10b Create Ride, s11 Ride Detail per prototype spec.
+Block 6 — Flip V3 Flag + Remove Legacy (1 hr)
+Environment Reference
+GroupTrack  |  V3.0 Phase B Task List v1  |  April 4, 2026  |  Branch: feature/convoy-event-ride
+ID | Item | Status
+PB-12..15 | SSL live on grouptrack.org. certbot auto-renewal. API_BASE_URL = https://grouptrack.org/. Path routing fix. | PASS
+PB-NAV-01 | Event/Ride Services icon added to Meshtastic nav bar (MeshtasticIcons.Wifi placeholder). | PASS
+PB-NAV-02 | ConvoyServicesChooser — Online/Offline two-button bottom sheet. Wired to tap handler. | PASS
+PB-SIGN | ConvoySignIn, ConvoySubscription screens built and wired to nav graph. Dev toggle on sign-in. | PASS
+PB-DASH | ConvoyDashboardScreen stub built. ConvoyFieldRadioScreen stub built. Both wired to nav graph. | PASS
+V3-FLAG | V3_FEATURES_ENABLED = false in ConvoyConfig.kt. All V3 gated. V2.4 testers unaffected. | PASS
+☐ | ID | Task | Est. | Status
+☐ | NAV-01 | Replace MeshtasticIcons.Wifi placeholder with proper Services icon — create custom GroupTrack services icon or use Route icon from Signal.kt properly. | 20 min | OPEN
+☐ | NAV-02 | Add repress handler for EventRideServices in the isRepress block in Main.kt (currently only Convoy and Nodes have repress handlers). | 10 min | OPEN
+☐ | ID | Task | Est. | Status
+☐ | OFF-01 | Build ConvoyOfflineServicesSheet.kt — accordion bottom sheet with Field Radio, Map Manager, Import GPX/KML, Archive/Restore entries. | 60 min | OPEN
+☐ | OFF-02 | Wire OFFLINE button in ConvoyServicesChooser to ConvoyOfflineServicesSheet instead of direct FieldRadio navigate. | 15 min | OPEN
+☐ | OFF-03 | Field Radio entry → existing ConvoyApplyRadioScreen flow. Verify apply master config still works. | 15 min | OPEN
+☐ | OFF-04 | Map Manager entry → stub ConvoyMapManagerScreen.kt. Full build in Phase B MAP-01. | 20 min | OPEN
+☐ | OFF-05 | Build, install, test all offline sheet entries navigate correctly. | 15 min | OPEN
+☐ | ID | Task | Est. | Status
+☐ | DASH-01 | Replace ConvoyDashboardScreen stub with full implementation. GET /notifications + /enrollments + /invites. | 90 min | OPEN
+☐ | DASH-02 | Inline accept/decline invite. Cancel enrollment inline. Organizer name+email display. | 30 min | OPEN
+☐ | DASH-03 | Bottom nav inside Dashboard: Rides | Explore | Tracks | Profile | Field Radio. | 30 min | OPEN
+☐ | DASH-04 | Test E2E — sign in → dashboard loads with live data from API. | 20 min | OPEN
+☐ | ID | Task | Est. | Status
+☐ | LAUNCH-01 | Add LaunchedEffect to MainScreen — check wifi + isSignedIn + isSubscribed on launch. If all true, navigate to ConvoyRoutes.ConvoyDashboard. | 30 min | OPEN
+☐ | LAUNCH-02 | Gate behind V3_FEATURES_ENABLED flag. Test with dev toggle ON and OFF. | 15 min | OPEN
+☐ | ID | Task | Est. | Status
+☐ | RIDE-01 | Build ConvoyRidesScreen.kt — s09 My Rides list. GET /rides enrolled/completed/organized. | 60 min | OPEN
+☐ | RIDE-02 | Build ConvoyCreateRideScreen.kt — s10/s10b. Name, date, time, channel, trailhead gate, map area gate. | 90 min | OPEN
+☐ | RIDE-03 | Build ConvoyRideDetailScreen.kt — s11. Enrollment list, invite entry, broadcast entry. | 60 min | OPEN
+☐ | RIDE-04 | POST /rides E2E — create ride → invite generation → invite link share. | 30 min | OPEN
+☐ | ID | Task | Est. | Status
+☐ | V3-01 | Set V3_FEATURES_ENABLED = true in ConvoyConfig.kt. | 2 min | OPEN
+☐ | V3-02 | Remove EVENT/RIDE accordion from ConvoySubMenu.kt — legacy V2.4 functionality retired. | 15 min | OPEN
+☐ | V3-03 | Full E2E test all flows: sign-in, dashboard, rides, invite, accept, field radio. | 45 min | OPEN
+☐ | V3-04 | Commit: feat: V3.0 Phase B complete — all flows wired, legacy removed. | 5 min | OPEN
+Item | Value
+EC2 | 34.224.89.217 — ssh -i ~/.ssh/convoy-api-key-2.pem ec2-user@34.224.89.217
+API | https://grouptrack.org/convoy_api.php
+RDS | convoy-tracker-db.cudtjxrtdbql.us-east-1.rds.amazonaws.com / convoy_tracker
+Android 1 | 8624SBCEDF00001789 — primary test device
+Android 2 | 24039703201775 — no GPS hardware, uses radio GPS fallback
+Build | ./gradlew assembleGoogleDebug 2>&1 | grep -E "^e:|BUILD"
+Debug log | adb -s 8624SBCEDF00001789 shell run-as com.geeksville.mesh.google.debug cat files/convoy_debug.log
+V3 flag | ConvoyConfig.kt: V3_FEATURES_ENABLED = false (flip to true to expose V3)
+
+
+=== GroupTrack_V3_Task_List_Apr1.docx ===
+GroupTrack
+V3.0 Complete Task List
+Design Contract + Phase B + C Task Reference
+April 1, 2026  |  Branch: feature/convoy-event-ride  |  Confidential
+1. Design Contract — grouptrack_v3_proto_v004.html
+The file grouptrack_v3_proto_v004.html is the authoritative design reference for GroupTrack V3.0. It defines all screens, navigation flows, and function assignments for the complete platform.
+No screen changes and no design changes until the full flow is built as designed in v004.
+Change requests are logged in the Change Request Log (Section 5) but not acted on until the current design is fully implemented.
+Every Phase B and C task references one or more screen IDs from v004 as its acceptance target.
+A function is DONE when its behavior matches the screen mockup it is mapped to.
+The prototype HTML file should be open alongside the codebase during all development sessions.
+2. Screen Reference Index
+34 screens across 11 user flows. Screen IDs are used throughout the task list below.
+3. Wednesday Field Test Gate
+Phase B wiring does NOT begin until all field tests below pass. No exceptions.
+4. Phase B — Platform Wiring (Post-Wednesday)
+Phase B wires the isolated Phase A components into V2.4. Each task has a target screen from v004 as its acceptance criteria.
+4.1 Backend Tasks
+4.2 Android — Phase A (Safe Before Wednesday)
+4.3 Android — Phase B Wiring (Post-Wednesday Gate)
+5. Change Request Log
+Log change requests here. Do not implement until the v004 design is fully built.
+6. Environment Reference
+ID | Screen Name | Key Functions | Flow
+s01 | Sign In | Google One Tap, subscription check, route to paywall | First Time User
+s01b | Subscription Paywall | Google Play Billing $3/mo, DEFERRED until shakedown | First Time User
+s02 | Rider Terms | Terms V1.0 display, acceptance record | First Time User
+s03 | Privacy Policy | Privacy V1.0, name+email shared with followed organizers | First Time User
+s04 | Dashboard | New Invites (accept/decline), Enrolled Rides (role/cancel), organizer email copyable | Dashboard
+s05 | Profile | Edit profile, sub status display, organizer role as data point | Profile
+s06 | Become Organizer | Organizer terms, upgrade subscription, $3/mo note for all users | Profile
+s07 | Ride History | History list, organizer email, rider list+emails, export GPX, search by date/name/area | Profile
+s08 | Following | Organizer name/email/optional phone, follow/unfollow | Profile
+s09 | My Rides | Tabs: ALL/ENROLLED/ORGANIZED/COMPLETED, search completed rides | Rides
+s10 | Create Ride (locked) | All fields, trailhead gate (orange), map area gate (orange), SAVE disabled | Rides
+s10b | Create Ride (ready) | All fields + trailhead + map area set, SAVE enabled, POST /rides | Rides
+s11 | Ride Detail | Ride info, trailhead, route, organizer email, Send Invite, Broadcast | Rides
+s12 | Send Invite | QR code, copy link, share sheet, grouptrack.org/invite/{token} | Invite
+s13 | Broadcast | Email followers, follower/opt-in count, one-time gate | Invite
+s14 | Invite Accept | Download warning, organizer email, ride JSON download, auto tiles, radio config, calendar | Accept Invite
+s15 | Explore Rides | Public rides, zip+area search, map vignette, organizer email, follow | Explore
+s16 | Map — SOLO | RideState=SOLO, GPS trail, offline tiles, active overlays display | Convoy Map
+s17 | Map — CONVOY | RideState=CONVOY, nodes, lead lock, HUD, active overlays from Overlay Selector | Convoy Map
+s18 | Map — ORGANIZED | RideState=ORGANIZED, route overlay, trailhead marker, full HUD, survey on STOP | Convoy Map
+s19 | Map Settings | Offline toggle, map type, track export, download region, overlay selector entry | Convoy Map
+s20 | Stop — Survey | Difficulty/recommend survey, track donation, GPX save, POST /ride/survey | Convoy Map
+s20b | Stop — Simple | Track name, GPX save to filesDir/my_tracks/ | Convoy Map
+s20c | Radio Reconnect Banner | 5min inactivity detection, green banner, BT toggle reconnect | Convoy Map
+s21 | Map Manager Main | Full-screen map, FIND AREA, Download/Import/Overlays/Waypoints/Routes tool grid | Map Manager
+s22 | Find Area (4 methods) | Viewport filter, geocoder, name search, waypoint radius search | Map Manager
+s23 | Tile Download | Draw region, zoom levels Z10-Z18, tile count+size estimate, ConvoyTileDownloader | Map Manager
+s24 | Import GPX/KML | File picker, route/track type, MD5 duplicate check, library add | Map Manager
+s25 | Overlay Selector | Routes/tracks/waypoints/ride history toggles, applies to ALL map states | Map Manager
+s26 | Waypoint Library | List, search, filter by type, edit, delete | Map Manager
+s27 | Create Waypoint | Long press drop, name, type Trailhead/Staging/Hazard/POI, notes, filesDir save | Map Manager
+s28 | Set Trailhead | Trailhead picker mode, drop or library select, returns to Create Ride | Map Manager
+s29 | Set Map Area | Assign route / Create new route / Import GPX-KML / Draw manually, returns bounds | Map Manager
+s30 | Route Planner | Tap to draw, route type Loop/Out+Back/P2P, save to library, assign to ride | Map Manager
+s31 | Field Radio | BLE status, apply/verify config, CHANGE LONG NAME TO LEAD, reconnect | Field Radio
+s32 | Track Library | Public tracks, zip+area filter, difficulty filter, map vignette, download+auto tiles | Tracks
+s33 | Track Detail | Track map preview, difficulty/recommend %, download to device | Tracks
+# | ID | Task | Screen(s) | Est.
+1 | FT-01 | Lead lock — drive 1/4 mile after RECORD. Lead locks. Single clean track on switchbacks. | s17 s18 | PENDING
+2 | FT-01B | RECALC LEAD button — unlocks lead, re-locks after 1/4 mile. | s17 | PENDING
+3 | FT-04 | Offline maps render cleanly at z18 across downloaded SAT area. No grey patches. | s16 s17 s18 | PENDING
+4 | FT-05 | Maps render full screen at all zoom levels. | s16 s17 s18 | PENDING
+5 | FT-06 | No snap-back on zoom, pan, or search. GROUP/MY CART re-centers correctly. | s16 s17 s18 | PENDING
+6 | FT-07 | HYB tile source switch does not reset map to radio location. | s19 | PENDING
+7 | UI-01 | Track Recording Format toggle — GPX/KML displays correctly. | s19 | PENDING
+8 | FT-08 | GPS broadcast interval disconnect/reconnect cycle verified. | s20c | PENDING
+9 | ⚠ GATE | ALL FT TESTS MUST PASS BEFORE PHASE B BEGINS. No exceptions.
+# | ID | Task | Screen(s) | Est.
+1 | B-01 | Run create_schema_v3_final.sql against RDS convoy_tracker. 13 tables. Verify SHOW TABLES. | n/a — backend | 30 min
+2 | B-02 | Verify all PHP API endpoints with curl. POST /users/register → confirm RDS row. | n/a — backend | 20 min
+3 | B-03 | SSL — certbot on EC2 before any tokens travel the wire. HTTPS required for auth. | n/a — backend | 30 min
+# | ID | Task | Screen(s) | Est.
+1 | A-01 | Add API_BASE_URL to ConvoyConfig.kt. One line. No functional impact. | n/a — config | 5 min
+2 | A-02 | Create ConvoyApiClient.kt — OkHttp wrapper. registerUser(), createRide(), createInvite(), downloadRide(), enrollRider(). New file only, not referenced yet. | n/a — service | 1.5 hr
+3 | A-03 | Add Google Sign-In dependency to build.gradle. Library only, no code path. | n/a — gradle | 10 min
+4 | A-04 | Build ConvoySignInScreen.kt — Google One Tap, POST /users/register, cache user_id. NOT wired to nav yet. | s01 | 2.5 hr
+5 | A-05 | Add invite deep link handler — AndroidManifest intent-filter + ConvoyInviteHandler.kt. GET /ride/{token} → save to convoy_events/. No-ops if user_id missing. | s14 | 1.5 hr
+6 | A-06 | Build Dashboard screen — GroupTrackDashboardScreen.kt. New Compose screen. Notifications first. Exact layout per s04 mockup. | s04 | 3 hr
+7 | A-07 | Build Field Radio screen — GroupTrackFieldRadioScreen.kt. BLE status, apply config, CHANGE LONG NAME TO LEAD button. | s31 | 1.5 hr
+8 | A-08 | Build and install. Full V2.4 regression test — no existing behavior changed. | all V2.4 | 1 hr
+# | ID | Task | Screen(s) | Est.
+1 | W-01 | Wire subscription check at sign-in. Route to s01b paywall screen. DEFERRED flag visible — does not block during shakedown. | s01 s01b | 1 hr
+2 | W-02 | Wire sign-in into app launch. Check SharedPreferences for user_id. If missing → ConvoySignInScreen. App proceeds to map if sign-in unavailable — radio never blocked. | s01 | 1 hr
+3 | W-03 | Test sign-in end to end. Sign in → POST /users/register → RDS row → user_id cached → app proceeds. | s01 s04 | 30 min
+4 | W-04 | Wire Rider Terms and Privacy Policy acceptance screens into onboarding flow. | s02 s03 | 1 hr
+5 | W-05 | Wire Dashboard into nav graph. GroupTrack button in Meshtastic nav → Dashboard. Internet gate — greyed if offline. | s04 | 1 hr
+6 | W-06 | Build Profile screen — GroupTrackProfileScreen.kt. Callsign, vehicle, zip, email opt-in. Organizer status as data display only. | s05 | 2 hr
+7 | W-07 | Build Organizer Terms screen. Upgrade flow from Profile. POST /users/organizer on subscribe. | s06 | 1.5 hr
+8 | W-08 | Build My Rides screen. Tabs: ALL / ENROLLED / ORGANIZED / COMPLETED. Search completed rides. | s09 | 2 hr
+9 | W-09 | Build Create Ride screen. All fields. Trailhead and map area required gates (orange). SAVE disabled until both set. | s10 s10b | 2.5 hr
+10 | W-10 | Wire trailhead picker — Set Trailhead screen. Long press map or library select. Returns lat/lon/name to Create Ride. | s28 | 2 hr
+11 | W-11 | Wire map area picker — Set Map Area screen. Assign route / Import GPX-KML / Draw manually. Returns bounds to Create Ride. | s29 s24 | 2.5 hr
+12 | W-12 | Wire ride creation to POST /rides. Replace local JSON write. Offline fallback — saves locally, banner shown. | s10b s11 | 1.5 hr
+13 | W-13 | Build Ride Detail screen. Trailhead, route, enrollment count, organizer email. Send Invite + Broadcast buttons. | s11 | 2 hr
+14 | W-14 | Wire invite generation — SEND INVITE → POST /rides/{id}/invite → QR code + share sheet. | s12 | 1 hr
+15 | W-15 | Wire broadcast — BROADCAST → POST /broadcast/{ride_id}. Follower count display. One-time send gate. | s13 | 1 hr
+16 | W-16 | Wire invite accept flow — Invite Accept screen. Download warning. Ride JSON + auto tiles. Radio config ready flag. Calendar add. | s14 | 2 hr
+17 | W-17 | Wire RideState tick computation. SOLO / CONVOY / ORGANIZED state transitions in ConvoyViewModel.kt. | s16 s17 s18 | 2 hr
+18 | W-18 | Wire SOLO map state. GPS trail display. No nodes. REC button. | s16 | 1 hr
+19 | W-19 | Wire survey dialog. queueSurvey() in ConvoyViewModel. Survey screen on STOP in ORGANIZED state. | s20 | 1.5 hr
+20 | W-20 | Survey upload worker. Process SharedPreferences queue on connectivity. POST /ride/survey. | s20 | 1.5 hr
+21 | W-21 | Full V3.0 E2E test — sign in, create ride, set trailhead, set map area, send invite, rider accepts, tiles auto-download, radio write, mesh operation, stop, survey submit. | s01→s20 | 2 hr
+Date | Screen | Request | Priority | Status
+(log future change requests here — do not implement until current design is complete) | PENDING
+Item | Value
+Branch | feature/convoy-event-ride
+Design Reference | grouptrack_v3_proto_v004.html
+EC2 IP | 34.224.89.217 — convoy-api-server
+EC2 SSH | ssh -i ~/.ssh/convoy-api-key-2.pem ec2-user@34.224.89.217
+RDS Endpoint | convoy-tracker-db.cudtjxrtdbql.us-east-1.rds.amazonaws.com
+RDS Database | convoy_tracker / convoy_admin
+API Base URL | https://34.224.89.217/ (HTTPS after B-03 SSL)
+API File (EC2) | /var/www/html/convoy_api.php
+Device 1 | 8624SBCEDF00001789 — primary test device
+Device 2 | 24039703201775
+Key pair | ~/.ssh/convoy-api-key-2.pem
+Google Play Services | com.google.android.gms:play-services-auth:21.x.x
+
+
+=== GroupTrack_WorkPlan_Apr5_v1.docx ===
+GroupTrack
+Weekly Work Plan — April 5–12, 2026
+Branch: feature/convoy-event-ride  |  Target: V2.4 Production April 5  |  V2.4.1 Radio Fix April 12
+1. RELEASE RULES — NON-NEGOTIABLE
+2. APRIL RELEASE SCHEDULE
+3. TODAY — April 5, 2026 — V2.4 Production
+★ Target: production build shipped to testers by EOD
+3.1 PROD-01 — Production Package Name (30 min)
+Remove .debug suffix from release build. Tiles survive forever. Testers never lose maps again.
+3.2 PROD-02 — RECALC LEAD Fix (1 hour)
+RECALC button tapped — unlock did nothing in field test. Lock clears but re-election never fires.
+3.3 Production Build + Release
+★ Cover letter: (1) Radio config — 2.7 firmware manual channel entry required until V2.4.1. (2) Offline maps — re-download your area. One time only. (3) Build stamp in GEAR panel for issue reports. (4) Submit issues via tester coordinator only.
+4. THIS WEEK — V3.0 Phase B Development
+★ V3_FEATURES_ENABLED = false during all V2.4 work. Flip only on Android 2 for V3 testing.
+4.1 ConvoySessionManager.kt (1 hour)
+5-field SharedPreferences cache. Drives all launch routing decisions offline.
+4.2 Sign-In Routing Logic (1 hour)
+4.3 Remaining Phase B Blocks
+5. SUNDAY APRIL 12 — V2.4.1 Radio Firmware Fix
+Spec: GroupTrack_Radio_Config_Fix_Spec_v4.md — fully researched and ready.
+★ Total est: 3 hours. Key insight: write channel_url as DeviceProfile field 3 (string URL) in addition to existing field 7 (Channel protobuf). Proto builders handle encoding. Open source reference: python.meshtastic.org/node.html getURL().
+6. OPEN BUGS
+7. DEFERRED FROM V2.4
+8. FIELD TEST RESULTS — April 4, 2026
+GroupTrack  |  Weekly Work Plan  |  April 5-12, 2026  |  Branch: feature/convoy-event-ride  |  CONFIDENTIAL
+Rule | Value
+Version format | v[major].[minor]_YYYYMMDD_HHMM — every release stamped with date/time
+APK filename | GroupTrack_v2.4_YYYYMMDD_HHMM.apk — stamp from build time never copy time
+GEAR panel | GroupTrack v2.4 — Build YYYYMMDD.HHMM — testers reference this for all issue reports
+Git tag | git tag v2.4-YYYYMMDD -m 'Tester release'
+Dev builds | ./gradlew assembleGoogleDebug — install to devices only, NEVER to Downloads
+Tester releases | ./gradlew copyApkToDownloads — stamped APK + release notes to Downloads only
+Install flags | adb -s [serial] install -r -d [apk] — ALWAYS -r -d. Never install without these flags.
+V3 gate | V3_FEATURES_ENABLED in ConvoyConfig.kt — false=V2.4, true=V3.0 dev only. Never commit true.
+Cadence | April: weekly Sundays. May+: monthly. Roadblocks = planned Sunday window only.
+Date | Version | Scope
+April 5 | V2.4 Production | Production package name, RECALC fix, first tester release
+April 12 | V2.4.1 | Radio firmware 2.7 fix — versioned builder dispatcher
+April 19 | V2.4.2 | Tester coordinator issues, map improvements, BUG-03/04
+April 26 | V2.4.3 | Stabilization or V3.0 Phase B preview
+# | Task | Detail | Status
+1 | Find suffix | grep -n applicationIdSuffix app/build.gradle.kts | OPEN
+2 | Remove suffix | Remove or override .debug suffix for all build types | OPEN
+3 | Verify | Confirm package = com.geeksville.mesh.google (no .debug) | OPEN
+# | Task | Detail | Status
+1 | Find RECALC handler | grep -n RECALC ConvoyScreen.kt ConvoyViewModel.kt | OPEN
+2 | Check leadLocked reset | Verify leadLocked = false fires on RECALC button tap | OPEN
+3 | Check re-election | Verify accumulator resets and election window reopens | OPEN
+4 | Build + test | Install, drive, RECALC, verify new lock fires | OPEN
+# | Task | Detail | Status
+1 | Build V2.4 | ./gradlew copyApkToDownloads | OPEN
+2 | Install both | adb -s 8624... install -r -d [apk] && adb -s 2403... install -r -d [apk] | OPEN
+3 | Git tag | git tag v2.4-20260405 -m 'V2.4 Production release' | OPEN
+4 | Distribute | Send APK + cover letter to testers via coordinator | OPEN
+Field | Type | Purpose
+user_id | String | Identity
+is_subscribed | Boolean | Gate for Dashboard vs map only
+expires_at | Long | Local expiry check without API call
+terms_accepted | String | Terms version — triggers re-accept if mismatch
+privacy_accepted | String | Privacy version — same
+is_organizer | Boolean | Dashboard display — set true on first POST /rides
+Online | Condition | Route
+NO | Any | Convoy map direct — no sign-in prompt
+YES | New user | Sign In → Rider Terms → Privacy → Dashboard
+YES | Returning, subscribed | Sign In → Dashboard (skip terms if current)
+YES | No subscription | Sign In → Paywall (deferred during shakedown)
+Block | Task | Est | Notes
+B2 | Offline Services Sheet | 2 hr | Field Radio, Map Manager, Import, Archive entries
+B3 | Dashboard Screen | 2 hr | GET /notifications + /enrollments + /invites
+B4 | Launch Check | 45 min | wifi + signed in + subscribed → Dashboard
+B5 | Rides Screens | 3 hr | My Rides, Create Ride, Ride Detail
+B6 | Flip V3 Flag | 1 hr | Remove legacy submenu, full E2E test
+Step | Task | Est | File
+1 | Create convoy/radio/ package | 15 min | New directory
+2 | ConvoyRadioProfile.kt — interface | 15 min | New file
+3 | ConvoyRadioProfileV26.kt — extract existing | 30 min | Isolate 2.6 builder
+4 | ConvoyRadioProfileV27.kt — add channel_url | 45 min | Fix for 2.7 firmware
+5 | ConvoyRadioProfileDispatcher.kt | 30 min | Version router with fallback chain
+6 | Update ConvoyApplyRadioScreen.kt | 15 min | Call dispatcher, show firmware version
+7 | Test on 2.7 radio | 30 min | Verify channel + PSK write
+8 | Test on 2.6 radio — no regression | 15 min | Confirm existing behavior unchanged
+ID | Priority | Issue | Target | Status
+BUG-01 | P1 | RECALC LEAD unlock does nothing | V2.4 | OPEN
+BUG-02 | P1 | Radio config fails on 2.7 firmware — channel/PSK not written | V2.4.1 | OPEN
+BUG-03 | P2 | Offline HYB fails on first selection — workaround: cycle SAT then HYB | V2.4.2 | OPEN
+BUG-04 | P2 | Tile download boundary too small — blank SE quadrant on larger area | V2.4.2 | OPEN
+BUG-05 | P3 | Release notes file not generating — git task failing silently | V2.4.2 | OPEN
+BUG-06 | P1 | Production package .debug suffix — tiles path changes on production | V2.4 | OPEN
+Item | Deferred To | Notes
+Map Manager full build (s21-s30) | Phase C
+Route/waypoint overlays on convoy map | Phase C
+Track donation flow | Phase C
+Survey on STOP (ORGANIZED rides) | Phase C
+Graticule grid + Z18 detail layer | Phase C
+Tile storage migration debug → production | Phase C | One-time migration utility on first prod launch
+iPad support | V4.0 | Meshtastic-Apple fork
+React web client (grouptrack.org) | Phase D | July 2026
+iOS SwiftUI native port | Phase E | August 2026
+ID | Test | Result | Notes
+FT-01a | Lead lock fires | PASS
+FT-01b | Correct node locked | PASS
+FT-01c | Debug log verified | PASS
+FT-01d | RECALC unlock + re-election | FAIL | Unlock did nothing — BUG-01
+FT-02a/b | Lead track on lead device | PASS
+FT-02 sec | Track on secondary Android | PASS
+FT-03 | Android 2 radio GPS fallback | PASS
+FT-04 | Offline tile rendering | PARTIAL | Download boundary too small — BUG-04
+FT-05 | Services nav icon | PASS
+FT-06 | Offline HYB first selection | FAIL | Workaround: cycle SAT then HYB — BUG-03
