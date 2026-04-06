@@ -1,6 +1,7 @@
 package com.geeksville.mesh.convoy
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -138,4 +139,49 @@ fun GroupTrackTagline(modifier: Modifier = Modifier) {
         letterSpacing = 1.sp,
         modifier = modifier
     )
+}
+// ── Bottom Navigation Bar ─────────────────────────────────────────────────────
+enum class GroupTrackTab { HOME, RIDES, MAP, PROFILE }
+
+@Composable
+fun GroupTrackBottomNav(
+    activeTab: GroupTrackTab,
+    onHome: () -> Unit,
+    onRides: () -> Unit,
+    onMap: () -> Unit,
+    onProfile: () -> Unit
+) {
+    androidx.compose.foundation.layout.Row(
+        modifier = androidx.compose.ui.Modifier
+            .fillMaxWidth()
+            .background(androidx.compose.ui.graphics.Color(0xFF0A1628))
+            .padding(vertical = 8.dp),
+        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceEvenly
+    ) {
+        data class NavItem(val tab: GroupTrackTab, val icon: String, val label: String, val action: () -> Unit)
+        listOf(
+            NavItem(GroupTrackTab.HOME,    "🏠", "HOME",    onHome),
+            NavItem(GroupTrackTab.RIDES,   "🏁", "RIDES",   onRides),
+            NavItem(GroupTrackTab.MAP,     "🗺", "MAP",     onMap),
+            NavItem(GroupTrackTab.PROFILE, "👤", "PROFILE", onProfile)
+        ).forEach { item ->
+            val tab = item.tab; val icon = item.icon; val label = item.label; val action = item.action
+            val isActive = tab == activeTab
+            androidx.compose.foundation.layout.Column(
+                modifier = androidx.compose.ui.Modifier
+                    .clickable { action() }
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally
+            ) {
+                androidx.compose.material3.Text(text = icon, fontSize = 22.sp)
+                androidx.compose.material3.Text(
+                    text = label,
+                    color = if (isActive) GroupTrackColors.SkyBlue else androidx.compose.ui.graphics.Color(0xFF445566),
+                    fontSize = 9.sp,
+                    fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal,
+                    letterSpacing = 1.sp
+                )
+            }
+        }
+    }
 }

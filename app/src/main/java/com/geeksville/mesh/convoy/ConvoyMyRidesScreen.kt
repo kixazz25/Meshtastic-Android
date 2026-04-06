@@ -69,9 +69,12 @@ fun ConvoyMyRidesScreen(
         }
 
         // Back
-        Box(modifier = Modifier.fillMaxWidth().background(Color(0xFF0A1628))
-            .padding(16.dp).clickable { onBack() }, contentAlignment = Alignment.Center) {
-            Text(text = "← BACK", color = Color(0xFF445566), fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
-        }
+        GroupTrackBottomNav(
+            activeTab = GroupTrackTab.RIDES,
+            onHome = onBack,
+            onRides = {},
+            onMap = onBack,
+            onProfile = onBack
+        )
     }
 }
