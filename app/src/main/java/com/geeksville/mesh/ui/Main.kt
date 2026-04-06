@@ -521,12 +521,13 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
         }
         // ── Event/Ride Services Chooser ───────────────────────────────────
         if (showServicesChooser) {
+            val servicesContext = androidx.compose.ui.platform.LocalContext.current
             com.geeksville.mesh.convoy.ConvoyServicesChooser(
-                context = androidx.compose.ui.platform.LocalContext.current,
+                context = servicesContext,
                 onDismiss = { showServicesChooser = false },
                 onOnline = {
                     showServicesChooser = false
-                    val route = com.geeksville.mesh.convoy.ConvoySessionManager.resolveLaunchRoute(android.app.Application().applicationContext, true)
+                    val route = com.geeksville.mesh.convoy.ConvoySessionManager.resolveLaunchRoute(servicesContext, true)
                     val dest = when (route) {
                         com.geeksville.mesh.convoy.ConvoySessionManager.LaunchRoute.TERMS        -> ConvoyRoutes.ConvoyTerms
                         com.geeksville.mesh.convoy.ConvoySessionManager.LaunchRoute.PRIVACY      -> ConvoyRoutes.ConvoyPrivacy
