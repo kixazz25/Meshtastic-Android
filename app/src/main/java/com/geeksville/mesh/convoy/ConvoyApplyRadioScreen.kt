@@ -496,20 +496,34 @@ fun ConvoyApplyRadioScreen(
                                 android.util.Log.e("ConvoyApply", "Step 1: Archive FAILED -> ${archiveResult.exceptionOrNull()?.message}")
                             }
 
-                            // Step 2: Build binary from WorkingConfig
-                            android.util.Log.i("ConvoyApply", "Step 2: Building binary from WorkingConfig mode=$applyMode...")
-                            val profile = ConvoyProfileBuilder.buildProfile(wconfig).copy(short_name = null)
-                            android.util.Log.i("ConvoyApply", "Step 2: Binary built OK")
-                            // Step 3: Install binary - radio will reboot
-                            android.util.Log.i("ConvoyApply", "Step 3: Installing to radio...")
-                            convoyViewModel.installProfileToRadio(ni.myNodeNum, profile)
-                            android.util.Log.i("ConvoyApply", "Step 3: Install complete - radio rebooting")
-
-                            // ── Step 6: Set WorkingConfig and navigate to Verify ──────────
-                            android.util.Log.i("ConvoyApply", "Step 6: Setting WorkingConfig and navigating to Verify...")
-                            convoyViewModel.setWorkingConfig(wconfig)
-                            navController?.navigate(org.meshtastic.core.navigation.ConvoyRoutes.ConvoyReconnectWait)
-                            android.util.Log.i("ConvoyApply", "=== PROCEED TO UPDATE complete ===")
+                            // ── Firmware version fork ────────────────────────────────────
+                            val fwVersion = myNodeInfo?.firmwareVersion ?: ""
+                            val is27 = fwVersion.startsWith("2.7") || fwVersion >= "2.7"
+                            android.util.Log.i("ConvoyApply", "Firmware: $fwVersion is27=$is27")
+                            
+                            if (is27) {
+                                // 2.7 TWO-STEP: binary via URL, then write channel+PSK separately
+                                android.util.Log.i("ConvoyApply", "Step 2 [2.7]: Building binary (channel via URL)...")
+                                val profile27 = ConvoyProfileBuilder.buildProfile(wconfig).copy(short_name = null)
+                                android.util.Log.i("ConvoyApply", "Step 2 [2.7]: Binary built OK")
+                                android.util.Log.i("ConvoyApply", "Step 3 [2.7]: Installing to radio...")
+                                convoyViewModel.installProfileToRadio(ni.myNodeNum, profile27)
+                                android.util.Log.i("ConvoyApply", "Step 3 [2.7]: Install complete — radio rebooting")
+                                convoyViewModel.setWorkingConfig(wconfig)
+                                navController?.navigate(org.meshtastic.core.navigation.ConvoyRoutes.ConvoyReconnectWait)
+                                android.util.Log.i("ConvoyApply", "=== 2.7 Step 1 complete — waiting for reconnect ===")
+                            } else {
+                                // 2.6 SINGLE STEP: existing working path
+                                android.util.Log.i("ConvoyApply", "Step 2 [2.6]: Building binary from WorkingConfig mode=$applyMode...")
+                                val profile = ConvoyProfileBuilder.buildProfile(wconfig).copy(short_name = null)
+                                android.util.Log.i("ConvoyApply", "Step 2 [2.6]: Binary built OK")
+                                android.util.Log.i("ConvoyApply", "Step 3 [2.6]: Installing to radio...")
+                                convoyViewModel.installProfileToRadio(ni.myNodeNum, profile)
+                                android.util.Log.i("ConvoyApply", "Step 3 [2.6]: Install complete - radio rebooting")
+                                convoyViewModel.setWorkingConfig(wconfig)
+                                navController?.navigate(org.meshtastic.core.navigation.ConvoyRoutes.ConvoyReconnectWait)
+                                android.util.Log.i("ConvoyApply", "=== 2.6 single step complete ===")
+                            }
                             } // end scope.launch
                         },
                         shape = RoundedCornerShape(10.dp), color = Color(0xFF15512C)
