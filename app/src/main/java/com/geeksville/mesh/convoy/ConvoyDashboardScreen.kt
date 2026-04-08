@@ -273,6 +273,7 @@ fun ConvoyDashboardScreen(
                             onValueChange = { zipCode = it; ConvoySessionManager.setZipCode(context, it) },
                             modifier = Modifier.width(90.dp).height(48.dp),
                             singleLine = true,
+                            label = { Text("ZIP", fontSize = 9.sp, color = Color(0xFF445566)) },
                             textStyle = androidx.compose.ui.text.TextStyle(
                                 color = Color.White, fontSize = 11.sp,
                                 fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
@@ -293,6 +294,7 @@ fun ConvoyDashboardScreen(
                                 v.toIntOrNull()?.let { r -> ConvoySessionManager.setSearchRadius(context, r) } },
                             modifier = Modifier.width(64.dp).height(48.dp),
                             singleLine = true,
+                            label = { Text("MI", fontSize = 9.sp, color = Color(0xFF445566)) },
                             textStyle = androidx.compose.ui.text.TextStyle(
                                 color = Color.White, fontSize = 11.sp,
                                 fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
