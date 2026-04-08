@@ -52,7 +52,8 @@ fun ConvoySubMenu(
     onNavigateToSettingsPanel: () -> Unit = {},
     onNavigateToApplyList: () -> Unit = {},
     onNavigateToArchiveRestore: () -> Unit = {},
-    onImportFromDownloads: () -> Unit = {}
+    onImportFromDownloads: () -> Unit = {},
+    onExportTracks: () -> Unit = {}
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -169,11 +170,27 @@ fun ConvoySubMenu(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(start = 16.dp, top = 4.dp, bottom = 8.dp)
+                        .padding(start = 16.dp, top = 4.dp, bottom = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     SubMenuItem(
-                        label   = "Offline Maps & Tile Management",
-                        sub     = "Coming in V3",
+                        label   = "Export Tracks to Downloads",
+                        sub     = "Select GPX or KML tracks and copy to Downloads",
+                        enabled = true,
+                        onClick = {
+                            expanded = null
+                            onExportTracks()
+                        }
+                    )
+                    SubMenuItem(
+                        label   = "Upload Maps to AWS",
+                        sub     = "Sync tile areas to GroupTrack cloud — Coming in V2.4.2",
+                        enabled = false,
+                        onClick = {}
+                    )
+                    SubMenuItem(
+                        label   = "Download Maps from AWS",
+                        sub     = "Restore tile areas from GroupTrack cloud — Coming in V2.4.2",
                         enabled = false,
                         onClick = {}
                     )

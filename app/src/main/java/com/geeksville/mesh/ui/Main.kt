@@ -516,6 +516,12 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
                 onNavigateToArchiveRestore = {
                     showConvoyMenu = false
                     navController.navigate(ConvoyRoutes.ConvoyArchiveRestore)
+                },
+                onExportTracks = {
+                    // Track export is handled in ConvoyScreen via showTrackExport state.
+                    // Main.kt submenu invocation is a no-op here -- ConvoyScreen
+                    // is the active screen when the GroupTrack menu is shown.
+                    showConvoyMenu = false
                 }
             )
         }

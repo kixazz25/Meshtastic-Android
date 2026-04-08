@@ -117,6 +117,7 @@ fun ConvoyScreen(
     val isLocalTiles by viewModel.isLocalTiles.collectAsStateWithLifecycle()
     var showMapSettings by remember { mutableStateOf(false) }
     var showConvoyMenu by remember { mutableStateOf(false) }
+    var showTrackExport by remember { mutableStateOf(false) }
     val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
     var showImportSplash by remember { mutableStateOf(false) }
     val pendingImportBanner by viewModel.pendingImportBanner.collectAsStateWithLifecycle()
@@ -1008,7 +1009,18 @@ fun ConvoyScreen(
             }
         }
 
-        if (showConvoyMenu) {
+        if (showTrackExport) {
+            androidx.compose.material3.ModalBottomSheet(
+                onDismissRequest = { showTrackExport = false },
+                containerColor   = Color(0xFF101510),
+                shape            = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
+            ) {
+                ConvoyTrackExportSheet(
+                    onDismiss = { showTrackExport = false }
+                )
+            }
+        }
+                if (showConvoyMenu) {
             ConvoySubMenu(
                 sheetState                = convoyMenuSheetState,
                 onDismiss                 = { showConvoyMenu = false },
@@ -1026,6 +1038,9 @@ fun ConvoyScreen(
                             viewModel.clearImportBanner()
                         }
                     }
+                },
+                onExportTracks = {
+                    showTrackExport = true
                 }
             )
         }
