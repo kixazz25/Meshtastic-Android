@@ -1,8 +1,23 @@
 package com.geeksville.mesh.convoy
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -63,21 +78,38 @@ fun GroupTrackLogoText(
 
 // ── GroupTrack Screen Header ───────────────────────────────────────────────────
 // Navy header bar with GroupTrack logo + optional subtitle
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun GroupTrackHeader(
     subtitle: String = "",
     modifier: Modifier = Modifier
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var showDevMenu by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+
     Column(modifier = modifier.fillMaxWidth()) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(GroupTrackColors.Navy)
-                .padding(horizontal = 24.dp, vertical = 16.dp),
+                .combinedClickable(
+                    indication = null,
+                    interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                    onClick = {},
+                    onLongClick = { if (ConvoyConfig.V3_FEATURES_ENABLED) showDevMenu = true }
+                )
+                .padding(horizontal = 24.dp, vertical = 12.dp),
             contentAlignment = Alignment.Center
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                GroupTrackLogoText(fontSize = 32)
+                androidx.compose.foundation.Image(
+                    painter = androidx.compose.ui.res.painterResource(
+                        id = context.resources.getIdentifier("grouptrack_logo", "drawable", context.packageName)
+                            .takeIf { it != 0 } ?: android.R.drawable.ic_menu_gallery
+                    ),
+                    contentDescription = "GroupTrack",
+                    modifier = Modifier.height(40.dp).clickable(enabled = false) {}
+                )
                 if (subtitle.isNotEmpty()) {
                     Spacer(Modifier.height(4.dp))
                     Text(
@@ -91,11 +123,67 @@ fun GroupTrackHeader(
                 }
             }
         }
-        // Sky blue accent divider
-        HorizontalDivider(
-            thickness = 3.dp,
-            color = GroupTrackColors.SkyBlue
-        )
+        HorizontalDivider(thickness = 3.dp, color = GroupTrackColors.SkyBlue)
+    }
+
+    if (showDevMenu) {
+        androidx.compose.ui.window.Dialog(onDismissRequest = { showDevMenu = false }) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(androidx.compose.ui.graphics.Color(0xFF0A1628))
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(text = "DEV MENU", color = GroupTrackColors.SkyBlue, fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold, letterSpacing = 2.sp,
+                    modifier = Modifier.padding(bottom = 4.dp))
+                DevMenuButton("SEED DATA") {
+                    ConvoyDevSeeder.seed(context)
+                    android.widget.Toast.makeText(context, "Seed complete", android.widget.Toast.LENGTH_SHORT).show()
+                    showDevMenu = false
+                }
+                DevMenuButton("CLEAR SESSION") {
+                    ConvoySessionManager.clearSession(context)
+                    ConvoyDevSeeder.clear(context)
+                    android.widget.Toast.makeText(context, "Session cleared", android.widget.Toast.LENGTH_SHORT).show()
+                    showDevMenu = false
+                }
+                DevMenuButton("CLEAR + SEED") {
+                    android.widget.Toast.makeText(context, "Clearing...", android.widget.Toast.LENGTH_SHORT).show()
+                    ConvoyDevSeeder.clear(context)
+                    ConvoyDevSeeder.seed(context)
+                    android.widget.Toast.makeText(context, "Seed complete", android.widget.Toast.LENGTH_SHORT).show()
+                    showDevMenu = false
+                }
+                DevMenuButton("SHOW SESSION") {
+                    val uid = ConvoySessionManager.getUserId(context) ?: "none"
+                    val zip = ConvoySessionManager.getZipCode(context)
+                    val sub = ConvoySessionManager.isSubscribed(context)
+                    val org = ConvoySessionManager.isOrganizer(context)
+                    android.widget.Toast.makeText(context,
+                        "ID:$uid sub:$sub org:$org zip:$zip",
+                        android.widget.Toast.LENGTH_LONG).show()
+                    showDevMenu = false
+                }
+                DevMenuButton("CANCEL", color = androidx.compose.ui.graphics.Color(0xFF2A3545)) {
+                    showDevMenu = false
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DevMenuButton(text: String, color: androidx.compose.ui.graphics.Color = GroupTrackColors.SkyBlue, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier.fillMaxWidth()
+            .background(color.copy(alpha = 0.15f))
+            .clickable { onClick() }
+            .padding(12.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(text = text, color = color, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
     }
 }
 

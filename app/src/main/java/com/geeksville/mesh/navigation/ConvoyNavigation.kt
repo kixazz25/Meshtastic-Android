@@ -34,6 +34,8 @@ import com.geeksville.mesh.convoy.ConvoyPrivacyScreen
 import com.geeksville.mesh.convoy.ConvoyMyRidesScreen
 import com.geeksville.mesh.convoy.ConvoyCreateRideScreen
 import com.geeksville.mesh.convoy.ConvoyRideDetailScreen
+import com.geeksville.mesh.convoy.ConvoyInviteSendScreen
+import com.geeksville.mesh.convoy.ConvoyBroadcastScreen
 import com.geeksville.mesh.convoy.ConvoyProfileScreen
 import com.geeksville.mesh.convoy.ConvoyExploreScreen
 import com.geeksville.mesh.convoy.ConvoyTracksScreen
@@ -237,13 +239,26 @@ fun NavGraphBuilder.convoyGraph(
     // ── Subscription Value Prop — V3 Phase B ─────────────────────────────
     // Shown to free users after sign-in or when tapping gated Dashboard button.
     composable<ConvoyRoutes.ConvoyMyRides> {
-        ConvoyMyRidesScreen(onCreateRide = { navController?.navigate(ConvoyRoutes.ConvoyCreateRide) }, onRideDetail = { navController?.navigate(ConvoyRoutes.ConvoyRideDetail) }, onBack = { navController?.popBackStack() })
+        ConvoyMyRidesScreen(
+            onNavigateToRideDetail = { navController?.navigate(ConvoyRoutes.ConvoyRideDetail) },
+            onNavigateToCreateRide = { navController?.navigate(ConvoyRoutes.ConvoyCreateRide) },
+            onNavigateToFieldRadio = { navController?.navigate(ConvoyRoutes.ConvoyFieldRadio) },
+            onBack = { navController?.popBackStack() })
     }
     composable<ConvoyRoutes.ConvoyCreateRide> {
-        ConvoyCreateRideScreen(onSave = { navController?.navigate(ConvoyRoutes.ConvoyRideDetail) }, onBack = { navController?.popBackStack() })
+        ConvoyCreateRideScreen(
+            onRideCreated = { navController?.navigate(ConvoyRoutes.ConvoyRideDetail) },
+            onNavigateToFieldRadio = { navController?.navigate(ConvoyRoutes.ConvoyFieldRadio) },
+            onBack = { navController?.popBackStack() })
     }
     composable<ConvoyRoutes.ConvoyRideDetail> {
-        ConvoyRideDetailScreen(rideId = "", onBack = { navController?.popBackStack() })
+        ConvoyRideDetailScreen(
+            rideId = "",
+            onNavigateToSendInvite = { navController?.navigate(ConvoyRoutes.ConvoyInviteSend) },
+            onNavigateToBroadcast  = { navController?.navigate(ConvoyRoutes.ConvoyBroadcast) },
+            onNavigateToCreateRide = { navController?.navigate(ConvoyRoutes.ConvoyCreateRide) },
+            onNavigateToFieldRadio = { navController?.navigate(ConvoyRoutes.ConvoyFieldRadio) },
+            onBack = { navController?.popBackStack() })
     }
     composable<ConvoyRoutes.ConvoyProfile> {
         ConvoyProfileScreen(onBack = { navController?.popBackStack() })
@@ -290,7 +305,7 @@ fun NavGraphBuilder.convoyGraph(
         val context = androidx.compose.ui.platform.LocalContext.current
         ConvoyDashboardScreen(
             isSubscribed = ConvoySessionManager.isSubscribed(context),
-            onNavigateToRides       = { navController?.navigate(ConvoyRoutes.ConvoyMyRides) },
+            onNavigateToRides       = { navController?.navigate(ConvoyRoutes.ConvoyRideDetail) },
             onNavigateToExplore     = { navController?.navigate(ConvoyRoutes.ConvoyExplore) },
             onNavigateToTracks      = { navController?.navigate(ConvoyRoutes.ConvoyTracks) },
             onNavigateToProfile     = { navController?.navigate(ConvoyRoutes.ConvoyProfile) },
@@ -300,6 +315,18 @@ fun NavGraphBuilder.convoyGraph(
         )
     }
 
+    composable<ConvoyRoutes.ConvoyInviteSend> {
+        ConvoyInviteSendScreen(
+            onNavigateToCreateRide = { navController?.navigate(ConvoyRoutes.ConvoyCreateRide) },
+            onNavigateToFieldRadio = { navController?.navigate(ConvoyRoutes.ConvoyFieldRadio) },
+            onBack = { navController?.popBackStack() })
+    }
+    composable<ConvoyRoutes.ConvoyBroadcast> {
+        ConvoyBroadcastScreen(
+            onNavigateToCreateRide = { navController?.navigate(ConvoyRoutes.ConvoyCreateRide) },
+            onNavigateToFieldRadio = { navController?.navigate(ConvoyRoutes.ConvoyFieldRadio) },
+            onBack = { navController?.popBackStack() })
+    }
     // ── Field Radio — V3 Phase B ──────────────────────────────────────────
     // Always active. No internet needed. Radio config only.
     composable<ConvoyRoutes.ConvoyFieldRadio> {
