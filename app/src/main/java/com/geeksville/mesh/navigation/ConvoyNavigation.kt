@@ -145,6 +145,12 @@ fun NavGraphBuilder.convoyGraph(
         )
     }
 
+    // ── Track Export ─────────────────────────────────────────────────────
+    composable<ConvoyRoutes.ConvoyTracks> {
+        com.geeksville.mesh.convoy.ConvoyTrackExportSheet(
+            onDismiss = { navController?.popBackStack() }
+        )
+    }
     // ── Reconnect Wait — between import and verify ───────────────────────
     composable<ConvoyRoutes.ConvoyReconnectWait> {
         val vm = viewModel ?: androidx.hilt.navigation.compose.hiltViewModel<ConvoyViewModel>()

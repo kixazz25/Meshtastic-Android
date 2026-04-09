@@ -53,7 +53,8 @@ fun ConvoySubMenu(
     onNavigateToApplyList: () -> Unit = {},
     onNavigateToArchiveRestore: () -> Unit = {},
     onImportFromDownloads: () -> Unit = {},
-    onExportTracks: () -> Unit = {}
+    onExportTracks: () -> Unit = {},
+    onNavigateToTrackExport: () -> Unit = {}
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -179,7 +180,8 @@ fun ConvoySubMenu(
                         enabled = true,
                         onClick = {
                             expanded = null
-                            onExportTracks()
+                            onDismiss()
+                            onNavigateToTrackExport()
                         }
                     )
                     SubMenuItem(

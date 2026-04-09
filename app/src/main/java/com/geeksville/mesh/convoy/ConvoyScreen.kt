@@ -90,6 +90,7 @@ fun ConvoyScreen(
     onNavigateToSettings: () -> Unit = {},
     onNavigateToCreateEvent: () -> Unit = {},
     onNavigateToSettingsPanel: () -> Unit = {},
+    onNavigateToTrackExport: () -> Unit = {},
     viewModel: ConvoyViewModel = hiltViewModel()
 ) {
     val channelViewModel: ChannelViewModel = hiltViewModel()
@@ -1046,9 +1047,7 @@ fun ConvoyScreen(
                         }
                     }
                 },
-                onExportTracks = {
-                    showTrackExport = true
-                }
+                onNavigateToTrackExport = onNavigateToTrackExport
             )
         }
 
