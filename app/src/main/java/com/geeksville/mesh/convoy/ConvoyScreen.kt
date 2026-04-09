@@ -118,7 +118,6 @@ fun ConvoyScreen(
     val isLocalTiles by viewModel.isLocalTiles.collectAsStateWithLifecycle()
     var showMapSettings by remember { mutableStateOf(false) }
     var showConvoyMenu by remember { mutableStateOf(false) }
-    var showTrackExport by remember { mutableStateOf(false) }
     val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
     var showImportSplash by remember { mutableStateOf(false) }
     val pendingImportBanner by viewModel.pendingImportBanner.collectAsStateWithLifecycle()
@@ -353,8 +352,7 @@ fun ConvoyScreen(
     Scaffold { innerPadding ->
     Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
 
-        // ── WebView/Leaflet map ── only render after first node connects
-        if (convoyState.nodes.isNotEmpty()) {
+        // ── WebView/Leaflet map ───────────────────────────────────
         AndroidView(
             factory = { ctx ->
                 val existing = viewModel.persistentWebView
@@ -1008,24 +1006,6 @@ fun ConvoyScreen(
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                     }
                 }
-            }
-        }
-
-        } else {
-            // No nodes yet — show waiting placeholder
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
-                Text("Waiting for radio...", color = Color.White)
-            }
-        } // end if nodes
-        if (showTrackExport) {
-            androidx.compose.material3.ModalBottomSheet(
-                onDismissRequest = { showTrackExport = false },
-                containerColor   = Color(0xFF101510),
-                shape            = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
-            ) {
-                ConvoyTrackExportSheet(
-                    onDismiss = { showTrackExport = false }
-                )
             }
         }
                 if (showConvoyMenu) {
