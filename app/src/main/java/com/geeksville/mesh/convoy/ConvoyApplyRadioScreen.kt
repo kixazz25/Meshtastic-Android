@@ -260,9 +260,9 @@ fun ConvoyApplyRadioScreen(
                         listOf(
                             Triple(LoraField.REGION,        currentRegion,    masterConfig?.loraRegion ?: "—"),
                             Triple(LoraField.MODEM_PRESET,  currentPreset,    masterConfig?.loraModemPreset ?: "—"),
-                            Triple(LoraField.BANDWIDTH,     "—",              masterConfig?.loraBandwidth?.toString() ?: "—"),
-                            Triple(LoraField.SPREAD_FACTOR, "—",              masterConfig?.loraSpreadFactor?.toString() ?: "—"),
-                            Triple(LoraField.CODING_RATE,   "—",              masterConfig?.loraCodingRate?.toString() ?: "—"),
+                            Triple(LoraField.BANDWIDTH,     if ((myNodeInfo?.firmwareVersion ?: "").startsWith("2.6")) masterConfig?.loraBandwidth?.toString() ?: "—" else "—", masterConfig?.loraBandwidth?.toString() ?: "—"),
+                            Triple(LoraField.SPREAD_FACTOR, if ((myNodeInfo?.firmwareVersion ?: "").startsWith("2.6")) masterConfig?.loraSpreadFactor?.toString() ?: "—" else "—", masterConfig?.loraSpreadFactor?.toString() ?: "—"),
+                            Triple(LoraField.CODING_RATE,   if ((myNodeInfo?.firmwareVersion ?: "").startsWith("2.6")) masterConfig?.loraCodingRate?.toString() ?: "—" else "—", masterConfig?.loraCodingRate?.toString() ?: "—"),
                             Triple(LoraField.HOP_LIMIT,     currentHopLimit,  masterConfig?.loraHopLimit?.toString() ?: "—"),
                             Triple(LoraField.TX_ENABLED,    currentTxEnabled, masterConfig?.loraTxEnabled?.toString() ?: "—"),
                             Triple(LoraField.TX_POWER,      currentTxPower,   masterConfig?.loraTxPower?.toString() ?: "—"),
