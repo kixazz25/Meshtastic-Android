@@ -352,7 +352,8 @@ fun ConvoyScreen(
     Scaffold { innerPadding ->
     Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
 
-        // ── WebView/Leaflet map ───────────────────────────────────
+        // ── WebView/Leaflet map ── only render after first node connects
+        if (convoyState.nodes.isNotEmpty()) {
         AndroidView(
             factory = { ctx ->
                 val existing = viewModel.persistentWebView
@@ -1009,6 +1010,12 @@ fun ConvoyScreen(
             }
         }
 
+        } else {
+            // No nodes yet — show waiting placeholder
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
+                Text("Waiting for radio...", color = Color.White)
+            }
+        } // end if nodes
         if (showTrackExport) {
             androidx.compose.material3.ModalBottomSheet(
                 onDismissRequest = { showTrackExport = false },
