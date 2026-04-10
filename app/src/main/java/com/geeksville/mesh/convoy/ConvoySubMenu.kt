@@ -176,7 +176,7 @@ fun ConvoySubMenu(
                 ) {
                     SubMenuItem(
                         label   = "Export Tracks to Downloads",
-                        sub     = "Select GPX or KML tracks and copy to Downloads",
+                        sub     = "Open track file manager",
                         enabled = true,
                         onClick = {
                             expanded = null
