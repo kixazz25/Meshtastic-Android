@@ -275,9 +275,7 @@ class ConvoyGpsService : Service() {
 
     private fun createTempKmlFile(): File {
         val dir = File(
-            android.os.Environment.getExternalStoragePublicDirectory(
-                android.os.Environment.DIRECTORY_DOCUMENTS
-            ), "my_tracks"
+            android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOCUMENTS), "my_tracks"
         )
         if (!dir.exists()) dir.mkdirs()
         val sdf = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US)
@@ -334,9 +332,7 @@ class ConvoyGpsService : Service() {
 
     private fun createTempGpxFile(): java.io.File {
         val dir = java.io.File(
-            android.os.Environment.getExternalStoragePublicDirectory(
-                android.os.Environment.DIRECTORY_DOCUMENTS
-            ), "my_tracks"
+            android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOCUMENTS), "my_tracks"
         )
         if (!dir.exists()) dir.mkdirs()
         val sdf = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.US)

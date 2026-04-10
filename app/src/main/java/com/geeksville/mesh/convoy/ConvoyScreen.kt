@@ -667,70 +667,107 @@ fun ConvoyScreen(
                 shadowElevation = 6.dp
             ) {
                 Column(modifier = Modifier.padding(8.dp).width(200.dp).verticalScroll(rememberScrollState())) {
-                    // Header row — always visible, tap to expand/collapse
+                    // Row 1: chevron expand + map label + online/offline toggle
                     Row(
-                        modifier = Modifier.fillMaxWidth().clickable {
-                            if (showMapSettings) {
-                                webViewRef.value?.evaluateJavascript("clearSearchCenter()", null)
-                                webViewRef.value?.evaluateJavascript("clearAreaBoundary()", null)
-                            }
-                            showMapSettings = !showMapSettings
-                        },
+                        modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Rounded.Layers, contentDescription = "Settings",
-                                tint = Color(0xFF2E75B6), modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text("MAP  $mapTypeLabel", color = Color(0xFF2E75B6), fontSize = 11.sp,
-                                fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+                        Row(
+                            modifier = Modifier.clickable {
+                                if (showMapSettings) {
+                                    webViewRef.value?.evaluateJavascript("clearSearchCenter()", null)
+                                    webViewRef.value?.evaluateJavascript("clearAreaBoundary()", null)
+                                }
+                                showMapSettings = !showMapSettings
+                            },
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                if (showMapSettings) "▲" else "▼",
+                                color = Color(0xFF4A6080), fontSize = 10.sp,
+                                fontFamily = FontFamily.Monospace
+                            )
                             Spacer(Modifier.width(6.dp))
                             Text(
-                                if (isOfflineMode) "LOCAL" else "ONLINE",
-                                color = if (isOfflineMode) Color(0xFF4DA6FF) else Color(0xFF1CF0A0),
-                                fontSize = 8.sp,
-                                fontFamily = FontFamily.Monospace,
-                                fontWeight = FontWeight.Bold
+                                "MAP  $mapTypeLabel",
+                                color = Color(0xFF2E75B6), fontSize = 11.sp,
+                                fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold
                             )
                         }
-                        Text(if (showMapSettings) "▲" else "▼", color = Color(0xFF4A6080), fontSize = 10.sp,
-                            fontFamily = FontFamily.Monospace)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                if (isOfflineMode) "LOCAL" else "NET",
+                                color = if (isOfflineMode) Color(0xFF4DA6FF) else Color(0xFF1CF0A0),
+                                fontSize = 8.sp, fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(Modifier.width(3.dp))
+                            Switch(
+                                checked = isOfflineMode,
+                                onCheckedChange = { goOffline ->
+                                    viewModel.setOfflineMode(goOffline)
+                                    val url = if (goOffline)
+                                        ConvoyConfig.LOCAL_TILE_BASE + ConvoyConfig.ACTIVE_TILE_SOURCE + "/{z}/{x}/{y}.png"
+                                    else
+                                        ConvoyConfig.TILE_SOURCES[ConvoyConfig.ACTIVE_TILE_SOURCE] ?: ""
+                                    android.util.Log.i("ConvoyOffline", "Toggle offline=$goOffline url=$url")
+                                    webViewRef.value?.evaluateJavascript("setTileUrl('$url')", null)
+                                },
+                                modifier = Modifier.height(20.dp).width(36.dp),
+                                colors = androidx.compose.material3.SwitchDefaults.colors(
+                                    checkedThumbColor = Color(0xFF4DA6FF),
+                                    checkedTrackColor = Color(0xFF1A2A3A),
+                                    uncheckedThumbColor = Color(0xFF1CF0A0),
+                                    uncheckedTrackColor = Color(0xFF1A2A1A)
+                                )
+                            )
+                        }
                     }
-
+                    // Row 2: layer type buttons always visible
+                    Spacer(Modifier.height(4.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        listOf(
+                            "SAT" to "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+                            "HYB" to "https://mt0.google.com/vt/lyrs=y&x={x}&y={y}&z={z}",
+                            "TOPO" to "https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
+                            "RD" to "https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png"
+                        ).forEach { (label, onlineUrl) ->
+                            val isActive = mapTypeLabel == label
+                            Surface(
+                                modifier = Modifier.weight(1f).clickable {
+                                    viewModel.setMapTypeLabel(label)
+                                    ConvoyConfig.ACTIVE_TILE_SOURCE = label
+                                    val url = if (isOfflineMode)
+                                        ConvoyConfig.LOCAL_TILE_BASE + label + "/{z}/{x}/{y}.png"
+                                    else onlineUrl
+                                    viewModel.setLocalTiles(isOfflineMode)
+                                    webViewRef.value?.evaluateJavascript("setTileUrl('$url')", null)
+                                },
+                                shape = RoundedCornerShape(4.dp),
+                                color = if (isActive) Color(0xFF2E75B6) else Color(0xFF1A2233)
+                            ) {
+                                Text(
+                                    label,
+                                    color = if (isActive) Color.White else Color(0xFF4A6080),
+                                    fontSize = 9.sp, fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.Bold,
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                    modifier = Modifier.padding(vertical = 4.dp)
+                                )
+                            }
+                        }
+                    }
+                    // Expanded settings
                     // Expanded settings
                     if (showMapSettings) {
                         Spacer(Modifier.height(8.dp))
 
                         // ── Tile source buttons ──────────────────────────
-                        Text("LAYER", color = Color(0xFF4A6080), fontSize = 9.sp, fontFamily = FontFamily.Monospace)
-                        Spacer(Modifier.height(4.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            listOf(
-                                Triple("SAT", "Satellite", "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"),
-                                Triple("HYB", "Hybrid", "https://mt0.google.com/vt/lyrs=y&x={x}&y={y}&z={z}"),
-                                Triple("TOPO", "Topo", "https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}"),
-                                Triple("RD", "Road", "https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png")
-                            ).forEach { (label, name, url) ->
-                                Surface(
-                                    modifier = Modifier.weight(1f).clickable {
-                                        viewModel.setMapTypeLabel(label)
-                                        viewModel.setLocalTiles(false)
-                                        ConvoyConfig.ACTIVE_TILE_SOURCE = label
-                                        webViewRef.value?.evaluateJavascript("setTileUrl('$url')", null)
-                                    },
-                                    shape = RoundedCornerShape(6.dp),
-                                    color = if (mapTypeLabel == label) Color(0xFF2E75B6) else Color(0xFF2A3545)
-                                ) {
-                                    Text(label, color = Color.White, fontSize = 9.sp,
-                                        fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
-                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                                        modifier = Modifier.padding(vertical = 4.dp))
-                                }
-                            }
-                        }
-
-                        Spacer(Modifier.height(10.dp))
+                        Spacer(Modifier.height(6.dp))
 
                         // ── Zoom slider ──────────────────────────────────
                         Text("ZOOM  ${mapZoomLevel.toInt()}", color = Color(0xFF4A6080), fontSize = 9.sp,
@@ -770,25 +807,7 @@ fun ConvoyScreen(
                         Spacer(Modifier.height(6.dp))
 
                         // ── Online/Offline toggle ────────────────────────
-                        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(if (isOfflineMode) "OFFLINE" else "ONLINE", color = if (isOfflineMode) Color(0xFFFFAA00) else Color(0xFF1CF0A0),
-                                fontSize = 10.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
-                            Switch(
-                                checked = isOfflineMode,
-                                onCheckedChange = { goOffline ->
-                                    viewModel.setOfflineMode(goOffline)
-                                    if (goOffline) {
-                                        val localUrl = ConvoyConfig.LOCAL_TILE_BASE + ConvoyConfig.ACTIVE_TILE_SOURCE + "/{z}/{x}/{y}.png"
-                                        android.util.Log.i("ConvoyOffline", "Switching to local URL: $localUrl")
-                                        webViewRef.value?.evaluateJavascript("setTileUrl('"+localUrl+"')", null)
-                                    } else {
-                                        val onlineUrl = ConvoyConfig.TILE_SOURCES[ConvoyConfig.ACTIVE_TILE_SOURCE] ?: ""
-                                        webViewRef.value?.evaluateJavascript("setTileUrl('"+onlineUrl+"')", null)
-                                    }
-                                }
-                            )
-                        }
+
 
                         Spacer(Modifier.height(6.dp))
 

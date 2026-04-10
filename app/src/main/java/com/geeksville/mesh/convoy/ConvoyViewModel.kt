@@ -696,22 +696,39 @@ class ConvoyViewModel @Inject constructor(
         clearPendingDownload()
         downloadStartTime = System.currentTimeMillis()
         downloadJob = viewModelScope.launch {
-            _downloadState.value = DownloadState.Downloading(0, pending.tileCount, 0)
             val tiles = ConvoyTileCalculator.calculateTiles(pending.north, pending.south, pending.east, pending.west)
-            val result = ConvoyTileDownloader.downloadTiles(
-                context = context, tiles = tiles,
-                sourceUrl = pending.sourceUrl, sourceName = pending.sourceName
-            ) { downloaded, total, failCount ->
-                _downloadState.value = DownloadState.Downloading(downloaded, total, failCount)
-            }
-            result.fold(
-                onSuccess = { summary ->
-                    _downloadState.value = DownloadState.Complete(summary)
-                    kotlinx.coroutines.delay(3_000L)
-                    _downloadState.value = DownloadState.Idle
-                },
-                onFailure = { e -> _downloadState.value = DownloadState.Error(e.message ?: "Download failed") }
+            val allSources = listOf(
+                "SAT"  to "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+                "HYB"  to "https://mt0.google.com/vt/lyrs=y&x={x}&y={y}&z={z}",
+                "TOPO" to "https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
+                "RD"   to "https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png"
             )
+            val totalTiles = tiles.size * allSources.size
+            var totalDownloaded = 0
+            var totalFailed = 0
+            _downloadState.value = DownloadState.Downloading(0, totalTiles, 0)
+            var lastSummary: com.geeksville.mesh.convoy.DownloadSummary? = null
+            for ((sourceName, sourceUrl) in allSources) {
+                val result = ConvoyTileDownloader.downloadTiles(
+                    context = context, tiles = tiles,
+                    sourceUrl = sourceUrl, sourceName = sourceName
+                ) { downloaded, _, failCount ->
+                    totalDownloaded++
+                    totalFailed = failCount
+                    _downloadState.value = DownloadState.Downloading(totalDownloaded, totalTiles, totalFailed)
+                }
+                result.onSuccess { lastSummary = it }
+                result.onFailure { e ->
+                    android.util.Log.e("ConvoyDownload", "Failed downloading $sourceName: ${e.message}")
+                }
+            }
+            if (lastSummary != null) {
+                _downloadState.value = DownloadState.Complete(lastSummary!!)
+                kotlinx.coroutines.delay(3_000L)
+                _downloadState.value = DownloadState.Idle
+            } else {
+                _downloadState.value = DownloadState.Error("All tile sources failed")
+            }
         }
     }
 

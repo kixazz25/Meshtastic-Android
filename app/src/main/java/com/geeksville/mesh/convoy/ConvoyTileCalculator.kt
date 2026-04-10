@@ -28,7 +28,7 @@ object ConvoyTileCalculator {
     private const val AVG_TILE_KB = 15f
 
     /** Maximum allowed download in MB */
-    const val CEILING_MB = 500f
+    const val CEILING_MB = 5000f
 
     // ── Tile coordinate math ──────────────────────────────────────────────────
 
