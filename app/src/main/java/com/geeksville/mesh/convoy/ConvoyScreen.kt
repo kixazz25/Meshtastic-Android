@@ -716,6 +716,7 @@ fun ConvoyScreen(
                                     modifier = Modifier.weight(1f).clickable {
                                         viewModel.setMapTypeLabel(label)
                                         viewModel.setLocalTiles(false)
+                                        ConvoyConfig.ACTIVE_TILE_SOURCE = label
                                         webViewRef.value?.evaluateJavascript("setTileUrl('$url')", null)
                                     },
                                     shape = RoundedCornerShape(6.dp),
