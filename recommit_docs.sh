@@ -1,7 +1,22 @@
 #!/bin/bash
-# recommit_docs_v3.sh
+# recommit_docs_v4.sh
 # Copies ALL GroupTrack project documents from Downloads to docs/ and commits.
-# Also generates GroupTrack_V3_Spec.txt for Claude session context.
+# V4: Added Step 0 — auto-generate cross-reference docs before copy/archive.
+#
+# CAPTURES:
+#   - GroupTrack*.docx / *.pdf       — all project documents
+#   - GroupTrack*.txt                — release notes
+#   - DEV_ENVIRONMENT_v*.md          — environment reference (versioned)
+#   - grouptrack*.html               — prototype files
+#   - *.cfg                          — radio config files
+#   - recommit_docs*.sh              — this script
+#
+# VERSION RULES:
+#   - All living docs use _v1 _v2 _v3 suffixes
+#   - Latest version stays in docs/
+#   - Older versions move to docs/archive/
+#   - Windows duplicate copies (1)(2)(3) deleted before commit
+#   - Applies to: .docx .pdf .txt .md .html
 #
 # Run from: ~/Meshtastic-Android
 
@@ -11,12 +26,29 @@ DOCS="docs"
 ARCHIVE="docs/archive"
 RADIO_CONFIGS="docs/radio_configs"
 
-echo "=== GROUPTRACK DOCS RECOMMIT v3 ==="
+echo "=== GROUPTRACK DOCS RECOMMIT v4 ==="
 echo ""
 
 mkdir -p "$DOCS"
 mkdir -p "$ARCHIVE"
 mkdir -p "$RADIO_CONFIGS"
+
+# ── Step 0: Auto-generate cross-reference documents ───────────────────────────
+echo "--- Generating function cross-reference ---"
+
+# Generate where-used raw data
+grep -rn "startRecording\|stopRecording\|finalizeTrack\|installProfileToRadio\|buildProfile\|buildSnapshot\|archiveCurrentRadio\|applyMasterConfig\|scanImportDirectory\|startDownload\|recalcLead\|startGroupTrack\|stopGroupTrack\|startTrack\|stopTrack\|pauseTrack\|resumeTrack\|onRadioPosition\|downloadTiles\|isSignedIn\|isSubscribed\|saveUser\|clearSession\|resolveLaunchRoute\|followOrganizer\|unfollowOrganizer\|createRide\|enrollRider\|compute\b\|computeStatus\|computeHeading\|assignLeadTail\|colorSegmentsByNode" \
+  app/src/main/java/com/geeksville/mesh/ \
+  --include="*.kt" | grep -v "^.*:.*fun \|test" > docs/where_used_raw.txt
+
+# Generate function universe
+grep -rn "^    fun \|^    private fun \|^    suspend fun \|^    override fun \|^fun \|^private fun \|^suspend fun " \
+  app/src/main/java/com/geeksville/mesh/convoy/ \
+  --include="*.kt" | grep -v "//\|test" | sort > docs/function_universe_raw.txt
+
+echo "  ✓ where_used_raw.txt ($(wc -l < docs/where_used_raw.txt) call sites)"
+echo "  ✓ function_universe_raw.txt ($(wc -l < docs/function_universe_raw.txt) functions)"
+echo ""
 
 # ── Step 1: Delete Windows duplicate copies from Downloads ────────────────────
 echo "--- Removing Windows duplicate copies from Downloads ---"
@@ -86,9 +118,10 @@ if [ -f "$latest_recommit" ]; then
 fi
 echo ""
 
-# ── Step 6: Archive older versions ───────────────────────────────────────────
+# ── Step 6: Archive older versions of all versioned files ────────────────────
 echo "--- Archiving older versions ---"
 archive_count=0
+
 for ext in docx pdf txt md html sh; do
     for f in "$DOCS"/*_v*.$ext; do
         [ -f "$f" ] || continue
@@ -106,69 +139,61 @@ for ext in docx pdf txt md html sh; do
         done
         if [ "$version" -lt "$latest_version" ] 2>/dev/null; then
             mv "$DOCS/$basename_f" "$ARCHIVE/$basename_f"
-            echo "  -> archived: $basename_f"
+            echo "  -> archived: $basename_f (v$version superseded by v$latest_version)"
             archive_count=$((archive_count + 1))
         fi
     done
 done
+
 echo "  $archive_count older version(s) archived"
 echo ""
 
-# ── Step 7: Generate Claude session spec file ─────────────────────────────────
-echo "--- Generating GroupTrack_V3_Spec.txt for Claude ---"
-python3 << 'PYEOF'
-import os
-try:
-    import docx
-except ImportError:
-    os.system('pip install python-docx -q')
-    import docx
-
-out = open('C:/Users/kixaz/Downloads/GroupTrack_V3_Spec.txt', 'w', encoding='utf-8')
-docs_dir = 'C:/Users/kixaz/Meshtastic-Android/docs'
-v3_docs = [f for f in sorted(os.listdir(docs_dir)) if any(x in f for x in [
-    'V3','Architecture','RideState','Roadmap_v4','PhaseB',
-    'Thursday','Complete_Task','WorkPlan_Apr5'
-]) and f.endswith('.docx') and '(' not in f]
-for f in v3_docs:
-    try:
-        doc = docx.Document(os.path.join(docs_dir, f))
-        out.write(f'\n\n=== {f} ===\n')
-        for p in doc.paragraphs:
-            if p.text.strip():
-                out.write(p.text + '\n')
-        for t in doc.tables:
-            for row in t.rows:
-                line = ' | '.join(c.text.strip() for c in row.cells if c.text.strip())
-                if line:
-                    out.write(line + '\n')
-    except Exception as e:
-        out.write(f'ERROR reading {f}: {e}\n')
-out.close()
-print('  GroupTrack_V3_Spec.txt written to Downloads')
-PYEOF
-echo ""
-
-# ── Step 8: Show current active docs ─────────────────────────────────────────
+# ── Step 7: Show current active docs ─────────────────────────────────────────
 echo "--- Current docs/ ---"
 ls -1t "$DOCS"/*.docx "$DOCS"/*.pdf "$DOCS"/*.txt \
         "$DOCS"/*.md "$DOCS"/*.html "$DOCS"/*.sh 2>/dev/null | while read f; do
-    echo "  + $(basename $f)"
+    echo "  ✓ $(basename $f)"
+done
+echo ""
+echo "--- Cross-reference data ---"
+echo "  ✓ where_used_raw.txt"
+echo "  ✓ function_universe_raw.txt"
+echo ""
+echo "--- Radio configs ---"
+ls -1t "$RADIO_CONFIGS"/*.cfg 2>/dev/null | while read f; do
+    echo "  ✓ $(basename $f)"
 done
 echo ""
 
-# ── Step 9: Commit and push ───────────────────────────────────────────────────
+# ── Step 8: Commit and push ───────────────────────────────────────────────────
 git add docs/ recommit_docs.sh
 if git diff --cached --quiet; then
     echo "No changes to commit — docs already up to date."
-else
-    DATE=$(date +"%Y-%m-%d %H:%M")
-    git commit -m "docs: recommit all project documents — $DATE"
-    git push origin feature/convoy-event-ride
+    exit 0
+fi
+
+DATE=$(date +"%Y-%m-%d %H:%M")
+git commit -m "docs: recommit all project documents + cross-reference — $DATE"
+if [ $? -ne 0 ]; then
+    echo "ERROR: commit failed"
+    exit 1
+fi
+
+git push origin feature/convoy-event-ride
+if [ $? -ne 0 ]; then
+    echo ""
+    echo "ERROR: push rejected — run:"
+    echo "  git push origin feature/convoy-event-ride --force-with-lease"
+    exit 1
 fi
 
 echo ""
 echo "=== DONE ==="
+echo "  Active docs:       docs/"
+echo "  Archived:          docs/archive/"
+echo "  Radio configs:     docs/radio_configs/"
+echo "  Cross-ref data:    docs/where_used_raw.txt"
+echo "                     docs/function_universe_raw.txt"
 echo ""
-echo "SESSION START — upload this file to Claude:"
-echo "  C:/Users/kixaz/Downloads/GroupTrack_V3_Spec.txt"
+echo "SESSION START — paste to Claude:"
+echo "  cat docs/DEV_ENVIRONMENT_v2.md"
