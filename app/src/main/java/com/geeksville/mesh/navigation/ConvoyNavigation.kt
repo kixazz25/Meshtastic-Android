@@ -38,7 +38,6 @@ import com.geeksville.mesh.convoy.ConvoyInviteSendScreen
 import com.geeksville.mesh.convoy.ConvoyBroadcastScreen
 import com.geeksville.mesh.convoy.ConvoyProfileScreen
 import com.geeksville.mesh.convoy.ConvoyExploreScreen
-import com.geeksville.mesh.convoy.ConvoyTracksScreen
 import org.meshtastic.core.navigation.ConvoyRoutes
 
 fun NavGraphBuilder.convoyGraph(
@@ -103,7 +102,9 @@ fun NavGraphBuilder.convoyGraph(
                 onBack                = { navController?.popBackStack() },
                 onNavigateToCapture          = { navController?.navigate(ConvoyRoutes.ConvoyMasterCapture) },
                 onNavigateToApplyList        = { navController?.navigate(ConvoyRoutes.ConvoyApplyList) },
-                onNavigateToArchiveRestore   = { navController?.navigate(ConvoyRoutes.ConvoyArchiveRestore) }
+                onNavigateToArchiveRestore   = { navController?.navigate(ConvoyRoutes.ConvoyArchiveRestore) },
+                onNavigateToApplyListMaint   = { navController?.navigate(ConvoyRoutes.ConvoyApplyListMaint) },
+                onNavigateToCaptureMaint     = { navController?.navigate(ConvoyRoutes.ConvoyMasterCaptureMaint) }
             )
         }
     }
@@ -145,6 +146,19 @@ fun NavGraphBuilder.convoyGraph(
         )
     }
 
+    // ── Apply List Maintenance ────────────────────────────────────────────
+    composable<ConvoyRoutes.ConvoyApplyListMaint> {
+        com.geeksville.mesh.convoy.ConvoyApplyListMaintenanceScreen(
+            onBack = { navController?.popBackStack() }
+        )
+    }
+    // ── Master Capture Maintenance ────────────────────────────────────────
+    composable<ConvoyRoutes.ConvoyMasterCaptureMaint> {
+        val vm = viewModel ?: androidx.hilt.navigation.compose.hiltViewModel<ConvoyViewModel>()
+        com.geeksville.mesh.convoy.ConvoyMasterCaptureMaintScreen(
+            onBack = { navController?.popBackStack() }
+        )
+    }
     // ── Track Export ─────────────────────────────────────────────────────
     composable<ConvoyRoutes.ConvoyTracks> {
         com.geeksville.mesh.convoy.ConvoyTrackExportSheet(
@@ -271,9 +285,6 @@ fun NavGraphBuilder.convoyGraph(
     }
     composable<ConvoyRoutes.ConvoyExplore> {
         ConvoyExploreScreen(onBack = { navController?.popBackStack() })
-    }
-    composable<ConvoyRoutes.ConvoyTracks> {
-        ConvoyTracksScreen(onBack = { navController?.popBackStack() })
     }
     composable<ConvoyRoutes.ConvoyTerms> {
         ConvoyTermsScreen(

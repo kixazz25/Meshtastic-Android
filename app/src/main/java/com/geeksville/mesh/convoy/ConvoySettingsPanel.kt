@@ -145,7 +145,9 @@ fun ConvoySettingsPanelScreen(
     onBack: () -> Unit,
     onNavigateToCapture: () -> Unit,
     onNavigateToApplyList: () -> Unit = {},
-    onNavigateToArchiveRestore: () -> Unit = {}
+    onNavigateToArchiveRestore: () -> Unit = {},
+    onNavigateToApplyListMaint: () -> Unit = {},
+    onNavigateToCaptureMaint: () -> Unit = {}
 ) {
     Box(
         modifier = Modifier
@@ -196,7 +198,7 @@ fun ConvoySettingsPanelScreen(
             PanelSection("APPLY LIST")
             Spacer(Modifier.height(8.dp))
             Surface(
-                modifier = Modifier.fillMaxWidth().clickable { onNavigateToApplyList() },
+                modifier = Modifier.fillMaxWidth().clickable { onNavigateToApplyListMaint() },
                 shape    = RoundedCornerShape(12.dp),
                 color    = Color(0xFF101510)
             ) {
@@ -224,7 +226,7 @@ fun ConvoySettingsPanelScreen(
             PanelSection("MASTER RADIO CONFIG")
             Spacer(Modifier.height(8.dp))
             Surface(
-                modifier = Modifier.fillMaxWidth().clickable { onNavigateToCapture() },
+                modifier = Modifier.fillMaxWidth().clickable { onNavigateToCaptureMaint() },
                 shape    = RoundedCornerShape(12.dp),
                 color    = Color(0xFF101510)
             ) {

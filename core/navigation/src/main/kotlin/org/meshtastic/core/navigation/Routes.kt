@@ -184,6 +184,8 @@ object ConvoyRoutes {
     @Serializable data object ConvoyCreateEvent : Route
     @Serializable data object ConvoySettingsPanel : Route
     @Serializable data object ConvoyMasterCapture : Route
+    @Serializable data object ConvoyApplyListMaint  : Route  // Maintenance only
+    @Serializable data object ConvoyMasterCaptureMaint : Route  // Maintenance only
     @Serializable data object ConvoyMasterSuccess : Route
     @Serializable data object ConvoyApplyList     : Route
     @Serializable data object ConvoyApplyRadio    : Route
