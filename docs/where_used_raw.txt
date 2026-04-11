@@ -17,6 +17,17 @@ app/src/main/java/com/geeksville/mesh/convoy/ConvoyDashboardScreen.kt:27:    isS
 app/src/main/java/com/geeksville/mesh/convoy/ConvoyDashboardScreen.kt:71:                if (!isSubscribed) {
 app/src/main/java/com/geeksville/mesh/convoy/ConvoyDashboardScreen.kt:96:                        "CLEAR SESSION" to { ConvoySessionManager.clearSession(context); ConvoyDevSeeder.clear(context); android.widget.Toast.makeText(context, "Cleared", android.widget.Toast.LENGTH_SHORT).show() },
 app/src/main/java/com/geeksville/mesh/convoy/ConvoyDashboardScreen.kt:98:                        "SHOW SESSION" to { val uid = ConvoySessionManager.getUserId(context) ?: "none"; android.widget.Toast.makeText(context, "ID:$uid sub:${ConvoySessionManager.isSubscribed(context)}", android.widget.Toast.LENGTH_LONG).show() },
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyDashboardScreen.kt:182:                                    if (followInvite) ConvoyEnrollmentQueue.followOrganizer(context, organizerId, organizer)
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyDashboardScreen.kt:183:                                    else ConvoyEnrollmentQueue.unfollowOrganizer(context, organizerId, organizer)
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyDashboardScreen.kt:393:                                                    if (followPub) ConvoyEnrollmentQueue.followOrganizer(context, organizerId, organizer)
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyDashboardScreen.kt:394:                                                    else ConvoyEnrollmentQueue.unfollowOrganizer(context, organizerId, organizer)
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyDevLaunchScreen.kt:72:                ConvoySessionManager.clearSession(context)
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyDevLaunchScreen.kt:80:                ConvoySessionManager.clearSession(context)
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyDevLaunchScreen.kt:82:                ConvoySessionManager.saveUser(context,
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyDevLaunchScreen.kt:91:                ConvoySessionManager.clearSession(context)
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyDevLaunchScreen.kt:99:                ConvoySessionManager.clearSession(context)
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyDevLaunchScreen.kt:110:                ConvoySessionManager.clearSession(context)
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyDevLaunchScreen.kt:132:    ConvoySessionManager.saveUser(context,
 app/src/main/java/com/geeksville/mesh/convoy/ConvoyDevSeeder.kt:35:        ConvoySessionManager.clearSession(ctx)
 app/src/main/java/com/geeksville/mesh/convoy/ConvoyDevSeeder.kt:40:        ConvoySessionManager.saveUser(ctx,
 app/src/main/java/com/geeksville/mesh/convoy/ConvoyEngine.kt:40:        val withStatus = nodes.map { it.copy(status = computeStatus(it, nowMs)) }
@@ -41,7 +52,7 @@ app/src/main/java/com/geeksville/mesh/convoy/ConvoyProfileBuilder.kt:366:       
 app/src/main/java/com/geeksville/mesh/convoy/ConvoyProfileScreen.kt:49:    val isSubscribed = ConvoySessionManager.isSubscribed(context)
 app/src/main/java/com/geeksville/mesh/convoy/ConvoyProfileScreen.kt:69:                    label = if (isSubscribed) "SUBSCRIBED" else "FREE",
 app/src/main/java/com/geeksville/mesh/convoy/ConvoyProfileScreen.kt:70:                    color = if (isSubscribed) Color(0xFF22C55E) else Color(0xFF445566)
-app/src/main/java/com/geeksville/mesh/convoy/ConvoyProfileScreen.kt:153:            if (!isSubscribed) {
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyProfileScreen.kt:155:            if (!isSubscribed) {
 app/src/main/java/com/geeksville/mesh/convoy/ConvoyRadioConfigScreens.kt:228:                val snapshot = ConvoyRadioManager.buildSnapshot(
 app/src/main/java/com/geeksville/mesh/convoy/ConvoyScreen.kt:287:                        viewModel.startDownload(context, pending)
 app/src/main/java/com/geeksville/mesh/convoy/ConvoyScreen.kt:318:                viewModel.finalizeTrack("convoy_track", context)
@@ -56,9 +67,12 @@ app/src/main/java/com/geeksville/mesh/convoy/ConvoyScreen.kt:1101:              
 app/src/main/java/com/geeksville/mesh/convoy/ConvoyServicesChooser.kt:38:    val signedIn = ConvoySessionManager.isSignedIn(context)
 app/src/main/java/com/geeksville/mesh/convoy/ConvoyServicesChooser.kt:39:    val subscribed = ConvoySessionManager.isSubscribed(context)
 app/src/main/java/com/geeksville/mesh/convoy/ConvoySessionManager.kt:27:        isSignedIn(ctx) && !isSubscribed(ctx)
+app/src/main/java/com/geeksville/mesh/convoy/ConvoySessionManager.kt:97:        if (!isSignedIn(ctx))      return LaunchRoute.SIGN_IN
+app/src/main/java/com/geeksville/mesh/convoy/ConvoySessionManager.kt:100:        if (ConvoyConfig.PAYWALL_ENABLED && !isSubscribed(ctx)) return LaunchRoute.SUBSCRIPTION
 app/src/main/java/com/geeksville/mesh/convoy/ConvoySettingsScreen.kt:274:                    onClick = { convoyViewModel.recalcLead() },
-app/src/main/java/com/geeksville/mesh/convoy/ConvoySignInScreen.kt:92:    // Also write expires_at so isSubscribed() returns correct value
-app/src/main/java/com/geeksville/mesh/convoy/ConvoySignInScreen.kt:152:                            saveUserToPrefs(context, userId, googleId, email, firstName, lastName)
+app/src/main/java/com/geeksville/mesh/convoy/ConvoySignInScreen.kt:94:    // Also write expires_at so isSubscribed() returns correct value
+app/src/main/java/com/geeksville/mesh/convoy/ConvoySignInScreen.kt:154:                            saveUserToPrefs(context, userId, googleId, email, firstName, lastName)
+app/src/main/java/com/geeksville/mesh/convoy/ConvoySignInScreen.kt:260:                                saveUserToPrefs(context, uid, "google-dev-$uid",
 app/src/main/java/com/geeksville/mesh/convoy/ConvoySimulation.kt:115:        return ConvoyEngine.compute(nodes, myCartId = MY_CART_ID, nowMs = nowMs)
 app/src/main/java/com/geeksville/mesh/convoy/ConvoyViewModel.kt:262:        viewModelScope.launch { scanImportDirectory() }
 app/src/main/java/com/geeksville/mesh/convoy/ConvoyViewModel.kt:406:        bindGpsService(context) { svc -> svc.startTrack(); _routeRecording.value = true }
@@ -73,6 +87,7 @@ app/src/main/java/com/geeksville/mesh/convoy/ConvoyViewModel.kt:610:            
 app/src/main/java/com/geeksville/mesh/convoy/ConvoyViewModel.kt:712:                val result = ConvoyTileDownloader.downloadTiles(
 app/src/main/java/com/geeksville/mesh/convoy/GroupTrackTheme.kt:147:                    ConvoySessionManager.clearSession(context)
 app/src/main/java/com/geeksville/mesh/convoy/GroupTrackTheme.kt:162:                    val sub = ConvoySessionManager.isSubscribed(context)
-app/src/main/java/com/geeksville/mesh/navigation/ConvoyNavigation.kt:240:                val route = ConvoySessionManager.resolveLaunchRoute(context, true)
-app/src/main/java/com/geeksville/mesh/navigation/ConvoyNavigation.kt:324:            isSubscribed = ConvoySessionManager.isSubscribed(context),
+app/src/main/java/com/geeksville/mesh/navigation/ConvoyNavigation.kt:244:                    val route = ConvoySessionManager.resolveLaunchRoute(context, true)
+app/src/main/java/com/geeksville/mesh/navigation/ConvoyNavigation.kt:260:                    val route = ConvoySessionManager.resolveLaunchRoute(context, true)
+app/src/main/java/com/geeksville/mesh/navigation/ConvoyNavigation.kt:345:            isSubscribed = ConvoySessionManager.isSubscribed(context),
 app/src/main/java/com/geeksville/mesh/ui/Main.kt:533:                    val route = com.geeksville.mesh.convoy.ConvoySessionManager.resolveLaunchRoute(servicesContext, true)
