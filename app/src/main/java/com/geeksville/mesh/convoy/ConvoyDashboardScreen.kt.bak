@@ -35,22 +35,24 @@ fun ConvoyDashboardScreen(
     val context = LocalContext.current
     var seedKey by remember { mutableStateOf(0) }
 
-    val firstName     = remember(seedKey) { ConvoySessionManager.getFirstName(context) }
-    val isOrganizer   = remember(seedKey) { ConvoySessionManager.isOrganizer(context) }
+    val firstName   = remember(seedKey) { ConvoySessionManager.getFirstName(context) }
+    val isOrganizer = remember(seedKey) { ConvoySessionManager.isOrganizer(context) }
     val currentUserId = remember { ConvoySessionManager.getUserId(context) ?: "" }
-    var zipCode       by remember { mutableStateOf(ConvoySessionManager.getZipCode(context)) }
-    var radius        by remember { mutableStateOf(ConvoySessionManager.getSearchRadius(context).toString()) }
+    var zipCode     by remember { mutableStateOf(ConvoySessionManager.getZipCode(context)) }
+    var radius      by remember { mutableStateOf(ConvoySessionManager.getSearchRadius(context).toString()) }
 
     val notifCount  = remember(seedKey) { ConvoyDevSeeder.getNotifCount(context) }
     val rideCount   = remember(seedKey) { ConvoyDevSeeder.getRideCount(context) }
     val inviteCount = remember(seedKey) { ConvoyDevSeeder.getInviteCount(context) }
     val pubCount    = remember(seedKey) { ConvoyDevSeeder.getPublicRideCount(context) }
 
-    var notifExpanded  by remember { mutableStateOf(true) }
-    var inviteExpanded by remember { mutableStateOf(true) }
-    var ridesExpanded  by remember { mutableStateOf(true) }
-    var nearMeExpanded by remember { mutableStateOf(true) }
+    // Accordion state
+    var notifExpanded  by remember { mutableStateOf(true) }   // expanded by default — urgent
+    var inviteExpanded by remember { mutableStateOf(true) }   // expanded by default — urgent
+    var ridesExpanded  by remember { mutableStateOf(false) }
+    var nearMeExpanded by remember { mutableStateOf(false) }
 
+    // Global follow state — single source of truth for all screens
     var followedOrganizers by remember {
         mutableStateOf(
             (context.getSharedPreferences("grouptrack_follows", android.content.Context.MODE_PRIVATE)
@@ -70,11 +72,12 @@ fun ConvoyDashboardScreen(
         prefs.edit().putStringSet("followed_ids", followedOrganizers).apply()
     }
 
+    // Dev menu state
     var showDevMenu by remember { mutableStateOf(false) }
 
     Column(modifier = Modifier.fillMaxSize().background(GroupTrackColors.Navy)) {
 
-        // ── Header ────────────────────────────────────────────────────────────
+        // ── Header — logo + welcome name + profile button on same line ─────────
         Column(modifier = Modifier.fillMaxWidth()) {
             Box(
                 modifier = Modifier.fillMaxWidth()
@@ -110,7 +113,7 @@ fun ConvoyDashboardScreen(
                             )
                             Spacer(Modifier.width(12.dp))
                             Text(
-                                text = "PROFILE \u2192",
+                                text = "PROFILE →",
                                 color = Color(0xFF4AB8E8),
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold,
@@ -127,8 +130,7 @@ fun ConvoyDashboardScreen(
             }
             androidx.compose.material3.HorizontalDivider(thickness = 3.dp, color = GroupTrackColors.SkyBlue)
         }
-
-        // ── Role / sub bar ────────────────────────────────────────────────────
+        // Role badges + subscribe + DEV row
         Row(
             modifier = Modifier.fillMaxWidth().background(Color(0xFF0A1628))
                 .padding(horizontal = 16.dp, vertical = 8.dp),
@@ -158,14 +160,14 @@ fun ConvoyDashboardScreen(
                     )
                 }
                 Text(
-                    text = "PROFILE \u2192",
+                    text = "PROFILE →",
                     color = Color(0xFF4AB8E8), fontSize = 11.sp, fontWeight = FontWeight.Bold,
                     modifier = Modifier.clickable { onNavigateToProfile() }
                 )
             }
         }
 
-        // ── Dev menu ──────────────────────────────────────────────────────────
+        // Dev menu dialog
         if (showDevMenu) {
             androidx.compose.ui.window.Dialog(onDismissRequest = { showDevMenu = false }) {
                 Column(
@@ -175,11 +177,11 @@ fun ConvoyDashboardScreen(
                     Text("DEV MENU", color = Color(0xFF4AB8E8), fontSize = 11.sp,
                         fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
                     listOf(
-                        "SEED DATA"     to { ConvoyDevSeeder.seed(context); seedKey++; android.widget.Toast.makeText(context, "Seeded", android.widget.Toast.LENGTH_SHORT).show() },
+                        "SEED DATA" to { ConvoyDevSeeder.seed(context); seedKey++; android.widget.Toast.makeText(context, "Seeded", android.widget.Toast.LENGTH_SHORT).show() },
                         "CLEAR SESSION" to { ConvoySessionManager.clearSession(context); ConvoyDevSeeder.clear(context); seedKey++; android.widget.Toast.makeText(context, "Cleared", android.widget.Toast.LENGTH_SHORT).show() },
-                        "CLEAR + SEED"  to { ConvoyDevSeeder.clear(context); ConvoyDevSeeder.seed(context); seedKey++; android.widget.Toast.makeText(context, "Reset", android.widget.Toast.LENGTH_SHORT).show() },
-                        "SHOW SESSION"  to { val uid = ConvoySessionManager.getUserId(context) ?: "none"; android.widget.Toast.makeText(context, "ID:$uid sub:${ConvoySessionManager.isSubscribed(context)}", android.widget.Toast.LENGTH_LONG).show() },
-                        "CLOSE"         to {}
+                        "CLEAR + SEED" to { ConvoyDevSeeder.clear(context); ConvoyDevSeeder.seed(context); seedKey++; android.widget.Toast.makeText(context, "Reset", android.widget.Toast.LENGTH_SHORT).show() },
+                        "SHOW SESSION" to { val uid = ConvoySessionManager.getUserId(context) ?: "none"; android.widget.Toast.makeText(context, "ID:$uid sub:${ConvoySessionManager.isSubscribed(context)}", android.widget.Toast.LENGTH_LONG).show() },
+                        "CLOSE" to {}
                     ).forEach { (label, action) ->
                         Box(
                             modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(6.dp))
@@ -201,11 +203,11 @@ fun ConvoyDashboardScreen(
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
 
-            // ── SECTION 1: ORGANIZER NOTIFICATIONS ───────────────────────────
+            // ── NOTIFICATIONS — organizer only, collapsible ──────────────────
             if (isOrganizer && notifCount > 0) {
                 item {
                     AccordionHeader(
-                        title = "ORGANIZER NOTIFICATIONS", count = notifCount,
+                        title = "NOTIFICATIONS", count = notifCount,
                         expanded = notifExpanded,
                         onClick = { notifExpanded = !notifExpanded }
                     )
@@ -213,12 +215,12 @@ fun ConvoyDashboardScreen(
             }
             if (isOrganizer && notifExpanded && notifCount > 0) {
                 items(notifCount) { i ->
-                    val rideName    = ConvoyDevSeeder.getNotif(context, i, "ride")
-                    val visibility  = ConvoyDevSeeder.getNotif(context, i, "visibility")
-                    val rideStatus  = ConvoyDevSeeder.getNotif(context, i, "ride_status")
-                    val date        = ConvoyDevSeeder.getNotif(context, i, "date")
-                    val location    = ConvoyDevSeeder.getNotif(context, i, "location")
-                    val trailhead   = ConvoyDevSeeder.getNotif(context, i, "trailhead")
+                    val rideName   = ConvoyDevSeeder.getNotif(context, i, "ride")
+                    val visibility = ConvoyDevSeeder.getNotif(context, i, "visibility")
+                    val rideStatus = ConvoyDevSeeder.getNotif(context, i, "ride_status")
+                    val date       = ConvoyDevSeeder.getNotif(context, i, "date")
+                    val location   = ConvoyDevSeeder.getNotif(context, i, "location")
+                    val trailhead  = ConvoyDevSeeder.getNotif(context, i, "trailhead")
                     val accepted    = ConvoyDevSeeder.getNotifInt(context, i, "accepted")
                     val maybe       = ConvoyDevSeeder.getNotifInt(context, i, "maybe")
                     val declined    = ConvoyDevSeeder.getNotifInt(context, i, "declined")
@@ -238,6 +240,7 @@ fun ConvoyDashboardScreen(
                             .padding(14.dp),
                         verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
+                        // Title + badges
                         Row(modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically) {
@@ -248,34 +251,38 @@ fun ConvoyDashboardScreen(
                                 RideStatusBadge(rideStatus)
                             }
                         }
+                        // Location
                         if (location.isNotEmpty() || trailhead.isNotEmpty()) {
                             Text(
                                 text = buildString {
                                     if (location.isNotEmpty()) append(location)
-                                    if (trailhead.isNotEmpty()) append(" \u00b7 $trailhead")
+                                    if (trailhead.isNotEmpty()) append(" · $trailhead")
                                 },
                                 color = Color(0xFF445566), fontSize = 11.sp
                             )
                         }
+                        // Date + times
                         if (date.isNotEmpty()) {
                             Text(
                                 text = buildString {
                                     append(date)
-                                    if (arriveTime.isNotEmpty()) append(" \u00b7 Arrive $arriveTime")
-                                    if (departTime.isNotEmpty()) append(" \u00b7 Depart $departTime")
+                                    if (arriveTime.isNotEmpty()) append(" · Arrive $arriveTime")
+                                    if (departTime.isNotEmpty()) append(" · Depart $departTime")
                                 },
                                 color = Color(0xFF445566), fontSize = 11.sp
                             )
                         }
+                        // Description/organizer comments
                         if (description.isNotEmpty()) {
                             Text(text = description, color = Color(0xFFAABBCC), fontSize = 11.sp,
                                 lineHeight = 16.sp, maxLines = 3)
                         }
+                        // REPLIES — nested twistie, collapsed by default
                         val totalReplied = accepted + maybe + declined
                         var repliesOpen by remember { mutableStateOf(false) }
                         if (invited > 0 || totalReplied > 0) {
                             NotifAccordion(
-                                "REPLIES \u2014 $totalReplied of $invited responded",
+                                "REPLIES — $totalReplied of $invited responded",
                                 Color(0xFF4AB8E8), repliesOpen
                             ) { repliesOpen = !repliesOpen }
                             if (repliesOpen) {
@@ -294,11 +301,11 @@ fun ConvoyDashboardScreen(
                 }
             }
 
-            // ── SECTION 2: INVITES PENDING REPLIES ───────────────────────────
+            // ── PENDING INVITES — collapsible ────────────────────────────────
             if (inviteCount > 0) {
                 item {
                     AccordionHeader(
-                        title = "INVITES PENDING REPLIES", count = inviteCount,
+                        title = "PENDING INVITES", count = inviteCount,
                         expanded = inviteExpanded,
                         onClick = { inviteExpanded = !inviteExpanded }
                     )
@@ -307,7 +314,7 @@ fun ConvoyDashboardScreen(
             if (inviteExpanded && inviteCount > 0) {
                 items(inviteCount) { i ->
                     val rideName   = ConvoyDevSeeder.getInviteField(context, i, "ride")
-                    val orgName    = ConvoyDevSeeder.getInviteField(context, i, "organizer")
+                    val organizer  = ConvoyDevSeeder.getInviteField(context, i, "organizer")
                     val orgId      = ConvoyDevSeeder.getInviteField(context, i, "organizer_id")
                     val email      = ConvoyDevSeeder.getInviteField(context, i, "email")
                     val date       = ConvoyDevSeeder.getInviteField(context, i, "date")
@@ -316,38 +323,79 @@ fun ConvoyDashboardScreen(
                     val rideStatus = ConvoyDevSeeder.getInviteField(context, i, "ride_status")
                     val location   = ConvoyDevSeeder.getInviteField(context, i, "location")
                     val trailhead  = ConvoyDevSeeder.getInviteField(context, i, "trailhead")
-                    var myStatus   by remember { mutableStateOf(ConvoyDevSeeder.getInviteField(context, i, "my_status").ifEmpty { "invited" }) }
+                    val description = ConvoyDevSeeder.getInviteField(context, i, "description")
+                    var status     by remember { mutableStateOf(ConvoyDevSeeder.getInviteField(context, i, "my_status").ifEmpty { "INVITED" }) }
                     val isFollowing = orgId in followedOrganizers
 
-                    RideDisplayPanel(
-                        rideName      = rideName,
-                        visibility    = visibility,
-                        rideStatus    = rideStatus,
-                        city          = location,
-                        trailhead     = trailhead,
-                        dateTime      = "$date \u00b7 $time",
-                        orgName       = orgName,
-                        orgId         = orgId,
-                        orgEmail      = email,
-                        currentUserId = currentUserId,
-                        isFollowing   = isFollowing,
-                        myStatus      = myStatus,
-                        onAccept      = { myStatus = "accepted" },
-                        onMaybe       = { myStatus = "maybe" },
-                        onDecline     = { myStatus = "declined" },
-                        onDetail      = { onNavigateToRides() },
-                        onToggleFollow = { toggleFollow(orgId, orgName) }
-                    )
+                    Column(
+                        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
+                            .background(Color(0xFF0F2035)).padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        // Title row
+                        Row(modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically) {
+                            Text(text = rideName, color = Color.White, fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                VisibilityBadge(visibility)
+                                RideStatusBadge(rideStatus)
+                            }
+                        }
+                        // Location
+                        if (location.isNotEmpty() || trailhead.isNotEmpty()) {
+                            Text(
+                                text = buildString {
+                                    if (location.isNotEmpty()) append(location)
+                                    if (trailhead.isNotEmpty()) append(" · $trailhead")
+                                },
+                                color = Color(0xFF445566), fontSize = 11.sp
+                            )
+                        }
+                        Text(text = "$date · $time", color = Color(0xFF445566), fontSize = 11.sp)
+                        Text(text = "Organizer: $organizer", color = Color(0xFF445566), fontSize = 11.sp)
+                        Text(text = email, color = Color(0xFF4AB8E8), fontSize = 11.sp)
+                        // Description
+                        if (description.isNotEmpty()) {
+                            Text(text = description, color = Color(0xFFAABBCC), fontSize = 11.sp,
+                                lineHeight = 16.sp, maxLines = 2)
+                        }
+                        // Follow checkbox
+                        if (orgId.isNotEmpty() && orgId != currentUserId) {
+                            Row(verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Box(modifier = Modifier.size(14.dp).clip(RoundedCornerShape(3.dp))
+                                    .background(if (isFollowing) Color(0xFF4AB8E8) else Color(0xFF1A3050))
+                                    .clickable { toggleFollow(orgId, organizer) })
+                                Text(
+                                    text = if (isFollowing) "Following $organizer" else "Follow $organizer",
+                                    color = if (isFollowing) Color(0xFF4AB8E8) else Color(0xFF445566),
+                                    fontSize = 10.sp
+                                )
+                            }
+                        }
+                        // My status
+                        Text(text = "My status: $status", color = dashStatusColor(status),
+                            fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        // Action buttons — only valid transitions
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            if (status != "ACCEPTED") StatusButton("ACCEPT", Color(0xFF22C55E)) { status = "ACCEPTED" }
+                            if (status != "MAYBE")    StatusButton("MAYBE",  Color(0xFFF59E0B)) { status = "MAYBE" }
+                            if (status != "DECLINED") StatusButton("DECLINE", Color(0xFFEF4444)) { status = "DECLINED" }
+                            StatusButton("DETAIL", Color(0xFF4AB8E8)) { onNavigateToRides() }
+                        }
+                    }
                 }
             }
 
-            // ── SECTION 3: MY INVITE RESPONSES ───────────────────────────────
+            // ── MY RIDES accordion ────────────────────────────────────────────
             item {
                 Row(modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically) {
                     AccordionHeader(
-                        title = "MY INVITE RESPONSES", count = rideCount,
+                        title = "MY RIDES", count = rideCount,
                         expanded = ridesExpanded,
                         onClick = { ridesExpanded = !ridesExpanded },
                         modifier = Modifier.weight(1f)
@@ -359,45 +407,79 @@ fun ConvoyDashboardScreen(
                     }
                 }
             }
+
             if (ridesExpanded && rideCount > 0) {
                 items(minOf(rideCount, 3)) { i ->
-                    val rideName   = ConvoyDevSeeder.getRideName(context, i)
-                    val myStatus   = ConvoyDevSeeder.getRideStatus(context, i)
-                    val date       = ConvoyDevSeeder.getRideDate(context, i)
-                    val time       = ConvoyDevSeeder.getRideField(context, i, "time")
-                    val orgName    = ConvoyDevSeeder.getRideOrganizer(context, i)
-                    val orgId      = ConvoyDevSeeder.getRideField(context, i, "organizer_id")
-                    val email      = ConvoyDevSeeder.getRideEmail(context, i)
-                    val rideStatus = ConvoyDevSeeder.getRideField(context, i, "ride_status")
-                    val visibility = ConvoyDevSeeder.getRideField(context, i, "visibility")
-                    val location   = ConvoyDevSeeder.getRideField(context, i, "location")
-                    val trailhead  = ConvoyDevSeeder.getRideField(context, i, "trailhead")
+                    val name        = ConvoyDevSeeder.getRideName(context, i)
+                    val myStatus    = ConvoyDevSeeder.getRideStatus(context, i)
+                    val date        = ConvoyDevSeeder.getRideDate(context, i)
+                    val time        = ConvoyDevSeeder.getRideField(context, i, "time")
+                    val organizer   = ConvoyDevSeeder.getRideOrganizer(context, i)
+                    val orgId       = ConvoyDevSeeder.getRideField(context, i, "organizer_id")
+                    val email       = ConvoyDevSeeder.getRideEmail(context, i)
+                    val enrolled    = ConvoyDevSeeder.getRideEnrolled(context, i)
+                    val rideStatus  = ConvoyDevSeeder.getRideField(context, i, "ride_status")
+                    val visibility  = ConvoyDevSeeder.getRideField(context, i, "visibility")
+                    val location    = ConvoyDevSeeder.getRideField(context, i, "location")
+                    val trailhead   = ConvoyDevSeeder.getRideField(context, i, "trailhead")
+                    val description = ConvoyDevSeeder.getRideField(context, i, "description")
                     val isFollowing = orgId in followedOrganizers
-                    var currentStatus by remember { mutableStateOf(myStatus) }
+                    val isMyRide    = orgId == currentUserId
 
-                    RideDisplayPanel(
-                        rideName      = rideName,
-                        visibility    = visibility,
-                        rideStatus    = rideStatus,
-                        city          = location,
-                        trailhead     = trailhead,
-                        dateTime      = "$date \u00b7 $time",
-                        orgName       = orgName,
-                        orgId         = orgId,
-                        orgEmail      = email,
-                        currentUserId = currentUserId,
-                        isFollowing   = isFollowing,
-                        myStatus      = currentStatus,
-                        onAccept      = { currentStatus = "accepted" },
-                        onMaybe       = { currentStatus = "maybe" },
-                        onDecline     = { currentStatus = "declined" },
-                        onDetail      = { onNavigateToRides() },
-                        onToggleFollow = { toggleFollow(orgId, orgName) }
-                    )
+                    Column(
+                        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
+                            .background(Color(0xFF0F2035)).clickable { onNavigateToRides() }.padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Row(modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically) {
+                            Text(text = name, color = Color.White, fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                VisibilityBadge(visibility)
+                                RideStatusBadge(rideStatus)
+                            }
+                        }
+                        if (location.isNotEmpty() || trailhead.isNotEmpty()) {
+                            Text(
+                                text = buildString {
+                                    if (location.isNotEmpty()) append(location)
+                                    if (trailhead.isNotEmpty()) append(" · $trailhead")
+                                },
+                                color = Color(0xFF445566), fontSize = 11.sp
+                            )
+                        }
+                        Text(text = "$date · $time", color = Color(0xFF445566), fontSize = 11.sp)
+                        if (description.isNotEmpty()) {
+                            Text(text = description, color = Color(0xFFAABBCC), fontSize = 11.sp,
+                                lineHeight = 16.sp, maxLines = 2)
+                        }
+                        if (!isMyRide && orgId.isNotEmpty()) {
+                            Row(verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Box(modifier = Modifier.size(14.dp).clip(RoundedCornerShape(3.dp))
+                                    .background(if (isFollowing) Color(0xFF4AB8E8) else Color(0xFF1A3050))
+                                    .clickable { toggleFollow(orgId, organizer) })
+                                Text(
+                                    text = if (isFollowing) "Following $organizer" else "Follow $organizer",
+                                    color = if (isFollowing) Color(0xFF4AB8E8) else Color(0xFF445566),
+                                    fontSize = 10.sp
+                                )
+                            }
+                        }
+                        if (isMyRide) {
+                            Text(text = "$enrolled riders enrolled",
+                                color = Color(0xFF4AB8E8), fontSize = 11.sp)
+                        } else {
+                            Text(text = "My status: $myStatus",
+                                color = dashStatusColor(myStatus), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
                 }
             }
 
-            // ── SECTION 4: PUBLIC RIDES NEAR ME ──────────────────────────────
+            // ── RIDES NEAR ME accordion ───────────────────────────────────────
             item {
                 Column {
                     Row(
@@ -410,9 +492,8 @@ fun ConvoyDashboardScreen(
                         Row(verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
                             modifier = Modifier.clickable { nearMeExpanded = !nearMeExpanded }) {
-                            Text(if (nearMeExpanded) "\u25bc" else "\u25b6", color = Color(0xFF4AB8E8), fontSize = 10.sp)
-                            Text("PUBLIC RIDES NEAR ME", color = Color.White, fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                            Text(if (nearMeExpanded) "▼" else "▶", color = Color(0xFF4AB8E8), fontSize = 10.sp)
+                            Text("RIDES NEAR", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         }
                         OutlinedTextField(
                             value = zipCode,
@@ -421,32 +502,40 @@ fun ConvoyDashboardScreen(
                             singleLine = true,
                             label = { Text("ZIP", fontSize = 9.sp, color = Color(0xFF445566)) },
                             textStyle = androidx.compose.ui.text.TextStyle(
-                                color = Color.White, fontSize = 11.sp, fontFamily = FontFamily.Monospace
+                                color = Color.White, fontSize = 11.sp,
+                                fontFamily = FontFamily.Monospace
                             ),
                             colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = Color(0xFF4AB8E8), unfocusedBorderColor = Color(0xFF2A4060),
-                                focusedTextColor = Color.White, unfocusedTextColor = Color.White, cursorColor = Color(0xFF4AB8E8)
+                                focusedBorderColor = Color(0xFF4AB8E8),
+                                unfocusedBorderColor = Color(0xFF2A4060),
+                                focusedTextColor = Color.White, unfocusedTextColor = Color.White,
+                                cursorColor = Color(0xFF4AB8E8)
                             )
                         )
-                        Text("\u00b7", color = Color(0xFF445566), fontSize = 12.sp)
+                        Text("·", color = Color(0xFF445566), fontSize = 12.sp)
                         OutlinedTextField(
                             value = radius,
-                            onValueChange = { v -> radius = v; v.toIntOrNull()?.let { r -> ConvoySessionManager.setSearchRadius(context, r) } },
+                            onValueChange = { v -> radius = v
+                                v.toIntOrNull()?.let { r -> ConvoySessionManager.setSearchRadius(context, r) } },
                             modifier = Modifier.width(64.dp).height(48.dp),
                             singleLine = true,
                             label = { Text("MI", fontSize = 9.sp, color = Color(0xFF445566)) },
                             textStyle = androidx.compose.ui.text.TextStyle(
-                                color = Color.White, fontSize = 11.sp, fontFamily = FontFamily.Monospace
+                                color = Color.White, fontSize = 11.sp,
+                                fontFamily = FontFamily.Monospace
                             ),
                             colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = Color(0xFF4AB8E8), unfocusedBorderColor = Color(0xFF2A4060),
-                                focusedTextColor = Color.White, unfocusedTextColor = Color.White, cursorColor = Color(0xFF4AB8E8)
+                                focusedBorderColor = Color(0xFF4AB8E8),
+                                unfocusedBorderColor = Color(0xFF2A4060),
+                                focusedTextColor = Color.White, unfocusedTextColor = Color.White,
+                                cursorColor = Color(0xFF4AB8E8)
                             )
                         )
                         Text("mi", color = Color(0xFF445566), fontSize = 10.sp)
                         if (pubCount > 0) {
                             Box(modifier = Modifier.clip(RoundedCornerShape(10.dp))
-                                .background(Color(0xFF4AB8E8)).padding(horizontal = 6.dp, vertical = 2.dp)) {
+                                .background(Color(0xFF4AB8E8))
+                                .padding(horizontal = 6.dp, vertical = 2.dp)) {
                                 Text(pubCount.toString(), color = Color(0xFF0A1628),
                                     fontSize = 10.sp, fontWeight = FontWeight.Bold)
                             }
@@ -465,36 +554,68 @@ fun ConvoyDashboardScreen(
                         } else {
                             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 for (i in 0 until pubCount) {
-                                    val rideName   = ConvoyDevSeeder.getPublicRideField(context, i, "name")
-                                    val orgName    = ConvoyDevSeeder.getPublicRideField(context, i, "organizer")
-                                    val orgId      = ConvoyDevSeeder.getPublicRideField(context, i, "organizer_id")
-                                    val email      = ConvoyDevSeeder.getPublicRideField(context, i, "email")
-                                    val date       = ConvoyDevSeeder.getPublicRideField(context, i, "date")
-                                    val time       = ConvoyDevSeeder.getPublicRideField(context, i, "time")
-                                    val rideStatus = ConvoyDevSeeder.getPublicRideField(context, i, "ride_status")
-                                    val location   = ConvoyDevSeeder.getPublicRideField(context, i, "location")
-                                    val trailhead  = ConvoyDevSeeder.getPublicRideField(context, i, "trailhead")
+                                    val name        = ConvoyDevSeeder.getPublicRideField(context, i, "name")
+                                    val organizer   = ConvoyDevSeeder.getPublicRideField(context, i, "organizer")
+                                    val orgId       = ConvoyDevSeeder.getPublicRideField(context, i, "organizer_id")
+                                    val email       = ConvoyDevSeeder.getPublicRideField(context, i, "email")
+                                    val date        = ConvoyDevSeeder.getPublicRideField(context, i, "date")
+                                    val time        = ConvoyDevSeeder.getPublicRideField(context, i, "time")
+                                    val distance    = ConvoyDevSeeder.getPublicRideField(context, i, "distance_miles")
+                                    val rideStatus  = ConvoyDevSeeder.getPublicRideField(context, i, "ride_status")
+                                    val location    = ConvoyDevSeeder.getPublicRideField(context, i, "location")
+                                    val trailhead   = ConvoyDevSeeder.getPublicRideField(context, i, "trailhead")
+                                    val description = ConvoyDevSeeder.getPublicRideField(context, i, "description")
                                     val isFollowing = orgId in followedOrganizers
+                                    val isMyRide    = orgId == currentUserId
 
-                                    RideDisplayPanel(
-                                        rideName      = rideName,
-                                        visibility    = "PUBLIC",
-                                        rideStatus    = rideStatus,
-                                        city          = location,
-                                        trailhead     = trailhead,
-                                        dateTime      = "$date \u00b7 $time",
-                                        orgName       = orgName,
-                                        orgId         = orgId,
-                                        orgEmail      = email,
-                                        currentUserId = currentUserId,
-                                        isFollowing   = isFollowing,
-                                        myStatus      = "",
-                                        onAccept      = {},
-                                        onMaybe       = {},
-                                        onDecline     = {},
-                                        onDetail      = { onNavigateToExplore() },
-                                        onToggleFollow = { toggleFollow(orgId, orgName) }
-                                    )
+                                    Column(
+                                        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
+                                            .background(Color(0xFF0F2035))
+                                            .clickable { onNavigateToExplore() }
+                                            .padding(14.dp),
+                                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        Row(modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically) {
+                                            Text(text = name, color = Color.White, fontSize = 13.sp,
+                                                fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                                verticalAlignment = Alignment.CenterVertically) {
+                                                Text("${distance}mi", color = Color(0xFF4AB8E8), fontSize = 11.sp)
+                                                RideStatusBadge(rideStatus)
+                                            }
+                                        }
+                                        if (location.isNotEmpty() || trailhead.isNotEmpty()) {
+                                            Text(
+                                                text = buildString {
+                                                    if (location.isNotEmpty()) append(location)
+                                                    if (trailhead.isNotEmpty()) append(" · $trailhead")
+                                                },
+                                                color = Color(0xFF445566), fontSize = 11.sp
+                                            )
+                                        }
+                                        Text("$date · $time", color = Color(0xFF445566), fontSize = 11.sp)
+                                        Text("Organizer: $organizer", color = Color(0xFF445566), fontSize = 11.sp)
+                                        Text(email, color = Color(0xFF4AB8E8), fontSize = 11.sp)
+                                        if (description.isNotEmpty()) {
+                                            Text(description, color = Color(0xFFAABBCC), fontSize = 11.sp,
+                                                lineHeight = 16.sp, maxLines = 2)
+                                        }
+                                        if (!isMyRide && orgId.isNotEmpty()) {
+                                            Row(verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                                Box(modifier = Modifier.size(14.dp).clip(RoundedCornerShape(3.dp))
+                                                    .background(if (isFollowing) Color(0xFF4AB8E8) else Color(0xFF1A3050))
+                                                    .clickable { toggleFollow(orgId, organizer) })
+                                                Text(
+                                                    text = if (isFollowing) "Following $organizer" else "Follow $organizer",
+                                                    color = if (isFollowing) Color(0xFF4AB8E8) else Color(0xFF445566),
+                                                    fontSize = 10.sp
+                                                )
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -515,236 +636,33 @@ fun ConvoyDashboardScreen(
     }
 }
 
-// ── Common Ride Display Panel ─────────────────────────────────────────────────
-// Line 1: Ride Name                              [VISIBILITY]  [STATUS]
-// Line 2: City, State -- Trailhead    FOLLOW [x]  Organizer Name
-// Line 3: Date · Start time
-// Line 4: organizer@email.com
-// Line 5: [ ACCEPT ]  [ MAYBE ]  [ DECLINE ]  [ SHOW RIDE DETAILS ]
-// ─────────────────────────────────────────────────────────────────────────────
-@Composable
-private fun RideDisplayPanel(
-    rideName: String,
-    visibility: String,
-    rideStatus: String,
-    city: String,
-    trailhead: String,
-    dateTime: String,
-    orgName: String,
-    orgId: String,
-    orgEmail: String,
-    currentUserId: String,
-    isFollowing: Boolean,
-    myStatus: String,
-    onAccept: () -> Unit,
-    onMaybe: () -> Unit,
-    onDecline: () -> Unit,
-    onDetail: () -> Unit,
-    onToggleFollow: () -> Unit
-) {
-    val canRespond = rideStatus.lowercase() == "open"
-    val showFollow = orgId.isNotEmpty() && orgId != currentUserId
-
-    Column(
-        modifier = Modifier.fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .background(Color(0xFF0F2035))
-            .padding(14.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
-    ) {
-        // ── Line 1: Ride name + badges ────────────────────────────────────────
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = rideName, color = Color.White, fontSize = 13.sp,
-                fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f)
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                VisibilityBadge(visibility)
-                RideStatusBadge(rideStatus)
-            }
-        }
-
-        // ── Line 2: City/Trailhead + FOLLOW label + checkbox + Organizer name ─
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = buildString {
-                    if (city.isNotEmpty()) append(city)
-                    if (trailhead.isNotEmpty()) append(" \u2014 $trailhead")
-                },
-                color = Color(0xFF445566), fontSize = 11.sp,
-                modifier = Modifier.weight(1f)
-            )
-            if (showFollow) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(5.dp)
-                ) {
-                    // FOLLOW label
-                    Text(
-                        text = "FOLLOW",
-                        color = Color(0xFF4AB8E8),
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.Bold,
-                        fontFamily = FontFamily.Monospace,
-                        letterSpacing = 1.sp
-                    )
-                    // Checkbox
-                    Box(
-                        modifier = Modifier
-                            .size(14.dp)
-                            .clip(RoundedCornerShape(3.dp))
-                            .background(
-                                if (isFollowing) Color(0xFF4AB8E8)
-                                else Color.Transparent
-                            )
-                            .then(
-                                Modifier.clickable { onToggleFollow() }
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        // Border drawn via nested box when unchecked
-                        if (!isFollowing) {
-                            Box(
-                                modifier = Modifier.fillMaxSize()
-                                    .clip(RoundedCornerShape(3.dp))
-                                    .background(Color.Transparent)
-                                    .padding(1.dp)
-                            ) {
-                                Box(
-                                    modifier = Modifier.fillMaxSize()
-                                        .clip(RoundedCornerShape(2.dp))
-                                        .background(Color(0xFF1A3050))
-                                )
-                            }
-                            // Border
-                            Box(
-                                modifier = Modifier.fillMaxSize()
-                                    .clip(RoundedCornerShape(3.dp))
-                                    .background(Color.Transparent)
-                                    .padding(0.dp)
-                            )
-                        }
-                        if (isFollowing) {
-                            Text(
-                                text = "\u2713",
-                                color = Color(0xFF0A1628),
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-                    // Organizer name
-                    Text(
-                        text = orgName,
-                        color = Color.White,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-        }
-
-        // ── Line 3: Date / time ───────────────────────────────────────────────
-        if (dateTime.isNotBlank()) {
-            Text(
-                text = dateTime,
-                color = Color(0xFF4AB8E8), fontSize = 10.sp,
-                fontFamily = FontFamily.Monospace
-            )
-        }
-
-        // ── Line 4: Email ─────────────────────────────────────────────────────
-        if (orgEmail.isNotEmpty()) {
-            Text(
-                text = orgEmail,
-                color = Color(0xFF445566), fontSize = 10.sp,
-                fontFamily = FontFamily.Monospace
-            )
-        }
-
-        // ── Line 5: Action buttons ────────────────────────────────────────────
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            RideActionButton(label = "ACCEPT",  active = myStatus.lowercase() == "accepted", enabled = canRespond, activeColor = Color(0xFF22C55E), onClick = onAccept)
-            RideActionButton(label = "MAYBE",   active = myStatus.lowercase() == "maybe",    enabled = canRespond, activeColor = Color(0xFFF59E0B), onClick = onMaybe)
-            RideActionButton(label = "DECLINE", active = myStatus.lowercase() == "declined", enabled = canRespond, activeColor = Color(0xFFEF4444), onClick = onDecline)
-            Box(
-                modifier = Modifier.clip(RoundedCornerShape(4.dp))
-                    .background(Color(0xFF1A3050))
-                    .clickable { onDetail() }
-                    .padding(horizontal = 8.dp, vertical = 5.dp)
-            ) {
-                Text("SHOW RIDE DETAILS", color = Color(0xFF4AB8E8),
-                    fontSize = 10.sp, fontWeight = FontWeight.Bold)
-            }
-        }
-    }
-}
-
-@Composable
-private fun RideActionButton(
-    label: String, active: Boolean, enabled: Boolean,
-    activeColor: Color, onClick: () -> Unit
-) {
-    val textColor = when {
-        !enabled -> Color(0xFF445566)
-        active   -> activeColor
-        else     -> activeColor.copy(alpha = 0.6f)
-    }
-    val bgColor = when {
-        !enabled -> Color(0xFF1A3050).copy(alpha = 0.3f)
-        active   -> activeColor.copy(alpha = 0.2f)
-        else     -> Color(0xFF1A3050)
-    }
-    Box(
-        modifier = Modifier.clip(RoundedCornerShape(4.dp)).background(bgColor)
-            .then(if (enabled) Modifier.clickable { onClick() } else Modifier)
-            .padding(horizontal = 8.dp, vertical = 5.dp)
-    ) {
-        Text(label, color = textColor, fontSize = 10.sp,
-            fontWeight = if (active) FontWeight.ExtraBold else FontWeight.Bold,
-            letterSpacing = 1.sp)
-    }
-}
-
 // ── Helper composables ────────────────────────────────────────────────────────
 
 @Composable
 private fun VisibilityBadge(visibility: String) {
-    val color = if (visibility.uppercase() == "PUBLIC") Color(0xFF4AB8E8) else Color(0xFFF59E0B)
+    val color = if (visibility == "PUBLIC") Color(0xFF4AB8E8) else Color(0xFFF59E0B)
     Box(modifier = Modifier.clip(RoundedCornerShape(4.dp))
         .background(color.copy(alpha = 0.15f))
         .padding(horizontal = 6.dp, vertical = 2.dp)) {
-        Text(visibility.ifEmpty { "PRIVATE" }.uppercase(), color = color,
+        Text(visibility.ifEmpty { "PRIVATE" }, color = color,
             fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
     }
 }
 
 @Composable
 private fun RideStatusBadge(status: String) {
-    val (color, label) = when (status.lowercase()) {
-        "open"      -> Color(0xFF22C55E) to "OPEN"
-        "closed"    -> Color(0xFF445566) to "CLOSED"
-        "cancelled" -> Color(0xFFEF4444) to "CANCELLED"
-        "pending"   -> Color(0xFF445566) to "PENDING"
-        "completed" -> Color(0xFF445566) to "COMPLETED"
+    val (color, label) = when (status) {
+        "OPEN"      -> Color(0xFF22C55E) to "OPEN"
+        "CLOSED"    -> Color(0xFFF59E0B) to "CLOSED"
+        "CANCELLED" -> Color(0xFFEF4444) to "CANCELLED"
+        "PENDING"   -> Color(0xFF445566) to "PENDING"
+        "COMPLETED" -> Color(0xFF445566) to "COMPLETED"
         else        -> Color(0xFF22C55E) to "OPEN"
     }
     Box(modifier = Modifier.clip(RoundedCornerShape(4.dp))
         .background(color.copy(alpha = 0.15f))
         .padding(horizontal = 6.dp, vertical = 2.dp)) {
-        Text(label, color = color, fontSize = 9.sp,
-            fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+        Text(label, color = color, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
     }
 }
 
@@ -755,7 +673,7 @@ private fun NotifAccordion(label: String, color: Color, expanded: Boolean, onCli
         .padding(horizontal = 10.dp, vertical = 6.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically) {
-        Text(if (expanded) "\u25bc $label" else "\u25b6 $label",
+        Text(if (expanded) "▼ $label" else "▶ $label",
             color = color, fontSize = 11.sp, fontWeight = FontWeight.Bold)
     }
 }
@@ -772,7 +690,7 @@ private fun AccordionHeader(
         verticalAlignment = Alignment.CenterVertically) {
         Row(verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(if (expanded) "\u25bc" else "\u25b6", color = Color(0xFF4AB8E8), fontSize = 10.sp)
+            Text(if (expanded) "▼" else "▶", color = Color(0xFF4AB8E8), fontSize = 10.sp)
             Text(title, color = Color.White, fontSize = 12.sp,
                 fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
         }
@@ -787,6 +705,13 @@ private fun AccordionHeader(
 }
 
 @Composable
+private fun DashSectionLabel(label: String) {
+    Text(label, color = Color(0xFF4AB8E8), fontSize = 10.sp,
+        fontWeight = FontWeight.Bold, letterSpacing = 2.sp,
+        modifier = Modifier.padding(bottom = 4.dp))
+}
+
+@Composable
 private fun DashBadge(label: String, color: Color) {
     Box(modifier = Modifier.clip(RoundedCornerShape(4.dp))
         .background(color.copy(alpha = 0.15f)).padding(horizontal = 8.dp, vertical = 3.dp)) {
@@ -795,14 +720,23 @@ private fun DashBadge(label: String, color: Color) {
     }
 }
 
-private fun dashStatusColor(status: String) = when (status.lowercase()) {
-    "organized" -> Color(0xFF4AB8E8)
-    "accepted"  -> Color(0xFF22C55E)
-    "enrolled"  -> Color(0xFF22C55E)
-    "maybe"     -> Color(0xFFF59E0B)
-    "declined"  -> Color(0xFFEF4444)
-    "invited"   -> Color(0xFFF59E0B)
-    "completed" -> Color(0xFF445566)
-    "pending"   -> Color(0xFF445566)
+@Composable
+private fun StatusButton(label: String, color: Color, onClick: () -> Unit) {
+    Box(modifier = Modifier.clip(RoundedCornerShape(4.dp))
+        .background(color.copy(alpha = 0.15f)).clickable { onClick() }
+        .padding(horizontal = 8.dp, vertical = 5.dp)) {
+        Text(label, color = color, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+    }
+}
+
+private fun dashStatusColor(status: String) = when (status) {
+    "ORGANIZED" -> Color(0xFF4AB8E8)
+    "ACCEPTED"  -> Color(0xFF22C55E)
+    "ENROLLED"  -> Color(0xFF22C55E)
+    "MAYBE"     -> Color(0xFFF59E0B)
+    "DECLINED"  -> Color(0xFFEF4444)
+    "INVITED"   -> Color(0xFFF59E0B)
+    "COMPLETED" -> Color(0xFF445566)
+    "PENDING"   -> Color(0xFF445566)
     else        -> Color(0xFF445566)
 }
