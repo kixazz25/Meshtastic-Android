@@ -493,8 +493,7 @@ fun ConvoyDashboardScreen(
                                         onMaybe       = {},
                                         onDecline     = {},
                                         onDetail      = { onNavigateToExplore() },
-                                        onToggleFollow = { toggleFollow(orgId, orgName) },
-                                        showDecline = false
+                                        onToggleFollow = { toggleFollow(orgId, orgName) }
                                     )
                                 }
                             }
@@ -541,8 +540,7 @@ private fun RideDisplayPanel(
     onMaybe: () -> Unit,
     onDecline: () -> Unit,
     onDetail: () -> Unit,
-    onToggleFollow: () -> Unit,
-    showDecline: Boolean = true
+    onToggleFollow: () -> Unit
 ) {
     val canRespond = rideStatus.lowercase() == "open"
     val showFollow = orgId.isNotEmpty() && orgId != currentUserId
@@ -679,9 +677,7 @@ private fun RideDisplayPanel(
         ) {
             RideActionButton(label = "ACCEPT",  active = myStatus.lowercase() == "accepted", enabled = canRespond, activeColor = Color(0xFF22C55E), onClick = onAccept)
             RideActionButton(label = "MAYBE",   active = myStatus.lowercase() == "maybe",    enabled = canRespond, activeColor = Color(0xFFF59E0B), onClick = onMaybe)
-            if (showDecline) {
-                RideActionButton(label = "DECLINE", active = myStatus.lowercase() == "declined", enabled = canRespond, activeColor = Color(0xFFEF4444), onClick = onDecline)
-            }
+            RideActionButton(label = "DECLINE", active = myStatus.lowercase() == "declined", enabled = canRespond, activeColor = Color(0xFFEF4444), onClick = onDecline)
             Box(
                 modifier = Modifier.clip(RoundedCornerShape(4.dp))
                     .background(Color(0xFF1A3050))

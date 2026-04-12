@@ -24,7 +24,7 @@ object ConvoyConfig {
     var OFF_TRACK_MILES = 0.028f  // 150 feet
     var LEAD_LOCK_DISTANCE_MILES = 0.0625f // Lock lead after 330 feet (default, overridden by slider)
     const val API_BASE_URL = "https://grouptrack.org/"  // V3.0 backend
-    const val V3_FEATURES_ENABLED = true
+    const val V3_FEATURES_ENABLED = false
     const val PAYWALL_ENABLED = true              // Flip to true when growth warrants paywall                  // Flip to true to expose V3 to testers
     const val IS_STANDALONE_BUILD = true  // true = beta APK, false = Google Play build
     var TRACK_EXPORT_FORMAT = "GPX"  // GPX = default (Garmin/Strava/AllTrails), KML = Google Earth/route donation
