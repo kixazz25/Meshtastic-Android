@@ -94,6 +94,10 @@ object ConvoySessionManager {
     }
 
     fun resolveLaunchRoute(ctx: Context, hasInternet: Boolean): LaunchRoute {
+        if (!isSignedIn(ctx))      return LaunchRoute.SIGN_IN
+        if (!termsAccepted(ctx))   return LaunchRoute.TERMS
+        if (!privacyAccepted(ctx)) return LaunchRoute.PRIVACY
+        if (ConvoyConfig.PAYWALL_ENABLED && !isSubscribed(ctx)) return LaunchRoute.SUBSCRIPTION
         return LaunchRoute.DASHBOARD
     }
 

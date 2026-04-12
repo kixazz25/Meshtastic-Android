@@ -25,6 +25,8 @@ import com.geeksville.mesh.convoy.ConvoySettingsPanelScreen
 import com.geeksville.mesh.convoy.ConvoySettingsScreen
 import com.geeksville.mesh.convoy.ConvoyViewModel
 import com.geeksville.mesh.convoy.ConvoySignInScreen
+import com.geeksville.mesh.convoy.ConvoyConfig
+import com.geeksville.mesh.convoy.ConvoyDevLaunchScreen
 import com.geeksville.mesh.convoy.ConvoySubscriptionScreen
 import com.geeksville.mesh.convoy.ConvoyDashboardScreen
 import com.geeksville.mesh.convoy.ConvoyFieldRadioScreen
@@ -233,27 +235,46 @@ fun NavGraphBuilder.convoyGraph(
     // ── Sign-In — V3 Phase B ──────────────────────────────────────────────
     // First launch gate. On success navigates to Dashboard (subscribed)
     // or Subscription screen (free user).
+    // DEV: When V3_FEATURES_ENABLED=true, shows dev simulator to pick launch scenario.
     composable<ConvoyRoutes.ConvoySignIn> {
         val context = androidx.compose.ui.platform.LocalContext.current
-        ConvoySignInScreen(
-            onSignInComplete = {
-                val route = ConvoySessionManager.resolveLaunchRoute(context, true)
-                val dest = when (route) {
-                    ConvoySessionManager.LaunchRoute.TERMS        -> ConvoyRoutes.ConvoyTerms
-                    ConvoySessionManager.LaunchRoute.PRIVACY      -> ConvoyRoutes.ConvoyPrivacy
-                    ConvoySessionManager.LaunchRoute.SUBSCRIPTION -> ConvoyRoutes.ConvoySubscription
-                    else                                          -> ConvoyRoutes.ConvoyDashboard
+        if (ConvoyConfig.V3_FEATURES_ENABLED) {
+            ConvoyDevLaunchScreen(
+                onLaunch = {
+                    val route = ConvoySessionManager.resolveLaunchRoute(context, true)
+                    val dest = when (route) {
+                        ConvoySessionManager.LaunchRoute.TERMS        -> ConvoyRoutes.ConvoyTerms
+                        ConvoySessionManager.LaunchRoute.PRIVACY      -> ConvoyRoutes.ConvoyPrivacy
+                        ConvoySessionManager.LaunchRoute.SUBSCRIPTION -> ConvoyRoutes.ConvoySubscription
+                        ConvoySessionManager.LaunchRoute.DASHBOARD    -> ConvoyRoutes.ConvoyDashboard
+                        else                                          -> ConvoyRoutes.ConvoySignIn
+                    }
+                    navController?.navigate(dest) {
+                        popUpTo(ConvoyRoutes.ConvoySignIn) { inclusive = true }
+                    }
                 }
-                navController?.navigate(dest) {
-                    popUpTo(ConvoyRoutes.ConvoySignIn) { inclusive = true }
+            )
+        } else {
+            ConvoySignInScreen(
+                onSignInComplete = {
+                    val route = ConvoySessionManager.resolveLaunchRoute(context, true)
+                    val dest = when (route) {
+                        ConvoySessionManager.LaunchRoute.TERMS        -> ConvoyRoutes.ConvoyTerms
+                        ConvoySessionManager.LaunchRoute.PRIVACY      -> ConvoyRoutes.ConvoyPrivacy
+                        ConvoySessionManager.LaunchRoute.SUBSCRIPTION -> ConvoyRoutes.ConvoySubscription
+                        else                                          -> ConvoyRoutes.ConvoyDashboard
+                    }
+                    navController?.navigate(dest) {
+                        popUpTo(ConvoyRoutes.ConvoySignIn) { inclusive = true }
+                    }
+                },
+                onSkip = {
+                    navController?.navigate(ConvoyRoutes.Convoy) {
+                        popUpTo(ConvoyRoutes.ConvoySignIn) { inclusive = true }
+                    }
                 }
-            },
-            onSkip = {
-                navController?.navigate(ConvoyRoutes.Convoy) {
-                    popUpTo(ConvoyRoutes.ConvoySignIn) { inclusive = true }
-                }
-            }
-        )
+            )
+        }
     }
 
     // ── Subscription Value Prop — V3 Phase B ─────────────────────────────

@@ -9,6 +9,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -244,6 +247,7 @@ fun GroupTrackBottomNav(
         modifier = androidx.compose.ui.Modifier
             .fillMaxWidth()
             .background(androidx.compose.ui.graphics.Color(0xFF0A1628))
+            .navigationBarsPadding()
             .padding(vertical = 8.dp),
         horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceEvenly
     ) {

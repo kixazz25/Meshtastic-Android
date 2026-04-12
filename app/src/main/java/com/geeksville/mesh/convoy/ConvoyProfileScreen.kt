@@ -35,7 +35,7 @@ fun ConvoyProfileScreen(onBack: () -> Unit) {
 
     // Pre-populate from session
     var firstName by remember { mutableStateOf(ConvoySessionManager.getFirstName(context)) }
-    var lastName by remember { mutableStateOf("") }
+    var lastName by remember { mutableStateOf(context.getSharedPreferences("grouptrack_user", android.content.Context.MODE_PRIVATE).getString("last_name", "") ?: "") }
     var email by remember { mutableStateOf(ConvoySessionManager.getEmail(context)) }
     var cell by remember { mutableStateOf("") }
     var addressLine1 by remember { mutableStateOf("") }
@@ -82,6 +82,8 @@ fun ConvoyProfileScreen(onBack: () -> Unit) {
 
             ProfileSectionLabel("ADDRESS")
             ProfileField("Street Address", addressLine1, placeholder = "123 Main St") { addressLine1 = it }
+            var addressLine2 by remember { mutableStateOf("") }
+            ProfileField("Apt / Suite", addressLine2, placeholder = "Optional") { addressLine2 = it }
             ProfileField("City", city) { city = it }
             ProfileField("State", state, placeholder = "e.g. UT") { state = it }
             ProfileField("Zip Code", zipCode) {

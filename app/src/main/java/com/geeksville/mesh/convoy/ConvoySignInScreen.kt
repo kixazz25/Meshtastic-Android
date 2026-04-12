@@ -5,6 +5,8 @@ import android.content.Context
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -226,6 +228,55 @@ fun ConvoySignInScreen(
                     fontFamily = FontFamily.Monospace
                 )
             } else {
+                if (ConvoyConfig.V3_FEATURES_ENABLED) {
+                    // DEV ONLY — bypass Google auth for testing
+                    var devEmail by remember { mutableStateOf("dev@grouptrack.org") }
+                    androidx.compose.material3.OutlinedTextField(
+                        value = devEmail,
+                        onValueChange = { devEmail = it },
+                        label = { androidx.compose.material3.Text("DEV: Email", fontSize = 11.sp) },
+                        modifier = androidx.compose.ui.Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color(0xFFFF8C00),
+                            unfocusedBorderColor = Color(0xFF443322),
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            focusedLabelColor = Color(0xFFFF8C00),
+                            unfocusedLabelColor = Color(0xFF443322),
+                            cursorColor = Color(0xFFFF8C00)
+                        )
+                    )
+                    androidx.compose.foundation.layout.Spacer(
+                        androidx.compose.ui.Modifier.height(8.dp)
+                    )
+                    androidx.compose.foundation.layout.Box(
+                        modifier = androidx.compose.ui.Modifier
+                            .fillMaxWidth()
+                            .clip(androidx.compose.foundation.shape.RoundedCornerShape(8.dp))
+                            .background(Color(0xFF331A00))
+                            .clickable {
+                                val uid = "dev-user-" + devEmail.hashCode().toString().takeLast(6)
+                                saveUserToPrefs(context, uid, "google-dev-$uid",
+                                    devEmail, "Dev", "User")
+                                isLoading = false
+                                onSignInComplete()
+                            }
+                            .padding(14.dp),
+                        contentAlignment = androidx.compose.ui.Alignment.Center
+                    ) {
+                        androidx.compose.material3.Text(
+                            text = "DEV SIGN IN (BYPASS GOOGLE)",
+                            color = Color(0xFFFF8C00),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.sp
+                        )
+                    }
+                    androidx.compose.foundation.layout.Spacer(
+                        androidx.compose.ui.Modifier.height(16.dp)
+                    )
+                }
                 GroupTrackButton(
                     text = "SIGN IN WITH GOOGLE",
                     onClick = {
