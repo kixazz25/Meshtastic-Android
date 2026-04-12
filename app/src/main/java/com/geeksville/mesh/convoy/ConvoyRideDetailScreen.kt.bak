@@ -105,24 +105,25 @@ fun ConvoyRideDetailScreen(
     }
 
     // Seeded enrollment data — Phase C: from GET /rides/{id}/enrollments
+    data class EnrolleeRow(val name: String, val email: String, val date: String)
     val accepted = listOf(
-        EnrolleeData("Dave Hatch",   "dave@grouptrack.org",   "Apr 10, 2026"),
-        EnrolleeData("Sarah Munoz",  "sarah@grouptrack.org",  "Apr 11, 2026"),
-        EnrolleeData("Tom Ridley",   "tom@grouptrack.org",    "Apr 11, 2026"),
-        EnrolleeData("Lisa Morris",  "lisa@grouptrack.org",   "Apr 12, 2026"),
-        EnrolleeData("Mike Torres",  "mike@grouptrack.org",   "Apr 12, 2026"),
+        EnrolleeRow("Dave Hatch",   "dave@grouptrack.org",   "Apr 10, 2026"),
+        EnrolleeRow("Sarah Munoz",  "sarah@grouptrack.org",  "Apr 11, 2026"),
+        EnrolleeRow("Tom Ridley",   "tom@grouptrack.org",    "Apr 11, 2026"),
+        EnrolleeRow("Lisa Morris",  "lisa@grouptrack.org",   "Apr 12, 2026"),
+        EnrolleeRow("Mike Torres",  "mike@grouptrack.org",   "Apr 12, 2026"),
     )
     val maybe = listOf(
-        EnrolleeData("Chris Webb",   "chris@grouptrack.org",  "Apr 9, 2026"),
-        EnrolleeData("Ann Walsh",    "ann@grouptrack.org",    "Apr 10, 2026"),
+        EnrolleeRow("Chris Webb",   "chris@grouptrack.org",  "Apr 9, 2026"),
+        EnrolleeRow("Ann Walsh",    "ann@grouptrack.org",    "Apr 10, 2026"),
     )
     val declined = listOf(
-        EnrolleeData("Ray Olsen",    "ray@grouptrack.org",    "Apr 8, 2026"),
+        EnrolleeRow("Ray Olsen",    "ray@grouptrack.org",    "Apr 8, 2026"),
     )
     val invited = listOf(
-        EnrolleeData("Amy Ford",     "amy@grouptrack.org",    "Apr 7, 2026"),
-        EnrolleeData("Dan Nguyen",   "dan@grouptrack.org",    "Apr 9, 2026"),
-        EnrolleeData("Jen Park",     "jen@grouptrack.org",    "Apr 10, 2026"),
+        EnrolleeRow("Amy Ford",     "amy@grouptrack.org",    "Apr 7, 2026"),
+        EnrolleeRow("Dan Nguyen",   "dan@grouptrack.org",    "Apr 9, 2026"),
+        EnrolleeRow("Jen Park",     "jen@grouptrack.org",    "Apr 10, 2026"),
     )
 
     Column(modifier = Modifier.fillMaxSize().background(GroupTrackColors.Navy)) {
@@ -407,8 +408,6 @@ fun ConvoyRideDetailScreen(
     }
 }
 
-private data class EnrolleeData(val name: String, val email: String, val date: String)
-
 // ── Enrollment Twistie ────────────────────────────────────────────────────────
 @Composable
 private fun EnrollmentTwistie(
@@ -453,13 +452,14 @@ private fun EnrollmentTwistie(
 // ── Enrollee row ──────────────────────────────────────────────────────────────
 @Composable
 private fun EnrolleeRow(
-    row: EnrolleeData,
+    row: Any,
     onEmailTap: () -> Unit
 ) {
     // row is a data class with name, email, date — cast via reflection-free approach
-    val name  = row.name
-    val email = row.email
-    val date  = row.date
+    val (name, email, date) = when (row) {
+        is Triple<*, *, *> -> Triple(row.first.toString(), row.second.toString(), row.third.toString())
+        else -> return
+    }
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
