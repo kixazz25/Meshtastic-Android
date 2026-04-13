@@ -18,18 +18,13 @@
     var map, tileLayer, markers = {}, deviceMarker = null;
     var drawnItems = null;
     var drawControl = null;
-    var currentMaxNative = 18;
-    function setTileUrl(url, label) {
+    function setTileUrl(url) {
       if (tileLayer) map.removeLayer(tileLayer);
-      console.log("TILE URL: " + url + " LABEL: " + label);
-      var isZ16 = false;
-      var isZ17 = label === "TOPO+" ||
-                  url.indexOf("opentopomap") !== -1 || url.indexOf("USGSImageryTopo") !== -1;
-      currentMaxNative = isZ17 ? 17 : 18;
-      tileLayer = L.tileLayer(url, {maxZoom:19, maxNativeZoom:currentMaxNative, crossOrigin:false, tileSize:256});
+      console.log("TILE URL: " + url);
+      var isLocal = url.startsWith("convoy://");
+      tileLayer = L.tileLayer(url, {maxZoom:18, maxNativeZoom:18, crossOrigin:false, tileSize:256});
       tileLayer.on("tileerror", function(e) { console.log("TILE ERROR: " + e.tile.src); });
       tileLayer.addTo(map);
-      if (map.getZoom() > currentMaxNative) { map.setZoom(currentMaxNative); }
     }
 
     // ── Draw tool functions ────────────────────────────────────────────
@@ -114,7 +109,7 @@
       if (lats.length === 1) { map.setView([lats[0], lons[0]], 16); return; }
       var b = L.latLngBounds();
       for (var i=0; i<lats.length; i++) b.extend([lats[i], lons[i]]);
-      map.fitBounds(b, {padding:[60,60], maxZoom:currentMaxNative});
+      map.fitBounds(b, {padding:[60,60]});
     }
       function findNearestMarker(screenX, screenY) {
         var tapLatLng = map.containerPointToLatLng([screenX, screenY]);
@@ -175,10 +170,6 @@
     document.addEventListener("DOMContentLoaded", function() {
       setTimeout(function() {
         map = L.map("map",{zoomControl:true}).setView([36.1069,-115.1711],4);
-        map.on("zoomend", function() {
-          console.log("ZOOM LEVEL: " + map.getZoom());
-          if (map.getZoom() > currentMaxNative) { map.setZoom(currentMaxNative); }
-        });
     initDrawTool();
         map.invalidateSize();
 

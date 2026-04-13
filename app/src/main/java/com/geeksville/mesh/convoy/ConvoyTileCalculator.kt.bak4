@@ -63,21 +63,16 @@ object ConvoyTileCalculator {
      * @param zMax   Maximum zoom level (default: ConvoyConfig.DOWNLOAD_ZOOM = 18)
      * @return       Complete list of TileKey objects covering the bounding box
      */
-    fun maxZoomForSource(sourceName: String): Int =
-        if (sourceName == "TRAIL" || sourceName == "TOPO+") 17 else 18
-
     fun calculateTiles(
         north: Double,
         south: Double,
         east: Double,
         west: Double,
         zMin: Int = ConvoyConfig.DOWNLOAD_ZOOM_MIN,
-        zMax: Int = ConvoyConfig.DOWNLOAD_ZOOM,
-        sourceName: String = ""
+        zMax: Int = ConvoyConfig.DOWNLOAD_ZOOM
     ): List<TileKey> {
-        val effectiveZMax = if (sourceName.isNotEmpty()) minOf(zMax, maxZoomForSource(sourceName)) else zMax
         val tiles = mutableListOf<TileKey>()
-        for (z in zMin..effectiveZMax) {
+        for (z in zMin..zMax) {
             val xMin = lon2tile(west, z)
             val xMax = lon2tile(east, z)
             val yMin = lat2tile(north, z)  // north = smaller y value
