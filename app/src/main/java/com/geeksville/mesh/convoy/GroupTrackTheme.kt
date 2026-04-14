@@ -232,6 +232,8 @@ fun GroupTrackTagline(modifier: Modifier = Modifier) {
     )
 }
 // ── Bottom Navigation Bar ─────────────────────────────────────────────────────
+
+// ── Bottom Navigation Bar ─────────────────────────────────────────────────────
 enum class GroupTrackTab { HOME, RIDES, MAP, PROFILE, RADIO }
 
 @Composable
@@ -250,9 +252,73 @@ fun GroupTrackBottomNav(
     var showRidesMenu   by remember { mutableStateOf(false) }
     var showRadioMenu   by remember { mutableStateOf(false) }
     var showProfileMenu by remember { mutableStateOf(false) }
-    fun closeAll() { showRidesMenu = false; showRadioMenu = false; showProfileMenu = false }
+    var showMapMenu     by remember { mutableStateOf(false) }
+    fun closeAll() { showRidesMenu = false; showRadioMenu = false; showProfileMenu = false; showMapMenu = false }
 
-    androidx.compose.foundation.layout.Box(modifier = androidx.compose.ui.Modifier.fillMaxWidth()) {
+    androidx.compose.foundation.layout.Column(modifier = androidx.compose.ui.Modifier.fillMaxWidth()) {
+
+        // ── MAP dropdown — coming soon panel with feature list ───────────
+        androidx.compose.material3.DropdownMenu(
+            expanded = showMapMenu,
+            onDismissRequest = { showMapMenu = false },
+            modifier = androidx.compose.ui.Modifier
+                .background(androidx.compose.ui.graphics.Color(0xFF2A2A2A))
+        ) {
+            GtMenuLabel("NEW MAP — COMING SOON")
+            GtMenuItem("Convoy Map (current)",      true)  { showMapMenu = false; onMap() }
+            GtMenuItem("KML / GPX Import",          false) {}
+            GtMenuItem("Trail Overlay — Utah",      false) {}
+            GtMenuItem("Trail Overlay — National",  false) {}
+            GtMenuItem("Download Tiles",            false) {}
+            GtMenuItem("Manage Overlays",           false) {}
+            GtMenuItem("Route Planning",            false) {}
+            GtMenuItem("Waypoints",                 false) {}
+            GtMenuItem("Post-Ride Track Cleanup",   false) {}
+        }
+
+        // ── RIDES dropdown ────────────────────────────────────────────────────
+        androidx.compose.material3.DropdownMenu(
+            expanded = showRidesMenu,
+            onDismissRequest = { showRidesMenu = false },
+            modifier = androidx.compose.ui.Modifier
+                .background(androidx.compose.ui.graphics.Color(0xFF2A2A2A))
+        ) {
+            GtMenuLabel("RIDES")
+            GtMenuItem("Create / Open a Ride", true)  { closeAll(); onCreateRide() }
+            GtMenuItem("Ride History",  false) {}
+            GtMenuItem("Search by Area",        false) {}
+            GtMenuItem("Search by Organizer",   false) {}
+            GtMenuItem("Search by Trail",       false) {}
+        }
+
+        // ── PROFILE dropdown ──────────────────────────────────────────────────
+        androidx.compose.material3.DropdownMenu(
+            expanded = showProfileMenu,
+            onDismissRequest = { showProfileMenu = false },
+            modifier = androidx.compose.ui.Modifier
+                .background(androidx.compose.ui.graphics.Color(0xFF2A2A2A))
+        ) {
+            GtMenuLabel("PROFILE")
+            GtMenuItem("My Profile",               true)  { closeAll(); onMyProfile() }
+            GtMenuItem("My Search Settings",  false) {}
+            GtMenuItem("My Organizers",            false) {}
+            GtMenuItem("Account and Subscription", false) {}
+        }
+
+        // ── RADIO dropdown ────────────────────────────────────────────────────
+        androidx.compose.material3.DropdownMenu(
+            expanded = showRadioMenu,
+            onDismissRequest = { showRadioMenu = false },
+            modifier = androidx.compose.ui.Modifier
+                .background(androidx.compose.ui.graphics.Color(0xFF2A2A2A))
+        ) {
+            GtMenuLabel("RADIO")
+            GtMenuItem("Download Ride Details to Device", false) {}
+            GtMenuItem("Apply Master / Ride Config to Radio", true)  { closeAll(); onApplyMasterConfig() }
+            GtMenuItem("Restore Config from Archive", true)  { closeAll(); onArchiveRestore() }
+        }
+
+        // ── Nav bar ───────────────────────────────────────────────────────────
         androidx.compose.foundation.layout.Row(
             modifier = androidx.compose.ui.Modifier
                 .fillMaxWidth()
@@ -262,34 +328,10 @@ fun GroupTrackBottomNav(
             horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceEvenly
         ) {
             GtNavBtn("🏠", "HOME",    GroupTrackTab.HOME    == activeTab) { closeAll(); onHome() }
-            GtNavBtn("🏁", "RIDES",   GroupTrackTab.RIDES   == activeTab) { showRadioMenu = false; showProfileMenu = false; showRidesMenu = !showRidesMenu }
-            GtNavBtn("🗺", "MAP",     GroupTrackTab.MAP     == activeTab) { closeAll(); onMap() }
-            GtNavBtn("👤", "PROFILE", GroupTrackTab.PROFILE == activeTab) { showRidesMenu = false; showRadioMenu = false; showProfileMenu = !showProfileMenu }
-            GtNavBtn("📡", "RADIO",   GroupTrackTab.RADIO   == activeTab) { showRidesMenu = false; showProfileMenu = false; showRadioMenu = !showRadioMenu }
-        }
-        if (showRidesMenu) {
-            GtPopupMenu(androidx.compose.ui.Alignment.BottomStart, "RIDES", offsetStart = 8.dp) {
-                GtPopupItem("Create / Open a Ride", true)  { closeAll(); onCreateRide() }
-                GtPopupItem("My Rides and History",  false) {}
-                GtPopupItem("Search by Area",        false) {}
-                GtPopupItem("Search by Organizer",   false) {}
-                GtPopupItem("Search by Trail",       false) {}
-            }
-        }
-        if (showProfileMenu) {
-            GtPopupMenu(androidx.compose.ui.Alignment.BottomCenter, "PROFILE") {
-                GtPopupItem("My Profile",               true)  { closeAll(); onMyProfile() }
-                GtPopupItem("Default Search Settings",  false) {}
-                GtPopupItem("My Organizers",            false) {}
-                GtPopupItem("Account and Subscription", false) {}
-            }
-        }
-        if (showRadioMenu) {
-            GtPopupMenu(androidx.compose.ui.Alignment.BottomEnd, "RADIO", offsetEnd = 8.dp) {
-                GtPopupItem("Apply Ride Config",   false) {}
-                GtPopupItem("Apply Master Config", true)  { closeAll(); onApplyMasterConfig() }
-                GtPopupItem("Archive and Restore", true)  { closeAll(); onArchiveRestore() }
-            }
+            GtNavBtn("🏁", "RIDES",   GroupTrackTab.RIDES   == activeTab) { showRadioMenu = false; showProfileMenu = false; if (!showRidesMenu) showRidesMenu = true else showRidesMenu = false }
+            GtNavBtn("🗺", "MAP",     GroupTrackTab.MAP     == activeTab) { showRidesMenu = false; showRadioMenu = false; showProfileMenu = false; if (!showMapMenu) showMapMenu = true else showMapMenu = false }
+            GtNavBtn("👤", "PROFILE", GroupTrackTab.PROFILE == activeTab) { showRidesMenu = false; showRadioMenu = false; if (!showProfileMenu) showProfileMenu = true else showProfileMenu = false }
+            GtNavBtn("📡", "RADIO",   GroupTrackTab.RADIO   == activeTab) { showRidesMenu = false; showProfileMenu = false; if (!showRadioMenu) showRadioMenu = true else showRadioMenu = false }
         }
     }
 }
@@ -314,87 +356,64 @@ private fun GtNavBtn(icon: String, label: String, isActive: Boolean, onClick: ()
 }
 
 @Composable
-private fun androidx.compose.foundation.layout.BoxScope.GtPopupMenu(
-    anchor: androidx.compose.ui.Alignment,
-    title: String,
-    offsetStart: androidx.compose.ui.unit.Dp = 0.dp,
-    offsetEnd: androidx.compose.ui.unit.Dp = 0.dp,
-    content: @Composable () -> Unit
-) {
-    androidx.compose.foundation.layout.Column(
-        modifier = androidx.compose.ui.Modifier
-            .align(anchor)
-            .padding(start = offsetStart, end = offsetEnd, bottom = 56.dp)
-            .background(
-                androidx.compose.ui.graphics.Color(0xFF0F2035),
-                androidx.compose.foundation.shape.RoundedCornerShape(8.dp))
-            .padding(vertical = 4.dp)
-    ) {
-        androidx.compose.foundation.layout.Box(
-            modifier = androidx.compose.ui.Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
-        ) {
+private fun GtMenuLabel(title: String) {
+    androidx.compose.material3.DropdownMenuItem(
+        text = {
             androidx.compose.material3.Text(
                 text = title,
                 color = androidx.compose.ui.graphics.Color(0xFF4AB8E8),
-                fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 2.sp,
                 fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
             )
-        }
-        androidx.compose.material3.HorizontalDivider(
-            thickness = 0.5.dp,
-            color = androidx.compose.ui.graphics.Color(0xFF1A2840)
-        )
-        content()
-    }
+        },
+        onClick = {},
+        enabled = false
+    )
+    androidx.compose.material3.HorizontalDivider(
+        thickness = 0.5.dp,
+        color = androidx.compose.ui.graphics.Color(0xFF1A2840)
+    )
 }
 
 @Composable
-private fun GtPopupItem(label: String, active: Boolean, onClick: () -> Unit) {
-    androidx.compose.foundation.layout.Row(
-        modifier = androidx.compose.ui.Modifier.fillMaxWidth()
-            .then(if (active) androidx.compose.ui.Modifier.clickable { onClick() }
-                  else androidx.compose.ui.Modifier)
-            .padding(horizontal = 14.dp, vertical = 10.dp),
-        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween,
-        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
-    ) {
-        androidx.compose.material3.Text(
-            text = label,
-            color = if (active) androidx.compose.ui.graphics.Color(0xFFE8EEF5)
-                    else androidx.compose.ui.graphics.Color(0xFF2A4060),
-            fontSize = 11.sp, fontWeight = FontWeight.Bold,
-            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
-        )
-        if (!active) {
-            androidx.compose.foundation.layout.Box(
-                modifier = androidx.compose.ui.Modifier
-                    .background(
-                        androidx.compose.ui.graphics.Color(0xFF1A3050),
-                        androidx.compose.foundation.shape.RoundedCornerShape(3.dp))
-                    .padding(horizontal = 5.dp, vertical = 2.dp)
+private fun GtMenuItem(label: String, active: Boolean, onClick: () -> Unit) {
+    androidx.compose.material3.DropdownMenuItem(
+        text = {
+            androidx.compose.foundation.layout.Row(
+                modifier = androidx.compose.ui.Modifier.fillMaxWidth(),
+                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween,
+                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
             ) {
                 androidx.compose.material3.Text(
-                    "SOON",
-                    color = androidx.compose.ui.graphics.Color(0xFF2A4060),
-                    fontSize = 7.sp, fontWeight = FontWeight.Bold,
+                    text = label,
+                    color = if (active) androidx.compose.ui.graphics.Color(0xFFE8EEF5)
+                            else androidx.compose.ui.graphics.Color(0xFF2A4060),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
                     fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
                 )
+                if (!active) {
+                    androidx.compose.foundation.layout.Box(
+                        modifier = androidx.compose.ui.Modifier
+                            .background(
+                                androidx.compose.ui.graphics.Color(0xFF1A3050),
+                                androidx.compose.foundation.shape.RoundedCornerShape(3.dp))
+                            .padding(horizontal = 5.dp, vertical = 2.dp)
+                    ) {
+                        androidx.compose.material3.Text(
+                            "SOON",
+                            color = androidx.compose.ui.graphics.Color(0xFF2A4060),
+                            fontSize = 7.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                        )
+                    }
+                }
             }
-        }
-    }
+        },
+        onClick = { if (active) onClick() },
+        enabled = active
+    )
 }
-) {
-    var showRidesMenu   by remember { mutableStateOf(false) }
-    var showRadioMenu   by remember { mutableStateOf(false) }
-    var showProfileMenu by remember { mutableStateOf(false) }
-    fun closeAll() { showRidesMenu = false; showRadioMenu = false; showProfileMenu = false }
-
-    androidx.compose.foundation.layout.Box(modifier = androidx.compose.ui.Modifier.fillMaxWidth()) {
-        androidx.compose.foundation.layout.Row(
-            modifier = androidx.compose.ui.Modifier
-                .fillMaxWidth()
-                .background(androidx.compose.ui.graphics.Color(0xFF0A1628))
-                .navigationBarsPadding()
-                .padding(vertical = 8.dp),
-            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceEvenly
-        ) {

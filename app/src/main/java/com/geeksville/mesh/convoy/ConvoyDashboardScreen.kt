@@ -1,6 +1,7 @@
 package com.geeksville.mesh.convoy
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -30,7 +31,8 @@ fun ConvoyDashboardScreen(
     onNavigateToProfile: () -> Unit,
     onNavigateToFieldRadio: () -> Unit,
     onShowSubscription: () -> Unit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onNavigateToCreateRide: (String?) -> Unit = {}
 ) {
     val context = LocalContext.current
     var seedKey by remember { mutableStateOf(0) }
@@ -48,8 +50,8 @@ fun ConvoyDashboardScreen(
 
     var notifExpanded  by remember { mutableStateOf(true) }
     var inviteExpanded by remember { mutableStateOf(true) }
-    var ridesExpanded  by remember { mutableStateOf(true) }
-    var nearMeExpanded by remember { mutableStateOf(true) }
+    var ridesExpanded  by remember { mutableStateOf(false) }
+    var nearMeExpanded by remember { mutableStateOf(false) }
 
     var followedOrganizers by remember {
         mutableStateOf(
@@ -138,6 +140,21 @@ fun ConvoyDashboardScreen(
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 DashBadge("RIDER", Color(0xFF22C55E))
                 if (isOrganizer) DashBadge("ORGANIZER", Color(0xFF4AB8E8))
+            }
+            // ADD A RIDE button — always visible
+            Text(
+                text = "+ ADD RIDE",
+                color = Color(0xFF0A1628),
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(Color(0xFF22C55E))
+                    .clickable { onNavigateToCreateRide(null) }
+                    .padding(horizontal = 14.dp, vertical = 6.dp)
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 if (ConvoyConfig.V3_FEATURES_ENABLED) {
                     Text(
                         text = "DEV",
@@ -201,11 +218,20 @@ fun ConvoyDashboardScreen(
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
 
+            // ── ORGANIZER PENDING RIDES ───────────────────────────────────────
+            if (isOrganizer) {
+                item {
+                    ConvoyOrganizerPendingRides(
+                        onNavigateToCreateRide = onNavigateToCreateRide
+                    )
+                }
+            }
+
             // ── SECTION 1: ORGANIZER NOTIFICATIONS ───────────────────────────
             if (isOrganizer && notifCount > 0) {
                 item {
                     AccordionHeader(
-                        title = "ORGANIZER NOTIFICATIONS", count = notifCount,
+                        title = "ORGANIZER OPEN RIDES", count = notifCount,
                         expanded = notifExpanded,
                         onClick = { notifExpanded = !notifExpanded }
                     )
@@ -298,7 +324,7 @@ fun ConvoyDashboardScreen(
             if (inviteCount > 0) {
                 item {
                     AccordionHeader(
-                        title = "INVITES PENDING REPLIES", count = inviteCount,
+                        title = "INVITES PENDING REPLIES", count = inviteCount, showCountInline = true,
                         expanded = inviteExpanded,
                         onClick = { inviteExpanded = !inviteExpanded }
                     )
@@ -347,7 +373,7 @@ fun ConvoyDashboardScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically) {
                     AccordionHeader(
-                        title = "MY INVITE RESPONSES", count = rideCount,
+                        title = "MY INVITE RESPONSES", count = rideCount, showCountInline = true,
                         expanded = ridesExpanded,
                         onClick = { ridesExpanded = !ridesExpanded },
                         modifier = Modifier.weight(1f)
@@ -700,18 +726,21 @@ private fun RideActionButton(
     label: String, active: Boolean, enabled: Boolean,
     activeColor: Color, onClick: () -> Unit
 ) {
+    val borderColor = when {
+        !enabled -> Color(0xFF445566)
+        active   -> Color(0xFF22C55E)
+        else     -> Color(0xFFEF4444)
+    }
     val textColor = when {
         !enabled -> Color(0xFF445566)
-        active   -> activeColor
-        else     -> activeColor.copy(alpha = 0.6f)
-    }
-    val bgColor = when {
-        !enabled -> Color(0xFF1A3050).copy(alpha = 0.3f)
-        active   -> activeColor.copy(alpha = 0.2f)
-        else     -> Color(0xFF1A3050)
+        active   -> Color(0xFF22C55E)
+        else     -> Color(0xFFEF4444)
     }
     Box(
-        modifier = Modifier.clip(RoundedCornerShape(4.dp)).background(bgColor)
+        modifier = Modifier
+            .border(2.dp, borderColor, RoundedCornerShape(4.dp))
+            .clip(RoundedCornerShape(4.dp))
+            .background(Color(0xFF0A1628))
             .then(if (enabled) Modifier.clickable { onClick() } else Modifier)
             .padding(horizontal = 8.dp, vertical = 5.dp)
     ) {
@@ -767,7 +796,8 @@ private fun NotifAccordion(label: String, color: Color, expanded: Boolean, onCli
 @Composable
 private fun AccordionHeader(
     title: String, count: Int, expanded: Boolean,
-    onClick: () -> Unit, modifier: Modifier = Modifier
+    onClick: () -> Unit, modifier: Modifier = Modifier,
+    showCountInline: Boolean = false
 ) {
     Row(modifier = modifier.fillMaxWidth().clip(RoundedCornerShape(6.dp))
         .background(Color(0xFF1A3050)).clickable { onClick() }
@@ -775,12 +805,20 @@ private fun AccordionHeader(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically) {
         Row(verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.weight(1f)) {
             Text(if (expanded) "\u25bc" else "\u25b6", color = Color(0xFF4AB8E8), fontSize = 10.sp)
             Text(title, color = Color.White, fontSize = 12.sp,
                 fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+            if (showCountInline && count > 0) {
+                Box(modifier = Modifier.clip(RoundedCornerShape(10.dp))
+                    .background(Color(0xFF4AB8E8)).padding(horizontal = 8.dp, vertical = 2.dp)) {
+                    Text(count.toString(), color = Color(0xFF0A1628),
+                        fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                }
+            }
         }
-        if (count > 0) {
+        if (!showCountInline && count > 0) {
             Box(modifier = Modifier.clip(RoundedCornerShape(10.dp))
                 .background(Color(0xFF4AB8E8)).padding(horizontal = 8.dp, vertical = 2.dp)) {
                 Text(count.toString(), color = Color(0xFF0A1628),
