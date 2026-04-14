@@ -238,163 +238,44 @@ enum class GroupTrackTab { HOME, RIDES, MAP, PROFILE, RADIO }
 fun GroupTrackBottomNav(
     activeTab: GroupTrackTab,
     onHome: () -> Unit,
+    onRides: () -> Unit,
     onMap: () -> Unit,
-    onRides: () -> Unit = {},
-    onProfile: () -> Unit = {},
-    onRadio: () -> Unit = {},
-    onCreateRide: () -> Unit = {},
-    onApplyMasterConfig: () -> Unit = {},
-    onArchiveRestore: () -> Unit = {},
-    onMyProfile: () -> Unit = {}
+    onProfile: () -> Unit,
+    onRadio: () -> Unit = {}
 ) {
-    var showRidesMenu   by remember { mutableStateOf(false) }
-    var showRadioMenu   by remember { mutableStateOf(false) }
-    var showProfileMenu by remember { mutableStateOf(false) }
-    fun closeAll() { showRidesMenu = false; showRadioMenu = false; showProfileMenu = false }
-
-    androidx.compose.foundation.layout.Box(modifier = androidx.compose.ui.Modifier.fillMaxWidth()) {
-        androidx.compose.foundation.layout.Row(
-            modifier = androidx.compose.ui.Modifier
-                .fillMaxWidth()
-                .background(androidx.compose.ui.graphics.Color(0xFF0A1628))
-                .navigationBarsPadding()
-                .padding(vertical = 8.dp),
-            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceEvenly
-        ) {
-            GtNavBtn("🏠", "HOME",    GroupTrackTab.HOME    == activeTab) { closeAll(); onHome() }
-            GtNavBtn("🏁", "RIDES",   GroupTrackTab.RIDES   == activeTab) { showRadioMenu = false; showProfileMenu = false; showRidesMenu = !showRidesMenu }
-            GtNavBtn("🗺", "MAP",     GroupTrackTab.MAP     == activeTab) { closeAll(); onMap() }
-            GtNavBtn("👤", "PROFILE", GroupTrackTab.PROFILE == activeTab) { showRidesMenu = false; showRadioMenu = false; showProfileMenu = !showProfileMenu }
-            GtNavBtn("📡", "RADIO",   GroupTrackTab.RADIO   == activeTab) { showRidesMenu = false; showProfileMenu = false; showRadioMenu = !showRadioMenu }
-        }
-        if (showRidesMenu) {
-            GtPopupMenu(androidx.compose.ui.Alignment.BottomStart, "RIDES", offsetStart = 8.dp) {
-                GtPopupItem("Create / Open a Ride", true)  { closeAll(); onCreateRide() }
-                GtPopupItem("My Rides and History",  false) {}
-                GtPopupItem("Search by Area",        false) {}
-                GtPopupItem("Search by Organizer",   false) {}
-                GtPopupItem("Search by Trail",       false) {}
-            }
-        }
-        if (showProfileMenu) {
-            GtPopupMenu(androidx.compose.ui.Alignment.BottomCenter, "PROFILE") {
-                GtPopupItem("My Profile",               true)  { closeAll(); onMyProfile() }
-                GtPopupItem("Default Search Settings",  false) {}
-                GtPopupItem("My Organizers",            false) {}
-                GtPopupItem("Account and Subscription", false) {}
-            }
-        }
-        if (showRadioMenu) {
-            GtPopupMenu(androidx.compose.ui.Alignment.BottomEnd, "RADIO", offsetEnd = 8.dp) {
-                GtPopupItem("Apply Ride Config",   false) {}
-                GtPopupItem("Apply Master Config", true)  { closeAll(); onApplyMasterConfig() }
-                GtPopupItem("Archive and Restore", true)  { closeAll(); onArchiveRestore() }
-            }
-        }
-    }
-}
-
-@Composable
-private fun GtNavBtn(icon: String, label: String, isActive: Boolean, onClick: () -> Unit) {
-    androidx.compose.foundation.layout.Column(
-        modifier = androidx.compose.ui.Modifier.clickable { onClick() }
-            .padding(horizontal = 16.dp, vertical = 4.dp),
-        horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally
-    ) {
-        androidx.compose.material3.Text(text = icon, fontSize = 22.sp)
-        androidx.compose.material3.Text(
-            text = label,
-            color = if (isActive) GroupTrackColors.SkyBlue
-                    else androidx.compose.ui.graphics.Color(0xFF445566),
-            fontSize = 9.sp,
-            fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal,
-            letterSpacing = 1.sp
-        )
-    }
-}
-
-@Composable
-private fun androidx.compose.foundation.layout.BoxScope.GtPopupMenu(
-    anchor: androidx.compose.ui.Alignment,
-    title: String,
-    offsetStart: androidx.compose.ui.unit.Dp = 0.dp,
-    offsetEnd: androidx.compose.ui.unit.Dp = 0.dp,
-    content: @Composable () -> Unit
-) {
-    androidx.compose.foundation.layout.Column(
-        modifier = androidx.compose.ui.Modifier
-            .align(anchor)
-            .padding(start = offsetStart, end = offsetEnd, bottom = 56.dp)
-            .background(
-                androidx.compose.ui.graphics.Color(0xFF0F2035),
-                androidx.compose.foundation.shape.RoundedCornerShape(8.dp))
-            .padding(vertical = 4.dp)
-    ) {
-        androidx.compose.foundation.layout.Box(
-            modifier = androidx.compose.ui.Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
-        ) {
-            androidx.compose.material3.Text(
-                text = title,
-                color = androidx.compose.ui.graphics.Color(0xFF4AB8E8),
-                fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp,
-                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
-            )
-        }
-        androidx.compose.material3.HorizontalDivider(
-            thickness = 0.5.dp,
-            color = androidx.compose.ui.graphics.Color(0xFF1A2840)
-        )
-        content()
-    }
-}
-
-@Composable
-private fun GtPopupItem(label: String, active: Boolean, onClick: () -> Unit) {
     androidx.compose.foundation.layout.Row(
-        modifier = androidx.compose.ui.Modifier.fillMaxWidth()
-            .then(if (active) androidx.compose.ui.Modifier.clickable { onClick() }
-                  else androidx.compose.ui.Modifier)
-            .padding(horizontal = 14.dp, vertical = 10.dp),
-        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween,
-        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+        modifier = androidx.compose.ui.Modifier
+            .fillMaxWidth()
+            .background(androidx.compose.ui.graphics.Color(0xFF0A1628))
+            .navigationBarsPadding()
+            .padding(vertical = 8.dp),
+        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceEvenly
     ) {
-        androidx.compose.material3.Text(
-            text = label,
-            color = if (active) androidx.compose.ui.graphics.Color(0xFFE8EEF5)
-                    else androidx.compose.ui.graphics.Color(0xFF2A4060),
-            fontSize = 11.sp, fontWeight = FontWeight.Bold,
-            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
-        )
-        if (!active) {
-            androidx.compose.foundation.layout.Box(
+        data class NavItem(val tab: GroupTrackTab, val icon: String, val label: String, val action: () -> Unit)
+        listOf(
+            NavItem(GroupTrackTab.HOME,    "🏠", "HOME",    onHome),
+            NavItem(GroupTrackTab.RIDES,   "🏁", "RIDES",   onRides),
+            NavItem(GroupTrackTab.MAP,     "🗺", "MAP",     onMap),
+            NavItem(GroupTrackTab.PROFILE, "👤", "PROFILE", onProfile),
+            NavItem(GroupTrackTab.RADIO,   "📡", "RADIO",   onRadio)
+        ).forEach { item ->
+            val tab = item.tab; val icon = item.icon; val label = item.label; val action = item.action
+            val isActive = tab == activeTab
+            androidx.compose.foundation.layout.Column(
                 modifier = androidx.compose.ui.Modifier
-                    .background(
-                        androidx.compose.ui.graphics.Color(0xFF1A3050),
-                        androidx.compose.foundation.shape.RoundedCornerShape(3.dp))
-                    .padding(horizontal = 5.dp, vertical = 2.dp)
+                    .clickable { action() }
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally
             ) {
+                androidx.compose.material3.Text(text = icon, fontSize = 22.sp)
                 androidx.compose.material3.Text(
-                    "SOON",
-                    color = androidx.compose.ui.graphics.Color(0xFF2A4060),
-                    fontSize = 7.sp, fontWeight = FontWeight.Bold,
-                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                    text = label,
+                    color = if (isActive) GroupTrackColors.SkyBlue else androidx.compose.ui.graphics.Color(0xFF445566),
+                    fontSize = 9.sp,
+                    fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal,
+                    letterSpacing = 1.sp
                 )
             }
         }
     }
 }
-) {
-    var showRidesMenu   by remember { mutableStateOf(false) }
-    var showRadioMenu   by remember { mutableStateOf(false) }
-    var showProfileMenu by remember { mutableStateOf(false) }
-    fun closeAll() { showRidesMenu = false; showRadioMenu = false; showProfileMenu = false }
-
-    androidx.compose.foundation.layout.Box(modifier = androidx.compose.ui.Modifier.fillMaxWidth()) {
-        androidx.compose.foundation.layout.Row(
-            modifier = androidx.compose.ui.Modifier
-                .fillMaxWidth()
-                .background(androidx.compose.ui.graphics.Color(0xFF0A1628))
-                .navigationBarsPadding()
-                .padding(vertical = 8.dp),
-            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceEvenly
-        ) {
