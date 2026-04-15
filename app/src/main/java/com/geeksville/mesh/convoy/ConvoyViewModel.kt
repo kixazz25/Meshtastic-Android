@@ -79,6 +79,9 @@ class ConvoyViewModel @Inject constructor(
     private var nodeDistanceAccum: MutableMap<String, Float> = mutableMapOf()
     private var nodeLastLat: MutableMap<String, Double> = mutableMapOf()
     private var nodeLastLon: MutableMap<String, Double> = mutableMapOf()
+    // 60-second fixed window speed computation per node
+    private val nodeSpeedWindowStart: MutableMap<String, Triple<Long, Double, Double>> = mutableMapOf()
+    private val nodeLastComputedSpeed: MutableMap<String, Float> = mutableMapOf()
     // The locked lead node ID — set when first node hits 1/4 mile, never changes until RECALC
     private var lockedLeadNodeId: String? = null
     private val _leadLocked = MutableStateFlow(false)
@@ -105,6 +108,16 @@ class ConvoyViewModel @Inject constructor(
         _leadTrackSegments.value = emptyList()
         _gpsTrailSegments.value = emptyList()
         _trackActive.value = true
+        rideStartTimeMs = System.currentTimeMillis()
+        // Clear accumulated pre-ride positions so home coordinates never seed
+        // the track or serve as a stale-position fallback during this ride.
+        lastKnownPosition.clear()
+        lastNodePositions.clear()
+        lastLeadLat = null
+        lastLeadLon = null
+        nodeSpeedWindowStart.clear()
+        nodeLastComputedSpeed.clear()
+        convoyLog("TRACK START: rideStartTimeMs=$rideStartTimeMs — position maps cleared")
     }
 
     fun stopGroupTrack() {
@@ -115,6 +128,13 @@ class ConvoyViewModel @Inject constructor(
         nodeLastLat.clear()
         nodeLastLon.clear()
         _leadLocked.value = false
+        lastKnownPosition.clear()
+        lastNodePositions.clear()
+        lastLeadLat = null
+        lastLeadLon = null
+        nodeSpeedWindowStart.clear()
+        nodeLastComputedSpeed.clear()
+        rideStartTimeMs = 0L
     }
 
     fun recalcLead() {
@@ -229,6 +249,7 @@ class ConvoyViewModel @Inject constructor(
     val routeTrailSegments: StateFlow<List<ConvoyEngine.LeadTrackSegment>> = _routeTrailSegments.asStateFlow()
     private var lastLeadLat: Double? = null
     private var lastLeadLon: Double? = null
+    private var rideStartTimeMs: Long = 0L  // Unix ms when startGroupTrack() was called
     private var currentLeadNodeId: String? = null
     private val lastNodePositions = mutableMapOf<String, Pair<Double, Double>>()
 
@@ -556,13 +577,20 @@ class ConvoyViewModel @Inject constructor(
                 val prevLon = lastLeadLon
                 if (prevLat != null && prevLon != null &&
                     (prevLat != leadNode.latitude || prevLon != leadNode.longitude)) {
-                    val seg = ConvoyEngine.LeadTrackSegment(
-                        startLat = prevLat, startLon = prevLon,
-                        endLat = leadNode.latitude, endLon = leadNode.longitude,
-                        color = "#000000",
-                        nodeId = leadNode.nodeId
-                    )
-                    if (_trackActive.value) _routeTrailSegments.value = _routeTrailSegments.value + seg
+                    val segDist = ConvoyEngine.haversineMiles(prevLat, prevLon, leadNode.latitude, leadNode.longitude)
+                    if (segDist > 0.25f) {
+                        // Jump exceeds 0.5 miles — bad fix or rebroadcast slipped through.
+                        // Advance the anchor without drawing a segment.
+                        convoyLog("LEAD SEGMENT JUMP REJECTED: lead=${leadNode.callsign} dist=${String.format("%.3f",segDist)}mi from ($prevLat,$prevLon) to (${leadNode.latitude},${leadNode.longitude})")
+                    } else {
+                        val seg = ConvoyEngine.LeadTrackSegment(
+                            startLat = prevLat, startLon = prevLon,
+                            endLat = leadNode.latitude, endLon = leadNode.longitude,
+                            color = "#000000",
+                            nodeId = leadNode.nodeId
+                        )
+                        if (_trackActive.value) _routeTrailSegments.value = _routeTrailSegments.value + seg
+                    }
                 }
                 lastLeadLat = leadNode.latitude
                 lastLeadLon = leadNode.longitude
@@ -573,12 +601,17 @@ class ConvoyViewModel @Inject constructor(
                 if (node.latitude == 0.0 && node.longitude == 0.0) continue
                 val prev = lastNodePositions[node.nodeId]
                 if (prev != null && (prev.first != node.latitude || prev.second != node.longitude)) {
-                    newSegs.add(ConvoyEngine.LeadTrackSegment(
-                        startLat = prev.first, startLon = prev.second,
-                        endLat = node.latitude, endLon = node.longitude,
-                        color = "#000000",
-                        nodeId = node.nodeId
-                    ))
+                    val segDist = ConvoyEngine.haversineMiles(prev.first, prev.second, node.latitude, node.longitude)
+                    if (segDist > 0.25f) {
+                        convoyLog("MULTI SEGMENT JUMP REJECTED: node=${node.callsign} dist=${String.format("%.3f",segDist)}mi from (${prev.first},${prev.second}) to (${node.latitude},${node.longitude})")
+                    } else {
+                        newSegs.add(ConvoyEngine.LeadTrackSegment(
+                            startLat = prev.first, startLon = prev.second,
+                            endLat = node.latitude, endLon = node.longitude,
+                            color = "#000000",
+                            nodeId = node.nodeId
+                        ))
+                    }
                 }
                 lastNodePositions[node.nodeId] = Pair(node.latitude, node.longitude)
             }
@@ -630,10 +663,29 @@ class ConvoyViewModel @Inject constructor(
             val latLon = if (hasPos) {
                 val lat = (pos.latitude_i ?: 0) * 1e-7
                 val lon = (pos.longitude_i ?: 0) * 1e-7
-                lastKnownPosition[nodeId] = Pair(lat, lon)
-                Pair(lat, lon)
+                // Reject stale rebroadcast packets: pos.time is the GPS fix timestamp
+                // (Unix seconds). If it predates ride start it is a relay-rebroadcast
+                // of a packet the node sent from a prior location — use lastKnownPosition.
+                val fixTimeMs = (pos.time ?: 0).toLong() * 1000L
+                val isStale = rideStartTimeMs > 0L && fixTimeMs > 0L && fixTimeMs < rideStartTimeMs
+                if (isStale) {
+                    convoyLog("STALE POS REJECTED: node=$callsign fixTime=$fixTimeMs rideStart=$rideStartTimeMs age=${(rideStartTimeMs - fixTimeMs)/1000}s lat=$lat lon=$lon → using lastKnown")
+                    lastKnownPosition[nodeId] ?: return@mapNotNull null
+                } else {
+                    lastKnownPosition[nodeId] = Pair(lat, lon)
+                    if (_trackActive.value) {
+                        convoyLog("POS ACCEPTED: node=$callsign fixTime=$fixTimeMs lat=$lat lon=$lon")
+                    }
+                    Pair(lat, lon)
+                }
             } else {
-                lastKnownPosition[nodeId] ?: return@mapNotNull null
+                val fallback = lastKnownPosition[nodeId]
+                if (fallback != null) {
+                    convoyLog("ZERO POS: node=$callsign — using lastKnown lat=${fallback.first} lon=${fallback.second}")
+                } else {
+                    convoyLog("ZERO POS: node=$callsign — no lastKnown, dropping node this tick")
+                }
+                fallback ?: return@mapNotNull null
             }
             val lastSeenMs = node.lastHeard.toLong() * 1000L
             ConvoyNode(
@@ -641,8 +693,31 @@ class ConvoyViewModel @Inject constructor(
                 callsign = callsign,
                 latitude = latLon.first,
                 longitude = latLon.second,
-                altitude_m = pos.altitude ?: 0,
-                speed_mph = ((pos.ground_speed ?: 0) * 2.23694f),
+                altitude_m = ((pos.altitude ?: 0) * 3.28084f).toInt(),
+                speed_mph = run {
+                    // 60-second fixed window: distance from window start to now * 60 = mph
+                    val nowMs = System.currentTimeMillis()
+                    val windowStart = nodeSpeedWindowStart[nodeId]
+                    if (windowStart == null) {
+                        // Open first window
+                        nodeSpeedWindowStart[nodeId] = Triple(nowMs, latLon.first, latLon.second)
+                        0f
+                    } else {
+                        val (startMs, startLat, startLon) = windowStart
+                        val elapsedMs = nowMs - startMs
+                        if (elapsedMs >= 60_000L) {
+                            // Window complete — compute speed and reset
+                            val distMiles = ConvoyEngine.haversineMiles(startLat, startLon, latLon.first, latLon.second)
+                            val speed = distMiles * 60f  // miles per minute * 60 = mph
+                            nodeLastComputedSpeed[nodeId] = speed
+                            nodeSpeedWindowStart[nodeId] = Triple(nowMs, latLon.first, latLon.second)
+                            speed
+                        } else {
+                            // Hold last computed speed until window completes
+                            nodeLastComputedSpeed[nodeId] ?: 0f
+                        }
+                    }
+                },
                 heading_deg = (pos.ground_track ?: 0).toFloat(),
                 battery_pct = node.deviceMetrics.battery_level ?: 0,
                 snr_db = node.snr,
