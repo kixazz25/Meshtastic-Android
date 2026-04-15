@@ -739,7 +739,7 @@ fun ConvoyScreen(
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         listOf(
-                            "SAT"   to "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+                            "SAT"   to "https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}",
                             "TRAIL" to "https://api.thunderforest.com/outdoors/{z}/{x}/{y}.png?apikey=f472f9f2c59942819e56bb326ddd2c07",
                             "TOPO"  to "https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
                             "TOPO+" to "https://tile.opentopomap.org/{z}/{x}/{y}.png"

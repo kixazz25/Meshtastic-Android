@@ -213,4 +213,5 @@ object ConvoyRoutes {
     @Serializable data object ConvoyExplore          : Route  // V3 Phase B
     @Serializable data object ConvoyTracks           : Route  // V3 Phase B
     @Serializable data object ConvoyProfileSetup      : Route  // V3 Phase B
+    @Serializable data object ConvoyDownloadRideConfig : Route  // V3 Phase B
 }

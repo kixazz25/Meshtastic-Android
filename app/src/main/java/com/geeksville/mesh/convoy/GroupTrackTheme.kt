@@ -247,7 +247,8 @@ fun GroupTrackBottomNav(
     onCreateRide: () -> Unit = {},
     onApplyMasterConfig: () -> Unit = {},
     onArchiveRestore: () -> Unit = {},
-    onMyProfile: () -> Unit = {}
+    onMyProfile: () -> Unit = {},
+    onDownloadRideConfig: () -> Unit = {}
 ) {
     var showRidesMenu   by remember { mutableStateOf(false) }
     var showRadioMenu   by remember { mutableStateOf(false) }
@@ -313,7 +314,7 @@ fun GroupTrackBottomNav(
                 .background(androidx.compose.ui.graphics.Color(0xFF2A2A2A))
         ) {
             GtMenuLabel("RADIO")
-            GtMenuItem("Download Ride Details to Device", false) {}
+            GtMenuItem("Download Ride Details to Device", true)  { closeAll(); onDownloadRideConfig() }
             GtMenuItem("Apply Master / Ride Config to Radio", true)  { closeAll(); onApplyMasterConfig() }
             GtMenuItem("Restore Config from Archive", true)  { closeAll(); onArchiveRestore() }
         }
