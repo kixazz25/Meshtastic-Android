@@ -291,6 +291,8 @@ fun NavGraphBuilder.convoyGraph(
         ConvoyCreateRideScreen(
             onRideCreated = { navController?.navigate(ConvoyRoutes.ConvoyRideDetail) },
             onNavigateToFieldRadio = { navController?.navigate(ConvoyRoutes.ConvoyFieldRadio) },
+            onApplyMasterConfig = { navController?.navigate(ConvoyRoutes.ConvoyApplyRadio) },
+            onArchiveRestore = { navController?.navigate(ConvoyRoutes.ConvoyArchiveRestore) },
             onBack = { navController?.popBackStack() })
     }
     composable<ConvoyRoutes.ConvoyRideDetail> {
@@ -300,10 +302,16 @@ fun NavGraphBuilder.convoyGraph(
             onNavigateToBroadcast  = { navController?.navigate(ConvoyRoutes.ConvoyBroadcast) },
             onNavigateToCreateRide = { navController?.navigate(ConvoyRoutes.ConvoyCreateRide) },
             onNavigateToFieldRadio = { navController?.navigate(ConvoyRoutes.ConvoyFieldRadio) },
+            onApplyMasterConfig = { navController?.navigate(ConvoyRoutes.ConvoyApplyRadio) },
+            onArchiveRestore = { navController?.navigate(ConvoyRoutes.ConvoyArchiveRestore) },
             onBack = { navController?.popBackStack() })
     }
     composable<ConvoyRoutes.ConvoyProfile> {
-        ConvoyProfileScreen(onBack = { navController?.popBackStack() })
+        ConvoyProfileScreen(
+            onBack = { navController?.popBackStack() },
+            onApplyMasterConfig = { navController?.navigate(ConvoyRoutes.ConvoyApplyRadio) },
+            onArchiveRestore = { navController?.navigate(ConvoyRoutes.ConvoyArchiveRestore) }
+        )
     }
     composable<ConvoyRoutes.ConvoyExplore> {
         ConvoyExploreScreen(onBack = { navController?.popBackStack() })
@@ -350,7 +358,10 @@ fun NavGraphBuilder.convoyGraph(
             onNavigateToProfile     = { navController?.navigate(ConvoyRoutes.ConvoyProfile) },
             onNavigateToFieldRadio  = { navController?.navigate(ConvoyRoutes.ConvoyFieldRadio) },
             onShowSubscription      = { navController?.navigate(ConvoyRoutes.ConvoySubscription) },
-            onBack                  = { navController?.popBackStack() }
+            onBack                  = { navController?.popBackStack() },
+            onApplyMasterConfig     = { navController?.navigate(ConvoyRoutes.ConvoyApplyRadio) },
+            onArchiveRestore        = { navController?.navigate(ConvoyRoutes.ConvoyArchiveRestore) },
+            onDownloadRideConfig    = { navController?.navigate(ConvoyRoutes.ConvoyDownloadRideConfig) }
         )
     }
 
@@ -373,6 +384,11 @@ fun NavGraphBuilder.convoyGraph(
             onNavigateToApplyMaster = { navController?.navigate(ConvoyRoutes.ConvoyApplyRadio) },
             onNavigateToVerify      = { navController?.navigate(ConvoyRoutes.ConvoyWriteVerify) },
             onBack                  = { navController?.popBackStack() }
+        )
+    }
+    composable<ConvoyRoutes.ConvoyDownloadRideConfig> {
+        ConvoyDownloadRideConfigScreen(
+            onBack = { navController?.popBackStack() }
         )
     }
 }

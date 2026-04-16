@@ -29,7 +29,11 @@ import androidx.compose.ui.unit.sp
 // ============================================================
 
 @Composable
-fun ConvoyProfileScreen(onBack: () -> Unit) {
+fun ConvoyProfileScreen(
+    onBack: () -> Unit,
+    onApplyMasterConfig: () -> Unit = {},
+    onArchiveRestore: () -> Unit = {}
+) {
     val context = LocalContext.current
     val scrollState = rememberScrollState()
 
@@ -205,7 +209,9 @@ fun ConvoyProfileScreen(onBack: () -> Unit) {
             onRides = onBack,
             onMap = onBack,
             onProfile = {},
-            onRadio = onBack
+            onRadio = onBack,
+            onApplyMasterConfig = onApplyMasterConfig,
+            onArchiveRestore = onArchiveRestore
         )
     }
 }

@@ -29,6 +29,8 @@ fun ConvoyRidesScreen(
     viewModel: ConvoyViewModel? = null,
     onNavigateToPendingRides: () -> Unit = {},
     onNavigateToFieldRadio: () -> Unit = {},
+    onApplyMasterConfig: () -> Unit = {},
+    onArchiveRestore: () -> Unit = {},
     onBack: () -> Unit = {}
 ) {
     val scrollState = rememberScrollState()
@@ -116,7 +118,9 @@ fun ConvoyRidesScreen(
             onRides   = {},
             onMap     = { onBack() },
             onProfile = {},
-            onRadio   = onNavigateToFieldRadio
+            onRadio   = onNavigateToFieldRadio,
+            onApplyMasterConfig = onApplyMasterConfig,
+            onArchiveRestore = onArchiveRestore
         )
     }
 }

@@ -33,7 +33,9 @@ fun ConvoyDashboardScreen(
     onShowSubscription: () -> Unit,
     onBack: () -> Unit,
     onNavigateToCreateRide: (String?) -> Unit = {},
-    onDownloadRideConfig: () -> Unit = {}
+    onDownloadRideConfig: () -> Unit = {},
+    onApplyMasterConfig: () -> Unit = {},
+    onArchiveRestore: () -> Unit = {}
 ) {
     val context = LocalContext.current
     var seedKey by remember { mutableStateOf(0) }
@@ -538,7 +540,10 @@ fun ConvoyDashboardScreen(
             onRides = onNavigateToRides,
             onMap = onBack,
             onProfile = onNavigateToProfile,
-            onRadio = onNavigateToFieldRadio
+            onRadio = onNavigateToFieldRadio,
+            onApplyMasterConfig = onApplyMasterConfig,
+            onArchiveRestore = onArchiveRestore,
+            onDownloadRideConfig = onDownloadRideConfig
         )
     }
 }

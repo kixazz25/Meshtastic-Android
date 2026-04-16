@@ -202,6 +202,33 @@ fun ConvoyDownloadRideConfigScreen(
                 else -> {}
             }
 
+            // Confirmation panel — shows selected ride name and cancel option
+            if (selectedId != null && downloadStatus != "success") {
+                val selectedRide = eligibleRides.firstOrNull { it["id"] == selectedId }
+                if (selectedRide != null) {
+                    Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
+                        .background(Color(0xFF0F2840)).padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("DOWNLOADING CONFIG FOR:", color = Color(0xFF4AB8E8),
+                            fontSize = 9.sp, fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace, letterSpacing = 1.sp)
+                        Text(selectedRide["name"] ?: "", color = Color.White,
+                            fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        Text("${selectedRide["date"] ?: ""}  •  ${selectedRide["organizer"] ?: ""}",
+                            color = Color(0xFF445566), fontSize = 9.sp,
+                            fontFamily = FontFamily.Monospace)
+                        Box(modifier = Modifier.clip(RoundedCornerShape(4.dp))
+                            .background(Color(0xFF2A1A1A)).clickable {
+                                selectedId = null; downloadStatus = "idle"
+                            }.padding(horizontal = 14.dp, vertical = 7.dp)) {
+                            Text("✕  CANCEL — SELECT A DIFFERENT RIDE",
+                                color = Color(0xFFF44336), fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                        }
+                    }
+                }
+            }
+
             // Download button
             val canDownload = selectedId != null && masterConfig != null &&
                               downloadStatus != "success" && downloadStatus != "downloading"

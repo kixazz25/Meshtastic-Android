@@ -37,6 +37,8 @@ fun ConvoyRideDetailScreen(
     onNavigateToBroadcast: () -> Unit = {},
     onNavigateToCreateRide: () -> Unit = {},
     onNavigateToFieldRadio: () -> Unit = {},
+    onApplyMasterConfig: () -> Unit = {},
+    onArchiveRestore: () -> Unit = {},
     onBack: () -> Unit = {}
 ) {
     val context      = LocalContext.current
@@ -402,7 +404,9 @@ fun ConvoyRideDetailScreen(
             onRides   = {},
             onMap     = { onBack() },
             onProfile = {},
-            onRadio   = onNavigateToFieldRadio
+            onRadio   = onNavigateToFieldRadio,
+            onApplyMasterConfig = onApplyMasterConfig,
+            onArchiveRestore = onArchiveRestore
         )
     }
 }

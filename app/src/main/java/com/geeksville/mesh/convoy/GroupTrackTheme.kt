@@ -258,68 +258,7 @@ fun GroupTrackBottomNav(
 
     androidx.compose.foundation.layout.Column(modifier = androidx.compose.ui.Modifier.fillMaxWidth()) {
 
-        // ── MAP dropdown — coming soon panel with feature list ───────────
-        androidx.compose.material3.DropdownMenu(
-            expanded = showMapMenu,
-            onDismissRequest = { showMapMenu = false },
-            modifier = androidx.compose.ui.Modifier
-                .background(androidx.compose.ui.graphics.Color(0xFF2A2A2A))
-        ) {
-            GtMenuLabel("NEW MAP — COMING SOON")
-            GtMenuItem("Convoy Map (current)",      true)  { showMapMenu = false; onMap() }
-            GtMenuItem("KML / GPX Import",          false) {}
-            GtMenuItem("Trail Overlay — Utah",      false) {}
-            GtMenuItem("Trail Overlay — National",  false) {}
-            GtMenuItem("Download Tiles",            false) {}
-            GtMenuItem("Manage Overlays",           false) {}
-            GtMenuItem("Route Planning",            false) {}
-            GtMenuItem("Waypoints",                 false) {}
-            GtMenuItem("Post-Ride Track Cleanup",   false) {}
-        }
-
-        // ── RIDES dropdown ────────────────────────────────────────────────────
-        androidx.compose.material3.DropdownMenu(
-            expanded = showRidesMenu,
-            onDismissRequest = { showRidesMenu = false },
-            modifier = androidx.compose.ui.Modifier
-                .background(androidx.compose.ui.graphics.Color(0xFF2A2A2A))
-        ) {
-            GtMenuLabel("RIDES")
-            GtMenuItem("Create / Open a Ride", true)  { closeAll(); onCreateRide() }
-            GtMenuItem("Ride History",  false) {}
-            GtMenuItem("Search by Area",        false) {}
-            GtMenuItem("Search by Organizer",   false) {}
-            GtMenuItem("Search by Trail",       false) {}
-        }
-
-        // ── PROFILE dropdown ──────────────────────────────────────────────────
-        androidx.compose.material3.DropdownMenu(
-            expanded = showProfileMenu,
-            onDismissRequest = { showProfileMenu = false },
-            modifier = androidx.compose.ui.Modifier
-                .background(androidx.compose.ui.graphics.Color(0xFF2A2A2A))
-        ) {
-            GtMenuLabel("PROFILE")
-            GtMenuItem("My Profile",               true)  { closeAll(); onMyProfile() }
-            GtMenuItem("My Search Settings",  false) {}
-            GtMenuItem("My Organizers",            false) {}
-            GtMenuItem("Account and Subscription", false) {}
-        }
-
-        // ── RADIO dropdown ────────────────────────────────────────────────────
-        androidx.compose.material3.DropdownMenu(
-            expanded = showRadioMenu,
-            onDismissRequest = { showRadioMenu = false },
-            modifier = androidx.compose.ui.Modifier
-                .background(androidx.compose.ui.graphics.Color(0xFF2A2A2A))
-        ) {
-            GtMenuLabel("RADIO")
-            GtMenuItem("Download Ride Details to Device", true)  { closeAll(); onDownloadRideConfig() }
-            GtMenuItem("Apply Master / Ride Config to Radio", true)  { closeAll(); onApplyMasterConfig() }
-            GtMenuItem("Restore Config from Archive", true)  { closeAll(); onArchiveRestore() }
-        }
-
-        // ── Nav bar ───────────────────────────────────────────────────────────
+        // ── Nav bar — each button wrapped in Box to anchor its dropdown ───────
         androidx.compose.foundation.layout.Row(
             modifier = androidx.compose.ui.Modifier
                 .fillMaxWidth()
@@ -328,11 +267,93 @@ fun GroupTrackBottomNav(
                 .padding(vertical = 8.dp),
             horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceEvenly
         ) {
-            GtNavBtn("🏠", "HOME",    GroupTrackTab.HOME    == activeTab) { closeAll(); onHome() }
-            GtNavBtn("🏁", "RIDES",   GroupTrackTab.RIDES   == activeTab) { showRadioMenu = false; showProfileMenu = false; if (!showRidesMenu) showRidesMenu = true else showRidesMenu = false }
-            GtNavBtn("🗺", "MAP",     GroupTrackTab.MAP     == activeTab) { showRidesMenu = false; showRadioMenu = false; showProfileMenu = false; if (!showMapMenu) showMapMenu = true else showMapMenu = false }
-            GtNavBtn("👤", "PROFILE", GroupTrackTab.PROFILE == activeTab) { showRidesMenu = false; showRadioMenu = false; if (!showProfileMenu) showProfileMenu = true else showProfileMenu = false }
-            GtNavBtn("📡", "RADIO",   GroupTrackTab.RADIO   == activeTab) { showRidesMenu = false; showProfileMenu = false; if (!showRadioMenu) showRadioMenu = true else showRadioMenu = false }
+            // HOME
+            GtNavBtn("🏠", "HOME", GroupTrackTab.HOME == activeTab) { closeAll(); onHome() }
+
+            // RIDES
+            androidx.compose.foundation.layout.Box {
+                GtNavBtn("🏁", "RIDES", GroupTrackTab.RIDES == activeTab) {
+                    showRadioMenu = false; showProfileMenu = false; showMapMenu = false
+                    showRidesMenu = !showRidesMenu
+                }
+                androidx.compose.material3.DropdownMenu(
+                    expanded = showRidesMenu,
+                    onDismissRequest = { showRidesMenu = false },
+                    modifier = androidx.compose.ui.Modifier
+                        .background(androidx.compose.ui.graphics.Color(0xFF1E2A3A))
+                ) {
+                    GtMenuLabel("RIDES")
+                    GtMenuItem("Create / Open a Ride", true)  { closeAll(); onCreateRide() }
+                    GtMenuItem("Ride History",         false) {}
+                    GtMenuItem("Search by Area",       false) {}
+                    GtMenuItem("Search by Organizer",  false) {}
+                    GtMenuItem("Search by Trail",      false) {}
+                }
+            }
+
+            // MAP
+            androidx.compose.foundation.layout.Box {
+                GtNavBtn("🗺", "MAP", GroupTrackTab.MAP == activeTab) {
+                    showRidesMenu = false; showRadioMenu = false; showProfileMenu = false
+                    showMapMenu = !showMapMenu
+                }
+                androidx.compose.material3.DropdownMenu(
+                    expanded = showMapMenu,
+                    onDismissRequest = { showMapMenu = false },
+                    modifier = androidx.compose.ui.Modifier
+                        .background(androidx.compose.ui.graphics.Color(0xFF1E2A3A))
+                ) {
+                    GtMenuLabel("NEW MAP — COMING SOON")
+                    GtMenuItem("Convoy Map (current)",     true)  { showMapMenu = false; onMap() }
+                    GtMenuItem("KML / GPX Import",         false) {}
+                    GtMenuItem("Trail Overlay — Utah",     false) {}
+                    GtMenuItem("Trail Overlay — National", false) {}
+                    GtMenuItem("Download Tiles",           false) {}
+                    GtMenuItem("Manage Overlays",          false) {}
+                    GtMenuItem("Route Planning",           false) {}
+                    GtMenuItem("Waypoints",                false) {}
+                    GtMenuItem("Post-Ride Track Cleanup",  false) {}
+                }
+            }
+
+            // PROFILE
+            androidx.compose.foundation.layout.Box {
+                GtNavBtn("👤", "PROFILE", GroupTrackTab.PROFILE == activeTab) {
+                    showRidesMenu = false; showRadioMenu = false
+                    showProfileMenu = !showProfileMenu
+                }
+                androidx.compose.material3.DropdownMenu(
+                    expanded = showProfileMenu,
+                    onDismissRequest = { showProfileMenu = false },
+                    modifier = androidx.compose.ui.Modifier
+                        .background(androidx.compose.ui.graphics.Color(0xFF1E2A3A))
+                ) {
+                    GtMenuLabel("PROFILE")
+                    GtMenuItem("My Profile",               true)  { closeAll(); onMyProfile() }
+                    GtMenuItem("My Search Settings",       false) {}
+                    GtMenuItem("My Organizers",            false) {}
+                    GtMenuItem("Account and Subscription", false) {}
+                }
+            }
+
+            // RADIO
+            androidx.compose.foundation.layout.Box {
+                GtNavBtn("📡", "RADIO", GroupTrackTab.RADIO == activeTab) {
+                    showRidesMenu = false; showProfileMenu = false
+                    showRadioMenu = !showRadioMenu
+                }
+                androidx.compose.material3.DropdownMenu(
+                    expanded = showRadioMenu,
+                    onDismissRequest = { showRadioMenu = false },
+                    modifier = androidx.compose.ui.Modifier
+                        .background(androidx.compose.ui.graphics.Color(0xFF1E2A3A))
+                ) {
+                    GtMenuLabel("RADIO")
+                    GtMenuItem("Download Ride Details to Device",     true) { closeAll(); onDownloadRideConfig() }
+                    GtMenuItem("Apply Master / Ride Config to Radio", true) { closeAll(); onApplyMasterConfig() }
+                    GtMenuItem("Restore Config from Archive",         true) { closeAll(); onArchiveRestore() }
+                }
+            }
         }
     }
 }
@@ -370,17 +391,28 @@ private fun GtMenuLabel(title: String) {
             )
         },
         onClick = {},
-        enabled = false
+        enabled = false,
+        colors = androidx.compose.material3.MenuDefaults.itemColors(
+            disabledTextColor = androidx.compose.ui.graphics.Color(0xFF4AB8E8)
+        ),
+        modifier = androidx.compose.ui.Modifier
+            .background(androidx.compose.ui.graphics.Color(0xFF2C3E50))
     )
     androidx.compose.material3.HorizontalDivider(
         thickness = 0.5.dp,
-        color = androidx.compose.ui.graphics.Color(0xFF1A2840)
+        color = androidx.compose.ui.graphics.Color(0xFF4A6080)
     )
 }
 
 @Composable
 private fun GtMenuItem(label: String, active: Boolean, onClick: () -> Unit) {
     androidx.compose.material3.DropdownMenuItem(
+        modifier = androidx.compose.ui.Modifier
+            .background(androidx.compose.ui.graphics.Color(0xFF2C3E50)),
+        colors = androidx.compose.material3.MenuDefaults.itemColors(
+            textColor = androidx.compose.ui.graphics.Color(0xFFE8EEF5),
+            disabledTextColor = androidx.compose.ui.graphics.Color(0xFF4A6080)
+        ),
         text = {
             androidx.compose.foundation.layout.Row(
                 modifier = androidx.compose.ui.Modifier.fillMaxWidth(),
@@ -390,7 +422,7 @@ private fun GtMenuItem(label: String, active: Boolean, onClick: () -> Unit) {
                 androidx.compose.material3.Text(
                     text = label,
                     color = if (active) androidx.compose.ui.graphics.Color(0xFFE8EEF5)
-                            else androidx.compose.ui.graphics.Color(0xFF2A4060),
+                            else androidx.compose.ui.graphics.Color(0xFF4A6080),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace

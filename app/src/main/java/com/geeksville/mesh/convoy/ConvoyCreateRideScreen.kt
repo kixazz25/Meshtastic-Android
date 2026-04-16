@@ -38,6 +38,8 @@ fun ConvoyCreateRideScreen(
     viewModel: ConvoyViewModel? = null,
     onRideCreated: () -> Unit = {},
     onNavigateToFieldRadio: () -> Unit = {},
+    onApplyMasterConfig: () -> Unit = {},
+    onArchiveRestore: () -> Unit = {},
     onBack: () -> Unit = {}
 ) {
     val context     = LocalContext.current
@@ -511,7 +513,9 @@ fun ConvoyCreateRideScreen(
             onRides   = {},
             onMap     = { onBack() },
             onProfile = {},
-            onRadio   = onNavigateToFieldRadio
+            onRadio   = onNavigateToFieldRadio,
+            onApplyMasterConfig = onApplyMasterConfig,
+            onArchiveRestore = onArchiveRestore
         )
     }
 }
