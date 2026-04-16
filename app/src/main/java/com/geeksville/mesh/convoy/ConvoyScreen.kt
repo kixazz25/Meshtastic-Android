@@ -174,6 +174,9 @@ fun ConvoyScreen(
             initialViewSet.value = true
         }
     }
+    // Track last panned position — prevents setView firing on every radio tick
+    val lastPanLat = remember { androidx.compose.runtime.mutableStateOf(0.0) }
+    val lastPanLon = remember { androidx.compose.runtime.mutableStateOf(0.0) }
     LaunchedEffect(hudMode, selectedNode, mapReady, autoPan, if (autoPan) convoyState else null) {
         val wv = webViewRef.value ?: return@LaunchedEffect
         if (!autoPan) return@LaunchedEffect
@@ -182,12 +185,19 @@ fun ConvoyScreen(
             HudMode.MY_CART -> {
                 val myCart = nodes.firstOrNull { it.isMyCart }
                 myCart?.let {
-                    wv.evaluateJavascript("setView(${it.latitude}, ${it.longitude}, ${ConvoyConfig.MAP_CART_ZOOM})", null)
+                    // Only pan if cart has moved > 0.002 degrees (~200ft) or first pan
+                    val dLat = Math.abs(it.latitude - lastPanLat.value)
+                    val dLon = Math.abs(it.longitude - lastPanLon.value)
+                    if (lastPanLat.value == 0.0 || dLat > 0.002 || dLon > 0.002) {
+                        wv.evaluateJavascript("setView(${it.latitude}, ${it.longitude}, ${ConvoyConfig.MAP_CART_ZOOM})", null)
+                        lastPanLat.value = it.latitude
+                        lastPanLon.value = it.longitude
+                    }
                 }
             }
             HudMode.NODE -> {
                 selectedNode?.let {
-                    wv.evaluateJavascript("setView(\${it.latitude}, \${it.longitude}, \${ConvoyConfig.MAP_CART_ZOOM})", null)
+                    wv.evaluateJavascript("setView(${it.latitude}, ${it.longitude}, ${ConvoyConfig.MAP_CART_ZOOM})", null)
                 }
             }
             else -> {
