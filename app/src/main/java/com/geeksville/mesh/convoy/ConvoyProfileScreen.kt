@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.sp
 @Composable
 fun ConvoyProfileScreen(
     onBack: () -> Unit,
+    onMyOrganizers: () -> Unit = {},
     onApplyMasterConfig: () -> Unit = {},
     onArchiveRestore: () -> Unit = {}
 ) {
@@ -84,27 +85,33 @@ fun ConvoyProfileScreen(
             ProfileField("Email", email, enabled = false) { email = it }
             ProfileField("Cell Phone", cell, placeholder = "Optional") { cell = it }
 
-            ProfileSectionLabel("ADDRESS")
-            ProfileField("Street Address", addressLine1, placeholder = "123 Main St") { addressLine1 = it }
-            var addressLine2 by remember { mutableStateOf("") }
-            ProfileField("Apt / Suite", addressLine2, placeholder = "Optional") { addressLine2 = it }
-            ProfileField("City", city) { city = it }
-            ProfileField("State", state, placeholder = "e.g. UT") { state = it }
-            ProfileField("Zip Code", zipCode) {
-                zipCode = it
-                ConvoySessionManager.setZipCode(context, it)
-            }
-
             ProfileSectionLabel("RIDE DISCOVERY")
-            ProfileField("Search Radius (miles)", radiusMiles, placeholder = "100") {
-                radiusMiles = it
-                it.toIntOrNull()?.let { r -> ConvoySessionManager.setSearchRadius(context, r) }
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Box(modifier = Modifier.weight(1f)) {
+                    ProfileField("Zip Code", zipCode) {
+                        zipCode = it
+                        ConvoySessionManager.setZipCode(context, it)
+                    }
+                }
+                Box(modifier = Modifier.weight(1f)) {
+                    ProfileField("Radius (mi)", radiusMiles, placeholder = "100") {
+                        radiusMiles = it
+                        it.toIntOrNull()?.let { r -> ConvoySessionManager.setSearchRadius(context, r) }
+                    }
+                }
             }
             Text(
                 text = "Rides within this radius of your zip code appear on your Dashboard",
                 color = Color(0xFF445566), fontSize = 10.sp,
                 modifier = Modifier.padding(top = 2.dp)
             )
+            ProfileSectionLabel("ADDRESS")
+            ProfileField("Street Address", addressLine1, placeholder = "123 Main St") { addressLine1 = it }
+            var addressLine2 by remember { mutableStateOf("") }
+            ProfileField("Apt / Suite", addressLine2, placeholder = "Optional") { addressLine2 = it }
+            ProfileField("City", city) { city = it }
+            ProfileField("State", state, placeholder = "e.g. UT") { state = it }
+            ProfileField("Zip Code", zipCode, enabled = false) {}
 
             ProfileSectionLabel("PREFERENCES")
             Row(
@@ -210,6 +217,7 @@ fun ConvoyProfileScreen(
             onMap = onBack,
             onProfile = {},
             onRadio = onBack,
+            onMyOrganizers = onMyOrganizers,
             onApplyMasterConfig = onApplyMasterConfig,
             onArchiveRestore = onArchiveRestore
         )

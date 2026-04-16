@@ -248,6 +248,7 @@ fun GroupTrackBottomNav(
     onApplyMasterConfig: () -> Unit = {},
     onArchiveRestore: () -> Unit = {},
     onMyProfile: () -> Unit = {},
+    onMyOrganizers: () -> Unit = {},
     onDownloadRideConfig: () -> Unit = {}
 ) {
     var showRidesMenu   by remember { mutableStateOf(false) }
@@ -329,10 +330,8 @@ fun GroupTrackBottomNav(
                         .background(androidx.compose.ui.graphics.Color(0xFF1E2A3A))
                 ) {
                     GtMenuLabel("PROFILE")
-                    GtMenuItem("My Profile",               true)  { closeAll(); onMyProfile() }
-                    GtMenuItem("My Search Settings",       false) {}
-                    GtMenuItem("My Organizers",            false) {}
-                    GtMenuItem("Account and Subscription", false) {}
+                    GtMenuItem("My Profile",    true) { closeAll(); onMyProfile() }
+                    GtMenuItem("My Organizers", true) { closeAll(); onMyOrganizers() }
                 }
             }
 

@@ -17,6 +17,7 @@ import com.geeksville.mesh.convoy.ConvoyApplyListScreen
 import com.geeksville.mesh.convoy.ConvoyApplyRadioScreen
 import com.geeksville.mesh.convoy.ConvoyArchiveRestoreScreen
 import com.geeksville.mesh.convoy.ConvoyDownloadRideConfigScreen
+import com.geeksville.mesh.convoy.ConvoyMyOrganizersScreen
 import com.geeksville.mesh.convoy.ConvoyTransferRideScreen
 import com.geeksville.mesh.convoy.ConvoyReconnectWaitScreen
 import com.geeksville.mesh.convoy.ConvoyVerifyConfigScreen
@@ -309,6 +310,7 @@ fun NavGraphBuilder.convoyGraph(
     composable<ConvoyRoutes.ConvoyProfile> {
         ConvoyProfileScreen(
             onBack = { navController?.popBackStack() },
+            onMyOrganizers = { navController?.navigate(ConvoyRoutes.ConvoyMyOrganizers) },
             onApplyMasterConfig = { navController?.navigate(ConvoyRoutes.ConvoyApplyRadio) },
             onArchiveRestore = { navController?.navigate(ConvoyRoutes.ConvoyArchiveRestore) }
         )
@@ -388,6 +390,11 @@ fun NavGraphBuilder.convoyGraph(
     }
     composable<ConvoyRoutes.ConvoyDownloadRideConfig> {
         ConvoyDownloadRideConfigScreen(
+            onBack = { navController?.popBackStack() }
+        )
+    }
+    composable<ConvoyRoutes.ConvoyMyOrganizers> {
+        ConvoyMyOrganizersScreen(
             onBack = { navController?.popBackStack() }
         )
     }

@@ -540,6 +540,7 @@ fun ConvoyDashboardScreen(
             onRides = onNavigateToRides,
             onMap = onBack,
             onProfile = onNavigateToProfile,
+            onMyProfile = onNavigateToProfile,
             onRadio = onNavigateToFieldRadio,
             onApplyMasterConfig = onApplyMasterConfig,
             onArchiveRestore = onArchiveRestore,
