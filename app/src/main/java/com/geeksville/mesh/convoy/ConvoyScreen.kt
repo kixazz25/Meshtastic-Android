@@ -400,6 +400,18 @@ fun ConvoyScreen(
                                 val tileUrl = ConvoyConfig.TILE_SOURCES[ConvoyConfig.ACTIVE_TILE_SOURCE] ?: return
                                 view?.postDelayed({
                                     view.evaluateJavascript("setTileUrl('$tileUrl', '${ConvoyConfig.ACTIVE_TILE_SOURCE}')", null)
+                                    // Center map on device last known location
+                                    try {
+                                        val lm = ctx.getSystemService(android.content.Context.LOCATION_SERVICE) as android.location.LocationManager
+                                        val loc = lm.getLastKnownLocation(android.location.LocationManager.GPS_PROVIDER)
+                                            ?: lm.getLastKnownLocation(android.location.LocationManager.NETWORK_PROVIDER)
+                                        if (loc != null && loc.latitude != 0.0 && loc.longitude != 0.0) {
+                                            android.util.Log.d("ConvoyMap", "Centering map on device GPS: ${loc.latitude}, ${loc.longitude}")
+                                            view.evaluateJavascript("setView(${loc.latitude}, ${loc.longitude}, 15)", null)
+                                        }
+                                    } catch (e: SecurityException) {
+                                        android.util.Log.w("ConvoyMap", "Location permission not granted — map stays at default view")
+                                    }
                                 }, 600)
                                 mapReady++
                             }

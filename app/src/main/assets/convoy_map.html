@@ -134,11 +134,11 @@
     }
     function addMarker(id, lat, lon, color, label, isMine, offTrack) {
       if (markers[id]) map.removeLayer(markers[id]);
-      var sz = isMine ? 20 : 14;
-      var shape = isMine ? "50%" : "3px";
-      var icon = L.divIcon({className:"",
-        html:"<div style='width:"+sz+"px;height:"+sz+"px;background:"+color+";border:2px solid white;border-radius:"+shape+";box-shadow:0 0 4px rgba(0,0,0,0.5)'></div>",
-        iconSize:[sz,sz], iconAnchor:[sz/2,sz/2]});
+      var sz = isMine ? 28 : 14;
+      var html = isMine
+        ? "<div style='width:"+sz+"px;height:"+sz+"px;background:white;border-radius:50%;border:2px solid "+color+";box-shadow:0 0 6px rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;'><span style='font-size:18px;line-height:1;color:"+color+";'>&#9733;</span></div>"
+        : "<div style='width:"+sz+"px;height:"+sz+"px;background:"+color+";border:2px solid white;border-radius:3px;box-shadow:0 0 4px rgba(0,0,0,0.5)'></div>";
+      var icon = L.divIcon({className:"", html:html, iconSize:[sz,sz], iconAnchor:[sz/2,sz/2]});
       var m = L.marker([lat,lon],{icon:icon}).addTo(map);
       var labelColor = offTrack ? "color:red;font-weight:bold;" : "";
       m.bindTooltip("<span style='"+labelColor+"'>"+label+"</span>",{permanent:true,direction:"top",offset:[0,-sz]});
