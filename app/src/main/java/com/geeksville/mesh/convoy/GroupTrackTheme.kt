@@ -249,7 +249,9 @@ fun GroupTrackBottomNav(
     onArchiveRestore: () -> Unit = {},
     onMyProfile: () -> Unit = {},
     onMyOrganizers: () -> Unit = {},
-    onDownloadRideConfig: () -> Unit = {}
+    onDownloadRideConfig: () -> Unit = {},
+    onNavigateToCompletedRides: (String) -> Unit = {},
+    onNavigateToSearchByArea: () -> Unit = {}
 ) {
     var showRidesMenu   by remember { mutableStateOf(false) }
     var showRadioMenu   by remember { mutableStateOf(false) }
@@ -284,11 +286,12 @@ fun GroupTrackBottomNav(
                         .background(androidx.compose.ui.graphics.Color(0xFF1E2A3A))
                 ) {
                     GtMenuLabel("RIDES")
-                    GtMenuItem("Create / Open a Ride", true)  { closeAll(); onCreateRide() }
-                    GtMenuItem("Ride History",         false) {}
-                    GtMenuItem("Search by Area",       false) {}
-                    GtMenuItem("Search by Organizer",  false) {}
-                    GtMenuItem("Search by Trail",      false) {}
+                    GtMenuItem("Create / Open a Ride",  true)  { closeAll(); onCreateRide() }
+                    GtMenuItem("My Completed Rides",    true)  { closeAll(); onNavigateToCompletedRides("HISTORY") }
+                    GtMenuItem("Search by Name",        true)  { closeAll(); onNavigateToCompletedRides("BY NAME") }
+                    GtMenuItem("Search by Organizer",   true)  { closeAll(); onNavigateToCompletedRides("BY ORGANIZER") }
+                    GtMenuItem("Search by Date Range",  true)  { closeAll(); onNavigateToCompletedRides("BY DATE") }
+                    GtMenuItem("Search by Area",        true)  { closeAll(); onNavigateToSearchByArea() }
                 }
             }
 

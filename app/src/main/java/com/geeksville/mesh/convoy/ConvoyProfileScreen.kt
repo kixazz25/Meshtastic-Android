@@ -33,7 +33,9 @@ fun ConvoyProfileScreen(
     onBack: () -> Unit,
     onMyOrganizers: () -> Unit = {},
     onApplyMasterConfig: () -> Unit = {},
-    onArchiveRestore: () -> Unit = {}
+    onArchiveRestore: () -> Unit = {},
+    onNavigateToCompletedRides: (String) -> Unit = {},
+    onNavigateToSearchByArea: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val scrollState = rememberScrollState()
@@ -109,8 +111,14 @@ fun ConvoyProfileScreen(
             ProfileField("Street Address", addressLine1, placeholder = "123 Main St") { addressLine1 = it }
             var addressLine2 by remember { mutableStateOf("") }
             ProfileField("Apt / Suite", addressLine2, placeholder = "Optional") { addressLine2 = it }
-            ProfileField("City", city) { city = it }
-            ProfileField("State", state, placeholder = "e.g. UT") { state = it }
+            ProfileField("City", city) {
+                city = it
+                ConvoySessionManager.setCity(context, it)
+            }
+            ProfileField("State", state, placeholder = "e.g. UT") {
+                state = it
+                ConvoySessionManager.setState(context, it)
+            }
             ProfileField("Zip Code", zipCode, enabled = false) {}
 
             ProfileSectionLabel("PREFERENCES")
@@ -219,7 +227,9 @@ fun ConvoyProfileScreen(
             onRadio = onBack,
             onMyOrganizers = onMyOrganizers,
             onApplyMasterConfig = onApplyMasterConfig,
-            onArchiveRestore = onArchiveRestore
+            onArchiveRestore = onArchiveRestore,
+            onNavigateToCompletedRides = onNavigateToCompletedRides,
+            onNavigateToSearchByArea = onNavigateToSearchByArea
         )
     }
 }

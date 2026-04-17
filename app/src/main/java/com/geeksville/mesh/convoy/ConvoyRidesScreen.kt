@@ -31,6 +31,8 @@ fun ConvoyRidesScreen(
     onNavigateToFieldRadio: () -> Unit = {},
     onApplyMasterConfig: () -> Unit = {},
     onArchiveRestore: () -> Unit = {},
+    onNavigateToCompletedRides: (String) -> Unit = {},
+    onNavigateToSearchByArea: () -> Unit = {},
     onBack: () -> Unit = {}
 ) {
     val scrollState = rememberScrollState()
@@ -72,8 +74,8 @@ fun ConvoyRidesScreen(
             RidesMenuItem(
                 label    = "MY COMPLETED RIDES",
                 subtitle = "Organizer and rider history — most recent first",
-                status   = "PHASE C",
-                onClick  = {}
+                status   = "ACTIVE",
+                onClick  = { onNavigateToCompletedRides("HISTORY") }
             )
 
             // ── SEARCH BY AREA — STUB ─────────────────────────────────────────
@@ -83,7 +85,7 @@ fun ConvoyRidesScreen(
             // Phase C — ConvoySearchAreaScreen.kt
             RidesMenuItem(
                 label    = "SEARCH RIDES BY AREA",
-                subtitle = "Find rides near a location — zip + mileage filter",
+                subtitle = "Find rides near a location — zip + mileage filter  •  Requires new map",
                 status   = "PHASE C",
                 onClick  = {}
             )
@@ -95,9 +97,9 @@ fun ConvoyRidesScreen(
             // Phase C — ConvoySearchOrganizerScreen.kt
             RidesMenuItem(
                 label    = "SEARCH BY ORGANIZER",
-                subtitle = "Find rides by organizer — twistie results",
-                status   = "PHASE C",
-                onClick  = {}
+                subtitle = "Find rides by organizer",
+                status   = "ACTIVE",
+                onClick  = { onNavigateToCompletedRides("BY ORGANIZER") }
             )
 
             // ── SEARCH BY TRAIL — STUB ────────────────────────────────────────
@@ -105,10 +107,16 @@ fun ConvoyRidesScreen(
             // Zip + mileage filter applies.
             // Phase C — ConvoySearchTrailScreen.kt
             RidesMenuItem(
-                label    = "SEARCH BY TRAIL / TRAILHEAD",
-                subtitle = "Find rides by trail name or staging area",
-                status   = "PHASE C",
-                onClick  = {}
+                label    = "SEARCH BY NAME",
+                subtitle = "Find rides by name",
+                status   = "ACTIVE",
+                onClick  = { onNavigateToCompletedRides("BY NAME") }
+            )
+            RidesMenuItem(
+                label    = "SEARCH BY DATE RANGE",
+                subtitle = "Find rides within a date range",
+                status   = "ACTIVE",
+                onClick  = { onNavigateToCompletedRides("BY DATE") }
             )
         }
 
@@ -120,7 +128,9 @@ fun ConvoyRidesScreen(
             onProfile = {},
             onRadio   = onNavigateToFieldRadio,
             onApplyMasterConfig = onApplyMasterConfig,
-            onArchiveRestore = onArchiveRestore
+            onArchiveRestore = onArchiveRestore,
+            onNavigateToCompletedRides = onNavigateToCompletedRides,
+            onNavigateToSearchByArea = onNavigateToSearchByArea
         )
     }
 }

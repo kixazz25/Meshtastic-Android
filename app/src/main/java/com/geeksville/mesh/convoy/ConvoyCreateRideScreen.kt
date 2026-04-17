@@ -40,6 +40,8 @@ fun ConvoyCreateRideScreen(
     onNavigateToFieldRadio: () -> Unit = {},
     onApplyMasterConfig: () -> Unit = {},
     onArchiveRestore: () -> Unit = {},
+    onNavigateToCompletedRides: (String) -> Unit = {},
+    onNavigateToSearchByArea: () -> Unit = {},
     onBack: () -> Unit = {}
 ) {
     val context     = LocalContext.current
@@ -515,7 +517,9 @@ fun ConvoyCreateRideScreen(
             onProfile = {},
             onRadio   = onNavigateToFieldRadio,
             onApplyMasterConfig = onApplyMasterConfig,
-            onArchiveRestore = onArchiveRestore
+            onArchiveRestore = onArchiveRestore,
+            onNavigateToCompletedRides = onNavigateToCompletedRides,
+            onNavigateToSearchByArea = onNavigateToSearchByArea
         )
     }
 }

@@ -18,6 +18,10 @@ import com.geeksville.mesh.convoy.ConvoyApplyRadioScreen
 import com.geeksville.mesh.convoy.ConvoyArchiveRestoreScreen
 import com.geeksville.mesh.convoy.ConvoyDownloadRideConfigScreen
 import com.geeksville.mesh.convoy.ConvoyMyOrganizersScreen
+import com.geeksville.mesh.convoy.ConvoyCompletedRidesScreen
+import com.geeksville.mesh.convoy.ConvoyNavArgs
+import com.geeksville.mesh.convoy.ConvoyCompletedRideDetailScreen
+import com.geeksville.mesh.convoy.ConvoySearchByAreaScreen
 import com.geeksville.mesh.convoy.ConvoyTransferRideScreen
 import com.geeksville.mesh.convoy.ConvoyReconnectWaitScreen
 import com.geeksville.mesh.convoy.ConvoyVerifyConfigScreen
@@ -363,7 +367,12 @@ fun NavGraphBuilder.convoyGraph(
             onBack                  = { navController?.popBackStack() },
             onApplyMasterConfig     = { navController?.navigate(ConvoyRoutes.ConvoyApplyRadio) },
             onArchiveRestore        = { navController?.navigate(ConvoyRoutes.ConvoyArchiveRestore) },
-            onDownloadRideConfig    = { navController?.navigate(ConvoyRoutes.ConvoyDownloadRideConfig) }
+            onDownloadRideConfig    = { navController?.navigate(ConvoyRoutes.ConvoyDownloadRideConfig) },
+            onNavigateToCompletedRides = { tab ->
+                ConvoyNavArgs.completedRidesTab = tab
+                navController?.navigate(ConvoyRoutes.ConvoyCompletedRides)
+            },
+            onNavigateToSearchByArea = { navController?.navigate(ConvoyRoutes.ConvoySearchByArea) }
         )
     }
 
@@ -395,6 +404,28 @@ fun NavGraphBuilder.convoyGraph(
     }
     composable<ConvoyRoutes.ConvoyMyOrganizers> {
         ConvoyMyOrganizersScreen(
+            onBack = { navController?.popBackStack() }
+        )
+    }
+    composable<ConvoyRoutes.ConvoyCompletedRides> {
+        ConvoyCompletedRidesScreen(
+            initialTab = ConvoyNavArgs.completedRidesTab,
+            onNavigateToDetail = { rideId ->
+                ConvoyNavArgs.completedRideId = rideId
+                navController?.navigate(ConvoyRoutes.ConvoyCompletedRideDetail)
+            },
+            onBack = { navController?.popBackStack() }
+        )
+    }
+    composable<ConvoyRoutes.ConvoySearchByArea> {
+        ConvoySearchByAreaScreen(
+            onBack = { navController?.popBackStack() }
+        )
+    }
+    composable<ConvoyRoutes.ConvoyCompletedRideDetail> {
+        ConvoyCompletedRideDetailScreen(
+            rideId = ConvoyNavArgs.completedRideId,
+            onNavigateToMap = { navController?.navigate(ConvoyRoutes.Convoy) },
             onBack = { navController?.popBackStack() }
         )
     }

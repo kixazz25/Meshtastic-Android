@@ -43,6 +43,17 @@ object ConvoySessionManager {
 
     fun getZipCode(ctx: Context): String =
         prefs(ctx).getString("zip_code", "") ?: ""
+    fun getCity(ctx: Context): String =
+        prefs(ctx).getString("city", "") ?: ""
+    fun setCity(ctx: Context, city: String) =
+        prefs(ctx).edit().putString("city", city).apply()
+    fun getState(ctx: Context): String =
+        prefs(ctx).getString("state", "") ?: ""
+    fun setState(ctx: Context, state: String) =
+        prefs(ctx).edit().putString("state", state).apply()
+    // Phase C: server-side ZIP lookup trigger — on PUT /users/{id},
+    // if zip_code provided and city/state blank, server calls
+    // api.zippopotam.us/us/{zip} and populates city/state automatically.""
 
     fun getSearchRadius(ctx: Context): Int =
         prefs(ctx).getInt("search_radius_miles", 25)
