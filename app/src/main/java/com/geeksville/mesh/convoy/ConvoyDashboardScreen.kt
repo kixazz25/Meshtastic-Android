@@ -44,6 +44,7 @@ fun ConvoyDashboardScreen(
 
     val firstName     = remember(seedKey) { ConvoySessionManager.getFirstName(context) }
     val isOrganizer   = remember(seedKey) { ConvoySessionManager.isOrganizer(context) }
+    var activeRole    by remember { mutableStateOf(if (isOrganizer) "ORGANIZER" else "RIDER") }
     val currentUserId = remember { ConvoySessionManager.getUserId(context) ?: "" }
     var zipCode       by remember { mutableStateOf(ConvoySessionManager.getZipCode(context)) }
     var radius        by remember { mutableStateOf(ConvoySessionManager.getSearchRadius(context).toString()) }
@@ -143,8 +144,26 @@ fun ConvoyDashboardScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                DashBadge("RIDER", Color(0xFF22C55E))
-                if (isOrganizer) DashBadge("ORGANIZER", Color(0xFF4AB8E8))
+                // RIDER tab — always visible
+                Box(modifier = Modifier.clip(RoundedCornerShape(6.dp))
+                    .background(if (activeRole == "RIDER") Color(0xFF22C55E) else Color(0xFF22C55E).copy(alpha = 0.2f))
+                    .clickable { activeRole = "RIDER" }
+                    .padding(horizontal = 10.dp, vertical = 4.dp)) {
+                    Text("RIDER", color = if (activeRole == "RIDER") Color(0xFF0A1628) else Color(0xFF22C55E),
+                        fontSize = 10.sp, fontWeight = FontWeight.Bold,
+                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
+                }
+                // ORGANIZER tab — only visible to organizers
+                if (isOrganizer) {
+                    Box(modifier = Modifier.clip(RoundedCornerShape(6.dp))
+                        .background(if (activeRole == "ORGANIZER") Color(0xFF4AB8E8) else Color(0xFF4AB8E8).copy(alpha = 0.2f))
+                        .clickable { activeRole = "ORGANIZER" }
+                        .padding(horizontal = 10.dp, vertical = 4.dp)) {
+                        Text("ORGANIZER", color = if (activeRole == "ORGANIZER") Color(0xFF0A1628) else Color(0xFF4AB8E8),
+                            fontSize = 10.sp, fontWeight = FontWeight.Bold,
+                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
+                    }
+                }
             }
             // ADD A RIDE button — always visible
             Text(
@@ -224,7 +243,7 @@ fun ConvoyDashboardScreen(
         ) {
 
             // ── ORGANIZER PENDING RIDES ───────────────────────────────────────
-            if (isOrganizer) {
+            if (isOrganizer && activeRole == "ORGANIZER") {
                 item {
                     ConvoyOrganizerPendingRides(
                         onNavigateToCreateRide = onNavigateToCreateRide
@@ -233,7 +252,7 @@ fun ConvoyDashboardScreen(
             }
 
             // ── SECTION 1: ORGANIZER NOTIFICATIONS ───────────────────────────
-            if (isOrganizer && notifCount > 0) {
+            if (isOrganizer && activeRole == "ORGANIZER" && notifCount > 0) {
                 item {
                     AccordionHeader(
                         title = "ORGANIZER OPEN RIDES", count = notifCount,
@@ -242,7 +261,7 @@ fun ConvoyDashboardScreen(
                     )
                 }
             }
-            if (isOrganizer && notifExpanded && notifCount > 0) {
+            if (isOrganizer && activeRole == "ORGANIZER" && notifExpanded && notifCount > 0) {
                 items(notifCount) { i ->
                     val rideName    = ConvoyDevSeeder.getNotif(context, i, "ride")
                     val visibility  = ConvoyDevSeeder.getNotif(context, i, "visibility")
@@ -326,6 +345,7 @@ fun ConvoyDashboardScreen(
             }
 
             // ── SECTION 2: INVITES PENDING REPLIES ───────────────────────────
+            if (activeRole == "RIDER") {
             if (inviteCount > 0) {
                 item {
                     AccordionHeader(
@@ -535,6 +555,7 @@ fun ConvoyDashboardScreen(
             }
         }
 
+            } // end activeRole == RIDER
         // ── Bottom nav ────────────────────────────────────────────────────────
         GroupTrackBottomNav(
             activeTab = GroupTrackTab.HOME,
