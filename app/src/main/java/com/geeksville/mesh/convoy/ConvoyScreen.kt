@@ -104,6 +104,7 @@ fun ConvoyScreen(
     val simulationMode by viewModel.simulationMode.collectAsStateWithLifecycle()
     val showLeadTrack by viewModel.showLeadTrack.collectAsStateWithLifecycle()
     var recordingState by viewModel.recordingState
+    var showLocationPermissionDialog by remember { mutableStateOf(false) }
     var showNameDialog by remember { mutableStateOf(false) }
     var pendingTrackName by viewModel.pendingTrackName
     val context = LocalContext.current
@@ -174,9 +175,6 @@ fun ConvoyScreen(
             initialViewSet.value = true
         }
     }
-    // Track last panned position — prevents setView firing on every radio tick
-    val lastPanLat = remember { androidx.compose.runtime.mutableStateOf(0.0) }
-    val lastPanLon = remember { androidx.compose.runtime.mutableStateOf(0.0) }
     LaunchedEffect(hudMode, selectedNode, mapReady, autoPan, if (autoPan) convoyState else null) {
         val wv = webViewRef.value ?: return@LaunchedEffect
         if (!autoPan) return@LaunchedEffect
@@ -185,14 +183,7 @@ fun ConvoyScreen(
             HudMode.MY_CART -> {
                 val myCart = nodes.firstOrNull { it.isMyCart }
                 myCart?.let {
-                    // Only pan if cart has moved > 0.002 degrees (~200ft) or first pan
-                    val dLat = Math.abs(it.latitude - lastPanLat.value)
-                    val dLon = Math.abs(it.longitude - lastPanLon.value)
-                    if (lastPanLat.value == 0.0 || dLat > 0.002 || dLon > 0.002) {
-                        wv.evaluateJavascript("setView(${it.latitude}, ${it.longitude}, ${ConvoyConfig.MAP_CART_ZOOM})", null)
-                        lastPanLat.value = it.latitude
-                        lastPanLon.value = it.longitude
-                    }
+                    wv.evaluateJavascript("setView(${it.latitude}, ${it.longitude}, ${ConvoyConfig.MAP_CART_ZOOM})", null)
                 }
             }
             HudMode.NODE -> {
@@ -562,13 +553,50 @@ fun ConvoyScreen(
             }
         }
 
+        if (showLocationPermissionDialog) {
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { showLocationPermissionDialog = false },
+                title = { androidx.compose.material3.Text("Location Permission Required",
+                    color = androidx.compose.ui.graphics.Color.White) },
+                text = { androidx.compose.material3.Text(
+                    "GPS track recording requires \"Allow all the time\" location access.\n\nTap SETTINGS then Location > Allow all the time.",
+                    color = androidx.compose.ui.graphics.Color(0xFFAABBCC)) },
+                confirmButton = {
+                    androidx.compose.material3.TextButton(onClick = {
+                        showLocationPermissionDialog = false
+                        val intent = android.content.Intent(
+                            android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                            android.net.Uri.fromParts("package", context.packageName, null))
+                        context.startActivity(intent)
+                    }) { androidx.compose.material3.Text("SETTINGS", color = androidx.compose.ui.graphics.Color(0xFF4AB8E8)) }
+                },
+                dismissButton = {
+                    androidx.compose.material3.TextButton(onClick = { showLocationPermissionDialog = false }) {
+                        androidx.compose.material3.Text("CANCEL", color = androidx.compose.ui.graphics.Color(0xFF445566))
+                    }
+                },
+                containerColor = androidx.compose.ui.graphics.Color(0xFF0F2035)
+            )
+        }
         Box(modifier = Modifier.align(Alignment.TopStart).statusBarsPadding().padding(8.dp)) {
             if (!showRecMenu) {
                 // Main REC button
                 Surface(
                     modifier = Modifier.clickable {
                         when (recordingState) {
-                            RecordingState.IDLE -> { recordingState = RecordingState.RECORDING; viewModel.startRecording(context); viewModel.startGroupTrack() }
+                            RecordingState.IDLE -> {
+                                val bgGranted = android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.Q ||
+                                    androidx.core.content.ContextCompat.checkSelfPermission(
+                                        context, android.Manifest.permission.ACCESS_BACKGROUND_LOCATION
+                                    ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                                if (bgGranted) {
+                                    recordingState = RecordingState.RECORDING
+                                    viewModel.startRecording(context)
+                                    viewModel.startGroupTrack()
+                                } else {
+                                    showLocationPermissionDialog = true
+                                }
+                            }
                             RecordingState.RECORDING -> { showRecMenu = true }
                             RecordingState.PAUSED -> showRecMenu = true
                         }
