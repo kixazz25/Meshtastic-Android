@@ -78,6 +78,8 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.jetbrains.compose.resources.vectorResource
 import org.meshtastic.core.resources.Res
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 
 /**
  * ConvoyScreen — IMP-001 Task 4.2 + 5.1 + 5.2 + 5.3 + 5.4
@@ -138,6 +140,7 @@ fun ConvoyScreen(
     var locationSearchError by remember { mutableStateOf("") }
     var mapInitialized by remember { mutableStateOf(false) }
     var showRecMenu by viewModel.showRecMenu
+    var showLeadDialog by remember { mutableStateOf(false) }
 
     val lifecycle = LocalLifecycleOwner.current.lifecycle
 
@@ -578,6 +581,67 @@ fun ConvoyScreen(
                 containerColor = androidx.compose.ui.graphics.Color(0xFF0F2035)
             )
         }
+        // -- Lead Selection Dialog --
+        if (showLeadDialog) {
+            val dialogNodes = convoyState.nodes
+            AlertDialog(
+                onDismissRequest = { showLeadDialog = false },
+                title = {
+                    androidx.compose.material3.Text(
+                        "Select Lead Cart",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp
+                    )
+                },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        androidx.compose.material3.Text(
+                            "Tap the lead cart to start the ride:",
+                            fontSize = 13.sp,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                        dialogNodes.forEach { node ->
+                            Surface(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        viewModel.setLeadCart(node.nodeId)
+                                        showLeadDialog = false
+                                        recordingState = RecordingState.RECORDING
+                                        viewModel.startRecording(context)
+                                        viewModel.startGroupTrack()
+                                        android.widget.Toast.makeText(
+                                            context,
+                                            node.callsign + " set as Lead Cart",
+                                            android.widget.Toast.LENGTH_SHORT
+                                        ).show()
+                                    },
+                                shape = RoundedCornerShape(8.dp),
+                                color = Color(0xFF2A3040),
+                                shadowElevation = 2.dp
+                            ) {
+                                Text(
+                                    node.callsign,
+                                    color = Color.White,
+                                    fontSize = 15.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                                )
+                            }
+                        }
+                    }
+                },
+                confirmButton = {},
+                dismissButton = {
+                    TextButton(onClick = { showLeadDialog = false }) {
+                        Text("CANCEL")
+                    }
+                },
+                containerColor = Color(0xFF1E252F)
+            )
+        }
+
         Box(modifier = Modifier.align(Alignment.TopStart).statusBarsPadding().padding(8.dp)) {
             if (!showRecMenu) {
                 // Main REC button
@@ -590,9 +654,25 @@ fun ConvoyScreen(
                                         context, android.Manifest.permission.ACCESS_BACKGROUND_LOCATION
                                     ) == android.content.pm.PackageManager.PERMISSION_GRANTED
                                 if (bgGranted) {
-                                    recordingState = RecordingState.RECORDING
-                                    viewModel.startRecording(context)
-                                    viewModel.startGroupTrack()
+                                    if (viewModel.leadLocked.value) {
+                                    android.widget.Toast.makeText(context, "leadLocked=" + viewModel.leadLocked.value + " nodes=" + viewModel.convoyState.value.nodes.size, android.widget.Toast.LENGTH_LONG).show()
+                                        // Lead already set via SET AS LEAD
+                                        recordingState = RecordingState.RECORDING
+                                        viewModel.startRecording(context)
+                                        viewModel.startGroupTrack()
+                                    } else {
+                                        val meshNodes = viewModel.convoyState.value.nodes
+                                        if (meshNodes.size <= 1) {
+                                            // Solo/standalone -- auto-assign and go
+                                            meshNodes.firstOrNull()?.let { viewModel.setLeadCart(it.nodeId) }
+                                            recordingState = RecordingState.RECORDING
+                                            viewModel.startRecording(context)
+                                            viewModel.startGroupTrack()
+                                        } else {
+                                            // Multiple carts -- show lead selection dialog
+                                            showLeadDialog = true
+                                        }
+                                    }
                                 } else {
                                     showLocationPermissionDialog = true
                                 }
@@ -1175,6 +1255,14 @@ fun ConvoyScreen(
                         onRemove = { n ->
                             viewModel.removeNode(n.nodeId)
                             webViewRef.value?.evaluateJavascript("removeMarker('${n.nodeId}')", null)
+                        },
+                        onSetLead = { n ->
+                            viewModel.setLeadCart(n.nodeId)
+                            android.widget.Toast.makeText(
+                                context,
+                                n.callsign + " set as Lead Cart",
+                                android.widget.Toast.LENGTH_SHORT
+                            ).show()
                         }
                     )
                 }
@@ -1362,7 +1450,8 @@ fun MyCartHud(
 fun NodeDetailHud(
     node: ConvoyNode,
     onDismiss: () -> Unit,
-    onRemove: (ConvoyNode) -> Unit = {}
+    onRemove: (ConvoyNode) -> Unit = {},
+    onSetLead: (ConvoyNode) -> Unit = {}
 ) {
     HudCard {
         // Title — cart callsign
@@ -1389,6 +1478,19 @@ fun NodeDetailHud(
             HudStat("SEEN", node.lastSeenAgo)
         }
         Spacer(Modifier.height(8.dp))
+        // SET AS LEAD -- local fallback for manual correction
+        androidx.compose.foundation.layout.Box(contentAlignment = Alignment.Center) {
+            Surface(
+                modifier = Modifier.clickable { onSetLead(node); onDismiss() },
+                shape = RoundedCornerShape(6.dp),
+                color = Color(0xFF006633)
+            ) {
+                Text("SET AS LEAD", color = Color.White, fontSize = 9.sp,
+                    fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp))
+            }
+        }
+        Spacer(Modifier.height(4.dp))
         androidx.compose.foundation.layout.Box(contentAlignment = Alignment.Center) {
             Surface(
                 modifier = Modifier.clickable { onRemove(node); onDismiss() },

@@ -82,7 +82,7 @@ class ConvoyViewModel @Inject constructor(
     // 60-second fixed window speed computation per node
     private val nodeSpeedWindowStart: MutableMap<String, Triple<Long, Double, Double>> = mutableMapOf()
     private val nodeLastComputedSpeed: MutableMap<String, Float> = mutableMapOf()
-    // The locked lead node ID — set when first node hits 1/4 mile, never changes until RECALC
+    // The locked lead node ID — set by user via lead selection dialog before ride start
     private var lockedLeadNodeId: String? = null
     private val _leadLocked = MutableStateFlow(false)
     val leadLocked: StateFlow<Boolean> = _leadLocked.asStateFlow()
@@ -137,17 +137,18 @@ class ConvoyViewModel @Inject constructor(
         rideStartTimeMs = 0L
     }
 
-    fun recalcLead() {
-        // Immediately lock whoever has traveled furthest as new lead
-        val newLead = nodeDistanceAccum.maxByOrNull { (_, dist) -> dist }
-        if (newLead != null) {
-            lockedLeadNodeId = newLead.key
+    fun setLeadCart(nodeId: String?) {
+        if (nodeId != null) {
+            lockedLeadNodeId = nodeId
             _leadLockedFlag = true
             _leadLocked.value = true
+            val name = _convoyState.value.nodes.firstOrNull { it.nodeId == nodeId }?.callsign ?: nodeId
+            convoyLog("LEAD SET: $name manually assigned as lead cart")
         } else {
             lockedLeadNodeId = null
             _leadLockedFlag = false
             _leadLocked.value = false
+            convoyLog("LEAD CLEARED: no lead assigned")
         }
     }
 
@@ -265,11 +266,7 @@ class ConvoyViewModel @Inject constructor(
         viewModelScope.launch {
             settingsRepository.admissionWindowHours.collect { admissionWindowHours = it }
         }
-        viewModelScope.launch {
-            settingsRepository.leadLockFeet.collect { feet ->
-                ConvoyConfig.LEAD_LOCK_DISTANCE_MILES = feet / 5280f
-            }
-        }
+
         viewModelScope.launch {
             nodeRepository.myNodeInfo.collect { info ->
                 _myNodeInfo.value = info
@@ -496,45 +493,8 @@ class ConvoyViewModel @Inject constructor(
             readLiveNodes(nowMs)
         }
 
-        // ── Per-node distance accumulator — runs before compute() ─────────────
-        // Every active node accumulates distance. First to hit 1/4 mile wins lead.
-        if (_trackActive.value && !_leadLockedFlag) {
-            for (node in nodes) {
-                if (node.status == ConvoyStatus.ACTIVE &&
-                    node.latitude != 0.0 && node.longitude != 0.0) {
-                    val prevLat = nodeLastLat[node.nodeId]
-                    val prevLon = nodeLastLon[node.nodeId]
-                    if (prevLat != null && prevLon != null) {
-                        val delta = ConvoyEngine.haversineMiles(prevLat, prevLon, node.latitude, node.longitude)
-                        // Ignore GPS jumps > 0.5 miles (bad fix)
-                        if (delta > 0f && delta < 0.5f) {
-                            nodeDistanceAccum[node.nodeId] = (nodeDistanceAccum[node.nodeId] ?: 0f) + delta
-                        }
-                    }
-                    nodeLastLat[node.nodeId] = node.latitude
-                    nodeLastLon[node.nodeId] = node.longitude
-                }
-            }
-            // First node to hit 1/4 mile wins lead — locked forever until RECALC
-            val lockCandidate = nodeDistanceAccum
-                .filter { (_, dist) -> dist >= ConvoyConfig.LEAD_LOCK_DISTANCE_MILES }
-                .maxByOrNull { (_, dist) -> dist }
-            if (lockCandidate != null) {
-                lockedLeadNodeId = lockCandidate.key
-                _leadLockedFlag = true
-                _leadLocked.value = true
-                val leadName = nodes.firstOrNull { it.nodeId == lockedLeadNodeId }?.callsign ?: lockedLeadNodeId
-                convoyLog("LOCK FIRED: $leadName locked as lead at ${String.format("%.3f", lockCandidate.value)} mi")
-                viewModelScope.launch(kotlinx.coroutines.Dispatchers.Main) {
-                    android.widget.Toast.makeText(appContext, "$leadName Locked as Lead", android.widget.Toast.LENGTH_SHORT).show()
-                }
-            }
-        }
-
-        // Tail = node with minimum distance accumulator (dynamic every tick)
-        val tailNodeId: String? = if (nodeDistanceAccum.size > 1)
-            nodeDistanceAccum.minByOrNull { (_, dist) -> dist }?.key
-        else null
+        // V2.4: Lead assigned manually via dialog before ride start -- no auto-lock
+        val tailNodeId: String? = null
 
         val state = ConvoyEngine.compute(
             nodes = nodes,

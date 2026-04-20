@@ -83,7 +83,6 @@ class ConvoySettingsRepository @Inject constructor(
     }
     suspend fun setLeadLockFeet(value: Float) {
         context.convoyDataStore.edit { it[KEY_LEAD_LOCK_FEET] = value }
-        ConvoyConfig.LEAD_LOCK_DISTANCE_MILES = value / 5280f
     }
 
     /** Remove a cart for today — stored with callsign for display in settings */
