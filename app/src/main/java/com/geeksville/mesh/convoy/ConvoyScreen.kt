@@ -121,7 +121,9 @@ fun ConvoyScreen(
     var showLayerMenu by remember { mutableStateOf(false) }
     val mapTypeLabel by viewModel.mapTypeLabel.collectAsStateWithLifecycle()
     val isLocalTiles by viewModel.isLocalTiles.collectAsStateWithLifecycle()
-    var showMapSettings by remember { mutableStateOf(false) }
+    var trailsOn by remember { mutableStateOf(true) }
+    var tracksOn by remember { mutableStateOf(true) }
+        var showMapSettings by remember { mutableStateOf(false) }
     var showConvoyMenu by remember { mutableStateOf(false) }
     val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
     var showImportSplash by remember { mutableStateOf(false) }
@@ -405,6 +407,14 @@ fun ConvoyScreen(
                                 val tileUrl = ConvoyConfig.TILE_SOURCES[ConvoyConfig.ACTIVE_TILE_SOURCE] ?: return
                                 view?.postDelayed({
                                     view.evaluateJavascript("setTileUrl('$tileUrl', '${ConvoyConfig.ACTIVE_TILE_SOURCE}')", null)
+                                    // Load trails from bundled asset (same pattern as MapViewer)
+                                    try {
+                                        val json = ctx.assets.open("utah_trails_stgeorge.geojson").bufferedReader().use { it.readText() }
+                                        view.evaluateJavascript("loadTrails($json); showTrails();", null)
+                                        android.util.Log.d("ConvoyMap", "Trails injected from Kotlin assets")
+                                    } catch (e: Exception) {
+                                        android.util.Log.e("ConvoyMap", "Trail load error: ${e.message}")
+                                    }
                                     // Center map on device last known location
                                     try {
                                         val lm = ctx.getSystemService(android.content.Context.LOCATION_SERVICE) as android.location.LocationManager
@@ -821,11 +831,41 @@ fun ConvoyScreen(
                                 fontFamily = FontFamily.Monospace
                             )
                             Spacer(Modifier.width(6.dp))
-                            Text(
-                                "MAP  $mapTypeLabel",
-                                color = Color(0xFF2E75B6), fontSize = 11.sp,
-                                fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold
-                            )
+                            // TRAILS toggle
+                            Surface(
+                                modifier = Modifier.clickable {
+                                    trailsOn = !trailsOn
+                                    webViewRef.value?.evaluateJavascript("toggleTrails()", null)
+                                },
+                                shape = RoundedCornerShape(3.dp),
+                                color = if (trailsOn) Color(0xFF2E75B6) else Color(0xFF1A2233)
+                            ) {
+                                Text(
+                                    "TRAILS",
+                                    color = if (trailsOn) Color.White else Color(0xFF4A6080),
+                                    fontSize = 9.sp, fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                                )
+                            }
+                            Spacer(Modifier.width(4.dp))
+                            // TRACKS toggle
+                            Surface(
+                                modifier = Modifier.clickable {
+                                    tracksOn = !tracksOn
+                                    webViewRef.value?.evaluateJavascript("toggleTracks()", null)
+                                },
+                                shape = RoundedCornerShape(3.dp),
+                                color = if (tracksOn) Color(0xFF2E75B6) else Color(0xFF1A2233)
+                            ) {
+                                Text(
+                                    "TRACKS",
+                                    color = if (tracksOn) Color.White else Color(0xFF4A6080),
+                                    fontSize = 9.sp, fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                                )
+                            }
                         }
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Box(
@@ -870,10 +910,10 @@ fun ConvoyScreen(
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         listOf(
-                            "SAT"   to "https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}",
-                            "TRAIL" to "https://api.thunderforest.com/outdoors/{z}/{x}/{y}.png?apikey=f472f9f2c59942819e56bb326ddd2c07",
+                            "SAT"   to "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+                            "HYB"   to "https://mt0.google.com/vt/lyrs=y&x={x}&y={y}&z={z}",
                             "TOPO"  to "https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
-                            "TOPO+" to "https://tile.opentopomap.org/{z}/{x}/{y}.png"
+                            "TOPO+" to "https://server.arcgisonline.com/ArcGIS/rest/services/USA_Topo_Maps/MapServer/tile/{z}/{y}/{x}"
                         ).forEach { (label, onlineUrl) ->
                             val isActive = mapTypeLabel == label
                             Surface(

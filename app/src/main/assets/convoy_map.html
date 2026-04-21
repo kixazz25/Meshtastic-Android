@@ -16,9 +16,81 @@
   <div id="map"></div>
   <script>
     var map, tileLayer, markers = {}, deviceMarker = null;
+    var trailLayer = null, trailsVisible = false;
+    var tracksVisible = true;
     var drawnItems = null;
     var drawControl = null;
     var currentMaxNative = 18;
+    // -- Trail color by CartoCode --
+    function trailColor(cartoCode) {
+      if (!cartoCode) return '#888888';
+      var code = cartoCode.charAt(0);
+      switch (code) {
+        case '4': return '#00AAFF';
+        case '2': return '#FF8800';
+        case '1': return '#FFCC00';
+        case '5': return '#AA44FF';
+        case '3': return '#888888';
+        default:  return '#888888';
+      }
+    }
+
+    function trailWeight(cartoCode) {
+      if (!cartoCode) return 2;
+      return cartoCode.charAt(0) === '4' ? 3 : 2;
+    }
+
+    // -- Trail overlay --
+    function loadTrails(geojsonData) {
+      if (trailLayer) map.removeLayer(trailLayer);
+      trailLayer = L.geoJSON(geojsonData, {
+        style: function(feature) {
+          var cc = feature.properties.CartoCode || '';
+          return { color: trailColor(cc), weight: trailWeight(cc), opacity: 0.85 };
+        },
+        onEachFeature: function(feature, layer) {
+          var p = feature.properties;
+          var name = p.PrimaryName || p.SystemName || 'Unnamed Trail';
+          var cc = p.CartoCode || 'Unknown';
+          var surface = p.SurfaceType || 'Unknown';
+          var uses = p.DesignatedUses || 'Unknown';
+          var motor = p.MotorizedAllowed || 'Unknown';
+          var horse = p.HorseAllowed || 'Unknown';
+          var hikeDiff = p.HikeDifficulty || '';
+          var bikeDiff = p.BikeDifficulty || '';
+          var owner = p.OwnerSteward || '';
+          var county = p.County || '';
+          var popup = '<div style="font-family:monospace;font-size:12px;max-width:260px;">' +
+            '<b style="font-size:14px;color:#00AAFF;">' + name + '</b><br>' +
+            '<hr style="border:0;border-top:1px solid #444;margin:4px 0;">' +
+            '<b>Type:</b> ' + cc + '<br>' +
+            '<b>Surface:</b> ' + surface + '<br>' +
+            '<b>Uses:</b> ' + uses + '<br>' +
+            '<b>Motorized:</b> ' + motor + '<br>' +
+            '<b>Horse:</b> ' + horse + '<br>';
+          if (hikeDiff) popup += '<b>Hike Diff:</b> ' + hikeDiff + '<br>';
+          if (bikeDiff) popup += '<b>Bike Diff:</b> ' + bikeDiff + '<br>';
+          if (owner) popup += '<b>Steward:</b> ' + owner + '<br>';
+          if (county) popup += '<b>County:</b> ' + county + '<br>';
+          popup += '</div>';
+          layer.bindPopup(popup);
+        }
+      });
+    }
+
+    function showTrails() {
+      if (trailLayer && !trailsVisible) { trailLayer.addTo(map); trailsVisible = true; }
+    }
+
+    function hideTrails() {
+      if (trailLayer && trailsVisible) { map.removeLayer(trailLayer); trailsVisible = false; }
+    }
+
+    function toggleTrails() {
+      if (trailsVisible) hideTrails(); else showTrails();
+      return trailsVisible;
+    }
+
     function setTileUrl(url, label) {
       if (tileLayer) map.removeLayer(tileLayer);
       console.log("TILE URL: " + url + " LABEL: " + label);
@@ -30,6 +102,8 @@
       tileLayer.on("tileerror", function(e) { console.log("TILE ERROR: " + e.tile.src); });
       tileLayer.addTo(map);
       if (map.getZoom() > currentMaxNative) { map.setZoom(currentMaxNative); }
+      // Auto-toggle trails: ON for HYB and TOPO, OFF for SAT and TOPO+
+      if (label === 'HYB' || label === 'TOPO') { showTrails(); } else { hideTrails(); }
     }
 
     // ── Draw tool functions ────────────────────────────────────────────
@@ -171,6 +245,32 @@
         ).addTo(map);
         trackLines.push(line);
       });
+      tracksVisible = true;
+    }
+
+    function clearTrack() {
+      trackLines.forEach(function(l){ map.removeLayer(l); });
+      trackLines = [];
+      tracksVisible = false;
+    }
+
+    function showTracks() {
+      if (!tracksVisible) {
+        trackLines.forEach(function(l){ l.addTo(map); });
+        tracksVisible = true;
+      }
+    }
+
+    function hideTracks() {
+      if (tracksVisible) {
+        trackLines.forEach(function(l){ map.removeLayer(l); });
+        tracksVisible = false;
+      }
+    }
+
+    function toggleTracks() {
+      if (tracksVisible) hideTracks(); else showTracks();
+      return tracksVisible;
     }
     document.addEventListener("DOMContentLoaded", function() {
       setTimeout(function() {
@@ -182,7 +282,7 @@
     initDrawTool();
         initDeviceLocation();
         map.invalidateSize();
-
+        // Trails loaded from Kotlin via evaluateJavascript — see ConvoyScreen.kt
       }, 500);
     });
   </script>

@@ -6,10 +6,10 @@ object ConvoyConfig {
         "SAT" to "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
         "HYB" to "https://mt0.google.com/vt/lyrs=y&x={x}&y={y}&z={z}",
         "TOPO" to "https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
-        "RD" to "https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png",
+        "TOPO+" to "https://server.arcgisonline.com/ArcGIS/rest/services/USA_Topo_Maps/MapServer/tile/{z}/{y}/{x}",
         "SAT_LOCAL" to "convoy://tiles/SAT/{z}/{x}/{y}.png"
     )
-    var ACTIVE_TILE_SOURCE = "SAT"
+    var ACTIVE_TILE_SOURCE = "HYB"
     const val LOCAL_TILE_BASE = "convoy://tiles/" 
     const val MAP_GROUP_ZOOM_PADDING = 1.4f
     const val MAP_CART_ZOOM = 18.0
