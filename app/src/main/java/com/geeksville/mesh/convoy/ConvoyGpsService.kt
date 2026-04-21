@@ -121,7 +121,7 @@ class ConvoyGpsService : Service() {
         super.onDestroy()
         releaseWakeLock()
         stopLocationUpdates()
-        closeKml()
+        if (ConvoyConfig.TRACK_EXPORT_FORMAT.uppercase() == "GPX") closeGpx() else closeKml()
         Log.i(TAG, "ConvoyGpsService destroyed")
     }
 
@@ -133,9 +133,10 @@ class ConvoyGpsService : Service() {
      */
     fun startTrack() {
         if (state != State.IDLE) return
-        val tempFile = createTempKmlFile()
+        val isGpx = ConvoyConfig.TRACK_EXPORT_FORMAT.uppercase() == "GPX"
+        val tempFile = if (isGpx) createTempGpxFile() else createTempKmlFile()
         currentTempFile = tempFile
-        openKmlWriter(tempFile)
+        if (isGpx) openGpxWriter(tempFile) else openKmlWriter(tempFile)
         acquireWakeLock()
         startLocationUpdates()
         state = State.RECORDING
@@ -176,7 +177,7 @@ class ConvoyGpsService : Service() {
         if (state == State.IDLE) return null
         stopLocationUpdates()
         releaseWakeLock()
-        closeKml()
+        if (ConvoyConfig.TRACK_EXPORT_FORMAT.uppercase() == "GPX") closeGpx() else closeKml()
         val file = currentTempFile
         currentTempFile = null
         lastLat = null
@@ -267,7 +268,11 @@ class ConvoyGpsService : Service() {
     }
 
     private fun onGpsUpdate(lat: Double, lon: Double, alt: Double) {
-        writeKmlPoint(lat, lon, alt)
+        if (ConvoyConfig.TRACK_EXPORT_FORMAT.uppercase() == "GPX") {
+            writeGpxPoint(lat, lon, alt)
+        } else {
+            writeKmlPoint(lat, lon, alt)
+        }
         onLocationUpdate?.invoke(lat, lon, alt)
     }
 
