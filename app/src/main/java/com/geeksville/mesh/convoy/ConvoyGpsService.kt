@@ -76,8 +76,8 @@ class ConvoyGpsService : Service() {
     private var locationManager: LocationManager? = null
     private var locationListener: LocationListener? = null
     private var kmlWriter: BufferedWriter? = null
-    private var lastLat: Double? = null
-    private var lastLon: Double? = null
+    var lastLat: Double? = null
+    var lastLon: Double? = null
 
     companion object {
         private const val TAG = "ConvoyGpsService"

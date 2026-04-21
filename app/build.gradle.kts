@@ -323,8 +323,16 @@ tasks.register("copyApkToDownloads") {
     dependsOn("assembleGoogleDebug")
     doLast {
         val apkSrc = file("build/outputs/apk/google/debug/app-google-universal-debug.apk")
-        val dest   = file("C:/Users/kixaz/Downloads/GroupTrack_v2.4_${buildStamp}.apk")
+        
+        // Read V3_FEATURES_ENABLED to determine correct version label
+        val convoyConfigFile = file("src/main/java/com/geeksville/mesh/convoy/ConvoyConfig.kt")
+        val configText = convoyConfigFile.readText()
+        val isV3Enabled = configText.contains("V3_FEATURES_ENABLED = true")
+        val versionLabel = if (isV3Enabled) "v3.0_debug" else "v2.4"
+        
+        val dest = file("C:/Users/kixaz/Downloads/GroupTrack_${versionLabel}_${buildStamp}.apk")
         apkSrc.copyTo(dest, overwrite = true)
         println("APK copied to: ${dest.absolutePath}")
+        println("Version: ${versionLabel} (V3_FEATURES_ENABLED = ${isV3Enabled})")
     }
 }

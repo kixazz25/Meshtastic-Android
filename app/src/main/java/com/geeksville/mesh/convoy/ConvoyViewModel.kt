@@ -494,6 +494,12 @@ class ConvoyViewModel @Inject constructor(
         }
 
         // V2.4: Lead assigned manually via dialog before ride start -- no auto-lock
+        // V2.4: Self-heal — if recording with one node and no lead, assign it
+        if (_trackActive.value && nodes.size == 1 && lockedLeadNodeId == null) {
+            lockedLeadNodeId = nodes[0].nodeId
+            _leadLockedFlag = true
+            _leadLocked.value = true
+        }
         val tailNodeId: String? = null
 
         val state = ConvoyEngine.compute(
@@ -612,8 +618,47 @@ class ConvoyViewModel @Inject constructor(
         }
     } catch (e: Exception) { /* suppress tick errors */ } }
 
+    // Phone GPS helper -- used when radio has no GPS fix or no radio connected
+    private fun getPhoneLocation(): android.location.Location? {
+        // Prefer live GPS from ConvoyGpsService (fresh fixes via requestLocationUpdates)
+        val svcLat = gpsService?.lastLat
+        val svcLon = gpsService?.lastLon
+        if (svcLat != null && svcLon != null && svcLat != 0.0 && svcLon != 0.0) {
+            val loc = android.location.Location("gps")
+            loc.latitude = svcLat
+            loc.longitude = svcLon
+            return loc
+        }
+        // Fallback: system GPS cache (may be stale)
+        return try {
+            val lm = appContext.getSystemService(android.content.Context.LOCATION_SERVICE) as? android.location.LocationManager
+            lm?.getLastKnownLocation(android.location.LocationManager.GPS_PROVIDER)
+        } catch (e: SecurityException) { null }
+    }
+
     private fun readLiveNodes(nowMs: Long): List<ConvoyNode> {
-        val nodeMap = try { nodeRepository.nodeDBbyNum.value } catch (e: Exception) { return emptyList() }
+        val nodeMap = try { nodeRepository.nodeDBbyNum.value } catch (e: Exception) { emptyMap() }
+        // V2.4: No radio -- device IS a node. Same path as 10 carts on a mesh.
+        if (nodeMap.isEmpty()) {
+            val loc = getPhoneLocation()
+            val lat = loc?.latitude ?: 0.0
+            val lon = loc?.longitude ?: 0.0
+            val alt = ((loc?.altitude ?: 0.0) * 3.28084).toInt()
+            val spd = (loc?.speed ?: 0f) * 2.23694f
+            val hdg = loc?.bearing ?: 0f
+            return listOf(ConvoyNode(
+                nodeId = "!phone",
+                callsign = android.os.Build.MODEL,
+                latitude = lat,
+                longitude = lon,
+                altitude_m = alt,
+                speed_mph = spd,
+                heading_deg = hdg,
+                battery_pct = 100,
+                lastSeenMs = nowMs,
+                status = ConvoyStatus.ACTIVE
+            ))
+        }
         val allNodes = nodeMap.values.mapNotNull { node ->
             val user = node.user
             val pos = node.position
@@ -642,10 +687,18 @@ class ConvoyViewModel @Inject constructor(
                 val fallback = lastKnownPosition[nodeId]
                 if (fallback != null) {
                     convoyLog("ZERO POS: node=$callsign — using lastKnown lat=${fallback.first} lon=${fallback.second}")
+                    fallback
                 } else {
-                    convoyLog("ZERO POS: node=$callsign — no lastKnown, dropping node this tick")
+                    // V2.4: No radio GPS and no lastKnown -- fall back to phone GPS
+                    val phoneLoc = getPhoneLocation()
+                    if (phoneLoc != null && phoneLoc.latitude != 0.0 && phoneLoc.longitude != 0.0) {
+                        convoyLog("ZERO POS: node=$callsign — using phone GPS lat=${phoneLoc.latitude} lon=${phoneLoc.longitude}")
+                        Pair(phoneLoc.latitude, phoneLoc.longitude)
+                    } else {
+                        convoyLog("ZERO POS: node=$callsign — no lastKnown, no phone GPS, dropping node this tick")
+                        return@mapNotNull null
+                    }
                 }
-                fallback ?: return@mapNotNull null
             }
             val lastSeenMs = node.lastHeard.toLong() * 1000L
             ConvoyNode(

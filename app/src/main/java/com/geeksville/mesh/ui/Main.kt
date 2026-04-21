@@ -517,6 +517,10 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
                     showConvoyMenu = false
                     navController.navigate(ConvoyRoutes.ConvoyArchiveRestore)
                 },
+                onNavigateToMapViewer = {
+                    showConvoyMenu = false
+                    navController.navigate(ConvoyRoutes.ConvoyMapViewer)
+                },
                 onNavigateToTrackExport = {
                     navController.navigate(ConvoyRoutes.ConvoyTracks)
                 }

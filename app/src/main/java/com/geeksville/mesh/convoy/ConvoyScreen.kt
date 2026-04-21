@@ -94,6 +94,7 @@ fun ConvoyScreen(
     onNavigateToCreateEvent: () -> Unit = {},
     onNavigateToSettingsPanel: () -> Unit = {},
     onNavigateToTrackExport: () -> Unit = {},
+    onNavigateToMapViewer: () -> Unit = {},
     viewModel: ConvoyViewModel = hiltViewModel()
 ) {
     val channelViewModel: ChannelViewModel = hiltViewModel()
@@ -655,7 +656,6 @@ fun ConvoyScreen(
                                     ) == android.content.pm.PackageManager.PERMISSION_GRANTED
                                 if (bgGranted) {
                                     if (viewModel.leadLocked.value) {
-                                    android.widget.Toast.makeText(context, "leadLocked=" + viewModel.leadLocked.value + " nodes=" + viewModel.convoyState.value.nodes.size, android.widget.Toast.LENGTH_LONG).show()
                                         // Lead already set via SET AS LEAD
                                         recordingState = RecordingState.RECORDING
                                         viewModel.startRecording(context)
@@ -664,7 +664,8 @@ fun ConvoyScreen(
                                         val meshNodes = viewModel.convoyState.value.nodes
                                         if (meshNodes.size <= 1) {
                                             // Solo/standalone -- auto-assign and go
-                                            meshNodes.firstOrNull()?.let { viewModel.setLeadCart(it.nodeId) }
+                                            val soloNode = meshNodes.firstOrNull()
+                                            viewModel.setLeadCart(soloNode?.nodeId ?: "!phone")
                                             recordingState = RecordingState.RECORDING
                                             viewModel.startRecording(context)
                                             viewModel.startGroupTrack()
@@ -1185,7 +1186,8 @@ fun ConvoyScreen(
                         }
                     }
                 },
-                onNavigateToTrackExport = onNavigateToTrackExport
+                onNavigateToTrackExport = onNavigateToTrackExport,
+                onNavigateToMapViewer = onNavigateToMapViewer
             )
         }
 

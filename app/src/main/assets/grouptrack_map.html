@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    #map { position: fixed; top: 0; left: 0; right: 0; bottom: 0; }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <script>
+    var map, tileLayer, trailLayer = null, trailsVisible = false;
+    var trackLines = [];
+    var currentMaxNative = 18;
+
+    // -- Trail color by CartoCode --
+    function trailColor(cartoCode) {
+      if (!cartoCode) return '#888888';
+      var code = cartoCode.charAt(0);
+      switch (code) {
+        case '4': return '#00AAFF'; // Bright blue -- Road-concurrent / OHV
+        case '2': return '#FF8800'; // Orange -- Hiking and Biking
+        case '1': return '#FFCC00'; // Yellow -- Hiking Only
+        case '5': return '#AA44FF'; // Purple -- Biking Only
+        case '3': return '#888888'; // Gray -- Paved Shared Use
+        default:  return '#888888';
+      }
+    }
+
+    function trailWeight(cartoCode) {
+      if (!cartoCode) return 2;
+      return cartoCode.charAt(0) === '4' ? 3 : 2;
+    }
+
+    // -- Tile source --
+    function setTileUrl(url, label) {
+      if (tileLayer) map.removeLayer(tileLayer);
+      var isZ17 = label === "TOPO+" ||
+                  url.indexOf("opentopomap") !== -1 || url.indexOf("USGSImageryTopo") !== -1;
+      currentMaxNative = isZ17 ? 17 : 18;
+      tileLayer = L.tileLayer(url, {
+        maxZoom: 22, maxNativeZoom: currentMaxNative,
+        crossOrigin: false, tileSize: 256
+      });
+      tileLayer.addTo(map);
+      // V2.4: no zoom enforcement — allow overzoom
+      // Auto-toggle trails: ON for HYB and TOPO, OFF for SAT and TOPO+
+      if (label === 'HYB' || label === 'TOPO') {
+        showTrails();
+      } else {
+        hideTrails();
+      }
+    }
+
+    // -- Trail overlay --
+    function loadTrails(geojsonData) {
+      if (trailLayer) map.removeLayer(trailLayer);
+      trailLayer = L.geoJSON(geojsonData, {
+        style: function(feature) {
+          var cc = feature.properties.CartoCode || '';
+          return {
+            color: trailColor(cc),
+            weight: trailWeight(cc),
+            opacity: 0.85
+          };
+        },
+        onEachFeature: function(feature, layer) {
+          var p = feature.properties;
+          var name = p.PrimaryName || p.SystemName || 'Unnamed Trail';
+          var cc = p.CartoCode || 'Unknown';
+          var surface = p.SurfaceType || 'Unknown';
+          var uses = p.DesignatedUses || 'Unknown';
+          var motor = p.MotorizedAllowed || 'Unknown';
+          var horse = p.HorseAllowed || 'Unknown';
+          var hikeDiff = p.HikeDifficulty || '';
+          var bikeDiff = p.BikeDifficulty || '';
+          var owner = p.OwnerSteward || '';
+          var county = p.County || '';
+          var popup = '<div style="font-family:monospace;font-size:12px;max-width:260px;">' +
+            '<b style="font-size:14px;color:#00AAFF;">' + name + '</b><br>' +
+            '<hr style="border:0;border-top:1px solid #444;margin:4px 0;">' +
+            '<b>Type:</b> ' + cc + '<br>' +
+            '<b>Surface:</b> ' + surface + '<br>' +
+            '<b>Uses:</b> ' + uses + '<br>' +
+            '<b>Motorized:</b> ' + motor + '<br>' +
+            '<b>Horse:</b> ' + horse + '<br>';
+          if (hikeDiff) popup += '<b>Hike Diff:</b> ' + hikeDiff + '<br>';
+          if (bikeDiff) popup += '<b>Bike Diff:</b> ' + bikeDiff + '<br>';
+          if (owner) popup += '<b>Steward:</b> ' + owner + '<br>';
+          if (county) popup += '<b>County:</b> ' + county + '<br>';
+          popup += '</div>';
+          layer.bindPopup(popup);
+        }
+      });
+    }
+
+    function showTrails() {
+      if (trailLayer && !trailsVisible) {
+        trailLayer.addTo(map);
+        trailsVisible = true;
+      }
+    }
+
+    function hideTrails() {
+      if (trailLayer && trailsVisible) {
+        map.removeLayer(trailLayer);
+        trailsVisible = false;
+      }
+    }
+
+    function toggleTrails() {
+      if (trailsVisible) hideTrails();
+      else showTrails();
+      return trailsVisible;
+    }
+
+    // -- User tracks (neon green) --
+    function drawTrack(segments) {
+      trackLines.forEach(function(l) { map.removeLayer(l); });
+      trackLines = [];
+      segments.forEach(function(seg) {
+        var line = L.polyline(
+          [[seg.startLat, seg.startLon], [seg.endLat, seg.endLon]],
+          { color: '#39FF14', weight: 4, opacity: 0.95 }
+        ).addTo(map);
+        trackLines.push(line);
+      });
+    }
+
+    function clearTrack() {
+      trackLines.forEach(function(l) { map.removeLayer(l); });
+      trackLines = [];
+    }
+
+    // -- Search center marker --
+    var searchCenterMarker = null;
+    var crosshairLines = [];
+    function showSearchCenter(lat, lng) {
+      if (searchCenterMarker) map.removeLayer(searchCenterMarker);
+      searchCenterMarker = L.circleMarker([lat, lng], {
+        radius: 6, color: '#FF6B35', fillColor: '#FF6B35', fillOpacity: 1, weight: 2
+      }).addTo(map);
+      crosshairLines.forEach(function(l) { map.removeLayer(l); });
+      crosshairLines = [];
+      var latLine = L.polyline([[lat, -180], [lat, 180]], {color: '#4DA6FF', weight: 1.5, opacity: 0.7, dashArray: '6,4'}).addTo(map);
+      var lngLine = L.polyline([[-90, lng], [90, lng]], {color: '#4DA6FF', weight: 1.5, opacity: 0.7, dashArray: '6,4'}).addTo(map);
+      crosshairLines.push(latLine, lngLine);
+    }
+    function clearSearchCenter() {
+      if (searchCenterMarker) { map.removeLayer(searchCenterMarker); searchCenterMarker = null; }
+      crosshairLines.forEach(function(l) { map.removeLayer(l); });
+      crosshairLines = [];
+    }
+
+    // -- Map view controls --
+    function setView(lat, lon, zoom) { map.setView([lat, lon], zoom); }
+    function panTo(lat, lon) { map.panTo([lat, lon]); }
+    function fitBounds(lats, lons) {
+      if (!lats.length) return;
+      if (lats.length === 1) { map.setView([lats[0], lons[0]], 16); return; }
+      var b = L.latLngBounds();
+      for (var i = 0; i < lats.length; i++) b.extend([lats[i], lons[i]]);
+      map.fitBounds(b, { padding: [60, 60], maxZoom: currentMaxNative });
+    }
+
+    function fitTrailBounds() {
+      if (trailLayer) {
+        var bounds = trailLayer.getBounds();
+        if (bounds.isValid()) map.fitBounds(bounds, { padding: [40, 40] });
+      }
+    }
+
+    // -- Device location --
+    var deviceMarker = null;
+    function initDeviceLocation() {
+      if (!navigator.geolocation) return;
+      navigator.geolocation.getCurrentPosition(function(pos) {
+        var lat = pos.coords.latitude, lon = pos.coords.longitude;
+        if (deviceMarker) map.removeLayer(deviceMarker);
+        var icon = L.divIcon({className:"",
+          html:"<div style='width:16px;height:16px;background:#2196F3;border:3px solid white;border-radius:50%;box-shadow:0 0 8px rgba(33,150,243,0.8)'></div>",
+          iconSize:[16,16],iconAnchor:[8,8]});
+        deviceMarker = L.marker([lat,lon],{icon:icon}).addTo(map);
+        deviceMarker.bindTooltip("ME",{permanent:true,direction:"top"});
+        map.setView([lat,lon],14);
+      }, function(err) {
+        console.log('GPS error: ' + err.message);
+      }, {enableHighAccuracy:true,timeout:10000});
+    }
+
+    // -- Init --
+    document.addEventListener("DOMContentLoaded", function() {
+      setTimeout(function() {
+        map = L.map("map", { zoomControl: true }).setView([37.1, -113.6], 11);
+        map.on("zoomend", function() {
+          // V2.4: allow overzoom — Leaflet stretches tiles beyond maxNativeZoom
+        });
+        map.invalidateSize();
+        initDeviceLocation();
+        setTileUrl("https://mt0.google.com/vt/lyrs=y&x={x}&y={y}&z={z}", "HYB");
+        // Load trails from bundled asset
+        fetch('utah_trails_stgeorge.geojson')
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            loadTrails(data);
+            showTrails();
+            console.log('TRAILS LOADED: ' + data.features.length + ' features');
+          })
+          .catch(function(e) {
+            console.log('TRAIL LOAD ERROR: ' + e);
+          });
+      }, 500);
+    });
+  </script>
+</body>
+</html>

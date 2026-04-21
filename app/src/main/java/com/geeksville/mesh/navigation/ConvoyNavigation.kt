@@ -55,6 +55,7 @@ fun NavGraphBuilder.convoyGraph(
     // ── Main convoy map screen ────────────────────────────────────────────
     composable<ConvoyRoutes.Convoy> {
         ConvoyScreen(
+            onNavigateToMapViewer = { navController?.navigate(ConvoyRoutes.ConvoyMapViewer) },
             onNavigateToSettings = {
                 navController?.navigate(ConvoyRoutes.ConvoySettings)
             }
@@ -171,6 +172,12 @@ fun NavGraphBuilder.convoyGraph(
     composable<ConvoyRoutes.ConvoyTracks> {
         com.geeksville.mesh.convoy.ConvoyTrackExportSheet(
             onDismiss = { navController?.popBackStack() }
+        )
+    }
+    // ── Map Viewer with trail overlay ────────────────────────────────
+    composable<ConvoyRoutes.ConvoyMapViewer> {
+        com.geeksville.mesh.convoy.ConvoyMapViewerScreen(
+            onBack = { navController?.popBackStack() }
         )
     }
     // ── Reconnect Wait — between import and verify ───────────────────────

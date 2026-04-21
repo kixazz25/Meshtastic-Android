@@ -212,6 +212,7 @@ object ConvoyRoutes {
     @Serializable data object ConvoyProfile          : Route  // V3 Phase B
     @Serializable data object ConvoyExplore          : Route  // V3 Phase B
     @Serializable data object ConvoyTracks           : Route  // V3 Phase B
+    @Serializable data object ConvoyMapViewer        : Route  // V2.4 Map Viewer with trail overlay
     @Serializable data object ConvoyProfileSetup      : Route  // V3 Phase B
     @Serializable data object ConvoyDownloadRideConfig : Route  // V3 Phase B
     @Serializable data object ConvoyMyOrganizers : Route  // V3 Phase B

@@ -54,7 +54,8 @@ fun ConvoySubMenu(
     onNavigateToArchiveRestore: () -> Unit = {},
     onImportFromDownloads: () -> Unit = {},
     onExportTracks: () -> Unit = {},
-    onNavigateToTrackExport: () -> Unit = {}
+    onNavigateToTrackExport: () -> Unit = {},
+    onNavigateToMapViewer: () -> Unit = {}
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -182,6 +183,16 @@ fun ConvoySubMenu(
                             expanded = null
                             onDismiss()
                             onNavigateToTrackExport()
+                        }
+                    )
+                    SubMenuItem(
+                        label   = "Map Viewer",
+                        sub     = "View trails and recorded tracks",
+                        enabled = true,
+                        onClick = {
+                            expanded = null
+                            onDismiss()
+                            onNavigateToMapViewer()
                         }
                     )
                     SubMenuItem(
