@@ -434,7 +434,7 @@ fun ConvoyScreen(
                                 val url = request?.url?.toString() ?: return super.shouldInterceptRequest(view, request)
                                 if (url.startsWith("convoy://tiles/")) {
                                     val tilePath = url.removePrefix("convoy://tiles/")
-                                    val file = java.io.File(ctx.getExternalFilesDir(null), "tiles/$tilePath")
+                                    val file = java.io.File(ConvoyConfig.TILE_DIR, tilePath)
                                     android.util.Log.d("ConvoyIntercept", "TILE exists=${file.exists()} path=${file.absolutePath}")
                                     if (file.exists()) return android.webkit.WebResourceResponse("image/png", "utf-8", file.inputStream())
                                 }
@@ -447,6 +447,8 @@ fun ConvoyScreen(
                                 return true
                             }
                         }
+                        // One-time tile migration: old package dir → shared Documents
+                        ConvoyConfig.migrateTiles(ctx)
                         loadUrl("file:///android_asset/convoy_map.html")
                         addJavascriptInterface(object : Any() {
                             @android.webkit.JavascriptInterface
@@ -479,7 +481,7 @@ fun ConvoyScreen(
                             fun onMapBoundsReady(north: Double, south: Double, east: Double, west: Double) {
                                 android.os.Handler(android.os.Looper.getMainLooper()).post {
                                     val wv = webViewRef.value ?: return@post
-                                    val tilesDir = java.io.File(context.getExternalFilesDir(null), "tiles/SAT/18")
+                                    val tilesDir = java.io.File(ConvoyConfig.TILE_DIR, "SAT/18")
                                     Thread {
                                         val bounds = mutableListOf<String>()
                                         if (tilesDir.exists()) {
@@ -1113,7 +1115,7 @@ fun ConvoyScreen(
                                     webViewRef.value?.evaluateJavascript("clearDownloadedAreas()", null)
                                 } else {
                                     val wv = webViewRef.value ?: return@clickable
-                                    val tilesDir = java.io.File(context.getExternalFilesDir(null), "tiles/SAT/14")
+                                    val tilesDir = java.io.File(ConvoyConfig.TILE_DIR, "SAT/14")
                                     Thread {
                                         val bounds = mutableListOf<String>()
                                         if (tilesDir.exists()) {

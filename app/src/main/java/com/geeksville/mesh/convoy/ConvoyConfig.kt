@@ -10,7 +10,62 @@ object ConvoyConfig {
         "SAT_LOCAL" to "convoy://tiles/SAT/{z}/{x}/{y}.png"
     )
     var ACTIVE_TILE_SOURCE = "HYB"
-    const val LOCAL_TILE_BASE = "convoy://tiles/" 
+    const val LOCAL_TILE_BASE = "convoy://tiles/"
+
+    // Shared tile storage — package-independent, survives app reinstall/rename
+    // /sdcard/Documents/GroupTrack/maps/tiles/{source}/{z}/{x}/{y}.png
+    val TILE_DIR: java.io.File
+        get() {
+            val dir = java.io.File(
+                android.os.Environment.getExternalStoragePublicDirectory(
+                    android.os.Environment.DIRECTORY_DOCUMENTS
+                ), "GroupTrack/maps/tiles"
+            )
+            if (!dir.exists()) dir.mkdirs()
+            return dir
+        }
+
+    // One-time migration: MOVE old package-specific tiles to shared location.
+    // File.renameTo() is instant — filesystem pointer change, not a copy.
+    fun migrateTiles(context: android.content.Context) {
+        val prefs = context.getSharedPreferences("grouptrack", android.content.Context.MODE_PRIVATE)
+        if (prefs.getBoolean("tiles_migrated", false)) return
+
+        val oldDir = java.io.File(context.getExternalFilesDir(null), "tiles")
+        val newDir = TILE_DIR
+
+        if (oldDir.exists() && oldDir.isDirectory) {
+            // Move each source directory (SAT, HYB, TOPO, TOPO+)
+            val sources = oldDir.listFiles() ?: emptyArray()
+            var moved = 0
+            for (sourceDir in sources) {
+                if (!sourceDir.isDirectory) continue
+                val dest = java.io.File(newDir, sourceDir.name)
+                if (dest.exists()) {
+                    // Destination already has this source — skip, don't overwrite
+                    android.util.Log.d("TileMigrate", "SKIP ${sourceDir.name} — already exists at destination")
+                    continue
+                }
+                val ok = sourceDir.renameTo(dest)
+                if (ok) {
+                    moved++
+                    android.util.Log.d("TileMigrate", "MOVED ${sourceDir.name} to shared storage")
+                } else {
+                    android.util.Log.e("TileMigrate", "FAILED to move ${sourceDir.name}")
+                }
+            }
+            // Clean up empty old directory
+            if ((oldDir.listFiles() ?: emptyArray()).isEmpty()) {
+                oldDir.delete()
+                android.util.Log.d("TileMigrate", "Deleted empty old tiles directory")
+            }
+            android.util.Log.d("TileMigrate", "Migration complete: $moved source(s) moved")
+        } else {
+            android.util.Log.d("TileMigrate", "No old tiles directory found — fresh install")
+        }
+
+        prefs.edit().putBoolean("tiles_migrated", true).apply()
+    } 
     const val MAP_GROUP_ZOOM_PADDING = 1.4f
     const val MAP_CART_ZOOM = 18.0
     const val MAP_MIN_ZOOM = 16.0
