@@ -3631,6 +3631,78 @@ Test | Steps | Pass Criteria
 3 — Map viewer trails | GroupTrack menu > MAP SETTINGS > Map Viewer | Trails visible. Color coded. Tap shows detail. Search works.
 4 — Radio lead (if available) | Connect radio. 2 nodes. RECORD. Pick lead. | Lead locks. HUD shows lead. Verify no oscillation in logcat.
 
+=== GroupTrack_SessionHandoff_Apr21_v1.docx ===
+GroupTrack V2.4
+Session Handoff — April 21, 2026
+Branch: feature/convoy-event-ride | BUILD PENDING TEST
+1. Today's Commits
+2. Current Build State
+3. Uncommitted Work — Track Viewer
+patch_v24_track_viewer_final_v1.py was applied but NOT YET BUILT OR TESTED.
+Changes:
+4. Morning Test Plan
+5. Tomorrow's Task Queue
+6. Known Issues
+7. Weekend Ride Prep
+St. George to Bar 10 at the Grand Canyon.
+Map downloads running on Android 1 — shared storage location confirmed working.
+Trail overlay active on HYB and TOPO sources.
+Arizona Strip has no trail data — BLM GeoJSON sourcing is V2.5 task.
+Record GPX track during ride for testing track viewer.
+8. Session Start Checklist
+1. Upload this document
+2. Upload updated GroupTrack_AllDocs.txt
+3. Upload function_universe_raw.txt
+4. Upload where_used_raw.txt
+5. Paste build result from overnight (if built)
+6. Test track viewer on Android 1
+GroupTrack V2.4 | Session Handoff | April 21, 2026
+Commit | Description | Files
+6583f30c3 | Map viewer with trail overlay, standalone GPS, GPS centering, APK version label | 12 files
+5d8ff4704 | Trail overlay on convoy map, TRAILS/TRACKS toggles, fix tile sources SAT/HYB/TOPO/TOPO+ | 3 files
+4bec1a87d | Shared tile storage /Documents/GroupTrack/maps/tiles/ with one-time migration | 3 files
+d46c2f1fa | GPX writer fix — now writes actual GPX format when TRACK_EXPORT_FORMAT=GPX | 1 file
+Item | Value
+Branch | feature/convoy-event-ride
+V3 flag | V3_FEATURES_ENABLED = false
+Last committed build | 4bec1a87d + d46c2f1fa — shared storage + GPX writer
+Uncommitted changes | Track viewer patch applied — MANAGE_EXTERNAL_STORAGE + TRACKS button + parsers
+Android 1 (8624SBCEDF00001789) | V2.4 release — trails on convoy map, shared storage, GPX writer
+Android 2 (24039703201775) | V3.0 debug — shared storage, trail overlay
+Tile storage | /sdcard/Documents/GroupTrack/maps/tiles/ — permanent, package-independent
+Track storage | /sdcard/Documents/my_tracks/ — unchanged, already shared
+Default map source | HYB
+TRACK_EXPORT_FORMAT | GPX (default)
+File | Change
+AndroidManifest.xml | Added MANAGE_EXTERNAL_STORAGE permission
+ConvoyMapViewerScreen.kt | TRACKS button, in-app file list with search, KML/GPX parsers, color-coded overlays
+grouptrack_map.html | Track overlay JS functions (loadTrackFile, removeTrackFile, clearAll, fitAll)
+Test | Steps | Pass Criteria
+1 — Build | Build release, install Android 1 | BUILD SUCCESSFUL, install Success
+2 — Permission | Map Viewer > tap TRACKS > grant file access in Settings | Returns to app, TRACKS shows file list
+3 — File list | Verify all 36 track files visible (34 KML + 2 GPX) | All files listed, search filter works
+4 — Load track | Tap a track file in list | Polyline renders on map with color
+5 — Multi-track | Load 3-4 tracks | Different colors, all visible
+6 — FIT | Tap FIT button | Map zooms to show all loaded tracks
+7 — CLEAR | Tap CLEAR button | All tracks removed from map
+8 — GPX track | Load Tracks.gpx (Gaia file) | GPX parser works, track renders
+9 — Trails + Tracks | HYB mode, trails ON, load a track | Both trail overlay and track visible together
+Priority | Task | Estimate
+P1 | Confirm track viewer build and test | 1 hour
+P2 | Track viewer on convoy map (same pattern) | 2 hours
+P3 | Intent filter — register GroupTrack for KML/GPX files | 1 hour
+P4 | Track export redesign — in-app list with copy to Downloads | 2 hours
+P5 | Auto-delete temp files on SKIP | 30 min
+P6 | North indicator on map | 30 min
+P7 | Record GPX track and test format | 30 min
+Issue | Status | Notes
+Tile migration renameTo() fails on Android 12+ | Won't fix | Scoped storage blocks cross-boundary moves. New downloads go to correct location. Testers re-download.
+Export sheet launches Gaia on file select | Open — P4 | Intent filter needed. Export redesign needed.
+convoy_track_temp files left on SKIP | Open — P5 | Auto-delete when user skips naming
+Parowan Gap missing trails | Open — V2.5 | BLM GTLF data needed, merge with UGRC
+Arizona Strip no trail data | Open — V2.5 | AZ BLM GeoJSON sourcing needed
+GPX files misnamed as KML (legacy) | Resolved | Renamed on device, GPX writer fixed
+
 === GroupTrack_SessionHandoff_Apr9_v1.docx ===
 GroupTrack
 Session Handoff — April 9, 2026
