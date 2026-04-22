@@ -8,9 +8,11 @@
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     #map { position: fixed; top: 0; left: 0; right: 0; bottom: 0; }
+    #north { position: fixed; top: 8px; left: 50%; transform: translateX(-50%); z-index: 1000; background: rgba(0,0,0,0.6); color: #4DA6FF; font-family: monospace; font-size: 14px; font-weight: bold; padding: 4px 10px; border-radius: 4px; pointer-events: none; }
   </style>
 </head>
 <body>
+  <div id="north">N</div>
   <div id="map"></div>
   <script>
     var map, tileLayer, trailLayer = null, trailsVisible = false;
@@ -116,6 +118,59 @@
       if (trailsVisible) hideTrails();
       else showTrails();
       return trailsVisible;
+    }
+
+    // -- Imported track file overlays --
+    var importedTracks = {};
+    var importedTrackVisible = true;
+
+    function loadTrackFile(name, coordsJson, color) {
+      removeTrackFile(name);
+      var coords = JSON.parse(coordsJson);
+      if (coords.length < 2) return;
+      var line = L.polyline(coords, {color: color, weight: 3, opacity: 0.9}).addTo(map);
+      line.bindPopup('<b style="color:' + color + ';">' + name + '</b><br>' + coords.length + ' points');
+      importedTracks[name] = line;
+    }
+
+    function removeTrackFile(name) {
+      if (importedTracks[name]) {
+        map.removeLayer(importedTracks[name]);
+        delete importedTracks[name];
+      }
+    }
+
+    function clearAllTrackFiles() {
+      for (var name in importedTracks) map.removeLayer(importedTracks[name]);
+      importedTracks = {};
+    }
+
+    function hideAllTrackFiles() {
+      for (var name in importedTracks) map.removeLayer(importedTracks[name]);
+      importedTrackVisible = false;
+    }
+
+    function showAllTrackFiles() {
+      for (var name in importedTracks) importedTracks[name].addTo(map);
+      importedTrackVisible = true;
+    }
+
+    function toggleTrackFiles() {
+      if (importedTrackVisible) hideAllTrackFiles(); else showAllTrackFiles();
+      return importedTrackVisible;
+    }
+
+    function fitTrackFile(name) {
+      if (importedTracks[name]) {
+        map.fitBounds(importedTracks[name].getBounds(), {padding: [40, 40]});
+      }
+    }
+
+    function fitAllTrackFiles() {
+      var group = L.featureGroup(Object.values(importedTracks));
+      if (group.getLayers().length > 0) {
+        map.fitBounds(group.getBounds(), {padding: [40, 40]});
+      }
     }
 
     // -- User tracks (neon green) --

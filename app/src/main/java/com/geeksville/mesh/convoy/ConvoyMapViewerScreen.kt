@@ -36,16 +36,20 @@ import kotlinx.coroutines.withContext
 fun ConvoyMapViewerScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     var webViewRef by remember { mutableStateOf<WebView?>(null) }
-    var activeSource by remember { mutableStateOf("HYB") }
+    var activeSource by remember { mutableStateOf("SAT") }
     var trailsOn by remember { mutableStateOf(true) }
+    var showTrackPanel by remember { mutableStateOf(false) }
+    var trackFileList by remember { mutableStateOf<List<String>>(emptyList()) }
+    var loadedTracks by remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
+    var trackSearchText by remember { mutableStateOf("") }
+    val trackColors = listOf("#39FF14")
+    var nextColorIdx by remember { mutableIntStateOf(0) }
     var searchText by remember { mutableStateOf("") }
     var showSearch by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
 
     val tileSources = listOf(
         Triple("SAT", "Satellite",
-            "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"),
-        Triple("HYB", "Hybrid",
             "https://mt0.google.com/vt/lyrs=y&x={x}&y={y}&z={z}"),
         Triple("TOPO", "Topo",
             "https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}"),
@@ -96,6 +100,21 @@ fun ConvoyMapViewerScreen(onBack: () -> Unit) {
                     modifier = Modifier.clickable {
                         trailsOn = !trailsOn
                         webViewRef?.evaluateJavascript("toggleTrails()", null)
+                    }.padding(8.dp)
+                )
+                Text(
+                    "TRACKS",
+                    color = if (showTrackPanel) Color(0xFF39FF14) else Color(0xFF445566),
+                    fontSize = 11.sp,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.clickable {
+                        // Check file access permission
+                        if (!showTrackPanel) {
+                            trackFileList = scanTrackDir(context)
+                            trackSearchText = ""
+                        }
+                        showTrackPanel = !showTrackPanel
                     }.padding(8.dp)
                 )
             }
@@ -171,6 +190,87 @@ fun ConvoyMapViewerScreen(onBack: () -> Unit) {
             }
         }
 
+        // -- Track panel --
+        if (showTrackPanel) {
+            val filtered = if (trackSearchText.isBlank()) trackFileList
+                else trackFileList.filter { it.contains(trackSearchText, ignoreCase = true) }
+            Column(
+                modifier = Modifier.fillMaxWidth().background(Color(0xFF1A2030))
+                    .heightIn(max = 220.dp)
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
+            ) {
+                // Search
+                BasicTextField(
+                    value = trackSearchText,
+                    onValueChange = { trackSearchText = it },
+                    textStyle = TextStyle(color = Color.White, fontSize = 12.sp, fontFamily = FontFamily.Monospace),
+                    cursorBrush = SolidColor(Color(0xFF39FF14)),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                        .background(Color(0xFF0A1020), RoundedCornerShape(4.dp))
+                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                    decorationBox = { inner ->
+                        if (trackSearchText.isEmpty()) Text("Search tracks...", color = Color(0xFF445566), fontSize = 12.sp, fontFamily = FontFamily.Monospace)
+                        inner()
+                    }
+                )
+                Spacer(Modifier.height(4.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("${filtered.size} of ${trackFileList.size} tracks",
+                        color = Color(0xFF4A6080), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("FIT", color = Color(0xFF4DA6FF), fontSize = 10.sp,
+                            fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
+                            modifier = Modifier.clickable { webViewRef?.evaluateJavascript("fitAllTrackFiles()", null) }.padding(4.dp))
+                        Text("CLEAR", color = Color(0xFFFF4444), fontSize = 10.sp,
+                            fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
+                            modifier = Modifier.clickable {
+                                webViewRef?.evaluateJavascript("clearAllTrackFiles()", null)
+                                loadedTracks = emptyList(); nextColorIdx = 0
+                            }.padding(4.dp))
+                    }
+                }
+                Spacer(Modifier.height(2.dp))
+                androidx.compose.foundation.lazy.LazyColumn(modifier = Modifier.fillMaxWidth()) {
+                    items(filtered.size) { idx ->
+                        val name = filtered[idx]
+                        val loaded = loadedTracks.any { it.first == name }
+                        val displayColor = loadedTracks.firstOrNull { it.first == name }?.second
+                        Row(
+                            modifier = Modifier.fillMaxWidth()
+                                .clickable {
+                                    if (loaded) {
+                                        val safe = name.replace("'", "\\'")
+                                        webViewRef?.evaluateJavascript("removeTrackFile('$safe')", null)
+                                        loadedTracks = loadedTracks.filterNot { it.first == name }
+                                    } else {
+                                        val color = trackColors[nextColorIdx % trackColors.size]
+                                        nextColorIdx++
+                                        loadTrackOnMap(context, name, color, webViewRef)
+                                        loadedTracks = loadedTracks + Pair(name, color)
+                                    }
+                                }
+                                .padding(vertical = 4.dp, horizontal = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Surface(
+                                modifier = Modifier.size(10.dp),
+                                shape = RoundedCornerShape(2.dp),
+                                color = if (loaded) Color(android.graphics.Color.parseColor(displayColor ?: "#666666")) else Color(0xFF2A3040)
+                            ) {}
+                            Spacer(Modifier.width(8.dp))
+                            Text(name, color = if (loaded) Color.White else Color(0xFF667788),
+                                fontSize = 11.sp, fontFamily = FontFamily.Monospace, maxLines = 1)
+                        }
+                    }
+                }
+            }
+        }
+
         // -- Map type buttons --
         Row(
             modifier = Modifier.fillMaxWidth().background(Color(0xFF131820))
@@ -184,7 +284,7 @@ fun ConvoyMapViewerScreen(onBack: () -> Unit) {
                         webViewRef?.evaluateJavascript(
                             "setTileUrl('" + url + "', '" + label + "')", null
                         )
-                        trailsOn = (label == "HYB" || label == "TOPO")
+                        trailsOn = (label == "SAT" || label == "TOPO")
                     },
                     shape = RoundedCornerShape(6.dp),
                     color = if (activeSource == label) Color(0xFF2E75B6) else Color(0xFF1E252F)
@@ -216,9 +316,9 @@ fun ConvoyMapViewerScreen(onBack: () -> Unit) {
                         webViewClient = object : WebViewClient() {
                             override fun onPageFinished(view: WebView?, url: String?) {
                                 super.onPageFinished(view, url)
-                                val hybUrl = tileSources[1].third
+                                val satUrl = tileSources[0].third
                                 view?.evaluateJavascript(
-                                    "setTileUrl('" + hybUrl + "', 'HYB')", null
+                                    "setTileUrl('" + satUrl + "', 'SAT')", null
                                 )
                                 // Load trail GeoJSON from assets and inject into WebView
                                 try {
@@ -253,6 +353,84 @@ fun ConvoyMapViewerScreen(onBack: () -> Unit) {
             LegendDot(Color(0xFF39FF14), "My Track")
         }
     }
+}
+
+// ── Track file helpers ─────────────────────────────────────────────
+private fun scanTrackDir(context: android.content.Context): List<String> {
+    val dir = java.io.File(
+        android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOCUMENTS),
+        "my_tracks"
+    )
+    if (!dir.exists()) return emptyList()
+    val files = dir.listFiles()
+        ?.filter { f ->
+            val ext = f.extension.lowercase()
+            (ext == "kml" || ext == "gpx") &&
+            !f.name.startsWith(".") &&
+            !f.name.startsWith("convoy_track_temp")
+        }
+        ?.sortedByDescending { it.lastModified() }
+        ?.map { it.name }
+        ?: emptyList()
+    android.util.Log.d("MapViewer", "scanTrackDir found ${files.size} tracks")
+    return files
+}
+
+private fun loadTrackOnMap(
+    context: android.content.Context,
+    fileName: String,
+    color: String,
+    webView: android.webkit.WebView?
+) {
+    try {
+        val dir = java.io.File(
+            android.os.Environment.getExternalStoragePublicDirectory(
+                android.os.Environment.DIRECTORY_DOCUMENTS
+            ), "my_tracks"
+        )
+        val file = java.io.File(dir, fileName)
+        if (!file.exists()) return
+        val text = file.readText()
+        val coords = if (fileName.lowercase().endsWith(".gpx")) parseGpx(text) else parseKml(text)
+        if (coords.isEmpty()) return
+        val json = coords.joinToString(",", "[", "]") { "[${it.first},${it.second}]" }
+        val safe = fileName.replace("'", "\\'")
+        webView?.evaluateJavascript("loadTrackFile('$safe', '$json', '$color')", null)
+        android.util.Log.d("MapViewer", "Loaded $fileName: ${coords.size} points")
+    } catch (e: Exception) {
+        android.util.Log.e("MapViewer", "Track load error $fileName: ${e.message}")
+    }
+}
+
+private fun parseKml(text: String): List<Pair<Double, Double>> {
+    val coords = mutableListOf<Pair<Double, Double>>()
+    val pattern = Regex("""<coordinates>([\s\S]*?)</coordinates>""")
+    pattern.findAll(text).forEach { match ->
+        match.groupValues[1].trim().lines().forEach { line ->
+            val parts = line.trim().split(",")
+            if (parts.size >= 2) {
+                val lon = parts[0].toDoubleOrNull()
+                val lat = parts[1].toDoubleOrNull()
+                if (lon != null && lat != null && lat != 0.0 && lon != 0.0) {
+                    coords.add(Pair(lat, lon))
+                }
+            }
+        }
+    }
+    return coords
+}
+
+private fun parseGpx(text: String): List<Pair<Double, Double>> {
+    val coords = mutableListOf<Pair<Double, Double>>()
+    val pattern = Regex("""<trkpt\s+lat="([^"]+)"\s+lon="([^"]+)"""")
+    pattern.findAll(text).forEach { match ->
+        val lat = match.groupValues[1].toDoubleOrNull()
+        val lon = match.groupValues[2].toDoubleOrNull()
+        if (lat != null && lon != null && lat != 0.0 && lon != 0.0) {
+            coords.add(Pair(lat, lon))
+        }
+    }
+    return coords
 }
 
 @Composable

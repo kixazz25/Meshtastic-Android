@@ -431,6 +431,15 @@ class ConvoyViewModel @Inject constructor(
     }
     fun stopRecording() {
         pendingTempFile = gpsService?.stopTrack()
+    }
+
+    fun deleteTempTrack() {
+        val temp = pendingTempFile ?: return
+        if (temp.exists()) {
+            temp.delete()
+            android.util.Log.d("ConvoyVM", "Deleted temp track: ${temp.name}")
+        }
+        pendingTempFile = null
         lastGpsLat = null; lastGpsLon = null; _distanceMiles.value = 0.0; _routeRecording.value = false
     }
     fun finalizeTrack(name: String, context: android.content.Context) {
@@ -786,10 +795,9 @@ class ConvoyViewModel @Inject constructor(
         downloadJob = viewModelScope.launch {
             val tiles = ConvoyTileCalculator.calculateTiles(pending.north, pending.south, pending.east, pending.west)
             val allSources = listOf(
-                "SAT"  to "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-                "HYB"  to "https://mt0.google.com/vt/lyrs=y&x={x}&y={y}&z={z}",
+                "SAT"  to "https://mt0.google.com/vt/lyrs=y&x={x}&y={y}&z={z}",
                 "TOPO" to "https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
-                "RD"   to "https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png"
+                "TOPO+" to "https://server.arcgisonline.com/ArcGIS/rest/services/USA_Topo_Maps/MapServer/tile/{z}/{y}/{x}"
             )
             val totalTiles = tiles.size * allSources.size
             var totalDownloaded = 0

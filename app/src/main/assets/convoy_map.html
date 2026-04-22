@@ -10,9 +10,11 @@
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     #map { position: fixed; top: 0; left: 0; right: 0; bottom: 0; }
+    #north { position: fixed; top: 8px; left: 50%; transform: translateX(-50%); z-index: 1000; background: rgba(0,0,0,0.6); color: #4DA6FF; font-family: monospace; font-size: 14px; font-weight: bold; padding: 4px 10px; border-radius: 4px; pointer-events: none; }
   </style>
 </head>
 <body>
+  <div id="north">N</div>
   <div id="map"></div>
   <script>
     var map, tileLayer, markers = {}, deviceMarker = null;
@@ -103,7 +105,7 @@
       tileLayer.addTo(map);
       if (map.getZoom() > currentMaxNative) { map.setZoom(currentMaxNative); }
       // Auto-toggle trails: ON for HYB and TOPO, OFF for SAT and TOPO+
-      if (label === 'HYB' || label === 'TOPO') { showTrails(); } else { hideTrails(); }
+      if (label === 'SAT' || label === 'TOPO') { showTrails(); } else { hideTrails(); }
     }
 
     // ── Draw tool functions ────────────────────────────────────────────
@@ -234,6 +236,36 @@
       }, function(err) {
       }, {enableHighAccuracy:true,timeout:10000});
     }
+    // -- Imported track file overlays (archived tracks) --
+    var importedTracks = {};
+
+    function loadTrackFile(name, coordsJson, color) {
+      removeTrackFile(name);
+      var coords = JSON.parse(coordsJson);
+      if (coords.length < 2) return;
+      var line = L.polyline(coords, {color: color, weight: 3, opacity: 0.9}).addTo(map);
+      line.bindPopup('<b style="color:' + color + ';">' + name + '</b><br>' + coords.length + ' points');
+      importedTracks[name] = line;
+    }
+
+    function removeTrackFile(name) {
+      if (importedTracks[name]) { map.removeLayer(importedTracks[name]); delete importedTracks[name]; }
+    }
+
+    function clearAllTrackFiles() {
+      for (var name in importedTracks) map.removeLayer(importedTracks[name]);
+      importedTracks = {};
+    }
+
+    function fitTrackFile(name) {
+      if (importedTracks[name]) map.fitBounds(importedTracks[name].getBounds(), {padding: [40,40]});
+    }
+
+    function fitAllTrackFiles() {
+      var layers = Object.values(importedTracks);
+      if (layers.length > 0) map.fitBounds(L.featureGroup(layers).getBounds(), {padding: [40,40]});
+    }
+
     var trackLines = [];
     function drawTrack(segments) {
       trackLines.forEach(function(l){ map.removeLayer(l); });

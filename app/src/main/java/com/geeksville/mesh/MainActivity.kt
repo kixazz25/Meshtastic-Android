@@ -132,6 +132,7 @@ class MainActivity : ComponentActivity() {
 
     @Suppress("NestedBlockDepth")
     private fun handleIntent(intent: Intent) {
+        android.util.Log.d("TrackImport", "handleIntent action=${intent.action} data=${intent.data} type=${intent.type}")
         val appLinkAction = intent.action
         val appLinkData: Uri? = intent.data
 
@@ -142,6 +143,8 @@ class MainActivity : ComponentActivity() {
                     appLinkData?.path?.endsWith(".convoy") == true
                 if (isConvoyFile && appLinkData != null) {
                     handleConvoyRideImport(appLinkData)
+                } else if (isTrackFile(appLinkData, mimeType)) {
+                    appLinkData?.let { handleTrackFileImport(it) }
                 } else {
                     appLinkData?.let { handleMeshtasticUri(it) }
                 }
@@ -198,6 +201,122 @@ class MainActivity : ComponentActivity() {
             android.util.Log.i("ConvoyImport", "Convoy file received — type=$docType file=$fileName")
         } catch (e: Exception) {
             android.util.Log.e("ConvoyImport", "Failed to copy convoy file: ${e.message}")
+        }
+    }
+
+    private fun isTrackFile(uri: Uri?, mimeType: String?): Boolean {
+        if (uri == null) return false
+        val path = uri.path?.lowercase() ?: ""
+        if (path.endsWith(".kml") || path.endsWith(".gpx")) return true
+        if (mimeType == "application/vnd.google-earth.kml+xml") return true
+        if (mimeType == "application/gpx+xml") return true
+        // Check display name for extension
+        try {
+            contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                val nameIdx = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                if (cursor.moveToFirst() && nameIdx >= 0) {
+                    val name = cursor.getString(nameIdx)?.lowercase() ?: ""
+                    if (name.endsWith(".kml") || name.endsWith(".gpx")) return true
+                }
+            }
+        } catch (_: Exception) {}
+        return false
+    }
+
+    private fun handleTrackFileImport(uri: Uri) {
+        try {
+            // Get filename
+            var name = "imported_track.kml"
+            contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                val nameIdx = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                if (cursor.moveToFirst() && nameIdx >= 0) {
+                    name = cursor.getString(nameIdx) ?: name
+                }
+            }
+
+            // Read file content
+            val text = contentResolver.openInputStream(uri)?.use { it.bufferedReader().readText() } ?: return
+
+            // Ensure my_tracks directory exists
+            val dir = java.io.File(
+                android.os.Environment.getExternalStoragePublicDirectory(
+                    android.os.Environment.DIRECTORY_DOCUMENTS
+                ), "my_tracks"
+            )
+            if (!dir.exists()) dir.mkdirs()
+
+            val ext = name.substringAfterLast('.', "").lowercase()
+            val isGpx = ext == "gpx"
+
+            // Check for multi-track GPX (multiple <trk> blocks from onX, Gaia, etc.)
+            if (isGpx && text.contains("<trk>")) {
+                val trkPattern = Regex("""<trk>([\s\S]*?)</trk>""")
+                val tracks = trkPattern.findAll(text).toList()
+                if (tracks.size > 1) {
+                    // Multi-track file — split into individual files
+                    val namePattern = Regex("<name>([^<]*)</name>")
+                    var imported = 0
+                    for (trk in tracks) {
+                        val trkContent = trk.groupValues[1]
+                        val trkName = namePattern.find(trkContent)?.groupValues?.get(1)
+                            ?.replace("/", "_")?.replace("\\", "_")?.trim()
+                            ?: "track_${imported + 1}"
+                        val safeName = trkName.replace(Regex("""[^a-zA-Z0-9_\- ]"""), "") + ".gpx"
+                        val dest = java.io.File(dir, safeName)
+                        if (!dest.exists()) {
+                            val singleGpx = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
+                                "<gpx version=\"1.1\" creator=\"GroupTrack\">\n" +
+                                "<trk>${trkContent}</trk>\n</gpx>"
+                            dest.writeText(singleGpx)
+                            imported++
+                        }
+                    }
+                    android.util.Log.i("TrackImport", "Split $name into $imported tracks")
+                    android.widget.Toast.makeText(this, "Imported $imported tracks from $name", android.widget.Toast.LENGTH_SHORT).show()
+                    return
+                }
+            }
+
+            // Check for multi-track KML (multiple <Placemark> with <LineString>)
+            if (!isGpx && text.contains("<Placemark>")) {
+                val pmPattern = Regex("""<Placemark>([\s\S]*?)</Placemark>""")
+                val placemarks = pmPattern.findAll(text).filter { it.groupValues[1].contains("<LineString>") }.toList()
+                if (placemarks.size > 1) {
+                    val namePattern = Regex("<name>([^<]*)</name>")
+                    var imported = 0
+                    for (pm in placemarks) {
+                        val pmContent = pm.groupValues[0]
+                        val pmName = namePattern.find(pm.groupValues[1])?.groupValues?.get(1)
+                            ?.replace("/", "_")?.replace("\\", "_")?.trim()
+                            ?: "track_${imported + 1}"
+                        val safeName = pmName.replace(Regex("""[^a-zA-Z0-9_\- ]"""), "") + ".kml"
+                        val dest = java.io.File(dir, safeName)
+                        if (!dest.exists()) {
+                            val singleKml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
+                                "<kml xmlns=\"http://www.opengis.net/kml/2.2\">\n<Document>\n" +
+                                "<name>$pmName</name>\n$pmContent\n</Document>\n</kml>"
+                            dest.writeText(singleKml)
+                            imported++
+                        }
+                    }
+                    android.util.Log.i("TrackImport", "Split $name into $imported tracks")
+                    android.widget.Toast.makeText(this, "Imported $imported tracks from $name", android.widget.Toast.LENGTH_SHORT).show()
+                    return
+                }
+            }
+
+            // Single track file — copy directly
+            val dest = java.io.File(dir, name)
+            if (!dest.exists()) {
+                dest.writeText(text)
+                android.util.Log.i("TrackImport", "Imported: $name")
+                android.widget.Toast.makeText(this, "Track imported: $name", android.widget.Toast.LENGTH_SHORT).show()
+            } else {
+                android.widget.Toast.makeText(this, "Track exists: $name", android.widget.Toast.LENGTH_SHORT).show()
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("TrackImport", "Import error: ${e.message}")
+            android.widget.Toast.makeText(this, "Import failed", android.widget.Toast.LENGTH_SHORT).show()
         }
     }
 

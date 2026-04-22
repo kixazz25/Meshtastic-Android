@@ -123,6 +123,10 @@ fun ConvoyScreen(
     val isLocalTiles by viewModel.isLocalTiles.collectAsStateWithLifecycle()
     var trailsOn by remember { mutableStateOf(true) }
     var tracksOn by remember { mutableStateOf(true) }
+    var showConvoyTrackPicker by remember { mutableStateOf(false) }
+    var convoyTrackFiles by remember { mutableStateOf<List<String>>(emptyList()) }
+    var convoyLoadedTracks by remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
+    var convoyTrackSearch by remember { mutableStateOf("") }
         var showMapSettings by remember { mutableStateOf(false) }
     var showConvoyMenu by remember { mutableStateOf(false) }
     val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
@@ -344,7 +348,7 @@ fun ConvoyScreen(
             dismissButton = {
                 TextButton(onClick = {
                     showNameDialog = false
-                    viewModel.finalizeTrack("convoy_track", context)
+                    viewModel.deleteTempTrack()
                 }) { Text("SKIP") }
             }
         )
@@ -851,18 +855,21 @@ fun ConvoyScreen(
                                 )
                             }
                             Spacer(Modifier.width(4.dp))
-                            // TRACKS toggle
+                            // TRACKS panel toggle
                             Surface(
                                 modifier = Modifier.clickable {
-                                    tracksOn = !tracksOn
-                                    webViewRef.value?.evaluateJavascript("toggleTracks()", null)
+                                    if (!showConvoyTrackPicker) {
+                                        convoyTrackFiles = convoyListTracks(context)
+                                        convoyTrackSearch = ""
+                                    }
+                                    showConvoyTrackPicker = !showConvoyTrackPicker
                                 },
                                 shape = RoundedCornerShape(3.dp),
-                                color = if (tracksOn) Color(0xFF2E75B6) else Color(0xFF1A2233)
+                                color = if (showConvoyTrackPicker) Color(0xFF2E75B6) else Color(0xFF1A2233)
                             ) {
                                 Text(
                                     "TRACKS",
-                                    color = if (tracksOn) Color.White else Color(0xFF4A6080),
+                                    color = if (showConvoyTrackPicker) Color.White else Color(0xFF4A6080),
                                     fontSize = 9.sp, fontFamily = FontFamily.Monospace,
                                     fontWeight = FontWeight.Bold,
                                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
@@ -909,11 +916,10 @@ fun ConvoyScreen(
                     Spacer(Modifier.height(4.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         listOf(
-                            "SAT"   to "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-                            "HYB"   to "https://mt0.google.com/vt/lyrs=y&x={x}&y={y}&z={z}",
+                            "SAT"   to "https://mt0.google.com/vt/lyrs=y&x={x}&y={y}&z={z}",
                             "TOPO"  to "https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
                             "TOPO+" to "https://server.arcgisonline.com/ArcGIS/rest/services/USA_Topo_Maps/MapServer/tile/{z}/{y}/{x}"
                         ).forEach { (label, onlineUrl) ->
@@ -934,11 +940,95 @@ fun ConvoyScreen(
                                 Text(
                                     label,
                                     color = if (isActive) Color.White else Color(0xFF4A6080),
-                                    fontSize = 9.sp, fontFamily = FontFamily.Monospace,
+                                    fontSize = 12.sp, fontFamily = FontFamily.Monospace,
                                     fontWeight = FontWeight.Bold,
                                     textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                                    modifier = Modifier.padding(vertical = 4.dp)
+                                    modifier = Modifier.padding(vertical = 8.dp)
                                 )
+                            }
+                        }
+                    }
+                    // -- Track picker panel --
+                    if (showConvoyTrackPicker) {
+                        val filteredConvoy = if (convoyTrackSearch.isBlank()) convoyTrackFiles
+                            else convoyTrackFiles.filter { it.contains(convoyTrackSearch, ignoreCase = true) }
+                        Spacer(Modifier.height(4.dp))
+                        // Search
+                        androidx.compose.foundation.text.BasicTextField(
+                            value = convoyTrackSearch,
+                            onValueChange = { convoyTrackSearch = it },
+                            textStyle = androidx.compose.ui.text.TextStyle(color = Color.White, fontSize = 11.sp, fontFamily = FontFamily.Monospace),
+                            cursorBrush = androidx.compose.ui.graphics.SolidColor(Color(0xFF39FF14)),
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                                .background(Color(0xFF0A1020), RoundedCornerShape(3.dp))
+                                .padding(horizontal = 6.dp, vertical = 4.dp),
+                            decorationBox = { inner ->
+                                if (convoyTrackSearch.isEmpty()) Text("Search...", color = Color(0xFF445566), fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                                inner()
+                            }
+                        )
+                        Spacer(Modifier.height(3.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("${filteredConvoy.size} of ${convoyTrackFiles.size}",
+                                color = Color(0xFF4A6080), fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text("ALL", color = Color(0xFF39FF14), fontSize = 9.sp,
+                                    fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.clickable {
+                                        filteredConvoy.forEach { name ->
+                                            if (convoyLoadedTracks.none { it.first == name }) {
+                                                convoyLoadTrack(context, name, "#39FF14", webViewRef.value)
+                                                convoyLoadedTracks = convoyLoadedTracks + Pair(name, "#39FF14")
+                                            }
+                                        }
+                                    }.padding(4.dp))
+                                Text("FIT", color = Color(0xFF4DA6FF), fontSize = 9.sp,
+                                    fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.clickable {
+                                        webViewRef.value?.evaluateJavascript("fitAllTrackFiles()", null)
+                                    }.padding(4.dp))
+                                Text("CLEAR", color = Color(0xFFFF4444), fontSize = 9.sp,
+                                    fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.clickable {
+                                        webViewRef.value?.evaluateJavascript("clearAllTrackFiles()", null)
+                                        convoyLoadedTracks = emptyList()
+                                    }.padding(4.dp))
+                            }
+                        }
+                        Spacer(Modifier.height(2.dp))
+                        Column(modifier = Modifier.fillMaxWidth().height(140.dp)
+                            .verticalScroll(rememberScrollState())) {
+                            filteredConvoy.forEach { name ->
+                                val isLoaded = convoyLoadedTracks.any { it.first == name }
+                                Row(
+                                    modifier = Modifier.fillMaxWidth()
+                                        .clickable {
+                                            if (isLoaded) {
+                                                val safe = name.replace("'", "\\'")
+                                                webViewRef.value?.evaluateJavascript("removeTrackFile('$safe')", null)
+                                                convoyLoadedTracks = convoyLoadedTracks.filterNot { it.first == name }
+                                            } else {
+                                                convoyLoadTrack(context, name, "#39FF14", webViewRef.value)
+                                                convoyLoadedTracks = convoyLoadedTracks + Pair(name, "#39FF14")
+                                            }
+                                        }
+                                        .padding(vertical = 3.dp, horizontal = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Surface(
+                                        modifier = Modifier.size(8.dp),
+                                        shape = RoundedCornerShape(2.dp),
+                                        color = if (isLoaded) Color(0xFF39FF14) else Color(0xFF2A3040)
+                                    ) {}
+                                    Spacer(Modifier.width(6.dp))
+                                    Text(name, color = if (isLoaded) Color.White else Color(0xFF667788),
+                                        fontSize = 10.sp, fontFamily = FontFamily.Monospace, maxLines = 1)
+                                }
                             }
                         }
                     }
@@ -1794,4 +1884,84 @@ fun ConvoyButtonBar(
             )
         }
     }
+
+
+
+
+}
+
+// ── Convoy track file helpers ─────────────────────────────────────
+fun convoyListTracks(context: android.content.Context): List<String> {
+    val dir = java.io.File(
+        android.os.Environment.getExternalStoragePublicDirectory(
+            android.os.Environment.DIRECTORY_DOCUMENTS
+        ), "my_tracks"
+    )
+    if (!dir.exists()) return emptyList()
+    return dir.listFiles()
+        ?.filter { f ->
+            val ext = f.extension.lowercase()
+            (ext == "kml" || ext == "gpx") &&
+            !f.name.startsWith(".") &&
+            !f.name.startsWith("convoy_track_temp")
+        }
+        ?.sortedByDescending { it.lastModified() }
+        ?.map { it.name }
+        ?: emptyList()
+}
+
+fun convoyLoadTrack(
+    context: android.content.Context,
+    fileName: String,
+    color: String,
+    webView: android.webkit.WebView?
+) {
+    try {
+        val dir = java.io.File(
+            android.os.Environment.getExternalStoragePublicDirectory(
+                android.os.Environment.DIRECTORY_DOCUMENTS
+            ), "my_tracks"
+        )
+        val file = java.io.File(dir, fileName)
+        if (!file.exists()) return
+        val text = file.readText()
+        val coords = if (fileName.lowercase().endsWith(".gpx")) convoyParseGpx(text) else convoyParseKml(text)
+        if (coords.isEmpty()) return
+        val json = coords.joinToString(",", "[", "]") { p -> "[${p.first},${p.second}]" }
+        val safe = fileName.replace("'", "\\'")
+        webView?.evaluateJavascript("loadTrackFile('$safe', '$json', '$color')", null)
+    } catch (e: Exception) {
+        android.util.Log.e("ConvoyTracks", "Load error $fileName: ${e.message}")
+    }
+}
+
+fun convoyParseKml(text: String): List<Pair<Double, Double>> {
+    val coords = mutableListOf<Pair<Double, Double>>()
+    val pattern = Regex("""<coordinates>([\s\S]*?)</coordinates>""")
+    pattern.findAll(text).forEach { match ->
+        match.groupValues[1].trim().lines().forEach { line ->
+            val parts = line.trim().split(",")
+            if (parts.size >= 2) {
+                val lon = parts[0].toDoubleOrNull()
+                val lat = parts[1].toDoubleOrNull()
+                if (lon != null && lat != null && lat != 0.0 && lon != 0.0) {
+                    coords.add(Pair(lat, lon))
+                }
+            }
+        }
+    }
+    return coords
+}
+
+fun convoyParseGpx(text: String): List<Pair<Double, Double>> {
+    val coords = mutableListOf<Pair<Double, Double>>()
+    val pattern = Regex("""<trkpt\s+lat="([^"]+)"\s+lon="([^"]+)"""")
+    pattern.findAll(text).forEach { match ->
+        val lat = match.groupValues[1].toDoubleOrNull()
+        val lon = match.groupValues[2].toDoubleOrNull()
+        if (lat != null && lon != null && lat != 0.0 && lon != 0.0) {
+            coords.add(Pair(lat, lon))
+        }
+    }
+    return coords
 }
