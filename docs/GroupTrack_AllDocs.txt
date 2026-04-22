@@ -3703,6 +3703,78 @@ Parowan Gap missing trails | Open — V2.5 | BLM GTLF data needed, merge with UG
 Arizona Strip no trail data | Open — V2.5 | AZ BLM GeoJSON sourcing needed
 GPX files misnamed as KML (legacy) | Resolved | Renamed on device, GPX writer fixed
 
+=== GroupTrack_SessionHandoff_Apr22_v1.docx ===
+GroupTrack V2.4
+Session Handoff — April 22, 2026
+Branch: feature/convoy-event-ride
+Android 1 factory reset completed. Fresh install. 100GB free.
+1. Commits — April 21-22 Session
+2. Current Build State
+3. Uncommitted Changes — Need Testing
+4. Morning Task Queue — Priority Order
+5. Display Behavior — Confirmed Working
+TRAILS button toggles trail overlay on/off for any source.
+TRACKS button intended for track file loading — currently broken (shows file picker).
+6. Known Issues
+7. Device Status After Factory Reset
+Android 1 (8624SBCEDF00001789):
+  - Factory reset complete, 100GB available
+  - V2.4 release installed (3-layer build)
+  - Bluetooth paired, radio connected
+  - 3 test tracks recorded in Documents/my_tracks/
+  - Small map area downloaded (HYB, SAT, TOPO dirs)
+  - Gaia and onX GPX exports available on Google Drive for import
+Android 2 (24039703201775):
+  - V3.0 debug — old build, needs 3-layer update
+  - Shared tile storage active
+8. Session Start Checklist
+1. Upload this document
+2. Upload GroupTrack_AllDocs.txt
+3. Upload function_universe_raw.txt and where_used_raw.txt
+4. Fix tile directory naming (P1)
+5. Fix track viewer in-app list (P2)
+6. Build, install, test on Android 1
+GroupTrack V2.4 | Session Handoff | April 22, 2026
+Commit | Description
+6583f30c3 | Map viewer with trail overlay, standalone GPS, GPS centering, APK version label
+5d8ff4704 | Trail overlay on convoy map, TRAILS/TRACKS toggles, fix tile sources
+4bec1a87d | Shared tile storage /Documents/GroupTrack/maps/tiles/ with migration
+d46c2f1fa | GPX writer fix — writes actual GPX when TRACK_EXPORT_FORMAT=GPX
+Item | Value
+Branch | feature/convoy-event-ride
+V3 flag | V3_FEATURES_ENABLED = false
+Android 1 (8624SBCEDF00001789) | V2.4 release — factory reset, fresh install, 100GB free
+Android 2 (24039703201775) | V3.0 debug — old build, needs update
+Tile storage | /sdcard/Documents/GroupTrack/maps/tiles/ — 3 dirs present (HYB, SAT, TOPO)
+Track storage | /sdcard/Documents/my_tracks/ — 3 test tracks recorded
+APK in Downloads | GroupTrack_v2.4_20260422_XXXX.apk
+Change | File(s) | Status
+3 map layers (removed HYB button) | ConvoyConfig, ConvoyScreen, MapViewerScreen, convoy_map.html | APPLIED — displays correctly, directory naming bug
+Track viewer with MANAGE_EXTERNAL_STORAGE | AndroidManifest, ConvoyMapViewerScreen, grouptrack_map.html | APPLIED — NOT TESTED. File picker still showing instead of in-app list
+TRAILS/TRACKS auto-toggle updated for SAT/TOPO | ConvoyScreen, convoy_map.html | APPLIED — working
+Priority | Task | Details
+P1 | Fix tile directory naming | Buttons say SAT/TOPO/TOPO+ but download saves to HYB/SAT/TOPO. Directory names must match button labels.
+P2 | Fix track viewer — replace file picker with in-app list | MANAGE_EXTERNAL_STORAGE granted but track viewer still shows system file picker. Need in-app list with search, tap to load/unload, color coded.
+P3 | Test track viewer | Load KML and GPX tracks on Map Viewer. Verify parsers, colors, FIT, CLEAR.
+P4 | Build V3.0 debug for Android 2 | Flip flag, build debug, install Android 2, flip back. Both devices get 3-layer maps.
+P5 | Download maps for Saturday ride | St. George to Bar 10 corridor on both devices.
+P6 | Track viewer on convoy map | Same track loading pattern on convoy_map.html
+P7 | Intent filter for KML/GPX | Register GroupTrack to open KML/GPX files instead of Gaia
+P8 | North indicator on maps | Small N arrow at top center of both map screens
+P9 | Auto-delete temp tracks on SKIP | convoy_track_temp files should be removed when user skips naming
+Button | Tile Source | Trails Auto-Toggle
+SAT (button 1) | Google Hybrid — satellite + labels + roads | ON
+TOPO (button 2) | ArcGIS World Topo — topographic + roads | ON
+TOPO+ (button 3) | ArcGIS USA Topo — USGS contour lines | OFF
+Issue | Impact | Fix
+Tile directory naming mismatch | Downloads save as HYB/ when button says SAT | P1 — align directory names to button labels
+Track viewer shows file picker | Should be in-app list with search | P2 — rebuild with MANAGE_EXTERNAL_STORAGE + File.listFiles()
+Tile migration renameTo() fails Android 12+ | Cannot auto-migrate old tiles | Won't fix — testers re-download
+Export sheet launches Gaia | KML/GPX files open in Gaia not GroupTrack | P7 — intent filter
+No background tile download | Leaving screen cancels download | V2.5 — WorkManager queue
+Orphaned tiles in old package dirs | Factory reset only way to reclaim | Resolved — factory reset done on Android 1
+Parowan Gap / AZ Strip missing trails | BLM data not in UGRC dataset | V2.5 — BLM GTLF sourcing
+
 === GroupTrack_SessionHandoff_Apr9_v1.docx ===
 GroupTrack
 Session Handoff — April 9, 2026
