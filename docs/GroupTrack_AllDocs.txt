@@ -2349,6 +2349,103 @@ Offline convoy map | Core product free | Not possible | Not possible
 Attendee database | Auto-built per ride | Manual export | Spreadsheet
 Targeted advertising | Activity-verified | Interest-based | None
 
+=== GroupTrack_PlayStore_DeploymentNotes_v1.docx ===
+GroupTrack Play Store Deployment
+Manifest & File Handling — Required Changes
+Reference Document | April 22, 2026
+1. MANAGE_EXTERNAL_STORAGE Permission
+1.1 Current State
+The permission android.permission.MANAGE_EXTERNAL_STORAGE is declared in AndroidManifest.xml. On sideloaded (non-Play Store) installs running Android 14, the permission toggle in Settings is greyed out and cannot be enabled by the user. This blocks File.listFiles() from seeing files created by other apps in shared directories like /sdcard/Documents/my_tracks/.
+1.2 Play Store Behavior
+When installed from Google Play Store, the MANAGE_EXTERNAL_STORAGE toggle becomes active in Settings. The user can grant the permission. Once granted, File.listFiles() returns ALL files in any directory regardless of which app created them. ContentResolver can read any file URI without per-file permission grants. This is the definitive fix for all track file visibility issues.
+1.3 Google Play Review Requirements
+Google reviews all apps requesting MANAGE_EXTERNAL_STORAGE. A declaration form must be submitted in Play Console explaining the use case. GroupTrack's justification:
+Category: File manager / backup utility for outdoor navigation
+Justification: GroupTrack manages offline map tiles stored in shared device storage for use during off-grid outdoor activities. The app also imports and exports GPS track files (GPX/KML) that may originate from other navigation apps (Gaia GPS, onX Offroad, Google Earth). Full file access is required to: (a) manage offline map tile storage across app updates and reinstalls, (b) import GPS track files created by other apps for route planning and reference, (c) export recorded tracks for sharing with other navigation platforms.
+Comparable apps with this permission: Gaia GPS, onX Offroad, Avenza Maps, Locus Map, OsmAnd.
+1.4 Implementation Steps
+1.5 Code to Restore
+The following check was removed because it was non-functional for sideloaded apps. Restore it for Play Store build:
+Location: ConvoyMapViewerScreen.kt, inside TRACKS button clickable handler
+Code: if (!android.os.Environment.isExternalStorageManager()) { val intent = android.content.Intent(android.provider.Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, android.net.Uri.parse("package:" + context.packageName)); context.startActivity(intent); return@clickable }
+This check runs before showing the track panel. If permission is not granted, it opens the GroupTrack permission page in Settings. User toggles the switch once, returns to app, TRACKS panel opens normally from then on.
+2. Intent Filter Changes for Play Store
+2.1 Current Intent Filters (Too Broad)
+The current AndroidManifest.xml includes intent filters for these MIME types:
+2.2 Recommended Play Store Filters
+Keep only the two specific MIME types. Remove the broad types that would make GroupTrack appear as a handler for unrelated files:
+KEEP: application/vnd.google-earth.kml+xml
+KEEP: application/gpx+xml
+REMOVE: application/octet-stream
+REMOVE: text/xml
+REMOVE: application/xml
+NOTE: Many file managers assign application/octet-stream to .gpx and .kml files because they don't recognize the specific MIME types. Removing octet-stream means those file managers won't offer GroupTrack as a handler. However, with MANAGE_EXTERNAL_STORAGE granted, the in-app track picker sees all files directly — the intent filter becomes a convenience, not the primary import path.
+2.3 Manifest Changes Required
+Replace the current 5 intent-filter blocks with 2 specific ones:
+Intent filter 1: action=VIEW, category=DEFAULT, scheme=content, mimeType=application/vnd.google-earth.kml+xml
+Intent filter 2: action=VIEW, category=DEFAULT, scheme=content, mimeType=application/gpx+xml
+3. First-Launch Permission Flow
+3.1 User Experience
+Step 1: User installs GroupTrack from Play Store and launches the app.
+Step 2: On first launch (or first tap of TRACKS button), a dialog appears:
+Title: File Access Required
+Message: GroupTrack needs access to your files to manage offline maps and import GPS tracks from other apps like Gaia and onX. This is a one-time setup.
+Buttons: [CONTINUE] [NOT NOW]
+Step 3: CONTINUE opens Settings directly on GroupTrack's 'All files access' page.
+Step 4: User toggles the switch ON.
+Step 5: User presses Back to return to GroupTrack.
+Step 6: SharedPreferences flag set — dialog never shows again.
+3.2 Implementation
+4. Package Name Migration
+4.1 Current vs Future
+Current package: com.geeksville.mesh (inherited from Meshtastic base)
+Future package: com.grouptrack.android (GroupTrack branding)
+4.2 Impact on Intent Filters
+Intent filters are declared in AndroidManifest.xml and are tied to the package name automatically. When the package changes to com.grouptrack.android, the filters carry over — no code changes needed. However:
+1. Users who set GroupTrack as the default handler for KML/GPX files will need to re-select it because Android associates default handlers with package names.
+2. The MANAGE_EXTERNAL_STORAGE permission must be re-granted because it is also tied to the package name.
+3. The SharedPreferences flag for the permission dialog will reset (new package = new app data directory), so the first-launch dialog will appear again. This is correct behavior.
+4.3 Impact on File Storage
+Tile storage: /sdcard/Documents/GroupTrack/maps/tiles/ — NO IMPACT. This is a public directory, not tied to any package name. All tiles survive the package rename.
+Track storage: /sdcard/Documents/my_tracks/ — NO IMPACT. Same reason. All tracks survive.
+App preferences: SharedPreferences are in the package-specific app data directory — WILL RESET. User will need to re-grant file access permission. Session/login data will clear.
+Tile ownership: With MANAGE_EXTERNAL_STORAGE granted on the new package, File.listFiles() sees all tiles and tracks immediately. No migration needed.
+5. Play Console Submission Checklist
+6. Summary
+The scoped storage / file access issue that has blocked reliable track import during V2.4 development is a direct consequence of sideloading. Play Store deployment with MANAGE_EXTERNAL_STORAGE is the designed solution. Google accepts this permission for navigation and mapping apps. The implementation is straightforward: restore the permission check, add a first-launch dialog, narrow the intent filters, and submit the declaration form. No architectural changes needed — the code is already written and tested, just awaiting the permission grant that Play Store enables.
+GroupTrack | Play Store Deployment Notes | April 22, 2026
+Step | Action | File
+1 | Permission already declared — no change needed | AndroidManifest.xml
+2 | Restore isExternalStorageManager() check on TRACKS button tap | ConvoyMapViewerScreen.kt
+3 | Add first-launch permission dialog explaining why file access is needed | MainActivity.kt or Main.kt
+4 | Use ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION intent to go directly to GroupTrack's permission page | ConvoyMapViewerScreen.kt
+5 | Set SharedPreferences flag after permission granted — never prompt again | ConvoyMapViewerScreen.kt
+6 | Submit declaration form in Play Console under App Content > Sensitive Permissions | Play Console
+MIME Type | Purpose | Play Store Risk
+application/vnd.google-earth.kml+xml | KML files (Google Earth format) | SAFE — specific to KML
+application/gpx+xml | GPX files (GPS exchange format) | SAFE — specific to GPX
+application/octet-stream | Generic binary — matches ANY unknown file type | REMOVE — too broad, may trigger Play Store rejection
+text/xml | Generic XML — matches any XML file | REMOVE — too broad
+application/xml | Generic XML — matches any XML file | REMOVE — too broad
+Component | Change | Details
+SharedPreferences | Add 'files_permission_prompted' boolean flag | Checked before showing dialog
+Dialog | AlertDialog in MainActivity.kt onCreate or Main.kt composable | Shows only when flag is false AND isExternalStorageManager() returns false
+Intent | ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION with package URI | Opens directly to GroupTrack's toggle, not the generic list
+Resume check | onResume or LaunchedEffect checks if permission was granted | Proceeds to normal app flow if granted
+Step | Action | Notes
+1 | Create Play Console developer account | $25 one-time fee, Google account required
+2 | Create app listing for GroupTrack | Title, description, screenshots, feature graphic
+3 | Set content rating | Complete IARC questionnaire
+4 | Set target audience and content | Outdoor navigation, all ages
+5 | Declare MANAGE_EXTERNAL_STORAGE usage | App Content > Sensitive Permissions > All files access declaration form
+6 | Narrow intent filters | Remove octet-stream, text/xml, application/xml from manifest before building release
+7 | Restore permission check code | Add back isExternalStorageManager() check and first-launch dialog
+8 | Build signed release APK with grouptrack-release-key.jks | Keystore stored in 4 locations — see session handoff docs
+9 | Upload AAB (Android App Bundle) to Play Console | Play Console prefers AAB over APK for distribution
+10 | Create closed beta track | Internal testing first, then closed beta with tester emails
+11 | Submit for review | Review takes 1-7 days for new apps, especially with sensitive permissions
+12 | After approval: promote to open beta or production | Tester feedback period before public launch
+
 === GroupTrack_PlayStore_Keys.docx ===
 GroupTrack
 Google Play — App Signing Key Reference
@@ -3702,6 +3799,135 @@ convoy_track_temp files left on SKIP | Open — P5 | Auto-delete when user skips
 Parowan Gap missing trails | Open — V2.5 | BLM GTLF data needed, merge with UGRC
 Arizona Strip no trail data | Open — V2.5 | AZ BLM GeoJSON sourcing needed
 GPX files misnamed as KML (legacy) | Resolved | Renamed on device, GPX writer fixed
+
+=== GroupTrack_SessionHandoff_Apr22_EOD_v1.docx ===
+GroupTrack V2.4
+Session Handoff — April 22, 2026 (End of Day)
+Branch: feature/convoy-event-ride
+1. All Commits — April 21-22 Sessions
+2. Current Build State
+3. Features Completed — Both Sessions
+3.1 Map System
+3.2 Track System
+4. CRITICAL — GPX/KML Import Authority Issue
+4.1 The Problem
+Android 14 scoped storage creates two distinct access control problems that block reliable track file import:
+Problem A — File Listing: File.listFiles() on /sdcard/Documents/my_tracks/ only returns files created by the CURRENT app install. Files placed there by adb push, other apps (onX, Gaia), previous installs, or factory-reset recovery are invisible to listFiles(). This means the track picker panel only shows tracks the current install recorded — not imported files from external sources.
+Problem B — File Reading via Intent: When a user taps a GPX/KML file in a file manager, Android sends an ACTION_VIEW intent to GroupTrack with a content:// URI. However, reading that URI requires the sending app to include FLAG_GRANT_READ_URI_PERMISSION. Some file managers do this; some don't. When permission is not granted, ContentResolver.openInputStream() throws SecurityException: 'requires that you obtain access using ACTION_OPEN_DOCUMENT or related APIs'.
+4.2 What Was Tested
+4.3 Why Play Store Deployment Resolves This
+The MANAGE_EXTERNAL_STORAGE permission is the definitive fix. This permission grants full read/write access to all files on the device, making File.listFiles() see everything regardless of which app created the file. Here is why it is currently blocked and why Play Store deployment unblocks it:
+1. SIDELOADED APPS (current state): Android 14 disables the MANAGE_EXTERNAL_STORAGE toggle in Settings for apps installed via adb or APK file. The permission appears in the list but the switch is greyed out and cannot be changed. This is a Google security policy to prevent sideloaded apps from accessing all device files.
+2. PLAY STORE APPS (target state): Apps installed from Google Play Store can request MANAGE_EXTERNAL_STORAGE. The toggle in Settings becomes active. The user can grant it. Once granted, File.listFiles() returns ALL files in any directory, and ContentResolver can read any file URI without per-file permission grants.
+3. PLAY STORE REVIEW: Google reviews apps requesting MANAGE_EXTERNAL_STORAGE. GroupTrack has a legitimate use case: offline map tile management and GPS track file management for outdoor navigation. This is an accepted category — apps like Gaia GPS and onX Offroad have this same permission. The review should approve it.
+4. IMPLEMENTATION: The permission is already declared in AndroidManifest.xml. The isExternalStorageManager() check is already in the code (currently removed because it was non-functional for sideloaded apps). Once installed from Play Store: restore the permission check on first launch, prompt user to grant in Settings, done forever.
+4.4 Interim Workarounds (Before Play Store)
+Until Play Store deployment, these workarounds are available:
+Workaround 1 — Import via Intent: User taps a GPX/KML file in a file manager that properly grants read permission. The import handler reads via ContentResolver, copies to my_tracks, and the file appears in the track list. This works with some file managers (tested: Files by Google first attempt succeeded with 2-track import). May not work with all file managers.
+Workaround 2 — Record in App: Any track recorded by GroupTrack is immediately visible in the track list. Recording works correctly in both KML and GPX format. GPX is the default.
+Workaround 3 — Direct File Fallback: A patch has been prepared (not yet built) that adds a fallback to the import handler. When ContentResolver is denied, it extracts the filename from the URI and attempts a direct File.readText() from the known my_tracks directory. This may work for files the app has filesystem access to.
+Workaround 4 — Factory Reset Limitation: After factory reset, all file ownership records are cleared. Files pushed via adb after reset are owned by shell, not the app. The import intent handler is the only way to bring these files into the app's visibility.
+4.5 Recommendation
+Do not invest further time in scoped storage workarounds. The current implementation is sufficient for development and testing. The real fix is Play Store deployment with MANAGE_EXTERNAL_STORAGE properly granted. Focus remaining V2.4 development effort on: moving download controls to Map Viewer, export redesign (which does NOT have the permission issue since it reads files the app owns), and building V2.4/V3.0 releases for tester deployment.
+5. Tomorrow's Task Queue
+6. Device Status
+6.1 Android 1 (8624SBCEDF00001789)
+Factory reset completed — 100GB available
+V2.4 release installed with all current features
+Bluetooth paired, radio connected, cart centers with radio GPS
+Maps downloading overnight — SAT, TOPO, TOPO+ for St. George to Bar 10 corridor
+3 tracks in my_tracks (recorded by current install, visible in picker)
+2 tracks imported via intent (St George to Bar10.gpx — 2 tracks split from one file)
+Standalone GPS centering: works with radio, not centered without radio (tester reported)
+6.2 Android 2 (24039703201775)
+V3.0 debug — old build, needs 3-source update
+Shared tile storage active but empty — needs map copy from Android 1
+Will be updated after P3/P4/P5 tomorrow
+7. Known Issues
+8. Session Start Checklist — Tomorrow
+1. Upload this handoff document
+2. Upload GroupTrack_AllDocs.txt (regenerated with v6 script)
+3. Upload function_universe_raw.txt and where_used_raw.txt
+4. Confirm Android 1 map download completed overnight
+5. Verify tile directories: adb shell du -sh /sdcard/Documents/GroupTrack/maps/tiles/*
+6. Begin P1: move download controls to Map Viewer
+9. Files Modified in Pending Commit
+GroupTrack V2.4 | Session Handoff (End of Day) | April 22, 2026
+Commit | Description
+6583f30c3 | Map viewer with trail overlay, standalone GPS, GPS centering, APK version label (12 files)
+5d8ff4704 | Trail overlay on convoy map, TRAILS/TRACKS toggles, fix tile sources SAT/HYB/TOPO/TOPO+
+4bec1a87d | Shared tile storage /Documents/GroupTrack/maps/tiles/ with one-time migration
+d46c2f1fa | GPX writer fix — writes actual GPX format when TRACK_EXPORT_FORMAT=GPX
+PENDING | Track viewer both maps, 3 map sources, intent filter import, north indicator, button spacing, SKIP delete temp, track picker with search (8 files)
+Item | Value
+Branch | feature/convoy-event-ride
+V3 flag | V3_FEATURES_ENABLED = false
+Android 1 (8624SBCEDF00001789) | V2.4 release installed — downloading maps overnight
+Android 2 (24039703201775) | V3.0 debug — old build, needs update after Android 1 maps complete
+Tile storage | /sdcard/Documents/GroupTrack/maps/tiles/ — SAT, TOPO, TOPO+ directories confirmed
+Track storage | /sdcard/Documents/my_tracks/ — 5 files visible to app
+Default map source | SAT (Google Hybrid with labels)
+Map sources | 3 buttons: SAT, TOPO, TOPO+ — HYB removed
+TRACK_EXPORT_FORMAT | GPX (default)
+Package | com.geeksville.mesh (release)
+Android 1 status | Factory reset completed, 100GB free, maps downloading
+Feature | Status | Details
+Trail overlay — Map Viewer | WORKING | UGRC GeoJSON 5,732 trails, 7 counties, color-coded by CartoCode
+Trail overlay — Convoy Map | WORKING | Same data, injected from Kotlin assets, auto-on for SAT/TOPO
+TRAILS toggle button | WORKING | Both maps — tap to show/hide trail overlay on any source
+3 map sources | WORKING | SAT (Google Hybrid), TOPO (ArcGIS), TOPO+ (USGS) — HYB button removed
+Shared tile storage | WORKING | /Documents/GroupTrack/maps/tiles/ — package-independent, survives reinstall
+Tile directory naming | WORKING | Directories match button labels: SAT/, TOPO/, TOPO+/
+North indicator | WORKING | Blue N at top center of both maps
+Button spacing | WORKING | Larger text (12sp), more padding (8dp), wider gaps (8dp) — 3 buttons
+Map centering (GPS) | WORKING | initDeviceLocation() on map open — centers on device position
+Standalone GPS mode | WORKING | Phone-only tracking without radio — lead auto-assigns to phone
+Feature | Status | Details
+Track viewer — Map Viewer | WORKING | In-app file list, search filter, tap to load/unload, green polyline overlay
+Track viewer — Convoy Map | WORKING | Same pattern — search, ALL, FIT, CLEAR, individual toggle
+GPX writer | WORKING | Records actual GPX format with trkpt/ele/time when TRACK_EXPORT_FORMAT=GPX
+KML parser | WORKING | Reads <coordinates> blocks — lon,lat,alt per line
+GPX parser | WORKING | Reads <trkpt lat= lon=> elements
+Multi-track split | WORKING | Import handler splits multi-track GPX/KML into individual files by <name> tag
+SKIP deletes temp | WORKING | Tapping SKIP after recording deletes temp file instead of saving as convoy_track
+Temp file filtering | WORKING | convoy_track_temp files excluded from track list
+Intent filter | PARTIAL | GroupTrack appears in file chooser for KML/GPX — see Section 4 for issues
+Import handler | PARTIAL | Copies file to my_tracks, splits multi-track — permission issue blocks some sources
+Test | Result | Details
+File.listFiles() on my_tracks/ | PARTIAL | Only sees files this install created. Files from adb push or other apps invisible.
+MediaStore query for my_tracks/ | FAILED | MediaStore does not index .kml/.gpx files — they are non-media types. Returns 0 results.
+MANAGE_EXTERNAL_STORAGE permission | BLOCKED | Permission toggle is greyed out in Settings for sideloaded (non-Play Store) apps on Android 14.
+Intent import from file manager | MIXED | First test: SUCCESS — 2 tracks imported from one file with toast confirmation. Subsequent tests: FAILED — Permission Denial on ContentResolver.
+adb am start with file:// URI | FAILED | ENOENT — Android 14 blocks file:// URIs from other processes.
+adb am start with content:// URI | FAILED | SecurityException — adb shell UID cannot grant content provider permissions.
+Direct file read fallback | NOT YET TESTED | Patch prepared but not built — reads from my_tracks using filename extracted from URI.
+Priority | Task | Estimate | Details
+P1 | Move download controls to Map Viewer | 2-3 hours | Draw area, download tiles, show downloaded areas — move from convoy expanded menu to Map Viewer
+P2 | Export redesign | 1-2 hours | In-app track list, copy selected to Downloads, email share intent. NO permission issue — reads owned files.
+P3 | Build V2.4 release | 30 min | Install Android 1, copy APK to Downloads
+P4 | Build V3.0 debug | 30 min | Flip flag, build, install Android 2, flip back
+P5 | Copy maps Android 1 to Android 2 | 30 min | adb pull/push shared tile directory
+P6 | Import fallback patch | 30 min | Apply and test direct file read fallback
+Issue | Severity | Resolution
+Import permission denied from some file managers | HIGH | Play Store deployment — MANAGE_EXTERNAL_STORAGE grant
+listFiles() only sees files current install created | HIGH | Play Store deployment — same permission
+MediaStore does not index KML/GPX files | INFO | Not fixable — MediaStore only indexes media types
+MANAGE_EXTERNAL_STORAGE toggle greyed out (sideloaded) | INFO | Expected Android 14 behavior for non-Play Store apps
+Standalone GPS map not centered (no radio) | LOW | Known — works with radio. Fix in future version.
+Track toggle doesn't remove from map (escape mismatch) | LOW | Quote escaping in JS removeTrackFile call — fix in next session
+Export sheet launches Gaia on file select | MEDIUM | Export redesign (P2 tomorrow) replaces file picker entirely
+Tile migration renameTo() fails Android 12+ | INFO | Won't fix — scoped storage blocks cross-boundary moves
+Parowan Gap / AZ Strip missing trails | LOW | V2.5 — BLM GTLF data sourcing
+No background tile download | LOW | V2.5 — WorkManager queue
+File | Changes
+AndroidManifest.xml | MANAGE_EXTERNAL_STORAGE permission, KML/GPX intent filters (5 MIME types)
+convoy_map.html | Trail overlay functions, imported track file functions, north indicator, auto-toggle SAT/TOPO
+grouptrack_map.html | Imported track file overlay functions, north indicator
+MainActivity.kt | handleTrackFileImport() — copies file to my_tracks with multi-track split, isTrackFile() detection, debug logging
+ConvoyConfig.kt | 3 tile sources (SAT/TOPO/TOPO+), default SAT, removed HYB/RD
+ConvoyMapViewerScreen.kt | TRACKS button/panel, search filter, scanTrackDir, loadTrackOnMap, KML/GPX parsers, green tracks
+ConvoyScreen.kt | Track picker panel with search/ALL/FIT/CLEAR, 3 map buttons wider, SKIP deletes temp, tile auto-toggle SAT/TOPO
+ConvoyViewModel.kt | deleteTempTrack(), 3 tile sources in download list, removed HYB/RD from allSources
 
 === GroupTrack_SessionHandoff_Apr22_v1.docx ===
 GroupTrack V2.4
