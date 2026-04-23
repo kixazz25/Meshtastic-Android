@@ -126,6 +126,21 @@ object ConvoyTileDownloader {
                 onProgress(downloaded, total, failed)
             }
 
+            // Download label tiles for SAT source
+            if (sourceName == "SAT") {
+                val labelUrls = listOf(
+                    Pair("SAT_LABELS_TRANSPORT", ConvoyConfig.ESRI_TRANSPORT_URL),
+                    Pair("SAT_LABELS_PLACES", ConvoyConfig.ESRI_LABELS_URL)
+                )
+                for ((labelName, labelUrl) in labelUrls) {
+                    for (tile in tiles) {
+                        if (!coroutineContext.isActive) break
+                        val dest = tilePath(context, labelName, tile)
+                        if (dest.exists() && dest.length() > 0) continue
+                        downloadTile(buildTileUrl(tile, labelUrl), dest)
+                    }
+                }
+            }
             val totalMB = (downloaded * AVG_TILE_BYTES) / (1024f * 1024f)
             Result.success(DownloadSummary(downloaded, failed, totalMB))
 

@@ -356,6 +356,29 @@ fun ConvoyMapViewerScreen(onBack: () -> Unit, convoyViewModel: ConvoyViewModel =
                             fun onMapBoundsReady(n: Double, s: Double, e: Double, w: Double) {}
                         }, "Android")
                         webViewClient = object : WebViewClient() {
+                            override fun shouldInterceptRequest(view: WebView?, request: android.webkit.WebResourceRequest?): android.webkit.WebResourceResponse? {
+                                val url = request?.url?.toString() ?: return super.shouldInterceptRequest(view, request)
+                                // Esri URL is tile/z/y/x but local storage is source/z/x/y.png
+                                if (url.contains("/Reference/World_Transportation/MapServer/tile/")) {
+                                    val parts = url.split("/tile/").lastOrNull()?.split("/")
+                                    if (parts != null && parts.size >= 3) {
+                                        val file = java.io.File(ConvoyConfig.TILE_DIR, "SAT_LABELS_TRANSPORT/${parts[0]}/${parts[2]}/${parts[1]}.png")
+                                        if (file.exists()) {
+                                            return android.webkit.WebResourceResponse("image/png", null, java.io.FileInputStream(file))
+                                        }
+                                    }
+                                }
+                                if (url.contains("/Reference/World_Boundaries_and_Places/MapServer/tile/")) {
+                                    val parts = url.split("/tile/").lastOrNull()?.split("/")
+                                    if (parts != null && parts.size >= 3) {
+                                        val file = java.io.File(ConvoyConfig.TILE_DIR, "SAT_LABELS_PLACES/${parts[0]}/${parts[2]}/${parts[1]}.png")
+                                        if (file.exists()) {
+                                            return android.webkit.WebResourceResponse("image/png", null, java.io.FileInputStream(file))
+                                        }
+                                    }
+                                }
+                                return super.shouldInterceptRequest(view, request)
+                            }
                             override fun onPageFinished(view: WebView?, url: String?) {
                                 super.onPageFinished(view, url)
                                 val satUrl = tileSources[0].third

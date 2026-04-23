@@ -18,6 +18,7 @@
   <div id="map"></div>
   <script>
     var map, tileLayer, trailLayer = null, trailsVisible = false;
+    var labelLayer1 = null, labelLayer2 = null;
     var drawnItems = null;
     var drawControl = null;
     var trackLines = [];
@@ -54,8 +55,17 @@
       });
       tileLayer.addTo(map);
       // V2.4: no zoom enforcement — allow overzoom
-      // Auto-toggle trails: ON for HYB and TOPO, OFF for SAT and TOPO+
-      if (label === 'HYB' || label === 'TOPO') {
+      // Label overlays — only for SAT (satellite hybrid)
+      if (labelLayer1) { map.removeLayer(labelLayer1); labelLayer1 = null; }
+      if (labelLayer2) { map.removeLayer(labelLayer2); labelLayer2 = null; }
+      if (label === 'SAT') {
+        labelLayer1 = L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}', {maxZoom:22, maxNativeZoom:18, crossOrigin:false, tileSize:256, opacity:1, pane:'overlayPane'});
+        labelLayer2 = L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {maxZoom:22, maxNativeZoom:18, crossOrigin:false, tileSize:256, opacity:1, pane:'overlayPane'});
+        labelLayer1.addTo(map);
+        labelLayer2.addTo(map);
+      }
+      // Auto-toggle trails: ON for SAT and TOPO, OFF for TOPO+
+      if (label === 'SAT' || label === 'TOPO') {
         showTrails();
       } else {
         hideTrails();

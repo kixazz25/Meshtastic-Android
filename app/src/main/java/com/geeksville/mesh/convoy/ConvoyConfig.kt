@@ -9,6 +9,8 @@ object ConvoyConfig {
         "SAT_LOCAL" to "convoy://tiles/SAT/{z}/{x}/{y}.png"
     )
     var ACTIVE_TILE_SOURCE = "SAT"
+    const val ESRI_LABELS_URL = "https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
+    const val ESRI_TRANSPORT_URL = "https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}"
     const val LOCAL_TILE_BASE = "convoy://tiles/"
 
     // Shared tile storage — package-independent, survives app reinstall/rename
