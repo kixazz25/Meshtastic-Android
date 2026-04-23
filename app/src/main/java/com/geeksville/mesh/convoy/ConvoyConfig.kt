@@ -3,7 +3,7 @@ package com.geeksville.mesh.convoy
 object ConvoyConfig {
     const val MAP_DEFAULT_ZOOM = 18.0
     var TILE_SOURCES = mutableMapOf(
-        "SAT" to "https://mt0.google.com/vt/lyrs=y&x={x}&y={y}&z={z}",
+        "SAT" to "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
         "TOPO" to "https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
         "TOPO+" to "https://server.arcgisonline.com/ArcGIS/rest/services/USA_Topo_Maps/MapServer/tile/{z}/{y}/{x}",
         "SAT_LOCAL" to "convoy://tiles/SAT/{z}/{x}/{y}.png"

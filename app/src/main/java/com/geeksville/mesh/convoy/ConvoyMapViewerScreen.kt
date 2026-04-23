@@ -3,8 +3,18 @@ package com.geeksville.mesh.convoy
 import android.annotation.SuppressLint
 import android.location.Geocoder
 import android.webkit.WebView
+import android.webkit.JavascriptInterface
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.unit.IntOffset
+import androidx.hilt.navigation.compose.hiltViewModel
+import kotlin.math.roundToInt
 import android.webkit.WebViewClient
 import androidx.compose.foundation.background
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.Slider
+import androidx.compose.runtime.collectAsState
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -33,7 +43,7 @@ import kotlinx.coroutines.withContext
  */
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
-fun ConvoyMapViewerScreen(onBack: () -> Unit) {
+fun ConvoyMapViewerScreen(onBack: () -> Unit, convoyViewModel: ConvoyViewModel = hiltViewModel()) {
     val context = LocalContext.current
     var webViewRef by remember { mutableStateOf<WebView?>(null) }
     var activeSource by remember { mutableStateOf("SAT") }
@@ -48,9 +58,17 @@ fun ConvoyMapViewerScreen(onBack: () -> Unit) {
     var showSearch by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
 
+    // Download controls state
+    var showDownloadPanel by remember { mutableStateOf(false) }
+    var mapZoomLevel by remember { mutableStateOf(ConvoyConfig.DOWNLOAD_ZOOM.toFloat()) }
+    var showDownloaded by remember { mutableStateOf(false) }
+    var fabOffsetX by remember { mutableStateOf(0f) }
+    var fabOffsetY by remember { mutableStateOf(0f) }
+    val downloadState by convoyViewModel.downloadState.collectAsState()
+
     val tileSources = listOf(
         Triple("SAT", "Satellite",
-            "https://mt0.google.com/vt/lyrs=y&x={x}&y={y}&z={z}"),
+            "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"),
         Triple("TOPO", "Topo",
             "https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}"),
         Triple("TOPO+", "Topo+",
@@ -111,7 +129,7 @@ fun ConvoyMapViewerScreen(onBack: () -> Unit) {
                     modifier = Modifier.clickable {
                         // Check file access permission
                         if (!showTrackPanel) {
-                            trackFileList = scanTrackDir(context)
+                            kotlinx.coroutines.MainScope().launch(kotlinx.coroutines.Dispatchers.IO) { val files = scanTrackDir(context); kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { trackFileList = files } }
                             trackSearchText = ""
                         }
                         showTrackPanel = !showTrackPanel
@@ -313,6 +331,30 @@ fun ConvoyMapViewerScreen(onBack: () -> Unit) {
                         settings.domStorageEnabled = true
                         settings.allowFileAccess = true
                         settings.allowContentAccess = true
+                        addJavascriptInterface(object {
+                            @JavascriptInterface
+                            fun onAreaSelected(north: Double, south: Double, east: Double, west: Double) {
+                                Thread {
+                                    val estimate = ConvoyTileCalculator.quickEstimate(north, south, east, west)
+                                    val pending = ConvoyViewModel.PendingDownload(
+                                        tileCount     = estimate.tileCount,
+                                        sizeMB        = estimate.estimatedMB,
+                                        withinCeiling = estimate.withinCeiling,
+                                        north         = north,
+                                        south         = south,
+                                        east          = east,
+                                        west          = west,
+                                        sourceName    = ConvoyConfig.ACTIVE_TILE_SOURCE,
+                                        sourceUrl     = ConvoyConfig.TILE_SOURCES[ConvoyConfig.ACTIVE_TILE_SOURCE] ?: ""
+                                    )
+                                    android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                        convoyViewModel.startDownload(ctx, pending)
+                                    }
+                                }.start()
+                            }
+                            @JavascriptInterface
+                            fun onMapBoundsReady(n: Double, s: Double, e: Double, w: Double) {}
+                        }, "Android")
                         webViewClient = object : WebViewClient() {
                             override fun onPageFinished(view: WebView?, url: String?) {
                                 super.onPageFinished(view, url)
@@ -336,6 +378,137 @@ fun ConvoyMapViewerScreen(onBack: () -> Unit) {
                 },
                 modifier = Modifier.fillMaxSize()
             )
+
+            // ── Download progress bar ─────────────────────────────────────
+            if (downloadState is ConvoyViewModel.DownloadState.Downloading) {
+                val ds = downloadState as ConvoyViewModel.DownloadState.Downloading
+                Surface(
+                    modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 8.dp).padding(horizontal = 16.dp),
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color(0xCC1A2030)
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text("Downloading ${ds.downloaded}/${ds.total} tiles", color = Color(0xFF4DA6FF),
+                            fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                        Spacer(Modifier.height(4.dp))
+                        LinearProgressIndicator(
+                            progress = { if (ds.total > 0) ds.downloaded.toFloat() / ds.total else 0f },
+                            modifier = Modifier.fillMaxWidth().height(4.dp),
+                            color = Color(0xFF4DA6FF),
+                            trackColor = Color(0xFF1A2030)
+                        )
+                    }
+                }
+            }
+
+            // ── Download panel (above FAB) ────────────────────────────────
+            if (showDownloadPanel) {
+                Surface(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(end = 16.dp, bottom = 80.dp)
+                        .width(200.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xEE131820)
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        // Zoom slider
+                        Text("ZOOM  ${mapZoomLevel.toInt()}", color = Color(0xFF4A6080), fontSize = 9.sp,
+                            fontFamily = FontFamily.Monospace)
+                        Slider(
+                            value = mapZoomLevel,
+                            onValueChange = { mapZoomLevel = it },
+                            onValueChangeFinished = { ConvoyConfig.DOWNLOAD_ZOOM = mapZoomLevel.toInt() },
+                            valueRange = 16f..19f,
+                            steps = 2,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        // Download Region button
+                        Surface(
+                            modifier = Modifier.fillMaxWidth().clickable {
+                                webViewRef?.evaluateJavascript("activateDrawMode()", null)
+                            },
+                            shape = RoundedCornerShape(8.dp),
+                            color = Color(0xFF2A3545)
+                        ) {
+                            Text("⬇  DOWNLOAD REGION", color = Color(0xFF7A8DA0), fontSize = 9.sp,
+                                fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                modifier = Modifier.padding(vertical = 8.dp))
+                        }
+                        Spacer(Modifier.height(4.dp))
+                        // Show/Hide Downloaded toggle
+                        Surface(
+                            modifier = Modifier.fillMaxWidth().clickable {
+                                if (showDownloaded) {
+                                    showDownloaded = false
+                                    webViewRef?.evaluateJavascript("clearDownloadedAreas()", null)
+                                } else {
+                                    val wv = webViewRef ?: return@clickable
+                                    val tilesDir = java.io.File(ConvoyConfig.TILE_DIR, "SAT/14")
+                                    Thread {
+                                        val bounds = mutableListOf<String>()
+                                        if (tilesDir.exists()) {
+                                            val z = 14; val n = 1 shl z
+                                            tilesDir.listFiles()?.forEach { xDir: java.io.File ->
+                                                val x = xDir.name.toLongOrNull() ?: return@forEach
+                                                xDir.listFiles()?.forEach { yFile: java.io.File ->
+                                                    val y = yFile.name.removeSuffix(".png").toLongOrNull() ?: return@forEach
+                                                    val tN = Math.toDegrees(Math.atan(Math.sinh(Math.PI * (1.0 - 2.0 * y / n))))
+                                                    val tS = Math.toDegrees(Math.atan(Math.sinh(Math.PI * (1.0 - 2.0 * (y + 1) / n))))
+                                                    val tW = x.toDouble() / n * 360.0 - 180.0
+                                                    val tE = (x + 1).toDouble() / n * 360.0 - 180.0
+                                                    bounds.add("{\"n\":$tN,\"s\":$tS,\"e\":$tE,\"w\":$tW}")
+                                                }
+                                            }
+                                        }
+                                        val json = "[" + bounds.joinToString(",") + "]"
+                                        android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                            wv.evaluateJavascript("showDownloadedAreas($json)", null)
+                                            showDownloaded = true
+                                        }
+                                    }.start()
+                                }
+                            },
+                            shape = RoundedCornerShape(8.dp),
+                            color = if (showDownloaded) Color(0xFF1A3A2A) else Color(0xFF1E2E40)
+                        ) {
+                            Text(
+                                if (showDownloaded) "✅  HIDE DOWNLOADED" else "⬜  SHOW DOWNLOADED",
+                                color = if (showDownloaded) Color(0xFF4AE09A) else Color(0xFF4DA6FF),
+                                fontSize = 9.sp,
+                                fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                modifier = Modifier.padding(vertical = 8.dp))
+                        }
+                    }
+                }
+            }
+
+            // ── Floating draggable download FAB ───────────────────────────
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 16.dp, bottom = 16.dp)
+                    .offset { IntOffset(fabOffsetX.roundToInt(), fabOffsetY.roundToInt()) }
+                    .size(48.dp)
+                    .pointerInput(Unit) {
+                        detectDragGestures { change, dragAmount ->
+                            change.consume()
+                            fabOffsetX += dragAmount.x
+                            fabOffsetY += dragAmount.y
+                        }
+                    }
+                    .clickable { showDownloadPanel = !showDownloadPanel },
+                shape = RoundedCornerShape(24.dp),
+                color = if (showDownloadPanel) Color(0xFF2E75B6) else Color(0xFF1A2E4A),
+                shadowElevation = 6.dp
+            ) {
+                Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                    Text("⬇", color = Color.White, fontSize = 18.sp)
+                }
+            }
         }
 
         // -- Legend bar --

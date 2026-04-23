@@ -103,6 +103,39 @@ class ConvoyViewModel @Inject constructor(
     val autoPan: StateFlow<Boolean> = _autoPan.asStateFlow()
     fun setAutoPan(pan: Boolean) { _autoPan.value = pan }
 
+    // Active phone GPS for standalone (no radio) users
+    @Volatile private var livePhoneLocation: android.location.Location? = null
+    private var phoneLocationListener: android.location.LocationListener? = null
+
+    private fun startPhoneGps() {
+        if (phoneLocationListener != null) return
+        try {
+            val lm = appContext.getSystemService(android.content.Context.LOCATION_SERVICE) as? android.location.LocationManager ?: return
+            phoneLocationListener = android.location.LocationListener { loc ->
+                livePhoneLocation = loc
+            }
+            lm.requestLocationUpdates(
+                android.location.LocationManager.GPS_PROVIDER,
+                2000L,  // 2 second interval
+                1f,     // 1 meter minimum distance
+                phoneLocationListener!!,
+                android.os.Looper.getMainLooper()
+            )
+        } catch (e: SecurityException) {
+            android.util.Log.e("ConvoyVM", "Phone GPS permission denied: ${e.message}")
+        }
+    }
+
+    private fun stopPhoneGps() {
+        phoneLocationListener?.let { listener ->
+            try {
+                val lm = appContext.getSystemService(android.content.Context.LOCATION_SERVICE) as? android.location.LocationManager
+                lm?.removeUpdates(listener)
+            } catch (_: Exception) {}
+        }
+        phoneLocationListener = null
+    }
+
     fun startGroupTrack() {
         _routeTrailSegments.value = emptyList()
         _leadTrackSegments.value = emptyList()
@@ -638,6 +671,11 @@ class ConvoyViewModel @Inject constructor(
             loc.longitude = svcLon
             return loc
         }
+        // Active phone GPS listener (standalone mode)
+        val live = livePhoneLocation
+        if (live != null && live.latitude != 0.0 && live.longitude != 0.0) {
+            return live
+        }
         // Fallback: system GPS cache (may be stale)
         return try {
             val lm = appContext.getSystemService(android.content.Context.LOCATION_SERVICE) as? android.location.LocationManager
@@ -649,6 +687,7 @@ class ConvoyViewModel @Inject constructor(
         val nodeMap = try { nodeRepository.nodeDBbyNum.value } catch (e: Exception) { emptyMap() }
         // V2.4: No radio -- device IS a node. Same path as 10 carts on a mesh.
         if (nodeMap.isEmpty()) {
+            startPhoneGps()
             val loc = getPhoneLocation()
             val lat = loc?.latitude ?: 0.0
             val lon = loc?.longitude ?: 0.0

@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css"/>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     #map { position: fixed; top: 0; left: 0; right: 0; bottom: 0; }
@@ -16,6 +18,8 @@
   <div id="map"></div>
   <script>
     var map, tileLayer, trailLayer = null, trailsVisible = false;
+    var drawnItems = null;
+    var drawControl = null;
     var trackLines = [];
     var currentMaxNative = 18;
 
@@ -194,6 +198,65 @@
     // -- Search center marker --
     var searchCenterMarker = null;
     var crosshairLines = [];
+    // ── Draw tool functions ────────────────────────────────────────────
+    function initDrawTool() {
+      drawnItems = new L.FeatureGroup();
+      map.addLayer(drawnItems);
+      drawControl = new L.Draw.Rectangle(map, {
+        shapeOptions: { color: '#FFB74D', weight: 2, fillOpacity: 0.15 }
+      });
+      map.on(L.Draw.Event.CREATED, function(e) {
+        drawnItems.clearLayers();
+        drawnItems.addLayer(e.layer);
+        var b = e.layer.getBounds();
+        if (typeof Android !== 'undefined' && Android.onAreaSelected) {
+          Android.onAreaSelected(b.getNorth(), b.getSouth(), b.getEast(), b.getWest());
+        }
+      });
+    }
+    function activateDrawMode() {
+      if (drawnItems) drawnItems.clearLayers();
+      if (drawControl) drawControl.enable();
+    }
+    function cancelDrawMode() {
+      if (drawControl) drawControl.disable();
+      if (drawnItems) drawnItems.clearLayers();
+    }
+    function clearAreaBoundary() { if (drawnItems) drawnItems.clearLayers(); }
+    function showDownloadArea(n, s, e, w) {
+      if (!drawnItems) return;
+      drawnItems.clearLayers();
+      var rect = L.rectangle([[s, w], [n, e]], {
+        color: '#27AE60', weight: 2, fillOpacity: 0.1, dashArray: '5,5'
+      });
+      drawnItems.addLayer(rect);
+    }
+    var downloadedAreaLayer = null;
+    function showDownloadedAreas(bounds) {
+      if (downloadedAreaLayer) { map.removeLayer(downloadedAreaLayer); }
+      downloadedAreaLayer = L.layerGroup();
+      for (var i = 0; i < bounds.length; i++) {
+        var b = bounds[i];
+        L.rectangle([[b.s, b.w], [b.n, b.e]], {
+          color: 'transparent', weight: 0, fillColor: '#4DA6FF',
+          fillOpacity: 0.22
+        }).addTo(downloadedAreaLayer);
+      }
+      downloadedAreaLayer.addTo(map);
+    }
+    function clearDownloadedAreas() {
+      if (downloadedAreaLayer) { map.removeLayer(downloadedAreaLayer); downloadedAreaLayer = null; }
+    }
+    function clearSearchCenter() {
+      if (searchCenterMarker) { map.removeLayer(searchCenterMarker); searchCenterMarker = null; }
+      crosshairLines.forEach(function(l) { map.removeLayer(l); });
+      crosshairLines = [];
+    }
+    function getMapBounds() {
+      var b = map.getBounds();
+      Android.onMapBoundsReady(b.getNorth(), b.getSouth(), b.getEast(), b.getWest());
+    }
+
     function showSearchCenter(lat, lng) {
       if (searchCenterMarker) map.removeLayer(searchCenterMarker);
       searchCenterMarker = L.circleMarker([lat, lng], {
@@ -256,7 +319,8 @@
         });
         map.invalidateSize();
         initDeviceLocation();
-        setTileUrl("https://mt0.google.com/vt/lyrs=y&x={x}&y={y}&z={z}", "HYB");
+        initDrawTool();
+        setTileUrl("https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", "HYB");
         // Load trails from bundled asset
         fetch('utah_trails_stgeorge.geojson')
           .then(function(r) { return r.json(); })

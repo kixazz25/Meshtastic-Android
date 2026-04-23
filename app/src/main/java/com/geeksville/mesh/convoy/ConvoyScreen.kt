@@ -827,6 +827,7 @@ fun ConvoyScreen(
                                     webViewRef.value?.evaluateJavascript("clearSearchCenter()", null)
                                     webViewRef.value?.evaluateJavascript("clearAreaBoundary()", null)
                                 }
+                                showConvoyTrackPicker = false
                                 showMapSettings = !showMapSettings
                             },
                             verticalAlignment = Alignment.CenterVertically
@@ -858,11 +859,17 @@ fun ConvoyScreen(
                             // TRACKS panel toggle
                             Surface(
                                 modifier = Modifier.clickable {
-                                    if (!showConvoyTrackPicker) {
-                                        convoyTrackFiles = convoyListTracks(context)
-                                        convoyTrackSearch = ""
-                                    }
+                                    showMapSettings = false
                                     showConvoyTrackPicker = !showConvoyTrackPicker
+                                    if (showConvoyTrackPicker) {
+                                        convoyTrackSearch = ""
+                                        kotlinx.coroutines.MainScope().launch(kotlinx.coroutines.Dispatchers.IO) {
+                                            val files = convoyListTracks(context)
+                                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                                convoyTrackFiles = files
+                                            }
+                                        }
+                                    }
                                 },
                                 shape = RoundedCornerShape(3.dp),
                                 color = if (showConvoyTrackPicker) Color(0xFF2E75B6) else Color(0xFF1A2233)
@@ -919,7 +926,7 @@ fun ConvoyScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         listOf(
-                            "SAT"   to "https://mt0.google.com/vt/lyrs=y&x={x}&y={y}&z={z}",
+                            "SAT"   to "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
                             "TOPO"  to "https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
                             "TOPO+" to "https://server.arcgisonline.com/ArcGIS/rest/services/USA_Topo_Maps/MapServer/tile/{z}/{y}/{x}"
                         ).forEach { (label, onlineUrl) ->
@@ -980,10 +987,18 @@ fun ConvoyScreen(
                                 Text("ALL", color = Color(0xFF39FF14), fontSize = 9.sp,
                                     fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
                                     modifier = Modifier.clickable {
-                                        filteredConvoy.forEach { name ->
-                                            if (convoyLoadedTracks.none { it.first == name }) {
-                                                convoyLoadTrack(context, name, "#39FF14", webViewRef.value)
-                                                convoyLoadedTracks = convoyLoadedTracks + Pair(name, "#39FF14")
+                                        kotlinx.coroutines.MainScope().launch {
+                                            filteredConvoy.forEach { name ->
+                                                if (convoyLoadedTracks.none { it.first == name }) {
+                                                    val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                                        convoyLoadTrackData(context, name)
+                                                    }
+                                                    if (result != null) {
+                                                        val safe = name.replace("'", "\\'")
+                                                        webViewRef.value?.evaluateJavascript("loadTrackFile('$safe', '${result}', '#39FF14')", null)
+                                                        convoyLoadedTracks = convoyLoadedTracks + Pair(name, "#39FF14")
+                                                    }
+                                                }
                                             }
                                         }
                                     }.padding(4.dp))
@@ -1307,19 +1322,7 @@ fun ConvoyScreen(
                 onTransferConfig          = { showConvoyMenu = false },
                 onNavigateToCreateEvent   = onNavigateToCreateEvent,
                 onNavigateToSettingsPanel = onNavigateToSettingsPanel,
-                onImportFromDownloads     = {
-                    coroutineScope.launch {
-                        viewModel.scanImportDirectory()
-                        if (viewModel.pendingImportBanner.value != null) {
-                            showImportSplash = true
-                            kotlinx.coroutines.delay(3000)
-                            showImportSplash = false
-                            viewModel.clearImportBanner()
-                        }
-                    }
-                },
-                onNavigateToTrackExport = onNavigateToTrackExport,
-                onNavigateToMapViewer = onNavigateToMapViewer
+
             )
         }
 
@@ -1908,6 +1911,28 @@ fun convoyListTracks(context: android.content.Context): List<String> {
         ?.sortedByDescending { it.lastModified() }
         ?.map { it.name }
         ?: emptyList()
+}
+
+/** IO-safe: reads file and parses coords, returns JSON string or null. No WebView call. */
+fun convoyLoadTrackData(
+    context: android.content.Context,
+    fileName: String
+): String? {
+    return try {
+        val dir = java.io.File(
+            android.os.Environment.getExternalStoragePublicDirectory(
+                android.os.Environment.DIRECTORY_DOCUMENTS
+            ), "my_tracks"
+        )
+        val file = java.io.File(dir, fileName)
+        if (!file.exists()) return null
+        val text = file.readText()
+        val coords = if (fileName.lowercase().endsWith(".gpx")) convoyParseGpx(text) else convoyParseKml(text)
+        if (coords.isEmpty()) return null
+        coords.joinToString(",", "[", "]") { p -> "[${p.first},${p.second}]" }
+    } catch (e: Exception) {
+        null
+    }
 }
 
 fun convoyLoadTrack(
