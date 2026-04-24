@@ -584,6 +584,107 @@ V3.0 D | Web PC+iPad | Stripe | $3.00/mo | ~$2.61 | 2.9%+$0.30/txn
 V3.0 E | iOS | Apple IAP | $3.99/mo | ~$3.39 | 15% small biz
 V5.0 | All | All+org | TBD | TBD | Clubs/outfitters
 
+=== GroupTrack_ConvoyTrackPickerFixPlan_v1.docx ===
+GroupTrack V2.4
+Convoy Track Picker Fix Plan
+April 23, 2026 | Branch: feature/convoy-event-ride
+1. Problem Summary
+The convoy map track picker panel was added to ConvoyScreen.kt on April 22. It introduced two issues:
+Issue A — ANR (Application Not Responding): The track picker calls convoyListTracks() which runs File.listFiles() on the main thread. On Android 14, this syscall blocks waiting for the storage daemon, especially during simultaneous tile downloads. This freezes the UI and triggers Android's ANR dialog. Fix applied: wrapped scan in async coroutine. Status: FIXED in stashed code.
+Issue B — Layout Conflict: The track picker panel is inserted into the convoy map's floating settings bar between the map source buttons and the expanded settings section. When expanded, it pushes or overlaps the download controls (SHOW DOWNLOADED, area draw, zoom slider). The SHOW DOWNLOADED button becomes unresponsive — either obscured by the track panel or its touch target is intercepted. Status: NOT FIXED.
+2. Root Cause Analysis
+2.1 Convoy Map Floating Bar Structure
+The convoy map floating bar is a single scrollable Column containing multiple sections that expand/collapse:
+The track picker panel (NEW) was inserted between rows 2 and 3. When both the track panel AND expanded settings are open simultaneously, the Column becomes taller than the screen. The verticalScroll modifier allows scrolling, but touch events on the SHOW DOWNLOADED button are intercepted by the track panel's LazyColumn scroll gesture.
+2.2 Map Viewer vs Convoy Map — Why One Works
+Map Viewer's track panel works because it has a simpler layout — no download controls, no area draw, no zoom slider. The track panel is the ONLY expandable section, so there is no conflict. The convoy map has multiple expandable sections competing for the same vertical space.
+3. Fix Approach
+3.1 Option A — Mutual Exclusion (Recommended)
+Only one panel can be open at a time. Tapping TRACKS closes expanded settings. Tapping the chevron closes the track panel. This prevents any layout overlap.
+Implementation:
+1. In TRACKS button clickable: add showMapSettings = false before showConvoyTrackPicker = !showConvoyTrackPicker
+2. In chevron button clickable: add showConvoyTrackPicker = false before showMapSettings = !showMapSettings
+3. No layout changes needed — panels never coexist.
+Effort: 2 lines of code. Zero risk.
+3.2 Option B — Separate Track Panel Location
+Move the track panel outside the floating settings bar entirely. Place it as a bottom sheet or a separate overlay that slides up from the bottom. This keeps the settings bar unchanged and eliminates any interaction.
+Effort: More complex. Requires new composable layout, animation, and state management. Not recommended for today.
+3.3 Option C — Replace Column Scroll with Fixed Heights
+Set fixed maximum heights on each section so they never exceed screen bounds. Track panel maxHeight = 120dp, expanded settings maxHeight = 200dp. Both can be open but neither overflows.
+Risk: Small screens may still have issues. Content gets cut off. Not clean.
+4. Recommended Fix Sequence
+5. Stash Resolution Status
+6. Code Changes — Option A Detail
+6.1 TRACKS Button — Close Settings
+File: ConvoyScreen.kt
+Location: TRACKS button clickable handler (around line 860)
+Current code: showConvoyTrackPicker = !showConvoyTrackPicker
+New code: if (!showConvoyTrackPicker) showMapSettings = false; showConvoyTrackPicker = !showConvoyTrackPicker
+6.2 Chevron Button — Close Track Picker
+File: ConvoyScreen.kt
+Location: Chevron clickable handler (around line 815)
+Current code: showMapSettings = !showMapSettings
+New code: if (!showMapSettings) showConvoyTrackPicker = false; showMapSettings = !showMapSettings
+6.3 Remove ALL Button
+File: ConvoyScreen.kt
+Location: Track picker action bar (around line 985)
+Remove the entire ALL Text/clickable block. Keep FIT and CLEAR.
+Reason: ALL loads every track file synchronously — reading XML, parsing coordinates, injecting into WebView — all on the main thread. Even with async scan, the ALL loader runs synchronously. On a device with 87 tracks, this is a guaranteed ANR. Users on convoy map should pick individual reference tracks, not load everything.
+7. Test Plan After Fix
+8. What Is Working (Last Clean Commit 9d66c9781)
+9. Post-Fix Remaining Tasks
+GroupTrack V2.4 | Convoy Track Picker Fix Plan | April 23, 2026
+Row | Content | Visibility
+1 | Chevron + TRAILS/TRACKS buttons + LOCAL/NET toggle | Always visible
+2 | Map source buttons (SAT, TOPO, TOPO+) | Always visible
+NEW | Track picker panel (search, ALL, FIT, CLEAR, file list) | Visible when showConvoyTrackPicker = true
+3 | Expanded settings (zoom slider, search, SHOW DOWNLOADED, area draw) | Visible when showMapSettings = true
+Step | Action | Details
+1 | Resolve stash merge conflicts | git checkout --theirs on ConvoySubMenu.kt (DONE) and Main.kt (PENDING)
+2 | Verify stash changes are clean | grep for <<<< conflict markers in all files. Build must compile.
+3 | Apply Option A — mutual exclusion | Add 2 lines: close settings when tracks opens, close tracks when settings opens
+4 | Remove ALL button from convoy track picker | ALL loads every track synchronously — caused the original ANR. Not needed on convoy map. Users pick individual tracks for reference during rides.
+5 | Build and test | Verify: TRACKS opens/closes clean, SHOW DOWNLOADED works when tracks closed, no ANR
+6 | Commit | One clean commit with working convoy track picker
+File | Status | Action
+ConvoySubMenu.kt | RESOLVED | git checkout --theirs — took stashed version
+Main.kt | CONFLICT | Needs: git checkout --theirs app/src/main/java/com/geeksville/mesh/ui/Main.kt
+ConvoyScreen.kt | MODIFIED (no conflict) | Contains track picker + async fix — needs Option A applied
+ConvoyMapViewerScreen.kt | MODIFIED (no conflict) | Contains async scan fix — working correctly
+Test | Steps | Pass Criteria
+1 — App launch | Launch GroupTrack, wait for map | Map loads, trails visible, no ANR
+2 — TRACKS opens | Tap TRACKS button | Panel appears with file list, no freeze
+3 — Settings closed | While TRACKS open, check settings | Expanded settings collapsed automatically
+4 — TRACKS closes | Tap TRACKS again | Panel closes
+5 — Settings opens | Tap chevron to expand settings | Settings open, track panel stays closed
+6 — SHOW DOWNLOADED | In expanded settings, tap SHOW DOWNLOADED | Blue overlay appears on map showing tile coverage
+7 — Download area | Draw a small download area | Area selection works, download prompt appears
+8 — Track load | Open TRACKS, tap a track file | Green polyline appears on map
+9 — Track unload | Tap same track again | Polyline removed from map
+10 — Map Viewer | Open Map Viewer, tap TRACKS | Panel works independently, no conflicts
+Feature | Status
+Trail overlay — both maps | WORKING
+3 map sources (SAT/TOPO/TOPO+) | WORKING
+Shared tile storage /Documents/GroupTrack/maps/tiles/ | WORKING
+Tile directory naming matches buttons | WORKING
+GPX writer (actual GPX format) | WORKING
+North indicator both maps | WORKING
+Button spacing (larger, 3 buttons) | WORKING
+SKIP deletes temp track files | WORKING
+Intent filter for KML/GPX files | WORKING
+Import handler with multi-track split | WORKING (permission dependent)
+Map Viewer track picker | WORKING
+Convoy track picker | IN STASH — needs layout fix
+6.5GB maps downloaded on Android 1 | PRESENT
+Priority | Task
+P1 | Commit clean convoy track picker
+P2 | Add download controls to Map Viewer (keep on convoy too)
+P3 | Export redesign — in-app list, copy to Downloads, email share
+P4 | Build V2.4 release for Android 1
+P5 | Build V3.0 debug for Android 2
+P6 | Copy maps from Android 1 to Android 2
+P7 | Google Play Store deployment
+
 === GroupTrack_DashboardPlan_Apr7_v1.docx ===
 GroupTrack  Dashboard Completion Plan
 April 7, 2026  |  Phase B  |  Complete Dashboard Workflow Model
@@ -2348,6 +2449,102 @@ Radio config for ride | Automatic on enroll | Not possible | Manual
 Offline convoy map | Core product free | Not possible | Not possible
 Attendee database | Auto-built per ride | Manual export | Spreadsheet
 Targeted advertising | Activity-verified | Interest-based | None
+
+=== GroupTrack_PlayStore_Checklist_v1.docx ===
+GroupTrack V2.4
+Google Play Store Implementation Checklist
+April 23, 2026 | Branch: feature/convoy-event-ride
+1. Package Rename
+Change application identity from Meshtastic fork to independent GroupTrack app. One-time breaking change for testers (fresh install required). Tile and track storage in /sdcard/Documents/ is package-independent and survives the rename.
+2. Google HYB Tile Source — ToS Violation
+CRITICAL: Current HYB source uses Google Maps tile URLs directly without API key. Violates Google ToS. Must replace before Play Store submission.
+3. Intent Filter Cleanup
+Narrow intent filters before submission. Overly broad filters cause GroupTrack to appear as handler for files it cannot process.
+4. MANAGE_EXTERNAL_STORAGE Permission
+The scoped storage issue blocking track import on sideloaded builds is resolved by Play Store deployment. Android 14 enables the permission toggle for Play Store apps but greys it out for sideloaded apps.
+5. Open Source Attribution
+Legal requirement before public distribution. All open source components and tile providers must be attributed.
+6. Play Console Setup
+Steps to create the Play Store listing and submit the app for review.
+7. Build Commands
+Release build sequence for Play Store submission.
+8. Risk Summary
+Items that could delay or block Play Store approval.
+9. Recommended Implementation Sequence
+Order of operations to minimize risk and rework.
+GroupTrack V2.4 | Google Play Store Implementation Checklist | April 23, 2026
+# | Task | Status | Details
+1.1 | Change applicationId in build.gradle.kts | NOT STARTED | com.geeksville.mesh -> com.grouptrack.android
+1.2 | Wire grouptrack-release-key.jks | NOT STARTED | Keystore created April 5, backed up to 4 locations. Wire in keystore.properties.
+1.3 | Create Firebase project for new package | NOT STARTED | New project in Firebase Console, download new google-services.json
+1.4 | Update AndroidManifest.xml references | NOT STARTED | Package refs, authorities, content providers, FileProvider
+1.5 | Update Crashlytics project | NOT STARTED | Link new Firebase project to Crashlytics
+1.6 | Verify tile storage unaffected | NOT STARTED | /sdcard/Documents/GroupTrack/maps/tiles/ — no migration needed
+1.7 | Verify track storage unaffected | NOT STARTED | /sdcard/Documents/my_tracks/ — no migration needed
+1.8 | Document SharedPreferences reset | NOT STARTED | Permission dialog reappears, session clears on first launch of new package
+1.9 | Tester communication | NOT STARTED | Notify testers: uninstall old app, install new. No data loss for maps/tracks.
+# | Task | Status | Details
+2.1 | Select replacement tile provider | NOT STARTED | Options: Esri World Imagery + Transportation overlay (recommended), Stadia Maps, Mapbox Satellite Streets
+2.2 | Update tile URL in ConvoyConfig.kt | NOT STARTED | Replace Google tile URL with licensed provider
+2.3 | Update tile URL in convoy_map.html | NOT STARTED | Match WebView tile source to config
+2.4 | Update tile URL in map_viewer.html | NOT STARTED | Match WebView tile source to config
+2.5 | Test offline caching with new source | NOT STARTED | Verify download, storage, offline display all work
+2.6 | Decision: relabel HYB to TRAIL in UI | NOT STARTED | UI label change only — internal source name stays HYB. Fred preferred this approach.
+# | Task | Status | Details
+3.1 | Remove application/octet-stream | NOT STARTED | Too broad — triggers on any unknown file type
+3.2 | Remove text/xml | NOT STARTED | Too broad — triggers on any XML file
+3.3 | Remove application/xml | NOT STARTED | Too broad — triggers on any XML file
+3.4 | Keep GPX/KML specific types only | NOT STARTED | application/gpx+xml, application/vnd.google-earth.kml+xml, .gpx/.kml extensions
+# | Task | Status | Details
+4.1 | Restore isExternalStorageManager() check | NOT STARTED | Re-add permission check and first-launch dialog to app startup
+4.2 | Add permission rationale dialog | NOT STARTED | Explain: offline maps + track files require shared storage access
+4.3 | Handle permission denied gracefully | NOT STARTED | App works with reduced functionality if denied (no import, limited export)
+4.4 | Prepare Play Console declaration | NOT STARTED | App Content > Sensitive Permissions > All files access declaration form
+4.5 | Write justification for Google review | NOT STARTED | Offline navigation app reads/writes map tiles and GPS track files to shared storage for cross-app interoperability
+# | Task | Status | Details
+5.1 | Create About/Legal screen | NOT STARTED | New screen accessible from ConvoySubMenu or Settings panel
+5.2 | Meshtastic GPL v3 attribution | NOT STARTED | 'Built on Meshtastic-Android' + link to github.com/meshtastic/Meshtastic-Android
+5.3 | Leaflet BSD 2-Clause attribution | NOT STARTED | 'Map rendering by Leaflet' + leafletjs.com link
+5.4 | Esri tile source attribution | NOT STARTED | SAT: Esri, Earthstar Geographics. TOPO: Esri, HERE, Garmin, FAO, NOAA, USGS.
+5.5 | Verify Leaflet map attribution visible | NOT STARTED | Do not suppress the built-in attribution control on map
+5.6 | Add source availability notice | NOT STARTED | GPL requires making modified Meshtastic source available on request. convoy/ files are original work, not modifications.
+# | Task | Status | Details
+6.1 | Create Google Play Developer account | NOT STARTED | $25 one-time fee, requires Google account
+6.2 | Create app listing for GroupTrack | NOT STARTED | Title, short description, full description, category (Maps & Navigation)
+6.3 | App icon and feature graphic | NOT STARTED | 512x512 icon, 1024x500 feature graphic
+6.4 | Screenshots — phone | NOT STARTED | Minimum 2, recommended 4-8. Map view, convoy view, track recording, settings.
+6.5 | Complete IARC content rating | NOT STARTED | Questionnaire for age rating. Outdoor navigation, all ages.
+6.6 | Set target audience and content | NOT STARTED | Outdoor recreation, 18+ (convoy coordination involves vehicles)
+6.7 | Privacy policy URL | NOT STARTED | Host at grouptrack.org/privacy — required for apps with location access
+6.8 | MANAGE_EXTERNAL_STORAGE declaration | NOT STARTED | App Content > Sensitive Permissions > explain file access need
+6.9 | Build signed AAB (not APK) | NOT STARTED | Play Console prefers Android App Bundle. ./gradlew bundleGoogleRelease
+6.10 | Create internal testing track | NOT STARTED | Upload AAB, add tester emails, verify install via Play Store
+6.11 | Promote to closed beta | NOT STARTED | Expand tester group, collect feedback before public launch
+6.12 | Submit for review | NOT STARTED | Review takes 1-7 days for new apps, especially with sensitive permissions
+# | Task | Status | Details
+7.1 | Run recommit_docs_v3.sh | NOT STARTED | Sync all docs to repo before release build
+7.2 | Build AAB for Play Console | NOT STARTED | ./gradlew bundleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease
+7.3 | Build APK for direct distribution | NOT STARTED | ./gradlew assembleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease
+7.4 | Sign with grouptrack-release-key.jks | NOT STARTED | Configured in build.gradle.kts after package rename
+7.5 | Test install from Play Store | NOT STARTED | Internal test track — verify MANAGE_EXTERNAL_STORAGE toggle is enabled
+# | Risk | Severity | Mitigation
+R1 | Google HYB tile ToS violation | BLOCKED | Replace tile source before submission — task zero
+R2 | MANAGE_EXTERNAL_STORAGE rejection | IN PROGRESS | Strong justification: offline navigation requires shared file access. Similar apps (Gaia, onX) use same permission.
+R3 | Overly broad intent filters | NOT STARTED | Narrow to GPX/KML only — straightforward fix
+R4 | Missing attribution | NOT STARTED | Add About screen — one screen, 4 attributions
+R5 | Package rename breaks tester installs | NOT STARTED | Expected and acceptable. Communicate to testers. Maps/tracks survive.
+R6 | Play Store review delay (1-7 days) | NOT STARTED | Submit early, iterate on feedback. New apps with sensitive permissions take longer.
+# | Phase | Status | Details
+P1 | Replace Google HYB tile source | NOT STARTED | Task zero. Eliminates ToS violation risk before any other work.
+P2 | Package rename to com.grouptrack.android | NOT STARTED | Breaking change — do early so all subsequent testing is on final package.
+P3 | Intent filter cleanup | NOT STARTED | Quick win, removes broad file handlers.
+P4 | Permission handling restoration | NOT STARTED | Restore MANAGE_EXTERNAL_STORAGE check and dialog.
+P5 | About/Attribution screen | NOT STARTED | New screen with GPL, Leaflet, Esri attributions.
+P6 | Build + test on device | NOT STARTED | Full regression: maps, tracks, convoy, recording, import/export.
+P7 | Play Console account + listing | NOT STARTED | $25 account, app listing, screenshots, privacy policy.
+P8 | Upload AAB to internal test track | NOT STARTED | First Play Store install — verify permissions work.
+P9 | Closed beta + tester feedback | NOT STARTED | Expand to tester group, collect field feedback.
+P10 | Submit for production review | NOT STARTED | Final submission after beta validation.
 
 === GroupTrack_PlayStore_DeploymentNotes_v1.docx ===
 GroupTrack Play Store Deployment
@@ -5878,6 +6075,243 @@ MAP-04 Thunderforest trails | Register for free API key. Wire in if key received
 UI-01 Node channel filter | Investigate and fix — important for field use. Compare node.channel to WorkingConfig.channelName.
 UI-04 RECORD button Z-order | Fix zIndex on disconnect overlay. Should be quick.
 UI-07 Module fields Verify | Wire moduleConfigFlow. Medium effort. Defer if needed.
+
+=== GroupTrack_V2.4_Handoff_Apr23.docx ===
+GroupTrack V2.4
+End of Day Handoff — April 23, 2026
+Session summary, completed work, open issues, and Google Play sprint plan
+1. Session Context
+This session began with a broken working tree caused by a git stash pop that overwrote two committed files (Main.kt and ConvoySubMenu.kt) with older stashed versions. The stash had been created the prior evening to preserve uncommitted changes overnight. Between the stash creation and the pop, commits had been made that added new parameters, renamed UI elements, and added the Services navigation icon. The stash pop merged the old versions on top of the new code, causing parameter mismatches and reverting the GroupTrack branding back to 'Convoy'.
+Resolution: Main.kt and ConvoySubMenu.kt were restored to committed versions via git checkout HEAD. The two legitimately modified files (ConvoyScreen.kt with track picker changes, ConvoyMapViewerScreen.kt with async scan fix) were kept from the stash. Lesson learned: do not use git stash. Leave the working tree dirty overnight, or commit WIP to a throwaway branch.
+2. Completed Today
+Commit: 2cb99c404 — feat: V2.4 track picker mutual exclusion, async ALL, Map Viewer download FAB, standalone GPS, Esri tile swap
+Prior known-good commit: 9d66c9781 — feat: V2.4 track viewer both maps, 3 map sources, intent filter import
+3. Field Test Readiness
+Three-day field test beginning April 24. Two devices deployed:
+Field test focus areas:
+Esri satellite imagery quality vs. prior Google hybrid at all zoom levels
+Trail overlay visibility and accuracy on southern Utah trails
+Track recording reliability over multi-hour rides
+Standalone GPS mode (no radio) — pin positioning, auto-centering, track recording
+Map Viewer download workflow — find area, set zoom, draw region, download tiles
+Track panel — load individual tracks, ALL button performance, search filtering
+V3.0 services UI — dashboard, organizer/rider toggle, rides search tabs
+4. Open Issues — Detailed Background
+4.1 GPX/KML Import Handler Not Executing
+Severity: HIGH — blocks user adoption
+Background: GroupTrack registers intent filters in AndroidManifest.xml for GPX and KML MIME types (application/gpx+xml, application/vnd.google-earth.kml+xml, application/octet-stream, text/xml, application/xml). When a user taps a GPX/KML file in a file manager, Android should route the intent to GroupTrack.
+The import was confirmed working on April 22 at 15:08 — a file 'St George to Bar10.gpx' was successfully imported and saved to /Documents/my_tracks/. This was on commit 9d66c9781.
+Current behavior: Tapping a GPX file in the file manager launches GroupTrack (grey screen appears, then black screen), but the import handler code does not execute. Logcat shows no GroupTrack log entries related to import — the intent reaches the activity but is not processed.
+Root cause analysis:
+The intent filters are correctly defined in AndroidManifest.xml and attached to the main activity.
+The activity launches (visual confirmation of grey/black screen transition).
+No SecurityException or Permission Denial in logcat — this is not a permissions issue.
+The import handler code in ConvoyScreen.kt is unchanged between 9d66c9781 and current commit.
+The failure is in the intent routing within the activity — the intent arrives but the handler that reads the URI and processes the file is not being triggered.
+Suspect: Main.kt intent handling may have changed during stash resolution. Although Main.kt was restored to HEAD, the committed version may not have the import intent processing that existed at 9d66c9781. Need to diff Main.kt between 9d66c9781 and HEAD.
+Next step: Run 'git diff 9d66c9781 HEAD -- app/src/main/java/com/geeksville/mesh/ui/Main.kt' and inspect any changes to intent handling, onCreate, or onNewIntent. The working version processed the intent URI and copied the file to my_tracks/. Something in that path is missing or broken.
+Strategic importance: Fred has stated that import is the adoption gate. Users will not switch from Gaia/onX if they lose their track history. A user's Gaia/onX export is typically 1-2 large GPX files containing all their ride history. GroupTrack's multi-track parser splits these into individual tracks. The import must be seamless — tap file, GroupTrack handles it, tracks appear. No file pickers, no extra steps.
+4.2 Track Export Redesign
+Severity: MEDIUM — needed for complete user workflow
+Current state: Track export uses a system file picker which is unfriendly for non-technical users and provides no control over presentation or navigation. A partially-built ConvoyTrackExportSheet.kt exists from a prior session with scan, search, multi-select, and MediaStore copy logic.
+Required design:
+In-app track list screen showing all tracks from /Documents/my_tracks/
+Search by filename, sort by date
+Multi-select with SELECT ALL toggle
+Two export actions: (1) Export to Downloads — copies via MediaStore, (2) Email as attachment — opens Android share sheet with files attached
+Result toast showing number of files exported
+This replaces the current file picker approach entirely. No system UI, full GroupTrack branding and navigation control.
+4.3 Intent Filter Cleanup
+Severity: MEDIUM — required for Play Store submission
+Current manifest includes overly broad intent filters: application/octet-stream, text/xml, application/xml. These cause GroupTrack to appear as a file handler for ANY unknown file type or ANY XML file on the device. Google Play review may flag this as inappropriate behavior.
+Fix: Remove application/octet-stream, text/xml, and application/xml. Keep only application/gpx+xml, application/vnd.google-earth.kml+xml, and file extension filters for .gpx and .kml.
+Risk: Some file managers may send GPX/KML files with generic MIME types (octet-stream or text/xml) instead of the correct GPX/KML types. Removing the broad filters may prevent GroupTrack from catching these. Mitigation: test with multiple file managers after the change. If a specific file manager sends the wrong MIME type, consider adding it back as a narrower filter.
+4.4 Package Rename
+Severity: HIGH — required for Play Store, one-time breaking change
+Change applicationId from com.geeksville.mesh to com.grouptrack.android. This is the single largest change in the Google Play sprint because it touches multiple systems:
+build.gradle.kts — applicationId change
+grouptrack-release-key.jks — wire as signing key in keystore.properties
+Firebase Console — new project for com.grouptrack.android, download new google-services.json
+AndroidManifest.xml — update package references, authorities, FileProvider
+Crashlytics — link to new Firebase project
+What survives the rename:
+Tile storage (/sdcard/Documents/GroupTrack/maps/tiles/) — package-independent path, no migration needed
+Track storage (/sdcard/Documents/my_tracks/) — package-independent path, no migration needed
+What resets:
+SharedPreferences — session clears, permission dialogs reappear, first-launch experience triggers
+App-internal filesDir — convoy ride configs, master configs, archives all reset
+All testers must uninstall the old app and install the new one. This must be communicated clearly. Maps and tracks are preserved.
+4.5 About/Attribution Screen
+Severity: MEDIUM — legal requirement for distribution
+GroupTrack is built on Meshtastic-Android (GPL v3), uses Leaflet (BSD 2-Clause) for map rendering, and Esri tile services for satellite and topographic imagery. All three require attribution before public distribution.
+Required attributions:
+Meshtastic — 'Built on Meshtastic-Android' + link to github.com/meshtastic/Meshtastic-Android. GPL v3 requires making modified source available on request. Note: convoy/ package files are original work, not modifications to Meshtastic code.
+Leaflet — 'Map rendering by Leaflet' + leafletjs.com link. BSD 2-Clause. Also verify the built-in Leaflet attribution control is not suppressed on the map.
+Esri — 'Map tiles by Esri' with specific attributions per source: SAT: Esri, Earthstar Geographics. TOPO: Esri, HERE, Garmin, FAO, NOAA, USGS.
+Implementation: New Composable screen accessible from ConvoySubMenu or Settings. Single screen, one link per component. Minimal effort — half day.
+4.6 MANAGE_EXTERNAL_STORAGE Permission
+Severity: HIGH — Play Store unlocks this; justification needed for review
+Android 14 blocks the MANAGE_EXTERNAL_STORAGE toggle for sideloaded apps. Play Store deployment enables the toggle. This is the definitive fix for the scoped storage issues that have plagued V2.4 development — file import failures, directory listing restrictions, and cross-app file access limitations.
+For Play Store submission, a MANAGE_EXTERNAL_STORAGE declaration is required in Play Console under App Content > Sensitive Permissions. The justification must explain why all-files access is needed. GroupTrack's justification: offline navigation app that reads and writes map tiles and GPS track files to shared storage for cross-app interoperability (import from Gaia/onX, export to Google Earth).
+Similar apps (Gaia GPS, onX Maps, Avenza Maps) successfully use this permission on the Play Store. Precedent is established.
+Code changes required:
+Restore isExternalStorageManager() check on app startup
+First-launch dialog explaining why permission is needed
+Graceful degradation if permission denied (reduced import/export functionality)
+4.7 BLE Scan Button Not Appearing
+Severity: LOW — workaround exists, not blocking Play Store
+On fresh device after granting all permissions, the BLE scan button does not appear in the Connections screen. This is a Meshtastic-Android inherited issue. Workaround: close and reopen the app. The button appears on second launch. Root cause investigation deferred.
+5. Google Play Sprint — Plan of Attack
+Goal: GroupTrack V2.4 available on Google Play internal testing track. Target: 7-10 days from start.
+5.1 Recommended Sequence
+5.2 Risk Assessment
+6. Architecture Notes for Next Session
+6.1 Git Workflow
+Do not use git stash. Options for preserving work overnight:
+Leave working tree dirty — safest, simplest. Changes survive sleep/shutdown.
+Commit WIP to throwaway branch: git checkout -b wip/[feature], git add -A, git commit -m 'WIP', git checkout feature/convoy-event-ride
+If stash is accidentally used and causes conflicts, always restore committed files with 'git checkout HEAD -- filename'. Never use --theirs on files that have been committed since the stash was created.
+6.2 Build Discipline
+V2.4 = assembleGoogleRelease on device 8624SBCEDF00001789 (com.geeksville.mesh.google). V3.0 = assembleGoogleDebug with V3_FEATURES_ENABLED=true on device 24039703201775 (com.geeksville.mesh.google.debug). Never cross these. Always flip V3_FEATURES_ENABLED back to false after V3 build.
+6.3 Patch Methodology
+All code changes via Python patch scripts with exact string replacement and error exit on match failure. Scripts downloaded to ~/Downloads, run from ~/Meshtastic-Android. Script names uniquely versioned (never reuse). Always add encoding='utf-8' to file open calls for Windows compatibility.
+6.4 Key File Locations
+Tile storage: /sdcard/Documents/GroupTrack/maps/tiles/
+Track storage: /sdcard/Documents/my_tracks/
+Convoy source: app/src/main/java/com/geeksville/mesh/convoy/
+HTML maps: app/src/main/assets/convoy_map.html, grouptrack_map.html
+Trail data: app/src/main/assets/utah_trails_stgeorge.geojson
+PHP API: /var/www/html/convoy_api.php on EC2 34.224.89.217
+Release keystore: grouptrack-release-key.jks (backed up to 4 locations)
+7. Documents Generated Today
+GroupTrack V2.4 | End of Day Handoff | April 23, 2026 | Commit 2cb99c404
+# | Task | Status | Details
+2.1 | Stash conflict resolution | DONE | Restored Main.kt and ConvoySubMenu.kt to committed versions. Kept track picker and async scan changes from stash.
+2.2 | Track picker mutual exclusion | DONE | TRACKS panel and chevron settings panel are now mutually exclusive. Opening one closes the other. Two lines of code, zero layout risk.
+2.3 | Async ALL button | DONE | ALL button in track picker now loads files on IO thread, injects into WebView on Main thread. Eliminates ANR on devices with 87+ track files. New convoyLoadTrackData() helper function does IO-safe file read + XML parse.
+2.4 | Map Viewer download FAB | DONE | Floating draggable download button (bottom-right) on Map Viewer. Tap opens panel with ZOOM slider (16-19), DOWNLOAD REGION (draw area), SHOW/HIDE DOWNLOADED toggle. Uses same ConvoyTileDownloader as convoy map.
+2.5 | grouptrack_map.html download infrastructure | DONE | Added leaflet.draw imports, initDrawTool(), activateDrawMode(), showDownloadedAreas(), clearDownloadedAreas(), clearAreaBoundary(), clearSearchCenter(), getMapBounds() to Map Viewer HTML.
+2.6 | Standalone GPS active listener | DONE | New startPhoneGps() method in ConvoyViewModel requests GPS updates every 2 seconds when no radio connected. Fixes cold-start position issue where getLastKnownLocation returned null. Phone pin now appears immediately on map open.
+2.7 | Google tile URL swap | DONE | Replaced Google Maps hybrid tile URL (mt0.google.com/vt/lyrs=y) with Esri World Imagery (services.arcgisonline.com) across ConvoyConfig.kt, grouptrack_map.html, ConvoyMapViewerScreen.kt, ConvoyScreen.kt. Eliminates Google ToS violation.
+2.8 | Play Store checklist document | DONE | GroupTrack_PlayStore_Checklist_v1.docx — 9 sections covering package rename, tile source, intent filters, permissions, attribution, Play Console setup, build commands, risk summary, implementation sequence.
+2.9 | V2.4 release notes document | DONE | GroupTrack_V2.4_ReleaseNotes_Apr23.docx — covers all V2.4 changes for tester distribution.
+2.10 | V2.4 release APK built | DONE | GroupTrack_V2.4_release_[timestamp].apk in Downloads. Installed on Android 1 (8624SBCEDF00001789).
+2.11 | V3.0 debug APK built | DONE | GroupTrack_V3.0_debug_[timestamp].apk in Downloads. Installed on Android 2 (24039703201775). V3_FEATURES_ENABLED flipped back to false after build.
+2.12 | Tile transfer initiated | DONE | 6.5GB tile cache pull from Android 1 to D:/GroupTrack_tiles/ in progress. Push to Android 2 pending transfer completion.
+Device | Serial | Build | Status
+Android 1 (primary) | 8624SBCEDF00001789 | V2.4 release | GPS hardware, SenseCAP radio, 6.5GB tiles
+Android 2 (secondary) | 24039703201775 | V3.0 debug | No GPS hardware, V3 services UI, tiles pending transfer
+Day | Phase | Tasks
+1 | GPX/KML import fix | Diff Main.kt between 9d66c9781 and HEAD. Find and restore intent handling. Test with Gaia/onX export files. This is the adoption gate.
+1 | Track export redesign | Complete ConvoyTrackExportSheet.kt. Wire to ConvoySubMenu. Test Export to Downloads and Email options.
+2 | Package rename | Change applicationId, wire keystore, create Firebase project, update manifest. Build and test. Breaking change for all testers.
+2 | Intent filter cleanup | Narrow to GPX/KML specific types. Test with multiple file managers.
+3 | Attribution screen | New Composable screen with GPL, Leaflet, Esri attributions. Wire to menu.
+3 | Permission handling | Restore MANAGE_EXTERNAL_STORAGE check and first-launch dialog. Test permission flow.
+3 | Full regression test | Maps, tracks, convoy, recording, import, export, download, standalone GPS. Both maps.
+4 | Play Console setup | Developer account ($25), app listing, screenshots, IARC rating, privacy policy at grouptrack.org/privacy.
+4 | Build signed AAB | ./gradlew bundleGoogleRelease with grouptrack-release-key.jks. Upload to internal test track.
+5-7 | Internal testing | Testers install from Play Store. Verify MANAGE_EXTERNAL_STORAGE works. Verify import/export. Collect feedback.
+7-10 | Google review | Submit for production review after internal testing validates. Review takes 1-7 days for new apps with sensitive permissions.
+Risk | Severity | Mitigation
+Google rejects MANAGE_EXTERNAL_STORAGE | HIGH | Strong justification: offline navigation. Precedent: Gaia, onX, Avenza all use it. Appeal if rejected.
+Intent filter narrowing breaks some file managers | MEDIUM | Test with Files by Google, Solid Explorer, Samsung My Files. Add back specific MIME types if needed.
+Package rename breaks tester workflow | EXPECTED | Communicate clearly: uninstall old, install new. Maps and tracks survive.
+Review delay extends beyond 7 days | LOW | Start with internal testing (instant). Testers are productive while review proceeds.
+Document | Description | Location
+GroupTrack_PlayStore_Checklist_v1.docx | Complete Play Store submission checklist with 9 sections and status tracking | Downloads / Claude outputs
+GroupTrack_V2.4_ReleaseNotes_Apr23.docx | V2.4 release notes covering all changes for tester distribution | Downloads / Claude outputs
+GroupTrack_ConvoyTrackPickerFixPlan_v1.docx | Track picker fix plan with root cause analysis and test plan (uploaded by Fred) | Project knowledge
+This document | End of day handoff with completed work, open issues, and sprint plan | Downloads / Claude outputs
+
+=== GroupTrack_V2.4_ReleaseNotes_Apr23.docx ===
+GroupTrack V2.4
+Release Notes
+April 23, 2026 | Build: feature/convoy-event-ride
+Life is too short. Enjoy your time on the trail. Never worry about a wrong turn.
+Product Rename
+Convoy Tracker is now GroupTrack. The app icon, menu headers, and bottom navigation bar all reflect the new brand. The Meshtastic bottom navigation icon is labeled 'GroupTrack' and opens the GroupTrack menu.
+Map Sources
+Map tile sources have been updated for licensing compliance and trail visibility.
+Google Maps tile source has been removed. All map sources are now properly licensed for offline caching and distribution.
+Trail Overlays
+Utah OHV and recreation trails are now displayed as colored overlays on the SAT and TOPO map sources. Trail data is sourced from UGRC (Utah Geospatial Resource Center) and bundled with the app.
+Tap TRAILS in the header bar to toggle trail overlay visibility. Trail tap popups show trail name, type, and motorized status.
+Track Viewing — TRACKS Panel
+Both the Convoy Map and Map Viewer now include a TRACKS panel for loading and viewing GPX/KML track files on the map.
+How to use:
+Tap TRACKS in the floating settings bar (Convoy Map) or header bar (Map Viewer)
+Search for tracks by name using the search field
+Tap a track to load it on the map as a green polyline. Tap again to remove.
+ALL loads all tracks at once. FIT zooms to fit all loaded tracks. CLEAR removes all.
+Track files are read from /Documents/my_tracks/ on the device.
+Map Viewer
+The Map Viewer is an independent map screen for viewing tracks and planning without convoy operations. Access via GroupTrack Menu > MAP SETTINGS > Map Viewer.
+Map Viewer features:
+Full-screen map with SAT, TOPO, and TOPO+ tile sources
+Trail overlays with TRAILS toggle
+TRACKS panel for loading GPX/KML files
+FIND — search for cities, parks, or trail areas by name
+Floating download button (bottom-right) for offline tile downloads
+Download controls: ZOOM slider, DOWNLOAD REGION (draw area), SHOW DOWNLOADED
+Map Tile Downloads
+Download map tiles for offline use in areas without cell service. Available on both the Convoy Map and Map Viewer.
+How to download:
+Use FIND to navigate to the area you want to download
+Set the ZOOM level (16-19) — higher zoom = more detail, more storage
+Tap DOWNLOAD REGION — draw a rectangle on the map to select the area
+Tiles download in the background. Progress bar shows completion.
+Tap SHOW DOWNLOADED to see blue overlay showing which areas are cached
+Tile storage: /Documents/GroupTrack/maps/tiles/ — shared across all GroupTrack versions. Tiles survive app updates and reinstalls.
+GPX/KML Track Import
+Import track files from Gaia GPS, onX Maps, or any app that exports GPX or KML files.
+How to import:
+Locate your GPX or KML file in the Android file manager or Downloads folder
+Tap the file — Android will offer to open it with GroupTrack
+GroupTrack processes the file and splits multi-track GPX files into individual tracks
+Imported tracks appear in the TRACKS panel on both maps
+Supported formats: GPX (GPS Exchange Format) and KML (Google Earth). Multi-track GPX files from Gaia/onX are automatically split into individual tracks.
+Standalone GPS Mode
+GroupTrack now works without a Meshtastic radio for solo navigation. When no radio is connected, the app uses the phone's GPS to create a single cart node.
+Phone appears as a map pin with device model name (e.g. P50)
+Map centers on phone GPS position on launch
+GPS track recording works without radio
+Trail overlays and track viewing fully functional
+This enables users to evaluate GroupTrack as a standalone navigation app before investing in radio hardware.
+Track Recording — GPX Format
+Track recording now outputs standard GPX format (previously KML). GPX is the industry standard for GPS track exchange and is compatible with Gaia GPS, onX Maps, Google Earth, and all major mapping applications.
+Recorded tracks are saved to /Documents/my_tracks/ with timestamp-based filenames.
+Tile Storage
+Map tiles are stored in a permanent, package-independent location:
+/sdcard/Documents/GroupTrack/maps/tiles/
+This location survives app updates, reinstalls, and the upcoming package rename for Google Play Store deployment. Tiles from the previous app-specific storage were migrated automatically on first launch.
+Bug Fixes
+Track picker panel no longer causes ANR (Application Not Responding). All file operations are now asynchronous.
+TRACKS and settings panels are mutually exclusive — opening one closes the other. No more layout conflicts.
+Standalone GPS centering fixed — map centers on phone position immediately on launch.
+Map type selection persists correctly across menu bar toggles.
+SKIP button now deletes temporary track files.
+Known Issues
+Coming Next — V2.5
+Independent Planning Map with route creation and waypoint management
+Snap-to-trail route planning using UGRC trail data
+Advanced file management — subfolder creation, batch import/export
+Google Play Store deployment — resolves all permission issues
+GroupTrack V2.4 | Release Notes | April 23, 2026
+Button | Source | Description
+SAT | Esri World Imagery | High-resolution satellite imagery with trail overlays. Default map. Best for off-road navigation.
+TOPO | Esri World Topo | Topographic map with contour lines, roads, and trail overlays. Best for elevation awareness.
+TOPO+ | Esri USA Topo | USGS-style topographic maps. Detailed terrain for backcountry planning.
+Color | Trail Type | Description
+Blue | OHV | Off-highway vehicle trails. Primary use case for GroupTrack.
+Orange | Hike + Bike | Multi-use trails for hiking and mountain biking.
+Yellow | Hike | Hiking-only trails.
+Purple | Bike | Mountain biking trails.
+Green | My Track | Your recorded or imported tracks displayed as overlays.
+# | Issue | Workaround
+1 | GPX/KML import may fail on some file manager selections | If import fails, try a different file manager. Full fix requires Play Store deployment for MANAGE_EXTERNAL_STORAGE permission.
+2 | BLE scan button may not appear on fresh device after permissions granted | Close and reopen the app.
+3 | SHOW DOWNLOADED takes time on large tile sets (6+ GB) | Wait for the scan to complete. Loading indicator planned for V2.5.
 
 === GroupTrack_V2.4_Release_TaskList_v1.docx ===
 GroupTrack
