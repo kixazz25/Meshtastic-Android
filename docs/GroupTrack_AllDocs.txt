@@ -6631,6 +6631,205 @@ convoy_map.html | MAP-02/03/04/05 — Leaflet overlay rendering
 ConvoyScreen.kt | MAP-03 — file picker and WebView bridge
 ConvoyConfig.kt | TRACK_EXPORT_FORMAT GPX/KML setting
 
+=== GroupTrack_V24_Turnover_Apr29.docx ===
+GroupTrack V2.4
+Play Store Release — Turnover Document
+Target Date: Wednesday, April 29, 2026
+Prepared: April 25, 2026
+Confidential — Internal Development
+1. Current State Summary
+As of April 25, 2026, the GroupTrack V2.4 release is in the final stages before Google Play Store publication. The AAB (Android App Bundle) has been successfully built with the new package name. The Play Console app listing has been created. Several blocking issues were encountered and resolved during the process. A small batch of bug fixes remains before final submission.
+2. Issues Encountered During AAB Build & Upload
+2.1  google-services.json Package Mismatch
+Symptom:
+Task :app:processGoogleReleaseGoogleServices FAILED
+Cause: The google-services.json file contained the old package name com.geeksville.mesh. After changing APPLICATION_ID in config.properties to com.grouptrack.android, the build could not match the package name in google-services.json.
+Resolution:
+Updated all package_name entries in app/google-services.json:
+"com.geeksville.mesh" → "com.grouptrack.android"
+"com.geeksville.mesh.google.debug" → "com.grouptrack.android.google.debug"
+Status: RESOLVED. Verified with grep.
+2.2  Unresolved Reference: BuildConfig and R
+Symptom:
+Unresolved reference 'BuildConfig' (26 errors across 8 files)
+Unresolved reference 'R' (10 errors across 4 files)
+Cause: The namespace property in build.gradle.kts was set to read from APPLICATION_ID via configProperties. When APPLICATION_ID changed to com.grouptrack.android, the generated R and BuildConfig classes moved to the new package. But all source code still imports them from com.geeksville.mesh.
+Root issue: The namespace controls where R.java and BuildConfig.java are generated. The applicationId controls the installed package name. These must be independent.
+Resolution:
+Hardcoded namespace in build.gradle.kts line 50:
+BEFORE: namespace = configProperties.getProperty("APPLICATION_ID")
+AFTER:  namespace = "com.geeksville.mesh"
+This keeps R and BuildConfig in the com.geeksville.mesh package (matching all existing import statements) while the installed app uses com.grouptrack.android.. This is the standard Android pattern — namespace and applicationId are independent.
+Status: RESOLVED. Build succeeded in 25m 53s.
+2.3  Debug Package Name Still Hardcoded
+Symptom: Debug builds would install under com.geeksville.mesh.google.debug (old identity), creating two separate apps on the device.
+Cause: Line 196 of build.gradle.kts hardcoded the debug applicationId:
+variant.applicationId = "com.geeksville.mesh.$flavor.debug"
+Resolution:
+AFTER: variant.applicationId = "com.grouptrack.android.$flavor.debug"
+Status: RESOLVED. Verified at line 196.
+2.4  AndroidManifest.xml Class References
+Concern: The AndroidManifest.xml contains ~15 references to com.geeksville.mesh class names (e.g. com.geeksville.mesh.MainActivity, com.geeksville.mesh.service.MeshService).
+Resolution: NO CHANGE NEEDED. These reference Java/Kotlin class file paths, not the installed package name. The source code lives under com/geeksville/mesh/ in the directory structure. Android resolves these at build time. Changing them would break class loading at runtime.
+ContentProvider authorities use ${applicationId} — confirmed dynamic, no issue.
+Status: VERIFIED SAFE. No changes required.
+2.5  Play Console — App Signing Not Accepted
+Symptom: AAB uploads to the draft release but Save produces three errors:
+"You need to upload an APK or Android App Bundle for this app"
+"You can't rollout this release because it doesn't allow any existing users to upgrade"
+"This release does not add or remove any app bundles"
+Cause: Play App Signing has not been accepted. Google requires app signing enrollment before the first AAB upload is recognized. The AAB appears in the upload area but is not registered by the system.
+Resolution (PENDING):
+Navigate to: Left sidebar → Setup → App signing (or App integrity → Play app signing section)
+Click the acceptance button ("Turn on" or "Accept" or "Let Google manage your app signing key")
+Your existing grouptrack-release-key.jks automatically becomes the upload key
+Return to Internal testing → draft release → remove and re-upload the AAB → Save
+IMPORTANT: Do NOT upload or change your keystore file. Just accept the terms. Google generates its own signing key and uses yours as the upload verification key.
+Status: BLOCKED — requires manual acceptance in Play Console.
+3. Shared Storage Verification
+Before the package rename, we verified that all user data survives the applicationId change. This is critical because debug and release builds must share tiles and tracks.
+Tile downloads, recorded tracks, and trail overlays all use public paths that are independent of the application package name. Switching between debug and release, or uninstalling and reinstalling, will not affect these files.
+4. Pre-Submission Bug Fixes (Must Complete Before AAB)
+Four fixes must be applied, tested, and the AAB rebuilt before final Play Store submission. All relate to the "Show Downloaded Areas" button performance.
+Fix 1: ConvoyScreen.kt Line 512 — Scan Zoom Level
+Problem: The show-downloads scan iterates through z18 tile directories. At z18, the Utah test area has approximately 450,000 tiles. The listFiles() call on this many filesystem entries takes minutes on Android flash storage.
+Evidence: adb shell confirmed 6 X-directories at z10, 76 X-directories at z14, and ~450K entries at z18.
+Fix:
+Line 512: Change val z = 18  →  val z = 14
+Line ~511: Change tilesDir path to "SAT/14"
+Lines 1243 and MapViewer line 472 already use z14 and "SAT/14" — no changes needed there.
+Impact: Scan will iterate ~76 directories instead of ~450,000. Should complete in under 1 second.
+Fix 2: Loading Indicator on Show Downloads Button
+Problem: When the scan runs, nothing visible happens. The user has no feedback that work is in progress, leading to repeated taps that launch duplicate scan threads.
+Fix: Add a CircularProgressIndicator or pulsing animation on the button while the background Thread is running. Show spinner on tap, hide when scan completes and the JS callback fires.
+Fix 3: Disable Button During Scan
+Problem: Each tap of the show-downloads button launches a new background Thread. Multiple simultaneous scans compete for filesystem I/O, compounding the slowness.
+Fix: Disable the button (or ignore taps) while a scan is already in progress. Re-enable when the scan completes.
+Fix 4: Cancel Running Scan Before Starting New One
+Problem: Even with the button disabled, edge cases (screen rotation, re-entry to the screen) could launch a new scan while one is running.
+Fix: Track the scan Thread reference. Before starting a new scan, interrupt any existing one. Use a flag (e.g. isScanning) checked inside the forEach loop to bail out early if cancelled.
+Rebuild sequence after all four fixes:
+Apply fixes to ConvoyScreen.kt (and ConvoyMapViewerScreen.kt if needed)
+Build debug APK: ./gradlew copyApkToDownloads
+Install on Android 2: adb -s 24039703201775 install -r -d [debug apk]
+Test show-downloads button — verify instant rendering, spinner shows, no stacking
+Build release AAB: ./gradlew bundleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease
+Copy AAB to Downloads: cp app/build/outputs/bundle/googleRelease/app-google-release.aab "/c/Users/kixaz/Downloads/GroupTrack_v2.4_final.aab"
+5. Play Store Submission — Step-by-Step (April 29)
+Phase A: Accept App Signing
+Open browser: https://play.google.com/console
+Click on GroupTrack app
+Left sidebar → Setup → App signing (may be under App integrity)
+Find the "Play app signing" section
+Click "Turn on" or "Accept" or "Let Google manage your app signing key"
+Accept the terms — do NOT upload any keystore files
+Your grouptrack-release-key.jks is now automatically the upload key
+Phase B: Upload AAB & Create Release
+Left sidebar → Internal testing
+If a stale draft exists, discard it (three-dot menu or Discard button)
+Click Create new release
+Drag and drop the final AAB file into the upload area
+Wait for "optimizing" to complete
+Release name: 2.4.0
+Release notes: "GroupTrack V2.4 — Initial beta release with 3-layer offline maps, trail overlays, GPS tracking, and Meshtastic radio integration."
+Click Save
+Click Review release
+Click Start rollout to Internal testing
+Phase C: Add Testers & Install
+Internal testing → Testers tab
+Create email list → add your Google account email
+Save the list
+Copy the opt-in URL (shown on the testers page)
+Open that URL on your test device browser
+Accept the invitation → Install from Google Play
+Verify GroupTrack installs and launches correctly
+Test BLE connection to a T1000-E radio on Android 1
+Test offline maps, trail overlay, GPS tracking
+Internal testing has no Google review wait — the app is available within minutes of rollout.
+6. Package Configuration Reference
+All package changes have been applied and verified. This section documents the final state for reference.
+Build commands:
+Debug APK:
+./gradlew copyApkToDownloads
+Release AAB (Play Store):
+./gradlew bundleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease
+AAB output:
+app/build/outputs/bundle/googleRelease/app-google-release.aab
+CRITICAL: Never commit keystore.properties to git. Loss of grouptrack-release-key.jks = permanent inability to update on Google Play.
+7. Known Issue: BLE Device Compatibility
+During field testing on April 24-25, 2026, multiple Android devices were found unable to maintain Bluetooth Low Energy connections to T1000-E Meshtastic radios. This issue was thoroughly debugged via adb logcat on three devices.
+7.1  Symptoms
+Device connects successfully — MTU negotiated (247), services discovered, characteristic notifications enabled
+Connection drops after 6-10 seconds with BLE supervision timeout (HCI reason 0x0008)
+Device auto-reconnects immediately, cycle repeats indefinitely
+Same behavior on both Meshtastic and GroupTrack apps — not app-specific
+Same behavior on Android 10, 14, and 16 — not OS-specific
+Placing radio directly on top of device does not help — not signal strength
+7.2  Test Results
+7.3  Root Cause
+Hardware-level BLE chipset incompatibility between budget Android devices and the T1000-E radio. The Bluetooth hardware in these devices cannot sustain the BLE connection parameters required by the T1000-E. The connection setup is flawless (MTU, service discovery, characteristic subscription all succeed), but the radio link drops due to supervision timeout — the device stops receiving keep-alive packets.
+7.4  Conclusion
+This is NOT a GroupTrack bug. NOT a Meshtastic bug. NOT fixable in software. Budget devices with weak BLE chipsets are incompatible with T1000-E radios. A device compatibility list must be published for testers and future users.
+7.5  Action Item
+Publish a tested device compatibility list. Include known-good devices (Android 1, Android 2) and known-failing devices (Tab8NEU, Z30Y). Recommend testers use mid-range or better Android phones for reliable BLE connections.
+8. Known Issue: Show Downloaded Areas Performance
+The "Show Downloads" button on the convoy map screen triggers a filesystem scan to determine the bounding rectangle of downloaded tile regions. The scan logic is correct but was pointed at the wrong zoom level.
+ConvoyScreen.kt line 512 was set to z18, causing the scan to iterate through hundreds of thousands of filesystem entries. The z14 scan provides adequate boundary precision with only ~76 directories. Lines 1243 (ConvoyScreen) and 472 (MapViewerScreen) already use z14.
+Additional issue: tapping the button multiple times stacks scan threads, compounding I/O contention. No loading indicator exists, so users tap repeatedly thinking nothing happened.
+See Section 4 for the four-fix remediation plan.
+9. April 29 Session Checklist
+Total estimated time: approximately 2.5 hours
+Item | Status | Details
+Package migration | COMPLETE | com.geeksville.mesh → com.grouptrack.android
+AAB build | COMPLETE | BUILD SUCCESSFUL — saved to Downloads
+Play Console app | CREATED | Free app, draft release exists
+Play App Signing | BLOCKED | Must accept Google-managed signing
+AAB upload | BLOCKED | Depends on app signing acceptance
+Pre-submission fixes | PENDING | 4 fixes for show-downloads scan
+BLE device testing | DOCUMENTED | Hardware issue confirmed, not app bug
+Data | Path | Package-Dependent? | Status
+Map tiles | /sdcard/Documents/GroupTrack/maps/tiles/ | NO — public path | SAFE
+Tracks | /sdcard/Documents/my_tracks/ | NO — public path | SAFE
+GeoJSON trails | Bundled in APK assets | NO — each build carries own copy | SAFE
+SharedPreferences | App internal storage | YES — resets per package | Expected
+Old tile migration | getExternalFilesDir (ConvoyConfig:35) | YES — but one-time only | OK
+File | Setting | Value
+config.properties | APPLICATION_ID | com.grouptrack.android
+build.gradle.kts:50 | namespace | com.geeksville.mesh (hardcoded)
+build.gradle.kts:196 | debug applicationId | com.grouptrack.android.$flavor.debug
+google-services.json | package_name (release) | com.grouptrack.android
+google-services.json | package_name (debug) | com.grouptrack.android.google.debug
+AndroidManifest.xml | Class references | com.geeksville.mesh.* (unchanged — correct)
+AndroidManifest.xml | Provider authorities | ${applicationId}.* (dynamic — correct)
+keystore.properties | storeFile | C:/Users/kixaz/grouptrack-release-key.jks
+keystore.properties | keyAlias | grouptrack
+Device | Serial | OS | BLE Result
+Android 1 (dev) | 8624SBCEDF00001789 | Android 16 | STABLE — 60+ sec, continuous data flow
+Android 2 (dev) | 24039703201775 | — | STABLE
+Tab8NEU (tester) | Tab8NEU013503 | Android 10 | FAILS — 0x0008 every 8-10s
+Z30Y (tester) | Z30YCU15K25905405 | Android 14 | FAILS — 0x0008 every 6-10s
+Zoom Level | X-Directories | Approx Total Entries | Scan Time
+z10 | 6 | ~50 | < 1 second
+z14 | 76 | ~500 | 1-2 seconds
+z18 | ~450,000+ | ~450,000+ | 4+ minutes
+☐ | Task | Est. Time
+☐ | Apply Fix 1: z18 → z14 in ConvoyScreen.kt line 512 | 5 min
+☐ | Apply Fix 2: Add loading spinner to show-downloads button | 15 min
+☐ | Apply Fix 3: Disable button during scan | 10 min
+☐ | Apply Fix 4: Cancel stale scan before new one | 10 min
+☐ | Build debug APK and test fixes on Android 2 | 30 min
+☐ | Verify show-downloads renders instantly at z14 | 5 min
+☐ | Build final release AAB | 25 min
+☐ | Copy AAB to Downloads | 1 min
+☐ | Play Console: Accept Play App Signing | 2 min
+☐ | Play Console: Create internal testing release | 5 min
+☐ | Play Console: Upload final AAB | 3 min
+☐ | Play Console: Add release notes and Save | 2 min
+☐ | Play Console: Review and Start rollout | 2 min
+☐ | Add tester email and get opt-in link | 3 min
+☐ | Install from Play Store on test device | 5 min
+☐ | Verify: app launches, BLE connects, maps work, trails display | 15 min
+
 === GroupTrack_V25_Planning_v2.docx ===
 GroupTrack
 V2.5 Planning — Updated April 17, 2026
