@@ -6830,6 +6830,211 @@ z18 | ~450,000+ | ~450,000+ | 4+ minutes
 ☐ | Install from Play Store on test device | 5 min
 ☐ | Verify: app launches, BLE connects, maps work, trails display | 15 min
 
+=== GroupTrack_V24_WorkPlan_Apr29.docx ===
+GroupTrack V2.4
+Wednesday April 29, 2026
+Work Plan — Problem Definitions & Repair Strategies
+Goal: Complete all fixes, rebuild AAB, publish to Google Play Store
+Prepared: April 28, 2026 — Confidential
+Task Schedule Overview
+All tasks are sequenced by priority. Track display reliability is the gating issue — all other work depends on a working track pipeline. Google Play submission closes the day.
+Total estimated time: approximately 4.5 hours
+Task 1: Remove 0.25mi Segment Jump Rejection
+Problem Definition
+ConvoyViewModel.kt contains a distance filter that rejects any track segment longer than 0.25 miles. When a radio drops and reconnects, the lead cart has moved beyond this threshold. The reconnection segment is silently discarded with a log message "LEAD SEGMENT JUMP REJECTED". This creates visible gaps in the track display.
+The filter exists on two code paths:
+Lead-only track: line 593 — if (segDist > 0.25f) { ... rejected }
+Multi-cart track: line 617 — identical filter for all carts
+Field test evidence: 5 radios covering 14 carts with long distance gaps between radios. Every radio dropout exceeding 0.25 miles of travel created a permanent gap in the displayed track.
+Repair Strategy
+Delete the distance check and rejection block at line 593 (lead track path)
+Delete the distance check and rejection block at line 617 (multi-cart path)
+Always create the segment regardless of distance
+Keep the convoyLog for debugging but remove the skip logic
+Design principle: Every segment draws, always. No exceptions. Angular lines through curves will be smoothed in V2.5. First priority is a complete, continuous track.
+Files Modified
+ConvoyViewModel.kt — lines 590-596 (lead path), lines 614-618 (multi path)
+Task 2: Cart Position Substitution for Silent Carts
+Problem Definition
+When a cart drops from the node list (radio disconnect, out of range, interference), the tick() function in ConvoyViewModel.kt stops accumulating trail segments for that cart. The track display freezes at the last known position and no new segments are drawn until the cart reappears.
+Current code at line 577-578:
+val leadNode = if (_leadLockedFlag) state.lead else null
+if (leadNode != null) { ... }  // null on disconnect = nothing draws
+When state.lead is null, the entire trail accumulation block is skipped. The track goes dead.
+Field test evidence: Lead cart track stopped recording/displaying whenever the radio dropped. With 5 radios spread across 14 carts and long distances, this happened frequently. Tracks were always broken despite continuous GPS availability on the device.
+Repair Strategy
+Universal rule for ALL carts, not just the lead:
+If a cart is not reporting, set its position to whichever is further along: its own last known position OR the furthest active cart behind it.
+Implementation steps:
+When state.lead is null but lockedLeadNodeId is set, do not skip the trail block
+Use lastLeadLat / lastLeadLon as the current anchor (already tracked)
+Check other active carts in the node list — find any cart whose position is further along than the lead's last known position
+"Further along" = greater haversine distance from the first trackpoint, or simply further in the direction of travel
+If an active cart is beyond the lead's last position, substitute that cart's position as the new trackpoint for the trail line
+When lead cart reappears in the node list, resume using its actual position — draw connecting segment regardless of distance (Task 1 already ensures this)
+Apply the same logic to the multi-cart path (line 607+) for all carts in the convoy
+Key constraints:
+Lead assignment NEVER changes — lead stays locked to cart 1 always
+Only the position source temporarily falls back to nearest active cart
+Track lines never go backwards — substituted position must be further along than last known
+The tick engine already tracks all cart positions — data is available, just not being used for trail building
+Files Modified
+ConvoyViewModel.kt — tick() function, lines 575-635
+Task 3: Test Track Display with Radio Disconnect
+Test Plan
+Build debug APK with Tasks 1-2 applied
+Install on Android 1: adb -s 8624SBCEDF00001789 install -r -d [apk]
+Start track recording with radio connected
+Verify track draws continuously while driving
+Power off the T1000-E radio mid-ride
+Continue driving — verify track continues drawing using GPS/substituted position
+Power radio back on — verify track connects through with no gap
+Stop recording — verify GPX file has continuous trackpoints throughout
+Check convoy log for any JUMP REJECTED messages (should be zero)
+Success criteria: Continuous track line from start to finish with zero gaps, regardless of radio state changes.
+Task 4: Auto-Pause GPS Recording
+Problem Definition
+The GPS LocationListener has a 5-meter minimum distance filter. When stationary (lunch stop, staging area), no positions fire and no trackpoints are written. This creates time gaps in the GPX file. The April 27 field test showed a 1 hour 23 minute gap at a lunch stop — the recording was running but no points were being written.
+Users also restart recording to reassign the lead cart or recover from a perceived issue, creating multiple short GPX files that must be manually stitched together to reconstruct a full day's route.
+Repair Strategy
+Track the timestamp of the last GPS position received in ConvoyGpsService
+On each LocationListener callback, check elapsed time since last position
+If no position change for 60 seconds (1 minute), log auto-pause but keep the GPX file open
+When the next position arrives after the pause, auto-resume — write the new trackpoint directly
+The GPX file draws a straight line from the pause point to the resume point — this is correct behavior (lunch stop to departure)
+No new temp file is created — single continuous GPX per session
+The auto-pause is transparent to the user. Recording indicator stays active. No stop/start cycle needed.
+Files Modified
+ConvoyGpsService.kt — LocationListener callback (~line 244), add lastPositionTimestamp tracking
+Task 5: GPX Combine — Select Multiple Tracks, Merge as One
+Problem Definition
+Field testing required multiple stop/start recording cycles during a single day. The April 26 route produced 2 separate GPX files (abc and bar_10) that together represent the complete route. Currently there is no way to select multiple tracks and combine them into a single GPX file for sharing or analysis.
+April 27 had similar fragmentation — the full day's route was split across multiple recordings due to app restarts and lead cart reassignment.
+Repair Strategy
+In the track picker list, allow multi-select mode (checkboxes instead of single-tap load)
+Add a COMBINE button next to ALL / FIT / CLEAR
+When COMBINE is tapped, read all selected GPX files
+Sort trackpoints by timestamp across all files
+Write a new combined GPX file with all trackpoints in chronological order as a single <trkseg>
+Prompt user for a file name for the combined track
+Save to my_tracks directory and refresh the list
+Date grouping enhancement: Add a date filter next to the existing controls. Tap a date to show only tracks from that day. Makes it easy to select all recordings from a field test day and combine them.
+Files Modified
+ConvoyScreen.kt — track picker UI (~line 1040+), add multi-select and COMBINE button
+ConvoyScreen.kt — new function convoyMergeTracks() for GPX combining
+Task 6: Debug Track List Slow Opening
+Problem Definition
+Tapping the TRACKS button shows "0 of 0" for 30-60 seconds before displaying the file list. The directory contains 31 files (10 displayed after filtering). The listing function (convoyListTracks) runs on Dispatchers.IO and only reads file names — it does not parse file contents. Despite this, the display is severely delayed.
+Observations:
+GeoJSON trails are already loaded and displayed before TRACKS is tapped — IO dispatcher is not competing with GeoJSON loading
+One trashed file in the directory is 31MB — filesystem stat on this file may contribute
+450,000 tile files at z18 may cause filesystem inode pressure affecting all IO operations
+Individual track loading after selection is fast — only the initial name listing is slow
+Repair Strategy
+Add timing logs to convoyListTracks: log timestamp before and after listFiles(), filter, sort
+Add timing log around the MainScope launch and withContext callback
+Run app and tap TRACKS — check logcat for exact timing of each operation
+If listFiles() is fast but UI update is delayed — issue is Compose recomposition or main thread blocking
+If listFiles() is slow — issue is filesystem pressure from tile directories; consider caching the file list
+Clean up trashed/temp files to reduce directory enumeration load
+Diagnostic Commands
+adb -s 8624SBCEDF00001789 logcat -v time | grep -i "convoyListTracks\|track.*list\|track.*time"
+Task 7: Debug ANR "Cancel or Wait" on App Open
+Problem Definition
+The app displays an Application Not Responding dialog ("Cancel or Wait") on startup. This occurs before any radio is connected. It happens even after a device reboot. Tapping Cancel force-kills the app, which can interrupt any active GPS recording session (foreground service dies with the app process).
+The ANR dialog appears when the main (UI) thread is blocked for more than 5 seconds. Something during app initialization is performing heavy work on the main thread.
+Likely candidates:
+GeoJSON trail overlay loading — 5,724 features across 8 Utah counties parsed from bundled assets
+SharedPreferences initialization or migration logic
+WebView initialization (Chromium cold start)
+Tile directory enumeration on first map render
+MeshService binding and initialization
+Repair Strategy
+Clear logcat, launch app fresh, capture ANR trace:
+adb -s 8624SBCEDF00001789 logcat -c
+# Launch app, wait for ANR dialog
+adb -s 8624SBCEDF00001789 logcat -d | grep -iE "ANR in|Input dispatching|Slow|BlockMonitor" | head -20
+Pull the ANR traces file for detailed stack trace:
+adb -s 8624SBCEDF00001789 shell cat /data/anr/traces.txt | head -100
+The stack trace will show exactly which method is blocking the main thread
+Move the blocking operation to a coroutine on Dispatchers.IO or a background Thread
+If it is GeoJSON loading: move to background thread, show map without trails, add trails once loaded
+If it is WebView init: already unavoidable on first launch, consider splash screen to mask it
+Files Modified
+TBD — depends on diagnostic results. Likely ConvoyScreen.kt or MainActivity.kt
+Task 8: Show Downloads Performance Fixes
+Problem Definition
+The Show Downloaded Areas button triggers a filesystem scan to determine the bounding rectangle of downloaded tile regions. The scan uses listFiles() recursively through tile directories.
+ConvoyScreen.kt line 512 scans zoom level 18, which contains approximately 450,000 tile entries. This takes 4+ minutes. Lines 1243 (ConvoyScreen) and 472 (MapViewerScreen) already use z14 (76 directories, 1-2 seconds).
+Additional issues: no loading feedback, button can be tapped multiple times stacking scan threads, no way to cancel a running scan.
+Repair Strategy
+Four sub-fixes:
+Change z18 to z14 at line 512 and update tile path to "SAT/14" — reduces scan from 450K entries to 76 directories
+Add a loading spinner (CircularProgressIndicator) visible while scan thread is running
+Disable the button (or set a flag to ignore taps) while scan is in progress
+Store the scan Thread reference; before starting a new scan, interrupt the existing one and check an isScanning flag inside the forEach loop to bail out early
+Files Modified
+ConvoyScreen.kt — line 512 (z level + path), line ~510 (spinner state), line ~508 (button disable)
+Tasks 9-11: Build, Publish, and Verify
+Task 9: Rebuild AAB
+After all fixes are applied and tested:
+Commit all changes: git add -A && git commit -m "V2.4 field test fixes"
+Build release AAB:
+./gradlew bundleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease
+Copy to Downloads:
+cp app/build/outputs/bundle/googleRelease/app-google-release.aab "/c/Users/kixaz/Downloads/GroupTrack_v2.4_final.aab"
+Task 10: Play Store Submission
+Open https://play.google.com/console
+Click GroupTrack app
+Left sidebar → Setup → App signing → Accept Google-managed signing ("Turn on")
+Left sidebar → Internal testing → Discard any stale draft
+Create new release → Upload AAB → Wait for processing
+Release name: 2.4.0
+Release notes: "GroupTrack V2.4 — 3-layer offline maps, trail overlays, continuous GPS tracking with multi-radio convoy support, GPX recording and export."
+Save → Review release → Start rollout to Internal testing
+Task 11: Add Testers & Verify Install
+Internal testing → Testers tab → Create email list
+Add your Google account email
+Save → Copy the opt-in URL
+Open opt-in URL on Android 1 browser
+Accept invitation → Install from Play Store
+Launch → Verify: map loads, trails display, BLE connects, GPS recording starts
+Internal testing has no Google review wait — available within minutes.
+V2.5 Backlog (Post-Release)
+Items deferred from V2.4 for the next release cycle:
+Quick Reference: Build & Install
+# | Task | Priority | Est. Time | Depends On
+1 | Remove 0.25mi segment jump rejection | CRITICAL | 5 min | —
+2 | Cart position substitution for silent carts | CRITICAL | 45 min | —
+3 | Test track display with radio disconnect | CRITICAL | 30 min | Tasks 1-2
+4 | Auto-pause GPS recording (1 min no movement) | HIGH | 20 min | —
+5 | GPX combine — select multiple tracks, merge as one | HIGH | 30 min | —
+6 | Debug: track list slow opening (31 files, 30-60s) | MEDIUM | 20 min | —
+7 | Debug: ANR "cancel or wait" on app open | MEDIUM | 20 min | —
+8 | Show downloads: z18→z14 + spinner + button disable + cancel | MEDIUM | 30 min | —
+9 | Rebuild AAB with all fixes | CRITICAL | 25 min | Tasks 1-8
+10 | Play Store: accept signing + upload + submit | CRITICAL | 15 min | Task 9
+11 | Play Store: add testers + verify install | CRITICAL | 15 min | Task 10
+Feature | Category | Notes
+Route smoothing for angular track transitions | Track Display | Smooth the straight-line segments created by cart position substitution
+Date filter for track grouping in picker | Track Management | Group tracks by recording date; tap date header to select all from that day
+Offline tile support in MapViewer | Maps | Enable downloaded tiles in MapViewer for showing download regions
+BLE device compatibility list | Hardware | Document tested devices: working (Android 1, 2) vs failing (Tab8NEU, Z30Y)
+Cloud sync of local artifacts | Premium | Sync tracks, routes, waypoints to user web account — premium feature
+DB backup/recovery | Premium | Protect track data from device loss
+Command | Purpose
+./gradlew copyApkToDownloads | Debug APK for testing
+./gradlew bundleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease | Release AAB for Play Store
+adb -s 8624SBCEDF00001789 install -r -d [apk] | Install to Android 1 (tester) — ALWAYS use -r -d
+adb -s 24039703201775 install -r -d [apk] | Install to Android 2 (dev) — ALWAYS use -r -d
+Setting | Value
+applicationId | com.grouptrack.android
+namespace | com.geeksville.mesh (hardcoded)
+Debug package | com.grouptrack.android.google.debug
+Keystore | C:/Users/kixaz/grouptrack-release-key.jks
+Key alias | grouptrack
+AAB output | app/build/outputs/bundle/googleRelease/app-google-release.aab
+
 === GroupTrack_V25_Planning_v2.docx ===
 GroupTrack
 V2.5 Planning — Updated April 17, 2026
