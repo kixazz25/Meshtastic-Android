@@ -6409,6 +6409,224 @@ Install to Android 1 | adb -s 8624SBCEDF00001789 install -r -d app/build/outputs
 Install to Android 2 | adb -s 24039703201775 install -r -d app/build/outputs/apk/google/release/app-google-release.apk
 Verify package | adb -s 8624SBCEDF00001789 shell pm list packages | grep grouptrack
 
+=== GroupTrack_V24_Handoff_Apr29.docx ===
+GroupTrack V2.4
+End of Day Handoff — April 29, 2026
+Google Play Blocker + V2.4 Code Status
+Confidential — Internal Development
+PART 1: Google Play Store — Blocking Issue
+This section is a standalone problem statement for the Google Play submission blocker. It contains all context needed to resume troubleshooting in a new conversation without repeating prior work.
+Problem Statement
+GroupTrack cannot be published to Google Play Internal Testing. The AAB uploads successfully and is optimized by Play Console, but when attempting to save or roll out the release, three errors appear and the Save/Publish buttons are grayed out. This has been attempted 10+ times with the same result.
+The Three Errors
+"You need to upload an APK or Android App Bundle for this app."
+"You can't rollout this release because it doesn't allow any existing users to upgrade to the newly added app bundles."
+"This release does not add or remove any app bundles."
+These errors persist even though the AAB is visibly uploaded and has been "optimized for distribution" by Play Console.
+What Has Been Tried
+Created the app in Play Console as free (com.grouptrack.android)
+Uploaded AAB — appears in upload area, shows filename, Play Console says "optimized for distribution"
+Added release name (2.4.0) and release notes
+Clicked Next — same 3 errors every time
+Discarded draft release and created fresh release — same result
+Discarded and recreated multiple times — same result
+Enabled Play App Signing (Setup → App Integrity → Play app signing → Turn on) — accepted Terms of Service
+Re-uploaded AAB after enabling app signing — same errors
+Verified AAB is valid: 40MB, proper structure, signed with grouptrack-release-key.jks, jarsigner verifies OK
+Verified AAB contains correct package: com.grouptrack.android
+What Has NOT Been Completed
+The Play Console likely has an app setup checklist that must be completed before any release can proceed. These items were NOT found or completed:
+Privacy policy URL — not set. Play Console warned about this.
+Content rating questionnaire — not completed.
+Target audience and content — not completed.
+App access instructions — not completed.
+Advertising ID declaration — Play Console explicitly warned about this.
+Store listing (description, screenshots, feature graphic) — not completed.
+The left sidebar navigation in Play Console does not show Setup, Dashboard, or App Content links from the Internal Testing page. Navigation to these setup items has been unsuccessful.
+Likely Root Cause
+The AAB upload is accepted but the release cannot be saved because mandatory app setup steps have not been completed. Play Console requires these before allowing even an internal test release. The three error messages are misleading — they suggest the AAB is not recognized, but the real blocker is likely the incomplete app setup checklist.
+Recommended Next Steps
+Navigate to the app setup checklist. Try direct URLs:
+https://play.google.com/console/u/0/developers/7270319932158575281/app/4973925625690641629/app-content
+https://play.google.com/console/u/0/developers/7270319932158575281/app/4973925625690641629/app-dashboard
+Complete all required setup items: privacy policy, content rating, target audience, ads declaration, store listing
+For privacy policy: create a simple Google Doc or use a generator, make it publicly viewable, paste URL
+For advertising ID: declare that the app does NOT use advertising ID (or remove com.google.android.gms.permission.AD_ID from manifest)
+After completing all setup items, return to Internal Testing and create a new release
+If the setup checklist cannot be found, contact Google Play Developer Support via the Help link in Play Console
+Play Console Account Details
+AAB Details
+PART 1B: Storage Permission Issue (New Package)
+Problem Statement
+The new com.grouptrack.android package cannot access files on the device's shared storage. The old com.geeksville.mesh app works because it created the files and owns them. The new package has a different UID and is denied access.
+Affected data:
+Tiles: /sdcard/Documents/GroupTrack/maps/tiles/ — owned by u0_a197 (old app), permissions rw-rw----
+Tracks: /sdcard/Documents/my_tracks/ — owned by u0_a197 (old app), permissions rw-rw----
+Symptoms
+Online maps load fine (Esri tiles from network)
+Offline/local maps crash the app — cannot read tile files
+Track list shows 0 of 0 — cannot read my_tracks directory
+Trail overlay loads (bundled in APK assets, not from filesystem)
+What Has Been Tried
+adb shell appops set com.grouptrack.android MANAGE_EXTERNAL_STORAGE allow — did not take effect
+adb shell pm grant com.grouptrack.android android.permission.READ_EXTERNAL_STORAGE — rejected: "Package has not requested permission"
+Settings → Apps → GroupTrack → Permissions — no storage option listed
+Settings → Apps → Special app access → All files access — toggle is grayed out
+Added runtime permission request in MainActivity.onCreate() for MANAGE_EXTERNAL_STORAGE — opens Settings page but toggle is grayed out
+Changed targetSdk from 36 to 34 — toggle still grayed out
+chmod -R 777 on files — started but 450K tile files made this impractical
+Manifest Permissions (Source)
+Line 62: <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+Line 63: <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
+Line 64: <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+Critical Finding: Permissions Stripped from Build
+The merged manifest (app/build/intermediates/merged_manifests/googleRelease/processGoogleReleaseManifest/AndroidManifest.xml) DOES contain MANAGE_EXTERNAL_STORAGE and WRITE_EXTERNAL_STORAGE. However, the installed APK does NOT contain them:
+adb shell dumpsys package com.grouptrack.android | grep EXTERNAL_STORAGE
+(returns empty — permissions not present in installed app)
+Something between the merged manifest and the final APK is stripping the storage permissions. This may be a Gradle plugin, R8/ProGuard rule, or Android Gradle Plugin behavior for targetSdk 34+.
+Recommended Investigation
+Check the final packaged manifest inside the APK (not the merged intermediate)
+Check if AGP strips MANAGE_EXTERNAL_STORAGE for targetSdk >= 30 without requestLegacyExternalStorage
+Check build.gradle.kts for any manifest placeholder or permission removal rules
+Consider alternative: use MediaStore API or SAF (Storage Access Framework) instead of direct file paths
+Alternative: install from Play Store (internal testing) may auto-grant the permission correctly
+Device Details
+PART 2: V2.4 Code Changes — Applied Today
+The following patches were applied to the codebase on April 29, 2026. All changes are in the feature/convoy-event-ride branch. The AAB and release APK have been rebuilt with these changes.
+Patch 1: Remove Jump Rejection (APPLIED)
+Removed the 0.25-mile distance filter that rejected track segments on the lead path. Previously, any segment longer than 0.25 miles was silently discarded with a log message "LEAD SEGMENT JUMP REJECTED". This caused visible gaps in the track display after every radio dropout longer than ~15 seconds of driving. The log message is kept (now reads "LEAD SEGMENT JUMP") but the segment always draws regardless of distance. The multi-cart path still has its own jump filter — this is handled by Patch 2.
+Patch script: patch_v24_remove_jump_filter_v2.py
+Patch 2: Cart Position Substitution (APPLIED)
+Inserted a tail-to-lead position resolution loop before the trail accumulation block in tick(). On every tick, all carts are processed from tail (back) to lead (front). For each cart:
+If reporting with valid position → use actual position
+If silent (LOST or zero position) → use own last known position
+If the furthest active trailing cart is ahead of this cart's last known position → substitute trailing cart's position
+"Further along" is determined by projecting positions onto the convoy heading vector (same math as computeSortPositions)
+Both lead-only and multi-cart trail paths now use the resolved positions from this loop. The multi-cart 0.25mi jump filter is also removed in this patch. CART SUB log entries appear when substitution occurs.
+This ensures every cart always has a position. Track display never stops. The gap from a radio dropout is shortened to the distance between the lead and the nearest reporting trailing cart.
+Patch script: patch_v24_cart_position_substitution_v1.py
+Patch 3: Off-Track Guard (APPLIED)
+Added a constraint to Patch 2: if a cart is flagged as off-track (per _offTrackIds from the previous tick), its position is NEVER substituted with a trailing cart's position. The cart stays pinned at its own last known location so the operator can find it. Only on-track silent carts receive position substitution.
+Patch script: patch_v24_offtrack_guard_v1.py
+Patch 4: Storage Permission Request (APPLIED — NOT WORKING)
+Added a runtime check for MANAGE_EXTERNAL_STORAGE in MainActivity.onCreate(). If not granted, the app launches the system Settings page for the user to toggle "All files access". However, the toggle is grayed out on the test device — see Part 1B for details. This patch is applied but does not solve the problem on Android 14.
+Patch script: patch_v24_storage_permission_v2.py
+PART 3: Code Changes — Not Yet Applied
+The following fixes from the field test have NOT been applied. They were deferred to focus on the Google Play and storage permission blockers.
+Patch created but not applied:
+patch_v24_async_trail_load_v1.py — moves GeoJSON loading to background thread
+This patch moves the heavy trail file read from onPageFinished (main thread) to a background Thread. The map renders immediately, trails appear a moment later. Should eliminate the 5-second ANR on startup. Was not applied because the ANR was not definitively confirmed as being caused by trail loading — Fred requested definitive proof before changes.
+PART 4: Testing Status
+What Has Been Tested
+AAB builds successfully with com.grouptrack.android package
+Release APK installs on Android 1 via adb
+App launches and displays online maps (Esri satellite tiles via network)
+Trail overlay loads and displays from bundled assets
+GPS location is received and centered on map
+What Has NOT Been Tested
+Track display fixes (Patches 1-3) — cannot test without file access to load tracks
+Offline/local tile display — blocked by storage permission
+Track list and GPX file access — blocked by storage permission
+Radio BLE connection with new package
+GPS recording and GPX writing with new package
+Play Store install and permission granting
+Blocking Dependency
+All remaining testing is blocked by the storage permission issue. The track display fixes cannot be verified until the app can read files from shared storage. Resolution path: either fix the storage permission (Part 1B) or successfully publish to Play Store internal testing where the permission toggle may work correctly for Play Store-installed apps.
+PART 5: V2.5 Backlog
+PART 6: Build & File Reference
+Current Configuration
+Build Commands
+Release APK:
+./gradlew assembleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease
+Release AAB (Play Store):
+./gradlew bundleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease
+Debug APK:
+./gradlew assembleGoogleDebug
+Install on Android 1:
+adb -s 8624SBCEDF00001789 install -r -d app/build/outputs/apk/google/release/app-google-release.apk
+ALWAYS use -r -d flags. Never omit them.
+NEVER commit keystore.properties to git.
+Patch Scripts Applied (in Downloads)
+patch_v24_remove_jump_filter_v2.py — removed lead track jump rejection
+patch_v24_cart_position_substitution_v1.py — tail-to-lead position resolution
+patch_v24_offtrack_guard_v1.py — off-track carts keep own position
+patch_v24_storage_permission_v2.py — runtime storage permission request (not working)
+Patch Scripts Created But Not Applied
+patch_v24_async_trail_load_v1.py — async GeoJSON loading to prevent ANR
+patch_v24_remove_multi_jump_filter_v1.py — not needed, handled by cart position substitution patch
+Apps Installed on Android 1
+Item | Value
+Account | Fred Kix — Personal account
+Account ID | 7270319932158575281
+App name | GroupTrack
+Package name | com.grouptrack.android
+App status | Draft
+App signing | Active — Releases signed by Google Play
+Automatic protection | On
+Android developer verification | Completed
+Item | Value
+File | GroupTrack_v2.4_final.aab
+Size | 40,049,606 bytes (40MB)
+Package | com.grouptrack.android
+Namespace | com.geeksville.mesh (hardcoded for R/BuildConfig)
+targetSdk | 34 (changed from 36 to resolve storage permission)
+minSdk | 26
+Signing key | grouptrack-release-key.jks, alias: grouptrack
+jarsigner verify | jar verified (with certificate chain warning — normal for self-signed)
+Version code | 29320447
+Version name | 2.7.14 (29320447) google
+Item | Value
+Device | Android 1 (primary tester)
+Serial | 8624SBCEDF00001789
+Android version | 14 (reported by user, targetSdk 34 in build)
+Old app package | com.geeksville.mesh — has file access, works
+New app package | com.grouptrack.android — no file access, fails
+Old app UID | u0_a197 (owns all tiles and tracks)
+# | Patch | File | Status
+1 | Remove 0.25mi lead track jump rejection | ConvoyViewModel.kt ~line 588 | APPLIED
+2 | Cart position substitution (tail-to-lead) | ConvoyViewModel.kt ~line 575 | APPLIED
+3 | Off-track guard for position substitution | ConvoyViewModel.kt ~line 600 | APPLIED
+4 | MANAGE_EXTERNAL_STORAGE runtime request | MainActivity.kt ~line 78 | APPLIED
+5 | APPLICATION_ID changed to com.grouptrack.android | config.properties | APPLIED
+6 | namespace hardcoded to com.geeksville.mesh | build.gradle.kts line 50 | APPLIED
+7 | Debug package updated to com.grouptrack.android | build.gradle.kts line 196 | APPLIED
+8 | google-services.json updated for new package | app/google-services.json | APPLIED
+9 | TARGET_SDK changed from 36 to 34 | config.properties | APPLIED
+# | Fix | Priority | Status
+1 | Async GeoJSON trail loading (ANR fix) | HIGH | Patch created, not applied
+2 | Auto-pause GPS recording (1 min no movement) | MEDIUM | Designed, not coded
+3 | GPX combine — multi-select and merge tracks | MEDIUM | Designed, not coded
+4 | Tile scan z18→z14 in ConvoyScreen.kt line 512 | MEDIUM | Not applied
+5 | Show-downloads loading spinner | LOW | Not applied
+6 | Disable show-downloads button during scan | LOW | Not applied
+7 | Cancel stale scan before starting new one | LOW | Not applied
+8 | Debug track list slow opening | LOW | Not started
+9 | Welcome screen appearing on every launch | LOW | Not investigated
+Feature | Category | Notes
+Route smoothing for position substitution segments | Track Display | Smooth angular lines from tail-to-lead position substitution
+Ghost markers for SIGNAL_DROP carts | Map Display | Semi-transparent markers for carts with dropped signal
+Blinking markers for LOST carts | Map Display | Blinking animation for lost carts
+Map legend for cart status indicators | Map Display | Visual legend explaining marker states
+Date filter for track grouping | Track Management | Group tracks by recording date in picker
+Offline tile support in MapViewer | Maps | Enable downloaded tiles in MapViewer
+BLE auto-reconnect after inactivity timeout | Radio | T1000-E goes silent after inactivity, requires manual reconnect
+BLE device compatibility list | Hardware | Document working vs failing devices
+Cloud sync of local artifacts | Premium | Tracks, routes, waypoints to user web account
+DB backup/recovery | Premium | Protect track data from device loss
+Estimated position indicator on map | Map Display | Visual indicator for carts at substituted positions
+Setting | Value
+APPLICATION_ID | com.grouptrack.android
+namespace | com.geeksville.mesh (hardcoded in build.gradle.kts line 50)
+TARGET_SDK | 34 (changed from 36)
+Debug package | com.grouptrack.android.google.debug
+Release package | com.grouptrack.android
+Keystore | C:/Users/kixaz/grouptrack-release-key.jks
+Key alias | grouptrack
+Branch | feature/convoy-event-ride
+Package | Type | File Access | Status
+com.geeksville.mesh | Old release | Works — owns files | Force stopped, keep as fallback
+com.grouptrack.android | New release | BROKEN — no storage permission | Installed, needs fix
+
 === GroupTrack_V24_OpenTasks_V25_Plan_v2.docx ===
 GroupTrack
 V2.4 Open Tasks + V2.5 Planned Tasks
