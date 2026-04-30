@@ -573,62 +573,121 @@ class ConvoyViewModel @Inject constructor(
         }
 
         // Accumulate route trail — lead only or all carts
+
+        // ── Resolve cart positions: tail to lead ──────────────────────────
+        // For each cart: if reporting, use actual position. If silent, use
+        // whichever is further along: own last known OR furthest trailing cart.
+        // Process tail→lead so each resolution feeds the next cart forward.
+        val resolvedPositions = mutableMapOf<String, Pair<Double, Double>>()
+        val headingRad = Math.toRadians(state.convoyHeading.toDouble())
+        val hdx = kotlin.math.sin(headingRad)
+        val hdy = kotlin.math.cos(headingRad)
+        var furthestProjection = Double.MIN_VALUE
+        var furthestLat = 0.0
+        var furthestLon = 0.0
+
+        // Sort by convoyPosition descending = tail first
+        val tailToLead = state.nodes.sortedByDescending { it.convoyPosition }
+        for (node in tailToLead) {
+            val isReporting = node.latitude != 0.0 && node.longitude != 0.0
+                    && node.status != ConvoyStatus.LOST
+            val ownLat = if (isReporting) node.latitude
+                         else (lastNodePositions[node.nodeId]?.first ?: 0.0)
+            val ownLon = if (isReporting) node.longitude
+                         else (lastNodePositions[node.nodeId]?.second ?: 0.0)
+            val ownProj = ownLat * hdy + ownLon * hdx
+
+            // Use whichever is further along: own position or furthest trailing cart
+            // OFF-TRACK carts keep their own last known position — never substitute
+            val isOffTrack = _offTrackIds.value.contains(node.nodeId)
+            val resolvedLat: Double
+            val resolvedLon: Double
+            if (isOffTrack) {
+                // Off-track cart: keep own position so operator can find it
+                resolvedLat = ownLat
+                resolvedLon = ownLon
+            } else if (ownLat != 0.0 && ownProj >= furthestProjection) {
+                resolvedLat = ownLat
+                resolvedLon = ownLon
+            } else if (furthestLat != 0.0 && furthestProjection > ownProj) {
+                resolvedLat = furthestLat
+                resolvedLon = furthestLon
+                if (_trackActive.value) {
+                    convoyLog("CART SUB: ${node.callsign} silent — using trailing cart pos (${String.format("%.5f",resolvedLat)},${String.format("%.5f",resolvedLon)})")
+                }
+            } else {
+                resolvedLat = ownLat
+                resolvedLon = ownLon
+            }
+
+            if (resolvedLat != 0.0 && resolvedLon != 0.0) {
+                resolvedPositions[node.nodeId] = Pair(resolvedLat, resolvedLon)
+                lastNodePositions[node.nodeId] = Pair(resolvedLat, resolvedLon)
+                val resolvedProj = resolvedLat * hdy + resolvedLon * hdx
+                if (resolvedProj > furthestProjection) {
+                    furthestProjection = resolvedProj
+                    furthestLat = resolvedLat
+                    furthestLon = resolvedLon
+                }
+            }
+        }
+
+        // ── Build trail segments using resolved positions ─────────────────
         if (_trackLeadOnly.value) {
-            val leadNode = if (_leadLockedFlag) state.lead else null
-            if (leadNode != null) {
-                if (leadNode.nodeId != currentLeadNodeId) {
-                    currentLeadNodeId = leadNode.nodeId
+            // Get lead position from resolved map — never null if any cart is active
+            val leadPos = if (lockedLeadNodeId != null)
+                resolvedPositions[lockedLeadNodeId]
+            else null
+            if (leadPos != null) {
+                if (lockedLeadNodeId != currentLeadNodeId) {
+                    currentLeadNodeId = lockedLeadNodeId
                     lastLeadLat = null
                     lastLeadLon = null
                 }
                 val prevLat = lastLeadLat
                 val prevLon = lastLeadLon
                 if (prevLat != null && prevLon != null &&
-                    (prevLat != leadNode.latitude || prevLon != leadNode.longitude)) {
-                    val segDist = ConvoyEngine.haversineMiles(prevLat, prevLon, leadNode.latitude, leadNode.longitude)
+                    (prevLat != leadPos.first || prevLon != leadPos.second)) {
+                    val segDist = ConvoyEngine.haversineMiles(prevLat, prevLon, leadPos.first, leadPos.second)
                     if (segDist > 0.25f) {
-                        // Jump exceeds 0.5 miles — bad fix or rebroadcast slipped through.
-                        // Advance the anchor without drawing a segment.
-                        convoyLog("LEAD SEGMENT JUMP REJECTED: lead=${leadNode.callsign} dist=${String.format("%.3f",segDist)}mi from ($prevLat,$prevLon) to (${leadNode.latitude},${leadNode.longitude})")
-                    } else {
-                        val seg = ConvoyEngine.LeadTrackSegment(
-                            startLat = prevLat, startLon = prevLon,
-                            endLat = leadNode.latitude, endLon = leadNode.longitude,
-                            color = "#000000",
-                            nodeId = leadNode.nodeId
-                        )
-                        if (_trackActive.value) _routeTrailSegments.value = _routeTrailSegments.value + seg
+                        convoyLog("LEAD SEGMENT JUMP: dist=${String.format("%.3f",segDist)}mi — drawing through")
                     }
+                    val seg = ConvoyEngine.LeadTrackSegment(
+                        startLat = prevLat, startLon = prevLon,
+                        endLat = leadPos.first, endLon = leadPos.second,
+                        color = "#000000",
+                        nodeId = lockedLeadNodeId ?: ""
+                    )
+                    if (_trackActive.value) _routeTrailSegments.value = _routeTrailSegments.value + seg
                 }
-                lastLeadLat = leadNode.latitude
-                lastLeadLon = leadNode.longitude
+                lastLeadLat = leadPos.first
+                lastLeadLon = leadPos.second
             }
         } else {
             val newSegs = mutableListOf<ConvoyEngine.LeadTrackSegment>()
-            for (node in state.nodes) {
-                if (node.latitude == 0.0 && node.longitude == 0.0) continue
-                val prev = lastNodePositions[node.nodeId]
-                if (prev != null && (prev.first != node.latitude || prev.second != node.longitude)) {
-                    val segDist = ConvoyEngine.haversineMiles(prev.first, prev.second, node.latitude, node.longitude)
+            for ((nodeId, pos) in resolvedPositions) {
+                if (pos.first == 0.0 && pos.second == 0.0) continue
+                val prev = lastNodePositions[nodeId]
+                if (prev != null && (prev.first != pos.first || prev.second != pos.second)) {
+                    val segDist = ConvoyEngine.haversineMiles(prev.first, prev.second, pos.first, pos.second)
                     if (segDist > 0.25f) {
-                        convoyLog("MULTI SEGMENT JUMP REJECTED: node=${node.callsign} dist=${String.format("%.3f",segDist)}mi from (${prev.first},${prev.second}) to (${node.latitude},${node.longitude})")
-                    } else {
-                        newSegs.add(ConvoyEngine.LeadTrackSegment(
-                            startLat = prev.first, startLon = prev.second,
-                            endLat = node.latitude, endLon = node.longitude,
-                            color = "#000000",
-                            nodeId = node.nodeId
-                        ))
+                        val callsign = state.nodes.firstOrNull { it.nodeId == nodeId }?.callsign ?: nodeId.takeLast(4)
+                        convoyLog("MULTI SEGMENT JUMP: node=$callsign dist=${String.format("%.3f",segDist)}mi — drawing through")
                     }
+                    newSegs.add(ConvoyEngine.LeadTrackSegment(
+                        startLat = prev.first, startLon = prev.second,
+                        endLat = pos.first, endLon = pos.second,
+                        color = "#000000",
+                        nodeId = nodeId
+                    ))
                 }
-                lastNodePositions[node.nodeId] = Pair(node.latitude, node.longitude)
             }
             if (_trackActive.value && newSegs.isNotEmpty()) {
                 _routeTrailSegments.value = _routeTrailSegments.value + newSegs
             }
         }
 
-        if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
+if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
             val threshold = ConvoyConfig.OFF_TRACK_MILES
             val offTrack = state.nodes.filter { node ->
                 if (node.latitude == 0.0 && node.longitude == 0.0) return@filter false

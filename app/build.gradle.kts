@@ -47,7 +47,7 @@ if (keystorePropertiesFile.exists()) {
 
 val buildStamp: String = SimpleDateFormat("yyyyMMdd.HHmm").format(Date())
 configure<ApplicationExtension> {
-    namespace = configProperties.getProperty("APPLICATION_ID")
+    namespace = "com.geeksville.mesh"
 
     signingConfigs {
         create("release") {
@@ -193,7 +193,7 @@ secrets {
 
 androidComponents {
     onVariants(selector().withBuildType("debug")) { variant ->
-        variant.flavorName?.let { flavor -> variant.applicationId = "com.geeksville.mesh.$flavor.debug" }
+        variant.flavorName?.let { flavor -> variant.applicationId = "com.grouptrack.android.$flavor.debug" }
     }
 
     onVariants(selector().withBuildType("release")) { variant ->
