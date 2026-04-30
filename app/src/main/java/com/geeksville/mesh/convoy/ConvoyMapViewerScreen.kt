@@ -62,6 +62,7 @@ fun ConvoyMapViewerScreen(onBack: () -> Unit, convoyViewModel: ConvoyViewModel =
     var showDownloadPanel by remember { mutableStateOf(false) }
     var mapZoomLevel by remember { mutableStateOf(ConvoyConfig.DOWNLOAD_ZOOM.toFloat()) }
     var showDownloaded by remember { mutableStateOf(false) }
+    var scanningDownloaded by remember { mutableStateOf(false) }
     var fabOffsetX by remember { mutableStateOf(0f) }
     var fabOffsetY by remember { mutableStateOf(0f) }
     val downloadState by convoyViewModel.downloadState.collectAsState()
@@ -468,6 +469,8 @@ fun ConvoyMapViewerScreen(onBack: () -> Unit, convoyViewModel: ConvoyViewModel =
                                     showDownloaded = false
                                     webViewRef?.evaluateJavascript("clearDownloadedAreas()", null)
                                 } else {
+                                    if (scanningDownloaded) return@clickable
+                                    scanningDownloaded = true
                                     val wv = webViewRef ?: return@clickable
                                     val tilesDir = java.io.File(ConvoyConfig.TILE_DIR, "SAT/14")
                                     Thread {
@@ -490,6 +493,7 @@ fun ConvoyMapViewerScreen(onBack: () -> Unit, convoyViewModel: ConvoyViewModel =
                                         android.os.Handler(android.os.Looper.getMainLooper()).post {
                                             wv.evaluateJavascript("showDownloadedAreas($json)", null)
                                             showDownloaded = true
+                                            scanningDownloaded = false
                                         }
                                     }.start()
                                 }
@@ -498,7 +502,7 @@ fun ConvoyMapViewerScreen(onBack: () -> Unit, convoyViewModel: ConvoyViewModel =
                             color = if (showDownloaded) Color(0xFF1A3A2A) else Color(0xFF1E2E40)
                         ) {
                             Text(
-                                if (showDownloaded) "✅  HIDE DOWNLOADED" else "⬜  SHOW DOWNLOADED",
+                                if (scanningDownloaded) "⏳  SCANNING..." else if (showDownloaded) "✅  HIDE DOWNLOADED" else "⬜  SHOW DOWNLOADED",
                                 color = if (showDownloaded) Color(0xFF4AE09A) else Color(0xFF4DA6FF),
                                 fontSize = 9.sp,
                                 fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,

@@ -747,6 +747,7 @@ if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
         // V2.4: No radio -- device IS a node. Same path as 10 carts on a mesh.
         if (nodeMap.isEmpty()) {
             startPhoneGps()
+            _myCartId.value = "!phone"
             val loc = getPhoneLocation()
             val lat = loc?.latitude ?: 0.0
             val lon = loc?.longitude ?: 0.0

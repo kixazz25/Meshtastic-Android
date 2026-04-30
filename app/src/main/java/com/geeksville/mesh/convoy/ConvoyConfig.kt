@@ -70,6 +70,8 @@ object ConvoyConfig {
     const val MAP_GROUP_ZOOM_PADDING = 1.4f
     const val MAP_CART_ZOOM = 18.0
     const val MAP_MIN_ZOOM = 16.0
+    /** Show downloaded tile overlay on map open — OFF bypasses z18 scan */
+    var SHOW_DOWNLOADED_ON_OPEN = false
     const val BLINK_LOST_MS = 3000L
     const val BLINK_DROP_MS = 150L
     const val MARKER_SIZE_LARGE_DP = 24

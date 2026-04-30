@@ -141,6 +141,7 @@ fun ConvoyScreen(
     var mapZoomLevel by remember { mutableStateOf(18f) }
     val isOfflineMode by viewModel.isOfflineMode.collectAsStateWithLifecycle()
     var showDownloaded by remember { mutableStateOf(false) }
+    var scanningDownloaded by remember { mutableStateOf(false) }
     val autoPan by viewModel.autoPan.collectAsStateWithLifecycle()
     var locationSearchQuery by remember { mutableStateOf("") }
     var locationSearchResults by remember { mutableStateOf<List<android.location.Address>>(emptyList()) }
@@ -505,6 +506,7 @@ fun ConvoyScreen(
                             fun onMapBoundsReady(north: Double, south: Double, east: Double, west: Double) {
                                 android.os.Handler(android.os.Looper.getMainLooper()).post {
                                     val wv = webViewRef.value ?: return@post
+                                    if (!ConvoyConfig.SHOW_DOWNLOADED_ON_OPEN) return@post
                                     val tilesDir = java.io.File(ConvoyConfig.TILE_DIR, "SAT/18")
                                     Thread {
                                         val bounds = mutableListOf<String>()
@@ -697,6 +699,8 @@ fun ConvoyScreen(
                                         viewModel.startRecording(context)
                                         viewModel.startGroupTrack()
                                     } else {
+                                    if (scanningDownloaded) return@clickable
+                                    scanningDownloaded = true
                                         val meshNodes = viewModel.convoyState.value.nodes
                                         if (meshNodes.size <= 1) {
                                             // Solo/standalone -- auto-assign and go
@@ -706,11 +710,15 @@ fun ConvoyScreen(
                                             viewModel.startRecording(context)
                                             viewModel.startGroupTrack()
                                         } else {
+                                    if (scanningDownloaded) return@clickable
+                                    scanningDownloaded = true
                                             // Multiple carts -- show lead selection dialog
                                             showLeadDialog = true
                                         }
                                     }
                                 } else {
+                                    if (scanningDownloaded) return@clickable
+                                    scanningDownloaded = true
                                     showLocationPermissionDialog = true
                                 }
                             }
@@ -1048,6 +1056,8 @@ fun ConvoyScreen(
                                                 webViewRef.value?.evaluateJavascript("removeTrackFile('$safe')", null)
                                                 convoyLoadedTracks = convoyLoadedTracks.filterNot { it.first == name }
                                             } else {
+                                    if (scanningDownloaded) return@clickable
+                                    scanningDownloaded = true
                                                 convoyLoadTrack(context, name, "#39FF14", webViewRef.value)
                                                 convoyLoadedTracks = convoyLoadedTracks + Pair(name, "#39FF14")
                                             }
@@ -1160,6 +1170,8 @@ fun ConvoyScreen(
                                             if (results.isNullOrEmpty()) {
                                                 locationSearchError = "No results — try adding state (e.g. Zion UT)"
                                             } else {
+                                    if (scanningDownloaded) return@clickable
+                                    scanningDownloaded = true
                                                 locationSearchResults = results
                                             }
                                         }
@@ -1201,6 +1213,8 @@ fun ConvoyScreen(
                                             webViewRef.value?.evaluateJavascript("showAreaBoundary($n,$s,$e,$w)", null)
                                             webViewRef.value?.evaluateJavascript("showSearchCenter($clat,$clng)", null)
                                         } else {
+                                    if (scanningDownloaded) return@clickable
+                                    scanningDownloaded = true
                                             webViewRef.value?.evaluateJavascript("setView(${addr.latitude},${addr.longitude},${ConvoyConfig.SEARCH_FLY_ZOOM})", null)
                                             webViewRef.value?.evaluateJavascript("showSearchCenter(${addr.latitude},${addr.longitude})", null)
                                         }
@@ -1239,6 +1253,8 @@ fun ConvoyScreen(
                                     showDownloaded = false
                                     webViewRef.value?.evaluateJavascript("clearDownloadedAreas()", null)
                                 } else {
+                                    if (scanningDownloaded) return@clickable
+                                    scanningDownloaded = true
                                     val wv = webViewRef.value ?: return@clickable
                                     val tilesDir = java.io.File(ConvoyConfig.TILE_DIR, "SAT/14")
                                     Thread {
@@ -1261,6 +1277,7 @@ fun ConvoyScreen(
                                         android.os.Handler(android.os.Looper.getMainLooper()).post {
                                             wv.evaluateJavascript("showDownloadedAreas($json)", null)
                                             showDownloaded = true
+                                            scanningDownloaded = false
                                         }
                                     }.start()
                                 }
@@ -1269,7 +1286,7 @@ fun ConvoyScreen(
                             color = if (showDownloaded) Color(0xFF1A3A2A) else Color(0xFF1E2E40)
                         ) {
                             Text(
-                                if (showDownloaded) "✅  HIDE DOWNLOADED" else "⬜  SHOW DOWNLOADED",
+                                if (scanningDownloaded) "⏳  SCANNING..." else if (showDownloaded) "✅  HIDE DOWNLOADED" else "⬜  SHOW DOWNLOADED",
                                 color = if (showDownloaded) Color(0xFF4AE09A) else Color(0xFF4DA6FF),
                                 fontSize = 9.sp,
                                 fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
