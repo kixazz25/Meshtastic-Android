@@ -72,6 +72,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.ui.graphics.graphicsLayer
 import com.geeksville.mesh.ui.sharing.ChannelViewModel
+import com.geeksville.mesh.model.UIViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -87,7 +88,7 @@ import androidx.activity.result.contract.ActivityResultContracts
  * ConvoyScreen — IMP-001 Task 4.2 + 5.1 + 5.2 + 5.3 + 5.4
  * Full-screen WebView/Leaflet map + HUD strip.
  */
-enum class RecordingState { IDLE, RECORDING, PAUSED }
+enum class RecordingState { IDLE, RECORDING, PAUSED, SLEEPING }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -100,6 +101,7 @@ fun ConvoyScreen(
     viewModel: ConvoyViewModel = hiltViewModel()
 ) {
     val channelViewModel: ChannelViewModel = hiltViewModel()
+    val uiViewModel: UIViewModel = hiltViewModel()
     val convoyState by viewModel.convoyState.collectAsStateWithLifecycle()
     val hudMode by viewModel.hudMode.collectAsStateWithLifecycle()
     val selectedNode by viewModel.selectedNode.collectAsStateWithLifecycle()
@@ -724,6 +726,7 @@ fun ConvoyScreen(
                             }
                             RecordingState.RECORDING -> { showRecMenu = true }
                             RecordingState.PAUSED -> showRecMenu = true
+                            RecordingState.SLEEPING -> { /* overlay handles wake */ }
                         }
                     },
                     shape = RoundedCornerShape(10.dp),
@@ -731,6 +734,7 @@ fun ConvoyScreen(
                         RecordingState.IDLE -> Color(0xFF8B0000)
                         RecordingState.RECORDING -> Color(0xFFCC0000)
                         RecordingState.PAUSED -> Color(0xFF994400)
+                        RecordingState.SLEEPING -> Color(0xFFCC8800)
                     },
                     shadowElevation = 6.dp
                 ) {
@@ -739,6 +743,7 @@ fun ConvoyScreen(
                             RecordingState.IDLE -> "⏺  REC"
                             RecordingState.RECORDING -> "⏸  PAUSE"
                             RecordingState.PAUSED -> "⏺  RESUME"
+                            RecordingState.SLEEPING -> "💤  ASLEEP"
                         },
                         color = Color.White,
                         fontSize = 15.sp,
@@ -824,6 +829,44 @@ fun ConvoyScreen(
                       Text(" mi", color = Color(0xFFFF0000).copy(alpha = 0.75f), fontSize = 16.sp,
                           fontFamily = FontFamily.Monospace,
                           modifier = Modifier.padding(bottom = 6.dp))
+                  }
+              }
+          }
+          // ── SLEEPING overlay — flashing center button ──────────────
+          if (recordingState == RecordingState.SLEEPING) {
+              val infiniteTransition = rememberInfiniteTransition(label = "sleep")
+              val alpha by infiniteTransition.animateFloat(
+                  initialValue = 0.3f, targetValue = 1.0f,
+                  animationSpec = infiniteRepeatable(
+                      animation = tween(800), repeatMode = RepeatMode.Reverse
+                  ), label = "sleepAlpha"
+              )
+              Surface(
+                  modifier = Modifier.align(Alignment.Center)
+                      .clickable {
+                          val savedAddr = uiViewModel.getDeviceAddress() ?: ""
+                          coroutineScope.launch {
+                              uiViewModel.setDeviceAddress("n")
+                              kotlinx.coroutines.delay(2000)
+                              uiViewModel.setDeviceAddress(savedAddr)
+                              viewModel.wakeFromSleep(context)
+                              recordingState = RecordingState.RECORDING
+                          }
+                      },
+                  shape = RoundedCornerShape(16.dp),
+                  color = Color(0xFFCC8800).copy(alpha = alpha),
+                  shadowElevation = 8.dp
+              ) {
+                  Column(
+                      horizontalAlignment = Alignment.CenterHorizontally,
+                      modifier = Modifier.padding(horizontal = 32.dp, vertical = 24.dp)
+                  ) {
+                      Text("Track Recording Asleep",
+                          color = Color.White, fontSize = 18.sp,
+                          fontWeight = FontWeight.Bold)
+                      Spacer(modifier = Modifier.height(8.dp))
+                      Text("Press to Restart",
+                          color = Color.White.copy(alpha = 0.8f), fontSize = 14.sp)
                   }
               }
           }

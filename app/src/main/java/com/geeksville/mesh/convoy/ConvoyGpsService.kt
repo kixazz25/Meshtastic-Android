@@ -70,6 +70,9 @@ class ConvoyGpsService : Service() {
         val a = Math.sin(dLat/2)*Math.sin(dLat/2) + Math.cos(Math.toRadians(lat1))*Math.cos(Math.toRadians(lat2))*Math.sin(dLon/2)*Math.sin(dLon/2)
         return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))
     }
+    private fun haversineFeet(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
+        return haversineMiles(lat1, lon1, lat2, lon2) * 5280.0
+    }
 
     // ── Internal ─────────────────────────────────────────────────────────────
     private var wakeLock: PowerManager.WakeLock? = null
@@ -77,6 +80,14 @@ class ConvoyGpsService : Service() {
     private var locationListener: LocationListener? = null
     private var kmlWriter: BufferedWriter? = null
     var lastLat: Double? = null
+    // ── Sleep detection ──────────────────────────────────────────────────
+    private var lastMovementMs: Long = System.currentTimeMillis()
+    private var lastMoveLat: Double = 0.0
+    private var lastMoveLon: Double = 0.0
+    private var isSleeping: Boolean = false
+    var onSleepTriggered: (() -> Unit)? = null
+    private val SLEEP_THRESHOLD_MS = 600_000L  // 10 minutes
+    private val MOVE_THRESHOLD_FEET = 50.0
     var lastLon: Double? = null
 
     companion object {
@@ -166,6 +177,13 @@ class ConvoyGpsService : Service() {
         state = State.RECORDING
         updateNotification()
         Log.i(TAG, "Track recording resumed")
+    }
+    fun wakeSleep() {
+        isSleeping = false
+        lastMovementMs = System.currentTimeMillis()
+        lastMoveLat = 0.0
+        lastMoveLon = 0.0
+        Log.i(TAG, "WAKE: sleep reset — resuming track on next GPS update")
     }
 
     /**
@@ -268,6 +286,20 @@ class ConvoyGpsService : Service() {
     }
 
     private fun onGpsUpdate(lat: Double, lon: Double, alt: Double) {
+        // ── Sleep detection: no movement for 10 min → trigger sleep ────
+        if (isSleeping) return
+        val distFeet = if (lastMoveLat != 0.0) haversineFeet(lastMoveLat, lastMoveLon, lat, lon) else 999.0
+        if (distFeet > MOVE_THRESHOLD_FEET) {
+            lastMovementMs = System.currentTimeMillis()
+            lastMoveLat = lat
+            lastMoveLon = lon
+        } else if (System.currentTimeMillis() - lastMovementMs > SLEEP_THRESHOLD_MS) {
+            isSleeping = true
+            pauseTrack()
+            android.util.Log.i(TAG, "SLEEP: no movement for 10 min — pausing track")
+            onSleepTriggered?.invoke()
+            return
+        }
         if (ConvoyConfig.TRACK_EXPORT_FORMAT.uppercase() == "GPX") {
             writeGpxPoint(lat, lon, alt)
         } else {
