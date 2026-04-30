@@ -429,7 +429,6 @@ class ConvoyViewModel @Inject constructor(
             override fun onServiceConnected(name: android.content.ComponentName, service: android.os.IBinder) {
                 val svc = (service as ConvoyGpsService.LocalBinder).getService()
                 gpsService = svc
-                svc.onSleepTriggered = { recordingState.value = RecordingState.SLEEPING }
                 svc.onLocationUpdate = { lat, lon, _ ->
                     val prevLat = lastGpsLat
                     val prevLon = lastGpsLon
@@ -458,10 +457,6 @@ class ConvoyViewModel @Inject constructor(
         bindGpsService(context) { svc -> svc.startTrack(); _routeRecording.value = true }
     }
     fun pauseRecording() { gpsService?.pauseTrack(); _routeRecording.value = false }
-    fun wakeFromSleep(context: android.content.Context) {
-        gpsService?.wakeSleep()
-        resumeRecording(context)
-    }
     fun resumeRecording(context: android.content.Context) {
         if (gpsService == null) {
             bindGpsService(context) { svc -> svc.resumeTrack(); _routeRecording.value = true }
