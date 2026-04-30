@@ -112,6 +112,13 @@ fun ConvoyScreen(
     var pendingTrackName by viewModel.pendingTrackName
     val context = LocalContext.current
 
+    val bgLocationLauncher = rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            android.widget.Toast.makeText(context, "Location: Allow all the time — granted", android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
     // Keep screen on while Convoy is active — prevents GPS dropout during recording
     val view = LocalView.current
     DisposableEffect(Unit) {
@@ -606,10 +613,7 @@ fun ConvoyScreen(
                 confirmButton = {
                     androidx.compose.material3.TextButton(onClick = {
                         showLocationPermissionDialog = false
-                        val intent = android.content.Intent(
-                            android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                            android.net.Uri.fromParts("package", context.packageName, null))
-                        context.startActivity(intent)
+                        bgLocationLauncher.launch(android.Manifest.permission.ACCESS_BACKGROUND_LOCATION)
                     }) { androidx.compose.material3.Text("SETTINGS", color = androidx.compose.ui.graphics.Color(0xFF4AB8E8)) }
                 },
                 dismissButton = {
@@ -699,8 +703,6 @@ fun ConvoyScreen(
                                         viewModel.startRecording(context)
                                         viewModel.startGroupTrack()
                                     } else {
-                                    if (scanningDownloaded) return@clickable
-                                    scanningDownloaded = true
                                         val meshNodes = viewModel.convoyState.value.nodes
                                         if (meshNodes.size <= 1) {
                                             // Solo/standalone -- auto-assign and go
@@ -710,15 +712,11 @@ fun ConvoyScreen(
                                             viewModel.startRecording(context)
                                             viewModel.startGroupTrack()
                                         } else {
-                                    if (scanningDownloaded) return@clickable
-                                    scanningDownloaded = true
                                             // Multiple carts -- show lead selection dialog
                                             showLeadDialog = true
                                         }
                                     }
                                 } else {
-                                    if (scanningDownloaded) return@clickable
-                                    scanningDownloaded = true
                                     showLocationPermissionDialog = true
                                 }
                             }
@@ -1056,8 +1054,6 @@ fun ConvoyScreen(
                                                 webViewRef.value?.evaluateJavascript("removeTrackFile('$safe')", null)
                                                 convoyLoadedTracks = convoyLoadedTracks.filterNot { it.first == name }
                                             } else {
-                                    if (scanningDownloaded) return@clickable
-                                    scanningDownloaded = true
                                                 convoyLoadTrack(context, name, "#39FF14", webViewRef.value)
                                                 convoyLoadedTracks = convoyLoadedTracks + Pair(name, "#39FF14")
                                             }
@@ -1170,8 +1166,6 @@ fun ConvoyScreen(
                                             if (results.isNullOrEmpty()) {
                                                 locationSearchError = "No results — try adding state (e.g. Zion UT)"
                                             } else {
-                                    if (scanningDownloaded) return@clickable
-                                    scanningDownloaded = true
                                                 locationSearchResults = results
                                             }
                                         }
@@ -1213,8 +1207,6 @@ fun ConvoyScreen(
                                             webViewRef.value?.evaluateJavascript("showAreaBoundary($n,$s,$e,$w)", null)
                                             webViewRef.value?.evaluateJavascript("showSearchCenter($clat,$clng)", null)
                                         } else {
-                                    if (scanningDownloaded) return@clickable
-                                    scanningDownloaded = true
                                             webViewRef.value?.evaluateJavascript("setView(${addr.latitude},${addr.longitude},${ConvoyConfig.SEARCH_FLY_ZOOM})", null)
                                             webViewRef.value?.evaluateJavascript("showSearchCenter(${addr.latitude},${addr.longitude})", null)
                                         }
