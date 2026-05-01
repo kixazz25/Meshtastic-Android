@@ -6627,6 +6627,135 @@ Package | Type | File Access | Status
 com.geeksville.mesh | Old release | Works — owns files | Force stopped, keep as fallback
 com.grouptrack.android | New release | BROKEN — no storage permission | Installed, needs fix
 
+=== GroupTrack_V24_Handoff_Apr29_EOD.docx ===
+GroupTrack V2.4
+End of Day Handoff — April 29, 2026
+Play Store Setup + Storage Permission Fix + V2.4 Open Items
+Confidential — Internal Development
+PART 1: Completed Today
+1.1 Google Play Console Setup
+All app content checklist items completed and approved:
+1.2 Internal Testing Release
+Note: This AAB does NOT have the storage permission fix. A new AAB must be built and uploaded.
+1.3 Storage Permission Fix (CRITICAL)
+Root cause identified and fixed: MANAGE_EXTERNAL_STORAGE, WRITE_EXTERNAL_STORAGE, and READ_EXTERNAL_STORAGE were commented out in AndroidManifest.xml by upstream Meshtastic developers. The comment said 'Only for debug log writing, disable for production.' The permissions appeared in intermediate build files (merged manifest) but were stripped from the final APK.
+Fix applied: Uncommented all three permissions. Added tools:node="replace" to WRITE and MANAGE to force them through any build pipeline stripping. Verified with aapt2 that permissions appear in the final APK.
+Result: App installed on Android 1, All Files Access toggle is active and grantable, offline maps load, tracks display in ~1 second, app is fully functional.
+Important: The Play Store AAB (version 29320449) does NOT include this fix. A new AAB must be built and uploaded before the Play Store version will work correctly.
+1.4 Code Changes Committed
+Commit: 744c1588c on feature/convoy-event-ride
+Changes in this commit:
+Uncommented storage permissions in AndroidManifest.xml with tools:node="replace"
+Updated targetSdk from 34 to 35 (config.properties TARGET_SDK=35)
+Updated google-services.json for com.grouptrack.android package
+Runtime MANAGE_EXTERNAL_STORAGE permission request in MainActivity
+Cart position substitution in tick() — silent carts use furthest trailing position
+Off-track guard — off-track carts keep own last known position
+Removed 0.25mi jump rejection on lead track reconnect
+1.5 Website Documents Deployed
+Privacy policy: grouptrack.org/privacy.html — 9 sections covering data collection, sharing, storage, user rights
+Terms of service: grouptrack.org/terms.html — 12 sections covering rider terms, organizer terms, subscription, liability
+PART 2: Immediate Next Steps
+2.1 Build and Upload New AAB (Priority 1)
+The Play Store AAB must be rebuilt with the storage permission fix. Commands:
+Build AAB:
+./gradlew bundleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease
+Copy to Downloads:
+cp app/build/outputs/bundle/googleRelease/app-google-release.aab ~/Downloads/
+Upload: Play Console > Internal Testing > Create new release > upload AAB > Save and publish
+The current internal testing release (29320449) does NOT have the storage fix and will show a greyed-out All Files Access toggle.
+2.2 Play Store Screenshots (Required for Closed Testing)
+The store listing text (name, short description, full description) has been entered. Screenshots are still needed to complete the store listing. Take 2-3 screenshots from Android 1 showing the convoy map, trail overlay, and tile download screen.
+Capture with: adb -s 8624SBCEDF00001789 exec-out screencap -p > ~/Downloads/screen1.png
+2.3 Path to Production
+Upload new AAB with storage fix
+Complete store listing with screenshots
+Closed testing: minimum 12 testers opted in for 14 days
+Apply for production access after closed test period
+PART 3: V2.4 Open Items Before Play Store Finalization
+3.1 Location Permission Flow
+3.2 BLE Dropout During Rides
+3.3 Tile Scan z18 on Map Load (Line 512)
+3.4 SHOW DOWNLOADED Button Hardening
+3.5 Async Trail Load / ANR
+3.6 Track Picker Layout Conflict
+PART 4: Known Issues (Not Blocking V2.4)
+Budget device BLE: Tab8NEU and similar cannot hold BLE to T1000-E radios. Hardware issue. Publish device compatibility list.
+GPS broadcast interval: Disconnect at ~15s, reconnect at 13s countdown (FT-08). Needs investigation.
+Bluetooth timeout on app background (FT-03): Workaround documented — Settings > Battery > Unrestricted.
+Channel_num bug: Master config captures loraChannelNum=0 instead of actual frequency value.
+RECORD button Z-order (UI-04): Disconnect overlay covers button.
+Map snap-back on convoy area focus (FT-07).
+Lint warnings: ServiceKeepAliveWorker.kt foreground service type declarations. Does not block build.
+Play Store vs local APK signing keys are different. Must uninstall one before installing the other.
+PART 5: Build & Install Reference
+PART 6: Tomorrow's Test Plan
+1. Field test cart position substitution and off-track guard (Patches 1-3 applied today)
+2. Verify offline map tile loading with storage permission fix
+3. Verify track list performance (was blocked by storage permission — now loads in ~1 second)
+4. Test GPS recording with RECORD button — verify GPX file has track points after ride
+5. Test BLE connectivity during driving — isolate whether dropout happens on Android 1
+6. Build and upload new AAB with storage fix to Play Store
+7. Take screenshots for store listing
+8. Begin recruiting 12 testers for closed testing (14-day requirement)
+GroupTrack V2.4 Handoff | April 29, 2026 EOD | Commit 744c1588c
+Item | Status | Notes
+Privacy Policy | DONE | Hosted at grouptrack.org/privacy.html. Deployed to EC2.
+App Access | DONE | No special access required.
+Ads Declaration | DONE | App does not contain ads.
+Content Rating | DONE | IARC questionnaire completed. Location sharing declared.
+Data Safety | DONE | Precise location collected and shared. Encrypted in transit.
+Government Apps | DONE | Not a government app.
+Financial Features | DONE | No financial features.
+Health | DONE | Not a health app.
+Target Audience | DONE | Not targeted at children.
+Detail | Value
+Package | com.grouptrack.android
+Version Code | 29320449
+Version Name | 2.7.14 (29320449) google
+Status | Available to internal testers
+Released | Apr 29, 2026 6:56 PM
+Review Status | Not reviewed (internal testing does not require review)
+targetSdk | 35 (updated from 34 — Play Store requirement)
+Field | Detail
+Priority | P1 — Must fix
+Issue | On RECORD, app prompts for location but only offers 'While using the app.' User must manually navigate to Settings to enable 'Allow all the time.' App should detect foreground-only permission and immediately prompt for ACCESS_BACKGROUND_LOCATION.
+Impact | GPS recording stops when screen turns off. Tracks record as empty GPX files (163-298 bytes). Users lose ride data.
+Fix | After receiving ACCESS_FINE_LOCATION, check if ACCESS_BACKGROUND_LOCATION is granted. If not, show rationale dialog explaining why 'Allow all the time' is needed, then request ACCESS_BACKGROUND_LOCATION. Android opens the correct Settings page.
+Field | Detail
+Priority | P2 — Investigate
+Issue | While driving, app loses BLE connection to radio. Position updates stop. Field workaround: manually disconnect BLE, wait 2 seconds, reconnect.
+Devices | Unclear if this affects Android 1 and Android 2 (good devices) or only budget devices. Budget device (Tab8NEU) BLE issue is already documented as hardware limitation.
+Next Step | Field test tomorrow to isolate: does dropout happen on Android 1 with T1000-E? If yes, investigate auto-reconnect logic. If only budget devices, document and move on.
+Field | Detail
+Priority | PARKED — Assess impact
+Issue | ConvoyScreen.kt line 512: onMapBoundsReady scans SAT/18 tile directory (450K files) on map load to compute downloaded area bounding box. Calls showDownloadedAreas() but no visible overlay appears on map open. Runs on background thread so no ANR, but burns I/O.
+Context | Two other scan locations (line 1243 and MapViewer 472) scan z14 (~76 dirs) and work correctly for the SHOW DOWNLOADED button. Line 512 appears to be a different scan that fires on map load but produces no visible result.
+Decision | Leave code in place. Do not execute. Assess impact during testing. May remove or refactor in V2.5.
+Field | Detail
+Priority | P2 — Quality improvement
+Issue | Three related problems when user taps SHOW DOWNLOADED multiple times: (1) No loading spinner — no visual feedback. (2) Button stays active during scan — stacks scans. (3) No cancellation — old scan keeps running.
+Fix | Add loading spinner on button, disable during scan, cancel running coroutine before launching new one. All changes in the button onClick handler around line 1243.
+Field | Detail
+Priority | P2 — Quality improvement
+Issue | Trail overlay GeoJSON loads on main thread in onPageFinished. Large file causes ~5 second UI freeze on launch. ANR dialog may appear.
+Patch | patch_v24_async_trail_load_v1.py — created but NOT applied. Moves GeoJSON read to background thread. Map renders immediately, trails appear shortly after.
+Decision | Fred requested proof that ANR is specifically caused by trail loading before applying. Revisit during field testing.
+Field | Detail
+Priority | P3 — UI improvement
+Issue | Track picker panel overlaps SHOW DOWNLOADED button when both track picker and expanded settings are open. LazyColumn scroll gesture intercepts touch events on the button.
+Fix | Make track picker and expanded settings mutually exclusive — opening one closes the other. Alternatively, move download controls to separate overlay.
+Command | Value
+Release APK | ./gradlew assembleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease
+Release AAB | ./gradlew bundleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease
+Install APK (Android 1) | adb -s 8624SBCEDF00001789 install -r -d app/build/outputs/apk/google/release/app-google-release.apk
+AAB location | app/build/outputs/bundle/googleRelease/app-google-release.aab
+APK location | app/build/outputs/apk/google/release/app-google-release.apk
+Package | com.grouptrack.android
+targetSdk | 35 (config.properties TARGET_SDK=35)
+Latest commit | 744c1588c on feature/convoy-event-ride
+Signing note | Play Store and local APK have different signing keys. Must uninstall one before installing the other.
+
 === GroupTrack_V24_OpenTasks_V25_Plan_v2.docx ===
 GroupTrack
 V2.4 Open Tasks + V2.5 Planned Tasks
