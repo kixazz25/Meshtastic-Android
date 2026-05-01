@@ -268,6 +268,15 @@ class ConvoyGpsService : Service() {
     }
 
     private fun onGpsUpdate(lat: Double, lon: Double, alt: Double) {
+        // Accumulate distance regardless of export format
+        val prevLat = lastLat
+        val prevLon = lastLon
+        lastLat = lat
+        lastLon = lon
+        if (prevLat != null && prevLon != null) {
+            totalDistanceMiles += haversineMiles(prevLat, prevLon, lat, lon)
+        }
+
         if (ConvoyConfig.TRACK_EXPORT_FORMAT.uppercase() == "GPX") {
             writeGpxPoint(lat, lon, alt)
         } else {
@@ -309,15 +318,6 @@ class ConvoyGpsService : Service() {
         } catch (e: Exception) {
             Log.e(TAG, "KML write error: ${e.message}")
         }
-        // Update trail segments for map display
-        val prevLat = lastLat
-        val prevLon = lastLon
-        lastLat = lat
-        lastLon = lon
-        if (prevLat != null && prevLon != null) {
-            totalDistanceMiles += haversineMiles(prevLat, prevLon, lat, lon)
-        }
-        // Trail update is handled via onLocationUpdate callback to ViewModel
     }
 
     private fun closeKml() {
