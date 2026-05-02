@@ -1604,6 +1604,232 @@ GroupTrack  |  Field Test Checklist v1  |  April 4, 2026
 ☐ | FT-05d | Tap OFFLINE — navigates to Field Radio screen. | verify | OPEN
 ☐ | FT-05e | Dev toggle on Sign In screen — flip subscribed ON/OFF, verify label changes in chooser. | verify | OPEN
 
+=== GroupTrack_Firebase_SHA256_Fix.docx ===
+GroupTrack
+Firebase SHA-256 Fix
+Resolves 7–10 Second Startup Delay
+May 2, 2026  |  Continuation Task
+Problem
+GroupTrack experiences a 7–10 second delay on app startup, showing the Meshtastic logo screen and occasionally a "Getting Started" onboarding screen. The app is unresponsive during this delay. This affects both release and debug builds on all devices.
+Root Cause
+Diagnosed via adb logcat. Google Play Services is rejecting the app’s signing certificate:
+SecurityException: GoogleCertificatesRslt: not allowed: pkg=com.grouptrack.android,
+sha256=35b05fe0c752f0a1de8ffbf793e31ad9ec703d621280b6067918c2f5b7873dc5
+The google-services.json was updated for com.grouptrack.android in commit 744c1588c (Play Store prep), but the SHA-256 fingerprints for both the debug and release signing keys were never registered in Firebase. Google Play Services tries to authenticate on every app launch, gets rejected, and waits for timeout — that’s the 7–10 second delay.
+SHA-256 Fingerprints to Register
+Release fingerprint obtained from: keytool -list -v -keystore C:/Users/kixaz/grouptrack-release-key.jks -alias grouptrack
+Debug fingerprint obtained from: logcat SecurityException error message
+Solution — Step by Step
+Part A: Add Fingerprints in Firebase Console
+Open: https://console.firebase.google.com
+Sign in with your Google account
+Select the GroupTrack project (or the Meshtastic project that contains com.grouptrack.android)
+In the left sidebar, click the gear icon (⚙️) next to "Project Overview"
+Click "Project settings"
+Scroll down to the "Your apps" section
+Find the Android app entry for com.grouptrack.android — if it doesn’t exist, you may see the original Meshtastic package. In that case, click "Add app" and add com.grouptrack.android as a new Android app.
+Under the app entry, find "SHA certificate fingerprints"
+Click "Add fingerprint"
+Paste the RELEASE fingerprint (copy exactly, including colons):
+37:F0:13:67:D4:54:FD:F0:47:66:6B:A6:D7:6F:5D:E7:26:51:7C:7C:73:82:0F:23:52:D9:8C:51:C7:AB:95:00
+Click Save
+Click "Add fingerprint" again
+Paste the DEBUG fingerprint:
+35:B0:5F:E0:C7:52:F0:A1:DE:8F:FB:F7:93:E3:1A:D9:EC:70:3D:62:12:80:B6:06:79:18:C2:F5:B7:87:3D:C5
+Click Save
+Part B: Download Updated google-services.json
+Still on the Project Settings page, scroll to the app entry
+Click the "google-services.json" download button
+Save the file to Downloads
+Part C: Replace google-services.json in Project
+In local Git Bash:
+Copy new file into project:
+cp ~/Downloads/google-services.json ~/Meshtastic-Android/app/google-services.json
+Verify it’s updated:
+grep -c "grouptrack" ~/Meshtastic-Android/app/google-services.json
+Should return a number > 0, confirming the GroupTrack package is in the file.
+Part D: Rebuild and Test
+Release build (Android 1):
+./gradlew assembleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease
+adb -s 8624SBCEDF00001789 install -r -d app/build/outputs/apk/google/release/app-google-release.apk
+adb -s 8624SBCEDF00001789 shell am force-stop com.grouptrack.android
+Open the app — should load to convoy map in under 3 seconds with no Meshtastic logo delay.
+If the fix works, commit and build AAB:
+git add app/google-services.json
+git commit -m "fix: updated google-services.json with release+debug SHA-256 fingerprints"
+./gradlew bundleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease
+Upload new AAB to Play Console → Internal Testing → Create new release.
+Verification
+After the fix, confirm the SecurityException is gone:
+adb -s 8624SBCEDF00001789 logcat -c
+Open the app, then:
+adb -s 8624SBCEDF00001789 logcat -d | grep -i "SecurityException.*grouptrack"
+Should return no results. If it still appears, the fingerprint was entered incorrectly — double-check for copy/paste errors in the colons.
+Key Information
+Also Completed May 1–2 Session
+Mileage display fix — shipped and working (ConvoyGpsService.kt)
+On-demand trail loading — 22MB GeoJSON reads on TRAILS tap only (both maps)
+WebView cleanup — DisposableEffect destroys WebView on MapViewer exit
+Play Store AAB v29320458 published to internal testing
+Beta signup form live on grouptrack.org with MySQL backend
+CSV export for Play Console: grouptrack.org/beta_signup.php?export=csv&key=gt_beta_export_2026
+Beta tester flyer created (PDF + PNG for Facebook)
+User manual and install guide PDFs updated on website
+Download links fixed on grouptrack.org
+Android 2 updated with V3.0 build
+V2.5 Release Planning v3 document completed
+Single-node tick guard attempted and reverted — V2.5 task
+GroupTrack  |  Firebase SHA-256 Fix  |  May 2, 2026  |  Confidential
+Key | SHA-256 Fingerprint
+Release | 37:F0:13:67:D4:54:FD:F0:47:66:6B:A6:D7:6F:5D:E7:26:51:7C:7C:73:82:0F:23:52:D9:8C:51:C7:AB:95:00
+Debug | 35:B0:5F:E0:C7:52:F0:A1:DE:8F:FB:F7:93:E3:1A:D9:EC:70:3D:62:12:80:B6:06:79:18:C2:F5:B7:87:3D:C5
+Item | Value
+Package | com.grouptrack.android
+Firebase console | https://console.firebase.google.com
+Keystore location | C:/Users/kixaz/grouptrack-release-key.jks
+Keystore alias | grouptrack
+Keystore password | Sports256!
+google-services.json | ~/Meshtastic-Android/app/google-services.json
+Commit that caused this | 744c1588c — updated google-services.json for com.grouptrack.android without adding SHA-256 fingerprints
+Android 1 serial | 8624SBCEDF00001789
+Android 2 serial | 24039703201775
+
+=== GroupTrack_FridaySessionRef_May1.docx ===
+GroupTrack
+Friday Session Reference
+V2.4 Play Store Publish + V2.5 Release Planning & Sequencing
+May 1, 2026  |  Confidential — Internal Development
+PART 1: Current State (April 30 EOD)
+1.1 Play Store Status
+1.2 V2.4 Code Status
+PART 2: Friday Immediate Tasks
+Complete these actions Friday to advance the Play Store pipeline.
+2.1 Upload AAB 29320455 to Play Console
+The new AAB with the storage permission fix is built and in ~/Downloads. It replaces the broken 29320449.
+Play Console → Internal Testing → Create new release
+Upload app-google-release.aab (version 29320455)
+Release notes: "Storage permission fix, background location permission, show-downloaded hardening"
+Save and publish to internal test track
+2.2 Capture Store Listing Screenshots
+Required before promoting to closed testing. Capture 2–3 from Android 1:
+Convoy map with trail overlay visible
+Tile download manager screen
+Track list / My Tracks view
+Capture command:
+adb -s 8624SBCEDF00001789 exec-out screencap -p > ~/Downloads/screen1.png
+2.3 Begin Tester Recruitment
+Closed testing requires minimum 12 testers opted in for 14 consecutive days.
+Riding group contacts — people who will field test on actual rides
+Each tester needs a Google account and must opt in via the Play Store test link
+The 14-day clock starts when the 12th tester opts in
+PART 3: Play Store Pipeline — V2.4 to Production
+Critical path: Tester recruitment. The 14-day clock does not start until 12 testers opt in.
+PART 4: V2.5 Release Planning
+V2.5 development runs parallel with the V2.4 closed test window. The 14-day mandatory wait is the build window.
+4.1 V2.5 Bug Fixes (from V2.4 open items)
+4.2 V2.5 New Map Functions (from Planning v2)
+4.3 V2.5 Scope Decision (decide Friday)
+Two options for V2.5 scope:
+Option A — Bug-fix-only: ANR-01 + PICK-01 + BLE fixes. Small scope. Ships during closed test window. Map features become V2.6.
+Option B — Feature release: Bug fixes + MAP-01/02/03 + GPS-01/02. Larger scope. May extend past the closed test window.
+Recommendation: Option A. Gets a clean production release faster. The 14-day window is tight for the full MAP feature set, and shipping bugfixes sooner de-risks the tester experience.
+4.4 Package Migration Note
+V2.5 Planning docs call out package migration from com.geeksville.mesh to com.grouptrack.android. This is already done for the Play Store build (com.grouptrack.android). The tile storage path migration (to /sdcard/GroupTrack/tiles/) is still pending and could ride in V2.5 if scoped as bug-fix-only, or defer to V2.6 with the map features.
+PART 5: V2.5 Build & Publish Sequence
+5.1 Pre-Build Checklist
+Confirm V3_FEATURES_ENABLED = false in ConvoyConfig.kt
+Bump versionCode in app/build.gradle.kts (must be > 29320455)
+Run sync_assets_v1.sh for pre-build asset sync
+Commit all changes — clean working tree
+Tag: git tag v2.5-YYYYMMDD -m "V2.5 release"
+5.2 Build Commands
+Release AAB (Play Store):
+./gradlew bundleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease
+Release APK (local smoke test):
+./gradlew assembleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease
+Smoke test on Android 1:
+adb -s 8624SBCEDF00001789 install -r -d app/build/outputs/apk/google/release/app-google-release.apk
+5.3 Play Store Upload
+cp app/build/outputs/bundle/googleRelease/app-google-release.aab ~/Downloads/
+Play Console → Internal Testing → Create new release → Upload AAB
+Add V2.5 release notes
+Save and publish
+If V2.4 closed testing is already running, uploading a new AAB to the same track updates the build for existing testers without restarting the 14-day clock (unless Google flags a policy issue on review).
+PART 6: Supporting Deliverables
+PART 7: Quick Reference
+7.1 Build & Install Commands
+7.2 Key Paths
+7.3 Signing Note
+Play Store and local APK have different signing keys. Must uninstall one before installing the other. Play Store app (com.grouptrack.android) from test link cannot coexist with a locally-signed debug APK on the same device.
+7.4 Stashed Work
+Track picker layout conflict:
+git stash save "track picker layout conflict - fix tomorrow"
+Last clean commit before stash: 9d66c9781
+GroupTrack  |  Friday Session Reference  |  May 1, 2026  |  Prepared April 30 EOD
+Item | Value | Status
+Package | com.grouptrack.android | DONE
+Live AAB on Play Store | 29320449 (no storage fix) | NEEDS REPLACE
+New AAB built | 29320455 in ~/Downloads | READY
+App Content Checklist | All items complete | DONE
+Store Listing Text | Name, short desc, full desc | DONE
+Screenshots | Not captured yet | NOT DONE
+Testers Enrolled | Fred only — need 12 | NOT DONE
+Privacy Policy | grouptrack.org/privacy.html | DONE
+Terms of Service | grouptrack.org/terms.html | DONE
+Item | Status | Notes
+Storage permissions | FIXED | Uncommented + tools:node=replace
+My Cart !phone identity | FIXED | Phone-only mode correct
+z18 bypass | FIXED | SHOW_DOWNLOADED_ON_OPEN=false
+SHOW DOWNLOADED hardening | FIXED | Progress + disable in both screens
+Location permission (bg) | FIXED | bgLocationLauncher added
+Storage runtime permissions | FIXED | MANAGE_EXTERNAL_STORAGE request
+Autopause | REVERTED | ANR in phone-only tick loop → V2.5
+Track picker layout | STASHED | git stash — fix plan in docx
+BLE dropout | OPEN | Hardware issue on budget devices
+# | Step | Timeline | Status
+1 | Upload AAB 29320455 | Friday May 1 | TODO
+2 | Screenshots for store listing | Friday May 1 | TODO
+3 | Verify internal test install works | Friday May 1 | TODO
+4 | Recruit 12 testers | May 1–7 | TODO
+5 | Promote to closed testing | When 12 testers enrolled | BLOCKED
+6 | 14-day closed test window | ~May 7–21 (est.) | BLOCKED
+7 | Apply for production access | ~May 22 | BLOCKED
+8 | Google review + production launch | ~May 25–30 (est.) | BLOCKED
+ID | Issue | Priority | Notes
+ANR-01 | Phone-only ANR — autopause tick loop | P1 GATE | Built+reverted V2.4. Async trail ANR in phone-only tick. Must fix.
+PICK-01 | Track picker layout conflict | P2 | Stashed. Fix plan: Option A mutual exclusion.
+BLE-01 | BLE scan button missing on resume | P2 | Reset GATT registration on lifecycle.
+BLE-02 | Radio requires power cycle | P2 | Same root cause as BLE-01.
+ID | Function | Priority | Notes
+MAP-01 | GPS recording 1s interval | P1 | ConvoyGpsService.kt:249 — 3000L to 1000L
+MAP-02 | Lead cart 5-point broadcast | P1 | New file. 86-byte PRIVATE_APP packet.
+MAP-03 | KML/GPX route overlay | P1 | Leaflet omnivore. File picker. JS bridge.
+GPS-01 | Standalone GPS track recording | P2 | Android GPS when no radio connected.
+GPS-02 | Standalone mode — My Cart as lead | P2 | No radio = My Cart is lead by default.
+MAP-07 | Waypoint management | P2 | Drop pins, name, persist, show on map.
+Deliverable | Status | Notes
+Store listing screenshots | TODO | 2–3 from Android 1. Map, tiles, tracks.
+User manual PDF | TODO | Basic workflow for testers.
+Install guide | TODO | Side-load APK or Play Store opt-in.
+Device compatibility list | TODO | Document BLE budget device limitation.
+Tester invite template | TODO | Email/text for recruiting 12 testers.
+Command | Value
+Debug APK | ./gradlew copyApkToDownloads
+Release APK | ./gradlew assembleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease
+Release AAB | ./gradlew bundleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease
+Install Android 1 | adb -s 8624SBCEDF00001789 install -r -d [apk]
+Install Android 2 | adb -s 24039703201775 install -r -d [apk]
+Screenshot | adb -s 8624SBCEDF00001789 exec-out screencap -p > ~/Downloads/screen.png
+Item | Path
+Project root | ~/Meshtastic-Android
+ConvoyConfig | app/src/main/java/com/geeksville/mesh/convoy/ConvoyConfig.kt
+Build gradle | app/build.gradle.kts
+AAB output | app/build/outputs/bundle/googleRelease/app-google-release.aab
+APK output | app/build/outputs/apk/google/release/app-google-release.apk
+Keystore props | ~/Meshtastic-Android/keystore.properties (NEVER commit)
+Track picker fix | GroupTrack_ConvoyTrackPickerFixPlan_v1.docx
+V2.5 planning | GroupTrack_V25_Planning_v2.docx
+
 === GroupTrack_Function_CrossRef_V1.docx ===
 GroupTrack
 Function Cross-Reference — V1
@@ -1701,6 +1927,172 @@ stopRecording() | 414 | V2.4
 finalizeTrack() | 418 | V2.4
 startDownload() | 695 | V2.4
 cancelDownload() | 718 | V2.4
+
+=== GroupTrack_Handoff_May2_EOD.docx ===
+GroupTrack
+End of Day Handoff
+May 1–2, 2026 Session
+V2.4 Release Complete  |  V2.5 Planning  |  Confidential
+PART 1: Completed This Session
+1.1 Code Fixes Shipped
+1.2 Code Fix Attempted and Reverted
+1.3 Play Store & Infrastructure
+1.4 Documents Created
+PART 2: V2.4 Open Items — Moved to V2.5
+These items were identified during V2.4 development and field testing. They are deferred to V2.5 to avoid delaying the Play Store release.
+2.1 Firebase SHA-256 Startup Delay
+Problem: 7–10 second delay on every app startup. Meshtastic logo screen hangs, occasionally shows Getting Started onboarding screen. Google Play Services throws SecurityException because the signing key SHA-256 fingerprints are not registered in Firebase for the com.grouptrack.android package.
+Root cause: Commit 744c1588c updated google-services.json for the new package name but never registered the signing key fingerprints in Firebase console.
+Fix: Add both release and debug SHA-256 fingerprints in Firebase Project Settings, download updated google-services.json, rebuild. Detailed instructions in GroupTrack_Firebase_SHA256_Fix.pdf.
+Priority: CRITICAL — this affects every app launch for every user.
+2.2 Tick Rationalization (Autopause + BLE + Android-Only)
+Combined fix consolidating ANR-01, BLE-01, BLE-02, GPS-01, GPS-02 from earlier planning docs.
+Problem: Autopause code is written and tested but was pulled from V2.4 because radio functions in the tick loop cause ANR when running Android-only after radio disconnect. The lead is locked to a radio node name (!phone is a different identity). When autopause disconnects the radio, lead goes null, trail accumulation skips, track freezes.
+The single-node guard (if nodes.size <= 1) was attempted May 1 and reverted — caused Map Viewer ANR through unknown mechanism.
+Approach: Full tick cycle audit using GroupTrack_TickEngine_Reference.md. Proper profiling with Android Studio Profiler before and after each change. No quick patches to tick.
+2.3 Performance Regression
+Observed: Android 2 (4/30 build) loads Map Viewer in ~6 seconds. Android 1 (current build) takes ~20 seconds. Same code. Needs proper profiling to identify cause — may be resolved by the Firebase fix (7–10 seconds of the delay is the Google Play Services timeout).
+2.4 Track Management
+Import code completed in V2.4 but testing was limited by storage permission issues (now fixed). Export and email share not yet implemented. Track picker layout conflict stashed.
+Track picker layout fix (mutual exclusion per fix plan)
+GPX import from Downloads — retest with storage permissions now fixed
+Export recorded track to Downloads
+Share track via email (share intent)
+Export trail from trail info popup — tap trail, see info, export/share
+Move GPX import parsing to background thread (71-track ANR fix)
+2.5 Mileage Calculation — Enhanced
+Basic mileage display is shipped and working in V2.4. V2.5 enhancement: tie mileage calculation to the GPX track writing process for accuracy. Currently accumulates in onGpsUpdate() which fires regardless of recording state.
+PART 3: V2.5 New Features — Completing the Free Product
+3.1 Vision
+V2.4 ships as a working standalone Android trail app — GPS track recording, offline maps, trail overlays, KML/GPX import, and convoy tracking with mesh radios all work today. Radios are optional. The app is in the Play Store internal test pipeline.
+V2.5 completes the free product feature set: trail discovery, route planning, waypoint management, track export/sharing, and auto-provisioning of map data. A rider can find trails for their area, plan a route, record a ride, and share the results without a subscription and without a radio.
+The radio becomes an upgrade, not a prerequisite. Users discover the value of multi-rider convoy tracking through group rides with friends who have radios. V3.0 adds the premium layer — AWS backend, cloud sync, bounding box trail queries, org features — that drives revenue.
+3.2 Trail Source Catalog (MAP-05/10) — Largest Task
+The accuracy and completeness of trail data is the core differentiator. Our user experience is dictated by the accuracy of our trail component.
+V2.5 builds a curated catalog of public trail data sources — BLM, USFS, state trail databases, county OHV systems — organized by state and region. The task is discovering those sources and creating the strategy to combine them. We do not want to import the whole country. We want a reference file that points to sources that our users can import.
+Two-part work:
+Part 1 — Source Discovery and Cataloging: Research every available public trail data source. Track API endpoint or download URL, format, coverage area, data quality, update frequency. Organize into a reference file the app can read.
+Part 2 — User-Facing Catalog Browser: User selects state/region from catalog, sees available trail sources, picks what they want, data downloads and imports as local overlays available in both Map Viewer and Convoy Map.
+V2.5 access method: Browse by state/region, select sources, import locally.
+V3.0 enhancement: Bounding box query against AWS-hosted trail data as a premium feature. User draws a rectangle on the map, app queries for all trail sources in that area.
+3.3 Snap-to-Trail Engine (MAP-06)
+One engine, two applications:
+Route planning: Draw a route on the map and it snaps to known trail geometry from loaded overlays. Plan rides that follow actual trails.
+Convoy map lead track: The 5-second GPS broadcast creates angular straight lines between points. Snap-to adjusts those segments to conform to trail geometry underneath. Track follows the trail, not the GPS interpolation.
+Core function: Nearest-neighbor projection onto trail segments from loaded GeoJSON. Build once, serve both maps.
+3.4 Waypoint Management (MAP-07)
+Drop pins on the map, name them, persist across sessions, display on both Map Viewer and Convoy Map. Waypoint categories: trailhead, staging, hazard, POI.
+3.5 Tile Download Manager + Auto-Download (MAP-09)
+Enhance tile download with auto-provisioning: when importing a track or saving a route, automatically download the map tiles required to support that data. Map data follows the data — no manual tile management needed.
+3.6 GPS Recording 1-Second Interval (MAP-01)
+ConvoyGpsService.kt line 249: change 3000L to 1000L. Track points every 1 second instead of 3. Higher resolution tracks for snap-to-trail accuracy and post-ride analysis.
+3.7 GeoJSON Overlay Management
+The feature set will expand past current GeoJSON to allow as many trail sources as possible. How we combine and present that data (multiple overlays, one overlay with multiple sources) will be part of the development process. Must support both Map Viewer and Convoy Map.
+PART 4: V2.5 Complete Scope Summary
+4.1 V2.4 Items Moved to V2.5
+4.2 V2.5 New Features
+4.3 Delivered in V2.4 (No Longer in Scope)
+4.4 Moved to V3.0
+PART 5: Play Store & Website Status
+5.1 Play Store Pipeline
+5.2 Website — grouptrack.org
+PART 6: Next Session Priorities
+Firebase SHA-256 fix — CRITICAL. Follow GroupTrack_Firebase_SHA256_Fix.pdf. Eliminates startup delay.
+Rebuild and upload new AAB to Play Store after Firebase fix
+Post beta flyer to SxS groups (PDF + PNG ready)
+Send tester invite email with Play Store test link
+Add Venmo contribution section to grouptrack.org
+Begin V2.5 development — MAP-01 (1s GPS interval) is quickest win
+Performance investigation with Android Studio Profiler if Firebase fix doesn’t resolve the full regression
+Run recommit_docs.sh with updated documentation
+PART 7: Key Reference
+CRITICAL RULE: Never install debug builds on Android 1. Release builds only. Never install release builds on Android 2. Debug builds only.
+GroupTrack  |  End of Day Handoff  |  May 1–2, 2026  |  Confidential
+Fix | Description | Status
+Mileage accumulator | Distance calc moved from writeKmlPoint() to onGpsUpdate(). Runs for GPX and KML. HUD shows trip distance during recording. Root cause: GPX was default format but accumulator was only in KML write path. | SHIPPED
+On-demand trail loading | Removed 22MB GeoJSON auto-load from onPageFinished in both ConvoyMapViewerScreen and ConvoyScreen. Trails load on first TRAILS button tap via background thread. Subsequent taps toggle visibility. Eliminates CPU spike on map open. | SHIPPED
+WebView cleanup | Added DisposableEffect to destroy WebView when leaving Map Viewer. Prevents leaked WebView instances causing ANR on repeated navigation. | SHIPPED
+Fix | Description | Status
+Single-node tick guard | Added if (state.nodes.size <= 1) guard to skip cart position substitution for Android-only mode. Caused Map Viewer ANR every 5 seconds. Exact failure mechanism unknown — needs proper profiling. Reverted. | REVERTED
+Item | Status | Notes
+Store listing (name, descriptions) | DONE | App name, short desc, full desc saved
+App icon 512x512 | DONE | Generated from GroupTrack logo
+Feature graphic 1024x500 | DONE | Generated with logo + tagline
+Screenshots 1080x1920 | DONE | 5 phone, 5 tablet 7", 2 tablet 10"
+AAB v29320458 published | PUBLISHED | Internal testing track
+Testers enrolled | 10 of 12 | Need 2 more for closed testing
+Beta signup form on grouptrack.org | LIVE | Email, device type, MySQL backend
+CSV export for Play Console | LIVE | beta_signup.php?export=csv&key=...
+User manual PDF updated on site | DONE | Replaced outdated version
+Install guide PDF updated on site | DONE | Replaced outdated version
+Download links fixed | DONE | Old filenames → new filenames
+Android 2 V3.0 build updated | DONE | Current codebase with V3 flag ON
+Document | Purpose
+GroupTrack_V24_UserManual.pdf | 8-section user manual for V2.4 features
+GroupTrack_V24_TesterInstallGuide.pdf | Install guide with release overview, Play Store install, permissions, troubleshooting
+GroupTrack_V25_ReleasePlanning_v3.docx/pdf | Complete V2.5 planning — vision, scope, features, build reference
+GroupTrack_BetaTester_Flyer.pdf/png | One-page teaser flyer for SxS groups. PDF + PNG for Facebook
+GroupTrack_Firebase_SHA256_Fix.pdf | Step-by-step guide to fix startup delay via Firebase fingerprints
+GroupTrack_PlayStore_Icon_512.png | Play Store app icon
+GroupTrack_PlayStore_FeatureGraphic_1024x500.png | Play Store feature graphic banner
+Tester invite email draft | Template with feature list and install link
+ID | Item | Category | Notes
+FIRE-01 | Firebase SHA-256 startup delay | Critical Fix | 7–10s delay. Fix doc ready. Do first.
+TICK-01 | Tick rationalization (autopause+BLE+Android-only) | Fix | TickEngine Reference doc. Proper profiling.
+PERF-01 | Performance regression (6s vs 20s) | Fix | May resolve with Firebase fix.
+TRK-01 | Track management (picker, import, export, email, trail popup) | Tracks | Import done, needs retest. Export/email new.
+HUD-02 | Mileage calc enhancement | Fix | Tie to GPX write process.
+ID | Feature | Category | Notes
+MAP-05/10 | Trail source catalog | Map | LARGEST TASK. Source discovery + architecture + browse UI.
+MAP-06 | Snap-to-trail engine | Map | Route planning + lead track conformance.
+MAP-07 | Waypoint management | Map | Drop, name, persist, display. Both maps.
+MAP-09 | Tile download + auto-download on import/save | Map | Map data follows the data.
+MAP-01 | GPS recording 1s interval | Map | 3000L → 1000L. One line change.
+OVL-01 | GeoJSON overlay management | Map | Multi-source trail aggregation for both maps.
+ID | Feature | Notes
+GPS-01 | Standalone GPS track recording | Android GPS when no radio. Full track recording.
+GPS-02 | Standalone mode — My Cart as lead | No radio = My Cart is lead by default.
+MAP-02 | Cart position substitution | Silent carts inherit trailing cart GPS. Replaces 5-point broadcast.
+MAP-03 | KML/GPX route overlay | Leaflet omnivore. File picker. Both maps.
+MAP-04 | Utah UGRC trail overlay | 5,732 trails, 7 counties. Dynamic bbox query.
+HUD-01 | Mileage display | Trip distance on HUD during recording.
+— | Map Viewer platform | Independent planning map. Foundation for V2.5 features.
+— | Standalone Android-only product | Full trail app without radio. Drives acquisition.
+— | Lead cart user selection | Manual selection on RECORD. Replaced distance accumulator.
+— | On-demand trail loading | Background thread read on TRAILS tap. Both maps.
+— | WebView cleanup | DisposableEffect destroys WebView on exit.
+Feature | Reason
+Bounding box trail query | AWS-hosted trail data. Premium feature. User draws box, API returns matching trails.
+Route sharing / community library | Requires backend routes table + API.
+Dual map architecture | Requires V3 services menu.
+Ride-specific map configuration | Requires enrollments + API.
+iOS version (iPad/iPhone) | SwiftUI fork of Meshtastic-Apple. Requires Mac for development.
+# | Step | Timeline | Status
+1 | Store listing content | May 1 | DONE
+2 | AAB v29320458 uploaded | May 1 | PUBLISHED
+3 | Recruit 2 more testers | Via beta form on site | TODO
+4 | Promote to closed testing | When 12 testers enrolled | BLOCKED
+5 | 14-day closed test window | ~14 days after step 4 | BLOCKED
+6 | Apply for production access | After closed test | BLOCKED
+Item | Status | Notes
+Beta signup form | LIVE | Email + device type (Android/iPad/iPhone)
+MySQL backend (beta_signups table) | LIVE | On existing RDS
+CSV export for Play Console | LIVE | beta_signup.php?export=csv&key=gt_beta_export_2026
+Updated user manual PDF | LIVE | Replaced outdated version
+Updated install guide PDF | LIVE | Replaced outdated version
+Download links fixed | LIVE | Point to new filenames
+"First 50 Android users" text | LIVE | Priority messaging in signup form
+Venmo contribution link | TODO | Fund iOS development (Mac + iPad)
+Item | Value
+Release build | ./gradlew assembleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease
+AAB build | ./gradlew bundleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease
+Debug build | ./gradlew copyApkToDownloads
+Install Android 1 (RELEASE ONLY) | adb -s 8624SBCEDF00001789 install -r -d app/build/outputs/apk/google/release/app-google-release.apk
+Install Android 2 (DEBUG) | adb -s 24039703201775 install -r -d app/build/outputs/apk/google/debug/app-google-universal-debug.apk
+Force stop after install | adb -s 8624SBCEDF00001789 shell am force-stop com.grouptrack.android
+EC2 SSH | ssh -i ~/.ssh/convoy-api-key-2.pem ec2-user@34.224.89.217
+Beta stats | curl "https://grouptrack.org/beta_signup.php?stats=1&key=gt_beta_export_2026"
+CSV export | https://grouptrack.org/beta_signup.php?export=csv&key=gt_beta_export_2026
 
 === GroupTrack_Installation_Guide_V2.3.docx ===
 GroupTrack
@@ -6978,6 +7370,86 @@ convoy_map.html | MAP-02/03/04/05 — Leaflet overlay rendering
 ConvoyScreen.kt | MAP-03 — file picker and WebView bridge
 ConvoyConfig.kt | TRACK_EXPORT_FORMAT GPX/KML setting
 
+=== GroupTrack_V24_TesterInstallGuide.docx ===
+GroupTrack
+Google Play Internal Test
+Installation Guide for Testers
+Version 2.4  |  May 2026
+What You Need Before Starting
+⚠ Do NOT install GroupTrack from any other source (APK file, another Play Store listing, etc.) before using the test link. If you already have a different version installed, uninstall it first — the signing keys are different and the install will fail.
+Installation Steps
+Step 1: Accept the Test Invitation
+Open the test invitation link on your Android device. Your organizer will share this link via text, email, or group chat.
+The link opens a Google Play page that says "You’ve been invited to test GroupTrack."
+Tap "Accept invite" (or "Become a tester").
+You are now enrolled in the internal test program.
+✅ You must accept the invite using the same Google account that is signed in to Google Play on your device. If you have multiple Google accounts, make sure the correct one is active.
+Step 2: Install GroupTrack from Google Play
+After accepting the invite, the page shows an "Install" or "Download" button.
+Tap Install. Google Play downloads and installs GroupTrack.
+If the Install button doesn’t appear immediately, wait 1–2 minutes and refresh the page. Google Play sometimes takes a moment to process the enrollment.
+Once installed, tap "Open" to launch GroupTrack.
+Step 3: Grant Permissions
+GroupTrack needs three permissions to work properly. The app will walk you through each one.
+A. Location — "Allow all the time"
+When the app asks for location, tap "Allow While Using the App" first.
+The app will then ask for background location access. Tap "Allow all the time" when prompted.
+If the app sends you to Settings, find GroupTrack → Permissions → Location and select "Allow all the time."
+Return to the app.
+⚠ This permission is critical. Without "Allow all the time," GPS recording stops when your screen turns off and your ride track will be empty.
+B. Storage — "All Files Access"
+The app requests "All Files Access" to manage offline map tiles and track files.
+This opens Settings. Find GroupTrack and toggle on "Allow access to manage all files."
+Return to the app.
+C. Bluetooth
+Grant Bluetooth permission when prompted. This allows the app to connect to your Meshtastic radio.
+Step 4: Verify the Installation
+You should see the GroupTrack convoy map screen.
+If you have a Meshtastic radio nearby, the app will prompt you to connect via Bluetooth.
+If you do not have a radio, you can still explore the map and download offline tiles.
+✅ You’re all set! The app is ready to use on your next group ride.
+Before Your First Ride
+Download Offline Map Tiles
+Most ride areas have no cell service. Download map tiles over WiFi before you leave:
+Connect to WiFi.
+Open GroupTrack and navigate the map to your ride area.
+Use the tile download controls to select the region and tap DOWNLOAD.
+Wait for the download to finish. A typical ride area takes 200–500 MB.
+Set Battery to Unrestricted
+Some Android devices aggressively kill background apps. To prevent GroupTrack from being stopped during a ride:
+Go to Settings → Battery (or Settings → Apps → GroupTrack → Battery).
+Select "Unrestricted" or "No restrictions."
+Troubleshooting
+"No app found" when clicking the test link
+Make sure you are opening the link on your Android device (not a computer). Also verify that you are signed in to Google Play with the invited Google account.
+Install button not showing after accepting invite
+Wait 2–5 minutes and refresh the Google Play page. Google Play can take time to process the enrollment. If it still doesn’t appear, try searching for "GroupTrack" in Google Play — the test version should appear in results.
+"App not installed" error
+You may have a different version of GroupTrack (or a Meshtastic app with a conflicting package) already installed. Uninstall the existing app completely, then try installing from Google Play again.
+Map is blank
+You need offline tiles for areas without cell service. Connect to WiFi and download tiles for your ride area using the tile download feature. Also check that All Files Access permission is granted.
+GPS track is empty after a ride
+Location permission must be set to "Allow all the time" — not "While using the app." Check Settings → Apps → GroupTrack → Permissions → Location.
+Providing Feedback
+As a tester, your feedback is essential. Please report any issues, crashes, or suggestions to your ride organizer. Include:
+What you were doing when the issue occurred
+What you expected to happen vs. what actually happened
+Your device model and Android version (Settings → About phone)
+Screenshots if possible
+Known Issues in V2.4
+GroupTrack V2.4  |  Internal Tester Install Guide  |  May 2026  |  grouptrack.org
+Requirement | Details
+Android phone or tablet | Android 10 or later. Samsung, Pixel, or other name-brand device recommended.
+Google account | You must be signed in to Google Play with the same Google account that was invited to the test.
+Test invitation link | Your ride organizer will send you an opt-in link. You must click this link on your Android device.
+WiFi (recommended) | For downloading the app and pre-loading offline map tiles.
+Issue | Details / Workaround
+No mileage display | Trip distance / odometer is not yet implemented. Planned for a future version.
+Speed warmup (60s) | Speed shows 0 mph for ~60 seconds after starting a ride. This is normal.
+BLE dropout during rides | If the radio disconnects, manually disconnect and reconnect Bluetooth in the app.
+Budget tablet BLE | Low-cost tablets cannot hold BLE to T1000-E radios. Use a phone.
+App killed in background | Set battery to Unrestricted in Settings.
+
 === GroupTrack_V24_Turnover_Apr29.docx ===
 GroupTrack V2.4
 Play Store Release — Turnover Document
@@ -7176,6 +7648,111 @@ z18 | ~450,000+ | ~450,000+ | 4+ minutes
 ☐ | Add tester email and get opt-in link | 3 min
 ☐ | Install from Play Store on test device | 5 min
 ☐ | Verify: app launches, BLE connects, maps work, trails display | 15 min
+
+=== GroupTrack_V24_UserManual.docx ===
+GroupTrack
+User Manual
+Version 2.4
+Off-Road Convoy Tracking for Android
+May 2026
+1. What is GroupTrack?
+GroupTrack is an Android application for off-road convoy tracking. It uses Meshtastic mesh radios to share real-time GPS positions between riders in a group, allowing everyone to see where the convoy is on an offline map — even in areas with no cell service.
+GroupTrack shows each rider’s position on the map in real time, identifies the lead and tail vehicles, records GPS tracks of your ride, and works completely offline using pre-downloaded map tiles.
+1.1 What You Need
+⚠ Budget Android tablets (Tab8NEU and similar) have known Bluetooth issues with T1000-E radios. The BLE connection drops after 8–10 seconds. Use a name-brand phone or tablet for reliable operation.
+2. Getting Started
+2.1 Install GroupTrack
+If you received a Google Play internal test invite, follow the installation instructions provided by your ride organizer. If you received a direct APK file, see the side-loading instructions in the install guide.
+2.2 Grant Permissions
+GroupTrack requires several permissions to function. The app will prompt you for each one on first launch.
+Location Permission
+When prompted, tap "Allow While Using the App" first.
+The app will then explain why it needs background location access and ask you to grant "Allow All the Time."
+This opens your device Settings. Find GroupTrack in the list and select "Allow all the time."
+Return to the app.
+⚠ If you only grant "While using the app," GPS track recording will stop when you turn off your screen or switch apps. Your ride track will be empty.
+Storage Permission
+The app will request "All Files Access" permission.
+This opens your device Settings. Find GroupTrack and toggle on "Allow access to manage all files."
+Return to the app.
+This permission is required for offline map tiles and track file storage.
+2.3 Connect to Your Radio
+Power on your Meshtastic radio (T1000-E or compatible).
+In GroupTrack, you will see a Bluetooth connection prompt or a radio list.
+Select your radio from the list. The app connects via BLE.
+Once connected, your position and other riders’ positions will appear on the map.
+✅ Keep your radio powered on and within Bluetooth range of your phone (typically 10–30 feet) throughout the ride.
+3. The Convoy Map
+The main screen is the convoy map. It shows your position and every connected rider in the group.
+3.1 Map Display
+Your cart ("My Cart") is shown on the map with your position updated in real time.
+Other riders in the convoy appear as separate markers. Each rider’s position updates as the mesh radio network relays GPS data.
+The map uses hybrid satellite/terrain tiles by default.
+Trail overlays (GeoJSON) display known OHV trails when available.
+3.2 Lead and Tail
+GroupTrack automatically identifies the lead vehicle (front of convoy) and the tail vehicle (rear of convoy). The lead cart is set when you start a group track. The convoy engine computes positions and heading relative to the lead.
+3.3 Speed Display
+Your current speed (mph) is displayed on the map HUD after a brief warmup period. During the first 60 seconds, the speed display may show 0 mph while the GPS acquires enough position samples to compute accurate speed.
+⚠ Mileage traveled (trip odometer) is not displayed in V2.4. This feature is planned for a future release.
+4. Recording a Ride
+4.1 Start Recording
+Tap the RECORD button on the map screen.
+If prompted for location permission, grant "Allow all the time" as described in Section 2.2.
+The app begins recording your GPS track. A recording indicator appears on screen.
+The lead cart is set automatically (your radio node, or "My Cart" in phone-only mode).
+4.2 During the Ride
+Your GPS position is recorded every 3 seconds and saved to a track file.
+The track line draws on the map as you move.
+Other riders’ positions update via the mesh radio network.
+You can lock and unlock your phone — recording continues in the background (requires "Allow all the time" location permission).
+4.3 Stop Recording
+Tap the STOP button.
+A dialog appears asking you to name the track.
+Enter a name (e.g., "Bar 10 Trail April 2026") and confirm.
+The track is saved as a GPX file in your device storage.
+4.4 Viewing Saved Tracks
+Tap the track list button to see all recorded tracks. Select any track to view it as an overlay on the map. Tracks are stored in the Documents/my_tracks/ folder and can be exported via the system file manager.
+5. Offline Map Tiles
+GroupTrack works best with pre-downloaded map tiles. Without them, the map shows a blank background in areas with no cell service.
+5.1 Downloading Tiles
+Connect to WiFi before your ride.
+On the map screen, navigate to the area you want to download.
+Use the tile download controls to select a region.
+Tap DOWNLOAD. The app downloads satellite/hybrid tiles for the selected area at multiple zoom levels.
+Wait for the download to complete. Large areas may take several minutes.
+✅ Download tiles the night before your ride when you have a strong WiFi connection. A typical ride area (20–30 miles of trail) requires 200–500 MB of tile storage.
+5.2 Viewing Downloaded Areas
+Tap the SHOW DOWNLOADED button to see which areas have cached tiles. The downloaded region is highlighted on the map. A progress indicator shows while the scan runs — the button is disabled during the scan to prevent duplicate operations.
+6. Radio Configuration
+GroupTrack includes tools to configure your Meshtastic radio for convoy use. The recommended settings are LONG_FAST mode, which provides 3–5 mile range with good data throughput for position updates.
+Apply Radio: Applies the convoy master configuration to your connected radio.
+Archive/Restore: Backs up your current radio settings before applying convoy config, and restores them after the ride.
+⚠ All riders in a convoy must be on the same frequency, channel, and modem preset. Use the Apply Radio feature to ensure consistent configuration.
+7. Known Limitations (V2.4)
+8. Troubleshooting
+Track file is empty (0 track points)
+Location permission is set to "While using the app" instead of "Allow all the time." Go to Settings → Apps → GroupTrack → Permissions → Location → Allow all the time.
+Map is blank / no tiles visible
+Offline tiles have not been downloaded for this area. Connect to WiFi and use the tile download feature before your ride. Also confirm that All Files Access permission is granted.
+Radio won’t connect
+Ensure the radio is powered on and within Bluetooth range. Try toggling Bluetooth off and on in your phone’s Settings. If using a budget tablet, try a different Android device — see the BLE compatibility note in Section 7.
+Speed stuck at 0 mph
+Wait 60 seconds after starting a ride. The speed display requires a warmup window to compute accurate speed from GPS samples. If speed remains at 0 after 2 minutes, check that location permission is set to "Allow all the time."
+App killed in background
+Go to Settings → Battery → find GroupTrack → set to "Unrestricted." This prevents Android from killing the app when the screen is off.
+GroupTrack V2.4 User Manual  |  May 2026  |  grouptrack.org
+Item | Details
+Android device | Android 10 or later. Tested on Samsung and Pixel devices.
+Meshtastic radio | T1000-E or compatible Meshtastic device. Must be on the same frequency and channel as other riders.
+Bluetooth | The app connects to the radio via Bluetooth Low Energy (BLE).
+Map tiles (optional) | Download offline map tiles over WiFi before your ride. Without tiles, the map shows a blank background.
+Limitation | Details
+No mileage display | Trip distance / odometer is not calculated or displayed. Planned for a future release.
+60s speed warmup | Speed shows 0 mph for the first ~60 seconds while GPS acquires enough samples.
+GPS interval 3s | Track points are recorded every 3 seconds. Higher resolution (1s) is planned for V2.5.
+Budget device BLE | Low-cost tablets (Tab8NEU, etc.) cannot hold BLE connection to T1000-E radios. Use a name-brand Android phone.
+BLE reconnect | If BLE drops during a ride, manually disconnect and reconnect in the app. Workaround: keep phone close to radio.
+Battery optimization | Some devices kill background apps aggressively. Go to Settings → Battery → GroupTrack → Unrestricted to prevent this.
 
 === GroupTrack_V24_WorkPlan_Apr29.docx ===
 GroupTrack V2.4
