@@ -130,7 +130,8 @@ fun ConvoyScreen(
     var showLayerMenu by remember { mutableStateOf(false) }
     val mapTypeLabel by viewModel.mapTypeLabel.collectAsStateWithLifecycle()
     val isLocalTiles by viewModel.isLocalTiles.collectAsStateWithLifecycle()
-    var trailsOn by remember { mutableStateOf(true) }
+    var trailsOn by remember { mutableStateOf(false) }
+    var trailsLoaded by remember { mutableStateOf(false) }
     var tracksOn by remember { mutableStateOf(true) }
     var showConvoyTrackPicker by remember { mutableStateOf(false) }
     var convoyTrackFiles by remember { mutableStateOf<List<String>>(emptyList()) }
@@ -421,14 +422,7 @@ fun ConvoyScreen(
                                 val tileUrl = ConvoyConfig.TILE_SOURCES[ConvoyConfig.ACTIVE_TILE_SOURCE] ?: return
                                 view?.postDelayed({
                                     view.evaluateJavascript("setTileUrl('$tileUrl', '${ConvoyConfig.ACTIVE_TILE_SOURCE}')", null)
-                                    // Load trails from bundled asset (same pattern as MapViewer)
-                                    try {
-                                        val json = ctx.assets.open("utah_trails_stgeorge.geojson").bufferedReader().use { it.readText() }
-                                        view.evaluateJavascript("loadTrails($json); showTrails();", null)
-                                        android.util.Log.d("ConvoyMap", "Trails injected from Kotlin assets")
-                                    } catch (e: Exception) {
-                                        android.util.Log.e("ConvoyMap", "Trail load error: ${e.message}")
-                                    }
+                                    // Trails loaded on demand via TRAILS button
                                     // Center map on device last known location
                                     try {
                                         val lm = ctx.getSystemService(android.content.Context.LOCATION_SERVICE) as android.location.LocationManager
@@ -870,7 +864,22 @@ fun ConvoyScreen(
                             Surface(
                                 modifier = Modifier.clickable {
                                     trailsOn = !trailsOn
-                                    webViewRef.value?.evaluateJavascript("toggleTrails()", null)
+                                    if (trailsOn && !trailsLoaded) {
+                                        trailsLoaded = true
+                                        Thread {
+                                            try {
+                                                val json = context.assets.open("utah_trails_stgeorge.geojson").bufferedReader().use { it.readText() }
+                                                webViewRef.value?.post {
+                                                    webViewRef.value?.evaluateJavascript("loadTrails($json); showTrails();", null)
+                                                    android.util.Log.d("ConvoyMap", "Trails loaded on demand")
+                                                }
+                                            } catch (e: Exception) {
+                                                android.util.Log.e("ConvoyMap", "Trail load error: ${e.message}")
+                                            }
+                                        }.start()
+                                    } else {
+                                        webViewRef.value?.evaluateJavascript("toggleTrails()", null)
+                                    }
                                 },
                                 shape = RoundedCornerShape(3.dp),
                                 color = if (trailsOn) Color(0xFF2E75B6) else Color(0xFF1A2233)

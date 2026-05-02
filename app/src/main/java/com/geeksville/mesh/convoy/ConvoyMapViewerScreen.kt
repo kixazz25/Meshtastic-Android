@@ -47,7 +47,8 @@ fun ConvoyMapViewerScreen(onBack: () -> Unit, convoyViewModel: ConvoyViewModel =
     val context = LocalContext.current
     var webViewRef by remember { mutableStateOf<WebView?>(null) }
     var activeSource by remember { mutableStateOf("SAT") }
-    var trailsOn by remember { mutableStateOf(true) }
+    var trailsOn by remember { mutableStateOf(false) }
+    var trailsLoaded by remember { mutableStateOf(false) }
     var showTrackPanel by remember { mutableStateOf(false) }
     var trackFileList by remember { mutableStateOf<List<String>>(emptyList()) }
     var loadedTracks by remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
@@ -118,7 +119,22 @@ fun ConvoyMapViewerScreen(onBack: () -> Unit, convoyViewModel: ConvoyViewModel =
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.clickable {
                         trailsOn = !trailsOn
-                        webViewRef?.evaluateJavascript("toggleTrails()", null)
+                        if (trailsOn && !trailsLoaded) {
+                            trailsLoaded = true
+                            Thread {
+                                try {
+                                    val json = context.assets.open("utah_trails_stgeorge.geojson").bufferedReader().use { it.readText() }
+                                    webViewRef?.post {
+                                        webViewRef?.evaluateJavascript("loadTrails(" + json + "); showTrails();", null)
+                                        android.util.Log.d("MapViewer", "Trails loaded on demand")
+                                    }
+                                } catch (e: Exception) {
+                                    android.util.Log.e("MapViewer", "Trail load error: " + e.message)
+                                }
+                            }.start()
+                        } else {
+                            webViewRef?.evaluateJavascript("toggleTrails()", null)
+                        }
                     }.padding(8.dp)
                 )
                 Text(
@@ -386,14 +402,7 @@ fun ConvoyMapViewerScreen(onBack: () -> Unit, convoyViewModel: ConvoyViewModel =
                                 view?.evaluateJavascript(
                                     "setTileUrl('" + satUrl + "', 'SAT')", null
                                 )
-                                // Load trail GeoJSON from assets and inject into WebView
-                                try {
-                                    val json = ctx.assets.open("utah_trails_stgeorge.geojson").bufferedReader().use { it.readText() }
-                                    view?.evaluateJavascript("loadTrails(" + json + "); showTrails();", null)
-                                    android.util.Log.d("MapViewer", "Trails injected from assets")
-                                } catch (e: Exception) {
-                                    android.util.Log.e("MapViewer", "Trail load error: " + e.message)
-                                }
+                                // Trails loaded on demand via TRAILS button
                             }
                         }
                         loadUrl("file:///android_asset/grouptrack_map.html")

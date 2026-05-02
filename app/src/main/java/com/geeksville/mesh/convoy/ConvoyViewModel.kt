@@ -579,16 +579,6 @@ class ConvoyViewModel @Inject constructor(
         // whichever is further along: own last known OR furthest trailing cart.
         // Process tail→lead so each resolution feeds the next cart forward.
         val resolvedPositions = mutableMapOf<String, Pair<Double, Double>>()
-
-        if (state.nodes.size <= 1) {
-            // Single device — no substitution possible, use own position
-            for (node in state.nodes) {
-                if (node.latitude != 0.0 && node.longitude != 0.0) {
-                    resolvedPositions[node.nodeId] = Pair(node.latitude, node.longitude)
-                    lastNodePositions[node.nodeId] = Pair(node.latitude, node.longitude)
-                }
-            }
-        } else {
         val headingRad = Math.toRadians(state.convoyHeading.toDouble())
         val hdx = kotlin.math.sin(headingRad)
         val hdy = kotlin.math.cos(headingRad)
@@ -642,7 +632,6 @@ class ConvoyViewModel @Inject constructor(
             }
         }
 
-        } // end multi-cart substitution
         // ── Build trail segments using resolved positions ─────────────────
         if (_trackLeadOnly.value) {
             // Get lead position from resolved map — never null if any cart is active
