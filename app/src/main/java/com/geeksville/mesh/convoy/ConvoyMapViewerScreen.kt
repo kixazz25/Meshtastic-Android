@@ -22,6 +22,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -46,6 +47,15 @@ import kotlinx.coroutines.withContext
 fun ConvoyMapViewerScreen(onBack: () -> Unit, convoyViewModel: ConvoyViewModel = hiltViewModel()) {
     val context = LocalContext.current
     var webViewRef by remember { mutableStateOf<WebView?>(null) }
+
+    // Clean up WebView when leaving Map Viewer
+    DisposableEffect(Unit) {
+        onDispose {
+            webViewRef?.stopLoading()
+            webViewRef?.destroy()
+            webViewRef = null
+        }
+    }
     var activeSource by remember { mutableStateOf("SAT") }
     var trailsOn by remember { mutableStateOf(false) }
     var trailsLoaded by remember { mutableStateOf(false) }
