@@ -528,6 +528,12 @@ class ConvoyViewModel @Inject constructor(
     }
 
     private fun tick() { try {
+        // Guard: skip tick until location permission is granted
+        if (androidx.core.content.ContextCompat.checkSelfPermission(
+                appContext, android.Manifest.permission.ACCESS_FINE_LOCATION
+            ) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            return
+        }
         val nowMs = System.currentTimeMillis()
         val nodes: List<ConvoyNode> = if (_simulationMode.value) {
             ConvoySimulation.tick(nowMs)
@@ -744,8 +750,33 @@ if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
 
     private fun readLiveNodes(nowMs: Long): List<ConvoyNode> {
         val nodeMap = try { nodeRepository.nodeDBbyNum.value } catch (e: Exception) { emptyMap() }
-        // No radio — return empty. Phone-only GPS deferred to V2.5.
-        if (nodeMap.isEmpty()) return emptyList()
+        // No radio — device IS a node. Phone GPS only after permission granted.
+        if (nodeMap.isEmpty()) {
+            if (androidx.core.content.ContextCompat.checkSelfPermission(
+                    appContext, android.Manifest.permission.ACCESS_FINE_LOCATION
+                ) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                startPhoneGps()
+            }
+            _myCartId.value = "!phone"
+            val loc = getPhoneLocation()
+            val lat = loc?.latitude ?: 0.0
+            val lon = loc?.longitude ?: 0.0
+            val alt = ((loc?.altitude ?: 0.0) * 3.28084).toInt()
+            val spd = (loc?.speed ?: 0f) * 2.23694f
+            val hdg = loc?.bearing ?: 0f
+            return listOf(ConvoyNode(
+                nodeId = "!phone",
+                callsign = android.os.Build.MODEL,
+                latitude = lat,
+                longitude = lon,
+                altitude_m = alt,
+                speed_mph = spd,
+                heading_deg = hdg,
+                battery_pct = 100,
+                lastSeenMs = nowMs,
+                status = ConvoyStatus.ACTIVE
+            ))
+        }
         val allNodes = nodeMap.values.mapNotNull { node ->
             val user = node.user
             val pos = node.position
