@@ -111,6 +111,16 @@ fun ConvoyScreen(
     var recordingState by viewModel.recordingState
     var showLocationPermissionDialog by remember { mutableStateOf(false) }
     var showNameDialog by remember { mutableStateOf(false) }
+    var showStoragePermissionDialog by remember { mutableStateOf(false) }
+
+    // Check all-files access on first composition
+    LaunchedEffect(Unit) {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+            if (!android.os.Environment.isExternalStorageManager()) {
+                showStoragePermissionDialog = true
+            }
+        }
+    }
     var pendingTrackName by viewModel.pendingTrackName
     val context = LocalContext.current
 
@@ -259,6 +269,35 @@ fun ConvoyScreen(
         }
         val json = "[" + parts.joinToString(",") + "]"
         wv.evaluateJavascript("drawTrack(" + json + ")", null)
+    }
+
+    // ── All-files storage permission dialog ─────────────────────────────
+    if (showStoragePermissionDialog) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showStoragePermissionDialog = false },
+            title = { Text("Storage Access Required") },
+            text = { Text("GroupTrack needs file access to store map tiles and trail data for offline use on the trail. Tap Grant to open Settings and enable access.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showStoragePermissionDialog = false
+                    try {
+                        val intent = android.content.Intent(
+                            android.provider.Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+                            android.net.Uri.parse("package:" + context.packageName)
+                        )
+                        context.startActivity(intent)
+                    } catch (e: Exception) {
+                        val intent = android.content.Intent(
+                            android.provider.Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION
+                        )
+                        context.startActivity(intent)
+                    }
+                }) { Text("Grant") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showStoragePermissionDialog = false }) { Text("Later") }
+            }
+        )
     }
 
     // ── Download size estimation dialogs ─────────────────────────────────
