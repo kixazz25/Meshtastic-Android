@@ -2094,6 +2094,111 @@ EC2 SSH | ssh -i ~/.ssh/convoy-api-key-2.pem ec2-user@34.224.89.217
 Beta stats | curl "https://grouptrack.org/beta_signup.php?stats=1&key=gt_beta_export_2026"
 CSV export | https://grouptrack.org/beta_signup.php?export=csv&key=gt_beta_export_2026
 
+=== GroupTrack_Handoff_May3_EOD.docx ===
+GroupTrack
+End of Day Handoff
+May 3, 2026  |  Session Summary + Open Items
+1. Session Summary — May 3, 2026
+Extended debugging session focused on ANR (Application Not Responding) on fresh install. Two root causes identified and fixed. Play Store AAB published with all fixes.
+1.1 Root Causes Found
+1.2 Commits on feature/convoy-event-ride (today)
+Note: Intermediate commits b010eb3e8, 22c0af463, 93fef30cb, f49cf8a3a were rolled back via git reset --hard 8b10c9e01. Only the commits above are in the final build.
+1.3 Play Store Status
+New AAB published to internal testing with all ANR fixes. Tested on factory-reset P10_T device (3GB RAM, Android 16) — app loads in 1 second, no ANR. Phone-only mode working. Storage permission dialog appears. 10 testers enrolled, need 12 for closed test.
+1.4 Documents Produced
+2. Field Test — May 4–5
+Fred field testing with tester for 2 days. Focus: overall stability, convoy tracking with radios, map performance, trail overlay usability, GPS recording reliability.
+2.1 What to Watch For
+3. Open Items — Remaining V2.4 Issues
+4. V2.5 Development Priorities
+V2.5 begins after field test and remaining V2.4 cleanup. All code changes require DOC-01, DOC-02, DOC-03 to be completed first.
+4.1 Pre-Development (Before Any Code)
+4.2 Phase 1 — Tick Rationalization
+4.3 Phase 2 — Waypoints (GeoPackage Foundation)
+4.4 Phase 3 — Routes
+4.5 Phase 4 — Trail Architecture (End of V2.5)
+5. Lessons Learned — May 2–3 Session
+5.1 What Went Wrong
+1. startActivity() was added to onCreate in commit 744c1588c (April 29) and never tested on a fresh install. It blocked every new installation for 4 days before being discovered.
+2. startPhoneGps() was added to readLiveNodes() in commit 2cb99c404 without checking the call chain: readLiveNodes → tick → startTick → init{}. It ran on the main thread before permissions existed.
+3. Multiple fixes were stacked without isolating variables. Four builds in a row (permission guard, tick guard, GPS removal, onMapReady restructure) — none fixed the problem because the startActivity in MainActivity was the primary blocker.
+4. Testing was always on devices with cached permissions from previous installs. The fresh install path was never tested until a tester reported the problem.
+5. The where-used document and function cross-reference were never consulted before making changes to core functions like tick and readLiveNodes.
+5.2 Process Changes
+1. Every change to init, tick, GPS, or any startup-path function requires the change impact checklist (DOC-03) completed before the patch is written.
+2. Every release build must be tested as a clean install: uninstall, install, grant permissions from scratch, time startup on the slowest device.
+3. One change per build when debugging. No stacking fixes. Isolate variables.
+4. The lifecycle flow diagram (DOC-01) and call chain map (DOC-02) are mandatory references before any patch touches tick or the startup path.
+5. No code runs during Activity.onCreate() that requires permissions, network access, or launches other activities. All such operations are deferred to composable UI with user-initiated actions.
+5.3 Current Stable Baseline
+Commit: c6aaea25d
+Branch: feature/convoy-event-ride
+Status: Tested on factory-reset P10_T — 1 second startup, no ANR
+AAB: Published to Play Console internal testing
+Tag this commit after successful field test:
+git tag v2.4-stable-20260503 -m "Post-ANR fix stable baseline"
+GroupTrack  |  End of Day Handoff  |  May 3, 2026  |  Confidential
+Issue | Root Cause | Fix | Commit
+22-second ANR on fresh install | startActivity() in MainActivity.onCreate() launching Android Settings for MANAGE_EXTERNAL_STORAGE permission. Steals focus from app, ANR watchdog triggers. | Removed startActivity() from onCreate. Storage permission now requested via non-blocking dialog on ConvoyScreen. | 6cbd92936
+ANR continued after startActivity fix | startPhoneGps() called from readLiveNodes() in tick cycle. requestLocationUpdates() on main thread before location permission granted. Every tick blocked on LocationManager. | Added permission guard: tick returns immediately if ACCESS_FINE_LOCATION not yet granted. startPhoneGps() only fires after permission exists. | efa1b677e
+Poisoned Play Services state on tester device | Pre-Firebase-fix sideloaded release APK cached a certificate rejection in Google Play Services. Survived uninstall. Only cleared by factory reset. | Factory reset cleared ghost state. New testers from Play Store will never have this. Existing testers: clear Play Services data if needed. | N/A
+Commit | Description | Files Changed
+8b10c9e01 | Firebase SHA-256 fingerprints registered (from May 2 session) | app/google-services.json
+6cbd92936 | Remove blocking startActivity for MANAGE_EXTERNAL_STORAGE from onCreate | MainActivity.kt
+56abf947a | Remove phone GPS from tick (intermediate fix) | ConvoyViewModel.kt
+efa1b677e | Restore phone GPS with permission guards on tick and startPhoneGps | ConvoyViewModel.kt
+c6aaea25d | All-files storage permission dialog on ConvoyScreen open | ConvoyScreen.kt
+Document | Status
+GroupTrack_TrailArchitecture_v2.docx | Complete — national trail data model, GeoPackage, three engines
+GroupTrack_QuickStart_Tester_v2.pdf | Complete — pre-ride, ride experience, solo vs group
+Area | What to Test | Known Risk
+Startup | Cold start time on tester device after field use | First GPS fix after cold start takes 30–60 seconds — map may show 0,0 briefly
+Convoy tracking | 3–4 radios, lead cart assignment, spread distance | None known
+GPS recording | Start/stop recording, GPX file saved correctly | Phone-only mode: no position until GPS fix
+Trail overlay | TRAILS button toggle, trail visibility in southern UT | 22MB GeoJSON still loads monolithically — V2.5 replaces with lazy loader
+Map tiles | Online tiles loading, downloaded tiles displaying offline | Tile source toggle may need a manual refresh on first load
+BLE stability | Radio connection maintained during ride | Budget devices (Tab8NEU) have known BLE issue — not P10_T
+Storage permission | All-files dialog appears, user grants, tiles download | If denied, tile download to shared storage will fail
+ID | Issue | Priority | Status | Notes
+INIT-01 | Getting Started screen flashes as splash (~4 sec on Android 1) | Low | Monitor | Cosmetic. Replace with GroupTrack branded splash in V2.5.
+INIT-02 | First GPS fix after cold start takes 30–60 seconds | Low | By design | Android GPS behavior. Consider: don't create phone node until real fix.
+INIT-03 | Map may need tile source toggle to refresh on first load | Medium | Investigate | Tile URL may fire before WebView ready. Field test will confirm.
+TICK-01 | Tick rationalization — separate GPS concerns from convoy state | High | V2.5 | Phone GPS belongs in GPS service, not tick. Autopause in GPS cycle, not tick.
+TICK-02 | Autopause — was removed due to ANR, needs proper implementation | High | V2.5 | Move disconnect to pause sequence, not unpause. In GPS cycle, not tick.
+MAP-01 | GPS interval 3000ms should be 1000ms for smoother tracking | Low | V2.5 | One-line change in ConvoyGpsService.kt:249.
+BLE-01 | BLE compatibility list needed for testers | Medium | Open | Tab8NEU and similar budget devices fail. Document compatible devices.
+DOC-01 | App lifecycle flow diagram — what runs at each startup stage | Critical | Not started | Prevents future tick/init mistakes. Build before any V2.5 code changes.
+DOC-02 | Call chain map — function A calls B calls C with lifecycle context | Critical | Not started | Where-used doc exists but not organized by lifecycle or call chain.
+DOC-03 | Change impact checklist — mandatory before any patch | Critical | Not started | What calls this? When does it run? Needs permissions? Tested clean install?
+DOC-04 | Tester troubleshooting guide — for devices with ghost state | Medium | Drafted | Force stop, clear data, clear Play Services cache, reinstall sequence.
+Task | Description | Effort
+DOC-01: App Lifecycle Flow | Diagram: App launch → permissions → map load → radio connect → record → disconnect. What fires at each stage, on what thread. | 1 day
+DOC-02: Call Chain Map | Every convoy function traced from trigger to effect. If I change readLiveNodes(), I see immediately that tick() calls it from init{} on main thread. | 1 day
+DOC-03: Change Impact Checklist | Template: What calls this? When does it run? Does it need permissions? Does it block main thread? Tested on clean install? | 0.5 day
+Android Studio Profiler setup | Connect to Android 1, profile startup, tick cycle, map load. Establish baseline measurements. | 0.5 day
+Task | Description | Effort
+Separate GPS from tick | Phone GPS belongs in ConvoyGpsService, not ConvoyViewModel tick cycle. Tick reads whatever position is available. GPS service provides it. | 2–3 days
+Restore autopause | Move to GPS recording cycle. Disconnect on pause, reconnect on unpause. No BLE collision. | 1–2 days
+Distance accumulation in GPS service | Mileage tracking belongs in GPS recording cycle, not tick. | 1 day
+Profile and verify | Profiler confirms tick is clean, no main thread blocking, no permission dependencies. | 0.5 day
+Task | Description | Effort
+GeoPackage foundation | Add NGA library, create grouptrack.gpkg with OGC standard schema. Point features for waypoints. | 2–3 days
+Waypoint CRUD | Create, read, update, delete waypoints. Drop pin on map, name, categorize (trailhead, staging, hazard, POI, camp, fuel, water). | 3–4 days
+Waypoint display layer | Leaflet marker layer on both Convoy Map and Map Viewer. Viewport-based query from GeoPackage. | 2 days
+Waypoint persistence | Survive app restart, update, reinstall. Stored in shared storage. | Included above
+Task | Description | Effort
+Route planning | Connect waypoints into routes. Store as LineString geometry in GeoPackage. | 4–5 days
+Route display | Polyline on both maps. Sequenced waypoint markers. | 2 days
+Route export | GPX/KML export of planned routes. | 1 day
+Task | Description | Effort
+Migrate Utah GeoJSON | Convert 5,732 UGRC trails to GeoPackage. Replace 22MB monolithic load with viewport query. | 2–3 days
+Lazy loader | Viewport-based GeoPackage query replaces full file read. 20–500 features instead of 5,732. | 2–3 days
+Server trail database | RDS tables, ingestion scripts, trails_api.php with bounding box query. | 4–5 days
+Download integration | Pair trail download with tile download. Region-based. | 2–3 days
+Trail filtering and styling | Type filter UI, color coding by trail type, info popup. | 2 days
+Source expansion | Add AZ, NV, CO federal/state sources to server. | 1–2 days/state
+User import and crowd-sourcing | GPX/KML import into GeoPackage, optional replicate to server. | 2–3 days
+
 === GroupTrack_Installation_Guide_V2.3.docx ===
 GroupTrack
 Installation Guide — Version 2.3
@@ -5344,6 +5449,331 @@ ID | Task | Est.
 ☐ | PB-40 | Confirm RDS data — ride row, enrollment row, survey row, ride_tracks row if donated | 10 min
 ☐ | PB-41 | Commit: feat: V3 Phase B complete — all three RideStates proven, full invite flow E2E | 5 min
 THURSDAY TOTAL ESTIMATE | ~12 HOURS — FULL SESSION
+
+=== GroupTrack_TrailArchitecture_v2.docx ===
+GroupTrack
+National Trail Data Architecture
+Unified Spatial Database: Trails + Waypoints + Routes
+May 2, 2026  |  V2.5 Architecture v2  |  Confidential
+1. Design Principles
+One model, one method, expand by adding data.
+The national data model is built once. Utah is the first dataset loaded. Arizona, Nevada, Colorado, and every other state use the same schema, same API, same client code. Expanding coverage means adding data to the server — never changing the app. The app loads trails by map viewport boundaries. It does not know or care what state or source the data came from.
+Trails are map data. They move with tiles.
+When a user downloads map tiles for a region, trail data for that same region downloads too. On the trail with no cell service, everything is local. Delete a region’s tiles, the trails for that region become purgeable.
+Regions, not states.
+Riders don’t ride by state boundary. A southern Utah rider is more likely to ride northern Arizona or eastern Nevada than northern Utah. The download unit is a user-defined region — a rectangle drawn on the map, or a predefined riding area. States are how we organize data on the server. Regions are how riders think about their territory.
+One local spatial database for everything.
+The GeoPackage holds trails, waypoints, and planned routes in a single file. One query pattern (bounding box), one backup path (cloud sync in V3.0), one file to manage. Waypoints and routes are first-class spatial data alongside trails.
+Two-way data flow: server down, user up.
+Federal and state trail sources feed the server. Users import locally-sourced trail data (GPX/KML from riding groups, local clubs, personal recordings). User-contributed data replicates up to the master database for other riders. The model grows from both directions.
+2. Two-Tier Download Strategy
+2.1 Tier 1 — Region Overview (z14)
+The user defines a region by drawing a rectangle on the map or selecting a predefined riding area. The app downloads z14 tiles for that rectangle plus all trail data within those boundaries. z14 gives enough detail to see trail networks, identify riding areas, and plan rides. Tile storage is minimal at z14 — roughly 60–80 tiles per 10x10 mile area per source.
+This is the discovery layer. The user sees the trail network, pans around, finds where they want to ride. Trail data is fully detailed at every zoom — only the tile resolution is low. You can zoom in on trails at z14 and see every turn; the satellite/topo underneath just gets blurry.
+2.2 Tier 2 — Ride Detail (z15–18)
+The user draws a smaller rectangle around a specific ride area and downloads z15–18 tiles. Trail data is already local from the Tier 1 download — no additional trail download needed. This is the riding layer: detailed satellite or topo imagery with trails overlaid.
+Planning happens online where the user can zoom freely. The Tier 2 download captures the detail they need for offline riding. The ride area might be 10x10 miles around a specific trail system.
+2.3 Download Math
+3. Unified Local Database — GeoPackage
+3.1 Why GeoPackage
+GeoPackage (.gpkg) is an OGC international standard. It is a SQLite database with a defined schema for geospatial features. It is what Gaia GPS, onX, QGIS, ArcGIS, and government agencies use. Android has native SQLite support. The NGA (National Geospatial-Intelligence Agency) maintains an open-source Android library. One file, self-contained, spatial indexes built in.
+Location: /sdcard/Documents/GroupTrack/maps/grouptrack.gpkg
+Note: single database named grouptrack.gpkg, not trails.gpkg. This file holds all spatial data: trails, waypoints, and routes.
+3.2 Database Schema
+trails
+Every trail segment from every source. Lazy-loaded by viewport bounds.
+id              INTEGER PRIMARY KEY AUTOINCREMENT
+source_id       TEXT NOT NULL        -- 'USFS', 'BLM', 'UGRC', 'UT_STATE', 'USER'
+source_trail_id TEXT                 -- original ID from upstream (NULL for user imports)
+name            TEXT
+trail_type      TEXT                 -- ohv, atv, motorcycle, hiking, mixed
+difficulty      TEXT                 -- easy, moderate, difficult, extreme
+surface         TEXT                 -- dirt, rock, sand, gravel, paved
+vehicle_class   TEXT                 -- atv, utv, motorcycle, full-size, mixed
+distance_miles  REAL
+geometry        BLOB NOT NULL        -- WKB with envelope (GeoPackage standard)
+min_lat         REAL NOT NULL
+max_lat         REAL NOT NULL
+min_lon         REAL NOT NULL
+max_lon         REAL NOT NULL
+contributed_by  TEXT                 -- NULL=server, user_id for crowd-sourced
+replicated      INTEGER DEFAULT 0    -- 0=local only, 1=synced to server
+imported_at     TEXT
+waypoints
+User-created points of interest. Persist across sessions. Display on both maps.
+id              INTEGER PRIMARY KEY AUTOINCREMENT
+name            TEXT NOT NULL
+description     TEXT
+category        TEXT NOT NULL        -- trailhead, staging, hazard, poi, camp, fuel, water
+latitude        REAL NOT NULL
+longitude       REAL NOT NULL
+altitude_m      REAL
+icon            TEXT                 -- icon name for map display
+created_at      TEXT
+modified_at     TEXT
+contributed_by  TEXT                 -- NULL=local, user_id for shared
+replicated      INTEGER DEFAULT 0
+routes
+Planned routes. Sequence of waypoints connected by trail segments or free-drawn lines. Local to the device. Transferable to other riders in V3.0 ride definitions.
+id              INTEGER PRIMARY KEY AUTOINCREMENT
+name            TEXT NOT NULL
+description     TEXT
+route_type      TEXT                 -- loop, out_and_back, point_to_point
+total_miles     REAL
+geometry        BLOB                 -- WKB LineString of the full route path
+min_lat         REAL
+max_lat         REAL
+min_lon         REAL
+max_lon         REAL
+waypoint_ids    TEXT                 -- comma-separated waypoint IDs in order
+created_at      TEXT
+modified_at     TEXT
+shared          INTEGER DEFAULT 0    -- 0=local, 1=available for ride definitions
+route_waypoints
+Junction table: ordered waypoints within a route.
+route_id        INTEGER NOT NULL
+waypoint_id     INTEGER NOT NULL
+sequence        INTEGER NOT NULL     -- order within route
+PRIMARY KEY (route_id, sequence)
+download_regions
+Tracks what areas have been downloaded. Links trail lifecycle to tile lifecycle.
+id              INTEGER PRIMARY KEY AUTOINCREMENT
+name            TEXT                 -- 'Sand Hollow Area', 'SW Utah Riding'
+tier            INTEGER NOT NULL     -- 1=overview z14, 2=ride detail z15-18
+north           REAL NOT NULL
+south           REAL NOT NULL
+east            REAL NOT NULL
+west            REAL NOT NULL
+trail_count     INTEGER
+tile_sources    TEXT                 -- 'SAT,TOPO' or 'SAT,HYB'
+zoom_levels     TEXT                 -- '14' or '15,16,17,18'
+downloaded_at   TEXT
+status          TEXT DEFAULT 'PROTECTED'  -- PROTECTED or PURGEABLE
+sources_meta
+Metadata about what data sources are on the device.
+source_id       TEXT PRIMARY KEY
+name            TEXT
+agency          TEXT
+trail_count     INTEGER
+coverage_bbox   TEXT                 -- north,south,east,west
+last_synced     TEXT
+4. Server Architecture
+4.1 National Trail Database (RDS MySQL)
+The server aggregates all federal and state sources into a single national trail database. The client queries by bounding box and receives a GeoJSON response. The server does not know about states when serving data — it only knows coordinates. States are an organizational concept for ingestion, not for queries.
+CREATE TABLE trail_sources (
+  id VARCHAR(50) PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  agency VARCHAR(100),
+  api_url TEXT,
+  api_type VARCHAR(20),           -- arcgis_rest, geojson_file, shapefile
+  coverage_state VARCHAR(2),      -- UT, AZ, CO (for ingestion organization)
+  coverage_north DECIMAL(9,6),
+  coverage_south DECIMAL(9,6),
+  coverage_east DECIMAL(9,6),
+  coverage_west DECIMAL(9,6),
+  field_mapping JSON,             -- upstream field names to GroupTrack schema
+  trail_types VARCHAR(255),
+  record_count INT DEFAULT 0,
+  last_fetched DATETIME,
+  refresh_interval_days INT DEFAULT 30,
+  status VARCHAR(20) DEFAULT 'active'
+);
+CREATE TABLE trail_segments (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  source_id VARCHAR(50) NOT NULL,
+  source_trail_id VARCHAR(100),
+  name VARCHAR(255),
+  trail_type VARCHAR(50),
+  difficulty VARCHAR(50),
+  surface VARCHAR(50),
+  vehicle_class VARCHAR(100),
+  distance_miles DECIMAL(8,2),
+  geometry_json LONGTEXT NOT NULL,
+  min_lat DECIMAL(9,6) NOT NULL,
+  max_lat DECIMAL(9,6) NOT NULL,
+  min_lon DECIMAL(9,6) NOT NULL,
+  max_lon DECIMAL(9,6) NOT NULL,
+  contributed_by INT,              -- NULL=agency, user_id for crowd-sourced
+  approved INTEGER DEFAULT 1,      -- 0=pending review, 1=approved
+  source_updated_at DATETIME,
+  imported_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_bbox (min_lat, max_lat, min_lon, max_lon),
+  INDEX idx_source (source_id),
+  INDEX idx_type (trail_type),
+  FOREIGN KEY (source_id) REFERENCES trail_sources(id)
+);
+CREATE TABLE user_contributions (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  contribution_type VARCHAR(20),   -- trail, waypoint
+  trail_segment_id INT,
+  geometry_json LONGTEXT,
+  metadata JSON,                   -- name, type, difficulty, etc.
+  status VARCHAR(20) DEFAULT 'pending',  -- pending, approved, rejected
+  submitted_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  reviewed_at DATETIME,
+  FOREIGN KEY (user_id) REFERENCES users(id)
+);
+4.2 Trail API
+GET https://grouptrack.org/trails_api.php
+Response: GeoJSON FeatureCollection. All trail segments whose bounding box intersects the requested rectangle. Properties include name, trail_type, difficulty, surface, vehicle_class, distance_miles, source_id.
+POST https://grouptrack.org/trails_api.php?action=contribute
+Accepts user-contributed trail data (GeoJSON). Requires authentication. Goes into user_contributions with status=pending. After approval, inserted into trail_segments with contributed_by set.
+5. Data Sources — National Model
+5.1 Federal Sources (National Coverage)
+USFS is the primary source with 195,000+ miles of trails and Motor Vehicle Use Map (MVUM) designations indicating which vehicle types are permitted. BLM is critical for western states where BLM manages vast acreage with OHV travel management areas.
+5.2 State Sources (Ingested per State)
+5.3 User-Contributed Data (Crowd-Sourced)
+Users import GPX/KML files from their own rides, local riding clubs, or third-party trail apps. The import flow:
+This creates a virtuous cycle: the more people ride, the more accurate and complete the trail database becomes. Locally-sourced data from riding clubs fills gaps that federal sources miss — unofficial trails, connector roads, seasonal closures, condition reports.
+6. Client Architecture
+6.1 Replacing Current Trail Loading
+Current state: A 22MB GeoJSON file (Utah UGRC) is read from assets on TRAILS button tap. All 5,732 trails load into the Leaflet WebView at once via evaluateJavascript(). This caused ANR on startup (fixed by deferring to button tap) and still loads everything regardless of viewport.
+New state: The 5,732 UGRC trails are converted to the GeoPackage schema and stored in grouptrack.gpkg. On TRAILS tap, Kotlin queries the GeoPackage for only the trails visible in the current viewport. The WebView receives a small GeoJSON payload (typically 20–500 features instead of 5,732). As the user pans or zooms, new queries fire and the overlay updates.
+The conversion is a one-time migration: parse the existing GeoJSON from assets, extract each Feature, calculate bounding box, insert into the trails table with source_id=UGRC. After migration, the 22MB asset file is removed from the APK.
+6.2 Lazy Loading Flow
+Same flow for both Convoy Map and Map Viewer. Same ConvoyTrailManager serves both. Same overlay rendering code in the HTML maps.
+6.3 Waypoint Display
+Waypoints query from the same GeoPackage using a simple bounding box check on latitude/longitude. Rendered as Leaflet markers with category-specific icons. Tap for info popup with name, description, and actions (edit, delete, navigate-to, share).
+6.4 Route Display
+Routes render as a Leaflet polyline from the stored WKB geometry. Waypoints along the route render as sequenced markers. Tap route for info popup with distance, waypoint list, and actions (start navigation, export GPX, share).
+6.5 Download Integration
+The existing tile download UI gains a toggle: Download trails with tiles (default ON). When the user draws a download rectangle:
+No new UI required for trail download — it piggybacks on the existing tile download flow. The only addition is the toggle and a line in the progress display.
+7. Storage Management
+7.1 Trails Follow Tiles
+Download regions track both tile and trail areas. When a user deletes a tile region, the system checks whether trails in that area are still covered by another region. If not, trail records become PURGEABLE and can be cleaned up in a background pass.
+In practice, trail data is tiny relative to tiles. A full state of trails is 15–30MB. A ride area of z15–18 tiles is 200MB–1GB. The storage cost is always tiles, never trails. Users will rarely need to purge trail data.
+7.2 Storage Estimates
+8. Trail Filtering & Display
+Trail type filter is a WHERE clause on the GeoPackage query. Instant, no re-download. Filter controls in the TRAILS panel alongside the visibility toggle.
+Tap any trail for info popup: name, type, difficulty, surface, distance, source. Actions: export GPX, share, add to route, report issue.
+9. Migration Plan — Current Utah GeoJSON
+9.1 What Changes
+9.2 Migration Steps
+10. V3.0 Integration Points
+11. Implementation Phases
+Phases 1–4 are the immediate priority: replace the current 22MB load with the GeoPackage lazy loader. This can ship as a V2.5.0 release. Phases 5–10 build out the full feature set. Phases 11–13 enable crowd-sourcing and national expansion.
+12. Key Files
+GroupTrack  |  National Trail Data Architecture v2  |  May 2, 2026  |  Confidential
+Scenario | Tiles per Source | Storage | Trail Data
+Region 50x50mi at z14 only | ~800 | ~50MB | All trails in region (~5–15MB)
+Ride area 10x10mi at z15–18 | ~4,000–65,000 | 200MB–1GB | Already local from Tier 1
+Full state (UT) at z14 only | ~3,200 | ~200MB | All state trails (~15–30MB)
+Region + one ride area | ~5,000–66,000 | ~300MB–1.1GB | Covered by region download
+Parameter | Type | Required | Description
+north | DECIMAL | Yes | North boundary latitude
+south | DECIMAL | Yes | South boundary latitude
+east | DECIMAL | Yes | East boundary longitude
+west | DECIMAL | Yes | West boundary longitude
+types | STRING | No | Filter: ohv,atv,motorcycle (default: all)
+Source | Agency | Coverage | Format | Vehicle Types
+National Forest System Trails | USFS | All national forests | ArcGIS REST | OHV, ATV, motorcycle, hiking
+BLM Ground Transportation | BLM | All BLM land | ArcGIS REST | OHV, ATV, motorcycle
+BLM Recreation Sites | BLM | All BLM land | ArcGIS REST | OHV areas, staging
+USGS National Map Transport | USGS | National | GeoJSON | Roads, trails
+State | Source | Agency | Notes
+UT | UGRC Trails & Pathways | Utah Geospatial Resource Center | Already in app. 5,732 trails. First migration target.
+UT | State Parks OHV Trails | Utah State Parks | Sand Hollow, Paiute, etc.
+UT | USFS Region 4 Trails | USFS Dixie/Fishlake/MLSal | National forest MVUM trails.
+UT | BLM UT Travel Mgmt | BLM UT State Office | BLM designated routes.
+AZ | AZ State Land Trails | AZ State Trust Land | State trust land access.
+AZ | Tonto/Coconino/Kaibab NF | USFS Region 3 | Arizona national forests.
+NV | NV OHV Commission | NV OHV Commission | Nevada designated OHV trails.
+CO | CO Parks & Wildlife OHV | CPW | Colorado OHV system.
+CA | OHMVR Division | CA State Parks | California off-highway recreation.
+ID | Parks & Rec OHV | IDPR | Idaho motorized trails.
+NM | State Parks OHV | NM EMNRD | New Mexico OHV areas.
+Step | Action | Where
+1 | User imports GPX/KML file via file picker or share intent | Android app
+2 | App parses geometry and metadata | Android app
+3 | Trail segments inserted into local grouptrack.gpkg with source_id=USER | Local GeoPackage
+4 | User sees their imported trails immediately on the map | Local display
+5 | User opts to share: app POSTs geometry to trails_api.php?action=contribute | Server API
+6 | Contribution goes into user_contributions with status=pending | Server DB
+7 | Admin reviews and approves. Approved data goes into trail_segments. | Server DB
+8 | Other users receive the data on their next region download | All clients
+Step | Component | Action
+1 | Leaflet (JS) | Map moveend/zoomend fires. JS calls Android.onViewportChange(n,s,e,w).
+2 | ConvoyTrailManager (Kt) | Receives bounds. Debounces (300ms) to avoid query spam during panning.
+3 | GeoPackage Query | SELECT id, name, trail_type, difficulty, surface, geometry FROM trails WHERE max_lat >= south AND min_lat <= north AND max_lon >= west AND min_lon <= east AND trail_type IN (selectedTypes)
+4 | GeoJSON Builder | Convert WKB geometry to GeoJSON coordinates. Build FeatureCollection.
+5 | WebView Inject | evaluateJavascript(updateTrails(geojson)). Leaflet clears old layer, renders new.
+Step | Action
+1 | User draws rectangle on map (existing UI)
+2 | User selects zoom levels and tile sources (existing UI)
+3 | Tile download begins (existing code)
+4 | If trail toggle ON: GET trails_api.php?north=N&south=S&east=E&west=W
+5 | Response: GeoJSON FeatureCollection
+6 | Parse features, convert geometry to WKB, INSERT into grouptrack.gpkg
+7 | Create download_regions entry with bbox, tier, trail_count, PROTECTED
+8 | Progress bar shows tile progress + trail download status
+Component | Size | Notes
+grouptrack.gpkg — one state of trails | 15–30MB | ~5,000–10,000 trail segments
+grouptrack.gpkg — five western states | 60–120MB | ~25,000–50,000 segments
+grouptrack.gpkg — 100 waypoints | <1MB | Negligible
+grouptrack.gpkg — 20 planned routes | <2MB | Negligible
+z14 tiles — one state, two sources | ~400MB | ~3,200 tiles x 2 sources
+z15–18 tiles — one ride area 10x10mi | 200MB–1GB | Varies by zoom and sources
+Total typical user (1 state + 2 rides) | ~1–2GB | Fits in 2GB default cap
+Trail Type | Color | Width | Dash
+OHV (full-size 4x4) | #FF6600 orange | 3px | Solid
+ATV/UTV | #FFaa00 amber | 2.5px | Solid
+Motorcycle/dirt bike | #CC0000 red | 2px | Solid
+Hiking (non-motorized) | #228B22 green | 2px | Dashed
+Mixed/unknown | #8B4513 brown | 2px | Dotted
+User-contributed | #9B59B6 purple | 2px | Solid
+Component | Current (V2.4) | New (V2.5)
+Trail data source | 22MB GeoJSON in app/src/main/assets/ | grouptrack.gpkg in shared storage
+Trail loading | Full file read on TRAILS tap | Viewport bounding box query
+Trail rendering | evaluateJavascript() with 5,732 features | evaluateJavascript() with 20–500 features
+Data expansion | Requires new asset file and app update | Add data to server, download to device
+Waypoints | Not available | GeoPackage waypoints table
+Routes | Not available | GeoPackage routes table
+User imports | GPX/KML parsed in memory, no persistence | Imported into GeoPackage, persists forever
+ANR risk | 22MB file read on main thread | Eliminated — small queries, background thread
+Step | Task
+1 | Add mil.nga.geopackage:geopackage-android dependency to build.gradle.kts
+2 | Create ConvoyTrailManager.kt — GeoPackage create/read/write/query
+3 | Write migration function: parse existing GeoJSON asset, extract Features, calculate bboxes, insert into trails table
+4 | Run migration on first launch after update (one-time, ~10–15 seconds for 5,732 features)
+5 | Replace trail injection in ConvoyScreen.kt and ConvoyMapViewerScreen.kt with viewport-based queries via ConvoyTrailManager
+6 | Add JavaScript bridge: Android.onViewportChange(n,s,e,w) in both HTML maps
+7 | Add debounced query handler in ConvoyTrailManager, push results to WebView
+8 | Test: pan/zoom, verify only visible trails load, verify no ANR
+9 | Remove 22MB GeoJSON from assets — APK shrinks by 22MB
+10 | Add trail download to tile download flow for future region downloads
+Feature | V2.5 (Free) | V3.0 (Premium)
+Trail data | Download from GroupTrack server by region | Same
+User contributions | Import local, optionally share to server | Moderated community library
+Waypoints | Local GeoPackage, persist across sessions | Cloud sync across devices
+Routes | Local GeoPackage, plan rides | Transfer via ride definitions to enrolled riders
+Ride enrollment | Not available | Enrolled riders auto-download route + trail region
+GeoPackage backup | Manual file copy | Cloud sync to user account
+Org trail data | Not available | Org admin uploads custom trails for members
+Phase | Task | Effort | Produces
+1 | GeoPackage foundation — add NGA library, create ConvoyTrailManager, create grouptrack.gpkg with all tables | 2–3 days | Empty GeoPackage with schema
+2 | Migrate Utah GeoJSON — parse asset, insert into trails table, verify data | 1–2 days | 5,732 trails in GeoPackage
+3 | Lazy loader — viewport query, GeoJSON builder, WebView bridge, debounce | 2–3 days | Viewport-based trail display
+4 | Replace current trail code — ConvoyScreen + MapViewer use ConvoyTrailManager, remove asset file | 1–2 days | APK shrinks 22MB, no ANR
+5 | Trail filtering — type filter UI, color coding, info popup | 2 days | Trail type filter working
+6 | Waypoint system — drop pin, name, categorize, persist, display on both maps | 3–4 days | Waypoint management
+7 | Route planning — connect waypoints, store geometry, display, export GPX | 4–5 days | Route creation and display
+8 | Server trail DB — create RDS tables, build ingestion scripts, populate UT sources | 3–4 days | Server trail database
+9 | Trail API — trails_api.php with bounding box query | 1 day | API endpoint
+10 | Download integration — pair trail download with tile download | 2–3 days | Trails download with tiles
+11 | Local import — GPX/KML import into GeoPackage with source=USER | 2 days | User trail import
+12 | Crowd-source upload — POST user contributions to server | 2 days | Replicate to master
+13 | Source expansion — add AZ, NV, CO federal/state sources to server | 1–2 days/state | National coverage growth
+File | Location | Purpose
+grouptrack.gpkg | /sdcard/Documents/GroupTrack/maps/ | Unified local spatial database
+ConvoyTrailManager.kt | convoy/ package | GeoPackage CRUD + viewport queries
+ConvoyTrailDownloader.kt | convoy/ package | Server API client, download manager
+ConvoyWaypointManager.kt | convoy/ package | Waypoint CRUD + display
+ConvoyRouteManager.kt | convoy/ package | Route planning + storage
+trails_api.php | EC2: /var/www/html/ | Bounding box trail query + contributions
+trail_ingest.php | EC2: /var/www/html/admin/ | Upstream source ingestion cron
+trail_sources.json | assets/ | Available sources catalog (for UI)
 
 === GroupTrack_Tuesday_Tasks.docx ===
 GroupTrack
