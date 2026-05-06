@@ -111,15 +111,17 @@ fun ConvoyScreen(
     var recordingState by viewModel.recordingState
     var showLocationPermissionDialog by remember { mutableStateOf(false) }
     var showNameDialog by remember { mutableStateOf(false) }
-    var showStoragePermissionDialog by remember { mutableStateOf(false) }
+    var showStoragePermissionDialog by remember { mutableStateOf(!android.os.Environment.isExternalStorageManager()) }
 
-    // Check all-files access on first composition
-    LaunchedEffect(Unit) {
+    // FT-01 FIX: Check all-files access on EVERY resume (not just first composition)
+    // Re-checks when user returns from Settings after Grant button, and on every app restart
+    androidx.lifecycle.compose.LifecycleResumeEffect(Unit) {
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
             if (!android.os.Environment.isExternalStorageManager()) {
                 showStoragePermissionDialog = true
             }
         }
+        onPauseOrDispose { }
     }
     var pendingTrackName by viewModel.pendingTrackName
     val context = LocalContext.current

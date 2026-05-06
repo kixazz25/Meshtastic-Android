@@ -140,17 +140,31 @@ class ConvoyViewModel @Inject constructor(
         _routeTrailSegments.value = emptyList()
         _leadTrackSegments.value = emptyList()
         _gpsTrailSegments.value = emptyList()
-        _trackActive.value = true
         rideStartTimeMs = System.currentTimeMillis()
-        // Clear accumulated pre-ride positions so home coordinates never seed
-        // the track or serve as a stale-position fallback during this ride.
         lastKnownPosition.clear()
         lastNodePositions.clear()
         lastLeadLat = null
         lastLeadLon = null
         nodeSpeedWindowStart.clear()
         nodeLastComputedSpeed.clear()
-        convoyLog("TRACK START: rideStartTimeMs=$rideStartTimeMs — position maps cleared")
+
+        // IDENTITY: Set _myCartId ONCE — my radio node from Meshtastic, or !phone if no radio
+        val myNum = _myNodeInfo.value?.myNodeNum
+        _myCartId.value = if (myNum != null) "!%08x".format(myNum) else "!phone"
+        val nodes = readLiveNodes(System.currentTimeMillis())
+
+        // LEAD: Assign if not already set by ConvoyScreen dialog
+        if (lockedLeadNodeId == null) {
+            when {
+                nodes.size == 1 -> setLeadCart(nodes[0].nodeId)
+                nodes.isEmpty() -> setLeadCart(_myCartId.value)
+                else -> setLeadCart(_myCartId.value)
+            }
+        }
+
+        // TRACK: Activate AFTER identity and lead are locked
+        _trackActive.value = true
+        convoyLog("TRACK START: myCart=${_myCartId.value} lead=$lockedLeadNodeId nodes=${nodes.size}")
     }
 
     fun stopGroupTrack() {
@@ -304,9 +318,8 @@ class ConvoyViewModel @Inject constructor(
             nodeRepository.myNodeInfo.collect { info ->
                 _myNodeInfo.value = info
                 val num = info?.myNodeNum
-                if (num != null && !_simulationMode.value) {
-                    _myCartId.value = "!%08x".format(num)
-                }
+                // _myCartId no longer set here — set ONCE in startGroupTrack()
+                // resolveMyCartId() reads radio info directly for pre-RECORD display
             }
         }
         startTick()
@@ -542,12 +555,8 @@ class ConvoyViewModel @Inject constructor(
         }
 
         // V2.4: Lead assigned manually via dialog before ride start -- no auto-lock
-        // V2.4: Self-heal — if recording with one node and no lead, assign it
-        if (_trackActive.value && nodes.size == 1 && lockedLeadNodeId == null) {
-            lockedLeadNodeId = nodes[0].nodeId
-            _leadLockedFlag = true
-            _leadLocked.value = true
-        }
+        // Lead assignment REMOVED from tick — only through setLeadCart()
+        // Lead assigned at RECORD time in startGroupTrack() or via cart HUD
         val tailNodeId: String? = null
 
         val state = ConvoyEngine.compute(
@@ -757,7 +766,7 @@ if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
                 ) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
                 startPhoneGps()
             }
-            _myCartId.value = "!phone"
+            // _myCartId no longer set here — set ONCE in startGroupTrack()
             val loc = getPhoneLocation()
             val lat = loc?.latitude ?: 0.0
             val lon = loc?.longitude ?: 0.0
