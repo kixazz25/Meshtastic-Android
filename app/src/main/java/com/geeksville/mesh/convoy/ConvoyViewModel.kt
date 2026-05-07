@@ -99,7 +99,7 @@ class ConvoyViewModel @Inject constructor(
     private val _isLocalTiles = MutableStateFlow(false)
     val isLocalTiles: StateFlow<Boolean> = _isLocalTiles.asStateFlow()
     fun setLocalTiles(local: Boolean) { _isLocalTiles.value = local }
-    private val _autoPan = MutableStateFlow(true)
+    private val _autoPan = MutableStateFlow(false)
     val autoPan: StateFlow<Boolean> = _autoPan.asStateFlow()
     fun setAutoPan(pan: Boolean) { _autoPan.value = pan }
 
@@ -164,11 +164,13 @@ class ConvoyViewModel @Inject constructor(
 
         // TRACK: Activate AFTER identity and lead are locked
         _trackActive.value = true
+        _autoPan.value = true   // autoPan ON during recording
         convoyLog("TRACK START: myCart=${_myCartId.value} lead=$lockedLeadNodeId nodes=${nodes.size}")
     }
 
     fun stopGroupTrack() {
         _trackActive.value = false
+        _autoPan.value = false   // autoPan OFF when recording stops
         _leadLockedFlag = false
         lockedLeadNodeId = null
         nodeDistanceAccum.clear()
