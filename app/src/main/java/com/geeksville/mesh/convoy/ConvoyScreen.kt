@@ -210,6 +210,21 @@ fun ConvoyScreen(
             initialViewSet.value = true
         }
     }
+    // FT-03 BOUNCE FIX: when recording starts, immediately center on user's cart
+    // Eliminates the 1-3 second gap between RECORD press and next tick painting the cart
+    LaunchedEffect(recordingState) {
+        if (recordingState == RecordingState.RECORDING) {
+            val wv = webViewRef.value ?: return@LaunchedEffect
+            val myCartId = viewModel.myCartId.value
+            val myCart = convoyState.nodes.firstOrNull { it.nodeId == myCartId }
+            myCart?.let {
+                if (it.latitude != 0.0 && it.longitude != 0.0) {
+                    wv.evaluateJavascript("setView(${it.latitude}, ${it.longitude}, ${ConvoyConfig.MAP_CART_ZOOM})", null)
+                }
+            }
+        }
+    }
+
     LaunchedEffect(hudMode, selectedNode, mapReady, autoPan, if (autoPan) convoyState else null) {
         val wv = webViewRef.value ?: return@LaunchedEffect
         if (!autoPan) return@LaunchedEffect

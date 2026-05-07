@@ -601,23 +601,31 @@ private fun loadTrackOnMap(
     color: String,
     webView: android.webkit.WebView?
 ) {
-    try {
-        val dir = java.io.File(
-            android.os.Environment.getExternalStoragePublicDirectory(
-                android.os.Environment.DIRECTORY_DOCUMENTS
-            ), "my_tracks"
-        )
-        val file = java.io.File(dir, fileName)
-        if (!file.exists()) return
-        val text = file.readText()
-        val coords = if (fileName.lowercase().endsWith(".gpx")) parseGpx(text) else parseKml(text)
-        if (coords.isEmpty()) return
-        val json = coords.joinToString(",", "[", "]") { "[${it.first},${it.second}]" }
-        val safe = fileName.replace("'", "\\'")
-        webView?.evaluateJavascript("loadTrackFile('$safe', '$json', '$color')", null)
-        android.util.Log.d("MapViewer", "Loaded $fileName: ${coords.size} points")
-    } catch (e: Exception) {
-        android.util.Log.e("MapViewer", "Track load error $fileName: ${e.message}")
+    // ANR FIX: file read + parse on IO, JS push on Main
+    kotlinx.coroutines.MainScope().launch {
+        try {
+            val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                val dir = java.io.File(
+                    android.os.Environment.getExternalStoragePublicDirectory(
+                        android.os.Environment.DIRECTORY_DOCUMENTS
+                    ), "my_tracks"
+                )
+                val file = java.io.File(dir, fileName)
+                if (!file.exists()) return@withContext null
+                val text = file.readText()
+                val coords = if (fileName.lowercase().endsWith(".gpx")) parseGpx(text) else parseKml(text)
+                if (coords.isEmpty()) return@withContext null
+                val json = coords.joinToString(",", "[", "]") { "[${it.first},${it.second}]" }
+                Pair(json, coords.size)
+            }
+            if (result != null) {
+                val safe = fileName.replace("'", "\\'")
+                webView?.evaluateJavascript("loadTrackFile('$safe', '${result.first}', '$color')", null)
+                android.util.Log.d("MapViewer", "Loaded $fileName: ${result.second} points")
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("MapViewer", "Track load error $fileName: ${e.message}")
+        }
     }
 }
 
