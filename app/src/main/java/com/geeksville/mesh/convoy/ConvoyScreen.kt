@@ -1158,8 +1158,16 @@ fun ConvoyScreen(
                                                 webViewRef.value?.evaluateJavascript("removeTrackFile('$safe')", null)
                                                 convoyLoadedTracks = convoyLoadedTracks.filterNot { it.first == name }
                                             } else {
-                                                convoyLoadTrack(context, name, "#39FF14", webViewRef.value)
-                                                convoyLoadedTracks = convoyLoadedTracks + Pair(name, "#39FF14")
+                                                kotlinx.coroutines.MainScope().launch {
+                                                    val data = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                                        convoyLoadTrackData(context, name)
+                                                    }
+                                                    if (data != null) {
+                                                        val safe = name.replace("'", "\\'")
+                                                        webViewRef.value?.evaluateJavascript("loadTrackFile('$safe', '$data', '#39FF14')", null)
+                                                        convoyLoadedTracks = convoyLoadedTracks + Pair(name, "#39FF14")
+                                                    }
+                                                }
                                             }
                                         }
                                         .padding(vertical = 3.dp, horizontal = 4.dp),
