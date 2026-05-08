@@ -26,7 +26,8 @@ fun TrackActionDialog(
     onRename: (() -> Unit)? = null,
     onDelete: (() -> Unit)? = null,
     onShare: (() -> Unit)? = null,
-    onMoveToDownloads: (() -> Unit)? = null
+    onMoveToDownloads: (() -> Unit)? = null,
+    onFixDate: (() -> Unit)? = null
 ) {
     if (file == null) return
     AlertDialog(
@@ -38,6 +39,7 @@ fun TrackActionDialog(
                 if (onDelete != null) ActionRow("Delete") { onDelete() }
                 if (onShare != null) ActionRow("Share") { onShare() }
                 if (onMoveToDownloads != null) ActionRow("Move to Downloads") { onMoveToDownloads() }
+                if (onFixDate != null) ActionRow("Fix Creation Date") { onFixDate() }
             }
         },
         confirmButton = {

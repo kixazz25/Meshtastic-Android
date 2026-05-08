@@ -226,99 +226,57 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handleTrackFileImport(uri: Uri) {
-        try {
-            // Get filename
-            var name = "imported_track.kml"
-            contentResolver.query(uri, null, null, null, null)?.use { cursor ->
-                val nameIdx = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
-                if (cursor.moveToFirst() && nameIdx >= 0) {
-                    name = cursor.getString(nameIdx) ?: name
-                }
-            }
-
-            // Read file content
-            val text = contentResolver.openInputStream(uri)?.use { it.bufferedReader().readText() } ?: return
-
-            // Ensure my_tracks directory exists
-            val dir = java.io.File(
-                android.os.Environment.getExternalStoragePublicDirectory(
-                    android.os.Environment.DIRECTORY_DOCUMENTS
-                ), "my_tracks"
-            )
-            if (!dir.exists()) dir.mkdirs()
-
-            val ext = name.substringAfterLast('.', "").lowercase()
-            val isGpx = ext == "gpx"
-
-            // Check for multi-track GPX (multiple <trk> blocks from onX, Gaia, etc.)
-            if (isGpx && text.contains("<trk>")) {
-                val trkPattern = Regex("""<trk>([\s\S]*?)</trk>""")
-                val tracks = trkPattern.findAll(text).toList()
-                if (tracks.size > 1) {
-                    // Multi-track file — split into individual files
-                    val namePattern = Regex("<name>([^<]*)</name>")
-                    var imported = 0
-                    for (trk in tracks) {
-                        val trkContent = trk.groupValues[1]
-                        val trkName = namePattern.find(trkContent)?.groupValues?.get(1)
-                            ?.replace("/", "_")?.replace("\\", "_")?.trim()
-                            ?: "track_${imported + 1}"
-                        val safeName = trkName.replace(Regex("""[^a-zA-Z0-9_\- ]"""), "") + ".gpx"
-                        val dest = java.io.File(dir, safeName)
-                        if (!dest.exists()) {
-                            val singleGpx = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
-                                "<gpx version=\"1.1\" creator=\"GroupTrack\">\n" +
-                                "<trk>${trkContent}</trk>\n</gpx>"
-                            dest.writeText(singleGpx)
-                            imported++
-                        }
+        // Refactored to delegate to ConvoyTrackOps.importTrackFile
+        // (gives intent-based imports earliest-time date preservation)
+        kotlinx.coroutines.MainScope().launch {
+            try {
+                // Get filename
+                var name = "imported_track.kml"
+                contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                    val nameIdx = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                    if (cursor.moveToFirst() && nameIdx >= 0) {
+                        name = cursor.getString(nameIdx) ?: name
                     }
-                    android.util.Log.i("TrackImport", "Split $name into $imported tracks")
-                    android.widget.Toast.makeText(this, "Imported $imported tracks from $name", android.widget.Toast.LENGTH_SHORT).show()
-                    return
                 }
-            }
-
-            // Check for multi-track KML (multiple <Placemark> with <LineString>)
-            if (!isGpx && text.contains("<Placemark>")) {
-                val pmPattern = Regex("""<Placemark>([\s\S]*?)</Placemark>""")
-                val placemarks = pmPattern.findAll(text).filter { it.groupValues[1].contains("<LineString>") }.toList()
-                if (placemarks.size > 1) {
-                    val namePattern = Regex("<name>([^<]*)</name>")
-                    var imported = 0
-                    for (pm in placemarks) {
-                        val pmContent = pm.groupValues[0]
-                        val pmName = namePattern.find(pm.groupValues[1])?.groupValues?.get(1)
-                            ?.replace("/", "_")?.replace("\\", "_")?.trim()
-                            ?: "track_${imported + 1}"
-                        val safeName = pmName.replace(Regex("""[^a-zA-Z0-9_\- ]"""), "") + ".kml"
-                        val dest = java.io.File(dir, safeName)
-                        if (!dest.exists()) {
-                            val singleKml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
-                                "<kml xmlns=\"http://www.opengis.net/kml/2.2\">\n<Document>\n" +
-                                "<name>$pmName</name>\n$pmContent\n</Document>\n</kml>"
-                            dest.writeText(singleKml)
-                            imported++
-                        }
+                // Copy URI content to a cache temp file
+                val tempFile = java.io.File(cacheDir, name)
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    contentResolver.openInputStream(uri)?.use { input ->
+                        tempFile.outputStream().use { output -> input.copyTo(output) }
                     }
-                    android.util.Log.i("TrackImport", "Split $name into $imported tracks")
-                    android.widget.Toast.makeText(this, "Imported $imported tracks from $name", android.widget.Toast.LENGTH_SHORT).show()
-                    return
                 }
+                if (!tempFile.exists() || tempFile.length() == 0L) {
+                    android.widget.Toast.makeText(
+                        this@MainActivity,
+                        "Could not read $name",
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                    return@launch
+                }
+                // Delegate to ConvoyTrackOps for parsing, splitting, date preservation
+                val result = com.geeksville.mesh.convoy.ConvoyTrackOps.importTrackFile(tempFile)
+                // Clean up temp file
+                try { tempFile.delete() } catch (_: Exception) {}
+                // Build user-facing message from structured result
+                val msg = when (result) {
+                    is com.geeksville.mesh.convoy.ConvoyTrackOps.ImportResult.Success ->
+                        if (result.createdFiles.size == 1) "Track imported: ${result.createdFiles.first()}"
+                        else "Imported ${result.createdFiles.size} tracks from $name"
+                    is com.geeksville.mesh.convoy.ConvoyTrackOps.ImportResult.PartialSuccess ->
+                        "Imported ${result.createdFiles.size}, skipped ${result.skippedFiles.size} (existed) from $name"
+                    is com.geeksville.mesh.convoy.ConvoyTrackOps.ImportResult.Failed ->
+                        "Import failed: ${result.reason}"
+                }
+                android.util.Log.i("TrackImport", msg)
+                android.widget.Toast.makeText(this@MainActivity, msg, android.widget.Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                android.util.Log.e("TrackImport", "Import error: ${e.message}")
+                android.widget.Toast.makeText(
+                    this@MainActivity,
+                    "Import failed",
+                    android.widget.Toast.LENGTH_SHORT
+                ).show()
             }
-
-            // Single track file — copy directly
-            val dest = java.io.File(dir, name)
-            if (!dest.exists()) {
-                dest.writeText(text)
-                android.util.Log.i("TrackImport", "Imported: $name")
-                android.widget.Toast.makeText(this, "Track imported: $name", android.widget.Toast.LENGTH_SHORT).show()
-            } else {
-                android.widget.Toast.makeText(this, "Track exists: $name", android.widget.Toast.LENGTH_SHORT).show()
-            }
-        } catch (e: Exception) {
-            android.util.Log.e("TrackImport", "Import error: ${e.message}")
-            android.widget.Toast.makeText(this, "Import failed", android.widget.Toast.LENGTH_SHORT).show()
         }
     }
 

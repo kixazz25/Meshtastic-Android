@@ -65,6 +65,25 @@ fun ConvoyMapViewerScreen(onBack: () -> Unit, convoyViewModel: ConvoyViewModel =
     var trackSearchText by remember { mutableStateOf("") }
     val trackColors = listOf("#39FF14")
     var nextColorIdx by remember { mutableIntStateOf(0) }
+    // Action menu state — for rename/delete/share/move/fix-date
+    var actionTarget by remember { mutableStateOf<java.io.File?>(null) }
+    var renameTarget by remember { mutableStateOf<java.io.File?>(null) }
+    var deleteTarget by remember { mutableStateOf<java.io.File?>(null) }
+    var actionStatusMsg by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
+    val refreshTracks: () -> Unit = {
+        kotlinx.coroutines.MainScope().launch(kotlinx.coroutines.Dispatchers.IO) {
+            val files = scanTrackDir(context)
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { trackFileList = files }
+        }
+    }
+    val unloadIfLoaded: (String) -> Unit = { trackName ->
+        if (loadedTracks.any { it.first == trackName }) {
+            val safe = trackName.replace("'", "\\'")
+            webViewRef?.evaluateJavascript("removeTrackFile('$safe')", null)
+            loadedTracks = loadedTracks.filterNot { it.first == trackName }
+        }
+    }
     var searchText by remember { mutableStateOf("") }
     var showSearch by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
@@ -287,7 +306,11 @@ fun ConvoyMapViewerScreen(onBack: () -> Unit, convoyViewModel: ConvoyViewModel =
                         val displayColor = loadedTracks.firstOrNull { it.first == name }?.second
                         Row(
                             modifier = Modifier.fillMaxWidth()
-                                .clickable {
+                                .padding(vertical = 4.dp, horizontal = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                modifier = Modifier.weight(1f).clickable {
                                     if (loaded) {
                                         val safe = name.replace("'", "\\'")
                                         webViewRef?.evaluateJavascript("removeTrackFile('$safe')", null)
@@ -298,18 +321,24 @@ fun ConvoyMapViewerScreen(onBack: () -> Unit, convoyViewModel: ConvoyViewModel =
                                         loadTrackOnMap(context, name, color, webViewRef)
                                         loadedTracks = loadedTracks + Pair(name, color)
                                     }
-                                }
-                                .padding(vertical = 4.dp, horizontal = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Surface(
-                                modifier = Modifier.size(10.dp),
-                                shape = RoundedCornerShape(2.dp),
-                                color = if (loaded) Color(android.graphics.Color.parseColor(displayColor ?: "#666666")) else Color(0xFF2A3040)
-                            ) {}
-                            Spacer(Modifier.width(8.dp))
-                            Text(name, color = if (loaded) Color.White else Color(0xFF667788),
-                                fontSize = 11.sp, fontFamily = FontFamily.Monospace, maxLines = 1)
+                                },
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Surface(
+                                    modifier = Modifier.size(10.dp),
+                                    shape = RoundedCornerShape(2.dp),
+                                    color = if (loaded) Color(android.graphics.Color.parseColor(displayColor ?: "#666666")) else Color(0xFF2A3040)
+                                ) {}
+                                Spacer(Modifier.width(8.dp))
+                                Text(name, color = if (loaded) Color.White else Color(0xFF667788),
+                                    fontSize = 11.sp, fontFamily = FontFamily.Monospace, maxLines = 1)
+                            }
+                            Text("\u22EE", color = Color(0xFF7A8DA0), fontSize = 14.sp,
+                                modifier = Modifier
+                                    .clickable {
+                                        actionTarget = java.io.File(ConvoyTrackOps.tracksDir(), name)
+                                    }
+                                    .padding(horizontal = 12.dp, vertical = 4.dp))
                         }
                     }
                 }
@@ -570,6 +599,76 @@ fun ConvoyMapViewerScreen(onBack: () -> Unit, convoyViewModel: ConvoyViewModel =
             LegendDot(Color(0xFFFFCC00), "Hike")
             LegendDot(Color(0xFFAA44FF), "Bike")
             LegendDot(Color(0xFF39FF14), "My Track")
+        }
+    }
+    // ── Track action menu integration ──
+    TrackActionDialog(
+        file = actionTarget,
+        onDismiss = { actionTarget = null },
+        onRename = { renameTarget = actionTarget; actionTarget = null },
+        onDelete = { deleteTarget = actionTarget; actionTarget = null },
+        onShare = {
+            val f = actionTarget; actionTarget = null
+            f?.let { ConvoyTrackOps.shareTrack(context, it) }
+        },
+        onMoveToDownloads = {
+            val f = actionTarget; actionTarget = null
+            f?.let {
+                scope.launch {
+                    val ok = ConvoyTrackOps.copyToDownloads(it)
+                    actionStatusMsg = if (ok) "Copied to Downloads" else "Copy failed"
+                }
+            }
+        },
+        onFixDate = {
+            val f = actionTarget; actionTarget = null
+            f?.let {
+                scope.launch {
+                    val ok = ConvoyTrackOps.fixDateFromContent(it)
+                    actionStatusMsg = if (ok) "Date updated" else "No <time> found"
+                    refreshTracks()
+                }
+            }
+        }
+    )
+    RenameTrackDialog(
+        file = renameTarget,
+        onDismiss = { renameTarget = null },
+        onConfirm = { newName ->
+            val f = renameTarget; renameTarget = null
+            f?.let {
+                unloadIfLoaded(it.name)
+                scope.launch {
+                    val result = ConvoyTrackOps.renameTrack(it, newName)
+                    actionStatusMsg = when (result) {
+                        is ConvoyTrackOps.RenameResult.Success -> "Renamed"
+                        is ConvoyTrackOps.RenameResult.NameExists -> "Name already exists"
+                        is ConvoyTrackOps.RenameResult.Failed -> "Rename failed"
+                    }
+                    refreshTracks()
+                }
+            }
+        }
+    )
+    DeleteTrackDialog(
+        file = deleteTarget,
+        onDismiss = { deleteTarget = null },
+        onConfirm = {
+            val f = deleteTarget; deleteTarget = null
+            f?.let {
+                unloadIfLoaded(it.name)
+                scope.launch {
+                    val ok = ConvoyTrackOps.deleteTrack(it)
+                    actionStatusMsg = if (ok) "Deleted" else "Delete failed"
+                    refreshTracks()
+                }
+            }
+        }
+    )
+    actionStatusMsg?.let { msg ->
+        LaunchedEffect(msg) {
+            kotlinx.coroutines.delay(2500)
+            actionStatusMsg = null
         }
     }
 }

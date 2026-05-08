@@ -27,7 +27,7 @@ import java.util.Date
 import java.util.Locale
 
 private enum class FilterMode { ALL, SAVED, IN_PROGRESS }
-private enum class SortMode { DATE_DESC, NAME_ASC }
+private enum class SortMode { DATE_DESC, DATE_ASC, NAME_ASC, NAME_DESC }
 
 /**
  * "Work With Tracks" full-screen manager. Function name preserved
@@ -68,7 +68,9 @@ fun ConvoyTrackExportSheet(onDismiss: () -> Unit) {
             .let { list ->
                 when (sortMode) {
                     SortMode.DATE_DESC -> list.sortedByDescending { it.lastModified() }
+                    SortMode.DATE_ASC -> list.sortedBy { it.lastModified() }
                     SortMode.NAME_ASC -> list.sortedBy { it.name.lowercase() }
+                    SortMode.NAME_DESC -> list.sortedByDescending { it.name.lowercase() }
                 }
             }
     }
@@ -89,8 +91,33 @@ fun ConvoyTrackExportSheet(onDismiss: () -> Unit) {
                 Text("Done", color = Color(0xFF39FF14), fontSize = 14.sp)
             }
         }
-        Text("${visibleTracks.size} of ${allTracks.size} tracks",
-            color = Color(0xFF7A8DA0), fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("${visibleTracks.size} of ${allTracks.size} tracks",
+                color = Color(0xFF7A8DA0), fontSize = 11.sp, fontFamily = FontFamily.Monospace,
+                modifier = Modifier.weight(1f))
+            Surface(
+                modifier = Modifier.clickable {
+                    if (visibleTracks.isNotEmpty()) {
+                        scope.launch {
+                            statusMsg = "Fixing dates..."
+                            val result = ConvoyTrackOps.fixDatesForFiles(visibleTracks) { cur, total, _ ->
+                                statusMsg = "Fixing dates  $cur / $total"
+                            }
+                            statusMsg = "Dates fixed: ${result.updated} updated, ${result.unchanged} unchanged" +
+                                if (result.failed > 0) ", ${result.failed} failed" else ""
+                            refreshTick++
+                        }
+                    }
+                },
+                shape = RoundedCornerShape(4.dp),
+                color = Color(0xFF1A2233)
+            ) {
+                Text("Fix Dates",
+                    color = Color(0xFF39FF14), fontSize = 10.sp,
+                    fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
+            }
+        }
         Spacer(Modifier.height(8.dp))
 
         BasicTextField(
@@ -115,13 +142,23 @@ fun ConvoyTrackExportSheet(onDismiss: () -> Unit) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Surface(
                 modifier = Modifier.clickable {
-                    sortMode = if (sortMode == SortMode.DATE_DESC) SortMode.NAME_ASC else SortMode.DATE_DESC
+                    sortMode = when (sortMode) {
+                        SortMode.DATE_DESC -> SortMode.DATE_ASC
+                        SortMode.DATE_ASC -> SortMode.NAME_ASC
+                        SortMode.NAME_ASC -> SortMode.NAME_DESC
+                        SortMode.NAME_DESC -> SortMode.DATE_DESC
+                    }
                 },
                 shape = RoundedCornerShape(4.dp),
                 color = Color(0xFF1A2233)
             ) {
                 Text(
-                    if (sortMode == SortMode.DATE_DESC) "Date ↓" else "Name ↑",
+                    when (sortMode) {
+                        SortMode.DATE_DESC -> "Date ↓"
+                        SortMode.DATE_ASC -> "Date ↑"
+                        SortMode.NAME_ASC -> "Name ↑"
+                        SortMode.NAME_DESC -> "Name ↓"
+                    },
                     color = Color(0xFF39FF14),
                     fontSize = 11.sp,
                     fontFamily = FontFamily.Monospace,
@@ -188,6 +225,16 @@ fun ConvoyTrackExportSheet(onDismiss: () -> Unit) {
                 scope.launch {
                     val ok = ConvoyTrackOps.copyToDownloads(it)
                     statusMsg = if (ok) "Copied to Downloads" else "Copy failed"
+                }
+            }
+        },
+        onFixDate = {
+            val f = actionTarget; actionTarget = null
+            f?.let {
+                scope.launch {
+                    val ok = ConvoyTrackOps.fixDateFromContent(it)
+                    statusMsg = if (ok) "Date updated" else "No <time> found in file"
+                    refreshTick++
                 }
             }
         }

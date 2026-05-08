@@ -3428,6 +3428,68 @@ V40-RN-01 | Evaluate React Native for GroupTrack coordination layer. Prototype k
 V40-RN-02 | Decision criteria: (1) BLE bridge to Meshtastic radio engine works reliably. (2) Map performance matches native. (3) Development velocity improvement justifies rewrite cost. | H | OPEN
 V40-RN-03 | Document decision. If approved: V5.0 is React Native port. If rejected: V5.0 is native Swift iOS app. | H | OPEN
 
+=== GroupTrack_Recommit_Issue_Notes.docx ===
+GroupTrack Recommit Script — Issue Notes
+To be diagnosed and fixed in tomorrow's session. Generated 2026-05-07 evening.
+Issue Summary
+The recommit_docs script that maintains documentation versioning is broken. Versions 7 and 8 were created today (2026-05-07) and both have problems. Version 6 is the last known working baseline. Fred plans to fall back to v6 to reproduce documents into tomorrow's new conversation.
+Fixing this script is a Phase 0 task — it must be addressed before any documentation work can be checked in tomorrow.
+What We Know
+Last successful recommit
+Commit dbf7e2549 on May 3, 2026 at 20:46 — "docs: recommit all project documents + cross-reference". This was produced by recommit_docs_v6.sh (or earlier). All subsequent recommit attempts (v7, v8) have not produced clean commits.
+Today's git status evidence
+Recommit script side effects in tonight's working tree:
+DELETED files (recommit deleted them but didn't replace cleanly):
+docs/# GroupTrack Version Roadmap & Task.txt
+docs/GroupTrack_AllDocs.txt
+docs/GroupTrack_V3_Spec.txt
+docs/Next steps for moving forward with 2.4.txt
+docs/function_universe_raw.txt
+docs/where_used_raw.txt
+UNTRACKED scripts (the broken iterations):
+docs/recommit_docs_v7.sh
+docs/recommit_docs_v8.sh
+What We Don't Know (To Fill In Tomorrow)
+These sections are placeholders. Fred or tomorrow's Claude should fill them in by viewing the actual scripts.
+v6 → v7: What Changed
+[Run: cat docs/recommit_docs_v7.sh — paste content here, compare against v6 (recover v6 from git history), document specific changes.]
+# View v7 contents tomorrow:
+cat docs/recommit_docs_v7.sh
+# Recover v6 from git:
+git show dbf7e2549:docs/recommit_docs_v6.sh > /tmp/recommit_v6_baseline.sh
+# (or whatever the v6 filename was — check git log -- docs/recommit*)
+# Diff:
+diff /tmp/recommit_v6_baseline.sh docs/recommit_docs_v7.sh
+v7 → v8: What Changed
+[Run: diff docs/recommit_docs_v7.sh docs/recommit_docs_v8.sh — paste output here, document each change.]
+Symptoms of the Failure
+[Document what specifically goes wrong when v7 or v8 is run. Examples to investigate:]
+Did v7/v8 delete files without re-creating them? (Likely — git status shows deletions without corresponding additions.)
+Did v7/v8 change the recommit target list? (Possible — the deleted files may be no longer in the script's recommit list.)
+Did v7/v8 introduce a path or filter bug? (Possible — wildcard may be wrong, or directory walk may have regressed.)
+Did v7/v8 fail mid-run? (Possible — partial deletions, no completions.)
+Proposed Diagnostic Steps for Tomorrow
+Recover the v6 working version of the script: git show dbf7e2549:[path-to-script-v6] > /tmp/v6_baseline.sh
+View v7 and v8 contents: cat docs/recommit_docs_v7.sh && cat docs/recommit_docs_v8.sh
+Diff v6 vs v7 to identify the first regression
+Diff v7 vs v8 to identify what v8 attempted to fix (and whether it did)
+Decide path forward: revert to v6, fix v7, or rewrite v8
+Test the chosen version on a clean branch (or a copy of the docs folder) to confirm it doesn't delete real docs without replacing them
+Once verified, restore the deleted docs files via git checkout to undo tonight's broken state
+Run the fixed recommit. Commit with a clean message.
+Restoration Plan for Tonight's Deleted Docs
+Whatever version of the recommit script we land on, the six docs deleted tonight need to come back BEFORE we use the new script:
+# Restore each deleted doc from the last known-good commit (dbf7e2549):
+git checkout dbf7e2549 -- "docs/# GroupTrack Version Roadmap & Task.txt"
+git checkout dbf7e2549 -- docs/GroupTrack_AllDocs.txt
+git checkout dbf7e2549 -- docs/GroupTrack_V3_Spec.txt
+git checkout dbf7e2549 -- "docs/Next steps for moving forward with 2.4.txt"
+git checkout dbf7e2549 -- docs/function_universe_raw.txt
+git checkout dbf7e2549 -- docs/where_used_raw.txt
+Then proceed with the diagnostic steps above before running any recommit.
+Why This Matters
+Tomorrow's V2.4 work produces new documentation: an updated user manual (.docx), updated release notes, possibly the three handoff documents from this session. All of these need to be checked into docs/ via a working recommit. Without a fixed recommit script, the docs go stale or get committed inconsistently. Fix the script first, document second, ship third.
+
 === GroupTrack_RideState_PhaseB_Plan.docx ===
 GroupTrack
 RideState — Rules, Touchpoints, and Phase B Implementation Plan
@@ -7578,6 +7640,235 @@ targetSdk | 35 (config.properties TARGET_SDK=35)
 Latest commit | 744c1588c on feature/convoy-event-ride
 Signing note | Play Store and local APK have different signing keys. Must uninstall one before installing the other.
 
+=== GroupTrack_V24_Import_Rewrite_Handoff.docx ===
+GroupTrack V2.4 — Import Rewrite Handoff
+Hand-off to start a fresh Claude conversation. Generated 2026-05-07 evening, end of session.
+Why This Document Exists
+Tonight's session ran into an ANR-during-import problem. We attempted three or four band-aid fixes at the symptom level before identifying that the real cause is the system file picker integration. That cost roughly 1–2 days of session time across recent days. This handoff exists so the next conversation starts with full context and a controlled plan — no more leaping from symptom to fix without understanding the cause.
+Tomorrow's lead is Fred (single developer, GroupTrack). Read this entire document before writing any code or running any commands.
+Critical Sequencing Note
+The date refresh fix CANNOT be tested until the import rewrite ships.
+Fred has already fixed the dates on all his current track files in /sdcard/Documents/my_tracks/. To verify the date refresh patch works (the one we built tonight), we need files with wrong dates, which requires importing new files. Importing requires the picker rewrite to land first. So the order is import-rewrite → import some test files → verify date-refresh fix → commit date-refresh patch.
+Current Repository State (end of 2026-05-07)
+Branch and Recent Commits
+Branch: feature/convoy-event-ride. 5 commits ahead of origin/feature/convoy-event-ride.
+1ba04f0da (HEAD) V2.4: Work With Tracks + RECORD bounce fix + map viewer track ANR fix
+2b131110b fix: autoPan off by default, on only during recording
+13e59d701 fix: track selection ANR — async file load on IO dispatcher
+25fb4219e feat: FT-04/05 restore autopause sleep detection, BLE disconnect on sleep, reconnect on wake
+eed497680 fix: FT-01 permission re-prompt on resume, FT-02/03 identity locked at RECORD time
+dbf7e2549 (origin) docs: recommit all project documents + cross-reference — 2026-05-03 20:46
+Uncommitted Working Tree
+STAGED (5 files, purpose unclear — review first thing tomorrow):
+MainActivity.kt
+ConvoyMapViewerScreen.kt
+ConvoyTrackDialogs.kt
+ConvoyTrackExportSheet.kt
+ConvoyTrackOps.kt
+These were staged before tonight's session began. We did not run git diff --cached --stat to see what they contain. Could be partial work, broken code, or completed features awaiting wiring. Do not commit blindly — triage first.
+STASHED (date refresh patch from tonight):
+git stash push label: "date refresh patch - line 56 remember key - 2026-05-07"
+Modifies one line in ConvoyTrackExportSheet.kt — adds refreshTick to the remember() key on line 56. Fix is sound in principle but unverified on device because we can't import wrong-dated files yet.
+DELETED (unstaged, likely from recommit script run):
+docs/# GroupTrack Version Roadmap & Task.txt
+docs/GroupTrack_AllDocs.txt
+docs/GroupTrack_V3_Spec.txt
+docs/Next steps for moving forward with 2.4.txt
+docs/function_universe_raw.txt
+docs/where_used_raw.txt
+UNTRACKED:
+docs/recommit_docs_v7.sh
+docs/recommit_docs_v8.sh
+See separate document: GroupTrack_Recommit_Issue_Notes.docx
+APK Installed on Android 1 (8624SBCEDF00001789)
+Tonight: ./gradlew assembleGoogleRelease succeeded in 20m 35s. Installed via adb install -r -d. Contains all working-tree code at install time including the date refresh patch.
+Date refresh fix is NOT verified on device (gated by needing wrong-dated test files via fixed import).
+The Problem That Triggered the Rewrite
+Symptoms (observed tonight)
+Track import via system file picker triggers ANR
+ANR dialog reads "GroupTrack not responding" — requires Cancel/Wait tap
+Files by Google (com.google.android.apps.nbu.files) also ANRs — input dispatching timeout
+Import does complete (toast appears, files in my_tracks/) but user must force-close to recover
+Files app is left in limbo state after picker callback returns
+Logcat Evidence (2026-05-07 20:41)
+05-07 20:41:46.903  ActivityManager: created ANR temporary file
+05-07 20:41:46.942  ActivityManager: Skip duplicated ANR, pid=30302 No response to onStartJob
+05-07 20:41:51.992  ActivityManager: ANR in com.google.android.apps.nbu.files
+                    Reason: Input dispatching timed out — Waited 5005ms for FocusEvent
+PID 30302 confirmed = Files by Google. GroupTrack ANR (the dialog Fred saw) was not captured in our logcat slice — must re-capture with broader filter when the bug is reproduced tomorrow.
+Root Cause Hypothesis
+Heavy import work running on Main thread when picker callback returns
+Likely location: MainActivity.kt picker result handler invoking importTrackFile() without withContext(Dispatchers.IO)
+importTrackFile() is suspend fun but inherits caller's dispatcher — suspend alone does not move work off Main
+The Decision
+Replace the system file picker entirely with an in-app file browser. No ACTION_OPEN_DOCUMENT, no Files-by-Google involvement, no intent-result ANR risk. Build a custom selection screen, processing overlay, recap dialog, all driven from within GroupTrack.
+Originally scoped V2.5. Moves to V2.4 because the picker is unshippable. Band-aids attempted, did not work.
+Target Architecture
+New / Modified Components
+1. ConvoyTrackImportScreen.kt (NEW FILE)
+Full-screen composable, mirrors Work With Tracks layout pattern
+Lists files in /sdcard/Download/ filtered to .gpx and .kml
+Multi-select with checkboxes per row
+"Select All" toggle in header
+"Import N selected" button at bottom — disabled when N=0
+Cancel button returns to convoy map
+Empty state message when no GPX/KML in Downloads
+2. ConvoyTrackDialogs.kt (ADD TO EXISTING)
+ImportProgressDialog: modal, non-dismissable. Shows progress indicator, current filename, X of Y count. Hides the gray system overlay during work.
+ImportRecapDialog: shows imported / skipped / failed counts plus list of imported track names. "OK" button dismisses both dialogs and pops back.
+3. ConvoyTrackOps.kt (MODIFY)
+Confirm/ensure importTrackFile() body wraps work in withContext(Dispatchers.IO) explicitly
+Add progress callback parameter: (current: Int, total: Int, currentName: String) -> Unit
+Add bulk wrapper: suspend fun importTrackFiles(files: List<File>, onProgress: ...). Returns ImportResult data class with imported/skipped/failed counts plus track names.
+4. ConvoySubMenu.kt (ADD ROW IN MAP SETTINGS)
+Insert a new SubMenuItem immediately above or below "Export Tracks to Downloads" in the MAP SETTINGS section:
+SubMenuItem(
+    label   = "Import Tracks from Downloads",
+    sub     = "Select GPX/KML files from Downloads to import",
+    enabled = true,
+    onClick = {
+        expanded = null
+        onDismiss()
+        onNavigateToTrackImport()
+    }
+)
+Add new parameter to ConvoySubMenu function signature: onNavigateToTrackImport: () -> Unit = {}
+5. ConvoyNavigation.kt (ADD ROUTE + WIRING)
+Mirror the ConvoyTracks block at line 172. Add ConvoyRoutes.ConvoyTrackImport definition wherever ConvoyRoutes.ConvoyTracks is defined.
+composable<ConvoyRoutes.ConvoyTrackImport> {
+    com.geeksville.mesh.convoy.ConvoyTrackImportScreen(
+        onDismiss = { navController?.popBackStack() }
+    )
+}
+Add navigation callback in ConvoyScreen invocation block (around line 370 where onNavigateToTracks is wired):
+onNavigateToTrackImport = { navController?.navigate(ConvoyRoutes.ConvoyTrackImport) },
+6. AndroidManifest.xml — DECISION POINT
+Existing intent filter ("Share to GroupTrack" from external file managers): keep or remove?
+KEEP: extra import path. Must also be re-routed through ConvoyTrackImportScreen processing flow to avoid the same ANR.
+REMOVE: simpler V2.4. One import path, tested thoroughly. Re-add intent filter in V2.5 if needed.
+Recommendation: REMOVE for V2.4. Single path, single test surface, single failure mode.
+Data Flow
+User → MAP SETTINGS → "Import Tracks from Downloads"
+  ↓
+ConvoyTrackImportScreen opens
+  ↓
+LaunchedEffect: scan /sdcard/Download/ for *.gpx, *.kml on IO dispatcher
+  ↓
+Display checkbox list with "Select All" header
+  ↓
+User taps "Import N selected"
+  ↓
+ImportProgressDialog appears (non-dismissable, hides any system progress UI)
+  ↓
+Coroutine on IO dispatcher: importTrackFiles(selected, onProgress)
+  - For each file: parse, unbundle multi-track GPX, write each <trk> as separate file
+  - On import, set file mtime from earliest GPS timestamp via extractEarliestTime
+  - Update progress callback after each file
+  - Aggregate result (imported, skipped, failed, names)
+  ↓
+ImportRecapDialog replaces ImportProgressDialog
+  ↓
+User taps OK → both dialogs dismiss, navigate back to convoy map
+Backend Functions Already Available
+ConvoyTrackOps.importTrackFile(file: File): suspend fun — single-file import with multi-track unbundling. Already exists.
+ConvoyViewModel.scanImportDirectory(): suspend fun — directory scanner. May need refactoring to return List<File> for the UI to consume.
+ConvoyTrackOps.extractEarliestTime(content: String): Long? — for setting file mtime from earliest GPS timestamp. Already exists, used by Fix Creation Date today.
+Tomorrow's Sequenced Plan — No Cutting Corners
+Phase 0 — Foundation (do BEFORE any code)
+Run git status. Confirm staged files state matches this document.
+Run git diff --cached --stat. Identify line counts of staged changes.
+Run git diff --cached on each of the 5 staged files individually. Decide what's keepable. Anything broken or experimental: git restore --staged + git checkout to revert.
+Fix recommit script (see GroupTrack_Recommit_Issue_Notes.docx). Do NOT use v7 or v8 until diagnosed.
+Pop the date refresh stash: git stash pop. Confirm one-line change in ConvoyTrackExportSheet.kt at line 56.
+DO NOT commit the date refresh patch yet — it's gated by import test.
+Phase 1 — Spec the Import Screen (paper first, code second)
+Sketch the layout: header, file list with checkboxes, footer with Select All toggle and Import button. Match Work With Tracks visual style.
+Pin column widths, font sizes, item row height before composable code starts.
+Sketch ImportProgressDialog and ImportRecapDialog visual style (match existing dialogs).
+Confirm route name and ConvoyRoutes addition before adding to ConvoyNavigation.kt.
+Phase 2 — Backend Verification
+Read ConvoyTrackOps.importTrackFile body. Verify withContext(Dispatchers.IO). Add it if missing.
+Verify scanImportDirectory return type. Refactor to return List<File> if it imports inline.
+Add importTrackFiles bulk wrapper with progress callback and ImportResult-style return.
+Confirm extractEarliestTime is called inside importTrackFile so file mtime is set from earliest GPS timestamp on import.
+Phase 3 — Build the UI
+Create ConvoyTrackImportScreen.kt per Phase 1 spec.
+Add ImportProgressDialog and ImportRecapDialog to ConvoyTrackDialogs.kt.
+Wire the flow: scan → list → selection → progress → recap → pop back.
+Add SubMenuItem to ConvoySubMenu.kt MAP SETTINGS section.
+Add ConvoyRoutes.ConvoyTrackImport. Add composable<> block in ConvoyNavigation.kt. Wire callback in ConvoyScreen invocation block.
+Decision on intent filter: keep or remove from AndroidManifest. If keeping, route the intent into ConvoyTrackImportScreen flow.
+Phase 4 — Build APK and Test
+Build release APK. Install with -r -d on Android 1.
+Test 1: Empty Downloads — open import screen, expect empty state.
+Test 2: Single GPX in Downloads — see file, select, import, watch progress, see recap with 1 imported, confirm in my_tracks/.
+Test 3: Multi-track onX-style GPX (87 tracks bundled) — import, expect 87 individual files in my_tracks/ named from <name> tags.
+Test 4: KML file — confirm processed correctly.
+Test 5: Mixed selection (3 of 5 files) — import, only selected ones processed.
+Test 6: Select All toggle — verifies selects/deselects everything.
+Test 7: Cancel during scan — clean back navigation.
+Test 8: Stress test — 75 files at once. Watch logcat for ANRs. Confirm no main-thread blocking.
+Phase 5 — Verify Date Refresh Fix (gated on Phase 4)
+Now that you have wrong-dated imported tracks (mtime = today, not earliest GPS time), open Work With Tracks.
+Tap action menu on a wrong-dated track. Tap Fix Creation Date.
+Without leaving the screen, watch the date column on that row. Should update immediately to the GPS timestamp.
+If sort = Date, watch the row re-position.
+If verified, the stashed patch is good. Commit it: git add app/src/main/java/com/geeksville/mesh/convoy/ConvoyTrackExportSheet.kt; git commit -m "fix: Work With Tracks date refresh after Fix Creation Date — refreshTick added to remember key"
+Phase 6 — Documentation
+Update GroupTrack_V24_UserManual.docx with new Section 4.5 covering Import Tracks workflow, Section 1 reframed for solo/standalone audience, autoPan/sleep handling additions to 4.2, RECORD identity lock to 4.1, etc. (See drafted manual delta from this session.)
+Update Release Notes PDF (already drafted tonight) — add Import Tracks section.
+Save final manual + release notes to docs/ folder.
+Phase 7 — Build, Sign, Tag
+Bump versionCode and versionName in app/build.gradle.kts.
+Build release APK: ./gradlew assembleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease
+Build release AAB: ./gradlew bundleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease
+Save APK + AAB out of build/outputs to a release archive folder.
+Commit all V2.4 import code as one tight commit.
+git tag v2.4.0
+git push origin feature/convoy-event-ride --tags
+Phase 8 — Tester Comms and Play Store
+Tester enrollment: confirm 12/12 (was 10/12 last memory). Recruit two more if still 10.
+Pick distribution path for Release Notes PDF — email, Play Store release notes field, or grouptrack.org.
+Upload AAB to Play Console internal testing track.
+Send tester comms with Release Notes attached and call out specific test paths (import, standalone mode, sleep/wake, identity lock).
+Phase 9 — Flip to V3.0 → Android 2
+Confirm V2.4 release artifacts (APK + AAB) saved off-tree.
+Set V3_FEATURES_ENABLED = true in ConvoyConfig.kt. Confirm paywall flag set appropriately.
+DECISION: does V3.0 Android 2 deploy include the package migration com.geeksville.mesh → com.grouptrack.android? Memory says that's the V3.0 pre-release gate.
+If migrating: re-wire keystore, update google-services.json, update manifest, set up new Play Store listing.
+If NOT migrating yet: keep package as com.geeksville.mesh, deploy debug build to Android 2.
+Build V3.0 debug APK. Install on Android 2.
+Phase 10 — Return to V2.5
+Set V3_FEATURES_ENABLED = false on the V2.5 development branch.
+V2.5 work begins on the backlog (see GroupTrack_V25_Backlog.docx). Major architecture, weeks not days.
+Test Files Available on Android 1
+Standing Dev Environment Rules
+APK output: app/build/outputs/apk/google/debug/app-google-universal-debug.apk
+Build command (debug + copy): ./gradlew copyApkToDownloads
+V2.4 release APK: ./gradlew assembleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease
+V2.4 release AAB: ./gradlew bundleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease
+Install (always use -r -d): adb -s [serial] install -r -d [apk]. -r preserves data, -d allows downgrade. Never omit or tiles/tracks get wiped.
+Android 1 (8624SBCEDF00001789): V2.4 tester device. Android 2 (24039703201775): V3.0 dev device.
+Project root: ~/Meshtastic-Android. Build gradle: app/build.gradle.kts.
+Production pkg: com.geeksville.mesh.google. Debug pkg: com.geeksville.mesh.google.debug. Future release pkg: com.grouptrack.android.
+Asset pull: use run-as cat redirect — never adb pull internal storage (corrupts binaries). Command pattern: adb -s [serial] shell run-as [pkg] cat files/[file] > app/src/main/assets/[file]
+Patch scripts: always uniquely versioned Python (e.g. patch_v24_name_v1.py). User runs from /c/Users/kixaz/Downloads/. Never reuse names. Never use heredoc (CRLF errors).
+Keystore (NEVER commit keystore.properties): grouptrack-release-key.jks, alias=grouptrack. Stored in 4 locations: local, Google Drive, iCloud, Desktop.
+Play Store vs local APK: different signing keys. Must uninstall one before installing the other.
+V3.0 feature flags: V3_FEATURES_ENABLED and paywall flag must both be false before tester release of V2.4.
+Session Rules — Don't Cut Corners
+Fred is not technical. Write all commands explicitly. One command at a time with echo-back confirmation.
+Batch all changes before building. Confirm all source changes via grep before any build.
+Never commit broken code.
+If a problem requires diagnosis: do the diagnosis in full BEFORE proposing a fix. Do not chain symptom-level patches without understanding cause. Tonight's lesson.
+Build cycles are 20–60 minutes. Never burn one without intent.
+If scope expands mid-session, stop and re-spec before continuing. Mid-build pivots cost 1–2 days.
+File | Notes
+Bar10 to St George.gpx | 2024-04-23, 387KB. Already correct date.
+Broken Ridge 2024 Jamboree.gpx | 2024-09-26 07:45:50 (epoch 1727358350). Already correct date.
+Tracks.gpx (Gaia origin) | Has <metadata><time>2018-05-25T13:22:11Z</time>
+.trashed-* onX bundles (multiple) | In trash, recoverable. Can be restored to Downloads for import testing.
+
 === GroupTrack_V24_OpenTasks_V25_Plan_v2.docx ===
 GroupTrack
 V2.4 Open Tasks + V2.5 Planned Tasks
@@ -8388,6 +8679,82 @@ Debug package | com.grouptrack.android.google.debug
 Keystore | C:/Users/kixaz/grouptrack-release-key.jks
 Key alias | grouptrack
 AAB output | app/build/outputs/bundle/googleRelease/app-google-release.aab
+
+=== GroupTrack_V25_Backlog.docx ===
+GroupTrack V2.5 — Backlog and Task Planning
+Captured 2026-05-07. Carry forward into V2.5 development planning.
+Purpose
+V2.5 follows the V2.4 Play Store release. The strategic goal is twofold: (1) build out the standalone product (no-radio, solo-rider) to full feature parity with Gaia GPS and onX, expanding GroupTrack's audience to riders who don't yet own a Meshtastic radio; (2) lay the architectural foundation for national trail coverage and cloud-synced tile/track distribution. V2.5 is the bridge from "convoy-tracking app for radio owners" to "free GPS tracker for any rider, with convoy capability when a radio is added."
+Items below are organized by theme. Priorities for the V2.5 release scope are flagged. Architecture-level work is the longest-running.
+Architecture — National Trail Model
+Replaces the current 22 MB Utah GeoJSON with a unified GeoPackage architecture and three engines that handle ingestion, distribution, and local display.
+Components
+Unified GeoPackage file: grouptrack.gpkg, replaces the 22 MB Utah GeoJSON entirely.
+Ingestion engine: pulls from authoritative sources (UGRC, BLM, USFS, etc.) on a per-region basis. Outputs into the GeoPackage.
+Distribution engine: serves regions to clients. Region-based downloads paired with the same region's tile set.
+Local display engine: efficient query and render of GeoPackage data on Android. Replaces current GeoJSON loader.
+Rollout plan
+Utah pilot first — replaces existing 5,732-trail Utah GeoJSON with GeoPackage equivalent. Validates the pipeline end-to-end.
+Expand to neighboring states (AZ, NV, ID, CO) once Utah is stable.
+National coverage as Phase 3 of V2.5.
+This is the longest single piece of V2.5 work. Multiple weeks, not days.
+Track Display Selector — Filter Tabs and In-Progress Files
+Captured tonight: extend the track display selector on ConvoyScreen.kt and ConvoyMapViewerScreen.kt (the on/off toggle for track overlays on the map) to include in-progress files alongside saved tracks.
+Filter tabs: All / Saved / In-Progress (mirroring the Work With Tracks pattern).
+Reuses ConvoyTrackOps.isInProgress() predicate that already exists. No new file ops logic.
+In-progress files become selectable AND renameable from the selector — solves the "the only way to rename unsaved files is to display them" problem.
+UI work only. Backend already complete.
+Track Import — Move to Map Viewer
+V2.4 will ship with track import in the convoy map's MAP SETTINGS submenu (alongside Export). V2.5 moves it to the Map Viewer settings menu, aligning with the broader V2.5 architecture: Map Viewer becomes the hub for ALL track management — display, import, export, email, file management.
+Remove "Import Tracks from Downloads" from ConvoySubMenu.kt MAP SETTINGS
+Add to Map Viewer settings menu
+Same composable, different menu placement. Small refactor.
+Standalone Product Polish — Gaia/onX Feature Parity
+V2.4 introduces standalone mode functionally. V2.5 polishes it to feel like a finished product for the solo rider.
+Higher-resolution GPS recording — 1-second interval option (currently fixed at 3s)
+Mileage / trip odometer display — referenced in V2.4 known limitations as "planned for future"
+Speed warmup tightening — currently shows 0 mph for ~60 seconds while GPS samples accumulate
+Track stats display — distance, elevation gain, moving time, max speed (post-ride summary)
+Waypoint marking on the map (POIs along a ride)
+Solo rider onboarding flow — first-launch tutorial that doesn't assume a radio
+Marketing copy on splash / about screen positioning the app as standalone-friendly
+Map Manager Phase C
+Substantial map system work captured in earlier sessions. Listed here for completeness; full design exists in earlier docs.
+Auto-download tiles on ride enrollment (rider accepts ride invite → ride has geographic bounds → tiles auto-queue for WiFi download before ride date)
+PROTECTED / PURGEABLE tile state model. Upcoming ride tiles = PROTECTED. Active ride tiles = PROTECTED. Completed ride tiles = PURGEABLE after 30 days. Manual downloads = PROTECTED until user removes.
+2 GB storage cap (configurable)
+AWS tile cloud sync per organization. Org uploads canonical tile set to S3. Members download org tiles on enrollment. Delta sync — only missing tiles transferred.
+Storage dashboard: space used, breakdown by ride, what's purgeable, sync status with cloud.
+Package Migration (V3.0 Pre-Release Gate)
+Memory: this is technically V3.0 pre-release work, not V2.5. Listed here for awareness because V2.5 work will overlap timing-wise with this prep.
+Change applicationId: com.geeksville.mesh → com.grouptrack.android in build.gradle.kts
+Wire release keystore (grouptrack-release-key.jks, created April 5)
+Update google-services.json (new package = new Firebase project config)
+Update manifest references throughout
+Set up new Play Store developer account and app listing
+Tester migration: testers uninstall com.geeksville.mesh, install com.grouptrack.android (one-time)
+V3.0 Dashboard
+Already rewritten on April 11. Composables include VisibilityBadge, RideStatusBadge, NotifAccordion, full test seeder. 9 P1 dashboard issues queued (DASH-01 through DASH-16) across ConvoyDashboardScreen.kt and GroupTrackTheme.kt.
+Downstream queue: Ride Detail, My Rides, Explore, Profile, Create Ride screens.
+Cloud Sync
+Cloud sync of tracks, routes, and waypoints to user web account. Premium feature in V3.0.
+Web account creation flow
+Track upload on completion (with toggle for auto-upload)
+Cross-device track sync
+Web-side track management UI
+Business Model
+Single subscription tier: $3.00/month via Google Play + Apple IAP
+Revenue streams: individual subscriptions, organization services (tile cloud, shared trail catalogs), advertising
+Free tier: standalone GPS tracking, offline maps within download limit, basic track recording
+Premium tier: cloud sync, unlimited tile storage, advanced track stats, group features
+Known Hardware Issues — Tester Compatibility List
+From memory, captured for V2.5 documentation:
+Tab8NEU and budget Android tablets (Android 10/14/16) cannot hold BLE connection to T1000-E radios. Supervision timeout 0x0008 after 8–10 seconds.
+Android 1 (8624SBCEDF00001789) and Android 2 (24039703201775): stable, validated.
+Action: publish a tester device compatibility list as part of V2.5 user manual or website FAQ.
+Removed Items (No Longer in Scope)
+ATAK / iPad support — removed from project entirely. Confirmed in earlier sessions.
+Multiple subscription tiers — replaced with single $3/month tier.
 
 === GroupTrack_V25_Planning_v2.docx ===
 GroupTrack
@@ -11331,6 +11698,262 @@ FT-07 Area Focus Snap-Back | ☐ PASS  ☐ FAIL  Notes: _______________
 UI-01 Track Format Toggle | ☐ PASS  ☐ FAIL  Notes: _______________
 FT-08 Min GPS Interval | ☐ PASS  ☐ FAIL  Notes: _______________
 GATE DECISION | ☐ ALL PASS — Phase B Thursday  ☐ FAILURES — fix Wednesday night
+
+=== GroupTrack_WhereUsed_Reference_v1.docx ===
+GroupTrack
+Complete Field-Level Where-Used Reference
+68 Files  |  396 Functions  |  Lifecycle-Tagged Call Chains
+May 2026  |  MANDATORY REFERENCE BEFORE ANY CODE CHANGE  |  Confidential
+Lifecycle Phase Legend
+RULE: Any function tagged INIT must NOT require permissions, network, or launch activities. Any function tagged TICK must have permission guard if it accesses GPS/Location.
+1. Meshtastic Base Layer Modifications
+These are changes made to files OUTSIDE the convoy/ package. Stock Meshtastic does not have these. Every change here runs during app startup and affects ALL users.
+1.1 MainActivity.kt
+1.2 ui/Main.kt
+1.3 navigation/ConvoyNavigation.kt
+1.4 app/build.gradle.kts
+1.5 AndroidManifest.xml
+2. ConvoyViewModel.kt — Critical Path Analysis
+47 functions. This is the heart of the convoy system. Every tick cycle, every GPS call, every state update flows through here.
+2.1 INIT Phase — Runs During App Startup
+WARNING: Everything in init{} runs on the MAIN THREAD during Activity.onCreate(). No permissions are granted yet. No UI is visible. Any blocking call here causes ANR.
+ISSUE: scanImportDirectory() runs in init via viewModelScope.launch. It queries MediaStore which may require storage permission. On a fresh install this may fail silently or block.
+2.2 TICK Phase — Runs Every 3–5 Seconds
+WARNING: tick() runs from init{} before map loads. Permission guard added in efa1b677e.
+2.3 Tick Call Chain — Full Trace
+init{} → startTick() → tick() [every 3s]
+  tick() → [PERMISSION CHECK] → readLiveNodes(nowMs)
+    readLiveNodes() → nodeRepository.nodeDBbyNum.value
+      IF nodeMap.isEmpty() (no radio):
+        → [PERMISSION CHECK] → startPhoneGps()
+          → LocationManager.requestLocationUpdates(GPS_PROVIDER, 2000L, 1f, listener, mainLooper)
+        → getPhoneLocation()
+          → gpsService?.lastLat/lastLon (prefer ConvoyGpsService)
+          → OR LocationManager.getLastKnownLocation (fallback)
+        → return listOf(ConvoyNode("!phone", ...))
+      IF nodeMap NOT empty (radio connected):
+        → iterate nodeMap → build ConvoyNode list from radio data
+  tick() → ConvoyEngine.compute(nodes, myCartId, nowMs, ...)
+    compute() → computeStatus() → computeHeading() → assignLeadTail()
+  tick() → _convoyState.value = state
+  tick() → trail segment accumulation (if recording)
+  tick() → gpsService?.onRadioPosition() (if radio has fix)
+2.4 MAP-LOAD Phase
+2.5 RECORD Phase
+2.6 RADIO Phase
+2.7 Download Functions
+3. ConvoyScreen.kt — Main Convoy Map
+15 exported functions. Primary UI screen. Contains WebView, HUD panels, record controls, download dialogs.
+* viewModel.onMapReady() was added in commit f49cf8a3a then rolled back. Currently NOT called. Tick starts in init{} with permission guard.
+4. ConvoyGpsService.kt — GPS Recording Engine
+27 functions. Foreground service for GPS track recording. Independent of tick cycle.
+KEY: startLocationUpdates() uses 3000ms interval. MAP-01 task: change to 1000ms for smoother tracking.
+KEY: onRadioPosition() is called from tick() when radio has GPS fix. This bridges tick and GPS service.
+5. ConvoyEngine.kt — Pure Computation
+9 functions. Stateless convoy computation. No side effects, no I/O, no permissions. Safe to call anywhere.
+6. ConvoyConfig.kt
+7. Session & Auth Chain
+8. Radio Config Chain
+9. Tile Download Chain
+10. API Client Chain
+11. File Inventory — All 68 Files by Category
+11.1 Core Engine (5 files)
+11.2 Map Screens (2 files)
+11.3 Radio Config (8 files)
+11.4 V3 Services (20+ files)
+11.5 Settings & Support (6 files)
+12. Known Issues Registry
+13. Change Impact Checklist
+MANDATORY before any patch. Complete this for every function being modified.
+GroupTrack  |  Field-Level Where-Used Reference  |  May 2026  |  Confidential
+Phase | Color | When It Runs | Permission Requirements
+INIT | Red | Activity.onCreate → Hilt DI → ViewModel init{} | NONE — no permissions granted yet
+TICK | Yellow | Every 3–5 seconds from startTick() in init{} | Requires ACCESS_FINE_LOCATION (guarded since efa1b677e)
+MAP-LOAD | Blue | WebView.onPageFinished in ConvoyScreen/MapViewer | All permissions should be granted by this point
+RECORD | Green | User taps Record button → ConvoyGpsService | Requires ACCESS_FINE_LOCATION + FOREGROUND_SERVICE_LOCATION
+RADIO | Purple | Radio connects/disconnects via BLE | Requires BLUETOOTH_SCAN + BLUETOOTH_CONNECT
+USER | Gray | User-initiated action (button tap, menu selection) | Varies by action
+Line | Element | Type | What It Does | Called By | Calls | Phase
+77 | onCreate() | Override | Activity entry point. Meshtastic base init. | Android framework | enableEdgeToEdge(), setContent() | INIT
+80 | MANAGE_EXTERNAL_STORAGE check | REMOVED (6cbd92936) | Was: startActivity() to launch Settings for all-files permission. CAUSED ANR by stealing focus on fresh install. | onCreate() | startActivity() — REMOVED | INIT
+~244 | getExternalStoragePublicDirectory | Reference | Stock Meshtastic URL handler | Meshtastic base | N/A | USER
+Line | Element | Type | What It Does | Called By | Calls | Phase
+537 | ConvoySessionManager.resolveLaunchRoute() | Added | Routes to sign-in/subscription if needed | Compose navigation | ConvoySessionManager methods | INIT
+Line | Element | Type | What It Does | Called By | Calls | Phase
+257 | resolveLaunchRoute() | Reference | V3 service launch routing | Navigation graph | ConvoySessionManager | INIT
+273 | resolveLaunchRoute() | Reference | V3 service launch routing | Navigation graph | ConvoySessionManager | INIT
+367 | isSubscribed() | Reference | Pass subscription state to Dashboard | Navigation graph | ConvoySessionManager | INIT
+Change | Value | Impact
+targetSdk | 35 (was 34) | Play Store requirement. Changes permission behavior.
+package | com.grouptrack.android | Release package. Different from debug com.geeksville.mesh.google.debug
+google-services.json | grouptrack-1db21 Firebase project | SHA-256 fingerprints for release + debug keys registered
+Change | Permission | Impact
+Uncommented | MANAGE_EXTERNAL_STORAGE | Shared tile/track storage. Runtime request removed from onCreate.
+Uncommented | WRITE_EXTERNAL_STORAGE | Legacy storage access for older Android versions
+Uncommented | READ_EXTERNAL_STORAGE | Legacy storage access for older Android versions
+Added | tools:node=replace on permissions | Forces permissions through build pipeline
+Existing | allowBackup=false | Prevents restore of stale state on reinstall
+Function/Field | Line | What It Does | Calls | Permission Req | Phase
+init{} block | 297 | ViewModel construction via Hilt. Starts collectors and tick. | admissionWindowHours.collect, myNodeInfo.collect, startTick(), scanImportDirectory() | NONE | INIT
+admissionWindowHours.collect | 298 | Lightweight StateFlow collector | settingsRepository | None | INIT
+myNodeInfo.collect | 301 | Collects radio node info. Sets _myCartId when radio connects. | nodeRepository, stopPhoneGps() | None | INIT
+startTick() | 499 | Launches coroutine tick loop every 3s | tick() | See tick() | INIT
+scanImportDirectory() | 316 | Queries MediaStore for downloaded files | MediaStore API | READ_EXTERNAL_STORAGE | INIT
+Function | Line | What It Does | Calls | Permission Req | Phase
+tick() | 530 | Main convoy computation loop. Permission guard at top. | readLiveNodes(), ConvoyEngine.compute(), trail segment logic | ACCESS_FINE_LOCATION (guarded) | TICK
+readLiveNodes() | 745 | Reads radio nodes or creates phone node. Permission guard on startPhoneGps. | nodeRepository.nodeDBbyNum, startPhoneGps(), getPhoneLocation() | ACCESS_FINE_LOCATION (guarded) | TICK
+startPhoneGps() | 110 | requestLocationUpdates on main thread Looper. Guarded by permission check. | LocationManager.requestLocationUpdates | ACCESS_FINE_LOCATION | TICK
+getPhoneLocation() | 723 | Reads gpsService.lastLat/lastLon or getLastKnownLocation fallback | ConvoyGpsService, LocationManager | ACCESS_FINE_LOCATION | TICK
+stopPhoneGps() | 129 | Removes location listener | LocationManager.removeUpdates | None | TICK/RADIO
+resolveMyCartId() | 269 | Returns _myCartId or !unknown | None | None | TICK
+ConvoyEngine.compute() | 547 | Computes convoy state: status, heading, roles | computeStatus, computeHeading, assignLeadTail | None | TICK
+convoyLog() | 492 | Writes to convoy_debug.log | File I/O | WRITE access | TICK
+Function | Line | What It Does | Called By | Calls | Phase
+setLocalTiles() | 101 | Toggle online/offline tile mode | ConvoyScreen UI | StateFlow update | MAP-LOAD
+setAutoPan() | 104 | Toggle map auto-center on user | ConvoyScreen UI | StateFlow update | MAP-LOAD
+setOfflineMode() | 95 | Toggle offline mode | ConvoyScreen UI | StateFlow update | MAP-LOAD
+setMapTypeLabel() | 98 | Set active tile source label | ConvoyScreen UI | StateFlow update | MAP-LOAD
+Function | Line | What It Does | Called By | Calls | Phase
+startGroupTrack() | 139 | Start convoy ride tracking | ConvoyScreen Record button | Resets trail segments, sets rideStartTimeMs | RECORD
+stopGroupTrack() | 156 | Stop convoy ride tracking | ConvoyScreen Stop button | Clears trail state | RECORD
+startRecording() | 455 | Start GPS track recording | ConvoyScreen Record button | bindGpsService → svc.startTrack() | RECORD
+pauseRecording() | 459 | Pause GPS recording | UI action | gpsService.pauseTrack() | RECORD
+resumeRecording() | 460 | Resume GPS recording | UI action | bindGpsService → svc.resumeTrack() | RECORD
+stopRecording() | 465 | Stop GPS recording | ConvoyScreen Stop button | gpsService.stopTrack() | RECORD
+finalizeTrack() | 478 | Save track with name | ConvoyScreen name dialog | gpsService.finalizeTrack() | RECORD
+bindGpsService() | 427 | Bind to ConvoyGpsService | startRecording, resumeRecording | context.bindService() | RECORD
+setLeadCart() | 173 | Assign lead cart manually | ConvoyScreen lead dialog | StateFlow update + broadcast | RECORD
+Function | Line | What It Does | Called By | Calls | Phase
+installProfileToRadio() | 228 | Write radio config profile | ApplyRadioScreen, ArchiveRestoreScreen, MasterApply | meshService.setConfig() | RADIO
+reconnectRadio() | 192 | Trigger BLE reconnect | UI action | meshService reconnect | RADIO
+setGpsInterval() | 383 | Set radio GPS broadcast interval | Settings UI | channelViewModel config write | RADIO
+removeNode() | 401 | Remove node from convoy | Settings UI | nodeRepository | RADIO
+Function | Line | What It Does | Called By | Calls | Phase
+setPendingDownload() | 888 | Queue download area | ConvoyScreen/MapViewer map gesture | StateFlow update | USER
+startDownload() | 891 | Begin tile download | ConvoyScreen/MapViewer confirm dialog | ConvoyTileDownloader.downloadTiles() | USER
+cancelDownload() | 930 | Cancel active download | UI action | Job cancel | USER
+Function | Line | What It Does | Calls on ViewModel | Phase
+ConvoyScreen() | 94 | Main composable. WebView + overlays. | collectAsStateWithLifecycle on all StateFlows | MAP-LOAD
+onPageFinished | 421 | WebView ready. Sets tile URL, centers map on phone GPS. | setTileUrl JS, setView JS, viewModel.onMapReady()* | MAP-LOAD
+showStoragePermissionDialog | 114+275 | All-files permission dialog on first open | startActivity to Settings | MAP-LOAD
+Record button | 647+699+706 | Start ride. Solo: auto-assign lead. Group: lead dialog. | setLeadCart, startRecording, startGroupTrack | RECORD
+Stop button | 771 | Stop ride. | stopRecording, stopGroupTrack | RECORD
+Download confirm | 310 | Start tile download | startDownload(context, pending) | USER
+GroupHud() | 1461 | Group convoy status panel | Reads convoyState | USER
+MyCartHud() | 1564 | Current rider status panel | Reads convoyState | USER
+NodeDetailHud() | 1627 | Selected node detail panel | Reads selectedNode | USER
+ConvoyButtonBar() | 1859 | Bottom button row | Various ViewModel methods | USER
+Function | Line | What It Does | Called By | Calls | Phase
+onCreate() | 103 | Service creation. Notification channel. | Android framework | createNotificationChannel() | RECORD
+onStartCommand() | 109 | Handle intents: START/PAUSE/RESUME/END | Android intent system | startTrack/pauseTrack/resumeTrack/stopTrack | RECORD
+startTrack() | 134 | Begin recording. Start location updates, create GPX/KML files. | ConvoyViewModel.startRecording() | startLocationUpdates(), createTempGpxFile(), openGpxWriter(), acquireWakeLock() | RECORD
+pauseTrack() | 150 | Pause recording. Stop location updates. | ConvoyViewModel.pauseRecording() | stopLocationUpdates() | RECORD
+resumeTrack() | 162 | Resume recording. | ConvoyViewModel.resumeRecording() | startLocationUpdates() | RECORD
+stopTrack() | 176 | Stop recording. Close files. | ConvoyViewModel.stopRecording() | stopLocationUpdates(), closeGpx(), closeKml(), releaseWakeLock() | RECORD
+finalizeTrack() | 196 | Rename temp file to named track | ConvoyViewModel.finalizeTrack() | File.renameTo() | RECORD
+startLocationUpdates() | 233 | requestLocationUpdates. 3000ms interval. | startTrack(), resumeTrack() | LocationManager.requestLocationUpdates() | RECORD
+onGpsUpdate() | 270 | Process GPS fix. Write to GPX/KML. Accumulate distance. | LocationListener callback | writeGpxPoint(), writeKmlPoint(), updateNotification() | RECORD
+onRadioPosition() | 227 | Receive radio GPS to supplement phone GPS | ConvoyViewModel.tick() | Updates lastLat/lastLon | TICK
+Function | Line | What It Does | Called By | Calls | Phase
+compute() | 31 | Master convoy state computation | ConvoyViewModel.tick(), ConvoySimulation.computeState() | computeStatus, computeHeading, computeSortPositions, assignLeadTail | TICK
+computeStatus() | 62 | Determine node status: ACTIVE/IDLE/LOST | compute() | Time comparison | TICK
+computeHeading() | 73 | Calculate convoy heading from active nodes | compute() | Math | TICK
+computeSortPositions() | 82 | Sort nodes by position along heading | compute() | Math | TICK
+assignLeadTail() | 99 | Assign lead/tail roles to sorted nodes | compute() | None | TICK
+computeSpan() | 130 | Distance between lead and tail | After compute() | haversineMiles() | TICK
+computeProximity() | 135 | Proximity list for current user | After compute() | haversineMiles() | TICK
+colorSegmentsByNode() | 160 | Assign trail segment colors by passing cart | ConvoyViewModel trail logic | None | TICK
+haversineMiles() | 170 | Great circle distance calculation | Multiple | Math | ANY
+Field | Value | Used By
+V3_FEATURES_ENABLED | false (release) / true (dev) | GroupTrackTheme, ConvoyNavigation — gates V3 screens
+PAYWALL_ENABLED | false | ConvoySessionManager.resolveLaunchRoute()
+TILE_SOURCES | Map of source name to URL template | ConvoyScreen.onPageFinished, ConvoyTileDownloader
+ACTIVE_TILE_SOURCE | Current tile source name | ConvoyScreen, ConvoyMapViewerScreen
+TILE_DIR | Shared tile storage path | ConvoyTileDownloader, ConvoyScreen tile interceptor
+migrateTiles() | One-time tile directory migration | Called from config init
+Function | File | Called By | Calls | Phase
+resolveLaunchRoute() | ConvoySessionManager:107 | ConvoyNavigation, Main.kt | isSignedIn(), isSubscribed() | INIT
+isSignedIn() | ConvoySessionManager:17 | resolveLaunchRoute, ServicesChooser | SharedPreferences read | INIT
+isSubscribed() | ConvoySessionManager:20 | resolveLaunchRoute, Dashboard, Profile, ServicesChooser, GroupTrackTheme | SharedPreferences read | INIT/USER
+saveUser() | ConvoySessionManager:69 | SignInScreen, DevLaunchScreen, DevSeeder | SharedPreferences write | USER
+clearSession() | ConvoySessionManager:98 | DevLaunchScreen, GroupTrackTheme | SharedPreferences clear | USER
+getUserId() | ConvoySessionManager:14 | Dashboard, DevLaunchScreen | SharedPreferences read | USER
+Function | File | Called By | Calls | Phase
+buildProfile() | ConvoyProfileBuilder:34 | ApplyRadioScreen, ProfileBuilder:366 | Protobuf construction | RADIO
+installProfileToRadio() | ConvoyViewModel:228 | ApplyRadioScreen:510/521, ArchiveRestore:122, MasterApply:72 | meshService.setConfig() | RADIO
+archiveCurrentRadio() | ConvoyMasterApply:33 | ApplyRadioScreen:490, MasterApply:88 | File write, convoyViewModel methods | RADIO
+buildSnapshot() | ConvoyRadioManager:92 | RadioConfigScreens:228 | Read current radio state | RADIO
+execute() | ConvoyRadioWriter:83 | RadioConfigScreens write flow | meshService config write | RADIO
+Function | File | Called By | Calls | Phase
+calculateTiles() | ConvoyTileCalculator:69 | ConvoyViewModel.startDownload() | lat2tile, lon2tile | USER
+downloadTiles() | ConvoyTileDownloader:93 | ConvoyViewModel.startDownload():907 | downloadTile(), tilePath() | USER
+downloadTile() | ConvoyTileDownloader:64 | downloadTiles() | OkHttp GET, File write | USER
+tilePath() | ConvoyTileDownloader:57 | downloadTile(), ConvoyScreen interceptor | File path construction | USER/MAP-LOAD
+startDownload() | ConvoyViewModel:891 | ConvoyScreen:310, MapViewer:378 | calculateTiles, downloadTiles | USER
+Function | File | Called By | Calls | Phase
+registerUser() | ConvoyApiClient:41 | SignInScreen | HTTP POST to convoy_api.php | USER
+createRide() | ConvoyApiClient:162 | CreateRideScreen | HTTP POST | USER
+enrollRider() | ConvoyApiClient:273 | InviteHandler:83 | HTTP POST | USER
+followOrganizer() | ConvoyApiClient:347 | MyOrganizersScreen:153, EnrollmentQueue:87 | HTTP POST | USER
+unfollowOrganizer() | ConvoyApiClient:371 | MyOrganizersScreen:150, EnrollmentQueue:93 | HTTP POST | USER
+downloadRide() | ConvoyApiClient:252 | InviteHandler | HTTP GET | USER
+createInvite() | ConvoyApiClient:217 | CreateRideScreen | HTTP POST | USER
+File | Functions | Purpose
+ConvoyViewModel.kt | 47 | Central state manager. Tick cycle, GPS, recording, downloads.
+ConvoyEngine.kt | 9 | Pure convoy computation. Stateless.
+ConvoyGpsService.kt | 27 | Foreground GPS recording service.
+ConvoyConfig.kt | 1+fields | Feature flags, tile sources, paths.
+ConvoySimulation.kt | 4 | Dev simulation mode.
+File | Functions | Purpose
+ConvoyScreen.kt | 15 | Convoy map. WebView, HUD, record controls, download.
+ConvoyMapViewerScreen.kt | 6 | Map viewer. Track display, download, no convoy overlays.
+File | Functions | Purpose
+ConvoyRadioConfigScreens.kt | 13 | Device/LoRa/Position/Channel config screens.
+ConvoyRadioManager.kt | 4 | Snapshot, backup, write capability check.
+ConvoyRadioWriter.kt | 7 | Staged radio write execution.
+ConvoyApplyRadioScreen.kt | 4 | Apply convoy master config to radio.
+ConvoyApplyListScreen.kt | 6 | Apply list management UI.
+ConvoyApplyList.kt | 1 | Apply list data model.
+ConvoyMasterApply.kt | 4 | Master config apply logic.
+ConvoyProfileBuilder.kt | 4 | Build protobuf profiles from config.
+File | Functions | Purpose
+ConvoySessionManager.kt | 25 | Auth state, subscription, launch routing.
+ConvoyApiClient.kt | 12 | PHP REST API client.
+ConvoyDashboardScreen.kt | 10 | V3 dashboard.
+ConvoySignInScreen.kt | 6 | Google Sign-In.
+ConvoyEnrollmentQueue.kt | 12 | Ride enrollment pipeline.
+ConvoyRideDetailScreen.kt | 8 | Ride detail view.
+GroupTrackTheme.kt | 10 | Theme, nav bar, dev menu.
++ 13 more screens | ~50 | Services UI screens (V3 gated).
+File | Functions | Purpose
+ConvoySettingsScreen.kt | 4 | Alert thresholds, removed carts.
+ConvoySettingsViewModel.kt | 8 | Settings state management.
+ConvoySettingsRepository.kt | 8 | DataStore persistence for settings.
+ConvoySettingsPanel.kt | 4 | Protected settings panel.
+ConvoyNodeFilter.kt | 2 | Filter nodes by admission window.
+ConvoySubMenu.kt | 3 | Accordion sub-menu component.
+ID | Issue | Root Cause | Status | Commit
+ANR-01 | 22s ANR on fresh install (startActivity) | startActivity() in onCreate steals focus | FIXED | 6cbd92936
+ANR-02 | ANR from phone GPS in tick without permission | startPhoneGps called before ACCESS_FINE_LOCATION granted | GUARDED | efa1b677e
+ANR-03 | Poisoned Play Services state after pre-Firebase sideload | Cached certificate rejection survives uninstall | MITIGATED (factory reset) | N/A
+FIRE-01 | 7–10s startup delay from Firebase SecurityException | SHA-256 fingerprints not registered for com.grouptrack.android | FIXED | 8b10c9e01
+TICK-01 | Tick runs from init before permissions/map exist | startTick() in ViewModel init{} | GUARDED (permission check) | efa1b677e
+TICK-02 | Autopause removed — needs restoration | Was rolled back for unrelated ANR. In GPS cycle, not tick. | OPEN | fc8c93ba3
+MAP-01 | Map may need tile toggle to refresh on first load | setTileUrl in onPageFinished timing | OPEN | N/A
+GPS-01 | Phone node created at 0,0 before GPS fix | getPhoneLocation returns null, defaults to 0.0 | OPEN | N/A
+GPS-02 | GPS cold start takes 30–60s after factory reset | Android GPS behavior — no cached ephemeris | BY DESIGN | N/A
+BLE-01 | Budget tablets can't hold BLE to T1000-E | Supervision timeout on budget BLE hardware | HARDWARE | N/A
+Question | Answer Required
+What function am I changing? | Name, file, line number
+What calls this function? | Trace callers from where-used reference above
+What lifecycle phase does it run in? | INIT / TICK / MAP-LOAD / RECORD / RADIO / USER
+Does it run on the main thread? | YES/NO — if YES, can it block?
+Does it require permissions? | List: ACCESS_FINE_LOCATION, BLUETOOTH_SCAN, etc.
+Are those permissions guaranteed at this phase? | INIT=NO, MAP-LOAD=MAYBE, RECORD=YES
+Does it access network, GPS, or file I/O? | Any of these can block the main thread
+Does it launch another Activity? | NEVER during INIT or TICK
+Have I tested on a CLEAN INSTALL? | Uninstall, install, grant permissions, time startup
+Have I tested on the SLOWEST device? | P10_T (3GB RAM, Android 16)
 
 === GroupTrack_WorkPlan_Apr5_v1.docx ===
 GroupTrack
