@@ -82,7 +82,7 @@ object ConvoyConfig {
     var OFF_TRACK_MILES = 0.028f  // 150 feet
     const val API_BASE_URL = "https://grouptrack.org/convoy_api.php/"  // V3.0 backend
     const val V3_FEATURES_ENABLED = false
-    const val PAYWALL_ENABLED = true              // Flip to true when growth warrants paywall                  // Flip to true to expose V3 to testers
+    const val PAYWALL_ENABLED = false              // Flip to true when growth warrants paywall                  // Flip to true to expose V3 to testers
     const val IS_STANDALONE_BUILD = true  // true = beta APK, false = Google Play build
     var TRACK_EXPORT_FORMAT = "GPX"  // GPX = default (Garmin/Strava/AllTrails), KML = Google Earth/route donation
     var DOWNLOAD_ZOOM = 18

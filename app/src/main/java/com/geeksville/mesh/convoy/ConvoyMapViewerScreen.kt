@@ -37,6 +37,9 @@ import androidx.compose.ui.viewinterop.AndroidView
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.foundation.layout.Box
 
 /**
  * Standalone map viewer with trail overlays and track display.
@@ -44,7 +47,12 @@ import kotlinx.coroutines.withContext
  */
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
-fun ConvoyMapViewerScreen(onBack: () -> Unit, convoyViewModel: ConvoyViewModel = hiltViewModel()) {
+fun ConvoyMapViewerScreen(
+    onBack: () -> Unit,
+    onNavigateToTrackExport: () -> Unit = {},
+    onNavigateToTrackImport: () -> Unit = {},
+    convoyViewModel: ConvoyViewModel = hiltViewModel()
+) {
     val context = LocalContext.current
     var webViewRef by remember { mutableStateOf<WebView?>(null) }
 
@@ -60,6 +68,7 @@ fun ConvoyMapViewerScreen(onBack: () -> Unit, convoyViewModel: ConvoyViewModel =
     var trailsOn by remember { mutableStateOf(false) }
     var trailsLoaded by remember { mutableStateOf(false) }
     var showTrackPanel by remember { mutableStateOf(false) }
+    var showTrackMenu by remember { mutableStateOf(false) }
     var trackFileList by remember { mutableStateOf<List<String>>(emptyList()) }
     var loadedTracks by remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
     var trackSearchText by remember { mutableStateOf("") }
@@ -166,21 +175,64 @@ fun ConvoyMapViewerScreen(onBack: () -> Unit, convoyViewModel: ConvoyViewModel =
                         }
                     }.padding(8.dp)
                 )
-                Text(
-                    "TRACKS",
-                    color = if (showTrackPanel) Color(0xFF39FF14) else Color(0xFF445566),
-                    fontSize = 11.sp,
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.clickable {
-                        // Check file access permission
-                        if (!showTrackPanel) {
-                            kotlinx.coroutines.MainScope().launch(kotlinx.coroutines.Dispatchers.IO) { val files = scanTrackDir(context); kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { trackFileList = files } }
-                            trackSearchText = ""
-                        }
-                        showTrackPanel = !showTrackPanel
-                    }.padding(8.dp)
-                )
+                Box {
+                    Text(
+                        "TRACKS ▼",
+                        color = if (showTrackPanel) Color(0xFF39FF14) else Color(0xFF445566),
+                        fontSize = 11.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.clickable {
+                            showTrackMenu = !showTrackMenu
+                        }.padding(8.dp)
+                    )
+                    DropdownMenu(
+                        expanded = showTrackMenu,
+                        onDismissRequest = { showTrackMenu = false },
+                        modifier = Modifier.background(Color(0xFF262B26))
+                    ) {
+                        DropdownMenuItem(
+                            text = {
+                                Text("Select Tracks to Display",
+                                    color = Color(0xFFDFE4DC), fontSize = 11.sp,
+                                    fontFamily = FontFamily.Monospace)
+                            },
+                            onClick = {
+                                showTrackMenu = false
+                                if (!showTrackPanel) {
+                                    kotlinx.coroutines.MainScope().launch(kotlinx.coroutines.Dispatchers.IO) {
+                                        val files = scanTrackDir(context)
+                                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { trackFileList = files }
+                                    }
+                                    trackSearchText = ""
+                                }
+                                showTrackPanel = !showTrackPanel
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = {
+                                Text("Work With Tracks",
+                                    color = Color(0xFFDFE4DC), fontSize = 11.sp,
+                                    fontFamily = FontFamily.Monospace)
+                            },
+                            onClick = {
+                                showTrackMenu = false
+                                onNavigateToTrackExport()
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = {
+                                Text("Import from Downloads",
+                                    color = Color(0xFFDFE4DC), fontSize = 11.sp,
+                                    fontFamily = FontFamily.Monospace)
+                            },
+                            onClick = {
+                                showTrackMenu = false
+                                onNavigateToTrackImport()
+                            }
+                        )
+                    }
+                }
             }
         }
 

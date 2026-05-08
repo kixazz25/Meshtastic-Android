@@ -97,6 +97,7 @@ fun ConvoyScreen(
     onNavigateToCreateEvent: () -> Unit = {},
     onNavigateToSettingsPanel: () -> Unit = {},
     onNavigateToTrackExport: () -> Unit = {},
+    onNavigateToTrackImport: () -> Unit = {},
     onNavigateToMapViewer: () -> Unit = {},
     viewModel: ConvoyViewModel = hiltViewModel()
 ) {
@@ -153,6 +154,7 @@ fun ConvoyScreen(
     var convoyTrackSearch by remember { mutableStateOf("") }
         var showMapSettings by remember { mutableStateOf(false) }
     var showConvoyMenu by remember { mutableStateOf(false) }
+        var pendingImportNav by remember { mutableStateOf(false) }
     val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
     var showImportSplash by remember { mutableStateOf(false) }
     val pendingImportBanner by viewModel.pendingImportBanner.collectAsStateWithLifecycle()
@@ -1478,10 +1480,16 @@ fun ConvoyScreen(
                 onTransferConfig          = { showConvoyMenu = false },
                 onNavigateToCreateEvent   = onNavigateToCreateEvent,
                 onNavigateToSettingsPanel = onNavigateToSettingsPanel,
+                onNavigateToTrackExport   = onNavigateToTrackExport,
+                onNavigateToTrackImport   = { showConvoyMenu = false; pendingImportNav = true },
+                onNavigateToMapViewer     = onNavigateToMapViewer,
 
             )
         }
 
+        androidx.compose.runtime.LaunchedEffect(pendingImportNav) {
+            if (pendingImportNav) { pendingImportNav = false; onNavigateToTrackImport() }
+        }
         // ── Button bar ────────────────────────────────────────────────────
         if (downloadState is ConvoyViewModel.DownloadState.Downloading) {
             val ds = downloadState as ConvoyViewModel.DownloadState.Downloading

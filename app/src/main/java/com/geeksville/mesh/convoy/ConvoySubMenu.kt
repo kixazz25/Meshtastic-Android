@@ -55,6 +55,7 @@ fun ConvoySubMenu(
     onImportFromDownloads: () -> Unit = {},
     onExportTracks: () -> Unit = {},
     onNavigateToTrackExport: () -> Unit = {},
+    onNavigateToTrackImport: () -> Unit = {},
     onNavigateToMapViewer: () -> Unit = {}
 ) {
     ModalBottomSheet(
@@ -176,12 +177,11 @@ fun ConvoySubMenu(
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     SubMenuItem(
-                        label   = "Export Tracks to Downloads",
-                        sub     = "Open track file manager",
+                        label   = "Work With Tracks",
+                        sub     = "Rename, delete, share, export, fix dates",
                         enabled = true,
                         onClick = {
                             expanded = null
-                            onDismiss()
                             onNavigateToTrackExport()
                         }
                     )
@@ -191,7 +191,6 @@ fun ConvoySubMenu(
                         enabled = true,
                         onClick = {
                             expanded = null
-                            onDismiss()
                             onNavigateToMapViewer()
                         }
                     )

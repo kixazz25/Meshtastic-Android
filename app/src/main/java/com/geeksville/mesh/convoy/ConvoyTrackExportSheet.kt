@@ -4,6 +4,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -34,7 +36,7 @@ private enum class SortMode { DATE_DESC, DATE_ASC, NAME_ASC, NAME_DESC }
  * for caller compatibility.
  */
 @Composable
-fun ConvoyTrackExportSheet(onDismiss: () -> Unit) {
+fun ConvoyTrackExportSheet(onDismiss: () -> Unit, onNavigateToTrackImport: () -> Unit = {}) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
@@ -81,12 +83,16 @@ fun ConvoyTrackExportSheet(onDismiss: () -> Unit) {
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFF0A1020))
+            .navigationBarsPadding()
             .padding(12.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("Work With Tracks",
                 color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.weight(1f))
+            TextButton(onClick = { onNavigateToTrackImport() }) {
+                Text("Import", color = Color(0xFF81D4FA), fontSize = 14.sp)
+            }
             TextButton(onClick = onDismiss) {
                 Text("Done", color = Color(0xFF39FF14), fontSize = 14.sp)
             }
@@ -181,7 +187,7 @@ fun ConvoyTrackExportSheet(onDismiss: () -> Unit) {
                 Text("No tracks", color = Color(0xFF7A8DA0), fontSize = 14.sp)
             }
         } else {
-            LazyColumn(modifier = Modifier.weight(1f)) {
+            LazyColumn(modifier = Modifier.weight(1f), contentPadding = PaddingValues(bottom = 16.dp)) {
                 items(visibleTracks, key = { it.absolutePath }) { f ->
                     TrackRow(
                         file = f,

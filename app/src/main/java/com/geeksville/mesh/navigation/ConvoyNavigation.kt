@@ -47,6 +47,7 @@ import com.geeksville.mesh.convoy.ConvoyBroadcastScreen
 import com.geeksville.mesh.convoy.ConvoyProfileScreen
 import com.geeksville.mesh.convoy.ConvoyExploreScreen
 import org.meshtastic.core.navigation.ConvoyRoutes
+import com.geeksville.mesh.convoy.ConvoyTrackImportScreen
 
 fun NavGraphBuilder.convoyGraph(
     navController: NavHostController? = null,
@@ -56,6 +57,8 @@ fun NavGraphBuilder.convoyGraph(
     composable<ConvoyRoutes.Convoy> {
         ConvoyScreen(
             onNavigateToMapViewer = { navController?.navigate(ConvoyRoutes.ConvoyMapViewer) },
+            onNavigateToTrackExport = { navController?.navigate(ConvoyRoutes.ConvoyTracks) },
+            onNavigateToTrackImport = { navController?.navigate(ConvoyRoutes.ConvoyTrackImport) },
             onNavigateToSettings = {
                 navController?.navigate(ConvoyRoutes.ConvoySettings)
             }
@@ -171,13 +174,22 @@ fun NavGraphBuilder.convoyGraph(
     // ── Track Export ─────────────────────────────────────────────────────
     composable<ConvoyRoutes.ConvoyTracks> {
         com.geeksville.mesh.convoy.ConvoyTrackExportSheet(
-            onDismiss = { navController?.popBackStack() }
+            onDismiss = { navController?.popBackStack() },
+            onNavigateToTrackImport = { navController?.navigate(ConvoyRoutes.ConvoyTrackImport) }
         )
     }
     // ── Map Viewer with trail overlay ────────────────────────────────
     composable<ConvoyRoutes.ConvoyMapViewer> {
         com.geeksville.mesh.convoy.ConvoyMapViewerScreen(
-            onBack = { navController?.popBackStack() }
+            onBack = { navController?.popBackStack() },
+            onNavigateToTrackExport = { navController?.navigate(ConvoyRoutes.ConvoyTracks) },
+            onNavigateToTrackImport = { navController?.navigate(ConvoyRoutes.ConvoyTrackImport) }
+        )
+    }
+    // -- Track Import -- in-app file browser --
+    composable<ConvoyRoutes.ConvoyTrackImport> {
+        ConvoyTrackImportScreen(
+            onDismiss = { navController?.popBackStack() }
         )
     }
     // ── Reconnect Wait — between import and verify ───────────────────────
