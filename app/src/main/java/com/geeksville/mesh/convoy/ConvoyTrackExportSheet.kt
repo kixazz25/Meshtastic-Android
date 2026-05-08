@@ -53,7 +53,7 @@ fun ConvoyTrackExportSheet(onDismiss: () -> Unit) {
         allTracks = ConvoyTrackOps.listTracks()
     }
 
-    val visibleTracks = remember(allTracks, searchText, sortMode, filterMode) {
+    val visibleTracks = remember(allTracks, searchText, sortMode, filterMode, refreshTick) {
         allTracks
             .filter { f ->
                 when (filterMode) {
