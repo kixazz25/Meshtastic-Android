@@ -5359,6 +5359,78 @@ Test | Steps | Expected
 4 — Radio disconnect mid-ride | Start ride with radio. Unplug radio. | readLiveNodes() returns empty. Device node takes over. Track continues from phone GPS.
 5 — No GPS permission | Deny location permission. Tap RECORD. | Location permission dialog appears. Does not start recording.
 
+=== GroupTrack_Strategic_Context.docx ===
+GroupTrack — Strategic Context for Handoffs
+The 20,000 foot view. Read this BEFORE the tactical handoff docs.
+Purpose of This Document
+Tactical handoffs answer "what do I do." This document answers "why are we doing it, and what is the world we are building toward." Without this view, a fresh Claude can execute instructions but cannot anticipate, refactor, or push back when a tactical request conflicts with strategic direction. This document gives that 20,000 foot view so each session's work fits into the trajectory rather than just executing the day's checklist.
+What GroupTrack Actually Is
+GroupTrack is an Android-first off-road convoy tracking application built on a forked Meshtastic codebase. The original purpose: real-time GPS position sharing across a group of riders using Meshtastic mesh radios, with no cell service required. The product was built around real off-road riding — Fred (the developer) rides with off-road groups and uses GroupTrack on actual trail rides like the St. George to Bar 10 Grand Canyon route. Every architectural decision can be traced back to a real convoy-riding use case.
+As of V2.4 the product is repositioning from "convoy-tracking app for radio owners" to a dual-mode product: free standalone GPS tracker (no radio required) for solo riders, plus convoy capabilities when a Meshtastic radio is added.
+The V2.4 Audience-Expansion Strategy
+Before V2.4, GroupTrack required a Meshtastic radio purchase to be useful. That capped the audience at riders who already owned (or were willing to buy) Meshtastic hardware. Small audience, slow growth.
+V2.4 introduces standalone mode: open the app with no radio, get full GPS tracking, offline maps, trail overlays, and track recording. Functionally comparable to Gaia GPS and onX, free at the entry point. Strategic intent:
+Lower the activation threshold — anyone with an Android phone can use GroupTrack solo, no purchase, no commitment
+Compete on the standalone GPS tracker dimension where Gaia/onX are dominant but charge $30–80/year
+Convert solo users to convoy users naturally — once on the platform, riding with a group becomes a desirable next step, and the radio purchase becomes the upsell
+Establish GroupTrack as the rider's daily-driver GPS app, not a niche tool used only on convoy days
+This means tactical decisions about V2.4 polish — UI quality, first-impression risk, ANR-free operation, professional packaging — are NOT cosmetic. They are the conversion funnel. A solo rider's first GPS app session has to feel as good as Gaia's. Anything less and they uninstall and never see the convoy features.
+Why the V2.4 Import Rewrite Matters Strategically
+The system file picker ANR is not just a bug. It hits the exact moment that determines whether a solo rider becomes a returning user: their first import of existing tracks from Gaia or onX. If that flow ANRs, the rider concludes "this app is broken" and uninstalls. The picker rewrite is a conversion-funnel fix, not a polish item.
+It also previews the V2.5 architecture. V2.5 makes the Map Viewer the central hub for ALL track management — display, import, export, email, file ops. Building a custom in-app file browser for V2.4 import puts the foundation in place for V2.5. Tomorrow's tactical work serves both today's release and the next quarter's architecture. That's why the right answer is custom in-app browser, not picker-with-better-error-handling.
+The V2.4 → V2.5 → V3.0 Arc
+Three releases form a coherent product progression:
+V2.4 (current)
+Ship something testers can use without ANRs
+Introduce standalone mode as a feature, even if not fully polished
+Free for solo riders, no monetization yet
+Goal: get to Play Store, get real users, get feedback
+V2.5
+Polish standalone mode to genuine Gaia/onX feature parity
+Make Map Viewer the unified hub for all track management
+Build out national trail catalog with unified GeoPackage architecture (replaces 22MB Utah-only GeoJSON)
+Three engines: ingestion, distribution, local display
+Region-based downloads paired with tile sets
+Higher-resolution GPS (1-second option vs current 3-second)
+Goal: solo riders feel they have a finished product, not a beta
+V3.0
+Premium tier introduced — $3.00/month subscription via Google Play and Apple IAP
+Cloud sync of tracks, routes, waypoints to user web account
+Map Manager Phase C: auto-tile-download on ride enrollment, PROTECTED/PURGEABLE state model, AWS tile cloud sync per organization, storage dashboard
+Package migration: com.geeksville.mesh → com.grouptrack.android (the V3.0 pre-release gate)
+Goal: revenue from individual subscriptions, organization services, and advertising
+Each tactical decision should be evaluated against where it sits in this arc. "Is this V2.4 polish or V2.5 architecture?" is the most useful question for scoping. "Does this advance the V3.0 monetization model?" is the second.
+Business Model and Revenue
+Single subscription tier: $3.00/month. No multi-tier complexity. Revenue streams:
+Individual subscriptions ($3/month) — premium features in V3.0
+Organization services — tile cloud sync, shared trail catalogs, premium support for off-road clubs and event organizers
+Advertising — modest, non-intrusive, eventual
+Free tier remains generous: standalone GPS, offline maps within download limit, basic track recording. Premium tier: cloud sync, unlimited tile storage, advanced track stats, group features.
+Operational Reality
+Things that constrain how work happens, and why corner-cutting compounds painfully:
+Solo developer (Fred). Every wasted hour is real time lost — no one else picks up the slack.
+Windows 11 + Git Bash environment. Path translation between Windows native and Bash adds occasional friction.
+Build cycles are 20–60 minutes. Burning a build on an unverified change is a meaningful cost.
+Docs / cross-reference tooling is research infrastructure, not housekeeping. When it's stale or broken, every diagnostic step requires rediscovering codebase structure that should be a query away.
+Fred is domain expert in the project, but does not have IDE-grade tooling running locally. Claude is his analysis and refactor partner. Claude's quality of work is bounded by the quality of structural data available about the codebase.
+Tester device compatibility: Tab8NEU and budget Android tablets cannot hold BLE to T1000-E radios. Only name-brand phones are reliable. Document this, don't fight it.
+Working Pattern That Has Earned Trust
+Lessons from real sessions, especially 2026-05-07:
+Diagnose fully before patching. Symptom-chasing without root cause analysis costs hours, sometimes days.
+One command at a time, with echo-back confirmation. Scripts and patches are uniquely versioned (e.g. patch_v24_name_v1.py).
+Confirm all source changes via grep before any build.
+If scope expands mid-session, stop and re-spec. Mid-build pivots cost 1–2 days.
+When Fred raises a structural critique ("we keep cutting corners," "things get lost in handoff"), that is not venting. It is signaling that the working pattern itself needs adjustment. Treat such comments as requirements, not feedback.
+Don't push items to "later" without writing them down. Things deferred in conversation get lost in handoff.
+When structural tooling (cross-reference, function inventory, where-used) is stale or missing, regenerate it FIRST. Do not fall back to grep-based investigation as a substitute. The tooling is the force multiplier — without it, every diagnostic step regresses to manual lookup with the developer.
+How a Fresh Claude Should Use This Document
+Before reading any tactical handoff:
+Read this entire document. It is short. The trajectory and constraint context will recolor every tactical instruction.
+When you encounter a tactical request in the V2.4 handoff or in conversation, ask: does this fit V2.4 audience-expansion goals? Does it advance toward V2.5 Map Viewer hub? Does it conflict with the V3.0 monetization arc?
+If the answer is "this is just polish, no strategic alignment," question whether it is actually worth this build cycle.
+If the answer is "this conflicts with the trajectory," raise it. Quietly executing a misaligned request is worse than pausing to discuss.
+If structural tooling (cross-reference output) is missing or stale, regenerate it before doing anything else. This is Phase 0.0 — before even Phase 0 of the tactical handoff.
+
 === GroupTrack_TaskList_Apr3.docx ===
 GroupTrack
 Daily Task List — April 3, 2026
