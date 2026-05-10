@@ -1,0 +1,472 @@
+{
+  "catalog_version": 1,
+  "updated_at": "2026-05-10T08:00:00Z",
+  "schema_version": "1.0",
+  "validation_defaults": {
+    "test_tile_z": 10,
+    "expected_min_bytes": 1000,
+    "connection_timeout_ms": 5000
+  },
+  "sources": [
+    {
+      "id": "google-hybrid",
+      "producer": "Google",
+      "map_type": "HYB",
+      "name": "Google Hybrid",
+      "short_label": "HYB",
+      "layers": [
+        {
+          "role": "base",
+          "url_template": "https://mt{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}",
+          "subdomains": "0,1,2,3",
+          "tile_format": "png",
+          "min_zoom": 0,
+          "max_zoom": 20,
+          "cache_dir": "google_hybrid"
+        }
+      ],
+      "requires_key": false,
+      "attribution": "Map data © Google",
+      "downloadable": true,
+      "validation": {
+        "test_tile_x": 193,
+        "test_tile_y": 395,
+        "expected_content_type": "image/png"
+      }
+    },
+    {
+      "id": "google-satellite",
+      "producer": "Google",
+      "map_type": "SAT",
+      "name": "Google Satellite",
+      "short_label": "SAT",
+      "layers": [
+        {
+          "role": "base",
+          "url_template": "https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}",
+          "subdomains": "0,1,2,3",
+          "tile_format": "jpg",
+          "min_zoom": 0,
+          "max_zoom": 20,
+          "cache_dir": "google_sat"
+        }
+      ],
+      "requires_key": false,
+      "attribution": "Imagery © Google",
+      "downloadable": true,
+      "validation": {
+        "test_tile_x": 193,
+        "test_tile_y": 395,
+        "expected_content_type": "image/jpeg"
+      }
+    },
+    {
+      "id": "google-roads",
+      "producer": "Google",
+      "map_type": "STREET",
+      "name": "Google Roads",
+      "short_label": "ROADS",
+      "layers": [
+        {
+          "role": "base",
+          "url_template": "https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}",
+          "subdomains": "0,1,2,3",
+          "tile_format": "png",
+          "min_zoom": 0,
+          "max_zoom": 20,
+          "cache_dir": "google_roads"
+        }
+      ],
+      "requires_key": false,
+      "attribution": "Map data © Google",
+      "downloadable": true,
+      "validation": {
+        "test_tile_x": 193,
+        "test_tile_y": 395,
+        "expected_content_type": "image/png"
+      }
+    },
+    {
+      "id": "google-terrain",
+      "producer": "Google",
+      "map_type": "TERRAIN",
+      "name": "Google Terrain",
+      "short_label": "TERR",
+      "layers": [
+        {
+          "role": "base",
+          "url_template": "https://mt{s}.google.com/vt/lyrs=p&x={x}&y={y}&z={z}",
+          "subdomains": "0,1,2,3",
+          "tile_format": "png",
+          "min_zoom": 0,
+          "max_zoom": 20,
+          "cache_dir": "google_terrain"
+        }
+      ],
+      "requires_key": false,
+      "attribution": "Map data © Google",
+      "downloadable": true,
+      "validation": {
+        "test_tile_x": 193,
+        "test_tile_y": 395,
+        "expected_content_type": "image/png"
+      }
+    },
+    {
+      "id": "esri-imagery",
+      "producer": "Esri",
+      "map_type": "SAT",
+      "name": "Esri World Imagery",
+      "short_label": "ESRI",
+      "layers": [
+        {
+          "role": "base",
+          "url_template": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+          "tile_format": "jpg",
+          "min_zoom": 0,
+          "max_zoom": 19,
+          "cache_dir": "esri_imagery"
+        }
+      ],
+      "requires_key": false,
+      "attribution": "© Esri",
+      "downloadable": true,
+      "validation": {
+        "test_tile_x": 193,
+        "test_tile_y": 395,
+        "expected_content_type": "image/jpeg"
+      }
+    },
+    {
+      "id": "esri-imagery-overlays",
+      "producer": "Esri",
+      "map_type": "HYB",
+      "name": "Esri Imagery + Roads + Labels",
+      "short_label": "SAT",
+      "layers": [
+        {
+          "role": "base",
+          "url_template": "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+          "tile_format": "jpg",
+          "min_zoom": 0,
+          "max_zoom": 19,
+          "cache_dir": "SAT",
+          "render_order": 0
+        },
+        {
+          "role": "overlay",
+          "url_template": "https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}",
+          "tile_format": "png",
+          "min_zoom": 0,
+          "max_zoom": 19,
+          "cache_dir": "SAT_LABELS_TRANSPORT",
+          "render_order": 1
+        },
+        {
+          "role": "overlay",
+          "url_template": "https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}",
+          "tile_format": "png",
+          "min_zoom": 0,
+          "max_zoom": 19,
+          "cache_dir": "SAT_LABELS_PLACES",
+          "render_order": 2
+        }
+      ],
+      "requires_key": false,
+      "attribution": "© Esri",
+      "downloadable": true,
+      "notes": "Current V2.4 default SAT. Legacy service. Cache_dirs match existing tile storage. 3 downloads required.",
+      "validation": {
+        "test_tile_x": 193,
+        "test_tile_y": 395,
+        "expected_content_type": "image/jpeg"
+      }
+    },
+    {
+      "id": "esri-usa-topo",
+      "producer": "Esri",
+      "map_type": "TOPO",
+      "name": "Esri USA Topo Maps",
+      "short_label": "TOPO+",
+      "layers": [
+        {
+          "role": "base",
+          "url_template": "https://server.arcgisonline.com/ArcGIS/rest/services/USA_Topo_Maps/MapServer/tile/{z}/{y}/{x}",
+          "tile_format": "png",
+          "min_zoom": 0,
+          "max_zoom": 15,
+          "cache_dir": "TOPO+"
+        }
+      ],
+      "requires_key": false,
+      "attribution": "© Esri / USGS",
+      "downloadable": true,
+      "notes": "Current V2.4 TOPO+. USGS hand-drawn topo style with trails. Hosted by Esri. Note: server.arcgisonline.com not services.",
+      "validation": {
+        "test_tile_x": 193,
+        "test_tile_y": 395,
+        "expected_content_type": "image/png"
+      }
+    },
+    {
+      "id": "esri-topo",
+      "producer": "Esri",
+      "map_type": "TOPO",
+      "name": "Esri World Topo",
+      "short_label": "TOPO",
+      "layers": [
+        {
+          "role": "base",
+          "url_template": "https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
+          "tile_format": "png",
+          "min_zoom": 0,
+          "max_zoom": 19,
+          "cache_dir": "TOPO"
+        }
+      ],
+      "requires_key": false,
+      "attribution": "© Esri",
+      "downloadable": true,
+      "validation": {
+        "test_tile_x": 193,
+        "test_tile_y": 395,
+        "expected_content_type": "image/png"
+      }
+    },
+    {
+      "id": "esri-natgeo",
+      "producer": "Esri",
+      "map_type": "OUTDOOR",
+      "name": "Esri NatGeo",
+      "short_label": "NATG",
+      "layers": [
+        {
+          "role": "base",
+          "url_template": "https://server.arcgisonline.com/ArcGIS/rest/services/NatGeo_World_Map/MapServer/tile/{z}/{y}/{x}",
+          "tile_format": "jpg",
+          "min_zoom": 0,
+          "max_zoom": 16,
+          "cache_dir": "esri_natgeo"
+        }
+      ],
+      "requires_key": false,
+      "attribution": "© Esri / National Geographic",
+      "downloadable": true,
+      "validation": {
+        "test_tile_x": 193,
+        "test_tile_y": 395,
+        "expected_content_type": "image/jpeg"
+      }
+    },
+    {
+      "id": "opentopomap",
+      "producer": "OpenTopoMap",
+      "map_type": "TOPO",
+      "name": "OpenTopoMap",
+      "short_label": "OTM",
+      "layers": [
+        {
+          "role": "base",
+          "url_template": "https://tile.opentopomap.org/{z}/{x}/{y}.png",
+          "tile_format": "png",
+          "min_zoom": 0,
+          "max_zoom": 17,
+          "cache_dir": "opentopomap"
+        }
+      ],
+      "requires_key": false,
+      "attribution": "© OpenTopoMap (CC-BY-SA)",
+      "downloadable": true,
+      "notes": "Rate limited — respect usage policy.",
+      "validation": {
+        "test_tile_x": 193,
+        "test_tile_y": 395,
+        "expected_content_type": "image/png"
+      }
+    },
+    {
+      "id": "usgs-topo",
+      "producer": "USGS",
+      "map_type": "TOPO",
+      "name": "USGS Topo",
+      "short_label": "USGS",
+      "layers": [
+        {
+          "role": "base",
+          "url_template": "https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile/{z}/{y}/{x}",
+          "tile_format": "png",
+          "min_zoom": 0,
+          "max_zoom": 16,
+          "cache_dir": "usgs_topo"
+        }
+      ],
+      "requires_key": false,
+      "attribution": "USGS The National Map",
+      "downloadable": true,
+      "notes": "US coverage only.",
+      "validation": {
+        "test_tile_x": 193,
+        "test_tile_y": 395,
+        "expected_content_type": "image/png"
+      }
+    },
+    {
+      "id": "usgs-imagery-topo",
+      "producer": "USGS",
+      "map_type": "HYB",
+      "name": "USGS Imagery + Topo",
+      "short_label": "TOPO+",
+      "layers": [
+        {
+          "role": "base",
+          "url_template": "https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryTopo/MapServer/tile/{z}/{y}/{x}",
+          "tile_format": "png",
+          "min_zoom": 0,
+          "max_zoom": 16,
+          "cache_dir": "usgs_imagery_topo"
+        }
+      ],
+      "requires_key": false,
+      "attribution": "USGS The National Map",
+      "downloadable": true,
+      "notes": "US coverage only. Satellite with topo contour overlay.",
+      "validation": {
+        "test_tile_x": 193,
+        "test_tile_y": 395,
+        "expected_content_type": "image/png"
+      }
+    },
+    {
+      "id": "openstreetmap",
+      "producer": "OpenStreetMap",
+      "map_type": "STREET",
+      "name": "OpenStreetMap",
+      "short_label": "OSM",
+      "layers": [
+        {
+          "role": "base",
+          "url_template": "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+          "tile_format": "png",
+          "min_zoom": 0,
+          "max_zoom": 19,
+          "cache_dir": "openstreetmap"
+        }
+      ],
+      "requires_key": false,
+      "attribution": "© OpenStreetMap contributors",
+      "downloadable": true,
+      "notes": "Rate limited — max 2 req/sec. Must display attribution.",
+      "validation": {
+        "test_tile_x": 193,
+        "test_tile_y": 395,
+        "expected_content_type": "image/png"
+      }
+    },
+    {
+      "id": "caltopo-usfs",
+      "producer": "CalTopo",
+      "map_type": "OUTDOOR",
+      "name": "CalTopo USFS Topo",
+      "short_label": "CALT",
+      "layers": [
+        {
+          "role": "base",
+          "url_template": "https://caltopo.s3.amazonaws.com/topo/{z}/{x}/{y}.png",
+          "tile_format": "png",
+          "min_zoom": 2,
+          "max_zoom": 16,
+          "cache_dir": "caltopo_usfs"
+        }
+      ],
+      "requires_key": false,
+      "attribution": "© CalTopo",
+      "downloadable": true,
+      "validation": {
+        "test_tile_x": 193,
+        "test_tile_y": 395,
+        "expected_content_type": "image/png"
+      }
+    },
+    {
+      "id": "thunderforest-outdoors",
+      "producer": "Thunderforest",
+      "map_type": "OUTDOOR",
+      "name": "Thunderforest Outdoors",
+      "short_label": "TF",
+      "layers": [
+        {
+          "role": "base",
+          "url_template": "https://tile.thunderforest.com/outdoors/{z}/{x}/{y}.png?apikey={key}",
+          "tile_format": "png",
+          "min_zoom": 0,
+          "max_zoom": 22,
+          "cache_dir": "thunderforest_outdoors"
+        }
+      ],
+      "requires_key": true,
+      "api_key_param": "apikey",
+      "api_registration_url": "https://www.thunderforest.com/docs/apikeys/",
+      "api_cost_note": "Free tier: 150K tiles/month",
+      "attribution": "© Thunderforest / OSM contributors",
+      "downloadable": true,
+      "validation": {
+        "test_tile_x": 193,
+        "test_tile_y": 395,
+        "expected_content_type": "image/png"
+      }
+    },
+    {
+      "id": "cartodb-voyager",
+      "producer": "CartoDB",
+      "map_type": "STREET",
+      "name": "CartoDB Voyager",
+      "short_label": "CARTO",
+      "layers": [
+        {
+          "role": "base",
+          "url_template": "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png",
+          "subdomains": "a,b,c,d",
+          "tile_format": "png",
+          "min_zoom": 0,
+          "max_zoom": 20,
+          "cache_dir": "cartodb_voyager"
+        }
+      ],
+      "requires_key": false,
+      "attribution": "© CartoDB / OSM contributors",
+      "downloadable": true,
+      "validation": {
+        "test_tile_x": 193,
+        "test_tile_y": 395,
+        "expected_content_type": "image/png"
+      }
+    }
+  ],
+  "custom_source_template": {
+    "id": "custom-{timestamp}",
+    "producer": "",
+    "map_type": "",
+    "name": "",
+    "short_label": "",
+    "layers": [
+      {
+        "role": "base",
+        "url_template": "",
+        "tile_format": "png",
+        "min_zoom": 0,
+        "max_zoom": 18,
+        "cache_dir": "custom_{timestamp}"
+      }
+    ],
+    "requires_key": false,
+    "api_key_param": "",
+    "api_registration_url": "",
+    "attribution": "",
+    "downloadable": true
+  },
+  "default_slots": [
+    {"slot": 1, "source_id": "esri-imagery-overlays", "legacy_key": "SAT"},
+    {"slot": 2, "source_id": "esri-topo", "legacy_key": "TOPO"},
+    {"slot": 3, "source_id": "esri-usa-topo", "legacy_key": "TOPO+"}
+  ]
+}
