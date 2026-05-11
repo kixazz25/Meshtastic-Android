@@ -908,7 +908,7 @@ if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
     val downloadState: StateFlow<DownloadState> = _downloadState.asStateFlow()
     private val _pendingDownload = MutableStateFlow<PendingDownload?>(null)
     val pendingDownload: StateFlow<PendingDownload?> = _pendingDownload.asStateFlow()
-    private var downloadJob: kotlinx.coroutines.Job? = null
+    private var activeEntryId: String? = null
     var downloadStartTime: Long = 0L
 
     fun setPendingDownload(pending: PendingDownload) { _pendingDownload.value = pending }
@@ -917,47 +917,47 @@ if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
     fun startDownload(context: android.content.Context, pending: PendingDownload) {
         clearPendingDownload()
         downloadStartTime = System.currentTimeMillis()
-        downloadJob = viewModelScope.launch {
-            val tiles = ConvoyTileCalculator.calculateTiles(pending.north, pending.south, pending.east, pending.west)
-            // All sources + layers from map_sources.json — single source of truth
-            MapSourceManager.init(context)
-            val downloadSources = MapSourceManager.getDownloadSources()
-            val totalLayers = downloadSources.sumOf { it.second.size }
-            val totalTiles = tiles.size * totalLayers
-            var totalDownloaded = 0
-            var totalFailed = 0
-            _downloadState.value = DownloadState.Downloading(0, totalTiles, 0)
-            var lastSummary: com.geeksville.mesh.convoy.DownloadSummary? = null
-            for ((slotName, layers) in downloadSources) {
-                for (layer in layers) {
-                    val result = ConvoyTileDownloader.downloadTiles(
-                        context = context, tiles = tiles,
-                        sourceUrl = layer.urlTemplate, sourceName = layer.cacheDir
-                    ) { downloaded, _, failCount ->
-                        totalDownloaded++
-                        totalFailed = failCount
-                        _downloadState.value = DownloadState.Downloading(totalDownloaded, totalTiles, totalFailed)
+        // Enqueue to background download queue instead of inline coroutine
+        val entry = DownloadQueueManager.enqueue(
+            context, pending.north, pending.south, pending.east, pending.west,
+            label = pending.sourceName
+        )
+        activeEntryId = entry.id
+        observeQueueEntry(entry.id)
+    }
+
+    /** Observe a queue entry and bridge its progress to the existing DownloadState flow. */
+    private fun observeQueueEntry(entryId: String) {
+        viewModelScope.launch {
+            DownloadQueueManager.queue.collect { entries ->
+                val entry = entries.find { it.id == entryId } ?: return@collect
+                _downloadState.value = when (entry.status) {
+                    QueueStatus.QUEUED -> DownloadState.Downloading(0, entry.totalTiles, 0)
+                    QueueStatus.DOWNLOADING -> DownloadState.Downloading(
+                        entry.downloadedTiles, entry.totalTiles, entry.failedTiles
+                    )
+                    QueueStatus.COMPLETE -> {
+                        val avgBytes = 15_360L
+                        val mb = (entry.downloadedTiles * avgBytes) / (1024f * 1024f)
+                        DownloadState.Complete(DownloadSummary(entry.downloadedTiles, entry.failedTiles, mb))
                     }
-                    result.onSuccess { lastSummary = it }
-                    result.onFailure { e ->
-                        android.util.Log.e("ConvoyDownload", "Failed downloading ${layer.cacheDir}: ${e.message}")
-                    }
+                    QueueStatus.FAILED -> DownloadState.Error("Download failed after ${entry.retryCount} retries")
+                    QueueStatus.CANCELLED -> DownloadState.Cancelled
+                    QueueStatus.PAUSED -> DownloadState.Downloading(
+                        entry.downloadedTiles, entry.totalTiles, entry.failedTiles
+                    )
                 }
-            }
-            if (lastSummary != null) {
-                _downloadState.value = DownloadState.Complete(lastSummary!!)
-                kotlinx.coroutines.delay(3_000L)
-                _downloadState.value = DownloadState.Idle
-            } else {
-                _downloadState.value = DownloadState.Error("All tile sources failed")
             }
         }
     }
 
     fun cancelDownload() {
-        downloadJob?.cancel()
+        activeEntryId?.let { DownloadQueueManager.cancel(it) }
         _downloadState.value = DownloadState.Cancelled
-        viewModelScope.launch { kotlinx.coroutines.delay(2_000L); _downloadState.value = DownloadState.Idle }
+        viewModelScope.launch {
+            kotlinx.coroutines.delay(2_000L)
+            _downloadState.value = DownloadState.Idle
+        }
     }
 
     override fun onCleared() {
