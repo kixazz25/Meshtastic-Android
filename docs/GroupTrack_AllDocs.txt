@@ -6810,6 +6810,179 @@ GPS-02 | Standalone mode — assign My Cart as lead, track without radio | No radi
 DEMO-01 | Remove Live/Demo mode toggle from V3 | V3 backlog — always live mode.
 
 
+=== GroupTrack_V25_SessionHandoff_May10_v2.docx ===
+GroupTrack V2.5 Session Handoff
+Ready to Build | May 10, 2026
+Upload this document + codebase files to start next session. Build MapSourceManager.kt first.
+1. Project Context
+Project: GroupTrack - Android convoy tracking / off-road navigation app
+Codebase: Meshtastic Android fork, branch feature/convoy-event-ride
+Root: ~/Meshtastic-Android
+Head: c7c5adb42 - V2.5: add verified map_sources.json asset
+Dev: Solo developer (Fred), Windows 11, Git Bash
+Android 1: 8624SBCEDF00001789 (V2.4 tester)
+Android 2: 24039703201775 (V3.0 dev, no GPS)
+EC2: 34.224.89.217 (grouptrack.org)
+Build: ./gradlew copyApkToDownloads
+Install: adb -s [serial] install -r -d [apk] (NEVER omit -r -d)
+
+2. Immediate Task: Build MapSourceManager.kt
+Create MapSourceManager.kt that reads map_sources.json from assets and serves tile URLs. This replaces all hardcoded tile source logic. The patch script must modify these files:
+
+File 1: ConvoyConfig.kt - Remove hardcoded sources
+Current hardcoded constants to remove/replace:
+var TILE_SOURCES = mutableMapOf(
+    "SAT" to "https://services.arcgisonline.com/.../World_Imagery/.../tile/{z}/{y}/{x}",
+    "TOPO" to "https://services.arcgisonline.com/.../World_Topo_Map/.../tile/{z}/{y}/{x}",
+    "TOPO+" to "https://server.arcgisonline.com/.../USA_Topo_Maps/.../tile/{z}/{y}/{x}",
+    "SAT_LOCAL" to "convoy://tiles/SAT/{z}/{x}/{y}.png"
+)
+var ACTIVE_TILE_SOURCE = "SAT"
+const val ESRI_LABELS_URL = "...World_Boundaries_and_Places..."
+const val ESRI_TRANSPORT_URL = "...World_Transportation..."
+These become lookups into MapSourceManager. TILE_SOURCES, ACTIVE_TILE_SOURCE, ESRI_LABELS_URL, and ESRI_TRANSPORT_URL all replaced.
+
+File 2: ConvoyMapViewerScreen.kt - Replace hardcoded tileSources
+Line 109: Hardcoded tileSources list:
+val tileSources = listOf(
+    Triple("SAT", "Satellite", "https://services.arcgisonline.com/.../World_Imagery/..."),
+    Triple("TOPO", "Topo", "https://services.arcgisonline.com/.../World_Topo_Map/..."),
+    Triple("TOPO+", "Topo+", "https://server.arcgisonline.com/.../USA_Topo_Maps/...")
+)
+Replace with MapSourceManager.getSlotSources() which reads from JSON defaults.
+
+Interceptor (line ~360): Hardcoded overlay URL matching:
+if (url.contains("/Reference/World_Transportation/MapServer/tile/")) { ... SAT_LABELS_TRANSPORT ... }
+if (url.contains("/Reference/World_Boundaries_and_Places/MapServer/tile/")) { ... SAT_LABELS_PLACES ... }
+Replace with generic interceptor that reads cache_dir from the source layers array in JSON. Iterates all overlay layers for the active source, matches URL patterns dynamically.
+
+File 3: ConvoyTileDownloader.kt - Replace hardcoded SAT logic
+Line ~118: Hardcoded SAT label download:
+if (sourceName == "SAT") {
+    val labelUrls = listOf(
+        Pair("SAT_LABELS_TRANSPORT", ConvoyConfig.ESRI_TRANSPORT_URL),
+        Pair("SAT_LABELS_PLACES", ConvoyConfig.ESRI_LABELS_URL)
+    )
+    // downloads overlay tiles...
+}
+Replace with generic layer iteration: read all layers for the source from MapSourceManager, download each layer to its cache_dir. No source-specific if-statements.
+
+Test Criteria
+After patch: app must display and download tiles identically to current behavior. Same three sources (SAT/TOPO/TOPO+), same tile URLs, same cache directories (SAT, TOPO, TOPO+, SAT_LABELS_TRANSPORT, SAT_LABELS_PLACES). Visual result must be indistinguishable from current app.
+
+3. Verified Default Tile Sources
+These three sources are confirmed from actual running code (ConvoyConfig.kt + ConvoyMapViewerScreen.kt line 109):
+
+
+map_sources.json (16 sources) is committed to app/src/main/assets/map_sources.json and verified. Default slots match the above exactly. Cache directories match existing tile storage for zero migration.
+
+4. V2.5 Build Sequence
+Phase 1A: Data-Drive Tile Sources (current focus)
+1. MapSourceManager.kt - reads map_sources.json, serves tile URLs, handles multi-layer sources
+2. Clone MapViewerScreen into standalone PlanningMapScreen with own launcher
+3. Source picker UI - long-press map bar heading to change slot assignment
+4. Multi-layer download from JSON layers array (generic, no source-specific code)
+5. Source validation - connection test, API key test, tile format test, render preview
+6. Source maintenance screen (developer long-press)
+7. JSON maintenance - add/edit/validate sources, export updated JSON
+
+Phase 1B: Data-Drive Trails
+1. Kotlin ingestion engine (ConvoyTrailOps.kt) porting Python script
+2. Trail source catalog with user-selectable filters (OHV default)
+3. Download full sources from agency URLs, ingest on-device
+4. Viewport queries lazy load trails to map, replace GeoJSON asset loader
+5. Dedup on ingestion with review screen
+
+Phase 2: Waypoints
+1. Reclaim long-press for waypoint creation, add RIDERS button
+2. Waypoint type picker (10 types), alias model with proximity check
+3. Map legend from waypoint_types table
+
+Phase 3: Tracks and Routes
+1. Track alias model matching waypoints. Delete through aliases.
+2. Track rename cascading to route name via primary alias
+3. Route creation (draw, snap-to-trail, convert from track, import)
+
+Phase 4: Area Management (Later)
+Viewport zoom defines download areas. Block-based queued downloads. Smart first pull guided by trail coverage.
+
+5. Key Architecture Decisions (Settled)
+5.1 Databases
+grouptrack_trails.db: Public agency trail data. SQLite. Read-only. Downloaded on-demand. FREE.
+grouptrack_user.spatialite: Personal data. SpatiaLite. Read-write. Waypoints, routes, tracks, tile sources, journal.
+
+5.2 Entity Models
+Waypoint identity: Coordinates (lon/lat). Names are aliases in waypoint_aliases table. Rename creates alias. Delete removes alias. Waypoint deleted when no aliases remain.
+Track identity: GPX/KML file. Names in track_aliases. Same alias/delete model as waypoints. Primary alias rename cascades to route name.
+Route: Never independently shared. Sharing controlled by configurable app_setting.
+Trail: Never individually deleted. Source/region removal only. Display toggle, not deletion.
+Area delete: Removes tiles only (biggest storage). Spatial data stays.
+
+5.3 Ownership and Delete
+Creator delete cascades to collective (V3.0). Non-creator delete removes local alias only. Local deletes do not impact shared data unless removing something I created.
+
+5.4 Sync Model
+Offline-first. All local changes queue outbound in strict chronological order. Local DB only updated during explicit user-initiated data pulls. One process syncs all downloaded areas.
+
+5.5 Data Protection
+Three layers: automatic backup (launch + pre-destructive, last 5), change journal (every INSERT/UPDATE/DELETE with before/after JSON + geometry WKT, 30-day retention), rollback (single-op undo, transaction, point-in-time).
+
+5.6 Map Source Model
+map_sources.json defines all sources with layers, validation rules, cache dirs. Code is generic - reads JSON, executes rules. No source-specific logic. User can add custom sources after validation passes.
+
+5.7 GroupTrack as Awareness Conduit
+Not a data provider. Catalog of public URLs at grouptrack.org. Nightly cron checks for source updates (HEAD requests). Users download from agencies directly. Each device unique to rider needs.
+
+6. Schema Reference
+grouptrack_user_schema_v2.sql is the hardened schema with 20 tables/views and 24 lifecycle trigger placeholders. Every trigger has exact business rules documented in SQL comments with source quotes. Schema committed to docs/.
+
+Key tables: tile_sources, map_slots, source_layers, waypoints, waypoint_aliases, waypoint_types, routes, tracks, track_aliases, ride_areas, source_ingestions, transfer_queue, change_journal, backup_log, data_log, dedup_log, app_settings.
+
+Key rules in triggers: waypoint proximity check (25m), no waypoint moves, rename creates alias, delete through aliases with orphan cleanup, track name cascade to route, area delete = tiles only, share validation against ride.private, route sharing controlled by app_settings, outbound sync queuing.
+
+7. Standing Rules (20)
+1. Never auto-delete user data. 2. Never embed API keys. 3. Share is opt-in. 4. Offline-first. 5. Canvas independence. 6. Cumulative collection. 7. Routes never independently public. 8. Private rides block sharing. 9. Published content recoverable. 10. Trails/routes never individually removed. 11. First source wins dedup. 12. Ops/Dialogs pattern. 13. Every change journaled. 14. Backup before destructive ops. 15. Journal stores before+after+WKT. 16. Schema before code. 17. Triggers before features. 18. Patch scripts uniquely versioned. 19. Never commit flags=true. 20. Preserve geometry precision.
+8. Hardware Restrictions
+1. T1000-E firmware: LOCK to 2.6.11 max. Newer destabilizes BLE + radio config.
+2. Radio stays in cart during rides. Keep within 50ft BLE range. Exceeding causes supervision timeout pauses.
+9. Reference Documents (in docs/)
+
+10. Starting Next Session
+Upload these files to start:
+1. This handoff document (GroupTrack_V25_SessionHandoff_May10_v2.docx)
+2. map_sources.json (from assets - the verified version)
+3. grouptrack_user_schema_v2.sql
+4. Codebase reference files: field_crossref_raw.txt, where_used_raw.txt, function_universe_raw.txt, GroupTrack_AllDocs.txt
+
+Then paste this output:
+cat app/src/main/java/com/geeksville/mesh/convoy/ConvoyConfig.kt
+cat app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt
+cat app/src/main/java/com/geeksville/mesh/convoy/ConvoyTileDownloader.kt
+git log --oneline -5
+git status
+
+First deliverable: MapSourceManager.kt patch script that replaces all hardcoded tile source logic with JSON-driven lookups. Test: identical visual result with data-driven sources.
+
+END OF HANDOFF | Do not re-litigate settled decisions
+Slot | Legacy Key | Source | URL | Layers | Cache Dir(s)
+1 | SAT | Esri Imagery+Roads+Labels | services.arcgisonline.com | 3 | SAT, SAT_LABELS_TRANSPORT, SAT_LABELS_PLACES
+2 | TOPO | Esri World Topo | services.arcgisonline.com | 1 | TOPO
+3 | TOPO+ | Esri USA Topo Maps | server.arcgisonline.com | 1 | TOPO+
+File | Purpose
+GroupTrack_V25_SessionHandoff_May10_v2.docx | This document
+GroupTrack_V25_MasterPlan_v1.md | Master consolidation
+GroupTrack_V25_SpatialImplementationGuide_v1.md | 17-section implementation guide
+GroupTrack_V25_EntityLifecycle_v1.md | Lifecycle scenarios + impact tables
+GroupTrack_V25_DataProtection_v1.md | Backup + journal + rollback
+GroupTrack_V25_MapSourceCatalog_v2.md | Complete 40-source tile catalog
+GroupTrack_V25_TrailSourceCatalog_v1.md | Trail sources + dedup method
+grouptrack_user_schema_v2.sql | Hardened user DB schema (24 triggers)
+grouptrack_trails_schema_v1.sql | Trails DB schema
+map_sources.json | Verified tile source catalog (in assets)
+build_trails_db_v1.py | Python ingestion POC (46,953 trails)
+DEV_ENVIRONMENT_v3.md | Dev environment reference
+
+
 === GroupTrack_V25_SpatialArchitecture_v1.docx ===
 GroupTrack V2.5
 Spatial Architecture Planning
