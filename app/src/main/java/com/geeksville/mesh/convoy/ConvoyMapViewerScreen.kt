@@ -106,14 +106,9 @@ fun ConvoyMapViewerScreen(
     var fabOffsetY by remember { mutableStateOf(0f) }
     val downloadState by convoyViewModel.downloadState.collectAsState()
 
-    val tileSources = listOf(
-        Triple("SAT", "Satellite",
-            "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"),
-        Triple("TOPO", "Topo",
-            "https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}"),
-        Triple("TOPO+", "Topo+",
-            "https://server.arcgisonline.com/ArcGIS/rest/services/USA_Topo_Maps/MapServer/tile/{z}/{y}/{x}")
-    )
+    // Tile sources from map_sources.json — single source of truth
+    MapSourceManager.init(context)
+    val tileSources = MapSourceManager.getSlotSources()
 
     Column(modifier = Modifier.fillMaxSize().background(Color(0xFF0A0E14))) {
         // -- Header --

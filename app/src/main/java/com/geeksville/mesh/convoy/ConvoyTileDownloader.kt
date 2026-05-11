@@ -126,21 +126,10 @@ object ConvoyTileDownloader {
                 onProgress(downloaded, total, failed)
             }
 
-            // Download label tiles for SAT source
-            if (sourceName == "SAT") {
-                val labelUrls = listOf(
-                    Pair("SAT_LABELS_TRANSPORT", ConvoyConfig.ESRI_TRANSPORT_URL),
-                    Pair("SAT_LABELS_PLACES", ConvoyConfig.ESRI_LABELS_URL)
-                )
-                for ((labelName, labelUrl) in labelUrls) {
-                    for (tile in tiles) {
-                        if (!coroutineContext.isActive) break
-                        val dest = tilePath(context, labelName, tile)
-                        if (dest.exists() && dest.length() > 0) continue
-                        downloadTile(buildTileUrl(tile, labelUrl), dest)
-                    }
-                }
-            }
+            // Overlay download removed from here.
+            // ConvoyViewModel now iterates ALL layers from MapSourceManager,
+            // including overlays. Each layer downloaded with its own cacheDir.
+            // No source-specific logic needed in the downloader.
             val totalMB = (downloaded * AVG_TILE_BYTES) / (1024f * 1024f)
             Result.success(DownloadSummary(downloaded, failed, totalMB))
 

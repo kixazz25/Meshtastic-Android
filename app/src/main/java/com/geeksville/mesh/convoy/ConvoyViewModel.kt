@@ -919,28 +919,29 @@ if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
         downloadStartTime = System.currentTimeMillis()
         downloadJob = viewModelScope.launch {
             val tiles = ConvoyTileCalculator.calculateTiles(pending.north, pending.south, pending.east, pending.west)
-            val allSources = listOf(
-                "SAT"  to "https://mt0.google.com/vt/lyrs=y&x={x}&y={y}&z={z}",
-                "TOPO" to "https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
-                "TOPO+" to "https://server.arcgisonline.com/ArcGIS/rest/services/USA_Topo_Maps/MapServer/tile/{z}/{y}/{x}"
-            )
-            val totalTiles = tiles.size * allSources.size
+            // All sources + layers from map_sources.json — single source of truth
+            MapSourceManager.init(context)
+            val downloadSources = MapSourceManager.getDownloadSources()
+            val totalLayers = downloadSources.sumOf { it.second.size }
+            val totalTiles = tiles.size * totalLayers
             var totalDownloaded = 0
             var totalFailed = 0
             _downloadState.value = DownloadState.Downloading(0, totalTiles, 0)
             var lastSummary: com.geeksville.mesh.convoy.DownloadSummary? = null
-            for ((sourceName, sourceUrl) in allSources) {
-                val result = ConvoyTileDownloader.downloadTiles(
-                    context = context, tiles = tiles,
-                    sourceUrl = sourceUrl, sourceName = sourceName
-                ) { downloaded, _, failCount ->
-                    totalDownloaded++
-                    totalFailed = failCount
-                    _downloadState.value = DownloadState.Downloading(totalDownloaded, totalTiles, totalFailed)
-                }
-                result.onSuccess { lastSummary = it }
-                result.onFailure { e ->
-                    android.util.Log.e("ConvoyDownload", "Failed downloading $sourceName: ${e.message}")
+            for ((slotName, layers) in downloadSources) {
+                for (layer in layers) {
+                    val result = ConvoyTileDownloader.downloadTiles(
+                        context = context, tiles = tiles,
+                        sourceUrl = layer.urlTemplate, sourceName = layer.cacheDir
+                    ) { downloaded, _, failCount ->
+                        totalDownloaded++
+                        totalFailed = failCount
+                        _downloadState.value = DownloadState.Downloading(totalDownloaded, totalTiles, totalFailed)
+                    }
+                    result.onSuccess { lastSummary = it }
+                    result.onFailure { e ->
+                        android.util.Log.e("ConvoyDownload", "Failed downloading ${layer.cacheDir}: ${e.message}")
+                    }
                 }
             }
             if (lastSummary != null) {

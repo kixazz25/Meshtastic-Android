@@ -128,6 +128,7 @@ fun ConvoyScreen(
     }
     var pendingTrackName by viewModel.pendingTrackName
     val context = LocalContext.current
+    MapSourceManager.init(context)
 
     val bgLocationLauncher = rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
@@ -1072,11 +1073,8 @@ fun ConvoyScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        listOf(
-                            "SAT"   to "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-                            "TOPO"  to "https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
-                            "TOPO+" to "https://server.arcgisonline.com/ArcGIS/rest/services/USA_Topo_Maps/MapServer/tile/{z}/{y}/{x}"
-                        ).forEach { (label, onlineUrl) ->
+                        // Tile sources from map_sources.json — single source of truth
+                        MapSourceManager.getSlotSources().forEach { (label, _, onlineUrl) ->
                             val isActive = mapTypeLabel == label
                             Surface(
                                 modifier = Modifier.weight(1f).clickable {

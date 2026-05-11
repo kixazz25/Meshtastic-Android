@@ -2,15 +2,17 @@ package com.geeksville.mesh.convoy
 
 object ConvoyConfig {
     const val MAP_DEFAULT_ZOOM = 18.0
-    var TILE_SOURCES = mutableMapOf(
-        "SAT" to "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-        "TOPO" to "https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
-        "TOPO+" to "https://server.arcgisonline.com/ArcGIS/rest/services/USA_Topo_Maps/MapServer/tile/{z}/{y}/{x}",
-        "SAT_LOCAL" to "convoy://tiles/SAT/{z}/{x}/{y}.png"
-    )
-    var ACTIVE_TILE_SOURCE = "SAT"
-    const val ESRI_LABELS_URL = "https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
-    const val ESRI_TRANSPORT_URL = "https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}"
+    // TILE_SOURCES — reads from MapSourceManager (map_sources.json)
+    // No hardcoded URLs. Single source of truth.
+    val TILE_SOURCES: Map<String, String>
+        get() = MapSourceManager.getSlotSources()
+            .associate { (key, _, url) -> key to url }
+            .plus("SAT_LOCAL" to LOCAL_TILE_BASE + "SAT/{z}/{x}/{y}.png")
+    var ACTIVE_TILE_SOURCE: String
+        get() = MapSourceManager.activeSourceKey
+        set(value) { MapSourceManager.setActive(value) }
+    // ESRI_LABELS_URL / ESRI_TRANSPORT_URL removed.
+    // Overlay URLs now come from MapSourceManager.getOverlayLayers().
     const val LOCAL_TILE_BASE = "convoy://tiles/"
 
     // Shared tile storage — package-independent, survives app reinstall/rename
