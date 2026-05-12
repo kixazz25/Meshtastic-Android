@@ -961,7 +961,7 @@ fun ConvoyScreen(
             },
             modifier = Modifier
                 .statusBarsPadding()
-                .padding(start = 80.dp, end = 8.dp, top = 8.dp)
+                .padding(start = 8.dp, end = 8.dp, top = 48.dp)
                 .fillMaxWidth()
                 
         )

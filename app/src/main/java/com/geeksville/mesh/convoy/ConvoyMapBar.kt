@@ -45,12 +45,12 @@ fun ConvoyMapBar(
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Nav button
             Surface(
-                modifier = Modifier.clickable { onNavigate() },
+                modifier = Modifier.weight(1f).clickable { onNavigate() },
                 shape = RoundedCornerShape(4.dp),
                 color = Color(0xFF2A3545)
             ) {
@@ -77,7 +77,7 @@ fun ConvoyMapBar(
             MapSourceManager.getSlotSources().forEach { (label, _, _) ->
                 val isActive = activeSource == label
                 Surface(
-                    modifier = Modifier.clickable { onSourceChange(label) },
+                    modifier = Modifier.weight(1f).clickable { onSourceChange(label) },
                     shape = RoundedCornerShape(4.dp),
                     color = if (isActive) Color(0xFF2E75B6) else Color(0xFF1A2233)
                 ) {
@@ -88,7 +88,7 @@ fun ConvoyMapBar(
                         fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.Bold,
                         textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(vertical = 6.dp)
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
                     )
                 }
             }

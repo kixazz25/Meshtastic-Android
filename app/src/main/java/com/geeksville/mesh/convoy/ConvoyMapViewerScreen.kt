@@ -103,6 +103,7 @@ fun ConvoyMapViewerScreen(
     var pmTracksOn by remember { mutableStateOf(false) }
     var pmTrailsOn by remember { mutableStateOf(false) }
     var pmDownloadedOn by remember { mutableStateOf(false) }
+    var pmActiveSource by remember { mutableStateOf(ConvoyConfig.ACTIVE_TILE_SOURCE) }
     var mapZoomLevel by remember { mutableStateOf(ConvoyConfig.DOWNLOAD_ZOOM.toFloat()) }
     var showDownloaded by remember { mutableStateOf(false) }
     var scanningDownloaded by remember { mutableStateOf(false) }
@@ -398,16 +399,16 @@ fun ConvoyMapViewerScreen(
                 navLabel = "CONVOY",
                 navIsBack = true,
                 onNavigate = onBack,
-                activeSource = ConvoyConfig.ACTIVE_TILE_SOURCE,
+                activeSource = pmActiveSource,
                 isOffline = false,
                 onSourceChange = { label ->
-                    ConvoyConfig.ACTIVE_TILE_SOURCE = label
+                    pmActiveSource = label; ConvoyConfig.ACTIVE_TILE_SOURCE = label
                     val url = MapSourceManager.getSlotSources().find { it.first == label }?.third ?: ""
                     webViewRef?.evaluateJavascript("setTileUrl('" + url + "', '" + label + "')", null)
                 },
                 onOfflineToggle = { _ -> },
                 modifier = Modifier
-                    .padding(horizontal = 8.dp).padding(top = 8.dp)
+                    .padding(horizontal = 8.dp).padding(top = 2.dp)
                     .fillMaxWidth()
             )
             // -- FLOATING DISPLAY PANEL --
