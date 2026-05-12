@@ -163,10 +163,19 @@ object DownloadQueueManager {
 
     // -- Progress update from Worker -----------------------
     fun updateProgress(entryId: String, downloaded: Int, failed: Int) {
-        updateEntry(entryId) {
-            it.copy(downloadedTiles = downloaded, failedTiles = failed)
+        val current = _queue.value.toMutableList()
+        val idx = current.indexOfFirst { it.id == entryId }
+        if (idx >= 0) {
+            current[idx] = current[idx].copy(downloadedTiles = downloaded, failedTiles = failed)
+            _queue.value = current
         }
     }
+
+
+
+
+
+
 
     // -- Mark complete from Worker -------------------------
     fun markComplete(entryId: String, downloaded: Int, failed: Int) {

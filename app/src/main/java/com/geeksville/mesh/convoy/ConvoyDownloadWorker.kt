@@ -25,7 +25,7 @@ class ConvoyDownloadWorker(
 
     companion object {
         private const val TAG = "DownloadWorker"
-        private const val PROGRESS_INTERVAL = 50  // update notification every N tiles
+        private const val PROGRESS_INTERVAL = 250  // update notification every N tiles
     }
 
     override suspend fun doWork(): Result {
