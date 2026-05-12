@@ -186,7 +186,7 @@ fun ConvoySubMenu(
                         }
                     )
                     SubMenuItem(
-                        label   = "Map Viewer",
+                        label   = "Planning Map",
                         sub     = "View trails and recorded tracks",
                         enabled = true,
                         onClick = {

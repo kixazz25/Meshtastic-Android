@@ -99,6 +99,7 @@ fun ConvoyMapViewerScreen(
 
     // Download controls state
     var showDownloadPanel by remember { mutableStateOf(false) }
+    var queueExpanded by remember { mutableStateOf(false) }
     var mapZoomLevel by remember { mutableStateOf(ConvoyConfig.DOWNLOAD_ZOOM.toFloat()) }
     var showDownloaded by remember { mutableStateOf(false) }
     var scanningDownloaded by remember { mutableStateOf(false) }
@@ -499,26 +500,12 @@ fun ConvoyMapViewerScreen(
             )
 
             // ── Download progress bar ─────────────────────────────────────
-            if (downloadState is ConvoyViewModel.DownloadState.Downloading) {
-                val ds = downloadState as ConvoyViewModel.DownloadState.Downloading
-                Surface(
-                    modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 8.dp).padding(horizontal = 16.dp),
-                    shape = RoundedCornerShape(8.dp),
-                    color = Color(0xCC1A2030)
-                ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Text("Downloading ${ds.downloaded}/${ds.total} tiles", color = Color(0xFF4DA6FF),
-                            fontSize = 10.sp, fontFamily = FontFamily.Monospace)
-                        Spacer(Modifier.height(4.dp))
-                        LinearProgressIndicator(
-                            progress = { if (ds.total > 0) ds.downloaded.toFloat() / ds.total else 0f },
-                            modifier = Modifier.fillMaxWidth().height(4.dp),
-                            color = Color(0xFF4DA6FF),
-                            trackColor = Color(0xFF1A2030)
-                        )
-                    }
-                }
-            }
+            // -- Download queue panel (replaces simple progress bar) --
+            DownloadQueuePanel(
+                expanded = queueExpanded,
+                onToggle = { queueExpanded = !queueExpanded },
+                modifier = Modifier.align(Alignment.BottomStart).padding(start = 12.dp, bottom = 8.dp).width(200.dp)
+            )
 
             // ── Download panel (above FAB) ────────────────────────────────
             if (showDownloadPanel) {

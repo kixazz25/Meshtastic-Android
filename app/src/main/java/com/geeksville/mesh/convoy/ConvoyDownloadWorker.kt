@@ -116,6 +116,11 @@ class ConvoyDownloadWorker(
         try {
             val notification = ConvoyDownloadNotification
                 .progressNotification(appContext, label, downloaded, total)
+                .addAction(
+                    android.R.drawable.ic_menu_close_clear_cancel,
+                    "Cancel",
+                    ConvoyDownloadNotification.cancelIntent(appContext, entryId)
+                )
             val info = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 ForegroundInfo(
                     entryId.hashCode(),

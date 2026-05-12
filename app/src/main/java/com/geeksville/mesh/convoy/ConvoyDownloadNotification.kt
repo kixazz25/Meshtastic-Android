@@ -4,6 +4,8 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
 import android.os.Build
+import android.app.PendingIntent
+import android.content.Intent
 import androidx.core.app.NotificationCompat
 
 /**
@@ -15,6 +17,29 @@ object ConvoyDownloadNotification {
     const val CHANNEL_ID = "grouptrack_tile_downloads"
     private const val CHANNEL_NAME = "Map Downloads"
     private const val CHANNEL_DESC = "Offline map tile download progress"
+    const val GROUP_KEY = "grouptrack_download_group"
+    private const val SUMMARY_ID = 99900
+
+    fun cancelIntent(context: Context, entryId: String): PendingIntent {
+        val intent = Intent(ConvoyDownloadActionReceiver.ACTION_CANCEL).apply {
+            setPackage(context.packageName)
+            putExtra(ConvoyDownloadActionReceiver.EXTRA_ENTRY_ID, entryId)
+        }
+        return PendingIntent.getBroadcast(
+            context, entryId.hashCode(),
+            intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+    }
+
+    fun cancelAllIntent(context: Context): PendingIntent {
+        val intent = Intent(ConvoyDownloadActionReceiver.ACTION_CANCEL_ALL).apply {
+            setPackage(context.packageName)
+        }
+        return PendingIntent.getBroadcast(
+            context, SUMMARY_ID,
+            intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+    }
 
     fun createChannel(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -43,6 +68,7 @@ object ConvoyDownloadNotification {
             .setProgress(total, downloaded, false)
             .setOngoing(true)
             .setSilent(true)
+            .setGroup(GROUP_KEY)
     }
 
     fun completeNotification(
@@ -53,6 +79,7 @@ object ConvoyDownloadNotification {
             .setContentTitle("Download complete")
             .setContentText("$label -- $tileCount tiles")
             .setAutoCancel(true)
+            .setGroup(GROUP_KEY)
     }
 
     fun failedNotification(

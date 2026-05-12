@@ -1355,12 +1355,12 @@ fun ConvoyScreen(
                         Surface(
                             modifier = Modifier.fillMaxWidth().clickable {
                                 locationSearchResults = emptyList()
-                                webViewRef.value?.evaluateJavascript("activateDrawMode()", null)
+                                onNavigateToMapViewer()
                             },
                             shape = RoundedCornerShape(8.dp),
                             color = Color(0xFF2A3545)
                         ) {
-                            Text("⬇  DOWNLOAD REGION", color = Color(0xFF7A8DA0), fontSize = 9.sp,
+                            Text("⬇  PLANNING MAP", color = Color(0xFF7A8DA0), fontSize = 9.sp,
                                 fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
                                 textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                                 modifier = Modifier.padding(vertical = 8.dp))
@@ -1489,33 +1489,6 @@ fun ConvoyScreen(
             if (pendingImportNav) { pendingImportNav = false; onNavigateToTrackImport() }
         }
         // ── Button bar ────────────────────────────────────────────────────
-        if (downloadState is ConvoyViewModel.DownloadState.Downloading) {
-            val ds = downloadState as ConvoyViewModel.DownloadState.Downloading
-            Surface(
-                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 56.dp).padding(horizontal = 16.dp),
-                shape = RoundedCornerShape(20.dp),
-                color = Color(0xE6131820),
-                shadowElevation = 4.dp
-            ) {
-                androidx.compose.foundation.layout.Row(
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    androidx.compose.material3.CircularProgressIndicator(modifier = Modifier.size(12.dp), color = Color(0xFF1CF0A0), strokeWidth = 2.dp)
-                    androidx.compose.foundation.layout.Column {
-                        Text("⬇ ${ds.downloaded} / ${ds.total} tiles", color = Color(0xFF1CF0A0), fontSize = 11.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
-                        val elapsedMs = System.currentTimeMillis() - viewModel.downloadStartTime
-                        val rate = if (elapsedMs > 2000 && ds.downloaded > 0) ds.downloaded.toFloat() / (elapsedMs / 1000f) else 0f
-                        if (rate > 0f) {
-                            val remaining = ((ds.total - ds.downloaded) / rate).toInt()
-                            val etaText = if (remaining >= 60) "${remaining / 60}m ${remaining % 60}s" else "${remaining}s"
-                            Text("~$etaText remaining", color = Color(0xFF4A6080), fontSize = 9.sp, fontFamily = FontFamily.Monospace)
-                        }
-                    }
-                }
-            }
-        }
         ConvoyButtonBar(
             hudMode = hudMode,
             onModeChange = { viewModel.setHudMode(it); viewModel.setAutoPan(true) },
