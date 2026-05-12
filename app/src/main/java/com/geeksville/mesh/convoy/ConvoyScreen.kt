@@ -940,7 +940,7 @@ fun ConvoyScreen(
             navLabel = "PLAN",
             onNavigate = onNavigateToMapViewer,
             activeSource = mapTypeLabel,
-            isOffline = isLocalTiles,
+            isOffline = isOfflineMode,
             onSourceChange = { label ->
                 viewModel.setMapTypeLabel(label)
                 ConvoyConfig.ACTIVE_TILE_SOURCE = label
@@ -961,7 +961,7 @@ fun ConvoyScreen(
             },
             modifier = Modifier
                 .statusBarsPadding()
-                .padding(horizontal = 8.dp).padding(top = 8.dp)
+                .padding(start = 80.dp, end = 8.dp, top = 8.dp)
                 .fillMaxWidth()
                 
         )
@@ -978,6 +978,7 @@ fun ConvoyScreen(
                     tracksOn = tracksVisible,
                     onTracksToggle = {
                         tracksVisible = !tracksVisible
+                        android.util.Log.i("ConvoyDisplay", "toggleTracks called, webViewRef=" + (webViewRef.value != null))
                         webViewRef.value?.evaluateJavascript("toggleTracks()", null)
 
                     },
@@ -990,14 +991,15 @@ fun ConvoyScreen(
                                 try {
                                     val json = context.assets.open("utah_trails_stgeorge.geojson").bufferedReader().use { it.readText() }
                                     webViewRef.value?.post {
-                                        webViewRef.value?.evaluateJavascript("loadTrails($$json); showTrails();", null)
+                                        webViewRef.value?.evaluateJavascript("loadTrails($json); showTrails();", null)
                                     }
                                 } catch (e: Exception) {
-                                    android.util.Log.e("ConvoyMap", "Trail load error: $${e.message}")
+                                    android.util.Log.e("ConvoyMap", "Trail load error: ${e.message}")
                                 }
                             }.start()
                         } else {
-                            webViewRef.value?.evaluateJavascript("toggleTrails()", null)
+                            android.util.Log.i("ConvoyDisplay", "toggleTrails called, webViewRef=" + (webViewRef.value != null))
+                        webViewRef.value?.evaluateJavascript("toggleTrails()", null)
                         }
                     },
                     downloadedOn = showDownloaded,
@@ -1023,13 +1025,13 @@ fun ConvoyScreen(
                                             val tS = Math.toDegrees(Math.atan(Math.sinh(Math.PI * (1.0 - 2.0 * (y + 1) / n))))
                                             val tW = x.toDouble() / n * 360.0 - 180.0
                                             val tE = (x + 1).toDouble() / n * 360.0 - 180.0
-                                            bounds.add("{\"n\":$$tN,\"s\":$$tS,\"e\":$$tE,\"w\":$$tW}")
+                                            bounds.add("{\"n\":$tN,\"s\":$tS,\"e\":$tE,\"w\":$tW}")
                                         }
                                     }
                                 }
                                 val json = "[" + bounds.joinToString(",") + "]"
                                 android.os.Handler(android.os.Looper.getMainLooper()).post {
-                                    wv.evaluateJavascript("showDownloadedAreas($$json)", null)
+                                    wv.evaluateJavascript("showDownloadedAreas($json)", null)
                                     showDownloaded = true
                                     scanningDownloaded = false
                                 }

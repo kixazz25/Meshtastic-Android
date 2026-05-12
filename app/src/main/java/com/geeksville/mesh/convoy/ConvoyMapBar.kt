@@ -77,7 +77,7 @@ fun ConvoyMapBar(
             MapSourceManager.getSlotSources().forEach { (label, _, _) ->
                 val isActive = activeSource == label
                 Surface(
-                    modifier = Modifier.weight(1f).clickable { onSourceChange(label) },
+                    modifier = Modifier.clickable { onSourceChange(label) },
                     shape = RoundedCornerShape(4.dp),
                     color = if (isActive) Color(0xFF2E75B6) else Color(0xFF1A2233)
                 ) {

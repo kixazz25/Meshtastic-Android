@@ -100,6 +100,9 @@ fun ConvoyMapViewerScreen(
     // Download controls state
     var showDownloadPanel by remember { mutableStateOf(false) }
     var queueExpanded by remember { mutableStateOf(false) }
+    var pmTracksOn by remember { mutableStateOf(false) }
+    var pmTrailsOn by remember { mutableStateOf(false) }
+    var pmDownloadedOn by remember { mutableStateOf(false) }
     var mapZoomLevel by remember { mutableStateOf(ConvoyConfig.DOWNLOAD_ZOOM.toFloat()) }
     var showDownloaded by remember { mutableStateOf(false) }
     var scanningDownloaded by remember { mutableStateOf(false) }
@@ -138,7 +141,10 @@ fun ConvoyMapViewerScreen(
             )
             // TRACKS button (opens track picker)
             Surface(
-                modifier = Modifier.clickable { showTrackPanel = showTrackPanel.not() },
+                modifier = Modifier.clickable {
+                        showTrackPanel = showTrackPanel.not()
+                        if (showTrackPanel) refreshTracks()
+                    },
                 shape = RoundedCornerShape(6.dp),
                 color = if (showTrackPanel) Color(0xFF39FF14).copy(alpha = 0.2f) else Color(0xFF2A3545)
             ) {
@@ -406,12 +412,53 @@ fun ConvoyMapViewerScreen(
             )
             // -- FLOATING DISPLAY PANEL --
             ConvoyDisplayPanel(
-                tracksOn = false,
-                onTracksToggle = { webViewRef?.evaluateJavascript("toggleTracks()", null) },
-                trailsOn = false,
-                onTrailsToggle = { webViewRef?.evaluateJavascript("toggleTrails()", null) },
-                downloadedOn = false,
-                onDownloadedToggle = { },
+                tracksOn = pmTracksOn,
+                onTracksToggle = { pmTracksOn = pmTracksOn.not(); webViewRef?.evaluateJavascript("toggleTracks()", null) },
+                trailsOn = pmTrailsOn,
+                onTrailsToggle = {
+                    pmTrailsOn = pmTrailsOn.not()
+                    if (pmTrailsOn) {
+                        Thread {
+                            try {
+                                val json = context.assets.open("utah_trails_stgeorge.geojson").bufferedReader().use { it.readText() }
+                                webViewRef?.post { webViewRef?.evaluateJavascript("loadTrails(" + json + "); showTrails();", null) }
+                            } catch (e: Exception) { }
+                        }.start()
+                    } else {
+                        webViewRef?.evaluateJavascript("toggleTrails()", null)
+                    }
+                },
+                downloadedOn = pmDownloadedOn,
+                onDownloadedToggle = {
+                    if (pmDownloadedOn) {
+                        pmDownloadedOn = false
+                        webViewRef?.evaluateJavascript("clearDownloadedAreas()", null)
+                    } else {
+                        val tilesDir = java.io.File(ConvoyConfig.TILE_DIR, "SAT/14")
+                        Thread {
+                            val bounds = mutableListOf<String>()
+                            if (tilesDir.exists()) {
+                                val z = 14; val n = 1 shl z
+                                tilesDir.listFiles()?.forEach { xDir ->
+                                    val x = xDir.name.toLongOrNull() ?: return@forEach
+                                    xDir.listFiles()?.forEach { yFile ->
+                                        val y = yFile.name.removeSuffix(".png").toLongOrNull() ?: return@forEach
+                                        val tN = Math.toDegrees(Math.atan(Math.sinh(Math.PI * (1.0 - 2.0 * y / n))))
+                                        val tS = Math.toDegrees(Math.atan(Math.sinh(Math.PI * (1.0 - 2.0 * (y + 1) / n))))
+                                        val tW = x.toDouble() / n * 360.0 - 180.0
+                                        val tE = (x + 1).toDouble() / n * 360.0 - 180.0
+                                        bounds.add("{\"n\":" + tN + ",\"s\":" + tS + ",\"e\":" + tE + ",\"w\":" + tW + "}")
+                                    }
+                                }
+                            }
+                            val json = "[" + bounds.joinToString(",") + "]"
+                            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                webViewRef?.evaluateJavascript("showDownloadedAreas(" + json + ")", null)
+                                pmDownloadedOn = true
+                            }
+                        }.start()
+                    }
+                },
                 scanningDownloaded = false,
                 modifier = Modifier.padding(start = 8.dp, top = 56.dp)
             )
