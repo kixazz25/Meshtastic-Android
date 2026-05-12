@@ -56,7 +56,7 @@ fun ConvoyMapViewerScreen(
     val context = LocalContext.current
     var webViewRef by remember { mutableStateOf<WebView?>(null) }
 
-    // Clean up WebView when leaving Map Viewer
+    // Clean up WebView when leaving Planning Map
     DisposableEffect(Unit) {
         onDispose {
             webViewRef?.stopLoading()
@@ -94,7 +94,7 @@ fun ConvoyMapViewerScreen(
         }
     }
     var searchText by remember { mutableStateOf("") }
-    var showSearch by remember { mutableStateOf(false) }
+    var showSearch by remember { mutableStateOf(true) }
     val coroutineScope = rememberCoroutineScope()
 
     // Download controls state
@@ -129,106 +129,24 @@ fun ConvoyMapViewerScreen(
                 modifier = Modifier.clickable { onBack() }.padding(8.dp)
             )
             Text(
-                "MAP VIEWER",
+                "PLANNING MAP",
                 color = Color(0xFFE8EEF5),
                 fontSize = 14.sp,
                 fontFamily = FontFamily.Monospace,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 2.sp
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    "FIND",
-                    color = if (showSearch) Color(0xFF00AAFF) else Color(0xFF445566),
-                    fontSize = 11.sp,
-                    fontFamily = FontFamily.Monospace,
+            // TRACKS button (opens track picker)
+            Surface(
+                modifier = Modifier.clickable { showTrackPanel = showTrackPanel.not() },
+                shape = RoundedCornerShape(6.dp),
+                color = if (showTrackPanel) Color(0xFF39FF14).copy(alpha = 0.2f) else Color(0xFF2A3545)
+            ) {
+                Text("TRACKS",
+                    color = if (showTrackPanel) Color(0xFF39FF14) else Color(0xFF7A8DA0),
+                    fontSize = 11.sp, fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold,
-                    modifier = Modifier.clickable { showSearch = !showSearch }.padding(8.dp)
-                )
-                Text(
-                    "TRAILS",
-                    color = if (trailsOn) Color(0xFF00AAFF) else Color(0xFF445566),
-                    fontSize = 11.sp,
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.clickable {
-                        trailsOn = !trailsOn
-                        if (trailsOn && !trailsLoaded) {
-                            trailsLoaded = true
-                            Thread {
-                                try {
-                                    val json = context.assets.open("utah_trails_stgeorge.geojson").bufferedReader().use { it.readText() }
-                                    webViewRef?.post {
-                                        webViewRef?.evaluateJavascript("loadTrails(" + json + "); showTrails();", null)
-                                        android.util.Log.d("MapViewer", "Trails loaded on demand")
-                                    }
-                                } catch (e: Exception) {
-                                    android.util.Log.e("MapViewer", "Trail load error: " + e.message)
-                                }
-                            }.start()
-                        } else {
-                            webViewRef?.evaluateJavascript("toggleTrails()", null)
-                        }
-                    }.padding(8.dp)
-                )
-                Box {
-                    Text(
-                        "TRACKS ▼",
-                        color = if (showTrackPanel) Color(0xFF39FF14) else Color(0xFF445566),
-                        fontSize = 11.sp,
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.clickable {
-                            showTrackMenu = !showTrackMenu
-                        }.padding(8.dp)
-                    )
-                    DropdownMenu(
-                        expanded = showTrackMenu,
-                        onDismissRequest = { showTrackMenu = false },
-                        modifier = Modifier.background(Color(0xFF262B26))
-                    ) {
-                        DropdownMenuItem(
-                            text = {
-                                Text("Select Tracks to Display",
-                                    color = Color(0xFFDFE4DC), fontSize = 11.sp,
-                                    fontFamily = FontFamily.Monospace)
-                            },
-                            onClick = {
-                                showTrackMenu = false
-                                if (!showTrackPanel) {
-                                    kotlinx.coroutines.MainScope().launch(kotlinx.coroutines.Dispatchers.IO) {
-                                        val files = scanTrackDir(context)
-                                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { trackFileList = files }
-                                    }
-                                    trackSearchText = ""
-                                }
-                                showTrackPanel = !showTrackPanel
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = {
-                                Text("Work With Tracks",
-                                    color = Color(0xFFDFE4DC), fontSize = 11.sp,
-                                    fontFamily = FontFamily.Monospace)
-                            },
-                            onClick = {
-                                showTrackMenu = false
-                                onNavigateToTrackExport()
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = {
-                                Text("Import from Downloads",
-                                    color = Color(0xFFDFE4DC), fontSize = 11.sp,
-                                    fontFamily = FontFamily.Monospace)
-                            },
-                            onClick = {
-                                showTrackMenu = false
-                                onNavigateToTrackImport()
-                            }
-                        )
-                    }
-                }
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp))
             }
         }
 
@@ -393,38 +311,6 @@ fun ConvoyMapViewerScreen(
             }
         }
 
-        // -- Map type buttons --
-        Row(
-            modifier = Modifier.fillMaxWidth().background(Color(0xFF131820))
-                .padding(horizontal = 8.dp, vertical = 4.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            tileSources.forEach { (label, _, url) ->
-                Surface(
-                    modifier = Modifier.weight(1f).clickable {
-                        activeSource = label
-                        webViewRef?.evaluateJavascript(
-                            "setTileUrl('" + url + "', '" + label + "')", null
-                        )
-                        trailsOn = (label == "SAT" || label == "TOPO")
-                    },
-                    shape = RoundedCornerShape(6.dp),
-                    color = if (activeSource == label) Color(0xFF2E75B6) else Color(0xFF1E252F)
-                ) {
-                    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                        Text(
-                            label,
-                            color = Color.White,
-                            fontSize = 12.sp,
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 10.dp)
-                        )
-                    }
-                }
-            }
-        }
-
         // -- WebView --
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             AndroidView(
@@ -501,6 +387,34 @@ fun ConvoyMapViewerScreen(
 
             // ── Download progress bar ─────────────────────────────────────
             // -- Download queue panel (replaces simple progress bar) --
+            // -- FIXED SOURCE BAR --
+            ConvoyMapBar(
+                navLabel = "CONVOY",
+                navIsBack = true,
+                onNavigate = onBack,
+                activeSource = ConvoyConfig.ACTIVE_TILE_SOURCE,
+                isOffline = false,
+                onSourceChange = { label ->
+                    ConvoyConfig.ACTIVE_TILE_SOURCE = label
+                    val url = MapSourceManager.getSlotSources().find { it.first == label }?.third ?: ""
+                    webViewRef?.evaluateJavascript("setTileUrl('" + url + "', '" + label + "')", null)
+                },
+                onOfflineToggle = { _ -> },
+                modifier = Modifier
+                    .padding(horizontal = 8.dp).padding(top = 8.dp)
+                    .fillMaxWidth()
+            )
+            // -- FLOATING DISPLAY PANEL --
+            ConvoyDisplayPanel(
+                tracksOn = false,
+                onTracksToggle = { webViewRef?.evaluateJavascript("toggleTracks()", null) },
+                trailsOn = false,
+                onTrailsToggle = { webViewRef?.evaluateJavascript("toggleTrails()", null) },
+                downloadedOn = false,
+                onDownloadedToggle = { },
+                scanningDownloaded = false,
+                modifier = Modifier.padding(start = 8.dp, top = 56.dp)
+            )
             DownloadQueuePanel(
                 expanded = queueExpanded,
                 onToggle = { queueExpanded = !queueExpanded },

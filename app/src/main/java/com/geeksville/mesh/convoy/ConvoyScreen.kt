@@ -168,6 +168,7 @@ fun ConvoyScreen(
     var mapZoomLevel by remember { mutableStateOf(18f) }
     val isOfflineMode by viewModel.isOfflineMode.collectAsStateWithLifecycle()
     var showDownloaded by remember { mutableStateOf(false) }
+    var tracksVisible by remember { mutableStateOf(false) }
     var scanningDownloaded by remember { mutableStateOf(false) }
     val autoPan by viewModel.autoPan.collectAsStateWithLifecycle()
     var locationSearchQuery by remember { mutableStateOf("") }
@@ -742,7 +743,7 @@ fun ConvoyScreen(
             )
         }
 
-        Box(modifier = Modifier.align(Alignment.TopStart).statusBarsPadding().padding(8.dp)) {
+        Box(modifier = Modifier.statusBarsPadding().padding(8.dp)) {
             if (!showRecMenu) {
                 // Main REC button
                 Surface(
@@ -934,488 +935,111 @@ fun ConvoyScreen(
               }
           }
         // ── Task 5.3: Show Lead Track toggle + Task 5.4: Route Recorder ──
+        // -- FIXED SOURCE BAR --
+        ConvoyMapBar(
+            navLabel = "PLAN",
+            onNavigate = onNavigateToMapViewer,
+            activeSource = mapTypeLabel,
+            isOffline = isLocalTiles,
+            onSourceChange = { label ->
+                viewModel.setMapTypeLabel(label)
+                ConvoyConfig.ACTIVE_TILE_SOURCE = label
+                val url = if (isLocalTiles)
+                    ConvoyConfig.LOCAL_TILE_BASE + label + "/{z}/{x}/{y}.png"
+                else
+                    MapSourceManager.getSlotSources().find { it.first == label }?.third ?: ""
+                viewModel.setLocalTiles(isLocalTiles)
+                webViewRef.value?.evaluateJavascript("setTileUrl('$url', '$label')", null)
+            },
+            onOfflineToggle = { goOffline ->
+                viewModel.setOfflineMode(goOffline)
+                val url = if (goOffline)
+                    ConvoyConfig.LOCAL_TILE_BASE + ConvoyConfig.ACTIVE_TILE_SOURCE + "/{z}/{x}/{y}.png"
+                else
+                    ConvoyConfig.TILE_SOURCES[ConvoyConfig.ACTIVE_TILE_SOURCE] ?: ""
+                webViewRef.value?.evaluateJavascript("setTileUrl('$url', '${ConvoyConfig.ACTIVE_TILE_SOURCE}')", null)
+            },
+            modifier = Modifier
+                .statusBarsPadding()
+                .padding(horizontal = 8.dp).padding(top = 8.dp)
+                .fillMaxWidth()
+                
+        )
+
         Column(
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .statusBarsPadding()
-                .padding(top = 8.dp, end = 8.dp),
+                .padding(top = 52.dp, end = 8.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            // ── MAP SETTINGS PANEL ──────────────────────────────────────────
-            Surface(
-                shape = RoundedCornerShape(10.dp),
-                color = Color(0xEE1E252F),
-                shadowElevation = 6.dp
-            ) {
-                Column(modifier = Modifier.padding(8.dp).width(200.dp).verticalScroll(rememberScrollState())) {
-                    // Row 1: chevron expand + map label + online/offline toggle
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Row(
-                            modifier = Modifier.clickable {
-                                if (showMapSettings) {
-                                    webViewRef.value?.evaluateJavascript("clearSearchCenter()", null)
-                                    webViewRef.value?.evaluateJavascript("clearAreaBoundary()", null)
-                                }
-                                showConvoyTrackPicker = false
-                                showMapSettings = !showMapSettings
-                            },
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                if (showMapSettings) "▲" else "▼",
-                                color = Color(0xFF4A6080), fontSize = 10.sp,
-                                fontFamily = FontFamily.Monospace
-                            )
-                            Spacer(Modifier.width(6.dp))
-                            // TRAILS toggle
-                            Surface(
-                                modifier = Modifier.clickable {
-                                    trailsOn = !trailsOn
-                                    if (trailsOn && !trailsLoaded) {
-                                        trailsLoaded = true
-                                        Thread {
-                                            try {
-                                                val json = context.assets.open("utah_trails_stgeorge.geojson").bufferedReader().use { it.readText() }
-                                                webViewRef.value?.post {
-                                                    webViewRef.value?.evaluateJavascript("loadTrails($json); showTrails();", null)
-                                                    android.util.Log.d("ConvoyMap", "Trails loaded on demand")
-                                                }
-                                            } catch (e: Exception) {
-                                                android.util.Log.e("ConvoyMap", "Trail load error: ${e.message}")
-                                            }
-                                        }.start()
-                                    } else {
-                                        webViewRef.value?.evaluateJavascript("toggleTrails()", null)
+                // -- MAP BAR + DISPLAY PANEL (rebuilt) --
+                ConvoyDisplayPanel(
+                    tracksOn = tracksVisible,
+                    onTracksToggle = {
+                        tracksVisible = !tracksVisible
+                        webViewRef.value?.evaluateJavascript("toggleTracks()", null)
+
+                    },
+                    trailsOn = trailsOn,
+                    onTrailsToggle = {
+                        trailsOn = !trailsOn
+                        if (trailsOn && !trailsLoaded) {
+                            trailsLoaded = true
+                            Thread {
+                                try {
+                                    val json = context.assets.open("utah_trails_stgeorge.geojson").bufferedReader().use { it.readText() }
+                                    webViewRef.value?.post {
+                                        webViewRef.value?.evaluateJavascript("loadTrails($$json); showTrails();", null)
                                     }
-                                },
-                                shape = RoundedCornerShape(3.dp),
-                                color = if (trailsOn) Color(0xFF2E75B6) else Color(0xFF1A2233)
-                            ) {
-                                Text(
-                                    "TRAILS",
-                                    color = if (trailsOn) Color.White else Color(0xFF4A6080),
-                                    fontSize = 9.sp, fontFamily = FontFamily.Monospace,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
-                                )
-                            }
-                            Spacer(Modifier.width(4.dp))
-                            // TRACKS panel toggle
-                            Surface(
-                                modifier = Modifier.clickable {
-                                    showMapSettings = false
-                                    showConvoyTrackPicker = !showConvoyTrackPicker
-                                    if (showConvoyTrackPicker) {
-                                        convoyTrackSearch = ""
-                                        kotlinx.coroutines.MainScope().launch(kotlinx.coroutines.Dispatchers.IO) {
-                                            val files = convoyListTracks(context)
-                                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                                                convoyTrackFiles = files
-                                            }
+                                } catch (e: Exception) {
+                                    android.util.Log.e("ConvoyMap", "Trail load error: $${e.message}")
+                                }
+                            }.start()
+                        } else {
+                            webViewRef.value?.evaluateJavascript("toggleTrails()", null)
+                        }
+                    },
+                    downloadedOn = showDownloaded,
+                    onDownloadedToggle = {
+                        if (showDownloaded) {
+                            showDownloaded = false
+                            webViewRef.value?.evaluateJavascript("clearDownloadedAreas()", null)
+                        } else {
+                            if (scanningDownloaded) { /* already scanning */ } else {
+                            scanningDownloaded = true
+                            val wv = webViewRef.value
+                            if (wv != null) {
+                            val tilesDir = java.io.File(ConvoyConfig.TILE_DIR, "SAT/14")
+                            Thread {
+                                val bounds = mutableListOf<String>()
+                                if (tilesDir.exists()) {
+                                    val z = 14; val n = 1 shl z
+                                    tilesDir.listFiles()?.forEach { xDir: java.io.File ->
+                                        val x = xDir.name.toLongOrNull() ?: return@forEach
+                                        xDir.listFiles()?.forEach { yFile: java.io.File ->
+                                            val y = yFile.name.removeSuffix(".png").toLongOrNull() ?: return@forEach
+                                            val tN = Math.toDegrees(Math.atan(Math.sinh(Math.PI * (1.0 - 2.0 * y / n))))
+                                            val tS = Math.toDegrees(Math.atan(Math.sinh(Math.PI * (1.0 - 2.0 * (y + 1) / n))))
+                                            val tW = x.toDouble() / n * 360.0 - 180.0
+                                            val tE = (x + 1).toDouble() / n * 360.0 - 180.0
+                                            bounds.add("{\"n\":$$tN,\"s\":$$tS,\"e\":$$tE,\"w\":$$tW}")
                                         }
                                     }
-                                },
-                                shape = RoundedCornerShape(3.dp),
-                                color = if (showConvoyTrackPicker) Color(0xFF2E75B6) else Color(0xFF1A2233)
-                            ) {
-                                Text(
-                                    "TRACKS",
-                                    color = if (showConvoyTrackPicker) Color.White else Color(0xFF4A6080),
-                                    fontSize = 9.sp, fontFamily = FontFamily.Monospace,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
-                                )
-                            }
-                        }
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(3.dp))
-                                    .background(Color(0xFF0A1628))
-                                    .padding(horizontal = 5.dp, vertical = 2.dp)
-                            ) {
-                                Text(
-                                    if (isOfflineMode) "LOCAL" else "NET",
-                                    color = if (isOfflineMode) Color(0xFF4DA6FF) else Color(0xFF1CF0A0),
-                                    fontSize = 8.sp, fontFamily = FontFamily.Monospace,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                            Spacer(Modifier.width(3.dp))
-                            Switch(
-                                checked = isOfflineMode,
-                                onCheckedChange = { goOffline ->
-                                    viewModel.setOfflineMode(goOffline)
-                                    val url = if (goOffline)
-                                        ConvoyConfig.LOCAL_TILE_BASE + ConvoyConfig.ACTIVE_TILE_SOURCE + "/{z}/{x}/{y}.png"
-                                    else
-                                        ConvoyConfig.TILE_SOURCES[ConvoyConfig.ACTIVE_TILE_SOURCE] ?: ""
-                                    android.util.Log.i("ConvoyOffline", "Toggle offline=$goOffline url=$url")
-                                    webViewRef.value?.evaluateJavascript("setTileUrl('$url', '${ConvoyConfig.ACTIVE_TILE_SOURCE}')", null)
-                                },
-                                modifier = Modifier.height(20.dp).width(36.dp),
-                                colors = androidx.compose.material3.SwitchDefaults.colors(
-                                    checkedThumbColor = Color(0xFF4DA6FF),
-                                    checkedTrackColor = Color(0xFF1A2A3A),
-                                    uncheckedThumbColor = Color(0xFF1CF0A0),
-                                    uncheckedTrackColor = Color(0xFF1A2A1A)
-                                )
-                            )
-                        }
-                    }
-                    // Row 2: layer type buttons always visible
-                    Spacer(Modifier.height(4.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        // Tile sources from map_sources.json — single source of truth
-                        MapSourceManager.getSlotSources().forEach { (label, _, onlineUrl) ->
-                            val isActive = mapTypeLabel == label
-                            Surface(
-                                modifier = Modifier.weight(1f).clickable {
-                                    viewModel.setMapTypeLabel(label)
-                                    ConvoyConfig.ACTIVE_TILE_SOURCE = label
-                                    val url = if (isOfflineMode)
-                                        ConvoyConfig.LOCAL_TILE_BASE + label + "/{z}/{x}/{y}.png"
-                                    else onlineUrl
-                                    viewModel.setLocalTiles(isOfflineMode)
-                                    webViewRef.value?.evaluateJavascript("setTileUrl('$url', '$label')", null)
-                                },
-                                shape = RoundedCornerShape(4.dp),
-                                color = if (isActive) Color(0xFF2E75B6) else Color(0xFF1A2233)
-                            ) {
-                                Text(
-                                    label,
-                                    color = if (isActive) Color.White else Color(0xFF4A6080),
-                                    fontSize = 12.sp, fontFamily = FontFamily.Monospace,
-                                    fontWeight = FontWeight.Bold,
-                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                                    modifier = Modifier.padding(vertical = 8.dp)
-                                )
-                            }
-                        }
-                    }
-                    // -- Track picker panel --
-                    if (showConvoyTrackPicker) {
-                        val filteredConvoy = if (convoyTrackSearch.isBlank()) convoyTrackFiles
-                            else convoyTrackFiles.filter { it.contains(convoyTrackSearch, ignoreCase = true) }
-                        Spacer(Modifier.height(4.dp))
-                        // Search
-                        androidx.compose.foundation.text.BasicTextField(
-                            value = convoyTrackSearch,
-                            onValueChange = { convoyTrackSearch = it },
-                            textStyle = androidx.compose.ui.text.TextStyle(color = Color.White, fontSize = 11.sp, fontFamily = FontFamily.Monospace),
-                            cursorBrush = androidx.compose.ui.graphics.SolidColor(Color(0xFF39FF14)),
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth()
-                                .background(Color(0xFF0A1020), RoundedCornerShape(3.dp))
-                                .padding(horizontal = 6.dp, vertical = 4.dp),
-                            decorationBox = { inner ->
-                                if (convoyTrackSearch.isEmpty()) Text("Search...", color = Color(0xFF445566), fontSize = 11.sp, fontFamily = FontFamily.Monospace)
-                                inner()
-                            }
-                        )
-                        Spacer(Modifier.height(3.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text("${filteredConvoy.size} of ${convoyTrackFiles.size}",
-                                color = Color(0xFF4A6080), fontSize = 9.sp, fontFamily = FontFamily.Monospace)
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Text("ALL", color = Color(0xFF39FF14), fontSize = 9.sp,
-                                    fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.clickable {
-                                        kotlinx.coroutines.MainScope().launch {
-                                            filteredConvoy.forEach { name ->
-                                                if (convoyLoadedTracks.none { it.first == name }) {
-                                                    val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                                                        convoyLoadTrackData(context, name)
-                                                    }
-                                                    if (result != null) {
-                                                        val safe = name.replace("'", "\\'")
-                                                        webViewRef.value?.evaluateJavascript("loadTrackFile('$safe', '${result}', '#39FF14')", null)
-                                                        convoyLoadedTracks = convoyLoadedTracks + Pair(name, "#39FF14")
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }.padding(4.dp))
-                                Text("FIT", color = Color(0xFF4DA6FF), fontSize = 9.sp,
-                                    fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.clickable {
-                                        webViewRef.value?.evaluateJavascript("fitAllTrackFiles()", null)
-                                    }.padding(4.dp))
-                                Text("CLEAR", color = Color(0xFFFF4444), fontSize = 9.sp,
-                                    fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.clickable {
-                                        webViewRef.value?.evaluateJavascript("clearAllTrackFiles()", null)
-                                        convoyLoadedTracks = emptyList()
-                                    }.padding(4.dp))
-                            }
-                        }
-                        Spacer(Modifier.height(2.dp))
-                        Column(modifier = Modifier.fillMaxWidth().height(140.dp)
-                            .verticalScroll(rememberScrollState())) {
-                            filteredConvoy.forEach { name ->
-                                val isLoaded = convoyLoadedTracks.any { it.first == name }
-                                Row(
-                                    modifier = Modifier.fillMaxWidth()
-                                        .clickable {
-                                            if (isLoaded) {
-                                                val safe = name.replace("'", "\\'")
-                                                webViewRef.value?.evaluateJavascript("removeTrackFile('$safe')", null)
-                                                convoyLoadedTracks = convoyLoadedTracks.filterNot { it.first == name }
-                                            } else {
-                                                kotlinx.coroutines.MainScope().launch {
-                                                    val data = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                                                        convoyLoadTrackData(context, name)
-                                                    }
-                                                    if (data != null) {
-                                                        val safe = name.replace("'", "\\'")
-                                                        webViewRef.value?.evaluateJavascript("loadTrackFile('$safe', '$data', '#39FF14')", null)
-                                                        convoyLoadedTracks = convoyLoadedTracks + Pair(name, "#39FF14")
-                                                    }
-                                                }
-                                            }
-                                        }
-                                        .padding(vertical = 3.dp, horizontal = 4.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Surface(
-                                        modifier = Modifier.size(8.dp),
-                                        shape = RoundedCornerShape(2.dp),
-                                        color = if (isLoaded) Color(0xFF39FF14) else Color(0xFF2A3040)
-                                    ) {}
-                                    Spacer(Modifier.width(6.dp))
-                                    Text(name, color = if (isLoaded) Color.White else Color(0xFF667788),
-                                        fontSize = 10.sp, fontFamily = FontFamily.Monospace, maxLines = 1)
                                 }
-                            }
-                        }
-                    }
-                    // Expanded settings
-                    // Expanded settings
-                    if (showMapSettings) {
-                        Spacer(Modifier.height(8.dp))
-
-                        // ── Tile source buttons ──────────────────────────
-                        Spacer(Modifier.height(6.dp))
-
-                        // ── Zoom slider ──────────────────────────────────
-                        Text("ZOOM  ${mapZoomLevel.toInt()}", color = Color(0xFF4A6080), fontSize = 9.sp,
-                            fontFamily = FontFamily.Monospace)
-                        Slider(
-                            value = mapZoomLevel,
-                            onValueChange = { mapZoomLevel = it },
-                            onValueChangeFinished = {
-                                ConvoyConfig.DOWNLOAD_ZOOM = mapZoomLevel.toInt()
-                            },
-                            valueRange = 16f..19f,
-                            steps = 2,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-
-                        // ── Search fly zoom slider ───────────────────────
-                        var flyZoomLevel by remember { mutableStateOf(ConvoyConfig.SEARCH_FLY_ZOOM.toFloat()) }
-                        var flyRadiusMiles by remember { mutableStateOf(10f) }
-                        Text("FLY RADIUS  ${flyRadiusMiles.toInt()} mi", color = Color(0xFF4A6080), fontSize = 9.sp, fontFamily = FontFamily.Monospace)
-                        Slider(
-                            value = flyRadiusMiles,
-                            onValueChange = { flyRadiusMiles = it },
-                            onValueChangeFinished = {
-                                // Convert miles to zoom: 10mi=z10, 5mi=z11, 2mi=z12, 1mi=z13
-                                ConvoyConfig.SEARCH_FLY_ZOOM = when {
-                                    flyRadiusMiles >= 10f -> 10
-                                    flyRadiusMiles >= 7f  -> 11
-                                    flyRadiusMiles >= 4f  -> 12
-                                    flyRadiusMiles >= 2f  -> 13
-                                    else                  -> 14
+                                val json = "[" + bounds.joinToString(",") + "]"
+                                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                    wv.evaluateJavascript("showDownloadedAreas($$json)", null)
+                                    showDownloaded = true
+                                    scanningDownloaded = false
                                 }
-                            },
-                            valueRange = 1f..10f,
-                            steps = 8,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        Spacer(Modifier.height(6.dp))
-
-                        // ── Online/Offline toggle ────────────────────────
-
-
-                        Spacer(Modifier.height(6.dp))
-
-                        // ── Search + Download Region ─────────────────────
-                        androidx.compose.material3.OutlinedTextField(
-                            value = locationSearchQuery,
-                            onValueChange = {
-                                locationSearchQuery = it
-                                locationSearchError = ""
-                                locationSearchResults = emptyList()
-                            },
-                            placeholder = { Text("City, park, or region...", fontSize = 9.sp, fontFamily = FontFamily.Monospace, color = Color(0xFF4A6080)) },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth(),
-                            textStyle = androidx.compose.ui.text.TextStyle(fontSize = 10.sp, fontFamily = FontFamily.Monospace, color = Color.White),
-                            colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = Color(0xFF2E75B6),
-                                unfocusedBorderColor = Color(0xFF2A3545),
-                                cursorColor = Color(0xFF2E75B6)
-                            ),
-                            trailingIcon = {
-                                if (locationSearchQuery.isNotBlank()) {
-                                    androidx.compose.material3.IconButton(onClick = {
-                                        locationSearchQuery = ""
-                                        locationSearchResults = emptyList()
-                                        locationSearchError = ""
-                                    }) {
-                                        Text("x", color = Color(0xFF4A6080), fontSize = 10.sp)
-                                    }
-                                }
-                            }
-                        )
-                        Spacer(Modifier.height(4.dp))
-                        Surface(
-                            modifier = Modifier.fillMaxWidth().clickable {
-                                if (locationSearchQuery.isBlank()) return@clickable
-                                locationSearchError = ""
-                                locationSearchResults = emptyList()
-                                Thread {
-                                    try {
-                                        val gc = android.location.Geocoder(context, java.util.Locale.getDefault())
-                                        val results = gc.getFromLocationName(locationSearchQuery, 5)
-                                        android.os.Handler(android.os.Looper.getMainLooper()).post {
-                                            if (results.isNullOrEmpty()) {
-                                                locationSearchError = "No results — try adding state (e.g. Zion UT)"
-                                            } else {
-                                                locationSearchResults = results
-                                            }
-                                        }
-                                    } catch (e: Exception) {
-                                        android.os.Handler(android.os.Looper.getMainLooper()).post {
-                                            locationSearchError = "Search failed: ${e.message}"
-                                        }
-                                    }
-                                }.start()
-                            },
-                            shape = RoundedCornerShape(8.dp),
-                            color = Color(0xFF1A3A5C)
-                        ) {
-                            Text("FIND AREA", color = Color(0xFF2E75B6), fontSize = 9.sp,
-                                fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
-                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                                modifier = Modifier.padding(vertical = 8.dp))
+                            }.start()
+                            } // wv != null
+                        } // not scanning
                         }
-                        if (locationSearchError.isNotEmpty()) {
-                            Spacer(Modifier.height(2.dp))
-                            Text(locationSearchError, color = Color(0xFFFF4444), fontSize = 9.sp,
-                                fontFamily = FontFamily.Monospace, modifier = Modifier.fillMaxWidth())
-                        }
-                        if (locationSearchResults.isNotEmpty()) {
-                            Spacer(Modifier.height(4.dp))
-                            locationSearchResults.forEach { addr ->
-                                val label = listOfNotNull(addr.featureName, addr.locality, addr.adminArea).distinct().joinToString(", ")
-                                Surface(
-                                    modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp).clickable {
-                                        val extras = addr.extras
-                                        val n = extras?.getDouble("boundingLatMax", 0.0) ?: 0.0
-                                        val s = extras?.getDouble("boundingLatMin", 0.0) ?: 0.0
-                                        val e = extras?.getDouble("boundingLonMax", 0.0) ?: 0.0
-                                        val w = extras?.getDouble("boundingLonMin", 0.0) ?: 0.0
-                                        if (n != 0.0 && s != 0.0) {
-                                            val clat = (n + s) / 2.0
-                                            val clng = (e + w) / 2.0
-                                            webViewRef.value?.evaluateJavascript("setView($clat,$clng,${ConvoyConfig.SEARCH_FLY_ZOOM})", null)
-                                            webViewRef.value?.evaluateJavascript("showAreaBoundary($n,$s,$e,$w)", null)
-                                            webViewRef.value?.evaluateJavascript("showSearchCenter($clat,$clng)", null)
-                                        } else {
-                                            webViewRef.value?.evaluateJavascript("setView(${addr.latitude},${addr.longitude},${ConvoyConfig.SEARCH_FLY_ZOOM})", null)
-                                            webViewRef.value?.evaluateJavascript("showSearchCenter(${addr.latitude},${addr.longitude})", null)
-                                        }
-                                        viewModel.setAutoPan(false)
-                                        locationSearchQuery = label
-                                        locationSearchResults = emptyList()
-                                    },
-                                    shape = RoundedCornerShape(6.dp),
-                                    color = Color(0xFF1E2A3A)
-                                ) {
-                                    Text(label, color = Color(0xFF7A8DA0), fontSize = 9.sp,
-                                        fontFamily = FontFamily.Monospace,
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp))
-                                }
-                            }
-                            Spacer(Modifier.height(4.dp))
-                        }
-                        // ── Download Region button ───────────────────────
-                        Surface(
-                            modifier = Modifier.fillMaxWidth().clickable {
-                                locationSearchResults = emptyList()
-                                onNavigateToMapViewer()
-                            },
-                            shape = RoundedCornerShape(8.dp),
-                            color = Color(0xFF2A3545)
-                        ) {
-                            Text("⬇  PLANNING MAP", color = Color(0xFF7A8DA0), fontSize = 9.sp,
-                                fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
-                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                                modifier = Modifier.padding(vertical = 8.dp))
-                        }
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Surface(
-                            modifier = Modifier.fillMaxWidth().clickable {
-                                if (showDownloaded) {
-                                    showDownloaded = false
-                                    webViewRef.value?.evaluateJavascript("clearDownloadedAreas()", null)
-                                } else {
-                                    if (scanningDownloaded) return@clickable
-                                    scanningDownloaded = true
-                                    val wv = webViewRef.value ?: return@clickable
-                                    val tilesDir = java.io.File(ConvoyConfig.TILE_DIR, "SAT/14")
-                                    Thread {
-                                        val bounds = mutableListOf<String>()
-                                        if (tilesDir.exists()) {
-                                            val z = 14; val n = 1 shl z
-                                            tilesDir.listFiles()?.forEach { xDir: java.io.File ->
-                                                val x = xDir.name.toLongOrNull() ?: return@forEach
-                                                xDir.listFiles()?.forEach { yFile: java.io.File ->
-                                                    val y = yFile.name.removeSuffix(".png").toLongOrNull() ?: return@forEach
-                                                    val tN = Math.toDegrees(Math.atan(Math.sinh(Math.PI * (1.0 - 2.0 * y / n))))
-                                                    val tS = Math.toDegrees(Math.atan(Math.sinh(Math.PI * (1.0 - 2.0 * (y + 1) / n))))
-                                                    val tW = x.toDouble() / n * 360.0 - 180.0
-                                                    val tE = (x + 1).toDouble() / n * 360.0 - 180.0
-                                                    bounds.add("{\"n\":$tN,\"s\":$tS,\"e\":$tE,\"w\":$tW}")
-                                                }
-                                            }
-                                        }
-                                        val json = "[" + bounds.joinToString(",") + "]"
-                                        android.os.Handler(android.os.Looper.getMainLooper()).post {
-                                            wv.evaluateJavascript("showDownloadedAreas($json)", null)
-                                            showDownloaded = true
-                                            scanningDownloaded = false
-                                        }
-                                    }.start()
-                                }
-                            },
-                            shape = RoundedCornerShape(8.dp),
-                            color = if (showDownloaded) Color(0xFF1A3A2A) else Color(0xFF1E2E40)
-                        ) {
-                            Text(
-                                if (scanningDownloaded) "⏳  SCANNING..." else if (showDownloaded) "✅  HIDE DOWNLOADED" else "⬜  SHOW DOWNLOADED",
-                                color = if (showDownloaded) Color(0xFF4AE09A) else Color(0xFF4DA6FF),
-                                fontSize = 9.sp,
-                                fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
-                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                                modifier = Modifier.padding(vertical = 8.dp))
-                        }
-
-                    }
-                }
-            }
+                    },
+                    scanningDownloaded = scanningDownloaded
+                )
 
 
             // REC button placeholder — large button added as map overlay below
