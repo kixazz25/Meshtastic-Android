@@ -504,7 +504,7 @@ fun ConvoyMapViewerScreen(
             DownloadQueuePanel(
                 expanded = queueExpanded,
                 onToggle = { queueExpanded = !queueExpanded },
-                modifier = Modifier.align(Alignment.BottomStart).padding(start = 12.dp, bottom = 8.dp).width(200.dp)
+                modifier = Modifier.align(Alignment.BottomStart).padding(start = 12.dp, bottom = 8.dp).width(280.dp)
             )
 
             // ── Download panel (above FAB) ────────────────────────────────
@@ -513,7 +513,7 @@ fun ConvoyMapViewerScreen(
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
                         .padding(end = 16.dp, bottom = 80.dp)
-                        .width(200.dp),
+                        .width(280.dp),
                     shape = RoundedCornerShape(12.dp),
                     color = Color(0xEE131820)
                 ) {
