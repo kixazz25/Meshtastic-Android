@@ -424,7 +424,7 @@ fun ConvoyMapViewerScreen(
                             pmTracksLoaded = true
                             val wv = webViewRef
                             kotlinx.coroutines.MainScope().launch {
-                                val colors = listOf("#FF4444","#44FF44","#4444FF","#FFAA00","#FF44FF","#44FFFF","#FFFFFF","#FF8800")
+                                val colors = listOf("#39FF14")
                                 val dir = java.io.File(
                                     android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOCUMENTS),
                                     "my_tracks")

@@ -979,9 +979,41 @@ fun ConvoyScreen(
                     tracksOn = tracksVisible,
                     onTracksToggle = {
                         tracksVisible = !tracksVisible
-                        android.util.Log.i("ConvoyDisplay", "toggleTracks called, webViewRef=" + (webViewRef.value != null))
-                        webViewRef.value?.evaluateJavascript("toggleTracks()", null)
-
+                        if (tracksVisible) {
+                            if (tracksLoaded) {
+                                webViewRef.value?.evaluateJavascript("showTracks()", null)
+                            } else {
+                                tracksLoaded = true
+                                val wv = webViewRef.value
+                                kotlinx.coroutines.MainScope().launch {
+                                    val trackColor = "#39FF14"
+                                    val dir = java.io.File(
+                                        android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOCUMENTS),
+                                        "my_tracks")
+                                    val files = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                        dir.listFiles()?.map { it.name }?.sorted() ?: emptyList()
+                                    }
+                                    files.forEach { name ->
+                                        val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                            try {
+                                                val file = java.io.File(dir, name)
+                                                if (!file.exists()) return@withContext null
+                                                val text = file.readText()
+                                                val coords = if (name.lowercase().endsWith(".gpx")) convoyParseGpx(text) else convoyParseKml(text)
+                                                if (coords.isEmpty()) return@withContext null
+                                                coords.joinToString(",", "[", "]") { p -> "[${p.first},${p.second}]" }
+                                            } catch (e: Exception) { null }
+                                        }
+                                        if (result != null) {
+                                            val safe = name.replace("'", "\\'")
+                                            wv?.evaluateJavascript("loadTrackFile('" + safe + "', '" + result + "', '" + trackColor + "')", null)
+                                        }
+                                    }
+                                }
+                            }
+                        } else {
+                            webViewRef.value?.evaluateJavascript("hideTracks()", null)
+                        }
                     },
                     trailsOn = trailsOn,
                     onTrailsToggle = {
