@@ -169,6 +169,7 @@ fun ConvoyScreen(
     val isOfflineMode by viewModel.isOfflineMode.collectAsStateWithLifecycle()
     var showDownloaded by remember { mutableStateOf(false) }
     var tracksVisible by remember { mutableStateOf(false) }
+    var tracksLoaded by remember { mutableStateOf(false) }
     var scanningDownloaded by remember { mutableStateOf(false) }
     val autoPan by viewModel.autoPan.collectAsStateWithLifecycle()
     var locationSearchQuery by remember { mutableStateOf("") }
@@ -961,7 +962,7 @@ fun ConvoyScreen(
             },
             modifier = Modifier
                 .statusBarsPadding()
-                .padding(start = 80.dp, end = 8.dp, top = 8.dp)
+                .padding(start = 110.dp, end = 8.dp, top = 8.dp)
                 .fillMaxWidth()
                 
         )

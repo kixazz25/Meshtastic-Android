@@ -101,6 +101,7 @@ fun ConvoyMapViewerScreen(
     var showDownloadPanel by remember { mutableStateOf(false) }
     var queueExpanded by remember { mutableStateOf(false) }
     var pmTracksOn by remember { mutableStateOf(false) }
+    var pmTracksLoaded by remember { mutableStateOf(false) }
     var pmTrailsOn by remember { mutableStateOf(false) }
     var pmDownloadedOn by remember { mutableStateOf(false) }
     var pmActiveSource by remember { mutableStateOf(ConvoyConfig.ACTIVE_TILE_SOURCE) }
@@ -408,13 +409,32 @@ fun ConvoyMapViewerScreen(
                 },
                 onOfflineToggle = { _ -> },
                 modifier = Modifier
-                    .padding(horizontal = 8.dp).padding(top = 2.dp)
+                    .padding(start = 50.dp, end = 8.dp, top = 2.dp)
                     .fillMaxWidth()
             )
             // -- FLOATING DISPLAY PANEL --
             ConvoyDisplayPanel(
                 tracksOn = pmTracksOn,
-                onTracksToggle = { pmTracksOn = pmTracksOn.not(); webViewRef?.evaluateJavascript("toggleTracks()", null) },
+                onTracksToggle = {
+                    pmTracksOn = pmTracksOn.not()
+                    if (pmTracksOn) {
+                        if (pmTracksLoaded) {
+                            webViewRef?.evaluateJavascript("showAllTrackFiles()", null)
+                        } else {
+                            pmTracksLoaded = true
+                            val colors = listOf("#FF4444","#44FF44","#4444FF","#FFAA00","#FF44FF","#44FFFF","#FFFFFF","#FF8800")
+                            val dir = java.io.File(
+                                android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOCUMENTS),
+                                "my_tracks")
+                            val files = dir.listFiles()?.map { it.name }?.sorted() ?: emptyList()
+                            files.forEachIndexed { idx, name ->
+                                loadTrackOnMap(context, name, colors[idx % colors.size], webViewRef)
+                            }
+                        }
+                    } else {
+                        webViewRef?.evaluateJavascript("hideAllTrackFiles()", null)
+                    }
+                },
                 trailsOn = pmTrailsOn,
                 onTrailsToggle = {
                     pmTrailsOn = pmTrailsOn.not()
