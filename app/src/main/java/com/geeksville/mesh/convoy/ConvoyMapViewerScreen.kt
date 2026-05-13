@@ -422,13 +422,32 @@ fun ConvoyMapViewerScreen(
                             webViewRef?.evaluateJavascript("showAllTrackFiles()", null)
                         } else {
                             pmTracksLoaded = true
-                            val colors = listOf("#FF4444","#44FF44","#4444FF","#FFAA00","#FF44FF","#44FFFF","#FFFFFF","#FF8800")
-                            val dir = java.io.File(
-                                android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOCUMENTS),
-                                "my_tracks")
-                            val files = dir.listFiles()?.map { it.name }?.sorted() ?: emptyList()
-                            files.forEachIndexed { idx, name ->
-                                loadTrackOnMap(context, name, colors[idx % colors.size], webViewRef)
+                            val wv = webViewRef
+                            kotlinx.coroutines.MainScope().launch {
+                                val colors = listOf("#FF4444","#44FF44","#4444FF","#FFAA00","#FF44FF","#44FFFF","#FFFFFF","#FF8800")
+                                val dir = java.io.File(
+                                    android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOCUMENTS),
+                                    "my_tracks")
+                                val files = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                    dir.listFiles()?.map { it.name }?.sorted() ?: emptyList()
+                                }
+                                files.forEachIndexed { idx, name ->
+                                    val color = colors[idx % colors.size]
+                                    val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                        try {
+                                            val file = java.io.File(dir, name)
+                                            if (!file.exists()) return@withContext null
+                                            val text = file.readText()
+                                            val coords = if (name.lowercase().endsWith(".gpx")) parseGpx(text) else parseKml(text)
+                                            if (coords.isEmpty()) return@withContext null
+                                            coords.joinToString(",", "[", "]") { "[${it.first},${it.second}]" }
+                                        } catch (e: Exception) { null }
+                                    }
+                                    if (result != null) {
+                                        val safe = name.replace("'", "\\'")
+                                        wv?.evaluateJavascript("loadTrackFile('$safe', '$result', '$color')", null)
+                                    }
+                                }
                             }
                         }
                     } else {
