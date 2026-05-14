@@ -6500,17 +6500,198 @@ Updated all package_name entries in app/google-services.json:
 
 
 === GroupTrack_V24_UserManual.docx ===
-
 GroupTrack
 User Manual
 Version 2.4
 Off-Road Convoy Tracking for Android
 May 2026
-
 1. What is GroupTrack?
-GroupTrack is an Android application for off-road convoy tracking. It uses Meshtastic mesh radios to share real-time GPS positions between riders in a group, allowing everyone to see where the convoy is on an offline map — even in areas with no cell service.
-GroupTrack shows each rider’s position on the map in real time, identifies the lead and tail vehicles, records GPS tracks of your ride, and works completely offline using pre-downloaded map tiles.
+GroupTrack is an Android application for off-road convoy tracking. It uses Meshtastic mesh radios to share real-time GPS positions between riders in a group, allowing everyone to see where the convoy is on an offline map -- even in areas with no cell service.
+GroupTrack shows each rider's position on the map in real time, identifies the lead and tail vehicles, records GPS tracks of your ride, and works completely offline using pre-downloaded map tiles.
 1.1 What You Need
+
+CRITICAL: Your T1000-E radio MUST remain on firmware version 2.6.11. Do NOT accept firmware update prompts. Newer firmware destabilizes BLE connectivity and radio configuration.
+CRITICAL: Keep your T1000-E in your cart at all times during rides. The radio must stay within 50 feet BLE range of your phone. Exceeding this range causes Bluetooth supervision timeout pauses that disrupt tracking.
+WARNING: Budget Android tablets (Tab8NEU and similar) have known Bluetooth issues with T1000-E radios. The BLE connection drops after 8-10 seconds. Use a name-brand phone or tablet.
+2. Getting Started
+2.1 Install GroupTrack
+If you received a Google Play internal test invite, follow the installation instructions provided by your ride organizer. If you received a direct APK file, see the side-loading instructions in the install guide.
+2.2 Grant Permissions
+GroupTrack requires several permissions to function. The app will prompt you for each one on first launch.
+Location Permission
+- When prompted, tap "Allow While Using the App" first.
+- The app will then explain why it needs background location and ask you to grant "Allow All the Time."
+- This opens your device Settings. Find GroupTrack and select "Allow all the time."
+- Return to the app.
+WARNING: If you only grant "While using the app," GPS track recording will stop when you turn off your screen or switch apps. Your ride track will be empty.
+Storage Permission
+- The app will request "All Files Access" permission.
+- This opens your device Settings. Find GroupTrack and toggle on "Allow access to manage all files."
+- Return to the app.
+This permission is required for offline map tiles and track file storage.
+Notification Permission
+- Grant notification permission when prompted.
+- Required for background download progress notifications.
+2.3 Connect to Your Radio
+- Power on your Meshtastic radio (T1000-E).
+- In GroupTrack, you will see a Bluetooth connection prompt or a radio list.
+- Select your radio from the list. The app connects via BLE.
+- Once connected, your position and other riders' positions will appear on the map.
+TIP: Keep your radio powered on and within Bluetooth range of your phone (within 50 feet) throughout the ride. GroupTrack will automatically reconnect to your last radio on future launches.
+3. The Convoy Map
+The main screen is the convoy map. It shows your position and every connected rider in the group. The convoy map is for live ride operations.
+3.1 Map Display
+- Your cart ("My Cart") is shown on the map with your position updated in real time.
+- Other riders in the convoy appear as separate markers with callsigns.
+- The map uses satellite tiles by default with road and place name labels.
+- Trail overlays display known OHV trails when toggled on in the Display Panel.
+- Lost rider alerts appear when a rider drops off the mesh network.
+3.2 Map Toolbar
+The convoy map has a fixed toolbar at the top of the screen with the following controls:
+- PLANNING MAP: tap to open the Planning Map for downloading tiles and planning rides.
+- SAT / TOPO / TOPO+: switch between satellite imagery, topographic, and USGS topo maps.
+- NET / LOCAL: switch between online tiles (requires internet) and offline cached tiles.
+See Section 6 for full toolbar details.
+3.3 Display Panel
+A floating DISPLAY panel provides toggle controls for map layers. Tap the DISPLAY pill to expand. The panel is draggable -- hold and drag to reposition it anywhere on the map. See Section 7 for full details.
+3.4 Lead and Tail
+GroupTrack automatically identifies the lead vehicle (front of convoy) and the tail vehicle (rear of convoy). The lead cart is set when you start a group track. The convoy engine computes positions and heading relative to the lead.
+3.5 Speed Display
+Your current speed (mph) is displayed on the map HUD after a brief warmup period. During the first 60 seconds, the speed display may show 0 mph while the GPS acquires enough position samples to compute accurate speed.
+4. The Planning Map
+The Planning Map (formerly Map Viewer) is your tool for downloading offline map tiles, viewing trail data, and planning rides. Access it by tapping PLANNING MAP in the convoy map toolbar, or from the GroupTrack menu.
+4.1 Search
+The Planning Map has a search field always visible at the top of the screen. Type a city, park, trail name, or region and tap GO to fly to that location. Search results appear as a dropdown -- tap a result to navigate there.
+4.2 Downloading Tiles
+- Navigate to your ride area using the search field.
+- Tap the DOWNLOAD button in the toolbar.
+- Adjust the download zoom level slider (higher zoom = more detail, larger download).
+- Tap "DOWNLOAD REGION" to activate draw mode.
+- Draw a rectangle around the area you want to download.
+- Confirm the download. It enters the queue and starts automatically.
+- A notification appears in your system tray showing progress.
+- You can close GroupTrack -- the download continues in the background.
+TIP: Download maps on WiFi before your ride. A typical ride area (20-30 miles of trail) takes 5-15 minutes depending on zoom level.
+4.3 Track Management
+The Planning Map header includes a TRACKS button for quick access to track management. Tap TRACKS to open the track picker where you can select, rename, delete, and manage your recorded ride tracks directly from the planning view.
+4.4 Download Panel Controls
+- Download Region: draw a rectangle to download tiles for that area.
+- Remove Area: draw a rectangle to delete tiles (coming in V2.5).
+- Download Zoom slider: controls the maximum zoom level for downloads (16-19).
+- Fly Over Radius slider: controls the zoom level when flying to search results.
+4.5 Verifying Downloads
+Toggle "Downloaded Areas" in the Display Panel. Blue shading shows where you have offline tiles. Toggle "Downloads in Progress" to see pink shading for areas currently being downloaded. Verify your ride area is fully covered before heading out.
+4.6 Returning to Convoy Map
+Tap CONVOY in the Planning Map toolbar to return to the convoy map.
+5. Recording a Ride
+5.1 Start Recording
+- Tap the RECORD button on the convoy map.
+- If prompted for location permission, grant "Allow all the time" as described in Section 2.2.
+- The app begins recording your GPS track. A recording indicator appears on screen.
+- The lead cart is set automatically.
+5.2 During the Ride
+- Your GPS position is recorded every 3 seconds and saved to a track file.
+- The track line draws on the map as you move.
+- Other riders' positions update via the mesh radio network.
+- You can lock and unlock your phone -- recording continues in the background.
+5.3 Stop Recording
+- Tap the STOP button.
+- A dialog appears asking you to name the track.
+- Enter a name (e.g., "Bar 10 Trail April 2026") and confirm.
+- The track is saved as a GPX file in your device storage.
+5.4 Viewing Saved Tracks
+Toggle Tracks ON in the Display Panel to see your recorded tracks overlaid on the map. Tracks are stored in the Documents/my_tracks/ folder and can be exported via the system file manager.
+6. Map Toolbar
+Both the convoy map and Planning Map share a consistent toolbar at the top of the screen.
+6.1 Navigation Button
+The leftmost button provides one-tap navigation between maps:
+- On the convoy map: "PLANNING MAP" -- tap to open the Planning Map.
+- On the Planning Map: "CONVOY" -- tap to return to the convoy map.
+6.2 Tile Source Buttons
+Three buttons select the active tile source:
+- SAT: Esri World Imagery -- satellite/aerial photography with road and place name labels.
+- TOPO: Esri World Topo Map -- topographic map with terrain shading and labels.
+- TOPO+: Esri USA Topo Maps -- USGS-style topographic maps with contour lines.
+The active source is highlighted. Tap any source to switch. Both online display and offline tiles switch together.
+6.3 NET / LOCAL Toggle
+- NET (green): tiles loaded from the internet in real-time. Requires data connection.
+- LOCAL (blue): tiles loaded from downloaded cache on device. Works offline.
+Switch to LOCAL before entering areas without cell service.
+7. Display Panel
+The Display Panel is a floating, draggable toggle panel that controls map layer visibility. It appears on both maps with the same options.
+7.1 Opening and Closing
+- Tap the "DISPLAY" pill to expand the panel and show all toggles.
+- Tap "DISPLAY" again to collapse it back to a small pill.
+7.2 Dragging
+Touch and hold the Display Panel, then drag it to any position on the map.
+7.3 Layer Toggles
+8. Download Queue
+Map tile downloads run in the background. You can queue multiple areas, close GroupTrack, and downloads continue. A notification in your system tray shows progress.
+8.1 How It Works
+- When you confirm a download in the Planning Map, it enters the download queue.
+- The queue processes up to 2 downloads simultaneously.
+- Each download fetches tiles for all active tile sources and their overlay layers.
+- Downloads survive app backgrounding, screen rotation, and device sleep.
+- If the app is killed or the device restarts, pending downloads resume automatically.
+8.2 Notification
+- A persistent notification appears in your system tray during downloads.
+- Shows the download label, tile count, and progress percentage.
+- Includes a CANCEL button to stop the download.
+- Completion notification appears when a download finishes.
+8.3 Queue Panel
+The queue panel appears at the bottom of the Planning Map when downloads are active. Tap the summary pill to expand and see active downloads with progress bars, queued items, and completed downloads. CANCEL ALL and CLEAR DONE buttons provide quick queue management.
+8.4 Download Visibility on the Map
+Toggle "Downloads in Progress" in the Display Panel to see your download status directly on the map:
+- Blue shading: tiles already downloaded and on disk.
+- Pink shading: areas currently being downloaded or queued for download.
+- Red shading: areas queued for tile removal (V2.5).
+No more guessing what's covered -- it's visible at a glance on both maps.
+9. Radio Configuration
+GroupTrack includes tools to configure your Meshtastic radio for convoy use. The recommended settings are LONG_FAST mode, which provides 3-5 mile range with good data throughput for position updates.
+- Apply Radio: applies the convoy master configuration to your connected radio.
+- Archive/Restore: backs up your current radio settings before applying convoy config, and restores them after the ride.
+WARNING: All riders in a convoy must be on the same frequency, channel, and modem preset. Use the Apply Radio feature to ensure consistent configuration.
+10. Known Limitations (V2.4)
+11. Troubleshooting
+Track file is empty (0 track points)
+Location permission is set to "While using the app" instead of "Allow all the time." Go to Settings > Apps > GroupTrack > Permissions > Location > Allow all the time.
+Map is blank / no tiles visible
+Offline tiles have not been downloaded for this area. Open the Planning Map, search for your area, and use DOWNLOAD to cache tiles. Also confirm that All Files Access permission is granted.
+Radio won't connect
+Ensure the radio is powered on and within 50 feet. Try toggling Bluetooth off and on. If using a budget tablet, try a different Android device.
+Radio connects then disconnects
+Usually caused by firmware version mismatch. Verify your T1000-E is on firmware 2.6.11. If updated past 2.6.11, contact GroupTrack team for downgrade instructions.
+Speed stuck at 0 mph
+Wait 60 seconds after starting a ride. If speed remains at 0 after 2 minutes, check that location permission is set to "Allow all the time."
+App killed in background
+Go to Settings > Battery > find GroupTrack > set to "Unrestricted." This prevents Android from killing the app when the screen is off.
+Download is slow or stalling
+Use a strong WiFi connection. Reduce the zoom level for faster downloads. Downloads process 2 at a time -- check the queue panel for status.
+Downloads not visible on map
+Toggle "Downloaded Areas" ON in the Display Panel to see blue shading where tiles are cached. Toggle "Downloads in Progress" for pink shading of active downloads.
+
+GroupTrack V2.4 User Manual  |  May 2026  |  grouptrack.org
+Item | Details
+Android device | Android 10 or later. Tested on Samsung and Pixel devices.
+Meshtastic radio | T1000-E. Must be on firmware 2.6.11. Must be on the same frequency and channel as other riders.
+Bluetooth | The app connects to the radio via Bluetooth Low Energy (BLE).
+Map tiles | Download offline map tiles over WiFi before your ride using the Planning Map.
+Toggle | Description
+Tracks | Show/hide your recorded GPS tracks on the map.
+Trails | Show/hide trail data (currently Utah St. George area OHV trails).
+Waypoints | Coming in V2.5. Will toggle user-created waypoints.
+Routes | Coming in V2.5. Will toggle planned routes.
+Downloaded Areas | Show blue shading where you have offline tiles on disk.
+Downloads in Progress | Show pink shading for areas being downloaded, red for removals.
+Limitation | Details
+No mileage display | Trip distance / odometer is not calculated or displayed. Planned for future release.
+60s speed warmup | Speed shows 0 mph for the first ~60 seconds while GPS acquires enough samples.
+GPS interval 3s | Track points recorded every 3 seconds. Higher resolution planned for V2.5.
+Budget device BLE | Low-cost tablets (Tab8NEU, etc.) cannot hold BLE connection to T1000-E. Use a name-brand Android phone.
+BLE reconnect | If BLE drops, manually disconnect and reconnect. Keep phone close to radio.
+Battery optimization | Some devices kill background apps. Go to Settings > Battery > GroupTrack > Unrestricted.
+Display panel position | Panel position resets when navigating between screens. Persistence coming in V2.5.
+Remove Area | Tile removal via draw-to-delete is coming in V2.5.
 
 
 === GroupTrack_V24_WorkPlan_Apr29.docx ===
@@ -6981,6 +7162,388 @@ grouptrack_trails_schema_v1.sql | Trails DB schema
 map_sources.json | Verified tile source catalog (in assets)
 build_trails_db_v1.py | Python ingestion POC (46,953 trails)
 DEV_ENVIRONMENT_v3.md | Dev environment reference
+
+
+=== GroupTrack_V25_SessionHandoff_May11_v4.docx ===
+GroupTrack V2.5 Session Handoff
+May 11, 2026 -- Download Queue + Queue Panel + Performance
+Tomorrow: mock up map bars, toolbar rebuild, test download speed fix
+1. Commits This Session (5)
+2. Download Queue Architecture
+2.1 Components
+2.2 Key Design Decisions
+WorkManager for background execution -- downloads survive app backgrounding, screen rotation, device sleep.
+Max 2 concurrent downloads. Queue processes in priority order.
+Progress updates: StateFlow only, no disk I/O. Status changes (complete/failed/cancelled) save to JSON.
+Notification update interval: every 250 tiles (was 50). Reduces system overhead.
+Queue panel at BottomStart, 280dp wide, clear of download panel at BottomEnd.
+Esri tiles confirmed -- zero Google URLs in codebase. Download URLs verified on device.
+3. Download Queue Priority -- Design Rule
+
+Source refresh trigger: when user changes a tile source for a map slot, app detects existing downloaded regions. Prompts: 'Refresh to new source?' If yes, queues priority-7 refresh entries. New downloads (priority 3) always service before refreshes (priority 7). Refresh may take days. This is user-triggered, not automatic. Respects Standing Rule 1.
+4. UI Changes
+4.1 Planning Map (was Map Viewer)
+Menu label renamed: 'Map Viewer' -> 'Planning Map' in ConvoySubMenu.kt
+Screen title rename: pending (tomorrow)
+Queue panel replaces simple progress bar. Tap to expand/collapse.
+Download panel (zoom slider, DOWNLOAD REGION, SHOW DOWNLOADED) unchanged.
+4.2 Convoy Map
+DOWNLOAD REGION button -> PLANNING MAP button (launches Planning Map)
+Download progress bar removed
+Toolbar rebuild pending (tomorrow)
+5. Tomorrow's Tasks
+5.1 Mock Up Map Bars (BEFORE any code)
+Design consistent two-line floating draggable bar for BOTH maps. Same visual style, same DISPLAY dropdown. Review and approve before writing code.
+
+Convoy Map bar:
+Line 1: SAT | TOPO | TOPO+ | NET/LOCAL
+Line 2: DISPLAY | PLANNING MAP
+
+Planning Map bar:
+Line 1: SAT | TOPO | TOPO+ | NET/LOCAL
+Line 2: DISPLAY | DOWNLOAD | ROUTE
+
+DISPLAY dropdown (same on both maps):
+Tracks (active), Trails (active), Waypoints (V2.5 greyed), Routes (V2.5 greyed), Local Maps (active)
+
+Both bars: floating, draggable, position persists via ConvoyConfig. Two-line compact pill. Greyed items show 'V2.5' text.
+5.2 Convoy Map Toolbar Rebuild
+Remove from convoy map: Fly Over, Find Area, download zoom slider, fly radius slider, search field, expanded settings panel
+Keep: SAT/TOPO/TOPO+ source toggles, NET/LOCAL toggle, PLANNING MAP button, SHOW DOWNLOADED (becomes 'Local Maps' in DISPLAY), TRAILS toggle, TRACKS toggle
+Rebuild as two-line floating draggable bar per mockup
+5.3 Planning Map Additions
+Add Fly Over to Planning Map
+Add download zoom level to Planning Map download panel
+Rename screen title to 'Planning Map'
+5.4 Test and Release
+Test download speed improvement (250 interval + no disk I/O)
+Test queue panel width at 280dp
+V2.4.x release AAB for Play Store after toolbar is clean
+6. Standing Rules -- Additions
+Rule 21: Complete impact analysis before ANY code change. grep every field, URL, and function name across the entire codebase.
+Rule 22: Download queue priority -- user-initiated (3) before refresh (7). Ride enrollment (1) before all.
+Rule 23: Source refresh is user-triggered, not automatic. Changing a tile source prompts for refresh.
+7. Known Issues
+8. Current State
+Branch: feature/convoy-event-ride
+Head: b313068aa + queue panel width fix (uncommitted)
+Build: assembleGoogleRelease running for width fix
+Device: Android 1 has Esri tiles downloaded. Working.
+V3/Paywall flags: both false.
+9. Files for Next Session
+Upload:
+1. This handoff document
+2. map_sources.json (from assets)
+3. grouptrack_user_schema_v2.sql
+4. Codebase reference files
+
+Paste at session start:
+git log --oneline -8
+git status
+
+GroupTrack V2.5 | Session Handoff | May 11, 2026 | Do not re-litigate settled decisions.
+Commit | Description
+e8c0c6cd8 | MapSourceManager -- single source of truth for all tile URLs, fixes Google URL bug
+20fe57b24 | Download queue -- WorkManager background tile downloads with notification, manifest fix
+aae339a17 | Queue panel UI, rich notifications, Planning Map rename, convoy map PLANNING MAP button
+b313068aa | Download performance -- remove disk I/O from progress, interval 50->250 tiles
+(pending) | Queue panel width 280dp for readable button text
+File | Purpose
+ConvoyDownloadNotification.kt | Notification channel, progress/complete/failed builders, cancel intents, group key
+ConvoyDownloadQueue.kt | DownloadQueueManager singleton + QueueEntry data class. Max 2 concurrent. JSON persistence for resume.
+ConvoyDownloadWorker.kt | CoroutineWorker with foreground service notification. Iterates MapSourceManager layers. 250-tile update interval.
+ConvoyDownloadQueuePanel.kt | Composable: summary pill + expandable detail with 2 slot progress bars, queued items, actions
+ConvoyDownloadActionReceiver.kt | BroadcastReceiver for CANCEL and CANCEL ALL from notification buttons
+Priority | Type | Trigger
+1 | Ride enrollment auto-download | V3.0 ride acceptance
+3 | User-initiated new region download | Draw area + confirm in Planning Map
+7 | Source refresh of existing regions | User changes tile source for a slot
+Issue | Status | Notes
+Download speed pauses | FIXED | Removed disk I/O from progress. Interval 250. Needs device test.
+Queue panel too narrow at 200dp | FIXED | Widened to 280dp. Needs device test.
+Map Viewer screen title still says Map Viewer | OPEN | Rename tomorrow with toolbar rebuild.
+Convoy map old expanded menu items | OPEN | Toolbar rebuild tomorrow removes orphaned items.
+Cross-ref incomplete processing | OPEN | Section 4 only processes 11 of ~35 files.
+
+
+=== GroupTrack_V25_SessionHandoff_May12.docx ===
+GroupTrack V2.4 / V2.5
+Session Handoff Document
+May 12, 2026 | Handoff for May 16+ Session
+Last commit: feat: tracks load all on toggle (BUILD SUCCESSFUL, tracks crash on toggle)
+1. Current Build State
+The V2.4 release build compiles successfully but has one critical blocker: the Tracks display toggle crashes the app when toggled ON because convoyLoadTrack() reads 68 GPX/KML files synchronously on the main thread, causing an ANR kill.
+
+Last committed build: 0c9d67953 (before tracks load-all)
+This build is stable and deployable. All features work except the tracks display toggle (which was not wired to load tracks at that point).
+
+Latest build (uncommitted): tracks load-all + grey-out fix
+After the crash was discovered, the Tracks toggle was greyed out as V2.5. A build is running with this fix. If successful, this is the release candidate.
+
+1.1 What Works (Confirmed by Testing)
+1.2 What Does NOT Work (Blockers)
+1.3 UI Polish Issues (Non-blocking)
+2. Tracks Display Toggle - Detailed Fix Plan
+2.1 Root Cause
+The app has TWO separate track systems in JavaScript:
+- trackLines[] - live GPS recording track, drawn by drawTrack(), toggled by toggleTracks()
+- importedTracks{} - saved track files loaded by loadTrackFile(), toggled by toggleTrackFiles() (Planning Map) or showTracks()/hideTracks() (Convoy Map, after our JS fix)
+
+The crash occurs because convoyLoadTrack() in ConvoyScreen.kt reads files synchronously:
+fun convoyLoadTrack(context, fileName, color, webView) {
+    val text = file.readText()  // BLOCKS MAIN THREAD
+    val coords = convoyParseGpx(text)  // BLOCKS MAIN THREAD
+    webView?.evaluateJavascript("loadTrackFile(...)", null)
+}
+
+With 68 files, this blocks the main thread for 60+ seconds, triggering Android's ANR watchdog which kills the app.
+2.2 Fix: Async Track Loading
+The fix is to wrap all file I/O in a coroutine on Dispatchers.IO, then post the JavaScript call back to Main:
+
+ConvoyScreen.kt tracks toggle callback:
+onTracksToggle = {
+    tracksVisible = !tracksVisible
+    if (tracksVisible) {
+        if (tracksLoaded) {
+            webViewRef.value?.evaluateJavascript("showTracks()", null)
+        } else {
+            tracksLoaded = true
+            kotlinx.coroutines.MainScope().launch {
+                val dir = java.io.File(Environment.getExternalStoragePublicDirectory(
+                    Environment.DIRECTORY_DOCUMENTS), "my_tracks")
+                val files = dir.listFiles()?.map { it.name }?.sorted() ?: emptyList()
+                files.forEachIndexed { idx, name ->
+                    val color = colors[idx % colors.size]
+                    withContext(Dispatchers.IO) {
+                        val text = File(dir, name).readText()
+                        val coords = if (name.endsWith(".gpx")) convoyParseGpx(text)
+                            else convoyParseKml(text)
+                        val json = coords.joinToString(",", "[", "]") { ... }
+                        withContext(Dispatchers.Main) {
+                            webViewRef.value?.evaluateJavascript(
+                                "loadTrackFile('$name', '$json', '$color')", null)
+                        }
+                    }
+                }
+            }
+        }
+    } else {
+        webViewRef.value?.evaluateJavascript("hideTracks()", null)
+    }
+}
+
+The same pattern applies to ConvoyMapViewerScreen.kt using loadTrackOnMap() which already uses MainScope().launch with Dispatchers.IO (see line 693). The Planning Map version should work correctly once wired because loadTrackOnMap is already async.
+
+Key difference: loadTrackOnMap() in MapViewerScreen is already async (uses MainScope().launch + Dispatchers.IO). convoyLoadTrack() in ConvoyScreen is synchronous. Either make convoyLoadTrack async, or use loadTrackOnMap's pattern.
+2.3 JavaScript Functions Reference
+convoy_map.html (Convoy Map WebView):
+
+grouptrack_map.html (Planning Map WebView):
+2.4 Files to Modify
+3. Complete File Inventory
+3.1 New Files Created This Session
+3.2 Modified Files
+4. Git Commit History (This Session)
+5. V2.4 Release Deployment Checklist
+Execute in this exact order:
+- 1. Fix tracks display toggle crash (async loading) OR grey out as V2.5
+- 2. Build release APK and test all features
+- 3. Commit final changes
+- 4. Build release AAB: ./gradlew bundleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease
+- 5. Upload AAB to Google Play Store
+- 6. Copy PDFs (Release Notes, Quickstart, User Manual) to grouptrack.org/downloads
+- 7. Update Facebook group (GroupTrack Off Road Navigation) files with new PDFs
+- 8. Flip V3_FEATURES_ENABLED = true in ConvoyConfig.kt (TEMPORARY - never commit true)
+- 9. Build debug APK: ./gradlew copyApkToDownloads
+- 10. Install on Android 2: adb -s 24039703201775 install -r -d [debug apk]
+- 11. Flip V3_FEATURES_ENABLED = false IMMEDIATELY
+- 12. Verify git diff shows only the flag revert - never commit true (Rule 19)
+- 13. Send announcement email
+- 14. Post in Facebook group
+6. V2.5 Development Sequence (3-4 Weeks)
+6.1 Week 1: Tracks Fix + Schema Foundation
+Day 1-2: Fix Tracks Display Toggle (BLOCKER)
+- Make convoyLoadTrack() async using coroutine + Dispatchers.IO
+- Wire convoy map tracks toggle to load all tracks asynchronously
+- Verify Planning Map tracks toggle works (loadTrackOnMap already async)
+- Add progress indicator for track loading (68 tracks = noticeable delay)
+- Un-grey Tracks in ConvoyDisplayPanel.kt
+- Test: toggle ON loads all tracks, toggle OFF hides, subsequent toggles instant
+
+Day 3-4: Schema Hardening
+- Implement grouptrack_user_schema_v2.sql with 24 triggers
+- Change journal table for all data modifications
+- Automatic backup on launch and before destructive operations
+- Point-in-time rollback capability
+- Manual backup/restore from Settings
+
+Day 5: UI Polish from V2.4 Testing
+- Fix bar positioning on convoy map (record button overlap)
+- Fix Planning Map bar +/- zoom overlap
+- Fix labels not loading on initial Planning Map display
+- Add loading progress indicators where needed
+6.2 Week 2: Trail Database + Waypoints
+Trail Database
+- Port Python trail ingestion POC to Kotlin
+- Download state trail datasets from agency URLs
+- On-device ingestion and deduplication
+- GeoPackage storage (grouptrack.gpkg) with Utah pilot
+- Migrate existing 22MB Utah GeoJSON as first dataset
+- Filter by trail type: OHV, hiking, horse, multi-use
+- Lazy loading from viewport queries
+
+Waypoints
+- Long-press on map to create waypoint
+- 10 waypoint types: trailhead, fuel, gate, hazard, scenic, water, camp, parking, rally, other
+- Rename, move, delete, share with convoy riders
+- Map legend generated from waypoint_types table
+- Display panel Waypoints toggle becomes active
+6.3 Week 3: Routes + Area Management
+Routes
+- Draw routes on map
+- Snap-to-trail routing
+- Import from GPX/KML files
+- Convert recorded tracks to routes
+- Assign routes to rides
+- Display panel Routes toggle becomes active
+
+Area Management
+- QueueType.REMOVE added to download queue enum
+- Remove Area: draw rectangle to delete tiles
+- Worker branches on type: DOWNLOAD vs REMOVE
+- Red shadow on map for areas being removed
+- Three shadow colors: blue (on disk), pink (downloading), red (removing)
+- Queue panel shows remove entries with red accent
+- Priority 2 for remove operations (between ride enrollment and user download)
+6.4 Week 4: Polish + Release
+Track Enhancements
+- Click track on map -> action popup (rename, delete, email, convert to route)
+- Reuse existing trail click handler pattern from WebView JavaScript
+- Track picker modified: select individual track to display on Planning Map
+
+Cross-Platform Prep
+- Display panel position persistence between screens
+- Pink/red shadow JavaScript functions for queue visibility
+- Function naming refactor: liveGps_ vs imported_ vs convoy_ prefixes
+- V2.5 release testing and deployment
+
+Mac Setup for iPad Development
+- Set up Mac with Git, GitHub access, VS Code
+- Fork Meshtastic web client repository
+- Establish web development environment (Node.js, local dev server)
+- Test Web Bluetooth on iPad with Bluefy browser
+- Port first screen (convoy map) as proof of concept
+7. Standing Development Rules
+8. Key Architecture Decisions
+- Two separate WebViews: convoy_map.html (convoy map) and grouptrack_map.html (Planning Map) with separate JavaScript state
+- Tracks are NOT shared between WebViews - loading on Planning Map does not affect convoy map
+- Display panel is a shared Compose component (ConvoyDisplayPanel.kt) used on both maps with different callbacks
+- ConvoyMapBar is a shared component with nav button, source buttons, and NET/LOCAL toggle
+- Download queue uses WorkManager for background processing with notification support
+- Map tile sources are data-driven via MapSourceManager reading map_sources.json
+- V2.4 is the iOS port source - WebView HTML/JS assets port directly to PWA
+- iPad version: fork Meshtastic web client, deploy as PWA through Web Bluetooth browser (Bluefy)
+- V3.0 subscription ($3/month) via Google Play + Apple IAP when PWA wraps in Capacitor
+- Remove Area reuses download queue (QueueType.REMOVE) with red shadow color
+- Three shadow colors on map: blue (downloaded), pink (downloading), red (removing)
+
+GroupTrack V2.4/V2.5 Session Handoff | May 12, 2026 | grouptrack.org
+Feature | Status | Map
+ConvoyMapBar (SAT/TOPO/TOPO+) | Working | Both
+NET/LOCAL toggle | Working (isOfflineMode fix applied) | Convoy
+PLAN button -> Planning Map | Working | Convoy
+CONVOY button -> back | Working | Planning
+Display panel opens/closes | Working | Both
+Display panel draggable | Working | Both
+Trails toggle loads GeoJSON and displays | Working | Convoy
+Downloaded Areas toggle scans tiles, blue overlay | Working | Convoy
+Downloaded Areas on Planning Map | Working (fix_pm_downloaded.py applied) | Planning
+TRACKS button opens Work with Tracks picker | Working | Planning
+Work with Tracks shows files, select/deselect/fit/clear | Working | Planning
+Source highlight follows selection | Working (pmActiveSource fix) | Planning
+Search always visible | Working | Planning
+Download queue background downloads | Working | Both
+Download notifications | Working | System
+Queue panel with progress bars | Working | Planning
+Issue | Root Cause | Fix Required
+Tracks display toggle crashes app | convoyLoadTrack() reads 68 files on main thread synchronously | Wrap in coroutine with Dispatchers.IO, load asynchronously
+Tracks toggle greyed V2.5 (current workaround) | Greyed out to prevent crash | Fix the async loading, then re-enable
+Issue | Details | Priority
+Bar still overlaps record button slightly | start=110.dp may need more, or record button needs repositioning | P2
+Planning Map bar overlaps +/- zoom | start=50.dp applied, may need adjustment | P2
+Planning Map gap between search and bar | top=2.dp applied, verify after build | P3
+Labels missing on initial Planning Map load | setTileUrl not called on page load, workaround: switch source and back | P3
+Track loading progress indicator needed | 68 tracks take time to load, no visual feedback | P2
+Display panel position resets between screens | Not persisted, V2.5 feature | P3
+Function | Purpose
+loadTrackFile(name, coordsJson, color) | Load a saved track file as a polyline, stores in importedTracks{}
+removeTrackFile(name) | Remove one track from map
+clearAllTrackFiles() | Remove all imported tracks
+fitTrackFile(name) | Zoom to fit one track
+fitAllTrackFiles() | Zoom to fit all tracks
+drawTrack(segments) | Draw live GPS recording track, stores in trackLines[]
+clearTrack() | Clear live GPS track
+showTracks() | Show trackLines[] AND importedTracks{} (FIXED in this session)
+hideTracks() | Hide trackLines[] AND importedTracks{} (FIXED in this session)
+toggleTracks() | Toggle visibility of all tracks
+Function | Purpose
+loadTrackFile(name, coordsJson, color) | Same as convoy
+removeTrackFile(name) | Same as convoy
+clearAllTrackFiles() | Same as convoy
+hideAllTrackFiles() | Hide all imported tracks
+showAllTrackFiles() | Show all imported tracks
+toggleTrackFiles() | Toggle imported tracks visibility
+fitTrackFile(name) | Same as convoy
+fitAllTrackFiles() | Same as convoy
+File | Change
+ConvoyScreen.kt | Make tracks toggle callback async using coroutine + Dispatchers.IO
+ConvoyMapViewerScreen.kt | Already uses async loadTrackOnMap() - just verify it works
+ConvoyDisplayPanel.kt | Un-grey Tracks toggle (change V2.5 back to active)
+convoy_map.html | Already fixed - showTracks/hideTracks include importedTracks
+grouptrack_map.html | Already correct - has hideAllTrackFiles/showAllTrackFiles
+File | Purpose
+convoy/ConvoyMapBar.kt | Shared fixed toolbar: nav button + SAT/TOPO/TOPO+ + NET/LOCAL toggle
+convoy/ConvoyDisplayPanel.kt | Shared floating draggable display panel with layer toggles
+convoy/ConvoyDownloadNotification.kt | Notification channel, progress/complete/failed builders
+convoy/ConvoyDownloadQueue.kt | DownloadQueueManager singleton, queue persistence
+convoy/ConvoyDownloadWorker.kt | WorkManager CoroutineWorker for background tile downloads
+convoy/ConvoyDownloadQueuePanel.kt | Queue panel UI with progress bars
+convoy/ConvoyDownloadActionReceiver.kt | BroadcastReceiver for cancel actions from notifications
+File | Key Changes
+ConvoyScreen.kt | ConvoyMapBar added, ConvoyDisplayPanel added, tracksVisible state, trailsOn default false, $$ fix in downloaded areas, bar positioning
+ConvoyMapViewerScreen.kt | Title MAP VIEWER->PLANNING MAP, old toolbar removed, TRACKS button added, ConvoyMapBar+DisplayPanel in WebView Box, pmActiveSource state, PM display toggles wired, showSearch default true
+ConvoySubMenu.kt | Menu label Map Viewer -> Planning Map
+ConvoyViewModel.kt | startDownload/cancelDownload redirect to queue manager
+AndroidManifest.xml | FOREGROUND_SERVICE_DATA_SYNC permission + SystemForegroundService
+convoy_map.html | showTracks/hideTracks now include importedTracks
+Hash | Message
+e8c0c6cd8 | MapSourceManager single source of truth
+20fe57b24 | Download queue WorkManager
+aae339a17 | Queue panel UI, Planning Map rename
+b313068aa | Download performance fix
+ca1bdc645 | Toolbar rebuild - ConvoyMapBar, ConvoyDisplayPanel, Planning Map cleanup, TRACKS button
+91293f066 | Display toggles wired both maps, bar positioning, trails default, downloaded areas scan
+776100921 | Bar button spacing, source highlight state, PM gap
+0c9d67953 | Convoy tracks JS toggle importedTracks, bar alongside record button
+(uncommitted) | Tracks load all on toggle (CRASHES - needs async fix), then greyed out V2.5
+Rule | Details
+APK output | app/build/outputs/apk/google/debug/app-google-universal-debug.apk
+Build command | ./gradlew copyApkToDownloads
+Release build | ./gradlew assembleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease
+Release AAB | ./gradlew bundleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease
+Project root | ~/Meshtastic-Android
+Feature flag | V3_FEATURES_ENABLED in ConvoyConfig.kt - NEVER commit true
+Android 1 | Serial 8624SBCEDF00001789 - V2.4 tester device
+Android 2 | Serial 24039703201775 - V3.0 dev device
+Install rule | adb -s [serial] install -r -d [apk] - NEVER omit -r -d
+Asset pull | Use run-as cat redirect, NEVER adb pull
+V2.4 package | com.grouptrack.android
+Patch scripts | Uniquely versioned Python, never reuse names, never heredoc
+Keystore | grouptrack-release-key.jks in 4 locations
+Session workflow | One command at a time, confirm via grep before build
+Impact analysis | Complete before code changes (Rule 21)
+Download priority | 1=ride enrollment, 3=user download, 7=source refresh (Rule 22)
+Source refresh | User-triggered not automatic (Rule 23)
 
 
 === GroupTrack_V25_SpatialArchitecture_v1.docx ===
