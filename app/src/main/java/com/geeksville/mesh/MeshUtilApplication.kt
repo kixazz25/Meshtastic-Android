@@ -25,6 +25,7 @@ import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
+import java.util.concurrent.TimeUnit
 import androidx.work.WorkManager
 import co.touchlab.kermit.Logger
 import com.geeksville.mesh.widget.LocalStatsWidgetReceiver
@@ -75,6 +76,9 @@ open class MeshUtilApplication :
         org.osmdroid.config.Configuration.getInstance().osmdroidTileCache = java.io.File(org.osmdroid.config.Configuration.getInstance().osmdroidBasePath, "tiles")
         org.osmdroid.config.Configuration.getInstance().tileFileSystemCacheMaxBytes = 1024L * 1024 * 1024
         org.osmdroid.config.Configuration.getInstance().tileFileSystemCacheTrimBytes = 900L * 1024 * 1024
+
+        // Prune stale WorkManager jobs from previous installs
+        WorkManager.getInstance(this).pruneWork()
 
         // Schedule periodic MeshLog cleanup
         scheduleMeshLogCleanup()
@@ -134,12 +138,14 @@ open class MeshUtilApplication :
 
     private fun scheduleMeshLogCleanup() {
         val cleanupRequest =
-            PeriodicWorkRequestBuilder<MeshLogCleanupWorker>(repeatInterval = 1.hours.toJavaDuration()).build()
+            PeriodicWorkRequestBuilder<MeshLogCleanupWorker>(repeatInterval = 1.hours.toJavaDuration())
+                .setInitialDelay(30, TimeUnit.SECONDS)
+                .build()
 
         WorkManager.getInstance(this)
             .enqueueUniquePeriodicWork(
                 MeshLogCleanupWorker.WORK_NAME,
-                ExistingPeriodicWorkPolicy.UPDATE,
+                ExistingPeriodicWorkPolicy.KEEP,
                 cleanupRequest,
             )
     }
