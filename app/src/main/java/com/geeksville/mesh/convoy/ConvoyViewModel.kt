@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import org.meshtastic.core.model.MyNodeInfo
@@ -325,7 +326,7 @@ class ConvoyViewModel @Inject constructor(
             }
         }
         startTick()
-        viewModelScope.launch { scanImportDirectory() }
+        viewModelScope.launch(Dispatchers.IO) { scanImportDirectory() }
     }
 
     suspend fun scanImportDirectory() {
