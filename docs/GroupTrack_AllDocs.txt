@@ -7546,6 +7546,247 @@ Download priority | 1=ride enrollment, 3=user download, 7=source refresh (Rule 2
 Source refresh | User-triggered not automatic (Rule 23)
 
 
+=== GroupTrack_V25_SessionHandoff_May13.docx ===
+GroupTrack — Task Status Handoff
+May 13, 2026
+V2.4 Deployed | V2.5 Implementation In Progress | V3.0 Debug on Android 2
+1. V2.4 Deployment — Completed Items
+
+2. V2.5 Implementation — Open Items
+All V2.5 work follows this process for each task: (1) Plan — discuss scope, define deliverables, agree on boundaries. (2) Research — search field cross-ref, function universe, where-used to identify every impacted file and function. (3) Agree — confirm impact analysis is complete, no hidden references. (4) Build — one patch, one test, one commit.
+
+2.1 Task 1: Source Picker (NEXT)
+Status: NOT STARTED — detailed planning required before beginning
+Objective: Expose all 16 map sources from map_sources.json to user selection. Users pick which source fills each of the 3 map slots.
+The 16 sources are built-in defaults shipping with the app. No custom source entry, no API key input, no validation — all pre-verified in JSON. Users select from the catalog to replace slot assignments.
+
+Scope:
+— UI: Long-press map bar heading opens source picker. Shows 16 sources grouped by type (SAT, HYB, TOPO, STREET, TERRAIN, OUTDOOR). Tap to assign to slot.
+— Display: Selected source URL drives setTileUrl for online display. Cache directory from JSON drives offline tile serving.
+— Download: Selected source layers drive tile downloads. Multi-layer sources (SAT = 3 layers) download all layers. Single-layer sources download 1.
+— Persistence: Slot assignments saved. Survive app restart.
+— Map Viewer only: Convoy map stays on defaults until cutover.
+
+2.2 Task 2: Download Queue
+Status: NOT STARTED — builds on source picker
+Objective: Replace direct download with queued, managed downloads. 2 concurrent. Resumable. Cancellable. Self-healing background refresh.
+Testers launch multiple download requests because downloads are slow. Requests pile up causing ANRs. Queue accepts all requests, processes 2 at a time, shows progress, supports cancel and resume.
+
+Components: DownloadQueueManager (singleton), QueueEntry (data class), Queue UI Panel (progress bars, cancel, history), resume logic (persist queue, scan on restart), self-healing background refresh (low-priority re-download of existing areas).
+Ships as V2.4 patch release with source picker. Testers get faster, reliable downloads.
+
+2.3 Task 3: Spatial Database — Trails
+Status: NOT STARTED — Python POC proven (46,953 Utah trails)
+Objective: Load SpatiaLite database with Utah state trails and user tracks. Replace GeoJSON asset loading with spatial viewport queries.
+
+Components:
+— Kotlin ingestion engine (ConvoyTrailOps.kt) porting Python POC
+— grouptrack_trails.db: public agency trail data, read-only after ingestion
+— Trail source catalog with user-selectable filters (OHV default)
+— Download from agency URLs (UGRC), ingest on-device
+— Viewport queries lazy-load trails to map
+— Replace utah_trails_stgeorge.geojson asset with database queries
+— Dedup on ingestion with review screen
+
+2.4 Task 4: Spatial Database — Tracks
+Status: NOT STARTED
+Objective: Index user tracks (GPX/KML files) in grouptrack_user.spatialite. Track alias model. Display from spatial data.
+
+Components:
+— Track metadata + bbox in user database (spatial index, not file copy)
+— Track alias model matching waypoints (identity = file, names in track_aliases)
+— Primary alias rename cascades to route name
+— File sync on launch reconciles DB with filesystem
+— Display switches from direct file parse to spatial query
+
+2.5 Task 5: Waypoints
+Status: NOT STARTED
+Objective: Long-press waypoint creation on map. Type picker. Alias model. Proximity check.
+
+Components:
+— Reclaim long-press for waypoint creation (move source picker to RIDERS button or separate UI)
+— 10 waypoint types with icons (trailhead, fuel, gate, hazard, scenic, water, camp, parking, rally, other)
+— Alias model: identity = coordinates, names in waypoint_aliases
+— Proximity check on creation (25m)
+— No moves (delete and recreate). No consolidation (delete the extra).
+— Map legend from waypoint_types table
+— Share prompt
+
+2.6 Task 6: Routes
+Status: NOT STARTED
+Objective: Route creation, editing, and assignment. Never independently shared.
+
+— Create by: draw on map, snap-to-trail, convert from track, import GPX/KML
+— Route sharing controlled by configurable app_setting
+— Never independently shared — only through ride enrollment (V3.0)
+— source_track_id links converted tracks to routes
+
+2.7 Task 7: Area Management
+Status: NOT STARTED
+Objective: Viewport-based download areas. Block-based queued downloads. Storage overlays.
+
+— Viewport zoom defines download areas
+— Smart first pull guided by trail coverage
+— Area overlays: blue fill (tiles) + black diagonal stripes (spatial data)
+— Area delete removes tiles only. Spatial data stays.
+
+3. V3.0 Status
+Build: Debug build running overnight May 11. V3_FEATURES_ENABLED = true.
+Deploy: Install on Android 2 (24039703201775) in AM. Restore flag to OFF after install.
+Scope: Dashboard, My Rides, Create Ride, enrollment pipeline. V3_FEATURES_ENABLED gates all V3 screens.
+Backend: EC2 34.224.89.217, RDS convoy_tracker, PHP API at /var/www/html/convoy_api.php
+V3.0 development paused during V2.5 implementation. Android 2 serves as V3.0 test bed for existing screens.
+
+4. Infrastructure Completed
+4.1 MapSourceManager.kt (commit e8c0c6cd8)
+Single source of truth for all tile URLs. Reads map_sources.json from assets. 16 built-in sources, 3 configurable slots. Serves display URLs, download layers, offline cache directories. Replaced 17 hardcoded references across 6 files. Fixed Google URL bug in download handler.
+
+4.2 map_sources.json
+16 tile sources: Google (4), Esri (5), USGS (2), OpenTopoMap, OpenStreetMap, CalTopo, Thunderforest, CartoDB. Default slots: SAT (Esri Imagery+Overlays), TOPO (Esri World Topo), TOPO+ (Esri USA Topo). Custom source template included for future use.
+
+4.3 Schema v2 (grouptrack_user_schema_v2.sql)
+20 tables/views, 24 lifecycle trigger placeholders with exact business rules in SQL comments. Key tables: tile_sources, map_slots, source_layers, waypoints, waypoint_aliases, waypoint_types, routes, tracks, track_aliases, ride_areas, source_ingestions, transfer_queue, change_journal, backup_log, app_settings. Schema hardened. Ready for implementation.
+
+4.4 Trail Ingestion POC (build_trails_db_v1.py)
+Python script proven with full Utah state data: 49,096 features yielded 46,953 trails. 18,230 OHV/motorized, 26,224 multi-use, 2,499 hiking. 107MB database. St George viewport: 535 trails. Ready for Kotlin port.
+
+4.5 Field Cross-Reference (recommit_docs_v10.sh)
+Restructured: commit first (30 seconds), cross-reference runs last (uncontested). Processes all 74 convoy files. 11,390 lines. Complete for first time. Pending enhancements: parameter source tracing, Section 10 URL content scanning.
+
+4.6 Architecture Documents
+15 documents covering spatial architecture, entity lifecycle, data protection, map source catalog, trail source catalog, tile reference, implementation guide, master plan. All committed to docs/. All decisions settled — do not re-litigate.
+
+5. Standing Rules (21)
+1. Never auto-delete user data. 2. Never embed API keys. 3. Share is opt-in. 4. Offline-first. 5. Canvas independence. 6. Cumulative collection. 7. Routes never independently public. 8. Private rides block sharing. 9. Published content recoverable. 10. Trails/routes never individually removed. 11. First source wins dedup. 12. Ops/Dialogs pattern. 13. Every change journaled. 14. Backup before destructive ops. 15. Journal stores before+after+WKT. 16. Schema before code. 17. Triggers before features. 18. Patch scripts uniquely versioned. 19. Never commit flags=true. 20. Preserve geometry precision. 21. Complete impact analysis before ANY code change — grep every field, URL, function name across entire codebase. Document every consumer. No exceptions.
+6. Development Process
+For every task, before any code is written:
+1. PLAN — Detailed discussion. Define scope and deliverables. Agree on what is in and what is out.
+2. RESEARCH — Search field cross-ref, function universe, where-used to identify every file and function impacted. Trace every field value through its consumers.
+3. AGREE — Confirm impact analysis is complete. No hidden references. No unknown consumers.
+4. BUILD — One patch, one test, one commit. Build and test after each change. No stacking patches.
+
+All 16 map sources are built-in defaults selected at build time. Custom sources with user API keys come later. Source picker selects from the existing JSON catalog only.
+
+7. Session Start — May 13
+Upload to new conversation:
+1. This handoff document (GroupTrack_V25_SessionHandoff_May13.docx)
+2. docs/field_crossref_raw.txt (74-file complete version from v10)
+3. app/src/main/assets/map_sources.json
+4. DEV_ENVIRONMENT_v3.md
+
+Paste at start:
+git log --oneline -5
+git status
+grep V3_FEATURES_ENABLED app/src/main/java/com/geeksville/mesh/convoy/ConvoyConfig.kt
+
+Morning tasks before V2.5 development:
+1. Install V3.0 debug on Android 2, restore flag to OFF
+2. Connect tester ANR device, pull crash logs, diagnose
+3. Upload V2.4 PDF manual to grouptrack.org/download
+4. Begin V2.5 Task 1 planning: Source Picker scope and impact analysis
+
+
+
+=== GroupTrack_V25_SessionHandoff_May16.docx ===
+GroupTrack — ANR Investigation Handoff
+May 16, 2026
+V2.4 Deployed | ANR Investigation on P10_T | V3.0 Debug Pending on Android 2
+1. Builds Completed Today
+2. Code Changes Applied
+2.1 WorkManager ANR Fix (fix_workmanager_anr_v1.py)
+File: MeshUtilApplication.kt
+Changed ExistingPeriodicWorkPolicy.UPDATE to KEEP — prevents MeshLogCleanupWorker from re-triggering on every cold start
+Added 30-second initial delay to PeriodicWorkRequest — first-ever run does not compete with cold start initialization
+Added import for java.util.concurrent.TimeUnit
+2.2 WorkManager Prune Fix (fix_workmanager_prune_v2.py)
+File: MeshUtilApplication.kt
+Added WorkManager.getInstance(this).pruneWork() before scheduleMeshLogCleanup() — clears stale finished/cancelled/failed work entries on every cold start
+Addresses accumulated WorkManager jobs from previous installs/sideloads that survive uninstall
+2.3 Commit Status
+Changes committed to feature/convoy-event-ride branch. Version code bumped to 29320500 for Play Store upload. V3_FEATURES_ENABLED restored to false.
+3. ANR Investigation — P10_T Device
+3.1 Device Profile
+3.2 Comparison: Android 2 vs P10_T (Same Play Store Build)
+3.3 ANR Types Identified
+ANR Type 1: WorkManager onStartJob (FIXED)
+SystemJobService.onStartJob() not responding within timeout. Caused by MeshLogCleanupWorker re-triggering on every cold start via ExistingPeriodicWorkPolicy.UPDATE. Four duplicate ANRs, four "Exempted app considered buggy" warnings. Fixed by KEEP policy + pruneWork + initial delay.
+ANR Type 2: Input Dispatching Timeout (OPEN)
+MainActivity not responding to MotionEvent within 10 seconds. Main thread blocked for 20-43 seconds after "Binding to mesh service" with zero log output. Occurs during Meshtastic Getting Started screen before any convoy/planning map code runs.
+ANR Type 3: Zombie Process (IDENTIFIED)
+Old GroupTrack process "refused to die" preventing new launch. System waits 10 seconds, cancels new process, returns to desktop. MeshService foreground service with wake lock and BLE connections keeps old process alive. Killing PID manually allows relaunch. Secondary symptom, not root cause.
+4. Root Cause Analysis — PRIMARY FINDING
+4.1 osmdroid Tile Cache Scanning
+Strongest hypothesis: osmdroid cache management is scanning/trimming 60 GB of tile data during Application.onCreate() on the main thread.
+Evidence:
+Factory reset (zero tiles) = fast launch. Over time as tester downloads tiles = progressively slower launch. Pattern confirmed across multiple resets.
+Android 2 (zero tiles) launches same Play Store build in 1 second. P10_T (~60 GB tiles) takes 20-31 seconds.
+osmdroid config in MeshUtilApplication.onCreate() sets tileFileSystemCacheMaxBytes = 1 GB but actual tile data is ~60 GB. osmdroid may attempt to trim from 60 GB to 1 GB on startup.
+Main thread goes completely silent for 20-43 seconds during startup — consistent with filesystem scanning that produces no log output.
+Clearing app data, resetting app preferences, uninstall/reinstall/reboot do NOT fix it — because tile files are on external storage and survive all of these operations.
+4.2 Key Insight: osmdroid Does Not Cache Local Tiles
+GroupTrack serves tiles via a custom convoy://tiles/ URL scheme intercepted in shouldInterceptRequest. These tiles are managed by GroupTrack, not by osmdroid. osmdroid should not be scanning or managing this tile directory at all. The osmdroid cache configuration in onCreate() may be inadvertently pointing to or scanning the GroupTrack tile directory.
+4.3 Verification In Progress
+Attempting to rename tiles directory on P10_T to prove the hypothesis. The mv command is running but taking time due to Android FUSE layer processing hundreds of thousands of directory entries. If the app launches fast with tiles renamed, the cause is confirmed.
+5. Proposed Fix
+Option 1 (Preferred): Disable osmdroid Cache Trimming
+Since GroupTrack manages its own tiles via convoy://tiles/ and does not use osmdroid for tile caching, disable osmdroid's built-in cache management entirely. Either remove the tileFileSystemCacheMaxBytes/tileFileSystemCacheTrimBytes configuration, or set them to very high values, or point osmdroid's cache to a separate empty directory that GroupTrack does not use.
+Option 2: Defer Cache Init to Background Thread
+Move osmdroid Configuration.getInstance() calls off the main thread in MeshUtilApplication.onCreate(). Wrap in a coroutine on Dispatchers.IO. This reduces ANR risk but does not eliminate the unnecessary 60 GB scan.
+Option 3: Instrumented Debug Build
+If the tile rename test is inconclusive, build a debug APK with timing instrumentation at every startup step: Application.onCreate(), each content provider, BootCompleteReceiver, MeshService.onCreate(), permission callbacks, and osmdroid initialization. Install on P10_T and identify the exact blocking call with millisecond precision.
+6. Outstanding Items from Previous Handoff
+7. Current Device Assignment
+8. Next Session Start
+Upload to new conversation:
+This handoff document
+DEV_ENVIRONMENT_v3.md
+GroupTrack_V25_MasterPlan_v1.md
+Paste at start:
+git log --oneline -5
+git status
+grep V3_FEATURES_ENABLED app/src/main/java/com/geeksville/mesh/convoy/ConvoyConfig.kt
+Check P10_T tile rename result: ls /sdcard/Documents/GroupTrack/maps/
+Morning tasks:
+Check tile rename result on P10_T — if fast launch confirmed, write osmdroid cache fix
+Uninstall Play Store build from Android 2, deploy V3.0 debug build
+Continue V2.5 Task 1: Source Picker planning (if ANR resolved)
+END OF HANDOFF | Root cause: osmdroid tile cache scanning 60 GB on main thread
+Build | Type | Device | Status
+V2.4 Release APK (20260514.1751) | Debug | Android 1 (P50) | INSTALLED
+V2.4 Release APK | Release | Android 1 (P50) | INSTALLED
+V2.4 Release AAB (29320500) | Release | Play Store | UPLOADED
+V2.4 Play Store | Release | Android 2 (EP103B) | INSTALLED — 1s launch
+V2.4 Play Store | Release | P10_T | ANR — investigating
+V3.0 Debug APK | Debug | Android 2 | NOT STARTED
+Spec | Value
+Model | P10_T
+Serial | P10V07162601000362
+Android | 16
+Advertised RAM | 4.0 GB + 16 GB virtual
+Actual RAM (kernel) | 2,920,932 KB (2.9 GB) — Unisoc/Spreadtrum chipset reserves ~1.1 GB for GPU/baseband/firmware
+Available RAM | ~1.3 GB after system services
+Swap | 1.8 GB (1.58 GB used)
+Chipset | Unisoc/Spreadtrum (confirmed by sprd references in logcat)
+Tile data | Estimated 60 GB across hundreds of thousands of files down to z18
+Spec | Android 2 (EP103B) | P10_T
+Total RAM | 3.8 GB | 2.9 GB
+Available | 2.1 GB | 1.3 GB
+Android | 14 | 16
+Tile data | None | ~60 GB
+Launch time | 1 second, no ANR | 20-31 seconds + ANR
+Item | Priority | Status
+P10_T ANR root cause (tile cache) | P1 | Hypothesis identified, rename verification in progress
+V3.0 debug build on Android 2 | P1 | NOT STARTED — Android 2 now has Play Store build
+PDF manual upload to grouptrack.org | P2 | OPEN
+try-catch in shouldInterceptRequest | P2 | OPEN — both ConvoyScreen and MapViewerScreen
+Lint warning: ServiceKeepAliveWorker foregroundServiceType | P3 | OPEN — missing connectedDevice type in manifest
+V2.5 Task 1: Source Picker planning | P2 | NOT STARTED
+Device | Serial | Build | Notes
+Android 1 (P50) | 8624SBCEDF00001789 | Release APK | V2.4 acceptance test device
+Android 2 (EP103B) | 24039703201775 | Play Store | Currently has Play Store V2.4. Needs V3.0 debug for dev.
+P10_T | P10V07162601000362 | Play Store | ANR under investigation. Tile rename in progress. Do NOT factory reset yet.
+
+
 === GroupTrack_V25_SpatialArchitecture_v1.docx ===
 GroupTrack V2.5
 Spatial Architecture Planning
