@@ -23,9 +23,9 @@ STATUS KEY:
   [REFERENCE]  = Stock Meshtastic, referenced by convoy code
   [REMOVED]    = Was present, now removed (noted for history)
 
-Generated: 2026-05-14 00:23
+Generated: 2026-05-16 23:02
 Branch: feature/convoy-event-ride
-Last commit: 0db3f71e4 docs: recommit all project documents + cross-reference — 2026-05-14 00:23
+Last commit: 84c9f0fbb docs: recommit all project documents + cross-reference — 2026-05-16 23:02
 
 ================================================================================
 SECTION 1: MESHTASTIC BASE LAYER MODIFICATIONS
@@ -11351,13 +11351,13 @@ SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
 --- 5A: StateFlow and MutableState Fields ---
 
   FIELD: _convoyState (public: convoyState)
-  DECLARED: ConvoyViewModel.kt:54
+  DECLARED: ConvoyViewModel.kt:55
   private val _convoyState = MutableStateFlow(ConvoyEngine.ConvoyState.empty())
 
     WRITERS (functions that CHANGE this field):
-      [W] ConvoyViewModel.kt:194:            val name = _convoyState.value.nodes.firstOrNull { it.nodeId == nodeId }?.callsign ?: nodeId
-      [W] ConvoyViewModel.kt:420:        _convoyState.value = current.copy(nodes = current.nodes.filter { it.nodeId != nodeId })
-      [W] ConvoyViewModel.kt:577:        _convoyState.value = state
+      [W] ConvoyViewModel.kt:195:            val name = _convoyState.value.nodes.firstOrNull { it.nodeId == nodeId }?.callsign ?: nodeId
+      [W] ConvoyViewModel.kt:421:        _convoyState.value = current.copy(nodes = current.nodes.filter { it.nodeId != nodeId })
+      [W] ConvoyViewModel.kt:578:        _convoyState.value = state
     READERS (functions that USE this field):
       [R] convoy/ConvoyScreen.kt:106:    val convoyState by viewModel.convoyState.collectAsStateWithLifecycle()
       [R] convoy/ConvoyScreen.kt:190:    LaunchedEffect(convoyState) {
@@ -11376,13 +11376,13 @@ SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
       [R] convoy/ConvoyScreen.kt:855:            val lostNames = convoyState.nodes
 
   FIELD: _convoyState (public: convoyState)
-  DECLARED: ConvoyViewModel.kt:55
+  DECLARED: ConvoyViewModel.kt:56
   val convoyState: StateFlow<ConvoyEngine.ConvoyState> = _convoyState.asStateFlow()
 
     WRITERS (functions that CHANGE this field):
-      [W] ConvoyViewModel.kt:194:            val name = _convoyState.value.nodes.firstOrNull { it.nodeId == nodeId }?.callsign ?: nodeId
-      [W] ConvoyViewModel.kt:420:        _convoyState.value = current.copy(nodes = current.nodes.filter { it.nodeId != nodeId })
-      [W] ConvoyViewModel.kt:577:        _convoyState.value = state
+      [W] ConvoyViewModel.kt:195:            val name = _convoyState.value.nodes.firstOrNull { it.nodeId == nodeId }?.callsign ?: nodeId
+      [W] ConvoyViewModel.kt:421:        _convoyState.value = current.copy(nodes = current.nodes.filter { it.nodeId != nodeId })
+      [W] ConvoyViewModel.kt:578:        _convoyState.value = state
     READERS (functions that USE this field):
       [R] convoy/ConvoyScreen.kt:106:    val convoyState by viewModel.convoyState.collectAsStateWithLifecycle()
       [R] convoy/ConvoyScreen.kt:190:    LaunchedEffect(convoyState) {
@@ -11401,66 +11401,66 @@ SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
       [R] convoy/ConvoyScreen.kt:855:            val lostNames = convoyState.nodes
 
   FIELD: _rideState (public: rideState)
-  DECLARED: ConvoyViewModel.kt:56
+  DECLARED: ConvoyViewModel.kt:57
   private val _rideState = MutableStateFlow(RideState.SOLO)
 
     WRITERS (functions that CHANGE this field):
     READERS (functions that USE this field):
-      [R] convoy/ConvoyViewModel.kt:57:    val rideState: StateFlow<RideState> = _rideState.asStateFlow()
+      [R] convoy/ConvoyViewModel.kt:58:    val rideState: StateFlow<RideState> = _rideState.asStateFlow()
 
   FIELD: _rideState (public: rideState)
-  DECLARED: ConvoyViewModel.kt:57
+  DECLARED: ConvoyViewModel.kt:58
   val rideState: StateFlow<RideState> = _rideState.asStateFlow()
 
     WRITERS (functions that CHANGE this field):
     READERS (functions that USE this field):
-      [R] convoy/ConvoyViewModel.kt:57:    val rideState: StateFlow<RideState> = _rideState.asStateFlow()
+      [R] convoy/ConvoyViewModel.kt:58:    val rideState: StateFlow<RideState> = _rideState.asStateFlow()
 
   FIELD: _activeRide (public: activeRide)
-  DECLARED: ConvoyViewModel.kt:58
+  DECLARED: ConvoyViewModel.kt:59
   private val _activeRide = MutableStateFlow<ConvoyEventConfig?>(null)
 
     WRITERS (functions that CHANGE this field):
     READERS (functions that USE this field):
-      [R] convoy/ConvoyViewModel.kt:59:    val activeRide: StateFlow<ConvoyEventConfig?> = _activeRide.asStateFlow()
+      [R] convoy/ConvoyViewModel.kt:60:    val activeRide: StateFlow<ConvoyEventConfig?> = _activeRide.asStateFlow()
 
   FIELD: _activeRide (public: activeRide)
-  DECLARED: ConvoyViewModel.kt:59
+  DECLARED: ConvoyViewModel.kt:60
   val activeRide: StateFlow<ConvoyEventConfig?> = _activeRide.asStateFlow()
 
     WRITERS (functions that CHANGE this field):
     READERS (functions that USE this field):
-      [R] convoy/ConvoyViewModel.kt:59:    val activeRide: StateFlow<ConvoyEventConfig?> = _activeRide.asStateFlow()
-
-  FIELD: _myNodeInfo (public: myNodeInfo)
-  DECLARED: ConvoyViewModel.kt:60
-  private val _myNodeInfo = MutableStateFlow<MyNodeInfo?>(null)
-
-    WRITERS (functions that CHANGE this field):
-      [W] ConvoyViewModel.kt:321:                _myNodeInfo.value = info
-    READERS (functions that USE this field):
-      [R] convoy/ConvoyApplyRadioScreen.kt:44:    val myNodeInfo  by uiViewModel.myNodeInfo.collectAsStateWithLifecycle()
-      [R] convoy/ConvoyApplyRadioScreen.kt:47:    val isConnected = myNodeInfo != null
-      [R] convoy/ConvoyApplyRadioScreen.kt:73:        else -> myNodeInfo?.let { "!%08x".format(it.myNodeNum) } ?: "—"
-      [R] convoy/ConvoyApplyRadioScreen.kt:99:                        Text("  ${myNodeInfo?.model ?: ""}  fw ${myNodeInfo?.firmwareVersion ?: ""}",
-      [R] convoy/ConvoyApplyRadioScreen.kt:263:                            Triple(LoraField.BANDWIDTH,     if ((myNodeInfo?.firmwareVersion ?: "").startsWith("2.6")) masterConfig?.loraBandwidth?.toString() ?: "—" else "—", masterConfig?.loraBandwidth?.toString() ?: "—"),
-      [R] convoy/ConvoyApplyRadioScreen.kt:264:                            Triple(LoraField.SPREAD_FACTOR, if ((myNodeInfo?.firmwareVersion ?: "").startsWith("2.6")) masterConfig?.loraSpreadFactor?.toString() ?: "—" else "—", masterConfig?.loraSpreadFactor?.toString() ?: "—"),
-      [R] convoy/ConvoyApplyRadioScreen.kt:265:                            Triple(LoraField.CODING_RATE,   if ((myNodeInfo?.firmwareVersion ?: "").startsWith("2.6")) masterConfig?.loraCodingRate?.toString() ?: "—" else "—", masterConfig?.loraCodingRate?.toString() ?: "—"),
-      [R] convoy/ConvoyApplyRadioScreen.kt:401:                            val ni = myNodeInfo ?: return@clickable
-      [R] convoy/ConvoyApplyRadioScreen.kt:500:                            val fwVersion = myNodeInfo?.firmwareVersion ?: ""
-      [R] convoy/ConvoyArchiveRestoreScreen.kt:41: *   1. Read nodeId from myNodeInfo
-      [R] convoy/ConvoyArchiveRestoreScreen.kt:59:    val myNodeInfo      by convoyViewModel.myNodeInfo.collectAsStateWithLifecycle()
-      [R] convoy/ConvoyArchiveRestoreScreen.kt:62:    val nodeId   = myNodeInfo?.myNodeNum?.let { "!%08x".format(it) } ?: ""
-      [R] convoy/ConvoyArchiveRestoreScreen.kt:112:                val nodeNum = myNodeInfo?.myNodeNum
-      [R] convoy/ConvoyCreateEventScreen.kt:290:                                val nodeInfo = viewModel.myNodeInfo.value
-      [R] convoy/ConvoyCreateRideScreen.kt:274:                                val nodeInfo = viewModel?.myNodeInfo?.value
+      [R] convoy/ConvoyViewModel.kt:60:    val activeRide: StateFlow<ConvoyEventConfig?> = _activeRide.asStateFlow()
 
   FIELD: _myNodeInfo (public: myNodeInfo)
   DECLARED: ConvoyViewModel.kt:61
+  private val _myNodeInfo = MutableStateFlow<MyNodeInfo?>(null)
+
+    WRITERS (functions that CHANGE this field):
+      [W] ConvoyViewModel.kt:322:                _myNodeInfo.value = info
+    READERS (functions that USE this field):
+      [R] convoy/ConvoyApplyRadioScreen.kt:44:    val myNodeInfo  by uiViewModel.myNodeInfo.collectAsStateWithLifecycle()
+      [R] convoy/ConvoyApplyRadioScreen.kt:47:    val isConnected = myNodeInfo != null
+      [R] convoy/ConvoyApplyRadioScreen.kt:73:        else -> myNodeInfo?.let { "!%08x".format(it.myNodeNum) } ?: "—"
+      [R] convoy/ConvoyApplyRadioScreen.kt:99:                        Text("  ${myNodeInfo?.model ?: ""}  fw ${myNodeInfo?.firmwareVersion ?: ""}",
+      [R] convoy/ConvoyApplyRadioScreen.kt:263:                            Triple(LoraField.BANDWIDTH,     if ((myNodeInfo?.firmwareVersion ?: "").startsWith("2.6")) masterConfig?.loraBandwidth?.toString() ?: "—" else "—", masterConfig?.loraBandwidth?.toString() ?: "—"),
+      [R] convoy/ConvoyApplyRadioScreen.kt:264:                            Triple(LoraField.SPREAD_FACTOR, if ((myNodeInfo?.firmwareVersion ?: "").startsWith("2.6")) masterConfig?.loraSpreadFactor?.toString() ?: "—" else "—", masterConfig?.loraSpreadFactor?.toString() ?: "—"),
+      [R] convoy/ConvoyApplyRadioScreen.kt:265:                            Triple(LoraField.CODING_RATE,   if ((myNodeInfo?.firmwareVersion ?: "").startsWith("2.6")) masterConfig?.loraCodingRate?.toString() ?: "—" else "—", masterConfig?.loraCodingRate?.toString() ?: "—"),
+      [R] convoy/ConvoyApplyRadioScreen.kt:401:                            val ni = myNodeInfo ?: return@clickable
+      [R] convoy/ConvoyApplyRadioScreen.kt:500:                            val fwVersion = myNodeInfo?.firmwareVersion ?: ""
+      [R] convoy/ConvoyArchiveRestoreScreen.kt:41: *   1. Read nodeId from myNodeInfo
+      [R] convoy/ConvoyArchiveRestoreScreen.kt:59:    val myNodeInfo      by convoyViewModel.myNodeInfo.collectAsStateWithLifecycle()
+      [R] convoy/ConvoyArchiveRestoreScreen.kt:62:    val nodeId   = myNodeInfo?.myNodeNum?.let { "!%08x".format(it) } ?: ""
+      [R] convoy/ConvoyArchiveRestoreScreen.kt:112:                val nodeNum = myNodeInfo?.myNodeNum
+      [R] convoy/ConvoyCreateEventScreen.kt:290:                                val nodeInfo = viewModel.myNodeInfo.value
+      [R] convoy/ConvoyCreateRideScreen.kt:274:                                val nodeInfo = viewModel?.myNodeInfo?.value
+
+  FIELD: _myNodeInfo (public: myNodeInfo)
+  DECLARED: ConvoyViewModel.kt:62
   val myNodeInfo: StateFlow<MyNodeInfo?> = _myNodeInfo.asStateFlow()
 
     WRITERS (functions that CHANGE this field):
-      [W] ConvoyViewModel.kt:321:                _myNodeInfo.value = info
+      [W] ConvoyViewModel.kt:322:                _myNodeInfo.value = info
     READERS (functions that USE this field):
       [R] convoy/ConvoyApplyRadioScreen.kt:44:    val myNodeInfo  by uiViewModel.myNodeInfo.collectAsStateWithLifecycle()
       [R] convoy/ConvoyApplyRadioScreen.kt:47:    val isConnected = myNodeInfo != null
@@ -11479,15 +11479,15 @@ SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
       [R] convoy/ConvoyCreateRideScreen.kt:274:                                val nodeInfo = viewModel?.myNodeInfo?.value
 
   FIELD: _hudMode (public: hudMode)
-  DECLARED: ConvoyViewModel.kt:64
+  DECLARED: ConvoyViewModel.kt:65
   private val _hudMode = MutableStateFlow(HudMode.GROUP)
 
     WRITERS (functions that CHANGE this field):
-      [W] ConvoyViewModel.kt:391:    fun setHudMode(mode: HudMode) { _hudMode.value = mode }
-      [W] ConvoyViewModel.kt:392:    fun onMarkerTapped(node: ConvoyNode) { _selectedNode.value = node; _hudMode.value = HudMode.NODE }
-      [W] ConvoyViewModel.kt:393:    fun dismissNodeHud() { _selectedNode.value = null; _hudMode.value = HudMode.GROUP }
-      [W] ConvoyViewModel.kt:418:        _hudMode.value = HudMode.GROUP
-      [W] ConvoyViewModel.kt:738:        if (_hudMode.value == HudMode.NODE && _selectedNode.value != null) {
+      [W] ConvoyViewModel.kt:392:    fun setHudMode(mode: HudMode) { _hudMode.value = mode }
+      [W] ConvoyViewModel.kt:393:    fun onMarkerTapped(node: ConvoyNode) { _selectedNode.value = node; _hudMode.value = HudMode.NODE }
+      [W] ConvoyViewModel.kt:394:    fun dismissNodeHud() { _selectedNode.value = null; _hudMode.value = HudMode.GROUP }
+      [W] ConvoyViewModel.kt:419:        _hudMode.value = HudMode.GROUP
+      [W] ConvoyViewModel.kt:739:        if (_hudMode.value == HudMode.NODE && _selectedNode.value != null) {
     READERS (functions that USE this field):
       [R] convoy/ConvoyScreen.kt:107:    val hudMode by viewModel.hudMode.collectAsStateWithLifecycle()
       [R] convoy/ConvoyScreen.kt:233:    LaunchedEffect(hudMode, selectedNode, mapReady, autoPan, if (autoPan) convoyState else null) {
@@ -11497,18 +11497,18 @@ SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
       [R] convoy/ConvoyScreen.kt:1162:            when (hudMode) {
       [R] convoy/ConvoyScreen.kt:1614:    hudMode: HudMode,
       [R] convoy/ConvoyScreen.kt:1639:            val isActive = hudMode == mode
-      [R] convoy/ConvoyViewModel.kt:65:    val hudMode: StateFlow<HudMode> = _hudMode.asStateFlow()
+      [R] convoy/ConvoyViewModel.kt:66:    val hudMode: StateFlow<HudMode> = _hudMode.asStateFlow()
 
   FIELD: _hudMode (public: hudMode)
-  DECLARED: ConvoyViewModel.kt:65
+  DECLARED: ConvoyViewModel.kt:66
   val hudMode: StateFlow<HudMode> = _hudMode.asStateFlow()
 
     WRITERS (functions that CHANGE this field):
-      [W] ConvoyViewModel.kt:391:    fun setHudMode(mode: HudMode) { _hudMode.value = mode }
-      [W] ConvoyViewModel.kt:392:    fun onMarkerTapped(node: ConvoyNode) { _selectedNode.value = node; _hudMode.value = HudMode.NODE }
-      [W] ConvoyViewModel.kt:393:    fun dismissNodeHud() { _selectedNode.value = null; _hudMode.value = HudMode.GROUP }
-      [W] ConvoyViewModel.kt:418:        _hudMode.value = HudMode.GROUP
-      [W] ConvoyViewModel.kt:738:        if (_hudMode.value == HudMode.NODE && _selectedNode.value != null) {
+      [W] ConvoyViewModel.kt:392:    fun setHudMode(mode: HudMode) { _hudMode.value = mode }
+      [W] ConvoyViewModel.kt:393:    fun onMarkerTapped(node: ConvoyNode) { _selectedNode.value = node; _hudMode.value = HudMode.NODE }
+      [W] ConvoyViewModel.kt:394:    fun dismissNodeHud() { _selectedNode.value = null; _hudMode.value = HudMode.GROUP }
+      [W] ConvoyViewModel.kt:419:        _hudMode.value = HudMode.GROUP
+      [W] ConvoyViewModel.kt:739:        if (_hudMode.value == HudMode.NODE && _selectedNode.value != null) {
     READERS (functions that USE this field):
       [R] convoy/ConvoyScreen.kt:107:    val hudMode by viewModel.hudMode.collectAsStateWithLifecycle()
       [R] convoy/ConvoyScreen.kt:233:    LaunchedEffect(hudMode, selectedNode, mapReady, autoPan, if (autoPan) convoyState else null) {
@@ -11518,208 +11518,188 @@ SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
       [R] convoy/ConvoyScreen.kt:1162:            when (hudMode) {
       [R] convoy/ConvoyScreen.kt:1614:    hudMode: HudMode,
       [R] convoy/ConvoyScreen.kt:1639:            val isActive = hudMode == mode
-      [R] convoy/ConvoyViewModel.kt:65:    val hudMode: StateFlow<HudMode> = _hudMode.asStateFlow()
-
-  FIELD: _pendingImportBanner (public: pendingImportBanner)
-  DECLARED: ConvoyViewModel.kt:66
-  private val _pendingImportBanner = MutableStateFlow<String?>(null)
-
-    WRITERS (functions that CHANGE this field):
-      [W] ConvoyViewModel.kt:68:    fun clearImportBanner() { _pendingImportBanner.value = null }
-      [W] ConvoyViewModel.kt:384:                _pendingImportBanner.value = msg
-    READERS (functions that USE this field):
-      [R] convoy/ConvoyScreen.kt:161:    val pendingImportBanner by viewModel.pendingImportBanner.collectAsStateWithLifecycle()
-      [R] convoy/ConvoyScreen.kt:1104:        if (showConvoyMenu && showImportSplash && pendingImportBanner != null) {
-      [R] convoy/ConvoyScreen.kt:1122:                        androidx.compose.material3.Text(pendingImportBanner!!,
-      [R] convoy/ConvoyViewModel.kt:67:    val pendingImportBanner: StateFlow<String?> = _pendingImportBanner.asStateFlow()
+      [R] convoy/ConvoyViewModel.kt:66:    val hudMode: StateFlow<HudMode> = _hudMode.asStateFlow()
 
   FIELD: _pendingImportBanner (public: pendingImportBanner)
   DECLARED: ConvoyViewModel.kt:67
-  val pendingImportBanner: StateFlow<String?> = _pendingImportBanner.asStateFlow()
+  private val _pendingImportBanner = MutableStateFlow<String?>(null)
 
     WRITERS (functions that CHANGE this field):
-      [W] ConvoyViewModel.kt:68:    fun clearImportBanner() { _pendingImportBanner.value = null }
-      [W] ConvoyViewModel.kt:384:                _pendingImportBanner.value = msg
+      [W] ConvoyViewModel.kt:69:    fun clearImportBanner() { _pendingImportBanner.value = null }
+      [W] ConvoyViewModel.kt:385:                _pendingImportBanner.value = msg
     READERS (functions that USE this field):
       [R] convoy/ConvoyScreen.kt:161:    val pendingImportBanner by viewModel.pendingImportBanner.collectAsStateWithLifecycle()
       [R] convoy/ConvoyScreen.kt:1104:        if (showConvoyMenu && showImportSplash && pendingImportBanner != null) {
       [R] convoy/ConvoyScreen.kt:1122:                        androidx.compose.material3.Text(pendingImportBanner!!,
-      [R] convoy/ConvoyViewModel.kt:67:    val pendingImportBanner: StateFlow<String?> = _pendingImportBanner.asStateFlow()
+      [R] convoy/ConvoyViewModel.kt:68:    val pendingImportBanner: StateFlow<String?> = _pendingImportBanner.asStateFlow()
 
-  FIELD: _selectedNode (public: selectedNode)
-  DECLARED: ConvoyViewModel.kt:69
-  private val _selectedNode = MutableStateFlow<ConvoyNode?>(null)
+  FIELD: _pendingImportBanner (public: pendingImportBanner)
+  DECLARED: ConvoyViewModel.kt:68
+  val pendingImportBanner: StateFlow<String?> = _pendingImportBanner.asStateFlow()
 
     WRITERS (functions that CHANGE this field):
-      [W] ConvoyViewModel.kt:392:    fun onMarkerTapped(node: ConvoyNode) { _selectedNode.value = node; _hudMode.value = HudMode.NODE }
-      [W] ConvoyViewModel.kt:393:    fun dismissNodeHud() { _selectedNode.value = null; _hudMode.value = HudMode.GROUP }
-      [W] ConvoyViewModel.kt:417:        _selectedNode.value = null
-      [W] ConvoyViewModel.kt:738:        if (_hudMode.value == HudMode.NODE && _selectedNode.value != null) {
-      [W] ConvoyViewModel.kt:740:            _selectedNode.value = refreshed
+      [W] ConvoyViewModel.kt:69:    fun clearImportBanner() { _pendingImportBanner.value = null }
+      [W] ConvoyViewModel.kt:385:                _pendingImportBanner.value = msg
     READERS (functions that USE this field):
-      [R] convoy/ConvoyScreen.kt:108:    val selectedNode by viewModel.selectedNode.collectAsStateWithLifecycle()
-      [R] convoy/ConvoyScreen.kt:233:    LaunchedEffect(hudMode, selectedNode, mapReady, autoPan, if (autoPan) convoyState else null) {
-      [R] convoy/ConvoyScreen.kt:245:                selectedNode?.let {
-      [R] convoy/ConvoyScreen.kt:1182:                HudMode.NODE -> selectedNode?.let { node ->
-      [R] convoy/ConvoyViewModel.kt:70:    val selectedNode: StateFlow<ConvoyNode?> = _selectedNode.asStateFlow()
-      [R] convoy/ConvoyViewModel.kt:738:        if (_hudMode.value == HudMode.NODE && _selectedNode.value != null) {
-      [R] convoy/ConvoyViewModel.kt:739:            val refreshed = state.nodes.firstOrNull { it.nodeId == _selectedNode.value?.nodeId }
+      [R] convoy/ConvoyScreen.kt:161:    val pendingImportBanner by viewModel.pendingImportBanner.collectAsStateWithLifecycle()
+      [R] convoy/ConvoyScreen.kt:1104:        if (showConvoyMenu && showImportSplash && pendingImportBanner != null) {
+      [R] convoy/ConvoyScreen.kt:1122:                        androidx.compose.material3.Text(pendingImportBanner!!,
+      [R] convoy/ConvoyViewModel.kt:68:    val pendingImportBanner: StateFlow<String?> = _pendingImportBanner.asStateFlow()
 
   FIELD: _selectedNode (public: selectedNode)
   DECLARED: ConvoyViewModel.kt:70
-  val selectedNode: StateFlow<ConvoyNode?> = _selectedNode.asStateFlow()
+  private val _selectedNode = MutableStateFlow<ConvoyNode?>(null)
 
     WRITERS (functions that CHANGE this field):
-      [W] ConvoyViewModel.kt:392:    fun onMarkerTapped(node: ConvoyNode) { _selectedNode.value = node; _hudMode.value = HudMode.NODE }
-      [W] ConvoyViewModel.kt:393:    fun dismissNodeHud() { _selectedNode.value = null; _hudMode.value = HudMode.GROUP }
-      [W] ConvoyViewModel.kt:417:        _selectedNode.value = null
-      [W] ConvoyViewModel.kt:738:        if (_hudMode.value == HudMode.NODE && _selectedNode.value != null) {
-      [W] ConvoyViewModel.kt:740:            _selectedNode.value = refreshed
+      [W] ConvoyViewModel.kt:393:    fun onMarkerTapped(node: ConvoyNode) { _selectedNode.value = node; _hudMode.value = HudMode.NODE }
+      [W] ConvoyViewModel.kt:394:    fun dismissNodeHud() { _selectedNode.value = null; _hudMode.value = HudMode.GROUP }
+      [W] ConvoyViewModel.kt:418:        _selectedNode.value = null
+      [W] ConvoyViewModel.kt:739:        if (_hudMode.value == HudMode.NODE && _selectedNode.value != null) {
+      [W] ConvoyViewModel.kt:741:            _selectedNode.value = refreshed
     READERS (functions that USE this field):
       [R] convoy/ConvoyScreen.kt:108:    val selectedNode by viewModel.selectedNode.collectAsStateWithLifecycle()
       [R] convoy/ConvoyScreen.kt:233:    LaunchedEffect(hudMode, selectedNode, mapReady, autoPan, if (autoPan) convoyState else null) {
       [R] convoy/ConvoyScreen.kt:245:                selectedNode?.let {
       [R] convoy/ConvoyScreen.kt:1182:                HudMode.NODE -> selectedNode?.let { node ->
-      [R] convoy/ConvoyViewModel.kt:70:    val selectedNode: StateFlow<ConvoyNode?> = _selectedNode.asStateFlow()
-      [R] convoy/ConvoyViewModel.kt:738:        if (_hudMode.value == HudMode.NODE && _selectedNode.value != null) {
-      [R] convoy/ConvoyViewModel.kt:739:            val refreshed = state.nodes.firstOrNull { it.nodeId == _selectedNode.value?.nodeId }
+      [R] convoy/ConvoyViewModel.kt:71:    val selectedNode: StateFlow<ConvoyNode?> = _selectedNode.asStateFlow()
+      [R] convoy/ConvoyViewModel.kt:739:        if (_hudMode.value == HudMode.NODE && _selectedNode.value != null) {
+      [R] convoy/ConvoyViewModel.kt:740:            val refreshed = state.nodes.firstOrNull { it.nodeId == _selectedNode.value?.nodeId }
 
-  FIELD: _offTrackIds (public: offTrackIds)
+  FIELD: _selectedNode (public: selectedNode)
   DECLARED: ConvoyViewModel.kt:71
-  private val _offTrackIds = MutableStateFlow<Set<String>>(emptySet())
+  val selectedNode: StateFlow<ConvoyNode?> = _selectedNode.asStateFlow()
 
     WRITERS (functions that CHANGE this field):
-      [W] ConvoyViewModel.kt:722:            _offTrackIds.value = offTrack
-      [W] ConvoyViewModel.kt:724:            _offTrackIds.value = emptySet()
+      [W] ConvoyViewModel.kt:393:    fun onMarkerTapped(node: ConvoyNode) { _selectedNode.value = node; _hudMode.value = HudMode.NODE }
+      [W] ConvoyViewModel.kt:394:    fun dismissNodeHud() { _selectedNode.value = null; _hudMode.value = HudMode.GROUP }
+      [W] ConvoyViewModel.kt:418:        _selectedNode.value = null
+      [W] ConvoyViewModel.kt:739:        if (_hudMode.value == HudMode.NODE && _selectedNode.value != null) {
+      [W] ConvoyViewModel.kt:741:            _selectedNode.value = refreshed
     READERS (functions that USE this field):
-      [R] convoy/ConvoyScreen.kt:111:    val offTrackIds by viewModel.offTrackIds.collectAsStateWithLifecycle()
-      [R] convoy/ConvoyScreen.kt:199:                val isOffTrack = offTrackIds.contains(node.nodeId)
-      [R] convoy/ConvoyViewModel.kt:72:    val offTrackIds: StateFlow<Set<String>> = _offTrackIds.asStateFlow()
-      [R] convoy/ConvoyViewModel.kt:624:            val isOffTrack = _offTrackIds.value.contains(node.nodeId)
+      [R] convoy/ConvoyScreen.kt:108:    val selectedNode by viewModel.selectedNode.collectAsStateWithLifecycle()
+      [R] convoy/ConvoyScreen.kt:233:    LaunchedEffect(hudMode, selectedNode, mapReady, autoPan, if (autoPan) convoyState else null) {
+      [R] convoy/ConvoyScreen.kt:245:                selectedNode?.let {
+      [R] convoy/ConvoyScreen.kt:1182:                HudMode.NODE -> selectedNode?.let { node ->
+      [R] convoy/ConvoyViewModel.kt:71:    val selectedNode: StateFlow<ConvoyNode?> = _selectedNode.asStateFlow()
+      [R] convoy/ConvoyViewModel.kt:739:        if (_hudMode.value == HudMode.NODE && _selectedNode.value != null) {
+      [R] convoy/ConvoyViewModel.kt:740:            val refreshed = state.nodes.firstOrNull { it.nodeId == _selectedNode.value?.nodeId }
 
   FIELD: _offTrackIds (public: offTrackIds)
   DECLARED: ConvoyViewModel.kt:72
-  val offTrackIds: StateFlow<Set<String>> = _offTrackIds.asStateFlow()
+  private val _offTrackIds = MutableStateFlow<Set<String>>(emptySet())
 
     WRITERS (functions that CHANGE this field):
-      [W] ConvoyViewModel.kt:722:            _offTrackIds.value = offTrack
-      [W] ConvoyViewModel.kt:724:            _offTrackIds.value = emptySet()
+      [W] ConvoyViewModel.kt:723:            _offTrackIds.value = offTrack
+      [W] ConvoyViewModel.kt:725:            _offTrackIds.value = emptySet()
     READERS (functions that USE this field):
       [R] convoy/ConvoyScreen.kt:111:    val offTrackIds by viewModel.offTrackIds.collectAsStateWithLifecycle()
       [R] convoy/ConvoyScreen.kt:199:                val isOffTrack = offTrackIds.contains(node.nodeId)
-      [R] convoy/ConvoyViewModel.kt:72:    val offTrackIds: StateFlow<Set<String>> = _offTrackIds.asStateFlow()
-      [R] convoy/ConvoyViewModel.kt:624:            val isOffTrack = _offTrackIds.value.contains(node.nodeId)
+      [R] convoy/ConvoyViewModel.kt:73:    val offTrackIds: StateFlow<Set<String>> = _offTrackIds.asStateFlow()
+      [R] convoy/ConvoyViewModel.kt:625:            val isOffTrack = _offTrackIds.value.contains(node.nodeId)
 
-  FIELD: _trackActive (public: trackActive)
+  FIELD: _offTrackIds (public: offTrackIds)
   DECLARED: ConvoyViewModel.kt:73
-  private val _trackActive = MutableStateFlow(false)
+  val offTrackIds: StateFlow<Set<String>> = _offTrackIds.asStateFlow()
 
     WRITERS (functions that CHANGE this field):
-      [W] ConvoyViewModel.kt:166:        _trackActive.value = true
-      [W] ConvoyViewModel.kt:172:        _trackActive.value = false
-      [W] ConvoyViewModel.kt:683:                    if (_trackActive.value) _routeTrailSegments.value = _routeTrailSegments.value + seg
+      [W] ConvoyViewModel.kt:723:            _offTrackIds.value = offTrack
+      [W] ConvoyViewModel.kt:725:            _offTrackIds.value = emptySet()
     READERS (functions that USE this field):
-      [R] convoy/ConvoyScreen.kt:109:    val trackActive by viewModel.trackActive.collectAsStateWithLifecycle()
-      [R] convoy/ConvoyScreen.kt:1167:                    trackActive = trackActive,
-      [R] convoy/ConvoyScreen.kt:1219:    trackActive: Boolean = false,
-      [R] convoy/ConvoyViewModel.kt:74:    val trackActive: StateFlow<Boolean> = _trackActive.asStateFlow()
-      [R] convoy/ConvoyViewModel.kt:587:        if (_trackActive.value) {
-      [R] convoy/ConvoyViewModel.kt:637:                if (_trackActive.value) {
-      [R] convoy/ConvoyViewModel.kt:683:                    if (_trackActive.value) _routeTrailSegments.value = _routeTrailSegments.value + seg
-      [R] convoy/ConvoyViewModel.kt:707:            if (_trackActive.value && newSegs.isNotEmpty()) {
-      [R] convoy/ConvoyViewModel.kt:712:if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
-      [R] convoy/ConvoyViewModel.kt:815:                    if (_trackActive.value) {
+      [R] convoy/ConvoyScreen.kt:111:    val offTrackIds by viewModel.offTrackIds.collectAsStateWithLifecycle()
+      [R] convoy/ConvoyScreen.kt:199:                val isOffTrack = offTrackIds.contains(node.nodeId)
+      [R] convoy/ConvoyViewModel.kt:73:    val offTrackIds: StateFlow<Set<String>> = _offTrackIds.asStateFlow()
+      [R] convoy/ConvoyViewModel.kt:625:            val isOffTrack = _offTrackIds.value.contains(node.nodeId)
 
   FIELD: _trackActive (public: trackActive)
   DECLARED: ConvoyViewModel.kt:74
-  val trackActive: StateFlow<Boolean> = _trackActive.asStateFlow()
+  private val _trackActive = MutableStateFlow(false)
 
     WRITERS (functions that CHANGE this field):
-      [W] ConvoyViewModel.kt:166:        _trackActive.value = true
-      [W] ConvoyViewModel.kt:172:        _trackActive.value = false
-      [W] ConvoyViewModel.kt:683:                    if (_trackActive.value) _routeTrailSegments.value = _routeTrailSegments.value + seg
+      [W] ConvoyViewModel.kt:167:        _trackActive.value = true
+      [W] ConvoyViewModel.kt:173:        _trackActive.value = false
+      [W] ConvoyViewModel.kt:684:                    if (_trackActive.value) _routeTrailSegments.value = _routeTrailSegments.value + seg
     READERS (functions that USE this field):
       [R] convoy/ConvoyScreen.kt:109:    val trackActive by viewModel.trackActive.collectAsStateWithLifecycle()
       [R] convoy/ConvoyScreen.kt:1167:                    trackActive = trackActive,
       [R] convoy/ConvoyScreen.kt:1219:    trackActive: Boolean = false,
-      [R] convoy/ConvoyViewModel.kt:74:    val trackActive: StateFlow<Boolean> = _trackActive.asStateFlow()
-      [R] convoy/ConvoyViewModel.kt:587:        if (_trackActive.value) {
-      [R] convoy/ConvoyViewModel.kt:637:                if (_trackActive.value) {
-      [R] convoy/ConvoyViewModel.kt:683:                    if (_trackActive.value) _routeTrailSegments.value = _routeTrailSegments.value + seg
-      [R] convoy/ConvoyViewModel.kt:707:            if (_trackActive.value && newSegs.isNotEmpty()) {
-      [R] convoy/ConvoyViewModel.kt:712:if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
-      [R] convoy/ConvoyViewModel.kt:815:                    if (_trackActive.value) {
+      [R] convoy/ConvoyViewModel.kt:75:    val trackActive: StateFlow<Boolean> = _trackActive.asStateFlow()
+      [R] convoy/ConvoyViewModel.kt:588:        if (_trackActive.value) {
+      [R] convoy/ConvoyViewModel.kt:638:                if (_trackActive.value) {
+      [R] convoy/ConvoyViewModel.kt:684:                    if (_trackActive.value) _routeTrailSegments.value = _routeTrailSegments.value + seg
+      [R] convoy/ConvoyViewModel.kt:708:            if (_trackActive.value && newSegs.isNotEmpty()) {
+      [R] convoy/ConvoyViewModel.kt:713:if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
+      [R] convoy/ConvoyViewModel.kt:816:                    if (_trackActive.value) {
+
+  FIELD: _trackActive (public: trackActive)
+  DECLARED: ConvoyViewModel.kt:75
+  val trackActive: StateFlow<Boolean> = _trackActive.asStateFlow()
+
+    WRITERS (functions that CHANGE this field):
+      [W] ConvoyViewModel.kt:167:        _trackActive.value = true
+      [W] ConvoyViewModel.kt:173:        _trackActive.value = false
+      [W] ConvoyViewModel.kt:684:                    if (_trackActive.value) _routeTrailSegments.value = _routeTrailSegments.value + seg
+    READERS (functions that USE this field):
+      [R] convoy/ConvoyScreen.kt:109:    val trackActive by viewModel.trackActive.collectAsStateWithLifecycle()
+      [R] convoy/ConvoyScreen.kt:1167:                    trackActive = trackActive,
+      [R] convoy/ConvoyScreen.kt:1219:    trackActive: Boolean = false,
+      [R] convoy/ConvoyViewModel.kt:75:    val trackActive: StateFlow<Boolean> = _trackActive.asStateFlow()
+      [R] convoy/ConvoyViewModel.kt:588:        if (_trackActive.value) {
+      [R] convoy/ConvoyViewModel.kt:638:                if (_trackActive.value) {
+      [R] convoy/ConvoyViewModel.kt:684:                    if (_trackActive.value) _routeTrailSegments.value = _routeTrailSegments.value + seg
+      [R] convoy/ConvoyViewModel.kt:708:            if (_trackActive.value && newSegs.isNotEmpty()) {
+      [R] convoy/ConvoyViewModel.kt:713:if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
+      [R] convoy/ConvoyViewModel.kt:816:                    if (_trackActive.value) {
 
   FIELD: _leadLockedFlag (public: leadLockedFlag)
-  DECLARED: ConvoyViewModel.kt:77
+  DECLARED: ConvoyViewModel.kt:78
   private var _leadLockedFlag: Boolean = false
 
     WRITERS (functions that CHANGE this field):
-      [W] ConvoyViewModel.kt:174:        _leadLockedFlag = false
-      [W] ConvoyViewModel.kt:192:            _leadLockedFlag = true
-      [W] ConvoyViewModel.kt:198:            _leadLockedFlag = false
+      [W] ConvoyViewModel.kt:175:        _leadLockedFlag = false
+      [W] ConvoyViewModel.kt:193:            _leadLockedFlag = true
+      [W] ConvoyViewModel.kt:199:            _leadLockedFlag = false
     READERS (functions that USE this field):
-
-  FIELD: _leadLocked (public: leadLocked)
-  DECLARED: ConvoyViewModel.kt:87
-  private val _leadLocked = MutableStateFlow(false)
-
-    WRITERS (functions that CHANGE this field):
-      [W] ConvoyViewModel.kt:174:        _leadLockedFlag = false
-      [W] ConvoyViewModel.kt:179:        _leadLocked.value = false
-      [W] ConvoyViewModel.kt:192:            _leadLockedFlag = true
-      [W] ConvoyViewModel.kt:193:            _leadLocked.value = true
-      [W] ConvoyViewModel.kt:198:            _leadLockedFlag = false
-      [W] ConvoyViewModel.kt:199:            _leadLocked.value = false
-    READERS (functions that USE this field):
-      [R] convoy/ConvoyEngine.kt:35:        leadLocked: Boolean = false,
-      [R] convoy/ConvoyScreen.kt:759:                                    if (viewModel.leadLocked.value) {
-      [R] convoy/ConvoyViewModel.kt:88:    val leadLocked: StateFlow<Boolean> = _leadLocked.asStateFlow()
-      [R] convoy/ConvoyViewModel.kt:573:            leadLocked = _leadLockedFlag,
 
   FIELD: _leadLocked (public: leadLocked)
   DECLARED: ConvoyViewModel.kt:88
-  val leadLocked: StateFlow<Boolean> = _leadLocked.asStateFlow()
+  private val _leadLocked = MutableStateFlow(false)
 
     WRITERS (functions that CHANGE this field):
-      [W] ConvoyViewModel.kt:174:        _leadLockedFlag = false
-      [W] ConvoyViewModel.kt:179:        _leadLocked.value = false
-      [W] ConvoyViewModel.kt:192:            _leadLockedFlag = true
-      [W] ConvoyViewModel.kt:193:            _leadLocked.value = true
-      [W] ConvoyViewModel.kt:198:            _leadLockedFlag = false
-      [W] ConvoyViewModel.kt:199:            _leadLocked.value = false
+      [W] ConvoyViewModel.kt:175:        _leadLockedFlag = false
+      [W] ConvoyViewModel.kt:180:        _leadLocked.value = false
+      [W] ConvoyViewModel.kt:193:            _leadLockedFlag = true
+      [W] ConvoyViewModel.kt:194:            _leadLocked.value = true
+      [W] ConvoyViewModel.kt:199:            _leadLockedFlag = false
+      [W] ConvoyViewModel.kt:200:            _leadLocked.value = false
     READERS (functions that USE this field):
       [R] convoy/ConvoyEngine.kt:35:        leadLocked: Boolean = false,
       [R] convoy/ConvoyScreen.kt:759:                                    if (viewModel.leadLocked.value) {
-      [R] convoy/ConvoyViewModel.kt:88:    val leadLocked: StateFlow<Boolean> = _leadLocked.asStateFlow()
-      [R] convoy/ConvoyViewModel.kt:573:            leadLocked = _leadLockedFlag,
+      [R] convoy/ConvoyViewModel.kt:89:    val leadLocked: StateFlow<Boolean> = _leadLocked.asStateFlow()
+      [R] convoy/ConvoyViewModel.kt:574:            leadLocked = _leadLockedFlag,
 
-  FIELD: _trackLeadOnly (public: trackLeadOnly)
-  DECLARED: ConvoyViewModel.kt:90
-  private val _trackLeadOnly = MutableStateFlow(true)
+  FIELD: _leadLocked (public: leadLocked)
+  DECLARED: ConvoyViewModel.kt:89
+  val leadLocked: StateFlow<Boolean> = _leadLocked.asStateFlow()
 
     WRITERS (functions that CHANGE this field):
-      [W] ConvoyViewModel.kt:214:        _trackLeadOnly.value = !_trackLeadOnly.value
+      [W] ConvoyViewModel.kt:175:        _leadLockedFlag = false
+      [W] ConvoyViewModel.kt:180:        _leadLocked.value = false
+      [W] ConvoyViewModel.kt:193:            _leadLockedFlag = true
+      [W] ConvoyViewModel.kt:194:            _leadLocked.value = true
+      [W] ConvoyViewModel.kt:199:            _leadLockedFlag = false
+      [W] ConvoyViewModel.kt:200:            _leadLocked.value = false
     READERS (functions that USE this field):
-      [R] convoy/ConvoyScreen.kt:110:    val trackLeadOnly by viewModel.trackLeadOnly.collectAsStateWithLifecycle()
-      [R] convoy/ConvoyScreen.kt:266:    val trackSegments = remember(rawSegments, gpsTrail, routeTrail, trackLeadOnly) {
-      [R] convoy/ConvoyScreen.kt:267:        // Apply lead-only filter — if trackLeadOnly, skip routeTrail (all-cart overlay)
-      [R] convoy/ConvoyScreen.kt:268:        val activeSegments = if (trackLeadOnly) rawSegments else (rawSegments + routeTrail)
-      [R] convoy/ConvoyScreen.kt:1168:                    trackLeadOnly = trackLeadOnly,
-      [R] convoy/ConvoyScreen.kt:1220:    trackLeadOnly: Boolean = true,
-      [R] convoy/ConvoySettingsScreen.kt:57:    val trackLeadOnly by convoyViewModel.trackLeadOnly.collectAsStateWithLifecycle()
-      [R] convoy/ConvoySettingsScreen.kt:180:                        text = if (trackLeadOnly) "Recording lead cart track only" else "Recording all carts",
-      [R] convoy/ConvoySettingsScreen.kt:186:                    checked = trackLeadOnly,
-      [R] convoy/ConvoyViewModel.kt:91:    val trackLeadOnly: StateFlow<Boolean> = _trackLeadOnly.asStateFlow()
-      [R] convoy/ConvoyViewModel.kt:658:        if (_trackLeadOnly.value) {
-      [R] convoy/ConvoyViewModel.kt:729:        _leadTrackSegments.value = if (_trackLeadOnly.value) {
+      [R] convoy/ConvoyEngine.kt:35:        leadLocked: Boolean = false,
+      [R] convoy/ConvoyScreen.kt:759:                                    if (viewModel.leadLocked.value) {
+      [R] convoy/ConvoyViewModel.kt:89:    val leadLocked: StateFlow<Boolean> = _leadLocked.asStateFlow()
+      [R] convoy/ConvoyViewModel.kt:574:            leadLocked = _leadLockedFlag,
 
   FIELD: _trackLeadOnly (public: trackLeadOnly)
   DECLARED: ConvoyViewModel.kt:91
-  val trackLeadOnly: StateFlow<Boolean> = _trackLeadOnly.asStateFlow()
+  private val _trackLeadOnly = MutableStateFlow(true)
 
     WRITERS (functions that CHANGE this field):
-      [W] ConvoyViewModel.kt:214:        _trackLeadOnly.value = !_trackLeadOnly.value
+      [W] ConvoyViewModel.kt:215:        _trackLeadOnly.value = !_trackLeadOnly.value
     READERS (functions that USE this field):
       [R] convoy/ConvoyScreen.kt:110:    val trackLeadOnly by viewModel.trackLeadOnly.collectAsStateWithLifecycle()
       [R] convoy/ConvoyScreen.kt:266:    val trackSegments = remember(rawSegments, gpsTrail, routeTrail, trackLeadOnly) {
@@ -11730,155 +11710,175 @@ SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
       [R] convoy/ConvoySettingsScreen.kt:57:    val trackLeadOnly by convoyViewModel.trackLeadOnly.collectAsStateWithLifecycle()
       [R] convoy/ConvoySettingsScreen.kt:180:                        text = if (trackLeadOnly) "Recording lead cart track only" else "Recording all carts",
       [R] convoy/ConvoySettingsScreen.kt:186:                    checked = trackLeadOnly,
-      [R] convoy/ConvoyViewModel.kt:91:    val trackLeadOnly: StateFlow<Boolean> = _trackLeadOnly.asStateFlow()
-      [R] convoy/ConvoyViewModel.kt:658:        if (_trackLeadOnly.value) {
-      [R] convoy/ConvoyViewModel.kt:729:        _leadTrackSegments.value = if (_trackLeadOnly.value) {
+      [R] convoy/ConvoyViewModel.kt:92:    val trackLeadOnly: StateFlow<Boolean> = _trackLeadOnly.asStateFlow()
+      [R] convoy/ConvoyViewModel.kt:659:        if (_trackLeadOnly.value) {
+      [R] convoy/ConvoyViewModel.kt:730:        _leadTrackSegments.value = if (_trackLeadOnly.value) {
 
-  FIELD: _isOfflineMode (public: isOfflineMode)
-  DECLARED: ConvoyViewModel.kt:93
-  private val _isOfflineMode = MutableStateFlow(false)
+  FIELD: _trackLeadOnly (public: trackLeadOnly)
+  DECLARED: ConvoyViewModel.kt:92
+  val trackLeadOnly: StateFlow<Boolean> = _trackLeadOnly.asStateFlow()
 
     WRITERS (functions that CHANGE this field):
-      [W] ConvoyViewModel.kt:95:    fun setOfflineMode(offline: Boolean) { _isOfflineMode.value = offline }
+      [W] ConvoyViewModel.kt:215:        _trackLeadOnly.value = !_trackLeadOnly.value
     READERS (functions that USE this field):
-      [R] convoy/ConvoyScreen.kt:169:    val isOfflineMode by viewModel.isOfflineMode.collectAsStateWithLifecycle()
-      [R] convoy/ConvoyScreen.kt:944:            isOffline = isOfflineMode,
-      [R] convoy/ConvoyViewModel.kt:94:    val isOfflineMode: StateFlow<Boolean> = _isOfflineMode.asStateFlow()
+      [R] convoy/ConvoyScreen.kt:110:    val trackLeadOnly by viewModel.trackLeadOnly.collectAsStateWithLifecycle()
+      [R] convoy/ConvoyScreen.kt:266:    val trackSegments = remember(rawSegments, gpsTrail, routeTrail, trackLeadOnly) {
+      [R] convoy/ConvoyScreen.kt:267:        // Apply lead-only filter — if trackLeadOnly, skip routeTrail (all-cart overlay)
+      [R] convoy/ConvoyScreen.kt:268:        val activeSegments = if (trackLeadOnly) rawSegments else (rawSegments + routeTrail)
+      [R] convoy/ConvoyScreen.kt:1168:                    trackLeadOnly = trackLeadOnly,
+      [R] convoy/ConvoyScreen.kt:1220:    trackLeadOnly: Boolean = true,
+      [R] convoy/ConvoySettingsScreen.kt:57:    val trackLeadOnly by convoyViewModel.trackLeadOnly.collectAsStateWithLifecycle()
+      [R] convoy/ConvoySettingsScreen.kt:180:                        text = if (trackLeadOnly) "Recording lead cart track only" else "Recording all carts",
+      [R] convoy/ConvoySettingsScreen.kt:186:                    checked = trackLeadOnly,
+      [R] convoy/ConvoyViewModel.kt:92:    val trackLeadOnly: StateFlow<Boolean> = _trackLeadOnly.asStateFlow()
+      [R] convoy/ConvoyViewModel.kt:659:        if (_trackLeadOnly.value) {
+      [R] convoy/ConvoyViewModel.kt:730:        _leadTrackSegments.value = if (_trackLeadOnly.value) {
 
   FIELD: _isOfflineMode (public: isOfflineMode)
   DECLARED: ConvoyViewModel.kt:94
-  val isOfflineMode: StateFlow<Boolean> = _isOfflineMode.asStateFlow()
+  private val _isOfflineMode = MutableStateFlow(false)
 
     WRITERS (functions that CHANGE this field):
-      [W] ConvoyViewModel.kt:95:    fun setOfflineMode(offline: Boolean) { _isOfflineMode.value = offline }
+      [W] ConvoyViewModel.kt:96:    fun setOfflineMode(offline: Boolean) { _isOfflineMode.value = offline }
     READERS (functions that USE this field):
       [R] convoy/ConvoyScreen.kt:169:    val isOfflineMode by viewModel.isOfflineMode.collectAsStateWithLifecycle()
       [R] convoy/ConvoyScreen.kt:944:            isOffline = isOfflineMode,
-      [R] convoy/ConvoyViewModel.kt:94:    val isOfflineMode: StateFlow<Boolean> = _isOfflineMode.asStateFlow()
+      [R] convoy/ConvoyViewModel.kt:95:    val isOfflineMode: StateFlow<Boolean> = _isOfflineMode.asStateFlow()
 
-  FIELD: _mapTypeLabel (public: mapTypeLabel)
-  DECLARED: ConvoyViewModel.kt:96
-  private val _mapTypeLabel = MutableStateFlow("SAT")
+  FIELD: _isOfflineMode (public: isOfflineMode)
+  DECLARED: ConvoyViewModel.kt:95
+  val isOfflineMode: StateFlow<Boolean> = _isOfflineMode.asStateFlow()
 
     WRITERS (functions that CHANGE this field):
-      [W] ConvoyViewModel.kt:98:    fun setMapTypeLabel(label: String) { _mapTypeLabel.value = label }
+      [W] ConvoyViewModel.kt:96:    fun setOfflineMode(offline: Boolean) { _isOfflineMode.value = offline }
     READERS (functions that USE this field):
-      [R] convoy/ConvoyScreen.kt:147:    val mapTypeLabel by viewModel.mapTypeLabel.collectAsStateWithLifecycle()
-      [R] convoy/ConvoyScreen.kt:943:            activeSource = mapTypeLabel,
-      [R] convoy/ConvoyViewModel.kt:97:    val mapTypeLabel: StateFlow<String> = _mapTypeLabel.asStateFlow()
+      [R] convoy/ConvoyScreen.kt:169:    val isOfflineMode by viewModel.isOfflineMode.collectAsStateWithLifecycle()
+      [R] convoy/ConvoyScreen.kt:944:            isOffline = isOfflineMode,
+      [R] convoy/ConvoyViewModel.kt:95:    val isOfflineMode: StateFlow<Boolean> = _isOfflineMode.asStateFlow()
 
   FIELD: _mapTypeLabel (public: mapTypeLabel)
   DECLARED: ConvoyViewModel.kt:97
-  val mapTypeLabel: StateFlow<String> = _mapTypeLabel.asStateFlow()
+  private val _mapTypeLabel = MutableStateFlow("SAT")
 
     WRITERS (functions that CHANGE this field):
-      [W] ConvoyViewModel.kt:98:    fun setMapTypeLabel(label: String) { _mapTypeLabel.value = label }
+      [W] ConvoyViewModel.kt:99:    fun setMapTypeLabel(label: String) { _mapTypeLabel.value = label }
     READERS (functions that USE this field):
       [R] convoy/ConvoyScreen.kt:147:    val mapTypeLabel by viewModel.mapTypeLabel.collectAsStateWithLifecycle()
       [R] convoy/ConvoyScreen.kt:943:            activeSource = mapTypeLabel,
-      [R] convoy/ConvoyViewModel.kt:97:    val mapTypeLabel: StateFlow<String> = _mapTypeLabel.asStateFlow()
+      [R] convoy/ConvoyViewModel.kt:98:    val mapTypeLabel: StateFlow<String> = _mapTypeLabel.asStateFlow()
 
-  FIELD: _isLocalTiles (public: isLocalTiles)
-  DECLARED: ConvoyViewModel.kt:99
-  private val _isLocalTiles = MutableStateFlow(false)
+  FIELD: _mapTypeLabel (public: mapTypeLabel)
+  DECLARED: ConvoyViewModel.kt:98
+  val mapTypeLabel: StateFlow<String> = _mapTypeLabel.asStateFlow()
 
     WRITERS (functions that CHANGE this field):
-      [W] ConvoyViewModel.kt:101:    fun setLocalTiles(local: Boolean) { _isLocalTiles.value = local }
+      [W] ConvoyViewModel.kt:99:    fun setMapTypeLabel(label: String) { _mapTypeLabel.value = label }
     READERS (functions that USE this field):
-      [R] convoy/ConvoyScreen.kt:148:    val isLocalTiles by viewModel.isLocalTiles.collectAsStateWithLifecycle()
-      [R] convoy/ConvoyScreen.kt:948:                val url = if (isLocalTiles)
-      [R] convoy/ConvoyScreen.kt:952:                viewModel.setLocalTiles(isLocalTiles)
-      [R] convoy/ConvoyViewModel.kt:100:    val isLocalTiles: StateFlow<Boolean> = _isLocalTiles.asStateFlow()
+      [R] convoy/ConvoyScreen.kt:147:    val mapTypeLabel by viewModel.mapTypeLabel.collectAsStateWithLifecycle()
+      [R] convoy/ConvoyScreen.kt:943:            activeSource = mapTypeLabel,
+      [R] convoy/ConvoyViewModel.kt:98:    val mapTypeLabel: StateFlow<String> = _mapTypeLabel.asStateFlow()
 
   FIELD: _isLocalTiles (public: isLocalTiles)
   DECLARED: ConvoyViewModel.kt:100
-  val isLocalTiles: StateFlow<Boolean> = _isLocalTiles.asStateFlow()
+  private val _isLocalTiles = MutableStateFlow(false)
 
     WRITERS (functions that CHANGE this field):
-      [W] ConvoyViewModel.kt:101:    fun setLocalTiles(local: Boolean) { _isLocalTiles.value = local }
+      [W] ConvoyViewModel.kt:102:    fun setLocalTiles(local: Boolean) { _isLocalTiles.value = local }
     READERS (functions that USE this field):
       [R] convoy/ConvoyScreen.kt:148:    val isLocalTiles by viewModel.isLocalTiles.collectAsStateWithLifecycle()
       [R] convoy/ConvoyScreen.kt:948:                val url = if (isLocalTiles)
       [R] convoy/ConvoyScreen.kt:952:                viewModel.setLocalTiles(isLocalTiles)
-      [R] convoy/ConvoyViewModel.kt:100:    val isLocalTiles: StateFlow<Boolean> = _isLocalTiles.asStateFlow()
+      [R] convoy/ConvoyViewModel.kt:101:    val isLocalTiles: StateFlow<Boolean> = _isLocalTiles.asStateFlow()
 
-  FIELD: _autoPan (public: autoPan)
-  DECLARED: ConvoyViewModel.kt:102
-  private val _autoPan = MutableStateFlow(false)
+  FIELD: _isLocalTiles (public: isLocalTiles)
+  DECLARED: ConvoyViewModel.kt:101
+  val isLocalTiles: StateFlow<Boolean> = _isLocalTiles.asStateFlow()
 
     WRITERS (functions that CHANGE this field):
-      [W] ConvoyViewModel.kt:104:    fun setAutoPan(pan: Boolean) { _autoPan.value = pan }
-      [W] ConvoyViewModel.kt:167:        _autoPan.value = true   // autoPan ON during recording
-      [W] ConvoyViewModel.kt:173:        _autoPan.value = false   // autoPan OFF when recording stops
+      [W] ConvoyViewModel.kt:102:    fun setLocalTiles(local: Boolean) { _isLocalTiles.value = local }
     READERS (functions that USE this field):
-      [R] convoy/ConvoyScreen.kt:174:    val autoPan by viewModel.autoPan.collectAsStateWithLifecycle()
-      [R] convoy/ConvoyScreen.kt:233:    LaunchedEffect(hudMode, selectedNode, mapReady, autoPan, if (autoPan) convoyState else null) {
-      [R] convoy/ConvoyScreen.kt:235:        if (!autoPan) return@LaunchedEffect
-      [R] convoy/ConvoyViewModel.kt:103:    val autoPan: StateFlow<Boolean> = _autoPan.asStateFlow()
+      [R] convoy/ConvoyScreen.kt:148:    val isLocalTiles by viewModel.isLocalTiles.collectAsStateWithLifecycle()
+      [R] convoy/ConvoyScreen.kt:948:                val url = if (isLocalTiles)
+      [R] convoy/ConvoyScreen.kt:952:                viewModel.setLocalTiles(isLocalTiles)
+      [R] convoy/ConvoyViewModel.kt:101:    val isLocalTiles: StateFlow<Boolean> = _isLocalTiles.asStateFlow()
 
   FIELD: _autoPan (public: autoPan)
   DECLARED: ConvoyViewModel.kt:103
-  val autoPan: StateFlow<Boolean> = _autoPan.asStateFlow()
+  private val _autoPan = MutableStateFlow(false)
 
     WRITERS (functions that CHANGE this field):
-      [W] ConvoyViewModel.kt:104:    fun setAutoPan(pan: Boolean) { _autoPan.value = pan }
-      [W] ConvoyViewModel.kt:167:        _autoPan.value = true   // autoPan ON during recording
-      [W] ConvoyViewModel.kt:173:        _autoPan.value = false   // autoPan OFF when recording stops
+      [W] ConvoyViewModel.kt:105:    fun setAutoPan(pan: Boolean) { _autoPan.value = pan }
+      [W] ConvoyViewModel.kt:168:        _autoPan.value = true   // autoPan ON during recording
+      [W] ConvoyViewModel.kt:174:        _autoPan.value = false   // autoPan OFF when recording stops
     READERS (functions that USE this field):
       [R] convoy/ConvoyScreen.kt:174:    val autoPan by viewModel.autoPan.collectAsStateWithLifecycle()
       [R] convoy/ConvoyScreen.kt:233:    LaunchedEffect(hudMode, selectedNode, mapReady, autoPan, if (autoPan) convoyState else null) {
       [R] convoy/ConvoyScreen.kt:235:        if (!autoPan) return@LaunchedEffect
-      [R] convoy/ConvoyViewModel.kt:103:    val autoPan: StateFlow<Boolean> = _autoPan.asStateFlow()
+      [R] convoy/ConvoyViewModel.kt:104:    val autoPan: StateFlow<Boolean> = _autoPan.asStateFlow()
 
-  FIELD: _radioInactive (public: radioInactive)
-  DECLARED: ConvoyViewModel.kt:204
-  private val _radioInactive = MutableStateFlow(false)
+  FIELD: _autoPan (public: autoPan)
+  DECLARED: ConvoyViewModel.kt:104
+  val autoPan: StateFlow<Boolean> = _autoPan.asStateFlow()
 
     WRITERS (functions that CHANGE this field):
-      [W] ConvoyViewModel.kt:209:        _radioInactive.value = false
+      [W] ConvoyViewModel.kt:105:    fun setAutoPan(pan: Boolean) { _autoPan.value = pan }
+      [W] ConvoyViewModel.kt:168:        _autoPan.value = true   // autoPan ON during recording
+      [W] ConvoyViewModel.kt:174:        _autoPan.value = false   // autoPan OFF when recording stops
     READERS (functions that USE this field):
-      [R] convoy/ConvoyViewModel.kt:205:    val radioInactive: StateFlow<Boolean> = _radioInactive.asStateFlow()
+      [R] convoy/ConvoyScreen.kt:174:    val autoPan by viewModel.autoPan.collectAsStateWithLifecycle()
+      [R] convoy/ConvoyScreen.kt:233:    LaunchedEffect(hudMode, selectedNode, mapReady, autoPan, if (autoPan) convoyState else null) {
+      [R] convoy/ConvoyScreen.kt:235:        if (!autoPan) return@LaunchedEffect
+      [R] convoy/ConvoyViewModel.kt:104:    val autoPan: StateFlow<Boolean> = _autoPan.asStateFlow()
 
   FIELD: _radioInactive (public: radioInactive)
   DECLARED: ConvoyViewModel.kt:205
+  private val _radioInactive = MutableStateFlow(false)
+
+    WRITERS (functions that CHANGE this field):
+      [W] ConvoyViewModel.kt:210:        _radioInactive.value = false
+    READERS (functions that USE this field):
+      [R] convoy/ConvoyViewModel.kt:206:    val radioInactive: StateFlow<Boolean> = _radioInactive.asStateFlow()
+
+  FIELD: _radioInactive (public: radioInactive)
+  DECLARED: ConvoyViewModel.kt:206
   val radioInactive: StateFlow<Boolean> = _radioInactive.asStateFlow()
 
     WRITERS (functions that CHANGE this field):
-      [W] ConvoyViewModel.kt:209:        _radioInactive.value = false
+      [W] ConvoyViewModel.kt:210:        _radioInactive.value = false
     READERS (functions that USE this field):
-      [R] convoy/ConvoyViewModel.kt:205:    val radioInactive: StateFlow<Boolean> = _radioInactive.asStateFlow()
-
-  FIELD: _workingConfig (public: workingConfig)
-  DECLARED: ConvoyViewModel.kt:223
-  private val _workingConfig = MutableStateFlow<WorkingConfig?>(null)
-
-    WRITERS (functions that CHANGE this field):
-      [W] ConvoyViewModel.kt:225:    fun setWorkingConfig(config: WorkingConfig) { _workingConfig.value = config }
-      [W] ConvoyViewModel.kt:277:    fun clearWorkingConfig() { _workingConfig.value = null }
-    READERS (functions that USE this field):
-      [R] convoy/ConvoyRadioConfigScreens.kt:239:                convoyViewModel.workingConfig.value?.let { wc ->
-      [R] convoy/ConvoyRadioConfigScreens.kt:341:    workingConfig: WorkingConfig,
-      [R] convoy/ConvoyRadioConfigScreens.kt:397:                ConvoyConfigRow("Long Name",      workingConfig.longName,        highlight = true)
-      [R] convoy/ConvoyRadioConfigScreens.kt:399:                ConvoyConfigRow("Node Role",      workingConfig.nodeRole,        highlight = true)
-      [R] convoy/ConvoyRadioConfigScreens.kt:401:                ConvoyConfigRow("Managed Mode",   workingConfig.isManaged.toString())
-      [R] convoy/ConvoyRadioConfigScreens.kt:403:                ConvoyConfigRow("Serial Enabled", workingConfig.serialEnabled.toString())
-      [R] convoy/ConvoyRadioConfigScreens.kt:440:                                org.meshtastic.proto.Config.DeviceConfig.Role.valueOf(workingConfig.nodeRole)
-      [R] convoy/ConvoyRadioConfigScreens.kt:447:                                    is_managed = workingConfig.isManaged
-      [R] convoy/ConvoyRadioConfigScreens.kt:471:    workingConfig: WorkingConfig,
-      [R] convoy/ConvoyRadioConfigScreens.kt:531:                ConvoyConfigRow("Region",       workingConfig.loraRegion,             highlight = true)
-      [R] convoy/ConvoyRadioConfigScreens.kt:533:                ConvoyConfigRow("Modem Preset", workingConfig.loraModemPreset,        highlight = true)
-      [R] convoy/ConvoyRadioConfigScreens.kt:535:                ConvoyConfigRow("Hop Limit",    workingConfig.loraHopLimit.toString())
-      [R] convoy/ConvoyRadioConfigScreens.kt:537:                ConvoyConfigRow("TX Enabled",   workingConfig.loraTxEnabled.toString())
-      [R] convoy/ConvoyRadioConfigScreens.kt:539:                ConvoyConfigRow("TX Power",     "${workingConfig.loraTxPower} dBm")
-      [R] convoy/ConvoyRadioConfigScreens.kt:576:                                org.meshtastic.proto.Config.LoRaConfig.RegionCode.valueOf(workingConfig.loraRegion)
+      [R] convoy/ConvoyViewModel.kt:206:    val radioInactive: StateFlow<Boolean> = _radioInactive.asStateFlow()
 
   FIELD: _workingConfig (public: workingConfig)
   DECLARED: ConvoyViewModel.kt:224
+  private val _workingConfig = MutableStateFlow<WorkingConfig?>(null)
+
+    WRITERS (functions that CHANGE this field):
+      [W] ConvoyViewModel.kt:226:    fun setWorkingConfig(config: WorkingConfig) { _workingConfig.value = config }
+      [W] ConvoyViewModel.kt:278:    fun clearWorkingConfig() { _workingConfig.value = null }
+    READERS (functions that USE this field):
+      [R] convoy/ConvoyRadioConfigScreens.kt:239:                convoyViewModel.workingConfig.value?.let { wc ->
+      [R] convoy/ConvoyRadioConfigScreens.kt:341:    workingConfig: WorkingConfig,
+      [R] convoy/ConvoyRadioConfigScreens.kt:397:                ConvoyConfigRow("Long Name",      workingConfig.longName,        highlight = true)
+      [R] convoy/ConvoyRadioConfigScreens.kt:399:                ConvoyConfigRow("Node Role",      workingConfig.nodeRole,        highlight = true)
+      [R] convoy/ConvoyRadioConfigScreens.kt:401:                ConvoyConfigRow("Managed Mode",   workingConfig.isManaged.toString())
+      [R] convoy/ConvoyRadioConfigScreens.kt:403:                ConvoyConfigRow("Serial Enabled", workingConfig.serialEnabled.toString())
+      [R] convoy/ConvoyRadioConfigScreens.kt:440:                                org.meshtastic.proto.Config.DeviceConfig.Role.valueOf(workingConfig.nodeRole)
+      [R] convoy/ConvoyRadioConfigScreens.kt:447:                                    is_managed = workingConfig.isManaged
+      [R] convoy/ConvoyRadioConfigScreens.kt:471:    workingConfig: WorkingConfig,
+      [R] convoy/ConvoyRadioConfigScreens.kt:531:                ConvoyConfigRow("Region",       workingConfig.loraRegion,             highlight = true)
+      [R] convoy/ConvoyRadioConfigScreens.kt:533:                ConvoyConfigRow("Modem Preset", workingConfig.loraModemPreset,        highlight = true)
+      [R] convoy/ConvoyRadioConfigScreens.kt:535:                ConvoyConfigRow("Hop Limit",    workingConfig.loraHopLimit.toString())
+      [R] convoy/ConvoyRadioConfigScreens.kt:537:                ConvoyConfigRow("TX Enabled",   workingConfig.loraTxEnabled.toString())
+      [R] convoy/ConvoyRadioConfigScreens.kt:539:                ConvoyConfigRow("TX Power",     "${workingConfig.loraTxPower} dBm")
+      [R] convoy/ConvoyRadioConfigScreens.kt:576:                                org.meshtastic.proto.Config.LoRaConfig.RegionCode.valueOf(workingConfig.loraRegion)
+
+  FIELD: _workingConfig (public: workingConfig)
+  DECLARED: ConvoyViewModel.kt:225
   val workingConfig: StateFlow<WorkingConfig?> = _workingConfig.asStateFlow()
 
     WRITERS (functions that CHANGE this field):
-      [W] ConvoyViewModel.kt:225:    fun setWorkingConfig(config: WorkingConfig) { _workingConfig.value = config }
-      [W] ConvoyViewModel.kt:277:    fun clearWorkingConfig() { _workingConfig.value = null }
+      [W] ConvoyViewModel.kt:226:    fun setWorkingConfig(config: WorkingConfig) { _workingConfig.value = config }
+      [W] ConvoyViewModel.kt:278:    fun clearWorkingConfig() { _workingConfig.value = null }
     READERS (functions that USE this field):
       [R] convoy/ConvoyRadioConfigScreens.kt:239:                convoyViewModel.workingConfig.value?.let { wc ->
       [R] convoy/ConvoyRadioConfigScreens.kt:341:    workingConfig: WorkingConfig,
@@ -11897,41 +11897,41 @@ SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
       [R] convoy/ConvoyRadioConfigScreens.kt:576:                                org.meshtastic.proto.Config.LoRaConfig.RegionCode.valueOf(workingConfig.loraRegion)
 
   FIELD: _simulationMode (public: simulationMode)
-  DECLARED: ConvoyViewModel.kt:281
+  DECLARED: ConvoyViewModel.kt:282
   private val _simulationMode = MutableStateFlow(false)
 
     WRITERS (functions that CHANGE this field):
-      [W] ConvoyViewModel.kt:424:        _simulationMode.value = enabled
+      [W] ConvoyViewModel.kt:425:        _simulationMode.value = enabled
     READERS (functions that USE this field):
       [R] convoy/ConvoyScreen.kt:112:    val simulationMode by viewModel.simulationMode.collectAsStateWithLifecycle()
       [R] convoy/ConvoyScreen.kt:1084:                onClick = { viewModel.setSimulationMode(!simulationMode) },
       [R] convoy/ConvoyScreen.kt:1088:                    text = if (simulationMode) "SIM" else "LIVE",
       [R] convoy/ConvoyScreen.kt:1089:                    color = if (simulationMode) Color(0xFFF9C835) else Color(0xFF4A6080),
-      [R] convoy/ConvoyViewModel.kt:282:    val simulationMode: StateFlow<Boolean> = _simulationMode.asStateFlow()
-      [R] convoy/ConvoyViewModel.kt:558:        val nodes: List<ConvoyNode> = if (_simulationMode.value) {
+      [R] convoy/ConvoyViewModel.kt:283:    val simulationMode: StateFlow<Boolean> = _simulationMode.asStateFlow()
+      [R] convoy/ConvoyViewModel.kt:559:        val nodes: List<ConvoyNode> = if (_simulationMode.value) {
 
   FIELD: _simulationMode (public: simulationMode)
-  DECLARED: ConvoyViewModel.kt:282
+  DECLARED: ConvoyViewModel.kt:283
   val simulationMode: StateFlow<Boolean> = _simulationMode.asStateFlow()
 
     WRITERS (functions that CHANGE this field):
-      [W] ConvoyViewModel.kt:424:        _simulationMode.value = enabled
+      [W] ConvoyViewModel.kt:425:        _simulationMode.value = enabled
     READERS (functions that USE this field):
       [R] convoy/ConvoyScreen.kt:112:    val simulationMode by viewModel.simulationMode.collectAsStateWithLifecycle()
       [R] convoy/ConvoyScreen.kt:1084:                onClick = { viewModel.setSimulationMode(!simulationMode) },
       [R] convoy/ConvoyScreen.kt:1088:                    text = if (simulationMode) "SIM" else "LIVE",
       [R] convoy/ConvoyScreen.kt:1089:                    color = if (simulationMode) Color(0xFFF9C835) else Color(0xFF4A6080),
-      [R] convoy/ConvoyViewModel.kt:282:    val simulationMode: StateFlow<Boolean> = _simulationMode.asStateFlow()
-      [R] convoy/ConvoyViewModel.kt:558:        val nodes: List<ConvoyNode> = if (_simulationMode.value) {
+      [R] convoy/ConvoyViewModel.kt:283:    val simulationMode: StateFlow<Boolean> = _simulationMode.asStateFlow()
+      [R] convoy/ConvoyViewModel.kt:559:        val nodes: List<ConvoyNode> = if (_simulationMode.value) {
 
   FIELD: _myCartId (public: myCartId)
-  DECLARED: ConvoyViewModel.kt:284
+  DECLARED: ConvoyViewModel.kt:285
   private val _myCartId = MutableStateFlow(ConvoySimulation.MY_CART_ID)
 
     WRITERS (functions that CHANGE this field):
-      [W] ConvoyViewModel.kt:153:        _myCartId.value = if (myNum != null) "!%08x".format(myNum) else "!phone"
-      [W] ConvoyViewModel.kt:168:        convoyLog("TRACK START: myCart=${_myCartId.value} lead=$lockedLeadNodeId nodes=${nodes.size}")
-      [W] ConvoyViewModel.kt:428:    fun setMyCartId(nodeId: String) { _myCartId.value = nodeId }
+      [W] ConvoyViewModel.kt:154:        _myCartId.value = if (myNum != null) "!%08x".format(myNum) else "!phone"
+      [W] ConvoyViewModel.kt:169:        convoyLog("TRACK START: myCart=${_myCartId.value} lead=$lockedLeadNodeId nodes=${nodes.size}")
+      [W] ConvoyViewModel.kt:429:    fun setMyCartId(nodeId: String) { _myCartId.value = nodeId }
     READERS (functions that USE this field):
       [R] convoy/ConvoyEngine.kt:33:        myCartId: String = "",
       [R] convoy/ConvoyEngine.kt:47:        val withProximity = computeProximity(withRoles, myCartId)
@@ -11943,20 +11943,20 @@ SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
       [R] convoy/ConvoyScreen.kt:1320:    myCartId: String,
       [R] convoy/ConvoyScreen.kt:1327:        Text("My Cart  ★ ${myCart?.callsign ?: myCartId.takeLast(8)}", color = Color(0xFF111111), fontSize = 13.sp,
       [R] convoy/ConvoySimulation.kt:115:        return ConvoyEngine.compute(nodes, myCartId = MY_CART_ID, nowMs = nowMs)
-      [R] convoy/ConvoyViewModel.kt:160:                nodes.isEmpty() -> setLeadCart(_myCartId.value)
-      [R] convoy/ConvoyViewModel.kt:161:                else -> setLeadCart(_myCartId.value)
-      [R] convoy/ConvoyViewModel.kt:168:        convoyLog("TRACK START: myCart=${_myCartId.value} lead=$lockedLeadNodeId nodes=${nodes.size}")
-      [R] convoy/ConvoyViewModel.kt:287:        return if (num != null) "!%08x".format(num) else _myCartId.value
-      [R] convoy/ConvoyViewModel.kt:289:    val myCartId: StateFlow<String> = _myCartId.asStateFlow()
+      [R] convoy/ConvoyViewModel.kt:161:                nodes.isEmpty() -> setLeadCart(_myCartId.value)
+      [R] convoy/ConvoyViewModel.kt:162:                else -> setLeadCart(_myCartId.value)
+      [R] convoy/ConvoyViewModel.kt:169:        convoyLog("TRACK START: myCart=${_myCartId.value} lead=$lockedLeadNodeId nodes=${nodes.size}")
+      [R] convoy/ConvoyViewModel.kt:288:        return if (num != null) "!%08x".format(num) else _myCartId.value
+      [R] convoy/ConvoyViewModel.kt:290:    val myCartId: StateFlow<String> = _myCartId.asStateFlow()
 
   FIELD: _myCartId (public: myCartId)
-  DECLARED: ConvoyViewModel.kt:289
+  DECLARED: ConvoyViewModel.kt:290
   val myCartId: StateFlow<String> = _myCartId.asStateFlow()
 
     WRITERS (functions that CHANGE this field):
-      [W] ConvoyViewModel.kt:153:        _myCartId.value = if (myNum != null) "!%08x".format(myNum) else "!phone"
-      [W] ConvoyViewModel.kt:168:        convoyLog("TRACK START: myCart=${_myCartId.value} lead=$lockedLeadNodeId nodes=${nodes.size}")
-      [W] ConvoyViewModel.kt:428:    fun setMyCartId(nodeId: String) { _myCartId.value = nodeId }
+      [W] ConvoyViewModel.kt:154:        _myCartId.value = if (myNum != null) "!%08x".format(myNum) else "!phone"
+      [W] ConvoyViewModel.kt:169:        convoyLog("TRACK START: myCart=${_myCartId.value} lead=$lockedLeadNodeId nodes=${nodes.size}")
+      [W] ConvoyViewModel.kt:429:    fun setMyCartId(nodeId: String) { _myCartId.value = nodeId }
     READERS (functions that USE this field):
       [R] convoy/ConvoyEngine.kt:33:        myCartId: String = "",
       [R] convoy/ConvoyEngine.kt:47:        val withProximity = computeProximity(withRoles, myCartId)
@@ -11968,229 +11968,214 @@ SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
       [R] convoy/ConvoyScreen.kt:1320:    myCartId: String,
       [R] convoy/ConvoyScreen.kt:1327:        Text("My Cart  ★ ${myCart?.callsign ?: myCartId.takeLast(8)}", color = Color(0xFF111111), fontSize = 13.sp,
       [R] convoy/ConvoySimulation.kt:115:        return ConvoyEngine.compute(nodes, myCartId = MY_CART_ID, nowMs = nowMs)
-      [R] convoy/ConvoyViewModel.kt:160:                nodes.isEmpty() -> setLeadCart(_myCartId.value)
-      [R] convoy/ConvoyViewModel.kt:161:                else -> setLeadCart(_myCartId.value)
-      [R] convoy/ConvoyViewModel.kt:168:        convoyLog("TRACK START: myCart=${_myCartId.value} lead=$lockedLeadNodeId nodes=${nodes.size}")
-      [R] convoy/ConvoyViewModel.kt:287:        return if (num != null) "!%08x".format(num) else _myCartId.value
-      [R] convoy/ConvoyViewModel.kt:289:    val myCartId: StateFlow<String> = _myCartId.asStateFlow()
-
-  FIELD: _showLeadTrack (public: showLeadTrack)
-  DECLARED: ConvoyViewModel.kt:291
-  private val _showLeadTrack = MutableStateFlow(true)
-
-    WRITERS (functions that CHANGE this field):
-      [W] ConvoyViewModel.kt:429:    fun toggleLeadTrack() { _showLeadTrack.value = !_showLeadTrack.value }
-      [W] ConvoyViewModel.kt:430:    fun setShowLeadTrack(visible: Boolean) { _showLeadTrack.value = visible }
-    READERS (functions that USE this field):
-      [R] convoy/ConvoyScreen.kt:113:    val showLeadTrack by viewModel.showLeadTrack.collectAsStateWithLifecycle()
-      [R] convoy/ConvoyViewModel.kt:292:    val showLeadTrack: StateFlow<Boolean> = _showLeadTrack.asStateFlow()
+      [R] convoy/ConvoyViewModel.kt:161:                nodes.isEmpty() -> setLeadCart(_myCartId.value)
+      [R] convoy/ConvoyViewModel.kt:162:                else -> setLeadCart(_myCartId.value)
+      [R] convoy/ConvoyViewModel.kt:169:        convoyLog("TRACK START: myCart=${_myCartId.value} lead=$lockedLeadNodeId nodes=${nodes.size}")
+      [R] convoy/ConvoyViewModel.kt:288:        return if (num != null) "!%08x".format(num) else _myCartId.value
+      [R] convoy/ConvoyViewModel.kt:290:    val myCartId: StateFlow<String> = _myCartId.asStateFlow()
 
   FIELD: _showLeadTrack (public: showLeadTrack)
   DECLARED: ConvoyViewModel.kt:292
+  private val _showLeadTrack = MutableStateFlow(true)
+
+    WRITERS (functions that CHANGE this field):
+      [W] ConvoyViewModel.kt:430:    fun toggleLeadTrack() { _showLeadTrack.value = !_showLeadTrack.value }
+      [W] ConvoyViewModel.kt:431:    fun setShowLeadTrack(visible: Boolean) { _showLeadTrack.value = visible }
+    READERS (functions that USE this field):
+      [R] convoy/ConvoyScreen.kt:113:    val showLeadTrack by viewModel.showLeadTrack.collectAsStateWithLifecycle()
+      [R] convoy/ConvoyViewModel.kt:293:    val showLeadTrack: StateFlow<Boolean> = _showLeadTrack.asStateFlow()
+
+  FIELD: _showLeadTrack (public: showLeadTrack)
+  DECLARED: ConvoyViewModel.kt:293
   val showLeadTrack: StateFlow<Boolean> = _showLeadTrack.asStateFlow()
 
     WRITERS (functions that CHANGE this field):
-      [W] ConvoyViewModel.kt:429:    fun toggleLeadTrack() { _showLeadTrack.value = !_showLeadTrack.value }
-      [W] ConvoyViewModel.kt:430:    fun setShowLeadTrack(visible: Boolean) { _showLeadTrack.value = visible }
+      [W] ConvoyViewModel.kt:430:    fun toggleLeadTrack() { _showLeadTrack.value = !_showLeadTrack.value }
+      [W] ConvoyViewModel.kt:431:    fun setShowLeadTrack(visible: Boolean) { _showLeadTrack.value = visible }
     READERS (functions that USE this field):
       [R] convoy/ConvoyScreen.kt:113:    val showLeadTrack by viewModel.showLeadTrack.collectAsStateWithLifecycle()
-      [R] convoy/ConvoyViewModel.kt:292:    val showLeadTrack: StateFlow<Boolean> = _showLeadTrack.asStateFlow()
-
-  FIELD: _leadTrackSegments (public: leadTrackSegments)
-  DECLARED: ConvoyViewModel.kt:294
-  private val _leadTrackSegments = MutableStateFlow<List<ConvoyEngine.LeadTrackSegment>>(emptyList())
-
-    WRITERS (functions that CHANGE this field):
-      [W] ConvoyViewModel.kt:141:        _leadTrackSegments.value = emptyList()
-      [W] ConvoyViewModel.kt:729:        _leadTrackSegments.value = if (_trackLeadOnly.value) {
-    READERS (functions that USE this field):
-      [R] convoy/ConvoyScreen.kt:263:    val rawSegments by viewModel.leadTrackSegments.collectAsStateWithLifecycle()
-      [R] convoy/ConvoyViewModel.kt:295:    val leadTrackSegments: StateFlow<List<ConvoyEngine.LeadTrackSegment>> = _leadTrackSegments.asStateFlow()
+      [R] convoy/ConvoyViewModel.kt:293:    val showLeadTrack: StateFlow<Boolean> = _showLeadTrack.asStateFlow()
 
   FIELD: _leadTrackSegments (public: leadTrackSegments)
   DECLARED: ConvoyViewModel.kt:295
+  private val _leadTrackSegments = MutableStateFlow<List<ConvoyEngine.LeadTrackSegment>>(emptyList())
+
+    WRITERS (functions that CHANGE this field):
+      [W] ConvoyViewModel.kt:142:        _leadTrackSegments.value = emptyList()
+      [W] ConvoyViewModel.kt:730:        _leadTrackSegments.value = if (_trackLeadOnly.value) {
+    READERS (functions that USE this field):
+      [R] convoy/ConvoyScreen.kt:263:    val rawSegments by viewModel.leadTrackSegments.collectAsStateWithLifecycle()
+      [R] convoy/ConvoyViewModel.kt:296:    val leadTrackSegments: StateFlow<List<ConvoyEngine.LeadTrackSegment>> = _leadTrackSegments.asStateFlow()
+
+  FIELD: _leadTrackSegments (public: leadTrackSegments)
+  DECLARED: ConvoyViewModel.kt:296
   val leadTrackSegments: StateFlow<List<ConvoyEngine.LeadTrackSegment>> = _leadTrackSegments.asStateFlow()
 
     WRITERS (functions that CHANGE this field):
-      [W] ConvoyViewModel.kt:141:        _leadTrackSegments.value = emptyList()
-      [W] ConvoyViewModel.kt:729:        _leadTrackSegments.value = if (_trackLeadOnly.value) {
+      [W] ConvoyViewModel.kt:142:        _leadTrackSegments.value = emptyList()
+      [W] ConvoyViewModel.kt:730:        _leadTrackSegments.value = if (_trackLeadOnly.value) {
     READERS (functions that USE this field):
       [R] convoy/ConvoyScreen.kt:263:    val rawSegments by viewModel.leadTrackSegments.collectAsStateWithLifecycle()
-      [R] convoy/ConvoyViewModel.kt:295:    val leadTrackSegments: StateFlow<List<ConvoyEngine.LeadTrackSegment>> = _leadTrackSegments.asStateFlow()
-
-  FIELD: _gpsTrailSegments (public: gpsTrailSegments)
-  DECLARED: ConvoyViewModel.kt:296
-  private val _gpsTrailSegments = MutableStateFlow<List<ConvoyEngine.LeadTrackSegment>>(emptyList())
-
-    WRITERS (functions that CHANGE this field):
-      [W] ConvoyViewModel.kt:142:        _gpsTrailSegments.value = emptyList()
-      [W] ConvoyViewModel.kt:456:                        _gpsTrailSegments.value = _gpsTrailSegments.value + seg
-    READERS (functions that USE this field):
-      [R] convoy/ConvoyScreen.kt:264:    val gpsTrail by viewModel.gpsTrailSegments.collectAsStateWithLifecycle()
-      [R] convoy/ConvoyViewModel.kt:297:    val gpsTrailSegments: StateFlow<List<ConvoyEngine.LeadTrackSegment>> = _gpsTrailSegments.asStateFlow()
+      [R] convoy/ConvoyViewModel.kt:296:    val leadTrackSegments: StateFlow<List<ConvoyEngine.LeadTrackSegment>> = _leadTrackSegments.asStateFlow()
 
   FIELD: _gpsTrailSegments (public: gpsTrailSegments)
   DECLARED: ConvoyViewModel.kt:297
+  private val _gpsTrailSegments = MutableStateFlow<List<ConvoyEngine.LeadTrackSegment>>(emptyList())
+
+    WRITERS (functions that CHANGE this field):
+      [W] ConvoyViewModel.kt:143:        _gpsTrailSegments.value = emptyList()
+      [W] ConvoyViewModel.kt:457:                        _gpsTrailSegments.value = _gpsTrailSegments.value + seg
+    READERS (functions that USE this field):
+      [R] convoy/ConvoyScreen.kt:264:    val gpsTrail by viewModel.gpsTrailSegments.collectAsStateWithLifecycle()
+      [R] convoy/ConvoyViewModel.kt:298:    val gpsTrailSegments: StateFlow<List<ConvoyEngine.LeadTrackSegment>> = _gpsTrailSegments.asStateFlow()
+
+  FIELD: _gpsTrailSegments (public: gpsTrailSegments)
+  DECLARED: ConvoyViewModel.kt:298
   val gpsTrailSegments: StateFlow<List<ConvoyEngine.LeadTrackSegment>> = _gpsTrailSegments.asStateFlow()
 
     WRITERS (functions that CHANGE this field):
-      [W] ConvoyViewModel.kt:142:        _gpsTrailSegments.value = emptyList()
-      [W] ConvoyViewModel.kt:456:                        _gpsTrailSegments.value = _gpsTrailSegments.value + seg
+      [W] ConvoyViewModel.kt:143:        _gpsTrailSegments.value = emptyList()
+      [W] ConvoyViewModel.kt:457:                        _gpsTrailSegments.value = _gpsTrailSegments.value + seg
     READERS (functions that USE this field):
       [R] convoy/ConvoyScreen.kt:264:    val gpsTrail by viewModel.gpsTrailSegments.collectAsStateWithLifecycle()
-      [R] convoy/ConvoyViewModel.kt:297:    val gpsTrailSegments: StateFlow<List<ConvoyEngine.LeadTrackSegment>> = _gpsTrailSegments.asStateFlow()
-
-  FIELD: _routeTrailSegments (public: routeTrailSegments)
-  DECLARED: ConvoyViewModel.kt:298
-  private val _routeTrailSegments = MutableStateFlow<List<ConvoyEngine.LeadTrackSegment>>(emptyList())
-
-    WRITERS (functions that CHANGE this field):
-      [W] ConvoyViewModel.kt:140:        _routeTrailSegments.value = emptyList()
-      [W] ConvoyViewModel.kt:683:                    if (_trackActive.value) _routeTrailSegments.value = _routeTrailSegments.value + seg
-      [W] ConvoyViewModel.kt:708:                _routeTrailSegments.value = _routeTrailSegments.value + newSegs
-      [W] ConvoyViewModel.kt:730:            _routeTrailSegments.value.map { it.copy(color = "#000000") }
-    READERS (functions that USE this field):
-      [R] convoy/ConvoyScreen.kt:265:    val routeTrail by viewModel.routeTrailSegments.collectAsStateWithLifecycle()
-      [R] convoy/ConvoyViewModel.kt:299:    val routeTrailSegments: StateFlow<List<ConvoyEngine.LeadTrackSegment>> = _routeTrailSegments.asStateFlow()
-      [R] convoy/ConvoyViewModel.kt:712:if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
-      [R] convoy/ConvoyViewModel.kt:716:                val minDist = _routeTrailSegments.value.minOf { seg ->
-      [R] convoy/ConvoyViewModel.kt:730:            _routeTrailSegments.value.map { it.copy(color = "#000000") }
-      [R] convoy/ConvoyViewModel.kt:733:                segments = _routeTrailSegments.value,
+      [R] convoy/ConvoyViewModel.kt:298:    val gpsTrailSegments: StateFlow<List<ConvoyEngine.LeadTrackSegment>> = _gpsTrailSegments.asStateFlow()
 
   FIELD: _routeTrailSegments (public: routeTrailSegments)
   DECLARED: ConvoyViewModel.kt:299
+  private val _routeTrailSegments = MutableStateFlow<List<ConvoyEngine.LeadTrackSegment>>(emptyList())
+
+    WRITERS (functions that CHANGE this field):
+      [W] ConvoyViewModel.kt:141:        _routeTrailSegments.value = emptyList()
+      [W] ConvoyViewModel.kt:684:                    if (_trackActive.value) _routeTrailSegments.value = _routeTrailSegments.value + seg
+      [W] ConvoyViewModel.kt:709:                _routeTrailSegments.value = _routeTrailSegments.value + newSegs
+      [W] ConvoyViewModel.kt:731:            _routeTrailSegments.value.map { it.copy(color = "#000000") }
+    READERS (functions that USE this field):
+      [R] convoy/ConvoyScreen.kt:265:    val routeTrail by viewModel.routeTrailSegments.collectAsStateWithLifecycle()
+      [R] convoy/ConvoyViewModel.kt:300:    val routeTrailSegments: StateFlow<List<ConvoyEngine.LeadTrackSegment>> = _routeTrailSegments.asStateFlow()
+      [R] convoy/ConvoyViewModel.kt:713:if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
+      [R] convoy/ConvoyViewModel.kt:717:                val minDist = _routeTrailSegments.value.minOf { seg ->
+      [R] convoy/ConvoyViewModel.kt:731:            _routeTrailSegments.value.map { it.copy(color = "#000000") }
+      [R] convoy/ConvoyViewModel.kt:734:                segments = _routeTrailSegments.value,
+
+  FIELD: _routeTrailSegments (public: routeTrailSegments)
+  DECLARED: ConvoyViewModel.kt:300
   val routeTrailSegments: StateFlow<List<ConvoyEngine.LeadTrackSegment>> = _routeTrailSegments.asStateFlow()
 
     WRITERS (functions that CHANGE this field):
-      [W] ConvoyViewModel.kt:140:        _routeTrailSegments.value = emptyList()
-      [W] ConvoyViewModel.kt:683:                    if (_trackActive.value) _routeTrailSegments.value = _routeTrailSegments.value + seg
-      [W] ConvoyViewModel.kt:708:                _routeTrailSegments.value = _routeTrailSegments.value + newSegs
-      [W] ConvoyViewModel.kt:730:            _routeTrailSegments.value.map { it.copy(color = "#000000") }
+      [W] ConvoyViewModel.kt:141:        _routeTrailSegments.value = emptyList()
+      [W] ConvoyViewModel.kt:684:                    if (_trackActive.value) _routeTrailSegments.value = _routeTrailSegments.value + seg
+      [W] ConvoyViewModel.kt:709:                _routeTrailSegments.value = _routeTrailSegments.value + newSegs
+      [W] ConvoyViewModel.kt:731:            _routeTrailSegments.value.map { it.copy(color = "#000000") }
     READERS (functions that USE this field):
       [R] convoy/ConvoyScreen.kt:265:    val routeTrail by viewModel.routeTrailSegments.collectAsStateWithLifecycle()
-      [R] convoy/ConvoyViewModel.kt:299:    val routeTrailSegments: StateFlow<List<ConvoyEngine.LeadTrackSegment>> = _routeTrailSegments.asStateFlow()
-      [R] convoy/ConvoyViewModel.kt:712:if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
-      [R] convoy/ConvoyViewModel.kt:716:                val minDist = _routeTrailSegments.value.minOf { seg ->
-      [R] convoy/ConvoyViewModel.kt:730:            _routeTrailSegments.value.map { it.copy(color = "#000000") }
-      [R] convoy/ConvoyViewModel.kt:733:                segments = _routeTrailSegments.value,
-
-  FIELD: _routeRecording (public: routeRecording)
-  DECLARED: ConvoyViewModel.kt:306
-  private val _routeRecording = MutableStateFlow(false)
-
-    WRITERS (functions that CHANGE this field):
-      [W] ConvoyViewModel.kt:473:        bindGpsService(context) { svc -> svc.startTrack(); _routeRecording.value = true }
-      [W] ConvoyViewModel.kt:475:    fun pauseRecording() { gpsService?.pauseTrack(); _routeRecording.value = false }
-      [W] ConvoyViewModel.kt:482:            bindGpsService(context) { svc -> svc.resumeTrack(); _routeRecording.value = true }
-      [W] ConvoyViewModel.kt:483:        } else { gpsService?.resumeTrack(); _routeRecording.value = true }
-      [W] ConvoyViewModel.kt:496:        lastGpsLat = null; lastGpsLon = null; _distanceMiles.value = 0.0; _routeRecording.value = false
-    READERS (functions that USE this field):
-      [R] convoy/ConvoyViewModel.kt:307:    val routeRecording: StateFlow<Boolean> = _routeRecording.asStateFlow()
-      [R] convoy/ConvoyViewModel.kt:580:        if (gpsService?.useRadioGps == true && _routeRecording.value) {
+      [R] convoy/ConvoyViewModel.kt:300:    val routeTrailSegments: StateFlow<List<ConvoyEngine.LeadTrackSegment>> = _routeTrailSegments.asStateFlow()
+      [R] convoy/ConvoyViewModel.kt:713:if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
+      [R] convoy/ConvoyViewModel.kt:717:                val minDist = _routeTrailSegments.value.minOf { seg ->
+      [R] convoy/ConvoyViewModel.kt:731:            _routeTrailSegments.value.map { it.copy(color = "#000000") }
+      [R] convoy/ConvoyViewModel.kt:734:                segments = _routeTrailSegments.value,
 
   FIELD: _routeRecording (public: routeRecording)
   DECLARED: ConvoyViewModel.kt:307
+  private val _routeRecording = MutableStateFlow(false)
+
+    WRITERS (functions that CHANGE this field):
+      [W] ConvoyViewModel.kt:474:        bindGpsService(context) { svc -> svc.startTrack(); _routeRecording.value = true }
+      [W] ConvoyViewModel.kt:476:    fun pauseRecording() { gpsService?.pauseTrack(); _routeRecording.value = false }
+      [W] ConvoyViewModel.kt:483:            bindGpsService(context) { svc -> svc.resumeTrack(); _routeRecording.value = true }
+      [W] ConvoyViewModel.kt:484:        } else { gpsService?.resumeTrack(); _routeRecording.value = true }
+      [W] ConvoyViewModel.kt:497:        lastGpsLat = null; lastGpsLon = null; _distanceMiles.value = 0.0; _routeRecording.value = false
+    READERS (functions that USE this field):
+      [R] convoy/ConvoyViewModel.kt:308:    val routeRecording: StateFlow<Boolean> = _routeRecording.asStateFlow()
+      [R] convoy/ConvoyViewModel.kt:581:        if (gpsService?.useRadioGps == true && _routeRecording.value) {
+
+  FIELD: _routeRecording (public: routeRecording)
+  DECLARED: ConvoyViewModel.kt:308
   val routeRecording: StateFlow<Boolean> = _routeRecording.asStateFlow()
 
     WRITERS (functions that CHANGE this field):
-      [W] ConvoyViewModel.kt:473:        bindGpsService(context) { svc -> svc.startTrack(); _routeRecording.value = true }
-      [W] ConvoyViewModel.kt:475:    fun pauseRecording() { gpsService?.pauseTrack(); _routeRecording.value = false }
-      [W] ConvoyViewModel.kt:482:            bindGpsService(context) { svc -> svc.resumeTrack(); _routeRecording.value = true }
-      [W] ConvoyViewModel.kt:483:        } else { gpsService?.resumeTrack(); _routeRecording.value = true }
-      [W] ConvoyViewModel.kt:496:        lastGpsLat = null; lastGpsLon = null; _distanceMiles.value = 0.0; _routeRecording.value = false
+      [W] ConvoyViewModel.kt:474:        bindGpsService(context) { svc -> svc.startTrack(); _routeRecording.value = true }
+      [W] ConvoyViewModel.kt:476:    fun pauseRecording() { gpsService?.pauseTrack(); _routeRecording.value = false }
+      [W] ConvoyViewModel.kt:483:            bindGpsService(context) { svc -> svc.resumeTrack(); _routeRecording.value = true }
+      [W] ConvoyViewModel.kt:484:        } else { gpsService?.resumeTrack(); _routeRecording.value = true }
+      [W] ConvoyViewModel.kt:497:        lastGpsLat = null; lastGpsLon = null; _distanceMiles.value = 0.0; _routeRecording.value = false
     READERS (functions that USE this field):
-      [R] convoy/ConvoyViewModel.kt:307:    val routeRecording: StateFlow<Boolean> = _routeRecording.asStateFlow()
-      [R] convoy/ConvoyViewModel.kt:580:        if (gpsService?.useRadioGps == true && _routeRecording.value) {
+      [R] convoy/ConvoyViewModel.kt:308:    val routeRecording: StateFlow<Boolean> = _routeRecording.asStateFlow()
+      [R] convoy/ConvoyViewModel.kt:581:        if (gpsService?.useRadioGps == true && _routeRecording.value) {
 
   FIELD: _offTrackNodes (public: offTrackNodes)
-  DECLARED: ConvoyViewModel.kt:308
+  DECLARED: ConvoyViewModel.kt:309
   private val _offTrackNodes = MutableStateFlow<List<ConvoyNode>>(emptyList())
 
     WRITERS (functions that CHANGE this field):
     READERS (functions that USE this field):
-      [R] convoy/ConvoyViewModel.kt:309:    val offTrackNodes: StateFlow<List<ConvoyNode>> = _offTrackNodes.asStateFlow()
+      [R] convoy/ConvoyViewModel.kt:310:    val offTrackNodes: StateFlow<List<ConvoyNode>> = _offTrackNodes.asStateFlow()
 
   FIELD: _offTrackNodes (public: offTrackNodes)
-  DECLARED: ConvoyViewModel.kt:309
+  DECLARED: ConvoyViewModel.kt:310
   val offTrackNodes: StateFlow<List<ConvoyNode>> = _offTrackNodes.asStateFlow()
 
     WRITERS (functions that CHANGE this field):
     READERS (functions that USE this field):
-      [R] convoy/ConvoyViewModel.kt:309:    val offTrackNodes: StateFlow<List<ConvoyNode>> = _offTrackNodes.asStateFlow()
-
-  FIELD: _currentIntervalSecs (public: currentIntervalSecs)
-  DECLARED: ConvoyViewModel.kt:395
-  private val _currentIntervalSecs = MutableStateFlow(5)
-
-    WRITERS (functions that CHANGE this field):
-      [W] ConvoyViewModel.kt:399:        _currentIntervalSecs.value = secs
-    READERS (functions that USE this field):
-      [R] convoy/ConvoyScreen.kt:1159:        val currentIntervalSecs by viewModel.currentIntervalSecs.collectAsStateWithLifecycle()
-      [R] convoy/ConvoyScreen.kt:1173:                        currentIntervalSecs = currentIntervalSecs,
-      [R] convoy/ConvoyScreen.kt:1225:    currentIntervalSecs: Int = 5,
-      [R] convoy/ConvoyScreen.kt:1239:            Text("${currentIntervalSecs}s", color = Color(0xFF111111), fontSize = 10.sp,
-      [R] convoy/ConvoyScreen.kt:1243:                value = currentIntervalSecs.toFloat(),
-      [R] convoy/ConvoyViewModel.kt:396:    val currentIntervalSecs: StateFlow<Int> = _currentIntervalSecs.asStateFlow()
+      [R] convoy/ConvoyViewModel.kt:310:    val offTrackNodes: StateFlow<List<ConvoyNode>> = _offTrackNodes.asStateFlow()
 
   FIELD: _currentIntervalSecs (public: currentIntervalSecs)
   DECLARED: ConvoyViewModel.kt:396
-  val currentIntervalSecs: StateFlow<Int> = _currentIntervalSecs.asStateFlow()
+  private val _currentIntervalSecs = MutableStateFlow(5)
 
     WRITERS (functions that CHANGE this field):
-      [W] ConvoyViewModel.kt:399:        _currentIntervalSecs.value = secs
+      [W] ConvoyViewModel.kt:400:        _currentIntervalSecs.value = secs
     READERS (functions that USE this field):
       [R] convoy/ConvoyScreen.kt:1159:        val currentIntervalSecs by viewModel.currentIntervalSecs.collectAsStateWithLifecycle()
       [R] convoy/ConvoyScreen.kt:1173:                        currentIntervalSecs = currentIntervalSecs,
       [R] convoy/ConvoyScreen.kt:1225:    currentIntervalSecs: Int = 5,
       [R] convoy/ConvoyScreen.kt:1239:            Text("${currentIntervalSecs}s", color = Color(0xFF111111), fontSize = 10.sp,
       [R] convoy/ConvoyScreen.kt:1243:                value = currentIntervalSecs.toFloat(),
-      [R] convoy/ConvoyViewModel.kt:396:    val currentIntervalSecs: StateFlow<Int> = _currentIntervalSecs.asStateFlow()
+      [R] convoy/ConvoyViewModel.kt:397:    val currentIntervalSecs: StateFlow<Int> = _currentIntervalSecs.asStateFlow()
 
-  FIELD: _distanceMiles (public: distanceMiles)
-  DECLARED: ConvoyViewModel.kt:433
-  private val _distanceMiles = MutableStateFlow(0.0)
+  FIELD: _currentIntervalSecs (public: currentIntervalSecs)
+  DECLARED: ConvoyViewModel.kt:397
+  val currentIntervalSecs: StateFlow<Int> = _currentIntervalSecs.asStateFlow()
 
     WRITERS (functions that CHANGE this field):
-      [W] ConvoyViewModel.kt:460:                    _distanceMiles.value = svc.totalDistanceMiles
-      [W] ConvoyViewModel.kt:496:        lastGpsLat = null; lastGpsLon = null; _distanceMiles.value = 0.0; _routeRecording.value = false
+      [W] ConvoyViewModel.kt:400:        _currentIntervalSecs.value = secs
     READERS (functions that USE this field):
-      [R] convoy/ConvoyScreen.kt:869:          val distanceMiles by viewModel.distanceMiles.collectAsStateWithLifecycle()
-      [R] convoy/ConvoyScreen.kt:881:                      Text("%.2f".format(distanceMiles), color = Color(0xFFFF0000).copy(alpha = 0.75f),
-      [R] convoy/ConvoyViewModel.kt:434:    val distanceMiles: StateFlow<Double> = _distanceMiles.asStateFlow()
+      [R] convoy/ConvoyScreen.kt:1159:        val currentIntervalSecs by viewModel.currentIntervalSecs.collectAsStateWithLifecycle()
+      [R] convoy/ConvoyScreen.kt:1173:                        currentIntervalSecs = currentIntervalSecs,
+      [R] convoy/ConvoyScreen.kt:1225:    currentIntervalSecs: Int = 5,
+      [R] convoy/ConvoyScreen.kt:1239:            Text("${currentIntervalSecs}s", color = Color(0xFF111111), fontSize = 10.sp,
+      [R] convoy/ConvoyScreen.kt:1243:                value = currentIntervalSecs.toFloat(),
+      [R] convoy/ConvoyViewModel.kt:397:    val currentIntervalSecs: StateFlow<Int> = _currentIntervalSecs.asStateFlow()
 
   FIELD: _distanceMiles (public: distanceMiles)
   DECLARED: ConvoyViewModel.kt:434
-  val distanceMiles: StateFlow<Double> = _distanceMiles.asStateFlow()
+  private val _distanceMiles = MutableStateFlow(0.0)
 
     WRITERS (functions that CHANGE this field):
-      [W] ConvoyViewModel.kt:460:                    _distanceMiles.value = svc.totalDistanceMiles
-      [W] ConvoyViewModel.kt:496:        lastGpsLat = null; lastGpsLon = null; _distanceMiles.value = 0.0; _routeRecording.value = false
+      [W] ConvoyViewModel.kt:461:                    _distanceMiles.value = svc.totalDistanceMiles
+      [W] ConvoyViewModel.kt:497:        lastGpsLat = null; lastGpsLon = null; _distanceMiles.value = 0.0; _routeRecording.value = false
     READERS (functions that USE this field):
       [R] convoy/ConvoyScreen.kt:869:          val distanceMiles by viewModel.distanceMiles.collectAsStateWithLifecycle()
       [R] convoy/ConvoyScreen.kt:881:                      Text("%.2f".format(distanceMiles), color = Color(0xFFFF0000).copy(alpha = 0.75f),
-      [R] convoy/ConvoyViewModel.kt:434:    val distanceMiles: StateFlow<Double> = _distanceMiles.asStateFlow()
+      [R] convoy/ConvoyViewModel.kt:435:    val distanceMiles: StateFlow<Double> = _distanceMiles.asStateFlow()
 
-  FIELD: _avgChannelUtil (public: avgChannelUtil)
+  FIELD: _distanceMiles (public: distanceMiles)
   DECLARED: ConvoyViewModel.kt:435
-  private val _avgChannelUtil = MutableStateFlow(0f)
+  val distanceMiles: StateFlow<Double> = _distanceMiles.asStateFlow()
 
     WRITERS (functions that CHANGE this field):
-      [W] ConvoyViewModel.kt:883:        _avgChannelUtil.value = avgUtil
+      [W] ConvoyViewModel.kt:461:                    _distanceMiles.value = svc.totalDistanceMiles
+      [W] ConvoyViewModel.kt:497:        lastGpsLat = null; lastGpsLon = null; _distanceMiles.value = 0.0; _routeRecording.value = false
     READERS (functions that USE this field):
-      [R] convoy/ConvoyScreen.kt:1158:        val avgChannelUtil by viewModel.avgChannelUtil.collectAsStateWithLifecycle()
-      [R] convoy/ConvoyScreen.kt:1172:                        avgChannelUtil = avgChannelUtil,
-      [R] convoy/ConvoyScreen.kt:1224:    avgChannelUtil: Float = 0f,
-      [R] convoy/ConvoyScreen.kt:1229:        avgChannelUtil > 40f -> Color(0xFFFF4444)
-      [R] convoy/ConvoyScreen.kt:1230:        avgChannelUtil > 25f -> Color(0xFFFFAA00)
-      [R] convoy/ConvoyScreen.kt:1292:                        Text("%.0f%%".format(avgChannelUtil), color = chColor,
-      [R] convoy/ConvoyViewModel.kt:436:    val avgChannelUtil: StateFlow<Float> = _avgChannelUtil.asStateFlow()
+      [R] convoy/ConvoyScreen.kt:869:          val distanceMiles by viewModel.distanceMiles.collectAsStateWithLifecycle()
+      [R] convoy/ConvoyScreen.kt:881:                      Text("%.2f".format(distanceMiles), color = Color(0xFFFF0000).copy(alpha = 0.75f),
+      [R] convoy/ConvoyViewModel.kt:435:    val distanceMiles: StateFlow<Double> = _distanceMiles.asStateFlow()
 
   FIELD: _avgChannelUtil (public: avgChannelUtil)
   DECLARED: ConvoyViewModel.kt:436
-  val avgChannelUtil: StateFlow<Float> = _avgChannelUtil.asStateFlow()
+  private val _avgChannelUtil = MutableStateFlow(0f)
 
     WRITERS (functions that CHANGE this field):
-      [W] ConvoyViewModel.kt:883:        _avgChannelUtil.value = avgUtil
+      [W] ConvoyViewModel.kt:884:        _avgChannelUtil.value = avgUtil
     READERS (functions that USE this field):
       [R] convoy/ConvoyScreen.kt:1158:        val avgChannelUtil by viewModel.avgChannelUtil.collectAsStateWithLifecycle()
       [R] convoy/ConvoyScreen.kt:1172:                        avgChannelUtil = avgChannelUtil,
@@ -12198,34 +12183,31 @@ SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
       [R] convoy/ConvoyScreen.kt:1229:        avgChannelUtil > 40f -> Color(0xFFFF4444)
       [R] convoy/ConvoyScreen.kt:1230:        avgChannelUtil > 25f -> Color(0xFFFFAA00)
       [R] convoy/ConvoyScreen.kt:1292:                        Text("%.0f%%".format(avgChannelUtil), color = chColor,
-      [R] convoy/ConvoyViewModel.kt:436:    val avgChannelUtil: StateFlow<Float> = _avgChannelUtil.asStateFlow()
+      [R] convoy/ConvoyViewModel.kt:437:    val avgChannelUtil: StateFlow<Float> = _avgChannelUtil.asStateFlow()
 
-  FIELD: _downloadState (public: downloadState)
-  DECLARED: ConvoyViewModel.kt:907
-  private val _downloadState = MutableStateFlow<DownloadState>(DownloadState.Idle)
+  FIELD: _avgChannelUtil (public: avgChannelUtil)
+  DECLARED: ConvoyViewModel.kt:437
+  val avgChannelUtil: StateFlow<Float> = _avgChannelUtil.asStateFlow()
 
     WRITERS (functions that CHANGE this field):
-      [W] ConvoyViewModel.kt:934:                _downloadState.value = when (entry.status) {
-      [W] ConvoyViewModel.kt:956:        _downloadState.value = DownloadState.Cancelled
-      [W] ConvoyViewModel.kt:959:            _downloadState.value = DownloadState.Idle
+      [W] ConvoyViewModel.kt:884:        _avgChannelUtil.value = avgUtil
     READERS (functions that USE this field):
-      [R] convoy/ConvoyMapViewerScreen.kt:113:    val downloadState by convoyViewModel.downloadState.collectAsState()
-      [R] convoy/ConvoyScreen.kt:163:    val downloadState by viewModel.downloadState.collectAsStateWithLifecycle()
-      [R] convoy/ConvoyScreen.kt:389:    if (downloadState is ConvoyViewModel.DownloadState.Error) {
-      [R] convoy/ConvoyScreen.kt:393:            text = { Text((downloadState as ConvoyViewModel.DownloadState.Error).message) },
-      [R] convoy/ConvoyScreen.kt:430:    LaunchedEffect(downloadState) {
-      [R] convoy/ConvoyScreen.kt:431:        if (downloadState is ConvoyViewModel.DownloadState.Complete) {
-      [R] convoy/ConvoyScreen.kt:432:            val summary = (downloadState as ConvoyViewModel.DownloadState.Complete).summary
-      [R] convoy/ConvoyViewModel.kt:908:    val downloadState: StateFlow<DownloadState> = _downloadState.asStateFlow()
+      [R] convoy/ConvoyScreen.kt:1158:        val avgChannelUtil by viewModel.avgChannelUtil.collectAsStateWithLifecycle()
+      [R] convoy/ConvoyScreen.kt:1172:                        avgChannelUtil = avgChannelUtil,
+      [R] convoy/ConvoyScreen.kt:1224:    avgChannelUtil: Float = 0f,
+      [R] convoy/ConvoyScreen.kt:1229:        avgChannelUtil > 40f -> Color(0xFFFF4444)
+      [R] convoy/ConvoyScreen.kt:1230:        avgChannelUtil > 25f -> Color(0xFFFFAA00)
+      [R] convoy/ConvoyScreen.kt:1292:                        Text("%.0f%%".format(avgChannelUtil), color = chColor,
+      [R] convoy/ConvoyViewModel.kt:437:    val avgChannelUtil: StateFlow<Float> = _avgChannelUtil.asStateFlow()
 
   FIELD: _downloadState (public: downloadState)
   DECLARED: ConvoyViewModel.kt:908
-  val downloadState: StateFlow<DownloadState> = _downloadState.asStateFlow()
+  private val _downloadState = MutableStateFlow<DownloadState>(DownloadState.Idle)
 
     WRITERS (functions that CHANGE this field):
-      [W] ConvoyViewModel.kt:934:                _downloadState.value = when (entry.status) {
-      [W] ConvoyViewModel.kt:956:        _downloadState.value = DownloadState.Cancelled
-      [W] ConvoyViewModel.kt:959:            _downloadState.value = DownloadState.Idle
+      [W] ConvoyViewModel.kt:935:                _downloadState.value = when (entry.status) {
+      [W] ConvoyViewModel.kt:957:        _downloadState.value = DownloadState.Cancelled
+      [W] ConvoyViewModel.kt:960:            _downloadState.value = DownloadState.Idle
     READERS (functions that USE this field):
       [R] convoy/ConvoyMapViewerScreen.kt:113:    val downloadState by convoyViewModel.downloadState.collectAsState()
       [R] convoy/ConvoyScreen.kt:163:    val downloadState by viewModel.downloadState.collectAsStateWithLifecycle()
@@ -12234,31 +12216,49 @@ SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
       [R] convoy/ConvoyScreen.kt:430:    LaunchedEffect(downloadState) {
       [R] convoy/ConvoyScreen.kt:431:        if (downloadState is ConvoyViewModel.DownloadState.Complete) {
       [R] convoy/ConvoyScreen.kt:432:            val summary = (downloadState as ConvoyViewModel.DownloadState.Complete).summary
-      [R] convoy/ConvoyViewModel.kt:908:    val downloadState: StateFlow<DownloadState> = _downloadState.asStateFlow()
+      [R] convoy/ConvoyViewModel.kt:909:    val downloadState: StateFlow<DownloadState> = _downloadState.asStateFlow()
 
-  FIELD: _pendingDownload (public: pendingDownload)
+  FIELD: _downloadState (public: downloadState)
   DECLARED: ConvoyViewModel.kt:909
-  private val _pendingDownload = MutableStateFlow<PendingDownload?>(null)
+  val downloadState: StateFlow<DownloadState> = _downloadState.asStateFlow()
 
     WRITERS (functions that CHANGE this field):
-      [W] ConvoyViewModel.kt:914:    fun setPendingDownload(pending: PendingDownload) { _pendingDownload.value = pending }
-      [W] ConvoyViewModel.kt:915:    fun clearPendingDownload() { _pendingDownload.value = null }
+      [W] ConvoyViewModel.kt:935:                _downloadState.value = when (entry.status) {
+      [W] ConvoyViewModel.kt:957:        _downloadState.value = DownloadState.Cancelled
+      [W] ConvoyViewModel.kt:960:            _downloadState.value = DownloadState.Idle
     READERS (functions that USE this field):
-      [R] convoy/ConvoyScreen.kt:162:    val pendingDownload by viewModel.pendingDownload.collectAsStateWithLifecycle()
-      [R] convoy/ConvoyScreen.kt:328:    pendingDownload?.let { pending ->
-      [R] convoy/ConvoyViewModel.kt:910:    val pendingDownload: StateFlow<PendingDownload?> = _pendingDownload.asStateFlow()
+      [R] convoy/ConvoyMapViewerScreen.kt:113:    val downloadState by convoyViewModel.downloadState.collectAsState()
+      [R] convoy/ConvoyScreen.kt:163:    val downloadState by viewModel.downloadState.collectAsStateWithLifecycle()
+      [R] convoy/ConvoyScreen.kt:389:    if (downloadState is ConvoyViewModel.DownloadState.Error) {
+      [R] convoy/ConvoyScreen.kt:393:            text = { Text((downloadState as ConvoyViewModel.DownloadState.Error).message) },
+      [R] convoy/ConvoyScreen.kt:430:    LaunchedEffect(downloadState) {
+      [R] convoy/ConvoyScreen.kt:431:        if (downloadState is ConvoyViewModel.DownloadState.Complete) {
+      [R] convoy/ConvoyScreen.kt:432:            val summary = (downloadState as ConvoyViewModel.DownloadState.Complete).summary
+      [R] convoy/ConvoyViewModel.kt:909:    val downloadState: StateFlow<DownloadState> = _downloadState.asStateFlow()
 
   FIELD: _pendingDownload (public: pendingDownload)
   DECLARED: ConvoyViewModel.kt:910
-  val pendingDownload: StateFlow<PendingDownload?> = _pendingDownload.asStateFlow()
+  private val _pendingDownload = MutableStateFlow<PendingDownload?>(null)
 
     WRITERS (functions that CHANGE this field):
-      [W] ConvoyViewModel.kt:914:    fun setPendingDownload(pending: PendingDownload) { _pendingDownload.value = pending }
-      [W] ConvoyViewModel.kt:915:    fun clearPendingDownload() { _pendingDownload.value = null }
+      [W] ConvoyViewModel.kt:915:    fun setPendingDownload(pending: PendingDownload) { _pendingDownload.value = pending }
+      [W] ConvoyViewModel.kt:916:    fun clearPendingDownload() { _pendingDownload.value = null }
     READERS (functions that USE this field):
       [R] convoy/ConvoyScreen.kt:162:    val pendingDownload by viewModel.pendingDownload.collectAsStateWithLifecycle()
       [R] convoy/ConvoyScreen.kt:328:    pendingDownload?.let { pending ->
-      [R] convoy/ConvoyViewModel.kt:910:    val pendingDownload: StateFlow<PendingDownload?> = _pendingDownload.asStateFlow()
+      [R] convoy/ConvoyViewModel.kt:911:    val pendingDownload: StateFlow<PendingDownload?> = _pendingDownload.asStateFlow()
+
+  FIELD: _pendingDownload (public: pendingDownload)
+  DECLARED: ConvoyViewModel.kt:911
+  val pendingDownload: StateFlow<PendingDownload?> = _pendingDownload.asStateFlow()
+
+    WRITERS (functions that CHANGE this field):
+      [W] ConvoyViewModel.kt:915:    fun setPendingDownload(pending: PendingDownload) { _pendingDownload.value = pending }
+      [W] ConvoyViewModel.kt:916:    fun clearPendingDownload() { _pendingDownload.value = null }
+    READERS (functions that USE this field):
+      [R] convoy/ConvoyScreen.kt:162:    val pendingDownload by viewModel.pendingDownload.collectAsStateWithLifecycle()
+      [R] convoy/ConvoyScreen.kt:328:    pendingDownload?.let { pending ->
+      [R] convoy/ConvoyViewModel.kt:911:    val pendingDownload: StateFlow<PendingDownload?> = _pendingDownload.asStateFlow()
 
 --- 5B: StateFlow Fields in Other Files ---
 
@@ -12274,12 +12274,12 @@ SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
         [W] ConvoyGpsService.kt:200:        currentTempFile = null
         [R] convoy/ConvoyGpsService.kt:199:        val file = currentTempFile
     [61] var onLocationUpdate: ((lat: Double, lon: Double, alt: Double) -> Unit)? = null
-        [W] ConvoyViewModel.kt:448:                svc.onLocationUpdate = { lat, lon, _ ->
+        [W] ConvoyViewModel.kt:449:                svc.onLocationUpdate = { lat, lon, _ ->
         [R] convoy/ConvoyGpsService.kt:317:        onLocationUpdate?.invoke(lat, lon, alt)
     [63] var totalDistanceMiles: Double = 0.0
         [W] ConvoyGpsService.kt:203:        totalDistanceMiles = 0.0
         [W] ConvoyGpsService.kt:309:            totalDistanceMiles += haversineMiles(prevLat, prevLon, lat, lon)
-        [R] convoy/ConvoyViewModel.kt:460:                    _distanceMiles.value = svc.totalDistanceMiles
+        [R] convoy/ConvoyViewModel.kt:461:                    _distanceMiles.value = svc.totalDistanceMiles
     [78] private var wakeLock: PowerManager.WakeLock? = null
         [W] ConvoyGpsService.kt:419:            wakeLock = pm.newWakeLock(
         [W] ConvoyGpsService.kt:433:            if (wakeLock?.isHeld == true) {
@@ -12308,11 +12308,11 @@ SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
         [W] ConvoyGpsService.kt:201:        lastLat = null
         [W] ConvoyGpsService.kt:306:        lastLat = lat
         [R] convoy/ConvoyGpsService.kt:304:        val prevLat = lastLat
-        [R] convoy/ConvoyViewModel.kt:747:        val svcLat = gpsService?.lastLat
+        [R] convoy/ConvoyViewModel.kt:748:        val svcLat = gpsService?.lastLat
     [84] private var lastMovementMs: Long = System.currentTimeMillis()
         [W] ConvoyGpsService.kt:183:        lastMovementMs = System.currentTimeMillis()
         [W] ConvoyGpsService.kt:293:            lastMovementMs = System.currentTimeMillis()
-        [W] ConvoyViewModel.kt:210:        lastMovementMs = System.currentTimeMillis()
+        [W] ConvoyViewModel.kt:211:        lastMovementMs = System.currentTimeMillis()
         [R] convoy/ConvoyGpsService.kt:296:        } else if (System.currentTimeMillis() - lastMovementMs > SLEEP_THRESHOLD_MS) {
     [85] private var lastMoveLat: Double = 0.0
         [W] ConvoyGpsService.kt:184:        lastMoveLat = 0.0
@@ -12327,13 +12327,13 @@ SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
         [W] ConvoyGpsService.kt:297:            isSleeping = true
         [R] convoy/ConvoyGpsService.kt:290:        if (isSleeping) return
     [88] var onSleepTriggered: (() -> Unit)? = null
-        [W] ConvoyViewModel.kt:447:                svc.onSleepTriggered = { recordingState.value = RecordingState.SLEEPING }
+        [W] ConvoyViewModel.kt:448:                svc.onSleepTriggered = { recordingState.value = RecordingState.SLEEPING }
         [R] convoy/ConvoyGpsService.kt:300:            onSleepTriggered?.invoke()
     [91] var lastLon: Double? = null
         [W] ConvoyGpsService.kt:202:        lastLon = null
         [W] ConvoyGpsService.kt:307:        lastLon = lon
         [R] convoy/ConvoyGpsService.kt:305:        val prevLon = lastLon
-        [R] convoy/ConvoyViewModel.kt:748:        val svcLon = gpsService?.lastLon
+        [R] convoy/ConvoyViewModel.kt:749:        val svcLon = gpsService?.lastLon
     [94] private const val TAG = "ConvoyGpsService"
         [W] ConvoyDownloadQueue.kt:134:        android.util.Log.i(TAG, "Enqueued: ${entry.label} (${entry.totalTiles} tiles) id=${entry.id}")
         [W] ConvoyDownloadQueue.kt:151:        android.util.Log.i(TAG, "Cancelled: ${entry.label} id=$entryId")
@@ -12404,7 +12404,7 @@ SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
         [W] ConvoySettingsRepository.kt:53:    val removedCartsForToday: Flow<Map<String, String>> = context.convoyDataStore.data
         [W] ConvoySettingsViewModel.kt:21:    val removedCarts:         Map<String, String> = emptyMap(),
         [W] ConvoySettingsViewModel.kt:52:                    removedCarts         = removed
-        [W] ConvoyViewModel.kt:887:            removedCartIds = emptySet(),
+        [W] ConvoyViewModel.kt:888:            removedCartIds = emptySet(),
         [R] convoy/ConvoyConfig.kt:54:                    moved++
         [R] convoy/ConvoyConfig.kt:65:            android.util.Log.d("TileMigrate", "Migration complete: $moved source(s) moved")
     [72] const val MAP_GROUP_ZOOM_PADDING = 1.4f
@@ -12421,7 +12421,7 @@ SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
     [80] const val MARKER_SIZE_MEDIUM_DP = 16
     [81] const val TICK_MS = 5000L
         [R] convoy/ConvoySimulation.kt:57:     * Call this every TICK_MS (5 seconds).
-        [R] convoy/ConvoyViewModel.kt:522:            while (true) { tick(); delay(ConvoySimulation.TICK_MS) }
+        [R] convoy/ConvoyViewModel.kt:523:            while (true) { tick(); delay(ConvoySimulation.TICK_MS) }
     [82] var SIGNAL_DROP_MINUTES = 2f
         [W] ConvoySettingsRepository.kt:26:        val KEY_SIGNAL_DROP_MINUTES    = floatPreferencesKey("signal_drop_minutes")
         [W] ConvoySettingsRepository.kt:67:        context.convoyDataStore.edit { it[KEY_SIGNAL_DROP_MINUTES] = value }
@@ -12432,7 +12432,7 @@ SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
         [W] ConvoySettingsRepository.kt:72:        context.convoyDataStore.edit { it[KEY_SIGNAL_LOST_MINUTES] = value }
         [W] ConvoySettingsRepository.kt:73:        ConvoyConfig.LOST_MINUTES = value
         [R] convoy/ConvoyEngine.kt:64:        val lostMs = (ConvoyConfig.LOST_MINUTES * 60_000f).toLong()
-    [86] const val V3_FEATURES_ENABLED = true
+    [86] const val V3_FEATURES_ENABLED = false
         [W] ConvoyDevLaunchScreen.kt:24:// Shown only when V3_FEATURES_ENABLED = true.
         [W] GroupTrackTheme.kt:102:                    onLongClick = { if (ConvoyConfig.V3_FEATURES_ENABLED) showDevMenu = true }
         [R] convoy/ConvoyDashboardScreen.kt:182:                if (ConvoyConfig.V3_FEATURES_ENABLED) {
@@ -12672,7 +12672,7 @@ SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
     [W] ConvoySubscriptionScreen.kt:397:        .edit()
     [W] ConvoySubscriptionScreen.kt:398:        .putLong("subscription_expires_at", expiresAtMs)
     [W] ConvoyUser.kt:154:            .edit().putString(ACTIVE_KEY, userId).apply()
-    [W] ConvoyViewModel.kt:370:                            ConvoyEventStore.save(appContext, event)
+    [W] ConvoyViewModel.kt:371:                            ConvoyEventStore.save(appContext, event)
 
   READERS:
     [R] ConvoyApplyList.kt:116:                    val names = (0 until arr.length()).map { arr.getString(it) }.toSet()
@@ -12738,8 +12738,8 @@ SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
     [R] ConvoyUser.kt:70:                createdDate   = obj.getString("createdDate"),
     [R] ConvoyUser.kt:71:                expirationDate= obj.getString("expirationDate"),
     [R] ConvoyUser.kt:147:        val active = prefs.getString(ACTIVE_KEY, null) ?: return null
-    [R] ConvoyViewModel.kt:345:                    val id = cursor.getLong(idCol)
-    [R] ConvoyViewModel.kt:346:                    val name = cursor.getString(nameCol)
+    [R] ConvoyViewModel.kt:346:                    val id = cursor.getLong(idCol)
+    [R] ConvoyViewModel.kt:347:                    val name = cursor.getString(nameCol)
     [R] MapSourceManager.kt:70:                        role = l.getString("role"),
     [R] MapSourceManager.kt:71:                        urlTemplate = l.getString("url_template"),
     [R] MapSourceManager.kt:73:                        cacheDir = l.getString("cache_dir"),
@@ -12803,12 +12803,12 @@ SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
     [W] ConvoyTrackOps.kt:304:            dest.writeText(text)
     [W] ConvoyTransferRideScreen.kt:67:            outFile.writeText(rideJson.toString(2))
     [W] ConvoyUser.kt:133:        java.io.File(context.filesDir, FILE_NAME).writeText(arr.toString())
-    [W] ConvoyViewModel.kt:231:        file.parentFile?.mkdirs()
-    [W] ConvoyViewModel.kt:262:            dir.mkdirs()
-    [W] ConvoyViewModel.kt:269:            dir.mkdirs()
-    [W] ConvoyViewModel.kt:351:                            destFile.outputStream().use { output -> input.copyTo(output) }
-    [W] ConvoyViewModel.kt:509:            it.writeText("=== GroupTrack Debug Log ${System.currentTimeMillis()} ===\n")
-    [W] ConvoyViewModel.kt:513:        try { convoyLogFile.appendText("${System.currentTimeMillis() % 100000} $msg\n") }
+    [W] ConvoyViewModel.kt:232:        file.parentFile?.mkdirs()
+    [W] ConvoyViewModel.kt:263:            dir.mkdirs()
+    [W] ConvoyViewModel.kt:270:            dir.mkdirs()
+    [W] ConvoyViewModel.kt:352:                            destFile.outputStream().use { output -> input.copyTo(output) }
+    [W] ConvoyViewModel.kt:510:            it.writeText("=== GroupTrack Debug Log ${System.currentTimeMillis()} ===\n")
+    [W] ConvoyViewModel.kt:514:        try { convoyLogFile.appendText("${System.currentTimeMillis() % 100000} $msg\n") }
 
   FILE READERS:
     [R] ConvoyApplyList.kt:111:            if (!file.exists()) return ConvoyApplyList()
@@ -12893,10 +12893,10 @@ SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
     [R] ConvoyTrackOps.kt:322:            val content = file.readText()
     [R] ConvoyUser.kt:120:        if (!file.exists()) return emptyList()
     [R] ConvoyUser.kt:122:            val arr = JSONArray(file.readText())
-    [R] ConvoyViewModel.kt:341:            appContext.contentResolver.query(collection, projection, selection, selectionArgs, null)?.use { cursor ->
-    [R] ConvoyViewModel.kt:350:                        appContext.contentResolver.openInputStream(uri)?.use { input ->
-    [R] ConvoyViewModel.kt:365:                    val json = org.json.JSONObject(file.readText())
-    [R] ConvoyViewModel.kt:491:        if (temp.exists()) {
+    [R] ConvoyViewModel.kt:342:            appContext.contentResolver.query(collection, projection, selection, selectionArgs, null)?.use { cursor ->
+    [R] ConvoyViewModel.kt:351:                        appContext.contentResolver.openInputStream(uri)?.use { input ->
+    [R] ConvoyViewModel.kt:366:                    val json = org.json.JSONObject(file.readText())
+    [R] ConvoyViewModel.kt:492:        if (temp.exists()) {
     [R] MapSourceManager.kt:59:                .bufferedReader().use { it.readText() }
 
 --- 5E: Kotlin → JavaScript Bridge ---
@@ -12975,52 +12975,52 @@ SECTION 6: LIFECYCLE PHASE MAP
   ConvoySettingsViewModel.kt:33:    init {
   ConvoySettingsViewModel.kt:44:                repository.admissionWindowHours,
   ConvoySettingsViewModel.kt:51:                    admissionWindowHours = window,
-  ConvoyViewModel.kt:312:    private var admissionWindowHours: Int = 1
-  ConvoyViewModel.kt:314:    init {
-  ConvoyViewModel.kt:316:            settingsRepository.admissionWindowHours.collect { admissionWindowHours = it }
-  ConvoyViewModel.kt:320:            nodeRepository.myNodeInfo.collect { info ->
-  ConvoyViewModel.kt:327:        startTick()
-  ConvoyViewModel.kt:328:        viewModelScope.launch { scanImportDirectory() }
-  ConvoyViewModel.kt:331:    suspend fun scanImportDirectory() {
-  ConvoyViewModel.kt:519:    private fun startTick() {
-  ConvoyViewModel.kt:888:            admissionWindowHours = admissionWindowHours
+  ConvoyViewModel.kt:313:    private var admissionWindowHours: Int = 1
+  ConvoyViewModel.kt:315:    init {
+  ConvoyViewModel.kt:317:            settingsRepository.admissionWindowHours.collect { admissionWindowHours = it }
+  ConvoyViewModel.kt:321:            nodeRepository.myNodeInfo.collect { info ->
+  ConvoyViewModel.kt:328:        startTick()
+  ConvoyViewModel.kt:329:        viewModelScope.launch(Dispatchers.IO) { scanImportDirectory() }
+  ConvoyViewModel.kt:332:    suspend fun scanImportDirectory() {
+  ConvoyViewModel.kt:520:    private fun startTick() {
+  ConvoyViewModel.kt:889:            admissionWindowHours = admissionWindowHours
 
 --- TICK PHASE ---
   ConvoySimulation.kt:59:    fun tick(nowMs: Long = System.currentTimeMillis()): List<ConvoyNode> {
   ConvoySimulation.kt:115:        return ConvoyEngine.compute(nodes, myCartId = MY_CART_ID, nowMs = nowMs)
-  ConvoyViewModel.kt:110:    private fun startPhoneGps() {
-  ConvoyViewModel.kt:129:    private fun stopPhoneGps() {
-  ConvoyViewModel.kt:154:        val nodes = readLiveNodes(System.currentTimeMillis())
-  ConvoyViewModel.kt:168:        convoyLog("TRACK START: myCart=${_myCartId.value} lead=$lockedLeadNodeId nodes=${nodes.size}")
-  ConvoyViewModel.kt:194:            val name = _convoyState.value.nodes.firstOrNull { it.nodeId == nodeId }?.callsign ?: nodeId
-  ConvoyViewModel.kt:195:            convoyLog("LEAD SET: $name manually assigned as lead cart")
-  ConvoyViewModel.kt:200:            convoyLog("LEAD CLEARED: no lead assigned")
-  ConvoyViewModel.kt:285:    private fun resolveMyCartId(): String {
-  ConvoyViewModel.kt:324:                // resolveMyCartId() reads radio info directly for pre-RECORD display
-  ConvoyViewModel.kt:419:        val current = _convoyState.value
-  ConvoyViewModel.kt:420:        _convoyState.value = current.copy(nodes = current.nodes.filter { it.nodeId != nodeId })
-  ConvoyViewModel.kt:507:    private val convoyLogFile: java.io.File by lazy {
-  ConvoyViewModel.kt:512:    private fun convoyLog(msg: String) {
-  ConvoyViewModel.kt:513:        try { convoyLogFile.appendText("${System.currentTimeMillis() % 100000} $msg\n") }
-  ConvoyViewModel.kt:550:    private fun tick() { try {
-  ConvoyViewModel.kt:561:            readLiveNodes(nowMs)
-  ConvoyViewModel.kt:569:        val state = ConvoyEngine.compute(
-  ConvoyViewModel.kt:571:            myCartId = resolveMyCartId(),
-  ConvoyViewModel.kt:577:        _convoyState.value = state
-  ConvoyViewModel.kt:594:            convoyLog("tick | lead=$leadOut | trackFrom=$trackFrom | locked=$_leadLockedFlag | [$accumStr]")
-  ConvoyViewModel.kt:638:                    convoyLog("CART SUB: ${node.callsign} silent — using trailing cart pos (${String.format("%.5f",resolvedLat)},${String.format("%.5f",resolvedLon)})")
-  ConvoyViewModel.kt:675:                        convoyLog("LEAD SEGMENT JUMP: dist=${String.format("%.3f",segDist)}mi — drawing through")
-  ConvoyViewModel.kt:697:                        convoyLog("MULTI SEGMENT JUMP: node=$callsign dist=${String.format("%.3f",segDist)}mi — drawing through")
-  ConvoyViewModel.kt:745:    private fun getPhoneLocation(): android.location.Location? {
-  ConvoyViewModel.kt:767:    private fun readLiveNodes(nowMs: Long): List<ConvoyNode> {
-  ConvoyViewModel.kt:774:                startPhoneGps()
-  ConvoyViewModel.kt:777:            val loc = getPhoneLocation()
-  ConvoyViewModel.kt:811:                    convoyLog("STALE POS REJECTED: node=$callsign fixTime=$fixTimeMs rideStart=$rideStartTimeMs age=${(rideStartTimeMs - fixTimeMs)/1000}s lat=$lat lon=$lon → using lastKnown")
-  ConvoyViewModel.kt:816:                        convoyLog("POS ACCEPTED: node=$callsign fixTime=$fixTimeMs lat=$lat lon=$lon")
-  ConvoyViewModel.kt:823:                    convoyLog("ZERO POS: node=$callsign — using lastKnown lat=${fallback.first} lon=${fallback.second}")
-  ConvoyViewModel.kt:827:                    val phoneLoc = getPhoneLocation()
-  ConvoyViewModel.kt:829:                        convoyLog("ZERO POS: node=$callsign — using phone GPS lat=${phoneLoc.latitude} lon=${phoneLoc.longitude}")
-  ConvoyViewModel.kt:832:                        convoyLog("ZERO POS: node=$callsign — no lastKnown, no phone GPS, dropping node this tick")
+  ConvoyViewModel.kt:111:    private fun startPhoneGps() {
+  ConvoyViewModel.kt:130:    private fun stopPhoneGps() {
+  ConvoyViewModel.kt:155:        val nodes = readLiveNodes(System.currentTimeMillis())
+  ConvoyViewModel.kt:169:        convoyLog("TRACK START: myCart=${_myCartId.value} lead=$lockedLeadNodeId nodes=${nodes.size}")
+  ConvoyViewModel.kt:195:            val name = _convoyState.value.nodes.firstOrNull { it.nodeId == nodeId }?.callsign ?: nodeId
+  ConvoyViewModel.kt:196:            convoyLog("LEAD SET: $name manually assigned as lead cart")
+  ConvoyViewModel.kt:201:            convoyLog("LEAD CLEARED: no lead assigned")
+  ConvoyViewModel.kt:286:    private fun resolveMyCartId(): String {
+  ConvoyViewModel.kt:325:                // resolveMyCartId() reads radio info directly for pre-RECORD display
+  ConvoyViewModel.kt:420:        val current = _convoyState.value
+  ConvoyViewModel.kt:421:        _convoyState.value = current.copy(nodes = current.nodes.filter { it.nodeId != nodeId })
+  ConvoyViewModel.kt:508:    private val convoyLogFile: java.io.File by lazy {
+  ConvoyViewModel.kt:513:    private fun convoyLog(msg: String) {
+  ConvoyViewModel.kt:514:        try { convoyLogFile.appendText("${System.currentTimeMillis() % 100000} $msg\n") }
+  ConvoyViewModel.kt:551:    private fun tick() { try {
+  ConvoyViewModel.kt:562:            readLiveNodes(nowMs)
+  ConvoyViewModel.kt:570:        val state = ConvoyEngine.compute(
+  ConvoyViewModel.kt:572:            myCartId = resolveMyCartId(),
+  ConvoyViewModel.kt:578:        _convoyState.value = state
+  ConvoyViewModel.kt:595:            convoyLog("tick | lead=$leadOut | trackFrom=$trackFrom | locked=$_leadLockedFlag | [$accumStr]")
+  ConvoyViewModel.kt:639:                    convoyLog("CART SUB: ${node.callsign} silent — using trailing cart pos (${String.format("%.5f",resolvedLat)},${String.format("%.5f",resolvedLon)})")
+  ConvoyViewModel.kt:676:                        convoyLog("LEAD SEGMENT JUMP: dist=${String.format("%.3f",segDist)}mi — drawing through")
+  ConvoyViewModel.kt:698:                        convoyLog("MULTI SEGMENT JUMP: node=$callsign dist=${String.format("%.3f",segDist)}mi — drawing through")
+  ConvoyViewModel.kt:746:    private fun getPhoneLocation(): android.location.Location? {
+  ConvoyViewModel.kt:768:    private fun readLiveNodes(nowMs: Long): List<ConvoyNode> {
+  ConvoyViewModel.kt:775:                startPhoneGps()
+  ConvoyViewModel.kt:778:            val loc = getPhoneLocation()
+  ConvoyViewModel.kt:812:                    convoyLog("STALE POS REJECTED: node=$callsign fixTime=$fixTimeMs rideStart=$rideStartTimeMs age=${(rideStartTimeMs - fixTimeMs)/1000}s lat=$lat lon=$lon → using lastKnown")
+  ConvoyViewModel.kt:817:                        convoyLog("POS ACCEPTED: node=$callsign fixTime=$fixTimeMs lat=$lat lon=$lon")
+  ConvoyViewModel.kt:824:                    convoyLog("ZERO POS: node=$callsign — using lastKnown lat=${fallback.first} lon=${fallback.second}")
+  ConvoyViewModel.kt:828:                    val phoneLoc = getPhoneLocation()
+  ConvoyViewModel.kt:830:                        convoyLog("ZERO POS: node=$callsign — using phone GPS lat=${phoneLoc.latitude} lon=${phoneLoc.longitude}")
+  ConvoyViewModel.kt:833:                        convoyLog("ZERO POS: node=$callsign — no lastKnown, no phone GPS, dropping node this tick")
 
 --- MAP-LOAD PHASE ---
   ConvoyMapViewerScreen.kt:92:            webViewRef?.evaluateJavascript("removeTrackFile('$safe')", null)
@@ -13076,10 +13076,10 @@ SECTION 6: LIFECYCLE PHASE MAP
   ConvoyScreen.kt:1153:            onModeChange = { viewModel.setHudMode(it); viewModel.setAutoPan(true) },
   ConvoyScreen.kt:1188:                            webViewRef.value?.evaluateJavascript("removeMarker('${n.nodeId}')", null)
   ConvoyScreen.kt:1751:        webView?.evaluateJavascript("loadTrackFile('$safe', '$json', '$color')", null)
-  ConvoyViewModel.kt:95:    fun setOfflineMode(offline: Boolean) { _isOfflineMode.value = offline }
-  ConvoyViewModel.kt:98:    fun setMapTypeLabel(label: String) { _mapTypeLabel.value = label }
-  ConvoyViewModel.kt:101:    fun setLocalTiles(local: Boolean) { _isLocalTiles.value = local }
-  ConvoyViewModel.kt:104:    fun setAutoPan(pan: Boolean) { _autoPan.value = pan }
+  ConvoyViewModel.kt:96:    fun setOfflineMode(offline: Boolean) { _isOfflineMode.value = offline }
+  ConvoyViewModel.kt:99:    fun setMapTypeLabel(label: String) { _mapTypeLabel.value = label }
+  ConvoyViewModel.kt:102:    fun setLocalTiles(local: Boolean) { _isLocalTiles.value = local }
+  ConvoyViewModel.kt:105:    fun setAutoPan(pan: Boolean) { _autoPan.value = pan }
 
 --- RECORD PHASE ---
   ConvoyGpsService.kt:38: *   On END: file is complete and ready. Caller renames via finalizeTrack().
@@ -13122,24 +13122,24 @@ SECTION 6: LIFECYCLE PHASE MAP
   ConvoyScreen.kt:838:                            viewModel.stopGroupTrack()
   ConvoyScreen.kt:1169:                    onStartTrack = { viewModel.startGroupTrack() },
   ConvoyScreen.kt:1170:                    onStopTrack = { viewModel.stopGroupTrack() },
-  ConvoyViewModel.kt:139:    fun startGroupTrack() {
-  ConvoyViewModel.kt:171:    fun stopGroupTrack() {
-  ConvoyViewModel.kt:302:    private var rideStartTimeMs: Long = 0L  // Unix ms when startGroupTrack() was called
-  ConvoyViewModel.kt:323:                // _myCartId no longer set here — set ONCE in startGroupTrack()
-  ConvoyViewModel.kt:442:    private fun bindGpsService(context: android.content.Context, onBound: (ConvoyGpsService) -> Unit) {
-  ConvoyViewModel.kt:471:    fun startRecording(context: android.content.Context) {
-  ConvoyViewModel.kt:473:        bindGpsService(context) { svc -> svc.startTrack(); _routeRecording.value = true }
-  ConvoyViewModel.kt:475:    fun pauseRecording() { gpsService?.pauseTrack(); _routeRecording.value = false }
-  ConvoyViewModel.kt:478:        resumeRecording(context)
-  ConvoyViewModel.kt:480:    fun resumeRecording(context: android.content.Context) {
-  ConvoyViewModel.kt:482:            bindGpsService(context) { svc -> svc.resumeTrack(); _routeRecording.value = true }
-  ConvoyViewModel.kt:483:        } else { gpsService?.resumeTrack(); _routeRecording.value = true }
-  ConvoyViewModel.kt:485:    fun stopRecording() {
-  ConvoyViewModel.kt:486:        pendingTempFile = gpsService?.stopTrack()
-  ConvoyViewModel.kt:498:    fun finalizeTrack(name: String, context: android.content.Context) {
-  ConvoyViewModel.kt:500:        gpsService?.finalizeTrack(temp, name)
-  ConvoyViewModel.kt:566:        // Lead assigned at RECORD time in startGroupTrack() or via cart HUD
-  ConvoyViewModel.kt:776:            // _myCartId no longer set here — set ONCE in startGroupTrack()
+  ConvoyViewModel.kt:140:    fun startGroupTrack() {
+  ConvoyViewModel.kt:172:    fun stopGroupTrack() {
+  ConvoyViewModel.kt:303:    private var rideStartTimeMs: Long = 0L  // Unix ms when startGroupTrack() was called
+  ConvoyViewModel.kt:324:                // _myCartId no longer set here — set ONCE in startGroupTrack()
+  ConvoyViewModel.kt:443:    private fun bindGpsService(context: android.content.Context, onBound: (ConvoyGpsService) -> Unit) {
+  ConvoyViewModel.kt:472:    fun startRecording(context: android.content.Context) {
+  ConvoyViewModel.kt:474:        bindGpsService(context) { svc -> svc.startTrack(); _routeRecording.value = true }
+  ConvoyViewModel.kt:476:    fun pauseRecording() { gpsService?.pauseTrack(); _routeRecording.value = false }
+  ConvoyViewModel.kt:479:        resumeRecording(context)
+  ConvoyViewModel.kt:481:    fun resumeRecording(context: android.content.Context) {
+  ConvoyViewModel.kt:483:            bindGpsService(context) { svc -> svc.resumeTrack(); _routeRecording.value = true }
+  ConvoyViewModel.kt:484:        } else { gpsService?.resumeTrack(); _routeRecording.value = true }
+  ConvoyViewModel.kt:486:    fun stopRecording() {
+  ConvoyViewModel.kt:487:        pendingTempFile = gpsService?.stopTrack()
+  ConvoyViewModel.kt:499:    fun finalizeTrack(name: String, context: android.content.Context) {
+  ConvoyViewModel.kt:501:        gpsService?.finalizeTrack(temp, name)
+  ConvoyViewModel.kt:567:        // Lead assigned at RECORD time in startGroupTrack() or via cart HUD
+  ConvoyViewModel.kt:777:            // _myCartId no longer set here — set ONCE in startGroupTrack()
 
 --- RADIO PHASE ---
   ConvoyApplyRadioScreen.kt:35:    channelViewModel: ChannelViewModel = hiltViewModel(),
@@ -13187,11 +13187,11 @@ SECTION 6: LIFECYCLE PHASE MAP
   ConvoyVerifyConfigScreen.kt:38:    channelViewModel: ChannelViewModel = hiltViewModel(),
   ConvoyVerifyConfigScreen.kt:43:    val localConfig by channelViewModel.localConfig.collectAsStateWithLifecycle()
   ConvoyVerifyConfigScreen.kt:44:    val channels    by channelViewModel.channels.collectAsStateWithLifecycle()
-  ConvoyViewModel.kt:208:    fun reconnectRadio() {
-  ConvoyViewModel.kt:244:    fun installProfileToRadio(destNum: Int, profile: DeviceProfile) {
-  ConvoyViewModel.kt:398:    fun setGpsInterval(secs: Int, channelViewModel: com.geeksville.mesh.ui.sharing.ChannelViewModel) {
-  ConvoyViewModel.kt:402:                channelViewModel.setConfig(
-  ConvoyViewModel.kt:416:    fun removeNode(nodeId: String) {
+  ConvoyViewModel.kt:209:    fun reconnectRadio() {
+  ConvoyViewModel.kt:245:    fun installProfileToRadio(destNum: Int, profile: DeviceProfile) {
+  ConvoyViewModel.kt:399:    fun setGpsInterval(secs: Int, channelViewModel: com.geeksville.mesh.ui.sharing.ChannelViewModel) {
+  ConvoyViewModel.kt:403:                channelViewModel.setConfig(
+  ConvoyViewModel.kt:417:    fun removeNode(nodeId: String) {
 
 --- USER PHASE ---
   ConvoyApiClient.kt:41:    suspend fun registerUser(
@@ -13259,15 +13259,15 @@ SECTION 6: LIFECYCLE PHASE MAP
   ConvoySignInScreen.kt:154:                            saveUserToPrefs(context, userId, googleId, email, firstName, lastName)
   ConvoySignInScreen.kt:161:                            Log.e(TAG, "registerUser failed: ${e.message}")
   ConvoySignInScreen.kt:260:                                saveUserToPrefs(context, uid, "google-dev-$uid",
-  ConvoyViewModel.kt:159:                nodes.size == 1 -> setLeadCart(nodes[0].nodeId)
-  ConvoyViewModel.kt:160:                nodes.isEmpty() -> setLeadCart(_myCartId.value)
-  ConvoyViewModel.kt:161:                else -> setLeadCart(_myCartId.value)
-  ConvoyViewModel.kt:189:    fun setLeadCart(nodeId: String?) {
-  ConvoyViewModel.kt:489:    fun deleteTempTrack() {
-  ConvoyViewModel.kt:565:        // Lead assignment REMOVED from tick — only through setLeadCart()
-  ConvoyViewModel.kt:914:    fun setPendingDownload(pending: PendingDownload) { _pendingDownload.value = pending }
-  ConvoyViewModel.kt:917:    fun startDownload(context: android.content.Context, pending: PendingDownload) {
-  ConvoyViewModel.kt:954:    fun cancelDownload() {
+  ConvoyViewModel.kt:160:                nodes.size == 1 -> setLeadCart(nodes[0].nodeId)
+  ConvoyViewModel.kt:161:                nodes.isEmpty() -> setLeadCart(_myCartId.value)
+  ConvoyViewModel.kt:162:                else -> setLeadCart(_myCartId.value)
+  ConvoyViewModel.kt:190:    fun setLeadCart(nodeId: String?) {
+  ConvoyViewModel.kt:490:    fun deleteTempTrack() {
+  ConvoyViewModel.kt:566:        // Lead assignment REMOVED from tick — only through setLeadCart()
+  ConvoyViewModel.kt:915:    fun setPendingDownload(pending: PendingDownload) { _pendingDownload.value = pending }
+  ConvoyViewModel.kt:918:    fun startDownload(context: android.content.Context, pending: PendingDownload) {
+  ConvoyViewModel.kt:955:    fun cancelDownload() {
   GroupTrackTheme.kt:150:                    ConvoySessionManager.clearSession(context)
 
 ================================================================================
@@ -13285,11 +13285,11 @@ SECTION 8: CURRENT GIT STATE
 
 Branch: feature/convoy-event-ride
 Last 5 commits:
+  99dfe140e Fix ANR: move scanImportDirectory to Dispatchers.IO, WorkManager KEEP policy + pruneWork
+  84c9f0fbb docs: recommit all project documents + cross-reference — 2026-05-16 23:02
+  d6ea49071 Fix WorkManager ANR: KEEP policy + pruneWork + initial delay
+  91e4ddcc7 docs: update field cross-reference — 2026-05-14 02:32
   0db3f71e4 docs: recommit all project documents + cross-reference — 2026-05-14 00:23
-  5d8aaafba fix: tracks sequential loading both maps, neon green color, convoy toggle wired
-  fd9b67036 fix: Planning Map tracks sequential coroutine, convoy tracks toggle pending
-  2b06574f7 feat: tracks load all on toggle, convoy+planning map, bar padding fixes
-  0c9d67953 fix: convoy tracks JS toggle importedTracks, bar alongside record button, tracks toggle active
 
 Uncommitted changes:
    M app/src/main/java/com/geeksville/mesh/convoy/ConvoyConfig.kt
@@ -13309,7 +13309,7 @@ SECTION 9: FEATURE FLAGS AND CONFIG STATE
   16:    const val LOCAL_TILE_BASE = "convoy://tiles/"
   20:    val TILE_DIR: java.io.File
   38:        val newDir = TILE_DIR
-  86:    const val V3_FEATURES_ENABLED = true
+  86:    const val V3_FEATURES_ENABLED = false
   87:    const val PAYWALL_ENABLED = false              // Flip to true when growth warrants paywall                  // Flip to true to expose V3 to testers
 
 ================================================================================
