@@ -1148,12 +1148,25 @@ fun ConvoyScreen(
             if (pendingImportNav) { pendingImportNav = false; onNavigateToTrackImport() }
         }
         // ── Button bar ────────────────────────────────────────────────────
+        var showCartPicker by remember { mutableStateOf(false) }
         ConvoyButtonBar(
             hudMode = hudMode,
             onModeChange = { viewModel.setHudMode(it); viewModel.setAutoPan(true) },
             onNavigateToSettings = onNavigateToSettings,
+            onSelectCart = { showCartPicker = true },
             modifier = Modifier.align(Alignment.BottomCenter)
         )
+        // ── Cart Picker Panel (Phase 0 stub) ──────────────────────────────
+        if (showCartPicker) {
+            CartPickerPanel(
+                nodes = convoyState.nodes,
+                onSelect = { selectedNode ->
+                    viewModel.onMarkerTapped(selectedNode)
+                    showCartPicker = false
+                },
+                onDismiss = { showCartPicker = false }
+            )
+        }
 
         val avgChannelUtil by viewModel.avgChannelUtil.collectAsStateWithLifecycle()
         val currentIntervalSecs by viewModel.currentIntervalSecs.collectAsStateWithLifecycle()
@@ -1607,6 +1620,82 @@ fun HudModeRow(current: HudMode, onModeChange: (HudMode) -> Unit, onNavigateToSe
     }
 }
 
+
+// ── CART PICKER PANEL (Phase 0 stub) ──────────────────────────────────────────
+@Composable
+fun CartPickerPanel(
+    nodes: List<com.geeksville.mesh.convoy.ConvoyNode>,
+    onSelect: (com.geeksville.mesh.convoy.ConvoyNode) -> Unit,
+    onDismiss: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color(0xCC000000))
+            .clickable { onDismiss() }
+            .padding(bottom = 96.dp),
+        contentAlignment = Alignment.BottomCenter
+    ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
+            color = Color(0xFF1A2E4A)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "SELECT CART HUD",
+                    color = Color(0xFF67EA94),
+                    fontSize = 14.sp,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
+                if (nodes.isEmpty()) {
+                    Text(
+                        text = "No radios detected",
+                        color = Color(0xFF7A8DA0),
+                        fontSize = 12.sp,
+                        fontFamily = FontFamily.Monospace
+                    )
+                } else {
+                    nodes.forEach { node ->
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp)
+                                .clickable { onSelect(node) },
+                            shape = RoundedCornerShape(8.dp),
+                            color = Color(0xFF2A3545)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(12.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = node.callsign,
+                                    color = Color.White,
+                                    fontSize = 13.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = if (node.isMyCart) "CURRENT" else "",
+                                    color = Color(0xFF67EA94),
+                                    fontSize = 10.sp,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 // ── CONVOY BUTTON BAR ─────────────────────────────────────────────────────────
 
 @Composable
@@ -1614,6 +1703,7 @@ fun ConvoyButtonBar(
     hudMode: HudMode,
     onModeChange: (HudMode) -> Unit,
     onNavigateToSettings: () -> Unit,
+    onSelectCart: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Row(
@@ -1634,7 +1724,6 @@ fun ConvoyButtonBar(
         listOf(
             Triple("GROUP", HudMode.GROUP, { onModeChange(HudMode.GROUP) }),
             Triple("MY CART", HudMode.MY_CART, { onModeChange(HudMode.MY_CART) }),
-            Triple("HIDE", HudMode.COLLAPSED, { onModeChange(HudMode.COLLAPSED) }),
         ).forEach { (label, mode, action) ->
             val isActive = hudMode == mode
             Box(
@@ -1662,6 +1751,43 @@ fun ConvoyButtonBar(
                     letterSpacing = 0.5.sp
                 )
             }
+        }
+        // SELECT CART button — Phase 0 scaffolding
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight()
+                .background(Color.Transparent)
+                .clickable { onSelectCart() },
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "SELECT\nCART",
+                color = Color(0xFFCAC4D0),
+                fontSize = 8.sp,
+                fontFamily = FontFamily.Monospace,
+                fontWeight = FontWeight.SemiBold,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                lineHeight = 10.sp
+            )
+        }
+        // HIDE button
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight()
+                .background(Color.Transparent)
+                .clickable { onModeChange(HudMode.COLLAPSED) },
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "HIDE",
+                color = Color(0xFFCAC4D0),
+                fontSize = 10.sp,
+                fontFamily = FontFamily.Monospace,
+                fontWeight = FontWeight.SemiBold,
+                letterSpacing = 0.5.sp
+            )
         }
         // GEAR button
         Box(
