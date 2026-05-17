@@ -6950,6 +6950,156 @@ Map Manager Phase C
 Substantial map system work captured in earlier sessions. Listed here for completeness; full design exists in earlier docs.
 
 
+=== GroupTrack_V25_ConsolidatedDesign_May17_v2.docx ===
+GroupTrack V2.5 — Consolidated Design Document
+May 17, 2026 — Version 2
+Timeline: 4 weeks — all 7 tasks ship together
+Approach: Phase 0 scaffolding first, then features hang on scaffolding
+Design all UI and rules before any coding. No refactoring.
+Implementation Boundaries
+Clear boundaries between V2.5 and V2.6 prevent rabbit holes. Build collection mechanisms now, wire processing later.
+V2.5 scope (4 weeks)
+Phase 0: Complete UI scaffolding with all placeholders and navigation changes
+Task 1: Source picker — fully functional
+Task 2: Tile queue enhancements — new job types, priority, remove area
+Task 3: Spatial trails — area-bounded agency import, viewport lazy-load
+Task 4: Spatial tracks — spatial index, alias model, area filtering
+Task 5: Waypoints — long-press creation, 10 types, area display
+Task 6: Routes — point-to-point draw, snap-to-trail, type flip from track
+Task 7: Upload queue infrastructure BUILT, share prompt COLLECTING, queue NOT PROCESSING
+Task 7: Download functions are STUBS only
+Task 7: No AWS backend integration — no network upload code
+Server browse UI is paygated STUB
+V2.6 scope (future)
+Task 7: Upload queue processing ACTIVATED — items accumulated in V2.5 start uploading
+Task 7: Download functions WIRED — area search, browse, select, download
+Task 7: AWS backend integration — spatial data API endpoints
+Server browse UI functional behind paygate
+Ride enrollment download triggers
+CV-assisted route path smoothing
+Boundary rules
+V2.5 upload queue collects items locally. Does not send to AWS.
+V2.5 share prompt works and populates queue table. No network calls.
+V2.5 download menu sections exist as stubs. Not wired to AWS.
+V2.5 server browse UI shows paygate prompt. No server queries.
+V2.6 flips the switch — processing code added, queue starts sending.
+Never build processing code during V2.5. Only collection and UI.
+
+Architecture Overview
+Development phases
+Phase 0: Scaffolding — all placeholder screens, navigation changes, stub menus, shared components
+Phase 1: Infrastructure — Task 1 (Source Picker) + Task 2 (Tile Queue enhancements)
+Phase 2: Spatial Engine — Task 3 (Trails) + Task 4 (Tracks). Patterns set here reuse in Phase 3.
+Phase 3: User Data — Task 5 (Waypoints) + Task 6 (Routes). Creation tools on Planning Map.
+Phase 4: Integration — Task 7 (Area Data Transfer collection) + convoy map cutover.
+Two separate queues
+Tile queue (Task 2): downloads, refreshes, removes map tiles. Tiles follow spatial data automatically. Never uploads tiles.
+Spatial data queue (Task 7): collects items for upload via share prompt. Queue built in V2.5, processing activated in V2.6.
+Two data sources
+Local (default, always shown, free): all local spatial data. Create, edit, collect for upload.
+Server (enhanced, paygated): browse shared data from AWS. V2.5 = stub. V2.6 = functional.
+Source selector toggle between Local/Server — never mixed on same display.
+Data flow rules
+Uploads are per-item, triggered by share prompt on save. Never area-based.
+Uploads are spatial data only — no tiles ever uploaded to AWS.
+V2.5 uploads collect to local queue only. No network transmission.
+Downloads use area search for discovery, item selection for download, area-inclusive for associated data.
+An area on the server is a collection of tracks, routes, and waypoints (one or many).
+Downloaded spatial data auto-generates tile download requests from item geometry.
+Tiles are never downloaded in isolation — always follow spatial data.
+High priority tiles when explicit track/route downloaded. Low priority for area-based spatial downloads.
+Tile refreshes only as byproduct of spatial data downloads. Never standalone.
+Manual area draw (existing) stays for initial tile downloads.
+All operations user-initiated. No operations on launch. No auto-sync.
+Tiles never transit AWS. Always sourced from tile providers (Esri, Google, etc.).
+Shared components (built in Phase 0)
+Area selector — reusable across all spatial data tasks
+Source selector (Local/Server toggle) — reusable across Tasks 4, 5, 6
+Share prompt dialog — reusable on every save action, populates upload queue
+Paygate prompt — checks subscription status, shows upgrade prompt
+
+Task 1: Source Picker
+Objective
+Expose 16 built-in map sources from map_sources.json to user selection. Users assign any source to any of 3 map slots. Map Viewer only — convoy map stays on defaults until cutover.
+UI elements
+One "Change Map Source" button added to display menu
+
+
+=== GroupTrack_V25_ConsolidatedDesign_v2.docx ===
+GroupTrack V2.5 — Consolidated Design Document
+May 17, 2026 — Version 2
+Timeline: 4 weeks — all 7 tasks ship together
+Approach: Phase 0 scaffolding first, then features hang on scaffolding
+Design all UI and rules before any coding. No refactoring.
+Implementation Boundaries
+Clear boundaries between V2.5 and V2.6 prevent rabbit holes. Build collection mechanisms now, wire processing later.
+V2.5 scope (4 weeks)
+Phase 0: Complete UI scaffolding with all placeholders and navigation changes
+Task 1: Source picker — fully functional
+Task 2: Tile queue enhancements — new job types, priority, remove area
+Task 3: Spatial trails — area-bounded agency import, viewport lazy-load
+Task 4: Spatial tracks — spatial index, alias model, area filtering
+Task 5: Waypoints — long-press creation, 10 types, area display
+Task 6: Routes — point-to-point draw, snap-to-trail, type flip from track
+Task 7: Upload queue infrastructure BUILT, share prompt COLLECTING, queue NOT PROCESSING
+Task 7: Download functions are STUBS only
+Task 7: No AWS backend integration — no network upload code
+Server browse UI is paygated STUB
+V2.6 scope (future)
+Task 7: Upload queue processing ACTIVATED — items accumulated in V2.5 start uploading
+Task 7: Download functions WIRED — area search, browse, select, download
+Task 7: AWS backend integration — spatial data API endpoints
+Server browse UI functional behind paygate
+Ride enrollment download triggers
+CV-assisted route path smoothing
+Boundary rules
+V2.5 upload queue collects items locally. Does not send to AWS.
+V2.5 share prompt works and populates queue table. No network calls.
+V2.5 download menu sections exist as stubs. Not wired to AWS.
+V2.5 server browse UI shows paygate prompt. No server queries.
+V2.6 flips the switch — processing code added, queue starts sending.
+Never build processing code during V2.5. Only collection and UI.
+
+Architecture Overview
+Development phases
+Phase 0: Scaffolding — all placeholder screens, navigation changes, stub menus, shared components
+Phase 1: Infrastructure — Task 1 (Source Picker) + Task 2 (Tile Queue enhancements)
+Phase 2: Spatial Engine — Task 3 (Trails) + Task 4 (Tracks). Patterns set here reuse in Phase 3.
+Phase 3: User Data — Task 5 (Waypoints) + Task 6 (Routes). Creation tools on Planning Map.
+Phase 4: Integration — Task 7 (Area Data Transfer collection) + convoy map cutover.
+Two separate queues
+Tile queue (Task 2): downloads, refreshes, removes map tiles. Tiles follow spatial data automatically. Never uploads tiles.
+Spatial data queue (Task 7): collects items for upload via share prompt. Queue built in V2.5, processing activated in V2.6.
+Two data sources
+Local (default, always shown, free): all local spatial data. Create, edit, collect for upload.
+Server (enhanced, paygated): browse shared data from AWS. V2.5 = stub. V2.6 = functional.
+Source selector toggle between Local/Server — never mixed on same display.
+Data flow rules
+Uploads are per-item, triggered by share prompt on save. Never area-based.
+Uploads are spatial data only — no tiles ever uploaded to AWS.
+V2.5 uploads collect to local queue only. No network transmission.
+Downloads use area search for discovery, item selection for download, area-inclusive for associated data.
+An area on the server is a collection of tracks, routes, and waypoints (one or many).
+Downloaded spatial data auto-generates tile download requests from item geometry.
+Tiles are never downloaded in isolation — always follow spatial data.
+High priority tiles when explicit track/route downloaded. Low priority for area-based spatial downloads.
+Tile refreshes only as byproduct of spatial data downloads. Never standalone.
+Manual area draw (existing) stays for initial tile downloads.
+All operations user-initiated. No operations on launch. No auto-sync.
+Tiles never transit AWS. Always sourced from tile providers (Esri, Google, etc.).
+Shared components (built in Phase 0)
+Area selector — reusable across all spatial data tasks
+Source selector (Local/Server toggle) — reusable across Tasks 4, 5, 6
+Share prompt dialog — reusable on every save action, populates upload queue
+Paygate prompt — checks subscription status, shows upgrade prompt
+
+Task 1: Source Picker
+Objective
+Expose 16 built-in map sources from map_sources.json to user selection. Users assign any source to any of 3 map slots. Map Viewer only — convoy map stays on defaults until cutover.
+UI elements
+One "Change Map Source" button added to display menu
+
+
 === GroupTrack_V25_Planning_v2.docx ===
 GroupTrack
 V2.5 Planning — Updated April 17, 2026

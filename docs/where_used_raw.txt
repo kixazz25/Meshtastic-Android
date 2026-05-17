@@ -176,57 +176,57 @@ convoy/ConvoyTileDownloader.kt:64:    suspend fun downloadTile(url: String, dest
 convoy/ConvoyTileDownloader.kt:93:    suspend fun downloadTiles(
 convoy/ConvoyTileDownloader.kt:113:                val dest = tilePath(context, sourceName, tile)
 convoy/ConvoyTileDownloader.kt:123:                val success = downloadTile(url, dest)
-convoy/ConvoyViewModel.kt:95:    fun setOfflineMode(offline: Boolean) { _isOfflineMode.value = offline }
-convoy/ConvoyViewModel.kt:98:    fun setMapTypeLabel(label: String) { _mapTypeLabel.value = label }
-convoy/ConvoyViewModel.kt:101:    fun setLocalTiles(local: Boolean) { _isLocalTiles.value = local }
-convoy/ConvoyViewModel.kt:104:    fun setAutoPan(pan: Boolean) { _autoPan.value = pan }
-convoy/ConvoyViewModel.kt:110:    private fun startPhoneGps() {
-convoy/ConvoyViewModel.kt:129:    private fun stopPhoneGps() {
-convoy/ConvoyViewModel.kt:139:    fun startGroupTrack() {
-convoy/ConvoyViewModel.kt:154:        val nodes = readLiveNodes(System.currentTimeMillis())
-convoy/ConvoyViewModel.kt:159:                nodes.size == 1 -> setLeadCart(nodes[0].nodeId)
-convoy/ConvoyViewModel.kt:160:                nodes.isEmpty() -> setLeadCart(_myCartId.value)
-convoy/ConvoyViewModel.kt:161:                else -> setLeadCart(_myCartId.value)
-convoy/ConvoyViewModel.kt:171:    fun stopGroupTrack() {
-convoy/ConvoyViewModel.kt:189:    fun setLeadCart(nodeId: String?) {
-convoy/ConvoyViewModel.kt:208:    fun reconnectRadio() {
-convoy/ConvoyViewModel.kt:244:    fun installProfileToRadio(destNum: Int, profile: DeviceProfile) {
-convoy/ConvoyViewModel.kt:302:    private var rideStartTimeMs: Long = 0L  // Unix ms when startGroupTrack() was called
-convoy/ConvoyViewModel.kt:327:        startTick()
-convoy/ConvoyViewModel.kt:328:        viewModelScope.launch { scanImportDirectory() }
-convoy/ConvoyViewModel.kt:331:    suspend fun scanImportDirectory() {
-convoy/ConvoyViewModel.kt:398:    fun setGpsInterval(secs: Int, channelViewModel: com.geeksville.mesh.ui.sharing.ChannelViewModel) {
-convoy/ConvoyViewModel.kt:416:    fun removeNode(nodeId: String) {
-convoy/ConvoyViewModel.kt:442:    private fun bindGpsService(context: android.content.Context, onBound: (ConvoyGpsService) -> Unit) {
-convoy/ConvoyViewModel.kt:471:    fun startRecording(context: android.content.Context) {
-convoy/ConvoyViewModel.kt:473:        bindGpsService(context) { svc -> svc.startTrack(); _routeRecording.value = true }
-convoy/ConvoyViewModel.kt:475:    fun pauseRecording() { gpsService?.pauseTrack(); _routeRecording.value = false }
-convoy/ConvoyViewModel.kt:482:            bindGpsService(context) { svc -> svc.resumeTrack(); _routeRecording.value = true }
-convoy/ConvoyViewModel.kt:483:        } else { gpsService?.resumeTrack(); _routeRecording.value = true }
-convoy/ConvoyViewModel.kt:485:    fun stopRecording() {
-convoy/ConvoyViewModel.kt:486:        pendingTempFile = gpsService?.stopTrack()
-convoy/ConvoyViewModel.kt:489:    fun deleteTempTrack() {
-convoy/ConvoyViewModel.kt:498:    fun finalizeTrack(name: String, context: android.content.Context) {
-convoy/ConvoyViewModel.kt:500:        gpsService?.finalizeTrack(temp, name)
-convoy/ConvoyViewModel.kt:519:    private fun startTick() {
-convoy/ConvoyViewModel.kt:522:            while (true) { tick(); delay(ConvoySimulation.TICK_MS) }
-convoy/ConvoyViewModel.kt:550:    private fun tick() { try {
-convoy/ConvoyViewModel.kt:559:            ConvoySimulation.tick(nowMs)
-convoy/ConvoyViewModel.kt:561:            readLiveNodes(nowMs)
-convoy/ConvoyViewModel.kt:569:        val state = ConvoyEngine.compute(
-convoy/ConvoyViewModel.kt:583:                gpsService?.onRadioPosition(myCart.latitude, myCart.longitude, myCart.altitude_m.toDouble())
-convoy/ConvoyViewModel.kt:594:            convoyLog("tick | lead=$leadOut | trackFrom=$trackFrom | locked=$_leadLockedFlag | [$accumStr]")
-convoy/ConvoyViewModel.kt:732:            ConvoyEngine.colorSegmentsByNode(
-convoy/ConvoyViewModel.kt:742:    } catch (e: Exception) { /* suppress tick errors */ } }
-convoy/ConvoyViewModel.kt:745:    private fun getPhoneLocation(): android.location.Location? {
-convoy/ConvoyViewModel.kt:767:    private fun readLiveNodes(nowMs: Long): List<ConvoyNode> {
-convoy/ConvoyViewModel.kt:774:                startPhoneGps()
-convoy/ConvoyViewModel.kt:777:            val loc = getPhoneLocation()
-convoy/ConvoyViewModel.kt:827:                    val phoneLoc = getPhoneLocation()
-convoy/ConvoyViewModel.kt:832:                        convoyLog("ZERO POS: node=$callsign — no lastKnown, no phone GPS, dropping node this tick")
-convoy/ConvoyViewModel.kt:914:    fun setPendingDownload(pending: PendingDownload) { _pendingDownload.value = pending }
-convoy/ConvoyViewModel.kt:917:    fun startDownload(context: android.content.Context, pending: PendingDownload) {
-convoy/ConvoyViewModel.kt:954:    fun cancelDownload() {
+convoy/ConvoyViewModel.kt:96:    fun setOfflineMode(offline: Boolean) { _isOfflineMode.value = offline }
+convoy/ConvoyViewModel.kt:99:    fun setMapTypeLabel(label: String) { _mapTypeLabel.value = label }
+convoy/ConvoyViewModel.kt:102:    fun setLocalTiles(local: Boolean) { _isLocalTiles.value = local }
+convoy/ConvoyViewModel.kt:105:    fun setAutoPan(pan: Boolean) { _autoPan.value = pan }
+convoy/ConvoyViewModel.kt:111:    private fun startPhoneGps() {
+convoy/ConvoyViewModel.kt:130:    private fun stopPhoneGps() {
+convoy/ConvoyViewModel.kt:140:    fun startGroupTrack() {
+convoy/ConvoyViewModel.kt:155:        val nodes = readLiveNodes(System.currentTimeMillis())
+convoy/ConvoyViewModel.kt:160:                nodes.size == 1 -> setLeadCart(nodes[0].nodeId)
+convoy/ConvoyViewModel.kt:161:                nodes.isEmpty() -> setLeadCart(_myCartId.value)
+convoy/ConvoyViewModel.kt:162:                else -> setLeadCart(_myCartId.value)
+convoy/ConvoyViewModel.kt:172:    fun stopGroupTrack() {
+convoy/ConvoyViewModel.kt:190:    fun setLeadCart(nodeId: String?) {
+convoy/ConvoyViewModel.kt:209:    fun reconnectRadio() {
+convoy/ConvoyViewModel.kt:245:    fun installProfileToRadio(destNum: Int, profile: DeviceProfile) {
+convoy/ConvoyViewModel.kt:303:    private var rideStartTimeMs: Long = 0L  // Unix ms when startGroupTrack() was called
+convoy/ConvoyViewModel.kt:328:        startTick()
+convoy/ConvoyViewModel.kt:329:        viewModelScope.launch(Dispatchers.IO) { scanImportDirectory() }
+convoy/ConvoyViewModel.kt:332:    suspend fun scanImportDirectory() {
+convoy/ConvoyViewModel.kt:376:    fun setGpsInterval(secs: Int, channelViewModel: com.geeksville.mesh.ui.sharing.ChannelViewModel) {
+convoy/ConvoyViewModel.kt:394:    fun removeNode(nodeId: String) {
+convoy/ConvoyViewModel.kt:420:    private fun bindGpsService(context: android.content.Context, onBound: (ConvoyGpsService) -> Unit) {
+convoy/ConvoyViewModel.kt:449:    fun startRecording(context: android.content.Context) {
+convoy/ConvoyViewModel.kt:451:        bindGpsService(context) { svc -> svc.startTrack(); _routeRecording.value = true }
+convoy/ConvoyViewModel.kt:453:    fun pauseRecording() { gpsService?.pauseTrack(); _routeRecording.value = false }
+convoy/ConvoyViewModel.kt:460:            bindGpsService(context) { svc -> svc.resumeTrack(); _routeRecording.value = true }
+convoy/ConvoyViewModel.kt:461:        } else { gpsService?.resumeTrack(); _routeRecording.value = true }
+convoy/ConvoyViewModel.kt:463:    fun stopRecording() {
+convoy/ConvoyViewModel.kt:464:        pendingTempFile = gpsService?.stopTrack()
+convoy/ConvoyViewModel.kt:467:    fun deleteTempTrack() {
+convoy/ConvoyViewModel.kt:476:    fun finalizeTrack(name: String, context: android.content.Context) {
+convoy/ConvoyViewModel.kt:478:        gpsService?.finalizeTrack(temp, name)
+convoy/ConvoyViewModel.kt:497:    private fun startTick() {
+convoy/ConvoyViewModel.kt:500:            while (true) { tick(); delay(ConvoySimulation.TICK_MS) }
+convoy/ConvoyViewModel.kt:528:    private fun tick() { try {
+convoy/ConvoyViewModel.kt:537:            ConvoySimulation.tick(nowMs)
+convoy/ConvoyViewModel.kt:539:            readLiveNodes(nowMs)
+convoy/ConvoyViewModel.kt:547:        val state = ConvoyEngine.compute(
+convoy/ConvoyViewModel.kt:561:                gpsService?.onRadioPosition(myCart.latitude, myCart.longitude, myCart.altitude_m.toDouble())
+convoy/ConvoyViewModel.kt:572:            convoyLog("tick | lead=$leadOut | trackFrom=$trackFrom | locked=$_leadLockedFlag | [$accumStr]")
+convoy/ConvoyViewModel.kt:710:            ConvoyEngine.colorSegmentsByNode(
+convoy/ConvoyViewModel.kt:720:    } catch (e: Exception) { /* suppress tick errors */ } }
+convoy/ConvoyViewModel.kt:723:    private fun getPhoneLocation(): android.location.Location? {
+convoy/ConvoyViewModel.kt:745:    private fun readLiveNodes(nowMs: Long): List<ConvoyNode> {
+convoy/ConvoyViewModel.kt:752:                startPhoneGps()
+convoy/ConvoyViewModel.kt:755:            val loc = getPhoneLocation()
+convoy/ConvoyViewModel.kt:805:                    val phoneLoc = getPhoneLocation()
+convoy/ConvoyViewModel.kt:810:                        convoyLog("ZERO POS: node=$callsign — no lastKnown, no phone GPS, dropping node this tick")
+convoy/ConvoyViewModel.kt:892:    fun setPendingDownload(pending: PendingDownload) { _pendingDownload.value = pending }
+convoy/ConvoyViewModel.kt:895:    fun startDownload(context: android.content.Context, pending: PendingDownload) {
+convoy/ConvoyViewModel.kt:932:    fun cancelDownload() {
 convoy/GroupTrackTheme.kt:150:                    ConvoySessionManager.clearSession(context)
 convoy/GroupTrackTheme.kt:163:                    val uid = ConvoySessionManager.getUserId(context) ?: "none"
 convoy/GroupTrackTheme.kt:165:                    val sub = ConvoySessionManager.isSubscribed(context)
