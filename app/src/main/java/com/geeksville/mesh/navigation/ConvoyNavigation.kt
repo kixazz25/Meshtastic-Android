@@ -29,6 +29,7 @@ import com.geeksville.mesh.convoy.ConvoyMasterSuccessScreen
 import com.geeksville.mesh.convoy.ConvoySettingsGate
 import com.geeksville.mesh.convoy.ConvoySettingsPanelScreen
 import com.geeksville.mesh.convoy.ConvoySettingsScreen
+import com.geeksville.mesh.convoy.ConvoyMapSourceScreen
 import com.geeksville.mesh.convoy.ConvoyViewModel
 import com.geeksville.mesh.convoy.ConvoySignInScreen
 import com.geeksville.mesh.convoy.ConvoyConfig
@@ -68,6 +69,14 @@ fun NavGraphBuilder.convoyGraph(
     // ── Legacy settings screen ────────────────────────────────────────────
     composable<ConvoyRoutes.ConvoySettings> {
         ConvoySettingsScreen(
+            onNavigateBack = { navController?.popBackStack() },
+            onNavigateToMapSources = { navController?.navigate(ConvoyRoutes.ConvoyMapSources) }
+        )
+    }
+
+    // ── Map Sources ──────────────────────────────────────────────────
+    composable<ConvoyRoutes.ConvoyMapSources> {
+        ConvoyMapSourceScreen(
             onNavigateBack = { navController?.popBackStack() }
         )
     }

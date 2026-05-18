@@ -35,6 +35,8 @@ class ConvoyDownloadWorker(
         val east = inputData.getDouble("east", 0.0)
         val west = inputData.getDouble("west", 0.0)
         val label = inputData.getString("label") ?: "Map tiles"
+        val refreshMode = inputData.getBoolean("refresh_mode", false)
+        val refreshSlot = inputData.getString("refresh_slot") ?: ""
 
         android.util.Log.i(TAG, "Starting download: $label id=$entryId")
 
@@ -44,11 +46,70 @@ class ConvoyDownloadWorker(
         // Show foreground notification
         showProgress(entryId, label, 0, 1)
 
+        MapSourceManager.init(appContext)
+
+        // ── Refresh mode: single slot, bounds-based, only existing tiles ──
+        if (refreshMode && refreshSlot.isNotEmpty()) {
+            android.util.Log.i(TAG, "REFRESH MODE: slot=$refreshSlot cell bounds N=$north S=$south E=$east W=$west")
+            val source = MapSourceManager.getSourceByKey(refreshSlot)
+            val layers = source?.layers ?: emptyList()
+
+            // Calculate tiles from cell bounds
+            val cellTiles = ConvoyTileCalculator.calculateTiles(north, south, east, west)
+
+            // Filter to only tiles that exist on disk (refresh, not create)
+            val existingTiles = cellTiles.filter { tile ->
+                ConvoyTileDownloader.tilePath(appContext, refreshSlot, tile).exists()
+            }
+
+            val totalTiles = existingTiles.size * layers.size
+            var totalDownloaded = 0
+            var totalFailed = 0
+
+            android.util.Log.i(TAG, "Refresh cell: ${cellTiles.size} in bounds, ${existingTiles.size} exist on disk, ${layers.size} layers")
+            DownloadQueueManager.updateProgress(entryId, 0, 0)
+
+            if (existingTiles.isEmpty()) {
+                DownloadQueueManager.markComplete(entryId, 0, 0)
+                return Result.success()
+            }
+
+            for (layer in layers) {
+                if (isStopped) return Result.failure()
+                val result = ConvoyTileDownloader.downloadTiles(
+                    context = appContext,
+                    tiles = existingTiles,
+                    sourceUrl = layer.urlTemplate,
+                    sourceName = layer.cacheDir,
+                    forceOverwrite = true
+                ) { downloaded, _, failCount ->
+                    totalDownloaded++
+                    totalFailed = failCount
+                    if (totalDownloaded % PROGRESS_INTERVAL == 0 || totalDownloaded == totalTiles) {
+                        showProgress(entryId, label, totalDownloaded, totalTiles)
+                        DownloadQueueManager.updateProgress(entryId, totalDownloaded, totalFailed)
+                        setProgressAsync(
+                            Data.Builder()
+                                .putInt("downloaded", totalDownloaded)
+                                .putInt("total", totalTiles)
+                                .putInt("failed", totalFailed)
+                                .build()
+                        )
+                    }
+                }
+                result.onFailure { e ->
+                    android.util.Log.e(TAG, "Refresh layer ${layer.cacheDir} failed: ${e.message}")
+                }
+            }
+            DownloadQueueManager.markComplete(entryId, totalDownloaded, totalFailed)
+            return Result.success()
+        }
+
+        // ── Normal mode: all slots from bounding box ──
         // Calculate tile keys for the bounding box
         val tiles = ConvoyTileCalculator.calculateTiles(north, south, east, west)
 
         // Get all layers to download from MapSourceManager
-        MapSourceManager.init(appContext)
         val downloadSources = MapSourceManager.getDownloadSources()
         val totalLayers = downloadSources.sumOf { it.second.size }
         val totalTiles = tiles.size * totalLayers

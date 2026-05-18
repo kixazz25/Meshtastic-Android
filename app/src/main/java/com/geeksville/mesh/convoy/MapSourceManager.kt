@@ -1,6 +1,7 @@
 package com.geeksville.mesh.convoy
 
 import android.content.Context
+import java.io.File
 import org.json.JSONObject
 
 /**
@@ -52,11 +53,38 @@ object MapSourceManager {
     var activeSourceKey: String = "SAT"
         private set
 
+    private var appContext: Context? = null
+
+    private fun externalDir(): File {
+        val dir = File(android.os.Environment.getExternalStoragePublicDirectory(
+            android.os.Environment.DIRECTORY_DOCUMENTS
+        ), "GroupTrack")
+        if (!dir.exists()) dir.mkdirs()
+        return dir
+    }
+
+    private fun externalJsonFile(): File = File(externalDir(), "map_sources.json")
+    private fun apiKeysFile(): File = File(externalDir(), "api_keys.json")
+
+    private var apiKeys: MutableMap<String, String> = mutableMapOf()
+
     fun init(context: Context) {
         if (initialized) return
+        appContext = context
         try {
-            val json = context.assets.open("map_sources.json")
-                .bufferedReader().use { it.readText() }
+            // Read external JSON first, fall back to assets
+            val extFile = externalJsonFile()
+            val json = if (extFile.exists()) {
+                android.util.Log.i("MapSourceMgr", "Reading external map_sources.json")
+                extFile.readText(Charsets.UTF_8)
+            } else {
+                android.util.Log.i("MapSourceMgr", "Reading assets map_sources.json")
+                val assetJson = context.assets.open("map_sources.json")
+                    .bufferedReader().use { it.readText() }
+                // Copy to external on first run
+                try { extFile.writeText(assetJson, Charsets.UTF_8) } catch (_: Exception) {}
+                assetJson
+            }
             val root = JSONObject(json)
             val sourcesArray = root.getJSONArray("sources")
             val parsed = mutableListOf<TileSource>()
@@ -98,7 +126,8 @@ object MapSourceManager {
             }
             defaultSlots = slots
             initialized = true
-            android.util.Log.i("MapSourceMgr", "Loaded ${sources.size} sources, ${defaultSlots.size} slots")
+            loadApiKeys()
+            android.util.Log.i("MapSourceMgr", "Loaded ${sources.size} sources, ${defaultSlots.size} slots, ${apiKeys.size} API keys")
         } catch (e: Exception) {
             android.util.Log.e("MapSourceMgr", "JSON load failed: ${e.message}")
             loadFallback()
@@ -187,6 +216,93 @@ object MapSourceManager {
         }
         sb.append("]")
         return sb.toString()
+    }
+
+    /** Update which source is assigned to a slot and persist to external JSON */
+    fun updateSlotSource(legacyKey: String, newSourceId: String) {
+        ensureInit()
+        val slotIndex = defaultSlots.indexOfFirst { it.legacyKey == legacyKey }
+        if (slotIndex < 0) return
+        val oldSlot = defaultSlots[slotIndex]
+        defaultSlots = defaultSlots.toMutableList().apply {
+            set(slotIndex, SlotConfig(oldSlot.slot, newSourceId, oldSlot.legacyKey))
+        }
+        saveExternalJson()
+        android.util.Log.i("MapSourceMgr", "Slot $legacyKey updated to source $newSourceId")
+    }
+
+    /** Save current slot assignments to external JSON */
+    private fun saveExternalJson() {
+        try {
+            val extFile = externalJsonFile()
+            val json = if (extFile.exists()) extFile.readText(Charsets.UTF_8)
+                       else appContext?.assets?.open("map_sources.json")?.bufferedReader()?.use { it.readText() } ?: return
+            val root = JSONObject(json)
+            val slotsArray = org.json.JSONArray()
+            defaultSlots.forEach { slot ->
+                val obj = JSONObject()
+                obj.put("slot", slot.slot)
+                obj.put("source_id", slot.sourceId)
+                obj.put("legacy_key", slot.legacyKey)
+                slotsArray.put(obj)
+            }
+            root.put("default_slots", slotsArray)
+            extFile.writeText(root.toString(2), Charsets.UTF_8)
+        } catch (e: Exception) {
+            android.util.Log.e("MapSourceMgr", "Failed to save external JSON: ${e.message}")
+        }
+    }
+
+    /** Load API keys from external file */
+    private fun loadApiKeys() {
+        try {
+            val file = apiKeysFile()
+            if (!file.exists()) return
+            val json = JSONObject(file.readText(Charsets.UTF_8))
+            json.keys().forEach { key -> apiKeys[key] = json.getString(key) }
+        } catch (e: Exception) {
+            android.util.Log.e("MapSourceMgr", "Failed to load API keys: ${e.message}")
+        }
+    }
+
+    /** Save API key for a source */
+    fun saveApiKey(sourceId: String, key: String) {
+        apiKeys[sourceId] = key
+        try {
+            val json = JSONObject()
+            apiKeys.forEach { (k, v) -> json.put(k, v) }
+            apiKeysFile().writeText(json.toString(2), Charsets.UTF_8)
+            android.util.Log.i("MapSourceMgr", "Saved API key for $sourceId")
+        } catch (e: Exception) {
+            android.util.Log.e("MapSourceMgr", "Failed to save API key: ${e.message}")
+        }
+    }
+
+    /** Get API key for a source (empty string if not set) */
+    fun getApiKey(sourceId: String): String = apiKeys[sourceId] ?: ""
+
+    /** Check if a source is available (has required API key if needed) */
+    fun isSourceAvailable(sourceId: String): Boolean {
+        val source = sources.find { it.id == sourceId } ?: return false
+        return !source.requiresKey || apiKeys.containsKey(sourceId)
+    }
+
+    /** Get all sources for UI display */
+    fun getAllSources(): List<TileSource> {
+        ensureInit()
+        return sources
+    }
+
+    /** Get current slot assignments */
+    fun getSlotAssignments(): List<SlotConfig> {
+        ensureInit()
+        return defaultSlots
+    }
+
+    /** Inject API key into URL template */
+    fun resolveUrl(urlTemplate: String, sourceId: String): String {
+        val key = apiKeys[sourceId] ?: ""
+        return urlTemplate.replace("{key}", key)
     }
 
     private fun ensureInit() {

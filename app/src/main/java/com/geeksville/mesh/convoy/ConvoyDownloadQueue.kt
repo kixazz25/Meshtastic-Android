@@ -34,7 +34,9 @@ data class QueueEntry(
     val retryCount: Int = 0,
     val createdAt: Long = System.currentTimeMillis(),
     val label: String = "",
-    val workRequestId: String? = null
+    val workRequestId: String? = null,
+    val refreshMode: Boolean = false,
+    val refreshSlot: String = ""
 ) {
     fun toJson(): JSONObject = JSONObject().apply {
         put("id", id)
@@ -50,6 +52,8 @@ data class QueueEntry(
         put("createdAt", createdAt)
         put("label", label)
         put("workRequestId", workRequestId ?: "")
+        put("refreshMode", refreshMode)
+        put("refreshSlot", refreshSlot)
     }
 
     companion object {
@@ -66,7 +70,9 @@ data class QueueEntry(
             retryCount = j.optInt("retryCount", 0),
             createdAt = j.optLong("createdAt", System.currentTimeMillis()),
             label = j.optString("label", ""),
-            workRequestId = j.optString("workRequestId", "").ifEmpty { null }
+            workRequestId = j.optString("workRequestId", "").ifEmpty { null },
+            refreshMode = j.optBoolean("refreshMode", false),
+            refreshSlot = j.optString("refreshSlot", "")
         )
     }
 }
@@ -136,6 +142,36 @@ object DownloadQueueManager {
         return entry
     }
 
+    /** Enqueue grid-based refresh: multiple small jobs per ~12 mile cell.
+     *  Returns number of cells enqueued. Call from background thread. */
+    fun enqueueRefresh(
+        context: Context,
+        slotName: String,
+        sourceName: String
+    ): Int {
+        init(context)
+        val bounds = ConvoyTileDownloader.tileBoundsLatLon(slotName) ?: return 0
+        val cells = ConvoyTileDownloader.gridCells(bounds[0], bounds[1], bounds[2], bounds[3])
+        if (cells.isEmpty()) return 0
+
+        val current = _queue.value.toMutableList()
+        cells.forEachIndexed { i, cell ->
+            val entry = QueueEntry(
+                north = cell[0], south = cell[1], east = cell[2], west = cell[3],
+                totalTiles = 0,
+                label = "REFRESH $slotName ${i + 1}/${cells.size}",
+                refreshMode = true,
+                refreshSlot = slotName
+            )
+            current.add(entry)
+        }
+        _queue.value = current
+        saveQueue()
+        android.util.Log.i(TAG, "Enqueued refresh: $slotName ${cells.size} grid cells")
+        startNextIfAvailable()
+        return cells.size
+    }
+
     // -- Cancel a queued or active download -----------------
     fun cancel(entryId: String) {
         val entry = _queue.value.find { it.id == entryId } ?: return
@@ -179,14 +215,24 @@ object DownloadQueueManager {
 
     // -- Mark complete from Worker -------------------------
     fun markComplete(entryId: String, downloaded: Int, failed: Int) {
-        updateEntry(entryId) {
-            it.copy(
-                status = QueueStatus.COMPLETE,
-                downloadedTiles = downloaded,
-                failedTiles = failed
-            )
+        val entry = _queue.value.find { it.id == entryId }
+        if (entry?.refreshMode == true) {
+            // Refresh cells: silently remove from queue, no log clutter
+            val current = _queue.value.toMutableList()
+            current.removeAll { it.id == entryId }
+            _queue.value = current
+            saveQueue()
+            android.util.Log.d(TAG, "Refresh cell complete, removed: id=$entryId downloaded=$downloaded")
+        } else {
+            updateEntry(entryId) {
+                it.copy(
+                    status = QueueStatus.COMPLETE,
+                    downloadedTiles = downloaded,
+                    failedTiles = failed
+                )
+            }
+            android.util.Log.i(TAG, "Complete: id=$entryId downloaded=$downloaded failed=$failed")
         }
-        android.util.Log.i(TAG, "Complete: id=$entryId downloaded=$downloaded failed=$failed")
         startNextIfAvailable()
     }
 
@@ -221,6 +267,8 @@ object DownloadQueueManager {
             .putDouble("east", entry.east)
             .putDouble("west", entry.west)
             .putString("label", entry.label)
+            .putBoolean("refresh_mode", entry.refreshMode)
+            .putString("refresh_slot", entry.refreshSlot)
             .build()
 
         val constraints = Constraints.Builder()

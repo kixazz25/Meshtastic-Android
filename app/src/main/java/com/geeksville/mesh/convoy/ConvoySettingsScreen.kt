@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -50,6 +51,7 @@ import kotlin.math.roundToInt
 @Composable
 fun ConvoySettingsScreen(
     onNavigateBack: () -> Unit,
+    onNavigateToMapSources: () -> Unit = {},
     viewModel: ConvoySettingsViewModel = hiltViewModel(),
     convoyViewModel: ConvoyViewModel = hiltViewModel()
 ) {
@@ -86,6 +88,16 @@ fun ConvoySettingsScreen(
                 .padding(innerPadding)
                 .verticalScroll(rememberScrollState())
         ) {
+
+            // ── Map Sources ──────────────────────────────────────────────
+            SectionLabel("Map Sources")
+            androidx.compose.material3.ListItem(
+                headlineContent = { Text("Change Map Sources", style = MaterialTheme.typography.bodyLarge) },
+                supportingContent = { Text("Assign tile sources to SAT / TOPO / TOPO+ slots", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                modifier = Modifier.clickable { onNavigateToMapSources() }
+            )
+            HorizontalDivider()
+            Spacer(Modifier.height(8.dp))
 
             // ── Alert Thresholds ──────────────────────────────────────────
             SectionLabel("Alert Thresholds")
