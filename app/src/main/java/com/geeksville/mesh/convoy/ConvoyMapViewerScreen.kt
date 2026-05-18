@@ -383,6 +383,12 @@ fun ConvoyMapViewerScreen(
                                 view?.evaluateJavascript(
                                     "setTileUrl('" + satUrl + "', 'SAT')", null
                                 )
+                                val initOverlayJson = MapSourceManager.getOverlayJson("SAT")
+                                if (initOverlayJson != "[]") {
+                                    view?.evaluateJavascript(
+                                        "setOverlayLayers('" + initOverlayJson.replace("'", "\'") + "')", null
+                                    )
+                                }
                                 // Trails loaded on demand via TRAILS button
                             }
                         }
@@ -406,6 +412,10 @@ fun ConvoyMapViewerScreen(
                     pmActiveSource = label; ConvoyConfig.ACTIVE_TILE_SOURCE = label
                     val url = MapSourceManager.getSlotSources().find { it.first == label }?.third ?: ""
                     webViewRef?.evaluateJavascript("setTileUrl('" + url + "', '" + label + "')", null)
+                    val ovJson = MapSourceManager.getOverlayJson(label)
+                    if (ovJson != "[]") {
+                        webViewRef?.evaluateJavascript("setOverlayLayers('" + ovJson.replace("'", "\'") + "')", null)
+                    }
                 },
                 onOfflineToggle = { _ -> },
                 modifier = Modifier

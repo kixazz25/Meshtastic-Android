@@ -105,17 +105,32 @@
       tileLayer.on("tileerror", function(e) { console.log("TILE ERROR: " + e.tile.src); });
       tileLayer.addTo(map);
       if (map.getZoom() > currentMaxNative) { map.setZoom(currentMaxNative); }
-      // Label overlays — only for SAT (satellite hybrid)
-      if (labelLayer1) { map.removeLayer(labelLayer1); labelLayer1 = null; }
-      if (labelLayer2) { map.removeLayer(labelLayer2); labelLayer2 = null; }
-      if (label === 'SAT') {
-        labelLayer1 = L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}', {maxZoom:19, maxNativeZoom:18, crossOrigin:false, tileSize:256, opacity:1, pane:'overlayPane'});
-        labelLayer2 = L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {maxZoom:19, maxNativeZoom:18, crossOrigin:false, tileSize:256, opacity:1, pane:'overlayPane'});
-        labelLayer1.addTo(map);
-        labelLayer2.addTo(map);
-      }
+      // Label overlays — cleared here, injected from Kotlin via setOverlayLayers()
+      clearOverlayLayers();
       // Auto-toggle trails: ON for SAT and TOPO, OFF for TOPO+
       if (label === 'SAT' || label === 'TOPO') { showTrails(); } else { hideTrails(); }
+    }
+
+    // ── Overlay layer management (injected from Kotlin) ───────────────
+    var overlayLayers = [];
+    function clearOverlayLayers() {
+      overlayLayers.forEach(function(layer) { map.removeLayer(layer); });
+      overlayLayers = [];
+    }
+    function setOverlayLayers(jsonStr) {
+      clearOverlayLayers();
+      try {
+        var layers = JSON.parse(jsonStr);
+        layers.forEach(function(l) {
+          var overlay = L.tileLayer(l.url, {
+            maxZoom: 19, maxNativeZoom: l.maxNativeZoom || 18,
+            crossOrigin: false, tileSize: 256, opacity: 1, pane: 'overlayPane'
+          });
+          overlay.addTo(map);
+          overlayLayers.push(overlay);
+        });
+        console.log('OVERLAYS SET: ' + layers.length + ' layers');
+      } catch(e) { console.log('OVERLAY PARSE ERROR: ' + e); }
     }
 
     // ── Draw tool functions ────────────────────────────────────────────

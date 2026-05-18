@@ -485,6 +485,10 @@ fun ConvoyScreen(
                                 val tileUrl = ConvoyConfig.TILE_SOURCES[ConvoyConfig.ACTIVE_TILE_SOURCE] ?: return
                                 view?.postDelayed({
                                     view.evaluateJavascript("setTileUrl('$tileUrl', '${ConvoyConfig.ACTIVE_TILE_SOURCE}')", null)
+                                    val overlayJson = MapSourceManager.getOverlayJson(ConvoyConfig.ACTIVE_TILE_SOURCE)
+                                    if (overlayJson != "[]") {
+                                        view.evaluateJavascript("setOverlayLayers('${overlayJson.replace("'", "\'")}')", null)
+                                    }
                                     // Trails loaded on demand via TRAILS button
                                     // Center map on device last known location
                                     try {
@@ -951,6 +955,8 @@ fun ConvoyScreen(
                     MapSourceManager.getSlotSources().find { it.first == label }?.third ?: ""
                 viewModel.setLocalTiles(isLocalTiles)
                 webViewRef.value?.evaluateJavascript("setTileUrl('$url', '$label')", null)
+                val overlayJsonSc = MapSourceManager.getOverlayJson(label)
+                if (overlayJsonSc != "[]") { webViewRef.value?.evaluateJavascript("setOverlayLayers('${overlayJsonSc.replace("'", "\\'")}')", null) }
             },
             onOfflineToggle = { goOffline ->
                 viewModel.setOfflineMode(goOffline)

@@ -176,6 +176,19 @@ object MapSourceManager {
     fun getActiveOnlineUrl(): String = getOnlineUrl(activeSourceKey)
     fun getActiveLocalUrl(): String = getLocalUrl(activeSourceKey)
 
+    /** Build JSON string for overlay layers to inject into WebView */
+    fun getOverlayJson(legacyKey: String): String {
+        val layers = getOverlayLayers(legacyKey)
+        if (layers.isEmpty()) return "[]"
+        val sb = StringBuilder("[")
+        layers.forEachIndexed { i, layer ->
+            if (i > 0) sb.append(",")
+            sb.append("{\"url\":\"" + layer.urlTemplate + "\",\"maxNativeZoom\":18,\"cacheDir\":\"" + layer.cacheDir + "\"}")
+        }
+        sb.append("]")
+        return sb.toString()
+    }
+
     private fun ensureInit() {
         if (!initialized) {
             android.util.Log.w("MapSourceMgr", "Not initialized, using fallback")
