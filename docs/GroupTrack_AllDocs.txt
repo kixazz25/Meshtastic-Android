@@ -7679,6 +7679,332 @@ Work with Tracks expanded to all spatial types with type filters.
 END OF DECISION LOG v2 | All Fred revisions incorporated | Review remaining open issues before design session
 
 
+=== GroupTrack_V25_DecisionLog_May18_v3.docx ===
+GroupTrack V2.5 -- Complete Decision Log v3
+Extracted from May 17-18, 2026 sessions
+v3: Incorporates all evening session design revisions
+GREEN = Decision | BLUE = Resolved | ORANGE = Open issue
+1. ANR Fixes (Completed)
+1.1 WorkManager ANR
+Changed ExistingPeriodicWorkPolicy.UPDATE to KEEP -- prevents re-trigger on cold start
+Added 30-second initial delay to PeriodicWorkRequest
+Added WorkManager.pruneWork() before scheduleMeshLogCleanup()
+File: MeshUtilApplication.kt -- committed and deployed
+1.2 MediaStore ANR (Root Cause)
+scanImportDirectory() contained legacy MediaStore.Downloads query for .convoy files
+Blocked main thread via ContentResolver.query() Binder IPC when Media Provider busy indexing tiles
+Fix: Removed MediaStore.Downloads query entirely -- ConvoyFileReceiver handles .convoy via intents
+Dispatchers.IO added to scanImportDirectory launch
+File: ConvoyViewModel.kt -- committed and deployed
+1.3 P10_T Device Findings
+P10_T: 2.9GB usable RAM (Unisoc chipset reserves ~1.1GB). NOT incompatible -- 1 second load after fix.
+~60GB tiles in Downloads caused Media Provider 58% CPU. Root cause was query, not hardware.
+ServiceKeepAliveWorker lint warning: missing connectedDevice foregroundServiceType in manifest
+
+2. Device Assignments
+Android 1 (P50): Release APK only. Acceptance test device.
+Android 2 (EP103B): Play Store release for field testing.
+P10_T: Play Store release. ANR fixed. Functional.
+Never mix debug/release on a device. Different signing keys require uninstall first.
+
+3. V2.5 Architecture
+3.1 Core UI Architecture
+TWO BUTTONS, TWO ACCORDION BARS. Everything launches from there, closes to nothing when done.
+Work with Artifacts: button on Display bar. Accordion with per-type rows. DISPLAY/EDIT/IMPORT (Planning). DISPLAY only (Convoy).
+Work with Queues: button upper right of map. Replaces track button on Planning Map. Summary dropdown + twisty drill-down.
+Minimal real estate. Open = compact accordion. Function launched = focused panel. Done = zero footprint.
+Consistent display format between Convoy and Planning maps. Convoy blocks some functions but same visual.
+Standardized artifact detail panel. Same layout for all types. Type-specific actions vary.
+3.2 THREE Separate Queues
+Upload spatial queue: collects items via share prompt. V2.5 collect only. V2.6 processes.
+Download spatial queue: downloads tracks, routes, waypoints from AWS. V2.6 feature.
+Download tiles queue: downloads, refreshes, removes map tiles. Always active.
+Spatial queues NOT active with AWS until V2.6.
+Three queues never mixed. Different job types, different managers, different priorities.
+3.3 Two Data Sources
+LOCAL: default, free. SERVER: paygated ($3/month). Planning Map only. Never mixed on same display.
+Source selector is V2.6 feature. V2.5: paygated stub only.
+3.4 Upload Rules
+Uploads are PER-ITEM via share prompt on save. Routes and tracks inclusive of waypoints.
+Uploads are NEVER area-based. No bulk upload. No upload button.
+Share prompt: simple toggle 'Share this artifact with other GroupTrack users? Yes/No'
+Share prompt controlled by app_setting and ride privacy toggle. Private ride suppresses entirely.
+V2.5: collect only. V2.6: processing activated. No downloads until uploads started processing.
+Never build V2.6 processing code during V2.5.
+3.5 Download Rules (V2.6 Feature)
+Downloads use area for discovery. User selects specific items. Download is area-inclusive with associated waypoints.
+Downloaded spatial data auto-generates tile download requests from geometry.
+3.6 Download Panel Structure
+V2.5 ACTIVE: Download Tiles (manual area draw), Delete Area Tiles (storage management).
+V2.6 STUBS: Download Area (spatial by area), Download Artifact (specific item), Upload Artifacts (process queue).
+V2.6 buttons show paygate or 'coming soon' when tapped in V2.5.
+3.7 Tile Rules
+Tiles NEVER refreshed by area or downloaded in isolation by user.
+Tiles ALWAYS refresh following spatial data creation (trigger-based).
+HIGH priority: explicit track/route creation. V2.5: track import or route creation triggers.
+LOW priority: area-based trail import.
+MED priority: source refresh after map source change.
+Trail imports refresh downloaded tiles only. Routes and tracks refresh AND create tiles.
+Remove area tiles is the ONLY explicit user tile action on stored tiles.
+Manual area draw stays for initial tile downloads.
+Tiles NEVER transit AWS. Always from tile providers.
+All tile operations are trigger-based. Never user-initiated except manual area draw and remove.
+3.8 Area Concept
+Area selector is TRANSIENT -- not saved. Shared component.
+Areas independent of rides. Rides are just one method to request area spatial data.
+3.9 Spatial Data Creation
+Triggers are the main method for non-trail data creation.
+Tracks: GPS recording creates trigger. Save + name prompt at end of recording. Share prompt follows.
+Waypoints: long-press on BOTH maps creates trigger. 10 types, name entry, proximity 100m.
+Routes: draw/snap/convert creates trigger.
+Trails: imported from vetted/approved external sources only. Never created in-app.
+Import is for external sources only. Creation via triggers is the primary path.
+3.10 Data Model
+Tracks: source of truth = GPX/KML file. SQL holds metadata + bbox as index via triggers.
+Waypoints: SQL tables only. No backing file. DB is source of truth.
+Routes: SQL tables only (TBD -- if existing schema supports location, may use trigger route like tracks).
+Trails: SQL tables only after import. Source file not retained.
+Route schema to be researched during Task 6 build. No impact on screen design.
+Upload queue mirrors download queue design. Push instead of pull. Same states and priorities.
+
+4. Work with Artifacts
+4.1 Panel Design
+Button on Display bar launches Work with Artifacts. Available on BOTH maps.
+Accordion panel with one row per artifact type: Tracks, Trails, Waypoints, Routes.
+Each row: [Toggle] Type Name [count in view] [action buttons]
+Planning Map: [DISPLAY] [EDIT] [IMPORT] per type.
+Convoy Map: [DISPLAY] only per type.
+Convoy DISPLAY includes select all, deselect all, and individual artifact display toggles.
+Items in list bounded by current map boundary.
+Genesis = existing Work with Tracks function, expanded to all spatial types.
+Wired to display bar. Closes to nothing when done.
+4.2 DISPLAY Function (Both Maps)
+Expands to show all items of that type within map boundary.
+Select All / Deselect All bulk actions.
+Individual item on/off toggles control map visibility.
+Trails: filter by type (OHV, multi-use, hiking, horse).
+Waypoints: filter by type (trailhead, fuel, gate, etc.).
+4.3 EDIT Function (Planning Map Only)
+Select an item from the list to see edit actions.
+Track actions: FIT, RENAME, TO ROUTE, UPLOAD, DOWNLOAD, DELETE.
+Trail actions: none (read-only after import). EDIT button disabled for trails.
+Waypoint actions: FIT, RENAME, CHANGE TYPE, UPLOAD, DELETE.
+Route actions: FIT, RENAME, TO TRACK, UPLOAD, EDIT POINTS, DELETE.
+Route DELETE blocked if assigned to active ride with enrollments.
+All routes must have a waypoint for trailhead.
+Same edit actions available when clicking artifact on map (standardized detail panel).
+4.4 IMPORT Function (Planning Map Only)
+Track import: select GPX/KML from Downloads directory. All imports are tracks.
+Trail import: area match against vetted source catalog. Download, filter to area, dedupe, import.
+Waypoint import: select GPX waypoint file from Downloads.
+Route import: disabled. Import as track via Track import, then convert via EDIT.
+4.5 Standardized Artifact Detail Panel (Map Click)
+Click any spatial item on either map opens standardized detail panel.
+Same panel layout for all types. Type badge and actions change per type.
+Planning Map: full change functions (same as EDIT actions).
+Convoy Map: display values only. No edit. No delete. No convert.
+Panel format: type badge, name, metadata, action buttons (Planning only).
+
+5. Work with Queues
+Button upper right of map. Available on BOTH maps.
+Replaces existing track button position on Planning Map.
+Dropdown with summary data on each of 3 queues.
+Twisty expand each queue to item-level detail.
+Filter by priority type (ALL / HIGH / MED / LOW).
+Same display template for all three queues. Queue data populates standard format.
+Closes to nothing when done.
+Item-level actions: pause, cancel, retry.
+Upload queue shows 'collecting only' status in V2.5.
+
+6. Task 1: Source Picker
+6.1 Change Map Source
+Launch button in Convoy Map Settings panel ONLY. System-level change, not casual access.
+NOT in Display panel. NOT on Planning Map.
+Planning Map inherits source setting automatically.
+Settings > Map Sources shows three slot cards (SAT / TOPO / TOPO+).
+Three fixed titles. Labels never change. Source behind title changes.
+6.2 Source Selection Flow
+Tap slot card to open source selection for that slot.
+First 3 sources shown as RECOMMENDED (vetted, reliable).
+All compatible sources in cascading accordion grouped by type: SAT, HYB, TOPO, STREET, TERRAIN, OUTDOOR.
+Any source can be assigned to any slot (not restricted by type).
+Radio button selection. One source per slot.
+APPLY SOURCE button to confirm.
+Sources requiring API key show warning if key not configured.
+6.3 Tile Refresh After Source Change
+After applying new source, prompted for tile refresh.
+Refresh toggle: ON creates SOURCE_REFRESH jobs in tile queue.
+Refresh scope options: All saved tiles, Current viewport only, Skip (keep old tiles).
+Default priority: MEDIUM.
+Refresh replaces EXISTING tiles only. Never creates tiles in new areas.
+Progress visible in Work with Queues.
+6.4 Source Maintenance
+Maintenance panel for map_sources.json asset. Developer function in Settings.
+View/edit source definitions: name, URL template, type, zoom levels, attribution.
+6.5 Completed Items
+Select Cart HUD button on ConvoyButtonBar -- COMPLETED
+Cart HUD picker slide-up panel -- COMPLETED
+NodeDetailHud on cart selection -- COMPLETED
+Long-press reclaimed for waypoints -- COMPLETED
+Button bar: GROUP | MY CART | SELECT CART | HIDE | GEAR -- COMPLETED
+
+7. Task 2: Tile Queue
+Existing ConvoyDownloadQueue enhanced with new job types.
+New job types: SOURCE_REFRESH, SPATIAL_FOLLOW, REMOVE_AREA.
+Priority: HIGH (explicit track/route), MED (source refresh), LOW (trail import), LOWEST (removal).
+Tiles requested based on triggers on spatial data additions. Local data only in V2.5.
+Monitored via Work with Queues panel.
+
+8. Task 3: Spatial Trails
+8.1 Trail Source Catalog
+Vetted and approved trail sources only. This IS an app asset.
+Each source record: name, download URL, data format, qualified lat/long boundary, trail type.
+Boundary created during source qualification process.
+Sources are selected/qualified by developers, not end users.
+Maintenance screen in Settings for managing the catalog asset.
+Settings process: input new trail source, define URL, format, qualify boundary.
+8.2 Trail Import Flow
+1. User draws area on Planning Map (Work with Artifacts > Trails > IMPORT).
+2. System compares area against catalog source boundaries.
+3. Sources with overlapping coverage suggested to user.
+4. User selects which sources to import.
+5. System downloads from URL in defined format.
+6. On-device filtering: ONLY trails within user's drawn boundary imported.
+7. Dedupe on ingestion: bbox pre-filter, length filter, point proximity, classification.
+8. Imported to SQL database as trails.
+9. Triggers tile refresh (LOW priority) for imported trail geometry.
+10. Progress shown as process steps: download, filter, dedupe, import.
+8.3 Trail Display
+Viewport lazy-load from local db. Pattern reused in Tasks 4, 5, 6.
+Replace static utah_trails_stgeorge.geojson asset with database queries.
+Preserve full trail geometry precision -- V3.0 snap-to depends on it.
+Trail type filter via DISPLAY function in Work with Artifacts.
+Legend on map generated from trail types.
+
+9. Task 4: Spatial Tracks
+Managed through Work with Artifacts panel.
+Track list controlled by map boundary on BOTH maps.
+All GPX/KML imports are TRACKS. Always. Convert to route is explicit type flip.
+Track and route share same table with type field (TRACK/ROUTE).
+Track source of truth = GPX/KML file. SQL holds metadata + bbox via triggers.
+FIT button: RESTORE lost feature -- zoom map to track bounds.
+GPS track recording: save + name prompt at end of recording. Share prompt follows.
+Track actions: FIT, RENAME, TO ROUTE, UPLOAD, DOWNLOAD, DELETE.
+Click track on map shows standardized detail panel.
+
+10. Task 5: Waypoints
+Long-press on BOTH Convoy and Planning maps creates waypoint.
+10 types: trailhead, fuel, gate, hazard, scenic, water, camp, parking, rally, other.
+Flow: long-press > type picker > name entry > proximity check 100m > save > share prompt.
+SQL tables only. No backing file.
+Waypoint actions: FIT, RENAME, CHANGE TYPE, UPLOAD, DELETE.
+Map legend generated from waypoint_types table.
+All routes must have a waypoint for trailhead.
+Share prompt: 'Share this artifact with other GroupTrack users? Yes/No'
+
+11. Task 6: Routes
+Route creation: button on display bar or route+ FAB button (TBD during build).
+Create by: draw (point-to-point V2.5), snap-to-trail, convert from track.
+All imports enter as tracks. Convert to route is explicit type flip. Reversible.
+Routes NEVER independently shared -- only through ride enrollment.
+Delete blocked if assigned to active ride with enrollments.
+Route actions: FIT, RENAME, TO TRACK, UPLOAD, EDIT POINTS, DELETE.
+source_track_id links converted tracks.
+Schema TBD -- research existing model during build. No impact on screen design.
+Route creation entry point: display bar button or FAB? Decide during build.
+JavaScript bridge implementation for draw and snap-to-trail.
+
+12. Task 7: Area Data Transfer
+V2.5: upload queue collects, share prompt works, download stubs only.
+V2.6: upload processing activated, download functions wired.
+Upload queue mirrors download queue design. Push instead of pull.
+Download panel: tiles + delete (V2.5), area + artifact + upload (V2.6 stubs).
+Paygate prompt for server features. $3/month subscription.
+Work with Queues monitors all 3 queues.
+
+13. Implementation Boundaries
+13.1 V2.5 (4 weeks)
+Phase 0: Complete UI scaffolding
+Tasks 1-6: Fully functional
+Task 7: Upload queue collects, download stubs only
+No AWS backend. No network upload code.
+13.2 V2.6
+Upload queue processing activated
+Download functions wired to AWS API
+Server browse functional behind paygate
+13.3 V3.0
+Server browse behind paygate
+Ride enrollment download triggers
+
+14. Remaining Open Issues
+Route creation entry point: display bar button or route+ FAB? Decide during build.
+JavaScript bridge: long-press waypoint, point-to-point drawing, snap-to-trail implementations.
+Route schema: research existing model. If supports location, use trigger route like tracks.
+ServiceKeepAliveWorker lint warning: foregroundServiceType in manifest.
+Convoy map cutover timing: end of V2.5 or separate task?
+V25_SPATIAL_ENABLED flag: which features gated?
+Trail source catalog: initial set of vetted sources to include?
+
+15. Complete Standing Rules (V2.5)
+Never auto-delete user data. All deletes require explicit confirmation.
+Never embed API keys in APK. User manages their own keys.
+Share is opt-in. Never upload without explicit user action.
+Offline-first. Every feature works without connectivity.
+Canvas independence. Map tiles are the user's choice.
+Cumulative collection. Downloads add data. Only explicit removal deletes.
+Routes never independently public. Only through ride invitations.
+Private rides block sharing. Toggle suppresses share prompt entirely.
+Published content always recoverable from collective (V3.0).
+Trails and routes never removed individually. Source/region removal only.
+First source ingested wins auto-resolve for duplicates.
+Reusability: Ops files (logic) and Dialogs files (UI).
+Every user data change is journaled. No exceptions.
+Backup before every destructive operation. Automatic.
+Journal stores before AND after state with geometry as WKT.
+Schema must be hardened before application code.
+Lifecycle triggers designed and tested before features built.
+Patch scripts uniquely versioned Python files. Never reuse names.
+Never commit V3_FEATURES_ENABLED or V25_SPATIAL_ENABLED = true.
+Preserve full trail geometry precision.
+Complete impact analysis before ANY code change.
+All imports are tracks. Always. Convert to route is explicit type flip.
+Track and route share same table with type field.
+Tiles are never downloaded in isolation. Always follow spatial data.
+Tile coverage maps to spatial data geometry, not full bbox.
+Uploads are per-item on save via share prompt. Never area-based.
+Uploads are spatial data only. Tiles never transit AWS.
+V2.5 upload queue collects only. No processing.
+Downloads use area for discovery, item selection for download.
+Server browsing and downloads are paygated.
+Local and server data never mixed on same display.
+All operations user-initiated. No operations on launch. No auto-sync.
+No MediaStore queries. Lesson from P10_T ANR.
+Proximity check 100m for waypoint creation.
+Long-press = waypoint creation on BOTH maps. Cart HUD selection via button.
+Phase 0 scaffolding ships first. All UI placeholders before feature code.
+Share prompt controlled by app_setting and ride privacy toggle.
+Three separate queues: upload spatial, download spatial, download tiles.
+Area selector is transient -- not saved.
+Area delete removes definition only. Data and tiles stay unless explicitly removed.
+Never build V2.6 processing code during V2.5.
+No upload button in V2.5. Uploads happen through share prompt on save only.
+Tile refreshes are trigger-based. Created in V2.5, downloaded in V2.6.
+Design all UI with HTML panel mockups before any coding.
+One comprehensive patch per agreed design, not piecemeal changes.
+All routes must have a waypoint for trailhead.
+Triggers are the main method for non-trail spatial data creation.
+Import is for external sources only.
+Work with Artifacts expanded to all spatial types with type filters.
+Two buttons, two accordion bars. Everything launches from there. Closes to nothing.
+Convoy Map: display only for artifacts. No edit, no import.
+Convoy DISPLAY includes select all, deselect all, individual toggles.
+Standardized artifact detail panel. Same layout all types.
+Trail sources are vetted/approved assets. Only approved sources used in import.
+Trail import: area match > suggest > select > download > filter > import.
+GPS track recording: save + name at end of recording. Share prompt follows.
+END OF DECISION LOG v3 | May 17-18, 2026 | All sessions incorporated
+
+
 === GroupTrack_V25_Planning_v2.docx ===
 GroupTrack
 V2.5 Planning — Updated April 17, 2026
