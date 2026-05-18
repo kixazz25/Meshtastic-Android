@@ -42,9 +42,12 @@ convoy/ConvoyDevLaunchScreen.kt:99:                ConvoySessionManager.clearSes
 convoy/ConvoyDevLaunchScreen.kt:110:                ConvoySessionManager.clearSession(context)
 convoy/ConvoyDevLaunchScreen.kt:132:    ConvoySessionManager.saveUser(context,
 convoy/ConvoyDevSeeder.kt:72:        ConvoySessionManager.saveUser(ctx,
-convoy/ConvoyDownloadQueue.kt:120:        val tiles = ConvoyTileCalculator.calculateTiles(north, south, east, west)
-convoy/ConvoyDownloadWorker.kt:48:        val tiles = ConvoyTileCalculator.calculateTiles(north, south, east, west)
-convoy/ConvoyDownloadWorker.kt:72:                val result = ConvoyTileDownloader.downloadTiles(
+convoy/ConvoyDownloadQueue.kt:126:        val tiles = ConvoyTileCalculator.calculateTiles(north, south, east, west)
+convoy/ConvoyDownloadWorker.kt:58:            val cellTiles = ConvoyTileCalculator.calculateTiles(north, south, east, west)
+convoy/ConvoyDownloadWorker.kt:62:                ConvoyTileDownloader.tilePath(appContext, refreshSlot, tile).exists()
+convoy/ConvoyDownloadWorker.kt:79:                val result = ConvoyTileDownloader.downloadTiles(
+convoy/ConvoyDownloadWorker.kt:110:        val tiles = ConvoyTileCalculator.calculateTiles(north, south, east, west)
+convoy/ConvoyDownloadWorker.kt:133:                val result = ConvoyTileDownloader.downloadTiles(
 convoy/ConvoyEngine.kt:31:    fun compute(
 convoy/ConvoyEngine.kt:40:        val withStatus = nodes.map { it.copy(status = computeStatus(it, nowMs)) }
 convoy/ConvoyEngine.kt:41:        val heading = computeHeading(withStatus)
@@ -91,7 +94,7 @@ convoy/ConvoyInviteHandler.kt:81:                    val userId = getUserId(this
 convoy/ConvoyInviteHandler.kt:83:                        val enrollResult = ConvoyApiClient.enrollRider(
 convoy/ConvoyMapViewerScreen.kt:295:                                        loadTrackOnMap(context, name, color, webViewRef)
 convoy/ConvoyMapViewerScreen.kt:349:                                        convoyViewModel.startDownload(ctx, pending)
-convoy/ConvoyMapViewerScreen.kt:732:private fun loadTrackOnMap(
+convoy/ConvoyMapViewerScreen.kt:742:private fun loadTrackOnMap(
 convoy/ConvoyMasterApply.kt:33:    suspend fun archiveCurrentRadio(
 convoy/ConvoyMasterApply.kt:72:        convoyViewModel.installProfileToRadio(nodeNum, profile)
 convoy/ConvoyMasterApply.kt:80:    suspend fun applyMasterConfig(
@@ -119,30 +122,30 @@ convoy/ConvoyScreen.kt:404:                viewModel.finalizeTrack("convoy_track
 convoy/ConvoyScreen.kt:419:                    viewModel.finalizeTrack(name, context)
 convoy/ConvoyScreen.kt:425:                    viewModel.deleteTempTrack()
 convoy/ConvoyScreen.kt:470:                                viewModel.setPendingDownload(pending)
-convoy/ConvoyScreen.kt:508:                                    val file = java.io.File(ConvoyConfig.TILE_DIR, tilePath)
-convoy/ConvoyScreen.kt:542:                        ConvoyConfig.migrateTiles(ctx)
-convoy/ConvoyScreen.kt:568:                                    viewModel.setPendingDownload(pending)
-convoy/ConvoyScreen.kt:623:                        event.action == android.view.MotionEvent.ACTION_UP) { viewModel.setAutoPan(false) }
-convoy/ConvoyScreen.kt:710:                                        viewModel.setLeadCart(node.nodeId)
-convoy/ConvoyScreen.kt:713:                                        viewModel.startRecording(context)
-convoy/ConvoyScreen.kt:714:                                        viewModel.startGroupTrack()
-convoy/ConvoyScreen.kt:762:                                        viewModel.startRecording(context)
-convoy/ConvoyScreen.kt:763:                                        viewModel.startGroupTrack()
-convoy/ConvoyScreen.kt:769:                                            viewModel.setLeadCart(soloNode?.nodeId ?: "!phone")
-convoy/ConvoyScreen.kt:771:                                            viewModel.startRecording(context)
-convoy/ConvoyScreen.kt:772:                                            viewModel.startGroupTrack()
-convoy/ConvoyScreen.kt:837:                            viewModel.stopRecording()
-convoy/ConvoyScreen.kt:838:                            viewModel.stopGroupTrack()
-convoy/ConvoyScreen.kt:946:                viewModel.setMapTypeLabel(label)
-convoy/ConvoyScreen.kt:952:                viewModel.setLocalTiles(isLocalTiles)
-convoy/ConvoyScreen.kt:956:                viewModel.setOfflineMode(goOffline)
-convoy/ConvoyScreen.kt:1154:            onModeChange = { viewModel.setHudMode(it); viewModel.setAutoPan(true) },
-convoy/ConvoyScreen.kt:1182:                    onStartTrack = { viewModel.startGroupTrack() },
-convoy/ConvoyScreen.kt:1183:                    onStopTrack = { viewModel.stopGroupTrack() },
-convoy/ConvoyScreen.kt:1187:                        onIntervalChange = { secs -> viewModel.setGpsInterval(secs, channelViewModel) },
-convoy/ConvoyScreen.kt:1200:                            viewModel.removeNode(n.nodeId)
-convoy/ConvoyScreen.kt:1204:                            viewModel.setLeadCart(n.nodeId)
-convoy/ConvoyScreen.kt:1817:fun convoyListTracks(context: android.content.Context): List<String> {
+convoy/ConvoyScreen.kt:512:                                    val file = java.io.File(ConvoyConfig.TILE_DIR, tilePath)
+convoy/ConvoyScreen.kt:546:                        ConvoyConfig.migrateTiles(ctx)
+convoy/ConvoyScreen.kt:572:                                    viewModel.setPendingDownload(pending)
+convoy/ConvoyScreen.kt:627:                        event.action == android.view.MotionEvent.ACTION_UP) { viewModel.setAutoPan(false) }
+convoy/ConvoyScreen.kt:714:                                        viewModel.setLeadCart(node.nodeId)
+convoy/ConvoyScreen.kt:717:                                        viewModel.startRecording(context)
+convoy/ConvoyScreen.kt:718:                                        viewModel.startGroupTrack()
+convoy/ConvoyScreen.kt:766:                                        viewModel.startRecording(context)
+convoy/ConvoyScreen.kt:767:                                        viewModel.startGroupTrack()
+convoy/ConvoyScreen.kt:773:                                            viewModel.setLeadCart(soloNode?.nodeId ?: "!phone")
+convoy/ConvoyScreen.kt:775:                                            viewModel.startRecording(context)
+convoy/ConvoyScreen.kt:776:                                            viewModel.startGroupTrack()
+convoy/ConvoyScreen.kt:841:                            viewModel.stopRecording()
+convoy/ConvoyScreen.kt:842:                            viewModel.stopGroupTrack()
+convoy/ConvoyScreen.kt:950:                viewModel.setMapTypeLabel(label)
+convoy/ConvoyScreen.kt:956:                viewModel.setLocalTiles(isLocalTiles)
+convoy/ConvoyScreen.kt:962:                viewModel.setOfflineMode(goOffline)
+convoy/ConvoyScreen.kt:1160:            onModeChange = { viewModel.setHudMode(it); viewModel.setAutoPan(true) },
+convoy/ConvoyScreen.kt:1188:                    onStartTrack = { viewModel.startGroupTrack() },
+convoy/ConvoyScreen.kt:1189:                    onStopTrack = { viewModel.stopGroupTrack() },
+convoy/ConvoyScreen.kt:1193:                        onIntervalChange = { secs -> viewModel.setGpsInterval(secs, channelViewModel) },
+convoy/ConvoyScreen.kt:1206:                            viewModel.removeNode(n.nodeId)
+convoy/ConvoyScreen.kt:1210:                            viewModel.setLeadCart(n.nodeId)
+convoy/ConvoyScreen.kt:1823:fun convoyListTracks(context: android.content.Context): List<String> {
 convoy/ConvoyServicesChooser.kt:38:    val signedIn = ConvoySessionManager.isSignedIn(context)
 convoy/ConvoyServicesChooser.kt:39:    val subscribed = ConvoySessionManager.isSubscribed(context)
 convoy/ConvoySessionManager.kt:14:    fun getUserId(ctx: Context): String? =
@@ -174,8 +177,8 @@ convoy/ConvoyTileCalculator.kt:69:    fun calculateTiles(
 convoy/ConvoyTileDownloader.kt:57:    fun tilePath(context: Context, sourceName: String, tile: TileKey): File {
 convoy/ConvoyTileDownloader.kt:64:    suspend fun downloadTile(url: String, dest: File): Boolean {
 convoy/ConvoyTileDownloader.kt:93:    suspend fun downloadTiles(
-convoy/ConvoyTileDownloader.kt:113:                val dest = tilePath(context, sourceName, tile)
-convoy/ConvoyTileDownloader.kt:123:                val success = downloadTile(url, dest)
+convoy/ConvoyTileDownloader.kt:114:                val dest = tilePath(context, sourceName, tile)
+convoy/ConvoyTileDownloader.kt:124:                val success = downloadTile(url, dest)
 convoy/ConvoyViewModel.kt:96:    fun setOfflineMode(offline: Boolean) { _isOfflineMode.value = offline }
 convoy/ConvoyViewModel.kt:99:    fun setMapTypeLabel(label: String) { _mapTypeLabel.value = label }
 convoy/ConvoyViewModel.kt:102:    fun setLocalTiles(local: Boolean) { _isLocalTiles.value = local }
@@ -232,7 +235,7 @@ convoy/GroupTrackTheme.kt:163:                    val uid = ConvoySessionManager
 convoy/GroupTrackTheme.kt:165:                    val sub = ConvoySessionManager.isSubscribed(context)
 MainActivity.kt:149:                    appLinkData?.let { handleTrackFileImport(it) }
 MainActivity.kt:228:    private fun handleTrackFileImport(uri: Uri) {
-navigation/ConvoyNavigation.kt:269:                    val route = ConvoySessionManager.resolveLaunchRoute(context, true)
-navigation/ConvoyNavigation.kt:285:                    val route = ConvoySessionManager.resolveLaunchRoute(context, true)
-navigation/ConvoyNavigation.kt:379:            isSubscribed = ConvoySessionManager.isSubscribed(context),
+navigation/ConvoyNavigation.kt:278:                    val route = ConvoySessionManager.resolveLaunchRoute(context, true)
+navigation/ConvoyNavigation.kt:294:                    val route = ConvoySessionManager.resolveLaunchRoute(context, true)
+navigation/ConvoyNavigation.kt:388:            isSubscribed = ConvoySessionManager.isSubscribed(context),
 ui/Main.kt:537:                    val route = com.geeksville.mesh.convoy.ConvoySessionManager.resolveLaunchRoute(servicesContext, true)

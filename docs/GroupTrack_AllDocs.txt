@@ -8005,6 +8005,228 @@ GPS track recording: save + name at end of recording. Share prompt follows.
 END OF DECISION LOG v3 | May 17-18, 2026 | All sessions incorporated
 
 
+=== GroupTrack_V25_Handoff_May18.docx ===
+GroupTrack V2.5
+Session Handoff + Development Plan
+May 17-18, 2026 | Two-day design + implementation session
+1. Session Accomplishments
+1.1 V2.5 Architecture Design (Day 1)
+
+
+=== GroupTrack_V25_LifecycleOwnership.docx ===
+GroupTrack V2.5
+Lifecycle Ownership + Data Integrity
+May 18, 2026 | All sessions incorporated
+1. Entity Ownership Map
+Each Kotlin entity owns a specific artifact lifecycle. No shared ownership. No ambiguity about who does what.
+2. Lifecycle Chains
+Every creation, update, and deletion follows a defined chain. No step is optional. No dangling records.
+2.1 Trail Import
+Trigger: User initiates import via Work with Artifacts > Trails > IMPORT
+Owner: TrailImporter
+Parse source file (GeoJSON/Shapefile) per trail_sources catalog format
+For each trail feature: check source_unique_id against existing trails
+IF EXISTS: AliasManager adds PrimaryName as new alias. No new spatial record.
+IF NEW: Insert trails (spatial). Insert trail_properties (extension). AliasManager inserts first alias (preferred, source='agency').
+AuditLogger: data_log entry (action='import')
+TileRequestTrigger: tile_queue entry (LOW priority, trail geometry extent)
+Update source_ingestions with count, dupes skipped, filters used
+2.2 Track Creation (GPS Recording)
+Trigger: GPS recording stops
+Owner: TrackManager
+Prompt: name the track
+Save or Skip. Skip = discard file and exit.
+Save GPX/KML file to Documents/my_tracks/
+Insert tracks (spatial, bbox computed from file)
+Insert track_properties (distance, duration, speed, elevation from file)
+AliasManager: insert alias (preferred, source='user')
+Prompt: 'Available to all riders? Y/N' — if Y, set shared=1
+Survey: enjoyment 1-5, ride again Y/N — insert track_surveys
+AuditLogger: data_log entry (action='create')
+If shared: QueueManager inserts upload_queue entry
+TileRequestTrigger: tile_queue entry (HIGH priority)
+2.3 Track Creation (File Import)
+Trigger: User selects GPX/KML via Work with Artifacts > Tracks > IMPORT
+Owner: TrackManager
+Same as GPS recording steps 3–11, except file is copied from Downloads to my_tracks/ instead of created by GPS.
+2.4 Waypoint Creation (Long-Press)
+Trigger: Long-press on map (both Convoy and Planning maps)
+Owner: WaypointManager
+User selects waypoint type from grid (10 types)
+Proximity check: query waypoints within 100m of press location
+IF NEARBY FOUND: show existing waypoints with all aliases. User chooses: (A) Add alias to existing, (B) Select preferred on existing, (C) Create new anyway.
+IF (A): AliasManager adds alias to existing waypoint. No new spatial record. Done.
+IF (B): AliasManager sets preferred on existing. Done.
+IF (C) or NO NEARBY: prompt for name
+Insert waypoints (spatial, point geometry from press location)
+Insert waypoint_properties (elevation from GPS)
+AliasManager: insert alias (preferred, source='user')
+AuditLogger: data_log entry (action='create')
+Share prompt: Y/N — if Y, shared=1, QueueManager inserts upload_queue
+2.5 Route Creation
+Trigger: User initiates via draw/snap-to-trail/convert-from-track
+Owner: RouteManager
+User creates route geometry (draw, snap, or convert)
+Prompt: name the route
+Insert routes (spatial, linestring geometry)
+Insert route_properties (distance, method, source_track_id if converted, trailhead_id=null)
+AliasManager: insert alias (preferred, source='user')
+AuditLogger: data_log entry (action='create')
+TileRequestTrigger: tile_queue entry (HIGH priority)
+RULE: trailhead_id nullable at creation. Required before ride release (V2.6). Rides = V3.0.
+V2.6: Route creation should check AWS for existing tracks in area and present alias names for reference.
+3. Delete Chains
+3.1 Delete Trail
+Owner: TrailImporter (trails removed by source/region batch, never individually)
+Cascade: trail_properties deleted (Kotlin trigger)
+Cascade: artifact_aliases where type='trail' deleted (Kotlin trigger)
+AuditLogger: data_log entry (action='delete', before_state=snapshot)
+No upload_queue impact (trails are agency data, not user shared)
+3.2 Delete Track
+Owner: TrackManager
+Check: route_properties.source_track_id references this track?
+If yes: warn user, allow force delete (nullifies source_track_id)
+Cascade: track_properties deleted
+Cascade: track_surveys deleted
+Cascade: artifact_aliases where type='track' deleted
+Remove from upload_queue if queued
+AuditLogger: data_log entry (action='delete')
+File in my_tracks/ optionally deleted (user choice)
+3.3 Delete Waypoint
+Owner: WaypointManager
+Check: route_properties.trailhead_id references this waypoint?
+If yes: BLOCK delete. User must reassign trailhead on route first.
+Cascade: waypoint_properties deleted
+Cascade: artifact_aliases where type='waypoint' deleted
+Remove from upload_queue if queued
+AuditLogger: data_log entry (action='delete')
+3.4 Delete Route
+Owner: RouteManager
+Check: route_properties.ride_id is not null?
+If yes: BLOCK delete. Route assigned to ride. Must remove from ride first.
+Cascade: route_properties deleted
+Cascade: artifact_aliases where type='route' deleted
+AuditLogger: data_log entry (action='delete')
+4. Alias Lifecycle
+Owner: AliasManager (all alias operations, all artifact types)
+4.1 Alias Integrity Rules
+Every artifact must have at least one alias at all times
+Exactly one alias has is_preferred=1 per artifact (enforced by AliasManager)
+Agency aliases (source='agency') cannot be deleted by user
+AWS aliases (source='aws') cannot be deleted by user
+User aliases (source='user') can be deleted, unless it is the only alias
+On delete preferred: auto-promote next alias (agency first, then aws, then oldest user)
+is_preferred is LOCAL ONLY. Not sent to AWS. Each user picks their own display.
+4.2 Alias Display Chain
+Display name = COALESCE(preferred_alias, spatial.name, agency_id, 'Unnamed')
+v_preferred_aliases view returns one preferred alias per artifact
+v_trail_display, v_track_display views join spatial + alias + properties for display
+4.3 Alias in Data Exchange (V2.6)
+Upload: all aliases sent with artifact (without is_preferred column)
+Download: aliases received with source='aws', user sets preferred locally
+Track upload verification: AWS returns existing area aliases, user picks standard name or keeps own
+Dedup on import: matching source_unique_id adds PrimaryName as alias, not new record
+4.4 Same Interaction All Artifacts
+Click any artifact on map (trail, track, waypoint, route): detail panel shows all aliases with star/source/delete. Same pattern, same interaction, no exceptions.
+Convoy map: display aliases, no actions
+Planning map: display + add alias + set preferred + delete user alias
+Waypoint creation proximity: display nearby aliases + add alias to existing
+Work with Artifacts EDIT: full alias management
+5. Spatial/Extension Sync Rules
+Spatial tables are pure OGC standard. Extension tables are our app logic. Kotlin triggers maintain the relationship.
+5.1 On Spatial Insert
+Kotlin trigger: create matching properties row in extension table
+Kotlin trigger: create first alias in artifact_aliases
+Kotlin trigger: create data_log entry
+Kotlin trigger: create tile_queue entry (priority by type)
+5.2 On Spatial Delete
+Kotlin trigger: delete matching properties row
+Kotlin trigger: delete all aliases for this artifact
+Kotlin trigger: delete survey if track
+Kotlin trigger: remove from upload_queue if queued
+Kotlin trigger: create data_log entry with before_state
+5.3 On Extension Update
+Kotlin trigger: update spatial.updated_at timestamp
+Kotlin trigger: create data_log entry with before/after state
+5.4 Never Allowed
+No FKs on spatial tables (keeps them OGC standard)
+No SQL triggers on spatial tables (all logic in Kotlin)
+No direct extension table writes without matching spatial record
+No orphaned extension records (Kotlin ensures sync)
+6. Queue Lifecycle
+6.1 Tile Queue
+Owner: QueueManager + TileRequestTrigger
+Created by: TileRequestTrigger on spatial insert/update
+Priority: HIGH (tracks, routes), LOW (trails), MED (source refresh)
+Processed by: existing tile download engine
+On completion: QueueManager moves to transfer_history
+6.2 Upload Queue
+Owner: QueueManager
+Created by: Share prompt YES on track/waypoint/route creation
+V2.5: collects items (status='queued'). No processing.
+V2.6: processes items. Pushes spatial + properties + aliases to AWS.
+V2.6: AWS returns alias verification for tracks. User picks standard name.
+On completion: QueueManager moves to transfer_history
+6.3 Download Queue
+Owner: QueueManager
+V2.5: stubs only. No UI processing.
+V2.6: user browses AWS by area. Selects items. Queue entry created.
+V2.6: processes items. Pulls spatial + properties + aliases from AWS.
+On download: TileRequestTrigger fires HIGH priority for new geometry
+On completion: QueueManager moves to transfer_history
+7. Version Implementation Gates
+
+END OF LIFECYCLE OWNERSHIP DOCUMENT
+GroupTrack V2.5 | May 18, 2026 | All sessions incorporated
+Entity | Owns | Creates | Integrity
+SpatialDbManager | Database creation, schema migration, open/close | grouptrack_spatial.spatialite + grouptrack_data.sqlite | Create extension row on spatial insert. Cascade delete extensions on spatial delete.
+TrailImporter | Trail import lifecycle. Parse GeoJSON/Shapefile. Map fields to properties. Dedup. | trails + trail_properties + artifact_aliases + data_log + tile_queue(LOW) | Dedup via source_unique_id. Match = add alias, no new trail. Insert = full chain.
+TrackManager | Track creation (GPS + import). Save/name flow. Share prompt. Survey. | tracks + track_properties + track_surveys + artifact_aliases + data_log + tile_queue(HIGH) + upload_queue | Filename unique check. Bbox computed from file. Share flag sets queue entry.
+WaypointManager | Waypoint creation (long-press both maps). Proximity check. Type selection. | waypoints + waypoint_properties + artifact_aliases + data_log + upload_queue | 100m proximity check. If nearby: show aliases, offer add-alias-to-existing. No silent duplicates.
+RouteManager | Route creation (draw/snap/convert). Trailhead validation. | routes + route_properties + artifact_aliases + data_log + tile_queue(HIGH) | trailhead_id nullable on create, required before ride release (V2.6). Block delete if ride assigned.
+AliasManager | All alias operations across all artifact types. | artifact_aliases entries | Exactly one is_preferred per artifact. Min 1 alias always. Agency/AWS aliases undeletable.
+QueueManager | All three queue tables. Status transitions. History moves. | tile_queue + upload_queue + download_queue + transfer_history | Queue entry on trigger (share, spatial insert). Move to history on completion.
+AuditLogger | data_log entries for every write operation. | data_log | Before/after JSON snapshots. Geometry as WKT. Every write goes through AuditLogger.
+TileRequestTrigger | Observe spatial changes. Create tile queue entries with priority. | tile_queue entries | HIGH = tracks/routes. LOW = trails. MED = source refresh.
+Version | Build | Hold
+V2.5 | Local spatial + extension tables. Trail import (UGRC). Track import/creation. Waypoint creation. Route creation. Alias management. Tile queue. Upload queue (collect only). All UI scaffolding. | Upload processing. Download processing. AWS schema build. Data exchange. Ride association. Route AWS alias check.
+V2.6 | Upload processing. Download processing. AWS spatial tables built from proven local schema. Track upload alias verification. Route creation AWS track check. trailhead_id required validation. | Ride enrollment. Org features. Subscription gate.
+V3.0 | Ride definition (paygated). Ride enrollment downloads. ride_id association on artifacts. ride_areas persistent. Server browse. | 
+
+
+=== GroupTrack_V25_LifecycleOwnership_v3.docx ===
+GroupTrack V2.5
+Lifecycle Ownership + Data Integrity
+May 18, 2026 v3 FINAL | Three-option alias standardization + internet gate
+1. Entity Ownership Map
+Each Kotlin entity owns a specific artifact lifecycle. No shared ownership.
+2. Lifecycle Chains
+2.1 Trail Import
+Owner: TrailImporter
+Parse source file per trail_sources catalog
+Check source_unique_id against existing
+IF EXISTS: AliasManager adds PrimaryName as alias. No new spatial.
+IF NEW: Insert spatial + properties + alias (preferred, source='agency')
+AuditLogger: data_log
+TileRequestTrigger: tile_queue LOW
+Update source_ingestions
+2.2 Track Creation (GPS)
+Owner: TrackManager
+Name prompt
+Save/Skip (Skip = discard)
+Save file to my_tracks/
+Insert spatial (bbox) + properties (metrics)
+AliasManager: first alias (preferred, source='user')
+Share: 'Available to all riders? Y/N' — Y = shared=1
+Survey: enjoyment 1-5, ride again Y/N — insert track_surveys
+AuditLogger + TileRequestTrigger HIGH
+If shared: upload_queue entry
+2.3 Waypoint Creation (Long-Press)
+Owner: WaypointManager
+Type select (10 types)
+Proximity check via proximity_config threshold
+
+
 === GroupTrack_V25_Planning_v2.docx ===
 GroupTrack
 V2.5 Planning — Updated April 17, 2026
@@ -8878,6 +9100,129 @@ Both Planning Map and convoy map display the coverage overlays. Two toggle butto
 Five actions, all on Planning Map (renamed from Map Viewer in V2.5): Draw area (polygon on map), Download (tiles and/or spatial for drawn area), Refresh (re-download updated data for existing area), Remove (delete tiles and/or spatial within drawn area), Queue (view transfer manager).
 All download and area management functionality is removed from convoy map in V2.5. Convoy map is purely operational — it shows coverage overlays, renders trails, displays riders, and records tracks. No downloads, no area editing, no queue access. Clean HUD for ride time.
 
+
+
+=== GroupTrack_V25_UserManual_v3.docx ===
+GroupTrack
+User Manual
+Version 2.5
+Off-Road Convoy Tracking for Android
+May 2026 | Updated daily as features complete
+Table of Contents
+1. What is GroupTrack?
+2. Getting Started
+3. The Convoy Map
+4. The Planning Map
+5. Recording a Ride
+6. Map Toolbar
+7. Display Panel
+8. Download Queue
+9. Map Source Selection [NEW]
+10. Work with Artifacts [IN DEV]
+11. Waypoint Creation [IN DEV]
+12. Track Save & Survey [IN DEV]
+13. Route Creation [IN DEV]
+14. Alias Management [IN DEV]
+15. Work with Queues [IN DEV]
+16. Trail Source Management [IN DEV]
+17. Radio Configuration
+18. Data Storage
+19. Known Limitations
+20. Troubleshooting
+
+What's New in V2.5
+Map Source Selection
+Choose which tile source powers each map slot. 16 sources available. See Section 9.
+API Key Management
+Enter and manage API keys for premium tile sources. See Section 9.2.
+Grid-Based Tile Refresh
+Refresh downloaded tiles when changing sources. ~12 mile grid cells process independently. See Section 9.3.
+SELECT CART HUD
+View individual rider stats by tapping SELECT CART. See Section 3.6.
+ANR Fixes + Overlay Injection
+App startup and map source changes no longer freeze. Overlays load dynamically.
+
+1. What is GroupTrack?
+GroupTrack is an Android application for off-road convoy tracking. It uses Meshtastic mesh radios to share real-time GPS positions between riders in a group, allowing everyone to see where the convoy is on an offline map — even in areas with no cell service.
+1.1 What You Need
+CRITICAL: T1000-E MUST remain on firmware 2.6.11. Do NOT accept firmware updates.
+WARNING: Budget tablets (Tab8NEU) have known BLE issues. Use name-brand phone.
+2. Getting Started
+2.1 Install GroupTrack
+Google Play internal test invite or direct APK from ride organizer.
+2.2 Grant Permissions
+Location: Grant "Allow All the Time" for background GPS recording.
+Storage: Grant "All Files Access" for tiles and tracks.
+Notifications: Grant for download progress.
+2.3 Connect to Your Radio
+Power on T1000-E. Select from Bluetooth list in GroupTrack. Auto-reconnects on future launches.
+3. The Convoy Map
+Main screen showing your position and every connected rider. For live ride operations.
+3.1 Map Display
+Your cart shown with real-time position updates.
+Other riders shown with callsigns.
+Configurable tile sources (SAT/TOPO/TOPO+).
+Trail overlays when toggled on.
+3.2 HUD Bar [UPDATED]
+3.3 Display Panel
+Floating, draggable toggle panel for map layers. See Section 7.
+3.4 Lead and Tail
+Auto-identifies lead (front) and tail (rear). Lead set on group track start.
+3.5 SELECT CART [NEW]
+Tap SELECT CART to open the cart picker. Select any rider for individual stats HUD.
+Cart picker shows all convoy members with callsigns.
+LEAD and LOST badges per rider.
+SET AS LEAD and REMOVE actions available.
+RETURN TO GROUP to go back to group overview.
+3.6 Speed Display
+Speed (mph) displays after 60-second GPS warmup.
+4. The Planning Map
+Download offline tiles, view trails, plan rides. Access via PLANNING MAP button.
+4.1 Search
+Search field for city, park, trail name. Tap GO to navigate.
+4.2 Downloading Tiles
+Navigate to area, tap DOWNLOAD, draw rectangle, confirm. Queue starts automatically.
+4.3 Track Management
+Tap TRACKS for track picker: select, rename, delete.
+4.4 Verifying Downloads
+Toggle "Downloaded Areas" in Display Panel for blue coverage shading.
+5. Recording a Ride
+5.1 Start
+Tap RECORD. Grant location permission. Lead cart set automatically.
+5.2 During
+GPS recorded every 3 seconds. Track draws on map. Recording continues when screen locked.
+5.3 Stop
+Tap STOP. Name the track. Saved as GPX to Documents/GroupTrack/my_tracks/.
+5.4 Viewing
+Toggle Tracks ON in Display Panel.
+6. Map Toolbar [UPDATED]
+6.1 Navigation
+Convoy map: PLANNING MAP. Planning Map: CONVOY.
+6.2 Tile Source Buttons [UPDATED]
+SAT / TOPO / TOPO+ — fixed slot names, configurable sources behind each. See Section 9.
+6.3 NET / LOCAL
+NET = online tiles. LOCAL = cached offline tiles. Switch to LOCAL before losing cell.
+7. Display Panel
+8. Download Queue [UPDATED]
+Background downloads. Queue multiple areas. Max 2 concurrent. Survives app kill.
+8.1 Tile Refresh Jobs [NEW]
+After source change, refresh jobs split into ~12 mile grid cells. Low priority — user downloads first. Completed cells auto-removed.
+
+9. Map Source Selection [NEW]
+16 tile sources. Assign any source to any slot.
+9.1 Changing a Source
+GEAR > Settings > Change Map Sources.
+Tap the slot to change (SAT/TOPO/TOPO+).
+Browse sources by type. Tap to select.
+Change applies immediately. Refresh offered if tiles exist.
+9.2 API Keys
+Locked sources require API key. Tap locked source, enter key, Save. Keys in Documents/GroupTrack/api_keys.json.
+9.3 Tile Refresh
+"Refresh Now" splits area into ~12mi grid cells. Low priority. Auto-remove on completion. Only existing tiles refreshed.
+9.4 Available Sources
+
+10. Work with Artifacts [IN DEVELOPMENT]
+Unified artifact management for tracks, trails, waypoints, and routes.
 
 
 === GroupTrack_V3_Architecture_Plan.docx ===
