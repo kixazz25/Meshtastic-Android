@@ -1869,51 +1869,53 @@ ConvoyScreen.kt:1058:                                            val tS = Math.t
 ConvoyScreen.kt:1059:                                            val tW = x.toDouble() / n * 360.0 - 180.0
 ConvoyScreen.kt:1060:                                            val tE = (x + 1).toDouble() / n * 360.0 - 180.0
 ConvoyScreen.kt:1065:                                val json = "[" + bounds.joinToString(",") + "]"
-ConvoyScreen.kt:1158:        val avgChannelUtil by viewModel.avgChannelUtil.collectAsStateWithLifecycle()
-ConvoyScreen.kt:1159:        val currentIntervalSecs by viewModel.currentIntervalSecs.collectAsStateWithLifecycle()
-ConvoyScreen.kt:1215:fun GroupHud(
-ConvoyScreen.kt:1228:    val chColor = when {
-ConvoyScreen.kt:1318:fun MyCartHud(
-ConvoyScreen.kt:1324:    val myCart = state.nodes.firstOrNull { it.isMyCart }
-ConvoyScreen.kt:1381:fun NodeDetailHud(
-ConvoyScreen.kt:1442:fun CollapsedPill(
-ConvoyScreen.kt:1448:    val infiniteTransition = rememberInfiniteTransition(label = "pill_blink")
-ConvoyScreen.kt:1449:    val alpha by infiniteTransition.animateFloat(
-ConvoyScreen.kt:1481:fun ContactLostBanner(lostCount: Int, lostNames: List<String> = emptyList(), modifier: Modifier = Modifier) {
-ConvoyScreen.kt:1482:    val infiniteTransition = rememberInfiniteTransition(label = "banner_blink")
-ConvoyScreen.kt:1483:    val alpha by infiniteTransition.animateFloat(
-ConvoyScreen.kt:1488:    val nameStr = if (lostNames.isNotEmpty()) lostNames.joinToString(", ") else ""
-ConvoyScreen.kt:1517:fun HudCard(content: @Composable ColumnScope.() -> Unit) {
-ConvoyScreen.kt:1527:fun HudStat(label: String, value: String, valueColor: Color = Color(0xFF111111)) {
-ConvoyScreen.kt:1539:fun HudModeRow(current: HudMode, onModeChange: (HudMode) -> Unit, onNavigateToSettings: () -> Unit = {}) {
-ConvoyScreen.kt:1613:fun ConvoyButtonBar(
-ConvoyScreen.kt:1639:            val isActive = hudMode == mode
-ConvoyScreen.kt:1691:fun convoyListTracks(context: android.content.Context): List<String> {
-ConvoyScreen.kt:1692:    val dir = java.io.File(
-ConvoyScreen.kt:1700:            val ext = f.extension.lowercase()
-ConvoyScreen.kt:1711:fun convoyLoadTrackData(
-ConvoyScreen.kt:1716:        val dir = java.io.File(
-ConvoyScreen.kt:1721:        val file = java.io.File(dir, fileName)
-ConvoyScreen.kt:1723:        val text = file.readText()
-ConvoyScreen.kt:1724:        val coords = if (fileName.lowercase().endsWith(".gpx")) convoyParseGpx(text) else convoyParseKml(text)
-ConvoyScreen.kt:1732:fun convoyLoadTrack(
-ConvoyScreen.kt:1739:        val dir = java.io.File(
-ConvoyScreen.kt:1744:        val file = java.io.File(dir, fileName)
-ConvoyScreen.kt:1746:        val text = file.readText()
-ConvoyScreen.kt:1747:        val coords = if (fileName.lowercase().endsWith(".gpx")) convoyParseGpx(text) else convoyParseKml(text)
-ConvoyScreen.kt:1749:        val json = coords.joinToString(",", "[", "]") { p -> "[${p.first},${p.second}]" }
-ConvoyScreen.kt:1750:        val safe = fileName.replace("'", "\\'")
-ConvoyScreen.kt:1757:fun convoyParseKml(text: String): List<Pair<Double, Double>> {
-ConvoyScreen.kt:1758:    val coords = mutableListOf<Pair<Double, Double>>()
-ConvoyScreen.kt:1759:    val pattern = Regex("""<coordinates>([\s\S]*?)</coordinates>""")
-ConvoyScreen.kt:1762:            val parts = line.trim().split(",")
-ConvoyScreen.kt:1764:                val lon = parts[0].toDoubleOrNull()
-ConvoyScreen.kt:1765:                val lat = parts[1].toDoubleOrNull()
-ConvoyScreen.kt:1775:fun convoyParseGpx(text: String): List<Pair<Double, Double>> {
-ConvoyScreen.kt:1776:    val coords = mutableListOf<Pair<Double, Double>>()
-ConvoyScreen.kt:1777:    val pattern = Regex("""<trkpt\s+lat="([^"]+)"\s+lon="([^"]+)"""")
-ConvoyScreen.kt:1779:        val lat = match.groupValues[1].toDoubleOrNull()
-ConvoyScreen.kt:1780:        val lon = match.groupValues[2].toDoubleOrNull()
+ConvoyScreen.kt:1151:        var showCartPicker by remember { mutableStateOf(false) }
+ConvoyScreen.kt:1171:        val avgChannelUtil by viewModel.avgChannelUtil.collectAsStateWithLifecycle()
+ConvoyScreen.kt:1172:        val currentIntervalSecs by viewModel.currentIntervalSecs.collectAsStateWithLifecycle()
+ConvoyScreen.kt:1228:fun GroupHud(
+ConvoyScreen.kt:1241:    val chColor = when {
+ConvoyScreen.kt:1331:fun MyCartHud(
+ConvoyScreen.kt:1337:    val myCart = state.nodes.firstOrNull { it.isMyCart }
+ConvoyScreen.kt:1394:fun NodeDetailHud(
+ConvoyScreen.kt:1455:fun CollapsedPill(
+ConvoyScreen.kt:1461:    val infiniteTransition = rememberInfiniteTransition(label = "pill_blink")
+ConvoyScreen.kt:1462:    val alpha by infiniteTransition.animateFloat(
+ConvoyScreen.kt:1494:fun ContactLostBanner(lostCount: Int, lostNames: List<String> = emptyList(), modifier: Modifier = Modifier) {
+ConvoyScreen.kt:1495:    val infiniteTransition = rememberInfiniteTransition(label = "banner_blink")
+ConvoyScreen.kt:1496:    val alpha by infiniteTransition.animateFloat(
+ConvoyScreen.kt:1501:    val nameStr = if (lostNames.isNotEmpty()) lostNames.joinToString(", ") else ""
+ConvoyScreen.kt:1530:fun HudCard(content: @Composable ColumnScope.() -> Unit) {
+ConvoyScreen.kt:1540:fun HudStat(label: String, value: String, valueColor: Color = Color(0xFF111111)) {
+ConvoyScreen.kt:1552:fun HudModeRow(current: HudMode, onModeChange: (HudMode) -> Unit, onNavigateToSettings: () -> Unit = {}) {
+ConvoyScreen.kt:1626:fun CartPickerPanel(
+ConvoyScreen.kt:1702:fun ConvoyButtonBar(
+ConvoyScreen.kt:1728:            val isActive = hudMode == mode
+ConvoyScreen.kt:1817:fun convoyListTracks(context: android.content.Context): List<String> {
+ConvoyScreen.kt:1818:    val dir = java.io.File(
+ConvoyScreen.kt:1826:            val ext = f.extension.lowercase()
+ConvoyScreen.kt:1837:fun convoyLoadTrackData(
+ConvoyScreen.kt:1842:        val dir = java.io.File(
+ConvoyScreen.kt:1847:        val file = java.io.File(dir, fileName)
+ConvoyScreen.kt:1849:        val text = file.readText()
+ConvoyScreen.kt:1850:        val coords = if (fileName.lowercase().endsWith(".gpx")) convoyParseGpx(text) else convoyParseKml(text)
+ConvoyScreen.kt:1858:fun convoyLoadTrack(
+ConvoyScreen.kt:1865:        val dir = java.io.File(
+ConvoyScreen.kt:1870:        val file = java.io.File(dir, fileName)
+ConvoyScreen.kt:1872:        val text = file.readText()
+ConvoyScreen.kt:1873:        val coords = if (fileName.lowercase().endsWith(".gpx")) convoyParseGpx(text) else convoyParseKml(text)
+ConvoyScreen.kt:1875:        val json = coords.joinToString(",", "[", "]") { p -> "[${p.first},${p.second}]" }
+ConvoyScreen.kt:1876:        val safe = fileName.replace("'", "\\'")
+ConvoyScreen.kt:1883:fun convoyParseKml(text: String): List<Pair<Double, Double>> {
+ConvoyScreen.kt:1884:    val coords = mutableListOf<Pair<Double, Double>>()
+ConvoyScreen.kt:1885:    val pattern = Regex("""<coordinates>([\s\S]*?)</coordinates>""")
+ConvoyScreen.kt:1888:            val parts = line.trim().split(",")
+ConvoyScreen.kt:1890:                val lon = parts[0].toDoubleOrNull()
+ConvoyScreen.kt:1891:                val lat = parts[1].toDoubleOrNull()
+ConvoyScreen.kt:1901:fun convoyParseGpx(text: String): List<Pair<Double, Double>> {
+ConvoyScreen.kt:1902:    val coords = mutableListOf<Pair<Double, Double>>()
+ConvoyScreen.kt:1903:    val pattern = Regex("""<trkpt\s+lat="([^"]+)"\s+lon="([^"]+)"""")
+ConvoyScreen.kt:1905:        val lat = match.groupValues[1].toDoubleOrNull()
+ConvoyScreen.kt:1906:        val lon = match.groupValues[2].toDoubleOrNull()
 ConvoySearchByAreaScreen.kt:39:fun ConvoySearchByAreaScreen(
 ConvoyServicesChooser.kt:31:fun ConvoyServicesChooser(
 ConvoyServicesChooser.kt:37:    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
