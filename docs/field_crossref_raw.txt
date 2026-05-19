@@ -23,9 +23,9 @@ STATUS KEY:
   [REFERENCE]  = Stock Meshtastic, referenced by convoy code
   [REMOVED]    = Was present, now removed (noted for history)
 
-Generated: 2026-05-18 16:17
+Generated: 2026-05-18 19:45
 Branch: feature/convoy-event-ride
-Last commit: 8ab37ffa6 docs: recommit all project documents + cross-reference — 2026-05-18 16:17
+Last commit: efb4d30ef docs: recommit all project documents + cross-reference — 2026-05-18 19:45
 
 ================================================================================
 SECTION 1: MESHTASTIC BASE LAYER MODIFICATIONS
@@ -356,7 +356,7 @@ ConvoyRadioWriter.kt | 248 | 7 | WriteStep {
 ConvoyReconnectWaitScreen.kt | 278 | 2 |  60s countdown + auto BT cycle + auto-proceed to verify
 ConvoyRideDetailScreen.kt | 542 | 8 |  ===========================================================
 ConvoyRidesScreen.kt | 174 | 2 |  ===========================================================
-ConvoyScreen.kt | 1918 | 24 | RecordingState { IDLE, RECORDING, PAUSED, SLEEPING }
+ConvoyScreen.kt | 1919 | 24 | RecordingState { IDLE, RECORDING, PAUSED, SLEEPING }
 ConvoySearchByAreaScreen.kt | 110 | 1 |  ===========================================================
 ConvoyServicesChooser.kt | 189 | 1 |  ===========================================================
 ConvoySessionManager.kt | 117 | 25 | ConvoySessionManager {
@@ -382,6 +382,7 @@ ConvoyVerifyConfigScreen.kt | 355 | 2 | VerifyResult(
 ConvoyViewModel.kt | 945 | 55 | HudMode {
 GroupTrackTheme.kt | 454 | 10 |  ── GroupTrack Brand Colors ─────────�
 MapSourceManager.kt | 314 | 26 | MapSourceManager {
+SpatialDbManager.kt | 227 | 18 | SpatialDbManager {
 
 ================================================================================
 SECTION 3: HTML MAP ASSETS
@@ -6600,6 +6601,7 @@ FILE: ConvoyScreen.kt
       → ActivityResultContracts.RequestPermission
       → DisposableEffect
       → Environment.isExternalStorageManager
+      → SpatialDbManager.init
       → Toast.makeText
       → hiltViewModel
       → mutableStateOf
@@ -6607,20 +6609,20 @@ FILE: ConvoyScreen.kt
       → runtime.rememberCoroutineScope
       → show
 
-  [448] fun onMarkerTapped(nodeId: String) {
+  [449] fun onMarkerTapped(nodeId: String) {
     WORK FIELDS (local computed values):
-      [449] val node = viewModel.convoyState.value.nodes.firstOrNull { it.nodeId == nodeId }
-      [456] val estimate = ConvoyTileCalculator.quickEstimate(north, south, east, west)
-      [458] val pending = ConvoyViewModel.PendingDownload(
-      [485] val tileUrl = ConvoyConfig.TILE_SOURCES[ConvoyConfig.ACTIVE_TILE_SOURCE] ?: return
-      [488] val overlayJson = MapSourceManager.getOverlayJson(ConvoyConfig.ACTIVE_TILE_SOURCE)
-      [495] val lm = ctx.getSystemService(android.content.Context.LOCATION_SERVICE) as android.location.LocationManager
-      [496] val loc = lm.getLastKnownLocation(android.location.LocationManager.GPS_PROVIDER)
-      [509] val url = request?.url?.toString() ?: return super.shouldInterceptRequest(view, request)
-      [511] val tilePath = url.removePrefix("convoy://tiles/")
-      [512] val file = java.io.File(ConvoyConfig.TILE_DIR, tilePath)
-      [519] val parts = url.split("/tile/").lastOrNull()?.split("/")
-      [521] val file = java.io.File(ConvoyConfig.TILE_DIR, "SAT_LABELS_TRANSPORT/${parts[0]}/${parts[2]}/${parts[1]}.png")
+      [450] val node = viewModel.convoyState.value.nodes.firstOrNull { it.nodeId == nodeId }
+      [457] val estimate = ConvoyTileCalculator.quickEstimate(north, south, east, west)
+      [459] val pending = ConvoyViewModel.PendingDownload(
+      [486] val tileUrl = ConvoyConfig.TILE_SOURCES[ConvoyConfig.ACTIVE_TILE_SOURCE] ?: return
+      [489] val overlayJson = MapSourceManager.getOverlayJson(ConvoyConfig.ACTIVE_TILE_SOURCE)
+      [496] val lm = ctx.getSystemService(android.content.Context.LOCATION_SERVICE) as android.location.LocationManager
+      [497] val loc = lm.getLastKnownLocation(android.location.LocationManager.GPS_PROVIDER)
+      [510] val url = request?.url?.toString() ?: return super.shouldInterceptRequest(view, request)
+      [512] val tilePath = url.removePrefix("convoy://tiles/")
+      [513] val file = java.io.File(ConvoyConfig.TILE_DIR, tilePath)
+      [520] val parts = url.split("/tile/").lastOrNull()?.split("/")
+      [522] val file = java.io.File(ConvoyConfig.TILE_DIR, "SAT_LABELS_TRANSPORT/${parts[0]}/${parts[2]}/${parts[1]}.png")
     CALLS OUT:
       → ConvoyTileCalculator.quickEstimate
       → ConvoyViewModel.PendingDownload
@@ -6638,20 +6640,20 @@ FILE: ConvoyScreen.kt
       → onAreaSelected
       → onPageFinished
 
-  [454] fun onAreaSelected(north: Double, south: Double, east: Double, west: Double) {
+  [455] fun onAreaSelected(north: Double, south: Double, east: Double, west: Double) {
     WORK FIELDS (local computed values):
-      [456] val estimate = ConvoyTileCalculator.quickEstimate(north, south, east, west)
-      [458] val pending = ConvoyViewModel.PendingDownload(
-      [485] val tileUrl = ConvoyConfig.TILE_SOURCES[ConvoyConfig.ACTIVE_TILE_SOURCE] ?: return
-      [488] val overlayJson = MapSourceManager.getOverlayJson(ConvoyConfig.ACTIVE_TILE_SOURCE)
-      [495] val lm = ctx.getSystemService(android.content.Context.LOCATION_SERVICE) as android.location.LocationManager
-      [496] val loc = lm.getLastKnownLocation(android.location.LocationManager.GPS_PROVIDER)
-      [509] val url = request?.url?.toString() ?: return super.shouldInterceptRequest(view, request)
-      [511] val tilePath = url.removePrefix("convoy://tiles/")
-      [512] val file = java.io.File(ConvoyConfig.TILE_DIR, tilePath)
-      [519] val parts = url.split("/tile/").lastOrNull()?.split("/")
-      [521] val file = java.io.File(ConvoyConfig.TILE_DIR, "SAT_LABELS_TRANSPORT/${parts[0]}/${parts[2]}/${parts[1]}.png")
-      [528] val parts = url.split("/tile/").lastOrNull()?.split("/")
+      [457] val estimate = ConvoyTileCalculator.quickEstimate(north, south, east, west)
+      [459] val pending = ConvoyViewModel.PendingDownload(
+      [486] val tileUrl = ConvoyConfig.TILE_SOURCES[ConvoyConfig.ACTIVE_TILE_SOURCE] ?: return
+      [489] val overlayJson = MapSourceManager.getOverlayJson(ConvoyConfig.ACTIVE_TILE_SOURCE)
+      [496] val lm = ctx.getSystemService(android.content.Context.LOCATION_SERVICE) as android.location.LocationManager
+      [497] val loc = lm.getLastKnownLocation(android.location.LocationManager.GPS_PROVIDER)
+      [510] val url = request?.url?.toString() ?: return super.shouldInterceptRequest(view, request)
+      [512] val tilePath = url.removePrefix("convoy://tiles/")
+      [513] val file = java.io.File(ConvoyConfig.TILE_DIR, tilePath)
+      [520] val parts = url.split("/tile/").lastOrNull()?.split("/")
+      [522] val file = java.io.File(ConvoyConfig.TILE_DIR, "SAT_LABELS_TRANSPORT/${parts[0]}/${parts[2]}/${parts[1]}.png")
+      [529] val parts = url.split("/tile/").lastOrNull()?.split("/")
     CALLS OUT:
       → ConvoyTileCalculator.quickEstimate
       → ConvoyViewModel.PendingDownload
@@ -6669,20 +6671,20 @@ FILE: ConvoyScreen.kt
       → onPageFinished
       → os.Handler
 
-  [484] override fun onPageFinished(view: android.webkit.WebView?, url: String?) {
+  [485] override fun onPageFinished(view: android.webkit.WebView?, url: String?) {
     WORK FIELDS (local computed values):
-      [485] val tileUrl = ConvoyConfig.TILE_SOURCES[ConvoyConfig.ACTIVE_TILE_SOURCE] ?: return
-      [488] val overlayJson = MapSourceManager.getOverlayJson(ConvoyConfig.ACTIVE_TILE_SOURCE)
-      [495] val lm = ctx.getSystemService(android.content.Context.LOCATION_SERVICE) as android.location.LocationManager
-      [496] val loc = lm.getLastKnownLocation(android.location.LocationManager.GPS_PROVIDER)
-      [509] val url = request?.url?.toString() ?: return super.shouldInterceptRequest(view, request)
-      [511] val tilePath = url.removePrefix("convoy://tiles/")
-      [512] val file = java.io.File(ConvoyConfig.TILE_DIR, tilePath)
-      [519] val parts = url.split("/tile/").lastOrNull()?.split("/")
-      [521] val file = java.io.File(ConvoyConfig.TILE_DIR, "SAT_LABELS_TRANSPORT/${parts[0]}/${parts[2]}/${parts[1]}.png")
-      [528] val parts = url.split("/tile/").lastOrNull()?.split("/")
-      [530] val file = java.io.File(ConvoyConfig.TILE_DIR, "SAT_LABELS_PLACES/${parts[0]}/${parts[2]}/${parts[1]}.png")
-      [551] val node = viewModel.convoyState.value.nodes.firstOrNull { it.nodeId == nodeId }
+      [486] val tileUrl = ConvoyConfig.TILE_SOURCES[ConvoyConfig.ACTIVE_TILE_SOURCE] ?: return
+      [489] val overlayJson = MapSourceManager.getOverlayJson(ConvoyConfig.ACTIVE_TILE_SOURCE)
+      [496] val lm = ctx.getSystemService(android.content.Context.LOCATION_SERVICE) as android.location.LocationManager
+      [497] val loc = lm.getLastKnownLocation(android.location.LocationManager.GPS_PROVIDER)
+      [510] val url = request?.url?.toString() ?: return super.shouldInterceptRequest(view, request)
+      [512] val tilePath = url.removePrefix("convoy://tiles/")
+      [513] val file = java.io.File(ConvoyConfig.TILE_DIR, tilePath)
+      [520] val parts = url.split("/tile/").lastOrNull()?.split("/")
+      [522] val file = java.io.File(ConvoyConfig.TILE_DIR, "SAT_LABELS_TRANSPORT/${parts[0]}/${parts[2]}/${parts[1]}.png")
+      [529] val parts = url.split("/tile/").lastOrNull()?.split("/")
+      [531] val file = java.io.File(ConvoyConfig.TILE_DIR, "SAT_LABELS_PLACES/${parts[0]}/${parts[2]}/${parts[1]}.png")
+      [552] val node = viewModel.convoyState.value.nodes.firstOrNull { it.nodeId == nodeId }
     CALLS OUT:
       → ConvoyConfig.migrateTiles
       → ConvoyTileCalculator.quickEstimate
@@ -6700,20 +6702,20 @@ FILE: ConvoyScreen.kt
       → loadUrl
       → msg.lineNumber
 
-  [508] override fun shouldInterceptRequest(view: android.webkit.WebView?, request: android.webkit.WebResourceRequest?): android.webkit.WebResourceResponse? {
+  [509] override fun shouldInterceptRequest(view: android.webkit.WebView?, request: android.webkit.WebResourceRequest?): android.webkit.WebResourceResponse? {
     WORK FIELDS (local computed values):
-      [509] val url = request?.url?.toString() ?: return super.shouldInterceptRequest(view, request)
-      [511] val tilePath = url.removePrefix("convoy://tiles/")
-      [512] val file = java.io.File(ConvoyConfig.TILE_DIR, tilePath)
-      [519] val parts = url.split("/tile/").lastOrNull()?.split("/")
-      [521] val file = java.io.File(ConvoyConfig.TILE_DIR, "SAT_LABELS_TRANSPORT/${parts[0]}/${parts[2]}/${parts[1]}.png")
-      [528] val parts = url.split("/tile/").lastOrNull()?.split("/")
-      [530] val file = java.io.File(ConvoyConfig.TILE_DIR, "SAT_LABELS_PLACES/${parts[0]}/${parts[2]}/${parts[1]}.png")
-      [551] val node = viewModel.convoyState.value.nodes.firstOrNull { it.nodeId == nodeId }
-      [558] val estimate = ConvoyTileCalculator.quickEstimate(north, south, east, west)
-      [560] val pending = ConvoyViewModel.PendingDownload(
-      [578] val wv = webViewRef.value ?: return@post
-      [580] val tilesDir = java.io.File(ConvoyConfig.TILE_DIR, "SAT/18")
+      [510] val url = request?.url?.toString() ?: return super.shouldInterceptRequest(view, request)
+      [512] val tilePath = url.removePrefix("convoy://tiles/")
+      [513] val file = java.io.File(ConvoyConfig.TILE_DIR, tilePath)
+      [520] val parts = url.split("/tile/").lastOrNull()?.split("/")
+      [522] val file = java.io.File(ConvoyConfig.TILE_DIR, "SAT_LABELS_TRANSPORT/${parts[0]}/${parts[2]}/${parts[1]}.png")
+      [529] val parts = url.split("/tile/").lastOrNull()?.split("/")
+      [531] val file = java.io.File(ConvoyConfig.TILE_DIR, "SAT_LABELS_PLACES/${parts[0]}/${parts[2]}/${parts[1]}.png")
+      [552] val node = viewModel.convoyState.value.nodes.firstOrNull { it.nodeId == nodeId }
+      [559] val estimate = ConvoyTileCalculator.quickEstimate(north, south, east, west)
+      [561] val pending = ConvoyViewModel.PendingDownload(
+      [579] val wv = webViewRef.value ?: return@post
+      [581] val tilesDir = java.io.File(ConvoyConfig.TILE_DIR, "SAT/18")
     CALLS OUT:
       → ConvoyConfig.migrateTiles
       → ConvoyTileCalculator.quickEstimate
@@ -6731,20 +6733,20 @@ FILE: ConvoyScreen.kt
       → msg.message
       → msg.messageLevel
 
-  [540] override fun onConsoleMessage(msg: android.webkit.ConsoleMessage): Boolean {
+  [541] override fun onConsoleMessage(msg: android.webkit.ConsoleMessage): Boolean {
     WORK FIELDS (local computed values):
-      [551] val node = viewModel.convoyState.value.nodes.firstOrNull { it.nodeId == nodeId }
-      [558] val estimate = ConvoyTileCalculator.quickEstimate(north, south, east, west)
-      [560] val pending = ConvoyViewModel.PendingDownload(
-      [578] val wv = webViewRef.value ?: return@post
-      [580] val tilesDir = java.io.File(ConvoyConfig.TILE_DIR, "SAT/18")
-      [582] val bounds = mutableListOf<String>()
-      [584] val z = 18
-      [585] val n = 1 shl z
-      [588] var xMin = Long.MAX_VALUE; var xMax = Long.MIN_VALUE
-      [589] var yMin = Long.MAX_VALUE; var yMax = Long.MIN_VALUE
-      [591] val x = xDir.name.toLongOrNull() ?: return@forEach
-      [593] val y = yFile.name.removeSuffix(".png").toLongOrNull() ?: return@forEach
+      [552] val node = viewModel.convoyState.value.nodes.firstOrNull { it.nodeId == nodeId }
+      [559] val estimate = ConvoyTileCalculator.quickEstimate(north, south, east, west)
+      [561] val pending = ConvoyViewModel.PendingDownload(
+      [579] val wv = webViewRef.value ?: return@post
+      [581] val tilesDir = java.io.File(ConvoyConfig.TILE_DIR, "SAT/18")
+      [583] val bounds = mutableListOf<String>()
+      [585] val z = 18
+      [586] val n = 1 shl z
+      [589] var xMin = Long.MAX_VALUE; var xMax = Long.MIN_VALUE
+      [590] var yMin = Long.MAX_VALUE; var yMax = Long.MIN_VALUE
+      [592] val x = xDir.name.toLongOrNull() ?: return@forEach
+      [594] val y = yFile.name.removeSuffix(".png").toLongOrNull() ?: return@forEach
     CALLS OUT:
       → ConvoyConfig.migrateTiles
       → ConvoyTileCalculator.quickEstimate
@@ -6762,20 +6764,20 @@ FILE: ConvoyScreen.kt
       → msg.message
       → msg.messageLevel
 
-  [550] fun onMarkerTapped(nodeId: String) {
+  [551] fun onMarkerTapped(nodeId: String) {
     WORK FIELDS (local computed values):
-      [551] val node = viewModel.convoyState.value.nodes.firstOrNull { it.nodeId == nodeId }
-      [558] val estimate = ConvoyTileCalculator.quickEstimate(north, south, east, west)
-      [560] val pending = ConvoyViewModel.PendingDownload(
-      [578] val wv = webViewRef.value ?: return@post
-      [580] val tilesDir = java.io.File(ConvoyConfig.TILE_DIR, "SAT/18")
-      [582] val bounds = mutableListOf<String>()
-      [584] val z = 18
-      [585] val n = 1 shl z
-      [588] var xMin = Long.MAX_VALUE; var xMax = Long.MIN_VALUE
-      [589] var yMin = Long.MAX_VALUE; var yMax = Long.MIN_VALUE
-      [591] val x = xDir.name.toLongOrNull() ?: return@forEach
-      [593] val y = yFile.name.removeSuffix(".png").toLongOrNull() ?: return@forEach
+      [552] val node = viewModel.convoyState.value.nodes.firstOrNull { it.nodeId == nodeId }
+      [559] val estimate = ConvoyTileCalculator.quickEstimate(north, south, east, west)
+      [561] val pending = ConvoyViewModel.PendingDownload(
+      [579] val wv = webViewRef.value ?: return@post
+      [581] val tilesDir = java.io.File(ConvoyConfig.TILE_DIR, "SAT/18")
+      [583] val bounds = mutableListOf<String>()
+      [585] val z = 18
+      [586] val n = 1 shl z
+      [589] var xMin = Long.MAX_VALUE; var xMax = Long.MIN_VALUE
+      [590] var yMin = Long.MAX_VALUE; var yMax = Long.MIN_VALUE
+      [592] val x = xDir.name.toLongOrNull() ?: return@forEach
+      [594] val y = yFile.name.removeSuffix(".png").toLongOrNull() ?: return@forEach
     CALLS OUT:
       → ConvoyTileCalculator.quickEstimate
       → ConvoyViewModel.PendingDownload
@@ -6793,20 +6795,20 @@ FILE: ConvoyScreen.kt
       → start
       → tilesDir.exists
 
-  [556] fun onAreaSelected(north: Double, south: Double, east: Double, west: Double) {
+  [557] fun onAreaSelected(north: Double, south: Double, east: Double, west: Double) {
     WORK FIELDS (local computed values):
-      [558] val estimate = ConvoyTileCalculator.quickEstimate(north, south, east, west)
-      [560] val pending = ConvoyViewModel.PendingDownload(
-      [578] val wv = webViewRef.value ?: return@post
-      [580] val tilesDir = java.io.File(ConvoyConfig.TILE_DIR, "SAT/18")
-      [582] val bounds = mutableListOf<String>()
-      [584] val z = 18
-      [585] val n = 1 shl z
-      [588] var xMin = Long.MAX_VALUE; var xMax = Long.MIN_VALUE
-      [589] var yMin = Long.MAX_VALUE; var yMax = Long.MIN_VALUE
-      [591] val x = xDir.name.toLongOrNull() ?: return@forEach
-      [593] val y = yFile.name.removeSuffix(".png").toLongOrNull() ?: return@forEach
-      [599] val tileN = Math.toDegrees(Math.atan(Math.sinh(Math.PI * (1.0 - 2.0 * yMin / n))))
+      [559] val estimate = ConvoyTileCalculator.quickEstimate(north, south, east, west)
+      [561] val pending = ConvoyViewModel.PendingDownload(
+      [579] val wv = webViewRef.value ?: return@post
+      [581] val tilesDir = java.io.File(ConvoyConfig.TILE_DIR, "SAT/18")
+      [583] val bounds = mutableListOf<String>()
+      [585] val z = 18
+      [586] val n = 1 shl z
+      [589] var xMin = Long.MAX_VALUE; var xMax = Long.MIN_VALUE
+      [590] var yMin = Long.MAX_VALUE; var yMax = Long.MIN_VALUE
+      [592] val x = xDir.name.toLongOrNull() ?: return@forEach
+      [594] val y = yFile.name.removeSuffix(".png").toLongOrNull() ?: return@forEach
+      [600] val tileN = Math.toDegrees(Math.atan(Math.sinh(Math.PI * (1.0 - 2.0 * yMin / n))))
     CALLS OUT:
       → ConvoyTileCalculator.quickEstimate
       → ConvoyViewModel.PendingDownload
@@ -6824,20 +6826,20 @@ FILE: ConvoyScreen.kt
       → showDownloadedAreas
       → start
 
-  [576] fun onMapBoundsReady(north: Double, south: Double, east: Double, west: Double) {
+  [577] fun onMapBoundsReady(north: Double, south: Double, east: Double, west: Double) {
     WORK FIELDS (local computed values):
-      [578] val wv = webViewRef.value ?: return@post
-      [580] val tilesDir = java.io.File(ConvoyConfig.TILE_DIR, "SAT/18")
-      [582] val bounds = mutableListOf<String>()
-      [584] val z = 18
-      [585] val n = 1 shl z
-      [588] var xMin = Long.MAX_VALUE; var xMax = Long.MIN_VALUE
-      [589] var yMin = Long.MAX_VALUE; var yMax = Long.MIN_VALUE
-      [591] val x = xDir.name.toLongOrNull() ?: return@forEach
-      [593] val y = yFile.name.removeSuffix(".png").toLongOrNull() ?: return@forEach
-      [599] val tileN = Math.toDegrees(Math.atan(Math.sinh(Math.PI * (1.0 - 2.0 * yMin / n))))
-      [600] val tileS = Math.toDegrees(Math.atan(Math.sinh(Math.PI * (1.0 - 2.0 * (yMax + 1) / n))))
-      [601] val tileW = xMin.toDouble() / n * 360.0 - 180.0
+      [579] val wv = webViewRef.value ?: return@post
+      [581] val tilesDir = java.io.File(ConvoyConfig.TILE_DIR, "SAT/18")
+      [583] val bounds = mutableListOf<String>()
+      [585] val z = 18
+      [586] val n = 1 shl z
+      [589] var xMin = Long.MAX_VALUE; var xMax = Long.MIN_VALUE
+      [590] var yMin = Long.MAX_VALUE; var yMax = Long.MIN_VALUE
+      [592] val x = xDir.name.toLongOrNull() ?: return@forEach
+      [594] val y = yFile.name.removeSuffix(".png").toLongOrNull() ?: return@forEach
+      [600] val tileN = Math.toDegrees(Math.atan(Math.sinh(Math.PI * (1.0 - 2.0 * yMin / n))))
+      [601] val tileS = Math.toDegrees(Math.atan(Math.sinh(Math.PI * (1.0 - 2.0 * (yMax + 1) / n))))
+      [602] val tileW = xMin.toDouble() / n * 360.0 - 180.0
     CALLS OUT:
       → LaunchedEffect
       → Log.i
@@ -6855,10 +6857,10 @@ FILE: ConvoyScreen.kt
       → showDownloadedAreas
       → start
 
-  [1234] fun GroupHud(
+  [1235] fun GroupHud(
     WORK FIELDS (local computed values):
-      [1247] val chColor = when {
-      [1253] // Vertical interval slider — flush against HudCard
+      [1248] val chColor = when {
+      [1254] // Vertical interval slider — flush against HudCard
     CALLS OUT:
       → Arrangement.spacedBy
       → Box
@@ -6876,9 +6878,9 @@ FILE: ConvoyScreen.kt
       → text.TextStyle
       → width
 
-  [1337] fun MyCartHud(
+  [1338] fun MyCartHud(
     WORK FIELDS (local computed values):
-      [1343] val myCart = state.nodes.firstOrNull { it.isMyCart }
+      [1344] val myCart = state.nodes.firstOrNull { it.isMyCart }
     CALLS OUT:
       → Arrangement.spacedBy
       → Color
@@ -6891,10 +6893,10 @@ FILE: ConvoyScreen.kt
       → graphics.Shadow
       → text.TextStyle
 
-  [1400] fun NodeDetailHud(
+  [1401] fun NodeDetailHud(
     WORK FIELDS (local computed values):
-      [1467] val infiniteTransition = rememberInfiniteTransition(label = "pill_blink")
-      [1468] val alpha by infiniteTransition.animateFloat(
+      [1468] val infiniteTransition = rememberInfiniteTransition(label = "pill_blink")
+      [1469] val alpha by infiniteTransition.animateFloat(
     CALLS OUT:
       → Color
       → HudStat
@@ -6912,13 +6914,13 @@ FILE: ConvoyScreen.kt
       → padding
       → rememberInfiniteTransition
 
-  [1461] fun CollapsedPill(
+  [1462] fun CollapsedPill(
     WORK FIELDS (local computed values):
-      [1467] val infiniteTransition = rememberInfiniteTransition(label = "pill_blink")
-      [1468] val alpha by infiniteTransition.animateFloat(
-      [1501] val infiniteTransition = rememberInfiniteTransition(label = "banner_blink")
-      [1502] val alpha by infiniteTransition.animateFloat(
-      [1507] val nameStr = if (lostNames.isNotEmpty()) lostNames.joinToString(", ") else ""
+      [1468] val infiniteTransition = rememberInfiniteTransition(label = "pill_blink")
+      [1469] val alpha by infiniteTransition.animateFloat(
+      [1502] val infiniteTransition = rememberInfiniteTransition(label = "banner_blink")
+      [1503] val alpha by infiniteTransition.animateFloat(
+      [1508] val nameStr = if (lostNames.isNotEmpty()) lostNames.joinToString(", ") else ""
     CALLS OUT:
       → Color
       → Column
@@ -6936,11 +6938,11 @@ FILE: ConvoyScreen.kt
       → rememberInfiniteTransition
       → wrapContentWidth
 
-  [1500] fun ContactLostBanner(lostCount: Int, lostNames: List<String> = emptyList(), modifier: Modifier = Modifier) {
+  [1501] fun ContactLostBanner(lostCount: Int, lostNames: List<String> = emptyList(), modifier: Modifier = Modifier) {
     WORK FIELDS (local computed values):
-      [1501] val infiniteTransition = rememberInfiniteTransition(label = "banner_blink")
-      [1502] val alpha by infiniteTransition.animateFloat(
-      [1507] val nameStr = if (lostNames.isNotEmpty()) lostNames.joinToString(", ") else ""
+      [1502] val infiniteTransition = rememberInfiniteTransition(label = "banner_blink")
+      [1503] val alpha by infiniteTransition.animateFloat(
+      [1508] val nameStr = if (lostNames.isNotEmpty()) lostNames.joinToString(", ") else ""
     CALLS OUT:
       → Arrangement.spacedBy
       → Color
@@ -6958,7 +6960,7 @@ FILE: ConvoyScreen.kt
       → nameStr.isNotEmpty
       → onModeChange
 
-  [1536] fun HudCard(content: @Composable ColumnScope.() -> Unit) {
+  [1537] fun HudCard(content: @Composable ColumnScope.() -> Unit) {
     CALLS OUT:
       → Arrangement.spacedBy
       → Color
@@ -6974,7 +6976,7 @@ FILE: ConvoyScreen.kt
       → text.TextStyle
       → wrapContentWidth
 
-  [1546] fun HudStat(label: String, value: String, valueColor: Color = Color(0xFF111111)) {
+  [1547] fun HudStat(label: String, value: String, valueColor: Color = Color(0xFF111111)) {
     CALLS OUT:
       → Arrangement.spacedBy
       → Color
@@ -6987,14 +6989,14 @@ FILE: ConvoyScreen.kt
       → onModeChange
       → text.TextStyle
 
-  [1558] fun HudModeRow(current: HudMode, onModeChange: (HudMode) -> Unit, onNavigateToSettings: () -> Unit = {}) {
+  [1559] fun HudModeRow(current: HudMode, onModeChange: (HudMode) -> Unit, onNavigateToSettings: () -> Unit = {}) {
     CALLS OUT:
       → Arrangement.spacedBy
       → Color
       → RoundedCornerShape
       → onModeChange
 
-  [1632] fun CartPickerPanel(
+  [1633] fun CartPickerPanel(
     CALLS OUT:
       → Color
       → Column
@@ -7006,9 +7008,9 @@ FILE: ConvoyScreen.kt
       → onSelect
       → padding
 
-  [1708] fun ConvoyButtonBar(
+  [1709] fun ConvoyButtonBar(
     WORK FIELDS (local computed values):
-      [1734] val isActive = hudMode == mode
+      [1735] val isActive = hudMode == mode
     CALLS OUT:
       → Arrangement.spacedBy
       → Color
@@ -7023,20 +7025,20 @@ FILE: ConvoyScreen.kt
       → onSelectCart
       → weight
 
-  [1823] fun convoyListTracks(context: android.content.Context): List<String> {
+  [1824] fun convoyListTracks(context: android.content.Context): List<String> {
     WORK FIELDS (local computed values):
-      [1824] val dir = java.io.File(
-      [1832] val ext = f.extension.lowercase()
-      [1848] val dir = java.io.File(
-      [1853] val file = java.io.File(dir, fileName)
-      [1855] val text = file.readText()
-      [1856] val coords = if (fileName.lowercase().endsWith(".gpx")) convoyParseGpx(text) else convoyParseKml(text)
-      [1871] val dir = java.io.File(
-      [1876] val file = java.io.File(dir, fileName)
-      [1878] val text = file.readText()
-      [1879] val coords = if (fileName.lowercase().endsWith(".gpx")) convoyParseGpx(text) else convoyParseKml(text)
-      [1881] val json = coords.joinToString(",", "[", "]") { p -> "[${p.first},${p.second}]" }
-      [1882] val safe = fileName.replace("'", "\\'")
+      [1825] val dir = java.io.File(
+      [1833] val ext = f.extension.lowercase()
+      [1849] val dir = java.io.File(
+      [1854] val file = java.io.File(dir, fileName)
+      [1856] val text = file.readText()
+      [1857] val coords = if (fileName.lowercase().endsWith(".gpx")) convoyParseGpx(text) else convoyParseKml(text)
+      [1872] val dir = java.io.File(
+      [1877] val file = java.io.File(dir, fileName)
+      [1879] val text = file.readText()
+      [1880] val coords = if (fileName.lowercase().endsWith(".gpx")) convoyParseGpx(text) else convoyParseKml(text)
+      [1882] val json = coords.joinToString(",", "[", "]") { p -> "[${p.first},${p.second}]" }
+      [1883] val safe = fileName.replace("'", "\\'")
     CALLS OUT:
       → Environment.getExternalStoragePublicDirectory
       → Log.e
@@ -7054,20 +7056,20 @@ FILE: ConvoyScreen.kt
       → file.readText
       → fileName.lowercase
 
-  [1843] fun convoyLoadTrackData(
+  [1844] fun convoyLoadTrackData(
     WORK FIELDS (local computed values):
-      [1848] val dir = java.io.File(
-      [1853] val file = java.io.File(dir, fileName)
-      [1855] val text = file.readText()
-      [1856] val coords = if (fileName.lowercase().endsWith(".gpx")) convoyParseGpx(text) else convoyParseKml(text)
-      [1871] val dir = java.io.File(
-      [1876] val file = java.io.File(dir, fileName)
-      [1878] val text = file.readText()
-      [1879] val coords = if (fileName.lowercase().endsWith(".gpx")) convoyParseGpx(text) else convoyParseKml(text)
-      [1881] val json = coords.joinToString(",", "[", "]") { p -> "[${p.first},${p.second}]" }
-      [1882] val safe = fileName.replace("'", "\\'")
-      [1890] val coords = mutableListOf<Pair<Double, Double>>()
-      [1891] val pattern = Regex("""<coordinates>([\s\S]*?)</coordinates>""")
+      [1849] val dir = java.io.File(
+      [1854] val file = java.io.File(dir, fileName)
+      [1856] val text = file.readText()
+      [1857] val coords = if (fileName.lowercase().endsWith(".gpx")) convoyParseGpx(text) else convoyParseKml(text)
+      [1872] val dir = java.io.File(
+      [1877] val file = java.io.File(dir, fileName)
+      [1879] val text = file.readText()
+      [1880] val coords = if (fileName.lowercase().endsWith(".gpx")) convoyParseGpx(text) else convoyParseKml(text)
+      [1882] val json = coords.joinToString(",", "[", "]") { p -> "[${p.first},${p.second}]" }
+      [1883] val safe = fileName.replace("'", "\\'")
+      [1891] val coords = mutableListOf<Pair<Double, Double>>()
+      [1892] val pattern = Regex("""<coordinates>([\s\S]*?)</coordinates>""")
     CALLS OUT:
       → Environment.getExternalStoragePublicDirectory
       → Log.e
@@ -7085,20 +7087,20 @@ FILE: ConvoyScreen.kt
       → io.File
       → line.trim
 
-  [1864] fun convoyLoadTrack(
+  [1865] fun convoyLoadTrack(
     WORK FIELDS (local computed values):
-      [1871] val dir = java.io.File(
-      [1876] val file = java.io.File(dir, fileName)
-      [1878] val text = file.readText()
-      [1879] val coords = if (fileName.lowercase().endsWith(".gpx")) convoyParseGpx(text) else convoyParseKml(text)
-      [1881] val json = coords.joinToString(",", "[", "]") { p -> "[${p.first},${p.second}]" }
-      [1882] val safe = fileName.replace("'", "\\'")
-      [1890] val coords = mutableListOf<Pair<Double, Double>>()
-      [1891] val pattern = Regex("""<coordinates>([\s\S]*?)</coordinates>""")
-      [1894] val parts = line.trim().split(",")
-      [1896] val lon = parts[0].toDoubleOrNull()
-      [1897] val lat = parts[1].toDoubleOrNull()
-      [1908] val coords = mutableListOf<Pair<Double, Double>>()
+      [1872] val dir = java.io.File(
+      [1877] val file = java.io.File(dir, fileName)
+      [1879] val text = file.readText()
+      [1880] val coords = if (fileName.lowercase().endsWith(".gpx")) convoyParseGpx(text) else convoyParseKml(text)
+      [1882] val json = coords.joinToString(",", "[", "]") { p -> "[${p.first},${p.second}]" }
+      [1883] val safe = fileName.replace("'", "\\'")
+      [1891] val coords = mutableListOf<Pair<Double, Double>>()
+      [1892] val pattern = Regex("""<coordinates>([\s\S]*?)</coordinates>""")
+      [1895] val parts = line.trim().split(",")
+      [1897] val lon = parts[0].toDoubleOrNull()
+      [1898] val lat = parts[1].toDoubleOrNull()
+      [1909] val coords = mutableListOf<Pair<Double, Double>>()
     CALLS OUT:
       → Environment.getExternalStoragePublicDirectory
       → Log.e
@@ -7116,17 +7118,17 @@ FILE: ConvoyScreen.kt
       → io.File
       → line.trim
 
-  [1889] fun convoyParseKml(text: String): List<Pair<Double, Double>> {
+  [1890] fun convoyParseKml(text: String): List<Pair<Double, Double>> {
     WORK FIELDS (local computed values):
-      [1890] val coords = mutableListOf<Pair<Double, Double>>()
-      [1891] val pattern = Regex("""<coordinates>([\s\S]*?)</coordinates>""")
-      [1894] val parts = line.trim().split(",")
-      [1896] val lon = parts[0].toDoubleOrNull()
-      [1897] val lat = parts[1].toDoubleOrNull()
-      [1908] val coords = mutableListOf<Pair<Double, Double>>()
-      [1909] val pattern = Regex("""<trkpt\s+lat="([^"]+)"\s+lon="([^"]+)"""")
-      [1911] val lat = match.groupValues[1].toDoubleOrNull()
-      [1912] val lon = match.groupValues[2].toDoubleOrNull()
+      [1891] val coords = mutableListOf<Pair<Double, Double>>()
+      [1892] val pattern = Regex("""<coordinates>([\s\S]*?)</coordinates>""")
+      [1895] val parts = line.trim().split(",")
+      [1897] val lon = parts[0].toDoubleOrNull()
+      [1898] val lat = parts[1].toDoubleOrNull()
+      [1909] val coords = mutableListOf<Pair<Double, Double>>()
+      [1910] val pattern = Regex("""<trkpt\s+lat="([^"]+)"\s+lon="([^"]+)"""")
+      [1912] val lat = match.groupValues[1].toDoubleOrNull()
+      [1913] val lon = match.groupValues[2].toDoubleOrNull()
     CALLS OUT:
       → Pair
       → Regex
@@ -7138,12 +7140,12 @@ FILE: ConvoyScreen.kt
       → split
       → trim
 
-  [1907] fun convoyParseGpx(text: String): List<Pair<Double, Double>> {
+  [1908] fun convoyParseGpx(text: String): List<Pair<Double, Double>> {
     WORK FIELDS (local computed values):
-      [1908] val coords = mutableListOf<Pair<Double, Double>>()
-      [1909] val pattern = Regex("""<trkpt\s+lat="([^"]+)"\s+lon="([^"]+)"""")
-      [1911] val lat = match.groupValues[1].toDoubleOrNull()
-      [1912] val lon = match.groupValues[2].toDoubleOrNull()
+      [1909] val coords = mutableListOf<Pair<Double, Double>>()
+      [1910] val pattern = Regex("""<trkpt\s+lat="([^"]+)"\s+lon="([^"]+)"""")
+      [1912] val lat = match.groupValues[1].toDoubleOrNull()
+      [1913] val lon = match.groupValues[2].toDoubleOrNull()
     CALLS OUT:
       → Pair
       → Regex
@@ -12081,6 +12083,518 @@ FILE: MapSourceManager.kt
       → Log.w
       → loadFallback
 
+========================================
+FILE: SpatialDbManager.kt
+========================================
+
+  [43] private fun dbDir(): File {
+    WORK FIELDS (local computed values):
+      [44] val dir = File(
+      [56] val dir = dbDir()
+      [59] val spatialFile = File(dir, SPATIAL_DB)
+      [60] val isNewSpatial = !spatialFile.exists()
+      [70] val extFile = File(dir, EXTENSION_DB)
+      [71] val isNewExt = !extFile.exists()
+      [84] val trailCount = countRows(spatialDb!!, "trails")
+      [85] val trackCount = countRows(spatialDb!!, "tracks")
+      [86] val wptCount = countRows(spatialDb!!, "waypoints")
+      [87] val routeCount = countRows(spatialDb!!, "routes")
+      [96] val sql = context.assets.open(assetName).bufferedReader().use { it.readText() }
+      [118] val cursor = db.rawQuery("SELECT COUNT(*) FROM $table", null)
+    CALLS OUT:
+      → COUNT
+      → Environment.getExternalStoragePublicDirectory
+      → File
+      → Log.e
+      → Log.i
+      → Log.w
+      → SQLiteDatabase.openOrCreateDatabase
+      → assets.open
+      → bufferedReader
+      → countRows
+      → cursor.close
+      → cursor.moveToFirst
+      → db.beginTransaction
+      → db.endTransaction
+      → db.execSQL
+
+  [53] fun init(context: Context) {
+    WORK FIELDS (local computed values):
+      [56] val dir = dbDir()
+      [59] val spatialFile = File(dir, SPATIAL_DB)
+      [60] val isNewSpatial = !spatialFile.exists()
+      [70] val extFile = File(dir, EXTENSION_DB)
+      [71] val isNewExt = !extFile.exists()
+      [84] val trailCount = countRows(spatialDb!!, "trails")
+      [85] val trackCount = countRows(spatialDb!!, "tracks")
+      [86] val wptCount = countRows(spatialDb!!, "waypoints")
+      [87] val routeCount = countRows(spatialDb!!, "routes")
+      [96] val sql = context.assets.open(assetName).bufferedReader().use { it.readText() }
+      [118] val cursor = db.rawQuery("SELECT COUNT(*) FROM $table", null)
+      [120] val count = cursor.getInt(0)
+    CALLS OUT:
+      → COUNT
+      → File
+      → Log.e
+      → Log.i
+      → Log.w
+      → SQLiteDatabase.openOrCreateDatabase
+      → assets.open
+      → bufferedReader
+      → close
+      → countRows
+      → cursor.close
+      → cursor.moveToFirst
+      → db.beginTransaction
+      → db.endTransaction
+      → db.execSQL
+
+  [95] private fun runSchemaFromAsset(context: Context, db: SQLiteDatabase, assetName: String) {
+    WORK FIELDS (local computed values):
+      [96] val sql = context.assets.open(assetName).bufferedReader().use { it.readText() }
+      [118] val cursor = db.rawQuery("SELECT COUNT(*) FROM $table", null)
+      [120] val count = cursor.getInt(0)
+      [163] val coords = points.joinToString(", ") { "${it.second} ${it.first}" }
+      [173] val match = Regex("POINT\\(([\\d.\\-]+) ([\\d.\\-]+)\\)").find(wkt) ?: return null
+      [174] val lng = match.groupValues[1].toDoubleOrNull() ?: return null
+      [175] val lat = match.groupValues[2].toDoubleOrNull() ?: return null
+    CALLS OUT:
+      → COUNT
+      → Instant.now
+      → LINESTRING
+      → Log.i
+      → Log.w
+      → POINT
+      → POLYGON
+      → Regex
+      → UUID.randomUUID
+      → assets.open
+      → bboxWkt
+      → bufferedReader
+      → check
+      → close
+      → countRows
+
+  [117] private fun countRows(db: SQLiteDatabase, table: String): Int {
+    WORK FIELDS (local computed values):
+      [118] val cursor = db.rawQuery("SELECT COUNT(*) FROM $table", null)
+      [120] val count = cursor.getInt(0)
+      [163] val coords = points.joinToString(", ") { "${it.second} ${it.first}" }
+      [173] val match = Regex("POINT\\(([\\d.\\-]+) ([\\d.\\-]+)\\)").find(wkt) ?: return null
+      [174] val lng = match.groupValues[1].toDoubleOrNull() ?: return null
+      [175] val lat = match.groupValues[2].toDoubleOrNull() ?: return null
+      [181] val match = Regex("LINESTRING\\((.+)\\)").find(wkt) ?: return emptyList()
+      [183] val parts = coord.trim().split(" ")
+      [185] val lng = parts[0].toDoubleOrNull()
+      [186] val lat = parts[1].toDoubleOrNull()
+      [194] val match = Regex("POLYGON\\(\\((.+)\\)\\)").find(wkt) ?: return null
+      [195] val points = match.groupValues[1].split(",").mapNotNull { coord ->
+    CALLS OUT:
+      → COUNT
+      → Instant.now
+      → LINESTRING
+      → Log.i
+      → POINT
+      → POLYGON
+      → Pair
+      → Regex
+      → UUID.randomUUID
+      → bboxWkt
+      → check
+      → close
+      → coord.trim
+      → cursor.close
+      → cursor.moveToFirst
+
+  [126] fun close() {
+    WORK FIELDS (local computed values):
+      [163] val coords = points.joinToString(", ") { "${it.second} ${it.first}" }
+      [173] val match = Regex("POINT\\(([\\d.\\-]+) ([\\d.\\-]+)\\)").find(wkt) ?: return null
+      [174] val lng = match.groupValues[1].toDoubleOrNull() ?: return null
+      [175] val lat = match.groupValues[2].toDoubleOrNull() ?: return null
+      [181] val match = Regex("LINESTRING\\((.+)\\)").find(wkt) ?: return emptyList()
+      [183] val parts = coord.trim().split(" ")
+      [185] val lng = parts[0].toDoubleOrNull()
+      [186] val lat = parts[1].toDoubleOrNull()
+      [194] val match = Regex("POLYGON\\(\\((.+)\\)\\)").find(wkt) ?: return null
+      [195] val points = match.groupValues[1].split(",").mapNotNull { coord ->
+      [196] val parts = coord.trim().split(" ")
+      [200] val lngs = points.map { it.first }
+    CALLS OUT:
+      → Instant.now
+      → LINESTRING
+      → Log.i
+      → POINT
+      → POLYGON
+      → Pair
+      → Regex
+      → UUID.randomUUID
+      → bboxWkt
+      → check
+      → close
+      → coord.trim
+      → doubleArrayOf
+      → extension
+      → find
+
+  [137] fun spatial(): SQLiteDatabase {
+    WORK FIELDS (local computed values):
+      [163] val coords = points.joinToString(", ") { "${it.second} ${it.first}" }
+      [173] val match = Regex("POINT\\(([\\d.\\-]+) ([\\d.\\-]+)\\)").find(wkt) ?: return null
+      [174] val lng = match.groupValues[1].toDoubleOrNull() ?: return null
+      [175] val lat = match.groupValues[2].toDoubleOrNull() ?: return null
+      [181] val match = Regex("LINESTRING\\((.+)\\)").find(wkt) ?: return emptyList()
+      [183] val parts = coord.trim().split(" ")
+      [185] val lng = parts[0].toDoubleOrNull()
+      [186] val lat = parts[1].toDoubleOrNull()
+      [194] val match = Regex("POLYGON\\(\\((.+)\\)\\)").find(wkt) ?: return null
+      [195] val points = match.groupValues[1].split(",").mapNotNull { coord ->
+      [196] val parts = coord.trim().split(" ")
+      [200] val lngs = points.map { it.first }
+    CALLS OUT:
+      → Instant.now
+      → LINESTRING
+      → POINT
+      → POLYGON
+      → Pair
+      → Regex
+      → UUID.randomUUID
+      → bboxWkt
+      → check
+      → coord.trim
+      → cursor.close
+      → cursor.moveToFirst
+      → doubleArrayOf
+      → extension
+      → extensionSchemaVersion
+
+  [142] fun extension(): SQLiteDatabase {
+    WORK FIELDS (local computed values):
+      [163] val coords = points.joinToString(", ") { "${it.second} ${it.first}" }
+      [173] val match = Regex("POINT\\(([\\d.\\-]+) ([\\d.\\-]+)\\)").find(wkt) ?: return null
+      [174] val lng = match.groupValues[1].toDoubleOrNull() ?: return null
+      [175] val lat = match.groupValues[2].toDoubleOrNull() ?: return null
+      [181] val match = Regex("LINESTRING\\((.+)\\)").find(wkt) ?: return emptyList()
+      [183] val parts = coord.trim().split(" ")
+      [185] val lng = parts[0].toDoubleOrNull()
+      [186] val lat = parts[1].toDoubleOrNull()
+      [194] val match = Regex("POLYGON\\(\\((.+)\\)\\)").find(wkt) ?: return null
+      [195] val points = match.groupValues[1].split(",").mapNotNull { coord ->
+      [196] val parts = coord.trim().split(" ")
+      [200] val lngs = points.map { it.first }
+    CALLS OUT:
+      → Instant.now
+      → LINESTRING
+      → POINT
+      → POLYGON
+      → Pair
+      → Regex
+      → UUID.randomUUID
+      → bboxWkt
+      → check
+      → coord.trim
+      → cursor.close
+      → cursor.moveToFirst
+      → doubleArrayOf
+      → extensionSchemaVersion
+      → find
+
+  [147] fun isReady(): Boolean = initialized
+    WORK FIELDS (local computed values):
+      [163] val coords = points.joinToString(", ") { "${it.second} ${it.first}" }
+      [173] val match = Regex("POINT\\(([\\d.\\-]+) ([\\d.\\-]+)\\)").find(wkt) ?: return null
+      [174] val lng = match.groupValues[1].toDoubleOrNull() ?: return null
+      [175] val lat = match.groupValues[2].toDoubleOrNull() ?: return null
+      [181] val match = Regex("LINESTRING\\((.+)\\)").find(wkt) ?: return emptyList()
+      [183] val parts = coord.trim().split(" ")
+      [185] val lng = parts[0].toDoubleOrNull()
+      [186] val lat = parts[1].toDoubleOrNull()
+      [194] val match = Regex("POLYGON\\(\\((.+)\\)\\)").find(wkt) ?: return null
+      [195] val points = match.groupValues[1].split(",").mapNotNull { coord ->
+      [196] val parts = coord.trim().split(" ")
+      [200] val lngs = points.map { it.first }
+    CALLS OUT:
+      → Instant.now
+      → LINESTRING
+      → POINT
+      → POLYGON
+      → Pair
+      → Regex
+      → UUID.randomUUID
+      → bboxWkt
+      → coord.trim
+      → cursor.close
+      → cursor.moveToFirst
+      → doubleArrayOf
+      → extensionSchemaVersion
+      → find
+      → lats.min
+
+  [150] fun newId(): String = UUID.randomUUID().toString()
+    WORK FIELDS (local computed values):
+      [163] val coords = points.joinToString(", ") { "${it.second} ${it.first}" }
+      [173] val match = Regex("POINT\\(([\\d.\\-]+) ([\\d.\\-]+)\\)").find(wkt) ?: return null
+      [174] val lng = match.groupValues[1].toDoubleOrNull() ?: return null
+      [175] val lat = match.groupValues[2].toDoubleOrNull() ?: return null
+      [181] val match = Regex("LINESTRING\\((.+)\\)").find(wkt) ?: return emptyList()
+      [183] val parts = coord.trim().split(" ")
+      [185] val lng = parts[0].toDoubleOrNull()
+      [186] val lat = parts[1].toDoubleOrNull()
+      [194] val match = Regex("POLYGON\\(\\((.+)\\)\\)").find(wkt) ?: return null
+      [195] val points = match.groupValues[1].split(",").mapNotNull { coord ->
+      [196] val parts = coord.trim().split(" ")
+      [200] val lngs = points.map { it.first }
+    CALLS OUT:
+      → Instant.now
+      → LINESTRING
+      → POINT
+      → POLYGON
+      → Pair
+      → Regex
+      → bboxWkt
+      → coord.trim
+      → cursor.close
+      → cursor.moveToFirst
+      → doubleArrayOf
+      → extensionSchemaVersion
+      → find
+      → lats.min
+      → lineWkt
+
+  [153] fun now(): String = Instant.now().toString()
+    WORK FIELDS (local computed values):
+      [163] val coords = points.joinToString(", ") { "${it.second} ${it.first}" }
+      [173] val match = Regex("POINT\\(([\\d.\\-]+) ([\\d.\\-]+)\\)").find(wkt) ?: return null
+      [174] val lng = match.groupValues[1].toDoubleOrNull() ?: return null
+      [175] val lat = match.groupValues[2].toDoubleOrNull() ?: return null
+      [181] val match = Regex("LINESTRING\\((.+)\\)").find(wkt) ?: return emptyList()
+      [183] val parts = coord.trim().split(" ")
+      [185] val lng = parts[0].toDoubleOrNull()
+      [186] val lat = parts[1].toDoubleOrNull()
+      [194] val match = Regex("POLYGON\\(\\((.+)\\)\\)").find(wkt) ?: return null
+      [195] val points = match.groupValues[1].split(",").mapNotNull { coord ->
+      [196] val parts = coord.trim().split(" ")
+      [200] val lngs = points.map { it.first }
+    CALLS OUT:
+      → LINESTRING
+      → POINT
+      → POLYGON
+      → Pair
+      → Regex
+      → bboxWkt
+      → coord.trim
+      → cursor.close
+      → cursor.moveToFirst
+      → doubleArrayOf
+      → extensionSchemaVersion
+      → find
+      → lats.min
+      → lineWkt
+      → lngs.max
+
+  [158] fun pointWkt(lat: Double, lng: Double): String =
+    WORK FIELDS (local computed values):
+      [163] val coords = points.joinToString(", ") { "${it.second} ${it.first}" }
+      [173] val match = Regex("POINT\\(([\\d.\\-]+) ([\\d.\\-]+)\\)").find(wkt) ?: return null
+      [174] val lng = match.groupValues[1].toDoubleOrNull() ?: return null
+      [175] val lat = match.groupValues[2].toDoubleOrNull() ?: return null
+      [181] val match = Regex("LINESTRING\\((.+)\\)").find(wkt) ?: return emptyList()
+      [183] val parts = coord.trim().split(" ")
+      [185] val lng = parts[0].toDoubleOrNull()
+      [186] val lat = parts[1].toDoubleOrNull()
+      [194] val match = Regex("POLYGON\\(\\((.+)\\)\\)").find(wkt) ?: return null
+      [195] val points = match.groupValues[1].split(",").mapNotNull { coord ->
+      [196] val parts = coord.trim().split(" ")
+      [200] val lngs = points.map { it.first }
+    CALLS OUT:
+      → LINESTRING
+      → POINT
+      → POLYGON
+      → Pair
+      → Regex
+      → bboxWkt
+      → coord.trim
+      → cursor.close
+      → cursor.moveToFirst
+      → doubleArrayOf
+      → extensionSchemaVersion
+      → find
+      → lats.min
+      → lineWkt
+      → lngs.max
+
+  [162] fun lineWkt(points: List<Pair<Double, Double>>): String {
+    WORK FIELDS (local computed values):
+      [163] val coords = points.joinToString(", ") { "${it.second} ${it.first}" }
+      [173] val match = Regex("POINT\\(([\\d.\\-]+) ([\\d.\\-]+)\\)").find(wkt) ?: return null
+      [174] val lng = match.groupValues[1].toDoubleOrNull() ?: return null
+      [175] val lat = match.groupValues[2].toDoubleOrNull() ?: return null
+      [181] val match = Regex("LINESTRING\\((.+)\\)").find(wkt) ?: return emptyList()
+      [183] val parts = coord.trim().split(" ")
+      [185] val lng = parts[0].toDoubleOrNull()
+      [186] val lat = parts[1].toDoubleOrNull()
+      [194] val match = Regex("POLYGON\\(\\((.+)\\)\\)").find(wkt) ?: return null
+      [195] val points = match.groupValues[1].split(",").mapNotNull { coord ->
+      [196] val parts = coord.trim().split(" ")
+      [200] val lngs = points.map { it.first }
+    CALLS OUT:
+      → LINESTRING
+      → POLYGON
+      → Pair
+      → Regex
+      → bboxWkt
+      → coord.trim
+      → cursor.close
+      → cursor.moveToFirst
+      → doubleArrayOf
+      → extensionSchemaVersion
+      → find
+      → lats.min
+      → lngs.max
+      → lngs.min
+      → parseBbox
+
+  [168] fun bboxWkt(north: Double, south: Double, east: Double, west: Double): String =
+    WORK FIELDS (local computed values):
+      [173] val match = Regex("POINT\\(([\\d.\\-]+) ([\\d.\\-]+)\\)").find(wkt) ?: return null
+      [174] val lng = match.groupValues[1].toDoubleOrNull() ?: return null
+      [175] val lat = match.groupValues[2].toDoubleOrNull() ?: return null
+      [181] val match = Regex("LINESTRING\\((.+)\\)").find(wkt) ?: return emptyList()
+      [183] val parts = coord.trim().split(" ")
+      [185] val lng = parts[0].toDoubleOrNull()
+      [186] val lat = parts[1].toDoubleOrNull()
+      [194] val match = Regex("POLYGON\\(\\((.+)\\)\\)").find(wkt) ?: return null
+      [195] val points = match.groupValues[1].split(",").mapNotNull { coord ->
+      [196] val parts = coord.trim().split(" ")
+      [200] val lngs = points.map { it.first }
+      [201] val lats = points.map { it.second }
+    CALLS OUT:
+      → POLYGON
+      → Pair
+      → Regex
+      → coord.trim
+      → cursor.close
+      → cursor.moveToFirst
+      → doubleArrayOf
+      → extensionSchemaVersion
+      → find
+      → lats.min
+      → lngs.max
+      → lngs.min
+      → parseBbox
+      → parseLine
+      → parsePoint
+
+  [172] fun parsePoint(wkt: String): Pair<Double, Double>? {
+    WORK FIELDS (local computed values):
+      [173] val match = Regex("POINT\\(([\\d.\\-]+) ([\\d.\\-]+)\\)").find(wkt) ?: return null
+      [174] val lng = match.groupValues[1].toDoubleOrNull() ?: return null
+      [175] val lat = match.groupValues[2].toDoubleOrNull() ?: return null
+      [181] val match = Regex("LINESTRING\\((.+)\\)").find(wkt) ?: return emptyList()
+      [183] val parts = coord.trim().split(" ")
+      [185] val lng = parts[0].toDoubleOrNull()
+      [186] val lat = parts[1].toDoubleOrNull()
+      [194] val match = Regex("POLYGON\\(\\((.+)\\)\\)").find(wkt) ?: return null
+      [195] val points = match.groupValues[1].split(",").mapNotNull { coord ->
+      [196] val parts = coord.trim().split(" ")
+      [200] val lngs = points.map { it.first }
+      [201] val lats = points.map { it.second }
+    CALLS OUT:
+      → Pair
+      → Regex
+      → coord.trim
+      → cursor.close
+      → cursor.moveToFirst
+      → doubleArrayOf
+      → extensionSchemaVersion
+      → find
+      → lats.min
+      → lngs.max
+      → lngs.min
+      → parseBbox
+      → parseLine
+      → rawQuery
+      → spatialSchemaVersion
+
+  [180] fun parseLine(wkt: String): List<Pair<Double, Double>> {
+    WORK FIELDS (local computed values):
+      [181] val match = Regex("LINESTRING\\((.+)\\)").find(wkt) ?: return emptyList()
+      [183] val parts = coord.trim().split(" ")
+      [185] val lng = parts[0].toDoubleOrNull()
+      [186] val lat = parts[1].toDoubleOrNull()
+      [194] val match = Regex("POLYGON\\(\\((.+)\\)\\)").find(wkt) ?: return null
+      [195] val points = match.groupValues[1].split(",").mapNotNull { coord ->
+      [196] val parts = coord.trim().split(" ")
+      [200] val lngs = points.map { it.first }
+      [201] val lats = points.map { it.second }
+      [209] val cursor = spatialDb!!.rawQuery("SELECT version FROM schema_version ORDER BY version DESC LIMIT 1", null)
+      [211] val v = cursor.getInt(0)
+      [220] val cursor = extensionDb!!.rawQuery("SELECT version FROM schema_version ORDER BY version DESC LIMIT 1", null)
+    CALLS OUT:
+      → Pair
+      → Regex
+      → coord.trim
+      → cursor.close
+      → cursor.moveToFirst
+      → doubleArrayOf
+      → extensionSchemaVersion
+      → find
+      → lats.min
+      → lngs.max
+      → lngs.min
+      → parseBbox
+      → rawQuery
+      → spatialSchemaVersion
+      → split
+
+  [193] fun parseBbox(wkt: String): DoubleArray? {
+    WORK FIELDS (local computed values):
+      [194] val match = Regex("POLYGON\\(\\((.+)\\)\\)").find(wkt) ?: return null
+      [195] val points = match.groupValues[1].split(",").mapNotNull { coord ->
+      [196] val parts = coord.trim().split(" ")
+      [200] val lngs = points.map { it.first }
+      [201] val lats = points.map { it.second }
+      [209] val cursor = spatialDb!!.rawQuery("SELECT version FROM schema_version ORDER BY version DESC LIMIT 1", null)
+      [211] val v = cursor.getInt(0)
+      [220] val cursor = extensionDb!!.rawQuery("SELECT version FROM schema_version ORDER BY version DESC LIMIT 1", null)
+      [222] val v = cursor.getInt(0)
+    CALLS OUT:
+      → Pair
+      → Regex
+      → coord.trim
+      → cursor.close
+      → cursor.moveToFirst
+      → doubleArrayOf
+      → extensionSchemaVersion
+      → find
+      → lats.min
+      → lngs.max
+      → lngs.min
+      → rawQuery
+      → spatialSchemaVersion
+      → split
+
+  [206] fun spatialSchemaVersion(): Int {
+    WORK FIELDS (local computed values):
+      [209] val cursor = spatialDb!!.rawQuery("SELECT version FROM schema_version ORDER BY version DESC LIMIT 1", null)
+      [211] val v = cursor.getInt(0)
+      [220] val cursor = extensionDb!!.rawQuery("SELECT version FROM schema_version ORDER BY version DESC LIMIT 1", null)
+      [222] val v = cursor.getInt(0)
+    CALLS OUT:
+      → cursor.close
+      → cursor.moveToFirst
+      → extensionSchemaVersion
+      → rawQuery
+
+  [217] fun extensionSchemaVersion(): Int {
+    WORK FIELDS (local computed values):
+      [220] val cursor = extensionDb!!.rawQuery("SELECT version FROM schema_version ORDER BY version DESC LIMIT 1", null)
+      [222] val v = cursor.getInt(0)
+    CALLS OUT:
+      → cursor.close
+      → cursor.moveToFirst
+      → rawQuery
+
 ================================================================================
 SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
 ================================================================================
@@ -12097,20 +12611,20 @@ SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
       [W] ConvoyViewModel.kt:555:        _convoyState.value = state
     READERS (functions that USE this field):
       [R] convoy/ConvoyScreen.kt:106:    val convoyState by viewModel.convoyState.collectAsStateWithLifecycle()
-      [R] convoy/ConvoyScreen.kt:190:    LaunchedEffect(convoyState) {
-      [R] convoy/ConvoyScreen.kt:192:        val validNodes = convoyState.nodes.filter { it.latitude != 0.0 && it.longitude != 0.0 }
-      [R] convoy/ConvoyScreen.kt:207:    LaunchedEffect(convoyState) {
-      [R] convoy/ConvoyScreen.kt:210:        val validNodes = convoyState.nodes.filter { it.latitude != 0.0 && it.longitude != 0.0 }
-      [R] convoy/ConvoyScreen.kt:224:            val myCart = convoyState.nodes.firstOrNull { it.nodeId == myCartId }
-      [R] convoy/ConvoyScreen.kt:233:    LaunchedEffect(hudMode, selectedNode, mapReady, autoPan, if (autoPan) convoyState else null) {
-      [R] convoy/ConvoyScreen.kt:236:        val nodes = convoyState.nodes
-      [R] convoy/ConvoyScreen.kt:449:                            val node = viewModel.convoyState.value.nodes.firstOrNull { it.nodeId == nodeId }
-      [R] convoy/ConvoyScreen.kt:551:                                val node = viewModel.convoyState.value.nodes.firstOrNull { it.nodeId == nodeId }
-      [R] convoy/ConvoyScreen.kt:636:                                val node = viewModel.convoyState.value.nodes.firstOrNull { it.nodeId == nodeId }
-      [R] convoy/ConvoyScreen.kt:692:            val dialogNodes = convoyState.nodes
-      [R] convoy/ConvoyScreen.kt:769:                                        val meshNodes = viewModel.convoyState.value.nodes
-      [R] convoy/ConvoyScreen.kt:858:        if (convoyState.hasLost && hudMode != HudMode.COLLAPSED) {
-      [R] convoy/ConvoyScreen.kt:859:            val lostNames = convoyState.nodes
+      [R] convoy/ConvoyScreen.kt:191:    LaunchedEffect(convoyState) {
+      [R] convoy/ConvoyScreen.kt:193:        val validNodes = convoyState.nodes.filter { it.latitude != 0.0 && it.longitude != 0.0 }
+      [R] convoy/ConvoyScreen.kt:208:    LaunchedEffect(convoyState) {
+      [R] convoy/ConvoyScreen.kt:211:        val validNodes = convoyState.nodes.filter { it.latitude != 0.0 && it.longitude != 0.0 }
+      [R] convoy/ConvoyScreen.kt:225:            val myCart = convoyState.nodes.firstOrNull { it.nodeId == myCartId }
+      [R] convoy/ConvoyScreen.kt:234:    LaunchedEffect(hudMode, selectedNode, mapReady, autoPan, if (autoPan) convoyState else null) {
+      [R] convoy/ConvoyScreen.kt:237:        val nodes = convoyState.nodes
+      [R] convoy/ConvoyScreen.kt:450:                            val node = viewModel.convoyState.value.nodes.firstOrNull { it.nodeId == nodeId }
+      [R] convoy/ConvoyScreen.kt:552:                                val node = viewModel.convoyState.value.nodes.firstOrNull { it.nodeId == nodeId }
+      [R] convoy/ConvoyScreen.kt:637:                                val node = viewModel.convoyState.value.nodes.firstOrNull { it.nodeId == nodeId }
+      [R] convoy/ConvoyScreen.kt:693:            val dialogNodes = convoyState.nodes
+      [R] convoy/ConvoyScreen.kt:770:                                        val meshNodes = viewModel.convoyState.value.nodes
+      [R] convoy/ConvoyScreen.kt:859:        if (convoyState.hasLost && hudMode != HudMode.COLLAPSED) {
+      [R] convoy/ConvoyScreen.kt:860:            val lostNames = convoyState.nodes
 
   FIELD: _convoyState (public: convoyState)
   DECLARED: ConvoyViewModel.kt:56
@@ -12122,20 +12636,20 @@ SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
       [W] ConvoyViewModel.kt:555:        _convoyState.value = state
     READERS (functions that USE this field):
       [R] convoy/ConvoyScreen.kt:106:    val convoyState by viewModel.convoyState.collectAsStateWithLifecycle()
-      [R] convoy/ConvoyScreen.kt:190:    LaunchedEffect(convoyState) {
-      [R] convoy/ConvoyScreen.kt:192:        val validNodes = convoyState.nodes.filter { it.latitude != 0.0 && it.longitude != 0.0 }
-      [R] convoy/ConvoyScreen.kt:207:    LaunchedEffect(convoyState) {
-      [R] convoy/ConvoyScreen.kt:210:        val validNodes = convoyState.nodes.filter { it.latitude != 0.0 && it.longitude != 0.0 }
-      [R] convoy/ConvoyScreen.kt:224:            val myCart = convoyState.nodes.firstOrNull { it.nodeId == myCartId }
-      [R] convoy/ConvoyScreen.kt:233:    LaunchedEffect(hudMode, selectedNode, mapReady, autoPan, if (autoPan) convoyState else null) {
-      [R] convoy/ConvoyScreen.kt:236:        val nodes = convoyState.nodes
-      [R] convoy/ConvoyScreen.kt:449:                            val node = viewModel.convoyState.value.nodes.firstOrNull { it.nodeId == nodeId }
-      [R] convoy/ConvoyScreen.kt:551:                                val node = viewModel.convoyState.value.nodes.firstOrNull { it.nodeId == nodeId }
-      [R] convoy/ConvoyScreen.kt:636:                                val node = viewModel.convoyState.value.nodes.firstOrNull { it.nodeId == nodeId }
-      [R] convoy/ConvoyScreen.kt:692:            val dialogNodes = convoyState.nodes
-      [R] convoy/ConvoyScreen.kt:769:                                        val meshNodes = viewModel.convoyState.value.nodes
-      [R] convoy/ConvoyScreen.kt:858:        if (convoyState.hasLost && hudMode != HudMode.COLLAPSED) {
-      [R] convoy/ConvoyScreen.kt:859:            val lostNames = convoyState.nodes
+      [R] convoy/ConvoyScreen.kt:191:    LaunchedEffect(convoyState) {
+      [R] convoy/ConvoyScreen.kt:193:        val validNodes = convoyState.nodes.filter { it.latitude != 0.0 && it.longitude != 0.0 }
+      [R] convoy/ConvoyScreen.kt:208:    LaunchedEffect(convoyState) {
+      [R] convoy/ConvoyScreen.kt:211:        val validNodes = convoyState.nodes.filter { it.latitude != 0.0 && it.longitude != 0.0 }
+      [R] convoy/ConvoyScreen.kt:225:            val myCart = convoyState.nodes.firstOrNull { it.nodeId == myCartId }
+      [R] convoy/ConvoyScreen.kt:234:    LaunchedEffect(hudMode, selectedNode, mapReady, autoPan, if (autoPan) convoyState else null) {
+      [R] convoy/ConvoyScreen.kt:237:        val nodes = convoyState.nodes
+      [R] convoy/ConvoyScreen.kt:450:                            val node = viewModel.convoyState.value.nodes.firstOrNull { it.nodeId == nodeId }
+      [R] convoy/ConvoyScreen.kt:552:                                val node = viewModel.convoyState.value.nodes.firstOrNull { it.nodeId == nodeId }
+      [R] convoy/ConvoyScreen.kt:637:                                val node = viewModel.convoyState.value.nodes.firstOrNull { it.nodeId == nodeId }
+      [R] convoy/ConvoyScreen.kt:693:            val dialogNodes = convoyState.nodes
+      [R] convoy/ConvoyScreen.kt:770:                                        val meshNodes = viewModel.convoyState.value.nodes
+      [R] convoy/ConvoyScreen.kt:859:        if (convoyState.hasLost && hudMode != HudMode.COLLAPSED) {
+      [R] convoy/ConvoyScreen.kt:860:            val lostNames = convoyState.nodes
 
   FIELD: _rideState (public: rideState)
   DECLARED: ConvoyViewModel.kt:57
@@ -12227,13 +12741,13 @@ SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
       [W] ConvoyViewModel.kt:716:        if (_hudMode.value == HudMode.NODE && _selectedNode.value != null) {
     READERS (functions that USE this field):
       [R] convoy/ConvoyScreen.kt:107:    val hudMode by viewModel.hudMode.collectAsStateWithLifecycle()
-      [R] convoy/ConvoyScreen.kt:233:    LaunchedEffect(hudMode, selectedNode, mapReady, autoPan, if (autoPan) convoyState else null) {
-      [R] convoy/ConvoyScreen.kt:237:        when (hudMode) {
-      [R] convoy/ConvoyScreen.kt:858:        if (convoyState.hasLost && hudMode != HudMode.COLLAPSED) {
-      [R] convoy/ConvoyScreen.kt:1159:            hudMode = hudMode,
-      [R] convoy/ConvoyScreen.kt:1181:            when (hudMode) {
-      [R] convoy/ConvoyScreen.kt:1709:    hudMode: HudMode,
-      [R] convoy/ConvoyScreen.kt:1734:            val isActive = hudMode == mode
+      [R] convoy/ConvoyScreen.kt:234:    LaunchedEffect(hudMode, selectedNode, mapReady, autoPan, if (autoPan) convoyState else null) {
+      [R] convoy/ConvoyScreen.kt:238:        when (hudMode) {
+      [R] convoy/ConvoyScreen.kt:859:        if (convoyState.hasLost && hudMode != HudMode.COLLAPSED) {
+      [R] convoy/ConvoyScreen.kt:1160:            hudMode = hudMode,
+      [R] convoy/ConvoyScreen.kt:1182:            when (hudMode) {
+      [R] convoy/ConvoyScreen.kt:1710:    hudMode: HudMode,
+      [R] convoy/ConvoyScreen.kt:1735:            val isActive = hudMode == mode
       [R] convoy/ConvoyViewModel.kt:66:    val hudMode: StateFlow<HudMode> = _hudMode.asStateFlow()
 
   FIELD: _hudMode (public: hudMode)
@@ -12248,13 +12762,13 @@ SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
       [W] ConvoyViewModel.kt:716:        if (_hudMode.value == HudMode.NODE && _selectedNode.value != null) {
     READERS (functions that USE this field):
       [R] convoy/ConvoyScreen.kt:107:    val hudMode by viewModel.hudMode.collectAsStateWithLifecycle()
-      [R] convoy/ConvoyScreen.kt:233:    LaunchedEffect(hudMode, selectedNode, mapReady, autoPan, if (autoPan) convoyState else null) {
-      [R] convoy/ConvoyScreen.kt:237:        when (hudMode) {
-      [R] convoy/ConvoyScreen.kt:858:        if (convoyState.hasLost && hudMode != HudMode.COLLAPSED) {
-      [R] convoy/ConvoyScreen.kt:1159:            hudMode = hudMode,
-      [R] convoy/ConvoyScreen.kt:1181:            when (hudMode) {
-      [R] convoy/ConvoyScreen.kt:1709:    hudMode: HudMode,
-      [R] convoy/ConvoyScreen.kt:1734:            val isActive = hudMode == mode
+      [R] convoy/ConvoyScreen.kt:234:    LaunchedEffect(hudMode, selectedNode, mapReady, autoPan, if (autoPan) convoyState else null) {
+      [R] convoy/ConvoyScreen.kt:238:        when (hudMode) {
+      [R] convoy/ConvoyScreen.kt:859:        if (convoyState.hasLost && hudMode != HudMode.COLLAPSED) {
+      [R] convoy/ConvoyScreen.kt:1160:            hudMode = hudMode,
+      [R] convoy/ConvoyScreen.kt:1182:            when (hudMode) {
+      [R] convoy/ConvoyScreen.kt:1710:    hudMode: HudMode,
+      [R] convoy/ConvoyScreen.kt:1735:            val isActive = hudMode == mode
       [R] convoy/ConvoyViewModel.kt:66:    val hudMode: StateFlow<HudMode> = _hudMode.asStateFlow()
 
   FIELD: _pendingImportBanner (public: pendingImportBanner)
@@ -12265,9 +12779,9 @@ SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
       [W] ConvoyViewModel.kt:69:    fun clearImportBanner() { _pendingImportBanner.value = null }
       [W] ConvoyViewModel.kt:362:                _pendingImportBanner.value = msg
     READERS (functions that USE this field):
-      [R] convoy/ConvoyScreen.kt:161:    val pendingImportBanner by viewModel.pendingImportBanner.collectAsStateWithLifecycle()
-      [R] convoy/ConvoyScreen.kt:1110:        if (showConvoyMenu && showImportSplash && pendingImportBanner != null) {
-      [R] convoy/ConvoyScreen.kt:1128:                        androidx.compose.material3.Text(pendingImportBanner!!,
+      [R] convoy/ConvoyScreen.kt:162:    val pendingImportBanner by viewModel.pendingImportBanner.collectAsStateWithLifecycle()
+      [R] convoy/ConvoyScreen.kt:1111:        if (showConvoyMenu && showImportSplash && pendingImportBanner != null) {
+      [R] convoy/ConvoyScreen.kt:1129:                        androidx.compose.material3.Text(pendingImportBanner!!,
       [R] convoy/ConvoyViewModel.kt:68:    val pendingImportBanner: StateFlow<String?> = _pendingImportBanner.asStateFlow()
 
   FIELD: _pendingImportBanner (public: pendingImportBanner)
@@ -12278,9 +12792,9 @@ SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
       [W] ConvoyViewModel.kt:69:    fun clearImportBanner() { _pendingImportBanner.value = null }
       [W] ConvoyViewModel.kt:362:                _pendingImportBanner.value = msg
     READERS (functions that USE this field):
-      [R] convoy/ConvoyScreen.kt:161:    val pendingImportBanner by viewModel.pendingImportBanner.collectAsStateWithLifecycle()
-      [R] convoy/ConvoyScreen.kt:1110:        if (showConvoyMenu && showImportSplash && pendingImportBanner != null) {
-      [R] convoy/ConvoyScreen.kt:1128:                        androidx.compose.material3.Text(pendingImportBanner!!,
+      [R] convoy/ConvoyScreen.kt:162:    val pendingImportBanner by viewModel.pendingImportBanner.collectAsStateWithLifecycle()
+      [R] convoy/ConvoyScreen.kt:1111:        if (showConvoyMenu && showImportSplash && pendingImportBanner != null) {
+      [R] convoy/ConvoyScreen.kt:1129:                        androidx.compose.material3.Text(pendingImportBanner!!,
       [R] convoy/ConvoyViewModel.kt:68:    val pendingImportBanner: StateFlow<String?> = _pendingImportBanner.asStateFlow()
 
   FIELD: _selectedNode (public: selectedNode)
@@ -12295,11 +12809,11 @@ SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
       [W] ConvoyViewModel.kt:718:            _selectedNode.value = refreshed
     READERS (functions that USE this field):
       [R] convoy/ConvoyScreen.kt:108:    val selectedNode by viewModel.selectedNode.collectAsStateWithLifecycle()
-      [R] convoy/ConvoyScreen.kt:233:    LaunchedEffect(hudMode, selectedNode, mapReady, autoPan, if (autoPan) convoyState else null) {
-      [R] convoy/ConvoyScreen.kt:245:                selectedNode?.let {
-      [R] convoy/ConvoyScreen.kt:1169:                onSelect = { selectedNode ->
-      [R] convoy/ConvoyScreen.kt:1170:                    viewModel.onMarkerTapped(selectedNode)
-      [R] convoy/ConvoyScreen.kt:1201:                HudMode.NODE -> selectedNode?.let { node ->
+      [R] convoy/ConvoyScreen.kt:234:    LaunchedEffect(hudMode, selectedNode, mapReady, autoPan, if (autoPan) convoyState else null) {
+      [R] convoy/ConvoyScreen.kt:246:                selectedNode?.let {
+      [R] convoy/ConvoyScreen.kt:1170:                onSelect = { selectedNode ->
+      [R] convoy/ConvoyScreen.kt:1171:                    viewModel.onMarkerTapped(selectedNode)
+      [R] convoy/ConvoyScreen.kt:1202:                HudMode.NODE -> selectedNode?.let { node ->
       [R] convoy/ConvoyViewModel.kt:71:    val selectedNode: StateFlow<ConvoyNode?> = _selectedNode.asStateFlow()
       [R] convoy/ConvoyViewModel.kt:716:        if (_hudMode.value == HudMode.NODE && _selectedNode.value != null) {
       [R] convoy/ConvoyViewModel.kt:717:            val refreshed = state.nodes.firstOrNull { it.nodeId == _selectedNode.value?.nodeId }
@@ -12316,11 +12830,11 @@ SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
       [W] ConvoyViewModel.kt:718:            _selectedNode.value = refreshed
     READERS (functions that USE this field):
       [R] convoy/ConvoyScreen.kt:108:    val selectedNode by viewModel.selectedNode.collectAsStateWithLifecycle()
-      [R] convoy/ConvoyScreen.kt:233:    LaunchedEffect(hudMode, selectedNode, mapReady, autoPan, if (autoPan) convoyState else null) {
-      [R] convoy/ConvoyScreen.kt:245:                selectedNode?.let {
-      [R] convoy/ConvoyScreen.kt:1169:                onSelect = { selectedNode ->
-      [R] convoy/ConvoyScreen.kt:1170:                    viewModel.onMarkerTapped(selectedNode)
-      [R] convoy/ConvoyScreen.kt:1201:                HudMode.NODE -> selectedNode?.let { node ->
+      [R] convoy/ConvoyScreen.kt:234:    LaunchedEffect(hudMode, selectedNode, mapReady, autoPan, if (autoPan) convoyState else null) {
+      [R] convoy/ConvoyScreen.kt:246:                selectedNode?.let {
+      [R] convoy/ConvoyScreen.kt:1170:                onSelect = { selectedNode ->
+      [R] convoy/ConvoyScreen.kt:1171:                    viewModel.onMarkerTapped(selectedNode)
+      [R] convoy/ConvoyScreen.kt:1202:                HudMode.NODE -> selectedNode?.let { node ->
       [R] convoy/ConvoyViewModel.kt:71:    val selectedNode: StateFlow<ConvoyNode?> = _selectedNode.asStateFlow()
       [R] convoy/ConvoyViewModel.kt:716:        if (_hudMode.value == HudMode.NODE && _selectedNode.value != null) {
       [R] convoy/ConvoyViewModel.kt:717:            val refreshed = state.nodes.firstOrNull { it.nodeId == _selectedNode.value?.nodeId }
@@ -12334,7 +12848,7 @@ SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
       [W] ConvoyViewModel.kt:702:            _offTrackIds.value = emptySet()
     READERS (functions that USE this field):
       [R] convoy/ConvoyScreen.kt:111:    val offTrackIds by viewModel.offTrackIds.collectAsStateWithLifecycle()
-      [R] convoy/ConvoyScreen.kt:199:                val isOffTrack = offTrackIds.contains(node.nodeId)
+      [R] convoy/ConvoyScreen.kt:200:                val isOffTrack = offTrackIds.contains(node.nodeId)
       [R] convoy/ConvoyViewModel.kt:73:    val offTrackIds: StateFlow<Set<String>> = _offTrackIds.asStateFlow()
       [R] convoy/ConvoyViewModel.kt:602:            val isOffTrack = _offTrackIds.value.contains(node.nodeId)
 
@@ -12347,7 +12861,7 @@ SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
       [W] ConvoyViewModel.kt:702:            _offTrackIds.value = emptySet()
     READERS (functions that USE this field):
       [R] convoy/ConvoyScreen.kt:111:    val offTrackIds by viewModel.offTrackIds.collectAsStateWithLifecycle()
-      [R] convoy/ConvoyScreen.kt:199:                val isOffTrack = offTrackIds.contains(node.nodeId)
+      [R] convoy/ConvoyScreen.kt:200:                val isOffTrack = offTrackIds.contains(node.nodeId)
       [R] convoy/ConvoyViewModel.kt:73:    val offTrackIds: StateFlow<Set<String>> = _offTrackIds.asStateFlow()
       [R] convoy/ConvoyViewModel.kt:602:            val isOffTrack = _offTrackIds.value.contains(node.nodeId)
 
@@ -12361,8 +12875,8 @@ SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
       [W] ConvoyViewModel.kt:661:                    if (_trackActive.value) _routeTrailSegments.value = _routeTrailSegments.value + seg
     READERS (functions that USE this field):
       [R] convoy/ConvoyScreen.kt:109:    val trackActive by viewModel.trackActive.collectAsStateWithLifecycle()
-      [R] convoy/ConvoyScreen.kt:1186:                    trackActive = trackActive,
-      [R] convoy/ConvoyScreen.kt:1238:    trackActive: Boolean = false,
+      [R] convoy/ConvoyScreen.kt:1187:                    trackActive = trackActive,
+      [R] convoy/ConvoyScreen.kt:1239:    trackActive: Boolean = false,
       [R] convoy/ConvoyViewModel.kt:75:    val trackActive: StateFlow<Boolean> = _trackActive.asStateFlow()
       [R] convoy/ConvoyViewModel.kt:565:        if (_trackActive.value) {
       [R] convoy/ConvoyViewModel.kt:615:                if (_trackActive.value) {
@@ -12381,8 +12895,8 @@ SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
       [W] ConvoyViewModel.kt:661:                    if (_trackActive.value) _routeTrailSegments.value = _routeTrailSegments.value + seg
     READERS (functions that USE this field):
       [R] convoy/ConvoyScreen.kt:109:    val trackActive by viewModel.trackActive.collectAsStateWithLifecycle()
-      [R] convoy/ConvoyScreen.kt:1186:                    trackActive = trackActive,
-      [R] convoy/ConvoyScreen.kt:1238:    trackActive: Boolean = false,
+      [R] convoy/ConvoyScreen.kt:1187:                    trackActive = trackActive,
+      [R] convoy/ConvoyScreen.kt:1239:    trackActive: Boolean = false,
       [R] convoy/ConvoyViewModel.kt:75:    val trackActive: StateFlow<Boolean> = _trackActive.asStateFlow()
       [R] convoy/ConvoyViewModel.kt:565:        if (_trackActive.value) {
       [R] convoy/ConvoyViewModel.kt:615:                if (_trackActive.value) {
@@ -12414,7 +12928,7 @@ SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
       [W] ConvoyViewModel.kt:200:            _leadLocked.value = false
     READERS (functions that USE this field):
       [R] convoy/ConvoyEngine.kt:35:        leadLocked: Boolean = false,
-      [R] convoy/ConvoyScreen.kt:763:                                    if (viewModel.leadLocked.value) {
+      [R] convoy/ConvoyScreen.kt:764:                                    if (viewModel.leadLocked.value) {
       [R] convoy/ConvoyViewModel.kt:89:    val leadLocked: StateFlow<Boolean> = _leadLocked.asStateFlow()
       [R] convoy/ConvoyViewModel.kt:551:            leadLocked = _leadLockedFlag,
 
@@ -12431,7 +12945,7 @@ SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
       [W] ConvoyViewModel.kt:200:            _leadLocked.value = false
     READERS (functions that USE this field):
       [R] convoy/ConvoyEngine.kt:35:        leadLocked: Boolean = false,
-      [R] convoy/ConvoyScreen.kt:763:                                    if (viewModel.leadLocked.value) {
+      [R] convoy/ConvoyScreen.kt:764:                                    if (viewModel.leadLocked.value) {
       [R] convoy/ConvoyViewModel.kt:89:    val leadLocked: StateFlow<Boolean> = _leadLocked.asStateFlow()
       [R] convoy/ConvoyViewModel.kt:551:            leadLocked = _leadLockedFlag,
 
@@ -12443,11 +12957,11 @@ SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
       [W] ConvoyViewModel.kt:215:        _trackLeadOnly.value = !_trackLeadOnly.value
     READERS (functions that USE this field):
       [R] convoy/ConvoyScreen.kt:110:    val trackLeadOnly by viewModel.trackLeadOnly.collectAsStateWithLifecycle()
-      [R] convoy/ConvoyScreen.kt:266:    val trackSegments = remember(rawSegments, gpsTrail, routeTrail, trackLeadOnly) {
-      [R] convoy/ConvoyScreen.kt:267:        // Apply lead-only filter — if trackLeadOnly, skip routeTrail (all-cart overlay)
-      [R] convoy/ConvoyScreen.kt:268:        val activeSegments = if (trackLeadOnly) rawSegments else (rawSegments + routeTrail)
-      [R] convoy/ConvoyScreen.kt:1187:                    trackLeadOnly = trackLeadOnly,
-      [R] convoy/ConvoyScreen.kt:1239:    trackLeadOnly: Boolean = true,
+      [R] convoy/ConvoyScreen.kt:267:    val trackSegments = remember(rawSegments, gpsTrail, routeTrail, trackLeadOnly) {
+      [R] convoy/ConvoyScreen.kt:268:        // Apply lead-only filter — if trackLeadOnly, skip routeTrail (all-cart overlay)
+      [R] convoy/ConvoyScreen.kt:269:        val activeSegments = if (trackLeadOnly) rawSegments else (rawSegments + routeTrail)
+      [R] convoy/ConvoyScreen.kt:1188:                    trackLeadOnly = trackLeadOnly,
+      [R] convoy/ConvoyScreen.kt:1240:    trackLeadOnly: Boolean = true,
       [R] convoy/ConvoySettingsScreen.kt:59:    val trackLeadOnly by convoyViewModel.trackLeadOnly.collectAsStateWithLifecycle()
       [R] convoy/ConvoySettingsScreen.kt:192:                        text = if (trackLeadOnly) "Recording lead cart track only" else "Recording all carts",
       [R] convoy/ConvoySettingsScreen.kt:198:                    checked = trackLeadOnly,
@@ -12463,11 +12977,11 @@ SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
       [W] ConvoyViewModel.kt:215:        _trackLeadOnly.value = !_trackLeadOnly.value
     READERS (functions that USE this field):
       [R] convoy/ConvoyScreen.kt:110:    val trackLeadOnly by viewModel.trackLeadOnly.collectAsStateWithLifecycle()
-      [R] convoy/ConvoyScreen.kt:266:    val trackSegments = remember(rawSegments, gpsTrail, routeTrail, trackLeadOnly) {
-      [R] convoy/ConvoyScreen.kt:267:        // Apply lead-only filter — if trackLeadOnly, skip routeTrail (all-cart overlay)
-      [R] convoy/ConvoyScreen.kt:268:        val activeSegments = if (trackLeadOnly) rawSegments else (rawSegments + routeTrail)
-      [R] convoy/ConvoyScreen.kt:1187:                    trackLeadOnly = trackLeadOnly,
-      [R] convoy/ConvoyScreen.kt:1239:    trackLeadOnly: Boolean = true,
+      [R] convoy/ConvoyScreen.kt:267:    val trackSegments = remember(rawSegments, gpsTrail, routeTrail, trackLeadOnly) {
+      [R] convoy/ConvoyScreen.kt:268:        // Apply lead-only filter — if trackLeadOnly, skip routeTrail (all-cart overlay)
+      [R] convoy/ConvoyScreen.kt:269:        val activeSegments = if (trackLeadOnly) rawSegments else (rawSegments + routeTrail)
+      [R] convoy/ConvoyScreen.kt:1188:                    trackLeadOnly = trackLeadOnly,
+      [R] convoy/ConvoyScreen.kt:1240:    trackLeadOnly: Boolean = true,
       [R] convoy/ConvoySettingsScreen.kt:59:    val trackLeadOnly by convoyViewModel.trackLeadOnly.collectAsStateWithLifecycle()
       [R] convoy/ConvoySettingsScreen.kt:192:                        text = if (trackLeadOnly) "Recording lead cart track only" else "Recording all carts",
       [R] convoy/ConvoySettingsScreen.kt:198:                    checked = trackLeadOnly,
@@ -12482,8 +12996,8 @@ SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
     WRITERS (functions that CHANGE this field):
       [W] ConvoyViewModel.kt:96:    fun setOfflineMode(offline: Boolean) { _isOfflineMode.value = offline }
     READERS (functions that USE this field):
-      [R] convoy/ConvoyScreen.kt:169:    val isOfflineMode by viewModel.isOfflineMode.collectAsStateWithLifecycle()
-      [R] convoy/ConvoyScreen.kt:948:            isOffline = isOfflineMode,
+      [R] convoy/ConvoyScreen.kt:170:    val isOfflineMode by viewModel.isOfflineMode.collectAsStateWithLifecycle()
+      [R] convoy/ConvoyScreen.kt:949:            isOffline = isOfflineMode,
       [R] convoy/ConvoyViewModel.kt:95:    val isOfflineMode: StateFlow<Boolean> = _isOfflineMode.asStateFlow()
 
   FIELD: _isOfflineMode (public: isOfflineMode)
@@ -12493,8 +13007,8 @@ SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
     WRITERS (functions that CHANGE this field):
       [W] ConvoyViewModel.kt:96:    fun setOfflineMode(offline: Boolean) { _isOfflineMode.value = offline }
     READERS (functions that USE this field):
-      [R] convoy/ConvoyScreen.kt:169:    val isOfflineMode by viewModel.isOfflineMode.collectAsStateWithLifecycle()
-      [R] convoy/ConvoyScreen.kt:948:            isOffline = isOfflineMode,
+      [R] convoy/ConvoyScreen.kt:170:    val isOfflineMode by viewModel.isOfflineMode.collectAsStateWithLifecycle()
+      [R] convoy/ConvoyScreen.kt:949:            isOffline = isOfflineMode,
       [R] convoy/ConvoyViewModel.kt:95:    val isOfflineMode: StateFlow<Boolean> = _isOfflineMode.asStateFlow()
 
   FIELD: _mapTypeLabel (public: mapTypeLabel)
@@ -12504,8 +13018,8 @@ SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
     WRITERS (functions that CHANGE this field):
       [W] ConvoyViewModel.kt:99:    fun setMapTypeLabel(label: String) { _mapTypeLabel.value = label }
     READERS (functions that USE this field):
-      [R] convoy/ConvoyScreen.kt:147:    val mapTypeLabel by viewModel.mapTypeLabel.collectAsStateWithLifecycle()
-      [R] convoy/ConvoyScreen.kt:947:            activeSource = mapTypeLabel,
+      [R] convoy/ConvoyScreen.kt:148:    val mapTypeLabel by viewModel.mapTypeLabel.collectAsStateWithLifecycle()
+      [R] convoy/ConvoyScreen.kt:948:            activeSource = mapTypeLabel,
       [R] convoy/ConvoyViewModel.kt:98:    val mapTypeLabel: StateFlow<String> = _mapTypeLabel.asStateFlow()
 
   FIELD: _mapTypeLabel (public: mapTypeLabel)
@@ -12515,8 +13029,8 @@ SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
     WRITERS (functions that CHANGE this field):
       [W] ConvoyViewModel.kt:99:    fun setMapTypeLabel(label: String) { _mapTypeLabel.value = label }
     READERS (functions that USE this field):
-      [R] convoy/ConvoyScreen.kt:147:    val mapTypeLabel by viewModel.mapTypeLabel.collectAsStateWithLifecycle()
-      [R] convoy/ConvoyScreen.kt:947:            activeSource = mapTypeLabel,
+      [R] convoy/ConvoyScreen.kt:148:    val mapTypeLabel by viewModel.mapTypeLabel.collectAsStateWithLifecycle()
+      [R] convoy/ConvoyScreen.kt:948:            activeSource = mapTypeLabel,
       [R] convoy/ConvoyViewModel.kt:98:    val mapTypeLabel: StateFlow<String> = _mapTypeLabel.asStateFlow()
 
   FIELD: _isLocalTiles (public: isLocalTiles)
@@ -12526,9 +13040,9 @@ SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
     WRITERS (functions that CHANGE this field):
       [W] ConvoyViewModel.kt:102:    fun setLocalTiles(local: Boolean) { _isLocalTiles.value = local }
     READERS (functions that USE this field):
-      [R] convoy/ConvoyScreen.kt:148:    val isLocalTiles by viewModel.isLocalTiles.collectAsStateWithLifecycle()
-      [R] convoy/ConvoyScreen.kt:952:                val url = if (isLocalTiles)
-      [R] convoy/ConvoyScreen.kt:956:                viewModel.setLocalTiles(isLocalTiles)
+      [R] convoy/ConvoyScreen.kt:149:    val isLocalTiles by viewModel.isLocalTiles.collectAsStateWithLifecycle()
+      [R] convoy/ConvoyScreen.kt:953:                val url = if (isLocalTiles)
+      [R] convoy/ConvoyScreen.kt:957:                viewModel.setLocalTiles(isLocalTiles)
       [R] convoy/ConvoyViewModel.kt:101:    val isLocalTiles: StateFlow<Boolean> = _isLocalTiles.asStateFlow()
 
   FIELD: _isLocalTiles (public: isLocalTiles)
@@ -12538,9 +13052,9 @@ SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
     WRITERS (functions that CHANGE this field):
       [W] ConvoyViewModel.kt:102:    fun setLocalTiles(local: Boolean) { _isLocalTiles.value = local }
     READERS (functions that USE this field):
-      [R] convoy/ConvoyScreen.kt:148:    val isLocalTiles by viewModel.isLocalTiles.collectAsStateWithLifecycle()
-      [R] convoy/ConvoyScreen.kt:952:                val url = if (isLocalTiles)
-      [R] convoy/ConvoyScreen.kt:956:                viewModel.setLocalTiles(isLocalTiles)
+      [R] convoy/ConvoyScreen.kt:149:    val isLocalTiles by viewModel.isLocalTiles.collectAsStateWithLifecycle()
+      [R] convoy/ConvoyScreen.kt:953:                val url = if (isLocalTiles)
+      [R] convoy/ConvoyScreen.kt:957:                viewModel.setLocalTiles(isLocalTiles)
       [R] convoy/ConvoyViewModel.kt:101:    val isLocalTiles: StateFlow<Boolean> = _isLocalTiles.asStateFlow()
 
   FIELD: _autoPan (public: autoPan)
@@ -12552,9 +13066,9 @@ SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
       [W] ConvoyViewModel.kt:168:        _autoPan.value = true   // autoPan ON during recording
       [W] ConvoyViewModel.kt:174:        _autoPan.value = false   // autoPan OFF when recording stops
     READERS (functions that USE this field):
-      [R] convoy/ConvoyScreen.kt:174:    val autoPan by viewModel.autoPan.collectAsStateWithLifecycle()
-      [R] convoy/ConvoyScreen.kt:233:    LaunchedEffect(hudMode, selectedNode, mapReady, autoPan, if (autoPan) convoyState else null) {
-      [R] convoy/ConvoyScreen.kt:235:        if (!autoPan) return@LaunchedEffect
+      [R] convoy/ConvoyScreen.kt:175:    val autoPan by viewModel.autoPan.collectAsStateWithLifecycle()
+      [R] convoy/ConvoyScreen.kt:234:    LaunchedEffect(hudMode, selectedNode, mapReady, autoPan, if (autoPan) convoyState else null) {
+      [R] convoy/ConvoyScreen.kt:236:        if (!autoPan) return@LaunchedEffect
       [R] convoy/ConvoyViewModel.kt:104:    val autoPan: StateFlow<Boolean> = _autoPan.asStateFlow()
 
   FIELD: _autoPan (public: autoPan)
@@ -12566,9 +13080,9 @@ SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
       [W] ConvoyViewModel.kt:168:        _autoPan.value = true   // autoPan ON during recording
       [W] ConvoyViewModel.kt:174:        _autoPan.value = false   // autoPan OFF when recording stops
     READERS (functions that USE this field):
-      [R] convoy/ConvoyScreen.kt:174:    val autoPan by viewModel.autoPan.collectAsStateWithLifecycle()
-      [R] convoy/ConvoyScreen.kt:233:    LaunchedEffect(hudMode, selectedNode, mapReady, autoPan, if (autoPan) convoyState else null) {
-      [R] convoy/ConvoyScreen.kt:235:        if (!autoPan) return@LaunchedEffect
+      [R] convoy/ConvoyScreen.kt:175:    val autoPan by viewModel.autoPan.collectAsStateWithLifecycle()
+      [R] convoy/ConvoyScreen.kt:234:    LaunchedEffect(hudMode, selectedNode, mapReady, autoPan, if (autoPan) convoyState else null) {
+      [R] convoy/ConvoyScreen.kt:236:        if (!autoPan) return@LaunchedEffect
       [R] convoy/ConvoyViewModel.kt:104:    val autoPan: StateFlow<Boolean> = _autoPan.asStateFlow()
 
   FIELD: _radioInactive (public: radioInactive)
@@ -12645,9 +13159,9 @@ SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
       [W] ConvoyViewModel.kt:402:        _simulationMode.value = enabled
     READERS (functions that USE this field):
       [R] convoy/ConvoyScreen.kt:112:    val simulationMode by viewModel.simulationMode.collectAsStateWithLifecycle()
-      [R] convoy/ConvoyScreen.kt:1090:                onClick = { viewModel.setSimulationMode(!simulationMode) },
-      [R] convoy/ConvoyScreen.kt:1094:                    text = if (simulationMode) "SIM" else "LIVE",
-      [R] convoy/ConvoyScreen.kt:1095:                    color = if (simulationMode) Color(0xFFF9C835) else Color(0xFF4A6080),
+      [R] convoy/ConvoyScreen.kt:1091:                onClick = { viewModel.setSimulationMode(!simulationMode) },
+      [R] convoy/ConvoyScreen.kt:1095:                    text = if (simulationMode) "SIM" else "LIVE",
+      [R] convoy/ConvoyScreen.kt:1096:                    color = if (simulationMode) Color(0xFFF9C835) else Color(0xFF4A6080),
       [R] convoy/ConvoyViewModel.kt:283:    val simulationMode: StateFlow<Boolean> = _simulationMode.asStateFlow()
       [R] convoy/ConvoyViewModel.kt:536:        val nodes: List<ConvoyNode> = if (_simulationMode.value) {
 
@@ -12659,9 +13173,9 @@ SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
       [W] ConvoyViewModel.kt:402:        _simulationMode.value = enabled
     READERS (functions that USE this field):
       [R] convoy/ConvoyScreen.kt:112:    val simulationMode by viewModel.simulationMode.collectAsStateWithLifecycle()
-      [R] convoy/ConvoyScreen.kt:1090:                onClick = { viewModel.setSimulationMode(!simulationMode) },
-      [R] convoy/ConvoyScreen.kt:1094:                    text = if (simulationMode) "SIM" else "LIVE",
-      [R] convoy/ConvoyScreen.kt:1095:                    color = if (simulationMode) Color(0xFFF9C835) else Color(0xFF4A6080),
+      [R] convoy/ConvoyScreen.kt:1091:                onClick = { viewModel.setSimulationMode(!simulationMode) },
+      [R] convoy/ConvoyScreen.kt:1095:                    text = if (simulationMode) "SIM" else "LIVE",
+      [R] convoy/ConvoyScreen.kt:1096:                    color = if (simulationMode) Color(0xFFF9C835) else Color(0xFF4A6080),
       [R] convoy/ConvoyViewModel.kt:283:    val simulationMode: StateFlow<Boolean> = _simulationMode.asStateFlow()
       [R] convoy/ConvoyViewModel.kt:536:        val nodes: List<ConvoyNode> = if (_simulationMode.value) {
 
@@ -12678,11 +13192,11 @@ SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
       [R] convoy/ConvoyEngine.kt:47:        val withProximity = computeProximity(withRoles, myCartId)
       [R] convoy/ConvoyEngine.kt:135:    fun computeProximity(nodes: List<ConvoyNode>, myCartId: String): List<ConvoyNode> {
       [R] convoy/ConvoyEngine.kt:143:                isMyCart = node.nodeId == myCartId,
-      [R] convoy/ConvoyScreen.kt:223:            val myCartId = viewModel.myCartId.value
-      [R] convoy/ConvoyScreen.kt:224:            val myCart = convoyState.nodes.firstOrNull { it.nodeId == myCartId }
-      [R] convoy/ConvoyScreen.kt:1197:                    myCartId = viewModel.myCartId.collectAsStateWithLifecycle().value,
-      [R] convoy/ConvoyScreen.kt:1339:    myCartId: String,
-      [R] convoy/ConvoyScreen.kt:1346:        Text("My Cart  ★ ${myCart?.callsign ?: myCartId.takeLast(8)}", color = Color(0xFF111111), fontSize = 13.sp,
+      [R] convoy/ConvoyScreen.kt:224:            val myCartId = viewModel.myCartId.value
+      [R] convoy/ConvoyScreen.kt:225:            val myCart = convoyState.nodes.firstOrNull { it.nodeId == myCartId }
+      [R] convoy/ConvoyScreen.kt:1198:                    myCartId = viewModel.myCartId.collectAsStateWithLifecycle().value,
+      [R] convoy/ConvoyScreen.kt:1340:    myCartId: String,
+      [R] convoy/ConvoyScreen.kt:1347:        Text("My Cart  ★ ${myCart?.callsign ?: myCartId.takeLast(8)}", color = Color(0xFF111111), fontSize = 13.sp,
       [R] convoy/ConvoySimulation.kt:115:        return ConvoyEngine.compute(nodes, myCartId = MY_CART_ID, nowMs = nowMs)
       [R] convoy/ConvoyViewModel.kt:161:                nodes.isEmpty() -> setLeadCart(_myCartId.value)
       [R] convoy/ConvoyViewModel.kt:162:                else -> setLeadCart(_myCartId.value)
@@ -12703,11 +13217,11 @@ SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
       [R] convoy/ConvoyEngine.kt:47:        val withProximity = computeProximity(withRoles, myCartId)
       [R] convoy/ConvoyEngine.kt:135:    fun computeProximity(nodes: List<ConvoyNode>, myCartId: String): List<ConvoyNode> {
       [R] convoy/ConvoyEngine.kt:143:                isMyCart = node.nodeId == myCartId,
-      [R] convoy/ConvoyScreen.kt:223:            val myCartId = viewModel.myCartId.value
-      [R] convoy/ConvoyScreen.kt:224:            val myCart = convoyState.nodes.firstOrNull { it.nodeId == myCartId }
-      [R] convoy/ConvoyScreen.kt:1197:                    myCartId = viewModel.myCartId.collectAsStateWithLifecycle().value,
-      [R] convoy/ConvoyScreen.kt:1339:    myCartId: String,
-      [R] convoy/ConvoyScreen.kt:1346:        Text("My Cart  ★ ${myCart?.callsign ?: myCartId.takeLast(8)}", color = Color(0xFF111111), fontSize = 13.sp,
+      [R] convoy/ConvoyScreen.kt:224:            val myCartId = viewModel.myCartId.value
+      [R] convoy/ConvoyScreen.kt:225:            val myCart = convoyState.nodes.firstOrNull { it.nodeId == myCartId }
+      [R] convoy/ConvoyScreen.kt:1198:                    myCartId = viewModel.myCartId.collectAsStateWithLifecycle().value,
+      [R] convoy/ConvoyScreen.kt:1340:    myCartId: String,
+      [R] convoy/ConvoyScreen.kt:1347:        Text("My Cart  ★ ${myCart?.callsign ?: myCartId.takeLast(8)}", color = Color(0xFF111111), fontSize = 13.sp,
       [R] convoy/ConvoySimulation.kt:115:        return ConvoyEngine.compute(nodes, myCartId = MY_CART_ID, nowMs = nowMs)
       [R] convoy/ConvoyViewModel.kt:161:                nodes.isEmpty() -> setLeadCart(_myCartId.value)
       [R] convoy/ConvoyViewModel.kt:162:                else -> setLeadCart(_myCartId.value)
@@ -12745,7 +13259,7 @@ SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
       [W] ConvoyViewModel.kt:142:        _leadTrackSegments.value = emptyList()
       [W] ConvoyViewModel.kt:707:        _leadTrackSegments.value = if (_trackLeadOnly.value) {
     READERS (functions that USE this field):
-      [R] convoy/ConvoyScreen.kt:263:    val rawSegments by viewModel.leadTrackSegments.collectAsStateWithLifecycle()
+      [R] convoy/ConvoyScreen.kt:264:    val rawSegments by viewModel.leadTrackSegments.collectAsStateWithLifecycle()
       [R] convoy/ConvoyViewModel.kt:296:    val leadTrackSegments: StateFlow<List<ConvoyEngine.LeadTrackSegment>> = _leadTrackSegments.asStateFlow()
 
   FIELD: _leadTrackSegments (public: leadTrackSegments)
@@ -12756,7 +13270,7 @@ SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
       [W] ConvoyViewModel.kt:142:        _leadTrackSegments.value = emptyList()
       [W] ConvoyViewModel.kt:707:        _leadTrackSegments.value = if (_trackLeadOnly.value) {
     READERS (functions that USE this field):
-      [R] convoy/ConvoyScreen.kt:263:    val rawSegments by viewModel.leadTrackSegments.collectAsStateWithLifecycle()
+      [R] convoy/ConvoyScreen.kt:264:    val rawSegments by viewModel.leadTrackSegments.collectAsStateWithLifecycle()
       [R] convoy/ConvoyViewModel.kt:296:    val leadTrackSegments: StateFlow<List<ConvoyEngine.LeadTrackSegment>> = _leadTrackSegments.asStateFlow()
 
   FIELD: _gpsTrailSegments (public: gpsTrailSegments)
@@ -12767,7 +13281,7 @@ SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
       [W] ConvoyViewModel.kt:143:        _gpsTrailSegments.value = emptyList()
       [W] ConvoyViewModel.kt:434:                        _gpsTrailSegments.value = _gpsTrailSegments.value + seg
     READERS (functions that USE this field):
-      [R] convoy/ConvoyScreen.kt:264:    val gpsTrail by viewModel.gpsTrailSegments.collectAsStateWithLifecycle()
+      [R] convoy/ConvoyScreen.kt:265:    val gpsTrail by viewModel.gpsTrailSegments.collectAsStateWithLifecycle()
       [R] convoy/ConvoyViewModel.kt:298:    val gpsTrailSegments: StateFlow<List<ConvoyEngine.LeadTrackSegment>> = _gpsTrailSegments.asStateFlow()
 
   FIELD: _gpsTrailSegments (public: gpsTrailSegments)
@@ -12778,7 +13292,7 @@ SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
       [W] ConvoyViewModel.kt:143:        _gpsTrailSegments.value = emptyList()
       [W] ConvoyViewModel.kt:434:                        _gpsTrailSegments.value = _gpsTrailSegments.value + seg
     READERS (functions that USE this field):
-      [R] convoy/ConvoyScreen.kt:264:    val gpsTrail by viewModel.gpsTrailSegments.collectAsStateWithLifecycle()
+      [R] convoy/ConvoyScreen.kt:265:    val gpsTrail by viewModel.gpsTrailSegments.collectAsStateWithLifecycle()
       [R] convoy/ConvoyViewModel.kt:298:    val gpsTrailSegments: StateFlow<List<ConvoyEngine.LeadTrackSegment>> = _gpsTrailSegments.asStateFlow()
 
   FIELD: _routeTrailSegments (public: routeTrailSegments)
@@ -12791,7 +13305,7 @@ SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
       [W] ConvoyViewModel.kt:686:                _routeTrailSegments.value = _routeTrailSegments.value + newSegs
       [W] ConvoyViewModel.kt:708:            _routeTrailSegments.value.map { it.copy(color = "#000000") }
     READERS (functions that USE this field):
-      [R] convoy/ConvoyScreen.kt:265:    val routeTrail by viewModel.routeTrailSegments.collectAsStateWithLifecycle()
+      [R] convoy/ConvoyScreen.kt:266:    val routeTrail by viewModel.routeTrailSegments.collectAsStateWithLifecycle()
       [R] convoy/ConvoyViewModel.kt:300:    val routeTrailSegments: StateFlow<List<ConvoyEngine.LeadTrackSegment>> = _routeTrailSegments.asStateFlow()
       [R] convoy/ConvoyViewModel.kt:690:if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
       [R] convoy/ConvoyViewModel.kt:694:                val minDist = _routeTrailSegments.value.minOf { seg ->
@@ -12808,7 +13322,7 @@ SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
       [W] ConvoyViewModel.kt:686:                _routeTrailSegments.value = _routeTrailSegments.value + newSegs
       [W] ConvoyViewModel.kt:708:            _routeTrailSegments.value.map { it.copy(color = "#000000") }
     READERS (functions that USE this field):
-      [R] convoy/ConvoyScreen.kt:265:    val routeTrail by viewModel.routeTrailSegments.collectAsStateWithLifecycle()
+      [R] convoy/ConvoyScreen.kt:266:    val routeTrail by viewModel.routeTrailSegments.collectAsStateWithLifecycle()
       [R] convoy/ConvoyViewModel.kt:300:    val routeTrailSegments: StateFlow<List<ConvoyEngine.LeadTrackSegment>> = _routeTrailSegments.asStateFlow()
       [R] convoy/ConvoyViewModel.kt:690:if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
       [R] convoy/ConvoyViewModel.kt:694:                val minDist = _routeTrailSegments.value.minOf { seg ->
@@ -12866,11 +13380,11 @@ SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
     WRITERS (functions that CHANGE this field):
       [W] ConvoyViewModel.kt:377:        _currentIntervalSecs.value = secs
     READERS (functions that USE this field):
-      [R] convoy/ConvoyScreen.kt:1178:        val currentIntervalSecs by viewModel.currentIntervalSecs.collectAsStateWithLifecycle()
-      [R] convoy/ConvoyScreen.kt:1192:                        currentIntervalSecs = currentIntervalSecs,
-      [R] convoy/ConvoyScreen.kt:1244:    currentIntervalSecs: Int = 5,
-      [R] convoy/ConvoyScreen.kt:1258:            Text("${currentIntervalSecs}s", color = Color(0xFF111111), fontSize = 10.sp,
-      [R] convoy/ConvoyScreen.kt:1262:                value = currentIntervalSecs.toFloat(),
+      [R] convoy/ConvoyScreen.kt:1179:        val currentIntervalSecs by viewModel.currentIntervalSecs.collectAsStateWithLifecycle()
+      [R] convoy/ConvoyScreen.kt:1193:                        currentIntervalSecs = currentIntervalSecs,
+      [R] convoy/ConvoyScreen.kt:1245:    currentIntervalSecs: Int = 5,
+      [R] convoy/ConvoyScreen.kt:1259:            Text("${currentIntervalSecs}s", color = Color(0xFF111111), fontSize = 10.sp,
+      [R] convoy/ConvoyScreen.kt:1263:                value = currentIntervalSecs.toFloat(),
       [R] convoy/ConvoyViewModel.kt:374:    val currentIntervalSecs: StateFlow<Int> = _currentIntervalSecs.asStateFlow()
 
   FIELD: _currentIntervalSecs (public: currentIntervalSecs)
@@ -12880,11 +13394,11 @@ SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
     WRITERS (functions that CHANGE this field):
       [W] ConvoyViewModel.kt:377:        _currentIntervalSecs.value = secs
     READERS (functions that USE this field):
-      [R] convoy/ConvoyScreen.kt:1178:        val currentIntervalSecs by viewModel.currentIntervalSecs.collectAsStateWithLifecycle()
-      [R] convoy/ConvoyScreen.kt:1192:                        currentIntervalSecs = currentIntervalSecs,
-      [R] convoy/ConvoyScreen.kt:1244:    currentIntervalSecs: Int = 5,
-      [R] convoy/ConvoyScreen.kt:1258:            Text("${currentIntervalSecs}s", color = Color(0xFF111111), fontSize = 10.sp,
-      [R] convoy/ConvoyScreen.kt:1262:                value = currentIntervalSecs.toFloat(),
+      [R] convoy/ConvoyScreen.kt:1179:        val currentIntervalSecs by viewModel.currentIntervalSecs.collectAsStateWithLifecycle()
+      [R] convoy/ConvoyScreen.kt:1193:                        currentIntervalSecs = currentIntervalSecs,
+      [R] convoy/ConvoyScreen.kt:1245:    currentIntervalSecs: Int = 5,
+      [R] convoy/ConvoyScreen.kt:1259:            Text("${currentIntervalSecs}s", color = Color(0xFF111111), fontSize = 10.sp,
+      [R] convoy/ConvoyScreen.kt:1263:                value = currentIntervalSecs.toFloat(),
       [R] convoy/ConvoyViewModel.kt:374:    val currentIntervalSecs: StateFlow<Int> = _currentIntervalSecs.asStateFlow()
 
   FIELD: _distanceMiles (public: distanceMiles)
@@ -12895,8 +13409,8 @@ SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
       [W] ConvoyViewModel.kt:438:                    _distanceMiles.value = svc.totalDistanceMiles
       [W] ConvoyViewModel.kt:474:        lastGpsLat = null; lastGpsLon = null; _distanceMiles.value = 0.0; _routeRecording.value = false
     READERS (functions that USE this field):
-      [R] convoy/ConvoyScreen.kt:873:          val distanceMiles by viewModel.distanceMiles.collectAsStateWithLifecycle()
-      [R] convoy/ConvoyScreen.kt:885:                      Text("%.2f".format(distanceMiles), color = Color(0xFFFF0000).copy(alpha = 0.75f),
+      [R] convoy/ConvoyScreen.kt:874:          val distanceMiles by viewModel.distanceMiles.collectAsStateWithLifecycle()
+      [R] convoy/ConvoyScreen.kt:886:                      Text("%.2f".format(distanceMiles), color = Color(0xFFFF0000).copy(alpha = 0.75f),
       [R] convoy/ConvoyViewModel.kt:412:    val distanceMiles: StateFlow<Double> = _distanceMiles.asStateFlow()
 
   FIELD: _distanceMiles (public: distanceMiles)
@@ -12907,8 +13421,8 @@ SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
       [W] ConvoyViewModel.kt:438:                    _distanceMiles.value = svc.totalDistanceMiles
       [W] ConvoyViewModel.kt:474:        lastGpsLat = null; lastGpsLon = null; _distanceMiles.value = 0.0; _routeRecording.value = false
     READERS (functions that USE this field):
-      [R] convoy/ConvoyScreen.kt:873:          val distanceMiles by viewModel.distanceMiles.collectAsStateWithLifecycle()
-      [R] convoy/ConvoyScreen.kt:885:                      Text("%.2f".format(distanceMiles), color = Color(0xFFFF0000).copy(alpha = 0.75f),
+      [R] convoy/ConvoyScreen.kt:874:          val distanceMiles by viewModel.distanceMiles.collectAsStateWithLifecycle()
+      [R] convoy/ConvoyScreen.kt:886:                      Text("%.2f".format(distanceMiles), color = Color(0xFFFF0000).copy(alpha = 0.75f),
       [R] convoy/ConvoyViewModel.kt:412:    val distanceMiles: StateFlow<Double> = _distanceMiles.asStateFlow()
 
   FIELD: _avgChannelUtil (public: avgChannelUtil)
@@ -12918,12 +13432,12 @@ SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
     WRITERS (functions that CHANGE this field):
       [W] ConvoyViewModel.kt:861:        _avgChannelUtil.value = avgUtil
     READERS (functions that USE this field):
-      [R] convoy/ConvoyScreen.kt:1177:        val avgChannelUtil by viewModel.avgChannelUtil.collectAsStateWithLifecycle()
-      [R] convoy/ConvoyScreen.kt:1191:                        avgChannelUtil = avgChannelUtil,
-      [R] convoy/ConvoyScreen.kt:1243:    avgChannelUtil: Float = 0f,
-      [R] convoy/ConvoyScreen.kt:1248:        avgChannelUtil > 40f -> Color(0xFFFF4444)
-      [R] convoy/ConvoyScreen.kt:1249:        avgChannelUtil > 25f -> Color(0xFFFFAA00)
-      [R] convoy/ConvoyScreen.kt:1311:                        Text("%.0f%%".format(avgChannelUtil), color = chColor,
+      [R] convoy/ConvoyScreen.kt:1178:        val avgChannelUtil by viewModel.avgChannelUtil.collectAsStateWithLifecycle()
+      [R] convoy/ConvoyScreen.kt:1192:                        avgChannelUtil = avgChannelUtil,
+      [R] convoy/ConvoyScreen.kt:1244:    avgChannelUtil: Float = 0f,
+      [R] convoy/ConvoyScreen.kt:1249:        avgChannelUtil > 40f -> Color(0xFFFF4444)
+      [R] convoy/ConvoyScreen.kt:1250:        avgChannelUtil > 25f -> Color(0xFFFFAA00)
+      [R] convoy/ConvoyScreen.kt:1312:                        Text("%.0f%%".format(avgChannelUtil), color = chColor,
       [R] convoy/ConvoyViewModel.kt:414:    val avgChannelUtil: StateFlow<Float> = _avgChannelUtil.asStateFlow()
 
   FIELD: _avgChannelUtil (public: avgChannelUtil)
@@ -12933,12 +13447,12 @@ SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
     WRITERS (functions that CHANGE this field):
       [W] ConvoyViewModel.kt:861:        _avgChannelUtil.value = avgUtil
     READERS (functions that USE this field):
-      [R] convoy/ConvoyScreen.kt:1177:        val avgChannelUtil by viewModel.avgChannelUtil.collectAsStateWithLifecycle()
-      [R] convoy/ConvoyScreen.kt:1191:                        avgChannelUtil = avgChannelUtil,
-      [R] convoy/ConvoyScreen.kt:1243:    avgChannelUtil: Float = 0f,
-      [R] convoy/ConvoyScreen.kt:1248:        avgChannelUtil > 40f -> Color(0xFFFF4444)
-      [R] convoy/ConvoyScreen.kt:1249:        avgChannelUtil > 25f -> Color(0xFFFFAA00)
-      [R] convoy/ConvoyScreen.kt:1311:                        Text("%.0f%%".format(avgChannelUtil), color = chColor,
+      [R] convoy/ConvoyScreen.kt:1178:        val avgChannelUtil by viewModel.avgChannelUtil.collectAsStateWithLifecycle()
+      [R] convoy/ConvoyScreen.kt:1192:                        avgChannelUtil = avgChannelUtil,
+      [R] convoy/ConvoyScreen.kt:1244:    avgChannelUtil: Float = 0f,
+      [R] convoy/ConvoyScreen.kt:1249:        avgChannelUtil > 40f -> Color(0xFFFF4444)
+      [R] convoy/ConvoyScreen.kt:1250:        avgChannelUtil > 25f -> Color(0xFFFFAA00)
+      [R] convoy/ConvoyScreen.kt:1312:                        Text("%.0f%%".format(avgChannelUtil), color = chColor,
       [R] convoy/ConvoyViewModel.kt:414:    val avgChannelUtil: StateFlow<Float> = _avgChannelUtil.asStateFlow()
 
   FIELD: _downloadState (public: downloadState)
@@ -12951,12 +13465,12 @@ SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
       [W] ConvoyViewModel.kt:937:            _downloadState.value = DownloadState.Idle
     READERS (functions that USE this field):
       [R] convoy/ConvoyMapViewerScreen.kt:113:    val downloadState by convoyViewModel.downloadState.collectAsState()
-      [R] convoy/ConvoyScreen.kt:163:    val downloadState by viewModel.downloadState.collectAsStateWithLifecycle()
-      [R] convoy/ConvoyScreen.kt:389:    if (downloadState is ConvoyViewModel.DownloadState.Error) {
-      [R] convoy/ConvoyScreen.kt:393:            text = { Text((downloadState as ConvoyViewModel.DownloadState.Error).message) },
-      [R] convoy/ConvoyScreen.kt:430:    LaunchedEffect(downloadState) {
-      [R] convoy/ConvoyScreen.kt:431:        if (downloadState is ConvoyViewModel.DownloadState.Complete) {
-      [R] convoy/ConvoyScreen.kt:432:            val summary = (downloadState as ConvoyViewModel.DownloadState.Complete).summary
+      [R] convoy/ConvoyScreen.kt:164:    val downloadState by viewModel.downloadState.collectAsStateWithLifecycle()
+      [R] convoy/ConvoyScreen.kt:390:    if (downloadState is ConvoyViewModel.DownloadState.Error) {
+      [R] convoy/ConvoyScreen.kt:394:            text = { Text((downloadState as ConvoyViewModel.DownloadState.Error).message) },
+      [R] convoy/ConvoyScreen.kt:431:    LaunchedEffect(downloadState) {
+      [R] convoy/ConvoyScreen.kt:432:        if (downloadState is ConvoyViewModel.DownloadState.Complete) {
+      [R] convoy/ConvoyScreen.kt:433:            val summary = (downloadState as ConvoyViewModel.DownloadState.Complete).summary
       [R] convoy/ConvoyViewModel.kt:886:    val downloadState: StateFlow<DownloadState> = _downloadState.asStateFlow()
 
   FIELD: _downloadState (public: downloadState)
@@ -12969,12 +13483,12 @@ SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
       [W] ConvoyViewModel.kt:937:            _downloadState.value = DownloadState.Idle
     READERS (functions that USE this field):
       [R] convoy/ConvoyMapViewerScreen.kt:113:    val downloadState by convoyViewModel.downloadState.collectAsState()
-      [R] convoy/ConvoyScreen.kt:163:    val downloadState by viewModel.downloadState.collectAsStateWithLifecycle()
-      [R] convoy/ConvoyScreen.kt:389:    if (downloadState is ConvoyViewModel.DownloadState.Error) {
-      [R] convoy/ConvoyScreen.kt:393:            text = { Text((downloadState as ConvoyViewModel.DownloadState.Error).message) },
-      [R] convoy/ConvoyScreen.kt:430:    LaunchedEffect(downloadState) {
-      [R] convoy/ConvoyScreen.kt:431:        if (downloadState is ConvoyViewModel.DownloadState.Complete) {
-      [R] convoy/ConvoyScreen.kt:432:            val summary = (downloadState as ConvoyViewModel.DownloadState.Complete).summary
+      [R] convoy/ConvoyScreen.kt:164:    val downloadState by viewModel.downloadState.collectAsStateWithLifecycle()
+      [R] convoy/ConvoyScreen.kt:390:    if (downloadState is ConvoyViewModel.DownloadState.Error) {
+      [R] convoy/ConvoyScreen.kt:394:            text = { Text((downloadState as ConvoyViewModel.DownloadState.Error).message) },
+      [R] convoy/ConvoyScreen.kt:431:    LaunchedEffect(downloadState) {
+      [R] convoy/ConvoyScreen.kt:432:        if (downloadState is ConvoyViewModel.DownloadState.Complete) {
+      [R] convoy/ConvoyScreen.kt:433:            val summary = (downloadState as ConvoyViewModel.DownloadState.Complete).summary
       [R] convoy/ConvoyViewModel.kt:886:    val downloadState: StateFlow<DownloadState> = _downloadState.asStateFlow()
 
   FIELD: _pendingDownload (public: pendingDownload)
@@ -12985,8 +13499,8 @@ SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
       [W] ConvoyViewModel.kt:892:    fun setPendingDownload(pending: PendingDownload) { _pendingDownload.value = pending }
       [W] ConvoyViewModel.kt:893:    fun clearPendingDownload() { _pendingDownload.value = null }
     READERS (functions that USE this field):
-      [R] convoy/ConvoyScreen.kt:162:    val pendingDownload by viewModel.pendingDownload.collectAsStateWithLifecycle()
-      [R] convoy/ConvoyScreen.kt:328:    pendingDownload?.let { pending ->
+      [R] convoy/ConvoyScreen.kt:163:    val pendingDownload by viewModel.pendingDownload.collectAsStateWithLifecycle()
+      [R] convoy/ConvoyScreen.kt:329:    pendingDownload?.let { pending ->
       [R] convoy/ConvoyViewModel.kt:888:    val pendingDownload: StateFlow<PendingDownload?> = _pendingDownload.asStateFlow()
 
   FIELD: _pendingDownload (public: pendingDownload)
@@ -12997,8 +13511,8 @@ SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
       [W] ConvoyViewModel.kt:892:    fun setPendingDownload(pending: PendingDownload) { _pendingDownload.value = pending }
       [W] ConvoyViewModel.kt:893:    fun clearPendingDownload() { _pendingDownload.value = null }
     READERS (functions that USE this field):
-      [R] convoy/ConvoyScreen.kt:162:    val pendingDownload by viewModel.pendingDownload.collectAsStateWithLifecycle()
-      [R] convoy/ConvoyScreen.kt:328:    pendingDownload?.let { pending ->
+      [R] convoy/ConvoyScreen.kt:163:    val pendingDownload by viewModel.pendingDownload.collectAsStateWithLifecycle()
+      [R] convoy/ConvoyScreen.kt:329:    pendingDownload?.let { pending ->
       [R] convoy/ConvoyViewModel.kt:888:    val pendingDownload: StateFlow<PendingDownload?> = _pendingDownload.asStateFlow()
 
 --- 5B: StateFlow Fields in Other Files ---
@@ -13151,12 +13665,12 @@ SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
         [R] convoy/ConvoyConfig.kt:65:            android.util.Log.d("TileMigrate", "Migration complete: $moved source(s) moved")
     [72] const val MAP_GROUP_ZOOM_PADDING = 1.4f
     [73] const val MAP_CART_ZOOM = 18.0
-        [R] convoy/ConvoyScreen.kt:227:                    wv.evaluateJavascript("setView(${it.latitude}, ${it.longitude}, ${ConvoyConfig.MAP_CART_ZOOM})", null)
-        [R] convoy/ConvoyScreen.kt:241:                    wv.evaluateJavascript("setView(${it.latitude}, ${it.longitude}, ${ConvoyConfig.MAP_CART_ZOOM})", null)
-        [R] convoy/ConvoyScreen.kt:246:                    wv.evaluateJavascript("setView(${it.latitude}, ${it.longitude}, ${ConvoyConfig.MAP_CART_ZOOM})", null)
+        [R] convoy/ConvoyScreen.kt:228:                    wv.evaluateJavascript("setView(${it.latitude}, ${it.longitude}, ${ConvoyConfig.MAP_CART_ZOOM})", null)
+        [R] convoy/ConvoyScreen.kt:242:                    wv.evaluateJavascript("setView(${it.latitude}, ${it.longitude}, ${ConvoyConfig.MAP_CART_ZOOM})", null)
+        [R] convoy/ConvoyScreen.kt:247:                    wv.evaluateJavascript("setView(${it.latitude}, ${it.longitude}, ${ConvoyConfig.MAP_CART_ZOOM})", null)
     [74] const val MAP_MIN_ZOOM = 16.0
     [76] var SHOW_DOWNLOADED_ON_OPEN = false
-        [R] convoy/ConvoyScreen.kt:579:                                    if (!ConvoyConfig.SHOW_DOWNLOADED_ON_OPEN) return@post
+        [R] convoy/ConvoyScreen.kt:580:                                    if (!ConvoyConfig.SHOW_DOWNLOADED_ON_OPEN) return@post
     [77] const val BLINK_LOST_MS = 3000L
     [78] const val BLINK_DROP_MS = 150L
     [79] const val MARKER_SIZE_LARGE_DP = 24
@@ -13187,21 +13701,21 @@ SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
         [W] ConvoyTileCalculator.kt:62:     * @param zMin   Minimum zoom level (default: ConvoyConfig.DOWNLOAD_ZOOM_MIN = 10)
         [W] ConvoyTileCalculator.kt:63:     * @param zMax   Maximum zoom level (default: ConvoyConfig.DOWNLOAD_ZOOM = 18)
         [R] convoy/ConvoyMapViewerScreen.kt:108:    var mapZoomLevel by remember { mutableStateOf(ConvoyConfig.DOWNLOAD_ZOOM.toFloat()) }
-        [R] convoy/ConvoyScreen.kt:455:                            android.util.Log.i("ConvoyDownload", "onAreaSelected N=$north S=$south E=$east W=$west zoom=${ConvoyConfig.DOWNLOAD_ZOOM_MIN}-${ConvoyConfig.DOWNLOAD_ZOOM}")
-        [R] convoy/ConvoyScreen.kt:557:                                android.util.Log.i("ConvoyDownload", "onAreaSelected N=$north S=$south E=$east W=$west zoom=${ConvoyConfig.DOWNLOAD_ZOOM_MIN}-${ConvoyConfig.DOWNLOAD_ZOOM}")
+        [R] convoy/ConvoyScreen.kt:456:                            android.util.Log.i("ConvoyDownload", "onAreaSelected N=$north S=$south E=$east W=$west zoom=${ConvoyConfig.DOWNLOAD_ZOOM_MIN}-${ConvoyConfig.DOWNLOAD_ZOOM}")
+        [R] convoy/ConvoyScreen.kt:558:                                android.util.Log.i("ConvoyDownload", "onAreaSelected N=$north S=$south E=$east W=$west zoom=${ConvoyConfig.DOWNLOAD_ZOOM_MIN}-${ConvoyConfig.DOWNLOAD_ZOOM}")
         [R] convoy/ConvoyTileCalculator.kt:23: *   zMax = ConvoyConfig.DOWNLOAD_ZOOM (user-set via slider, default 18)
         [R] convoy/ConvoyTileCalculator.kt:75:        zMax: Int = ConvoyConfig.DOWNLOAD_ZOOM,
     [91] var SEARCH_FLY_ZOOM = 10
     [92] const val DOWNLOAD_ZOOM_MIN = 10
         [W] ConvoyTileCalculator.kt:62:     * @param zMin   Minimum zoom level (default: ConvoyConfig.DOWNLOAD_ZOOM_MIN = 10)
-        [R] convoy/ConvoyScreen.kt:455:                            android.util.Log.i("ConvoyDownload", "onAreaSelected N=$north S=$south E=$east W=$west zoom=${ConvoyConfig.DOWNLOAD_ZOOM_MIN}-${ConvoyConfig.DOWNLOAD_ZOOM}")
-        [R] convoy/ConvoyScreen.kt:557:                                android.util.Log.i("ConvoyDownload", "onAreaSelected N=$north S=$south E=$east W=$west zoom=${ConvoyConfig.DOWNLOAD_ZOOM_MIN}-${ConvoyConfig.DOWNLOAD_ZOOM}")
+        [R] convoy/ConvoyScreen.kt:456:                            android.util.Log.i("ConvoyDownload", "onAreaSelected N=$north S=$south E=$east W=$west zoom=${ConvoyConfig.DOWNLOAD_ZOOM_MIN}-${ConvoyConfig.DOWNLOAD_ZOOM}")
+        [R] convoy/ConvoyScreen.kt:558:                                android.util.Log.i("ConvoyDownload", "onAreaSelected N=$north S=$south E=$east W=$west zoom=${ConvoyConfig.DOWNLOAD_ZOOM_MIN}-${ConvoyConfig.DOWNLOAD_ZOOM}")
         [R] convoy/ConvoyTileCalculator.kt:22: *   zMin = DOWNLOAD_ZOOM_MIN (10) — always included, gives regional overview
         [R] convoy/ConvoyTileCalculator.kt:74:        zMin: Int = ConvoyConfig.DOWNLOAD_ZOOM_MIN,
         [R] convoy/ConvoyTileCalculator.kt:118:        zMin: Int = ConvoyConfig.DOWNLOAD_ZOOM_MIN,
     [93] var TRACK_MULTICOLOR = true
         [W] ConvoySettingsScreen.kt:175:                        ConvoyConfig.TRACK_MULTICOLOR = it
-        [R] convoy/ConvoyScreen.kt:273:                color = if (ConvoyConfig.TRACK_MULTICOLOR) seg.color else "#000000"
+        [R] convoy/ConvoyScreen.kt:274:                color = if (ConvoyConfig.TRACK_MULTICOLOR) seg.color else "#000000"
         [R] convoy/ConvoySettingsScreen.kt:157:            var trackMulticolor by remember { mutableStateOf(ConvoyConfig.TRACK_MULTICOLOR) }
 
 --- 5C: SharedPreferences ---
@@ -13497,6 +14011,9 @@ SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
     [R] MapSourceManager.kt:123:                    sourceId = sl.getString("source_id"),
     [R] MapSourceManager.kt:124:                    legacyKey = sl.getString("legacy_key")
     [R] MapSourceManager.kt:262:            json.keys().forEach { key -> apiKeys[key] = json.getString(key) }
+    [R] SpatialDbManager.kt:120:        val count = cursor.getInt(0)
+    [R] SpatialDbManager.kt:211:            val v = cursor.getInt(0)
+    [R] SpatialDbManager.kt:222:            val v = cursor.getInt(0)
 
 --- 5D: File I/O ---
 
@@ -13560,6 +14077,7 @@ SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
     [W] MapSourceManager.kt:85:                try { extFile.writeText(assetJson, Charsets.UTF_8) } catch (_: Exception) {}
     [W] MapSourceManager.kt:250:            extFile.writeText(root.toString(2), Charsets.UTF_8)
     [W] MapSourceManager.kt:274:            apiKeysFile().writeText(json.toString(2), Charsets.UTF_8)
+    [W] SpatialDbManager.kt:48:        if (!dir.exists()) dir.mkdirs()
 
   FILE READERS:
     [R] ConvoyApplyList.kt:111:            if (!file.exists()) return ConvoyApplyList()
@@ -13606,28 +14124,28 @@ SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
     [R] ConvoyProfileBuilder.kt:245:            context.assets.open("master.cfg").readBytes()
     [R] ConvoyRadioManager.kt:156:            .takeIf { it.exists() }
     [R] ConvoyRadioManager.kt:157:            ?.listFiles { f -> f.extension == "json" }
-    [R] ConvoyScreen.kt:513:                                    android.util.Log.d("ConvoyIntercept", "TILE exists=${file.exists()} path=${file.absolutePath}")
-    [R] ConvoyScreen.kt:514:                                    if (file.exists()) return android.webkit.WebResourceResponse("image/png", "utf-8", file.inputStream())
-    [R] ConvoyScreen.kt:522:                                        if (file.exists()) {
-    [R] ConvoyScreen.kt:523:                                            return android.webkit.WebResourceResponse("image/png", null, java.io.FileInputStream(file))
-    [R] ConvoyScreen.kt:531:                                        if (file.exists()) {
-    [R] ConvoyScreen.kt:532:                                            return android.webkit.WebResourceResponse("image/png", null, java.io.FileInputStream(file))
-    [R] ConvoyScreen.kt:583:                                        if (tilesDir.exists()) {
-    [R] ConvoyScreen.kt:590:                                            tilesDir.listFiles()?.forEach { xDir: java.io.File ->
-    [R] ConvoyScreen.kt:592:                                                xDir.listFiles()?.forEach { yFile: java.io.File ->
-    [R] ConvoyScreen.kt:1000:                                        dir.listFiles()?.map { it.name }?.sorted() ?: emptyList()
-    [R] ConvoyScreen.kt:1006:                                                if (!file.exists()) return@withContext null
-    [R] ConvoyScreen.kt:1007:                                                val text = file.readText()
-    [R] ConvoyScreen.kt:1031:                                    val json = context.assets.open("utah_trails_stgeorge.geojson").bufferedReader().use { it.readText() }
-    [R] ConvoyScreen.kt:1057:                                if (tilesDir.exists()) {
-    [R] ConvoyScreen.kt:1059:                                    tilesDir.listFiles()?.forEach { xDir: java.io.File ->
-    [R] ConvoyScreen.kt:1061:                                        xDir.listFiles()?.forEach { yFile: java.io.File ->
-    [R] ConvoyScreen.kt:1829:    if (!dir.exists()) return emptyList()
-    [R] ConvoyScreen.kt:1830:    return dir.listFiles()
-    [R] ConvoyScreen.kt:1854:        if (!file.exists()) return null
-    [R] ConvoyScreen.kt:1855:        val text = file.readText()
-    [R] ConvoyScreen.kt:1877:        if (!file.exists()) return
-    [R] ConvoyScreen.kt:1878:        val text = file.readText()
+    [R] ConvoyScreen.kt:514:                                    android.util.Log.d("ConvoyIntercept", "TILE exists=${file.exists()} path=${file.absolutePath}")
+    [R] ConvoyScreen.kt:515:                                    if (file.exists()) return android.webkit.WebResourceResponse("image/png", "utf-8", file.inputStream())
+    [R] ConvoyScreen.kt:523:                                        if (file.exists()) {
+    [R] ConvoyScreen.kt:524:                                            return android.webkit.WebResourceResponse("image/png", null, java.io.FileInputStream(file))
+    [R] ConvoyScreen.kt:532:                                        if (file.exists()) {
+    [R] ConvoyScreen.kt:533:                                            return android.webkit.WebResourceResponse("image/png", null, java.io.FileInputStream(file))
+    [R] ConvoyScreen.kt:584:                                        if (tilesDir.exists()) {
+    [R] ConvoyScreen.kt:591:                                            tilesDir.listFiles()?.forEach { xDir: java.io.File ->
+    [R] ConvoyScreen.kt:593:                                                xDir.listFiles()?.forEach { yFile: java.io.File ->
+    [R] ConvoyScreen.kt:1001:                                        dir.listFiles()?.map { it.name }?.sorted() ?: emptyList()
+    [R] ConvoyScreen.kt:1007:                                                if (!file.exists()) return@withContext null
+    [R] ConvoyScreen.kt:1008:                                                val text = file.readText()
+    [R] ConvoyScreen.kt:1032:                                    val json = context.assets.open("utah_trails_stgeorge.geojson").bufferedReader().use { it.readText() }
+    [R] ConvoyScreen.kt:1058:                                if (tilesDir.exists()) {
+    [R] ConvoyScreen.kt:1060:                                    tilesDir.listFiles()?.forEach { xDir: java.io.File ->
+    [R] ConvoyScreen.kt:1062:                                        xDir.listFiles()?.forEach { yFile: java.io.File ->
+    [R] ConvoyScreen.kt:1830:    if (!dir.exists()) return emptyList()
+    [R] ConvoyScreen.kt:1831:    return dir.listFiles()
+    [R] ConvoyScreen.kt:1855:        if (!file.exists()) return null
+    [R] ConvoyScreen.kt:1856:        val text = file.readText()
+    [R] ConvoyScreen.kt:1878:        if (!file.exists()) return
+    [R] ConvoyScreen.kt:1879:        val text = file.readText()
     [R] ConvoyTileDownloader.kt:117:                if (!forceOverwrite && dest.exists() && dest.length() > 0) {
     [R] ConvoyTileDownloader.kt:145:        if (!dir.exists()) return emptyList()
     [R] ConvoyTileDownloader.kt:148:        dir.listFiles()?.filter { it.isDirectory }?.forEach { zDir ->
@@ -13659,6 +14177,10 @@ SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
     [R] MapSourceManager.kt:239:                       else appContext?.assets?.open("map_sources.json")?.bufferedReader()?.use { it.readText() } ?: return
     [R] MapSourceManager.kt:260:            if (!file.exists()) return
     [R] MapSourceManager.kt:261:            val json = JSONObject(file.readText(Charsets.UTF_8))
+    [R] SpatialDbManager.kt:48:        if (!dir.exists()) dir.mkdirs()
+    [R] SpatialDbManager.kt:60:            val isNewSpatial = !spatialFile.exists()
+    [R] SpatialDbManager.kt:71:            val isNewExt = !extFile.exists()
+    [R] SpatialDbManager.kt:96:        val sql = context.assets.open(assetName).bufferedReader().use { it.readText() }
 
 --- 5E: Kotlin → JavaScript Bridge ---
 
@@ -13683,38 +14205,38 @@ SECTION 5: FIELD-LEVEL DATA FLOW — WRITERS vs READERS
     [W→JS] ConvoyMapViewerScreen.kt:563:                                    webViewRef?.evaluateJavascript("clearDownloadedAreas()", null)
     [W→JS] ConvoyMapViewerScreen.kt:587:                                            wv.evaluateJavascript("showDownloadedAreas($json)", null)
     [W→JS] ConvoyMapViewerScreen.kt:767:                webView?.evaluateJavascript("loadTrackFile('$safe', '${result.first}', '$color')", null)
-    [W→JS] ConvoyScreen.kt:194:            wv.evaluateJavascript("clearMarkers()", null)
-    [W→JS] ConvoyScreen.kt:200:                wv.evaluateJavascript("addMarker('${node.nodeId}', ${node.latitude}, ${node.longitude}, '$color', '$label', $isMine, $isOffTrack)", null)
-    [W→JS] ConvoyScreen.kt:214:            wv.evaluateJavascript("fitBounds([$lats], [$lons])", null)
-    [W→JS] ConvoyScreen.kt:227:                    wv.evaluateJavascript("setView(${it.latitude}, ${it.longitude}, ${ConvoyConfig.MAP_CART_ZOOM})", null)
-    [W→JS] ConvoyScreen.kt:241:                    wv.evaluateJavascript("setView(${it.latitude}, ${it.longitude}, ${ConvoyConfig.MAP_CART_ZOOM})", null)
-    [W→JS] ConvoyScreen.kt:246:                    wv.evaluateJavascript("setView(${it.latitude}, ${it.longitude}, ${ConvoyConfig.MAP_CART_ZOOM})", null)
-    [W→JS] ConvoyScreen.kt:255:                    wv.evaluateJavascript("fitBounds([$lats], [$lons])", null)
-    [W→JS] ConvoyScreen.kt:295:        wv.evaluateJavascript("drawTrack(" + json + ")", null)
-    [W→JS] ConvoyScreen.kt:487:                                    view.evaluateJavascript("setTileUrl('$tileUrl', '${ConvoyConfig.ACTIVE_TILE_SOURCE}')", null)
-    [W→JS] ConvoyScreen.kt:490:                                        view.evaluateJavascript("setOverlayLayers('${overlayJson.replace("'", "\'")}')", null)
-    [W→JS] ConvoyScreen.kt:500:                                            view.evaluateJavascript("setView(${loc.latitude}, ${loc.longitude}, 15)", null)
-    [W→JS] ConvoyScreen.kt:608:                                            wv.evaluateJavascript("showDownloadedAreas($json)", null)
-    [W→JS] ConvoyScreen.kt:632:                        view.evaluateJavascript("findNearestMarker($x, $y)") { result ->
-    [W→JS] ConvoyScreen.kt:957:                webViewRef.value?.evaluateJavascript("setTileUrl('$url', '$label')", null)
-    [W→JS] ConvoyScreen.kt:959:                if (overlayJsonSc != "[]") { webViewRef.value?.evaluateJavascript("setOverlayLayers('${overlayJsonSc.replace("'", "\\'")}')", null) }
-    [W→JS] ConvoyScreen.kt:967:                webViewRef.value?.evaluateJavascript("setTileUrl('$url', '${ConvoyConfig.ACTIVE_TILE_SOURCE}')", null)
-    [W→JS] ConvoyScreen.kt:990:                                webViewRef.value?.evaluateJavascript("showTracks()", null)
-    [W→JS] ConvoyScreen.kt:1015:                                            wv?.evaluateJavascript("loadTrackFile('" + safe + "', '" + result + "', '" + trackColor + "')", null)
-    [W→JS] ConvoyScreen.kt:1021:                            webViewRef.value?.evaluateJavascript("hideTracks()", null)
-    [W→JS] ConvoyScreen.kt:1033:                                        webViewRef.value?.evaluateJavascript("loadTrails($json); showTrails();", null)
-    [W→JS] ConvoyScreen.kt:1041:                        webViewRef.value?.evaluateJavascript("toggleTrails()", null)
-    [W→JS] ConvoyScreen.kt:1048:                            webViewRef.value?.evaluateJavascript("clearDownloadedAreas()", null)
-    [W→JS] ConvoyScreen.kt:1073:                                    wv.evaluateJavascript("showDownloadedAreas($json)", null)
-    [W→JS] ConvoyScreen.kt:1207:                            webViewRef.value?.evaluateJavascript("removeMarker('${n.nodeId}')", null)
-    [W→JS] ConvoyScreen.kt:1883:        webView?.evaluateJavascript("loadTrackFile('$safe', '$json', '$color')", null)
+    [W→JS] ConvoyScreen.kt:195:            wv.evaluateJavascript("clearMarkers()", null)
+    [W→JS] ConvoyScreen.kt:201:                wv.evaluateJavascript("addMarker('${node.nodeId}', ${node.latitude}, ${node.longitude}, '$color', '$label', $isMine, $isOffTrack)", null)
+    [W→JS] ConvoyScreen.kt:215:            wv.evaluateJavascript("fitBounds([$lats], [$lons])", null)
+    [W→JS] ConvoyScreen.kt:228:                    wv.evaluateJavascript("setView(${it.latitude}, ${it.longitude}, ${ConvoyConfig.MAP_CART_ZOOM})", null)
+    [W→JS] ConvoyScreen.kt:242:                    wv.evaluateJavascript("setView(${it.latitude}, ${it.longitude}, ${ConvoyConfig.MAP_CART_ZOOM})", null)
+    [W→JS] ConvoyScreen.kt:247:                    wv.evaluateJavascript("setView(${it.latitude}, ${it.longitude}, ${ConvoyConfig.MAP_CART_ZOOM})", null)
+    [W→JS] ConvoyScreen.kt:256:                    wv.evaluateJavascript("fitBounds([$lats], [$lons])", null)
+    [W→JS] ConvoyScreen.kt:296:        wv.evaluateJavascript("drawTrack(" + json + ")", null)
+    [W→JS] ConvoyScreen.kt:488:                                    view.evaluateJavascript("setTileUrl('$tileUrl', '${ConvoyConfig.ACTIVE_TILE_SOURCE}')", null)
+    [W→JS] ConvoyScreen.kt:491:                                        view.evaluateJavascript("setOverlayLayers('${overlayJson.replace("'", "\'")}')", null)
+    [W→JS] ConvoyScreen.kt:501:                                            view.evaluateJavascript("setView(${loc.latitude}, ${loc.longitude}, 15)", null)
+    [W→JS] ConvoyScreen.kt:609:                                            wv.evaluateJavascript("showDownloadedAreas($json)", null)
+    [W→JS] ConvoyScreen.kt:633:                        view.evaluateJavascript("findNearestMarker($x, $y)") { result ->
+    [W→JS] ConvoyScreen.kt:958:                webViewRef.value?.evaluateJavascript("setTileUrl('$url', '$label')", null)
+    [W→JS] ConvoyScreen.kt:960:                if (overlayJsonSc != "[]") { webViewRef.value?.evaluateJavascript("setOverlayLayers('${overlayJsonSc.replace("'", "\\'")}')", null) }
+    [W→JS] ConvoyScreen.kt:968:                webViewRef.value?.evaluateJavascript("setTileUrl('$url', '${ConvoyConfig.ACTIVE_TILE_SOURCE}')", null)
+    [W→JS] ConvoyScreen.kt:991:                                webViewRef.value?.evaluateJavascript("showTracks()", null)
+    [W→JS] ConvoyScreen.kt:1016:                                            wv?.evaluateJavascript("loadTrackFile('" + safe + "', '" + result + "', '" + trackColor + "')", null)
+    [W→JS] ConvoyScreen.kt:1022:                            webViewRef.value?.evaluateJavascript("hideTracks()", null)
+    [W→JS] ConvoyScreen.kt:1034:                                        webViewRef.value?.evaluateJavascript("loadTrails($json); showTrails();", null)
+    [W→JS] ConvoyScreen.kt:1042:                        webViewRef.value?.evaluateJavascript("toggleTrails()", null)
+    [W→JS] ConvoyScreen.kt:1049:                            webViewRef.value?.evaluateJavascript("clearDownloadedAreas()", null)
+    [W→JS] ConvoyScreen.kt:1074:                                    wv.evaluateJavascript("showDownloadedAreas($json)", null)
+    [W→JS] ConvoyScreen.kt:1208:                            webViewRef.value?.evaluateJavascript("removeMarker('${n.nodeId}')", null)
+    [W→JS] ConvoyScreen.kt:1884:        webView?.evaluateJavascript("loadTrackFile('$safe', '$json', '$color')", null)
 
   JavaScript → Kotlin callbacks:
     [JS→KT] ConvoyMapViewerScreen.kt:332:                        addJavascriptInterface(object {
     [JS→KT] ConvoyMapViewerScreen.kt:333:                            @JavascriptInterface
     [JS→KT] ConvoyMapViewerScreen.kt:353:                            @JavascriptInterface
-    [JS→KT] ConvoyScreen.kt:446:                    existing.addJavascriptInterface(object : Any() {
-    [JS→KT] ConvoyScreen.kt:548:                        addJavascriptInterface(object : Any() {
+    [JS→KT] ConvoyScreen.kt:447:                    existing.addJavascriptInterface(object : Any() {
+    [JS→KT] ConvoyScreen.kt:549:                        addJavascriptInterface(object : Any() {
 
 ================================================================================
 SECTION 6: LIFECYCLE PHASE MAP
@@ -13813,38 +14335,38 @@ SECTION 6: LIFECYCLE PHASE MAP
   ConvoyMapViewerScreen.kt:563:                                    webViewRef?.evaluateJavascript("clearDownloadedAreas()", null)
   ConvoyMapViewerScreen.kt:587:                                            wv.evaluateJavascript("showDownloadedAreas($json)", null)
   ConvoyMapViewerScreen.kt:767:                webView?.evaluateJavascript("loadTrackFile('$safe', '${result.first}', '$color')", null)
-  ConvoyScreen.kt:194:            wv.evaluateJavascript("clearMarkers()", null)
-  ConvoyScreen.kt:200:                wv.evaluateJavascript("addMarker('${node.nodeId}', ${node.latitude}, ${node.longitude}, '$color', '$label', $isMine, $isOffTrack)", null)
-  ConvoyScreen.kt:214:            wv.evaluateJavascript("fitBounds([$lats], [$lons])", null)
-  ConvoyScreen.kt:227:                    wv.evaluateJavascript("setView(${it.latitude}, ${it.longitude}, ${ConvoyConfig.MAP_CART_ZOOM})", null)
-  ConvoyScreen.kt:241:                    wv.evaluateJavascript("setView(${it.latitude}, ${it.longitude}, ${ConvoyConfig.MAP_CART_ZOOM})", null)
-  ConvoyScreen.kt:246:                    wv.evaluateJavascript("setView(${it.latitude}, ${it.longitude}, ${ConvoyConfig.MAP_CART_ZOOM})", null)
-  ConvoyScreen.kt:255:                    wv.evaluateJavascript("fitBounds([$lats], [$lons])", null)
-  ConvoyScreen.kt:295:        wv.evaluateJavascript("drawTrack(" + json + ")", null)
-  ConvoyScreen.kt:484:                            override fun onPageFinished(view: android.webkit.WebView?, url: String?) {
-  ConvoyScreen.kt:487:                                    view.evaluateJavascript("setTileUrl('$tileUrl', '${ConvoyConfig.ACTIVE_TILE_SOURCE}')", null)
-  ConvoyScreen.kt:490:                                        view.evaluateJavascript("setOverlayLayers('${overlayJson.replace("'", "\'")}')", null)
-  ConvoyScreen.kt:500:                                            view.evaluateJavascript("setView(${loc.latitude}, ${loc.longitude}, 15)", null)
-  ConvoyScreen.kt:547:                        loadUrl("file:///android_asset/convoy_map.html")
-  ConvoyScreen.kt:608:                                            wv.evaluateJavascript("showDownloadedAreas($json)", null)
-  ConvoyScreen.kt:627:                        event.action == android.view.MotionEvent.ACTION_UP) { viewModel.setAutoPan(false) }
-  ConvoyScreen.kt:632:                        view.evaluateJavascript("findNearestMarker($x, $y)") { result ->
-  ConvoyScreen.kt:950:                viewModel.setMapTypeLabel(label)
-  ConvoyScreen.kt:956:                viewModel.setLocalTiles(isLocalTiles)
-  ConvoyScreen.kt:957:                webViewRef.value?.evaluateJavascript("setTileUrl('$url', '$label')", null)
-  ConvoyScreen.kt:959:                if (overlayJsonSc != "[]") { webViewRef.value?.evaluateJavascript("setOverlayLayers('${overlayJsonSc.replace("'", "\\'")}')", null) }
-  ConvoyScreen.kt:962:                viewModel.setOfflineMode(goOffline)
-  ConvoyScreen.kt:967:                webViewRef.value?.evaluateJavascript("setTileUrl('$url', '${ConvoyConfig.ACTIVE_TILE_SOURCE}')", null)
-  ConvoyScreen.kt:990:                                webViewRef.value?.evaluateJavascript("showTracks()", null)
-  ConvoyScreen.kt:1015:                                            wv?.evaluateJavascript("loadTrackFile('" + safe + "', '" + result + "', '" + trackColor + "')", null)
-  ConvoyScreen.kt:1021:                            webViewRef.value?.evaluateJavascript("hideTracks()", null)
-  ConvoyScreen.kt:1033:                                        webViewRef.value?.evaluateJavascript("loadTrails($json); showTrails();", null)
-  ConvoyScreen.kt:1041:                        webViewRef.value?.evaluateJavascript("toggleTrails()", null)
-  ConvoyScreen.kt:1048:                            webViewRef.value?.evaluateJavascript("clearDownloadedAreas()", null)
-  ConvoyScreen.kt:1073:                                    wv.evaluateJavascript("showDownloadedAreas($json)", null)
-  ConvoyScreen.kt:1160:            onModeChange = { viewModel.setHudMode(it); viewModel.setAutoPan(true) },
-  ConvoyScreen.kt:1207:                            webViewRef.value?.evaluateJavascript("removeMarker('${n.nodeId}')", null)
-  ConvoyScreen.kt:1883:        webView?.evaluateJavascript("loadTrackFile('$safe', '$json', '$color')", null)
+  ConvoyScreen.kt:195:            wv.evaluateJavascript("clearMarkers()", null)
+  ConvoyScreen.kt:201:                wv.evaluateJavascript("addMarker('${node.nodeId}', ${node.latitude}, ${node.longitude}, '$color', '$label', $isMine, $isOffTrack)", null)
+  ConvoyScreen.kt:215:            wv.evaluateJavascript("fitBounds([$lats], [$lons])", null)
+  ConvoyScreen.kt:228:                    wv.evaluateJavascript("setView(${it.latitude}, ${it.longitude}, ${ConvoyConfig.MAP_CART_ZOOM})", null)
+  ConvoyScreen.kt:242:                    wv.evaluateJavascript("setView(${it.latitude}, ${it.longitude}, ${ConvoyConfig.MAP_CART_ZOOM})", null)
+  ConvoyScreen.kt:247:                    wv.evaluateJavascript("setView(${it.latitude}, ${it.longitude}, ${ConvoyConfig.MAP_CART_ZOOM})", null)
+  ConvoyScreen.kt:256:                    wv.evaluateJavascript("fitBounds([$lats], [$lons])", null)
+  ConvoyScreen.kt:296:        wv.evaluateJavascript("drawTrack(" + json + ")", null)
+  ConvoyScreen.kt:485:                            override fun onPageFinished(view: android.webkit.WebView?, url: String?) {
+  ConvoyScreen.kt:488:                                    view.evaluateJavascript("setTileUrl('$tileUrl', '${ConvoyConfig.ACTIVE_TILE_SOURCE}')", null)
+  ConvoyScreen.kt:491:                                        view.evaluateJavascript("setOverlayLayers('${overlayJson.replace("'", "\'")}')", null)
+  ConvoyScreen.kt:501:                                            view.evaluateJavascript("setView(${loc.latitude}, ${loc.longitude}, 15)", null)
+  ConvoyScreen.kt:548:                        loadUrl("file:///android_asset/convoy_map.html")
+  ConvoyScreen.kt:609:                                            wv.evaluateJavascript("showDownloadedAreas($json)", null)
+  ConvoyScreen.kt:628:                        event.action == android.view.MotionEvent.ACTION_UP) { viewModel.setAutoPan(false) }
+  ConvoyScreen.kt:633:                        view.evaluateJavascript("findNearestMarker($x, $y)") { result ->
+  ConvoyScreen.kt:951:                viewModel.setMapTypeLabel(label)
+  ConvoyScreen.kt:957:                viewModel.setLocalTiles(isLocalTiles)
+  ConvoyScreen.kt:958:                webViewRef.value?.evaluateJavascript("setTileUrl('$url', '$label')", null)
+  ConvoyScreen.kt:960:                if (overlayJsonSc != "[]") { webViewRef.value?.evaluateJavascript("setOverlayLayers('${overlayJsonSc.replace("'", "\\'")}')", null) }
+  ConvoyScreen.kt:963:                viewModel.setOfflineMode(goOffline)
+  ConvoyScreen.kt:968:                webViewRef.value?.evaluateJavascript("setTileUrl('$url', '${ConvoyConfig.ACTIVE_TILE_SOURCE}')", null)
+  ConvoyScreen.kt:991:                                webViewRef.value?.evaluateJavascript("showTracks()", null)
+  ConvoyScreen.kt:1016:                                            wv?.evaluateJavascript("loadTrackFile('" + safe + "', '" + result + "', '" + trackColor + "')", null)
+  ConvoyScreen.kt:1022:                            webViewRef.value?.evaluateJavascript("hideTracks()", null)
+  ConvoyScreen.kt:1034:                                        webViewRef.value?.evaluateJavascript("loadTrails($json); showTrails();", null)
+  ConvoyScreen.kt:1042:                        webViewRef.value?.evaluateJavascript("toggleTrails()", null)
+  ConvoyScreen.kt:1049:                            webViewRef.value?.evaluateJavascript("clearDownloadedAreas()", null)
+  ConvoyScreen.kt:1074:                                    wv.evaluateJavascript("showDownloadedAreas($json)", null)
+  ConvoyScreen.kt:1161:            onModeChange = { viewModel.setHudMode(it); viewModel.setAutoPan(true) },
+  ConvoyScreen.kt:1208:                            webViewRef.value?.evaluateJavascript("removeMarker('${n.nodeId}')", null)
+  ConvoyScreen.kt:1884:        webView?.evaluateJavascript("loadTrackFile('$safe', '$json', '$color')", null)
   ConvoyViewModel.kt:96:    fun setOfflineMode(offline: Boolean) { _isOfflineMode.value = offline }
   ConvoyViewModel.kt:99:    fun setMapTypeLabel(label: String) { _mapTypeLabel.value = label }
   ConvoyViewModel.kt:102:    fun setLocalTiles(local: Boolean) { _isLocalTiles.value = local }
@@ -13877,20 +14399,20 @@ SECTION 6: LIFECYCLE PHASE MAP
   ConvoyGpsService.kt:298:            pauseTrack()
   ConvoyGpsService.kt:313:            writeGpxPoint(lat, lon, alt)
   ConvoyGpsService.kt:393:    private fun writeGpxPoint(lat: Double, lon: Double, alt: Double) {
-  ConvoyScreen.kt:404:                viewModel.finalizeTrack("convoy_track", context)
-  ConvoyScreen.kt:419:                    viewModel.finalizeTrack(name, context)
-  ConvoyScreen.kt:717:                                        viewModel.startRecording(context)
-  ConvoyScreen.kt:718:                                        viewModel.startGroupTrack()
-  ConvoyScreen.kt:766:                                        viewModel.startRecording(context)
-  ConvoyScreen.kt:767:                                        viewModel.startGroupTrack()
-  ConvoyScreen.kt:775:                                            viewModel.startRecording(context)
-  ConvoyScreen.kt:776:                                            viewModel.startGroupTrack()
-  ConvoyScreen.kt:821:                                viewModel.resumeRecording(context)
-  ConvoyScreen.kt:824:                                viewModel.pauseRecording()
-  ConvoyScreen.kt:841:                            viewModel.stopRecording()
-  ConvoyScreen.kt:842:                            viewModel.stopGroupTrack()
-  ConvoyScreen.kt:1188:                    onStartTrack = { viewModel.startGroupTrack() },
-  ConvoyScreen.kt:1189:                    onStopTrack = { viewModel.stopGroupTrack() },
+  ConvoyScreen.kt:405:                viewModel.finalizeTrack("convoy_track", context)
+  ConvoyScreen.kt:420:                    viewModel.finalizeTrack(name, context)
+  ConvoyScreen.kt:718:                                        viewModel.startRecording(context)
+  ConvoyScreen.kt:719:                                        viewModel.startGroupTrack()
+  ConvoyScreen.kt:767:                                        viewModel.startRecording(context)
+  ConvoyScreen.kt:768:                                        viewModel.startGroupTrack()
+  ConvoyScreen.kt:776:                                            viewModel.startRecording(context)
+  ConvoyScreen.kt:777:                                            viewModel.startGroupTrack()
+  ConvoyScreen.kt:822:                                viewModel.resumeRecording(context)
+  ConvoyScreen.kt:825:                                viewModel.pauseRecording()
+  ConvoyScreen.kt:842:                            viewModel.stopRecording()
+  ConvoyScreen.kt:843:                            viewModel.stopGroupTrack()
+  ConvoyScreen.kt:1189:                    onStartTrack = { viewModel.startGroupTrack() },
+  ConvoyScreen.kt:1190:                    onStopTrack = { viewModel.stopGroupTrack() },
   ConvoyViewModel.kt:140:    fun startGroupTrack() {
   ConvoyViewModel.kt:172:    fun stopGroupTrack() {
   ConvoyViewModel.kt:303:    private var rideStartTimeMs: Long = 0L  // Unix ms when startGroupTrack() was called
@@ -13951,8 +14473,8 @@ SECTION 6: LIFECYCLE PHASE MAP
   ConvoyRadioWriter.kt:115:            channelViewModel.setConfig(Config(lora = Config.LoRaConfig(hop_limit = workingConfig.loraHopLimit, tx_enabled = workingConfig.loraTxEnabled, tx_power = workingConfig.loraTxPower)))
   ConvoyRadioWriter.kt:131:            channelViewModel.setChannels(ChannelSet(settings = listOf(chSettings)))
   ConvoyScreen.kt:104:    val channelViewModel: ChannelViewModel = hiltViewModel()
-  ConvoyScreen.kt:1193:                        onIntervalChange = { secs -> viewModel.setGpsInterval(secs, channelViewModel) },
-  ConvoyScreen.kt:1206:                            viewModel.removeNode(n.nodeId)
+  ConvoyScreen.kt:1194:                        onIntervalChange = { secs -> viewModel.setGpsInterval(secs, channelViewModel) },
+  ConvoyScreen.kt:1207:                            viewModel.removeNode(n.nodeId)
   ConvoyVerifyConfigScreen.kt:38:    channelViewModel: ChannelViewModel = hiltViewModel(),
   ConvoyVerifyConfigScreen.kt:43:    val localConfig by channelViewModel.localConfig.collectAsStateWithLifecycle()
   ConvoyVerifyConfigScreen.kt:44:    val channels    by channelViewModel.channels.collectAsStateWithLifecycle()
@@ -14010,16 +14532,16 @@ SECTION 6: LIFECYCLE PHASE MAP
   ConvoyMyOrganizersScreen.kt:153:                                        ConvoyApiClient.followOrganizer(userId, org.id)
   ConvoyRideDetailScreen.kt:102:            ConvoyEnrollmentQueue.unfollowOrganizer(context, orgId, orgName)
   ConvoyRideDetailScreen.kt:105:            ConvoyEnrollmentQueue.followOrganizer(context, orgId, orgName)
-  ConvoyScreen.kt:373:                        viewModel.startDownload(context, pending)
-  ConvoyScreen.kt:391:            onDismissRequest = { viewModel.cancelDownload() },
-  ConvoyScreen.kt:395:                TextButton(onClick = { viewModel.cancelDownload() }) { Text("OK") }
-  ConvoyScreen.kt:425:                    viewModel.deleteTempTrack()
-  ConvoyScreen.kt:470:                                viewModel.setPendingDownload(pending)
-  ConvoyScreen.kt:572:                                    viewModel.setPendingDownload(pending)
-  ConvoyScreen.kt:714:                                        viewModel.setLeadCart(node.nodeId)
-  ConvoyScreen.kt:773:                                            viewModel.setLeadCart(soloNode?.nodeId ?: "!phone")
-  ConvoyScreen.kt:1210:                            viewModel.setLeadCart(n.nodeId)
-  ConvoyScreen.kt:1823:fun convoyListTracks(context: android.content.Context): List<String> {
+  ConvoyScreen.kt:374:                        viewModel.startDownload(context, pending)
+  ConvoyScreen.kt:392:            onDismissRequest = { viewModel.cancelDownload() },
+  ConvoyScreen.kt:396:                TextButton(onClick = { viewModel.cancelDownload() }) { Text("OK") }
+  ConvoyScreen.kt:426:                    viewModel.deleteTempTrack()
+  ConvoyScreen.kt:471:                                viewModel.setPendingDownload(pending)
+  ConvoyScreen.kt:573:                                    viewModel.setPendingDownload(pending)
+  ConvoyScreen.kt:715:                                        viewModel.setLeadCart(node.nodeId)
+  ConvoyScreen.kt:774:                                            viewModel.setLeadCart(soloNode?.nodeId ?: "!phone")
+  ConvoyScreen.kt:1211:                            viewModel.setLeadCart(n.nodeId)
+  ConvoyScreen.kt:1824:fun convoyListTracks(context: android.content.Context): List<String> {
   ConvoySessionManager.kt:69:    fun saveUser(ctx: Context, userId: String, googleId: String,
   ConvoySessionManager.kt:98:    fun clearSession(ctx: Context) {
   ConvoySignInScreen.kt:50:// On success: calls ConvoyApiClient.registerUser()
@@ -14054,11 +14576,11 @@ SECTION 8: CURRENT GIT STATE
 
 Branch: feature/convoy-event-ride
 Last 5 commits:
+  efb4d30ef docs: recommit all project documents + cross-reference — 2026-05-18 19:45
+  e7d0cf566 V2.5 SpatialDbManager: two SQLite databases (spatial + extension) in Documents/GroupTrack/. WKT geometry (portable to iOS). 4 spatial tables, 15 extension tables, 5 views, proximity seed data. Schema versioned. WKT helpers for point/line/bbox. Wired into app startup.
+  778d29b64 docs: update field cross-reference — 2026-05-18 18:05
   8ab37ffa6 docs: recommit all project documents + cross-reference — 2026-05-18 16:17
   1d283c86c V2.5 Map Source Selection: configurable tile sources per slot, API key management, grid-based tile refresh (~12mi cells, single slot, forceOverwrite, auto-remove on completion). Overlay injection from MapSourceManager. New ConvoyMapSourceScreen, updated MapSourceManager with external JSON, ConvoyDownloadQueue grid enqueue, ConvoyDownloadWorker bounds-based refresh. Thunderforest API key tested. CalTopo TOPO+ refresh verified 12 grid cells.
-  d9a377d9f Remove hardcoded overlay URLs from HTML, inject from MapSourceManager via Kotlin. setOverlayLayers() JS function receives overlay JSON. No hardcoded tile URLs remain in HTML files.
-  6b2701bab docs: update field cross-reference — 2026-05-18 02:57
-  ea11572ed docs: recommit all project documents + cross-reference — 2026-05-18 00:57
 
 Uncommitted changes:
    M docs/field_crossref_raw.txt
