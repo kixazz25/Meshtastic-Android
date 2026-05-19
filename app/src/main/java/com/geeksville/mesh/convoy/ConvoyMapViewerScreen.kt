@@ -437,6 +437,9 @@ fun ConvoyMapViewerScreen(
                     .padding(start = 50.dp, end = 8.dp, top = 2.dp)
                     .fillMaxWidth()
             )
+            // -- WORK WITH ARTIFACTS (V2.5 scaffold) --
+            ConvoyArtifactsPanel(isConvoyMap = false)
+
             // -- FLOATING DISPLAY PANEL --
             ConvoyDisplayPanel(
                 tracksOn = pmTracksOn,

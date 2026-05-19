@@ -994,6 +994,9 @@ fun ConvoyScreen(
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp))
                 }
 
+                // -- WORK WITH ARTIFACTS (V2.5 scaffold) --
+                ConvoyArtifactsPanel(isConvoyMap = true)
+
                 // -- MAP BAR + DISPLAY PANEL (rebuilt) --
                 ConvoyDisplayPanel(
                     tracksOn = tracksVisible,
