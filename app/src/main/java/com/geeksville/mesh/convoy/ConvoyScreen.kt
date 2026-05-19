@@ -129,6 +129,7 @@ fun ConvoyScreen(
     var pendingTrackName by viewModel.pendingTrackName
     val context = LocalContext.current
     MapSourceManager.init(context)
+    SpatialDbManager.init(context)
 
     val bgLocationLauncher = rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
