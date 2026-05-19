@@ -13,6 +13,10 @@ CREATE TABLE IF NOT EXISTS trails (
     trail_id    TEXT PRIMARY KEY,
     name        TEXT,
     geometry    TEXT,
+    min_lat     REAL,
+    max_lat     REAL,
+    min_lon     REAL,
+    max_lon     REAL,
     created_at  TEXT NOT NULL,
     updated_at  TEXT NOT NULL
 );
@@ -32,6 +36,10 @@ CREATE TABLE IF NOT EXISTS waypoints (
     name        TEXT NOT NULL,
     type        TEXT NOT NULL,
     geometry    TEXT,
+    min_lat     REAL,
+    max_lat     REAL,
+    min_lon     REAL,
+    max_lon     REAL,
     created_at  TEXT NOT NULL,
     updated_at  TEXT NOT NULL
 );
@@ -41,12 +49,17 @@ CREATE TABLE IF NOT EXISTS routes (
     route_id    TEXT PRIMARY KEY,
     name        TEXT NOT NULL,
     geometry    TEXT,
+    min_lat     REAL,
+    max_lat     REAL,
+    min_lon     REAL,
+    max_lon     REAL,
     created_at  TEXT NOT NULL,
     updated_at  TEXT NOT NULL
 );
 
 -- Indexes for text-search on geometry bounds
 CREATE INDEX IF NOT EXISTS idx_trails_name ON trails(name);
+CREATE INDEX IF NOT EXISTS idx_trails_bbox ON trails(min_lat, max_lat, min_lon, max_lon);
 CREATE INDEX IF NOT EXISTS idx_tracks_name ON tracks(name);
 CREATE INDEX IF NOT EXISTS idx_waypoints_type ON waypoints(type);
 CREATE INDEX IF NOT EXISTS idx_routes_name ON routes(name);

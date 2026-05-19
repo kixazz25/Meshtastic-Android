@@ -113,7 +113,76 @@ object SpatialDbManager {
         }
     }
 
-    /** Count rows in a table */
+    /** Get spatial database reference */
+    fun getSpatialDb(): SQLiteDatabase? = spatialDb
+
+    /** Get extension database reference */
+    fun getExtensionDb(): SQLiteDatabase? = extensionDb
+
+    /**
+     * Query trails by viewport bounding box.
+     * Returns list of [trail_id, name, geometry_wkt]
+     */
+    fun queryTrailsByViewport(south: Double, west: Double, north: Double, east: Double, limit: Int = 500): List<Triple<String, String?, String>> {
+        val db = spatialDb ?: return emptyList()
+        val results = mutableListOf<Triple<String, String?, String>>()
+        val cursor = db.rawQuery(
+            "SELECT trail_id, name, geometry FROM trails WHERE max_lat >= ? AND min_lat <= ? AND max_lon >= ? AND min_lon <= ? LIMIT ?",
+            arrayOf(south.toString(), north.toString(), west.toString(), east.toString(), limit.toString())
+        )
+        while (cursor.moveToNext()) {
+            val wkt = cursor.getString(2)
+            if (!wkt.isNullOrEmpty()) {
+                results.add(Triple(cursor.getString(0), cursor.getString(1), wkt))
+            }
+        }
+        cursor.close()
+        return results
+    }
+
+    /** Convert WKT to GeoJSON coordinates string */
+    fun wktToGeoJsonCoords(wkt: String): String {
+        val inner: String
+        val isMulti: Boolean
+        if (wkt.startsWith("MULTILINESTRING(")) {
+            inner = wkt.removePrefix("MULTILINESTRING(").removeSuffix(")")
+            isMulti = true
+        } else if (wkt.startsWith("LINESTRING(")) {
+            inner = wkt.removePrefix("LINESTRING(").removeSuffix(")")
+            isMulti = false
+        } else return "[]"
+        if (!isMulti) {
+            val coords = inner.split(",").map { it.trim().split(" ") }
+            return "[" + coords.joinToString(",") { "[${it[0]},${it[1]}]" } + "]"
+        } else {
+            val lines = inner.split("),(").map { it.trim('(', ')') }
+            val jsonLines = lines.map { line ->
+                val coords = line.split(",").map { it.trim().split(" ") }
+                "[" + coords.joinToString(",") { "[${it[0]},${it[1]}]" } + "]"
+            }
+            return "[" + jsonLines.joinToString(",") + "]"
+        }
+    }
+
+    /** Build GeoJSON FeatureCollection from viewport query results */
+    fun buildTrailGeoJson(trails: List<Triple<String, String?, String>>): String {
+        val sb = StringBuilder()
+        sb.append("{\"type\":\"FeatureCollection\",\"features\":[")
+        var first = true
+        for ((id, name, wkt) in trails) {
+            val coords = wktToGeoJsonCoords(wkt)
+            if (coords == "[]") continue
+            if (!first) sb.append(",")
+            first = false
+            val geoType = if (wkt.startsWith("MULTI")) "MultiLineString" else "LineString"
+            val safeName = (name ?: "Unnamed").replace("\\", "\\\\").replace("\"", "\\\\\"")
+            sb.append("{\"type\":\"Feature\",\"properties\":{\"PrimaryName\":\"$safeName\"},\"geometry\":{\"type\":\"$geoType\",\"coordinates\":$coords}}")
+        }
+        sb.append("]}")
+        return sb.toString()
+    }
+
+        /** Count rows in a table */
     private fun countRows(db: SQLiteDatabase, table: String): Int {
         val cursor = db.rawQuery("SELECT COUNT(*) FROM $table", null)
         cursor.moveToFirst()
