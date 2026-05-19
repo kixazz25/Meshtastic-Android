@@ -221,4 +221,8 @@ object ConvoyRoutes {
     @Serializable data object ConvoyCompletedRides : Route  // V3 Phase B
     @Serializable data object ConvoyCompletedRideDetail : Route  // V3 Phase B
     @Serializable data object ConvoySearchByArea : Route  // V3 Phase B stub
+
+    // -- V2.5 Spatial Scaffolding --
+    @Serializable data object ConvoyTrailSources : Route     // V2.5 Trail Source Management
+    @Serializable data object ConvoyRouteCreate  : Route     // V2.5 Route creation
 }

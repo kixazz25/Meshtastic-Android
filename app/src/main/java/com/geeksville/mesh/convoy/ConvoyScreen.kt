@@ -981,6 +981,19 @@ fun ConvoyScreen(
                 .padding(top = 52.dp, end = 8.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
+                // -- QUEUES launch point (V2.5 scaffold) --
+                Surface(
+                    modifier = Modifier.clickable { /* Pass 2: show ConvoyQueuesPanel */ },
+                    shape = RoundedCornerShape(6.dp),
+                    color = Color(0xFF2A3545)
+                ) {
+                    Text("QUEUES",
+                        color = Color(0xFF1CF0A0),
+                        fontSize = 10.sp, fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp))
+                }
+
                 // -- MAP BAR + DISPLAY PANEL (rebuilt) --
                 ConvoyDisplayPanel(
                     tracksOn = tracksVisible,

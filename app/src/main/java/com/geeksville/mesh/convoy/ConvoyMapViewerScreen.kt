@@ -141,20 +141,35 @@ fun ConvoyMapViewerScreen(
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 2.sp
             )
-            // TRACKS button (opens track picker)
-            Surface(
-                modifier = Modifier.clickable {
-                        showTrackPanel = showTrackPanel.not()
-                        if (showTrackPanel) refreshTracks()
-                    },
-                shape = RoundedCornerShape(6.dp),
-                color = if (showTrackPanel) Color(0xFF39FF14).copy(alpha = 0.2f) else Color(0xFF2A3545)
-            ) {
-                Text("TRACKS",
-                    color = if (showTrackPanel) Color(0xFF39FF14) else Color(0xFF7A8DA0),
-                    fontSize = 11.sp, fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp))
+            // TRACKS + QUEUES (grouped right)
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                // TRACKS button (opens track picker)
+                Surface(
+                    modifier = Modifier.clickable {
+                            showTrackPanel = showTrackPanel.not()
+                            if (showTrackPanel) refreshTracks()
+                        },
+                    shape = RoundedCornerShape(6.dp),
+                    color = if (showTrackPanel) Color(0xFF39FF14).copy(alpha = 0.2f) else Color(0xFF2A3545)
+                ) {
+                    Text("TRACKS",
+                        color = if (showTrackPanel) Color(0xFF39FF14) else Color(0xFF7A8DA0),
+                        fontSize = 11.sp, fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp))
+                }
+                // QUEUES — V2.5 scaffold launch point
+                Surface(
+                    modifier = Modifier.clickable { /* Pass 2: show ConvoyQueuesPanel */ },
+                    shape = RoundedCornerShape(6.dp),
+                    color = Color(0xFF2A3545)
+                ) {
+                    Text("QUEUES",
+                        color = Color(0xFF1CF0A0),
+                        fontSize = 11.sp, fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp))
+                }
             }
         }
 

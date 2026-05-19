@@ -49,6 +49,8 @@ import com.geeksville.mesh.convoy.ConvoyProfileScreen
 import com.geeksville.mesh.convoy.ConvoyExploreScreen
 import org.meshtastic.core.navigation.ConvoyRoutes
 import com.geeksville.mesh.convoy.ConvoyTrackImportScreen
+import com.geeksville.mesh.convoy.ConvoyTrailSourceScreen
+import com.geeksville.mesh.convoy.ConvoyRouteCreateScreen
 
 fun NavGraphBuilder.convoyGraph(
     navController: NavHostController? = null,
@@ -71,6 +73,20 @@ fun NavGraphBuilder.convoyGraph(
         ConvoySettingsScreen(
             onNavigateBack = { navController?.popBackStack() },
             onNavigateToMapSources = { navController?.navigate(ConvoyRoutes.ConvoyMapSources) }
+        )
+    }
+
+    // ── V2.5 Trail Source Management ─────────────────────────────
+    composable<ConvoyRoutes.ConvoyTrailSources> {
+        ConvoyTrailSourceScreen(
+            onNavigateBack = { navController?.popBackStack() }
+        )
+    }
+
+    // ── V2.5 Route Creation ──────────────────────────────────────
+    composable<ConvoyRoutes.ConvoyRouteCreate> {
+        ConvoyRouteCreateScreen(
+            onNavigateBack = { navController?.popBackStack() }
         )
     }
 
