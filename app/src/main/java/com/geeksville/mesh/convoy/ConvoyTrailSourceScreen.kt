@@ -63,7 +63,7 @@ fun ConvoyTrailSourceScreen(onNavigateBack: () -> Unit = {}) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    var step by remember { mutableStateOf(ImportStep.METHOD_SELECT) }
+    var step by remember { mutableStateOf(ImportStep.A1_SOURCE_SELECT) }
     var sources by remember { mutableStateOf(listOf<CatalogSource>()) }
     var selectedSourceId by remember { mutableStateOf<String?>(null) }
     var importResult by remember { mutableStateOf<String?>(null) }
@@ -96,9 +96,9 @@ fun ConvoyTrailSourceScreen(onNavigateBack: () -> Unit = {}) {
                     IconButton(onClick = {
                         when (step) {
                             ImportStep.METHOD_SELECT -> onNavigateBack()
-                            ImportStep.A1_SOURCE_SELECT -> step = ImportStep.METHOD_SELECT
+                            ImportStep.A1_SOURCE_SELECT -> onNavigateBack()
                             ImportStep.A2_VALIDATE -> step = ImportStep.A1_SOURCE_SELECT
-                            ImportStep.A3_PROCESSING -> if (!importRunning) step = ImportStep.METHOD_SELECT
+                            ImportStep.A3_PROCESSING -> if (!importRunning) step = ImportStep.A1_SOURCE_SELECT
                             ImportStep.B1_DRAW_AREA -> step = ImportStep.METHOD_SELECT
                             ImportStep.B2_SUGGESTED -> step = ImportStep.B1_DRAW_AREA
                             ImportStep.B3_VALIDATE -> step = ImportStep.B2_SUGGESTED

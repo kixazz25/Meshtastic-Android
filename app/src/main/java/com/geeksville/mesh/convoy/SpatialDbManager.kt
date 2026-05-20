@@ -46,6 +46,10 @@ object SpatialDbManager {
             "GroupTrack"
         )
         if (!dir.exists()) dir.mkdirs()
+        val noMedia = File(dir, ".nomedia")
+        if (!noMedia.exists()) {
+            try { noMedia.createNewFile() } catch (_: Exception) {}
+        }
         return dir
     }
 
@@ -57,29 +61,54 @@ object SpatialDbManager {
 
             // Open/create spatial database
             val spatialFile = File(dir, SPATIAL_DB)
-            val isNewSpatial = !spatialFile.exists()
             spatialDb = SQLiteDatabase.openOrCreateDatabase(spatialFile, null)
-            if (isNewSpatial) {
+            if (!hasTable(spatialDb!!, "schema_version")) {
                 runSchemaFromAsset(context, spatialDb!!, "schema_spatial_v1.sql")
-                android.util.Log.i(TAG, "Created spatial database: ${spatialFile.absolutePath}")
+                android.util.Log.i(TAG, "Applied spatial schema: \${spatialFile.absolutePath}")
             } else {
-                android.util.Log.i(TAG, "Opened spatial database: ${spatialFile.absolutePath}")
+                android.util.Log.i(TAG, "Opened spatial database: \${spatialFile.absolutePath}")
             }
 
             // Open/create extension database
             val extFile = File(dir, EXTENSION_DB)
-            val isNewExt = !extFile.exists()
             extensionDb = SQLiteDatabase.openOrCreateDatabase(extFile, null)
-            if (isNewExt) {
+            if (!hasTable(extensionDb!!, "schema_version")) {
                 runSchemaFromAsset(context, extensionDb!!, "schema_extension_v1.sql")
-                android.util.Log.i(TAG, "Created extension database: ${extFile.absolutePath}")
+                android.util.Log.i(TAG, "Applied extension schema: \${extFile.absolutePath}")
             } else {
-                android.util.Log.i(TAG, "Opened extension database: ${extFile.absolutePath}")
+                android.util.Log.i(TAG, "Opened extension database: \${extFile.absolutePath}")
             }
 
             // Attach extension db to spatial for cross-db views (optional, for future use)
             // spatialDb?.execSQL("ATTACH DATABASE '${extFile.absolutePath}' AS ext")
 
+            // Ensure .nomedia in tile directories
+            val tileDir = File(dir, "maps/tiles")
+            if (tileDir.exists()) {
+                val tileMapsNoMedia = File(dir, "maps/.nomedia")
+                if (!tileMapsNoMedia.exists()) {
+                    try { tileMapsNoMedia.createNewFile() } catch (_: Exception) {}
+                }
+                val tileNoMedia = File(File(dir, "maps/tiles"), ".nomedia")
+                if (!tileNoMedia.exists()) {
+                    try { tileNoMedia.createNewFile() } catch (_: Exception) {}
+                }
+            }
+            // Migrate: add area_downloads if missing (existing DBs)
+            if (!hasTable(extensionDb!!, "area_downloads")) {
+                try {
+                    extensionDb!!.execSQL("""CREATE TABLE IF NOT EXISTS area_downloads (
+                        download_id TEXT PRIMARY KEY, artifact_type TEXT NOT NULL,
+                        source_id TEXT, direction TEXT NOT NULL DEFAULT 'download',
+                        bounds_json TEXT NOT NULL, item_count INTEGER DEFAULT 0,
+                        ride_id TEXT, created_at TEXT NOT NULL, completed_at TEXT)""")
+                    extensionDb!!.execSQL("CREATE INDEX IF NOT EXISTS idx_area_dl_type ON area_downloads(artifact_type, direction)")
+                    extensionDb!!.execSQL("CREATE INDEX IF NOT EXISTS idx_area_dl_ride ON area_downloads(ride_id)")
+                    android.util.Log.i(TAG, "Migrated: added area_downloads table")
+                } catch (e: Exception) {
+                    android.util.Log.w(TAG, "area_downloads migration: ${e.message}")
+                }
+            }
             initialized = true
             val trailCount = countRows(spatialDb!!, "trails")
             val trackCount = countRows(spatialDb!!, "tracks")
@@ -91,15 +120,33 @@ object SpatialDbManager {
         }
     }
 
+    /** Check if a table exists in the database */
+    private fun hasTable(db: SQLiteDatabase, tableName: String): Boolean {
+        return try {
+            val cursor = db.rawQuery(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+                arrayOf(tableName)
+            )
+            val exists = cursor.moveToFirst()
+            cursor.close()
+            exists
+        } catch (e: Exception) {
+            false
+        }
+    }
+
     /** Run SQL schema file from assets */
     private fun runSchemaFromAsset(context: Context, db: SQLiteDatabase, assetName: String) {
-        val sql = context.assets.open(assetName).bufferedReader().use { it.readText() }
-        // Split on semicolons, execute each statement
+        val raw = context.assets.open(assetName).bufferedReader().use { it.readText() }
+        // Strip comment lines first, then split on semicolons
+        val sql = raw.lines()
+            .filter { !it.trim().startsWith("--") }
+            .joinToString("\n")
         db.beginTransaction()
         try {
             sql.split(";")
                 .map { it.trim() }
-                .filter { it.isNotEmpty() && !it.startsWith("--") }
+                .filter { it.isNotEmpty() }
                 .forEach { statement ->
                     try {
                         db.execSQL("$statement;")

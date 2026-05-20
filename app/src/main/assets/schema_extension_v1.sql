@@ -257,6 +257,24 @@ CREATE TABLE IF NOT EXISTS ride_areas (
     updated_at          TEXT NOT NULL
 );
 
+
+-- 2.16 AREA DOWNLOADS (V2.5+)
+-- Unified tracking of all area-based transfers: imports, downloads, uploads
+-- Drives map overlays, prevents re-processing, supports ride areas in V3.0
+CREATE TABLE IF NOT EXISTS area_downloads (
+    download_id     TEXT PRIMARY KEY,
+    artifact_type   TEXT NOT NULL,
+    source_id       TEXT,
+    direction       TEXT NOT NULL DEFAULT 'download',
+    bounds_json     TEXT NOT NULL,
+    item_count      INTEGER DEFAULT 0,
+    ride_id         TEXT,
+    created_at      TEXT NOT NULL,
+    completed_at    TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_area_dl_type ON area_downloads(artifact_type, direction);
+CREATE INDEX IF NOT EXISTS idx_area_dl_ride ON area_downloads(ride_id);
+
 -- VIEWS
 CREATE VIEW IF NOT EXISTS v_preferred_aliases AS
 SELECT artifact_type, artifact_id, alias

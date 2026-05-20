@@ -112,6 +112,8 @@ fun ConvoyMapViewerScreen(
     var scanningDownloaded by remember { mutableStateOf(false) }
     var fabOffsetX by remember { mutableStateOf(0f) }
     var fabOffsetY by remember { mutableStateOf(0f) }
+    var downloadBbox by remember { mutableStateOf(DownloadBbox()) }
+    var isDrawingArea by remember { mutableStateOf(false) }
     val downloadState by convoyViewModel.downloadState.collectAsState()
 
     // Tile sources from map_sources.json — single source of truth
@@ -349,23 +351,10 @@ fun ConvoyMapViewerScreen(
                         addJavascriptInterface(object {
                             @JavascriptInterface
                             fun onAreaSelected(north: Double, south: Double, east: Double, west: Double) {
-                                Thread {
-                                    val estimate = ConvoyTileCalculator.quickEstimate(north, south, east, west)
-                                    val pending = ConvoyViewModel.PendingDownload(
-                                        tileCount     = estimate.tileCount,
-                                        sizeMB        = estimate.estimatedMB,
-                                        withinCeiling = estimate.withinCeiling,
-                                        north         = north,
-                                        south         = south,
-                                        east          = east,
-                                        west          = west,
-                                        sourceName    = ConvoyConfig.ACTIVE_TILE_SOURCE,
-                                        sourceUrl     = ConvoyConfig.TILE_SOURCES[ConvoyConfig.ACTIVE_TILE_SOURCE] ?: ""
-                                    )
-                                    android.os.Handler(android.os.Looper.getMainLooper()).post {
-                                        convoyViewModel.startDownload(ctx, pending)
-                                    }
-                                }.start()
+                                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                    downloadBbox = DownloadBbox(north = north, south = south, east = east, west = west)
+                                    isDrawingArea = false
+                                }
                             }
                             @JavascriptInterface
                             fun onMapBoundsReady(n: Double, s: Double, e: Double, w: Double) {}
@@ -553,51 +542,54 @@ fun ConvoyMapViewerScreen(
 
             // ── Download panel (above FAB) ────────────────────────────────
             if (showDownloadPanel) {
-                Surface(
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(end = 16.dp, bottom = 80.dp)
-                        .width(280.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    color = Color(0xEE131820)
-                ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        // Zoom slider
-                        Text("ZOOM  ${mapZoomLevel.toInt()}", color = Color(0xFF4A6080), fontSize = 9.sp,
-                            fontFamily = FontFamily.Monospace)
-                        Slider(
-                            value = mapZoomLevel,
-                            onValueChange = { mapZoomLevel = it },
-                            onValueChangeFinished = { ConvoyConfig.DOWNLOAD_ZOOM = mapZoomLevel.toInt() },
-                            valueRange = 16f..19f,
-                            steps = 2,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        Spacer(Modifier.height(4.dp))
-                        // Download Region button
-                        Surface(
-                            modifier = Modifier.fillMaxWidth().clickable {
-                                webViewRef?.evaluateJavascript("activateDrawMode()", null)
-                            },
-                            shape = RoundedCornerShape(8.dp),
-                            color = Color(0xFF2A3545)
-                        ) {
-                            Text("⬇  DOWNLOAD REGION", color = Color(0xFF7A8DA0), fontSize = 9.sp,
-                                fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
-                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                                modifier = Modifier.padding(vertical = 8.dp))
+                ConvoyDownloadPanel(
+                    bbox = downloadBbox,
+                    tileEstimate = if (downloadBbox.isValid) {
+                        val est = ConvoyTileCalculator.quickEstimate(
+                            downloadBbox.north, downloadBbox.south,
+                            downloadBbox.east, downloadBbox.west)
+                        "~${est.tileCount} tiles \u00b7 ${est.estimatedMB} MB"
+                    } else "",
+                    trailSourceCount = 0,
+                    isDrawing = isDrawingArea,
+                    onDrawArea = {
+                        isDrawingArea = true
+                        webViewRef?.evaluateJavascript("activateDrawMode()", null)
+                    },
+                    onClearArea = {
+                        downloadBbox = DownloadBbox()
+                        webViewRef?.evaluateJavascript("clearAreaBoundary()", null)
+                    },
+                    onExecuteDownload = { tiles, trails, removeTiles ->
+                        if (tiles && downloadBbox.isValid) {
+                            val bb = downloadBbox
+                            Thread {
+                                val estimate = ConvoyTileCalculator.quickEstimate(bb.north, bb.south, bb.east, bb.west)
+                                val pending = ConvoyViewModel.PendingDownload(
+                                    tileCount = estimate.tileCount, sizeMB = estimate.estimatedMB,
+                                    withinCeiling = estimate.withinCeiling,
+                                    north = bb.north, south = bb.south, east = bb.east, west = bb.west,
+                                    sourceName = ConvoyConfig.ACTIVE_TILE_SOURCE,
+                                    sourceUrl = ConvoyConfig.TILE_SOURCES[ConvoyConfig.ACTIVE_TILE_SOURCE] ?: ""
+                                )
+                                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                    convoyViewModel.startDownload(context, pending)
+                                }
+                            }.start()
                         }
-                        Spacer(Modifier.height(4.dp))
-                        // Show/Hide Downloaded toggle
-                        Surface(
-                            modifier = Modifier.fillMaxWidth().clickable {
-                                if (showDownloaded) {
-                                    showDownloaded = false
-                                    webViewRef?.evaluateJavascript("clearDownloadedAreas()", null)
-                                } else {
-                                    if (scanningDownloaded) return@clickable
-                                    scanningDownloaded = true
-                                    val wv = webViewRef ?: return@clickable
+                    },
+                    onNavigateToTrailSources = { bbox ->
+                        onNavigateToTrailSources()
+                    },
+                    onFlyoverZoomChange = { zoom ->
+                        ConvoyConfig.SEARCH_FLY_ZOOM = zoom
+                    },
+                    onShowDownloadedMaps = { show ->
+                        if (show) {
+                            if (!scanningDownloaded) {
+                                scanningDownloaded = true
+                                val wv = webViewRef
+                                if (wv != null) {
                                     val tilesDir = java.io.File(ConvoyConfig.TILE_DIR, "SAT/14")
                                     Thread {
                                         val bounds = mutableListOf<String>()
@@ -623,20 +615,15 @@ fun ConvoyMapViewerScreen(
                                         }
                                     }.start()
                                 }
-                            },
-                            shape = RoundedCornerShape(8.dp),
-                            color = if (showDownloaded) Color(0xFF1A3A2A) else Color(0xFF1E2E40)
-                        ) {
-                            Text(
-                                if (scanningDownloaded) "⏳  SCANNING..." else if (showDownloaded) "✅  HIDE DOWNLOADED" else "⬜  SHOW DOWNLOADED",
-                                color = if (showDownloaded) Color(0xFF4AE09A) else Color(0xFF4DA6FF),
-                                fontSize = 9.sp,
-                                fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
-                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                                modifier = Modifier.padding(vertical = 8.dp))
+                            }
+                        } else {
+                            showDownloaded = false
+                            webViewRef?.evaluateJavascript("clearDownloadedAreas()", null)
                         }
-                    }
-                }
+                    },
+                    modifier = Modifier.align(Alignment.BottomEnd)
+                        .padding(end = 16.dp, bottom = 80.dp)
+                )
             }
 
             // ── Floating draggable download FAB ───────────────────────────
@@ -659,7 +646,7 @@ fun ConvoyMapViewerScreen(
                 shadowElevation = 6.dp
             ) {
                 Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                    Text("⬇", color = Color.White, fontSize = 18.sp)
+                    Text("↕", color = Color.White, fontSize = 18.sp)
                 }
             }
         }
