@@ -238,8 +238,14 @@ object TrailImporter {
 
     private fun applyMigrationIfNeeded(context: Context) {
         val db = SpatialDbManager.getSpatialDb() ?: return
-        val cur = db.rawQuery("SELECT version FROM schema_version ORDER BY version DESC LIMIT 1", null)
-        val ver = if (cur.moveToFirst()) cur.getInt(0) else 0; cur.close()
+        var ver = 0
+        try {
+            val cur = db.rawQuery("SELECT version FROM schema_version ORDER BY version DESC LIMIT 1", null)
+            ver = if (cur.moveToFirst()) cur.getInt(0) else 0; cur.close()
+        } catch (ex: Exception) {
+            Log.w(TAG, "schema_version query failed: ${ex.message}")
+            ver = 0
+        }
         if (ver >= 2) return
         Log.i(TAG, "Applying spatial schema v1 -> v2")
         try {

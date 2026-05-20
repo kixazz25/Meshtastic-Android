@@ -148,6 +148,7 @@ fun ConvoyScreen(
     val mapTypeLabel by viewModel.mapTypeLabel.collectAsStateWithLifecycle()
     val isLocalTiles by viewModel.isLocalTiles.collectAsStateWithLifecycle()
     var trailsOn by remember { mutableStateOf(false) }
+    var queuesOpen by remember { mutableStateOf(false) }
     var trailsLoaded by remember { mutableStateOf(false) }
     var tracksOn by remember { mutableStateOf(true) }
     var showConvoyTrackPicker by remember { mutableStateOf(false) }
@@ -983,7 +984,7 @@ fun ConvoyScreen(
         ) {
                 // -- QUEUES launch point (V2.5 scaffold) --
                 Surface(
-                    modifier = Modifier.clickable { /* Pass 2: show ConvoyQueuesPanel */ },
+                    modifier = Modifier.clickable { queuesOpen = !queuesOpen },
                     shape = RoundedCornerShape(6.dp),
                     color = Color(0xFF2A3545)
                 ) {
@@ -992,6 +993,11 @@ fun ConvoyScreen(
                         fontSize = 10.sp, fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp))
+                }
+
+                // -- QUEUES PANEL (V2.5 scaffold) --
+                if (queuesOpen) {
+                    ConvoyQueuesPanel(onDismiss = { queuesOpen = false })
                 }
 
                 // -- WORK WITH ARTIFACTS (V2.5 scaffold) --

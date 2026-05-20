@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Surface
@@ -14,18 +15,19 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlin.math.roundToInt
 
 // ----------------------------------------------------------------
-// ConvoyArtifactsPanel -- V2.5 Scaffold (Pass 1)
-//
-// Accordion panel: "> WORK WITH ARTIFACTS  [+ ROUTE]"
+// ConvoyArtifactsPanel -- V2.5 Scaffold
+// Draggable accordion: "> WORK WITH ARTIFACTS  [+ ROUTE]"
 // Grid: Type | Display | Edit/Display | Import
-// Source: ScreenReference v5 section 4 + layout revision
 // ----------------------------------------------------------------
 
 private val aPanelBg  = Color(0xEE131820)
@@ -49,31 +51,52 @@ fun ConvoyArtifactsPanel(
     modifier: Modifier = Modifier
 ) {
     var expanded by remember { mutableStateOf(false) }
+    var offsetX by remember { mutableFloatStateOf(0f) }
+    var offsetY by remember { mutableFloatStateOf(0f) }
 
     Surface(
-        modifier = modifier.width(300.dp),
+        modifier = modifier
+            .widthIn(min = 280.dp, max = 340.dp)
+            .offset { IntOffset(offsetX.roundToInt(), offsetY.roundToInt()) }
+            .pointerInput(Unit) {
+                detectDragGestures { change, dragAmount ->
+                    change.consume()
+                    offsetX += dragAmount.x
+                    offsetY += dragAmount.y
+                }
+            },
         shape = RoundedCornerShape(10.dp),
         color = aPanelBg,
         shadowElevation = 6.dp
     ) {
-        Column(modifier = Modifier.padding(8.dp)) {
+        Column(modifier = Modifier.padding(10.dp)) {
+
+            // ── Drag handle pill ──
+            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                Surface(
+                    modifier = Modifier.width(40.dp).height(4.dp),
+                    shape = RoundedCornerShape(2.dp),
+                    color = aTxtD.copy(alpha = 0.5f)
+                ) {}
+            }
+            Spacer(modifier = Modifier.height(6.dp))
 
             // ── Accordion title bar ──
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable { expanded = !expanded }
-                    .padding(vertical = 2.dp, horizontal = 4.dp),
+                    .padding(vertical = 4.dp, horizontal = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
                     if (expanded) "v" else ">",
-                    color = aBlue, fontSize = 11.sp, fontFamily = aMono, fontWeight = FontWeight.Bold
+                    color = aBlue, fontSize = 12.sp, fontFamily = aMono, fontWeight = FontWeight.Bold
                 )
-                Spacer(modifier = Modifier.width(4.dp))
+                Spacer(modifier = Modifier.width(6.dp))
                 Text(
                     "WORK WITH ARTIFACTS",
-                    color = aBlue, fontSize = 10.sp, fontFamily = aMono, fontWeight = FontWeight.Bold,
+                    color = aBlue, fontSize = 11.sp, fontFamily = aMono, fontWeight = FontWeight.Bold,
                     modifier = Modifier.weight(1f)
                 )
                 Surface(
@@ -82,9 +105,9 @@ fun ConvoyArtifactsPanel(
                     color = Color(0xFF1A2A3A)
                 ) {
                     Text(
-                        "+ ROUTE", color = aPurple, fontSize = 8.sp,
+                        "+ ROUTE", color = aPurple, fontSize = 9.sp,
                         fontFamily = aMono, fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                     )
                 }
             }
@@ -95,24 +118,26 @@ fun ConvoyArtifactsPanel(
                 enter = expandVertically(),
                 exit = shrinkVertically()
             ) {
-                Column(modifier = Modifier.padding(top = 4.dp)) {
+                Column(modifier = Modifier.padding(top = 6.dp)) {
 
                     // Column headings
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp, horizontal = 4.dp),
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp, horizontal = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Type", color = aTxtD, fontSize = 8.sp, fontFamily = aMono,
-                            fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                        Text("Display", color = aTxtD, fontSize = 8.sp, fontFamily = aMono,
-                            fontWeight = FontWeight.Bold, modifier = Modifier.width(44.dp),
+                        Text("Type", color = aTxtD, fontSize = 9.sp, fontFamily = aMono,
+                            fontWeight = FontWeight.Bold, modifier = Modifier.weight(1.2f))
+                        Text("Display", color = aTxtD, fontSize = 9.sp, fontFamily = aMono,
+                            fontWeight = FontWeight.Bold, modifier = Modifier.weight(0.8f),
                             textAlign = TextAlign.Center)
-                        Text("Edit/Disp", color = aTxtD, fontSize = 8.sp, fontFamily = aMono,
-                            fontWeight = FontWeight.Bold, modifier = Modifier.width(56.dp),
-                            textAlign = TextAlign.Center)
-                        Text("Import", color = aTxtD, fontSize = 8.sp, fontFamily = aMono,
-                            fontWeight = FontWeight.Bold, modifier = Modifier.width(44.dp),
-                            textAlign = TextAlign.Center)
+                        if (!isConvoyMap) {
+                            Text("Edit", color = aTxtD, fontSize = 9.sp, fontFamily = aMono,
+                                fontWeight = FontWeight.Bold, modifier = Modifier.weight(0.8f),
+                                textAlign = TextAlign.Center)
+                            Text("Import", color = aTxtD, fontSize = 9.sp, fontFamily = aMono,
+                                fontWeight = FontWeight.Bold, modifier = Modifier.weight(0.8f),
+                                textAlign = TextAlign.Center)
+                        }
                     }
 
                     // Artifact rows
@@ -133,57 +158,65 @@ private fun ArtifactRow(
     onEditDisplay: (String) -> Unit,
     onImport: (String) -> Unit
 ) {
+    var displayOn by remember { mutableStateOf(false) }
+
     Surface(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 1.dp),
-        shape = RoundedCornerShape(3.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+        shape = RoundedCornerShape(4.dp),
         color = aRowBg
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 4.dp, vertical = 3.dp).fillMaxWidth(),
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp).fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Type name
-            Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
-                Surface(modifier = Modifier.size(8.dp), shape = RoundedCornerShape(2.dp), color = typeColor) {}
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(typeName, color = aTxtB, fontSize = 10.sp, fontFamily = aMono)
+            // Type name with color dot
+            Row(modifier = Modifier.weight(1.2f), verticalAlignment = Alignment.CenterVertically) {
+                Surface(modifier = Modifier.size(10.dp), shape = RoundedCornerShape(2.dp), color = typeColor) {}
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(typeName, color = aTxtB, fontSize = 11.sp, fontFamily = aMono)
             }
 
             // Display toggle
-            Switch(
-                checked = false,
-                onCheckedChange = { onDisplayToggle(typeName) },
-                modifier = Modifier.height(16.dp).width(28.dp),
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = Color.White,
-                    checkedTrackColor = Color(0xFF2E75B6),
-                    uncheckedThumbColor = aTxtD,
-                    uncheckedTrackColor = Color(0xFF1A2A3A)
+            Box(modifier = Modifier.weight(0.8f), contentAlignment = Alignment.Center) {
+                Switch(
+                    checked = displayOn,
+                    onCheckedChange = { displayOn = it; onDisplayToggle(typeName) },
+                    modifier = Modifier.height(20.dp).width(36.dp),
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = Color.White,
+                        checkedTrackColor = Color(0xFF2E75B6),
+                        uncheckedThumbColor = aTxtD,
+                        uncheckedTrackColor = Color(0xFF1A2A3A)
+                    )
                 )
-            )
-            Spacer(modifier = Modifier.width(4.dp))
-
-            // Edit/Display button
-            Surface(
-                modifier = Modifier.clickable { onEditDisplay(typeName) },
-                shape = RoundedCornerShape(3.dp), color = Color(0xFF0D1520)
-            ) {
-                Text("SELECT", color = aBlue, fontSize = 7.sp, fontFamily = aMono,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp))
             }
-            Spacer(modifier = Modifier.width(4.dp))
 
-            // Import button
-            Surface(
-                modifier = Modifier.clickable(enabled = !isConvoyMap) { onImport(typeName) },
-                shape = RoundedCornerShape(3.dp),
-                color = if (isConvoyMap) Color(0xFF0D1520).copy(alpha = 0.3f) else Color(0xFF0D1520)
-            ) {
-                Text("IMPORT",
-                    color = if (isConvoyMap) aTxtD.copy(alpha = 0.3f) else aGreen,
-                    fontSize = 7.sp, fontFamily = aMono, fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp))
+            if (!isConvoyMap) {
+                // Edit button
+                Box(modifier = Modifier.weight(0.8f), contentAlignment = Alignment.Center) {
+                    Surface(
+                        modifier = Modifier.clickable { onEditDisplay(typeName) },
+                        shape = RoundedCornerShape(4.dp), color = Color(0xFF0D1520)
+                    ) {
+                        Text("SELECT", color = aBlue, fontSize = 8.sp, fontFamily = aMono,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
+                    }
+                }
+
+                // Import button
+                Box(modifier = Modifier.weight(0.8f), contentAlignment = Alignment.Center) {
+                    Surface(
+                        modifier = Modifier.clickable { onImport(typeName) },
+                        shape = RoundedCornerShape(4.dp),
+                        color = Color(0xFF0D1520)
+                    ) {
+                        Text("IMPORT",
+                            color = aGreen,
+                            fontSize = 8.sp, fontFamily = aMono, fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
+                    }
+                }
             }
         }
     }

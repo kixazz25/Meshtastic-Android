@@ -208,7 +208,8 @@ fun NavGraphBuilder.convoyGraph(
         com.geeksville.mesh.convoy.ConvoyMapViewerScreen(
             onBack = { navController?.popBackStack() },
             onNavigateToTrackExport = { navController?.navigate(ConvoyRoutes.ConvoyTracks) },
-            onNavigateToTrackImport = { navController?.navigate(ConvoyRoutes.ConvoyTrackImport) }
+            onNavigateToTrackImport = { navController?.navigate(ConvoyRoutes.ConvoyTrackImport) },
+            onNavigateToTrailSources = { navController?.navigate(ConvoyRoutes.ConvoyTrailSources) }
         )
     }
     // -- Track Import -- in-app file browser --

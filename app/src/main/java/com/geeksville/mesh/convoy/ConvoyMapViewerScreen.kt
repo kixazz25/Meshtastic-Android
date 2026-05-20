@@ -51,6 +51,7 @@ fun ConvoyMapViewerScreen(
     onBack: () -> Unit,
     onNavigateToTrackExport: () -> Unit = {},
     onNavigateToTrackImport: () -> Unit = {},
+    onNavigateToTrailSources: () -> Unit = {},
     convoyViewModel: ConvoyViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
@@ -103,6 +104,7 @@ fun ConvoyMapViewerScreen(
     var pmTracksOn by remember { mutableStateOf(false) }
     var pmTracksLoaded by remember { mutableStateOf(false) }
     var pmTrailsOn by remember { mutableStateOf(false) }
+    var pmQueuesOpen by remember { mutableStateOf(false) }
     var pmDownloadedOn by remember { mutableStateOf(false) }
     var pmActiveSource by remember { mutableStateOf(ConvoyConfig.ACTIVE_TILE_SOURCE) }
     var mapZoomLevel by remember { mutableStateOf(ConvoyConfig.DOWNLOAD_ZOOM.toFloat()) }
@@ -160,7 +162,7 @@ fun ConvoyMapViewerScreen(
                 }
                 // QUEUES — V2.5 scaffold launch point
                 Surface(
-                    modifier = Modifier.clickable { /* Pass 2: show ConvoyQueuesPanel */ },
+                    modifier = Modifier.clickable { pmQueuesOpen = !pmQueuesOpen },
                     shape = RoundedCornerShape(6.dp),
                     color = Color(0xFF2A3545)
                 ) {
@@ -437,8 +439,21 @@ fun ConvoyMapViewerScreen(
                     .padding(start = 50.dp, end = 8.dp, top = 2.dp)
                     .fillMaxWidth()
             )
+            // -- QUEUES PANEL (V2.5 scaffold) --
+            if (pmQueuesOpen) {
+                ConvoyQueuesPanel(onDismiss = { pmQueuesOpen = false })
+            }
+
             // -- WORK WITH ARTIFACTS (V2.5 scaffold) --
-            ConvoyArtifactsPanel(isConvoyMap = false)
+            ConvoyArtifactsPanel(
+                isConvoyMap = false,
+                onImport = { typeName ->
+                    when (typeName) {
+                        "Trails" -> onNavigateToTrailSources()
+                        else -> { /* TODO: wire other import types */ }
+                    }
+                }
+            )
 
             // -- FLOATING DISPLAY PANEL --
             ConvoyDisplayPanel(
