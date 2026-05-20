@@ -19,6 +19,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.runtime.collectAsState
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 
@@ -68,6 +69,17 @@ fun ConvoyTrailSourceScreen(onNavigateBack: () -> Unit = {}) {
     var selectedSourceId by remember { mutableStateOf<String?>(null) }
     var importResult by remember { mutableStateOf<String?>(null) }
     var importRunning by remember { mutableStateOf(false) }
+    val importProgress by TrailImporter.progress.collectAsState()
+    var pendingBbox by remember { mutableStateOf<org.json.JSONObject?>(null) }
+    var selectedSourceIds by remember { mutableStateOf(setOf<String>()) }
+    // Check for pending area JSON on launch
+    LaunchedEffect(Unit) {
+        val pending = TrailImporter.readPendingArea()
+        if (pending != null && pending.optString("status") == "unprocessed") {
+            pendingBbox = pending
+            step = ImportStep.B2_SUGGESTED
+        }
+    }
     var validationStatus by remember { mutableStateOf("") }
 
     // Load catalog on first compose
@@ -98,7 +110,7 @@ fun ConvoyTrailSourceScreen(onNavigateBack: () -> Unit = {}) {
                             ImportStep.METHOD_SELECT -> onNavigateBack()
                             ImportStep.A1_SOURCE_SELECT -> onNavigateBack()
                             ImportStep.A2_VALIDATE -> step = ImportStep.A1_SOURCE_SELECT
-                            ImportStep.A3_PROCESSING -> if (!importRunning) step = ImportStep.A1_SOURCE_SELECT
+                            ImportStep.A3_PROCESSING -> if (!importRunning) onNavigateBack()
                             ImportStep.B1_DRAW_AREA -> step = ImportStep.METHOD_SELECT
                             ImportStep.B2_SUGGESTED -> step = ImportStep.B1_DRAW_AREA
                             ImportStep.B3_VALIDATE -> step = ImportStep.B2_SUGGESTED
@@ -142,10 +154,12 @@ fun ConvoyTrailSourceScreen(onNavigateBack: () -> Unit = {}) {
                 ImportStep.A1_SOURCE_SELECT -> {
                     SectionLabel("APPROVED SOURCES")
                     sources.filter { it.status != "display_only_not_queryable" }.forEach { src ->
+                        val imported = TrailImporter.isSourceFullyImported(src.id)
                         SourceSelectCard(
                             source = src,
                             isSelected = src.id == selectedSourceId,
-                            onClick = { selectedSourceId = src.id }
+                            isImported = imported,
+                            onClick = { if (!imported) selectedSourceId = src.id }
                         )
                     }
                     Spacer(modifier = Modifier.height(8.dp))
@@ -225,18 +239,34 @@ fun ConvoyTrailSourceScreen(onNavigateBack: () -> Unit = {}) {
                 ImportStep.A3_PROCESSING -> {
                     SectionLabel("IMPORTING: ${selectedSource?.name ?: ""}")
                     if (importRunning) {
-                        Spacer(modifier = Modifier.height(16.dp))
-                        CircularProgressIndicator(
-                            modifier = Modifier.align(Alignment.CenterHorizontally),
-                            color = green
+                        Spacer(modifier = Modifier.height(12.dp))
+                        // Trail count
+                        val total = importProgress.inserted + importProgress.skipped
+                        Text(
+                            "$total trails processed",
+                            color = Color.White, fontSize = 18.sp, fontFamily = mono,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.align(Alignment.CenterHorizontally)
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            "${importProgress.fetched} read  \u00b7  ${importProgress.rejected} outside area  \u00b7  ${importProgress.inserted} imported  \u00b7  ${importProgress.skipped} dupes",
+                            color = txtD, fontSize = 9.sp, fontFamily = mono,
+                            modifier = Modifier.align(Alignment.CenterHorizontally)
                         )
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text("Downloading and importing trails...",
-                            color = txtD, fontSize = 10.sp, fontFamily = mono,
-                            modifier = Modifier.align(Alignment.CenterHorizontally))
-                        Text("Check logcat TrailImporter for progress",
+                        // Progress bar (indeterminate since we don't know total)
+                        LinearProgressIndicator(
+                            modifier = Modifier.fillMaxWidth().height(6.dp),
+                            color = green,
+                            trackColor = Color(0xFF1A2A3A)
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            "Page ${(importProgress.offset / 2000) + 1}  \u00b7  offset ${importProgress.offset}",
                             color = txtD, fontSize = 8.sp, fontFamily = mono,
-                            modifier = Modifier.align(Alignment.CenterHorizontally))
+                            modifier = Modifier.align(Alignment.CenterHorizontally)
+                        )
                     }
                     if (importResult != null) {
                         Spacer(modifier = Modifier.height(8.dp))
@@ -250,7 +280,7 @@ fun ConvoyTrailSourceScreen(onNavigateBack: () -> Unit = {}) {
                         }
                         Spacer(modifier = Modifier.height(8.dp))
                         Button(
-                            onClick = { step = ImportStep.METHOD_SELECT },
+                            onClick = { onNavigateBack() },
                             colors = ButtonDefaults.buttonColors(containerColor = blue)
                         ) {
                             Text("DONE", fontFamily = mono, fontSize = 10.sp)
@@ -288,40 +318,132 @@ fun ConvoyTrailSourceScreen(onNavigateBack: () -> Unit = {}) {
 
                 // ── B-2: Suggested Sources (placeholder) ──
                 ImportStep.B2_SUGGESTED -> {
-                    SectionLabel("SOURCES WITH CONTENT IN YOUR AREA")
-                    Text("[ Overlap calculation requires drawn area bounds ]",
-                        color = txtD, fontSize = 9.sp, fontFamily = mono)
-                    sources.filter { it.status != "display_only_not_queryable" }.forEach { src ->
-                        SourceSelectCard(source = src, isSelected = false, onClick = {})
+                    val bbox = pendingBbox
+                    val aN = bbox?.optDouble("north", 0.0) ?: 0.0
+                    val aS = bbox?.optDouble("south", 0.0) ?: 0.0
+                    val aE = bbox?.optDouble("east", 0.0) ?: 0.0
+                    val aW = bbox?.optDouble("west", 0.0) ?: 0.0
+                    SectionLabel("SOURCES IN AREA")
+                    Text(String.format("%.2f\u00b0N to %.2f\u00b0N  \u00b7  %.2f\u00b0W to %.2f\u00b0W",
+                        aS, aN, Math.abs(aW), Math.abs(aE)),
+                        color = txtD, fontSize = 8.sp, fontFamily = mono)
+                    Spacer(modifier = Modifier.height(6.dp))
+                    // Filter sources by boundary overlap with drawn area
+                    val overlapping = sources.filter { src ->
+                        src.status != "display_only_not_queryable" &&
+                        src.boundaryN >= aS && src.boundaryS <= aN &&
+                        src.boundaryE >= aW && src.boundaryW <= aE
                     }
+                    if (overlapping.isEmpty()) {
+                        Text("No sources found with trails in this area.",
+                            color = txtD, fontSize = 10.sp, fontFamily = mono)
+                    }
+                    overlapping.forEach { src ->
+                        val imported = TrailImporter.isSourceFullyImported(src.id)
+                        val checked = src.id in selectedSourceIds
+                        Surface(
+                            modifier = Modifier.fillMaxWidth().clickable(enabled = !imported) {
+                                selectedSourceIds = if (checked) selectedSourceIds - src.id
+                                    else selectedSourceIds + src.id
+                            },
+                            shape = RoundedCornerShape(6.dp),
+                            color = if (imported) Color(0xFF0D3320) else if (checked) Color(0xFF1A3050) else cardBg,
+                            border = if (checked) androidx.compose.foundation.BorderStroke(1.dp, green) else null
+                        ) {
+                            Row(modifier = Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                                if (imported) {
+                                    Text("\u2014", color = Color(0xFF4A6080), fontSize = 16.sp,
+                                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp))
+                                } else {
+                                    Checkbox(
+                                        checked = checked,
+                                        onCheckedChange = { isChecked ->
+                                            selectedSourceIds = if (isChecked) selectedSourceIds + src.id
+                                                else selectedSourceIds - src.id
+                                        },
+                                        colors = CheckboxDefaults.colors(checkedColor = green, checkmarkColor = Color.Black)
+                                    )
+                                }
+                                Column(modifier = Modifier.weight(1f).padding(start = 8.dp)) {
+                                    Text(src.name, color = if (imported) green else txtB,
+                                        fontSize = 11.sp, fontFamily = mono, fontWeight = FontWeight.Bold)
+                                    if (imported) {
+                                        Text("IMPORTED", color = green, fontSize = 9.sp, fontFamily = mono)
+                                    } else {
+                                        Text("${src.trailCount} trails | ${src.scope}",
+                                            color = txtD, fontSize = 9.sp, fontFamily = mono)
+                                    }
+                                }
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(onClick = { step = ImportStep.B1_DRAW_AREA }) {
-                            Text("BACK", fontFamily = mono, fontSize = 10.sp)
+                        OutlinedButton(onClick = { onNavigateBack() }) {
+                            Text("CANCEL", fontFamily = mono, fontSize = 10.sp)
                         }
                         Button(
                             onClick = { step = ImportStep.B3_VALIDATE },
+                            enabled = selectedSourceIds.isNotEmpty(),
                             colors = ButtonDefaults.buttonColors(containerColor = blue)
                         ) {
-                            Text("VALIDATE SELECTED", fontFamily = mono, fontSize = 10.sp)
+                            Text("VALIDATE ${selectedSourceIds.size} SOURCES", fontFamily = mono, fontSize = 10.sp)
                         }
                     }
                 }
 
-                // ── B-3: Validate (placeholder) ──
+                // ── B-3: Validate selected sources ──
                 ImportStep.B3_VALIDATE -> {
-                    SectionLabel("VALIDATE SELECTED SOURCES")
-                    Text("[ Validation for area-based import ]",
-                        color = txtD, fontSize = 9.sp, fontFamily = mono)
-                    Surface(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(4.dp), color = Color(0xFF0D3320)) {
-                        Text("\u2713 All selected sources validated", color = green,
-                            fontSize = 9.sp, fontFamily = mono, modifier = Modifier.padding(8.dp))
+                    SectionLabel("VALIDATE ${selectedSourceIds.size} SOURCES")
+                    val selectedSources = sources.filter { it.id in selectedSourceIds }
+                    selectedSources.forEach { src ->
+                        Surface(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                            shape = RoundedCornerShape(4.dp), color = Color(0xFF0D3320)) {
+                            Column(modifier = Modifier.padding(8.dp)) {
+                                Text("\u2713 ${src.name}", color = green, fontSize = 10.sp,
+                                    fontFamily = mono, fontWeight = FontWeight.Bold)
+                                Text("${src.agency} | ${src.format} | ${src.trailCount} trails",
+                                    color = txtD, fontSize = 8.sp, fontFamily = mono)
+                            }
+                        }
                     }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    val bbox = pendingBbox
+                    if (bbox != null) {
+                        Text(String.format("Area: %.2f\u00b0N to %.2f\u00b0N",
+                            bbox.optDouble("south", 0.0), bbox.optDouble("north", 0.0)),
+                            color = txtD, fontSize = 8.sp, fontFamily = mono)
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedButton(onClick = { step = ImportStep.B2_SUGGESTED }) {
                             Text("BACK", fontFamily = mono, fontSize = 10.sp)
                         }
                         Button(
-                            onClick = { step = ImportStep.B4_PROCESSING },
+                            onClick = {
+                                importResult = null
+                                step = ImportStep.B4_PROCESSING
+                                importRunning = true
+                                scope.launch {
+                                    val bbox = pendingBbox
+                                    if (bbox != null) {
+                                        val results = TrailImporter.importByArea(
+                                            context, selectedSourceIds.toList(),
+                                            bbox.optDouble("south", 0.0), bbox.optDouble("west", 0.0),
+                                            bbox.optDouble("north", 0.0), bbox.optDouble("east", 0.0)
+                                        )
+                                        val totalInserted = results.sumOf { it.inserted }
+                                        val totalSkipped = results.sumOf { it.skipped }
+                                        val totalErrors = results.sumOf { it.errors }
+                                        importResult = "$totalInserted imported, $totalSkipped dupes, $totalErrors errors"
+                                        TrailImporter.clearPendingArea()
+                                    } else {
+                                        importResult = "Error: no area defined"
+                                    }
+                                    importRunning = false
+                                }
+                            },
                             colors = ButtonDefaults.buttonColors(containerColor = green)
                         ) {
                             Text("IMPORT AREA TRAILS", fontFamily = mono, fontSize = 10.sp, color = Color.Black)
@@ -329,16 +451,43 @@ fun ConvoyTrailSourceScreen(onNavigateBack: () -> Unit = {}) {
                     }
                 }
 
-                // ── B-4: Processing (placeholder) ──
+                // ── B-4: Area Import Processing ──
                 ImportStep.B4_PROCESSING -> {
-                    SectionLabel("AREA IMPORT")
-                    Text("[ Area import processing — requires drawn bounds + selected sources ]",
-                        color = txtD, fontSize = 10.sp, fontFamily = mono)
-                    Button(
-                        onClick = { step = ImportStep.METHOD_SELECT },
-                        colors = ButtonDefaults.buttonColors(containerColor = blue)
-                    ) {
-                        Text("DONE", fontFamily = mono, fontSize = 10.sp)
+                    SectionLabel("IMPORTING FROM ${selectedSourceIds.size} SOURCES")
+                    // Import launched from B3 IMPORT button via scope.launch
+                    if (importRunning) {
+                        val total = importProgress.inserted + importProgress.skipped
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text("$total trails processed",
+                            color = Color.White, fontSize = 18.sp, fontFamily = mono,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.align(Alignment.CenterHorizontally))
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text("${importProgress.fetched} read  \u00b7  ${importProgress.rejected} outside area  \u00b7  ${importProgress.inserted} imported  \u00b7  ${importProgress.skipped} dupes",
+                            color = txtD, fontSize = 9.sp, fontFamily = mono,
+                            modifier = Modifier.align(Alignment.CenterHorizontally))
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text("Source: ${importProgress.sourceName}",
+                            color = blue, fontSize = 9.sp, fontFamily = mono,
+                            modifier = Modifier.align(Alignment.CenterHorizontally))
+                        Spacer(modifier = Modifier.height(8.dp))
+                        LinearProgressIndicator(
+                            modifier = Modifier.fillMaxWidth().height(6.dp),
+                            color = green, trackColor = Color(0xFF1A2A3A))
+                    }
+                    if (importResult != null) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Surface(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(4.dp), color = Color(0xFF0D3320)) {
+                            Text(importResult!!, color = green, fontSize = 10.sp,
+                                fontFamily = mono, modifier = Modifier.padding(10.dp))
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Button(
+                            onClick = { onNavigateBack() },
+                            colors = ButtonDefaults.buttonColors(containerColor = blue)
+                        ) {
+                            Text("DONE", fontFamily = mono, fontSize = 10.sp)
+                        }
                     }
                 }
             }
@@ -370,26 +519,36 @@ private fun MethodCard(title: String, desc: String, selected: Boolean, onClick: 
 }
 
 @Composable
-private fun SourceSelectCard(source: CatalogSource, isSelected: Boolean, onClick: () -> Unit) {
+private fun SourceSelectCard(source: CatalogSource, isSelected: Boolean, isImported: Boolean = false, onClick: () -> Unit) {
     Surface(
-        modifier = Modifier.fillMaxWidth().clickable { onClick() },
+        modifier = Modifier.fillMaxWidth().clickable(enabled = !isImported) { onClick() },
         shape = RoundedCornerShape(6.dp),
-        color = if (isSelected) Color(0xFF1A3050) else cardBg,
-        border = if (isSelected) androidx.compose.foundation.BorderStroke(1.dp, green) else null
+        color = if (isImported) Color(0xFF0D3320) else if (isSelected) Color(0xFF1A3050) else cardBg,
+        border = if (isImported) androidx.compose.foundation.BorderStroke(1.dp, green.copy(alpha = 0.5f))
+                 else if (isSelected) androidx.compose.foundation.BorderStroke(1.dp, green) else null
     ) {
         Row(
             modifier = Modifier.padding(10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            RadioButton(
-                selected = isSelected,
-                onClick = onClick,
-                colors = RadioButtonDefaults.colors(selectedColor = green)
-            )
+            if (isImported) {
+                Text("\u2705", fontSize = 16.sp, modifier = Modifier.padding(12.dp))
+            } else {
+                RadioButton(
+                    selected = isSelected,
+                    onClick = onClick,
+                    colors = RadioButtonDefaults.colors(selectedColor = green)
+                )
+            }
             Column(modifier = Modifier.weight(1f).padding(start = 8.dp)) {
-                Text(source.name, color = txtB, fontSize = 11.sp, fontFamily = mono, fontWeight = FontWeight.Bold)
-                Text("${source.format} | ${source.scope} | ${source.trailCount} trails",
-                    color = txtD, fontSize = 9.sp, fontFamily = mono)
+                Text(source.name, color = if (isImported) Color(0xFF4A6080) else txtB,
+                    fontSize = 11.sp, fontFamily = mono, fontWeight = FontWeight.Bold)
+                if (isImported) {
+                    Text("IMPORTED", color = green, fontSize = 9.sp, fontFamily = mono)
+                } else {
+                    Text("${source.format} | ${source.scope} | ${source.trailCount} trails",
+                        color = txtD, fontSize = 9.sp, fontFamily = mono)
+                }
             }
         }
     }

@@ -7,10 +7,16 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import org.json.JSONArray
+import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
 import java.time.Instant
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 import java.util.UUID
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 /**
  * TrailImporter -- V2.5 Trail data import engine.
@@ -32,6 +38,26 @@ object TrailImporter {
         val sourceId: String, val inserted: Int, val skipped: Int,
         val errors: Int, val message: String
     )
+
+    data class ImportProgress(
+        val sourceId: String = "",
+        val sourceName: String = "",
+        val totalSources: Int = 1,
+        val currentSourceIndex: Int = 0,
+        val fetched: Int = 0,
+        val inserted: Int = 0,
+        val skipped: Int = 0,
+        val rejected: Int = 0,
+        val errors: Int = 0,
+        val offset: Int = 0,
+        val isComplete: Boolean = false,
+        val message: String = ""
+    )
+
+    private val _progress = MutableStateFlow(ImportProgress())
+    val progress: StateFlow<ImportProgress> = _progress.asStateFlow()
+
+    private fun emitProgress(p: ImportProgress) { _progress.value = p }
 
     /** Method A: Import all trails from a single source (no bbox filter) */
     suspend fun importFullSource(context: Context, sourceId: String): ImportResult {
@@ -66,12 +92,17 @@ object TrailImporter {
         if (sDb == null || eDb == null)
             return@withContext ImportResult(sourceId, 0, 0, 1, "DB not available")
 
-        var inserted = 0; var skipped = 0; var errors = 0
+        var inserted = 0; var skipped = 0; var errors = 0; var fetched = 0; var rejected = 0
         var offset = 0; var hasMore = true
 
         while (hasMore) {
             val url = buildUrl(source, south, west, north, east, offset)
             Log.i(TAG, "Fetch offset=$offset source=${source.id}")
+            emitProgress(ImportProgress(
+                sourceId = sourceId, sourceName = source.name,
+                fetched = fetched, inserted = inserted, skipped = skipped,
+                rejected = rejected, errors = errors, offset = offset
+            ))
             val json = httpGet(url)
             if (json == null) { errors++; break }
 
@@ -84,10 +115,34 @@ object TrailImporter {
             val features = root.optJSONArray("features") ?: JSONArray()
             if (features.length() == 0) { hasMore = false; continue }
 
+            val pageCount = features.length()
+            fetched += pageCount
             sDb.beginTransaction(); eDb.beginTransaction()
             try {
                 for (i in 0 until features.length()) {
-                    when (insertFeature(sDb, eDb, features.getJSONObject(i), source)) {
+                    val feat = features.getJSONObject(i)
+                    // Client-side bbox rejection
+                    if (south != null && west != null && north != null && east != null) {
+                        val geom = feat.optJSONObject("geometry")
+                        if (geom != null) {
+                            val coords = geom.optJSONArray("paths") ?: geom.optJSONArray("coordinates")
+                            if (coords != null && coords.length() > 0) {
+                                val firstRing = coords.optJSONArray(0)
+                                if (firstRing != null && firstRing.length() > 0) {
+                                    val firstPt = firstRing.optJSONArray(0)
+                                    if (firstPt != null) {
+                                        val lon = firstPt.optDouble(0, 0.0)
+                                        val lat = firstPt.optDouble(1, 0.0)
+                                        if (lat < south || lat > north || lon < west || lon > east) {
+                                            rejected++
+                                            continue
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    when (insertFeature(sDb, eDb, feat, source)) {
                         "inserted" -> inserted++
                         "skipped" -> skipped++
                         else -> errors++
@@ -105,6 +160,13 @@ object TrailImporter {
         logIngestion(eDb, sourceId, inserted, skipped, south, west, north, east)
         val msg = "$inserted imported, $skipped dupes, $errors errors"
         Log.i(TAG, "Done $sourceId: $msg")
+        emitProgress(ImportProgress(
+            sourceId = sourceId, sourceName = source.name,
+            inserted = inserted, skipped = skipped, errors = errors,
+            offset = offset, isComplete = true, message = msg
+        ))
+        // Write trail area JSON record
+        writeTrailAreaJson(context, source, inserted, skipped, south, west, north, east)
         ImportResult(sourceId, inserted, skipped, errors, msg)
     }
 
@@ -224,6 +286,139 @@ object TrailImporter {
     }
 
     // ── Ingestion log ────────────────────────────────────
+
+    /** Write JSON trail area record to Documents/GroupTrack/data/trail_areas/ */
+    private fun writeTrailAreaJson(
+        context: Context, source: Src, inserted: Int, skipped: Int,
+        south: Double?, west: Double?, north: Double?, east: Double?
+    ) {
+        try {
+            val dir = File(
+                android.os.Environment.getExternalStoragePublicDirectory(
+                    android.os.Environment.DIRECTORY_DOCUMENTS),
+                "GroupTrack/data/trail_areas"
+            )
+            if (!dir.exists()) dir.mkdirs()
+            val isFullSource = (south == null && west == null && north == null && east == null)
+            val json = JSONObject().apply {
+                put("type", if (isFullSource) "full_source" else "area")
+                put("source_id", source.id)
+                put("source_name", source.name)
+                put("status", "processed")
+                put("trail_count", inserted)
+                put("dupes_skipped", skipped)
+                put("processed_at", Instant.now().toString())
+                if (isFullSource) {
+                    val catJson = context.assets.open("trail_sources.json").bufferedReader().use { it.readText() }
+                    val sources = JSONObject(catJson).getJSONArray("sources")
+                    for (j in 0 until sources.length()) {
+                        val s = sources.getJSONObject(j)
+                        if (s.optString("id") == source.id) {
+                            val b = s.optJSONObject("boundary")
+                            if (b != null) {
+                                put("north", b.optDouble("n", 0.0))
+                                put("south", b.optDouble("s", 0.0))
+                                put("east", b.optDouble("e", 0.0))
+                                put("west", b.optDouble("w", 0.0))
+                            }
+                            break
+                        }
+                    }
+                } else if (!isFullSource) {
+                    put("north", north); put("south", south)
+                    put("east", east); put("west", west)
+                }
+            }
+            val filename = if (isFullSource)
+                "source_${source.id}.json"
+            else {
+                val ts = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"))
+                "area_${ts}.json"
+            }
+            File(dir, filename).writeText(json.toString(2))
+            Log.i(TAG, "Trail area record: $filename")
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to write trail area JSON: ${e.message}")
+        }
+    }
+
+    /** Write pending area JSON (unprocessed) for Method B signal */
+    fun writePendingArea(north: Double, south: Double, east: Double, west: Double) {
+        try {
+            val dir = File(
+                android.os.Environment.getExternalStoragePublicDirectory(
+                    android.os.Environment.DIRECTORY_DOCUMENTS),
+                "GroupTrack/data/trail_areas"
+            )
+            if (!dir.exists()) dir.mkdirs()
+            val json = JSONObject().apply {
+                put("type", "area")
+                put("status", "unprocessed")
+                put("north", north); put("south", south)
+                put("east", east); put("west", west)
+                put("created_at", Instant.now().toString())
+            }
+            File(dir, "pending_area.json").writeText(json.toString(2))
+            Log.i(TAG, "Pending area written")
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to write pending area: ${e.message}")
+        }
+    }
+
+    /** Read pending area JSON, return bbox or null */
+    fun readPendingArea(): JSONObject? {
+        return try {
+            val f = File(
+                android.os.Environment.getExternalStoragePublicDirectory(
+                    android.os.Environment.DIRECTORY_DOCUMENTS),
+                "GroupTrack/data/trail_areas/pending_area.json"
+            )
+            if (f.exists()) JSONObject(f.readText()) else null
+        } catch (_: Exception) { null }
+    }
+
+    /** Delete pending area JSON after processing */
+    fun clearPendingArea() {
+        try {
+            File(
+                android.os.Environment.getExternalStoragePublicDirectory(
+                    android.os.Environment.DIRECTORY_DOCUMENTS),
+                "GroupTrack/data/trail_areas/pending_area.json"
+            ).let { if (it.exists()) it.delete() }
+        } catch (_: Exception) {}
+    }
+
+    /** Scan all processed trail area JSONs for map overlay */
+    fun scanTrailAreas(): List<JSONObject> {
+        return try {
+            val dir = File(
+                android.os.Environment.getExternalStoragePublicDirectory(
+                    android.os.Environment.DIRECTORY_DOCUMENTS),
+                "GroupTrack/data/trail_areas"
+            )
+            if (!dir.exists()) return emptyList()
+            dir.listFiles()
+                ?.filter { it.extension == "json" && it.name != "pending_area.json" }
+                ?.mapNotNull { try { JSONObject(it.readText()) } catch (_: Exception) { null } }
+                ?.filter { it.optString("status") == "processed" }
+                ?: emptyList()
+        } catch (_: Exception) { emptyList() }
+    }
+
+    /** Check if a source has been fully imported */
+    fun isSourceFullyImported(sourceId: String): Boolean {
+        return try {
+            val f = File(
+                android.os.Environment.getExternalStoragePublicDirectory(
+                    android.os.Environment.DIRECTORY_DOCUMENTS),
+                "GroupTrack/data/trail_areas/source_${sourceId}.json"
+            )
+            if (f.exists()) {
+                val j = JSONObject(f.readText())
+                j.optString("status") == "processed" && j.optString("type") == "full_source"
+            } else false
+        } catch (_: Exception) { false }
+    }
 
     private fun logIngestion(db: SQLiteDatabase, sid: String, count: Int, dupes: Int,
                              s: Double?, w: Double?, n: Double?, e: Double?) {

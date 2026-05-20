@@ -351,9 +351,11 @@ fun ConvoyMapViewerScreen(
                         addJavascriptInterface(object {
                             @JavascriptInterface
                             fun onAreaSelected(north: Double, south: Double, east: Double, west: Double) {
+                                android.util.Log.i("DownloadPanel", "onAreaSelected: n=$north s=$south e=$east w=$west")
                                 android.os.Handler(android.os.Looper.getMainLooper()).post {
                                     downloadBbox = DownloadBbox(north = north, south = south, east = east, west = west)
                                     isDrawingArea = false
+                                    android.util.Log.i("DownloadPanel", "downloadBbox updated: valid=${downloadBbox.isValid}")
                                 }
                             }
                             @JavascriptInterface
@@ -561,6 +563,7 @@ fun ConvoyMapViewerScreen(
                         webViewRef?.evaluateJavascript("clearAreaBoundary()", null)
                     },
                     onExecuteDownload = { tiles, trails, removeTiles ->
+                        android.util.Log.i("DownloadPanel", "onExecuteDownload: tiles=$tiles trails=$trails remove=$removeTiles bbox.valid=${downloadBbox.isValid} n=${downloadBbox.north} s=${downloadBbox.south}")
                         if (tiles && downloadBbox.isValid) {
                             val bb = downloadBbox
                             Thread {
@@ -579,6 +582,9 @@ fun ConvoyMapViewerScreen(
                         }
                     },
                     onNavigateToTrailSources = { bbox ->
+                        android.util.Log.i("DownloadPanel", "onNavigateToTrailSources: n=${bbox.north} s=${bbox.south} e=${bbox.east} w=${bbox.west} valid=${bbox.isValid}")
+                        TrailImporter.writePendingArea(bbox.north, bbox.south, bbox.east, bbox.west)
+                        android.util.Log.i("DownloadPanel", "writePendingArea called, navigating...")
                         onNavigateToTrailSources()
                     },
                     onFlyoverZoomChange = { zoom ->

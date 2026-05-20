@@ -975,6 +975,29 @@ fun ConvoyScreen(
                 
         )
 
+        // -- QUEUES button (above maps bar) --
+        Surface(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .statusBarsPadding()
+                .padding(top = 8.dp, end = 8.dp)
+                .clickable { queuesOpen = !queuesOpen },
+            shape = RoundedCornerShape(6.dp),
+            color = Color(0xFF2A3545)
+        ) {
+            Text("QUEUES",
+                color = Color(0xFF1CF0A0),
+                fontSize = 10.sp, fontFamily = FontFamily.Monospace,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp))
+        }
+        if (queuesOpen) {
+            ConvoyQueuesPanel(
+                onDismiss = { queuesOpen = false },
+                modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding()
+                    .padding(top = 36.dp, end = 8.dp)
+            )
+        }
         Column(
             modifier = Modifier
                 .align(Alignment.TopEnd)
@@ -982,23 +1005,8 @@ fun ConvoyScreen(
                 .padding(top = 52.dp, end = 8.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-                // -- QUEUES launch point (V2.5 scaffold) --
-                Surface(
-                    modifier = Modifier.clickable { queuesOpen = !queuesOpen },
-                    shape = RoundedCornerShape(6.dp),
-                    color = Color(0xFF2A3545)
-                ) {
-                    Text("QUEUES",
-                        color = Color(0xFF1CF0A0),
-                        fontSize = 10.sp, fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp))
-                }
 
-                // -- QUEUES PANEL (V2.5 scaffold) --
-                if (queuesOpen) {
-                    ConvoyQueuesPanel(onDismiss = { queuesOpen = false })
-                }
+                // QUEUES panel moved above maps bar
 
                 // -- WORK WITH ARTIFACTS (V2.5 scaffold) --
                 ConvoyArtifactsPanel(isConvoyMap = true)
@@ -1108,18 +1116,7 @@ fun ConvoyScreen(
 
             // REC button placeholder — large button added as map overlay below
 
-            // Sim mode toggle (dev only)
-            TextButton(
-                onClick = { viewModel.setSimulationMode(!simulationMode) },
-                modifier = Modifier.padding(0.dp)
-            ) {
-                Text(
-                    text = if (simulationMode) "SIM" else "LIVE",
-                    color = if (simulationMode) Color(0xFFF9C835) else Color(0xFF4A6080),
-                    fontSize = 9.sp,
-                    fontFamily = FontFamily.Monospace
-                )
-            }
+            // SIM/LIVE toggle removed (V2.5 cleanup)
         }
 
         // ── Convoy submenu bottom sheet ───────────────────────────────────────────────
