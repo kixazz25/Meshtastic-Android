@@ -73,14 +73,14 @@ fun ConvoyDownloadPanel(
 
     // Internal state
     var isNetMode by remember { mutableStateOf(false) }
-    var tilesChecked by remember { mutableStateOf(true) }
-    var trailsChecked by remember { mutableStateOf(true) }
+    var tilesChecked by remember { mutableStateOf(false) }
+    var trailsChecked by remember { mutableStateOf(false) }
     var removeTilesChecked by remember { mutableStateOf(false) }
     var flyoverMileage by remember { mutableFloatStateOf(0f) }
-    var flyoverZoom by remember { mutableIntStateOf(14) }
-    var showMaps by remember { mutableStateOf(true) }
-    var showQueue by remember { mutableStateOf(true) }
-    var showTrails by remember { mutableStateOf(true) }
+    var flyoverZoom by remember { mutableIntStateOf(18) }
+    var showMaps by remember { mutableStateOf(false) }
+    var showQueue by remember { mutableStateOf(false) }
+    var showTrails by remember { mutableStateOf(false) }
 
     Surface(
         modifier = modifier.width(280.dp),

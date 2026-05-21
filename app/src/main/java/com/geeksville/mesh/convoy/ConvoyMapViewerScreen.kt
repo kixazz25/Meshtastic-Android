@@ -125,7 +125,7 @@ fun ConvoyMapViewerScreen(
         Row(
             modifier = Modifier.fillMaxWidth().background(Color(0xFF131820))
                 .statusBarsPadding()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
+                .padding(horizontal = 10.dp, vertical = 3.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
@@ -135,15 +135,15 @@ fun ConvoyMapViewerScreen(
                 fontSize = 13.sp,
                 fontFamily = FontFamily.Monospace,
                 fontWeight = FontWeight.Bold,
-                modifier = Modifier.clickable { onBack() }.padding(8.dp)
+                modifier = Modifier.clickable { onBack() }.padding(4.dp)
             )
             Text(
                 "PLANNING MAP",
                 color = Color(0xFFE8EEF5),
-                fontSize = 14.sp,
+                fontSize = 11.sp,
                 fontFamily = FontFamily.Monospace,
                 fontWeight = FontWeight.Bold,
-                letterSpacing = 2.sp
+                letterSpacing = 1.sp
             )
             // TRACKS + QUEUES (grouped right)
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -177,11 +177,24 @@ fun ConvoyMapViewerScreen(
             }
         }
 
-        // -- Search bar (collapsible) --
+        // -- Search toggle + collapsible bar --
+        if (!showSearch) {
+            Surface(
+                modifier = Modifier.padding(start = 8.dp, top = 4.dp)
+                    .clickable { showSearch = true },
+                shape = RoundedCornerShape(6.dp),
+                color = Color(0xAA1A2030)
+            ) {
+                Text("\u25BC  SEARCH + MAP", color = Color(0xFF4DA6FF),
+                    fontSize = 9.sp, fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
+            }
+        }
         if (showSearch) {
             Row(
                 modifier = Modifier.fillMaxWidth().background(Color(0xFF1A2030))
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                    .padding(horizontal = 10.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
@@ -190,7 +203,7 @@ fun ConvoyMapViewerScreen(
                     onValueChange = { searchText = it },
                     textStyle = TextStyle(
                         color = Color.White,
-                        fontSize = 14.sp,
+                        fontSize = 12.sp,
                         fontFamily = FontFamily.Monospace
                     ),
                     cursorBrush = SolidColor(Color(0xFF4DA6FF)),
@@ -198,15 +211,24 @@ fun ConvoyMapViewerScreen(
                     modifier = Modifier
                         .weight(1f)
                         .background(Color(0xFF0A1020), RoundedCornerShape(6.dp))
-                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
                     decorationBox = { innerTextField ->
                         if (searchText.isEmpty()) {
                             Text("City, park, trail area...", color = Color(0xFF445566),
-                                fontSize = 14.sp, fontFamily = FontFamily.Monospace)
+                                fontSize = 12.sp, fontFamily = FontFamily.Monospace)
                         }
                         innerTextField()
                     }
                 )
+                // Hide bar button
+                Surface(
+                    modifier = Modifier.clickable { showSearch = false },
+                    shape = RoundedCornerShape(6.dp),
+                    color = Color(0xFF2A3545)
+                ) {
+                    Text("\u25B2", color = Color(0xFF4DA6FF), fontSize = 10.sp,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp))
+                }
                 Surface(
                     modifier = Modifier.clickable {
                         if (searchText.isNotBlank()) {
@@ -409,9 +431,10 @@ fun ConvoyMapViewerScreen(
 
             // ── Download progress bar ─────────────────────────────────────
             // -- Download queue panel (replaces simple progress bar) --
-            // -- FIXED SOURCE BAR --
+            // -- SOURCE BAR (accordion with search) --
+            if (showSearch) {
             ConvoyMapBar(
-                navLabel = "CONVOY",
+                navLabel = "",
                 navIsBack = true,
                 onNavigate = onBack,
                 activeSource = pmActiveSource,
@@ -430,6 +453,7 @@ fun ConvoyMapViewerScreen(
                     .padding(start = 50.dp, end = 8.dp, top = 2.dp)
                     .fillMaxWidth()
             )
+            } // end showSearch accordion
             // -- QUEUES PANEL (V2.5 scaffold) --
             if (pmQueuesOpen) {
                 ConvoyQueuesPanel(onDismiss = { pmQueuesOpen = false })
@@ -661,7 +685,7 @@ fun ConvoyMapViewerScreen(
         Row(
             modifier = Modifier.fillMaxWidth().background(Color(0xFF131820))
                 .navigationBarsPadding()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
+                .padding(horizontal = 10.dp, vertical = 3.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {

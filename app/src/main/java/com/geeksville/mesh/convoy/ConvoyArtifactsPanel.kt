@@ -69,7 +69,7 @@ fun ConvoyArtifactsPanel(
         color = aPanelBg,
         shadowElevation = 6.dp
     ) {
-        Column(modifier = Modifier.padding(10.dp)) {
+        Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)) {
 
             // ── Drag handle pill ──
             Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -91,7 +91,7 @@ fun ConvoyArtifactsPanel(
             ) {
                 Text(
                     if (expanded) "v" else ">",
-                    color = aBlue, fontSize = 12.sp, fontFamily = aMono, fontWeight = FontWeight.Bold
+                    color = aBlue, fontSize = 10.sp, fontFamily = aMono, fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
@@ -166,7 +166,7 @@ private fun ArtifactRow(
         color = aRowBg
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp).fillMaxWidth(),
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp).fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Type name with color dot

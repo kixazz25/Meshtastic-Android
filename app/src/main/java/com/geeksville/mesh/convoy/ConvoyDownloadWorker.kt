@@ -80,7 +80,7 @@ class ConvoyDownloadWorker(
                     context = appContext,
                     tiles = existingTiles,
                     sourceUrl = layer.urlTemplate,
-                    sourceName = layer.cacheDir,
+                    sourceName = refreshSlot,
                     forceOverwrite = true
                 ) { downloaded, _, failCount ->
                     totalDownloaded++

@@ -6,6 +6,9 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import kotlin.math.roundToInt
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.offset
@@ -149,6 +152,8 @@ fun ConvoyScreen(
     val isLocalTiles by viewModel.isLocalTiles.collectAsStateWithLifecycle()
     var trailsOn by remember { mutableStateOf(false) }
     var queuesOpen by remember { mutableStateOf(false) }
+    var queuesOffsetX by remember { mutableStateOf(0f) }
+    var queuesOffsetY by remember { mutableStateOf(0f) }
     var trailsLoaded by remember { mutableStateOf(false) }
     var tracksOn by remember { mutableStateOf(true) }
     var showConvoyTrackPicker by remember { mutableStateOf(false) }
@@ -975,12 +980,20 @@ fun ConvoyScreen(
                 
         )
 
-        // -- QUEUES button (above maps bar) --
+        // -- QUEUES button (draggable) --
         Surface(
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .statusBarsPadding()
-                .padding(top = 8.dp, end = 8.dp)
+                .padding(top = 2.dp, end = 8.dp)
+                .offset { androidx.compose.ui.unit.IntOffset(queuesOffsetX.roundToInt(), queuesOffsetY.roundToInt()) }
+                .pointerInput(Unit) {
+                    detectDragGestures { change, dragAmount ->
+                        change.consume()
+                        queuesOffsetX += dragAmount.x
+                        queuesOffsetY += dragAmount.y
+                    }
+                }
                 .clickable { queuesOpen = !queuesOpen },
             shape = RoundedCornerShape(6.dp),
             color = Color(0xFF2A3545)
