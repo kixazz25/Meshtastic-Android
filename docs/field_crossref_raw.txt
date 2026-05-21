@@ -9046,3 +9046,753 @@ FILE: ConvoyTileDownloader.kt
       [58] val dir = File(ConvoyConfig.TILE_DIR, "${sourceName}/${tile.z}/${tile.x}")
       [68] val success = withContext(Dispatchers.IO) {
       [69] val request = Request.Builder().url(url).build()
+      [70] val response = client.newCall(request).execute()
+      [102] var downloaded = 0
+      [103] var failed = 0
+      [104] val total = tiles.size
+      [114] val dest = tilePath(context, sourceName, tile)
+      [123] val url = buildTileUrl(tile, sourceUrl)
+      [124] val success = downloadTile(url, dest)
+      [134] val totalMB = (downloaded * AVG_TILE_BYTES) / (1024f * 1024f)
+    CALLS OUT:
+      → DownloadSummary
+      → File
+      → Request.Builder
+      → Result.failure
+      → Result.success
+      → build
+      → buildTileUrl
+      → bytes
+      → client.newCall
+      → coroutines.CancellationException
+      → coroutines.delay
+      → dest.exists
+      → dest.length
+      → dest.writeBytes
+      → dir.mkdirs
+
+  [64] suspend fun downloadTile(url: String, dest: File): Boolean {
+    WORK FIELDS (local computed values):
+      [68] val success = withContext(Dispatchers.IO) {
+      [69] val request = Request.Builder().url(url).build()
+      [70] val response = client.newCall(request).execute()
+      [102] var downloaded = 0
+      [103] var failed = 0
+      [104] val total = tiles.size
+      [114] val dest = tilePath(context, sourceName, tile)
+      [123] val url = buildTileUrl(tile, sourceUrl)
+      [124] val success = downloadTile(url, dest)
+      [134] val totalMB = (downloaded * AVG_TILE_BYTES) / (1024f * 1024f)
+      [144] val dir = File(ConvoyConfig.TILE_DIR, slotName)
+    CALLS OUT:
+      → DownloadSummary
+      → File
+      → Request.Builder
+      → Result.failure
+      → Result.success
+      → build
+      → buildTileUrl
+      → bytes
+      → client.newCall
+      → coroutines.CancellationException
+      → coroutines.delay
+      → dest.exists
+      → dest.length
+      → dest.writeBytes
+      → downloadTile
+
+  [93] suspend fun downloadTiles(
+    WORK FIELDS (local computed values):
+      [102] var downloaded = 0
+      [103] var failed = 0
+      [104] val total = tiles.size
+      [114] val dest = tilePath(context, sourceName, tile)
+      [123] val url = buildTileUrl(tile, sourceUrl)
+      [124] val success = downloadTile(url, dest)
+      [134] val totalMB = (downloaded * AVG_TILE_BYTES) / (1024f * 1024f)
+      [144] val dir = File(ConvoyConfig.TILE_DIR, slotName)
+      [146] val keys = mutableListOf<TileKey>()
+      [149] val z = zDir.name.toIntOrNull() ?: return@forEach
+      [151] val x = xDir.name.toIntOrNull() ?: return@forEach
+      [153] val y = yFile.nameWithoutExtension.toIntOrNull() ?: return@forEach
+    CALLS OUT:
+      → DownloadSummary
+      → File
+      → Log.i
+      → Result.failure
+      → Result.success
+      → TileKey
+      → buildTileUrl
+      → coroutines.CancellationException
+      → dest.exists
+      → dest.length
+      → dir.exists
+      → dir.listFiles
+      → downloadTile
+      → keys.add
+      → keys.isEmpty
+
+  [143] fun scanTilesToKeys(slotName: String): List<TileKey> {
+    WORK FIELDS (local computed values):
+      [144] val dir = File(ConvoyConfig.TILE_DIR, slotName)
+      [146] val keys = mutableListOf<TileKey>()
+      [149] val z = zDir.name.toIntOrNull() ?: return@forEach
+      [151] val x = xDir.name.toIntOrNull() ?: return@forEach
+      [153] val y = yFile.nameWithoutExtension.toIntOrNull() ?: return@forEach
+      [164] val keys = scanTilesToKeys(slotName)
+      [166] val zoomGroups = keys.groupBy { it.z }
+      [167] val bestZ = zoomGroups.maxByOrNull { it.value.size }?.key ?: return null
+      [168] val tilesAtZ = zoomGroups[bestZ] ?: return null
+      [169] val minX = tilesAtZ.minOf { it.x }
+      [170] val maxX = tilesAtZ.maxOf { it.x }
+      [171] val minY = tilesAtZ.minOf { it.y }
+    CALLS OUT:
+      → File
+      → Log.i
+      → Math.atan
+      → Math.sinh
+      → Math.toDegrees
+      → Pair
+      → TileKey
+      → cells.add
+      → deleteSource
+      → dir.deleteRecursively
+      → dir.exists
+      → dir.listFiles
+      → dir.walkTopDown
+      → doubleArrayOf
+      → gridCells
+
+  [163] fun tileBoundsLatLon(slotName: String): DoubleArray? {
+    WORK FIELDS (local computed values):
+      [164] val keys = scanTilesToKeys(slotName)
+      [166] val zoomGroups = keys.groupBy { it.z }
+      [167] val bestZ = zoomGroups.maxByOrNull { it.value.size }?.key ?: return null
+      [168] val tilesAtZ = zoomGroups[bestZ] ?: return null
+      [169] val minX = tilesAtZ.minOf { it.x }
+      [170] val maxX = tilesAtZ.maxOf { it.x }
+      [171] val minY = tilesAtZ.minOf { it.y }
+      [172] val maxY = tilesAtZ.maxOf { it.y }
+      [173] val n = 1 shl bestZ
+      [174] val north = Math.toDegrees(Math.atan(Math.sinh(Math.PI * (1.0 - 2.0 * minY / n))))
+      [175] val south = Math.toDegrees(Math.atan(Math.sinh(Math.PI * (1.0 - 2.0 * (maxY + 1) / n))))
+      [176] val west = minX.toDouble() / n * 360.0 - 180.0
+    CALLS OUT:
+      → File
+      → Log.i
+      → Math.atan
+      → Math.sinh
+      → Math.toDegrees
+      → Pair
+      → cells.add
+      → deleteSource
+      → dir.deleteRecursively
+      → dir.exists
+      → dir.walkTopDown
+      → doubleArrayOf
+      → gridCells
+      → it.length
+      → keys.isEmpty
+
+  [183] fun gridCells(north: Double, south: Double, east: Double, west: Double, gridMiles: Double = 12.0): List<DoubleArray> {
+    WORK FIELDS (local computed values):
+      [184] val step = gridMiles / 69.0
+      [185] val cells = mutableListOf<DoubleArray>()
+      [186] var lat = south
+      [188] val cellN = minOf(lat + step, north)
+      [189] var lon = west
+      [191] val cellE = minOf(lon + step, east)
+      [203] val dir = File(ConvoyConfig.TILE_DIR, sourceName)
+      [209] val dir = File(ConvoyConfig.TILE_DIR, sourceName)
+      [211] var count = 0
+      [212] var bytes = 0L
+    CALLS OUT:
+      → File
+      → Log.i
+      → Pair
+      → cells.add
+      → deleteSource
+      → dir.deleteRecursively
+      → dir.exists
+      → dir.walkTopDown
+      → doubleArrayOf
+      → it.length
+      → minOf
+      → sourceInfo
+
+  [202] fun deleteSource(context: Context, sourceName: String): Boolean {
+    WORK FIELDS (local computed values):
+      [203] val dir = File(ConvoyConfig.TILE_DIR, sourceName)
+      [209] val dir = File(ConvoyConfig.TILE_DIR, sourceName)
+      [211] var count = 0
+      [212] var bytes = 0L
+    CALLS OUT:
+      → File
+      → Pair
+      → dir.deleteRecursively
+      → dir.exists
+      → dir.walkTopDown
+      → it.length
+      → sourceInfo
+
+  [208] fun sourceInfo(context: Context, sourceName: String): Pair<Int, Float> {
+    WORK FIELDS (local computed values):
+      [209] val dir = File(ConvoyConfig.TILE_DIR, sourceName)
+      [211] var count = 0
+      [212] var bytes = 0L
+    CALLS OUT:
+      → File
+      → Pair
+      → dir.exists
+      → dir.walkTopDown
+      → it.length
+
+========================================
+FILE: ConvoyTrackDialogs.kt
+========================================
+
+  [23] fun TrackActionDialog(
+    WORK FIELDS (local computed values):
+      [71] var text by remember(file) { mutableStateOf(file.nameWithoutExtension) }
+      [72] val ext = file.extension
+      [97] val newName = text.trim()
+    CALLS OUT:
+      → ActionRow
+      → Color
+      → RoundedCornerShape
+      → SolidColor
+      → Spacer
+      → Text
+      → TextButton
+      → TextStyle
+      → background
+      → clickable
+      → fillMaxWidth
+      → mutableStateOf
+      → newName.isNotEmpty
+      → onConfirm
+      → onDelete
+
+  [52] private fun ActionRow(label: String, onClick: () -> Unit) {
+    WORK FIELDS (local computed values):
+      [71] var text by remember(file) { mutableStateOf(file.nameWithoutExtension) }
+      [72] val ext = file.extension
+      [97] val newName = text.trim()
+    CALLS OUT:
+      → Color
+      → RoundedCornerShape
+      → SolidColor
+      → Spacer
+      → Text
+      → TextButton
+      → TextStyle
+      → background
+      → clickable
+      → fillMaxWidth
+      → mutableStateOf
+      → newName.isNotEmpty
+      → onConfirm
+      → padding
+      → remember
+
+  [65] fun RenameTrackDialog(
+    WORK FIELDS (local computed values):
+      [71] var text by remember(file) { mutableStateOf(file.nameWithoutExtension) }
+      [72] val ext = file.extension
+      [97] val newName = text.trim()
+    CALLS OUT:
+      → Color
+      → RoundedCornerShape
+      → SolidColor
+      → Spacer
+      → Text
+      → TextButton
+      → TextStyle
+      → background
+      → mutableStateOf
+      → newName.isNotEmpty
+      → onConfirm
+      → padding
+      → remember
+      → text.trim
+
+  [109] fun DeleteTrackDialog(
+    CALLS OUT:
+      → Text
+      → TextButton
+
+========================================
+FILE: ConvoyTrackExportSheet.kt
+========================================
+
+  [39] fun ConvoyTrackExportSheet(onDismiss: () -> Unit, onNavigateToTrackImport: () -> Unit = {}) {
+    WORK FIELDS (local computed values):
+      [40] val context = LocalContext.current
+      [41] val scope = rememberCoroutineScope()
+      [43] var allTracks by remember { mutableStateOf<List<File>>(emptyList()) }
+      [44] var searchText by remember { mutableStateOf("") }
+      [45] var sortMode by remember { mutableStateOf(SortMode.DATE_DESC) }
+      [46] var filterMode by remember { mutableStateOf(FilterMode.ALL) }
+      [47] var refreshTick by remember { mutableStateOf(0) }
+      [49] var actionTarget by remember { mutableStateOf<File?>(null) }
+      [50] var renameTarget by remember { mutableStateOf<File?>(null) }
+      [51] var deleteTarget by remember { mutableStateOf<File?>(null) }
+      [52] var statusMsg by remember { mutableStateOf<String?>(null) }
+      [58] val visibleTracks = remember(allTracks, searchText, sortMode, filterMode, refreshTick) {
+    CALLS OUT:
+      → Color
+      → ConvoyTrackOps.fixDatesForFiles
+      → ConvoyTrackOps.isInProgress
+      → ConvoyTrackOps.listTracks
+      → LaunchedEffect
+      → RoundedCornerShape
+      → Row
+      → SimpleDateFormat
+      → Spacer
+      → Text
+      → TextButton
+      → background
+      → fillMaxSize
+      → mutableStateOf
+      → name.contains
+
+  [285] private fun FilterTab(label: String, selected: Boolean, onClick: () -> Unit) {
+    WORK FIELDS (local computed values):
+      [306] val isInProgress = ConvoyTrackOps.isInProgress(file)
+    CALLS OUT:
+      → Color
+      → Column
+      → ConvoyTrackOps.isInProgress
+      → Date
+      → RoundedCornerShape
+      → Spacer
+      → Text
+      → clickable
+      → file.length
+      → padding
+
+  [301] private fun TrackRow(
+    WORK FIELDS (local computed values):
+      [306] val isInProgress = ConvoyTrackOps.isInProgress(file)
+    CALLS OUT:
+      → Color
+      → Column
+      → ConvoyTrackOps.isInProgress
+      → Date
+      → RoundedCornerShape
+      → Spacer
+      → Text
+      → clickable
+      → file.length
+      → padding
+
+========================================
+FILE: ConvoyTrackImportScreen.kt
+========================================
+
+  [62] fun ConvoyTrackImportScreen(onDismiss: () -> Unit) {
+    WORK FIELDS (local computed values):
+      [65] var files by remember { mutableStateOf<List<File>>(emptyList()) }
+      [66] var selected by remember { mutableStateOf<Set<String>>(emptySet()) }
+      [67] var scanning by remember { mutableStateOf(true) }
+      [70] var showProgress by remember { mutableStateOf(false) }
+      [71] var progressCurrent by remember { mutableIntStateOf(0) }
+      [72] var progressTotal by remember { mutableIntStateOf(0) }
+      [73] var progressName by remember { mutableStateOf("") }
+      [76] var showRecap by remember { mutableStateOf(false) }
+      [77] var recapImported by remember { mutableStateOf<List<String>>(emptyList()) }
+      [78] var recapSkipped by remember { mutableStateOf<List<String>>(emptyList()) }
+      [79] var recapFailed by remember { mutableStateOf<List<String>>(emptyList()) }
+      [80] var recapDatesCorrected by remember { mutableIntStateOf(0) }
+    CALLS OUT:
+      → ConvoyTrackOps.importTrackFile
+      → Environment.getExternalStoragePublicDirectory
+      → LaunchedEffect
+      → dlDir.listFiles
+      → doImport
+      → extension.lowercase
+      → failed.add
+      → imported.addAll
+      → listOf
+      → mutableStateOf
+      → rememberCoroutineScope
+      → sel.isEmpty
+      → sel.withIndex
+      → selected.contains
+      → skipped.addAll
+
+  [102] fun doImport() {
+    WORK FIELDS (local computed values):
+      [103] val sel = files.filter { selected.contains(it.name) }
+      [109] val imported = mutableListOf<String>()
+      [110] val skipped = mutableListOf<String>()
+      [111] val failed = mutableListOf<String>()
+      [112] var datesCorrected = 0
+      [117] val result = ConvoyTrackOps.importTrackFile(f)
+    CALLS OUT:
+      → Color
+      → ConvoyTrackOps.importTrackFile
+      → background
+      → failed.add
+      → fillMaxSize
+      → fillMaxWidth
+      → imported.addAll
+      → onDismiss
+      → padding
+      → sel.isEmpty
+      → sel.withIndex
+      → selected.contains
+      → skipped.addAll
+
+  [398] private fun ImportProgressDialog(current: Int, total: Int, currentName: String) {
+    CALLS OUT:
+      → CircularProgressIndicator
+      → Color
+      → RoundedCornerShape
+      → Spacer
+      → TextButton
+      → imported.isNotEmpty
+
+  [443] private fun ImportRecapDialog(
+    WORK FIELDS (local computed values):
+      [519] val shown = imported.take(20)
+    CALLS OUT:
+      → Color
+      → Spacer
+      → TextButton
+      → failed.isNotEmpty
+      → imported.isNotEmpty
+      → imported.take
+      → skipped.isNotEmpty
+
+  [567] private fun formatFileSize(bytes: Long): String {
+    CALLS OUT:
+      → SimpleDateFormat
+
+  [575] private fun formatFileDate(millis: Long): String {
+    CALLS OUT:
+      → SimpleDateFormat
+
+========================================
+FILE: ConvoyTrackOps.kt
+========================================
+
+  [18] fun tracksDir(): File = File(
+    WORK FIELDS (local computed values):
+      [28] val dir = tracksDir()
+      [31] val name = f.name
+      [32] val ext = f.extension.lowercase()
+      [52] val ext = file.extension
+      [53] val target = File(file.parentFile, "$newBaseName.$ext")
+      [70] val target = File(downloadsDir(), file.name)
+      [84] val uri = FileProvider.getUriForFile(
+      [89] val intent = Intent(Intent.ACTION_SEND).apply {
+      [94] val chooser = Intent.createChooser(intent, "Share track").apply {
+    CALLS OUT:
+      → Environment.getExternalStoragePublicDirectory
+      → File
+      → FileProvider.getUriForFile
+      → Log.e
+      → RenameResult
+      → addFlags
+      → context.startActivity
+      → copyToDownloads
+      → deleteTrack
+      → dir.exists
+      → dir.listFiles
+      → downloadsDir
+      → extension.lowercase
+      → file.delete
+      → file.inputStream
+
+  [23] fun downloadsDir(): File =
+    WORK FIELDS (local computed values):
+      [28] val dir = tracksDir()
+      [31] val name = f.name
+      [32] val ext = f.extension.lowercase()
+      [52] val ext = file.extension
+      [53] val target = File(file.parentFile, "$newBaseName.$ext")
+      [70] val target = File(downloadsDir(), file.name)
+      [84] val uri = FileProvider.getUriForFile(
+      [89] val intent = Intent(Intent.ACTION_SEND).apply {
+      [94] val chooser = Intent.createChooser(intent, "Share track").apply {
+    CALLS OUT:
+      → Environment.getExternalStoragePublicDirectory
+      → File
+      → FileProvider.getUriForFile
+      → Log.e
+      → RenameResult
+      → addFlags
+      → context.startActivity
+      → copyToDownloads
+      → deleteTrack
+      → dir.exists
+      → dir.listFiles
+      → extension.lowercase
+      → file.delete
+      → file.inputStream
+      → file.renameTo
+
+  [27] suspend fun listTracks(): List<File> = withContext(Dispatchers.IO) {
+    WORK FIELDS (local computed values):
+      [28] val dir = tracksDir()
+      [31] val name = f.name
+      [32] val ext = f.extension.lowercase()
+      [52] val ext = file.extension
+      [53] val target = File(file.parentFile, "$newBaseName.$ext")
+      [70] val target = File(downloadsDir(), file.name)
+      [84] val uri = FileProvider.getUriForFile(
+      [89] val intent = Intent(Intent.ACTION_SEND).apply {
+      [94] val chooser = Intent.createChooser(intent, "Share track").apply {
+    CALLS OUT:
+      → File
+      → FileProvider.getUriForFile
+      → Log.e
+      → RenameResult
+      → addFlags
+      → context.startActivity
+      → copyToDownloads
+      → deleteTrack
+      → dir.exists
+      → dir.listFiles
+      → extension.lowercase
+      → file.delete
+      → file.inputStream
+      → file.renameTo
+      → input.copyTo
+
+  [40] fun isInProgress(file: File): Boolean =
+    WORK FIELDS (local computed values):
+      [52] val ext = file.extension
+      [53] val target = File(file.parentFile, "$newBaseName.$ext")
+      [70] val target = File(downloadsDir(), file.name)
+      [84] val uri = FileProvider.getUriForFile(
+      [89] val intent = Intent(Intent.ACTION_SEND).apply {
+      [94] val chooser = Intent.createChooser(intent, "Share track").apply {
+      [117] val sourceName: String,
+      [118] val createdFiles: List<String>
+    CALLS OUT:
+      → File
+      → FileProvider.getUriForFile
+      → ImportResult
+      → Log.e
+      → RenameResult
+      → addFlags
+      → context.startActivity
+      → copyToDownloads
+      → deleteTrack
+      → file.delete
+      → file.inputStream
+      → file.renameTo
+      → input.copyTo
+      → name.startsWith
+      → putExtra
+
+  [50] suspend fun renameTrack(file: File, newBaseName: String): RenameResult =
+    WORK FIELDS (local computed values):
+      [52] val ext = file.extension
+      [53] val target = File(file.parentFile, "$newBaseName.$ext")
+      [70] val target = File(downloadsDir(), file.name)
+      [84] val uri = FileProvider.getUriForFile(
+      [89] val intent = Intent(Intent.ACTION_SEND).apply {
+      [94] val chooser = Intent.createChooser(intent, "Share track").apply {
+      [117] val sourceName: String,
+      [118] val createdFiles: List<String>
+      [121] val sourceName: String,
+      [122] val createdFiles: List<String>,
+      [123] val skippedFiles: List<String>
+      [126] val sourceName: String,
+    CALLS OUT:
+      → File
+      → FileProvider.getUriForFile
+      → ImportResult
+      → Log.e
+      → addFlags
+      → context.startActivity
+      → copyToDownloads
+      → deleteTrack
+      → file.delete
+      → file.inputStream
+      → file.renameTo
+      → input.copyTo
+      → putExtra
+      → shareTrack
+      → target.exists
+
+  [63] suspend fun deleteTrack(file: File): Boolean = withContext(Dispatchers.IO) {
+    WORK FIELDS (local computed values):
+      [70] val target = File(downloadsDir(), file.name)
+      [84] val uri = FileProvider.getUriForFile(
+      [89] val intent = Intent(Intent.ACTION_SEND).apply {
+      [94] val chooser = Intent.createChooser(intent, "Share track").apply {
+      [117] val sourceName: String,
+      [118] val createdFiles: List<String>
+      [121] val sourceName: String,
+      [122] val createdFiles: List<String>,
+      [123] val skippedFiles: List<String>
+      [126] val sourceName: String,
+      [127] val reason: String
+      [135] val updated: Int,
+    CALLS OUT:
+      → File
+      → FileProvider.getUriForFile
+      → ImportResult
+      → Log.e
+      → addFlags
+      → context.startActivity
+      → copyToDownloads
+      → file.delete
+      → file.inputStream
+      → input.copyTo
+      → putExtra
+      → shareTrack
+      → target.outputStream
+      → withContext
+
+  [68] suspend fun copyToDownloads(file: File): Boolean = withContext(Dispatchers.IO) {
+    WORK FIELDS (local computed values):
+      [70] val target = File(downloadsDir(), file.name)
+      [84] val uri = FileProvider.getUriForFile(
+      [89] val intent = Intent(Intent.ACTION_SEND).apply {
+      [94] val chooser = Intent.createChooser(intent, "Share track").apply {
+      [117] val sourceName: String,
+      [118] val createdFiles: List<String>
+      [121] val sourceName: String,
+      [122] val createdFiles: List<String>,
+      [123] val skippedFiles: List<String>
+      [126] val sourceName: String,
+      [127] val reason: String
+      [135] val updated: Int,
+    CALLS OUT:
+      → File
+      → FileProvider.getUriForFile
+      → ImportResult
+      → Log.e
+      → Regex
+      → addFlags
+      → context.startActivity
+      → extractEarliestTime
+      → file.inputStream
+      → input.copyTo
+      → putExtra
+      → shareTrack
+      → target.outputStream
+
+  [82] fun shareTrack(context: Context, file: File) {
+    WORK FIELDS (local computed values):
+      [84] val uri = FileProvider.getUriForFile(
+      [89] val intent = Intent(Intent.ACTION_SEND).apply {
+      [94] val chooser = Intent.createChooser(intent, "Share track").apply {
+      [117] val sourceName: String,
+      [118] val createdFiles: List<String>
+      [121] val sourceName: String,
+      [122] val createdFiles: List<String>,
+      [123] val skippedFiles: List<String>
+      [126] val sourceName: String,
+      [127] val reason: String
+      [135] val updated: Int,
+      [136] val unchanged: Int,
+    CALLS OUT:
+      → FileProvider.getUriForFile
+      → ImportResult
+      → Instant.parse
+      → Log.e
+      → OffsetDateTime.parse
+      → Regex
+      → addFlags
+      → context.startActivity
+      → extractEarliestTime
+      → odt.toInstant
+      → pattern.findAll
+      → putExtra
+      → toEpochMilli
+      → trim
+
+  [104] fun formatSize(bytes: Long): String = when {
+    WORK FIELDS (local computed values):
+      [117] val sourceName: String,
+      [118] val createdFiles: List<String>
+      [121] val sourceName: String,
+      [122] val createdFiles: List<String>,
+      [123] val skippedFiles: List<String>
+      [126] val sourceName: String,
+      [127] val reason: String
+      [135] val updated: Int,
+      [136] val unchanged: Int,
+      [137] val failed: Int
+      [145] val patterns = listOf(
+      [149] var earliest: Long? = null
+    CALLS OUT:
+      → ImportResult
+      → Instant.parse
+      → OffsetDateTime.parse
+      → Regex
+      → extractEarliestTime
+      → odt.toInstant
+      → pattern.findAll
+      → replace
+      → sanitizeFilename
+      → toEpochMilli
+      → trim
+
+  [144] fun extractEarliestTime(content: String): Long? {
+    WORK FIELDS (local computed values):
+      [145] val patterns = listOf(
+      [149] var earliest: Long? = null
+      [153] val epochMs = java.time.Instant.parse(match.groupValues[1].trim()).toEpochMilli()
+      [160] val odt = java.time.OffsetDateTime.parse(match.groupValues[1].trim())
+      [161] val epochMs = odt.toInstant().toEpochMilli()
+      [196] val sourceName = sourceFile.name
+      [202] val text = sourceFile.readText()
+      [203] val ext = sourceFile.extension.lowercase()
+      [204] val isGpx = ext == "gpx"
+      [205] val isKml = ext == "kml"
+      [210] val dir = tracksDir()
+      [213] val created = mutableListOf<String>()
+    CALLS OUT:
+      → ImportResult.Failed
+      → Instant.parse
+      → OffsetDateTime.parse
+      → Regex
+      → dir.exists
+      → dir.mkdirs
+      → extension.lowercase
+      → odt.toInstant
+      → pattern.findAll
+      → replace
+      → sanitizeFilename
+      → sourceFile.exists
+      → sourceFile.readText
+      → text.contains
+      → toEpochMilli
+
+  [177] private fun sanitizeFilename(name: String): String {
+    WORK FIELDS (local computed values):
+      [196] val sourceName = sourceFile.name
+      [202] val text = sourceFile.readText()
+      [203] val ext = sourceFile.extension.lowercase()
+      [204] val isGpx = ext == "gpx"
+      [205] val isKml = ext == "kml"
+      [210] val dir = tracksDir()
+      [213] val created = mutableListOf<String>()
+      [214] val skipped = mutableListOf<String>()
+      [218] val trkPattern = Regex("""<trk>([\s\S]*?)</trk>""")
+      [219] val tracks = trkPattern.findAll(text).toList()
+      [222] val namePattern = Regex("<name>([^<]*)</name>")
+      [224] val trkContent = trk.groupValues[1]
+    CALLS OUT:
+      → File
+      → ImportResult.Failed
+      → ImportResult.PartialSuccess
+      → ImportResult.Success
+      → Regex
+      → created.add
+      → created.isEmpty
+      → dest.exists
+      → dest.writeText
+      → dir.exists
+      → dir.mkdirs
+      → extension.lowercase
+      → extractEarliestTime
+      → get
+      → invoke
