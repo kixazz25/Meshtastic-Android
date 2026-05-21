@@ -72,19 +72,10 @@ object MapSourceManager {
         if (initialized) return
         appContext = context
         try {
-            // Read external JSON first, fall back to assets
-            val extFile = externalJsonFile()
-            val json = if (extFile.exists()) {
-                android.util.Log.i("MapSourceMgr", "Reading external map_sources.json")
-                extFile.readText(Charsets.UTF_8)
-            } else {
-                android.util.Log.i("MapSourceMgr", "Reading assets map_sources.json")
-                val assetJson = context.assets.open("map_sources.json")
-                    .bufferedReader().use { it.readText() }
-                // Copy to external on first run
-                try { extFile.writeText(assetJson, Charsets.UTF_8) } catch (_: Exception) {}
-                assetJson
-            }
+            // Always read from bundled asset — single source of truth
+            val json = context.assets.open("map_sources.json")
+                .bufferedReader().use { it.readText() }
+            android.util.Log.i("MapSourceMgr", "Reading assets map_sources.json")
             val root = JSONObject(json)
             val sourcesArray = root.getJSONArray("sources")
             val parsed = mutableListOf<TileSource>()
@@ -233,24 +224,7 @@ object MapSourceManager {
 
     /** Save current slot assignments to external JSON */
     private fun saveExternalJson() {
-        try {
-            val extFile = externalJsonFile()
-            val json = if (extFile.exists()) extFile.readText(Charsets.UTF_8)
-                       else appContext?.assets?.open("map_sources.json")?.bufferedReader()?.use { it.readText() } ?: return
-            val root = JSONObject(json)
-            val slotsArray = org.json.JSONArray()
-            defaultSlots.forEach { slot ->
-                val obj = JSONObject()
-                obj.put("slot", slot.slot)
-                obj.put("source_id", slot.sourceId)
-                obj.put("legacy_key", slot.legacyKey)
-                slotsArray.put(obj)
-            }
-            root.put("default_slots", slotsArray)
-            extFile.writeText(root.toString(2), Charsets.UTF_8)
-        } catch (e: Exception) {
-            android.util.Log.e("MapSourceMgr", "Failed to save external JSON: ${e.message}")
-        }
+        // Disabled — asset is single source of truth
     }
 
     /** Load API keys from external file */

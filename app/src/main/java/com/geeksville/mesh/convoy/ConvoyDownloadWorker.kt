@@ -110,7 +110,8 @@ class ConvoyDownloadWorker(
         val tiles = ConvoyTileCalculator.calculateTiles(north, south, east, west)
 
         // Get all layers to download from MapSourceManager
-        val downloadSources = MapSourceManager.getDownloadSources()
+        val allSources = MapSourceManager.getDownloadSources()
+        val downloadSources = if (refreshSlot.isNotEmpty()) allSources.filter { it.first == refreshSlot } else allSources
         val totalLayers = downloadSources.sumOf { it.second.size }
         val totalTiles = tiles.size * totalLayers
         var totalDownloaded = 0
@@ -121,7 +122,7 @@ class ConvoyDownloadWorker(
         DownloadQueueManager.updateProgress(entryId, 0, 0)
 
         for ((slotName, layers) in downloadSources) {
-            for (layer in layers) {
+            for ((layerIndex, layer) in layers.withIndex()) {
                 // Check if WorkManager cancelled us
                 if (isStopped) {
                     android.util.Log.i(TAG, "Worker stopped by system/user")
@@ -134,7 +135,7 @@ class ConvoyDownloadWorker(
                     context = appContext,
                     tiles = tiles,
                     sourceUrl = layer.urlTemplate,
-                    sourceName = layer.cacheDir
+                    sourceName = if (layerIndex == 0) slotName else layer.cacheDir
                 ) { downloaded, _, failCount ->
                     totalDownloaded++
                     totalFailed = failCount

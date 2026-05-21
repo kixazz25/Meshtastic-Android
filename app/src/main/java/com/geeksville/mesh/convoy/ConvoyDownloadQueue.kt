@@ -144,7 +144,50 @@ object DownloadQueueManager {
 
     /** Enqueue grid-based refresh: multiple small jobs per ~12 mile cell.
      *  Returns number of cells enqueued. Call from background thread. */
-    fun enqueueRefresh(
+    /** Unified area download: one slot, broken into grid cells */
+    fun enqueueArea(
+        context: Context,
+        slotName: String,
+        north: Double, south: Double, east: Double, west: Double,
+        replaceExisting: Boolean = false
+    ): Int {
+        init(context)
+        val cells = ConvoyTileDownloader.gridCells(north, south, east, west)
+        if (cells.isEmpty()) {
+            // Small area — single job
+            val entry = QueueEntry(
+                north = north, south = south, east = east, west = west,
+                totalTiles = 0,
+                label = "DL $slotName",
+                refreshMode = replaceExisting,
+                refreshSlot = slotName
+            )
+            val current = _queue.value.toMutableList()
+            current.add(entry)
+            _queue.value = current
+            saveQueue()
+            startNextIfAvailable()
+            return 1
+        }
+        val current = _queue.value.toMutableList()
+        cells.forEachIndexed { i, cell ->
+            val entry = QueueEntry(
+                north = cell[0], south = cell[1], east = cell[2], west = cell[3],
+                totalTiles = 0,
+                label = "DL $slotName ${i + 1}/${cells.size}",
+                refreshMode = replaceExisting,
+                refreshSlot = slotName
+            )
+            current.add(entry)
+        }
+        _queue.value = current
+        saveQueue()
+        android.util.Log.i(TAG, "Enqueued area: $slotName ${cells.size} cells replace=$replaceExisting")
+        startNextIfAvailable()
+        return cells.size
+    }
+
+        fun enqueueRefresh(
         context: Context,
         slotName: String,
         sourceName: String

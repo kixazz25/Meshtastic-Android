@@ -100,6 +100,12 @@ fun ConvoyMapViewerScreen(
 
     // Download controls state
     var showDownloadPanel by remember { mutableStateOf(false) }
+    var panelTilesChecked by remember { mutableStateOf(false) }
+    var showDownloadConfirm by remember { mutableStateOf(false) }
+    var downloadReplaceExisting by remember { mutableStateOf(false) }
+    var panelTrailsChecked by remember { mutableStateOf(false) }
+    var panelRemoveTilesChecked by remember { mutableStateOf(false) }
+    var panelFlyoverZoom by remember { mutableStateOf(18) }
     var queueExpanded by remember { mutableStateOf(false) }
     var pmTracksOn by remember { mutableStateOf(false) }
     var pmTracksLoaded by remember { mutableStateOf(false) }
@@ -566,10 +572,57 @@ fun ConvoyMapViewerScreen(
                 modifier = Modifier.align(Alignment.BottomStart).padding(start = 12.dp, bottom = 8.dp).width(280.dp)
             )
 
+            // ── Download confirm overlay ──────────────────────────────────
+            if (showDownloadConfirm && downloadBbox.isValid) {
+                val slotSources = remember { MapSourceManager.getSlotSources() }
+                val estimate = remember(downloadBbox) { ConvoyTileCalculator.quickEstimate(
+                    downloadBbox.north, downloadBbox.south,
+                    downloadBbox.east, downloadBbox.west) }
+                val slots = remember(slotSources) { slotSources.map { (legacyKey, shortLabel, _) ->
+                    SlotDisplayInfo(
+                        slotName = legacyKey,
+                        sourceName = shortLabel,
+                        directory = legacyKey,
+                        tileCount = 0,
+                        sizeMB = 0f,
+                        preSelected = true
+                    )
+                } }
+                ConvoyDownloadConfirm(
+                    estimatedTiles = estimate.tileCount,
+                    estimatedMB = estimate.estimatedMB,
+                    areaDesc = String.format("%.3f\u00b0N to %.3f\u00b0N", downloadBbox.south, downloadBbox.north),
+                    slots = slots,
+                    onProceed = { selectedSlots, replace ->
+                        showDownloadConfirm = false
+                        showDownloadPanel = false
+                        Thread {
+                            val bb = downloadBbox
+                            for (slotName in selectedSlots) {
+                                DownloadQueueManager.enqueueArea(
+                                    context, slotName,
+                                    bb.north, bb.south, bb.east, bb.west,
+                                    replace
+                                )
+                            }
+                        }.start()
+                    },
+                    onCancel = { showDownloadConfirm = false },
+                    modifier = Modifier.align(Alignment.Center).padding(16.dp)
+                )
+            }
             // ── Download panel (above FAB) ────────────────────────────────
             if (showDownloadPanel) {
                 ConvoyDownloadPanel(
                     bbox = downloadBbox,
+                    tilesChecked = panelTilesChecked,
+                    onTilesCheckedChange = { panelTilesChecked = it },
+                    trailsChecked = panelTrailsChecked,
+                    onTrailsCheckedChange = { panelTrailsChecked = it },
+                    removeTilesChecked = panelRemoveTilesChecked,
+                    onRemoveTilesCheckedChange = { panelRemoveTilesChecked = it },
+                    flyoverZoom = panelFlyoverZoom,
+                    onFlyoverZoomChange = { panelFlyoverZoom = it; ConvoyConfig.SEARCH_FLY_ZOOM = it },
                     tileEstimate = if (downloadBbox.isValid) {
                         val est = ConvoyTileCalculator.quickEstimate(
                             downloadBbox.north, downloadBbox.south,
@@ -589,20 +642,7 @@ fun ConvoyMapViewerScreen(
                     onExecuteDownload = { tiles, trails, removeTiles ->
                         android.util.Log.i("DownloadPanel", "onExecuteDownload: tiles=$tiles trails=$trails remove=$removeTiles bbox.valid=${downloadBbox.isValid} n=${downloadBbox.north} s=${downloadBbox.south}")
                         if (tiles && downloadBbox.isValid) {
-                            val bb = downloadBbox
-                            Thread {
-                                val estimate = ConvoyTileCalculator.quickEstimate(bb.north, bb.south, bb.east, bb.west)
-                                val pending = ConvoyViewModel.PendingDownload(
-                                    tileCount = estimate.tileCount, sizeMB = estimate.estimatedMB,
-                                    withinCeiling = estimate.withinCeiling,
-                                    north = bb.north, south = bb.south, east = bb.east, west = bb.west,
-                                    sourceName = ConvoyConfig.ACTIVE_TILE_SOURCE,
-                                    sourceUrl = ConvoyConfig.TILE_SOURCES[ConvoyConfig.ACTIVE_TILE_SOURCE] ?: ""
-                                )
-                                android.os.Handler(android.os.Looper.getMainLooper()).post {
-                                    convoyViewModel.startDownload(context, pending)
-                                }
-                            }.start()
+                            showDownloadConfirm = true; showDownloadPanel = false
                         }
                     },
                     onNavigateToTrailSources = { bbox ->
@@ -611,9 +651,7 @@ fun ConvoyMapViewerScreen(
                         android.util.Log.i("DownloadPanel", "writePendingArea called, navigating...")
                         onNavigateToTrailSources()
                     },
-                    onFlyoverZoomChange = { zoom ->
-                        ConvoyConfig.SEARCH_FLY_ZOOM = zoom
-                    },
+
                     onShowDownloadedMaps = { show ->
                         if (show) {
                             if (!scanningDownloaded) {

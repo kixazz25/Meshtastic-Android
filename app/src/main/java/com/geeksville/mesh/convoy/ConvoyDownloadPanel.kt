@@ -46,6 +46,14 @@ data class DownloadBbox(
 @Composable
 fun ConvoyDownloadPanel(
     bbox: DownloadBbox = DownloadBbox(),
+    tilesChecked: Boolean = false,
+    onTilesCheckedChange: (Boolean) -> Unit = {},
+    trailsChecked: Boolean = false,
+    onTrailsCheckedChange: (Boolean) -> Unit = {},
+    removeTilesChecked: Boolean = false,
+    onRemoveTilesCheckedChange: (Boolean) -> Unit = {},
+    flyoverZoom: Int = 18,
+    onFlyoverZoomChange: (Int) -> Unit = {},
     tileEstimate: String = "",
     trailSourceCount: Int = 0,
     isDrawing: Boolean = false,
@@ -53,8 +61,6 @@ fun ConvoyDownloadPanel(
     onClearArea: () -> Unit = {},
     onExecuteDownload: (tiles: Boolean, trails: Boolean, removeTiles: Boolean) -> Unit = { _, _, _ -> },
     onNavigateToTrailSources: (DownloadBbox) -> Unit = {},
-    onFlyoverMileageChange: (Float) -> Unit = {},
-    onFlyoverZoomChange: (Int) -> Unit = {},
     onShowDownloadedMaps: (Boolean) -> Unit = {},
     onShowMapsInQueue: (Boolean) -> Unit = {},
     onShowDownloadedTrails: (Boolean) -> Unit = {},
@@ -73,11 +79,8 @@ fun ConvoyDownloadPanel(
 
     // Internal state
     var isNetMode by remember { mutableStateOf(false) }
-    var tilesChecked by remember { mutableStateOf(false) }
-    var trailsChecked by remember { mutableStateOf(false) }
-    var removeTilesChecked by remember { mutableStateOf(false) }
+    // tilesChecked, trailsChecked, removeTilesChecked, flyoverZoom — lifted to parent
     var flyoverMileage by remember { mutableFloatStateOf(0f) }
-    var flyoverZoom by remember { mutableIntStateOf(18) }
     var showMaps by remember { mutableStateOf(false) }
     var showQueue by remember { mutableStateOf(false) }
     var showTrails by remember { mutableStateOf(false) }
@@ -131,7 +134,7 @@ fun ConvoyDownloadPanel(
                         fontFamily = mono, modifier = Modifier.width(52.dp))
                     Slider(
                         value = flyoverMileage,
-                        onValueChange = { flyoverMileage = it; onFlyoverMileageChange(it) },
+                        onValueChange = { flyoverMileage = it; flyoverMileage = it },
                         valueRange = 0f..200f,
                         modifier = Modifier.weight(1f).height(20.dp),
                         colors = SliderDefaults.colors(
@@ -150,7 +153,7 @@ fun ConvoyDownloadPanel(
                         fontFamily = mono, modifier = Modifier.width(52.dp))
                     Slider(
                         value = flyoverZoom.toFloat(),
-                        onValueChange = { flyoverZoom = it.toInt(); onFlyoverZoomChange(it.toInt()) },
+                        onValueChange = { onFlyoverZoomChange(it.toInt()) },
                         valueRange = 8f..18f,
                         steps = 9,
                         modifier = Modifier.weight(1f).height(20.dp),
@@ -174,9 +177,9 @@ fun ConvoyDownloadPanel(
 
             if (!isNetMode) {
                 // LOCAL MODE
-                ArtifactCheckRow("Download Tiles", blue, tilesChecked, true) { tilesChecked = it }
-                ArtifactCheckRow("Import Trails", green, trailsChecked, true) { trailsChecked = it }
-                ArtifactCheckRow("Remove Tiles", red, removeTilesChecked, true) { removeTilesChecked = it }
+                ArtifactCheckRow("Download Tiles", blue, tilesChecked, true) { onTilesCheckedChange(it) }
+                ArtifactCheckRow("Import Trails", green, trailsChecked, true) { onTrailsCheckedChange(it) }
+                ArtifactCheckRow("Remove Tiles", red, removeTilesChecked, true) { onRemoveTilesCheckedChange(it) }
                 Spacer(Modifier.height(2.dp))
                 ArtifactCheckRow("Waypoints", dimText, false, false, "V2.6") {}
                 ArtifactCheckRow("Tracks", dimText, false, false, "V2.6") {}
@@ -348,6 +351,9 @@ private fun PanelActionButton(
     label: String,
     color: Color,
     enabled: Boolean,
+    onShowDownloadedMaps: (Boolean) -> Unit = {},
+    onShowMapsInQueue: (Boolean) -> Unit = {},
+    onShowDownloadedTrails: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {

@@ -66,7 +66,10 @@ object ConvoyTileDownloader {
             if (!coroutineContext.isActive) return false
             try {
                 val success = withContext(Dispatchers.IO) {
-                    val request = Request.Builder().url(url).build()
+                    val request = Request.Builder()
+                .url(url)
+                .header("User-Agent", "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36")
+                .build()
                     val response = client.newCall(request).execute()
                     if (response.isSuccessful) {
                         response.body?.bytes()?.let { bytes ->
@@ -74,12 +77,14 @@ object ConvoyTileDownloader {
                             true
                         } ?: false
                     } else {
+                        android.util.Log.w("TileDownloader", "HTTP ${response.code}: $url")
                         response.close()
                         false
                     }
                 }
                 if (success) return true
             } catch (e: Exception) {
+                android.util.Log.e("TileDownloader", "Tile fail: ${dest.path} err=${e.message}")
                 if (attempt == 1) return false
                 kotlinx.coroutines.delay(500)
             }
@@ -121,6 +126,7 @@ object ConvoyTileDownloader {
                 }
 
                 val url = buildTileUrl(tile, sourceUrl)
+                if (tile.z == 18 && downloaded < 3) android.util.Log.i("TileDownloader", "DL: $url -> ${dest.path}")
                 val success = downloadTile(url, dest)
 
                 if (success) downloaded++ else failed++
