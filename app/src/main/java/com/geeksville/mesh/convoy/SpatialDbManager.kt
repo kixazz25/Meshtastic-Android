@@ -170,9 +170,9 @@ object SpatialDbManager {
      * Query trails by viewport bounding box.
      * Returns list of [trail_id, name, geometry_wkt]
      */
-    fun queryTrailsByViewport(south: Double, west: Double, north: Double, east: Double, limit: Int = 500): List<Triple<String, String?, String>> {
+    fun queryTrailsByViewport(south: Double, west: Double, north: Double, east: Double, limit: Int = 500): List<Map<String, String?>> {
         val db = spatialDb ?: return emptyList()
-        val results = mutableListOf<Triple<String, String?, String>>()
+        val results = mutableListOf<Map<String, String?>>()
         val cursor = db.rawQuery(
             "SELECT trail_id, name, geometry FROM trails WHERE max_lat >= ? AND min_lat <= ? AND max_lon >= ? AND min_lon <= ? LIMIT ?",
             arrayOf(south.toString(), north.toString(), west.toString(), east.toString(), limit.toString())
@@ -180,7 +180,11 @@ object SpatialDbManager {
         while (cursor.moveToNext()) {
             val wkt = cursor.getString(2)
             if (!wkt.isNullOrEmpty()) {
-                results.add(Triple(cursor.getString(0), cursor.getString(1), wkt))
+                results.add(mapOf(
+                    "trail_id" to cursor.getString(0),
+                    "name" to cursor.getString(1),
+                    "geometry" to wkt
+                ))
             }
         }
         cursor.close()
@@ -212,18 +216,30 @@ object SpatialDbManager {
     }
 
     /** Build GeoJSON FeatureCollection from viewport query results */
-    fun buildTrailGeoJson(trails: List<Triple<String, String?, String>>): String {
+    fun buildTrailGeoJson(trails: List<Map<String, String?>>): String {
         val sb = StringBuilder()
         sb.append("{\"type\":\"FeatureCollection\",\"features\":[")
         var first = true
-        for ((id, name, wkt) in trails) {
+        for (trail in trails) {
+            val wkt = trail["geometry"] ?: continue
             val coords = wktToGeoJsonCoords(wkt)
             if (coords == "[]") continue
             if (!first) sb.append(",")
             first = false
             val geoType = if (wkt.startsWith("MULTI")) "MultiLineString" else "LineString"
-            val safeName = (name ?: "Unnamed").replace("\\", "\\\\").replace("\"", "\\\\\"")
-            sb.append("{\"type\":\"Feature\",\"properties\":{\"PrimaryName\":\"$safeName\"},\"geometry\":{\"type\":\"$geoType\",\"coordinates\":$coords}}")
+            fun s(k: String): String = (trail[k] ?: "").replace("\\", "\\\\").replace("\"", "\\\\\"")
+            sb.append("{\"type\":\"Feature\",\"properties\":{")
+            sb.append("\"PrimaryName\":\"" + s("name") + "\"")
+            sb.append(",\"CartoCode\":\"" + s("CartoCode") + "\"")
+            sb.append(",\"SurfaceType\":\"" + s("SurfaceType") + "\"")
+            sb.append(",\"DesignatedUses\":\"" + s("DesignatedUses") + "\"")
+            sb.append(",\"MotorizedAllowed\":\"" + s("MotorizedAllowed") + "\"")
+            sb.append(",\"HorseAllowed\":\"" + s("HorseAllowed") + "\"")
+            sb.append(",\"HikeDifficulty\":\"" + s("HikeDifficulty") + "\"")
+            sb.append(",\"BikeDifficulty\":\"" + s("BikeDifficulty") + "\"")
+            sb.append(",\"OwnerSteward\":\"" + s("OwnerSteward") + "\"")
+            sb.append(",\"County\":\"" + s("County") + "\"")
+            sb.append("},\"geometry\":{\"type\":\"" + geoType + "\",\"coordinates\":" + coords + "}}")
         }
         sb.append("]}")
         return sb.toString()

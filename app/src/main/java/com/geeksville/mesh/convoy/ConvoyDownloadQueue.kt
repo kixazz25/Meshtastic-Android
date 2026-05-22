@@ -87,6 +87,7 @@ object DownloadQueueManager {
     private const val TAG = "DownloadQueue"
 
     private val _queue = MutableStateFlow<List<QueueEntry>>(emptyList())
+    private var queuePaused = false
     val queue: StateFlow<List<QueueEntry>> = _queue.asStateFlow()
 
     private lateinit var appCtx: Context
@@ -226,11 +227,60 @@ object DownloadQueueManager {
                 android.util.Log.e(TAG, "Cancel WorkManager failed: ${e.message}")
             }
         }
-        updateEntry(entryId) { it.copy(status = QueueStatus.CANCELLED) }
-        android.util.Log.i(TAG, "Cancelled: ${entry.label} id=$entryId")
+        // Remove from queue entirely — cancelled jobs don't come back
+        val current = _queue.value.toMutableList()
+        current.removeAll { it.id == entryId }
+        _queue.value = current
+        saveQueue()
+        android.util.Log.i(TAG, "Cancelled and removed: ${entry.label} id=$entryId")
         startNextIfAvailable()
     }
 
+    // -- Queue control ------------------------------------
+    fun holdQueue() {
+        queuePaused = true
+        android.util.Log.i(TAG, "Queue PAUSED")
+    }
+    fun resumeQueue() {
+        queuePaused = false
+        android.util.Log.i(TAG, "Queue RESUMED")
+        startNextIfAvailable()
+    }
+    fun isQueuePaused(): Boolean = queuePaused
+    fun cancelAll() {
+        val current = _queue.value.toMutableList()
+        for (entry in current) {
+            if (entry.workRequestId != null && entry.status == QueueStatus.DOWNLOADING) {
+                try {
+                    WorkManager.getInstance(appCtx)
+                        .cancelWorkById(java.util.UUID.fromString(entry.workRequestId))
+                } catch (e: Exception) {
+                    android.util.Log.e(TAG, "CancelAll worker failed: ${e.message}")
+                }
+            }
+        }
+        val completed = current.filter { it.status == QueueStatus.COMPLETE }
+        _queue.value = completed  // keep completed for history, remove rest
+        saveQueue()
+        android.util.Log.i(TAG, "Cancelled all: ${current.size - completed.size} removed, ${completed.size} complete kept")
+    }
+    fun removeEntry(entryId: String) {
+        val entry = _queue.value.find { it.id == entryId } ?: return
+        if (entry.workRequestId != null && entry.status == QueueStatus.DOWNLOADING) {
+            try {
+                WorkManager.getInstance(appCtx)
+                    .cancelWorkById(java.util.UUID.fromString(entry.workRequestId))
+            } catch (e: Exception) {
+                android.util.Log.e(TAG, "Remove worker cancel failed: ${e.message}")
+            }
+        }
+        val current = _queue.value.toMutableList()
+        current.removeAll { it.id == entryId }
+        _queue.value = current
+        saveQueue()
+        android.util.Log.i(TAG, "Removed: ${entry.label} id=$entryId")
+        startNextIfAvailable()
+    }
     // -- Clear completed/cancelled/failed entries ----------
     fun clearCompleted() {
         val terminal = setOf(QueueStatus.COMPLETE, QueueStatus.CANCELLED, QueueStatus.FAILED)
@@ -291,6 +341,7 @@ object DownloadQueueManager {
     // -- Launch next queued entry if under concurrency cap --
     private fun startNextIfAvailable() {
         if (!initialized) return
+        if (queuePaused) return
         val current = _queue.value
         val running = current.count { it.status == QueueStatus.DOWNLOADING }
         if (running >= MAX_CONCURRENT) return

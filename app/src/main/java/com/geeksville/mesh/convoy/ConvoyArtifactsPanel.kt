@@ -145,6 +145,31 @@ fun ConvoyArtifactsPanel(
                     ArtifactRow("Trails",    aGreen,  isConvoyMap, onDisplayToggle, onEditDisplay, onImport)
                     ArtifactRow("Waypoints", aOrange, isConvoyMap, onDisplayToggle, onEditDisplay, onImport)
                     ArtifactRow("Routes",    aPurple, isConvoyMap, onDisplayToggle, onEditDisplay, onImport)
+
+                    if (!isConvoyMap) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Surface(
+                                modifier = Modifier.weight(1f).clickable { onImport("Trails") },
+                                shape = RoundedCornerShape(4.dp), color = Color(0xFF0D1520)
+                            ) {
+                                Text("IMPORT TRAILS", color = aGreen, fontSize = 9.sp,
+                                    fontFamily = aMono, fontWeight = FontWeight.Bold,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp))
+                            }
+                            Surface(
+                                modifier = Modifier.weight(1f).clickable { onImport("Artifacts") },
+                                shape = RoundedCornerShape(4.dp), color = Color(0xFF0D1520)
+                            ) {
+                                Text("IMPORT ARTIFACTS", color = aBlue, fontSize = 9.sp,
+                                    fontFamily = aMono, fontWeight = FontWeight.Bold,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp))
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -204,19 +229,7 @@ private fun ArtifactRow(
                     }
                 }
 
-                // Import button
-                Box(modifier = Modifier.weight(0.8f), contentAlignment = Alignment.Center) {
-                    Surface(
-                        modifier = Modifier.clickable { onImport(typeName) },
-                        shape = RoundedCornerShape(4.dp),
-                        color = Color(0xFF0D1520)
-                    ) {
-                        Text("IMPORT",
-                            color = aGreen,
-                            fontSize = 8.sp, fontFamily = aMono, fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
-                    }
-                }
+                // Import moved to bottom buttons
             }
         }
     }

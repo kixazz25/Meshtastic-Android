@@ -30,21 +30,21 @@
 
     // -- Trail color by CartoCode --
     function trailColor(cartoCode) {
-      if (!cartoCode) return '#888888';
+      if (!cartoCode) return '#00FFFF';
       var code = cartoCode.charAt(0);
       switch (code) {
         case '4': return '#00AAFF'; // Bright blue -- Road-concurrent / OHV
         case '2': return '#FF8800'; // Orange -- Hiking and Biking
         case '1': return '#FFCC00'; // Yellow -- Hiking Only
         case '5': return '#AA44FF'; // Purple -- Biking Only
-        case '3': return '#888888'; // Gray -- Paved Shared Use
-        default:  return '#888888';
+        case '3': return '#00FFFF'; // Gray -- Paved Shared Use
+        default:  return '#00FFFF';
       }
     }
 
     function trailWeight(cartoCode) {
       if (!cartoCode) return 2;
-      return cartoCode.charAt(0) === '4' ? 3 : 2;
+      return cartoCode.charAt(0) === '4' ? 5 : 4;
     }
 
     // -- Tile source --
@@ -153,6 +153,21 @@
       return trailsVisible;
     }
 
+    function updateTrails(geojsonData) {
+      if (typeof geojsonData === 'string') geojsonData = JSON.parse(geojsonData);
+      loadTrails(geojsonData);
+      trailsVisible = false;
+      showTrails();
+    }
+    function clearTrails() {
+      if (trailLayer) { map.removeLayer(trailLayer); trailLayer = null; }
+      trailsVisible = false;
+    }
+    function triggerViewportUpdate() {
+      var b = map.getBounds();
+      var z = map.getZoom();
+      try { Android.onViewportChanged(b.getNorth(), b.getSouth(), b.getEast(), b.getWest(), z); } catch(e) {}
+    }
     // -- Imported track file overlays --
     var importedTracks = {};
     var importedTrackVisible = true;
@@ -345,6 +360,17 @@
         map = L.map("map", { zoomControl: true }).setView([37.1, -113.6], 11);
         map.on("zoomend", function() {
           // V2.4: allow overzoom — Leaflet stretches tiles beyond maxNativeZoom
+        });
+        // -- Viewport-driven trail lazy load --
+        var viewportTimer = null;
+        map.on('moveend', function() {
+          if (!trailsVisible) return;
+          if (viewportTimer) clearTimeout(viewportTimer);
+          viewportTimer = setTimeout(function() {
+            var b = map.getBounds();
+            var z = map.getZoom();
+            try { Android.onViewportChanged(b.getNorth(), b.getSouth(), b.getEast(), b.getWest(), z); } catch(e) {}
+          }, 400);
         });
         map.invalidateSize();
         initDeviceLocation();

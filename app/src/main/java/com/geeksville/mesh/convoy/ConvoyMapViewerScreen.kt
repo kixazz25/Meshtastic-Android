@@ -388,6 +388,25 @@ fun ConvoyMapViewerScreen(
                             }
                             @JavascriptInterface
                             fun onMapBoundsReady(n: Double, s: Double, e: Double, w: Double) {}
+                            @JavascriptInterface
+                            fun onViewportChanged(north: Double, south: Double, east: Double, west: Double, zoom: Double) {
+                                if (!pmTrailsOn) return
+                                val z = zoom.toInt()
+                                if (z < 10) return
+                                val limit = if (z < 14) 500 else 2000
+                                Thread {
+                                    try {
+                                        SpatialDbManager.init(context)
+                                        val trails = SpatialDbManager.queryTrailsByViewport(south, west, north, east, limit)
+                                        val json = SpatialDbManager.buildTrailGeoJson(trails)
+                                        android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                            webViewRef?.evaluateJavascript("updateTrails(" + json + ")", null)
+                                        }
+                                    } catch (ex: Exception) {
+                                        android.util.Log.e("TrailLazy", "Viewport query failed: " + ex.message)
+                                    }
+                                }.start()
+                            }
                         }, "Android")
                         webViewClient = object : WebViewClient() {
                             override fun shouldInterceptRequest(view: WebView?, request: android.webkit.WebResourceRequest?): android.webkit.WebResourceResponse? {
@@ -415,6 +434,7 @@ fun ConvoyMapViewerScreen(
                             }
                             override fun onPageFinished(view: WebView?, url: String?) {
                                 super.onPageFinished(view, url)
+                                MapSourceManager.init(view?.context ?: return)
                                 val satUrl = tileSources[0].third
                                 view?.evaluateJavascript(
                                     "setTileUrl('" + satUrl + "', 'SAT')", null
@@ -468,6 +488,20 @@ fun ConvoyMapViewerScreen(
             // -- WORK WITH ARTIFACTS (V2.5 scaffold) --
             ConvoyArtifactsPanel(
                 isConvoyMap = false,
+                onDisplayToggle = { typeName ->
+                    when (typeName) {
+                        "Trails" -> {
+                            pmTrailsOn = !pmTrailsOn
+                            if (pmTrailsOn) {
+                                android.util.Log.i("TrailLazy", "TRAILS ON via artifacts panel")
+                                webViewRef?.evaluateJavascript("triggerViewportUpdate()", null)
+                            } else {
+                                webViewRef?.evaluateJavascript("clearTrails()", null)
+                            }
+                        }
+                        else -> { /* TODO: wire other display types */ }
+                    }
+                },
                 onImport = { typeName ->
                     when (typeName) {
                         "Trails" -> onNavigateToTrailSources()
@@ -522,14 +556,10 @@ fun ConvoyMapViewerScreen(
                 onTrailsToggle = {
                     pmTrailsOn = pmTrailsOn.not()
                     if (pmTrailsOn) {
-                        Thread {
-                            try {
-                                val json = context.assets.open("utah_trails_stgeorge.geojson").bufferedReader().use { it.readText() }
-                                webViewRef?.post { webViewRef?.evaluateJavascript("loadTrails(" + json + "); showTrails();", null) }
-                            } catch (e: Exception) { }
-                        }.start()
+                        android.util.Log.i("TrailLazy", "TRAILS ON - calling triggerViewportUpdate")
+                        webViewRef?.evaluateJavascript("triggerViewportUpdate()", null)
                     } else {
-                        webViewRef?.evaluateJavascript("toggleTrails()", null)
+                        webViewRef?.evaluateJavascript("clearTrails()", null)
                     }
                 },
                 downloadedOn = pmDownloadedOn,
