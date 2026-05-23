@@ -110,6 +110,7 @@ fun ConvoyMapViewerScreen(
     var pmTracksOn by remember { mutableStateOf(false) }
     var pmTracksLoaded by remember { mutableStateOf(false) }
     var pmTrailsOn by remember { mutableStateOf(false) }
+    var pmTracksLazyOn by remember { mutableStateOf(false) }
     var pmQueuesOpen by remember { mutableStateOf(false) }
     var pmDownloadedOn by remember { mutableStateOf(false) }
     var pmActiveSource by remember { mutableStateOf(ConvoyConfig.ACTIVE_TILE_SOURCE) }
@@ -390,7 +391,7 @@ fun ConvoyMapViewerScreen(
                             fun onMapBoundsReady(n: Double, s: Double, e: Double, w: Double) {}
                             @JavascriptInterface
                             fun onViewportChanged(north: Double, south: Double, east: Double, west: Double, zoom: Double) {
-                                if (!pmTrailsOn) return
+                                if (!pmTrailsOn && !pmTracksLazyOn) return
                                 val z = zoom.toInt()
                                 if (z < 10) return
                                 val limit = if (z < 14) 500 else 2000
@@ -401,6 +402,16 @@ fun ConvoyMapViewerScreen(
                                         val json = SpatialDbManager.buildTrailGeoJson(trails)
                                         android.os.Handler(android.os.Looper.getMainLooper()).post {
                                             webViewRef?.evaluateJavascript("updateTrails(" + json + ")", null)
+                                        }
+                                        // -- Track lazy load --
+                                        if (pmTracksLazyOn) {
+                                            val trackResults = SpatialDbManager.queryTracksByViewport(south, west, north, east, if (zoom >= 12) 200 else 50)
+                                            if (trackResults.isNotEmpty()) {
+                                                val trackJson = SpatialDbManager.buildTrackGeoJson(trackResults)
+                                                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                                    webViewRef?.evaluateJavascript("updateTracks(" + trackJson + ")", null)
+                                                }
+                                            }
                                         }
                                     } catch (ex: Exception) {
                                         android.util.Log.e("TrailLazy", "Viewport query failed: " + ex.message)
@@ -435,6 +446,17 @@ fun ConvoyMapViewerScreen(
                             override fun onPageFinished(view: WebView?, url: String?) {
                                 super.onPageFinished(view, url)
                                 MapSourceManager.init(view?.context ?: return)
+                                // Sync tracks from GPX files on first load
+                                kotlinx.coroutines.MainScope().launch {
+                                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                        try {
+                                            SpatialDbManager.init(view?.context ?: return@withContext)
+                                            SpatialDbManager.syncTracksFromFiles(view?.context ?: return@withContext)
+                                        } catch (e: Exception) {
+                                            android.util.Log.e("TrackSync", "Sync error: " + e.message)
+                                        }
+                                    }
+                                }
                                 val satUrl = tileSources[0].third
                                 view?.evaluateJavascript(
                                     "setTileUrl('" + satUrl + "', 'SAT')", null
@@ -490,6 +512,15 @@ fun ConvoyMapViewerScreen(
                 isConvoyMap = false,
                 onDisplayToggle = { typeName ->
                     when (typeName) {
+                        "Tracks" -> {
+                            pmTracksLazyOn = !pmTracksLazyOn
+                            if (pmTracksLazyOn) {
+                                android.util.Log.i("TrackLazy", "TRACKS ON via artifacts panel")
+                                webViewRef?.evaluateJavascript("triggerViewportUpdate()", null)
+                            } else {
+                                webViewRef?.evaluateJavascript("clearTracks()", null)
+                            }
+                        }
                         "Trails" -> {
                             pmTrailsOn = !pmTrailsOn
                             if (pmTrailsOn) {

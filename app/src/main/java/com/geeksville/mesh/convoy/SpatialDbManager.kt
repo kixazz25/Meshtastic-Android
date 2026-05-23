@@ -62,6 +62,20 @@ object SpatialDbManager {
             // Open/create spatial database
             val spatialFile = File(dir, SPATIAL_DB)
             spatialDb = SQLiteDatabase.openOrCreateDatabase(spatialFile, null)
+            // Apply v2 migration if needed (add geometry/bbox to tracks)
+            try {
+                spatialDb!!.rawQuery("SELECT geometry FROM tracks LIMIT 1", null).use { it.moveToFirst() }
+            } catch (e: Exception) {
+                android.util.Log.i("SpatialDb", "Applying v2 migration to tracks table")
+                try {
+                    spatialDb!!.execSQL("ALTER TABLE tracks ADD COLUMN geometry TEXT")
+                    spatialDb!!.execSQL("ALTER TABLE tracks ADD COLUMN min_lat REAL")
+                    spatialDb!!.execSQL("ALTER TABLE tracks ADD COLUMN max_lat REAL")
+                    spatialDb!!.execSQL("ALTER TABLE tracks ADD COLUMN min_lon REAL")
+                    spatialDb!!.execSQL("ALTER TABLE tracks ADD COLUMN max_lon REAL")
+                    spatialDb!!.execSQL("CREATE INDEX IF NOT EXISTS idx_tracks_bbox ON tracks(min_lat, max_lat, min_lon, max_lon)")
+                } catch (e2: Exception) { android.util.Log.w("SpatialDb", "Migration partial: " + e2.message) }
+            }
             if (!hasTable(spatialDb!!, "schema_version")) {
                 runSchemaFromAsset(context, spatialDb!!, "schema_spatial_v1.sql")
                 android.util.Log.i(TAG, "Applied spatial schema: \${spatialFile.absolutePath}")
@@ -245,7 +259,119 @@ object SpatialDbManager {
         return sb.toString()
     }
 
-        /** Count rows in a table */
+
+    /** Query tracks by viewport bounding box */
+    fun queryTracksByViewport(north: Double, south: Double, east: Double, west: Double, limit: Int = 500): List<Map<String, String?>> {
+        val db = spatialDb ?: return emptyList()
+        val results = mutableListOf<Map<String, String?>>()
+        try {
+            val cursor = db.rawQuery(
+                "SELECT track_id, name, geometry FROM tracks WHERE min_lat IS NOT NULL AND max_lat >= ? AND min_lat <= ? AND max_lon >= ? AND min_lon <= ? LIMIT ?",
+                arrayOf(south.toString(), north.toString(), west.toString(), east.toString(), limit.toString())
+            )
+            cursor.use {
+                while (it.moveToNext()) {
+                    val wkt = it.getString(2) ?: continue
+                    results.add(mapOf(
+                        "track_id" to it.getString(0),
+                        "name" to it.getString(1),
+                        "geometry" to wkt
+                    ))
+                }
+            }
+            android.util.Log.i("TrackLazy", "Viewport query returned ${results.size} tracks")
+        } catch (e: Exception) {
+            android.util.Log.e("TrackLazy", "Viewport query failed: ${e.message}")
+        }
+        return results
+    }
+
+    /** Build GeoJSON FeatureCollection from track query results */
+    fun buildTrackGeoJson(tracks: List<Map<String, String?>>): String {
+        val sb = StringBuilder()
+        sb.append("{\"type\":\"FeatureCollection\",\"features\":[")
+        tracks.forEachIndexed { idx, track ->
+            if (idx > 0) sb.append(",")
+            val geom = track["geometry"] ?: return@forEachIndexed
+            val name = (track["name"] ?: "Unnamed Track").replace("\"", "\\\"")
+            val coordStr = geom.removePrefix("LINESTRING(").removeSuffix(")")
+            val coords = coordStr.split(",").joinToString(",") { pair ->
+                val parts = pair.trim().split(" ")
+                if (parts.size >= 2) "[${parts[0]},${parts[1]}]" else "[0,0]"
+            }
+            sb.append("{\"type\":\"Feature\",\"properties\":{\"name\":\"$name\"},\"geometry\":{\"type\":\"LineString\",\"coordinates\":[$coords]}}")
+        }
+        sb.append("]}")
+        return sb.toString()
+    }
+
+    /** Sync tracks from GPX files in my_tracks directory */
+    fun syncTracksFromFiles(context: android.content.Context) {
+        val db = spatialDb ?: return
+        try {
+            val tracksDir = java.io.File(
+                android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOCUMENTS),
+                "my_tracks"
+            )
+            if (!tracksDir.exists() || !tracksDir.isDirectory) {
+                android.util.Log.i("TrackSync", "my_tracks directory not found")
+                return
+            }
+            val gpxFiles = tracksDir.listFiles { f -> f.name.lowercase().endsWith(".gpx") } ?: return
+            android.util.Log.i("TrackSync", "Found ${gpxFiles.size} GPX files to sync")
+
+            val existing = mutableSetOf<String>()
+            val cursor = db.rawQuery("SELECT name FROM tracks", null)
+            cursor.use { while (it.moveToNext()) { existing.add(it.getString(0) ?: "") } }
+
+            var inserted = 0
+            for (file in gpxFiles) {
+                val name = file.nameWithoutExtension
+                if (existing.contains(name)) continue
+                try {
+                    val text = file.readText()
+                    val coords = parseGpxTrackPoints(text)
+                    if (coords.isEmpty()) continue
+
+                    var minLat = Double.MAX_VALUE; var maxLat = -Double.MAX_VALUE
+                    var minLon = Double.MAX_VALUE; var maxLon = -Double.MAX_VALUE
+                    for ((lon, lat) in coords) {
+                        if (lat < minLat) minLat = lat; if (lat > maxLat) maxLat = lat
+                        if (lon < minLon) minLon = lon; if (lon > maxLon) maxLon = lon
+                    }
+
+                    val wkt = "LINESTRING(" + coords.joinToString(",") { "${it.first} ${it.second}" } + ")"
+                    val trackId = java.util.UUID.randomUUID().toString()
+                    val now = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", java.util.Locale.US).format(java.util.Date())
+
+                    db.execSQL(
+                        "INSERT OR IGNORE INTO tracks (track_id, name, geometry, min_lat, max_lat, min_lon, max_lon, bbox, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                        arrayOf(trackId, name, wkt, minLat, maxLat, minLon, maxLon, "$minLat,$minLon,$maxLat,$maxLon", now, now)
+                    )
+                    inserted++
+                } catch (e: Exception) {
+                    android.util.Log.e("TrackSync", "Failed to sync ${file.name}: ${e.message}")
+                }
+            }
+            android.util.Log.i("TrackSync", "Sync complete: $inserted new tracks inserted")
+        } catch (e: Exception) {
+            android.util.Log.e("TrackSync", "Sync failed: ${e.message}")
+        }
+    }
+
+    /** Parse GPX file for track points, returns list of (lon, lat) pairs */
+    private fun parseGpxTrackPoints(gpxText: String): List<Pair<Double, Double>> {
+        val coords = mutableListOf<Pair<Double, Double>>()
+        val regex = Regex("""lat="([^"]+)"\s+lon="([^"]+)"""")
+        for (match in regex.findAll(gpxText)) {
+            val lat = match.groupValues[1].toDoubleOrNull() ?: continue
+            val lon = match.groupValues[2].toDoubleOrNull() ?: continue
+            coords.add(Pair(lon, lat))
+        }
+        return coords
+    }
+
+    /** Count rows in a table */
     private fun countRows(db: SQLiteDatabase, table: String): Int {
         val cursor = db.rawQuery("SELECT COUNT(*) FROM $table", null)
         cursor.moveToFirst()

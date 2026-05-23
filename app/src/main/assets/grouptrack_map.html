@@ -22,6 +22,7 @@
   <div id="map"></div>
   <script>
     var map, tileLayer, trailLayer = null, trailsVisible = false;
+    var trackLayer = null, tracksVisible = false;
     var labelLayer1 = null, labelLayer2 = null;
     var drawnItems = null;
     var drawControl = null;
@@ -159,6 +160,38 @@
       trailsVisible = false;
       showTrails();
     }
+
+
+    // ── TRACK DISPLAY (dashed neon green) ──
+    function loadTracks(geojsonData) {
+      if (trackLayer) map.removeLayer(trackLayer);
+      trackLayer = L.geoJSON(geojsonData, {
+        style: function() {
+          return { color: '#39FF14', weight: 3, opacity: 0.85, dashArray: '10,5' };
+        },
+        onEachFeature: function(feature, layer) {
+          var name = (feature.properties && feature.properties.name) || 'Unnamed Track';
+          layer.bindPopup('<b>' + name + '</b>');
+        }
+      });
+    }
+    function showTracks() {
+      if (trackLayer && !tracksVisible) { trackLayer.addTo(map); tracksVisible = true; }
+    }
+    function hideTracks() {
+      if (trackLayer && tracksVisible) { map.removeLayer(trackLayer); tracksVisible = false; }
+    }
+    function updateTracks(geojsonData) {
+      if (typeof geojsonData === 'string') geojsonData = JSON.parse(geojsonData);
+      loadTracks(geojsonData);
+      tracksVisible = false;
+      showTracks();
+    }
+    function clearTracks() {
+      if (trackLayer) { map.removeLayer(trackLayer); trackLayer = null; }
+      tracksVisible = false;
+    }
+
     function clearTrails() {
       if (trailLayer) { map.removeLayer(trailLayer); trailLayer = null; }
       trailsVisible = false;
@@ -364,7 +397,7 @@
         // -- Viewport-driven trail lazy load --
         var viewportTimer = null;
         map.on('moveend', function() {
-          if (!trailsVisible) return;
+          if (!trailsVisible && !tracksVisible) return;
           if (viewportTimer) clearTimeout(viewportTimer);
           viewportTimer = setTimeout(function() {
             var b = map.getBounds();
