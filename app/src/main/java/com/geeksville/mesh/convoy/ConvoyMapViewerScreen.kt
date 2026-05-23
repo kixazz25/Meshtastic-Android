@@ -393,7 +393,7 @@ fun ConvoyMapViewerScreen(
                             fun onViewportChanged(north: Double, south: Double, east: Double, west: Double, zoom: Double) {
                                 if (!pmTrailsOn && !pmTracksLazyOn) return
                                 val z = zoom.toInt()
-                                if (z < 10) return
+                                if (z < 8) return
                                 val limit = if (z < 14) 500 else 2000
                                 Thread {
                                     try {
