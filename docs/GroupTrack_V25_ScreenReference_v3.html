@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GroupTrack V2.5 -- Complete Screen Reference v3</title>
+<style>
+:root{--bg:#0A0E14;--panel:#131820;--card:#1A2E4A;--item:#2A3545;--green:#67EA94;--blue:#4DA6FF;--blueS:#2E75B6;--orange:#FF8C42;--red:#FF6B6B;--yellow:#FFD700;--bright:#CCDDEE;--dim:#7A8DA0;--muted:#4A6080;--bar:#2B2930;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:#111;color:#ccc;font-family:'Courier New',monospace;padding:10px;}
+h1{color:var(--green);font-size:15px;text-align:center;margin:12px 0;letter-spacing:2px;}
+h2{color:var(--blue);font-size:12px;margin:18px 0 6px;letter-spacing:1px;border-bottom:1px solid #333;padding-bottom:4px;}
+h3{color:var(--orange);font-size:10px;margin:10px 0 4px;}
+.grid{display:flex;flex-wrap:wrap;gap:16px;justify-content:center;margin:10px 0;}
+.phone{width:340px;height:600px;background:var(--bg);border:2px solid #333;border-radius:14px;position:relative;overflow:hidden;}
+.phone-label{background:var(--panel);color:var(--green);font-size:8px;font-weight:bold;letter-spacing:1px;padding:4px 8px;text-align:center;border-bottom:1px solid #333;}
+.map{position:absolute;top:22px;bottom:0;left:0;right:0;background:#0d1117;background-image:linear-gradient(rgba(30,50,30,0.25) 1px,transparent 1px),linear-gradient(90deg,rgba(30,50,30,0.25) 1px,transparent 1px);background-size:35px 35px;}
+.hud-bar{position:absolute;bottom:0;left:0;right:0;height:38px;background:var(--bar);display:flex;border-top:2px solid var(--green);z-index:20;}
+.hud-btn{flex:1;display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:bold;color:#CAC4D0;cursor:pointer;border-right:1px solid #49454F;text-align:center;line-height:1.1;}
+.hud-btn.active{color:var(--green);background:rgba(103,234,148,0.1);}
+.map-bar{position:absolute;top:0;left:0;right:0;display:flex;background:var(--panel);padding:4px 6px;gap:4px;align-items:center;z-index:15;}
+.mb{background:var(--item);border-radius:4px;padding:4px 8px;font-size:8px;font-weight:bold;color:var(--dim);cursor:pointer;flex:1;text-align:center;}
+.mb.active{background:var(--blueS);color:white;}
+.sp{position:absolute;background:rgba(19,24,32,0.95);border-radius:8px;padding:8px;box-shadow:0 3px 10px rgba(0,0,0,0.5);z-index:12;max-height:85%;overflow-y:auto;}
+.st{color:var(--green);font-size:9px;font-weight:bold;letter-spacing:0.5px;margin-bottom:6px;padding-bottom:3px;border-bottom:1px solid #333;}
+.ss{color:var(--blue);font-size:8px;font-weight:bold;margin:6px 0 3px;}
+.btn{background:var(--item);border-radius:5px;padding:5px 6px;margin:2px 0;font-size:8px;font-weight:bold;color:var(--dim);cursor:pointer;text-align:center;}
+.btn:hover{background:#334055;}
+.btn.act{background:var(--blueS);color:white;}
+.btn.v25{border:1px dashed var(--orange);}
+.btn.v26{border:1px dashed #555;opacity:0.4;}
+.btn.done{border-left:3px solid var(--green);}
+.btn.rec{border-left:3px solid var(--green);}
+.btn.cur{border-left:3px solid var(--yellow);background:rgba(255,215,0,0.06);}
+.tr{display:flex;justify-content:space-between;align-items:center;padding:4px 6px;margin:2px 0;background:var(--item);border-radius:4px;font-size:8px;}
+.tr .l{color:var(--dim);}.tr .s{color:var(--green);font-size:7px;font-weight:bold;}
+.fab{position:absolute;width:36px;height:36px;border-radius:18px;display:flex;align-items:center;justify-content:center;font-size:13px;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.4);z-index:15;background:var(--card);}
+.info{color:var(--muted);font-size:7px;margin:3px 0;line-height:1.3;}
+.div{height:1px;background:#333;margin:6px 0;}
+.notes{background:var(--panel);border:1px solid #333;border-radius:6px;padding:8px;margin:6px 0;font-size:7px;line-height:1.5;color:var(--dim);max-width:340px;}
+.notes b{color:var(--green);}
+.notes .r{color:var(--green);}.notes .d{color:var(--blue);}.notes .w{color:var(--orange);}
+.ar{display:flex;align-items:center;padding:5px 6px;margin:2px 0;background:var(--item);border-radius:5px;gap:5px;}
+.ar .tog{width:24px;height:13px;background:#333;border-radius:7px;cursor:pointer;position:relative;flex-shrink:0;}
+.ar .tog.on{background:var(--green);}
+.ar .nm{flex:1;font-size:8px;font-weight:bold;color:var(--bright);}
+.ar .ct{font-size:6px;color:var(--muted);margin-right:3px;}
+.ab{background:var(--card);border-radius:3px;padding:2px 5px;font-size:6px;font-weight:bold;color:var(--dim);cursor:pointer;margin-left:2px;}
+.ab:hover{color:var(--blue);}
+.section{margin:15px auto;max-width:800px;}
+.legend{position:absolute;bottom:38px;left:0;right:0;background:rgba(19,24,32,0.8);padding:3px 6px;display:flex;gap:8px;font-size:6px;z-index:5;}
+.legend span{display:flex;align-items:center;gap:2px;color:var(--dim);}
+.legend i{width:7px;height:2px;border-radius:1px;display:inline-block;}
+</style>
+</head>
+<body>
+
+<h1>GROUPTRACK V2.5 SCREEN REFERENCE v3</h1>
+<p style="text-align:center;font-size:8px;color:var(--muted);">May 18, 2026 | All design sessions incorporated | Orange dashed = V2.5 new</p>
+
+<!-- ════════════════════════════════════════════ -->
+<h2>CONVOY MAP</h2>
+<!-- ════════════════════════════════════════════ -->
+<div class="grid">
+
+<div class="phone">
+  <div class="phone-label">CONVOY MAP -- BASE VIEW</div>
+  <div class="map">
+    <!-- Display bar -->
+    <div class="sp" style="top:30px;left:8px;width:165px;">
+      <div class="st">DISPLAY</div>
+      <div class="tr"><span class="l">Tracks</span><span class="s">ON</span></div>
+      <div class="tr"><span class="l">Trails</span><span class="s">ON</span></div>
+      <div class="tr"><span class="l">Waypoints</span><span class="s" style="color:var(--muted)">OFF</span></div>
+      <div class="tr"><span class="l">Routes</span><span class="s" style="color:var(--muted)">OFF</span></div>
+      <div class="tr"><span class="l">Downloaded</span><span class="s">ON</span></div>
+      <div class="div"></div>
+      <div class="btn v25">WORK WITH ARTIFACTS</div>
+      <div class="info">Display bar button. Convoy = DISPLAY only.</div>
+    </div>
+    <!-- Queues button -->
+    <div class="fab v25" style="top:30px;right:8px;font-size:7px;width:auto;padding:0 8px;border-radius:12px;">Q: 3</div>
+    <!-- Group HUD -->
+    <div style="position:absolute;bottom:38px;left:0;right:0;background:rgba(10,14,20,0.95);padding:6px 8px;z-index:10;">
+      <div style="display:flex;justify-content:space-between;font-size:8px;">
+        <span style="color:var(--dim)">UNITS <b style="color:white">6</b></span>
+        <span style="color:var(--dim)">ACTIVE <b style="color:white">5</b></span>
+        <span style="color:var(--dim)">LOST <b style="color:var(--orange)">1</b></span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:8px;margin-top:2px;">
+        <span style="color:var(--dim)">SPAN <b style="color:white">2.4mi</b></span>
+        <span style="color:#1CF0A0">LEAD-1</span>
+        <span style="color:var(--orange)">SIERRA-6</span>
+      </div>
+    </div>
+    <div class="hud-bar">
+      <div class="hud-btn active">GROUP</div>
+      <div class="hud-btn">MY CART</div>
+      <div class="hud-btn done">SELECT<br>CART</div>
+      <div class="hud-btn">HIDE</div>
+      <div class="hud-btn" style="font-size:11px">&#9881;</div>
+    </div>
+  </div>
+</div>
+
+<div class="notes">
+  <b>CONVOY MAP FUNCTIONS:</b><br><br>
+  <span class="d">Display bar:</span> toggles + Work with Artifacts (DISPLAY only)<br>
+  <span class="d">Work with Artifacts:</span> select all, deselect all, individual toggles per type<br>
+  <span class="d">Work with Queues:</span> button upper right, 3 queues summary + drill-down<br>
+  <span class="d">HUD bar:</span> GROUP | MY CART | SELECT CART | HIDE | GEAR<br>
+  <span class="d">Gear > Settings:</span> Change Map Source, Trail Source Mgmt, radio config<br>
+  <span class="d">Long-press:</span> waypoint creation (BOTH maps)<br>
+  <span class="d">Click artifact:</span> standardized detail panel (display values only, no edit)<br><br>
+  <b>CONVOY MAP RULES:</b><br>
+  <span class="r">- DISPLAY only for artifacts. No EDIT. No IMPORT.</span><br>
+  <span class="r">- DISPLAY includes select all/deselect all/individual toggles</span><br>
+  <span class="r">- Long-press creates waypoints (same as Planning)</span><br>
+  <span class="r">- Click artifact shows detail (read-only, no actions)</span><br>
+  <span class="r">- Change Map Source in Settings only</span><br>
+  <span class="r">- Consistent visual format with Planning Map</span>
+</div>
+
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<h2>CONVOY MAP -- SETTINGS</h2>
+<!-- ════════════════════════════════════════════ -->
+<div class="grid">
+
+<div class="phone">
+  <div class="phone-label">SETTINGS PANEL (via Gear button)</div>
+  <div class="map">
+    <div class="sp" style="top:30px;right:8px;width:210px;">
+      <div class="st">SETTINGS</div>
+      <div class="btn">Radio Configuration</div>
+      <div class="btn">Channel Settings</div>
+      <div class="btn">Convoy Settings</div>
+      <div class="btn">Developer Settings</div>
+      <div class="div"></div>
+      <div class="btn v25">Change Map Source</div>
+      <div class="btn v25">Trail Source Management</div>
+      <div class="div"></div>
+      <div class="btn">About</div>
+    </div>
+    <div class="hud-bar">
+      <div class="hud-btn">GROUP</div>
+      <div class="hud-btn">MY CART</div>
+      <div class="hud-btn">SELECT<br>CART</div>
+      <div class="hud-btn">HIDE</div>
+      <div class="hud-btn active" style="font-size:11px">&#9881;</div>
+    </div>
+  </div>
+</div>
+
+<div class="phone">
+  <div class="phone-label">CHANGE MAP SOURCE (Settings only)</div>
+  <div class="map">
+    <div class="sp" style="top:30px;left:8px;right:8px;">
+      <div class="st">MAP SOURCES</div>
+      <div class="info">Gear > Settings > Change Map Source</div>
+      <div class="ss">CURRENT ASSIGNMENTS</div>
+      <div class="btn cur">SAT -- Esri World Imagery</div>
+      <div class="btn">TOPO -- Esri World Topo</div>
+      <div class="btn">TOPO+ -- Esri USA Topo</div>
+      <div class="info">Tap slot to change source. Fixed three titles.</div>
+      <div class="div"></div>
+      <div class="ss">SELECT SOURCE FOR: SAT</div>
+      <div class="info">First 3 = RECOMMENDED (vetted, reliable)</div>
+      <div class="btn rec">Esri World Imagery [REC] [CURRENT]</div>
+      <div class="btn rec">Google Satellite [REC] (API key)</div>
+      <div class="btn rec">USGS Imagery [REC] (US only)</div>
+      <div class="div"></div>
+      <div class="ss">ALL SOURCES (accordion by type)</div>
+      <div class="btn" style="color:var(--blue)">v SATELLITE (3)</div>
+      <div class="btn" style="margin-left:8px">Esri World Imagery</div>
+      <div class="btn" style="margin-left:8px">Google Satellite</div>
+      <div class="btn" style="margin-left:8px">USGS Imagery</div>
+      <div class="btn" style="color:var(--blue)">> HYBRID (2)</div>
+      <div class="btn" style="color:var(--blue)">> TOPO (3)</div>
+      <div class="btn" style="color:var(--blue)">> STREET (2)</div>
+      <div class="btn" style="color:var(--blue)">> TERRAIN (1)</div>
+      <div class="btn" style="color:var(--blue)">> OUTDOOR (2)</div>
+      <div class="div"></div>
+      <div class="tr"><span class="l">Refresh tiles to new source</span><span class="s" style="color:var(--muted)">OFF</span></div>
+      <div class="info">Toggle ON = SOURCE_REFRESH jobs in tile queue. Refreshes existing tiles only.</div>
+      <div class="btn act">APPLY SOURCE</div>
+      <div class="btn">CANCEL</div>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<h2>CONVOY MAP -- TRAIL SOURCE MANAGEMENT</h2>
+<!-- ════════════════════════════════════════════ -->
+<div class="grid">
+
+<div class="phone">
+  <div class="phone-label">TRAIL SOURCE MANAGEMENT (Settings)</div>
+  <div class="map">
+    <div class="sp" style="top:30px;left:8px;right:8px;">
+      <div class="st">TRAIL SOURCE CATALOG</div>
+      <div class="info">Gear > Settings > Trail Source Management</div>
+      <div class="info">Vetted/approved sources only. Build catalog, not download data.</div>
+      <div class="div"></div>
+      <div class="ss">APPROVED SOURCES</div>
+      <div class="btn cur">UGRC Utah Trails<br><span style="font-size:6px;color:var(--muted)">OHV+Multi | gis.utah.gov | GeoJSON | Utah coverage</span></div>
+      <div class="btn">BLM Public Lands Trails<br><span style="font-size:6px;color:var(--muted)">Multi-use | blm.gov | Shapefile | Western US</span></div>
+      <div class="btn">USFS Recreation Trails<br><span style="font-size:6px;color:var(--muted)">All types | fs.usda.gov | GeoJSON | National forests</span></div>
+      <div class="div"></div>
+      <div class="ss">SOURCE DETAILS</div>
+      <div class="tr"><span class="l">Name</span><span class="s" style="color:var(--bright)">UGRC Utah Trails</span></div>
+      <div class="tr"><span class="l">URL</span><span class="s" style="color:var(--bright);font-size:6px">gis.utah.gov/data/recreation/trails</span></div>
+      <div class="tr"><span class="l">Format</span><span class="s" style="color:var(--bright)">GeoJSON</span></div>
+      <div class="tr"><span class="l">Trail Types</span><span class="s" style="color:var(--bright)">OHV, Multi-Use</span></div>
+      <div class="tr"><span class="l">Boundary</span><span class="s" style="color:var(--bright)">36.9-42.0N, 109.0-114.1W</span></div>
+      <div class="div"></div>
+      <div class="btn v25">ADD NEW SOURCE</div>
+      <div class="btn">EDIT SELECTED</div>
+      <div class="btn" style="color:var(--red)">REMOVE SOURCE</div>
+      <div class="info">Adding source: define name, URL, format, trail types, qualify boundary lat/longs.</div>
+      <div class="info">Sources vetted before adding. Only approved sources used in trail import.</div>
+    </div>
+  </div>
+</div>
+
+<div class="notes">
+  <b>TRAIL SOURCE RULES:</b><br><br>
+  <span class="r">- Vetted/approved sources only. This IS an asset.</span><br>
+  <span class="r">- Each source: name, URL, format, trail type, boundary</span><br>
+  <span class="r">- Boundary = qualified lat/long coverage area</span><br>
+  <span class="r">- Catalog built here. Actual import via Work with Artifacts.</span><br>
+  <span class="r">- Build functions first, identify resources second</span><br>
+  <span class="r">- BLM, USFS, state-specific = known candidates</span><br><br>
+  <b>IMPORT FLOW (uses this catalog):</b><br>
+  <span class="d">1. User draws area on map</span><br>
+  <span class="d">2. Area compared to catalog boundaries</span><br>
+  <span class="d">3. Overlapping sources suggested</span><br>
+  <span class="d">4. User selects sources</span><br>
+  <span class="d">5. Download from URL in defined format</span><br>
+  <span class="d">6. Filter to user's area boundary only</span><br>
+  <span class="d">7. Dedupe + import to SQL db as trails</span><br>
+  <span class="d">8. Triggers tile refresh (LOW priority)</span>
+</div>
+
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<h2>PLANNING MAP</h2>
+<!-- ════════════════════════════════════════════ -->
+<div class="grid">
+
+<div class="phone">
+  <div class="phone-label">PLANNING MAP -- BASE VIEW</div>
+  <div class="map">
+    <div class="map-bar">
+      <span style="color:var(--blue);font-size:9px;font-weight:bold;margin-right:4px;cursor:pointer">BACK</span>
+      <div class="mb active">SAT</div>
+      <div class="mb">TOPO</div>
+      <div class="mb">TOPO+</div>
+      <div class="mb" style="font-size:6px">SEARCH</div>
+    </div>
+    <!-- Display bar -->
+    <div class="sp" style="top:30px;left:8px;width:165px;">
+      <div class="st">DISPLAY</div>
+      <div class="tr"><span class="l">Tracks</span><span class="s">ON</span></div>
+      <div class="tr"><span class="l">Trails</span><span class="s">ON</span></div>
+      <div class="tr"><span class="l">Waypoints</span><span class="s" style="color:var(--muted)">OFF</span></div>
+      <div class="tr"><span class="l">Routes</span><span class="s" style="color:var(--muted)">OFF</span></div>
+      <div class="tr"><span class="l">Downloaded</span><span class="s">ON</span></div>
+      <div class="div"></div>
+      <div class="btn v25">WORK WITH ARTIFACTS</div>
+      <div class="info">Full: DISPLAY + EDIT + IMPORT</div>
+    </div>
+    <!-- Queues -->
+    <div class="fab v25" style="top:30px;right:8px;font-size:7px;width:auto;padding:0 8px;border-radius:12px;">Q: 3</div>
+    <!-- Download FAB -->
+    <div class="fab" style="bottom:8px;right:8px;">&#11015;</div>
+    <!-- Waypoint FAB -->
+    <div class="fab v25" style="bottom:8px;left:8px;font-size:7px;width:auto;padding:0 7px;border-radius:12px;">+ WPT</div>
+    <!-- Route FAB -->
+    <div class="fab v25" style="bottom:8px;left:60px;font-size:7px;width:auto;padding:0 7px;border-radius:12px;">+ RTE</div>
+    <!-- Legend -->
+    <div class="legend">
+      <span><i style="background:var(--blue)"></i>Tracks</span>
+      <span><i style="background:#1CF0A0"></i>Trails</span>
+      <span><i style="background:var(--yellow)"></i>Routes</span>
+      <span><i style="background:var(--red);width:5px;height:5px;border-radius:50%"></i>Hazard</span>
+      <span><i style="background:var(--green);width:5px;height:5px;border-radius:50%"></i>Trailhead</span>
+    </div>
+  </div>
+</div>
+
+<div class="phone">
+  <div class="phone-label">PLANNING MAP -- DOWNLOAD PANEL</div>
+  <div class="map">
+    <div class="map-bar">
+      <span style="color:var(--blue);font-size:9px;font-weight:bold;margin-right:4px">BACK</span>
+      <div class="mb active">SAT</div><div class="mb">TOPO</div><div class="mb">TOPO+</div>
+    </div>
+    <div class="sp" style="bottom:50px;right:8px;width:220px;">
+      <div class="st">DOWNLOADS</div>
+      <div class="ss">V2.5 ACTIVE</div>
+      <div class="btn v25">DOWNLOAD TILES (area draw)</div>
+      <div class="btn v25">DELETE AREA TILES</div>
+      <div class="div"></div>
+      <div class="ss">V2.6 STUBS</div>
+      <div class="btn v26">DOWNLOAD AREA (spatial)</div>
+      <div class="btn v26">DOWNLOAD ARTIFACT (specific)</div>
+      <div class="btn v26">UPLOAD ARTIFACTS (process queue)</div>
+      <div class="info">V2.6 buttons show paygate or "coming soon" in V2.5</div>
+      <div class="div"></div>
+      <div class="tr"><span class="l">Show Downloaded Areas</span><span class="s" style="color:var(--muted)">OFF</span></div>
+      <div class="ss">ZOOM</div>
+      <div style="background:#333;height:3px;border-radius:2px;margin:4px 0;">
+        <div style="background:var(--blue);height:3px;width:55%;border-radius:2px;"></div>
+      </div>
+      <div class="info">Zoom level 17</div>
+    </div>
+    <div class="fab" style="bottom:8px;right:8px;background:var(--blueS);">&#11015;</div>
+  </div>
+</div>
+
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<h2>WORK WITH ARTIFACTS -- CONVOY (DISPLAY ONLY)</h2>
+<!-- ════════════════════════════════════════════ -->
+<div class="grid">
+
+<div class="phone">
+  <div class="phone-label">CONVOY -- WORK WITH ARTIFACTS</div>
+  <div class="map">
+    <div class="sp" style="top:30px;left:8px;right:8px;">
+      <div class="st">WORK WITH ARTIFACTS</div>
+      <div class="info">Convoy Map: DISPLAY only. Select/deselect items for map visibility.</div>
+      <div class="ar"><div class="tog on"></div><span class="nm">Tracks</span><span class="ct">8 in view</span><div class="ab">DISPLAY</div></div>
+      <div class="ar"><div class="tog on"></div><span class="nm">Trails</span><span class="ct">535</span><div class="ab">DISPLAY</div></div>
+      <div class="ar"><div class="tog"></div><span class="nm">Waypoints</span><span class="ct">12</span><div class="ab">DISPLAY</div></div>
+      <div class="ar"><div class="tog"></div><span class="nm">Routes</span><span class="ct">2</span><div class="ab">DISPLAY</div></div>
+      <div class="div"></div>
+      <div class="ss">DISPLAY > TRACKS (expanded)</div>
+      <div style="display:flex;gap:3px;margin-bottom:4px;">
+        <div class="btn" style="flex:1;font-size:6px">SELECT ALL</div>
+        <div class="btn" style="flex:1;font-size:6px">DESELECT ALL</div>
+      </div>
+      <div class="tr"><span class="l">[x] Morning Ride 05-15</span><span class="s">12.4mi</span></div>
+      <div class="tr"><span class="l">[x] Bar 10 Trail Run</span><span class="s">28.7mi</span></div>
+      <div class="tr"><span class="l">[ ] Sand Hollow Loop</span><span class="s">8.1mi</span></div>
+    </div>
+    <div class="hud-bar">
+      <div class="hud-btn active">GROUP</div><div class="hud-btn">MY CART</div><div class="hud-btn">SELECT<br>CART</div><div class="hud-btn">HIDE</div><div class="hud-btn" style="font-size:11px">&#9881;</div>
+    </div>
+  </div>
+</div>
+
+<div class="notes">
+  <b>CONVOY DISPLAY RULES:</b><br>
+  <span class="r">- DISPLAY only. No EDIT. No IMPORT.</span><br>
+  <span class="r">- Toggle type visibility on/off</span><br>
+  <span class="r">- Expand DISPLAY for individual item toggles</span><br>
+  <span class="r">- Select All / Deselect All per type</span><br>
+  <span class="r">- Items bounded by current map view</span><br>
+  <span class="r">- Trails filterable by type (OHV, multi-use)</span><br>
+  <span class="r">- Waypoints filterable by type (gate, water, etc.)</span><br>
+  <span class="r">- Click artifact on map = read-only detail only</span>
+</div>
+
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<h2>WORK WITH ARTIFACTS -- PLANNING (FULL)</h2>
+<!-- ════════════════════════════════════════════ -->
+<div class="grid">
+
+<div class="phone">
+  <div class="phone-label">PLANNING -- WORK WITH ARTIFACTS</div>
+  <div class="map">
+    <div class="sp" style="top:30px;left:8px;right:8px;">
+      <div class="st">WORK WITH ARTIFACTS</div>
+      <div class="info">Planning Map: DISPLAY + EDIT + IMPORT</div>
+      <div class="ar"><div class="tog on"></div><span class="nm">Tracks</span><span class="ct">8</span><div class="ab">DISPLAY</div><div class="ab">EDIT</div><div class="ab">IMPORT</div></div>
+      <div class="ar"><div class="tog on"></div><span class="nm">Trails</span><span class="ct">535</span><div class="ab">DISPLAY</div><div class="ab" style="opacity:0.3">EDIT</div><div class="ab">IMPORT</div></div>
+      <div class="ar"><div class="tog"></div><span class="nm">Waypoints</span><span class="ct">12</span><div class="ab">DISPLAY</div><div class="ab">EDIT</div><div class="ab">IMPORT</div></div>
+      <div class="ar"><div class="tog"></div><span class="nm">Routes</span><span class="ct">2</span><div class="ab">DISPLAY</div><div class="ab">EDIT</div><div class="ab" style="opacity:0.3">IMPORT</div></div>
+      <div class="div"></div>
+      <div class="ss">EDIT > TRACK: Morning Ride</div>
+      <div style="font-size:7px;color:var(--muted);margin-bottom:4px;">TRACK | 12.4mi | 2h 15m | GPX</div>
+      <div style="display:flex;flex-wrap:wrap;gap:2px;">
+        <div class="btn act" style="flex:1;min-width:60px;font-size:6px">FIT</div>
+        <div class="btn" style="flex:1;min-width:60px;font-size:6px">RENAME</div>
+        <div class="btn" style="flex:1;min-width:60px;font-size:6px">TO ROUTE</div>
+        <div class="btn" style="flex:1;min-width:60px;font-size:6px">UPLOAD</div>
+        <div class="btn" style="flex:1;min-width:60px;font-size:6px">DOWNLOAD</div>
+        <div class="btn" style="flex:1;min-width:60px;font-size:6px;color:var(--red)">DELETE</div>
+      </div>
+      <div class="info">UPLOAD = share prompt. DOWNLOAD = +high priority tiles.</div>
+    </div>
+  </div>
+</div>
+
+<div class="phone">
+  <div class="phone-label">ARTIFACT DETAIL PANEL (map click)</div>
+  <div class="map">
+    <div class="sp" style="bottom:50px;left:8px;right:8px;">
+      <div class="st">ARTIFACT DETAIL</div>
+      <div class="info">Click any spatial item on map. Same panel all types.</div>
+      <div class="div"></div>
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+        <span style="background:rgba(77,166,255,0.2);color:var(--blue);font-size:6px;font-weight:bold;padding:2px 5px;border-radius:3px;">TRACK</span>
+        <span style="font-size:9px;color:white;font-weight:bold;">Morning Ride 05-15</span>
+      </div>
+      <div class="tr"><span class="l">Distance</span><span class="s" style="color:var(--bright)">12.4 mi</span></div>
+      <div class="tr"><span class="l">Duration</span><span class="s" style="color:var(--bright)">2h 15m</span></div>
+      <div class="tr"><span class="l">Format</span><span class="s" style="color:var(--bright)">GPX</span></div>
+      <div class="tr"><span class="l">Created</span><span class="s" style="color:var(--bright)">2026-05-15</span></div>
+      <div class="div"></div>
+      <div class="ss">PLANNING MAP ACTIONS</div>
+      <div style="display:flex;flex-wrap:wrap;gap:2px;">
+        <div class="btn act" style="flex:1;min-width:60px;font-size:6px">FIT</div>
+        <div class="btn" style="flex:1;min-width:60px;font-size:6px">RENAME</div>
+        <div class="btn" style="flex:1;min-width:60px;font-size:6px">TO ROUTE</div>
+        <div class="btn" style="flex:1;min-width:60px;font-size:6px">UPLOAD</div>
+        <div class="btn" style="flex:1;min-width:60px;font-size:6px;color:var(--red)">DELETE</div>
+      </div>
+      <div class="info">Convoy Map: values only, no action buttons.</div>
+      <div class="info">Same panel layout for tracks, trails, waypoints, routes.</div>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<h2>WORK WITH QUEUES (BOTH MAPS)</h2>
+<!-- ════════════════════════════════════════════ -->
+<div class="grid">
+
+<div class="phone">
+  <div class="phone-label">WORK WITH QUEUES</div>
+  <div class="map">
+    <div class="sp" style="top:30px;right:8px;width:260px;">
+      <div class="st">QUEUES</div>
+      <div style="display:flex;gap:3px;margin-bottom:6px;">
+        <div class="btn act" style="flex:1;font-size:6px">ALL</div>
+        <div class="btn" style="flex:1;font-size:6px">HIGH</div>
+        <div class="btn" style="flex:1;font-size:6px">MED</div>
+        <div class="btn" style="flex:1;font-size:6px">LOW</div>
+      </div>
+      <div class="ar" style="cursor:pointer;">
+        <span style="font-size:10px">&#9650;</span>
+        <span class="nm">Upload Spatial</span>
+        <span style="color:var(--orange);font-size:9px;font-weight:bold">3</span>
+        <span style="color:var(--muted);font-size:8px">&#9660;</span>
+      </div>
+      <div style="margin-left:20px;">
+        <div class="tr"><span class="l">Morning Ride track</span><span class="s" style="color:var(--orange)">PENDING</span></div>
+        <div class="tr"><span class="l">Gate 4 waypoint</span><span class="s" style="color:var(--orange)">PENDING</span></div>
+        <div class="tr"><span class="l">Loop Route</span><span class="s" style="color:var(--orange)">PENDING</span></div>
+        <div class="info">V2.5: collecting only. V2.6: processing.</div>
+      </div>
+      <div class="ar" style="cursor:pointer;">
+        <span style="font-size:10px">&#9660;</span>
+        <span class="nm">Download Spatial</span>
+        <span style="color:var(--muted);font-size:9px;font-weight:bold">0</span>
+        <span style="color:var(--muted);font-size:8px">></span>
+      </div>
+      <div class="ar" style="cursor:pointer;">
+        <span style="font-size:10px">&#9638;</span>
+        <span class="nm">Download Tiles</span>
+        <span style="color:var(--green);font-size:9px;font-weight:bold">7</span>
+        <span style="color:var(--muted);font-size:8px">&#9660;</span>
+      </div>
+      <div style="margin-left:20px;">
+        <div class="tr"><span class="l">SAT z17 St George</span><span class="s" style="color:var(--green)">ACTIVE 67%</span></div>
+        <div class="tr"><span class="l">TOPO z16 Bar 10</span><span class="s" style="color:var(--green)">ACTIVE 23%</span></div>
+        <div class="tr"><span class="l">SAT z18 Morning Ride</span><span class="s" style="color:var(--orange)">PENDING HIGH</span></div>
+        <div class="tr"><span class="l">TOPO trail refresh</span><span class="s" style="color:var(--orange)">PENDING LOW</span></div>
+        <div class="info">Tiles trigger-based. HIGH=track/route. LOW=trail. MED=source refresh.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="notes">
+  <b>QUEUE RULES:</b><br>
+  <span class="r">- Three separate queues, never mixed</span><br>
+  <span class="r">- Button upper right of map (both maps)</span><br>
+  <span class="r">- Summary + twisty drill-down + priority filter</span><br>
+  <span class="r">- Same display template for all queues</span><br>
+  <span class="r">- Closes to nothing when done</span><br><br>
+  <b>TILE TRIGGER RULES:</b><br>
+  <span class="d">Trails: refresh downloaded tiles only (LOW)</span><br>
+  <span class="d">Routes + Tracks: refresh AND create tiles (HIGH)</span><br>
+  <span class="d">Source refresh: replace existing tiles (MED)</span><br>
+  <span class="d">Remove area: delete stored tiles (LOWEST)</span><br>
+  <span class="d">All trigger-based. Never standalone tile download.</span><br>
+  <span class="d">Exception: manual area draw for initial tiles.</span>
+</div>
+
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<h2>WAYPOINT CREATION (BOTH MAPS) + SHARE PROMPT</h2>
+<!-- ════════════════════════════════════════════ -->
+<div class="grid">
+
+<div class="phone">
+  <div class="phone-label">LONG-PRESS WAYPOINT CREATION</div>
+  <div class="map">
+    <div class="sp" style="top:80px;left:20px;right:20px;">
+      <div class="st">CREATE WAYPOINT</div>
+      <div class="info">Long-press on map. Available BOTH maps.</div>
+      <div class="ss">SELECT TYPE</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px;">
+        <div class="btn v25">TRAILHEAD</div><div class="btn v25">FUEL</div>
+        <div class="btn v25">GATE</div><div class="btn v25">HAZARD</div>
+        <div class="btn v25">SCENIC</div><div class="btn v25">WATER</div>
+        <div class="btn v25">CAMP</div><div class="btn v25">PARKING</div>
+        <div class="btn v25">RALLY</div><div class="btn v25">OTHER</div>
+      </div>
+      <div class="ss">NAME</div>
+      <div style="background:var(--item);border-radius:4px;padding:5px;font-size:7px;color:#555;">Enter name...</div>
+      <div class="ss">PROXIMITY CHECK (100m)</div>
+      <div style="background:#3A2A1A;border-radius:4px;padding:5px;font-size:7px;color:var(--orange);">Warning: "Gate 4" is 85m away</div>
+      <div class="div"></div>
+      <div style="display:flex;gap:3px;">
+        <div class="btn" style="flex:1">CANCEL</div>
+        <div class="btn act" style="flex:1">CREATE</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="phone">
+  <div class="phone-label">SHARE PROMPT (after any save)</div>
+  <div class="map">
+    <div class="sp" style="top:150px;left:30px;right:30px;">
+      <div class="st">SHARE</div>
+      <div style="font-size:9px;color:var(--bright);text-align:center;padding:10px 0;">
+        Share this artifact with<br>other GroupTrack users?
+      </div>
+      <div style="display:flex;gap:6px;margin-top:8px;">
+        <div class="btn" style="flex:1;font-size:9px">NO</div>
+        <div class="btn act" style="flex:1;font-size:9px">YES</div>
+      </div>
+      <div class="info" style="text-align:center;margin-top:6px;">
+        YES = adds to upload spatial queue (V2.5: collecting only).<br>
+        Controlled by app_setting + ride privacy toggle.<br>
+        Private ride suppresses prompt entirely.
+      </div>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<div style="text-align:center;margin:30px 0;font-size:10px;color:var(--green);font-weight:bold;letter-spacing:2px;">
+  END OF SCREEN REFERENCE v3 | All sessions incorporated
+</div>
+
+</body>
+</html>

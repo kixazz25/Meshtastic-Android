@@ -1,0 +1,172 @@
+GroupTrack — Placeholder-to-Function Wiring Checklist
+=====================================================
+Generated May 21, 2026 from GroupTrack_AllDocs.txt
+Mark [X] as each item is wired and tested.
+
+=====================================================
+V2.5 MAP & DATA INFRASTRUCTURE (Current Sprint)
+=====================================================
+
+[ ] SP10 | Tile Download System
+      ConvoyTileDownloader.downloadTiles() — background download with progress
+      Status: WORKING (fixed May 21 — Esri URL, slot filter, HTTP logging)
+
+[ ] SP11 | Planning Map Launch Integration
+      Independent Map Manager route from services menu
+      State isolation from convoy operations
+      Entry modes for planning/import/trailhead selection
+
+[ ] SP12 | Import Directory Scanner
+      ConvoyViewModel.scanImportDirectory()
+      GPX/KML import with ACTION_OPEN_DOCUMENT
+      Format validation, metadata extraction
+      Currently: tracks only — expand to waypoints + routes
+
+[ ] SP13 | Route Planning Tools Integration
+      Auto-set map_bounds from route geometry
+      Connect planning tools to ride creation workflow
+      PREMIUM feature
+
+[ ] SP14 | Trailhead Selection Integration
+      Map picker modal for trailhead selection
+      Save waypoint to trailhead_waypoint_id field
+
+LAZY LOAD DISPLAY (In Progress):
+[ ] Trail lazy load from spatial DB — viewport query + map display
+[ ] Track lazy load from spatial DB — viewport query + map display
+[ ] Route lazy load from spatial DB — viewport query + map display
+[ ] Waypoint lazy load from spatial DB — viewport query + marker display
+
+GPX IMPORT EXPANSION:
+[ ] Import tracks (existing — verify working)
+[ ] Import waypoints from GPX
+[ ] Import routes from GPX
+[ ] Import sample test data for all 3 types
+
+WORK WITH ARTIFACTS UI:
+[ ] Trail toggle → viewport query → map display
+[ ] Track toggle → viewport query → map display
+[ ] Route toggle → viewport query → map display
+[ ] Waypoint toggle → viewport query → marker display
+[ ] Trail select/edit list (checkbox per trail, select all/deselect all)
+[ ] Track select/edit list
+[ ] Route select/edit list
+[ ] Waypoint select/edit list
+[ ] Trail maintenance screen (title click)
+[ ] Track maintenance screen (exists — verify)
+[ ] Route maintenance screen
+[ ] Waypoint maintenance screen
+[ ] Settings filter table (CartoCode/motorized/type filtering)
+
+=====================================================
+V3.0 CORE API (Phase B — after V2.5 ships)
+=====================================================
+
+[ ] SP01 | createRide()
+      Expand PHP to use full schema: map_bounds, trailhead_waypoint_id,
+      description, map_tile_source, map_zoom_max, zip_code
+
+[ ] SP02 | createInvite()
+      POST /invites — secure tokens, QR code, expiration
+      Connect to Android share sheet
+
+[ ] SP03 | enrollRider()
+      Expand enrollment: callsign, vehicle_type
+      Implement full 5-state status workflow
+
+[ ] SP04 | followOrganizer()
+      POST /follows with auto-enrollment in organizer's public rides
+
+[ ] SP05 | unfollowOrganizer()
+      DELETE /follows with selective enrollment cleanup
+
+[ ] SP06 | broadcastRide()
+      POST /broadcast/{ride_id} — email via AWS SES
+      Target enrolled participants
+
+=====================================================
+V3.0 DASHBOARD DATA FEEDS
+=====================================================
+
+[ ] SP07 | GET /notifications Endpoint
+      Create notifications table
+      Ride updates, enrollment changes, organizer broadcasts
+
+[ ] SP08 | GET /enrollments Endpoint
+      Return user's active participations with ride details
+
+[ ] SP09 | GET /invites Endpoint
+      Return pending invitations with ride metadata, expiration
+
+=====================================================
+V3.0 USER & SUBSCRIPTION
+=====================================================
+
+[ ] SP15 | User Profile Management
+      Expand endpoints: location fields, terms tracking, subscription
+
+[ ] SP16 | Terms & Privacy Management
+      Version management, legal compliance workflow
+
+[ ] SP17 | isSubscribed()
+      expires_at timestamp checking, Google Play validation
+      Backend subscription status sync, 1-hour cache
+
+[ ] SP18 | Organizer Upgrade Workflow
+      Organizer terms, subscription tier validation
+      is_organizer flag, ride creation access control
+
+=====================================================
+V3.0 COMMUNITY FEATURES
+=====================================================
+
+[ ] SP19 | Public Track Library
+      Create ride_tracks table
+      Track discovery with location filtering, difficulty ratings
+
+[ ] SP20 | Track Upload & Sharing
+      Multipart file upload, GPX validation
+      Metadata extraction, moderation queue
+
+[ ] SP21 | Track Download & Import
+      Download to device, import confirmation
+      Map Manager overlay integration
+
+[ ] SP22 | Community Rating System
+      Create track_ratings table
+      Star ratings, difficulty assessment, recommendations
+
+=====================================================
+V3.0 LOCATION & COMMUNICATION
+=====================================================
+
+[ ] SP23 | Location Services Integration
+      User location collection during registration
+      Organizer discovery by proximity
+
+[ ] SP24 | Enhanced Track Recording
+      Enhance GPX with ride metadata
+      Community sharing integration, auto upload prompts
+
+[ ] SP25 | Proximity & Discovery Services
+      Organizer discovery, ride recommendations
+      ZIP code area filtering
+
+[ ] SP26 | Push Notification System
+      Firebase Cloud Messaging, device token management
+
+[ ] SP27 | Email Communication System
+      AWS SES/SendGrid, templates, delivery tracking
+
+[ ] SP28 | In-App Messaging
+      Enhanced coordination tools
+
+=====================================================
+NOTES
+=====================================================
+- V2.5 items are current sprint priority
+- V3.0 items require V2.5 completion + Phase B sign-in
+- SP10-SP14 bridge V2.5 mapping → V3.0 services
+- PREMIUM items require SP17 subscription validation first
+- Database expansion (SP19-SP22) requires new tables
+- Communication (SP26-SP28) requires external services
