@@ -18,7 +18,7 @@
     </style>
 </head>
 <body>
-  <div id="north">N</div>
+  <div id="north">N · Z<span id="zoomLevel">--</span></div>
   <div id="map"></div>
   <script>
     var map, tileLayer, trailLayer = null, trailsVisible = false;
@@ -201,6 +201,127 @@
       var z = map.getZoom();
       try { Android.onViewportChanged(b.getNorth(), b.getSouth(), b.getEast(), b.getWest(), z); } catch(e) {}
     }
+
+    // ── WAYPOINT DISPLAY (type-based colored markers) ──
+    var waypointLayer = null, waypointsVisible = false;
+
+    function waypointColor(type) {
+      switch(type) {
+        case 'trailhead': return '#2ECC40';
+        case 'fuel':      return '#FF6B35';
+        case 'gate':      return '#FF4136';
+        case 'hazard':    return '#FFDC00';
+        case 'scenic':    return '#7FDBFF';
+        case 'water':     return '#0074D9';
+        case 'camp':      return '#3D9970';
+        case 'parking':   return '#AAAAAA';
+        case 'rally':     return '#F012BE';
+        case 'other':     return '#DDDDDD';
+        default:          return '#FFFFFF';
+      }
+    }
+
+    function waypointSymbol(type) {
+      switch(type) {
+        case 'trailhead': return 'TH';
+        case 'fuel':      return 'F';
+        case 'gate':      return 'G';
+        case 'hazard':    return '!';
+        case 'scenic':    return 'S';
+        case 'water':     return 'W';
+        case 'camp':      return 'C';
+        case 'parking':   return 'P';
+        case 'rally':     return 'R';
+        case 'other':     return '*';
+        default:          return '?';
+      }
+    }
+
+    function loadWaypoints(geojsonData) {
+      if (waypointLayer) map.removeLayer(waypointLayer);
+      waypointLayer = L.geoJSON(geojsonData, {
+        pointToLayer: function(feature, latlng) {
+          var wType = (feature.properties && feature.properties.wpt_type) || 'other';
+          var color = waypointColor(wType);
+          var sym = waypointSymbol(wType);
+          var icon = L.divIcon({
+            className: '',
+            html: '<div style="width:22px;height:22px;background:' + color + ';border:2px solid #fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:bold;color:#000;font-family:monospace;box-shadow:0 0 4px rgba(0,0,0,0.5);">' + sym + '</div>',
+            iconSize: [22, 22],
+            iconAnchor: [11, 11]
+          });
+          return L.marker(latlng, { icon: icon });
+        },
+        onEachFeature: function(feature, layer) {
+          var p = feature.properties || {};
+          var name = p.name || 'Unnamed Waypoint';
+          var wType = p.wpt_type || 'other';
+          var popup = '<div style="font-family:monospace;font-size:12px;">' +
+            '<b style="color:' + waypointColor(wType) + ';">' + name + '</b><br>' +
+            '<span style="color:#aaa;">Type: ' + wType + '</span></div>';
+          layer.bindPopup(popup);
+        }
+      });
+    }
+
+    function showWaypoints() {
+      if (waypointLayer && !waypointsVisible) { waypointLayer.addTo(map); waypointsVisible = true; }
+    }
+    function hideWaypoints() {
+      if (waypointLayer && waypointsVisible) { map.removeLayer(waypointLayer); waypointsVisible = false; }
+    }
+    function updateWaypoints(geojsonData) {
+      if (typeof geojsonData === 'string') geojsonData = JSON.parse(geojsonData);
+      loadWaypoints(geojsonData);
+      waypointsVisible = false;
+      showWaypoints();
+    }
+    function clearWaypoints() {
+      if (waypointLayer) { map.removeLayer(waypointLayer); waypointLayer = null; }
+      waypointsVisible = false;
+    }
+    function toggleWaypoints() {
+      if (waypointsVisible) hideWaypoints(); else showWaypoints();
+      return waypointsVisible;
+    }
+
+    // ── ROUTE DISPLAY (gold dot-dash lines) ──
+    var routeLayer = null, routesVisible = false;
+
+    function loadRoutes(geojsonData) {
+      if (routeLayer) map.removeLayer(routeLayer);
+      routeLayer = L.geoJSON(geojsonData, {
+        style: function() {
+          return { color: '#FFD700', weight: 3, opacity: 0.9, dashArray: '15,5,5,5' };
+        },
+        onEachFeature: function(feature, layer) {
+          var name = (feature.properties && feature.properties.name) || 'Unnamed Route';
+          layer.bindPopup('<b style="color:#FFD700;">' + name + '</b>');
+        }
+      });
+    }
+
+    function showRoutes() {
+      if (routeLayer && !routesVisible) { routeLayer.addTo(map); routesVisible = true; }
+    }
+    function hideRoutes() {
+      if (routeLayer && routesVisible) { map.removeLayer(routeLayer); routesVisible = false; }
+    }
+    function updateRoutes(geojsonData) {
+      if (typeof geojsonData === 'string') geojsonData = JSON.parse(geojsonData);
+      loadRoutes(geojsonData);
+      routesVisible = false;
+      showRoutes();
+    }
+    function clearRoutes() {
+      if (routeLayer) { map.removeLayer(routeLayer); routeLayer = null; }
+      routesVisible = false;
+    }
+    function toggleRoutes() {
+      if (routesVisible) hideRoutes(); else showRoutes();
+      return routesVisible;
+    }
+
     // -- Imported track file overlays --
     var importedTracks = {};
     var importedTrackVisible = true;
@@ -390,14 +511,27 @@
     // -- Init --
     document.addEventListener("DOMContentLoaded", function() {
       setTimeout(function() {
-        map = L.map("map", { zoomControl: true }).setView([37.1, -113.6], 11);
+        map = L.map("map", { zoomControl: true }).setView([39.8, -98.6], 4);
         map.on("zoomend", function() {
           // V2.4: allow overzoom — Leaflet stretches tiles beyond maxNativeZoom
+        });
+        // -- Max offline zoom display --
+        var maxOfflineZoom = null;
+        function setMaxOfflineZoom(z) {
+          maxOfflineZoom = z;
+          var el = document.getElementById('offlineZoom');
+          if (el) el.textContent = z;
+        }
+
+        // -- Zoom level display --
+        document.getElementById('zoomLevel').textContent = map.getZoom();
+        map.on('zoomend', function() {
+          document.getElementById('zoomLevel').textContent = map.getZoom();
         });
         // -- Viewport-driven trail lazy load --
         var viewportTimer = null;
         map.on('moveend', function() {
-          if (!trailsVisible && !tracksVisible) return;
+          if (!trailsVisible && !tracksVisible && !waypointsVisible && !routesVisible) return;
           if (viewportTimer) clearTimeout(viewportTimer);
           viewportTimer = setTimeout(function() {
             var b = map.getBounds();
@@ -410,17 +544,8 @@
         initDrawTool();
         // Default tile set by Kotlin in onPageFinished — no hardcoded URL here
         // setTileUrl injected by Kotlin after page load
-        // Load trails from bundled asset
-        fetch('utah_trails_stgeorge.geojson')
-          .then(function(r) { return r.json(); })
-          .then(function(data) {
-            loadTrails(data);
-            showTrails();
-            console.log('TRAILS LOADED: ' + data.features.length + ' features');
-          })
-          .catch(function(e) {
-            console.log('TRAIL LOAD ERROR: ' + e);
-          });
+        // Trail data loaded from spatial DB via Kotlin evaluateJavascript
+        // (utah_trails_stgeorge.geojson fetch removed — spatial DB is source now)
       }, 500);
     });
   </script>

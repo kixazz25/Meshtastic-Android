@@ -1199,134 +1199,152 @@ ConvoyMapViewerScreen.kt:82:    var actionStatusMsg by remember { mutableStateOf
 ConvoyMapViewerScreen.kt:83:    val scope = rememberCoroutineScope()
 ConvoyMapViewerScreen.kt:84:    val refreshTracks: () -> Unit = {
 ConvoyMapViewerScreen.kt:86:            val files = scanTrackDir(context)
-ConvoyMapViewerScreen.kt:90:    val unloadIfLoaded: (String) -> Unit = { trackName ->
-ConvoyMapViewerScreen.kt:92:            val safe = trackName.replace("'", "\\'")
-ConvoyMapViewerScreen.kt:97:    var searchText by remember { mutableStateOf("") }
-ConvoyMapViewerScreen.kt:98:    var showSearch by remember { mutableStateOf(true) }
-ConvoyMapViewerScreen.kt:99:    val coroutineScope = rememberCoroutineScope()
-ConvoyMapViewerScreen.kt:102:    var showDownloadPanel by remember { mutableStateOf(false) }
-ConvoyMapViewerScreen.kt:103:    var panelTilesChecked by remember { mutableStateOf(false) }
-ConvoyMapViewerScreen.kt:104:    var showDownloadConfirm by remember { mutableStateOf(false) }
-ConvoyMapViewerScreen.kt:105:    var downloadReplaceExisting by remember { mutableStateOf(false) }
-ConvoyMapViewerScreen.kt:106:    var panelTrailsChecked by remember { mutableStateOf(false) }
-ConvoyMapViewerScreen.kt:107:    var panelRemoveTilesChecked by remember { mutableStateOf(false) }
-ConvoyMapViewerScreen.kt:108:    var panelFlyoverZoom by remember { mutableStateOf(18) }
-ConvoyMapViewerScreen.kt:109:    var queueExpanded by remember { mutableStateOf(false) }
-ConvoyMapViewerScreen.kt:110:    var pmTracksOn by remember { mutableStateOf(false) }
-ConvoyMapViewerScreen.kt:111:    var pmTracksLoaded by remember { mutableStateOf(false) }
-ConvoyMapViewerScreen.kt:112:    var pmTrailsOn by remember { mutableStateOf(false) }
-ConvoyMapViewerScreen.kt:113:    var pmTracksLazyOn by remember { mutableStateOf(false) }
-ConvoyMapViewerScreen.kt:114:    var pmQueuesOpen by remember { mutableStateOf(false) }
-ConvoyMapViewerScreen.kt:115:    var pmDownloadedOn by remember { mutableStateOf(false) }
-ConvoyMapViewerScreen.kt:116:    var pmActiveSource by remember { mutableStateOf(ConvoyConfig.ACTIVE_TILE_SOURCE) }
-ConvoyMapViewerScreen.kt:117:    var mapZoomLevel by remember { mutableStateOf(ConvoyConfig.DOWNLOAD_ZOOM.toFloat()) }
-ConvoyMapViewerScreen.kt:118:    var showDownloaded by remember { mutableStateOf(false) }
-ConvoyMapViewerScreen.kt:119:    var scanningDownloaded by remember { mutableStateOf(false) }
-ConvoyMapViewerScreen.kt:120:    var fabOffsetX by remember { mutableStateOf(0f) }
-ConvoyMapViewerScreen.kt:121:    var fabOffsetY by remember { mutableStateOf(0f) }
-ConvoyMapViewerScreen.kt:122:    var downloadBbox by remember { mutableStateOf(DownloadBbox()) }
-ConvoyMapViewerScreen.kt:123:    var isDrawingArea by remember { mutableStateOf(false) }
-ConvoyMapViewerScreen.kt:124:    val downloadState by convoyViewModel.downloadState.collectAsState()
-ConvoyMapViewerScreen.kt:128:    val tileSources = MapSourceManager.getSlotSources()
-ConvoyMapViewerScreen.kt:244:                                    val results = withContext(Dispatchers.IO) {
-ConvoyMapViewerScreen.kt:249:                                        val loc = results[0]
-ConvoyMapViewerScreen.kt:281:            val filtered = if (trackSearchText.isBlank()) trackFileList
-ConvoyMapViewerScreen.kt:326:                        val name = filtered[idx]
-ConvoyMapViewerScreen.kt:327:                        val loaded = loadedTracks.any { it.first == name }
-ConvoyMapViewerScreen.kt:328:                        val displayColor = loadedTracks.firstOrNull { it.first == name }?.second
-ConvoyMapViewerScreen.kt:337:                                        val safe = name.replace("'", "\\'")
-ConvoyMapViewerScreen.kt:341:                                        val color = trackColors[nextColorIdx % trackColors.size]
-ConvoyMapViewerScreen.kt:380:                        addJavascriptInterface(object {
-ConvoyMapViewerScreen.kt:382:                            fun onAreaSelected(north: Double, south: Double, east: Double, west: Double) {
-ConvoyMapViewerScreen.kt:391:                            fun onMapBoundsReady(n: Double, s: Double, e: Double, w: Double) {}
-ConvoyMapViewerScreen.kt:393:                            fun onViewportChanged(north: Double, south: Double, east: Double, west: Double, zoom: Double) {
-ConvoyMapViewerScreen.kt:395:                                val z = zoom.toInt()
-ConvoyMapViewerScreen.kt:397:                                val limit = if (z < 14) 500 else 2000
-ConvoyMapViewerScreen.kt:401:                                        val trails = SpatialDbManager.queryTrailsByViewport(south, west, north, east, limit)
-ConvoyMapViewerScreen.kt:402:                                        val json = SpatialDbManager.buildTrailGeoJson(trails)
-ConvoyMapViewerScreen.kt:408:                                            val trackResults = SpatialDbManager.queryTracksByViewport(south, west, north, east, if (zoom >= 12) 200 else 50)
-ConvoyMapViewerScreen.kt:410:                                                val trackJson = SpatialDbManager.buildTrackGeoJson(trackResults)
-ConvoyMapViewerScreen.kt:422:                        webViewClient = object : WebViewClient() {
-ConvoyMapViewerScreen.kt:423:                            override fun shouldInterceptRequest(view: WebView?, request: android.webkit.WebResourceRequest?): android.webkit.WebResourceResponse? {
-ConvoyMapViewerScreen.kt:424:                                val url = request?.url?.toString() ?: return super.shouldInterceptRequest(view, request)
-ConvoyMapViewerScreen.kt:427:                                    val parts = url.split("/tile/").lastOrNull()?.split("/")
-ConvoyMapViewerScreen.kt:429:                                        val file = java.io.File(ConvoyConfig.TILE_DIR, "SAT_LABELS_TRANSPORT/${parts[0]}/${parts[2]}/${parts[1]}.png")
-ConvoyMapViewerScreen.kt:436:                                    val parts = url.split("/tile/").lastOrNull()?.split("/")
-ConvoyMapViewerScreen.kt:438:                                        val file = java.io.File(ConvoyConfig.TILE_DIR, "SAT_LABELS_PLACES/${parts[0]}/${parts[2]}/${parts[1]}.png")
-ConvoyMapViewerScreen.kt:446:                            override fun onPageFinished(view: WebView?, url: String?) {
-ConvoyMapViewerScreen.kt:460:                                val satUrl = tileSources[0].third
-ConvoyMapViewerScreen.kt:464:                                val initOverlayJson = MapSourceManager.getOverlayJson("SAT")
-ConvoyMapViewerScreen.kt:492:                    val url = MapSourceManager.getSlotSources().find { it.first == label }?.third ?: ""
-ConvoyMapViewerScreen.kt:494:                    val ovJson = MapSourceManager.getOverlayJson(label)
-ConvoyMapViewerScreen.kt:554:                            val wv = webViewRef
-ConvoyMapViewerScreen.kt:556:                                val colors = listOf("#39FF14")
-ConvoyMapViewerScreen.kt:557:                                val dir = java.io.File(
-ConvoyMapViewerScreen.kt:560:                                val files = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-ConvoyMapViewerScreen.kt:564:                                    val color = colors[idx % colors.size]
-ConvoyMapViewerScreen.kt:565:                                    val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-ConvoyMapViewerScreen.kt:567:                                            val file = java.io.File(dir, name)
-ConvoyMapViewerScreen.kt:569:                                            val text = file.readText()
-ConvoyMapViewerScreen.kt:570:                                            val coords = if (name.lowercase().endsWith(".gpx")) parseGpx(text) else parseKml(text)
-ConvoyMapViewerScreen.kt:576:                                        val safe = name.replace("'", "\\'")
-ConvoyMapViewerScreen.kt:602:                        val tilesDir = java.io.File(ConvoyConfig.TILE_DIR, "SAT/14")
-ConvoyMapViewerScreen.kt:604:                            val bounds = mutableListOf<String>()
-ConvoyMapViewerScreen.kt:606:                                val z = 14; val n = 1 shl z
-ConvoyMapViewerScreen.kt:608:                                    val x = xDir.name.toLongOrNull() ?: return@forEach
-ConvoyMapViewerScreen.kt:610:                                        val y = yFile.name.removeSuffix(".png").toLongOrNull() ?: return@forEach
-ConvoyMapViewerScreen.kt:611:                                        val tN = Math.toDegrees(Math.atan(Math.sinh(Math.PI * (1.0 - 2.0 * y / n))))
-ConvoyMapViewerScreen.kt:612:                                        val tS = Math.toDegrees(Math.atan(Math.sinh(Math.PI * (1.0 - 2.0 * (y + 1) / n))))
-ConvoyMapViewerScreen.kt:613:                                        val tW = x.toDouble() / n * 360.0 - 180.0
-ConvoyMapViewerScreen.kt:614:                                        val tE = (x + 1).toDouble() / n * 360.0 - 180.0
-ConvoyMapViewerScreen.kt:619:                            val json = "[" + bounds.joinToString(",") + "]"
-ConvoyMapViewerScreen.kt:638:                val slotSources = remember { MapSourceManager.getSlotSources() }
-ConvoyMapViewerScreen.kt:639:                val estimate = remember(downloadBbox) { ConvoyTileCalculator.quickEstimate(
-ConvoyMapViewerScreen.kt:642:                val slots = remember(slotSources) { slotSources.map { (legacyKey, shortLabel, _) ->
-ConvoyMapViewerScreen.kt:661:                            val bb = downloadBbox
-ConvoyMapViewerScreen.kt:688:                        val est = ConvoyTileCalculator.quickEstimate(
-ConvoyMapViewerScreen.kt:720:                                val wv = webViewRef
-ConvoyMapViewerScreen.kt:722:                                    val tilesDir = java.io.File(ConvoyConfig.TILE_DIR, "SAT/14")
-ConvoyMapViewerScreen.kt:724:                                        val bounds = mutableListOf<String>()
-ConvoyMapViewerScreen.kt:726:                                            val z = 14; val n = 1 shl z
-ConvoyMapViewerScreen.kt:728:                                                val x = xDir.name.toLongOrNull() ?: return@forEach
-ConvoyMapViewerScreen.kt:730:                                                    val y = yFile.name.removeSuffix(".png").toLongOrNull() ?: return@forEach
-ConvoyMapViewerScreen.kt:731:                                                    val tN = Math.toDegrees(Math.atan(Math.sinh(Math.PI * (1.0 - 2.0 * y / n))))
-ConvoyMapViewerScreen.kt:732:                                                    val tS = Math.toDegrees(Math.atan(Math.sinh(Math.PI * (1.0 - 2.0 * (y + 1) / n))))
-ConvoyMapViewerScreen.kt:733:                                                    val tW = x.toDouble() / n * 360.0 - 180.0
-ConvoyMapViewerScreen.kt:734:                                                    val tE = (x + 1).toDouble() / n * 360.0 - 180.0
-ConvoyMapViewerScreen.kt:739:                                        val json = "[" + bounds.joinToString(",") + "]"
-ConvoyMapViewerScreen.kt:805:            val f = actionTarget; actionTarget = null
-ConvoyMapViewerScreen.kt:809:            val f = actionTarget; actionTarget = null
-ConvoyMapViewerScreen.kt:812:                    val ok = ConvoyTrackOps.copyToDownloads(it)
-ConvoyMapViewerScreen.kt:818:            val f = actionTarget; actionTarget = null
-ConvoyMapViewerScreen.kt:821:                    val ok = ConvoyTrackOps.fixDateFromContent(it)
-ConvoyMapViewerScreen.kt:832:            val f = renameTarget; renameTarget = null
-ConvoyMapViewerScreen.kt:836:                    val result = ConvoyTrackOps.renameTrack(it, newName)
-ConvoyMapViewerScreen.kt:851:            val f = deleteTarget; deleteTarget = null
-ConvoyMapViewerScreen.kt:855:                    val ok = ConvoyTrackOps.deleteTrack(it)
-ConvoyMapViewerScreen.kt:871:private fun scanTrackDir(context: android.content.Context): List<String> {
-ConvoyMapViewerScreen.kt:872:    val dir = java.io.File(
-ConvoyMapViewerScreen.kt:877:    val files = dir.listFiles()
-ConvoyMapViewerScreen.kt:879:            val ext = f.extension.lowercase()
-ConvoyMapViewerScreen.kt:891:private fun loadTrackOnMap(
-ConvoyMapViewerScreen.kt:900:            val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-ConvoyMapViewerScreen.kt:901:                val dir = java.io.File(
-ConvoyMapViewerScreen.kt:906:                val file = java.io.File(dir, fileName)
-ConvoyMapViewerScreen.kt:908:                val text = file.readText()
-ConvoyMapViewerScreen.kt:909:                val coords = if (fileName.lowercase().endsWith(".gpx")) parseGpx(text) else parseKml(text)
-ConvoyMapViewerScreen.kt:911:                val json = coords.joinToString(",", "[", "]") { "[${it.first},${it.second}]" }
-ConvoyMapViewerScreen.kt:915:                val safe = fileName.replace("'", "\\'")
-ConvoyMapViewerScreen.kt:925:private fun parseKml(text: String): List<Pair<Double, Double>> {
-ConvoyMapViewerScreen.kt:926:    val coords = mutableListOf<Pair<Double, Double>>()
-ConvoyMapViewerScreen.kt:927:    val pattern = Regex("""<coordinates>([\s\S]*?)</coordinates>""")
-ConvoyMapViewerScreen.kt:930:            val parts = line.trim().split(",")
-ConvoyMapViewerScreen.kt:932:                val lon = parts[0].toDoubleOrNull()
-ConvoyMapViewerScreen.kt:933:                val lat = parts[1].toDoubleOrNull()
-ConvoyMapViewerScreen.kt:943:private fun parseGpx(text: String): List<Pair<Double, Double>> {
-ConvoyMapViewerScreen.kt:944:    val coords = mutableListOf<Pair<Double, Double>>()
-ConvoyMapViewerScreen.kt:945:    val pattern = Regex("""<trkpt\s+lat="([^"]+)"\s+lon="([^"]+)"""")
-ConvoyMapViewerScreen.kt:947:        val lat = match.groupValues[1].toDoubleOrNull()
-ConvoyMapViewerScreen.kt:948:        val lon = match.groupValues[2].toDoubleOrNull()
-ConvoyMapViewerScreen.kt:957:private fun LegendDot(color: Color, label: String) {
+ConvoyMapViewerScreen.kt:91:    val importGpxLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+ConvoyMapViewerScreen.kt:97:                    val fileName = uri.lastPathSegment?.substringAfterLast('/') ?: "import.gpx"
+ConvoyMapViewerScreen.kt:99:                    val downloadsDir = android.os.Environment.getExternalStoragePublicDirectory(
+ConvoyMapViewerScreen.kt:101:                    val tempFile = java.io.File(downloadsDir, fileName)
+ConvoyMapViewerScreen.kt:108:                    val summary = ConvoyTrackOps.importGpxAllArtifacts(tempFile, context)
+ConvoyMapViewerScreen.kt:110:                    val msg = buildString {
+ConvoyMapViewerScreen.kt:112:                        val parts = mutableListOf<String>()
+ConvoyMapViewerScreen.kt:131:        val unloadIfLoaded: (String) -> Unit = { trackName ->
+ConvoyMapViewerScreen.kt:133:            val safe = trackName.replace("'", "\\'")
+ConvoyMapViewerScreen.kt:138:    var searchText by remember { mutableStateOf("") }
+ConvoyMapViewerScreen.kt:139:    var showSearch by remember { mutableStateOf(true) }
+ConvoyMapViewerScreen.kt:140:    val coroutineScope = rememberCoroutineScope()
+ConvoyMapViewerScreen.kt:143:    var showDownloadPanel by remember { mutableStateOf(false) }
+ConvoyMapViewerScreen.kt:144:    var panelTilesChecked by remember { mutableStateOf(false) }
+ConvoyMapViewerScreen.kt:145:    var showDownloadConfirm by remember { mutableStateOf(false) }
+ConvoyMapViewerScreen.kt:146:    var downloadReplaceExisting by remember { mutableStateOf(false) }
+ConvoyMapViewerScreen.kt:147:    var panelTrailsChecked by remember { mutableStateOf(false) }
+ConvoyMapViewerScreen.kt:148:    var panelRemoveTilesChecked by remember { mutableStateOf(false) }
+ConvoyMapViewerScreen.kt:149:    var panelFlyoverZoom by remember { mutableStateOf(18) }
+ConvoyMapViewerScreen.kt:150:    var queueExpanded by remember { mutableStateOf(false) }
+ConvoyMapViewerScreen.kt:151:    var pmTracksOn by remember { mutableStateOf(false) }
+ConvoyMapViewerScreen.kt:152:    var pmTracksLoaded by remember { mutableStateOf(false) }
+ConvoyMapViewerScreen.kt:153:    var pmTrailsOn by remember { mutableStateOf(false) }
+ConvoyMapViewerScreen.kt:154:    var pmTracksLazyOn by remember { mutableStateOf(false) }
+ConvoyMapViewerScreen.kt:155:    var pmWaypointsOn by remember { mutableStateOf(false) }
+ConvoyMapViewerScreen.kt:156:    var pmRoutesOn by remember { mutableStateOf(false) }
+ConvoyMapViewerScreen.kt:157:    var pmQueuesOpen by remember { mutableStateOf(false) }
+ConvoyMapViewerScreen.kt:158:    var pmDownloadedOn by remember { mutableStateOf(false) }
+ConvoyMapViewerScreen.kt:159:    var pmActiveSource by remember { mutableStateOf(ConvoyConfig.ACTIVE_TILE_SOURCE) }
+ConvoyMapViewerScreen.kt:160:    var mapZoomLevel by remember { mutableStateOf(ConvoyConfig.DOWNLOAD_ZOOM.toFloat()) }
+ConvoyMapViewerScreen.kt:161:    var showDownloaded by remember { mutableStateOf(false) }
+ConvoyMapViewerScreen.kt:162:    var scanningDownloaded by remember { mutableStateOf(false) }
+ConvoyMapViewerScreen.kt:163:    var fabOffsetX by remember { mutableStateOf(0f) }
+ConvoyMapViewerScreen.kt:164:    var fabOffsetY by remember { mutableStateOf(0f) }
+ConvoyMapViewerScreen.kt:165:    var downloadBbox by remember { mutableStateOf(DownloadBbox()) }
+ConvoyMapViewerScreen.kt:166:    var isDrawingArea by remember { mutableStateOf(false) }
+ConvoyMapViewerScreen.kt:167:    val downloadState by convoyViewModel.downloadState.collectAsState()
+ConvoyMapViewerScreen.kt:171:    val tileSources = MapSourceManager.getSlotSources()
+ConvoyMapViewerScreen.kt:287:                                    val results = withContext(Dispatchers.IO) {
+ConvoyMapViewerScreen.kt:292:                                        val loc = results[0]
+ConvoyMapViewerScreen.kt:324:            val filtered = if (trackSearchText.isBlank()) trackFileList
+ConvoyMapViewerScreen.kt:369:                        val name = filtered[idx]
+ConvoyMapViewerScreen.kt:370:                        val loaded = loadedTracks.any { it.first == name }
+ConvoyMapViewerScreen.kt:371:                        val displayColor = loadedTracks.firstOrNull { it.first == name }?.second
+ConvoyMapViewerScreen.kt:380:                                        val safe = name.replace("'", "\\'")
+ConvoyMapViewerScreen.kt:384:                                        val color = trackColors[nextColorIdx % trackColors.size]
+ConvoyMapViewerScreen.kt:423:                        addJavascriptInterface(object {
+ConvoyMapViewerScreen.kt:425:                            fun onAreaSelected(north: Double, south: Double, east: Double, west: Double) {
+ConvoyMapViewerScreen.kt:434:                            fun onMapBoundsReady(n: Double, s: Double, e: Double, w: Double) {}
+ConvoyMapViewerScreen.kt:436:                            fun onViewportChanged(north: Double, south: Double, east: Double, west: Double, zoom: Double) {
+ConvoyMapViewerScreen.kt:438:                                val z = zoom.toInt()
+ConvoyMapViewerScreen.kt:440:                                val limit = if (z < 14) 500 else 2000
+ConvoyMapViewerScreen.kt:444:                                        val trails = SpatialDbManager.queryTrailsByViewport(south, west, north, east, limit)
+ConvoyMapViewerScreen.kt:445:                                        val json = SpatialDbManager.buildTrailGeoJson(trails)
+ConvoyMapViewerScreen.kt:451:                                            val trackResults = SpatialDbManager.queryTracksByViewport(south, west, north, east, if (zoom >= 12) 200 else 50)
+ConvoyMapViewerScreen.kt:453:                                                val trackJson = SpatialDbManager.buildTrackGeoJson(trackResults)
+ConvoyMapViewerScreen.kt:461:                                            val wptResults = SpatialDbManager.queryWaypointsByViewport(south, west, north, east, limit)
+ConvoyMapViewerScreen.kt:463:                                                val wptJson = SpatialDbManager.buildWaypointGeoJson(wptResults)
+ConvoyMapViewerScreen.kt:471:                                            val routeResults = SpatialDbManager.queryRoutesByViewport(south, west, north, east, limit)
+ConvoyMapViewerScreen.kt:473:                                                val routeJson = SpatialDbManager.buildRouteGeoJson(routeResults)
+ConvoyMapViewerScreen.kt:485:                        webViewClient = object : WebViewClient() {
+ConvoyMapViewerScreen.kt:486:                            override fun shouldInterceptRequest(view: WebView?, request: android.webkit.WebResourceRequest?): android.webkit.WebResourceResponse? {
+ConvoyMapViewerScreen.kt:487:                                val url = request?.url?.toString() ?: return super.shouldInterceptRequest(view, request)
+ConvoyMapViewerScreen.kt:490:                                    val parts = url.split("/tile/").lastOrNull()?.split("/")
+ConvoyMapViewerScreen.kt:492:                                        val file = java.io.File(ConvoyConfig.TILE_DIR, "SAT_LABELS_TRANSPORT/${parts[0]}/${parts[2]}/${parts[1]}.png")
+ConvoyMapViewerScreen.kt:499:                                    val parts = url.split("/tile/").lastOrNull()?.split("/")
+ConvoyMapViewerScreen.kt:501:                                        val file = java.io.File(ConvoyConfig.TILE_DIR, "SAT_LABELS_PLACES/${parts[0]}/${parts[2]}/${parts[1]}.png")
+ConvoyMapViewerScreen.kt:509:                            override fun onPageFinished(view: WebView?, url: String?) {
+ConvoyMapViewerScreen.kt:523:                                val satUrl = tileSources[0].third
+ConvoyMapViewerScreen.kt:527:                                val initOverlayJson = MapSourceManager.getOverlayJson("SAT")
+ConvoyMapViewerScreen.kt:536:                                    val lm = view.context.getSystemService(android.content.Context.LOCATION_SERVICE) as android.location.LocationManager
+ConvoyMapViewerScreen.kt:538:                                    val loc = lm.getLastKnownLocation(android.location.LocationManager.GPS_PROVIDER)
+ConvoyMapViewerScreen.kt:552:                                        val sourceDir = java.io.File(ConvoyConfig.TILE_DIR, pmActiveSource)
+ConvoyMapViewerScreen.kt:553:                                        var maxZ = 0
+ConvoyMapViewerScreen.kt:556:                                                val z = zDir.name.toIntOrNull()
+ConvoyMapViewerScreen.kt:591:                    val url = MapSourceManager.getSlotSources().find { it.first == label }?.third ?: ""
+ConvoyMapViewerScreen.kt:593:                    val ovJson = MapSourceManager.getOverlayJson(label)
+ConvoyMapViewerScreen.kt:685:                            val wv = webViewRef
+ConvoyMapViewerScreen.kt:687:                                val colors = listOf("#39FF14")
+ConvoyMapViewerScreen.kt:688:                                val dir = java.io.File(
+ConvoyMapViewerScreen.kt:691:                                val files = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+ConvoyMapViewerScreen.kt:695:                                    val color = colors[idx % colors.size]
+ConvoyMapViewerScreen.kt:696:                                    val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+ConvoyMapViewerScreen.kt:698:                                            val file = java.io.File(dir, name)
+ConvoyMapViewerScreen.kt:700:                                            val text = file.readText()
+ConvoyMapViewerScreen.kt:701:                                            val coords = if (name.lowercase().endsWith(".gpx")) parseGpx(text) else parseKml(text)
+ConvoyMapViewerScreen.kt:707:                                        val safe = name.replace("'", "\\'")
+ConvoyMapViewerScreen.kt:733:                        val tilesDir = java.io.File(ConvoyConfig.TILE_DIR, "SAT/14")
+ConvoyMapViewerScreen.kt:735:                            val bounds = mutableListOf<String>()
+ConvoyMapViewerScreen.kt:737:                                val z = 14; val n = 1 shl z
+ConvoyMapViewerScreen.kt:739:                                    val x = xDir.name.toLongOrNull() ?: return@forEach
+ConvoyMapViewerScreen.kt:741:                                        val y = yFile.name.removeSuffix(".png").toLongOrNull() ?: return@forEach
+ConvoyMapViewerScreen.kt:742:                                        val tN = Math.toDegrees(Math.atan(Math.sinh(Math.PI * (1.0 - 2.0 * y / n))))
+ConvoyMapViewerScreen.kt:743:                                        val tS = Math.toDegrees(Math.atan(Math.sinh(Math.PI * (1.0 - 2.0 * (y + 1) / n))))
+ConvoyMapViewerScreen.kt:744:                                        val tW = x.toDouble() / n * 360.0 - 180.0
+ConvoyMapViewerScreen.kt:745:                                        val tE = (x + 1).toDouble() / n * 360.0 - 180.0
+ConvoyMapViewerScreen.kt:750:                            val json = "[" + bounds.joinToString(",") + "]"
+ConvoyMapViewerScreen.kt:769:                val slotSources = remember { MapSourceManager.getSlotSources() }
+ConvoyMapViewerScreen.kt:770:                val estimate = remember(downloadBbox) { ConvoyTileCalculator.quickEstimate(
+ConvoyMapViewerScreen.kt:773:                val slots = remember(slotSources) { slotSources.map { (legacyKey, shortLabel, _) ->
+ConvoyMapViewerScreen.kt:792:                            val bb = downloadBbox
+ConvoyMapViewerScreen.kt:819:                        val est = ConvoyTileCalculator.quickEstimate(
+ConvoyMapViewerScreen.kt:851:                                val wv = webViewRef
+ConvoyMapViewerScreen.kt:853:                                    val tilesDir = java.io.File(ConvoyConfig.TILE_DIR, "SAT/14")
+ConvoyMapViewerScreen.kt:855:                                        val bounds = mutableListOf<String>()
+ConvoyMapViewerScreen.kt:857:                                            val z = 14; val n = 1 shl z
+ConvoyMapViewerScreen.kt:859:                                                val x = xDir.name.toLongOrNull() ?: return@forEach
+ConvoyMapViewerScreen.kt:861:                                                    val y = yFile.name.removeSuffix(".png").toLongOrNull() ?: return@forEach
+ConvoyMapViewerScreen.kt:862:                                                    val tN = Math.toDegrees(Math.atan(Math.sinh(Math.PI * (1.0 - 2.0 * y / n))))
+ConvoyMapViewerScreen.kt:863:                                                    val tS = Math.toDegrees(Math.atan(Math.sinh(Math.PI * (1.0 - 2.0 * (y + 1) / n))))
+ConvoyMapViewerScreen.kt:864:                                                    val tW = x.toDouble() / n * 360.0 - 180.0
+ConvoyMapViewerScreen.kt:865:                                                    val tE = (x + 1).toDouble() / n * 360.0 - 180.0
+ConvoyMapViewerScreen.kt:870:                                        val json = "[" + bounds.joinToString(",") + "]"
+ConvoyMapViewerScreen.kt:939:            val f = actionTarget; actionTarget = null
+ConvoyMapViewerScreen.kt:943:            val f = actionTarget; actionTarget = null
+ConvoyMapViewerScreen.kt:946:                    val ok = ConvoyTrackOps.copyToDownloads(it)
+ConvoyMapViewerScreen.kt:952:            val f = actionTarget; actionTarget = null
+ConvoyMapViewerScreen.kt:955:                    val ok = ConvoyTrackOps.fixDateFromContent(it)
+ConvoyMapViewerScreen.kt:966:            val f = renameTarget; renameTarget = null
+ConvoyMapViewerScreen.kt:970:                    val result = ConvoyTrackOps.renameTrack(it, newName)
+ConvoyMapViewerScreen.kt:985:            val f = deleteTarget; deleteTarget = null
+ConvoyMapViewerScreen.kt:989:                    val ok = ConvoyTrackOps.deleteTrack(it)
+ConvoyMapViewerScreen.kt:1005:private fun scanTrackDir(context: android.content.Context): List<String> {
+ConvoyMapViewerScreen.kt:1006:    val dir = java.io.File(
+ConvoyMapViewerScreen.kt:1011:    val files = dir.listFiles()
+ConvoyMapViewerScreen.kt:1013:            val ext = f.extension.lowercase()
+ConvoyMapViewerScreen.kt:1025:private fun loadTrackOnMap(
+ConvoyMapViewerScreen.kt:1034:            val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+ConvoyMapViewerScreen.kt:1035:                val dir = java.io.File(
+ConvoyMapViewerScreen.kt:1040:                val file = java.io.File(dir, fileName)
+ConvoyMapViewerScreen.kt:1042:                val text = file.readText()
+ConvoyMapViewerScreen.kt:1043:                val coords = if (fileName.lowercase().endsWith(".gpx")) parseGpx(text) else parseKml(text)
+ConvoyMapViewerScreen.kt:1045:                val json = coords.joinToString(",", "[", "]") { "[${it.first},${it.second}]" }
+ConvoyMapViewerScreen.kt:1049:                val safe = fileName.replace("'", "\\'")
+ConvoyMapViewerScreen.kt:1059:private fun parseKml(text: String): List<Pair<Double, Double>> {
+ConvoyMapViewerScreen.kt:1060:    val coords = mutableListOf<Pair<Double, Double>>()
+ConvoyMapViewerScreen.kt:1061:    val pattern = Regex("""<coordinates>([\s\S]*?)</coordinates>""")
+ConvoyMapViewerScreen.kt:1064:            val parts = line.trim().split(",")
+ConvoyMapViewerScreen.kt:1066:                val lon = parts[0].toDoubleOrNull()
+ConvoyMapViewerScreen.kt:1067:                val lat = parts[1].toDoubleOrNull()
+ConvoyMapViewerScreen.kt:1077:private fun parseGpx(text: String): List<Pair<Double, Double>> {
+ConvoyMapViewerScreen.kt:1078:    val coords = mutableListOf<Pair<Double, Double>>()
+ConvoyMapViewerScreen.kt:1079:    val pattern = Regex("""<trkpt\s+lat="([^"]+)"\s+lon="([^"]+)"""")
+ConvoyMapViewerScreen.kt:1081:        val lat = match.groupValues[1].toDoubleOrNull()
+ConvoyMapViewerScreen.kt:1082:        val lon = match.groupValues[2].toDoubleOrNull()
+ConvoyMapViewerScreen.kt:1091:private fun LegendDot(color: Color, label: String) {
 ConvoyMarkerRenderer.kt:9: * This class is retained only as the bridge for node tap callbacks from
 ConvoyMarkerRenderer.kt:12:class ConvoyMarkerRenderer(
 ConvoyMarkerRenderer.kt:13:    private val context: Context,
@@ -2544,6 +2562,75 @@ ConvoyTrackOps.kt:336:    suspend fun fixDatesForFiles(
 ConvoyTrackOps.kt:340:        var updated = 0
 ConvoyTrackOps.kt:341:        var unchanged = 0
 ConvoyTrackOps.kt:342:        var failed = 0
+ConvoyTrackOps.kt:359:    data class GpxWaypoint(
+ConvoyTrackOps.kt:360:        val name: String,
+ConvoyTrackOps.kt:361:        val lat: Double,
+ConvoyTrackOps.kt:362:        val lon: Double,
+ConvoyTrackOps.kt:363:        val type: String,
+ConvoyTrackOps.kt:364:        val description: String = ""
+ConvoyTrackOps.kt:367:    data class GpxRoute(
+ConvoyTrackOps.kt:368:        val name: String,
+ConvoyTrackOps.kt:372:    data class ImportArtifactsSummary(
+ConvoyTrackOps.kt:373:        val sourceName: String,
+ConvoyTrackOps.kt:374:        val trackCount: Int,
+ConvoyTrackOps.kt:375:        val waypointCount: Int,
+ConvoyTrackOps.kt:376:        val routeCount: Int,
+ConvoyTrackOps.kt:377:        val trackFiles: List<String>,
+ConvoyTrackOps.kt:378:        val errors: List<String>
+ConvoyTrackOps.kt:387:    fun parseGpxWaypoints(gpxText: String): List<GpxWaypoint> {
+ConvoyTrackOps.kt:388:        val results = mutableListOf<GpxWaypoint>()
+ConvoyTrackOps.kt:389:        val wptPattern = Regex("""<wpt\s+lat="([^"]+)"\s+lon="([^"]+)"[^>]*>([\s\S]*?)</wpt>""")
+ConvoyTrackOps.kt:390:        val namePattern = Regex("""<name>([^<]*)</name>""")
+ConvoyTrackOps.kt:391:        val typePattern = Regex("""<type>([^<]*)</type>""")
+ConvoyTrackOps.kt:392:        val descPattern = Regex("""<desc>([^<]*)</desc>""")
+ConvoyTrackOps.kt:395:            val lat = match.groupValues[1].toDoubleOrNull() ?: continue
+ConvoyTrackOps.kt:396:            val lon = match.groupValues[2].toDoubleOrNull() ?: continue
+ConvoyTrackOps.kt:397:            val inner = match.groupValues[3]
+ConvoyTrackOps.kt:399:            val name = namePattern.find(inner)?.groupValues?.get(1)?.trim() ?: "Unnamed Waypoint"
+ConvoyTrackOps.kt:400:            val rawType = typePattern.find(inner)?.groupValues?.get(1)?.trim()?.lowercase() ?: "other"
+ConvoyTrackOps.kt:401:            val desc = descPattern.find(inner)?.groupValues?.get(1)?.trim() ?: ""
+ConvoyTrackOps.kt:404:            val mappedType = mapWaypointType(rawType)
+ConvoyTrackOps.kt:413:    private fun mapWaypointType(rawType: String): String {
+ConvoyTrackOps.kt:414:        val lower = rawType.lowercase().trim()
+ConvoyTrackOps.kt:439:    fun parseGpxRoutes(gpxText: String): List<GpxRoute> {
+ConvoyTrackOps.kt:440:        val results = mutableListOf<GpxRoute>()
+ConvoyTrackOps.kt:441:        val rtePattern = Regex("""<rte>([\s\S]*?)</rte>""")
+ConvoyTrackOps.kt:442:        val namePattern = Regex("""<name>([^<]*)</name>""")
+ConvoyTrackOps.kt:443:        val rteptPattern = Regex("""<rtept\s+lat="([^"]+)"\s+lon="([^"]+)"""")
+ConvoyTrackOps.kt:446:            val inner = match.groupValues[1]
+ConvoyTrackOps.kt:447:            val name = namePattern.find(inner)?.groupValues?.get(1)?.trim() ?: "Unnamed Route"
+ConvoyTrackOps.kt:448:            val points = mutableListOf<Pair<Double, Double>>()
+ConvoyTrackOps.kt:451:                val lat = ptMatch.groupValues[1].toDoubleOrNull() ?: continue
+ConvoyTrackOps.kt:452:                val lon = ptMatch.groupValues[2].toDoubleOrNull() ?: continue
+ConvoyTrackOps.kt:477:    suspend fun importGpxAllArtifacts(
+ConvoyTrackOps.kt:481:        val sourceName = sourceFile.name
+ConvoyTrackOps.kt:482:        val errors = mutableListOf<String>()
+ConvoyTrackOps.kt:483:        val trackFiles = mutableListOf<String>()
+ConvoyTrackOps.kt:484:        var waypointCount = 0
+ConvoyTrackOps.kt:485:        var routeCount = 0
+ConvoyTrackOps.kt:492:            val text = sourceFile.readText()
+ConvoyTrackOps.kt:499:            val dir = tracksDir()
+ConvoyTrackOps.kt:503:            val trkPattern = Regex("""<trk>([\s\S]*?)</trk>""")
+ConvoyTrackOps.kt:504:            val namePattern = Regex("""<name>([^<]*)</name>""")
+ConvoyTrackOps.kt:505:            val tracks = trkPattern.findAll(text).toList()
+ConvoyTrackOps.kt:509:                    val trkContent = trk.groupValues[1]
+ConvoyTrackOps.kt:510:                    val rawName = namePattern.find(trkContent)?.groupValues?.get(1)?.trim()
+ConvoyTrackOps.kt:512:                    val baseName = rawName
+ConvoyTrackOps.kt:516:                    val safeName = "$baseName.gpx"
+ConvoyTrackOps.kt:519:                    val dest = File(dir, safeName)
+ConvoyTrackOps.kt:521:                        val singleGpx = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
+ConvoyTrackOps.kt:530:                    val coords = SpatialDbManager.parseGpxTrackPoints("<trk>${trkContent}</trk>")
+ConvoyTrackOps.kt:532:                        var minLat = Double.MAX_VALUE; var maxLat = -Double.MAX_VALUE
+ConvoyTrackOps.kt:533:                        var minLon = Double.MAX_VALUE; var maxLon = -Double.MAX_VALUE
+ConvoyTrackOps.kt:535:                            val lon = pair.first; val lat = pair.second
+ConvoyTrackOps.kt:539:                        val wkt = "LINESTRING(" + coords.joinToString(",") { "${it.first} ${it.second}" } + ")"
+ConvoyTrackOps.kt:550:            val waypoints = parseGpxWaypoints(text)
+ConvoyTrackOps.kt:561:            val routes = parseGpxRoutes(text)
+ConvoyTrackOps.kt:564:                    val pts = route.points
+ConvoyTrackOps.kt:565:                    var minLat = Double.MAX_VALUE; var maxLat = -Double.MAX_VALUE
+ConvoyTrackOps.kt:566:                    var minLon = Double.MAX_VALUE; var maxLon = -Double.MAX_VALUE
+ConvoyTrackOps.kt:571:                    val wkt = "LINESTRING(" + pts.joinToString(",") { "${it.first} ${it.second}" } + ")"
+ConvoyTrackOps.kt:580:            val totalImported = trackFiles.size + waypointCount + routeCount
 ConvoyTrackSaveOps.kt:12:object ConvoyTrackSaveOps {
 ConvoyTrackSaveOps.kt:14:    private const val TAG = "TrackSaveOps"
 ConvoyTrackSaveOps.kt:17:    fun parseGpxMetadata(filePath: String) {
@@ -3134,107 +3221,151 @@ SpatialDbManager.kt:49:        val noMedia = File(dir, ".nomedia")
 SpatialDbManager.kt:57:    fun init(context: Context) {
 SpatialDbManager.kt:60:            val dir = dbDir()
 SpatialDbManager.kt:63:            val spatialFile = File(dir, SPATIAL_DB)
-SpatialDbManager.kt:87:            val extFile = File(dir, EXTENSION_DB)
-SpatialDbManager.kt:100:            val tileDir = File(dir, "maps/tiles")
-SpatialDbManager.kt:102:                val tileMapsNoMedia = File(dir, "maps/.nomedia")
-SpatialDbManager.kt:106:                val tileNoMedia = File(File(dir, "maps/tiles"), ".nomedia")
-SpatialDbManager.kt:127:            val trailCount = countRows(spatialDb!!, "trails")
-SpatialDbManager.kt:128:            val trackCount = countRows(spatialDb!!, "tracks")
-SpatialDbManager.kt:129:            val wptCount = countRows(spatialDb!!, "waypoints")
-SpatialDbManager.kt:130:            val routeCount = countRows(spatialDb!!, "routes")
-SpatialDbManager.kt:138:    private fun hasTable(db: SQLiteDatabase, tableName: String): Boolean {
-SpatialDbManager.kt:140:            val cursor = db.rawQuery(
-SpatialDbManager.kt:144:            val exists = cursor.moveToFirst()
-SpatialDbManager.kt:153:    private fun runSchemaFromAsset(context: Context, db: SQLiteDatabase, assetName: String) {
-SpatialDbManager.kt:154:        val raw = context.assets.open(assetName).bufferedReader().use { it.readText() }
-SpatialDbManager.kt:156:        val sql = raw.lines()
-SpatialDbManager.kt:178:    fun getSpatialDb(): SQLiteDatabase? = spatialDb
-SpatialDbManager.kt:181:    fun getExtensionDb(): SQLiteDatabase? = extensionDb
-SpatialDbManager.kt:187:    fun queryTrailsByViewport(south: Double, west: Double, north: Double, east: Double, limit: Int = 500): List<Map<String, String?>> {
-SpatialDbManager.kt:188:        val db = spatialDb ?: return emptyList()
-SpatialDbManager.kt:189:        val results = mutableListOf<Map<String, String?>>()
-SpatialDbManager.kt:190:        val cursor = db.rawQuery(
-SpatialDbManager.kt:195:            val wkt = cursor.getString(2)
-SpatialDbManager.kt:209:    fun wktToGeoJsonCoords(wkt: String): String {
-SpatialDbManager.kt:210:        val inner: String
-SpatialDbManager.kt:211:        val isMulti: Boolean
-SpatialDbManager.kt:220:            val coords = inner.split(",").map { it.trim().split(" ") }
-SpatialDbManager.kt:223:            val lines = inner.split("),(").map { it.trim('(', ')') }
-SpatialDbManager.kt:224:            val jsonLines = lines.map { line ->
-SpatialDbManager.kt:225:                val coords = line.split(",").map { it.trim().split(" ") }
-SpatialDbManager.kt:233:    fun buildTrailGeoJson(trails: List<Map<String, String?>>): String {
-SpatialDbManager.kt:234:        val sb = StringBuilder()
-SpatialDbManager.kt:236:        var first = true
-SpatialDbManager.kt:238:            val wkt = trail["geometry"] ?: continue
-SpatialDbManager.kt:239:            val coords = wktToGeoJsonCoords(wkt)
-SpatialDbManager.kt:243:            val geoType = if (wkt.startsWith("MULTI")) "MultiLineString" else "LineString"
-SpatialDbManager.kt:244:            fun s(k: String): String = (trail[k] ?: "").replace("\\", "\\\\").replace("\"", "\\\\\"")
-SpatialDbManager.kt:264:    fun queryTracksByViewport(north: Double, south: Double, east: Double, west: Double, limit: Int = 500): List<Map<String, String?>> {
-SpatialDbManager.kt:265:        val db = spatialDb ?: return emptyList()
-SpatialDbManager.kt:266:        val results = mutableListOf<Map<String, String?>>()
-SpatialDbManager.kt:268:            val cursor = db.rawQuery(
-SpatialDbManager.kt:274:                    val wkt = it.getString(2) ?: continue
-SpatialDbManager.kt:290:    fun buildTrackGeoJson(tracks: List<Map<String, String?>>): String {
-SpatialDbManager.kt:291:        val sb = StringBuilder()
-SpatialDbManager.kt:295:            val geom = track["geometry"] ?: return@forEachIndexed
-SpatialDbManager.kt:296:            val name = (track["name"] ?: "Unnamed Track").replace("\"", "\\\"")
-SpatialDbManager.kt:297:            val coordStr = geom.removePrefix("LINESTRING(").removeSuffix(")")
-SpatialDbManager.kt:298:            val coords = coordStr.split(",").joinToString(",") { pair ->
-SpatialDbManager.kt:299:                val parts = pair.trim().split(" ")
-SpatialDbManager.kt:309:    fun syncTracksFromFiles(context: android.content.Context) {
-SpatialDbManager.kt:310:        val db = spatialDb ?: return
-SpatialDbManager.kt:312:            val tracksDir = java.io.File(
-SpatialDbManager.kt:320:            val gpxFiles = tracksDir.listFiles { f -> f.name.lowercase().endsWith(".gpx") } ?: return
-SpatialDbManager.kt:323:            val existing = mutableSetOf<String>()
-SpatialDbManager.kt:324:            val cursor = db.rawQuery("SELECT name FROM tracks", null)
-SpatialDbManager.kt:327:            var inserted = 0
-SpatialDbManager.kt:329:                val name = file.nameWithoutExtension
-SpatialDbManager.kt:332:                    val text = file.readText()
-SpatialDbManager.kt:333:                    val coords = parseGpxTrackPoints(text)
-SpatialDbManager.kt:336:                    var minLat = Double.MAX_VALUE; var maxLat = -Double.MAX_VALUE
-SpatialDbManager.kt:337:                    var minLon = Double.MAX_VALUE; var maxLon = -Double.MAX_VALUE
-SpatialDbManager.kt:343:                    val wkt = "LINESTRING(" + coords.joinToString(",") { "${it.first} ${it.second}" } + ")"
-SpatialDbManager.kt:344:                    val trackId = java.util.UUID.randomUUID().toString()
-SpatialDbManager.kt:345:                    val now = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", java.util.Locale.US).format(java.util.Date())
-SpatialDbManager.kt:363:    private fun parseGpxTrackPoints(gpxText: String): List<Pair<Double, Double>> {
-SpatialDbManager.kt:364:        val coords = mutableListOf<Pair<Double, Double>>()
-SpatialDbManager.kt:365:        val regex = Regex("""lat="([^"]+)"\s+lon="([^"]+)"""")
-SpatialDbManager.kt:367:            val lat = match.groupValues[1].toDoubleOrNull() ?: continue
-SpatialDbManager.kt:368:            val lon = match.groupValues[2].toDoubleOrNull() ?: continue
-SpatialDbManager.kt:375:    private fun countRows(db: SQLiteDatabase, table: String): Int {
-SpatialDbManager.kt:376:        val cursor = db.rawQuery("SELECT COUNT(*) FROM $table", null)
-SpatialDbManager.kt:378:        val count = cursor.getInt(0)
-SpatialDbManager.kt:384:    fun close() {
-SpatialDbManager.kt:395:    fun spatial(): SQLiteDatabase {
-SpatialDbManager.kt:400:    fun extension(): SQLiteDatabase {
-SpatialDbManager.kt:405:    fun isReady(): Boolean = initialized
-SpatialDbManager.kt:408:    fun newId(): String = UUID.randomUUID().toString()
-SpatialDbManager.kt:411:    fun now(): String = Instant.now().toString()
-SpatialDbManager.kt:416:    fun pointWkt(lat: Double, lng: Double): String =
-SpatialDbManager.kt:420:    fun lineWkt(points: List<Pair<Double, Double>>): String {
-SpatialDbManager.kt:421:        val coords = points.joinToString(", ") { "${it.second} ${it.first}" }
-SpatialDbManager.kt:426:    fun bboxWkt(north: Double, south: Double, east: Double, west: Double): String =
-SpatialDbManager.kt:430:    fun parsePoint(wkt: String): Pair<Double, Double>? {
-SpatialDbManager.kt:431:        val match = Regex("POINT\\(([\\d.\\-]+) ([\\d.\\-]+)\\)").find(wkt) ?: return null
-SpatialDbManager.kt:432:        val lng = match.groupValues[1].toDoubleOrNull() ?: return null
-SpatialDbManager.kt:433:        val lat = match.groupValues[2].toDoubleOrNull() ?: return null
-SpatialDbManager.kt:438:    fun parseLine(wkt: String): List<Pair<Double, Double>> {
-SpatialDbManager.kt:439:        val match = Regex("LINESTRING\\((.+)\\)").find(wkt) ?: return emptyList()
-SpatialDbManager.kt:441:            val parts = coord.trim().split(" ")
-SpatialDbManager.kt:443:                val lng = parts[0].toDoubleOrNull()
-SpatialDbManager.kt:444:                val lat = parts[1].toDoubleOrNull()
-SpatialDbManager.kt:451:    fun parseBbox(wkt: String): DoubleArray? {
-SpatialDbManager.kt:452:        val match = Regex("POLYGON\\(\\((.+)\\)\\)").find(wkt) ?: return null
-SpatialDbManager.kt:453:        val points = match.groupValues[1].split(",").mapNotNull { coord ->
-SpatialDbManager.kt:454:            val parts = coord.trim().split(" ")
-SpatialDbManager.kt:458:        val lngs = points.map { it.first }
-SpatialDbManager.kt:459:        val lats = points.map { it.second }
-SpatialDbManager.kt:464:    fun spatialSchemaVersion(): Int {
-SpatialDbManager.kt:467:            val cursor = spatialDb!!.rawQuery("SELECT version FROM schema_version ORDER BY version DESC LIMIT 1", null)
-SpatialDbManager.kt:469:            val v = cursor.getInt(0)
-SpatialDbManager.kt:475:    fun extensionSchemaVersion(): Int {
-SpatialDbManager.kt:478:            val cursor = extensionDb!!.rawQuery("SELECT version FROM schema_version ORDER BY version DESC LIMIT 1", null)
-SpatialDbManager.kt:480:            val v = cursor.getInt(0)
+SpatialDbManager.kt:112:            val extFile = File(dir, EXTENSION_DB)
+SpatialDbManager.kt:125:            val tileDir = File(dir, "maps/tiles")
+SpatialDbManager.kt:127:                val tileMapsNoMedia = File(dir, "maps/.nomedia")
+SpatialDbManager.kt:131:                val tileNoMedia = File(File(dir, "maps/tiles"), ".nomedia")
+SpatialDbManager.kt:152:            val trailCount = countRows(spatialDb!!, "trails")
+SpatialDbManager.kt:153:            val trackCount = countRows(spatialDb!!, "tracks")
+SpatialDbManager.kt:154:            val wptCount = countRows(spatialDb!!, "waypoints")
+SpatialDbManager.kt:155:            val routeCount = countRows(spatialDb!!, "routes")
+SpatialDbManager.kt:163:    private fun hasTable(db: SQLiteDatabase, tableName: String): Boolean {
+SpatialDbManager.kt:165:            val cursor = db.rawQuery(
+SpatialDbManager.kt:169:            val exists = cursor.moveToFirst()
+SpatialDbManager.kt:178:    private fun runSchemaFromAsset(context: Context, db: SQLiteDatabase, assetName: String) {
+SpatialDbManager.kt:179:        val raw = context.assets.open(assetName).bufferedReader().use { it.readText() }
+SpatialDbManager.kt:181:        val sql = raw.lines()
+SpatialDbManager.kt:203:    fun getSpatialDb(): SQLiteDatabase? = spatialDb
+SpatialDbManager.kt:206:    fun getExtensionDb(): SQLiteDatabase? = extensionDb
+SpatialDbManager.kt:212:    fun queryTrailsByViewport(south: Double, west: Double, north: Double, east: Double, limit: Int = 500): List<Map<String, String?>> {
+SpatialDbManager.kt:213:        val db = spatialDb ?: return emptyList()
+SpatialDbManager.kt:214:        val results = mutableListOf<Map<String, String?>>()
+SpatialDbManager.kt:215:        val cursor = db.rawQuery(
+SpatialDbManager.kt:220:            val wkt = cursor.getString(2)
+SpatialDbManager.kt:234:    fun wktToGeoJsonCoords(wkt: String): String {
+SpatialDbManager.kt:235:        val inner: String
+SpatialDbManager.kt:236:        val isMulti: Boolean
+SpatialDbManager.kt:245:            val coords = inner.split(",").map { it.trim().split(" ") }
+SpatialDbManager.kt:248:            val lines = inner.split("),(").map { it.trim('(', ')') }
+SpatialDbManager.kt:249:            val jsonLines = lines.map { line ->
+SpatialDbManager.kt:250:                val coords = line.split(",").map { it.trim().split(" ") }
+SpatialDbManager.kt:258:    fun buildTrailGeoJson(trails: List<Map<String, String?>>): String {
+SpatialDbManager.kt:259:        val sb = StringBuilder()
+SpatialDbManager.kt:261:        var first = true
+SpatialDbManager.kt:263:            val wkt = trail["geometry"] ?: continue
+SpatialDbManager.kt:264:            val coords = wktToGeoJsonCoords(wkt)
+SpatialDbManager.kt:268:            val geoType = if (wkt.startsWith("MULTI")) "MultiLineString" else "LineString"
+SpatialDbManager.kt:269:            fun s(k: String): String = (trail[k] ?: "").replace("\\", "\\\\").replace("\"", "\\\\\"")
+SpatialDbManager.kt:289:    fun queryTracksByViewport(north: Double, south: Double, east: Double, west: Double, limit: Int = 500): List<Map<String, String?>> {
+SpatialDbManager.kt:290:        val db = spatialDb ?: return emptyList()
+SpatialDbManager.kt:291:        val results = mutableListOf<Map<String, String?>>()
+SpatialDbManager.kt:293:            val cursor = db.rawQuery(
+SpatialDbManager.kt:299:                    val wkt = it.getString(2) ?: continue
+SpatialDbManager.kt:315:    fun buildTrackGeoJson(tracks: List<Map<String, String?>>): String {
+SpatialDbManager.kt:316:        val sb = StringBuilder()
+SpatialDbManager.kt:320:            val geom = track["geometry"] ?: return@forEachIndexed
+SpatialDbManager.kt:321:            val name = (track["name"] ?: "Unnamed Track").replace("\"", "\\\"")
+SpatialDbManager.kt:322:            val coordStr = geom.removePrefix("LINESTRING(").removeSuffix(")")
+SpatialDbManager.kt:323:            val coords = coordStr.split(",").joinToString(",") { pair ->
+SpatialDbManager.kt:324:                val parts = pair.trim().split(" ")
+SpatialDbManager.kt:334:    fun syncTracksFromFiles(context: android.content.Context) {
+SpatialDbManager.kt:335:        val db = spatialDb ?: return
+SpatialDbManager.kt:337:            val tracksDir = java.io.File(
+SpatialDbManager.kt:345:            val gpxFiles = tracksDir.listFiles { f -> f.name.lowercase().endsWith(".gpx") } ?: return
+SpatialDbManager.kt:348:            val existing = mutableSetOf<String>()
+SpatialDbManager.kt:349:            val cursor = db.rawQuery("SELECT name FROM tracks", null)
+SpatialDbManager.kt:352:            var inserted = 0
+SpatialDbManager.kt:354:                val name = file.nameWithoutExtension
+SpatialDbManager.kt:357:                    val text = file.readText()
+SpatialDbManager.kt:358:                    val coords = parseGpxTrackPoints(text)
+SpatialDbManager.kt:361:                    var minLat = Double.MAX_VALUE; var maxLat = -Double.MAX_VALUE
+SpatialDbManager.kt:362:                    var minLon = Double.MAX_VALUE; var maxLon = -Double.MAX_VALUE
+SpatialDbManager.kt:368:                    val wkt = "LINESTRING(" + coords.joinToString(",") { "${it.first} ${it.second}" } + ")"
+SpatialDbManager.kt:369:                    val trackId = java.util.UUID.randomUUID().toString()
+SpatialDbManager.kt:370:                    val now = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", java.util.Locale.US).format(java.util.Date())
+SpatialDbManager.kt:389:    fun parseGpxTrackPoints(gpxText: String): List<Pair<Double, Double>> {
+SpatialDbManager.kt:390:        val coords = mutableListOf<Pair<Double, Double>>()
+SpatialDbManager.kt:391:        val regex = Regex("""lat="([^"]+)"\s+lon="([^"]+)"""")
+SpatialDbManager.kt:393:            val lat = match.groupValues[1].toDoubleOrNull() ?: continue
+SpatialDbManager.kt:394:            val lon = match.groupValues[2].toDoubleOrNull() ?: continue
+SpatialDbManager.kt:401:    private fun countRows(db: SQLiteDatabase, table: String): Int {
+SpatialDbManager.kt:402:        val cursor = db.rawQuery("SELECT COUNT(*) FROM $table", null)
+SpatialDbManager.kt:404:        val count = cursor.getInt(0)
+SpatialDbManager.kt:412:    fun queryWaypointsByViewport(south: Double, west: Double, north: Double, east: Double, limit: Int = 500): List<Map<String, String?>> {
+SpatialDbManager.kt:413:        val db = spatialDb ?: return emptyList()
+SpatialDbManager.kt:414:        val results = mutableListOf<Map<String, String?>>()
+SpatialDbManager.kt:418:            val cursor = db.rawQuery(
+SpatialDbManager.kt:424:                    val wkt = it.getString(2) ?: continue
+SpatialDbManager.kt:441:    fun buildWaypointGeoJson(waypoints: List<Map<String, String?>>): String {
+SpatialDbManager.kt:442:        val sb = StringBuilder()
+SpatialDbManager.kt:446:            val geom = wpt["geometry"] ?: return@forEachIndexed
+SpatialDbManager.kt:447:            val name = (wpt["name"] ?: "Unnamed").replace("\"", "\\\"")
+SpatialDbManager.kt:448:            val wptType = (wpt["type"] ?: "other").replace("\"", "\\\"")
+SpatialDbManager.kt:450:            val match = Regex("POINT\\(([\\d.\\-]+) ([\\d.\\-]+)\\)").find(geom)
+SpatialDbManager.kt:452:                val lon = match.groupValues[1]
+SpatialDbManager.kt:453:                val lat = match.groupValues[2]
+SpatialDbManager.kt:463:    fun queryRoutesByViewport(south: Double, west: Double, north: Double, east: Double, limit: Int = 500): List<Map<String, String?>> {
+SpatialDbManager.kt:464:        val db = spatialDb ?: return emptyList()
+SpatialDbManager.kt:465:        val results = mutableListOf<Map<String, String?>>()
+SpatialDbManager.kt:467:            val cursor = db.rawQuery(
+SpatialDbManager.kt:473:                    val wkt = it.getString(2) ?: continue
+SpatialDbManager.kt:489:    fun buildRouteGeoJson(routes: List<Map<String, String?>>): String {
+SpatialDbManager.kt:490:        val sb = StringBuilder()
+SpatialDbManager.kt:494:            val geom = route["geometry"] ?: return@forEachIndexed
+SpatialDbManager.kt:495:            val name = (route["name"] ?: "Unnamed Route").replace("\"", "\\\"")
+SpatialDbManager.kt:496:            val coordStr = geom.removePrefix("LINESTRING(").removeSuffix(")")
+SpatialDbManager.kt:497:            val coords = coordStr.split(",").joinToString(",") { pair ->
+SpatialDbManager.kt:498:                val parts = pair.trim().split(" ")
+SpatialDbManager.kt:508:    fun queryTracksOnlyByViewport(north: Double, south: Double, east: Double, west: Double, limit: Int = 500): List<Map<String, String?>> {
+SpatialDbManager.kt:509:        val db = spatialDb ?: return emptyList()
+SpatialDbManager.kt:510:        val results = mutableListOf<Map<String, String?>>()
+SpatialDbManager.kt:512:            val cursor = db.rawQuery(
+SpatialDbManager.kt:518:                    val wkt = it.getString(2) ?: continue
+SpatialDbManager.kt:540:    fun insertWaypoint(name: String, lat: Double, lon: Double, type: String = "other"): String {
+SpatialDbManager.kt:541:        val db = spatialDb ?: throw IllegalStateException("SpatialDbManager not initialized")
+SpatialDbManager.kt:542:        val id = newId()
+SpatialDbManager.kt:543:        val ts = now()
+SpatialDbManager.kt:544:        val geometry = pointWkt(lat, lon)
+SpatialDbManager.kt:573:    fun insertRoute(name: String, geometryWkt: String, minLat: Double, maxLat: Double, minLon: Double, maxLon: Double): String {
+SpatialDbManager.kt:574:        val db = spatialDb ?: throw IllegalStateException("SpatialDbManager not initialized")
+SpatialDbManager.kt:575:        val id = newId()
+SpatialDbManager.kt:576:        val ts = now()
+SpatialDbManager.kt:594:    fun insertTrackToDb(name: String, geometryWkt: String, minLat: Double, maxLat: Double, minLon: Double, maxLon: Double): String {
+SpatialDbManager.kt:595:        val db = spatialDb ?: throw IllegalStateException("SpatialDbManager not initialized")
+SpatialDbManager.kt:596:        val id = newId()
+SpatialDbManager.kt:597:        val ts = now()
+SpatialDbManager.kt:598:        val bbox = "$minLat,$minLon,$maxLat,$maxLon"
+SpatialDbManager.kt:612:    fun close() {
+SpatialDbManager.kt:623:    fun spatial(): SQLiteDatabase {
+SpatialDbManager.kt:628:    fun extension(): SQLiteDatabase {
+SpatialDbManager.kt:633:    fun isReady(): Boolean = initialized
+SpatialDbManager.kt:636:    fun newId(): String = UUID.randomUUID().toString()
+SpatialDbManager.kt:639:    fun now(): String = Instant.now().toString()
+SpatialDbManager.kt:644:    fun pointWkt(lat: Double, lng: Double): String =
+SpatialDbManager.kt:648:    fun lineWkt(points: List<Pair<Double, Double>>): String {
+SpatialDbManager.kt:649:        val coords = points.joinToString(", ") { "${it.second} ${it.first}" }
+SpatialDbManager.kt:654:    fun bboxWkt(north: Double, south: Double, east: Double, west: Double): String =
+SpatialDbManager.kt:658:    fun parsePoint(wkt: String): Pair<Double, Double>? {
+SpatialDbManager.kt:659:        val match = Regex("POINT\\(([\\d.\\-]+) ([\\d.\\-]+)\\)").find(wkt) ?: return null
+SpatialDbManager.kt:660:        val lng = match.groupValues[1].toDoubleOrNull() ?: return null
+SpatialDbManager.kt:661:        val lat = match.groupValues[2].toDoubleOrNull() ?: return null
+SpatialDbManager.kt:666:    fun parseLine(wkt: String): List<Pair<Double, Double>> {
+SpatialDbManager.kt:667:        val match = Regex("LINESTRING\\((.+)\\)").find(wkt) ?: return emptyList()
+SpatialDbManager.kt:669:            val parts = coord.trim().split(" ")
+SpatialDbManager.kt:671:                val lng = parts[0].toDoubleOrNull()
+SpatialDbManager.kt:672:                val lat = parts[1].toDoubleOrNull()
+SpatialDbManager.kt:679:    fun parseBbox(wkt: String): DoubleArray? {
+SpatialDbManager.kt:680:        val match = Regex("POLYGON\\(\\((.+)\\)\\)").find(wkt) ?: return null
+SpatialDbManager.kt:681:        val points = match.groupValues[1].split(",").mapNotNull { coord ->
+SpatialDbManager.kt:682:            val parts = coord.trim().split(" ")
+SpatialDbManager.kt:686:        val lngs = points.map { it.first }
+SpatialDbManager.kt:687:        val lats = points.map { it.second }
+SpatialDbManager.kt:692:    fun spatialSchemaVersion(): Int {
+SpatialDbManager.kt:695:            val cursor = spatialDb!!.rawQuery("SELECT version FROM schema_version ORDER BY version DESC LIMIT 1", null)
+SpatialDbManager.kt:697:            val v = cursor.getInt(0)
+SpatialDbManager.kt:703:    fun extensionSchemaVersion(): Int {
+SpatialDbManager.kt:706:            val cursor = extensionDb!!.rawQuery("SELECT version FROM schema_version ORDER BY version DESC LIMIT 1", null)
+SpatialDbManager.kt:708:            val v = cursor.getInt(0)
 TrackManager.kt:9:object TrackManager {
 TrackManager.kt:10:    fun stub() { /* Pass 1 scaffold -- functions in Pass 2 */ }
 TrailImporter.kt:32:object TrailImporter {
