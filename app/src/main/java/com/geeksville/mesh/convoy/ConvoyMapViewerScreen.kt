@@ -87,44 +87,51 @@ fun ConvoyMapViewerScreen(
             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { trackFileList = files }
         }
     }
-    // ── GPX Import file picker ──
-    val importGpxLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
-        androidx.activity.result.contract.ActivityResultContracts.OpenDocument()
-    ) { uri ->
-        if (uri != null) {
-            scope.launch {
-                try {
-                    val fileName = uri.lastPathSegment?.substringAfterLast('/') ?: "import.gpx"
-                    // Copy to Downloads for import processing
-                    val downloadsDir = android.os.Environment.getExternalStoragePublicDirectory(
-                        android.os.Environment.DIRECTORY_DOWNLOADS)
-                    val tempFile = java.io.File(downloadsDir, fileName)
-                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                        context.contentResolver.openInputStream(uri)?.use { input ->
-                            tempFile.outputStream().use { output -> input.copyTo(output) }
-                        }
-                    }
-                    // Run expanded import
-                    val summary = ConvoyTrackOps.importGpxAllArtifacts(tempFile, context)
-                    // Show summary toast
-                    val msg = buildString {
-                        append("Imported: ")
-                        val parts = mutableListOf<String>()
-                        if (summary.trackCount > 0) parts.add("${summary.trackCount} track${if (summary.trackCount > 1) "s" else ""}")
-                        if (summary.waypointCount > 0) parts.add("${summary.waypointCount} waypoint${if (summary.waypointCount > 1) "s" else ""}")
-                        if (summary.routeCount > 0) parts.add("${summary.routeCount} route${if (summary.routeCount > 1) "s" else ""}")
-                        if (parts.isEmpty()) append("no artifacts found")
-                        else append(parts.joinToString(", "))
-                        if (summary.errors.isNotEmpty()) append(" (${summary.errors.size} error${if (summary.errors.size > 1) "s" else ""})")
-                    }
-                    android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_LONG).show()
-                    // Refresh track list and trigger viewport update
-                    refreshTracks()
-                    webViewRef?.evaluateJavascript("triggerViewportUpdate()", null)
-                } catch (e: Exception) {
-                    android.widget.Toast.makeText(context, "Import error: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
-                }
+    // ── GPX Import: scan Downloads directory ──
+    var showImportList by remember { mutableStateOf(false) }
+    var importFileList by remember { mutableStateOf<List<String>>(emptyList()) }
+    var importingFile by remember { mutableStateOf<String?>(null) }
+    val scanDownloadsForGpx: () -> Unit = {
+        kotlinx.coroutines.MainScope().launch(kotlinx.coroutines.Dispatchers.IO) {
+            val dir = android.os.Environment.getExternalStoragePublicDirectory(
+                android.os.Environment.DIRECTORY_DOWNLOADS)
+            val files = dir.listFiles()?.filter { f ->
+                val ext = f.extension.lowercase()
+                (ext == "gpx" || ext == "kml") && !f.name.startsWith(".")
+            }?.sortedByDescending { it.lastModified() }?.map { it.name } ?: emptyList()
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                importFileList = files
+                showImportList = true
             }
+        }
+    }
+    val runImport: (String) -> Unit = { fileName ->
+        scope.launch {
+            importingFile = fileName
+            try {
+                val downloadsDir = android.os.Environment.getExternalStoragePublicDirectory(
+                    android.os.Environment.DIRECTORY_DOWNLOADS)
+                val sourceFile = java.io.File(downloadsDir, fileName)
+                val summary = ConvoyTrackOps.importGpxAllArtifacts(sourceFile, context)
+                val msg = buildString {
+                    append("Imported: ")
+                    val parts = mutableListOf<String>()
+                    if (summary.trackCount > 0) parts.add("${summary.trackCount} track${if (summary.trackCount > 1) "s" else ""}")
+                    if (summary.waypointCount > 0) parts.add("${summary.waypointCount} waypoint${if (summary.waypointCount > 1) "s" else ""}")
+                    if (summary.routeCount > 0) parts.add("${summary.routeCount} route${if (summary.routeCount > 1) "s" else ""}")
+                    if (parts.isEmpty()) append("no artifacts found")
+                    else append(parts.joinToString(", "))
+                    if (summary.errors.isNotEmpty()) append(" (${summary.errors.size} error${if (summary.errors.size > 1) "s" else ""})")
+                }
+                android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_LONG).show()
+                refreshTracks()
+                webViewRef?.evaluateJavascript("triggerViewportUpdate()", null)
+                // Refresh the import list (file should be gone now)
+                scanDownloadsForGpx()
+            } catch (e: Exception) {
+                android.widget.Toast.makeText(context, "Import error: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
+            }
+            importingFile = null
         }
     }
 
@@ -434,20 +441,19 @@ fun ConvoyMapViewerScreen(
                             fun onMapBoundsReady(n: Double, s: Double, e: Double, w: Double) {}
                             @JavascriptInterface
                             fun onViewportChanged(north: Double, south: Double, east: Double, west: Double, zoom: Double) {
-                                if (!pmTrailsOn && !pmTracksLazyOn && !pmWaypointsOn && !pmRoutesOn) return
+                                // Always query — data preloaded, toggle controls visibility
                                 val z = zoom.toInt()
-                                if (z < 8) return
                                 val limit = if (z < 14) 500 else 2000
                                 Thread {
                                     try {
                                         SpatialDbManager.init(context)
-                                        val trails = SpatialDbManager.queryTrailsByViewport(south, west, north, east, limit)
+                                        val trails = if (z >= 8) SpatialDbManager.queryTrailsByViewport(south, west, north, east, limit) else emptyList()
                                         val json = SpatialDbManager.buildTrailGeoJson(trails)
                                         android.os.Handler(android.os.Looper.getMainLooper()).post {
                                             webViewRef?.evaluateJavascript("updateTrails(" + json + ")", null)
                                         }
                                         // -- Track lazy load --
-                                        if (pmTracksLazyOn) {
+                                        if (true) { // Always query tracks
                                             val trackResults = SpatialDbManager.queryTracksByViewport(south, west, north, east, if (zoom >= 12) 200 else 50)
                                             if (trackResults.isNotEmpty()) {
                                                 val trackJson = SpatialDbManager.buildTrackGeoJson(trackResults)
@@ -457,7 +463,7 @@ fun ConvoyMapViewerScreen(
                                             }
                                         }
                                         // -- Waypoint lazy load --
-                                        if (pmWaypointsOn) {
+                                        if (true) { // Always query waypoints
                                             val wptResults = SpatialDbManager.queryWaypointsByViewport(south, west, north, east, limit)
                                             if (wptResults.isNotEmpty()) {
                                                 val wptJson = SpatialDbManager.buildWaypointGeoJson(wptResults)
@@ -467,7 +473,7 @@ fun ConvoyMapViewerScreen(
                                             }
                                         }
                                         // -- Route lazy load --
-                                        if (pmRoutesOn) {
+                                        if (true) { // Always query routes
                                             val routeResults = SpatialDbManager.queryRoutesByViewport(south, west, north, east, limit)
                                             if (routeResults.isNotEmpty()) {
                                                 val routeJson = SpatialDbManager.buildRouteGeoJson(routeResults)
@@ -531,21 +537,27 @@ fun ConvoyMapViewerScreen(
                                     )
                                 }
                                 // Trails loaded on demand via TRAILS button
-                                // Center map on device GPS position
-                                try {
-                                    val lm = view.context.getSystemService(android.content.Context.LOCATION_SERVICE) as android.location.LocationManager
-                                    @Suppress("MissingPermission")
-                                    val loc = lm.getLastKnownLocation(android.location.LocationManager.GPS_PROVIDER)
-                                        ?: lm.getLastKnownLocation(android.location.LocationManager.NETWORK_PROVIDER)
-                                    if (loc != null && loc.latitude != 0.0 && loc.longitude != 0.0) {
-                                        view.evaluateJavascript(
-                                            "setView(" + loc.latitude + ", " + loc.longitude + ", 15)", null
-                                        )
-                                        android.util.Log.i("PlanMap", "Centered on GPS: " + loc.latitude + ", " + loc.longitude)
+                                // Center map on device GPS position (matches Convoy Map approach)
+                                view?.postDelayed({
+                                    try {
+                                        val lm = context.getSystemService(android.content.Context.LOCATION_SERVICE) as android.location.LocationManager
+                                        @Suppress("MissingPermission")
+                                        val loc = lm.getLastKnownLocation(android.location.LocationManager.GPS_PROVIDER)
+                                            ?: lm.getLastKnownLocation(android.location.LocationManager.NETWORK_PROVIDER)
+                                        if (loc != null && loc.latitude != 0.0 && loc.longitude != 0.0) {
+                                            view?.evaluateJavascript(
+                                                "setView(" + loc.latitude + ", " + loc.longitude + ", 15)", null
+                                            )
+                                            android.util.Log.i("PlanMap", "Centered on GPS: " + loc.latitude + ", " + loc.longitude)
+                                        } else {
+                                            android.util.Log.w("PlanMap", "GPS: getLastKnownLocation returned null — no cached position")
+                                        }
+                                    } catch (e: SecurityException) {
+                                        android.util.Log.w("PlanMap", "GPS: Location permission not granted")
+                                    } catch (e: Exception) {
+                                        android.util.Log.e("PlanMap", "GPS: Error getting location: " + e.message)
                                     }
-                                } catch (e: SecurityException) {
-                                    android.util.Log.w("PlanMap", "Location permission not granted")
-                                }
+                                }, 600)
                                 // Detect max offline zoom from tile directory
                                 Thread {
                                     try {
@@ -567,6 +579,11 @@ fun ConvoyMapViewerScreen(
                                         android.util.Log.w("PlanMap", "Tile scan error: " + e.message)
                                     }
                                 }.start()
+                                // Trigger initial data load for all artifact types
+                                android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                                    webViewRef?.evaluateJavascript("triggerViewportUpdate()", null)
+                                    android.util.Log.i("PlanMap", "Initial artifact data load triggered")
+                                }, 1000)
                             }
                         }
                         loadUrl("file:///android_asset/grouptrack_map.html")
@@ -613,64 +630,116 @@ fun ConvoyMapViewerScreen(
                     when (typeName) {
                         "Tracks" -> {
                             pmTracksLazyOn = !pmTracksLazyOn
-                            if (pmTracksLazyOn) {
-                                android.util.Log.i("TrackLazy", "TRACKS ON via artifacts panel")
-                                webViewRef?.evaluateJavascript("triggerViewportUpdate()", null)
-                            } else {
-                                webViewRef?.evaluateJavascript("clearTracks()", null)
-                            }
+                            webViewRef?.evaluateJavascript(
+                                if (pmTracksLazyOn) "showTracks()" else "hideTracks()", null)
                         }
                         "Trails" -> {
                             pmTrailsOn = !pmTrailsOn
-                            if (pmTrailsOn) {
-                                android.util.Log.i("TrailLazy", "TRAILS ON via artifacts panel")
-                                webViewRef?.evaluateJavascript("triggerViewportUpdate()", null)
-                            } else {
-                                webViewRef?.evaluateJavascript("clearTrails()", null)
-                            }
+                            webViewRef?.evaluateJavascript(
+                                if (pmTrailsOn) "showTrails()" else "hideTrails()", null)
                         }
                         "Waypoints" -> {
                             pmWaypointsOn = !pmWaypointsOn
-                            if (pmWaypointsOn) {
-                                android.util.Log.i("WaypointLazy", "WAYPOINTS ON via artifacts panel")
-                                webViewRef?.evaluateJavascript("triggerViewportUpdate()", null)
-                            } else {
-                                webViewRef?.evaluateJavascript("clearWaypoints()", null)
-                            }
+                            webViewRef?.evaluateJavascript(
+                                if (pmWaypointsOn) "showWaypoints()" else "hideWaypoints()", null)
                         }
                         "Routes" -> {
                             pmRoutesOn = !pmRoutesOn
-                            if (pmRoutesOn) {
-                                android.util.Log.i("RouteLazy", "ROUTES ON via artifacts panel")
-                                webViewRef?.evaluateJavascript("triggerViewportUpdate()", null)
-                            } else {
-                                webViewRef?.evaluateJavascript("clearRoutes()", null)
-                            }
+                            webViewRef?.evaluateJavascript(
+                                if (pmRoutesOn) "showRoutes()" else "hideRoutes()", null)
                         }
                     }
                 },
                 onImport = { typeName ->
                     when (typeName) {
                         "Trails" -> onNavigateToTrailSources()
-                        "Artifacts" -> {
-                            importGpxLauncher.launch(arrayOf(
-                                "application/gpx+xml",
-                                "application/xml",
-                                "text/xml",
-                                "application/octet-stream"
-                            ))
-                        }
-                        else -> {
-                            importGpxLauncher.launch(arrayOf(
-                                "application/gpx+xml",
-                                "application/xml",
-                                "text/xml",
-                                "application/octet-stream"
-                            ))
-                        }
+                        "Artifacts" -> { scanDownloadsForGpx() }
+                        else -> { scanDownloadsForGpx() }
                     }
                 }
             )
+
+            // -- IMPORT LIST PANEL (scan Downloads for GPX/KML) --
+            if (showImportList) {
+                androidx.compose.material3.Surface(
+                    modifier = Modifier.align(Alignment.Center).padding(16.dp).fillMaxWidth(0.85f),
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xEE131820),
+                    shadowElevation = 8.dp
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically) {
+                            Text("IMPORT ARTIFACTS", color = Color(0xFF4DA6FF),
+                                fontSize = 13.sp, fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.Bold)
+                            Text("CLOSE", color = Color(0xFF7A8DA0),
+                                fontSize = 11.sp, fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.clickable { showImportList = false }.padding(4.dp))
+                        }
+                        Spacer(Modifier.height(4.dp))
+                        // RESYNC TRACKS button
+                        Surface(
+                            modifier = Modifier.fillMaxWidth().clickable {
+                                scope.launch {
+                                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                        SpatialDbManager.init(context)
+                                        SpatialDbManager.syncTracksFromFiles(context)
+                                    }
+                                    android.widget.Toast.makeText(context, "Track resync complete", android.widget.Toast.LENGTH_SHORT).show()
+                                    webViewRef?.evaluateJavascript("triggerViewportUpdate()", null)
+                                }
+                            },
+                            shape = RoundedCornerShape(4.dp),
+                            color = Color(0xFF0D1520)
+                        ) {
+                            Text("RESYNC TRACKS TO SPATIAL DB", color = Color(0xFF39FF14),
+                                fontSize = 10.sp, fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.Bold, textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp).fillMaxWidth())
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        Text("GPX/KML files in Downloads:", color = Color(0xFF4A6080),
+                            fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                        Spacer(Modifier.height(8.dp))
+                        if (importFileList.isEmpty()) {
+                            Text("No GPX or KML files found in Downloads",
+                                color = Color(0xFF667788), fontSize = 11.sp,
+                                fontFamily = FontFamily.Monospace,
+                                modifier = Modifier.padding(vertical = 16.dp))
+                        } else {
+                            androidx.compose.foundation.lazy.LazyColumn(
+                                modifier = Modifier.heightIn(max = 300.dp)
+                            ) {
+                                items(importFileList.size) { idx ->
+                                    val name = importFileList[idx]
+                                    val isImporting = importingFile == name
+                                    Surface(
+                                        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)
+                                            .clickable(enabled = !isImporting) { runImport(name) },
+                                        shape = RoundedCornerShape(4.dp),
+                                        color = if (isImporting) Color(0xFF2E75B6).copy(alpha = 0.3f) else Color(0xFF1A2233)
+                                    ) {
+                                        Row(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                                            verticalAlignment = Alignment.CenterVertically) {
+                                            Text(if (isImporting) "⏳" else "⬇",
+                                                fontSize = 14.sp, modifier = Modifier.padding(end = 8.dp))
+                                            Text(name, color = Color.White, fontSize = 11.sp,
+                                                fontFamily = FontFamily.Monospace, maxLines = 1,
+                                                modifier = Modifier.weight(1f))
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        Text("Tap file to import. Tracks, waypoints, and routes are extracted automatically.",
+                            color = Color(0xFF4A6080), fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                    }
+                }
+            }
 
             // -- FLOATING DISPLAY PANEL --
             ConvoyDisplayPanel(

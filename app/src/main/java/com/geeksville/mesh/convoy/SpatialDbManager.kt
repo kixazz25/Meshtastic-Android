@@ -100,7 +100,17 @@ object SpatialDbManager {
                 } catch (e3: Exception) { android.util.Log.w("SpatialDb", "waypoint bbox migration: " + e3.message) }
             }
             // v3 migration: ensure routes columns on tracks table (routes share tracks table per decision log)
-            // Routes are tracks with type='ROUTE' — no separate table needed
+            // Routes are tracks with type='ROUTE'
+
+            // v4 migration: add carto_code to trails for color display
+            try {
+                spatialDb!!.rawQuery("SELECT carto_code FROM trails LIMIT 1", null).use { it.moveToFirst() }
+            } catch (e: Exception) {
+                android.util.Log.i("SpatialDb", "Applying v4 migration: carto_code on trails")
+                try {
+                    spatialDb!!.execSQL("ALTER TABLE trails ADD COLUMN carto_code TEXT")
+                } catch (e4: Exception) { android.util.Log.w("SpatialDb", "v4 migration: " + e4.message) }
+            }
             if (!hasTable(spatialDb!!, "schema_version")) {
                 runSchemaFromAsset(context, spatialDb!!, "schema_spatial_v1.sql")
                 android.util.Log.i(TAG, "Applied spatial schema: \${spatialFile.absolutePath}")
@@ -213,7 +223,7 @@ object SpatialDbManager {
         val db = spatialDb ?: return emptyList()
         val results = mutableListOf<Map<String, String?>>()
         val cursor = db.rawQuery(
-            "SELECT trail_id, name, geometry FROM trails WHERE max_lat >= ? AND min_lat <= ? AND max_lon >= ? AND min_lon <= ? LIMIT ?",
+            "SELECT trail_id, name, geometry, carto_code FROM trails WHERE max_lat >= ? AND min_lat <= ? AND max_lon >= ? AND min_lon <= ? LIMIT ?",
             arrayOf(south.toString(), north.toString(), west.toString(), east.toString(), limit.toString())
         )
         while (cursor.moveToNext()) {
@@ -324,7 +334,8 @@ object SpatialDbManager {
                 val parts = pair.trim().split(" ")
                 if (parts.size >= 2) "[${parts[0]},${parts[1]}]" else "[0,0]"
             }
-            sb.append("{\"type\":\"Feature\",\"properties\":{\"name\":\"$name\"},\"geometry\":{\"type\":\"LineString\",\"coordinates\":[$coords]}}")
+            val cc = (track["carto_code"] ?: "").replace("\"", "\\\"")
+            sb.append("{\"type\":\"Feature\",\"properties\":{\"name\":\"$name\",\"cartoCode\":\"$cc\"},\"geometry\":{\"type\":\"LineString\",\"coordinates\":[$coords]}}")
         }
         sb.append("]}")
         return sb.toString()
@@ -505,7 +516,7 @@ object SpatialDbManager {
     }
 
     /** Update queryTracksByViewport to exclude routes (only type='TRACK' or no type) */
-    fun queryTracksOnlyByViewport(north: Double, south: Double, east: Double, west: Double, limit: Int = 500): List<Map<String, String?>> {
+    fun queryTracksOnlyByViewport(south: Double, west: Double, north: Double, east: Double, limit: Int = 500): List<Map<String, String?>> {
         val db = spatialDb ?: return emptyList()
         val results = mutableListOf<Map<String, String?>>()
         try {
@@ -608,6 +619,26 @@ object SpatialDbManager {
         return id
     }
 
+    
+
+    /** Get bounding box of all items in a table. Returns [south, west, north, east] or null if empty. */
+    fun getArtifactBounds(table: String): DoubleArray? {
+        val db = spatialDb ?: return null
+        val latCol = if (table == "trails") "min_lat" else "min_lat"
+        try {
+            val cursor = db.rawQuery(
+                "SELECT MIN(min_lat), MIN(min_lon), MAX(max_lat), MAX(max_lon) FROM $table WHERE min_lat IS NOT NULL", null
+            )
+            cursor.use {
+                if (it.moveToFirst() && !it.isNull(0)) {
+                    return doubleArrayOf(it.getDouble(0), it.getDouble(1), it.getDouble(2), it.getDouble(3))
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("SpatialDb", "getArtifactBounds($table) failed: ${e.message}")
+        }
+        return null
+    }
         /** Close both databases. Call on app teardown. */
     fun close() {
         spatialDb?.close()

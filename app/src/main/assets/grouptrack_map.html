@@ -93,6 +93,18 @@
     }
 
     // -- Trail overlay --
+    function trailColor(code) {
+      if (!code) return '#00FFFF';
+      var c = code.toLowerCase();
+      if (c.indexOf('ohv') >= 0 || c.indexOf('atv') >= 0 || c.indexOf('off-highway') >= 0) return '#00AAFF';
+      if (c.indexOf('hik') >= 0 && c.indexOf('bik') >= 0) return '#FF8800';
+      if (c.indexOf('hik') >= 0) return '#FFCC00';
+      if (c.indexOf('bik') >= 0 || c.indexOf('mountain bike') >= 0) return '#AA44FF';
+      if (c.indexOf('horse') >= 0 || c.indexOf('equestrian') >= 0) return '#8B4513';
+      if (c.indexOf('motor') >= 0) return '#00AAFF';
+      return '#00FFFF';
+    }
+
     function loadTrails(geojsonData) {
       if (trailLayer) map.removeLayer(trailLayer);
       trailLayer = L.geoJSON(geojsonData, {
@@ -156,9 +168,11 @@
 
     function updateTrails(geojsonData) {
       if (typeof geojsonData === 'string') geojsonData = JSON.parse(geojsonData);
+      var wasVisible = trailsVisible;
+      if (trailsVisible && trailLayer) map.removeLayer(trailLayer);
       loadTrails(geojsonData);
       trailsVisible = false;
-      showTrails();
+      if (wasVisible) showTrails();
     }
 
 
@@ -183,9 +197,11 @@
     }
     function updateTracks(geojsonData) {
       if (typeof geojsonData === 'string') geojsonData = JSON.parse(geojsonData);
+      var wasVisible = tracksVisible;
+      if (tracksVisible && trackLayer) map.removeLayer(trackLayer);
       loadTracks(geojsonData);
       tracksVisible = false;
-      showTracks();
+      if (wasVisible) showTracks();
     }
     function clearTracks() {
       if (trackLayer) { map.removeLayer(trackLayer); trackLayer = null; }
@@ -272,9 +288,11 @@
     }
     function updateWaypoints(geojsonData) {
       if (typeof geojsonData === 'string') geojsonData = JSON.parse(geojsonData);
+      var wasVisible = waypointsVisible;
+      if (waypointsVisible && waypointLayer) map.removeLayer(waypointLayer);
       loadWaypoints(geojsonData);
       waypointsVisible = false;
-      showWaypoints();
+      if (wasVisible) showWaypoints();
     }
     function clearWaypoints() {
       if (waypointLayer) { map.removeLayer(waypointLayer); waypointLayer = null; }
@@ -309,9 +327,11 @@
     }
     function updateRoutes(geojsonData) {
       if (typeof geojsonData === 'string') geojsonData = JSON.parse(geojsonData);
+      var wasVisible = routesVisible;
+      if (routesVisible && routeLayer) map.removeLayer(routeLayer);
       loadRoutes(geojsonData);
       routesVisible = false;
-      showRoutes();
+      if (wasVisible) showRoutes();
     }
     function clearRoutes() {
       if (routeLayer) { map.removeLayer(routeLayer); routeLayer = null; }
@@ -531,7 +551,7 @@
         // -- Viewport-driven trail lazy load --
         var viewportTimer = null;
         map.on('moveend', function() {
-          if (!trailsVisible && !tracksVisible && !waypointsVisible && !routesVisible) return;
+          // Always fire viewport update — data preloaded regardless of toggle
           if (viewportTimer) clearTimeout(viewportTimer);
           viewportTimer = setTimeout(function() {
             var b = map.getBounds();
