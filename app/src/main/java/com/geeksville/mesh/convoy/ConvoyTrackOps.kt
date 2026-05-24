@@ -352,4 +352,248 @@ object ConvoyTrackOps {
     }
 
 
+
+
+    // ── GPX Waypoint/Route Data Classes ────────────────────────────
+
+    data class GpxWaypoint(
+        val name: String,
+        val lat: Double,
+        val lon: Double,
+        val type: String,
+        val description: String = ""
+    )
+
+    data class GpxRoute(
+        val name: String,
+        val points: List<Pair<Double, Double>>  // (lon, lat) pairs
+    )
+
+    data class ImportArtifactsSummary(
+        val sourceName: String,
+        val trackCount: Int,
+        val waypointCount: Int,
+        val routeCount: Int,
+        val trackFiles: List<String>,
+        val errors: List<String>
+    )
+
+    // ── GPX Waypoint Parser ────────────────────────────────────────
+
+    /**
+     * Parse <wpt> elements from GPX text.
+     * GPX format: <wpt lat="37.1" lon="-113.5"><name>...</name><type>...</type><desc>...</desc></wpt>
+     */
+    fun parseGpxWaypoints(gpxText: String): List<GpxWaypoint> {
+        val results = mutableListOf<GpxWaypoint>()
+        val wptPattern = Regex("""<wpt\s+lat="([^"]+)"\s+lon="([^"]+)"[^>]*>([\s\S]*?)</wpt>""")
+        val namePattern = Regex("""<name>([^<]*)</name>""")
+        val typePattern = Regex("""<type>([^<]*)</type>""")
+        val descPattern = Regex("""<desc>([^<]*)</desc>""")
+
+        for (match in wptPattern.findAll(gpxText)) {
+            val lat = match.groupValues[1].toDoubleOrNull() ?: continue
+            val lon = match.groupValues[2].toDoubleOrNull() ?: continue
+            val inner = match.groupValues[3]
+
+            val name = namePattern.find(inner)?.groupValues?.get(1)?.trim() ?: "Unnamed Waypoint"
+            val rawType = typePattern.find(inner)?.groupValues?.get(1)?.trim()?.lowercase() ?: "other"
+            val desc = descPattern.find(inner)?.groupValues?.get(1)?.trim() ?: ""
+
+            // Map common GPX types to our 10 types
+            val mappedType = mapWaypointType(rawType)
+            results.add(GpxWaypoint(name, lat, lon, mappedType, desc))
+        }
+        return results
+    }
+
+    /**
+     * Map GPX waypoint type strings to our 10 standard types.
+     */
+    private fun mapWaypointType(rawType: String): String {
+        val lower = rawType.lowercase().trim()
+        return when {
+            lower in listOf("trailhead", "trail head") -> "trailhead"
+            lower in listOf("fuel", "gas", "gas station", "petrol") -> "fuel"
+            lower in listOf("gate", "barrier") -> "gate"
+            lower in listOf("hazard", "danger", "warning", "caution") -> "hazard"
+            lower in listOf("scenic", "viewpoint", "scenic viewpoint", "overlook", "vista") -> "scenic"
+            lower in listOf("water", "water source", "spring", "creek", "river") -> "water"
+            lower in listOf("camp", "campsite", "camping", "campground") -> "camp"
+            lower in listOf("parking", "park", "lot") -> "parking"
+            lower in listOf("rally", "rally point", "meetup", "meeting") -> "rally"
+            lower.length <= 12 && lower in listOf(
+                "trailhead", "fuel", "gate", "hazard", "scenic",
+                "water", "camp", "parking", "rally", "other"
+            ) -> lower
+            else -> "other"
+        }
+    }
+
+    // ── GPX Route Parser ───────────────────────────────────────────
+
+    /**
+     * Parse <rte> elements from GPX text.
+     * GPX format: <rte><name>...</name><rtept lat="37.1" lon="-113.5">...</rtept></rte>
+     */
+    fun parseGpxRoutes(gpxText: String): List<GpxRoute> {
+        val results = mutableListOf<GpxRoute>()
+        val rtePattern = Regex("""<rte>([\s\S]*?)</rte>""")
+        val namePattern = Regex("""<name>([^<]*)</name>""")
+        val rteptPattern = Regex("""<rtept\s+lat="([^"]+)"\s+lon="([^"]+)"""")
+
+        for (match in rtePattern.findAll(gpxText)) {
+            val inner = match.groupValues[1]
+            val name = namePattern.find(inner)?.groupValues?.get(1)?.trim() ?: "Unnamed Route"
+            val points = mutableListOf<Pair<Double, Double>>()
+
+            for (ptMatch in rteptPattern.findAll(inner)) {
+                val lat = ptMatch.groupValues[1].toDoubleOrNull() ?: continue
+                val lon = ptMatch.groupValues[2].toDoubleOrNull() ?: continue
+                points.add(Pair(lon, lat))  // WKT order: lon, lat
+            }
+
+            if (points.size >= 2) {
+                results.add(GpxRoute(name, points))
+            }
+        }
+        return results
+    }
+
+    // ── Full Artifact Import ───────────────────────────────────────
+
+    /**
+     * Import all artifact types from a GPX file:
+     *   - Tracks: create GPX files in my_tracks/ + insert into spatial DB
+     *   - Waypoints: insert into spatial DB waypoints table
+     *   - Routes: insert into spatial DB tracks table (type='ROUTE')
+     *
+     * Source file is deleted from Downloads after successful import.
+     *
+     * @param sourceFile GPX file to import (typically from Downloads)
+     * @param context Android context for SpatialDbManager init
+     * @return ImportArtifactsSummary with counts per type
+     */
+    suspend fun importGpxAllArtifacts(
+        sourceFile: File,
+        context: android.content.Context
+    ): ImportArtifactsSummary = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        val sourceName = sourceFile.name
+        val errors = mutableListOf<String>()
+        val trackFiles = mutableListOf<String>()
+        var waypointCount = 0
+        var routeCount = 0
+
+        try {
+            if (!sourceFile.exists()) {
+                return@withContext ImportArtifactsSummary(sourceName, 0, 0, 0, emptyList(), listOf("File not found"))
+            }
+
+            val text = sourceFile.readText()
+            if (!sourceFile.extension.lowercase().let { it == "gpx" }) {
+                return@withContext ImportArtifactsSummary(sourceName, 0, 0, 0, emptyList(), listOf("Not a GPX file"))
+            }
+
+            // Initialize spatial DB
+            SpatialDbManager.init(context)
+            val dir = tracksDir()
+            if (!dir.exists()) dir.mkdirs()
+
+            // ── 1. Process Tracks (<trk> elements) ──
+            val trkPattern = Regex("""<trk>([\s\S]*?)</trk>""")
+            val namePattern = Regex("""<name>([^<]*)</name>""")
+            val tracks = trkPattern.findAll(text).toList()
+
+            for ((index, trk) in tracks.withIndex()) {
+                try {
+                    val trkContent = trk.groupValues[1]
+                    val rawName = namePattern.find(trkContent)?.groupValues?.get(1)?.trim()
+                        ?: "track_${index + 1}"
+                    val baseName = rawName
+                        .replace("/", "_").replace("\\", "_")
+                        .replace(Regex("[^a-zA-Z0-9_\\- ]"), "")
+                        .trim().ifEmpty { "track_${index + 1}" }
+                    val safeName = "$baseName.gpx"
+
+                    // Create GPX file in my_tracks/
+                    val dest = File(dir, safeName)
+                    if (!dest.exists()) {
+                        val singleGpx = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
+                            "<gpx version=\"1.1\" creator=\"GroupTrack\">\n" +
+                            "<trk>${trkContent}</trk>\n</gpx>"
+                        dest.writeText(singleGpx)
+                        extractEarliestTime(singleGpx)?.let { dest.setLastModified(it) }
+                            ?: dest.setLastModified(sourceFile.lastModified())
+                    }
+
+                    // Parse coordinates for spatial DB
+                    val coords = SpatialDbManager.parseGpxTrackPoints("<trk>${trkContent}</trk>")
+                    if (coords.isNotEmpty()) {
+                        var minLat = Double.MAX_VALUE; var maxLat = -Double.MAX_VALUE
+                        var minLon = Double.MAX_VALUE; var maxLon = -Double.MAX_VALUE
+                        for (pair in coords) {
+                            val lon = pair.first; val lat = pair.second
+                            if (lat < minLat) minLat = lat; if (lat > maxLat) maxLat = lat
+                            if (lon < minLon) minLon = lon; if (lon > maxLon) maxLon = lon
+                        }
+                        val wkt = "LINESTRING(" + coords.joinToString(",") { "${it.first} ${it.second}" } + ")"
+                        SpatialDbManager.insertTrackToDb(baseName, wkt, minLat, maxLat, minLon, maxLon)
+                    }
+
+                    trackFiles.add(safeName)
+                } catch (e: Exception) {
+                    errors.add("Track ${index + 1}: ${e.message}")
+                }
+            }
+
+            // ── 2. Process Waypoints (<wpt> elements) ──
+            val waypoints = parseGpxWaypoints(text)
+            for (wpt in waypoints) {
+                try {
+                    SpatialDbManager.insertWaypoint(wpt.name, wpt.lat, wpt.lon, wpt.type)
+                    waypointCount++
+                } catch (e: Exception) {
+                    errors.add("Waypoint ${wpt.name}: ${e.message}")
+                }
+            }
+
+            // ── 3. Process Routes (<rte> elements) ──
+            val routes = parseGpxRoutes(text)
+            for (route in routes) {
+                try {
+                    val pts = route.points
+                    var minLat = Double.MAX_VALUE; var maxLat = -Double.MAX_VALUE
+                    var minLon = Double.MAX_VALUE; var maxLon = -Double.MAX_VALUE
+                    for ((lon, lat) in pts) {
+                        if (lat < minLat) minLat = lat; if (lat > maxLat) maxLat = lat
+                        if (lon < minLon) minLon = lon; if (lon > maxLon) maxLon = lon
+                    }
+                    val wkt = "LINESTRING(" + pts.joinToString(",") { "${it.first} ${it.second}" } + ")"
+                    SpatialDbManager.insertRoute(route.name, wkt, minLat, maxLat, minLon, maxLon)
+                    routeCount++
+                } catch (e: Exception) {
+                    errors.add("Route ${route.name}: ${e.message}")
+                }
+            }
+
+            // ── 4. Delete source file after successful import ──
+            val totalImported = trackFiles.size + waypointCount + routeCount
+            if (totalImported > 0) {
+                try {
+                    sourceFile.delete()
+                    android.util.Log.i("Import", "Deleted source file: $sourceName")
+                } catch (e: Exception) {
+                    android.util.Log.w("Import", "Could not delete source: ${e.message}")
+                }
+            }
+
+            android.util.Log.i("Import", "Import complete: ${trackFiles.size} tracks, $waypointCount waypoints, $routeCount routes from $sourceName")
+            ImportArtifactsSummary(sourceName, trackFiles.size, waypointCount, routeCount, trackFiles, errors)
+
+        } catch (e: Exception) {
+            android.util.Log.e("Import", "Import failed for $sourceName: ${e.message}")
+            ImportArtifactsSummary(sourceName, 0, 0, 0, emptyList(), listOf(e.message ?: "Unknown error"))
+        }
+    }
+
 }

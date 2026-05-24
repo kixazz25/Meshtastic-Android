@@ -76,6 +76,31 @@ object SpatialDbManager {
                     spatialDb!!.execSQL("CREATE INDEX IF NOT EXISTS idx_tracks_bbox ON tracks(min_lat, max_lat, min_lon, max_lon)")
                 } catch (e2: Exception) { android.util.Log.w("SpatialDb", "Migration partial: " + e2.message) }
             }
+            // v3 migration: add type column to tracks (TRACK/ROUTE distinction)
+            try {
+                spatialDb!!.rawQuery("SELECT type FROM tracks LIMIT 1", null).use { it.moveToFirst() }
+            } catch (e: Exception) {
+                android.util.Log.i("SpatialDb", "Applying v3 migration: type column on tracks")
+                try {
+                    spatialDb!!.execSQL("ALTER TABLE tracks ADD COLUMN type TEXT NOT NULL DEFAULT 'TRACK'")
+                    spatialDb!!.execSQL("CREATE INDEX IF NOT EXISTS idx_tracks_type ON tracks(type)")
+                } catch (e3: Exception) { android.util.Log.w("SpatialDb", "v3 migration partial: " + e3.message) }
+            }
+            // v3 migration: ensure waypoints table has bbox columns for viewport queries
+            try {
+                spatialDb!!.rawQuery("SELECT min_lat FROM waypoints LIMIT 1", null).use { it.moveToFirst() }
+            } catch (e: Exception) {
+                android.util.Log.i("SpatialDb", "Applying v3 migration: bbox columns on waypoints")
+                try {
+                    spatialDb!!.execSQL("ALTER TABLE waypoints ADD COLUMN min_lat REAL")
+                    spatialDb!!.execSQL("ALTER TABLE waypoints ADD COLUMN max_lat REAL")
+                    spatialDb!!.execSQL("ALTER TABLE waypoints ADD COLUMN min_lon REAL")
+                    spatialDb!!.execSQL("ALTER TABLE waypoints ADD COLUMN max_lon REAL")
+                    spatialDb!!.execSQL("CREATE INDEX IF NOT EXISTS idx_waypoints_bbox ON waypoints(min_lat, max_lat, min_lon, max_lon)")
+                } catch (e3: Exception) { android.util.Log.w("SpatialDb", "waypoint bbox migration: " + e3.message) }
+            }
+            // v3 migration: ensure routes columns on tracks table (routes share tracks table per decision log)
+            // Routes are tracks with type='ROUTE' — no separate table needed
             if (!hasTable(spatialDb!!, "schema_version")) {
                 runSchemaFromAsset(context, spatialDb!!, "schema_spatial_v1.sql")
                 android.util.Log.i(TAG, "Applied spatial schema: \${spatialFile.absolutePath}")
@@ -360,7 +385,8 @@ object SpatialDbManager {
     }
 
     /** Parse GPX file for track points, returns list of (lon, lat) pairs */
-    private fun parseGpxTrackPoints(gpxText: String): List<Pair<Double, Double>> {
+    /** Parse GPX track points — used by ConvoyTrackOps for import */
+    fun parseGpxTrackPoints(gpxText: String): List<Pair<Double, Double>> {
         val coords = mutableListOf<Pair<Double, Double>>()
         val regex = Regex("""lat="([^"]+)"\s+lon="([^"]+)"""")
         for (match in regex.findAll(gpxText)) {
@@ -380,7 +406,209 @@ object SpatialDbManager {
         return count
     }
 
-    /** Close both databases. Call on app teardown. */
+
+
+    /** Query waypoints by viewport bounding box */
+    fun queryWaypointsByViewport(south: Double, west: Double, north: Double, east: Double, limit: Int = 500): List<Map<String, String?>> {
+        val db = spatialDb ?: return emptyList()
+        val results = mutableListOf<Map<String, String?>>()
+        try {
+            // For POINT geometry, min_lat==max_lat, min_lon==max_lon
+            // But we query the same bbox pattern for consistency
+            val cursor = db.rawQuery(
+                "SELECT waypoint_id, name, geometry, type FROM waypoints WHERE min_lat IS NOT NULL AND max_lat >= ? AND min_lat <= ? AND max_lon >= ? AND min_lon <= ? LIMIT ?",
+                arrayOf(south.toString(), north.toString(), west.toString(), east.toString(), limit.toString())
+            )
+            cursor.use {
+                while (it.moveToNext()) {
+                    val wkt = it.getString(2) ?: continue
+                    results.add(mapOf(
+                        "waypoint_id" to it.getString(0),
+                        "name" to it.getString(1),
+                        "geometry" to wkt,
+                        "type" to (it.getString(3) ?: "other")
+                    ))
+                }
+            }
+            android.util.Log.i("WaypointLazy", "Viewport query returned ${results.size} waypoints")
+        } catch (e: Exception) {
+            android.util.Log.e("WaypointLazy", "Viewport query failed: ${e.message}")
+        }
+        return results
+    }
+
+    /** Build GeoJSON FeatureCollection from waypoint query results (Point geometry) */
+    fun buildWaypointGeoJson(waypoints: List<Map<String, String?>>): String {
+        val sb = StringBuilder()
+        sb.append("{\"type\":\"FeatureCollection\",\"features\":[")
+        waypoints.forEachIndexed { idx, wpt ->
+            if (idx > 0) sb.append(",")
+            val geom = wpt["geometry"] ?: return@forEachIndexed
+            val name = (wpt["name"] ?: "Unnamed").replace("\"", "\\\"")
+            val wptType = (wpt["type"] ?: "other").replace("\"", "\\\"")
+            // Parse POINT(lon lat)
+            val match = Regex("POINT\\(([\\d.\\-]+) ([\\d.\\-]+)\\)").find(geom)
+            if (match != null) {
+                val lon = match.groupValues[1]
+                val lat = match.groupValues[2]
+                sb.append("{\"type\":\"Feature\",\"properties\":{\"name\":\"$name\",\"wpt_type\":\"$wptType\"},\"geometry\":{\"type\":\"Point\",\"coordinates\":[$lon,$lat]}}")
+            }
+        }
+        sb.append("]}")
+        return sb.toString()
+    }
+
+
+    /** Query routes by viewport bounding box (dedicated routes table) */
+    fun queryRoutesByViewport(south: Double, west: Double, north: Double, east: Double, limit: Int = 500): List<Map<String, String?>> {
+        val db = spatialDb ?: return emptyList()
+        val results = mutableListOf<Map<String, String?>>()
+        try {
+            val cursor = db.rawQuery(
+                "SELECT route_id, name, geometry FROM routes WHERE min_lat IS NOT NULL AND max_lat >= ? AND min_lat <= ? AND max_lon >= ? AND min_lon <= ? LIMIT ?",
+                arrayOf(south.toString(), north.toString(), west.toString(), east.toString(), limit.toString())
+            )
+            cursor.use {
+                while (it.moveToNext()) {
+                    val wkt = it.getString(2) ?: continue
+                    results.add(mapOf(
+                        "route_id" to it.getString(0),
+                        "name" to it.getString(1),
+                        "geometry" to wkt
+                    ))
+                }
+            }
+            android.util.Log.i("RouteLazy", "Viewport query returned ${results.size} routes")
+        } catch (e: Exception) {
+            android.util.Log.e("RouteLazy", "Viewport query failed: ${e.message}")
+        }
+        return results
+    }
+
+    /** Build GeoJSON FeatureCollection from route query results */
+    fun buildRouteGeoJson(routes: List<Map<String, String?>>): String {
+        val sb = StringBuilder()
+        sb.append("{\"type\":\"FeatureCollection\",\"features\":[")
+        routes.forEachIndexed { idx, route ->
+            if (idx > 0) sb.append(",")
+            val geom = route["geometry"] ?: return@forEachIndexed
+            val name = (route["name"] ?: "Unnamed Route").replace("\"", "\\\"")
+            val coordStr = geom.removePrefix("LINESTRING(").removeSuffix(")")
+            val coords = coordStr.split(",").joinToString(",") { pair ->
+                val parts = pair.trim().split(" ")
+                if (parts.size >= 2) "[${parts[0]},${parts[1]}]" else "[0,0]"
+            }
+            sb.append("{\"type\":\"Feature\",\"properties\":{\"name\":\"$name\"},\"geometry\":{\"type\":\"LineString\",\"coordinates\":[$coords]}}")
+        }
+        sb.append("]}")
+        return sb.toString()
+    }
+
+    /** Update queryTracksByViewport to exclude routes (only type='TRACK' or no type) */
+    fun queryTracksOnlyByViewport(north: Double, south: Double, east: Double, west: Double, limit: Int = 500): List<Map<String, String?>> {
+        val db = spatialDb ?: return emptyList()
+        val results = mutableListOf<Map<String, String?>>()
+        try {
+            val cursor = db.rawQuery(
+                "SELECT track_id, name, geometry FROM tracks WHERE (type='TRACK' OR type IS NULL) AND min_lat IS NOT NULL AND max_lat >= ? AND min_lat <= ? AND max_lon >= ? AND min_lon <= ? LIMIT ?",
+                arrayOf(south.toString(), north.toString(), west.toString(), east.toString(), limit.toString())
+            )
+            cursor.use {
+                while (it.moveToNext()) {
+                    val wkt = it.getString(2) ?: continue
+                    results.add(mapOf(
+                        "track_id" to it.getString(0),
+                        "name" to it.getString(1),
+                        "geometry" to wkt
+                    ))
+                }
+            }
+            android.util.Log.i("TrackLazy", "Tracks-only viewport query returned ${results.size} tracks")
+        } catch (e: Exception) {
+            android.util.Log.e("TrackLazy", "Tracks-only viewport query failed: ${e.message}")
+        }
+        return results
+    }
+
+    
+    // ── INSERT METHODS (for GPX import) ────────────────────────────
+
+    /**
+     * Insert a waypoint into the spatial DB.
+     * Returns the generated waypoint_id.
+     */
+    fun insertWaypoint(name: String, lat: Double, lon: Double, type: String = "other"): String {
+        val db = spatialDb ?: throw IllegalStateException("SpatialDbManager not initialized")
+        val id = newId()
+        val ts = now()
+        val geometry = pointWkt(lat, lon)
+        try {
+            db.execSQL(
+                "INSERT OR IGNORE INTO waypoints (waypoint_id, name, geometry, type, min_lat, max_lat, min_lon, max_lon, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                arrayOf<Any>(id, name, geometry, type.lowercase(), lat, lat, lon, lon, ts, ts)
+            )
+            android.util.Log.i("SpatialDb", "Inserted waypoint: $name ($type) at $lat,$lon")
+        } catch (e: Exception) {
+            android.util.Log.e("SpatialDb", "Waypoint insert failed: ${e.message}")
+            // If column mismatch, try minimal insert
+            try {
+                db.execSQL(
+                    "INSERT OR IGNORE INTO waypoints (waypoint_id, name, geometry, type, created_at, updated_at) VALUES (?,?,?,?,?,?)",
+                    arrayOf(id, name, geometry, type.lowercase(), ts, ts)
+                )
+                // Update bbox columns separately (may have been added by migration)
+                db.execSQL("UPDATE waypoints SET min_lat=?, max_lat=?, min_lon=?, max_lon=? WHERE waypoint_id=?",
+                    arrayOf<Any>(lat, lat, lon, lon, id))
+            } catch (e2: Exception) {
+                android.util.Log.e("SpatialDb", "Waypoint fallback insert also failed: ${e2.message}")
+            }
+        }
+        return id
+    }
+
+    /**
+     * Insert a route into the spatial DB (dedicated routes table).
+     * Returns the generated route_id.
+     */
+    fun insertRoute(name: String, geometryWkt: String, minLat: Double, maxLat: Double, minLon: Double, maxLon: Double): String {
+        val db = spatialDb ?: throw IllegalStateException("SpatialDbManager not initialized")
+        val id = newId()
+        val ts = now()
+        try {
+            db.execSQL(
+                "INSERT OR IGNORE INTO routes (route_id, name, geometry, min_lat, max_lat, min_lon, max_lon, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?)",
+                arrayOf<Any>(id, name, geometryWkt, minLat, maxLat, minLon, maxLon, ts, ts)
+            )
+            android.util.Log.i("SpatialDb", "Inserted route: $name")
+        } catch (e: Exception) {
+            android.util.Log.e("SpatialDb", "Route insert failed: ${e.message}")
+        }
+        return id
+    }
+
+    /**
+     * Insert a track into the spatial DB (type='TRACK').
+     * Used by import to write directly to DB alongside the GPX file.
+     * Returns the generated track_id.
+     */
+    fun insertTrackToDb(name: String, geometryWkt: String, minLat: Double, maxLat: Double, minLon: Double, maxLon: Double): String {
+        val db = spatialDb ?: throw IllegalStateException("SpatialDbManager not initialized")
+        val id = newId()
+        val ts = now()
+        val bbox = "$minLat,$minLon,$maxLat,$maxLon"
+        try {
+            db.execSQL(
+                "INSERT OR IGNORE INTO tracks (track_id, name, geometry, min_lat, max_lat, min_lon, max_lon, bbox, type, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                arrayOf<Any>(id, name, geometryWkt, minLat, maxLat, minLon, maxLon, bbox, "TRACK", ts, ts)
+            )
+            android.util.Log.i("SpatialDb", "Inserted track to DB: $name")
+        } catch (e: Exception) {
+            android.util.Log.e("SpatialDb", "Track DB insert failed: ${e.message}")
+        }
+        return id
+    }
+
+        /** Close both databases. Call on app teardown. */
     fun close() {
         spatialDb?.close()
         extensionDb?.close()

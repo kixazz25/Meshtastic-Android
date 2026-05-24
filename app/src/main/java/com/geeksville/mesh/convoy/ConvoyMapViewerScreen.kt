@@ -87,7 +87,48 @@ fun ConvoyMapViewerScreen(
             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { trackFileList = files }
         }
     }
-    val unloadIfLoaded: (String) -> Unit = { trackName ->
+    // ── GPX Import file picker ──
+    val importGpxLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            scope.launch {
+                try {
+                    val fileName = uri.lastPathSegment?.substringAfterLast('/') ?: "import.gpx"
+                    // Copy to Downloads for import processing
+                    val downloadsDir = android.os.Environment.getExternalStoragePublicDirectory(
+                        android.os.Environment.DIRECTORY_DOWNLOADS)
+                    val tempFile = java.io.File(downloadsDir, fileName)
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        context.contentResolver.openInputStream(uri)?.use { input ->
+                            tempFile.outputStream().use { output -> input.copyTo(output) }
+                        }
+                    }
+                    // Run expanded import
+                    val summary = ConvoyTrackOps.importGpxAllArtifacts(tempFile, context)
+                    // Show summary toast
+                    val msg = buildString {
+                        append("Imported: ")
+                        val parts = mutableListOf<String>()
+                        if (summary.trackCount > 0) parts.add("${summary.trackCount} track${if (summary.trackCount > 1) "s" else ""}")
+                        if (summary.waypointCount > 0) parts.add("${summary.waypointCount} waypoint${if (summary.waypointCount > 1) "s" else ""}")
+                        if (summary.routeCount > 0) parts.add("${summary.routeCount} route${if (summary.routeCount > 1) "s" else ""}")
+                        if (parts.isEmpty()) append("no artifacts found")
+                        else append(parts.joinToString(", "))
+                        if (summary.errors.isNotEmpty()) append(" (${summary.errors.size} error${if (summary.errors.size > 1) "s" else ""})")
+                    }
+                    android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_LONG).show()
+                    // Refresh track list and trigger viewport update
+                    refreshTracks()
+                    webViewRef?.evaluateJavascript("triggerViewportUpdate()", null)
+                } catch (e: Exception) {
+                    android.widget.Toast.makeText(context, "Import error: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
+
+        val unloadIfLoaded: (String) -> Unit = { trackName ->
         if (loadedTracks.any { it.first == trackName }) {
             val safe = trackName.replace("'", "\\'")
             webViewRef?.evaluateJavascript("removeTrackFile('$safe')", null)
@@ -111,6 +152,8 @@ fun ConvoyMapViewerScreen(
     var pmTracksLoaded by remember { mutableStateOf(false) }
     var pmTrailsOn by remember { mutableStateOf(false) }
     var pmTracksLazyOn by remember { mutableStateOf(false) }
+    var pmWaypointsOn by remember { mutableStateOf(false) }
+    var pmRoutesOn by remember { mutableStateOf(false) }
     var pmQueuesOpen by remember { mutableStateOf(false) }
     var pmDownloadedOn by remember { mutableStateOf(false) }
     var pmActiveSource by remember { mutableStateOf(ConvoyConfig.ACTIVE_TILE_SOURCE) }
@@ -391,7 +434,7 @@ fun ConvoyMapViewerScreen(
                             fun onMapBoundsReady(n: Double, s: Double, e: Double, w: Double) {}
                             @JavascriptInterface
                             fun onViewportChanged(north: Double, south: Double, east: Double, west: Double, zoom: Double) {
-                                if (!pmTrailsOn && !pmTracksLazyOn) return
+                                if (!pmTrailsOn && !pmTracksLazyOn && !pmWaypointsOn && !pmRoutesOn) return
                                 val z = zoom.toInt()
                                 if (z < 8) return
                                 val limit = if (z < 14) 500 else 2000
@@ -410,6 +453,26 @@ fun ConvoyMapViewerScreen(
                                                 val trackJson = SpatialDbManager.buildTrackGeoJson(trackResults)
                                                 android.os.Handler(android.os.Looper.getMainLooper()).post {
                                                     webViewRef?.evaluateJavascript("updateTracks(" + trackJson + ")", null)
+                                                }
+                                            }
+                                        }
+                                        // -- Waypoint lazy load --
+                                        if (pmWaypointsOn) {
+                                            val wptResults = SpatialDbManager.queryWaypointsByViewport(south, west, north, east, limit)
+                                            if (wptResults.isNotEmpty()) {
+                                                val wptJson = SpatialDbManager.buildWaypointGeoJson(wptResults)
+                                                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                                    webViewRef?.evaluateJavascript("updateWaypoints(" + wptJson + ")", null)
+                                                }
+                                            }
+                                        }
+                                        // -- Route lazy load --
+                                        if (pmRoutesOn) {
+                                            val routeResults = SpatialDbManager.queryRoutesByViewport(south, west, north, east, limit)
+                                            if (routeResults.isNotEmpty()) {
+                                                val routeJson = SpatialDbManager.buildRouteGeoJson(routeResults)
+                                                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                                    webViewRef?.evaluateJavascript("updateRoutes(" + routeJson + ")", null)
                                                 }
                                             }
                                         }
@@ -468,6 +531,42 @@ fun ConvoyMapViewerScreen(
                                     )
                                 }
                                 // Trails loaded on demand via TRAILS button
+                                // Center map on device GPS position
+                                try {
+                                    val lm = view.context.getSystemService(android.content.Context.LOCATION_SERVICE) as android.location.LocationManager
+                                    @Suppress("MissingPermission")
+                                    val loc = lm.getLastKnownLocation(android.location.LocationManager.GPS_PROVIDER)
+                                        ?: lm.getLastKnownLocation(android.location.LocationManager.NETWORK_PROVIDER)
+                                    if (loc != null && loc.latitude != 0.0 && loc.longitude != 0.0) {
+                                        view.evaluateJavascript(
+                                            "setView(" + loc.latitude + ", " + loc.longitude + ", 15)", null
+                                        )
+                                        android.util.Log.i("PlanMap", "Centered on GPS: " + loc.latitude + ", " + loc.longitude)
+                                    }
+                                } catch (e: SecurityException) {
+                                    android.util.Log.w("PlanMap", "Location permission not granted")
+                                }
+                                // Detect max offline zoom from tile directory
+                                Thread {
+                                    try {
+                                        val sourceDir = java.io.File(ConvoyConfig.TILE_DIR, pmActiveSource)
+                                        var maxZ = 0
+                                        if (sourceDir.exists()) {
+                                            sourceDir.listFiles()?.forEach { zDir ->
+                                                val z = zDir.name.toIntOrNull()
+                                                if (z != null && z > maxZ && zDir.isDirectory) maxZ = z
+                                            }
+                                        }
+                                        if (maxZ > 0) {
+                                            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                                view?.evaluateJavascript("setMaxOfflineZoom($maxZ)", null)
+                                            }
+                                            android.util.Log.i("PlanMap", "Max offline zoom for $pmActiveSource: z$maxZ")
+                                        }
+                                    } catch (e: Exception) {
+                                        android.util.Log.w("PlanMap", "Tile scan error: " + e.message)
+                                    }
+                                }.start()
                             }
                         }
                         loadUrl("file:///android_asset/grouptrack_map.html")
@@ -530,13 +629,45 @@ fun ConvoyMapViewerScreen(
                                 webViewRef?.evaluateJavascript("clearTrails()", null)
                             }
                         }
-                        else -> { /* TODO: wire other display types */ }
+                        "Waypoints" -> {
+                            pmWaypointsOn = !pmWaypointsOn
+                            if (pmWaypointsOn) {
+                                android.util.Log.i("WaypointLazy", "WAYPOINTS ON via artifacts panel")
+                                webViewRef?.evaluateJavascript("triggerViewportUpdate()", null)
+                            } else {
+                                webViewRef?.evaluateJavascript("clearWaypoints()", null)
+                            }
+                        }
+                        "Routes" -> {
+                            pmRoutesOn = !pmRoutesOn
+                            if (pmRoutesOn) {
+                                android.util.Log.i("RouteLazy", "ROUTES ON via artifacts panel")
+                                webViewRef?.evaluateJavascript("triggerViewportUpdate()", null)
+                            } else {
+                                webViewRef?.evaluateJavascript("clearRoutes()", null)
+                            }
+                        }
                     }
                 },
                 onImport = { typeName ->
                     when (typeName) {
                         "Trails" -> onNavigateToTrailSources()
-                        else -> { /* TODO: wire other import types */ }
+                        "Artifacts" -> {
+                            importGpxLauncher.launch(arrayOf(
+                                "application/gpx+xml",
+                                "application/xml",
+                                "text/xml",
+                                "application/octet-stream"
+                            ))
+                        }
+                        else -> {
+                            importGpxLauncher.launch(arrayOf(
+                                "application/gpx+xml",
+                                "application/xml",
+                                "text/xml",
+                                "application/octet-stream"
+                            ))
+                        }
                     }
                 }
             )
@@ -788,11 +919,14 @@ fun ConvoyMapViewerScreen(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            LegendDot(Color(0xFF00AAFF), "OHV")
+            LegendDot(Color(0xFF00AAFF), "OHV Trail")
             LegendDot(Color(0xFFFF8800), "Hike+Bike")
             LegendDot(Color(0xFFFFCC00), "Hike")
             LegendDot(Color(0xFFAA44FF), "Bike")
-            LegendDot(Color(0xFF39FF14), "My Track")
+            LegendDot(Color(0xFF00FFFF), "Trail")
+            LegendDot(Color(0xFF39FF14), "Track")
+            LegendDot(Color(0xFFFFD700), "Route")
+            LegendDot(Color(0xFF2ECC40), "Waypoint")
         }
     }
     // ── Track action menu integration ──
