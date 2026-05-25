@@ -1,6 +1,16 @@
 package com.geeksville.mesh.convoy
 
 object ConvoyConfig {
+    // Three-state display: 0=OFF, 1=ON, 2=SELECTED
+    @Volatile var trailDisplayState: Int = 1  // ON by default
+    @Volatile var trackDisplayState: Int = 0
+    @Volatile var waypointDisplayState: Int = 0
+    @Volatile var routeDisplayState: Int = 0
+    @Volatile var trailChecked: Set<String>? = null
+    @Volatile var trackChecked: Set<String>? = null
+    @Volatile var waypointChecked: Set<String>? = null
+    @Volatile var routeChecked: Set<String>? = null
+
     const val MAP_DEFAULT_ZOOM = 18.0
     // TILE_SOURCES — reads from MapSourceManager (map_sources.json)
     // No hardcoded URLs. Single source of truth.
