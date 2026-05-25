@@ -164,7 +164,7 @@ fun ConvoyMapViewerScreen(
     var queueExpanded by remember { mutableStateOf(false) }
     var pmTracksOn by remember { mutableStateOf(false) }
     var pmTracksLoaded by remember { mutableStateOf(false) }
-    var pmTrailsOn by remember { mutableStateOf(false) }
+    var pmTrailsOn by remember { mutableStateOf(true) }
     var pmTracksLazyOn by remember { mutableStateOf(false) }
     var pmWaypointsOn by remember { mutableStateOf(false) }
     var pmRoutesOn by remember { mutableStateOf(false) }
@@ -340,20 +340,25 @@ fun ConvoyMapViewerScreen(
                             fun onMapBoundsReady(n: Double, s: Double, e: Double, w: Double) {}
                             @JavascriptInterface
                             fun onViewportChanged(north: Double, south: Double, east: Double, west: Double, zoom: Double) {
+                                lastViewportSouth = south; lastViewportWest = west; lastViewportNorth = north; lastViewportEast = east
                                 // Always query — data preloaded, toggle controls visibility
                                 val z = zoom.toInt()
                                 val limit = if (z < 14) 500 else 2000
                                 Thread {
                                     try {
                                         SpatialDbManager.init(context)
-                                        val trails = if (z >= 8) SpatialDbManager.queryTrailsByViewport(south, west, north, east, limit) else emptyList()
+                                        val trailsRaw = if (z >= 8) SpatialDbManager.queryTrailsByViewport(south, west, north, east, limit) else emptyList()
+                                        val trails = if (activeListType == "Trails" && selectedArtifactIds.isNotEmpty())
+                                            trailsRaw.filter { it["trail_id"] in selectedArtifactIds } else trailsRaw
                                         val json = SpatialDbManager.buildTrailGeoJson(trails)
                                         android.os.Handler(android.os.Looper.getMainLooper()).post {
                                             webViewRef?.evaluateJavascript("updateTrails(" + json + ")", null)
                                         }
                                         // -- Track lazy load --
                                         if (true) { // Always query tracks
-                                            val trackResults = SpatialDbManager.queryTracksByViewport(south, west, north, east, if (zoom >= 12) 200 else 50)
+                                            val trackResultsRaw = SpatialDbManager.queryTracksByViewport(south, west, north, east, if (zoom >= 12) 200 else 50)
+                                            val trackResults = if (activeListType == "Tracks" && selectedArtifactIds.isNotEmpty())
+                                                trackResultsRaw.filter { it["track_id"] in selectedArtifactIds } else trackResultsRaw
                                             if (trackResults.isNotEmpty()) {
                                                 val trackJson = SpatialDbManager.buildTrackGeoJson(trackResults)
                                                 android.os.Handler(android.os.Looper.getMainLooper()).post {
@@ -363,7 +368,9 @@ fun ConvoyMapViewerScreen(
                                         }
                                         // -- Waypoint lazy load --
                                         if (true) { // Always query waypoints
-                                            val wptResults = SpatialDbManager.queryWaypointsByViewport(south, west, north, east, limit)
+                                            val wptResultsRaw = SpatialDbManager.queryWaypointsByViewport(south, west, north, east, limit)
+                                            val wptResults = if (activeListType == "Waypoints" && selectedArtifactIds.isNotEmpty())
+                                                wptResultsRaw.filter { it["waypoint_id"] in selectedArtifactIds } else wptResultsRaw
                                             if (wptResults.isNotEmpty()) {
                                                 val wptJson = SpatialDbManager.buildWaypointGeoJson(wptResults)
                                                 android.os.Handler(android.os.Looper.getMainLooper()).post {
@@ -373,7 +380,9 @@ fun ConvoyMapViewerScreen(
                                         }
                                         // -- Route lazy load --
                                         if (true) { // Always query routes
-                                            val routeResults = SpatialDbManager.queryRoutesByViewport(south, west, north, east, limit)
+                                            val routeResultsRaw = SpatialDbManager.queryRoutesByViewport(south, west, north, east, limit)
+                                            val routeResults = if (activeListType == "Routes" && selectedArtifactIds.isNotEmpty())
+                                                routeResultsRaw.filter { it["route_id"] in selectedArtifactIds } else routeResultsRaw
                                             if (routeResults.isNotEmpty()) {
                                                 val routeJson = SpatialDbManager.buildRouteGeoJson(routeResults)
                                                 android.os.Handler(android.os.Looper.getMainLooper()).post {
@@ -622,66 +631,17 @@ fun ConvoyMapViewerScreen(
                     selectedIds = selectedArtifactIds,
                     onDismiss = { activeListType = null },
                     onToggleItem = { id, selected ->
-                        val newIds = if (selected) selectedArtifactIds + id else selectedArtifactIds - id
-                        selectedArtifactIds = newIds
-                        // Push filtered GeoJSON to map
-                        scope.launch {
-                            val filtered = artifactList.filter { it["id"] in newIds }
-                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                                SpatialDbManager.init(context)
-                                val json = when (activeListType) {
-                                    "Waypoints" -> SpatialDbManager.buildWaypointGeoJson(filtered)
-                                    "Routes" -> SpatialDbManager.buildRouteGeoJson(filtered)
-                                    "Tracks" -> SpatialDbManager.buildTrackGeoJson(filtered)
-                                    "Trails" -> SpatialDbManager.buildTrailGeoJson(filtered)
-                                    else -> return@withContext
-                                }
-                                val fn = when (activeListType) {
-                                    "Waypoints" -> "updateWaypoints"
-                                    "Routes" -> "updateRoutes"
-                                    "Tracks" -> "updateTracks"
-                                    "Trails" -> "updateTrails"
-                                    else -> return@withContext
-                                }
-                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                                    webViewRef?.evaluateJavascript("$fn($json)", null)
-                                }
-                            }
-                        }
+                        selectedArtifactIds = if (selected) selectedArtifactIds + id else selectedArtifactIds - id
+                        // Trigger viewport refresh — filter applied in viewport handler
+                        webViewRef?.evaluateJavascript("triggerViewportUpdate()", null)
                     },
                     onSelectAll = {
                         selectedArtifactIds = artifactList.mapNotNull { it["id"] }.toSet()
-                        // Show all on map
-                        scope.launch {
-                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                                SpatialDbManager.init(context)
-                                val json = when (activeListType) {
-                                    "Waypoints" -> SpatialDbManager.buildWaypointGeoJson(artifactList)
-                                    "Routes" -> SpatialDbManager.buildRouteGeoJson(artifactList)
-                                    "Tracks" -> SpatialDbManager.buildTrackGeoJson(artifactList)
-                                    "Trails" -> SpatialDbManager.buildTrailGeoJson(artifactList)
-                                    else -> return@withContext
-                                }
-                                val fn = when (activeListType) {
-                                    "Waypoints" -> "updateWaypoints"; "Routes" -> "updateRoutes"
-                                    "Tracks" -> "updateTracks"; "Trails" -> "updateTrails"
-                                    else -> return@withContext
-                                }
-                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                                    webViewRef?.evaluateJavascript("$fn($json)", null)
-                                }
-                            }
-                        }
+                        webViewRef?.evaluateJavascript("triggerViewportUpdate()", null)
                     },
                     onDeselectAll = {
                         selectedArtifactIds = emptySet()
-                        // Clear from map
-                        val fn = when (activeListType) {
-                            "Waypoints" -> "clearWaypoints"; "Routes" -> "clearRoutes"
-                            "Tracks" -> "clearTracks"; "Trails" -> "clearTrails"
-                            else -> null
-                        }
-                        if (fn != null) webViewRef?.evaluateJavascript("$fn()", null)
+                        webViewRef?.evaluateJavascript("triggerViewportUpdate()", null)
                     },
                     onRename = { id, newName ->
                         scope.launch {
