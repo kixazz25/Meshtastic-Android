@@ -82,6 +82,9 @@ fun ConvoyDownloadPanel(
     // tilesChecked, trailsChecked, removeTilesChecked, flyoverZoom — lifted to parent
     var flyoverMileage by remember { mutableFloatStateOf(0f) }
     var showMaps by remember { mutableStateOf(false) }
+    var expandMapControls by remember { mutableStateOf(false) }
+    var expandDownload by remember { mutableStateOf(true) }
+    var expandUploads by remember { mutableStateOf(false) }
     var showQueue by remember { mutableStateOf(false) }
     var showTrails by remember { mutableStateOf(false) }
 
@@ -125,7 +128,19 @@ fun ConvoyDownloadPanel(
                 }
             }
 
-            // ── FLYOVER SECTION ──
+            // ── MAP CONTROLS (collapsible) ──
+            Surface(
+                modifier = Modifier.fillMaxWidth().clickable { expandMapControls = !expandMapControls },
+                color = Color.Transparent
+            ) {
+                Row(modifier = Modifier.padding(vertical = 4.dp, horizontal = 8.dp)) {
+                    Text(if (expandMapControls) "▼" else "▶", color = blue, fontSize = 10.sp)
+                    Spacer(Modifier.width(6.dp))
+                    Text("MAP CONTROLS", color = blue, fontSize = 10.sp,
+                        fontFamily = mono, fontWeight = FontWeight.Bold)
+                }
+            }
+            if (expandMapControls) {
             PanelSectionHeader("FLYOVER", sectionBorder)
             Column(modifier = Modifier.padding(vertical = 4.dp)) {
                 // Mileage slider
@@ -172,6 +187,20 @@ fun ConvoyDownloadPanel(
             Spacer(Modifier.height(4.dp))
 
             // ── ARTIFACT TYPES (Step 1) ──
+            } // end expandMapControls
+            // ── DOWNLOAD AREA (collapsible) ──
+            Surface(
+                modifier = Modifier.fillMaxWidth().clickable { expandDownload = !expandDownload },
+                color = Color.Transparent
+            ) {
+                Row(modifier = Modifier.padding(vertical = 4.dp, horizontal = 8.dp)) {
+                    Text(if (expandDownload) "▼" else "▶", color = green, fontSize = 10.sp)
+                    Spacer(Modifier.width(6.dp))
+                    Text("DOWNLOAD AREA", color = green, fontSize = 10.sp,
+                        fontFamily = mono, fontWeight = FontWeight.Bold)
+                }
+            }
+            if (expandDownload) {
             PanelSectionHeader("STEP 1: SELECT TYPES", sectionBorder)
             Spacer(Modifier.height(4.dp))
 
@@ -263,6 +292,7 @@ fun ConvoyDownloadPanel(
 
             Spacer(Modifier.height(8.dp))
 
+            } // end expandDownload
             // ── SHOW DOWNLOADS ──
             PanelSectionHeader("SHOW DOWNLOADS", sectionBorder)
             Spacer(Modifier.height(4.dp))

@@ -4,9 +4,105 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js">
+    // ── Proximity tap: show all nearby artifacts ──────────
+    map.on('click', function(e) {
+      var nearby = [];
+      var searchRadius = 30; // meters
+      var clickLatLng = e.latlng;
+      
+      function checkLayer(layer, typeName, color) {
+        if (!layer) return;
+        layer.eachLayer(function(feat) {
+          var latlng = null;
+          if (feat.getLatLng) {
+            latlng = feat.getLatLng();
+          } else if (feat.getLatLngs) {
+            var latlngs = feat.getLatLngs();
+            if (latlngs.length > 0) {
+              // Find closest point on line
+              var minDist = Infinity;
+              var flatCoords = latlngs.flat ? latlngs.flat(2) : latlngs;
+              for (var i = 0; i < flatCoords.length; i++) {
+                if (flatCoords[i] && flatCoords[i].lat !== undefined) {
+                  var d = clickLatLng.distanceTo(flatCoords[i]);
+                  if (d < minDist) { minDist = d; latlng = flatCoords[i]; }
+                }
+              }
+            }
+          }
+          if (latlng && clickLatLng.distanceTo(latlng) < searchRadius) {
+            var name = feat.feature ? (feat.feature.properties.name || 'Unnamed') : 'Unnamed';
+            nearby.push('<span style="color:' + color + ';">' + typeName + ':</span> ' + name);
+          }
+        });
+      }
+      
+      checkLayer(trailLayer, 'Trail', '#1CF0A0');
+      checkLayer(trackLayer, 'Track', '#4DA6FF');
+      checkLayer(waypointLayer, 'Waypoint', '#FF8C42');
+      checkLayer(routeLayer, 'Route', '#BC8CFF');
+      
+      if (nearby.length > 1) {
+        var popup = L.popup({autoClose: true, closeOnClick: true})
+          .setLatLng(clickLatLng)
+          .setContent('<div style="font-size:11px;line-height:1.6;">' + nearby.join('<br>') + '</div>')
+          .openOn(map);
+        setTimeout(function() { map.closePopup(popup); }, 4000);
+      }
+    });
+
+  </script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css"/>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js">
+    // ── Proximity tap: show all nearby artifacts ──────────
+    map.on('click', function(e) {
+      var nearby = [];
+      var searchRadius = 30; // meters
+      var clickLatLng = e.latlng;
+      
+      function checkLayer(layer, typeName, color) {
+        if (!layer) return;
+        layer.eachLayer(function(feat) {
+          var latlng = null;
+          if (feat.getLatLng) {
+            latlng = feat.getLatLng();
+          } else if (feat.getLatLngs) {
+            var latlngs = feat.getLatLngs();
+            if (latlngs.length > 0) {
+              // Find closest point on line
+              var minDist = Infinity;
+              var flatCoords = latlngs.flat ? latlngs.flat(2) : latlngs;
+              for (var i = 0; i < flatCoords.length; i++) {
+                if (flatCoords[i] && flatCoords[i].lat !== undefined) {
+                  var d = clickLatLng.distanceTo(flatCoords[i]);
+                  if (d < minDist) { minDist = d; latlng = flatCoords[i]; }
+                }
+              }
+            }
+          }
+          if (latlng && clickLatLng.distanceTo(latlng) < searchRadius) {
+            var name = feat.feature ? (feat.feature.properties.name || 'Unnamed') : 'Unnamed';
+            nearby.push('<span style="color:' + color + ';">' + typeName + ':</span> ' + name);
+          }
+        });
+      }
+      
+      checkLayer(trailLayer, 'Trail', '#1CF0A0');
+      checkLayer(trackLayer, 'Track', '#4DA6FF');
+      checkLayer(waypointLayer, 'Waypoint', '#FF8C42');
+      checkLayer(routeLayer, 'Route', '#BC8CFF');
+      
+      if (nearby.length > 1) {
+        var popup = L.popup({autoClose: true, closeOnClick: true})
+          .setLatLng(clickLatLng)
+          .setContent('<div style="font-size:11px;line-height:1.6;">' + nearby.join('<br>') + '</div>')
+          .openOn(map);
+        setTimeout(function() { map.closePopup(popup); }, 4000);
+      }
+    });
+
+  </script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     #map { position: fixed; top: 0; left: 0; right: 0; bottom: 0; }
@@ -568,6 +664,54 @@
         // (utah_trails_stgeorge.geojson fetch removed — spatial DB is source now)
       }, 500);
     });
+  
+    // ── Proximity tap: show all nearby artifacts ──────────
+    map.on('click', function(e) {
+      var nearby = [];
+      var searchRadius = 30; // meters
+      var clickLatLng = e.latlng;
+      
+      function checkLayer(layer, typeName, color) {
+        if (!layer) return;
+        layer.eachLayer(function(feat) {
+          var latlng = null;
+          if (feat.getLatLng) {
+            latlng = feat.getLatLng();
+          } else if (feat.getLatLngs) {
+            var latlngs = feat.getLatLngs();
+            if (latlngs.length > 0) {
+              // Find closest point on line
+              var minDist = Infinity;
+              var flatCoords = latlngs.flat ? latlngs.flat(2) : latlngs;
+              for (var i = 0; i < flatCoords.length; i++) {
+                if (flatCoords[i] && flatCoords[i].lat !== undefined) {
+                  var d = clickLatLng.distanceTo(flatCoords[i]);
+                  if (d < minDist) { minDist = d; latlng = flatCoords[i]; }
+                }
+              }
+            }
+          }
+          if (latlng && clickLatLng.distanceTo(latlng) < searchRadius) {
+            var name = feat.feature ? (feat.feature.properties.name || 'Unnamed') : 'Unnamed';
+            nearby.push('<span style="color:' + color + ';">' + typeName + ':</span> ' + name);
+          }
+        });
+      }
+      
+      checkLayer(trailLayer, 'Trail', '#1CF0A0');
+      checkLayer(trackLayer, 'Track', '#4DA6FF');
+      checkLayer(waypointLayer, 'Waypoint', '#FF8C42');
+      checkLayer(routeLayer, 'Route', '#BC8CFF');
+      
+      if (nearby.length > 1) {
+        var popup = L.popup({autoClose: true, closeOnClick: true})
+          .setLatLng(clickLatLng)
+          .setContent('<div style="font-size:11px;line-height:1.6;">' + nearby.join('<br>') + '</div>')
+          .openOn(map);
+        setTimeout(function() { map.closePopup(popup); }, 4000);
+      }
+    });
+
   </script>
 </body>
 </html>

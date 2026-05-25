@@ -19,6 +19,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.activity.compose.BackHandler
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -155,7 +158,10 @@ fun ConvoyMapViewerScreen(
         }
     }
     var searchText by remember { mutableStateOf("") }
-    var showSearch by remember { mutableStateOf(true) }
+    val keyboardController = LocalSoftwareKeyboardController.current
+    var showExitConfirm by remember { mutableStateOf(false) }
+    BackHandler { showExitConfirm = true }
+    var showSearch by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
 
     // Download controls state
@@ -169,15 +175,15 @@ fun ConvoyMapViewerScreen(
     var queueExpanded by remember { mutableStateOf(false) }
     var pmTracksOn by remember { mutableStateOf(false) }
     var pmTracksLoaded by remember { mutableStateOf(false) }
-    // Three-state display per artifact type
-    var trailState by remember { mutableStateOf(DS_ON) }
-    var trackState by remember { mutableStateOf(DS_OFF) }
-    var waypointState by remember { mutableStateOf(DS_OFF) }
-    var routeState by remember { mutableStateOf(DS_OFF) }
-    var trailCheckedIds by remember { mutableStateOf<Set<String>?>(null) }
-    var trackCheckedIds by remember { mutableStateOf<Set<String>?>(null) }
-    var waypointCheckedIds by remember { mutableStateOf<Set<String>?>(null) }
-    var routeCheckedIds by remember { mutableStateOf<Set<String>?>(null) }
+    // Three-state display — initialized from ConvoyConfig (survives navigation)
+    var trailState by remember { mutableStateOf(ConvoyConfig.trailDisplayState) }
+    var trackState by remember { mutableStateOf(ConvoyConfig.trackDisplayState) }
+    var waypointState by remember { mutableStateOf(ConvoyConfig.waypointDisplayState) }
+    var routeState by remember { mutableStateOf(ConvoyConfig.routeDisplayState) }
+    var trailCheckedIds by remember { mutableStateOf(ConvoyConfig.trailChecked) }
+    var trackCheckedIds by remember { mutableStateOf(ConvoyConfig.trackChecked) }
+    var waypointCheckedIds by remember { mutableStateOf(ConvoyConfig.waypointChecked) }
+    var routeCheckedIds by remember { mutableStateOf(ConvoyConfig.routeChecked) }
     var pmQueuesOpen by remember { mutableStateOf(false) }
     var pmDownloadedOn by remember { mutableStateOf(false) }
     var pmActiveSource by remember { mutableStateOf(ConvoyConfig.ACTIVE_TILE_SOURCE) }
@@ -195,43 +201,47 @@ fun ConvoyMapViewerScreen(
     val tileSources = MapSourceManager.getSlotSources()
 
     Column(modifier = Modifier.fillMaxSize().background(Color(0xFF0A0E14))) {
-        // -- Header (transparent) --
+        // -- Combined header: BACK | sources | QUEUES --
         Row(
-            modifier = Modifier.fillMaxWidth().background(Color(0x88000000))
+            modifier = Modifier.fillMaxWidth().background(Color(0xCC000000))
                 .statusBarsPadding()
-                .padding(horizontal = 10.dp, vertical = 3.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+                .padding(horizontal = 4.dp, vertical = 0.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                "BACK",
-                color = Color(0xFF4DA6FF),
-                fontSize = 13.sp,
-                fontFamily = FontFamily.Monospace,
+            Text("BACK", color = Color(0xFF4DA6FF),
+                fontSize = 10.sp, fontFamily = FontFamily.Monospace,
                 fontWeight = FontWeight.Bold,
-                modifier = Modifier.clickable { onBack() }.padding(4.dp)
-            )
-            Text(
-                "PLANNING MAP",
-                color = Color(0xFFE8EEF5),
-                fontSize = 11.sp,
-                fontFamily = FontFamily.Monospace,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 1.sp
-            )
-            // TRACKS + QUEUES (grouped right)
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-
-                // QUEUES — V2.5 scaffold launch point
-                Text("QUEUES",
-                    color = Color(0xFF1CF0A0),
-                    fontSize = 11.sp, fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.clickable { pmQueuesOpen = !pmQueuesOpen }
-                        .padding(horizontal = 10.dp, vertical = 8.dp))
+                modifier = Modifier.clickable { onBack() }.padding(horizontal = 10.dp, vertical = 6.dp))
+            Spacer(Modifier.width(6.dp))
+            tileSources.forEach { (label, _, _) ->
+                val isActive = pmActiveSource == label
+                Surface(
+                    shape = RoundedCornerShape(3.dp),
+                    color = if (isActive) Color(0xFF2266CC) else Color.Transparent,
+                    modifier = Modifier.clickable {
+                        pmActiveSource = label; ConvoyConfig.ACTIVE_TILE_SOURCE = label
+                        val url = MapSourceManager.getSlotSources().find { it.first == label }?.third ?: ""
+                        webViewRef?.evaluateJavascript("setTileUrl('" + url + "', '" + label + "')", null)
+                        val ovJson = MapSourceManager.getOverlayJson(label)
+                        if (ovJson != "[]") {
+                            webViewRef?.evaluateJavascript("setOverlayLayers('" + ovJson.replace("'", "\\'") + "')", null)
+                        }
+                    }
+                ) {
+                    Text(label, color = if (isActive) Color.White else Color(0xFF7A8DA0),
+                        fontSize = 11.sp, fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp))
+                }
+                Spacer(Modifier.width(3.dp))
             }
+            Spacer(Modifier.weight(1f))
+            Text("QUEUES", color = Color(0xFF1CF0A0),
+                fontSize = 10.sp, fontFamily = FontFamily.Monospace,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.clickable { pmQueuesOpen = !pmQueuesOpen }
+                    .padding(horizontal = 10.dp, vertical = 6.dp))
         }
-
         // -- Search toggle + collapsible bar --
         if (!showSearch) {
             Surface(
@@ -241,7 +251,7 @@ fun ConvoyMapViewerScreen(
                 color = Color(0xAA1A2030)
             ) {
                 Text("\u25BC  SEARCH + MAP", color = Color(0xFF4DA6FF),
-                    fontSize = 9.sp, fontFamily = FontFamily.Monospace,
+                    fontSize = 11.sp, fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
             }
@@ -253,6 +263,17 @@ fun ConvoyMapViewerScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                // Chevron (left side) — collapse search bar
+                Surface(
+                    modifier = Modifier.clickable { showSearch = false },
+                    shape = RoundedCornerShape(6.dp),
+                    color = Color(0xFF2A3545)
+                ) {
+                    Text("\u25B2", color = Color(0xFF4DA6FF), fontSize = 10.sp,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp))
+                }
+                Spacer(Modifier.width(6.dp))
+                // Search field — Enter key triggers search
                 BasicTextField(
                     value = searchText,
                     onValueChange = { searchText = it },
@@ -263,68 +284,76 @@ fun ConvoyMapViewerScreen(
                     ),
                     cursorBrush = SolidColor(Color(0xFF4DA6FF)),
                     singleLine = true,
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        imeAction = androidx.compose.ui.text.input.ImeAction.Search
+                    ),
+                    keyboardActions = androidx.compose.foundation.text.KeyboardActions(
+                        onSearch = {
+                            keyboardController?.hide()
+                            if (searchText.isNotBlank()) {
+                                coroutineScope.launch {
+                                    try {
+                                        val results = withContext(Dispatchers.IO) {
+                                            @Suppress("DEPRECATION")
+                                            Geocoder(context).getFromLocationName(searchText, 5)
+                                        }
+                                        if (!results.isNullOrEmpty()) {
+                                            val loc = results[0]
+                                            webViewRef?.evaluateJavascript(
+                                                "setView(" + loc.latitude + ", " + loc.longitude + ", 13)", null
+                                            )
+                                            webViewRef?.evaluateJavascript(
+                                                "showSearchCenter(" + loc.latitude + ", " + loc.longitude + ")", null
+                                            )
+                                        } else {
+                                            android.widget.Toast.makeText(context,
+                                                "Location not found. Try adding state (e.g. Zion UT)",
+                                                android.widget.Toast.LENGTH_SHORT).show()
+                                        }
+                                    } catch (e: Exception) {
+                                        android.widget.Toast.makeText(context,
+                                            "Search error",
+                                            android.widget.Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            }
+                        }
+                    ),
                     modifier = Modifier
                         .weight(1f)
                         .background(Color(0xFF0A1020), RoundedCornerShape(6.dp))
                         .padding(horizontal = 10.dp, vertical = 6.dp),
                     decorationBox = { innerTextField ->
                         if (searchText.isEmpty()) {
-                            Text("City, park, trail area...", color = Color(0xFF445566),
+                            Text("Search area... (press Enter)", color = Color(0xFF445566),
                                 fontSize = 12.sp, fontFamily = FontFamily.Monospace)
                         }
                         innerTextField()
                     }
                 )
-                // Hide bar button
-                Surface(
-                    modifier = Modifier.clickable { showSearch = false },
-                    shape = RoundedCornerShape(6.dp),
-                    color = Color(0xFF2A3545)
-                ) {
-                    Text("\u25B2", color = Color(0xFF4DA6FF), fontSize = 10.sp,
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp))
-                }
-                Surface(
-                    modifier = Modifier.clickable {
-                        if (searchText.isNotBlank()) {
-                            coroutineScope.launch {
-                                try {
-                                    val results = withContext(Dispatchers.IO) {
-                                        @Suppress("DEPRECATION")
-                                        Geocoder(context).getFromLocationName(searchText, 5)
-                                    }
-                                    if (!results.isNullOrEmpty()) {
-                                        val loc = results[0]
-                                        webViewRef?.evaluateJavascript(
-                                            "setView(" + loc.latitude + ", " + loc.longitude + ", 13)", null
-                                        )
-                                        webViewRef?.evaluateJavascript(
-                                            "showSearchCenter(" + loc.latitude + ", " + loc.longitude + ")", null
-                                        )
-                                    } else {
-                                        android.widget.Toast.makeText(context,
-                                            "Location not found. Try adding state (e.g. Zion UT)",
-                                            android.widget.Toast.LENGTH_SHORT).show()
-                                    }
-                                } catch (e: Exception) {
-                                    android.widget.Toast.makeText(context,
-                                        "Search error",
-                                        android.widget.Toast.LENGTH_SHORT).show()
-                                }
-                            }
-                        }
-                    },
-                    shape = RoundedCornerShape(6.dp),
-                    color = Color(0xFF2E75B6)
-                ) {
-                    Text("FIND", color = Color.White, fontSize = 12.sp,
-                        fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp))
-                }
             }
         }
 
         // Track panel removed
+        // -- Back navigation guard --
+        if (showExitConfirm) {
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { showExitConfirm = false },
+                title = { Text("Leave Planning Map?") },
+                text = { Text("Your display settings will be preserved.") },
+                confirmButton = {
+                    androidx.compose.material3.TextButton(onClick = {
+                        showExitConfirm = false
+                        onBack()
+                    }) { Text("LEAVE") }
+                },
+                dismissButton = {
+                    androidx.compose.material3.TextButton(onClick = {
+                        showExitConfirm = false
+                    }) { Text("STAY") }
+                }
+            )
+        }
 
                 // -- WebView --
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
@@ -530,28 +559,7 @@ fun ConvoyMapViewerScreen(
             // ── Download progress bar ─────────────────────────────────────
             // -- Download queue panel (replaces simple progress bar) --
             // -- SOURCE BAR (accordion with search) --
-            if (showSearch) {
-            ConvoyMapBar(
-                navLabel = "",
-                navIsBack = true,
-                onNavigate = onBack,
-                activeSource = pmActiveSource,
-                isOffline = false,
-                onSourceChange = { label ->
-                    pmActiveSource = label; ConvoyConfig.ACTIVE_TILE_SOURCE = label
-                    val url = MapSourceManager.getSlotSources().find { it.first == label }?.third ?: ""
-                    webViewRef?.evaluateJavascript("setTileUrl('" + url + "', '" + label + "')", null)
-                    val ovJson = MapSourceManager.getOverlayJson(label)
-                    if (ovJson != "[]") {
-                        webViewRef?.evaluateJavascript("setOverlayLayers('" + ovJson.replace("'", "\'") + "')", null)
-                    }
-                },
-                onOfflineToggle = { _ -> },
-                modifier = Modifier
-                    .padding(start = 50.dp, end = 8.dp, top = 2.dp)
-                    .fillMaxWidth()
-            )
-            } // end showSearch accordion
+            // ConvoyMapBar removed — sources now in header bar
             // -- QUEUES PANEL (live download queue) --
             if (pmQueuesOpen) {
                 androidx.compose.material3.Surface(
@@ -723,6 +731,9 @@ fun ConvoyMapViewerScreen(
                             selectedArtifactIds = selectedArtifactIds - id
                             webViewRef?.evaluateJavascript("triggerViewportUpdate()", null)
                         }
+                    },
+                    onShare = { id ->
+                        android.widget.Toast.makeText(context, "Share: GPX builder pending", android.widget.Toast.LENGTH_SHORT).show()
                     },
                     onChangeType = if (activeListType == "Waypoints") { id, newType ->
                         scope.launch {
@@ -975,7 +986,7 @@ fun ConvoyMapViewerScreen(
 
         // -- Legend bar --
         Row(
-            modifier = Modifier.fillMaxWidth().background(Color(0x88000000))
+            modifier = Modifier.fillMaxWidth().background(Color(0x33000000))
                 .navigationBarsPadding()
                 .padding(horizontal = 10.dp, vertical = 3.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),

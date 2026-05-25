@@ -596,4 +596,43 @@ object ConvoyTrackOps {
         }
     }
 
+
+
+    /** Share artifact as GPX via email intent. Creates temp file, attaches, deletes after. */
+    fun shareGpx(context: android.content.Context, name: String, gpxContent: String) {
+        try {
+            val tempFile = java.io.File(context.cacheDir, "${name.replace(" ", "_")}.gpx")
+            tempFile.writeText(gpxContent, Charsets.UTF_8)
+            val uri = androidx.core.content.FileProvider.getUriForFile(
+                context, context.packageName + ".provider", tempFile)
+            val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                type = "application/gpx+xml"
+                putExtra(android.content.Intent.EXTRA_STREAM, uri)
+                putExtra(android.content.Intent.EXTRA_SUBJECT, "GroupTrack: $name")
+                addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            context.startActivity(android.content.Intent.createChooser(intent, "Share $name"))
+            // Temp file cleaned up on next cache clear
+        } catch (e: Exception) {
+            android.util.Log.e("TrackOps", "shareGpx failed: ${e.message}")
+            android.widget.Toast.makeText(context, "Share failed: ${e.message}",
+                android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    /** Export GPX to Downloads folder. File stays there. */
+    fun exportGpxToDownloads(name: String, gpxContent: String): Boolean {
+        return try {
+            val downloadsDir = android.os.Environment.getExternalStoragePublicDirectory(
+                android.os.Environment.DIRECTORY_DOWNLOADS)
+            val file = java.io.File(downloadsDir, "${name.replace(" ", "_")}.gpx")
+            file.writeText(gpxContent, Charsets.UTF_8)
+            android.util.Log.i("TrackOps", "Exported to Downloads: ${file.absolutePath}")
+            true
+        } catch (e: Exception) {
+            android.util.Log.e("TrackOps", "exportGpxToDownloads failed: ${e.message}")
+            false
+        }
+    }
+
 }

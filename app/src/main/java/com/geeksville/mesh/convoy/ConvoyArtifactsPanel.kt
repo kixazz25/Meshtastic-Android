@@ -193,28 +193,28 @@ private fun ArtifactRow(
                 fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
             // OFF button
             Surface(shape = RoundedCornerShape(3.dp),
-                color = if (state == 0) Color(0xFF2266CC) else Color.Transparent,
+                color = if (state == 0) Color(0xFF2266CC) else Color(0xFF2D8B2D),
                 modifier = Modifier.clickable { onSetState(typeName, 0) }.padding(2.dp)) {
                 Text("OFF", color = if (state == 0) Color.White else Color(0xFF39FF14),
-                    fontSize = 8.sp, fontFamily = aMono, fontWeight = FontWeight.Bold,
+                    fontSize = 10.sp, fontFamily = aMono, fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp))
             }
             Spacer(Modifier.width(4.dp))
             // ALL button
             Surface(shape = RoundedCornerShape(3.dp),
-                color = if (state == 1) Color(0xFF2266CC) else Color.Transparent,
+                color = if (state == 1) Color(0xFF2266CC) else Color(0xFF2D8B2D),
                 modifier = Modifier.clickable { onSetState(typeName, 1) }.padding(2.dp)) {
                 Text("ALL", color = if (state == 1) Color.White else Color(0xFF39FF14),
-                    fontSize = 8.sp, fontFamily = aMono, fontWeight = FontWeight.Bold,
+                    fontSize = 10.sp, fontFamily = aMono, fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp))
             }
             Spacer(Modifier.width(4.dp))
             // SEL/EDIT button
             Surface(shape = RoundedCornerShape(3.dp),
-                color = if (state == 2) Color(0xFF2266CC) else Color.Transparent,
+                color = if (state == 2) Color(0xFF2266CC) else Color(0xFF2D8B2D),
                 modifier = Modifier.clickable { onEditDisplay(typeName) }.padding(2.dp)) {
                 Text("SEL/EDIT", color = if (state == 2) Color.White else Color(0xFF39FF14),
-                    fontSize = 8.sp, fontFamily = aMono, fontWeight = FontWeight.Bold,
+                    fontSize = 10.sp, fontFamily = aMono, fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp))
             }
         }
