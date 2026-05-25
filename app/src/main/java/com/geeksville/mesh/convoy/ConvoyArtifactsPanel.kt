@@ -131,10 +131,7 @@ fun ConvoyArtifactsPanel(
                             fontWeight = FontWeight.Bold, modifier = Modifier.weight(0.8f),
                             textAlign = TextAlign.Center)
                         if (!isConvoyMap) {
-                            Text("Edit", color = aTxtD, fontSize = 9.sp, fontFamily = aMono,
-                                fontWeight = FontWeight.Bold, modifier = Modifier.weight(0.8f),
-                                textAlign = TextAlign.Center)
-                            Text("Import", color = aTxtD, fontSize = 9.sp, fontFamily = aMono,
+                            Text("Select", color = aTxtD, fontSize = 9.sp, fontFamily = aMono,
                                 fontWeight = FontWeight.Bold, modifier = Modifier.weight(0.8f),
                                 textAlign = TextAlign.Center)
                         }

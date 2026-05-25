@@ -89,6 +89,13 @@ fun ConvoyMapViewerScreen(
     }
     // ── GPX Import: scan Downloads directory ──
     var showImportList by remember { mutableStateOf(false) }
+    var lastViewportSouth by remember { mutableStateOf(37.0) }
+    var lastViewportWest by remember { mutableStateOf(-114.0) }
+    var lastViewportNorth by remember { mutableStateOf(38.0) }
+    var lastViewportEast by remember { mutableStateOf(-113.0) }
+    var activeListType by remember { mutableStateOf<String?>(null) }
+    var artifactList by remember { mutableStateOf<List<Map<String, String?>>>(emptyList()) }
+    var selectedArtifactIds by remember { mutableStateOf<Set<String>>(emptySet()) }
     var importFileList by remember { mutableStateOf<List<String>>(emptyList()) }
     var importingFile by remember { mutableStateOf<String?>(null) }
     val scanDownloadsForGpx: () -> Unit = {
@@ -178,9 +185,9 @@ fun ConvoyMapViewerScreen(
     val tileSources = MapSourceManager.getSlotSources()
 
     Column(modifier = Modifier.fillMaxSize().background(Color(0xFF0A0E14))) {
-        // -- Header --
+        // -- Header (transparent) --
         Row(
-            modifier = Modifier.fillMaxWidth().background(Color(0xFF131820))
+            modifier = Modifier.fillMaxWidth().background(Color(0x88000000))
                 .statusBarsPadding()
                 .padding(horizontal = 10.dp, vertical = 3.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -204,33 +211,14 @@ fun ConvoyMapViewerScreen(
             )
             // TRACKS + QUEUES (grouped right)
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                // TRACKS button (opens track picker)
-                Surface(
-                    modifier = Modifier.clickable {
-                            showTrackPanel = showTrackPanel.not()
-                            if (showTrackPanel) refreshTracks()
-                        },
-                    shape = RoundedCornerShape(6.dp),
-                    color = if (showTrackPanel) Color(0xFF39FF14).copy(alpha = 0.2f) else Color(0xFF2A3545)
-                ) {
-                    Text("TRACKS",
-                        color = if (showTrackPanel) Color(0xFF39FF14) else Color(0xFF7A8DA0),
-                        fontSize = 11.sp, fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp))
-                }
+
                 // QUEUES — V2.5 scaffold launch point
-                Surface(
-                    modifier = Modifier.clickable { pmQueuesOpen = !pmQueuesOpen },
-                    shape = RoundedCornerShape(6.dp),
-                    color = Color(0xFF2A3545)
-                ) {
-                    Text("QUEUES",
-                        color = Color(0xFF1CF0A0),
-                        fontSize = 11.sp, fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp))
-                }
+                Text("QUEUES",
+                    color = Color(0xFF1CF0A0),
+                    fontSize = 11.sp, fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.clickable { pmQueuesOpen = !pmQueuesOpen }
+                        .padding(horizontal = 10.dp, vertical = 8.dp))
             }
         }
 
@@ -250,7 +238,7 @@ fun ConvoyMapViewerScreen(
         }
         if (showSearch) {
             Row(
-                modifier = Modifier.fillMaxWidth().background(Color(0xFF1A2030))
+                modifier = Modifier.fillMaxWidth().background(Color(0x44000000))
                     .padding(horizontal = 10.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -326,98 +314,9 @@ fun ConvoyMapViewerScreen(
             }
         }
 
-        // -- Track panel --
-        if (showTrackPanel) {
-            val filtered = if (trackSearchText.isBlank()) trackFileList
-                else trackFileList.filter { it.contains(trackSearchText, ignoreCase = true) }
-            Column(
-                modifier = Modifier.fillMaxWidth().background(Color(0xFF1A2030))
-                    .heightIn(max = 220.dp)
-                    .padding(horizontal = 8.dp, vertical = 4.dp)
-            ) {
-                // Search
-                BasicTextField(
-                    value = trackSearchText,
-                    onValueChange = { trackSearchText = it },
-                    textStyle = TextStyle(color = Color.White, fontSize = 12.sp, fontFamily = FontFamily.Monospace),
-                    cursorBrush = SolidColor(Color(0xFF39FF14)),
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                        .background(Color(0xFF0A1020), RoundedCornerShape(4.dp))
-                        .padding(horizontal = 8.dp, vertical = 6.dp),
-                    decorationBox = { inner ->
-                        if (trackSearchText.isEmpty()) Text("Search tracks...", color = Color(0xFF445566), fontSize = 12.sp, fontFamily = FontFamily.Monospace)
-                        inner()
-                    }
-                )
-                Spacer(Modifier.height(4.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("${filtered.size} of ${trackFileList.size} tracks",
-                        color = Color(0xFF4A6080), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("FIT", color = Color(0xFF4DA6FF), fontSize = 10.sp,
-                            fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
-                            modifier = Modifier.clickable { webViewRef?.evaluateJavascript("fitAllTrackFiles()", null) }.padding(4.dp))
-                        Text("CLEAR", color = Color(0xFFFF4444), fontSize = 10.sp,
-                            fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
-                            modifier = Modifier.clickable {
-                                webViewRef?.evaluateJavascript("clearAllTrackFiles()", null)
-                                loadedTracks = emptyList(); nextColorIdx = 0
-                            }.padding(4.dp))
-                    }
-                }
-                Spacer(Modifier.height(2.dp))
-                androidx.compose.foundation.lazy.LazyColumn(modifier = Modifier.fillMaxWidth()) {
-                    items(filtered.size) { idx ->
-                        val name = filtered[idx]
-                        val loaded = loadedTracks.any { it.first == name }
-                        val displayColor = loadedTracks.firstOrNull { it.first == name }?.second
-                        Row(
-                            modifier = Modifier.fillMaxWidth()
-                                .padding(vertical = 4.dp, horizontal = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(
-                                modifier = Modifier.weight(1f).clickable {
-                                    if (loaded) {
-                                        val safe = name.replace("'", "\\'")
-                                        webViewRef?.evaluateJavascript("removeTrackFile('$safe')", null)
-                                        loadedTracks = loadedTracks.filterNot { it.first == name }
-                                    } else {
-                                        val color = trackColors[nextColorIdx % trackColors.size]
-                                        nextColorIdx++
-                                        loadTrackOnMap(context, name, color, webViewRef)
-                                        loadedTracks = loadedTracks + Pair(name, color)
-                                    }
-                                },
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Surface(
-                                    modifier = Modifier.size(10.dp),
-                                    shape = RoundedCornerShape(2.dp),
-                                    color = if (loaded) Color(android.graphics.Color.parseColor(displayColor ?: "#666666")) else Color(0xFF2A3040)
-                                ) {}
-                                Spacer(Modifier.width(8.dp))
-                                Text(name, color = if (loaded) Color.White else Color(0xFF667788),
-                                    fontSize = 11.sp, fontFamily = FontFamily.Monospace, maxLines = 1)
-                            }
-                            Text("\u22EE", color = Color(0xFF7A8DA0), fontSize = 14.sp,
-                                modifier = Modifier
-                                    .clickable {
-                                        actionTarget = java.io.File(ConvoyTrackOps.tracksDir(), name)
-                                    }
-                                    .padding(horizontal = 12.dp, vertical = 4.dp))
-                        }
-                    }
-                }
-            }
-        }
+        // Track panel removed
 
-        // -- WebView --
+                // -- WebView --
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             AndroidView(
                 factory = { ctx ->
@@ -526,10 +425,12 @@ fun ConvoyMapViewerScreen(
                                         }
                                     }
                                 }
-                                val satUrl = tileSources[0].third
-                                view?.evaluateJavascript(
-                                    "setTileUrl('" + satUrl + "', 'SAT')", null
-                                )
+                                view?.postDelayed({
+                                    val satUrl = tileSources[0].third
+                                    view?.evaluateJavascript(
+                                        "setTileUrl('" + satUrl + "', 'SAT')", null
+                                    )
+                                }, 300)
                                 val initOverlayJson = MapSourceManager.getOverlayJson("SAT")
                                 if (initOverlayJson != "[]") {
                                     view?.evaluateJavascript(
@@ -618,9 +519,41 @@ fun ConvoyMapViewerScreen(
                     .fillMaxWidth()
             )
             } // end showSearch accordion
-            // -- QUEUES PANEL (V2.5 scaffold) --
+            // -- QUEUES PANEL (live download queue) --
             if (pmQueuesOpen) {
-                ConvoyQueuesPanel(onDismiss = { pmQueuesOpen = false })
+                androidx.compose.material3.Surface(
+                    modifier = Modifier.align(Alignment.Center).padding(16.dp).fillMaxWidth(0.90f),
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xEE131820),
+                    shadowElevation = 8.dp
+                ) {
+                    Column(modifier = Modifier.padding(8.dp)) {
+                        Row(modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically) {
+                            Text("DOWNLOAD QUEUES", color = Color(0xFF1CF0A0),
+                                fontSize = 13.sp, fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(start = 8.dp, top = 4.dp))
+                            Text("CLOSE", color = Color(0xFF7A8DA0),
+                                fontSize = 11.sp, fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.clickable { pmQueuesOpen = false }.padding(8.dp))
+                        }
+                        DownloadQueuePanel(
+                            expanded = true,
+                            onToggle = { pmQueuesOpen = false }
+                        )
+                        // Show message if queue is empty
+                        val queueState = DownloadQueueManager.queue.collectAsState()
+                        if (queueState.value.isEmpty()) {
+                            Text("No downloads in queue",
+                                color = Color(0xFF4A6080), fontSize = 10.sp,
+                                fontFamily = FontFamily.Monospace,
+                                modifier = Modifier.padding(8.dp))
+                        }
+                    }
+                }
             }
 
             // -- WORK WITH ARTIFACTS (V2.5 scaffold) --
@@ -650,6 +583,28 @@ fun ConvoyMapViewerScreen(
                         }
                     }
                 },
+                onEditDisplay = { typeName ->
+                    val table = when (typeName) {
+                        "Tracks" -> "tracks"
+                        "Trails" -> "trails"
+                        "Waypoints" -> "waypoints"
+                        "Routes" -> "routes"
+                        else -> return@ConvoyArtifactsPanel
+                    }
+                    scope.launch {
+                        val list = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                            SpatialDbManager.init(context)
+                            SpatialDbManager.queryArtifactList(table, lastViewportSouth, lastViewportWest, lastViewportNorth, lastViewportEast)
+                        }
+                        if (list.isNotEmpty()) {
+                            artifactList = list
+                            selectedArtifactIds = list.mapNotNull { it["id"] }.toSet()
+                            activeListType = typeName
+                        } else {
+                            android.widget.Toast.makeText(context, "No " + typeName + " in current view", android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                },
                 onImport = { typeName ->
                     when (typeName) {
                         "Trails" -> onNavigateToTrailSources()
@@ -659,7 +614,129 @@ fun ConvoyMapViewerScreen(
                 }
             )
 
-            // -- IMPORT LIST PANEL (scan Downloads for GPX/KML) --
+            // -- ARTIFACT LIST PANEL (SELECT/EDIT) --
+            if (activeListType != null) {
+                ArtifactListPanel(
+                    artifactType = activeListType!!,
+                    artifacts = artifactList,
+                    selectedIds = selectedArtifactIds,
+                    onDismiss = { activeListType = null },
+                    onToggleItem = { id, selected ->
+                        val newIds = if (selected) selectedArtifactIds + id else selectedArtifactIds - id
+                        selectedArtifactIds = newIds
+                        // Push filtered GeoJSON to map
+                        scope.launch {
+                            val filtered = artifactList.filter { it["id"] in newIds }
+                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                SpatialDbManager.init(context)
+                                val json = when (activeListType) {
+                                    "Waypoints" -> SpatialDbManager.buildWaypointGeoJson(filtered)
+                                    "Routes" -> SpatialDbManager.buildRouteGeoJson(filtered)
+                                    "Tracks" -> SpatialDbManager.buildTrackGeoJson(filtered)
+                                    "Trails" -> SpatialDbManager.buildTrailGeoJson(filtered)
+                                    else -> return@withContext
+                                }
+                                val fn = when (activeListType) {
+                                    "Waypoints" -> "updateWaypoints"
+                                    "Routes" -> "updateRoutes"
+                                    "Tracks" -> "updateTracks"
+                                    "Trails" -> "updateTrails"
+                                    else -> return@withContext
+                                }
+                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                    webViewRef?.evaluateJavascript("$fn($json)", null)
+                                }
+                            }
+                        }
+                    },
+                    onSelectAll = {
+                        selectedArtifactIds = artifactList.mapNotNull { it["id"] }.toSet()
+                        // Show all on map
+                        scope.launch {
+                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                SpatialDbManager.init(context)
+                                val json = when (activeListType) {
+                                    "Waypoints" -> SpatialDbManager.buildWaypointGeoJson(artifactList)
+                                    "Routes" -> SpatialDbManager.buildRouteGeoJson(artifactList)
+                                    "Tracks" -> SpatialDbManager.buildTrackGeoJson(artifactList)
+                                    "Trails" -> SpatialDbManager.buildTrailGeoJson(artifactList)
+                                    else -> return@withContext
+                                }
+                                val fn = when (activeListType) {
+                                    "Waypoints" -> "updateWaypoints"; "Routes" -> "updateRoutes"
+                                    "Tracks" -> "updateTracks"; "Trails" -> "updateTrails"
+                                    else -> return@withContext
+                                }
+                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                    webViewRef?.evaluateJavascript("$fn($json)", null)
+                                }
+                            }
+                        }
+                    },
+                    onDeselectAll = {
+                        selectedArtifactIds = emptySet()
+                        // Clear from map
+                        val fn = when (activeListType) {
+                            "Waypoints" -> "clearWaypoints"; "Routes" -> "clearRoutes"
+                            "Tracks" -> "clearTracks"; "Trails" -> "clearTrails"
+                            else -> null
+                        }
+                        if (fn != null) webViewRef?.evaluateJavascript("$fn()", null)
+                    },
+                    onRename = { id, newName ->
+                        scope.launch {
+                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                SpatialDbManager.init(context)
+                                when (activeListType) {
+                                    "Waypoints" -> SpatialDbManager.renameWaypoint(id, newName)
+                                    "Routes" -> SpatialDbManager.renameRoute(id, newName)
+                                    "Tracks" -> SpatialDbManager.renameTrackInDb(id, newName)
+                                }
+                            }
+                            // Refresh list
+                            val table = when (activeListType) {
+                                "Tracks" -> "tracks"; "Waypoints" -> "waypoints"
+                                "Routes" -> "routes"; else -> "trails"
+                            }
+                            val bounds = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                SpatialDbManager.getArtifactBounds(table)
+                            }
+                            if (bounds != null) {
+                                artifactList = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                    SpatialDbManager.queryArtifactList(table, bounds[0], bounds[1], bounds[2], bounds[3])
+                                }
+                            }
+                            webViewRef?.evaluateJavascript("triggerViewportUpdate()", null)
+                        }
+                    },
+                    onDelete = { id ->
+                        scope.launch {
+                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                SpatialDbManager.init(context)
+                                when (activeListType) {
+                                    "Waypoints" -> SpatialDbManager.deleteWaypoint(id)
+                                    "Routes" -> SpatialDbManager.deleteRoute(id)
+                                    "Tracks" -> SpatialDbManager.deleteTrackFromDb(id)
+                                }
+                            }
+                            artifactList = artifactList.filter { it["id"] != id }
+                            selectedArtifactIds = selectedArtifactIds - id
+                            webViewRef?.evaluateJavascript("triggerViewportUpdate()", null)
+                        }
+                    },
+                    onChangeType = if (activeListType == "Waypoints") { id, newType ->
+                        scope.launch {
+                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                SpatialDbManager.init(context)
+                                SpatialDbManager.changeWaypointType(id, newType)
+                            }
+                            webViewRef?.evaluateJavascript("triggerViewportUpdate()", null)
+                        }
+                    } else null
+                )
+            }
+
+                        // -- IMPORT LIST PANEL (scan Downloads for GPX/KML) --
             if (showImportList) {
                 androidx.compose.material3.Surface(
                     modifier = Modifier.align(Alignment.Center).padding(16.dp).fillMaxWidth(0.85f),
@@ -741,93 +818,9 @@ fun ConvoyMapViewerScreen(
                 }
             }
 
-            // -- FLOATING DISPLAY PANEL --
-            ConvoyDisplayPanel(
-                tracksOn = pmTracksOn,
-                onTracksToggle = {
-                    pmTracksOn = pmTracksOn.not()
-                    if (pmTracksOn) {
-                        if (pmTracksLoaded) {
-                            webViewRef?.evaluateJavascript("showAllTrackFiles()", null)
-                        } else {
-                            pmTracksLoaded = true
-                            val wv = webViewRef
-                            kotlinx.coroutines.MainScope().launch {
-                                val colors = listOf("#39FF14")
-                                val dir = java.io.File(
-                                    android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOCUMENTS),
-                                    "my_tracks")
-                                val files = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                                    dir.listFiles()?.map { it.name }?.sorted() ?: emptyList()
-                                }
-                                files.forEachIndexed { idx, name ->
-                                    val color = colors[idx % colors.size]
-                                    val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                                        try {
-                                            val file = java.io.File(dir, name)
-                                            if (!file.exists()) return@withContext null
-                                            val text = file.readText()
-                                            val coords = if (name.lowercase().endsWith(".gpx")) parseGpx(text) else parseKml(text)
-                                            if (coords.isEmpty()) return@withContext null
-                                            coords.joinToString(",", "[", "]") { "[${it.first},${it.second}]" }
-                                        } catch (e: Exception) { null }
-                                    }
-                                    if (result != null) {
-                                        val safe = name.replace("'", "\\'")
-                                        wv?.evaluateJavascript("loadTrackFile('$safe', '$result', '$color')", null)
-                                    }
-                                }
-                            }
-                        }
-                    } else {
-                        webViewRef?.evaluateJavascript("hideAllTrackFiles()", null)
-                    }
-                },
-                trailsOn = pmTrailsOn,
-                onTrailsToggle = {
-                    pmTrailsOn = pmTrailsOn.not()
-                    if (pmTrailsOn) {
-                        android.util.Log.i("TrailLazy", "TRAILS ON - calling triggerViewportUpdate")
-                        webViewRef?.evaluateJavascript("triggerViewportUpdate()", null)
-                    } else {
-                        webViewRef?.evaluateJavascript("clearTrails()", null)
-                    }
-                },
-                downloadedOn = pmDownloadedOn,
-                onDownloadedToggle = {
-                    if (pmDownloadedOn) {
-                        pmDownloadedOn = false
-                        webViewRef?.evaluateJavascript("clearDownloadedAreas()", null)
-                    } else {
-                        val tilesDir = java.io.File(ConvoyConfig.TILE_DIR, "SAT/14")
-                        Thread {
-                            val bounds = mutableListOf<String>()
-                            if (tilesDir.exists()) {
-                                val z = 14; val n = 1 shl z
-                                tilesDir.listFiles()?.forEach { xDir ->
-                                    val x = xDir.name.toLongOrNull() ?: return@forEach
-                                    xDir.listFiles()?.forEach { yFile ->
-                                        val y = yFile.name.removeSuffix(".png").toLongOrNull() ?: return@forEach
-                                        val tN = Math.toDegrees(Math.atan(Math.sinh(Math.PI * (1.0 - 2.0 * y / n))))
-                                        val tS = Math.toDegrees(Math.atan(Math.sinh(Math.PI * (1.0 - 2.0 * (y + 1) / n))))
-                                        val tW = x.toDouble() / n * 360.0 - 180.0
-                                        val tE = (x + 1).toDouble() / n * 360.0 - 180.0
-                                        bounds.add("{\"n\":" + tN + ",\"s\":" + tS + ",\"e\":" + tE + ",\"w\":" + tW + "}")
-                                    }
-                                }
-                            }
-                            val json = "[" + bounds.joinToString(",") + "]"
-                            android.os.Handler(android.os.Looper.getMainLooper()).post {
-                                webViewRef?.evaluateJavascript("showDownloadedAreas(" + json + ")", null)
-                                pmDownloadedOn = true
-                            }
-                        }.start()
-                    }
-                },
-                scanningDownloaded = false,
-                modifier = Modifier.padding(start = 8.dp, top = 56.dp)
-            )
-            DownloadQueuePanel(
+            // DisplayPanel removed
+
+                        DownloadQueuePanel(
                 expanded = queueExpanded,
                 onToggle = { queueExpanded = !queueExpanded },
                 modifier = Modifier.align(Alignment.BottomStart).padding(start = 12.dp, bottom = 8.dp).width(280.dp)
@@ -982,20 +975,17 @@ fun ConvoyMapViewerScreen(
 
         // -- Legend bar --
         Row(
-            modifier = Modifier.fillMaxWidth().background(Color(0xFF131820))
+            modifier = Modifier.fillMaxWidth().background(Color(0x88000000))
                 .navigationBarsPadding()
                 .padding(horizontal = 10.dp, vertical = 3.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            LegendDot(Color(0xFF00AAFF), "OHV Trail")
-            LegendDot(Color(0xFFFF8800), "Hike+Bike")
-            LegendDot(Color(0xFFFFCC00), "Hike")
-            LegendDot(Color(0xFFAA44FF), "Bike")
-            LegendDot(Color(0xFF00FFFF), "Trail")
-            LegendDot(Color(0xFF39FF14), "Track")
-            LegendDot(Color(0xFFFFD700), "Route")
-            LegendDot(Color(0xFF2ECC40), "Waypoint")
+            LegendItem(Color(0xFF00AAFF), "OHV", "line")
+            LegendItem(Color(0xFF00FFFF), "Trail", "line")
+            LegendItem(Color(0xFF39FF14), "Track", "dash")
+            LegendItem(Color(0xFFFFD700), "Route", "dash")
+            LegendItem(Color(0xFF2ECC40), "Wpt", "pin")
         }
     }
     // ── Track action menu integration ──
@@ -1157,19 +1147,24 @@ private fun parseGpx(text: String): List<Pair<Double, Double>> {
 }
 
 @Composable
-private fun LegendDot(color: Color, label: String) {
+private fun LegendItem(color: Color, label: String, style: String = "line") {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Surface(
-            modifier = Modifier.size(8.dp),
-            shape = RoundedCornerShape(4.dp),
-            color = color
-        ) {}
-        Spacer(Modifier.width(4.dp))
-        Text(
-            label,
-            color = Color(0xFF8B938A),
-            fontSize = 9.sp,
-            fontFamily = FontFamily.Monospace
-        )
+        androidx.compose.foundation.Canvas(modifier = Modifier.size(width = 14.dp, height = 8.dp)) {
+            val y = size.height / 2
+            when (style) {
+                "line" -> drawLine(color, androidx.compose.ui.geometry.Offset(0f, y), androidx.compose.ui.geometry.Offset(size.width, y), strokeWidth = 3f)
+                "dash" -> {
+                    val d = size.width / 4
+                    drawLine(color, androidx.compose.ui.geometry.Offset(0f, y), androidx.compose.ui.geometry.Offset(d, y), strokeWidth = 3f)
+                    drawLine(color, androidx.compose.ui.geometry.Offset(d * 2, y), androidx.compose.ui.geometry.Offset(d * 3, y), strokeWidth = 3f)
+                }
+                "pin" -> {
+                    drawCircle(color, radius = size.minDimension / 2)
+                    drawCircle(Color.White, radius = size.minDimension / 4)
+                }
+            }
+        }
+        Spacer(Modifier.width(3.dp))
+        Text(label, color = Color(0xFFAABBCC), fontSize = 9.sp, fontFamily = FontFamily.Monospace)
     }
 }

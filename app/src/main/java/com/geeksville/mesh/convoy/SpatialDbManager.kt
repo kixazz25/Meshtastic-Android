@@ -296,7 +296,7 @@ object SpatialDbManager {
 
 
     /** Query tracks by viewport bounding box */
-    fun queryTracksByViewport(north: Double, south: Double, east: Double, west: Double, limit: Int = 500): List<Map<String, String?>> {
+    fun queryTracksByViewport(south: Double, west: Double, north: Double, east: Double, limit: Int = 500): List<Map<String, String?>> {
         val db = spatialDb ?: return emptyList()
         val results = mutableListOf<Map<String, String?>>()
         try {
@@ -639,6 +639,84 @@ object SpatialDbManager {
         }
         return null
     }
+    
+
+    // ── CRUD OPERATIONS (for ArtifactListPanel) ──────────────────
+
+    /** Query artifact list for display in ArtifactListPanel */
+    fun queryArtifactList(table: String, south: Double, west: Double, north: Double, east: Double): List<Map<String, String?>> {
+        val db = spatialDb ?: return emptyList()
+        val results = mutableListOf<Map<String, String?>>()
+        try {
+            val idCol = when (table) {
+                "trails" -> "trail_id"
+                "tracks" -> "track_id"
+                "waypoints" -> "waypoint_id"
+                "routes" -> "route_id"
+                else -> return emptyList()
+            }
+            val typeCol = if (table == "waypoints") ", type" else ""
+            val typeFilter = if (table == "tracks") " AND (type='TRACK' OR type IS NULL)" else ""
+            val sql = "SELECT $idCol, name$typeCol FROM $table WHERE min_lat IS NOT NULL AND max_lat >= ? AND min_lat <= ? AND max_lon >= ? AND min_lon <= ?$typeFilter ORDER BY name LIMIT 200"
+            val cursor = db.rawQuery(sql, arrayOf(south.toString(), north.toString(), west.toString(), east.toString()))
+            cursor.use {
+                while (it.moveToNext()) {
+                    val map = mutableMapOf<String, String?>()
+                    map["id"] = it.getString(0)
+                    map["name"] = it.getString(1)
+                    if (table == "waypoints" && it.columnCount > 2) {
+                        map["type"] = it.getString(2)
+                    } else {
+                        map["type"] = ""
+                    }
+                    results.add(map)
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("SpatialDb", "queryArtifactList($table) failed: ${e.message}")
+        }
+        return results
+    }
+
+    /** Rename a waypoint */
+    fun renameWaypoint(id: String, newName: String) {
+        spatialDb?.execSQL("UPDATE waypoints SET name=?, updated_at=? WHERE waypoint_id=?",
+            arrayOf<Any>(newName, now(), id))
+    }
+
+    /** Delete a waypoint */
+    fun deleteWaypoint(id: String) {
+        spatialDb?.execSQL("DELETE FROM waypoints WHERE waypoint_id=?", arrayOf<Any>(id))
+    }
+
+    /** Change waypoint type */
+    fun changeWaypointType(id: String, newType: String) {
+        spatialDb?.execSQL("UPDATE waypoints SET type=?, updated_at=? WHERE waypoint_id=?",
+            arrayOf<Any>(newType.lowercase(), now(), id))
+    }
+
+    /** Rename a route */
+    fun renameRoute(id: String, newName: String) {
+        spatialDb?.execSQL("UPDATE routes SET name=?, updated_at=? WHERE route_id=?",
+            arrayOf<Any>(newName, now(), id))
+    }
+
+    /** Delete a route */
+    fun deleteRoute(id: String) {
+        spatialDb?.execSQL("DELETE FROM routes WHERE route_id=?", arrayOf<Any>(id))
+    }
+
+    /** Rename a track in spatial DB (file rename handled by ConvoyTrackOps) */
+    fun renameTrackInDb(id: String, newName: String) {
+        spatialDb?.execSQL("UPDATE tracks SET name=?, updated_at=? WHERE track_id=?",
+            arrayOf<Any>(newName, now(), id))
+    }
+
+    /** Delete a track from spatial DB (file delete handled by ConvoyTrackOps) */
+    fun deleteTrackFromDb(id: String) {
+        spatialDb?.execSQL("DELETE FROM tracks WHERE track_id=?", arrayOf<Any>(id))
+    }
+
         /** Close both databases. Call on app teardown. */
     fun close() {
         spatialDb?.close()
