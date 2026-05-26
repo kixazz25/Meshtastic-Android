@@ -489,7 +489,25 @@ fun ConvoyScreen(
                         setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null)
                         webViewClient = object : android.webkit.WebViewClient() {
                             override fun onPageFinished(view: android.webkit.WebView?, url: String?) {
-                                val tileUrl = ConvoyConfig.TILE_SOURCES[ConvoyConfig.ACTIVE_TILE_SOURCE] ?: return
+                                // Auto-sense connectivity: use local tiles if no internet
+                                val ctx = view?.context ?: return
+                                val cm = ctx?.getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager
+                                val hasInternet = cm?.activeNetwork?.let { net ->
+                                    cm.getNetworkCapabilities(net)?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
+                                } ?: false
+                                val tileUrl = if (hasInternet) {
+                                    ConvoyConfig.TILE_SOURCES[ConvoyConfig.ACTIVE_TILE_SOURCE] ?: return
+                                } else {
+                                    android.util.Log.d("ConvoyMap", "No internet — auto-switching to local tiles")
+                                    ConvoyConfig.LOCAL_TILE_BASE + ConvoyConfig.ACTIVE_TILE_SOURCE + "/{z}/{x}/{y}.png"
+                                }
+                                if (!hasInternet) {
+                                    // Auto-set offline mode so source button taps also use local tiles
+                                    android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                        viewModel.setLocalTiles(true)
+                                        viewModel.setOfflineMode(true)
+                                    }
+                                }
                                 view?.postDelayed({
                                     view.evaluateJavascript("setTileUrl('$tileUrl', '${ConvoyConfig.ACTIVE_TILE_SOURCE}')", null)
                                     val overlayJson = MapSourceManager.getOverlayJson(ConvoyConfig.ACTIVE_TILE_SOURCE)

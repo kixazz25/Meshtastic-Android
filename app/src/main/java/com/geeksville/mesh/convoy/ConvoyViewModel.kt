@@ -139,6 +139,10 @@ class ConvoyViewModel @Inject constructor(
 
     fun startGroupTrack() {
         _routeTrailSegments.value = emptyList()
+        leadActualLat = null
+        leadActualLon = null
+        leadStaleTicks = 0
+        proxySnapped = false
         _leadTrackSegments.value = emptyList()
         _gpsTrailSegments.value = emptyList()
         rideStartTimeMs = System.currentTimeMillis()
@@ -302,6 +306,10 @@ class ConvoyViewModel @Inject constructor(
     private var lastLeadLon: Double? = null
     private var rideStartTimeMs: Long = 0L  // Unix ms when startGroupTrack() was called
     private var currentLeadNodeId: String? = null
+    private var leadActualLat: Double? = null    // Lead's real GPS (never substituted)
+    private var leadActualLon: Double? = null
+    private var leadStaleTicks: Int = 0          // Ticks without new lead position
+    private var proxySnapped: Boolean = false    // True after first proxy snap
     private val lastNodePositions = mutableMapOf<String, Pair<Double, Double>>()
 
     private val _routeRecording = MutableStateFlow(false)
@@ -632,36 +640,105 @@ class ConvoyViewModel @Inject constructor(
             }
         }
 
-        // ── Build trail segments using resolved positions ─────────────────
+        // ── Build trail segments — lead actual GPS + proxy snap ──────────
         if (_trackLeadOnly.value) {
-            // Get lead position from resolved map — never null if any cart is active
-            val leadPos = if (lockedLeadNodeId != null)
-                resolvedPositions[lockedLeadNodeId]
-            else null
-            if (leadPos != null) {
-                if (lockedLeadNodeId != currentLeadNodeId) {
-                    currentLeadNodeId = lockedLeadNodeId
-                    lastLeadLat = null
-                    lastLeadLon = null
+            // Get lead's ACTUAL position from node (never use resolved/substituted)
+            val leadNode = state.nodes.firstOrNull { it.nodeId == lockedLeadNodeId }
+            val leadIsReporting = leadNode != null && leadNode.latitude != 0.0
+                && leadNode.longitude != 0.0 && leadNode.status != ConvoyStatus.LOST
+            val leadHasNewPos = leadIsReporting
+                && (leadNode!!.latitude != leadActualLat || leadNode.longitude != leadActualLon)
+
+            // Handle lead node change
+            if (lockedLeadNodeId != currentLeadNodeId) {
+                currentLeadNodeId = lockedLeadNodeId
+                lastLeadLat = null
+                lastLeadLon = null
+                leadStaleTicks = 0
+                proxySnapped = false
+                leadActualLat = null
+                leadActualLon = null
+            }
+
+            val trackLat: Double?
+            val trackLon: Double?
+
+            if (leadHasNewPos) {
+                // ── Lead reported new actual position — always use it ──
+                leadStaleTicks = 0
+                proxySnapped = false
+                leadActualLat = leadNode!!.latitude
+                leadActualLon = leadNode.longitude
+                trackLat = leadNode.latitude
+                trackLon = leadNode.longitude
+            } else {
+                // ── Lead position unchanged — check for proxy ──
+                leadStaleTicks++
+                if (leadStaleTicks > 1 && leadActualLat != null && leadActualLon != null) {
+                    // Lead missed 1+ cycles — find cart that reached lead's actual position
+                    // Uses haversine distance (actual GPS), not projection
+                    var proxyLat: Double? = null
+                    var proxyLon: Double? = null
+                    var closestDist = Double.MAX_VALUE
+                    for (n in state.nodes) {
+                        if (n.nodeId == lockedLeadNodeId) continue
+                        if (n.latitude == 0.0 || n.longitude == 0.0) continue
+                        if (n.status == ConvoyStatus.LOST) continue
+                        if (_offTrackIds.value.contains(n.nodeId)) continue
+                        // Haversine from cart to lead's ACTUAL last reported position
+                        val dist = ConvoyEngine.haversineMiles(
+                            leadActualLat!!, leadActualLon!!,
+                            n.latitude, n.longitude)
+                        // Cart has reached lead's position (within ~250 feet)
+                        if (dist < 0.05 && dist < closestDist) {
+                            closestDist = dist.toDouble()
+                            proxyLat = n.latitude
+                            proxyLon = n.longitude
+                        }
+                    }
+                    if (proxyLat != null && proxyLon != null) {
+                        if (!proxySnapped) {
+                            // SNAP: first proxy segment connects from lead's last actual pos
+                            // lastLeadLat/Lon is already lead's actual — segment starts there
+                            proxySnapped = true
+                            if (_trackActive.value) {
+                                convoyLog("PROXY SNAP: lead stale $leadStaleTicks ticks")
+                            }
+                        }
+                        trackLat = proxyLat
+                        trackLon = proxyLon
+                    } else {
+                        // No cart has reached lead's position yet — wait
+                        trackLat = null
+                        trackLon = null
+                    }
+                } else {
+                    // Within grace period or no lead position recorded yet
+                    trackLat = null
+                    trackLon = null
                 }
+            }
+
+            // Build segment if we have a valid track position
+            if (trackLat != null && trackLon != null) {
                 val prevLat = lastLeadLat
                 val prevLon = lastLeadLon
                 if (prevLat != null && prevLon != null &&
-                    (prevLat != leadPos.first || prevLon != leadPos.second)) {
-                    val segDist = ConvoyEngine.haversineMiles(prevLat, prevLon, leadPos.first, leadPos.second)
+                    (prevLat != trackLat || prevLon != trackLon)) {
+                    val segDist = ConvoyEngine.haversineMiles(prevLat, prevLon, trackLat, trackLon)
                     if (segDist > 0.25f) {
-                        convoyLog("LEAD SEGMENT JUMP: dist=${String.format("%.3f",segDist)}mi — drawing through")
+                        convoyLog("LEAD SEGMENT: dist=${String.format("%.3f",segDist)}mi${if (proxySnapped) " (PROXY)" else ""}")
                     }
                     val seg = ConvoyEngine.LeadTrackSegment(
                         startLat = prevLat, startLon = prevLon,
-                        endLat = leadPos.first, endLon = leadPos.second,
+                        endLat = trackLat, endLon = trackLon,
                         color = "#000000",
                         nodeId = lockedLeadNodeId ?: ""
                     )
                     if (_trackActive.value) _routeTrailSegments.value = _routeTrailSegments.value + seg
                 }
-                lastLeadLat = leadPos.first
-                lastLeadLon = leadPos.second
+                lastLeadLat = trackLat
+                lastLeadLon = trackLon
             }
         } else {
             val newSegs = mutableListOf<ConvoyEngine.LeadTrackSegment>()
