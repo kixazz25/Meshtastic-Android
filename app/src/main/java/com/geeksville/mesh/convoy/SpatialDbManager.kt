@@ -717,6 +717,124 @@ object SpatialDbManager {
         spatialDb?.execSQL("DELETE FROM tracks WHERE track_id=?", arrayOf<Any>(id))
     }
 
+    
+    // ── GPX BUILDERS (for SHARE and EXPORT) ─────────────────
+
+    private val GPX_HEADER = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
+        "<gpx version=\"1.1\" creator=\"GroupTrack\"\n" +
+        "     xmlns=\"http://www.topografix.com/GPX/1/1\">\n"
+    private const val GPX_FOOTER = "</gpx>"
+
+    private fun xmlEscape(s: String): String =
+        s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;")
+
+    /** Build GPX for a single waypoint by ID. Returns Pair(name, gpxContent) or null. */
+    fun buildWaypointGpxById(waypointId: String): Pair<String, String>? {
+        val db = spatialDb ?: return null
+        try {
+            val cursor = db.rawQuery(
+                "SELECT name, type, geometry, description FROM waypoints WHERE waypoint_id=?",
+                arrayOf(waypointId))
+            cursor.use { c ->
+                if (!c.moveToFirst()) return null
+                val name = c.getString(0) ?: "Unnamed"
+                val type = c.getString(1) ?: ""
+                val geom = c.getString(2) ?: return null
+                val desc = if (c.columnCount > 3) (c.getString(3) ?: "") else ""
+                val coords = geom.removePrefix("POINT(").removeSuffix(")").trim().split(" ")
+                if (coords.size < 2) return null
+                val lon = coords[0]
+                val lat = coords[1]
+                val sb = StringBuilder()
+                sb.append(GPX_HEADER)
+                sb.append("  <wpt lat=\"").append(lat).append("\" lon=\"").append(lon).append("\">\n")
+                sb.append("    <name>").append(xmlEscape(name)).append("</name>\n")
+                if (type.isNotEmpty()) sb.append("    <type>").append(xmlEscape(type)).append("</type>\n")
+                if (desc.isNotEmpty()) sb.append("    <desc>").append(xmlEscape(desc)).append("</desc>\n")
+                sb.append("  </wpt>\n")
+                sb.append(GPX_FOOTER)
+                return Pair(name, sb.toString())
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("SpatialDb", "buildWaypointGpx error: " + e.message)
+            return null
+        }
+    }
+
+    /** Build GPX for a single route by ID. Returns Pair(name, gpxContent) or null. */
+    fun buildRouteGpxById(routeId: String): Pair<String, String>? {
+        val db = spatialDb ?: return null
+        try {
+            val cursor = db.rawQuery(
+                "SELECT name, geometry, description FROM routes WHERE route_id=?",
+                arrayOf(routeId))
+            cursor.use { c ->
+                if (!c.moveToFirst()) return null
+                val name = c.getString(0) ?: "Unnamed"
+                val geom = c.getString(1) ?: return null
+                val desc = if (c.columnCount > 2) (c.getString(2) ?: "") else ""
+                val coordStr = geom.removePrefix("LINESTRING(").removeSuffix(")")
+                val points = coordStr.split(",").mapNotNull { pt ->
+                    val parts = pt.trim().split(" ")
+                    if (parts.size >= 2) Pair(parts[1], parts[0]) else null
+                }
+                val sb = StringBuilder()
+                sb.append(GPX_HEADER)
+                sb.append("  <rte>\n")
+                sb.append("    <name>").append(xmlEscape(name)).append("</name>\n")
+                if (desc.isNotEmpty()) sb.append("    <desc>").append(xmlEscape(desc)).append("</desc>\n")
+                var idx = 1
+                for ((lat, lon) in points) {
+                    sb.append("    <rtept lat=\"").append(lat).append("\" lon=\"").append(lon).append("\">\n")
+                    sb.append("      <name>Pt ").append(idx).append("</name>\n")
+                    sb.append("    </rtept>\n")
+                    idx++
+                }
+                sb.append("  </rte>\n")
+                sb.append(GPX_FOOTER)
+                return Pair(name, sb.toString())
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("SpatialDb", "buildRouteGpx error: " + e.message)
+            return null
+        }
+    }
+
+    /** Build GPX for a single trail by ID. Returns Pair(name, gpxContent) or null. */
+    fun buildTrailGpxById(trailId: String): Pair<String, String>? {
+        val db = spatialDb ?: return null
+        try {
+            val cursor = db.rawQuery(
+                "SELECT name, geometry FROM trails WHERE trail_id=?",
+                arrayOf(trailId))
+            cursor.use { c ->
+                if (!c.moveToFirst()) return null
+                val name = c.getString(0) ?: "Unnamed"
+                val geom = c.getString(1) ?: return null
+                val coordStr = geom.removePrefix("LINESTRING(").removeSuffix(")")
+                val points = coordStr.split(",").mapNotNull { pt ->
+                    val parts = pt.trim().split(" ")
+                    if (parts.size >= 2) Pair(parts[1], parts[0]) else null
+                }
+                val sb = StringBuilder()
+                sb.append(GPX_HEADER)
+                sb.append("  <trk>\n")
+                sb.append("    <name>").append(xmlEscape(name)).append("</name>\n")
+                sb.append("    <trkseg>\n")
+                for ((lat, lon) in points) {
+                    sb.append("      <trkpt lat=\"").append(lat).append("\" lon=\"").append(lon).append("\"/>\n")
+                }
+                sb.append("    </trkseg>\n")
+                sb.append("  </trk>\n")
+                sb.append(GPX_FOOTER)
+                return Pair(name, sb.toString())
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("SpatialDb", "buildTrailGpx error: " + e.message)
+            return null
+        }
+    }
+
         /** Close both databases. Call on app teardown. */
     fun close() {
         spatialDb?.close()
