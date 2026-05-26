@@ -378,6 +378,20 @@ fun ConvoyMapViewerScreen(
                             @JavascriptInterface
                             fun onMapBoundsReady(n: Double, s: Double, e: Double, w: Double) {}
                             @JavascriptInterface
+                            fun onMapReady(n: Double, s: Double, e: Double, w: Double) {
+                                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                    val wv = webViewRef ?: return@post
+                                    val src = ConvoyConfig.ACTIVE_TILE_SOURCE
+                                    val url = MapSourceManager.getSlotSources().find { it.first == src }?.third
+                                        ?: tileSources.firstOrNull()?.third ?: return@post
+                                    wv.evaluateJavascript("setTileUrl('" + url + "', '" + src + "')", null)
+                                    val ovJson = MapSourceManager.getOverlayJson(src)
+                                    if (ovJson != "[]") {
+                                        wv.evaluateJavascript("setOverlayLayers('" + ovJson.replace("'", "\'") + "')", null)
+                                    }
+                                }
+                            }
+                            @JavascriptInterface
                             fun onViewportChanged(north: Double, south: Double, east: Double, west: Double, zoom: Double) {
                                 lastViewportSouth = south; lastViewportWest = west; lastViewportNorth = north; lastViewportEast = east
                                 // Always query — data preloaded, toggle controls visibility
@@ -487,12 +501,7 @@ fun ConvoyMapViewerScreen(
                                         }
                                     }
                                 }
-                                view?.postDelayed({
-                                    val satUrl = tileSources[0].third
-                                    view?.evaluateJavascript(
-                                        "setTileUrl('" + satUrl + "', 'SAT')", null
-                                    )
-                                }, 300)
+                                // SAT tile URL now set via onMapReady callback (no race condition)
                                 val initOverlayJson = MapSourceManager.getOverlayJson("SAT")
                                 if (initOverlayJson != "[]") {
                                     view?.evaluateJavascript(

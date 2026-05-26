@@ -650,6 +650,12 @@
     document.addEventListener("DOMContentLoaded", function() {
       setTimeout(function() {
         map = L.map("map", { zoomControl: true }).setView([39.8, -98.6], 4);
+        map.whenReady(function() {
+          if (window.Android) {
+            var b = map.getBounds();
+            Android.onMapReady(b.getNorth(), b.getSouth(), b.getEast(), b.getWest());
+          }
+        });
         map.on("zoomend", function() {
           // V2.4: allow overzoom — Leaflet stretches tiles beyond maxNativeZoom
         });
