@@ -48,7 +48,7 @@
           .setLatLng(clickLatLng)
           .setContent('<div style="font-size:11px;line-height:1.6;">' + nearby.join('<br>') + '</div>')
           .openOn(map);
-        setTimeout(function() { map.closePopup(popup); }, 4000);
+        setTimeout(function() { map.closePopup(popup); }, 5000);
       }
     });
 
@@ -98,7 +98,7 @@
           .setLatLng(clickLatLng)
           .setContent('<div style="font-size:11px;line-height:1.6;">' + nearby.join('<br>') + '</div>')
           .openOn(map);
-        setTimeout(function() { map.closePopup(popup); }, 4000);
+        setTimeout(function() { map.closePopup(popup); }, 5000);
       }
     });
 
@@ -546,7 +546,29 @@
       drawnItems.addLayer(rect);
     }
     var downloadedAreaLayer = null;
-    function showDownloadedAreas(bounds) {
+    // ── Show queued download regions as red rectangles ──
+    var queuedLayers = [];
+    function showQueuedAreas(boundsJson) {
+      clearQueuedAreas();
+      try {
+        var bounds = typeof boundsJson === 'string' ? JSON.parse(boundsJson) : boundsJson;
+        for (var i = 0; i < bounds.length; i++) {
+          var b = bounds[i];
+          var rect = L.rectangle([[b.s, b.w], [b.n, b.e]], {
+            color: '#FF3333', weight: 1, fillColor: '#FF3333', fillOpacity: 0.15,
+            dashArray: '6,3'
+          }).addTo(map);
+          if (b.label) rect.bindTooltip(b.label, {permanent: false, direction: 'center'});
+          queuedLayers.push(rect);
+        }
+      } catch(e) { console.error('showQueuedAreas:', e); }
+    }
+    function clearQueuedAreas() {
+      for (var i = 0; i < queuedLayers.length; i++) map.removeLayer(queuedLayers[i]);
+      queuedLayers = [];
+    }
+
+        function showDownloadedAreas(bounds) {
       if (downloadedAreaLayer) { map.removeLayer(downloadedAreaLayer); }
       downloadedAreaLayer = L.layerGroup();
       for (var i = 0; i < bounds.length; i++) {
@@ -708,7 +730,7 @@
           .setLatLng(clickLatLng)
           .setContent('<div style="font-size:11px;line-height:1.6;">' + nearby.join('<br>') + '</div>')
           .openOn(map);
-        setTimeout(function() { map.closePopup(popup); }, 4000);
+        setTimeout(function() { map.closePopup(popup); }, 5000);
       }
     });
 
