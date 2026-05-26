@@ -50,6 +50,7 @@ fun ArtifactListPanel(
     onRename: ((String, String) -> Unit)? = null,
     onDelete: ((String) -> Unit)? = null,
     onShare: ((String) -> Unit)? = null,
+    onExport: ((String) -> Unit)? = null,
     onChangeType: ((String, String) -> Unit)? = null,
     onViewAliases: ((String) -> Unit)? = null,
     onFitToSelected: (() -> Unit)? = null
@@ -190,9 +191,17 @@ fun ArtifactListPanel(
                                 }
                             }
 
-                            // Share — Tracks only
-                            if (artifactType == "Tracks" && onShare != null) {
-                                DetailActionButton("SHARE", aGreen) { onShare(dId) }
+                            // Share — all artifact types
+                            if (onShare != null) {
+                                DetailActionButton("SHARE", aGreen) {
+                                    onShare!!(dId)
+                                }
+                            }
+                            // Export to Downloads — all artifact types
+                            if (onExport != null) {
+                                DetailActionButton("EXPORT", aGreen) {
+                                    onExport!!(dId)
+                                }
                             }
 
                             // Change Type — Waypoints only

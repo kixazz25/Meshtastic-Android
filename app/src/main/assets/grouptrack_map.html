@@ -5,15 +5,24 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js">
-    // ── Proximity tap: show all nearby artifacts ──────────
+    // ── Proximity tap: delegate to Kotlin for spatial DB query ──
     map.on('click', function(e) {
+      try { Android.onProximityTap(e.latlng.lat, e.latlng.lng); } catch(ex) {}
+    });
+
+    // Show proximity popup from Kotlin results
+    function showProximityPopup(lat, lon, html) {
+      var popup = L.popup({autoClose: true, closeOnClick: true})
+        .setLatLng([lat, lon])
+        .setContent('<div style="font-size:11px;line-height:1.6;">' + html + '</div>')
+        .openOn(map);
+      setTimeout(function() { map.closePopup(popup); }, 5000);
+    }
+
+    // Legacy — kept for compatibility but no longer used
+    var __legacy_proximity_unused = function(e) {
       var nearby = [];
-      // Zoom-adaptive search radius: 30 pixels converted to meters at current zoom
-      var pixelRadius = 30;
-      var point = map.latLngToContainerPoint(clickLatLng);
-      var offset = L.point(pixelRadius, 0);
-      var targetPoint = map.containerPointToLatLng(point.add(offset));
-      var searchRadius = clickLatLng.distanceTo(targetPoint);
+      var searchRadius = 200;
       var clickLatLng = e.latlng;
       
       function checkLayer(layer, typeName, color) {

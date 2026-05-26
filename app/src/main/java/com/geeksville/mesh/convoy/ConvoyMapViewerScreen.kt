@@ -378,6 +378,49 @@ fun ConvoyMapViewerScreen(
                             @JavascriptInterface
                             fun onMapBoundsReady(n: Double, s: Double, e: Double, w: Double) {}
                             @JavascriptInterface
+                            fun onProximityTap(lat: Double, lon: Double) {
+                                // Query all artifact types near tap point from spatial DB
+                                val radius = 0.002 // ~200 meters in degrees
+                                val south = lat - radius; val north = lat + radius
+                                val west = lon - radius; val east = lon + radius
+                                Thread {
+                                    try {
+                                        SpatialDbManager.init(context)
+                                        val names = mutableListOf<String>()
+                                        // Trails
+                                        if (ConvoyConfig.trailDisplayState != DS_OFF) {
+                                            val trails = SpatialDbManager.queryTrailsByViewport(south, west, north, east, 50)
+                                            trails.forEach { t -> t["name"]?.let { names.add("Trail: " + it) } }
+                                        }
+                                        // Tracks
+                                        if (ConvoyConfig.trackDisplayState != DS_OFF) {
+                                            val tracks = SpatialDbManager.queryTracksByViewport(south, west, north, east, 50)
+                                            tracks.forEach { t -> t["name"]?.let { names.add("Track: " + it) } }
+                                        }
+                                        // Waypoints
+                                        if (ConvoyConfig.waypointDisplayState != DS_OFF) {
+                                            val wpts = SpatialDbManager.queryWaypointsByViewport(south, west, north, east, 50)
+                                            wpts.forEach { w -> w["name"]?.let { names.add("Waypoint: " + it) } }
+                                        }
+                                        // Routes
+                                        if (ConvoyConfig.routeDisplayState != DS_OFF) {
+                                            val routes = SpatialDbManager.queryRoutesByViewport(south, west, north, east, 50)
+                                            routes.forEach { r -> r["name"]?.let { names.add("Route: " + it) } }
+                                        }
+                                        if (names.isNotEmpty()) {
+                                            val html = names.joinToString("<br>")
+                                            val escaped = html.replace("'", "\\'")
+                                            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                                webViewRef?.evaluateJavascript(
+                                                    "showProximityPopup(" + lat + "," + lon + ",'" + escaped + "')", null)
+                                            }
+                                        }
+                                    } catch (ex: Exception) {
+                                        android.util.Log.e("Proximity", "Query failed: " + ex.message)
+                                    }
+                                }.start()
+                            }
+                            @JavascriptInterface
                             fun onMapReady(n: Double, s: Double, e: Double, w: Double) {
                                 android.os.Handler(android.os.Looper.getMainLooper()).post {
                                     val wv = webViewRef ?: return@post
@@ -742,7 +785,41 @@ fun ConvoyMapViewerScreen(
                         }
                     },
                     onShare = { id ->
-                        android.widget.Toast.makeText(context, "Share: GPX builder pending", android.widget.Toast.LENGTH_SHORT).show()
+                        scope.launch {
+                            val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                SpatialDbManager.init(context)
+                                when (activeListType) {
+                                    "Waypoints" -> SpatialDbManager.buildWaypointGpxById(id)
+                                    "Routes" -> SpatialDbManager.buildRouteGpxById(id)
+                                    "Trails" -> SpatialDbManager.buildTrailGpxById(id)
+                                    "Tracks" -> null // Tracks shared via file manager
+                                    else -> null
+                                }
+                            }
+                            if (result != null) {
+                                ConvoyTrackOps.shareGpx(context, result.first, result.second)
+                            } else {
+                                android.widget.Toast.makeText(context, "Share failed", android.widget.Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    },
+                    onExport = { id ->
+                        scope.launch {
+                            val ok = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                SpatialDbManager.init(context)
+                                val gpx = when (activeListType) {
+                                    "Waypoints" -> SpatialDbManager.buildWaypointGpxById(id)
+                                    "Routes" -> SpatialDbManager.buildRouteGpxById(id)
+                                    "Trails" -> SpatialDbManager.buildTrailGpxById(id)
+                                    "Tracks" -> null // Tracks shared via file manager
+                                    else -> null
+                                }
+                                if (gpx != null) ConvoyTrackOps.exportGpxToDownloads(gpx.first, gpx.second) else false
+                            }
+                            android.widget.Toast.makeText(context,
+                                if (ok == true) "Exported to Downloads" else "Export failed",
+                                android.widget.Toast.LENGTH_SHORT).show()
+                        }
                     },
                     onChangeType = if (activeListType == "Waypoints") { id, newType ->
                         scope.launch {

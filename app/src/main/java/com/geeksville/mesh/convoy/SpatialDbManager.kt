@@ -733,7 +733,7 @@ object SpatialDbManager {
         val db = spatialDb ?: return null
         try {
             val cursor = db.rawQuery(
-                "SELECT name, type, geometry, description FROM waypoints WHERE waypoint_id=?",
+                "SELECT name, type, geometry FROM waypoints WHERE waypoint_id=?",
                 arrayOf(waypointId))
             cursor.use { c ->
                 if (!c.moveToFirst()) return null
@@ -766,7 +766,7 @@ object SpatialDbManager {
         val db = spatialDb ?: return null
         try {
             val cursor = db.rawQuery(
-                "SELECT name, geometry, description FROM routes WHERE route_id=?",
+                "SELECT name, geometry FROM routes WHERE route_id=?",
                 arrayOf(routeId))
             cursor.use { c ->
                 if (!c.moveToFirst()) return null
