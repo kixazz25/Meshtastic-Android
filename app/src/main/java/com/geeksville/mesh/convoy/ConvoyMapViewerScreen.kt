@@ -205,18 +205,18 @@ fun ConvoyMapViewerScreen(
         Row(
             modifier = Modifier.fillMaxWidth().background(Color(0xCC000000))
                 .statusBarsPadding()
-                .padding(horizontal = 4.dp, vertical = 0.dp),
+                .padding(horizontal = 6.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text("BACK", color = Color(0xFF4DA6FF),
                 fontSize = 10.sp, fontFamily = FontFamily.Monospace,
                 fontWeight = FontWeight.Bold,
-                modifier = Modifier.clickable { onBack() }.padding(horizontal = 10.dp, vertical = 6.dp))
-            Spacer(Modifier.width(6.dp))
+                modifier = Modifier.clickable { onBack() }.padding(horizontal = 14.dp, vertical = 14.dp))
+            Spacer(Modifier.width(12.dp))
             tileSources.forEach { (label, _, _) ->
                 val isActive = pmActiveSource == label
                 Surface(
-                    shape = RoundedCornerShape(3.dp),
+                    shape = RoundedCornerShape(6.dp),
                     color = if (isActive) Color(0xFF2266CC) else Color.Transparent,
                     modifier = Modifier.clickable {
                         pmActiveSource = label; ConvoyConfig.ACTIVE_TILE_SOURCE = label
@@ -231,16 +231,16 @@ fun ConvoyMapViewerScreen(
                     Text(label, color = if (isActive) Color.White else Color(0xFF7A8DA0),
                         fontSize = 11.sp, fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp))
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp))
                 }
-                Spacer(Modifier.width(3.dp))
+                Spacer(Modifier.width(10.dp))
             }
             Spacer(Modifier.weight(1f))
             Text("QUEUES", color = Color(0xFF1CF0A0),
                 fontSize = 10.sp, fontFamily = FontFamily.Monospace,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.clickable { pmQueuesOpen = !pmQueuesOpen }
-                    .padding(horizontal = 10.dp, vertical = 6.dp))
+                    .padding(horizontal = 14.dp, vertical = 14.dp))
         }
         // -- Search toggle + collapsible bar --
         if (!showSearch) {
@@ -875,6 +875,50 @@ fun ConvoyMapViewerScreen(
                     onCancel = { showDownloadConfirm = false },
                     modifier = Modifier.align(Alignment.Center).padding(16.dp)
                 )
+            }
+            // ── Auto show/hide download overlays when panel opens/closes ──
+            LaunchedEffect(showDownloadPanel) {
+                if (showDownloadPanel) {
+                    pmDownloadedOn = true
+                } else {
+                    pmDownloadedOn = false
+                }
+            }
+            // ── Floating download execute button (outside panel for landscape) ──
+            if (showDownloadPanel && downloadBbox.isValid &&
+                (panelTilesChecked || panelTrailsChecked || panelRemoveTilesChecked)) {
+                val execLabel = if (panelRemoveTilesChecked && !panelTilesChecked && !panelTrailsChecked)
+                    "Remove Tiles" else "Download Selected"
+                val execColor = if (panelRemoveTilesChecked && !panelTilesChecked && !panelTrailsChecked)
+                    Color(0xFFf85149) else Color(0xFF3fb950)
+                Surface(
+                    modifier = Modifier.align(Alignment.BottomCenter)
+                        .padding(bottom = 16.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xEE131820),
+                    shadowElevation = 8.dp
+                ) {
+                    Text(
+                        execLabel,
+                        color = execColor,
+                        fontSize = 12.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier
+                            .clickable {
+                                if (panelTrailsChecked && downloadBbox.isValid) {
+                                    TrailImporter.writePendingArea(
+                                        downloadBbox.north, downloadBbox.south,
+                                        downloadBbox.east, downloadBbox.west)
+                                    onNavigateToTrailSources()
+                                }
+                                if (panelTilesChecked && downloadBbox.isValid) {
+                                    showDownloadConfirm = true; showDownloadPanel = false
+                                }
+                            }
+                            .padding(horizontal = 24.dp, vertical = 14.dp)
+                    )
+                }
             }
             // ── Download panel (above FAB) ────────────────────────────────
             if (showDownloadPanel) {

@@ -4,6 +4,8 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -77,6 +79,35 @@ fun DownloadQueuePanel(
                 exit = shrinkVertically()
             ) {
                 Column(modifier = Modifier.padding(top = 8.dp)) {
+                    // ── Queue management header (always visible) ──
+                    val isPaused = DownloadQueueManager.isQueuePaused()
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceEvenly
+                    ) {
+                        if (active.isNotEmpty() || queued.isNotEmpty()) {
+                            ActionButton(
+                                if (isPaused) "RESUME" else "HOLD",
+                                if (isPaused) accentGreen else accentBlue
+                            ) {
+                                if (isPaused) DownloadQueueManager.resumeQueue()
+                                else DownloadQueueManager.holdQueue()
+                            }
+                            ActionButton("CANCEL ALL", dangerRed) {
+                                DownloadQueueManager.cancelAll()
+                            }
+                        }
+                        if (completed.isNotEmpty()) {
+                            ActionButton("CLEAR DONE", dimText) {
+                                DownloadQueueManager.clearCompleted()
+                            }
+                        }
+                    }
+                    // ── Scrollable item list ──
+                    Column(modifier = Modifier
+                        .verticalScroll(rememberScrollState())
+                        .heightIn(max = 300.dp)
+                    ) {
                     // Active download slots (max 2)
                     active.forEachIndexed { idx, entry ->
                         if (idx > 0) Spacer(Modifier.height(6.dp))
@@ -105,25 +136,7 @@ fun DownloadQueuePanel(
                         }
                     }
 
-                    // Action buttons
-                    Spacer(Modifier.height(10.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceEvenly
-                    ) {
-                        if (active.isNotEmpty() || queued.isNotEmpty()) {
-                            ActionButton("CANCEL ALL", dangerRed) {
-                                (active + queued).forEach {
-                                    DownloadQueueManager.cancel(it.id)
-                                }
-                            }
-                        }
-                        if (completed.isNotEmpty()) {
-                            ActionButton("CLEAR DONE", dimText) {
-                                DownloadQueueManager.clearCompleted()
-                            }
-                        }
-                    }
+                    } // end scrollable list
                 }
             }
         }

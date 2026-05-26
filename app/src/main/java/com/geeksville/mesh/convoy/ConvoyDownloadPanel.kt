@@ -273,25 +273,6 @@ fun ConvoyDownloadPanel(
 
             Spacer(Modifier.height(6.dp))
 
-            // ── EXECUTE BUTTON ──
-            val canExecute = !isNetMode && bbox.isValid &&
-                (tilesChecked || trailsChecked || removeTilesChecked)
-            PanelActionButton(
-                label = if (removeTilesChecked && !tilesChecked && !trailsChecked)
-                    "Remove Tiles" else "Download Selected",
-                color = if (removeTilesChecked && !tilesChecked && !trailsChecked)
-                    red else green,
-                enabled = canExecute,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                if (trailsChecked && bbox.isValid) {
-                    onNavigateToTrailSources(bbox)
-                }
-                onExecuteDownload(tilesChecked, trailsChecked, removeTilesChecked)
-            }
-
-            Spacer(Modifier.height(8.dp))
-
             } // end expandDownload
             // ── SHOW DOWNLOADS ──
             PanelSectionHeader("SHOW DOWNLOADS", sectionBorder)
