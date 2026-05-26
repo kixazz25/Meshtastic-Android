@@ -8,7 +8,12 @@
     // ── Proximity tap: show all nearby artifacts ──────────
     map.on('click', function(e) {
       var nearby = [];
-      var searchRadius = 30; // meters
+      // Zoom-adaptive search radius: 30 pixels converted to meters at current zoom
+      var pixelRadius = 30;
+      var point = map.latLngToContainerPoint(clickLatLng);
+      var offset = L.point(pixelRadius, 0);
+      var targetPoint = map.containerPointToLatLng(point.add(offset));
+      var searchRadius = clickLatLng.distanceTo(targetPoint);
       var clickLatLng = e.latlng;
       
       function checkLayer(layer, typeName, color) {
@@ -43,7 +48,7 @@
       checkLayer(waypointLayer, 'Waypoint', '#FF8C42');
       checkLayer(routeLayer, 'Route', '#BC8CFF');
       
-      if (nearby.length > 1) {
+      if (nearby.length >= 1) {
         var popup = L.popup({autoClose: true, closeOnClick: true})
           .setLatLng(clickLatLng)
           .setContent('<div style="font-size:11px;line-height:1.6;">' + nearby.join('<br>') + '</div>')

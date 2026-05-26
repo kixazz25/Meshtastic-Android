@@ -1007,6 +1007,20 @@ fun ConvoyMapViewerScreen(
                             webViewRef?.evaluateJavascript("clearDownloadedAreas()", null)
                         }
                     },
+                    onShowMapsInQueue = { show ->
+                        val wv = webViewRef
+                        if (show && wv != null) {
+                            val q = DownloadQueueManager.queue.value
+                            val pending = q.filter { it.status == QueueStatus.DOWNLOADING || it.status == QueueStatus.QUEUED }
+                            val bounds = pending.map { e ->
+                                "{" + "\"n\":" + e.north + ",\"s\":" + e.south + ",\"e\":" + e.east + ",\"w\":" + e.west + ",\"label\":\"" + e.label.replace("\"", "") + "\"}"
+                            }
+                            val json = "[" + bounds.joinToString(",") + "]"
+                            wv.evaluateJavascript("showQueuedAreas(" + json + ")", null)
+                        } else {
+                            webViewRef?.evaluateJavascript("clearQueuedAreas()", null)
+                        }
+                    },
                     modifier = Modifier.align(Alignment.BottomEnd)
                         .padding(end = 16.dp, bottom = 80.dp)
                 )

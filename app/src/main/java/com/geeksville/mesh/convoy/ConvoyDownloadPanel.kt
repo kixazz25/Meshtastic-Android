@@ -87,7 +87,7 @@ fun ConvoyDownloadPanel(
     var expandDrawArea by remember { mutableStateOf(false) }
     var expandShowDownloads by remember { mutableStateOf(false) }
     var showQueue by remember { mutableStateOf(true) }
-    var showTrails by remember { mutableStateOf(true) }
+    // showTrails removed — not needed
 
     Surface(
         modifier = modifier.width(280.dp),
@@ -306,8 +306,22 @@ fun ConvoyDownloadPanel(
             OverlayToggleRow("Maps in queue", red, showQueue) {
                 showQueue = it; onShowMapsInQueue(it)
             }
-            OverlayToggleRow("Downloaded trail areas", green, showTrails) {
-                showTrails = it; onShowDownloadedTrails(it)
+            // Refresh button
+            Spacer(Modifier.height(4.dp))
+            Surface(
+                modifier = Modifier.fillMaxWidth().clickable {
+                    onShowDownloadedMaps(true)
+                    onShowMapsInQueue(true)
+                },
+                shape = RoundedCornerShape(4.dp),
+                color = Color(0xFF1A2A3A)
+            ) {
+                Text("REFRESH", color = Color(0xFF4DA6FF),
+                    fontSize = 9.sp, fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
+                        .fillMaxWidth(),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center)
             }
             } // end expandShowDownloads
         }
