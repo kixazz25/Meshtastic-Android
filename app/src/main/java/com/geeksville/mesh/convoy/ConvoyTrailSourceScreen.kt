@@ -55,7 +55,8 @@ data class CatalogSource(
     val status: String, val trailCount: Int,
     val fullyImported: Boolean = false,
     val lastImportedAt: String? = null,
-    val importedTrailCount: Int = 0
+    val importedTrailCount: Int = 0,
+    val trailheadAsset: String? = null
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -68,6 +69,8 @@ fun ConvoyTrailSourceScreen(onNavigateBack: () -> Unit = {}) {
     var sources by remember { mutableStateOf(listOf<CatalogSource>()) }
     var selectedSourceId by remember { mutableStateOf<String?>(null) }
     var importResult by remember { mutableStateOf<String?>(null) }
+    var importTrails by remember { mutableStateOf(true) }
+    var importTrailheads by remember { mutableStateOf(false) }
     var importRunning by remember { mutableStateOf(false) }
     val importProgress by TrailImporter.progress.collectAsState()
     var pendingBbox by remember { mutableStateOf<org.json.JSONObject?>(null) }
@@ -153,13 +156,39 @@ fun ConvoyTrailSourceScreen(onNavigateBack: () -> Unit = {}) {
                 // ── A-1: Select Source ──
                 ImportStep.A1_SOURCE_SELECT -> {
                     SectionLabel("APPROVED SOURCES")
+                    Button(
+                        onClick = {
+                            scope.launch {
+                                importResult = null
+                                val count = TrailImporter.importTrailheads(context, "utah_trailheads.json")
+                                importResult = "Trailheads: " + count.toString() + " imported"
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF8C42)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("IMPORT UTAH TRAILHEADS (568)", fontFamily = mono, fontSize = 10.sp, color = Color.Black)
+                    }
+                    if (importResult != null) {
+                        Text(importResult ?: "", color = Color(0xFFFF8C42), fontSize = 10.sp, fontFamily = mono)
+                    }
                     sources.filter { it.status != "display_only_not_queryable" }.forEach { src ->
                         val imported = TrailImporter.isSourceFullyImported(src.id)
                         SourceSelectCard(
                             source = src,
                             isSelected = src.id == selectedSourceId,
                             isImported = imported,
-                            onClick = { if (!imported) selectedSourceId = src.id }
+                            trailheadAsset = src.trailheadAsset,
+                            onImportTrailheads = if (src.trailheadAsset != null) { {
+                                importResult = null
+                                importRunning = true
+                                scope.launch {
+                                    val count = TrailImporter.importTrailheads(context, src.trailheadAsset!!)
+                                    importResult = "Trailheads: " + count + " imported"
+                                    importRunning = false
+                                }
+                            } } else null,
+                            onClick = { selectedSourceId = src.id }
                         )
                     }
                     Spacer(modifier = Modifier.height(8.dp))
@@ -180,6 +209,7 @@ fun ConvoyTrailSourceScreen(onNavigateBack: () -> Unit = {}) {
                             Text("VALIDATE", fontFamily = mono, fontSize = 10.sp)
                         }
                     }
+
                 }
 
                 // ── A-2: Validate Source ──
@@ -215,20 +245,71 @@ fun ConvoyTrailSourceScreen(onNavigateBack: () -> Unit = {}) {
                             OutlinedButton(onClick = { step = ImportStep.A1_SOURCE_SELECT }) {
                                 Text("BACK", fontFamily = mono, fontSize = 10.sp)
                             }
+                            // ── Import type checkboxes ──
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)
+                            ) {
+                                Checkbox(
+                                    checked = importTrails,
+                                    onCheckedChange = { importTrails = it },
+                                    colors = CheckboxDefaults.colors(
+                                        checkedColor = Color(0xFF3fb950),
+                                        uncheckedColor = Color(0xFF3fb950).copy(alpha = 0.4f),
+                                        checkmarkColor = Color.Black
+                                    ),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text("Import Trails",
+                                    color = Color(0xFF3fb950), fontSize = 10.sp, fontFamily = mono,
+                                    fontWeight = FontWeight.Bold)
+                            }
+                            if (selectedSource.trailheadAsset != null) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)
+                                ) {
+                                    Checkbox(
+                                        checked = importTrailheads,
+                                        onCheckedChange = { importTrailheads = it },
+                                        colors = CheckboxDefaults.colors(
+                                            checkedColor = Color(0xFFFF8C42),
+                                            uncheckedColor = Color(0xFFFF8C42).copy(alpha = 0.4f),
+                                            checkmarkColor = Color.Black
+                                        ),
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("Import Trailheads (568 waypoints)",
+                                        color = Color(0xFFFF8C42), fontSize = 10.sp, fontFamily = mono,
+                                        fontWeight = FontWeight.Bold)
+                                }
+                            }
+                            Spacer(Modifier.height(6.dp))
                             Button(
                                 onClick = {
                                     importResult = null
                                     step = ImportStep.A3_PROCESSING
                                     importRunning = true
                                     scope.launch {
-                                        val result = TrailImporter.importFullSource(context, selectedSource.id)
-                                        importResult = result.message
+                                        val messages = mutableListOf<String>()
+                                        if (importTrails) {
+                                            val result = TrailImporter.importFullSource(context, selectedSource.id)
+                                            messages.add(result.message)
+                                        }
+                                        if (importTrailheads && selectedSource.trailheadAsset != null) {
+                                            val thCount = TrailImporter.importTrailheads(context, selectedSource.trailheadAsset!!)
+                                            messages.add("Trailheads: " + thCount + " imported")
+                                        }
+                                        if (messages.isEmpty()) messages.add("Nothing selected")
+                                        importResult = messages.joinToString(" | ")
                                         importRunning = false
                                     }
                                 },
                                 colors = ButtonDefaults.buttonColors(containerColor = green)
                             ) {
-                                Text("IMPORT ALL TRAILS", fontFamily = mono, fontSize = 10.sp,
+                                Text("IMPORT SELECTED", fontFamily = mono, fontSize = 10.sp,
                                     color = Color.Black)
                             }
                         }
@@ -519,9 +600,9 @@ private fun MethodCard(title: String, desc: String, selected: Boolean, onClick: 
 }
 
 @Composable
-private fun SourceSelectCard(source: CatalogSource, isSelected: Boolean, isImported: Boolean = false, onClick: () -> Unit) {
+private fun SourceSelectCard(source: CatalogSource, isSelected: Boolean, isImported: Boolean = false, trailheadAsset: String? = null, onImportTrailheads: (() -> Unit)? = null, onClick: () -> Unit) {
     Surface(
-        modifier = Modifier.fillMaxWidth().clickable(enabled = !isImported) { onClick() },
+        modifier = Modifier.fillMaxWidth().clickable { onClick() },
         shape = RoundedCornerShape(6.dp),
         color = if (isImported) Color(0xFF0D3320) else if (isSelected) Color(0xFF1A3050) else cardBg,
         border = if (isImported) androidx.compose.foundation.BorderStroke(1.dp, green.copy(alpha = 0.5f))
@@ -545,6 +626,19 @@ private fun SourceSelectCard(source: CatalogSource, isSelected: Boolean, isImpor
                     fontSize = 11.sp, fontFamily = mono, fontWeight = FontWeight.Bold)
                 if (isImported) {
                     Text("IMPORTED", color = green, fontSize = 9.sp, fontFamily = mono)
+                    if (trailheadAsset != null && onImportTrailheads != null) {
+                        Spacer(Modifier.height(4.dp))
+                        Surface(
+                            modifier = Modifier.clickable { onImportTrailheads() },
+                            shape = RoundedCornerShape(4.dp),
+                            color = Color(0xFFFF8C42).copy(alpha = 0.15f),
+                            border = androidx.compose.foundation.BorderStroke(0.5.dp, Color(0xFFFF8C42).copy(alpha = 0.5f))
+                        ) {
+                            Text("IMPORT TRAILHEADS", color = Color(0xFFFF8C42),
+                                fontSize = 9.sp, fontFamily = mono, fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
+                        }
+                    }
                 } else {
                     Text("${source.format} | ${source.scope} | ${source.trailCount} trails",
                         color = txtD, fontSize = 9.sp, fontFamily = mono)
@@ -585,7 +679,8 @@ private fun loadSourceCatalog(context: Context): List<CatalogSource> {
                 boundaryE = b?.optDouble("e", 0.0) ?: 0.0,
                 boundaryW = b?.optDouble("w", 0.0) ?: 0.0,
                 status = s.optString("status", "active"),
-                trailCount = scan?.optInt("total_count", 0) ?: 0
+                trailCount = scan?.optInt("total_count", 0) ?: 0,
+                trailheadAsset = s.optString("trailhead_asset", null)
             )
         }
     } catch (e: Exception) {

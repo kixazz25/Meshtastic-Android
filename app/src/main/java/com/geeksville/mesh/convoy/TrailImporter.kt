@@ -455,7 +455,37 @@ object TrailImporter {
 
     // ── Catalog loader ───────────────────────────────────
 
-    data class Src(
+    /** Import trailheads from bundled GeoJSON asset into waypoints table. */
+    fun importTrailheads(context: Context, assetFile: String): Int {
+        return try {
+            SpatialDbManager.init(context)
+            val json = context.assets.open(assetFile).bufferedReader().use { it.readText() }
+            val root = JSONObject(json)
+            val features = root.getJSONArray("features")
+            var count = 0
+            for (i in 0 until features.length()) {
+                val feature = features.getJSONObject(i)
+                val props = feature.getJSONObject("properties")
+                val geom = feature.getJSONObject("geometry")
+                val coords = geom.getJSONArray("coordinates")
+                val lon = coords.getDouble(0)
+                val lat = coords.getDouble(1)
+                val name = props.optString("PrimaryName", "Unknown Trailhead")
+                val trailheadId = props.optString("TrailheadID", "")
+                val waypointId = "ugrc_" + trailheadId
+                if (SpatialDbManager.insertWaypointWithId(waypointId, name, lat, lon, "trailhead")) {
+                    count++
+                }
+            }
+            Log.i(TAG, "Imported " + count + " trailheads from " + assetFile)
+            count
+        } catch (e: Exception) {
+            Log.e(TAG, "Trailhead import failed: " + e.message)
+            0
+        }
+    }
+
+        data class Src(
         val id: String, val name: String, val queryUrl: String, val maxRecords: Int,
         val fieldId: String, val fieldName: String, val fieldType: String, val fieldUse: String,
         val fieldExtras: Map<String, String>

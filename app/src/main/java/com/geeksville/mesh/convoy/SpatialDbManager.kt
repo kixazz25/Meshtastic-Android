@@ -548,7 +548,23 @@ object SpatialDbManager {
      * Insert a waypoint into the spatial DB.
      * Returns the generated waypoint_id.
      */
-    fun insertWaypoint(name: String, lat: Double, lon: Double, type: String = "other"): String {
+    /** Insert waypoint with a specific ID (for deterministic dedup on reimport). */
+    fun insertWaypointWithId(waypointId: String, name: String, lat: Double, lon: Double, type: String): Boolean {
+        val db = spatialDb ?: return false
+        val ts = now()
+        val geometry = pointWkt(lat, lon)
+        try {
+            db.execSQL(
+                "INSERT OR IGNORE INTO waypoints (waypoint_id, name, geometry, type, min_lat, max_lat, min_lon, max_lon, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                arrayOf<Any>(waypointId, name, geometry, type.lowercase(), lat, lat, lon, lon, ts, ts))
+            return true
+        } catch (e: Exception) {
+            android.util.Log.e("SpatialDb", "insertWaypointWithId failed: " + e.message)
+            return false
+        }
+    }
+
+        fun insertWaypoint(name: String, lat: Double, lon: Double, type: String = "other"): String {
         val db = spatialDb ?: throw IllegalStateException("SpatialDbManager not initialized")
         val id = newId()
         val ts = now()
