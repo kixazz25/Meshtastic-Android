@@ -640,6 +640,7 @@ class ConvoyViewModel @Inject constructor(
             }
         }
 
+        android.util.Log.w("TRACK-DBG", "TICK: leadOnly=${_trackLeadOnly.value} leadId=$lockedLeadNodeId segs=${_routeTrailSegments.value.size} nodes=${state.nodes.size}")
         // ── Build trail segments — lead actual GPS + proxy snap ──────────
         if (_trackLeadOnly.value) {
             // Get lead's ACTUAL position from node (never use resolved/substituted)
@@ -735,34 +736,16 @@ class ConvoyViewModel @Inject constructor(
                         color = "#000000",
                         nodeId = lockedLeadNodeId ?: ""
                     )
-                    if (_trackActive.value) _routeTrailSegments.value = _routeTrailSegments.value + seg
+                    if (_trackActive.value) {
+                        android.util.Log.w("TRACK-DBG", "SEG-WRITE: node=${seg.nodeId} from=${String.format("%.5f,%.5f",seg.startLat,seg.startLon)} to=${String.format("%.5f,%.5f",seg.endLat,seg.endLon)} proxy=$proxySnapped total=${_routeTrailSegments.value.size+1}")
+                        _routeTrailSegments.value = _routeTrailSegments.value + seg
+                    }
                 }
                 lastLeadLat = trackLat
                 lastLeadLon = trackLon
             }
-        } else {
-            val newSegs = mutableListOf<ConvoyEngine.LeadTrackSegment>()
-            for ((nodeId, pos) in resolvedPositions) {
-                if (pos.first == 0.0 && pos.second == 0.0) continue
-                val prev = lastNodePositions[nodeId]
-                if (prev != null && (prev.first != pos.first || prev.second != pos.second)) {
-                    val segDist = ConvoyEngine.haversineMiles(prev.first, prev.second, pos.first, pos.second)
-                    if (segDist > 0.25f) {
-                        val callsign = state.nodes.firstOrNull { it.nodeId == nodeId }?.callsign ?: nodeId.takeLast(4)
-                        convoyLog("MULTI SEGMENT JUMP: node=$callsign dist=${String.format("%.3f",segDist)}mi — drawing through")
-                    }
-                    newSegs.add(ConvoyEngine.LeadTrackSegment(
-                        startLat = prev.first, startLon = prev.second,
-                        endLat = pos.first, endLon = pos.second,
-                        color = "#000000",
-                        nodeId = nodeId
-                    ))
-                }
-            }
-            if (_trackActive.value && newSegs.isNotEmpty()) {
-                _routeTrailSegments.value = _routeTrailSegments.value + newSegs
-            }
         }
+        // Branch 2 (multi-cart segments) removed
 
 if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
             val threshold = ConvoyConfig.OFF_TRACK_MILES

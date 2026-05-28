@@ -70,7 +70,6 @@ fun ConvoyTrailSourceScreen(onNavigateBack: () -> Unit = {}) {
     var selectedSourceId by remember { mutableStateOf<String?>(null) }
     var importResult by remember { mutableStateOf<String?>(null) }
     var importTrails by remember { mutableStateOf(true) }
-    var importTrailheads by remember { mutableStateOf(false) }
     var importRunning by remember { mutableStateOf(false) }
     val importProgress by TrailImporter.progress.collectAsState()
     var pendingBbox by remember { mutableStateOf<org.json.JSONObject?>(null) }
@@ -156,38 +155,13 @@ fun ConvoyTrailSourceScreen(onNavigateBack: () -> Unit = {}) {
                 // ── A-1: Select Source ──
                 ImportStep.A1_SOURCE_SELECT -> {
                     SectionLabel("APPROVED SOURCES")
-                    Button(
-                        onClick = {
-                            scope.launch {
-                                importResult = null
-                                val count = TrailImporter.importTrailheads(context, "utah_trailheads.json")
-                                importResult = "Trailheads: " + count.toString() + " imported"
-                            }
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF8C42)),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("IMPORT UTAH TRAILHEADS (568)", fontFamily = mono, fontSize = 10.sp, color = Color.Black)
-                    }
-                    if (importResult != null) {
-                        Text(importResult ?: "", color = Color(0xFFFF8C42), fontSize = 10.sp, fontFamily = mono)
-                    }
+
                     sources.filter { it.status != "display_only_not_queryable" }.forEach { src ->
                         val imported = TrailImporter.isSourceFullyImported(src.id)
                         SourceSelectCard(
                             source = src,
                             isSelected = src.id == selectedSourceId,
                             isImported = imported,
-                            trailheadAsset = src.trailheadAsset,
-                            onImportTrailheads = if (src.trailheadAsset != null) { {
-                                importResult = null
-                                importRunning = true
-                                scope.launch {
-                                    val count = TrailImporter.importTrailheads(context, src.trailheadAsset!!)
-                                    importResult = "Trailheads: " + count + " imported"
-                                    importRunning = false
-                                }
-                            } } else null,
                             onClick = { selectedSourceId = src.id }
                         )
                     }
@@ -240,76 +214,48 @@ fun ConvoyTrailSourceScreen(onNavigateBack: () -> Unit = {}) {
                             )
                         }
 
+                        // Trailhead info (not a button — auto-imports after trails)
+                        if (selectedSource.trailheadAsset != null) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Surface(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(4.dp),
+                                color = Color(0xFFFF8C42).copy(alpha = 0.1f)
+                            ) {
+                                Text(
+                                    "Trailhead waypoint data available — will import automatically",
+                                    color = Color(0xFFFF8C42), fontSize = 9.sp, fontFamily = mono,
+                                    modifier = Modifier.padding(8.dp)
+                                )
+                            }
+                        }
+
                         Spacer(modifier = Modifier.height(8.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             OutlinedButton(onClick = { step = ImportStep.A1_SOURCE_SELECT }) {
                                 Text("BACK", fontFamily = mono, fontSize = 10.sp)
                             }
-                            // ── Import type checkboxes ──
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)
-                            ) {
-                                Checkbox(
-                                    checked = importTrails,
-                                    onCheckedChange = { importTrails = it },
-                                    colors = CheckboxDefaults.colors(
-                                        checkedColor = Color(0xFF3fb950),
-                                        uncheckedColor = Color(0xFF3fb950).copy(alpha = 0.4f),
-                                        checkmarkColor = Color.Black
-                                    ),
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Spacer(Modifier.width(8.dp))
-                                Text("Import Trails",
-                                    color = Color(0xFF3fb950), fontSize = 10.sp, fontFamily = mono,
-                                    fontWeight = FontWeight.Bold)
-                            }
-                            if (selectedSource.trailheadAsset != null) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)
-                                ) {
-                                    Checkbox(
-                                        checked = importTrailheads,
-                                        onCheckedChange = { importTrailheads = it },
-                                        colors = CheckboxDefaults.colors(
-                                            checkedColor = Color(0xFFFF8C42),
-                                            uncheckedColor = Color(0xFFFF8C42).copy(alpha = 0.4f),
-                                            checkmarkColor = Color.Black
-                                        ),
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                    Spacer(Modifier.width(8.dp))
-                                    Text("Import Trailheads (568 waypoints)",
-                                        color = Color(0xFFFF8C42), fontSize = 10.sp, fontFamily = mono,
-                                        fontWeight = FontWeight.Bold)
-                                }
-                            }
-                            Spacer(Modifier.height(6.dp))
                             Button(
                                 onClick = {
                                     importResult = null
                                     step = ImportStep.A3_PROCESSING
                                     importRunning = true
                                     scope.launch {
-                                        val messages = mutableListOf<String>()
-                                        if (importTrails) {
-                                            val result = TrailImporter.importFullSource(context, selectedSource.id)
-                                            messages.add(result.message)
-                                        }
-                                        if (importTrailheads && selectedSource.trailheadAsset != null) {
+                                        // Import trails
+                                        val result = TrailImporter.importFullSource(context, selectedSource.id)
+                                        val messages = mutableListOf(result.message)
+                                        // Auto-import trailheads if available
+                                        if (selectedSource.trailheadAsset != null) {
                                             val thCount = TrailImporter.importTrailheads(context, selectedSource.trailheadAsset!!)
-                                            messages.add("Trailheads: " + thCount + " imported")
+                                            messages.add("Trailheads: $thCount imported")
                                         }
-                                        if (messages.isEmpty()) messages.add("Nothing selected")
                                         importResult = messages.joinToString(" | ")
                                         importRunning = false
                                     }
                                 },
                                 colors = ButtonDefaults.buttonColors(containerColor = green)
                             ) {
-                                Text("IMPORT SELECTED", fontFamily = mono, fontSize = 10.sp,
+                                Text("IMPORT TRAILS", fontFamily = mono, fontSize = 10.sp,
                                     color = Color.Black)
                             }
                         }
@@ -517,7 +463,16 @@ fun ConvoyTrailSourceScreen(onNavigateBack: () -> Unit = {}) {
                                         val totalInserted = results.sumOf { it.inserted }
                                         val totalSkipped = results.sumOf { it.skipped }
                                         val totalErrors = results.sumOf { it.errors }
-                                        importResult = "$totalInserted imported, $totalSkipped dupes, $totalErrors errors"
+                                        // Auto-import trailheads for sources that have them
+                                        var thTotal = 0
+                                        val selectedSrcs = sources.filter { it.id in selectedSourceIds }
+                                        for (src in selectedSrcs) {
+                                            if (src.trailheadAsset != null) {
+                                                thTotal += TrailImporter.importTrailheads(context, src.trailheadAsset!!)
+                                            }
+                                        }
+                                        val thMsg = if (thTotal > 0) " | Trailheads: $thTotal imported" else ""
+                                        importResult = "$totalInserted imported, $totalSkipped dupes, $totalErrors errors$thMsg"
                                         TrailImporter.clearPendingArea()
                                     } else {
                                         importResult = "Error: no area defined"
@@ -600,7 +555,7 @@ private fun MethodCard(title: String, desc: String, selected: Boolean, onClick: 
 }
 
 @Composable
-private fun SourceSelectCard(source: CatalogSource, isSelected: Boolean, isImported: Boolean = false, trailheadAsset: String? = null, onImportTrailheads: (() -> Unit)? = null, onClick: () -> Unit) {
+private fun SourceSelectCard(source: CatalogSource, isSelected: Boolean, isImported: Boolean = false, onClick: () -> Unit) {
     Surface(
         modifier = Modifier.fillMaxWidth().clickable { onClick() },
         shape = RoundedCornerShape(6.dp),
@@ -626,18 +581,9 @@ private fun SourceSelectCard(source: CatalogSource, isSelected: Boolean, isImpor
                     fontSize = 11.sp, fontFamily = mono, fontWeight = FontWeight.Bold)
                 if (isImported) {
                     Text("IMPORTED", color = green, fontSize = 9.sp, fontFamily = mono)
-                    if (trailheadAsset != null && onImportTrailheads != null) {
-                        Spacer(Modifier.height(4.dp))
-                        Surface(
-                            modifier = Modifier.clickable { onImportTrailheads() },
-                            shape = RoundedCornerShape(4.dp),
-                            color = Color(0xFFFF8C42).copy(alpha = 0.15f),
-                            border = androidx.compose.foundation.BorderStroke(0.5.dp, Color(0xFFFF8C42).copy(alpha = 0.5f))
-                        ) {
-                            Text("IMPORT TRAILHEADS", color = Color(0xFFFF8C42),
-                                fontSize = 9.sp, fontFamily = mono, fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
-                        }
+                    if (source.trailheadAsset != null) {
+                        Text("+ trailhead data available", color = Color(0xFFFF8C42),
+                            fontSize = 8.sp, fontFamily = mono)
                     }
                 } else {
                     Text("${source.format} | ${source.scope} | ${source.trailCount} trails",

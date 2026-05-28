@@ -456,29 +456,73 @@ object TrailImporter {
     // ── Catalog loader ───────────────────────────────────
 
     /** Import trailheads from bundled GeoJSON asset into waypoints table. */
-    fun importTrailheads(context: Context, assetFile: String): Int {
+    fun importTrailheads(
+        context: Context,
+        assetFile: String,
+        sourceId: String = "ugrc",
+        south: Double? = null,
+        west: Double? = null,
+        north: Double? = null,
+        east: Double? = null
+    ): Int {
         return try {
             SpatialDbManager.init(context)
             val json = context.assets.open(assetFile).bufferedReader().use { it.readText() }
             val root = JSONObject(json)
             val features = root.getJSONArray("features")
-            var count = 0
-            for (i in 0 until features.length()) {
+            val total = features.length()
+            var inserted = 0
+            var skipped = 0
+            var outsideArea = 0
+            for (i in 0 until total) {
                 val feature = features.getJSONObject(i)
                 val props = feature.getJSONObject("properties")
                 val geom = feature.getJSONObject("geometry")
                 val coords = geom.getJSONArray("coordinates")
                 val lon = coords.getDouble(0)
                 val lat = coords.getDouble(1)
-                val name = props.optString("PrimaryName", "Unknown Trailhead")
-                val trailheadId = props.optString("TrailheadID", "")
-                val waypointId = "ugrc_" + trailheadId
+                // Bbox filter — skip trailheads outside drawn area
+                if (south != null && (lat < south || lat > north!! || lon < west!! || lon > east!!)) {
+                    outsideArea++
+                    continue
+                }
+                val name = props.optString("name",
+                    props.optString("PrimaryName", "Unknown Trailhead"))
+                val trailheadId = props.optString("id",
+                    props.optString("TrailheadID", i.toString()))
+                val waypointId = sourceId + "_th_" + trailheadId
                 if (SpatialDbManager.insertWaypointWithId(waypointId, name, lat, lon, "trailhead")) {
-                    count++
+                    inserted++
+                } else {
+                    skipped++
+                }
+                // Emit progress every 50 records
+                if (i % 50 == 0) {
+                    emitProgress(ImportProgress(
+                        sourceId = sourceId,
+                        sourceName = "Trailheads: $assetFile",
+                        fetched = i + 1,
+                        inserted = inserted,
+                        skipped = skipped,
+                        rejected = outsideArea,
+                        offset = i
+                    ))
                 }
             }
-            Log.i(TAG, "Imported " + count + " trailheads from " + assetFile)
-            count
+            // Final progress
+            emitProgress(ImportProgress(
+                sourceId = sourceId,
+                sourceName = "Trailheads: $assetFile",
+                fetched = total,
+                inserted = inserted,
+                skipped = skipped,
+                rejected = outsideArea,
+                offset = total,
+                isComplete = true,
+                message = "$inserted trailheads imported, $skipped existing, $outsideArea outside area"
+            ))
+            Log.i(TAG, "Trailheads from $assetFile: $inserted imported, $skipped existing, $outsideArea outside area")
+            inserted
         } catch (e: Exception) {
             Log.e(TAG, "Trailhead import failed: " + e.message)
             0
