@@ -1845,6 +1845,14 @@ Program lead radio with long name "Lead" at least 24 hours before the ride. This
 At ride staging, open Meshtastic (not GroupTrack) on all devices and confirm the Lead radio shows as "Lead" in the node list on every device.
 
 
+=== GroupTrack_LivingChecklist.docx ===
+GroupTrack — Living Checklist
+CLEANUP  ·  2.5 NEW ACTIVITY  ·  MOVED TO 2.6  ·  MOVED TO 3.0
+2.5 NEW ACTIVITY — Artifact Display Standardization
+One standard process (SpatialDisplayManager.processArtifact) replaces the three drifted inline copies. Convoy first (broken), then planning (working). Root cause of convoy not rendering: both convoy interfaces call update*() but never show*().
+Wiring sequence
+
+
 === GroupTrack_MapManager_Spec (1).docx ===
 GroupTrack
 Map Manager — Complete Specification
@@ -6113,6 +6121,57 @@ NOTE: HYB source selector UI (bottom sheet with BLM/USFS/Google/ArcGIS options +
 4. In-App Migration — IMPORT FROM MESHTASTIC
 
 
+=== GroupTrack_V2.5_ReleaseNotes_May29.docx ===
+GroupTrack
+Version 2.5 — What’s New
+Field Test Release  ·  Map Feature Update
+“Life is too short. Enjoy your time on the trail. Never worry about a wrong turn.”
+Headline: Import Utah Trails Onto Your Map
+The big addition in V2.5 is the trail source catalog. You can now pull a full set of Utah trails — and their trailhead waypoints — directly onto your maps as artifacts, no files to copy and no internet needed once they’re down. Here is exactly how:
+How to import the UGRC Utah Trails
+1.  Open Work with Artifacts using the accordion button.
+2.  Select the Import Trails button. A list of trail sources will display.
+3.  Select the first item, UGRC Utah Trails.
+4.  Tap Validate/Confirm. The trails and their trailhead waypoints download to your maps as artifacts.
+Once the import finishes, trails and trailhead waypoints are stored on your device and appear on both the Convoy Map and the Planning Map. They are part of your free map — no subscription, no connection required in the field.
+What Else Is New in V2.5
+Requirements
+Known Issues — Please Read
+This is a field test build. The following are known and being worked on — they are expected behavior for this round, not new faults. Reporting anything OUTSIDE this list is what helps most.
+Troubleshooting
+Thank you for field testing V2.5. The trail import and the new artifact display are the focus this round — try importing the Utah trails, toggle types on and off on both maps, and let the organizer know how it goes.
+About this release
+V2.5 completes the free map product: trail and trailhead data you can download straight onto your maps, plus a single, consistent way to show and hide Trails, Tracks, Waypoints, and Routes on both the Convoy Map and the Planning Map.
+This is a FIELD TEST build. A few rough edges are known and listed at the end — please read that section so expected behavior isn’t mistaken for a fault. Your feedback on the new trail import and the artifact display is exactly what this round is for.
+Tip — zoom in to see your trails
+Trails, tracks, and waypoints display when you are zoomed in close enough to actually use them (about street/area level). Zoom in after importing and your trails will fill in. This is intentional — see Known Issues for the detail.
+FEATURE | DESCRIPTION
+Trail source catalog | Browse trail sources and import them onto your maps. UGRC Utah Trails is the first source — about 49,000 trails plus 591 trailhead waypoints. More state and federal (BLM/USFS) sources are planned.
+One consistent artifact display | Trails, Tracks, Waypoints, and Routes now show and hide the same way on both maps through one shared process. Toggle a type ON/OFF or pick specific items — the map matches what the panel says.
+Work with Artifacts panel | Open with the accordion button. Per-type ON / OFF / SELECTED control, with an item list for picking specific trails, tracks, or waypoints.
+Default on launch | The map opens with Trails ON so you see the base trail layer immediately. Other types start OFF — turn on what you need.
+RESYNC TRACKS | On the track import screen, RESYNC TRACKS rebuilds your track list from your saved GPX files — useful if a track is missing from the map.
+Zoom readout | The compass indicator now shows the current zoom level (N · Z##) so you can see exactly how far in or out you are.
+Standalone GPS / offline maps | Carried over from V2.4: live GPS without a radio connected, offline tile download, and online/offline switching all continue to work.
+REQUIREMENT | DETAIL
+Android Device | Android 8.0 or later. Tablet recommended for best map visibility while riding.
+Update method | Field test devices update automatically through the Play Store internal testing track. No APK to sideload.
+Storage | 500 MB+ free recommended for offline map tiles. Trail data itself is small (a full state is ~15–30 MB).
+Meshtastic Radio | SenseCAP T1000-E (recommended) or any Meshtastic LoRa device on firmware 2.6+. Not required for trail/map use — only for convoy tracking.
+Internet | Needed once to import trails and download tiles. Not needed in the field after that.
+BEHAVIOR | WHAT TO KNOW
+Trails/features not visible when zoomed far out | Expected. Features are hidden below a close zoom level because they aren’t readable that far out and a partial set can mislead. Zoom in and they appear. A clean zoom cutoff is being finalized.
+Selections look different after switching maps | Known. The two maps can currently share selection state, so what you picked on one map may carry to the other. A fix that gives each map its own independent, saved selections is the next major task.
+Item list sometimes shows no names | Known. The Edit list in the artifact panel may come up empty even when items are on the map. Being addressed alongside the selection fix.
+Don’t import the same trails/tracks repeatedly | Important. Re-running an import can add duplicate copies (a check to prevent this is coming). Import the UGRC source ONCE. If something looks off, use RESYNC TRACKS rather than re-importing.
+Tracks missing after an update | Open the track import screen and tap RESYNC TRACKS to rebuild from your saved files.
+PROBLEM | SOLUTION
+Imported trails don’t appear | Zoom in — trails show at closer zoom levels. Confirm the import finished (you’ll see trailhead waypoints too).
+No vehicles on map (convoy) | Check the radio is connected (green status). Verify all radios use the same channel name and PSK.
+Map tiles blank offline | No tiles downloaded for this area. Download tiles while online before heading out.
+Map tiles not loading online | Check your internet connection — online connection is required to stream or first-download tiles.
+
+
 === GroupTrack_V24_Handoff_Apr29.docx ===
 
 
@@ -8019,6 +8078,14 @@ Session Handoff + Development Plan
 May 17-18, 2026 FINAL | Updated end of day
 1. Completed This Session
 1.1 Architecture Design (Day 1)
+
+
+=== GroupTrack_V25_Handoff_May29.docx ===
+V2.5 Handoff & Progress Tracking
+May 29, 2026  —  Artifact Display Standardization
+Last commit today: SpatialDisplayManager wired to convoy interface #1 + default-state/resync/zoom
+Key Lessons (new rules)
+Progress Today (committed)
 
 
 === GroupTrack_V25_LifecycleOwnership.docx ===
