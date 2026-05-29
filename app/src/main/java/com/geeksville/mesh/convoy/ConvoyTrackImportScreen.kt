@@ -216,6 +216,34 @@ fun ConvoyTrackImportScreen(onDismiss: () -> Unit) {
             }
         }
 
+        // -- RESYNC TRACKS (rebuild spatial DB from my_tracks files) --
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 6.dp)
+                .clickable {
+                    scope.launch {
+                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                            SpatialDbManager.init(context)
+                            SpatialDbManager.syncTracksFromFiles(context)
+                        }
+                        android.widget.Toast.makeText(context, "Track resync complete", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                },
+            shape = RoundedCornerShape(6.dp),
+            color = Color(0xFF15512C)
+        ) {
+            Text(
+                "RESYNC TRACKS",
+                color = Color(0xFF97D5A5),
+                fontSize = 12.sp,
+                fontFamily = FontFamily.Monospace,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp)
+            )
+        }
+
         // -- Content area --
         if (scanning) {
             Box(
