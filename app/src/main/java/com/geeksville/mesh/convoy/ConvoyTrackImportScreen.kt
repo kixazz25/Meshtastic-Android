@@ -39,6 +39,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -68,8 +69,8 @@ fun ConvoyTrackImportScreen(onDismiss: () -> Unit) {
 
     // Progress dialog state
     var showProgress by remember { mutableStateOf(false) }
-    var progressCurrent by remember { mutableIntStateOf(0) }
-    var progressTotal by remember { mutableIntStateOf(0) }
+    var progressCurrent by remember { mutableStateOf(0) }
+    var progressTotal by remember { mutableStateOf(0) }
     var progressName by remember { mutableStateOf("") }
 
     // Recap dialog state
@@ -77,8 +78,12 @@ fun ConvoyTrackImportScreen(onDismiss: () -> Unit) {
     var recapImported by remember { mutableStateOf<List<String>>(emptyList()) }
     var recapSkipped by remember { mutableStateOf<List<String>>(emptyList()) }
     var recapFailed by remember { mutableStateOf<List<String>>(emptyList()) }
-    var recapDatesCorrected by remember { mutableIntStateOf(0) }
+    var recapDatesCorrected by remember { mutableStateOf(0) }
+    var recapWaypoints by remember { mutableStateOf(0) }
+    var recapRoutes by remember { mutableStateOf(0) }
+    var processedFiles by remember { mutableStateOf<List<File>>(emptyList()) }
 
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
     // -- Scan Downloads on launch -------------------------------------
@@ -105,35 +110,37 @@ fun ConvoyTrackImportScreen(onDismiss: () -> Unit) {
         showProgress = true
         progressCurrent = 0
         progressTotal = sel.size
+        processedFiles = sel
         scope.launch {
             val imported = mutableListOf<String>()
             val skipped = mutableListOf<String>()
             val failed = mutableListOf<String>()
             var datesCorrected = 0
+            var wptTotal = 0
+            var rteTotal = 0
 
             for ((i, f) in sel.withIndex()) {
                 progressCurrent = i + 1
                 progressName = f.name
-                val result = ConvoyTrackOps.importTrackFile(f)
-                when (result) {
-                    is ConvoyTrackOps.ImportResult.Success -> {
-                        imported.addAll(result.createdFiles)
-                        datesCorrected += result.createdFiles.size
+                try {
+                    val summary = ConvoyTrackOps.importGpxAllArtifacts(f, context)
+                    imported.addAll(summary.trackFiles)
+                    wptTotal += summary.waypointCount
+                    rteTotal += summary.routeCount
+                    datesCorrected += summary.trackFiles.size
+                    if (summary.errors.isNotEmpty()) {
+                        failed.addAll(summary.errors.map { f.name + ": " + it })
                     }
-                    is ConvoyTrackOps.ImportResult.PartialSuccess -> {
-                        imported.addAll(result.createdFiles)
-                        skipped.addAll(result.skippedFiles)
-                        datesCorrected += result.createdFiles.size
-                    }
-                    is ConvoyTrackOps.ImportResult.Failed -> {
-                        failed.add("${result.sourceName}: ${result.reason}")
-                    }
+                } catch (e: Exception) {
+                    failed.add(f.name + ": " + (e.message ?: "unknown error"))
                 }
             }
             recapImported = imported
             recapSkipped = skipped
             recapFailed = failed
             recapDatesCorrected = datesCorrected
+            recapWaypoints = wptTotal
+            recapRoutes = rteTotal
             showProgress = false
             showRecap = true
         }
@@ -153,6 +160,17 @@ fun ConvoyTrackImportScreen(onDismiss: () -> Unit) {
             skipped = recapSkipped,
             failed = recapFailed,
             datesCorrected = recapDatesCorrected,
+            waypoints = recapWaypoints,
+            routes = recapRoutes,
+            onFilesDelete = {
+                scope.launch {
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        for (f in processedFiles) {
+                            try { f.delete() } catch (_: Exception) {}
+                        }
+                    }
+                }
+            },
             onDismiss = { showRecap = false; onDismiss() }
         )
     }
@@ -445,18 +463,35 @@ private fun ImportRecapDialog(
     skipped: List<String>,
     failed: List<String>,
     datesCorrected: Int,
+    waypoints: Int = 0,
+    routes: Int = 0,
+    onFilesDelete: (() -> Unit)? = null,
     onDismiss: () -> Unit
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text(
-                    "OK",
-                    color = Color(0xFF97D5A5),
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Bold
-                )
+            Row {
+                if (onFilesDelete != null) {
+                    TextButton(onClick = { onFilesDelete(); onDismiss() }) {
+                        Text(
+                            "DELETE FILES & CLOSE",
+                            color = Color(0xFFFF6B6B),
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 10.sp
+                        )
+                    }
+                }
+                TextButton(onClick = onDismiss) {
+                    Text(
+                        "KEEP FILES & CLOSE",
+                        color = Color(0xFF97D5A5),
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 10.sp
+                    )
+                }
             }
         },
         title = {
@@ -502,6 +537,24 @@ private fun ImportRecapDialog(
                         color = Color(0xFFC1C9BF),
                         fontSize = 10.sp,
                         fontFamily = FontFamily.Monospace
+                    )
+                }
+                if (waypoints > 0) {
+                    Text(
+                        "$waypoints waypoints imported",
+                        color = Color(0xFF4DA6FF),
+                        fontSize = 12.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                if (routes > 0) {
+                    Text(
+                        "$routes routes imported",
+                        color = Color(0xFFFF8C42),
+                        fontSize = 12.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold
                     )
                 }
 

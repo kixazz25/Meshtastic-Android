@@ -199,7 +199,9 @@ object ConvoyTrackOps {
                 return@withContext ImportResult.Failed(sourceName, "Source file not found")
             }
 
-            val text = sourceFile.readText()
+            var text = sourceFile.readText()
+            // Strip <extensions> — custom namespaces (onXmaps etc) crash XML when tracks are split
+            text = text.replace(Regex("""<extensions>[\s\S]*?</extensions>"""), "")
             val ext = sourceFile.extension.lowercase()
             val isGpx = ext == "gpx"
             val isKml = ext == "kml"
@@ -489,7 +491,9 @@ object ConvoyTrackOps {
                 return@withContext ImportArtifactsSummary(sourceName, 0, 0, 0, emptyList(), listOf("File not found"))
             }
 
-            val text = sourceFile.readText()
+            var text = sourceFile.readText()
+            // Strip <extensions> — custom namespaces (onXmaps etc) crash XML when tracks are split
+            text = text.replace(Regex("""<extensions>[\s\S]*?</extensions>"""), "")
             if (!sourceFile.extension.lowercase().let { it == "gpx" }) {
                 return@withContext ImportArtifactsSummary(sourceName, 0, 0, 0, emptyList(), listOf("Not a GPX file"))
             }

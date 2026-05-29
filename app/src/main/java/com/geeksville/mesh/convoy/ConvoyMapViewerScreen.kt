@@ -699,8 +699,8 @@ fun ConvoyMapViewerScreen(
                 onImport = { typeName ->
                     when (typeName) {
                         "Trails" -> onNavigateToTrailSources()
-                        "Artifacts" -> { scanDownloadsForGpx() }
-                        else -> { scanDownloadsForGpx() }
+                        "Artifacts" -> onNavigateToTrackImport()
+                        else -> onNavigateToTrackImport()
                     }
                 }
             )
