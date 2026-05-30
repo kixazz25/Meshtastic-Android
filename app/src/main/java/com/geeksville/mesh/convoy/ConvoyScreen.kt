@@ -95,6 +95,22 @@ enum class RecordingState { IDLE, RECORDING, PAUSED, SLEEPING }
 
 // Display state constants for spatial DB artifacts
 private const val DS_OFF = 0
+// Canonical 12 waypoint types (B1 + rally). label shown in picker; key stored in DB.
+private val WAYPOINT_TYPES: List<Pair<String, String>> = listOf(
+    "hazard" to "☠ Hazard",
+    "gate" to "⛔ Gate",
+    "water" to "💧 Water",
+    "fuel" to "⛽ Fuel",
+    "shelter" to "🏠 Shelter",
+    "trailhead" to "🥾 Trailhead",
+    "viewpoint" to "👁 Viewpoint",
+    "campsite" to "⛺ Campsite",
+    "parking" to "P Parking",
+    "junction" to "Y Junction",
+    "rally" to "🚩 Rally",
+    "other" to "• Other"
+)
+
 private const val DS_ON = 1
 private const val DS_SELECTED = 2
 
@@ -172,6 +188,10 @@ fun ConvoyScreen(
         var trackState by remember { mutableStateOf(cmSeed.types["Tracks"]?.state ?: DS_OFF) }
         var waypointState by remember { mutableStateOf(cmSeed.types["Waypoints"]?.state ?: DS_OFF) }
         var routeState by remember { mutableStateOf(cmSeed.types["Routes"]?.state ?: DS_OFF) }
+        var pendingWaypoint by remember { mutableStateOf<Pair<Double, Double>?>(null) }
+        var newWaypointType by remember { mutableStateOf("other") }
+        var newWaypointName by remember { mutableStateOf("") }
+
         var lastViewportSouth by remember { mutableStateOf(0.0) }
         var lastViewportWest by remember { mutableStateOf(0.0) }
         var lastViewportNorth by remember { mutableStateOf(0.0) }
@@ -493,6 +513,12 @@ fun ConvoyScreen(
                 if (existing != null) {
                     existing.addJavascriptInterface(object : Any() {
                         @android.webkit.JavascriptInterface
+                        fun onMapLongPress(lat: Double, lon: Double) {
+                            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                pendingWaypoint = Pair(lat, lon)
+                            }
+                        }
+                        @android.webkit.JavascriptInterface
                         fun onViewportChanged(north: Double, south: Double, east: Double, west: Double, zoom: Double) {
                             lastViewportSouth = south; lastViewportWest = west; lastViewportNorth = north; lastViewportEast = east
                             val wv = webViewRef.value
@@ -620,6 +646,12 @@ fun ConvoyScreen(
                         ConvoyConfig.migrateTiles(ctx)
                         loadUrl("file:///android_asset/convoy_map.html")
                         addJavascriptInterface(object : Any() {
+                            @android.webkit.JavascriptInterface
+                            fun onMapLongPress(lat: Double, lon: Double) {
+                                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                    pendingWaypoint = Pair(lat, lon)
+                                }
+                            }
                             @android.webkit.JavascriptInterface
                             fun onMarkerTapped(nodeId: String) {
                                 val node = viewModel.convoyState.value.nodes.firstOrNull { it.nodeId == nodeId }
@@ -823,6 +855,65 @@ fun ConvoyScreen(
                 )
             }
         }
+
+                    pendingWaypoint?.let { (wLat, wLon) ->
+                        androidx.compose.material3.AlertDialog(
+                            onDismissRequest = { pendingWaypoint = null },
+                            title = { androidx.compose.material3.Text("New Waypoint") },
+                            text = {
+                                androidx.compose.foundation.layout.Column {
+                                    androidx.compose.foundation.layout.FlowRow {
+                                        WAYPOINT_TYPES.forEach { (key, label) ->
+                                            androidx.compose.material3.FilterChip(
+                                                selected = newWaypointType == key,
+                                                onClick = {
+                                                    newWaypointType = key
+                                                    if (newWaypointName.isBlank() || WAYPOINT_TYPES.any { it.second.substringAfter(" ") == newWaypointName }) {
+                                                        newWaypointName = label.substringAfter(" ")
+                                                    }
+                                                },
+                                                label = { androidx.compose.material3.Text(label) },
+                                                modifier = androidx.compose.ui.Modifier.padding(2.dp)
+                                            )
+                                        }
+                                    }
+                                    androidx.compose.material3.OutlinedTextField(
+                                        value = newWaypointName,
+                                        onValueChange = { newWaypointName = it },
+                                        label = { androidx.compose.material3.Text("Name (optional)") },
+                                        singleLine = true
+                                    )
+                                }
+                            },
+                            confirmButton = {
+                                androidx.compose.material3.TextButton(onClick = {
+                                    val nm = if (newWaypointName.isBlank()) "Waypoint" else newWaypointName
+                                    val ty = newWaypointType
+                                    Thread {
+                                        try {
+                                            SpatialDbManager.init(context)
+                                            SpatialDbManager.insertWaypoint(nm, wLat, wLon, ty)
+                                            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                                webViewRef.value?.evaluateJavascript("try{var b=map.getBounds();Android.onViewportChanged(b.getNorth(),b.getSouth(),b.getEast(),b.getWest(),map.getZoom())}catch(e){}", null)
+                                            }
+                                        } catch (e: Exception) {
+                                            android.util.Log.e("WptCreate", "insert failed: " + e.message)
+                                        }
+                                    }.start()
+                                    pendingWaypoint = null
+                                    newWaypointName = ""
+                                    newWaypointType = "other"
+                                }) { androidx.compose.material3.Text("Create") }
+                            },
+                            dismissButton = {
+                                androidx.compose.material3.TextButton(onClick = {
+                                    pendingWaypoint = null
+                                    newWaypointName = ""
+                                    newWaypointType = "other"
+                                }) { androidx.compose.material3.Text("Cancel") }
+                            }
+                        )
+                    }
 
         if (showLocationPermissionDialog) {
             androidx.compose.material3.AlertDialog(

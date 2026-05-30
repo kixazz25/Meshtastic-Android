@@ -333,33 +333,37 @@
 
     function waypointColor(type) {
       switch(type) {
-        case 'trailhead': return '#2ECC40';
-        case 'fuel':      return '#FF6B35';
+        case 'hazard':    return '#FF4136';
         case 'gate':      return '#FF4136';
-        case 'hazard':    return '#FFDC00';
-        case 'scenic':    return '#7FDBFF';
         case 'water':     return '#0074D9';
-        case 'camp':      return '#3D9970';
+        case 'fuel':      return '#0074D9';
+        case 'shelter':   return '#0074D9';
+        case 'trailhead': return '#2ECC40';
+        case 'viewpoint': return '#2ECC40';
+        case 'campsite':  return '#2ECC40';
         case 'parking':   return '#AAAAAA';
+        case 'junction':  return '#AAAAAA';
         case 'rally':     return '#F012BE';
         case 'other':     return '#DDDDDD';
-        default:          return '#FFFFFF';
+        default:          return '#DDDDDD';
       }
     }
 
     function waypointSymbol(type) {
       switch(type) {
-        case 'trailhead': return 'TH';
-        case 'fuel':      return 'F';
-        case 'gate':      return 'G';
-        case 'hazard':    return '!';
-        case 'scenic':    return 'S';
-        case 'water':     return 'W';
-        case 'camp':      return 'C';
+        case 'hazard':    return '☠';
+        case 'gate':      return '⛔';
+        case 'water':     return '💧';
+        case 'fuel':      return '⛽';
+        case 'shelter':   return '🏠';
+        case 'trailhead': return '🥾';
+        case 'viewpoint': return '👁';
+        case 'campsite':  return '⛺';
         case 'parking':   return 'P';
-        case 'rally':     return 'R';
-        case 'other':     return '*';
-        default:          return '?';
+        case 'junction':  return 'Y';
+        case 'rally':     return '🚩';
+        case 'other':     return '•';
+        default:          return '•';
       }
     }
 
@@ -372,7 +376,7 @@
           var sym = waypointSymbol(wType);
           var icon = L.divIcon({
             className: '',
-            html: '<div style="width:22px;height:22px;background:' + color + ';border:2px solid #fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:bold;color:#000;font-family:monospace;box-shadow:0 0 4px rgba(0,0,0,0.5);">' + sym + '</div>',
+            html: '<div style="width:22px;height:22px;background:' + color + ';border:2px solid #fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:bold;color:#000;font-family:-apple-system,Segoe UI Emoji,Noto Color Emoji,sans-serif;box-shadow:0 0 4px rgba(0,0,0,0.5);">' + sym + '</div>',
             iconSize: [22, 22],
             iconAnchor: [11, 11]
           });
@@ -664,6 +668,19 @@
     document.addEventListener("DOMContentLoaded", function() {
       setTimeout(function() {
         map = L.map("map", { zoomControl: true }).setView([39.8, -98.6], 4);
+
+    // ---- Waypoint create: long-press -> Kotlin ----
+    if (typeof map !== 'undefined' && map && !map.__wptLongPressWired) {
+      map.__wptLongPressWired = true;
+      map.on('contextmenu', function(e) {
+        try {
+          if (window.Android && Android.onMapLongPress) {
+            Android.onMapLongPress(e.latlng.lat, e.latlng.lng);
+          }
+        } catch (err) {}
+      });
+    }
+
         map.whenReady(function() {
           if (window.Android) {
             var b = map.getBounds();
