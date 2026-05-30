@@ -166,11 +166,12 @@ fun ConvoyScreen(
     var convoyLoadedTracks by remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
     var convoyTrackSearch by remember { mutableStateOf("") }
         var showMapSettings by remember { mutableStateOf(false) }
-        // Spatial DB display states
-        var trailState by remember { mutableStateOf(ConvoyConfig.trailDisplayState) }
-        var trackState by remember { mutableStateOf(ConvoyConfig.trackDisplayState) }
-        var waypointState by remember { mutableStateOf(ConvoyConfig.waypointDisplayState) }
-        var routeState by remember { mutableStateOf(ConvoyConfig.routeDisplayState) }
+        // Spatial DB display states — per-map state from MapStateStore (independent of planning map)
+        val cmSeed = remember { MapStateStore.readMap("convoy") }
+        var trailState by remember { mutableStateOf(cmSeed.types["Trails"]?.state ?: DS_OFF) }
+        var trackState by remember { mutableStateOf(cmSeed.types["Tracks"]?.state ?: DS_OFF) }
+        var waypointState by remember { mutableStateOf(cmSeed.types["Waypoints"]?.state ?: DS_OFF) }
+        var routeState by remember { mutableStateOf(cmSeed.types["Routes"]?.state ?: DS_OFF) }
         var lastViewportSouth by remember { mutableStateOf(0.0) }
         var lastViewportWest by remember { mutableStateOf(0.0) }
         var lastViewportNorth by remember { mutableStateOf(0.0) }
@@ -178,10 +179,29 @@ fun ConvoyScreen(
         var artifactList by remember { mutableStateOf<List<Map<String, String?>>>(emptyList()) }
         var selectedArtifactIds by remember { mutableStateOf<Set<String>>(emptySet()) }
         var activeListType by remember { mutableStateOf<String?>(null) }
-        var trailCheckedIds by remember { mutableStateOf(ConvoyConfig.trailChecked) }
-        var trackCheckedIds by remember { mutableStateOf(ConvoyConfig.trackChecked) }
-        var waypointCheckedIds by remember { mutableStateOf(ConvoyConfig.waypointChecked) }
-        var routeCheckedIds by remember { mutableStateOf(ConvoyConfig.routeChecked) }
+        var trailCheckedIds by remember { mutableStateOf(MapStateStore.checkedIdsFor(cmSeed, "Trails")) }
+        var trackCheckedIds by remember { mutableStateOf(MapStateStore.checkedIdsFor(cmSeed, "Tracks")) }
+        var waypointCheckedIds by remember { mutableStateOf(MapStateStore.checkedIdsFor(cmSeed, "Waypoints")) }
+        var routeCheckedIds by remember { mutableStateOf(MapStateStore.checkedIdsFor(cmSeed, "Routes")) }
+        // Persist convoy map state to JSON. Checkboxes are state-controlled (rows carry
+        // per-item checked status). Geometry is refreshed by the viewport query separately.
+        // Convoy map has no download checkboxes -> default PanelBoxes.
+        fun saveConvoyState() {
+            fun rowsFor(type: String): List<MapStateStore.Row> {
+                if (activeListType != type) return emptyList()
+                return artifactList.mapNotNull { item ->
+                    val id = item["id"] ?: return@mapNotNull null
+                    MapStateStore.Row(id, item["name"] ?: "", id in selectedArtifactIds)
+                }
+            }
+            val types = mapOf(
+                "Trails" to MapStateStore.TypeState(trailState, rowsFor("Trails")),
+                "Tracks" to MapStateStore.TypeState(trackState, rowsFor("Tracks")),
+                "Waypoints" to MapStateStore.TypeState(waypointState, rowsFor("Waypoints")),
+                "Routes" to MapStateStore.TypeState(routeState, rowsFor("Routes"))
+            )
+            MapStateStore.saveMap("convoy", MapStateStore.MapSnapshot(types, MapStateStore.PanelBoxes()))
+        }
     var showConvoyMenu by remember { mutableStateOf(false) }
         var pendingImportNav by remember { mutableStateOf(false) }
     val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
@@ -609,45 +629,80 @@ fun ConvoyScreen(
                             @android.webkit.JavascriptInterface
                             fun onViewportChanged(north: Double, south: Double, east: Double, west: Double, zoom: Double) {
                                 lastViewportSouth = south; lastViewportWest = west; lastViewportNorth = north; lastViewportEast = east
+                                // GATE: reseed convoy state from JSON only if active map changed since last refresh.
+                                if (MapStateStore.lastMapProcessed != "convoy") {
+                                    val rs = MapStateStore.readMap("convoy")
+                                    trailState = rs.types["Trails"]?.state ?: DS_OFF
+                                    trackState = rs.types["Tracks"]?.state ?: DS_OFF
+                                    waypointState = rs.types["Waypoints"]?.state ?: DS_OFF
+                                    routeState = rs.types["Routes"]?.state ?: DS_OFF
+                                    trailCheckedIds = MapStateStore.checkedIdsFor(rs, "Trails")
+                                    trackCheckedIds = MapStateStore.checkedIdsFor(rs, "Tracks")
+                                    waypointCheckedIds = MapStateStore.checkedIdsFor(rs, "Waypoints")
+                                    routeCheckedIds = MapStateStore.checkedIdsFor(rs, "Routes")
+                                }
                                 val z = zoom.toInt()
                                 val limit = if (z < 14) 500 else 2000
-                                val capTrailState = ConvoyConfig.trailDisplayState
-                                val capTrackState = ConvoyConfig.trackDisplayState
-                                val capWaypointState = ConvoyConfig.waypointDisplayState
-                                val capRouteState = ConvoyConfig.routeDisplayState
+                                val capTrailState = trailState
+                                val capTrackState = trackState
+                                val capWaypointState = waypointState
+                                val capRouteState = routeState
+                                val capTrailIds = trailCheckedIds
+                                val capTrackIds = trackCheckedIds
+                                val capWaypointIds = waypointCheckedIds
+                                val capRouteIds = routeCheckedIds
+                                MapStateStore.lastMapProcessed = "convoy"
                                 Thread {
                                     try {
                                         SpatialDbManager.init(context)
-                                val capTrailIds = ConvoyConfig.trailChecked
-                                val capTrackIds = ConvoyConfig.trackChecked
-                                val capWaypointIds = ConvoyConfig.waypointChecked
-                                val capRouteIds = ConvoyConfig.routeChecked
-                                        if (z >= 8 && capTrailState != DS_OFF) {
-                                            val trails = SpatialDbManager.queryTrailsByViewport(south, west, north, east, limit)
+                                        // -- Trail lazy load (DS_SELECTED filter mirrors planning) --
+                                        val trailsRaw = if (z >= 8 && capTrailState != DS_OFF) SpatialDbManager.queryTrailsByViewport(south, west, north, east, limit) else emptyList()
+                                        val trails = if (capTrailState == DS_SELECTED)
+                                            trailsRaw.filter { it["trail_id"] in (capTrailIds ?: emptySet()) } else trailsRaw
+                                        run {
                                             val json = SpatialDbManager.buildTrailGeoJson(trails)
                                             android.os.Handler(android.os.Looper.getMainLooper()).post {
                                                 webViewRef.value?.evaluateJavascript("updateTrails($json)", null)
+                                                if (capTrailState != DS_OFF) webViewRef.value?.evaluateJavascript("showTrails()", null)
                                             }
                                         }
-                                        if (capTrackState != DS_OFF) {
-                                            val tracks = SpatialDbManager.queryTracksByViewport(south, west, north, east, if (z >= 12) 200 else 50)
-                                            val trackJson = SpatialDbManager.buildTrackGeoJson(tracks)
-                                            android.os.Handler(android.os.Looper.getMainLooper()).post {
-                                                webViewRef.value?.evaluateJavascript("updateTracks($trackJson)", null)
+                                        // -- Track lazy load --
+                                        run {
+                                            val trackResultsRaw = if (capTrackState != DS_OFF) SpatialDbManager.queryTracksByViewport(south, west, north, east, if (z >= 12) 200 else 50) else emptyList()
+                                            val trackResults = if (capTrackState == DS_SELECTED && capTrackIds != null)
+                                                trackResultsRaw.filter { it["track_id"] in capTrackIds!! } else trackResultsRaw
+                                            if (trackResults.isNotEmpty()) {
+                                                val trackJson = SpatialDbManager.buildTrackGeoJson(trackResults)
+                                                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                                    webViewRef.value?.evaluateJavascript("updateTracks($trackJson)", null)
+                                                    if (capTrackState != DS_OFF) webViewRef.value?.evaluateJavascript("showTracks()", null)
+                                                }
                                             }
                                         }
-                                        if (capWaypointState != DS_OFF) {
-                                            val wpts = SpatialDbManager.queryWaypointsByViewport(south, west, north, east, limit)
-                                            val wptJson = SpatialDbManager.buildWaypointGeoJson(wpts)
-                                            android.os.Handler(android.os.Looper.getMainLooper()).post {
-                                                webViewRef.value?.evaluateJavascript("updateWaypoints($wptJson)", null)
+                                        // -- Waypoint lazy load --
+                                        run {
+                                            val wptResultsRaw = if (capWaypointState != DS_OFF) SpatialDbManager.queryWaypointsByViewport(south, west, north, east, limit) else emptyList()
+                                            val wptResults = if (capWaypointState == DS_SELECTED && capWaypointIds != null)
+                                                wptResultsRaw.filter { it["waypoint_id"] in capWaypointIds!! } else wptResultsRaw
+                                            if (wptResults.isNotEmpty()) {
+                                                val wptJson = SpatialDbManager.buildWaypointGeoJson(wptResults)
+                                                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                                    webViewRef.value?.evaluateJavascript("updateWaypoints($wptJson)", null)
+                                                    if (capWaypointState != DS_OFF) webViewRef.value?.evaluateJavascript("showWaypoints()", null)
+                                                }
                                             }
                                         }
-                                        if (capRouteState != DS_OFF) {
-                                            val routes = SpatialDbManager.queryRoutesByViewport(south, west, north, east, limit)
-                                            val routeJson = SpatialDbManager.buildRouteGeoJson(routes)
-                                            android.os.Handler(android.os.Looper.getMainLooper()).post {
-                                                webViewRef.value?.evaluateJavascript("updateRoutes($routeJson)", null)
+                                        // -- Route lazy load --
+                                        run {
+                                            val routeResultsRaw = if (capRouteState != DS_OFF) SpatialDbManager.queryRoutesByViewport(south, west, north, east, limit) else emptyList()
+                                            val routeResults = if (capRouteState == DS_SELECTED && capRouteIds != null)
+                                                routeResultsRaw.filter { it["route_id"] in capRouteIds!! } else routeResultsRaw
+                                            if (routeResults.isNotEmpty()) {
+                                                val routeJson = SpatialDbManager.buildRouteGeoJson(routeResults)
+                                                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                                    webViewRef.value?.evaluateJavascript("updateRoutes($routeJson)", null)
+                                                    if (capRouteState != DS_OFF) webViewRef.value?.evaluateJavascript("showRoutes()", null)
+                                                }
                                             }
                                         }
                                     } catch (ex: Exception) {
@@ -1124,11 +1179,12 @@ fun ConvoyScreen(
                     displayStates = mapOf("Trails" to trailState, "Tracks" to trackState, "Waypoints" to waypointState, "Routes" to routeState),
                     onSetState = { typeName, newState ->
                         when(typeName) {
-                            "Trails" -> { ConvoyConfig.trailDisplayState = newState; trailState = newState }
-                            "Tracks" -> { ConvoyConfig.trackDisplayState = newState; trackState = newState }
-                            "Waypoints" -> { ConvoyConfig.waypointDisplayState = newState; waypointState = newState }
-                            "Routes" -> { ConvoyConfig.routeDisplayState = newState; routeState = newState }
+                            "Trails" -> { trailState = newState }
+                            "Tracks" -> { trackState = newState }
+                            "Waypoints" -> { waypointState = newState }
+                            "Routes" -> { routeState = newState }
                         }
+                        saveConvoyState()
                         val wv = webViewRef.value ?: return@ConvoyArtifactsPanel
                         if (newState == DS_OFF) {
                             wv.evaluateJavascript("hide" + typeName + "()", null)
@@ -1164,11 +1220,12 @@ fun ConvoyScreen(
                             val checked = selectedArtifactIds
                             val newState = when { checked.isEmpty() -> DS_OFF; checked.containsAll(allIds) && allIds.size == checked.size -> DS_ON; else -> DS_SELECTED }
                             when (activeListType) {
-                                "Trails" -> { trailState = newState; ConvoyConfig.trailDisplayState = newState; trailCheckedIds = if (newState == DS_SELECTED) checked else null; ConvoyConfig.trailChecked = if (newState == DS_SELECTED) checked else null }
-                                "Tracks" -> { trackState = newState; ConvoyConfig.trackDisplayState = newState; trackCheckedIds = if (newState == DS_SELECTED) checked else null; ConvoyConfig.trackChecked = if (newState == DS_SELECTED) checked else null }
-                                "Waypoints" -> { waypointState = newState; ConvoyConfig.waypointDisplayState = newState; waypointCheckedIds = if (newState == DS_SELECTED) checked else null; ConvoyConfig.waypointChecked = if (newState == DS_SELECTED) checked else null }
-                                "Routes" -> { routeState = newState; ConvoyConfig.routeDisplayState = newState; routeCheckedIds = if (newState == DS_SELECTED) checked else null; ConvoyConfig.routeChecked = if (newState == DS_SELECTED) checked else null }
+                                "Trails" -> { trailState = newState; trailCheckedIds = if (newState == DS_SELECTED) checked else null }
+                                "Tracks" -> { trackState = newState; trackCheckedIds = if (newState == DS_SELECTED) checked else null }
+                                "Waypoints" -> { waypointState = newState; waypointCheckedIds = if (newState == DS_SELECTED) checked else null }
+                                "Routes" -> { routeState = newState; routeCheckedIds = if (newState == DS_SELECTED) checked else null }
                             }
+                            saveConvoyState()
                             activeListType = null
                             webViewRef.value?.evaluateJavascript("try{var b=map.getBounds();Android.onViewportChanged(b.getNorth(),b.getSouth(),b.getEast(),b.getWest(),map.getZoom())}catch(e){}", null)
                         },

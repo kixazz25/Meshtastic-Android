@@ -175,15 +175,38 @@ fun ConvoyMapViewerScreen(
     var queueExpanded by remember { mutableStateOf(false) }
     var pmTracksOn by remember { mutableStateOf(false) }
     var pmTracksLoaded by remember { mutableStateOf(false) }
-    // Three-state display — initialized from ConvoyConfig (survives navigation)
-    var trailState by remember { mutableStateOf(ConvoyConfig.trailDisplayState) }
-    var trackState by remember { mutableStateOf(ConvoyConfig.trackDisplayState) }
-    var waypointState by remember { mutableStateOf(ConvoyConfig.waypointDisplayState) }
-    var routeState by remember { mutableStateOf(ConvoyConfig.routeDisplayState) }
-    var trailCheckedIds by remember { mutableStateOf(ConvoyConfig.trailChecked) }
-    var trackCheckedIds by remember { mutableStateOf(ConvoyConfig.trackChecked) }
-    var waypointCheckedIds by remember { mutableStateOf(ConvoyConfig.waypointChecked) }
-    var routeCheckedIds by remember { mutableStateOf(ConvoyConfig.routeChecked) }
+    // Three-state display — per-map state from MapStateStore (independent of convoy map)
+    val pmSeed = remember { MapStateStore.readMap("planning") }
+    var trailState by remember { mutableStateOf(pmSeed.types["Trails"]?.state ?: DS_OFF) }
+    var trackState by remember { mutableStateOf(pmSeed.types["Tracks"]?.state ?: DS_OFF) }
+    var waypointState by remember { mutableStateOf(pmSeed.types["Waypoints"]?.state ?: DS_OFF) }
+    var routeState by remember { mutableStateOf(pmSeed.types["Routes"]?.state ?: DS_OFF) }
+    var trailCheckedIds by remember { mutableStateOf(MapStateStore.checkedIdsFor(pmSeed, "Trails")) }
+    var trackCheckedIds by remember { mutableStateOf(MapStateStore.checkedIdsFor(pmSeed, "Tracks")) }
+    var waypointCheckedIds by remember { mutableStateOf(MapStateStore.checkedIdsFor(pmSeed, "Waypoints")) }
+    var routeCheckedIds by remember { mutableStateOf(MapStateStore.checkedIdsFor(pmSeed, "Routes")) }
+
+    // Persist this map's state to JSON. Checkboxes are state-controlled: rows carry
+    // the per-item checked status (the real last state). Geometry is refreshed by the
+    // viewport query separately and is not part of this save. Rows for the active list
+    // type are built from artifactList + selectedArtifactIds when a list is open.
+    fun savePlanningState() {
+        fun rowsFor(type: String): List<MapStateStore.Row> {
+            if (activeListType != type) return emptyList()
+            return artifactList.mapNotNull { item ->
+                val id = item["id"] ?: return@mapNotNull null
+                MapStateStore.Row(id, item["name"] ?: "", id in selectedArtifactIds)
+            }
+        }
+        val types = mapOf(
+            "Trails" to MapStateStore.TypeState(trailState, rowsFor("Trails")),
+            "Tracks" to MapStateStore.TypeState(trackState, rowsFor("Tracks")),
+            "Waypoints" to MapStateStore.TypeState(waypointState, rowsFor("Waypoints")),
+            "Routes" to MapStateStore.TypeState(routeState, rowsFor("Routes"))
+        )
+        val panel = MapStateStore.PanelBoxes(panelTilesChecked, panelTrailsChecked, panelRemoveTilesChecked)
+        MapStateStore.saveMap("planning", MapStateStore.MapSnapshot(types, panel))
+    }
     var pmQueuesOpen by remember { mutableStateOf(false) }
     var pmDownloadedOn by remember { mutableStateOf(false) }
     var pmActiveSource by remember { mutableStateOf(ConvoyConfig.ACTIVE_TILE_SOURCE) }
@@ -383,27 +406,29 @@ fun ConvoyMapViewerScreen(
                                 val radius = 0.002 // ~200 meters in degrees
                                 val south = lat - radius; val north = lat + radius
                                 val west = lon - radius; val east = lon + radius
+                                val nlTrail = trailState; val nlTrack = trackState
+                                val nlWaypoint = waypointState; val nlRoute = routeState
                                 Thread {
                                     try {
                                         SpatialDbManager.init(context)
                                         val names = mutableListOf<String>()
                                         // Trails
-                                        if (ConvoyConfig.trailDisplayState != DS_OFF) {
+                                        if (nlTrail != DS_OFF) {
                                             val trails = SpatialDbManager.queryTrailsByViewport(south, west, north, east, 50)
                                             trails.forEach { t -> t["name"]?.let { names.add("Trail: " + it) } }
                                         }
                                         // Tracks
-                                        if (ConvoyConfig.trackDisplayState != DS_OFF) {
+                                        if (nlTrack != DS_OFF) {
                                             val tracks = SpatialDbManager.queryTracksByViewport(south, west, north, east, 50)
                                             tracks.forEach { t -> t["name"]?.let { names.add("Track: " + it) } }
                                         }
                                         // Waypoints
-                                        if (ConvoyConfig.waypointDisplayState != DS_OFF) {
+                                        if (nlWaypoint != DS_OFF) {
                                             val wpts = SpatialDbManager.queryWaypointsByViewport(south, west, north, east, 50)
                                             wpts.forEach { w -> w["name"]?.let { names.add("Waypoint: " + it) } }
                                         }
                                         // Routes
-                                        if (ConvoyConfig.routeDisplayState != DS_OFF) {
+                                        if (nlRoute != DS_OFF) {
                                             val routes = SpatialDbManager.queryRoutesByViewport(south, west, north, east, 50)
                                             routes.forEach { r -> r["name"]?.let { names.add("Route: " + it) } }
                                         }
@@ -437,19 +462,32 @@ fun ConvoyMapViewerScreen(
                             @JavascriptInterface
                             fun onViewportChanged(north: Double, south: Double, east: Double, west: Double, zoom: Double) {
                                 lastViewportSouth = south; lastViewportWest = west; lastViewportNorth = north; lastViewportEast = east
+                                // GATE: reseed this map's local state from JSON only if the active
+                                // map changed since last refresh (else live vars stay authoritative).
+                                if (MapStateStore.lastMapProcessed != "planning") {
+                                    val rs = MapStateStore.readMap("planning")
+                                    trailState = rs.types["Trails"]?.state ?: DS_OFF
+                                    trackState = rs.types["Tracks"]?.state ?: DS_OFF
+                                    waypointState = rs.types["Waypoints"]?.state ?: DS_OFF
+                                    routeState = rs.types["Routes"]?.state ?: DS_OFF
+                                    trailCheckedIds = MapStateStore.checkedIdsFor(rs, "Trails")
+                                    trackCheckedIds = MapStateStore.checkedIdsFor(rs, "Tracks")
+                                    waypointCheckedIds = MapStateStore.checkedIdsFor(rs, "Waypoints")
+                                    routeCheckedIds = MapStateStore.checkedIdsFor(rs, "Routes")
+                                }
                                 // Always query — data preloaded, toggle controls visibility
                                 val z = zoom.toInt()
                                 val limit = if (z < 14) 500 else 2000
-                                // Capture compose state on main thread before Thread
-                                // Read from ConvoyConfig (synchronous, always current)
-                                val capTrailState = ConvoyConfig.trailDisplayState
-                                val capTrackState = ConvoyConfig.trackDisplayState
-                                val capWaypointState = ConvoyConfig.waypointDisplayState
-                                val capRouteState = ConvoyConfig.routeDisplayState
-                                val capTrailIds = ConvoyConfig.trailChecked
-                                val capTrackIds = ConvoyConfig.trackChecked
-                                val capWaypointIds = ConvoyConfig.waypointChecked
-                                val capRouteIds = ConvoyConfig.routeChecked
+                                // Capture compose state on main thread before Thread (local, per-map)
+                                val capTrailState = trailState
+                                val capTrackState = trackState
+                                val capWaypointState = waypointState
+                                val capRouteState = routeState
+                                val capTrailIds = trailCheckedIds
+                                val capTrackIds = trackCheckedIds
+                                val capWaypointIds = waypointCheckedIds
+                                val capRouteIds = routeCheckedIds
+                                MapStateStore.lastMapProcessed = "planning"
                                 Thread {
                                     try {
                                         SpatialDbManager.init(context)
@@ -656,10 +694,10 @@ fun ConvoyMapViewerScreen(
                 onSetState = { typeName, newState ->
                     // Write to ConvoyConfig (synchronous, visible to Thread) AND compose state (UI)
                     when(typeName) {
-                        "Trails" -> { ConvoyConfig.trailDisplayState = newState; trailState = newState; if (newState != DS_SELECTED) { trailCheckedIds = null; ConvoyConfig.trailChecked = null } }
-                        "Tracks" -> { ConvoyConfig.trackDisplayState = newState; trackState = newState; if (newState != DS_SELECTED) { trackCheckedIds = null; ConvoyConfig.trackChecked = null } }
-                        "Waypoints" -> { ConvoyConfig.waypointDisplayState = newState; waypointState = newState; if (newState != DS_SELECTED) { waypointCheckedIds = null; ConvoyConfig.waypointChecked = null } }
-                        "Routes" -> { ConvoyConfig.routeDisplayState = newState; routeState = newState; if (newState != DS_SELECTED) { routeCheckedIds = null; ConvoyConfig.routeChecked = null } }
+                        "Trails" -> { trailState = newState; if (newState != DS_SELECTED) { trailCheckedIds = null } }
+                        "Tracks" -> { trackState = newState; if (newState != DS_SELECTED) { trackCheckedIds = null } }
+                        "Waypoints" -> { waypointState = newState; if (newState != DS_SELECTED) { waypointCheckedIds = null } }
+                        "Routes" -> { routeState = newState; if (newState != DS_SELECTED) { routeCheckedIds = null } }
                     }
                     if (newState == DS_OFF) {
                         webViewRef?.evaluateJavascript("hide" + typeName + "()", null)
@@ -667,6 +705,7 @@ fun ConvoyMapViewerScreen(
                         webViewRef?.evaluateJavascript("show" + typeName + "()", null)
                         webViewRef?.evaluateJavascript("triggerViewportUpdate()", null)
                     }
+                    savePlanningState()
                 },
                 onEditDisplay = { typeName ->
                     val table = when (typeName) {
@@ -721,10 +760,10 @@ fun ConvoyMapViewerScreen(
                         }
                         val t = activeListType ?: ""
                         when(t) {
-                            "Trails" -> { ConvoyConfig.trailDisplayState = newState; trailState = newState; trailCheckedIds = if (newState == DS_SELECTED) checked else null; ConvoyConfig.trailChecked = if (newState == DS_SELECTED) checked else null }
-                            "Tracks" -> { ConvoyConfig.trackDisplayState = newState; trackState = newState; trackCheckedIds = if (newState == DS_SELECTED) checked else null; ConvoyConfig.trackChecked = if (newState == DS_SELECTED) checked else null }
-                            "Waypoints" -> { ConvoyConfig.waypointDisplayState = newState; waypointState = newState; waypointCheckedIds = if (newState == DS_SELECTED) checked else null; ConvoyConfig.waypointChecked = if (newState == DS_SELECTED) checked else null }
-                            "Routes" -> { ConvoyConfig.routeDisplayState = newState; routeState = newState; routeCheckedIds = if (newState == DS_SELECTED) checked else null; ConvoyConfig.routeChecked = if (newState == DS_SELECTED) checked else null }
+                            "Trails" -> { trailState = newState; trailCheckedIds = if (newState == DS_SELECTED) checked else null }
+                            "Tracks" -> { trackState = newState; trackCheckedIds = if (newState == DS_SELECTED) checked else null }
+                            "Waypoints" -> { waypointState = newState; waypointCheckedIds = if (newState == DS_SELECTED) checked else null }
+                            "Routes" -> { routeState = newState; routeCheckedIds = if (newState == DS_SELECTED) checked else null }
                         }
                         if (newState == DS_OFF) {
                             webViewRef?.evaluateJavascript("hide" + t + "()", null)
@@ -732,6 +771,7 @@ fun ConvoyMapViewerScreen(
                             webViewRef?.evaluateJavascript("show" + t + "()", null)
                             webViewRef?.evaluateJavascript("triggerViewportUpdate()", null)
                         }
+                        savePlanningState()
                         activeListType = null
                     },
                     onToggleItem = { id, selected ->

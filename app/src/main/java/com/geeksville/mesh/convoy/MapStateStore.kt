@@ -30,6 +30,11 @@ object MapStateStore {
     private const val DIR = "/sdcard/Documents/GroupTrack/state"
     private val TYPES = listOf("Trails", "Tracks", "Waypoints", "Routes")
 
+    // Which map ("convoy"/"planning") last ran its view refresh. Gates variable
+    // substitution: reseed a map's local state from JSON only when the active map
+    // changed since the last refresh. @Volatile - touched from worker + main thread.
+    @Volatile var lastMapProcessed: String? = null
+
     data class Row(val id: String, val name: String, val checked: Boolean)
     data class TypeState(val state: Int, val rows: List<Row>)
     data class PanelBoxes(
