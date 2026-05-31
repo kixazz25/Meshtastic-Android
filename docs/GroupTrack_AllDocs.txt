@@ -1178,6 +1178,20 @@ User manual PDF updated on site | DONE | Replaced outdated version
 Install guide PDF updated on site | DONE | Replaced outdated version
 
 
+=== GroupTrack_Handoff_May30.docx ===
+GroupTrack
+Session Handoff — May 30, 2026
+Map-independence build complete · install + test + commit pending
+0. Active Debugging Queue (device test) — START HERE
+Build state: release APK installed to Android 1 (8624SBCEDF00001789). Android 2 (24039703201775) is now a SECOND FIELD TESTER — needs the release install (check/uninstall com.grouptrack.android.debug first). Spatial DB + tracks live in /sdcard/Documents/GroupTrack/ (survive uninstall).
+ISSUE 1 — First-open clobber (FIX WRITTEN, build pending)
+
+
+=== GroupTrack_Handoff_May31.docx ===
+GroupTrack
+Session Handoff — May 31, 2026
+
+
 === GroupTrack_Handoff_May3_EOD.docx ===
 GroupTrack
 End of Day Handoff
@@ -1851,6 +1865,18 @@ CLEANUP  ·  2.5 NEW ACTIVITY  ·  MOVED TO 2.6  ·  MOVED TO 3.0
 2.5 NEW ACTIVITY — Artifact Display Standardization
 One standard process (SpatialDisplayManager.processArtifact) replaces the three drifted inline copies. Convoy first (broken), then planning (working). Root cause of convoy not rendering: both convoy interfaces call update*() but never show*().
 Wiring sequence
+
+
+=== GroupTrack_MapIndependence_Design.docx ===
+GroupTrack
+Design — Map State Independence
+Convoy & Planning maps: per-map state, JSON persistence, contamination fix
+V2.5  ·  May 30, 2026  ·  branch feature/convoy-event-ride
+Contents
+1. The Problem
+Both maps read and wrote the same eight global fields on ConvoyConfig: the four *DisplayState ints (OFF/ON/SELECTED) and the four *Checked id-sets. These are @Volatile globals that doubled as a thread-safe bridge (main thread wrote them; the viewport worker Thread read them).
+Because both maps used the same global, whichever map was touched last wrote the shared fields, and the other map inherited those values on its next viewport refresh. Symptom: a map's SELECT/Edit list looked correct but the wrong things displayed, or selections bled across maps.
+2. What Was NOT the Problem (verified)
 
 
 === GroupTrack_MapManager_Spec (1).docx ===
@@ -2857,6 +2883,55 @@ SHA-256 is the primary fingerprint used by Google Play and Google Sign-In. SHA-1
 Recommended: Use Google-managed signing
 
 
+=== GroupTrack_ProductStrategy_Roadmap.docx ===
+GroupTrack
+Product Strategy & Roadmap
+Genesis to Community — the identity, the arc, and the release staging
+Captured May 30, 2026  ·  the ‘why behind the why’
+Contents
+1. What GroupTrack Has Become
+What began as a mission to give a single group of riders visibility and situational awareness of one another on a ride — something no other product supplies, delivered off-grid over Meshtastic mesh radios — has grown into something larger: a community navigation and lifestyle product that, by the way, also offers off-grid group-ride awareness found nowhere else.
+The product noun changed. ‘Group’ no longer means a handful of riders sharing radio positions for an afternoon; it means a community of riders sharing trails, tracks, ratings, and planned journeys across time and place. Same word, new scope.
+Navigation and community are the heart. Group-ride awareness is the rare gift underneath — there when you want it, never in the way when you don’t.
+2. The Core Already Stands Without Mesh
+This is not aspirational — it is current reality, and it de-risks everything that follows.
+Package is com.grouptrack.android (the ‘mesh’ name fossil is gone since the Play Store move).
+The mesh fork’s core function — radio awareness + GPS broadcast/traffic harvesting — has been REPLACED/DUPLICATED as a standalone capability using Android GPS, tracking a single rider (the Gaia/onX model).
+The core application is the Convoy and Planning maps, which FUNCTION WITH ZERO MESH CONTACT. A rider can use GroupTrack as a standalone navigation app today, never touch a radio, and the mesh awareness is there only if they want it.
+3. Mesh’s Evolving Role
+3A. The Mesh-Mode Toggle — Hide Complexity, Keep the Lineage
+A single ‘group awareness on/off’ toggle in the core app governs how much of the mesh/convoy world the user SEES. Critically, it HIDES complexity — it does not remove or decouple anything. The mesh and convoy products are always fully present.
+What the toggle does
+Mesh mode ON — activates the mesh and convoy features within the app: radio awareness, mesh map overlays, convoy surfaces. Full capability exposed.
+Mesh mode OFF — the mesh and convoy products still operate, but with NO radio awareness and NO mesh map overlays. The mesh complexity, history, and terminology are HIDDEN. The user gets a clean Gaia/onX-style navigation experience.
+It is a UI simplification, not an architectural split. Everything is still there under the hood; the toggle decides how much surfaces. A user flips it ON when their group is ready to ride with awareness.
+Two purposes, one switch
+1) Lower the barrier to entry. A newcomer — a Gaia/onX rider with no radios — opens the app and is NOT confronted with radio setup, node lists, or Meshtastic terminology they don’t need. They see a clean navigation product, and reveal the awareness features only when they want them.
+2) Preserve the Meshtastic lineage for approval. The open-source mesh history, code, and functionality stay FULLY PRESENT in the product — not stripped. This retains the legitimate ‘built on Meshtastic’ claim that expedites the store approval process. The toggle hides mesh from the USER without removing it from the PRODUCT.
+The principle underneath — let the market self-select
+This is a confident product stance: rather than forcing one-size-fits-all complexity on everyone (and scaring people off), the product lets the MARKET self-select the usage that is most meaningful to them. The solo navigator, the trail planner, and the group-ride organizer each meet the product at the depth that fits them. The product reveals itself progressively — we don’t decide for the market, we let riders choose their own depth.
+Design discipline
+Single source of truth: one mesh-mode state owned by the navigation controller; every screen asks ONE question (‘is group awareness on?’). No scattered per-screen assumptions (the same drift that caused the shared-state problems).
+Mesh OFF hides surfaces and overlays; the navigation core (maps, trails, tracks, planning) behaves identically either way. The toggle governs VISIBLE COMPLEXITY, not core navigation behavior.
+Live toggle in the core app — group awareness is an on-demand capability of one unified product, not a setup-time variant. (A setup fork would say ‘two products, pick one’ and fragment the identity; a live toggle says ‘one product with a capability’, matching the preface: the gift is there when you want it, never in the way when you don’t.)
+4. The Release Arc — An Identity Migration
+Each release moves the product’s center of gravity one step from the DEVICE toward the SERVICE. This is a planned migration, not drift — mesh’s role is consciously demoted at the exact moment (3.0) when keeping it central would start costing more than it helps.
+Version 2.5 — The free navigation product (today)
+Gaia/onX-class planning comes to GroupTrack: a wide selection of trail sources, a far larger map-source catalog, offline tiles, and the tools to plan and navigate rides. It also lets riders SUBMIT completed tracks for community sharing, with a quick survey to rate the trail — the first step turning solo rides into shared knowledge. Standalone GPS core; mesh awareness as bonus.
+Version 2.6 — Community is born (the data layer)
+2.6 is the extension of the underpinnings that CREATES community value — the upload of community data to a shared section:
+Tracks — the lines riders actually rode
+Reviews / ratings — the quick trail surveys
+Ride areas — where the riding happens
+Tile definitions — the map coverage riders have built
+Scheduled rides — planned journeys
+Invites sent — the social connections
+Version 3.0 — Community becomes the product (the service)
+3.0 ties it all together and flips the center of gravity from app to web service. This is the trigger point for de-centering mesh.
+Planned rides shared with other community members
+New rides shown within your preferred riding RADIUS
+
+
 === GroupTrack_Product_Roadmap_V8 (6).docx ===
 GroupTrack
 Product Roadmap V8
@@ -3088,6 +3163,28 @@ March 30, 2026  |  Branch: feature/convoy-event-ride  |  Phase B Thursday
 RideState is a computed enum in ConvoyViewModel that drives three aspects of app behavior: map display, survey trigger, and public track repository eligibility. It is computed every tick from two inputs: the active node count on the mesh, and whether a formal ride record exists that matches the current radio channel name and today's date.
 RideState controls behavior through conditional checks at specific touchpoints. It does not replace any existing V2.4 logic — it gates new V3.0 behavior alongside the existing code. V2.4 behavior is the default in all states.
 
+
+
+=== GroupTrack_RoutePlanning_DesignNotes.docx ===
+Route Planning Tool
+Interaction Design Notes — Freehand Trace Approach
+GroupTrack  ·  Design captured May 29, 2026  ·  Phase 1 (manual)
+1. Why Freehand (vs. tap-to-place or snap-to-trail)
+Jagged trails: tap-to-place cost scales with the number of bends (a tap per switchback). Freehand cost is flat — one continuous stroke regardless of how twisty. The jaggier the trail, the bigger freehand’s advantage.
+Snap-to-trail is hard and error-prone at ~49,000 trails (which trail did you mean? follow its geometry). Freehand sidesteps all of it — the user’s eye picks the trail.
+Trades an ALGORITHM problem (hard, externally complex) for a UI-HANDLER problem (moderate, fully in our control). Usually the better trade.
+Accuracy note: freehand traces are approximate (line follows finger, not exact trail geometry). Perfect for ‘show the convoy where we’re going.’ If exact snapping is wanted later, an optional ‘snap this freehand line to nearest trail’ cleanup pass can be added in Phase 2 without rebuilding the interaction.
+2. The Pin-Anchored Segment Model
+A route is built in segments, each anchored by a pin. The pin is the key that makes everything else work.
+Drop a START PIN at the trail start — the line’s anchored origin, fixed on the trail.
+Trace with finger/stylus — the line draws FROM the pin, through your traced points, out to the leading cursor.
+To reposition or rescale: switch mode (see §4). The current stroke ends at a pin where you lifted.
+Drop the next pin where the last segment ended; trace the continuation. Segments chain: each new pin is the JOIN to the previous stroke.
+3. The Leading Cursor (solves finger occlusion)
+Problem: a fingertip covers 40–60 px of trail and HIDES the line right where you’re trying to be accurate. You trace partly blind. This is the quiet reason finger-tracing disappoints people.
+Solution: a LEADING cursor. Once the finger starts moving, project the draw point a short distance AHEAD in the direction of travel — ‘a quarter beyond the finger.’ The line creeps ahead of the fingertip toward where you’re looking; the finger trails behind, so the trail you’re about to trace stays visible.
+Why ahead-of-travel beats a fixed offset: a fixed ‘above finger’ offset goes wrong when tracing sideways/downward. Direction-projected always sits where you’re heading.
+Feels like a real pen — ink appears at the tip ahead of your knuckles.
 
 
 === GroupTrack_Saturday_Tasks_Apr19_v1.docx ===
@@ -4815,6 +4912,20 @@ Environment Reference
 GroupTrack
 Thursday — Phase B Work Sequence
 Post Wednesday Field Test  |  Branch: feature/convoy-event-ride  |  V3.0 Phase B
+
+
+=== GroupTrack_TodoCleanup_Checklist.docx ===
+GroupTrack
+To-Do / Cleanup Checklist
+Updated May 30, 2026  ·  V2.5 work queue
+A. In Flight — finish this first
+
+
+=== GroupTrack_TodoCleanup_Checklist_v2 (1).docx ===
+GroupTrack
+To-Do / Cleanup Checklist
+Updated May 31, 2026  ·  V2.5 work queue
+A. Map State Independence — COMPLETE
 
 
 === GroupTrack_TrailArchitecture_v2.docx ===
@@ -8388,6 +8499,70 @@ C.1 Completed Features
 C.2 In Progress
 C.3 Planned for V2.5 (Not Yet Started)
 C.4 Deferred to V2.6 / V3.0
+
+
+=== GroupTrack_V25_Manual_CookbookDraft.docx ===
+GroupTrack
+User Manual — Version 2.5 (Cookbook Draft)
+Screen-by-Screen Guide  ·  Off-Road Convoy Tracking & Trail Navigation
+May 2026  ·  grouptrack.org
+Contents
+How This Manual Works
+This is a cookbook, not a reference list. It follows what a user actually does: each screen is described by how you get there, what you do on it, and where its buttons take you next. The screens are grouped into the natural journeys — getting in, planning a ride, riding, managing maps and trails, and (for organizers) setting up rides and radios.
+1. Getting In — Account & Enrollment
+First-run and account screens. Most riders pass through these once.
+Sign In
+Reached from: App launch (first run / signed out)
+What you do here: Sign in to your GroupTrack account.
+Leads to: Dashboard (on success); Terms / Privacy links
+Terms / Privacy
+Reached from: Sign In and Settings links
+What you do here: Read terms of service and privacy policy.
+Leads to: Back to where you came from
+Enrollment
+Reached from: Dashboard / ride creation when not yet enrolled
+What you do here: Complete enrollment before creating a ride. Public or private ride enrollment.
+Leads to: Create Event / Create Ride once enrolled
+Email Gate
+Reached from: Ride creation flow
+What you do here: Confirm email before proceeding to create an event.
+Leads to: Create Event (Proceed); Enrollment
+Subscription
+Reached from: Account / organizer upgrade
+What you do here: Manage the organizer subscription tier.
+Leads to: Back to Dashboard / Profile
+2. Home Base — Dashboard
+Dashboard
+Reached from: After sign-in (home screen)
+What you do here: Your hub. Tiles/links to Rides, Explore, Tracks, Profile, Field Radio, and Create Ride. Tap your profile to open Profile.
+Leads to: Rides · Explore · Tracks · Profile · Field Radio · Create Ride · Completed Rides · Search by Area
+Broadcast
+Reached from: From ride/organizer flow
+What you do here: Broadcast hub with quick nav: +RIDE (create a ride) and RADIO (field radio).
+Leads to: Create Ride (+RIDE) · Field Radio (RADIO)
+Profile
+Reached from: Dashboard (tap profile)
+What you do here: View and edit your rider profile.
+Leads to: Back to Dashboard
+My Organizers
+Reached from: Profile / rides
+What you do here: See organizers you ride with.
+Leads to: Ride detail / organizer info
+3. Planning & Managing Rides
+Where organizers create rides and everyone tracks the ones they’re part of.
+Create Ride
+Reached from: Dashboard / Broadcast (+RIDE)
+What you do here: Set up a new ride. Links out to Field Radio, Completed Rides (to copy from), and Search by Area.
+Leads to: Field Radio · Completed Rides · Search by Area
+Create Event
+Reached from: Email Gate (Proceed)
+What you do here: Create the event record for a ride.
+Leads to: Back to ride flow
+Search by Area
+Reached from: Create Ride
+What you do here: Find a ride area by searching a region.
+Leads to: Back to Create Ride with the area set
+My Rides
 
 
 === GroupTrack_V25_Planning_v2.docx ===
