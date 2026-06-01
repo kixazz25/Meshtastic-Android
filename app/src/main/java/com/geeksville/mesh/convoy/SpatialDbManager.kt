@@ -33,8 +33,8 @@ object SpatialDbManager {
     private const val TAG = "SpatialDbMgr"
     private const val SPATIAL_DB = "grouptrack_spatial.db"
     private const val EXTENSION_DB = "grouptrack_data.db"
-    private const val SPATIAL_SCHEMA_VERSION = 1
-    private const val EXTENSION_SCHEMA_VERSION = 1
+    private const val SPATIAL_SCHEMA_VERSION = 3
+    private const val EXTENSION_SCHEMA_VERSION = 3
 
     private var spatialDb: SQLiteDatabase? = null
     private var extensionDb: SQLiteDatabase? = null
@@ -58,6 +58,49 @@ object SpatialDbManager {
         if (initialized) return
         try {
             val dir = dbDir()
+            // === V2.5 DB REVISION v3: one-time delete-gate (regenerate-not-migrate) ===
+            // DBs live in PUBLIC storage and survive uninstall/clear-data, so this in-app
+            // delete is the SOLE clearing mechanism. Gated by a SharedPreferences marker so it
+            // fires exactly once per upgrade (marker < 3). After delete, the open/create below
+            // finds the files missing and rebuilds fresh from the shipped v3 schema assets.
+            try {
+                val prefs = context.getSharedPreferences("grouptrack_db", Context.MODE_PRIVATE)
+                val dbMarker = prefs.getInt("db_schema_marker", 0)
+                if (dbMarker < 3) {
+                    // Delete each DB plus its SQLite sidecars (-journal/-wal/-shm). A stale
+                    // journal/wal left by a mid-write kill could otherwise REPLAY into the
+                    // fresh blank v3 DB and resurrect/ corrupt data. Absent sidecars are skipped.
+                    val sidecarSuffixes = listOf("", "-journal", "-wal", "-shm")
+                    var sd = true
+                    var ed = true
+                    for (suffix in sidecarSuffixes) {
+                        val f = File(dir, SPATIAL_DB + suffix)
+                        if (f.exists()) {
+                            val ok = f.delete()
+                            android.util.Log.i(TAG, "DB v3 migration: delete " + SPATIAL_DB + suffix + " = " + ok)
+                            if (!ok) sd = false
+                        }
+                    }
+                    for (suffix in sidecarSuffixes) {
+                        val f = File(dir, EXTENSION_DB + suffix)
+                        if (f.exists()) {
+                            val ok = f.delete()
+                            android.util.Log.i(TAG, "DB v3 migration: delete " + EXTENSION_DB + suffix + " = " + ok)
+                            if (!ok) ed = false
+                        }
+                    }
+                    android.util.Log.i(TAG, "DB v3 migration: spatial-clean=" + sd + " extension-clean=" + ed + " (marker was " + dbMarker + ")")
+                    if (sd && ed) {
+                        prefs.edit().putInt("db_schema_marker", 3).apply()
+                        android.util.Log.i(TAG, "DB v3 migration: marker set to 3; DBs will rebuild from v3 assets")
+                    } else {
+                        android.util.Log.w(TAG, "DB v3 migration: a delete failed (scoped-storage?); marker NOT advanced, will retry next launch")
+                    }
+                }
+            } catch (ex: Exception) {
+                android.util.Log.e(TAG, "DB v3 migration gate error: " + ex.message)
+            }
+            // === end delete-gate ===
 
             // Open/create spatial database
             val spatialFile = File(dir, SPATIAL_DB)
@@ -112,7 +155,7 @@ object SpatialDbManager {
                 } catch (e4: Exception) { android.util.Log.w("SpatialDb", "v4 migration: " + e4.message) }
             }
             if (!hasTable(spatialDb!!, "schema_version")) {
-                runSchemaFromAsset(context, spatialDb!!, "schema_spatial_v1.sql")
+                runSchemaFromAsset(context, spatialDb!!, "schema_spatial_v3.sql")
                 android.util.Log.i(TAG, "Applied spatial schema: \${spatialFile.absolutePath}")
             } else {
                 android.util.Log.i(TAG, "Opened spatial database: \${spatialFile.absolutePath}")
@@ -122,7 +165,7 @@ object SpatialDbManager {
             val extFile = File(dir, EXTENSION_DB)
             extensionDb = SQLiteDatabase.openOrCreateDatabase(extFile, null)
             if (!hasTable(extensionDb!!, "schema_version")) {
-                runSchemaFromAsset(context, extensionDb!!, "schema_extension_v1.sql")
+                runSchemaFromAsset(context, extensionDb!!, "schema_extension_v3.sql")
                 android.util.Log.i(TAG, "Applied extension schema: \${extFile.absolutePath}")
             } else {
                 android.util.Log.i(TAG, "Opened extension database: \${extFile.absolutePath}")
