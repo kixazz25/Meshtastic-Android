@@ -3441,8 +3441,8 @@ SpatialDbManager.kt:31:object SpatialDbManager {
 SpatialDbManager.kt:33:    private const val TAG = "SpatialDbMgr"
 SpatialDbManager.kt:34:    private const val SPATIAL_DB = "grouptrack_spatial.db"
 SpatialDbManager.kt:35:    private const val EXTENSION_DB = "grouptrack_data.db"
-SpatialDbManager.kt:36:    private const val SPATIAL_SCHEMA_VERSION = 1
-SpatialDbManager.kt:37:    private const val EXTENSION_SCHEMA_VERSION = 1
+SpatialDbManager.kt:36:    private const val SPATIAL_SCHEMA_VERSION = 3
+SpatialDbManager.kt:37:    private const val EXTENSION_SCHEMA_VERSION = 3
 SpatialDbManager.kt:39:    private var spatialDb: SQLiteDatabase? = null
 SpatialDbManager.kt:40:    private var extensionDb: SQLiteDatabase? = null
 SpatialDbManager.kt:41:    private var initialized = false
@@ -3451,211 +3451,262 @@ SpatialDbManager.kt:44:        val dir = File(
 SpatialDbManager.kt:49:        val noMedia = File(dir, ".nomedia")
 SpatialDbManager.kt:57:    fun init(context: Context) {
 SpatialDbManager.kt:60:            val dir = dbDir()
-SpatialDbManager.kt:63:            val spatialFile = File(dir, SPATIAL_DB)
-SpatialDbManager.kt:122:            val extFile = File(dir, EXTENSION_DB)
-SpatialDbManager.kt:135:            val tileDir = File(dir, "maps/tiles")
-SpatialDbManager.kt:137:                val tileMapsNoMedia = File(dir, "maps/.nomedia")
-SpatialDbManager.kt:141:                val tileNoMedia = File(File(dir, "maps/tiles"), ".nomedia")
-SpatialDbManager.kt:162:            val trailCount = countRows(spatialDb!!, "trails")
-SpatialDbManager.kt:163:            val trackCount = countRows(spatialDb!!, "tracks")
-SpatialDbManager.kt:164:            val wptCount = countRows(spatialDb!!, "waypoints")
-SpatialDbManager.kt:165:            val routeCount = countRows(spatialDb!!, "routes")
-SpatialDbManager.kt:173:    private fun hasTable(db: SQLiteDatabase, tableName: String): Boolean {
-SpatialDbManager.kt:175:            val cursor = db.rawQuery(
-SpatialDbManager.kt:179:            val exists = cursor.moveToFirst()
-SpatialDbManager.kt:188:    private fun runSchemaFromAsset(context: Context, db: SQLiteDatabase, assetName: String) {
-SpatialDbManager.kt:189:        val raw = context.assets.open(assetName).bufferedReader().use { it.readText() }
-SpatialDbManager.kt:191:        val sql = raw.lines()
-SpatialDbManager.kt:213:    fun getSpatialDb(): SQLiteDatabase? = spatialDb
-SpatialDbManager.kt:216:    fun getExtensionDb(): SQLiteDatabase? = extensionDb
-SpatialDbManager.kt:222:    fun queryTrailsByViewport(south: Double, west: Double, north: Double, east: Double, limit: Int = 500): List<Map<String, String?>> {
-SpatialDbManager.kt:223:        val db = spatialDb ?: return emptyList()
-SpatialDbManager.kt:224:        val results = mutableListOf<Map<String, String?>>()
-SpatialDbManager.kt:225:        val cursor = db.rawQuery(
-SpatialDbManager.kt:230:            val wkt = cursor.getString(2)
-SpatialDbManager.kt:244:    fun wktToGeoJsonCoords(wkt: String): String {
-SpatialDbManager.kt:245:        val inner: String
-SpatialDbManager.kt:246:        val isMulti: Boolean
-SpatialDbManager.kt:255:            val coords = inner.split(",").map { it.trim().split(" ") }
-SpatialDbManager.kt:258:            val lines = inner.split("),(").map { it.trim('(', ')') }
-SpatialDbManager.kt:259:            val jsonLines = lines.map { line ->
-SpatialDbManager.kt:260:                val coords = line.split(",").map { it.trim().split(" ") }
-SpatialDbManager.kt:268:    fun buildTrailGeoJson(trails: List<Map<String, String?>>): String {
-SpatialDbManager.kt:269:        val sb = StringBuilder()
-SpatialDbManager.kt:271:        var first = true
-SpatialDbManager.kt:273:            val wkt = trail["geometry"] ?: continue
-SpatialDbManager.kt:274:            val coords = wktToGeoJsonCoords(wkt)
-SpatialDbManager.kt:278:            val geoType = if (wkt.startsWith("MULTI")) "MultiLineString" else "LineString"
-SpatialDbManager.kt:279:            fun s(k: String): String = (trail[k] ?: "").replace("\\", "\\\\").replace("\"", "\\\\\"")
-SpatialDbManager.kt:299:    fun queryTracksByViewport(south: Double, west: Double, north: Double, east: Double, limit: Int = 500): List<Map<String, String?>> {
-SpatialDbManager.kt:300:        val db = spatialDb ?: return emptyList()
-SpatialDbManager.kt:301:        val results = mutableListOf<Map<String, String?>>()
-SpatialDbManager.kt:303:            val cursor = db.rawQuery(
-SpatialDbManager.kt:309:                    val wkt = it.getString(2) ?: continue
-SpatialDbManager.kt:325:    fun buildTrackGeoJson(tracks: List<Map<String, String?>>): String {
-SpatialDbManager.kt:326:        val sb = StringBuilder()
-SpatialDbManager.kt:330:            val geom = track["geometry"] ?: return@forEachIndexed
-SpatialDbManager.kt:331:            val name = (track["name"] ?: "Unnamed Track").replace("\"", "\\\"")
-SpatialDbManager.kt:332:            val coordStr = geom.removePrefix("LINESTRING(").removeSuffix(")")
-SpatialDbManager.kt:333:            val coords = coordStr.split(",").joinToString(",") { pair ->
-SpatialDbManager.kt:334:                val parts = pair.trim().split(" ")
-SpatialDbManager.kt:337:            val cc = (track["carto_code"] ?: "").replace("\"", "\\\"")
-SpatialDbManager.kt:345:    fun syncTracksFromFiles(context: android.content.Context) {
-SpatialDbManager.kt:346:        val db = spatialDb ?: return
-SpatialDbManager.kt:348:            val tracksDir = java.io.File(
-SpatialDbManager.kt:356:            val gpxFiles = tracksDir.listFiles { f -> f.name.lowercase().endsWith(".gpx") } ?: return
-SpatialDbManager.kt:359:            val existing = mutableSetOf<String>()
-SpatialDbManager.kt:360:            val cursor = db.rawQuery("SELECT name FROM tracks", null)
-SpatialDbManager.kt:363:            var inserted = 0
-SpatialDbManager.kt:365:                val name = file.nameWithoutExtension
-SpatialDbManager.kt:368:                    val text = file.readText()
-SpatialDbManager.kt:369:                    val coords = parseGpxTrackPoints(text)
-SpatialDbManager.kt:372:                    var minLat = Double.MAX_VALUE; var maxLat = -Double.MAX_VALUE
-SpatialDbManager.kt:373:                    var minLon = Double.MAX_VALUE; var maxLon = -Double.MAX_VALUE
-SpatialDbManager.kt:379:                    val wkt = "LINESTRING(" + coords.joinToString(",") { "${it.first} ${it.second}" } + ")"
-SpatialDbManager.kt:380:                    val trackId = java.util.UUID.randomUUID().toString()
-SpatialDbManager.kt:381:                    val now = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", java.util.Locale.US).format(java.util.Date())
-SpatialDbManager.kt:400:    fun parseGpxTrackPoints(gpxText: String): List<Pair<Double, Double>> {
-SpatialDbManager.kt:401:        val coords = mutableListOf<Pair<Double, Double>>()
-SpatialDbManager.kt:402:        val regex = Regex("""lat="([^"]+)"\s+lon="([^"]+)"""")
-SpatialDbManager.kt:404:            val lat = match.groupValues[1].toDoubleOrNull() ?: continue
-SpatialDbManager.kt:405:            val lon = match.groupValues[2].toDoubleOrNull() ?: continue
-SpatialDbManager.kt:412:    private fun countRows(db: SQLiteDatabase, table: String): Int {
-SpatialDbManager.kt:413:        val cursor = db.rawQuery("SELECT COUNT(*) FROM $table", null)
-SpatialDbManager.kt:415:        val count = cursor.getInt(0)
-SpatialDbManager.kt:423:    fun queryWaypointsByViewport(south: Double, west: Double, north: Double, east: Double, limit: Int = 500): List<Map<String, String?>> {
-SpatialDbManager.kt:424:        val db = spatialDb ?: return emptyList()
-SpatialDbManager.kt:425:        val results = mutableListOf<Map<String, String?>>()
-SpatialDbManager.kt:429:            val cursor = db.rawQuery(
-SpatialDbManager.kt:435:                    val wkt = it.getString(2) ?: continue
-SpatialDbManager.kt:452:    fun buildWaypointGeoJson(waypoints: List<Map<String, String?>>): String {
-SpatialDbManager.kt:453:        val sb = StringBuilder()
-SpatialDbManager.kt:457:            val geom = wpt["geometry"] ?: return@forEachIndexed
-SpatialDbManager.kt:458:            val name = (wpt["name"] ?: "Unnamed").replace("\"", "\\\"")
-SpatialDbManager.kt:459:            val wptType = (wpt["type"] ?: "other").replace("\"", "\\\"")
-SpatialDbManager.kt:461:            val match = Regex("POINT\\(([\\d.\\-]+) ([\\d.\\-]+)\\)").find(geom)
-SpatialDbManager.kt:463:                val lon = match.groupValues[1]
-SpatialDbManager.kt:464:                val lat = match.groupValues[2]
-SpatialDbManager.kt:474:    fun queryRoutesByViewport(south: Double, west: Double, north: Double, east: Double, limit: Int = 500): List<Map<String, String?>> {
-SpatialDbManager.kt:475:        val db = spatialDb ?: return emptyList()
-SpatialDbManager.kt:476:        val results = mutableListOf<Map<String, String?>>()
-SpatialDbManager.kt:478:            val cursor = db.rawQuery(
-SpatialDbManager.kt:484:                    val wkt = it.getString(2) ?: continue
-SpatialDbManager.kt:500:    fun buildRouteGeoJson(routes: List<Map<String, String?>>): String {
-SpatialDbManager.kt:501:        val sb = StringBuilder()
-SpatialDbManager.kt:505:            val geom = route["geometry"] ?: return@forEachIndexed
-SpatialDbManager.kt:506:            val name = (route["name"] ?: "Unnamed Route").replace("\"", "\\\"")
-SpatialDbManager.kt:507:            val coordStr = geom.removePrefix("LINESTRING(").removeSuffix(")")
-SpatialDbManager.kt:508:            val coords = coordStr.split(",").joinToString(",") { pair ->
-SpatialDbManager.kt:509:                val parts = pair.trim().split(" ")
-SpatialDbManager.kt:519:    fun queryTracksOnlyByViewport(south: Double, west: Double, north: Double, east: Double, limit: Int = 500): List<Map<String, String?>> {
-SpatialDbManager.kt:520:        val db = spatialDb ?: return emptyList()
-SpatialDbManager.kt:521:        val results = mutableListOf<Map<String, String?>>()
-SpatialDbManager.kt:523:            val cursor = db.rawQuery(
-SpatialDbManager.kt:529:                    val wkt = it.getString(2) ?: continue
-SpatialDbManager.kt:552:    fun insertWaypointWithId(waypointId: String, name: String, lat: Double, lon: Double, type: String): Boolean {
-SpatialDbManager.kt:553:        val db = spatialDb ?: return false
-SpatialDbManager.kt:554:        val ts = now()
-SpatialDbManager.kt:555:        val geometry = pointWkt(lat, lon)
-SpatialDbManager.kt:567:        fun insertWaypoint(name: String, lat: Double, lon: Double, type: String = "other"): String {
-SpatialDbManager.kt:568:        val db = spatialDb ?: throw IllegalStateException("SpatialDbManager not initialized")
-SpatialDbManager.kt:569:        val id = newId()
-SpatialDbManager.kt:570:        val ts = now()
-SpatialDbManager.kt:571:        val geometry = pointWkt(lat, lon)
-SpatialDbManager.kt:600:    fun insertRoute(name: String, geometryWkt: String, minLat: Double, maxLat: Double, minLon: Double, maxLon: Double): String {
-SpatialDbManager.kt:601:        val db = spatialDb ?: throw IllegalStateException("SpatialDbManager not initialized")
-SpatialDbManager.kt:602:        val id = newId()
-SpatialDbManager.kt:603:        val ts = now()
-SpatialDbManager.kt:621:    fun insertTrackToDb(name: String, geometryWkt: String, minLat: Double, maxLat: Double, minLon: Double, maxLon: Double): String {
-SpatialDbManager.kt:622:        val db = spatialDb ?: throw IllegalStateException("SpatialDbManager not initialized")
-SpatialDbManager.kt:623:        val id = newId()
-SpatialDbManager.kt:624:        val ts = now()
-SpatialDbManager.kt:625:        val bbox = "$minLat,$minLon,$maxLat,$maxLon"
-SpatialDbManager.kt:641:    fun getArtifactBounds(table: String): DoubleArray? {
-SpatialDbManager.kt:642:        val db = spatialDb ?: return null
-SpatialDbManager.kt:643:        val latCol = if (table == "trails") "min_lat" else "min_lat"
-SpatialDbManager.kt:645:            val cursor = db.rawQuery(
-SpatialDbManager.kt:663:    fun queryArtifactList(table: String, south: Double, west: Double, north: Double, east: Double): List<Map<String, String?>> {
-SpatialDbManager.kt:664:        val db = spatialDb ?: return emptyList()
-SpatialDbManager.kt:665:        val results = mutableListOf<Map<String, String?>>()
-SpatialDbManager.kt:667:            val idCol = when (table) {
-SpatialDbManager.kt:674:            val typeCol = if (table == "waypoints") ", type" else ""
-SpatialDbManager.kt:675:            val typeFilter = if (table == "tracks") " AND (type='TRACK' OR type IS NULL)" else ""
-SpatialDbManager.kt:676:            val sql = "SELECT $idCol, name$typeCol FROM $table WHERE min_lat IS NOT NULL AND max_lat >= ? AND min_lat <= ? AND max_lon >= ? AND min_lon <= ?$typeFilter ORDER BY name LIMIT 200"
-SpatialDbManager.kt:677:            val cursor = db.rawQuery(sql, arrayOf(south.toString(), north.toString(), west.toString(), east.toString()))
-SpatialDbManager.kt:680:                    val map = mutableMapOf<String, String?>()
-SpatialDbManager.kt:698:    fun renameWaypoint(id: String, newName: String) {
-SpatialDbManager.kt:704:    fun deleteWaypoint(id: String) {
-SpatialDbManager.kt:709:    fun changeWaypointType(id: String, newType: String) {
-SpatialDbManager.kt:715:    fun renameRoute(id: String, newName: String) {
-SpatialDbManager.kt:721:    fun deleteRoute(id: String) {
-SpatialDbManager.kt:726:    fun renameTrackInDb(id: String, newName: String) {
-SpatialDbManager.kt:732:    fun deleteTrackFromDb(id: String) {
-SpatialDbManager.kt:739:    private val GPX_HEADER = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
-SpatialDbManager.kt:742:    private const val GPX_FOOTER = "</gpx>"
-SpatialDbManager.kt:744:    private fun xmlEscape(s: String): String =
-SpatialDbManager.kt:748:    fun buildWaypointGpxById(waypointId: String): Pair<String, String>? {
-SpatialDbManager.kt:749:        val db = spatialDb ?: return null
-SpatialDbManager.kt:751:            val cursor = db.rawQuery(
-SpatialDbManager.kt:756:                val name = c.getString(0) ?: "Unnamed"
-SpatialDbManager.kt:757:                val type = c.getString(1) ?: ""
-SpatialDbManager.kt:758:                val geom = c.getString(2) ?: return null
-SpatialDbManager.kt:759:                val desc = if (c.columnCount > 3) (c.getString(3) ?: "") else ""
-SpatialDbManager.kt:760:                val coords = geom.removePrefix("POINT(").removeSuffix(")").trim().split(" ")
-SpatialDbManager.kt:762:                val lon = coords[0]
-SpatialDbManager.kt:763:                val lat = coords[1]
-SpatialDbManager.kt:764:                val sb = StringBuilder()
-SpatialDbManager.kt:781:    fun buildRouteGpxById(routeId: String): Pair<String, String>? {
-SpatialDbManager.kt:782:        val db = spatialDb ?: return null
-SpatialDbManager.kt:784:            val cursor = db.rawQuery(
-SpatialDbManager.kt:789:                val name = c.getString(0) ?: "Unnamed"
-SpatialDbManager.kt:790:                val geom = c.getString(1) ?: return null
-SpatialDbManager.kt:791:                val desc = if (c.columnCount > 2) (c.getString(2) ?: "") else ""
-SpatialDbManager.kt:792:                val coordStr = geom.removePrefix("LINESTRING(").removeSuffix(")")
-SpatialDbManager.kt:793:                val points = coordStr.split(",").mapNotNull { pt ->
-SpatialDbManager.kt:794:                    val parts = pt.trim().split(" ")
-SpatialDbManager.kt:797:                val sb = StringBuilder()
-SpatialDbManager.kt:802:                var idx = 1
-SpatialDbManager.kt:820:    fun buildTrailGpxById(trailId: String): Pair<String, String>? {
-SpatialDbManager.kt:821:        val db = spatialDb ?: return null
-SpatialDbManager.kt:823:            val cursor = db.rawQuery(
-SpatialDbManager.kt:828:                val name = c.getString(0) ?: "Unnamed"
-SpatialDbManager.kt:829:                val geom = c.getString(1) ?: return null
-SpatialDbManager.kt:830:                val coordStr = geom.removePrefix("LINESTRING(").removeSuffix(")")
-SpatialDbManager.kt:831:                val points = coordStr.split(",").mapNotNull { pt ->
-SpatialDbManager.kt:832:                    val parts = pt.trim().split(" ")
-SpatialDbManager.kt:835:                val sb = StringBuilder()
-SpatialDbManager.kt:855:    fun close() {
-SpatialDbManager.kt:866:    fun spatial(): SQLiteDatabase {
-SpatialDbManager.kt:871:    fun extension(): SQLiteDatabase {
-SpatialDbManager.kt:876:    fun isReady(): Boolean = initialized
-SpatialDbManager.kt:879:    fun newId(): String = UUID.randomUUID().toString()
-SpatialDbManager.kt:882:    fun now(): String = Instant.now().toString()
-SpatialDbManager.kt:887:    fun pointWkt(lat: Double, lng: Double): String =
-SpatialDbManager.kt:891:    fun lineWkt(points: List<Pair<Double, Double>>): String {
-SpatialDbManager.kt:892:        val coords = points.joinToString(", ") { "${it.second} ${it.first}" }
-SpatialDbManager.kt:897:    fun bboxWkt(north: Double, south: Double, east: Double, west: Double): String =
-SpatialDbManager.kt:901:    fun parsePoint(wkt: String): Pair<Double, Double>? {
-SpatialDbManager.kt:902:        val match = Regex("POINT\\(([\\d.\\-]+) ([\\d.\\-]+)\\)").find(wkt) ?: return null
-SpatialDbManager.kt:903:        val lng = match.groupValues[1].toDoubleOrNull() ?: return null
-SpatialDbManager.kt:904:        val lat = match.groupValues[2].toDoubleOrNull() ?: return null
-SpatialDbManager.kt:909:    fun parseLine(wkt: String): List<Pair<Double, Double>> {
-SpatialDbManager.kt:910:        val match = Regex("LINESTRING\\((.+)\\)").find(wkt) ?: return emptyList()
-SpatialDbManager.kt:912:            val parts = coord.trim().split(" ")
-SpatialDbManager.kt:914:                val lng = parts[0].toDoubleOrNull()
-SpatialDbManager.kt:915:                val lat = parts[1].toDoubleOrNull()
-SpatialDbManager.kt:922:    fun parseBbox(wkt: String): DoubleArray? {
-SpatialDbManager.kt:923:        val match = Regex("POLYGON\\(\\((.+)\\)\\)").find(wkt) ?: return null
-SpatialDbManager.kt:924:        val points = match.groupValues[1].split(",").mapNotNull { coord ->
-SpatialDbManager.kt:925:            val parts = coord.trim().split(" ")
-SpatialDbManager.kt:929:        val lngs = points.map { it.first }
-SpatialDbManager.kt:930:        val lats = points.map { it.second }
-SpatialDbManager.kt:935:    fun spatialSchemaVersion(): Int {
-SpatialDbManager.kt:938:            val cursor = spatialDb!!.rawQuery("SELECT version FROM schema_version ORDER BY version DESC LIMIT 1", null)
-SpatialDbManager.kt:940:            val v = cursor.getInt(0)
-SpatialDbManager.kt:946:    fun extensionSchemaVersion(): Int {
-SpatialDbManager.kt:949:            val cursor = extensionDb!!.rawQuery("SELECT version FROM schema_version ORDER BY version DESC LIMIT 1", null)
-SpatialDbManager.kt:951:            val v = cursor.getInt(0)
+SpatialDbManager.kt:67:                val prefs = context.getSharedPreferences("grouptrack_db", Context.MODE_PRIVATE)
+SpatialDbManager.kt:68:                val dbMarker = prefs.getInt("db_schema_marker", 0)
+SpatialDbManager.kt:73:                    val sidecarSuffixes = listOf("", "-journal", "-wal", "-shm")
+SpatialDbManager.kt:74:                    var sd = true
+SpatialDbManager.kt:75:                    var ed = true
+SpatialDbManager.kt:77:                        val f = File(dir, SPATIAL_DB + suffix)
+SpatialDbManager.kt:79:                            val ok = f.delete()
+SpatialDbManager.kt:85:                        val f = File(dir, EXTENSION_DB + suffix)
+SpatialDbManager.kt:87:                            val ok = f.delete()
+SpatialDbManager.kt:106:            val spatialFile = File(dir, SPATIAL_DB)
+SpatialDbManager.kt:165:            val extFile = File(dir, EXTENSION_DB)
+SpatialDbManager.kt:178:            val tileDir = File(dir, "maps/tiles")
+SpatialDbManager.kt:180:                val tileMapsNoMedia = File(dir, "maps/.nomedia")
+SpatialDbManager.kt:184:                val tileNoMedia = File(File(dir, "maps/tiles"), ".nomedia")
+SpatialDbManager.kt:205:            val trailCount = countRows(spatialDb!!, "trails")
+SpatialDbManager.kt:206:            val trackCount = countRows(spatialDb!!, "tracks")
+SpatialDbManager.kt:207:            val wptCount = countRows(spatialDb!!, "waypoints")
+SpatialDbManager.kt:208:            val routeCount = countRows(spatialDb!!, "routes")
+SpatialDbManager.kt:216:    private fun hasTable(db: SQLiteDatabase, tableName: String): Boolean {
+SpatialDbManager.kt:218:            val cursor = db.rawQuery(
+SpatialDbManager.kt:222:            val exists = cursor.moveToFirst()
+SpatialDbManager.kt:231:    private fun runSchemaFromAsset(context: Context, db: SQLiteDatabase, assetName: String) {
+SpatialDbManager.kt:232:        val raw = context.assets.open(assetName).bufferedReader().use { it.readText() }
+SpatialDbManager.kt:234:        val sql = raw.lines()
+SpatialDbManager.kt:256:    fun getSpatialDb(): SQLiteDatabase? = spatialDb
+SpatialDbManager.kt:259:    fun getExtensionDb(): SQLiteDatabase? = extensionDb
+SpatialDbManager.kt:265:    fun queryTrailsByViewport(south: Double, west: Double, north: Double, east: Double, limit: Int = 500): List<Map<String, String?>> {
+SpatialDbManager.kt:266:        val db = spatialDb ?: return emptyList()
+SpatialDbManager.kt:267:        val results = mutableListOf<Map<String, String?>>()
+SpatialDbManager.kt:268:        val cursor = db.rawQuery(
+SpatialDbManager.kt:273:            val wkt = cursor.getString(2)
+SpatialDbManager.kt:287:    fun wktToGeoJsonCoords(wkt: String): String {
+SpatialDbManager.kt:288:        val inner: String
+SpatialDbManager.kt:289:        val isMulti: Boolean
+SpatialDbManager.kt:298:            val coords = inner.split(",").map { it.trim().split(" ") }
+SpatialDbManager.kt:301:            val lines = inner.split("),(").map { it.trim('(', ')') }
+SpatialDbManager.kt:302:            val jsonLines = lines.map { line ->
+SpatialDbManager.kt:303:                val coords = line.split(",").map { it.trim().split(" ") }
+SpatialDbManager.kt:311:    fun buildTrailGeoJson(trails: List<Map<String, String?>>): String {
+SpatialDbManager.kt:312:        val sb = StringBuilder()
+SpatialDbManager.kt:314:        var first = true
+SpatialDbManager.kt:316:            val wkt = trail["geometry"] ?: continue
+SpatialDbManager.kt:317:            val coords = wktToGeoJsonCoords(wkt)
+SpatialDbManager.kt:321:            val geoType = if (wkt.startsWith("MULTI")) "MultiLineString" else "LineString"
+SpatialDbManager.kt:322:            fun s(k: String): String = (trail[k] ?: "").replace("\\", "\\\\").replace("\"", "\\\\\"")
+SpatialDbManager.kt:342:    fun queryTracksByViewport(south: Double, west: Double, north: Double, east: Double, limit: Int = 500): List<Map<String, String?>> {
+SpatialDbManager.kt:343:        val db = spatialDb ?: return emptyList()
+SpatialDbManager.kt:344:        val results = mutableListOf<Map<String, String?>>()
+SpatialDbManager.kt:346:            val cursor = db.rawQuery(
+SpatialDbManager.kt:352:                    val wkt = it.getString(2) ?: continue
+SpatialDbManager.kt:368:    fun buildTrackGeoJson(tracks: List<Map<String, String?>>): String {
+SpatialDbManager.kt:369:        val sb = StringBuilder()
+SpatialDbManager.kt:373:            val geom = track["geometry"] ?: return@forEachIndexed
+SpatialDbManager.kt:374:            val name = (track["name"] ?: "Unnamed Track").replace("\"", "\\\"")
+SpatialDbManager.kt:375:            val coordStr = geom.removePrefix("LINESTRING(").removeSuffix(")")
+SpatialDbManager.kt:376:            val coords = coordStr.split(",").joinToString(",") { pair ->
+SpatialDbManager.kt:377:                val parts = pair.trim().split(" ")
+SpatialDbManager.kt:380:            val cc = (track["carto_code"] ?: "").replace("\"", "\\\"")
+SpatialDbManager.kt:388:    fun syncTracksFromFiles(context: android.content.Context) {
+SpatialDbManager.kt:389:        val db = spatialDb ?: return
+SpatialDbManager.kt:391:            val tracksDir = java.io.File(
+SpatialDbManager.kt:399:            val gpxFiles = tracksDir.listFiles { f -> f.name.lowercase().endsWith(".gpx") } ?: return
+SpatialDbManager.kt:402:            val existing = mutableSetOf<String>()
+SpatialDbManager.kt:403:            val cursor = db.rawQuery("SELECT name FROM tracks", null)
+SpatialDbManager.kt:406:            var inserted = 0
+SpatialDbManager.kt:408:                val name = file.nameWithoutExtension
+SpatialDbManager.kt:411:                    val text = file.readText()
+SpatialDbManager.kt:412:                    val coords = parseGpxTrackPoints(text)
+SpatialDbManager.kt:415:                    var minLat = Double.MAX_VALUE; var maxLat = -Double.MAX_VALUE
+SpatialDbManager.kt:416:                    var minLon = Double.MAX_VALUE; var maxLon = -Double.MAX_VALUE
+SpatialDbManager.kt:422:                    val wkt = "LINESTRING(" + coords.joinToString(",") { "${it.first} ${it.second}" } + ")"
+SpatialDbManager.kt:423:                    val trackId = java.util.UUID.randomUUID().toString()
+SpatialDbManager.kt:424:                    val now = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", java.util.Locale.US).format(java.util.Date())
+SpatialDbManager.kt:443:    fun parseGpxTrackPoints(gpxText: String): List<Pair<Double, Double>> {
+SpatialDbManager.kt:444:        val coords = mutableListOf<Pair<Double, Double>>()
+SpatialDbManager.kt:445:        val regex = Regex("""lat="([^"]+)"\s+lon="([^"]+)"""")
+SpatialDbManager.kt:447:            val lat = match.groupValues[1].toDoubleOrNull() ?: continue
+SpatialDbManager.kt:448:            val lon = match.groupValues[2].toDoubleOrNull() ?: continue
+SpatialDbManager.kt:455:    private fun countRows(db: SQLiteDatabase, table: String): Int {
+SpatialDbManager.kt:456:        val cursor = db.rawQuery("SELECT COUNT(*) FROM $table", null)
+SpatialDbManager.kt:458:        val count = cursor.getInt(0)
+SpatialDbManager.kt:466:    fun queryWaypointsByViewport(south: Double, west: Double, north: Double, east: Double, limit: Int = 500): List<Map<String, String?>> {
+SpatialDbManager.kt:467:        val db = spatialDb ?: return emptyList()
+SpatialDbManager.kt:468:        val results = mutableListOf<Map<String, String?>>()
+SpatialDbManager.kt:472:            val cursor = db.rawQuery(
+SpatialDbManager.kt:478:                    val wkt = it.getString(2) ?: continue
+SpatialDbManager.kt:495:    fun buildWaypointGeoJson(waypoints: List<Map<String, String?>>): String {
+SpatialDbManager.kt:496:        val sb = StringBuilder()
+SpatialDbManager.kt:500:            val geom = wpt["geometry"] ?: return@forEachIndexed
+SpatialDbManager.kt:501:            val name = (wpt["name"] ?: "Unnamed").replace("\"", "\\\"")
+SpatialDbManager.kt:502:            val wptType = (wpt["type"] ?: "other").replace("\"", "\\\"")
+SpatialDbManager.kt:504:            val match = Regex("POINT\\(([\\d.\\-]+) ([\\d.\\-]+)\\)").find(geom)
+SpatialDbManager.kt:506:                val lon = match.groupValues[1]
+SpatialDbManager.kt:507:                val lat = match.groupValues[2]
+SpatialDbManager.kt:517:    fun queryRoutesByViewport(south: Double, west: Double, north: Double, east: Double, limit: Int = 500): List<Map<String, String?>> {
+SpatialDbManager.kt:518:        val db = spatialDb ?: return emptyList()
+SpatialDbManager.kt:519:        val results = mutableListOf<Map<String, String?>>()
+SpatialDbManager.kt:521:            val cursor = db.rawQuery(
+SpatialDbManager.kt:527:                    val wkt = it.getString(2) ?: continue
+SpatialDbManager.kt:543:    fun buildRouteGeoJson(routes: List<Map<String, String?>>): String {
+SpatialDbManager.kt:544:        val sb = StringBuilder()
+SpatialDbManager.kt:548:            val geom = route["geometry"] ?: return@forEachIndexed
+SpatialDbManager.kt:549:            val name = (route["name"] ?: "Unnamed Route").replace("\"", "\\\"")
+SpatialDbManager.kt:550:            val coordStr = geom.removePrefix("LINESTRING(").removeSuffix(")")
+SpatialDbManager.kt:551:            val coords = coordStr.split(",").joinToString(",") { pair ->
+SpatialDbManager.kt:552:                val parts = pair.trim().split(" ")
+SpatialDbManager.kt:562:    fun queryTracksOnlyByViewport(south: Double, west: Double, north: Double, east: Double, limit: Int = 500): List<Map<String, String?>> {
+SpatialDbManager.kt:563:        val db = spatialDb ?: return emptyList()
+SpatialDbManager.kt:564:        val results = mutableListOf<Map<String, String?>>()
+SpatialDbManager.kt:566:            val cursor = db.rawQuery(
+SpatialDbManager.kt:572:                    val wkt = it.getString(2) ?: continue
+SpatialDbManager.kt:595:    fun insertWaypointWithId(waypointId: String, name: String, lat: Double, lon: Double, type: String): Boolean {
+SpatialDbManager.kt:596:        val db = spatialDb ?: return false
+SpatialDbManager.kt:597:        val ts = now()
+SpatialDbManager.kt:598:        val geometry = pointWkt(lat, lon)
+SpatialDbManager.kt:599:        val nm = notNamed(name)
+SpatialDbManager.kt:600:        val gh = computeGeomHash(geometry)
+SpatialDbManager.kt:612:        fun insertWaypoint(name: String, lat: Double, lon: Double, type: String = "other"): String {
+SpatialDbManager.kt:613:        val db = spatialDb ?: throw IllegalStateException("SpatialDbManager not initialized")
+SpatialDbManager.kt:614:        val id = newId()
+SpatialDbManager.kt:615:        val ts = now()
+SpatialDbManager.kt:616:        val geometry = pointWkt(lat, lon)
+SpatialDbManager.kt:617:        val nm = notNamed(name)
+SpatialDbManager.kt:618:        val gh = computeGeomHash(geometry)
+SpatialDbManager.kt:647:    fun insertRoute(name: String, geometryWkt: String, minLat: Double, maxLat: Double, minLon: Double, maxLon: Double): String {
+SpatialDbManager.kt:648:        val db = spatialDb ?: throw IllegalStateException("SpatialDbManager not initialized")
+SpatialDbManager.kt:649:        val id = newId()
+SpatialDbManager.kt:650:        val ts = now()
+SpatialDbManager.kt:651:        val nm = notNamed(name)
+SpatialDbManager.kt:652:        val gh = computeGeomHash(geometryWkt)
+SpatialDbManager.kt:670:    fun insertTrackToDb(name: String, geometryWkt: String, minLat: Double, maxLat: Double, minLon: Double, maxLon: Double): String {
+SpatialDbManager.kt:671:        val db = spatialDb ?: throw IllegalStateException("SpatialDbManager not initialized")
+SpatialDbManager.kt:672:        val id = newId()
+SpatialDbManager.kt:673:        val ts = now()
+SpatialDbManager.kt:674:        val bbox = "$minLat,$minLon,$maxLat,$maxLon"
+SpatialDbManager.kt:675:        val nm = notNamed(name)
+SpatialDbManager.kt:676:        val gh = computeGeomHash(geometryWkt)
+SpatialDbManager.kt:704:    fun computeGeomHash(wkt: String): String {
+SpatialDbManager.kt:705:        val md = java.security.MessageDigest.getInstance("SHA-256")
+SpatialDbManager.kt:706:        val bytes = md.digest(wkt.toByteArray(Charsets.UTF_8))
+SpatialDbManager.kt:707:        val sb = StringBuilder(bytes.size * 2)
+SpatialDbManager.kt:708:        for (b in bytes) { val v = b.toInt() and 0xFF; sb.append("0123456789abcdef"[v ushr 4]); sb.append("0123456789abcdef"[v and 0x0F]) }
+SpatialDbManager.kt:713:    fun notNamed(name: String?): String = if (name.isNullOrBlank()) "Not Named" else name
+SpatialDbManager.kt:718:    private val dedupHashToName = HashMap<String, HashMap<String, String>>()
+SpatialDbManager.kt:719:    private val dedupSourceUids = HashSet<String>()
+SpatialDbManager.kt:720:    private var dedupSessionActive = false
+SpatialDbManager.kt:723:    fun beginDedupSession() {
+SpatialDbManager.kt:724:        val db = spatialDb ?: return
+SpatialDbManager.kt:734:                val c = e.rawQuery("SELECT source_id, source_unique_id FROM trail_properties WHERE source_id IS NOT NULL", null)
+SpatialDbManager.kt:742:    fun endDedupSession() {
+SpatialDbManager.kt:746:    private fun loadHashes(db: android.database.sqlite.SQLiteDatabase, table: String, idCol: String, type: String) {
+SpatialDbManager.kt:748:            val c = db.rawQuery("SELECT geom_hash, name FROM $table WHERE geom_hash IS NOT NULL", null)
+SpatialDbManager.kt:749:            val m = dedupHashToName[type]!!
+SpatialDbManager.kt:755:    fun sourceUidSeen(sourceId: String, uid: String): Boolean =
+SpatialDbManager.kt:758:    fun markSourceUid(sourceId: String, uid: String) { dedupSourceUids.add(sourceId + "\u0000" + uid) }
+SpatialDbManager.kt:760:    enum class AddDecision { INSERT, DROP, ALIAS }
+SpatialDbManager.kt:764:    fun resolveByGeom(type: String, name: String, geomHash: String): AddDecision {
+SpatialDbManager.kt:765:        val m = dedupHashToName[type] ?: return AddDecision.INSERT
+SpatialDbManager.kt:771:    fun noteInserted(type: String, geomHash: String, name: String) {
+SpatialDbManager.kt:777:    fun addAlias(type: String, artifactId: String, name: String, geomHash: String, creationDate: String?) {
+SpatialDbManager.kt:778:        val e = extensionDb ?: return
+SpatialDbManager.kt:779:        val ts = now()
+SpatialDbManager.kt:791:    fun insertTrail(trailId: String, rawName: String?, wkt: String, minLat: Double, maxLat: Double,
+SpatialDbManager.kt:793:        val db = spatialDb ?: throw IllegalStateException("SpatialDbManager not initialized")
+SpatialDbManager.kt:794:        val name = notNamed(rawName)
+SpatialDbManager.kt:795:        val geomHash = computeGeomHash(wkt)
+SpatialDbManager.kt:796:        val decision = resolveByGeom("trail", name, geomHash)
+SpatialDbManager.kt:800:                val anchorId = findTrailIdByHash(geomHash) ?: trailId
+SpatialDbManager.kt:815:    private fun findTrailIdByHash(geomHash: String): String? {
+SpatialDbManager.kt:816:        val db = spatialDb ?: return null
+SpatialDbManager.kt:818:            val c = db.rawQuery("SELECT trail_id FROM trails WHERE geom_hash=? LIMIT 1", arrayOf(geomHash))
+SpatialDbManager.kt:824:    fun getArtifactBounds(table: String): DoubleArray? {
+SpatialDbManager.kt:825:        val db = spatialDb ?: return null
+SpatialDbManager.kt:826:        val latCol = if (table == "trails") "min_lat" else "min_lat"
+SpatialDbManager.kt:828:            val cursor = db.rawQuery(
+SpatialDbManager.kt:846:    fun queryArtifactList(table: String, south: Double, west: Double, north: Double, east: Double): List<Map<String, String?>> {
+SpatialDbManager.kt:847:        val db = spatialDb ?: return emptyList()
+SpatialDbManager.kt:848:        val results = mutableListOf<Map<String, String?>>()
+SpatialDbManager.kt:850:            val idCol = when (table) {
+SpatialDbManager.kt:857:            val typeCol = if (table == "waypoints") ", type" else ""
+SpatialDbManager.kt:858:            val typeFilter = if (table == "tracks") " AND (type='TRACK' OR type IS NULL)" else ""
+SpatialDbManager.kt:859:            val sql = "SELECT $idCol, name$typeCol FROM $table WHERE min_lat IS NOT NULL AND max_lat >= ? AND min_lat <= ? AND max_lon >= ? AND min_lon <= ?$typeFilter ORDER BY name LIMIT 200"
+SpatialDbManager.kt:860:            val cursor = db.rawQuery(sql, arrayOf(south.toString(), north.toString(), west.toString(), east.toString()))
+SpatialDbManager.kt:863:                    val map = mutableMapOf<String, String?>()
+SpatialDbManager.kt:881:    fun renameWaypoint(id: String, newName: String) {
+SpatialDbManager.kt:887:    fun deleteWaypoint(id: String) {
+SpatialDbManager.kt:892:    fun changeWaypointType(id: String, newType: String) {
+SpatialDbManager.kt:898:    fun renameRoute(id: String, newName: String) {
+SpatialDbManager.kt:904:    fun deleteRoute(id: String) {
+SpatialDbManager.kt:909:    fun renameTrackInDb(id: String, newName: String) {
+SpatialDbManager.kt:915:    fun deleteTrackFromDb(id: String) {
+SpatialDbManager.kt:922:    private val GPX_HEADER = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
+SpatialDbManager.kt:925:    private const val GPX_FOOTER = "</gpx>"
+SpatialDbManager.kt:927:    private fun xmlEscape(s: String): String =
+SpatialDbManager.kt:931:    fun buildWaypointGpxById(waypointId: String): Pair<String, String>? {
+SpatialDbManager.kt:932:        val db = spatialDb ?: return null
+SpatialDbManager.kt:934:            val cursor = db.rawQuery(
+SpatialDbManager.kt:939:                val name = c.getString(0) ?: "Unnamed"
+SpatialDbManager.kt:940:                val type = c.getString(1) ?: ""
+SpatialDbManager.kt:941:                val geom = c.getString(2) ?: return null
+SpatialDbManager.kt:942:                val desc = if (c.columnCount > 3) (c.getString(3) ?: "") else ""
+SpatialDbManager.kt:943:                val coords = geom.removePrefix("POINT(").removeSuffix(")").trim().split(" ")
+SpatialDbManager.kt:945:                val lon = coords[0]
+SpatialDbManager.kt:946:                val lat = coords[1]
+SpatialDbManager.kt:947:                val sb = StringBuilder()
+SpatialDbManager.kt:964:    fun buildRouteGpxById(routeId: String): Pair<String, String>? {
+SpatialDbManager.kt:965:        val db = spatialDb ?: return null
+SpatialDbManager.kt:967:            val cursor = db.rawQuery(
+SpatialDbManager.kt:972:                val name = c.getString(0) ?: "Unnamed"
+SpatialDbManager.kt:973:                val geom = c.getString(1) ?: return null
+SpatialDbManager.kt:974:                val desc = if (c.columnCount > 2) (c.getString(2) ?: "") else ""
+SpatialDbManager.kt:975:                val coordStr = geom.removePrefix("LINESTRING(").removeSuffix(")")
+SpatialDbManager.kt:976:                val points = coordStr.split(",").mapNotNull { pt ->
+SpatialDbManager.kt:977:                    val parts = pt.trim().split(" ")
+SpatialDbManager.kt:980:                val sb = StringBuilder()
+SpatialDbManager.kt:985:                var idx = 1
+SpatialDbManager.kt:1003:    fun buildTrailGpxById(trailId: String): Pair<String, String>? {
+SpatialDbManager.kt:1004:        val db = spatialDb ?: return null
+SpatialDbManager.kt:1006:            val cursor = db.rawQuery(
+SpatialDbManager.kt:1011:                val name = c.getString(0) ?: "Unnamed"
+SpatialDbManager.kt:1012:                val geom = c.getString(1) ?: return null
+SpatialDbManager.kt:1013:                val coordStr = geom.removePrefix("LINESTRING(").removeSuffix(")")
+SpatialDbManager.kt:1014:                val points = coordStr.split(",").mapNotNull { pt ->
+SpatialDbManager.kt:1015:                    val parts = pt.trim().split(" ")
+SpatialDbManager.kt:1018:                val sb = StringBuilder()
+SpatialDbManager.kt:1038:    fun close() {
+SpatialDbManager.kt:1049:    fun spatial(): SQLiteDatabase {
+SpatialDbManager.kt:1054:    fun extension(): SQLiteDatabase {
+SpatialDbManager.kt:1059:    fun isReady(): Boolean = initialized
+SpatialDbManager.kt:1062:    fun newId(): String = UUID.randomUUID().toString()
+SpatialDbManager.kt:1065:    fun now(): String = Instant.now().toString()
+SpatialDbManager.kt:1070:    fun pointWkt(lat: Double, lng: Double): String =
+SpatialDbManager.kt:1074:    fun lineWkt(points: List<Pair<Double, Double>>): String {
+SpatialDbManager.kt:1075:        val coords = points.joinToString(", ") { "${it.second} ${it.first}" }
+SpatialDbManager.kt:1080:    fun bboxWkt(north: Double, south: Double, east: Double, west: Double): String =
+SpatialDbManager.kt:1084:    fun parsePoint(wkt: String): Pair<Double, Double>? {
+SpatialDbManager.kt:1085:        val match = Regex("POINT\\(([\\d.\\-]+) ([\\d.\\-]+)\\)").find(wkt) ?: return null
+SpatialDbManager.kt:1086:        val lng = match.groupValues[1].toDoubleOrNull() ?: return null
+SpatialDbManager.kt:1087:        val lat = match.groupValues[2].toDoubleOrNull() ?: return null
+SpatialDbManager.kt:1092:    fun parseLine(wkt: String): List<Pair<Double, Double>> {
+SpatialDbManager.kt:1093:        val match = Regex("LINESTRING\\((.+)\\)").find(wkt) ?: return emptyList()
+SpatialDbManager.kt:1095:            val parts = coord.trim().split(" ")
+SpatialDbManager.kt:1097:                val lng = parts[0].toDoubleOrNull()
+SpatialDbManager.kt:1098:                val lat = parts[1].toDoubleOrNull()
+SpatialDbManager.kt:1105:    fun parseBbox(wkt: String): DoubleArray? {
+SpatialDbManager.kt:1106:        val match = Regex("POLYGON\\(\\((.+)\\)\\)").find(wkt) ?: return null
+SpatialDbManager.kt:1107:        val points = match.groupValues[1].split(",").mapNotNull { coord ->
+SpatialDbManager.kt:1108:            val parts = coord.trim().split(" ")
+SpatialDbManager.kt:1112:        val lngs = points.map { it.first }
+SpatialDbManager.kt:1113:        val lats = points.map { it.second }
+SpatialDbManager.kt:1118:    fun spatialSchemaVersion(): Int {
+SpatialDbManager.kt:1121:            val cursor = spatialDb!!.rawQuery("SELECT version FROM schema_version ORDER BY version DESC LIMIT 1", null)
+SpatialDbManager.kt:1123:            val v = cursor.getInt(0)
+SpatialDbManager.kt:1129:    fun extensionSchemaVersion(): Int {
+SpatialDbManager.kt:1132:            val cursor = extensionDb!!.rawQuery("SELECT version FROM schema_version ORDER BY version DESC LIMIT 1", null)
+SpatialDbManager.kt:1134:            val v = cursor.getInt(0)
 SpatialDisplayManager.kt:25:object SpatialDisplayManager {
 SpatialDisplayManager.kt:27:    const val DS_OFF = 0
 SpatialDisplayManager.kt:28:    const val DS_ON = 1
@@ -3689,132 +3740,135 @@ TrailImporter.kt:34:    private const val TAG = "TrailImporter"
 TrailImporter.kt:35:    private const val PAGE_SIZE = 2000
 TrailImporter.kt:37:    data class ImportResult(
 TrailImporter.kt:38:        val sourceId: String, val inserted: Int, val skipped: Int,
-TrailImporter.kt:39:        val errors: Int, val message: String
-TrailImporter.kt:42:    data class ImportProgress(
-TrailImporter.kt:43:        val sourceId: String = "",
-TrailImporter.kt:44:        val sourceName: String = "",
-TrailImporter.kt:45:        val totalSources: Int = 1,
-TrailImporter.kt:46:        val currentSourceIndex: Int = 0,
-TrailImporter.kt:47:        val fetched: Int = 0,
-TrailImporter.kt:48:        val inserted: Int = 0,
-TrailImporter.kt:49:        val skipped: Int = 0,
-TrailImporter.kt:50:        val rejected: Int = 0,
-TrailImporter.kt:51:        val errors: Int = 0,
-TrailImporter.kt:52:        val offset: Int = 0,
-TrailImporter.kt:53:        val isComplete: Boolean = false,
-TrailImporter.kt:54:        val message: String = ""
-TrailImporter.kt:57:    private val _progress = MutableStateFlow(ImportProgress())
-TrailImporter.kt:58:    val progress: StateFlow<ImportProgress> = _progress.asStateFlow()
-TrailImporter.kt:60:    private fun emitProgress(p: ImportProgress) { _progress.value = p }
-TrailImporter.kt:63:    suspend fun importFullSource(context: Context, sourceId: String): ImportResult {
-TrailImporter.kt:68:    suspend fun importByArea(
-TrailImporter.kt:79:    private suspend fun importFromSource(
-TrailImporter.kt:83:        val catalog = loadCatalog(context)
-TrailImporter.kt:85:        val source = catalog.firstOrNull { it.id == sourceId }
-TrailImporter.kt:90:        val sDb = SpatialDbManager.getSpatialDb()
-TrailImporter.kt:91:        val eDb = SpatialDbManager.getExtensionDb()
-TrailImporter.kt:95:        var inserted = 0; var skipped = 0; var errors = 0; var fetched = 0; var rejected = 0
-TrailImporter.kt:96:        var offset = 0; var hasMore = true
-TrailImporter.kt:99:            val url = buildUrl(source, south, west, north, east, offset)
-TrailImporter.kt:106:            val json = httpGet(url)
-TrailImporter.kt:109:            val root = try { JSONObject(json) } catch (_: Exception) { errors++; break }
-TrailImporter.kt:115:            val features = root.optJSONArray("features") ?: JSONArray()
-TrailImporter.kt:118:            val pageCount = features.length()
-TrailImporter.kt:123:                    val feat = features.getJSONObject(i)
-TrailImporter.kt:126:                        val geom = feat.optJSONObject("geometry")
-TrailImporter.kt:128:                            val coords = geom.optJSONArray("paths") ?: geom.optJSONArray("coordinates")
-TrailImporter.kt:130:                                val firstRing = coords.optJSONArray(0)
-TrailImporter.kt:132:                                    val firstPt = firstRing.optJSONArray(0)
-TrailImporter.kt:134:                                        val lon = firstPt.optDouble(0, 0.0)
-TrailImporter.kt:135:                                        val lat = firstPt.optDouble(1, 0.0)
-TrailImporter.kt:161:        val msg = "$inserted imported, $skipped dupes, $errors errors"
-TrailImporter.kt:175:    private fun buildUrl(src: Src, s: Double?, w: Double?, n: Double?, e: Double?, offset: Int): String {
-TrailImporter.kt:176:        val sb = StringBuilder(src.queryUrl)
-TrailImporter.kt:188:    private fun httpGet(urlStr: String): String? {
-TrailImporter.kt:190:            val conn = URL(urlStr).openConnection() as HttpURLConnection
-TrailImporter.kt:201:    private fun insertFeature(sDb: SQLiteDatabase, eDb: SQLiteDatabase, feature: JSONObject, src: Src): String {
-TrailImporter.kt:202:        val props = feature.optJSONObject("properties") ?: return "error"
-TrailImporter.kt:203:        val geom = feature.optJSONObject("geometry") ?: return "error"
-TrailImporter.kt:204:        val uid = props.optString(src.fieldId, "").ifEmpty { return "error" }
-TrailImporter.kt:207:        val cur = eDb.rawQuery(
-TrailImporter.kt:211:        val exists = cur.moveToFirst(); cur.close()
-TrailImporter.kt:214:        val name = props.optString(src.fieldName, "").ifEmpty { null }
-TrailImporter.kt:215:        val wkt = geojsonGeomToWkt(geom)
-TrailImporter.kt:216:        val bbox = computeBbox(geom)
-TrailImporter.kt:217:        val tid = UUID.randomUUID().toString()
-TrailImporter.kt:218:        val now = Instant.now().toString()
-TrailImporter.kt:225:        val motorized = props.optString(src.fieldExtras.getOrDefault("motorized", ""), "")
-TrailImporter.kt:226:        val surface = props.optString(src.fieldExtras.getOrDefault("surface", ""), "")
-TrailImporter.kt:227:        val county = props.optString(src.fieldExtras.getOrDefault("county", ""), "")
-TrailImporter.kt:228:        val steward = props.optString(src.fieldExtras.getOrDefault("manager", src.fieldExtras.getOrDefault("steward", "")), "")
-TrailImporter.kt:229:        val uses = props.optString(src.fieldUse, "")
-TrailImporter.kt:230:        val cartoCode = props.optString(src.fieldType, "")
-TrailImporter.kt:241:    fun geojsonGeomToWkt(geom: JSONObject): String {
-TrailImporter.kt:242:        val type = geom.optString("type")
-TrailImporter.kt:243:        val coords = geom.optJSONArray("coordinates") ?: return ""
-TrailImporter.kt:247:                val lines = (0 until coords.length()).map { i ->
-TrailImporter.kt:257:    private fun coordRingToWkt(arr: JSONArray): String {
-TrailImporter.kt:259:            val c = arr.getJSONArray(i)
-TrailImporter.kt:264:    fun computeBbox(geom: JSONObject): DoubleArray {
-TrailImporter.kt:265:        val pts = mutableListOf<Pair<Double, Double>>()
-TrailImporter.kt:268:        var minLat = Double.MAX_VALUE; var maxLat = -Double.MAX_VALUE
-TrailImporter.kt:269:        var minLon = Double.MAX_VALUE; var maxLon = -Double.MAX_VALUE
-TrailImporter.kt:277:    private fun extractCoords(arr: JSONArray, out: MutableList<Pair<Double, Double>>) {
-TrailImporter.kt:291:    private fun writeTrailAreaJson(
-TrailImporter.kt:296:            val dir = File(
-TrailImporter.kt:302:            val isFullSource = (south == null && west == null && north == null && east == null)
-TrailImporter.kt:303:            val json = JSONObject().apply {
-TrailImporter.kt:312:                    val catJson = context.assets.open("trail_sources.json").bufferedReader().use { it.readText() }
-TrailImporter.kt:313:                    val sources = JSONObject(catJson).getJSONArray("sources")
-TrailImporter.kt:315:                        val s = sources.getJSONObject(j)
-TrailImporter.kt:317:                            val b = s.optJSONObject("boundary")
-TrailImporter.kt:332:            val filename = if (isFullSource)
-TrailImporter.kt:335:                val ts = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"))
-TrailImporter.kt:346:    fun writePendingArea(north: Double, south: Double, east: Double, west: Double) {
-TrailImporter.kt:348:            val dir = File(
-TrailImporter.kt:354:            val json = JSONObject().apply {
-TrailImporter.kt:369:    fun readPendingArea(): JSONObject? {
-TrailImporter.kt:371:            val f = File(
-TrailImporter.kt:381:    fun clearPendingArea() {
-TrailImporter.kt:392:    fun scanTrailAreas(): List<JSONObject> {
-TrailImporter.kt:394:            val dir = File(
-TrailImporter.kt:409:    fun isSourceFullyImported(sourceId: String): Boolean {
-TrailImporter.kt:411:            val f = File(
-TrailImporter.kt:417:                val j = JSONObject(f.readText())
-TrailImporter.kt:423:    private fun logIngestion(db: SQLiteDatabase, sid: String, count: Int, dupes: Int,
-TrailImporter.kt:425:        val bounds = if (s != null) "{\"s\":$s,\"w\":$w,\"n\":$n,\"e\":$e}" else null
-TrailImporter.kt:434:    private fun applyMigrationIfNeeded(context: Context) {
-TrailImporter.kt:435:        val db = SpatialDbManager.getSpatialDb() ?: return
-TrailImporter.kt:436:        var ver = 0
-TrailImporter.kt:438:            val cur = db.rawQuery("SELECT version FROM schema_version ORDER BY version DESC LIMIT 1", null)
-TrailImporter.kt:447:            val sql = context.assets.open("schema_spatial_v1_to_v2.sql").bufferedReader().use { it.readText() }
-TrailImporter.kt:459:    fun importTrailheads(
-TrailImporter.kt:470:            val json = context.assets.open(assetFile).bufferedReader().use { it.readText() }
-TrailImporter.kt:471:            val root = JSONObject(json)
-TrailImporter.kt:472:            val features = root.getJSONArray("features")
-TrailImporter.kt:473:            val total = features.length()
-TrailImporter.kt:474:            var inserted = 0
-TrailImporter.kt:475:            var skipped = 0
-TrailImporter.kt:476:            var outsideArea = 0
-TrailImporter.kt:478:                val feature = features.getJSONObject(i)
-TrailImporter.kt:479:                val props = feature.getJSONObject("properties")
-TrailImporter.kt:480:                val geom = feature.getJSONObject("geometry")
-TrailImporter.kt:481:                val coords = geom.getJSONArray("coordinates")
-TrailImporter.kt:482:                val lon = coords.getDouble(0)
-TrailImporter.kt:483:                val lat = coords.getDouble(1)
-TrailImporter.kt:489:                val name = props.optString("name",
-TrailImporter.kt:491:                val trailheadId = props.optString("id",
-TrailImporter.kt:493:                val waypointId = sourceId + "_th_" + trailheadId
-TrailImporter.kt:532:        data class Src(
-TrailImporter.kt:533:        val id: String, val name: String, val queryUrl: String, val maxRecords: Int,
-TrailImporter.kt:534:        val fieldId: String, val fieldName: String, val fieldType: String, val fieldUse: String,
-TrailImporter.kt:535:        val fieldExtras: Map<String, String>
-TrailImporter.kt:538:    private fun loadCatalog(context: Context): List<Src>? {
-TrailImporter.kt:540:            val json = context.assets.open("trail_sources.json").bufferedReader().use { it.readText() }
-TrailImporter.kt:541:            val root = JSONObject(json)
-TrailImporter.kt:542:            val sources = root.getJSONArray("sources")
-TrailImporter.kt:544:                val s = sources.getJSONObject(i)
-TrailImporter.kt:546:                val f = s.getJSONObject("fields")
-TrailImporter.kt:547:                val extras = mutableMapOf<String, String>()
+TrailImporter.kt:39:        val errors: Int, val message: String,
+TrailImporter.kt:40:        val dropped: Int = 0, val aliased: Int = 0, val rejected: Int = 0
+TrailImporter.kt:43:    data class ImportProgress(
+TrailImporter.kt:44:        val sourceId: String = "",
+TrailImporter.kt:45:        val sourceName: String = "",
+TrailImporter.kt:46:        val totalSources: Int = 1,
+TrailImporter.kt:47:        val currentSourceIndex: Int = 0,
+TrailImporter.kt:48:        val fetched: Int = 0,
+TrailImporter.kt:49:        val inserted: Int = 0,
+TrailImporter.kt:50:        val skipped: Int = 0,
+TrailImporter.kt:51:        val dropped: Int = 0,
+TrailImporter.kt:52:        val aliased: Int = 0,
+TrailImporter.kt:53:        val rejected: Int = 0,
+TrailImporter.kt:54:        val errors: Int = 0,
+TrailImporter.kt:55:        val offset: Int = 0,
+TrailImporter.kt:56:        val isComplete: Boolean = false,
+TrailImporter.kt:57:        val message: String = ""
+TrailImporter.kt:60:    private val _progress = MutableStateFlow(ImportProgress())
+TrailImporter.kt:61:    val progress: StateFlow<ImportProgress> = _progress.asStateFlow()
+TrailImporter.kt:63:    private fun emitProgress(p: ImportProgress) { _progress.value = p }
+TrailImporter.kt:66:    suspend fun importFullSource(context: Context, sourceId: String): ImportResult {
+TrailImporter.kt:71:    suspend fun importByArea(
+TrailImporter.kt:82:    private suspend fun importFromSource(
+TrailImporter.kt:86:        val catalog = loadCatalog(context)
+TrailImporter.kt:88:        val source = catalog.firstOrNull { it.id == sourceId }
+TrailImporter.kt:93:        val sDb = SpatialDbManager.getSpatialDb()
+TrailImporter.kt:94:        val eDb = SpatialDbManager.getExtensionDb()
+TrailImporter.kt:99:        var inserted = 0; var skipped = 0; var errors = 0; var fetched = 0; var rejected = 0; var dropped = 0; var aliased = 0
+TrailImporter.kt:100:        var offset = 0; var hasMore = true
+TrailImporter.kt:103:            val url = buildUrl(source, south, west, north, east, offset)
+TrailImporter.kt:110:            val json = httpGet(url)
+TrailImporter.kt:113:            val root = try { JSONObject(json) } catch (_: Exception) { errors++; break }
+TrailImporter.kt:119:            val features = root.optJSONArray("features") ?: JSONArray()
+TrailImporter.kt:122:            val pageCount = features.length()
+TrailImporter.kt:127:                    val feat = features.getJSONObject(i)
+TrailImporter.kt:130:                        val geom = feat.optJSONObject("geometry")
+TrailImporter.kt:132:                            val coords = geom.optJSONArray("paths") ?: geom.optJSONArray("coordinates")
+TrailImporter.kt:134:                                val firstRing = coords.optJSONArray(0)
+TrailImporter.kt:136:                                    val firstPt = firstRing.optJSONArray(0)
+TrailImporter.kt:138:                                        val lon = firstPt.optDouble(0, 0.0)
+TrailImporter.kt:139:                                        val lat = firstPt.optDouble(1, 0.0)
+TrailImporter.kt:166:        val processed = inserted + dropped + aliased + skipped + rejected + errors
+TrailImporter.kt:168:        val msg = "$processed processed: $inserted new, $dropped dupes dropped, $aliased aliased, $skipped already-imported, $rejected out-of-area, $errors errors"
+TrailImporter.kt:183:    private fun buildUrl(src: Src, s: Double?, w: Double?, n: Double?, e: Double?, offset: Int): String {
+TrailImporter.kt:184:        val sb = StringBuilder(src.queryUrl)
+TrailImporter.kt:196:    private fun httpGet(urlStr: String): String? {
+TrailImporter.kt:198:            val conn = URL(urlStr).openConnection() as HttpURLConnection
+TrailImporter.kt:209:    private fun insertFeature(sDb: SQLiteDatabase, eDb: SQLiteDatabase, feature: JSONObject, src: Src): String {
+TrailImporter.kt:210:        val props = feature.optJSONObject("properties") ?: return "error"
+TrailImporter.kt:211:        val geom = feature.optJSONObject("geometry") ?: return "error"
+TrailImporter.kt:212:        val uid = props.optString(src.fieldId, "").ifEmpty { return "error" }
+TrailImporter.kt:217:        val name = props.optString(src.fieldName, "").ifEmpty { null }
+TrailImporter.kt:218:        val wkt = geojsonGeomToWkt(geom)
+TrailImporter.kt:219:        val bbox = computeBbox(geom)
+TrailImporter.kt:220:        val tid = UUID.randomUUID().toString()
+TrailImporter.kt:221:        val now = Instant.now().toString()
+TrailImporter.kt:224:        val (anchorId, decision) = SpatialDbManager.insertTrail(tid, name, wkt, bbox[0], bbox[1], bbox[2], bbox[3], now)
+TrailImporter.kt:227:        val motorized = props.optString(src.fieldExtras.getOrDefault("motorized", ""), "")
+TrailImporter.kt:228:        val surface = props.optString(src.fieldExtras.getOrDefault("surface", ""), "")
+TrailImporter.kt:229:        val county = props.optString(src.fieldExtras.getOrDefault("county", ""), "")
+TrailImporter.kt:230:        val steward = props.optString(src.fieldExtras.getOrDefault("manager", src.fieldExtras.getOrDefault("steward", "")), "")
+TrailImporter.kt:231:        val uses = props.optString(src.fieldUse, "")
+TrailImporter.kt:232:        val cartoCode = props.optString(src.fieldType, "")
+TrailImporter.kt:247:    fun geojsonGeomToWkt(geom: JSONObject): String {
+TrailImporter.kt:248:        val type = geom.optString("type")
+TrailImporter.kt:249:        val coords = geom.optJSONArray("coordinates") ?: return ""
+TrailImporter.kt:253:                val lines = (0 until coords.length()).map { i ->
+TrailImporter.kt:263:    private fun coordRingToWkt(arr: JSONArray): String {
+TrailImporter.kt:265:            val c = arr.getJSONArray(i)
+TrailImporter.kt:270:    fun computeBbox(geom: JSONObject): DoubleArray {
+TrailImporter.kt:271:        val pts = mutableListOf<Pair<Double, Double>>()
+TrailImporter.kt:274:        var minLat = Double.MAX_VALUE; var maxLat = -Double.MAX_VALUE
+TrailImporter.kt:275:        var minLon = Double.MAX_VALUE; var maxLon = -Double.MAX_VALUE
+TrailImporter.kt:283:    private fun extractCoords(arr: JSONArray, out: MutableList<Pair<Double, Double>>) {
+TrailImporter.kt:297:    private fun writeTrailAreaJson(
+TrailImporter.kt:302:            val dir = File(
+TrailImporter.kt:308:            val isFullSource = (south == null && west == null && north == null && east == null)
+TrailImporter.kt:309:            val json = JSONObject().apply {
+TrailImporter.kt:318:                    val catJson = context.assets.open("trail_sources.json").bufferedReader().use { it.readText() }
+TrailImporter.kt:319:                    val sources = JSONObject(catJson).getJSONArray("sources")
+TrailImporter.kt:321:                        val s = sources.getJSONObject(j)
+TrailImporter.kt:323:                            val b = s.optJSONObject("boundary")
+TrailImporter.kt:338:            val filename = if (isFullSource)
+TrailImporter.kt:341:                val ts = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"))
+TrailImporter.kt:352:    fun writePendingArea(north: Double, south: Double, east: Double, west: Double) {
+TrailImporter.kt:354:            val dir = File(
+TrailImporter.kt:360:            val json = JSONObject().apply {
+TrailImporter.kt:375:    fun readPendingArea(): JSONObject? {
+TrailImporter.kt:377:            val f = File(
+TrailImporter.kt:387:    fun clearPendingArea() {
+TrailImporter.kt:398:    fun scanTrailAreas(): List<JSONObject> {
+TrailImporter.kt:400:            val dir = File(
+TrailImporter.kt:415:    fun isSourceFullyImported(sourceId: String): Boolean {
+TrailImporter.kt:417:            val f = File(
+TrailImporter.kt:423:                val j = JSONObject(f.readText())
+TrailImporter.kt:429:    private fun logIngestion(db: SQLiteDatabase, sid: String, count: Int, dupes: Int,
+TrailImporter.kt:431:        val bounds = if (s != null) "{\"s\":$s,\"w\":$w,\"n\":$n,\"e\":$e}" else null
+TrailImporter.kt:440:    private fun applyMigrationIfNeeded(context: Context) {
+TrailImporter.kt:441:        val db = SpatialDbManager.getSpatialDb() ?: return
+TrailImporter.kt:442:        var ver = 0
+TrailImporter.kt:444:            val cur = db.rawQuery("SELECT version FROM schema_version ORDER BY version DESC LIMIT 1", null)
+TrailImporter.kt:453:            val sql = context.assets.open("schema_spatial_v1_to_v2.sql").bufferedReader().use { it.readText() }
+TrailImporter.kt:465:    fun importTrailheads(
+TrailImporter.kt:476:            val json = context.assets.open(assetFile).bufferedReader().use { it.readText() }
+TrailImporter.kt:477:            val root = JSONObject(json)
+TrailImporter.kt:478:            val features = root.getJSONArray("features")
+TrailImporter.kt:479:            val total = features.length()
+TrailImporter.kt:480:            var inserted = 0
+TrailImporter.kt:481:            var skipped = 0
+TrailImporter.kt:482:            var outsideArea = 0
+TrailImporter.kt:484:                val feature = features.getJSONObject(i)
+TrailImporter.kt:485:                val props = feature.getJSONObject("properties")
+TrailImporter.kt:486:                val geom = feature.getJSONObject("geometry")
+TrailImporter.kt:487:                val coords = geom.getJSONArray("coordinates")
+TrailImporter.kt:488:                val lon = coords.getDouble(0)
+TrailImporter.kt:489:                val lat = coords.getDouble(1)
+TrailImporter.kt:495:                val name = props.optString("name",
+TrailImporter.kt:497:                val trailheadId = props.optString("id",
+TrailImporter.kt:499:                val waypointId = sourceId + "_th_" + trailheadId
+TrailImporter.kt:538:        data class Src(
+TrailImporter.kt:539:        val id: String, val name: String, val queryUrl: String, val maxRecords: Int,
+TrailImporter.kt:540:        val fieldId: String, val fieldName: String, val fieldType: String, val fieldUse: String,
+TrailImporter.kt:541:        val fieldExtras: Map<String, String>
+TrailImporter.kt:544:    private fun loadCatalog(context: Context): List<Src>? {
+TrailImporter.kt:546:            val json = context.assets.open("trail_sources.json").bufferedReader().use { it.readText() }
+TrailImporter.kt:547:            val root = JSONObject(json)
+TrailImporter.kt:548:            val sources = root.getJSONArray("sources")
+TrailImporter.kt:550:                val s = sources.getJSONObject(i)
+TrailImporter.kt:552:                val f = s.getJSONObject("fields")
+TrailImporter.kt:553:                val extras = mutableMapOf<String, String>()
 WaypointManager.kt:9:object WaypointManager {
 WaypointManager.kt:10:    fun stub() { /* Pass 1 scaffold -- functions in Pass 2 */ }
