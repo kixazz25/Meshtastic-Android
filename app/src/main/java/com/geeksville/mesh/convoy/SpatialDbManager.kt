@@ -596,10 +596,12 @@ object SpatialDbManager {
         val db = spatialDb ?: return false
         val ts = now()
         val geometry = pointWkt(lat, lon)
+        val nm = notNamed(name)
+        val gh = computeGeomHash(geometry)
         try {
             db.execSQL(
-                "INSERT OR IGNORE INTO waypoints (waypoint_id, name, geometry, type, min_lat, max_lat, min_lon, max_lon, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
-                arrayOf<Any>(waypointId, name, geometry, type.lowercase(), lat, lat, lon, lon, ts, ts))
+                "INSERT OR IGNORE INTO waypoints (waypoint_id, name, geometry, type, min_lat, max_lat, min_lon, max_lon, created_at, updated_at, geom_hash) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                arrayOf<Any>(waypointId, nm, geometry, type.lowercase(), lat, lat, lon, lon, ts, ts, gh))
             return true
         } catch (e: Exception) {
             android.util.Log.e("SpatialDb", "insertWaypointWithId failed: " + e.message)
@@ -612,19 +614,21 @@ object SpatialDbManager {
         val id = newId()
         val ts = now()
         val geometry = pointWkt(lat, lon)
+        val nm = notNamed(name)
+        val gh = computeGeomHash(geometry)
         try {
             db.execSQL(
-                "INSERT OR IGNORE INTO waypoints (waypoint_id, name, geometry, type, min_lat, max_lat, min_lon, max_lon, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
-                arrayOf<Any>(id, name, geometry, type.lowercase(), lat, lat, lon, lon, ts, ts)
+                "INSERT OR IGNORE INTO waypoints (waypoint_id, name, geometry, type, min_lat, max_lat, min_lon, max_lon, created_at, updated_at, geom_hash) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                arrayOf<Any>(id, nm, geometry, type.lowercase(), lat, lat, lon, lon, ts, ts, gh)
             )
-            android.util.Log.i("SpatialDb", "Inserted waypoint: $name ($type) at $lat,$lon")
+            android.util.Log.i("SpatialDb", "Inserted waypoint: $nm ($type) at $lat,$lon")
         } catch (e: Exception) {
             android.util.Log.e("SpatialDb", "Waypoint insert failed: ${e.message}")
             // If column mismatch, try minimal insert
             try {
                 db.execSQL(
-                    "INSERT OR IGNORE INTO waypoints (waypoint_id, name, geometry, type, created_at, updated_at) VALUES (?,?,?,?,?,?)",
-                    arrayOf(id, name, geometry, type.lowercase(), ts, ts)
+                    "INSERT OR IGNORE INTO waypoints (waypoint_id, name, geometry, type, created_at, updated_at, geom_hash) VALUES (?,?,?,?,?,?,?)",
+                    arrayOf(id, nm, geometry, type.lowercase(), ts, ts, gh)
                 )
                 // Update bbox columns separately (may have been added by migration)
                 db.execSQL("UPDATE waypoints SET min_lat=?, max_lat=?, min_lon=?, max_lon=? WHERE waypoint_id=?",
@@ -644,12 +648,14 @@ object SpatialDbManager {
         val db = spatialDb ?: throw IllegalStateException("SpatialDbManager not initialized")
         val id = newId()
         val ts = now()
+        val nm = notNamed(name)
+        val gh = computeGeomHash(geometryWkt)
         try {
             db.execSQL(
-                "INSERT OR IGNORE INTO routes (route_id, name, geometry, min_lat, max_lat, min_lon, max_lon, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?)",
-                arrayOf<Any>(id, name, geometryWkt, minLat, maxLat, minLon, maxLon, ts, ts)
+                "INSERT OR IGNORE INTO routes (route_id, name, geometry, min_lat, max_lat, min_lon, max_lon, created_at, updated_at, geom_hash) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                arrayOf<Any>(id, nm, geometryWkt, minLat, maxLat, minLon, maxLon, ts, ts, gh)
             )
-            android.util.Log.i("SpatialDb", "Inserted route: $name")
+            android.util.Log.i("SpatialDb", "Inserted route: $nm")
         } catch (e: Exception) {
             android.util.Log.e("SpatialDb", "Route insert failed: ${e.message}")
         }
@@ -666,12 +672,14 @@ object SpatialDbManager {
         val id = newId()
         val ts = now()
         val bbox = "$minLat,$minLon,$maxLat,$maxLon"
+        val nm = notNamed(name)
+        val gh = computeGeomHash(geometryWkt)
         try {
             db.execSQL(
-                "INSERT OR IGNORE INTO tracks (track_id, name, geometry, min_lat, max_lat, min_lon, max_lon, bbox, type, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
-                arrayOf<Any>(id, name, geometryWkt, minLat, maxLat, minLon, maxLon, bbox, "TRACK", ts, ts)
+                "INSERT OR IGNORE INTO tracks (track_id, name, geometry, min_lat, max_lat, min_lon, max_lon, bbox, type, created_at, updated_at, geom_hash) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                arrayOf<Any>(id, nm, geometryWkt, minLat, maxLat, minLon, maxLon, bbox, "TRACK", ts, ts, gh)
             )
-            android.util.Log.i("SpatialDb", "Inserted track to DB: $name")
+            android.util.Log.i("SpatialDb", "Inserted track to DB: $nm")
         } catch (e: Exception) {
             android.util.Log.e("SpatialDb", "Track DB insert failed: ${e.message}")
         }
@@ -679,6 +687,138 @@ object SpatialDbManager {
     }
 
     
+
+
+    // ===================================================================
+    // SHARED ARTIFACT ADD CORE  (ADD-RULES CONTRACT -- see schema_spatial_v3.sql)
+    // All four artifact types funnel through this core. It computes geom_hash,
+    // applies the 'Not Named' fallback, and makes the dupe/alias/insert decision.
+    // A null geom_hash reaching the DB means a caller bypassed this core
+    // (geom_hash is NOT NULL in-schema -> such an insert FAILS loudly).
+    // ===================================================================
+
+    /** SHA-256 of the full WKT geometry string. Raw (no normalization): the
+     *  duplicate rows in real data are byte-identical WKT, so a raw hash catches
+     *  them. Identity = (artifact_type, geom_hash); per-type tables make
+     *  UNIQUE(geom_hash) express that. */
+    fun computeGeomHash(wkt: String): String {
+        val md = java.security.MessageDigest.getInstance("SHA-256")
+        val bytes = md.digest(wkt.toByteArray(Charsets.UTF_8))
+        val sb = StringBuilder(bytes.size * 2)
+        for (b in bytes) { val v = b.toInt() and 0xFF; sb.append("0123456789abcdef"[v ushr 4]); sb.append("0123456789abcdef"[v and 0x0F]) }
+        return sb.toString()
+    }
+
+    /** 'Not Named' fallback, applied for ALL four artifacts. */
+    fun notNamed(name: String?): String = if (name.isNullOrBlank()) "Not Named" else name
+
+    // ---- session-scoped in-memory dedup (loaded once per import) ----
+    // One geom_hash->name lookup per artifact type. Plus a source-uid set for trails
+    // (replaces the per-row SELECT 1 FROM trail_properties query).
+    private val dedupHashToName = HashMap<String, HashMap<String, String>>()
+    private val dedupSourceUids = HashSet<String>()
+    private var dedupSessionActive = false
+
+    /** Load the lookups once. Call at the start of an import; release with endDedupSession(). */
+    fun beginDedupSession() {
+        val db = spatialDb ?: return
+        dedupHashToName.clear(); dedupSourceUids.clear()
+        for (t in listOf("trail", "track", "waypoint", "route")) dedupHashToName[t] = HashMap()
+        loadHashes(db, "trails", "trail_id", "trail")
+        loadHashes(db, "tracks", "track_id", "track")
+        loadHashes(db, "waypoints", "waypoint_id", "waypoint")
+        loadHashes(db, "routes", "route_id", "route")
+        // source-uid set from extension db trail_properties
+        extensionDb?.let { e ->
+            try {
+                val c = e.rawQuery("SELECT source_id, source_unique_id FROM trail_properties WHERE source_id IS NOT NULL", null)
+                c.use { while (it.moveToNext()) dedupSourceUids.add(it.getString(0) + "\u0000" + it.getString(1)) }
+            } catch (ex: Exception) { android.util.Log.w("SpatialDb", "loadSourceUids: ${ex.message}") }
+        }
+        dedupSessionActive = true
+        android.util.Log.i("SpatialDb", "Dedup session: trails=${dedupHashToName["trail"]?.size} tracks=${dedupHashToName["track"]?.size} wpts=${dedupHashToName["waypoint"]?.size} routes=${dedupHashToName["route"]?.size} srcUids=${dedupSourceUids.size}")
+    }
+
+    fun endDedupSession() {
+        dedupHashToName.clear(); dedupSourceUids.clear(); dedupSessionActive = false
+    }
+
+    private fun loadHashes(db: android.database.sqlite.SQLiteDatabase, table: String, idCol: String, type: String) {
+        try {
+            val c = db.rawQuery("SELECT geom_hash, name FROM $table WHERE geom_hash IS NOT NULL", null)
+            val m = dedupHashToName[type]!!
+            c.use { while (it.moveToNext()) m[it.getString(0)] = it.getString(1) ?: "Not Named" }
+        } catch (ex: Exception) { android.util.Log.w("SpatialDb", "loadHashes($table): ${ex.message}") }
+    }
+
+    /** Has this (source_id, source_unique_id) already been imported? In-memory. */
+    fun sourceUidSeen(sourceId: String, uid: String): Boolean =
+        dedupSourceUids.contains(sourceId + "\u0000" + uid)
+
+    fun markSourceUid(sourceId: String, uid: String) { dedupSourceUids.add(sourceId + "\u0000" + uid) }
+
+    enum class AddDecision { INSERT, DROP, ALIAS }
+
+    /** The dupe/alias decision for trail/route/waypoint (geometry-name rule).
+     *  Tracks use their own three-layer rule (see insertTrackToDb). */
+    fun resolveByGeom(type: String, name: String, geomHash: String): AddDecision {
+        val m = dedupHashToName[type] ?: return AddDecision.INSERT
+        val existingName = m[geomHash] ?: return AddDecision.INSERT  // new geometry
+        return if (existingName == name) AddDecision.DROP else AddDecision.ALIAS
+    }
+
+    /** Record a freshly-inserted artifact in the in-memory lookup. */
+    fun noteInserted(type: String, geomHash: String, name: String) {
+        dedupHashToName[type]?.put(geomHash, name)
+    }
+
+    /** Pointer-model alias write. Hash lives on the artifact; alias carries the name.
+     *  INSERT OR IGNORE -> alias-table UNIQUE constraints dedup silently. */
+    fun addAlias(type: String, artifactId: String, name: String, geomHash: String, creationDate: String?) {
+        val e = extensionDb ?: return
+        val ts = now()
+        try {
+            e.execSQL(
+                "INSERT OR IGNORE INTO artifact_aliases (alias_id, artifact_type, artifact_id, alias, is_preferred, source, created_at, creation_date, geom_hash) VALUES (?,?,?,?,?,?,?,?,?)",
+                arrayOf<Any?>(newId(), type, artifactId, name, 0, "add", ts, creationDate, geomHash)
+            )
+        } catch (ex: Exception) { android.util.Log.w("SpatialDb", "addAlias: ${ex.message}") }
+    }
+
+    /** Trail insert routed through the core (TrailImporter calls this).
+     *  Returns the trail_id used (existing id if aliased/dropped, new id if inserted),
+     *  or null on drop with no existing id available. */
+    fun insertTrail(trailId: String, rawName: String?, wkt: String, minLat: Double, maxLat: Double,
+                    minLon: Double, maxLon: Double, createdAt: String): Pair<String, AddDecision> {
+        val db = spatialDb ?: throw IllegalStateException("SpatialDbManager not initialized")
+        val name = notNamed(rawName)
+        val geomHash = computeGeomHash(wkt)
+        val decision = resolveByGeom("trail", name, geomHash)
+        when (decision) {
+            AddDecision.DROP -> { return Pair(findTrailIdByHash(geomHash) ?: trailId, decision) }
+            AddDecision.ALIAS -> {
+                val anchorId = findTrailIdByHash(geomHash) ?: trailId
+                addAlias("trail", anchorId, name, geomHash, null)
+                return Pair(anchorId, decision)
+            }
+            AddDecision.INSERT -> {
+                db.execSQL(
+                    "INSERT OR IGNORE INTO trails (trail_id,name,geometry,min_lat,max_lat,min_lon,max_lon,created_at,updated_at,geom_hash) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                    arrayOf<Any?>(trailId, name, wkt, minLat, maxLat, minLon, maxLon, createdAt, createdAt, geomHash)
+                )
+                noteInserted("trail", geomHash, name)
+                return Pair(trailId, decision)
+            }
+        }
+    }
+
+    private fun findTrailIdByHash(geomHash: String): String? {
+        val db = spatialDb ?: return null
+        return try {
+            val c = db.rawQuery("SELECT trail_id FROM trails WHERE geom_hash=? LIMIT 1", arrayOf(geomHash))
+            c.use { if (it.moveToFirst()) it.getString(0) else null }
+        } catch (ex: Exception) { null }
+    }
 
     /** Get bounding box of all items in a table. Returns [south, west, north, east] or null if empty. */
     fun getArtifactBounds(table: String): DoubleArray? {

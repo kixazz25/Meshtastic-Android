@@ -36,7 +36,8 @@ object TrailImporter {
 
     data class ImportResult(
         val sourceId: String, val inserted: Int, val skipped: Int,
-        val errors: Int, val message: String
+        val errors: Int, val message: String,
+        val dropped: Int = 0, val aliased: Int = 0, val rejected: Int = 0
     )
 
     data class ImportProgress(
@@ -47,6 +48,8 @@ object TrailImporter {
         val fetched: Int = 0,
         val inserted: Int = 0,
         val skipped: Int = 0,
+        val dropped: Int = 0,
+        val aliased: Int = 0,
         val rejected: Int = 0,
         val errors: Int = 0,
         val offset: Int = 0,
@@ -92,7 +95,8 @@ object TrailImporter {
         if (sDb == null || eDb == null)
             return@withContext ImportResult(sourceId, 0, 0, 1, "DB not available")
 
-        var inserted = 0; var skipped = 0; var errors = 0; var fetched = 0; var rejected = 0
+        SpatialDbManager.beginDedupSession()
+        var inserted = 0; var skipped = 0; var errors = 0; var fetched = 0; var rejected = 0; var dropped = 0; var aliased = 0
         var offset = 0; var hasMore = true
 
         while (hasMore) {
@@ -144,6 +148,8 @@ object TrailImporter {
                     }
                     when (insertFeature(sDb, eDb, feat, source)) {
                         "inserted" -> inserted++
+                        "dropped" -> dropped++
+                        "aliased" -> aliased++
                         "skipped" -> skipped++
                         else -> errors++
                     }
@@ -157,17 +163,19 @@ object TrailImporter {
             offset += PAGE_SIZE
         }
 
-        logIngestion(eDb, sourceId, inserted, skipped, south, west, north, east)
-        val msg = "$inserted imported, $skipped dupes, $errors errors"
+        val processed = inserted + dropped + aliased + skipped + rejected + errors
+        logIngestion(eDb, sourceId, inserted, dropped + aliased, south, west, north, east)
+        val msg = "$processed processed: $inserted new, $dropped dupes dropped, $aliased aliased, $skipped already-imported, $rejected out-of-area, $errors errors"
         Log.i(TAG, "Done $sourceId: $msg")
         emitProgress(ImportProgress(
             sourceId = sourceId, sourceName = source.name,
-            inserted = inserted, skipped = skipped, errors = errors,
+            inserted = inserted, skipped = skipped, dropped = dropped, aliased = aliased,
+            rejected = rejected, errors = errors,
             offset = offset, isComplete = true, message = msg
         ))
         // Write trail area JSON record
-        writeTrailAreaJson(context, source, inserted, skipped, south, west, north, east)
-        ImportResult(sourceId, inserted, skipped, errors, msg)
+        writeTrailAreaJson(context, source, inserted, dropped + aliased, south, west, north, east)
+        ImportResult(sourceId, inserted, skipped, errors, msg, dropped, aliased, rejected)
     }
 
     // ── HTTP + URL ──────────────────────────────────────
@@ -203,13 +211,8 @@ object TrailImporter {
         val geom = feature.optJSONObject("geometry") ?: return "error"
         val uid = props.optString(src.fieldId, "").ifEmpty { return "error" }
 
-        // Dedup check
-        val cur = eDb.rawQuery(
-            "SELECT 1 FROM trail_properties WHERE source_id=? AND source_unique_id=?",
-            arrayOf(src.id, uid)
-        )
-        val exists = cur.moveToFirst(); cur.close()
-        if (exists) return "skipped"
+        // Dedup check (in-memory source-uid set, loaded once at session start)
+        if (SpatialDbManager.sourceUidSeen(src.id, uid)) return "skipped"  // already-imported this source-uid
 
         val name = props.optString(src.fieldName, "").ifEmpty { null }
         val wkt = geojsonGeomToWkt(geom)
@@ -217,10 +220,9 @@ object TrailImporter {
         val tid = UUID.randomUUID().toString()
         val now = Instant.now().toString()
 
-        sDb.execSQL(
-            "INSERT OR IGNORE INTO trails (trail_id,name,geometry,min_lat,max_lat,min_lon,max_lon,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?)",
-            arrayOf<Any?>(tid, name, wkt, bbox[0], bbox[1], bbox[2], bbox[3], now, now)
-        )
+        // Route through the shared add core (computes geom_hash, dupe/alias decision).
+        val (anchorId, decision) = SpatialDbManager.insertTrail(tid, name, wkt, bbox[0], bbox[1], bbox[2], bbox[3], now)
+        SpatialDbManager.markSourceUid(src.id, uid)
 
         val motorized = props.optString(src.fieldExtras.getOrDefault("motorized", ""), "")
         val surface = props.optString(src.fieldExtras.getOrDefault("surface", ""), "")
@@ -231,9 +233,13 @@ object TrailImporter {
 
         eDb.execSQL(
             "INSERT OR IGNORE INTO trail_properties (trail_id,source_id,source_unique_id,designated_uses,motorized_allowed,surface_type,carto_code,owner_steward,county,agency_id,ingested_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
-            arrayOf<Any?>(tid, src.id, uid, uses, motorized, surface, cartoCode, steward, county, uid, now)
+            arrayOf<Any?>(anchorId, src.id, uid, uses, motorized, surface, cartoCode, steward, county, uid, now)
         )
-        return "inserted"
+        return when (decision) {
+            SpatialDbManager.AddDecision.INSERT -> "inserted"
+            SpatialDbManager.AddDecision.DROP -> "dropped"
+            SpatialDbManager.AddDecision.ALIAS -> "aliased"
+        }
     }
 
     // ── Geometry conversion ──────────────────────────────
