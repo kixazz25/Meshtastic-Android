@@ -377,7 +377,9 @@ object ConvoyTrackOps {
         val waypointCount: Int,
         val routeCount: Int,
         val trackFiles: List<String>,
-        val errors: List<String>
+        val errors: List<String>,
+        val inserted: Int = 0,   // ADDED 2026-06-02: tracks newly inserted
+        val dropped: Int = 0     // ADDED 2026-06-02: tracks dropped as dupe (already in library)
     )
 
     // ── GPX Waypoint Parser ────────────────────────────────────────
@@ -491,9 +493,7 @@ object ConvoyTrackOps {
                 return@withContext ImportArtifactsSummary(sourceName, 0, 0, 0, emptyList(), listOf("File not found"))
             }
 
-            var text = sourceFile.readText()
-            // Strip <extensions> — custom namespaces (onXmaps etc) crash XML when tracks are split
-            text = text.replace(Regex("""<extensions>[\s\S]*?</extensions>"""), "")
+            // Validate extension before reading (streaming — we never load the whole file)
             if (!sourceFile.extension.lowercase().let { it == "gpx" }) {
                 return@withContext ImportArtifactsSummary(sourceName, 0, 0, 0, emptyList(), listOf("Not a GPX file"))
             }
@@ -503,55 +503,86 @@ object ConvoyTrackOps {
             val dir = tracksDir()
             if (!dir.exists()) dir.mkdirs()
 
-            // ── 1. Process Tracks (<trk> elements) ──
-            val trkPattern = Regex("""<trk>([\s\S]*?)</trk>""")
+            // ── 1. Process Tracks (<trk> elements) — STREAMED 2026-06-02 ──
+            // Tier-2 streaming: read the file with a BufferedReader and accumulate ONE
+            // <trk>..</trk> block at a time, process it, release it. The whole file is
+            // never held in memory (was: readText + whole-file regex + findAll().toList(),
+            // which OOM'd on large onX exports). Per-track parse/insert logic is reused.
             val namePattern = Regex("""<name>([^<]*)</name>""")
-            val tracks = trkPattern.findAll(text).toList()
+            val extPattern = Regex("""<extensions>[\s\S]*?</extensions>""")
+            var trackIndex = 0
+            var insertedCount = 0
+            var droppedCount = 0
 
-            for ((index, trk) in tracks.withIndex()) {
-                try {
-                    val trkContent = trk.groupValues[1]
-                    val rawName = namePattern.find(trkContent)?.groupValues?.get(1)?.trim()
-                        ?: "track_${index + 1}"
-                    val baseName = rawName
-                        .replace("/", "_").replace("\\", "_")
-                        .replace(Regex("[^a-zA-Z0-9_\\- ]"), "")
-                        .trim().ifEmpty { "track_${index + 1}" }
-                    val safeName = "$baseName.gpx"
-
-                    // Create GPX file in my_tracks/
-                    val dest = File(dir, safeName)
-                    if (!dest.exists()) {
-                        val singleGpx = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
-                            "<gpx version=\"1.1\" creator=\"GroupTrack\">\n" +
-                            "<trk>${trkContent}</trk>\n</gpx>"
-                        dest.writeText(singleGpx)
-                        extractEarliestTime(singleGpx)?.let { dest.setLastModified(it) }
-                            ?: dest.setLastModified(sourceFile.lastModified())
+            sourceFile.bufferedReader().use { reader ->
+                val block = StringBuilder()
+                var inTrk = false
+                var line: String?
+                while (reader.readLine().also { line = it } != null) {
+                    val ln = line ?: continue
+                    if (!inTrk) {
+                        val s = ln.indexOf("<trk>")
+                        if (s >= 0) { inTrk = true; block.setLength(0); block.append(ln.substring(s)).append("\n") }
+                    } else {
+                        block.append(ln).append("\n")
                     }
+                    if (inTrk && ln.contains("</trk>")) {  // PERF 2026-06-02: check current line, not whole block (was O(n^2)/track)
+                        // One complete <trk>..</trk> block accumulated. Process and release.
+                        inTrk = false
+                        val rawBlock = block.toString()
+                        block.setLength(0)
+                        val endIdx = rawBlock.indexOf("</trk>")
+                        val trkWhole = rawBlock.substring(0, endIdx + "</trk>".length)
+                        // strip extensions per-block (was whole-file)
+                        val trkClean = extPattern.replace(trkWhole, "")
+                        val trkContent = trkClean.removePrefix("<trk>").removeSuffix("</trk>")
+                        trackIndex++
+                        try {
+                            val rawName = namePattern.find(trkContent)?.groupValues?.get(1)?.trim()
+                                ?: "track_$trackIndex"
+                            val baseName = rawName
+                                .replace("/", "_").replace("\\", "_")
+                                .replace(Regex("[^a-zA-Z0-9_\\- ]"), "")
+                                .trim().ifEmpty { "track_$trackIndex" }
+                            val safeName = "$baseName.gpx"
 
-                    // Parse coordinates for spatial DB
-                    val coords = SpatialDbManager.parseGpxTrackPoints("<trk>${trkContent}</trk>")
-                    if (coords.isNotEmpty()) {
-                        var minLat = Double.MAX_VALUE; var maxLat = -Double.MAX_VALUE
-                        var minLon = Double.MAX_VALUE; var maxLon = -Double.MAX_VALUE
-                        for (pair in coords) {
-                            val lon = pair.first; val lat = pair.second
-                            if (lat < minLat) minLat = lat; if (lat > maxLat) maxLat = lat
-                            if (lon < minLon) minLon = lon; if (lon > maxLon) maxLon = lon
+                            val dest = File(dir, safeName)
+                            if (!dest.exists()) {
+                                val singleGpx = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
+                                    "<gpx version=\"1.1\" creator=\"GroupTrack\">\n" +
+                                    "<trk>${trkContent}</trk>\n</gpx>"
+                                dest.writeText(singleGpx)
+                                extractEarliestTime(singleGpx)?.let { dest.setLastModified(it) }
+                                    ?: dest.setLastModified(sourceFile.lastModified())
+                            }
+
+                            val coords = SpatialDbManager.parseGpxTrackPoints("<trk>${trkContent}</trk>")
+                            if (coords.isNotEmpty()) {
+                                var minLat = Double.MAX_VALUE; var maxLat = -Double.MAX_VALUE
+                                var minLon = Double.MAX_VALUE; var maxLon = -Double.MAX_VALUE
+                                for (pair in coords) {
+                                    val lon = pair.first; val lat = pair.second
+                                    if (lat < minLat) minLat = lat; if (lat > maxLat) maxLat = lat
+                                    if (lon < minLon) minLon = lon; if (lon > maxLon) maxLon = lon
+                                }
+                                val wkt = "LINESTRING(" + coords.joinToString(",") { "${it.first} ${it.second}" } + ")"
+                                val wasNew = SpatialDbManager.insertTrackToDb(baseName, wkt, minLat, maxLat, minLon, maxLon)
+                                if (wasNew) insertedCount++ else droppedCount++
+                            }
+
+                            trackFiles.add(safeName)
+                        } catch (e: Exception) {
+                            errors.add("Track $trackIndex: ${e.message}")
                         }
-                        val wkt = "LINESTRING(" + coords.joinToString(",") { "${it.first} ${it.second}" } + ")"
-                        SpatialDbManager.insertTrackToDb(baseName, wkt, minLat, maxLat, minLon, maxLon)
                     }
-
-                    trackFiles.add(safeName)
-                } catch (e: Exception) {
-                    errors.add("Track ${index + 1}: ${e.message}")
                 }
             }
 
             // ── 2. Process Waypoints (<wpt> elements) ──
-            val waypoints = parseGpxWaypoints(text)
+            // TEMP BYPASS 2026-06-02: GPX import of waypoints/routes is a separate untested task.
+            // In-app waypoint/route creation is UNAFFECTED. Re-enable the parseGpx* call when import
+            // logic is built + tested. See STATE_OF_PLAY_2026-06-02.
+            val waypoints = emptyList<GpxWaypoint>()  // was: parseGpxWaypoints(text)
             for (wpt in waypoints) {
                 try {
                     SpatialDbManager.insertWaypoint(wpt.name, wpt.lat, wpt.lon, wpt.type)
@@ -562,7 +593,10 @@ object ConvoyTrackOps {
             }
 
             // ── 3. Process Routes (<rte> elements) ──
-            val routes = parseGpxRoutes(text)
+            // TEMP BYPASS 2026-06-02: GPX import of waypoints/routes is a separate untested task.
+            // In-app waypoint/route creation is UNAFFECTED. Re-enable the parseGpx* call when import
+            // logic is built + tested. See STATE_OF_PLAY_2026-06-02.
+            val routes = emptyList<GpxRoute>()  // was: parseGpxRoutes(text)
             for (route in routes) {
                 try {
                     val pts = route.points
@@ -592,7 +626,7 @@ object ConvoyTrackOps {
             }
 
             android.util.Log.i("Import", "Import complete: ${trackFiles.size} tracks, $waypointCount waypoints, $routeCount routes from $sourceName")
-            ImportArtifactsSummary(sourceName, trackFiles.size, waypointCount, routeCount, trackFiles, errors)
+            ImportArtifactsSummary(sourceName, trackFiles.size, waypointCount, routeCount, trackFiles, errors, insertedCount, droppedCount)
 
         } catch (e: Exception) {
             android.util.Log.e("Import", "Import failed for $sourceName: ${e.message}")

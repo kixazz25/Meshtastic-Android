@@ -667,23 +667,30 @@ object SpatialDbManager {
      * Used by import to write directly to DB alongside the GPX file.
      * Returns the generated track_id.
      */
-    fun insertTrackToDb(name: String, geometryWkt: String, minLat: Double, maxLat: Double, minLon: Double, maxLon: Double): String {
+    // CHANGED 2026-06-02: returns Boolean (true=row inserted, false=dropped as dupe via
+    // INSERT OR IGNORE on UNIQUE(geom_hash)). Detected with changes(). Enables real import recap.
+    fun insertTrackToDb(name: String, geometryWkt: String, minLat: Double, maxLat: Double, minLon: Double, maxLon: Double): Boolean {
         val db = spatialDb ?: throw IllegalStateException("SpatialDbManager not initialized")
         val id = newId()
         val ts = now()
         val bbox = "$minLat,$minLon,$maxLat,$maxLon"
         val nm = notNamed(name)
         val gh = computeGeomHash(geometryWkt)
+        var inserted = false
         try {
             db.execSQL(
                 "INSERT OR IGNORE INTO tracks (track_id, name, geometry, min_lat, max_lat, min_lon, max_lon, bbox, type, created_at, updated_at, geom_hash) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
                 arrayOf<Any>(id, nm, geometryWkt, minLat, maxLat, minLon, maxLon, bbox, "TRACK", ts, ts, gh)
             )
-            android.util.Log.i("SpatialDb", "Inserted track to DB: $nm")
+            db.rawQuery("SELECT changes()", null).use { c ->
+                if (c.moveToFirst()) inserted = c.getInt(0) > 0
+            }
+            if (inserted) android.util.Log.i("SpatialDb", "Inserted track: $nm")
+            else android.util.Log.i("SpatialDb", "Skipped dupe track: $nm")
         } catch (e: Exception) {
             android.util.Log.e("SpatialDb", "Track DB insert failed: ${e.message}")
         }
-        return id
+        return inserted
     }
 
     

@@ -79,6 +79,8 @@ fun ConvoyTrackImportScreen(onDismiss: () -> Unit) {
     var recapSkipped by remember { mutableStateOf<List<String>>(emptyList()) }
     var recapFailed by remember { mutableStateOf<List<String>>(emptyList()) }
     var recapDatesCorrected by remember { mutableStateOf(0) }
+    var recapNew by remember { mutableStateOf(0) }    // ADDED 2026-06-02
+    var recapDupe by remember { mutableStateOf(0) }   // ADDED 2026-06-02
     var recapWaypoints by remember { mutableStateOf(0) }
     var recapRoutes by remember { mutableStateOf(0) }
     var processedFiles by remember { mutableStateOf<List<File>>(emptyList()) }
@@ -118,6 +120,8 @@ fun ConvoyTrackImportScreen(onDismiss: () -> Unit) {
             var datesCorrected = 0
             var wptTotal = 0
             var rteTotal = 0
+            var newTotal = 0      // ADDED 2026-06-02: tracks newly inserted
+            var dupeTotal = 0     // ADDED 2026-06-02: tracks already in library
 
             for ((i, f) in sel.withIndex()) {
                 progressCurrent = i + 1
@@ -128,6 +132,8 @@ fun ConvoyTrackImportScreen(onDismiss: () -> Unit) {
                     wptTotal += summary.waypointCount
                     rteTotal += summary.routeCount
                     datesCorrected += summary.trackFiles.size
+                    newTotal += summary.inserted
+                    dupeTotal += summary.dropped
                     if (summary.errors.isNotEmpty()) {
                         failed.addAll(summary.errors.map { f.name + ": " + it })
                     }
@@ -141,6 +147,9 @@ fun ConvoyTrackImportScreen(onDismiss: () -> Unit) {
             recapDatesCorrected = datesCorrected
             recapWaypoints = wptTotal
             recapRoutes = rteTotal
+            recapNew = newTotal
+            recapDupe = dupeTotal
+            android.util.Log.i("Import", "RECAP TRIGGER: new=$newTotal dupe=$dupeTotal files=${imported.size}")
             showProgress = false
             showRecap = true
         }
@@ -162,6 +171,8 @@ fun ConvoyTrackImportScreen(onDismiss: () -> Unit) {
             datesCorrected = recapDatesCorrected,
             waypoints = recapWaypoints,
             routes = recapRoutes,
+            newCount = recapNew,
+            dupeCount = recapDupe,
             onFilesDelete = {
                 scope.launch {
                     kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
@@ -493,6 +504,8 @@ private fun ImportRecapDialog(
     datesCorrected: Int,
     waypoints: Int = 0,
     routes: Int = 0,
+    newCount: Int = 0,
+    dupeCount: Int = 0,
     onFilesDelete: (() -> Unit)? = null,
     onDismiss: () -> Unit
 ) {
@@ -543,6 +556,13 @@ private fun ImportRecapDialog(
                         fontWeight = FontWeight.Bold
                     )
                 }
+                // ADDED 2026-06-02: real inserted-vs-dupe breakdown
+                Text(
+                    "$newCount new / $dupeCount already in library",
+                    color = Color(0xFFC1C9BF),
+                    fontSize = 11.sp,
+                    fontFamily = FontFamily.Monospace
+                )
                 if (skipped.isNotEmpty()) {
                     Text(
                         "${skipped.size} skipped (already exist)",
