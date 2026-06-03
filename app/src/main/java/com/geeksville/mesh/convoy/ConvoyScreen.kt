@@ -7,6 +7,7 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.pointerInput
 import kotlin.math.roundToInt
 import androidx.compose.foundation.clickable
@@ -1237,7 +1238,11 @@ fun ConvoyScreen(
                         queuesOffsetY += dragAmount.y
                     }
                 }
-                .clickable { queuesOpen = !queuesOpen },
+                // FIX 2026-06-02: tap was consumed by detectDragGestures; handle tap
+                // in its own pointerInput so tap + drag coexist (was a dead .clickable).
+                .pointerInput(Unit) {
+                    detectTapGestures { queuesOpen = !queuesOpen }
+                },
             shape = RoundedCornerShape(6.dp),
             color = Color(0xFF2A3545)
         ) {
