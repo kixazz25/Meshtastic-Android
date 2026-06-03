@@ -681,6 +681,39 @@
       });
     }
 
+    // ---- Route build: tap -> Kotlin (route mode only) ----
+    if (typeof map !== 'undefined' && map && !map.__routeTapWired) {
+      map.__routeTapWired = true;
+      window.__routeMode = false;
+      window.__buildLayer = null;
+      map.on('click', function(e) {
+        try {
+          if (window.__routeMode && window.Android && Android.onMapTap) {
+            Android.onMapTap(e.latlng.lat, e.latlng.lng);
+          }
+        } catch (err) {}
+      });
+    }
+    // Defined on window.* so evaluateJavascript (global scope) can reach them.
+    window.setRouteMode = function(on) { window.__routeMode = !!on; };
+    window.drawBuildLine = function(jsonPts) {
+      try {
+        var pts = (typeof jsonPts === 'string') ? JSON.parse(jsonPts) : jsonPts;
+        if (window.__buildLayer) { map.removeLayer(window.__buildLayer); window.__buildLayer = null; }
+        if (pts && pts.length > 0) {
+          if (pts.length === 1) {
+            window.__buildLayer = L.circleMarker(pts[0], {radius:5, color:'#00E5FF', fillColor:'#00E5FF', fillOpacity:1}).addTo(map);
+          } else {
+            window.__buildLayer = L.polyline(pts, {color:'#00E5FF', weight:4, opacity:0.95}).addTo(map);
+          }
+        }
+      } catch (err) {}
+    };
+    window.clearBuildLine = function() {
+      if (window.__buildLayer) { map.removeLayer(window.__buildLayer); window.__buildLayer = null; }
+    };
+
+
         map.whenReady(function() {
           if (window.Android) {
             var b = map.getBounds();

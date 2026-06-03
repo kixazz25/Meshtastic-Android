@@ -191,6 +191,9 @@ fun ConvoyScreen(
         var waypointState by remember { mutableStateOf(cmSeed.types["Waypoints"]?.state ?: DS_OFF) }
         var routeState by remember { mutableStateOf(cmSeed.types["Routes"]?.state ?: DS_OFF) }
         var pendingWaypoint by remember { mutableStateOf<Pair<Double, Double>?>(null) }
+        // ROUTE BUILDER: route mode active -> Route+ toolbar shown (read by next patch)
+        var routeMode by remember { mutableStateOf(false) }
+        var routeMethod by remember { mutableStateOf(ROUTE_METHOD_P2P) }
         var newWaypointType by remember { mutableStateOf("other") }
         var newWaypointName by remember { mutableStateOf("") }
 
@@ -515,6 +518,15 @@ fun ConvoyScreen(
                 if (existing != null) {
                     existing.addJavascriptInterface(object : Any() {
                         @android.webkit.JavascriptInterface
+                        fun onMapTap(lat: Double, lon: Double) {
+                            android.util.Log.d("RouteBridge", "onMapTap lat=$lat lon=$lon")
+                            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                RouteManager.addVertex(RouteManager.freeVertex(lat, lon))
+                                val pts = RouteManager.routeVertices().joinToString(",", "[", "]") { "[${it.lat},${it.lon}]" }
+                                webViewRef.value?.evaluateJavascript("drawBuildLine('" + pts + "')", null)
+                            }
+                        }
+                        @android.webkit.JavascriptInterface
                         fun onMapLongPress(lat: Double, lon: Double) {
                             android.os.Handler(android.os.Looper.getMainLooper()).post {
                                 pendingWaypoint = Pair(lat, lon)
@@ -648,6 +660,15 @@ fun ConvoyScreen(
                         ConvoyConfig.migrateTiles(ctx)
                         loadUrl("file:///android_asset/convoy_map.html")
                         addJavascriptInterface(object : Any() {
+                            @android.webkit.JavascriptInterface
+                            fun onMapTap(lat: Double, lon: Double) {
+                                android.util.Log.d("RouteBridge", "onMapTap lat=$lat lon=$lon")
+                                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                    RouteManager.addVertex(RouteManager.freeVertex(lat, lon))
+                                    val pts = RouteManager.routeVertices().joinToString(",", "[", "]") { "[${it.lat},${it.lon}]" }
+                                    webViewRef.value?.evaluateJavascript("drawBuildLine('" + pts + "')", null)
+                                }
+                            }
                             @android.webkit.JavascriptInterface
                             fun onMapLongPress(lat: Double, lon: Double) {
                                 android.os.Handler(android.os.Looper.getMainLooper()).post {
@@ -1229,8 +1250,7 @@ fun ConvoyScreen(
         Surface(
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .statusBarsPadding()
-                .padding(top = 2.dp, end = 8.dp)
+                .padding(top = 8.dp, end = 8.dp)
                 .clickable { queuesOpen = !queuesOpen },
             shape = RoundedCornerShape(6.dp),
             color = Color(0xFF2A3545)
@@ -1239,7 +1259,7 @@ fun ConvoyScreen(
                 color = Color(0xFF1CF0A0),
                 fontSize = 10.sp, fontFamily = FontFamily.Monospace,
                 fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp))
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 2.dp))
         }
         if (queuesOpen) {
             // Real download-queue monitor (matches planning "DOWNLOAD QUEUES").
@@ -1295,6 +1315,7 @@ fun ConvoyScreen(
                 // -- WORK WITH ARTIFACTS (V2.5 scaffold) --
                 ConvoyArtifactsPanel(
                     isConvoyMap = true,
+                    onCreateRoute = { routeMode = true },
                     displayStates = mapOf("Trails" to trailState, "Tracks" to trackState, "Waypoints" to waypointState, "Routes" to routeState),
                     onSetState = { typeName, newState ->
                         when(typeName) {
@@ -1329,6 +1350,26 @@ fun ConvoyScreen(
                         }
                     }
                 )
+                if (routeMode) {
+                    ConvoyRouteToolbar(
+                        isConvoyMap = true,
+                        vertexCount = RouteManager.routeVertexCount(),
+                        selectedMethod = routeMethod,
+                        onSelectMethod = { routeMethod = it },
+                        onAddPointModeArmed = { webViewRef.value?.evaluateJavascript("setRouteMode(true)", null) },
+                        onUndo = {
+                            RouteManager.undoVertex()
+                            val pts = RouteManager.routeVertices().joinToString(",", "[", "]") { "[${it.lat},${it.lon}]" }
+                            webViewRef.value?.evaluateJavascript("drawBuildLine('" + pts + "')", null)
+                        },
+                        onSaveCompleted = { /* deploy: buildWktAndBbox -> insertRoute (Stage 2) */ },
+                        onExit = {
+                            RouteManager.clearRoute()
+                            webViewRef.value?.evaluateJavascript("setRouteMode(false); clearBuildLine();", null)
+                            routeMode = false
+                        }
+                    )
+                }
                 if (activeListType != null) {
                     ArtifactListPanel(
                         artifactType = activeListType!!,

@@ -101,7 +101,7 @@ fun ConvoyArtifactsPanel(
                     modifier = Modifier.weight(1f)
                 )
                 Surface(
-                    modifier = Modifier.clickable { onCreateRoute() },
+                    modifier = Modifier.clickable { expanded = false; onCreateRoute() },
                     shape = RoundedCornerShape(4.dp),
                     color = Color(0xFF1A2A3A)
                 ) {

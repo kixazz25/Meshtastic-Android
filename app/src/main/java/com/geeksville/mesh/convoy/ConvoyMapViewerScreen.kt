@@ -121,6 +121,9 @@ fun ConvoyMapViewerScreen(
     var artifactList by remember { mutableStateOf<List<Map<String, String?>>>(emptyList()) }
     var selectedArtifactIds by remember { mutableStateOf<Set<String>>(emptySet()) }
     var pendingWaypoint by remember { mutableStateOf<Pair<Double, Double>?>(null) }
+    // ROUTE BUILDER: route mode active -> Route+ toolbar shown (read by next patch)
+    var routeMode by remember { mutableStateOf(false) }
+    var routeMethod by remember { mutableStateOf(ROUTE_METHOD_P2P) }
     var newWaypointType by remember { mutableStateOf("other") }
     var newWaypointName by remember { mutableStateOf("") }
 
@@ -469,6 +472,15 @@ fun ConvoyMapViewerScreen(
                         settings.allowContentAccess = true
                         addJavascriptInterface(object {
                             @JavascriptInterface
+                            fun onMapTap(lat: Double, lon: Double) {
+                                android.util.Log.d("RouteBridge", "onMapTap lat=$lat lon=$lon")
+                                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                    RouteManager.addVertex(RouteManager.freeVertex(lat, lon))
+                                    val pts = RouteManager.routeVertices().joinToString(",", "[", "]") { "[${it.lat},${it.lon}]" }
+                                    webViewRef?.evaluateJavascript("drawBuildLine('" + pts + "')", null)
+                                }
+                            }
+                            @JavascriptInterface
                             fun onMapLongPress(lat: Double, lon: Double) {
                                 android.os.Handler(android.os.Looper.getMainLooper()).post {
                                     pendingWaypoint = Pair(lat, lon)
@@ -775,6 +787,7 @@ fun ConvoyMapViewerScreen(
             // -- WORK WITH ARTIFACTS (V2.5 scaffold) --
             ConvoyArtifactsPanel(
                 isConvoyMap = false,
+                onCreateRoute = { routeMode = true },
                 displayStates = mapOf("Trails" to trailState, "Tracks" to trackState, "Waypoints" to waypointState, "Routes" to routeState),
                 onSetState = { typeName, newState ->
                     // Write to ConvoyConfig (synchronous, visible to Thread) AND compose state (UI)
@@ -830,6 +843,26 @@ fun ConvoyMapViewerScreen(
             )
 
             // -- ARTIFACT LIST PANEL (SELECT/EDIT) --
+            if (routeMode) {
+                ConvoyRouteToolbar(
+                    isConvoyMap = false,
+                    vertexCount = RouteManager.routeVertexCount(),
+                    selectedMethod = routeMethod,
+                    onSelectMethod = { routeMethod = it },
+                    onAddPointModeArmed = { webViewRef?.evaluateJavascript("setRouteMode(true)", null) },
+                    onUndo = {
+                        RouteManager.undoVertex()
+                        val pts = RouteManager.routeVertices().joinToString(",", "[", "]") { "[${it.lat},${it.lon}]" }
+                        webViewRef?.evaluateJavascript("drawBuildLine('" + pts + "')", null)
+                    },
+                    onSaveCompleted = { /* deploy: buildWktAndBbox -> insertRoute (Stage 2) */ },
+                    onExit = {
+                        RouteManager.clearRoute()
+                        webViewRef?.evaluateJavascript("setRouteMode(false); clearBuildLine();", null)
+                        routeMode = false
+                    }
+                )
+            }
             if (activeListType != null) {
                 ArtifactListPanel(
                     artifactType = activeListType!!,
