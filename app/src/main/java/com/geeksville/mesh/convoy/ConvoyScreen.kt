@@ -55,6 +55,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import kotlinx.coroutines.launch
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -1224,25 +1225,13 @@ fun ConvoyScreen(
                 
         )
 
-        // -- QUEUES button (draggable) --
+        // -- QUEUES button (LOCKED top-right, like planning map; drag removed 2026-06-03) --
         Surface(
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .statusBarsPadding()
                 .padding(top = 2.dp, end = 8.dp)
-                .offset { androidx.compose.ui.unit.IntOffset(queuesOffsetX.roundToInt(), queuesOffsetY.roundToInt()) }
-                .pointerInput(Unit) {
-                    detectDragGestures { change, dragAmount ->
-                        change.consume()
-                        queuesOffsetX += dragAmount.x
-                        queuesOffsetY += dragAmount.y
-                    }
-                }
-                // FIX 2026-06-02: tap was consumed by detectDragGestures; handle tap
-                // in its own pointerInput so tap + drag coexist (was a dead .clickable).
-                .pointerInput(Unit) {
-                    detectTapGestures { queuesOpen = !queuesOpen }
-                },
+                .clickable { queuesOpen = !queuesOpen },
             shape = RoundedCornerShape(6.dp),
             color = Color(0xFF2A3545)
         ) {
@@ -1253,11 +1242,45 @@ fun ConvoyScreen(
                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp))
         }
         if (queuesOpen) {
-            ConvoyQueuesPanel(
-                onDismiss = { queuesOpen = false },
-                modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding()
-                    .padding(top = 36.dp, end = 8.dp)
-            )
+            // Real download-queue monitor (matches planning "DOWNLOAD QUEUES").
+            // Locked under the fixed top-right QUEUES button. 2.6: add
+            // ALL|TILE|UPLOAD|DOWNLOAD selector when multiple queues exist.
+            androidx.compose.material3.Surface(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .statusBarsPadding()
+                    .padding(top = 32.dp, end = 8.dp)
+                    .width(260.dp),
+                shape = RoundedCornerShape(10.dp),
+                color = Color(0xEE131820),
+                shadowElevation = 8.dp
+            ) {
+                Column(modifier = Modifier.padding(8.dp)) {
+                    Row(modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically) {
+                        Text("DOWNLOAD QUEUES", color = Color(0xFF1CF0A0),
+                            fontSize = 13.sp, fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(start = 8.dp, top = 4.dp))
+                        Text("CLOSE", color = Color(0xFF7A8DA0),
+                            fontSize = 11.sp, fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.clickable { queuesOpen = false }.padding(8.dp))
+                    }
+                    DownloadQueuePanel(
+                        expanded = true,
+                        onToggle = { queuesOpen = false }
+                    )
+                    val queueState = DownloadQueueManager.queue.collectAsState()
+                    if (queueState.value.isEmpty()) {
+                        Text("No downloads in queue",
+                            color = Color(0xFF4A6080), fontSize = 10.sp,
+                            fontFamily = FontFamily.Monospace,
+                            modifier = Modifier.padding(8.dp))
+                    }
+                }
+            }
         }
         Column(
             modifier = Modifier
