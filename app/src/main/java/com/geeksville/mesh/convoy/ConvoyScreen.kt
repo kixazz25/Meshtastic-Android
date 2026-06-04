@@ -194,6 +194,8 @@ fun ConvoyScreen(
         // ROUTE BUILDER: route mode active -> Route+ toolbar shown (read by next patch)
         var routeMode by remember { mutableStateOf(false) }
         var routeMethod by remember { mutableStateOf(ROUTE_METHOD_P2P) }
+        var routeName by remember { mutableStateOf("") }
+        var showRouteNameDialog by remember { mutableStateOf(false) }
         var newWaypointType by remember { mutableStateOf("other") }
         var newWaypointName by remember { mutableStateOf("") }
 
@@ -520,8 +522,15 @@ fun ConvoyScreen(
                         @android.webkit.JavascriptInterface
                         fun onMapTap(lat: Double, lon: Double) {
                             android.util.Log.d("RouteBridge", "onMapTap lat=$lat lon=$lon")
-                            android.os.Handler(android.os.Looper.getMainLooper()).post {
-                                RouteManager.addVertex(RouteManager.freeVertex(lat, lon))
+                            kotlinx.coroutines.MainScope().launch {
+                                val v = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                    SpatialDbManager.init(context)
+                                    val trails = SpatialDbManager.queryTrailsByViewport(lastViewportSouth, lastViewportWest, lastViewportNorth, lastViewportEast)
+                                    val tracks = SpatialDbManager.queryTracksByViewport(lastViewportSouth, lastViewportWest, lastViewportNorth, lastViewportEast)
+                                    val s = RouteManager.snap(lat, lon, trails, tracks, 30.0)
+                                    if (s != null) RouteManager.snapToVertex(s) else RouteManager.freeVertex(lat, lon)
+                                }
+                                RouteManager.addVertex(v)
                                 val pts = RouteManager.routeVertices().joinToString(",", "[", "]") { "[${it.lat},${it.lon}]" }
                                 webViewRef.value?.evaluateJavascript("drawBuildLine('" + pts + "')", null)
                             }
@@ -1315,7 +1324,10 @@ fun ConvoyScreen(
                 // -- WORK WITH ARTIFACTS (V2.5 scaffold) --
                 ConvoyArtifactsPanel(
                     isConvoyMap = true,
-                    onCreateRoute = { routeMode = true },
+                    onCreateRoute = {
+                        routeName = "Route " + System.currentTimeMillis()
+                        showRouteNameDialog = true
+                    },
                     displayStates = mapOf("Trails" to trailState, "Tracks" to trackState, "Waypoints" to waypointState, "Routes" to routeState),
                     onSetState = { typeName, newState ->
                         when(typeName) {
@@ -1350,6 +1362,32 @@ fun ConvoyScreen(
                         }
                     }
                 )
+                if (showRouteNameDialog) {
+                    androidx.compose.material3.AlertDialog(
+                        onDismissRequest = { showRouteNameDialog = false },
+                        title = { androidx.compose.material3.Text("Name this route") },
+                        text = {
+                            androidx.compose.material3.OutlinedTextField(
+                                value = routeName,
+                                onValueChange = { routeName = it },
+                                singleLine = true,
+                                label = { androidx.compose.material3.Text("Route name") }
+                            )
+                        },
+                        confirmButton = {
+                            androidx.compose.material3.TextButton(onClick = {
+                                if (routeName.isBlank()) routeName = "Route " + System.currentTimeMillis()
+                                showRouteNameDialog = false
+                                routeMode = true
+                            }) { androidx.compose.material3.Text("Start") }
+                        },
+                        dismissButton = {
+                            androidx.compose.material3.TextButton(onClick = {
+                                showRouteNameDialog = false
+                            }) { androidx.compose.material3.Text("Cancel") }
+                        }
+                    )
+                }
                 if (routeMode) {
                     ConvoyRouteToolbar(
                         isConvoyMap = true,
@@ -1383,7 +1421,7 @@ fun ConvoyScreen(
                                     val built = RouteManager.buildWktAndBbox { lineId -> byId[lineId]?.let { RouteManager.parseWktLine(it) } }
                                     if (built != null) {
                                         val (wkt, bbox) = built
-                                        SpatialDbManager.insertRoute("Route " + System.currentTimeMillis(), wkt, bbox[0], bbox[1], bbox[2], bbox[3])
+                                        SpatialDbManager.insertRoute(routeName.ifBlank { "Route " + System.currentTimeMillis() }, wkt, bbox[0], bbox[1], bbox[2], bbox[3])
                                         true
                                     } else false
                                 }

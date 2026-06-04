@@ -117,7 +117,7 @@ fun ConvoyRouteToolbar(
                     onSelectMethod(ROUTE_METHOD_P2P)
                     onAddPointModeArmed()
                 }
-                EntryBtnDisabled("Amend In-Progress Routes", Modifier.weight(1f))
+                EntryBtnDisabled("In Progress", Modifier.weight(1f))
             }
 
             Text("METHOD", color = if (building) rtTxtD else rtDis, fontSize = 9.sp, fontFamily = rtMono)
