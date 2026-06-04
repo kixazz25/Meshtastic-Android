@@ -1362,7 +1362,41 @@ fun ConvoyScreen(
                             val pts = RouteManager.routeVertices().joinToString(",", "[", "]") { "[${it.lat},${it.lon}]" }
                             webViewRef.value?.evaluateJavascript("drawBuildLine('" + pts + "')", null)
                         },
-                        onSaveCompleted = { /* deploy: buildWktAndBbox -> insertRoute (Stage 2) */ },
+                        onSaveCompleted = {
+                            // SAVE as completed (per RouteSaveDiscard_Rules): build WKT + bbox
+                            // from the placed vertices, write a spatial-DB route row, clear the
+                            // in-progress chain, exit route mode, and re-draw so the new route shows.
+                            // Free points -> straight segments; snapped same-line points slice geom.
+                            val sLat = lastViewportSouth; val wLon = lastViewportWest
+                            val nLat = lastViewportNorth; val eLon = lastViewportEast
+                            kotlinx.coroutines.MainScope().launch {
+                                val res = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                    SpatialDbManager.init(context)
+                                    val lines = SpatialDbManager.queryTrailsByViewport(sLat, wLon, nLat, eLon) +
+                                            SpatialDbManager.queryTracksByViewport(sLat, wLon, nLat, eLon)
+                                    val byId = HashMap<String, String>()
+                                    for (m in lines) {
+                                        val id = m["trail_id"] ?: m["track_id"]
+                                        val g = m["geometry"]
+                                        if (id != null && g != null) byId[id] = g
+                                    }
+                                    val built = RouteManager.buildWktAndBbox { lineId -> byId[lineId]?.let { RouteManager.parseWktLine(it) } }
+                                    if (built != null) {
+                                        val (wkt, bbox) = built
+                                        SpatialDbManager.insertRoute("Route " + System.currentTimeMillis(), wkt, bbox[0], bbox[1], bbox[2], bbox[3])
+                                        true
+                                    } else false
+                                }
+                                if (res) {
+                                    RouteManager.clearRoute()
+                                    webViewRef.value?.evaluateJavascript("setRouteMode(false); clearBuildLine();", null)
+                                    routeMode = false
+                                    webViewRef.value?.evaluateJavascript("try{var b=map.getBounds();Android.onViewportChanged(b.getNorth(),b.getSouth(),b.getEast(),b.getWest(),map.getZoom())}catch(e){}", null)
+                                } else {
+                                    android.widget.Toast.makeText(context, "Need at least 2 points to save", android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        },
                         onExit = {
                             RouteManager.clearRoute()
                             webViewRef.value?.evaluateJavascript("setRouteMode(false); clearBuildLine();", null)
