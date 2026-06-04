@@ -797,8 +797,9 @@ fun ConvoyMapViewerScreen(
             ConvoyArtifactsPanel(
                 isConvoyMap = false,
                 onCreateRoute = {
-                    routeName = "Route " + System.currentTimeMillis()
-                    showNameDialog = true
+                    // Enter route mode only; NAME prompt fires from the toolbar's
+                    // "New Route" button (onNewRoute), not here.
+                    routeMode = true
                 },
                 displayStates = mapOf("Trails" to trailState, "Tracks" to trackState, "Waypoints" to waypointState, "Routes" to routeState),
                 onSetState = { typeName, newState ->
@@ -887,6 +888,10 @@ fun ConvoyMapViewerScreen(
                     vertexCount = RouteManager.routeVertexCount(),
                     selectedMethod = routeMethod,
                     onSelectMethod = { routeMethod = it },
+                    onNewRoute = {
+                        routeName = "Route " + System.currentTimeMillis()
+                        showNameDialog = true
+                    },
                     onAddPointModeArmed = { webViewRef?.evaluateJavascript("setRouteMode(true)", null) },
                     onUndo = {
                         RouteManager.undoVertex()

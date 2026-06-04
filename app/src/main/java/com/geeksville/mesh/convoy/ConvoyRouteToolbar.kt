@@ -60,6 +60,7 @@ fun ConvoyRouteToolbar(
     vertexCount: Int = 0,
     selectedMethod: Int = ROUTE_METHOD_P2P,
     onSelectMethod: (Int) -> Unit = {},
+    onNewRoute: () -> Unit = {},
     onAddPointModeArmed: () -> Unit = {},
     onUndo: () -> Unit = {},
     onSaveCompleted: () -> Unit = {},
@@ -116,6 +117,7 @@ fun ConvoyRouteToolbar(
                     addArmed = true
                     onSelectMethod(ROUTE_METHOD_P2P)
                     onAddPointModeArmed()
+                    onNewRoute()
                 }
                 EntryBtnDisabled("In Progress", Modifier.weight(1f))
             }
