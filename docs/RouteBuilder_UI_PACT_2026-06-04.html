@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GroupTrack — Route+ Toolbar UI PACT — 2026-06-04</title>
+<style>
+  body { font-family: Arial, Helvetica, sans-serif; color:#1c1c1c; max-width:860px; margin:0 auto; padding:24px; line-height:1.5; }
+  h1 { font-size:24px; color:#1A3A5A; margin-bottom:2px; }
+  .sub { color:#555; font-size:14px; }
+  .stamp { color:#888; font-style:italic; font-size:12px; border-bottom:2px solid #2E75B6; padding-bottom:8px; margin-bottom:18px; }
+  h2 { font-size:17px; color:#2E75B6; margin-top:24px; border-bottom:1px solid #e0e0e0; padding-bottom:3px; }
+  table { border-collapse:collapse; width:100%; font-size:13px; margin:10px 0; }
+  th,td { border:1px solid #ddd; padding:7px 9px; text-align:left; vertical-align:top; }
+  th { background:#f7f7f7; color:#1A3A5A; }
+  .live { color:#1d5c34; font-weight:bold; }
+  .soon { color:#7a5a00; font-weight:bold; }
+  .rule { background:#fff8e8; border-left:4px solid #e0b870; padding:10px 14px; border-radius:0 4px 4px 0; font-size:13px; margin:10px 0; }
+  .note { background:#f0f6fb; border-left:4px solid #2E75B6; padding:8px 12px; border-radius:3px; font-size:13px; }
+  code { background:#f0f0f0; padding:1px 4px; border-radius:3px; font-size:12px; }
+</style>
+</head>
+<body>
+
+<h1>Route+ Toolbar — UI PACT</h1>
+<div class="sub">The agreed UI spec for route creation. Build the actual Route+ toolbar against this. Approved look &amp; feel: RouteBuilder_Toolbar_FINAL_v3.</div>
+<div class="stamp">Locked 2026-06-04 &nbsp;·&nbsp; supersedes the look-and-feel mockups &nbsp;·&nbsp; the build target for the snap-2 slice</div>
+
+<div class="rule"><strong>The test this pact enforces:</strong> when the panel is built, every use case with a defined action must appear on the panel (or be explicitly assigned to Work-with-Artifacts → Routes) with its proper action associated. No orphan actions; no actions without a home.</div>
+
+<h2>1. Panel split rule</h2>
+<p>The <strong>Route+ toolbar is for CREATE / BUILD only.</strong> Every other route action — copy a completed route, edit / rename / delete a completed route, view detail — lives in the <strong>Work-with-Artifacts panel under Routes (SEL/EDIT)</strong>. Toolbar = build; artifacts panel = manage.</p>
+
+<h2>2. Panel behavior (real-estate)</h2>
+<table>
+  <tr><th>Behavior</th><th>How</th><th>Note</th></tr>
+  <tr><td>Accordion collapse / expand</td><td>chevron on header; collapses to header (Route+ + point count)</td><td>same pattern as Work-with-Artifacts panel</td></tr>
+  <tr><td>Draggable</td><td>dedicated grip handle (top strip)</td><td><strong>drag on the handle ONLY — never on a tap control</strong> (avoids the QUEUES tap-vs-drag collision)</td></tr>
+  <tr><td><strong>Save / Discard always visible</strong></td><td>single-level toolbar row; stays reachable even when the build controls are collapsed</td><td>frequently-used exit actions — never hidden behind the accordion</td></tr>
+  <tr><td>Position + state persistence</td><td>remember last position + collapsed state, per map</td><td>ties to the session map-JSON idea (TBD when built)</td></tr>
+</table>
+
+<h2>3. Control inventory — toolbar (build only)</h2>
+<table>
+  <tr><th>Group</th><th>Control</th><th>State</th><th>Action</th></tr>
+  <tr><td rowspan="2">Start / continue</td><td>New</td><td class="live">LIVE</td><td><code>clearRoute()</code> → empty chain, Add ON</td></tr>
+  <tr><td>Amend In-Progress Routes</td><td class="soon">soon</td><td>list in-progress draft routes → resume one → load draft JSON → repopulate + redraw</td></tr>
+  <tr><td rowspan="3">Method</td><td>Point-tap</td><td class="live">LIVE</td><td>tap = place snapped vertex (snap-2, trail-first / track-fallback)</td></tr>
+  <tr><td>Draw</td><td class="soon">soon</td><td>finger-trace (dragIntent = TRACE)</td></tr>
+  <tr><td>Suggest</td><td class="soon">soon</td><td>drop key points → planner returns candidates</td></tr>
+  <tr><td rowspan="2">Build</td><td>Add (state toggle)</td><td class="live">LIVE</td><td>GREEN on entry = taps place points; press → RED = taps pan/reposition. ON on entry <em>unless another method is chosen</em>. Status echoed on a map chip.</td></tr>
+  <tr><td>Undo</td><td class="live">LIVE</td><td><code>undoVertex()</code> → redraw</td></tr>
+  <tr><td rowspan="2">Exit (adaptive, always visible)</td><td>Save</td><td class="live">LIVE*</td><td>Adaptive. New, ≥2 pts → Save as completed (<code>buildWktAndBbox</code> → <code>insertRoute</code> + delete draft if any). New → Save in-progress (create draft JSON). Resumed → Save as completed | Save with changes (overwrite draft). <em>*completed-save LIVE; in-progress draft save = soon.</em></td></tr>
+  <tr><td>Discard</td><td class="live">LIVE*</td><td>Adaptive. New (no draft) → clear from screen, no write. Resumed → prompt: Roll back to original (no write) | Delete entire in-progress (remove draft JSON). <em>*clear-new LIVE; resumed legs = soon.</em></td></tr>
+</table>
+
+<h2>4. Lives elsewhere — Work-with-Artifacts → Routes (SEL/EDIT)</h2>
+<table>
+  <tr><th>Action</th><th>Note</th></tr>
+  <tr><td>Copy a completed route</td><td>fork completed → new chain. NOT on the toolbar (was redundant — removed).</td></tr>
+  <tr><td>Edit / rename / delete completed route</td><td>route maintenance via the SEL/EDIT list</td></tr>
+  <tr><td>Route detail</td><td>detail from the list row (not map-tap — thin lines are poor touch targets)</td></tr>
+</table>
+
+<h2>5. The only write points (persistence model)</h2>
+<div class="note">Everything is in-memory while building. The ONLY writes: <strong>Save in-progress</strong> (create draft JSON), <strong>Save with changes</strong> (overwrite draft JSON), <strong>Save as completed</strong> (<code>insertRoute</code> DB row + delete draft JSON if one existed — graduation). NEVER written on: Roll back, Discard, remove-unsaved. A route is EITHER a draft-file OR a DB-row, never both. Drafts = private JSON in app-internal storage; completed = spatial DB row.</div>
+
+<h2>6. First-pass working loop (the snap-2 slice we build next)</h2>
+<div class="note">+ROUTE → New (Add ON) → place snapped points → toggle Add OFF / collapse / drag aside to see the map → Undo as needed → <strong>Save as completed</strong> → <code>buildWktAndBbox</code> → <code>insertRoute</code> → route saved as DB row, drawn gold dashed → exit. Discard (new route) clears the screen, no write. Everything marked "soon" is a visible placeholder linked to its checklist item; the draft-JSON legs (Amend In-Progress, in-progress Save, roll-back) activate with the draft-I/O pass.</div>
+
+<h2>7. Logic already built (RouteManager, undeployed)</h2>
+<div class="note"><code>SnapResult</code>, <code>parseWktLine</code> (lon-first), <code>haversineMeters</code>, <code>nearestOnSegment</code>, <code>nearestPointOnLines</code>, <code>snap</code> (trail-first/track-fallback), <code>Vertex</code>, <code>addVertex</code>/<code>undoVertex</code>/<code>clearRoute</code>/<code>routeVertices</code>, <code>sliceLine</code>, <code>buildSegments</code>, <code>buildWktAndBbox</code>. DB: <code>insertRoute</code>, <code>queryRoutesByViewport</code>; JS bridge <code>updateRoutes</code>/<code>showRoutes</code> wired (gold dashed). Nav route <code>ConvoyRoutes.ConvoyRouteCreate</code> wired to a stub screen. The snap-2 slice wires the toolbar to this existing logic.</div>
+
+</body>
+</html>

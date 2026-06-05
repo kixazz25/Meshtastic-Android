@@ -1,0 +1,28 @@
+ADDENDUM 2026-06-03 (correction to Addendum 4) — detail is generic; ACTIONS are type-conditioned
+
+Two clarifications that SIMPLIFY the shared detail panel vs Addendum 4:
+
+1. DETAIL DISPLAY IS UNIFORM ACROSS ALL TYPES. "Detail is OK for all types."
+   One generic detail panel displays any artifact's detail (name, length, type,
+   dates, geometry summary, standard fields). There is NO need for per-type
+   detail renderers -- Addendum 4's "per-type detail rendering -> new functions
+   per type" was WRONG. The detail view is generic.
+
+2. THE ACTION SET is what's conditioned on artifact type -- not the detail view.
+   The file-level function family (rename, delete, ...) is EXTENDED by COPY, and
+   which actions are available is conditioned on type:
+     - Route   -> rename, delete, copy (& modify)
+     - Track   -> rename, delete, export (type-appropriate set)
+     - Trail   -> read-only (no edit/delete) [confirm per current rules]
+     - Waypoint-> its own set
+   COPY is a NEW file-level function appended to the existing rename/delete
+   family, and is itself one of the type-conditioned actions (copy-and-modify
+   fits routes; may not fit a read-only trail).
+
+CORRECTED BUILD SHAPE (smaller/cleaner than Addendum 4 implied):
+   - ONE generic detail panel (shared, uniform display) -- not per-type renderers.
+   - A type -> available-actions map (which buttons show for which type).
+   - ONE new file-level function: copy (appended to rename/delete/... family).
+   Still its own focused pass with xref impact assessment, still deferred until
+   after Method 1. But the fan-out is in the ACTION availability + the new copy
+   function, NOT in the detail display. Detail display is generic.

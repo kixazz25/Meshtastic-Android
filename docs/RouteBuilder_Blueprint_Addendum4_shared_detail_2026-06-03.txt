@@ -1,0 +1,31 @@
+ADDENDUM 2026-06-03 (refinement to L) — detail panel is SHARED infrastructure
+
+IMPORTANT impact-assessment note on section L (expand selector detail):
+
+The artifact detail panel is a SHARED artifact, not a route-only feature. It
+displays detail for ANY artifact type (Tracks, Trails, Waypoints, Routes).
+Therefore building it has fan-out / blast radius:
+
+  - Anywhere the detail panel is used creates access to NEW panels and NEW
+    functions. It is a hub, not a leaf.
+  - Per-type detail content differs (a track's detail != a route's detail !=
+    a waypoint's). The shared panel needs per-type detail rendering -> new
+    functions per type.
+  - Actions reachable FROM the detail panel (edit, delete, copy-and-modify,
+    continue, etc.) are new functions that must exist behind it. The panel
+    exposes access paths to functionality that has to be built.
+
+CONSEQUENCE: this is a shared-component build with a fan-out, NOT a single
+panel. It deserves its own focused pass with a full impact assessment against
+the xrefs BEFORE building:
+  - where is artifact detail shown today (any existing detail surfaces)?
+  - what does each type's detail need to show?
+  - what action set hangs off the panel, and which already exist?
+
+DO NOT build mid-stream alongside the bridge. Per-type detail needs and the
+action set are not yet firm enough to be executable. Capture now, build in a
+dedicated pass when the knowledge is firm. (Same discipline: detail to the
+depth knowledge supports, then build.)
+
+Related: "select in-progress routes" = the Work-with-Drafts quick list
+(private JSON drafts), not the artifact list. Confirmed.

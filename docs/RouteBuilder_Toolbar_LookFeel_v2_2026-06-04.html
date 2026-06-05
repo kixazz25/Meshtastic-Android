@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GroupTrack — Route+ Toolbar Look &amp; Feel v2 — 2026-06-04</title>
+<style>
+  :root {
+    --bg:#0e1116; --surface:#161b22; --surface2:#1c2230; --line:#2a3340;
+    --text:#e6edf3; --text2:#9aa7b4; --text3:#6b7785;
+    --green:#1CF0A0; --greenbg:#10241c; --greenln:#1d6e56;
+    --red:#ff5a52; --redbg:#2a1212; --redln:#a32d2d;
+    --amber:#EF9F27; --amberbg:#2a200d; --amberln:#854f0b;
+    --blue:#4DA6FF; --bluebg:#0c2740; --blueln:#185fa5;
+    --coral:#D85A30;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+    padding:20px; line-height:1.45; }
+  h1 { font-size:18px; font-weight:600; margin:0 0 2px; color:#fff; }
+  .sub { font-size:12px; color:var(--text2); margin-bottom:16px; }
+  .legend { font-size:11px; color:var(--text2); margin-bottom:14px; display:flex; gap:14px; flex-wrap:wrap; }
+  .dot { display:inline-block; width:8px; height:8px; border-radius:2px; vertical-align:1px; margin-right:4px; }
+  .twoup { display:flex; gap:18px; flex-wrap:wrap; justify-content:center; }
+  .phone { width:340px; background:#000; border-radius:26px; padding:10px; border:1px solid #222; }
+  .caption { text-align:center; font-size:11px; color:var(--text2); margin-top:8px; }
+  .screen { background:linear-gradient(#1a2230,#0e1320); border-radius:18px; overflow:hidden; position:relative; min-height:540px; }
+  .map { position:absolute; inset:0; background:
+      repeating-linear-gradient(0deg,transparent 0 38px,rgba(255,255,255,.03) 38px 39px),
+      repeating-linear-gradient(90deg,transparent 0 38px,rgba(255,255,255,.03) 38px 39px),
+      radial-gradient(circle at 30% 40%, rgba(40,70,55,.5), transparent 60%); }
+  .route-demo { position:absolute; left:24px; top:90px; width:200px; height:150px; }
+  .toolbar { position:absolute; left:10px; right:10px; bottom:10px; background:rgba(22,27,34,.97);
+    border:1px solid var(--line); border-radius:14px; padding:12px; }
+  .tbhead { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+  .tbtitle { font-size:13px; font-weight:600; color:#fff; }
+  .tbmeta { font-size:11px; color:var(--text2); }
+  .grouplabel { font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:.04em; margin:8px 0 4px; }
+  .row { display:grid; gap:6px; }
+  .r3 { grid-template-columns:repeat(3,1fr); }
+  .r2 { grid-template-columns:repeat(2,1fr); }
+  .btn { border:0.5px solid var(--line); border-radius:8px; padding:8px 4px; text-align:center; background:var(--surface2); }
+  .btn i { font-size:16px; display:block; }
+  .btn span { font-size:10.5px; display:block; margin-top:2px; }
+  .live { border-color:var(--greenln); }
+  .live i, .live span { color:var(--green); }
+  .live.fill { background:var(--greenbg); }
+  .soon { opacity:.78; }
+  .soon i, .soon span { color:var(--amber); }
+  /* Add state toggle */
+  .addon { border:1.5px solid var(--greenln); background:var(--greenbg); }
+  .addon i, .addon span { color:var(--green); }
+  .addoff { border:1.5px solid var(--redln); background:var(--redbg); }
+  .addoff i, .addoff span { color:var(--red); }
+  .statedot { display:inline-block; width:7px; height:7px; border-radius:50%; margin-left:4px; vertical-align:1px; }
+  .exit { border-top:0.5px solid var(--line); margin-top:12px; padding-top:10px; }
+  .save { border:0.5px solid var(--blueln); background:var(--bluebg); }
+  .save i, .save span { color:var(--blue); }
+  .discard { border:0.5px solid var(--line); background:var(--surface2); }
+  .discard i, .discard span { color:var(--coral); }
+  .exit .btn { padding:10px 4px; }
+  .exit .btn span { font-weight:600; font-size:11.5px; }
+  .cards { max-width:700px; margin:18px auto 0; display:grid; gap:8px; }
+  .card { border:0.5px solid var(--line); border-radius:8px; padding:10px; background:var(--surface); }
+  .card .h { font-size:11px; font-weight:600; margin-bottom:6px; }
+  .card .l { font-size:12px; color:var(--text2); line-height:1.7; }
+  .card .l i { font-size:13px; vertical-align:-2px; margin-right:5px; }
+  .hint { color:var(--text3); }
+  .pin { position:absolute; width:11px; height:11px; border-radius:50%; background:var(--green); border:2px solid #0e1320; transform:translate(-50%,-50%); }
+  .seg { position:absolute; height:2px; background:var(--green); transform-origin:left center; }
+</style>
+</head>
+<body>
+
+<h1>Route+ toolbar — look &amp; feel (v2)</h1>
+<div class="sub">Discussion mockup for approval. v2 adds: Add as a green/red STATE toggle (ON on entry for Point-tap), and "Amend in Progress" wording. Nothing wired — layout/flow only.</div>
+<div class="legend">
+  <span><span class="dot" style="background:#1CF0A0"></span>live first pass</span>
+  <span><span class="dot" style="background:#EF9F27"></span>coming soon</span>
+  <span><span class="dot" style="background:#1CF0A0"></span>Add ON = taps place points</span>
+  <span><span class="dot" style="background:#ff5a52"></span>Add OFF = taps pan/reposition</span>
+</div>
+
+<div class="twoup">
+
+  <div>
+    <div class="phone">
+      <div class="screen">
+        <div class="map"></div>
+        <div class="route-demo" id="demo1"></div>
+        <div class="toolbar">
+          <div class="tbhead"><div class="tbtitle"><i class="ti ti-route"></i> Route+</div><div class="tbmeta">3 pts · 1.4 mi</div></div>
+          <div class="grouplabel">Start / continue</div>
+          <div class="row r3">
+            <div class="btn live fill"><i class="ti ti-plus"></i><span>New</span></div>
+            <div class="btn soon"><i class="ti ti-file-pencil"></i><span>Amend in&nbsp;Progress</span></div>
+            <div class="btn soon"><i class="ti ti-copy"></i><span>Copy</span></div>
+          </div>
+          <div class="grouplabel">Method</div>
+          <div class="row r3">
+            <div class="btn live fill"><i class="ti ti-point"></i><span>Point-tap</span></div>
+            <div class="btn soon"><i class="ti ti-scribble"></i><span>Draw</span></div>
+            <div class="btn soon"><i class="ti ti-bulb"></i><span>Suggest</span></div>
+          </div>
+          <div class="grouplabel">Build</div>
+          <div class="row r2">
+            <div class="btn addon"><i class="ti ti-map-pin-plus"></i><span>Add ON<span class="statedot" style="background:#1CF0A0"></span></span></div>
+            <div class="btn live"><i class="ti ti-arrow-back-up"></i><span>Undo</span></div>
+          </div>
+          <div class="exit">
+            <div class="grouplabel" style="margin-top:0">Exit — adaptive</div>
+            <div class="row r2">
+              <div class="btn save"><i class="ti ti-device-floppy"></i><span>Save</span></div>
+              <div class="btn discard"><i class="ti ti-trash"></i><span>Discard</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="caption">Add ON (green) — entry state for Point-tap. Map taps place snapped points.</div>
+  </div>
+
+  <div>
+    <div class="phone">
+      <div class="screen">
+        <div class="map"></div>
+        <div class="route-demo" id="demo2"></div>
+        <div class="toolbar">
+          <div class="tbhead"><div class="tbtitle"><i class="ti ti-route"></i> Route+</div><div class="tbmeta">3 pts · 1.4 mi</div></div>
+          <div class="grouplabel">Start / continue</div>
+          <div class="row r3">
+            <div class="btn live fill"><i class="ti ti-plus"></i><span>New</span></div>
+            <div class="btn soon"><i class="ti ti-file-pencil"></i><span>Amend in&nbsp;Progress</span></div>
+            <div class="btn soon"><i class="ti ti-copy"></i><span>Copy</span></div>
+          </div>
+          <div class="grouplabel">Method</div>
+          <div class="row r3">
+            <div class="btn live fill"><i class="ti ti-point"></i><span>Point-tap</span></div>
+            <div class="btn soon"><i class="ti ti-scribble"></i><span>Draw</span></div>
+            <div class="btn soon"><i class="ti ti-bulb"></i><span>Suggest</span></div>
+          </div>
+          <div class="grouplabel">Build</div>
+          <div class="row r2">
+            <div class="btn addoff"><i class="ti ti-map-pin"></i><span>Add OFF<span class="statedot" style="background:#ff5a52"></span></span></div>
+            <div class="btn live"><i class="ti ti-arrow-back-up"></i><span>Undo</span></div>
+          </div>
+          <div class="exit">
+            <div class="grouplabel" style="margin-top:0">Exit — adaptive</div>
+            <div class="row r2">
+              <div class="btn save"><i class="ti ti-device-floppy"></i><span>Save</span></div>
+              <div class="btn discard"><i class="ti ti-trash"></i><span>Discard</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="caption">Add OFF (red) — pressed to disarm. Map taps pan/reposition without dropping points.</div>
+  </div>
+
+</div>
+
+<div class="cards">
+  <div class="card">
+    <div class="h" style="color:var(--green)">Add button — state toggle</div>
+    <div class="l">
+      <div><i class="ti ti-map-pin-plus" style="color:var(--green)"></i><b style="color:var(--green)">ON (green)</b> on entry — <span class="hint">unless another method (Draw/Suggest) is chosen; those own the gesture differently.</span></div>
+      <div><i class="ti ti-map-pin" style="color:var(--red)"></i><b style="color:var(--red)">OFF (red)</b> — press to disarm; map taps pan/reposition without placing. Press again to re-arm.</div>
+      <div class="hint">This is the tapIntent axis (PLACE_VERTEX vs off) made visible — the button is the arm/disarm control, color-coded to state.</div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="h" style="color:var(--blue)">SAVE tapped — adaptive prompt</div>
+    <div class="l">
+      <div><i class="ti ti-flag-check" style="color:var(--green)"></i>Save as completed route <span class="hint">(≥2 pts → insertRoute, DB row)</span></div>
+      <div><i class="ti ti-file-pencil" style="color:var(--blue)"></i>Save in-progress <span class="hint">(new draft JSON / save changes)</span></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="h" style="color:var(--coral)">DISCARD tapped — adaptive</div>
+    <div class="l">
+      <div><i class="ti ti-eraser" style="color:var(--coral)"></i>New route → clear from screen <span class="hint">(no write)</span></div>
+      <div><i class="ti ti-arrow-back" style="color:var(--amber)"></i>Amend in Progress → roll back to original | delete in-progress</div>
+    </div>
+  </div>
+  <div class="card" style="background:transparent; border-style:dashed">
+    <div class="h" style="color:var(--text2)">First-pass working loop</div>
+    <div class="l hint">+ROUTE → New (Add ON) → place snapped points → toggle Add OFF to pan → Undo → Save as completed → route saved + drawn gold dashed. Amber = visible placeholders linked to checklist items. Amend in Progress + Copy + Draw + Suggest backfill after.</div>
+  </div>
+</div>
+
+<link href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.30.0/tabler-icons.min.css" rel="stylesheet">
+<script>
+  function drawDemo(id){
+    var d=document.getElementById(id); if(!d) return;
+    var pts=[[20,20],[90,65],[160,35]];
+    for(var i=0;i<pts.length-1;i++){
+      var x1=pts[i][0],y1=pts[i][1],x2=pts[i+1][0],y2=pts[i+1][1];
+      var len=Math.round(Math.hypot(x2-x1,y2-y1));
+      var ang=Math.atan2(y2-y1,x2-x1)*180/Math.PI;
+      var s=document.createElement('div'); s.className='seg';
+      s.style.left=x1+'px'; s.style.top=y1+'px'; s.style.width=len+'px';
+      s.style.transform='rotate('+ang+'deg)'; d.appendChild(s);
+    }
+    pts.forEach(function(p){var el=document.createElement('div');el.className='pin';el.style.left=p[0]+'px';el.style.top=p[1]+'px';d.appendChild(el);});
+  }
+  drawDemo('demo1'); drawDemo('demo2');
+</script>
+
+</body>
+</html>

@@ -1,0 +1,32 @@
+ADDENDUM 2026-06-03 (SUPERSEDES Addendum 7 exit options) — uniform Exit
+
+CORRECTION to Addendum 7: the Exit prompt is UNIFORM for all origins (new or
+resumed) -- just two options. No origin branching, no "Delete in-progress" in
+the exit.
+
+EXIT (any origin) -> [Save in-progress] | [Discard]
+  - Save in-progress: write/overwrite the draft JSON (create for new, overwrite
+    for resumed).
+  - Discard: no write. (New = nothing was saved. Resumed = the existing draft
+    stays exactly as it was when opened, since editing is in-memory.)
+
+SAVE COMPLETED (>=2 pts): unchanged. Graduates to a DB row; deletes draft-if-any.
+The separate explicit "done" action.
+
+DELETE A DRAFT: NOT an exit option. It lives in WORK WITH DRAFTS (the drafts
+management list: resume or delete). Deleting a whole draft is a different intent
+than finishing an edit session; keep them separate.
+
+So the full, simplified, consistent lifecycle:
+  START:  New Route (empty)   OR   Continue In-Progress (load draft -> chain)
+              v                              v
+        -- same build session: Add / Undo; `building` persists --
+              v
+  END:
+     Save Completed (>=2)  -> insertRoute + delete draft-if-any   [graduation]
+     Exit (any origin)     -> Save in-progress | Discard
+  (Delete a draft entirely -> Work with Drafts list, separately.)
+
+Everything still in-memory until a deliberate Save; the only writes are Save
+in-progress (draft JSON) and Save Completed (DB row). Still deferred until draft
+I/O is built. Supersedes Addendum 7's origin-branched exit options.

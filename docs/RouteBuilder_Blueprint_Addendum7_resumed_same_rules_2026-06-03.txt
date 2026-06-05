@@ -1,0 +1,34 @@
+ADDENDUM 2026-06-03 (lifecycle consistency) — resumed drafts follow the SAME exit/save rules
+
+A build session is a build session, whether it STARTED as New (empty chain) or
+RESUMED from a draft (loaded chain). Once editing, the exit/save RULES are
+identical. Origin only changes the exit-prompt WORDING (because the file state
+differs), not the rules.
+
+Unified rule (applies to New AND Resumed):
+  - In-memory while editing; the ONLY write is a deliberate Save.
+  - Save Completed (>=2 pts): buildWktAndBbox -> insertRoute (DB row), and if a
+    draft file existed, DELETE it (graduation -- now a DB row, never both).
+  - Discard: write nothing.
+
+Exit options differ ONLY in wording, by origin:
+  - NEW (no draft file yet):  Exit -> [Save as draft] | [Discard]
+  - RESUMED (draft exists):   Exit -> [Save changes] | [Discard changes] | [Delete in-progress]
+
+There is NO separate "mark in-progress" action. A route becomes in-progress by
+Exit -> Save as draft. It becomes completed by Save Completed. The decision is
+made at exit/save time, by which button is pressed -- not a mode set in advance.
+
+Lifecycle:
+  START:  New Route (empty)   OR   Continue In-Progress (load draft -> chain)
+              v                              v
+        -- same build session: Add / Undo; `building` persists --
+              v
+  END (same rules, wording by origin):
+     Save Completed (>=2)  -> insertRoute + delete draft-if-any   [graduation]
+     Exit, NEW:      Save as draft        | Discard
+     Exit, RESUMED:  Save changes | Discard changes | Delete in-progress
+
+Implementation consequence: NO separate code path for "editing a resumed draft."
+Same build session; an origin marker (NEW vs RESUMED(draftName)) is the only
+thing the exit prompt branches on. Still deferred until draft I/O is built.

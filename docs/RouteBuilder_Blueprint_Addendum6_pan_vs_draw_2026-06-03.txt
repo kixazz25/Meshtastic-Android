@@ -1,0 +1,15 @@
+ADDENDUM 2026-06-03 (note for Draw method) — pan vs finger-draw is the SAME gesture
+
+Observed during Stage 1: in Method 1 (tap-to-place) pan works for free because a
+tap (click) != a drag. NO conflict, no disarm needed. Confirmed on-device.
+
+BUT for Method 2 (Draw / finger-trace): panning and finger-drawing a trail are the
+SAME gesture (press + drag). They collide -- a drag cannot mean both "pan the map"
+and "draw the line." This is the core Draw-mode problem.
+
+Resolution (already in blueprint, restated here): the dragIntent axis (PAN vs TRACE).
+When Draw is active -> drag = TRACE, pan OFF; an explicit toggle switches drag back
+to PAN to reposition, then back to TRACE. THIS is where an arm/disarm-style toggle
+finally has a purpose (we deferred adding a toggle until it had one -- Draw is it).
+
+Not a Stage 1 / Method 1 concern. Build with Method 2 (Draw).

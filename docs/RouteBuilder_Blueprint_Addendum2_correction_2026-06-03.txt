@@ -1,0 +1,26 @@
+ADDENDUM 2026-06-03 (correction to K) — continue-in-progress source
+
+CORRECTION to Addendum section K: in-progress routes are NOT in the routes
+table (they are private JSON drafts; drafts never touch the spatial DB, per
+the persistence model). The artifact route list is populated from the routes
+TABLE (queryRoutesByViewport / queryArtifactList). Therefore in-progress
+drafts CANNOT appear in the artifact list -- they are not in the routes file
+to be displayed.
+
+Corrected entry model (three sources, three correct surfaces):
+  - NEW ROUTE        -> Route+ toolbar (blank chain). LIVE now.
+  - COPY & MODIFY    -> from the ARTIFACT ROUTE LIST. Completed routes ARE in
+                        the table, so they display in the list; select one ->
+                        "create based on this route" (fork to new chain).
+                        Needs search/find in the list. Deferred.
+  - CONTINUE IN-PROGRESS -> from WORK WITH DRAFTS (reads the private JSON draft
+                        directory, NOT the routes table). Drafts are not in the
+                        artifact list because they are not in the DB. Deferred.
+
+Why two surfaces: a route is EITHER a draft-file OR a DB-row, never both. The
+artifact list shows DB rows (completed -> copyable); Work with Drafts shows
+private JSON (in-progress -> continuable). Continue and Copy launch from
+different places because the two route states live in different places.
+
+Section L (expand selector detail, map-tap detail gap) is unchanged and still
+applies to the artifact list for COMPLETED routes.

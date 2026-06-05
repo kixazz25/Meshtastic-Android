@@ -1,0 +1,40 @@
+ADDENDUM 2026-06-03 (FINAL exit model — SUPERSEDES Addenda 7 and 8)
+
+Two ADAPTIVE buttons on the Route+ toolbar: SAVE and DISCARD. Each adapts its
+options to the current state (new route vs resumed in-progress draft). When a
+button has one sensible action for the state, it acts directly; when two, it
+prompts to choose. No separate per-case buttons -- the toolbar stays clean,
+the adaptivity is in the buttons/prompts.
+
+SAVE (adaptive):
+  - New route:       [Save as completed route]  (only if >=2 pts)
+                     [Save in-progress]          (create a new draft JSON)
+  - Resumed draft:   [Save as completed route]  (only if >=2 pts)
+                     [Save with changes]         (overwrite the existing draft JSON)
+
+DISCARD (adaptive):
+  - New route (unsaved, no draft on disk):
+                     remove the unsaved route from screen (just clear; nothing
+                     to delete on disk)
+  - Resumed draft (editing an existing in-progress route):
+                     PROMPT -> [Roll back to original design] | [Delete entire in-progress route]
+                       - Roll back to original: drop THIS SESSION's changes, keep
+                         the draft as it was when opened. NO write.
+                       - Delete entire in-progress route: remove the draft JSON
+                         completely.
+
+Draft JSON write points (the ONLY writes):
+  - Save in-progress  -> CREATE draft JSON (new route)
+  - Save with changes -> OVERWRITE draft JSON (resumed draft)
+  - Save as completed -> insertRoute (DB row) + DELETE draft JSON if one existed
+                         (graduation -- a route is either a draft-file OR a DB-row,
+                         never both)
+NEVER written on: Roll back to original, Discard/Delete, remove-unsaved.
+
+"Save in-progress" has two use cases, same action (create vs overwrite):
+  (a) save an original route plan as a draft for the first time, and
+  (b) save interim revisions to an already-saved in-progress route.
+
+Everything in-memory until a deliberate Save. Still deferred until draft I/O is
+built. This is the settled exit design; supersedes the origin-branched (Add. 7)
+and uniform-two-option (Add. 8) versions.

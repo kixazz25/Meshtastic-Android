@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GroupTrack — Route+ Toolbar FINAL Panel View v2 — 2026-06-04</title>
+<style>
+  :root {
+    --bg:#0e1116; --surface:#161b22; --surface2:#1c2230; --line:#2a3340;
+    --text:#e6edf3; --text2:#9aa7b4; --text3:#6b7785;
+    --green:#1CF0A0; --greenbg:#10241c; --greenln:#1d6e56;
+    --red:#ff5a52; --redbg:#2a1212; --redln:#a32d2d;
+    --amber:#EF9F27; --amberbg:#2a200d; --amberln:#854f0b;
+    --blue:#4DA6FF; --bluebg:#0c2740; --blueln:#185fa5;
+    --coral:#D85A30; --gold:#FFC83D;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+    padding:20px; line-height:1.45; }
+  h1 { font-size:18px; font-weight:600; margin:0 0 2px; color:#fff; }
+  .sub { font-size:12px; color:var(--text2); margin-bottom:14px; }
+  .legend { font-size:11px; color:var(--text2); margin-bottom:16px; display:flex; gap:14px; flex-wrap:wrap; }
+  .dot { display:inline-block; width:8px; height:8px; border-radius:2px; vertical-align:1px; margin-right:4px; }
+  .phone { width:360px; margin:0 auto; background:#000; border-radius:28px; padding:11px; border:1px solid #222; }
+  .screen { background:linear-gradient(#1a2230,#0e1320); border-radius:20px; overflow:hidden; position:relative; min-height:540px; }
+  .map { position:absolute; inset:0; background:
+      repeating-linear-gradient(0deg,transparent 0 40px,rgba(255,255,255,.03) 40px 41px),
+      repeating-linear-gradient(90deg,transparent 0 40px,rgba(255,255,255,.03) 40px 41px),
+      radial-gradient(circle at 28% 32%, rgba(40,70,55,.55), transparent 55%),
+      radial-gradient(circle at 70% 60%, rgba(40,60,80,.4), transparent 55%); }
+  .route-demo { position:absolute; left:30px; top:70px; width:230px; height:150px; }
+  .statuschip { position:absolute; top:12px; left:12px; background:rgba(22,27,34,.92); border:1px solid var(--greenln);
+    border-radius:20px; padding:4px 10px; font-size:11px; color:var(--green); }
+  .statuschip i { font-size:12px; vertical-align:-2px; margin-right:3px; }
+  .toolbar { position:absolute; left:10px; right:10px; bottom:10px; background:rgba(20,25,33,.98);
+    border:1px solid var(--line); border-radius:16px; padding:13px; }
+  .tbhead { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+  .tbtitle { font-size:14px; font-weight:600; color:#fff; }
+  .tbtitle i { color:var(--gold); }
+  .tbmeta { font-size:11px; color:var(--text2); }
+  .grouplabel { font-size:9.5px; color:var(--text3); text-transform:uppercase; letter-spacing:.05em; margin:9px 0 4px; }
+  .row { display:grid; gap:6px; }
+  .r3 { grid-template-columns:repeat(3,1fr); }
+  .r2 { grid-template-columns:repeat(2,1fr); }
+  .btn { border:0.5px solid var(--line); border-radius:9px; padding:9px 4px; text-align:center; background:var(--surface2); }
+  .btn i { font-size:17px; display:block; }
+  .btn span { font-size:10.5px; display:block; margin-top:3px; }
+  .live { border-color:var(--greenln); }
+  .live i, .live span { color:var(--green); }
+  .live.fill { background:var(--greenbg); }
+  .soon { opacity:.72; }
+  .soon i, .soon span { color:var(--amber); }
+  .soon::after { content:"soon"; font-size:8px; color:var(--amber); display:block; margin-top:1px; opacity:.8; }
+  .addon { border:1.5px solid var(--greenln); background:var(--greenbg); }
+  .addon i, .addon span { color:var(--green); }
+  .statedot { display:inline-block; width:7px; height:7px; border-radius:50%; margin-left:4px; vertical-align:1px; background:var(--green); box-shadow:0 0 5px var(--green); }
+  .exit { border-top:0.5px solid var(--line); margin-top:12px; padding-top:11px; }
+  .save { border:0.5px solid var(--blueln); background:var(--bluebg); }
+  .save i, .save span { color:var(--blue); }
+  .discard { border:0.5px solid var(--line); background:var(--surface2); }
+  .discard i, .discard span { color:var(--coral); }
+  .exit .btn { padding:11px 4px; }
+  .exit .btn span { font-weight:600; font-size:12px; }
+  .spec { max-width:640px; margin:20px auto 0; }
+  .spec h2 { font-size:14px; color:#fff; font-weight:600; border-bottom:1px solid var(--line); padding-bottom:5px; margin:18px 0 8px; }
+  table { border-collapse:collapse; width:100%; font-size:12px; }
+  th,td { border:0.5px solid var(--line); padding:6px 9px; text-align:left; vertical-align:top; }
+  th { background:var(--surface2); color:#fff; font-weight:600; }
+  td { color:var(--text2); }
+  .tg { color:var(--green); font-weight:600; }
+  .ta { color:var(--amber); font-weight:600; }
+  .pin { position:absolute; width:12px; height:12px; border-radius:50%; background:var(--green); border:2px solid #0e1320; transform:translate(-50%,-50%); box-shadow:0 0 6px rgba(28,240,160,.5); }
+  .seg { position:absolute; height:2.5px; background:var(--green); transform-origin:left center; }
+  .principle { max-width:640px; margin:0 auto; background:var(--surface); border-left:3px solid var(--gold); border-radius:0 8px 8px 0; padding:10px 14px; font-size:12px; color:var(--text2); }
+</style>
+</head>
+<body>
+
+<h1>Route+ toolbar — final panel view (v2)</h1>
+<div class="sub">For approval. v2 changes: Copy removed (lives on Work-with-Artifacts → Routes), Amend relabeled "Amend In-Progress Routes" (in-progress routes are what you amend). Start/continue now two controls.</div>
+<div class="legend">
+  <span><span class="dot" style="background:#1CF0A0"></span>live first pass</span>
+  <span><span class="dot" style="background:#EF9F27"></span>coming soon (placeholder)</span>
+  <span><span class="dot" style="background:#ff5a52"></span>Add OFF state</span>
+</div>
+
+<div class="principle" style="margin-bottom:16px">
+  <b style="color:var(--gold)">Panel split rule:</b> the Route+ toolbar is for CREATING / BUILDING only. Every other route action — copy a completed route, edit/rename/delete a completed route, view detail — lives in the <b>Work-with-Artifacts panel under Routes (SEL/EDIT)</b>. Toolbar = build; artifacts panel = manage.
+</div>
+
+<div class="phone">
+  <div class="screen">
+    <div class="map"></div>
+    <div class="statuschip"><i class="ti ti-map-pin-plus"></i>Add ON · tap to place</div>
+    <div class="route-demo" id="demo"></div>
+
+    <div class="toolbar">
+      <div class="tbhead">
+        <div class="tbtitle"><i class="ti ti-route"></i> Route+</div>
+        <div class="tbmeta">3 pts · 1.4 mi · Point-tap</div>
+      </div>
+
+      <div class="grouplabel">Start / continue</div>
+      <div class="row r2">
+        <div class="btn live fill"><i class="ti ti-plus"></i><span>New</span></div>
+        <div class="btn soon"><i class="ti ti-file-pencil"></i><span>Amend In-Progress Routes</span></div>
+      </div>
+
+      <div class="grouplabel">Method</div>
+      <div class="row r3">
+        <div class="btn live fill"><i class="ti ti-point"></i><span>Point-tap</span></div>
+        <div class="btn soon"><i class="ti ti-scribble"></i><span>Draw</span></div>
+        <div class="btn soon"><i class="ti ti-bulb"></i><span>Suggest</span></div>
+      </div>
+
+      <div class="grouplabel">Build</div>
+      <div class="row r2">
+        <div class="btn addon"><i class="ti ti-map-pin-plus"></i><span>Add ON<span class="statedot"></span></span></div>
+        <div class="btn live"><i class="ti ti-arrow-back-up"></i><span>Undo</span></div>
+      </div>
+
+      <div class="exit">
+        <div class="grouplabel" style="margin-top:0">Exit — adaptive</div>
+        <div class="row r2">
+          <div class="btn save"><i class="ti ti-device-floppy"></i><span>Save</span></div>
+          <div class="btn discard"><i class="ti ti-trash"></i><span>Discard</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="spec">
+
+<h2>Control inventory — toolbar (build only)</h2>
+<table>
+  <tr><th>Group</th><th>Control</th><th>State</th><th>Action</th></tr>
+  <tr><td rowspan="2">Start / continue</td><td>New</td><td class="tg">LIVE</td><td>clearRoute() → empty chain, Add ON</td></tr>
+  <tr><td>Amend In-Progress Routes</td><td class="ta">soon</td><td>list in-progress draft routes → resume one → load draft JSON → repopulate + redraw</td></tr>
+  <tr><td rowspan="3">Method</td><td>Point-tap</td><td class="tg">LIVE</td><td>tap = place snapped vertex (snap-2, trail-first)</td></tr>
+  <tr><td>Draw</td><td class="ta">soon</td><td>finger-trace (dragIntent = TRACE)</td></tr>
+  <tr><td>Suggest</td><td class="ta">soon</td><td>drop key points → planner returns candidates</td></tr>
+  <tr><td rowspan="2">Build</td><td>Add (toggle)</td><td class="tg">LIVE</td><td>GREEN on entry = taps place; press → RED = taps pan/reposition. ON unless another method chosen.</td></tr>
+  <tr><td>Undo</td><td class="tg">LIVE</td><td>undoVertex() → redraw</td></tr>
+  <tr><td rowspan="2">Exit (adaptive)</td><td>Save</td><td class="tg">LIVE*</td><td>≥2 pts → Save as completed (insertRoute + delete draft if any). *In-progress draft save = soon.</td></tr>
+  <tr><td>Discard</td><td class="tg">LIVE*</td><td>New → clear screen (no write). *Amend → roll back | delete in-progress = soon.</td></tr>
+</table>
+
+<h2>Lives elsewhere — Work-with-Artifacts → Routes (SEL/EDIT)</h2>
+<table>
+  <tr><th>Action</th><th>Where</th><th>Note</th></tr>
+  <tr><td>Copy a completed route</td><td>Artifacts → Routes</td><td>fork completed → new chain. REMOVED from toolbar (was redundant).</td></tr>
+  <tr><td>Edit / rename / delete completed route</td><td>Artifacts → Routes</td><td>route maintenance via SEL/EDIT list</td></tr>
+  <tr><td>Route detail</td><td>Artifacts → Routes</td><td>detail from the list row (not map-tap)</td></tr>
+</table>
+
+<h2>First-pass working loop (the one proven path)</h2>
+<p style="font-size:12px;color:var(--text2)">+ROUTE → New (Add ON) → place snapped points → toggle Add OFF to pan/reposition → Undo as needed → <b style="color:var(--blue)">Save as completed</b> → buildWktAndBbox → insertRoute → route saved as DB row, drawn gold dashed → exit. Discard (new route) clears the screen, no write. "soon" controls are visible placeholders linked to their checklist item; draft-JSON legs (Amend In-Progress, in-progress Save, roll-back) activate with the draft-I/O pass.</p>
+
+</div>
+
+<link href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.30.0/tabler-icons.min.css" rel="stylesheet">
+<script>
+  var d=document.getElementById('demo');
+  var pts=[[15,20],[80,75],[150,40],[215,60]];
+  for(var i=0;i<pts.length-1;i++){
+    var x1=pts[i][0],y1=pts[i][1],x2=pts[i+1][0],y2=pts[i+1][1];
+    var len=Math.round(Math.hypot(x2-x1,y2-y1));
+    var ang=Math.atan2(y2-y1,x2-x1)*180/Math.PI;
+    var s=document.createElement('div'); s.className='seg';
+    s.style.left=x1+'px'; s.style.top=y1+'px'; s.style.width=len+'px';
+    s.style.transform='rotate('+ang+'deg)'; d.appendChild(s);
+  }
+  pts.forEach(function(p){var el=document.createElement('div');el.className='pin';el.style.left=p[0]+'px';el.style.top=p[1]+'px';d.appendChild(el);});
+</script>
+
+</body>
+</html>

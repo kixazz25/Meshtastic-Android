@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GroupTrack V2.5 — Living Checklist — 2026-06-04e (snap-2 true state)</title>
+<style>
+  body { font-family: Arial, Helvetica, sans-serif; color:#1c1c1c; max-width:920px; margin:0 auto; padding:24px; line-height:1.45; }
+  h1 { font-size:25px; color:#1A3A5A; margin-bottom:2px; }
+  .sub { color:#555; font-size:14px; }
+  .stamp { color:#888; font-style:italic; font-size:12px; border-bottom:2px solid #2E75B6; padding-bottom:8px; margin-bottom:16px; }
+  .legend { background:#f7f7f7; border:1px solid #e0e0e0; border-radius:4px; padding:10px 14px; font-size:13px; margin-bottom:14px; }
+  .controls { font-size:12px; margin:10px 0 4px; color:#2E75B6; }
+  .controls a { color:#2E75B6; cursor:pointer; text-decoration:underline; margin-right:14px; }
+  details { border:1px solid #e3e3e3; border-radius:6px; margin:8px 0; background:#fff; }
+  summary { font-size:16px; font-weight:bold; color:#2E75B6; padding:9px 12px; cursor:pointer; list-style:none; border-radius:6px; }
+  summary::-webkit-details-marker { display:none; }
+  summary::before { content:"\25B6"; font-size:10px; color:#999; margin-right:8px; }
+  details[open] > summary::before { content:"\25BC"; }
+  summary:hover { background:#f3f8fc; }
+  .body { padding:4px 14px 12px; }
+  h3 { font-size:14px; color:#1A3A5A; margin-top:14px; margin-bottom:4px; }
+  .item { margin:7px 0; padding-left:4px; }
+  .done   { border-left:4px solid #2e8b57; padding-left:10px; }
+  .partial{ border-left:4px solid #c89000; padding-left:10px; }
+  .open   { border-left:4px solid #b03030; padding-left:10px; }
+  .crit   { border-left:4px solid #b03030; padding-left:10px; background:#fbeaea; }
+  .tag { font-weight:bold; font-size:12px; padding:1px 6px; border-radius:3px; }
+  .t-done{ background:#dff0e3; color:#1d5c34; }
+  .t-partial{ background:#faf0d0; color:#7a5a00; }
+  .t-open{ background:#f6dada; color:#7a1d1d; }
+  .note { background:#f0f6fb; border-left:4px solid #2E75B6; padding:8px 12px; border-radius:3px; font-size:13px; margin:8px 0; }
+  .correction { background:#fff4f4; border-left:4px solid #b03030; padding:8px 12px; border-radius:3px; font-size:13px; margin:8px 0; }
+  code { background:#f0f0f0; padding:1px 4px; border-radius:3px; font-size:12.5px; }
+</style>
+</head>
+<body>
+
+<h1>GroupTrack — V2.5 Living Checklist (KEY DOC)</h1>
+<div class="sub">Single maintained tracker. This revision CORRECTS the snap-2 status. Sections collapse — click to expand.</div>
+<div class="stamp">Updated 2026-06-04e &nbsp;·&nbsp; CORRECTION: snap-2 trail-snapping is NOT done — only the save FRAMEWORK is. Full §A–P reference unchanged from 2026-06-04d; this revision restates §E truthfully.</div>
+
+<div class="correction">
+<strong>⚠️ STATUS CORRECTION (this revision exists for this reason).</strong> A prior
+note/handoff implied "snap-2 completed." That was wrong. <strong>snap-2 trail-snapping
+is NOT implemented/proven.</strong> What is done is the route-save FRAMEWORK (drop points →
+straight lines → name → save to spatial DB → redraw). The snap()-to-trail behavior was
+wired into onMapTap and compiles, but was never proven on device; observed behavior is
+straight lines, not snapping. See §E2. Full detail in
+<code>SNAP2_TRUE_STATE_and_NextStep_2026-06-04_EVENING.txt</code>.
+</div>
+
+<div class="controls">
+  <a onclick="document.querySelectorAll('details').forEach(d=>d.open=true)">expand all</a>
+  <a onclick="document.querySelectorAll('details').forEach(d=>d.open=false)">collapse all</a>
+</div>
+
+<details open><summary>E. Route Creation — snap-2 (ACTIVE — framework done, snap-to-trail NOT done)</summary><div class="body">
+
+<div class="note"><strong>Method = snap-2:</strong> point-to-point where each vertex SHOULD snap to the nearest trail/track within radius (trail-first). The framework to create+save a route is built; the snapping itself is the unbuilt/unproven core.</div>
+
+<h3>E1. UI PACT + framework — DONE</h3>
+<div class="item done"><span class="tag t-done">DONE — 89285b00a</span> Route+ toolbar pact compliance (Add green/red self-toggle, always-visible Save/Discard, grip-handle drag).</div>
+<div class="item done"><span class="tag t-done">DONE — 69ad30c56</span> Build 1: Save-completed — buildWktAndBbox → insertRoute → clearRoute → exit → redraw. Proven with FREE points (straight lines).</div>
+<div class="item done"><span class="tag t-done">DONE — ab2be7c04</span> Build 2 framework parts: name-on-create dialog + "In Progress" relabel. (The snap-on-tap code was included but see E2 — NOT proven.)</div>
+<div class="item done"><span class="tag t-done">DONE — 5fdf4b5ff</span> Route render color magenta (#FF00FF), both maps.</div>
+<div class="item partial"><span class="tag t-partial">IN PROGRESS (uncommitted this session)</span> Route NAME prompt moved from panel-open to the toolbar's "New Route" button (onNewRoute). 3 files. Build/commit state: CONFIRM. (This sets up New-vs-In-Progress branch.)</div>
+
+<h3>E2. snap-2 TRAIL-SNAPPING — NOT DONE (the core feature)</h3>
+<div class="item crit"><span class="tag t-open">NOT WORKING</span> <strong>Points do NOT snap to trails.</strong> Dropping points produces STRAIGHT LINES between tap locations; points do not adjust onto trail geometry. The <code>snap()</code> call was wired into onMapTap (both screens) and COMPILED, but was never tested/proven on device. Treat as effectively unimplemented.</div>
+<div class="item open"><span class="tag t-open">NEXT STEP</span> Diagnose + implement snap-to-trail. Order: (1) Log.d at the snap call + result — is snap() reached, does it return non-null near a trail? (2) <strong>Most likely culprit:</strong> does <code>queryTrailsByViewport</code> return trails for the current view? If empty (wrong bounds / zoom &lt; min / DB not init), snap always falls back to freeVertex = straight line. (3) snap math/radius (30 m literal; check lat/lon vs lon/lat in geometry parse). (4) confirm snapToVertex result is what's added/drawn. PROVE: tap ON a visible trail → point lands ON the line.</div>
+
+<h3>E3. Other route features — NOT built (after snap works)</h3>
+<div class="item open"><span class="tag t-open">OPEN</span> Armed gating: Add RED → tap PANS not places (today always places). [was "Build 3"]</div>
+<div class="item open"><span class="tag t-open">OPEN</span> Draft-JSON in-progress lifecycle: Save-in-progress, Resume ("In Progress" button currently disabled), Graduate, Discard/roll-back. Schema in RouteWriteFunction_DataContract.</div>
+<div class="item open"><span class="tag t-open">OPEN</span> Draw / Suggest methods (placeholders).</div>
+
+<h3>E4. WRITE-FUNCTION DATA CONTRACT (unchanged, for the draft lifecycle)</h3>
+<div class="note">Completed save consumes the VERTEX chain; completed DB row stores only name+wkt+bbox. DRAFT JSON stores the FULL vertex list (resume = true editing), NOT wkt. A route is EITHER a draft-file OR a DB-row. Full spec: RouteWriteFunction_DataContract_2026-06-04.</div>
+
+<h3>E5. SHARED TABLE RULE</h3>
+<div class="note">Tracks + routes share ONE table with a TYPE field. insertRoute writes type=ROUTE; route dedup rides the same machinery as tracks (§K add-core bypass). Convert-to-route = reversible type flip.</div>
+
+<h3>E6. FILE-ENDING FACTS (a patch aborted this session over this)</h3>
+<div class="note">ConvoyScreen.kt = <strong>LF</strong> · ConvoyMapViewerScreen.kt = <strong>CRLF</strong> · ConvoyRouteToolbar.kt = <strong>CRLF</strong> (CHANGED — was LF; working tree flipped it, committed content unchanged). Future toolbar patches MUST be CRLF. <code>cat -A</code> before every patch. Route mode is a TWO-FILE MIRROR (screens) + toolbar.</div>
+</div></details>
+
+<details><summary>Reference sections A–D, F–P (unchanged from 2026-06-04d)</summary><div class="body">
+<div class="note">All other sections (A Map Infra, B Lazy-load, C GPX import, D Work-with-Artifacts, F Cleanups, G Play/ANR, H Website, I Dead-code quarantine, J First-launch notes, K/L DB dedupe, M Architecture, N 3.0, O Standing Rules, P Data Protection) are UNCHANGED from checklist 2026-06-04d (id 11O8bg7oYaUbd0-mgDCXQE-LY7rUv6qq9). This revision only restates §E. Refer to 04d for the full reference content; nothing there was invalidated. Newly relevant: cleanup methodology = remove link AND xref-proven-dead function (CleanupMethodology_v2); MAP SETTINGS sub-menu quarantine candidate (verify-first); GroupTrack button = 3.0 gateway; first-launch notes + online ? manual (V2.5 scope = Planning/Convoy/radio-write screens); transitional radio-config functions must stay in manual though removed in 3.0.</div>
+</div></details>
+
+</body>
+</html>

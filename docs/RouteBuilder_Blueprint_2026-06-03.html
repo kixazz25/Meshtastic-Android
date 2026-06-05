@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GroupTrack — Route Builder Blueprint — 2026-06-03</title>
+<style>
+  body { font-family: Arial, Helvetica, sans-serif; color:#1c1c1c; max-width:900px; margin:0 auto; padding:24px; line-height:1.45; }
+  h1 { font-size:25px; color:#1A3A5A; margin-bottom:2px; }
+  .sub { color:#555; font-size:14px; }
+  .stamp { color:#888; font-style:italic; font-size:12px; border-bottom:2px solid #2E75B6; padding-bottom:8px; margin-bottom:16px; }
+  h2 { font-size:18px; color:#2E75B6; margin-top:26px; border-bottom:1px solid #e0e0e0; padding-bottom:3px; }
+  h3 { font-size:15px; color:#1A3A5A; margin-top:16px; margin-bottom:4px; }
+  .note { background:#f0f6fb; border-left:4px solid #2E75B6; padding:8px 12px; border-radius:3px; font-size:13px; margin:8px 0; }
+  .temp { background:#fff4e0; border:1px solid #e0b870; border-radius:4px; padding:10px 14px; font-size:13px; }
+  code { background:#f0f0f0; padding:1px 4px; border-radius:3px; font-size:13px; }
+  table { border-collapse:collapse; width:100%; font-size:13px; margin:10px 0; }
+  th, td { border:1px solid #ddd; padding:6px 8px; text-align:left; vertical-align:top; }
+  th { background:#f7f7f7; color:#1A3A5A; }
+  .live { background:#dff0e3; color:#1d5c34; font-weight:bold; padding:1px 6px; border-radius:3px; font-size:12px; }
+  .soon { background:#faf0d0; color:#7a5a00; font-weight:bold; padding:1px 6px; border-radius:3px; font-size:12px; }
+  ul { margin:6px 0; }
+  li { margin:4px 0; }
+</style>
+</head>
+<body>
+
+<h1>GroupTrack — Route Builder Blueprint</h1>
+<div class="sub">Method-1 (point-to-point snap-2) deliverable + scaffold for Methods 2/3 and drafts. Full flow, function targets, persistence model.</div>
+<div class="stamp">Captured 2026-06-03 from design session &nbsp;·&nbsp; TEMPORARY — fold into Living Checklist §E at recommit, then retire this file.</div>
+
+<div class="temp"><strong>Status of this doc:</strong> scratch reference for the scaffolding pass. Everything here was decided in the 06-03 session and exists nowhere else yet. Once the scaffold is implemented and folded into the Living Checklist (§E Route Creation), delete this file.</div>
+
+<h2>A. The model in one paragraph</h2>
+<p>+ROUTE already exists on the Work-with-Artifacts panel (both maps). Tapping it collapses the artifacts panel and launches the <strong>Route+ toolbar</strong> in its place. The toolbar offers a single entry — <strong>"Start / Continue planning your route"</strong> — which opens a source picker (New / Continue in-progress / Copy completed). Three planning methods (point-to-point, draw, suggest) are <strong>toggles switchable mid-route</strong>, all feeding one shared vertex chain. The build loop is tap-to-place (snap-2) with Add/Undo. Editing is <strong>entirely in-memory</strong> until a deliberate Save. Exits are explicit and persistence-aware.</p>
+
+<h2>B. Snap-2 rule (Method 1, LIVE)</h2>
+<ul>
+  <li><strong>Trail-first, strict.</strong> Within the radius, if ANY trail is in range, snap to the nearest point-on-line of a trail. Tracks are consulted ONLY when no trail is in range (a trail at 40m beats a track at 5m). Tracks fill gaps where no trail exists.</li>
+  <li><strong>Nearest-point-on-line</strong>, not nearest vertex. Radius is in <strong>meters</strong> (ground distance, haversine).</li>
+  <li><strong>No-snap = free-place.</strong> If neither trail nor track is in range, the point lands at the raw tapped coordinate. The segment to it is a <strong>straight line</strong> (crossing open ground / bridging a network gap). Final geometry, not a placeholder — no deferred snapping.</li>
+  <li><strong>Junction discipline.</strong> User drops a point AT each junction and selects the next trail explicitly. Between two consecutive snapped points on the SAME line, the segment is the <strong>trail-slice</strong> (sub-path of that line). Different line, or free point → straight segment. The route never auto-connects past a junction.</li>
+  <li><strong>WKT is LON-FIRST</strong> (<code>LINESTRING(lon lat, ...)</code>) — confirmed against SpatialDbManager.wktToGeoJsonCoords.</li>
+</ul>
+
+<h2>C. The three methods (toggle mid-route, shared chain)</h2>
+<table>
+  <tr><th>Method</th><th>Gesture</th><th>Pan/zoom</th><th>State</th></tr>
+  <tr><td>1 · Point-to-point snap-2 <span class="live">LIVE</span></td><td>Tap = place vertex</td><td>Pan + zoom live</td><td>tapIntent=PLACE_VERTEX, dragIntent=PAN</td></tr>
+  <tr><td>2 · Draw route <span class="soon">SOON</span></td><td>Finger-trace; snap-2 on each lift; line led ahead of finger (visual offset only — store true/snapped point)</td><td>Pan OFF during trace, explicit toggle to reposition</td><td>dragIntent=TRACE</td></tr>
+  <tr><td>3 · Suggest routes <span class="soon">SOON</span></td><td>Drop key points → planner returns ~3-5 candidates w/ distance + POIs</td><td>Pan + zoom live</td><td>Needs trail-network graph (topology) — far future; shapes .gpkg work</td></tr>
+</table>
+<div class="note"><strong>Two-axis rail:</strong> tapIntent (what a tap means) and dragIntent (PAN vs TRACE) are independent. A method is a named preset over the two. Build the dragIntent axis in from day one (pinned to PAN for Method 1) so Method 2 fills a branch instead of re-architecting the drag handler.</div>
+<div class="note"><strong>Methods combine per-segment.</strong> Finger-draw is specifically for paths VISIBLE on the tile but NOT in the spatial model. One route freely mixes tapped trail-slices, straight gap-bridges, and hand-traced segments — chosen per-segment, switched via the toolbar toggle.</div>
+
+<h2>D. Persistence model — in-memory until Save</h2>
+<ul>
+  <li><strong>While working: in-memory only.</strong> The vertex chain lives in <code>RouteManager.vertices</code>. Zero file or DB impact during editing. The on-disk draft (if resumed) stays exactly as opened.</li>
+  <li><strong>In-progress drafts = private JSON</strong> in app-internal storage (<code>context.filesDir</code>, NOT the public Documents drive — not synced, not media-indexed, not user-visible as files). Carries the full vertex chain (lat/lon/lineId/lineType/segmentIndex/t/snapped) + name + last-modified. The chain preserves snap provenance so resume restores the builder exactly.</li>
+  <li><strong>Completed routes = spatial DB row</strong> (the routes table). Drafts NEVER touch the spatial DB. Only completed routes are eligible for AWS sync — this keeps the shared spatial model clean (no half-built routes propagate).</li>
+  <li><strong>A route is EITHER a draft-file OR a DB-row, never both.</strong> The transition is the one moment a delete pairs with an insert.</li>
+  <li><strong>Save = the only write</strong> (temp-then-rename for safety; create for NEW, overwrite for RESUMED). <strong>Discard = no write</strong> (drop memory, file untouched). <strong>Delete = remove file.</strong> No original-chain snapshot needed — disk is always the last-saved state.</li>
+</ul>
+
+<h2>E. Exit model (the part to get right)</h2>
+<p><strong>Save completed</strong> (toolbar, always available, requires ≥2 vertices): <code>buildWktAndBbox</code> → <code>insertRoute</code> → delete draft file if one existed (graduation) → exit. This is the one affirmative "done" save.</p>
+<p><strong>Guarded exit</strong> — leaving with an un-completed route prompts, and the options depend on origin:</p>
+<table>
+  <tr><th>Origin</th><th>Exit options</th></tr>
+  <tr><td>NEW route (no file yet)</td><td><strong>Save as draft</strong> (create JSON) &nbsp;|&nbsp; <strong>Discard</strong> (no save, nothing was on disk)</td></tr>
+  <tr><td>RESUMED draft (file exists)</td><td><strong>Save changes</strong> (overwrite JSON) &nbsp;|&nbsp; <strong>Discard changes</strong> (no save, file stays as opened) &nbsp;|&nbsp; <strong>Delete in-progress</strong> (remove file)</td></tr>
+</table>
+
+<h2>F. Work with Drafts</h2>
+<ul>
+  <li><strong>List</strong> in-progress drafts (name + last-modified) — reads the private draft dir.</li>
+  <li><strong>Resume</strong> → load chain into memory → redraw partial route on current map → re-arm toolbar in add-point mode.</li>
+  <li><strong>Delete</strong> → remove draft file (nothing in DB to touch — no orphans).</li>
+</ul>
+
+<h2>G. Edit-of-existing</h2>
+<div class="note">Completed routes are immutable (snap provenance is lost once flattened to LINESTRING). To change one: <strong>Copy a completed route</strong> as the starting chain for a NEW route (original untouched). Rename/delete of completed routes lives on the route maintenance screen (separate open item). True in-place re-edit deferred.</div>
+
+<h2>H. Deploy checklist — 13 user-contact points</h2>
+<table>
+  <tr><th>#</th><th>Control</th><th>Function target</th><th>First pass</th></tr>
+  <tr><td>1</td><td>+ROUTE (artifacts panel)</td><td>onAddRoute → collapse panel + launch toolbar</td><td><span class="live">DEPLOY</span></td></tr>
+  <tr><td>2</td><td>Start / Continue planning</td><td>open source picker</td><td><span class="live">DEPLOY</span></td></tr>
+  <tr><td>3</td><td>New route</td><td>clearRoute() → empty chain</td><td><span class="live">DEPLOY</span></td></tr>
+  <tr><td>4</td><td>Continue in-progress</td><td>load draft JSON → repopulate + redraw</td><td><span class="soon">SCAFFOLD</span></td></tr>
+  <tr><td>5</td><td>Copy a completed route</td><td>fork completed → new chain</td><td><span class="soon">SCAFFOLD</span></td></tr>
+  <tr><td>6</td><td>Method: Point-to-point</td><td>snap + addVertex (live)</td><td><span class="live">DEPLOY</span></td></tr>
+  <tr><td>7</td><td>Method: Draw</td><td>finger-trace (dragIntent=TRACE)</td><td><span class="soon">SCAFFOLD</span></td></tr>
+  <tr><td>8</td><td>Method: Suggest</td><td>route planner (graph)</td><td><span class="soon">SCAFFOLD</span></td></tr>
+  <tr><td>9</td><td>Add point</td><td>bridge onMapTap → snap → addVertex → redraw</td><td><span class="live">DEPLOY</span></td></tr>
+  <tr><td>10</td><td>Undo</td><td>undoVertex() → redraw</td><td><span class="live">DEPLOY</span></td></tr>
+  <tr><td>11</td><td>Save as draft / Save changes</td><td>write draft JSON (temp-then-rename)</td><td><span class="soon">SCAFFOLD</span></td></tr>
+  <tr><td>12</td><td>Save completed</td><td>buildWktAndBbox → insertRoute → delete draft</td><td><span class="live">DEPLOY</span></td></tr>
+  <tr><td>13</td><td>Work with Drafts (list/resume/delete)</td><td>draft file I/O</td><td><span class="soon">SCAFFOLD</span></td></tr>
+</table>
+<div class="note"><strong>First-pass working loop:</strong> deploy 1,2,3,6,9,10,12 → tap +ROUTE → New → place snapped points → Undo → Save completed → route saved + drawn. Everything else scaffolded as a visible "coming soon" placeholder linked to its checklist item. Discard exit works trivially (drop memory). Draft Save + RESUMED path activate with the draft-I/O patch.</div>
+
+<h2>I. Logic already built (in RouteManager, undeployed)</h2>
+<ul>
+  <li><code>SnapResult</code>, <code>parseWktLine</code> (lon-first), <code>haversineMeters</code>, <code>nearestOnSegment</code>, <code>nearestPointOnLines</code>, <code>snap</code> (trail-first/track-fallback).</li>
+  <li><code>Vertex</code>, builder state (<code>addVertex</code>/<code>undoVertex</code>/<code>clearRoute</code>/<code>routeVertices</code>), <code>sliceLine</code> (direction-correct), <code>buildSegments</code>, <code>buildWktAndBbox</code>.</li>
+  <li>DB side exists: <code>insertRoute</code>, <code>queryRoutesByViewport</code>; route JS bridge <code>updateRoutes</code>/<code>showRoutes</code> wired (gold dashed). Nav route <code>ConvoyRoutes.ConvoyRouteCreate</code> wired to a stub screen.</li>
+</ul>
+
+<h2>J. Scaffold build order</h2>
+<ol>
+  <li>+ROUTE → collapse artifacts panel + launch Route+ toolbar — BOTH screens, identical, one pass (avoid drift).</li>
+  <li>Bridge: onMapTap mirroring onMapLongPress, gated on route mode — both screens.</li>
+  <li>JS: route-mode polyline draw (feed building chain via existing route path) — both map HTMLs.</li>
+  <li>Toolbar UI: method toggles + Add/Undo + Save-completed + guarded Exit; placeholders for Draw/Suggest/drafts.</li>
+  <li>Deferred (separate patch): draft file I/O — Save/Resume/Delete in private storage; activates checklist items 4,5,11,13.</li>
+</ol>
+
+</body>
+</html>
