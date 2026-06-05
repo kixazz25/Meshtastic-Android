@@ -672,8 +672,15 @@ fun ConvoyScreen(
                             @android.webkit.JavascriptInterface
                             fun onMapTap(lat: Double, lon: Double) {
                                 android.util.Log.d("RouteBridge", "onMapTap lat=$lat lon=$lon")
-                                android.os.Handler(android.os.Looper.getMainLooper()).post {
-                                    RouteManager.addVertex(RouteManager.freeVertex(lat, lon))
+                                kotlinx.coroutines.MainScope().launch {
+                                    val v = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                        SpatialDbManager.init(context)
+                                        val trails = SpatialDbManager.queryTrailsByViewport(lastViewportSouth, lastViewportWest, lastViewportNorth, lastViewportEast)
+                                        val tracks = SpatialDbManager.queryTracksByViewport(lastViewportSouth, lastViewportWest, lastViewportNorth, lastViewportEast)
+                                        val s = RouteManager.snap(lat, lon, trails, tracks, 30.0)
+                                        if (s != null) RouteManager.snapToVertex(s) else RouteManager.freeVertex(lat, lon)
+                                    }
+                                    RouteManager.addVertex(v)
                                     val pts = RouteManager.routeVertices().joinToString(",", "[", "]") { "[${it.lat},${it.lon}]" }
                                     webViewRef.value?.evaluateJavascript("drawBuildLine('" + pts + "')", null)
                                 }
