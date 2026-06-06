@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GroupTrack Trail Import Flow</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; background:#0E1117; color:#CCDDEE; min-height:100vh; }
+.phone { max-width:390px; margin:20px auto; border:2px solid #1A2233; border-radius:24px; overflow:hidden; min-height:700px; position:relative; background:#0E1117; }
+.status-bar { background:#080A0F; padding:6px 16px; display:flex; justify-content:space-between; font-size:11px; color:#6B7B90; }
+.header { background:#1A2233; padding:12px 16px; display:flex; align-items:center; gap:12px; border-bottom:1px solid #2A3444; }
+.header .back { color:#4DA6FF; font-size:18px; cursor:pointer; }
+.header h1 { font-size:15px; font-weight:600; letter-spacing:0.5px; font-family:monospace; }
+.content { padding:12px; }
+.screen { display:none; }
+.screen.active { display:block; }
+
+/* Source cards */
+.source-card { background:#1A2233; border-radius:8px; padding:12px; margin-bottom:8px; cursor:pointer; border:1px solid transparent; transition:border-color 0.2s; }
+.source-card:hover { border-color:#4DA6FF; }
+.source-card.selected { border-color:#4DA6FF; background:#1E2A3D; }
+.source-name { font-size:13px; font-weight:600; font-family:monospace; color:#CCDDEE; }
+.source-agency { font-size:11px; color:#6B7B90; margin-top:2px; }
+.source-status { font-size:11px; margin-top:6px; font-family:monospace; }
+.status-new { color:#4DA6FF; }
+.status-imported { color:#1CF0A0; }
+.status-warn { color:#D29922; }
+.th-available { font-size:10px; color:#D29922; margin-top:4px; font-family:monospace; }
+
+/* Buttons */
+.btn { padding:10px 20px; border-radius:6px; border:none; font-family:monospace; font-size:12px; font-weight:600; cursor:pointer; letter-spacing:0.5px; transition:opacity 0.2s; }
+.btn:hover { opacity:0.85; }
+.btn-blue { background:#4DA6FF; color:#000; }
+.btn-green { background:#1CF0A0; color:#000; }
+.btn-orange { background:#D29922; color:#000; }
+.btn-outline { background:transparent; border:1px solid #4DA6FF; color:#4DA6FF; }
+.btn-row { display:flex; gap:8px; margin-top:12px; }
+
+/* Progress */
+.progress-section { background:#1A2233; border-radius:8px; padding:16px; margin-top:12px; }
+.progress-title { font-size:13px; font-weight:600; font-family:monospace; color:#CCDDEE; margin-bottom:8px; }
+.progress-subtitle { font-size:11px; color:#6B7B90; margin-bottom:12px; }
+.progress-bar-bg { background:#2A3444; border-radius:4px; height:8px; overflow:hidden; margin:12px 0; }
+.progress-bar { background:#4DA6FF; height:100%; border-radius:4px; transition:width 0.5s; }
+.progress-bar.green { background:#1CF0A0; }
+.counters { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+.counter { font-size:11px; font-family:monospace; }
+.counter-label { color:#6B7B90; }
+.counter-value { color:#CCDDEE; font-weight:600; }
+
+/* Results */
+.result-banner { padding:12px; border-radius:8px; margin-bottom:12px; font-family:monospace; font-size:12px; font-weight:600; text-align:center; }
+.result-success { background:rgba(28,240,160,0.15); color:#1CF0A0; border:1px solid rgba(28,240,160,0.3); }
+.result-row { display:flex; justify-content:space-between; padding:6px 0; font-size:12px; font-family:monospace; border-bottom:1px solid #1A2233; }
+.result-row:last-child { border-bottom:none; }
+
+/* Prompt */
+.prompt-box { background:#1A2233; border:1px solid #D29922; border-radius:8px; padding:16px; margin-top:16px; text-align:center; }
+.prompt-text { font-size:13px; font-family:monospace; color:#CCDDEE; margin-bottom:4px; }
+.prompt-sub { font-size:11px; color:#6B7B90; margin-bottom:12px; }
+
+/* Method select */
+.method-card { background:#1A2233; border-radius:8px; padding:16px; margin-bottom:8px; cursor:pointer; border:1px solid #2A3444; text-align:center; transition:border-color 0.2s; }
+.method-card:hover { border-color:#4DA6FF; }
+.method-icon { font-size:24px; margin-bottom:8px; }
+.method-title { font-size:13px; font-weight:600; font-family:monospace; }
+.method-desc { font-size:11px; color:#6B7B90; margin-top:4px; }
+
+/* Nav hint */
+.nav-hint { text-align:center; margin-top:16px; font-size:10px; color:#4A6080; font-family:monospace; }
+.step-dots { display:flex; justify-content:center; gap:6px; margin:12px 0; }
+.dot { width:8px; height:8px; border-radius:50%; background:#2A3444; }
+.dot.active { background:#4DA6FF; }
+.dot.done { background:#1CF0A0; }
+
+/* First launch */
+.first-launch { text-align:center; padding:20px 12px; }
+.first-launch h2 { font-size:16px; font-weight:600; font-family:monospace; margin-bottom:8px; }
+.first-launch p { font-size:12px; color:#6B7B90; line-height:1.5; margin-bottom:16px; }
+.fl-icon { font-size:40px; margin-bottom:12px; }
+</style>
+</head>
+<body>
+<div style="text-align:center;padding:12px;font-size:11px;color:#4A6080;font-family:monospace;">
+  GROUPTRACK TRAIL IMPORT FLOW — tap through screens below
+</div>
+
+<div class="phone">
+  <div class="status-bar">
+    <span>9:41 AM</span>
+    <span>GroupTrack</span>
+    <span>▓▓▓▓░</span>
+  </div>
+
+  <!-- SCREEN 0: First Launch Question -->
+  <div class="screen active" id="s0">
+    <div class="header">
+      <span class="back">◀</span>
+      <h1>PLANNING MAP</h1>
+    </div>
+    <div class="content">
+      <div class="first-launch" style="text-align:left;">
+        <h2 style="text-align:center;">IMPORT TRAILS</h2>
+        <p>Trail data has been assembled from a trusted group of public authorities. Some groups are regional or state-specific. Others are nationwide.</p>
+        <p>We have crafted two import methods for you to identify the trails you may need.</p>
+        <p><strong style="color:#4DA6FF;">By source</strong> — Import by the source owner: Utah, USFS, BLM, and others.</p>
+        <p><strong style="color:#4DA6FF;">By area</strong> — Draw a bounding box around your riding areas and select all trail info in these areas. GroupTrack will show you which sources cover trails in those areas and you can select as many resources as you like.</p>
+        <p>Browse the available sources to get comfortable with what they are and what they represent. Develop a strategy of which sources you want in their entirety and which areas you want to focus on.</p>
+        <p>Do your full sources first — they take longer. We will keep you informed of how many trails are being inspected and how many are being imported, with a recap for each source.</p>
+        <p>You can combine these methods — full source for local resources like your home state, and area selection for nationwide resources like BLM and USFS to get just the trails in your riding corridor.</p>
+        <p style="color:#6B7B90;font-style:italic;font-size:11px;margin-top:12px;">"I chose the state of Utah and many bordering areas."</p>
+        <div class="btn-row" style="justify-content:center;margin-top:16px;">
+          <button class="btn btn-blue" onclick="goTo(1)">GET STARTED</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCREEN 1: Method Select -->
+  <div class="screen" id="s1">
+    <div class="header">
+      <span class="back" onclick="goTo(0)">◀</span>
+      <h1>IMPORT TRAILS</h1>
+    </div>
+    <div class="content">
+      <div class="step-dots"><div class="dot active"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+      <div class="method-card" onclick="goTo(2)">
+        <div class="method-icon">📋</div>
+        <div class="method-title">BY SOURCE</div>
+        <div class="method-desc">Import all trails from a specific agency database</div>
+      </div>
+      <div class="method-card" onclick="goTo(6)">
+        <div class="method-icon">🔲</div>
+        <div class="method-title">BY AREA</div>
+        <div class="method-desc">Draw a bounding box and import from all matching sources</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCREEN 2: Source List (Method A) -->
+  <div class="screen" id="s2">
+    <div class="header">
+      <span class="back" onclick="goTo(1)">◀</span>
+      <h1>SELECT SOURCE</h1>
+    </div>
+    <div class="content">
+      <div class="step-dots"><div class="dot done"></div><div class="dot active"></div><div class="dot"></div><div class="dot"></div></div>
+
+      <div class="source-card selected" onclick="goTo(3)">
+        <div class="source-name">UGRC Utah Trails & Pathways</div>
+        <div class="source-agency">Utah Geospatial Resource Center • Statewide</div>
+        <div class="source-status status-new">0 trails in database • ~49,000 available</div>
+        <div class="th-available">▸ Trailhead data available (591 waypoints)</div>
+      </div>
+
+      <div class="source-card">
+        <div class="source-name">BLM Ground Transportation</div>
+        <div class="source-agency">Bureau of Land Management • National</div>
+        <div class="source-status status-new">0 trails in database • ~19,100 available</div>
+      </div>
+
+      <div class="source-card">
+        <div class="source-name">USFS National Forest Trails</div>
+        <div class="source-agency">US Forest Service • National</div>
+        <div class="source-status status-new">0 trails in database</div>
+      </div>
+
+      <div class="source-card">
+        <div class="source-name">USGS National Trails</div>
+        <div class="source-agency">US Geological Survey • National</div>
+        <div class="source-status status-new">0 trails in database • ~34,200 available</div>
+      </div>
+
+      <div class="source-card">
+        <div class="source-name">NPS Public Trails</div>
+        <div class="source-agency">National Park Service • National Parks</div>
+        <div class="source-status status-new">0 trails in database • ~31,300 available</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCREEN 3: Import Progress (Method A) -->
+  <div class="screen" id="s3">
+    <div class="header">
+      <h1>IMPORTING TRAILS</h1>
+    </div>
+    <div class="content">
+      <div class="step-dots"><div class="dot done"></div><div class="dot done"></div><div class="dot active"></div><div class="dot"></div></div>
+
+      <div class="progress-section">
+        <div class="progress-title">UGRC Utah Trails & Pathways</div>
+        <div class="progress-subtitle">Fetching from ArcGIS REST service...</div>
+        <div class="progress-bar-bg"><div class="progress-bar" id="prog1" style="width:62%"></div></div>
+        <div class="counters">
+          <div class="counter"><span class="counter-label">OHV relevant</span><br><span class="counter-value" id="c-ohv">12,400</span></div>
+          <div class="counter"><span class="counter-label">New</span><br><span class="counter-value" id="c-new" style="color:#1CF0A0">7,683</span></div>
+          <div class="counter"><span class="counter-label">Aliased</span><br><span class="counter-value" id="c-alias" style="color:#D29922">247</span></div>
+          <div class="counter"><span class="counter-label">Duplicates</span><br><span class="counter-value" id="c-dup" style="color:#6B7B90">89</span></div>
+        </div>
+      </div>
+
+      <div class="nav-hint" style="color:#D29922;">⚠ Import in progress — please wait<br><br><button class="btn btn-outline" onclick="goTo(4)" style="font-size:10px;">SIMULATE COMPLETE →</button></div>
+    </div>
+  </div>
+
+  <!-- SCREEN 4: Trail Results + Trailhead Prompt -->
+  <div class="screen" id="s4">
+    <div class="header">
+      <h1>IMPORT COMPLETE</h1>
+    </div>
+    <div class="content">
+      <div class="step-dots"><div class="dot done"></div><div class="dot done"></div><div class="dot done"></div><div class="dot active"></div></div>
+
+      <div class="result-banner result-success">TRAIL IMPORT COMPLETE</div>
+
+      <div class="progress-section">
+        <div class="progress-title">UGRC Utah Trails & Pathways</div>
+        <div class="result-row"><span class="counter-label">OHV relevant</span><span class="counter-value">12,400</span></div>
+        <div class="result-row"><span class="counter-label">New trails added</span><span class="counter-value" style="color:#1CF0A0">11,890</span></div>
+        <div class="result-row"><span class="counter-label">Aliases added</span><span class="counter-value" style="color:#D29922">398</span></div>
+        <div class="result-row"><span class="counter-label">Duplicates skipped</span><span class="counter-value" style="color:#6B7B90">112</span></div>
+      </div>
+
+      <div class="prompt-box">
+        <div class="prompt-text">Trailhead waypoint data available</div>
+        <div class="prompt-sub">Trailhead waypoint data is available from your chosen trail source. We strongly suggest you import this data.<br><br>591 trailheads for UGRC Utah.</div>
+        <div class="btn-row" style="justify-content:center;">
+          <button class="btn btn-orange" onclick="goTo(5)">IMPORT TRAILHEADS</button>
+          <button class="btn btn-outline" onclick="goTo(8)">SKIP</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCREEN 5: Trailhead Import Progress -->
+  <div class="screen" id="s5">
+    <div class="header">
+      <h1>IMPORTING TRAILHEADS</h1>
+    </div>
+    <div class="content">
+      <div class="progress-section">
+        <div class="progress-title">UGRC Utah Trailheads</div>
+        <div class="progress-subtitle">Reading from bundled asset...</div>
+        <div class="progress-bar-bg"><div class="progress-bar green" style="width:72%"></div></div>
+        <div class="counters">
+          <div class="counter"><span class="counter-label">Processed</span><br><span class="counter-value">426 / 591</span></div>
+          <div class="counter"><span class="counter-label">New</span><br><span class="counter-value" style="color:#1CF0A0">410</span></div>
+          <div class="counter"><span class="counter-label">Aliased</span><br><span class="counter-value" style="color:#D29922">12</span></div>
+          <div class="counter"><span class="counter-label">Duplicates</span><br><span class="counter-value" style="color:#6B7B90">4</span></div>
+        </div>
+      </div>
+
+      <div class="nav-hint"><button class="btn btn-outline" onclick="goTo(8)" style="font-size:10px;">SIMULATE COMPLETE →</button></div>
+    </div>
+  </div>
+
+  <!-- SCREEN 6: Bounding Box (Method B) -->
+  <div class="screen" id="s6">
+    <div class="header">
+      <span class="back" onclick="goTo(1)">◀</span>
+      <h1>DRAW AREA</h1>
+    </div>
+    <div class="content">
+      <div class="step-dots"><div class="dot done"></div><div class="dot active"></div><div class="dot"></div><div class="dot"></div></div>
+      <div style="background:#2A3444;border-radius:8px;height:250px;display:flex;align-items:center;justify-content:center;position:relative;">
+        <div style="font-size:11px;color:#6B7B90;font-family:monospace;text-align:center;">
+          MAP VIEW<br><br>
+          <span style="color:#4DA6FF;">Draw rectangle on map</span><br>
+          <span style="font-size:10px;color:#4A6080;">to select import area</span>
+        </div>
+        <div style="position:absolute;border:2px dashed #4DA6FF;width:150px;height:100px;top:60px;left:100px;border-radius:4px;"></div>
+      </div>
+      <div class="btn-row" style="justify-content:center;margin-top:12px;">
+        <button class="btn btn-blue" onclick="goTo(7)">CONFIRM AREA</button>
+        <button class="btn btn-outline" onclick="goTo(1)">CANCEL</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCREEN 7: Overlapping Sources (Method B) -->
+  <div class="screen" id="s7">
+    <div class="header">
+      <span class="back" onclick="goTo(6)">◀</span>
+      <h1>SOURCES IN AREA</h1>
+    </div>
+    <div class="content">
+      <div class="step-dots"><div class="dot done"></div><div class="dot done"></div><div class="dot active"></div><div class="dot"></div></div>
+
+      <div style="font-size:11px;color:#6B7B90;font-family:monospace;margin-bottom:8px;">
+        3 sources have trails in selected area:
+      </div>
+
+      <div class="source-card selected" style="border-color:#1CF0A0;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="color:#1CF0A0;">☑</span>
+          <div>
+            <div class="source-name">BLM Ground Transportation</div>
+            <div class="source-agency">~840 trails in area</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="source-card selected" style="border-color:#1CF0A0;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="color:#1CF0A0;">☑</span>
+          <div>
+            <div class="source-name">USFS National Forest Trails</div>
+            <div class="source-agency">~312 trails in area</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="source-card selected" style="border-color:#1CF0A0;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="color:#1CF0A0;">☑</span>
+          <div>
+            <div class="source-name">USGS National Trails</div>
+            <div class="source-agency">~156 trails in area</div>
+            <div class="th-available">▸ Trailhead data available</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="btn-row" style="justify-content:center;">
+        <button class="btn btn-green" onclick="goTo(9)">IMPORT SELECTED</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCREEN 8: Final Done -->
+  <div class="screen" id="s8">
+    <div class="header">
+      <h1>IMPORT COMPLETE</h1>
+    </div>
+    <div class="content">
+      <div class="result-banner result-success">ALL IMPORTS COMPLETE</div>
+
+      <div class="progress-section">
+        <div class="progress-title">UGRC Utah Trails & Pathways</div>
+        <div class="result-row"><span class="counter-label">Trails added</span><span class="counter-value" style="color:#1CF0A0">11,890</span></div>
+        <div class="result-row"><span class="counter-label">Aliases</span><span class="counter-value" style="color:#D29922">398</span></div>
+        <div class="result-row"><span class="counter-label">Trailheads added</span><span class="counter-value" style="color:#1CF0A0">575</span></div>
+        <div class="result-row"><span class="counter-label">Trailhead aliases</span><span class="counter-value" style="color:#D29922">12</span></div>
+      </div>
+
+      <div class="btn-row" style="justify-content:center;">
+        <button class="btn btn-green" onclick="goTo(2)">IMPORT ANOTHER SOURCE</button>
+        <button class="btn btn-blue" onclick="goTo(0)">DONE</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCREEN 9: Multi-source Progress (Method B) -->
+  <div class="screen" id="s9">
+    <div class="header">
+      <h1>IMPORTING BY AREA</h1>
+    </div>
+    <div class="content">
+      <div class="step-dots"><div class="dot done"></div><div class="dot done"></div><div class="dot done"></div><div class="dot active"></div></div>
+
+      <div class="progress-section" style="margin-top:0;">
+        <div class="progress-title" style="color:#1CF0A0;">✓ BLM Ground Transportation</div>
+        <div class="result-row"><span class="counter-label">New</span><span class="counter-value" style="color:#1CF0A0">828</span></div>
+        <div class="result-row"><span class="counter-label">Aliased</span><span class="counter-value" style="color:#D29922">12</span></div>
+      </div>
+
+      <div class="progress-section">
+        <div class="progress-title">USFS National Forest Trails</div>
+        <div class="progress-subtitle">Fetching page 2 of 3...</div>
+        <div class="progress-bar-bg"><div class="progress-bar" style="width:55%"></div></div>
+        <div class="counters">
+          <div class="counter"><span class="counter-label">New</span><br><span class="counter-value" style="color:#1CF0A0">178</span></div>
+          <div class="counter"><span class="counter-label">Aliased</span><br><span class="counter-value" style="color:#D29922">34</span></div>
+        </div>
+      </div>
+
+      <div class="progress-section" style="opacity:0.4;">
+        <div class="progress-title">USGS National Trails</div>
+        <div class="progress-subtitle">Waiting...</div>
+      </div>
+
+      <div class="nav-hint" style="color:#D29922;">⚠ Import in progress<br><br><button class="btn btn-outline" onclick="goTo(8)" style="font-size:10px;">SIMULATE COMPLETE →</button></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+function goTo(n) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('s'+n).classList.add('active');
+}
+</script>
+</body>
+</html>

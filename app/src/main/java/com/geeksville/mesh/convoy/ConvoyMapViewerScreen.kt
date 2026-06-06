@@ -126,6 +126,14 @@ fun ConvoyMapViewerScreen(
     var routeMethod by remember { mutableStateOf(ROUTE_METHOD_P2P) }
     var routeName by remember { mutableStateOf("") }
     var showNameDialog by remember { mutableStateOf(false) }
+    // route lifecycle (Layer 2): launch state fixed at New / Select-In-Progress
+    var routeLifecycleState by remember { mutableStateOf(ROUTE_LS_NEW) }
+    var showSaveChoice by remember { mutableStateOf(false) }
+    var showDiscardChoice by remember { mutableStateOf(false) }
+    var showInProgressPicker by remember { mutableStateOf(false) }
+    var routeNameTaken by remember { mutableStateOf(false) }
+    // emulated In-Progress list (Patch 1 stub; real listDrafts() at Patch 2)
+    val emulatedDrafts = remember { listOf("Demo Draft A", "Demo Draft B") }
     var newWaypointType by remember { mutableStateOf("other") }
     var newWaypointName by remember { mutableStateOf("") }
 
@@ -856,23 +864,73 @@ fun ConvoyMapViewerScreen(
             )
 
             // -- ARTIFACT LIST PANEL (SELECT/EDIT) --
+            // hoisted verbatim from the toolbar's onSaveCompleted (Option 1):
+            // one proven completed-save path, called by BOTH the toolbar and the Save-choice dialog.
+            val saveCompleted: () -> Unit = {
+                val sLat = lastViewportSouth; val wLon = lastViewportWest
+                val nLat = lastViewportNorth; val eLon = lastViewportEast
+                kotlinx.coroutines.MainScope().launch {
+                    val res = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        SpatialDbManager.init(context)
+                        val lines = SpatialDbManager.queryTrailsByViewport(sLat, wLon, nLat, eLon) +
+                                SpatialDbManager.queryTracksByViewport(sLat, wLon, nLat, eLon)
+                        val byId = HashMap<String, String>()
+                        for (m in lines) {
+                            val id = m["trail_id"] ?: m["track_id"]
+                            val g = m["geometry"]
+                            if (id != null && g != null) byId[id] = g
+                        }
+                        val built = RouteManager.buildWktAndBbox { lineId -> byId[lineId]?.let { RouteManager.parseWktLine(it) } }
+                        if (built != null) {
+                            val (wkt, bbox) = built
+                            SpatialDbManager.insertRoute(routeName.ifBlank { "Route " + System.currentTimeMillis() }, wkt, bbox[0], bbox[1], bbox[2], bbox[3])
+                            true
+                        } else false
+                    }
+                    if (res) {
+                        RouteManager.clearRoute()
+                        webViewRef?.evaluateJavascript("setRouteMode(false); clearBuildLine();", null)
+                        routeMode = false
+                        webViewRef?.evaluateJavascript("try{var b=map.getBounds();Android.onViewportChanged(b.getNorth(),b.getSouth(),b.getEast(),b.getWest(),map.getZoom())}catch(e){}", null)
+                    } else {
+                        android.widget.Toast.makeText(context, "Need at least 2 points to save", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
             if (showNameDialog) {
                 androidx.compose.material3.AlertDialog(
                     onDismissRequest = { showNameDialog = false },
                     title = { androidx.compose.material3.Text("Name this route") },
                     text = {
+                        androidx.compose.foundation.layout.Column {
                         androidx.compose.material3.OutlinedTextField(
                             value = routeName,
-                            onValueChange = { routeName = it },
+                            onValueChange = { routeName = it; routeNameTaken = false },
                             singleLine = true,
+                            isError = routeNameTaken,
                             label = { androidx.compose.material3.Text("Route name") }
                         )
+                        if (routeNameTaken) androidx.compose.material3.Text(
+                            "That name is taken — choose a unique name",
+                            color = androidx.compose.ui.graphics.Color(0xFFE86B6B),
+                            fontSize = 11.sp
+                        )
+                        }
                     },
                     confirmButton = {
                         androidx.compose.material3.TextButton(onClick = {
                             if (routeName.isBlank()) routeName = "Route " + System.currentTimeMillis()
-                            showNameDialog = false
-                            routeMode = true
+                            // unique-name rule: reject dupes, keep dialog open, let user edit.
+                            // STUB check (emulated list); real isNameTaken (drafts + routes DB) at Patch 2.
+                            if (emulatedDrafts.any { it.trim().equals(routeName.trim(), ignoreCase = true) }) {
+                                routeNameTaken = true
+                                android.util.Log.d("RouteLife", "name taken (stub): " + routeName)
+                            } else {
+                                routeNameTaken = false
+                                routeLifecycleState = ROUTE_LS_NEW
+                                showNameDialog = false
+                                routeMode = true
+                            }
                         }) { androidx.compose.material3.Text("Start") }
                     },
                     dismissButton = {
@@ -889,6 +947,7 @@ fun ConvoyMapViewerScreen(
                     selectedMethod = routeMethod,
                     onSelectMethod = { routeMethod = it },
                     onNewRoute = {
+                        routeLifecycleState = ROUTE_LS_NEW
                         routeName = "Route " + System.currentTimeMillis()
                         showNameDialog = true
                     },
@@ -898,43 +957,112 @@ fun ConvoyMapViewerScreen(
                         val pts = RouteManager.routeVertices().joinToString(",", "[", "]") { "[${it.lat},${it.lon}]" }
                         webViewRef?.evaluateJavascript("drawBuildLine('" + pts + "')", null)
                     },
-                    onSaveCompleted = {
-                        // SAVE as completed (per RouteSaveDiscard_Rules): build WKT + bbox,
-                        // write a spatial-DB route row, clear chain, exit, redraw.
-                        val sLat = lastViewportSouth; val wLon = lastViewportWest
-                        val nLat = lastViewportNorth; val eLon = lastViewportEast
-                        kotlinx.coroutines.MainScope().launch {
-                            val res = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                                SpatialDbManager.init(context)
-                                val lines = SpatialDbManager.queryTrailsByViewport(sLat, wLon, nLat, eLon) +
-                                        SpatialDbManager.queryTracksByViewport(sLat, wLon, nLat, eLon)
-                                val byId = HashMap<String, String>()
-                                for (m in lines) {
-                                    val id = m["trail_id"] ?: m["track_id"]
-                                    val g = m["geometry"]
-                                    if (id != null && g != null) byId[id] = g
-                                }
-                                val built = RouteManager.buildWktAndBbox { lineId -> byId[lineId]?.let { RouteManager.parseWktLine(it) } }
-                                if (built != null) {
-                                    val (wkt, bbox) = built
-                                    SpatialDbManager.insertRoute(routeName.ifBlank { "Route " + System.currentTimeMillis() }, wkt, bbox[0], bbox[1], bbox[2], bbox[3])
-                                    true
-                                } else false
-                            }
-                            if (res) {
-                                RouteManager.clearRoute()
-                                webViewRef?.evaluateJavascript("setRouteMode(false); clearBuildLine();", null)
-                                routeMode = false
-                                webViewRef?.evaluateJavascript("try{var b=map.getBounds();Android.onViewportChanged(b.getNorth(),b.getSouth(),b.getEast(),b.getWest(),map.getZoom())}catch(e){}", null)
-                            } else {
-                                android.widget.Toast.makeText(context, "Need at least 2 points to save", android.widget.Toast.LENGTH_SHORT).show()
-                            }
-                        }
-                    },
+                    onSaveCompleted = saveCompleted,
+                    routeLifecycleState = routeLifecycleState,
+                    onSaveRequested = { showSaveChoice = true },
+                    onDiscardRequested = { showDiscardChoice = true },
+                    onSelectInProgress = { showInProgressPicker = true },
                     onExit = {
                         RouteManager.clearRoute()
                         webViewRef?.evaluateJavascript("setRouteMode(false); clearBuildLine();", null)
                         routeMode = false
+                    }
+                )
+            }
+
+            // ---- Route lifecycle dialogs (Layer 2; store calls stubbed) ----
+            if (showSaveChoice) {
+                val pts = RouteManager.routeVertexCount()
+                androidx.compose.material3.AlertDialog(
+                    onDismissRequest = { showSaveChoice = false },
+                    title = { androidx.compose.material3.Text("Save route") },
+                    text = { androidx.compose.material3.Text(
+                        if (routeLifecycleState == ROUTE_LS_RESUMED)
+                            "Graduate to a saved route, or keep editing as in-progress."
+                        else "Save as a completed route (needs 2+ points), or keep as in-progress."
+                    ) },
+                    confirmButton = {
+                        androidx.compose.material3.TextButton(onClick = {
+                            showSaveChoice = false
+                            if (pts >= 2) saveCompleted()
+                            else android.widget.Toast.makeText(context, "Need at least 2 points", android.widget.Toast.LENGTH_SHORT).show()
+                        }) { androidx.compose.material3.Text(if (routeLifecycleState == ROUTE_LS_RESUMED) "Graduate" else "Save completed") }
+                    },
+                    dismissButton = {
+                        androidx.compose.material3.TextButton(onClick = {
+                            showSaveChoice = false
+                            if (routeLifecycleState == ROUTE_LS_RESUMED)
+                                android.util.Log.d("RouteLife", "STUB overwriteDraft(" + routeName + ")")
+                            else android.util.Log.d("RouteLife", "STUB writeDraft(" + routeName + ", method=" + routeMethod + ")")
+                            RouteManager.clearRoute()
+                            webViewRef?.evaluateJavascript("setRouteMode(false); clearBuildLine();", null)
+                            routeMode = false
+                        }) { androidx.compose.material3.Text(if (routeLifecycleState == ROUTE_LS_RESUMED) "Save changes" else "Save in-progress") }
+                    }
+                )
+            }
+
+            if (showDiscardChoice) {
+                androidx.compose.material3.AlertDialog(
+                    onDismissRequest = { showDiscardChoice = false },
+                    title = { androidx.compose.material3.Text("Discard in-progress route") },
+                    text = { androidx.compose.material3.Text("Roll back to the last saved draft, or delete this in-progress route entirely.") },
+                    confirmButton = {
+                        androidx.compose.material3.TextButton(onClick = {
+                            showDiscardChoice = false
+                            android.util.Log.d("RouteLife", "STUB rollBack -> reload draft(" + routeName + ")")
+                            RouteManager.clearRoute()
+                            webViewRef?.evaluateJavascript("setRouteMode(false); clearBuildLine();", null)
+                            routeMode = false
+                        }) { androidx.compose.material3.Text("Roll back") }
+                    },
+                    dismissButton = {
+                        androidx.compose.material3.TextButton(onClick = {
+                            showDiscardChoice = false
+                            android.util.Log.d("RouteLife", "STUB deleteDraft(" + routeName + ")")
+                            RouteManager.clearRoute()
+                            webViewRef?.evaluateJavascript("setRouteMode(false); clearBuildLine();", null)
+                            routeMode = false
+                        }) { androidx.compose.material3.Text("Delete in-progress") }
+                    }
+                )
+            }
+
+            if (showInProgressPicker) {
+                androidx.compose.material3.AlertDialog(
+                    onDismissRequest = { showInProgressPicker = false },
+                    title = { androidx.compose.material3.Text("Resume in-progress route") },
+                    text = {
+                        androidx.compose.foundation.layout.Column {
+                            emulatedDrafts.forEach { d ->
+                                androidx.compose.foundation.layout.Row(
+                                    modifier = androidx.compose.ui.Modifier.fillMaxWidth(),
+                                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween,
+                                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                                ) {
+                                    androidx.compose.material3.TextButton(onClick = {
+                                        android.util.Log.d("RouteLife", "STUB openDraft(" + d + ") -> RESUMED")
+                                        routeName = d
+                                        routeLifecycleState = ROUTE_LS_RESUMED
+                                        showInProgressPicker = false
+                                        routeMode = true
+                                    }) { androidx.compose.material3.Text(d) }
+                                    androidx.compose.material3.TextButton(onClick = {
+                                        android.util.Log.d("RouteLife", "STUB deleteDraft(" + d + ")")
+                                        // real deleteDraft + list refresh at Patch 2
+                                    }) { androidx.compose.material3.Text(
+                                        "Delete",
+                                        color = androidx.compose.ui.graphics.Color(0xFFE86B6B)
+                                    ) }
+                                }
+                            }
+                        }
+                    },
+                    confirmButton = {},
+                    dismissButton = {
+                        androidx.compose.material3.TextButton(onClick = { showInProgressPicker = false }) {
+                            androidx.compose.material3.Text("Cancel")
+                        }
                     }
                 )
             }

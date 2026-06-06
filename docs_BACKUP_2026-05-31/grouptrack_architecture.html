@@ -1,0 +1,966 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GroupTrack V3.0 — Navigation Architecture</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&family=Exo+2:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --navy: #1A2E4A;
+  --navy-deep: #0F1E2E;
+  --navy-mid: #243654;
+  --sky: #4AB8E8;
+  --sky-dark: #2E8FBB;
+  --orange: #F5A623;
+  --white: #FFFFFF;
+  --grey-light: #EEF4FB;
+  --grey-mid: #7A9EC0;
+  --grey-dark: #445566;
+  --green: #00AA44;
+  --amber: #F0A500;
+  --red: #CC2222;
+  --border: rgba(74,184,232,0.2);
+  --card: rgba(255,255,255,0.04);
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:#0A0F1A; font-family:'Exo 2',sans-serif; color:var(--white); min-height:100vh; }
+
+/* ── Header ── */
+.header {
+  background: var(--navy-deep);
+  border-bottom: 2px solid var(--sky);
+  padding: 16px 32px;
+  display: flex; align-items: center; justify-content: space-between;
+  position: sticky; top:0; z-index:100;
+}
+.logo { font-family:'Rajdhani',sans-serif; font-size:28px; font-weight:700; }
+.logo .g { color:var(--orange); }
+.logo .t { color:var(--sky); }
+.header-sub { font-family:'Share Tech Mono',monospace; font-size:11px; color:var(--grey-mid); letter-spacing:2px; }
+.expand-all { background:transparent; border:1px solid var(--border); color:var(--sky); font-family:'Share Tech Mono',monospace; font-size:11px; padding:6px 14px; border-radius:4px; cursor:pointer; transition:all 0.2s; }
+.expand-all:hover { background:var(--sky); color:var(--navy); }
+
+/* ── Main layout ── */
+.main { max-width:1400px; margin:0 auto; padding:32px; display:grid; grid-template-columns:280px 1fr; gap:32px; }
+
+/* ── Left sidebar — section index ── */
+.sidebar { position:sticky; top:80px; height:fit-content; }
+.sidebar-title { font-family:'Share Tech Mono',monospace; font-size:10px; color:var(--grey-mid); letter-spacing:2px; margin-bottom:16px; }
+.sidebar-item {
+  padding:8px 12px; border-radius:6px; cursor:pointer;
+  font-size:13px; margin-bottom:4px; transition:all 0.2s;
+  border-left:3px solid transparent;
+  display:flex; align-items:center; gap:10px;
+}
+.sidebar-item:hover { background:var(--card); border-left-color:var(--sky); }
+.sidebar-item.active { background:rgba(74,184,232,0.1); border-left-color:var(--sky); color:var(--sky); }
+.sidebar-item .icon { font-size:16px; width:20px; text-align:center; }
+.sidebar-item .label { font-family:'Share Tech Mono',monospace; font-size:11px; }
+.sidebar-divider { height:1px; background:var(--border); margin:8px 0; }
+
+/* ── Accordion sections ── */
+.sections { display:flex; flex-direction:column; gap:16px; }
+
+.section {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius:12px;
+  overflow:hidden;
+  transition: border-color 0.2s;
+}
+.section:hover { border-color: rgba(74,184,232,0.4); }
+.section.open { border-color: var(--sky); }
+
+.section-header {
+  padding:18px 24px;
+  cursor:pointer;
+  display:flex; align-items:center; gap:16px;
+  background: var(--navy-deep);
+  transition:background 0.2s;
+  user-select:none;
+}
+.section-header:hover { background:var(--navy-mid); }
+.section.open .section-header { background:var(--navy-mid); }
+
+.section-icon { font-size:24px; width:32px; text-align:center; }
+.section-info { flex:1; }
+.section-name { font-family:'Rajdhani',sans-serif; font-size:20px; font-weight:700; color:var(--sky); }
+.section-desc { font-size:12px; color:var(--grey-mid); margin-top:2px; }
+.section-meta { font-family:'Share Tech Mono',monospace; font-size:10px; color:var(--grey-dark); margin-top:4px; }
+.section-badge { background:rgba(74,184,232,0.15); border:1px solid var(--border); color:var(--sky); font-family:'Share Tech Mono',monospace; font-size:10px; padding:3px 8px; border-radius:20px; white-space:nowrap; }
+.section-chevron { font-size:18px; color:var(--grey-mid); transition:transform 0.3s; }
+.section.open .section-chevron { transform:rotate(180deg); color:var(--sky); }
+
+.section-body {
+  display:none;
+  padding:0 24px 24px;
+  animation: slideDown 0.3s ease;
+}
+.section.open .section-body { display:block; }
+@keyframes slideDown { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:translateY(0); } }
+
+/* ── Screen cards inside sections ── */
+.screens-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:16px; margin-top:20px; }
+
+.screen-card {
+  background:var(--navy-deep);
+  border:1px solid var(--border);
+  border-radius:10px;
+  overflow:hidden;
+  transition:all 0.2s;
+  cursor:pointer;
+}
+.screen-card:hover { border-color:var(--sky); transform:translateY(-2px); box-shadow:0 8px 24px rgba(74,184,232,0.1); }
+
+.screen-card-header {
+  background:var(--navy-mid);
+  padding:10px 14px;
+  display:flex; align-items:center; justify-content:space-between;
+}
+.screen-number { font-family:'Share Tech Mono',monospace; font-size:10px; color:var(--grey-mid); }
+.screen-status { font-family:'Share Tech Mono',monospace; font-size:9px; padding:2px 7px; border-radius:10px; }
+.status-new { background:rgba(0,170,68,0.2); color:var(--green); border:1px solid var(--green); }
+.status-existing { background:rgba(74,184,232,0.15); color:var(--sky); border:1px solid var(--border); }
+.status-v24 { background:rgba(240,165,0,0.15); color:var(--amber); border:1px solid var(--amber); }
+.status-web { background:rgba(245,166,35,0.15); color:var(--orange); border:1px solid var(--orange); }
+
+.screen-card-body { padding:14px; }
+.screen-title { font-family:'Rajdhani',sans-serif; font-size:16px; font-weight:700; margin-bottom:6px; }
+.screen-desc { font-size:12px; color:var(--grey-mid); line-height:1.5; margin-bottom:10px; }
+.screen-fields { display:flex; flex-wrap:wrap; gap:4px; }
+.field-tag { background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); border-radius:4px; font-family:'Share Tech Mono',monospace; font-size:9px; color:var(--grey-mid); padding:2px 6px; }
+.field-tag.required { border-color:var(--sky); color:var(--sky); }
+.field-tag.schema { border-color:var(--orange); color:var(--orange); }
+
+.screen-card-footer {
+  padding:10px 14px;
+  border-top:1px solid var(--border);
+  display:flex; gap:8px; flex-wrap:wrap;
+}
+.nav-arrow { font-family:'Share Tech Mono',monospace; font-size:10px; color:var(--grey-dark); }
+.nav-arrow span { color:var(--sky); }
+
+/* ── Flow connector ── */
+.flow-line {
+  display:flex; align-items:center; gap:8px;
+  padding:8px 0; margin:4px 0;
+  font-family:'Share Tech Mono',monospace; font-size:11px; color:var(--grey-mid);
+}
+.flow-line::before { content:''; flex:1; height:1px; background:var(--border); }
+.flow-line::after { content:''; flex:1; height:1px; background:var(--border); }
+
+/* ── Rules panel ── */
+.rules-panel {
+  margin-top:20px;
+  background:rgba(74,184,232,0.05);
+  border:1px solid var(--border);
+  border-radius:8px;
+  padding:16px;
+}
+.rules-title { font-family:'Share Tech Mono',monospace; font-size:11px; color:var(--sky); letter-spacing:2px; margin-bottom:12px; }
+.rule-item { display:flex; gap:10px; margin-bottom:8px; font-size:12px; color:var(--grey-mid); line-height:1.5; }
+.rule-item::before { content:'★'; color:var(--sky); flex-shrink:0; }
+
+/* ── Schema changes panel ── */
+.schema-panel {
+  margin-top:16px;
+  background:rgba(245,166,35,0.05);
+  border:1px solid rgba(245,166,35,0.2);
+  border-radius:8px;
+  padding:16px;
+}
+.schema-title { font-family:'Share Tech Mono',monospace; font-size:11px; color:var(--orange); letter-spacing:2px; margin-bottom:12px; }
+.schema-item { font-family:'Share Tech Mono',monospace; font-size:11px; color:var(--grey-mid); margin-bottom:6px; padding-left:12px; border-left:2px solid var(--orange); }
+
+/* ── Web mirror badge ── */
+.web-mirror {
+  display:inline-flex; align-items:center; gap:6px;
+  background:rgba(245,166,35,0.1); border:1px solid var(--orange);
+  border-radius:4px; padding:4px 10px; margin-top:8px;
+  font-family:'Share Tech Mono',monospace; font-size:10px; color:var(--orange);
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <div class="logo"><span class="g">Group</span><span class="t">Track</span></div>
+    <div class="header-sub">V3.0 NAVIGATION ARCHITECTURE — ACCORDION VIEW</div>
+  </div>
+  <button class="expand-all" onclick="toggleAll()">EXPAND ALL</button>
+</div>
+
+<div class="main">
+
+<!-- Sidebar -->
+<div class="sidebar">
+  <div class="sidebar-title">SECTIONS</div>
+  <div class="sidebar-item" onclick="scrollTo('onboarding')"><span class="icon">🚀</span><span class="label">ONBOARDING</span></div>
+  <div class="sidebar-item" onclick="scrollTo('grouptrack')"><span class="icon">🏔</span><span class="label">GROUPTRACK MENU</span></div>
+  <div class="sidebar-divider"></div>
+  <div class="sidebar-item" onclick="scrollTo('dashboard')"><span class="icon">📊</span><span class="label">DASHBOARD</span></div>
+  <div class="sidebar-item" onclick="scrollTo('rides')"><span class="icon">🏁</span><span class="label">RIDES</span></div>
+  <div class="sidebar-item" onclick="scrollTo('explore')"><span class="icon">🔍</span><span class="label">EXPLORE</span></div>
+  <div class="sidebar-item" onclick="scrollTo('tracks')"><span class="icon">📍</span><span class="label">TRACKS</span></div>
+  <div class="sidebar-item" onclick="scrollTo('profile')"><span class="icon">👤</span><span class="label">PROFILE</span></div>
+  <div class="sidebar-divider"></div>
+  <div class="sidebar-item" onclick="scrollTo('convoy')"><span class="icon">🗺</span><span class="label">CONVOY MAP (V2.4)</span></div>
+  <div class="sidebar-item" onclick="scrollTo('stoprecord')"><span class="icon">⏹</span><span class="label">STOP RECORD</span></div>
+  <div class="sidebar-divider"></div>
+  <div class="sidebar-item" onclick="scrollTo('schema')"><span class="icon">🗄</span><span class="label">SCHEMA CHANGES</span></div>
+  <div class="sidebar-item" onclick="scrollTo('ridestate')"><span class="icon">⚡</span><span class="label">RIDESTATE RULES</span></div>
+</div>
+
+<!-- Accordion sections -->
+<div class="sections">
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- ONBOARDING -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div class="section" id="onboarding">
+  <div class="section-header" onclick="toggle('onboarding')">
+    <div class="section-icon">🚀</div>
+    <div class="section-info">
+      <div class="section-name">ONBOARDING</div>
+      <div class="section-desc">First-time user flow — sign in, terms acceptance, profile completion</div>
+      <div class="section-meta">4 screens · One-time only · Hard gates on terms</div>
+    </div>
+    <div class="section-badge">4 SCREENS</div>
+    <div class="section-chevron">▼</div>
+  </div>
+  <div class="section-body">
+    <div class="flow-line">FIRST LAUNCH FLOW</div>
+    <div class="screens-grid">
+      <div class="screen-card">
+        <div class="screen-card-header"><span class="screen-number">SCREEN 01</span><span class="screen-status status-new">NEW V3.0</span></div>
+        <div class="screen-card-body">
+          <div class="screen-title">Sign In</div>
+          <div class="screen-desc">Google One Tap sign-in. GroupTrack branded navy screen with logo. Option to continue without account for SOLO mode.</div>
+          <div class="screen-fields">
+            <span class="field-tag required">Google One Tap</span>
+            <span class="field-tag">Continue without account</span>
+          </div>
+        </div>
+        <div class="screen-card-footer"><span class="nav-arrow">→ <span>Terms</span></span><span class="nav-arrow">→ <span>Dashboard (no account)</span></span></div>
+      </div>
+      <div class="screen-card">
+        <div class="screen-card-header"><span class="screen-number">SCREEN 02</span><span class="screen-status status-new">NEW V3.0</span></div>
+        <div class="screen-card-body">
+          <div class="screen-title">GroupTrack Terms of Service</div>
+          <div class="screen-desc">Scrollable terms. Checkbox required. ACCEPT disabled until scrolled and checked. Hard gate — cannot proceed without accepting. Version tracked for re-acceptance.</div>
+          <div class="screen-fields">
+            <span class="field-tag required">Scroll to bottom</span>
+            <span class="field-tag required">Checkbox accept</span>
+            <span class="field-tag schema">terms_type = user</span>
+          </div>
+        </div>
+        <div class="screen-card-footer"><span class="nav-arrow">→ <span>Privacy Policy</span></span></div>
+      </div>
+      <div class="screen-card">
+        <div class="screen-card-header"><span class="screen-number">SCREEN 03</span><span class="screen-status status-new">NEW V3.0</span></div>
+        <div class="screen-card-body">
+          <div class="screen-title">Privacy Policy</div>
+          <div class="screen-desc">Scrollable privacy policy. Same accept mechanism as terms. Both must be accepted before proceeding. Version tracked.</div>
+          <div class="screen-fields">
+            <span class="field-tag required">Scroll + checkbox</span>
+            <span class="field-tag schema">terms_type = privacy</span>
+          </div>
+        </div>
+        <div class="screen-card-footer"><span class="nav-arrow">→ <span>Complete Profile</span></span></div>
+      </div>
+      <div class="screen-card">
+        <div class="screen-card-header"><span class="screen-number">SCREEN 04</span><span class="screen-status status-new">NEW V3.0</span></div>
+        <div class="screen-card-body">
+          <div class="screen-title">Complete Your Profile</div>
+          <div class="screen-desc">One-time profile completion. First/last name pre-filled from Google. Cell and zip required — collected up front, not buried in settings.</div>
+          <div class="screen-fields">
+            <span class="field-tag">First name (Google)</span>
+            <span class="field-tag">Last name (Google)</span>
+            <span class="field-tag required">Cell number</span>
+            <span class="field-tag required">Zip code</span>
+            <span class="field-tag">Callsign (optional)</span>
+            <span class="field-tag">Vehicle / Equipment (optional)</span>
+          </div>
+        </div>
+        <div class="screen-card-footer"><span class="nav-arrow">→ <span>Dashboard</span></span></div>
+      </div>
+    </div>
+    <div class="rules-panel">
+      <div class="rules-title">ONBOARDING RULES</div>
+      <div class="rule-item">Terms and privacy must both be accepted before any app functionality is accessible.</div>
+      <div class="rule-item">Cell number and zip code are required at registration — not optional profile fields.</div>
+      <div class="rule-item">Zip code drives all regional discovery defaults throughout the app.</div>
+      <div class="rule-item">Continue without account routes directly to Dashboard in SOLO mode — no terms required, no profile, no database impact.</div>
+      <div class="rule-item">Terms version tracked per user — version mismatch on app launch requires re-acceptance before proceeding.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- GROUPTRACK MENU ENTRY POINT -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div class="section" id="grouptrack">
+  <div class="section-header" onclick="toggle('grouptrack')">
+    <div class="section-icon">🏔</div>
+    <div class="section-info">
+      <div class="section-name">GROUPTRACK MENU</div>
+      <div class="section-desc">Entry point from Meshtastic nav bar — convoy button opens GroupTrack section</div>
+      <div class="section-meta">Separate from map · Same structure mirrors React web app</div>
+    </div>
+    <div class="section-badge">ENTRY POINT</div>
+    <div class="section-chevron">▼</div>
+  </div>
+  <div class="section-body">
+    <div class="rules-panel">
+      <div class="rules-title">NAVIGATION ARCHITECTURE</div>
+      <div class="rule-item">GroupTrack functions are accessed via the convoy button on the Meshtastic bottom nav bar — NOT from within the map.</div>
+      <div class="rule-item">The map remains V2.4 — untouched. GroupTrack menu is a completely separate screen stack.</div>
+      <div class="rule-item">GroupTrack menu has its own internal navigation: Dashboard → Rides → Explore → Tracks → Profile.</div>
+      <div class="rule-item">The React web app at grouptrack.org mirrors this exact structure — same five sections, same data, different rendering.</div>
+      <div class="rule-item">Landing screen when tapping convoy button: Dashboard — shows upcoming rides, notifications, quick actions.</div>
+    </div>
+    <div style="margin-top:20px;background:var(--navy-deep);border:1px solid var(--sky);border-radius:10px;padding:20px;">
+      <div style="font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--sky);letter-spacing:2px;margin-bottom:16px;">GROUPTRACK INTERNAL NAV — 5 SECTIONS</div>
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;text-align:center;">
+        <div style="background:rgba(74,184,232,0.1);border:1px solid var(--sky);border-radius:8px;padding:12px;">
+          <div style="font-size:24px;margin-bottom:6px;">📊</div>
+          <div style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--sky);">DASHBOARD</div>
+        </div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px;">
+          <div style="font-size:24px;margin-bottom:6px;">🏁</div>
+          <div style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--grey-mid);">RIDES</div>
+        </div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px;">
+          <div style="font-size:24px;margin-bottom:6px;">🔍</div>
+          <div style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--grey-mid);">EXPLORE</div>
+        </div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px;">
+          <div style="font-size:24px;margin-bottom:6px;">📍</div>
+          <div style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--grey-mid);">TRACKS</div>
+        </div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px;">
+          <div style="font-size:24px;margin-bottom:6px;">👤</div>
+          <div style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--grey-mid);">PROFILE</div>
+        </div>
+      </div>
+      <div class="web-mirror">🌐 mirrors grouptrack.org React web app — identical structure</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- DASHBOARD -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div class="section" id="dashboard">
+  <div class="section-header" onclick="toggle('dashboard')">
+    <div class="section-icon">📊</div>
+    <div class="section-info">
+      <div class="section-name">DASHBOARD</div>
+      <div class="section-desc">GroupTrack landing screen — upcoming rides, notifications, quick actions</div>
+      <div class="section-meta">1 screen · Pulls notifications on open · RideState aware</div>
+    </div>
+    <div class="section-badge">1 SCREEN</div>
+    <div class="section-chevron">▼</div>
+  </div>
+  <div class="section-body">
+    <div class="screens-grid">
+      <div class="screen-card">
+        <div class="screen-card-header"><span class="screen-number">SCREEN 05</span><span class="screen-status status-new">NEW V3.0</span></div>
+        <div class="screen-card-body">
+          <div class="screen-title">Dashboard</div>
+          <div class="screen-desc">Landing screen for GroupTrack section. Shows current RideState, upcoming rides, unread notifications, quick actions. Pulls GET /notifications on open.</div>
+          <div class="screen-fields">
+            <span class="field-tag">RideState indicator (SOLO/CONVOY/ORGANIZED)</span>
+            <span class="field-tag">Upcoming rides (next 3)</span>
+            <span class="field-tag">Notification badges</span>
+            <span class="field-tag">Quick action: CREATE RIDE (organizers)</span>
+            <span class="field-tag">Quick action: FIND RIDES</span>
+          </div>
+        </div>
+        <div class="screen-card-footer"><span class="nav-arrow">→ <span>All sections</span></span></div>
+      </div>
+      <div class="screen-card">
+        <div class="screen-card-header"><span class="screen-number">SCREEN 05B</span><span class="screen-status status-new">NEW V3.0</span></div>
+        <div class="screen-card-body">
+          <div class="screen-title">Notifications Panel</div>
+          <div class="screen-desc">Ride broadcasts from followed organizers. New public rides near zip. Each item has VIEW & JOIN button. Marks read on open. Pull-based in V3.0 — push notifications V3.1.</div>
+          <div class="screen-fields">
+            <span class="field-tag">New rides from followed organizers</span>
+            <span class="field-tag">New public rides in zip radius</span>
+            <span class="field-tag">VIEW & JOIN button</span>
+            <span class="field-tag schema">notifications table</span>
+          </div>
+        </div>
+        <div class="screen-card-footer"><span class="nav-arrow">→ <span>Invite Accept</span></span></div>
+      </div>
+    </div>
+    <div class="rules-panel">
+      <div class="rules-title">DASHBOARD RULES</div>
+      <div class="rule-item">GET /notifications called on every app launch. Badge shows unread count.</div>
+      <div class="rule-item">CREATE RIDE quick action only visible if is_organizer = TRUE.</div>
+      <div class="rule-item">RideState indicator shows current mode — SOLO, CONVOY, or ORGANIZED ride name.</div>
+      <div class="rule-item">Push notifications V3.1 — FCM token stored on users table. Pull-only in V3.0.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- RIDES -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div class="section" id="rides">
+  <div class="section-header" onclick="toggle('rides')">
+    <div class="section-icon">🏁</div>
+    <div class="section-info">
+      <div class="section-name">RIDES</div>
+      <div class="section-desc">Ride management — create, manage, invite, broadcast. Organizer and rider views.</div>
+      <div class="section-meta">6 screens · Organizer features gated by is_organizer = TRUE</div>
+    </div>
+    <div class="section-badge">6 SCREENS</div>
+    <div class="section-chevron">▼</div>
+  </div>
+  <div class="section-body">
+    <div class="flow-line">ORGANIZER FLOW</div>
+    <div class="screens-grid">
+      <div class="screen-card">
+        <div class="screen-card-header"><span class="screen-number">SCREEN 06</span><span class="screen-status status-new">NEW V3.0</span></div>
+        <div class="screen-card-body">
+          <div class="screen-title">My Rides</div>
+          <div class="screen-desc">List of rides created by this organizer. Upcoming first, past below. Each card shows name, date, enrolled count, broadcast status. CREATE NEW RIDE button at top.</div>
+          <div class="screen-fields">
+            <span class="field-tag required">Organizer only</span>
+            <span class="field-tag">Upcoming rides</span>
+            <span class="field-tag">Past rides</span>
+            <span class="field-tag">Enrolled count</span>
+            <span class="field-tag">Broadcast status</span>
+          </div>
+        </div>
+        <div class="screen-card-footer"><span class="nav-arrow">→ <span>Create Ride</span></span><span class="nav-arrow">→ <span>Ride Detail</span></span></div>
+      </div>
+      <div class="screen-card">
+        <div class="screen-card-header"><span class="screen-number">SCREEN 07</span><span class="screen-status status-new">NEW V3.0</span></div>
+        <div class="screen-card-body">
+          <div class="screen-title">Create Ride</div>
+          <div class="screen-desc">Full ride creation form. All fields captured at creation time. Channel auto-generated. Trailhead set by tapping map. Map bounds drawn by organizer. Route track optional from library or device.</div>
+          <div class="screen-fields">
+            <span class="field-tag required">Ride name</span>
+            <span class="field-tag required">Ride date</span>
+            <span class="field-tag required">Start time</span>
+            <span class="field-tag required">Trailhead (tap map)</span>
+            <span class="field-tag required">Map bounds (draw area)</span>
+            <span class="field-tag">Description</span>
+            <span class="field-tag">Route track (optional)</span>
+            <span class="field-tag">Visibility (private/public)</span>
+            <span class="field-tag">Channel (auto-generated)</span>
+            <span class="field-tag schema">trailhead_lat/lon</span>
+            <span class="field-tag schema">start_time</span>
+          </div>
+        </div>
+        <div class="screen-card-footer"><span class="nav-arrow">→ <span>Ride Detail</span></span></div>
+      </div>
+      <div class="screen-card">
+        <div class="screen-card-header"><span class="screen-number">SCREEN 08</span><span class="screen-status status-new">NEW V3.0</span></div>
+        <div class="screen-card-body">
+          <div class="screen-title">Ride Detail</div>
+          <div class="screen-desc">Full ride record. Enrolled rider list. Conditional action buttons based on ride visibility — private shows SEND INVITE LINK, public shows BROADCAST TO FOLLOWERS.</div>
+          <div class="screen-fields">
+            <span class="field-tag">Ride info</span>
+            <span class="field-tag">Enrolled list</span>
+            <span class="field-tag">Private → SEND INVITE LINK</span>
+            <span class="field-tag">Public → BROADCAST (one-time)</span>
+            <span class="field-tag schema">broadcast_sent flag</span>
+          </div>
+        </div>
+        <div class="screen-card-footer"><span class="nav-arrow">→ <span>Send Invite (private)</span></span><span class="nav-arrow">→ <span>Broadcast (public)</span></span></div>
+      </div>
+      <div class="screen-card">
+        <div class="screen-card-header"><span class="screen-number">SCREEN 09</span><span class="screen-status status-new">NEW V3.0</span></div>
+        <div class="screen-card-body">
+          <div class="screen-title">Send Invite Link (Private Only)</div>
+          <div class="screen-desc">QR code + shareable URL + Android share sheet. Private rides only. Public rides use broadcast — no invite link generated.</div>
+          <div class="screen-fields">
+            <span class="field-tag required">Private rides only</span>
+            <span class="field-tag">QR code</span>
+            <span class="field-tag">Copy link</span>
+            <span class="field-tag">Share via text/WhatsApp</span>
+            <span class="field-tag">Share via email</span>
+          </div>
+        </div>
+        <div class="screen-card-footer"><span class="nav-arrow">→ <span>Ride Detail</span></span></div>
+      </div>
+      <div class="screen-card">
+        <div class="screen-card-header"><span class="screen-number">SCREEN 10</span><span class="screen-status status-new">NEW V3.0</span></div>
+        <div class="screen-card-body">
+          <div class="screen-title">Broadcast Confirmation (Public Only)</div>
+          <div class="screen-desc">Shows follower count, email-enabled count. One-time send — cannot be undone. broadcast_sent flag prevents duplicate sends. Button disabled after firing.</div>
+          <div class="screen-fields">
+            <span class="field-tag required">Public rides only</span>
+            <span class="field-tag">Follower count</span>
+            <span class="field-tag">Email-enabled count</span>
+            <span class="field-tag">One-time confirmation</span>
+            <span class="field-tag schema">broadcast_sent = TRUE after</span>
+          </div>
+        </div>
+        <div class="screen-card-footer"><span class="nav-arrow">→ <span>Ride Detail (sent)</span></span></div>
+      </div>
+    </div>
+    <div class="flow-line">RIDER FLOW</div>
+    <div class="screens-grid">
+      <div class="screen-card">
+        <div class="screen-card-header"><span class="screen-number">SCREEN 11</span><span class="screen-status status-new">NEW V3.0</span></div>
+        <div class="screen-card-body">
+          <div class="screen-title">Ride Confirmation (Invite Accept)</div>
+          <div class="screen-desc">Shown when rider taps invite link or notification JOIN button. Shows ride name, organizer, date, start time, trailhead, enrolled count. Status checklist of auto-completed steps. Radio config apply secondary action.</div>
+          <div class="screen-fields">
+            <span class="field-tag">Ride name (prominent)</span>
+            <span class="field-tag">Organizer name</span>
+            <span class="field-tag">Date + start time</span>
+            <span class="field-tag">Trailhead location</span>
+            <span class="field-tag">Enrolled count</span>
+            <span class="field-tag">✓ Ride downloaded</span>
+            <span class="field-tag">✓ Map tiles downloading</span>
+            <span class="field-tag">APPLY RADIO CONFIG</span>
+          </div>
+        </div>
+        <div class="screen-card-footer"><span class="nav-arrow">→ <span>Dashboard</span></span><span class="nav-arrow">→ <span>Convoy Map (V2.4)</span></span></div>
+      </div>
+    </div>
+    <div class="rules-panel">
+      <div class="rules-title">RIDES RULES</div>
+      <div class="rule-item">CREATE RIDE only accessible if is_organizer = TRUE and organizer_terms_accepted_at is set.</div>
+      <div class="rule-item">Private rides: invite link only. No broadcast. No discovery. No email.</div>
+      <div class="rule-item">Public rides: broadcast to followers via email. Discoverable in Explore. No personal invite link.</div>
+      <div class="rule-item">broadcast_sent flag is permanent once set. API returns 409 if broadcast attempted twice. Button disabled.</div>
+      <div class="rule-item">Invite acceptance triggers: ride download + map tile download + enrollment POST. All automatic.</div>
+      <div class="rule-item">Map tiles download uses bounds from rides.map_bounds_* set by organizer at ride creation.</div>
+    </div>
+    <div class="schema-panel">
+      <div class="schema-title">SCHEMA ADDITIONS — RIDES</div>
+      <div class="schema-item">rides.start_time TIME NULL — start time captured at creation</div>
+      <div class="schema-item">rides.trailhead_lat DECIMAL(10,7) NULL</div>
+      <div class="schema-item">rides.trailhead_lon DECIMAL(10,7) NULL</div>
+      <div class="schema-item">rides.trailhead_name VARCHAR(255) NULL — reverse geocoded</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- EXPLORE -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div class="section" id="explore">
+  <div class="section-header" onclick="toggle('explore')">
+    <div class="section-icon">🔍</div>
+    <div class="section-info">
+      <div class="section-name">EXPLORE</div>
+      <div class="section-desc">Discovery — public rides, organizers near me, broad search</div>
+      <div class="section-meta">2 screens · Zip + radius governs all tabs · Same retrieval logic for all list types</div>
+    </div>
+    <div class="section-badge">2 SCREENS</div>
+    <div class="section-chevron">▼</div>
+  </div>
+  <div class="section-body">
+    <div class="screens-grid">
+      <div class="screen-card">
+        <div class="screen-card-header"><span class="screen-number">SCREEN 12</span><span class="screen-status status-new">NEW V3.0</span></div>
+        <div class="screen-card-body">
+          <div class="screen-title">Explore</div>
+          <div class="screen-desc">Discovery hub. Zip + radius filter at top — defaults from user profile. Three tabs: Upcoming rides, Past rides, Organizers. Broad search across all content types simultaneously.</div>
+          <div class="screen-fields">
+            <span class="field-tag required">Zip code (default from profile)</span>
+            <span class="field-tag required">Radius (default 50mi)</span>
+            <span class="field-tag">UPCOMING tab — future public rides</span>
+            <span class="field-tag">PAST tab — completed public rides</span>
+            <span class="field-tag">ORGS tab — organizers in area</span>
+            <span class="field-tag">Broad search — rides, orgs, trails</span>
+            <span class="field-tag">FOLLOW button inline on org cards</span>
+            <span class="field-tag schema">users.default_radius_miles</span>
+          </div>
+        </div>
+        <div class="screen-card-footer"><span class="nav-arrow">→ <span>Ride Confirmation</span></span><span class="nav-arrow">→ <span>Organizer Profile</span></span></div>
+      </div>
+      <div class="screen-card">
+        <div class="screen-card-header"><span class="screen-number">SCREEN 12B</span><span class="screen-status status-new">NEW V3.0</span></div>
+        <div class="screen-card-body">
+          <div class="screen-title">Organizer Profile</div>
+          <div class="screen-desc">Public profile of an organizer. Ride history, follower count, upcoming public rides. FOLLOW / UNFOLLOW button. All rides listed use same retrieval logic as Explore tabs.</div>
+          <div class="screen-fields">
+            <span class="field-tag">Organizer name + callsign</span>
+            <span class="field-tag">Ride count</span>
+            <span class="field-tag">Follower count</span>
+            <span class="field-tag">Upcoming rides list</span>
+            <span class="field-tag">Past rides list</span>
+            <span class="field-tag">FOLLOW / UNFOLLOW</span>
+          </div>
+        </div>
+        <div class="screen-card-footer"><span class="nav-arrow">→ <span>Ride Confirmation</span></span></div>
+      </div>
+    </div>
+    <div class="rules-panel">
+      <div class="rules-title">EXPLORE RULES</div>
+      <div class="rule-item">Zip + radius defaults from users.zip_code and users.default_radius_miles. Both overridable inline.</div>
+      <div class="rule-item">Same GET /tracks endpoint serves Explore, Organizer Profile, Track Library, and Public Rides — different heading, same data, same filters.</div>
+      <div class="rule-item">Broad search returns mixed typed results — rides, organizers, trail names — with type labels.</div>
+      <div class="rule-item">PAST tab shows completed public rides — browsable for track donations and research before joining a future ride.</div>
+      <div class="rule-item">FOLLOW button on organizer cards inserts into follows table immediately. Email opt-in respected for broadcasts.</div>
+    </div>
+    <div class="schema-panel">
+      <div class="schema-title">SCHEMA ADDITIONS — EXPLORE</div>
+      <div class="schema-item">users.default_radius_miles TINYINT DEFAULT 50</div>
+      <div class="schema-item">users.latitude DECIMAL(10,7) NULL — for haversine radius queries</div>
+      <div class="schema-item">users.longitude DECIMAL(10,7) NULL — populated from zip at registration</div>
+      <div class="schema-item">rides.latitude DECIMAL(10,7) NULL — from trailhead or zip</div>
+      <div class="schema-item">rides.longitude DECIMAL(10,7) NULL</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- TRACKS -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div class="section" id="tracks">
+  <div class="section-header" onclick="toggle('tracks')">
+    <div class="section-icon">📍</div>
+    <div class="section-info">
+      <div class="section-name">TRACKS</div>
+      <div class="section-desc">Community track library — browse, filter, sort, download, use as route</div>
+      <div class="section-meta">1 screen with inline expand · Difficulty range slider · Zip + radius filter</div>
+    </div>
+    <div class="section-badge">1 SCREEN</div>
+    <div class="section-chevron">▼</div>
+  </div>
+  <div class="section-body">
+    <div class="screens-grid">
+      <div class="screen-card">
+        <div class="screen-card-header"><span class="screen-number">SCREEN 13</span><span class="screen-status status-new">NEW V3.0</span></div>
+        <div class="screen-card-body">
+          <div class="screen-title">Track Library</div>
+          <div class="screen-desc">Community donated tracks. Zip + radius filter. Difficulty range slider (1.0-3.0 numeric — Easy ≤1.5, Moderate 1.6-2.4, Hard ≥2.5). Sort by difficulty, would ride again %, distance, downloads. Track detail is inline expand panel — no separate screen.</div>
+          <div class="screen-fields">
+            <span class="field-tag required">Zip + radius filter</span>
+            <span class="field-tag">Difficulty range slider 1.0-3.0</span>
+            <span class="field-tag">Sort: difficulty ASC/DESC</span>
+            <span class="field-tag">Sort: would ride again % ASC/DESC</span>
+            <span class="field-tag">Sort: distance ASC/DESC</span>
+            <span class="field-tag">Sort: downloads ASC/DESC</span>
+            <span class="field-tag">Search by name</span>
+            <span class="field-tag">Inline expand: mini map + stats</span>
+            <span class="field-tag">Inline expand: would ride again %</span>
+            <span class="field-tag">Inline expand: avg difficulty score</span>
+            <span class="field-tag schema">ride_tracks.bounds_*</span>
+            <span class="field-tag schema">Auto tile download on download</span>
+          </div>
+        </div>
+        <div class="screen-card-footer"><span class="nav-arrow">→ <span>Map (tiles auto-download)</span></span></div>
+      </div>
+    </div>
+    <div class="rules-panel">
+      <div class="rules-title">TRACKS RULES</div>
+      <div class="rule-item">Difficulty score numeric: Easy = 1.0, Moderate = 2.0, Hard = 3.0. Average computed from all survey responses for rides that used this track.</div>
+      <div class="rule-item">Would ride again % = COUNT(recommend=Yes) / COUNT(*) from ride_surveys for rides using this track.</div>
+      <div class="rule-item">Downloading a track automatically queues map tile download for the track bounding box. Same mechanism as invite acceptance.</div>
+      <div class="rule-item">Track detail is an inline expand panel — not a separate screen. Tap to expand, shows mini map with GPX line, distance, elevation, stats, would ride again %, download button.</div>
+      <div class="rule-item">USE AS ROUTE sets rides.route_id when organizer creates next ride. Track selected from library, not imported again.</div>
+      <div class="rule-item">SOLO mode riders can download tracks as reference overlays on the map. No radio or ride needed.</div>
+    </div>
+    <div class="schema-panel">
+      <div class="schema-title">SCHEMA ADDITIONS — TRACKS</div>
+      <div class="schema-item">ride_tracks.bounds_north DECIMAL(10,7) NULL — computed at upload</div>
+      <div class="schema-item">ride_tracks.bounds_south DECIMAL(10,7) NULL</div>
+      <div class="schema-item">ride_tracks.bounds_east DECIMAL(10,7) NULL</div>
+      <div class="schema-item">ride_tracks.bounds_west DECIMAL(10,7) NULL</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- PROFILE -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div class="section" id="profile">
+  <div class="section-header" onclick="toggle('profile')">
+    <div class="section-icon">👤</div>
+    <div class="section-info">
+      <div class="section-name">PROFILE</div>
+      <div class="section-desc">Account, ride history, following, organizer opt-in</div>
+      <div class="section-meta">4 screens · Ride history most recent first · Inline expand panel</div>
+    </div>
+    <div class="section-badge">4 SCREENS</div>
+    <div class="section-chevron">▼</div>
+  </div>
+  <div class="section-body">
+    <div class="screens-grid">
+      <div class="screen-card">
+        <div class="screen-card-header"><span class="screen-number">SCREEN 14</span><span class="screen-status status-new">NEW V3.0</span></div>
+        <div class="screen-card-body">
+          <div class="screen-title">My Profile</div>
+          <div class="screen-desc">Account info, edit fields, notification settings, organizer opt-in, links to history and following. Vehicle / Equipment is optional. Role badge shows PARTICIPANT or PARTICIPANT + ORGANIZER.</div>
+          <div class="screen-fields">
+            <span class="field-tag">Name (from Google)</span>
+            <span class="field-tag">Email (from Google)</span>
+            <span class="field-tag required">Cell number</span>
+            <span class="field-tag required">Zip code</span>
+            <span class="field-tag required">Default radius</span>
+            <span class="field-tag">Callsign</span>
+            <span class="field-tag">Vehicle / Equipment (optional)</span>
+            <span class="field-tag">Email notifications toggle</span>
+            <span class="field-tag">BECOME AN ORGANIZER</span>
+          </div>
+        </div>
+        <div class="screen-card-footer"><span class="nav-arrow">→ <span>Become Organizer</span></span><span class="nav-arrow">→ <span>Ride History</span></span><span class="nav-arrow">→ <span>Following</span></span></div>
+      </div>
+      <div class="screen-card">
+        <div class="screen-card-header"><span class="screen-number">SCREEN 15</span><span class="screen-status status-new">NEW V3.0</span></div>
+        <div class="screen-card-body">
+          <div class="screen-title">Become Organizer</div>
+          <div class="screen-desc">Organizer agreement — full text, scrollable, checkbox required. Hard gate — is_organizer cannot be set without acceptance. Version tracked for re-acceptance on update.</div>
+          <div class="screen-fields">
+            <span class="field-tag required">Scroll + checkbox</span>
+            <span class="field-tag schema">organizer_terms_accepted_at</span>
+            <span class="field-tag schema">organizer_terms_version</span>
+            <span class="field-tag schema">is_organizer = TRUE</span>
+          </div>
+        </div>
+        <div class="screen-card-footer"><span class="nav-arrow">→ <span>Profile (organizer unlocked)</span></span></div>
+      </div>
+      <div class="screen-card">
+        <div class="screen-card-header"><span class="screen-number">SCREEN 16</span><span class="screen-status status-new">NEW V3.0</span></div>
+        <div class="screen-card-body">
+          <div class="screen-title">Ride History</div>
+          <div class="screen-desc">All rides attended. Most recent first. Inline expand panel per ride — mini map with GPX track line (if donated), distance, duration, elevation, avg difficulty score, would ride again %, ADD NOTES button.</div>
+          <div class="screen-fields">
+            <span class="field-tag">Most recent first</span>
+            <span class="field-tag">Inline expand panel</span>
+            <span class="field-tag">Mini map + GPX track if donated</span>
+            <span class="field-tag">Avg difficulty score</span>
+            <span class="field-tag">Would ride again %</span>
+            <span class="field-tag">ADD NOTES (post-ride, at leisure)</span>
+            <span class="field-tag schema">PATCH /ride/survey/{id}</span>
+          </div>
+        </div>
+        <div class="screen-card-footer"></div>
+      </div>
+      <div class="screen-card">
+        <div class="screen-card-header"><span class="screen-number">SCREEN 17</span><span class="screen-status status-new">NEW V3.0</span></div>
+        <div class="screen-card-body">
+          <div class="screen-title">Following</div>
+          <div class="screen-desc">List of organizers this rider follows. UNFOLLOW button. On unfollow: deletes pending email_queue rows for this user simultaneously.</div>
+          <div class="screen-fields">
+            <span class="field-tag">Organizer name + ride count</span>
+            <span class="field-tag">Location</span>
+            <span class="field-tag">UNFOLLOW button</span>
+            <span class="field-tag schema">DELETE pending email_queue on unfollow</span>
+          </div>
+        </div>
+        <div class="screen-card-footer"><span class="nav-arrow">→ <span>Explore (find more)</span></span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- CONVOY MAP (V2.4) -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div class="section" id="convoy">
+  <div class="section-header" onclick="toggle('convoy')">
+    <div class="section-icon">🗺</div>
+    <div class="section-info">
+      <div class="section-name">CONVOY MAP</div>
+      <div class="section-desc">V2.4 — Complete and proven. No redesign. RideState controls behavior only.</div>
+      <div class="section-meta">Accessed from Meshtastic nav · Not part of GroupTrack menu</div>
+    </div>
+    <div class="section-badge status-v24" style="background:rgba(240,165,0,0.1);border:1px solid var(--amber);color:var(--amber);font-family:'Share Tech Mono',monospace;font-size:10px;padding:3px 8px;border-radius:20px;">V2.4 COMPLETE</div>
+    <div class="section-chevron">▼</div>
+  </div>
+  <div class="section-body">
+    <div class="rules-panel">
+      <div class="rules-title">CONVOY MAP — V3.0 BEHAVIORAL ADDITIONS ONLY</div>
+      <div class="rule-item">Map UI, HUD, lead lock, node markers, trail segments — all V2.4 complete. No redesign.</div>
+      <div class="rule-item">SOLO state (node ≤ 1): GPS trail displayed in real time from device GPS. gpsTrailSegments already computed — display condition added only.</div>
+      <div class="rule-item">CONVOY state (node > 1, no ride): existing V2.4 behavior unchanged.</div>
+      <div class="rule-item">ORGANIZED state (ride loaded): existing V2.4 behavior + route overlay from ride_tracks if route_id set.</div>
+      <div class="rule-item">STOP RECORD triggers survey dialog (ORGANIZED) or simple name dialog (SOLO/CONVOY) based on RideState.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- STOP RECORD -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div class="section" id="stoprecord">
+  <div class="section-header" onclick="toggle('stoprecord')">
+    <div class="section-icon">⏹</div>
+    <div class="section-info">
+      <div class="section-name">STOP RECORD</div>
+      <div class="section-desc">Two dialog paths controlled by RideState — simple (SOLO/CONVOY) or survey+save (ORGANIZED)</div>
+      <div class="section-meta">2 dialog variants · Survey queued locally · Uploads on next connectivity</div>
+    </div>
+    <div class="section-badge">2 DIALOGS</div>
+    <div class="section-chevron">▼</div>
+  </div>
+  <div class="section-body">
+    <div class="screens-grid">
+      <div class="screen-card">
+        <div class="screen-card-header"><span class="screen-number">DIALOG A</span><span class="screen-status status-v24">SOLO / CONVOY</span></div>
+        <div class="screen-card-body">
+          <div class="screen-title">Simple Track Save</div>
+          <div class="screen-desc">No survey. Track name required — SAVE disabled until filled. Track saved to device tracks directory. No database impact. No donation.</div>
+          <div class="screen-fields">
+            <span class="field-tag required">Track name</span>
+            <span class="field-tag">Saved to filesDir/my_tracks/</span>
+            <span class="field-tag">GPX format (default)</span>
+          </div>
+        </div>
+        <div class="screen-card-footer"><span class="nav-arrow">→ <span>Map (IDLE)</span></span></div>
+      </div>
+      <div class="screen-card">
+        <div class="screen-card-header"><span class="screen-number">DIALOG B</span><span class="screen-status status-new">ORGANIZED</span></div>
+        <div class="screen-card-body">
+          <div class="screen-title">Survey + Track Save</div>
+          <div class="screen-desc">Three checkboxes above track name. Fast — 15 seconds in field. Survey queued locally, uploads when connectivity returns. Track donated if share checked.</div>
+          <div class="screen-fields">
+            <span class="field-tag">Difficulty: Easy/Moderate/Hard</span>
+            <span class="field-tag">Would ride again: Yes/No</span>
+            <span class="field-tag">Share track with community: Yes/No</span>
+            <span class="field-tag required">Track name (pre-filled from ride name)</span>
+            <span class="field-tag">SKIP SURVEY saves track only</span>
+            <span class="field-tag schema">ride_surveys queued locally</span>
+            <span class="field-tag schema">ride_tracks uploaded if shared</span>
+          </div>
+        </div>
+        <div class="screen-card-footer"><span class="nav-arrow">→ <span>Map (IDLE)</span></span></div>
+      </div>
+    </div>
+    <div class="rules-panel">
+      <div class="rules-title">STOP RECORD RULES</div>
+      <div class="rule-item">RideState determines which dialog appears. SOLO or CONVOY → Dialog A. ORGANIZED → Dialog B.</div>
+      <div class="rule-item">Track name pre-populated from active ride name in ORGANIZED state. Rider can edit.</div>
+      <div class="rule-item">SAVE disabled until track name is not empty in both dialogs.</div>
+      <div class="rule-item">Survey queued to SharedPreferences immediately. Uploaded via PATCH /ride/survey on next connectivity — radio offline is irrelevant.</div>
+      <div class="rule-item">Track donation: MD5 computed on device, POST /ride/survey with track_donation payload. Silent discard if hash exists.</div>
+      <div class="rule-item">Post-ride notes entered later from Ride History expand panel — not at STOP time. No notes field in the field dialog.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- SCHEMA CHANGES SUMMARY -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div class="section" id="schema">
+  <div class="section-header" onclick="toggle('schema')">
+    <div class="section-icon">🗄</div>
+    <div class="section-info">
+      <div class="section-name">SCHEMA CHANGES REQUIRED</div>
+      <div class="section-desc">All additions to RDS identified tonight — apply before Phase B</div>
+      <div class="section-meta">ALTER TABLE statements only — no existing columns modified</div>
+    </div>
+    <div class="section-badge">12 COLUMNS</div>
+    <div class="section-chevron">▼</div>
+  </div>
+  <div class="section-body">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px;">
+      <div class="schema-panel">
+        <div class="schema-title">rides TABLE</div>
+        <div class="schema-item">start_time TIME NULL</div>
+        <div class="schema-item">trailhead_lat DECIMAL(10,7) NULL</div>
+        <div class="schema-item">trailhead_lon DECIMAL(10,7) NULL</div>
+        <div class="schema-item">trailhead_name VARCHAR(255) NULL</div>
+        <div class="schema-item">latitude DECIMAL(10,7) NULL</div>
+        <div class="schema-item">longitude DECIMAL(10,7) NULL</div>
+      </div>
+      <div class="schema-panel">
+        <div class="schema-title">users TABLE</div>
+        <div class="schema-item">default_radius_miles TINYINT DEFAULT 50</div>
+        <div class="schema-item">latitude DECIMAL(10,7) NULL</div>
+        <div class="schema-item">longitude DECIMAL(10,7) NULL</div>
+        <div class="schema-item">fcm_token VARCHAR(255) NULL</div>
+        <div class="schema-item">fcm_token_updated DATETIME NULL</div>
+      </div>
+      <div class="schema-panel">
+        <div class="schema-title">ride_tracks TABLE</div>
+        <div class="schema-item">bounds_north DECIMAL(10,7) NULL</div>
+        <div class="schema-item">bounds_south DECIMAL(10,7) NULL</div>
+        <div class="schema-item">bounds_east DECIMAL(10,7) NULL</div>
+        <div class="schema-item">bounds_west DECIMAL(10,7) NULL</div>
+      </div>
+      <div class="schema-panel">
+        <div class="schema-title">DEPLOYMENT NOTE</div>
+        <div class="schema-item">All nullable — no existing rows affected</div>
+        <div class="schema-item">Run as ALTER TABLE before Phase B begins</div>
+        <div class="schema-item">No data migration needed</div>
+        <div class="schema-item">FCM columns added when Firebase integrated (V3.1)</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- RIDESTATE RULES -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div class="section" id="ridestate">
+  <div class="section-header" onclick="toggle('ridestate')">
+    <div class="section-icon">⚡</div>
+    <div class="section-info">
+      <div class="section-name">RIDESTATE RULES</div>
+      <div class="section-desc">Three states controlling map display, survey, and track donation</div>
+      <div class="section-meta">Computed every tick · Channel name + date match · Zero V2.4 behavior change</div>
+    </div>
+    <div class="section-badge">3 STATES</div>
+    <div class="section-chevron">▼</div>
+  </div>
+  <div class="section-body">
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:16px;">
+      <div style="background:var(--navy-deep);border:1px solid var(--grey-dark);border-radius:10px;padding:16px;">
+        <div style="font-family:'Rajdhani',sans-serif;font-size:18px;font-weight:700;color:var(--grey-mid);margin-bottom:8px;">SOLO</div>
+        <div style="font-size:12px;color:var(--grey-mid);margin-bottom:12px;">Node count ≤ 1, no ride loaded</div>
+        <div style="font-size:12px;line-height:1.8;">
+          <div>🗺 GPS trail in real time</div>
+          <div>⏹ Simple save dialog</div>
+          <div>📤 No donation</div>
+          <div>🗄 No DB impact</div>
+        </div>
+      </div>
+      <div style="background:var(--navy-deep);border:1px solid var(--amber);border-radius:10px;padding:16px;">
+        <div style="font-family:'Rajdhani',sans-serif;font-size:18px;font-weight:700;color:var(--amber);margin-bottom:8px;">CONVOY</div>
+        <div style="font-size:12px;color:var(--grey-mid);margin-bottom:12px;">Node count > 1, no ride loaded</div>
+        <div style="font-size:12px;line-height:1.8;">
+          <div>🗺 Convoy trail from lead</div>
+          <div>⏹ Simple save dialog</div>
+          <div>📤 No donation</div>
+          <div>🗄 No DB impact</div>
+        </div>
+      </div>
+      <div style="background:var(--navy-deep);border:1px solid var(--green);border-radius:10px;padding:16px;">
+        <div style="font-family:'Rajdhani',sans-serif;font-size:18px;font-weight:700;color:var(--green);margin-bottom:8px;">ORGANIZED</div>
+        <div style="font-size:12px;color:var(--grey-mid);margin-bottom:12px;">Ride loaded — channel + date match</div>
+        <div style="font-size:12px;line-height:1.8;">
+          <div>🗺 Convoy + route overlay</div>
+          <div>⏹ Survey + save dialog</div>
+          <div>📤 Track donation eligible</div>
+          <div>🗄 Full DB impact</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- end sections -->
+</div><!-- end main -->
+
+<script>
+function toggle(id) {
+  const el = document.getElementById(id);
+  el.classList.toggle('open');
+}
+function toggleAll() {
+  const sections = document.querySelectorAll('.section');
+  const allOpen = Array.from(sections).every(s => s.classList.contains('open'));
+  sections.forEach(s => allOpen ? s.classList.remove('open') : s.classList.add('open'));
+  document.querySelector('.expand-all').textContent = allOpen ? 'EXPAND ALL' : 'COLLAPSE ALL';
+}
+function scrollTo(id) {
+  document.getElementById(id).scrollIntoView({behavior:'smooth', block:'start'});
+  if (!document.getElementById(id).classList.contains('open')) toggle(id);
+}
+</script>
+</body>
+</html>

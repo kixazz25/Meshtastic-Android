@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GroupTrack V3.0 — Map Functions Definition</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=Share+Tech+Mono&family=Exo+2:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --nd: #0F1E2E; --nm: #1E3250; --sky: #4AB8E8; --skd: #2E8FBB;
+  --org: #F5A623; --od: #C4820F; --grn: #00AA44; --red: #CC2222;
+  --gm: #7A9EC0; --gd: #445566; --bdr: rgba(74,184,232,0.2);
+  --purple: #6B4EFF; --yellow: #f9c835;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:#080F1A; font-family:"Exo 2",sans-serif; color:#fff; min-height:100vh; }
+
+/* SIDEBAR */
+.sidebar { width:260px; min-width:260px; background:rgba(8,15,26,0.98); border-right:1px solid var(--bdr); height:100vh; position:fixed; top:0; left:0; overflow-y:auto; z-index:100; }
+.logo-bar { padding:14px 16px; border-bottom:1px solid var(--bdr); }
+.logo { font-family:"Rajdhani",sans-serif; font-size:22px; font-weight:700; }
+.logo .g { color:var(--org); } .logo .t { color:var(--sky); }
+.logo-sub { font-family:"Share Tech Mono",monospace; font-size:8px; color:var(--gm); letter-spacing:2px; margin-top:2px; }
+
+.nav-section { border-bottom:1px solid var(--bdr); }
+.nav-header { padding:10px 14px; font-family:"Rajdhani",sans-serif; font-size:11px; font-weight:700; color:var(--gm); letter-spacing:2px; text-transform:uppercase; }
+.nav-item { display:block; padding:8px 14px 8px 24px; font-size:11px; color:var(--gm); cursor:pointer; border-left:2px solid transparent; text-decoration:none; }
+.nav-item:hover { background:rgba(74,184,232,0.05); border-left-color:rgba(74,184,232,0.3); color:#fff; }
+.nav-item.active { background:rgba(74,184,232,0.1); border-left-color:var(--sky); color:#fff; }
+
+/* MAIN */
+.main { margin-left:260px; padding:32px 40px; max-width:1100px; }
+
+.page-title { font-family:"Rajdhani",sans-serif; font-size:36px; font-weight:700; margin-bottom:4px; }
+.page-title .g { color:var(--org); } .page-title .t { color:var(--sky); }
+.page-sub { font-family:"Share Tech Mono",monospace; font-size:10px; color:var(--gm); letter-spacing:2px; margin-bottom:32px; }
+
+/* SECTIONS */
+.section { margin-bottom:48px; }
+.section-title { font-family:"Rajdhani",sans-serif; font-size:22px; font-weight:700; color:var(--sky); letter-spacing:2px; text-transform:uppercase; margin-bottom:16px; padding-bottom:8px; border-bottom:1px solid var(--bdr); display:flex; align-items:center; gap:10px; }
+.section-num { font-family:"Share Tech Mono",monospace; font-size:12px; color:var(--gm); }
+.subsection { margin-bottom:28px; }
+.subsection-title { font-family:"Rajdhani",sans-serif; font-size:16px; font-weight:600; color:var(--org); letter-spacing:1px; margin-bottom:12px; }
+.body-text { font-size:13px; color:#ccc; line-height:1.7; margin-bottom:12px; }
+
+/* TABLES */
+.tbl-wrap { overflow-x:auto; margin-bottom:16px; }
+table { width:100%; border-collapse:collapse; font-size:12px; }
+thead tr { background:var(--sky); }
+thead th { padding:9px 12px; text-align:left; font-family:"Rajdhani",sans-serif; font-weight:700; font-size:11px; letter-spacing:1px; color:var(--nd); }
+tbody tr:nth-child(odd) { background:rgba(255,255,255,0.03); }
+tbody tr:nth-child(even) { background:rgba(255,255,255,0.01); }
+tbody tr:hover { background:rgba(74,184,232,0.06); }
+tbody td { padding:8px 12px; color:#ccc; vertical-align:top; border-bottom:1px solid rgba(74,184,232,0.08); line-height:1.5; }
+tbody td:first-child { color:#fff; font-weight:500; white-space:nowrap; }
+
+/* CARDS */
+.card-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px; margin-bottom:16px; }
+.card { background:rgba(255,255,255,0.04); border:1px solid var(--bdr); border-radius:10px; padding:14px; }
+.card-title { font-family:"Rajdhani",sans-serif; font-size:13px; font-weight:700; color:var(--sky); letter-spacing:1px; margin-bottom:6px; }
+.card-body { font-size:11px; color:#aaa; line-height:1.6; }
+
+/* BADGES */
+.badge { display:inline-block; padding:2px 8px; border-radius:20px; font-family:"Share Tech Mono",monospace; font-size:9px; font-weight:700; letter-spacing:1px; margin:2px; }
+.badge-sky { background:rgba(74,184,232,0.15); color:var(--sky); border:1px solid var(--sky); }
+.badge-org { background:rgba(245,166,35,0.15); color:var(--org); border:1px solid var(--org); }
+.badge-grn { background:rgba(0,170,68,0.15); color:var(--grn); border:1px solid var(--grn); }
+.badge-red { background:rgba(204,34,34,0.15); color:var(--red); border:1px solid var(--red); }
+.badge-gm  { background:rgba(122,158,192,0.15); color:var(--gm); border:1px solid var(--gm); }
+.badge-purple { background:rgba(107,78,255,0.15); color:#a98fff; border:1px solid #6B4EFF; }
+
+/* NOTE BOX */
+.note { background:rgba(245,166,35,0.07); border:1px solid rgba(245,166,35,0.3); border-radius:7px; padding:10px 14px; font-size:11px; color:var(--org); margin-bottom:14px; line-height:1.6; }
+.note strong { color:#fff; }
+
+/* RULE BOX */
+.rule-box { background:rgba(204,34,34,0.07); border:1px solid rgba(204,34,34,0.3); border-radius:7px; padding:10px 14px; font-size:11px; color:#ff8888; margin-bottom:14px; line-height:1.6; }
+.rule-box strong { color:#fff; }
+
+/* CODE */
+.code { background:rgba(0,0,0,0.4); border:1px solid var(--bdr); border-radius:6px; padding:12px 16px; font-family:"Share Tech Mono",monospace; font-size:11px; color:#a8d8ff; margin-bottom:16px; line-height:1.8; overflow-x:auto; }
+.code .kw { color:var(--sky); } .code .cm { color:var(--gm); font-style:italic; }
+
+/* LAYER PANEL MOCKUP */
+.layer-panel { background:rgba(10,20,36,0.95); border:1px solid var(--bdr); border-radius:10px; width:260px; overflow:hidden; }
+.layer-panel-header { padding:10px 14px; background:var(--nm); border-bottom:1px solid var(--bdr); font-family:"Rajdhani",sans-serif; font-size:13px; font-weight:700; color:var(--sky); letter-spacing:2px; }
+.layer-row { border-bottom:1px solid var(--bdr); }
+.layer-head { padding:9px 14px; display:flex; align-items:center; gap:8px; cursor:pointer; }
+.layer-head:hover { background:rgba(74,184,232,0.05); }
+.layer-icon { font-size:14px; width:20px; text-align:center; }
+.layer-name { font-family:"Rajdhani",sans-serif; font-size:12px; font-weight:700; letter-spacing:1px; flex:1; }
+.layer-count { font-family:"Share Tech Mono",monospace; font-size:9px; color:var(--gm); }
+.toggle { width:32px; height:16px; border-radius:8px; position:relative; cursor:pointer; flex-shrink:0; }
+.toggle.on { background:var(--sky); }
+.toggle.off { background:var(--nm); border:1px solid var(--gd); }
+.toggle-dot { width:12px; height:12px; border-radius:50%; background:white; position:absolute; top:2px; transition:left 0.15s; }
+.toggle.on .toggle-dot { left:18px; }
+.toggle.off .toggle-dot { left:1px; }
+.layer-assets { background:rgba(0,0,0,0.3); display:none; }
+.layer-assets.open { display:block; }
+.asset-card { padding:8px 14px; border-bottom:1px solid rgba(74,184,232,0.06); cursor:pointer; }
+.asset-card:hover { background:rgba(74,184,232,0.05); }
+.asset-name { font-size:11px; color:#fff; margin-bottom:2px; }
+.asset-meta { font-family:"Share Tech Mono",monospace; font-size:9px; color:var(--gm); }
+.map-vignette { height:50px; background:linear-gradient(135deg,#1a3a2a,#0d2518); border-radius:4px; margin:6px 0; position:relative; overflow:hidden; }
+.map-vignette::before { content:""; position:absolute; inset:0; background:repeating-linear-gradient(0deg,rgba(74,184,232,0.02) 0,transparent 1px,transparent 20px,rgba(74,184,232,0.02) 21px),repeating-linear-gradient(90deg,rgba(74,184,232,0.02) 0,transparent 1px,transparent 20px,rgba(74,184,232,0.02) 21px); }
+.layer-search { padding:8px 10px; }
+.layer-search input { width:100%; background:rgba(255,255,255,0.05); border:1px solid var(--bdr); border-radius:5px; padding:6px 10px; font-family:"Share Tech Mono",monospace; font-size:10px; color:#fff; outline:none; }
+.layer-search input::placeholder { color:var(--gd); }
+
+/* Z-ORDER VIZ */
+.zorder { display:flex; flex-direction:column-reverse; gap:3px; width:100%; max-width:500px; }
+.zlayer { padding:8px 14px; border-radius:5px; font-family:"Share Tech Mono",monospace; font-size:10px; display:flex; align-items:center; gap:10px; }
+.znum { width:24px; height:24px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:10px; flex-shrink:0; }
+
+/* MAP MOCKUP */
+.map-mock { background:linear-gradient(135deg,#1a3a2a,#0d2518,#1a3535); border-radius:12px; height:320px; position:relative; overflow:hidden; border:1px solid var(--bdr); }
+.map-mock::before { content:""; position:absolute; inset:0; background:repeating-linear-gradient(0deg,rgba(74,184,232,0.015) 0,transparent 1px,transparent 40px,rgba(74,184,232,0.015) 41px),repeating-linear-gradient(90deg,rgba(74,184,232,0.015) 0,transparent 1px,transparent 40px,rgba(74,184,232,0.015) 41px); }
+.map-bar { position:absolute; top:10px; right:10px; background:rgba(14,28,46,0.93); border:1px solid var(--bdr); border-radius:8px; padding:6px 10px; min-width:200px; }
+.map-bar-r1 { display:flex; align-items:center; justify-content:space-between; margin-bottom:5px; }
+.map-bar-r2 { display:flex; gap:4px; }
+.chevron { font-size:10px; color:var(--gm); cursor:pointer; margin-right:6px; }
+.map-label { font-family:"Share Tech Mono",monospace; font-size:10px; color:var(--sky); font-weight:700; flex:1; }
+.net-local { display:flex; align-items:center; gap:4px; }
+.net-txt { font-family:"Share Tech Mono",monospace; font-size:8px; color:var(--grn); font-weight:700; }
+.net-sw { width:28px; height:14px; border-radius:7px; background:rgba(0,170,68,0.3); border:1px solid var(--grn); position:relative; }
+.net-sw-dot { width:10px; height:10px; border-radius:50%; background:var(--grn); position:absolute; top:1px; right:1px; }
+.layer-btn { padding:3px 8px; border-radius:4px; font-family:"Share Tech Mono",monospace; font-size:9px; font-weight:700; cursor:pointer; flex:1; text-align:center; }
+.layer-btn.active { background:var(--sky); color:var(--nd); }
+.layer-btn:not(.active) { background:rgba(255,255,255,0.06); color:var(--gm); border:1px solid var(--bdr); }
+
+/* SVG TRACKS ON MAP */
+.map-svg { position:absolute; inset:0; width:100%; height:100%; }
+
+/* TRAILHEAD */
+.trailhead-pin { position:absolute; display:flex; flex-direction:column; align-items:center; cursor:pointer; }
+.pin-circle { width:16px; height:16px; border-radius:50%; background:var(--org); border:2px solid white; display:flex; align-items:center; justify-content:center; font-size:8px; font-weight:700; color:var(--nd); box-shadow:0 2px 8px rgba(0,0,0,0.5); }
+.pin-label { font-family:"Share Tech Mono",monospace; font-size:8px; color:var(--org); background:rgba(8,15,26,0.85); padding:2px 5px; border-radius:3px; white-space:nowrap; margin-top:2px; }
+
+/* VIEWPORT INDICATOR */
+.viewport-box { position:absolute; inset:20px; border:2px dashed rgba(74,184,232,0.3); border-radius:4px; pointer-events:none; }
+.viewport-label { position:absolute; bottom:4px; left:50%; transform:translateX(-50%); font-family:"Share Tech Mono",monospace; font-size:8px; color:rgba(74,184,232,0.5); }
+
+.divider { height:1px; background:var(--bdr); margin:32px 0; }
+</style>
+</head>
+<body>
+
+<div class="sidebar">
+  <div class="logo-bar">
+    <div class="logo"><span class="g">Group</span><span class="t">Track</span></div>
+    <div class="logo-sub">V3.0 MAP FUNCTIONS · APR 10 2026</div>
+  </div>
+  <div class="nav-section">
+    <div class="nav-header">Architecture</div>
+    <a class="nav-item active" href="#arch">Map Architecture</a>
+    <a class="nav-item" href="#assets">Asset Types</a>
+    <a class="nav-item" href="#storage">Track Storage</a>
+  </div>
+  <div class="nav-section">
+    <div class="nav-header">Display Rules</div>
+    <a class="nav-item" href="#vignette">Vignette Rules</a>
+    <a class="nav-item" href="#layers">Layer Panel</a>
+    <a class="nav-item" href="#viewport">Viewport Rules</a>
+    <a class="nav-item" href="#zorder">Z-Order</a>
+  </div>
+  <div class="nav-section">
+    <div class="nav-header">Data</div>
+    <a class="nav-item" href="#bbox">Bounding Box</a>
+    <a class="nav-item" href="#rides">Ride Gate</a>
+    <a class="nav-item" href="#download">Download Layers</a>
+    <a class="nav-item" href="#schema">RDS Schema</a>
+    <a class="nav-item" href="#queries">SQL Queries</a>
+  </div>
+</div>
+
+<div class="main">
+  <div class="page-title"><span class="g">Group</span><span class="t">Track</span></div>
+  <div class="page-sub">V3.0 MAP FUNCTIONS DEFINITION · APRIL 10, 2026 · CONFIDENTIAL</div>
+
+  <!-- ARCHITECTURE -->
+  <div class="section" id="arch">
+    <div class="section-title"><span class="section-num">01</span> Map Architecture</div>
+    <div class="subsection">
+      <div class="body-text">V3.0 separates map functionality into two distinct maps. The Convoy Map remains operational and focused. The Planning Map is a new greenfield screen in the Maps section of the bottom nav.</div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Map</th><th>Purpose</th><th>Functions</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><span class="badge badge-sky">CONVOY MAP</span></td>
+              <td>Operational — launched from main nav during a ride</td>
+              <td>Live node tracking, HUD, track recording, layer switch, NET/LOCAL toggle, show downloaded areas, KML/GPX overlay (read-only, from library)</td>
+            </tr>
+            <tr>
+              <td><span class="badge badge-org">PLANNING MAP</span></td>
+              <td>Planning — dedicated Maps section in bottom nav</td>
+              <td>Waypoint creation, track/route overlays, area search, tile download management, layer preferences, storage management, AWS coverage display, route planner, download region draw</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="note"><strong>Rule:</strong> Planning Map functions never bleed into Convoy Map. During a ride the screen stays clean and operationally focused. All asset management lives in the Maps section.</div>
+
+      <!-- MAP BAR MOCKUP -->
+      <div class="subsection-title">Map Bar — Two-Row Layout (V2.4 Current)</div>
+      <div class="map-mock">
+        <svg class="map-svg">
+          <!-- Track lines -->
+          <polyline points="40,280 80,230 120,190 160,150 200,110 240,80" stroke="#6B4EFF" stroke-width="2.5" fill="none"/>
+          <polyline points="60,290 95,250 130,210 170,165 210,120" stroke="#00d4cc" stroke-width="2.5" fill="none" stroke-dasharray="6,3"/>
+          <!-- Downloaded area overlay -->
+          <rect x="30" y="70" width="200" height="220" fill="rgba(74,184,232,0.08)" stroke="rgba(74,184,232,0.2)" stroke-width="1"/>
+        </svg>
+        <!-- Trailhead -->
+        <div class="trailhead-pin" style="left:36px;top:272px;">
+          <div class="pin-circle">T</div>
+          <div class="pin-label">TRAILHEAD</div>
+        </div>
+        <!-- Map bar -->
+        <div class="map-bar">
+          <div class="map-bar-r1">
+            <span class="chevron">▼</span>
+            <span class="map-label">MAP &nbsp;SAT</span>
+            <div class="net-local">
+              <span class="net-txt">NET</span>
+              <div class="net-sw"><div class="net-sw-dot"></div></div>
+            </div>
+          </div>
+          <div class="map-bar-r2">
+            <div class="layer-btn active">SAT</div>
+            <div class="layer-btn">HYB</div>
+            <div class="layer-btn">TOPO</div>
+            <div class="layer-btn">RD</div>
+          </div>
+        </div>
+        <div class="viewport-box"><div class="viewport-label">CURRENT VIEWPORT — ASSETS SHOWN WITHIN THIS AREA ONLY</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ASSET TYPES -->
+  <div class="section" id="assets">
+    <div class="section-title"><span class="section-num">02</span> Asset Types</div>
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-title">⬛ TRACK</div>
+        <div class="card-body">Recorded path — already ridden. GPX or KML. Solid line display. Color from assigned palette or default <span style="color:#a98fff">#6B4EFF</span>.</div>
+      </div>
+      <div class="card">
+        <div class="card-title" style="color:var(--org)">-- ROUTE</div>
+        <div class="card-body">Planned path — not yet ridden. GPX or KML. Dashed line display. Orange <span style="color:var(--org)">#F5A623</span>. Types: LOOP, OUT &amp; BACK, POINT TO POINT.</div>
+      </div>
+      <div class="card">
+        <div class="card-title" style="color:var(--org)">⊙ TRAILHEAD</div>
+        <div class="card-body">Named meeting/start point. Waypoint subtype with icon_type=TRAILHEAD. Always visible on map regardless of toggle state.</div>
+      </div>
+      <div class="card">
+        <div class="card-title" style="color:var(--gm)">⬡ WAYPOINT</div>
+        <div class="card-body">Single named point. Types: HAZARD, LANDMARK, MEETING POINT. Standard pins, OFF by default in layer panel.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TRACK STORAGE -->
+  <div class="section" id="storage">
+    <div class="section-title"><span class="section-num">03</span> Track Storage Rules</div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Folder</th><th>Contents</th></tr></thead>
+        <tbody>
+          <tr><td>mytracks/recorded/</td><td>GPS recordings from GroupTrack</td></tr>
+          <tr><td>mytracks/imported/</td><td>Files brought in via file picker from Downloads</td></tr>
+          <tr><td>mytracks/rides/{ride_id}/</td><td>Auto-created when track associated with a ride. Copy of track — original in imported/ remains.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="rule-box"><strong>Hard rule:</strong> All tracks stored in mytracks/ folder or subfolders — no exceptions. File picker scans Downloads only, GPX and KML files only. Import copies file — original remains in Downloads.</div>
+  </div>
+
+  <!-- VIGNETTE -->
+  <div class="section" id="vignette">
+    <div class="section-title"><span class="section-num">04</span> Vignette Display Rules</div>
+    <div class="body-text">A vignette is a small map thumbnail shown on any card that references spatial data. Used consistently everywhere — import list, ride cards, track library, dashboard invite cards, route list. Tile source: HYB tiles (satellite + labels gives best context).</div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Priority</th><th>Condition</th><th>Display</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td>Track exists</td><td>Track line (solid, 2.5px, purple #6B4EFF) over HYB tile background</td></tr>
+          <tr><td>2</td><td>Route exists</td><td>Route line (dashed, 2px, orange #F5A623) over HYB tile background</td></tr>
+          <tr><td>3</td><td>Trailhead only</td><td>Orange pin marker centered on trailhead location</td></tr>
+          <tr><td>4</td><td>Bounding box only</td><td>Area rectangle with no line</td></tr>
+          <tr><td>5</td><td>No spatial data</td><td>Generic map grid placeholder</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Context</th><th>Height</th></tr></thead>
+        <tbody>
+          <tr><td>Import list card / Ride card (Dashboard, My Rides)</td><td>Full card width × 80px</td></tr>
+          <tr><td>Track Detail / Route Detail</td><td>Full card width × 165px</td></tr>
+          <tr><td>Ride Detail</td><td>Full card width × 120px</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- LAYER PANEL -->
+  <div class="section" id="layers">
+    <div class="section-title"><span class="section-num">05</span> Layer Panel — Accordion Display</div>
+    <div style="display:flex;gap:32px;flex-wrap:wrap;align-items:flex-start;">
+      <div>
+        <div class="body-text">Accordion pattern — one section open at a time. Type-level toggles only — no individual asset visibility control. No preferences stored — always opens with all types ON, all sections collapsed.</div>
+        <div class="tbl-wrap" style="max-width:500px;">
+          <table>
+            <thead><tr><th>Toggle</th><th>Default</th><th>Controls</th></tr></thead>
+            <tbody>
+              <tr><td>⊙ TRAILHEADS</td><td><span class="badge badge-grn">ON</span></td><td>All trailhead pins in viewport</td></tr>
+              <tr><td>⬛ TRACKS</td><td><span class="badge badge-grn">ON</span></td><td>All recorded tracks in viewport</td></tr>
+              <tr><td>-- ROUTES</td><td><span class="badge badge-grn">ON</span></td><td>All planned routes in viewport</td></tr>
+              <tr><td>↯ GPX / KML</td><td><span class="badge badge-grn">ON</span></td><td>All imported files in viewport</td></tr>
+              <tr><td>⬡ WAYPOINTS</td><td><span class="badge badge-gm">OFF</span></td><td>All standard waypoints in viewport</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <!-- LAYER PANEL MOCKUP -->
+      <div class="layer-panel">
+        <div class="layer-panel-header">LAYERS</div>
+        <div class="layer-row">
+          <div class="layer-head">
+            <span class="layer-icon">⊙</span>
+            <span class="layer-name">TRAILHEADS</span>
+            <span class="layer-count">(3)</span>
+            <div class="toggle on"><div class="toggle-dot"></div></div>
+          </div>
+        </div>
+        <div class="layer-row">
+          <div class="layer-head" onclick="toggleLayer(this)">
+            <span class="layer-icon">▶</span>
+            <span class="layer-name">TRACKS</span>
+            <span class="layer-count">(12)</span>
+            <div class="toggle on"><div class="toggle-dot"></div></div>
+          </div>
+        </div>
+        <div class="layer-row">
+          <div class="layer-head" onclick="toggleLayer(this)">
+            <span class="layer-icon">▼</span>
+            <span class="layer-name" style="color:var(--sky)">ROUTES</span>
+            <span class="layer-count">(4)</span>
+            <div class="toggle on"><div class="toggle-dot"></div></div>
+          </div>
+          <div class="layer-assets open">
+            <div class="asset-card">
+              <div class="map-vignette">
+                <svg style="position:absolute;inset:0;width:100%;height:100%;"><polyline points="20,45 50,30 80,20 110,15 140,18" stroke="#F5A623" stroke-width="2" fill="none" stroke-dasharray="5,3"/></svg>
+                <div style="position:absolute;left:16px;top:38px;width:8px;height:8px;border-radius:50%;background:var(--grn);"></div>
+              </div>
+              <div class="asset-name">Gooseberry Mesa Loop</div>
+              <div class="asset-meta">14.2 mi · MODERATE · LOOP</div>
+            </div>
+            <div class="asset-card">
+              <div class="map-vignette">
+                <svg style="position:absolute;inset:0;width:100%;height:100%;"><polyline points="15,48 45,35 75,22 105,12" stroke="#F5A623" stroke-width="2" fill="none" stroke-dasharray="5,3"/></svg>
+              </div>
+              <div class="asset-name">Hurricane Cliffs</div>
+              <div class="asset-meta">22.1 mi · HARD · OUT &amp; BACK</div>
+            </div>
+          </div>
+        </div>
+        <div class="layer-row">
+          <div class="layer-head">
+            <span class="layer-icon">▶</span>
+            <span class="layer-name">GPX / KML</span>
+            <span class="layer-count">(2)</span>
+            <div class="toggle on"><div class="toggle-dot"></div></div>
+          </div>
+        </div>
+        <div class="layer-row">
+          <div class="layer-head">
+            <span class="layer-icon">▶</span>
+            <span class="layer-name">WAYPOINTS</span>
+            <span class="layer-count">(8 hidden)</span>
+            <div class="toggle off"><div class="toggle-dot"></div></div>
+          </div>
+        </div>
+        <div class="layer-search">
+          <input type="text" placeholder="Search all assets...">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- VIEWPORT RULES -->
+  <div class="section" id="viewport">
+    <div class="section-title"><span class="section-num">06</span> Viewport-Driven Display</div>
+    <div class="rule-box"><strong>Hard rule:</strong> Only assets whose geometry intersects the current map viewport are shown — no exceptions. List and map display are always in sync. No asset appears in the list that is not visible in the current viewport.</div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Zoom Level</th><th>Display Rule</th></tr></thead>
+        <tbody>
+          <tr><td>Below z10</td><td>No assets rendered — layer panel shows "Zoom in to see assets"</td></tr>
+          <tr><td>z10 – z13</td><td>Trailheads only, clustered</td></tr>
+          <tr><td>z14 – z16</td><td>Trailheads + track/route lines simplified, waypoints clustered</td></tr>
+          <tr><td>z17 – z18</td><td>Full detail, all types, all points, labels visible</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Z-ORDER -->
+  <div class="section" id="zorder">
+    <div class="section-title"><span class="section-num">07</span> Layer Z-Order</div>
+    <div class="zorder">
+      <div class="zlayer" style="background:rgba(26,58,42,0.8);border:1px solid rgba(74,184,232,0.15);">
+        <div class="znum" style="background:rgba(74,184,232,0.2);color:var(--sky);">1</div>
+        <span style="font-size:11px;color:#aaa;">Tile base layer (SAT / HYB / TOPO / RD)</span>
+      </div>
+      <div class="zlayer" style="background:rgba(74,184,232,0.08);border:1px solid rgba(74,184,232,0.2);">
+        <div class="znum" style="background:rgba(74,184,232,0.2);color:var(--sky);">2</div>
+        <span style="font-size:11px;color:#aaa;">Downloaded area overlay <span style="color:var(--sky)">(blue fill)</span></span>
+      </div>
+      <div class="zlayer" style="background:rgba(0,170,68,0.06);border:1px solid rgba(0,170,68,0.2);">
+        <div class="znum" style="background:rgba(0,170,68,0.2);color:var(--grn);">3</div>
+        <span style="font-size:11px;color:#aaa;">AWS available overlay <span style="color:var(--grn)">(second color — V3 addition)</span></span>
+      </div>
+      <div class="zlayer" style="background:rgba(107,78,255,0.06);border:1px solid rgba(107,78,255,0.2);">
+        <div class="znum" style="background:rgba(107,78,255,0.2);color:#a98fff;">4</div>
+        <span style="font-size:11px;color:#aaa;">Tracks <span style="color:#a98fff">(solid lines, oldest to newest)</span></span>
+      </div>
+      <div class="zlayer" style="background:rgba(245,166,35,0.06);border:1px solid rgba(245,166,35,0.2);">
+        <div class="znum" style="background:rgba(245,166,35,0.2);color:var(--org);">5</div>
+        <span style="font-size:11px;color:#aaa;">Routes <span style="color:var(--org)">(dashed lines)</span></span>
+      </div>
+      <div class="zlayer" style="background:rgba(122,158,192,0.06);border:1px solid rgba(122,158,192,0.2);">
+        <div class="znum" style="background:rgba(122,158,192,0.2);color:var(--gm);">6</div>
+        <span style="font-size:11px;color:#aaa;">Waypoints (standard pins)</span>
+      </div>
+      <div class="zlayer" style="background:rgba(245,166,35,0.1);border:1px solid rgba(245,166,35,0.4);">
+        <div class="znum" style="background:var(--org);color:var(--nd);">7</div>
+        <span style="font-size:11px;color:#fff;font-weight:600;">Trailheads <span style="color:var(--org)">(always visible, above standard waypoints)</span></span>
+      </div>
+      <div class="zlayer" style="background:rgba(74,184,232,0.12);border:1px solid rgba(74,184,232,0.5);">
+        <div class="znum" style="background:var(--sky);color:var(--nd);">8</div>
+        <span style="font-size:11px;color:#fff;font-weight:600;">Active ride route <span style="color:var(--sky)">(always on top of asset layers)</span></span>
+      </div>
+      <div class="zlayer" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.2);">
+        <div class="znum" style="background:rgba(255,255,255,0.2);color:#fff;">9</div>
+        <span style="font-size:11px;color:#fff;font-weight:600;">UI overlays (node markers, HUD)</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOUNDING BOX -->
+  <div class="section" id="bbox">
+    <div class="section-title"><span class="section-num">08</span> Bounding Box Auto-Calculation</div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Source</th><th>Rule</th></tr></thead>
+        <tbody>
+          <tr><td>Track attached to ride</td><td>Min bounding box of all track points + <strong>1 mile buffer</strong> on each edge</td></tr>
+          <tr><td>Route attached to ride</td><td>Min bounding box of all route points + <strong>1 mile buffer</strong> on each edge</td></tr>
+          <tr><td>Trailhead only (no track/route)</td><td>Manual draw — map flies to trailhead, organizer draws rectangle</td></tr>
+          <tr><td>No spatial data</td><td>Manual draw only — same as V2.4 download flow</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="note"><strong>Rule:</strong> 1 mile buffer on each edge is the recommended default. Organizer can adjust the suggested bounding box before confirming download. Buffer measured from outermost track/route points.</div>
+  </div>
+
+  <!-- RIDE GATE -->
+  <div class="section" id="rides">
+    <div class="section-title"><span class="section-num">09</span> Ride Creation — Hard Gate</div>
+    <div class="rule-box"><strong>A ride CANNOT be saved without a map boundary.</strong> SAVE button is disabled and shows "MAP AREA REQUIRED" until a bounding area exists.</div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Priority</th><th>Source</th><th>Result</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td>Attach a track</td><td>Bounding box auto-calculated from track points + 1 mile buffer</td></tr>
+          <tr><td>2</td><td>Attach a route</td><td>Bounding box auto-calculated from route points + 1 mile buffer</td></tr>
+          <tr><td>3</td><td>Draw manually</td><td>Draw tool activated — organizer draws rectangle on Planning Map</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- DOWNLOAD LAYERS -->
+  <div class="section" id="download">
+    <div class="section-title"><span class="section-num">10</span> Download Layer Preferences</div>
+    <div class="body-text">User selects which layers to download. No preferences are mandated — user decides. Default recommendation: HYB only.</div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Layer</th><th>Default</th><th>Storage (relative)</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td>SAT</td><td><span class="badge badge-gm">OFF</span></td><td>Baseline (1×)</td><td>Satellite imagery only — no labels</td></tr>
+          <tr><td>HYB</td><td><span class="badge badge-grn">ON</span></td><td>~1× (same as SAT)</td><td>Recommended — satellite + trail/road labels</td></tr>
+          <tr><td>TOPO</td><td><span class="badge badge-gm">OFF</span></td><td>~0.6×</td><td>Terrain contours — useful for elevation planning</td></tr>
+          <tr><td>RD</td><td><span class="badge badge-gm">OFF</span></td><td>~0.3×</td><td>Lightest layer — road/POI only</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="note"><strong>SAT + HYB together = ~2× storage for same satellite imagery.</strong> Users who want both should understand the duplication. At least one layer must remain checked.</div>
+  </div>
+
+  <!-- RDS SCHEMA -->
+  <div class="section" id="schema">
+    <div class="section-title"><span class="section-num">11</span> RDS Schema</div>
+    <div class="code">
+<span class="cm">-- tracks</span>
+track_id, user_id, ride_id (nullable), name,
+difficulty <span class="kw">ENUM</span>('EASY','MODERATE','HARD'),
+distance_mi <span class="kw">FLOAT</span>, file_path <span class="kw">VARCHAR</span>(500),
+bounds_n <span class="kw">DOUBLE</span>, bounds_s <span class="kw">DOUBLE</span>, bounds_e <span class="kw">DOUBLE</span>, bounds_w <span class="kw">DOUBLE</span>,
+trailhead_lat <span class="kw">DOUBLE</span>, trailhead_lon <span class="kw">DOUBLE</span>, created_at
+
+<span class="cm">-- routes</span>
+route_id, user_id, name,
+type <span class="kw">ENUM</span>('LOOP','OUT_AND_BACK','POINT_TO_POINT'),
+difficulty <span class="kw">ENUM</span>('EASY','MODERATE','HARD'),
+distance_mi <span class="kw">FLOAT</span>, file_path <span class="kw">VARCHAR</span>(500),
+bounds_n <span class="kw">DOUBLE</span>, bounds_s <span class="kw">DOUBLE</span>, bounds_e <span class="kw">DOUBLE</span>, bounds_w <span class="kw">DOUBLE</span>,
+trailhead_lat <span class="kw">DOUBLE</span>, trailhead_lon <span class="kw">DOUBLE</span>, created_at
+
+<span class="cm">-- waypoints (includes trailheads via icon_type)</span>
+waypoint_id, user_id, ride_id (nullable), name, description,
+icon_type <span class="kw">ENUM</span>('TRAILHEAD','HAZARD','LANDMARK','MEETING_POINT'),
+lat <span class="kw">DOUBLE</span>, lon <span class="kw">DOUBLE</span>,
+parking_available <span class="kw">BOOLEAN</span>, facilities <span class="kw">TEXT</span>, access_notes <span class="kw">TEXT</span>,
+created_at
+
+<span class="cm">-- rides (additions)</span>
+trailhead_lat <span class="kw">DOUBLE</span>, trailhead_lon <span class="kw">DOUBLE</span>,
+route_id <span class="kw">INT</span> <span class="kw">REFERENCES</span> routes(route_id),
+track_id <span class="kw">INT</span> <span class="kw">REFERENCES</span> tracks(track_id),
+bounds_n <span class="kw">DOUBLE</span>, bounds_s <span class="kw">DOUBLE</span>, bounds_e <span class="kw">DOUBLE</span>, bounds_w <span class="kw">DOUBLE</span>
+    </div>
+  </div>
+
+  <!-- SQL QUERIES -->
+  <div class="section" id="queries">
+    <div class="section-title"><span class="section-num">12</span> Key SQL Queries</div>
+
+    <div class="subsection-title">Assets in Viewport</div>
+    <div class="code">
+<span class="cm">-- Tracks in viewport</span>
+<span class="kw">SELECT</span> track_id, name, difficulty, distance_mi, file_path,
+       trailhead_lat, trailhead_lon
+<span class="kw">FROM</span> tracks
+<span class="kw">WHERE</span> bounds_w &lt; :east <span class="kw">AND</span> bounds_e &gt; :west
+  <span class="kw">AND</span> bounds_s &lt; :north <span class="kw">AND</span> bounds_n &gt; :south
+<span class="kw">ORDER BY</span> created_at <span class="kw">DESC LIMIT</span> 20;
+
+<span class="cm">-- Routes in viewport</span>
+<span class="kw">SELECT</span> route_id, name, type, difficulty, distance_mi, file_path,
+       trailhead_lat, trailhead_lon
+<span class="kw">FROM</span> routes
+<span class="kw">WHERE</span> bounds_w &lt; :east <span class="kw">AND</span> bounds_e &gt; :west
+  <span class="kw">AND</span> bounds_s &lt; :north <span class="kw">AND</span> bounds_n &gt; :south
+<span class="kw">ORDER BY</span> created_at <span class="kw">DESC LIMIT</span> 20;
+
+<span class="cm">-- Trailheads in viewport</span>
+<span class="kw">SELECT</span> waypoint_id, name, lat, lon, parking_available, facilities
+<span class="kw">FROM</span> waypoints
+<span class="kw">WHERE</span> icon_type = 'TRAILHEAD'
+  <span class="kw">AND</span> lat <span class="kw">BETWEEN</span> :south <span class="kw">AND</span> :north
+  <span class="kw">AND</span> lon <span class="kw">BETWEEN</span> :west <span class="kw">AND</span> :east;
+    </div>
+
+    <div class="subsection-title">Unified Asset Search</div>
+    <div class="code">
+<span class="kw">SELECT</span> 'track' <span class="kw">AS</span> type, track_id <span class="kw">AS</span> id, name, distance_mi,
+       difficulty, bounds_n, bounds_s, bounds_e, bounds_w,
+       trailhead_lat <span class="kw">AS</span> lat, trailhead_lon <span class="kw">AS</span> lon
+<span class="kw">FROM</span> tracks <span class="kw">WHERE</span> name <span class="kw">LIKE</span> :query
+<span class="kw">UNION</span>
+<span class="kw">SELECT</span> 'route', route_id, name, distance_mi,
+       difficulty, bounds_n, bounds_s, bounds_e, bounds_w,
+       trailhead_lat, trailhead_lon
+<span class="kw">FROM</span> routes <span class="kw">WHERE</span> name <span class="kw">LIKE</span> :query
+<span class="kw">UNION</span>
+<span class="kw">SELECT</span> 'trailhead', waypoint_id, name, 0,
+       NULL, lat, lat, lon, lon, lat, lon
+<span class="kw">FROM</span> waypoints <span class="kw">WHERE</span> icon_type = 'TRAILHEAD' <span class="kw">AND</span> name <span class="kw">LIKE</span> :query
+<span class="kw">UNION</span>
+<span class="kw">SELECT</span> 'waypoint', waypoint_id, name, 0,
+       NULL, lat, lat, lon, lon, lat, lon
+<span class="kw">FROM</span> waypoints <span class="kw">WHERE</span> icon_type != 'TRAILHEAD' <span class="kw">AND</span> name <span class="kw">LIKE</span> :query
+<span class="kw">ORDER BY</span> name;
+    </div>
+
+    <div class="subsection-title">Rides Departing from Trailhead</div>
+    <div class="code">
+<span class="cm">-- 0.004 degrees ≈ 0.25 miles proximity threshold</span>
+<span class="kw">SELECT</span> r.ride_id, r.name, r.ride_date, r.is_public,
+       u.first_name, u.last_name
+<span class="kw">FROM</span> rides r
+<span class="kw">JOIN</span> users u <span class="kw">ON</span> r.organizer_id = u.user_id
+<span class="kw">WHERE</span> r.trailhead_lat <span class="kw">BETWEEN</span> :lat - 0.004 <span class="kw">AND</span> :lat + 0.004
+  <span class="kw">AND</span> r.trailhead_lon <span class="kw">BETWEEN</span> :lon - 0.004 <span class="kw">AND</span> :lon + 0.004
+  <span class="kw">AND</span> r.ride_date >= <span class="kw">CURDATE</span>()
+<span class="kw">ORDER BY</span> r.ride_date <span class="kw">ASC</span>;
+    </div>
+  </div>
+
+  <div class="divider"></div>
+  <div style="text-align:center;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--gm);padding-bottom:40px;">
+    GroupTrack &nbsp;·&nbsp; V3.0 Map Functions Definition &nbsp;·&nbsp; April 10, 2026 &nbsp;·&nbsp; CONFIDENTIAL
+  </div>
+</div>
+
+<script>
+function toggleLayer(el) {
+  const assets = el.parentElement.querySelector('.layer-assets');
+  if (assets) assets.classList.toggle('open');
+}
+// Smooth scroll for nav links
+document.querySelectorAll('.nav-item').forEach(item => {
+  item.addEventListener('click', function(e) {
+    document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+    this.classList.add('active');
+  });
+});
+</script>
+</body>
+</html>

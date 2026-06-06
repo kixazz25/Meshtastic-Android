@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GroupTrack V3.0 Prototype</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=Share+Tech+Mono&family=Exo+2:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--nd:#0F1E2E;--nm:#1E3250;--sky:#4AB8E8;--skd:#2E8FBB;--org:#F5A623;--od:#C4820F;--grn:#00AA44;--red:#CC2222;--gm:#7A9EC0;--gd:#445566;--bdr:rgba(74,184,232,0.2);}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:#080F1A;font-family:"Exo 2",sans-serif;color:#fff;display:flex;min-height:100vh;}
+
+/* LEFT NAV */
+.ln{width:260px;min-width:260px;background:rgba(8,15,26,0.98);border-right:1px solid var(--bdr);height:100vh;position:sticky;top:0;overflow-y:auto;}
+.lh{padding:12px 14px;border-bottom:1px solid var(--bdr);}
+.logo{font-family:"Rajdhani",sans-serif;font-size:20px;font-weight:700;}
+.logo .g{color:var(--org)}.logo .t{color:var(--sky)}
+.ls{font-family:"Share Tech Mono",monospace;font-size:8px;color:var(--gm);letter-spacing:2px;margin-top:1px;}
+.flow{border-bottom:1px solid var(--bdr);}
+.fb{width:100%;background:transparent;border:none;padding:9px 12px;display:flex;align-items:center;gap:7px;cursor:pointer;text-align:left;}
+.fb:hover{background:rgba(74,184,232,0.04);}
+.fb.open{background:rgba(74,184,232,0.07);}
+.fi{font-size:14px;width:18px;text-align:center;flex-shrink:0;}
+.ft{font-family:"Rajdhani",sans-serif;font-size:12px;font-weight:700;color:#fff;letter-spacing:1px;}
+.fs{font-family:"Share Tech Mono",monospace;font-size:8px;color:var(--gm);margin-top:1px;}
+.fa{font-size:8px;color:var(--gm);transition:transform .2s;margin-left:auto;flex-shrink:0;}
+.fb.open .fa{transform:rotate(90deg);color:var(--sky);}
+.fb.open .ft{color:var(--sky);}
+.sl{display:none;background:rgba(0,0,0,0.15);}
+.sl.open{display:block;}
+.si{padding:5px 12px 5px 44px;cursor:pointer;display:flex;align-items:center;gap:5px;border-left:2px solid transparent;}
+.si:hover{background:rgba(74,184,232,0.04);border-left-color:rgba(74,184,232,0.2);}
+.si.active{background:rgba(74,184,232,0.09);border-left-color:var(--sky);}
+.sn{font-family:"Share Tech Mono",monospace;font-size:8px;color:var(--gd);width:14px;flex-shrink:0;}
+.sname{font-size:11px;color:var(--gm);}
+.si.active .sname{color:#fff;}.si.active .sn{color:var(--sky);}
+
+/* MAIN */
+.main{flex:1;padding:16px 20px;display:flex;flex-direction:column;align-items:center;overflow-y:auto;}
+.ctx{width:100%;max-width:380px;margin-bottom:10px;}
+.cf{font-family:"Share Tech Mono",monospace;font-size:8px;color:var(--gm);letter-spacing:2px;text-transform:uppercase;margin-bottom:2px;}
+.ct{font-family:"Rajdhani",sans-serif;font-size:18px;font-weight:700;color:var(--org);letter-spacing:2px;}
+.cd{font-family:"Share Tech Mono",monospace;font-size:9px;color:var(--gm);margin-top:3px;line-height:1.5;}
+
+/* PHONE */
+.phone{background:var(--nd);border:2px solid var(--bdr);border-radius:20px;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,0.6);width:360px;}
+.sb{background:var(--nd);padding:6px 12px;display:flex;justify-content:space-between;font-family:"Share Tech Mono",monospace;font-size:9px;color:var(--gm);}
+
+/* BUTTONS */
+.bp{background:linear-gradient(135deg,var(--sky),var(--skd));color:var(--nd);font-family:"Rajdhani",sans-serif;font-weight:700;font-size:13px;padding:11px 16px;border-radius:8px;border:none;cursor:pointer;width:100%;letter-spacing:1px;}
+.bs{background:transparent;color:var(--sky);font-family:"Rajdhani",sans-serif;font-weight:600;font-size:12px;padding:9px 16px;border-radius:8px;border:1px solid var(--sky);cursor:pointer;width:100%;letter-spacing:1px;}
+.bo{background:linear-gradient(135deg,var(--org),var(--od));color:var(--nd);font-family:"Rajdhani",sans-serif;font-weight:700;font-size:13px;padding:11px 16px;border-radius:8px;border:none;cursor:pointer;width:100%;letter-spacing:1px;}
+.bg{background:linear-gradient(135deg,#00AA44,#007730);color:#fff;font-family:"Rajdhani",sans-serif;font-weight:700;font-size:13px;padding:11px 16px;border-radius:8px;border:none;cursor:pointer;width:100%;letter-spacing:1px;}
+.bd{background:var(--nm);color:var(--gd);font-family:"Rajdhani",sans-serif;font-weight:700;font-size:12px;padding:11px 16px;border-radius:8px;border:1px solid var(--gd);cursor:not-allowed;width:100%;letter-spacing:1px;}
+.bgsm{background:linear-gradient(135deg,#00AA44,#007730);color:#fff;font-family:"Rajdhani",sans-serif;font-weight:700;font-size:10px;padding:5px 10px;border-radius:5px;border:none;cursor:pointer;letter-spacing:1px;}
+.brsm{background:transparent;color:var(--red);font-family:"Rajdhani",sans-serif;font-weight:700;font-size:10px;padding:5px 10px;border-radius:5px;border:1px solid var(--red);cursor:pointer;letter-spacing:1px;}
+.bssm{background:linear-gradient(135deg,var(--sky),var(--skd));color:var(--nd);font-family:"Rajdhani",sans-serif;font-weight:700;font-size:10px;padding:5px 10px;border-radius:5px;border:none;cursor:pointer;letter-spacing:1px;}
+
+/* CARDS & FIELDS */
+.card{background:rgba(255,255,255,0.04);border:1px solid var(--bdr);border-radius:9px;padding:11px;margin-bottom:8px;}
+.lbl{font-family:"Share Tech Mono",monospace;font-size:8px;color:var(--gm);text-transform:uppercase;letter-spacing:1px;margin-bottom:2px;}
+.val{font-size:12px;color:#fff;margin-bottom:7px;}
+.fin{background:rgba(255,255,255,0.03);border:1px solid var(--bdr);border-radius:6px;padding:7px 10px;margin-bottom:7px;font-size:11px;color:var(--gm);}
+.fai{background:rgba(74,184,232,0.04);border:1px solid var(--sky);border-radius:6px;padding:7px 10px;margin-bottom:7px;font-size:11px;color:#fff;}
+.fsi{background:rgba(0,170,68,0.06);border:1px solid var(--grn);border-radius:6px;padding:7px 10px;margin-bottom:7px;font-size:11px;color:var(--grn);display:flex;justify-content:space-between;align-items:center;}
+.fui{background:rgba(245,166,35,0.04);border:1px dashed var(--org);border-radius:6px;padding:7px 10px;margin-bottom:7px;font-size:11px;color:var(--gm);display:flex;justify-content:space-between;align-items:center;cursor:pointer;}
+
+/* BADGES */
+.bdg{display:inline-block;padding:2px 7px;border-radius:20px;font-family:"Share Tech Mono",monospace;font-size:8px;font-weight:700;letter-spacing:1px;}
+.bg-g{background:rgba(0,170,68,0.14);color:var(--grn);border:1px solid var(--grn);}
+.bg-o{background:rgba(245,166,35,0.14);color:var(--org);border:1px solid var(--org);}
+.bg-s{background:rgba(74,184,232,0.14);color:var(--sky);border:1px solid var(--sky);}
+.bg-r{background:rgba(204,34,34,0.14);color:var(--red);border:1px solid var(--red);}
+.bg-m{background:rgba(122,158,192,0.14);color:var(--gm);border:1px solid var(--gm);}
+
+/* MISC */
+.div{height:1px;background:var(--bdr);margin:7px 0;}
+.sh{font-family:"Rajdhani",sans-serif;font-size:14px;font-weight:700;color:var(--org);letter-spacing:2px;margin-bottom:9px;text-transform:uppercase;}
+.ssh{font-family:"Rajdhani",sans-serif;font-size:12px;font-weight:600;color:var(--sky);letter-spacing:1px;margin-bottom:6px;}
+.role-o{display:inline-block;padding:2px 7px;border-radius:3px;font-family:"Share Tech Mono",monospace;font-size:8px;background:rgba(245,166,35,0.14);border:1px solid var(--org);color:var(--org);margin:2px 0 5px;}
+.role-r{display:inline-block;padding:2px 7px;border-radius:3px;font-family:"Share Tech Mono",monospace;font-size:8px;background:rgba(74,184,232,0.09);border:1px solid var(--sky);color:var(--sky);margin:2px 0 5px;}
+.rc{background:rgba(255,255,255,0.04);border:1px solid var(--bdr);border-radius:9px;padding:10px;margin-bottom:7px;}
+.rn{font-family:"Rajdhani",sans-serif;font-size:13px;font-weight:700;color:#fff;margin-bottom:2px;}
+.rm{font-family:"Share Tech Mono",monospace;font-size:9px;color:var(--gm);}
+.hb{background:var(--nm);border-top:1px solid var(--bdr);padding:6px 8px;display:grid;gap:4px;}
+.hs{text-align:center;}.hl{font-family:"Share Tech Mono",monospace;font-size:7px;color:var(--gm);}
+.hv{font-family:"Rajdhani",sans-serif;font-size:13px;font-weight:700;}
+.mm{background:linear-gradient(135deg,#1a3a2a,#0d2518,#1a3535);position:relative;overflow:hidden;}
+.mm::before{content:"";position:absolute;inset:0;background:repeating-linear-gradient(0deg,rgba(74,184,232,0.02) 0,transparent 1px,transparent 40px,rgba(74,184,232,0.02) 41px),repeating-linear-gradient(90deg,rgba(74,184,232,0.02) 0,transparent 1px,transparent 40px,rgba(74,184,232,0.02) 41px);}
+.fbar{background:rgba(10,20,36,0.92);border:1px solid var(--bdr);border-radius:6px;padding:4px 8px;display:flex;gap:5px;align-items:center;backdrop-filter:blur(6px);}
+.fbt{background:rgba(74,184,232,0.09);border:1px solid var(--sky);color:var(--sky);font-family:"Share Tech Mono",monospace;font-size:9px;padding:3px 7px;border-radius:4px;cursor:pointer;}
+.fbt.on{background:var(--sky);color:var(--nd);}
+.acc{border:1px solid var(--bdr);border-radius:8px;margin-bottom:6px;overflow:hidden;}
+.ah{background:var(--nm);padding:9px 11px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;font-family:"Rajdhani",sans-serif;font-size:12px;font-weight:600;letter-spacing:1px;}
+.ah:hover{background:rgba(74,184,232,0.07);}
+.ab{background:rgba(8,15,26,0.35);padding:10px 11px;display:none;}
+.ab.open{display:block;}
+.tr{display:flex;justify-content:space-between;align-items:center;padding:5px 0;}
+.tg{width:36px;height:18px;border-radius:9px;border:2px solid var(--bdr);position:relative;cursor:pointer;flex-shrink:0;}
+.tg.on{background:var(--sky);border-color:var(--sky);}.tg.off{background:var(--nm);}
+.tt{width:12px;height:12px;border-radius:50%;background:white;position:absolute;top:1px;transition:left .2s;}
+.tg.on .tt{left:20px;}.tg.off .tt{left:1px;}
+.steps{display:flex;gap:4px;margin-bottom:10px;}
+.step{flex:1;height:3px;border-radius:2px;background:var(--nm);}
+.step.d{background:var(--sky);}.step.c{background:var(--org);}
+.bn{background:var(--nd);border-top:1px solid var(--bdr);display:flex;padding:5px 0 10px;}
+.bni{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;font-family:"Rajdhani",sans-serif;font-size:7px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--gm);cursor:pointer;}
+.bni.on{color:var(--sky);}.bi{font-size:14px;}
+.oi{display:flex;align-items:center;gap:7px;padding:5px 0;border-bottom:1px solid var(--bdr);}
+.oc{width:18px;height:3px;border-radius:2px;flex-shrink:0;}
+.ocd{background:repeating-linear-gradient(90deg,#6B4EFF 0,#6B4EFF 4px,transparent 4px,transparent 8px);height:2px;}
+.ck{width:14px;height:14px;border:2px solid var(--sky);border-radius:3px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:9px;}
+.ck.on{background:var(--sky);color:var(--nd);}
+
+/* NOTES PANEL */
+.np{width:100%;max-width:380px;margin-top:10px;display:flex;flex-direction:column;gap:7px;}
+.nps{background:rgba(8,15,26,0.9);border:1px solid var(--bdr);border-radius:9px;padding:10px;}
+.npt{font-family:"Share Tech Mono",monospace;font-size:8px;letter-spacing:1px;text-transform:uppercase;margin-bottom:7px;}
+.npt.a{color:var(--grn);}.npt.r{color:var(--gm);}.npt.n{color:var(--org);}
+.ft-a{display:inline-block;padding:2px 7px;border-radius:4px;font-family:"Share Tech Mono",monospace;font-size:8px;margin:2px;background:rgba(0,170,68,0.12);border:1px solid var(--grn);color:var(--grn);}
+.ft-r{display:inline-block;padding:2px 7px;border-radius:4px;font-family:"Share Tech Mono",monospace;font-size:8px;margin:2px;background:rgba(68,85,102,0.2);border:1px solid var(--gd);color:var(--gd);}
+.ni{width:100%;background:rgba(255,255,255,0.03);border:1px solid var(--bdr);border-radius:5px;padding:7px 9px;font-family:"Exo 2",sans-serif;font-size:11px;color:#fff;resize:vertical;min-height:55px;outline:none;}
+.ni:focus{border-color:var(--org);}
+.ni::placeholder{color:var(--gd);}
+.welcome{text-align:center;padding:50px 20px;color:var(--gm);}
+.wl{font-family:"Rajdhani",sans-serif;font-size:48px;font-weight:700;margin-bottom:6px;}
+.wl .g{color:var(--org);}.wl .t{color:var(--sky);}
+
+.exp-btn{position:fixed;bottom:16px;right:16px;background:linear-gradient(135deg,var(--org),var(--od));color:var(--nd);font-family:"Rajdhani",sans-serif;font-weight:700;font-size:13px;padding:10px 18px;border-radius:8px;border:none;cursor:pointer;letter-spacing:1px;z-index:9999;box-shadow:0 4px 16px rgba(245,166,35,0.4);}
+.exp-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:99999;align-items:center;justify-content:center;}
+.exp-overlay.open{display:flex;}
+.exp-box{background:var(--nd);border:1px solid var(--bdr);border-radius:12px;padding:20px;width:600px;max-width:90vw;max-height:80vh;display:flex;flex-direction:column;gap:10px;}
+.exp-title{font-family:"Rajdhani",sans-serif;font-size:16px;font-weight:700;color:var(--org);letter-spacing:2px;}
+.exp-out{background:rgba(0,0,0,0.5);border:1px solid var(--bdr);border-radius:6px;padding:10px;font-family:"Share Tech Mono",monospace;font-size:10px;color:#fff;overflow-y:auto;white-space:pre-wrap;min-height:280px;max-height:380px;}
+</style>
+</head>
+<body><div class="ln">
+  <div class="lh"><div class="logo"><span class="g">Group</span><span class="t">Track</span></div><div class="ls">V3.0 PROTOTYPE - 33 SCREENS</div></div>
+  <div class="flow"><button class="fb" onclick="TF(this,'f1')"><div class="fi">🆕</div><div style="flex:1"><div class="ft">FIRST TIME USER</div><div class="fs">Sign in · Terms · Dashboard</div></div><div class="fa">&#9654;</div></button><div class="sl" id="f1"><div class="si" onclick="S('s01','FIRST TIME USER','Sign In')"><div class="sn">01</div><div class="sname">Sign In</div></div><div class="si" onclick="S('s02','FIRST TIME USER','Rider Terms')"><div class="sn">02</div><div class="sname">Rider Terms</div></div><div class="si" onclick="S('s03','FIRST TIME USER','Privacy Policy')"><div class="sn">03</div><div class="sname">Privacy Policy</div></div><div class="si" onclick="S('s04','FIRST TIME USER','Dashboard')"><div class="sn">04</div><div class="sname">Dashboard</div></div></div></div>
+<div class="flow"><button class="fb" onclick="TF(this,'f2')"><div class="fi">🏠</div><div style="flex:1"><div class="ft">DASHBOARD</div><div class="fs">Invites · Enrolled rides · Role display</div></div><div class="fa">&#9654;</div></button><div class="sl" id="f2"><div class="si" onclick="S('s04','DASHBOARD','Dashboard')"><div class="sn">04</div><div class="sname">Dashboard</div></div></div></div>
+<div class="flow"><button class="fb" onclick="TF(this,'f3')"><div class="fi">👤</div><div style="flex:1"><div class="ft">PROFILE & ACCOUNT</div><div class="fs">Profile · Organizer · History · Following</div></div><div class="fa">&#9654;</div></button><div class="sl" id="f3"><div class="si" onclick="S('s05','PROFILE & ACCOUNT','Profile')"><div class="sn">05</div><div class="sname">Profile</div></div><div class="si" onclick="S('s06','PROFILE & ACCOUNT','Become Organizer')"><div class="sn">06</div><div class="sname">Become Organizer</div></div><div class="si" onclick="S('s07','PROFILE & ACCOUNT','Ride History')"><div class="sn">07</div><div class="sname">Ride History</div></div><div class="si" onclick="S('s08','PROFILE & ACCOUNT','Following')"><div class="sn">08</div><div class="sname">Following</div></div></div></div>
+<div class="flow"><button class="fb" onclick="TF(this,'f4')"><div class="fi">🚐</div><div style="flex:1"><div class="ft">RIDES</div><div class="fs">My Rides · Create · Detail</div></div><div class="fa">&#9654;</div></button><div class="sl" id="f4"><div class="si" onclick="S('s09','RIDES','My Rides')"><div class="sn">09</div><div class="sname">My Rides</div></div><div class="si" onclick="S('s10','RIDES','Create Ride (locked)')"><div class="sn">10</div><div class="sname">Create Ride (locked)</div></div><div class="si" onclick="S('s10b','RIDES','Create Ride (ready)')"><div class="sn">10b</div><div class="sname">Create Ride (ready)</div></div><div class="si" onclick="S('s11','RIDES','Ride Detail')"><div class="sn">11</div><div class="sname">Ride Detail</div></div></div></div>
+<div class="flow"><button class="fb" onclick="TF(this,'f5')"><div class="fi">📨</div><div style="flex:1"><div class="ft">INVITE & BROADCAST</div><div class="fs">QR · Share · Email followers</div></div><div class="fa">&#9654;</div></button><div class="sl" id="f5"><div class="si" onclick="S('s12','INVITE & BROADCAST','Send Invite')"><div class="sn">12</div><div class="sname">Send Invite</div></div><div class="si" onclick="S('s13','INVITE & BROADCAST','Broadcast')"><div class="sn">13</div><div class="sname">Broadcast</div></div></div></div>
+<div class="flow"><button class="fb" onclick="TF(this,'f6')"><div class="fi">✅</div><div style="flex:1"><div class="ft">ACCEPT AN INVITE</div><div class="fs">Dashboard · Accept · Enrolled</div></div><div class="fa">&#9654;</div></button><div class="sl" id="f6"><div class="si" onclick="S('s04','ACCEPT AN INVITE','Dashboard (invite)')"><div class="sn">04</div><div class="sname">Dashboard (invite)</div></div><div class="si" onclick="S('s14','ACCEPT AN INVITE','Invite Accept')"><div class="sn">14</div><div class="sname">Invite Accept</div></div></div></div>
+<div class="flow"><button class="fb" onclick="TF(this,'f7')"><div class="fi">🔍</div><div style="flex:1"><div class="ft">EXPLORE RIDES</div><div class="fs">Public rides · Search · Follow</div></div><div class="fa">&#9654;</div></button><div class="sl" id="f7"><div class="si" onclick="S('s15','EXPLORE RIDES','Explore Rides')"><div class="sn">15</div><div class="sname">Explore Rides</div></div></div></div>
+<div class="flow"><button class="fb" onclick="TF(this,'f8')"><div class="fi">🗺️</div><div style="flex:1"><div class="ft">CONVOY MAP</div><div class="fs">Solo · Convoy · Organized · Settings</div></div><div class="fa">&#9654;</div></button><div class="sl" id="f8"><div class="si" onclick="S('s16','CONVOY MAP','Map - SOLO')"><div class="sn">16</div><div class="sname">Map - SOLO</div></div><div class="si" onclick="S('s17','CONVOY MAP','Map - CONVOY')"><div class="sn">17</div><div class="sname">Map - CONVOY</div></div><div class="si" onclick="S('s18','CONVOY MAP','Map - ORGANIZED')"><div class="sn">18</div><div class="sname">Map - ORGANIZED</div></div><div class="si" onclick="S('s19','CONVOY MAP','Map Settings')"><div class="sn">19</div><div class="sname">Map Settings</div></div><div class="si" onclick="S('s20','CONVOY MAP','Stop - Survey')"><div class="sn">20</div><div class="sname">Stop - Survey</div></div><div class="si" onclick="S('s20b','CONVOY MAP','Stop - Simple')"><div class="sn">20b</div><div class="sname">Stop - Simple</div></div><div class="si" onclick="S('s20c','CONVOY MAP','Radio Reconnect Banner')"><div class="sn">20c</div><div class="sname">Radio Reconnect Banner</div></div></div></div>
+<div class="flow"><button class="fb" onclick="TF(this,'f9')"><div class="fi">📐</div><div style="flex:1"><div class="ft">MAP MANAGER</div><div class="fs">Download · Import · Overlays · Waypoints</div></div><div class="fa">&#9654;</div></button><div class="sl" id="f9"><div class="si" onclick="S('s21','MAP MANAGER','Map Manager Main')"><div class="sn">21</div><div class="sname">Map Manager Main</div></div><div class="si" onclick="S('s22','MAP MANAGER','Find Area (4 methods)')"><div class="sn">22</div><div class="sname">Find Area (4 methods)</div></div><div class="si" onclick="S('s23','MAP MANAGER','Tile Download')"><div class="sn">23</div><div class="sname">Tile Download</div></div><div class="si" onclick="S('s24','MAP MANAGER','Import GPX/KML')"><div class="sn">24</div><div class="sname">Import GPX/KML</div></div><div class="si" onclick="S('s25','MAP MANAGER','Overlay Selector')"><div class="sn">25</div><div class="sname">Overlay Selector</div></div><div class="si" onclick="S('s26','MAP MANAGER','Waypoint Library')"><div class="sn">26</div><div class="sname">Waypoint Library</div></div><div class="si" onclick="S('s27','MAP MANAGER','Create Waypoint')"><div class="sn">27</div><div class="sname">Create Waypoint</div></div><div class="si" onclick="S('s28','MAP MANAGER','Set Trailhead')"><div class="sn">28</div><div class="sname">Set Trailhead</div></div><div class="si" onclick="S('s29','MAP MANAGER','Set Map Area')"><div class="sn">29</div><div class="sname">Set Map Area</div></div><div class="si" onclick="S('s30','MAP MANAGER','Route Planner (placeholder)')"><div class="sn">30</div><div class="sname">Route Planner (placeholder)</div></div></div></div>
+<div class="flow"><button class="fb" onclick="TF(this,'f10')"><div class="fi">📻</div><div style="flex:1"><div class="ft">FIELD RADIO</div><div class="fs">Always active · No internet</div></div><div class="fa">&#9654;</div></button><div class="sl" id="f10"><div class="si" onclick="S('s31','FIELD RADIO','Field Radio')"><div class="sn">31</div><div class="sname">Field Radio</div></div></div></div>
+<div class="flow"><button class="fb" onclick="TF(this,'f11')"><div class="fi">📍</div><div style="flex:1"><div class="ft">TRACKS LIBRARY</div><div class="fs">Community tracks · Browse · Download</div></div><div class="fa">&#9654;</div></button><div class="sl" id="f11"><div class="si" onclick="S('s32','TRACKS LIBRARY','Track Library')"><div class="sn">32</div><div class="sname">Track Library</div></div><div class="si" onclick="S('s33','TRACKS LIBRARY','Track Detail')"><div class="sn">33</div><div class="sname">Track Detail</div></div></div></div>
+
+</div><div class="main" id="main">
+  <div class="welcome">
+    <div class="wl"><span class="g">Group</span><span class="t">Track</span></div>
+    <div style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--gm);letter-spacing:3px;margin-bottom:20px;">V3.0 COMPLETE FUNCTION PROTOTYPE</div>
+    <div style="font-size:12px;color:var(--gm);line-height:1.9;max-width:300px;margin:0 auto;">
+      Select a flow from the left panel.<br>
+      Each screen shows active functions and related functions below.<br>
+      Notes field saves to browser for each screen.<br>
+      <span style="color:var(--sky);">33 screens &middot; 11 flows &middot; Complete function inventory.</span>
+    </div>
+  </div>
+</div><script>
+function TF(btn,id){
+  var list=document.getElementById(id);
+  var isOpen=list.style.display==="block";
+  document.querySelectorAll(".fb").forEach(function(b){b.classList.remove("open");});
+  document.querySelectorAll(".sl").forEach(function(s){s.classList.remove("open");s.style.display="none";});
+  if(!isOpen){
+    btn.classList.add("open");
+    list.classList.add("open");
+    list.style.display="block";
+  }
+}
+
+function S(id,flow,title){
+  document.querySelectorAll(".si").forEach(function(s){s.classList.remove("active");});
+  try{if(event&&event.currentTarget)event.currentTarget.classList.add("active");}catch(e){}
+  var main=document.getElementById("main");
+  main.innerHTML="<div class='ctx'><div class='cf'>"+flow+"</div><div class='ct'>"+title+"</div></div><div id='ps'></div><div id='ns'></div>";
+  buildScreen(id);
+  var ns=document.getElementById("ns");
+  if(ns)ns.innerHTML=NP(id);
+  try{
+    var d=SCREEN_DATA[id];
+    if(d){var el=document.getElementById("gt_"+id);if(el){var v=localStorage.getItem("gt_"+id)||"";el.value=v;}}
+  }catch(e){}
+}
+
+const SD={"s01":{"a":["Google Sign-In", "POST /users/register", "Cache user_id", "SharedPreferences write"],"r":["Organizer terms", "Subscription gate", "Push notification token"]},"s02":{"a":["Rider Terms V1.0 display", "Terms acceptance record", "Version tracking"],"r":["Organizer terms", "Terms version check on login"]},"s03":{"a":["Privacy Policy V1.0 display", "Privacy acceptance record", "Name+email shared with followed organizers", "Version tracking"],"r":["Data deletion request", "Email opt-in setting"]},"s04":{"a":["GET /notifications", "GET /enrollments", "GET /invites", "Accept invite", "Decline invite", "Cancel enrollment", "View ride detail", "Role display"],"r":["Push notification receipt", "Broadcast notification", "Explore rides", "Track library"]},"s05":{"a":["GET /users/profile", "PUT /users/profile", "Email opt-in toggle", "View ride history", "View following list"],"r":["DELETE /users/account", "Organizer subscribe", "FCM token update"]},"s06":{"a":["Organizer Terms V1.0", "Google Play Billing $3/mo", "POST /users/organizer", "is_organizer flag set"],"r":["Subscription renewal", "Subscription cancellation", "Feature gate check"]},"s07":{"a":["GET /users/ride-history", "Ride history list", "Inline expand panel"],"r":["Track download from history", "Re-enroll", "Export GPX"]},"s08":{"a":["GET /users/following", "POST /follows", "DELETE /follows", "Organizer search"],"r":["Broadcast receipt from followed organizer", "Notification preference per organizer"]},"s09":{"a":["GET /rides (mine)", "GET /enrollments (mine)", "Create ride entry", "View ride detail"],"r":["Cancel enrollment", "Duplicate ride", "Archive past ride"]},"s10":{"a":["All ride fields", "Channel auto-generate", "Public/private toggle", "Trailhead required gate", "Map area required gate", "SAVE disabled"],"r":["POST /rides", "Draft save", "Ride template reuse"]},"s10b":{"a":["POST /rides", "All fields validated", "Trailhead set", "Map area set", "Bounding box stored", "SAVE enabled"],"r":["Auto tile download trigger", "Invite generation", "Broadcast trigger"]},"s11":{"a":["GET /rides/{id}", "GET /enrollments/{ride_id}", "Send invite entry", "Broadcast entry", "Trailhead display", "Route display"],"r":["Edit ride", "Cancel ride", "Export enrollment list"]},"s12":{"a":["POST /invites", "QR code generate", "Copy invite link", "Android share sheet", "grouptrack.org/invite/{token}"],"r":["Invite expiry", "Revoke invite", "Track invite opens"]},"s13":{"a":["POST /broadcast/{ride_id}", "GET /follows count", "GET /opt-ins count", "Email queue insert", "One-time send gate"],"r":["Preview email", "Schedule broadcast"]},"s14":{"a":["GET /ride/{token}", "Ride JSON download", "Auto tile download", "Enrollment create", "Radio config ready flag"],"r":["Manual tile download", "Radio config apply", "Calendar add"]},"s15":{"a":["GET /rides (public)", "Zip radius search", "Follow organizer", "Ride detail view"],"r":["Saved search", "Notify me of new rides", "Filter by difficulty"]},"s16":{"a":["GPS trail recording", "RideState=SOLO", "GPX track write", "Offline tile serve", "Auto-pan my cart", "OFFLINE toggle"],"r":["Waypoint drop", "Overlay display", "Radio connect", "Map Manager"]},"s17":{"a":["Mesh node display", "RideState=CONVOY", "Lead lock by callsign", "Tail calculation", "Convoy HUD", "GPS trail recording", "Auto-pan group"],"r":["Waypoint drop", "Overlay display", "RECALC LEAD", "Map Manager"]},"s18":{"a":["RideState=ORGANIZED", "Route overlay display", "Trailhead waypoint display", "Full convoy HUD", "GPS trail recording", "Lead lock", "Survey on STOP"],"r":["Overlay selector", "Track donation", "Radio config applied"]},"s19":{"a":["Offline/Online toggle", "Map type selector", "Track lead only toggle", "Show downloaded areas", "Track export GPX/KML", "Download region draw", "Zoom level select", "Overlay selector entry"],"r":["Clear downloaded tiles", "Reset map view"]},"s20":{"a":["STOP recording", "Difficulty survey", "Recommend survey", "Track donation checkbox", "Track name field", "POST /ride/survey", "GPX file save", "Survey queue offline"],"r":["MD5 compute on track", "EC2 upload track", "ride_tracks row create"]},"s20b":{"a":["STOP recording", "Track name field", "GPX file save filesDir/my_tracks/"],"r":["Track library upload", "Export to external app", "Share GPX"]},"s20c":{"a":["Radio inactivity detection 5min", "Bluetooth toggle reconnect", "_radioInactive StateFlow", "Banner display over HUD"],"r":["Manual radio disconnect", "BLE device selector"]},"s21":{"a":["Map Manager WebView", "convoy:// tile serve", "OFFLINE toggle", "FIND AREA entry", "Tile download entry", "Import GPX/KML entry", "Overlay selector entry", "Waypoint library entry", "Route Planner placeholder"],"r":["Ride assignment from Map Manager", "Sync waypoints to RDS"]},"s22":{"a":["Area search viewport filter", "FIND AREA geocoder", "Name search routes+tracks", "Waypoint radius search", "Viewport to overlay selector bridge"],"r":["Saved search areas", "Recent search history"]},"s23":{"a":["Draw region on map", "Zoom level selection", "Tile count estimate", "Size estimate", "ConvoyTileDownloader", "Progress tracking"],"r":["Tile delete", "Storage usage display", "Background download"]},"s24":{"a":["File picker GPX/KML", "Route name field", "Type selector Route/Track", "MD5 duplicate check", "filesDir/routes/ write", "Library add"],"r":["POST /kml_routes", "Cloud backup route", "Share route"]},"s25":{"a":["Viewport bounds filter", "Name search", "SELECT ALL", "Routes toggle solid orange", "Tracks toggle dashed purple", "Waypoints toggle by type", "Ride history toggle palette color", "Count indicator"],"r":["Save overlay preset", "Apply overlays to ride map"]},"s26":{"a":["Waypoint list display", "Search by name", "Filter by type", "Edit waypoint", "Delete waypoint"],"r":["POST /waypoints sync to RDS", "Assign waypoint to ride", "Export waypoints GPX"]},"s27":{"a":["Long press map to drop", "GPS coordinate capture", "Name field", "Type selector Trailhead/Staging/Hazard/POI", "Notes field", "filesDir/waypoints/ write"],"r":["POST /waypoints", "Assign to ride inline", "Share waypoint"]},"s28":{"a":["Map Manager trailhead picker mode", "Long press drop OR library select", "Returns lat/lon/name to Create Ride", "Trailhead field auto-populate"],"r":["Create new waypoint inline", "Search waypoints by radius"]},"s29":{"a":["Assign existing route", "Import GPX/KML inline", "Draw bounding box manually", "Bounding box auto-calculate", "Returns bounds to Create Ride"],"r":["Auto tile download suggestion", "Map area preview", "Route Planner entry"]},"s30":{"a":["Placeholder display", "Coming Soon label", "Phase D gate indicator"],"r":["Draw route by tapping waypoints", "Snap to trail GPX", "Save to route library"]},"s31":{"a":["BLE radio status", "Channel display", "Apply ride config", "Apply master config", "Verify config", "Bluetooth toggle reconnect", "Always offline accessible"],"r":["Capture config to file", "Radio firmware version"]},"s32":{"a":["GET /ride_tracks public", "Filter by difficulty", "Sort by recommend %", "Track preview map", "DOWNLOAD TO DEVICE", "Auto tile download"],"r":["Filter by area/zip", "Donate my track", "Rate a track"]},"s33":{"a":["GET /ride_tracks/{id}", "Track map preview", "Difficulty display", "Recommend % display", "DOWNLOAD TO DEVICE", "filesDir/routes/ write"],"r":["Share track", "Add to overlay", "Report track issue"]}};
+
+var SCREEN_DATA=SD;
+
+function NP(id){
+  var d=SCREEN_DATA[id]||{a:[],r:[]};
+  var saved="";try{saved=localStorage.getItem("gt_"+id)||"";}catch(e){}
+  var ca=[];try{ca=JSON.parse(localStorage.getItem("gt_ca_"+id)||"[]");}catch(e){}
+  var cr=[];try{cr=JSON.parse(localStorage.getItem("gt_cr_"+id)||"[]");}catch(e){}
+  var at=d.a.map(function(f){
+    var sel=ca.indexOf(f)>=0;
+    var st=sel?"background:rgba(0,170,68,0.3);border:1px solid var(--grn);color:var(--grn);":"";
+    return "<span class='ft-a fn-tag' data-id='"+id+"' data-type='a' data-fn='"+encodeURIComponent(f)+"' style='cursor:pointer;"+st+"' title='Click to mark'>"+f+"</span>";
+  }).join("");
+  var rt=d.r.map(function(f){
+    var sel=cr.indexOf(f)>=0;
+    var st=sel?"background:rgba(74,184,232,0.25);border:1px solid var(--sky);color:var(--sky);":"";
+    return "<span class='ft-r fn-tag' data-id='"+id+"' data-type='r' data-fn='"+encodeURIComponent(f)+"' style='cursor:pointer;"+st+"' title='Click to select'>"+f+"</span>";
+  }).join("");
+  return "<div class='np'>"
+    +"<div class='nps'><div class='npt a'>FUNCTIONS ACTIVE &mdash; click to mark changed</div><div>"+at+"</div></div>"
+    +"<div class='nps'><div class='npt r'>RELATED &mdash; click to select for this screen</div><div>"+rt+"</div></div>"
+    +"<div class='nps'><div class='npt n'>SCREEN NOTES &amp; ADJUSTMENT REQUESTS</div>"
+    +"<textarea class='ni' id='gt_"+id+"' placeholder='Type adjustment requests here...' oninput='SN(""+id+"")'>"+saved+"</textarea>"
+    +"</div></div>";
+}
+
+// delegated click handler for fn-tags
+document.addEventListener("click",function(e){
+  var t=e.target;
+  if(t.classList.contains("fn-tag")){
+    var id=t.getAttribute("data-id");
+    var type=t.getAttribute("data-type");
+    var fn=decodeURIComponent(t.getAttribute("data-fn"));
+    var key="gt_c"+type+"_"+id;
+    var arr=[];try{arr=JSON.parse(localStorage.getItem(key)||"[]");}catch(e){}
+    var idx=arr.indexOf(fn);
+    if(idx>=0)arr.splice(idx,1);else arr.push(fn);
+    try{localStorage.setItem(key,JSON.stringify(arr));}catch(e){}
+    var ns=document.getElementById("ns");
+    if(ns)ns.innerHTML=NP(id);
+  }
+});
+
+function SN(id){try{var el=document.getElementById("gt_"+id);if(el)localStorage.setItem("gt_"+id,el.value);}catch(e){}}
+
+function bnav(a){
+  var items=[["HOME","🏠","s04"],["RIDES","🚐","s09"],["MAP","🗺️","s16"],["PROFILE","👤","s05"]];
+  return "<div class='bn'>"+items.map(function(x){
+    return "<div class='bni"+(a===x[0]?" on":"")+"' onclick=\"S('"+x[2]+"','','"+x[0]+"')\">"+"<div class='bi'>"+x[1]+"</div>"+x[0]+"</div>";
+  }).join("")+"</div>";
+}
+
+function phone(html){return "<div class='phone'><div class='sb'><span>9:41</span><span>&#9608;&#9608;&#9608; 100%</span></div>"+html+"</div>";}
+
+function buildScreen(id){
+  var slot=document.getElementById("ps");
+  if(!slot)return;
+  var h="<p style='color:var(--gm);font-family:Share Tech Mono,monospace;padding:20px;font-size:11px;'>Screen "+id+" — content placeholder</p>";
+  if(id==="s01")h=phone(s01());
+  else if(id==="s02")h=phone(terms("Rider Terms V1.0","By using GroupTrack you agree to ride responsibly within your skill level. GroupTrack provides coordination tools only and does not guarantee safety or trail conditions. You are responsible for your own equipment and riding decisions. Track data you donate becomes part of the GroupTrack public library under Creative Commons attribution license.",1,3,"s03"));
+  else if(id==="s03")h=phone(terms("Privacy Policy V1.0","GroupTrack collects your Google account name and email for authentication. Your name and email are shared with organizers of rides you enroll in, and with organizers you choose to follow. Your email is used only for ride notifications you opt into. GPS data is collected during active rides and stored locally on your device. Data is uploaded only when you explicitly donate a track. You may delete your account and all data at any time from Profile.",2,3,"s04"));
+  else if(id==="s04")h=phone(s04());
+  else if(id==="s05")h=phone(s05());
+  else if(id==="s06")h=phone(s06());
+  else if(id==="s07")h=phone(s07());
+  else if(id==="s08")h=phone(s08());
+  else if(id==="s09")h=phone(s09());
+  else if(id==="s10")h=phone(s10(false));
+  else if(id==="s10b")h=phone(s10(true));
+  else if(id==="s11")h=phone(s11());
+  else if(id==="s12")h=phone(s12());
+  else if(id==="s13")h=phone(s13());
+  else if(id==="s14")h=phone(s14());
+  else if(id==="s15")h=phone(s15());
+  else if(id==="s16")h=phone(s16());
+  else if(id==="s17")h=phone(s17());
+  else if(id==="s18")h=phone(s18());
+  else if(id==="s19")h=phone(s19());
+  else if(id==="s20")h=phone(s20());
+  else if(id==="s20b")h=phone(s20b());
+  else if(id==="s20c")h=phone(s20c());
+  else if(id==="s21")h=phone(s21());
+  else if(id==="s22")h=phone(s22());
+  else if(id==="s23")h=phone(s23());
+  else if(id==="s24")h=phone(s24());
+  else if(id==="s25")h=phone(s25());
+  else if(id==="s26")h=phone(s26());
+  else if(id==="s27")h=phone(s27());
+  else if(id==="s28")h=phone(s28());
+  else if(id==="s29")h=phone(s29());
+  else if(id==="s30")h=phone(s30());
+  else if(id==="s31")h=phone(s31());
+  else if(id==="s32")h=phone(s32());
+  else if(id==="s33")h=phone(s33());
+  slot.innerHTML=h;
+}
+
+function tA(hdr){var b=hdr.nextElementSibling,a=hdr.querySelector("span:last-child");if(b.classList.contains("open")){b.classList.remove("open");b.style.display="none";a.textContent="▶";}else{b.classList.add("open");b.style.display="block";a.textContent="▼";}}
+
+function s01(){return "<div style='padding:26px 18px;text-align:center;'><div style='font-family:Rajdhani,sans-serif;font-size:38px;font-weight:700;margin-bottom:4px;'><span style=\"color:var(--org)\">Group</span><span style=\"color:var(--sky)\">Track</span></div><div style='font-family:Share Tech Mono,monospace;font-size:9px;color:var(--gm);letter-spacing:3px;margin-bottom:24px;'>OFF-GRID CONVOY COORDINATION</div><div style='background:rgba(74,184,232,0.04);border:1px solid var(--bdr);border-radius:12px;padding:18px;margin-bottom:16px;'><div style='font-size:12px;color:var(--gm);margin-bottom:14px;'>Sign in to access organized rides, invite links, and track donations. No account needed for solo trail mapping.</div><button class='bp' style='margin-bottom:7px;' onclick=\"S(\'s02\',\'First Time User\',\'Rider Terms\')\">&# 128308; SIGN IN WITH GOOGLE</button><button class='bs' onclick=\"S(\'s16\',\'Convoy Map\',\'Map - SOLO\')\">CONTINUE WITHOUT ACCOUNT</button></div><div style='font-family:Share Tech Mono,monospace;font-size:8px;color:var(--gd);'>V3.0 &middot; grouptrack.org</div></div>";}
+
+function terms(title,body,step,total,next){
+  var steps="";for(var i=0;i<total;i++)steps+="<div class='step"+(i<step-1?" d":i===step-1?" c":"")+"'></div>";
+  return "<div style='padding:14px;'><div class='steps'>"+steps+"</div><div class='sh'>"+title+"</div><div style='background:rgba(255,255,255,0.02);border:1px solid var(--bdr);border-radius:8px;padding:11px;height:190px;overflow-y:auto;font-size:11px;color:var(--gm);line-height:1.6;margin-bottom:11px;'>"+body+"</div><div style='display:flex;align-items:center;gap:8px;margin-bottom:12px;'><div class='ck on'>&#10003;</div><span style='font-size:12px;'>I have read and accept</span></div><button class='bp' onclick=\"S(\'"+next+"\',\'\',\'\')\">ACCEPT &amp; CONTINUE</button></div>";
+}
+
+function s04(){
+  return "<div style='padding:11px;overflow-y:auto;max-height:560px;'>"
+    +"<div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:9px;'>"
+    +"<div><div style='font-family:Rajdhani,sans-serif;font-size:19px;font-weight:700;'><span style=\"color:var(--org)\">Group</span><span style=\"color:var(--sky)\">Track</span></div>"
+    +"<div style='font-family:Share Tech Mono,monospace;font-size:8px;color:var(--gm);'>WELCOME BACK, FRED</div></div>"
+    +"<span class='bdg bg-g'>SOLO</span></div>"
+    +"<div style='display:flex;gap:7px;margin-bottom:10px;'>"
+    +"<div style='flex:1;background:rgba(245,166,35,0.12);border:1px solid var(--org);border-radius:6px;padding:5px 7px;text-align:center;'><div style='font-family:Share Tech Mono,monospace;font-size:7px;color:var(--gm);margin-bottom:1px;'>MY ROLE</div><div style='font-family:Rajdhani,sans-serif;font-size:13px;font-weight:700;color:var(--org);'>ORGANIZER</div></div>"
+    +"<div style='flex:1;background:rgba(74,184,232,0.09);border:1px solid var(--sky);border-radius:6px;padding:5px 7px;text-align:center;'><div style='font-family:Share Tech Mono,monospace;font-size:7px;color:var(--gm);margin-bottom:1px;'>AS RIDER</div><div style='font-family:Rajdhani,sans-serif;font-size:13px;font-weight:700;color:var(--sky);'>ENROLLED &times;3</div></div>"
+    +"</div>"
+    +"<div style='font-family:Rajdhani,sans-serif;font-size:11px;font-weight:700;color:var(--org);letter-spacing:2px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;'>NEW INVITES<span class='bdg bg-o'>2</span></div>"
+    +"<div class='rc' style='border-color:var(--org);'><div style='display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:2px;'><div class='rn'>Sand Hollow Trail Bash</div><span class='bdg bg-o'>NEW</span></div>"
+    +"<div class='role-r'>YOUR ROLE: RIDER</div><div class='rm' style='margin-bottom:5px;'>APR 12 &middot; TrailBoss_Mike &middot; Today</div>"
+    +"<div style='display:flex;gap:6px;'><button class='bgsm' onclick=\"S(\'s14\',\'\',\'\')\">ACCEPT</button><button class='brsm'>DECLINE</button></div></div>"
+    +"<div class='rc'><div style='display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:2px;'><div class='rn'>JEM Trail Full Run</div><span class='bdg bg-o'>NEW</span></div>"
+    +"<div class='role-r'>YOUR ROLE: RIDER</div><div class='rm' style='margin-bottom:5px;'>APR 20 &middot; CanyonRunner &middot; Yesterday</div>"
+    +"<div style='display:flex;gap:6px;'><button class='bgsm'>ACCEPT</button><button class='brsm'>DECLINE</button></div></div>"
+    +"<div class='div'></div>"
+    +"<div style='font-family:Rajdhani,sans-serif;font-size:11px;font-weight:700;color:var(--sky);letter-spacing:2px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;'>ENROLLED RIDES<span class='bdg bg-s'>3</span></div>"
+    +"<div class='rc' style='border-color:var(--sky);'><div style='display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:2px;'><div class='rn'>Gooseberry Mesa Loop</div><span class='bdg bg-o'>ORGANIZER</span></div>"
+    +"<div class='role-o'>YOUR ROLE: ORGANIZER</div><div class='rm' style='margin-bottom:5px;'>APR 5 &middot; 8:00 AM &middot; 12 enrolled</div>"
+    +"<button class='bssm' style='width:100%;' onclick=\"S(\'s11\',\'\',\'\')\">VIEW RIDE</button></div>"
+    +"<div class='rc'><div style='display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:2px;'><div class='rn'>Sand Hollow Trail Bash</div><span class='bdg bg-s'>ENROLLED</span></div>"
+    +"<div class='role-r'>YOUR ROLE: RIDER</div><div class='rm' style='margin-bottom:5px;'>APR 12 &middot; 9:00 AM &middot; TrailBoss_Mike</div>"
+    +"<div style='display:flex;gap:6px;'><button class='bssm' style='flex:2;' onclick=\"S(\'s11\',\'\',\'\')\">VIEW RIDE</button><button class='brsm' style='flex:1;'>CANCEL</button></div></div>"
+    +"<div class='rc'><div style='display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:2px;'><div class='rn'>JEM Trail Full Run</div><span class='bdg bg-s'>ENROLLED</span></div>"
+    +"<div class='role-r'>YOUR ROLE: RIDER</div><div class='rm' style='margin-bottom:5px;'>APR 20 &middot; 8:30 AM &middot; CanyonRunner</div>"
+    +"<div style='display:flex;gap:6px;'><button class='bssm' style='flex:2;'>VIEW RIDE</button><button class='brsm' style='flex:1;'>CANCEL</button></div></div>"
+    +"</div>"+bnav("HOME");
+}
+
+function s05(){return "<div style='padding:12px;overflow-y:auto;max-height:500px;'><div class='sh'>Profile</div><div style='text-align:center;margin-bottom:12px;'><div style='width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,var(--sky),var(--nd));margin:0 auto 6px;display:flex;align-items:center;justify-content:center;font-size:22px;border:2px solid var(--sky);'>&#128100;</div><div style='font-family:Rajdhani,sans-serif;font-size:16px;font-weight:700;'>Fred K.</div><div style='font-family:Share Tech Mono,monospace;font-size:8px;color:var(--gm);'>fred@email.com</div><div style='margin-top:3px;'><span class='bdg bg-o'>ORGANIZER</span></div></div><div class='card'><div class='lbl'>Callsign</div><div class='fai'>Lead</div><div class='lbl'>Vehicle Type</div><div class='fai'>4x4 SUV</div><div class='lbl'>Zip Code</div><div class='fai'>84770</div><div class='tr'><span style='font-size:11px;'>Email ride notifications</span><div class='tg on'><div class='tt'></div></div></div></div><div class='div'></div><button class='bs' style='margin-bottom:7px;' onclick="S('s07','','')" >VIEW RIDE HISTORY</button><button class='bs' style='margin-bottom:7px;' onclick="S('s08','','')" >FOLLOWING</button><button class='bs'>SIGN OUT</button></div>"+bnav("PROFILE");}
+
+function s06(){return "<div style='padding:14px;'><div class='sh'>Organizer Terms</div><div style='background:rgba(245,166,35,0.04);border:1px solid var(--org);border-radius:8px;padding:11px;height:185px;overflow-y:auto;font-size:11px;color:var(--gm);line-height:1.6;margin-bottom:11px;'><strong style=\"color:var(--org)\">GroupTrack Organizer Agreement V1.0</strong><br><br>As a ride organizer you are responsible for rides you create and the riders you invite. You agree to provide accurate ride information and manage rides responsibly.<br><br>Organizer subscription: $3.00/month via Google Play. Cancel any time. Cancellation takes effect at end of billing period.</div><div style='display:flex;align-items:center;gap:8px;margin-bottom:12px;'><div class='ck on'>&#10003;</div><span style='font-size:11px;'>I accept the Organizer Terms V1.0</span></div><button class='bo'>SUBSCRIBE &mdash; $3.00/MONTH</button></div>";}
+
+function s07(){return "<div style='padding:12px;'><div class='sh'>Ride History</div><div class='rc'><div class='rn'>Gooseberry Mesa &mdash; Mar 28</div><div class='rm'>8 riders &middot; 14.2 miles &middot; GPX saved</div><div style='margin-top:4px;'><span class='bdg bg-o'>ORGANIZER</span></div></div><div class='rc'><div class='rn'>Sand Hollow &mdash; Mar 15</div><div class='rm'>6 riders &middot; 11.8 miles</div><div style='margin-top:4px;'><span class='bdg bg-s'>RIDER</span></div></div><div class='rc'><div class='rn'>JEM Trail &mdash; Feb 28</div><div class='rm'>12 riders &middot; 22.1 miles</div><div style='margin-top:4px;'><span class='bdg bg-s'>RIDER</span></div></div></div>"+bnav("PROFILE");}
+
+function s08(){return "<div style='padding:12px;'><div class='sh'>Following</div><div class='fin' style='margin-bottom:9px;'>&#128269; Search organizers...</div><div class='rc'><div style='display:flex;justify-content:space-between;align-items:center;'><div><div class='rn'>TrailBoss_Mike</div><div class='rm'>St. George, UT &middot; 24 rides</div></div><span class='bdg bg-g'>FOLLOWING</span></div></div><div class='rc'><div style='display:flex;justify-content:space-between;align-items:center;'><div><div class='rn'>DesertRat_Sue</div><div class='rm'>Moab, UT &middot; 18 rides</div></div><span class='bdg bg-g'>FOLLOWING</span></div></div><div class='rc'><div style='display:flex;justify-content:space-between;align-items:center;'><div><div class='rn'>CanyonRunner</div><div class='rm'>Hurricane, UT &middot; 31 rides</div></div><button class='bssm'>FOLLOW</button></div></div></div>"+bnav("PROFILE");}
+
+function s09(){return "<div style='padding:12px;'><div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;'><div class='sh' style='margin:0;'>My Rides</div><button class='bssm' onclick="S('s10','Rides','Create Ride')">+ CREATE</button></div><div class='ssh'>Upcoming</div><div class='rc' onclick="S('s11','Rides','Ride Detail')"><div style='display:flex;justify-content:space-between;'><div class='rn'>Gooseberry Mesa Loop</div><span class='bdg bg-o'>ORGANIZER</span></div><div class='rm'>APR 5 &middot; 8:00 AM &middot; 12 enrolled</div></div><div class='rc'><div style='display:flex;justify-content:space-between;'><div class='rn'>Sand Hollow Trail Bash</div><span class='bdg bg-s'>ENROLLED</span></div><div class='rm'>APR 12 &middot; TrailBoss_Mike</div></div><div class='div'></div><div class='ssh'>Past</div><div class='rc'><div class='rn'>Gooseberry &mdash; Mar 28</div><div class='rm'>8 riders &middot; 14.2 mi &middot; GPX saved</div></div></div>"+bnav("RIDES");}
+
+function s10(ready){
+  var th=ready?"<div class='fsi'><span>&#128205; Gooseberry Mesa TH &mdash; 37.1234&deg;N</span><span>&#10003;</span></div>":"<div class='fui' onclick=\"S(\'s28\',\'Map Manager\',\'Set Trailhead\')\" ><span>&#128205; TAP TO SET TRAILHEAD</span><span style=\"color:var(--org)\">&#8594;</span></div>";
+  var ma=ready?"<div class='fsi'><span>&#128508; Gooseberry Loop Route &mdash; 14.2mi</span><span>&#10003;</span></div>":"<div class='fui' onclick=\"S(\'s29\',\'Map Manager\',\'Set Map Area\')\" ><span>&#128508; TAP TO SET MAP AREA</span><span style=\"color:var(--org)\">&#8594;</span></div>";
+  var btn=ready?"<button class='bg' onclick=\"S(\'s11\',\'Rides\',\'Ride Detail\')\">SAVE RIDE</button>":"<button class='bd'>SAVE RIDE &mdash; SET TRAILHEAD + MAP AREA FIRST</button>";
+  return "<div style='padding:12px;overflow-y:auto;max-height:540px;'><div class='sh'>Create Ride</div><div class='lbl'>Ride Name *</div><div class='fai'>Gooseberry Mesa Loop</div><div class='lbl'>Date *</div><div class='fai'>April 5, 2026</div><div class='lbl'>Start Time *</div><div class='fai'>8:00 AM</div><div class='lbl'>Description</div><div class='fin'>Optional ride notes...</div><div class='lbl'>Channel (auto-generated)</div><div class='fai'>CONVOY-4A2F</div><div class='div'></div><div style='border-left:3px solid var(--org);padding-left:8px;margin-bottom:7px;'><div class='lbl' style='color:var(--org);'>Trailhead / Start Point *</div>"+th+"</div><div style='border-left:3px solid var(--org);padding-left:8px;margin-bottom:7px;'><div class='lbl' style='color:var(--org);'>Map Area *</div>"+ma+"<div style='font-size:9px;color:var(--gm);margin-top:2px;'>Assign route, import GPX/KML, or draw manually</div></div><div class='div'></div><div class='tr'><span style='font-size:11px;'>Public ride (discoverable)</span><div class='tg off'><div class='tt'></div></div></div><div class='div'></div>"+btn+"</div>";
+}
+
+function s11(){return "<div style='padding:12px;'><div class='sh'>Ride Detail</div><div class='card'><div style='font-family:Rajdhani,sans-serif;font-size:14px;font-weight:700;color:var(--sky);margin-bottom:4px;'>Gooseberry Mesa Loop</div><div style='font-family:Share Tech Mono,monospace;font-size:8px;color:var(--gm);margin-bottom:6px;'>APR 5, 2026 &middot; 8:00 AM</div><div style='display:flex;gap:5px;flex-wrap:wrap;'><span class='bdg bg-o'>ORGANIZER</span><span class='bdg bg-m'>PRIVATE</span><span class='bdg bg-s'>12 ENROLLED</span></div></div><div class='card'><div class='ssh'>Trailhead</div><div style='font-size:11px;'>&#128205; Gooseberry Mesa TH</div><div style='font-family:Share Tech Mono,monospace;font-size:8px;color:var(--gm);'>37.1234&deg;N 113.0567&deg;W</div></div><div class='card'><div class='ssh'>Route</div><div style='font-size:11px;'>Gooseberry Loop &mdash; 14.2 mi</div><div style='font-family:Share Tech Mono,monospace;font-size:8px;color:var(--gm);'>Solid orange on ride map</div></div><div style='display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:4px;'><button class='bp' onclick="S('s12','Invite','Send Invite')">SEND INVITE</button><button class='bs' onclick="S('s13','Broadcast','Broadcast Ride')">BROADCAST</button></div></div>"+bnav("RIDES");}
+
+function s12(){return "<div style='padding:16px;'><div class='sh'>Send Invite</div><div class='card' style='text-align:center;'><div style='font-size:9px;color:var(--gm);margin-bottom:9px;'>Gooseberry Mesa Loop &middot; Apr 5</div><div style='background:white;padding:12px;border-radius:8px;margin-bottom:9px;display:inline-block;'><div style='width:80px;height:80px;background:linear-gradient(45deg,#000 25%,#fff 25%,#fff 50%,#000 50%,#000 75%,#fff 75%);background-size:16px 16px;'></div></div><div style='font-family:Share Tech Mono,monospace;font-size:8px;color:var(--sky);word-break:break-all;'>grouptrack.org/invite/4A2F-GMT01</div></div><button class='bp' style='margin-bottom:7px;'>&#128203; COPY INVITE LINK</button><button class='bs'>&#8599; SHARE VIA...</button></div>";}
+
+function s13(){return "<div style='padding:16px;'><div class='sh'>Broadcast Ride</div><div class='card'><div style='font-family:Rajdhani,sans-serif;font-size:14px;font-weight:700;color:var(--sky);margin-bottom:5px;'>Gooseberry Mesa Loop</div><div style='font-size:11px;color:var(--gm);margin-bottom:9px;'>Email notification to all riders who follow you.</div><div style='display:flex;justify-content:space-between;margin-bottom:5px;'><span style='font-size:11px;'>Your followers</span><span class='bdg bg-s'>47</span></div><div style='display:flex;justify-content:space-between;'><span style='font-size:11px;'>Email opt-ins</span><span class='bdg bg-g'>38</span></div></div><div style='background:rgba(204,34,34,0.09);border:1px solid var(--red);border-radius:8px;padding:8px;margin-bottom:11px;font-size:10px;color:var(--red);'>&#9888; Broadcast can only be sent once per ride.</div><button class='bo'>SEND BROADCAST TO 38 RIDERS</button></div>";}
+
+function s14(){return "<div style='padding:14px;'><div class='sh'>Ride Invite</div><div class='card' style='text-align:center;border-color:var(--sky);'><div style='font-size:10px;color:var(--gm);margin-bottom:5px;'>You have been invited to</div><div style='font-family:Rajdhani,sans-serif;font-size:18px;font-weight:700;margin-bottom:3px;'>Sand Hollow Trail Bash</div><div style='font-family:Share Tech Mono,monospace;font-size:9px;color:var(--sky);margin-bottom:9px;'>APR 12 &middot; 9:00 AM &middot; by TrailBoss_Mike</div><div style='font-size:11px;color:var(--gm);margin-bottom:9px;'>&#128205; Sand Hollow Trailhead, Hurricane UT</div><div style='display:flex;justify-content:center;gap:5px;flex-wrap:wrap;'><span class='bdg bg-s'>8 ENROLLED</span><span class='bdg bg-o'>14.2 MI ROUTE</span><span class='bdg bg-m'>PRIVATE</span></div></div><div class='card'><div class='ssh'>What happens on accept</div><div style='font-size:10px;color:var(--gm);line-height:1.7;'>&#10003; Ride data downloads to your device<br>&#10003; Map tiles auto-download for ride area<br>&#10003; Radio config ready to apply on ride day</div></div><button class='bp' style='margin-bottom:7px;' onclick="S('s04','Dashboard','Dashboard')">ACCEPT &amp; DOWNLOAD RIDE</button><button class='bs'>DECLINE</button></div>";}
+
+function s15(){return "<div style='padding:12px;'><div class='sh'>Explore Rides</div><div class='fin' style='margin-bottom:9px;'>&#128269; Search rides near 84770...</div><div class='rc'><div style='display:flex;justify-content:space-between;'><div class='rn'>Hurricane Cliffs Loop</div><span class='bdg bg-g'>PUBLIC</span></div><div class='rm'>APR 8 &middot; TrailBoss_Mike &middot; 84780</div></div><div class='rc'><div style='display:flex;justify-content:space-between;'><div class='rn'>Little Creek Trail</div><span class='bdg bg-g'>PUBLIC</span></div><div class='rm'>APR 15 &middot; DesertRat_Sue &middot; 84738</div></div><div class='rc'><div style='display:flex;justify-content:space-between;'><div class='rn'>JEM Trail Full Run</div><span class='bdg bg-g'>PUBLIC</span></div><div class='rm'>APR 20 &middot; CanyonRunner &middot; 84770</div></div></div>"+bnav("RIDES");}
+
+function mapBase(label,col,svg,hcols,btn){
+  return "<div class='mm' style='height:320px;position:relative;'>"
+    +"<svg style='position:absolute;inset:0;width:100%;height:100%;'>"+svg+"</svg>"
+    +"<div class='fbar' style='position:absolute;top:8px;left:8px;right:8px;justify-content:space-between;'>"
+    +"<div class='fbt on'>OFFLINE</div>"
+    +"<div style='font-family:Share Tech Mono,monospace;font-size:8px;color:"+col+";'>"+label+"</div>"
+    +"<div class='fbt'>SAT</div>"
+    +"<div class='fbt' onclick=\"S(\'s19\',\'Convoy Map\',\'Map Settings\')\">&#9881;</div></div>"
+    +"<div style='position:absolute;bottom:10px;left:50%;transform:translateX(-50%);'>"+btn+"</div></div>"
+    +"<div class='hb' style='grid-template-columns:repeat("+hcols.length+",1fr);'>"+hcols.map(function(c){return "<div class='hs'><div class='hl'>"+c[0]+"</div><div class='hv' style=\"color:"+c[2]+";font-size:12px;\">"+c[1]+"</div></div>";}).join("")+"</div>";
+}
+
+function recBtn(onclick){return "<div style='background:#CC2222;border-radius:50%;width:40px;height:40px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:9px;cursor:pointer;border:2px solid rgba(255,255,255,0.3);' onclick=\""+onclick+"\">REC</div>";}
+function stopBtn(onclick){return "<div style='background:#CC2222;border-radius:50%;width:40px;height:40px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:9px;cursor:pointer;border:2px solid rgba(255,255,255,0.3);' onclick=\""+onclick+"\">&#9632; STOP</div>";}
+
+function s16(){
+  var svg="<polyline points='55,290 75,250 95,215 115,183 132,155' stroke='#4AB8E8' stroke-width='2' fill='none' stroke-dasharray='4,2'/><circle cx='132' cy='155' r='6' fill='#4AB8E8'/><circle cx='132' cy='155' r='10' fill='none' stroke='#4AB8E8' stroke-width='1.5' opacity='0.5'/>";
+  var hud=[["STATE","SOLO","var(--sky)"],["SPEED","24mph","#fff"],["TRACK","ON","var(--grn)"],["TILES","LOCAL","var(--grn)"]];
+  return mapBase("SOLO MODE","var(--sky)",svg,hud,recBtn(""))+bnav("MAP");
+}
+
+function s17(){
+  var svg="<polyline points='45,280 75,240 108,200 140,163 158,135' stroke='#F5A623' stroke-width='2.5' fill='none'/><circle cx='45' cy='280' r='7' fill='#FF8C42' stroke='white' stroke-width='1.5'/><circle cx='95' cy='235' r='7' fill='#4DA6FF' stroke='white' stroke-width='1.5'/><circle cx='135' cy='188' r='7' fill='#1CF0A0' stroke='white' stroke-width='1.5'/><circle cx='158' cy='135' r='9' fill='#F5A623' stroke='white' stroke-width='2'/><text x='165' y='132' fill='#F5A623' font-size='8' font-family='monospace'>LEAD</text>";
+  var hud=[["STATE","CONVOY","var(--org)"],["LEAD","Lead","var(--grn)"],["TAIL","T1005","var(--org)"],["SPAN","0.4mi","#fff"],["NODES","4","#fff"]];
+  return mapBase("CONVOY","var(--org)",svg,hud,stopBtn("S('s20b','Convoy Map','Stop - Simple')"))+bnav("MAP");
+}
+
+function s18(){
+  var svg="<polyline points='45,280 75,240 108,200 140,163 158,135' stroke='#F5A623' stroke-width='2' fill='none' opacity='0.5'/><polyline points='45,280 75,240 108,200 140,163' stroke='#6B4EFF' stroke-width='2' fill='none' stroke-dasharray='5,3'/><circle cx='45' cy='280' r='7' fill='#FF8C42' stroke='white' stroke-width='1.5'/><circle cx='95' cy='235' r='7' fill='#4DA6FF' stroke='white' stroke-width='1.5'/><circle cx='135' cy='188' r='7' fill='#1CF0A0' stroke='white' stroke-width='1.5'/><circle cx='158' cy='135' r='9' fill='#F5A623' stroke='white' stroke-width='2'/><polygon points='45,280 39,269 51,269' fill='#F5A623'/><text x='53' y='277' fill='#F5A623' font-size='7' font-family='monospace'>TH</text>";
+  var hud=[["STATE","ORG","var(--grn)"],["LEAD","Lead","var(--grn)"],["TAIL","T1005","var(--org)"],["SPAN","0.6mi","#fff"],["RIDE","GMT01","var(--sky)"]];
+  return mapBase("ORGANIZED","var(--grn)",svg,hud,stopBtn("S('s20','Convoy Map','Stop - Survey')"))+bnav("MAP");
+}
+
+function s19(){return "<div style='padding:12px;overflow-y:auto;max-height:520px;'><div class='sh'>Map Settings</div><div class='acc'><div class='ah' onclick='tA(this)'><span>&#128506; MAP CONTROLS</span><span>&#9654;</span></div><div class='ab'><div class='tr'><span style='font-size:11px;'>Offline Mode</span><div class='tg on'><div class='tt'></div></div></div><div class='tr'><span style='font-size:11px;'>Track Lead Only</span><div class='tg on'><div class='tt'></div></div></div><div class='tr'><span style='font-size:11px;'>Show Downloaded Areas</span><div class='tg off'><div class='tt'></div></div></div><div class='div'></div><div class='lbl'>Map Type</div><div style='display:flex;gap:5px;margin-bottom:7px;'><div class='fbt on'>SAT</div><div class='fbt'>HYB</div><div class='fbt'>TOPO</div></div><div class='lbl'>Track Export</div><div style='display:flex;gap:5px;'><div class='fbt on'>GPX</div><div class='fbt'>KML</div></div></div></div><div class='acc'><div class='ah' onclick='tA(this)'><span>&#11015; MAP DOWNLOAD</span><span>&#9654;</span></div><div class='ab'><div style='font-size:10px;color:var(--gm);margin-bottom:7px;'>Draw a region to download tiles for offline use.</div><div class='lbl'>Zoom Levels</div><div style='display:flex;gap:5px;margin-bottom:7px;flex-wrap:wrap;'><div class='fbt'>Z14</div><div class='fbt on'>Z16</div><div class='fbt on'>Z17</div><div class='fbt on'>Z18</div></div><button class='bs'>DRAW DOWNLOAD REGION</button></div></div><div class='acc'><div class='ah' onclick='tA(this)'><span>&#9645; OVERLAYS</span><span>&#9654;</span></div><div class='ab'><div style='font-size:10px;color:var(--gm);margin-bottom:7px;'>Toggle routes, waypoints, and ride history.</div><button class='bs' onclick="S('s25','Map Manager','Overlay Selector')">OPEN OVERLAY SELECTOR</button></div></div><div class='div'></div><button class='bs' onclick="S('s16','Convoy Map','Map - SOLO')">&#8592; BACK TO MAP</button></div>";}
+
+function s20(){return "<div style='padding:14px;'><div class='sh'>Ride Complete</div><div class='card'><div style='font-family:Rajdhani,sans-serif;font-size=13px;font-weight:700;color:var(--sky);'>Gooseberry Mesa &mdash; Apr 1</div><div style='font-family:Share Tech Mono,monospace;font-size:8px;color:var(--gm);'>2h 14m &middot; 12.3 miles &middot; 4 riders</div></div><div class='card'><div class='ssh'>Quick Survey</div><div class='lbl'>Difficulty</div><div style='display:flex;gap:5px;margin-bottom:9px;'><div class='fbt'>EASY</div><div class='fbt on'>MODERATE</div><div class='fbt'>HARD</div></div><div class='lbl'>Recommend?</div><div style='display:flex;gap:5px;margin-bottom:9px;'><div class='fbt on'>YES</div><div class='fbt'>NO</div></div><div class='tr'><span style='font-size:11px;'>Donate track to public library</span><div class='tg on'><div class='tt'></div></div></div></div><div class='lbl'>Track Name</div><div class='fai' style='margin-bottom:11px;'>Gooseberry Mesa Loop &mdash; Apr 1 2026</div><button class='bg' onclick="S('s04','Dashboard','Dashboard')">SAVE &amp; SUBMIT</button></div>";}
+
+function s20b(){return "<div style='padding:14px;'><div class='sh'>Save Track</div><div class='card'><div style='font-family:Rajdhani,sans-serif;font-size:13px;font-weight:700;color:var(--sky);'>Solo Ride &mdash; Apr 1</div><div style='font-family:Share Tech Mono,monospace;font-size:8px;color:var(--gm);'>1h 32m &middot; 8.4 miles</div></div><div class='lbl'>Track Name *</div><div class='fai' style='margin-bottom:12px;'>My Trail &mdash; Apr 1 2026</div><button class='bg' onclick="S('s04','Dashboard','Dashboard')">SAVE TRACK</button></div>";}
+
+function s20c(){return "<div style='padding:12px;'><div class='sh'>Radio Reconnect</div><div style='background:rgba(0,170,68,0.12);border:2px solid var(--grn);border-radius:9px;padding:12px;text-align:center;margin-bottom:12px;cursor:pointer;'><div style='font-family:Rajdhani,sans-serif;font-size:13px;font-weight:700;color:var(--grn);letter-spacing:1px;'>RADIO INACTIVE &mdash; TAP TO RECONNECT</div><div style='font-family:Share Tech Mono,monospace;font-size:8px;color:var(--gm);margin-top:2px;'>No GPS updates for 5+ minutes</div></div><div style='font-size:11px;color:var(--gm);text-align:center;line-height:1.6;'>Banner appears over map and HUD when radio goes quiet. Tapping triggers Bluetooth toggle reconnect.</div></div>";}
+
+function s21(){
+  var tools=[["&#11015;","DOWNLOAD","s23"],["&#128229;","IMPORT","s24"],["&#9645;","OVERLAYS","s25"],["&#128205;","WAYPOINTS","s26"],["&#9999;","PLAN","s30"]];
+  var grid=tools.map(function(t){return "<div style='text-align:center;cursor:pointer;' onclick=\"S(\'"+t[2]+"\',\'Map Manager\',\'\')\"><div style='background:rgba(255,255,255,0.04);border:1px solid var(--bdr);border-radius:6px;padding:6px;margin-bottom:2px;font-size:16px;'>"+t[0]+"</div><div style='font-family:Share Tech Mono,monospace;font-size:7px;color:var(--gm);'>"+t[1]+"</div></div>";}).join("");
+  return "<div class='mm' style='height:250px;position:relative;'>"
+    +"<div style='position:absolute;top:55px;left:28px;width:180px;height:130px;background:rgba(74,184,232,0.09);border:1px solid rgba(74,184,232,0.3);border-radius:3px;'></div>"
+    +"<svg style='position:absolute;inset:0;width:100%;height:100%;'><polyline points='45,240 75,200 110,160 142,124 158,100' stroke='#F5A623' stroke-width='2' fill='none'/><polygon points='45,240 39,229 51,229' fill='#F5A623'/><circle cx='110' cy='160' r='5' fill='#4AB8E8' stroke='white' stroke-width='1.5'/></svg>"
+    +"<div class='fbar' style='position:absolute;top:8px;left:8px;right:8px;justify-content:space-between;'>"
+    +"<div class='fbt' onclick=\"S(\'s22\',\'Map Manager\',\'Find Area\')\">&#128269; FIND AREA</div>"
+    +"<div class='fbt on'>OFFLINE</div>"
+    +"<div style='font-family:Share Tech Mono,monospace;font-size:8px;color:var(--sky);'>MAP MGR</div></div></div>"
+    +"<div style='padding:10px;'><div style='display:grid;grid-template-columns:repeat(5,1fr);gap:6px;'>"+grid+"</div></div>"
+    +bnav("MAP");
+}
+
+function s22(){return "<div style='padding:12px;overflow-y:auto;max-height:520px;'><div class='sh'>Find Area</div><div class='acc'><div class='ah' onclick='tA(this)' style='border-left:3px solid var(--sky);'><span>&#128506; AREA SEARCH (Current View)</span><span>&#9660;</span></div><div class='ab open'><div style='font-size:10px;color:var(--gm);'>Default. Filters to current viewport. Updates on pan/zoom.</div><div style='font-family:Share Tech Mono,monospace;font-size:8px;color:var(--sky);margin-top:5px;'>3 routes &middot; 7 waypoints &middot; 4 rides in view</div></div></div><div class='acc'><div class='ah' onclick='tA(this)'><span>&#128269; FIND AREA (Geocoder)</span><span>&#9654;</span></div><div class='ab'><div class='fai'>Gooseberry Mesa, UT</div><button class='bs'>FLY TO LOCATION</button></div></div><div class='acc'><div class='ah' onclick='tA(this)'><span>&#128221; NAME SEARCH</span><span>&#9654;</span></div><div class='ab'><div class='fin'>Search routes and tracks by name...</div><div class='oi'><div class='oc' style='background:#F5A623;'></div><div style='flex:1'><div style='font-size:11px;'>Gooseberry Mesa Loop</div><div style='font-family:Share Tech Mono,monospace;font-size:8px;color:var(--gm);'>ROUTE &middot; 14.2 mi</div></div></div><div class='oi'><div class='oc ocd'></div><div style='flex:1'><div style='font-size:11px;'>Gooseberry &mdash; Mar 28</div><div style='font-family:Share Tech Mono,monospace;font-size:8px;color:var(--gm);'>TRACK &middot; 12.3 mi</div></div></div></div></div><div class='acc'><div class='ah' onclick='tA(this)'><span>&#9898; WAYPOINT RADIUS</span><span>&#9654;</span></div><div class='ab'><div class='lbl'>Search Radius</div><div style='display:flex;gap:5px;margin-bottom:7px;'><div class='fbt'>1mi</div><div class='fbt on'>5mi</div><div class='fbt'>10mi</div><div class='fbt'>25mi</div></div><button class='bs'>SEARCH FROM MAP CENTER</button></div></div></div>";}
+
+function s23(){return "<div style='padding:12px;'><div class='sh'>Tile Download</div><div class='mm' style='height:190px;position:relative;'><div style='position:absolute;top:38px;left:32px;width:160px;height:110px;background:rgba(245,166,35,0.18);border:2px dashed var(--org);border-radius:3px;display:flex;align-items:center;justify-content:center;'><div style='font-family:Share Tech Mono,monospace;font-size:8px;color:var(--org);text-align:center;'>DRAW REGION<br>ON MAP</div></div><div class='fbar' style='position:absolute;top:8px;left:8px;right:8px;'><div style='font-family:Share Tech Mono,monospace;font-size:8px;color:var(--sky);flex:1;text-align:center;'>DRAG TO SELECT REGION</div></div></div><div class='lbl' style='margin-top:9px;'>Zoom Levels</div><div style='display:flex;gap:5px;margin-bottom:9px;flex-wrap:wrap;'><div class='fbt'>Z10-13</div><div class='fbt on'>Z14-15</div><div class='fbt on'>Z16-17</div><div class='fbt on'>Z18</div></div><div class='card'><div style='display:flex;justify-content:space-between;margin-bottom:4px;'><span style='font-size:11px;'>Estimated tiles</span><span style='color:var(--sky);font-size:11px;'>~33,257</span></div><div style='display:flex;justify-content:space-between;'><span style='font-size:11px;'>Estimated size</span><span style='color:var(--sky);font-size:11px;'>~420 MB</span></div></div><button class='bo'>&#11015; START DOWNLOAD</button></div>";}
+
+function s24(){return "<div style='padding:12px;'><div class='sh'>Import Route</div><div style='background:rgba(74,184,232,0.04);border:2px dashed var(--sky);border-radius:10px;padding:18px;text-align:center;margin-bottom:12px;'><div style='font-size:26px;margin-bottom:6px;'>&#128194;</div><div style='font-family:Rajdhani,sans-serif;font-size:13px;font-weight:600;color:var(--sky);'>TAP TO BROWSE FILES</div><div style='font-family:Share Tech Mono,monospace;font-size:8px;color:var(--gm);margin-top:2px;'>GPX &middot; KML supported</div></div><div class='lbl'>Route Name</div><div class='fai'>Gooseberry Mesa Loop</div><div class='lbl'>Type</div><div style='display:flex;gap:6px;margin-bottom:9px;'><div class='fbt on'>ROUTE</div><div class='fbt'>TRACK</div></div><div class='card'><div style='font-family:Share Tech Mono,monospace;font-size:8px;color:var(--gm);'>MD5: a3f2c8d9e1b4...</div><div style='font-family:Share Tech Mono,monospace;font-size:8px;color:var(--gm);'>Points: 847 &middot; Distance: 14.2 mi</div><div style='font-family:Share Tech Mono,monospace;font-size:8px;color:var(--grn);margin-top:2px;'>&#10003; No duplicate found</div></div><button class='bp'>IMPORT TO LIBRARY</button></div>";}
+
+function s25(){return "<div style='padding:12px;overflow-y:auto;max-height:520px;'><div class='sh'>Overlay Selector</div><div style='font-family:Share Tech Mono,monospace;font-size:8px;color:var(--sky);margin-bottom:9px;'>3 ROUTES &middot; 4 WAYPOINTS &middot; 2 RIDES IN VIEW</div><div class='fin'>&#128269; Search by name...</div><div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;'><div style='font-size:10px;color:var(--gm);'>Filtered to current map view</div><div class='fbt on'>SELECT ALL</div></div><div class='ssh'>Routes <span style='font-family:Share Tech Mono,monospace;font-size:7px;color:var(--gm);'>&mdash; solid orange</span></div><div class='oi'><div class='oc' style='background:#F5A623;'></div><div style='flex:1'><div style='font-size:11px;'>Gooseberry Mesa Loop</div><div style='font-family:Share Tech Mono,monospace;font-size:8px;color:var(--gm);'>ROUTE &middot; 14.2 mi</div></div><div class='ck on'>&#10003;</div></div><div class='oi'><div class='oc' style='background:#F5A623;'></div><div style='flex:1'><div style='font-size:11px;'>Hurricane Cliffs Loop</div><div style='font-family:Share Tech Mono,monospace;font-size:8px;color:var(--gm);'>ROUTE &middot; 22.1 mi</div></div><div class='ck'></div></div><div class='ssh' style='margin-top:8px;'>Tracks <span style='font-family:Share Tech Mono,monospace;font-size:7px;color:var(--gm);'>&mdash; dashed purple</span></div><div class='oi'><div class='oc ocd'></div><div style='flex:1'><div style='font-size:11px;'>Gooseberry &mdash; Mar 28</div><div style='font-family:Share Tech Mono,monospace;font-size:8px;color:var(--gm);'>TRACK &middot; 12.3 mi</div></div><div class='ck on'>&#10003;</div></div><div class='ssh' style='margin-top:8px;'>Waypoints <span style='font-family:Share Tech Mono,monospace;font-size:7px;color:var(--gm);'>&mdash; icon by type</span></div><div class='oi'><span style='font-size:13px;'>&#127937;</span><div style='flex:1'><div style='font-size:11px;'>Gooseberry Mesa TH</div><div style='font-family:Share Tech Mono,monospace;font-size:8px;color:var(--gm);'>TRAILHEAD</div></div><div class='ck on'>&#10003;</div></div><div class='oi'><span style='font-size:13px;'>&#9888;</span><div style='flex:1'><div style='font-size:11px;'>Rocky Ledge Drop</div><div style='font-family:Share Tech Mono,monospace;font-size:8px;color:var(--gm);'>HAZARD</div></div><div class='ck on'>&#10003;</div></div><div class='ssh' style='margin-top:8px;'>Ride History <span style='font-family:Share Tech Mono,monospace;font-size:7px;color:var(--gm);'>&mdash; unique color per ride</span></div><div class='oi'><div class='oc' style='background:#00AAFF;'></div><div style='flex:1'><div style='font-size:11px;'>Gooseberry &mdash; Mar 28</div><div style='font-family:Share Tech Mono,monospace;font-size:8px;color:var(--gm);'>ORGANIZED &middot; 8 riders</div></div><div class='ck on'>&#10003;</div></div><div class='div'></div><button class='bp' onclick="S('s21','Map Manager','Map Manager Main')">APPLY OVERLAYS</button></div>";}
+
+function s26(){return "<div style='padding:12px;'><div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;'><div class='sh' style='margin:0;'>Waypoints</div><button class='bssm' onclick="S('s27','Map Manager','Create Waypoint')">+ NEW</button></div><div class='fin'>&#128269; Search waypoints...</div><div style='display:flex;gap:4px;margin-bottom:9px;flex-wrap:wrap;'><div class='fbt on'>ALL</div><div class='fbt'>&#127937; TH</div><div class='fbt'>&#9975; STAGING</div><div class='fbt'>&#9888; HAZARD</div><div class='fbt'>&#128204; POI</div></div><div class='oi' style='padding:6px 0;'><span style='font-size:16px;width:22px;'>&#127937;</span><div style='flex:1;'><div style='font-size:11px;'>Gooseberry Mesa TH</div><div style='font-family:Share Tech Mono,monospace;font-size:8px;color:var(--gm);'>TRAILHEAD &middot; 37.1234&deg;N</div></div><div class='fbt' style='font-size:8px;'>EDIT</div></div><div class='oi' style='padding:6px 0;'><span style='font-size:16px;width:22px;'>&#9975;</span><div style='flex:1;'><div style='font-size:11px;'>Sand Hollow Staging</div><div style='font-family:Share Tech Mono,monospace;font-size:8px;color:var(--gm);'>STAGING &middot; 37.0891&deg;N</div></div><div class='fbt' style='font-size:8px;'>EDIT</div></div><div class='oi' style='padding:6px 0;'><span style='font-size:16px;width:22px;'>&#9888;</span><div style='flex:1;'><div style='font-size:11px;'>Rocky Ledge Drop</div><div style='font-family:Share Tech Mono,monospace;font-size:8px;color:var(--gm);'>HAZARD</div></div><div class='fbt' style='font-size:8px;'>EDIT</div></div></div>";}
+
+function s27(){return "<div style='padding:12px;'><div class='sh'>Create Waypoint</div><div class='mm' style='height:170px;position:relative;'><svg style='position:absolute;inset:0;width:100%;height:100%;'><circle cx='155' cy='105' r='8' fill='#F5A623' stroke='white' stroke-width='2'/><line x1='155' y1='65' x2='155' y2='95' stroke='#F5A623' stroke-width='1.5' stroke-dasharray='3,2'/><line x1='115' y1='105' x2='145' y2='105' stroke='#F5A623' stroke-width='1.5' stroke-dasharray='3,2'/></svg><div style='position:absolute;top:8px;left:8px;right:8px;background:rgba(10,20,36,0.9);border:1px solid var(--org);border-radius:5px;padding:5px;text-align:center;'><div style='font-family:Share Tech Mono,monospace;font-size:8px;color:var(--org);'>WAYPOINT DROPPED &middot; 37.1234&deg;N 113.0567&deg;W</div></div><div style='position:absolute;bottom:8px;left:50%;transform:translateX(-50%);font-family:Share Tech Mono,monospace;font-size:7px;color:var(--gm);'>LONG PRESS TO DROP ON MAP</div></div><div class='lbl' style='margin-top:9px;'>Name *</div><div class='fai'>Gooseberry Mesa TH</div><div class='lbl'>Type *</div><div style='display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap;'><div class='fbt on'>&#127937; TRAILHEAD</div><div class='fbt'>&#9975; STAGING</div><div class='fbt'>&#9888; HAZARD</div><div class='fbt'>&#128204; POI</div></div><div class='lbl'>Notes (optional)</div><div class='fin' style='margin-bottom:9px;'>Add description...</div><div style='display:grid;grid-template-columns:1fr 1fr;gap:7px;'><button class='bg' onclick="S('s26','Map Manager','Waypoint Library')">SAVE WAYPOINT</button><button class='bs' onclick="S('s21','Map Manager','Map Manager Main')">CANCEL</button></div></div>";}
+
+function s28(){return "<div style='padding:12px;'><div style='background:rgba(245,166,35,0.08);border:1px solid var(--org);border-radius:7px;padding:7px 10px;margin-bottom:10px;text-align:center;'><div style='font-family:Share Tech Mono,monospace;font-size:8px;color:var(--org);'>SETTING TRAILHEAD FOR: Gooseberry Mesa Loop</div></div><div class='mm' style='height:170px;position:relative;'><svg style='position:absolute;inset:0;width:100%;height:100%;'><circle cx='155' cy='98' r='11' fill='none' stroke='#F5A623' stroke-width='1.5' stroke-dasharray='4,2'/><text x='130' y='120' fill='#F5A623' font-size='8' font-family='monospace'>LONG PRESS TO DROP</text></svg></div><div class='ssh' style='margin-top:10px;'>Or select from library</div><div class='oi'><span style='font-size:14px;'>&#128205;</span><div style='flex:1'><div style='font-size:11px;'>Gooseberry Mesa TH</div><div style='font-family:Share Tech Mono,monospace;font-size:8px;color:var(--gm);'>TRAILHEAD &middot; 37.1234&deg;N</div></div><div class='ck on'>&#10003;</div></div><div class='oi'><span style='font-size:14px;'>&#128205;</span><div style='flex:1'><div style='font-size:11px;'>Sand Hollow TH</div><div style='font-family:Share Tech Mono,monospace;font-size:8px;color:var(--gm);'>TRAILHEAD &middot; 37.0891&deg;N</div></div><div class='ck'></div></div><div class='div'></div><button class='bp' onclick="S('s10b','Rides','Create Ride (ready)')">USE SELECTED TRAILHEAD</button></div>";}
+
+function s29(){return "<div style='padding:12px;overflow-y:auto;max-height:520px;'><div style='background:rgba(245,166,35,0.08);border:1px solid var(--org);border-radius:7px;padding:7px 10px;margin-bottom:10px;text-align:center;'><div style='font-family:Share Tech Mono,monospace;font-size:8px;color:var(--org);'>SETTING MAP AREA FOR: Gooseberry Mesa Loop</div></div><div class='acc'><div class='ah' onclick='tA(this)' style='border-left:3px solid var(--org);'><span>&#128506; ASSIGN EXISTING ROUTE</span><span>&#9660;</span></div><div class='ab open'><div class='oi' onclick=\"S(\'s10b\',\'Rides\',\'Create Ride (ready)\')\"><div class='oc' style='background:#F5A623;'></div><div style='flex:1'><div style='font-size:11px;'>Gooseberry Mesa Loop</div><div style='font-family:Share Tech Mono,monospace;font-size:8px;color:var(--gm);'>14.2 mi &middot; bounds auto-calculated</div></div><div class='ck on'>&#10003;</div></div><div class='oi'><div class='oc' style='background:#F5A623;'></div><div style='flex:1'><div style='font-size:11px;'>Hurricane Cliffs Loop</div><div style='font-family:Share Tech Mono,monospace;font-size:8px;color:var(--gm);'>22.1 mi</div></div><div class='ck'></div></div></div></div><div class='acc'><div class='ah' onclick='tA(this)'><span>&#128229; IMPORT GPX / KML</span><span>&#9654;</span></div><div class='ab'><div style='font-size:10px;color:var(--gm);margin-bottom:7px;'>Import from device. MD5 checked. Stored to route library.</div><button class='bs' onclick=\"S(\'s24\',\'Map Manager\',\'Import GPX/KML\')\">BROWSE FILES</button></div></div><div class='acc'><div class='ah' onclick='tA(this)'><span>&#9999; DRAW MANUALLY</span><span>&#9654;</span></div><div class='ab'><div style='font-size:10px;color:var(--gm);margin-bottom:7px;'>Draw a bounding rectangle on the map.</div><button class='bs'>OPEN MAP DRAW MODE</button></div></div><div class='div'></div><button class='bp' onclick=\"S(\'s10b\',\'Rides\',\'Create Ride (ready)\')\">USE SELECTED AREA</button></div>";}
+
+function s30(){return "<div style='padding:18px;text-align:center;'><div style='font-size:44px;margin-bottom:12px;'>&#9999;&#65039;</div><div style='background:rgba(122,158,192,0.08);border:1px dashed var(--gm);border-radius:11px;padding:18px;margin-bottom:14px;'><div style='font-family:Rajdhani,sans-serif;font-size:16px;font-weight:700;color:var(--gm);letter-spacing:2px;'>ROUTE PLANNER</div><div style='font-family:Share Tech Mono,monospace;font-size:9px;color:var(--gd);margin-top:3px;'>COMING IN PHASE D</div></div><div style='font-size:11px;color:var(--gm);line-height:1.7;'>Draw routes by tapping waypoints on the map. Snap to existing trails. Name and save to library. Assign to ride events.</div></div>";}
+
+function s31(){return "<div style='padding:12px;'><div class='sh'>Field Radio</div><div style='background:rgba(0,170,68,0.09);border:1px solid var(--grn);border-radius:8px;padding:8px 11px;margin-bottom:11px;text-align:center;'><div style='font-family:Share Tech Mono,monospace;font-size:8px;color:var(--grn);'>&#9679; RADIO CONNECTED</div><div style='font-size:11px;margin-top:2px;'>E3:07:C6:57:90:0F</div></div><div class='card'><div class='lbl'>Active Channel</div><div class='val'>CONVOY-4A2F</div><div class='lbl'>Frequency</div><div class='val'>915.0 MHz</div><div class='lbl'>Spread Factor</div><div class='val'>SF10 / BW 250</div><div class='lbl'>TX Power</div><div class='val'>27 dBm</div></div><div style='display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:7px;'><button class='bs'>CAPTURE CONFIG</button><button class='bs'>APPLY CONFIG</button></div><div class='div'></div><button style='background:linear-gradient(135deg,var(--red),#991111);color:#fff;font-family:Rajdhani,sans-serif;font-weight:700;font-size:13px;padding:11px 16px;border-radius:8px;border:none;cursor:pointer;width:100%;letter-spacing:1px;'>RECONNECT RADIO</button></div>"+bnav("PROFILE");}
+
+function s32(){return "<div style='padding:12px;'><div class='sh'>Track Library</div><div class='fin'>&#128269; Search tracks near 84770...</div><div style='display:flex;gap:4px;margin-bottom:9px;'><div class='fbt on'>ALL</div><div class='fbt'>EASY</div><div class='fbt'>MOD</div><div class='fbt'>HARD</div></div><div class='rc' onclick=\"S(\'s33\',\'Tracks\',\'Track Detail\')\"><div class='rn'>Gooseberry Mesa Loop</div><div class='rm'>14.2 mi &middot; MODERATE</div><div style='font-family:Share Tech Mono,monospace;font-size:8px;color:var(--grn);margin-top:2px;'>98% recommend</div></div><div class='rc' onclick=\"S(\'s33\',\'Tracks\',\'Track Detail\')\"><div class='rn'>Hurricane Cliffs</div><div class='rm'>22.1 mi &middot; HARD</div><div style='font-family:Share Tech Mono,monospace;font-size:8px;color:var(--grn);margin-top:2px;'>94% recommend</div></div><div class='rc' onclick=\"S(\'s33\',\'Tracks\',\'Track Detail\')\"><div class='rn'>Little Creek Trail</div><div class='rm'>8.4 mi &middot; EASY</div><div style='font-family:Share Tech Mono,monospace;font-size:8px;color:var(--grn);margin-top:2px;'>100% recommend</div></div></div>"+bnav("RIDES");}
+
+function s33(){return "<div style='padding:12px;'><div class='sh'>Track Detail</div><div class='mm' style='height:170px;position:relative;'><svg style='position:absolute;inset:0;width:100%;height:100%;'><polyline points='38,155 68,115 105,80 138,52 158,33' stroke='#6B4EFF' stroke-width='2.5' fill='none' stroke-dasharray='6,3'/></svg></div><div class='card' style='margin-top:9px;'><div style='font-family:Rajdhani,sans-serif;font-size=13px;font-weight:700;color:var(--sky);margin-bottom:4px;'>Gooseberry Mesa Loop</div><div style='display:flex;gap:6px;flex-wrap:wrap;margin-bottom:7px;'><span class='bdg bg-o'>MODERATE</span><span class='bdg bg-g'>98% RECOMMEND</span></div><div class='lbl'>Distance</div><div class='val'>14.2 miles</div><div class='lbl'>Donated by</div><div class='val'>TrailBoss_Mike &middot; Mar 28, 2026</div></div><button class='bp'>&#11015; DOWNLOAD TO DEVICE</button></div>"+bnav("RIDES");}
+</script>
+
+<button class="exp-btn" onclick="openExp()">&#128229; EXPORT NOTES</button>
+<div class="exp-overlay" id="expOv">
+  <div class="exp-box">
+    <div class="exp-title">EXPORT &mdash; COPY &amp; PASTE TO CLAUDE</div>
+    <div class="exp-out" id="expOut"></div>
+    <div style="display:flex;gap:8px;">
+      <button onclick="copyExp()" style="flex:1;background:linear-gradient(135deg,var(--sky),var(--skd));color:var(--nd);font-family:Rajdhani,sans-serif;font-weight:700;font-size:13px;padding:9px;border-radius:7px;border:none;cursor:pointer;">COPY ALL</button>
+      <button onclick="document.getElementById('expOv').classList.remove('open')" style="flex:1;background:transparent;color:var(--gm);font-family:Rajdhani,sans-serif;font-weight:700;font-size:13px;padding:9px;border-radius:7px;border:1px solid var(--gm);cursor:pointer;">CLOSE</button>
+    </div>
+  </div>
+</div>
+<script>
+function openExp(){
+  var ids=["s01","s02","s03","s04","s05","s06","s07","s08","s09","s10","s10b","s11","s12","s13","s14","s15","s16","s17","s18","s19","s20","s20b","s20c","s21","s22","s23","s24","s25","s26","s27","s28","s29","s30","s31","s32","s33"];
+  var out="GROUPTRACK V3.0 PROTOTYPE REVIEW\n==================================================\n\n";
+  var found=false;
+  ids.forEach(function(id){
+    var note="";try{note=localStorage.getItem("gt_"+id)||"";}catch(e){}
+    var ca=[];try{ca=JSON.parse(localStorage.getItem("gt_ca_"+id)||"[]");}catch(e){}
+    var cr=[];try{cr=JSON.parse(localStorage.getItem("gt_cr_"+id)||"[]");}catch(e){}
+    if(note||ca.length||cr.length){
+      found=true;
+      out+="SCREEN: "+id.toUpperCase()+"\n";
+      if(ca.length)out+="  MARKED ACTIVE/CHANGED: "+ca.join(", ")+"\n";
+      if(cr.length)out+="  SELECTED FROM RELATED: "+cr.join(", ")+"\n";
+      if(note)out+="  NOTES: "+note.trim()+"\n";
+      out+="\n";
+    }
+  });
+  if(!found)out+="No notes or selections yet.\n\nHow to review:\n- Open a flow, click a screen\n- Click GREEN tags to mark functions as added/changed\n- Click GREY tags to select related functions for this screen\n- Type notes in the text field\n- Click EXPORT NOTES when done";
+  document.getElementById("expOut").textContent=out;
+  document.getElementById("expOv").classList.add("open");
+}
+function copyExp(){
+  var t=document.getElementById("expOut").textContent;
+  navigator.clipboard.writeText(t).catch(function(){
+    var r=document.createRange();
+    r.selectNode(document.getElementById("expOut"));
+    window.getSelection().removeAllRanges();
+    window.getSelection().addRange(r);
+    document.execCommand("copy");
+  });
+  var b=document.querySelector(".exp-btn");
+  b.textContent="COPIED!";
+  setTimeout(function(){b.innerHTML="&#128229; EXPORT NOTES";},2000);
+}
+</script>
+</body>
+</html>

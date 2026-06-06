@@ -31,6 +31,10 @@ const val ROUTE_METHOD_P2P = 0      // point-to-point snap-2 (LIVE)
 const val ROUTE_METHOD_DRAW = 1     // finger-trace (placeholder)
 const val ROUTE_METHOD_SUGGEST = 2  // suggest from points (placeholder)
 
+// route lifecycle launch state (fixed at New / Select-In-Progress, read by adaptive Save/Discard)
+const val ROUTE_LS_NEW = 0      // building a brand-new route
+const val ROUTE_LS_RESUMED = 1  // resumed an in-progress draft
+
 private val rtPanelBg = Color(0xEE131820)
 private val rtRowBg   = Color(0xFF1A2233)
 private val rtSelBg   = Color(0xFF0F6E56)
@@ -65,6 +69,11 @@ fun ConvoyRouteToolbar(
     onUndo: () -> Unit = {},
     onSaveCompleted: () -> Unit = {},
     onExit: () -> Unit = {},
+    // -- route lifecycle (Layer 2) --
+    routeLifecycleState: Int = ROUTE_LS_NEW,
+    onSaveRequested: () -> Unit = {},
+    onDiscardRequested: () -> Unit = {},
+    onSelectInProgress: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var offsetX by remember { mutableFloatStateOf(0f) }
@@ -119,7 +128,11 @@ fun ConvoyRouteToolbar(
                     onAddPointModeArmed()
                     onNewRoute()
                 }
-                EntryBtnDisabled("In Progress", Modifier.weight(1f))
+                BuildBtn("In Progress", rtBlue, Modifier.weight(1f)) {
+                    building = true
+                    addArmed = true
+                    onSelectInProgress()
+                }
             }
 
             Text("METHOD", color = if (building) rtTxtD else rtDis, fontSize = 9.sp, fontFamily = rtMono)
@@ -161,10 +174,10 @@ fun ConvoyRouteToolbar(
                 //   ONLY writes: create draft JSON / overwrite draft JSON / insertRoute(+delete draft).
                 //   FIRST-PASS LIVE leg: Save as completed only (the onSaveCompleted callback).
                 BuildBtn(
-                    if (vertexCount >= 2) "Save" else "Save (2+)",
-                    if (building && vertexCount >= 2) rtGreen else rtDis,
+                    "Save",
+                    if (building) rtGreen else rtDis,
                     Modifier.weight(1f)
-                ) { if (building && vertexCount >= 2) onSaveCompleted() }
+                ) { if (building) onSaveRequested() }
                 // DISCARD -- adaptive (per pact):
                 //   New (no draft on disk) -> remove unsaved route from screen; NO write (onExit clears)
                 //   Resumed                -> PROMPT: [Roll back to original] (drop session changes, keep draft; NO write)
@@ -172,7 +185,8 @@ fun ConvoyRouteToolbar(
                 //   NEVER writes on: roll back, discard, remove-unsaved.
                 //   FIRST-PASS LIVE leg: remove-unsaved (what onExit does today).
                 BuildBtn("Discard", rtRed, Modifier.weight(1f)) {
-                    building = false; addArmed = true; onExit()
+                    building = false; addArmed = true
+                    if (routeLifecycleState == ROUTE_LS_RESUMED) onDiscardRequested() else onExit()
                 }
             }
         }

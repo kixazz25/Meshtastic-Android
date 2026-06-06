@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GroupTrack V2.5 -- Complete Screen + Process Reference v5</title>
+<style>
+:root{--bg:#0A0E14;--panel:#131820;--card:#1A2E4A;--item:#2A3545;--green:#67EA94;--blue:#4DA6FF;--blueS:#2E75B6;--orange:#FF8C42;--red:#FF6B6B;--yellow:#FFD700;--bright:#CCDDEE;--dim:#7A8DA0;--muted:#4A6080;--done:#2E7D32;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:#111;color:#ccc;font-family:'Courier New',monospace;padding:10px;}
+h1{color:var(--green);font-size:15px;text-align:center;margin:12px 0;letter-spacing:2px;}
+h2{color:var(--blue);font-size:12px;margin:18px 0 6px;letter-spacing:1px;border-bottom:1px solid #333;padding-bottom:4px;}
+.grid{display:flex;flex-wrap:wrap;gap:16px;justify-content:center;margin:10px 0;}
+.phone{width:340px;min-height:500px;background:var(--bg);border:2px solid #333;border-radius:14px;position:relative;overflow:hidden;}
+.phone-label{background:var(--panel);color:var(--green);font-size:8px;font-weight:bold;letter-spacing:1px;padding:4px 8px;text-align:center;border-bottom:1px solid #333;}
+.done-label{background:#1a2e1a;color:var(--done);font-size:7px;padding:2px 6px;text-align:center;}
+.dev-label{background:#2e2a1a;color:var(--orange);font-size:7px;padding:2px 6px;text-align:center;}
+.pc{padding:8px;}
+.st{color:var(--green);font-size:9px;font-weight:bold;letter-spacing:0.5px;margin-bottom:6px;padding-bottom:3px;border-bottom:1px solid #333;}
+.ss{color:var(--blue);font-size:8px;font-weight:bold;margin:6px 0 3px;}
+.btn{background:var(--item);border-radius:5px;padding:5px 6px;margin:2px 0;font-size:8px;font-weight:bold;color:var(--dim);cursor:pointer;text-align:center;}
+.btn.act{background:var(--blueS);color:white;}
+.btn.v25{border:1px dashed var(--orange);}
+.tr{display:flex;justify-content:space-between;align-items:center;padding:4px 6px;margin:2px 0;background:var(--item);border-radius:4px;font-size:8px;}
+.tr .l{color:var(--dim);flex:1;}.tr .v{color:var(--bright);text-align:right;max-width:55%;word-break:break-word;}
+.info{color:var(--muted);font-size:7px;margin:3px 0;line-height:1.3;}
+.div{height:1px;background:#333;margin:6px 0;}
+.notes{background:var(--panel);border:1px solid #333;border-radius:6px;padding:8px;margin:6px 0;font-size:7px;line-height:1.5;color:var(--dim);max-width:700px;}
+.notes b{color:var(--green);}
+.notes .r{color:var(--green);}.notes .d{color:var(--blue);}.notes .w{color:var(--orange);}.notes .x{color:var(--red);}.notes .done{color:var(--done);}
+.ar{display:flex;align-items:center;padding:5px 6px;margin:2px 0;background:var(--item);border-radius:5px;gap:5px;}
+.ar .tog{width:24px;height:13px;background:#333;border-radius:7px;cursor:pointer;flex-shrink:0;}
+.ar .tog.on{background:var(--green);}
+.ar .nm{flex:1;font-size:8px;font-weight:bold;color:var(--bright);}
+.ar .ct{font-size:6px;color:var(--muted);margin-right:3px;}
+.ab{background:var(--card);border-radius:3px;padding:2px 5px;font-size:6px;font-weight:bold;color:var(--dim);cursor:pointer;margin-left:2px;}
+.alias-row{display:flex;align-items:center;padding:3px 6px;margin:1px 0;background:var(--item);border-radius:4px;gap:4px;}
+.alias-row .star{font-size:10px;cursor:pointer;}
+.alias-row .nm{flex:1;font-size:7px;color:var(--bright);}
+.alias-row .src{font-size:5px;color:var(--muted);padding:1px 3px;background:#1A2E4A;border-radius:2px;}
+.badge{display:inline-block;padding:2px 5px;border-radius:3px;font-size:6px;font-weight:bold;}
+.badge.trail{background:rgba(28,240,160,0.15);color:#1CF0A0;}
+.badge.track{background:rgba(77,166,255,0.15);color:var(--blue);}
+.badge.wpt{background:rgba(255,68,68,0.15);color:var(--red);}
+.badge.route{background:rgba(255,215,0,0.15);color:var(--yellow);}
+.badge.impl{background:rgba(46,125,50,0.15);color:var(--done);}
+.prop{margin:3px 0;padding:3px 6px;background:rgba(42,53,69,0.5);border-radius:3px;border-left:2px solid var(--blue);}
+.prop .t{font-size:6px;color:var(--blue);font-weight:bold;}
+.nearby{background:rgba(255,140,66,0.08);border:1px solid rgba(255,140,66,0.3);border-radius:5px;padding:5px;margin:3px 0;}
+.status-bar{display:flex;gap:4px;margin:8px 0;flex-wrap:wrap;}
+.status-bar .chip{padding:3px 8px;border-radius:10px;font-size:7px;font-weight:bold;}
+.chip.done{background:rgba(46,125,50,0.2);color:var(--done);border:1px solid var(--done);}
+.chip.dev{background:rgba(255,140,66,0.15);color:var(--orange);border:1px dashed var(--orange);}
+</style>
+</head>
+<body>
+
+<h1>GROUPTRACK V2.5 — SCREEN + PROCESS REFERENCE v5</h1>
+<p style="text-align:center;font-size:8px;color:var(--muted);">May 18, 2026 | Schema + Alias + Lifecycle + Map Sources + Spatial DB</p>
+<p style="text-align:center;font-size:7px;color:var(--muted);">Companion: schema_spatial_v1.sql | schema_extension_v1.sql | LifecycleOwnership_v3.docx</p>
+
+<div class="status-bar" style="justify-content:center;margin:12px 0;">
+<span class="chip done">OVERLAY INJECTION ✓</span>
+<span class="chip done">MAP SOURCE SELECT ✓</span>
+<span class="chip done">GRID TILE REFRESH ✓</span>
+<span class="chip done">API KEY MGMT ✓</span>
+<span class="chip done">SPATIAL DB CREATED ✓</span>
+<span class="chip dev">UI SCAFFOLDING</span>
+<span class="chip dev">TRAIL IMPORT</span>
+<span class="chip dev">CREATION FLOWS</span>
+</div>
+
+<!-- ═══════════════════════════════════════ -->
+<h2>1. CONVOY MAP — BASE + SETTINGS</h2>
+<!-- ═══════════════════════════════════════ -->
+<div class="grid">
+<div class="phone"><div class="phone-label">CONVOY MAP — BASE VIEW</div><div class="done-label">IMPLEMENTED — PRODUCTION</div><div class="pc">
+  <div class="st">MAP BAR: PLANNING MAP | SAT | TOPO | TOPO+ | NET/LOCAL</div>
+  <div class="div"></div>
+  <div class="st">HUD BAR (5 buttons)</div>
+  <div style="display:flex;gap:2px;"><div class="btn act" style="flex:1">GROUP</div><div class="btn" style="flex:1">MY CART</div><div class="btn" style="flex:1">SELECT CART</div><div class="btn" style="flex:1">HIDE</div><div class="btn" style="flex:1">GEAR</div></div>
+  <div class="div"></div>
+  <div class="st">DISPLAY PANEL (draggable)</div>
+  <div class="tr"><span class="l">Tracks</span><span class="v">ON</span></div>
+  <div class="tr"><span class="l">Trails</span><span class="v">ON</span></div>
+  <div class="tr"><span class="l">Waypoints</span><span class="v">OFF <span style="color:var(--orange)">[V2.5]</span></span></div>
+  <div class="tr"><span class="l">Routes</span><span class="v">OFF <span style="color:var(--orange)">[V2.5]</span></span></div>
+  <div class="tr"><span class="l">Downloaded Areas</span><span class="v">ON</span></div>
+  <div class="div"></div>
+  <div class="st">V2.5 ADDITIONS</div>
+  <div class="btn v25">WORK WITH ARTIFACTS (DISPLAY only)</div>
+  <div class="btn v25">WORK WITH QUEUES [Q: 3]</div>
+  <div class="btn v25">LONG-PRESS: WAYPOINT CREATION</div>
+</div></div>
+
+<div class="notes">
+  <b>CONVOY MAP PROCESS RULES:</b><br>
+  <span class="r">DISPLAY only for artifacts. No EDIT. No IMPORT.</span><br>
+  <span class="r">Click artifact → detail + aliases (read-only)</span><br>
+  <span class="r">Long-press → waypoint creation (same flow as Planning)</span><br>
+  <span class="r">Map source change via GEAR > Settings > Map Sources</span><br><br>
+  <b>ALIAS RULES — CONVOY MAP:</b><br>
+  <span class="d">View aliases: YES | Add: NO | Set preferred: NO | Delete: NO</span><br><br>
+  <b>DATABASE:</b><br>
+  <span class="d">Reads: grouptrack_spatial.db (trails, tracks, waypoints, routes)</span><br>
+  <span class="d">Display name: COALESCE(preferred_alias, spatial.name, agency_id, 'Unnamed')</span><br>
+  <span class="d">Query bounded by map viewport for performance</span><br><br>
+  <b>IMPLEMENTED:</b><br>
+  <span class="done">✓ HUD bar (GROUP|MY CART|SELECT CART|HIDE|GEAR)</span><br>
+  <span class="done">✓ Map source buttons (SAT/TOPO/TOPO+ from MapSourceManager)</span><br>
+  <span class="done">✓ Overlay injection from Kotlin (no hardcoded HTML URLs)</span><br>
+  <span class="done">✓ NET/LOCAL toggle</span><br>
+  <span class="done">✓ SpatialDbManager.init() on startup</span><br>
+</div>
+</div>
+
+<!-- ═══════════════════════════════════════ -->
+<h2>2. SETTINGS — MAP SOURCES + API KEYS</h2>
+<!-- ═══════════════════════════════════════ -->
+<div class="grid">
+<div class="phone"><div class="phone-label">SETTINGS > MAP SOURCES</div><div class="done-label">IMPLEMENTED — TESTED</div><div class="pc">
+  <div class="st">CURRENT ASSIGNMENTS</div>
+  <div class="btn" style="border-left:3px solid #1565C0">SAT — Esri Imagery + Labels</div>
+  <div class="btn" style="border-left:3px solid #2E7D32">TOPO — Esri World Topo</div>
+  <div class="btn" style="border-left:3px solid #E65100">TOPO+ — CalTopo USFS ← changed</div>
+  <div class="div"></div>
+  <div class="ss">SELECT SOURCE FOR: [slot]</div>
+  <div class="info">Sources grouped: HYB | SAT | TOPO | STREET | TERRAIN | OUTDOOR</div>
+  <div class="info">16 sources total. Locked icon if key required + not entered.</div>
+  <div class="div"></div>
+  <div class="ss">API KEYS</div>
+  <div class="tr"><span class="l">Thunderforest Outdoors</span><span class="v" style="color:var(--green)">✓ Key configured</span></div>
+  <div class="info">Keys in Documents/GroupTrack/api_keys.json (local only)</div>
+</div></div>
+
+<div class="notes">
+  <b>MAP SOURCE PROCESS RULES:</b><br>
+  <span class="done">✓ 3 fixed slots (SAT/TOPO/TOPO+) — directory names, never change</span><br>
+  <span class="done">✓ Any source assignable to any slot</span><br>
+  <span class="done">✓ Source change → async scan existing tiles → refresh prompt</span><br>
+  <span class="done">✓ Refresh = grid cells ~12mi, separate queue entries, low priority</span><br>
+  <span class="done">✓ Worker: bounds-based, only existing files, forceOverwrite, single slot</span><br>
+  <span class="done">✓ Completed refresh cells auto-removed from queue</span><br>
+  <span class="done">✓ API key required → source LOCKED until key entered</span><br>
+  <span class="done">✓ Persists: Documents/GroupTrack/map_sources.json</span><br><br>
+  <b>FILES:</b><br>
+  <span class="d">ConvoyMapSourceScreen.kt — UI</span><br>
+  <span class="d">MapSourceManager.kt — external JSON read/write + API key mgmt</span><br>
+  <span class="d">ConvoyDownloadQueue.kt — enqueueRefresh (grid cells)</span><br>
+  <span class="d">ConvoyDownloadWorker.kt — refresh mode (bounds + exists check)</span><br>
+  <span class="d">ConvoyTileDownloader.kt — scanTilesToKeys + tileBoundsLatLon + gridCells</span><br>
+</div>
+</div>
+
+<!-- ═══════════════════════════════════════ -->
+<h2>3. PLANNING MAP — BASE + DOWNLOAD</h2>
+<!-- ═══════════════════════════════════════ -->
+<div class="grid">
+<div class="phone"><div class="phone-label">PLANNING MAP — BASE VIEW</div><div class="pc">
+  <div class="st">MAP BAR: CONVOY | SAT | TOPO | TOPO+ | SEARCH</div>
+  <div class="div"></div>
+  <div class="st">DISPLAY PANEL</div>
+  <div class="tr"><span class="l">Tracks / Trails / Waypoints / Routes / Downloaded</span><span class="v">toggles</span></div>
+  <div class="div"></div>
+  <div class="btn v25">WORK WITH ARTIFACTS (full: DISPLAY+EDIT+IMPORT)</div>
+  <div class="btn v25">WORK WITH QUEUES [Q: 3]</div>
+  <div class="div"></div>
+  <div class="st">FABS (bottom)</div>
+  <div style="display:flex;gap:3px;">
+    <div class="btn v25" style="flex:1">+ WPT</div>
+    <div class="btn v25" style="flex:1">+ RTE</div>
+    <div class="btn" style="flex:1">DOWNLOAD ↓</div>
+  </div>
+</div></div>
+
+<div class="notes">
+  <b>PLANNING MAP PROCESS RULES:</b><br>
+  <span class="r">Full artifact management: DISPLAY + EDIT + IMPORT</span><br>
+  <span class="r">Click artifact → detail + aliases + actions</span><br>
+  <span class="r">Long-press → waypoint creation with proximity + alias</span><br>
+  <span class="r">+ WPT FAB → same as long-press</span><br>
+  <span class="r">+ RTE FAB → route creation (draw/snap/convert)</span><br><br>
+  <b>ALIAS RULES — PLANNING MAP:</b><br>
+  <span class="d">View: YES | Add: YES | Set preferred: YES | Delete user: YES | Delete agency/aws: NO</span><br><br>
+  <b>DATABASE:</b><br>
+  <span class="d">Reads: both databases. Spatial for geometry, extension for properties+aliases.</span><br>
+  <span class="d">Writes: all creation flows write to both databases via lifecycle owners.</span><br>
+</div>
+</div>
+
+<!-- ═══════════════════════════════════════ -->
+<h2>4. WORK WITH ARTIFACTS — DISPLAY / EDIT / IMPORT</h2>
+<!-- ═══════════════════════════════════════ -->
+<div class="grid">
+<div class="phone"><div class="phone-label">WORK WITH ARTIFACTS — PLANNING (FULL)</div><div class="dev-label">IN DEVELOPMENT — UI SCAFFOLDING NEXT</div><div class="pc">
+  <div class="st">ARTIFACT TYPES</div>
+  <div class="ar"><div class="tog on"></div><span class="nm">Tracks</span><span class="ct">8</span><div class="ab">DISPLAY</div><div class="ab">EDIT</div><div class="ab">IMPORT</div></div>
+  <div class="ar"><div class="tog on"></div><span class="nm">Trails</span><span class="ct">535</span><div class="ab">DISPLAY</div><div class="ab" style="opacity:0.3">EDIT</div><div class="ab">IMPORT</div></div>
+  <div class="ar"><div class="tog"></div><span class="nm">Waypoints</span><span class="ct">12</span><div class="ab">DISPLAY</div><div class="ab">EDIT</div><div class="ab">IMPORT</div></div>
+  <div class="ar"><div class="tog"></div><span class="nm">Routes</span><span class="ct">2</span><div class="ab">DISPLAY</div><div class="ab">EDIT</div><div class="ab" style="opacity:0.3">IMPORT</div></div>
+  <div class="div"></div>
+  <div class="ss">EDIT ACTIONS PER TYPE</div>
+  <div class="info">TRAIL: FIT, +ALIAS (no EDIT, no DELETE — agency data)</div>
+  <div class="info">TRACK: FIT, +ALIAS, TO ROUTE, DELETE</div>
+  <div class="info">WAYPOINT: FIT, +ALIAS, EDIT props, DELETE</div>
+  <div class="info">ROUTE: FIT, +ALIAS, SET TRAILHEAD, DELETE</div>
+</div></div>
+
+<div class="notes">
+  <b>ARTIFACT LIST PROCESS RULES:</b><br>
+  <span class="d">Name = COALESCE(preferred_alias, spatial.name, agency_id, 'Unnamed')</span><br>
+  <span class="d">Query bounded by map viewport</span><br>
+  <span class="d">Convoy map: DISPLAY only. Planning: DISPLAY+EDIT+IMPORT.</span><br><br>
+  <b>IMPORT OWNERS:</b><br>
+  <span class="w">Trails → TrailImporter (GeoJSON/Shapefile from trail_sources catalog)</span><br>
+  <span class="w">Tracks → TrackManager (GPX/KML from Downloads)</span><br>
+  <span class="w">Waypoints → WaypointManager (GPX waypoint file)</span><br>
+  <span class="w">Routes → disabled (draw/snap/convert only)</span><br><br>
+  <b>DATABASE TABLES:</b><br>
+  <span class="d">Spatial: trails, tracks, waypoints, routes (WKT geometry TEXT)</span><br>
+  <span class="d">Extension: trail_properties, track_properties, waypoint_properties, route_properties</span><br>
+  <span class="d">Aliases: artifact_aliases (unified, all types)</span><br>
+</div>
+</div>
+
+<!-- ═══════════════════════════════════════ -->
+<h2>5. ARTIFACT DETAIL PANELS (one pattern, 4 types)</h2>
+<!-- ═══════════════════════════════════════ -->
+<div class="grid">
+<div class="phone"><div class="phone-label">TRAIL DETAIL</div><div class="dev-label">UI SCAFFOLDING NEXT</div><div class="pc">
+  <div class="st">ARTIFACT DETAIL</div>
+  <div style="display:flex;align-items:center;gap:5px;margin-bottom:3px;">
+    <span class="badge trail">TRAIL</span>
+    <span style="font-size:9px;color:white;font-weight:bold;">Harris Rim Loop</span>
+  </div>
+  <div class="ss">ALIASES</div>
+  <div class="alias-row"><span class="star" style="color:var(--yellow)">★</span><span class="nm">Harris Rim Loop</span><span class="src">agency</span></div>
+  <div class="alias-row"><span class="star" style="color:#333">☆</span><span class="nm">Harris OHV Trail</span><span class="src">user</span></div>
+  <div class="prop"><div class="t">CLASSIFICATION (trail_properties)</div>
+    <div class="tr"><span class="l">Motorized</span><span class="v" style="color:var(--green)">Yes</span></div>
+    <div class="tr"><span class="l">Surface</span><span class="v">Unpaved</span></div>
+    <div class="tr"><span class="l">CartoCode</span><span class="v">4</span></div>
+  </div>
+  <div class="prop"><div class="t">ATTRIBUTION</div>
+    <div class="tr"><span class="l">Steward</span><span class="v">USFS</span></div>
+    <div class="tr"><span class="l">County</span><span class="v">KANE</span></div>
+  </div>
+  <div style="display:flex;gap:2px;margin-top:6px;"><div class="btn act" style="flex:1">FIT</div><div class="btn v25" style="flex:1">+ ALIAS</div></div>
+</div></div>
+
+<div class="phone"><div class="phone-label">TRACK DETAIL</div><div class="dev-label">UI SCAFFOLDING NEXT</div><div class="pc">
+  <div class="st">ARTIFACT DETAIL</div>
+  <div style="display:flex;align-items:center;gap:5px;margin-bottom:3px;">
+    <span class="badge track">TRACK</span>
+    <span style="font-size:9px;color:white;font-weight:bold;">Morning Ride 05-15</span>
+  </div>
+  <div class="ss">ALIASES</div>
+  <div class="alias-row"><span class="star" style="color:var(--yellow)">★</span><span class="nm">Morning Ride 05-15</span><span class="src">user</span></div>
+  <div class="prop"><div class="t">TRACK DATA (track_properties)</div>
+    <div class="tr"><span class="l">Distance</span><span class="v">12.4 mi</span></div>
+    <div class="tr"><span class="l">Duration</span><span class="v">2h 15m</span></div>
+    <div class="tr"><span class="l">Max Speed</span><span class="v">34 mph</span></div>
+  </div>
+  <div class="prop"><div class="t">SURVEY (track_surveys)</div>
+    <div class="tr"><span class="l">Enjoyment</span><span class="v">★★★★☆</span></div>
+    <div class="tr"><span class="l">Ride Again</span><span class="v" style="color:var(--green)">Yes</span></div>
+  </div>
+  <div style="display:flex;gap:2px;margin-top:6px;"><div class="btn act" style="flex:1;font-size:6px">FIT</div><div class="btn v25" style="flex:1;font-size:6px">+ ALIAS</div><div class="btn" style="flex:1;font-size:6px">TO ROUTE</div><div class="btn" style="flex:1;font-size:6px;color:var(--red)">DELETE</div></div>
+</div></div>
+</div>
+
+<div class="grid">
+<div class="phone"><div class="phone-label">WAYPOINT DETAIL</div><div class="dev-label">UI SCAFFOLDING NEXT</div><div class="pc">
+  <div class="st">ARTIFACT DETAIL</div>
+  <div style="display:flex;align-items:center;gap:5px;margin-bottom:3px;">
+    <span class="badge wpt">GATE</span>
+    <span style="font-size:9px;color:white;font-weight:bold;">Gate 4</span>
+  </div>
+  <div class="ss">ALIASES</div>
+  <div class="alias-row"><span class="star" style="color:var(--yellow)">★</span><span class="nm">Gate 4</span><span class="src">user</span></div>
+  <div class="alias-row"><span class="star" style="color:#333">☆</span><span class="nm">Red Canyon Gate</span><span class="src">aws</span></div>
+  <div class="prop"><div class="t">PROPERTIES (waypoint_properties)</div>
+    <div class="tr"><span class="l">Elevation</span><span class="v">4,320 ft</span></div>
+    <div class="tr"><span class="l">Description</span><span class="v">Locked, BLM key</span></div>
+  </div>
+  <div style="display:flex;gap:2px;margin-top:6px;"><div class="btn act" style="flex:1;font-size:6px">FIT</div><div class="btn v25" style="flex:1;font-size:6px">+ ALIAS</div><div class="btn" style="flex:1;font-size:6px">EDIT</div><div class="btn" style="flex:1;font-size:6px;color:var(--red)">DELETE</div></div>
+  <div class="info">Owner: WaypointManager. DELETE blocked if route trailhead.</div>
+</div></div>
+
+<div class="phone"><div class="phone-label">ROUTE DETAIL</div><div class="dev-label">UI SCAFFOLDING NEXT</div><div class="pc">
+  <div class="st">ARTIFACT DETAIL</div>
+  <div style="display:flex;align-items:center;gap:5px;margin-bottom:3px;">
+    <span class="badge route">ROUTE</span>
+    <span style="font-size:9px;color:white;font-weight:bold;">Bar 10 Saturday Loop</span>
+  </div>
+  <div class="ss">ALIASES</div>
+  <div class="alias-row"><span class="star" style="color:var(--yellow)">★</span><span class="nm">Bar 10 Saturday Loop</span><span class="src">user</span></div>
+  <div class="prop"><div class="t">ROUTE DATA (route_properties)</div>
+    <div class="tr"><span class="l">Distance</span><span class="v">28.7 mi</span></div>
+    <div class="tr"><span class="l">Method</span><span class="v">Draw</span></div>
+    <div class="tr"><span class="l">Trailhead</span><span class="v" style="color:var(--orange)">Not assigned</span></div>
+  </div>
+  <div style="display:flex;gap:2px;margin-top:6px;"><div class="btn act" style="flex:1;font-size:6px">FIT</div><div class="btn v25" style="flex:1;font-size:6px">+ ALIAS</div><div class="btn v25" style="flex:1;font-size:6px">SET TH</div><div class="btn" style="flex:1;font-size:6px;color:var(--red)">DELETE</div></div>
+  <div class="info">Owner: RouteManager. DELETE blocked if ride assigned. TH required V2.6.</div>
+</div></div>
+</div>
+
+<div class="grid">
+<div class="notes">
+  <b>DETAIL PANEL PATTERN (same composable, 4 type configs):</b><br>
+  <span class="d">Badge + display_name + aliases + type-specific properties + actions</span><br>
+  <span class="d">Alias source tags: agency (trail import), user (manual), aws (V2.6 standardization)</span><br>
+  <span class="d">Star = preferred. One per artifact. LOCAL ONLY (is_preferred not sent to AWS).</span><br>
+  <span class="d">Min 1 alias always. Agency/AWS undeletable. User deletable unless only one.</span><br><br>
+  <b>DELETE RULES:</b><br>
+  <span class="x">TRAIL: no delete (agency data, batch remove by source only)</span><br>
+  <span class="x">TRACK: warn if route.source_track_id references it</span><br>
+  <span class="x">WAYPOINT: BLOCK if route.trailhead_id references it</span><br>
+  <span class="x">ROUTE: BLOCK if route_properties.ride_id not null</span><br>
+  <span class="d">All deletes cascade: properties + aliases + survey(track) + queue entries + data_log</span><br>
+</div>
+</div>
+
+<!-- ═══════════════════════════════════════ -->
+<h2>6. WAYPOINT CREATION — LONG PRESS + PROXIMITY + ALIAS</h2>
+<!-- ═══════════════════════════════════════ -->
+<div class="grid">
+<div class="phone"><div class="phone-label">WAYPOINT CREATION FLOW</div><div class="dev-label">UI SCAFFOLDING NEXT</div><div class="pc">
+  <div class="st">1. SELECT TYPE</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px;">
+    <div class="btn v25">TRAILHEAD</div><div class="btn v25">FUEL</div>
+    <div class="btn v25">GATE</div><div class="btn v25">HAZARD</div>
+    <div class="btn v25">SCENIC</div><div class="btn v25">WATER</div>
+    <div class="btn v25">CAMP</div><div class="btn v25">PARKING</div>
+    <div class="btn v25">RALLY</div><div class="btn v25">OTHER</div>
+  </div>
+  <div class="div"></div>
+  <div class="ss">2. PROXIMITY CHECK (100m)</div>
+  <div class="nearby">
+    <div style="font-size:8px;color:var(--orange);font-weight:bold;">📍 Gate 4 — 85m away</div>
+    <div class="alias-row"><span class="star" style="color:var(--yellow)">★</span><span class="nm">Gate 4</span><span class="src">user</span></div>
+    <div style="display:flex;gap:2px;margin-top:3px;">
+      <div class="btn" style="flex:1;font-size:6px;color:var(--orange)">ADD ALIAS</div>
+      <div class="btn" style="flex:1;font-size:6px">SET PREFERRED</div>
+    </div>
+  </div>
+  <div class="btn act">CREATE NEW WAYPOINT</div>
+  <div class="div"></div>
+  <div class="ss">3. NAME + SHARE</div>
+  <div style="background:var(--item);border-radius:4px;padding:6px;font-size:8px;color:white;">Gate 5 — Sand Hollow</div>
+  <div style="display:flex;gap:4px;margin-top:4px;"><div class="btn" style="flex:1">NO</div><div class="btn act" style="flex:1">SHARE</div></div>
+</div></div>
+
+<div class="notes">
+  <b>WAYPOINT CREATION LIFECYCLE (Owner: WaypointManager):</b><br>
+  <span class="d">1. Long-press → type select → proximity check via proximity_config (100m default)</span><br>
+  <span class="w">IF NEARBY: show existing + aliases → (A) add alias, (B) set preferred, (C) create new</span><br>
+  <span class="d">IF (A): AliasManager adds alias. No new spatial. Done.</span><br>
+  <span class="d">IF (C) or NO NEARBY: name → insert waypoints (spatial, POINT WKT) → insert waypoint_properties → AliasManager first alias → AuditLogger data_log → share? → QueueManager upload_queue</span><br><br>
+  <b>DATABASE WRITES:</b><br>
+  <span class="d">grouptrack_spatial.db: INSERT INTO waypoints (waypoint_id, name, type, geometry, created_at, updated_at)</span><br>
+  <span class="d">grouptrack_data.db: INSERT INTO waypoint_properties, artifact_aliases, data_log</span><br>
+  <span class="d">geometry = SpatialDbManager.pointWkt(lat, lng)</span><br><br>
+  <b>PROXIMITY CONFIG (soft-coded, adjustable):</b><br>
+  <span class="d">waypoint: 100m | trail: 80% overlap | track: 70% overlap | route: 85% overlap</span><br>
+</div>
+</div>
+
+<!-- ═══════════════════════════════════════ -->
+<h2>7. TRACK SAVE FLOW</h2>
+<!-- ═══════════════════════════════════════ -->
+<div class="grid">
+<div class="phone"><div class="phone-label">TRACK SAVE — NAME + SHARE + SURVEY</div><div class="dev-label">UI SCAFFOLDING NEXT</div><div class="pc">
+  <div class="st">SAVE TRACK</div>
+  <div style="font-size:8px;color:var(--bright);">GPS recording complete. 12.4 mi, 2h 15m.</div>
+  <div style="background:var(--item);border-radius:4px;padding:6px;font-size:8px;color:white;margin:4px 0;">Morning Ride 05-15</div>
+  <div style="display:flex;gap:6px;"><div class="btn" style="flex:1">SKIP</div><div class="btn act" style="flex:1">SAVE</div></div>
+  <div class="div"></div>
+  <div class="ss">SHARE</div>
+  <div style="display:flex;gap:4px;"><div class="btn" style="flex:1">NO</div><div class="btn act" style="flex:1">YES</div></div>
+  <div class="div"></div>
+  <div class="ss">RATE THIS RIDE</div>
+  <div style="display:flex;gap:3px;justify-content:center;">
+    <div class="btn" style="width:32px">1</div><div class="btn" style="width:32px">2</div><div class="btn" style="width:32px">3</div><div class="btn act" style="width:32px">4</div><div class="btn" style="width:32px">5</div>
+  </div>
+  <div class="ss">RIDE AGAIN?</div>
+  <div style="display:flex;gap:4px;"><div class="btn" style="flex:1">NO</div><div class="btn act" style="flex:1">YES</div></div>
+  <div class="btn act" style="margin-top:6px;">DONE</div>
+</div></div>
+
+<div class="notes">
+  <b>TRACK CREATION LIFECYCLE (Owner: TrackManager):</b><br>
+  <span class="d">1. GPS stops or file imported → name prompt → Save/Skip</span><br>
+  <span class="d">2. Save GPX/KML to my_tracks/ → insert tracks (bbox = bboxWkt from points)</span><br>
+  <span class="d">3. Insert track_properties (distance, duration, speed, elevation)</span><br>
+  <span class="d">4. AliasManager: first alias (preferred, source='user')</span><br>
+  <span class="d">5. Share Y/N → if Y: shared=1, upload_queue entry</span><br>
+  <span class="d">6. Survey → insert track_surveys (enjoyment 1-5, ride again Y/N)</span><br>
+  <span class="d">7. AuditLogger: data_log entry</span><br>
+  <span class="d">8. TileRequestTrigger: tile_queue HIGH priority</span><br><br>
+  <b>V2.6 POST-UPLOAD:</b><br>
+  <span class="w">AWS returns area track aliases → user picks standard or keeps own</span><br>
+  <span class="w">Three options: ACCEPT STANDARD | KEEP MINE REMOVE AWS | KEEP MINE KEEP AWS</span><br>
+  <span class="w">Internet-gated startup check. JSON inbox: Documents/GroupTrack/data/alias_review/</span><br>
+</div>
+</div>
+
+<!-- ═══════════════════════════════════════ -->
+<h2>8. WORK WITH QUEUES (3 queues, one template)</h2>
+<!-- ═══════════════════════════════════════ -->
+<div class="grid">
+<div class="phone"><div class="phone-label">WORK WITH QUEUES</div><div class="dev-label">UI SCAFFOLDING NEXT</div><div class="pc">
+  <div class="st">QUEUES</div>
+  <div style="display:flex;gap:2px;margin-bottom:4px;"><div class="btn act" style="flex:1;font-size:6px">ALL</div><div class="btn" style="flex:1;font-size:6px">TILE</div><div class="btn" style="flex:1;font-size:6px">UPLOAD</div><div class="btn" style="flex:1;font-size:6px">DOWNLOAD</div></div>
+  <div class="ar"><span class="nm">Tile Queue</span><span style="color:var(--green);font-size:9px;font-weight:bold">7</span></div>
+  <div style="margin-left:12px;">
+    <div class="tr"><span class="l">SAT z17 St George</span><span class="v" style="color:var(--green)">ACTIVE 67%</span></div>
+    <div class="tr"><span class="l">REFRESH TOPO+ 3/12</span><span class="v" style="color:var(--green)">ACTIVE</span></div>
+  </div>
+  <div class="ar"><span class="nm">Upload Queue</span><span style="color:var(--orange);font-size:9px;">3</span></div>
+  <div style="margin-left:12px;">
+    <div class="tr"><span class="l">Morning Ride track</span><span class="v" style="color:var(--orange)">PENDING</span></div>
+    <div class="info">V2.5: collect only. V2.6: processes.</div>
+  </div>
+  <div class="ar"><span class="nm">Download Queue</span><span style="color:var(--muted);font-size:9px;">0</span></div>
+  <div class="info" style="margin-left:12px;">V2.6 active.</div>
+</div></div>
+
+<div class="notes">
+  <b>QUEUE PROCESS RULES:</b><br>
+  <span class="r">Three SEPARATE tables: tile_queue, upload_queue, download_queue</span><br>
+  <span class="r">Owner: QueueManager for all three</span><br>
+  <span class="r">Same display template, same status model, filtered views</span><br>
+  <span class="r">Completion → transfer_history</span><br><br>
+  <b>TILE PRIORITY (Owner: TileRequestTrigger):</b><br>
+  <span class="d">HIGH — tracks, routes (user created, immediate tiles)</span><br>
+  <span class="d">MED — source refresh (grid cells)</span><br>
+  <span class="d">LOW — trails (imported, background)</span><br><br>
+  <b>REFRESH RULES (IMPLEMENTED):</b><br>
+  <span class="done">✓ Grid cells ~12mi, each separate WorkManager job</span><br>
+  <span class="done">✓ Single slot only. Bounds-based. Only existing files. forceOverwrite.</span><br>
+  <span class="done">✓ User downloads jump ahead. Completed cells auto-removed.</span><br>
+</div>
+</div>
+
+<!-- ═══════════════════════════════════════ -->
+<h2>9. TRAIL SOURCE MANAGEMENT</h2>
+<!-- ═══════════════════════════════════════ -->
+<div class="grid">
+<div class="phone"><div class="phone-label">TRAIL SOURCE CATALOG</div><div class="dev-label">UI SCAFFOLDING NEXT</div><div class="pc">
+  <div class="st">APPROVED SOURCES</div>
+  <div class="btn" style="border-left:3px solid var(--green)">UGRC Utah Trails<br><span style="font-size:6px;color:var(--muted)">GeoJSON | Utah | OHV+Multi</span></div>
+  <div class="btn">BLM GTLF Motorized Trails<br><span style="font-size:6px;color:var(--muted)">GeoJSON | National | Motorized</span></div>
+  <div class="btn">USFS NFS Trails<br><span style="font-size:6px;color:var(--muted)">Shapefile | National | All</span></div>
+  <div class="div"></div>
+  <div class="ss">SOURCE DETAILS</div>
+  <div class="tr"><span class="l">Name</span><span class="v">UGRC Utah Trails</span></div>
+  <div class="tr"><span class="l">Format</span><span class="v">GeoJSON</span></div>
+  <div class="tr"><span class="l">Types</span><span class="v">OHV, Multi-Use</span></div>
+  <div class="div"></div>
+  <div class="btn v25">IMPORT FROM SOURCE</div>
+</div></div>
+
+<div class="notes">
+  <b>TRAIL SOURCE RULES:</b><br>
+  <span class="d">Table: trail_sources (extension db). Vetted/approved catalog.</span><br>
+  <span class="d">Import → TrailImporter: parse → dedup (source_unique_id) → insert/alias → log → tile LOW</span><br>
+  <span class="d">Dedup match = add alias. New = full chain.</span><br>
+  <span class="d">source_ingestions tracks import history per source.</span><br>
+</div>
+</div>
+
+<!-- ═══════════════════════════════════════ -->
+<h2>10. DATA MODEL + DATABASE REFERENCE</h2>
+<!-- ═══════════════════════════════════════ -->
+<div class="grid">
+<div class="notes" style="max-width:700px;">
+  <b>SPATIAL DATABASE: grouptrack_spatial.db (WKT geometry, portable to iOS)</b><br>
+  <span class="done">✓ CREATED — Documents/GroupTrack/grouptrack_spatial.db</span><br>
+  <span class="d">trails: trail_id, name, geometry(LINESTRING WKT), timestamps</span><br>
+  <span class="d">tracks: track_id, name, bbox(POLYGON WKT), timestamps</span><br>
+  <span class="d">waypoints: waypoint_id, name, type, geometry(POINT WKT), timestamps</span><br>
+  <span class="d">routes: route_id, name, geometry(LINESTRING WKT), timestamps</span><br><br>
+
+  <b>EXTENSION DATABASE: grouptrack_data.db</b><br>
+  <span class="done">✓ CREATED — Documents/GroupTrack/grouptrack_data.db</span><br>
+  <span class="d">trail_properties: 20+ fields (UGRC superset), source_id, shared</span><br>
+  <span class="d">track_properties: filename, distance, duration, speed, shared</span><br>
+  <span class="d">track_surveys: enjoyment 1-5, ride_again Y/N</span><br>
+  <span class="d">waypoint_properties: description, elevation, shared</span><br>
+  <span class="d">route_properties: distance, method, source_track_id, trailhead_id, shared</span><br>
+  <span class="d">artifact_aliases: unified, all types, is_preferred LOCAL ONLY</span><br>
+  <span class="d">proximity_config: soft-coded thresholds (seeded with defaults)</span><br>
+  <span class="d">tile_queue, upload_queue, download_queue: three separate tables</span><br>
+  <span class="d">transfer_history, data_log, trail_sources, source_ingestions, ride_areas</span><br><br>
+
+  <b>WKT HELPERS (SpatialDbManager):</b><br>
+  <span class="done">✓ pointWkt(lat, lng) / lineWkt(points) / bboxWkt(n,s,e,w)</span><br>
+  <span class="done">✓ parsePoint(wkt) / parseLine(wkt) / parseBbox(wkt)</span><br>
+  <span class="done">✓ newId() = UUID / now() = ISO 8601</span><br><br>
+
+  <b>SCHEMA VERSION: v1 (both databases)</b><br>
+  <span class="d">Tracked per database. Migration support built in.</span><br>
+</div>
+</div>
+
+<div style="text-align:center;margin:30px 0;">
+<span style="font-size:10px;color:var(--green);font-weight:bold;letter-spacing:2px;">
+  END SCREEN + PROCESS REFERENCE v5 | May 18, 2026
+</span><br>
+<span style="font-size:8px;color:var(--muted);">
+  Next session: UI Scaffolding → Populate → Wire Creation Functions
+</span>
+</div>
+
+</body>
+</html>

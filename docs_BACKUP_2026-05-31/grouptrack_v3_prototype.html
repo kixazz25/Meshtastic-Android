@@ -1,0 +1,1413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GroupTrack V3.0 — Full Prototype</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&family=Exo+2:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --navy:#1A2E4A; --navy-deep:#0F1E2E; --navy-mid:#243654;
+  --sky:#4AB8E8; --sky-dark:#2E8FBB;
+  --orange:#F5A623; --orange-dark:#D4871A;
+  --white:#FFFFFF; --grey-light:#EEF4FB; --grey-mid:#7A9EC0; --grey-dark:#445566;
+  --green:#00AA44; --amber:#F0A500; --red:#CC2222;
+  --card:rgba(255,255,255,0.05); --border:rgba(74,184,232,0.2);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:#0A0F1A;font-family:'Exo 2',sans-serif;color:#fff;min-height:100vh;}
+
+/* NAV */
+.topnav{position:fixed;top:0;left:0;right:0;z-index:1000;background:rgba(10,15,26,0.97);border-bottom:1px solid var(--border);padding:10px 20px;display:flex;align-items:center;justify-content:space-between;backdrop-filter:blur(10px);}
+.logo{font-family:'Rajdhani',sans-serif;font-size:20px;font-weight:700;letter-spacing:1px;}
+.logo .g{color:var(--orange);}.logo .t{color:var(--sky);}
+.screen-info{font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--grey-mid);}
+.nav-btns{display:flex;gap:6px;}
+.nbtn{background:var(--navy-mid);border:1px solid var(--border);color:var(--sky);font-family:'Share Tech Mono',monospace;font-size:11px;padding:5px 12px;border-radius:4px;cursor:pointer;transition:all .2s;}
+.nbtn:hover{background:var(--sky);color:var(--navy-deep);}
+
+/* SIDEBAR */
+.sidebar{position:fixed;left:0;top:56px;bottom:0;width:48px;background:rgba(10,15,26,0.9);border-right:1px solid var(--border);display:flex;flex-direction:column;align-items:center;padding:12px 0;gap:4px;overflow-y:auto;z-index:999;}
+.sdot{width:28px;height:28px;border-radius:50%;background:var(--navy-mid);border:1px solid var(--border);cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--grey-mid);transition:all .2s;flex-shrink:0;}
+.sdot:hover{background:var(--sky);color:var(--navy-deep);}
+.sdot.active{background:var(--sky);color:var(--navy-deep);border-color:var(--sky);}
+.sdot.section-start{border-color:var(--orange);color:var(--orange);}
+.sdot.section-start.active{background:var(--orange);color:var(--navy-deep);}
+
+/* MAIN */
+.main{margin-left:48px;padding-top:56px;}
+.screen{display:none;min-height:calc(100vh - 56px);padding:24px;max-width:480px;margin:0 auto;}
+.screen.active{display:block;}
+
+/* PHONE FRAME */
+.phone{background:var(--navy-deep);border:2px solid var(--border);border-radius:24px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.5);max-width:360px;margin:0 auto;}
+.status-bar{background:var(--navy-deep);padding:8px 16px;display:flex;justify-content:space-between;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--grey-mid);}
+.screen-title{font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:600;color:var(--grey-mid);text-align:center;margin-bottom:12px;text-transform:uppercase;letter-spacing:2px;}
+
+/* COMPONENTS */
+.btn-primary{background:linear-gradient(135deg,var(--sky),var(--sky-dark));color:var(--navy-deep);font-family:'Rajdhani',sans-serif;font-weight:700;font-size:15px;padding:14px 24px;border-radius:10px;border:none;cursor:pointer;width:100%;letter-spacing:1px;transition:all .2s;}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 4px 20px rgba(74,184,232,0.4);}
+.btn-secondary{background:transparent;color:var(--sky);font-family:'Rajdhani',sans-serif;font-weight:600;font-size:14px;padding:12px 24px;border-radius:10px;border:1px solid var(--sky);cursor:pointer;width:100%;letter-spacing:1px;transition:all .2s;}
+.btn-secondary:hover{background:rgba(74,184,232,0.1);}
+.btn-orange{background:linear-gradient(135deg,var(--orange),var(--orange-dark));color:var(--navy-deep);font-family:'Rajdhani',sans-serif;font-weight:700;font-size:15px;padding:14px 24px;border-radius:10px;border:none;cursor:pointer;width:100%;letter-spacing:1px;}
+.btn-disabled{background:var(--navy-mid);color:var(--grey-dark);font-family:'Rajdhani',sans-serif;font-weight:700;font-size:15px;padding:14px 24px;border-radius:10px;border:1px solid var(--grey-dark);cursor:not-allowed;width:100%;letter-spacing:1px;}
+.btn-green{background:linear-gradient(135deg,#00AA44,#007730);color:#fff;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:15px;padding:14px 24px;border-radius:10px;border:none;cursor:pointer;width:100%;letter-spacing:1px;}
+.btn-red{background:linear-gradient(135deg,#CC2222,#991111);color:#fff;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:15px;padding:12px 24px;border-radius:10px;border:none;cursor:pointer;width:100%;letter-spacing:1px;}
+
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:12px;}
+.card-title{font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:700;color:var(--sky);margin-bottom:8px;letter-spacing:1px;}
+.label{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--grey-mid);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;}
+.value{font-size:14px;color:var(--white);margin-bottom:12px;}
+.field{background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:13px;color:var(--grey-mid);}
+.field-active{background:rgba(74,184,232,0.05);border:1px solid var(--sky);border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:13px;color:var(--white);}
+
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-family:'Share Tech Mono',monospace;font-size:10px;font-weight:700;letter-spacing:1px;}
+.badge-green{background:rgba(0,170,68,0.2);color:var(--green);border:1px solid var(--green);}
+.badge-orange{background:rgba(245,166,35,0.2);color:var(--orange);border:1px solid var(--orange);}
+.badge-sky{background:rgba(74,184,232,0.2);color:var(--sky);border:1px solid var(--sky);}
+.badge-red{background:rgba(204,34,34,0.2);color:var(--red);border:1px solid var(--red);}
+.badge-grey{background:rgba(122,158,192,0.2);color:var(--grey-mid);border:1px solid var(--grey-mid);}
+
+.divider{height:1px;background:var(--border);margin:12px 0;}
+.section-header{font-family:'Rajdhani',sans-serif;font-size:18px;font-weight:700;color:var(--orange);letter-spacing:2px;margin-bottom:16px;text-transform:uppercase;}
+.sub-header{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:600;color:var(--sky);letter-spacing:1px;margin-bottom:10px;}
+
+/* HUD */
+.hud-bar{background:var(--navy-mid);border-top:1px solid var(--border);padding:10px 12px;display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
+.hud-stat{text-align:center;}
+.hud-label{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--grey-mid);}
+.hud-value{font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:700;color:var(--white);}
+.hud-value.green{color:var(--green);}
+.hud-value.orange{color:var(--orange);}
+.hud-value.sky{color:var(--sky);}
+
+/* MAP MOCK */
+.map-mock{background:linear-gradient(135deg,#1a3a2a 0%,#0d2518 40%,#1a3535 100%);position:relative;overflow:hidden;}
+.map-mock::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(0deg,rgba(74,184,232,0.03) 0px,transparent 1px,transparent 40px,rgba(74,184,232,0.03) 41px),repeating-linear-gradient(90deg,rgba(74,184,232,0.03) 0px,transparent 1px,transparent 40px,rgba(74,184,232,0.03) 41px);}
+.map-node{position:absolute;width:10px;height:10px;border-radius:50%;border:2px solid rgba(255,255,255,0.8);}
+.map-track{position:absolute;height:2px;transform-origin:left center;}
+
+/* ACCORDION */
+.accordion{border:1px solid var(--border);border-radius:10px;margin-bottom:8px;overflow:hidden;}
+.acc-header{background:var(--navy-mid);padding:12px 16px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:600;letter-spacing:1px;}
+.acc-header:hover{background:rgba(74,184,232,0.1);}
+.acc-arrow{color:var(--sky);transition:transform .2s;}
+.acc-body{background:rgba(10,15,26,0.5);padding:12px 16px;display:none;}
+.acc-body.open{display:block;}
+
+/* BOTTOM NAV */
+.bottom-nav{background:var(--navy-deep);border-top:1px solid var(--border);display:flex;padding:8px 0 16px;}
+.nav-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;font-family:'Rajdhani',sans-serif;font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--grey-mid);cursor:pointer;padding:4px 0;}
+.nav-item.active{color:var(--sky);}
+.nav-icon{font-size:18px;}
+
+/* RIDE CARD */
+.ride-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px;cursor:pointer;transition:all .2s;}
+.ride-card:hover{border-color:var(--sky);background:rgba(74,184,232,0.05);}
+.ride-card-name{font-family:'Rajdhani',sans-serif;font-size:17px;font-weight:700;color:var(--white);margin-bottom:4px;}
+.ride-card-meta{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--grey-mid);}
+
+/* NOTIFICATION DOT */
+.notif-dot{width:8px;height:8px;background:var(--red);border-radius:50%;display:inline-block;margin-left:4px;}
+
+/* PROGRESS BAR */
+.progress-bar{background:var(--navy-mid);border-radius:20px;height:8px;overflow:hidden;margin:8px 0;}
+.progress-fill{height:100%;background:linear-gradient(90deg,var(--sky),var(--orange));border-radius:20px;transition:width .3s;}
+
+/* TOGGLE */
+.toggle-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;}
+.toggle{width:44px;height:24px;border-radius:12px;border:2px solid var(--border);position:relative;cursor:pointer;}
+.toggle.on{background:var(--sky);border-color:var(--sky);}
+.toggle.off{background:var(--navy-mid);}
+.toggle-thumb{width:18px;height:18px;border-radius:50%;background:white;position:absolute;top:1px;transition:left .2s;}
+.toggle.on .toggle-thumb{left:22px;}
+.toggle.off .toggle-thumb{left:1px;}
+
+/* FLOATING PANEL */
+.floating-panel{position:absolute;top:60px;right:12px;background:rgba(15,30,46,0.95);border:1px solid var(--border);border-radius:12px;width:180px;backdrop-filter:blur(10px);}
+.float-bar{background:var(--navy-mid);padding:8px 12px;border-radius:10px;display:flex;gap:8px;align-items:center;border:1px solid var(--border);}
+.float-btn{background:rgba(74,184,232,0.15);border:1px solid var(--sky);color:var(--sky);font-family:'Share Tech Mono',monospace;font-size:10px;padding:5px 10px;border-radius:6px;cursor:pointer;white-space:nowrap;}
+.float-btn.active{background:var(--sky);color:var(--navy-deep);}
+.float-btn.orange{border-color:var(--orange);color:var(--orange);background:rgba(245,166,35,0.15);}
+
+/* OVERLAY ITEM */
+.overlay-item{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);}
+.overlay-color{width:24px;height:4px;border-radius:2px;flex-shrink:0;}
+.overlay-color.dashed{background:repeating-linear-gradient(90deg,#6B4EFF 0px,#6B4EFF 6px,transparent 6px,transparent 10px);height:3px;}
+.overlay-name{flex:1;font-size:13px;color:var(--white);}
+.overlay-meta{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--grey-mid);}
+.checkbox{width:18px;height:18px;border:2px solid var(--sky);border-radius:4px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.checkbox.checked{background:var(--sky);}
+
+/* WAYPOINT MARKER */
+.wp-marker{display:inline-flex;align-items:center;gap:6px;background:rgba(245,166,35,0.15);border:1px solid var(--orange);border-radius:20px;padding:4px 10px;font-size:12px;color:var(--orange);}
+
+/* STEP INDICATOR */
+.steps{display:flex;gap:6px;margin-bottom:16px;}
+.step{flex:1;height:4px;border-radius:2px;background:var(--navy-mid);}
+.step.done{background:var(--sky);}
+.step.current{background:var(--orange);}
+
+/* REQUIRED INDICATOR */
+.req-field{border-left:3px solid var(--orange);padding-left:10px;margin-bottom:10px;}
+.req-field .label{color:var(--orange);}
+.field-set{background:rgba(0,170,68,0.1);border:1px solid var(--green);border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:13px;color:var(--green);display:flex;justify-content:space-between;align-items:center;}
+.field-unset{background:rgba(245,166,35,0.05);border:1px dashed var(--orange);border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:13px;color:var(--grey-mid);display:flex;justify-content:space-between;align-items:center;cursor:pointer;}
+.field-unset:hover{background:rgba(245,166,35,0.1);}
+</style>
+</head>
+<body>
+
+<!-- TOP NAV -->
+<div class="topnav">
+  <div class="logo"><span class="g">Group</span><span class="t">Track</span></div>
+  <div class="screen-info" id="screenInfo">SCREEN 1 OF 29</div>
+  <div class="nav-btns">
+    <button class="nbtn" onclick="prevScreen()">◀ PREV</button>
+    <button class="nbtn" onclick="nextScreen()">NEXT ▶</button>
+  </div>
+</div>
+
+<!-- SIDEBAR -->
+<div class="sidebar" id="sidebar"></div>
+
+<div class="main">
+
+<!-- ═══════════════════════════════════════════════════════
+     SECTION A — ONBOARDING
+═══════════════════════════════════════════════════════ -->
+
+<!-- S01 — Sign In -->
+<div class="screen active" id="screen-1" data-title="SIGN IN" data-section="A">
+  <div class="screen-title">A · Onboarding</div>
+  <div class="phone">
+    <div class="status-bar"><span>9:41</span><span>▐▐▐ 100%</span></div>
+    <div style="padding:32px 24px;text-align:center;">
+      <div style="font-family:'Rajdhani',sans-serif;font-size:42px;font-weight:700;margin-bottom:4px;"><span style="color:var(--orange)">Group</span><span style="color:var(--sky)">Track</span></div>
+      <div style="font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--grey-mid);letter-spacing:3px;margin-bottom:32px;">OFF-GRID CONVOY COORDINATION</div>
+      <div style="background:rgba(74,184,232,0.05);border:1px solid var(--border);border-radius:16px;padding:24px;margin-bottom:24px;">
+        <div style="font-size:13px;color:var(--grey-mid);margin-bottom:20px;">Sign in to access organized rides, invite links, and track donations. No account needed for solo trail mapping.</div>
+        <button class="btn-primary" style="margin-bottom:10px;" onclick="goTo(2)">🔵 SIGN IN WITH GOOGLE</button>
+        <button class="btn-secondary" onclick="goTo(4)">CONTINUE WITHOUT ACCOUNT</button>
+      </div>
+      <div style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--grey-dark);">V3.0 · grouptrack.org</div>
+    </div>
+  </div>
+</div>
+
+<!-- S02 — Rider Terms -->
+<div class="screen" id="screen-2" data-title="RIDER TERMS" data-section="A">
+  <div class="screen-title">A · Onboarding</div>
+  <div class="phone">
+    <div class="status-bar"><span>9:41</span><span>▐▐▐ 100%</span></div>
+    <div style="padding:20px;">
+      <div class="steps"><div class="step done"></div><div class="step current"></div><div class="step"></div></div>
+      <div class="section-header">Rider Terms</div>
+      <div style="background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:10px;padding:14px;height:220px;overflow-y:auto;font-size:12px;color:var(--grey-mid);line-height:1.6;margin-bottom:14px;">
+        <p style="margin-bottom:10px;"><strong style="color:var(--sky)">GroupTrack Rider Agreement V1.0</strong></p>
+        <p style="margin-bottom:8px;">By using GroupTrack you agree to ride responsibly and within your skill level. GroupTrack provides coordination tools only — it does not guarantee safety or trail conditions.</p>
+        <p style="margin-bottom:8px;">You are responsible for your own equipment, vehicle condition, and riding decisions. GroupTrack data is provided as-is with no warranty of accuracy.</p>
+        <p style="margin-bottom:8px;">Track data you donate becomes part of the GroupTrack public library under Creative Commons attribution license.</p>
+        <p>GroupTrack collects GPS position data during active rides for convoy coordination purposes only. Data is not sold to third parties.</p>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+        <div class="checkbox checked">✓</div>
+        <span style="font-size:13px;color:var(--white);">I have read and accept the Rider Terms V1.0</span>
+      </div>
+      <button class="btn-primary" onclick="goTo(3)">ACCEPT &amp; CONTINUE</button>
+    </div>
+  </div>
+</div>
+
+<!-- S03 — Privacy Policy -->
+<div class="screen" id="screen-3" data-title="PRIVACY POLICY" data-section="A">
+  <div class="screen-title">A · Onboarding</div>
+  <div class="phone">
+    <div class="status-bar"><span>9:41</span><span>▐▐▐ 100%</span></div>
+    <div style="padding:20px;">
+      <div class="steps"><div class="step done"></div><div class="step done"></div><div class="step current"></div></div>
+      <div class="section-header">Privacy Policy</div>
+      <div style="background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:10px;padding:14px;height:220px;overflow-y:auto;font-size:12px;color:var(--grey-mid);line-height:1.6;margin-bottom:14px;">
+        <p style="margin-bottom:10px;"><strong style="color:var(--sky)">GroupTrack Privacy Policy V1.0</strong></p>
+        <p style="margin-bottom:8px;">GroupTrack collects your Google account name and email for authentication. Your email is used only for ride notifications you opt into.</p>
+        <p style="margin-bottom:8px;">GPS data is collected during active convoy rides and stored locally on your device. Data is uploaded to GroupTrack servers only when you explicitly donate a track.</p>
+        <p>You may delete your account and all associated data at any time from the Profile screen.</p>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+        <div class="checkbox checked">✓</div>
+        <span style="font-size:13px;color:var(--white);">I have read and accept the Privacy Policy V1.0</span>
+      </div>
+      <button class="btn-primary" onclick="goTo(4)">ACCEPT &amp; ENTER GROUPTRACK</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     SECTION B — DASHBOARD
+═══════════════════════════════════════════════════════ -->
+
+<!-- S04 — Dashboard -->
+<div class="screen" id="screen-4" data-title="DASHBOARD" data-section="B">
+  <div class="screen-title">B · Dashboard</div>
+  <div class="phone">
+    <div class="status-bar"><span>9:41</span><span>▐▐▐ 100%</span></div>
+    <div style="padding:14px;">
+      <!-- Header -->
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <div>
+          <div style="font-family:'Rajdhani',sans-serif;font-size:22px;font-weight:700;"><span style="color:var(--orange)">Group</span><span style="color:var(--sky)">Track</span></div>
+          <div style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--grey-mid);">WELCOME BACK, FRED</div>
+        </div>
+        <span class="badge badge-green">SOLO</span>
+      </div>
+
+      <!-- SECTION 1: NEW INVITES -->
+      <div style="font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:700;color:var(--orange);letter-spacing:2px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
+        NEW INVITES
+        <span class="badge badge-orange">2</span>
+      </div>
+
+      <!-- Invite 1 — most recent -->
+      <div class="ride-card" onclick="goTo(20)" style="border-color:var(--orange);">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;">
+          <div class="ride-card-name">Sand Hollow Trail Bash</div>
+          <span class="badge badge-orange">NEW</span>
+        </div>
+        <div class="ride-card-meta">APR 12, 2026 · by TrailBoss_Mike</div>
+        <div class="ride-card-meta">Received: Today 8:14 AM</div>
+      </div>
+
+      <!-- Invite 2 -->
+      <div class="ride-card" onclick="goTo(20)">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;">
+          <div class="ride-card-name">JEM Trail Full Run</div>
+          <span class="badge badge-orange">NEW</span>
+        </div>
+        <div class="ride-card-meta">APR 20, 2026 · by CanyonRunner</div>
+        <div class="ride-card-meta">Received: Yesterday 3:42 PM</div>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- SECTION 2: ENROLLED RIDES -->
+      <div style="font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:700;color:var(--sky);letter-spacing:2px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
+        ENROLLED RIDES
+        <span class="badge badge-sky">3</span>
+      </div>
+
+      <!-- Enrolled 1 — soonest first -->
+      <div class="ride-card" onclick="goTo(16)" style="border-color:var(--sky);">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;">
+          <div class="ride-card-name">Gooseberry Mesa Loop</div>
+          <span class="badge badge-orange">ORGANIZER</span>
+        </div>
+        <div class="ride-card-meta">APR 5, 2026 · 8:00 AM · 12 enrolled</div>
+        <div class="ride-card-meta">CONVOY-4A2F</div>
+      </div>
+
+      <!-- Enrolled 2 -->
+      <div class="ride-card" onclick="goTo(16)">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;">
+          <div class="ride-card-name">Sand Hollow Trail Bash</div>
+          <span class="badge badge-sky">ENROLLED</span>
+        </div>
+        <div class="ride-card-meta">APR 12, 2026 · 9:00 AM</div>
+        <div class="ride-card-meta">by TrailBoss_Mike</div>
+      </div>
+
+      <!-- Enrolled 3 -->
+      <div class="ride-card" onclick="goTo(16)">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;">
+          <div class="ride-card-name">JEM Trail Full Run</div>
+          <span class="badge badge-sky">ENROLLED</span>
+        </div>
+        <div class="ride-card-meta">APR 20, 2026 · 8:30 AM</div>
+        <div class="ride-card-meta">by CanyonRunner</div>
+      </div>
+
+    </div>
+    <div class="bottom-nav">
+      <div class="nav-item active"><div class="nav-icon">🏠</div>HOME</div>
+      <div class="nav-item" onclick="goTo(13)"><div class="nav-icon">🚐</div>RIDES</div>
+      <div class="nav-item" onclick="goTo(8)"><div class="nav-icon">🗺️</div>MAP</div>
+      <div class="nav-item" onclick="goTo(5)"><div class="nav-icon">👤</div>PROFILE</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     SECTION C — PROFILE & ACCOUNT
+═══════════════════════════════════════════════════════ -->
+
+<!-- S05 — Profile -->
+<div class="screen" id="screen-5" data-title="PROFILE" data-section="C">
+  <div class="screen-title">C · Profile &amp; Account</div>
+  <div class="phone">
+    <div class="status-bar"><span>9:41</span><span>▐▐▐ 100%</span></div>
+    <div style="padding:16px;">
+      <div class="section-header">Profile</div>
+      <div style="text-align:center;margin-bottom:16px;">
+        <div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,var(--sky),var(--navy));margin:0 auto 8px;display:flex;align-items:center;justify-content:center;font-size:28px;border:2px solid var(--sky);">👤</div>
+        <div style="font-family:'Rajdhani',sans-serif;font-size:18px;font-weight:700;">Fred K.</div>
+        <div style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--grey-mid);">fred@email.com</div>
+      </div>
+      <div class="card">
+        <div class="label">Callsign</div><div class="field-active">Lead</div>
+        <div class="label">Vehicle Type</div><div class="field-active">4x4 SUV</div>
+        <div class="label">Zip Code</div><div class="field-active">84770</div>
+        <div class="toggle-row"><span style="font-size:13px;">Email ride notifications</span><div class="toggle on"><div class="toggle-thumb"></div></div></div>
+      </div>
+      <button class="btn-orange" style="margin-bottom:10px;" onclick="goTo(6)">BECOME AN ORGANIZER</button>
+      <button class="btn-secondary">SIGN OUT</button>
+    </div>
+    <div class="bottom-nav">
+      <div class="nav-item" onclick="goTo(4)"><div class="nav-icon">🏠</div>HOME</div>
+      <div class="nav-item" onclick="goTo(13)"><div class="nav-icon">🚐</div>RIDES</div>
+      <div class="nav-item" onclick="goTo(8)"><div class="nav-icon">🗺️</div>MAP</div>
+      <div class="nav-item active"><div class="nav-icon">👤</div>PROFILE</div>
+    </div>
+  </div>
+</div>
+
+<!-- S06 — Become Organizer -->
+<div class="screen" id="screen-6" data-title="BECOME ORGANIZER" data-section="C">
+  <div class="screen-title">C · Profile &amp; Account</div>
+  <div class="phone">
+    <div class="status-bar"><span>9:41</span><span>▐▐▐ 100%</span></div>
+    <div style="padding:20px;">
+      <div class="section-header">Organizer Terms</div>
+      <div style="background:rgba(245,166,35,0.05);border:1px solid var(--orange);border-radius:10px;padding:14px;height:200px;overflow-y:auto;font-size:12px;color:var(--grey-mid);line-height:1.6;margin-bottom:14px;">
+        <p style="margin-bottom:10px;"><strong style="color:var(--orange)">GroupTrack Organizer Agreement V1.0</strong></p>
+        <p style="margin-bottom:8px;">As a ride organizer you are responsible for the rides you create and the riders you invite. You agree to provide accurate ride information and to manage your rides responsibly.</p>
+        <p style="margin-bottom:8px;">Organizer subscription: $3.00/month via Google Play. You may cancel at any time. Cancellation takes effect at end of billing period.</p>
+        <p>GroupTrack may suspend organizer privileges for abuse, false information, or violation of these terms.</p>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+        <div class="checkbox checked">✓</div>
+        <span style="font-size:13px;color:var(--white);">I accept the Organizer Terms V1.0</span>
+      </div>
+      <button class="btn-orange" onclick="goTo(5)">SUBSCRIBE — $3.00/MONTH</button>
+    </div>
+  </div>
+</div>
+
+<!-- S07 — Field Radio -->
+<div class="screen" id="screen-7" data-title="FIELD RADIO" data-section="C">
+  <div class="screen-title">C · Field Radio</div>
+  <div class="phone">
+    <div class="status-bar"><span>9:41</span><span>▐▐▐ 100%</span></div>
+    <div style="padding:16px;">
+      <div class="section-header">Field Radio</div>
+      <div style="background:rgba(0,170,68,0.1);border:1px solid var(--green);border-radius:10px;padding:10px 14px;margin-bottom:14px;text-align:center;">
+        <div style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--green);">● RADIO CONNECTED</div>
+        <div style="font-size:13px;color:var(--white);margin-top:4px;">E3:07:C6:57:90:0F</div>
+      </div>
+      <div class="card">
+        <div class="label">Active Channel</div><div class="value">CONVOY-4A2F</div>
+        <div class="label">Frequency</div><div class="value">915.0 MHz</div>
+        <div class="label">Spread Factor</div><div class="value">SF10 / BW 250</div>
+        <div class="label">TX Power</div><div class="value">27 dBm</div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <button class="btn-secondary">CAPTURE CONFIG</button>
+        <button class="btn-secondary">APPLY CONFIG</button>
+      </div>
+      <div class="divider"></div>
+      <button class="btn-red">RECONNECT RADIO</button>
+    </div>
+    <div class="bottom-nav">
+      <div class="nav-item" onclick="goTo(4)"><div class="nav-icon">🏠</div>HOME</div>
+      <div class="nav-item" onclick="goTo(13)"><div class="nav-icon">🚐</div>RIDES</div>
+      <div class="nav-item" onclick="goTo(8)"><div class="nav-icon">🗺️</div>MAP</div>
+      <div class="nav-item" onclick="goTo(5)"><div class="nav-icon">👤</div>PROFILE</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     SECTION D — CONVOY MAP (RIDE MAP)
+═══════════════════════════════════════════════════════ -->
+
+<!-- S08 — Convoy Map SOLO -->
+<div class="screen" id="screen-8" data-title="MAP — SOLO" data-section="D">
+  <div class="screen-title">D · Convoy Map</div>
+  <div class="phone">
+    <div class="status-bar"><span>9:41</span><span>▐▐▐ 100%</span></div>
+    <div class="map-mock" style="height:420px;position:relative;">
+      <!-- GPS trail -->
+      <svg style="position:absolute;inset:0;width:100%;height:100%;">
+        <polyline points="60,380 70,340 90,300 100,260 120,230 140,200 150,170" stroke="#4AB8E8" stroke-width="2" fill="none" stroke-dasharray="4,2"/>
+        <circle cx="150" cy="170" r="6" fill="#4AB8E8"/>
+        <circle cx="150" cy="170" r="10" fill="none" stroke="#4AB8E8" stroke-width="1.5" opacity="0.5"/>
+      </svg>
+      <!-- Offline/Online toggle bar -->
+      <div class="float-bar" style="position:absolute;top:10px;left:10px;right:10px;justify-content:space-between;">
+        <div class="float-btn active">OFFLINE</div>
+        <div class="float-btn">SAT</div>
+        <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--sky);">SOLO MODE</div>
+        <div class="float-btn" onclick="goTo(9)">⚙</div>
+      </div>
+      <!-- REC button -->
+      <div style="position:absolute;bottom:14px;left:50%;transform:translateX(-50%);display:flex;gap:10px;">
+        <div style="background:#CC2222;border-radius:50%;width:48px;height:48px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;cursor:pointer;border:2px solid rgba(255,255,255,0.3);">REC</div>
+      </div>
+    </div>
+    <div class="hud-bar">
+      <div class="hud-stat"><div class="hud-label">STATE</div><div class="hud-value sky">SOLO</div></div>
+      <div class="hud-stat"><div class="hud-label">SPEED</div><div class="hud-value">24mph</div></div>
+      <div class="hud-stat"><div class="hud-label">TRACK</div><div class="hud-value green">ACTIVE</div></div>
+      <div class="hud-stat"><div class="hud-label">TILES</div><div class="hud-value green">LOCAL</div></div>
+    </div>
+    <div class="bottom-nav">
+      <div class="nav-item" onclick="goTo(4)"><div class="nav-icon">🏠</div>HOME</div>
+      <div class="nav-item" onclick="goTo(13)"><div class="nav-icon">🚐</div>RIDES</div>
+      <div class="nav-item active"><div class="nav-icon">🗺️</div>MAP</div>
+      <div class="nav-item" onclick="goTo(5)"><div class="nav-icon">👤</div>PROFILE</div>
+    </div>
+  </div>
+</div>
+
+<!-- S09 — Map Settings Accordion -->
+<div class="screen" id="screen-9" data-title="MAP SETTINGS" data-section="D">
+  <div class="screen-title">D · Map Settings</div>
+  <div class="phone">
+    <div class="status-bar"><span>9:41</span><span>▐▐▐ 100%</span></div>
+    <div style="padding:16px;">
+      <div class="section-header">Map Settings</div>
+      <!-- MAP CONTROLS accordion -->
+      <div class="accordion">
+        <div class="acc-header" onclick="toggleAcc(this)">
+          <span>🗺 MAP CONTROLS</span><span class="acc-arrow">▼</span>
+        </div>
+        <div class="acc-body open">
+          <div class="toggle-row"><span style="font-size:13px;color:var(--white);">Offline Mode</span><div class="toggle on"><div class="toggle-thumb"></div></div></div>
+          <div class="toggle-row"><span style="font-size:13px;color:var(--white);">Track Lead Only</span><div class="toggle on"><div class="toggle-thumb"></div></div></div>
+          <div class="toggle-row"><span style="font-size:13px;color:var(--white);">Show Downloaded Areas</span><div class="toggle off"><div class="toggle-thumb"></div></div></div>
+          <div class="divider"></div>
+          <div class="label">Map Type</div>
+          <div style="display:flex;gap:8px;margin-bottom:10px;">
+            <div class="float-btn active">SAT</div>
+            <div class="float-btn">HYB</div>
+            <div class="float-btn">TOPO</div>
+          </div>
+          <div class="label">Track Export Format</div>
+          <div style="display:flex;gap:8px;">
+            <div class="float-btn active">GPX</div>
+            <div class="float-btn">KML</div>
+          </div>
+        </div>
+      </div>
+      <!-- MAP DOWNLOAD accordion -->
+      <div class="accordion">
+        <div class="acc-header" onclick="toggleAcc(this)">
+          <span>⬇ MAP DOWNLOAD</span><span class="acc-arrow">▶</span>
+        </div>
+        <div class="acc-body">
+          <div style="font-size:13px;color:var(--grey-mid);margin-bottom:10px;">Draw a region on the map to download tiles for offline use.</div>
+          <div class="label">Zoom Levels</div>
+          <div style="display:flex;gap:8px;margin-bottom:10px;">
+            <div class="float-btn">Z14</div>
+            <div class="float-btn active">Z16</div>
+            <div class="float-btn active">Z17</div>
+            <div class="float-btn active">Z18</div>
+          </div>
+          <button class="btn-secondary">DRAW DOWNLOAD REGION</button>
+        </div>
+      </div>
+      <!-- OVERLAYS accordion -->
+      <div class="accordion">
+        <div class="acc-header" onclick="toggleAcc(this)">
+          <span>🔲 OVERLAYS</span><span class="acc-arrow">▶</span>
+        </div>
+        <div class="acc-body">
+          <div style="font-size:13px;color:var(--grey-mid);margin-bottom:10px;">Toggle routes, waypoints, and ride history for current area.</div>
+          <button class="btn-secondary" onclick="goTo(27)">OPEN OVERLAY SELECTOR</button>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <button class="btn-secondary" onclick="goTo(8)">← BACK TO MAP</button>
+    </div>
+  </div>
+</div>
+
+<!-- S10 — Convoy Map CONVOY -->
+<div class="screen" id="screen-10" data-title="MAP — CONVOY" data-section="D">
+  <div class="screen-title">D · Convoy Map</div>
+  <div class="phone">
+    <div class="status-bar"><span>9:41</span><span>▐▐▐ 100%</span></div>
+    <div class="map-mock" style="height:380px;position:relative;">
+      <svg style="position:absolute;inset:0;width:100%;height:100%;">
+        <polyline points="60,350 80,310 110,270 140,230 160,190 170,155" stroke="#F5A623" stroke-width="3" fill="none"/>
+        <circle cx="60" cy="350" r="7" fill="#FF8C42" stroke="white" stroke-width="1.5"/>
+        <circle cx="100" cy="290" r="7" fill="#4DA6FF" stroke="white" stroke-width="1.5"/>
+        <circle cx="140" cy="230" r="7" fill="#1CF0A0" stroke="white" stroke-width="1.5"/>
+        <circle cx="170" cy="155" r="9" fill="#F5A623" stroke="white" stroke-width="2"/>
+        <text x="178" y="152" fill="#F5A623" font-size="9" font-family="monospace">LEAD</text>
+      </svg>
+      <div class="float-bar" style="position:absolute;top:10px;left:10px;right:10px;justify-content:space-between;">
+        <div class="float-btn active">OFFLINE</div>
+        <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--orange);">CONVOY MODE</div>
+        <div class="float-btn orange">GROUP</div>
+        <div class="float-btn" onclick="goTo(9)">⚙</div>
+      </div>
+      <div style="position:absolute;bottom:14px;left:50%;transform:translateX(-50%);display:flex;gap:10px;">
+        <div style="background:#CC2222;border-radius:50%;width:48px;height:48px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;cursor:pointer;border:2px solid rgba(255,255,255,0.3);">■ STOP</div>
+      </div>
+    </div>
+    <div class="hud-bar" style="grid-template-columns:repeat(5,1fr);">
+      <div class="hud-stat"><div class="hud-label">STATE</div><div class="hud-value orange">CONVOY</div></div>
+      <div class="hud-stat"><div class="hud-label">▲ LEAD</div><div class="hud-value green">Lead</div></div>
+      <div class="hud-stat"><div class="hud-label">▽ TAIL</div><div class="hud-value orange">T-1005</div></div>
+      <div class="hud-stat"><div class="hud-label">SPAN</div><div class="hud-value">0.4mi</div></div>
+      <div class="hud-stat"><div class="hud-label">NODES</div><div class="hud-value">4</div></div>
+    </div>
+    <div class="bottom-nav">
+      <div class="nav-item" onclick="goTo(4)"><div class="nav-icon">🏠</div>HOME</div>
+      <div class="nav-item" onclick="goTo(13)"><div class="nav-icon">🚐</div>RIDES</div>
+      <div class="nav-item active"><div class="nav-icon">🗺️</div>MAP</div>
+      <div class="nav-item" onclick="goTo(5)"><div class="nav-icon">👤</div>PROFILE</div>
+    </div>
+  </div>
+</div>
+
+<!-- S11 — Convoy Map ORGANIZED -->
+<div class="screen" id="screen-11" data-title="MAP — ORGANIZED" data-section="D">
+  <div class="screen-title">D · Convoy Map</div>
+  <div class="phone">
+    <div class="status-bar"><span>9:41</span><span>▐▐▐ 100%</span></div>
+    <div class="map-mock" style="height:360px;position:relative;">
+      <svg style="position:absolute;inset:0;width:100%;height:100%;">
+        <!-- Route overlay solid orange -->
+        <polyline points="50,340 80,290 120,240 155,190 170,150" stroke="#F5A623" stroke-width="2.5" fill="none" opacity="0.6"/>
+        <!-- GPS track dashed blue -->
+        <polyline points="50,340 80,290 120,240 155,190" stroke="#6B4EFF" stroke-width="2" fill="none" stroke-dasharray="5,3"/>
+        <!-- Nodes -->
+        <circle cx="50" cy="340" r="7" fill="#FF8C42" stroke="white" stroke-width="1.5"/>
+        <circle cx="100" cy="280" r="7" fill="#4DA6FF" stroke="white" stroke-width="1.5"/>
+        <circle cx="140" cy="220" r="7" fill="#1CF0A0" stroke="white" stroke-width="1.5"/>
+        <circle cx="170" cy="150" r="9" fill="#F5A623" stroke="white" stroke-width="2"/>
+        <!-- Trailhead waypoint -->
+        <polygon points="50,340 44,330 56,330" fill="#F5A623"/>
+        <text x="58" y="335" fill="#F5A623" font-size="8" font-family="monospace">TH</text>
+      </svg>
+      <div class="float-bar" style="position:absolute;top:10px;left:10px;right:10px;justify-content:space-between;">
+        <div class="float-btn active">OFFLINE</div>
+        <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--green);">ORGANIZED</div>
+        <div class="float-btn orange">GROUP</div>
+        <div class="float-btn" onclick="goTo(9)">⚙</div>
+      </div>
+      <div style="position:absolute;bottom:14px;left:50%;transform:translateX(-50%);display:flex;gap:10px;">
+        <div style="background:#CC2222;border-radius:50%;width:48px;height:48px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;cursor:pointer;border:2px solid rgba(255,255,255,0.3);" onclick="goTo(12)">■ STOP</div>
+      </div>
+    </div>
+    <div class="hud-bar" style="grid-template-columns:repeat(5,1fr);">
+      <div class="hud-stat"><div class="hud-label">STATE</div><div class="hud-value green">ORG</div></div>
+      <div class="hud-stat"><div class="hud-label">▲ LEAD</div><div class="hud-value green">Lead</div></div>
+      <div class="hud-stat"><div class="hud-label">▽ TAIL</div><div class="hud-value orange">T-1005</div></div>
+      <div class="hud-stat"><div class="hud-label">SPAN</div><div class="hud-value">0.6mi</div></div>
+      <div class="hud-stat"><div class="hud-label">RIDE</div><div class="hud-value sky">GMT-01</div></div>
+    </div>
+    <div class="bottom-nav">
+      <div class="nav-item" onclick="goTo(4)"><div class="nav-icon">🏠</div>HOME</div>
+      <div class="nav-item" onclick="goTo(13)"><div class="nav-icon">🚐</div>RIDES</div>
+      <div class="nav-item active"><div class="nav-icon">🗺️</div>MAP</div>
+      <div class="nav-item" onclick="goTo(5)"><div class="nav-icon">👤</div>PROFILE</div>
+    </div>
+  </div>
+</div>
+
+<!-- S12 — Stop Record ORGANIZED Survey -->
+<div class="screen" id="screen-12" data-title="STOP — SURVEY" data-section="D">
+  <div class="screen-title">D · End of Ride</div>
+  <div class="phone">
+    <div class="status-bar"><span>9:41</span><span>▐▐▐ 100%</span></div>
+    <div style="padding:20px;">
+      <div class="section-header">Ride Complete</div>
+      <div class="card">
+        <div class="card-title">Gooseberry Mesa — Apr 1</div>
+        <div style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--grey-mid);">2h 14m · 12.3 miles · 4 riders</div>
+      </div>
+      <div class="card">
+        <div class="sub-header">Quick Survey</div>
+        <div class="label">Difficulty</div>
+        <div style="display:flex;gap:8px;margin-bottom:12px;">
+          <div class="float-btn">EASY</div><div class="float-btn active">MODERATE</div><div class="float-btn">HARD</div>
+        </div>
+        <div class="label">Recommend this trail?</div>
+        <div style="display:flex;gap:8px;margin-bottom:12px;">
+          <div class="float-btn active">YES</div><div class="float-btn">NO</div>
+        </div>
+        <div class="toggle-row"><span style="font-size:13px;">Donate track to public library</span><div class="toggle on"><div class="toggle-thumb"></div></div></div>
+      </div>
+      <div class="label">Track Name</div>
+      <div class="field-active">Gooseberry Mesa Loop — Apr 1 2026</div>
+      <button class="btn-green" onclick="goTo(4)">SAVE &amp; SUBMIT</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     SECTION E — RIDES
+═══════════════════════════════════════════════════════ -->
+
+<!-- S13 — My Rides -->
+<div class="screen" id="screen-13" data-title="MY RIDES" data-section="E">
+  <div class="screen-title">E · Rides</div>
+  <div class="phone">
+    <div class="status-bar"><span>9:41</span><span>▐▐▐ 100%</span></div>
+    <div style="padding:16px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <div class="section-header" style="margin:0;">My Rides</div>
+        <button class="nbtn" onclick="goTo(15)">+ CREATE</button>
+      </div>
+      <!-- Upcoming -->
+      <div class="sub-header">Upcoming</div>
+      <div class="ride-card" onclick="goTo(16)">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+          <div class="ride-card-name">Gooseberry Mesa Loop</div>
+          <span class="badge badge-orange">ORGANIZER</span>
+        </div>
+        <div class="ride-card-meta">APR 5, 2026 · 8:00 AM · 12 enrolled</div>
+        <div class="ride-card-meta">CONVOY-4A2F · Public</div>
+      </div>
+      <!-- Invited -->
+      <div class="sub-header">Invited</div>
+      <div class="ride-card" onclick="goTo(20)">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+          <div class="ride-card-name">Sand Hollow Trail Bash</div>
+          <span class="badge badge-sky">INVITED</span>
+        </div>
+        <div class="ride-card-meta">APR 12, 2026 · 9:00 AM</div>
+        <div class="ride-card-meta">by TrailBoss_Mike</div>
+      </div>
+      <!-- Past -->
+      <div class="sub-header">Past Rides</div>
+      <div class="ride-card">
+        <div class="ride-card-name">Gooseberry Mesa — Mar 28</div>
+        <div class="ride-card-meta">8 riders · 14.2 miles · GPX saved</div>
+      </div>
+    </div>
+    <div class="bottom-nav">
+      <div class="nav-item" onclick="goTo(4)"><div class="nav-icon">🏠</div>HOME</div>
+      <div class="nav-item active"><div class="nav-icon">🚐</div>RIDES</div>
+      <div class="nav-item" onclick="goTo(8)"><div class="nav-icon">🗺️</div>MAP</div>
+      <div class="nav-item" onclick="goTo(5)"><div class="nav-icon">👤</div>PROFILE</div>
+    </div>
+  </div>
+</div>
+
+<!-- S14 — Explore Public Rides -->
+<div class="screen" id="screen-14" data-title="EXPLORE RIDES" data-section="E">
+  <div class="screen-title">E · Rides</div>
+  <div class="phone">
+    <div class="status-bar"><span>9:41</span><span>▐▐▐ 100%</span></div>
+    <div style="padding:16px;">
+      <div class="section-header">Explore Rides</div>
+      <div class="field">🔍 Search rides near me...</div>
+      <div class="ride-card">
+        <div style="display:flex;justify-content:space-between;"><div class="ride-card-name">Hurricane Cliffs Loop</div><span class="badge badge-green">PUBLIC</span></div>
+        <div class="ride-card-meta">APR 8 · TrailBoss_Mike · 84780</div>
+      </div>
+      <div class="ride-card">
+        <div style="display:flex;justify-content:space-between;"><div class="ride-card-name">Little Creek Trail</div><span class="badge badge-green">PUBLIC</span></div>
+        <div class="ride-card-meta">APR 15 · DesertRat_Sue · 84738</div>
+      </div>
+      <div class="ride-card">
+        <div style="display:flex;justify-content:space-between;"><div class="ride-card-name">JEM Trail Full Run</div><span class="badge badge-green">PUBLIC</span></div>
+        <div class="ride-card-meta">APR 20 · CanyonRunner · 84770</div>
+      </div>
+    </div>
+    <div class="bottom-nav">
+      <div class="nav-item" onclick="goTo(4)"><div class="nav-icon">🏠</div>HOME</div>
+      <div class="nav-item active"><div class="nav-icon">🚐</div>RIDES</div>
+      <div class="nav-item" onclick="goTo(8)"><div class="nav-icon">🗺️</div>MAP</div>
+      <div class="nav-item" onclick="goTo(5)"><div class="nav-icon">👤</div>PROFILE</div>
+    </div>
+  </div>
+</div>
+
+<!-- S15 — Create Ride -->
+<div class="screen" id="screen-15" data-title="CREATE RIDE" data-section="E">
+  <div class="screen-title">E · Rides</div>
+  <div class="phone">
+    <div class="status-bar"><span>9:41</span><span>▐▐▐ 100%</span></div>
+    <div style="padding:16px;overflow-y:auto;max-height:620px;">
+      <div class="section-header">Create Ride</div>
+      <div class="label">Ride Name *</div>
+      <div class="field-active">Gooseberry Mesa Loop</div>
+      <div class="label">Date *</div>
+      <div class="field-active">April 5, 2026</div>
+      <div class="label">Start Time *</div>
+      <div class="field-active">8:00 AM</div>
+      <div class="label">Description</div>
+      <div class="field">Optional ride notes...</div>
+      <div class="label">Channel Name (auto-generated)</div>
+      <div class="field-active">CONVOY-4A2F</div>
+      <div class="divider"></div>
+      <!-- TRAILHEAD — required, not set -->
+      <div class="req-field">
+        <div class="label">Trailhead / Start Point *</div>
+        <div class="field-unset" onclick="goTo(23)">
+          <span>📍 TAP TO SET TRAILHEAD</span><span style="color:var(--orange)">→</span>
+        </div>
+      </div>
+      <!-- MAP AREA — required, not set -->
+      <div class="req-field">
+        <div class="label">Map Area *</div>
+        <div class="field-unset" onclick="goTo(24)">
+          <span>🗺 TAP TO SET MAP AREA</span><span style="color:var(--orange)">→</span>
+        </div>
+        <div style="font-size:11px;color:var(--grey-mid);margin-top:4px;">Assign route, import GPX/KML, or draw manually</div>
+      </div>
+      <div class="divider"></div>
+      <div class="toggle-row"><span style="font-size:13px;color:var(--white);">Public ride (discoverable)</span><div class="toggle off"><div class="toggle-thumb"></div></div></div>
+      <div class="divider"></div>
+      <button class="btn-disabled">SAVE RIDE — SET TRAILHEAD + MAP AREA FIRST</button>
+    </div>
+  </div>
+</div>
+
+<!-- S15b — Create Ride COMPLETE -->
+<div class="screen" id="screen-15b" data-title="CREATE RIDE — READY" data-section="E">
+  <div class="screen-title">E · Rides — Ready to Save</div>
+  <div class="phone">
+    <div class="status-bar"><span>9:41</span><span>▐▐▐ 100%</span></div>
+    <div style="padding:16px;overflow-y:auto;max-height:620px;">
+      <div class="section-header">Create Ride</div>
+      <div class="label">Ride Name *</div>
+      <div class="field-active">Gooseberry Mesa Loop</div>
+      <div class="label">Date *</div>
+      <div class="field-active">April 5, 2026</div>
+      <div class="label">Start Time</div>
+      <div class="field-active">8:00 AM</div>
+      <div class="label">Channel Name</div>
+      <div class="field-active">CONVOY-4A2F</div>
+      <div class="divider"></div>
+      <!-- TRAILHEAD — SET -->
+      <div class="label">Trailhead / Start Point *</div>
+      <div class="field-set">
+        <span>📍 Gooseberry Mesa TH — 37.1234°N</span><span>✓</span>
+      </div>
+      <!-- MAP AREA — SET via route -->
+      <div class="label">Map Area *</div>
+      <div class="field-set">
+        <span>🗺 Gooseberry Loop Route — 14.2mi</span><span>✓</span>
+      </div>
+      <div class="divider"></div>
+      <div class="toggle-row"><span style="font-size:13px;color:var(--white);">Public ride</span><div class="toggle off"><div class="toggle-thumb"></div></div></div>
+      <div class="divider"></div>
+      <button class="btn-green" onclick="goTo(16)">SAVE RIDE</button>
+    </div>
+  </div>
+</div>
+
+<!-- S16 — Ride Detail (Organizer) -->
+<div class="screen" id="screen-16" data-title="RIDE DETAIL" data-section="E">
+  <div class="screen-title">E · Rides</div>
+  <div class="phone">
+    <div class="status-bar"><span>9:41</span><span>▐▐▐ 100%</span></div>
+    <div style="padding:16px;">
+      <div class="section-header">Ride Detail</div>
+      <div class="card">
+        <div class="card-title">Gooseberry Mesa Loop</div>
+        <div style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--grey-mid);margin-bottom:8px;">APR 5, 2026 · 8:00 AM</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <span class="badge badge-orange">ORGANIZER</span>
+          <span class="badge badge-grey">PRIVATE</span>
+          <span class="badge badge-sky">12 ENROLLED</span>
+        </div>
+      </div>
+      <div class="card">
+        <div class="sub-header">Trailhead</div>
+        <div style="font-size:13px;color:var(--white);">📍 Gooseberry Mesa TH</div>
+        <div style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--grey-mid);">37.1234°N 113.0567°W</div>
+      </div>
+      <div class="card">
+        <div class="sub-header">Route</div>
+        <div style="font-size:13px;color:var(--white);">Gooseberry Loop — 14.2 mi</div>
+        <div style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--grey-mid);">Solid orange on ride map</div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px;">
+        <button class="btn-primary" onclick="goTo(17)">SEND INVITE</button>
+        <button class="btn-secondary" onclick="goTo(18)">BROADCAST</button>
+      </div>
+    </div>
+    <div class="bottom-nav">
+      <div class="nav-item" onclick="goTo(4)"><div class="nav-icon">🏠</div>HOME</div>
+      <div class="nav-item active"><div class="nav-icon">🚐</div>RIDES</div>
+      <div class="nav-item" onclick="goTo(8)"><div class="nav-icon">🗺️</div>MAP</div>
+      <div class="nav-item" onclick="goTo(5)"><div class="nav-icon">👤</div>PROFILE</div>
+    </div>
+  </div>
+</div>
+
+<!-- S17 — Send Invite -->
+<div class="screen" id="screen-17" data-title="SEND INVITE" data-section="E">
+  <div class="screen-title">E · Rides</div>
+  <div class="phone">
+    <div class="status-bar"><span>9:41</span><span>▐▐▐ 100%</span></div>
+    <div style="padding:20px;">
+      <div class="section-header">Send Invite</div>
+      <div class="card" style="text-align:center;">
+        <div style="font-size:11px;color:var(--grey-mid);margin-bottom:12px;">Gooseberry Mesa Loop · Apr 5</div>
+        <div style="background:white;padding:16px;border-radius:10px;margin-bottom:12px;display:inline-block;">
+          <div style="width:100px;height:100px;background:linear-gradient(45deg,#000 25%,#fff 25%,#fff 50%,#000 50%,#000 75%,#fff 75%);background-size:20px 20px;"></div>
+        </div>
+        <div style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--sky);word-break:break-all;">grouptrack.org/invite/4A2F-GMT01</div>
+      </div>
+      <button class="btn-primary" style="margin-bottom:10px;">📋 COPY INVITE LINK</button>
+      <button class="btn-secondary">↗ SHARE VIA...</button>
+    </div>
+  </div>
+</div>
+
+<!-- S18 — Broadcast -->
+<div class="screen" id="screen-18" data-title="BROADCAST RIDE" data-section="E">
+  <div class="screen-title">E · Rides</div>
+  <div class="phone">
+    <div class="status-bar"><span>9:41</span><span>▐▐▐ 100%</span></div>
+    <div style="padding:20px;">
+      <div class="section-header">Broadcast Ride</div>
+      <div class="card">
+        <div class="card-title">Gooseberry Mesa Loop</div>
+        <div style="font-size:13px;color:var(--grey-mid);margin-bottom:12px;">This will send an email notification to all riders who follow you.</div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:8px;"><span style="font-size:13px;color:var(--white);">Your followers</span><span class="badge badge-sky">47</span></div>
+        <div style="display:flex;justify-content:space-between;"><span style="font-size:13px;color:var(--white);">Email opt-ins</span><span class="badge badge-green">38</span></div>
+      </div>
+      <div style="background:rgba(204,34,34,0.1);border:1px solid var(--red);border-radius:10px;padding:10px;margin-bottom:14px;font-size:12px;color:var(--red);">⚠ Broadcast can only be sent once per ride.</div>
+      <button class="btn-orange" onclick="goTo(16)">SEND BROADCAST TO 38 RIDERS</button>
+    </div>
+  </div>
+</div>
+
+<!-- S19 — Following -->
+<div class="screen" id="screen-19" data-title="FOLLOWING" data-section="E">
+  <div class="screen-title">E · Rides</div>
+  <div class="phone">
+    <div class="status-bar"><span>9:41</span><span>▐▐▐ 100%</span></div>
+    <div style="padding:16px;">
+      <div class="section-header">Following</div>
+      <div class="field">🔍 Search organizers...</div>
+      <div class="ride-card">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div><div class="ride-card-name">TrailBoss_Mike</div><div class="ride-card-meta">St. George, UT · 24 rides posted</div></div>
+          <span class="badge badge-green">FOLLOWING</span>
+        </div>
+      </div>
+      <div class="ride-card">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div><div class="ride-card-name">DesertRat_Sue</div><div class="ride-card-meta">Moab, UT · 18 rides posted</div></div>
+          <span class="badge badge-green">FOLLOWING</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- S20 — Invite Accept -->
+<div class="screen" id="screen-20" data-title="INVITE ACCEPT" data-section="E">
+  <div class="screen-title">E · Rider Flow</div>
+  <div class="phone">
+    <div class="status-bar"><span>9:41</span><span>▐▐▐ 100%</span></div>
+    <div style="padding:20px;">
+      <div class="section-header">Ride Invite</div>
+      <div class="card" style="text-align:center;border-color:var(--sky);">
+        <div style="font-size:13px;color:var(--grey-mid);margin-bottom:8px;">You have been invited to</div>
+        <div style="font-family:'Rajdhani',sans-serif;font-size:22px;font-weight:700;color:var(--white);margin-bottom:4px;">Sand Hollow Trail Bash</div>
+        <div style="font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--sky);margin-bottom:12px;">APR 12 · 9:00 AM · by TrailBoss_Mike</div>
+        <div style="font-size:13px;color:var(--grey-mid);margin-bottom:12px;">📍 Sand Hollow Trailhead, Hurricane UT</div>
+        <div style="display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+          <span class="badge badge-sky">8 ENROLLED</span>
+          <span class="badge badge-orange">14.2 MI ROUTE</span>
+          <span class="badge badge-grey">PRIVATE</span>
+        </div>
+      </div>
+      <div class="card">
+        <div class="sub-header">What happens next</div>
+        <div style="font-size:12px;color:var(--grey-mid);line-height:1.6;">✓ Ride data downloads to your device<br>✓ Map tiles download automatically<br>✓ Radio config ready to apply<br>✓ Channel activates on ride day</div>
+      </div>
+      <button class="btn-primary" style="margin-bottom:10px;" onclick="goTo(11)">ACCEPT &amp; DOWNLOAD RIDE</button>
+      <button class="btn-secondary">DECLINE</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     SECTION F — MAP MANAGER
+═══════════════════════════════════════════════════════ -->
+
+<!-- S21 — Map Manager Main -->
+<div class="screen" id="screen-21" data-title="MAP MANAGER" data-section="F">
+  <div class="screen-title">F · Map Manager</div>
+  <div class="phone">
+    <div class="status-bar"><span>9:41</span><span>▐▐▐ 100%</span></div>
+    <div class="map-mock" style="height:340px;position:relative;">
+      <!-- Downloaded area shading -->
+      <div style="position:absolute;top:60px;left:30px;width:200px;height:160px;background:rgba(74,184,232,0.12);border:1px solid rgba(74,184,232,0.4);border-radius:4px;"></div>
+      <!-- Route overlay -->
+      <svg style="position:absolute;inset:0;width:100%;height:100%;">
+        <polyline points="50,320 80,270 120,220 155,175 170,140" stroke="#F5A623" stroke-width="2.5" fill="none"/>
+        <!-- Trailhead marker -->
+        <polygon points="50,320 44,308 56,308" fill="#F5A623"/>
+        <text x="58" y="316" fill="#F5A623" font-size="9" font-family="monospace">TH</text>
+        <!-- Waypoint -->
+        <circle cx="120" cy="220" r="6" fill="#4AB8E8" stroke="white" stroke-width="1.5"/>
+      </svg>
+      <!-- Top bar -->
+      <div class="float-bar" style="position:absolute;top:10px;left:10px;right:10px;justify-content:space-between;">
+        <div class="float-btn">🔍 FIND AREA</div>
+        <div class="float-btn active">OFFLINE</div>
+        <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--sky);">MAP MGR</div>
+      </div>
+      <!-- Floating panel handle -->
+      <div style="position:absolute;bottom:10px;right:10px;background:rgba(15,30,46,0.9);border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--sky);cursor:pointer;" onclick="goTo(22)">☰ TOOLS</div>
+    </div>
+    <!-- Tools panel -->
+    <div style="padding:12px;">
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">
+        <div style="text-align:center;cursor:pointer;" onclick="goTo(25)">
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px;margin-bottom:4px;font-size:20px;">⬇</div>
+          <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--grey-mid);">DOWNLOAD</div>
+        </div>
+        <div style="text-align:center;cursor:pointer;" onclick="goTo(26)">
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px;margin-bottom:4px;font-size:20px;">📥</div>
+          <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--grey-mid);">IMPORT</div>
+        </div>
+        <div style="text-align:center;cursor:pointer;" onclick="goTo(27)">
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px;margin-bottom:4px;font-size:20px;">🔲</div>
+          <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--grey-mid);">OVERLAYS</div>
+        </div>
+        <div style="text-align:center;cursor:pointer;" onclick="goTo(28)">
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px;margin-bottom:4px;font-size:20px;">📍</div>
+          <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--grey-mid);">WAYPOINTS</div>
+        </div>
+      </div>
+      <div style="margin-top:8px;">
+        <div style="background:rgba(122,158,192,0.1);border:1px dashed var(--grey-mid);border-radius:8px;padding:10px;text-align:center;cursor:not-allowed;">
+          <div style="font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:600;color:var(--grey-dark);">✏ ROUTE PLANNER — COMING SOON</div>
+        </div>
+      </div>
+    </div>
+    <div class="bottom-nav">
+      <div class="nav-item" onclick="goTo(4)"><div class="nav-icon">🏠</div>HOME</div>
+      <div class="nav-item" onclick="goTo(13)"><div class="nav-icon">🚐</div>RIDES</div>
+      <div class="nav-item active"><div class="nav-icon">📐</div>MAP MGR</div>
+      <div class="nav-item" onclick="goTo(5)"><div class="nav-icon">👤</div>PROFILE</div>
+    </div>
+  </div>
+</div>
+
+<!-- S22 — Map Manager FIND AREA Search -->
+<div class="screen" id="screen-22" data-title="MAP MGR — FIND AREA" data-section="F">
+  <div class="screen-title">F · Map Manager — Search</div>
+  <div class="phone">
+    <div class="status-bar"><span>9:41</span><span>▐▐▐ 100%</span></div>
+    <div style="padding:16px;">
+      <div class="section-header">Find Area</div>
+      <div class="sub-header">Four Search Methods</div>
+      <!-- Method 1 - Area (default) -->
+      <div class="accordion">
+        <div class="acc-header" onclick="toggleAcc(this)" style="border-left:3px solid var(--sky);">
+          <span>🗺 AREA SEARCH (Current View)</span><span class="acc-arrow">▼</span>
+        </div>
+        <div class="acc-body open">
+          <div style="font-size:12px;color:var(--grey-mid);">Default. Filters to current map viewport. Updates automatically as you pan and zoom.</div>
+          <div style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--sky);margin-top:8px;">3 routes · 7 waypoints · 4 rides in view</div>
+        </div>
+      </div>
+      <!-- Method 2 - FIND AREA -->
+      <div class="accordion">
+        <div class="acc-header" onclick="toggleAcc(this)">
+          <span>🔍 FIND AREA (Geocoder)</span><span class="acc-arrow">▶</span>
+        </div>
+        <div class="acc-body">
+          <div class="field-active">Gooseberry Mesa, UT</div>
+          <button class="btn-secondary">FLY TO LOCATION</button>
+        </div>
+      </div>
+      <!-- Method 3 - Name Search -->
+      <div class="accordion">
+        <div class="acc-header" onclick="toggleAcc(this)">
+          <span>📝 NAME SEARCH</span><span class="acc-arrow">▶</span>
+        </div>
+        <div class="acc-body">
+          <div class="field">Search routes and tracks by name...</div>
+          <div class="overlay-item"><div class="overlay-color" style="background:#F5A623;"></div><div><div class="overlay-name">Gooseberry Mesa Loop</div><div class="overlay-meta">ROUTE · 14.2 mi</div></div></div>
+          <div class="overlay-item"><div class="overlay-color dashed"></div><div><div class="overlay-name">Gooseberry — Mar 28</div><div class="overlay-meta">TRACK · 12.3 mi</div></div></div>
+        </div>
+      </div>
+      <!-- Method 4 - Radius -->
+      <div class="accordion">
+        <div class="acc-header" onclick="toggleAcc(this)">
+          <span>⭕ WAYPOINT RADIUS</span><span class="acc-arrow">▶</span>
+        </div>
+        <div class="acc-body">
+          <div class="label">Search Radius</div>
+          <div style="display:flex;gap:8px;margin-bottom:10px;">
+            <div class="float-btn">1 mi</div><div class="float-btn active">5 mi</div><div class="float-btn">10 mi</div><div class="float-btn">25 mi</div>
+          </div>
+          <button class="btn-secondary">SEARCH FROM MAP CENTER</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- S23 — Set Trailhead (from Create Ride) -->
+<div class="screen" id="screen-23" data-title="SET TRAILHEAD" data-section="F">
+  <div class="screen-title">F · Map Manager — Set Trailhead</div>
+  <div class="phone">
+    <div class="status-bar"><span>9:41</span><span>▐▐▐ 100%</span></div>
+    <div class="map-mock" style="height:300px;position:relative;">
+      <svg style="position:absolute;inset:0;width:100%;height:100%;">
+        <circle cx="160" cy="200" r="12" fill="none" stroke="#F5A623" stroke-width="2" stroke-dasharray="4,2"/>
+        <text x="140" y="225" fill="#F5A623" font-size="10" font-family="monospace">LONG PRESS TO DROP</text>
+      </svg>
+      <div class="float-bar" style="position:absolute;top:10px;left:10px;right:10px;">
+        <div style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--orange);flex:1;text-align:center;">SETTING TRAILHEAD — LONG PRESS MAP</div>
+      </div>
+    </div>
+    <div style="padding:14px;">
+      <div class="sub-header">Or select from library</div>
+      <div class="overlay-item" onclick="goTo(15b)">
+        <span style="font-size:18px;">📍</span>
+        <div><div class="overlay-name">Gooseberry Mesa TH</div><div class="overlay-meta">TRAILHEAD · 37.1234°N 113.0567°W</div></div>
+        <div class="checkbox checked">✓</div>
+      </div>
+      <div class="overlay-item">
+        <span style="font-size:18px;">📍</span>
+        <div><div class="overlay-name">Sand Hollow TH</div><div class="overlay-meta">TRAILHEAD · 37.0891°N 113.4123°W</div></div>
+        <div class="checkbox"></div>
+      </div>
+      <div class="divider"></div>
+      <button class="btn-primary" onclick="goTo(15)">USE SELECTED TRAILHEAD</button>
+    </div>
+  </div>
+</div>
+
+<!-- S24 — Set Map Area (from Create Ride) -->
+<div class="screen" id="screen-24" data-title="SET MAP AREA" data-section="F">
+  <div class="screen-title">F · Map Manager — Set Map Area</div>
+  <div class="phone">
+    <div class="status-bar"><span>9:41</span><span>▐▐▐ 100%</span></div>
+    <div style="padding:16px;">
+      <div class="section-header">Set Map Area</div>
+      <div style="font-size:13px;color:var(--grey-mid);margin-bottom:14px;">Three ways to define the ride map area. All set the same bounding box.</div>
+      <div class="accordion">
+        <div class="acc-header" onclick="toggleAcc(this)" style="border-left:3px solid var(--orange);">
+          <span>🗺 ASSIGN EXISTING ROUTE</span><span class="acc-arrow">▼</span>
+        </div>
+        <div class="acc-body open">
+          <div class="overlay-item" onclick="goTo(15b)">
+            <div class="overlay-color" style="background:#F5A623;"></div>
+            <div><div class="overlay-name">Gooseberry Mesa Loop</div><div class="overlay-meta">14.2 mi · bounds auto-calculated</div></div>
+            <div class="checkbox checked">✓</div>
+          </div>
+          <div class="overlay-item">
+            <div class="overlay-color" style="background:#F5A623;"></div>
+            <div><div class="overlay-name">Hurricane Cliffs Loop</div><div class="overlay-meta">22.1 mi</div></div>
+            <div class="checkbox"></div>
+          </div>
+        </div>
+      </div>
+      <div class="accordion">
+        <div class="acc-header" onclick="toggleAcc(this)">
+          <span>📥 IMPORT GPX / KML</span><span class="acc-arrow">▶</span>
+        </div>
+        <div class="acc-body">
+          <div style="font-size:12px;color:var(--grey-mid);margin-bottom:10px;">Import from device storage. MD5 checked for duplicates. Stored to route library.</div>
+          <button class="btn-secondary">BROWSE FILES</button>
+        </div>
+      </div>
+      <div class="accordion">
+        <div class="acc-header" onclick="toggleAcc(this)">
+          <span>✏ DRAW MANUALLY</span><span class="acc-arrow">▶</span>
+        </div>
+        <div class="acc-body">
+          <div style="font-size:12px;color:var(--grey-mid);margin-bottom:10px;">Draw a bounding rectangle on the map.</div>
+          <button class="btn-secondary">OPEN MAP DRAW MODE</button>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <button class="btn-primary" onclick="goTo(15b)">USE SELECTED AREA</button>
+    </div>
+  </div>
+</div>
+
+<!-- S25 — Tile Download -->
+<div class="screen" id="screen-25" data-title="TILE DOWNLOAD" data-section="F">
+  <div class="screen-title">F · Map Manager — Tile Download</div>
+  <div class="phone">
+    <div class="status-bar"><span>9:41</span><span>▐▐▐ 100%</span></div>
+    <div class="map-mock" style="height:260px;position:relative;">
+      <div style="position:absolute;top:50px;left:40px;width:180px;height:140px;background:rgba(245,166,35,0.2);border:2px dashed var(--orange);border-radius:4px;display:flex;align-items:center;justify-content:center;">
+        <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--orange);text-align:center;">DRAW DOWNLOAD<br>REGION HERE</div>
+      </div>
+      <div class="float-bar" style="position:absolute;top:10px;left:10px;right:10px;">
+        <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--sky);flex:1;text-align:center;">DRAW MODE — DRAG TO SELECT REGION</div>
+      </div>
+    </div>
+    <div style="padding:14px;">
+      <div class="label">Zoom Levels to Download</div>
+      <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+        <div class="float-btn">Z10-13</div>
+        <div class="float-btn active">Z14-15</div>
+        <div class="float-btn active">Z16-17</div>
+        <div class="float-btn active">Z18</div>
+      </div>
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+          <span style="font-size:13px;color:var(--white);">Estimated tiles</span>
+          <span style="color:var(--sky);">~33,257</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;">
+          <span style="font-size:13px;color:var(--white);">Estimated size</span>
+          <span style="color:var(--sky);">~420 MB</span>
+        </div>
+      </div>
+      <button class="btn-orange">⬇ START DOWNLOAD</button>
+    </div>
+  </div>
+</div>
+
+<!-- S26 — Import GPX/KML -->
+<div class="screen" id="screen-26" data-title="IMPORT ROUTE" data-section="F">
+  <div class="screen-title">F · Map Manager — Import</div>
+  <div class="phone">
+    <div class="status-bar"><span>9:41</span><span>▐▐▐ 100%</span></div>
+    <div style="padding:16px;">
+      <div class="section-header">Import Route</div>
+      <div style="background:rgba(74,184,232,0.05);border:2px dashed var(--sky);border-radius:12px;padding:24px;text-align:center;margin-bottom:16px;">
+        <div style="font-size:32px;margin-bottom:8px;">📂</div>
+        <div style="font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:600;color:var(--sky);">TAP TO BROWSE FILES</div>
+        <div style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--grey-mid);margin-top:4px;">GPX · KML supported</div>
+      </div>
+      <div class="label">Route Name</div>
+      <div class="field-active">Gooseberry Mesa Loop</div>
+      <div class="label">Type</div>
+      <div style="display:flex;gap:8px;margin-bottom:12px;">
+        <div class="float-btn active">ROUTE</div>
+        <div class="float-btn">TRACK</div>
+      </div>
+      <div class="card">
+        <div style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--grey-mid);">MD5: a3f2c8d9e1b4...</div>
+        <div style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--grey-mid);">Points: 847 · Distance: 14.2 mi</div>
+        <div style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--green);">✓ No duplicate found</div>
+      </div>
+      <button class="btn-primary">IMPORT TO LIBRARY</button>
+    </div>
+  </div>
+</div>
+
+<!-- S27 — Overlay Selector -->
+<div class="screen" id="screen-27" data-title="OVERLAY SELECTOR" data-section="F">
+  <div class="screen-title">F · Map Manager — Overlays</div>
+  <div class="phone">
+    <div class="status-bar"><span>9:41</span><span>▐▐▐ 100%</span></div>
+    <div style="padding:16px;">
+      <div class="section-header">Overlay Selector</div>
+      <div style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--sky);margin-bottom:12px;">3 ROUTES · 4 WAYPOINTS · 2 RIDES IN VIEW</div>
+      <!-- Search -->
+      <div class="field">🔍 Search by name...</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <div style="font-size:12px;color:var(--grey-mid);">Filtered to current map view</div>
+        <div class="float-btn active">SELECT ALL</div>
+      </div>
+      <!-- Routes section -->
+      <div class="sub-header">Routes</div>
+      <div class="overlay-item">
+        <div class="overlay-color" style="background:#F5A623;"></div>
+        <div><div class="overlay-name">Gooseberry Mesa Loop</div><div class="overlay-meta">ROUTE · 14.2 mi · solid orange</div></div>
+        <div class="checkbox checked">✓</div>
+      </div>
+      <div class="overlay-item">
+        <div class="overlay-color" style="background:#F5A623;"></div>
+        <div><div class="overlay-name">Hurricane Cliffs Loop</div><div class="overlay-meta">ROUTE · 22.1 mi</div></div>
+        <div class="checkbox"></div>
+      </div>
+      <!-- Tracks section -->
+      <div class="sub-header" style="margin-top:10px;">Tracks</div>
+      <div class="overlay-item">
+        <div class="overlay-color dashed"></div>
+        <div><div class="overlay-name">Gooseberry — Mar 28</div><div class="overlay-meta">TRACK · 12.3 mi · dashed purple</div></div>
+        <div class="checkbox checked">✓</div>
+      </div>
+      <!-- Waypoints section -->
+      <div class="sub-header" style="margin-top:10px;">Waypoints</div>
+      <div class="overlay-item">
+        <span style="font-size:16px;">🏁</span>
+        <div><div class="overlay-name">Gooseberry Mesa TH</div><div class="overlay-meta">TRAILHEAD</div></div>
+        <div class="checkbox checked">✓</div>
+      </div>
+      <div class="overlay-item">
+        <span style="font-size:16px;">⚠️</span>
+        <div><div class="overlay-name">Rocky Ledge Drop</div><div class="overlay-meta">HAZARD</div></div>
+        <div class="checkbox checked">✓</div>
+      </div>
+      <!-- Ride History -->
+      <div class="sub-header" style="margin-top:10px;">Ride History</div>
+      <div class="overlay-item">
+        <div class="overlay-color" style="background:#00AAFF;"></div>
+        <div><div class="overlay-name">Gooseberry — Mar 28</div><div class="overlay-meta">ORGANIZED · 8 riders</div></div>
+        <div class="checkbox checked">✓</div>
+      </div>
+      <div class="divider"></div>
+      <button class="btn-primary" onclick="goTo(21)">APPLY OVERLAYS</button>
+    </div>
+  </div>
+</div>
+
+<!-- S28 — Waypoint Management -->
+<div class="screen" id="screen-28" data-title="WAYPOINTS" data-section="F">
+  <div class="screen-title">F · Map Manager — Waypoints</div>
+  <div class="phone">
+    <div class="status-bar"><span>9:41</span><span>▐▐▐ 100%</span></div>
+    <div style="padding:16px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <div class="section-header" style="margin:0;">Waypoints</div>
+        <button class="nbtn">+ NEW</button>
+      </div>
+      <div class="field">🔍 Search waypoints...</div>
+      <div class="overlay-item">
+        <span style="font-size:20px;">🏁</span>
+        <div style="flex:1;"><div class="overlay-name">Gooseberry Mesa TH</div><div class="overlay-meta">TRAILHEAD · 37.1234°N 113.0567°W</div></div>
+        <div class="float-btn">EDIT</div>
+      </div>
+      <div class="overlay-item">
+        <span style="font-size:20px;">🏕</span>
+        <div style="flex:1;"><div class="overlay-name">Sand Hollow Staging</div><div class="overlay-meta">STAGING · 37.0891°N 113.4123°W</div></div>
+        <div class="float-btn">EDIT</div>
+      </div>
+      <div class="overlay-item">
+        <span style="font-size:20px;">⚠️</span>
+        <div style="flex:1;"><div class="overlay-name">Rocky Ledge Drop</div><div class="overlay-meta">HAZARD</div></div>
+        <div class="float-btn">EDIT</div>
+      </div>
+      <div class="overlay-item">
+        <span style="font-size:20px;">📌</span>
+        <div style="flex:1;"><div class="overlay-name">Scenic Overlook</div><div class="overlay-meta">POI</div></div>
+        <div class="float-btn">EDIT</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- S29 — Waypoint Create Dialog -->
+<div class="screen" id="screen-29" data-title="CREATE WAYPOINT" data-section="F">
+  <div class="screen-title">F · Map Manager — Create Waypoint</div>
+  <div class="phone">
+    <div class="status-bar"><span>9:41</span><span>▐▐▐ 100%</span></div>
+    <div class="map-mock" style="height:220px;position:relative;">
+      <svg style="position:absolute;inset:0;width:100%;height:100%;">
+        <circle cx="160" cy="140" r="8" fill="#F5A623" stroke="white" stroke-width="2"/>
+        <line x1="160" y1="100" x2="160" y2="130" stroke="#F5A623" stroke-width="1.5" stroke-dasharray="3,2"/>
+        <line x1="120" y1="140" x2="150" y2="140" stroke="#F5A623" stroke-width="1.5" stroke-dasharray="3,2"/>
+      </svg>
+      <div style="position:absolute;top:10px;left:10px;right:10px;background:rgba(15,30,46,0.9);border:1px solid var(--orange);border-radius:8px;padding:8px;text-align:center;">
+        <div style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--orange);">WAYPOINT DROPPED — 37.1234°N 113.0567°W</div>
+      </div>
+    </div>
+    <div style="padding:14px;">
+      <div class="label">Waypoint Name *</div>
+      <div class="field-active">Gooseberry Mesa TH</div>
+      <div class="label">Type *</div>
+      <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+        <div class="float-btn active">🏁 TRAILHEAD</div>
+        <div class="float-btn">🏕 STAGING</div>
+        <div class="float-btn">⚠ HAZARD</div>
+        <div class="float-btn">📌 POI</div>
+      </div>
+      <div class="label">Notes (optional)</div>
+      <div class="field">Add description...</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px;">
+        <button class="btn-primary" onclick="goTo(28)">SAVE WAYPOINT</button>
+        <button class="btn-secondary" onclick="goTo(21)">CANCEL</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- end main -->
+
+<script>
+const SCREENS = 29;
+const TITLES = {
+  1:'SIGN IN',2:'RIDER TERMS',3:'PRIVACY POLICY',
+  4:'DASHBOARD',
+  5:'PROFILE',6:'BECOME ORGANIZER',7:'FIELD RADIO',
+  8:'MAP SOLO',9:'MAP SETTINGS',10:'MAP CONVOY',11:'MAP ORGANIZED',12:'STOP SURVEY',
+  13:'MY RIDES',14:'EXPLORE',15:'CREATE RIDE',16:'RIDE DETAIL',17:'SEND INVITE',18:'BROADCAST',19:'FOLLOWING',20:'INVITE ACCEPT',
+  21:'MAP MANAGER',22:'FIND AREA',23:'SET TRAILHEAD',24:'SET MAP AREA',25:'TILE DOWNLOAD',26:'IMPORT ROUTE',27:'OVERLAY SELECTOR',28:'WAYPOINTS',29:'CREATE WAYPOINT'
+};
+const SECTIONS = {
+  1:'A',2:'A',3:'A',
+  4:'B',
+  5:'C',6:'C',7:'C',
+  8:'D',9:'D',10:'D',11:'D',12:'D',
+  13:'E',14:'E',15:'E',16:'E',17:'E',18:'E',19:'E',20:'E',
+  21:'F',22:'F',23:'F',24:'F',25:'F',26:'F',27:'F',28:'F',29:'F'
+};
+const SECTION_NAMES = {A:'ONBOARDING',B:'DASHBOARD',C:'ACCOUNT',D:'RIDE MAP',E:'RIDES',F:'MAP MANAGER'};
+let current = 1;
+
+function buildSidebar() {
+  const sb = document.getElementById('sidebar');
+  let lastSec = '';
+  for(let i=1;i<=SCREENS;i++){
+    const sec = SECTIONS[i];
+    if(sec !== lastSec){
+      const div = document.createElement('div');
+      div.style.cssText='width:36px;font-family:Share Tech Mono,monospace;font-size:8px;color:#F5A623;text-align:center;padding:2px 0;border-top:1px solid rgba(245,166,35,0.3);margin-top:4px;';
+      div.textContent=sec;
+      sb.appendChild(div);
+      lastSec=sec;
+    }
+    const d = document.createElement('div');
+    d.className='sdot'+(i===1?' active':'');
+    d.textContent=i;
+    d.title=TITLES[i];
+    d.onclick=()=>goTo(i);
+    sb.appendChild(d);
+  }
+}
+
+function goTo(n) {
+  if(typeof n === 'string') n = parseInt(n);
+  if(n<1||n>SCREENS) return;
+  document.getElementById('screen-'+current)?.classList.remove('active');
+  document.querySelectorAll('.sdot')[current-1]?.classList.remove('active');
+  current=n;
+  document.getElementById('screen-'+current)?.classList.add('active');
+  document.querySelectorAll('.sdot')[current-1]?.classList.add('active');
+  const sec = SECTIONS[current];
+  document.getElementById('screenInfo').textContent=
+    'SCREEN '+current+' OF '+SCREENS+' — '+SECTION_NAMES[sec]+' — '+TITLES[current];
+  window.scrollTo(0,0);
+}
+
+function nextScreen(){goTo(current+1);}
+function prevScreen(){goTo(current-1);}
+
+function toggleAcc(header){
+  const body=header.nextElementSibling;
+  const arrow=header.querySelector('.acc-arrow');
+  if(body.classList.contains('open')){
+    body.classList.remove('open');
+    body.style.display='none';
+    arrow.textContent='▶';
+  } else {
+    body.classList.add('open');
+    body.style.display='block';
+    arrow.textContent='▼';
+  }
+}
+
+document.addEventListener('keydown',e=>{
+  if(e.key==='ArrowRight')nextScreen();
+  if(e.key==='ArrowLeft')prevScreen();
+});
+
+buildSidebar();
+</script>
+</body>
+</html>
