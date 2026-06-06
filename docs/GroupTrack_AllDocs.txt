@@ -17680,134 +17680,6 @@ function setHud(mode) {
 }
 
 
-=== GroupTrack_V25_LivingChecklist_2026-06-04.html ===
-GroupTrack V2.5 — Living Checklist (key doc) — 2026-06-04
-  body { font-family: Arial, Helvetica, sans-serif; color:#1c1c1c; max-width:900px; margin:0 auto; padding:24px; line-height:1.45; }
-  h1 { font-size:25px; color:#1A3A5A; margin-bottom:2px; }
-  .sub { color:#555; font-size:14px; }
-  .stamp { color:#888; font-style:italic; font-size:12px; border-bottom:2px solid #2E75B6; padding-bottom:8px; margin-bottom:16px; }
-  h2 { font-size:18px; color:#2E75B6; margin-top:26px; border-bottom:1px solid #e0e0e0; padding-bottom:3px; }
-  h3 { font-size:15px; color:#1A3A5A; margin-top:16px; margin-bottom:4px; }
-  .legend { background:#f7f7f7; border:1px solid #e0e0e0; border-radius:4px; padding:10px 14px; font-size:13px; }
-  .item { margin:7px 0; padding-left:4px; }
-  .done   { border-left:4px solid #2e8b57; padding-left:10px; }
-  .partial{ border-left:4px solid #c89000; padding-left:10px; }
-  .open   { border-left:4px solid #b03030; padding-left:10px; }
-  .verify { border-left:4px solid #6a6a6a; padding-left:10px; }
-  .new    { background:#eef7ee; }
-  .flaw   { margin-left:26px; border-left:3px solid #b03030; padding-left:10px; color:#5a1a1a; }
-  .src { color:#888; font-size:12px; font-style:italic; }
-  .tag { font-weight:bold; font-size:12px; padding:1px 6px; border-radius:3px; }
-  .t-done{ background:#dff0e3; color:#1d5c34; }
-  .t-partial{ background:#faf0d0; color:#7a5a00; }
-  .t-open{ background:#f6dada; color:#7a1d1d; }
-  .t-verify{ background:#e6e6e6; color:#444; }
-  .conflict { background:#fff4e0; border:1px solid #e0b870; border-radius:4px; padding:10px 14px; }
-  .note { background:#f0f6fb; border-left:4px solid #2E75B6; padding:8px 12px; border-radius:3px; font-size:13px; }
-  code { background:#f0f0f0; padding:1px 4px; border-radius:3px; font-size:13px; }
-GroupTrack — V2.5 Living Checklist (KEY DOC)
-Every feature, every state. The single maintained tracker — placeholder-to-wired spine + restored detail + current status.
-Updated 2026-06-04 &nbsp;·&nbsp; merges: Master Checklist (May 31) + Living fleshed + Open-Items Expanded + June 1–4 work &nbsp;·&nbsp; recommit saves the dated version
-Status:
-DONE confirmed wired/shipped &nbsp;
-PARTIAL partly wired; remainder noted &nbsp;
-OPEN known not done &nbsp;
-VERIFY uncertain from docs — check live before trusting.
-FLAW = defect found in testing on a feature already marked DONE. Each item keeps its source line (⤷).
-A. V2.5 Map &amp; Data Infrastructure (original placeholders SP10–SP14)
-DONE SP10 · Tile Download System — ConvoyTileDownloader.downloadTiles(), background download w/ progress. Fixed May 21. 10 xrefs — wired.
-VERIFY SP11 · Planning Map Launch Integration — independent Map Manager route; state isolation; entry modes. Planning map runs; state-isolation = May-31 per-map MapStateStore. VERIFY entry modes all wired.
-PARTIAL SP12 · Import Directory Scanner — GPX/KML via ACTION_OPEN_DOCUMENT. Tracks import works (+June-2 streaming/recap fix, see C). Waypoint/route GPX import OPEN.
-OPEN FLAW — Dupe rule = same (name, geometry); NOT name alone (21K 'null'), NOT geometry alone (rounding). → §K.
-OPEN FLAW — trails.source_id missing (TrailArchitecture_v2 specs it). → §K.
-OPEN FLAW — 'null' trail naming (21K rows); fallback carto_code / 'Unnamed @lat,lon'. → §K.
-OPEN SP13 · Route Planning Tools Integration — auto-set map_bounds from route geometry; connect to ride-creation. PREMIUM. Creation is §E.
-OPEN SP14 · Trailhead Selection Integration — map picker modal; save to trailhead_waypoint_id. 0 xrefs → unwired.
-B. Lazy-Load Display (viewport query → map)
-DONE Trail / Track / Waypoint / Route lazy load — viewport query + display. All four wired &amp; verified. 0 routes in DB until creation ships.
-C. GPX Import Expansion
-DONE Import tracks — June 2: OOM FIXED (streaming, one &lt;trk&gt; at a time), O(n²) scan FIXED (~30s big tracks), honest insert/skip logging, recap "X new / Y already". DB reconciled Droid 2 → 67 tracks / 67 unique geom_hash; re-import = all dupes. Committed 9377f23f7. RESYNC TRACKS idempotent.
-OPEN Import waypoints from GPX — tracks-only; ties to waypoint type remap (foreign → 12 canonical). Bypassed via emptyList().
-OPEN Import routes from GPX — not wired; bypassed via emptyList().
-VERIFY Import sample test data for all 3 types.
-OPEN GPX/KML import handler: intent reaches activity but handler not executing (diff Main.kt).
-DONE (subsumed) Large GPX &gt;32MB — streaming rewrite subsumes the &gt;32MB crash. VERIFY on a true &gt;32MB file before closing formally.
-C-bis. Import Trails by Area — WRITTEN, returns 0
-Intended flow: each trail source has a bbox coverage area. User draws an area → app lists sources whose coverage overlaps the box → user selects → app downloads each source's GeoJSON, finds trails within the bbox, imports to spatial DB. Navigation wired (ConvoyDownloadPanel.onNavigateToTrailSources(DownloadBbox); ConvoyMapViewerScreen:1168; ConvoyTrailSourceScreen METHOD_SELECT → A1_SOURCE_SELECT → A3_PROCESSING). Bug downstream in A3_PROCESSING: always returns 0 trails.
-OPEN Fix area trail import returning 0. Causes: trailSourceCount hardcoded 0; API fetch hangs (timeout+error handling); trail-type filtering on ArcGIS queries; GeoJSON bbox-filter. Trace A3_PROCESSING end-to-end.
-OPEN Add rolling visibility (like track import): live screen — trails PROCESSED, SKIPPED (outside bbox), IMPORTED/SELECTED.
-OPEN — PLACEHOLDER Remove Tiles from Area — checkbox in the bbox download-items list reading "Remove tiles from area." Not wired; deletes downloaded tiles for the drawn region.
-D. Work with Artifacts UI
-DONE Trail/Track/Waypoint/Route toggle → viewport query → display (ON/OFF/SELECTED both maps, May-31 parity fix).
-DONE Per-type select/edit list (ArtifactListPanel + queryArtifactList). List caps at 200 — paging OPEN.
-VERIFY Track maintenance screen (doc says exists).
-OPEN Trail / Route / Waypoint maintenance screens.
-OPEN Settings filter table (CartoCode / motorized / type).
-OPEN Trail/Route DETAIL via SELECT/Edit list (not map-tap).
-OPEN Post-import artifact list refresh: list stays empty until leave+return (tracks draw on map immediately).
-OPEN Artifact list 200-item cap — paging/async.
-E. Route Creation — RESOLVED: snap-2 now
-✓ RESOLVED (Fred): snap-2 is the answer now. Origin — FREEHAND (May-29): rejected by most testers (they feel drawing tracks is the value THEY provide; Fred's read: "John Henry syndrome"). Now — SNAP-2: point-to-point, each vertex snaps to nearest point on a nearby trail/track within radius. Future (not now): draw the POINTS to visit → planner generates ~5 candidate routes, each surfacing key POIs. Snap-2 is the bridge, not the endpoint.
-OPEN Point-to-point snap line; nearest-point-on-line; radius tune-by-test; hover/preview before commit.
-OPEN Snap priority + fallback (trail-first vs track-first tie-break).
-OPEN Build WKT LINESTRING → bbox → insertRoute → re-fire → draw (gold dashed wired). Route can share a trail's geometry — composite key (artifact_type, geom_hash) avoids collision.
-OPEN +ROUTE button nav wiring; parity across 3 interfaces (convoy 494/622, planning 391).
-Build-order rule: (1) plain waypoint drop solid ✓, (2) map-interaction STATE (pan/zoom/tap as INDEPENDENT toggles, not a fixed enum), (3) route mode on that rail. Mode reinterprets the TAP only; pan+pinch-zoom stay live. GATE: convoy parity (QUEUES + waypoint) before routes — NOW CLEARED.
-F. Cleanups &amp; Carried Bugs
-DONE — June 4 (2a67c3fdc) Convoy QUEUES now opens the REAL monitor. Was wired to the dead ConvoyQueuesPanel scaffold (hardcoded 0s) pinned at fixed top=36.dp. Now: button LOCKED top-right with plain .clickable (drag removed — the queuesOffsetX/Y drag approach was tried June 3 and ABANDONED: offset starts at 0 so it never tracked the button), opening the real DownloadQueuePanel + DownloadQueueManager.queue empty-state ("No downloads in queue"), matching planning. Required adding import androidx.compose.runtime.collectAsState. Patch: patch_v25_convoy_queues_lock_topright_v3_LF (LF variant — git had normalized the file off CRLF).⤷ June 3–4; commits 9644dbc61 (partial), 2a67c3fdc (working)
-OPEN — CLEANUP QUEUES button VERTICAL placement. The locked button currently sits over the network-selection button. It should use the SAME vertical line position as the zoom and north-direction controls — i.e. join that control column/row rather than overlapping the network button. Currently at .align(TopEnd).padding(top = 2.dp, end = 8.dp); needs to align vertically with the existing zoom/north control stack. Cosmetic, not functional — QUEUES works.⤷ June-4 (Fred)
-OPEN — 2.6 QUEUES selector (ALL | TILE | UPLOAD | DOWNLOAD). When multiple real queues exist, add the selector the ConvoyQueuesPanel scaffold gestured at. ConvoyQueuesPanel.kt left on disk (unused) as the seed.⤷ June-3 (Fred)
-DONE — June 3 Convoy waypoint drop WORKS. Full pipeline (JS contextmenu → onMapLongPress → pendingWaypoint → dialog) came alive. Carried sub-item: long-press must fire only on empty map, not node markers — verify.
-OPEN — SPEC Session restore: bbox + SELECTED artifact lists are ONE coupled unit. Persist the viewport bbox (n/s/e/w) AND the per-type SELECTED artifact lists (checked IDs) TOGETHER, restore TOGETHER on map init. Restoring one without the other is incoherent: returning the SELECTED list while resetting the bbox to a different area shows artifacts the map is no longer looking at. Per map (convoy/planning independent). Persistence: written to a MAP JSON FILE (not in-memory/process state) so the restore point survives normal exit, crash, AND power loss — map loads its reset point from that file on init. (Fred adds the JSON-file piece when this item is addressed.) bbox restore is load-bearing: on map init BEFORE first onViewportChanged, via onMapBoundsReady → setView/fitBounds; both HTML. Consider overlay-selector "selected-outside-view" section.⤷ Open-Items §5; MapManager_Spec §4.2; June-3/4 (Fred)
-OPEN SpatialDisplayManager — ONE shared display process (Phase 1). Collapse 3 drifted inline copies into one processArtifact; both maps call it; ZERO inline spatial JS. May-31 SELECTED fix edited inline copies, did NOT collapse. Phase 2: inject shared spatial_artifacts.js into both WebViews.
-OPEN Waypoint marker shape DECISION: triangle (shape=triangle, glyph=type, color=family) vs round pin (shipped). 12-type glyph/color map retained in prior versions.
-OPEN Long-press waypoint drop must fire only on empty map, not node markers (MapManager_Spec §5.1).
-OPEN Planning Map blank on return from trail source screen (May-21 #8).
-OPEN z12 hide-features: min display zoom = 12 all four types (query-cap mitigation).
-OPEN Track survey on stop (name + difficulty + share) — unshipped 2.5 feature.
-OPEN Direction arrows on track/trail lines; SAT/TOPO bar + North indicator + zoom readout.
-OPEN Remove GPX prompt Y/N after import; remove old "Work with Tracks"; remove node persistence (blocklist).
-OPEN Remove METHOD_SELECT / B1_DRAW_AREA remnants (verify dead via xref first).
-OPEN Dead-code sweep: scanDownloadsForGpx (1 xref), showImportList orphans, ConvoyQueuesPanel (now unused — KEEP as 2.6 seed), queuesOffsetX/Y + detectDragGestures import (unused after June-4 QUEUES lock — verify import not used elsewhere before removing).
-OPEN Duplicate AlertDialog import ConvoyScreen.kt (34 &amp; 85); !!/safe-call warning tidy.
-OPEN Verify created waypoints survive force-stop/reopen.
-OPEN File-naming smell: file write keyed on NAME, DB on GEOM_HASH → same-name/diff-geom = 1 file, N rows. my_tracks/ lossy. Fix: disambiguate filenames (counter/timestamp/short-hash) → RESYNC reliable.
-OPEN LEAD-TRACK RECORDING REPLACEMENT (after routes + cleanup). Replace 3-flow pipeline (routeTrailSegments ~44 + gpsTrailSegments ~22 + trackLeadOnly ~43) with one lead-position polyline + drawTrack gated on lead nodeId. High blast radius — surgery. DISCOVERY first: identify exactly what's removed; anchored sites in field_crossref.
-G. Google Play / ANR (launch gate)
-OPEN ANR #2 osmdroid tile-cache scan ~60GB on main thread at onCreate (20–43s freeze). Disable osmdroid cache trimming. MUST resolve before launch.
-OPEN ANR #1 MANAGE_EXTERNAL_STORAGE startup blocks main thread — defer file-dependent init. (Partial mitigations shipped; verify.)
-VERIFY ANR Type 2 Input Dispatching Timeout. May share osmdroid root cause.
-DONE Package rename to com.grouptrack.android.
-OPEN About/Attribution screen; Play Console; AAB version &gt; 29320587; lintVital tidy.
-H. Website (staged)
-OPEN Deploy V2.5: index.html + Release Notes + User Guide PDFs (scp → sudo mv). Snapshot first. Retire "selections carry between maps" known-issue (fixed). Release notes 2026-06-02.
-I. Closing 2.5 → First 2.6 — Dead-Code Quarantine
-Run at 2.5 release. ZERO live refs AND no AllDocs feature mention (planned ref counts as keep). Quarantine reversibly (attic/tagged branch), never hard-delete. Candidates: scanDownloadsForGpx, showImportList orphans, ConvoyQueuesPanel (KEEP — 2.6 seed), queuesOffsetX/Y, METHOD_SELECT/B1_DRAW_AREA remnants.
-J. First-Launch Release-Notes Gate
-OPEN In-app PDF viewer of V2.5 Release Notes every launch; "I have read and acknowledge" → Acknowledge → proceed. Render off main thread, show AFTER heavy init (don't compound ANRs). Bundle PDF as asset.
-K. DB Revision — Dedupe Foundation — LOCAL DONE June 2
-THREE-STAGE MODEL — 1 of 3 done:
-(1) Local SQLite — reconciled &amp; proven: 67/67, dedup consistent. DONE
-(2) AWS MySQL — refresh to SAME model, structurally identical to local v3 (local UNIQUE key = AWS UNIQUE key or alias model breaks at sync). Begins at 2.6. OPEN
-(3) 3.0 build over the refreshed AWS model. OPEN
-DONE (local) Regenerate-not-migrate; v3 schema in APK; one-time delete gate via SharedPreferences version marker. P1 3339839f4, P2 eaf8508c1.
-DONE (local) Schema: trails+routes geom_hash + UNIQUE(name, geom_hash) + INSERT OR IGNORE; artifact_aliases (UNIQUE artifact_type, geom_hash, alias_date); proximity_config seeded.
-PARTIAL Dedup proven for TRAILS via add-core (resolveByGeom). Tracks dedup via SCHEMA UNIQUE only — DROP-on-dupe, NO alias-on-rename. ADD-CORE BYPASS: insertTrackToDb/insertWaypoint/insertRoute use inline INSERT OR IGNORE, bypass resolveByGeom (only TrailImporter calls it). Migrate the three through add-core; confirm by where-used.
-OPEN — 2.6 Mirror final v3 spatial schema to EMPTY AWS MySQL (geometry_json LONGTEXT, DECIMAL lat/lon; alias tables). 2.6 starting task.
-OPEN — PRE-AAB Verify NEW streaming parser geometry CORRECT, not over-capturing (new len &gt; old: Cedar Mtn 75573 vs 52011; Broken Ridge 99816 vs 71199). Feeds map draw + route snap + AWS sync. Check a known track's point count before the AAB.
-L. DB Revision — Correctness Invariants
-Insert-boundary guard = PERMANENT gatekeeper. Each delivery evaluated FRESH: same name+geom → DROP; new name+same geom → ALIAS; geom absent → INSERT. First-occurrence/local-primary (~100 contributors): same physical track may be primary under a different name per DB; the set {primary + all aliases} must be IDENTICAL across DBs. PROVE in testing: (1) geom_hash normalization (rounding-different WKT must hash same); (2) Local↔AWS structural identity (same UNIQUE key both sides). AWS mirror is correctness-critical, not cosmetic.
-M. Architecture backbone
-TrailArchitecture_v2 + V25_SpatialArchitecture target ONE local GeoPackage (grouptrack.gpkg) for trails+waypoints+routes; lazy-load by bbox; trail data travels with tiles. National: Utah first, others add data not code. Current device uses grouptrack_spatial.db (SQLite) — .gpkg unification is the larger structural item, partially in flight.
-N. 3.0 Deferred
-OPEN — 3.0 Cloud sync of all local artifacts to user web account; DB backup/recovery. NET upload/download to community DB.
-OPEN — 3.0 Import TRACKS by area — comes with the uploaded AWS model (2.6+). Distinct from import-trails-by-area.
-OPEN — 3.0 Trail dedup proximity (50yd), trailhead dedup, 85% overlap, source filter (needs source_id), live UGRC trailhead query, combined trail+trailhead import.
-OPEN — 3.0 Core API SP01–SP09; User/Subscription SP15–SP18; Community SP19–SP22; Location/Comms SP23–SP28. (Full list in Placeholder Checklist v1.)
-Sequence (current)
-1. Convoy parity — CLEARED: waypoint drop ✓ (June 3); QUEUES → real DownloadQueuePanel ✓ (June 4, 2a67c3fdc). Remaining QUEUES item is cosmetic only (vertical placement — cleanup). 2. AAB (bundleGoogleRelease; bump versionCode; PRE-AAB geometry-correctness check) → install both Droids. 3. Route planning (dedicated day) — snap-2. 4. 2.6: AWS model refresh. 5. 3.0 over the AWS model. &nbsp;|&nbsp; Droid 1 (8624…) Friday field-test, to be locked. Droid 2 (24039…) dev/test.
-
-
 === GroupTrack_V25_LivingChecklist_2026-06-04b.html ===
 GroupTrack V2.5 — Living Checklist (key doc) — 2026-06-04b
   body { font-family: Arial, Helvetica, sans-serif; color:#1c1c1c; max-width:900px; margin:0 auto; padding:24px; line-height:1.45; }
@@ -18320,6 +18192,188 @@ E6. FILE-ENDING FACTS (a patch aborted this session over this)
 ConvoyScreen.kt = LF · ConvoyMapViewerScreen.kt = CRLF · ConvoyRouteToolbar.kt = CRLF (CHANGED — was LF; working tree flipped it, committed content unchanged). Future toolbar patches MUST be CRLF. cat -A before every patch. Route mode is a TWO-FILE MIRROR (screens) + toolbar.
 Reference sections A–D, F–P (unchanged from 2026-06-04d)
 All other sections (A Map Infra, B Lazy-load, C GPX import, D Work-with-Artifacts, F Cleanups, G Play/ANR, H Website, I Dead-code quarantine, J First-launch notes, K/L DB dedupe, M Architecture, N 3.0, O Standing Rules, P Data Protection) are UNCHANGED from checklist 2026-06-04d (id 11O8bg7oYaUbd0-mgDCXQE-LY7rUv6qq9). This revision only restates §E. Refer to 04d for the full reference content; nothing there was invalidated. Newly relevant: cleanup methodology = remove link AND xref-proven-dead function (CleanupMethodology_v2); MAP SETTINGS sub-menu quarantine candidate (verify-first); GroupTrack button = 3.0 gateway; first-launch notes + online ? manual (V2.5 scope = Planning/Convoy/radio-write screens); transitional radio-config functions must stay in manual though removed in 3.0.
+
+
+=== GroupTrack_V25_LivingChecklist_2026-06-05.html ===
+GroupTrack V2.5 — Living Checklist — 2026-06-05 (route lifecycle settled)
+  body { font-family: Arial, Helvetica, sans-serif; color:#1c1c1c; max-width:920px; margin:0 auto; padding:24px; line-height:1.45; }
+  h1 { font-size:25px; color:#1A3A5A; margin-bottom:2px; }
+  .sub { color:#555; font-size:14px; }
+  .stamp { color:#888; font-style:italic; font-size:12px; border-bottom:2px solid #2E75B6; padding-bottom:8px; margin-bottom:16px; }
+  .legend { background:#f7f7f7; border:1px solid #e0e0e0; border-radius:4px; padding:10px 14px; font-size:13px; margin-bottom:14px; }
+  .controls { font-size:12px; margin:10px 0 4px; color:#2E75B6; }
+  .controls a { color:#2E75B6; cursor:pointer; text-decoration:underline; margin-right:14px; }
+  details { border:1px solid #e3e3e3; border-radius:6px; margin:8px 0; background:#fff; }
+  details[open] { box-shadow:0 1px 3px rgba(0,0,0,0.04); }
+  summary { font-size:16px; font-weight:bold; color:#2E75B6; padding:9px 12px; cursor:pointer; list-style:none; border-radius:6px; }
+  summary::-webkit-details-marker { display:none; }
+  summary::before { content:"\25B6"; font-size:10px; color:#999; margin-right:8px; }
+  details[open] > summary::before { content:"\25BC"; }
+  summary:hover { background:#f3f8fc; }
+  .body { padding:4px 14px 12px; }
+  h3 { font-size:14px; color:#1A3A5A; margin-top:14px; margin-bottom:4px; }
+  .item { margin:7px 0; padding-left:4px; }
+  .done   { border-left:4px solid #2e8b57; padding-left:10px; }
+  .partial{ border-left:4px solid #c89000; padding-left:10px; }
+  .open   { border-left:4px solid #b03030; padding-left:10px; }
+  .verify { border-left:4px solid #6a6a6a; padding-left:10px; }
+  .crit   { border-left:4px solid #b03030; padding-left:10px; background:#fbeaea; }
+  .new    { background:#eef7ee; }
+  .flaw   { margin-left:26px; border-left:3px solid #b03030; padding-left:10px; color:#5a1a1a; }
+  .src { color:#888; font-size:12px; font-style:italic; }
+  .tag { font-weight:bold; font-size:12px; padding:1px 6px; border-radius:3px; }
+  .t-done{ background:#dff0e3; color:#1d5c34; }
+  .t-partial{ background:#faf0d0; color:#7a5a00; }
+  .t-open{ background:#f6dada; color:#7a1d1d; }
+  .t-verify{ background:#e6e6e6; color:#444; }
+  .note { background:#f0f6fb; border-left:4px solid #2E75B6; padding:8px 12px; border-radius:3px; font-size:13px; margin:8px 0; }
+  .correction { background:#fff4f4; border-left:4px solid #b03030; padding:8px 12px; border-radius:3px; font-size:13px; margin:8px 0; }
+  code { background:#f0f0f0; padding:1px 4px; border-radius:3px; font-size:12.5px; }
+  pre { background:#f6f6f6; border:1px solid #e0e0e0; border-radius:4px; padding:8px 10px; font-size:11.5px; overflow-x:auto; }
+GroupTrack — V2.5 Living Checklist (KEY DOC)
+Every feature, every state. Single maintained tracker. Sections collapse — click a heading to expand.
+Updated 2026-06-05 &nbsp;·&nbsp; folded: route lifecycle SETTLED model (§E), work sequence (top), NULL-name cleanup (§F/§A), 200-trail display guidance (§D/§F) &nbsp;·&nbsp; carries 04e snap-2 correction &nbsp;·&nbsp; recovery base commit 204405fc7
+⚠️ snap-2 STATUS (carried from 04e). snap-2 trail-snapping is NOT implemented/proven. What is done is the route-save FRAMEWORK (drop points → straight lines → name → save to spatial DB → redraw). The snap() call is wired into onMapTap and compiles, but produces straight lines on device, not snapping. Recovery base 204405fc7 = the clean buildable rollback point. See §E2.
+Status:
+DONE wired/shipped &nbsp;
+PARTIAL partly wired &nbsp;
+OPEN not done &nbsp;
+VERIFY check live.
+FLAW = defect on a DONE feature. (·src = source.)
+  d.open=true)">expand all
+  d.open=false)">collapse all
+  — Active sections (Sequence, E, F) open by default; reference collapsed.
+WORK SEQUENCE (locked 2026-06-05)
+Three items, in order. Each gets a detailed design pass (like the route-lifecycle one) before code.
+1 — NEXT Route lifecycle: draft → ingested route → spatial DB. Adaptive Save/Discard (each opens a state-driven choice SCREEN); draft JSON create/overwrite/list/open/delete; graduate to DB; resume. UI-first (emulate In-Progress selector with hardcoded list + vertex chain), harden, THEN write functions. Both maps. Full spec: RouteLifecycle_SETTLED_DESIGN_2026-06-05. See §E.
+2 Fix snap-2 so routes follow existing trails/tracks. Points snap AND the drawn line FOLLOWS trail geometry between same-line snapped vertices (not straight chords). Known diagnosis: live redraw feeds RAW vertices to drawBuildLine, never calls buildSegments. Fix = redrawRouteTraced() helper (query→byId→buildSegments→swap [lon,lat]→[lat,lon]→draw), placed AFTER webViewRef, proven on one site then mirrored to all 5. First confirm queryTrailsByViewport returns right-area trails. See §E2.
+3 Refactor My Tracks display logic (convoy app). Per checklist docs. DETAILED DESIGN SESSION before code. Fold in: NULL-name display fix (§F) and 200-trail display guidance (§D/§F) — both touch trail display.
+E. Route Creation — lifecycle (ACTIVE — framework done, snap-to-trail NOT done, lifecycle SETTLED &amp; ready to build)
+Method = snap-2: point-to-point where each vertex SHOULD snap to the nearest trail/track within radius (trail-first). The framework to create+save a route is built; snapping itself (Item 2) is the unbuilt core.
+E1. UI PACT + framework — DONE
+DONE — 89285b00a Route+ toolbar pact compliance (Add green/red self-toggle, always-visible Save/Discard, grip-handle drag).
+DONE — 69ad30c56 Build 1: Save-completed — buildWktAndBbox → insertRoute → clearRoute → exit → redraw. Proven with FREE points (straight lines).
+DONE — ab2be7c04 Build 2 framework parts: name-on-create dialog + "In Progress" relabel. (snap-on-tap code included but see E2 — NOT proven.)
+DONE — 5fdf4b5ff Route render color magenta (#FF00FF), both maps.
+DONE — 1bb7e083f Route NAME prompt moved from panel-open to toolbar's "New Route" button (onNewRoute). 3 files. (Sets up New-vs-In-Progress branch.)
+RECOVERY BASE — 204405fc7 "snap-2 clean base: factory onMapTap snaps (radius 30); buildable rollback point." HEAD 984e6e54d is docs-only ahead (diff = docs/ only, app/src identical). git checkout 204405fc7 anytime for stable ground.
+E2. snap-2 TRAIL-SNAPPING — NOT DONE (Item 2 — the core feature)
+NOT WORKING Points do NOT snap to trails. Dropping points produces STRAIGHT LINES between taps. The snap() call compiles but was never proven on device.
+NEXT STEP (Item 2) Diagnostic order: (1) confirm queryTrailsByViewport returns RIGHT-AREA trails for the tapped viewport (SnapDiag hinted it returned a trail at lat 37.25 when taps were at 37.48 — wrong-area; chase FIRST). (2) snap math/radius (30m literal; lat/lon vs lon/lat in parse). (3) The real gap: live redraw feeds RAW routeVertices() to drawBuildLine; buildSegments() (which traces trail geometry between same-line snapped vertices) is ONLY called at Save, never live — so even snapped points draw straight chords. Fix: shared helper redrawRouteTraced() (query → byId(lineId→geometry) → buildSegments{lineId→parseWktLine} → emit [lat,lon] (buildSegments returns [lon,lat], MUST swap) → drawBuildLine), placed AFTER webViewRef is declared, wired into all 5 redraw sites (ConvoyScreen onMapTap persistent ~530 + factory ~688 + onUndo ~1416; Viewer onMapTap ~488 + onUndo ~898) — prove ONE site (factory) first, then mirror. PROVE: tap ON a visible trail → point lands ON the line and the segment follows the trail's curve.
+E3. ROUTE LIFECYCLE — SETTLED MODEL (Item 1 — ready to build)
+Full spec: RouteLifecycle_SETTLED_DESIGN_2026-06-05. Reflects all 2026-06-05 simplifications.
+Core rules:
+R1 Either/or — a route is EITHER an in-progress draft (JSON) OR a completed DB row, never both; graduation writes the row + deletes the draft.
+R2 Identity — in-progress identity = the typed NAME (set at New); route id assigned ONLY at graduation under DB dedup rules.
+R3 Save exits — every save EXITS route mode; to continue editing, Save In Progress then RE-SELECT from the In-Progress list. NO mid-session "save &amp; continue", NO in-place state promotion.
+R4 State fixed at launch — New ⇒ NEW whole session; Select In-Progress ⇒ RESUMED whole session. The entry row is the launch fork that sets the state the adaptive screens read.
+R5 Writes minimal — only create-draft, overwrite-draft, insertRoute(+delete-draft), delete-draft. Roll-back / discard-new / cancel NEVER write.
+R6 Both maps — ConvoyScreen (LF) + ConvoyMapViewerScreen (CRLF), shared RouteManager; toolbar CRLF; cat -A before every patch.
+R7 Vertices not wkt — draft stores the full vertex chain; wkt/bbox derived at graduation (resumed draft graduates through the IDENTICAL completed-save path).
+Save/Discard placement: on the COLLAPSED title bar (one-tap access, no real-estate cost) AND in the expanded panel. Each is ONE entry point opening an adaptive SCREEN; choices driven by fixed launch state.
+Adaptive SAVE screen — NEW: [Save completed (≥2 pts, LIVE)] · [Save in-progress → writeDraft, exit (SOON)] · [Cancel]. RESUMED: [Graduate (+deleteDraft) (SOON)] · [Save with changes → overwriteDraft, exit (SOON)] · [Cancel].
+Adaptive DISCARD screen — NEW: [Discard &amp; exit (LIVE, no write)] · [Keep building]. RESUMED: [Roll back = reload unchanged draft, no write (SOON)] · [Delete in-progress = deleteDraft (SOON)] · [Keep building].
+Add ↔ Method coupling (CONFIRMED): Add is DEFAULT GREEN/on entering BOTH New and In-Progress. ASYMMETRIC — turns OFF/RED ONLY when Draw or Suggest is selected (no manual turn-off); the ONLY manual action is tapping Add to turn it back ON, reclaiming control from Draw/Suggest. Add = "design-control-is-here" indicator, NOT a free toggle.
+SOON — Patch 1 (UI-first) routeState (NEW|RESUMED + name) · adaptive Save/Discard SCREENS · Save/Discard on collapsed bar · EMULATED Select-In-Progress (hardcoded list + vertex chain). All store calls STUBBED (log). Files: ConvoyRouteToolbar (CRLF) + ConvoyScreen (LF) + ConvoyMapViewerScreen (CRLF). Walk the ✓-stub checklist rows on BOTH maps.
+SOON — Patch 2 Real RouteDraftStore.kt (Context-holding; RouteManager stays pure): writeDraft(name,vertices,method) · overwriteDraft · listDrafts→[{name,updatedAt,pointCount}] · openDraft(name)→{vertices,method} (resume AND roll-back) · deleteDraft(name). Storage /sdcard/Documents/GroupTrack/route_drafts/&lt;name&gt;.json; atomic temp+rename. JSON {schemaVersion,name,createdAt,updatedAt,method,vertices[…]} — no id, no wkt. Swap stubs for real calls; verify round-trip via logcat.
+SOON — Patch 3 Wire graduate-delete + Discard-delete + roll-back-reload to real store. Full end-to-end, both maps.
+OPEN — decide before functions (a) duplicate-name policy for drafts (block / overwrite / disambiguate-file); (b) Discard-on-NEW acts directly vs confirm prompt; (c) In-Progress over-limit threshold if any.
+E4. WRITE-FUNCTION DATA CONTRACT
+Completed-save consumes the RouteManager VERTEX chain. Vertex: lat, lon, lineId(String?), lineType(String?), segmentIndex(-1 free), t(0..1), snapped(Bool). Completed DB row stores ONLY wkt+bbox+name. DRAFT JSON stores the FULL vertex list (resume = true editing), NOT wkt. RESUME = parse→addVertex→drawBuildLine. GRADUATE = Build-1 save path + delete draft. A route is EITHER a draft-file OR a DB-row. Full spec: RouteWriteFunction_DataContract_2026-06-04.
+E5. SHARED TABLE RULE
+Tracks + routes share ONE table with a TYPE field (TRACK/ROUTE). insertRoute writes type=ROUTE; route dedup rides the same geom_hash/UNIQUE machinery as tracks (§K add-core bypass). Convert-to-route = reversible type flip; source_track_id links a converted track to its route. Route delete BLOCKED if type=ROUTE and assigned to an active ride with enrollments (V3.0 concern, not 2.5).
+E6. FILE-ENDING FACTS
+ConvoyScreen.kt = LF · ConvoyMapViewerScreen.kt = CRLF · ConvoyRouteToolbar.kt = CRLF (flipped this session; future toolbar patches MUST be CRLF). cat -A before every patch. Route mode is a TWO-FILE MIRROR (screens) + toolbar.
+F. Cleanups &amp; Carried Bugs (ACTIVE)
+DONE — 2a67c3fdc Convoy QUEUES opens REAL monitor (DownloadQueuePanel + DownloadQueueManager). Locked top-right.
+OPEN — CLEANUP QUEUES button VERTICAL placement: over network-selection button; align with zoom/north column. Cosmetic.
+OPEN — 2.6 QUEUES selector (ALL|TILE|UPLOAD|DOWNLOAD). ConvoyQueuesPanel.kt = seed.
+DONE — June 3 Convoy waypoint drop WORKS (1d9e2172b). Sub: long-press only on empty map — verify.
+OPEN — NULL trail names (folds into Item 3) Some unnamed trails land as SQL NULL instead of the 'Not Named' fallback (two "no-name" forms coexist: 'Not Named' ~620 rows + raw NULL). Confirmed via tester DB query. Fix 1 (DB, one-time, PC copy): UPDATE trails SET name='Not Named' WHERE name IS NULL; (count first). Fix 2 (import, root cause): coalesce missing/empty name → 'Not Named' at insert so no NULL ever enters (aligns trails with tracks). NOT to touch same-name multi-segment rows — those are valid unique geometries.
+OPEN — trail display over-limit guidance (folds into Item 3 / §D) When viewport trail count exceeds the display cap (200), the SEL/Edit button shows "Too many trails in view — zoom in to reduce" (disabled until count drops). State-driven label swap off the existing viewport count; no new query. Replaces silent truncation. Relates to the §D artifact-list 200-cap / paging item.
+CONFIRMED — not a bug Tester "trail dupes" investigation: same-name multi-segment trails (Grass Valley ATV ×3, Connector ×42, Daybreak Pkwy ×111, UofU Pathways ×4583, etc.) are UNIQUE geometries — copies == distinct_geom on every name checked. Dedup is working; UNIQUE(geom_hash) correctly kept distinct segments. Do NOT merge/delete these.
+OPEN — SPEC Session restore: bbox + SELECTED lists are ONE coupled unit. Persist bbox + per-type SELECTED checked-IDs TOGETHER, restore TOGETHER on init. MAP JSON FILE (survives exit/crash/power-loss). bbox restore BEFORE first onViewportChanged via onMapBoundsReady→setView/fitBounds; both HTML.
+OPEN SpatialDisplayManager — ONE shared display process (Phase 1). Collapse 3 inline copies; ZERO inline spatial JS. Phase 2: inject shared spatial_artifacts.js.
+OPEN Waypoint marker shape: triangle vs round pin. Proximity = 100m (Decision Log rule 44). No move (delete+recreate). No consolidation.
+OPEN Long-press waypoint only on empty map, not node markers.
+OPEN Planning Map blank on return from trail source (May-21 #8).
+OPEN z12 hide-features: min display zoom = 12 all types.
+OPEN Track survey on stop (name+difficulty+share).
+OPEN Direction arrows; SAT/TOPO bar + North + zoom readout.
+OPEN Remove GPX prompt Y/N; remove old "Work with Tracks"; remove node persistence.
+OPEN Remove METHOD_SELECT / B1_DRAW_AREA remnants (verify dead first).
+OPEN Dead-code sweep: scanDownloadsForGpx, showImportList orphans, ConvoyQueuesPanel (KEEP — 2.6 seed), queuesOffsetX/Y.
+OPEN Duplicate AlertDialog import ConvoyScreen.kt (34 &amp; 85).
+OPEN Verify created waypoints survive force-stop/reopen.
+OPEN File-naming: file write keyed on NAME, DB on GEOM_HASH → same-name/diff-geom = 1 file, N rows. Disambiguate filenames.
+OPEN LEAD-TRACK RECORDING REPLACEMENT (after routes+cleanup). Replace 3-flow with one lead-position polyline + drawTrack gated on lead nodeId. High blast radius. DISCOVERY first.
+G. Google Play / AAB / ANR (launch gate)
+DONE — 2026-06-05 AAB versionCode collision resolved. versionCode = git-count + offset(29314197); plain rebuild regenerates the colliding number. Build honors -Pandroid.injected.version.code=NNNNN FIRST. Cut fallback AAB at 29320600 (ceiling in App bundle explorer was 29320588), uploaded to Internal testing as the known-good fallback. Durable fix (bump VERSION_CODE_OFFSET) optional, not done.
+OPEN ANR #2 osmdroid tile-cache ~60GB main thread at onCreate (20–43s). Disable osmdroid cache trimming. Root cause: MediaProvider indexing large tile dirs makes ALL ContentResolver queries slow via Binder IPC. Tester device confirmed: fresh install + 200K-tile cache = long first launch; let it SETTLE (do not force-fight with adb resets/reboots mid-scan).
+OPEN ANR #1 MANAGE_EXTERNAL_STORAGE startup blocks main thread. (Partial; verify.) Field workaround: grant via appops set com.grouptrack.android MANAGE_EXTERNAL_STORAGE allow AFTER install (no UID before install), force-stop, relaunch.
+DONE (Decision Log §1.2) MediaStore.Downloads query removed from scanImportDirectory. Standing rule 43: NO MediaStore queries anywhere.
+VERIFY ANR Type 2 Input Dispatching. May share osmdroid cause.
+OPEN — lint, before submission SpecifyForegroundServiceType — androidx.work/ServiceKeepAliveWorker needs android:foregroundServiceType in manifest. Pre-existing Meshtastic debt; lint-only (non-gating). Fix at AAB.
+DONE Package rename com.grouptrack.android.
+OPEN About/Attribution; Play Console; lintVital tidy.
+A. V2.5 Map &amp; Data Infrastructure (SP10–SP14)
+DONE SP10 Tile Download — fixed May 21.
+VERIFY SP11 Planning Map Launch — state isolation (e0182045a/2d91097d7).
+PARTIAL SP12 Import Directory Scanner — tracks work; waypoint/route GPX OPEN.
+OPEN FLAW — Dupe rule = (name, geometry). → §K.
+OPEN FLAW — trails.source_id missing. → §K.
+OPEN FLAW — 'null' trail naming (21K). → §F (NULL-name cleanup) + §K.
+OPEN SP13 Route Planning Tools — auto map_bounds; ride-creation. PREMIUM.
+OPEN SP14 Trailhead Selection — picker modal. 0 xrefs.
+B. Lazy-Load Display
+DONE Trail/Track/Waypoint/Route lazy load — viewport query + display. 0 routes in DB until creation ships (changing now — §E).
+OPEN Trail display over-limit guidance: SEL/Edit button shows "Too many trails in view — zoom in to reduce" when viewport count > 200 (see §F).
+C. GPX Import Expansion
+DONE Import tracks — June 2 OOM/O(n²) FIXED. DB 67/67. 9377f23f7. RESYNC idempotent.
+OPEN Import waypoints from GPX — bypassed; type remap (foreign→12 canonical). All GPX imports are TRACKS (rule 32) — waypoint/route extraction is the expansion.
+OPEN Import routes from GPX — bypassed.
+VERIFY Sample test data all 3 types.
+OPEN GPX/KML handler: intent reaches activity, not executing (diff Main.kt).
+DONE (subsumed) Large GPX &gt;32MB — streaming subsumes. VERIFY true &gt;32MB.
+C-bis. Import Trails by Area — returns 0
+Draw area → list sources overlapping bbox → download GeoJSON → import. Nav wired. Bug in A3_PROCESSING: returns 0.
+OPEN Fix returning 0: trailSourceCount hardcoded 0; API hangs; trail-type filter; GeoJSON bbox-filter.
+OPEN Rolling visibility (PROCESSED/SKIPPED/IMPORTED).
+OPEN — PLACEHOLDER Remove Tiles from Area checkbox.
+D. Work with Artifacts UI
+DONE Toggle → display (ON/OFF/SELECTED both maps).
+DONE Per-type select/edit list. 200 cap — paging OPEN; see also trail over-limit guidance §F.
+VERIFY Track maintenance screen.
+OPEN Trail/Route/Waypoint maintenance. Route maintenance lives HERE, NOT toolbar.
+OPEN Settings filter table.
+OPEN Trail/Route DETAIL via SEL/EDIT list.
+OPEN Post-import list refresh.
+OPEN 200-item cap — paging/async. (Trail layer: pair with the §F over-limit guidance; folds into Item 3 My Tracks refactor.)
+I. Closing 2.5 → 2.6 Dead-Code Quarantine
+ZERO live refs AND no AllDocs mention. Quarantine reversibly. Candidates: scanDownloadsForGpx, showImportList orphans, ConvoyQueuesPanel (KEEP — 2.6 seed), queuesOffsetX/Y, METHOD_SELECT/B1_DRAW_AREA. Methodology: remove link AND xref-proven-dead function together (CleanupMethodology_v2).
+J. First-Launch Release-Notes Gate
+OPEN In-app PDF viewer every launch; acknowledge → proceed. Off main thread, AFTER heavy init. Bundle PDF asset.
+K. DB Revision — Dedupe Foundation (LOCAL DONE June 2)
+THREE-STAGE — 1 of 3: (1) Local SQLite 67/67 DONE · (2) AWS MySQL refresh to SAME model, begins 2.6 OPEN · (3) 3.0 over AWS OPEN
+DONE (local) Regenerate-not-migrate; v3 schema; delete gate. P1 3339839f4, P2 eaf8508c1.
+DONE (local) Schema: geom_hash + UNIQUE(name,geom_hash) + INSERT OR IGNORE; artifact_aliases; proximity_config seeded.
+PARTIAL Dedup proven for TRAILS via add-core. Tracks via SCHEMA UNIQUE only. ADD-CORE BYPASS: insertTrackToDb/insertWaypoint/insertRoute inline INSERT OR IGNORE, bypass resolveByGeom. Build-1 route save uses insertRoute — inherits bypass. Routes share the tracks table (type=ROUTE, §E5) so route dedup = track dedup machinery.
+CONFIRMED June 5 Tester DB checked: same-name multi-segment trails are unique geometries (dedup working). The remaining real item is NULL trail names → §F.
+OPEN — 2.6 Mirror v3 schema to EMPTY AWS MySQL. 2.6 starting task.
+OPEN — PRE-AAB Verify streaming parser geometry CORRECT (Cedar Mtn 75573 vs 52011). Feeds map draw + route snap + AWS sync.
+L. DB Correctness Invariants
+Insert-boundary guard = PERMANENT gatekeeper. same name+geom→DROP; new name+same→ALIAS; absent→INSERT. {primary + aliases} IDENTICAL across DBs. PROVE: geom_hash normalization; Local↔AWS structural identity.
+M. Architecture backbone
+TrailArchitecture_v2 + V25_SpatialArchitecture target ONE local GeoPackage (groptrack.gpkg) eventually. Current device uses grouptrack_spatial.db (SQLite). TWO databases by design: groptrack_trails.db (public, read-only, re-downloadable) + grouptrack_user.spatialite (personal: waypoints/routes/tracks/areas, read-write, survives uninstall).
+N. 3.0 Deferred
+OPEN — 3.0 Cloud sync; backup/recovery; NET community DB.
+OPEN — 3.0 Import TRACKS by area (with AWS model).
+OPEN — 3.0 Trail dedup proximity, trailhead dedup, 85% overlap, source filter, UGRC query.
+OPEN — 3.0 Core API SP01–SP09; User/Sub SP15–18; Community SP19–22; Location/Comms SP23–28.
+O. Standing Rules (pointer — full list in archived docs)
+54 numbered Standing Rules live in MasterPlan + Decision Log (May 17), archived. Highlights: 1 never auto-delete user data (explicit confirm) · 2 never embed API keys · 3 share opt-in only · 4 offline-first · 26 schema hardened before app code · 28 patch scripts uniquely versioned · 29 never commit V3_FEATURES_ENABLED/V25_SPATIAL_ENABLED=true · 30 preserve full trail geometry precision (snap-to depends on it) · 31 impact analysis before ANY change · 32-33 all imports are tracks; tracks/routes share table · 43 NO MediaStore queries · 54 one comprehensive patch per agreed design. Full text: search Drive "MasterPlan" / "DecisionLog".
+P. Data Protection — backup / journal / rollback (deferred V2.5 schema spec)
+Deferred (schema-hardening subsystem, not snap-2). Full spec: GroupTrack_V25_DataProtection_v1 (archived). Three layers on grouptrack_user.spatialite: (1) Backup — auto on launch + before destructive ops; last 5 retained; /Documents/GroupTrack/data/backups/. (2) Change journal — every INSERT/UPDATE/DELETE on user tables, before+after as JSON, geometry as WKT, 12 triggers, 30-day retention. (3) Rollback — single-op undo, transaction rollback, point-in-time; creates backup first. Relevance to routes: when route create/edit/delete is journaled, before/after stores geometry as WKT (matches the write-contract's vertex→wkt derivation). NOT journaled: trail data (re-downloadable), transfer queue. Rules 23-25.
 
 
 === GroupTrack_V25_ScreenReference_v5.html ===
