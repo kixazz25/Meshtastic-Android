@@ -663,6 +663,30 @@ object SpatialDbManager {
     }
 
     /**
+     * True if a COMPLETED route with this name already exists in the routes table.
+     * Case-insensitive, trimmed. Used by RouteDraftStore.isNameTaken to enforce the
+     * demand-unique-name rule across drafts + routes DB.
+     */
+    fun routeNameExists(name: String): Boolean {
+        val db = spatialDb ?: return false
+        val needle = name.trim()
+        if (needle.isEmpty()) return false
+        return try {
+            val c = db.rawQuery(
+                "SELECT 1 FROM routes WHERE name IS NOT NULL " +
+                    "AND lower(trim(name)) = lower(trim(?)) LIMIT 1",
+                arrayOf(needle)
+            )
+            val exists = c.moveToFirst()
+            c.close()
+            exists
+        } catch (e: Exception) {
+            android.util.Log.e("SpatialDb", "routeNameExists failed: " + e.message)
+            false
+        }
+    }
+
+    /**
      * Insert a track into the spatial DB (type='TRACK').
      * Used by import to write directly to DB alongside the GPX file.
      * Returns the generated track_id.

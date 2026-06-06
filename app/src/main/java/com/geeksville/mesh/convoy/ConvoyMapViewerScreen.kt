@@ -133,8 +133,9 @@ fun ConvoyMapViewerScreen(
     var showInProgressPicker by remember { mutableStateOf(false) }
     var showEntryChoice by remember { mutableStateOf(false) }
     var routeNameTaken by remember { mutableStateOf(false) }
-    // emulated In-Progress list (Patch 1 stub; real listDrafts() at Patch 2)
-    val emulatedDrafts = remember { listOf("Demo Draft A", "Demo Draft B") }
+    // live In-Progress list: real draft names from RouteDraftStore (refreshed on draftListTick)
+    var draftListTick by remember { mutableStateOf(0) }
+    val emulatedDrafts = RouteDraftStore.listDrafts().map { it.name }
     var newWaypointType by remember { mutableStateOf("other") }
     var newWaypointName by remember { mutableStateOf("") }
 
@@ -945,9 +946,8 @@ fun ConvoyMapViewerScreen(
                             // name is REQUIRED -- blank is rejected (no auto-fill).
                             if (routeName.isBlank()) {
                                 routeNameTaken = true   // reuse hint slot as 'name required'
-                            } else if (emulatedDrafts.any { it.trim().equals(routeName.trim(), ignoreCase = true) }) {
+                            } else if (RouteDraftStore.isNameTaken(routeName)) {
                                 routeNameTaken = true
-                                android.util.Log.d("RouteLife", "name taken (stub): " + routeName)
                             } else {
                                 routeNameTaken = false
                                 routeLifecycleState = ROUTE_LS_NEW
@@ -1016,9 +1016,9 @@ fun ConvoyMapViewerScreen(
                     dismissButton = {
                         androidx.compose.material3.TextButton(onClick = {
                             showSaveChoice = false
-                            if (routeLifecycleState == ROUTE_LS_RESUMED)
-                                android.util.Log.d("RouteLife", "STUB overwriteDraft(" + routeName + ")")
-                            else android.util.Log.d("RouteLife", "STUB writeDraft(" + routeName + ", method=" + routeMethod + ")")
+                            val methodStr = when (routeMethod) { ROUTE_METHOD_DRAW -> "draw"; ROUTE_METHOD_SUGGEST -> "suggest"; else -> "point" }
+                            if (routeLifecycleState == ROUTE_LS_RESUMED) RouteDraftStore.overwriteDraft(routeName, methodStr)
+                            else RouteDraftStore.writeDraft(routeName, methodStr)
                             RouteManager.clearRoute()
                             webViewRef?.evaluateJavascript("setRouteMode(false); clearBuildLine();", null)
                             routeMode = false
@@ -1035,16 +1035,16 @@ fun ConvoyMapViewerScreen(
                     confirmButton = {
                         androidx.compose.material3.TextButton(onClick = {
                             showDiscardChoice = false
-                            android.util.Log.d("RouteLife", "STUB rollBack -> reload draft(" + routeName + ")")
-                            RouteManager.clearRoute()
-                            webViewRef?.evaluateJavascript("setRouteMode(false); clearBuildLine();", null)
-                            routeMode = false
+                            // true roll-back: reload the saved draft, drop this session's edits, KEEP building
+                            RouteDraftStore.loadIntoRouteManager(routeName)
+                            val rbPts = RouteManager.routeVertices().joinToString(",", "[", "]") { "[${it.lat},${it.lon}]" }
+                            webViewRef?.evaluateJavascript("drawBuildLine('" + rbPts + "')", null)
                         }) { androidx.compose.material3.Text("Roll back") }
                     },
                     dismissButton = {
                         androidx.compose.material3.TextButton(onClick = {
                             showDiscardChoice = false
-                            android.util.Log.d("RouteLife", "STUB deleteDraft(" + routeName + ")")
+                            RouteDraftStore.deleteDraft(routeName)
                             RouteManager.clearRoute()
                             webViewRef?.evaluateJavascript("setRouteMode(false); clearBuildLine();", null)
                             routeMode = false
@@ -1066,15 +1066,18 @@ fun ConvoyMapViewerScreen(
                                     verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
                                 ) {
                                     androidx.compose.material3.TextButton(onClick = {
-                                        android.util.Log.d("RouteLife", "STUB openDraft(" + d + ") -> RESUMED")
+                                        val od = RouteDraftStore.loadIntoRouteManager(d)
                                         routeName = d
+                                        routeMethod = when (od?.method) { "draw" -> ROUTE_METHOD_DRAW; "suggest" -> ROUTE_METHOD_SUGGEST; else -> ROUTE_METHOD_P2P }
                                         routeLifecycleState = ROUTE_LS_RESUMED
                                         showInProgressPicker = false
                                         routeMode = true
+                                        val rsPts = RouteManager.routeVertices().joinToString(",", "[", "]") { "[${it.lat},${it.lon}]" }
+                                        webViewRef?.evaluateJavascript("setRouteMode(true); drawBuildLine('" + rsPts + "')", null)
                                     }) { androidx.compose.material3.Text(d) }
                                     androidx.compose.material3.TextButton(onClick = {
-                                        android.util.Log.d("RouteLife", "STUB deleteDraft(" + d + ")")
-                                        // real deleteDraft + list refresh at Patch 2
+                                        RouteDraftStore.deleteDraft(d)
+                                        draftListTick++   // refresh the picker list
                                     }) { androidx.compose.material3.Text(
                                         "Delete",
                                         color = androidx.compose.ui.graphics.Color(0xFFE86B6B)
