@@ -201,6 +201,7 @@ fun ConvoyScreen(
         var showSaveChoice by remember { mutableStateOf(false) }
         var showDiscardChoice by remember { mutableStateOf(false) }
         var showInProgressPicker by remember { mutableStateOf(false) }
+        var showEntryChoice by remember { mutableStateOf(false) }
         var routeNameTaken by remember { mutableStateOf(false) }
         // emulated In-Progress list (Patch 1 stub; real listDrafts() at Patch 2)
         val emulatedDrafts = remember { listOf("Demo Draft A", "Demo Draft B") }
@@ -1340,9 +1341,8 @@ fun ConvoyScreen(
                 ConvoyArtifactsPanel(
                     isConvoyMap = true,
                     onCreateRoute = {
-                        // Enter route mode only; the NAME prompt fires from the
-                        // toolbar's "New Route" button (onNewRoute), not here.
-                        routeMode = true
+                        // +ROUTE -> choose New vs In-Progress BEFORE the toolbar opens.
+                        showEntryChoice = true
                     },
                     displayStates = mapOf("Trails" to trailState, "Tracks" to trackState, "Waypoints" to waypointState, "Routes" to routeState),
                     onSetState = { typeName, newState ->
@@ -1378,6 +1378,29 @@ fun ConvoyScreen(
                         }
                     }
                 )
+                if (showEntryChoice) {
+                    androidx.compose.material3.AlertDialog(
+                        onDismissRequest = { showEntryChoice = false },
+                        title = { androidx.compose.material3.Text("Start a route") },
+                        text = { androidx.compose.material3.Text("Begin a new route, or resume one in progress?") },
+                        confirmButton = {
+                            androidx.compose.material3.TextButton(onClick = {
+                                showEntryChoice = false
+                                routeLifecycleState = ROUTE_LS_NEW
+                                routeMethod = ROUTE_METHOD_P2P
+                                routeName = ""
+                                routeNameTaken = false
+                                showRouteNameDialog = true
+                            }) { androidx.compose.material3.Text("New Route") }
+                        },
+                        dismissButton = {
+                            androidx.compose.material3.TextButton(onClick = {
+                                showEntryChoice = false
+                                showInProgressPicker = true
+                            }) { androidx.compose.material3.Text("In Progress") }
+                        }
+                    )
+                }
                 // hoisted verbatim from the toolbar's onSaveCompleted (Option 1):
                 // one proven completed-save path, called by BOTH the toolbar and the Save-choice dialog.
                 val saveCompleted: () -> Unit = {
@@ -1433,10 +1456,10 @@ fun ConvoyScreen(
                         },
                         confirmButton = {
                             androidx.compose.material3.TextButton(onClick = {
-                                if (routeName.isBlank()) routeName = "Route " + System.currentTimeMillis()
-                                // unique-name rule: reject dupes, keep dialog open, let user edit.
-                                // STUB check (emulated list); real isNameTaken (drafts + routes DB) at Patch 2.
-                                if (emulatedDrafts.any { it.trim().equals(routeName.trim(), ignoreCase = true) }) {
+                                // name is REQUIRED -- blank is rejected (no auto-fill).
+                                if (routeName.isBlank()) {
+                                    routeNameTaken = true   // reuse hint slot as 'name required'
+                                } else if (emulatedDrafts.any { it.trim().equals(routeName.trim(), ignoreCase = true) }) {
                                     routeNameTaken = true
                                     android.util.Log.d("RouteLife", "name taken (stub): " + routeName)
                                 } else {
@@ -1444,6 +1467,7 @@ fun ConvoyScreen(
                                     routeLifecycleState = ROUTE_LS_NEW
                                     showRouteNameDialog = false
                                     routeMode = true
+                                    webViewRef.value?.evaluateJavascript("setRouteMode(true)", null)  // arm tap-to-place
                                 }
                             }) { androidx.compose.material3.Text("Start") }
                         },
@@ -1462,7 +1486,8 @@ fun ConvoyScreen(
                         onSelectMethod = { routeMethod = it },
                         onNewRoute = {
                             routeLifecycleState = ROUTE_LS_NEW
-                            routeName = "Route " + System.currentTimeMillis()
+                            routeName = ""
+                            routeNameTaken = false
                             showRouteNameDialog = true
                         },
                         onAddPointModeArmed = { webViewRef.value?.evaluateJavascript("setRouteMode(true)", null) },
@@ -1500,7 +1525,7 @@ fun ConvoyScreen(
                                 showSaveChoice = false
                                 if (pts >= 2) saveCompleted()
                                 else android.widget.Toast.makeText(context, "Need at least 2 points", android.widget.Toast.LENGTH_SHORT).show()
-                            }) { androidx.compose.material3.Text(if (routeLifecycleState == ROUTE_LS_RESUMED) "Graduate" else "Save completed") }
+                            }) { androidx.compose.material3.Text("Save as completed route") }
                         },
                         dismissButton = {
                             androidx.compose.material3.TextButton(onClick = {
@@ -1511,7 +1536,7 @@ fun ConvoyScreen(
                                 RouteManager.clearRoute()
                                 webViewRef.value?.evaluateJavascript("setRouteMode(false); clearBuildLine();", null)
                                 routeMode = false
-                            }) { androidx.compose.material3.Text(if (routeLifecycleState == ROUTE_LS_RESUMED) "Save changes" else "Save in-progress") }
+                            }) { androidx.compose.material3.Text("Save as in progress") }
                         }
                     )
                 }
