@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GroupTrack V2.5 Living Checklist — 2026-06-06 (v3)</title>
+<style>
+  :root{
+    --bg:#0e1116; --panel:#161b22; --panel2:#1c232d; --ink:#d7dee7; --dim:#8b97a6;
+    --green:#39d353; --blue:#4da6ff; --orange:#ff8c42; --red:#ff5d5d; --purple:#b083ff;
+    --line:#2a323d; --mono:ui-monospace,"Cascadia Code","Consolas",monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font:14px/1.55 -apple-system,Segoe UI,Roboto,sans-serif;padding:24px;max-width:1000px;margin:0 auto}
+  h1{font-size:21px;margin:0 0 4px;color:#fff}
+  h2{font-size:15px;margin:22px 0 8px;color:#fff;border-bottom:1px solid var(--line);padding-bottom:6px}
+  .sub{color:var(--dim);font-size:12.5px;margin-bottom:18px}
+  .seq{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px 14px;font-size:12.5px;margin-bottom:8px}
+  .block{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px 16px;margin:10px 0}
+  .done{border-left:3px solid var(--green)}
+  .active{border-left:3px solid var(--orange)}
+  .next{border-left:3px solid var(--blue)}
+  .park{border-left:3px solid var(--dim)}
+  .tag{display:inline-block;font:700 10px var(--mono);letter-spacing:.04em;padding:2px 7px;border-radius:4px;margin-right:7px;vertical-align:middle}
+  .t-done{background:rgba(57,211,83,.15);color:var(--green)}
+  .t-active{background:rgba(255,140,66,.15);color:var(--orange)}
+  .t-next{background:rgba(77,166,255,.15);color:var(--blue)}
+  .t-park{background:rgba(139,151,166,.15);color:var(--dim)}
+  .t-win{background:var(--green);color:#04210c}
+  code,.mono{font-family:var(--mono);font-size:12.5px;background:var(--panel2);padding:1px 5px;border-radius:4px;color:#cdd6e0}
+  pre{background:#0a0d12;border:1px solid var(--line);border-radius:6px;padding:10px 12px;overflow-x:auto;font:12px/1.5 var(--mono);color:#cdd6e0}
+  ul{margin:7px 0;padding-left:20px} li{margin:4px 0}
+  .lbl{font-weight:700;color:#fff}
+  .note{color:var(--dim)}
+  .hl{color:var(--orange);font-weight:700}
+  .win{color:var(--green);font-weight:700}
+</style>
+</head>
+<body>
+
+<h1>GroupTrack V2.5 — Living Checklist</h1>
+<div class="sub">2026-06-06 (v3, end of night) · Branch <code>feature/convoy-event-ride</code> · Device = Droid 2 <code>24039703201775</code>, release APK · Builds are RELEASE builds (<code>assembleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease</code>)</div>
+
+<div class="seq"><span class="lbl">Sequence (locked):</span> route lifecycle ✔ → convoy-map snap-2 ✔ → <span class="hl">planning-map snap-2 + undo (NEXT)</span> → strip diagnostic logs → AAB</div>
+
+<!-- ============================================================ -->
+<h2>A. Route Lifecycle — DONE &amp; COMMITTED</h2>
+<div class="block done">
+  <p><span class="tag t-done">COMMITTED</span><code>d2c685926</code> — Layer 2 UI-first: adaptive Save/Discard, In-Progress picker+delete, unique-name check, hoisted <code>saveCompleted</code>, state resets on New.</p>
+  <p><span class="tag t-done">COMMITTED</span><code>444218ee2</code> — Cleanup: arm tap-to-place on New (bridge fix, points now place), route name REQUIRED (blank rejected, no auto-fill), Save buttons reworded "Save as completed route" / "Save as in progress".</p>
+  <p><span class="tag t-done">COMMITTED</span> Backfill 2a/2b/2c (was "commit pending" in v2; the 3 unpushed commits contain it): real <code>RouteDraftStore</code> (writeDraft / overwriteDraft / listDrafts / openDraft / loadIntoRouteManager / deleteDraft / isNameTaken) + <code>SpatialDbManager.routeNameExists</code>. Drafts persist as JSON at <code>/sdcard/Documents/GroupTrack/route_drafts/&lt;name&gt;.json</code>. Proven on Droid 2: write → (cold-start) list → resume → redraw → add points. Picker-refresh (2c) bumps <code>draftListTick</code> on open so new/deleted drafts show in-session. Roll-back = reload draft + redraw + KEEP building.</p>
+  <p class="note">Repo is 3 commits ahead of <code>origin/feature/convoy-event-ride</code> (lifecycle work) — unpushed. Push at a convenient checkpoint.</p>
+</div>
+
+<!-- ============================================================ -->
+<h2>B. Snap-2 — CONVOY MAP: <span class="win">DONE &amp; PROVEN ON DEVICE</span></h2>
+<div class="block done">
+  <p><span class="tag t-win">WIN</span> Snap-2 now <span class="win">traces the route along trail/track geometry</span> on the convoy map (<code>ConvoyScreen.kt</code>). Confirmed three ways: logcat (<code>tracedLen</code> grows far faster than vertex count as consecutive same-line snapped points fill in trail geometry — one run snapped 5→6 jumped <code>tracedLen</code> 709→2802 = a long trail slice; the <code>pts=</code> arrays contain intermediate trail vertices, not just taps), on-screen, and reproduced via undo/repost.</p>
+
+  <p class="lbl">What was wrong &amp; what fixed it</p>
+  <ul>
+    <li><span class="lbl">Confirmed (branch A):</span> snap COMPUTES &amp; STORES correctly. Draft JSON had vertices with <code>"snapped":true</code>, real <code>lineId</code>, <code>lineType</code>, <code>segmentIndex</code>, interpolation <code>t</code>. <code>buildSegments()</code> (RouteManager.kt:218) genuinely traces — walks consecutive pairs, <code>sameLine = a.snapped &amp;&amp; b.snapped &amp;&amp; same lineId</code>, slices the underlying line via <code>sliceLine</code> using <code>pos=segmentIndex+t</code>. Its ONLY caller was <code>buildWktAndBbox</code> (save-completed) — the draw paths bypassed it.</li>
+    <li><span class="lbl">Fix:</span> the live draw now runs the snapped vertices through <code>buildSegments</code> against the viewport geometry, swaps <code>[lon,lat]→[lat,lon]</code>, and feeds <code>drawBuildLine</code>. Patched block: <code>addVertex(v); val pts = withContext(IO){ init; queryTrails+TracksByViewport; byId(trail_id/track_id→geometry); buildSegments{ lineId→byId[lineId]?.let{ parseWktLine } }.joinToString swap [lat,lon] }; drawBuildLine(pts)</code>.</li>
+    <li><span class="lbl">TWO handlers, both patched:</span> <code>ConvoyScreen</code> has two <code>onMapTap</code> — site <span class="mono">544</span> in the <code>if(existing != null)</code> persistent-WebView branch, and site <span class="mono">694</span> in the <code>else</code>/factory branch. <span class="hl">Fresh map sessions run the FACTORY (694) handler</span> — patching 544 alone did nothing visible; the 694 patch is what made it work. (Recurring "two handlers" trap.) Patches: <code>patch_v25_trailtrace_site1_544_v6.py</code>, <code>patch_v25_trailtrace_site2_694_v1.py</code>.</li>
+  </ul>
+
+  <p class="lbl">Behavior notes (not bugs)</p>
+  <ul>
+    <li>Snap catch-rate depends on ZOOM — radius is hardcoded <code>30.0</code> m real-world; zoomed out (~¼ mile) almost nothing snaps, zoomed in it catches reliably.</li>
+    <li>Trace only draws between TWO CONSECUTIVE snapped vertices on the SAME line — isolated or cross-line snapped points draw straight to their neighbors, by design.</li>
+  </ul>
+  <p class="note">Diagnostic logs retained in committed code: <code>tracedLen</code> at ConvoyScreen ~555 and <code>S2 tracedLen</code> at ~716. Harmless <code>Log.d</code>; strip at AAB prep (see §E).</p>
+</div>
+
+<!-- ============================================================ -->
+<h2>C. Snap-2 + Undo — PLANNING MAP: <span class="hl">NEXT (must work before AAB)</span></h2>
+<div class="block next">
+  <p><span class="tag t-next">NEXT</span> <code>ConvoyMapViewerScreen.kt</code> is the PLANNING map. Solving the convoy map did NOT solve this — separate <code>onMapTap</code> + draw per file (shared <code>RouteManager</code>/<code>SpatialDbManager</code>, separate display). TWO problems:</p>
+
+  <p class="lbl">C-1 · Snap-2 trace not working on planning map</p>
+  <ul>
+    <li>All planning-map draw sites still use RAW <code>routeVertices().joinToString</code> chords: <span class="mono">498</span> (onMapTap live), <span class="mono">982</span> (undo redraw), <span class="mono">1040</span> (rollback <code>rbPts</code>), <span class="mono">1075</span> (resume <code>rsPts</code> — call is <code>setRouteMode(true); drawBuildLine(...)</code>).</li>
+    <li><span class="lbl">Fix:</span> mirror the convoy-map trace (withContext IO → query viewport → byId → <code>buildSegments</code> → swap → <code>drawBuildLine</code>) to these sites. Per-file indentation differs (dialogs nest deeper here). Confirm endings via raw Python <code>rb</code> read before patching (see §D).</li>
+  </ul>
+
+  <p class="lbl">C-2 · Undo does not remove segments on planning map</p>
+  <ul>
+    <li>Undo handler at <span class="mono">981–983</span> LOOKS correct: <code>RouteManager.undoVertex()</code> → rebuild <code>pts</code> → redraw. Resume at <span class="mono">1072</span> DOES call <code>RouteDraftStore.loadIntoRouteManager(d)</code> (which <code>clearRoute()</code> + <code>addVertex</code> per vertex), so the builder list IS populated on resume — so "empty vertices" is NOT the obvious cause.</li>
+    <li><span class="hl">MIXED SIGNALS to resolve first:</span> Fred reported undo "does not remove segments" on a resumed in-progress route (opened with all its points), but ALSO that undo "works on new trails." <span class="lbl">RE-TEST cleanly next session:</span> (1) New route on planning map → tap → undo (works?). (2) Resume a draft → undo (works?). That fork tells us undo-broken-generally vs undo-broken-only-after-resume.</li>
+    <li><span class="lbl">If it no-ops even on a new route:</span> instrument the undo handler (981) to log <code>routeVertices().size</code> before/after — confirms whether <code>undoVertex()</code> fires and whether the planning map is touching the same <code>RouteManager</code> state its taps build into.</li>
+  </ul>
+</div>
+
+<!-- ============================================================ -->
+<h2>D. File / build facts (current, verified tonight)</h2>
+<div class="block active">
+  <ul>
+    <li><span class="lbl">LINE ENDINGS — TRAP:</span> <code>ConvoyScreen.kt</code> has MIXED endings. <code>file</code> reports CRLF (majority); some lines are LF. <span class="hl"><code>cat -A</code>, <code>grep -U</code>, and <code>xxd</code> piped through <code>sed</code> all LIE</span> (sed normalizes the ending → shows LF on a CRLF line). The ONLY reliable check is a raw Python byte read:
+      <pre>python3 -c "d=open(PATH,'rb').read(); i=d.find(b'&lt;anchor&gt;'); print(repr(d[i-260:i+115]))"</pre>
+      Line 544's draw line actually ends <code>\r\n</code>. Write patch OLD/NEW with <code>\r\n</code> to match. No BOM (first bytes = <code>pac</code> of <code>package</code>).</li>
+    <li><span class="lbl">Identical lines repeat across sites</span> (the raw pts line at 544 == 694) → single-line anchors match 2×. Fold in unique context above (the <code>freeVertex</code>/<code>addVertex</code> lines, or the 36-space vs 32-space indent) to disambiguate.</li>
+    <li>RouteManager.kt + SpatialDbManager.kt + RouteDraftStore.kt are LF. Column = <code>androidx.compose.foundation.layout</code>.</li>
+    <li>Viewport query keys (verified live): <code>queryTrailsByViewport</code> → <code>trail_id</code>,<code>name</code>,<code>geometry</code>; <code>queryTracksByViewport</code> → <code>track_id</code>,<code>name</code>,<code>geometry</code>. <code>geometry</code> = WKT. <code>parseWktLine</code> handles LINESTRING/MULTILINESTRING "lon lat".</li>
+    <li>Commit with explicit file lists, not <code>git add -A</code>. Build ~11–21 min incremental.</li>
+    <li>Recovery anchor (from Decision Log): commit <code>204405fc7</code> "snap-2 clean base: factory onMapTap snaps radius 30; buildable rollback point." Fallback AAB at versionCode <code>29320600</code> already on Play Internal as the safety net.</li>
+  </ul>
+</div>
+
+<!-- ============================================================ -->
+<h2>E. AAB milestone — GATED on §C</h2>
+<div class="block active">
+  <p><span class="tag t-active">GATE</span> AAB only after BOTH planning-map undo AND planning-map snap-2 trace are confirmed working.</p>
+  <ul>
+    <li><span class="lbl">STRIP diagnostic logs first</span> — ConvoyScreen <code>tracedLen</code> (~555) + <code>S2 tracedLen</code> (~716) + any added to the planning map. Release build should carry no debug <code>Log.d</code>.</li>
+    <li>Then: bump versionCode (Droid builds seen to 29320598; fallback AAB was 29320600), confirm signing, fix <code>SpecifyForegroundServiceType</code> in AndroidManifest, <code>bundleGoogleRelease</code>, docs in sync, upload.</li>
+    <li>PRE-AAB carry-over: verify streaming-parser geometry not OVER-capturing (feeds map draw, route snapping, AWS sync).</li>
+  </ul>
+</div>
+
+<!-- ============================================================ -->
+<h2>F. Parked (captured, not active)</h2>
+<div class="block park">
+  <ul>
+    <li><span class="tag t-park">PARK</span> <span class="lbl">Snap radius slider (Fred's original design):</span> 80 m default + in-app slider so radius is tunable without recompiling. They fell back to an earlier commit (hardcoded 30 m) because the shared-radius/slider work went into uncomfortable territory. POLISH — do deliberately, not bundled with the trace fix. 30 m starves snap when zoomed out.</li>
+    <li><span class="tag t-park">PARK</span> Cosmetic: empty In-Progress picker shows only "Cancel" — add "No in-progress routes yet". "Name required" red hint still reads "name is taken" (reuses <code>routeNameTaken</code> flag) — add a distinct message.</li>
+    <li><span class="tag t-park">PARK</span> One-route-per-GroupTrack-session (Version 2: one app-wide, either map). Plan-exit via GroupTrack-maps-submenu elimination (cleanup), not a nav guard. Graduation re-check: call <code>routeNameExists</code> before <code>insertRoute</code> at graduate (Layer 3). Dead-code burn-down; NULL trail names → 'Not Named'; section field; DB-upgrade artifact.</li>
+    <li><span class="tag t-park">PARK</span> Tuning (after snap reliably lands): turns cut corners / wobble — the trace fix likely resolves most of this for free since it follows the bend instead of chording.</li>
+  </ul>
+</div>
+
+<!-- ============================================================ -->
+<h2>G. Other open (2.5 backlog / 2.6+ candidates)</h2>
+<div class="block park">
+  <ul>
+    <li><span class="lbl">Walk-away import — 3-type toggle:</span> Tracks/Waypoints/Routes in selector; default Tracks ON, wpt/route off-but-selectable. Today bypasses wpt/route via <code>emptyList()</code>. All GPX imports currently = tracks.</li>
+    <li><span class="lbl">Add-core bypass:</span> <code>insert{Track,Waypoint,Route}ToDb</code> bypass <code>resolveByGeom</code> → drop-on-dupe but no alias-on-rename. Migrate the three inserts through add-core. (Route <code>insertRoute</code> inherits this.)</li>
+    <li><span class="lbl">UX:</span> KEEP/DELETE recap buttons misleading — source GPX auto-deletes before the dialog shows. Gate auto-delete on user choice or fix labels.</li>
+    <li><span class="lbl">DB dedup:</span> P1 <code>3339839f4</code> + P2 <code>eaf8508c1</code> pushed; proven for TRAILS only (tracks dedup via schema UNIQUE(geom_hash)).</li>
+    <li><span class="lbl">Verify (pre real-device ship):</span> is the new streaming parse geometry correct or OVER-capturing vs old? Confirm point counts for a known track (St George → Bar 10).</li>
+    <li><span class="lbl">BLE:</span> budget Android devices can't hold BLE to T1000-E (supervision timeout 0x0008, 8–10 s) — hardware; fix = device compatibility list for testers.</li>
+    <li><span class="lbl">beginDedupSession</span> loads the 49K trail map even for track-only imports — type-scope it.</li>
+  </ul>
+</div>
+
+<div class="sub" style="margin-top:24px">Companion: full uncompressed detail in <code>GroupTrack_DecisionLog_APPEND_*.html</code> (append-only). This checklist is the navigable index; the Decision Log is the deep record it points into.</div>
+
+</body>
+</html>
