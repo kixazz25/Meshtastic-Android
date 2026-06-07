@@ -541,7 +541,18 @@ fun ConvoyScreen(
                                     if (s != null) RouteManager.snapToVertex(s) else RouteManager.freeVertex(lat, lon)
                                 }
                                 RouteManager.addVertex(v)
-                                val pts = RouteManager.routeVertices().joinToString(",", "[", "]") { "[${it.lat},${it.lon}]" }
+                                val pts = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                    SpatialDbManager.init(context)
+                                    val tl = SpatialDbManager.queryTrailsByViewport(lastViewportSouth, lastViewportWest, lastViewportNorth, lastViewportEast)
+                                    val tk = SpatialDbManager.queryTracksByViewport(lastViewportSouth, lastViewportWest, lastViewportNorth, lastViewportEast)
+                                    val byId = HashMap<String, String>()
+                                    for (m in tl) { val id = m["trail_id"]; val g = m["geometry"]; if (id != null && g != null) byId[id] = g }
+                                    for (m in tk) { val id = m["track_id"]; val g = m["geometry"]; if (id != null && g != null) byId[id] = g }
+                                    RouteManager.buildSegments { lineId -> byId[lineId]?.let { RouteManager.parseWktLine(it) } }
+                                        .joinToString(",", "[", "]") { "[${it[1]},${it[0]}]" }
+                                }
+                                val vs = RouteManager.routeVertices()
+                                android.util.Log.d("RouteBridge", "tracedLen=" + pts.length + " verts=" + vs.size + " snapped=" + vs.count { it.snapped } + " pts=" + pts.take(160))
                                 webViewRef.value?.evaluateJavascript("drawBuildLine('" + pts + "')", null)
                             }
                         }
@@ -691,7 +702,18 @@ fun ConvoyScreen(
                                         if (s != null) RouteManager.snapToVertex(s) else RouteManager.freeVertex(lat, lon)
                                     }
                                     RouteManager.addVertex(v)
-                                    val pts = RouteManager.routeVertices().joinToString(",", "[", "]") { "[${it.lat},${it.lon}]" }
+                                    val pts = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                        SpatialDbManager.init(context)
+                                        val tl = SpatialDbManager.queryTrailsByViewport(lastViewportSouth, lastViewportWest, lastViewportNorth, lastViewportEast)
+                                        val tk = SpatialDbManager.queryTracksByViewport(lastViewportSouth, lastViewportWest, lastViewportNorth, lastViewportEast)
+                                        val byId = HashMap<String, String>()
+                                        for (m in tl) { val id = m["trail_id"]; val g = m["geometry"]; if (id != null && g != null) byId[id] = g }
+                                        for (m in tk) { val id = m["track_id"]; val g = m["geometry"]; if (id != null && g != null) byId[id] = g }
+                                        RouteManager.buildSegments { lineId -> byId[lineId]?.let { RouteManager.parseWktLine(it) } }
+                                            .joinToString(",", "[", "]") { "[${it[1]},${it[0]}]" }
+                                    }
+                                    val vs = RouteManager.routeVertices()
+                                    android.util.Log.d("RouteBridge", "S2 tracedLen=" + pts.length + " verts=" + vs.size + " snapped=" + vs.count { it.snapped } + " pts=" + pts.take(160))
                                     webViewRef.value?.evaluateJavascript("drawBuildLine('" + pts + "')", null)
                                 }
                             }

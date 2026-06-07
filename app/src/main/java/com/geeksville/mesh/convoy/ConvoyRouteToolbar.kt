@@ -78,7 +78,7 @@ fun ConvoyRouteToolbar(
 ) {
     var offsetX by remember { mutableFloatStateOf(0f) }
     var offsetY by remember { mutableFloatStateOf(0f) }
-    var building by remember { mutableStateOf(false) }
+    var building by remember { mutableStateOf(true) }   // toolbar only opens post-entry-choice; build controls live on open
     var minimized by remember { mutableStateOf(false) }
     // Add button armed-state (pact): GREEN = ON (taps place points),
     // RED = OFF (taps pan/reposition). ON on entry for Point; selecting
@@ -118,23 +118,9 @@ fun ConvoyRouteToolbar(
                     modifier = Modifier.clickable { minimized = !minimized }.padding(start = 6.dp))
             }
 
-            // Entry gate: build controls stay disabled until New Route is selected.
+            // Entry buttons removed: New-vs-In-Progress is chosen at +ROUTE (entry prompt)
+            // BEFORE the toolbar opens, so the toolbar starts in build mode.
             if (!minimized) {
-            Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                BuildBtn("New Route", rtPurple, Modifier.weight(1f)) {
-                    building = true
-                    addArmed = true
-                    onSelectMethod(ROUTE_METHOD_P2P)
-                    onAddPointModeArmed()
-                    onNewRoute()
-                }
-                BuildBtn("In Progress", rtBlue, Modifier.weight(1f)) {
-                    building = true
-                    addArmed = true
-                    onSelectInProgress()
-                }
-            }
-
             Text("METHOD", color = if (building) rtTxtD else rtDis, fontSize = 9.sp, fontFamily = rtMono)
             Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                 MethodChip("Point", selectedMethod == ROUTE_METHOD_P2P, true, building) {
