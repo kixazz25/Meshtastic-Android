@@ -243,6 +243,9 @@ fun ConvoyMapViewerScreen(
         MapStateStore.saveMap("planning", MapStateStore.MapSnapshot(types, panel))
     }
     var pmQueuesOpen by remember { mutableStateOf(false) }
+    // "?" help: which bundled doc is open ("manual" | "notes" | null = chooser/closed)
+    var docsView by remember { mutableStateOf<String?>(null) }
+    var showDocsChooser by remember { mutableStateOf(false) }
     var pmDownloadedOn by remember { mutableStateOf(false) }
     var pmActiveSource by remember { mutableStateOf(ConvoyConfig.ACTIVE_TILE_SOURCE) }
     var mapZoomLevel by remember { mutableStateOf(ConvoyConfig.DOWNLOAD_ZOOM.toFloat()) }
@@ -495,7 +498,18 @@ fun ConvoyMapViewerScreen(
                                         if (s != null) RouteManager.snapToVertex(s) else RouteManager.freeVertex(lat, lon)
                                     }
                                     RouteManager.addVertex(v)
-                                    val pts = RouteManager.routeVertices().joinToString(",", "[", "]") { "[${it.lat},${it.lon}]" }
+                                    val pts = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                        SpatialDbManager.init(context)
+                                        val tl = SpatialDbManager.queryTrailsByViewport(lastViewportSouth, lastViewportWest, lastViewportNorth, lastViewportEast)
+                                        val tk = SpatialDbManager.queryTracksByViewport(lastViewportSouth, lastViewportWest, lastViewportNorth, lastViewportEast)
+                                        val byId = HashMap<String, String>()
+                                        for (m in tl) { val id = m["trail_id"]; val g = m["geometry"]; if (id != null && g != null) byId[id] = g }
+                                        for (m in tk) { val id = m["track_id"]; val g = m["geometry"]; if (id != null && g != null) byId[id] = g }
+                                        RouteManager.buildSegments { lineId -> byId[lineId]?.let { RouteManager.parseWktLine(it) } }
+                                            .joinToString(",", "[", "]") { "[${it[1]},${it[0]}]" }
+                                    }
+                                    val vs = RouteManager.routeVertices()
+                                    android.util.Log.d("RouteBridge", "S2P tracedLen=" + pts.length + " verts=" + vs.size + " snapped=" + vs.count { it.snapped } + " pts=" + pts.take(160))
                                     webViewRef?.evaluateJavascript("drawBuildLine('" + pts + "')", null)
                                 }
                             }
@@ -766,6 +780,69 @@ fun ConvoyMapViewerScreen(
             // -- Download queue panel (replaces simple progress bar) --
             // -- SOURCE BAR (accordion with search) --
             // ConvoyMapBar removed — sources now in header bar
+            // -- "?" HELP BUTTON (opens bundled release notes / manual) --
+            androidx.compose.material3.Surface(
+                onClick = { showDocsChooser = true },
+                shape = androidx.compose.foundation.shape.CircleShape,
+                color = Color(0xEE131820),
+                contentColor = Color.White,
+                shadowElevation = 6.dp,
+                modifier = Modifier.align(Alignment.TopEnd).padding(12.dp).size(40.dp)
+            ) {
+                androidx.compose.foundation.layout.Box(contentAlignment = Alignment.Center) {
+                    androidx.compose.material3.Text("?", fontSize = 22.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                }
+            }
+            // -- "?" CHOOSER: Release Notes / Full Manual --
+            if (showDocsChooser) {
+                androidx.compose.material3.AlertDialog(
+                    onDismissRequest = { showDocsChooser = false },
+                    title = { androidx.compose.material3.Text("Help & Info") },
+                    text = { androidx.compose.material3.Text("View the release notes or the full user manual.") },
+                    confirmButton = {
+                        androidx.compose.material3.TextButton(onClick = { showDocsChooser = false; docsView = "notes" }) {
+                            androidx.compose.material3.Text("Release Notes")
+                        }
+                    },
+                    dismissButton = {
+                        androidx.compose.material3.TextButton(onClick = { showDocsChooser = false; docsView = "manual" }) {
+                            androidx.compose.material3.Text("Full Manual")
+                        }
+                    }
+                )
+            }
+            // -- DOC VIEWER: full-screen WebView loading the bundled asset --
+            if (docsView != null) {
+                val assetFile = if (docsView == "notes") "grouptrack_release_notes.html" else "grouptrack_manual.html"
+                androidx.compose.material3.Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = Color(0xFF10130F)
+                ) {
+                    androidx.compose.foundation.layout.Column(modifier = Modifier.fillMaxSize()) {
+                        androidx.compose.foundation.layout.Row(
+                            modifier = Modifier.fillMaxWidth().padding(8.dp),
+                            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.End
+                        ) {
+                            androidx.compose.material3.TextButton(onClick = { docsView = null }) {
+                                androidx.compose.material3.Text("Close")
+                            }
+                        }
+                        AndroidView(
+                            modifier = Modifier.fillMaxSize(),
+                            factory = { ctx ->
+                                WebView(ctx).apply {
+                                    settings.javaScriptEnabled = true
+                                    settings.allowFileAccess = true
+                                    settings.allowFileAccessFromFileURLs = true
+                                    webViewClient = WebViewClient()
+                                    loadUrl("file:///android_asset/" + assetFile)
+                                }
+                            },
+                            update = { it.loadUrl("file:///android_asset/" + assetFile) }
+                        )
+                    }
+                }
+            }
             // -- QUEUES PANEL (live download queue) --
             if (pmQueuesOpen) {
                 androidx.compose.material3.Surface(
@@ -1037,8 +1114,19 @@ fun ConvoyMapViewerScreen(
                             showDiscardChoice = false
                             // true roll-back: reload the saved draft, drop this session's edits, KEEP building
                             RouteDraftStore.loadIntoRouteManager(routeName)
-                            val rbPts = RouteManager.routeVertices().joinToString(",", "[", "]") { "[${it.lat},${it.lon}]" }
-                            webViewRef?.evaluateJavascript("drawBuildLine('" + rbPts + "')", null)
+                            scope.launch {
+                                val rbPts = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                    SpatialDbManager.init(context)
+                                    val tl = SpatialDbManager.queryTrailsByViewport(lastViewportSouth, lastViewportWest, lastViewportNorth, lastViewportEast)
+                                    val tk = SpatialDbManager.queryTracksByViewport(lastViewportSouth, lastViewportWest, lastViewportNorth, lastViewportEast)
+                                    val byId = HashMap<String, String>()
+                                    for (m in tl) { val id = m["trail_id"]; val g = m["geometry"]; if (id != null && g != null) byId[id] = g }
+                                    for (m in tk) { val id = m["track_id"]; val g = m["geometry"]; if (id != null && g != null) byId[id] = g }
+                                    RouteManager.buildSegments { lineId -> byId[lineId]?.let { RouteManager.parseWktLine(it) } }
+                                        .joinToString(",", "[", "]") { "[${it[1]},${it[0]}]" }
+                                }
+                                webViewRef?.evaluateJavascript("drawBuildLine('" + rbPts + "')", null)
+                            }
                         }) { androidx.compose.material3.Text("Roll back") }
                     },
                     dismissButton = {
