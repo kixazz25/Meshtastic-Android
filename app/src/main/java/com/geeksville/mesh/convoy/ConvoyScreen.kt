@@ -32,7 +32,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Layers
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -552,7 +551,6 @@ fun ConvoyScreen(
                                         .joinToString(",", "[", "]") { "[${it[1]},${it[0]}]" }
                                 }
                                 val vs = RouteManager.routeVertices()
-                                android.util.Log.d("RouteBridge", "tracedLen=" + pts.length + " verts=" + vs.size + " snapped=" + vs.count { it.snapped } + " pts=" + pts.take(160))
                                 webViewRef.value?.evaluateJavascript("drawBuildLine('" + pts + "')", null)
                             }
                         }
@@ -713,7 +711,6 @@ fun ConvoyScreen(
                                             .joinToString(",", "[", "]") { "[${it[1]},${it[0]}]" }
                                     }
                                     val vs = RouteManager.routeVertices()
-                                    android.util.Log.d("RouteBridge", "S2 tracedLen=" + pts.length + " verts=" + vs.size + " snapped=" + vs.count { it.snapped } + " pts=" + pts.take(160))
                                     webViewRef.value?.evaluateJavascript("drawBuildLine('" + pts + "')", null)
                                 }
                             }

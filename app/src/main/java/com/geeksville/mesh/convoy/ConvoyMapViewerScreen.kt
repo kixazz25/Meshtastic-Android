@@ -509,7 +509,6 @@ fun ConvoyMapViewerScreen(
                                             .joinToString(",", "[", "]") { "[${it[1]},${it[0]}]" }
                                     }
                                     val vs = RouteManager.routeVertices()
-                                    android.util.Log.d("RouteBridge", "S2P tracedLen=" + pts.length + " verts=" + vs.size + " snapped=" + vs.count { it.snapped } + " pts=" + pts.take(160))
                                     webViewRef?.evaluateJavascript("drawBuildLine('" + pts + "')", null)
                                 }
                             }
