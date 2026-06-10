@@ -1160,8 +1160,19 @@ fun ConvoyMapViewerScreen(
                                         routeLifecycleState = ROUTE_LS_RESUMED
                                         showInProgressPicker = false
                                         routeMode = true
-                                        val rsPts = RouteManager.routeVertices().joinToString(",", "[", "]") { "[${it.lat},${it.lon}]" }
-                                        webViewRef?.evaluateJavascript("setRouteMode(true); drawBuildLine('" + rsPts + "')", null)
+                                        scope.launch {
+                                            val rsPts = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                                SpatialDbManager.init(context)
+                                                val tl = SpatialDbManager.queryTrailsByViewport(lastViewportSouth, lastViewportWest, lastViewportNorth, lastViewportEast)
+                                                val tk = SpatialDbManager.queryTracksByViewport(lastViewportSouth, lastViewportWest, lastViewportNorth, lastViewportEast)
+                                                val byId = HashMap<String, String>()
+                                                for (m in tl) { val id = m["trail_id"]; val g = m["geometry"]; if (id != null && g != null) byId[id] = g }
+                                                for (m in tk) { val id = m["track_id"]; val g = m["geometry"]; if (id != null && g != null) byId[id] = g }
+                                                RouteManager.buildSegments { lineId -> byId[lineId]?.let { RouteManager.parseWktLine(it) } }
+                                                    .joinToString(",", "[", "]") { "[${it[1]},${it[0]}]" }
+                                            }
+                                            webViewRef?.evaluateJavascript("setRouteMode(true); drawBuildLine('" + rsPts + "')", null)
+                                        }
                                     }) { androidx.compose.material3.Text(d) }
                                     androidx.compose.material3.TextButton(onClick = {
                                         RouteDraftStore.deleteDraft(d)
