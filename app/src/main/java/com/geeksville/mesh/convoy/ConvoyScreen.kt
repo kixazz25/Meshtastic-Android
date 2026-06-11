@@ -174,8 +174,6 @@ fun ConvoyScreen(
     val isLocalTiles by viewModel.isLocalTiles.collectAsStateWithLifecycle()
     var trailsOn by remember { mutableStateOf(false) }
     var queuesOpen by remember { mutableStateOf(false) }
-    var queuesOffsetX by remember { mutableStateOf(0f) }
-    var queuesOffsetY by remember { mutableStateOf(0f) }
     var trailsLoaded by remember { mutableStateOf(false) }
     var tracksOn by remember { mutableStateOf(true) }
     var showConvoyTrackPicker by remember { mutableStateOf(false) }
@@ -1468,7 +1466,7 @@ fun ConvoyScreen(
                                 label = { androidx.compose.material3.Text("Route name") }
                             )
                             if (routeNameTaken) androidx.compose.material3.Text(
-                                "That name is taken — choose a unique name",
+                                "Enter a unique route name",
                                 color = androidx.compose.ui.graphics.Color(0xFFE86B6B),
                                 fontSize = 11.sp
                             )
@@ -1592,6 +1590,11 @@ fun ConvoyScreen(
                         title = { androidx.compose.material3.Text("Resume in-progress route") },
                         text = {
                             androidx.compose.foundation.layout.Column {
+                                if (emulatedDrafts.isEmpty()) {
+                                    androidx.compose.material3.Text("No in-progress routes",
+                                        fontSize = 12.sp,
+                                        color = androidx.compose.ui.graphics.Color(0xFF8A8A8A))
+                                }
                                 emulatedDrafts.forEach { d ->
                                     androidx.compose.foundation.layout.Row(
                                         modifier = androidx.compose.ui.Modifier.fillMaxWidth(),
