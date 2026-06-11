@@ -202,7 +202,7 @@ fun ConvoyScreen(
         var routeNameTaken by remember { mutableStateOf(false) }
         // live In-Progress list: real draft names from RouteDraftStore (refreshed on draftListTick)
         var draftListTick by remember { mutableStateOf(0) }
-        val emulatedDrafts = RouteDraftStore.listDrafts().map { it.name }
+        val emulatedDrafts = remember(draftListTick) { RouteDraftStore.listDrafts().map { it.name } }
         var newWaypointType by remember { mutableStateOf("other") }
         var newWaypointName by remember { mutableStateOf("") }
 
@@ -1550,6 +1550,7 @@ fun ConvoyScreen(
                                 val methodStr = when (routeMethod) { ROUTE_METHOD_DRAW -> "draw"; ROUTE_METHOD_SUGGEST -> "suggest"; else -> "point" }
                                 if (routeLifecycleState == ROUTE_LS_RESUMED) RouteDraftStore.overwriteDraft(routeName, methodStr)
                                 else RouteDraftStore.writeDraft(routeName, methodStr)
+                                draftListTick++
                                 RouteManager.clearRoute()
                                 webViewRef.value?.evaluateJavascript("setRouteMode(false); clearBuildLine();", null)
                                 routeMode = false
@@ -1576,6 +1577,7 @@ fun ConvoyScreen(
                             androidx.compose.material3.TextButton(onClick = {
                                 showDiscardChoice = false
                                 RouteDraftStore.deleteDraft(routeName)
+                                draftListTick++
                                 RouteManager.clearRoute()
                                 webViewRef.value?.evaluateJavascript("setRouteMode(false); clearBuildLine();", null)
                                 routeMode = false
