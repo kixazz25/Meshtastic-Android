@@ -4,7 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="leaflet.polylineDecorator.js"></script>
+  <script>
     // ── Proximity tap: delegate to Kotlin for spatial DB query ──
     map.on('click', function(e) {
       try { Android.onProximityTap(e.latlng.lat, e.latlng.lng); } catch(ex) {}
@@ -133,6 +135,7 @@
   <script>
     var map, tileLayer, trailLayer = null, trailsVisible = false;
     var trackLayer = null, tracksVisible = false;
+    var trackArrows = null;
     var labelLayer1 = null, labelLayer2 = null;
     var drawnItems = null;
     var drawControl = null;
@@ -298,12 +301,19 @@
           layer.bindPopup('<b>' + name + '</b>');
         }
       });
+      try {
+        if (typeof L.polylineDecorator === 'function' && L.Symbol && L.Symbol.arrowHead) {
+          trackArrows = L.polylineDecorator(trackLayer.getLayers(), { patterns: [
+            { offset: '8%', repeat: '12%', symbol: L.Symbol.arrowHead({ pixelSize: 14, headAngle: 50, polygon: false, pathOptions: { stroke: true, color: '#000000', weight: 3, opacity: 1 } }) }
+          ] });
+        }
+      } catch (e) { trackArrows = null; }
     }
     function showTracks() {
-      if (trackLayer && !tracksVisible) { trackLayer.addTo(map); tracksVisible = true; }
+      if (trackLayer && !tracksVisible) { trackLayer.addTo(map); if (trackArrows) trackArrows.addTo(map); tracksVisible = true; }
     }
     function hideTracks() {
-      if (trackLayer && tracksVisible) { map.removeLayer(trackLayer); tracksVisible = false; }
+      if (trackLayer && tracksVisible) { map.removeLayer(trackLayer); if (trackArrows) map.removeLayer(trackArrows); tracksVisible = false; }
     }
     function updateTracks(geojsonData) {
       if (typeof geojsonData === 'string') geojsonData = JSON.parse(geojsonData);
@@ -315,6 +325,7 @@
     }
     function clearTracks() {
       if (trackLayer) { map.removeLayer(trackLayer); trackLayer = null; }
+      if (trackArrows) { map.removeLayer(trackArrows); trackArrows = null; }
       tracksVisible = false;
     }
 
