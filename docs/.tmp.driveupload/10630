@@ -12832,44 +12832,57 @@ grep -rn 'about\|About\|splash\|Splash\|version\|tagline' app/src/main/java/com/
 - One build covers items 1–8 (all in the app); build once at the end of the code items, not after each, to save time — but commit each separately so they're individually revertible. (Item 5 versionCode + item 4 manifest want to be in the build you test.)
 
 
-=== GroupTrack_Handoff_2026-06-10.md ===
-# GroupTrack — Handoff / End-of-day recap — 2026-06-10
+=== GroupTrack_Handoff_2026-06-11.md ===
+# GroupTrack — Handoff / End-of-day recap — 2026-06-11
 
-_Note-to-future-Claude. Read this + GroupTrack_V25_LivingChecklist_CONSOLIDATED_2026-06-10.md first next session. Project runs out of Fred's Downloads; these docs are the backstop when memory/context is thin. The CURRENT doc baseline is the 2026-06-06 set (checklist v3 + DecisionLog + 06-05 manual/release notes) — build on Fred's upload, NOT the Drive connector (which lags at 06-04 and can't see the `google_docs` folder)._
+_Note-to-future-Claude. Read this + `GroupTrack_V25_LivingChecklist_CONSOLIDATED_2026-06-11.md` first next session. Project runs out of Fred's machine (`~/Meshtastic-Android`, branch `feature/convoy-event-ride`, package `com.grouptrack.android`, RELEASE builds). The container does NOT have the repo — Claude gives commands, Fred runs them one at a time and pastes results. The CURRENT doc baseline is this 2026-06-11 set (checklist CONSOLIDATED 06-11 + manual 06-11 + release notes 06-11). Build on Fred's upload, NOT the Drive connector (which lags at 06-04 and can't see the newer docs)._
 
 ## FINISHED + COMMITTED today
-- **C-1: Planning-map snap-2 mirror — DONE, proven on device, committed.** The planning map now traces route geometry along trails on every redraw path, matching convoy:
-  - rollback redraw — 56713ab1e
-  - resume redraw — 5630fb0b9
-  - undo redraw — 6b1628f82
-  - (live onMapTap draw was already traced from an earlier session — no patch.)
-  - Method: read each draw site LIVE (raw Python rb — file is CRLF, cat/grep/sed lie), wrap the redraw in `scope.launch { withContext(IO){ queryTrailsByViewport + queryTracksByViewport → buildSegments } → evaluateJavascript }`, build, prove on device (Utah/St.George viewport, Trails ON), commit one site at a time.
-  - Consequence: **snap-2 is now DONE on BOTH maps.**
 
-- **Cosmetic batch — 2 of 9 low-impact items done + committed at `2d12a81fd`** ("2 files changed, 4 deletions"):
-  - **[8.4]** all three snap-2 diagnostic logs stripped — ConvoyScreen.kt 557 "tracedLen=" + 718 "S2 tracedLen=", ConvoyMapViewerScreen.kt 512 "S2P tracedLen=". (No build needed — no behavior change.)
-  - **[6.6]** duplicate `import androidx.compose.material3.AlertDialog` removed (was at LIVE lines 35 & 87 — the master checklist's "34 & 85" had drifted; confirms read-live-first).
+- **Route-draft picker refresh bug — FIXED + COMMITTED + DEVICE-APPROVED (`03c9e1a56`).** The In-Progress route picker showed a stale "ghost" list (every in-progress route ever created), Delete did nothing, and `route_drafts/` was empty on device yet the picker still showed items. Root cause was a **Compose refresh bug**, not a delete/path bug: `ConvoyScreen` line 205 `emulatedDrafts` was a bare `val` that read the disk once and never re-read; Save (@~1551) and Discard (@~1578) mutated draft files without ticking the refresh key. Fix (3 edits): line 205 → `remember(draftListTick) { RouteDraftStore.listDrafts().map { it.name } }`; Save + Discard each `draftListTick++` (now 3 tick sites — save, discard, picker-delete). Built clean (12m03s), device-approved. (`deleteDraft`/`listDrafts`/`fileFor` were all correct — the empty dir proved delete worked.)
 
-## STOPPED — bad terminal (not a code problem)
-Git-Bash misbehaved all evening: crashed twice, strip writes needed 3 passes to land (a replace once ran against pre-write state), and at the end the terminal REPLAYED a stale command onto a new line (bash paren syntax error). That last one was the stop sign. Git also auto-packed (gc) mid-commit — BENIGN (routine maintenance, repo tidied, commit landed clean). Fred is REBOOTING to clear the stale-input replay + dropped writes.
-- **Lesson for next session:** heredocs (`python3 << EOF`) and `git diff` both choke Fred's Git-Bash. Use SINGLE-LINE `python3 -c` edits with a match-count guard, verify with byte/count reads, NOT `git diff`.
+- **V2.5 cleanup batch — COMMITTED + DEVICE-APPROVED (`bcd5f8e31`, 2 files).** Three checklist items:
+  - **[8.5]/[8.8]** `android:foregroundServiceType` (connectedDevice) added to SystemForegroundService in AndroidManifest — clears the lint Error-gate (one fix, both items).
+  - **[1.7]** route picker: "No in-progress routes yet" empty-state + distinct blank-name vs taken-name hint.
+  - **[3.5]** removed the leftover dead QUEUES drag vars (QUEUES was already locked top-right from 06-03).
 
-## DECIDED / RESEARCHED (not code)
-- **Open-issue list CONSOLIDATED** (Fred's instruction: full problem definitions, no dropped content, grouped). Two companion docs: CONSOLIDATED checklist (by function, 11 groups + Deferred, source-tagged) + OpenIssues BY_SCREEN (same items re-sorted by screen). These are the working problem list for finishing 2.5.
-- **Plan:** do the 9 LOW-IMPACT items first to shrink the list, THEN the higher-impact items (regrouped by function). 2 of 9 done. The formal ACCEPTANCE checklist (walk-through certifying the finished product) comes AFTER cleanup, built against the cleaned-up app — NOT now.
-- **Lead-track redesign [2.1]:** design authority = GroupTrack_LeadTrackReplacement_Spec.docx (May 31; confirmed no newer doc supersedes). Replace the 3-flow pipeline with one lead-position polyline + drawTrack. Discovery-first against field_crossref. Functional, do after routes + planning cleanup.
-- **C-2 undo "bug" = non-bug:** undo works; the earlier symptom was map-switch shared-state contamination (RouteManager singleton shared across maps) — folds into the auto-save-on-map-switch item [1.5].
-- **NH trail data — PARKED:** source-document path (NH GRANIT as the 8th trail_sources.json entry), not the manual DB-load. Full story: GroupTrack_NH_TrailImport_task_2026-06-10.md.
+- **[3.8] Waypoint marker shape — DONE + COMMITTED + DEVICE-CONFIRMED (2 map HTMLs).** Round circles → **teardrop pins**, one shape for all types, so the point marks the exact location. Edit is in the waypoint `L.divIcon` in both `convoy_map.html` + `grouptrack_map.html` (`border-radius:50% 50% 50% 0` + `rotate(-45deg)`, symbol wrapped in a counter-rotated `<span>` to stay upright, `iconAnchor` moved to the bottom tip `[13,26]`). Per-type color/symbol unchanged.
 
-## NEXT SESSION — first moves (after Fred reboots)
-1. Confirm clean tree: `git log --oneline -1` (want `2d12a81fd`) + `git status`.
-2. **[6.7] !!/safe-call tidy** — the next low-impact item. NOT mechanical like 8.4/6.6 — it's judgment-per-line (a `!!` may need `?.`/guard, not just deletion). START READ-ONLY: list the sites, decide each, then one write + verify. Defer if it's a rabbit-hole.
-3. Then [8.8] lint tidy → then the ADD/MOVE items on a good terminal: [3.5] convoy `?` move, [1.7] route picker cosmetics, [3.7] z12, [3.8] marker shape.
-4. After the 9: functional review + schedule discussion; then the heavier functional clusters (import [4.x], DB/dedup [5.x], SpatialDisplayManager [3.2], QUEUES [3.3], waypoint-drop [3.4], bbox-persistence [3.1], lead-track [2.1], ANRs [8.1/8.2]).
+- **[3.9] Track direction arrows — DONE + COMMITTED (3 files) · arrows have a known redraw-timing follow-up.** Direction-of-travel arrows on the **displayed DB tracks** (`trackLayer`), a diagnostic for the multi-track question (self-crossing loop → continuous one-way arrows = one track; conflicting arrows at an overlap = stacked tracks). The `leaflet-polylineDecorator` plugin is **vendored locally** at `app/src/main/assets/leaflet.polylineDecorator.js` (the CDN copy silently failed to load at runtime — `L.Symbol` undefined — so it's bundled; right call for an offline field app). It decorates `trackLayer.getLayers()` (the plugin rejects an `L.geoJSON` group directly), guarded so a missing plugin can never break track display. **Tracks display reliably.**
+  - **KNOWN FOLLOW-UP (~20 min next session):** the decorator only redraws on the map's `moveend`, so on first toggle the arrows render late and/or only **one** arrow shows until a pan/zoom nudges the map. Fix by forcing a redraw in `showTracks` after `trackArrows.addTo(map)` — e.g. `map.fire('moveend')` or call the decorator's redraw — so the full repeating series draws instantly. If one-arrow persists after that, secondary suspect is MULTILINESTRING track geometry (ties to [3.7]).
+  - Fred's call on the arrow timing: **"no harm no foul, leave it in place, come back and debug further later."** Committed as-is.
+
+- **Also reported complete by Fred today (commit hashes not captured — verify in `git log` next session):** **[3.4]** convoy waypoint-drop now fires · **[4.6]** track-import over-capture verified · **[8.1]** osmdroid tile-cache-scan ANR · **[8.2]** storage-permission startup ANR · **[8.6]** versionCode mechanism. **[8.1] + [8.2] were the two launch-blocking ANRs gating the AAB — both now cleared, a major release unblock.**
+
+## WHERE WE BEGIN TOMORROW
+
+**Next focus = [2h] — Artifact-detail panel + Search.** This is the release-critical remaining UI work; the layout is already approved (mockups, 06-11). Both cosmetic display items ([3.8] + [3.9]) are now done, so the cosmetic queue is clear.
+
+1. **FIRST MOVE (gating step): verify the alias/property data layer actually exists in the schema today** before building any UI on top of it. The detail card depends on the alias/full-data layer (Goal 2 / dedup 2a–2g). If it's there → build. If not → that surfaces the dependency and we shape it first.
+2. **Build target** (one composable, 4 type-configs): LEFT panel = Search (type selector Trail/Track/Waypoint/Route + name field + button) above the OFF/ALL/SEL-EDIT row above the results list; result rows clickable → open the detail card. RIGHT panel = the detail card as **two columns**: left rail = the **function list** (enumerate ALL existing functions LIVE from real code at impl time — rename, delete, show/add alias, fit-to-display, plus per-type: Track to-route/survey, Waypoint edit, Route set-trailhead), right = content (type badge + display_name, alias accordion with star=preferred + agency/user/aws chips, full-data card).
+3. **ISOLATE + FIT-TO-SCREEN = placeholder/stub now** (Fred's scoping) — it's the most expensive part and overlaps [3.1]/[3.7]; wire a minimal entry point so Search + results + detail content ship unblocked, build real fit-to-extent later on [3.1]'s viewport mechanism.
+4. Spec refs: AllDocs ~17499-17517 + 19671-19735.
+
+**Optional quick win if Fred wants it first:** the [3.9] arrow redraw fix (~20 min) — force the redraw in `showTracks`, rebuild, confirm the full repeating arrow series appears instantly on toggle.
+
+## STILL OPEN — pre-AAB gates (after the functional work)
+- **[8.7]** About / Attribution screen (GPL / Leaflet / Esri) for Play compliance.
+- **[8.9]** First-launch Release-Notes acknowledgment gate.
+- Then: strip-logs ✅ / lint ✅ / versionCode ✅ → `bundleGoogleRelease -Pandroid.injected.version.code=NNNNN` (N > Play-live AND > 29320600) → confirm signing (Play vs local APK use different keys). **Release HALTED until Fred says ship.**
+
+## TREE STATE
+- HEAD line today: `03c9e1a56` (route-draft fix) → `bcd5f8e31` (cleanup batch), then today's **[3.9]** commit (3 files: 2 map HTMLs + `leaflet.polylineDecorator.js`) and **[3.8]** commit (2 map HTMLs) on top — **grab the exact hashes from `git log` next session** (not captured tonight). The 3.4/4.6/8.1/8.2 "reported complete" commits also need their hashes confirmed in the log.
+- Working tree also carries PARKED weekend state — leave it: `M utah_trails_stgeorge.geojson`, `?? grouptrack_manual.html`, `?? grouptrack_release_notes.html`, `?? utah_trails_stgeorge.geojson.bak` (NEVER git-add the `.bak`), `D docs/.tmp.driveupload/10630`. **Commit only explicitly-named files, never `git add .`.**
+
+## TERMINAL / WORKFLOW NOTES (carried)
+- Git-Bash replays a stale command prefix onto the next line and mangles literal `!!` → re-type fresh; verify read-only.
+- Map HTML assets are **CRLF** → multi-line `python3 -c` anchors ABORT (count 0); use **single-line anchors** (each line unique, CRLF-agnostic). The two map files differ in **script-tag style** (convoy inline `</script>`, planning split-line) — eyeball `<script>`/`</script>` balance before a long asset build.
+- **Laptop `curl` fails TLS (exit 35)** — fetch files via browser download or `python3 urllib`, then `cp ~/Downloads/<file> <dest>`. Claude-generated files: deliver via the file panel → Fred downloads → `cp` into place.
+- Build ~10–34 min: `./gradlew assembleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease`; APK at `app/build/outputs/apk/google/release/app-google-release.apk`; install `adb -s 24039703201775 install -r -d <apk>` (Droid 2 = dev/test `24039703201775`, Droid 1 = field `8624SBCEDF00001789`). No `sqlite3` on device; `pm clear`/uninstall fail on release (reset = reboot + adb kill/start-server).
 
 ## DOC HYGIENE
-- The 06-07 and 06-10 sessions still need a dated Decision Log block appended (append-only). [batch item 9.6]
-- Manual + release-notes snap-now-live edits are drafted (GroupTrack_Manual_CreatingARoute_update_2026-06-10.md + GroupTrack_ReleaseNotes_update_2026-06-10.md) — apply IN PLACE to the 06-05 living docs when ready; don't regenerate.
+- This EOD set (checklist CONSOLIDATED 06-11, manual 06-11, release notes 06-11) is produced as full updated files from the 06-10 baseline Fred uploaded. Decision Log still owes dated append blocks for the 06-07, 06-10, and 06-11 sessions (append-only) — batch item [9.6].
+- Manual now reflects: teardrop waypoint pins (was "being finalized"), track direction arrows, and the snap-to-trail-is-live edits (the 06-10 drafts, applied in place). Release notes carry a "Latest in this build (June 11)" block.
 
 
 === GroupTrack_Manual_CreatingARoute_update_2026-06-10.md ===
@@ -14520,8 +14533,10 @@ Re-tested per the 06-06 fork: undo WORKS (new route → undo ✔; resume → und
 - DONE (assets) — all-functions user manual grouptrack_manual.html (28,050 bytes) + release notes with tester upgrade-hazard callout + geojson shrunk to 3KB. Manual still has 37 "[screenshot to be added]" placeholders. Manual "Creating a Route" section needs the snap-now-live edit (GroupTrack_Manual_CreatingARoute_update_2026-06-10.md).
 
 
-=== GroupTrack_V25_LivingChecklist_CONSOLIDATED_2026-06-10.md ===
-# GroupTrack V2.5 — Living Checklist (CONSOLIDATED, full problem definitions) — 2026-06-10
+=== GroupTrack_V25_LivingChecklist_CONSOLIDATED_2026-06-11.md ===
+# GroupTrack V2.5 — Living Checklist (CONSOLIDATED, full problem definitions) — 2026-06-11
+
+> **2026-06-11 update:** committed + device-approved — route-draft picker refresh fix (`03c9e1a56`), cleanup batch `bcd5f8e31` (**8.5/8.8** lint gate + **1.7** picker text + **3.5** dead drag vars), **3.8** waypoint teardrop pins, **3.9** track direction arrows (tracks reliable; arrow redraw-timing follow-up). Also reported complete: **3.4** waypoint-drop, **4.6** track-import over-capture, **8.1** + **8.2** the two launch-blocking ANRs, **8.6** versionCode mechanism. Remaining pre-AAB gates: **8.7** About/Attribution, **8.9** first-launch release-notes gate. Next focus: **[2h]** artifact-detail panel + search.
 
 _Branch feature/convoy-event-ride · Device = Droid 2 24039703201775, release APK · Builds are RELEASE builds (assembleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease)._
 
@@ -14591,8 +14606,8 @@ Leaving the build context with the route builder open should force SAVE-IN-PROGR
 ### 1.6 — Snap radius slider (80 m default + in-app slider) — PARKED→un-park for finished product
 Currently the snap radius is a hardcoded 30.0 m real-world value. At zoom-out (~¼ mile) almost nothing snaps because 30 m is too tight. Fred's original design: 80 m default + an in-app slider so radius is tunable without recompiling. They fell back to the hardcoded 30 m commit because the shared-radius/slider work went into uncomfortable territory. Do this deliberately as polish, AFTER the slice fix (1.2). (Source: 06-06 v3 §F; master §F.)
 
-### 1.7 — Route-builder cosmetic fixes — OPEN
-(a) Empty In-Progress picker shows only "Cancel" — add "No in-progress routes yet". (b) The "Name required" red hint reuses the routeNameTaken flag, so it wrongly reads "name is taken" — add a distinct message for blank-name vs taken-name. (Source: 06-06 v3 §F.)
+### 1.7 — Route-builder cosmetic fixes — ✅ DONE (2026-06-11, committed `bcd5f8e31`, device-approved)
+(a) Empty In-Progress picker now shows the "No in-progress routes yet" empty-state. (b) The name hint now distinguishes blank-name ("name required") from taken-name ("name is taken") instead of reusing one flag. Shipped in the V2.5 cleanup batch. (Source: 06-06 v3 §F; EOD 2026-06-11.)
 
 ### 1.8 — One-route-per-GroupTrack-session — OPEN
 Version 2 rule: one route app-wide, on either map. Plan-exit handled via the GroupTrack-maps-submenu elimination (a cleanup, see 6.x), NOT a nav guard. (Source: 06-06 v3 §F.)
@@ -14635,11 +14650,13 @@ Separate from the replumbing above: when the lead cart's GPS arrives every 5 sec
 ### 3.3 — Convoy QUEUES button DEAD — OPEN (port planning's wiring, do not build new)
 The convoy-map QUEUES button does not work. Two SEPARATE implementations exist: planning (ConvoyMapViewerScreen.kt 247/282/738/750) WORKS via showDownloadPanel → ConvoyDownloadPanel; convoy (ConvoyScreen.kt 1227/1249/1270) is DEAD — a different draggable element → queuesOpen → ConvoyQueuesPanel (a lesser, different panel). A prior patch added detectTapGestures in its own pointerInput but it stayed dead. FIX: point the convoy QUEUES at the working ConvoyDownloadPanel the way planning does, and resolve the tap collision (likely drop the custom drag → plain .clickable, since it sits on the zoom-level row top-right and doesn't need to drag). Lands in both convoy interfaces (494/622). Watch double-accordion; don't cover NET/LOCAL. (Source: STATE_OF_PLAY_2026-06-02_v5; master §F.)
 
-### 3.4 — Convoy waypoint-drop pipeline present but doesn't fire — OPEN
+### 3.4 — Convoy waypoint-drop pipeline present but doesn't fire — ✅ DONE (2026-06-11, reported complete — verify hash in git log)
+Convoy long-press waypoint drop now fires. (Source: EOD 2026-06-11.)
+<!-- original problem note retained below -->
 Long-press waypoint drop works on the PLANNING map but not convoy. The entire pipeline EXISTS on convoy and matches planning: convoy_map.html line 286 map.on('contextmenu') → Android.onMapLongPress(lat,lng); the Kotlin bridge has onMapLongPress (ConvoyScreen.kt:516 and :653) → sets pendingWaypoint; the dialog exists (pendingWaypoint?.let { AlertDialog } at ~860 → insertWaypoint). Both convoy bridges register as "Android" (556, 805); the surviving bridge has the method, so the clobber theory is dead. Yet long-press on convoy produces nothing. Diagnose why the event doesn't reach the bridge (likely same tap/gesture interception family as QUEUES). Related: long-press must fire only on EMPTY map, not on node markers. (Source: STATE_OF_PLAY_2026-06-02_v5; master §F.)
 
-### 3.5 — Convoy `?` help button misplaced — OPEN
-The convoy `?` help button shipped INSIDE `if (convoyState.hasLost ...)`, so it only appears when a contact is lost. Move it beside the QUEUES button (ConvoyScreen.kt:1359 locked top-right Surface, Text("QUEUES")@1368), out of the hasLost conditional. Read sed -n '1357,1373p' to match the QUEUES Surface style. Planning `?` is correct/always-visible. (Source: 06-07 session/memory.)
+### 3.5 — Convoy `?` help button misplaced — ✅ DONE (2026-06-11, committed `bcd5f8e31`, device-approved)
+Resolved in the cleanup batch (the leftover dead QUEUES drag vars were removed; QUEUES was already locked top-right from 06-03). NOTE: the convoy `?`-help relocation itself is now tracked with the [9.4] help-panel work; the dead-var cleanup that shipped under this number is complete. (Source: 06-07 session/memory; EOD 2026-06-11.)
 
 ### 3.6 — Planning Map blank on return from trail-source screen — OPEN
 Returning to the Planning Map from the trail source screen leaves it blank. (Likely related to 3.1 bbox-restore.) (Source: master §F.)
@@ -14647,11 +14664,11 @@ Returning to the Planning Map from the trail source screen leaves it blank. (Lik
 ### 3.7 — z12 hide-features (min display zoom = 12, all four types) — OPEN
 Set a minimum display zoom of 12 for trails/tracks/waypoints/routes so the map doesn't try to draw everything when zoomed far out. (Source: master §F.)
 
-### 3.8 — Waypoint marker shape DECISION — OPEN
-Triangle (original) vs round pin (shipped). Decide and make consistent. (Source: master §F.)
+### 3.8 — Waypoint marker shape DECISION — ✅ DONE (2026-06-11, committed, device-confirmed)
+Decided: **teardrop pins** (one shape for all waypoint types), so the pin's point marks the exact location (the old round circle was centered/ambiguous). Implemented in both map HTML assets (convoy_map.html + grouptrack_map.html) in the waypoint `L.divIcon` (`border-radius:50% 50% 50% 0` + rotate, symbol counter-rotated upright, iconAnchor at the bottom tip). Per-type color + symbol unchanged. (Source: master §F; EOD 2026-06-11.)
 
-### 3.9 — Direction arrows on track/trail lines — OPEN
-Add direction-of-travel arrows along track/trail polylines. (Source: master §F.)
+### 3.9 — Direction arrows on track/trail lines — ✅ DONE (2026-06-11, committed) · ⏳ arrow redraw-timing follow-up
+Direction-of-travel arrows on the **displayed DB tracks** (diagnostic for the multi-track question: a self-crossing loop shows continuous one-way arrows = one track; conflicting arrows at an overlap = stacked tracks). Implemented via the `leaflet-polylineDecorator` plugin **vendored locally** into `app/src/main/assets/leaflet.polylineDecorator.js` (the CDN copy failed to load at runtime, so it's bundled for offline use), decorating `trackLayer.getLayers()` in loadTracks on both maps, guarded so a missing plugin can never break track display. **Tracks display reliably.** KNOWN FOLLOW-UP (~20 min, next session): the decorator only redraws on the map's `moveend`, so on first toggle the arrows render late / only one appears until a pan nudges the map — fix by forcing a redraw in `showTracks` (`map.fire('moveend')` / decorator redraw). Secondary suspect if one-arrow persists: MULTILINESTRING track geometry (ties to 3.7). (Source: master §F; EOD 2026-06-11.)
 
 ### 3.10 — SELECTED clear-on-leave alignment (convoy onSetState) — OPEN
 Align convoy's onSetState so SELECTED clears on leave, matching planning. (Folds into 3.2 Phase 1.) (Source: master §F.)
@@ -14675,7 +14692,9 @@ The intent reaches the activity but the handler doesn't execute. (Source: master
 ### 4.5 — Large GPX >32MB catastrophic backtracking — OPEN/VERIFY
 Regex parse on >32MB files can catastrophically backtrack → crash. Move to a string-loop parse. NOTE: the streaming BufferedReader rewrite (committed 9377f23f7) fixed the 87-track/28.9MB OOM; verify whether the >32MB regex-backtracking case is fully covered by that or still needs the string-loop. (Source: master §C; track-import history.)
 
-### 4.6 — Streaming-parse geometry over-capture VERIFY (pre real-device ship) — VERIFY
+### 4.6 — Streaming-parse geometry over-capture — ✅ DONE / VERIFIED (2026-06-11, reported complete)
+Track-import over-capture checked; streaming parse geometry confirmed correct. (Source: EOD 2026-06-11.)
+<!-- original verify note retained below -->
 Confirm the new streaming GPX parse captures geometry CORRECTLY and isn't OVER-capturing vs the old parser — it feeds map draw, ROUTE SNAPPING, and AWS sync, so wrong geometry propagates. Confirm point counts for a known track (St George → Bar 10). (Source: 06-06 v3 §G; master.)
 
 ### 4.7 — KEEP/DELETE recap buttons misleading — OPEN
@@ -14749,7 +14768,9 @@ Remove these remnants once xref confirms they're dead. (Source: master §F/§I.)
 ### 6.5 — Dead-code sweep: scanDownloadsForGpx, showImportList orphans — OPEN
 scanDownloadsForGpx (1 xref) and showImportList orphans are quarantine candidates. (Source: master §F/§I.)
 
-### 6.6 — Duplicate AlertDialog import (ConvoyScreen.kt 34 & 85) — OPEN (tidy)
+### 6.6 — Duplicate AlertDialog import — ✅ DONE (2026-06-10, committed `2d12a81fd`)
+Duplicate `import androidx.compose.material3.AlertDialog` removed (live lines 35 & 87). (Source: 06-10.)
+<!-- original tidy note retained below -->
 Two AlertDialog imports; tidy to one. (Source: master §F.)
 
 ### 6.7 — !!/safe-call warning tidy — OPEN
@@ -14793,29 +14814,29 @@ Confirm user-created waypoints persist across a force-stop/reopen. (Source: mast
 
 # GROUP 8 — GOOGLE PLAY / ANR / LAUNCH GATE
 
-### 8.1 — ANR #2 osmdroid tile-cache scan (MUST resolve before launch) — OPEN
-~60GB tile-cache scan on the main thread at onCreate causes a 20–43s freeze (P10_T). Disable osmdroid cache trimming. Launch-blocking. (Source: master §G.)
+### 8.1 — ANR #2 osmdroid tile-cache scan (MUST resolve before launch) — ✅ DONE (2026-06-11, reported complete — verify hash in git log)
+The main-thread osmdroid tile-cache scan at onCreate is resolved (one of the two launch-blocking ANRs gating the AAB — now cleared). (Source: master §G; EOD 2026-06-11.)
 
-### 8.2 — ANR #1 MANAGE_EXTERNAL_STORAGE startup blocks main thread — OPEN
-Startup blocks the main thread on the storage permission. Defer file-dependent init until the permission is confirmed. (Source: master §G.)
+### 8.2 — ANR #1 MANAGE_EXTERNAL_STORAGE startup blocks main thread — ✅ DONE (2026-06-11, reported complete — verify hash in git log)
+Startup no longer blocks the main thread on the storage permission (file-dependent init deferred). Second of the two launch-blocking ANRs — **both ANR launch gates now cleared.** (Source: master §G; EOD 2026-06-11.)
 
 ### 8.3 — ANR Type 2 Input Dispatching Timeout — VERIFY
 May share the osmdroid root cause; verify after 8.1. (Source: master §G.)
 
-### 8.4 — Strip diagnostic logs before AAB — OPEN (AAB gate)
-Remove debug Log.d before the release bundle: ConvoyScreen tracedLen (~555) + S2 tracedLen (~716) + the planning "S2P tracedLen" log on ConvoyMapViewerScreen onMapTap (~490). (Source: 06-06 v3 §E; 06-10.)
+### 8.4 — Strip diagnostic logs before AAB — ✅ DONE (2026-06-10, committed `2d12a81fd`)
+All three snap-2 diagnostic Log.d sites stripped (ConvoyScreen tracedLen + S2 tracedLen; ConvoyMapViewerScreen S2P tracedLen). (Source: 06-06 v3 §E; 06-10.)
 
-### 8.5 — SpecifyForegroundServiceType lint — OPEN (AAB gate)
-androidx.work SystemForegroundService needs android:foregroundServiceType in AndroidManifest.xml. Pre-existing, lint-only, build succeeds — fix before Play submission. (Source: RouteToolbar_CleanupItems_v3; master §G.)
+### 8.5 — SpecifyForegroundServiceType lint — ✅ DONE (2026-06-11, committed `bcd5f8e31`, device-approved)
+Added `android:foregroundServiceType` (connectedDevice) to the SystemForegroundService in AndroidManifest.xml — the lint Error-gate now passes. (Same fix as 8.8 — one manifest attribute clears both.) (Source: RouteToolbar_CleanupItems_v3; master §G; EOD 2026-06-11.)
 
-### 8.6 — versionCode bump + signing confirm — OPEN (AAB gate)
-Bump versionCode (Droid builds seen to 29320598; fallback AAB was 29320600 on Play Internal; must monotonically increase; versionName cosmetic). bundleGoogleRelease honors -Pandroid.injected.version.code=NNNNN first. Confirm signing (Play vs local APK use DIFFERENT keys). (Source: master §G; 06-06 v3 §E; memory.)
+### 8.6 — versionCode bump + signing confirm — ✅ DONE mechanism (2026-06-11) · signing confirm at bundle time
+Resolved: versionCode is COMPUTED in build.gradle.kts (lines ~65-70) — pass `-Pandroid.injected.version.code=NNNNN` at bundleGoogleRelease (honored first), with N > Play-live AND > 29320600. No source edit needed; it's a build-flag at AAB time. Signing (Play vs local APK use different keys) still confirmed at the actual bundle step. (Source: master §G; 06-06 v3 §E; memory; EOD 2026-06-11.)
 
 ### 8.7 — About / Attribution screen — OPEN
 GPL / Leaflet / Esri attribution screen for Play compliance. (Source: master §G.)
 
-### 8.8 — lintVital ServiceKeepAlive tidy — OPEN
-Clean up the lintVital ServiceKeepAlive warning. (Source: master §G.)
+### 8.8 — lintVital ServiceKeepAlive tidy — ✅ DONE (2026-06-11, committed `bcd5f8e31` = same fix as 8.5)
+Same root as 8.5 — the foregroundServiceType manifest attribute clears the lintVital ServiceKeepAlive gate. (Source: master §G; EOD 2026-06-11.)
 
 ### 8.9 — First-launch Release-Notes acknowledgment gate — OPEN
 Every launch, show an in-app PDF viewer of the V2.5 Release Notes with a checkbox "I have read and acknowledge…" that enables an Acknowledge button (no persisted flag). Build the PDF viewer screen (PdfRenderer or lib); gate app entry every launch; ANR-safety: load/render the PDF OFF the main thread, show the gate AFTER heavy init; bundle the current Release Notes PDF as an asset and decide the per-release update path. (Source: master §J.)
@@ -19854,6 +19875,119 @@ TRAIL SOURCE CATALOGUI SCAFFOLDING NEXT
   Tracked per database. Migration support built in.
   END SCREEN + PROCESS REFERENCE v5 | May 18, 2026
   Next session: UI Scaffolding → Populate → Wire Creation Functions
+
+
+=== GroupTrack_V25_UserManual_2026-06-11.html ===
+GroupTrack V2.5 — User Manual (cookbook)
+  body { font-family: Arial, Helvetica, sans-serif; color:#1c1c1c; max-width:900px; margin:0 auto; padding:24px; line-height:1.5; }
+  h1 { font-size:26px; color:#1A3A5A; margin-bottom:2px; }
+  .sub { color:#555; font-size:14px; }
+  .stamp { color:#888; font-style:italic; font-size:12px; border-bottom:2px solid #2E75B6; padding-bottom:8px; margin-bottom:18px; }
+  h2 { font-size:19px; color:#1A3A5A; border-bottom:2px solid #2E75B6; padding-bottom:5px; margin-top:34px; }
+  h3 { font-size:15px; color:#1A3A5A; margin-top:22px; margin-bottom:4px; }
+  h4 { font-size:13.5px; color:#2E75B6; margin:14px 0 3px; }
+  .toc { background:#f7f9fb; border:1px solid #dde6ee; border-radius:6px; padding:12px 16px; font-size:13.5px; margin-bottom:20px; }
+  .toc a { color:#2E75B6; text-decoration:none; }
+  .toc a:hover { text-decoration:underline; }
+  ol, ul { margin:5px 0 10px; }
+  li { margin:3px 0; }
+  .help { background:#eef6ff; border:1px solid #b9d6f2; border-radius:4px; padding:2px 7px; font-size:12px; color:#1a5fa8; font-weight:bold; }
+  .note { background:#f0f6fb; border-left:4px solid #2E75B6; padding:8px 12px; border-radius:3px; font-size:13px; margin:10px 0; }
+  .coming { background:#fff8ec; border-left:4px solid #c89000; padding:8px 12px; border-radius:3px; font-size:13px; margin:10px 0; }
+  .transitional { background:#f3eefa; border-left:4px solid #7a4fb0; padding:8px 12px; border-radius:3px; font-size:13px; margin:10px 0; }
+  code { background:#f0f0f0; padding:1px 4px; border-radius:3px; font-size:12.5px; }
+  .screenref { font-size:12px; color:#888; font-style:italic; }
+GroupTrack — User Manual (V2.5)
+Cookbook style. Each section is one screen; every function on that screen is documented in place. The ? help icon on a screen deep-links to that screen's section here.
+V2.5 · 2026-06-11 · Online edition: grouptrack.org/manual · Bundled offline copy ships in-app · Sections map 1:1 to the screens that carry a ? help icon.
+How help links work: tapping ? on a screen opens this manual at that screen's section (the anchors below — #planning-map, #convoy-map, #radio-write, #artifacts). V2.5 scope for the ? icon: the screens that persist into 3.0 — Planning Map, Convoy Map (incl. the Meshtastic connection/monitoring panel), and the Convoy radio-write menu. The goal in 3.0 is ? on every screen.
+Sections
+1. Planning Map — explore trails, build routes, import/manage artifacts off-radio
+2. Convoy Map — live group tracking + Meshtastic connection &amp; monitoring panel
+3. Convoy Radio-Write Menu — apply / archive / restore radio config transitional, supported in V2.5
+4. Work with Artifacts — trails, tracks, waypoints, routes (display, select/edit, create)
+1 · Planning Map
+Screen: Planning Map · ? help anchor: #planning-map
+The Planning Map is the off-radio workspace: explore downloaded trails, import your track history, build and save routes, and manage what's displayed — all without a radio connected. It shares the spatial database and route engine with the Convoy Map, but keeps its own display state.
+Map basics
+Pan / zoom: drag to pan, pinch to zoom. These stay live at all times, even while building a route.
+Base layers (SAT / TOPO / TOPO+): switch imagery from the layer control. Tiles are served from your offline cache when available.
+Viewport-aware display: trails, tracks, waypoints, and routes load for the area you're viewing. Zoom in to see more detail; the display fills in as you move.
+Displaying trails, tracks, waypoints, routes
+See Section 4 (Work with Artifacts) — the toggle/select/edit controls are shared and documented there.
+Too many trails in view: if the current view contains more trails than can be displayed at once, the SEL/Edit control indicates "Too many trails in view — zoom in to reduce." Zoom in to narrow the area until trails become selectable. guidance behavior — coming
+Building a route
+See the full cookbook entry in Section 4 → Creating a Route. Route building works identically on the Planning Map and the Convoy Map.
+Importing trails / tracks
+Import tracks (GPX): bring in your recorded track history. Large files import via streaming; duplicates (same geometry) are skipped automatically, and a recap shows new vs. already-in-library.
+Import trails by area: draw an area to list and download trail sources overlapping it. processing fix in progress
+Coming: waypoint and route extraction from GPX (all GPX imports are currently treated as tracks); GPX/KML open-with handler.
+2 · Convoy Map
+Screen: Convoy Map (incl. Meshtastic connection / monitoring panel) · ? help anchor: #convoy-map
+The Convoy Map is the live group-tracking screen used during a ride. It shows your position and the positions of other riders relayed over the Meshtastic LoRa mesh, plus the same trail/track/waypoint/route display and route-building tools as the Planning Map.
+Connecting to your radio (connection &amp; monitoring panel)
+Connect: open the connection panel and pair your Meshtastic device (e.g. T1000-E) over Bluetooth. The panel shows connection state.
+Monitoring: the panel reports link status and node activity. Use it to confirm the mesh is up before relying on positions.
+Device compatibility: some budget Android devices cannot hold a stable Bluetooth link to the radio (the connection drops after several seconds). If positions stop updating and the panel shows repeated disconnects, the device may be incompatible — see the tester compatibility list.
+Live tracking
+Rider positions: other riders appear as node markers, updated as mesh packets arrive.
+Your position: driven by the phone GPS once location permission is granted.
+Waypoints
+Drop a waypoint: long-press the map to drop a waypoint pin.
+Pin shape: waypoints display as teardrop pins — the pin's point marks the exact location you dropped it. Each waypoint type has its own color and icon.
+Proximity: waypoints within 100 m are treated as the same location.
+Download QUEUES (tile downloads)
+QUEUES: opens the live download monitor (top-right) showing tile-download progress.
+Building a route on the Convoy Map
+Identical to the Planning Map — see Section 4 → Creating a Route.
+3 · Convoy Radio-Write Menu (Apply / Archive / Restore)
+Screen: Convoy menu — radio configuration · ? help anchor: #radio-write
+Transitional — current and supported in V2.5. These radio-configuration functions are how radio writes happen this release. They are slated to be replaced in 3.0, but they work now and you should use them. This manual fully covers them; the 3.0 manual will rewrite this section when the functions change.
+Apply Convoy Config (write to radio)
+Connect the radio first (Section 2 connection panel) — the write action is unavailable with no Bluetooth link.
+Open the Convoy menu → radio configuration.
+Review the config values (channel, encryption keys, device settings). Values are validated before writing.
+Apply. The write proceeds screen-by-screen / in passes through the config groups; confirm each completes.
+Field validation: the config is validated (e.g. full field check) before programming. A two-pass programming approach is used so all config groups are written and confirmed.
+Archive radio config
+Save the current working radio configuration so it can be restored later. Use this before making changes.
+Restore radio config
+Re-apply a previously archived configuration to the connected radio.
+Coming (replaces this menu in a future build): a screen-by-screen radio-config writer that mirrors each Meshtastic config screen, pre-populated and read-only, with a PROCEED button that is disabled (red) until the radio is connected (then green), saving after each screen through all config groups.
+4 · Work with Artifacts
+Screen: Work with Artifacts (shared by both maps)
+"Work with Artifacts" is the control center for everything you display and create on the map: trails, tracks, waypoints, and routes. The toggle and select/edit controls are the same on the Planning Map and the Convoy Map.
+Display toggles (ON / OFF / SELECTED)
+ON: show all artifacts of that type in view.
+OFF: hide that type.
+SELECTED: show only the items you've checked in that type's select/edit list.
+Select / Edit list (per type)
+Open a type's SEL/Edit list to check individual items for SELECTED display, or to open an item's detail.
+List limit: the list currently shows up to 200 items. paging — coming
+Trails over-limit: when more trails are in view than can be shown, SEL/Edit shows "Too many trails in view — zoom in to reduce." coming
+Track display
+Tracks display as dashed green lines from your device's spatial database. When Tracks are on, each track shows direction-of-travel arrows along the line so you can read which way it runs — useful for telling a single looping track from two overlapping ones. (Arrows may take a brief pan or zoom to appear right after you toggle Tracks on.)
+Routes display
+Routes display as magenta lines, loaded from your device's spatial database the same viewport-aware way as trails and tracks. Build a route with + ROUTE (see Creating a Route). (Importing routes from GPX, and the Draw / Suggest build methods, are coming in upcoming updates.)
+Creating a Route (early access)
+A route is a planned path you build by tapping the map, then save with a name for later use. Route building works on both the convoy map and the planning map.
+Open the map (convoy or planning).
+Open "Work with Artifacts" and tap + ROUTE. The Route+ toolbar appears.
+Tap New. A "Name this route" box appears with a suggested name — accept it or type your own — then start building.
+Add is on by default (green): tap the map to drop points. If a trail or track is nearby, the point snaps to it and the magenta route line follows the trail's actual shape between your points — so the route traces real trails instead of cutting straight across. Tap away from any trail to place a free point exactly where you tapped. Tip: zoom in while building for the most reliable snapping.
+Use Undo to remove the most recent point.
+Pan and zoom freely between taps to position the map.
+Tap Save to store the route. It is saved on your device, redraws on the map in magenta, and appears in Work with Artifacts → Routes under the name you gave it.
+Tap Discard to leave without saving.
+Coming next (not in this build):
+Save In Progress / Resume: save a half-finished route and re-open it later to keep editing (the "In Progress" entry).
+Draw and Suggest build methods (placeholders today).
+Renaming/editing a saved route from the Routes list (route maintenance).
+Route maintenance (rename, edit geometry, delete a completed route) lives in Work with Artifacts → Routes (SEL/Edit), not in the Route+ toolbar. The toolbar is for building only.
+Track / Trail / Waypoint maintenance
+Per-type maintenance (rename, detail, delete) is reached from each type's SEL/Edit list. trail/route/waypoint maintenance — in progress
+Unnamed trails display as "Not Named." consistent labeling — being aligned at import
+Manual maintenance note (internal): when a screen's functions change AND are complete, update that screen's section here and re-point its ? help anchor. Transitional radio-config sections (Section 3) are removed/rewritten in the 3.0 manual when those functions are replaced.
 
 
 === RouteBuilder_Blueprint_2026-06-03.html ===
