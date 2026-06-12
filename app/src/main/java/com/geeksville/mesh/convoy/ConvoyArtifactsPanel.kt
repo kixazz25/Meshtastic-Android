@@ -4,6 +4,16 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.LocalTextStyle
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -48,6 +58,9 @@ fun ConvoyArtifactsPanel(
     onImport: (String) -> Unit = {},
     onSetState: (String, Int) -> Unit = { _, _ -> },
     onCreateRoute: () -> Unit = {},
+    onSearch: (String, String) -> Unit = { _, _ -> },
+    onResultClick: (String, String, String) -> Unit = { _, _, _ -> },
+    searchResults: List<ArtifactResult> = emptyList(),
     onDismiss: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -121,6 +134,11 @@ fun ConvoyArtifactsPanel(
             ) {
                 Column(modifier = Modifier.padding(top = 6.dp)) {
 
+                    // ── SEARCH (V2.5 [2h]) — non-spatial name search, above the type grid ──
+                    SearchBlock(onSearch = onSearch)
+                    ResultsList(results = searchResults, onResultClick = onResultClick)
+                    Spacer(modifier = Modifier.height(8.dp))
+
                     // Column headings
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp, horizontal = 4.dp),
@@ -163,6 +181,137 @@ fun ConvoyArtifactsPanel(
                                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp))
                             }
                         }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SearchBlock(onSearch: (String, String) -> Unit) {
+    val aMono = FontFamily.Monospace
+    // selType holds the lowercase TABLE name passed to searchByName ("trails"/"tracks"/
+    // "waypoints"/"routes"); null = no pick yet (Enter-search disabled).
+    var selType by remember { mutableStateOf<String?>(null) }
+    var term by remember { mutableStateOf("") }
+    var menuOpen by remember { mutableStateOf(false) }
+    val types = listOf(
+        "Trail" to ("trails" to aGreen),
+        "Track" to ("tracks" to aBlue),
+        "Waypoint" to ("waypoints" to aOrange),
+        "Route" to ("routes" to aPurple)
+    )
+    val selLabel = types.firstOrNull { it.second.first == selType }?.first
+    val selColor = types.firstOrNull { it.second.first == selType }?.second?.second ?: aTxtD
+
+    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
+        // ── Type dropdown (precedes the name field) ──
+        Box(modifier = Modifier.fillMaxWidth()) {
+            Surface(
+                modifier = Modifier.fillMaxWidth().clickable { menuOpen = true },
+                shape = RoundedCornerShape(3.dp),
+                color = Color(0xFF0D1520)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 7.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        selLabel ?: "Select type…",
+                        color = if (selLabel != null) selColor else aTxtD,
+                        fontSize = 11.sp, fontFamily = aMono, fontWeight = FontWeight.Bold,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Text("v", color = aTxtD, fontSize = 10.sp, fontFamily = aMono)
+                }
+            }
+            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                types.forEach { (label, pair) ->
+                    val table = pair.first
+                    val col = pair.second
+                    DropdownMenuItem(
+                        text = {
+                            Text(label, color = col, fontSize = 12.sp,
+                                fontFamily = aMono, fontWeight = FontWeight.Bold)
+                        },
+                        onClick = { selType = table; menuOpen = false }
+                    )
+                }
+            }
+        }
+        Spacer(modifier = Modifier.height(4.dp))
+        // ── Name field — Enter (ImeAction.Search) runs the search; no FIND button ──
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(3.dp),
+            color = Color(0xFF0D1520)
+        ) {
+            BasicTextField(
+                value = term,
+                onValueChange = { term = it },
+                singleLine = true,
+                textStyle = LocalTextStyle.current.copy(
+                    color = aTxtB, fontSize = 11.sp, fontFamily = aMono
+                ),
+                cursorBrush = SolidColor(aBlue),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(
+                    onSearch = { selType?.let { onSearch(it, term) } }
+                ),
+                decorationBox = { inner ->
+                    Box(modifier = Modifier.padding(horizontal = 8.dp, vertical = 7.dp)) {
+                        if (term.isEmpty()) {
+                            Text(
+                                if (selType == null) "pick a type first" else "search name, then Enter",
+                                color = aTxtD, fontSize = 11.sp, fontFamily = aMono
+                            )
+                        }
+                        inner()
+                    }
+                }
+            )
+        }
+    }
+}
+
+@Composable
+private fun ResultsList(
+    results: List<ArtifactResult>,
+    onResultClick: (String, String, String) -> Unit
+) {
+    val aMono = FontFamily.Monospace
+    Spacer(modifier = Modifier.height(4.dp))
+    Surface(
+        modifier = Modifier.fillMaxWidth().heightIn(min = 36.dp, max = 200.dp),
+        shape = RoundedCornerShape(4.dp),
+        color = Color(0xFF0D1520)
+    ) {
+        if (results.isEmpty()) {
+            Box(modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp),
+                contentAlignment = Alignment.Center) {
+                Text("pick a type, then FIND", color = aTxtD, fontSize = 9.sp, fontFamily = aMono)
+            }
+        } else {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState()).padding(vertical = 2.dp)) {
+                if (results.size >= 200) {
+                    Text("showing first 200 — refine",
+                        color = aOrange, fontSize = 8.sp, fontFamily = aMono,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp))
+                }
+                results.forEach { r ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth()
+                            .clickable { onResultClick(r.type, r.id, r.geomHash) }
+                            .padding(horizontal = 8.dp, vertical = 5.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(r.name, color = aTxtB, fontSize = 10.sp, fontFamily = aMono,
+                            modifier = Modifier.weight(1f))
+                        Text("#${r.seq}", color = aBlue, fontSize = 9.sp, fontFamily = aMono,
+                            fontWeight = FontWeight.Bold)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(r.id.take(8), color = aTxtD, fontSize = 8.sp, fontFamily = aMono)
                     }
                 }
             }

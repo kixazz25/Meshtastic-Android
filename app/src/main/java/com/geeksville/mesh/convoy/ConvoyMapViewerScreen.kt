@@ -216,6 +216,7 @@ fun ConvoyMapViewerScreen(
     var trackState by remember { mutableStateOf(pmSeed.types["Tracks"]?.state ?: DS_OFF) }
     var waypointState by remember { mutableStateOf(pmSeed.types["Waypoints"]?.state ?: DS_OFF) }
     var routeState by remember { mutableStateOf(pmSeed.types["Routes"]?.state ?: DS_OFF) }
+    var searchResults by remember { mutableStateOf(emptyList<ArtifactResult>()) }
     var trailCheckedIds by remember { mutableStateOf(MapStateStore.checkedIdsFor(pmSeed, "Trails")) }
     var trackCheckedIds by remember { mutableStateOf(MapStateStore.checkedIdsFor(pmSeed, "Tracks")) }
     var waypointCheckedIds by remember { mutableStateOf(MapStateStore.checkedIdsFor(pmSeed, "Waypoints")) }
@@ -886,6 +887,19 @@ fun ConvoyMapViewerScreen(
                     // +ROUTE -> choose New vs In-Progress BEFORE the toolbar opens.
                     showEntryChoice = true
                 },
+                onSearch = { type, term ->
+                    coroutineScope.launch {
+                        val raw = withContext(kotlinx.coroutines.Dispatchers.IO) {
+                            SpatialDbManager.init(context)
+                            SpatialDbManager.searchByName(type, term)
+                        }
+                        searchResults = assignNameSequence(raw)
+                    }
+                },
+                onResultClick = { type, id, geomHash ->
+                    android.util.Log.i("GT-SEARCH", "click type=$type id=$id hash=$geomHash")
+                },
+                searchResults = searchResults,
                 displayStates = mapOf("Trails" to trailState, "Tracks" to trackState, "Waypoints" to waypointState, "Routes" to routeState),
                 onSetState = { typeName, newState ->
                     // Write to ConvoyConfig (synchronous, visible to Thread) AND compose state (UI)

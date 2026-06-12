@@ -54,6 +54,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -187,6 +188,7 @@ fun ConvoyScreen(
         var trackState by remember { mutableStateOf(cmSeed.types["Tracks"]?.state ?: DS_OFF) }
         var waypointState by remember { mutableStateOf(cmSeed.types["Waypoints"]?.state ?: DS_OFF) }
         var routeState by remember { mutableStateOf(cmSeed.types["Routes"]?.state ?: DS_OFF) }
+        var searchResults by remember { mutableStateOf(emptyList<ArtifactResult>()) }
         var pendingWaypoint by remember { mutableStateOf<Pair<Double, Double>?>(null) }
         // ROUTE BUILDER: route mode active -> Route+ toolbar shown (read by next patch)
         var routeMode by remember { mutableStateOf(false) }
@@ -1362,6 +1364,19 @@ fun ConvoyScreen(
                         // +ROUTE -> choose New vs In-Progress BEFORE the toolbar opens.
                         showEntryChoice = true
                     },
+                    onSearch = { type, term ->
+                        coroutineScope.launch {
+                            val raw = withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                SpatialDbManager.init(context)
+                                SpatialDbManager.searchByName(type, term)
+                            }
+                            searchResults = assignNameSequence(raw)
+                        }
+                    },
+                    onResultClick = { type, id, geomHash ->
+                        android.util.Log.i("GT-SEARCH", "click type=$type id=$id hash=$geomHash")
+                    },
+                    searchResults = searchResults,
                     displayStates = mapOf("Trails" to trailState, "Tracks" to trackState, "Waypoints" to waypointState, "Routes" to routeState),
                     onSetState = { typeName, newState ->
                         when(typeName) {

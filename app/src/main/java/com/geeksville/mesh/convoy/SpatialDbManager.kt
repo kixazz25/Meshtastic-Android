@@ -339,6 +339,49 @@ object SpatialDbManager {
 
 
     /** Query tracks by viewport bounding box */
+    /**
+     * NON-SPATIAL name search across the WHOLE artifact table (NOT bbox-bounded).
+     * Names are not unique -- a result is a name-occurrence keyed by geom_hash.
+     * Rows ordered by (name COLLATE NOCASE, geom_hash) so the caller can assign a
+     * stable per-name sequence number (1 = first geom_hash for that name, ...).
+     * Excludes unnamed rows (null / blank / 'Not Named' sentinel).
+     * type in: "tracks" | "trails" | "waypoints" | "routes" (lowercase plural).
+     * Each row: {id, name, geom_hash, type}.
+     */
+    fun searchByName(type: String, term: String, limit: Int = 200): List<Map<String, String?>> {
+        val db = spatialDb ?: return emptyList()
+        val (table, idCol) = when (type) {
+            "tracks"    -> "tracks"    to "track_id"
+            "trails"    -> "trails"    to "trail_id"
+            "waypoints" -> "waypoints" to "waypoint_id"
+            "routes"    -> "routes"    to "route_id"
+            else -> return emptyList()
+        }
+        val results = mutableListOf<Map<String, String?>>()
+        try {
+            val cursor = db.rawQuery(
+                "SELECT $idCol, name, geom_hash FROM $table " +
+                "WHERE name LIKE ? AND name IS NOT NULL AND TRIM(name) <> '' AND name <> 'Not Named' " +
+                "ORDER BY name COLLATE NOCASE, geom_hash LIMIT ?",
+                arrayOf("%" + term + "%", limit.toString())
+            )
+            cursor.use {
+                while (it.moveToNext()) {
+                    results.add(mapOf(
+                        "id" to it.getString(0),
+                        "name" to it.getString(1),
+                        "geom_hash" to it.getString(2),
+                        "type" to type
+                    ))
+                }
+            }
+            android.util.Log.i("ArtifactSearch", "searchByName($type,'$term') -> ${results.size}")
+        } catch (e: Exception) {
+            android.util.Log.e("ArtifactSearch", "searchByName failed: ${e.message}")
+        }
+        return results
+    }
+
     fun queryTracksByViewport(south: Double, west: Double, north: Double, east: Double, limit: Int = 500): List<Map<String, String?>> {
         val db = spatialDb ?: return emptyList()
         val results = mutableListOf<Map<String, String?>>()
