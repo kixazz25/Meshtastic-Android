@@ -12832,57 +12832,67 @@ grep -rn 'about\|About\|splash\|Splash\|version\|tagline' app/src/main/java/com/
 - One build covers items 1–8 (all in the app); build once at the end of the code items, not after each, to save time — but commit each separately so they're individually revertible. (Item 5 versionCode + item 4 manifest want to be in the build you test.)
 
 
-=== GroupTrack_Handoff_2026-06-11.md ===
-# GroupTrack — Handoff / End-of-day recap — 2026-06-11
+=== GroupTrack_Handoff_2026-06-12.md ===
+# GroupTrack — Handoff / End-of-day recap — 2026-06-12
 
-_Note-to-future-Claude. Read this + `GroupTrack_V25_LivingChecklist_CONSOLIDATED_2026-06-11.md` first next session. Project runs out of Fred's machine (`~/Meshtastic-Android`, branch `feature/convoy-event-ride`, package `com.grouptrack.android`, RELEASE builds). The container does NOT have the repo — Claude gives commands, Fred runs them one at a time and pastes results. The CURRENT doc baseline is this 2026-06-11 set (checklist CONSOLIDATED 06-11 + manual 06-11 + release notes 06-11). Build on Fred's upload, NOT the Drive connector (which lags at 06-04 and can't see the newer docs)._
+_Note-to-future-Claude. Read this + `GroupTrack_V25_LivingChecklist_CONSOLIDATED_2026-06-12.md` first next session. Project runs out of Fred's machine (`~/Meshtastic-Android`, branch `feature/convoy-event-ride`, package `com.grouptrack.android`, RELEASE builds). The container does NOT have the repo — Claude gives commands, Fred runs them one at a time and pastes results. CURRENT doc baseline = this 2026-06-12 set. Build on Fred's UPLOAD, not the Drive connector (which lags ~a week)._
 
-## FINISHED + COMMITTED today
+## ⚡ START HERE NEXT SESSION — finish [2h] (the cram is half-applied)
 
-- **Route-draft picker refresh bug — FIXED + COMMITTED + DEVICE-APPROVED (`03c9e1a56`).** The In-Progress route picker showed a stale "ghost" list (every in-progress route ever created), Delete did nothing, and `route_drafts/` was empty on device yet the picker still showed items. Root cause was a **Compose refresh bug**, not a delete/path bug: `ConvoyScreen` line 205 `emulatedDrafts` was a bare `val` that read the disk once and never re-read; Save (@~1551) and Discard (@~1578) mutated draft files without ticking the refresh key. Fix (3 edits): line 205 → `remember(draftListTick) { RouteDraftStore.listDrafts().map { it.name } }`; Save + Discard each `draftListTick++` (now 3 tick sites — save, discard, picker-delete). Built clean (12m03s), device-approved. (`deleteDraft`/`listDrafts`/`fileFor` were all correct — the empty dir proved delete worked.)
+**Today's headline: [2h] SEARCH is DONE, committed, and device-proven. The DETAIL CARD is half-built — 2 of 4 patches applied but NOT yet built.** Tomorrow = apply pieces 3 + 4, build once, device-test.
 
-- **V2.5 cleanup batch — COMMITTED + DEVICE-APPROVED (`bcd5f8e31`, 2 files).** Three checklist items:
-  - **[8.5]/[8.8]** `android:foregroundServiceType` (connectedDevice) added to SystemForegroundService in AndroidManifest — clears the lint Error-gate (one fix, both items).
-  - **[1.7]** route picker: "No in-progress routes yet" empty-state + distinct blank-name vs taken-name hint.
-  - **[3.5]** removed the leftover dead QUEUES drag vars (QUEUES was already locked top-right from 06-03).
+### State of the [2h] cram (read carefully — this is mid-surgery)
+- **SEARCH LAYER — COMMITTED `4f7abbbb7`, DEVICE-PROVEN.** Search-by-name across Trails/Tracks/Waypoints/Routes; type **dropdown** + **keyboard-Enter** (no FIND button); returns proper rows on device (tested: dropdown→Trail→`bluff`→Enter). This is the clean **rollback anchor** if the cram goes sideways.
+- **cram1 — APPLIED, UNBUILT.** `SpatialDbManager.kt` (LF, 58758→62471b). Added 4 detail-card DB readers before `addAlias`:
+  - `getArtifactDetail(type,id)` → **spatial** row (the full-data card source), drops the geometry blob, coerces name `"null"`/blank → `"Not Named"`.
+  - `getAliasesFor(type,id)` → **data-DB** `artifact_aliases`, preferred-first. ⚠️ data-DB handle is **`extensionDb`** (NOT dataDb); spatial is `spatialDb`.
+  - `setPreferredAlias(type,id,aliasId)` → star: set is_preferred=1, clear siblings in one txn (no db constraint).
+  - `deleteAlias(aliasId)` → remove one alias (UI enforces min-one guard).
+  - SQL **proven** against pulled DBs first (test_detail_readers_2026-06-12_v2.py).
+- **cram2 — APPLIED, UNBUILT.** `ArtifactListPanel.kt` (CRLF, 15175→21958b). Added reader/alias callbacks to the signature (`onLoadDetail, onLoadAliases, onAddAlias, onStarAlias, onDeleteAlias, onFit` — all defaulted null) + replaced the detail AlertDialog's text-block with the **two-column card**: LEFT rail = existing actions (rename/delete/share/export/change-type, per-type-gated) + **FIT** (stub, logs "FIT not yet wired"); RIGHT = type badge + **alias accordion** (★ star, source chip, × delete min-one-guard, + ADD ALIAS) + curated **full-data card** (spatial fields, geom_hash truncated, geometry hidden, empty-safe). Panel calls the readers **directly** (Fred chose main-thread; reads are tiny).
 
-- **[3.8] Waypoint marker shape — DONE + COMMITTED + DEVICE-CONFIRMED (2 map HTMLs).** Round circles → **teardrop pins**, one shape for all types, so the point marks the exact location. Edit is in the waypoint `L.divIcon` in both `convoy_map.html` + `grouptrack_map.html` (`border-radius:50% 50% 50% 0` + `rotate(-45deg)`, symbol wrapped in a counter-rotated `<span>` to stay upright, `iconAnchor` moved to the bottom tip `[13,26]`). Per-type color/symbol unchanged.
+### ⏭️ REMAINING — piece 3 + piece 4 (do BOTH before building; cram2 won't compile alone)
+**Piece 3 — wire both `ArtifactListPanel(...)` call sites** (ConvoyScreen.kt:1651 CONVOY, ConvoyMapViewerScreen.kt:1221 PLANNING):
+1. Pass `onLoadDetail = SpatialDbManager::getArtifactDetail` and `onLoadAliases = SpatialDbManager::getAliasesFor` to **both** maps.
+2. PLANNING **also** wires `onAddAlias` (→ ConvoyArtifactOps.addAlias), `onStarAlias` (→ setPreferredAlias), `onDeleteAlias` (→ deleteAlias). CONVOY wires **none** of those — read-only by design (live-ride map). **Preserve this asymmetry.**
+3. Turn `onResultClick` (currently `Log.i("GT-SEARCH", …)` stub on both) into **open the panel to the clicked artifact**. Two small prereqs:
+   - Add `initialDetailId: String? = null` param to `ArtifactListPanel` that seeds `detailArtifactId` (so a search hit opens straight to its detail card — one tap, not two).
+   - **Widen `onResultClick`** from `(type,id,geomHash)` to also carry **name** — the result row already has the name from `ArtifactResult`, so onResultClick can build `artifactList = listOf(mapOf("id" to id, "name" to name, "type" to type))` + set `activeListType` + `initialDetailId` with **no DB round-trip**. (ConvoyArtifactsPanel sig is `(String,String,String)` today.)
+4. **Same-line search layout** (Fred's 06-12 ask): the type dropdown should sit on the **same row** as the name field (currently stacked, dropdown above). Small SearchBlock layout tweak in ConvoyArtifactsPanel.kt — fold in here.
 
-- **[3.9] Track direction arrows — DONE + COMMITTED (3 files) · arrows have a known redraw-timing follow-up.** Direction-of-travel arrows on the **displayed DB tracks** (`trackLayer`), a diagnostic for the multi-track question (self-crossing loop → continuous one-way arrows = one track; conflicting arrows at an overlap = stacked tracks). The `leaflet-polylineDecorator` plugin is **vendored locally** at `app/src/main/assets/leaflet.polylineDecorator.js` (the CDN copy silently failed to load at runtime — `L.Symbol` undefined — so it's bundled; right call for an offline field app). It decorates `trackLayer.getLayers()` (the plugin rejects an `L.geoJSON` group directly), guarded so a missing plugin can never break track display. **Tracks display reliably.**
-  - **KNOWN FOLLOW-UP (~20 min next session):** the decorator only redraws on the map's `moveend`, so on first toggle the arrows render late and/or only **one** arrow shows until a pan/zoom nudges the map. Fix by forcing a redraw in `showTracks` after `trackArrows.addTo(map)` — e.g. `map.fire('moveend')` or call the decorator's redraw — so the full repeating series draws instantly. If one-arrow persists after that, secondary suspect is MULTILINESTRING track geometry (ties to [3.7]).
-  - Fred's call on the arrow timing: **"no harm no foul, leave it in place, come back and debug further later."** Committed as-is.
+**Piece 4 — delete the orphan** `ConvoyArtifactDetailPanel.kt` (the never-wired Pass-1 scaffold — zero call sites; the real detail surface is ArtifactListPanel).
 
-- **Also reported complete by Fred today (commit hashes not captured — verify in `git log` next session):** **[3.4]** convoy waypoint-drop now fires · **[4.6]** track-import over-capture verified · **[8.1]** osmdroid tile-cache-scan ANR · **[8.2]** storage-permission startup ANR · **[8.6]** versionCode mechanism. **[8.1] + [8.2] were the two launch-blocking ANRs gating the AAB — both now cleared, a major release unblock.**
+**Then:** one build (`./gradlew assembleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease`), install Droid 2, device-test: search → click a result → detail card opens (left rail actions, right alias accordion + full-data). Test a **Trail** (only trails have alias data + carto_code/source_id today). Then commit the cram, and **[2h] + [11.2] close**.
 
-## WHERE WE BEGIN TOMORROW
+**Cram patch files** (in /mnt/user-data/outputs, re-deliverable): `cram1_detail_readers_2026-06-12.py`, `cram2_detail_card_2026-06-12.py`, `test_detail_readers_2026-06-12_v2.py`.
 
-**Next focus = [2h] — Artifact-detail panel + Search.** This is the release-critical remaining UI work; the layout is already approved (mockups, 06-11). Both cosmetic display items ([3.8] + [3.9]) are now done, so the cosmetic queue is clear.
+## KEY DISCOVERIES TODAY (correct earlier wrong calls)
+- **The live detail surface is `ArtifactListPanel.kt`** (hosted ConvoyScreen:1651 + ConvoyMapViewerScreen:1221), NOT the `ConvoyArtifactDetailPanel` scaffold. An earlier call this week said "no parallel detail panel" — that was wrong (grepped the scaffold's name). Fred insisted there was a working detail panel; he was right.
+- **Spatial DB controls everything except aliases.** The full-data card reads the **spatial** per-type row (tracks/trails/waypoints/routes). The data-DB `*_properties` tables are NOT the click-detail source — and for tracks/waypoints/routes they're **empty** anyway (only `trail_properties` populated, 49065 rows). Aliases are the **only** thing the card reads from the data DB.
+- **Data-DB handle is `extensionDb`** (the file calls grouptrack_data.db the "extension" DB). Caught this before the build — would've failed to compile as `dataDb`.
+- **Some trail names are the literal string `"null"`** in the DB (not SQL NULL) — the reader coerces to "Not Named".
 
-1. **FIRST MOVE (gating step): verify the alias/property data layer actually exists in the schema today** before building any UI on top of it. The detail card depends on the alias/full-data layer (Goal 2 / dedup 2a–2g). If it's there → build. If not → that surfaces the dependency and we shape it first.
-2. **Build target** (one composable, 4 type-configs): LEFT panel = Search (type selector Trail/Track/Waypoint/Route + name field + button) above the OFF/ALL/SEL-EDIT row above the results list; result rows clickable → open the detail card. RIGHT panel = the detail card as **two columns**: left rail = the **function list** (enumerate ALL existing functions LIVE from real code at impl time — rename, delete, show/add alias, fit-to-display, plus per-type: Track to-route/survey, Waypoint edit, Route set-trailhead), right = content (type badge + display_name, alias accordion with star=preferred + agency/user/aws chips, full-data card).
-3. **ISOLATE + FIT-TO-SCREEN = placeholder/stub now** (Fred's scoping) — it's the most expensive part and overlaps [3.1]/[3.7]; wire a minimal entry point so Search + results + detail content ship unblocked, build real fit-to-extent later on [3.1]'s viewport mechanism.
-4. Spec refs: AllDocs ~17499-17517 + 19671-19735.
-
-**Optional quick win if Fred wants it first:** the [3.9] arrow redraw fix (~20 min) — force the redraw in `showTracks`, rebuild, confirm the full repeating arrow series appears instantly on toggle.
-
-## STILL OPEN — pre-AAB gates (after the functional work)
-- **[8.7]** About / Attribution screen (GPL / Leaflet / Esri) for Play compliance.
-- **[8.9]** First-launch Release-Notes acknowledgment gate.
-- Then: strip-logs ✅ / lint ✅ / versionCode ✅ → `bundleGoogleRelease -Pandroid.injected.version.code=NNNNN` (N > Play-live AND > 29320600) → confirm signing (Play vs local APK use different keys). **Release HALTED until Fred says ship.**
+## SHIP-CUTOFF (Fred's directive, captured today)
+Ship a cutoff that **functions and does not kick the can** on 2.5 items — as complete as possible, then screens/manual. NOT "all 40 items"; NOT "defer 2.5 to 3.0." Draw the line through **tester-visible functional bugs**; everything below (won't-hit / plumbing / cleanup) → release-notes known-issues or 2.6.
+- **HARD pre-AAB gates = only [8.7] About/Attribution + [8.9] first-launch release-notes gate**, then bundle (versionCode -P flag, signing). Everything else is either done or non-gating.
+- **Manual + release notes are NOT in the AAB** — they ship with the **website** ([9.3]). Screenshots ([9.1]/[9.4]) come AFTER features settle ("don't screenshot a screen about to change"). So the docs track is **last**, after [2h] and the other functional work freeze the screens.
+- Tester-visible functional shortcomings to weigh for the cutoff line: [1.2] sliceLine whole-trail explosion (meatiest), [3.1] blank-on-return + lost selections, [3.7] clump-at-low-zoom + z12 limit, [3.3] dead convoy QUEUES, [1.3] armed-gating, [1.12] route z-order, [1.6] snap radius.
 
 ## TREE STATE
-- HEAD line today: `03c9e1a56` (route-draft fix) → `bcd5f8e31` (cleanup batch), then today's **[3.9]** commit (3 files: 2 map HTMLs + `leaflet.polylineDecorator.js`) and **[3.8]** commit (2 map HTMLs) on top — **grab the exact hashes from `git log` next session** (not captured tonight). The 3.4/4.6/8.1/8.2 "reported complete" commits also need their hashes confirmed in the log.
-- Working tree also carries PARKED weekend state — leave it: `M utah_trails_stgeorge.geojson`, `?? grouptrack_manual.html`, `?? grouptrack_release_notes.html`, `?? utah_trails_stgeorge.geojson.bak` (NEVER git-add the `.bak`), `D docs/.tmp.driveupload/10630`. **Commit only explicitly-named files, never `git add .`.**
+- HEAD = **`4f7abbbb7`** ([2h] search layer) on top of `03c9e1a56` → `bcd5f8e31` → C-1 → [3.9]+[3.8].
+- Working tree carries **cram1 + cram2 applied-uncommitted** (SpatialDbManager.kt, ArtifactListPanel.kt) — these are the in-flight detail card; they build green only after pieces 3+4.
+- Plus PARKED weekend state — leave it: `M utah_trails_stgeorge.geojson`, `?? grouptrack_manual.html`, `?? grouptrack_release_notes.html`, `?? utah_trails_stgeorge.geojson.bak` (NEVER git-add the `.bak`), `D docs/.tmp.driveupload/10630`. **Commit only explicitly-named files, never `git add .`.**
 
 ## TERMINAL / WORKFLOW NOTES (carried)
-- Git-Bash replays a stale command prefix onto the next line and mangles literal `!!` → re-type fresh; verify read-only.
-- Map HTML assets are **CRLF** → multi-line `python3 -c` anchors ABORT (count 0); use **single-line anchors** (each line unique, CRLF-agnostic). The two map files differ in **script-tag style** (convoy inline `</script>`, planning split-line) — eyeball `<script>`/`</script>` balance before a long asset build.
-- **Laptop `curl` fails TLS (exit 35)** — fetch files via browser download or `python3 urllib`, then `cp ~/Downloads/<file> <dest>`. Claude-generated files: deliver via the file panel → Fred downloads → `cp` into place.
-- Build ~10–34 min: `./gradlew assembleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease`; APK at `app/build/outputs/apk/google/release/app-google-release.apk`; install `adb -s 24039703201775 install -r -d <apk>` (Droid 2 = dev/test `24039703201775`, Droid 1 = field `8624SBCEDF00001789`). No `sqlite3` on device; `pm clear`/uninstall fail on release (reset = reboot + adb kill/start-server).
+- Line endings: `SpatialDbManager.kt` + `ConvoyArtifactsPanel.kt` = **LF**; `ConvoyScreen.kt` + `ConvoyMapViewerScreen.kt` + `ArtifactListPanel.kt` + map HTML = **CRLF**; manifest LF. `cat -A` / check before patching.
+- Single-line `python3 -c` anchors with match-count guard (write only if count==1 else ABORT). Git-Bash mangles `!!`; verify by byte size, not `git diff`.
+- **Confirm live field/handle names before writing patch code** (caught `extensionDb`-not-`dataDb` this way).
+- Build ~10–34 min: `./gradlew assembleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease`; APK at `app/build/outputs/apk/google/release/app-google-release.apk`; install `adb -s 24039703201775 install -r -d <apk>` (Droid 2 = dev/test `24039703201775`, Droid 1 = field `8624SBCEDF00001789`). Laptop `curl` fails TLS — Claude-generated files via the file panel → Fred downloads → `cp` into place. Remote /sdcard adb needs `MSYS_NO_PATHCONV=1`.
 
 ## DOC HYGIENE
-- This EOD set (checklist CONSOLIDATED 06-11, manual 06-11, release notes 06-11) is produced as full updated files from the 06-10 baseline Fred uploaded. Decision Log still owes dated append blocks for the 06-07, 06-10, and 06-11 sessions (append-only) — batch item [9.6].
-- Manual now reflects: teardrop waypoint pins (was "being finalized"), track direction arrows, and the snap-to-trail-is-live edits (the 06-10 drafts, applied in place). Release notes carry a "Latest in this build (June 11)" block.
+- This EOD set (handoff 06-12, checklist CONSOLIDATED 06-12, manual 06-12, release notes 06-12) produced as full updated files from the 06-11 baseline. **Checklist/manual/release-notes changes tonight are STATE-ONLY** — they reflect that search shipped + the detail card is in flight; they do NOT yet mark [2h]/[11.2] DONE (the card isn't built). Mark those complete next session after the cram builds + device-tests.
+- Decision Log still owes dated append blocks for 06-07, 06-10, 06-11, 06-12 sessions — batch item [9.6].
+- EOD memory restructure (split the 32KB grouptrack-v25.md into topic files + detail docs) still pending — do it in an EOD pass, not mid-build.
 
 
 === GroupTrack_Manual_CreatingARoute_update_2026-06-10.md ===
@@ -14533,9 +14543,11 @@ Re-tested per the 06-06 fork: undo WORKS (new route → undo ✔; resume → und
 - DONE (assets) — all-functions user manual grouptrack_manual.html (28,050 bytes) + release notes with tester upgrade-hazard callout + geojson shrunk to 3KB. Manual still has 37 "[screenshot to be added]" placeholders. Manual "Creating a Route" section needs the snap-now-live edit (GroupTrack_Manual_CreatingARoute_update_2026-06-10.md).
 
 
-=== GroupTrack_V25_LivingChecklist_CONSOLIDATED_2026-06-11.md ===
-# GroupTrack V2.5 — Living Checklist (CONSOLIDATED, full problem definitions) — 2026-06-11
+=== GroupTrack_V25_LivingChecklist_CONSOLIDATED_2026-06-12.md ===
+# GroupTrack V2.5 — Living Checklist (CONSOLIDATED, full problem definitions) — 2026-06-12
 
+> **2026-06-12 update:** **[2h] SEARCH layer — DONE + DEVICE-PROVEN + COMMITTED (`4f7abbbb7`):** search-by-name across all four types, dropdown type selector + keyboard-Enter, returns proper rows on device. **[2h] DETAIL CARD — IN FLIGHT (half-applied, not yet built):** detail-card DB readers (spatial detail + data-DB aliases) added to SpatialDbManager; ArtifactListPanel detail dialog rebuilt as the approved two-column card (left rail actions + FIT-stub; right alias accordion + full-data card). REMAINING: wire both call sites + `onResultClick`→open-panel + delete orphan `ConvoyArtifactDetailPanel.kt` → one build → device-test. **[11.2] (Trail/Route detail via SEL/Edit list) closes when the card builds + proves.** Discovery this session: the live detail surface is **ArtifactListPanel.kt** (not the scaffold); **spatial DB controls everything except aliases** (full-data card reads the spatial row; aliases are the only data-DB read). Pre-AAB gates unchanged: **[8.7]** About/Attribution, **[8.9]** first-launch release-notes gate.
+>
 > **2026-06-11 update:** committed + device-approved — route-draft picker refresh fix (`03c9e1a56`), cleanup batch `bcd5f8e31` (**8.5/8.8** lint gate + **1.7** picker text + **3.5** dead drag vars), **3.8** waypoint teardrop pins, **3.9** track direction arrows (tracks reliable; arrow redraw-timing follow-up). Also reported complete: **3.4** waypoint-drop, **4.6** track-import over-capture, **8.1** + **8.2** the two launch-blocking ANRs, **8.6** versionCode mechanism. Remaining pre-AAB gates: **8.7** About/Attribution, **8.9** first-launch release-notes gate. Next focus: **[2h]** artifact-detail panel + search.
 
 _Branch feature/convoy-event-ride · Device = Droid 2 24039703201775, release APK · Builds are RELEASE builds (assembleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease)._
@@ -14880,8 +14892,8 @@ Budget Android devices can't hold a BLE link to the T1000-E (supervision timeout
 ### 11.1 — Artifact list caps at 200 (paging) — OPEN
 The artifact list shows up to 200 entries; larger lists need paging. (Source: v2.5 release notes known-issues; backlog.)
 
-### 11.2 — Trail / Route DETAIL via SELECT/Edit list (not map-tap) — OPEN
-Provide trail/route detail from the SELECT/Edit list, not only via map-tap. (Source: master §D.)
+### 11.2 — Trail / Route DETAIL via SELECT/Edit list (not map-tap) — IN FLIGHT (closes when [2h] card builds)
+Provide trail/route detail from the SELECT/Edit list, not only via map-tap. (Source: master §D.) **2026-06-12: being delivered by the [2h] detail card.** The live SEL/Edit detail surface is `ArtifactListPanel.kt` (hosted ConvoyScreen:1651 + ConvoyMapViewerScreen:1221); its detail dialog has been rebuilt (cram2, applied-unbuilt) as the two-column card reading the spatial row (full-data) + data-DB aliases. Closes when pieces 3+4 build and device-test. Convoy = read-only; planning = editable (preserve asymmetry).
 
 ### 11.3 — Settings filter table (CartoCode / motorized / type filtering) — OPEN
 Build the settings filter table for filtering artifacts by carto_code / motorized / type. (Source: master §D.)
@@ -17935,6 +17947,306 @@ _Rebuilt 2026-05-31. Living spine. Legend: DONE=confirmed · PARTIAL=partly wire
 - **[ ] OPEN** ANR-SAFETY: load/render PDF OFF main thread, show gate AFTER heavy init — don't compound the startup ANRs.
 - **[ ] OPEN** Bundle current Release Notes PDF as asset; decide update path per release.
 
+=== GroupTrack_ArtifactPanel_Design_2026-06-12.html ===
+GroupTrack — Artifact Search & Detail · Design Reference
+  :root{
+    /* palette pulled from the app's own map chrome + release-notes theme */
+    --bg:#0e120d;            /* map-night background */
+    --panel:#161b13;         /* raised panel */
+    --panel2:#1d231a;        /* nested card */
+    --line:#2c3422;          /* hairline */
+    --line2:#3a4530;
+    --ink:#e9ede2;           /* primary text */
+    --dim:#9aa68c;           /* secondary text */
+    --faint:#6b7560;         /* tertiary / captions */
+    --trail:#3d7bd6;         /* TRAIL blue (OHV) */
+    --track:#39ff14;         /* TRACK neon green (matches dashed track lines) */
+    --waypoint:#d9a441;      /* WAYPOINT amber */
+    --route:#ff2fb0;         /* ROUTE magenta (matches route lines) */
+    --accent:#7bb661;        /* primary action green */
+    --warn:#e0563b;          /* destructive / blocked */
+    --star:#ffce47;          /* preferred-alias star */
+    --ui:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:"SF Mono","JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--ink);font:14px/1.55 var(--ui);
+    -webkit-text-size-adjust:100%;padding:0 0 64px}
+  .wrap{max-width:1120px;margin:0 auto;padding:22px 18px}
+  /* ---- doc header ---- */
+  .dochead{border-bottom:1px solid var(--line);padding-bottom:16px;margin-bottom:8px}
+  .docttl{font:800 22px/1.2 var(--ui);letter-spacing:-.2px}
+  .docttl b{color:var(--accent)}
+  .docsub{color:var(--dim);font-size:13px;margin-top:4px}
+  .docmeta{color:var(--faint);font-size:12px;margin-top:8px;font-family:var(--mono)}
+  .legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+  .ltag{font:600 11px var(--ui);letter-spacing:.3px;padding:3px 9px;border-radius:20px;border:1px solid var(--line2)}
+  .ltag.trail{color:var(--trail);border-color:#274a78}
+  .ltag.track{color:var(--track);border-color:#1f5a16}
+  .ltag.waypoint{color:var(--waypoint);border-color:#6e5520}
+  .ltag.route{color:var(--route);border-color:#7a1d59}
+  /* ---- section scaffolding ---- */
+  section{margin-top:30px}
+  .eyebrow{font:700 11px var(--ui);letter-spacing:1.6px;text-transform:uppercase;color:var(--faint)}
+  h2{font:700 17px var(--ui);margin:4px 0 3px;letter-spacing:-.1px}
+  .lede{color:var(--dim);font-size:13px;margin:0 0 14px;max-width:70ch}
+  /* ---- the device frame: shows the real on-screen layout ---- */
+  .stage{display:grid;grid-template-columns:300px 1fr;gap:14px;
+    background:var(--bg);border:1px solid var(--line);border-radius:14px;padding:14px}
+  @media(max-width:760px){.stage{grid-template-columns:1fr}}
+  .col-h{display:flex;align-items:center;gap:8px;margin:0 0 8px}
+  .col-h .n{font:700 11px var(--mono);color:var(--bg);background:var(--dim);border-radius:5px;padding:1px 7px}
+  .col-h .t{font:700 12px var(--ui);letter-spacing:.4px;text-transform:uppercase;color:var(--dim)}
+  /* ===== LEFT PANEL — Work with Artifacts ===== */
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:11px;overflow:hidden}
+  .panel-ttl{font:700 13px var(--ui);padding:11px 13px;border-bottom:1px solid var(--line);
+    display:flex;align-items:center;justify-content:space-between}
+  .panel-ttl .x{color:var(--faint);font-weight:400}
+  .pad{padding:12px 13px}
+  /* search block */
+  .search{background:var(--panel2);border:1px solid var(--line2);border-radius:9px;padding:11px;margin-bottom:13px}
+  .search .lbl{font:700 10px var(--ui);letter-spacing:1px;text-transform:uppercase;color:var(--faint);margin-bottom:8px}
+  .types{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:9px}
+  .type{font:600 11px var(--ui);text-align:center;padding:7px 0;border-radius:7px;cursor:pointer;
+    border:1px solid var(--line2);color:var(--dim);background:#10140d;user-select:none}
+  .type[data-on="1"]{color:var(--bg);font-weight:700}
+  .type.trail[data-on="1"]{background:var(--trail);border-color:var(--trail)}
+  .type.track[data-on="1"]{background:var(--track);border-color:var(--track)}
+  .type.waypoint[data-on="1"]{background:var(--waypoint);border-color:var(--waypoint)}
+  .type.route[data-on="1"]{background:var(--route);border-color:var(--route);color:#fff}
+  .field{display:flex;gap:6px}
+  .field input{flex:1;background:#10140d;border:1px solid var(--line2);border-radius:7px;
+    color:var(--ink);font:13px var(--ui);padding:8px 10px;min-width:0}
+  .field input::placeholder{color:var(--faint)}
+  .field input:focus{outline:none;border-color:var(--accent)}
+  .btn{font:700 12px var(--ui);border:none;border-radius:7px;padding:0 13px;cursor:pointer;
+    background:var(--accent);color:#0c1208;white-space:nowrap}
+  .btn:focus-visible{outline:2px solid var(--star);outline-offset:2px}
+  /* display-mode row */
+  .moderow{display:flex;align-items:center;gap:6px;margin-bottom:11px}
+  .moderow .ml{font:700 10px var(--ui);letter-spacing:.8px;text-transform:uppercase;color:var(--faint);margin-right:2px}
+  .seg{display:flex;border:1px solid var(--line2);border-radius:7px;overflow:hidden;flex:1}
+  .seg button{flex:1;font:700 11px var(--ui);letter-spacing:.4px;padding:7px 0;border:none;cursor:pointer;
+    background:#10140d;color:var(--dim);border-right:1px solid var(--line2)}
+  .seg button:last-child{border-right:none}
+  .seg button[data-on="1"]{background:var(--accent);color:#0c1208}
+  /* results list */
+  .rlbl{font:700 10px var(--ui);letter-spacing:1px;text-transform:uppercase;color:var(--faint);
+    display:flex;justify-content:space-between;margin:0 0 7px}
+  .rlist{display:flex;flex-direction:column;gap:5px;max-height:268px;overflow:auto}
+  .row{display:flex;align-items:center;gap:9px;padding:8px 9px;border-radius:8px;cursor:pointer;
+    background:var(--panel2);border:1px solid transparent}
+  .row:hover{border-color:var(--line2)}
+  .row[data-sel="1"]{border-color:var(--accent);background:#1a2415}
+  .row .chk{width:14px;height:14px;border-radius:3px;border:1.5px solid var(--faint);flex:none}
+  .row[data-chk="1"] .chk{background:var(--accent);border-color:var(--accent)}
+  .row .dot{width:8px;height:8px;border-radius:50%;flex:none}
+  .row .nm{flex:1;font:600 13px var(--ui);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .row .meta{font:11px var(--mono);color:var(--faint)}
+  .dot.trail{background:var(--trail)}.dot.track{background:var(--track)}
+  .dot.waypoint{background:var(--waypoint)}.dot.route{background:var(--route)}
+  .emptynote{font:12px var(--ui);color:var(--faint);text-align:center;padding:18px 8px;
+    border:1px dashed var(--line2);border-radius:8px}
+  /* ===== RIGHT PANEL — Detail card (two columns) ===== */
+  .detail{display:grid;grid-template-columns:168px 1fr;min-height:100%;
+    background:var(--panel);border:1px solid var(--line);border-radius:11px;overflow:hidden}
+  @media(max-width:520px){.detail{grid-template-columns:1fr}}
+  /* left rail — function list */
+  .rail{background:#12160f;border-right:1px solid var(--line);padding:11px 10px}
+  .rail .rh{font:700 10px var(--ui);letter-spacing:1px;text-transform:uppercase;color:var(--faint);margin:2px 2px 9px}
+  .fn{display:flex;align-items:center;gap:9px;width:100%;text-align:left;cursor:pointer;
+    background:none;border:none;color:var(--ink);font:600 12.5px var(--ui);
+    padding:8px 9px;border-radius:7px;margin-bottom:2px}
+  .fn:hover{background:var(--panel2)}
+  .fn .ic{width:16px;text-align:center;color:var(--dim);font-size:13px;flex:none}
+  .fn.danger{color:#f0a08f}
+  .fn.danger .ic{color:var(--warn)}
+  .fn[data-disabled="1"]{color:var(--faint);cursor:not-allowed}
+  .fn[data-disabled="1"] .ic{color:var(--faint)}
+  .fn .tagm{margin-left:auto;font:600 8.5px var(--mono);letter-spacing:.5px;color:var(--faint);
+    border:1px solid var(--line2);border-radius:4px;padding:1px 4px}
+  .railnote{font:10.5px/1.4 var(--ui);color:var(--faint);margin:10px 2px 0;padding-top:9px;border-top:1px solid var(--line)}
+  .railsep{height:1px;background:var(--line);margin:8px 2px}
+  /* right content */
+  .content{padding:15px 16px;min-width:0}
+  .badge{display:inline-flex;align-items:center;gap:7px;font:700 10px var(--ui);letter-spacing:1px;
+    text-transform:uppercase;padding:4px 10px;border-radius:6px;color:#0c1208}
+  .badge.trail{background:var(--trail);color:#fff}.badge.track{background:var(--track)}
+  .badge.waypoint{background:var(--waypoint)}.badge.route{background:var(--route);color:#fff}
+  .dname{font:800 21px/1.2 var(--ui);letter-spacing:-.3px;margin:11px 0 2px}
+  .dsub{font:12px var(--mono);color:var(--faint);margin-bottom:15px}
+  .acc{border:1px solid var(--line2);border-radius:9px;margin-bottom:14px;overflow:hidden}
+  .acc-h{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;
+    cursor:pointer;background:var(--panel2)}
+  .acc-h .l{font:700 11px var(--ui);letter-spacing:.6px;text-transform:uppercase;color:var(--dim)}
+  .acc-h .c{font:11px var(--mono);color:var(--faint)}
+  .acc-b{padding:6px 12px 11px}
+  .alias{display:flex;align-items:center;gap:9px;padding:7px 0;border-top:1px solid var(--line)}
+  .alias:first-child{border-top:none}
+  .alias .star{font-size:14px;line-height:1;cursor:pointer;color:var(--faint);flex:none;width:15px}
+  .alias .star[data-on="1"]{color:var(--star)}
+  .alias .an{flex:1;font:600 13px var(--ui);min-width:0}
+  .alias .an .anx{font:11px var(--mono);color:var(--faint);display:block;margin-top:1px}
+  .chip{font:600 9.5px var(--ui);letter-spacing:.5px;text-transform:uppercase;padding:2px 7px;border-radius:11px;flex:none}
+  .chip.agency{background:#173a1d;color:#7fd38a;border:1px solid #245a2e}
+  .chip.user{background:#2a2410;color:var(--waypoint);border:1px solid #5a4a1e}
+  .chip.aws{background:#13243a;color:#6fb0e8;border:1px solid #245078}
+  .alias .del{color:var(--faint);cursor:pointer;font-size:13px;flex:none;width:15px;text-align:center}
+  .alias .del[data-lock="1"]{opacity:.35;cursor:not-allowed}
+  .addalias{display:flex;gap:6px;margin-top:9px}
+  .addalias input{flex:1;background:#10140d;border:1px solid var(--line2);border-radius:6px;
+    color:var(--ink);font:12px var(--ui);padding:6px 9px;min-width:0}
+  .addalias input:focus{outline:none;border-color:var(--accent)}
+  .addalias .btn{font-size:11px;padding:0 11px}
+  /* full-data card */
+  .data{border:1px solid var(--line2);border-radius:9px;overflow:hidden}
+  .data .dh{font:700 11px var(--ui);letter-spacing:.6px;text-transform:uppercase;color:var(--dim);
+    padding:9px 12px;background:var(--panel2);border-bottom:1px solid var(--line)}
+  .kv{display:grid;grid-template-columns:148px 1fr;gap:0}
+  .kv>div{padding:7px 12px;border-top:1px solid var(--line);font-size:12.5px;min-width:0}
+  .kv>div:nth-child(-n+2){border-top:none}
+  .kv .k{color:var(--dim);font:600 11px var(--ui)}
+  .kv .v{font-family:var(--mono);color:var(--ink);word-break:break-word}
+  .kv .v.muted{color:var(--faint)}
+  .subhead{grid-column:1/-1;background:#12160f;color:var(--faint);
+    font:700 9.5px var(--ui)!important;letter-spacing:1px;text-transform:uppercase;padding:6px 12px!important}
+  .col-note{font:11.5px/1.5 var(--ui);color:var(--faint);margin-top:9px}
+  .col-note code{font-family:var(--mono);color:var(--dim);background:#10140d;padding:1px 5px;border-radius:4px;font-size:11px}
+  /* variants strip */
+  .variants{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:14px}
+  @media(max-width:760px){.variants{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:440px){.variants{grid-template-columns:1fr}}
+  .vcard{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;border-top:3px solid var(--line2)}
+  .vcard.trail{border-top-color:var(--trail)}.vcard.track{border-top-color:var(--track)}
+  .vcard.waypoint{border-top-color:var(--waypoint)}.vcard.route{border-top-color:var(--route)}
+  .vcard h4{font:700 12px var(--ui);margin:0 0 3px;letter-spacing:.4px}
+  .vcard .vfns{font:11px/1.7 var(--ui);color:var(--dim);margin:7px 0 0;padding-top:7px;border-top:1px solid var(--line)}
+  .vcard .vfns b{color:var(--ink);font-weight:600}
+  .vcard .vdata{font:11px/1.6 var(--mono);color:var(--faint);margin-top:6px}
+  /* spec notes */
+  .spec{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:4px 16px;margin-top:14px}
+  .spec li{margin:9px 0;font-size:13px;color:var(--dim)}
+  .spec li b{color:var(--ink);font-weight:600}
+  .spec code{font-family:var(--mono);font-size:11.5px;background:#10140d;color:var(--accent);padding:1px 6px;border-radius:4px}
+  .flag{background:#2a1512;border:1px solid #5a2a22;border-left:3px solid var(--warn);
+    border-radius:7px;padding:11px 13px;margin-top:14px;font-size:12.5px;color:#e8b9ae}
+  .flag b{color:#f4cfc6}
+  footer{margin-top:34px;padding-top:14px;border-top:1px solid var(--line);
+    font:11px var(--mono);color:var(--faint)}
+    GroupTrack — Artifact Search &amp; Detail
+    Design reference for the Work&nbsp;with&nbsp;Artifacts panel, name search, and the two-column detail card. Every data field below maps to a verified column in grouptrack_data.db.
+    V2.5 · [2h] · layout approved 2026-06-11 · schema verified 2026-06-12 · build target = ConvoyArtifactsPanel.kt + ConvoyArtifactDetailPanel.kt
+      ● Trail — agency-owned
+      ● Track — recorded GPS
+      ● Waypoint — dropped pin
+      ● Route — planned path
+    The screen
+    Left: find an artifact · Right: work with it
+    Search and the display controls share the left panel; tapping any result row opens that artifact's detail card on the right. The card's left rail is its function list (actions), the right side is its content (identity, aliases, full data).
+        LWork with Artifacts
+          Work with Artifacts planning map
+              Search by name
+                Trail
+                Track
+                Waypt
+                Route
+                Find
+              Show
+                Off
+                All
+                Sel · Edit
+            Results · Tracks4 found
+                Bear Claw Loop7.2&nbsp;mi
+                Bear Wallow Spur2.1&nbsp;mi
+                Bear Canyon Out-and-back5.8&nbsp;mi
+                Bearpaw Connector1.4&nbsp;mi
+        Type selector sets which artifact table is searched. Sel · Edit shows only checked rows on the map; checkboxes drive the SELECTED display filter (shared with the existing toggle behavior). Row click → opens the detail card →
+        RDetail card — Track
+            Functions
+            ✎ Rename
+            ⌖ Fit to display STUB
+            ≡ Show aliases
+            ➛ Convert to route
+            ★ Survey
+            🗑 Delete
+            Function list is enumerated live from the real code at build time — this is the Track config. Fit-to-display ships as a stub (rides [3.1] viewport work later).
+            Track
+            Bear Claw Loop
+            track_id 4471 · recorded 2026-05-18
+              Aliases3 records · ▾
+                  ★
+                  Bear Claw Loop set 2026-05-18 · shown on map
+                  user
+                  ✕
+                  ☆
+                  BCL_TRACK_0518 imported 2026-05-18 · source format GPX
+                  agency
+                  ✕
+                  ☆
+                  bearclaw-loop-utah synced 2026-05-20 · cloud
+                  aws
+                  ✕
+                  Add
+              Full data · track_properties
+                Distance7.2 mi
+                Duration2 h 14 m
+                Max speed18.4 mph
+                Avg speed3.2 mph
+                Elevation gain1,340 ft
+                Points3,902
+                Recorded at2026-05-18 09:12
+                Source formatGPX
+                Survey · track_surveys
+                Enjoyment4 / 5
+                Ride againYes
+            Identity (badge + preferred alias = display_name) sits above aliases above the full-data card. The data card's fields and the survey block come straight from track_properties + track_surveys.
+    One composable · four configs
+    What changes by artifact type
+    The frame is identical; the function list and full-data fields swap per type. Delete rules are enforced against real reference columns verified in the schema.
+        TRAIL
+        trail_properties
+          Functions: Rename · Fit&nbsp;to&nbsp;display · Show&nbsp;aliases · Delete (blocked — agency)
+          Data: class · carto code · motorized · surface · steward · county · distance · agency
+        TRACK
+        track_properties + track_surveys
+          Functions: Rename · Fit · Aliases · Convert&nbsp;to&nbsp;route · Survey · Delete*
+          Data: distance · duration · max/avg speed · elevation · points · survey
+        WAYPOINT
+        waypoint_properties
+          Functions: Rename · Fit · Aliases · Edit · Delete**
+          Data: elevation · description · source format · source file
+        ROUTE
+        route_properties
+          Functions: Rename · Fit · Aliases · Set&nbsp;trailhead · Delete***
+          Data: distance · method · trailhead · elevation · description
+        Delete guards (checked against verified reference columns): Trail — never deletable (agency-owned, agency_id/data_source set). Track* — warn if a route's source_track_id references it. Waypoint** — block if a route's trailhead_id references it. Route*** — block if route_properties.ride_id is not null.
+        Delete cascade (when allowed): remove the row's *_properties, its artifact_aliases, any track_surveys, queue entries, and write a data_log entry (before/after state).
+    Alias accordion
+    Preferred name, sources, and what's deletable
+        Preferred (★) = the alias shown as the artifact's display name on the map. Exactly one per artifact, local only. There's no DB constraint enforcing this — when the user stars an alias, the code clears the other is_preferred flags for that artifact in the same transaction.
+        Source chips read from artifact_aliases.source: agency and aws aliases are undeletable; user aliases are deletable — unless it's the only alias left (minimum one).
+        Records are dated (created_at / creation_date) and shown newest context first. Adding an alias is blocked from creating a duplicate name by UNIQUE(artifact_type, artifact_id, alias).
+        Write path: add-alias calls SpatialDbManager.addAlias(type, id, name, geomHash, creationDate) via ConvoyArtifactOps.addAlias(...). (AliasManager.kt is an empty stub — do not wire to it.)
+      Build-time reminders. Enumerate the function list live from the real code at implementation — the rail above is the intended set, not a hard-coded list. Fit&nbsp;to&nbsp;display ships as a stub this pass (real fit-to-extent rides the [3.1] viewport mechanism later). Read ConvoyArtifactDetailPanel.kt (currently a 33-line stub), ConvoyArtifactsPanel.kt, and the SpatialDbManager read paths live before wiring — xref gives signatures, not bodies, and line numbers drift.
+    GroupTrack V2.5 · Artifact Search &amp; Detail design reference · generated 2026-06-12 · pairs with GroupTrack_V25_LivingChecklist_CONSOLIDATED [2h]
+  // lightweight demo interactivity — design reference only, no app logic
+  document.querySelectorAll('.type').forEach(t=>t.addEventListener('click',()=>{
+    document.querySelectorAll('.type').forEach(x=>x.dataset.on="0");t.dataset.on="1";}));
+  document.querySelectorAll('.seg button').forEach(b=>b.addEventListener('click',()=>{
+    b.parentNode.querySelectorAll('button').forEach(x=>x.dataset.on="0");b.dataset.on="1";}));
+  document.querySelectorAll('.row').forEach(r=>r.addEventListener('click',e=>{
+    if(e.target.classList.contains('chk'))return;
+    document.querySelectorAll('.row').forEach(x=>x.dataset.sel="0");r.dataset.sel="1";}));
+  document.querySelectorAll('.row .chk').forEach(c=>c.addEventListener('click',e=>{
+    e.stopPropagation();const r=c.closest('.row');r.dataset.chk=r.dataset.chk==="1"?"0":"1";}));
+  document.querySelectorAll('.acc-h').forEach(h=>h.addEventListener('click',()=>{
+    const b=h.nextElementSibling;b.style.display=b.style.display==="none"?"":"none";}));
+  document.querySelectorAll('.alias .star').forEach(s=>s.addEventListener('click',()=>{
+    document.querySelectorAll('.alias .star').forEach(x=>{x.dataset.on="0";x.textContent="☆";});
+    s.dataset.on="1";s.textContent="★";}));
+
+
 === GroupTrack_DecisionLog_APPEND_2026-06-06.html ===
 GroupTrack — Decision Log (APPEND-ONLY detail record) — current 2026-06-06
   body { font-family: Arial, Helvetica, sans-serif; color:#1c1c1c; max-width:900px; margin:0 auto; padding:24px; line-height:1.5; }
@@ -19877,7 +20189,7 @@ TRAIL SOURCE CATALOGUI SCAFFOLDING NEXT
   Next session: UI Scaffolding → Populate → Wire Creation Functions
 
 
-=== GroupTrack_V25_UserManual_2026-06-11.html ===
+=== GroupTrack_V25_UserManual_2026-06-12.html ===
 GroupTrack V2.5 — User Manual (cookbook)
   body { font-family: Arial, Helvetica, sans-serif; color:#1c1c1c; max-width:900px; margin:0 auto; padding:24px; line-height:1.5; }
   h1 { font-size:26px; color:#1A3A5A; margin-bottom:2px; }
@@ -19899,7 +20211,7 @@ GroupTrack V2.5 — User Manual (cookbook)
   .screenref { font-size:12px; color:#888; font-style:italic; }
 GroupTrack — User Manual (V2.5)
 Cookbook style. Each section is one screen; every function on that screen is documented in place. The ? help icon on a screen deep-links to that screen's section here.
-V2.5 · 2026-06-11 · Online edition: grouptrack.org/manual · Bundled offline copy ships in-app · Sections map 1:1 to the screens that carry a ? help icon.
+V2.5 · 2026-06-12 · Online edition: grouptrack.org/manual · Bundled offline copy ships in-app · Sections map 1:1 to the screens that carry a ? help icon.
 How help links work: tapping ? on a screen opens this manual at that screen's section (the anchors below — #planning-map, #convoy-map, #radio-write, #artifacts). V2.5 scope for the ? icon: the screens that persist into 3.0 — Planning Map, Convoy Map (incl. the Meshtastic connection/monitoring panel), and the Convoy radio-write menu. The goal in 3.0 is ? on every screen.
 Sections
 1. Planning Map — explore trails, build routes, import/manage artifacts off-radio
@@ -19963,6 +20275,8 @@ OFF: hide that type.
 SELECTED: show only the items you've checked in that type's select/edit list.
 Select / Edit list (per type)
 Open a type's SEL/Edit list to check individual items for SELECTED display, or to open an item's detail.
+Search by name: choose an artifact type, type a name, and press Enter to find matching trails, tracks, waypoints, or routes by name across your whole database (not just what's on screen). Search is case-insensitive and matches partial names. Tap a result to open its detail. new in this build
+Item detail: opening an item shows its details and the available actions for that type (rename, delete, share/export, change type, aliases, fit-to-map). On the Convoy Map the detail is view-only; full editing is on the Planning Map. detail card landing — fit-to-map coming
 List limit: the list currently shows up to 200 items. paging — coming
 Trails over-limit: when more trails are in view than can be shown, SEL/Edit shows "Too many trails in view — zoom in to reduce." coming
 Track display

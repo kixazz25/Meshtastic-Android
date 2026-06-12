@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GroupTrack — Artifact Search & Detail · Design Reference</title>
+<style>
+  :root{
+    /* palette pulled from the app's own map chrome + release-notes theme */
+    --bg:#0e120d;            /* map-night background */
+    --panel:#161b13;         /* raised panel */
+    --panel2:#1d231a;        /* nested card */
+    --line:#2c3422;          /* hairline */
+    --line2:#3a4530;
+    --ink:#e9ede2;           /* primary text */
+    --dim:#9aa68c;           /* secondary text */
+    --faint:#6b7560;         /* tertiary / captions */
+    --trail:#3d7bd6;         /* TRAIL blue (OHV) */
+    --track:#39ff14;         /* TRACK neon green (matches dashed track lines) */
+    --waypoint:#d9a441;      /* WAYPOINT amber */
+    --route:#ff2fb0;         /* ROUTE magenta (matches route lines) */
+    --accent:#7bb661;        /* primary action green */
+    --warn:#e0563b;          /* destructive / blocked */
+    --star:#ffce47;          /* preferred-alias star */
+    --ui:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:"SF Mono","JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--ink);font:14px/1.55 var(--ui);
+    -webkit-text-size-adjust:100%;padding:0 0 64px}
+  .wrap{max-width:1120px;margin:0 auto;padding:22px 18px}
+
+  /* ---- doc header ---- */
+  .dochead{border-bottom:1px solid var(--line);padding-bottom:16px;margin-bottom:8px}
+  .docttl{font:800 22px/1.2 var(--ui);letter-spacing:-.2px}
+  .docttl b{color:var(--accent)}
+  .docsub{color:var(--dim);font-size:13px;margin-top:4px}
+  .docmeta{color:var(--faint);font-size:12px;margin-top:8px;font-family:var(--mono)}
+  .legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+  .ltag{font:600 11px var(--ui);letter-spacing:.3px;padding:3px 9px;border-radius:20px;border:1px solid var(--line2)}
+  .ltag.trail{color:var(--trail);border-color:#274a78}
+  .ltag.track{color:var(--track);border-color:#1f5a16}
+  .ltag.waypoint{color:var(--waypoint);border-color:#6e5520}
+  .ltag.route{color:var(--route);border-color:#7a1d59}
+
+  /* ---- section scaffolding ---- */
+  section{margin-top:30px}
+  .eyebrow{font:700 11px var(--ui);letter-spacing:1.6px;text-transform:uppercase;color:var(--faint)}
+  h2{font:700 17px var(--ui);margin:4px 0 3px;letter-spacing:-.1px}
+  .lede{color:var(--dim);font-size:13px;margin:0 0 14px;max-width:70ch}
+
+  /* ---- the device frame: shows the real on-screen layout ---- */
+  .stage{display:grid;grid-template-columns:300px 1fr;gap:14px;
+    background:var(--bg);border:1px solid var(--line);border-radius:14px;padding:14px}
+  @media(max-width:760px){.stage{grid-template-columns:1fr}}
+
+  .col-h{display:flex;align-items:center;gap:8px;margin:0 0 8px}
+  .col-h .n{font:700 11px var(--mono);color:var(--bg);background:var(--dim);border-radius:5px;padding:1px 7px}
+  .col-h .t{font:700 12px var(--ui);letter-spacing:.4px;text-transform:uppercase;color:var(--dim)}
+
+  /* ===== LEFT PANEL — Work with Artifacts ===== */
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:11px;overflow:hidden}
+  .panel-ttl{font:700 13px var(--ui);padding:11px 13px;border-bottom:1px solid var(--line);
+    display:flex;align-items:center;justify-content:space-between}
+  .panel-ttl .x{color:var(--faint);font-weight:400}
+  .pad{padding:12px 13px}
+
+  /* search block */
+  .search{background:var(--panel2);border:1px solid var(--line2);border-radius:9px;padding:11px;margin-bottom:13px}
+  .search .lbl{font:700 10px var(--ui);letter-spacing:1px;text-transform:uppercase;color:var(--faint);margin-bottom:8px}
+  .types{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:9px}
+  .type{font:600 11px var(--ui);text-align:center;padding:7px 0;border-radius:7px;cursor:pointer;
+    border:1px solid var(--line2);color:var(--dim);background:#10140d;user-select:none}
+  .type[data-on="1"]{color:var(--bg);font-weight:700}
+  .type.trail[data-on="1"]{background:var(--trail);border-color:var(--trail)}
+  .type.track[data-on="1"]{background:var(--track);border-color:var(--track)}
+  .type.waypoint[data-on="1"]{background:var(--waypoint);border-color:var(--waypoint)}
+  .type.route[data-on="1"]{background:var(--route);border-color:var(--route);color:#fff}
+  .field{display:flex;gap:6px}
+  .field input{flex:1;background:#10140d;border:1px solid var(--line2);border-radius:7px;
+    color:var(--ink);font:13px var(--ui);padding:8px 10px;min-width:0}
+  .field input::placeholder{color:var(--faint)}
+  .field input:focus{outline:none;border-color:var(--accent)}
+  .btn{font:700 12px var(--ui);border:none;border-radius:7px;padding:0 13px;cursor:pointer;
+    background:var(--accent);color:#0c1208;white-space:nowrap}
+  .btn:focus-visible{outline:2px solid var(--star);outline-offset:2px}
+
+  /* display-mode row */
+  .moderow{display:flex;align-items:center;gap:6px;margin-bottom:11px}
+  .moderow .ml{font:700 10px var(--ui);letter-spacing:.8px;text-transform:uppercase;color:var(--faint);margin-right:2px}
+  .seg{display:flex;border:1px solid var(--line2);border-radius:7px;overflow:hidden;flex:1}
+  .seg button{flex:1;font:700 11px var(--ui);letter-spacing:.4px;padding:7px 0;border:none;cursor:pointer;
+    background:#10140d;color:var(--dim);border-right:1px solid var(--line2)}
+  .seg button:last-child{border-right:none}
+  .seg button[data-on="1"]{background:var(--accent);color:#0c1208}
+
+  /* results list */
+  .rlbl{font:700 10px var(--ui);letter-spacing:1px;text-transform:uppercase;color:var(--faint);
+    display:flex;justify-content:space-between;margin:0 0 7px}
+  .rlist{display:flex;flex-direction:column;gap:5px;max-height:268px;overflow:auto}
+  .row{display:flex;align-items:center;gap:9px;padding:8px 9px;border-radius:8px;cursor:pointer;
+    background:var(--panel2);border:1px solid transparent}
+  .row:hover{border-color:var(--line2)}
+  .row[data-sel="1"]{border-color:var(--accent);background:#1a2415}
+  .row .chk{width:14px;height:14px;border-radius:3px;border:1.5px solid var(--faint);flex:none}
+  .row[data-chk="1"] .chk{background:var(--accent);border-color:var(--accent)}
+  .row .dot{width:8px;height:8px;border-radius:50%;flex:none}
+  .row .nm{flex:1;font:600 13px var(--ui);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .row .meta{font:11px var(--mono);color:var(--faint)}
+  .dot.trail{background:var(--trail)}.dot.track{background:var(--track)}
+  .dot.waypoint{background:var(--waypoint)}.dot.route{background:var(--route)}
+  .emptynote{font:12px var(--ui);color:var(--faint);text-align:center;padding:18px 8px;
+    border:1px dashed var(--line2);border-radius:8px}
+
+  /* ===== RIGHT PANEL — Detail card (two columns) ===== */
+  .detail{display:grid;grid-template-columns:168px 1fr;min-height:100%;
+    background:var(--panel);border:1px solid var(--line);border-radius:11px;overflow:hidden}
+  @media(max-width:520px){.detail{grid-template-columns:1fr}}
+
+  /* left rail — function list */
+  .rail{background:#12160f;border-right:1px solid var(--line);padding:11px 10px}
+  .rail .rh{font:700 10px var(--ui);letter-spacing:1px;text-transform:uppercase;color:var(--faint);margin:2px 2px 9px}
+  .fn{display:flex;align-items:center;gap:9px;width:100%;text-align:left;cursor:pointer;
+    background:none;border:none;color:var(--ink);font:600 12.5px var(--ui);
+    padding:8px 9px;border-radius:7px;margin-bottom:2px}
+  .fn:hover{background:var(--panel2)}
+  .fn .ic{width:16px;text-align:center;color:var(--dim);font-size:13px;flex:none}
+  .fn.danger{color:#f0a08f}
+  .fn.danger .ic{color:var(--warn)}
+  .fn[data-disabled="1"]{color:var(--faint);cursor:not-allowed}
+  .fn[data-disabled="1"] .ic{color:var(--faint)}
+  .fn .tagm{margin-left:auto;font:600 8.5px var(--mono);letter-spacing:.5px;color:var(--faint);
+    border:1px solid var(--line2);border-radius:4px;padding:1px 4px}
+  .railnote{font:10.5px/1.4 var(--ui);color:var(--faint);margin:10px 2px 0;padding-top:9px;border-top:1px solid var(--line)}
+  .railsep{height:1px;background:var(--line);margin:8px 2px}
+
+  /* right content */
+  .content{padding:15px 16px;min-width:0}
+  .badge{display:inline-flex;align-items:center;gap:7px;font:700 10px var(--ui);letter-spacing:1px;
+    text-transform:uppercase;padding:4px 10px;border-radius:6px;color:#0c1208}
+  .badge.trail{background:var(--trail);color:#fff}.badge.track{background:var(--track)}
+  .badge.waypoint{background:var(--waypoint)}.badge.route{background:var(--route);color:#fff}
+  .dname{font:800 21px/1.2 var(--ui);letter-spacing:-.3px;margin:11px 0 2px}
+  .dsub{font:12px var(--mono);color:var(--faint);margin-bottom:15px}
+
+  .acc{border:1px solid var(--line2);border-radius:9px;margin-bottom:14px;overflow:hidden}
+  .acc-h{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;
+    cursor:pointer;background:var(--panel2)}
+  .acc-h .l{font:700 11px var(--ui);letter-spacing:.6px;text-transform:uppercase;color:var(--dim)}
+  .acc-h .c{font:11px var(--mono);color:var(--faint)}
+  .acc-b{padding:6px 12px 11px}
+  .alias{display:flex;align-items:center;gap:9px;padding:7px 0;border-top:1px solid var(--line)}
+  .alias:first-child{border-top:none}
+  .alias .star{font-size:14px;line-height:1;cursor:pointer;color:var(--faint);flex:none;width:15px}
+  .alias .star[data-on="1"]{color:var(--star)}
+  .alias .an{flex:1;font:600 13px var(--ui);min-width:0}
+  .alias .an .anx{font:11px var(--mono);color:var(--faint);display:block;margin-top:1px}
+  .chip{font:600 9.5px var(--ui);letter-spacing:.5px;text-transform:uppercase;padding:2px 7px;border-radius:11px;flex:none}
+  .chip.agency{background:#173a1d;color:#7fd38a;border:1px solid #245a2e}
+  .chip.user{background:#2a2410;color:var(--waypoint);border:1px solid #5a4a1e}
+  .chip.aws{background:#13243a;color:#6fb0e8;border:1px solid #245078}
+  .alias .del{color:var(--faint);cursor:pointer;font-size:13px;flex:none;width:15px;text-align:center}
+  .alias .del[data-lock="1"]{opacity:.35;cursor:not-allowed}
+  .addalias{display:flex;gap:6px;margin-top:9px}
+  .addalias input{flex:1;background:#10140d;border:1px solid var(--line2);border-radius:6px;
+    color:var(--ink);font:12px var(--ui);padding:6px 9px;min-width:0}
+  .addalias input:focus{outline:none;border-color:var(--accent)}
+  .addalias .btn{font-size:11px;padding:0 11px}
+
+  /* full-data card */
+  .data{border:1px solid var(--line2);border-radius:9px;overflow:hidden}
+  .data .dh{font:700 11px var(--ui);letter-spacing:.6px;text-transform:uppercase;color:var(--dim);
+    padding:9px 12px;background:var(--panel2);border-bottom:1px solid var(--line)}
+  .kv{display:grid;grid-template-columns:148px 1fr;gap:0}
+  .kv>div{padding:7px 12px;border-top:1px solid var(--line);font-size:12.5px;min-width:0}
+  .kv>div:nth-child(-n+2){border-top:none}
+  .kv .k{color:var(--dim);font:600 11px var(--ui)}
+  .kv .v{font-family:var(--mono);color:var(--ink);word-break:break-word}
+  .kv .v.muted{color:var(--faint)}
+  .subhead{grid-column:1/-1;background:#12160f;color:var(--faint);
+    font:700 9.5px var(--ui)!important;letter-spacing:1px;text-transform:uppercase;padding:6px 12px!important}
+
+  .col-note{font:11.5px/1.5 var(--ui);color:var(--faint);margin-top:9px}
+  .col-note code{font-family:var(--mono);color:var(--dim);background:#10140d;padding:1px 5px;border-radius:4px;font-size:11px}
+
+  /* variants strip */
+  .variants{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:14px}
+  @media(max-width:760px){.variants{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:440px){.variants{grid-template-columns:1fr}}
+  .vcard{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;border-top:3px solid var(--line2)}
+  .vcard.trail{border-top-color:var(--trail)}.vcard.track{border-top-color:var(--track)}
+  .vcard.waypoint{border-top-color:var(--waypoint)}.vcard.route{border-top-color:var(--route)}
+  .vcard h4{font:700 12px var(--ui);margin:0 0 3px;letter-spacing:.4px}
+  .vcard .vfns{font:11px/1.7 var(--ui);color:var(--dim);margin:7px 0 0;padding-top:7px;border-top:1px solid var(--line)}
+  .vcard .vfns b{color:var(--ink);font-weight:600}
+  .vcard .vdata{font:11px/1.6 var(--mono);color:var(--faint);margin-top:6px}
+
+  /* spec notes */
+  .spec{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:4px 16px;margin-top:14px}
+  .spec li{margin:9px 0;font-size:13px;color:var(--dim)}
+  .spec li b{color:var(--ink);font-weight:600}
+  .spec code{font-family:var(--mono);font-size:11.5px;background:#10140d;color:var(--accent);padding:1px 6px;border-radius:4px}
+  .flag{background:#2a1512;border:1px solid #5a2a22;border-left:3px solid var(--warn);
+    border-radius:7px;padding:11px 13px;margin-top:14px;font-size:12.5px;color:#e8b9ae}
+  .flag b{color:#f4cfc6}
+
+  footer{margin-top:34px;padding-top:14px;border-top:1px solid var(--line);
+    font:11px var(--mono);color:var(--faint)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="dochead">
+    <div class="docttl"><b>GroupTrack</b> — Artifact Search &amp; Detail</div>
+    <div class="docsub">Design reference for the Work&nbsp;with&nbsp;Artifacts panel, name search, and the two-column detail card. Every data field below maps to a verified column in <span style="font-family:var(--mono)">grouptrack_data.db</span>.</div>
+    <div class="docmeta">V2.5 · [2h] · layout approved 2026-06-11 · schema verified 2026-06-12 · build target = ConvoyArtifactsPanel.kt + ConvoyArtifactDetailPanel.kt</div>
+    <div class="legend">
+      <span class="ltag trail">● Trail — agency-owned</span>
+      <span class="ltag track">● Track — recorded GPS</span>
+      <span class="ltag waypoint">● Waypoint — dropped pin</span>
+      <span class="ltag route">● Route — planned path</span>
+    </div>
+  </div>
+
+  <!-- ============ FULL SCREEN LAYOUT ============ -->
+  <section>
+    <div class="eyebrow">The screen</div>
+    <h2>Left: find an artifact · Right: work with it</h2>
+    <p class="lede">Search and the display controls share the left panel; tapping any result row opens that artifact's detail card on the right. The card's left rail is its function list (actions), the right side is its content (identity, aliases, full data).</p>
+
+    <div class="stage">
+      <!-- LEFT -->
+      <div>
+        <div class="col-h"><span class="n">L</span><span class="t">Work with Artifacts</span></div>
+        <div class="panel">
+          <div class="panel-ttl">Work with Artifacts <span class="x">planning map</span></div>
+          <div class="pad">
+
+            <!-- SEARCH -->
+            <div class="search">
+              <div class="lbl">Search by name</div>
+              <div class="types">
+                <div class="type trail" data-on="0">Trail</div>
+                <div class="type track" data-on="1">Track</div>
+                <div class="type waypoint" data-on="0">Waypt</div>
+                <div class="type route" data-on="0">Route</div>
+              </div>
+              <div class="field">
+                <input placeholder="Track name…" value="Bear">
+                <button class="btn">Find</button>
+              </div>
+            </div>
+
+            <!-- DISPLAY MODE -->
+            <div class="moderow">
+              <span class="ml">Show</span>
+              <div class="seg">
+                <button data-on="0">Off</button>
+                <button data-on="0">All</button>
+                <button data-on="1">Sel · Edit</button>
+              </div>
+            </div>
+
+            <!-- RESULTS -->
+            <div class="rlbl"><span>Results · Tracks</span><span>4 found</span></div>
+            <div class="rlist">
+              <div class="row" data-sel="1" data-chk="1">
+                <span class="chk"></span><span class="dot track"></span>
+                <span class="nm">Bear Claw Loop</span><span class="meta">7.2&nbsp;mi</span>
+              </div>
+              <div class="row" data-chk="1">
+                <span class="chk"></span><span class="dot track"></span>
+                <span class="nm">Bear Wallow Spur</span><span class="meta">2.1&nbsp;mi</span>
+              </div>
+              <div class="row" data-chk="0">
+                <span class="chk"></span><span class="dot track"></span>
+                <span class="nm">Bear Canyon Out-and-back</span><span class="meta">5.8&nbsp;mi</span>
+              </div>
+              <div class="row" data-chk="0">
+                <span class="chk"></span><span class="dot track"></span>
+                <span class="nm">Bearpaw Connector</span><span class="meta">1.4&nbsp;mi</span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+        <div class="col-note">Type selector sets which artifact table is searched. <code>Sel · Edit</code> shows only checked rows on the map; checkboxes drive the SELECTED display filter (shared with the existing toggle behavior). Row click → opens the detail card →</div>
+      </div>
+
+      <!-- RIGHT -->
+      <div>
+        <div class="col-h"><span class="n">R</span><span class="t">Detail card — Track</span></div>
+        <div class="detail">
+
+          <!-- LEFT RAIL : FUNCTION LIST -->
+          <div class="rail">
+            <div class="rh">Functions</div>
+            <button class="fn"><span class="ic">✎</span> Rename</button>
+            <button class="fn"><span class="ic">⌖</span> Fit to display <span class="tagm">STUB</span></button>
+            <button class="fn"><span class="ic">≡</span> Show aliases</button>
+            <div class="railsep"></div>
+            <button class="fn"><span class="ic">➛</span> Convert to route</button>
+            <button class="fn"><span class="ic">★</span> Survey</button>
+            <div class="railsep"></div>
+            <button class="fn danger"><span class="ic">🗑</span> Delete</button>
+            <div class="railnote">Function list is enumerated live from the real code at build time — this is the Track config. Fit-to-display ships as a stub (rides [3.1] viewport work later).</div>
+          </div>
+
+          <!-- RIGHT CONTENT -->
+          <div class="content">
+            <span class="badge track">Track</span>
+            <div class="dname">Bear Claw Loop</div>
+            <div class="dsub">track_id 4471 · recorded 2026-05-18</div>
+
+            <!-- ALIAS ACCORDION -->
+            <div class="acc">
+              <div class="acc-h"><span class="l">Aliases</span><span class="c">3 records · ▾</span></div>
+              <div class="acc-b">
+                <div class="alias">
+                  <span class="star" data-on="1" title="Preferred name">★</span>
+                  <span class="an">Bear Claw Loop <span class="anx">set 2026-05-18 · shown on map</span></span>
+                  <span class="chip user">user</span>
+                  <span class="del" data-lock="0" title="Delete alias">✕</span>
+                </div>
+                <div class="alias">
+                  <span class="star" data-on="0" title="Make preferred">☆</span>
+                  <span class="an">BCL_TRACK_0518 <span class="anx">imported 2026-05-18 · source format GPX</span></span>
+                  <span class="chip agency">agency</span>
+                  <span class="del" data-lock="1" title="Agency alias — can't delete">✕</span>
+                </div>
+                <div class="alias">
+                  <span class="star" data-on="0" title="Make preferred">☆</span>
+                  <span class="an">bearclaw-loop-utah <span class="anx">synced 2026-05-20 · cloud</span></span>
+                  <span class="chip aws">aws</span>
+                  <span class="del" data-lock="1" title="Cloud alias — can't delete">✕</span>
+                </div>
+                <div class="addalias">
+                  <input placeholder="Add an alias…">
+                  <button class="btn">Add</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- FULL DATA -->
+            <div class="data">
+              <div class="dh">Full data · track_properties</div>
+              <div class="kv">
+                <div class="k">Distance</div><div class="v">7.2 mi</div>
+                <div class="k">Duration</div><div class="v">2 h 14 m</div>
+                <div class="k">Max speed</div><div class="v">18.4 mph</div>
+                <div class="k">Avg speed</div><div class="v">3.2 mph</div>
+                <div class="k">Elevation gain</div><div class="v">1,340 ft</div>
+                <div class="k">Points</div><div class="v">3,902</div>
+                <div class="k">Recorded at</div><div class="v">2026-05-18 09:12</div>
+                <div class="k">Source format</div><div class="v">GPX</div>
+                <div class="subhead">Survey · track_surveys</div>
+                <div class="k">Enjoyment</div><div class="v">4 / 5</div>
+                <div class="k">Ride again</div><div class="v">Yes</div>
+              </div>
+            </div>
+
+            <div class="col-note">Identity (badge + preferred alias = display_name) sits above aliases above the full-data card. The data card's fields and the survey block come straight from <code>track_properties</code> + <code>track_surveys</code>.</div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PER-TYPE CONFIGS ============ -->
+  <section>
+    <div class="eyebrow">One composable · four configs</div>
+    <h2>What changes by artifact type</h2>
+    <p class="lede">The frame is identical; the function list and full-data fields swap per type. Delete rules are enforced against real reference columns verified in the schema.</p>
+
+    <div class="variants">
+      <div class="vcard trail">
+        <h4 style="color:var(--trail)">TRAIL</h4>
+        <div class="vdata">trail_properties</div>
+        <div class="vfns">
+          <b>Functions:</b> Rename · Fit&nbsp;to&nbsp;display · Show&nbsp;aliases · <span style="color:var(--faint)">Delete (blocked — agency)</span><br>
+          <b>Data:</b> class · carto code · motorized · surface · steward · county · distance · agency
+        </div>
+      </div>
+      <div class="vcard track">
+        <h4 style="color:var(--track)">TRACK</h4>
+        <div class="vdata">track_properties + track_surveys</div>
+        <div class="vfns">
+          <b>Functions:</b> Rename · Fit · Aliases · <b>Convert&nbsp;to&nbsp;route</b> · <b>Survey</b> · Delete*<br>
+          <b>Data:</b> distance · duration · max/avg speed · elevation · points · survey
+        </div>
+      </div>
+      <div class="vcard waypoint">
+        <h4 style="color:var(--waypoint)">WAYPOINT</h4>
+        <div class="vdata">waypoint_properties</div>
+        <div class="vfns">
+          <b>Functions:</b> Rename · Fit · Aliases · <b>Edit</b> · Delete**<br>
+          <b>Data:</b> elevation · description · source format · source file
+        </div>
+      </div>
+      <div class="vcard route">
+        <h4 style="color:var(--route)">ROUTE</h4>
+        <div class="vdata">route_properties</div>
+        <div class="vfns">
+          <b>Functions:</b> Rename · Fit · Aliases · <b>Set&nbsp;trailhead</b> · Delete***<br>
+          <b>Data:</b> distance · method · trailhead · elevation · description
+        </div>
+      </div>
+    </div>
+
+    <div class="spec">
+      <ul>
+        <li><b>Delete guards</b> (checked against verified reference columns): <b>Trail</b> — never deletable (agency-owned, <code>agency_id</code>/<code>data_source</code> set). <b>Track*</b> — warn if a route's <code>source_track_id</code> references it. <b>Waypoint**</b> — block if a route's <code>trailhead_id</code> references it. <b>Route***</b> — block if <code>route_properties.ride_id</code> is not null.</li>
+        <li><b>Delete cascade</b> (when allowed): remove the row's <code>*_properties</code>, its <code>artifact_aliases</code>, any <code>track_surveys</code>, queue entries, and write a <code>data_log</code> entry (before/after state).</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ============ ALIAS RULES ============ -->
+  <section>
+    <div class="eyebrow">Alias accordion</div>
+    <h2>Preferred name, sources, and what's deletable</h2>
+    <div class="spec">
+      <ul>
+        <li><b>Preferred (★)</b> = the alias shown as the artifact's display name on the map. Exactly one per artifact, <b>local only</b>. There's no DB constraint enforcing this — when the user stars an alias, the code clears the other <code>is_preferred</code> flags for that artifact <b>in the same transaction</b>.</li>
+        <li><b>Source chips</b> read from <code>artifact_aliases.source</code>: <span class="chip agency" style="vertical-align:middle">agency</span> and <span class="chip aws" style="vertical-align:middle">aws</span> aliases are <b>undeletable</b>; <span class="chip user" style="vertical-align:middle">user</span> aliases are deletable — unless it's the only alias left (minimum one).</li>
+        <li><b>Records are dated</b> (<code>created_at</code> / <code>creation_date</code>) and shown newest context first. Adding an alias is blocked from creating a duplicate name by <code>UNIQUE(artifact_type, artifact_id, alias)</code>.</li>
+        <li><b>Write path:</b> add-alias calls <code>SpatialDbManager.addAlias(type, id, name, geomHash, creationDate)</code> via <code>ConvoyArtifactOps.addAlias(...)</code>. (<code>AliasManager.kt</code> is an empty stub — do not wire to it.)</li>
+      </ul>
+    </div>
+
+    <div class="flag">
+      <b>Build-time reminders.</b> Enumerate the function list <b>live from the real code</b> at implementation — the rail above is the intended set, not a hard-coded list. <b>Fit&nbsp;to&nbsp;display</b> ships as a stub this pass (real fit-to-extent rides the [3.1] viewport mechanism later). Read <code>ConvoyArtifactDetailPanel.kt</code> (currently a 33-line stub), <code>ConvoyArtifactsPanel.kt</code>, and the <code>SpatialDbManager</code> read paths live before wiring — xref gives signatures, not bodies, and line numbers drift.
+    </div>
+  </section>
+
+  <footer>
+    GroupTrack V2.5 · Artifact Search &amp; Detail design reference · generated 2026-06-12 · pairs with GroupTrack_V25_LivingChecklist_CONSOLIDATED [2h]
+  </footer>
+
+</div>
+
+<script>
+  // lightweight demo interactivity — design reference only, no app logic
+  document.querySelectorAll('.type').forEach(t=>t.addEventListener('click',()=>{
+    document.querySelectorAll('.type').forEach(x=>x.dataset.on="0");t.dataset.on="1";}));
+  document.querySelectorAll('.seg button').forEach(b=>b.addEventListener('click',()=>{
+    b.parentNode.querySelectorAll('button').forEach(x=>x.dataset.on="0");b.dataset.on="1";}));
+  document.querySelectorAll('.row').forEach(r=>r.addEventListener('click',e=>{
+    if(e.target.classList.contains('chk'))return;
+    document.querySelectorAll('.row').forEach(x=>x.dataset.sel="0");r.dataset.sel="1";}));
+  document.querySelectorAll('.row .chk').forEach(c=>c.addEventListener('click',e=>{
+    e.stopPropagation();const r=c.closest('.row');r.dataset.chk=r.dataset.chk==="1"?"0":"1";}));
+  document.querySelectorAll('.acc-h').forEach(h=>h.addEventListener('click',()=>{
+    const b=h.nextElementSibling;b.style.display=b.style.display==="none"?"":"none";}));
+  document.querySelectorAll('.alias .star').forEach(s=>s.addEventListener('click',()=>{
+    document.querySelectorAll('.alias .star').forEach(x=>{x.dataset.on="0";x.textContent="☆";});
+    s.dataset.on="1";s.textContent="★";}));
+</script>
+</body>
+</html>
