@@ -877,7 +877,36 @@ object SpatialDbManager {
                 }
             }
         }
+        // ── merge per-type *_properties (data DB) into the same map ──
+        val (propTable, propIdCol) = propertiesTableFor(type) ?: return out
+        val edb = extensionDb ?: return out
+        try {
+            val pc = edb.rawQuery("SELECT * FROM $propTable WHERE $propIdCol = ? LIMIT 1", arrayOf(artifactId))
+            pc.use {
+                if (it.moveToFirst()) {
+                    for (i in 0 until it.columnCount) {
+                        val col = it.getColumnName(i)
+                        if (col == propIdCol) continue          // skip the duplicate id column
+                        if (out.containsKey(col)) continue      // skip keys already shown (carto_code, source_id)
+                        if (it.isNull(i)) continue
+                        val v = it.getString(i)
+                        if (v == null || v.isBlank()) continue  // skip blanks
+                        out[col] = v
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            // properties table may not exist for a type / empty — leave spatial-only
+        }
         return out
+    }
+
+    private fun propertiesTableFor(type: String): Pair<String, String>? = when (type.lowercase()) {
+        "trail", "trails"       -> "trail_properties" to "trail_id"
+        "track", "tracks"       -> "track_properties" to "track_id"
+        "waypoint", "waypoints" -> "waypoint_properties" to "waypoint_id"
+        "route", "routes"       -> "route_properties" to "route_id"
+        else -> null
     }
 
     /** Alias accordion: rows from data-DB artifact_aliases, preferred-first. artifact_type is singular. */

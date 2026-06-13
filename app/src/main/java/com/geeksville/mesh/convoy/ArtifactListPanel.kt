@@ -185,6 +185,7 @@ fun ArtifactListPanel(
                         val singular = artifactType.lowercase().removeSuffix("s")
                         // Load detail + aliases when the dialog is shown (main-thread reads — tiny)
                         val detailFields = remember(dId) { onLoadDetail?.invoke(singular, dId) ?: emptyMap() }
+                        var showTech by remember(dId) { mutableStateOf(false) }
                         var aliasRows by remember(dId) {
                             mutableStateOf(onLoadAliases?.invoke(singular, dId) ?: emptyList())
                         }
@@ -262,8 +263,9 @@ fun ArtifactListPanel(
                                 if (detailFields.isEmpty()) {
                                     Text("no additional details", color = aDim, fontSize = 9.sp, fontFamily = aMono)
                                 } else {
+                                    val techKeys = setOf("min_lat", "max_lat", "min_lon", "max_lon", "created_at", "updated_at", "geom_hash")
                                     detailFields.forEach { (k, v) ->
-                                        if (v.isNullOrBlank()) return@forEach
+                                        if (v.isNullOrBlank() || k in techKeys) return@forEach
                                         val show = if (k == "geom_hash" && v.length > 12) v.take(12) + "\u2026" else v
                                         Row(modifier = Modifier.fillMaxWidth()) {
                                             Text(k, color = aDim, fontSize = 8.sp, fontFamily = aMono,
@@ -272,6 +274,30 @@ fun ArtifactListPanel(
                                                 fontFamily = aMono, maxLines = 2,
                                                 overflow = TextOverflow.Ellipsis,
                                                 modifier = Modifier.weight(1f))
+                                        }
+                                    }
+                                    // technical — collapsed by default
+                                    val hasTech = detailFields.any { (k, v) -> k in techKeys && !v.isNullOrBlank() }
+                                    if (hasTech) {
+                                        Text(
+                                            (if (showTech) "\u25be technical" else "\u25b8 technical"),
+                                            color = aOrange, fontSize = 8.sp, fontFamily = aMono,
+                                            fontWeight = FontWeight.Bold,
+                                            modifier = Modifier.clickable { showTech = !showTech }.padding(top = 2.dp)
+                                        )
+                                        if (showTech) {
+                                            detailFields.forEach { (k, v) ->
+                                                if (v.isNullOrBlank() || k !in techKeys) return@forEach
+                                                val show = if (k == "geom_hash" && v.length > 12) v.take(12) + "\u2026" else v
+                                                Row(modifier = Modifier.fillMaxWidth()) {
+                                                    Text(k, color = aDim, fontSize = 8.sp, fontFamily = aMono,
+                                                        modifier = Modifier.width(96.dp))
+                                                    Text(show, color = Color(0xFFB8C4D4), fontSize = 8.sp,
+                                                        fontFamily = aMono, maxLines = 2,
+                                                        overflow = TextOverflow.Ellipsis,
+                                                        modifier = Modifier.weight(1f))
+                                                }
+                                            }
                                         }
                                     }
                                 }
