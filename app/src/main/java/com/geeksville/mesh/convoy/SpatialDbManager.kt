@@ -848,6 +848,84 @@ object SpatialDbManager {
 
     /** Pointer-model alias write. Hash lives on the artifact; alias carries the name.
      *  INSERT OR IGNORE -> alias-table UNIQUE constraints dedup silently. */
+    // ── [2h] DETAIL-CARD READERS (spatial = full-data source; data-DB = aliases only) ──
+
+    // type is singular: "trail"/"track"/"waypoint"/"route"
+    private fun spatialTableFor(type: String): Pair<String, String>? = when (type.lowercase()) {
+        "trail", "trails"       -> "trails" to "trail_id"
+        "track", "tracks"       -> "tracks" to "track_id"
+        "waypoint", "waypoints" -> "waypoints" to "waypoint_id"
+        "route", "routes"       -> "routes" to "route_id"
+        else -> null
+    }
+
+    /** Full-data card: the artifact's SPATIAL row (all displayable fields except the geometry blob).
+     *  name=="null"/blank is coerced to "Not Named". Ordered map preserves column order for display. */
+    fun getArtifactDetail(type: String, artifactId: String): LinkedHashMap<String, String?> {
+        val out = LinkedHashMap<String, String?>()
+        val (table, idCol) = spatialTableFor(type) ?: return out
+        val db = spatialDb ?: return out
+        val c = db.rawQuery("SELECT * FROM $table WHERE $idCol = ? LIMIT 1", arrayOf(artifactId))
+        c.use {
+            if (it.moveToFirst()) {
+                for (i in 0 until it.columnCount) {
+                    val col = it.getColumnName(i)
+                    if (col == "geometry") continue            // never show the WKT blob
+                    var v: String? = if (it.isNull(i)) null else it.getString(i)
+                    if (col == "name" && (v == null || v.isBlank() || v == "null")) v = "Not Named"
+                    out[col] = v
+                }
+            }
+        }
+        return out
+    }
+
+    /** Alias accordion: rows from data-DB artifact_aliases, preferred-first. artifact_type is singular. */
+    fun getAliasesFor(type: String, artifactId: String): List<Map<String, String?>> {
+        val res = ArrayList<Map<String, String?>>()
+        val db = extensionDb ?: return res
+        val t = type.lowercase().removeSuffix("s")     // table stores singular
+        val c = db.rawQuery(
+            "SELECT alias_id, alias, is_preferred, source, creation_date FROM artifact_aliases " +
+            "WHERE artifact_type = ? AND artifact_id = ? ORDER BY is_preferred DESC, alias COLLATE NOCASE",
+            arrayOf(t, artifactId)
+        )
+        c.use {
+            while (it.moveToNext()) {
+                res.add(mapOf(
+                    "alias_id" to it.getString(0),
+                    "alias" to it.getString(1),
+                    "is_preferred" to it.getString(2),
+                    "source" to it.getString(3),
+                    "creation_date" to (if (it.isNull(4)) null else it.getString(4))
+                ))
+            }
+        }
+        return res
+    }
+
+    /** Star an alias: set is_preferred=1 on aliasId and clear all siblings for the same artifact,
+     *  in one transaction (no db-level one-preferred constraint — enforced here). */
+    fun setPreferredAlias(type: String, artifactId: String, aliasId: String) {
+        val db = extensionDb ?: return
+        val t = type.lowercase().removeSuffix("s")
+        db.beginTransaction()
+        try {
+            db.execSQL("UPDATE artifact_aliases SET is_preferred = 0 WHERE artifact_type = ? AND artifact_id = ?",
+                arrayOf(t, artifactId))
+            db.execSQL("UPDATE artifact_aliases SET is_preferred = 1 WHERE alias_id = ?", arrayOf(aliasId))
+            db.setTransactionSuccessful()
+        } finally {
+            db.endTransaction()
+        }
+    }
+
+    /** Delete one alias row. UI enforces the min-one guard before calling. */
+    fun deleteAlias(aliasId: String) {
+        val db = extensionDb ?: return
+        db.execSQL("DELETE FROM artifact_aliases WHERE alias_id = ?", arrayOf(aliasId))
+    }
+
     fun addAlias(type: String, artifactId: String, name: String, geomHash: String, creationDate: String?) {
         val e = extensionDb ?: return
         val ts = now()

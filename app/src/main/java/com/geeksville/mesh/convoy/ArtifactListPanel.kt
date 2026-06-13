@@ -53,7 +53,14 @@ fun ArtifactListPanel(
     onExport: ((String) -> Unit)? = null,
     onChangeType: ((String, String) -> Unit)? = null,
     onViewAliases: ((String) -> Unit)? = null,
-    onFitToSelected: (() -> Unit)? = null
+    onFitToSelected: (() -> Unit)? = null,
+    onLoadDetail: ((String, String) -> Map<String, String?>)? = null,
+    onLoadAliases: ((String, String) -> List<Map<String, String?>>)? = null,
+    onAddAlias: ((String, String, String) -> Unit)? = null,
+    onStarAlias: ((String, String, String) -> Unit)? = null,
+    onDeleteAlias: ((String) -> Unit)? = null,
+    onFit: ((String, String) -> Unit)? = null,
+    initialDetailId: String? = null
 ) {
     val aMono = FontFamily.Monospace
     val aGreen = Color(0xFF39FF14)
@@ -64,7 +71,7 @@ fun ArtifactListPanel(
     val aItem = Color(0xFF1A2233)
 
     // Detail panel state
-    var detailArtifactId by remember { mutableStateOf<String?>(null) }
+    var detailArtifactId by remember(initialDetailId) { mutableStateOf<String?>(initialDetailId) }
     var showRenameDialog by remember { mutableStateOf(false) }
     var renameText by remember { mutableStateOf("") }
     var showDeleteConfirm by remember { mutableStateOf(false) }
@@ -175,46 +182,99 @@ fun ArtifactListPanel(
                         }
                     },
                     text = {
-                        Column {
-                            // Rename — all except Trails
-                            if (artifactType != "Trails" && onRename != null) {
-                                DetailActionButton("RENAME", aBlue) {
-                                    renameText = dName
-                                    showRenameDialog = true
+                        val singular = artifactType.lowercase().removeSuffix("s")
+                        // Load detail + aliases when the dialog is shown (main-thread reads — tiny)
+                        val detailFields = remember(dId) { onLoadDetail?.invoke(singular, dId) ?: emptyMap() }
+                        var aliasRows by remember(dId) {
+                            mutableStateOf(onLoadAliases?.invoke(singular, dId) ?: emptyList())
+                        }
+                        var showAddAlias by remember(dId) { mutableStateOf(false) }
+                        var newAliasText by remember(dId) { mutableStateOf("") }
+                        fun reloadAliases() { aliasRows = onLoadAliases?.invoke(singular, dId) ?: emptyList() }
+
+                        Row(modifier = Modifier.fillMaxWidth()) {
+                            // ── LEFT RAIL: function list ──
+                            Column(modifier = Modifier.width(118.dp)) {
+                                if (artifactType != "Trails" && onRename != null) {
+                                    DetailActionButton("RENAME", aBlue) { renameText = dName; showRenameDialog = true }
+                                }
+                                if (artifactType != "Trails" && onDelete != null) {
+                                    DetailActionButton("DELETE", Color(0xFFFF6B6B)) { showDeleteConfirm = true }
+                                }
+                                if (onShare != null) { DetailActionButton("SHARE", aGreen) { onShare!!(dId) } }
+                                if (onExport != null) { DetailActionButton("EXPORT", aGreen) { onExport!!(dId) } }
+                                if (artifactType == "Waypoints" && onChangeType != null) {
+                                    DetailActionButton("CHANGE TYPE", aOrange) { showTypeChooser = true }
+                                }
+                                DetailActionButton("FIT", aBlue) {
+                                    onFit?.invoke(singular, dId)
+                                        ?: android.util.Log.i("ArtifactList", "FIT not yet wired")
                                 }
                             }
 
-                            // Delete — all except Trails
-                            if (artifactType != "Trails" && onDelete != null) {
-                                DetailActionButton("DELETE", Color(0xFFFF6B6B)) {
-                                    showDeleteConfirm = true
-                                }
-                            }
+                            Spacer(Modifier.width(10.dp))
 
-                            // Share — all artifact types
-                            if (onShare != null) {
-                                DetailActionButton("SHARE", aGreen) {
-                                    onShare!!(dId)
-                                }
-                            }
-                            // Export to Downloads — all artifact types
-                            if (onExport != null) {
-                                DetailActionButton("EXPORT", aGreen) {
-                                    onExport!!(dId)
-                                }
-                            }
+                            // ── RIGHT COLUMN: badge + aliases + full-data ──
+                            Column(modifier = Modifier.weight(1f)) {
+                                // type badge
+                                Text(singular.uppercase(), color = aDim, fontSize = 8.sp,
+                                    fontFamily = aMono, fontWeight = FontWeight.Bold)
+                                Spacer(Modifier.height(4.dp))
 
-                            // Change Type — Waypoints only
-                            if (artifactType == "Waypoints" && onChangeType != null) {
-                                DetailActionButton("CHANGE TYPE", aOrange) {
-                                    showTypeChooser = true
+                                // ALIAS ACCORDION
+                                Text("ALIASES", color = aOrange, fontSize = 9.sp,
+                                    fontFamily = aMono, fontWeight = FontWeight.Bold)
+                                if (aliasRows.isEmpty()) {
+                                    Text("none", color = aDim, fontSize = 9.sp, fontFamily = aMono)
+                                } else {
+                                    aliasRows.forEach { a ->
+                                        val aId = a["alias_id"] ?: ""
+                                        val pref = a["is_preferred"] == "1"
+                                        Row(verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier.fillMaxWidth()) {
+                                            // star (preferred) — tap to set preferred
+                                            Text(if (pref) "\u2605" else "\u2606",
+                                                color = if (pref) aGreen else aDim, fontSize = 11.sp,
+                                                modifier = Modifier.clickable {
+                                                    android.util.Log.i("ArtifactList", "Preferred name-swap not yet built (coming with FIT)")
+                                                }.padding(end = 4.dp))
+                                            Text(a["alias"] ?: "", color = aBlue, fontSize = 9.sp,
+                                                fontFamily = aMono, maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                                modifier = Modifier.weight(1f))
+                                            // source chip (literal value — "add" today)
+                                            Text(a["source"] ?: "", color = aDim, fontSize = 7.sp,
+                                                fontFamily = aMono, modifier = Modifier.padding(horizontal = 3.dp))
+                                            // delete (min-one guard: only if >1)
+                                            if (onDeleteAlias != null && aliasRows.size > 1) {
+                                                Text("\u00d7", color = Color(0xFFFF6B6B), fontSize = 12.sp,
+                                                    modifier = Modifier.clickable { onDeleteAlias!!(aId); reloadAliases() }
+                                                        .padding(start = 2.dp))
+                                            }
+                                        }
+                                    }
                                 }
-                            }
+                                Spacer(Modifier.height(6.dp))
 
-                            // Aliases — all types (placeholder)
-                            DetailActionButton("ALIASES", aDim) {
-                                onViewAliases?.invoke(dId)
-                                    ?: android.util.Log.i("ArtifactList", "Alias panel not yet built")
+                                // FULL-DATA card (curated: skip geometry; truncate geom_hash)
+                                Text("DETAILS", color = aOrange, fontSize = 9.sp,
+                                    fontFamily = aMono, fontWeight = FontWeight.Bold)
+                                if (detailFields.isEmpty()) {
+                                    Text("no additional details", color = aDim, fontSize = 9.sp, fontFamily = aMono)
+                                } else {
+                                    detailFields.forEach { (k, v) ->
+                                        if (v.isNullOrBlank()) return@forEach
+                                        val show = if (k == "geom_hash" && v.length > 12) v.take(12) + "\u2026" else v
+                                        Row(modifier = Modifier.fillMaxWidth()) {
+                                            Text(k, color = aDim, fontSize = 8.sp, fontFamily = aMono,
+                                                modifier = Modifier.width(96.dp))
+                                            Text(show, color = Color(0xFFB8C4D4), fontSize = 8.sp,
+                                                fontFamily = aMono, maxLines = 2,
+                                                overflow = TextOverflow.Ellipsis,
+                                                modifier = Modifier.weight(1f))
+                                        }
+                                    }
+                                }
                             }
                         }
                     },

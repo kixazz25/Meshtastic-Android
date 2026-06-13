@@ -59,7 +59,7 @@ fun ConvoyArtifactsPanel(
     onSetState: (String, Int) -> Unit = { _, _ -> },
     onCreateRoute: () -> Unit = {},
     onSearch: (String, String) -> Unit = { _, _ -> },
-    onResultClick: (String, String, String) -> Unit = { _, _, _ -> },
+    onResultClick: (String, String, String, String) -> Unit = { _, _, _, _ -> },
     searchResults: List<ArtifactResult> = emptyList(),
     onDismiss: () -> Unit = {},
     modifier: Modifier = Modifier
@@ -205,9 +205,12 @@ private fun SearchBlock(onSearch: (String, String) -> Unit) {
     val selLabel = types.firstOrNull { it.second.first == selType }?.first
     val selColor = types.firstOrNull { it.second.first == selType }?.second?.second ?: aTxtD
 
-    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
-        // ── Type dropdown (precedes the name field) ──
-        Box(modifier = Modifier.fillMaxWidth()) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // ── Type + name on one row ──
+        Box(modifier = Modifier.width(108.dp)) {
             Surface(
                 modifier = Modifier.fillMaxWidth().clickable { menuOpen = true },
                 shape = RoundedCornerShape(3.dp),
@@ -240,10 +243,10 @@ private fun SearchBlock(onSearch: (String, String) -> Unit) {
                 }
             }
         }
-        Spacer(modifier = Modifier.height(4.dp))
+        Spacer(modifier = Modifier.width(6.dp))
         // ── Name field — Enter (ImeAction.Search) runs the search; no FIND button ──
         Surface(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.weight(1f),
             shape = RoundedCornerShape(3.dp),
             color = Color(0xFF0D1520)
         ) {
@@ -278,7 +281,7 @@ private fun SearchBlock(onSearch: (String, String) -> Unit) {
 @Composable
 private fun ResultsList(
     results: List<ArtifactResult>,
-    onResultClick: (String, String, String) -> Unit
+    onResultClick: (String, String, String, String) -> Unit
 ) {
     val aMono = FontFamily.Monospace
     Spacer(modifier = Modifier.height(4.dp))
@@ -302,7 +305,7 @@ private fun ResultsList(
                 results.forEach { r ->
                     Row(
                         modifier = Modifier.fillMaxWidth()
-                            .clickable { onResultClick(r.type, r.id, r.geomHash) }
+                            .clickable { onResultClick(r.type, r.id, r.geomHash, r.name) }
                             .padding(horizontal = 8.dp, vertical = 5.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {

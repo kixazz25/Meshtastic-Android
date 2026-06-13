@@ -217,6 +217,7 @@ fun ConvoyMapViewerScreen(
     var waypointState by remember { mutableStateOf(pmSeed.types["Waypoints"]?.state ?: DS_OFF) }
     var routeState by remember { mutableStateOf(pmSeed.types["Routes"]?.state ?: DS_OFF) }
     var searchResults by remember { mutableStateOf(emptyList<ArtifactResult>()) }
+    var pendingDetailId by remember { mutableStateOf<String?>(null) }
     var trailCheckedIds by remember { mutableStateOf(MapStateStore.checkedIdsFor(pmSeed, "Trails")) }
     var trackCheckedIds by remember { mutableStateOf(MapStateStore.checkedIdsFor(pmSeed, "Tracks")) }
     var waypointCheckedIds by remember { mutableStateOf(MapStateStore.checkedIdsFor(pmSeed, "Waypoints")) }
@@ -896,8 +897,12 @@ fun ConvoyMapViewerScreen(
                         searchResults = assignNameSequence(raw)
                     }
                 },
-                onResultClick = { type, id, geomHash ->
-                    android.util.Log.i("GT-SEARCH", "click type=$type id=$id hash=$geomHash")
+                onResultClick = { type, id, geomHash, name ->
+                    val cap = type.replaceFirstChar { it.uppercase() }
+                    artifactList = listOf(mapOf("id" to id, "name" to name, "type" to cap))
+                    selectedArtifactIds = emptySet()
+                    pendingDetailId = id
+                    activeListType = cap
                 },
                 searchResults = searchResults,
                 displayStates = mapOf("Trails" to trailState, "Tracks" to trackState, "Waypoints" to waypointState, "Routes" to routeState),
@@ -1341,7 +1346,11 @@ fun ConvoyMapViewerScreen(
                             }
                             webViewRef?.evaluateJavascript("triggerViewportUpdate()", null)
                         }
-                    } else null
+                    } else null,
+                    onLoadDetail = { t, id -> SpatialDbManager.getArtifactDetail(t, id) },
+                    onLoadAliases = { t, id -> SpatialDbManager.getAliasesFor(t, id) },
+                    onDeleteAlias = { aliasId -> scope.launch { kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { SpatialDbManager.init(context); SpatialDbManager.deleteAlias(aliasId) } } },
+                    initialDetailId = pendingDetailId
                 )
             }
 
