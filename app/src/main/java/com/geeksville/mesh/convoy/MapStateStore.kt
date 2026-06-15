@@ -42,9 +42,22 @@ object MapStateStore {
         val trailsChecked: Boolean = false,
         val removeTilesChecked: Boolean = false
     )
+    data class BBox(
+        val south: Double,
+        val west: Double,
+        val north: Double,
+        val east: Double
+    )
+    data class FitArtifact(
+        val id: String,
+        val name: String,
+        val type: String
+    )
     data class MapSnapshot(
         val types: Map<String, TypeState>,
-        val panel: PanelBoxes
+        val panel: PanelBoxes,
+        val bbox: BBox? = null,
+        val fitArtifact: FitArtifact? = null
     )
 
     // mapKey is "convoy" or "planning"
@@ -87,6 +100,17 @@ object MapStateStore {
             panel.put("trailsChecked", snap.panel.trailsChecked)
             panel.put("removeTilesChecked", snap.panel.removeTilesChecked)
             root.put("panel", panel)
+            snap.bbox?.let {
+                val b = org.json.JSONObject()
+                b.put("south", it.south); b.put("west", it.west)
+                b.put("north", it.north); b.put("east", it.east)
+                root.put("bbox", b)
+            }
+            snap.fitArtifact?.let {
+                val fa = org.json.JSONObject()
+                fa.put("id", it.id); fa.put("name", it.name); fa.put("type", it.type)
+                root.put("fitArtifact", fa)
+            }
             fileFor(mapKey).writeText(root.toString())
         } catch (e: Exception) {
             // swallow - persistence must never crash the UI
@@ -125,7 +149,16 @@ object MapStateStore {
                 p.optBoolean("trailsChecked", false),
                 p.optBoolean("removeTilesChecked", false)
             )
-            MapSnapshot(types, panel)
+            val bboxObj = root.optJSONObject("bbox")
+            val bbox = if (bboxObj == null) null else BBox(
+                bboxObj.optDouble("south", 0.0), bboxObj.optDouble("west", 0.0),
+                bboxObj.optDouble("north", 0.0), bboxObj.optDouble("east", 0.0)
+            )
+            val faObj = root.optJSONObject("fitArtifact")
+            val fitArtifact = if (faObj == null) null else FitArtifact(
+                faObj.optString("id", ""), faObj.optString("name", ""), faObj.optString("type", "")
+            )
+            MapSnapshot(types, panel, bbox, fitArtifact)
         } catch (e: Exception) {
             defaults()
         }

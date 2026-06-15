@@ -229,11 +229,18 @@ fun ConvoyMapViewerScreen(
     // type are built from artifactList + selectedArtifactIds when a list is open.
     fun savePlanningState() {
         fun rowsFor(type: String): List<MapStateStore.Row> {
-            if (activeListType != type) return emptyList()
-            return artifactList.mapNotNull { item ->
-                val id = item["id"] ?: return@mapNotNull null
-                MapStateStore.Row(id, item["name"] ?: "", id in selectedArtifactIds)
-            }
+            // [3.1c] Source SELECTED rows from the persistent per-type checked-id set,
+            // NOT the activeListType-gated artifactList. SELECT persists regardless of
+            // which panel is open; ALL/OFF have null CheckedIds -> empty rows (query
+            // rebuilds the list on entry, state flag sets on/off).
+            val checkedIds = when (type) {
+                "Trails" -> trailCheckedIds
+                "Tracks" -> trackCheckedIds
+                "Waypoints" -> waypointCheckedIds
+                "Routes" -> routeCheckedIds
+                else -> null
+            } ?: return emptyList()
+            return checkedIds.map { id -> MapStateStore.Row(id, "", true) }
         }
         val types = mapOf(
             "Trails" to MapStateStore.TypeState(trailState, rowsFor("Trails")),
@@ -242,8 +249,11 @@ fun ConvoyMapViewerScreen(
             "Routes" to MapStateStore.TypeState(routeState, rowsFor("Routes"))
         )
         val panel = MapStateStore.PanelBoxes(panelTilesChecked, panelTrailsChecked, panelRemoveTilesChecked)
-        MapStateStore.saveMap("planning", MapStateStore.MapSnapshot(types, panel))
+        MapStateStore.saveMap("planning", MapStateStore.MapSnapshot(types, panel, MapStateStore.BBox(lastViewportSouth, lastViewportWest, lastViewportNorth, lastViewportEast), null))
     }
+    // [3.1] debounced viewport-settle save: persist frame on pan/zoom/search settle
+    val viewportSaveHandler = remember { android.os.Handler(android.os.Looper.getMainLooper()) }
+    val viewportSaveRunnable = remember { Runnable { savePlanningState() } }
     var pmQueuesOpen by remember { mutableStateOf(false) }
     // "?" help: which bundled doc is open ("manual" | "notes" | null = chooser/closed)
     var docsView by remember { mutableStateOf<String?>(null) }
@@ -593,6 +603,7 @@ fun ConvoyMapViewerScreen(
                             @JavascriptInterface
                             fun onViewportChanged(north: Double, south: Double, east: Double, west: Double, zoom: Double) {
                                 lastViewportSouth = south; lastViewportWest = west; lastViewportNorth = north; lastViewportEast = east
+                                viewportSaveHandler.removeCallbacks(viewportSaveRunnable); viewportSaveHandler.postDelayed(viewportSaveRunnable, 400)
                                 // GATE: reseed this map's local state from JSON only if the active
                                 // map changed since last refresh (else live vars stay authoritative).
                                 if (MapStateStore.lastMapProcessed != "planning") {
@@ -723,6 +734,15 @@ fun ConvoyMapViewerScreen(
                                 // Trails loaded on demand via TRAILS button
                                 // Center map on device GPS position (matches Convoy Map approach)
                                 view?.postDelayed({
+                                    // [3.1] persisted-frame-open: planning restores last-session bbox
+                                    val pmbb = pmSeed.bbox
+                                    if (pmbb != null) {
+                                        view?.evaluateJavascript(
+                                            "fitBounds([" + pmbb.south + "," + pmbb.north + "],[" + pmbb.west + "," + pmbb.east + "])", null
+                                        )
+                                        android.util.Log.i("PlanMap", "Restored persisted frame: " + pmbb.south + "," + pmbb.west + " .. " + pmbb.north + "," + pmbb.east)
+                                        return@postDelayed
+                                    }
                                     try {
                                         val lm = context.getSystemService(android.content.Context.LOCATION_SERVICE) as android.location.LocationManager
                                         @Suppress("MissingPermission")
