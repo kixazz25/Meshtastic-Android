@@ -12832,46 +12832,95 @@ grep -rn 'about\|About\|splash\|Splash\|version\|tagline' app/src/main/java/com/
 - One build covers items 1–8 (all in the app); build once at the end of the code items, not after each, to save time — but commit each separately so they're individually revertible. (Item 5 versionCode + item 4 manifest want to be in the build you test.)
 
 
-=== GroupTrack_Handoff_2026-06-13.md ===
-# GroupTrack — Handoff / End-of-day recap — 2026-06-13
+=== GroupTrack_Handoff_2026-06-15.md ===
+# GroupTrack — Handoff (2026-06-15, ~1:00 AM EOD)
 
-_Note-to-future-Claude. Read this + `GroupTrack_V25_LivingChecklist_CONSOLIDATED_2026-06-13.md` first next session. Project runs out of Fred's machine (`~/Meshtastic-Android`, branch `feature/convoy-event-ride`, package `com.grouptrack.android`, RELEASE builds). The container does NOT have the repo — Claude gives commands, Fred runs them one at a time and pastes results. CURRENT doc baseline = this 2026-06-13 set. Build on Fred's UPLOAD, not the Drive connector (which lags ~a week)._
+**Branch:** feature/convoy-event-ride · **Committed HEAD:** `168778c0a` · **Rollback anchor:** `168778c0a`
+**Working tree:** [3.1] Patches 1–4 applied + built, **not committed**.
 
-## ⚡ START HERE — TOMORROW'S BUILD SEQUENCE (Fred locked, in this order)
+---
 
-This is a BUILD day. Finish the design while the app + intent are fresh. Three items, in order:
+## WHERE WE LANDED TONIGHT
+1. **bbox persistence works.** Built, installed to Droid 1 (field), proven on device: bbox saves and restores; ALL/OFF states save and restore; planning opens to its persisted last-session frame; convoy opens to GPS.
+2. **A real bug surfaced underneath it** — the artifact-list **save** ([3.1c]) doesn't serialize SELECT-mode selections unless that type's list panel is open at save time. This was always true; the lossy save only became visible now that restore actually works.
+3. **Nothing committed.** Patch 4 (debounced pan-save) is applied but suspect; its rollback is written and waiting.
+4. No manual / release-notes edits tonight.
 
-1. **[2h.1] FINISH SEARCH-FUNCTIONAL ISOLATION — the search function is NOT usable as it stands; this is the priority.** Add a SEARCH launch button to the Work-with-Artifacts panel; tapping it COLLAPSES that panel and LAUNCHES an independent small-footprint search surface. Result list → tap → detail overlay; close → back to list (list intact). The "FIT → exit search + center artifact on map" behavior is the seam where [2h.2] plugs in — build the surface + flow now; that one exit-behavior lands when FIT is real. **Mostly a REHOST, not new logic:** the SearchBlock + ResultsList + detail card + onResultClick already exist and committed (`168778c0a`); move them into the collapsible independent surface + wire the launch button. (Checklist 2h.1, spec locked.)
-2. **[3.9a] ARROW DENSITY — the simple fix.** Decorator percent-repeat → PIXEL-repeat (`repeat:'12%'` → `repeat:<px>`, e.g. 80) so arrows show at riding zoom on 60–70mi trails. Bundle with [3.9] redraw-timing (`map.fire('moveend')` in showTracks). Two CRLF map HTMLs (differ in script-tag style — eyeball before build) + vendored leaflet.polylineDecorator.js. One arrow pass, one build. (Checklist 3.9a; design doc GroupTrack_TrackArrowDensity_3.9_followup_2026-06-12.md.)
-3. **[2h.2] ARTIFACT DISPLAY CENTERING ON MAP — FIT, BOTH surfaces (convoy + planner).** Replace the FIT placeholder: wire the existing `onFit` callback (currently logs only) → map JS `fitBounds([[min_lat,min_lon],[max_lat,max_lon]])` on the 4 bbox values the detail card already shows. **Two-surface wire — pass onFit from BOTH `ConvoyScreen` (convoy map) AND `ConvoyMapViewerScreen` (planner map)**, same as the detail card landed on both; bbox-direct path is identical on each. Self-contained, does NOT touch [3.1] persistence. Completes 2h.1's "FIT exits + centers." Real function = `ConvoyArtifactOps.fit(type,id)` (ConvoyArtifactOps.kt:19, currently 0 callers/stub). (Checklist 2h.2.)
+---
 
-**FIT note (resolved — don't re-open):** FIT was always on the list as **2h.2**, committed as a future item. Fred's original ask was simply to sequence it after the search-isolation work — that's what this section does. An earlier claim this session that "FIT isn't on the checklist" was wrong (grepped a stale 06-11 file). FIT is item 2h.2; proceed. Today also added source anchors to 2h.2 + a new **2h.3** (ConvoyArtifactOps sibling-audit) + a completeness caveat on the checklist — those are side notes, NOT tomorrow's work.
+## START HERE TOMORROW
 
-## WHAT COMMITTED 06-13 (context — for reference, all device-tested)
-- **[2h] SEARCH layer** — committed `4f7abbbb7` (search-by-name all 4 types, dropdown + Enter, device-proven).
-- **[2h] DETAIL CARD** — built + device-tested 100% correct, committed **`3cdf118da`** (detail card) + **`168778c0a`** (properties-merge + technical accordion). Live detail surface = `ArtifactListPanel.kt` (hosted ConvoyScreen:1651 + ConvoyMapViewerScreen:1221); orphan `ConvoyArtifactDetailPanel.kt` deleted. **[11.2] now DONE.** Spatial row controls everything except aliases (data-DB read; handle = `extensionDb`, NOT `dataDb`).
-- Detail card known follow-up = the footprint issue (card + artifacts panel cover ~2/3 of map) → tracked as **2h.1 SEARCH-SURFACE RESTRUCTURE** (spec locked, OPEN — tomorrow's lead task). Its one FIT-dependent seam ("FIT exits + centers") lands when 2h.2 is wired; the rest of 2h.1 is independent and built first.
-- Verified clean: **Jordan River Trail = 314 segments**, 314 distinct geom_hashes, 0 dupes — identity model correct. Surfaced **11.1a** (raise SEL/Edit list cap 200→400 stopgap; real fix = [11.1] paging).
+**First move — confirm the selection source (one read):**
+```
+cd ~/Meshtastic-Android && sed -n '1250,1280p' app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt
+```
+Goal: confirm `trailCheckedIds / trackCheckedIds / waypointCheckedIds / routeCheckedIds` reliably hold the selection at save time, and that `selectedArtifactIds` ↔ `*CheckedIds` are in sync while the panel is open. These per-type sets are the authoritative live selection the save should write.
 
-## AFTER the three (pre-AAB gates + side notes)
-- Pre-AAB gates still open: **[8.7]** About/Attribution, **[8.9]** first-launch release-notes gate. **Release HALTED until Fred says ship.**
-- **Completeness check (side note, NOT a blocker):** the checklist's "no-drop" claim was never verified against its 8 source docs; a **⚠ COMPLETENESS — NOT YET VERIFIED** section was added 06-13 listing what to diff (06-06 v3, master, V30_StubInventory, backlog, state-of-play docs) + the **2h.3** ConvoyArtifactOps sibling-audit. Do this when convenient — it does not gate the build sequence above.
+**Then, in order:**
+1. Decide Patch 4 — roll back the debounced full-save, or convert it to a bbox-only write. A pan must not trigger the full save. (Rollback script: `rollback_p4_debounced_viewport_save_2026-06-14_v1.py`.)
+2. Rewrite `rowsFor` in **both** `savePlanningState` (MapViewer ~231) and `saveConvoyState` (ConvoyScreen ~227): build SELECTED rows from `<type>CheckedIds`, not the `activeListType`-gated `artifactList`. One `checked:true` row per selected id.
+3. One build (~30 min). Install Droid 1.
+4. Prove with device JSON pulls (no pan): select 2 → `state:2` + 2 `checked:true`; leave/return → 2 display; pan within frame → 2 stay; pan out of frame → drop, others no. Walk the 4 acceptance cases below.
+5. Only then **commit Stage 1** — bbox persistence + the `rowsFor` fix. Named files only: `MapStateStore.kt`, `ConvoyScreen.kt`, `ConvoyMapViewerScreen.kt`. Never `git add .`. Leave the parked weekend files.
 
-## TREE STATE
-- HEAD = **`4f7abbbb7`** ([2h] search layer) on top of `03c9e1a56` → `bcd5f8e31` → C-1 → [3.9]+[3.8].
-- Working tree carries **cram1 + cram2 applied-uncommitted** (SpatialDbManager.kt, ArtifactListPanel.kt) — these are the in-flight detail card; they build green only after pieces 3+4.
-- Plus PARKED weekend state — leave it: `M utah_trails_stgeorge.geojson`, `?? grouptrack_manual.html`, `?? grouptrack_release_notes.html`, `?? utah_trails_stgeorge.geojson.bak` (NEVER git-add the `.bak`), `D docs/.tmp.driveupload/10630`. **Commit only explicitly-named files, never `git add .`.**
+---
 
-## TERMINAL / WORKFLOW NOTES (carried)
-- Line endings: `SpatialDbManager.kt` + `ConvoyArtifactsPanel.kt` = **LF**; `ConvoyScreen.kt` + `ConvoyMapViewerScreen.kt` + `ArtifactListPanel.kt` + map HTML = **CRLF**; manifest LF. `cat -A` / check before patching.
-- Single-line `python3 -c` anchors with match-count guard (write only if count==1 else ABORT). Git-Bash mangles `!!`; verify by byte size, not `git diff`.
-- **Confirm live field/handle names before writing patch code** (caught `extensionDb`-not-`dataDb` this way).
-- Build ~10–34 min: `./gradlew assembleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease`; APK at `app/build/outputs/apk/google/release/app-google-release.apk`; install `adb -s 24039703201775 install -r -d <apk>` (Droid 2 = dev/test `24039703201775`, Droid 1 = field `8624SBCEDF00001789`). Laptop `curl` fails TLS — Claude-generated files via the file panel → Fred downloads → `cp` into place. Remote /sdcard adb needs `MSYS_NO_PATHCONV=1`.
+## THE BUG IN ONE LOOK
 
-## DOC HYGIENE
-- This EOD set (handoff 06-12, checklist CONSOLIDATED 06-12, manual 06-12, release notes 06-12) produced as full updated files from the 06-11 baseline. **Checklist/manual/release-notes changes tonight are STATE-ONLY** — they reflect that search shipped + the detail card is in flight; they do NOT yet mark [2h]/[11.2] DONE (the card isn't built). Mark those complete next session after the cram builds + device-tests.
-- Decision Log still owes dated append blocks for 06-07, 06-10, 06-11, 06-12 sessions — batch item [9.6].
-- EOD memory restructure (split the 32KB grouptrack-v25.md into topic files + detail docs) still pending — do it in an EOD pass, not mid-build.
+`rowsFor` (both save functions):
+```
+fun rowsFor(type) {
+    if (activeListType != type) return emptyList()   // ← drops every non-open type
+    return artifactList.mapNotNull { ... checked = id in selectedArtifactIds }
+}
+```
+Only the currently-open list type gets rows. Everything else saves `rows:[]`. Device JSON (pulled, no pan) showed `"Trails":{"state":2,"rows":[]}` — SELECT with empty rows → restore finds no checked ids → render shows nothing → selection looks dropped. The selection was never wrong in memory (display + reopened SEL show it); the **save** just never captured it.
+
+**Fix:** serialize the selection from the persistent per-type checked-id sets, independent of which panel is open.
+
+---
+
+## FILTER-DISPLAY RULE (the spec the fix must satisfy)
+JSON filter = golden display state.
+- bbox unchanged → no query; old values carry over verbatim.
+- bbox changed → reconcile by id: in-both keeps JSON's yes/no (never flip an in-frame yes→no); new-in-query = no; gone-from-query (left bbox) = deleted (no stale resurrection).
+- Partial overlap counts as in-bbox (long trails). The query is a bbox-intersect, so partial overlaps already come back.
+- A yes only becomes no by leaving the bbox.
+- The render filter `filter { id in capIds }` already does the display reconcile correctly; only the save needs fixing.
+
+**Acceptance cases:**
+1. bbox unchanged, 10 in filter / 2 selected → 2 display.
+2. 2 selected, both in bbox → 2 display.
+3. 15 in new bbox, 2 carried → 2 display, 13 no.
+4. 1 selected leaves bbox → 1 displays.
+
+---
+
+## DESIGN CONTEXT (settled this session, carries into Stage 2 / [2h.1])
+
+**Map-purpose model.** Maps are purposed by what you're doing, not where you are.
+- Convoy = live, location-anchored: GPS open, proximity-based artifact finding (all-functions). No search, no fit.
+- Planning = deliberate, identity-anchored: name search, fit, persisted-frame open.
+- A function that helps one map hinders the other — the asymmetries are intentional.
+- [2h.1] consequence: convoy gets the all-functions (no search entry); planning gets the search surface.
+
+**Fit (Stage 2) simplification.** Once [3.1c] is fixed, Fit just writes one item as `checked:true` (+ its bbox) into the golden JSON and relaunches; the same merge displays it, with neighbors available to combine for route-building. May make the separate `fitArtifact` field redundant — confirm at Stage 2.
+
+**Build order:** [3.1] Stage 1 (bbox done + save fix) → commit → [2h.2] Fit → [2h.1] search rehost → [3.9a] arrows.
+
+**[3.1b] deferred:** GPS-recenter bull's-eye placeholder on planning's layer nav bar (planning no longer auto-centers on GPS).
+
+---
+
+## TREE / DEVICE
+- Parked weekend files (leave): `M utah_trails_stgeorge.geojson`, `?? grouptrack_manual.html`, `?? grouptrack_release_notes.html`, `?? *.geojson.bak`, `D docs/.tmp.driveupload/10630`.
+- Build: `./gradlew assembleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease`
+- Install: `adb -s <serial> install -r -d app/build/outputs/apk/google/release/app-google-release.apk`
+- Droid 2 = `24039703201775` (dev) · Droid 1 = `8624SBCEDF00001789` (field, real GPS)
+- JSON pull: `MSYS_NO_PATHCONV=1 adb -s 8624SBCEDF00001789 shell cat /sdcard/Documents/GroupTrack/state/planning_panel.json`
+
+## LESSON FOR NEXT TIME
+When the symptom is "saved state looks wrong," **pull the file first.** Tonight went long deriving merge rules and chasing the pan-save before pulling the JSON and reading `rowsFor` — which is what actually pinned it in minutes.
 
 
 === GroupTrack_Manual_CreatingARoute_update_2026-06-10.md ===
@@ -14964,6 +15013,124 @@ Map picker modal; save to trailhead_waypoint_id (0 xrefs → unwired). Ride-form
 ---
 
 _End. Every item above is source-tagged for line-by-line review. Items marked DONE (1.1) are kept only for context. Grouping is by code area so related fixes can be batched. Nothing from the master checklist, 06-06 v3, the backlog, the cleanup series, the lead-track spec, or the recent state-of-play docs was intentionally dropped; where AllDocs held only an excerpt (TodoCleanup_Checklist, OpenIssues_AWS_Plan section bodies), those headers' items were recovered from the master checklist and backlog which carry the same content forward._
+
+
+=== GroupTrack_V25_LivingChecklist_OpenItems_2026-06-15.md ===
+# GroupTrack V2.5 — Living Checklist / Open Items
+**Updated:** 2026-06-15 (~1:00 AM EOD)
+**Branch:** feature/convoy-event-ride · **Committed HEAD:** `168778c0a` · **Rollback anchor:** `168778c0a`
+
+---
+
+## TONIGHT'S OUTCOME (2026-06-15)
+- ✅ **bbox persistence SOLVED** — built, installed to Droid 1 (field), device-proven. bbox saves + restores; ALL/OFF states save + restore; planning opens to persisted last-session frame; convoy opens to GPS.
+- 🐞 **Uncovered a pre-existing artifact-list SAVE bug** ([3.1c]) — bbox-restore working is what made it *visible*. Selection (SELECT-mode checked items) is not serialized to JSON unless that type's list panel is open at save time. **Not a new break — the save was always lossy; restore never worked before bbox so it never showed.**
+- ⛔ **NOT committed.** Working tree has Patches 1–4 applied + built. Patch 4 rollback written, not yet run.
+- 📄 No user-manual or release-notes changes tonight.
+
+---
+
+## ⛔ [3.1] BBOX PERSISTENCE — Stage 1 (IN PROGRESS, not committed)
+
+### Done + proven
+- **Patch 1** — `MapStateStore.kt` (CRLF) schema: `BBox`, `FitArtifact` data classes; `MapSnapshot += bbox?, fitArtifact?` (defaulted); `saveMap` writes both keys; `readMap` parses both (backward-compatible). Standalone round-trip test 10/10.
+- **Patch 2** — both save call sites pass `bbox = BBox(lastViewport*)` + `fitArtifact = null` (blank-on-normal-save).
+- **Patch 3** — planning `onPageFinished`: if `pmSeed.bbox != null` → JS `fitBounds([s,n],[w,e])`; else GPS `setView` fallback. Convoy untouched.
+- **Build:** SUCCESSFUL (30m13s). Installed Droid 1.
+
+### Patch 4 (applied + built — under review)
+- Debounced 400ms viewport-settle save on all 3 `onViewportChanged` callbacks, calling the full save.
+- **Problem:** a pan-save fires the *full* save when no list panel is open → `rowsFor` returns empty → blanks rows.
+- **Not the root cause** of the selection bug (bug reproduces with no pan) but it worsens it.
+- **Rollback script written, not run.** Decision pending: roll back, or convert the pan-save to bbox-only.
+
+---
+
+## 🐞 [3.1c] ARTIFACT-LIST SAVE BUG — root cause confirmed (FIX TOMORROW)
+
+**Symptom:** Set a type to SELECT, pick items → they display correctly and persist in-session (reopening SEL shows them). But the saved JSON shows `"state":2, "rows":[]` (SELECT with empty rows). On restore there are no checked ids → nothing displays → selection appears lost.
+
+**Root cause (in `savePlanningState` ~231 and `saveConvoyState` ~227):**
+```
+fun rowsFor(type) {
+    if (activeListType != type) return emptyList()   // ← only the OPEN list type gets rows
+    return artifactList.mapNotNull { ... checked = id in selectedArtifactIds }
+}
+```
+Rows are only built for the one list type whose panel is currently open. Every other type saves empty rows. So a save fired at any moment the matching panel isn't open writes empty selection.
+
+**Why invisible until now:** the gate always existed; the JSON save was always lossy. The app runs off in-memory Compose state in-session (display + SEL reflect it), and before bbox, restore was broken anyway — so nobody relied on the JSON reloading. Making restore work (bbox) exposed that the save was never complete.
+
+**Fix direction:** rewrite `rowsFor` (both screens, mirrored) to serialize the live selection from the persistent per-type sets — `trailCheckedIds / trackCheckedIds / waypointCheckedIds / routeCheckedIds` — not the panel-gated `artifactList`. Write a row `checked:true` for each id in `<type>CheckedIds`. SELECT then saves `state:2, rows:[picks checked:true]`.
+
+---
+
+## [3.1c] FILTER-DISPLAY RULE (locked — spec the fix must satisfy)
+JSON filter is the **golden** display state.
+- **bbox unchanged** → no query; old JSON values carry over verbatim.
+- **bbox changed** → query + reconcile by id:
+  1. id in new query **and** in JSON → keep JSON's yes/no (golden; never flip an in-frame yes→no).
+  2. id new in query (not in JSON) → add as **no**.
+  3. id in JSON but gone from query (left bbox) → **delete** (not remembered; a returning item comes back **no** — no stale resurrection).
+- **Partial overlap = in-bbox** (any part of an artifact in frame keeps it eligible — matters for long trails). The query is a bbox-intersect, so partial overlaps are already returned.
+- A yes only ever becomes no by leaving the bbox.
+- The existing SELECTED render filter `filter { id in capIds }` already implements display rules 1–2 at render. The bug is purely that the **save** blanks the source of `capIds`. Render reconcile is correct; the save must stop destroying the yes-set.
+
+**Acceptance cases (all must pass):**
+1. bbox unchanged, 10 in filter / 2 selected → 2 display.
+2. 2 selected, both in bbox → 2 display.
+3. 15 in new bbox, 2 carried-forward → 2 display, 13 no.
+4. 1 selected leaves bbox (6 in new bbox, 1 selected still in frame) → 1 displays.
+
+---
+
+## PLAN OF ATTACK — TOMORROW (in order)
+1. Read `ConvoyMapViewerScreen.kt` 1250–1280; confirm `*CheckedIds` reliably hold the selection at save time, and that `selectedArtifactIds` ↔ `*CheckedIds` are in sync when the panel is open.
+2. Decide Patch 4: roll back the debounced full-save, or convert it to bbox-only. A pan must not call the full save.
+3. Rewrite `rowsFor` (both screens, mirrored) to build SELECTED rows from `<type>CheckedIds`.
+4. One build (~30 min).
+5. Device-prove with JSON pulls (no pan): select 2 → `state:2` + 2 `checked:true`; leave/return → 2 display; pan within frame → 2 stay; pan out → drop, others no. Run the 4 acceptance cases.
+6. Only then **commit Stage 1** = bbox persistence + `rowsFor` fix. Named files only: `MapStateStore.kt`, `ConvoyScreen.kt`, `ConvoyMapViewerScreen.kt`. Never `git add .`. Leave parked weekend files.
+
+> Note: these "quick" tasks are never quick. Budget accordingly.
+
+---
+
+## [3.1b] OPEN (deferred) — GPS-recenter button (planning)
+Once planning opens to the persisted frame (not GPS), the rider needs a manual "center on current GPS" control — a bull's-eye placeholder on the planning Sat/Topo/Topo+ layer nav bar (UI + defining comment; no function yet). The real GPS-center logic already exists (the planning `postDelayed` setView block). Visible-marker discipline so the gap isn't lost. Cut from Patch 3 to stay focused on persistence.
+
+---
+
+## DESIGN CONTEXT CARRIED FORWARD
+
+### Map-purpose model (settled — drives [2h.1] and Fit scoping)
+Maps are purposed by **what you're doing**, not where you are.
+- **Convoy** = live / location-anchored: opens to GPS, finds artifacts by **proximity** (the all-functions). No search, no fit.
+- **Planning** = deliberate / identity-anchored: finds artifacts by **name** (search), has fit, opens to the persisted last-session frame.
+- A function that's a feature on one map is a hindrance on the other (search on planning = feature / on convoy = hindrance; current-location on convoy = feature / on planning = hindrance). The asymmetries are intentional — one rule per function.
+- **Two selection methods** share one golden-JSON merge engine: (1) **area-based** — query a bbox, choose all/none/selected (many display); (2) **artifact-based / Fit** — pick one, frame to its bbox, display it alone (others available, off). Power case: Fit to an anchor, then Select-All / individuals to layer in neighbors → build a new route.
+- **[2h.1] consequence:** convoy gets the all-functions (no search entry); planning gets the search surface.
+
+### Fit (Stage 2) simplification — holds once [3.1c] is fixed
+With JSON-golden + render-reconcile-by-id working, **Fit just writes one item as `checked:true` (+ its bbox) into the golden JSON filter and relaunches.** The same merge displays exactly that one; surrounding in-frame artifacts are present (as no), available to toggle on and combine. This may make the separate `fitArtifact` field redundant — confirm at Stage 2. Stage 1's `rowsFor` fix is the foundation Fit rides.
+
+### Build order
+[3.1] Stage 1 (bbox done + [3.1c] save fix) → prove → commit → [2h.2] Fit writer → [2h.1] search-surface rehost → [3.9a] arrows.
+
+---
+
+## TREE STATE
+- Committed HEAD `168778c0a` (detail card). Working tree: [3.1] Patches 1–4 applied + built, **not committed**. P4 rollback script written, not run.
+- Parked weekend files (leave them): `M utah_trails_stgeorge.geojson`, `?? grouptrack_manual.html`, `?? grouptrack_release_notes.html`, `?? *.geojson.bak` (never git-add), `D docs/.tmp.driveupload/10630`.
+- Commit only named files. Never `git add .`.
+
+## DEVICE / BUILD QUICK-REF
+- Build: `./gradlew assembleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease` (~10–34 min)
+- APK: `app/build/outputs/apk/google/release/app-google-release.apk`
+- Install: `adb -s <serial> install -r -d <apk>`
+- Devices: Droid 2 = `24039703201775` (dev/test) · Droid 1 = `8624SBCEDF00001789` (field, real GPS)
+- JSON pull (note the path-conv guard): `MSYS_NO_PATHCONV=1 adb -s 8624SBCEDF00001789 shell cat /sdcard/Documents/GroupTrack/state/planning_panel.json`
+- Patch scripts: single-line `python3 -c` with count==1 guard; verify by byte size; CRLF-safe anchors.
 
 
 === GroupTrack_V25_MapSourceCatalog_v2.md ===
