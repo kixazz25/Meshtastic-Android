@@ -224,12 +224,17 @@ fun ConvoyScreen(
         // per-item checked status). Geometry is refreshed by the viewport query separately.
         // Convoy map has no download checkboxes -> default PanelBoxes.
         fun saveConvoyState() {
+            // [Fix1] Mirror planning: SELECTED rows from persistent per-type checked-id set
+            // (NOT activeListType-gated artifactList) -> no clobber of non-active types.
             fun rowsFor(type: String): List<MapStateStore.Row> {
-                if (activeListType != type) return emptyList()
-                return artifactList.mapNotNull { item ->
-                    val id = item["id"] ?: return@mapNotNull null
-                    MapStateStore.Row(id, item["name"] ?: "", id in selectedArtifactIds)
-                }
+                val checkedIds = when (type) {
+                    "Trails" -> trailCheckedIds
+                    "Tracks" -> trackCheckedIds
+                    "Waypoints" -> waypointCheckedIds
+                    "Routes" -> routeCheckedIds
+                    else -> null
+                } ?: return emptyList()
+                return checkedIds.map { id -> MapStateStore.Row(id, "", true) }
             }
             val types = mapOf(
                 "Trails" to MapStateStore.TypeState(trailState, rowsFor("Trails")),
@@ -237,11 +242,9 @@ fun ConvoyScreen(
                 "Waypoints" to MapStateStore.TypeState(waypointState, rowsFor("Waypoints")),
                 "Routes" to MapStateStore.TypeState(routeState, rowsFor("Routes"))
             )
-            run {
-                val oldRs = MapStateStore.readMap("convoy")
-                android.util.Log.e("JSONDIAG", "SAVE old[Tr=${oldRs.types["Trails"]?.state} Tk=${oldRs.types["Tracks"]?.state} bbox=${oldRs.bbox}] new[Tr=$trailState Tk=$trackState TrRows=${types["Trails"]?.rows?.size} TkRows=${types["Tracks"]?.rows?.size}] active=$activeListType selIds=${selectedArtifactIds.size}")
-            }
-            MapStateStore.saveMap("convoy", MapStateStore.MapSnapshot(types, MapStateStore.PanelBoxes()))
+            // [Fix1] Save the current frame (lastViewport* = the frame at save time, during
+            // active use) so drawPersistedState can restore it on re-entry.
+            MapStateStore.saveMap("convoy", MapStateStore.MapSnapshot(types, MapStateStore.PanelBoxes(), MapStateStore.BBox(lastViewportSouth, lastViewportWest, lastViewportNorth, lastViewportEast), null))
         }
     var showConvoyMenu by remember { mutableStateOf(false) }
         var pendingImportNav by remember { mutableStateOf(false) }
@@ -761,74 +764,23 @@ fun ConvoyScreen(
                                     routeCheckedIds = MapStateStore.checkedIdsFor(rs, "Routes")
                                 }
                                 val z = zoom.toInt()
-                                val limit = if (z < 14) 500 else 2000
-                                val capTrailState = trailState
-                                val capTrackState = trackState
-                                val capWaypointState = waypointState
-                                val capRouteState = routeState
-                                val capTrailIds = trailCheckedIds
-                                val capTrackIds = trackCheckedIds
-                                val capWaypointIds = waypointCheckedIds
-                                val capRouteIds = routeCheckedIds
+                                // [Fix1] Unify with path A: draw through the shared SpatialDisplayManager.
+                                // State from convoy's LIVE local vars (reseed gate above populated them).
+                                val states = mapOf(
+                                    "Trails" to trailState,
+                                    "Tracks" to trackState,
+                                    "Waypoints" to waypointState,
+                                    "Routes" to routeState
+                                )
+                                val selectLists = mapOf(
+                                    "Trails" to trailCheckedIds,
+                                    "Tracks" to trackCheckedIds,
+                                    "Waypoints" to waypointCheckedIds,
+                                    "Routes" to routeCheckedIds
+                                )
                                 MapStateStore.lastMapProcessed = "convoy"
                                 Thread {
-                                    try {
-                                        SpatialDbManager.init(context)
-                                        // -- Trail lazy load (DS_SELECTED filter mirrors planning) --
-                                        val trailsRaw = if (z >= 8 && capTrailState != DS_OFF) SpatialDbManager.queryTrailsByViewport(south, west, north, east, limit) else emptyList()
-                                        val trails = if (capTrailState == DS_SELECTED)
-                                            trailsRaw.filter { it["trail_id"] in (capTrailIds ?: emptySet()) } else trailsRaw
-                                        android.util.Log.e("TRAILDIAG", "DRAW bbox s=$south w=$west n=$north e=$east z=$z state=$capTrailState capIds=${capTrailIds?.size} raw=${trailsRaw.size} filtered=${trails.size}")
-                                        run {
-                                            val json = SpatialDbManager.buildTrailGeoJson(trails)
-                                            android.os.Handler(android.os.Looper.getMainLooper()).post {
-                                                webViewRef.value?.evaluateJavascript("clearTrails()", null)
-                                                webViewRef.value?.evaluateJavascript("updateTrails($json)", null)
-                                                if (capTrailState != DS_OFF) webViewRef.value?.evaluateJavascript("showTrails()", null)
-                                            }
-                                        }
-                                        // -- Track lazy load --
-                                        run {
-                                            val trackResultsRaw = if (capTrackState != DS_OFF) SpatialDbManager.queryTracksByViewport(south, west, north, east, if (z >= 12) 200 else 50) else emptyList()
-                                            val trackResults = if (capTrackState == DS_SELECTED && capTrackIds != null)
-                                                trackResultsRaw.filter { it["track_id"] in capTrackIds!! } else trackResultsRaw
-                                            if (trackResults.isNotEmpty()) {
-                                                val trackJson = SpatialDbManager.buildTrackGeoJson(trackResults)
-                                                android.os.Handler(android.os.Looper.getMainLooper()).post {
-                                                    webViewRef.value?.evaluateJavascript("updateTracks($trackJson)", null)
-                                                    if (capTrackState != DS_OFF) webViewRef.value?.evaluateJavascript("showTracks()", null)
-                                                }
-                                            }
-                                        }
-                                        // -- Waypoint lazy load --
-                                        run {
-                                            val wptResultsRaw = if (capWaypointState != DS_OFF) SpatialDbManager.queryWaypointsByViewport(south, west, north, east, limit) else emptyList()
-                                            val wptResults = if (capWaypointState == DS_SELECTED && capWaypointIds != null)
-                                                wptResultsRaw.filter { it["waypoint_id"] in capWaypointIds!! } else wptResultsRaw
-                                            if (wptResults.isNotEmpty()) {
-                                                val wptJson = SpatialDbManager.buildWaypointGeoJson(wptResults)
-                                                android.os.Handler(android.os.Looper.getMainLooper()).post {
-                                                    webViewRef.value?.evaluateJavascript("updateWaypoints($wptJson)", null)
-                                                    if (capWaypointState != DS_OFF) webViewRef.value?.evaluateJavascript("showWaypoints()", null)
-                                                }
-                                            }
-                                        }
-                                        // -- Route lazy load --
-                                        run {
-                                            val routeResultsRaw = if (capRouteState != DS_OFF) SpatialDbManager.queryRoutesByViewport(south, west, north, east, limit) else emptyList()
-                                            val routeResults = if (capRouteState == DS_SELECTED && capRouteIds != null)
-                                                routeResultsRaw.filter { it["route_id"] in capRouteIds!! } else routeResultsRaw
-                                            if (routeResults.isNotEmpty()) {
-                                                val routeJson = SpatialDbManager.buildRouteGeoJson(routeResults)
-                                                android.os.Handler(android.os.Looper.getMainLooper()).post {
-                                                    webViewRef.value?.evaluateJavascript("updateRoutes($routeJson)", null)
-                                                    if (capRouteState != DS_OFF) webViewRef.value?.evaluateJavascript("showRoutes()", null)
-                                                }
-                                            }
-                                        }
-                                    } catch (ex: Exception) {
-                                        android.util.Log.e("ConvoyViewport", "Spatial query failed: " + ex.message)
-                                    }
+                                    SpatialDisplayManager.processViewport(south, west, north, east, z, states, selectLists, webViewRef.value, context)
                                 }.start()
                             }
 
