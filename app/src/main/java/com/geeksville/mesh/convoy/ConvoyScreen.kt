@@ -237,6 +237,10 @@ fun ConvoyScreen(
                 "Waypoints" to MapStateStore.TypeState(waypointState, rowsFor("Waypoints")),
                 "Routes" to MapStateStore.TypeState(routeState, rowsFor("Routes"))
             )
+            run {
+                val oldRs = MapStateStore.readMap("convoy")
+                android.util.Log.e("JSONDIAG", "SAVE old[Tr=${oldRs.types["Trails"]?.state} Tk=${oldRs.types["Tracks"]?.state} bbox=${oldRs.bbox}] new[Tr=$trailState Tk=$trackState TrRows=${types["Trails"]?.rows?.size} TkRows=${types["Tracks"]?.rows?.size}] active=$activeListType selIds=${selectedArtifactIds.size}")
+            }
             MapStateStore.saveMap("convoy", MapStateStore.MapSnapshot(types, MapStateStore.PanelBoxes()))
         }
     var showConvoyMenu by remember { mutableStateOf(false) }
@@ -566,7 +570,20 @@ fun ConvoyScreen(
                             lastViewportSouth = south; lastViewportWest = west; lastViewportNorth = north; lastViewportEast = east
                             val wv = webViewRef.value
                             Thread {
-                                SpatialDisplayManager.processViewport(south, west, north, east, zoom.toInt(), wv, context)
+                                val rs = MapStateStore.readMap("convoy")
+                                val states = mapOf(
+                                    "Trails" to (rs.types["Trails"]?.state ?: DS_OFF),
+                                    "Tracks" to (rs.types["Tracks"]?.state ?: DS_OFF),
+                                    "Waypoints" to (rs.types["Waypoints"]?.state ?: DS_OFF),
+                                    "Routes" to (rs.types["Routes"]?.state ?: DS_OFF)
+                                )
+                                val selectLists = mapOf(
+                                    "Trails" to MapStateStore.checkedIdsFor(rs, "Trails"),
+                                    "Tracks" to MapStateStore.checkedIdsFor(rs, "Tracks"),
+                                    "Waypoints" to MapStateStore.checkedIdsFor(rs, "Waypoints"),
+                                    "Routes" to MapStateStore.checkedIdsFor(rs, "Routes")
+                                )
+                                SpatialDisplayManager.processViewport(south, west, north, east, zoom.toInt(), states, selectLists, wv, context)
                             }.start()
                         }
                         @android.webkit.JavascriptInterface
@@ -733,6 +750,7 @@ fun ConvoyScreen(
                                 // GATE: reseed convoy state from JSON only if active map changed since last refresh.
                                 if (MapStateStore.lastMapProcessed != "convoy") {
                                     val rs = MapStateStore.readMap("convoy")
+                                    android.util.Log.e("JSONDIAG", "READ(gate fired) Tr=${rs.types["Trails"]?.state} Tk=${rs.types["Tracks"]?.state} bbox=${rs.bbox} TrChecked=${MapStateStore.checkedIdsFor(rs, "Trails")?.size}")
                                     trailState = rs.types["Trails"]?.state ?: DS_OFF
                                     trackState = rs.types["Tracks"]?.state ?: DS_OFF
                                     waypointState = rs.types["Waypoints"]?.state ?: DS_OFF
@@ -760,9 +778,11 @@ fun ConvoyScreen(
                                         val trailsRaw = if (z >= 8 && capTrailState != DS_OFF) SpatialDbManager.queryTrailsByViewport(south, west, north, east, limit) else emptyList()
                                         val trails = if (capTrailState == DS_SELECTED)
                                             trailsRaw.filter { it["trail_id"] in (capTrailIds ?: emptySet()) } else trailsRaw
+                                        android.util.Log.e("TRAILDIAG", "DRAW bbox s=$south w=$west n=$north e=$east z=$z state=$capTrailState capIds=${capTrailIds?.size} raw=${trailsRaw.size} filtered=${trails.size}")
                                         run {
                                             val json = SpatialDbManager.buildTrailGeoJson(trails)
                                             android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                                webViewRef.value?.evaluateJavascript("clearTrails()", null)
                                                 webViewRef.value?.evaluateJavascript("updateTrails($json)", null)
                                                 if (capTrailState != DS_OFF) webViewRef.value?.evaluateJavascript("showTrails()", null)
                                             }
@@ -1401,17 +1421,35 @@ fun ConvoyScreen(
                     },
                     onEditDisplay = { typeName ->
                         val table = when(typeName) { "Tracks"->"tracks"; "Trails"->"trails"; "Waypoints"->"waypoints"; "Routes"->"routes"; else->return@ConvoyArtifactsPanel }
-                        kotlinx.coroutines.MainScope().launch {
-                            val list = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                                SpatialDbManager.init(context)
-                                SpatialDbManager.queryArtifactList(table, lastViewportSouth, lastViewportWest, lastViewportNorth, lastViewportEast)
-                            }
-                            if (list.isNotEmpty()) {
-                                artifactList = list
-                                selectedArtifactIds = if (when(typeName) { "Trails"->trailState; "Tracks"->trackState; "Waypoints"->waypointState; "Routes"->routeState; else->DS_OFF } == DS_ON) list.mapNotNull { it["id"] }.toSet() else emptySet()
-                                activeListType = typeName
-                            } else {
-                                android.widget.Toast.makeText(context, "No $typeName in current view", android.widget.Toast.LENGTH_SHORT).show()
+                        // [viewport fix] Query the SELECT list against the LIVE map bounds (the displayed
+                        // frame) -- not stale lastViewport* (cache can lag/hold GPS point -> empty list).
+                        val wvb = webViewRef.value ?: return@ConvoyArtifactsPanel
+                        wvb.evaluateJavascript(
+                            "(function(){try{var b=map.getBounds();return b.getSouth()+','+b.getWest()+','+b.getNorth()+','+b.getEast();}catch(e){return '';}})()"
+                        ) { raw ->
+                            val parts = (raw?.trim('"') ?: "").split(",")
+                            if (parts.size != 4) { android.widget.Toast.makeText(context, "Map not ready", android.widget.Toast.LENGTH_SHORT).show(); return@evaluateJavascript }
+                            val s = parts[0].toDoubleOrNull(); val w = parts[1].toDoubleOrNull(); val n = parts[2].toDoubleOrNull(); val e = parts[3].toDoubleOrNull()
+                            if (s == null || w == null || n == null || e == null) { android.widget.Toast.makeText(context, "Map not ready", android.widget.Toast.LENGTH_SHORT).show(); return@evaluateJavascript }
+                            kotlinx.coroutines.MainScope().launch {
+                                val list = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                    SpatialDbManager.init(context)
+                                    SpatialDbManager.queryArtifactList(table, s, w, n, e)
+                                }
+                                if (list.isNotEmpty()) {
+                                    artifactList = list
+                                    // mirror planning: restore saved checked ids for SELECTED; all for ALL; none otherwise
+                                    val curState = when(typeName) { "Trails"->trailState; "Tracks"->trackState; "Waypoints"->waypointState; "Routes"->routeState; else->DS_OFF }
+                                    val curChecked = when(typeName) { "Trails"->trailCheckedIds; "Tracks"->trackCheckedIds; "Waypoints"->waypointCheckedIds; "Routes"->routeCheckedIds; else->null }
+                                    selectedArtifactIds = when {
+                                        curState == DS_SELECTED && curChecked != null -> curChecked
+                                        curState == DS_ON -> list.mapNotNull { it["id"] }.toSet()
+                                        else -> emptySet()
+                                    }
+                                    activeListType = typeName
+                                } else {
+                                    android.widget.Toast.makeText(context, "No $typeName in current view", android.widget.Toast.LENGTH_SHORT).show()
+                                }
                             }
                         }
                     }

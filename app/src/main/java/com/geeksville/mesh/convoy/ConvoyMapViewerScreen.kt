@@ -620,69 +620,24 @@ fun ConvoyMapViewerScreen(
                                 // Always query — data preloaded, toggle controls visibility
                                 val z = zoom.toInt()
                                 val limit = if (z < 14) 500 else 2000
-                                // Capture compose state on main thread before Thread (local, per-map)
-                                val capTrailState = trailState
-                                val capTrackState = trackState
-                                val capWaypointState = waypointState
-                                val capRouteState = routeState
-                                val capTrailIds = trailCheckedIds
-                                val capTrackIds = trackCheckedIds
-                                val capWaypointIds = waypointCheckedIds
-                                val capRouteIds = routeCheckedIds
+                                // [Stage 2] Route the draw through the shared SpatialDisplayManager
+                                // instead of the inline copy. State comes from planning's LIVE local
+                                // vars (the reseed gate above just populated them from JSON).
+                                val states = mapOf(
+                                    "Trails" to trailState,
+                                    "Tracks" to trackState,
+                                    "Waypoints" to waypointState,
+                                    "Routes" to routeState
+                                )
+                                val selectLists = mapOf(
+                                    "Trails" to trailCheckedIds,
+                                    "Tracks" to trackCheckedIds,
+                                    "Waypoints" to waypointCheckedIds,
+                                    "Routes" to routeCheckedIds
+                                )
                                 MapStateStore.lastMapProcessed = "planning"
                                 Thread {
-                                    try {
-                                        SpatialDbManager.init(context)
-                                        val trailsRaw = if (z >= 8 && capTrailState != DS_OFF) SpatialDbManager.queryTrailsByViewport(south, west, north, east, limit) else emptyList()
-                                        val trails = if (capTrailState == DS_SELECTED)
-                                            trailsRaw.filter { it["trail_id"] in (capTrailIds ?: emptySet()) } else trailsRaw
-                                        val json = SpatialDbManager.buildTrailGeoJson(trails)
-                                        android.os.Handler(android.os.Looper.getMainLooper()).post {
-                                            webViewRef?.evaluateJavascript("updateTrails(" + json + ")", null)
-                                            if (capTrailState != DS_OFF) webViewRef?.evaluateJavascript("showTrails()", null)
-                                        }
-                                        // -- Track lazy load --
-                                        if (true) { // Always query tracks
-                                            val trackResultsRaw = if (capTrackState != DS_OFF) SpatialDbManager.queryTracksByViewport(south, west, north, east, if (zoom >= 12) 200 else 50) else emptyList()
-                                            val trackResults = if (capTrackState == DS_SELECTED && capTrackIds != null)
-                                                trackResultsRaw.filter { it["track_id"] in capTrackIds!! } else trackResultsRaw
-                                            if (trackResults.isNotEmpty()) {
-                                                val trackJson = SpatialDbManager.buildTrackGeoJson(trackResults)
-                                                android.os.Handler(android.os.Looper.getMainLooper()).post {
-                                                    webViewRef?.evaluateJavascript("updateTracks(" + trackJson + ")", null)
-                                                    if (capTrackState != DS_OFF) webViewRef?.evaluateJavascript("showTracks()", null)
-                                                }
-                                            }
-                                        }
-                                        // -- Waypoint lazy load --
-                                        if (true) { // Always query waypoints
-                                            val wptResultsRaw = if (capWaypointState != DS_OFF) SpatialDbManager.queryWaypointsByViewport(south, west, north, east, limit) else emptyList()
-                                            val wptResults = if (capWaypointState == DS_SELECTED && capWaypointIds != null)
-                                                wptResultsRaw.filter { it["waypoint_id"] in capWaypointIds!! } else wptResultsRaw
-                                            if (wptResults.isNotEmpty()) {
-                                                val wptJson = SpatialDbManager.buildWaypointGeoJson(wptResults)
-                                                android.os.Handler(android.os.Looper.getMainLooper()).post {
-                                                    webViewRef?.evaluateJavascript("updateWaypoints(" + wptJson + ")", null)
-                                                    if (capWaypointState != DS_OFF) webViewRef?.evaluateJavascript("showWaypoints()", null)
-                                                }
-                                            }
-                                        }
-                                        // -- Route lazy load --
-                                        if (true) { // Always query routes
-                                            val routeResultsRaw = if (capRouteState != DS_OFF) SpatialDbManager.queryRoutesByViewport(south, west, north, east, limit) else emptyList()
-                                            val routeResults = if (capRouteState == DS_SELECTED && capRouteIds != null)
-                                                routeResultsRaw.filter { it["route_id"] in capRouteIds!! } else routeResultsRaw
-                                            if (routeResults.isNotEmpty()) {
-                                                val routeJson = SpatialDbManager.buildRouteGeoJson(routeResults)
-                                                android.os.Handler(android.os.Looper.getMainLooper()).post {
-                                                    webViewRef?.evaluateJavascript("updateRoutes(" + routeJson + ")", null)
-                                                    if (capRouteState != DS_OFF) webViewRef?.evaluateJavascript("showRoutes()", null)
-                                                }
-                                            }
-                                        }
-                                    } catch (ex: Exception) {
-                                        android.util.Log.e("TrailLazy", "Viewport query failed: " + ex.message)
-                                    }
+                                    SpatialDisplayManager.processViewport(south, west, north, east, z, states, selectLists, webViewRef, context)
                                 }.start()
                             }
                         }, "Android")
@@ -741,6 +696,9 @@ fun ConvoyMapViewerScreen(
                                             "fitBounds([" + pmbb.south + "," + pmbb.north + "],[" + pmbb.west + "," + pmbb.east + "])", null
                                         )
                                         android.util.Log.i("PlanMap", "Restored persisted frame: " + pmbb.south + "," + pmbb.west + " .. " + pmbb.north + "," + pmbb.east)
+                                        // [Stage 3] Deterministic artifact restore from JSON (not relying on
+                                        // fitBounds->moveend->onViewportChanged to draw).
+                                        SpatialDisplayManager.drawPersistedState("planning", view, context)
                                         return@postDelayed
                                     }
                                     try {

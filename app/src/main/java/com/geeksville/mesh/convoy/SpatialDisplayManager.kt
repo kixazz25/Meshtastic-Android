@@ -29,8 +29,6 @@ object SpatialDisplayManager {
     const val DS_SELECTED = 2
 
     private data class TypeBinding(
-        val displayState: () -> Int,
-        val checkedIds: () -> Set<String>?,
         val idField: String,
         val query: (Double, Double, Double, Double, Int) -> List<Map<String, String?>>,
         val build: (List<Map<String, String?>>) -> String,
@@ -42,25 +40,25 @@ object SpatialDisplayManager {
 
     private fun bindingFor(type: String): TypeBinding? = when (type) {
         "Trails" -> TypeBinding(
-            { ConvoyConfig.trailDisplayState }, { ConvoyConfig.trailChecked }, "trail_id",
+            "trail_id",
             { s, w, n, e, lim -> SpatialDbManager.queryTrailsByViewport(s, w, n, e, lim) },
             { SpatialDbManager.buildTrailGeoJson(it) },
             "updateTrails", "showTrails", "hideTrails", 8
         )
         "Tracks" -> TypeBinding(
-            { ConvoyConfig.trackDisplayState }, { ConvoyConfig.trackChecked }, "track_id",
+            "track_id",
             { s, w, n, e, lim -> SpatialDbManager.queryTracksByViewport(s, w, n, e, lim) },
             { SpatialDbManager.buildTrackGeoJson(it) },
             "updateTracks", "showTracks", "hideTracks", 0
         )
         "Waypoints" -> TypeBinding(
-            { ConvoyConfig.waypointDisplayState }, { ConvoyConfig.waypointChecked }, "waypoint_id",
+            "waypoint_id",
             { s, w, n, e, lim -> SpatialDbManager.queryWaypointsByViewport(s, w, n, e, lim) },
             { SpatialDbManager.buildWaypointGeoJson(it) },
             "updateWaypoints", "showWaypoints", "hideWaypoints", 0
         )
         "Routes" -> TypeBinding(
-            { ConvoyConfig.routeDisplayState }, { ConvoyConfig.routeChecked }, "route_id",
+            "route_id",
             { s, w, n, e, lim -> SpatialDbManager.queryRoutesByViewport(s, w, n, e, lim) },
             { SpatialDbManager.buildRouteGeoJson(it) },
             "updateRoutes", "showRoutes", "hideRoutes", 0
@@ -76,12 +74,13 @@ object SpatialDisplayManager {
         type: String,
         south: Double, west: Double, north: Double, east: Double,
         zoom: Int,
+        state: Int,
+        checkedIds: Set<String>?,
         webView: WebView?,
         context: Context
     ) {
         val b = bindingFor(type) ?: return
         val wv = webView ?: return
-        val state = b.displayState()
         val main = Handler(Looper.getMainLooper())
 
         if (state == DS_OFF) {
@@ -99,10 +98,8 @@ object SpatialDisplayManager {
                     else { if (zoom < 14) 500 else 2000 }
 
         val raw = b.query(south, west, north, east, limit)
-
-        val checked = b.checkedIds()
-        val items = if (state == DS_SELECTED && checked != null)
-            raw.filter { it[b.idField] in checked } else raw
+        val items = if (state == DS_SELECTED && checkedIds != null)
+            raw.filter { it[b.idField] in checkedIds } else raw
 
         val json = b.build(items)
 
@@ -112,13 +109,42 @@ object SpatialDisplayManager {
         }
     }
 
+    // RESTORE entry: draw the persisted state for a map WITHOUT depending on a
+    // viewport event firing. Reads <mapKey>_panel.json (states + select-lists + bbox)
+    // and runs the same processViewport draw, fed from the JSON frame. zoom is set
+    // generously (bbox bounds the query; we don't want to gate the restore by zoom).
+    fun drawPersistedState(mapKey: String, webView: WebView?, context: Context) {
+        val rs = MapStateStore.readMap(mapKey)
+        val bbox = rs.bbox ?: return  // no saved frame yet -> live viewport draw will populate
+        val states = mapOf(
+            "Trails" to (rs.types["Trails"]?.state ?: DS_OFF),
+            "Tracks" to (rs.types["Tracks"]?.state ?: DS_OFF),
+            "Waypoints" to (rs.types["Waypoints"]?.state ?: DS_OFF),
+            "Routes" to (rs.types["Routes"]?.state ?: DS_OFF)
+        )
+        val selectLists = mapOf(
+            "Trails" to MapStateStore.checkedIdsFor(rs, "Trails"),
+            "Tracks" to MapStateStore.checkedIdsFor(rs, "Tracks"),
+            "Waypoints" to MapStateStore.checkedIdsFor(rs, "Waypoints"),
+            "Routes" to MapStateStore.checkedIdsFor(rs, "Routes")
+        )
+        val restoreZoom = 14  // generous limit + passes minZoom gates; bbox bounds the query
+        Thread {
+            processViewport(bbox.south, bbox.west, bbox.north, bbox.east, restoreZoom, states, selectLists, webView, context)
+        }.start()
+    }
     // Run all four types for one viewport change. Caller invokes on a worker thread.
     fun processViewport(
         south: Double, west: Double, north: Double, east: Double,
-        zoom: Int, webView: WebView?, context: Context
+        zoom: Int,
+        states: Map<String, Int>,
+        selectLists: Map<String, Set<String>?>,
+        webView: WebView?, context: Context
     ) {
         for (type in listOf("Trails", "Tracks", "Waypoints", "Routes")) {
-            processArtifact(type, south, west, north, east, zoom, webView, context)
+            val st = states[type] ?: DS_OFF
+            val ids = selectLists[type]
+            processArtifact(type, south, west, north, east, zoom, st, ids, webView, context)
         }
     }
 }
