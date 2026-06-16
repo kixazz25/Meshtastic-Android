@@ -652,18 +652,33 @@ fun ConvoyScreen(
                                     if (overlayJson != "[]") {
                                         view.evaluateJavascript("setOverlayLayers('${overlayJson.replace("'", "\'")}')", null)
                                     }
-                                    // Trails loaded on demand via TRAILS button
-                                    // Center map on device last known location
-                                    try {
-                                        val lm = ctx.getSystemService(android.content.Context.LOCATION_SERVICE) as android.location.LocationManager
-                                        val loc = lm.getLastKnownLocation(android.location.LocationManager.GPS_PROVIDER)
-                                            ?: lm.getLastKnownLocation(android.location.LocationManager.NETWORK_PROVIDER)
-                                        if (loc != null && loc.latitude != 0.0 && loc.longitude != 0.0) {
-                                            android.util.Log.d("ConvoyMap", "Centering map on device GPS: ${loc.latitude}, ${loc.longitude}")
-                                            view.evaluateJavascript("setView(${loc.latitude}, ${loc.longitude}, 15)", null)
+                                    // [Fix2] Entry restore vs GPS. Re-read FRESH (cmSeed remembered
+                                    // from first compose; stale on re-entry). bbox present = in-session
+                                    // re-entry -> restore saved frame; absent = cold launch -> GPS.
+                                    val rsEntry = MapStateStore.readMap("convoy")
+                                    val bbEntry = rsEntry.bbox
+                                    if (bbEntry != null) {
+                                        // SEED lastViewport* BEFORE draw — closes the stale window for
+                                        // other readers (route-snap, save) until onViewportChanged fires.
+                                        lastViewportSouth = bbEntry.south; lastViewportWest = bbEntry.west
+                                        lastViewportNorth = bbEntry.north; lastViewportEast = bbEntry.east
+                                        view.evaluateJavascript("fitBounds([${bbEntry.south},${bbEntry.north}],[${bbEntry.west},${bbEntry.east}])", null)
+                                        android.util.Log.d("ConvoyMap", "Restored persisted frame")
+                                        SpatialDisplayManager.drawPersistedState("convoy", view, context)
+                                    } else {
+                                        // Trails loaded on demand via TRAILS button
+                                        // Center map on device last known location
+                                        try {
+                                            val lm = ctx.getSystemService(android.content.Context.LOCATION_SERVICE) as android.location.LocationManager
+                                            val loc = lm.getLastKnownLocation(android.location.LocationManager.GPS_PROVIDER)
+                                                ?: lm.getLastKnownLocation(android.location.LocationManager.NETWORK_PROVIDER)
+                                            if (loc != null && loc.latitude != 0.0 && loc.longitude != 0.0) {
+                                                android.util.Log.d("ConvoyMap", "Centering map on device GPS: ${loc.latitude}, ${loc.longitude}")
+                                                view.evaluateJavascript("setView(${loc.latitude}, ${loc.longitude}, 15)", null)
+                                            }
+                                        } catch (e: SecurityException) {
+                                            android.util.Log.w("ConvoyMap", "Location permission not granted — map stays at default view")
                                         }
-                                    } catch (e: SecurityException) {
-                                        android.util.Log.w("ConvoyMap", "Location permission not granted — map stays at default view")
                                     }
                                 }, 600)
                                 mapReady++

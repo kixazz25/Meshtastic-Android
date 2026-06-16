@@ -117,6 +117,11 @@ object MapStateStore {
         }
     }
 
+    // Delete a map's persisted JSON (session-only maps: cleared on cold launch).
+    fun deleteMap(mapKey: String) {
+        try { fileFor(mapKey).delete() } catch (e: Exception) { /* never crash UI */ }
+    }
+
     fun readMap(mapKey: String): MapSnapshot {
         return try {
             val f = fileFor(mapKey)

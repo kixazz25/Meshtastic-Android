@@ -59,6 +59,10 @@ import org.meshtastic.core.ui.util.showToast
 import org.meshtastic.feature.intro.AppIntroductionScreen
 import javax.inject.Inject
 
+// Session-only convoy persistence: cleared once per process (true cold launch).
+// Top-level var = one instance per process; survives activity recreation (rotation),
+// resets only when the process restarts.
+private var convoyClearedThisProcess = false
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     private val model: UIViewModel by viewModels()
@@ -74,6 +78,13 @@ class MainActivity : ComponentActivity() {
         installSplashScreen()
 
         super.onCreate(savedInstanceState)
+
+        // [Fix2] Session-only: clear convoy saved frame on cold launch so a fresh app
+        // start centers on GPS, not last session frame. Once per process (not rotation).
+        if (!convoyClearedThisProcess) {
+            com.geeksville.mesh.convoy.MapStateStore.deleteMap("convoy")
+            convoyClearedThisProcess = true
+        }
 
         enableEdgeToEdge()
 
