@@ -129,6 +129,16 @@ object SpatialDisplayManager {
             "Routes" to MapStateStore.checkedIdsFor(rs, "Routes")
         )
         val restoreZoom = 14  // generous limit + passes minZoom gates; bbox bounds the query
+        // Move the map to the saved frame (padded ~15%) so the artifact is visible & framed.
+        val latSpan = bbox.north - bbox.south
+        val lonSpan = bbox.east - bbox.west
+        val latPad = if (latSpan > 0.0) latSpan * 0.15 else 0.01
+        val lonPad = if (lonSpan > 0.0) lonSpan * 0.15 else 0.01
+        val fS = bbox.south - latPad; val fN = bbox.north + latPad
+        val fW = bbox.west - lonPad;  val fE = bbox.east + lonPad
+        webView?.post {
+            webView.evaluateJavascript("fitBounds([$fS,$fN],[$fW,$fE])", null)
+        }
         Thread {
             processViewport(bbox.south, bbox.west, bbox.north, bbox.east, restoreZoom, states, selectLists, webView, context)
         }.start()

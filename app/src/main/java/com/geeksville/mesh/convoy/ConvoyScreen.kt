@@ -190,6 +190,7 @@ fun ConvoyScreen(
         var routeState by remember { mutableStateOf(cmSeed.types["Routes"]?.state ?: DS_OFF) }
         var searchResults by remember { mutableStateOf(emptyList<ArtifactResult>()) }
         var pendingDetailId by remember { mutableStateOf<String?>(null) }
+        var pendingDetailType by remember { mutableStateOf<String?>(null) }
         var pendingWaypoint by remember { mutableStateOf<Pair<Double, Double>?>(null) }
         // ROUTE BUILDER: route mode active -> Route+ toolbar shown (read by next patch)
         var routeMode by remember { mutableStateOf(false) }
@@ -1363,10 +1364,8 @@ fun ConvoyScreen(
                     },
                     onResultClick = { type, id, geomHash, name ->
                         val cap = type.replaceFirstChar { it.uppercase() }
-                        artifactList = listOf(mapOf("id" to id, "name" to name, "type" to cap))
-                        selectedArtifactIds = emptySet()
+                        pendingDetailType = cap
                         pendingDetailId = id
-                        activeListType = cap
                     },
                     searchResults = searchResults,
                     displayStates = mapOf("Trails" to trailState, "Tracks" to trackState, "Waypoints" to waypointState, "Routes" to routeState),
@@ -1681,7 +1680,31 @@ fun ConvoyScreen(
                         onDeselectAll = { selectedArtifactIds = emptySet() },
                         onLoadDetail = { t, id -> SpatialDbManager.getArtifactDetail(t, id) },
                         onLoadAliases = { t, id -> SpatialDbManager.getAliasesFor(t, id) },
+                        mapKey = "convoy",
+                        fitWebView = webViewRef.value,
                         initialDetailId = pendingDetailId
+                    )
+                }
+                if (pendingDetailId != null && pendingDetailType != null) {
+                    ArtifactDetailPanel(
+                        artifactType = pendingDetailType!!,
+                        id = pendingDetailId!!,
+                        mapKey = "convoy",
+                        fitWebView = webViewRef.value,
+                        onLoadDetail = { t, did -> SpatialDbManager.getArtifactDetail(t, did) },
+                        onLoadAliases = { t, did -> SpatialDbManager.getAliasesFor(t, did) },
+                        onDismiss = {
+                            val rs = MapStateStore.readMap("convoy")
+                            trailState = rs.types["Trails"]?.state ?: DS_OFF
+                            trackState = rs.types["Tracks"]?.state ?: DS_OFF
+                            waypointState = rs.types["Waypoints"]?.state ?: DS_OFF
+                            routeState = rs.types["Routes"]?.state ?: DS_OFF
+                            trailCheckedIds = MapStateStore.checkedIdsFor(rs, "Trails")
+                            trackCheckedIds = MapStateStore.checkedIdsFor(rs, "Tracks")
+                            waypointCheckedIds = MapStateStore.checkedIdsFor(rs, "Waypoints")
+                            routeCheckedIds = MapStateStore.checkedIdsFor(rs, "Routes")
+                            pendingDetailId = null; pendingDetailType = null
+                        }
                     )
                 }
 

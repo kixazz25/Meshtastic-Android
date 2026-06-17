@@ -1,5 +1,6 @@
 package com.geeksville.mesh.convoy
 
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -59,7 +60,8 @@ fun ArtifactListPanel(
     onAddAlias: ((String, String, String) -> Unit)? = null,
     onStarAlias: ((String, String, String) -> Unit)? = null,
     onDeleteAlias: ((String) -> Unit)? = null,
-    onFit: ((String, String) -> Unit)? = null,
+    mapKey: String = "convoy",
+    fitWebView: android.webkit.WebView? = null,
     initialDetailId: String? = null
 ) {
     val aMono = FontFamily.Monospace
@@ -69,6 +71,7 @@ fun ArtifactListPanel(
     val aDim = Color(0xFF7A8DA0)
     val aBg = Color(0xEE131820)
     val aItem = Color(0xFF1A2233)
+    val ctx = LocalContext.current
 
     // Detail panel state
     var detailArtifactId by remember(initialDetailId) { mutableStateOf<String?>(initialDetailId) }
@@ -208,8 +211,7 @@ fun ArtifactListPanel(
                                     DetailActionButton("CHANGE TYPE", aOrange) { showTypeChooser = true }
                                 }
                                 DetailActionButton("FIT", aBlue) {
-                                    onFit?.invoke(singular, dId)
-                                        ?: android.util.Log.i("ArtifactList", "FIT not yet wired")
+                                    ConvoyArtifactOps.fit(ctx, fitWebView, mapKey, singular, dId)
                                 }
                             }
 

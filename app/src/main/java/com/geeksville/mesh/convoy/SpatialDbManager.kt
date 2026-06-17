@@ -1317,4 +1317,17 @@ object SpatialDbManager {
             v
         } catch (_: Exception) { 0 }
     }
+
+    /** FIT support: bounding box [south, west, north, east] for ONE artifact, or null. */
+    fun bboxForArtifact(type: String, artifactId: String): DoubleArray? {
+        val (table, idCol) = spatialTableFor(type) ?: return null
+        val db = spatialDb ?: return null
+        db.rawQuery("SELECT min_lat, min_lon, max_lat, max_lon FROM $table WHERE $idCol = ? LIMIT 1", arrayOf(artifactId)).use {
+            if (!it.moveToFirst()) return null
+            if (it.isNull(0) || it.isNull(1) || it.isNull(2) || it.isNull(3)) return null
+            val south = it.getDouble(0); val west = it.getDouble(1)
+            val north = it.getDouble(2); val east = it.getDouble(3)
+            return doubleArrayOf(south, west, north, east)
+        }
+    }
 }

@@ -15,9 +15,48 @@ object ConvoyArtifactOps {
 
     private const val TAG = "ArtifactOps"
 
-    /** FIT: zoom map to artifact bounds via JS fitBounds */
-    fun fit(artifactType: String, artifactId: String) {
-        Log.d(TAG, "FIT $artifactType $artifactId — Pass 1 stub")
+    /** FIT: write a convoy JSON (fitted type SELECTED w/ full bbox list, only the fitted
+     *  artifact checked; other types OFF; bbox = artifact extent) then drawPersistedState.
+     *  Rides the persistence machinery — no FIT-specific draw. */
+    fun fit(context: Context, webView: android.webkit.WebView?, mapKey: String, artifactType: String, artifactId: String) {
+        val bb = SpatialDbManager.bboxForArtifact(artifactType, artifactId) ?: run {
+            Log.w(TAG, "FIT: no bbox for $artifactType $artifactId"); return
+        }
+        val south = bb[0]; val west = bb[1]; val north = bb[2]; val east = bb[3]
+        // Query ALL of this type in the artifact bbox -> the toggle list (same query draw runs).
+        val inBbox = when (artifactType) {
+            "Trails" -> SpatialDbManager.queryTrailsByViewport(south, west, north, east)
+            "Tracks" -> SpatialDbManager.queryTracksByViewport(south, west, north, east)
+            "Waypoints" -> SpatialDbManager.queryWaypointsByViewport(south, west, north, east)
+            "Routes" -> SpatialDbManager.queryRoutesByViewport(south, west, north, east)
+            else -> emptyList()
+        }
+        val idField = when (artifactType) {
+            "Trails" -> "trail_id"; "Tracks" -> "track_id"
+            "Waypoints" -> "waypoint_id"; else -> "route_id"
+        }
+        // Rows = every in-bbox artifact; ONLY the fitted one checked=true (others toggleable).
+        val fittedName = SpatialDbManager.getArtifactDetail(artifactType, artifactId)["name"] ?: ""
+        val rows = inBbox.mapNotNull { m ->
+            val id = m[idField] ?: return@mapNotNull null
+            val nm = if (id == artifactId) fittedName else (m["name"] ?: "")
+            MapStateStore.Row(id, nm, id == artifactId)
+        }
+        val finalRows = if (rows.any { it.id == artifactId }) rows
+            else rows + MapStateStore.Row(artifactId, fittedName, true)
+        val types = listOf("Trails", "Tracks", "Waypoints", "Routes").associateWith { t ->
+            if (t == artifactType) MapStateStore.TypeState(2, finalRows)
+            else MapStateStore.TypeState(0, emptyList())
+        }
+        val snap = MapStateStore.MapSnapshot(
+            types,
+            MapStateStore.PanelBoxes(),
+            MapStateStore.BBox(south, west, north, east),
+            MapStateStore.FitArtifact(artifactId, fittedName, artifactType)
+        )
+        MapStateStore.saveMap(mapKey, snap)
+        Log.d(TAG, "FIT $artifactType $artifactId -> bbox=[$south,$west,$north,$east] rows=${finalRows.size}")
+        SpatialDisplayManager.drawPersistedState(mapKey, webView, context)
     }
 
     /** RENAME: change display name, update aliases, journal */

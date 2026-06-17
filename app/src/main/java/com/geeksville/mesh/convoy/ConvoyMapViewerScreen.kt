@@ -218,6 +218,7 @@ fun ConvoyMapViewerScreen(
     var routeState by remember { mutableStateOf(pmSeed.types["Routes"]?.state ?: DS_OFF) }
     var searchResults by remember { mutableStateOf(emptyList<ArtifactResult>()) }
     var pendingDetailId by remember { mutableStateOf<String?>(null) }
+    var pendingDetailType by remember { mutableStateOf<String?>(null) }
     var trailCheckedIds by remember { mutableStateOf(MapStateStore.checkedIdsFor(pmSeed, "Trails")) }
     var trackCheckedIds by remember { mutableStateOf(MapStateStore.checkedIdsFor(pmSeed, "Tracks")) }
     var waypointCheckedIds by remember { mutableStateOf(MapStateStore.checkedIdsFor(pmSeed, "Waypoints")) }
@@ -877,10 +878,8 @@ fun ConvoyMapViewerScreen(
                 },
                 onResultClick = { type, id, geomHash, name ->
                     val cap = type.replaceFirstChar { it.uppercase() }
-                    artifactList = listOf(mapOf("id" to id, "name" to name, "type" to cap))
-                    selectedArtifactIds = emptySet()
+                    pendingDetailType = cap
                     pendingDetailId = id
-                    activeListType = cap
                 },
                 searchResults = searchResults,
                 displayStates = mapOf("Trails" to trailState, "Tracks" to trackState, "Waypoints" to waypointState, "Routes" to routeState),
@@ -1202,6 +1201,8 @@ fun ConvoyMapViewerScreen(
             }
             if (activeListType != null) {
                 ArtifactListPanel(
+                    mapKey = "planning",
+                    fitWebView = webViewRef,
                     artifactType = activeListType!!,
                     artifacts = artifactList,
                     selectedIds = selectedArtifactIds,
@@ -1329,6 +1330,28 @@ fun ConvoyMapViewerScreen(
                     onLoadAliases = { t, id -> SpatialDbManager.getAliasesFor(t, id) },
                     onDeleteAlias = { aliasId -> scope.launch { kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { SpatialDbManager.init(context); SpatialDbManager.deleteAlias(aliasId) } } },
                     initialDetailId = pendingDetailId
+                )
+            }
+            if (pendingDetailId != null && pendingDetailType != null) {
+                ArtifactDetailPanel(
+                    artifactType = pendingDetailType!!,
+                    id = pendingDetailId!!,
+                    mapKey = "planning",
+                    fitWebView = webViewRef,
+                    onLoadDetail = { t, did -> SpatialDbManager.getArtifactDetail(t, did) },
+                    onLoadAliases = { t, did -> SpatialDbManager.getAliasesFor(t, did) },
+                    onDismiss = {
+                        val rs = MapStateStore.readMap("planning")
+                        trailState = rs.types["Trails"]?.state ?: DS_OFF
+                        trackState = rs.types["Tracks"]?.state ?: DS_OFF
+                        waypointState = rs.types["Waypoints"]?.state ?: DS_OFF
+                        routeState = rs.types["Routes"]?.state ?: DS_OFF
+                        trailCheckedIds = MapStateStore.checkedIdsFor(rs, "Trails")
+                        trackCheckedIds = MapStateStore.checkedIdsFor(rs, "Tracks")
+                        waypointCheckedIds = MapStateStore.checkedIdsFor(rs, "Waypoints")
+                        routeCheckedIds = MapStateStore.checkedIdsFor(rs, "Routes")
+                        pendingDetailId = null; pendingDetailType = null
+                    }
                 )
             }
 
