@@ -4,7 +4,44 @@
 
 ---
 
-## TODAY'S OUTCOME (2026-06-15) — honest accounting
+## ⛔⛔ TOP PRIORITY (2026-06-16 EOD) — BUILD THE SHARED DRAW FUNCTION (~4 hrs)
+**Read the design spec `GroupTrack_FullFilterPersistence_ModelChange_DESIGN_2026-06-16.md` FIRST — it has the discovered draw contract + FIT spec + exact build steps.**
+
+### What changed today (the simplification)
+We examined the DRAW function end-to-end (ConvoyScreen 751-815) — the thing we should have studied on day 1. It was the keys to the kingdom. Every bug (empty list, clobber, 165-trail, missing tracks) was downstream of not understanding that one function's contract. The draw is currently the **body of `onViewportChanged`** (not a callable function), which is WHY restore depends on a viewport event firing with the right bbox.
+
+### The discovered draw contract (4 identical per-type blocks)
+```
+INPUTS:  bbox(s,w,n,e) · zoom→limit(500/2000) · state(OFF/ALL/SELECTED) · selectList(checked ids)
+LOGIC:   1. ELIGIBILITY  raw = if(state!=OFF) queryXByViewport(bbox,limit) else empty
+         2. SELECT/OMIT  results = if(state==SELECTED) raw.filter{id in selectList} else raw
+         3. RENDER       buildXGeoJson → updateX(json); if(state!=OFF) showX()
+```
+The draw takes (state, bbox, select-list) and executes. **Keep it exactly as-is — feed it from JSON instead of live state.** Do NOT reinvent the draw.
+
+### The build (~4 hrs, Fred's estimate)
+1. **`drawArtifacts(bbox, states, selectLists, webView)`** — extract 751-815 into a standalone parameterized function (the SHARED CORE; no JSON read, no viewport coupling).
+2. **`drawPersistedState(mapKey, webView)`** — read `<mapKey>_panel.json` (state, ids, bbox) → call drawArtifacts. = RESTORE.
+3. **`savePersistedState(mapKey)`** — write state + select-lists (ALL types — drop the activeListType clobber gate) + bbox (currently null — required add).
+4. `onViewportChanged` calls drawArtifacts with live params. = LIVE nav (same core, two sources).
+5. **FIT = write JSON + call drawPersistedState** — snaps in for free (compute artifact bbox, fitted type SELECTED with in-bbox list/only-fitted-checked, other types OFF).
+6. **CONVOY-FIRST** (planning stays on committed `0082b032f`), prove, **then PLANNING** calls the same functions. Per-map copies deleted. This IS the shared-code consolidation.
+
+### Two hand-coded query functions → one parameterized function
+The whole point in one line: two complex hand-coded persistence/draw functions (convoy's + planning's) → ONE parameterized function reading a JSON and executing a persistent-state draw. Eliminates the duplication that caused 3 days of re-fixing.
+
+### Notes
+- **⛔ DO NOT run `convoy_saveState_mirror_planning_2026-06-16_v1.py`** — obsolete, superseded.
+- **Milestone 1 (onEditDisplay live-bounds + three-way reselect)** is applied+built+tested working — a stopgap the model change supersedes; leave for now.
+- **Q4 check first:** does SpatialDbManager have `queryXByIds`? Likely not needed — drawArtifacts reuses queryXByViewport fed the JSON bbox + filters by JSON ids, exactly as the current draw does.
+- Diagnostic logs (JSONDIAG, TRAILDIAG) + clearTrails in current build — keep for testing, remove before commit.
+
+### Lesson (Fred, 06-16)
+Examine the central function's contract BEFORE building around it. The draw was studied on day 3; doing it on day 1 would have saved the detour. Also: the two back-to-back viewport queries (eligibility then a second identical query in some paths) are an artifact of organic growth, not a design — the consolidation removes the duplication.
+
+---
+
+## TODAY'S OUTCOME (2026-06-15) — historical, superseded by above
 - ✅ **PLANNING persistence COMMITTED** = `0082b032f` ("Planning map persistence: bbox save/restore + selection (rowsFor) fix"). Device-proven. This is the recovery point.
 - ✅ **CONVOY persistence SAVE side PROVEN** (via JSON pull) — but **REVERTED at EOD** (see below). The save logic was correct; the trail-DISPLAY had an unresolved bug and the working tree became cross-contaminated, so convoy was rolled back to `0082b032f` to protect a clean base.
 - 🐞 **One unresolved bug carried to tomorrow:** on convoy restore, the map drew ~165 trails instead of the selected 2. **Measured fact: the spatial DB query for the saved bbox returns only 17 trails — so the 165 came from a SEPARATE draw call, not the DB viewport query.** Source of the 165 not yet identified.
@@ -67,6 +104,29 @@ JSON filter is the **golden** display state.
 2. 2 selected, both in bbox → 2 display.
 3. 15 in new bbox, 2 carried-forward → 2 display, 13 no.
 4. 1 selected leaves bbox (6 in new bbox, 1 still in frame) → 1 displays.
+
+---
+
+## ⛔ BACKLOG — VIEWPORT (`lastViewport*`) USAGE AUDIT (convoy) — added 2026-06-16
+**Problem definition:** Convoy queries the spatial DB against a CACHED viewport (`lastViewportSouth/West/North/East`, ConvoyScreen ~212) instead of the live current map bounds. The cache is written ONLY by `onViewportChanged` (ConvoyScreen 570 + 736 — the JS→Kotlin bridge from convoy_map.html's `moveend` handler @338, which is **debounced 400ms** @343). The cache can therefore be **stale** relative to what the map is actually displaying, because:
+- The `moveend` handler updates it on a **400ms setTimeout** — a query firing within 400ms of a pan reads the OLD bbox.
+- `zoomend` (convoy_map.html @329) does **NOT** call `onViewportChanged` at all — planning's grouptrack_map.html fires it from BOTH zoomend (@747) and moveend (@752); convoy fires only from moveend. So a pure zoom may not refresh the cache.
+- On entry, GPS-centering (`setView(deviceGPS)` @647 one-time, and the autoPan block @322-335 when recording) moves the map to a GPS point; `onViewportChanged` then records GPS-centered (sometimes zero-area / `n==s,e==w`) bounds. `lastViewport*` faithfully records this — it is NOT directly overloaded with GPS (only written by onViewportChanged, confirmed by full-tree grep), but it ends up holding GPS-point bounds because the map was moved there.
+
+**Observed failure (2026-06-16):** Map DRAW works (uses fresh `south/west/north/east` params from onViewportChanged directly, ConvoyScreen @765) → Utah trails display correctly. But the SELECT-LIST query (`queryArtifactList`, ConvoyScreen @1414) reads the stale CACHE (`lastViewport*`) → queries the wrong/NH-GPS frame → returns 0 rows → **SEL/EDIT filter list comes up empty even though the map shows the correct trails.** Proven by: select-ALL still yields an empty list (a zero-result query, not a filter problem); JSON has correct state=2 + checked rows; map displays correctly. Same view, two consumers, two different bboxes — DRAW=fresh (correct), LIST=cached (stale).
+
+**Inconsistency to resolve (the audit):** The map DRAW uses fresh params (correct); the QUERIES use the cache (can be stale). Every `lastViewport*` READ in convoy must be evaluated:
+- `542/543` trails/tracks query · `550/551` query pair · `702/703` query pair · `710/711` query pair · `1414` queryArtifactList (the select list — failing) · `1452` (`val sLat = lastViewportSouth...`).
+- DRAW @765 already uses fresh params → correct → leave.
+
+**Principle (user-stated 2026-06-16):** "I cannot think of an instance where the bbox queries should NOT use the current bbox." Every viewport query should use the frame actually on screen. The cache is a performance optimization that introduced a correctness bug.
+
+**Resolution options (decide in the audit pass, fix one-at-a-time + test):**
+- (A) Make the cache reliably current at its SOURCE — fire `onViewportChanged` from zoomend too (mirror planning), and reconsider the 400ms debounce — so every consumer can trust `lastViewport*`. One fix, all consumers benefit. Must PROVE it's current before trusting.
+- (B) Replace cache reads with live `map.getBounds()` (async callback) at each query site — always correct, never stale, but more code per site and async.
+- The immediate select-list fix (2026-06-16) uses (B) at onEditDisplay only to unblock persistence. **The general audit is deferred** (per user: fix this instance → complete persistence → FIT → unified search; THEN the audit). Until done, treat any `lastViewport*` read as potentially stale.
+
+**Note:** field_crossref does NOT index `lastViewport*` (it's a UI composable local declared with `remember`, not a backend/bridge field) — confirmed empty in xref. Use single-file grep / live read for composable locals, not the xref.
 
 ---
 

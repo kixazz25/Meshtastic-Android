@@ -12832,6 +12832,182 @@ grep -rn 'about\|About\|splash\|Splash\|version\|tagline' app/src/main/java/com/
 - One build covers items 1–8 (all in the app); build once at the end of the code items, not after each, to save time — but commit each separately so they're individually revertible. (Item 5 versionCode + item 4 manifest want to be in the build you test.)
 
 
+=== GroupTrack_FullFilterPersistence_ModelChange_DESIGN_2026-06-16.md ===
+# GroupTrack — Full-Filter-Persistence Model Change (DESIGN SPEC)
+**Drafted:** 2026-06-16 · **Status:** design, not yet built · **Applies to:** convoy + planning (shared)
+
+---
+
+## THE ROOT CAUSE THIS FIXES
+The current design persists the filter **only for SELECTED** state and **recreates ALL/OFF from a live bbox query** at panel-open / draw. The premise was "ALL/OFF are cheap to recreate." That premise is false in practice because the recreate depends on a viewport query whose bbox can be stale/wrong (GPS point, debounce lag, lastViewport drift). Every persistence bug today (empty select list, clobbered selection, 165-trail, missing tracks) traces to **recreating** display state via query instead of **restoring** it from saved data.
+
+**Principle (Fred, locked):** One filter, three states. The filter holds **every row with its display state**, for ALL / OFF / SELECTED alike. The filter is the persisted source of truth and **drives the draw** — the query's only job is to CREATE rows the first time (when no saved filter exists for that type+frame), never to re-derive display state on restore.
+
+**Restore, don't recreate.** The persisted JSON fully defines the display. Recreate nothing from a query at restore time.
+
+---
+
+## CURRENT MODEL (what exists, to change)
+Two representations of display state, split:
+1. `artifactList` + `selectedArtifactIds` (ConvoyScreen 216-217) — LIVE panel working set; only valid while a panel is open; transient.
+2. `trailCheckedIds` / `trackCheckedIds` / ... (219-222) — PERSISTENT per-type checked-id SET, loaded from JSON via `MapStateStore.checkedIdsFor`.
+
+JSON shape today: `{artifacts:{<Type>:{state:Int, rows:[{id,name,checked}]}}, bbox?, panel}`. state 0=OFF, 1=ALL, 2=SELECTED.
+
+**Save (`rowsFor`, ConvoyScreen 227):** `if (activeListType != type) return emptyList()` → only the open type saves rows; rows come from `artifactList` + `selectedArtifactIds`. → CLOBBER: switching panels wipes other types' rows; non-open types save empty.
+
+**Restore + Draw (ConvoyScreen ~765):** re-queries `queryTrailsByViewport(bbox)` then re-filters to `capTrailIds` for SELECTED; for ALL draws all query results; OFF draws nothing. → display state RE-DERIVED from query every time.
+
+**onEditDisplay (1409):** queries by live bounds, then `selectedArtifactIds = when{ SELECTED→curChecked; ALL→all-in-query; else→empty }` → recreates ALL/OFF, restores only SELECTED.
+
+---
+
+## TARGET MODEL (full filter persistence)
+
+### Data model
+Persist, per type, the **complete filter**: the row set AND each row's display flag, for whatever state the type is in. The persisted filter is authoritative.
+
+- A type's persisted record = `{ state, rows:[{id, name, display:Bool}] }` for ALL three states (not just SELECTED).
+  - **ALL:** rows = all artifacts the user has in the filter, each `display=true`.
+  - **OFF:** rows = same set, each `display=false` (OR state=OFF short-circuits draw; see open question Q2).
+  - **SELECTED:** rows = the set, `display` per the user's individual choices.
+- `MapStateStore.Row` already has `(id, name, checked)` — reuse `checked` as the per-row display flag. No schema change to Row needed; the change is WHICH rows get saved (all, not just active/selected) and that the draw READS them.
+
+### Save (`saveState(mapKey)`)
+- Remove the `activeListType` gate. Save rows for **every** type, every time.
+- Rows source = the type's **persistent filter** (not the transient `artifactList`/`selectedArtifactIds` that's only valid for the open panel). This requires the persistent representation to hold the full row set per type (see Migration below), not just a checked-id set.
+- Write bbox (the current frame) too — needed so restore can re-query ONLY when the filter is empty for a newly-entered frame.
+
+### Restore + Draw (`recreateState(mapKey, webView)`)
+- Read the JSON for `mapKey`. For each type:
+  - If the type has a persisted filter (rows present) → **draw from the rows**: fetch geometry for the `display=true` row ids (query-BY-ID, not by-bbox), draw them. NO bbox query for display state.
+  - If the type has NO persisted rows yet (first entry to a frame) → query by bbox ONCE to CREATE the rows, apply state default (ALL→all display, OFF→none, SELECTED→none until user picks), persist them.
+- The draw iterates persisted rows; it does not re-derive from a bbox query.
+
+### Geometry: query-BY-ID for restore
+- Add `SpatialDbManager.queryTrailsByIds(ids)` / tracks / waypoints / routes — `SELECT ... WHERE <id_col> IN (...)`. (Check if exists; earlier grep was pending.)
+- Restore fetches geometry for the persisted display=true ids by id — immune to stale bbox. This is the "restore not recreate" mechanism.
+
+### onEditDisplay
+- Populate the panel from the **persisted rows** for that type (not a fresh bbox query) when they exist.
+- Only query-by-bbox to ADD newly-in-frame artifacts the user could newly include (the "what else is here" case) — and merge per [3.1c] reconcile rules, never overwriting saved display flags.
+
+---
+
+## SHARED (consolidation — both maps)
+- `saveState(mapKey)` and `recreateState(mapKey, webView)` become **shared functions keyed only by mapKey** (open `<mapKey>_panel.json`). The persisted JSON is the entire contract. ConvoyScreen and ConvoyMapViewerScreen each call the same two functions with their mapKey — no duplicated/drifted per-map copies.
+- This is the documented "shared code / fix once fixes both" design, finally realized — by making the functions JSON-driven (mapKey in, JSON is the state) rather than closure-bound to composable locals.
+- ⚠️ Planning persistence is COMMITTED + working (`0082b032f`). This change touches the shared store/draw that planning rides. Do it in small tested steps with planning revert anchor `0082b032f`. If planning destabilizes, revert.
+
+---
+
+## OPEN QUESTIONS (resolve before/while building)
+- **Q1 — JSON size for ALL:** ALL-state persists every in-frame row (can be 500+ at wide zoom; query limit was 500). Acceptable? Options: (a) accept larger JSON; (b) for ALL, store state=ALL flag + the row set but cap; (c) ALL stays a flag that means "all currently-in-filter rows display." Decide.
+- **Q2 — OFF representation:** OFF = rows with display=false, OR state=OFF short-circuits the draw and rows are retained for when you flip back ON? (Retaining rows lets OFF→ON restore the same set without re-query.)
+- **Q3 — "filter" lifespan vs frame:** when the user pans to a NEW frame, is the filter for the old frame discarded, merged, or kept? Convoy = session-only; planning = persisted across launches. The frame/filter relationship differs per map — confirm the rule per [3.1c] (bbox change reconcile: NEW∩JSON keep, new→no, gone→DELETE).
+- **Q4 — query-by-id existence:** confirm SpatialDbManager has or needs `queryXByIds`. (grep was pending.)
+- **Q5 — migration:** the persistent representation changes from "checked-id SET per type" to "full row set per type." `checkedIdsFor` and the `*CheckedIds` vars get replaced/augmented by a full per-type row list. Plan the in-memory state change (likely a `Map<String, List<Row>>` per type or similar).
+
+---
+
+## ⭐⭐ DISCOVERED DRAW CONTRACT (from real code, ConvoyScreen 751-815) — THE BUILD TARGET
+The draw is currently the BODY of `onViewportChanged` (the JS bridge callback), NOT a callable function — which is why restore depends on that event firing. Four identical per-type blocks (Trails/Tracks/Waypoints/Routes). Each block:
+
+```
+INPUTS:  bbox(s,w,n,e) [currently onViewportChanged params] · zoom→limit(500/2000) · state(OFF/ALL/SELECTED) · selectList(capXIds)
+LOGIC:   1. ELIGIBILITY: raw = if (state != OFF) queryXByViewport(s,w,n,e,limit) else emptyList()
+         2. SELECT/OMIT: results = if (state == SELECTED) raw.filter { it["X_id"] in capXIds } else raw
+         3. RENDER:      json = buildXGeoJson(results); MAIN-THREAD: updateX(json); if (state != OFF) showX()
+                         (Trails also clearTrails() first — diagnostic add, can drop)
+OUTPUT:  updateX(json) + showX()/implicit-hide via state
+```
+Per-type specifics: Trails limit 500/2000-by-zoom + `z>=8` gate; Tracks limit 200/50-by-z12; Waypoints/Routes limit. id keys: trail_id/track_id/waypoint_id/route_id. Builders: buildTrailGeoJson/buildTrackGeoJson/buildWaypointGeoJson/buildRouteGeoJson. JS: updateTrails/Tracks/Waypoints/Routes + showTrails/etc + clearTrails.
+
+**ALSO tangled in the same callback (737-748): the RESEED GATE** — `if (lastMapProcessed != "convoy") { read JSON → set state + checkedIds }`. This is RESTORE logic mixed into the viewport callback. Separate it.
+
+### THE EXTRACTION (the 4-hour build, Fred's estimate)
+1. **`drawArtifacts(bbox, perTypeState, perTypeIds, webView)`** — extract 751-815 into a standalone parameterized function. The pure draw: takes bbox + per-type state + per-type select-lists → eligibility→select/omit→render, all 4 types. No JSON reading, no viewport coupling. THE SHARED CORE.
+2. **`drawPersistedState(mapKey, webView)`** — read `<mapKey>_panel.json` (state, ids, bbox) → call `drawArtifacts` with them. = RESTORE. (the "recovery draw")
+3. **`savePersistedState(mapKey)`** — write state + select-lists (ALL types, drop activeListType clobber gate) + bbox. (bbox currently null — REQUIRED add so drawPersistedState has a frame.)
+4. **`onViewportChanged`** — calls `drawArtifacts` with live frame params + current state. = LIVE navigation. (same core, live source)
+5. **FIT** = build the FIT JSON (artifact bbox; fitted type SELECTED with in-bbox list, only-fitted checked; other types OFF) → call `drawPersistedState`. Snaps in for free.
+6. **Convoy-first, prove, then planning** calls the same `drawArtifacts`/`drawPersistedState`/`savePersistedState`. Both maps share the core; per-map copies deleted.
+
+**Signature locked:** `drawArtifacts(bbox: BBox, states: Map<String,Int>, selectLists: Map<String,Set<String>?>, webView: WebView)`. Same draw, fed from two sources (live params vs JSON). Restore feeds from JSON; viewport feeds from live. FIT writes JSON then restores. Estimated ~4 hrs to build the common function + snap into existing restore.
+
+---
+
+## FIT (the GOAL) = WRITE A SPECIFIC JSON + CALL drawPersistedState
+Once `drawPersistedState(mapKey, webView)` exists, FIT is just writing the right JSON and calling it. FIT's JSON content (Fred, hardened 06-16):
+1. **Create a bounding box for the artifact to fit in** — compute bbox from the artifact's geometry (its min/max lat/lon spatial-row fields). This becomes the JSON bbox (the frame).
+2. **Turn ALL OTHER artifact types OFF** — fit a trail → tracks/waypoints/routes all set to OFF state in the JSON.
+3. **Create a select filter list for the fitted type in that bbox** — query that type within the new bbox → that's the select-list (all of that type in the artifact's frame).
+4. **Select ONLY the working artifact to display** — in that select-list, only the fitted artifact is checked:true; all other in-bbox results checked:false (present, toggleable to COMBINE for route-building).
+5. The fitted type's state = SELECTED.
+Then **call `drawPersistedState`** → map frames to the artifact's bbox, displays only the fitted artifact, neighbors present-but-off and toggleable.
+
+So FIT writes: `{ <fittedType>:{state:SELECTED, rows:[all-in-bbox, only-fitted checked:true]}, <otherTypes>:{state:OFF}, bbox:<artifact bbox> }` then calls the shared draw. No FIT-specific draw logic — FIT is a JSON write + the standard recovery draw. THIS is why the persistence model change makes FIT nearly free.
+
+---
+
+## ⭐ CORE FRAMING (Fred, locked 06-16) — THE WHOLE POINT IN ONE LINE
+Today there are TWO complex hand-coded persistence/draw functions (convoy's and planning's). **Replace both with ONE parameterized function that reads a JSON and executes a persistent-state draw.** That single function, keyed by mapKey, eliminates the duplication and IS the common framework. Everything below is implementation detail of that one idea.
+
+- `savePersistedState(mapKey)` — write the JSON (state + rows + selected ids + bbox, all types, all states).
+- `drawPersistedState(mapKey, webView)` — read `<mapKey>_panel.json`, execute the persistent-state draw from it.
+- Both maps call these two functions. The hand-coded per-map copies are DELETED. One implementation, fix-once-fixes-both.
+
+Note: this is a SEPARATE operation from the live viewport draw (which fires on pan/zoom and stays per-map, unchanged). `drawPersistedState` is the RESTORE/RECOVERY draw — deterministic, JSON-driven, triggered on entry/map-switch, NOT dependent on an onViewportChanged event firing. Internals (query JSON-bbox + filter by JSON-ids, vs fetch-by-id) are an implementation choice settled at build time; simplest is to reuse the existing query+filter fed from the JSON's bbox + ids.
+
+---
+
+## APPROACH (REVISED 2026-06-16 — PLANNING-FIRST) — SHARED FUNCTION, BUILT FROM THE CLEAN MAP
+**SEQUENCING CHANGED to PLANNING-FIRST (Fred's reasoning, supersedes the earlier convoy-first note below):** Build the shared function INTO planning (the simpler, working codebase) FIRST. Reason: extract from clean, known-good behavior so the FUNCTION ITSELF is proven correct before it ever meets convoy's quirks (persistent WebView, GPS centering, the clobber). 
+
+Why planning-first beats convoy-first: if we build into convoy first and it misbehaves, we can't tell if the new function is wrong OR convoy's pre-existing quirks are interfering (two unknowns). Build into planning first (clean) — if it still works, the function is PROVEN. Then when convoy adopts it and something breaks, we KNOW it's a convoy-specific quirk to handle (one unknown, isolated). Cleaner cause-isolation + better diagnostics.
+
+**Recovery (NOT a fallback to desire):** none of this is in production — `0082b032f` is a dev checkpoint, not a shipped feature, and it IS the disparate-two-copies code we are LEAVING. So reverting there is not a goal; it just restores the problem. The DIRECTION is always FORWARD to the shared function. `git history` / `git checkout 0082b032f -- <file>` is a recovery tool if we tangle badly mid-extraction, but the endpoint is always both maps on ONE shared function — never back to two copies. **Planning-working is the LAUNCH PAD** (it must work so convoy inherits a proven function), not a production asset to protect. If extraction breaks planning, FIX FORWARD on the shared function.
+
+**Phase 1:** build `drawArtifacts` + `drawPersistedState` + `savePersistedState` into PLANNING, wire planning's call sites to them, prove planning WORKS ON THE SHARED FUNCTION (not its old copy). **Phase 2:** convoy adopts the SAME shared functions; per-map copies deleted. Convoy-specific quirks surface here, isolated. Endpoint: both maps on one function.
+
+### JSON READ/WRITE INVENTORY (audited 06-16 — every state-save accounted for)
+Every save already funnels through ONE wrapper per map → replacing the wrapper covers every write. No scattered saveMap calls to hunt.
+- **PLANNING (ConvoyMapViewerScreen.kt):** readMap 214 (entry seed), 610 (reseed gate in onViewportChanged); savePlanningState DEF 230 → saveMap 252; SAVE TRIGGERS 256 (debounced viewport-settle — convoy LACKS this), 943 (onEditDisplay/onSetState), 1271 (onDismiss).
+- **CONVOY (ConvoyScreen.kt):** readMap 186 (entry seed), 241 (diagnostic, remove), 739 (reseed gate); saveConvoyState DEF 226 → saveMap 244; SAVE TRIGGERS 1400 (onSetState), 1695.
+- **MapStateStore.kt:** saveMap 78, readMap 120 (shared low-level I/O).
+- **NO deleteMap on current base** — cold-launch clear (session-only) must be added separately.
+- **ASYMMETRY:** planning has the debounced viewport-settle save (256) that persists bbox on every pan/zoom settle; convoy LACKS it → part of why convoy's bbox was never saved. The shared design must give convoy this (or equivalent).
+- `savePersistedState(mapKey)` REPLACES both wrappers; all 5 triggers call it. `drawPersistedState` + seed-read replace the readMap points.
+
+---
+
+## APPROACH (ORIGINAL 2026-06-16 — convoy-first; SUPERSEDED by planning-first above)
+Build ONE shared pair of functions — `saveState(mapKey)` + `recreateState(mapKey, webView)` — keyed only on mapKey (open `<mapKey>_panel.json`). The JSON is the entire contract: **write a JSON, read a JSON, redraw the map.** Restore ALL values (every row + display state, all 3 states) BEFORE the draw, then re-execute the draw from the restored rows.
+
+**CRITICAL SEQUENCING — convoy-first, planning-second (protects committed planning):**
+- **Phase 1 (build + prove on CONVOY only):** wire the shared functions to ConvoyScreen ONLY. Planning stays on its committed working code (`0082b032f`) untouched. Convoy is already broken → no regression risk. Prove the shared function works on convoy (JSON pull + on-device: select/all/off persist & restore for all types, survive pan/exit/return, no clobber, no 165).
+- **Phase 2 (adopt on PLANNING):** only AFTER convoy proves it, wire ConvoyMapViewerScreen to the SAME shared functions, retire planning's duplicate copies. Now both maps share one impl. Planning revert anchor `0082b032f` if it destabilizes.
+- Rationale: the elegance (one function, both maps) is also the risk — a flaw breaks BOTH at once. Convoy-first means a flaw can't take down the working committed map.
+
+## BUILD SEQUENCE (small tested steps, planning anchor 0082b032f)
+1. **Answer Q1-Q5 first** (below) — they shape the function signature; building before answering = wrong function + rework.
+2. Confirm/add `queryXByIds` in SpatialDbManager (Q4).
+3. New shared `saveState(mapKey)`: saves all types, full rows + display, from a per-type row representation (drop activeListType gate) + bbox. Convoy-first. Test JSON pull: all types' rows persist, no clobber.
+4. New shared `recreateState(mapKey, webView)`: draw from persisted rows via query-by-id; query-by-bbox only when no rows exist for a fresh frame. Convoy-first. Test display matches JSON, survives pan/exit/return.
+5. Prove convoy end-to-end. Then Phase 2: wire planning to the shared functions, test BOTH.
+6. Commit (named files only). Then FIT rides this as the reader.
+
+## STATUS OF TODAY'S PATCHES vs THIS MODEL CHANGE
+- **Milestone 1 (onEditDisplay live-bounds + three-way reselect):** APPLIED + BUILT + TESTED working today. The live-bounds part is a stopgap that this model change SUPERSEDES (restore-by-id removes the bbox query entirely). Leave it in for now; the model change replaces it.
+- **Milestone 2 (rowsFor mirror + save-bbox):** patch was WRITTEN (`convoy_saveState_mirror_planning_2026-06-16_v1.py`) but **NOT run** — and it is now SUPERSEDED by this model change. **DO NOT run the Milestone 2 patch tomorrow** — it's obsolete. Build the model change instead.
+- Diagnostic logs (JSONDIAG @242, READ @740, TRAILDIAG @768) + clearTrails @772 are in the current build — keep for testing the model change, remove before commit.
+
+---
+
+## WHY THIS IS THE RIGHT FIX (not another patch)
+Every bug today was a symptom of **re-deriving known display state through a query that can't be trusted.** Persisting the full filter and restoring by id removes the query from the restore path entirely for existing filters. One root change dissolves the whole bug class (empty list, clobber, stale bbox, 165) instead of patching each. And making it a shared mapKey-keyed function ends the convoy/planning drift that caused the repeated re-fixing.
+
+
 === GroupTrack_Handoff_2026-06-15.md ===
 # GroupTrack — Handoff (2026-06-15, ~1:00 AM EOD)
 
@@ -13022,6 +13198,65 @@ NH GRANIT's same service has a trailhead/parking layer (different layer index, p
 
 ## NATIONAL FALLBACK (already in catalog)
 For federal land in NH (White Mountain National Forest), the existing usfs_nfs_trails and nps_public_trails sources already cover it — no new entry needed for those.
+
+
+=== GroupTrack_NewSession_StartupBrief_2026-06-16.md ===
+# GroupTrack — New Session Startup Brief
+**2026-06-16 EOD → resume point for next session**
+
+## READ FIRST, IN ORDER
+1. **This brief** (the resume point)
+2. `GroupTrack_V25_LivingChecklist_OpenItems_2026-06-16_EOD.md` (full status + FIT bug detail)
+3. `GroupTrack_Search_Consolidation_Handoff_2026-06-16.md` (the after-FIT work)
+4. Design specs if needed: `GroupTrack_FullFilterPersistence_ModelChange_DESIGN_2026-06-16.md`, `Convoy_EntryRestore_Design_2026-06-16.md`
+
+## WHERE WE ARE IN ONE PARAGRAPH
+Persistence is COMPLETE and committed (3 commits today: `fe8a0849a`, `cec3a3e4a`, `c0259d2ca` — HEAD). FIT (the goal) is implemented and builds clean but does NOT work yet: the function fires (logcat proves it computes the right bbox and writes), but the map doesn't move or draw, and the JSON ends up with the GPS frame instead of the fit. FIT work is UNCOMMITTED in the working tree. **Job #1 next session: make FIT actually draw, then commit it.**
+
+## THE FIT BUG (job #1)
+**Symptom:** Tap FIT on an artifact's detail panel → logcat shows `ArtifactOps: FIT track <id> -> bbox=[37.6,-113.1,38.0,-112.9] rows=1` (correct Utah bbox, no "not yet wired"), BUT the map stays put (on NH/GPS) and convoy_panel.json shows `Tracks state:0 rows:[]` + the NH bbox — the fit write is gone/never effective.
+
+**Leading diagnosis:** `drawPersistedState(mapKey, webView, context)` is a no-op because `fitWebView` (= `webViewRef.value`, passed from the convoy call site) is likely null/dead at FIT time → the map never moves → then `onViewportChanged` saves the NH frame, clobbering FIT's JSON (same clobber class as Fix 1).
+
+**First moves next session:**
+1. Read `drawPersistedState` body (SpatialDisplayManager.kt): does it fitBounds (move the map) + inject the JS draw? Does it null-check webView and silently return?
+2. Check whether `ConvoyViewModel.persistentWebView` (defined :284, set ConvoyScreen:862) is the reliable live convoy WebView vs `webViewRef.value`. If so, switch FIT (convoy) to resolve the WebView from the ViewModel.
+3. Confirm the clobber: pull JSON immediately after FIT before any pan; if the Utah shape is there then gets overwritten on the next viewport event → the real fix is to MOVE the map (fitBounds to the fit bbox via a live WebView), so the saved frame IS the fit (no clobber) and the artifact draws.
+
+**Likely fix shape:** ensure drawPersistedState moves the convoy map (fitBounds to the snapshot bbox) using a LIVE WebView (persistentWebView), so the map shows the fit and the natural viewport-save records the Utah frame. Then verify: map flies to the artifact, only it draws, detail list shows it checked + neighbors toggleable. Then COMMIT FIT.
+
+## FIT DESIGN (already implemented — for reference)
+`ConvoyArtifactOps.fit(context, webView, mapKey, type, id)`:
+- bbox = artifact's own min/max_lat/lon (`SpatialDbManager.bboxForArtifact`, reuses `spatialTableFor`; all 4 types have min/max columns)
+- query that type in the bbox → rows = every in-bbox artifact, ONLY the fitted one `checked:true` (the toggle list)
+- snapshot: fitted type SELECTED(2) w/ full rows, other 3 types OFF(0), bbox, fitArtifact
+- saveMap(mapKey) → drawPersistedState(mapKey, webView, context)
+
+**FIT is PANEL-OWNED:** the shared ArtifactListPanel's FIT button calls fit() directly (params mapKey + fitWebView; onFit lambda removed). Both call sites pass values (convoy "convoy"+webViewRef.value; planning "planning"+webViewRef). This means every entrance to the detail panel (Work-with-Artifacts, search, future map-tap) gets working FIT once the draw bug is fixed.
+
+## FIT WORKING-TREE FILES (uncommitted — don't commit until proven)
+`SpatialDbManager.kt`, `ConvoyArtifactOps.kt`, `ArtifactListPanel.kt`, `ConvoyScreen.kt`, `ConvoyMapViewerScreen.kt`.
+
+## AFTER FIT (locked order)
+1. **Fix + commit FIT** (job #1)
+2. **EOD docs** if not done: release notes + manual (V2.5: shared-draw, persistence, FIT)
+3. **Magnifying-glass unified search FAB** (handoff doc) — remove 3 search launch points, one draggable FAB both maps
+4. **Map-tap → detail panel** (open Q: popup-as-peek vs tap-straight-to-detail)
+5. **PLANNING DISCUSSION** — go through the living checklist, prioritize next tasks
+
+## HARD RULES / METHODOLOGY
+- NO "complete" without on-device proof. Fix fails → revert before next. MEASURE (logcat/JSON/DB pull), don't guess.
+- Own behavior in the SHARED component; callers pass DATA not BEHAVIOR.
+- Walk ONE command at a time (Fred runs each, pastes). Single-line python patch, count==1 guard, unique filenames, ending-agnostic where uncertain.
+- LINE ENDINGS: .kt mixed CRLF/LF even within a file — verify with `od -c` on raw bytes, never sed/awk/cat-piped.
+- Commit only named files. Never `git add .`. Parked files stay parked.
+
+## DEVICE / BUILD
+- Build: `./gradlew assembleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease` (~10-34 min)
+- APK: `app/build/outputs/apk/google/release/app-google-release.apk`
+- Install: `adb -s 8624SBCEDF00001789 install -r -d <apk>` (Droid 1 field/GPS; Droid 2 = 24039703201775 dev)
+- JSON: `MSYS_NO_PATHCONV=1 adb -s 8624SBCEDF00001789 shell cat /sdcard/Documents/GroupTrack/state/convoy_panel.json`
+- Logcat dump (non-blocking): `adb -s 8624SBCEDF00001789 logcat -d -s ArtifactOps ConvoyMap | tail -20`
 
 
 === GroupTrack_QuickStart_Installation_Troubleshooting_v1.md ===
@@ -13270,6 +13505,84 @@ ADD:
 ## Honest scope
 - This is a tester-facing accuracy fix; it doesn't change the upgrade-hazard callout (keep that as-is in the assets release notes).
 - Don't claim Save-In-Progress full lifecycle (still partial). Don't claim Draw/Suggest.
+
+
+=== GroupTrack_Search_Consolidation_Handoff_2026-06-16.md ===
+# GroupTrack Search Consolidation — Handoff Doc
+**2026-06-16 · for the unified search FAB ([2h.1], AFTER FIT)**
+
+## WHY
+Free up map real estate. Both maps carry permanent/standalone search chrome. Consolidate ALL search into ONE draggable **magnifying-glass FAB** (icon decided 06-16: magnifying glass, NOT binocular — universal "search" convention, legible at FAB size) present on BOTH maps. The FAB is the single new launch point; it routes to existing (kept) query logic.
+
+---
+
+## CURRENT STATE — what exists now (REMOVE the launch points, KEEP the engines)
+
+### 1. AREA search — PLANNING map
+- **File/launch point:** `ConvoyMapViewerScreen.kt` ~365–405 — inline search-text field, placeholder "Search area... (press Enter)" (line 401).
+- **Executes:** `Geocoder(context).getFromLocationName(searchText, 5)` (line 371) → `setView(lat, lon, 13)` (line 376). Geocode a place name → recenter map.
+- **REMOVE:** the text field + its geocode/Enter handler.
+- **KEEP (reuse in FAB Area mode):** the `Geocoder...getFromLocationName → setView` logic.
+
+### 2. LOCATION/AREA search — CONVOY map (separate from planning's!)
+- **File/launch point:** `ConvoyScreen.kt` — `locationSearchQuery` / `locationSearchResults` / `locationSearchError` state (lines 267–269) + its UI.
+- **Executes:** location/address lookup → setView (convoy's own area-search; convoy is NOT area-search-free as earlier assumed).
+- **REMOVE:** this location-search UI + state.
+- **NOTE:** This means BOTH maps currently have their OWN area search. The FAB unifies them into one Area mode.
+
+### 3. ARTIFACT search — Work-with-Artifacts (BOTH maps)
+- **File/launch point:** `ConvoyScreen.kt` 1355–1361 — `onSearch = { type, term -> ... }` → `SpatialDbManager.searchByName(type, term)` (1359) → `assignNameSequence(raw)` (1361). (Hosted via ArtifactListPanel's onSearch callback.)
+- **Executes:** name search of an artifact type → numbered result rows.
+- **REMOVE:** the standalone search box / onSearch UI entry inside Work-with-Artifacts.
+- **KEEP (reuse in FAB artifact mode):**
+  - `SpatialDbManager.searchByName(type, term, limit=200)` (SpatialDbManager:351) — the query engine. Committed `4f7abbbb7`, NON-SPATIAL (name match only).
+  - `ArtifactSearch.kt` / `assignNameSequence()` — per-name stable sequence numbering (names aren't unique; rows keyed by geom_hash, shown as per-name sequence #). Pure, no DB/Compose. Rules R1–R4 in file header — DON'T break the `ORDER BY name COLLATE NOCASE, geom_hash` ↔ numbering agreement.
+
+---
+
+## KEPT / REUSED (the FAB plugs into these — do NOT remove)
+- `SpatialDbManager.searchByName(type, term)` — artifact name query
+- `ArtifactSearch.assignNameSequence()` — result numbering
+- `Geocoder.getFromLocationName → setView` — area lookup
+- **Detail panel** (ArtifactListPanel detail view) — the hub
+- **FIT** — `ConvoyArtifactOps.fit(context, webView, type, id)` (implemented 06-16) — reached via detail panel's FIT button (onFit wired)
+
+---
+
+## NEW DESIGN — the magnifying-glass search FAB
+
+### The FAB
+- **Icon:** magnifying glass (decided).
+- **Draggable** — repositionable on the map surface; parks out of the way. (Open Q: persist drag position per-map in panel JSON? or reset per session.)
+- Present on **BOTH** maps (planning + convoy).
+- Replaces: planning area-search (#1), convoy location-search (#2), artifact-search box (#3). Net: map surface reclaims that permanent chrome.
+
+### Launch → unified search panel
+- **Selector:** Area / Trail / Track / Route / Waypoint
+- **Text box:** the query term
+- **AREA mode** → geocode (reuse #1 logic) → `setView` the map. Available on BOTH maps now.
+- **ARTIFACT mode** (Trail/Track/Route/Waypoint) → `searchByName(type, term)` → `assignNameSequence` → **results list** → tap a result → **detail panel** → **FIT** button (works now).
+
+### Second entrance to detail (the other selection gesture)
+- **Tappable map-popup descriptor** = "start here with THIS artifact." Tapping an artifact's on-map popup/callout opens the SAME detail panel.
+- So detail panel = the convergence hub, reached TWO ways:
+  - **FAB search** = "find by name" (deliberate lookup)
+  - **map popup** = "this one I'm looking at" (spatial/visual pick)
+- Both land on detail → FIT. One funnel, one FIT path, two entrances.
+- **Wiring note:** the map-popup → detail requires the convoy/planning map HTML's popup to have a click handler that bridges back to Kotlin (via the Android JS interface) to open the detail panel. New JS↔Kotlin bridge call needed.
+
+---
+
+## OPEN QUESTIONS
+- **Q-A: Drag-position persistence** — save FAB position per-map (panel JSON), or reset each session?
+- **Q-B: Convoy scope** — does the FAB on convoy offer all 5 selector options, or restrict (convoy = live/proximity map; memory had "convoy Area-only" but convoy currently HAS artifact search too via onSearch — so full artifact search on convoy is already present and the FAB can keep it). Decide intended convoy scope.
+- **Q-C: Map-popup → detail bridge** — new JS click handler on popups + Android interface method to open detail with (type, id). Both map HTMLs (convoy_map.html, grouptrack_map.html) — they drift, so two edits.
+- **Q-D: Result-list → detail → FIT** on planning — FIT currently writes "convoy" JSON; for planning FIT it'd write "planning" + drawPersistedState("planning"). fit() may need a mapKey param when wired from planning. (For now fit() is convoy-hardcoded.)
+
+---
+
+## SEQUENCING
+This is [2h.1], AFTER FIT (which lands 06-16). FAB's artifact mode → detail → FIT depends on FIT working. Build order when picked up: (1) the FAB + unified search panel (reusing searchByName + geocode), (2) remove the 3 old search launch points, (3) the map-popup→detail bridge. Test each on device.
 
 
 === GroupTrack_TickEngine_Reference.md ===
@@ -15140,7 +15453,44 @@ With JSON-golden + render-reconcile-by-id working, **Fit just writes one item as
 
 ---
 
-## TODAY'S OUTCOME (2026-06-15) — honest accounting
+## ⛔⛔ TOP PRIORITY (2026-06-16 EOD) — BUILD THE SHARED DRAW FUNCTION (~4 hrs)
+**Read the design spec `GroupTrack_FullFilterPersistence_ModelChange_DESIGN_2026-06-16.md` FIRST — it has the discovered draw contract + FIT spec + exact build steps.**
+
+### What changed today (the simplification)
+We examined the DRAW function end-to-end (ConvoyScreen 751-815) — the thing we should have studied on day 1. It was the keys to the kingdom. Every bug (empty list, clobber, 165-trail, missing tracks) was downstream of not understanding that one function's contract. The draw is currently the **body of `onViewportChanged`** (not a callable function), which is WHY restore depends on a viewport event firing with the right bbox.
+
+### The discovered draw contract (4 identical per-type blocks)
+```
+INPUTS:  bbox(s,w,n,e) · zoom→limit(500/2000) · state(OFF/ALL/SELECTED) · selectList(checked ids)
+LOGIC:   1. ELIGIBILITY  raw = if(state!=OFF) queryXByViewport(bbox,limit) else empty
+         2. SELECT/OMIT  results = if(state==SELECTED) raw.filter{id in selectList} else raw
+         3. RENDER       buildXGeoJson → updateX(json); if(state!=OFF) showX()
+```
+The draw takes (state, bbox, select-list) and executes. **Keep it exactly as-is — feed it from JSON instead of live state.** Do NOT reinvent the draw.
+
+### The build (~4 hrs, Fred's estimate)
+1. **`drawArtifacts(bbox, states, selectLists, webView)`** — extract 751-815 into a standalone parameterized function (the SHARED CORE; no JSON read, no viewport coupling).
+2. **`drawPersistedState(mapKey, webView)`** — read `<mapKey>_panel.json` (state, ids, bbox) → call drawArtifacts. = RESTORE.
+3. **`savePersistedState(mapKey)`** — write state + select-lists (ALL types — drop the activeListType clobber gate) + bbox (currently null — required add).
+4. `onViewportChanged` calls drawArtifacts with live params. = LIVE nav (same core, two sources).
+5. **FIT = write JSON + call drawPersistedState** — snaps in for free (compute artifact bbox, fitted type SELECTED with in-bbox list/only-fitted-checked, other types OFF).
+6. **CONVOY-FIRST** (planning stays on committed `0082b032f`), prove, **then PLANNING** calls the same functions. Per-map copies deleted. This IS the shared-code consolidation.
+
+### Two hand-coded query functions → one parameterized function
+The whole point in one line: two complex hand-coded persistence/draw functions (convoy's + planning's) → ONE parameterized function reading a JSON and executing a persistent-state draw. Eliminates the duplication that caused 3 days of re-fixing.
+
+### Notes
+- **⛔ DO NOT run `convoy_saveState_mirror_planning_2026-06-16_v1.py`** — obsolete, superseded.
+- **Milestone 1 (onEditDisplay live-bounds + three-way reselect)** is applied+built+tested working — a stopgap the model change supersedes; leave for now.
+- **Q4 check first:** does SpatialDbManager have `queryXByIds`? Likely not needed — drawArtifacts reuses queryXByViewport fed the JSON bbox + filters by JSON ids, exactly as the current draw does.
+- Diagnostic logs (JSONDIAG, TRAILDIAG) + clearTrails in current build — keep for testing, remove before commit.
+
+### Lesson (Fred, 06-16)
+Examine the central function's contract BEFORE building around it. The draw was studied on day 3; doing it on day 1 would have saved the detour. Also: the two back-to-back viewport queries (eligibility then a second identical query in some paths) are an artifact of organic growth, not a design — the consolidation removes the duplication.
+
+---
+
+## TODAY'S OUTCOME (2026-06-15) — historical, superseded by above
 - ✅ **PLANNING persistence COMMITTED** = `0082b032f` ("Planning map persistence: bbox save/restore + selection (rowsFor) fix"). Device-proven. This is the recovery point.
 - ✅ **CONVOY persistence SAVE side PROVEN** (via JSON pull) — but **REVERTED at EOD** (see below). The save logic was correct; the trail-DISPLAY had an unresolved bug and the working tree became cross-contaminated, so convoy was rolled back to `0082b032f` to protect a clean base.
 - 🐞 **One unresolved bug carried to tomorrow:** on convoy restore, the map drew ~165 trails instead of the selected 2. **Measured fact: the spatial DB query for the saved bbox returns only 17 trails — so the 165 came from a SEPARATE draw call, not the DB viewport query.** Source of the 165 not yet identified.
@@ -15203,6 +15553,29 @@ JSON filter is the **golden** display state.
 2. 2 selected, both in bbox → 2 display.
 3. 15 in new bbox, 2 carried-forward → 2 display, 13 no.
 4. 1 selected leaves bbox (6 in new bbox, 1 still in frame) → 1 displays.
+
+---
+
+## ⛔ BACKLOG — VIEWPORT (`lastViewport*`) USAGE AUDIT (convoy) — added 2026-06-16
+**Problem definition:** Convoy queries the spatial DB against a CACHED viewport (`lastViewportSouth/West/North/East`, ConvoyScreen ~212) instead of the live current map bounds. The cache is written ONLY by `onViewportChanged` (ConvoyScreen 570 + 736 — the JS→Kotlin bridge from convoy_map.html's `moveend` handler @338, which is **debounced 400ms** @343). The cache can therefore be **stale** relative to what the map is actually displaying, because:
+- The `moveend` handler updates it on a **400ms setTimeout** — a query firing within 400ms of a pan reads the OLD bbox.
+- `zoomend` (convoy_map.html @329) does **NOT** call `onViewportChanged` at all — planning's grouptrack_map.html fires it from BOTH zoomend (@747) and moveend (@752); convoy fires only from moveend. So a pure zoom may not refresh the cache.
+- On entry, GPS-centering (`setView(deviceGPS)` @647 one-time, and the autoPan block @322-335 when recording) moves the map to a GPS point; `onViewportChanged` then records GPS-centered (sometimes zero-area / `n==s,e==w`) bounds. `lastViewport*` faithfully records this — it is NOT directly overloaded with GPS (only written by onViewportChanged, confirmed by full-tree grep), but it ends up holding GPS-point bounds because the map was moved there.
+
+**Observed failure (2026-06-16):** Map DRAW works (uses fresh `south/west/north/east` params from onViewportChanged directly, ConvoyScreen @765) → Utah trails display correctly. But the SELECT-LIST query (`queryArtifactList`, ConvoyScreen @1414) reads the stale CACHE (`lastViewport*`) → queries the wrong/NH-GPS frame → returns 0 rows → **SEL/EDIT filter list comes up empty even though the map shows the correct trails.** Proven by: select-ALL still yields an empty list (a zero-result query, not a filter problem); JSON has correct state=2 + checked rows; map displays correctly. Same view, two consumers, two different bboxes — DRAW=fresh (correct), LIST=cached (stale).
+
+**Inconsistency to resolve (the audit):** The map DRAW uses fresh params (correct); the QUERIES use the cache (can be stale). Every `lastViewport*` READ in convoy must be evaluated:
+- `542/543` trails/tracks query · `550/551` query pair · `702/703` query pair · `710/711` query pair · `1414` queryArtifactList (the select list — failing) · `1452` (`val sLat = lastViewportSouth...`).
+- DRAW @765 already uses fresh params → correct → leave.
+
+**Principle (user-stated 2026-06-16):** "I cannot think of an instance where the bbox queries should NOT use the current bbox." Every viewport query should use the frame actually on screen. The cache is a performance optimization that introduced a correctness bug.
+
+**Resolution options (decide in the audit pass, fix one-at-a-time + test):**
+- (A) Make the cache reliably current at its SOURCE — fire `onViewportChanged` from zoomend too (mirror planning), and reconsider the 400ms debounce — so every consumer can trust `lastViewport*`. One fix, all consumers benefit. Must PROVE it's current before trusting.
+- (B) Replace cache reads with live `map.getBounds()` (async callback) at each query site — always correct, never stale, but more code per site and async.
+- The immediate select-list fix (2026-06-16) uses (B) at onEditDisplay only to unblock persistence. **The general audit is deferred** (per user: fix this instance → complete persistence → FIT → unified search; THEN the audit). Until done, treat any `lastViewport*` read as potentially stale.
+
+**Note:** field_crossref does NOT index `lastViewport*` (it's a UI composable local declared with `remember`, not a backend/bridge field) — confirmed empty in xref. Use single-file grep / live read for composable locals, not the xref.
 
 ---
 
@@ -15296,6 +15669,105 @@ Convoy persistence (rebuild + commit) → [2h.2] Fit writer → [2h.1] search-su
 - JSON pull: `MSYS_NO_PATHCONV=1 adb -s 8624SBCEDF00001789 shell cat /sdcard/Documents/GroupTrack/state/convoy_panel.json`
 - **DB query (no build needed — laptop has sqlite3):** pull with `MSYS_NO_PATHCONV=1 adb -s 8624SBCEDF00001789 pull /sdcard/Documents/GroupTrack/grouptrack_spatial.db grouptrack_spatial.db` (bare relative dest — Git-Bash mangles `/c/...` paths), then `sqlite3 grouptrack_spatial.db "..."`. Tables: trails, tracks, waypoints, routes.
 - Patch scripts: single-line `python3` with count==1 guard; verify by byte size; CRLF-safe anchors.
+
+
+=== GroupTrack_V25_LivingChecklist_OpenItems_2026-06-16_EOD.md ===
+# GroupTrack V2.5 — Living Checklist / Open Items
+**Updated:** 2026-06-16 (~8:30 PM EOD)
+**Branch:** feature/convoy-event-ride · **Committed HEAD:** `c0259d2ca`
+
+---
+
+## ⭐ TODAY'S OUTCOME (2026-06-16) — PERSISTENCE COMPLETE, FIT 95%
+
+### ✅✅✅ PERSISTENCE FOUNDATION — COMPLETE & COMMITTED (3 commits)
+The whole persistence foundation FIT rides on is done, device-proven, and banked.
+- **`fe8a0849a`** — Planning fully on the shared draw fn (Stages 1-3). SpatialDisplayManager parameterized (JSON-fed `processViewport` + `processArtifact`); planning onViewportChanged → processViewport; `drawPersistedState` restore entry wired into planning onPageFinished. Device-proven "test perfect."
+- **`cec3a3e4a`** — Convoy Fix 1: both convoy WebView paths unified on processViewport + save-clobber fixed + bbox saved. Device-proven via JSON pull (no clobber, real bbox). "works for the first time!!!"
+- **`c0259d2ca`** — Convoy Fix 2: entry restore (seed lastViewport + fitBounds + drawPersistedState) + cold-launch deleteMap. Device-proven BOTH behaviors: in-session re-entry restores frame+trails; cold launch → GPS.
+
+**The 3-day clobber/divergence bug is DEAD.** Architecture: revived the EXISTING shared draw fn (SpatialDisplayManager) that both maps had drifted away from; re-wired one map at a time, build+device-prove+commit each.
+
+### ⏳ FIT — IMPLEMENTED + PANEL-OWNED, BUT NOT WORKING YET (resume here)
+FIT is the GOAL ([2h.2]). It's implemented and builds clean, but the draw doesn't happen — **uncommitted, in working tree.** See the detailed bug section below.
+
+---
+
+## 🐞 FIT BUG — TRACKED (FIX FIRST NEXT SESSION)
+
+### Where FIT stands
+- **`fit()` is implemented** at `ConvoyArtifactOps.fit(context, webView, mapKey, artifactType, artifactId)`.
+  - Design (Fred's toggle-list): bbox = artifact's own min/max_lat/lon (`SpatialDbManager.bboxForArtifact`, reuses `spatialTableFor`, all 4 types have min/max columns) → query that type in the bbox (the toggle list) → rows = every in-bbox artifact, ONLY the fitted one `checked:true` → snapshot (fitted type SELECTED state 2 w/ full rows; other 3 types OFF state 0; bbox; fitArtifact) → `saveMap(mapKey)` → `drawPersistedState(mapKey, webView, context)`.
+- **FIT is now PANEL-OWNED** (not per-caller). The shared `ArtifactListPanel` (detail panel) owns the call: FIT button calls `ConvoyArtifactOps.fit(ctx, fitWebView, mapKey, singular, dId)` directly. Params `mapKey` + `fitWebView` added; `onFit` lambda dropped. Both call sites pass VALUES: convoy `mapKey="convoy", fitWebView=webViewRef.value`; planning `mapKey="planning", fitWebView=webViewRef`. WHY: detail panel is reached from multiple entrances (Work-with-Artifacts, search results, future map-popup) — owning the call means every entrance gets working FIT for free.
+- **Build:** SUCCESSFUL (15m37s). All patches count==1 clean.
+
+### The bug (device test)
+**FIT fires but the map does NOT move or draw.**
+- Logcat confirms `fit()` runs: `ArtifactOps: FIT track 8f54b838... -> bbox=[37.603,-113.163,38.037,-112.910] rows=1` — real Utah bbox computed, NO "FIT not yet wired" (panel-owned fix worked).
+- **BUT the JSON on disk does NOT have the FIT write.** Pulled convoy_panel.json shows `Tracks: state:0, rows:[]` and `bbox: {NH GPS coords ~42.8,-71.2}` — i.e. the NH/GPS viewport state, NOT the Utah fit. The map stayed on NH (never moved to Utah).
+
+### Probable causes (in priority order to check)
+1. **`drawPersistedState` no-ops because the WebView is null/dead at FIT time.** `fitWebView = webViewRef.value` may be null when called from the detail panel context → drawPersistedState silently does nothing → map never moves. **Likely fix:** resolve the convoy WebView from `ConvoyViewModel.persistentWebView` (reliably set at ConvoyScreen:862, defined ConvoyViewModel:284) instead of `webViewRef.value`. (Planning's webView is a LOCAL var @82 — for planning, resolving differs; convoy can use the ViewModel.)
+2. **FIT's saveMap is being CLOBBERED by the convoy map's own viewport save.** Because the map never moved (still NH), `onViewportChanged` → `saveConvoyState` fires and overwrites FIT's Utah JSON with the NH frame. This is the SAME class of clobber as Fix 1. If the map actually moved (drawPersistedState working), onViewportChanged would save the Utah frame, not clobber. So #1 (no draw) is the upstream cause; #2 is the consequence that wipes the JSON.
+3. **drawPersistedState may not itself fitBounds + inject the JS draw** — confirm its body: does it move the map (fitBounds to the snapshot bbox) and call the JS draw, or does it expect the caller to trigger the redraw? If it only writes/processes but doesn't fire the map JS, FIT needs to also trigger the map move.
+
+### Diagnosis plan (resume)
+1. Read `drawPersistedState` body in SpatialDisplayManager.kt — does it fitBounds + inject JS draw, and does it null-check the webView (silent return)?
+2. Confirm whether `webViewRef.value` is null at FIT time vs `ConvoyViewModel.persistentWebView` being live. If the ViewModel one is reliable, switch FIT to use it (or have drawPersistedState resolve by mapKey).
+3. Verify the clobber theory: add the FIT write, immediately pull JSON BEFORE any viewport event, confirm FIT's Utah shape is there momentarily, then confirm onViewportChanged overwrites it. If so, FIT must either (a) move the map (so the saved frame IS the fit) or (b) suppress the viewport-save during a fit.
+4. The clean fix is almost certainly: **make drawPersistedState actually move the convoy map (fitBounds to the fit bbox) using a live WebView** — then the map shows the fit AND the natural viewport-save records the fit frame (no clobber, because the frame IS Utah).
+
+### Files in FIT working tree (uncommitted)
+`SpatialDbManager.kt` (bboxForArtifact added), `ConvoyArtifactOps.kt` (fit() body, mapKey-aware), `ArtifactListPanel.kt` (panel-owned FIT: LocalContext, mapKey+fitWebView params, button calls fit directly), `ConvoyScreen.kt` (convoy call site mapKey+fitWebView), `ConvoyMapViewerScreen.kt` (planning call site mapKey+fitWebView). **Do NOT commit until FIT is device-proven.**
+
+---
+
+## ⛔ AFTER FIT — MAGNIFYING-GLASS UNIFIED SEARCH ([2h.1])
+Full spec in `GroupTrack_Search_Consolidation_Handoff_2026-06-16.md`. Summary:
+- **Icon DECIDED: magnifying glass** (not binocular).
+- ONE draggable magnifying-glass FAB on BOTH maps replaces THREE current searches.
+- **REMOVE launch points (KEEP engines):** (1) planning area search (ConvoyMapViewerScreen ~365-405, Geocoder→setView); (2) convoy location search (ConvoyScreen locationSearchQuery/Results/Error @267-269); (3) artifact search (ConvoyScreen 1355-1361, onSearch→searchByName→assignNameSequence).
+- **KEEP/reuse:** searchByName (`4f7abbbb7`), ArtifactSearch.kt numbering, Geocoder→setView, detail panel, FIT.
+- FAB: selector (Area/Trail/Track/Route/Waypoint) + text box. Area→setView. Artifact→searchByName→results→detail→FIT.
+
+## ⏳ OPEN ITEM — MAP-POPUP / ARTIFACT-TAP → DETAIL PANEL
+When an artifact is touched on the map, route to the SHARED detail panel (which now owns FIT, so FIT works automatically). **Open design Q (Fred, 06-16):** consider skipping the popup banner entirely and going straight to the detail panel on artifact-tap — the detail panel shows the name + far more info than the popup, and is the thing the user usually wants. Decide popup-as-peek vs tap-straight-to-detail.
+- Wiring: JS click handler on artifact (popup or marker) in BOTH map HTMLs (convoy_map.html + grouptrack_map.html, they drift) + Android @JavascriptInterface bridge to open detail with (type, id). Pass mapKey + fitWebView so FIT works.
+
+## ⭐ NEXT STRATEGIC CHECKPOINT (Fred's request)
+After the search FAB is built: **PLANNING DISCUSSION** — go through this living checklist together, select + prioritize next tasks.
+
+---
+
+## OTHER OPEN (backlog)
+convoy_map.html drawTrack/clearMarkers not defined; [6.2] geojson asset removal; [1.2] sliceLine whole-trail; [1.5] auto-save+terminate on map-switch; import [4.x]; queues [3.3]; ConvoyArtifactOps OTHER stubs (rename/delete/toRoute/toTrack/upload/download/changeType/editPoints/addAlias/setTH — Pass-1 log stubs); [3.1b] GPS-recenter button (planning); [3.9a] arrows pixel (neon green, pixel spacing, two CRLF HTMLs + polylineDecorator); docs [9.x]; BLE [10.1]. DEFERRED: GeoPackage national, V3.0, paywall.
+
+---
+
+## DESIGN CONTEXT (carried forward)
+- **Map-purpose model:** Convoy = live/location (GPS, proximity, session-only). Planning = deliberate/identity (name search, fit, persisted frame across launches). Two selection methods share one golden-JSON merge: area-based + artifact/Fit.
+- **FIT toggle-list:** fit writes the full bbox list with ONLY the fitted one checked=true; the SELECTED draw-filter (`checkedIdsFor` returns only checked=true) draws only the fitted one; unchecked rows are the quick toggle-on list. List + draw derive from the SAME bbox query → always consistent.
+- **Winning approach (proven all session):** own behavior in the SHARED component (draw AND fit); callers pass DATA (mapKey+webView) not BEHAVIOR (lambda). Revive existing shared fn, re-wire ONE map at a time, BUILD+DEVICE-PROVE+COMMIT each step.
+
+---
+
+## TREE STATE
+- **Committed HEAD `c0259d2ca`** (Convoy Fix 2). Persistence chain: `fe8a0849a` → `cec3a3e4a` → `c0259d2ca`.
+- **FIT work UNCOMMITTED in working tree** (5 files listed above) — build green, NOT device-proven. Commit only after FIT works on device.
+- Parked (never git-add): `M utah_trails_stgeorge.geojson`, `?? grouptrack_manual.html`, `?? grouptrack_release_notes.html`, `?? *.geojson.bak`, `?? ConvoyScreen.kt.bak_move`, `?? grouptrack_spatial.db`, `D docs/.tmp.driveupload/10630`. Commit only named files. Never `git add .`.
+
+## DEVICE / BUILD QUICK-REF
+- Build: `./gradlew assembleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease` (~10–34 min; MainActivity edits → ~23min wide recompile)
+- APK: `app/build/outputs/apk/google/release/app-google-release.apk`
+- Install: `adb -s 8624SBCEDF00001789 install -r -d <apk>` (Droid 1 = `8624SBCEDF00001789` field/real-GPS · Droid 2 = `24039703201775` dev)
+- JSON pull: `MSYS_NO_PATHCONV=1 adb -s 8624SBCEDF00001789 shell cat /sdcard/Documents/GroupTrack/state/convoy_panel.json`
+- Logcat (non-blocking dump): `adb -s 8624SBCEDF00001789 logcat -d -s ArtifactOps ConvoyMap | tail -20` (`-c` to clear first). LIVE logcat BLOCKS the terminal — use `-d` dump or a 2nd window; do NOT chain install behind a live logcat.
+- **LINE ENDINGS:** .kt files are MIXED CRLF/LF, even within one file. Verify with `od -c` on RAW bytes (not sed/awk/cat-piped, which strip \r). Best: ending-agnostic patches (try CRLF then LF, match the anchor's). Single-line python patch, count==1 guard, unique filenames.
+- Patch flow: Claude files → present_files → Fred downloads to `/c/Users/kixaz/Downloads/` → `python3 /c/Users/kixaz/Downloads/<name>_v1.py`.
+- Revert one file: `git checkout <hash> -- <file>`.
+
+## EOD DOCS STILL PENDING (do after FIT commits, or next session)
+Release notes `grouptrack_release_notes.html` + manual/cookbook `grouptrack_manual.html` — add V2.5 entries (shared-draw consolidation, convoy persistence, FIT) + document FIT/persistence behavior. Edit in place from prior baseline, output full updated files.
 
 
 === GroupTrack_V25_MapSourceCatalog_v2.md ===
