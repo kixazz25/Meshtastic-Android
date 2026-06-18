@@ -1693,16 +1693,39 @@ fun ConvoyScreen(
                         fitWebView = webViewRef.value,
                         onLoadDetail = { t, did -> SpatialDbManager.getArtifactDetail(t, did) },
                         onLoadAliases = { t, did -> SpatialDbManager.getAliasesFor(t, did) },
-                        onDismiss = {
-                            val rs = MapStateStore.readMap("convoy")
-                            trailState = rs.types["Trails"]?.state ?: DS_OFF
-                            trackState = rs.types["Tracks"]?.state ?: DS_OFF
-                            waypointState = rs.types["Waypoints"]?.state ?: DS_OFF
-                            routeState = rs.types["Routes"]?.state ?: DS_OFF
-                            trailCheckedIds = MapStateStore.checkedIdsFor(rs, "Trails")
-                            trackCheckedIds = MapStateStore.checkedIdsFor(rs, "Tracks")
-                            waypointCheckedIds = MapStateStore.checkedIdsFor(rs, "Waypoints")
-                            routeCheckedIds = MapStateStore.checkedIdsFor(rs, "Routes")
+                        onDismiss = { fittedType, fittedId ->
+                            if (fittedType != null && fittedId != null) {
+                                // [FIT 2026-06-18] Emulate a manual row-select on the LIVE vars
+                                // (mirror of the ArtifactListPanel select at ~1669): set this type
+                                // SELECTED with exactly the fitted id. saveConvoyState then reads the
+                                // populated live var (no empty-row clobber) and the SEL/EDIT panel
+                                // reflects it. FIT = one artifact by definition.
+                                val sel = setOf(fittedId)
+                                // FIT = one artifact: all other types OFF, fitted type SELECTED.
+                                trailState = DS_OFF; trailCheckedIds = null
+                                trackState = DS_OFF; trackCheckedIds = null
+                                waypointState = DS_OFF; waypointCheckedIds = null
+                                routeState = DS_OFF; routeCheckedIds = null
+                                when (fittedType) {
+                                    "Trails"    -> { trailState = DS_SELECTED; trailCheckedIds = sel }
+                                    "Tracks"    -> { trackState = DS_SELECTED; trackCheckedIds = sel }
+                                    "Waypoints" -> { waypointState = DS_SELECTED; waypointCheckedIds = sel }
+                                    "Routes"    -> { routeState = DS_SELECTED; routeCheckedIds = sel }
+                                }
+                                saveConvoyState()
+                                webViewRef.value?.evaluateJavascript("try{var b=map.getBounds();Android.onViewportChanged(b.getNorth(),b.getSouth(),b.getEast(),b.getWest(),map.getZoom())}catch(e){}", null)
+                            } else {
+                                // Non-FIT dismiss (CLOSE/rename/etc.): reflect persisted state.
+                                val rs = MapStateStore.readMap("convoy")
+                                trailState = rs.types["Trails"]?.state ?: DS_OFF
+                                trackState = rs.types["Tracks"]?.state ?: DS_OFF
+                                waypointState = rs.types["Waypoints"]?.state ?: DS_OFF
+                                routeState = rs.types["Routes"]?.state ?: DS_OFF
+                                trailCheckedIds = MapStateStore.checkedIdsFor(rs, "Trails")
+                                trackCheckedIds = MapStateStore.checkedIdsFor(rs, "Tracks")
+                                waypointCheckedIds = MapStateStore.checkedIdsFor(rs, "Waypoints")
+                                routeCheckedIds = MapStateStore.checkedIdsFor(rs, "Routes")
+                            }
                             pendingDetailId = null; pendingDetailType = null
                         }
                     )

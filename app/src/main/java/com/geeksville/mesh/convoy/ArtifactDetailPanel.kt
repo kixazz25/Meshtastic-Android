@@ -42,7 +42,7 @@ fun ArtifactDetailPanel(
     onExport: ((String) -> Unit)? = null,
     onChangeType: ((String, String) -> Unit)? = null,
     onDeleteAlias: ((String) -> Unit)? = null,
-    onDismiss: () -> Unit
+    onDismiss: (String?, String?) -> Unit
 ) {
     val aMono = FontFamily.Monospace
     val aGreen = Color(0xFF39FF14)
@@ -66,7 +66,7 @@ fun ArtifactDetailPanel(
     fun reloadAliases() { aliasRows = onLoadAliases?.invoke(singular, id) ?: emptyList() }
 
     AlertDialog(
-        onDismissRequest = { onDismiss() },
+        onDismissRequest = { onDismiss(null, null) },
         title = {
             Column {
                 Text(dName, color = Color.White, fontSize = 14.sp,
@@ -93,7 +93,7 @@ fun ArtifactDetailPanel(
                     }
                     DetailActionButton("FIT", aBlue) {
                         ConvoyArtifactOps.fit(ctx, fitWebView, mapKey, singular, id)
-                        onDismiss()
+                        onDismiss(artifactType, id)
                     }
                 }
 
@@ -183,7 +183,7 @@ fun ArtifactDetailPanel(
         },
         confirmButton = {},
         dismissButton = {
-            TextButton(onClick = { onDismiss() }) { Text("CLOSE") }
+            TextButton(onClick = { onDismiss(null, null) }) { Text("CLOSE") }
         }
     )
 
@@ -197,7 +197,7 @@ fun ArtifactDetailPanel(
             },
             confirmButton = {
                 TextButton(onClick = {
-                    onRename?.invoke(id, renameText); showRenameDialog = false; onDismiss()
+                    onRename?.invoke(id, renameText); showRenameDialog = false; onDismiss(null, null)
                 }) { Text("RENAME") }
             },
             dismissButton = {
@@ -214,7 +214,7 @@ fun ArtifactDetailPanel(
             text = { Text("This cannot be undone.") },
             confirmButton = {
                 TextButton(onClick = {
-                    onDelete?.invoke(id); showDeleteConfirm = false; onDismiss()
+                    onDelete?.invoke(id); showDeleteConfirm = false; onDismiss(null, null)
                 }) { Text("DELETE", color = Color(0xFFFF6B6B)) }
             },
             dismissButton = {
@@ -233,7 +233,7 @@ fun ArtifactDetailPanel(
                     listOf("trailhead", "fuel", "gate", "hazard", "scenic",
                         "water", "camp", "parking", "rally", "other").forEach { wType ->
                         TextButton(onClick = {
-                            onChangeType?.invoke(id, wType); showTypeChooser = false; onDismiss()
+                            onChangeType?.invoke(id, wType); showTypeChooser = false; onDismiss(null, null)
                         }) { Text(wType.replaceFirstChar { it.uppercase() }) }
                     }
                 }
