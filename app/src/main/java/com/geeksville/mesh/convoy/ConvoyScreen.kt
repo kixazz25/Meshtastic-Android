@@ -268,6 +268,9 @@ fun ConvoyScreen(
     var locationSearchQuery by remember { mutableStateOf("") }
     var locationSearchResults by remember { mutableStateOf<List<android.location.Address>>(emptyList()) }
     var locationSearchError by remember { mutableStateOf("") }
+    // "?" help: which bundled doc is open ("manual" | "notes" | null = chooser/closed)
+    var docsView by remember { mutableStateOf<String?>(null) }
+    var showDocsChooser by remember { mutableStateOf(false) }
     var mapInitialized by remember { mutableStateOf(false) }
     var showRecMenu by viewModel.showRecMenu
     var showLeadDialog by remember { mutableStateOf(false) }
@@ -1280,6 +1283,68 @@ fun ConvoyScreen(
                 
         )
 
+        // -- "?" HELP BUTTON (ported from planning 2026-06-18; TopStart to clear QUEUES) --
+        androidx.compose.material3.Surface(
+            onClick = { showDocsChooser = true },
+            shape = androidx.compose.foundation.shape.CircleShape,
+            color = androidx.compose.ui.graphics.Color(0xEE131820),
+            contentColor = androidx.compose.ui.graphics.Color.White,
+            shadowElevation = 6.dp,
+            modifier = Modifier.align(Alignment.CenterEnd).padding(end = 12.dp).size(40.dp)
+        ) {
+            androidx.compose.foundation.layout.Box(contentAlignment = Alignment.Center) {
+                androidx.compose.material3.Text("?", fontSize = 22.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+            }
+        }
+        if (showDocsChooser) {
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { showDocsChooser = false },
+                title = { androidx.compose.material3.Text("Help & Info") },
+                text = { androidx.compose.material3.Text("View the release notes or the full user manual.") },
+                confirmButton = {
+                    androidx.compose.material3.TextButton(onClick = { showDocsChooser = false; docsView = "notes" }) {
+                        androidx.compose.material3.Text("Release Notes")
+                    }
+                },
+                dismissButton = {
+                    androidx.compose.material3.TextButton(onClick = { showDocsChooser = false; docsView = "manual" }) {
+                        androidx.compose.material3.Text("Full Manual")
+                    }
+                }
+            )
+        }
+        if (docsView != null) {
+            val assetFile = if (docsView == "notes") "grouptrack_release_notes.html" else "grouptrack_manual.html"
+            androidx.compose.material3.Surface(
+                modifier = Modifier.fillMaxSize(),
+                color = androidx.compose.ui.graphics.Color(0xFF10130F)
+            ) {
+                androidx.compose.foundation.layout.Column(modifier = Modifier.fillMaxSize()) {
+                    androidx.compose.foundation.layout.Row(
+                        modifier = Modifier.fillMaxWidth().padding(8.dp),
+                        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.End
+                    ) {
+                        androidx.compose.material3.TextButton(onClick = { docsView = null }) {
+                            androidx.compose.material3.Text("Close")
+                        }
+                    }
+                    androidx.compose.ui.viewinterop.AndroidView(
+                        modifier = Modifier.fillMaxSize(),
+                        factory = { ctx ->
+                            android.webkit.WebView(ctx).apply {
+                                settings.javaScriptEnabled = true
+                                settings.allowFileAccess = true
+                                @Suppress("DEPRECATION")
+                                settings.allowFileAccessFromFileURLs = true
+                                webViewClient = android.webkit.WebViewClient()
+                                loadUrl("file:///android_asset/" + assetFile)
+                            }
+                        },
+                        update = { it.loadUrl("file:///android_asset/" + assetFile) }
+                    )
+                }
+            }
+        }
         // -- QUEUES button (LOCKED top-right, like planning map; drag removed 2026-06-03) --
         Surface(
             modifier = Modifier
