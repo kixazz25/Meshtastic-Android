@@ -13200,63 +13200,124 @@ NH GRANIT's same service has a trailhead/parking layer (different layer index, p
 For federal land in NH (White Mountain National Forest), the existing usfs_nfs_trails and nps_public_trails sources already cover it — no new entry needed for those.
 
 
-=== GroupTrack_NewSession_StartupBrief_2026-06-16.md ===
-# GroupTrack — New Session Startup Brief
-**2026-06-16 EOD → resume point for next session**
+=== GroupTrack_NewSession_StartupBrief_2026-06-17.md ===
+# GroupTrack — Startup Brief / Issues Detail
+**2026-06-17 EOD → resume point for next session**
+**Branch:** feature/convoy-event-ride · **Committed HEAD:** `009b158aa`
 
-## READ FIRST, IN ORDER
-1. **This brief** (the resume point)
-2. `GroupTrack_V25_LivingChecklist_OpenItems_2026-06-16_EOD.md` (full status + FIT bug detail)
-3. `GroupTrack_Search_Consolidation_Handoff_2026-06-16.md` (the after-FIT work)
-4. Design specs if needed: `GroupTrack_FullFilterPersistence_ModelChange_DESIGN_2026-06-16.md`, `Convoy_EntryRestore_Design_2026-06-16.md`
+On device right now (proven at `009b158aa`): maps **position** on FIT, all artifact types **populate their lists**, and **manual filter-select works**. Three items remain. Each below: **what's wrong → what we did to isolate it → the fix to implement → status.**
 
-## WHERE WE ARE IN ONE PARAGRAPH
-Persistence is COMPLETE and committed (3 commits today: `fe8a0849a`, `cec3a3e4a`, `c0259d2ca` — HEAD). FIT (the goal) is implemented and builds clean but does NOT work yet: the function fires (logcat proves it computes the right bbox and writes), but the map doesn't move or draw, and the JSON ends up with the GPS frame instead of the fit. FIT work is UNCOMMITTED in the working tree. **Job #1 next session: make FIT actually draw, then commit it.**
+---
 
-## THE FIT BUG (job #1)
-**Symptom:** Tap FIT on an artifact's detail panel → logcat shows `ArtifactOps: FIT track <id> -> bbox=[37.6,-113.1,38.0,-112.9] rows=1` (correct Utah bbox, no "not yet wired"), BUT the map stays put (on NH/GPS) and convoy_panel.json shows `Tracks state:0 rows:[]` + the NH bbox — the fit write is gone/never effective.
+## ISSUE 1 — FIT does not RETAIN the selected artifact  *(JOB #1)*
 
-**Leading diagnosis:** `drawPersistedState(mapKey, webView, context)` is a no-op because `fitWebView` (= `webViewRef.value`, passed from the convoy call site) is likely null/dead at FIT time → the map never moves → then `onViewportChanged` saves the NH frame, clobbering FIT's JSON (same clobber class as Fix 1).
+### What's wrong
+FIT an artifact (track) → the map flies to it and the JSON on disk is **correct** (`Tracks state:2`, the fitted row `checked:true`, other types `0`, Utah bbox). **But** the Work-with-Artifacts panel shows the track **unselected/off** and it **does not draw**. Manually selecting the *same* track from the filter draws and selects it perfectly. Same failure on both maps.
 
-**First moves next session:**
-1. Read `drawPersistedState` body (SpatialDisplayManager.kt): does it fitBounds (move the map) + inject the JS draw? Does it null-check webView and silently return?
-2. Check whether `ConvoyViewModel.persistentWebView` (defined :284, set ConvoyScreen:862) is the reliable live convoy WebView vs `webViewRef.value`. If so, switch FIT (convoy) to resolve the WebView from the ViewModel.
-3. Confirm the clobber: pull JSON immediately after FIT before any pan; if the Utah shape is there then gets overwritten on the next viewport event → the real fix is to MOVE the map (fitBounds to the fit bbox via a live WebView), so the saved frame IS the fit (no clobber) and the artifact draws.
+### What we did to isolate it
+- **Read and verified the entire selection chain — it is all correct:**
+  - `readMap` parses `checked` with `optBoolean("checked", false)` → matches JSON boolean `true`.
+  - `checkedIdsFor` returns checked ids **only when `state == 2`**.
+  - `rowsFor` builds `Row(id, "", true)` from `checkedIds`.
+  - grid `isSelected = id in selectedIds` — id-based.
+  - `processArtifact` SELECTED filter is `raw.filter { it[idField] in checkedIds }` — **id-based, not name** (so the blank name in Issue 2 does NOT cause this).
+  - Net rule: a row draws **iff (row id ∈ checkedIds) AND (state != DS_OFF) AND (zoom ≥ minZoom).** DB query rows carry **no** checked/state field — display is decided entirely by the `checkedIds` set + the per-type state.
+- **Ran a diagnostic** (CMPDIAG log at the draw compare). It logged Trails draws but produced **zero `type=Tracks` lines** → `processArtifact("Tracks")` bailed at an **early return** (the log sat after the `DS_OFF`/minZoom returns). Pinpoints it: **Tracks arrives at the draw with `state = DS_OFF`, not the JSON's `2`.**
 
-**Likely fix shape:** ensure drawPersistedState moves the convoy map (fitBounds to the snapshot bbox) using a LIVE WebView (persistentWebView), so the map shows the fit and the natural viewport-save records the Utah frame. Then verify: map flies to the artifact, only it draws, detail list shows it checked + neighbors toggleable. Then COMMIT FIT.
+### Root cause (confirmed)
+FIT updates the **SAVED** side (JSON) but never the **LIVE** side (in-memory vars) the screen actually draws from. There are **two draw paths, both BY DESIGN — keep them:**
+- **(A) `drawPersistedState`** — JSON-sourced (saved/restore + fitBounds map-move). FIT calls this.
+- **(B) `ConvoyScreen` onViewportChanged path (~786-800)** — builds states/selectLists from the **in-memory live vars** (`trackState`, `trackCheckedIds`, …) so the user's live selections **survive zoom/pan.** Exists on purpose; do not remove.
 
-## FIT DESIGN (already implemented — for reference)
-`ConvoyArtifactOps.fit(context, webView, mapKey, type, id)`:
-- bbox = artifact's own min/max_lat/lon (`SpatialDbManager.bboxForArtifact`, reuses `spatialTableFor`; all 4 types have min/max columns)
-- query that type in the bbox → rows = every in-bbox artifact, ONLY the fitted one `checked:true` (the toggle list)
-- snapshot: fitted type SELECTED(2) w/ full rows, other 3 types OFF(0), bbox, fitArtifact
-- saveMap(mapKey) → drawPersistedState(mapKey, webView, context)
+On FIT: JSON says `state:2`, but in-memory `trackState` stays `OFF` (the existing reseed at ~771 convoy / ~611 planning is gated by `lastMapProcessed != "convoy"`, so it skips a same-map FIT). The next viewport event runs path B with `OFF` → `processArtifact("Tracks")` hits the `DS_OFF` early-return → never draws.
 
-**FIT is PANEL-OWNED:** the shared ArtifactListPanel's FIT button calls fit() directly (params mapKey + fitWebView; onFit lambda removed). Both call sites pass values (convoy "convoy"+webViewRef.value; planning "planning"+webViewRef). This means every entrance to the detail panel (Work-with-Artifacts, search, future map-tap) gets working FIT once the draw bug is fixed.
+### Approaches ruled OUT (do not revisit)
+- **Collapse the two paths / make path B read JSON** — WRONG. Path B must read the in-memory live vars or live (unsaved) selections are lost on every zoom/pan.
+- **Ungated reseed-from-JSON after FIT** — rejected as a band-aid (it syncs two states instead of feeding the real one). Currently in the tree from a committed-but-wrong attempt; replace it with the real fix.
 
-## FIT WORKING-TREE FILES (uncommitted — don't commit until proven)
-`SpatialDbManager.kt`, `ConvoyArtifactOps.kt`, `ArtifactListPanel.kt`, `ConvoyScreen.kt`, `ConvoyMapViewerScreen.kt`.
+### The fix to implement
+FIT must update the **live** in-memory selection the **same way a manual filter-select does** (manual works):
+1. **Build the rows** — run the query (same one the normal flow uses).
+2. **Use the JSON data to emulate the screen's row-selection** — do to the fitted row exactly what a manual tap does to the **live** selection state, driven by the JSON `checked` id (not a tap).
+3. **Run the normal draw.**
 
-## AFTER FIT (locked order)
-1. **Fix + commit FIT** (job #1)
-2. **EOD docs** if not done: release notes + manual (V2.5: shared-draw, persistence, FIT)
-3. **Magnifying-glass unified search FAB** (handoff doc) — remove 3 search launch points, one draggable FAB both maps
-4. **Map-tap → detail panel** (open Q: popup-as-peek vs tap-straight-to-detail)
-5. **PLANNING DISCUSSION** — go through the living checklist, prioritize next tasks
+FIT stops being its own draw path and **reuses the existing select-then-draw machinery**, sourcing "which row" from JSON instead of a tap.
 
-## HARD RULES / METHODOLOGY
-- NO "complete" without on-device proof. Fix fails → revert before next. MEASURE (logcat/JSON/DB pull), don't guess.
+**FIRST MOVE next session:** find the exact function / state mutation a **manual filter-select** performs on a row (what it writes into the live in-memory selection state). Make FIT perform that same mutation using the JSON-checked id, then let the normal draw run. Device-prove: FIT a track → it stays selected and draws with **no** manual re-select. Then **commit.**
+
+### Status: OPEN — top priority.
+
+---
+
+## ISSUE 2 — FIT writes a BLANK name into the JSON row
+
+### What's wrong
+FIT's JSON row for the fitted artifact has `name: ""`. The **id is correct** (matches the detail panel) and the **name exists in the DB**, but FIT stores blank.
+
+### What we did to isolate it
+- Confirmed the id is right and the name is present in the spatial DB.
+- Tried sourcing the name two ways inside `fit()`: from the in-bbox viewport row (`inBbox.firstOrNull{ it[idField]==artifactId }?.get("name")`) and via `getArtifactDetail`. **Still wrote `""`.**
+- **Unverified:** `grep inBbox.firstOrNull ConvoyArtifactOps.kt` returned **0** — confirm which name-version actually landed in the committed file. The *why* is not yet closed.
+
+### The fix to implement
+**Read `fit()` as committed** to see which name-source is in place and what key it reads. `queryTracksByViewport` returns the name under key **`"name"`** and the id under **`"track_id"`** (plural-table id column, not a generic `idField`) — a key-name mismatch is the likely culprit. Source the name from the matched query row by the correct keys, or from `getArtifactDetail(type, id)`.
+
+### Status: OPEN — cosmetic (display match is id-based), fix alongside FIT.
+
+---
+
+## ISSUE 3 — (process lesson, not a code bug) Diagnostic build broke all draw
+
+### What happened
+A debug-log diagnostic in `SpatialDisplayManager.kt` produced a build where **nothing drew**. Reverted with `git checkout HEAD -- SpatialDisplayManager.kt`, which briefly looked like it wiped a day's work.
+
+### What we did to isolate / recover
+- `git diff fe8a0849a -- SpatialDisplayManager.kt` proved the **only** uncommitted delta was the **11-line fitBounds block** — the whole-day shared-fn work was already committed in `fe8a0849a`. Nothing real lost.
+- Restored fitBounds, rebuilt, FIT positions again, **committed** the working state as `009b158aa`.
+
+### Lessons (standing rules)
+- Before reverting an uncommitted file, **run `git diff <last-commit> -- <file>`** to know the scope.
+- **Don't stack debug-log builds**; reason from ONE clean diagnostic. A broken diagnostic costs a 20-40 min cycle + leaves the device on the broken apk.
+- **Commit working states promptly.**
+
+### Status: CLOSED (recovered + committed).
+
+---
+
+## RECOMMENDED PLAN — TOMORROW (locked order)
+
+1. **COMPLETE FIT (Issues 1 + 2).**
+   a. Read `fit()` + the manual-select path; identify the live-selection mutation a row tap performs.
+   b. Implement: FIT builds rows → emulates that mutation from the JSON-checked id → runs the normal draw (replace the band-aid reseed).
+   c. Fix the blank name (correct query keys / `getArtifactDetail`).
+   d. Build, device-prove (FIT → stays selected + draws, no manual re-select; name present), **commit.**
+
+2. **MAGNIFYING-GLASS UNIVERSAL SEARCH FAB** *(spec: `GroupTrack_Search_Consolidation_Handoff_2026-06-16.md`)*
+   One draggable magnifying-glass FAB on **both** maps replacing the **three** current searches. Remove the three launch points, keep the engines: planning area search (ConvoyMapViewerScreen ~365-405, Geocoder→setView); convoy location search (ConvoyScreen `locationSearchQuery/Results/Error` @267-269); artifact search (`onSearch`→`searchByName` `4f7abbbb7`). FAB = selector (Area/Trail/Track/Route/Waypoint) + text box. Area→setView; Artifact→`searchByName`→results→**ArtifactDetailPanel**→FIT (now that FIT retains). Build + device-prove + commit.
+
+3. **ARROWS → PIXEL-BASED ON TRACKS** *([3.9a])*
+   Arrow decorations → **pixel-based spacing + neon green**, on tracks. Two CRLF HTMLs (`convoy_map.html` + `grouptrack_map.html`, they drift) + `polylineDecorator`. "Should be quick." Build + device-prove + commit.
+
+4. **(then)** EOD docs (release-notes + manual HTML, V2.5 entries); map-tap→detail; planning discussion.
+
+---
+
+## METHOD / GUARDRAILS (apply throughout)
+- NO "complete" without on-device proof. Fix fails → revert (git-diff first). MEASURE (logcat/JSON/DB pull), don't guess.
+- The two state paths (live in-memory vs saved JSON) are **by design** — don't collapse them; new actions use the **existing live-selection mechanism.** Holistic fixes, not per-map band-aids.
 - Own behavior in the SHARED component; callers pass DATA not BEHAVIOR.
-- Walk ONE command at a time (Fred runs each, pastes). Single-line python patch, count==1 guard, unique filenames, ending-agnostic where uncertain.
-- LINE ENDINGS: .kt mixed CRLF/LF even within a file — verify with `od -c` on raw bytes, never sed/awk/cat-piped.
-- Commit only named files. Never `git add .`. Parked files stay parked.
+- Walk ONE command at a time (Fred runs each, pastes). Standalone python patch, count==1 guard, unique dated filenames, runtime CRLF/LF detect, dry-run before shipping.
+- Don't mix a fix + a feature in one build; don't stack diagnostic builds.
+- Commit only named files; never `git add .`. Parked files stay parked.
+- LINE ENDINGS: .kt mixed CRLF/LF even within a file — verify raw bytes, never sed/awk/cat-piped.
 
 ## DEVICE / BUILD
-- Build: `./gradlew assembleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease` (~10-34 min)
+- Build: `./gradlew assembleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease` (~11-42 min)
 - APK: `app/build/outputs/apk/google/release/app-google-release.apk`
-- Install: `adb -s 8624SBCEDF00001789 install -r -d <apk>` (Droid 1 field/GPS; Droid 2 = 24039703201775 dev)
+- Install: `adb -s 8624SBCEDF00001789 install -r -d <apk>` (Droid 1 field/GPS; Droid 2 = `24039703201775` dev)
 - JSON: `MSYS_NO_PATHCONV=1 adb -s 8624SBCEDF00001789 shell cat /sdcard/Documents/GroupTrack/state/convoy_panel.json`
 - Logcat dump (non-blocking): `adb -s 8624SBCEDF00001789 logcat -d -s ArtifactOps ConvoyMap | tail -20`
+- Revert one file: `git checkout <hash> -- <file>` (git diff FIRST). NO sqlite3 on device.
 
 
 === GroupTrack_QuickStart_Installation_Troubleshooting_v1.md ===
@@ -15768,6 +15829,123 @@ convoy_map.html drawTrack/clearMarkers not defined; [6.2] geojson asset removal;
 
 ## EOD DOCS STILL PENDING (do after FIT commits, or next session)
 Release notes `grouptrack_release_notes.html` + manual/cookbook `grouptrack_manual.html` — add V2.5 entries (shared-draw consolidation, convoy persistence, FIT) + document FIT/persistence behavior. Edit in place from prior baseline, output full updated files.
+
+
+=== GroupTrack_V25_LivingChecklist_OpenItems_2026-06-17_EOD.md ===
+# GroupTrack V2.5 — Living Checklist / Open Items
+**Updated:** 2026-06-17 (~10:45 PM EOD)
+**Branch:** feature/convoy-event-ride · **Committed HEAD:** `009b158aa`
+
+---
+
+## ⭐ TODAY'S OUTCOME (2026-06-17) — SEARCH→DETAIL SEPARATION SHIPPED; FIT POSITIONS BUT DOESN'T RETAIN SELECTION
+
+Hard day. At noon everything was humming **except** retaining the FIT-selected trail. The afternoon did not land that retention fix, and the FIT trail-name in JSON is still blank. A diagnostic build broke all-artifact draw and was reverted — which briefly looked like a day's work was lost, but **git proved nothing real was lost** (only an 11-line `fitBounds` block was uncommitted; the whole-day shared-fn work was already committed in `fe8a0849a`). The day ended **safely committed** as `009b158aa`: maps position on FIT, all artifact types populate their lists, and manual filter-select works.
+
+### ✅ COMMITTED TODAY — `009b158aa` (7 files, 381 insertions)
+- **SEARCH→DETAIL SEPARATION.** Artifact name-search used to open the sel/edit list panel (`ArtifactListPanel`, gated by `activeListType`) only to reach the detail+FIT UI embedded inside it. That list's `onDismiss` recomputed state from `selectedArtifactIds` (empty on a search) and called `saveConvoyState` → **clobbered FIT's JSON.** Fix: extracted the detail UI into a new standalone **`ArtifactDetailPanel.kt`** (self-loads via `getArtifactDetail`, owns FIT, FIT auto-closes the popup, no list-state save). Search `onResultClick` now sets `pendingDetailId` + `pendingDetailType` only and mounts the standalone panel — the list never mounts on search, so the clobber is gone. Wired on both maps.
+- **FIT `fitBounds` map-move RESTORED** in `drawPersistedState` (pad ~15% → `fitBounds([fS,fN],[fW,fE])` before the `Thread{processViewport}`). FIT now flies the convoy map to the artifact bbox on device.
+- **FIT name + onDismiss reseed** — committed but **not the right fixes** (see open items). The name still writes `""`; the ungated reseed is a band-aid to be replaced by the real retention fix.
+
+### 🐞 STILL OPEN — FIT-PRESELECT DOES NOT RETAIN THE SELECTION (job #1 next session)
+FIT writes a correct JSON (Tracks `state:2`, fitted row `checked:true`, bbox Utah, map flies there) but the Work-with-Artifacts panel shows the track **off/unselected** and it doesn't draw. **Manually selecting the same track from the filter works.** See the detailed section below.
+
+---
+
+## 🐞 FIT-PRESELECT RETENTION BUG — DIAGNOSIS (fix first next session)
+
+### Symptom
+FIT a track → `convoy_panel.json` is correct: `Tracks state:2`, the fitted row `checked:true`, other types `0`, Utah bbox, and the map flies to Utah. **But** the panel shows the track unselected and it does not draw. Manual filter-select of the *same* track draws and selects perfectly. Same failure on both maps → shared root.
+
+### The whole selection chain is correct (verified by reading)
+- `readMap` parses `checked` with `optBoolean("checked", false)` — matches the JSON boolean `true`. ✓
+- `checkedIdsFor` returns the checked ids only when `state == 2`. ✓
+- `rowsFor` builds `Row(id, "", true)` from `checkedIds`. ✓
+- Grid `isSelected = id in selectedIds` — id-based. ✓
+- `processArtifact` SELECTED filter is `raw.filter { it[idField] in checkedIds }` — **id-based, NOT name**, so the blank name does not break display. ✓
+- Net: a row draws iff **(row id ∈ checkedIds) AND (state != DS_OFF) AND (zoom ≥ minZoom)**. The query rows carry no checked/state field — display is decided entirely by the `checkedIds` set + the per-type state.
+
+### Root cause
+**FIT updates the SAVED side (JSON) but never updates the LIVE side (in-memory vars) that the screen actually draws from.** There are two draw paths, and **both are by design**:
+- **(A) `drawPersistedState`** — JSON-sourced (saved/restore + `fitBounds`). FIT calls this.
+- **(B) `ConvoyScreen` onViewportChanged path** (~786-800) — builds states/selectLists from the **in-memory live vars** (`trackState`, `trackCheckedIds`, …) so the user's live selections survive zoom/pan.
+
+On FIT, the JSON says `state:2` but the in-memory `trackState` stays `OFF` (never updated — the existing reseed at ~771 convoy / ~611 planning is gated by `lastMapProcessed != "convoy"`, so it skips a same-map FIT). When path B redraws on the next viewport event, it uses `OFF` → `processArtifact("Tracks")` hits the `DS_OFF` early-return and never draws. (A diagnostic confirmed this: it logged zero `type=Tracks` lines, meaning Tracks bailed at the `DS_OFF`/minZoom early-return before the log point.)
+
+### The fix (Fred's design — implement next session)
+**The two paths stay. Do NOT collapse them, do NOT make path B read JSON, do NOT use a reseed band-aid** — path B exists on purpose to protect live selections during zoom/pan.
+
+FIT must update the **live** in-memory selection the same way a **manual filter-select** does (manual select works). Concretely:
+1. **Build the rows** — run the query (the same one the normal flow uses).
+2. **Emulate the screen's row-selection from the JSON** — do to the fitted row exactly what a manual tap does to the live selection state, driven by the JSON `checked` id (not a tap).
+3. **Run the normal draw.**
+
+FIT stops being its own draw path and reuses the existing select-then-draw machinery, sourcing "which row" from JSON instead of a tap. **First task next session: find what a manual filter-select does to the live in-memory selection state, then make FIT do the same.**
+
+### Also open
+- **Blank trail-name in FIT's JSON row.** Id is correct (matches detail), the name is in the DB, but FIT writes `""`. Tried sourcing from the in-bbox viewport row and from `getArtifactDetail`; still blank. Cosmetic (match is id-based), but fix it. (Verify which name-version actually landed — a `grep inBbox.firstOrNull ConvoyArtifactOps.kt` returned 0.)
+
+---
+
+## ⚠️ INCIDENT LESSON (do not repeat)
+A debug-log diagnostic patch in `SpatialDisplayManager.kt` produced a build where **nothing drew** (no artifacts of any type). It was reverted with `git checkout HEAD -- SpatialDisplayManager.kt`. The scare ("a day's work gone") was false — `git diff fe8a0849a -- SpatialDisplayManager.kt` showed the only uncommitted delta was the 11-line `fitBounds` block (since restored). **Lessons:** (1) before reverting an uncommitted file, run `git diff <last-commit> -- <file>` to KNOW the scope. (2) Don't stack debug-log builds; reason from ONE clean diagnostic. (3) A broken diagnostic build wastes a 20-40 min cycle and leaves the device on the broken apk until rebuild. (4) Commit working states promptly.
+
+---
+
+## 🎯 TOMORROW'S PLAN (locked order)
+1. **COMPLETE FIT** — implement the build-rows → emulate-screen-select-from-JSON → normal-draw retention fix; fix the blank trail-name; device-prove (FIT a track → it stays selected + draws without manual re-select); **commit.**
+2. **MAGNIFYING-GLASS UNIVERSAL SEARCH FAB** — one draggable magnifying-glass FAB on both maps replacing the three current searches (spec below / handoff doc).
+3. **ARROWS → PIXEL-BASED ON TRACKS** — [3.9a]: change arrow decorations to pixel-based spacing + neon green, on tracks; two CRLF HTMLs (`convoy_map.html` + `grouptrack_map.html`) + `polylineDecorator`. Fred: "should be quick."
+
+---
+
+## ⛔ MAGNIFYING-GLASS UNIFIED SEARCH ([2h.1])
+Full spec in `GroupTrack_Search_Consolidation_Handoff_2026-06-16.md`. Summary:
+- **Icon DECIDED: magnifying glass** (not binocular). Frees map real estate.
+- ONE draggable magnifying-glass FAB on BOTH maps replaces THREE current searches.
+- **REMOVE launch points (KEEP engines):** (1) planning area search (ConvoyMapViewerScreen ~365-405, Geocoder→setView); (2) convoy location search (ConvoyScreen `locationSearchQuery/Results/Error` @267-269); (3) artifact search (ConvoyScreen `onSearch`→`searchByName` `4f7abbbb7` NON-SPATIAL→assignNameSequence).
+- **KEEP/reuse:** `searchByName`, ArtifactSearch.kt numbering (ORDER BY name COLLATE NOCASE, geom_hash), Geocoder→setView, the standalone detail panel, FIT.
+- FAB: selector (Area/Trail/Track/Route/Waypoint) + text box. Area→setView. Artifact→`searchByName`→results→**ArtifactDetailPanel**→FIT.
+- Open Qs: drag-position persistence per-map? convoy scope? popup-vs-direct-detail?
+
+## ⏳ MAP-POPUP / ARTIFACT-TAP → DETAIL PANEL
+Touch an artifact on the map → route to the standalone `ArtifactDetailPanel` (which owns FIT). **Open design Q:** skip the popup banner and go straight to detail on tap (detail shows name + far more) vs popup-as-peek. Wiring: JS click handler on the artifact in BOTH map HTMLs (they drift) + Android `@JavascriptInterface` bridge to open detail with (type, id), passing mapKey + fitWebView.
+
+## 🧹 DETAIL-EXTRACTION CLEANUP (holistic, backlog)
+`ArtifactListPanel` still embeds its own detail for the sel/edit row-tap — route that row-tap to the shared `ArtifactDetailPanel` too. Implement the `ConvoyArtifactOps` Pass-1 log stubs (rename/delete/toRoute/toTrack/upload/download/changeType/editPoints/addAlias/setTrailhead). `fit()` is the only real op.
+
+---
+
+## OTHER OPEN (backlog)
+convoy_map.html `drawTrack`/`clearMarkers` not defined; [6.2] geojson asset removal; [1.2] sliceLine whole-trail; [1.5] auto-save+terminate on map-switch; import [4.x]; queues [3.3]; [3.1b] GPS-recenter button (planning); docs [9.x]; BLE [10.1]. **Tree cleanup:** stray files to remove — `ConvoyScreen.kt.bak_move`, `utah_trails_stgeorge.geojson.bak`, `grouptrack_spatial.db` (117MB — never commit). DEFERRED: GeoPackage national, V3.0, paywall.
+
+---
+
+## DESIGN CONTEXT (carried forward)
+- **Two draw paths are BY DESIGN.** (A) `drawPersistedState` = saved/restore from JSON (golden for saved state). (B) onViewportChanged path = in-memory live vars, preserves user selections across zoom/pan. New actions like FIT must update the LIVE side via the existing select mechanism, not bypass or collapse it.
+- **Map-purpose model:** Convoy = live/location (GPS, proximity, session-only). Planning = deliberate/identity (name search, fit, persisted frame across launches).
+- **FIT toggle-list:** fit writes the full bbox list with ONLY the fitted one `checked=true`; the SELECTED draw-filter draws only the fitted one; unchecked rows are the quick toggle-on list. List + draw derive from the SAME bbox query → consistent.
+- **Winning approach:** own behavior in the SHARED component; callers pass DATA not BEHAVIOR. Revive existing shared fn, re-wire ONE map at a time, BUILD+DEVICE-PROVE+COMMIT each step. Holistic fixes, not per-map band-aids ("landmines") — Fred lives in this code.
+
+---
+
+## TREE STATE
+- **Committed HEAD `009b158aa`** (search→detail separation + FIT name/state + fitBounds restore). Chain: `fe8a0849a` → `cec3a3e4a` → `c0259d2ca` → `009b158aa`.
+- On-device proven at this commit: maps position on FIT, lists populate, manual select works. FIT-preselect retention still open.
+- Parked (never git-add): `M utah_trails_stgeorge.geojson`, `?? grouptrack_manual.html`, `?? grouptrack_release_notes.html`, `?? *.geojson.bak`, `?? ConvoyScreen.kt.bak_move`, `?? grouptrack_spatial.db`, `D docs/.tmp.driveupload/10630`. Commit only named files. Never `git add .`.
+
+## DEVICE / BUILD QUICK-REF
+- Build: `./gradlew assembleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease` (~11–42 min)
+- APK: `app/build/outputs/apk/google/release/app-google-release.apk`
+- Install: `adb -s 8624SBCEDF00001789 install -r -d <apk>` (Droid 1 = `8624SBCEDF00001789` field/real-GPS · Droid 2 = `24039703201775` dev)
+- JSON pull: `MSYS_NO_PATHCONV=1 adb -s 8624SBCEDF00001789 shell cat /sdcard/Documents/GroupTrack/state/convoy_panel.json` (or `planning_panel.json`)
+- Logcat (non-blocking dump): `adb -s 8624SBCEDF00001789 logcat -d -s ArtifactOps ConvoyMap | tail -20` (`-c` to clear). LIVE logcat BLOCKS — use `-d` dump or a 2nd window.
+- **LINE ENDINGS:** .kt files MIXED CRLF/LF, even within one file. Verify raw bytes / Python byte-check (not sed/awk/cat-piped). Patches detect newline at runtime + count==1 guard.
+- Patch flow: Claude files → present_files → Fred downloads to `/c/Users/kixaz/Downloads/` → `python3 /c/Users/kixaz/Downloads/<name>.py`.
+- Revert one file: `git checkout <hash> -- <file>` — **run `git diff <hash> -- <file>` FIRST to know the scope.** NO sqlite3 on device.
+
+## EOD DOCS STILL PENDING
+Release notes `grouptrack_release_notes.html` + manual/cookbook `grouptrack_manual.html` — add V2.5 entries (shared-draw consolidation, convoy persistence, FIT, search→detail separation) + document behavior. Edit in place from prior baseline, output full updated files. (Untracked stubs already in tree.)
 
 
 === GroupTrack_V25_MapSourceCatalog_v2.md ===
@@ -21035,7 +21213,7 @@ TRAIL SOURCE CATALOGUI SCAFFOLDING NEXT
   Next session: UI Scaffolding → Populate → Wire Creation Functions
 
 
-=== GroupTrack_V25_UserManual_2026-06-13.html ===
+=== GroupTrack_V25_UserManual_2026-06-17.html ===
 GroupTrack V2.5 — User Manual (cookbook)
   body { font-family: Arial, Helvetica, sans-serif; color:#1c1c1c; max-width:900px; margin:0 auto; padding:24px; line-height:1.5; }
   h1 { font-size:26px; color:#1A3A5A; margin-bottom:2px; }
