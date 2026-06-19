@@ -265,9 +265,6 @@ fun ConvoyScreen(
     var tracksLoaded by remember { mutableStateOf(false) }
     var scanningDownloaded by remember { mutableStateOf(false) }
     val autoPan by viewModel.autoPan.collectAsStateWithLifecycle()
-    var locationSearchQuery by remember { mutableStateOf("") }
-    var locationSearchResults by remember { mutableStateOf<List<android.location.Address>>(emptyList()) }
-    var locationSearchError by remember { mutableStateOf("") }
     // "?" help: which bundled doc is open ("manual" | "notes" | null = chooser/closed)
     var docsView by remember { mutableStateOf<String?>(null) }
     var showDocsChooser by remember { mutableStateOf(false) }
@@ -1295,7 +1292,7 @@ fun ConvoyScreen(
                 pendingDetailType = type
                 pendingDetailId = id
             },
-            modifier = Modifier.align(Alignment.CenterEnd).padding(end = 12.dp, bottom = 64.dp)
+            modifier = Modifier.align(Alignment.CenterEnd).padding(end = 12.dp, bottom = 164.dp)
         )
 
         // -- "?" HELP BUTTON (ported from planning 2026-06-18; TopStart to clear QUEUES) --

@@ -134,10 +134,8 @@ fun ConvoyArtifactsPanel(
             ) {
                 Column(modifier = Modifier.padding(top = 6.dp)) {
 
-                    // ── SEARCH (V2.5 [2h]) — non-spatial name search, above the type grid ──
-                    SearchBlock(onSearch = onSearch)
-                    ResultsList(results = searchResults, onResultClick = onResultClick)
-                    Spacer(modifier = Modifier.height(8.dp))
+                    // search removed 2026-06-19 -- now the UnifiedSearch FAB (both maps)
+                    Spacer(modifier = Modifier.height(4.dp))
 
                     // Column headings
                     Row(

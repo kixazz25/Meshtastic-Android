@@ -192,11 +192,9 @@ fun ConvoyMapViewerScreen(
             loadedTracks = loadedTracks.filterNot { it.first == trackName }
         }
     }
-    var searchText by remember { mutableStateOf("") }
     val keyboardController = LocalSoftwareKeyboardController.current
     var showExitConfirm by remember { mutableStateOf(false) }
     BackHandler { showExitConfirm = true }
-    var showSearch by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
 
     // Download controls state
@@ -316,98 +314,6 @@ fun ConvoyMapViewerScreen(
                 modifier = Modifier.clickable { pmQueuesOpen = !pmQueuesOpen }
                     .padding(horizontal = 14.dp, vertical = 14.dp))
         }
-        // -- Search toggle + collapsible bar --
-        if (!showSearch) {
-            Surface(
-                modifier = Modifier.padding(start = 8.dp, top = 4.dp)
-                    .clickable { showSearch = true },
-                shape = RoundedCornerShape(6.dp),
-                color = Color(0xAA1A2030)
-            ) {
-                Text("\u25BC  SEARCH + MAP", color = Color(0xFF4DA6FF),
-                    fontSize = 11.sp, fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
-            }
-        }
-        if (showSearch) {
-            Row(
-                modifier = Modifier.fillMaxWidth().background(Color(0x44000000))
-                    .padding(horizontal = 10.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                // Chevron (left side) — collapse search bar
-                Surface(
-                    modifier = Modifier.clickable { showSearch = false },
-                    shape = RoundedCornerShape(6.dp),
-                    color = Color(0xFF2A3545)
-                ) {
-                    Text("\u25B2", color = Color(0xFF4DA6FF), fontSize = 10.sp,
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp))
-                }
-                Spacer(Modifier.width(6.dp))
-                // Search field — Enter key triggers search
-                BasicTextField(
-                    value = searchText,
-                    onValueChange = { searchText = it },
-                    textStyle = TextStyle(
-                        color = Color.White,
-                        fontSize = 12.sp,
-                        fontFamily = FontFamily.Monospace
-                    ),
-                    cursorBrush = SolidColor(Color(0xFF4DA6FF)),
-                    singleLine = true,
-                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
-                        imeAction = androidx.compose.ui.text.input.ImeAction.Search
-                    ),
-                    keyboardActions = androidx.compose.foundation.text.KeyboardActions(
-                        onSearch = {
-                            keyboardController?.hide()
-                            if (searchText.isNotBlank()) {
-                                coroutineScope.launch {
-                                    try {
-                                        val results = withContext(Dispatchers.IO) {
-                                            @Suppress("DEPRECATION")
-                                            Geocoder(context).getFromLocationName(searchText, 5)
-                                        }
-                                        if (!results.isNullOrEmpty()) {
-                                            val loc = results[0]
-                                            webViewRef?.evaluateJavascript(
-                                                "setView(" + loc.latitude + ", " + loc.longitude + ", 13)", null
-                                            )
-                                            webViewRef?.evaluateJavascript(
-                                                "showSearchCenter(" + loc.latitude + ", " + loc.longitude + ")", null
-                                            )
-                                        } else {
-                                            android.widget.Toast.makeText(context,
-                                                "Location not found. Try adding state (e.g. Zion UT)",
-                                                android.widget.Toast.LENGTH_SHORT).show()
-                                        }
-                                    } catch (e: Exception) {
-                                        android.widget.Toast.makeText(context,
-                                            "Search error",
-                                            android.widget.Toast.LENGTH_SHORT).show()
-                                    }
-                                }
-                            }
-                        }
-                    ),
-                    modifier = Modifier
-                        .weight(1f)
-                        .background(Color(0xFF0A1020), RoundedCornerShape(6.dp))
-                        .padding(horizontal = 10.dp, vertical = 6.dp),
-                    decorationBox = { innerTextField ->
-                        if (searchText.isEmpty()) {
-                            Text("Search area... (press Enter)", color = Color(0xFF445566),
-                                fontSize = 12.sp, fontFamily = FontFamily.Monospace)
-                        }
-                        innerTextField()
-                    }
-                )
-            }
-        }
-
         // Track panel removed
         // -- Back navigation guard --
                     pendingWaypoint?.let { (wLat, wLon) ->
@@ -760,6 +666,23 @@ fun ConvoyMapViewerScreen(
             // -- Download queue panel (replaces simple progress bar) --
             // -- SOURCE BAR (accordion with search) --
             // ConvoyMapBar removed — sources now in header bar
+            // -- UNIFIED SEARCH FAB (2026-06-19) -- below the "?" (top-right), stacks DOWN --
+            // Shared component, planning context. webViewRef is a plain WebView? here
+            // (planning does not wrap in MutableState). Artifact results route to the
+            // existing detail path (pendingDetailType/Id -> ArtifactDetailPanel).
+            // Old planning area-search field remains in place this step (removed later).
+            UnifiedSearch(
+                mapContext = "planning",
+                webView = webViewRef,
+                context = context,
+                onOpenDetail = { type, id ->
+                    pendingDetailType = type
+                    pendingDetailId = id
+                },
+                stackDown = true,
+                modifier = Modifier.align(Alignment.TopEnd).padding(top = 64.dp, end = 12.dp)
+            )
+
             // -- "?" HELP BUTTON (opens bundled release notes / manual) --
             androidx.compose.material3.Surface(
                 onClick = { showDocsChooser = true },
