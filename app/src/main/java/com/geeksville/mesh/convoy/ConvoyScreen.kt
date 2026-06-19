@@ -1283,6 +1283,21 @@ fun ConvoyScreen(
                 
         )
 
+        // -- UNIFIED SEARCH FAB (2026-06-19) -- stacked above "?" to start the icon column --
+        // Self-contained search beacon: Area/Track/Route/Trail/Waypoint. Routes artifact
+        // results to the existing detail path (pendingDetailType/Id -> ArtifactDetailPanel).
+        // Old ConvoyArtifactsPanel search remains in place this step (removed later).
+        UnifiedSearch(
+            mapContext = "convoy",
+            webView = webViewRef.value,
+            context = context,
+            onOpenDetail = { type, id ->
+                pendingDetailType = type
+                pendingDetailId = id
+            },
+            modifier = Modifier.align(Alignment.CenterEnd).padding(end = 12.dp, bottom = 64.dp)
+        )
+
         // -- "?" HELP BUTTON (ported from planning 2026-06-18; TopStart to clear QUEUES) --
         androidx.compose.material3.Surface(
             onClick = { showDocsChooser = true },
