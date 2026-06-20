@@ -268,6 +268,7 @@ fun ConvoyScreen(
     // "?" help: which bundled doc is open ("manual" | "notes" | null = chooser/closed)
     var docsView by remember { mutableStateOf<String?>(null) }
     var showDocsChooser by remember { mutableStateOf(false) }
+    var showArtifactsPanel by remember { mutableStateOf(false) }   // FAB closed-state vs panel open-state
     var mapInitialized by remember { mutableStateOf(false) }
     var showRecMenu by viewModel.showRecMenu
     var showLeadDialog by remember { mutableStateOf(false) }
@@ -1292,7 +1293,7 @@ fun ConvoyScreen(
                 pendingDetailType = type
                 pendingDetailId = id
             },
-            modifier = Modifier.align(Alignment.CenterEnd).padding(end = 12.dp, bottom = 164.dp)
+            modifier = Modifier.align(Alignment.TopEnd).padding(top = 120.dp, end = 12.dp)
         )
 
         // -- "?" HELP BUTTON (ported from planning 2026-06-18; TopStart to clear QUEUES) --
@@ -1302,10 +1303,25 @@ fun ConvoyScreen(
             color = androidx.compose.ui.graphics.Color(0xEE131820),
             contentColor = androidx.compose.ui.graphics.Color.White,
             shadowElevation = 6.dp,
-            modifier = Modifier.align(Alignment.CenterEnd).padding(end = 12.dp).size(40.dp)
+            modifier = Modifier.align(Alignment.TopEnd).padding(top = 252.dp, end = 12.dp).size(40.dp)
         ) {
             androidx.compose.foundation.layout.Box(contentAlignment = Alignment.Center) {
                 androidx.compose.material3.Text("?", fontSize = 22.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+            }
+        }
+        // -- ARTIFACTS FAB (opens WORK WITH ARTIFACTS expanded; hidden while panel open) --
+        if (!showArtifactsPanel) {
+            androidx.compose.material3.Surface(
+                onClick = { showArtifactsPanel = true },
+                shape = androidx.compose.foundation.shape.CircleShape,
+                color = androidx.compose.ui.graphics.Color(0xEE131820),
+                contentColor = androidx.compose.ui.graphics.Color.White,
+                shadowElevation = 6.dp,
+                modifier = Modifier.align(Alignment.TopEnd).padding(top = 200.dp, end = 12.dp).size(40.dp)
+            ) {
+                androidx.compose.foundation.layout.Box(contentAlignment = Alignment.Center) {
+                    androidx.compose.material3.Text("\u2630", fontSize = 18.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                }
             }
         }
         if (showDocsChooser) {
@@ -1423,8 +1439,11 @@ fun ConvoyScreen(
 
                 // QUEUES panel moved above maps bar
 
-                // -- WORK WITH ARTIFACTS (V2.5 scaffold) --
+                // -- WORK WITH ARTIFACTS (V2.5 scaffold) -- FAB-gated, opens expanded --
+                if (showArtifactsPanel) {
                 ConvoyArtifactsPanel(
+                    startExpanded = true,
+                    onDismiss = { showArtifactsPanel = false },
                     isConvoyMap = true,
                     onCreateRoute = {
                         // +ROUTE -> choose New vs In-Progress BEFORE the toolbar opens.
@@ -1497,6 +1516,7 @@ fun ConvoyScreen(
                         }
                     }
                 )
+                }
                 if (showEntryChoice) {
                     androidx.compose.material3.AlertDialog(
                         onDismissRequest = { showEntryChoice = false },

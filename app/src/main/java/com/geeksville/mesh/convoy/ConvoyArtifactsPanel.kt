@@ -62,9 +62,10 @@ fun ConvoyArtifactsPanel(
     onResultClick: (String, String, String, String) -> Unit = { _, _, _, _ -> },
     searchResults: List<ArtifactResult> = emptyList(),
     onDismiss: () -> Unit = {},
+    startExpanded: Boolean = false,
     modifier: Modifier = Modifier
 ) {
-    var expanded by remember { mutableStateOf(false) }
+    var expanded by remember { mutableStateOf(startExpanded) }
     var offsetX by remember { mutableFloatStateOf(0f) }
     var offsetY by remember { mutableFloatStateOf(0f) }
 
@@ -99,7 +100,7 @@ fun ConvoyArtifactsPanel(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { expanded = !expanded }
+                    .clickable { onDismiss() }   // FAB model: tapping the bar closes the panel entirely (FAB returns)
                     .padding(vertical = 4.dp, horizontal = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {

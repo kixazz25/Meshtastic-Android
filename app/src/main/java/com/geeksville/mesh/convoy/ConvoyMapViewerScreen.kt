@@ -257,6 +257,7 @@ fun ConvoyMapViewerScreen(
     // "?" help: which bundled doc is open ("manual" | "notes" | null = chooser/closed)
     var docsView by remember { mutableStateOf<String?>(null) }
     var showDocsChooser by remember { mutableStateOf(false) }
+    var showArtifactsPanel by remember { mutableStateOf(false) }   // FAB closed-state vs panel open-state
     var pmDownloadedOn by remember { mutableStateOf(false) }
     var pmActiveSource by remember { mutableStateOf(ConvoyConfig.ACTIVE_TILE_SOURCE) }
     var mapZoomLevel by remember { mutableStateOf(ConvoyConfig.DOWNLOAD_ZOOM.toFloat()) }
@@ -680,7 +681,7 @@ fun ConvoyMapViewerScreen(
                     pendingDetailId = id
                 },
                 stackDown = true,
-                modifier = Modifier.align(Alignment.TopEnd).padding(top = 64.dp, end = 12.dp)
+                modifier = Modifier.align(Alignment.TopEnd).padding(top = 12.dp, end = 12.dp)
             )
 
             // -- "?" HELP BUTTON (opens bundled release notes / manual) --
@@ -690,10 +691,25 @@ fun ConvoyMapViewerScreen(
                 color = Color(0xEE131820),
                 contentColor = Color.White,
                 shadowElevation = 6.dp,
-                modifier = Modifier.align(Alignment.TopEnd).padding(12.dp).size(40.dp)
+                modifier = Modifier.align(Alignment.TopEnd).padding(top = 116.dp, end = 12.dp).size(40.dp)
             ) {
                 androidx.compose.foundation.layout.Box(contentAlignment = Alignment.Center) {
                     androidx.compose.material3.Text("?", fontSize = 22.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                }
+            }
+            // -- ARTIFACTS FAB (opens WORK WITH ARTIFACTS expanded; hidden while panel open) --
+            if (!showArtifactsPanel) {
+                androidx.compose.material3.Surface(
+                    onClick = { showArtifactsPanel = true },
+                    shape = androidx.compose.foundation.shape.CircleShape,
+                    color = Color(0xEE131820),
+                    contentColor = Color.White,
+                    shadowElevation = 6.dp,
+                    modifier = Modifier.align(Alignment.TopEnd).padding(top = 64.dp, end = 12.dp).size(40.dp)
+                ) {
+                    androidx.compose.foundation.layout.Box(contentAlignment = Alignment.Center) {
+                        androidx.compose.material3.Text("\u2630", fontSize = 18.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                    }
                 }
             }
             // -- "?" CHOOSER: Release Notes / Full Manual --
@@ -783,8 +799,11 @@ fun ConvoyMapViewerScreen(
                 }
             }
 
-            // -- WORK WITH ARTIFACTS (V2.5 scaffold) --
+            // -- WORK WITH ARTIFACTS (V2.5 scaffold) -- FAB-gated, opens expanded --
+            if (showArtifactsPanel) {
             ConvoyArtifactsPanel(
+                startExpanded = true,
+                onDismiss = { showArtifactsPanel = false },
                 isConvoyMap = false,
                 onCreateRoute = {
                     // +ROUTE -> choose New vs In-Progress BEFORE the toolbar opens.
@@ -858,6 +877,7 @@ fun ConvoyMapViewerScreen(
                     }
                 }
             )
+            }
 
             // -- ARTIFACT LIST PANEL (SELECT/EDIT) --
             if (showEntryChoice) {
