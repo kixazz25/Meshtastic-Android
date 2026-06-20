@@ -1162,97 +1162,7 @@ fun ConvoyMapViewerScreen(
                     onDeselectAll = {
                         selectedArtifactIds = emptySet()
                     },
-                    onRename = { id, newName ->
-                        scope.launch {
-                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                                SpatialDbManager.init(context)
-                                when (activeListType) {
-                                    "Waypoints" -> SpatialDbManager.renameWaypoint(id, newName)
-                                    "Routes" -> SpatialDbManager.renameRoute(id, newName)
-                                    "Tracks" -> SpatialDbManager.renameTrackInDb(id, newName)
-                                }
-                            }
-                            // Refresh list
-                            val table = when (activeListType) {
-                                "Tracks" -> "tracks"; "Waypoints" -> "waypoints"
-                                "Routes" -> "routes"; else -> "trails"
-                            }
-                            val bounds = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                                SpatialDbManager.getArtifactBounds(table)
-                            }
-                            if (bounds != null) {
-                                artifactList = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                                    SpatialDbManager.queryArtifactList(table, bounds[0], bounds[1], bounds[2], bounds[3])
-                                }
-                            }
-                            webViewRef?.evaluateJavascript("triggerViewportUpdate()", null)
-                        }
-                    },
-                    onDelete = { id ->
-                        scope.launch {
-                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                                SpatialDbManager.init(context)
-                                when (activeListType) {
-                                    "Waypoints" -> SpatialDbManager.deleteWaypoint(id)
-                                    "Routes" -> SpatialDbManager.deleteRoute(id)
-                                    "Tracks" -> SpatialDbManager.deleteTrackFromDb(id)
-                                }
-                            }
-                            artifactList = artifactList.filter { it["id"] != id }
-                            selectedArtifactIds = selectedArtifactIds - id
-                            webViewRef?.evaluateJavascript("triggerViewportUpdate()", null)
-                        }
-                    },
-                    onShare = { id ->
-                        scope.launch {
-                            val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                                SpatialDbManager.init(context)
-                                when (activeListType) {
-                                    "Waypoints" -> SpatialDbManager.buildWaypointGpxById(id)
-                                    "Routes" -> SpatialDbManager.buildRouteGpxById(id)
-                                    "Trails" -> SpatialDbManager.buildTrailGpxById(id)
-                                    "Tracks" -> null // Tracks shared via file manager
-                                    else -> null
-                                }
-                            }
-                            if (result != null) {
-                                ConvoyTrackOps.shareGpx(context, result.first, result.second)
-                            } else {
-                                android.widget.Toast.makeText(context, "Share failed", android.widget.Toast.LENGTH_SHORT).show()
-                            }
-                        }
-                    },
-                    onExport = { id ->
-                        scope.launch {
-                            val ok = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                                SpatialDbManager.init(context)
-                                val gpx = when (activeListType) {
-                                    "Waypoints" -> SpatialDbManager.buildWaypointGpxById(id)
-                                    "Routes" -> SpatialDbManager.buildRouteGpxById(id)
-                                    "Trails" -> SpatialDbManager.buildTrailGpxById(id)
-                                    "Tracks" -> null // Tracks shared via file manager
-                                    else -> null
-                                }
-                                if (gpx != null) ConvoyTrackOps.exportGpxToDownloads(gpx.first, gpx.second) else false
-                            }
-                            android.widget.Toast.makeText(context,
-                                if (ok == true) "Exported to Downloads" else "Export failed",
-                                android.widget.Toast.LENGTH_SHORT).show()
-                        }
-                    },
-                    onChangeType = if (activeListType == "Waypoints") { id, newType ->
-                        scope.launch {
-                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                                SpatialDbManager.init(context)
-                                SpatialDbManager.changeWaypointType(id, newType)
-                            }
-                            webViewRef?.evaluateJavascript("triggerViewportUpdate()", null)
-                        }
-                    } else null,
-                    onLoadDetail = { t, id -> SpatialDbManager.getArtifactDetail(t, id) },
-                    onLoadAliases = { t, id -> SpatialDbManager.getAliasesFor(t, id) },
-                    onDeleteAlias = { aliasId -> scope.launch { kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { SpatialDbManager.init(context); SpatialDbManager.deleteAlias(aliasId) } } },
-                    initialDetailId = pendingDetailId
+                    onOpenDetail = { t, id -> pendingDetailType = t; pendingDetailId = id }
                 )
             }
             if (pendingDetailId != null && pendingDetailType != null) {
@@ -1263,6 +1173,21 @@ fun ConvoyMapViewerScreen(
                     fitWebView = webViewRef,
                     onLoadDetail = { t, did -> SpatialDbManager.getArtifactDetail(t, did) },
                     onLoadAliases = { t, did -> SpatialDbManager.getAliasesFor(t, did) },
+                    // [2026-06-20] Full action parity. Logic lifted from planning's
+                    // ArtifactListPanel handlers; keyed off pendingDetailType (detail can
+                    // open from SEARCH where activeListType is null). Refresh: triggerViewportUpdate().
+                    onRename = { id, newName ->
+                        scope.launch { ConvoyArtifactOps.rename(context, pendingDetailType!!, id, newName); webViewRef?.evaluateJavascript("triggerViewportUpdate()", null) }
+                    },
+                    onDelete = { id ->
+                        scope.launch { ConvoyArtifactOps.delete(context, pendingDetailType!!, id); webViewRef?.evaluateJavascript("triggerViewportUpdate()", null) }
+                    },
+                    onShare = { id -> scope.launch { ConvoyArtifactOps.share(context, pendingDetailType!!, id) } },
+                    onExport = { id -> scope.launch { ConvoyArtifactOps.export(context, pendingDetailType!!, id) } },
+                    onChangeType = { id, newType ->
+                        scope.launch { ConvoyArtifactOps.changeType(context, id, newType); webViewRef?.evaluateJavascript("triggerViewportUpdate()", null) }
+                    },
+                    onDeleteAlias = { aliasId -> scope.launch { ConvoyArtifactOps.deleteAlias(context, aliasId) } },
                     onDismiss = { fittedType, fittedId ->
                         if (fittedType != null && fittedId != null) {
                             // [FIT 2026-06-18] Emulate manual row-select on LIVE vars (parity with

@@ -887,7 +887,7 @@ object SpatialDbManager {
                     for (i in 0 until it.columnCount) {
                         val col = it.getColumnName(i)
                         if (col == propIdCol) continue          // skip the duplicate id column
-                        if (out.containsKey(col)) continue      // skip keys already shown (carto_code, source_id)
+                        if (out.containsKey(col) && !out[col].isNullOrBlank()) continue  // spatial wins only if it has a real value (null carto_code must not shadow trail_properties)
                         if (it.isNull(i)) continue
                         val v = it.getString(i)
                         if (v == null || v.isBlank()) continue  // skip blanks

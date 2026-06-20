@@ -1755,11 +1755,9 @@ fun ConvoyScreen(
                         onToggleItem = { id, checked -> selectedArtifactIds = if (checked) selectedArtifactIds + id else selectedArtifactIds - id },
                         onSelectAll = { selectedArtifactIds = artifactList.mapNotNull { it["id"] }.toSet() },
                         onDeselectAll = { selectedArtifactIds = emptySet() },
-                        onLoadDetail = { t, id -> SpatialDbManager.getArtifactDetail(t, id) },
-                        onLoadAliases = { t, id -> SpatialDbManager.getAliasesFor(t, id) },
                         mapKey = "convoy",
                         fitWebView = webViewRef.value,
-                        initialDetailId = pendingDetailId
+                        onOpenDetail = { t, id -> pendingDetailType = t; pendingDetailId = id }
                     )
                 }
                 if (pendingDetailId != null && pendingDetailType != null) {
@@ -1770,6 +1768,28 @@ fun ConvoyScreen(
                         fitWebView = webViewRef.value,
                         onLoadDetail = { t, did -> SpatialDbManager.getArtifactDetail(t, did) },
                         onLoadAliases = { t, did -> SpatialDbManager.getAliasesFor(t, did) },
+                        // [2026-06-20] Full action parity on convoy. Handlers mirror planning
+                        // (ConvoyMapViewerScreen) verbatim; the ONLY divergence is the table is
+                        // keyed off pendingDetailType (detail can open from SEARCH, where
+                        // activeListType is null), not activeListType. Refresh uses convoy's
+                        // existing onViewportChanged JS round-trip.
+                        onRename = { id, newName ->
+                            coroutineScope.launch { ConvoyArtifactOps.rename(context, pendingDetailType!!, id, newName); webViewRef.value?.evaluateJavascript("try{var b=map.getBounds();Android.onViewportChanged(b.getNorth(),b.getSouth(),b.getEast(),b.getWest(),map.getZoom())}catch(e){}", null) }
+                        },
+                        onDelete = { id ->
+                            coroutineScope.launch {
+                                ConvoyArtifactOps.delete(context, pendingDetailType!!, id)
+                                artifactList = artifactList.filter { it["id"] != id }
+                                selectedArtifactIds = selectedArtifactIds - id
+                                webViewRef.value?.evaluateJavascript("try{var b=map.getBounds();Android.onViewportChanged(b.getNorth(),b.getSouth(),b.getEast(),b.getWest(),map.getZoom())}catch(e){}", null)
+                            }
+                        },
+                        onShare = { id -> coroutineScope.launch { ConvoyArtifactOps.share(context, pendingDetailType!!, id) } },
+                        onExport = { id -> coroutineScope.launch { ConvoyArtifactOps.export(context, pendingDetailType!!, id) } },
+                        onChangeType = { id, newType ->
+                            coroutineScope.launch { ConvoyArtifactOps.changeType(context, id, newType); webViewRef.value?.evaluateJavascript("try{var b=map.getBounds();Android.onViewportChanged(b.getNorth(),b.getSouth(),b.getEast(),b.getWest(),map.getZoom())}catch(e){}", null) }
+                        },
+                        onDeleteAlias = { aliasId -> coroutineScope.launch { ConvoyArtifactOps.deleteAlias(context, aliasId) } },
                         onDismiss = { fittedType, fittedId ->
                             if (fittedType != null && fittedId != null) {
                                 // [FIT 2026-06-18] Emulate a manual row-select on the LIVE vars

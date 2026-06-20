@@ -1,7 +1,9 @@
 package com.geeksville.mesh.convoy
 
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -138,6 +140,20 @@ fun ArtifactDetailPanel(
 
                     Text("DETAILS", color = aOrange, fontSize = 9.sp,
                         fontFamily = aMono, fontWeight = FontWeight.Bold)
+                    // -- CARTO TYPE (2026-06-19): translated text, colored; never the code --
+                    run {
+                        val (ctColor, ctLabel) = cartoStyle(detailFields["carto_code"])
+                        // Full-row BAND in the carto color w/ near-black text -- survives
+                        // high-visibility mode (which can flatten text color to b/w).
+                        Row(modifier = Modifier.fillMaxWidth()
+                            .background(ctColor, RoundedCornerShape(3.dp))
+                            .padding(horizontal = 6.dp, vertical = 3.dp)) {
+                            Text("Carto Type", color = Color(0xCC000000), fontSize = 8.sp, fontFamily = aMono,
+                                modifier = Modifier.width(96.dp))
+                            Text(ctLabel, color = Color(0xFF111111), fontSize = 9.sp, fontFamily = aMono,
+                                fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                        }
+                    }
                     if (detailFields.isEmpty()) {
                         Text("no additional details", color = aDim, fontSize = 9.sp, fontFamily = aMono)
                     } else {
@@ -256,4 +272,31 @@ private fun DetailActionButton(label: String, color: Color, onClick: () -> Unit)
             .clickable { onClick() }
             .padding(vertical = 6.dp, horizontal = 4.dp)
     )
+}
+
+
+/**
+ * CartoCode -> (band color, type label) for the detail footer.
+ *
+ * PAIRED-EDIT WARNING: this mapping ALSO lives in the map JS
+ * (app/src/main/assets/convoy_map.html and grouptrack_map.html), which colors the
+ * trail LINES on the map. If CartoCode colors or labels change, update BOTH here
+ * AND those two HTML files. (One field, two language representations -- unavoidable
+ * since map rendering is JS and the detail card is Kotlin.)
+ *
+ * Source of truth: AllDocs manual section 9A.2.
+ */
+// Data stores carto_code as "N - Label" (e.g. "4 - Road-concurrent"); key off the
+// LEADING DIGIT so all label variants of a code map to one color. Codes 1-8 per
+// trail_properties; blank/unknown -> cyan "Unspecified" (default preserved).
+private fun cartoStyle(code: String?): Pair<Color, String> = when (code?.trim()?.firstOrNull()) {
+    '1' -> Color(0xFFFFCC00) to "Hiking-Only"
+    '2' -> Color(0xFFFF8800) to "Hiking & Biking"
+    '3' -> Color(0xFF00C2A8) to "Paved Shared Use"
+    '4' -> Color(0xFF00AAFF) to "OHV / Road-Concurrent"
+    '5' -> Color(0xFFAA44FF) to "Biking-Only"
+    '6' -> Color(0xFFB5651D) to "Equestrian"
+    '7' -> Color(0xFF9AA0A6) to "Steps"
+    '8' -> Color(0xFFE0556E) to "Bridge / Tunnel"
+    else -> Color(0xFF00FFFF) to "Unspecified"
 }

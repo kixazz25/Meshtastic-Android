@@ -2,6 +2,8 @@ package com.geeksville.mesh.convoy
 
 import android.content.Context
 import android.util.Log
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 // ----------------------------------------------------------------
 // ConvoyArtifactOps -- V2.5 Scaffold (Pass 1)
@@ -59,15 +61,30 @@ object ConvoyArtifactOps {
         SpatialDisplayManager.drawPersistedState(mapKey, webView, context)
     }
 
-    /** RENAME: change display name, update aliases, journal */
-    fun rename(artifactType: String, artifactId: String, newName: String) {
-        Log.d(TAG, "RENAME $artifactType $artifactId -> $newName — Pass 1 stub")
+    /** RENAME: change display name. DB enforces rules. Caller refreshes its map. */
+    suspend fun rename(context: Context, artifactType: String, artifactId: String, newName: String) {
+        withContext(Dispatchers.IO) {
+            SpatialDbManager.init(context)
+            when (artifactType) {
+                "Waypoints" -> SpatialDbManager.renameWaypoint(artifactId, newName)
+                "Routes" -> SpatialDbManager.renameRoute(artifactId, newName)
+                "Tracks" -> SpatialDbManager.renameTrackInDb(artifactId, newName)
+            }
+        }
+        Log.d(TAG, "RENAME $artifactType $artifactId -> $newName")
     }
 
-    /** DELETE: confirm + guard check + backup + journal + remove */
-    fun delete(context: Context, artifactType: String, artifactId: String): Boolean {
-        Log.d(TAG, "DELETE $artifactType $artifactId — Pass 1 stub")
-        return false
+    /** DELETE: DB enforces guards. Caller refreshes its map. */
+    suspend fun delete(context: Context, artifactType: String, artifactId: String) {
+        withContext(Dispatchers.IO) {
+            SpatialDbManager.init(context)
+            when (artifactType) {
+                "Waypoints" -> SpatialDbManager.deleteWaypoint(artifactId)
+                "Routes" -> SpatialDbManager.deleteRoute(artifactId)
+                "Tracks" -> SpatialDbManager.deleteTrackFromDb(artifactId)
+            }
+        }
+        Log.d(TAG, "DELETE $artifactType $artifactId")
     }
 
     /** TO ROUTE: flip track type to route, link source_track_id */
@@ -90,9 +107,58 @@ object ConvoyArtifactOps {
         Log.d(TAG, "DOWNLOAD $artifactType $artifactId — Pass 1 stub")
     }
 
-    /** CHANGE TYPE: change waypoint type */
-    fun changeType(waypointId: String, newTypeId: String) {
-        Log.d(TAG, "CHANGE TYPE $waypointId -> $newTypeId — Pass 1 stub")
+    /** CHANGE TYPE: change waypoint type. Caller refreshes its map. */
+    suspend fun changeType(context: Context, waypointId: String, newTypeId: String) {
+        withContext(Dispatchers.IO) {
+            SpatialDbManager.init(context)
+            SpatialDbManager.changeWaypointType(waypointId, newTypeId)
+        }
+        Log.d(TAG, "CHANGE TYPE $waypointId -> $newTypeId")
+    }
+
+    /** Shared GPX builder for SHARE/EXPORT (type-dispatched). null = no GPX for type. */
+    private suspend fun buildGpx(context: Context, artifactType: String, artifactId: String): Pair<String, String>? =
+        withContext(Dispatchers.IO) {
+            SpatialDbManager.init(context)
+            when (artifactType) {
+                "Waypoints" -> SpatialDbManager.buildWaypointGpxById(artifactId)
+                "Routes" -> SpatialDbManager.buildRouteGpxById(artifactId)
+                "Trails" -> SpatialDbManager.buildTrailGpxById(artifactId)
+                else -> null   // Tracks shared via file manager
+            }
+        }
+
+    /** SHARE: build GPX + hand to share sheet. Toasts on failure (op owns UI feedback). */
+    suspend fun share(context: Context, artifactType: String, artifactId: String) {
+        val gpx = buildGpx(context, artifactType, artifactId)
+        withContext(Dispatchers.Main) {
+            if (gpx != null) {
+                ConvoyTrackOps.shareGpx(context, gpx.first, gpx.second)
+            } else {
+                android.widget.Toast.makeText(context, "Share failed", android.widget.Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    /** EXPORT: build GPX + write to Downloads. Toasts result (op owns UI feedback). */
+    suspend fun export(context: Context, artifactType: String, artifactId: String) {
+        val gpx = buildGpx(context, artifactType, artifactId)
+        val ok = if (gpx != null) withContext(Dispatchers.IO) {
+            ConvoyTrackOps.exportGpxToDownloads(gpx.first, gpx.second)
+        } else false
+        withContext(Dispatchers.Main) {
+            android.widget.Toast.makeText(context,
+                if (ok == true) "Exported to Downloads" else "Export failed",
+                android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    /** DELETE ALIAS: remove one alias row. Caller refreshes its alias list. */
+    suspend fun deleteAlias(context: Context, aliasId: String) {
+        withContext(Dispatchers.IO) {
+            SpatialDbManager.init(context)
+            SpatialDbManager.deleteAlias(aliasId)
+        }
     }
 
     /** EDIT POINTS: enter route edit mode with draggable handles */
