@@ -94,7 +94,9 @@ fun ArtifactDetailPanel(
                         DetailActionButton("CHANGE TYPE", aOrange) { showTypeChooser = true }
                     }
                     DetailActionButton("FIT", aBlue) {
-                        ConvoyArtifactOps.fit(ctx, fitWebView, mapKey, singular, id)
+                        // onDismiss-only: ConvoyScreen's FIT branch owns the write (live vars +
+                        // saveConvoyState). The earlier double-call to ConvoyArtifactOps.fit()
+                        // wrote a second JSON that the onDismiss save then clobbered -> removed.
                         onDismiss(artifactType, id)
                     }
                 }
