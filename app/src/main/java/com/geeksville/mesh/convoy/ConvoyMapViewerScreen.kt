@@ -1225,6 +1225,19 @@ fun ConvoyMapViewerScreen(
                                 "Waypoints" -> { waypointState = DS_SELECTED; waypointCheckedIds = sel }
                                 "Routes"    -> { routeState = DS_SELECTED; routeCheckedIds = sel }
                             }
+                            // [FIT recenter 2026-06-20] Restore-to-artifact: bbox+10% pad -> lastViewport -> fitBounds,
+                            // so save + the getBounds() redraw below both use the artifact frame (no stale clobber).
+                            run {
+                                val _bb = SpatialDbManager.bboxForArtifact(fittedType, fittedId)
+                                if (_bb != null) {
+                                    val _s=_bb[0]; val _w=_bb[1]; val _n=_bb[2]; val _e=_bb[3]
+                                    val _latPad=((_n-_s).let{ if(it>0.0) it*0.10 else 0.01 })
+                                    val _lonPad=((_e-_w).let{ if(it>0.0) it*0.10 else 0.01 })
+                                    val _fS=_s-_latPad; val _fN=_n+_latPad; val _fW=_w-_lonPad; val _fE=_e+_lonPad
+                                    lastViewportSouth=_fS; lastViewportWest=_fW; lastViewportNorth=_fN; lastViewportEast=_fE
+                                    webViewRef?.evaluateJavascript("fitBounds(["+_fS+","+_fN+"],["+_fW+","+_fE+"])", null)
+                                }
+                            }
                             savePlanningState()
                             webViewRef?.evaluateJavascript("try{var b=map.getBounds();Android.onViewportChanged(b.getNorth(),b.getSouth(),b.getEast(),b.getWest(),map.getZoom())}catch(e){}", null)
                         } else {
