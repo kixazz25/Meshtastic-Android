@@ -13300,6 +13300,164 @@ the broader V2.5 order — but it is must-ship V2.5, not deferred.
   route-builder snap-2.
 
 
+=== GroupTrack_MANUAL_and_RELEASENOTES_revision_instructions_2026-06-19.md ===
+# GroupTrack — Manual & Release-Notes Revision Instructions
+*Written 2026-06-19. Lives alongside the Living Checklist + Handoff. Purpose: stop the manual from being lost or rebuilt-from-memory ever again.*
+
+## THE FILES (where they live, which is canonical)
+
+**USER MANUAL**
+- **CANONICAL BASE (never overwrite):** `grouptrack_manual_PRISTINE_BASE_recovered_2026-06-18.html` in Drive GroupTrack_docs (Drive id `1ibNIPW0Nb7bcZh1gmIPAfh9ZZnuMaxPU`). Recovered from `app/src/main/assets/grouptrack_manual.html` (working-tree file, last modified 2026-06-07, never git-committed → untouched by the same-name overwrites that destroyed the older dated copies).
+- **DATED WORKING COPY (edit this):** `grouptrack_manual_WORKING_2026-06-19.html` in Drive (id `1kjIUdyexqnH1Y9ZyZckRN992I4MXqaGW`) — a verbatim copy of the pristine base, carried forward 2026-06-19. **Edit the dated working copy; keep the PRISTINE_BASE untouched as the recovery point.**
+- **SHIPS IN-APP as:** `app/src/main/assets/grouptrack_manual.html` (bundled in the AAB; the "?" help button opens it). The final edited manual gets written back to this path before the AAB cut.
+- **DRIFTED — do NOT merge:** the 4-section "06-17/06-18" manual variants (`GroupTrack_V25_UserManual_2026-06-18.html`, `..._2026-06-18b_restructured.html`). These are a thinner drifted branch. Ignore them; do not merge them into the cookbook.
+
+**RELEASE NOTES**
+- **CURRENT:** `grouptrack_release_notes_2026-06-18.html` in Drive (id `1B_Cxb7Z06lM7_LEnm5fZZftrSTOmpVKj`).
+- **DATED WORKING COPY (edit this):** `grouptrack_release_notes_WORKING_2026-06-19.html` in Drive (id `1rieti1DmQjINZBxLLIE2avpWzE6U8Q8T`) — carried forward 2026-06-19.
+- **SHIPS IN-APP as:** `app/src/main/assets/grouptrack_release_notes.html` (bundled in the AAB; "?" help opens it).
+
+## THE RULE THAT PREVENTS LOSS
+1. **Never rebuild from memory.** Always start from the current dated working copy (carried forward from the prior version). If unsure which is current, the PRISTINE_BASE manual is the safe floor — it is the verified 06-07 cookbook.
+2. **Edit in place; carry forward dated.** Each session: pull the latest working copy → edit surgically → save as a new dated working copy. Never overwrite a dated file with the same name (that is what destroyed the old copies). Keep PRISTINE_BASE permanently untouched.
+3. **Two homes, always.** Every revision saved to BOTH Drive (GroupTrack_docs) AND downloaded by Fred to G: drive. recommit pulls into repo `docs/`. The in-app asset (`app/src/main/assets/...`) is the third home and the one that ships.
+4. **The manual is a COOKBOOK, edit-in-place.** Structure = 41 screen cards, all 40 nav destinations, Reached-from / What-you-do / Leads-to format, 3.0-vs-V2.5 marking, `[screenshot to be added]` slots. The navigation_xref is its matched pair — consult it to keep the cookbook honest against real nav.
+
+## MANUAL — what to revise (do at the END of V2.5 feature work, before the AAB cut, when screens are final)
+Edit the dated working copy in place:
+1. **Rewrite the "Work with Artifacts" section around ICON NAVIGATION.** It currently describes "panel bar + accordion." After the FAB work it becomes: tap the artifacts FAB (right-edge icon column: search · artifacts · help) → panel opens EXPANDED → the accordion-collapse control CLOSES it. The always-on WWA bar is gone.
+2. **Add the universal search FAB** — magnifying-glass FAB on BOTH maps, 5 modes (Area · Track · Route · Trail · Waypoint), result → detail. (Replaces the old per-map search descriptions.)
+3. **Add the ONE artifact detail panel + the Carto Type field** — one universal detail panel reached from search FAB, select/edit list row, and map artifact-tap. Carto Type shows the translated type text (OHV / Road-Concurrent, Hiking-Only, etc., or "Unspecified") colored by carto color / cyan.
+4. **Document map artifact-tap → detail** (tap an artifact on the map opens the detail panel).
+5. **Update the CartoCode legend** — currently stale (the JS-injected trail sources were dropped, [6.2]). Reconcile to the real carto color mapping.
+6. **Fold in features newer than 06-07** — FIT, convoy "?" help, pixel-spaced neon track arrows, snap-2 routes, viewport persistence — as edits to the existing screen cards (not a rebuild).
+7. **Keep 3.0 account/cloud screens marked "Coming in Release 3.0"** (collapsed/oriented, not removed).
+8. **Screen captures last** — Claude builds a capture-companion manual (embedded mkdir + per-slot adb screencap commands; Claude owns slot filenames); Fred navigates each screen + runs each command; Fred zips + uploads; Claude inserts images into the `[screenshot to be added]` slots + annotates via PIL. Claude CANNOT run adb. Capture once, when all screens are final.
+
+## RELEASE NOTES — what to revise
+Edit the dated working copy in place. Add for V2.5:
+- Universal search (both maps), one unified artifact detail panel with Carto Type, map artifact-tap → detail, Work-with-Artifacts icon navigation, track survey collection (rate + share), settable transfer concurrency (default 4 / max 6), FIT, "?" help, pixel-spaced neon track arrows, viewport persistence, snap-2 routes.
+- Realign so the in-app notes match exactly what the AAB ships (if the lead-track rewrite defers to 2.6, do NOT mention it in the 2.5 notes).
+- Bundle in the AAB.
+
+## SEQUENCING
+Documentation is done LAST among V2.5 work — AFTER all feature screens are final (so captures and the WWA-icon-nav rewrite are done once, correctly) and BEFORE the AAB cut (the manual + release notes ship inside the AAB). See the Living Checklist RELEASE STRATEGY section.
+
+
+=== GroupTrack_Manual_CoverageWorksheet_2026-06-18.md ===
+# GroupTrack — User Manual Coverage Worksheet
+**2026-06-18 · source of truth: `navigation_xref.txt` (generated 2026-06-18 17:43 from ConvoyNavigation.kt)**
+
+This worksheet is the screen inventory + coverage map for the V2.5 user manual.
+It exists so no screen silently drops, and so the manual is completed against the
+ACTUAL app navigation (40 nav destinations) rather than from memory.
+
+> **Two-manual split (Fred 06-18):**
+> - **Manual 1 — Free Map Product (V2.5):** the standalone app. Complete this one
+>   now (when V2.5 is feature-complete). Self-contained; a rider who never uses the
+>   online service has a full manual. 3.0 account/cloud screens are IGNORED here
+>   (not "coming soon" clutter).
+> - **Manual 2 — Online Services (3.0):** sign-in, subscription, ride
+>   creation/management, invites, enrollment, dashboard, organizer tools. STUB ONLY
+>   now; built when 3.0 is built.
+
+> **Do NOT finalize numbering or capture screenshots until V2.5 is feature-complete.**
+> Universal search and the lead-cart rebuild will change several screens
+> (Work-with-Artifacts loses the old search box; Convoy Map live-tracking changes;
+> SearchByArea is still a "Coming in V2.5" scaffold). Capturing now = re-shooting later.
+
+---
+
+## MANUAL 1 — FREE MAP PRODUCT (V2.5) — screen inventory + coverage
+
+Status legend: COVERED in current 06-18 manual · PARTIAL/needs detail · MISSING · SCAFFOLD/stub (don't document as live yet)
+
+### Section 1 · Getting Started (one section, stepped)
+| Step | Screen(s) involved | xref screen | Manual status |
+|---|---|---|---|
+| 1 Install | first launch, storage-permission dialog ("Storage Access Required"), location-permission dialog | ConvoyScreen | PARTIAL — drafted, [verify] |
+| 2 Download trails | Trail Sources (IMPORT FULL SOURCE / IMPORT BY AREA / VALIDATE / IMPORT TRAILS / progress recap) | ConvoyTrailSourceScreen | PARTIAL — drafted from memory; xref shows richer flow, needs detail |
+| 3 Map sources | Map Sources (assign SAT/TOPO/TOPO+ slots, API Key dialog, Refresh Tiles) | ConvoyMapSourceScreen | PARTIAL — [verify menu path]; xref confirms reached from Settings -> "Change Map Sources" |
+| 4 Trail sources (add/update) | Trail Sources again | ConvoyTrailSourceScreen | PARTIAL — drafted |
+| 5 Radio setup (optional) | connect panel + the radio-write sequence | (multiple, see Radio section) | PARTIAL — drafted, points to radio chapter |
+| 6 Release upgrades | ? help chooser (Release Notes / Full Manual) + Play Store | ConvoyScreen/MapViewer ? dialog | PARTIAL — added in plan, not yet written into manual |
+
+### Section 2 · Planning Map
+| Screen | xref | On-screen functions (from xref labels) | Status |
+|---|---|---|---|
+| Planning Map (Map Viewer) | ConvoyMapViewerScreen | BACK, QUEUES, SEARCH+MAP collapsible, Search-area field ("press Enter"), New Waypoint dialog (Name optional / Create / Cancel), "Leave Planning Map?" (settings preserved), ? Help & Info (Release Notes / Full Manual / Close), DOWNLOAD QUEUES panel, Start-a-route (New Route / resume) | COVERED landing; PARTIAL — QUEUES + ? + route-start need their own slots/detail |
+
+### Section 3 · Convoy Map
+| Screen | xref | On-screen functions | Status |
+|---|---|---|---|
+| Convoy Map | ConvoyScreen | Storage/Location permission dialogs, Area-Too-Large, Download-Map-Area (mi×mi, tiles/MB, source, DOWNLOAD/CANCEL), Download Error, Save Track (name / SAVE / SKIP), New Waypoint (Name optional / Create / Cancel) | COVERED landing; MISSING — download-area dialog, save-track dialog not documented |
+| Download Queues | (ConvoyMapViewerScreen panel) | DOWNLOAD QUEUES / CLOSE / "No downloads in queue" | PARTIAL — slot present, needs detail |
+
+### Section 4 · Work with Artifacts (+ detail panel)
+| Screen | xref | On-screen functions | Status |
+|---|---|---|---|
+| Work with Artifacts | (ConvoyArtifactsPanel / ConvoyScreen) | toggles ON/OFF/SELECTED, search-by-name, SEL/Edit list | COVERED |
+| Artifact Detail panel | ArtifactDetailPanel.kt | Type, ALIASES, DETAILS, technical toggle, FIT, CLOSE, Rename dialog, Delete dialog ("cannot be undone") | COVERED FIT + detail; PARTIAL — rename/delete are stubs (Pass-1), note as in-progress |
+
+### Section 5 · Convoy Settings  — MISSING FROM MANUAL — must add
+| Screen | xref | On-screen functions | Status |
+|---|---|---|---|
+| Convoy Settings | ConvoySettingsScreen | Change Map Sources (-> Map Sources), alert thresholds: Signal Drop / Signal Lost / Off Track / Admission Window, Multicolor Track toggle, Lead Cart Only toggle, Track Recording Format (KML/GPX), "No carts removed today" / Reinstate, build-stamp footer | MISSING — NOT in manual. This is the "~20 fields, one screenshot" screen. Note: Lead Cart Only + Multicolor Track tie directly to the lead-cart rebuild [2.1] — wording here changes when [2.1] lands. |
+
+### Section 6 · Convoy Radio-Write  — SEVERELY UNDER-COVERED — it's a multi-screen flow
+The manual treats this as one "menu." The xref shows a full sequence:
+| Screen | xref | Role |
+|---|---|---|
+| Field Radio | ConvoyFieldRadioScreen | "Always active — no internet"; APPLY MASTER CONFIG / APPLY RIDE CONFIG / VERIFY CONFIG |
+| Apply List | ConvoyApplyListScreen | APPLY RADIO CONFIG; field table (FIELD/CURRENT/NEW VALUE/RULE); LONG NAME; PROCEED TO UPDATE; CAPTURE NEW MASTER |
+| Apply Radio | ConvoyApplyRadioScreen | select ride, changes-to-be-applied, new channel + AES-256, PROCEED |
+| Master Capture | ConvoyMasterCaptureScreen | CAPTURE MASTER CONFIG; reads LoRa region/preset/hop/TX/freq/channel/PSK from connected radio; Frequency-MHz entry; PROCEED |
+| Archive / Restore | ConvoyArchiveRestoreScreen | select archive, "RESTORE WILL OVERWRITE", reboot-after, countdown, DONE/TRY AGAIN |
+| Radio Config Steps | ConvoyRadioConfigScreens | Step N of M: Archive -> Device -> LoRa -> Position -> Channel+PSK writes, reboot warnings |
+| Reconnect Wait | ConvoyReconnectWaitScreen | BT off/on instructions, countdown, auto-proceed |
+| Verify Config | ConvoyVerifyConfigScreen | field-by-field compare, FAILED FIELDS table, per-group pass/total |
+| Broadcast | ConvoyBroadcastScreen | (ride broadcast — likely 3.0/online, verify scope) |
+
+**Status: the manual's single Radio-Write section must expand to cover this
+sequence, OR explicitly scope it to the user-facing entry points and mark the
+internal write-steps as guided/automatic. Decide depth with Fred. Transitional —
+slated for 3.0 replacement, but supported and used in V2.5.**
+
+### Scaffolds — do NOT document as live
+| Screen | xref | Why |
+|---|---|---|
+| Search By Area | ConvoySearchByAreaScreen | renders "Coming in V2.5 / REQUIRES V2.5 MAP FUNCTIONS" — stub |
+| Route Create (standalone) | ConvoyRouteCreateScreen | "[ Pass 1 scaffold ]" — real route building is the on-map Route+ toolbar, already documented in Work-with-Artifacts |
+| Tracks (library) | ConvoyTracksScreen | "Tracks — Phase C" placeholder |
+
+---
+
+## MANUAL 2 — ONLINE SERVICES (3.0) — deferred, stub only
+
+These nav destinations are the account/cloud product. NOT in Manual 1. Listed so
+they're inventoried, not lost:
+
+ConvoySignIn, ConvoyTerms, ConvoyPrivacy, ConvoySubscription, ConvoyDashboard,
+ConvoyProfile, ConvoyCreateRide, ConvoyCreateEvent, ConvoyMyRides, ConvoyRideDetail,
+ConvoyCompletedRides, ConvoyCompletedRideDetail, ConvoyEnrollment, ConvoyInviteSend,
+ConvoyMyOrganizers, ConvoyTransferRide, ConvoyEmailGate, ConvoyDownloadRideConfig,
+ConvoyExplore, ConvoyBroadcast (broadcast may be online-only — verify).
+
+---
+
+## COMPLETION PLAN (when V2.5 feature-complete)
+
+1. Hold until search + lead-cart land (they change screens).
+2. Add the missing Manual 1 sections: Convoy Settings (the ~20-field screen),
+   and expand Radio-Write to the real sequence (depth TBD with Fred).
+3. Correct the Getting Started [verify] spots against the device (install path,
+   Map Sources menu path, trail-source re-import dedupe).
+4. Reconcile every Manual 1 section against this worksheet's function lists.
+5. THEN number image slots 001...NNN in manual order (three-digit) and produce the
+   numbered shot list; capture per the list.
+6. Manual 2 (online services) is a separate, later build.
+
+
 === GroupTrack_Manual_CreatingARoute_update_2026-06-10.md ===
 # Manual update — "Creating a Route" — 2026-06-10
 
@@ -13343,6 +13501,81 @@ ADD:
 ## Honest non-claims
 - Screenshots: not addressed here.
 - sliceLine whole-trail explosion (internal bug) — do NOT document as user behavior.
+
+
+=== GroupTrack_NEXT_SESSION_HANDOFF_2026-06-19.md ===
+# GroupTrack — Next Session Handoff (resume 2026-06-20)
+*Written 2026-06-19 EOD. Pairs with `GroupTrack_V25_LivingChecklist_OpenItems_2026-06-19.md` — see its "START HERE — TOMORROW" section for full task detail.*
+
+## ⚠️ READ FIRST — the process rule that 06-19 violated
+Before ANY UI code edit: re-pull current HEAD files, then build a **launcher → composable truth table** (which detail composable does each launcher actually render?) and SHOW Fred. **No patch until that table exists.** 06-19 burned 6 builds + 2 gradle cleans patching a panel the launchers don't call, because this 5-second check was skipped. We blamed applies / gradle / device versions and missed the obvious. Stay at the process level; verify before acting.
+
+## WHERE WE ARE
+HEAD = **`583b7b9df`** (49 commits ahead of origin).
+- **Universal search COMPLETE + committed** — `42dc848ce` (convoy search FAB) + `583b7b9df` (planning search FAB + all 3 old searches removed). One shared `UnifiedSearch.kt`, both maps, FAB-only. Device-tested green.
+- **Patches J / K / M applied + UNCOMMITTED** in `ArtifactDetailPanel.kt` (the Carto Type work). CORRECT — do NOT revert. They just need the launchers wired to this panel.
+
+## THE PROBLEM (verified — root cause of the whole 06-19 grind)
+**There are TWO detail panels, and the launchers don't reach the one we edited.**
+
+1. **`ArtifactDetailPanel.kt`** — the standalone universal panel (has FIT; got all the Carto Type work). Rendered at ConvoyScreen ~1754 + ConvoyMapViewerScreen ~1336.
+2. **`ArtifactListPanel.kt`** — the select/edit list, with its **OWN inline duplicate detail** baked inside (AlertDialog ~167-315 + `detailArtifactId` state + own `DetailActionButton` ~436). Rendered at ConvoyScreen ~1725 + ConvoyMapViewerScreen ~1203.
+
+**Fred's framing (exact):** "Our goal was to make ONE detailed callable artifact panel and use it everywhere so we had one piece of code. We built a new detail panel, parametrized and callable as a function. We did all that work and NEVER REMOVED THE OLD FUNCTION and NEVER WIRED THE NEW FUNCTION IN PLACE."
+
+**Verified history:** this was DIAGNOSED June 17 (chat 23127897) — `onResultClick` set both `pendingDetailId` AND `activeListType`, launching two surfaces; Fred's direction was "select → detail panel directly, bypass `activeListType`." **That June 17 wiring fix was never finished.** 06-19 layered Carto Type onto the unwired panel, so nothing showed.
+
+**Fred's EOD observation (from real use — ground truth):** BOTH launchers (the search FAB AND the select/edit list) end up at the WRONG detail panel. The wiring is wrong in more than one place. (Claude's late-session file was likely STALE — re-pull fresh and verify on real code.)
+
+## THE FIX — ONE panel, do NOT change what works (panel content/FIT), only the wiring
+**TASK 1 — REMOVE THE OLD.** In `ArtifactListPanel.kt`, delete the inline duplicate detail (AlertDialog ~167-315 + `detailArtifactId` state + private `DetailActionButton` if unused elsewhere). The list keeps its list/checkbox/select-deselect job; it loses its own detail rendering.
+
+**TASK 2 — WIRE THE NEW.** Every artifact-select launcher invokes the ONE `ArtifactDetailPanel` (set `pendingDetailType/Id`; do NOT set `activeListType` on the detail path):
+- search FAB result-tap (verify on fresh files)
+- select/edit list row-tap → add `onOpenDetail(type,id)` param to `ArtifactListPanel`, wired in parent (ConvoyScreen ~1725 + ConvoyMapViewerScreen ~1203) to `{ t,id -> pendingDetailType=t; pendingDetailId=id }`
+- BOTH convoy + planning.
+
+**RESULT:** one detail panel, called everywhere = the original goal. Patch M's Carto Type field then shows from every launcher. **Verify the Carto Type row appears from BOTH the search FAB AND the select/edit list, on BOTH maps, before committing.**
+
+**Carto Type spec:** DETAILS-section row, value = TRANSLATED TEXT never the code — 4→"OHV / Road-Concurrent" (blue), 2→"Hiking & Biking" (orange), 1→"Hiking-Only" (yellow), 5→"Biking-Only" (purple), none→"Unspecified" (cyan). Cyan = unspecified ONLY; each real type its own color. **Only Utah trails carry carto_code** — elsewhere cyan-by-design reads "Unspecified" (correct). Test a Utah carto trail to see a real color.
+
+## TASK 3 — MAP ARTIFACT-TAP → DETAIL (the original intended use; JS↔Kotlin)
+Tapping an artifact on the map opens the OLD Leaflet popup (pure JS, never crosses to Kotlin). Wire it to the ONE `ArtifactDetailPanel`:
+- Add `onArtifactTapped(type,id)` to the `@JavascriptInterface` object on both maps (alongside `onMapTap`/`onMarkerTapped`/etc.) → sets `pendingDetailType/Id`.
+- In the map JS (`convoy_map.html` + `grouptrack_map.html`): the feature click handler (currently `bindPopup`/`onEachFeature`) calls `AndroidBridge.onArtifactTapped(type,id)` — feature carries type+id in GeoJSON props.
+- **GATE:** `onMapTap` is ALREADY route-building's vertex handler. Feature-click vs empty-map-click fire separately in Leaflet, so feature→detail and empty-map→route-vertex coexist. **Suppress artifact-detail-on-tap while route-build mode is active.** Paired edit, both HTMLs. (Confirm exact filenames: `ls app/src/main/assets/*.html`.)
+
+## TASK 4 — WORK-WITH-ARTIFACTS → FAB + accordion-close (removes the on-map WWA bar)
+Convert the on-map "Work with Artifacts" BAR into a FAB in the right-edge icon column (search · artifacts · help).
+- **FAB launches the panel ALREADY EXPANDED** (accordion open).
+- **The accordion-collapse control becomes CLOSE** — dismisses the whole panel back to map + FAB (calls existing `onDismiss`, `ConvoyArtifactsPanel.kt:64`).
+- **Removes the always-on WWA bar from the map.** Drag handle gone. Panel CONTENT (grid/rows/+ROUTE/import) unchanged.
+- **SAME on BOTH convoy AND planning** — shared, not duplicated.
+
+## ORDER FOR TOMORROW
+1. Session start: recommit + upload xrefs + re-pull fresh files (ConvoyScreen, ConvoyMapViewerScreen, ArtifactListPanel, ArtifactDetailPanel, UnifiedSearch, both map HTMLs).
+2. **Build the launcher→panel truth table. Show Fred. No code before this.**
+3. TASK 1 + TASK 2 → one build → verify Carto Type from search FAB AND select/edit list on BOTH maps → commit.
+4. TASK 3 (map artifact-tap → detail) → build → verify → commit.
+5. TASK 4 (WWA → FAB + accordion-close) → build → verify → commit.
+6. Then: queue + survey + upload_queue · remove RouteCreate orphan · manual rewrite + captures BUNDLED · cut 2.5 AAB (banked fallback) · lead-track rewrite LAST.
+
+## CARRIED ITEMS (full detail in the Living Checklist — do NOT re-derive)
+- **Lead-cart tracking REBUILD [2.1]** — one lead / one track / snap-2 100yd / per-cart per-second GPS replacement. MUST-SHIP; attempt LAST after AAB banked. Demolition+rebuild planning doc to produce. Authority: `GroupTrack_LeadTrackReplacement_Spec.docx` (May 31) + `GroupTrack_LeadCart_TrackRevision_DemolitionRebuild_2026-06-18.md`.
+- **Tile downloads — batch formats for performance** — V2.5 interim = settable concurrency (default 4, max 6, throttle guidance); 2.6 = batch transfer (.tpkx / PMTiles) + AWS staged/hosted + Esri thresholds. App crashes past 3 concurrent → root-cause is 2.6.
+- **Track survey on STOP [7.5]** — V2.5 collect-now; schema finalized (extension db, enjoyment 1-5 + ride_again); feeds upload_queue; connected to queue-panel upload/download toggle — build together.
+- **Documentation** — manual edit-in-place on `app/src/main/assets/grouptrack_manual.html` (pristine cookbook base); rewrite WWA section around icon navigation, add search FAB + one detail panel + Carto Type + map-tap; release notes realign; captures bundled in AAB. Done LAST, before the AAB cut.
+
+## BUILD QUICK-REF
+- Build: `./gradlew assembleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease` (warm-daemon incremental ~14-18 min; cold/clean ~40-55 min — a NEW gradle daemon ("busy daemon could not be reused") = cold = slow; let it finish to warm the daemon for the next build).
+- **GREP-CONFIRM a patch is on disk before building** (`grep -n "<marker>" <file>`) — prevents building the wrong version (cost a 55-min build 06-19).
+- **If incremental changes don't appear (same APK timestamp): `./gradlew clean`, confirm the APK timestamp moved before trusting a test.**
+- Install: `adb -s 8624SBCEDF00001789 install -r -d app/build/outputs/apk/google/release/app-google-release.apk` (Droid 1).
+- Line endings: ConvoyScreen.kt + ConvoyMapViewerScreen.kt CRLF; ArtifactDetailPanel.kt + ArtifactListPanel.kt + UnifiedSearch.kt + ConvoyArtifactsPanel.kt LF. Patches detect at runtime + count==1 guard.
+- NO sqlite3 on device; `run-as` blocked on release (use debug build on Droid 2 to pull DB if needed).
+
+## TREE — parked (never `git add .`)
+`.bak_*` files, `ConvoyScreen.kt.bak_move`, `utah_trails_stgeorge.geojson`(+.bak), `grouptrack_manual.html`, `grouptrack_release_notes.html`, `grouptrack_spatial.db` (117MB), `docs/.tmp.driveupload/10630`. Tree-cleanup of the `.bak_*` files pending. Patches J/K/M leave `ArtifactDetailPanel.kt` modified (uncommitted, intentional).
 
 
 === GroupTrack_NH_TrailImport_task_2026-06-10.md ===
@@ -14049,6 +14282,187 @@ When we return to arrows, bundle both known [3.9] follow-ups into one build:
 
 ## CHECKLIST WIRING
 Extends [3.9] (track direction arrows — committed 2026-06-11, tracks reliable). The arrow REDRAW-timing follow-up was already noted; this adds the arrow-DENSITY problem (percent vs pixel spacing) to the same follow-up. Neither is a release gate; both are polish for when the arrow feature is revisited, after [2h].
+
+
+=== GroupTrack_UnifiedSearch_DESIGN_2026-06-18.md ===
+# GroupTrack — Unified Search (FAB) Design Document
+**2026-06-18 · checklist item [2h.1] · build target: next session**
+Supersedes the design portion of `GroupTrack_Search_Consolidation_Handoff_2026-06-16.md`
+(keeps that doc's engine inventory; corrects the convoy area-search assumption — see §3).
+
+---
+
+## 1. Goal
+
+Replace all standalone search chrome on **both** maps with ONE draggable
+magnifying-glass search beacon (FAB). Reclaim map real estate. The FAB is the
+single new launch point; it routes to **existing** query engines — this is
+wiring + deletion, NOT new search logic.
+
+Net effect:
+- **Planning:** beacon replaces its area-search field AND its artifact-search box.
+- **Convoy:** beacon replaces its artifact-search box AND **adds** an area-search
+  positioner convoy never had (the thing that made field-testing UT trails from
+  NH impossible — you could not recenter the convoy map to Utah).
+
+---
+
+## 2. Architecture decision — self-contained shared component (CONFIRMED)
+
+Search lives in **one new file**, `UnifiedSearch.kt`, NOT inlined into
+`ConvoyScreen.kt` or `ConvoyMapViewerScreen.kt`. Both screens mount it.
+
+**Why (not busywork):** every bug fought on 2026-06-18 was the same disease —
+behavior duplicated across convoy/planning and drifting (`saveConvoyState` vs
+`savePlanningState`; two `onDismiss` blocks patched twice; two map HTMLs with
+duplicate `setView`/`showSearchCenter`). Search is a large feature wanted on BOTH
+maps; duplicating it guarantees the worst case of that drift. One shared component
+= one fix-site, drift impossible.
+
+**The key primitive:** a `mapContext` parameter. Same component on both maps;
+behavior is routed by which map context is passed in. The component owns what is
+genuinely identical (FAB, search bar, the 5 chips, results rendering, engine
+calls); it parameterizes only what legitimately differs (mapContext, webView,
+the detail-open callback).
+
+**Guardrail:** do NOT over-abstract. If per-map special-case flags start
+multiplying, the abstraction is wrong. Today the two maps want the IDENTICAL
+search — so the shared component is clean. Keep it that way.
+
+### Proposed signature
+
+```
+@Composable
+fun UnifiedSearch(
+    mapContext: String,            // "convoy" | "planning" — routes behavior
+    webView: WebView?,             // the map this instance controls
+    context: Context,              // for Geocoder + SpatialDbManager.init
+    onOpenDetail: (type: String, id: String) -> Unit  // artifact-select action,
+                                                       // supplied per screen
+)
+```
+
+The component internally owns: FAB state + drag, the search bar (5 chips + text),
+Enter-to-execute, the results list, and per-mode routing.
+
+### Reuse note — lift, don't duplicate
+`ConvoyArtifactsPanel.kt` already contains the two pieces we want to share, as
+private composables:
+- `SearchBlock` (the type-select + term UI) — ConvoyArtifactsPanel.kt:192
+- `ResultsList` (renders `ArtifactResult` rows; tap → onResultClick) — :284
+- model `ArtifactResult` (id, type, geomHash, name)
+
+Plan: **lift `ResultsList` + `ArtifactResult` (and optionally `SearchBlock`)
+out of ConvoyArtifactsPanel.kt into the shared search file** (or a shared
+ui-components file both import). ConvoyArtifactsPanel then drops its search
+(see §4 removals). This is the "self-contained, shareable" structure.
+
+---
+
+## 3. The flow (approved via mockup 2026-06-18)
+
+1. Tap beacon (magnifying glass; draggable; **drag position resets per session**
+   — no JSON persistence).
+2. Search bar opens: **5 type chips on ONE line**, order:
+   **Area · Track · Route · Trail · Waypoint**, plus a text field.
+3. Keyboard **Return executes the search AND closes the search bar.**
+4. Results render in the shared results list (same display + selector for all
+   modes). Both Area and artifact searches may return MULTIPLE matches → list
+   selection required for both.
+5. **Selecting a row closes the list**, then:
+   - **Area row** → `setView(lat,lon,zoom)` + `showSearchCenter(lat,lon)` —
+     recenter map. Done.
+   - **Artifact row** → open **ArtifactDetailPanel** (the hub; FIT + other
+     artifact actions live there).
+
+Duplicate artifact names get per-name sequence numbering (#1, #2 …) via the
+existing `assignNameSequence` (names aren't unique; rows keyed by geom_hash).
+
+---
+
+## 4. Engines to KEEP (reuse) · Launch points to REMOVE
+
+### KEEP — engines (already exist, callable; the FAB calls these)
+- **Artifact name search:** `SpatialDbManager.searchByName(type, term)` →
+  `assignNameSequence(raw)` → `List` of results.
+  (convoy host ConvoyScreen.kt:1356–1362; planning ConvoyMapViewerScreen.kt:870–874)
+- **Area geocode:** `Geocoder(context).getFromLocationName(term, 5)` →
+  `setView(lat,lon,13)` + `showSearchCenter(lat,lon)`.
+  (planning has the full pattern: ConvoyMapViewerScreen.kt:365–388)
+- **Detail panel:** `ArtifactDetailPanel` — the artifact-select destination.
+- Both map HTMLs already define `setView` AND `showSearchCenter`
+  (convoy_map.html:138/154, grouptrack_map.html:625/643) — **no HTML change
+  needed for search.** (They ARE duplicated → see §5 deferred JS dedupe.)
+
+### REMOVE — launch points (replaced by the FAB)
+1. **Convoy dead area-search vars** — ConvoyScreen.kt:268–270
+   (`locationSearchQuery/Results/Error`). Grep shows ONLY declarations, no
+   UI/reads/writes → dead code. Delete the 3 lines.
+2. **Planning area-search field** — ConvoyMapViewerScreen.kt: `searchText` (195)
+   + the `BasicTextField` + its row/▲ button + geocode handler (~345–405+) +
+   "Search area... (press Enter)" placeholder (401–402). Remove the UI; the
+   geocode logic relocates INTO the FAB's Area mode.
+3. **Artifact-search box (both maps)** — `SearchBlock` + `ResultsList` mounts in
+   ConvoyArtifactsPanel.kt:138–139, and params `onSearch`/`onResultClick`/
+   `searchResults` (61–63). Remove the search box from the panel; KEEP the
+   panel's other jobs (type toggles via `onSetState`, `onCreateRoute`, import).
+   `ResultsList`/`ArtifactResult` get lifted to the shared file (§2), not deleted.
+
+---
+
+## 5. Explicitly DEFERRED — separate checklist items (DO NOT COMBINE)
+
+- **Map-popup → detail bridge** (the "second entrance"): tapping an on-map
+  artifact opens ArtifactDetailPanel. Needs a JS click handler on map popups +
+  an Android JS-interface method to open detail with (type, id), in BOTH map
+  HTMLs. Its own item.
+- **Shared-JS consolidation:** dedupe `setView`/`showSearchCenter` (and other
+  shared map fns) out of the two HTMLs into a shared local JS file. Precedent
+  exists — both HTMLs already `<script src="leaflet.polylineDecorator.js">`.
+  Its own item. NOT a blocker for search (both HTMLs already have the fns).
+
+---
+
+## 6. Build sequence (incremental — test between steps)
+
+Per the day's lesson (don't build many changes + test only at the end):
+
+1. **Create `UnifiedSearch.kt`** (FAB + bar + results + routing; lift
+   ResultsList/ArtifactResult into it). Mount on **convoy only**, leaving the
+   old convoy search in place. Build → test all 5 modes + routing on convoy.
+2. **Mount on planning.** Build → test on planning.
+3. **Remove** the three old launch points (§4). Build → test both maps still
+   search via the FAB and the old chrome is gone.
+
+Commit after each green step.
+
+---
+
+## 7. Open questions resolved
+
+- Convoy scope → **all 5 modes**, Area included (B). Area on convoy is NEW
+  capability (place-positioner it lacked).
+- FAB drag persistence → **reset per session.**
+- Default mode → **Area** (first chip).
+- Chip order → **Area · Track · Route · Trail · Waypoint** (one line).
+- On Return → **close the search bar.** On row select → **close the list.**
+- Results display → **shared list, common to all modes**; only the on-select
+  action differs (Area recenters / artifact opens detail).
+
+---
+
+## 8. Risk notes
+
+- Lifting `ResultsList`/`ArtifactResult` out of ConvoyArtifactsPanel.kt: make
+  sure nothing else references them privately; update ConvoyArtifactsPanel's
+  imports.
+- `searchByName` requires `SpatialDbManager.init(context)` before the query
+  (see convoy 1358) — the shared component must init on the IO dispatcher too.
+- Area geocode is network/IO + may return 0 results — keep the "not found, try
+  adding state (e.g. Zion UT)" toast behavior from planning 386–388.
+- mapContext must reach the correct webView; convoy passes `webViewRef.value`,
+  planning passes `webViewRef` (different types — convoy wraps in MutableState).
+  The component takes a plain `WebView?`; each screen unwraps before passing.
 
 
 === GroupTrack_V25_DataProtection_v1.md ===
@@ -15590,124 +16004,6 @@ Map picker modal; save to trailhead_waypoint_id (0 xrefs → unwired). Ride-form
 _End. Every item above is source-tagged for line-by-line review. Items marked DONE (1.1) are kept only for context. Grouping is by code area so related fixes can be batched. Nothing from the master checklist, 06-06 v3, the backlog, the cleanup series, the lead-track spec, or the recent state-of-play docs was intentionally dropped; where AllDocs held only an excerpt (TodoCleanup_Checklist, OpenIssues_AWS_Plan section bodies), those headers' items were recovered from the master checklist and backlog which carry the same content forward._
 
 
-=== GroupTrack_V25_LivingChecklist_OpenItems_2026-06-15.md ===
-# GroupTrack V2.5 — Living Checklist / Open Items
-**Updated:** 2026-06-15 (~1:00 AM EOD)
-**Branch:** feature/convoy-event-ride · **Committed HEAD:** `168778c0a` · **Rollback anchor:** `168778c0a`
-
----
-
-## TONIGHT'S OUTCOME (2026-06-15)
-- ✅ **bbox persistence SOLVED** — built, installed to Droid 1 (field), device-proven. bbox saves + restores; ALL/OFF states save + restore; planning opens to persisted last-session frame; convoy opens to GPS.
-- 🐞 **Uncovered a pre-existing artifact-list SAVE bug** ([3.1c]) — bbox-restore working is what made it *visible*. Selection (SELECT-mode checked items) is not serialized to JSON unless that type's list panel is open at save time. **Not a new break — the save was always lossy; restore never worked before bbox so it never showed.**
-- ⛔ **NOT committed.** Working tree has Patches 1–4 applied + built. Patch 4 rollback written, not yet run.
-- 📄 No user-manual or release-notes changes tonight.
-
----
-
-## ⛔ [3.1] BBOX PERSISTENCE — Stage 1 (IN PROGRESS, not committed)
-
-### Done + proven
-- **Patch 1** — `MapStateStore.kt` (CRLF) schema: `BBox`, `FitArtifact` data classes; `MapSnapshot += bbox?, fitArtifact?` (defaulted); `saveMap` writes both keys; `readMap` parses both (backward-compatible). Standalone round-trip test 10/10.
-- **Patch 2** — both save call sites pass `bbox = BBox(lastViewport*)` + `fitArtifact = null` (blank-on-normal-save).
-- **Patch 3** — planning `onPageFinished`: if `pmSeed.bbox != null` → JS `fitBounds([s,n],[w,e])`; else GPS `setView` fallback. Convoy untouched.
-- **Build:** SUCCESSFUL (30m13s). Installed Droid 1.
-
-### Patch 4 (applied + built — under review)
-- Debounced 400ms viewport-settle save on all 3 `onViewportChanged` callbacks, calling the full save.
-- **Problem:** a pan-save fires the *full* save when no list panel is open → `rowsFor` returns empty → blanks rows.
-- **Not the root cause** of the selection bug (bug reproduces with no pan) but it worsens it.
-- **Rollback script written, not run.** Decision pending: roll back, or convert the pan-save to bbox-only.
-
----
-
-## 🐞 [3.1c] ARTIFACT-LIST SAVE BUG — root cause confirmed (FIX TOMORROW)
-
-**Symptom:** Set a type to SELECT, pick items → they display correctly and persist in-session (reopening SEL shows them). But the saved JSON shows `"state":2, "rows":[]` (SELECT with empty rows). On restore there are no checked ids → nothing displays → selection appears lost.
-
-**Root cause (in `savePlanningState` ~231 and `saveConvoyState` ~227):**
-```
-fun rowsFor(type) {
-    if (activeListType != type) return emptyList()   // ← only the OPEN list type gets rows
-    return artifactList.mapNotNull { ... checked = id in selectedArtifactIds }
-}
-```
-Rows are only built for the one list type whose panel is currently open. Every other type saves empty rows. So a save fired at any moment the matching panel isn't open writes empty selection.
-
-**Why invisible until now:** the gate always existed; the JSON save was always lossy. The app runs off in-memory Compose state in-session (display + SEL reflect it), and before bbox, restore was broken anyway — so nobody relied on the JSON reloading. Making restore work (bbox) exposed that the save was never complete.
-
-**Fix direction:** rewrite `rowsFor` (both screens, mirrored) to serialize the live selection from the persistent per-type sets — `trailCheckedIds / trackCheckedIds / waypointCheckedIds / routeCheckedIds` — not the panel-gated `artifactList`. Write a row `checked:true` for each id in `<type>CheckedIds`. SELECT then saves `state:2, rows:[picks checked:true]`.
-
----
-
-## [3.1c] FILTER-DISPLAY RULE (locked — spec the fix must satisfy)
-JSON filter is the **golden** display state.
-- **bbox unchanged** → no query; old JSON values carry over verbatim.
-- **bbox changed** → query + reconcile by id:
-  1. id in new query **and** in JSON → keep JSON's yes/no (golden; never flip an in-frame yes→no).
-  2. id new in query (not in JSON) → add as **no**.
-  3. id in JSON but gone from query (left bbox) → **delete** (not remembered; a returning item comes back **no** — no stale resurrection).
-- **Partial overlap = in-bbox** (any part of an artifact in frame keeps it eligible — matters for long trails). The query is a bbox-intersect, so partial overlaps are already returned.
-- A yes only ever becomes no by leaving the bbox.
-- The existing SELECTED render filter `filter { id in capIds }` already implements display rules 1–2 at render. The bug is purely that the **save** blanks the source of `capIds`. Render reconcile is correct; the save must stop destroying the yes-set.
-
-**Acceptance cases (all must pass):**
-1. bbox unchanged, 10 in filter / 2 selected → 2 display.
-2. 2 selected, both in bbox → 2 display.
-3. 15 in new bbox, 2 carried-forward → 2 display, 13 no.
-4. 1 selected leaves bbox (6 in new bbox, 1 selected still in frame) → 1 displays.
-
----
-
-## PLAN OF ATTACK — TOMORROW (in order)
-1. Read `ConvoyMapViewerScreen.kt` 1250–1280; confirm `*CheckedIds` reliably hold the selection at save time, and that `selectedArtifactIds` ↔ `*CheckedIds` are in sync when the panel is open.
-2. Decide Patch 4: roll back the debounced full-save, or convert it to bbox-only. A pan must not call the full save.
-3. Rewrite `rowsFor` (both screens, mirrored) to build SELECTED rows from `<type>CheckedIds`.
-4. One build (~30 min).
-5. Device-prove with JSON pulls (no pan): select 2 → `state:2` + 2 `checked:true`; leave/return → 2 display; pan within frame → 2 stay; pan out → drop, others no. Run the 4 acceptance cases.
-6. Only then **commit Stage 1** = bbox persistence + `rowsFor` fix. Named files only: `MapStateStore.kt`, `ConvoyScreen.kt`, `ConvoyMapViewerScreen.kt`. Never `git add .`. Leave parked weekend files.
-
-> Note: these "quick" tasks are never quick. Budget accordingly.
-
----
-
-## [3.1b] OPEN (deferred) — GPS-recenter button (planning)
-Once planning opens to the persisted frame (not GPS), the rider needs a manual "center on current GPS" control — a bull's-eye placeholder on the planning Sat/Topo/Topo+ layer nav bar (UI + defining comment; no function yet). The real GPS-center logic already exists (the planning `postDelayed` setView block). Visible-marker discipline so the gap isn't lost. Cut from Patch 3 to stay focused on persistence.
-
----
-
-## DESIGN CONTEXT CARRIED FORWARD
-
-### Map-purpose model (settled — drives [2h.1] and Fit scoping)
-Maps are purposed by **what you're doing**, not where you are.
-- **Convoy** = live / location-anchored: opens to GPS, finds artifacts by **proximity** (the all-functions). No search, no fit.
-- **Planning** = deliberate / identity-anchored: finds artifacts by **name** (search), has fit, opens to the persisted last-session frame.
-- A function that's a feature on one map is a hindrance on the other (search on planning = feature / on convoy = hindrance; current-location on convoy = feature / on planning = hindrance). The asymmetries are intentional — one rule per function.
-- **Two selection methods** share one golden-JSON merge engine: (1) **area-based** — query a bbox, choose all/none/selected (many display); (2) **artifact-based / Fit** — pick one, frame to its bbox, display it alone (others available, off). Power case: Fit to an anchor, then Select-All / individuals to layer in neighbors → build a new route.
-- **[2h.1] consequence:** convoy gets the all-functions (no search entry); planning gets the search surface.
-
-### Fit (Stage 2) simplification — holds once [3.1c] is fixed
-With JSON-golden + render-reconcile-by-id working, **Fit just writes one item as `checked:true` (+ its bbox) into the golden JSON filter and relaunches.** The same merge displays exactly that one; surrounding in-frame artifacts are present (as no), available to toggle on and combine. This may make the separate `fitArtifact` field redundant — confirm at Stage 2. Stage 1's `rowsFor` fix is the foundation Fit rides.
-
-### Build order
-[3.1] Stage 1 (bbox done + [3.1c] save fix) → prove → commit → [2h.2] Fit writer → [2h.1] search-surface rehost → [3.9a] arrows.
-
----
-
-## TREE STATE
-- Committed HEAD `168778c0a` (detail card). Working tree: [3.1] Patches 1–4 applied + built, **not committed**. P4 rollback script written, not run.
-- Parked weekend files (leave them): `M utah_trails_stgeorge.geojson`, `?? grouptrack_manual.html`, `?? grouptrack_release_notes.html`, `?? *.geojson.bak` (never git-add), `D docs/.tmp.driveupload/10630`.
-- Commit only named files. Never `git add .`.
-
-## DEVICE / BUILD QUICK-REF
-- Build: `./gradlew assembleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease` (~10–34 min)
-- APK: `app/build/outputs/apk/google/release/app-google-release.apk`
-- Install: `adb -s <serial> install -r -d <apk>`
-- Devices: Droid 2 = `24039703201775` (dev/test) · Droid 1 = `8624SBCEDF00001789` (field, real GPS)
-- JSON pull (note the path-conv guard): `MSYS_NO_PATHCONV=1 adb -s 8624SBCEDF00001789 shell cat /sdcard/Documents/GroupTrack/state/planning_panel.json`
-- Patch scripts: single-line `python3 -c` with count==1 guard; verify by byte size; CRLF-safe anchors.
-
-
 === GroupTrack_V25_LivingChecklist_OpenItems_2026-06-15_EOD.md ===
 # GroupTrack V2.5 — Living Checklist / Open Items
 **Updated:** 2026-06-15 (~4:30 PM EOD)
@@ -16426,6 +16722,183 @@ settled design is made, it goes on the list the same day. Before declaring any t
 - This checklist → 06-18.
 - Track-revision demolition+rebuild planning doc → written (`GroupTrack_LeadCart_TrackRevision_DemolitionRebuild_2026-06-18.md`).
 - **Still to do (documentation pass):** cookbook automated screen-capture; broader doc organize/cleanup; user-manual structural rewrite where stale.
+
+
+=== GroupTrack_V25_LivingChecklist_OpenItems_2026-06-19.md ===
+# GroupTrack V2.5 — Living Checklist / Open Items
+**Updated:** 2026-06-19
+**Branch:** feature/convoy-event-ride · **Committed HEAD:** `d75572a1f`
+
+> **06-19 session: backlog recovery + trail-findability problem-framing (design/recovery, no code yet).** Audited the bare `[N.x]` backlog codes against AllDocs — most were DONE or stale. Reshaped the trail-selection items around the PROBLEM each solves (method evolves in discussion; problem is the durable record). Recovered: the pristine cookbook manual is the canonical base (see manual note). Retired the `section`-field spec (protects spatial design).
+
+---
+
+## ⭐ OUTCOME 2026-06-18 — THREE COMMITTED WINS; FIT SOLVED
+
+FIT-selection-retention fixed and committed on both maps; convoy "?" help shipped; pixel/neon track arrows shipped. Universal search fully designed. Lead-cart rebuild recovered.
+
+### ✅ COMMITTED
+- **FIT selection retention — `35ccccc4a`** (tested). FIT emulates a manual row-select on the LIVE in-memory vars: on detail-panel dismiss with a fitted (type,id), set that type SELECTED + checked-ids to the fitted id, save, fire normal redraw. FIT=one artifact → clear all four types OFF first, then set fitted SELECTED. Fixes persistence (the `saveConvoyState` clobber) AND panel display together. Both maps (planning uses `savePlanningState()` + `webViewRef`).
+- **Convoy "?" help — `60db85131`** (tested). Ported planning's "?" help to convoy; both maps load the same release-notes/manual HTML. Button at CenterEnd.
+- **Track arrows pixel+neon — `d75572a1f`** (tested). `repeat:'12%'`→`repeat:80` (fixed 80px, re-spaces on zoom) + `#000000`→`#39FF14`. Both HTMLs.
+
+### Commit chain
+`009b158aa` (06-17) → `35ccccc4a` (FIT) → `60db85131` ("?" help) → `d75572a1f` (arrows = HEAD).
+
+---
+
+## 🎯 KNOWN REMAINING V2.5 SCOPE — FINISH THIS LIST
+
+Per Fred 06-18: finish what is known. Must-ship:
+1. **Universal search (magnifying-glass FAB)** — designed, build next.
+2. **Lead-cart convoy-tracking REBUILD [2.1]** — recovered settled design (below); includes removing ALL previous track-recording methods.
+3. **Documentation pass** — manual reconciliation (pristine cookbook is base), release-notes realignment, screen capture, cleanup.
+4. **Trail findability** — the connected workflow below.
+
+**Moved back (low priority, internal testing):** [8.7] Play Store attribution / About.
+
+---
+
+## ⛔ LEAD-CART CONVOY-TRACKING REBUILD [2.1] — recovered settled design (MUST-SHIP)
+
+> Settled V2.5 design that fell off the checklist. Authority: `GroupTrack_LeadTrackReplacement_Spec.docx` (May 31). NOT done. Full plan: `GroupTrack_LeadCart_TrackRevision_DemolitionRebuild_2026-06-18.md`.
+
+**Problem:** current lead-cart tracking is a hodgepodge of evolved rules + position projection. Unreliable — phantom carts report in on rebroadcast. Gut and restart.
+
+**Rebuild — one lead cart, one lead track:**
+1. Track ONLY the lead cart, from its broadcasts (not projection).
+2. Snap-2, 100-yard radius: snap the lead's broadcast onto known trail/track geometry within 100 yd.
+3. Every other cart shows at current position only — not tracked (kills phantom carts).
+4. Each cart tracks its own progress; overtaking the lead's positions, it removes the lead's path from its own map and replaces with its own per-second device GPS.
+
+**Net:** one continuous trail from the lead that improves in accuracy in the wake. **Rationale:** lead broadcasts at best every 5s (radio limit) → coarse trail ahead; each cart records 1s GPS → refined trail behind ("rear-view mirror"). Trail you drive over is always better-known than trail ahead.
+
+**Open (confirm before building):** overtaking-cart wake replacement — unconditional, or snap-gated (off-trail cart beyond threshold doesn't overwrite)?
+
+**Code targets to gut:** 3 parallel flows (`leadTrackSegments`/`gpsTrailSegments`/`routeTrailSegments`), live `drawTrack` path (~ConvoyScreen 345-350), `trackLeadOnly`, ConvoyEngine lead-lock/tick (`evaluateLeadLock()`, `tick()→compute()→assignLeadTail()`, `lockedLeadNodeId`, `_leadLockedFlag`; known tick-oscillation). Replacement = one growing lead polyline gated on `lockedLeadNodeId`; `pushTrackToMap` net-new. Discovery first: fresh `field_crossref_raw.txt`, trace live, 2-cart capture.
+
+> Don't confuse this lead-cart snap-2 (lead broadcast → known trail geometry, 100yd) with ROUTE snap-2 (route drawing follows trail geometry between vertices). Different features.
+
+> AllDocs also has Phase-C "auto-election / two-tier lead assignment" (lead identity logic, removed before V2.4, preserved in git; design `GroupTrack_LeadLock_AutoAssign_Design.md`) — relevant to lead identity within this rebuild; reconcile when building.
+
+---
+
+## ⛔ UNIVERSAL SEARCH ([2h.1]) — designed 06-18, build next
+
+Design: `GroupTrack_UnifiedSearch_DESIGN_2026-06-18.md` + mockup. (Supersedes the 06-16 handoff design portion.)
+
+- **Architecture:** self-contained shared `UnifiedSearch.kt`, param `mapContext` ("convoy"/"planning") + webView + context + `onOpenDetail(type,id)`. Lift `ResultsList`/`ArtifactResult` (maybe `SearchBlock`) out of `ConvoyArtifactsPanel.kt`. Wiring + deletion, not new search logic.
+- **Flow:** magnifying-glass beacon (draggable, resets per session) → bar with 5 chips one line (Area·Track·Route·Trail·Waypoint) + text → Enter executes+closes → results list → tap result closes list → Area = setView+showSearchCenter; artifact = `ArtifactDetailPanel` (FIT). Dup names #1/#2.
+- **Convoy gains Area mode.** All 5 modes both maps.
+- **Engines kept:** `searchByName`→name-sequence (convoy ~1356/planning ~870); `Geocoder.getFromLocationName`→setView+showSearchCenter (planning ~365-388; convoy needs the geocode call added); `ArtifactDetailPanel`. Both HTMLs already have setView+showSearchCenter — no HTML change for search.
+- **Remove launch points:** (1) convoy dead `locationSearch*` @268-270; (2) planning area-search field+geocode ~345-405 + `searchText`; (3) artifact-search box (`SearchBlock`+`ResultsList` in `ConvoyArtifactsPanel`) — keep toggles/+ROUTE/import; lift `ResultsList`.
+- **Build incrementally:** UnifiedSearch.kt + convoy mount (old stays) → test → planning mount → test → remove 3 old launch points → test both. Commit each green.
+
+---
+
+## 🎯 TRAIL FINDABILITY — selecting the right trail among hundreds of same-named segments (recovered/clarified 06-19)
+
+> **Framed by the PROBLEM each solves. Method evolves in discussion — the problem is the durable record.** One connected workflow, not loose ideas.
+
+**CORE PROBLEM.** Real trail data has huge same-name density — "Jordan River Trail" alone is **314 distinct segments** (verified; each a unique geometry, NOT a dupe — dedup via `UNIQUE(geom_hash)` works correctly). A rider selecting the trail they want faces hundreds of identically-named entries and a map of indistinguishable lines, and can't reliably (a) tell segments apart, (b) reach all of them, or (c) know whether they're seeing all of them.
+
+- **Blank/featureless startup map — riders see nothing and don't know why.** On launch / wide zoom, the artifact limit is so exhausted nothing renders — looks broken with no explanation. NEEDED: **below z11, the map must say "zoom in to see artifact info"** so an empty-looking map is self-explaining. *(Method: state-driven message off viewport zoom/count; evolving.)*
+
+- **Silent truncation at the display cap — riders miss segments without knowing.** At cap 200, ~36% of Jordan River's 314 segments silently drop from the SEL/Edit list. NEEDED: (1) **raise cap 200→400**; (2) at the cap, message **"Maximum artifacts reached for this map area. Zoom in to ensure you have all artifacts that belong on the map."** No silent truncation. *(Settled spec exists — AllDocs ~19843, state-driven off existing viewport count, no new query; this refines to 400 + wording. Real long-term fix = paging [11.1]; 400 is the now-fix.)*
+
+- **"Why does this trail appear so many times?" — asked at the SELECT LIST.** Same-named segments look like duplicates; riders don't trust the list. NEEDED: on the **select-list row**, surface the **unique geom-hash** as a plain "this is a unique trail segment, period" indicator. Hash is already on the row — just show it. **DECISION (06-19, supersedes AllDocs `section`-field spec ~19829-19834):** do NOT add a `section`/numbering field — it compromises the spatial data design (identity is `UNIQUE(geom_hash)`, mirrored to AWS in 2.6). Showing the existing hash answers the question with zero schema change. The "assign section at import via trigger" plan is RETIRED; the schema-cost-vs-benefit mismatch is exactly why it was never built.
+
+- **Can't tell map lines apart — no trail name positioners on the map.** A dense viewport is a wall of indistinguishable lines. NEEDED: **trail name positioners/labels on the map** (needed even at 200). *(The one piece with real cost — RECOVERY 06-19: trail labels are NOT drawn today at all; net-new Leaflet labeling in BOTH HTMLs, on the hot draw path, known perf concern at hundreds of labels. Needs its own design pass. Other items here are bounded/low-risk.)*
+
+- **The detail panel IS the disambiguation+selection tool — and must be the ONE universal detail function.** With 400 trails/segments in play, the user picks the right one by opening its detail then FIT. PRINCIPLE: ONE shared `ArtifactDetailPanel` (owns FIT), reached identically from every entry point — select-list row-tap, search result, map artifact-tap/popup. Not per-caller variants. The "map-popup → detail" item is just another entrance to this same panel. *(Open: replace on-map popup entirely with tap→detail, vs keep popup as launcher→detail. Decide in design.)*
+
+- **Detail-panel content enhancements (schema-safe, bounded to `ArtifactDetailPanel`).** Surface what a planner needs on the card: **trail type via CartoCode** (color the panel + bold type footer — per-trail, honest, no trail-line redraw); **trail/segment length** (`distance_miles` may already be a stored property — verify; else derive from geometry at open); the **unique-segment hash indicator** (above). All read-only, no schema change. *(CartoCode line coloring on the MAP — recoloring trail lines by type — is a separate, heavier 2.6 question, PARKED for the 2.6 discussion. Only the detail-panel color/footer is in scope here.)*
+
+---
+
+## ⏳ DEFERRED — separate items, do NOT combine
+
+- **Map-popup / artifact-tap → detail** — tap an artifact on the map → the universal `ArtifactDetailPanel` (owns FIT). JS click handler on the artifact in BOTH HTMLs + `@JavascriptInterface` bridge to open detail with (type,id), passing mapKey + webView. *(This is the "another entrance to the universal detail panel" from Trail Findability.)*
+- **Shared-JS consolidation** — dedupe `setView`/`showSearchCenter` out of the two HTMLs into a shared local JS file (precedent: both include `leaflet.polylineDecorator.js`). **Blast-radius caution:** grep can't bound — `setView` grep conflates wrapper vs native `map.setView([...])` vs Kotlin `evaluateJavascript("setView(...)")`. No JS compiler net. Regen xref first, grep both languages, device-test. Not an end-of-day job.
+- **Detail-extraction cleanup** — `ArtifactListPanel` still embeds its own detail for the sel/edit row-tap; route that to the shared `ArtifactDetailPanel` too. Implement `ConvoyArtifactOps` Pass-1 log stubs (rename/delete/toRoute/toTrack/upload/download/changeType/editPoints/addAlias/setTrailhead); `fit()` is the only real op today.
+
+---
+
+## OTHER OPEN (backlog / 2.6) — RECOVERED & TRIAGED 06-19
+
+> Audited against Fred's recall + AllDocs 06-19. Bare `[N.x]` codes resolved to real status. Most of the old list was DONE or stale.
+
+**Still genuinely open:**
+- **[6.2] Remove leftover geojson asset + JS-injection code.** Distributed trail content was cut from 27MB to 2 trails to shrink the distro, but the geojson asset and the JS-injection code that loads it were never removed — dead weight still in the build. NEEDED: remove both. *(Also the root of the stale CartoCode legend in the manual — connected.)*
+- **[3.3] Queue panel — restore upload placeholder + add upload/download activity selector.** The AWS-upload placeholder was removed; the button is Upload/Download but there's no way to say which activity. NEEDED: put the upload placeholder back, add a **selector at the top of the panel** for upload vs download. *(Queue backend — hold/resume/cancel — is done; this is the panel UI.)*
+- **Map Manager Phase C — tile-transfer redesign (POST-V2.5).** Building/reserving map areas hammers public tile servers. INTENT: external-map sourcing + reviewing/batching downloads through an AWS server so areas build/reserve without (or with minimal) public-server load, via a faster transfer method (server-side bundle assembly; mbtiles/PMTiles). *(The April-1 "Map Manager — Complete Specification" in AllDocs is the SCREEN spec, partly superseded by the shipped Convoy/Planning split + Work-with-Artifacts. The AWS tile-bundle/faster-transfer piece is NOT yet a written spec in AllDocs — Fred checking Downloads. Esri dev account: 2M free tiles/mo; key config deferred until transfer method framed.)*
+- **Blank trail-name in FIT's JSON row** — id correct, selection id-based, so it works; name writes `""` (trails get names, tracks don't). Cosmetic, parked.
+- **[1.2] sliceLine whole-trail — VERIFY OBSOLETE.** Trail-source/type/route-capture area was rewritten; unsure this still applies. Do NOT carry as active — confirm dead (quick xref check on `sliceLine` callers) and remove, or re-scope if it surfaces.
+
+**DONE (recovered 06-19 — removed from open):**
+- [4.x] import trails from external sources — DONE.
+- [10.1] BLE — DONE. The timeout fix: pause recording + disconnect device cleanly before BT times out (previously required a device power-cycle to reconnect); driving away triggers reconnect.
+- Gaia/onX standalone parity — DONE (distance, speed, waypoint adding, etc.).
+
+**Fold into Work with Artifacts (not standalone):**
+- Track Display Selector (filter tabs). Track importer.
+
+**Still backlog (unchanged):** [11.1] paging (real fix behind the artifact cap); Map Manager screen items not yet realized. *(05-07 backlog.)*
+
+**Tree cleanup:** remove stray `.bak_*` (06-18 patches), `ConvoyScreen.kt.bak_move`, `utah_trails_stgeorge.geojson.bak`; never commit `grouptrack_spatial.db` (117MB).
+
+**DEFERRED (later releases):** GeoPackage national-trail architecture, V3.0, paywall.
+
+---
+
+## ✅ DONE (removed from open)
+- Bundle config (versionCode/signing) ✓
+- [1.5] auto-save + terminate on map-switch (= persistence) ✓
+- FIT (`35ccccc4a`) ✓ · convoy "?" help (`60db85131`) ✓ · [3.9a] arrows (`d75572a1f`) ✓
+- Search → detail separation (`009b158aa`, 06-17) ✓
+
+## ❌ CUT FROM SCOPE (Fred 06-18)
+- [3.1b] Planning GPS-recenter button.
+- convoy_map.html `drawTrack`/`clearMarkers` "not defined" — harmless JS load-race noise; displayed DB tracks use `loadTracks`/`trackLayer` (work); erroring `drawTrack` is the live lead trail. Not a real bug.
+
+---
+
+## DESIGN CONTEXT (carried forward)
+- **Two draw paths BY DESIGN.** (A) `drawPersistedState` = saved/restore from JSON. (B) onViewportChanged = in-memory live vars, preserving selections across zoom/pan. New actions (FIT) update the LIVE side via the existing select mechanism.
+- **Map-purpose model:** Convoy = live/location (session-only). Planning = deliberate/identity (persisted).
+- **Reusability principle:** own behavior in the SHARED component; callers pass DATA not BEHAVIOR (`mapContext` routes it). convoy↔planning duplication is the pain → shared components cure it (search = shared `UnifiedSearch.kt`; FIT joins the existing select mechanism; ONE universal `ArtifactDetailPanel`).
+- **Boy-scout cleanup:** clean up what you touch, only when you can see the blast radius — Kotlin (grep+compiler+xref) is bounded; JS (grep only, no compiler, silent runtime failure) is not — be conservative, device-test.
+- **XREFS = blast-radius RECOVERY (not discovery).** Before a known change, consult the xrefs to recover the full dependency set (callers, linked functions, shared fields) so the edit preserves what it must and breaks nothing unaware. They're born of necessity because the codebase exceeds what's holdable in head / boundable by grep. Same tool, both directions: code change ("what will I break?") and docs ("what must I cover?" — navigation_xref drives the cookbook). The recurring failure is forgetting what they provide, not lacking them — consult first, before reaching past them.
+
+---
+
+## PROCESS NOTE — settled designs keep getting lost
+Settled designs fall off because each EOD doc is rewritten fresh and dormant items aren't re-typed. Mitigation is two-layer: this checklist + the memory spine carry open items (append, don't drop); the doc folder holds full specs. Settled designs go on the list the same day. **Before declaring any task "doesn't exist," search the record first** (memory + conversation + AllDocs) — Fred should never get "doesn't exist" then find it in Downloads.
+
+---
+
+## TREE STATE
+- **Committed HEAD `d75572a1f`** (arrows). Chain: `009b158aa` → `35ccccc4a` (FIT) → `60db85131` ("?" help) → `d75572a1f` (arrows).
+- Parked (never git-add): `M utah_trails_stgeorge.geojson`, `?? grouptrack_manual.html`, `?? grouptrack_release_notes.html`, `?? *.geojson.bak`, `?? *.bak_*`, `?? ConvoyScreen.kt.bak_move`, `?? grouptrack_spatial.db`. Commit only named files. Never `git add .`.
+
+## DEVICE / BUILD QUICK-REF
+- Build: `./gradlew assembleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease` (~14–42 min)
+- APK: `app/build/outputs/apk/google/release/app-google-release.apk`
+- Install: `adb -s 8624SBCEDF00001789 install -r -d <apk>` (Droid 1 = `8624SBCEDF00001789` field/real-GPS · Droid 2 = `24039703201775` dev)
+- JSON pull: `MSYS_NO_PATHCONV=1 adb -s 8624SBCEDF00001789 shell cat /sdcard/Documents/GroupTrack/state/convoy_panel.json` (or `planning_panel.json`)
+- Logcat: `adb -s 8624SBCEDF00001789 logcat -d -s <tags> | tail -N` (`-c` clears). LIVE logcat BLOCKS — use `-d` dump.
+- **LINE ENDINGS:** .kt files MIXED CRLF/LF even within one file. Patches detect newline at runtime + count==1 guard.
+- Patch flow: Claude files → present_files → Fred downloads to `/c/Users/kixaz/Downloads/` → `python3 <name>.py`.
+- Revert one file: `git checkout <hash> -- <file>` — run `git diff <hash> -- <file>` FIRST. NO sqlite3 on device.
+
+## EOD DOCS — status
+- Release notes → 06-18 (`grouptrack_release_notes_2026-06-18.html`): FIT, convoy "?" help, arrows.
+- User manual (4-section variant) → 06-18 — SUPERSEDED; the canonical manual is the pristine cookbook below.
+- This checklist → 06-19.
+- Lead-cart demolition+rebuild plan → `GroupTrack_LeadCart_TrackRevision_DemolitionRebuild_2026-06-18.md`.
+- **MANUAL — pristine cookbook is the CANONICAL BASE (recovered 06-18 PM).** Canonical = `app/src/main/assets/grouptrack_manual.html` (modified 06-07, never git-committed = untouched by the same-name overwrites that destroyed the dated copies). Full screen-by-screen cookbook: 41 screen cards covering all 40 nav destinations, Reached-from / What-you-do / Leads-to format, 3.0-vs-V2.5 marking, search box, `[screenshot to be added]` slots, feature-status appendix. Drive copy: `grouptrack_manual_PRISTINE_BASE_recovered_2026-06-18.html`. **RULE: edit THIS in place — never rebuild from a thinner version.** The 4-section "06-17/06-18" variants are the DRIFTED branch; do not merge. The navigation_xref was purpose-built to drive this cookbook — matched pair; consult the xref to keep it honest against real nav.
+- **Manual reconciliation needed (next manual pass, edits-in-place):** update the **CartoCode legend** (stale since JS-injected trail sources dropped — see [6.2]); fold in features newer than 06-07 (FIT, convoy "?" help, pixel arrows, snap-2 routes, persistence) as edits to existing cards; optionally re-order rider-first; capture into the existing `[screenshot to be added]` slots.
+- **Still to do (documentation pass):** the manual reconciliation above; cookbook screen-capture (Fred captures via scrcpy/adb into existing slots; Claude annotates via PIL); broader doc organize/cleanup.
 
 
 === GroupTrack_V25_MapSourceCatalog_v2.md ===
@@ -20053,6 +20526,96 @@ function goTo(n) {
 }
 
 
+=== GroupTrack_UnifiedSearch_mockup_2026-06-18.html ===
+GroupTrack — Unified Search Mockup
+  :root{--bg:#10130f;--panel:#181c15;--ink:#e8ece2;--dim:#9aa68c;--line:#2b3324;
+    --accent:#7bb661;--blue:#4DA6FF;--amber:#d9a441;--ui:-apple-system,"Segoe UI",Roboto,sans-serif;}
+  *{box-sizing:border-box}body{margin:0;background:#0a0d08;color:var(--ink);font:14px/1.5 var(--ui);padding:16px;}
+  h1{font-size:16px;color:var(--accent);margin:0 0 2px}.sub{font-size:12px;color:var(--dim);margin:0 0 14px}
+  .step{font-size:11px;color:var(--dim);text-align:right;margin-bottom:6px}
+  #map{position:relative;height:230px;border:1px solid var(--line);border-radius:8px;overflow:hidden;
+    background:repeating-linear-gradient(0deg,transparent,transparent 26px,rgba(255,255,255,.05) 26px,rgba(255,255,255,.05) 27px),
+    repeating-linear-gradient(90deg,transparent,transparent 26px,rgba(255,255,255,.05) 26px,rgba(255,255,255,.05) 27px),#11150d;}
+  .slot{position:absolute;top:8px;left:8px;display:flex;gap:4px}
+  .slot span{font-size:11px;background:#181c15;border:1px solid var(--line);border-radius:6px;padding:3px 7px}
+  #mapNote{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--accent);font-size:13px}
+  #fab{position:absolute;bottom:14px;right:14px;width:50px;height:50px;border-radius:50%;border:1px solid var(--line);
+    background:#181c15;color:var(--ink);font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+  .card{margin-top:12px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px}
+  .barhead{display:flex;align-items:center;gap:6px;margin-bottom:10px;font-size:13px}
+  .barhead .x{margin-left:auto;cursor:pointer;color:var(--dim);background:none;border:1px solid var(--line);border-radius:50%;width:24px;height:24px}
+  .chips{display:flex;gap:4px;margin-bottom:10px}
+  .chip{flex:1;font-size:11px;padding:6px 0;border-radius:14px;border:1px solid var(--line);background:transparent;color:var(--ink);cursor:pointer}
+  .chip.on{background:rgba(77,166,255,.15);border-color:var(--blue);color:var(--blue)}
+  input{width:100%;background:#0a1020;border:1px solid var(--line);border-radius:6px;color:var(--ink);
+    font:12px var(--ui);padding:9px 10px;outline:none}
+  input:focus{border-color:var(--blue)}
+  .rhead{font-size:12px;color:var(--dim);margin-bottom:8px}
+  .row{display:flex;align-items:center;gap:8px;width:100%;text-align:left;padding:10px;margin-bottom:5px;
+    border:1px solid var(--line);border-radius:6px;background:transparent;color:var(--ink);font-size:13px;cursor:pointer}
+  .row .seq{color:var(--dim)}
+  .detail{border-color:var(--blue)}
+  .dname{font-size:15px;font-weight:600}.dtype{font-size:11px;color:var(--dim);margin:2px 0 10px}
+  .acts{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px}
+  .acts button{font-size:12px;padding:9px;border-radius:6px;border:1px solid var(--line);background:transparent;color:var(--ink);cursor:pointer}
+  .acts .fit{border-color:var(--blue);color:var(--blue);font-weight:600}
+  .note{font-size:11px;color:var(--dim)}
+  .reset{margin-top:12px;font-size:12px;padding:7px 12px;background:transparent;border:1px solid var(--line);border-radius:6px;color:var(--dim);cursor:pointer}
+  .hidden{display:none}
+GroupTrack — Unified Search
+Mockup · captured 2026-06-18 · one beacon, 5 modes, shared on both maps
+1 · tap the beacon
+  SATTOPO
+  &#9906;
+  &#9906; Search— pick a type, type, enter
+    &times;
+    Area
+    Track
+    Route
+    Trail
+    Waypt
+    &times;
+    &#9678; FITRenameExportDelete
+  Detail is the hub — FIT and the other artifact actions live here.
+&#8634; restart flow
+(function(){
+  var mode='Area';
+  var data={Area:['Cedar City, UT','Cedar City Regional, UT','Cedar Fort, UT'],
+            Track:['Cedar City to Newcastle','Old Irontown loop'],
+            Route:['Sunday Desert Run'],
+            Trail:['13th Hole','13th Hole','Jordan River Trail','Gooseberry Mesa'],
+            Waypoint:['Gooseberry Trailhead','Water cache']};
+  var $=function(id){return document.getElementById(id)};
+  function step(t){$('step').textContent=t}
+  function paint(){[].forEach.call(document.querySelectorAll('.chip'),function(c){
+    c.classList.toggle('on',c.dataset.m===mode)});
+    $('q').placeholder=mode==='Area'?'Search area (e.g. Cedar City)\u2026':'Search '+mode.toLowerCase()+' by name\u2026'}
+  function openBar(){$('bar').classList.remove('hidden');$('list').classList.add('hidden');
+    $('detail').classList.add('hidden');$('mapNote').textContent='';$('q').value='';$('q').focus();step('2 · pick type + type, enter')}
+  function run(){$('bar').classList.add('hidden');step('3 · pick from matches');
+    var items=data[mode]||[],seen={};
+    $('rhead').textContent=items.length+' '+(mode==='Area'?'place':mode.toLowerCase())+' match'+(items.length===1?'':'es');
+    $('rows').innerHTML=items.map(function(n){seen[n]=(seen[n]||0)+1;
+      var dup=items.filter(function(x){return x===n}).length>1;
+      var seq=dup?' #'+seen[n]+'':'';
+      return ''+(mode==='Area'?'\u25C9 ':'\u203A ')+n+seq+''}).join('');
+    $('list').classList.remove('hidden');
+    [].forEach.call(document.querySelectorAll('.row'),function(b){b.onclick=function(){pick(b.dataset.n)}})}
+  function pick(name){$('list').classList.add('hidden');
+    if(mode==='Area'){$('mapNote').textContent='\u25CE centered on '+name;step('done · map recentered')}
+    else{$('dName').textContent=name;$('dType').textContent=mode.toUpperCase();
+      $('detail').classList.remove('hidden');step('done · detail open (FIT here)')}}
+  $('fab').onclick=openBar;
+  $('barX').onclick=function(){$('bar').classList.add('hidden');step('1 · tap the beacon')};
+  $('dX').onclick=function(){$('detail').classList.add('hidden')};
+  [].forEach.call(document.querySelectorAll('.chip'),function(c){c.onclick=function(){mode=c.dataset.m;paint()}});
+  $('q').addEventListener('keydown',function(e){if(e.key==='Enter')run()});
+  $('reset').onclick=function(){$('bar').classList.add('hidden');$('list').classList.add('hidden');
+    $('detail').classList.add('hidden');$('mapNote').textContent='';mode='Area';paint();step('1 · tap the beacon')};
+  paint();
+})();
+
+
 === GroupTrack_V25_InteractivePanels.html ===
 GroupTrack V2.5 -- Interactive Screen Panels
 :root {
@@ -21810,6 +22373,373 @@ Per-type maintenance (rename, detail, delete) is reached from each type's SEL/Ed
 Unnamed trails display as "Not Named." consistent labeling — being aligned at import
 Manual maintenance note (internal): when a screen's functions change AND are complete, update that screen's section here and re-point its ? help anchor. Transitional radio-config sections (Section 3) are removed/rewritten in the 3.0 manual when those functions are replaced.
 
+
+=== GroupTrack_V25_UserManual_2026-06-18b.html ===
+GroupTrack V2.5 — User Manual (cookbook)
+  body { font-family: Arial, Helvetica, sans-serif; color:#1c1c1c; max-width:900px; margin:0 auto; padding:24px; line-height:1.5; }
+  h1 { font-size:26px; color:#1A3A5A; margin-bottom:2px; }
+  .sub { color:#555; font-size:14px; }
+  .stamp { color:#888; font-style:italic; font-size:12px; border-bottom:2px solid #2E75B6; padding-bottom:8px; margin-bottom:18px; }
+  h2 { font-size:19px; color:#1A3A5A; border-bottom:2px solid #2E75B6; padding-bottom:5px; margin-top:34px; }
+  h3 { font-size:15px; color:#1A3A5A; margin-top:22px; margin-bottom:4px; }
+  h4 { font-size:13.5px; color:#2E75B6; margin:14px 0 3px; }
+  .toc { background:#f7f9fb; border:1px solid #dde6ee; border-radius:6px; padding:12px 16px; font-size:13.5px; margin-bottom:20px; }
+  .toc a { color:#2E75B6; text-decoration:none; }
+  .toc a:hover { text-decoration:underline; }
+  .toc ul { margin:4px 0 4px 0; }
+  ol, ul { margin:5px 0 10px; }
+  li { margin:3px 0; }
+  .help { background:#eef6ff; border:1px solid #b9d6f2; border-radius:4px; padding:2px 7px; font-size:12px; color:#1a5fa8; font-weight:bold; }
+  .note { background:#f0f6fb; border-left:4px solid #2E75B6; padding:8px 12px; border-radius:3px; font-size:13px; margin:10px 0; }
+  .coming { background:#fff8ec; border-left:4px solid #c89000; padding:8px 12px; border-radius:3px; font-size:13px; margin:10px 0; }
+  .transitional { background:#f3eefa; border-left:4px solid #7a4fb0; padding:8px 12px; border-radius:3px; font-size:13px; margin:10px 0; }
+  .verify { background:#fdeeee; border-left:4px solid #c0392b; padding:8px 12px; border-radius:3px; font-size:13px; margin:10px 0; }
+  code { background:#f0f0f0; padding:1px 4px; border-radius:3px; font-size:12.5px; }
+  .screenref { font-size:12px; color:#888; font-style:italic; }
+  .imgslot { border:2px dashed #b9c4d0; background:#f7f9fb; border-radius:6px; padding:18px; margin:12px 0; text-align:center; color:#5a6b7a; font-size:13px; }
+  .imgslot .fn { font-family:monospace; font-size:12px; color:#2E75B6; display:block; margin-top:4px; }
+  .imgslot img { max-width:100%; height:auto; border-radius:4px; }
+  .cap { font-size:12px; color:#888; font-style:italic; text-align:center; margin-top:-4px; margin-bottom:14px; }
+GroupTrack — User Manual (V2.5)
+Cookbook style. Each section is one screen; every function on that screen is documented in place. The ? help icon on a screen deep-links to that screen's section here.
+V2.5 · 2026-06-18 · Online edition: grouptrack.org/manual · Bundled offline copy ships in-app · Sections map 1:1 to the screens that carry a ? help icon.
+How help links work: tapping ? on a screen opens this manual at that screen's section (the anchors below — #getting-started, #planning-map, #convoy-map, #artifacts, #radio-write). V2.5 scope for the ? icon: the screens that persist into 3.0 — Planning Map, Convoy Map (incl. the Meshtastic connection/monitoring panel), Work with Artifacts, and the Convoy radio-write menu. The goal in 3.0 is ? on every screen.
+About the screen images: each chapter opens with an image of that landing screen — the screen you navigate from to reach its functions. Images show the landing screen, not every individual tap. (Image slots are marked below with their filenames; capture each screen and save it under the filename shown to drop it in.)
+Contents
+1. Getting Started — install, trails, map sources, radio
+  1.1 Installing the software
+  1.2 Downloading trails
+  1.3 Adding / updating map sources
+  1.4 Adding / updating trail sources
+  1.5 Setting up your radio (optional)
+2. Planning Map — explore trails, build routes, import/manage artifacts off-radio
+3. Convoy Map — live group tracking + Meshtastic connection &amp; monitoring panel
+4. Work with Artifacts — trails, tracks, waypoints, routes (display, select/edit, create)
+5. Convoy Radio-Write Menu — apply / archive / restore radio config transitional, supported in V2.5
+1 · Getting Started
+First-time setup, in order. Do these once before your first ride; trail and tile data then persist on the device.
+This chapter walks first-time setup from a fresh install through optional radio pairing. Each step persists: once you've imported trails and downloaded map tiles, they stay on the device across app updates and restarts — you don't redo this before every ride.
+Draft note (remove before publish): the procedures in this chapter are drafted from current app behavior and prior notes. Steps marked [verify] need a confirming pass on the device to lock exact button labels / order before this ships to testers.
+1.1 · Installing the software
+SCREEN IMAGE — Getting Started: Install / first launchgs_install.png
+Updating from an earlier version? Install as an update through the Play Store — do not uninstall the old version and clean-install, which breaks the installation. After updating, on first launch the trail/track database is rebuilt: re-import your trails (1.2), and your recorded tracks return automatically from your saved GPX files (open the track import screen and tap RESYNC TRACKS if any are missing).
+Install GroupTrack from the Play Store internal-testing link the organizer sent you. [verify exact install path for testers]
+Open the app. Grant the permissions it requests — location (for your position on the map) and storage/files (for trail data and map tiles). On first launch the app prepares its on-device databases.
+If this is a fresh device (not an update), there is no trail data yet — continue to 1.2 to import trails for your area.
+Requirements: Android 8.0+ (a tablet is recommended for map work). ~500 MB+ free for map tiles; trail data is roughly 15–30 MB per state. A radio (Meshtastic SenseCAP T1000-E or a LoRa device on firmware 2.6+) is only needed for convoy tracking, not for maps. Internet is needed once, to import trails and download tiles.
+1.2 · Downloading trails
+SCREEN IMAGE — Getting Started: Trail import (source / area)gs_download_trails.png
+What you're doing: trail data is no longer bundled with the app. You import the trails for the regions where you ride, once, and they become permanent on your device.
+Open the Planning Map.
+Open Work with Artifacts and tap Import Trails. The trail source list appears.
+Choose a method:
+  Import by Source — select a land-management agency dataset (e.g. UGRC Utah Trails — ~49,000 trails + ~591 trailheads).
+  Import by Area — draw a box on the map and see the sources that overlap it, with overlap percentages. processing fix in progress
+On the validation screen, review the trail count and file size, then confirm to download. Trails and trailhead waypoints download as artifacts.
+Fully close the app (force stop) and reopen so the new trail data loads.
+If imported trails don't show: (1) fully close and reopen the app so trail data loads; (2) zoom in — trails draw at zoom level 8 and above, so a large dataset only appears when you're zoomed in enough. This is intentional for performance.
+Full detail in Chapter 4 (Work with Artifacts).
+1.3 · Adding / updating map sources
+SCREEN IMAGE — Getting Started: Map sources / tile settingsgs_map_sources.png
+What you're doing: map sources are the base imagery behind your trails (satellite, topo, outdoor, etc.). V2.5 offers 16 sources across 6 categories, and any source can be assigned to any of the three toolbar slots (SAT / TOPO / TOPO+).
+Open Settings &gt; Map Sources. [verify menu path]
+For each toolbar slot (SAT / TOPO / TOPO+), choose which of the 16 sources to assign.
+For premium sources that require an API key (e.g. Thunderforest), enter the key when prompted; keys are stored locally on the device.
+Changing a source triggers a background tile refresh for the new imagery.
+Offline tiles: download tiles while you have internet so they're cached for offline use in the field. Tiles are served from your offline cache when available. See the Download Queue (Chapter 3) for managing tile downloads.
+1.4 · Adding / updating trail sources
+SCREEN IMAGE — Getting Started: Trail source cataloggs_trail_sources.png
+What you're doing: beyond your first import (1.2), you can add more trail sources as you ride new areas, or update existing ones. Multiple sources and agencies can be active at once.
+Open Work with Artifacts → Import Trails to return to the trail source catalog.
+Add a source: pick another agency dataset (by source) or draw a new area (by area) and import, exactly as in 1.2.
+Update a source: re-importing a source you already have is de-duplicated — trails already on the device are recognized and skipped, so re-import is safe and only adds what's new. [verify trail-source re-import dedupe state]
+Agencies: UGRC Utah Trails is the first catalog source; BLM and USFS are planned.
+1.5 · Setting up your radio (optional)
+SCREEN IMAGE — Getting Started: Radio setup / pairinggs_radio_setup.png
+What you're doing: the radio is only needed for live convoy tracking — maps, trails, and routes all work without it. If you're riding solo or just planning, you can skip this.
+Power on your Meshtastic device (e.g. T1000-E).
+Open the Convoy Map and open the connection panel (Chapter 3). Pair the device over Bluetooth; the panel shows connection state.
+Apply the convoy radio configuration so all riders share the same channel and encryption — see Chapter 5 (Convoy Radio-Write Menu): Apply / Archive / Restore.
+Confirm the mesh is up in the monitoring panel before relying on positions.
+Device compatibility: some budget Android devices cannot hold a stable Bluetooth link to the radio (the connection drops after several seconds). If positions stop updating and the panel shows repeated disconnects, the device may be incompatible — see the tester compatibility list.
+2 · Planning Map
+Screen: Planning Map · ? help anchor: #planning-map
+SCREEN IMAGE — Planning Map (landing)planning_map.png
+The Planning Map is the off-radio workspace: explore downloaded trails, import your track history, build and save routes, and manage what's displayed — all without a radio connected. It shares the spatial database and route engine with the Convoy Map, but keeps its own display state.
+Map basics
+Pan / zoom: drag to pan, pinch to zoom. These stay live at all times, even while building a route.
+Base layers (SAT / TOPO / TOPO+): switch imagery from the layer control. Tiles are served from your offline cache when available. (Assign sources to these slots in Settings &gt; Map Sources — see 1.3.)
+Viewport-aware display: trails, tracks, waypoints, and routes load for the area you're viewing. Zoom in to see more detail; the display fills in as you move.
+Displaying trails, tracks, waypoints, routes
+See Chapter 4 (Work with Artifacts) — the toggle/select/edit controls are shared and documented there.
+Too many trails in view: if the current view contains more trails than can be displayed at once, the SEL/Edit control indicates "Too many trails in view — zoom in to reduce." Zoom in to narrow the area until trails become selectable. guidance behavior — coming
+Building a route
+See the full cookbook entry in Chapter 4 → Creating a Route. Route building works identically on the Planning Map and the Convoy Map.
+Importing trails / tracks
+Import tracks (GPX): bring in your recorded track history. Large files import via streaming; duplicates (same geometry) are skipped automatically, and a recap shows new vs. already-in-library.
+Import trails by area: draw an area to list and download trail sources overlapping it. processing fix in progress
+Coming: waypoint and route extraction from GPX (all GPX imports are currently treated as tracks); GPX/KML open-with handler.
+3 · Convoy Map
+Screen: Convoy Map (incl. Meshtastic connection / monitoring panel) · ? help anchor: #convoy-map
+SCREEN IMAGE — Convoy Map (landing)convoy_map.png
+The Convoy Map is the live group-tracking screen used during a ride. It shows your position and the positions of other riders relayed over the Meshtastic LoRa mesh, plus the same trail/track/waypoint/route display and route-building tools as the Planning Map.
+Connecting to your radio (connection &amp; monitoring panel)
+Connect: open the connection panel and pair your Meshtastic device (e.g. T1000-E) over Bluetooth. The panel shows connection state.
+Monitoring: the panel reports link status and node activity. Use it to confirm the mesh is up before relying on positions.
+Device compatibility: some budget Android devices cannot hold a stable Bluetooth link to the radio (the connection drops after several seconds). If positions stop updating and the panel shows repeated disconnects, the device may be incompatible — see the tester compatibility list.
+Live tracking
+Rider positions: other riders appear as node markers, updated as mesh packets arrive.
+Your position: driven by the phone GPS once location permission is granted.
+Waypoints
+Drop a waypoint: long-press the map to drop a waypoint pin.
+Pin shape: waypoints display as teardrop pins — the pin's point marks the exact location you dropped it. Each waypoint type has its own color and icon.
+Proximity: waypoints within 100 m are treated as the same location.
+Help on this screen
+? help: tap the ? button on the Convoy Map to open the release notes or the full user manual. (The same help is on the Planning Map; both open the same documents.)
+Download QUEUES (tile downloads)
+SCREEN IMAGE — Download Queues monitorqueues_download.png
+QUEUES: opens the live download monitor (top-right) showing tile-download progress.
+Manage the queue: hold (pause all processing, resume when ready), cancel a single entry, or cancel all. Downloaded tiles are preserved when you cancel a partial download.
+Building a route on the Convoy Map
+Identical to the Planning Map — see Chapter 4 → Creating a Route.
+4 · Work with Artifacts
+Screen: Work with Artifacts (shared by both maps)
+SCREEN IMAGE — Work with Artifacts panel (landing)work_with_artifacts.png
+"Work with Artifacts" is the control center for everything you display and create on the map: trails, tracks, waypoints, and routes. The toggle and select/edit controls are the same on the Planning Map and the Convoy Map.
+Display toggles (ON / OFF / SELECTED)
+ON: show all artifacts of that type in view.
+OFF: hide that type.
+SELECTED: show only the items you've checked in that type's select/edit list.
+Select / Edit list (per type)
+Open a type's SEL/Edit list to check individual items for SELECTED display, or to open an item's detail.
+Search by name: choose an artifact type, type a name, and press Enter to find matching trails, tracks, waypoints, or routes by name across your whole database (not just what's on screen). Search is case-insensitive and matches partial names. Tap a result to open its detail.
+Item detail: tapping an item's name (from a search result or the select/edit list) opens its detail card. The left side lists the actions available for that item's type; the right side shows the item's information. For trails this includes designated uses, surface type, classification (carto code), county, managing agency, and data source. Less-used technical values — bounding coordinates, created/updated dates, and the geometry hash — are tucked under a ▸ technical toggle so the useful information shows first; tap it to expand. Where a trail has alternate names on record, they appear here too. On the Convoy Map the detail is view-only; full editing is on the Planning Map.
+FIT (fit to map): from an item's detail card, tap FIT to frame that item on the map. The map flies to the item and zooms to fit it, the item is selected and drawn on its own, and the other artifact types are turned off — so you see just the one you picked. Works for trails, tracks, waypoints, and routes, on both maps. FIT is how you go from finding a name to seeing it on the map.
+List limit: the list currently shows up to 200 items. paging — coming
+Trails over-limit: when more trails are in view than can be shown, SEL/Edit shows "Too many trails in view — zoom in to reduce." coming
+Track display
+Tracks display as dashed green lines from your device's spatial database. When Tracks are on, each track shows direction-of-travel arrows along the line so you can read which way it runs — useful for telling a single looping track from two overlapping ones. The arrows are evenly spaced on screen and stay readable as you zoom, and are drawn in the same neon green as the track.
+Routes display
+Routes display as magenta lines, loaded from your device's spatial database the same viewport-aware way as trails and tracks. Build a route with + ROUTE (see Creating a Route). (Importing routes from GPX, and the Draw / Suggest build methods, are coming in upcoming updates.)
+Creating a Route (early access)
+A route is a planned path you build by tapping the map, then save with a name for later use. Route building works on both the convoy map and the planning map.
+Open the map (convoy or planning).
+Open "Work with Artifacts" and tap + ROUTE. The Route+ toolbar appears.
+Tap New. A "Name this route" box appears with a suggested name — accept it or type your own — then start building.
+Add is on by default (green): tap the map to drop points. If a trail or track is nearby, the point snaps to it and the magenta route line follows the trail's actual shape between your points — so the route traces real trails instead of cutting straight across. Tap away from any trail to place a free point exactly where you tapped. Tip: zoom in while building for the most reliable snapping.
+Use Undo to remove the most recent point.
+Pan and zoom freely between taps to position the map.
+Tap Save to store the route. It is saved on your device, redraws on the map in magenta, and appears in Work with Artifacts → Routes under the name you gave it.
+Tap Discard to leave without saving.
+Coming next (not in this build):
+Save In Progress / Resume: save a half-finished route and re-open it later to keep editing (the "In Progress" entry).
+Draw and Suggest build methods (placeholders today).
+Renaming/editing a saved route from the Routes list (route maintenance).
+Route maintenance (rename, edit geometry, delete a completed route) lives in Work with Artifacts → Routes (SEL/Edit), not in the Route+ toolbar. The toolbar is for building only.
+Track / Trail / Waypoint maintenance
+Per-type maintenance (rename, detail, delete) is reached from each type's SEL/Edit list. trail/route/waypoint maintenance — in progress
+Unnamed trails display as "Not Named." consistent labeling — being aligned at import
+5 · Convoy Radio-Write Menu (Apply / Archive / Restore)
+Screen: Convoy menu — radio configuration · ? help anchor: #radio-write
+SCREEN IMAGE — Convoy Radio-Write menu (landing)radio_write.png
+Transitional — current and supported in V2.5. These radio-configuration functions are how radio writes happen this release. They are slated to be replaced in 3.0, but they work now and you should use them. This manual fully covers them; the 3.0 manual will rewrite this section when the functions change.
+Apply Convoy Config (write to radio)
+Connect the radio first (Chapter 3 connection panel) — the write action is unavailable with no Bluetooth link.
+Open the Convoy menu → radio configuration.
+Review the config values (channel, encryption keys, device settings). Values are validated before writing.
+Apply. The write proceeds screen-by-screen / in passes through the config groups; confirm each completes.
+Field validation: the config is validated (e.g. full field check) before programming. A two-pass programming approach is used so all config groups are written and confirmed.
+Archive radio config
+Save the current working radio configuration so it can be restored later. Use this before making changes.
+Restore radio config
+Re-apply a previously archived configuration to the connected radio.
+Coming (replaces this menu in a future build): a screen-by-screen radio-config writer that mirrors each Meshtastic config screen, pre-populated and read-only, with a PROCEED button that is disabled (red) until the radio is connected (then green), saving after each screen through all config groups.
+Manual maintenance note (internal): when a screen's functions change AND are complete, update that screen's section here and re-point its ? help anchor. Each landing screen carries one image slot (filename shown in the slot) — recapture only when that screen's layout changes. Transitional radio-config sections (Chapter 5) are removed/rewritten in the 3.0 manual when those functions are replaced.
+screen numbering; named image slots at each landing screen (gs_install, gs_download_trails, gs_map_sources, gs_trail_sources, gs_radio_setup, planning_map, convoy_map, work_with_artifacts, queues_download, radio_write). Getting Started procedures drafted from repo material; [verify] tags mark spots needing a device-confirming pass. -->
+
+
+=== GroupTrack_V25_UserManual_2026-06-18b_restructured.html ===
+GroupTrack V2.5 — User Manual (cookbook)
+  body { font-family: Arial, Helvetica, sans-serif; color:#1c1c1c; max-width:900px; margin:0 auto; padding:24px; line-height:1.5; }
+  h1 { font-size:26px; color:#1A3A5A; margin-bottom:2px; }
+  .sub { color:#555; font-size:14px; }
+  .stamp { color:#888; font-style:italic; font-size:12px; border-bottom:2px solid #2E75B6; padding-bottom:8px; margin-bottom:18px; }
+  h2 { font-size:19px; color:#1A3A5A; border-bottom:2px solid #2E75B6; padding-bottom:5px; margin-top:34px; }
+  h3 { font-size:15px; color:#1A3A5A; margin-top:22px; margin-bottom:4px; }
+  h4 { font-size:13.5px; color:#2E75B6; margin:14px 0 3px; }
+  .toc { background:#f7f9fb; border:1px solid #dde6ee; border-radius:6px; padding:12px 16px; font-size:13.5px; margin-bottom:20px; }
+  .toc a { color:#2E75B6; text-decoration:none; }
+  .toc a:hover { text-decoration:underline; }
+  .toc ul { margin:4px 0 4px 0; }
+  ol, ul { margin:5px 0 10px; }
+  li { margin:3px 0; }
+  .help { background:#eef6ff; border:1px solid #b9d6f2; border-radius:4px; padding:2px 7px; font-size:12px; color:#1a5fa8; font-weight:bold; }
+  .note { background:#f0f6fb; border-left:4px solid #2E75B6; padding:8px 12px; border-radius:3px; font-size:13px; margin:10px 0; }
+  .coming { background:#fff8ec; border-left:4px solid #c89000; padding:8px 12px; border-radius:3px; font-size:13px; margin:10px 0; }
+  .transitional { background:#f3eefa; border-left:4px solid #7a4fb0; padding:8px 12px; border-radius:3px; font-size:13px; margin:10px 0; }
+  .verify { background:#fdeeee; border-left:4px solid #c0392b; padding:8px 12px; border-radius:3px; font-size:13px; margin:10px 0; }
+  code { background:#f0f0f0; padding:1px 4px; border-radius:3px; font-size:12.5px; }
+  .screenref { font-size:12px; color:#888; font-style:italic; }
+  .imgslot { border:2px dashed #b9c4d0; background:#f7f9fb; border-radius:6px; padding:18px; margin:12px 0; text-align:center; color:#5a6b7a; font-size:13px; }
+  .imgslot .fn { font-family:monospace; font-size:12px; color:#2E75B6; display:block; margin-top:4px; }
+  .imgslot img { max-width:100%; height:auto; border-radius:4px; }
+  .cap { font-size:12px; color:#888; font-style:italic; text-align:center; margin-top:-4px; margin-bottom:14px; }
+GroupTrack — User Manual (V2.5)
+Cookbook style. Each section is one screen; every function on that screen is documented in place. The ? help icon on a screen deep-links to that screen's section here.
+V2.5 · 2026-06-18 · Online edition: grouptrack.org/manual · Bundled offline copy ships in-app · Sections map 1:1 to the screens that carry a ? help icon.
+How help links work: tapping ? on a screen opens this manual at that screen's section (the anchors below — #getting-started, #planning-map, #convoy-map, #artifacts, #radio-write). V2.5 scope for the ? icon: the screens that persist into 3.0 — Planning Map, Convoy Map (incl. the Meshtastic connection/monitoring panel), Work with Artifacts, and the Convoy radio-write menu. The goal in 3.0 is ? on every screen.
+About the screen images: each chapter opens with an image of that landing screen — the screen you navigate from to reach its functions. Images show the landing screen, not every individual tap. (Image slots are marked below with their filenames; capture each screen and save it under the filename shown to drop it in.)
+Contents
+1. Getting Started — install, trails, map sources, radio
+  1.1 Installing the software
+  1.2 Downloading trails
+  1.3 Adding / updating map sources
+  1.4 Adding / updating trail sources
+  1.5 Setting up your radio (optional)
+2. Planning Map — explore trails, build routes, import/manage artifacts off-radio
+3. Convoy Map — live group tracking + Meshtastic connection &amp; monitoring panel
+4. Work with Artifacts — trails, tracks, waypoints, routes (display, select/edit, create)
+5. Convoy Radio-Write Menu — apply / archive / restore radio config transitional, supported in V2.5
+1 · Getting Started
+First-time setup, in order. Do these once before your first ride; trail and tile data then persist on the device.
+This chapter walks first-time setup from a fresh install through optional radio pairing. Each step persists: once you've imported trails and downloaded map tiles, they stay on the device across app updates and restarts — you don't redo this before every ride.
+Draft note (remove before publish): the procedures in this chapter are drafted from current app behavior and prior notes. Steps marked [verify] need a confirming pass on the device to lock exact button labels / order before this ships to testers.
+1.1 · Installing the software
+SCREEN IMAGE — Getting Started: Install / first launchgs_install.png
+Updating from an earlier version? Install as an update through the Play Store — do not uninstall the old version and clean-install, which breaks the installation. After updating, on first launch the trail/track database is rebuilt: re-import your trails (1.2), and your recorded tracks return automatically from your saved GPX files (open the track import screen and tap RESYNC TRACKS if any are missing).
+Install GroupTrack from the Play Store internal-testing link the organizer sent you. [verify exact install path for testers]
+Open the app. Grant the permissions it requests — location (for your position on the map) and storage/files (for trail data and map tiles). On first launch the app prepares its on-device databases.
+If this is a fresh device (not an update), there is no trail data yet — continue to 1.2 to import trails for your area.
+Requirements: Android 8.0+ (a tablet is recommended for map work). ~500 MB+ free for map tiles; trail data is roughly 15–30 MB per state. A radio (Meshtastic SenseCAP T1000-E or a LoRa device on firmware 2.6+) is only needed for convoy tracking, not for maps. Internet is needed once, to import trails and download tiles.
+1.2 · Downloading trails
+SCREEN IMAGE — Getting Started: Trail import (source / area)gs_download_trails.png
+What you're doing: trail data is no longer bundled with the app. You import the trails for the regions where you ride, once, and they become permanent on your device.
+Open the Planning Map.
+Open Work with Artifacts and tap Import Trails. The trail source list appears.
+Choose a method:
+  Import by Source — select a land-management agency dataset (e.g. UGRC Utah Trails — ~49,000 trails + ~591 trailheads).
+  Import by Area — draw a box on the map and see the sources that overlap it, with overlap percentages. processing fix in progress
+On the validation screen, review the trail count and file size, then confirm to download. Trails and trailhead waypoints download as artifacts.
+Fully close the app (force stop) and reopen so the new trail data loads.
+If imported trails don't show: (1) fully close and reopen the app so trail data loads; (2) zoom in — trails draw at zoom level 8 and above, so a large dataset only appears when you're zoomed in enough. This is intentional for performance.
+Full detail in Chapter 4 (Work with Artifacts).
+1.3 · Adding / updating map sources
+SCREEN IMAGE — Getting Started: Map sources / tile settingsgs_map_sources.png
+What you're doing: map sources are the base imagery behind your trails (satellite, topo, outdoor, etc.). V2.5 offers 16 sources across 6 categories, and any source can be assigned to any of the three toolbar slots (SAT / TOPO / TOPO+).
+Open Settings &gt; Map Sources. [verify menu path]
+For each toolbar slot (SAT / TOPO / TOPO+), choose which of the 16 sources to assign.
+For premium sources that require an API key (e.g. Thunderforest), enter the key when prompted; keys are stored locally on the device.
+Changing a source triggers a background tile refresh for the new imagery.
+Offline tiles: download tiles while you have internet so they're cached for offline use in the field. Tiles are served from your offline cache when available. See the Download Queue (Chapter 3) for managing tile downloads.
+1.4 · Adding / updating trail sources
+SCREEN IMAGE — Getting Started: Trail source cataloggs_trail_sources.png
+What you're doing: beyond your first import (1.2), you can add more trail sources as you ride new areas, or update existing ones. Multiple sources and agencies can be active at once.
+Open Work with Artifacts → Import Trails to return to the trail source catalog.
+Add a source: pick another agency dataset (by source) or draw a new area (by area) and import, exactly as in 1.2.
+Update a source: re-importing a source you already have is de-duplicated — trails already on the device are recognized and skipped, so re-import is safe and only adds what's new. [verify trail-source re-import dedupe state]
+Agencies: UGRC Utah Trails is the first catalog source; BLM and USFS are planned.
+1.5 · Setting up your radio (optional)
+SCREEN IMAGE — Getting Started: Radio setup / pairinggs_radio_setup.png
+What you're doing: the radio is only needed for live convoy tracking — maps, trails, and routes all work without it. If you're riding solo or just planning, you can skip this.
+Power on your Meshtastic device (e.g. T1000-E).
+Open the Convoy Map and open the connection panel (Chapter 3). Pair the device over Bluetooth; the panel shows connection state.
+Apply the convoy radio configuration so all riders share the same channel and encryption — see Chapter 5 (Convoy Radio-Write Menu): Apply / Archive / Restore.
+Confirm the mesh is up in the monitoring panel before relying on positions.
+Device compatibility: some budget Android devices cannot hold a stable Bluetooth link to the radio (the connection drops after several seconds). If positions stop updating and the panel shows repeated disconnects, the device may be incompatible — see the tester compatibility list.
+2 · Planning Map
+Screen: Planning Map · ? help anchor: #planning-map
+SCREEN IMAGE — Planning Map (landing)planning_map.png
+The Planning Map is the off-radio workspace: explore downloaded trails, import your track history, build and save routes, and manage what's displayed — all without a radio connected. It shares the spatial database and route engine with the Convoy Map, but keeps its own display state.
+Map basics
+Pan / zoom: drag to pan, pinch to zoom. These stay live at all times, even while building a route.
+Base layers (SAT / TOPO / TOPO+): switch imagery from the layer control. Tiles are served from your offline cache when available. (Assign sources to these slots in Settings &gt; Map Sources — see 1.3.)
+Viewport-aware display: trails, tracks, waypoints, and routes load for the area you're viewing. Zoom in to see more detail; the display fills in as you move.
+Displaying trails, tracks, waypoints, routes
+See Chapter 4 (Work with Artifacts) — the toggle/select/edit controls are shared and documented there.
+Too many trails in view: if the current view contains more trails than can be displayed at once, the SEL/Edit control indicates "Too many trails in view — zoom in to reduce." Zoom in to narrow the area until trails become selectable. guidance behavior — coming
+Building a route
+See the full cookbook entry in Chapter 4 → Creating a Route. Route building works identically on the Planning Map and the Convoy Map.
+Importing trails / tracks
+Import tracks (GPX): bring in your recorded track history. Large files import via streaming; duplicates (same geometry) are skipped automatically, and a recap shows new vs. already-in-library.
+Import trails by area: draw an area to list and download trail sources overlapping it. processing fix in progress
+Coming: waypoint and route extraction from GPX (all GPX imports are currently treated as tracks); GPX/KML open-with handler.
+3 · Convoy Map
+Screen: Convoy Map (incl. Meshtastic connection / monitoring panel) · ? help anchor: #convoy-map
+SCREEN IMAGE — Convoy Map (landing)convoy_map.png
+The Convoy Map is the live group-tracking screen used during a ride. It shows your position and the positions of other riders relayed over the Meshtastic LoRa mesh, plus the same trail/track/waypoint/route display and route-building tools as the Planning Map.
+Connecting to your radio (connection &amp; monitoring panel)
+Connect: open the connection panel and pair your Meshtastic device (e.g. T1000-E) over Bluetooth. The panel shows connection state.
+Monitoring: the panel reports link status and node activity. Use it to confirm the mesh is up before relying on positions.
+Device compatibility: some budget Android devices cannot hold a stable Bluetooth link to the radio (the connection drops after several seconds). If positions stop updating and the panel shows repeated disconnects, the device may be incompatible — see the tester compatibility list.
+Live tracking
+Rider positions: other riders appear as node markers, updated as mesh packets arrive.
+Your position: driven by the phone GPS once location permission is granted.
+Waypoints
+Drop a waypoint: long-press the map to drop a waypoint pin.
+Pin shape: waypoints display as teardrop pins — the pin's point marks the exact location you dropped it. Each waypoint type has its own color and icon.
+Proximity: waypoints within 100 m are treated as the same location.
+Help on this screen
+? help: tap the ? button on the Convoy Map to open the release notes or the full user manual. (The same help is on the Planning Map; both open the same documents.)
+Download QUEUES (tile downloads)
+SCREEN IMAGE — Download Queues monitorqueues_download.png
+QUEUES: opens the live download monitor (top-right) showing tile-download progress.
+Manage the queue: hold (pause all processing, resume when ready), cancel a single entry, or cancel all. Downloaded tiles are preserved when you cancel a partial download.
+Building a route on the Convoy Map
+Identical to the Planning Map — see Chapter 4 → Creating a Route.
+4 · Work with Artifacts
+Screen: Work with Artifacts (shared by both maps)
+SCREEN IMAGE — Work with Artifacts panel (landing)work_with_artifacts.png
+"Work with Artifacts" is the control center for everything you display and create on the map: trails, tracks, waypoints, and routes. The toggle and select/edit controls are the same on the Planning Map and the Convoy Map.
+Display toggles (ON / OFF / SELECTED)
+ON: show all artifacts of that type in view.
+OFF: hide that type.
+SELECTED: show only the items you've checked in that type's select/edit list.
+Select / Edit list (per type)
+Open a type's SEL/Edit list to check individual items for SELECTED display, or to open an item's detail.
+Search by name: choose an artifact type, type a name, and press Enter to find matching trails, tracks, waypoints, or routes by name across your whole database (not just what's on screen). Search is case-insensitive and matches partial names. Tap a result to open its detail.
+Item detail: tapping an item's name (from a search result or the select/edit list) opens its detail card. The left side lists the actions available for that item's type; the right side shows the item's information. For trails this includes designated uses, surface type, classification (carto code), county, managing agency, and data source. Less-used technical values — bounding coordinates, created/updated dates, and the geometry hash — are tucked under a ▸ technical toggle so the useful information shows first; tap it to expand. Where a trail has alternate names on record, they appear here too. On the Convoy Map the detail is view-only; full editing is on the Planning Map.
+FIT (fit to map): from an item's detail card, tap FIT to frame that item on the map. The map flies to the item and zooms to fit it, the item is selected and drawn on its own, and the other artifact types are turned off — so you see just the one you picked. Works for trails, tracks, waypoints, and routes, on both maps. FIT is how you go from finding a name to seeing it on the map.
+List limit: the list currently shows up to 200 items. paging — coming
+Trails over-limit: when more trails are in view than can be shown, SEL/Edit shows "Too many trails in view — zoom in to reduce." coming
+Track display
+Tracks display as dashed green lines from your device's spatial database. When Tracks are on, each track shows direction-of-travel arrows along the line so you can read which way it runs — useful for telling a single looping track from two overlapping ones. The arrows are evenly spaced on screen and stay readable as you zoom, and are drawn in the same neon green as the track.
+Routes display
+Routes display as magenta lines, loaded from your device's spatial database the same viewport-aware way as trails and tracks. Build a route with + ROUTE (see Creating a Route). (Importing routes from GPX, and the Draw / Suggest build methods, are coming in upcoming updates.)
+Creating a Route (early access)
+A route is a planned path you build by tapping the map, then save with a name for later use. Route building works on both the convoy map and the planning map.
+Open the map (convoy or planning).
+Open "Work with Artifacts" and tap + ROUTE. The Route+ toolbar appears.
+Tap New. A "Name this route" box appears with a suggested name — accept it or type your own — then start building.
+Add is on by default (green): tap the map to drop points. If a trail or track is nearby, the point snaps to it and the magenta route line follows the trail's actual shape between your points — so the route traces real trails instead of cutting straight across. Tap away from any trail to place a free point exactly where you tapped. Tip: zoom in while building for the most reliable snapping.
+Use Undo to remove the most recent point.
+Pan and zoom freely between taps to position the map.
+Tap Save to store the route. It is saved on your device, redraws on the map in magenta, and appears in Work with Artifacts → Routes under the name you gave it.
+Tap Discard to leave without saving.
+Coming next (not in this build):
+Save In Progress / Resume: save a half-finished route and re-open it later to keep editing (the "In Progress" entry).
+Draw and Suggest build methods (placeholders today).
+Renaming/editing a saved route from the Routes list (route maintenance).
+Route maintenance (rename, edit geometry, delete a completed route) lives in Work with Artifacts → Routes (SEL/Edit), not in the Route+ toolbar. The toolbar is for building only.
+Track / Trail / Waypoint maintenance
+Per-type maintenance (rename, detail, delete) is reached from each type's SEL/Edit list. trail/route/waypoint maintenance — in progress
+Unnamed trails display as "Not Named." consistent labeling — being aligned at import
+5 · Convoy Radio-Write Menu (Apply / Archive / Restore)
+Screen: Convoy menu — radio configuration · ? help anchor: #radio-write
+SCREEN IMAGE — Convoy Radio-Write menu (landing)radio_write.png
+Transitional — current and supported in V2.5. These radio-configuration functions are how radio writes happen this release. They are slated to be replaced in 3.0, but they work now and you should use them. This manual fully covers them; the 3.0 manual will rewrite this section when the functions change.
+Apply Convoy Config (write to radio)
+Connect the radio first (Chapter 3 connection panel) — the write action is unavailable with no Bluetooth link.
+Open the Convoy menu → radio configuration.
+Review the config values (channel, encryption keys, device settings). Values are validated before writing.
+Apply. The write proceeds screen-by-screen / in passes through the config groups; confirm each completes.
+Field validation: the config is validated (e.g. full field check) before programming. A two-pass programming approach is used so all config groups are written and confirmed.
+Archive radio config
+Save the current working radio configuration so it can be restored later. Use this before making changes.
+Restore radio config
+Re-apply a previously archived configuration to the connected radio.
+Coming (replaces this menu in a future build): a screen-by-screen radio-config writer that mirrors each Meshtastic config screen, pre-populated and read-only, with a PROCEED button that is disabled (red) until the radio is connected (then green), saving after each screen through all config groups.
+Manual maintenance note (internal): when a screen's functions change AND are complete, update that screen's section here and re-point its ? help anchor. Each landing screen carries one image slot (filename shown in the slot) — recapture only when that screen's layout changes. Transitional radio-config sections (Chapter 5) are removed/rewritten in the 3.0 manual when those functions are replaced.
+screen numbering; named image slots at each landing screen (gs_install, gs_download_trails, gs_map_sources, gs_trail_sources, gs_radio_setup, planning_map, convoy_map, work_with_artifacts, queues_download, radio_write). Getting Started procedures drafted from repo material; [verify] tags mark spots needing a device-confirming pass. -->
 
 === RouteBuilder_Blueprint_2026-06-03.html ===
 GroupTrack — Route Builder Blueprint — 2026-06-03

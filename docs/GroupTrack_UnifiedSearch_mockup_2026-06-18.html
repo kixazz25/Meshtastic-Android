@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>GroupTrack — Unified Search Mockup</title>
+<style>
+  :root{--bg:#10130f;--panel:#181c15;--ink:#e8ece2;--dim:#9aa68c;--line:#2b3324;
+    --accent:#7bb661;--blue:#4DA6FF;--amber:#d9a441;--ui:-apple-system,"Segoe UI",Roboto,sans-serif;}
+  *{box-sizing:border-box}body{margin:0;background:#0a0d08;color:var(--ink);font:14px/1.5 var(--ui);padding:16px;}
+  h1{font-size:16px;color:var(--accent);margin:0 0 2px}.sub{font-size:12px;color:var(--dim);margin:0 0 14px}
+  .step{font-size:11px;color:var(--dim);text-align:right;margin-bottom:6px}
+  #map{position:relative;height:230px;border:1px solid var(--line);border-radius:8px;overflow:hidden;
+    background:repeating-linear-gradient(0deg,transparent,transparent 26px,rgba(255,255,255,.05) 26px,rgba(255,255,255,.05) 27px),
+    repeating-linear-gradient(90deg,transparent,transparent 26px,rgba(255,255,255,.05) 26px,rgba(255,255,255,.05) 27px),#11150d;}
+  .slot{position:absolute;top:8px;left:8px;display:flex;gap:4px}
+  .slot span{font-size:11px;background:#181c15;border:1px solid var(--line);border-radius:6px;padding:3px 7px}
+  #mapNote{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--accent);font-size:13px}
+  #fab{position:absolute;bottom:14px;right:14px;width:50px;height:50px;border-radius:50%;border:1px solid var(--line);
+    background:#181c15;color:var(--ink);font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+  .card{margin-top:12px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px}
+  .barhead{display:flex;align-items:center;gap:6px;margin-bottom:10px;font-size:13px}
+  .barhead .x{margin-left:auto;cursor:pointer;color:var(--dim);background:none;border:1px solid var(--line);border-radius:50%;width:24px;height:24px}
+  .chips{display:flex;gap:4px;margin-bottom:10px}
+  .chip{flex:1;font-size:11px;padding:6px 0;border-radius:14px;border:1px solid var(--line);background:transparent;color:var(--ink);cursor:pointer}
+  .chip.on{background:rgba(77,166,255,.15);border-color:var(--blue);color:var(--blue)}
+  input{width:100%;background:#0a1020;border:1px solid var(--line);border-radius:6px;color:var(--ink);
+    font:12px var(--ui);padding:9px 10px;outline:none}
+  input:focus{border-color:var(--blue)}
+  .rhead{font-size:12px;color:var(--dim);margin-bottom:8px}
+  .row{display:flex;align-items:center;gap:8px;width:100%;text-align:left;padding:10px;margin-bottom:5px;
+    border:1px solid var(--line);border-radius:6px;background:transparent;color:var(--ink);font-size:13px;cursor:pointer}
+  .row .seq{color:var(--dim)}
+  .detail{border-color:var(--blue)}
+  .dname{font-size:15px;font-weight:600}.dtype{font-size:11px;color:var(--dim);margin:2px 0 10px}
+  .acts{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px}
+  .acts button{font-size:12px;padding:9px;border-radius:6px;border:1px solid var(--line);background:transparent;color:var(--ink);cursor:pointer}
+  .acts .fit{border-color:var(--blue);color:var(--blue);font-weight:600}
+  .note{font-size:11px;color:var(--dim)}
+  .reset{margin-top:12px;font-size:12px;padding:7px 12px;background:transparent;border:1px solid var(--line);border-radius:6px;color:var(--dim);cursor:pointer}
+  .hidden{display:none}
+</style></head>
+<body>
+<h1>GroupTrack — Unified Search</h1>
+<p class="sub">Mockup · captured 2026-06-18 · one beacon, 5 modes, shared on both maps</p>
+<div class="step" id="step">1 · tap the beacon</div>
+
+<div id="map">
+  <div class="slot"><span>SAT</span><span>TOPO</span></div>
+  <div id="mapNote"></div>
+  <button id="fab" aria-label="Open search">&#9906;</button>
+</div>
+
+<div id="bar" class="card hidden">
+  <div class="barhead">&#9906; <b>Search</b><span style="color:var(--dim);font-weight:400">— pick a type, type, enter</span>
+    <button class="x" id="barX">&times;</button></div>
+  <div class="chips" id="chips">
+    <button class="chip" data-m="Area">Area</button>
+    <button class="chip" data-m="Track">Track</button>
+    <button class="chip" data-m="Route">Route</button>
+    <button class="chip" data-m="Trail">Trail</button>
+    <button class="chip" data-m="Waypoint">Waypt</button>
+  </div>
+  <input id="q" type="text" placeholder="Search&hellip;">
+</div>
+
+<div id="list" class="card hidden">
+  <div class="rhead" id="rhead"></div>
+  <div id="rows"></div>
+</div>
+
+<div id="detail" class="card detail hidden">
+  <div style="display:flex;align-items:center"><span class="dname" id="dName"></span>
+    <button class="x" id="dX" style="margin-left:auto;background:none;border:1px solid var(--line);border-radius:50%;width:24px;height:24px;color:var(--dim);cursor:pointer">&times;</button></div>
+  <div class="dtype" id="dType"></div>
+  <div class="acts">
+    <button class="fit">&#9678; FIT</button><button>Rename</button><button>Export</button><button>Delete</button>
+  </div>
+  <div class="note">Detail is the hub — FIT and the other artifact actions live here.</div>
+</div>
+
+<button class="reset" id="reset">&#8634; restart flow</button>
+
+<script>
+(function(){
+  var mode='Area';
+  var data={Area:['Cedar City, UT','Cedar City Regional, UT','Cedar Fort, UT'],
+            Track:['Cedar City to Newcastle','Old Irontown loop'],
+            Route:['Sunday Desert Run'],
+            Trail:['13th Hole','13th Hole','Jordan River Trail','Gooseberry Mesa'],
+            Waypoint:['Gooseberry Trailhead','Water cache']};
+  var $=function(id){return document.getElementById(id)};
+  function step(t){$('step').textContent=t}
+  function paint(){[].forEach.call(document.querySelectorAll('.chip'),function(c){
+    c.classList.toggle('on',c.dataset.m===mode)});
+    $('q').placeholder=mode==='Area'?'Search area (e.g. Cedar City)\u2026':'Search '+mode.toLowerCase()+' by name\u2026'}
+  function openBar(){$('bar').classList.remove('hidden');$('list').classList.add('hidden');
+    $('detail').classList.add('hidden');$('mapNote').textContent='';$('q').value='';$('q').focus();step('2 · pick type + type, enter')}
+  function run(){$('bar').classList.add('hidden');step('3 · pick from matches');
+    var items=data[mode]||[],seen={};
+    $('rhead').textContent=items.length+' '+(mode==='Area'?'place':mode.toLowerCase())+' match'+(items.length===1?'':'es');
+    $('rows').innerHTML=items.map(function(n){seen[n]=(seen[n]||0)+1;
+      var dup=items.filter(function(x){return x===n}).length>1;
+      var seq=dup?' <span class="seq">#'+seen[n]+'</span>':'';
+      return '<button class="row" data-n="'+n+'">'+(mode==='Area'?'\u25C9 ':'\u203A ')+n+seq+'</button>'}).join('');
+    $('list').classList.remove('hidden');
+    [].forEach.call(document.querySelectorAll('.row'),function(b){b.onclick=function(){pick(b.dataset.n)}})}
+  function pick(name){$('list').classList.add('hidden');
+    if(mode==='Area'){$('mapNote').textContent='\u25CE centered on '+name;step('done · map recentered')}
+    else{$('dName').textContent=name;$('dType').textContent=mode.toUpperCase();
+      $('detail').classList.remove('hidden');step('done · detail open (FIT here)')}}
+  $('fab').onclick=openBar;
+  $('barX').onclick=function(){$('bar').classList.add('hidden');step('1 · tap the beacon')};
+  $('dX').onclick=function(){$('detail').classList.add('hidden')};
+  [].forEach.call(document.querySelectorAll('.chip'),function(c){c.onclick=function(){mode=c.dataset.m;paint()}});
+  $('q').addEventListener('keydown',function(e){if(e.key==='Enter')run()});
+  $('reset').onclick=function(){$('bar').classList.add('hidden');$('list').classList.add('hidden');
+    $('detail').classList.add('hidden');$('mapNote').textContent='';mode='Area';paint();step('1 · tap the beacon')};
+  paint();
+})();
+</script>
+</body></html>

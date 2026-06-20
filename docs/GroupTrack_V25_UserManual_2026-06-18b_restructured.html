@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GroupTrack V2.5 — User Manual (cookbook)</title>
+<style>
+  body { font-family: Arial, Helvetica, sans-serif; color:#1c1c1c; max-width:900px; margin:0 auto; padding:24px; line-height:1.5; }
+  h1 { font-size:26px; color:#1A3A5A; margin-bottom:2px; }
+  .sub { color:#555; font-size:14px; }
+  .stamp { color:#888; font-style:italic; font-size:12px; border-bottom:2px solid #2E75B6; padding-bottom:8px; margin-bottom:18px; }
+  h2 { font-size:19px; color:#1A3A5A; border-bottom:2px solid #2E75B6; padding-bottom:5px; margin-top:34px; }
+  h3 { font-size:15px; color:#1A3A5A; margin-top:22px; margin-bottom:4px; }
+  h4 { font-size:13.5px; color:#2E75B6; margin:14px 0 3px; }
+  .toc { background:#f7f9fb; border:1px solid #dde6ee; border-radius:6px; padding:12px 16px; font-size:13.5px; margin-bottom:20px; }
+  .toc a { color:#2E75B6; text-decoration:none; }
+  .toc a:hover { text-decoration:underline; }
+  .toc ul { margin:4px 0 4px 0; }
+  ol, ul { margin:5px 0 10px; }
+  li { margin:3px 0; }
+  .help { background:#eef6ff; border:1px solid #b9d6f2; border-radius:4px; padding:2px 7px; font-size:12px; color:#1a5fa8; font-weight:bold; }
+  .note { background:#f0f6fb; border-left:4px solid #2E75B6; padding:8px 12px; border-radius:3px; font-size:13px; margin:10px 0; }
+  .coming { background:#fff8ec; border-left:4px solid #c89000; padding:8px 12px; border-radius:3px; font-size:13px; margin:10px 0; }
+  .transitional { background:#f3eefa; border-left:4px solid #7a4fb0; padding:8px 12px; border-radius:3px; font-size:13px; margin:10px 0; }
+  .verify { background:#fdeeee; border-left:4px solid #c0392b; padding:8px 12px; border-radius:3px; font-size:13px; margin:10px 0; }
+  code { background:#f0f0f0; padding:1px 4px; border-radius:3px; font-size:12.5px; }
+  .screenref { font-size:12px; color:#888; font-style:italic; }
+  .imgslot { border:2px dashed #b9c4d0; background:#f7f9fb; border-radius:6px; padding:18px; margin:12px 0; text-align:center; color:#5a6b7a; font-size:13px; }
+  .imgslot .fn { font-family:monospace; font-size:12px; color:#2E75B6; display:block; margin-top:4px; }
+  .imgslot img { max-width:100%; height:auto; border-radius:4px; }
+  .cap { font-size:12px; color:#888; font-style:italic; text-align:center; margin-top:-4px; margin-bottom:14px; }
+</style>
+</head>
+<body>
+
+<h1>GroupTrack — User Manual (V2.5)</h1>
+<div class="sub">Cookbook style. Each section is one screen; every function on that screen is documented in place. The <span class="help">? help</span> icon on a screen deep-links to that screen's section here.</div>
+<div class="stamp">V2.5 · 2026-06-18 · Online edition: grouptrack.org/manual · Bundled offline copy ships in-app · Sections map 1:1 to the screens that carry a ? help icon.</div>
+
+<div class="note"><strong>How help links work:</strong> tapping <span class="help">?</span> on a screen opens this manual at that screen's section (the anchors below — <code>#getting-started</code>, <code>#planning-map</code>, <code>#convoy-map</code>, <code>#artifacts</code>, <code>#radio-write</code>). V2.5 scope for the ? icon: the screens that persist into 3.0 — Planning Map, Convoy Map (incl. the Meshtastic connection/monitoring panel), Work with Artifacts, and the Convoy radio-write menu. The goal in 3.0 is ? on every screen.</div>
+
+<div class="note"><strong>About the screen images:</strong> each chapter opens with an image of that landing screen — the screen you navigate from to reach its functions. Images show the landing screen, not every individual tap. <span class="screenref">(Image slots are marked below with their filenames; capture each screen and save it under the filename shown to drop it in.)</span></div>
+
+<div class="toc">
+<strong>Contents</strong>
+<ul>
+<li>1. <a href="#getting-started">Getting Started</a> — install, trails, map sources, radio
+  <ul>
+  <li>1.1 <a href="#gs-install">Installing the software</a></li>
+  <li>1.2 <a href="#gs-trails">Downloading trails</a></li>
+  <li>1.3 <a href="#gs-map-sources">Adding / updating map sources</a></li>
+  <li>1.4 <a href="#gs-trail-sources">Adding / updating trail sources</a></li>
+  <li>1.5 <a href="#gs-radio">Setting up your radio (optional)</a></li>
+  </ul>
+</li>
+<li>2. <a href="#planning-map">Planning Map</a> — explore trails, build routes, import/manage artifacts off-radio</li>
+<li>3. <a href="#convoy-map">Convoy Map</a> — live group tracking + Meshtastic connection &amp; monitoring panel</li>
+<li>4. <a href="#artifacts">Work with Artifacts</a> — trails, tracks, waypoints, routes (display, select/edit, create)</li>
+<li>5. <a href="#radio-write">Convoy Radio-Write Menu</a> — apply / archive / restore radio config <span class="transitional" style="padding:0 4px;">transitional, supported in V2.5</span></li>
+</ul>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="getting-started">1 · Getting Started</h2>
+<div class="screenref">First-time setup, in order. Do these once before your first ride; trail and tile data then persist on the device.</div>
+<p>This chapter walks first-time setup from a fresh install through optional radio pairing. Each step persists: once you've imported trails and downloaded map tiles, they stay on the device across app updates and restarts — you don't redo this before every ride.</p>
+
+<div class="verify"><strong>Draft note (remove before publish):</strong> the procedures in this chapter are drafted from current app behavior and prior notes. Steps marked <em>[verify]</em> need a confirming pass on the device to lock exact button labels / order before this ships to testers.</div>
+
+<h3 id="gs-install">1.1 · Installing the software</h3>
+<div class="imgslot">SCREEN IMAGE — Getting Started: Install / first launch<span class="fn">gs_install.png</span></div>
+<div class="note"><strong>Updating from an earlier version?</strong> Install as an <strong>update</strong> through the Play Store — do <strong>not</strong> uninstall the old version and clean-install, which breaks the installation. After updating, on first launch the trail/track database is rebuilt: re-import your trails (1.2), and your recorded tracks return automatically from your saved GPX files (open the track import screen and tap <em>RESYNC TRACKS</em> if any are missing).</div>
+<ol>
+<li>Install GroupTrack from the Play Store internal-testing link the organizer sent you. <span class="coming" style="padding:0 4px;">[verify exact install path for testers]</span></li>
+<li>Open the app. Grant the permissions it requests — location (for your position on the map) and storage/files (for trail data and map tiles). On first launch the app prepares its on-device databases.</li>
+<li>If this is a fresh device (not an update), there is no trail data yet — continue to 1.2 to import trails for your area.</li>
+</ol>
+<div class="note"><strong>Requirements:</strong> Android 8.0+ (a tablet is recommended for map work). ~500 MB+ free for map tiles; trail data is roughly 15–30 MB per state. A radio (Meshtastic SenseCAP T1000-E or a LoRa device on firmware 2.6+) is only needed for convoy tracking, not for maps. Internet is needed once, to import trails and download tiles.</div>
+
+<h3 id="gs-trails">1.2 · Downloading trails</h3>
+<div class="imgslot">SCREEN IMAGE — Getting Started: Trail import (source / area)<span class="fn">gs_download_trails.png</span></div>
+<p><strong>What you're doing:</strong> trail data is no longer bundled with the app. You import the trails for the regions where you ride, once, and they become permanent on your device.</p>
+<ol>
+<li>Open the <strong>Planning Map</strong>.</li>
+<li>Open <strong>Work with Artifacts</strong> and tap <strong>Import Trails</strong>. The trail source list appears.</li>
+<li>Choose a method:
+  <ul>
+  <li><strong>Import by Source</strong> — select a land-management agency dataset (e.g. UGRC Utah Trails — ~49,000 trails + ~591 trailheads).</li>
+  <li><strong>Import by Area</strong> — draw a box on the map and see the sources that overlap it, with overlap percentages. <span class="coming" style="padding:0 4px;">processing fix in progress</span></li>
+  </ul>
+</li>
+<li>On the validation screen, review the trail count and file size, then confirm to download. Trails and trailhead waypoints download as artifacts.</li>
+<li>Fully close the app (force stop) and reopen so the new trail data loads.</li>
+</ol>
+<div class="note"><strong>If imported trails don't show:</strong> (1) fully close and reopen the app so trail data loads; (2) zoom in — trails draw at zoom level 8 and above, so a large dataset only appears when you're zoomed in enough. This is intentional for performance.</div>
+<p>Full detail in Chapter 4 (<a href="#artifacts">Work with Artifacts</a>).</p>
+
+<h3 id="gs-map-sources">1.3 · Adding / updating map sources</h3>
+<div class="imgslot">SCREEN IMAGE — Getting Started: Map sources / tile settings<span class="fn">gs_map_sources.png</span></div>
+<p><strong>What you're doing:</strong> map sources are the base imagery behind your trails (satellite, topo, outdoor, etc.). V2.5 offers 16 sources across 6 categories, and any source can be assigned to any of the three toolbar slots (SAT / TOPO / TOPO+).</p>
+<ol>
+<li>Open <strong>Settings &gt; Map Sources</strong>. <span class="coming" style="padding:0 4px;">[verify menu path]</span></li>
+<li>For each toolbar slot (SAT / TOPO / TOPO+), choose which of the 16 sources to assign.</li>
+<li>For premium sources that require an API key (e.g. Thunderforest), enter the key when prompted; keys are stored locally on the device.</li>
+<li>Changing a source triggers a background tile refresh for the new imagery.</li>
+</ol>
+<div class="note"><strong>Offline tiles:</strong> download tiles while you have internet so they're cached for offline use in the field. Tiles are served from your offline cache when available. See the Download Queue (Chapter 3) for managing tile downloads.</div>
+
+<h3 id="gs-trail-sources">1.4 · Adding / updating trail sources</h3>
+<div class="imgslot">SCREEN IMAGE — Getting Started: Trail source catalog<span class="fn">gs_trail_sources.png</span></div>
+<p><strong>What you're doing:</strong> beyond your first import (1.2), you can add more trail sources as you ride new areas, or update existing ones. Multiple sources and agencies can be active at once.</p>
+<ol>
+<li>Open <strong>Work with Artifacts → Import Trails</strong> to return to the trail source catalog.</li>
+<li><strong>Add a source:</strong> pick another agency dataset (by source) or draw a new area (by area) and import, exactly as in 1.2.</li>
+<li><strong>Update a source:</strong> re-importing a source you already have is de-duplicated — trails already on the device are recognized and skipped, so re-import is safe and only adds what's new. <span class="coming" style="padding:0 4px;">[verify trail-source re-import dedupe state]</span></li>
+</ol>
+<div class="note"><strong>Agencies:</strong> UGRC Utah Trails is the first catalog source; BLM and USFS are planned.</div>
+
+<h3 id="gs-radio">1.5 · Setting up your radio (optional)</h3>
+<div class="imgslot">SCREEN IMAGE — Getting Started: Radio setup / pairing<span class="fn">gs_radio_setup.png</span></div>
+<p><strong>What you're doing:</strong> the radio is only needed for live convoy tracking — maps, trails, and routes all work without it. If you're riding solo or just planning, you can skip this.</p>
+<ol>
+<li>Power on your Meshtastic device (e.g. T1000-E).</li>
+<li>Open the <strong>Convoy Map</strong> and open the connection panel (Chapter 3). Pair the device over Bluetooth; the panel shows connection state.</li>
+<li>Apply the convoy radio configuration so all riders share the same channel and encryption — see Chapter 5 (<a href="#radio-write">Convoy Radio-Write Menu</a>): Apply / Archive / Restore.</li>
+<li>Confirm the mesh is up in the monitoring panel before relying on positions.</li>
+</ol>
+<div class="note"><strong>Device compatibility:</strong> some budget Android devices cannot hold a stable Bluetooth link to the radio (the connection drops after several seconds). If positions stop updating and the panel shows repeated disconnects, the device may be incompatible — see the tester compatibility list.</div>
+
+<!-- ============================================================ -->
+<h2 id="planning-map">2 · Planning Map</h2>
+<div class="screenref">Screen: Planning Map · ? help anchor: #planning-map</div>
+<div class="imgslot">SCREEN IMAGE — Planning Map (landing)<span class="fn">planning_map.png</span></div>
+<p>The Planning Map is the off-radio workspace: explore downloaded trails, import your track history, build and save routes, and manage what's displayed — all without a radio connected. It shares the spatial database and route engine with the Convoy Map, but keeps its own display state.</p>
+
+<h3>Map basics</h3>
+<ul>
+<li><strong>Pan / zoom:</strong> drag to pan, pinch to zoom. These stay live at all times, even while building a route.</li>
+<li><strong>Base layers (SAT / TOPO / TOPO+):</strong> switch imagery from the layer control. Tiles are served from your offline cache when available. (Assign sources to these slots in Settings &gt; Map Sources — see 1.3.)</li>
+<li><strong>Viewport-aware display:</strong> trails, tracks, waypoints, and routes load for the area you're viewing. Zoom in to see more detail; the display fills in as you move.</li>
+</ul>
+
+<h3>Displaying trails, tracks, waypoints, routes</h3>
+<p>See Chapter 4 (<a href="#artifacts">Work with Artifacts</a>) — the toggle/select/edit controls are shared and documented there.</p>
+<div class="note"><strong>Too many trails in view:</strong> if the current view contains more trails than can be displayed at once, the SEL/Edit control indicates "Too many trails in view — zoom in to reduce." Zoom in to narrow the area until trails become selectable. <span class="coming" style="padding:0 5px;">guidance behavior — coming</span></div>
+
+<h3>Building a route</h3>
+<p>See the full cookbook entry in Chapter 4 → <a href="#creating-a-route">Creating a Route</a>. Route building works identically on the Planning Map and the Convoy Map.</p>
+
+<h3>Importing trails / tracks</h3>
+<ul>
+<li><strong>Import tracks (GPX):</strong> bring in your recorded track history. Large files import via streaming; duplicates (same geometry) are skipped automatically, and a recap shows new vs. already-in-library.</li>
+<li><strong>Import trails by area:</strong> draw an area to list and download trail sources overlapping it. <span class="coming" style="padding:0 5px;">processing fix in progress</span></li>
+</ul>
+<div class="coming"><strong>Coming:</strong> waypoint and route extraction from GPX (all GPX imports are currently treated as tracks); GPX/KML open-with handler.</div>
+
+<!-- ============================================================ -->
+<h2 id="convoy-map">3 · Convoy Map</h2>
+<div class="screenref">Screen: Convoy Map (incl. Meshtastic connection / monitoring panel) · ? help anchor: #convoy-map</div>
+<div class="imgslot">SCREEN IMAGE — Convoy Map (landing)<span class="fn">convoy_map.png</span></div>
+<p>The Convoy Map is the live group-tracking screen used during a ride. It shows your position and the positions of other riders relayed over the Meshtastic LoRa mesh, plus the same trail/track/waypoint/route display and route-building tools as the Planning Map.</p>
+
+<h3>Connecting to your radio (connection &amp; monitoring panel)</h3>
+<ul>
+<li><strong>Connect:</strong> open the connection panel and pair your Meshtastic device (e.g. T1000-E) over Bluetooth. The panel shows connection state.</li>
+<li><strong>Monitoring:</strong> the panel reports link status and node activity. Use it to confirm the mesh is up before relying on positions.</li>
+</ul>
+<div class="note"><strong>Device compatibility:</strong> some budget Android devices cannot hold a stable Bluetooth link to the radio (the connection drops after several seconds). If positions stop updating and the panel shows repeated disconnects, the device may be incompatible — see the tester compatibility list.</div>
+
+<h3>Live tracking</h3>
+<ul>
+<li><strong>Rider positions:</strong> other riders appear as node markers, updated as mesh packets arrive.</li>
+<li><strong>Your position:</strong> driven by the phone GPS once location permission is granted.</li>
+</ul>
+
+<h3>Waypoints</h3>
+<ul>
+<li><strong>Drop a waypoint:</strong> long-press the map to drop a waypoint pin.</li>
+<li><strong>Pin shape:</strong> waypoints display as <strong>teardrop pins</strong> — the pin's point marks the exact location you dropped it. Each waypoint type has its own color and icon.</li>
+<li><strong>Proximity:</strong> waypoints within 100 m are treated as the same location.</li>
+</ul>
+
+<h3>Help on this screen</h3>
+<ul>
+<li><strong>? help:</strong> tap the <span class="help">?</span> button on the Convoy Map to open the release notes or the full user manual. (The same help is on the Planning Map; both open the same documents.)</li>
+</ul>
+
+<h3>Download QUEUES (tile downloads)</h3>
+<div class="imgslot">SCREEN IMAGE — Download Queues monitor<span class="fn">queues_download.png</span></div>
+<ul>
+<li><strong>QUEUES:</strong> opens the live download monitor (top-right) showing tile-download progress.</li>
+<li><strong>Manage the queue:</strong> hold (pause all processing, resume when ready), cancel a single entry, or cancel all. Downloaded tiles are preserved when you cancel a partial download.</li>
+</ul>
+
+<h3>Building a route on the Convoy Map</h3>
+<p>Identical to the Planning Map — see Chapter 4 → <a href="#creating-a-route">Creating a Route</a>.</p>
+
+<!-- ============================================================ -->
+<h2 id="artifacts">4 · Work with Artifacts</h2>
+<div class="screenref">Screen: Work with Artifacts (shared by both maps)</div>
+<div class="imgslot">SCREEN IMAGE — Work with Artifacts panel (landing)<span class="fn">work_with_artifacts.png</span></div>
+<p>"Work with Artifacts" is the control center for everything you display and create on the map: trails, tracks, waypoints, and routes. The toggle and select/edit controls are the same on the Planning Map and the Convoy Map.</p>
+
+<h3>Display toggles (ON / OFF / SELECTED)</h3>
+<ul>
+<li><strong>ON:</strong> show all artifacts of that type in view.</li>
+<li><strong>OFF:</strong> hide that type.</li>
+<li><strong>SELECTED:</strong> show only the items you've checked in that type's select/edit list.</li>
+</ul>
+
+<h3>Select / Edit list (per type)</h3>
+<ul>
+<li>Open a type's SEL/Edit list to check individual items for SELECTED display, or to open an item's detail.</li>
+<li><strong>Search by name:</strong> choose an artifact type, type a name, and press Enter to find matching trails, tracks, waypoints, or routes by name across your whole database (not just what's on screen). Search is case-insensitive and matches partial names. Tap a result to open its detail.</li>
+<li><strong>Item detail:</strong> tapping an item's name (from a search result or the select/edit list) opens its detail card. The left side lists the actions available for that item's type; the right side shows the item's information. For trails this includes designated uses, surface type, classification (carto code), county, managing agency, and data source. Less-used technical values — bounding coordinates, created/updated dates, and the geometry hash — are tucked under a <strong>▸ technical</strong> toggle so the useful information shows first; tap it to expand. Where a trail has alternate names on record, they appear here too. On the Convoy Map the detail is view-only; full editing is on the Planning Map.</li>
+<li><strong>FIT (fit to map):</strong> from an item's detail card, tap <strong>FIT</strong> to frame that item on the map. The map flies to the item and zooms to fit it, the item is selected and drawn on its own, and the other artifact types are turned off — so you see just the one you picked. Works for trails, tracks, waypoints, and routes, on both maps. FIT is how you go from finding a name to seeing it on the map.</li>
+<li><strong>List limit:</strong> the list currently shows up to 200 items. <span class="coming" style="padding:0 5px;">paging — coming</span></li>
+<li><strong>Trails over-limit:</strong> when more trails are in view than can be shown, SEL/Edit shows "Too many trails in view — zoom in to reduce." <span class="coming" style="padding:0 5px;">coming</span></li>
+</ul>
+
+<h3>Track display</h3>
+<div class="note">Tracks display as <strong>dashed green</strong> lines from your device's spatial database. When Tracks are on, each track shows <strong>direction-of-travel arrows</strong> along the line so you can read which way it runs — useful for telling a single looping track from two overlapping ones. The arrows are evenly spaced on screen and stay readable as you zoom, and are drawn in the same neon green as the track.</div>
+<h3>Routes display</h3>
+<div class="note">Routes display as <strong>magenta</strong> lines, loaded from your device's spatial database the same viewport-aware way as trails and tracks. Build a route with <strong>+ ROUTE</strong> (see Creating a Route). <em>(Importing routes from GPX, and the Draw / Suggest build methods, are coming in upcoming updates.)</em></div>
+
+<h3 id="creating-a-route">Creating a Route (early access)</h3>
+<p>A route is a planned path you build by tapping the map, then save with a name for later use. Route building works on both the convoy map and the planning map.</p>
+<ol>
+<li>Open the map (convoy or planning).</li>
+<li>Open "Work with Artifacts" and tap <strong>+ ROUTE</strong>. The Route+ toolbar appears.</li>
+<li>Tap <strong>New</strong>. A "Name this route" box appears with a suggested name — accept it or type your own — then start building.</li>
+<li><strong>Add</strong> is on by default (green): tap the map to drop points. If a trail or track is nearby, the point snaps to it and the magenta route line follows the trail's actual shape between your points — so the route traces real trails instead of cutting straight across. Tap away from any trail to place a free point exactly where you tapped. Tip: zoom in while building for the most reliable snapping.</li>
+<li>Use <strong>Undo</strong> to remove the most recent point.</li>
+<li>Pan and zoom freely between taps to position the map.</li>
+<li>Tap <strong>Save</strong> to store the route. It is saved on your device, redraws on the map in magenta, and appears in Work with Artifacts → Routes under the name you gave it.</li>
+<li>Tap <strong>Discard</strong> to leave without saving.</li>
+</ol>
+<div class="coming"><strong>Coming next (not in this build):</strong>
+<ul>
+<li><strong>Save In Progress / Resume:</strong> save a half-finished route and re-open it later to keep editing (the "In Progress" entry).</li>
+<li><strong>Draw</strong> and <strong>Suggest</strong> build methods (placeholders today).</li>
+<li>Renaming/editing a saved route from the Routes list (route maintenance).</li>
+</ul></div>
+<div class="note"><strong>Route maintenance</strong> (rename, edit geometry, delete a completed route) lives in Work with Artifacts → Routes (SEL/Edit), not in the Route+ toolbar. The toolbar is for building only.</div>
+
+<h3>Track / Trail / Waypoint maintenance</h3>
+<ul>
+<li>Per-type maintenance (rename, detail, delete) is reached from each type's SEL/Edit list. <span class="coming" style="padding:0 5px;">trail/route/waypoint maintenance — in progress</span></li>
+<li><strong>Unnamed trails</strong> display as "Not Named." <span class="coming" style="padding:0 5px;">consistent labeling — being aligned at import</span></li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="radio-write">5 · Convoy Radio-Write Menu (Apply / Archive / Restore)</h2>
+<div class="screenref">Screen: Convoy menu — radio configuration · ? help anchor: #radio-write</div>
+<div class="imgslot">SCREEN IMAGE — Convoy Radio-Write menu (landing)<span class="fn">radio_write.png</span></div>
+<div class="transitional"><strong>Transitional — current and supported in V2.5.</strong> These radio-configuration functions are how radio writes happen this release. They are slated to be replaced in 3.0, but they work now and you should use them. This manual fully covers them; the 3.0 manual will rewrite this section when the functions change.</div>
+
+<h3>Apply Convoy Config (write to radio)</h3>
+<ol>
+<li>Connect the radio first (Chapter 3 connection panel) — the write action is unavailable with no Bluetooth link.</li>
+<li>Open the Convoy menu → radio configuration.</li>
+<li>Review the config values (channel, encryption keys, device settings). Values are validated before writing.</li>
+<li>Apply. The write proceeds screen-by-screen / in passes through the config groups; confirm each completes.</li>
+</ol>
+<div class="note"><strong>Field validation:</strong> the config is validated (e.g. full field check) before programming. A two-pass programming approach is used so all config groups are written and confirmed.</div>
+
+<h3>Archive radio config</h3>
+<ul><li>Save the current working radio configuration so it can be restored later. Use this before making changes.</li></ul>
+
+<h3>Restore radio config</h3>
+<ul><li>Re-apply a previously archived configuration to the connected radio.</li></ul>
+
+<div class="coming"><strong>Coming (replaces this menu in a future build):</strong> a screen-by-screen radio-config writer that mirrors each Meshtastic config screen, pre-populated and read-only, with a PROCEED button that is disabled (red) until the radio is connected (then green), saving after each screen through all config groups.</div>
+
+<div class="note" style="margin-top:24px"><strong>Manual maintenance note (internal):</strong> when a screen's functions change AND are complete, update that screen's section here and re-point its ? help anchor. Each landing screen carries one image slot (filename shown in the slot) — recapture only when that screen's layout changes. Transitional radio-config sections (Chapter 5) are removed/rewritten in the 3.0 manual when those functions are replaced.</div>
+
+<!-- carried 2026-06-13: checklist-integrity session, NO functional/feature changes; content unchanged from 06-12 baseline -->
+<!-- carried 2026-06-18: FIT shipped (detail-card FIT documented); convoy ? help in Convoy Map; track-arrows note updated for pixel-spacing/neon. -->
+</body>
+</html>
+
+<!-- restructured 2026-06-18 (PM): added Getting Started (Ch 1: install, trails, map sources, trail sources, radio); reordered Work with Artifacts (Ch 4) ahead of Radio-Write (Ch 5); Chapter->screen numbering; named image slots at each landing screen (gs_install, gs_download_trails, gs_map_sources, gs_trail_sources, gs_radio_setup, planning_map, convoy_map, work_with_artifacts, queues_download, radio_write). Getting Started procedures drafted from repo material; [verify] tags mark spots needing a device-confirming pass. -->
