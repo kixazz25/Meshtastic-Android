@@ -20616,6 +20616,137 @@ Mockup · captured 2026-06-18 · one beacon, 5 modes, shared on both maps
 })();
 
 
+=== GroupTrack_V2.5_Living_Checklist_2026-06-20_EOD.html ===
+GroupTrack V2.5 — Living Release Checklist (2026-06-20 EOD)
+  :root{
+    --ink:#1a2230; --muted:#5b6675; --line:#d9e0ea; --bg:#f6f8fb; --card:#fff;
+    --done:#1f8a4c; --donebg:#e9f7ef; --open:#b4540a; --openbg:#fdf1e6;
+    --def:#5a4bb3; --defbg:#efecfb; --doc:#0a6a9a; --docbg:#e8f4fb;
+    --crit:#b00020; --accent:#0a6a9a;
+  }
+  *{box-sizing:border-box}
+  body{font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:var(--ink);
+       background:var(--bg);margin:0;padding:28px 18px;line-height:1.5;font-size:15px}
+  .wrap{max-width:980px;margin:0 auto}
+  header.top{border-bottom:3px solid var(--accent);padding-bottom:14px;margin-bottom:22px}
+  header.top h1{margin:0 0 4px;font-size:24px}
+  header.top .sub{color:var(--muted);font-size:13.5px}
+  h2{font-size:18px;margin:26px 0 10px;padding:8px 12px;border-radius:8px;background:#eef2f7;
+     border-left:5px solid var(--accent)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin:10px 0;
+        box-shadow:0 1px 2px rgba(20,30,50,.04)}
+  .tag{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;
+       padding:2px 8px;border-radius:20px;vertical-align:middle;margin-right:8px}
+  .t-done{color:var(--done);background:var(--donebg)}
+  .t-open{color:var(--open);background:var(--openbg)}
+  .t-def{color:var(--def);background:var(--defbg)}
+  .t-doc{color:var(--doc);background:var(--docbg)}
+  .t-crit{color:#fff;background:var(--crit)}
+  .card h3{margin:2px 0 6px;font-size:15.5px}
+  .card .meta{color:var(--muted);font-size:12.5px;margin-bottom:6px}
+  .card ul{margin:6px 0 2px;padding-left:20px}
+  .card li{margin:3px 0}
+  code{background:#eef2f7;padding:1px 5px;border-radius:4px;font-size:12.5px;font-family:ui-monospace,Menlo,Consolas,monospace}
+  .commit{font-family:ui-monospace,Menlo,Consolas,monospace;color:var(--done);font-weight:700}
+  table.docs{width:100%;border-collapse:collapse;margin-top:8px;font-size:13.5px}
+  table.docs th,table.docs td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+  table.docs th{background:#eef2f7}
+  .st{font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.3px;padding:2px 7px;border-radius:5px;white-space:nowrap}
+  .st-changed{color:var(--open);background:var(--openbg)}
+  .st-needs{color:var(--crit);background:#fdeaec}
+  .st-current{color:var(--done);background:var(--donebg)}
+  .note{font-size:12.5px;color:var(--muted);font-style:italic;margin-top:4px}
+  .seq{counter-reset:step;list-style:none;padding-left:0}
+  .seq li{counter-increment:step;margin:6px 0;padding-left:34px;position:relative}
+  .seq li::before{content:counter(step);position:absolute;left:0;top:0;width:24px;height:24px;border-radius:50%;
+    background:var(--accent);color:#fff;font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center}
+  footer{margin-top:30px;padding-top:14px;border-top:1px solid var(--line);color:var(--muted);font-size:12.5px}
+  GroupTrack V2.5 — Living Release Checklist
+  End of day 2026-06-20 &nbsp;·&nbsp; branch feature/convoy-event-ride &nbsp;·&nbsp; carry-forward status of every task and document needed to ship the 2.5 AAB
+✅ Closed / committed today (4 commits)
+  Done37bc88431
+  Unified artifact detail panel + reusable ops + carto type fix
+    One ArtifactDetailPanel launched from search FAB and sel/edit, both maps; old inline duplicate inside ArtifactListPanel removed; ConvoyArtifactOps filled from stubs to real suspend ops (rename/delete/changeType/share/export/deleteAlias/buildGpx). Net −191 lines.
+    Carto type root cause was a wrong-DB read: a stray null carto_code column on the spatial trails table shadowed the real trail_properties.carto_code. Fixed null-aware merge; carto shows as an 8-code colored full-row band in the detail panel. Device-tested.
+  Doned57626f77
+  Artifacts FAB + standardized icon column (both maps)
+    Closed = artifacts FAB (☰) only; tap opens the Work-with-Artifacts panel expanded (FAB hides); collapse closes the panel (FAB returns). One showArtifactsPanel flag, mutually exclusive.
+    Standardized right-edge column on both maps, top→bottom: Search · Hamburger(☰) · Help(?). Device-tuned spacing.
+  Done98f54e4b8
+  FIT corruption fix — removed duplicate write path
+    FIT had two colliding write paths; one clobbered the other's bbox with a stale frame, causing a continuous draw-then-zero loop. Removed the duplicate. (Recenter was lost here and restored next.)
+  Donea43f80829
+  FIT recenters map to artifact bbox + 10% padding
+    In each onDismiss FIT branch, before the save: compute the artifact bbox via SpatialDbManager.bboxForArtifact(), pad 10%, set lastViewport* to it, and fire fitBounds() to recenter. The existing save then writes the correct frame.
+    Device-tested + JSON-proven: FIT centers the artifact and writes correct state (fitted type SELECTED, real artifact bbox). One writer, fed the right bbox — no clobber.
+⛔ Open tasks — UI data (finish these first; they complete the UI)
+  Open · pick up first
+  1 · FIT SEL/EDIT-panel row update (the one remaining FIT piece)
+  Decision already made — implement Option B. No re-diagnosis needed.
+    Symptom: FIT applies correctly (centers, selects, JSON perfect) but the SEL/EDIT panel is still open underneath. When that panel later closes, its launch-time state (all / none) takes precedence and overrides the FIT — the trail disappears or all artifacts show.
+    Why: FIT never writes the panel's row state. A manual row-select writes it (proven: manually selecting the same row you just fitted works); FIT does not. The viewport query always runs and applies off/on/selected — FIT just never sets the panel row to SELECTED + the fitted id.
+    Fix (Option B, chosen because it removes any user-interaction path that can break FIT state): on FIT / detail launch, close the SEL/EDIT panel and set its row + state to the one fitted artifact — i.e. selectedArtifactIds = setOf(fittedId) and activeListType = fittedType, plus showArtifactsPanel = false.
+    Where: ConvoyScreen onOpenDetail ~line 1292 and ~1780 (both set pendingDetail* but never close the panel). Mirror the manual-select row write found in commit 35ccccc4a ~lines 1678-1679 (selectedArtifactIds = …; activeListType = typeName). Apply to both screens.
+  Open
+  2 · Widen artifact selection radius on the map (touch tolerance)
+    Both map HTMLs use the default SVG renderer. Add renderer: L.svg({ tolerance: 12 }) to the L.map(...) call — one line per HTML (convoy_map.html and grouptrack_map.html). Widens the hit zone for all artifact taps. Tunable 12 → 15–18.
+    Independent, low risk. Part of the "simple JS selection focus" change.
+  Open
+  3 · Trail info panel — display real data from the extension DB
+    Current state: the map-tap popup shows "Unknown" for Surface / Uses / CartoCode. The map retrieve (queryTrailsByViewport → buildTrailGeoJson) reads only the spatial DB, where those property columns are blank. The real values (including carto_code) live in the extension DB trail_properties and are never retrieved by the map path.
+    Approach (Fred's, additive — NOT a rewrite): after the existing spatial retrieve, additionally pull the wanted fields from trail_properties and emit them into the popup. Color the whole CartoCode line by carto code (mirror the 8-color cartoStyle in JS), trails only.
+    Do not rewrite the working spatial retrieve; layer the extension lookup on top as a second step.
+  Open · regression (new today)
+  4 · Track arrows display when they shouldn't
+    Symptom (new today, never before): track directional arrows still display when tracks are OFF, or when only one track is SELECTED. Arrows should show only when tracks show.
+    convoy_map.html was not in today's commits, so the regression is either in how the Kotlin side calls track show/hide/update, or the arrow layer not being removed on hide.
+    Next: read convoy_map.html ~lines 448–495 (trackArrows = L.polylineDecorator, showTracks/hideTracks/updateTracks). Confirm hideTracks removes trackArrows, and that updateTracks rebuilds arrows honoring the SELECTED filter (not all tracks). Not yet root-caused.
+📄 Document inventory — every doc needed to ship 2.5, with change status
+Carry-forward list. "Changed today" = code landed today that the doc must reflect. "Needs update" = must be edited before the AAB. "Current" = no change required.
+    DocumentPath / formStatusWhat it needs
+      User manual (pristine cookbook)
+      app/src/main/assets/grouptrack_manual.html (06-07 pristine; HTML)
+      Needs update
+      Rebuild using the pristine model as guideline, edit in place (never from a drifted variant). Reflect today's changes: unified detail panel + Carto Type band; artifacts FAB + standardized icon column; widened selection; trail popup ext-data + carto color; FIT (recenter + one-artifact). Fold in post-06-07 features (FIT, "?" help, arrows, snap-2 routes, persistence). Add Convoy Settings section; expand Radio-Write sequence; hide/collapse 3.0 screens. Embed an adb screen-capture command at each section, sequenced via navigation_xref.txt.
+      Release notes
+      app/src/main/assets/grouptrack_release_notes.html (HTML)
+      Needs update
+      Update in sections like the manual. Put critical installation instructions at the TOP (install-as-update / do-not-uninstall — protects tester DBs). Add V2.5 entries for today's work. Bundle in the AAB.
+      Navigation cross-reference
+      navigation_xref.txt (1374 lines; uploaded)
+      Reference
+      Drives the manual's capture sequence by panel navigation. Current — used as input, not edited. Regenerate only if nav routes change.
+      This living checklist
+      This file (HTML)
+      Changed today
+      Authoritative carry-forward of open/closed tasks + doc status. Update at each EOD.
+      Lead-track replacement spec
+      GroupTrack_LeadTrackReplacement_Spec.docx (May 31) + …DemolitionRebuild_2026-06-18.md
+      Current
+      Authority for the [2.1] lead-cart rebuild (attempt LAST, after the AAB is banked). No change needed now; carry forward.
+🟣 Deferred but tracked (do NOT lose — own sessions)
+  Deferred
+  Data-integrity root fix — import function + redeploy
+    The spatial DB was meant to stay pure/standard for compatibility; the extension DB compromised that intent and left a data-integrity gap (real props only in the extension, spatial columns blank, nothing keeping them coherent).
+    Root fix (retires the display-time popup workaround): since only the import function writes records, fix that one import function to populate correctly (trigger / write-time populate — single writer makes it clean), then redeploy the data model to field machines via the existing regenerate-not-migrate path (testers re-import, get clean data).
+    Its own session; test the import path carefully (it feeds everything). Not to be mixed into a display patch.
+  Deferred
+  [2.1] Lead-cart convoy-tracking rebuild (must-ship, attempt LAST)
+    Demolition + rebuild: track only the lead from its broadcasts; snap to known geometry within 100yd; other carts are live markers only (kills phantom carts); each cart overwrites the lead's path in its wake with its own per-second GPS.
+    Sequence it after the 2.5 AAB is banked, so the rewrite is pure upside (clean → folds in; hairy → defer to 2.6 and ship the AAB).
+  Housekeeping
+  Tree cleanup
+    Sweep the .bak_* litter in convoy/ and assets/, plus utah_trails_stgeorge.geojson.bak and docs/.tmp.driveupload/10630, when next touching the tree. Never commit grouptrack_spatial.db (117 MB, untracked). Keep the untracked-but-wanted canonical docs (grouptrack_manual.html, grouptrack_release_notes.html).
+🚢 Path to the 2.5 AAB (order)
+  Finish the UI-data open tasks: FIT SEL-panel (Option B) → widen selection radius → trail popup ext-data + carto color → track-arrows regression. Build, test, commit each.
+  Rebuild the user manual (pristine cookbook in place) with embedded capture commands sequenced via navigation_xref; Fred runs captures, zips, uploads; attach by filename.
+  Update release notes (sectioned; install instructions at top); bundle in AAB.
+  Cut the 2.5 AAB = banked fallback.
+  Attempt [2.1] lead-track rewrite last — clean folds in; hairy defers to 2.6 and ships the banked AAB.
+  GroupTrack V2.5 living checklist · generated 2026-06-20 EOD · branch feature/convoy-event-ride.
+  Today's commits: 37bc88431 · d57626f77 · 98f54e4b8 · a43f80829.
+
+
 === GroupTrack_V25_InteractivePanels.html ===
 GroupTrack V2.5 -- Interactive Screen Panels
 :root {

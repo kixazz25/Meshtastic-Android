@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GroupTrack V2.5 — Living Release Checklist (2026-06-20 EOD)</title>
+<style>
+  :root{
+    --ink:#1a2230; --muted:#5b6675; --line:#d9e0ea; --bg:#f6f8fb; --card:#fff;
+    --done:#1f8a4c; --donebg:#e9f7ef; --open:#b4540a; --openbg:#fdf1e6;
+    --def:#5a4bb3; --defbg:#efecfb; --doc:#0a6a9a; --docbg:#e8f4fb;
+    --crit:#b00020; --accent:#0a6a9a;
+  }
+  *{box-sizing:border-box}
+  body{font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:var(--ink);
+       background:var(--bg);margin:0;padding:28px 18px;line-height:1.5;font-size:15px}
+  .wrap{max-width:980px;margin:0 auto}
+  header.top{border-bottom:3px solid var(--accent);padding-bottom:14px;margin-bottom:22px}
+  header.top h1{margin:0 0 4px;font-size:24px}
+  header.top .sub{color:var(--muted);font-size:13.5px}
+  h2{font-size:18px;margin:26px 0 10px;padding:8px 12px;border-radius:8px;background:#eef2f7;
+     border-left:5px solid var(--accent)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin:10px 0;
+        box-shadow:0 1px 2px rgba(20,30,50,.04)}
+  .tag{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;
+       padding:2px 8px;border-radius:20px;vertical-align:middle;margin-right:8px}
+  .t-done{color:var(--done);background:var(--donebg)}
+  .t-open{color:var(--open);background:var(--openbg)}
+  .t-def{color:var(--def);background:var(--defbg)}
+  .t-doc{color:var(--doc);background:var(--docbg)}
+  .t-crit{color:#fff;background:var(--crit)}
+  .card h3{margin:2px 0 6px;font-size:15.5px}
+  .card .meta{color:var(--muted);font-size:12.5px;margin-bottom:6px}
+  .card ul{margin:6px 0 2px;padding-left:20px}
+  .card li{margin:3px 0}
+  code{background:#eef2f7;padding:1px 5px;border-radius:4px;font-size:12.5px;font-family:ui-monospace,Menlo,Consolas,monospace}
+  .commit{font-family:ui-monospace,Menlo,Consolas,monospace;color:var(--done);font-weight:700}
+  table.docs{width:100%;border-collapse:collapse;margin-top:8px;font-size:13.5px}
+  table.docs th,table.docs td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+  table.docs th{background:#eef2f7}
+  .st{font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.3px;padding:2px 7px;border-radius:5px;white-space:nowrap}
+  .st-changed{color:var(--open);background:var(--openbg)}
+  .st-needs{color:var(--crit);background:#fdeaec}
+  .st-current{color:var(--done);background:var(--donebg)}
+  .note{font-size:12.5px;color:var(--muted);font-style:italic;margin-top:4px}
+  .seq{counter-reset:step;list-style:none;padding-left:0}
+  .seq li{counter-increment:step;margin:6px 0;padding-left:34px;position:relative}
+  .seq li::before{content:counter(step);position:absolute;left:0;top:0;width:24px;height:24px;border-radius:50%;
+    background:var(--accent);color:#fff;font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center}
+  footer{margin-top:30px;padding-top:14px;border-top:1px solid var(--line);color:var(--muted);font-size:12.5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <h1>GroupTrack V2.5 — Living Release Checklist</h1>
+  <div class="sub">End of day <strong>2026-06-20</strong> &nbsp;·&nbsp; branch <code>feature/convoy-event-ride</code> &nbsp;·&nbsp; carry-forward status of every task and document needed to ship the 2.5 AAB</div>
+</header>
+
+<!-- ================= CLOSED TODAY ================= -->
+<h2>✅ Closed / committed today (4 commits)</h2>
+
+<div class="card">
+  <span class="tag t-done">Done</span><span class="commit">37bc88431</span>
+  <h3>Unified artifact detail panel + reusable ops + carto type fix</h3>
+  <ul>
+    <li>One <code>ArtifactDetailPanel</code> launched from search FAB and sel/edit, both maps; old inline duplicate inside <code>ArtifactListPanel</code> removed; <code>ConvoyArtifactOps</code> filled from stubs to real suspend ops (rename/delete/changeType/share/export/deleteAlias/buildGpx). Net −191 lines.</li>
+    <li>Carto type root cause was a <strong>wrong-DB read</strong>: a stray null <code>carto_code</code> column on the spatial <code>trails</code> table shadowed the real <code>trail_properties.carto_code</code>. Fixed null-aware merge; carto shows as an 8-code colored full-row band in the detail panel. Device-tested.</li>
+  </ul>
+</div>
+
+<div class="card">
+  <span class="tag t-done">Done</span><span class="commit">d57626f77</span>
+  <h3>Artifacts FAB + standardized icon column (both maps)</h3>
+  <ul>
+    <li>Closed = artifacts FAB (☰) only; tap opens the Work-with-Artifacts panel expanded (FAB hides); collapse closes the panel (FAB returns). One <code>showArtifactsPanel</code> flag, mutually exclusive.</li>
+    <li>Standardized right-edge column on both maps, top→bottom: Search · Hamburger(☰) · Help(?). Device-tuned spacing.</li>
+  </ul>
+</div>
+
+<div class="card">
+  <span class="tag t-done">Done</span><span class="commit">98f54e4b8</span>
+  <h3>FIT corruption fix — removed duplicate write path</h3>
+  <ul>
+    <li>FIT had two colliding write paths; one clobbered the other's bbox with a stale frame, causing a continuous draw-then-zero loop. Removed the duplicate. (Recenter was lost here and restored next.)</li>
+  </ul>
+</div>
+
+<div class="card">
+  <span class="tag t-done">Done</span><span class="commit">a43f80829</span>
+  <h3>FIT recenters map to artifact bbox + 10% padding</h3>
+  <ul>
+    <li>In each onDismiss FIT branch, before the save: compute the artifact bbox via <code>SpatialDbManager.bboxForArtifact()</code>, pad 10%, set <code>lastViewport*</code> to it, and fire <code>fitBounds()</code> to recenter. The existing save then writes the correct frame.</li>
+    <li><strong>Device-tested + JSON-proven:</strong> FIT centers the artifact and writes correct state (fitted type SELECTED, real artifact bbox). One writer, fed the right bbox — no clobber.</li>
+  </ul>
+</div>
+
+<!-- ================= OPEN — UI DATA ================= -->
+<h2>⛔ Open tasks — UI data (finish these first; they complete the UI)</h2>
+
+<div class="card">
+  <span class="tag t-open">Open · pick up first</span>
+  <h3>1 · FIT SEL/EDIT-panel row update (the one remaining FIT piece)</h3>
+  <div class="meta">Decision already made — implement <strong>Option B</strong>. No re-diagnosis needed.</div>
+  <ul>
+    <li><strong>Symptom:</strong> FIT applies correctly (centers, selects, JSON perfect) but the SEL/EDIT panel is still open underneath. When that panel later closes, its launch-time state (all / none) takes precedence and overrides the FIT — the trail disappears or all artifacts show.</li>
+    <li><strong>Why:</strong> FIT never writes the panel's <em>row</em> state. A manual row-select writes it (proven: manually selecting the same row you just fitted works); FIT does not. The viewport query always runs and applies off/on/selected — FIT just never sets the panel row to SELECTED + the fitted id.</li>
+    <li><strong>Fix (Option B, chosen because it removes any user-interaction path that can break FIT state):</strong> on FIT / detail launch, <em>close</em> the SEL/EDIT panel <strong>and</strong> set its row + state to the one fitted artifact — i.e. <code>selectedArtifactIds = setOf(fittedId)</code> and <code>activeListType = fittedType</code>, plus <code>showArtifactsPanel = false</code>.</li>
+    <li><strong>Where:</strong> ConvoyScreen <code>onOpenDetail</code> ~line 1292 and ~1780 (both set <code>pendingDetail*</code> but never close the panel). Mirror the manual-select row write found in commit <code>35ccccc4a</code> ~lines 1678-1679 (<code>selectedArtifactIds = …; activeListType = typeName</code>). Apply to both screens.</li>
+  </ul>
+</div>
+
+<div class="card">
+  <span class="tag t-open">Open</span>
+  <h3>2 · Widen artifact selection radius on the map (touch tolerance)</h3>
+  <ul>
+    <li>Both map HTMLs use the default SVG renderer. Add <code>renderer: L.svg({ tolerance: 12 })</code> to the <code>L.map(...)</code> call — one line per HTML (<code>convoy_map.html</code> and <code>grouptrack_map.html</code>). Widens the hit zone for all artifact taps. Tunable 12 → 15–18.</li>
+    <li>Independent, low risk. Part of the "simple JS selection focus" change.</li>
+  </ul>
+</div>
+
+<div class="card">
+  <span class="tag t-open">Open</span>
+  <h3>3 · Trail info panel — display real data from the extension DB</h3>
+  <ul>
+    <li><strong>Current state:</strong> the map-tap popup shows <em>"Unknown"</em> for Surface / Uses / CartoCode. The map retrieve (<code>queryTrailsByViewport</code> → <code>buildTrailGeoJson</code>) reads only the <em>spatial</em> DB, where those property columns are blank. The real values (including carto_code) live in the <em>extension</em> DB <code>trail_properties</code> and are never retrieved by the map path.</li>
+    <li><strong>Approach (Fred's, additive — NOT a rewrite):</strong> after the existing spatial retrieve, additionally pull the wanted fields from <code>trail_properties</code> and emit them into the popup. Color the whole CartoCode line by carto code (mirror the 8-color cartoStyle in JS), trails only.</li>
+    <li><strong>Do not</strong> rewrite the working spatial retrieve; layer the extension lookup on top as a second step.</li>
+  </ul>
+</div>
+
+<div class="card">
+  <span class="tag t-open">Open · regression (new today)</span>
+  <h3>4 · Track arrows display when they shouldn't</h3>
+  <ul>
+    <li><strong>Symptom (new today, never before):</strong> track directional arrows still display when tracks are OFF, or when only one track is SELECTED. Arrows should show only when tracks show.</li>
+    <li><code>convoy_map.html</code> was not in today's commits, so the regression is either in how the Kotlin side calls track show/hide/update, or the arrow layer not being removed on hide.</li>
+    <li><strong>Next:</strong> read <code>convoy_map.html</code> ~lines 448–495 (<code>trackArrows = L.polylineDecorator</code>, <code>showTracks/hideTracks/updateTracks</code>). Confirm <code>hideTracks</code> removes <code>trackArrows</code>, and that <code>updateTracks</code> rebuilds arrows honoring the SELECTED filter (not all tracks). Not yet root-caused.</li>
+  </ul>
+</div>
+
+<!-- ================= DOCUMENT INVENTORY ================= -->
+<h2>📄 Document inventory — every doc needed to ship 2.5, with change status</h2>
+<p class="note">Carry-forward list. "Changed today" = code landed today that the doc must reflect. "Needs update" = must be edited before the AAB. "Current" = no change required.</p>
+
+<table class="docs">
+  <thead>
+    <tr><th>Document</th><th>Path / form</th><th>Status</th><th>What it needs</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>User manual (pristine cookbook)</strong></td>
+      <td><code>app/src/main/assets/grouptrack_manual.html</code> (06-07 pristine; HTML)</td>
+      <td><span class="st st-needs">Needs update</span></td>
+      <td>Rebuild <em>using the pristine model as guideline, edit in place</em> (never from a drifted variant). Reflect today's changes: unified detail panel + Carto Type band; artifacts FAB + standardized icon column; widened selection; trail popup ext-data + carto color; FIT (recenter + one-artifact). Fold in post-06-07 features (FIT, "?" help, arrows, snap-2 routes, persistence). Add Convoy Settings section; expand Radio-Write sequence; hide/collapse 3.0 screens. Embed an adb screen-capture command at each section, sequenced via <code>navigation_xref.txt</code>.</td>
+    </tr>
+    <tr>
+      <td><strong>Release notes</strong></td>
+      <td><code>app/src/main/assets/grouptrack_release_notes.html</code> (HTML)</td>
+      <td><span class="st st-needs">Needs update</span></td>
+      <td>Update in sections like the manual. <strong>Put critical installation instructions at the TOP</strong> (install-as-update / do-not-uninstall — protects tester DBs). Add V2.5 entries for today's work. Bundle in the AAB.</td>
+    </tr>
+    <tr>
+      <td><strong>Navigation cross-reference</strong></td>
+      <td><code>navigation_xref.txt</code> (1374 lines; uploaded)</td>
+      <td><span class="st st-current">Reference</span></td>
+      <td>Drives the manual's capture sequence by panel navigation. Current — used as input, not edited. Regenerate only if nav routes change.</td>
+    </tr>
+    <tr>
+      <td><strong>This living checklist</strong></td>
+      <td>This file (HTML)</td>
+      <td><span class="st st-changed">Changed today</span></td>
+      <td>Authoritative carry-forward of open/closed tasks + doc status. Update at each EOD.</td>
+    </tr>
+    <tr>
+      <td>Lead-track replacement spec</td>
+      <td><code>GroupTrack_LeadTrackReplacement_Spec.docx</code> (May 31) + <code>…DemolitionRebuild_2026-06-18.md</code></td>
+      <td><span class="st st-current">Current</span></td>
+      <td>Authority for the [2.1] lead-cart rebuild (attempt LAST, after the AAB is banked). No change needed now; carry forward.</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ================= DEFERRED BUT TRACKED ================= -->
+<h2>🟣 Deferred but tracked (do NOT lose — own sessions)</h2>
+
+<div class="card">
+  <span class="tag t-def">Deferred</span>
+  <h3>Data-integrity root fix — import function + redeploy</h3>
+  <ul>
+    <li>The spatial DB was meant to stay pure/standard for compatibility; the extension DB compromised that intent and left a data-integrity gap (real props only in the extension, spatial columns blank, nothing keeping them coherent).</li>
+    <li><strong>Root fix (retires the display-time popup workaround):</strong> since only the import function writes records, fix that one import function to populate correctly (trigger / write-time populate — single writer makes it clean), then redeploy the data model to field machines via the existing regenerate-not-migrate path (testers re-import, get clean data).</li>
+    <li>Its own session; test the import path carefully (it feeds everything). Not to be mixed into a display patch.</li>
+  </ul>
+</div>
+
+<div class="card">
+  <span class="tag t-def">Deferred</span>
+  <h3>[2.1] Lead-cart convoy-tracking rebuild (must-ship, attempt LAST)</h3>
+  <ul>
+    <li>Demolition + rebuild: track only the lead from its broadcasts; snap to known geometry within 100yd; other carts are live markers only (kills phantom carts); each cart overwrites the lead's path in its wake with its own per-second GPS.</li>
+    <li>Sequence it <strong>after</strong> the 2.5 AAB is banked, so the rewrite is pure upside (clean → folds in; hairy → defer to 2.6 and ship the AAB).</li>
+  </ul>
+</div>
+
+<div class="card">
+  <span class="tag t-def">Housekeeping</span>
+  <h3>Tree cleanup</h3>
+  <ul>
+    <li>Sweep the <code>.bak_*</code> litter in <code>convoy/</code> and <code>assets/</code>, plus <code>utah_trails_stgeorge.geojson.bak</code> and <code>docs/.tmp.driveupload/10630</code>, when next touching the tree. Never commit <code>grouptrack_spatial.db</code> (117 MB, untracked). Keep the untracked-but-wanted canonical docs (<code>grouptrack_manual.html</code>, <code>grouptrack_release_notes.html</code>).</li>
+  </ul>
+</div>
+
+<!-- ================= SEQUENCE ================= -->
+<h2>🚢 Path to the 2.5 AAB (order)</h2>
+<ol class="seq">
+  <li>Finish the UI-data open tasks: FIT SEL-panel (Option B) → widen selection radius → trail popup ext-data + carto color → track-arrows regression. Build, test, commit each.</li>
+  <li>Rebuild the user manual (pristine cookbook in place) with embedded capture commands sequenced via navigation_xref; Fred runs captures, zips, uploads; attach by filename.</li>
+  <li>Update release notes (sectioned; install instructions at top); bundle in AAB.</li>
+  <li>Cut the 2.5 AAB = banked fallback.</li>
+  <li>Attempt [2.1] lead-track rewrite last — clean folds in; hairy defers to 2.6 and ships the banked AAB.</li>
+</ol>
+
+<footer>
+  GroupTrack V2.5 living checklist · generated 2026-06-20 EOD · branch <code>feature/convoy-event-ride</code>.<br>
+  Today's commits: <span class="commit">37bc88431</span> · <span class="commit">d57626f77</span> · <span class="commit">98f54e4b8</span> · <span class="commit">a43f80829</span>.
+</footer>
+
+</div>
+</body>
+</html>
