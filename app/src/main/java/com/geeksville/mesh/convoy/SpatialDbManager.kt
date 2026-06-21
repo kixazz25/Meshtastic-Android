@@ -266,7 +266,7 @@ object SpatialDbManager {
         val db = spatialDb ?: return emptyList()
         val results = mutableListOf<Map<String, String?>>()
         val cursor = db.rawQuery(
-            "SELECT trail_id, name, geometry, carto_code FROM trails WHERE max_lat >= ? AND min_lat <= ? AND max_lon >= ? AND min_lon <= ? LIMIT ?",
+            "SELECT trail_id, name, geometry, carto_code AS CartoCode FROM trails WHERE max_lat >= ? AND min_lat <= ? AND max_lon >= ? AND min_lon <= ? LIMIT ?",
             arrayOf(south.toString(), north.toString(), west.toString(), east.toString(), limit.toString())
         )
         while (cursor.moveToNext()) {

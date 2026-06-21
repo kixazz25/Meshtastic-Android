@@ -62,6 +62,11 @@ object TrailImporter {
 
     private fun emitProgress(p: ImportProgress) { _progress.value = p }
 
+    enum class UpdateMode { CARTO_ONLY, ALL }
+    /** Set by the import/update panel before an import run. CARTO_ONLY = safe carto refresh;
+     *  ALL = refresh all property fields + name on existing records (never geometry). */
+    @Volatile var updateMode: UpdateMode = UpdateMode.CARTO_ONLY
+
     /** Method A: Import all trails from a single source (no bbox filter) */
     suspend fun importFullSource(context: Context, sourceId: String): ImportResult {
         return importFromSource(context, sourceId, null, null, null, null)
@@ -212,7 +217,11 @@ object TrailImporter {
         val uid = props.optString(src.fieldId, "").ifEmpty { return "error" }
 
         // Dedup check (in-memory source-uid set, loaded once at session start)
-        if (SpatialDbManager.sourceUidSeen(src.id, uid)) return "skipped"  // already-imported this source-uid
+        if (SpatialDbManager.sourceUidSeen(src.id, uid)) {
+            // [2026-06-21] Existing record: update in place per updateMode (NOT skip), so a
+            // re-run refreshes carto (and, in ALL mode, the other property fields + name).
+            return updateExistingFeature(sDb, eDb, props, src, uid)
+        }
 
         val name = props.optString(src.fieldName, "").ifEmpty { null }
         val wkt = geojsonGeomToWkt(geom)
@@ -235,11 +244,67 @@ object TrailImporter {
             "INSERT OR IGNORE INTO trail_properties (trail_id,source_id,source_unique_id,designated_uses,motorized_allowed,surface_type,carto_code,owner_steward,county,agency_id,ingested_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
             arrayOf<Any?>(anchorId, src.id, uid, uses, motorized, surface, cartoCode, steward, county, uid, now)
         )
+        // [2026-06-21] Write carto to SPATIAL trails too on create (both stores populated).
+        if (cartoCode.isNotEmpty()) {
+            try { sDb.execSQL("UPDATE trails SET carto_code=? WHERE trail_id=?", arrayOf<Any?>(cartoCode, anchorId)) }
+            catch (ex: Exception) { Log.w(TAG, "spatial carto write (create) failed: ${ex.message}") }
+        }
         return when (decision) {
             SpatialDbManager.AddDecision.INSERT -> "inserted"
             SpatialDbManager.AddDecision.DROP -> "dropped"
             SpatialDbManager.AddDecision.ALIAS -> "aliased"
         }
+    }
+
+    /**
+     * [2026-06-21] Update an already-imported trail in place (called from insertFeature's
+     * dedup branch). Resolves the existing trail_id via trail_properties(source_id,uid).
+     * CARTO_ONLY: carto_code in both stores. ALL: + name(spatial) + the other property
+     * fields(extension). NEVER geometry/bbox/geom_hash. Logs before/after (tag IMPORTDIFF).
+     */
+    private fun updateExistingFeature(sDb: SQLiteDatabase, eDb: SQLiteDatabase, props: JSONObject, src: Src, uid: String): String {
+        // resolve existing trail_id
+        val trailId = try {
+            eDb.rawQuery("SELECT trail_id FROM trail_properties WHERE source_id=? AND source_unique_id=? LIMIT 1", arrayOf(src.id, uid)).use {
+                if (it.moveToFirst()) it.getString(0) else null
+            }
+        } catch (ex: Exception) { Log.w(TAG, "resolve trail_id failed: ${ex.message}"); null } ?: return "skipped"
+
+        // source values
+        val cartoCode = props.optString(src.fieldType, "")
+        val name = props.optString(src.fieldName, "").ifEmpty { null }
+        val motorized = props.optString(src.fieldExtras.getOrDefault("motorized", ""), "")
+        val surface = props.optString(src.fieldExtras.getOrDefault("surface", ""), "")
+        val county = props.optString(src.fieldExtras.getOrDefault("county", ""), "")
+        val steward = props.optString(src.fieldExtras.getOrDefault("manager", src.fieldExtras.getOrDefault("steward", "")), "")
+        val uses = props.optString(src.fieldUse, "")
+
+        fun dumpRow(tag: String) {
+            try {
+                eDb.rawQuery("SELECT designated_uses,motorized_allowed,surface_type,carto_code,owner_steward,county FROM trail_properties WHERE trail_id=?", arrayOf(trailId)).use {
+                    if (it.moveToFirst()) Log.i("IMPORTDIFF", "$tag ext[$trailId] uses=${it.getString(0)} motor=${it.getString(1)} surf=${it.getString(2)} carto=${it.getString(3)} steward=${it.getString(4)} county=${it.getString(5)}")
+                }
+                sDb.rawQuery("SELECT name,carto_code,geom_hash FROM trails WHERE trail_id=?", arrayOf(trailId)).use {
+                    if (it.moveToFirst()) Log.i("IMPORTDIFF", "$tag spa[$trailId] name=${it.getString(0)} carto=${it.getString(1)} ghash=${it.getString(2)}")
+                }
+            } catch (ex: Exception) { Log.w("IMPORTDIFF", "$tag dump failed: ${ex.message}") }
+        }
+
+        dumpRow("BEFORE")
+        try {
+            // carto in both stores (always)
+            sDb.execSQL("UPDATE trails SET carto_code=? WHERE trail_id=?", arrayOf<Any?>(cartoCode, trailId))
+            eDb.execSQL("UPDATE trail_properties SET carto_code=? WHERE trail_id=?", arrayOf<Any?>(cartoCode, trailId))
+            if (updateMode == UpdateMode.ALL) {
+                if (name != null) sDb.execSQL("UPDATE trails SET name=? WHERE trail_id=?", arrayOf<Any?>(name, trailId))
+                eDb.execSQL(
+                    "UPDATE trail_properties SET designated_uses=?,motorized_allowed=?,surface_type=?,owner_steward=?,county=? WHERE trail_id=?",
+                    arrayOf<Any?>(uses, motorized, surface, steward, county, trailId)
+                )
+            }
+        } catch (ex: Exception) { Log.w("IMPORTDIFF", "update failed: ${ex.message}"); return "error" }
+        dumpRow("AFTER")
+        return "updated"
     }
 
     // ── Geometry conversion ──────────────────────────────
@@ -347,6 +412,17 @@ object TrailImporter {
             Log.w(TAG, "Failed to write trail area JSON: ${e.message}")
         }
     }
+
+    /**
+     * Explicit launch mode for the trail-source screen. Each launch point sets
+     * this before navigating; the screen derives its starting step from it.
+     * A stale pending-area JSON can never hijack SELECT_SOURCE because that mode
+     * does not read the JSON. Extensible: add a value for a future import method.
+     */
+    enum class LaunchMode { SELECT_SOURCE, BY_AREA }
+
+    @Volatile
+    var launchMode: LaunchMode = LaunchMode.SELECT_SOURCE
 
     /** Write pending area JSON (unprocessed) for Method B signal */
     fun writePendingArea(north: Double, south: Double, east: Double, west: Double) {

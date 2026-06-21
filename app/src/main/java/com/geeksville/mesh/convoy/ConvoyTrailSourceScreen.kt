@@ -74,13 +74,23 @@ fun ConvoyTrailSourceScreen(onNavigateBack: () -> Unit = {}) {
     val importProgress by TrailImporter.progress.collectAsState()
     var pendingBbox by remember { mutableStateOf<org.json.JSONObject?>(null) }
     var selectedSourceIds by remember { mutableStateOf(setOf<String>()) }
-    // Check for pending area JSON on launch
+    // Derive the starting step from the EXPLICIT launch mode -- not from a file.
+    // SELECT_SOURCE never reads the JSON, so a stale pending-area file can't
+    // hijack it. BY_AREA reads the bbox the drawer wrote and opens B2.
     LaunchedEffect(Unit) {
-        val pending = TrailImporter.readPendingArea()
-        if (pending != null && pending.optString("status") == "unprocessed") {
-            pendingBbox = pending
-            step = ImportStep.B2_SUGGESTED
+        when (TrailImporter.launchMode) {
+            TrailImporter.LaunchMode.BY_AREA -> {
+                val pending = TrailImporter.readPendingArea()
+                if (pending != null && pending.optString("status") == "unprocessed") {
+                    pendingBbox = pending
+                    step = ImportStep.B2_SUGGESTED
+                }
+            }
+            TrailImporter.LaunchMode.SELECT_SOURCE -> {
+                step = ImportStep.A1_SOURCE_SELECT
+            }
         }
+        TrailImporter.launchMode = TrailImporter.LaunchMode.SELECT_SOURCE  // consume
     }
     var validationStatus by remember { mutableStateOf("") }
 
@@ -567,14 +577,13 @@ private fun SourceSelectCard(source: CatalogSource, isSelected: Boolean, isImpor
             modifier = Modifier.padding(10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            RadioButton(
+                selected = isSelected,
+                onClick = onClick,
+                colors = RadioButtonDefaults.colors(selectedColor = green)
+            )
             if (isImported) {
-                Text("\u2705", fontSize = 16.sp, modifier = Modifier.padding(12.dp))
-            } else {
-                RadioButton(
-                    selected = isSelected,
-                    onClick = onClick,
-                    colors = RadioButtonDefaults.colors(selectedColor = green)
-                )
+                Text("\u2705", fontSize = 14.sp, modifier = Modifier.padding(start = 4.dp))
             }
             Column(modifier = Modifier.weight(1f).padding(start = 8.dp)) {
                 Text(source.name, color = if (isImported) Color(0xFF4A6080) else txtB,

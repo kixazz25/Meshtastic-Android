@@ -1465,6 +1465,7 @@ fun ConvoyMapViewerScreen(
                     },
                     onNavigateToTrailSources = { bbox ->
                         android.util.Log.i("DownloadPanel", "onNavigateToTrailSources: n=${bbox.north} s=${bbox.south} e=${bbox.east} w=${bbox.west} valid=${bbox.isValid}")
+                        TrailImporter.launchMode = TrailImporter.LaunchMode.BY_AREA
                         TrailImporter.writePendingArea(bbox.north, bbox.south, bbox.east, bbox.west)
                         android.util.Log.i("DownloadPanel", "writePendingArea called, navigating...")
                         onNavigateToTrailSources()
