@@ -1182,7 +1182,7 @@ fun ConvoyMapViewerScreen(
                     onDeselectAll = {
                         selectedArtifactIds = emptySet()
                     },
-                    onOpenDetail = { t, id -> pendingDetailType = t; pendingDetailId = id }
+                    onOpenDetail = { t, id -> activeListType = null; pendingDetailType = t; pendingDetailId = id }
                 )
             }
             if (pendingDetailId != null && pendingDetailType != null) {

@@ -1777,7 +1777,7 @@ fun ConvoyScreen(
                         onDeselectAll = { selectedArtifactIds = emptySet() },
                         mapKey = "convoy",
                         fitWebView = webViewRef.value,
-                        onOpenDetail = { t, id -> pendingDetailType = t; pendingDetailId = id }
+                        onOpenDetail = { t, id -> activeListType = null; pendingDetailType = t; pendingDetailId = id }
                     )
                 }
                 if (pendingDetailId != null && pendingDetailType != null) {
