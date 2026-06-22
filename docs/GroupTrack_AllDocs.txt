@@ -13503,79 +13503,63 @@ ADD:
 - sliceLine whole-trail explosion (internal bug) — do NOT document as user behavior.
 
 
-=== GroupTrack_NEXT_SESSION_HANDOFF_2026-06-19.md ===
-# GroupTrack — Next Session Handoff (resume 2026-06-20)
-*Written 2026-06-19 EOD. Pairs with `GroupTrack_V25_LivingChecklist_OpenItems_2026-06-19.md` — see its "START HERE — TOMORROW" section for full task detail.*
+=== GroupTrack_NEXT_SESSION_HANDOFF_2026-06-21.md ===
+# GroupTrack — Next Session Handoff (resume 2026-06-22)
+*Written 2026-06-21 EOD. Pairs with `GroupTrack_V25_LivingChecklist_OpenItems_2026-06-21.md`.*
 
-## ⚠️ READ FIRST — the process rule that 06-19 violated
-Before ANY UI code edit: re-pull current HEAD files, then build a **launcher → composable truth table** (which detail composable does each launcher actually render?) and SHOW Fred. **No patch until that table exists.** 06-19 burned 6 builds + 2 gradle cleans patching a panel the launchers don't call, because this 5-second check was skipped. We blamed applies / gradle / device versions and missed the obvious. Stay at the process level; verify before acting.
+## ⚠️ READ FIRST — the process rule today re-earned
+**Believe the device + Fred's lived observation over the code.** Today's entire grind was a stale `pending_area.json` silently forcing the trail-source screen into the wrong path — not lost code, not a wrong panel. We chased decompiles and git forensics for hours; the actual cause was a leftover device file. When Fred says "this worked and now it doesn't," hunt the SPECIFIC differing thing (device state, a file, one line) before theorizing. And **commit working features same-day** — the whole multi-hour "PROCEED TO UPDATE lost feature" hunt traced back to uncommitted work that got reverted.
 
 ## WHERE WE ARE
-HEAD = **`583b7b9df`** (49 commits ahead of origin).
-- **Universal search COMPLETE + committed** — `42dc848ce` (convoy search FAB) + `583b7b9df` (planning search FAB + all 3 old searches removed). One shared `UnifiedSearch.kt`, both maps, FAB-only. Device-tested green.
-- **Patches J / K / M applied + UNCOMMITTED** in `ArtifactDetailPanel.kt` (the Carto Type work). CORRECT — do NOT revert. They just need the launchers wired to this panel.
+HEAD = **`4c3541c4f`**.
+Two commits landed today:
+- **`791ed3b45`** — V2.5 import/carto code: Patch M (carto update-in-place on reprocess), Patch O (imported sources selectable), Patch Q1–3 (explicit launch-mode A/B), Patch R (carto_code AS CartoCode alias). 4 files.
+- **`4c3541c4f`** — docs: rebuilt V2.5 manual + release notes, committed as app assets (the "?" button loads them) + dated `docs/` copies. 4 files.
 
-## THE PROBLEM (verified — root cause of the whole 06-19 grind)
-**There are TWO detail panels, and the launchers don't reach the one we edited.**
+## WHAT GOT FIXED TODAY (all committed, device-tested)
+1. **Trail-source screen opened on the WRONG step.** A stale `pending_area.json` (dated June 1, abandoned area-draw) made the screen auto-jump to B2_SUGGESTED ("Suggested Sources", the by-area path) on every launch, where imported sources are blocked. **Fix:** explicit `TrailImporter.LaunchMode {SELECT_SOURCE, BY_AREA}` — the Trails menu launch leaves it SELECT_SOURCE (opens A1 "Select Source", never reads the JSON); the by-area launch sets BY_AREA (reads the JSON). Stale file can no longer hijack the menu path. Enum is extensible for a future 3rd method. (Patch Q1–3.)
+2. **Imported sources weren't selectable.** `SourceSelectCard` drew a dead ✅ badge *instead of* the RadioButton for imported sources. **Fix (Patch O):** RadioButton always shown; ✅ becomes a status badge next to it → imported sources stay selectable → VALIDATE → reprocess.
+3. **Carto not updating on reprocess.** **Fix (Patch M):** `updateExistingFeature` writes carto to both spatial `trails` and extension `trail_properties` on reprocess (CARTO_ONLY default; ALL adds name/uses/etc.; never geometry). IMPORTDIFF log confirmed it runs and writes. NOTE: most spatial carto was ALREADY correct (the IMPORTDIFF BEFORE already showed `carto=3 - Paved Shared Use`) — the update is a safe no-op where data is already right.
+4. **Detail-panel carto** displays correctly (committed earlier 6/20).
 
-1. **`ArtifactDetailPanel.kt`** — the standalone universal panel (has FIT; got all the Carto Type work). Rendered at ConvoyScreen ~1754 + ConvoyMapViewerScreen ~1336.
-2. **`ArtifactListPanel.kt`** — the select/edit list, with its **OWN inline duplicate detail** baked inside (AlertDialog ~167-315 + `detailArtifactId` state + own `DetailActionButton` ~436). Rendered at ConvoyScreen ~1725 + ConvoyMapViewerScreen ~1203.
+## ⛔ ONE OPEN BUG — popup carto shows "Unknown" (deferred to 06-22)
+Tapping a trail LINE on the map → popup still says "Unknown" carto, even though:
+- The DB has the carto (IMPORTDIFF proved it).
+- The **detail panel** reads it correctly.
+- Patch R aliased `carto_code AS CartoCode` in `queryTrailsByViewport` (SpatialDbManager ~269) and `buildTrailGeoJson` (~325) reads `s("CartoCode")` — that path now matches.
 
-**Fred's framing (exact):** "Our goal was to make ONE detailed callable artifact panel and use it everywhere so we had one piece of code. We built a new detail panel, parametrized and callable as a function. We did all that work and NEVER REMOVED THE OLD FUNCTION and NEVER WIRED THE NEW FUNCTION IN PLACE."
-
-**Verified history:** this was DIAGNOSED June 17 (chat 23127897) — `onResultClick` set both `pendingDetailId` AND `activeListType`, launching two surfaces; Fred's direction was "select → detail panel directly, bypass `activeListType`." **That June 17 wiring fix was never finished.** 06-19 layered Carto Type onto the unwired panel, so nothing showed.
-
-**Fred's EOD observation (from real use — ground truth):** BOTH launchers (the search FAB AND the select/edit list) end up at the WRONG detail panel. The wiring is wrong in more than one place. (Claude's late-session file was likely STALE — re-pull fresh and verify on real code.)
-
-## THE FIX — ONE panel, do NOT change what works (panel content/FIT), only the wiring
-**TASK 1 — REMOVE THE OLD.** In `ArtifactListPanel.kt`, delete the inline duplicate detail (AlertDialog ~167-315 + `detailArtifactId` state + private `DetailActionButton` if unused elsewhere). The list keeps its list/checkbox/select-deselect job; it loses its own detail rendering.
-
-**TASK 2 — WIRE THE NEW.** Every artifact-select launcher invokes the ONE `ArtifactDetailPanel` (set `pendingDetailType/Id`; do NOT set `activeListType` on the detail path):
-- search FAB result-tap (verify on fresh files)
-- select/edit list row-tap → add `onOpenDetail(type,id)` param to `ArtifactListPanel`, wired in parent (ConvoyScreen ~1725 + ConvoyMapViewerScreen ~1203) to `{ t,id -> pendingDetailType=t; pendingDetailId=id }`
-- BOTH convoy + planning.
-
-**RESULT:** one detail panel, called everywhere = the original goal. Patch M's Carto Type field then shows from every launcher. **Verify the Carto Type row appears from BOTH the search FAB AND the select/edit list, on BOTH maps, before committing.**
-
-**Carto Type spec:** DETAILS-section row, value = TRANSLATED TEXT never the code — 4→"OHV / Road-Concurrent" (blue), 2→"Hiking & Biking" (orange), 1→"Hiking-Only" (yellow), 5→"Biking-Only" (purple), none→"Unspecified" (cyan). Cyan = unspecified ONLY; each real type its own color. **Only Utah trails carry carto_code** — elsewhere cyan-by-design reads "Unspecified" (correct). Test a Utah carto trail to see a real color.
-
-## TASK 3 — MAP ARTIFACT-TAP → DETAIL (the original intended use; JS↔Kotlin)
-Tapping an artifact on the map opens the OLD Leaflet popup (pure JS, never crosses to Kotlin). Wire it to the ONE `ArtifactDetailPanel`:
-- Add `onArtifactTapped(type,id)` to the `@JavascriptInterface` object on both maps (alongside `onMapTap`/`onMarkerTapped`/etc.) → sets `pendingDetailType/Id`.
-- In the map JS (`convoy_map.html` + `grouptrack_map.html`): the feature click handler (currently `bindPopup`/`onEachFeature`) calls `AndroidBridge.onArtifactTapped(type,id)` — feature carries type+id in GeoJSON props.
-- **GATE:** `onMapTap` is ALREADY route-building's vertex handler. Feature-click vs empty-map-click fire separately in Leaflet, so feature→detail and empty-map→route-vertex coexist. **Suppress artifact-detail-on-tap while route-build mode is active.** Paired edit, both HTMLs. (Confirm exact filenames: `ls app/src/main/assets/*.html`.)
-
-## TASK 4 — WORK-WITH-ARTIFACTS → FAB + accordion-close (removes the on-map WWA bar)
-Convert the on-map "Work with Artifacts" BAR into a FAB in the right-edge icon column (search · artifacts · help).
-- **FAB launches the panel ALREADY EXPANDED** (accordion open).
-- **The accordion-collapse control becomes CLOSE** — dismisses the whole panel back to map + FAB (calls existing `onDismiss`, `ConvoyArtifactsPanel.kt:64`).
-- **Removes the always-on WWA bar from the map.** Drag handle gone. Panel CONTENT (grid/rows/+ROUTE/import) unchanged.
-- **SAME on BOTH convoy AND planning** — shared, not duplicated.
+So the query→GeoJSON side is fixed, but the **HTML popup still shows Unknown**. The remaining gap is in the **map HTML's popup JavaScript** — it reads a different property key than what the GeoJSON emits, OR the popup template's carto lookup doesn't match the emitted property name. **This is a contained HTML-side fix, not a rebuild.** Tomorrow: trace the GeoJSON property name `buildTrailGeoJson` emits → what the popup-builder JS in `convoy_map.html` / `grouptrack_map.html` reads (popup builder ~406-415). Make them match. Both HTMLs (CRLF).
 
 ## ORDER FOR TOMORROW
-1. Session start: recommit + upload xrefs + re-pull fresh files (ConvoyScreen, ConvoyMapViewerScreen, ArtifactListPanel, ArtifactDetailPanel, UnifiedSearch, both map HTMLs).
-2. **Build the launcher→panel truth table. Show Fred. No code before this.**
-3. TASK 1 + TASK 2 → one build → verify Carto Type from search FAB AND select/edit list on BOTH maps → commit.
-4. TASK 3 (map artifact-tap → detail) → build → verify → commit.
-5. TASK 4 (WWA → FAB + accordion-close) → build → verify → commit.
-6. Then: queue + survey + upload_queue · remove RouteCreate orphan · manual rewrite + captures BUNDLED · cut 2.5 AAB (banked fallback) · lead-track rewrite LAST.
+1. Session start: recommit + re-pull fresh files if needed.
+2. **Help doc up + begin SCREEN CAPTURE pass** (Fred's stated plan). Claude generates the capture-companion: embedded `mkdir` + per-`[screenshot to be added]`-slot `adb exec-out screencap -p > /sdcard/.../NNN_name.png` commands in nav order (from navigation_xref.txt); Claude owns slot filenames. Fred navigates each screen, runs each command, zips + uploads the PNGs; Claude inserts into the slots (+PIL annotate if needed). Manual now has ~22 V2.5 cards (3.0 chapters removed) — fewer slots than the old 41.
+3. Popup carto "Unknown" — HTML popup-JS fix (contained; see above).
+4. After captures in + popup fixed: re-commit docs with images → **cut the 2.5 AAB (banked fallback)**.
+5. Lead-cart [2.1] rebuild LAST, after AAB banked.
+
+## DOCS STATUS (committed today)
+- **Manual** `app/src/main/assets/grouptrack_manual.html` — rebuilt from pristine cookbook, edit-in-place lineage, **Chapters 1–3 (account/dashboard/ride mgmt) REMOVED** (V2.5 only). Folds in: icon-nav WWA, universal search, the ONE detail panel + Carto Type, carto-in-popup, the 8-code CartoCode legend, FIT, "?" help, neon arrows, snap-2 routes, viewport persistence, Trail-Sources Select-Source/By-Area reprocess + recap. `[screenshot to be added]` slots preserved.
+- **Release notes** `app/src/main/assets/grouptrack_release_notes.html` — rebuilt in **what changed → what it means to you → benefit** format, brief, each entry links into the manual. Install-as-update warning preserved verbatim at TOP (protects ~18 tester DBs).
+- Dated copies in `docs/grouptrack_manual_WORKING_2026-06-21.html` + `..._release_notes_WORKING_2026-06-21.html`.
+- The two ship as app assets (the "?" button's two options open them); cross-links use bare filenames so they resolve in-app.
 
 ## CARRIED ITEMS (full detail in the Living Checklist — do NOT re-derive)
-- **Lead-cart tracking REBUILD [2.1]** — one lead / one track / snap-2 100yd / per-cart per-second GPS replacement. MUST-SHIP; attempt LAST after AAB banked. Demolition+rebuild planning doc to produce. Authority: `GroupTrack_LeadTrackReplacement_Spec.docx` (May 31) + `GroupTrack_LeadCart_TrackRevision_DemolitionRebuild_2026-06-18.md`.
-- **Tile downloads — batch formats for performance** — V2.5 interim = settable concurrency (default 4, max 6, throttle guidance); 2.6 = batch transfer (.tpkx / PMTiles) + AWS staged/hosted + Esri thresholds. App crashes past 3 concurrent → root-cause is 2.6.
-- **Track survey on STOP [7.5]** — V2.5 collect-now; schema finalized (extension db, enjoyment 1-5 + ride_again); feeds upload_queue; connected to queue-panel upload/download toggle — build together.
-- **Documentation** — manual edit-in-place on `app/src/main/assets/grouptrack_manual.html` (pristine cookbook base); rewrite WWA section around icon navigation, add search FAB + one detail panel + Carto Type + map-tap; release notes realign; captures bundled in AAB. Done LAST, before the AAB cut.
+- **Lead-cart tracking REBUILD [2.1]** — one lead / one track / snap-2 100yd / per-cart per-second GPS replacement. MUST-SHIP; attempt LAST after AAB banked. Authority: `GroupTrack_LeadTrackReplacement_Spec.docx` + `GroupTrack_LeadCart_TrackRevision_DemolitionRebuild_2026-06-18.md`.
+- **Track survey on STOP [7.5]** — V2.5 collect-now; schema finalized (extension db, enjoyment 1-5 + ride_again); feeds upload_queue.
+- **Queue panel [3.3]** — backend done; live-data panel UI wiring.
+- **Tile concurrency** — V2.5 interim settable (default 4, max 6); 2.6 = batch + AWS.
+- **"PROCEED TO UPDATE" mode + inline recap** — the fuller 6/13 flow (button + mode picker + live running recap during reprocess). Basic reprocess-selection now works (Patch O); the richer mode/recap UI is a re-author target if wanted. NOT a blocker — the importer already emits ImportProgress. Banked unless Fred wants it for 2.5.
 
 ## BUILD QUICK-REF
-- Build: `./gradlew assembleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease` (warm-daemon incremental ~14-18 min; cold/clean ~40-55 min — a NEW gradle daemon ("busy daemon could not be reused") = cold = slow; let it finish to warm the daemon for the next build).
-- **GREP-CONFIRM a patch is on disk before building** (`grep -n "<marker>" <file>`) — prevents building the wrong version (cost a 55-min build 06-19).
-- **If incremental changes don't appear (same APK timestamp): `./gradlew clean`, confirm the APK timestamp moved before trusting a test.**
+- Build: `./gradlew assembleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease` (warm ~12-23 min; cold ~38-60). If incremental changes don't appear (cached classes, "975 up-to-date"), add `--rerun-tasks` to force recompile.
+- **GREP-CONFIRM a patch is on disk before building** (`grep -n "<marker>" <file>`).
 - Install: `adb -s 8624SBCEDF00001789 install -r -d app/build/outputs/apk/google/release/app-google-release.apk` (Droid 1).
-- Line endings: ConvoyScreen.kt + ConvoyMapViewerScreen.kt CRLF; ArtifactDetailPanel.kt + ArtifactListPanel.kt + UnifiedSearch.kt + ConvoyArtifactsPanel.kt LF. Patches detect at runtime + count==1 guard.
-- NO sqlite3 on device; `run-as` blocked on release (use debug build on Droid 2 to pull DB if needed).
+- Device paths in Git Bash need `MSYS_NO_PATHCONV=1` prefix (e.g. `adb shell ls /sdcard/...`).
+- Patch files: unique versioned names (`_v2`, `_v3`) so the browser doesn't serve a stale download. Windows path INSIDE the script must be `C:/Users/...` not `/c/Users/...` (Python on Windows).
+- Line endings mixed: TrailImporter.kt / ConvoyTrailSourceScreen.kt / SpatialDbManager.kt = LF; ConvoyMapViewerScreen.kt + both HTMLs = CRLF. Patches detect at runtime + count==1 guard.
 
 ## TREE — parked (never `git add .`)
-`.bak_*` files, `ConvoyScreen.kt.bak_move`, `utah_trails_stgeorge.geojson`(+.bak), `grouptrack_manual.html`, `grouptrack_release_notes.html`, `grouptrack_spatial.db` (117MB), `docs/.tmp.driveupload/10630`. Tree-cleanup of the `.bak_*` files pending. Patches J/K/M leave `ArtifactDetailPanel.kt` modified (uncommitted, intentional).
+`.bak_*` files, `utah_trails_stgeorge.geojson`(+.bak), `grouptrack_spatial.db` (117MB), `docs/.tmp.driveupload/`. Tree-cleanup pending.
 
 
 === GroupTrack_NH_TrailImport_task_2026-06-10.md ===
@@ -16724,181 +16708,222 @@ settled design is made, it goes on the list the same day. Before declaring any t
 - **Still to do (documentation pass):** cookbook automated screen-capture; broader doc organize/cleanup; user-manual structural rewrite where stale.
 
 
-=== GroupTrack_V25_LivingChecklist_OpenItems_2026-06-19.md ===
+=== GroupTrack_V25_LivingChecklist_OpenItems_2026-06-21.md ===
 # GroupTrack V2.5 — Living Checklist / Open Items
-**Updated:** 2026-06-19
-**Branch:** feature/convoy-event-ride · **Committed HEAD:** `d75572a1f`
-
-> **06-19 session: backlog recovery + trail-findability problem-framing (design/recovery, no code yet).** Audited the bare `[N.x]` backlog codes against AllDocs — most were DONE or stale. Reshaped the trail-selection items around the PROBLEM each solves (method evolves in discussion; problem is the durable record). Recovered: the pristine cookbook manual is the canonical base (see manual note). Retired the `section`-field spec (protects spatial design).
+**Updated:** 2026-06-21
+**Branch:** feature/convoy-event-ride · **Committed HEAD:** `4c3541c4f`
 
 ---
 
-## ⭐ OUTCOME 2026-06-18 — THREE COMMITTED WINS; FIT SOLVED
+## 🟦 START HERE — TOMORROW (2026-06-22)
 
-FIT-selection-retention fixed and committed on both maps; convoy "?" help shipped; pixel/neon track arrows shipped. Universal search fully designed. Lead-cart rebuild recovered.
+**THE LESSON OF 06-21 (re-earned, burn it in):** believe the DEVICE and Fred's lived observation over the code. Today's whole grind was a stale `pending_area.json` on the device silently forcing the trail-source screen into the wrong path — NOT lost code, NOT a wrong panel. Hours of decompile + git forensics; the real cause was a leftover file. When a behavior "was there and is gone," hunt the SPECIFIC differing thing (device state, a file, one line) before theorizing. And **commit working features same-day** — uncommitted work is what gets lost.
 
-### ✅ COMMITTED
-- **FIT selection retention — `35ccccc4a`** (tested). FIT emulates a manual row-select on the LIVE in-memory vars: on detail-panel dismiss with a fitted (type,id), set that type SELECTED + checked-ids to the fitted id, save, fire normal redraw. FIT=one artifact → clear all four types OFF first, then set fitted SELECTED. Fixes persistence (the `saveConvoyState` clobber) AND panel display together. Both maps (planning uses `savePlanningState()` + `webViewRef`).
-- **Convoy "?" help — `60db85131`** (tested). Ported planning's "?" help to convoy; both maps load the same release-notes/manual HTML. Button at CenterEnd.
-- **Track arrows pixel+neon — `d75572a1f`** (tested). `repeat:'12%'`→`repeat:80` (fixed 80px, re-spaces on zoom) + `#000000`→`#39FF14`. Both HTMLs.
+**SESSION-START INPUTS (Fred provides):** recommit + uploads xrefs + current source files as needed. Re-pull current HEAD files before analyzing.
 
-### Commit chain
-`009b158aa` (06-17) → `35ccccc4a` (FIT) → `60db85131` ("?" help) → `d75572a1f` (arrows = HEAD).
+### ✅ DONE 06-21 (committed)
+Two commits landed:
+- **`791ed3b45`** — import/carto code (4 files):
+  - **Patch M** — carto update-in-place on reprocess: `updateExistingFeature` writes carto to BOTH spatial `trails` + extension `trail_properties` (CARTO_ONLY default; ALL adds name/uses/etc.; never geometry). IMPORTDIFF confirmed it runs/writes. Most spatial carto was ALREADY correct, so it's a safe no-op where data is right.
+  - **Patch O** — imported sources selectable: `SourceSelectCard` now always shows the RadioButton; ✅ becomes a status badge → imported source re-selectable → VALIDATE → reprocess.
+  - **Patch Q1–3** — explicit `TrailImporter.LaunchMode {SELECT_SOURCE, BY_AREA}`. Trails-menu launch = SELECT_SOURCE (opens A1, never reads the JSON); by-area launch = BY_AREA (reads the JSON). Stale `pending_area.json` can no longer hijack the menu path. Enum extensible for a future 3rd method.
+  - **Patch R** — `carto_code AS CartoCode` alias in `queryTrailsByViewport` (the query selected snake_case; `buildTrailGeoJson` reads PascalCase).
+- **`4c3541c4f`** — docs: rebuilt manual + release notes, committed as app assets ("?" loads them) + dated `docs/` copies.
+
+### 🔴 ONE OPEN BUG — map popup carto shows "Unknown" (deferred from 06-21)
+Tapping a trail LINE → popup still says "Unknown," even though the DB has the carto (IMPORTDIFF proved it) and the **detail panel reads it correctly**. Patch R fixed the `queryTrailsByViewport → buildTrailGeoJson` key match, but the **HTML popup still shows Unknown**. Remaining gap is in the **map HTML popup JavaScript** — it reads a different property key than the GeoJSON emits, OR the popup template's carto lookup doesn't match the emitted property name. **Contained HTML-side fix, not a rebuild.** Trace: GeoJSON property that `buildTrailGeoJson` emits → what the popup builder JS reads (`convoy_map.html` / `grouptrack_map.html`, popup builder ~406-415, both CRLF). Make them match.
+
+### 🟦 PRIMARY 06-22 TASK — HELP DOC + SCREEN CAPTURE PASS (Fred's stated plan)
+Fred brings up the help doc and begins screen capture. Claude builds the **capture-companion**: embedded `mkdir` + a per-`[screenshot to be added]`-slot `adb exec-out screencap -p > /sdcard/.../NNN_name.png` command, in nav order (from `navigation_xref.txt`); Claude owns the slot filenames. Fred navigates each screen, runs each command, zips + uploads the PNGs; Claude inserts each into its slot (+PIL annotate if needed). The rebuilt manual is now ~22 V2.5 cards (3.0 chapters removed) — fewer slots than the old 41. **Claude CANNOT run adb — Fred runs every capture.**
+
+### Ordering for tomorrow
+1. Session-start: recommit + re-pull fresh files if needed.
+2. Help doc up + **capture-companion built** → Fred captures screen by screen → Claude fills slots.
+3. Popup carto "Unknown" — HTML popup-JS fix (contained).
+4. After captures in + popup fixed → re-commit docs with images → **cut the 2.5 AAB (banked fallback)**.
+5. Lead-cart [2.1] rebuild LAST, after AAB banked.
+
+### Still-open big items carried (full detail in their own sections below — DO NOT re-derive)
+- **Lead-cart tracking REBUILD [2.1]** — settled design; MUST-SHIP; attempt LAST (after AAB banked).
+- **Tile downloads — batch formats** — V2.5 interim = settable concurrency (default 4, max 6); 2.6 = batch + AWS + Esri thresholds.
+- **Track survey on STOP [7.5]** — V2.5 collect-now; schema finalized; feeds upload_queue.
+- **"PROCEED TO UPDATE" mode + inline recap** — the fuller 6/13 reprocess flow (button + mode picker + live running recap). Basic reprocess-selection works now (Patch O); richer UI is a re-author target if wanted, NOT a blocker. Banked unless Fred wants it for 2.5.
 
 ---
 
-## 🎯 KNOWN REMAINING V2.5 SCOPE — FINISH THIS LIST
+## ⭐ COMMITTED WINS
 
-Per Fred 06-18: finish what is known. Must-ship:
-1. **Universal search (magnifying-glass FAB)** — designed, build next.
-2. **Lead-cart convoy-tracking REBUILD [2.1]** — recovered settled design (below); includes removing ALL previous track-recording methods.
-3. **Documentation pass** — manual reconciliation (pristine cookbook is base), release-notes realignment, screen capture, cleanup.
-4. **Trail findability** — the connected workflow below.
-
-**Moved back (low priority, internal testing):** [8.7] Play Store attribution / About.
+**06-18:** FIT selection retention `35ccccc4a` · convoy "?" help `60db85131` · track arrows pixel-spacing+neon `d75572a1f`.
+**06-19:** convoy universal search FAB `42dc848ce` · planning search FAB + all 3 old searches removed `583b7b9df`.
+**06-20:** detail panel consolidation + Carto Type `37bc88431` · FAB + icon column `d57626f77` · FIT recenter `a43f80829`.
+**06-21:** FIT final `27f493375` · arrows+touch `efc75abf4` · import/carto (M/O/Q/R) `791ed3b45` · docs rebuild `4c3541c4f`.
+(Detail-panel consolidation, map-tap→detail, WWA→FAB/icon-column — all DONE and committed; they were the open 06-19 START-HERE tasks.)
 
 ---
 
 ## ⛔ LEAD-CART CONVOY-TRACKING REBUILD [2.1] — recovered settled design (MUST-SHIP)
 
-> Settled V2.5 design that fell off the checklist. Authority: `GroupTrack_LeadTrackReplacement_Spec.docx` (May 31). NOT done. Full plan: `GroupTrack_LeadCart_TrackRevision_DemolitionRebuild_2026-06-18.md`.
+> Significant settled V2.5 design. Authority: `GroupTrack_LeadTrackReplacement_Spec.docx` (May 31) + `GroupTrack_LeadCart_TrackRevision_DemolitionRebuild_2026-06-18.md`. NOT done. Attempt LAST (after AAB banked — see RELEASE STRATEGY).
 
-**Problem:** current lead-cart tracking is a hodgepodge of evolved rules + position projection. Unreliable — phantom carts report in on rebroadcast. Gut and restart.
+**The problem:** current lead-cart tracking is a hodgepodge of evolved lead-cart rules + position projection. Unreliable — **phantom carts report in when a rebroadcast is made**. Gut and restart, don't patch.
 
-**Rebuild — one lead cart, one lead track:**
-1. Track ONLY the lead cart, from its broadcasts (not projection).
-2. Snap-2, 100-yard radius: snap the lead's broadcast onto known trail/track geometry within 100 yd.
-3. Every other cart shows at current position only — not tracked (kills phantom carts).
-4. Each cart tracks its own progress; overtaking the lead's positions, it removes the lead's path from its own map and replaces with its own per-second device GPS.
+**The rebuild — one lead cart, one lead track:**
+1. Track **only** the lead cart, from its broadcasts (not projection).
+2. **Snap-2, 100-yard radius:** snap the lead's broadcast position onto known trail/track geometry within 100 yards.
+3. **Every other cart shows at its current position only — not tracked.** Live marker, no per-cart track line, no projected paths. (Kills phantom-cart at the root.)
+4. **Each cart tracks its own progress** and, as it overtakes the lead's positions, removes the lead's path from its own map and replaces it with its own device GPS, recorded every second.
 
-**Net:** one continuous trail from the lead that improves in accuracy in the wake. **Rationale:** lead broadcasts at best every 5s (radio limit) → coarse trail ahead; each cart records 1s GPS → refined trail behind ("rear-view mirror"). Trail you drive over is always better-known than trail ahead.
+**Net:** one continuous trail from the lead that improves in accuracy as carts cover ground in the lead's wake. Lead broadcasts at best every 5s (radio limit) so the trail ahead is coarse; each cart records own GPS every 1s so the trail behind ("rear-view mirror") refines to 1-second truth.
 
-**Open (confirm before building):** overtaking-cart wake replacement — unconditional, or snap-gated (off-trail cart beyond threshold doesn't overwrite)?
+**Open detail (confirm before building):** when an overtaking cart replaces the lead's path with own GPS — unconditional, or snap-gated (off-trail cart beyond threshold does NOT overwrite, so a wild detour doesn't corrupt the composite)? An earlier note had an off-trail guard.
 
-**Code targets to gut:** 3 parallel flows (`leadTrackSegments`/`gpsTrailSegments`/`routeTrailSegments`), live `drawTrack` path (~ConvoyScreen 345-350), `trackLeadOnly`, ConvoyEngine lead-lock/tick (`evaluateLeadLock()`, `tick()→compute()→assignLeadTail()`, `lockedLeadNodeId`, `_leadLockedFlag`; known tick-oscillation). Replacement = one growing lead polyline gated on `lockedLeadNodeId`; `pushTrackToMap` net-new. Discovery first: fresh `field_crossref_raw.txt`, trace live, 2-cart capture.
+**Planning doc to produce — DEMOLITION + REBUILD, two parts:**
+- **Part 1 — identify + remove ALL previous track-recording methods/processes.** Catalog every flow to rip out: three parallel flows (`leadTrackSegments`/`gpsTrailSegments`/`routeTrailSegments`), live `drawTrack` path (~ConvoyScreen 345-350), `trackLeadOnly` filter, ConvoyEngine lead-lock/tick pieces (`evaluateLeadLock()`, `tick()→compute()→assignLeadTail()`, `lockedLeadNodeId`, `_leadLockedFlag`; known tick-oscillation), any dead track paths.
+- **Part 2 — the new method** (one lead / one track / snap-2 100yd / per-cart per-second GPS replacement). One growing lead-position polyline gated on `lockedLeadNodeId`; `pushTrackToMap` net-new (0 refs). Discovery first: refreshed `field_crossref_raw.txt`, trace live, 2-cart field capture.
 
-> Don't confuse this lead-cart snap-2 (lead broadcast → known trail geometry, 100yd) with ROUTE snap-2 (route drawing follows trail geometry between vertices). Different features.
-
-> AllDocs also has Phase-C "auto-election / two-tier lead assignment" (lead identity logic, removed before V2.4, preserved in git; design `GroupTrack_LeadLock_AutoAssign_Design.md`) — relevant to lead identity within this rebuild; reconcile when building.
-
----
-
-## ⛔ UNIVERSAL SEARCH ([2h.1]) — designed 06-18, build next
-
-Design: `GroupTrack_UnifiedSearch_DESIGN_2026-06-18.md` + mockup. (Supersedes the 06-16 handoff design portion.)
-
-- **Architecture:** self-contained shared `UnifiedSearch.kt`, param `mapContext` ("convoy"/"planning") + webView + context + `onOpenDetail(type,id)`. Lift `ResultsList`/`ArtifactResult` (maybe `SearchBlock`) out of `ConvoyArtifactsPanel.kt`. Wiring + deletion, not new search logic.
-- **Flow:** magnifying-glass beacon (draggable, resets per session) → bar with 5 chips one line (Area·Track·Route·Trail·Waypoint) + text → Enter executes+closes → results list → tap result closes list → Area = setView+showSearchCenter; artifact = `ArtifactDetailPanel` (FIT). Dup names #1/#2.
-- **Convoy gains Area mode.** All 5 modes both maps.
-- **Engines kept:** `searchByName`→name-sequence (convoy ~1356/planning ~870); `Geocoder.getFromLocationName`→setView+showSearchCenter (planning ~365-388; convoy needs the geocode call added); `ArtifactDetailPanel`. Both HTMLs already have setView+showSearchCenter — no HTML change for search.
-- **Remove launch points:** (1) convoy dead `locationSearch*` @268-270; (2) planning area-search field+geocode ~345-405 + `searchText`; (3) artifact-search box (`SearchBlock`+`ResultsList` in `ConvoyArtifactsPanel`) — keep toggles/+ROUTE/import; lift `ResultsList`.
-- **Build incrementally:** UnifiedSearch.kt + convoy mount (old stays) → test → planning mount → test → remove 3 old launch points → test both. Commit each green.
+> Do not confuse lead-cart snap-2 (lead broadcast → known geometry within 100yd) with ROUTE snap-2 already shipped (route drawing follows geometry between snapped vertices). Different features.
 
 ---
 
-## 🎯 TRAIL FINDABILITY — selecting the right trail among hundreds of same-named segments (recovered/clarified 06-19)
+## 🚢 RELEASE STRATEGY — AAB as fallback, lead-track rewrite LAST
 
-> **Framed by the PROBLEM each solves. Method evolves in discussion — the problem is the durable record.** One connected workflow, not loose ideas.
+> Sequence the highest-risk change behind a banked, complete release. The lead-track rewrite [2.1] is a demolition+rebuild (riskiest: gut 3 flows + lead-lock/tick engine, open wake-replacement question, tick-oscillation, needs 2-cart field capture). Do NOT let it gate the release.
 
-**CORE PROBLEM.** Real trail data has huge same-name density — "Jordan River Trail" alone is **314 distinct segments** (verified; each a unique geometry, NOT a dupe — dedup via `UNIQUE(geom_hash)` works correctly). A rider selecting the trail they want faces hundreds of identically-named entries and a map of indistinguishable lines, and can't reliably (a) tell segments apart, (b) reach all of them, or (c) know whether they're seeing all of them.
+1. Complete ALL other V2.5 work — search ✓, detail-panel consolidation ✓, map-tap→detail ✓, artifacts-FAB icon column ✓, import/carto ✓; remaining = popup-carto display, queue+survey.
+2. **Manual rewrite + screen captures DONE and BUNDLED** (manual ships in-app as `grouptrack_manual.html`; AAB carries it). Manual text is rebuilt + committed (06-21); captures pending. Fallback = complete release, features AND docs.
+3. **CUT THE 2.5 AAB HERE** — complete 2.5 (features + manual), WITHOUT lead-track rewrite. **Banked FALLBACK.**
+4. **Lead-track rewrite — attempt LAST, on top of banked AAB.** Clean → folds into 2.5. Hairy → defer that piece to 2.6, ship banked AAB. No-downside attempt.
 
-- **Blank/featureless startup map — riders see nothing and don't know why.** On launch / wide zoom, the artifact limit is so exhausted nothing renders — looks broken with no explanation. NEEDED: **below z11, the map must say "zoom in to see artifact info"** so an empty-looking map is self-explaining. *(Method: state-driven message off viewport zoom/count; evolving.)*
-
-- **Silent truncation at the display cap — riders miss segments without knowing.** At cap 200, ~36% of Jordan River's 314 segments silently drop from the SEL/Edit list. NEEDED: (1) **raise cap 200→400**; (2) at the cap, message **"Maximum artifacts reached for this map area. Zoom in to ensure you have all artifacts that belong on the map."** No silent truncation. *(Settled spec exists — AllDocs ~19843, state-driven off existing viewport count, no new query; this refines to 400 + wording. Real long-term fix = paging [11.1]; 400 is the now-fix.)*
-
-- **"Why does this trail appear so many times?" — asked at the SELECT LIST.** Same-named segments look like duplicates; riders don't trust the list. NEEDED: on the **select-list row**, surface the **unique geom-hash** as a plain "this is a unique trail segment, period" indicator. Hash is already on the row — just show it. **DECISION (06-19, supersedes AllDocs `section`-field spec ~19829-19834):** do NOT add a `section`/numbering field — it compromises the spatial data design (identity is `UNIQUE(geom_hash)`, mirrored to AWS in 2.6). Showing the existing hash answers the question with zero schema change. The "assign section at import via trigger" plan is RETIRED; the schema-cost-vs-benefit mismatch is exactly why it was never built.
-
-- **Can't tell map lines apart — no trail name positioners on the map.** A dense viewport is a wall of indistinguishable lines. NEEDED: **trail name positioners/labels on the map** (needed even at 200). *(The one piece with real cost — RECOVERY 06-19: trail labels are NOT drawn today at all; net-new Leaflet labeling in BOTH HTMLs, on the hot draw path, known perf concern at hundreds of labels. Needs its own design pass. Other items here are bounded/low-risk.)*
-
-- **The detail panel IS the disambiguation+selection tool — and must be the ONE universal detail function.** With 400 trails/segments in play, the user picks the right one by opening its detail then FIT. PRINCIPLE: ONE shared `ArtifactDetailPanel` (owns FIT), reached identically from every entry point — select-list row-tap, search result, map artifact-tap/popup. Not per-caller variants. The "map-popup → detail" item is just another entrance to this same panel. *(Open: replace on-map popup entirely with tap→detail, vs keep popup as launcher→detail. Decide in design.)*
-
-- **Detail-panel content enhancements (schema-safe, bounded to `ArtifactDetailPanel`).** Surface what a planner needs on the card: **trail type via CartoCode** (color the panel + bold type footer — per-trail, honest, no trail-line redraw); **trail/segment length** (`distance_miles` may already be a stored property — verify; else derive from geometry at open); the **unique-segment hash indicator** (above). All read-only, no schema change. *(CartoCode line coloring on the MAP — recoloring trail lines by type — is a separate, heavier 2.6 question, PARKED for the 2.6 discussion. Only the detail-panel color/footer is in scope here.)*
+**Manual across the AAB boundary (manageable, not a rebuild):** bundled manual documents the app AS THE AAB SHIPS (old track methods, since rewrite isn't in the AAB) — never wrong relative to what shipped. IF rewrite later lands, it changes only the Settings track-parameter fields — a contained edit-in-place + possibly one Settings re-capture. If rewrite defers to 2.6, the 2.5 bundled manual already matches the shipped AAB exactly.
 
 ---
 
-## ⏳ DEFERRED — separate items, do NOT combine
+## 🎯 TRACK SURVEY ON STOP [7.5] — V2.5 collect-now
 
-- **Map-popup / artifact-tap → detail** — tap an artifact on the map → the universal `ArtifactDetailPanel` (owns FIT). JS click handler on the artifact in BOTH HTMLs + `@JavascriptInterface` bridge to open detail with (type,id), passing mapKey + webView. *(This is the "another entrance to the universal detail panel" from Trail Findability.)*
-- **Shared-JS consolidation** — dedupe `setView`/`showSearchCenter` out of the two HTMLs into a shared local JS file (precedent: both include `leaflet.polylineDecorator.js`). **Blast-radius caution:** grep can't bound — `setView` grep conflates wrapper vs native `map.setView([...])` vs Kotlin `evaluateJavascript("setView(...)")`. No JS compiler net. Regen xref first, grep both languages, device-test. Not an end-of-day job.
-- **Detail-extraction cleanup** — `ArtifactListPanel` still embeds its own detail for the sel/edit row-tap; route that to the shared `ArtifactDetailPanel` too. Implement `ConvoyArtifactOps` Pass-1 log stubs (rename/delete/toRoute/toTrack/upload/download/changeType/editPoints/addAlias/setTrailhead); `fit()` is the only real op today.
+> Build this — start collecting trail-rating data ASAP with field testers. Fully specced in AllDocs.
 
----
+**GOAL:** accumulate real trail-rating data from V2.5 testers NOW, held locally, ready to populate 3.0 trail ratings when the cloud pipe exists.
 
-## OTHER OPEN (backlog / 2.6) — RECOVERED & TRIAGED 06-19
+**TRIGGER (RideState-driven):** on STOP after recording — ORGANIZED (real ride) → full survey+save; SOLO/CONVOY → name-only. Owned by TrackManager, not a separate screen.
 
-> Audited against Fred's recall + AllDocs 06-19. Bare `[N.x]` codes resolved to real status. Most of the old list was DONE or stale.
+**SURVEY UI:** SAVE TRACK (name, shows distance/duration) → SHARE? Y/N → RATE THIS RIDE 1-5 → RIDE AGAIN? Y/N → DONE.
 
-**Still genuinely open:**
-- **[6.2] Remove leftover geojson asset + JS-injection code.** Distributed trail content was cut from 27MB to 2 trails to shrink the distro, but the geojson asset and the JS-injection code that loads it were never removed — dead weight still in the build. NEEDED: remove both. *(Also the root of the stale CartoCode legend in the manual — connected.)*
-- **[3.3] Queue panel — restore upload placeholder + add upload/download activity selector.** The AWS-upload placeholder was removed; the button is Upload/Download but there's no way to say which activity. NEEDED: put the upload placeholder back, add a **selector at the top of the panel** for upload vs download. *(Queue backend — hold/resume/cancel — is done; this is the panel UI.)*
-- **Map Manager Phase C — tile-transfer redesign (POST-V2.5).** Building/reserving map areas hammers public tile servers. INTENT: external-map sourcing + reviewing/batching downloads through an AWS server so areas build/reserve without (or with minimal) public-server load, via a faster transfer method (server-side bundle assembly; mbtiles/PMTiles). *(The April-1 "Map Manager — Complete Specification" in AllDocs is the SCREEN spec, partly superseded by the shipped Convoy/Planning split + Work-with-Artifacts. The AWS tile-bundle/faster-transfer piece is NOT yet a written spec in AllDocs — Fred checking Downloads. Esri dev account: 2M free tiles/mo; key config deferred until transfer method framed.)*
-- **Blank trail-name in FIT's JSON row** — id correct, selection id-based, so it works; name writes `""` (trails get names, tracks don't). Cosmetic, parked.
-- **[1.2] sliceLine whole-trail — VERIFY OBSOLETE.** Trail-source/type/route-capture area was rewritten; unsure this still applies. Do NOT carry as active — confirm dead (quick xref check on `sliceLine` callers) and remove, or re-scope if it surfaces.
+**WRITES (schema FINALIZED, EXTENSION db `grouptrack_data.db`, NOT spatial):**
+```sql
+CREATE TABLE track_surveys (
+    survey_id    TEXT PRIMARY KEY,
+    track_id     TEXT NOT NULL,
+    enjoyment    INTEGER,          -- 1-5
+    ride_again   INTEGER,          -- 0=no, 1=yes
+    submitted_at TEXT NOT NULL,
+    FOREIGN KEY (track_id) REFERENCES tracks(track_id) ON DELETE CASCADE
+);
+```
+Share Yes → `shared=1` + an `upload_queue` entry. **SUPERSEDES the 3/26 difficulty/scenery/fun variant — FINAL survey is enjoyment 1-5 + ride_again Y/N only.**
 
-**DONE (recovered 06-19 — removed from open):**
-- [4.x] import trails from external sources — DONE.
-- [10.1] BLE — DONE. The timeout fix: pause recording + disconnect device cleanly before BT times out (previously required a device power-cycle to reconnect); driving away triggers reconnect.
-- Gaia/onX standalone parity — DONE (distance, speed, waypoint adding, etc.).
+**COLLECT-NOW:** `upload_queue` — V2.5 collect only; 2.6/3.0 processes (`ConvoySurveyUploader` drains to AWS). **Survey + upload_queue + queue-panel upload/download toggle are one connected area — build together.**
 
-**Fold into Work with Artifacts (not standalone):**
-- Track Display Selector (filter tabs). Track importer.
-
-**Still backlog (unchanged):** [11.1] paging (real fix behind the artifact cap); Map Manager screen items not yet realized. *(05-07 backlog.)*
-
-**Tree cleanup:** remove stray `.bak_*` (06-18 patches), `ConvoyScreen.kt.bak_move`, `utah_trails_stgeorge.geojson.bak`; never commit `grouptrack_spatial.db` (117MB).
-
-**DEFERRED (later releases):** GeoPackage national-trail architecture, V3.0, paywall.
+**DEDUP rule:** track identity = `(artifact_type, geom_hash, creation_date)` — same geometry + same day → ONE (a 10-rider group ride = one shared track). Track aliases carry `creation_date` where trails don't.
 
 ---
 
-## ✅ DONE (removed from open)
-- Bundle config (versionCode/signing) ✓
-- [1.5] auto-save + terminate on map-switch (= persistence) ✓
-- FIT (`35ccccc4a`) ✓ · convoy "?" help (`60db85131`) ✓ · [3.9a] arrows (`d75572a1f`) ✓
-- Search → detail separation (`009b158aa`, 06-17) ✓
+## 🎯 TRAIL FINDABILITY — selecting the right trail among hundreds of same-named segments
 
-## ❌ CUT FROM SCOPE (Fred 06-18)
-- [3.1b] Planning GPS-recenter button.
-- convoy_map.html `drawTrack`/`clearMarkers` "not defined" — harmless JS load-race noise; displayed DB tracks use `loadTracks`/`trackLayer` (work); erroring `drawTrack` is the live lead trail. Not a real bug.
+> Framed by the PROBLEM. "Jordan River Trail" = 314 distinct segments (each unique geometry, NOT a dupe).
+
+- **Blank startup map** — below z11 show "zoom in to see artifact info" so an empty-looking map self-explains.
+- **Silent truncation at the cap** — raise cap 200→400; when hit, explicit message "Maximum artifacts reached for this map area. Zoom in to ensure you have all artifacts." No silent truncation. (Real long-term fix = paging [11.1].)
+- **"Why so many times?"** — on the select-list row surface the unique geom-hash as "this is a unique trail segment." DECISION: do NOT add a `section` field (compromises spatial design; identity is `UNIQUE(geom_hash)`). Show the existing hash. The AllDocs `section`-field plan is RETIRED.
+- **Can't tell map lines apart** — trail name positioners/labels on the map. (Net-new Leaflet labeling in BOTH HTMLs, hot draw path, perf concern at hundreds — needs own design pass.)
+- **Detail panel IS the disambiguation tool** — reached identically from select-list row-tap, search result, and map artifact-tap (DONE 06-20).
+- **Detail content (schema-safe):** trail type via CartoCode (Carto Type field — DONE); length (`distance_miles` — verify stored else derive); unique-hash indicator. CartoCode line recoloring on the MAP is a separate 2.6 question, PARKED.
+
+---
+
+## TILE DOWNLOAD SPEED — V2.5 interim / 2.6 redesign
+
+**V2.5 interim (executable now):** replace hardcoded 2-at-a-time cap with **user-settable max concurrent transfers — default 4, max 6**, user can throttle down. Single settable value + Settings control. **Queue-panel guidance:** speed depends on network; if transfers fail, advise lowering the simultaneous-transfer count until failures stop. *(Prior field obs: CRASH past 3 concurrent. Default 4/max 6 sit above that — user throttle + guidance are mitigation; crash root-cause deferred to 2.6. If 4 unstable in test, fall back to 3.)*
+
+**2.6 full redesign (captured so it stops living only in Fred's head — do NOT re-derive):**
+- **Batch tile transfer** — Esri batch/bundle instead of per-tile `{z}/{x}/{y}`. Formats: **.tpkx** (Esri-native Map Tile Package) and **PMTiles** (open single-file, HTTP-range-readable). Collapse hundreds of per-tile requests into few bundle transfers → faster + stable (sidesteps concurrency crash) + threshold-economical. Needs on-device unpacker into the Leaflet `{z}/{x}/{y}` cache; .tpkx readable via GDAL `esric` driver as reference.
+- **AWS staged/hosted** — EC2 caches tiles by bbox (30-day TTL), pre-assembles a tile_manifest per area (`map_status=READY`), two-tier dedup (manifest − local_cache = delta), parallel delta pull (4 threads). First-occurrence-wins: Esri hit once per tile then served from your server — protects Esri threshold. EC2 also merges trail geometry into one GeoJSON by bound_hash.
+- **Esri developer account / thresholds** — Fred registered a FREE Esri dev account with API-level service access + monthly thresholds (~2M tiles/mo free tier referenced). Account-tier/threshold-vs-volume choice deferred pending transfer-method design. Open: metering model (per-tile transaction vs batch-export/credit). **Account terms live only in Fred's recollection — capture as provided; do NOT reconstruct.**
+- **Download-crash-past-3-concurrent** — root-cause in `ConvoyTileDownloader` concurrent path (likely resource exhaustion). Gates safe high concurrency for ANY approach.
+
+---
+
+## 📖 DOCUMENTATION WORK REMAINING (user manual + release notes)
+
+**Sequencing:** documentation done LAST among feature work, AFTER all screens final, BEFORE the AAB cut (manual ships in-app, must be in the AAB).
+
+**STATUS 06-21:** Manual + release notes TEXT rebuilt and committed as app assets (`4c3541c4f`). Remaining = the SCREEN CAPTURE pass (tomorrow) + popup-carto display fix, then re-commit docs with images.
+
+**USER MANUAL (06-21 rebuilt):**
+- `app/src/main/assets/grouptrack_manual.html` — rebuilt from the pristine cookbook, edit-in-place lineage, **Chapters 1–3 (account/dashboard/ride mgmt) REMOVED** per direction (V2.5 only). ~22 screen cards across 3 chapters (Maps/Trails/Tracks · Offline Maps/Downloads · Radio Setup) + appendix. Folds in: icon-nav WWA, universal search, the ONE detail panel + Carto Type, carto-in-popup, the 8-code CartoCode legend with swatches, FIT, "?" help, neon arrows, snap-2 routes, viewport persistence, Trail-Sources Select-Source/By-Area reprocess + recap. `[screenshot to be added]` slots preserved.
+- Dated copy `docs/grouptrack_manual_WORKING_2026-06-21.html`. Pristine base (Drive `1ibNIPW0Nb7bcZh1gmIPAfh9ZZnuMaxPU`) NEVER overwritten.
+- **Screen captures (workflow proven):** Claude builds capture-companion with embedded `mkdir` + per-slot adb `screencap` commands (Claude owns filenames=slot names); Fred navigates + runs each; Fred zips + uploads; Claude inserts by filename + PIL-annotates. **Claude CANNOT run adb.** Capture once, screens final.
+
+**RELEASE NOTES (06-21 rebuilt):**
+- `app/src/main/assets/grouptrack_release_notes.html` — rebuilt in **what changed → what it means to you → benefit** format, brief, each entry links into the manual. Install-as-update warning preserved VERBATIM at top (protects ~18 tester DBs). Dated copy `docs/grouptrack_release_notes_WORKING_2026-06-21.html`.
+- Both ship as app assets (the "?" button's two options open them); cross-links use bare filenames so they resolve in-app.
+
+**Revision authority:** `GroupTrack_MANUAL_and_RELEASENOTES_revision_instructions_2026-06-19.md` (pristine base, edit-in-place, two homes). Both docs republished each session as downloadable artifacts; Fred collects EOD into G:/Drive + recommit pulls into repo `docs/`.
+
+---
+
+## OTHER OPEN (backlog / 2.6)
+
+- **[6.2] Remove leftover geojson asset + JS-injection code** — distributed trail content cut to 2 trails to shrink distro, but the geojson asset + JS-injection loader never removed (dead weight).
+- **[3.3] Queue panel** — restore upload placeholder + add upload/download activity selector at top of panel. (Backend hold/resume/cancel done; this is UI — connects to survey/upload_queue.)
+- **Blank trail-name in FIT's JSON row** — id correct, selection id-based so it works; name writes "". Cosmetic, parked.
+- **[1.2] sliceLine whole-trail — VERIFY OBSOLETE** — confirm dead (xref `sliceLine` callers) and remove, or re-scope.
+- **DONE (recovered):** import trails ✓ · [10.1] BLE timeout fix ✓ · Gaia/onX standalone parity ✓.
+- **Backlog:** [11.1] paging (real fix behind artifact cap); Map Manager screen items.
+- **Tree cleanup:** remove `.bak_*` files, `utah_trails_stgeorge.geojson.bak`; never commit `grouptrack_spatial.db` (117MB), `docs/.tmp.driveupload/`.
 
 ---
 
 ## DESIGN CONTEXT (carried forward)
-- **Two draw paths BY DESIGN.** (A) `drawPersistedState` = saved/restore from JSON. (B) onViewportChanged = in-memory live vars, preserving selections across zoom/pan. New actions (FIT) update the LIVE side via the existing select mechanism.
-- **Map-purpose model:** Convoy = live/location (session-only). Planning = deliberate/identity (persisted).
-- **Reusability principle:** own behavior in the SHARED component; callers pass DATA not BEHAVIOR (`mapContext` routes it). convoy↔planning duplication is the pain → shared components cure it (search = shared `UnifiedSearch.kt`; FIT joins the existing select mechanism; ONE universal `ArtifactDetailPanel`).
-- **Boy-scout cleanup:** clean up what you touch, only when you can see the blast radius — Kotlin (grep+compiler+xref) is bounded; JS (grep only, no compiler, silent runtime failure) is not — be conservative, device-test.
-- **XREFS = blast-radius RECOVERY (not discovery).** Before a known change, consult the xrefs to recover the full dependency set (callers, linked functions, shared fields) so the edit preserves what it must and breaks nothing unaware. They're born of necessity because the codebase exceeds what's holdable in head / boundable by grep. Same tool, both directions: code change ("what will I break?") and docs ("what must I cover?" — navigation_xref drives the cookbook). The recurring failure is forgetting what they provide, not lacking them — consult first, before reaching past them.
+
+- **Two draw paths BY DESIGN:** (A) `drawPersistedState` = saved/restore from JSON; (B) onViewportChanged = in-memory live vars preserving selections across zoom/pan. New actions update the LIVE side via the existing select mechanism, not bypass it.
+- **Map-purpose model:** Convoy = live/location (GPS, proximity, session-only). Planning = deliberate/identity (search, fit, persisted frame).
+- **Reusability principle:** own behavior in the SHARED component; callers pass DATA not BEHAVIOR (`mapContext` routes it). This is why search is shared `UnifiedSearch.kt` and the detail panel is ONE shared `ArtifactDetailPanel`.
+- **Boy-scout cleanup:** clean what you touch, but only when you can see the blast radius — Kotlin (grep+compiler+xref) bounded; JS (grep only, silent runtime failure) not — be conservative, device-test.
+- **Two front-ends, one backend (06-21):** the trail-source SELECT_SOURCE and BY_AREA paths share the same import process; the screen's starting step is driven by an EXPLICIT launch mode passed at the call site, NOT by reading a device file. A device file as a message bus between two in-process composables is the anti-pattern that caused the stale-JSON hijack.
 
 ---
 
-## PROCESS NOTE — settled designs keep getting lost
-Settled designs fall off because each EOD doc is rewritten fresh and dormant items aren't re-typed. Mitigation is two-layer: this checklist + the memory spine carry open items (append, don't drop); the doc folder holds full specs. Settled designs go on the list the same day. **Before declaring any task "doesn't exist," search the record first** (memory + conversation + AllDocs) — Fred should never get "doesn't exist" then find it in Downloads.
+## PROCESS NOTES — the recurring failure modes
+
+1. **Settled designs keep getting lost** — each EOD doc rewritten fresh, dormant items not re-typed. Mitigation: this checklist + memory carry open items (append, don't drop); doc folder holds full specs; settled designs go on the list the same day; search the record before declaring a task "doesn't exist." **Commit working features same-day** — 06-21 proved uncommitted work gets reverted/lost.
+2. **Believe the device + Fred's lived observation over the code (06-21).** When a behavior "was there and is gone," or a screen "opens wrong," hunt the SPECIFIC differing thing — device state, a leftover file, one line — before theorizing from the code or decompiling. Reading code can't reveal a wrong RUNTIME state. Today's stale `pending_area.json` cost hours because we theorized about code instead of checking the device file first.
+3. **Stay at the process level, not in the weeds.** Before any UI patch, verify which composable a launcher actually renders / what device state a screen reads, on fresh files. Use the blast-radius / where-used tools FIRST.
+4. **Verify file freshness** — re-pull current HEAD files before analyzing.
+5. **Carry mid-diagnosis threads forward** — open diagnostic threads get FINISHED before new work stacks on them.
 
 ---
-
-## TREE STATE
-- **Committed HEAD `d75572a1f`** (arrows). Chain: `009b158aa` → `35ccccc4a` (FIT) → `60db85131` ("?" help) → `d75572a1f` (arrows).
-- Parked (never git-add): `M utah_trails_stgeorge.geojson`, `?? grouptrack_manual.html`, `?? grouptrack_release_notes.html`, `?? *.geojson.bak`, `?? *.bak_*`, `?? ConvoyScreen.kt.bak_move`, `?? grouptrack_spatial.db`. Commit only named files. Never `git add .`.
 
 ## DEVICE / BUILD QUICK-REF
-- Build: `./gradlew assembleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease` (~14–42 min)
+
+- Build: `./gradlew assembleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease` (warm-daemon incremental ~12-23 min; cold daemon / clean ~38-60 min).
+- **If incremental changes don't appear (same APK timestamp, "975 up-to-date"): add `--rerun-tasks` to force a full recompile.** Confirm APK timestamp moved before trusting a test.
+- **GREP-CONFIRM a patch is on disk before building** (`grep -n "<marker>" <file>`).
 - APK: `app/build/outputs/apk/google/release/app-google-release.apk`
-- Install: `adb -s 8624SBCEDF00001789 install -r -d <apk>` (Droid 1 = `8624SBCEDF00001789` field/real-GPS · Droid 2 = `24039703201775` dev)
-- JSON pull: `MSYS_NO_PATHCONV=1 adb -s 8624SBCEDF00001789 shell cat /sdcard/Documents/GroupTrack/state/convoy_panel.json` (or `planning_panel.json`)
-- Logcat: `adb -s 8624SBCEDF00001789 logcat -d -s <tags> | tail -N` (`-c` clears). LIVE logcat BLOCKS — use `-d` dump.
-- **LINE ENDINGS:** .kt files MIXED CRLF/LF even within one file. Patches detect newline at runtime + count==1 guard.
-- Patch flow: Claude files → present_files → Fred downloads to `/c/Users/kixaz/Downloads/` → `python3 <name>.py`.
-- Revert one file: `git checkout <hash> -- <file>` — run `git diff <hash> -- <file>` FIRST. NO sqlite3 on device.
+- Install: `adb -s 8624SBCEDF00001789 install -r -d <apk>` (Droid 1 = `8624SBCEDF00001789` field/real-GPS · Droid 2 = `24039703201775` dev).
+- Device shell paths in Git Bash need `MSYS_NO_PATHCONV=1` prefix.
+- **LINE ENDINGS:** TrailImporter.kt / ConvoyTrailSourceScreen.kt / SpatialDbManager.kt = LF; ConvoyMapViewerScreen.kt + both HTMLs = CRLF. Patches detect newline at runtime + count==1 guard.
+- Patch flow: Claude files → present_files → Fred downloads to `/c/Users/kixaz/Downloads/` → `python3 <name>.py`. UNIQUE versioned filenames (`_v2`, `_v3`) so the browser doesn't serve a stale download. Windows path INSIDE the script = `C:/Users/...` not `/c/Users/...`.
+- NO sqlite3 on device; `run-as` blocked on release build (use debug build on Droid 2 to pull DB if needed).
+- Logcat: `adb -s 8624SBCEDF00001789 logcat -s IMPORTDIFF` (carto BEFORE/AFTER per record).
 
 ## EOD DOCS — status
-- Release notes → 06-18 (`grouptrack_release_notes_2026-06-18.html`): FIT, convoy "?" help, arrows.
-- User manual (4-section variant) → 06-18 — SUPERSEDED; the canonical manual is the pristine cookbook below.
-- This checklist → 06-19.
-- Lead-cart demolition+rebuild plan → `GroupTrack_LeadCart_TrackRevision_DemolitionRebuild_2026-06-18.md`.
-- **MANUAL — pristine cookbook is the CANONICAL BASE (recovered 06-18 PM).** Canonical = `app/src/main/assets/grouptrack_manual.html` (modified 06-07, never git-committed = untouched by the same-name overwrites that destroyed the dated copies). Full screen-by-screen cookbook: 41 screen cards covering all 40 nav destinations, Reached-from / What-you-do / Leads-to format, 3.0-vs-V2.5 marking, search box, `[screenshot to be added]` slots, feature-status appendix. Drive copy: `grouptrack_manual_PRISTINE_BASE_recovered_2026-06-18.html`. **RULE: edit THIS in place — never rebuild from a thinner version.** The 4-section "06-17/06-18" variants are the DRIFTED branch; do not merge. The navigation_xref was purpose-built to drive this cookbook — matched pair; consult the xref to keep it honest against real nav.
-- **Manual reconciliation needed (next manual pass, edits-in-place):** update the **CartoCode legend** (stale since JS-injected trail sources dropped — see [6.2]); fold in features newer than 06-07 (FIT, convoy "?" help, pixel arrows, snap-2 routes, persistence) as edits to existing cards; optionally re-order rider-first; capture into the existing `[screenshot to be added]` slots.
-- **Still to do (documentation pass):** the manual reconciliation above; cookbook screen-capture (Fred captures via scrcpy/adb into existing slots; Claude annotates via PIL); broader doc organize/cleanup.
+
+- This checklist → **06-21** (today's wins marked done; START-HERE-TOMORROW = help doc + capture pass).
+- Handoff → `GroupTrack_NEXT_SESSION_HANDOFF_2026-06-21.md` (today's commits, stale-JSON resolution, popup-Unknown lead, capture-pass plan).
+- Manual → `app/src/main/assets/grouptrack_manual.html` (committed) + `docs/grouptrack_manual_WORKING_2026-06-21.html`.
+- Release notes → `app/src/main/assets/grouptrack_release_notes.html` (committed) + `docs/grouptrack_release_notes_WORKING_2026-06-21.html`.
+- Lead-track demolition+rebuild doc → `GroupTrack_LeadCart_TrackRevision_DemolitionRebuild_2026-06-18.md`.
+- **Today's code committed (`791ed3b45`) + docs committed (`4c3541c4f`). Nothing left uncommitted.**
 
 
 === GroupTrack_V25_MapSourceCatalog_v2.md ===
@@ -24193,6 +24218,319 @@ function scrollTo(id) {
   document.getElementById(id).scrollIntoView({behavior:'smooth', block:'start'});
   if (!document.getElementById(id).classList.contains('open')) toggle(id);
 }
+
+
+=== grouptrack_manual_WORKING_2026-06-21.html ===
+<!-- ============================================================
+     GroupTrack V2.5 — User Manual (cookbook)
+     Rebuilt 2026-06-21 from the PRISTINE BASE (app/src/main/assets/grouptrack_manual.html, 2026-06-07).
+     Edit-in-place lineage preserved. Chapters 1–3 (account / dashboard / ride management — the 3.0 cloud rewrite)
+     REMOVED per direction: this manual covers the V2.5 heart only (maps, trails, tracks, downloads, radio).
+     Folds in everything through 2026-06-21: icon-nav Work-with-Artifacts, universal search FAB, the one
+     artifact detail panel + Carto Type, map artifact-tap → detail, carto-in-popup, FIT, "?" help, neon
+     track arrows, snap-2 routes, viewport persistence, trail-source Select-Source / By-Area reprocess + recap.
+     [screenshot to be added] slots preserved for the capture pass.
+============================================================ -->
+GroupTrack V2.5 — User Manual
+:root{--bg:#10130f;--panel:#181c15;--ink:#e8ece2;--dim:#9aa68c;--line:#2b3324;--accent:#7bb661;--accent2:#d9a441;--warn:#e0563b;--ui:-apple-system,"Segoe UI",Roboto,sans-serif;--body:Georgia,serif;}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 var(--body);-webkit-text-size-adjust:100%}
+header{position:sticky;top:0;background:#10130fe8;border-bottom:1px solid var(--line);padding:12px 16px;z-index:9;backdrop-filter:blur(6px)}
+.ttl{font:700 17px var(--ui)}.ttl b{color:var(--accent)}.sub{font:12px var(--ui);color:var(--dim);margin-top:2px}
+#q{width:100%;margin-top:8px;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:#0c0f0a;color:var(--ink);font:14px var(--ui)}
+main{padding:14px 16px 60px;max-width:780px;margin:0 auto}
+h1{font:700 19px var(--ui);color:var(--accent);margin:26px 0 4px;scroll-margin-top:120px}
+h2{font:700 15px var(--ui);color:var(--accent2);margin:18px 0 4px}
+.intro{color:var(--dim);font-style:italic;margin:2px 0 10px}
+.screen{border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin:8px 0;background:var(--panel)}
+.screen .nm{font:700 15px var(--ui);color:var(--ink)}
+.screen .row{font:13px var(--ui);margin:3px 0}.screen .row b{color:var(--dim);font-weight:600}
+.screen .does{margin:4px 0}
+.imgnote{font:11px var(--ui);color:var(--dim);border:1px dashed var(--line);border-radius:4px;padding:4px 8px;margin-top:6px;display:inline-block}
+ul{margin:6px 0 6px 0;padding-left:20px}li{margin:4px 0}
+.toc{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 14px;font:14px var(--ui)}
+.toc a{color:var(--accent);text-decoration:none;display:block;padding:2px 0}
+.coming{background:#2a2410;border-left:4px solid var(--accent2);padding:8px 12px;border-radius:4px;font:13px var(--ui);margin:6px 0}
+.box{background:#13180f;border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin:8px 0}
+.legend{font:13px var(--ui);margin:6px 0}.legend span{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:middle;margin-right:6px}
+.status h2{margin-top:12px}.status li{font:13px var(--ui)}
+.hidden{display:none}
+code{background:#0c0f0a;padding:1px 5px;border-radius:3px;font-size:13px}
+GroupTrack V2.5 — User Manual
+Screen-by-screen cookbook · Off-road convoy tracking &amp; trail navigation · grouptrack.org
+How this manual works. This is a cookbook, not a reference list — it follows what you actually do. Each screen lists where it’s reached from, what you do there, and what it leads to. This edition covers the V2.5 heart of the app: the two maps and everything that feeds them (trails, tracks, routes, waypoints, downloads) plus organizer radio setup. Account, dashboard, and ride-management screens are part of the Release 3.0 cloud rewrite and are not documented here. Screenshots are added per screen in a following revision (live device capture).
+Contents
+1. Maps, Trails &amp; Tracks (the heart of V2.5)
+2. Offline Maps &amp; Downloads
+3. Radio Setup (Organizer)
+Appendix — V2.5 Feature Status
+1. Maps, Trails &amp; Tracks (the heart of V2.5)
+The two maps and everything that feeds them. This is where V2.5’s big changes live — icon-driven Work with Artifacts, universal search, the unified artifact detail panel, and trail import.
+The right-edge icon column — how you reach everything on a map.Both maps share a vertical icon column on the right edge: a search icon (magnifying glass), a Work with Artifacts icon, and a ? help icon. Tapping the Work with Artifacts icon opens that panel expanded; collapsing the accordion closes it. The old always-on Work-with-Artifacts bar is gone — it’s an icon now. On the Planning (Map Viewer) map the panel has full editing and import; on the Convoy (live) map the same panel is display-only (no editing or import during live convoy operations).
+Convoy (Live Map)
+Reached from: Dashboard / active ride
+The live ride view — your group’s vehicles in real time. The right-edge icon column gives you search, Work with Artifacts (display-only here: toggle Trails / Tracks / Waypoints / Routes), and help. Header shows the tile source, QUEUES, and the zoom readout (N · Z##). Track direction is shown with pixel-spaced neon arrows along each track.
+Leads to: Map Viewer · Track Export · Track Import · Settings
+[ screenshot to be added ]
+Map Viewer (Planning Map)
+Reached from: Convoy map / active ride planning
+Plan a ride: search, download tiles, and manage artifacts. Work with Artifacts here has full import + edit. Use the search icon to find any artifact; use Work with Artifacts → IMPORT TRAILS to open Trail Sources. QUEUES manages downloads. The map remembers your last viewport and selection between visits.
+Leads to: Trail Sources (IMPORT TRAILS) · Track Import · Track Export
+[ screenshot to be added ]
+Universal search (both maps)
+The search icon opens a single search across five modes — Area · Track · Route · Trail · Waypoint. Pick a mode, search, and tap a result to open the unified artifact detail panel for it. This one search replaces the older per-map, per-type search entry points.
+The artifact detail panel + Carto Type
+One detail panel serves every artifact, reached three ways: from a search result, from a SELECT/Edit list row, or by tapping an artifact on the map. It shows the artifact’s rider-facing details with a collapsible technical section, plus action buttons (rename, change type, delete, share/export, and FIT — recenter the map to the artifact). For trails it shows a Carto Type band — the trail’s classification (OHV / Road-Concurrent, Hiking &amp; Biking, Hiking-Only, Paved Shared Use, and so on, or “Unspecified”), colored by its carto color. The same carto type now also appears in the map popup when you tap a trail line.
+Artifact types
+TrailsToggle ON to display trail overlays from the spatial database, loaded dynamically for your current viewport. Trail lines draw in cyan; the trail’s classification color shows in its detail-panel Carto Type band and in the map popup. Trails display at zoom 8+; zoom in to see them.
+TracksToggle ON to display your recorded GPS tracks from the spatial database, loaded by viewport like trails. Tracks appear as neon green (#39FF14) dashed lines, with pixel-spaced direction arrows. Tapping a track shows its name (from the GPX filename).
+WaypointsToggle to display user-created waypoints. 10+ standard types: trailhead, fuel, gate, hazard, scenic viewpoint, water source, camp, parking, junction, rally, and others. Drop one by long-pressing the map on empty ground (not on a vehicle marker) — a type picker opens.
+RoutesToggle to display saved routes from the spatial database, the same viewport-aware way as trails and tracks. Build a route with “+ ROUTE” (see “Creating a Route”). Routes display as magenta lines.
+The CartoCode color legend
+A trail’s classification is encoded as a CartoCode (the leading digit of its type label). The colors:
+1 — Hiking-Only (yellow)
+2 — Hiking &amp; Biking Allowed (orange)
+3 — Paved Shared Use (teal)
+4 — OHV / Road-Concurrent (blue)
+5 — Biking-Only (purple)
+6 — Equestrian (brown)
+7 — Steps (grey)
+8 — Bridge / Tunnel (rose)
+default / unclassified (cyan)
+Trail lines on the map draw cyan by design; the classification color appears in the artifact detail panel’s Carto Type band and in the trail’s map popup.
+SELECT / Edit and the three-state controlSELECT/Edit opens the artifact list for a type, scoped to the current view: a checkbox per item, Select All / Deselect All, and per-item actions. Each type also has a three-state display control — ON (show all in view), OFF (hide), and SELECTED (show only the items you checked). Each map remembers its own display selections independently: what you pick on the Convoy map no longer carries over to the Planning map.
+FIT — recenter to an artifactFIT (in the artifact detail panel) recenters and zooms the map to frame the selected artifact with a small margin, and keeps it selected. Use it to jump straight to a trail, track, route, or waypoint you’ve found in search or the list.
+Creating a Route (early access)
+Open the map (Convoy or Planning) and open Work with Artifacts, then tap “+ ROUTE”. The Route+ toolbar appears.
+Tap “New”. A “Name this route” box appears with a suggested name — accept it or type your own — then tap “Start”.
+Tap “Add” (it turns green), then tap the map to drop each point. Each point snaps to the nearest trail or track if one is close by, so your route follows established paths; tap away from any trail to place a free point exactly where you tapped. A magenta line connects your points in order.
+Use “Undo” to remove the most recent point. Pan and zoom freely between taps to reposition the map.
+Tap “Save” to store the route. It is saved on your device, redraws on the map in magenta, and appears in Work with Artifacts → Routes under the name you gave it. Tap “Discard” to leave without saving.
+To move the Route+ toolbar around the map, the panel must be expanded (accordion open). Drag the grip handle in the header to reposition; when collapsed, tapping the header expands it rather than moving it.
+Routes display in magenta. Saved routes load from the spatial database the same viewport-aware way as trails and tracks. Saving a half-finished route to resume later (“In Progress”), editing a saved route’s geometry, and the Draw and Suggest methods are coming in upcoming updates.
+Import Artifacts &amp; RESYNC TRACKS
+Open Work with Artifacts and choose Import; pick your GPX file (the picker opens your device storage). Large files are processed one track at a time, so even big exports import without crashing.
+When it finishes, a recap shows “X new / Y already in library.” New tracks draw on the map immediately. (If the artifact list looks empty, leave the screen and return — known refresh gap; the data is saved.)
+Duplicates are identified by shape (geometry), not name: re-importing the same file is safe and shows “0 new / N already in library.”
+RESYNC TRACKS recovers device track files that aren’t in the database (e.g. after an update): it scans my_tracks/ and adds any track not already saved. Run it again to confirm — a second run should add 0.
+Tracks only, this build: importing a GPX brings in its tracks; waypoints and routes inside the file are skipped for now (separate import coming). The list caps at 200 shown — larger libraries are paged in a later build.
+Trail &amp; track displayWhen you open the Planning Map, GroupTrack scans your my_tracks/ directory and syncs any new GPX files into the spatial database in the background (it doesn’t block the map). Files already in the database are skipped. As you pan and zoom, the track query updates automatically (400 ms debounce) so only visible tracks load — instant response even with large libraries.The current release includes trail data for the Utah / northern-Arizona corridor. Additional regional datasets will be downloadable in future updates through the Trail Source Manager. Trails load by viewport using bounding-box indexing; below zoom 8 they are hidden for readability.
+Trail Sources
+Reached from: Map Viewer → Work with Artifacts → IMPORT TRAILS
+Browse approved trail sources and import them. The screen opens on Select Source — pick a source (e.g. UGRC Utah Trails), VALIDATE, then IMPORT TRAILS to download its trails (and any trailhead waypoints). A live recap counts records as they process (processed · new · dupes · aliased · already-imported). Already-imported sources show a green check but remain selectable — re-select one and run it again to reprocess it (refreshes trail classification / carto data on the existing trails without changing geometry). A separate By Area method imports the sources overlapping an area you draw on the map. After importing, close &amp; reopen the app, then zoom in to see the trails.
+Leads to: Back to Map Viewer with trails imported / updated
+[ screenshot to be added ]
+Map Sources
+Reached from: Settings → Map Sources
+Assign any of 16 tile sources (Google, Esri, USGS, OpenTopo, OSM, Thunderforest, CartoDB) to your SAT / TOPO / TOPO+ buttons. Add custom sources by URL; manage API keys per source.
+Leads to: Back to Settings
+[ screenshot to be added ]
+Route Create
+Reached from: Map Viewer (route planning)
+Create a route with the point-to-point, snap-to-trail/track method (see “Creating a Route”). Freehand draw and source-suggest methods are deferred.
+Leads to: Back to Map Viewer with route saved
+[ screenshot to be added ]
+Track Import
+Reached from: Convoy / Map Viewer → Track Import
+Import tracks from Downloads (GPX/KML). RESYNC TRACKS rebuilds from my_tracks/. A recap dialog reports new / already-in-library counts.
+Leads to: Back to map
+[ screenshot to be added ]
+Tracks / Track Export
+Reached from: Convoy → Track Export
+View and export your tracks (GPX). Export to Downloads or email.
+Leads to: Back to map
+[ screenshot to be added ]
+2. Offline Maps &amp; Downloads
+Pull map tiles for offline use and manage the download queue.
+Download queue. The QUEUES button on both maps opens the queue management panel showing active, queued, and completed downloads. Controls: Hold (pause processing), Resume, Cancel Entry (remove one), and Cancel All (stop and clear). Transfer concurrency is settable (default 4, max 6). The controls are functional in the backend; the live-data queue panel UI is being wired in the next update.
+Download Ride Config
+Reached from: Ride config / invite acceptance
+Download the map area + config for a ride you’re joining.
+Leads to: Map with tiles + config applied
+[ screenshot to be added ]
+3. Radio Setup (Organizer)
+The radio configuration chain — organizers apply the ride’s mesh config to physical Meshtastic radios. Mirrors the Meshtastic config screens with pre-populated, read-only values; PROCEED is red/disabled until the radio is connected, green when connected.
+Field Radio
+Reached from: Ride / organizer flow (RADIO)
+Radio hub. Apply a master config or verify a write.
+Leads to: Apply Master · Verify
+[ screenshot to be added ]
+Apply Radio
+Reached from: Field Radio → Apply
+Apply config to the connected radio, screen by screen.
+Leads to: Reconnect Wait (after applying)
+[ screenshot to be added ]
+Reconnect Wait
+Reached from: Apply Radio
+Wait for the radio to reboot and reconnect after a config write.
+Leads to: Next config screen / completion
+[ screenshot to be added ]
+Apply List / Apply List Maint
+Reached from: Settings Panel
+The list of configs to apply, and its maintenance screen.
+Leads to: Master Capture (capture new master)
+[ screenshot to be added ]
+Master Capture / Maint
+Reached from: Apply List / Settings Panel
+Capture a working radio’s config as the master template; maintenance of captured masters.
+Leads to: Master Success
+[ screenshot to be added ]
+Master Success
+Reached from: After Master Capture
+Confirmation the master config was captured.
+Leads to: Back to Settings Panel / Apply List
+[ screenshot to be added ]
+Archive Restore
+Reached from: Settings Panel
+Archive or restore saved configs.
+Leads to: Back to Settings Panel
+[ screenshot to be added ]
+Write Verify
+Reached from: Field Radio → Verify
+Verify the config written to the radio matches the master.
+Leads to: Back to Field Radio
+[ screenshot to be added ]
+Settings Panel
+Reached from: Settings
+Organizer config hub: routes to Capture, Apply List, Archive/Restore, and the maintenance screens.
+Leads to: Master Capture · Apply List · Archive Restore · Apply List Maint · Master Capture Maint
+[ screenshot to be added ]
+Settings
+Reached from: Convoy map
+App settings. Includes Map Sources (assign tile sources to SAT/TOPO/TOPO+ slots).
+Leads to: Map Sources
+[ screenshot to be added ]
+Appendix — V2.5 Feature Status
+Working now
+Trail lazy-load from the spatial database (viewport queries); carto classification in detail panel + map popup
+Track lazy-load from the spatial database with GPX sync; neon direction arrows
+Work with Artifacts — icon-driven panel: display toggles, SELECT/Edit list, import
+Universal search (both maps): Area · Track · Route · Trail · Waypoint
+One unified artifact detail panel — reached from search, list row, or map artifact-tap; Carto Type band; FIT
+Per-type SELECT/Edit list (checkboxes, Select All/Deselect All); per-map independent display selections
+Viewport persistence (each map restores its last view + selection)
+Trail Sources: Select-Source &amp; By-Area methods; imported sources re-selectable for reprocess; live import recap; carto refresh on reprocess
+Route creation — point-to-point with snap-to-trail/track, name, save (early access)
+Waypoint creation — long-press on the map → type picker
+Tile download system; expanded tile source catalog (16 sources); API key management; settable transfer concurrency (4–6)
+Spatial database architecture + schema migration; minimum zoom 8
+Queue management backend (hold, resume, cancel, cancel all)
+Convoy “?” help button (opens this manual / release notes)
+In progress
+“In Progress” route drafts — save a half-finished route to resume later
+Route Draw and Suggest methods (Point method is live)
+Editing a saved route’s geometry; renaming from the Routes list
+GPX import for waypoints and routes (tracks import is live)
+Queue panel UI wired to live data
+Waypoint / Route lazy-load from the spatial database (display)
+Track survey on stop (rate + share)
+Coming in Release 3.0 / later
+Account, Dashboard, and Ride management — cloud rewrite
+Cloud sync of local artifacts to a web account (premium)
+iPad / iOS companion app; map heading-up rotation
+National trail model with multi-state downloads
+Organization services tier; database backup and recovery
+function filterDoc(q){
+  q=q.trim().toLowerCase();
+  var blocks=document.querySelectorAll('main .screen, main .box, main h1, main h2, main .coming, main .intro, main .toc, main .row, main .legend');
+  if(!q){blocks.forEach(b=>b.classList.remove('hidden'));return;}
+  blocks.forEach(function(b){
+    if(b.classList.contains('toc')){b.classList.add('hidden');return;}
+    b.classList.toggle('hidden', b.textContent.toLowerCase().indexOf(q)===-1);
+  });
+}
+
+
+=== grouptrack_release_notes_WORKING_2026-06-21.html ===
+<!-- ============================================================
+     GroupTrack V2.5 — Release Notes
+     Rebuilt 2026-06-21. Format per direction: each entry = WHAT changed ·
+     WHAT it means to you · the BENEFIT — brief, with a link to the manual section
+     for detail. Upgrade warning preserved verbatim at top (protects tester DBs).
+     Manual links target the rebuilt 2026-06-21 manual's section anchors.
+============================================================ -->
+GroupTrack V2.5 — Release Notes
+  :root{--bg:#10130f;--panel:#181c15;--ink:#e8ece2;--dim:#9aa68c;--line:#2b3324;
+    --accent:#7bb661;--accent2:#d9a441;--warn:#e0563b;--ui:-apple-system,"Segoe UI",Roboto,sans-serif;--body:Georgia,serif;}
+  *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 var(--body);-webkit-text-size-adjust:100%}
+  header{position:sticky;top:0;background:linear-gradient(180deg,#10130f,#10130fe8);border-bottom:1px solid var(--line);padding:14px 16px;z-index:5}
+  .ttl{font:700 18px var(--ui)}.ttl b{color:var(--accent)} .sub{font:12px var(--ui);color:var(--dim);margin-top:2px}
+  main{padding:14px 16px 56px;max-width:760px;margin:0 auto}
+  h2{font:700 17px var(--ui);color:var(--accent);margin:22px 0 6px;border-bottom:1px solid var(--line);padding-bottom:4px}
+  .item{border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin:10px 0;background:var(--panel)}
+  .item .what{font:700 15px var(--ui);color:var(--ink);margin-bottom:3px}
+  .item .means{font:14px var(--body);margin:3px 0}
+  .item .benefit{font:13px var(--ui);color:var(--accent);margin-top:4px}
+  .item a.ml{font:12px var(--ui);color:var(--dim);text-decoration:underline;display:inline-block;margin-top:6px}
+  p{margin:6px 0}li{margin:4px 0 4px 4px}
+  .upgrade{background:#2a1512;border:1px solid var(--warn);border-left:5px solid var(--warn);border-radius:8px;padding:12px 14px;margin:14px 0 8px;font-family:var(--ui)}
+  .upgrade-h{font:700 15px var(--ui);color:var(--warn);margin-bottom:6px}
+  .upgrade p{font-size:14px}.upgrade ul{font-size:14px}
+  .upgrade .recovery{margin-top:10px;color:var(--dim);font-size:13px}
+  code{background:#0c0f0a;padding:1px 5px;border-radius:3px;font-size:13px}
+  a.manuallink{display:inline-block;margin-top:18px;color:var(--accent);font:700 14px var(--ui);text-decoration:none;
+    border:1px solid var(--accent);border-radius:8px;padding:9px 14px}
+GroupTrack V2.5 — Release Notes
+What's new · Field Test Release · Updated 2026-06-21 · grouptrack.org
+  ⚠ Updating from an earlier version? Read this first.
+  Install as an UPDATE — do NOT uninstall the old version and install this as a new install.
+  Let the app update in place through the Play Store. Uninstalling and then clean-installing
+  will break the installation, and you will have to reach out for help to recover it.
+  After the update, on first launch the trail/track database is rebuilt. So:
+    Re-import your trails — open Work with Artifacts → Import Trails and import UGRC Utah Trails again (brings back trails + trailhead waypoints).
+    Your recorded tracks come back automatically from your saved GPX files on launch. If any track is missing, open the track import screen and tap RESYNC TRACKS.
+    Your GPX track files and downloaded map tiles are not affected by the update.
+  If you already did a clean install and it’s broken: the fix is to remove the two GroupTrack database files from /sdcard/Documents/GroupTrack/ before relaunching — contact the organizer for help, as this is a manual step.
+What's new in this build
+  Find anything, then fit it to your screen
+  One search on either map covers Areas, Tracks, Routes, Trails, and Waypoints. Tap a result to open its detail, then tap FIT to fly the map to it and frame it on its own.
+  Benefit: jump straight to the trail or track you mean, instead of hunting the map.
+  Manual: Universal search · the detail panel · FIT
+  One detail panel for every artifact
+  Trails, tracks, routes, and waypoints all open the same detail panel — from a search result, a select/edit row, or by tapping the artifact on the map. Rename, change type, share, or delete from one place.
+  Benefit: the same simple panel everywhere, so you always know where the controls are.
+  Manual: The artifact detail panel
+  Trail type and color, on the trail itself
+  Each trail’s classification — OHV / Road-Concurrent, Hiking &amp; Biking, Hiking-Only, Paved Shared Use, and so on — shows as a colored Carto Type band in its detail panel, and now also in the popup when you tap a trail on the map.
+  Benefit: tell at a glance which trails are open to your vehicle.
+  Manual: Carto Type · the CartoCode color legend
+  Refresh trail data without starting over
+  In Trail Sources, an already-imported source now stays selectable. Pick it again and run it to refresh trail classification and details on the trails you already have — your geometry and recorded tracks are untouched. A live recap counts records as they process.
+  Benefit: pull updated trail info anytime, without re-downloading from scratch.
+  Manual: Trail Sources
+  Help on both maps
+  The ? button that opens the manual and release notes is on the Convoy Map as well as the Planning Map.
+  Benefit: help is one tap away wherever you are.
+  Manual: Convoy &amp; Planning maps
+  Clearer direction arrows on tracks
+  Direction-of-travel arrows on tracks are evenly spaced on screen and stay readable as you zoom, drawn in the same neon green as the track.
+  Benefit: read which way a track runs at a glance, even on long tracks.
+  Manual: Tracks
+  Each map remembers where you left it
+  The Convoy and Planning maps each restore their own last view and what you had selected, independently of each other.
+  Benefit: pick up exactly where you were, on the right map.
+  Manual: Maps
+  Build routes that follow real trails
+  Tap to drop points and each one snaps to the nearest trail or track; tap away from a trail to place a free point. Name it and save (early access).
+  Benefit: lay out a route along established paths in seconds.
+  Manual: Creating a Route
+Also in V2.5
+  Bring your own trail data
+  Trail data is no longer bundled with the app. You import the regions where you ride — by Source (pick a land agency) or by Area (draw a box). One-time, a few minutes on WiFi; it’s permanent on your device after that.
+  Benefit: trails for the places you actually ride, across many states and agencies.
+  Manual: Trail Sources
+  Faster maps with the spatial database
+  Trails and tracks load only for the part of the map you’re looking at, from an on-device spatial database. Tracks sync in automatically from your GPX files on launch.
+  Benefit: instant pan and zoom even with tens of thousands of trails.
+  Manual: Trail &amp; track display
+  Work with Artifacts, now icon-driven
+  A right-edge icon column on both maps gives you search, Work with Artifacts, and help. The panel opens expanded and collapses closed — the old always-on bar is gone.
+  Benefit: more map, controls one tap away when you want them.
+  Manual: The right-edge icon column
+  More map sources, and download controls
+  16 tile sources (Google, Esri, USGS, OpenTopo, OSM, Thunderforest, CartoDB) assignable to your SAT / TOPO / TOPO+ buttons, with API-key management. The download queue supports hold, resume, cancel, and a settable number of simultaneous downloads.
+  Benefit: the basemaps you prefer, and control over big offline downloads.
+  Manual: Map Sources · Offline Maps &amp; Downloads
+Open the full User Manual &#8594;
 
 
 === grouptrack_v3_map_functions.html ===
