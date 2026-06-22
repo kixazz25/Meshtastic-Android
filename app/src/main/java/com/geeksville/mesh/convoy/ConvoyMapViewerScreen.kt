@@ -23,6 +23,10 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.VpnKey
+import androidx.compose.ui.window.Popup
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.runtime.DisposableEffect
@@ -265,6 +269,9 @@ fun ConvoyMapViewerScreen(
     var scanningDownloaded by remember { mutableStateOf(false) }
     var fabOffsetX by remember { mutableStateOf(0f) }
     var fabOffsetY by remember { mutableStateOf(0f) }
+    var legendOffsetX by remember { mutableStateOf(0f) }
+    var legendOffsetY by remember { mutableStateOf(0f) }
+    var legendExpanded by remember { mutableStateOf(false) }
     var downloadBbox by remember { mutableStateOf(DownloadBbox()) }
     var isDrawingArea by remember { mutableStateOf(false) }
     val downloadState by convoyViewModel.downloadState.collectAsState()
@@ -1552,19 +1559,63 @@ fun ConvoyMapViewerScreen(
             }
         }
 
-        // -- Legend bar --
-        Row(
-            modifier = Modifier.fillMaxWidth().background(Color(0x33000000))
+        // -- Legend (key button + popup; popup escapes Column width) --
+        Box(
+            modifier = Modifier
+                .align(Alignment.Start)
+                .padding(start = 10.dp, bottom = 12.dp)
                 .navigationBarsPadding()
-                .padding(horizontal = 10.dp, vertical = 3.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically
         ) {
-            LegendItem(Color(0xFF00AAFF), "OHV", "line")
-            LegendItem(Color(0xFF00FFFF), "Trail", "line")
-            LegendItem(Color(0xFF39FF14), "Track", "dash")
-            LegendItem(Color(0xFFFF00FF), "Route", "dash")
-            LegendItem(Color(0xFF2ECC40), "Wpt", "pin")
+            Surface(
+                shape = RoundedCornerShape(6.dp),
+                color = Color(0xCC1A2E4A),
+                modifier = Modifier.size(32.dp).clickable { legendExpanded = !legendExpanded }
+            ) {
+                Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                    Icon(
+                        Icons.Filled.VpnKey,
+                        contentDescription = "Legend",
+                        tint = Color(0xFFAABBCC),
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+            if (legendExpanded) {
+                Popup(onDismissRequest = { legendExpanded = false }) {
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = Color(0xF2000000),
+                        shadowElevation = 8.dp
+                    ) {
+                        Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.clickable { legendExpanded = false }
+                                    .padding(bottom = 4.dp)
+                            ) {
+                                Text("Legend", color = Color(0xFF8FD0FF), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                                Spacer(Modifier.width(6.dp))
+                                Text("\u00D7", color = Color(0xFF8FD0FF), fontSize = 12.sp)
+                            }
+                            LegendItem(Color(0xFF00AAFF), "OHV / Road", "line")
+                            Spacer(Modifier.height(3.dp))
+                            LegendItem(Color(0xFFFF8800), "Hiking & Biking", "line")
+                            Spacer(Modifier.height(3.dp))
+                            LegendItem(Color(0xFFFFCC00), "Hiking Only", "line")
+                            Spacer(Modifier.height(3.dp))
+                            LegendItem(Color(0xFFAA44FF), "Biking Only", "line")
+                            Spacer(Modifier.height(3.dp))
+                            LegendItem(Color(0xFF00FFFF), "Paved / other", "line")
+                            Spacer(Modifier.height(5.dp))
+                            LegendItem(Color(0xFF39FF14), "Track", "dash")
+                            Spacer(Modifier.height(3.dp))
+                            LegendItem(Color(0xFFFF00FF), "Route", "dash")
+                            Spacer(Modifier.height(3.dp))
+                            LegendItem(Color(0xFF2ECC40), "Waypoint", "pin")
+                        }
+                    }
+                }
+            }
         }
     }
     // ── Track action menu integration ──

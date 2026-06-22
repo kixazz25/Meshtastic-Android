@@ -205,18 +205,7 @@
       } catch(e) { console.log('OVERLAY PARSE ERROR: ' + e); }
     }
 
-    // -- Trail overlay --
-    function trailColor(code) {
-      if (!code) return '#00FFFF';
-      var c = code.toLowerCase();
-      if (c.indexOf('ohv') >= 0 || c.indexOf('atv') >= 0 || c.indexOf('off-highway') >= 0) return '#00AAFF';
-      if (c.indexOf('hik') >= 0 && c.indexOf('bik') >= 0) return '#FF8800';
-      if (c.indexOf('hik') >= 0) return '#FFCC00';
-      if (c.indexOf('bik') >= 0 || c.indexOf('mountain bike') >= 0) return '#AA44FF';
-      if (c.indexOf('horse') >= 0 || c.indexOf('equestrian') >= 0) return '#8B4513';
-      if (c.indexOf('motor') >= 0) return '#00AAFF';
-      return '#00FFFF';
-    }
+    // -- Trail overlay -- (color via digit-keyed trailColor defined above)
 
     function loadTrails(geojsonData) {
       if (trailLayer) map.removeLayer(trailLayer);
@@ -641,7 +630,13 @@
     }
 
     // -- Map view controls --
-    function setView(lat, lon, zoom) { map.setView([lat, lon], zoom); }
+    function reportViewport() {
+      setTimeout(function() {
+        var b = map.getBounds(); var z = map.getZoom();
+        try { Android.onViewportChanged(b.getNorth(), b.getSouth(), b.getEast(), b.getWest(), z); } catch(e) {}
+      }, 450);
+    }
+    function setView(lat, lon, zoom) { map.setView([lat, lon], zoom); reportViewport(); }
     function panTo(lat, lon) { map.panTo([lat, lon]); }
     function fitBounds(lats, lons) {
       if (!lats.length) return;
@@ -670,7 +665,7 @@
           iconSize:[16,16],iconAnchor:[8,8]});
         deviceMarker = L.marker([lat,lon],{icon:icon}).addTo(map);
         deviceMarker.bindTooltip("ME",{permanent:true,direction:"top"});
-        map.setView([lat,lon],14);
+        setView(lat,lon,14);
       }, function(err) {
         console.log('GPS error: ' + err.message);
       }, {enableHighAccuracy:true,timeout:10000});

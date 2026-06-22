@@ -264,7 +264,7 @@ object SpatialDbManager {
      */
     fun queryTrailsByViewport(south: Double, west: Double, north: Double, east: Double, limit: Int = 500): List<Map<String, String?>> {
         val db = spatialDb ?: return emptyList()
-        val results = mutableListOf<Map<String, String?>>()
+        val results = mutableListOf<MutableMap<String, String?>>()
         val cursor = db.rawQuery(
             "SELECT trail_id, name, geometry, carto_code AS CartoCode FROM trails WHERE max_lat >= ? AND min_lat <= ? AND max_lon >= ? AND min_lon <= ? LIMIT ?",
             arrayOf(south.toString(), north.toString(), west.toString(), east.toString(), limit.toString())
@@ -272,14 +272,62 @@ object SpatialDbManager {
         while (cursor.moveToNext()) {
             val wkt = cursor.getString(2)
             if (!wkt.isNullOrEmpty()) {
-                results.add(mapOf(
+                results.add(mutableMapOf(
                     "trail_id" to cursor.getString(0),
                     "name" to cursor.getString(1),
-                    "geometry" to wkt
+                    "geometry" to wkt,
+                    "CartoCode" to cursor.getString(3)
                 ))
             }
         }
         cursor.close()
+        // ── Enrich draw rows with trail_properties (data DB) so the map popup
+        //    shows the same fields as the detail panel. ONE batched query for all
+        //    visible trail_ids (hot draw path: avoid N per-trail SELECTs).
+        //    snake_case columns -> PascalCase keys buildTrailGeoJson reads.
+        val edb = extensionDb
+        if (edb != null && results.isNotEmpty()) {
+            try {
+                val ids = results.mapNotNull { it["trail_id"] }
+                if (ids.isNotEmpty()) {
+                    val placeholders = ids.joinToString(",") { "?" }
+                    val pc = edb.rawQuery(
+                        "SELECT trail_id, surface_type, designated_uses, motorized_allowed, " +
+                        "horse_allowed, hike_difficulty, bike_difficulty, owner_steward, county " +
+                        "FROM trail_properties WHERE trail_id IN (" + placeholders + ")",
+                        ids.toTypedArray()
+                    )
+                    val byId = HashMap<String, Map<String, String?>>()
+                    pc.use {
+                        while (it.moveToNext()) {
+                            val tid = it.getString(0) ?: continue
+                            byId[tid] = mapOf(
+                                "SurfaceType" to it.getString(1),
+                                "DesignatedUses" to it.getString(2),
+                                "MotorizedAllowed" to it.getString(3),
+                                "HorseAllowed" to it.getString(4),
+                                "HikeDifficulty" to it.getString(5),
+                                "BikeDifficulty" to it.getString(6),
+                                "OwnerSteward" to it.getString(7),
+                                "County" to it.getString(8)
+                            )
+                        }
+                    }
+                    for (row in results) {
+                        val props = byId[row["trail_id"]] ?: continue
+                        for ((k, v) in props) {
+                            // spatial CartoCode wins only if it already has a real value
+                            val existing = row[k]
+                            if (!existing.isNullOrBlank()) continue
+                            if (v.isNullOrBlank()) continue
+                            row[k] = v
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                // trail_properties missing/empty -> leave spatial-only rows
+            }
+        }
         return results
     }
 

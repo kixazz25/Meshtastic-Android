@@ -151,7 +151,13 @@
       crosshairLines.forEach(function(l) { map.removeLayer(l); });
       crosshairLines = [];
     }
-    function setView(lat, lon, zoom) { map.setView([lat, lon], zoom); }
+    function reportViewport() {
+      setTimeout(function() {
+        var b = map.getBounds(); var z = map.getZoom();
+        try { Android.onViewportChanged(b.getNorth(), b.getSouth(), b.getEast(), b.getWest(), z); } catch(e) {}
+      }, 450);
+    }
+    function setView(lat, lon, zoom) { map.setView([lat, lon], zoom); reportViewport(); }
       function panTo(lat, lon) { map.panTo([lat, lon]); }
     function fitBounds(lats, lons) {
       if (!lats.length) return;
@@ -200,7 +206,7 @@
           iconSize:[16,16],iconAnchor:[8,8]});
         deviceMarker = L.marker([lat,lon],{icon:icon}).addTo(map);
         deviceMarker.bindTooltip("ME",{permanent:true,direction:"top"});
-        map.setView([lat,lon],16);
+        setView(lat,lon,16);
       }, function(err) {
       }, {enableHighAccuracy:true,timeout:10000});
     }
