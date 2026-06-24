@@ -74,6 +74,7 @@ fun ConvoyRouteToolbar(
     onSaveRequested: () -> Unit = {},
     onDiscardRequested: () -> Unit = {},
     onSelectInProgress: () -> Unit = {},
+    routeEntryNonce: Int = 0,
     modifier: Modifier = Modifier
 ) {
     var offsetX by remember { mutableFloatStateOf(0f) }
@@ -84,6 +85,10 @@ fun ConvoyRouteToolbar(
     // RED = OFF (taps pan/reposition). ON on entry for Point; selecting
     // Draw/Suggest sets it OFF (those methods don't tap-to-place).
     var addArmed by remember { mutableStateOf(true) }
+    // Re-arm build controls on every route-mode entry (NEW / RESUMED / future
+    // extend). Without this, building stays false from a prior exit (line ~174)
+    // and a resumed route can place points but cannot Undo/Save.
+    androidx.compose.runtime.LaunchedEffect(routeEntryNonce) { building = true; addArmed = true }
     Surface(
         modifier = modifier
             .width(248.dp)

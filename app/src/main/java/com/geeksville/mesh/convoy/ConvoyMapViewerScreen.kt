@@ -130,6 +130,7 @@ fun ConvoyMapViewerScreen(
     var routeMethod by remember { mutableStateOf(ROUTE_METHOD_P2P) }
     var routeName by remember { mutableStateOf("") }
     var showNameDialog by remember { mutableStateOf(false) }
+    var routeEntryNonce by remember { mutableStateOf(0) }   // ++ on every route-mode entry; re-arms toolbar build controls
     // route lifecycle (Layer 2): launch state fixed at New / Select-In-Progress
     var routeLifecycleState by remember { mutableStateOf(ROUTE_LS_NEW) }
     var showSaveChoice by remember { mutableStateOf(false) }
@@ -425,6 +426,15 @@ fun ConvoyMapViewerScreen(
                                         if (s != null) RouteManager.snapToVertex(s) else RouteManager.freeVertex(lat, lon)
                                     }
                                     RouteManager.addVertex(v)
+                                    // AUTO-CHECKPOINT: persist in-progress draft after every point
+                                    // so a teardown mid-build loses nothing (recover via start-route+ picker).
+                                    if (routeName.isNotBlank()) {
+                                        val methodStr = when (routeMethod) { ROUTE_METHOD_DRAW -> "draw"; ROUTE_METHOD_SUGGEST -> "suggest"; else -> "point" }
+                                        runCatching {
+                                            if (RouteDraftStore.draftExists(routeName)) RouteDraftStore.overwriteDraft(routeName, methodStr)
+                                            else RouteDraftStore.writeDraft(routeName, methodStr)
+                                        }
+                                    }
                                     val pts = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                                         SpatialDbManager.init(context)
                                         val tl = SpatialDbManager.queryTrailsByViewport(lastViewportSouth, lastViewportWest, lastViewportNorth, lastViewportEast)
@@ -974,6 +984,7 @@ fun ConvoyMapViewerScreen(
                                 routeNameTaken = false
                                 routeLifecycleState = ROUTE_LS_NEW
                                 showNameDialog = false
+                                routeEntryNonce++
                                 routeMode = true
                                 webViewRef?.evaluateJavascript("setRouteMode(true)", null)  // arm tap-to-place
                             }
@@ -990,6 +1001,7 @@ fun ConvoyMapViewerScreen(
                 ConvoyRouteToolbar(
                     isConvoyMap = false,
                     vertexCount = RouteManager.routeVertexCount(),
+                    routeEntryNonce = routeEntryNonce,
                     selectedMethod = routeMethod,
                     onSelectMethod = { routeMethod = it },
                     onNewRoute = {
@@ -1115,6 +1127,7 @@ fun ConvoyMapViewerScreen(
                                         routeMethod = when (od?.method) { "draw" -> ROUTE_METHOD_DRAW; "suggest" -> ROUTE_METHOD_SUGGEST; else -> ROUTE_METHOD_P2P }
                                         routeLifecycleState = ROUTE_LS_RESUMED
                                         showInProgressPicker = false
+                                        routeEntryNonce++
                                         routeMode = true
                                         scope.launch {
                                             val rsPts = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
