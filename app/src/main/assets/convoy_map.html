@@ -313,7 +313,26 @@
       });
     }
     // Defined on window.* so evaluateJavascript (global scope) can reach them.
-    window.setRouteMode = function(on) { window.__routeMode = !!on; };
+    window.setRouteMode = function(on) {
+      window.__routeMode = !!on;
+      // Stop Leaflet artifact layers from catching the route-build tap (popup +
+      // redraw-over-route). While building, route their pointer events out so the
+      // tap falls through to map.on('click') -> Android.onMapTap (real coords).
+      try {
+        var __gtLayers = [
+          (typeof trailLayer    !== 'undefined') ? trailLayer    : null,
+          (typeof trackLayer    !== 'undefined') ? trackLayer    : null,
+          (typeof waypointLayer !== 'undefined') ? waypointLayer : null,
+          (typeof routeLayer    !== 'undefined') ? routeLayer    : null
+        ];
+        __gtLayers.forEach(function(lyr) {
+          if (!lyr || !lyr.eachLayer) return;
+          lyr.eachLayer(function(sub) {
+            if (sub && sub._path) sub._path.style.pointerEvents = on ? 'none' : '';
+          });
+        });
+      } catch (e) {}
+    };
     window.drawBuildLine = function(jsonPts) {
       try {
         var pts = (typeof jsonPts === 'string') ? JSON.parse(jsonPts) : jsonPts;

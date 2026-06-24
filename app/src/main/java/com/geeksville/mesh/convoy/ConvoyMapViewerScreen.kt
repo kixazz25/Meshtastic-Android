@@ -1132,15 +1132,25 @@ fun ConvoyMapViewerScreen(
                                         scope.launch {
                                             val rsPts = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                                                 SpatialDbManager.init(context)
-                                                val tl = SpatialDbManager.queryTrailsByViewport(lastViewportSouth, lastViewportWest, lastViewportNorth, lastViewportEast)
-                                                val tk = SpatialDbManager.queryTracksByViewport(lastViewportSouth, lastViewportWest, lastViewportNorth, lastViewportEast)
+                                                // BY-ID rederive: fetch the snap-referenced trail/track geometry by the
+                                                // lineIds the vertices carry (NOT by viewport) so reload draws the snapped
+                                                // shape regardless of where the map is looking. Fixes resume chords.
+                                                val verts = RouteManager.routeVertices()
+                                                val trailIds = verts.filter { it.snapped && it.lineType == "trail" }.mapNotNull { it.lineId }
+                                                val trackIds = verts.filter { it.snapped && it.lineType == "track" }.mapNotNull { it.lineId }
                                                 val byId = HashMap<String, String>()
-                                                for (m in tl) { val id = m["trail_id"]; val g = m["geometry"]; if (id != null && g != null) byId[id] = g }
-                                                for (m in tk) { val id = m["track_id"]; val g = m["geometry"]; if (id != null && g != null) byId[id] = g }
+                                                byId.putAll(SpatialDbManager.queryGeomByIds(trailIds, "trail"))
+                                                byId.putAll(SpatialDbManager.queryGeomByIds(trackIds, "track"))
                                                 RouteManager.buildSegments { lineId -> byId[lineId]?.let { RouteManager.parseWktLine(it) } }
                                                     .joinToString(",", "[", "]") { "[${it[1]},${it[0]}]" }
                                             }
                                             webViewRef?.evaluateJavascript("setRouteMode(true); drawBuildLine('" + rsPts + "')", null)
+                                            // Second draw after the map settles: the first drawBuildLine can render
+                                            // before the build layer is ready (angular); redraw the SAME shape so the
+                                            // snapped line shows without needing a manual edit. (Fred: only an edit fixed it.)
+                                            webViewRef?.postDelayed({
+                                                webViewRef?.evaluateJavascript("drawBuildLine('" + rsPts + "')", null)
+                                            }, 400)
                                         }
                                     }) { androidx.compose.material3.Text(d) }
                                     androidx.compose.material3.TextButton(onClick = {

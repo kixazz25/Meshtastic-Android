@@ -1228,6 +1228,39 @@ object SpatialDbManager {
         }
     }
 
+    /**
+     * Fetch geometry (WKT) for a set of artifact IDs, keyed by id. Used to rederive
+     * a route's snapped shape from its vertices' lineIds WITHOUT a viewport query —
+     * so reload / undo / zoom-pan rebuild correctly regardless of where the map looks.
+     * type: "trail"/"trails" -> trails/trail_id ; "track"/"tracks"/"route"/"routes" -> tracks/track_id.
+     */
+    fun queryGeomByIds(ids: Collection<String>, type: String): Map<String, String> {
+        val out = HashMap<String, String>()
+        if (ids.isEmpty()) return out
+        val db = spatialDb ?: return out
+        val (table, idCol) = when (type.lowercase()) {
+            "trail", "trails" -> "trails" to "trail_id"
+            else              -> "tracks" to "track_id"   // tracks + routes share the tracks table
+        }
+        val distinct = ids.toSet().toList()
+        val placeholders = distinct.joinToString(",") { "?" }
+        try {
+            db.rawQuery(
+                "SELECT $idCol, geometry FROM $table WHERE $idCol IN ($placeholders)",
+                distinct.toTypedArray()
+            ).use { c ->
+                while (c.moveToNext()) {
+                    val id = c.getString(0) ?: continue
+                    val g = c.getString(1) ?: continue
+                    out[id] = g
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.w(TAG, "queryGeomByIds($type) failed: " + e.message)
+        }
+        return out
+    }
+
     /** Build GPX for a single trail by ID. Returns Pair(name, gpxContent) or null. */
     fun buildTrailGpxById(trailId: String): Pair<String, String>? {
         val db = spatialDb ?: return null
