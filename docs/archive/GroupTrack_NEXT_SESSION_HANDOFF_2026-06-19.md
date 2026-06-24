@@ -17,7 +17,7 @@ HEAD = **`583b7b9df`** (49 commits ahead of origin).
 
 **Fred's framing (exact):** "Our goal was to make ONE detailed callable artifact panel and use it everywhere so we had one piece of code. We built a new detail panel, parametrized and callable as a function. We did all that work and NEVER REMOVED THE OLD FUNCTION and NEVER WIRED THE NEW FUNCTION IN PLACE."
 
-**Verified history:** this was DIAGNOSED June 17 (chat 23127897) — `onResultClick` set both `pendingDetailId` AND `activeListType`, launching two surfaces; Fred's direction was "select -> detail panel directly, bypass `activeListType`." **That June 17 wiring fix was never finished.** 06-19 layered Carto Type onto the unwired panel, so nothing showed.
+**Verified history:** this was DIAGNOSED June 17 (chat 23127897) — `onResultClick` set both `pendingDetailId` AND `activeListType`, launching two surfaces; Fred's direction was "select → detail panel directly, bypass `activeListType`." **That June 17 wiring fix was never finished.** 06-19 layered Carto Type onto the unwired panel, so nothing showed.
 
 **Fred's EOD observation (from real use — ground truth):** BOTH launchers (the search FAB AND the select/edit list) end up at the WRONG detail panel. The wiring is wrong in more than one place. (Claude's late-session file was likely STALE — re-pull fresh and verify on real code.)
 
@@ -26,20 +26,20 @@ HEAD = **`583b7b9df`** (49 commits ahead of origin).
 
 **TASK 2 — WIRE THE NEW.** Every artifact-select launcher invokes the ONE `ArtifactDetailPanel` (set `pendingDetailType/Id`; do NOT set `activeListType` on the detail path):
 - search FAB result-tap (verify on fresh files)
-- select/edit list row-tap -> add `onOpenDetail(type,id)` param to `ArtifactListPanel`, wired in parent (ConvoyScreen ~1725 + ConvoyMapViewerScreen ~1203) to `{ t,id -> pendingDetailType=t; pendingDetailId=id }`
+- select/edit list row-tap → add `onOpenDetail(type,id)` param to `ArtifactListPanel`, wired in parent (ConvoyScreen ~1725 + ConvoyMapViewerScreen ~1203) to `{ t,id -> pendingDetailType=t; pendingDetailId=id }`
 - BOTH convoy + planning.
 
 **RESULT:** one detail panel, called everywhere = the original goal. Patch M's Carto Type field then shows from every launcher. **Verify the Carto Type row appears from BOTH the search FAB AND the select/edit list, on BOTH maps, before committing.**
 
-**Carto Type spec:** DETAILS-section row, value = TRANSLATED TEXT never the code — 4->"OHV / Road-Concurrent" (blue), 2->"Hiking & Biking" (orange), 1->"Hiking-Only" (yellow), 5->"Biking-Only" (purple), none->"Unspecified" (cyan). Cyan = unspecified ONLY; each real type its own color. **Only Utah trails carry carto_code** — elsewhere cyan-by-design reads "Unspecified" (correct). Test a Utah carto trail to see a real color.
+**Carto Type spec:** DETAILS-section row, value = TRANSLATED TEXT never the code — 4→"OHV / Road-Concurrent" (blue), 2→"Hiking & Biking" (orange), 1→"Hiking-Only" (yellow), 5→"Biking-Only" (purple), none→"Unspecified" (cyan). Cyan = unspecified ONLY; each real type its own color. **Only Utah trails carry carto_code** — elsewhere cyan-by-design reads "Unspecified" (correct). Test a Utah carto trail to see a real color.
 
-## TASK 3 — MAP ARTIFACT-TAP -> DETAIL (the original intended use; JS<->Kotlin)
+## TASK 3 — MAP ARTIFACT-TAP → DETAIL (the original intended use; JS↔Kotlin)
 Tapping an artifact on the map opens the OLD Leaflet popup (pure JS, never crosses to Kotlin). Wire it to the ONE `ArtifactDetailPanel`:
-- Add `onArtifactTapped(type,id)` to the `@JavascriptInterface` object on both maps (alongside `onMapTap`/`onMarkerTapped`/etc.) -> sets `pendingDetailType/Id`.
+- Add `onArtifactTapped(type,id)` to the `@JavascriptInterface` object on both maps (alongside `onMapTap`/`onMarkerTapped`/etc.) → sets `pendingDetailType/Id`.
 - In the map JS (`convoy_map.html` + `grouptrack_map.html`): the feature click handler (currently `bindPopup`/`onEachFeature`) calls `AndroidBridge.onArtifactTapped(type,id)` — feature carries type+id in GeoJSON props.
-- **GATE:** `onMapTap` is ALREADY route-building's vertex handler. Feature-click vs empty-map-click fire separately in Leaflet, so feature->detail and empty-map->route-vertex coexist. **Suppress artifact-detail-on-tap while route-build mode is active.** Paired edit, both HTMLs. (Confirm exact filenames: `ls app/src/main/assets/*.html`.)
+- **GATE:** `onMapTap` is ALREADY route-building's vertex handler. Feature-click vs empty-map-click fire separately in Leaflet, so feature→detail and empty-map→route-vertex coexist. **Suppress artifact-detail-on-tap while route-build mode is active.** Paired edit, both HTMLs. (Confirm exact filenames: `ls app/src/main/assets/*.html`.)
 
-## TASK 4 — WORK-WITH-ARTIFACTS -> FAB + accordion-close (removes the on-map WWA bar)
+## TASK 4 — WORK-WITH-ARTIFACTS → FAB + accordion-close (removes the on-map WWA bar)
 Convert the on-map "Work with Artifacts" BAR into a FAB in the right-edge icon column (search · artifacts · help).
 - **FAB launches the panel ALREADY EXPANDED** (accordion open).
 - **The accordion-collapse control becomes CLOSE** — dismisses the whole panel back to map + FAB (calls existing `onDismiss`, `ConvoyArtifactsPanel.kt:64`).
@@ -48,15 +48,15 @@ Convert the on-map "Work with Artifacts" BAR into a FAB in the right-edge icon c
 
 ## ORDER FOR TOMORROW
 1. Session start: recommit + upload xrefs + re-pull fresh files (ConvoyScreen, ConvoyMapViewerScreen, ArtifactListPanel, ArtifactDetailPanel, UnifiedSearch, both map HTMLs).
-2. **Build the launcher->panel truth table. Show Fred. No code before this.**
-3. TASK 1 + TASK 2 -> one build -> verify Carto Type from search FAB AND select/edit list on BOTH maps -> commit.
-4. TASK 3 (map artifact-tap -> detail) -> build -> verify -> commit.
-5. TASK 4 (WWA -> FAB + accordion-close) -> build -> verify -> commit.
+2. **Build the launcher→panel truth table. Show Fred. No code before this.**
+3. TASK 1 + TASK 2 → one build → verify Carto Type from search FAB AND select/edit list on BOTH maps → commit.
+4. TASK 3 (map artifact-tap → detail) → build → verify → commit.
+5. TASK 4 (WWA → FAB + accordion-close) → build → verify → commit.
 6. Then: queue + survey + upload_queue · remove RouteCreate orphan · manual rewrite + captures BUNDLED · cut 2.5 AAB (banked fallback) · lead-track rewrite LAST.
 
 ## CARRIED ITEMS (full detail in the Living Checklist — do NOT re-derive)
 - **Lead-cart tracking REBUILD [2.1]** — one lead / one track / snap-2 100yd / per-cart per-second GPS replacement. MUST-SHIP; attempt LAST after AAB banked. Demolition+rebuild planning doc to produce. Authority: `GroupTrack_LeadTrackReplacement_Spec.docx` (May 31) + `GroupTrack_LeadCart_TrackRevision_DemolitionRebuild_2026-06-18.md`.
-- **Tile downloads — batch formats for performance** — V2.5 interim = settable concurrency (default 4, max 6, throttle guidance); 2.6 = batch transfer (.tpkx / PMTiles) + AWS staged/hosted + Esri thresholds. App crashes past 3 concurrent -> root-cause is 2.6.
+- **Tile downloads — batch formats for performance** — V2.5 interim = settable concurrency (default 4, max 6, throttle guidance); 2.6 = batch transfer (.tpkx / PMTiles) + AWS staged/hosted + Esri thresholds. App crashes past 3 concurrent → root-cause is 2.6.
 - **Track survey on STOP [7.5]** — V2.5 collect-now; schema finalized (extension db, enjoyment 1-5 + ride_again); feeds upload_queue; connected to queue-panel upload/download toggle — build together.
 - **Documentation** — manual edit-in-place on `app/src/main/assets/grouptrack_manual.html` (pristine cookbook base); rewrite WWA section around icon navigation, add search FAB + one detail panel + Carto Type + map-tap; release notes realign; captures bundled in AAB. Done LAST, before the AAB cut.
 
