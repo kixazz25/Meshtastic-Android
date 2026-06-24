@@ -111,6 +111,17 @@ fun UnifiedSearch(
                 webView?.evaluateJavascript(
                     "try{showSearchCenter(${a.latitude}, ${a.longitude})}catch(e){}", null
                 )
+                // [AREA FIX 2026-06-23] Seed lastViewport* to the NEW frame so the draw
+                // queries the searched area, not the stale pre-search bbox. setView needs
+                // the map to settle before getBounds is valid -> post ~550ms (mirrors the
+                // HTML reportViewport 450ms timer + margin). Same round-trip every other
+                // reposition in ConvoyScreen uses.
+                webView?.postDelayed({
+                    webView?.evaluateJavascript(
+                        "try{var b=map.getBounds();Android.onViewportChanged(b.getNorth(),b.getSouth(),b.getEast(),b.getWest(),map.getZoom())}catch(e){}",
+                        null
+                    )
+                }, 550)
                 results = emptyList(); showResults = false
                 barOpen = false
             }
