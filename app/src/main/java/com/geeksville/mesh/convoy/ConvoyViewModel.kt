@@ -903,7 +903,7 @@ if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
                         }
                     }
                 },
-                heading_deg = (pos.ground_track ?: 0).toFloat(),
+                heading_deg = (((pos.ground_track ?: 0).toFloat() / 100000f) % 360f + 360f) % 360f,
                 battery_pct = node.deviceMetrics.battery_level ?: 0,
                 snr_db = node.snr,
                 lastSeenMs = lastSeenMs,
