@@ -13008,95 +13008,79 @@ Build ONE shared pair of functions — `saveState(mapKey)` + `recreateState(mapK
 Every bug today was a symptom of **re-deriving known display state through a query that can't be trusted.** Persisting the full filter and restoring by id removes the query from the restore path entirely for existing filters. One root change dissolves the whole bug class (empty list, clobber, stale bbox, 165) instead of patching each. And making it a shared mapKey-keyed function ends the convoy/planning drift that caused the repeated re-fixing.
 
 
-=== GroupTrack_Handoff_2026-06-15.md ===
-# GroupTrack — Handoff (2026-06-15, ~1:00 AM EOD)
-
-**Branch:** feature/convoy-event-ride · **Committed HEAD:** `168778c0a` · **Rollback anchor:** `168778c0a`
-**Working tree:** [3.1] Patches 1–4 applied + built, **not committed**.
-
----
-
-## WHERE WE LANDED TONIGHT
-1. **bbox persistence works.** Built, installed to Droid 1 (field), proven on device: bbox saves and restores; ALL/OFF states save and restore; planning opens to its persisted last-session frame; convoy opens to GPS.
-2. **A real bug surfaced underneath it** — the artifact-list **save** ([3.1c]) doesn't serialize SELECT-mode selections unless that type's list panel is open at save time. This was always true; the lossy save only became visible now that restore actually works.
-3. **Nothing committed.** Patch 4 (debounced pan-save) is applied but suspect; its rollback is written and waiting.
-4. No manual / release-notes edits tonight.
+=== GroupTrack_Handoff_2026-06-29.md ===
+# GroupTrack — Next-Session Handoff (cold start)
+**From:** 2026-06-29 EOD · **For:** 2026-06-30
+**Branch:** feature/convoy-event-ride · **HEAD:** `0191c7034` (06-29 WIP marker — V2.6 track-capture banked, builds clean, NOT field-verified) · **V2.5 LIVE on Play Store at `c603bc3f0`**
+**Read with:** `GroupTrack_V25_LivingChecklist_OpenItems_2026-06-29.md` (the checklist is the detail; this is the orientation).
 
 ---
 
-## START HERE TOMORROW
+## ⛔ FIRST TASK — WIRE TRACK ALIASES (the repair sequence)
+The dupe/alias path works for TRAILS but was **never wired for tracks** (verified 06-29 on device: spatial DB has no trigger; `artifact_aliases` has 7 rows, all trail-type, zero track aliases; sync's dupe branch at `SpatialDbManager.kt:592` does rename-only and never reaches an ALIAS decision).
 
-**First move — confirm the selection source (one read):**
-```
-cd ~/Meshtastic-Android && sed -n '1250,1280p' app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt
-```
-Goal: confirm `trailCheckedIds / trackCheckedIds / waypointCheckedIds / routeCheckedIds` reliably hold the selection at save time, and that `selectedArtifactIds` ↔ `*CheckedIds` are in sync while the panel is open. These per-type sets are the authoritative live selection the save should write.
+**Build ONE shared dupe/alias resolver, route IMPORT + SYNC + CREATE through it (all three resolve identically):**
+- new hash → **INSERT** (insert track, file `<hash>.gpx`).
+- hash exists, **same name** → **DROP** (delete the redundant source file).
+- hash exists, **different name** → **ALIAS** (write alias → existing track_id, then **DELETE** the source file — do NOT rename; the dupe's value is its human name → an alias).
 
-**Then, in order:**
-1. Decide Patch 4 — roll back the debounced full-save, or convert it to a bbox-only write. A pan must not trigger the full save. (Rollback script: `rollback_p4_debounced_viewport_save_2026-06-14_v1.py`.)
-2. Rewrite `rowsFor` in **both** `savePlanningState` (MapViewer ~231) and `saveConvoyState` (ConvoyScreen ~227): build SELECTED rows from `<type>CheckedIds`, not the `activeListType`-gated `artifactList`. One `checked:true` row per selected id.
-3. One build (~30 min). Install Droid 1.
-4. Prove with device JSON pulls (no pan): select 2 → `state:2` + 2 `checked:true`; leave/return → 2 display; pan within frame → 2 stay; pan out of frame → drop, others no. Walk the 4 acceptance cases below.
-5. Only then **commit Stage 1** — bbox persistence + the `rowsFor` fix. Named files only: `MapStateStore.kt`, `ConvoyScreen.kt`, `ConvoyMapViewerScreen.kt`. Never `git add .`. Leave the parked weekend files.
+Mirror the trail ALIAS path (`resolveByGeom`/`decideAddAction` → `AddDecision.ALIAS`, alias writer ~SpatialDbManager:1188 — proven by the 7 trail rows). REUSE the existing alias writer; don't reinvent. Resolve track_id by hash for the alias FK. This is principle #2: code presents, the DB decides. It also makes dupe cleanup automatic going forward.
+
+Then in order: (2) field-verify the metric feed (TrackPropertiesUpdater) via the cold-launch recipe; (3) field-cert CREATE on Droid 2; (4) field-cert IMPORT; (5) route-planning popup BUG A. Gate the next AAB on all of the above + popup.
 
 ---
 
-## THE BUG IN ONE LOOK
-
-`rowsFor` (both save functions):
-```
-fun rowsFor(type) {
-    if (activeListType != type) return emptyList()   // ← drops every non-open type
-    return artifactList.mapNotNull { ... checked = id in selectedArtifactIds }
-}
-```
-Only the currently-open list type gets rows. Everything else saves `rows:[]`. Device JSON (pulled, no pan) showed `"Trails":{"state":2,"rows":[]}` — SELECT with empty rows → restore finds no checked ids → render shows nothing → selection looks dropped. The selection was never wrong in memory (display + reopened SEL show it); the **save** just never captured it.
-
-**Fix:** serialize the selection from the persistent per-type checked-id sets, independent of which panel is open.
+## ⚠️ HARD-WON LESSONS (don't repeat)
+- **BUILD THE REQUESTED/VISIBLE THING FIRST.** 06-29's cardinal failure: Fred asked for the sync control screen 3+ times; Claude kept building infrastructure and deferring the visible surface, then sent Fred to test with no screen and no log command. Do the asked thing first; communicate before redirecting.
+- **INVENTORY each function's original-design fix BEFORE stacking new pieces.** The import extension wire was sitting on an import base fix that had never been made — would've silently no-op'd. Fred caught it.
+- **COLD-LAUNCH FROM THE ICON, never recents.** Recents resumes the old WebView/code — the likely cause of the 06-29 inconclusive test (after-DB still `track_properties` rows:0). Verify deploy via APK-grep, not the in-app Settings build date (stale).
+- **NO SILENT PROCESSES** + **INSTRUMENT FIRST** (disk log) + believe the device/Fred over the code + look at DATA before changing dependent code.
 
 ---
 
-## FILTER-DISPLAY RULE (the spec the fix must satisfy)
-JSON filter = golden display state.
-- bbox unchanged → no query; old values carry over verbatim.
-- bbox changed → reconcile by id: in-both keeps JSON's yes/no (never flip an in-frame yes→no); new-in-query = no; gone-from-query (left bbox) = deleted (no stale resurrection).
-- Partial overlap counts as in-bbox (long trails). The query is a bbox-intersect, so partial overlaps already come back.
-- A yes only becomes no by leaving the bbox.
-- The render filter `filter { id in capIds }` already does the display reconcile correctly; only the save needs fixing.
+## ✅ WHAT LANDED 06-29 (committed in `0191c7034`, builds clean, field-UNVERIFIED)
+- **Sync control screen** (visible feed + failures-first recap) + autoscroll — the owed surface.
+- **Sync single-flight guard**; loose map-lifecycle auto-call REMOVED → **sync is now MANUAL-REQUEST ONLY** (the auto-call was masking broken create/import; a nonzero added/renamed count is now a SIGNAL of failure, not something to absorb).
+- **Reporting backend v3** (`TrackSyncResult` gains propsWritten/propsTotal/failures).
+- **Trash filter** (`.trashed-` files no longer re-processed; 71→210 bug).
+- **TrackPropertiesUpdater** metric service (hash-keyed; distance/duration/speed/elevation/point_count) + wires from save/import/sync.
+- **Import base fix** (DB-first, `<hash>.gpx` naming).
+- **File-tap import disabled** (rogue legacy named-import path).
+- **Save Track dialog** (blank-name → confirm-delete; non-cancelable).
 
-**Acceptance cases:**
-1. bbox unchanged, 10 in filter / 2 selected → 2 display.
-2. 2 selected, both in bbox → 2 display.
-3. 15 in new bbox, 2 carried → 2 display, 13 no.
-4. 1 selected leaves bbox → 1 displays.
+**06-29 test was INCONCLUSIVE** — the resync ran on old code (recents, not a cold icon launch); metric feed never exercised. Re-verify 06-30.
 
 ---
 
-## DESIGN CONTEXT (settled this session, carries into Stage 2 / [2h.1])
-
-**Map-purpose model.** Maps are purposed by what you're doing, not where you are.
-- Convoy = live, location-anchored: GPS open, proximity-based artifact finding (all-functions). No search, no fit.
-- Planning = deliberate, identity-anchored: name search, fit, persisted-frame open.
-- A function that helps one map hinders the other — the asymmetries are intentional.
-- [2h.1] consequence: convoy gets the all-functions (no search entry); planning gets the search surface.
-
-**Fit (Stage 2) simplification.** Once [3.1c] is fixed, Fit just writes one item as `checked:true` (+ its bbox) into the golden JSON and relaunches; the same merge displays it, with neighbors available to combine for route-building. May make the separate `fitArtifact` field redundant — confirm at Stage 2.
-
-**Build order:** [3.1] Stage 1 (bbox done + save fix) → commit → [2h.2] Fit → [2h.1] search rehost → [3.9a] arrows.
-
-**[3.1b] deferred:** GPS-recenter bull's-eye placeholder on planning's layer nav bar (planning no longer auto-centers on GPS).
+## 🧹 DEVICE STATE (end of 06-29)
+- **Droid 1** (`8624SBCEDF00001789`, field): my_tracks cleaned to **73 `<hash>.gpx` files, 0 non-hash**. 55 deleted (52 dupes + 3 junk temps), all backed up to `/sdcard/Download/mytracks_nonhash_backup_20260629`.
+- **Droid 2** (`24039703201775`, dev): keeps its OWN corrected set. **Devices are NOT mirrored** — same APK on both, each resyncs its own files→DB independently.
+- Both devices on the `0191c7034` build, synced and ready.
+- **Test fixture (do NOT sweep):** orphan spatial row `82a5cb01` ("St George to Bar10", hash `9969bdf6`, no file, nothing attached) — kept on purpose to test the delete-track fix and the sync reconcile-leg. The 73-vs-74 row count is this one orphan, by design.
 
 ---
 
-## TREE / DEVICE
-- Parked weekend files (leave): `M utah_trails_stgeorge.geojson`, `?? grouptrack_manual.html`, `?? grouptrack_release_notes.html`, `?? *.geojson.bak`, `D docs/.tmp.driveupload/10630`.
-- Build: `./gradlew assembleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease`
-- Install: `adb -s <serial> install -r -d app/build/outputs/apk/google/release/app-google-release.apk`
-- Droid 2 = `24039703201775` (dev) · Droid 1 = `8624SBCEDF00001789` (field, real GPS)
-- JSON pull: `MSYS_NO_PATHCONV=1 adb -s 8624SBCEDF00001789 shell cat /sdcard/Documents/GroupTrack/state/planning_panel.json`
+## 🆕 NEW OPEN TASKS captured 06-29 (detail in checklist)
+- **Delete-artifact is legacy pre-spatial** — deletes the FILE only, NEVER the DB row → ongoing orphan generator. Fix = one `deleteTrack(track_id)` removing row + extension + file (the delete half of the paired add/delete contract).
+- **Sync DB→file reconcile leg — DEMOTED to optional safety net.** The delete-artifact fix is the real solution (stops orphans at the source). This sweep MAY still be linked into sync as a should-never-fire tripwire — if it ever finds an orphan post-fix, that's a red flag of a new orphan source, not normal operation. Not a repair feature.
+- **Recording fails on first attempt (Android mode)** — first record yields an empty 0-point track before Android "recognizes" it.
+- **Track extended-DB data in artifact detail + track popups** — surface track_properties (depends on metric feed populating).
+- **Track rename scope fix** — rename should touch ONLY the name field, not re-write the track.
 
-## LESSON FOR NEXT TIME
-When the symptom is "saved state looks wrong," **pull the file first.** Tonight went long deriving merge rules and chasing the pan-save before pulling the JSON and reading `rowsFor` — which is what actually pinned it in minutes.
+---
+
+## 📌 ALSO PENDING (not blocking the alias work)
+- Release notes: **mandatory track-resync** tester note is QUEUED for the NEXT build's notes (TBA until the AAB ships) — re-pull Fred's exact wording from the 06-29 conversation; do NOT invent it. Current notes/manual stay 06-23 (nothing field-verified to announce).
+- Multi-track splitter (`ConvoyTrackOps.kt:~230`) still `$baseName.gpx`, file-only — fold into hash/DB-first during the import deep-dive.
+- Elevation m/ft assumption in the metric feed — verify against a known ride.
+
+---
+
+## DEVICE / BUILD QUICK-REF
+- Build: `./gradlew assembleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease 2>&1 | grep -E "^e:|BUILD|FAILED"` (06-29 was 36m51s SUCCESSFUL). APK: `app/build/outputs/apk/google/release/app-google-release.apk`. AAB: `bundleGoogleRelease`.
+- Install: `adb -s <serial> install -r -d <apk>` → `MSYS_NO_PATHCONV=1 adb -s <serial> shell am force-stop com.grouptrack.android` → **cold-launch from icon**.
+- Droid 1 `8624SBCEDF00001789` (field/real-GPS) · Droid 2 `24039703201775` (dev). `MSYS_NO_PATHCONV=1` on REMOTE adb paths. No sqlite3 on device — pull DB, query via `python3 -c "import sqlite3 …"`. DBs: `/sdcard/Documents/GroupTrack/grouptrack_spatial.db` + `grouptrack_data.db`. my_tracks: `/sdcard/Documents/my_tracks/`. Sync log: `track_sync.log` (tag `TrackSync`; `TrackProps` for the updater).
+- Patches: standalone dated python → Downloads → `python3 <name>.py`; count==1 anchor guard, runtime newline detect, all-or-nothing. Commit only named files, never `git add .`. LINE ENDINGS: SpatialDbManager/ConvoyViewModel/ConvoyTrackImportScreen/ConvoyTrackOps = LF; ConvoyMapViewerScreen/ConvoySettingsScreen/HTMLs/ConvoyGpsService/MainActivity = CRLF.
 
 
 === GroupTrack_LeadCart_TrackRevision_DemolitionRebuild_2026-06-18.md ===
@@ -16716,40 +16700,77 @@ settled design is made, it goes on the list the same day. Before declaring any t
 - **Still to do (documentation pass):** cookbook automated screen-capture; broader doc organize/cleanup; user-manual structural rewrite where stale.
 
 
-=== GroupTrack_V25_LivingChecklist_OpenItems_2026-06-28.md ===
-# GroupTrack V2.5 — Living Checklist / Open Items
-**Updated:** 2026-06-28
-**Branch:** feature/convoy-event-ride · **Committed HEAD:** `c603bc3f0` (V2.5 shipped — AAB LIVE on Play Store)
+=== GroupTrack_V25_LivingChecklist_OpenItems_2026-06-29.md ===
+# GroupTrack V2.5/V2.6 — Living Checklist / Open Items
+**Updated:** 2026-06-29
+**Branch:** feature/convoy-event-ride · **Committed HEAD:** `0191c7034` (06-29 WIP marker — V2.6 track-capture banked, builds clean, NOT field-verified) · V2.5 LIVE on Play Store at `c603bc3f0`
 
 ---
 
-## 🟦 START HERE — NEXT SESSION (06-29 plan)
+## 🟦 START HERE — NEXT SESSION (06-30 plan)
 
-**⛔ STANDING PRINCIPLE — NO SILENT PROCESSES.** Any process that does real work (especially data-touching: sync, import, delete, upload, recording) MUST show it's running, stream progress, and report its result on a surface the user can't miss (a screen/dialog, not a toast that can be drowned). Silence both HIDES and CAUSES failures — proven 06-28: sync gave no feedback → Fred pressed RESYNC twice → concurrent overlapping runs → an hour of debugging a storm that a visible process would have prevented. No "miracle happens" steps.
+**⛔⛔ 06-30 FIRST TASK IS DECIDED: WIRE TRACK ALIASES. Everything else waits behind it + the dupe cleanup. ⛔⛔**
 
-### ✅ 06-28 RESULTS (what we verified)
-- **CREATE (record-save) FIX — BUILT + APPLIED.** `ConvoyGpsService.finalizeTrack` drops the timestamp + forces gpx; `ConvoyViewModel.finalizeTrack` injects the typed name into `<trk><name>`, computes geom_hash, calls `insertTrackToDb`, renames file to `<hash>.gpx`. Self-contained inline (does NOT call sync). Compiles clean. (Field-cert on Droid 2 still pending — see plan.)
-- **SYNC REWRITE — BUILT + APPLIED + VERIFIED WORKING via disk log.** Rewrote `syncTracksFromFiles` to the hash-keyed model with full per-file instrumentation. The 06-28 disk log (`/sdcard/Documents/GroupTrack/track_sync.log`, also logcat tag `TrackSync`) PROVED the core logic is correct: every file parses (e.g. pts=2746/2958/447…), computes its hash, is found in the DB, and is correctly skipped/renamed. Droid 1: all 71 files now hash-named, 69 DB rows, NOTHING LOST (backup of 71 in `/sdcard/Download/mytracks_backup`). The earlier "15 of 71 renamed" scare was a STALE SNAPSHOT — files were progressively renamed across the day; the final state is all-hash-named.
-- **RECAP TOAST wired** at both RESYNC buttons (`ConvoyMapViewerScreen` 1318, `ConvoyTrackImportScreen` 241) — shows processed/added/renamed counts. (Toast proved unreliable — drowned by concurrent runs; replace with a control screen — see plan.)
-- **Patches (in Downloads, applied):** `patch_create_inline_insert_2026-06-28_v1.py`, `patch_sync_instrumented_2026-06-28_v2.py`, `patch_sync_recap_toast_2026-06-28_v1.py` (+ `_import_v2` for the LF file).
+**⛔ STANDING PRINCIPLE — NO SILENT PROCESSES.** Any process that does real work (especially data-touching: sync, import, delete, upload, recording) MUST show it's running, stream progress, and report its result on a surface the user can't miss (a screen/dialog, not a toast that can be drowned). Silence both HIDES and CAUSES failures.
 
-### 🔴 06-28 REAL PROBLEM FOUND — sync has no home; it runs loose + silent
-- Sync is **auto-invoked off the map lifecycle** (`ConvoyMapViewerScreen:601`, on map load/viewport). The 06-28 log shows the SAME files processed 5-6× across SIX thread IDs with `=== sync start ===` appearing mid-stream → **multiple concurrent overlapping sync runs**. Fred pressed RESYNC twice (no feedback) which compounded it. Fred's read (likely correct): **the lack of a controlling screen means sync runs loose on the map lifecycle, so viewport resets re-launch it** — and processing may re-trigger it. It's idempotent (everything just skips) so it's WASTEFUL not destructive — but it's out of control and invisible.
-- **The fix Fred specified = a SYNC CONTROL SCREEN** that OWNS the run (decoupled from the map lifecycle entirely), shows a ROLLING file-by-file status as it processes, and shows the RECAP at the end. This is the right architecture: contain sync in a screen that owns it, don't patch a loose background process.
+**⛔ NEW CARDINAL LESSON (06-29) — BUILD THE REQUESTED/VISIBLE THING FIRST.** Fred specified the SYNC CONTROL SCREEN 3+ times on 06-29 and Claude kept building under-the-hood infrastructure (extension DB, TrackPropertiesUpdater, import base fix) and deferring the visible surface — then sent Fred to test with no screen and no log command. Do NOT redirect silently to what's technically interesting. Communicate scope changes. Do the asked thing first. (The control screen DID get built later in the session — see results.)
+
+### 🔴 06-29 SESSION-END FINDING — TRACK ALIAS PROCESSING IS NOT WIRED (verified on device)
+- **The dupe/alias path works for TRAILS but was NEVER wired for TRACKS.** Verified 06-29 by pulling both live DBs off Droid 1:
+  - Spatial DB: **`TRIGGERS: []`** — there is NO trigger on `tracks`. (Belief that "the DB write handles alias creation via a trigger on hash-dupe" is FALSE for the live DB — no such trigger exists.)
+  - Extension DB `artifact_aliases`: **7 rows, ALL `artifact_type='trail'`, source `'add'`. ZERO track aliases.**
+  - my_tracks has genuine geometry-dupe candidates (e.g. `Comanche trail 1_2.gpx` vs `camanche trail w_cedar girls.gpx`; two Little Creeks; two new-harmony green tracks; `barracks ok` vs `BARRACKS LOOP`) — none produced an alias.
+- **ROOT CAUSE (in code):** sync's dupe branch (`SpatialDbManager.kt:592`, `if (alreadyInDb) { renamed++ }`) does **rename-only** on a hash-dupe — it never reaches an ALIAS decision and never calls the alias writer. The trail path DOES it (`decideAddAction`/`resolveByGeom` → `AddDecision.ALIAS` at ~1319). Tracks have no equivalent. `ConvoyArtifactOps.addAlias` is a **"Pass 1 stub"** (logs only). The real alias writer exists in SpatialDbManager (~1188, pointer-model `INSERT OR IGNORE`, proven by the 7 trail rows) but the TRACK paths never call it.
+- **THE REQUIREMENT (Fred, 06-29) — ONE shared dupe resolver, identical across SYNC / IMPORT / CREATE:**
+  - new hash → **INSERT** (insert track, name file `<hash>.gpx`).
+  - hash exists, **same name** → **DROP** (delete the redundant source file; canonical `<hash>.gpx` already on disk).
+  - hash exists, **different name** → **ALIAS** (write alias row → existing track_id, then **DELETE the source file** — do NOT rename it). The dupe's only value is its human name → captured as an alias.
+  - Replaces sync's current rename-only branch (:592). Mirror the trail ALIAS path. All three track-capture processes call the SAME resolver so they behave identically. (track_id resolved by hash for the alias FK; alias writer already exists — reuse, don't reinvent.)
+
+### 🧹 06-29 DUPE CLEANUP — ✅ DONE on Droid 1 (06-29)
+- **DONE 06-29:** deleted **55 non-hash files** from Droid 1 my_tracks (52 human-named processed dupes + 3 junk temp recordings: a 1-point fix, a 0-point empty recording, and a 58-point unnamed test walk — none had a meaningful `<trk><name>`, all were default "Convoy Track"). All 55 backed up first to `/sdcard/Download/mytracks_nonhash_backup_20260629`. Result: **73 files remaining, all `<hash>.gpx`, 0 non-hash.** Names were NOT alias-captured (alias resolver not built yet) — backup is the safety net.
+- **⚠️ OPEN: 73 files vs 74 spatial `tracks` rows — DIAGNOSED + EXPLAINED 06-29. ROW RETAINED ON PURPOSE as a test fixture.** The orphan is ONE row: **"St George to Bar10" track_id `82a5cb01-23d9-4df3-9832-1fcb4da8b0f8`, hash `9969bdf6…`, real geometry (37,803 bytes), NO `<hash>.gpx` file, 0 attached properties/surveys/aliases.** CAUSE: imported after a DB build (creating the row), file deleted in a later session via the legacy file-only delete (which never removed the row — see the DELETE-ARTIFACT bug in OTHER OPEN). All 3 Bar 10 tracks exist in Fred's backups; it's a duplicate of a route still present (`cdfad47e`, file intact). **DELETION ATTEMPT 06-29 left the row (delete-artifact is file-only) — this is now KEPT DELIBERATELY as the clean test case for the DELETE-TRACK FIX (the reconcile-leg GAP 1b is ON HOLD — the delete fix supersedes it). Do NOT sweep it until the delete fix is being tested.** When the delete-track fix is ready, deleting this artifact should remove the row + (absent) file cleanly, no collateral — and that same fix prevents new orphans going forward.
+- **Bad data was Droid 1 ONLY.** Droid 2 keeps its OWN corrected set — devices are NOT mirrored. "Push to both" = same APK installed on both, then EACH device resyncs its OWN files→DB independently. No my_tracks copying between devices.
+- Going forward, the alias resolver makes this cleanup automatic (dupes alias-then-delete instead of lingering). The trash-filter patch separately handles `.trashed-` files (a DIFFERENT set).
+- One temp file (`convoy_track_temp_20260629`, 0 trkpts) is live evidence for the new "recording fails on first attempt (Android mode)" task — see OTHER OPEN.
+
+### 📋 06-30 PLAN (revised — alias wiring leads)
+1. **DUPE CLEANUP — ✅ done on Droid 1** (55 deleted, 73 hash files remain). Droid 2 keeps its own set. (Optional: resolve the 73-vs-74 row discrepancy.)
+2. **WIRE TRACK ALIASES** — build the one shared dupe resolver (INSERT / DROP+delete / ALIAS+delete) and route sync, import, AND create through it. Mirror the trail ALIAS path; reuse the existing alias writer. This is the 06-30 first build.
+3. **FIELD-VERIFY THE METRIC FEED** (TrackPropertiesUpdater) via the cold-launch recipe — the 06-29 test was inconclusive (track_properties still rows:0; app likely resumed old code from recents). Confirm `=== properties: N tracks written ===` and real distance/duration/speed in track_properties.
+4. **FIELD-CERT CREATE** on Droid 2 (record→save→displays→`<hash>.gpx`→DB row + properties + alias if name-dupe).
+5. **FIELD-CERT IMPORT** (foreign GPX → `<hash>.gpx`, DB rows, properties, aliases on dupes).
+6. **THEN route-planning popup BUG A.** Gate the next AAB on all the above + popup.
+
+### ✅ 06-29 RESULTS — what was BUILT (compiles unless noted; field-UNVERIFIED — the 06-29 test was inconclusive)
+- **SYNC CONTROL SCREEN — BUILT (the owed visible surface).** `ConvoyTrackImportScreen.kt`: RESYNC now opens a dialog (was inline sync + toast). START runs `syncTracksFromFiles(ctx, onProgress={append})` on IO; live scrolling `LazyColumn` feed; recap shows **FAILURES FIRST** (name·hash·reason, amber) else "no failures" (green), then counts (processed/renamed/props). CLOSE/START disabled while running. + autoscroll patch (feed follows newest line). Patches: `patch_sync_control_screen_2026-06-29_v1.py`, `patch_sync_autoscroll_2026-06-29_v1.py`.
+- **SYNC single-flight guard + loose-trigger removal.** `AtomicBoolean syncRunning` (SpatialDbManager:41) + `compareAndSet` guard at entry, cleared in `finally`. REMOVED the loose auto-sync at `ConvoyMapViewerScreen` `onPageFinished` (kept `SpatialDbManager.init`). **Sync redefined: MANUAL-REQUEST ONLY by original design** — the auto-call was the bug that silently masked broken create/import; a nonzero added/renamed count is now a SIGNAL that create/import failed, not something to absorb. Remaining callers: RESYNC `ConvoyMapViewerScreen:~1315` + `ConvoyTrackImportScreen:239`. Patches: `patch_sync_singleflight_guard`, `patch_remove_loose_autosync`, `patch_fix_sync_var_scope` (vars must sit ABOVE the guard `try{` — first build FAILED on scope).
+- **SYNC reporting backend v3.** `TrackSyncResult` gains `propsWritten/propsTotal/failures` (`"name·hash12 — reason"`) + a `BackfillResult` type. Makes sync + properties reportable and failures identifiable without changing the 3 `updateTrackPropertiesForHash` callers (defaulted `onProgress`). Patch: `patch_sync_reporting_backend_2026-06-29_v3.py` (v1/v2 superseded — anchor-whitespace fixes).
+- **SYNC trash filter.** Android "delete to trash" renames in place to `.trashed-<ts>-<name>.gpx` and leaves it IN my_tracks → the old `endsWith(".gpx")` filter re-processed deleted files (71 real → 210 processed). Now skips `.trashed-`/dotfiles, counts them, emits ONE visible "ignored N trashed/hidden files" feed line. Patch: `patch_sync_trash_filter_2026-06-29_v1.py`.
+- **TrackPropertiesUpdater (metric feed) — the reusable service.** New block in SpatialDbManager: `parseGpxTrackPointsFull` (lat,lon,ele?,timeMs?); `updateTrackPropertiesForHash(geomHash):Boolean` — resolves track_id by hash (UNIQUE), reads `<hash>.gpx`, derives metrics, upserts `track_properties` (INSERT OR IGNORE the key + UPDATE metric cols only — never touches shared/ride_id/area_id); `backfillAllTrackProperties():Int` — single-flight, SEQUENTIAL, idempotent. Keyed by GEOM_HASH. Writes: filename, source_format='gpx', recorded_at, distance_miles (haversine), duration_minutes, max_speed_mph, avg_speed_mph, elevation_gain_ft, point_count. **UNVERIFIED: `<ele>` assumed METERS (×3.281→ft)** — if elevation reads 3× high, one-line fix; distance/duration/speed unaffected. Patch: `patch_track_properties_updater_2026-06-29_v2.py`.
+- **Three metric wires.** SAVE (`ConvoyViewModel.kt:520`) → `updateTrackPropertiesForHash(gh)`; IMPORT (`ConvoyTrackOps.kt:572`) → `updateTrackPropertiesForHash(computeGeomHash(wkt))`; SYNC (`SpatialDbManager.kt:600`) → one `backfillAllTrackProperties()` sweep before the recap. Patch: `patch_wire_track_properties_2026-06-29_v1.py`.
+- **IMPORT BASE FIX (the original-design import fix never made).** `ConvoyTrackOps.kt` `importGpxAllArtifacts` track loop reordered: parse coords FIRST → skip no-geometry blocks → compute hash → name file `<hash>.gpx` (was `$baseName.gpx`) → `insertTrackToDb` FIRST → write file → `updateTrackPropertiesForHash`. Patch: `patch_import_base_fix_2026-06-29_v1.py`. **NOTE: the SEPARATE multi-track splitter (`ConvoyTrackOps.kt:~230 splitMultiTrackFile`) STILL `$baseName.gpx`, file-only — DEFERRED to the import deep-dive.** (Fred caught that the import EXTENSION wire was stacked on a base fix that had never been made — would've silently no-op'd. Inventory each function's original-design fix before stacking new pieces.)
+- **DISABLE FILE-TAP IMPORT.** `MainActivity.handleTrackFileImport` (CRLF) no longer runs the OLD `ConvoyTrackOps.importTrackFile` (named, no hash, no properties — the rogue path that made bad named imports). Now shows a LENGTH_LONG toast: import from within GroupTrack. Intent-filters stay. BACKLOG V2.6: auto-open the in-app Import screen after the message; fix/retire `importTrackFile` (or route through `importGpxAllArtifacts`). Patch: `patch_disable_filetap_import_2026-06-29_v1.py`.
+- **UNNAMED-TRACK-CONFIRM (Save Track dialog hardening).** `ConvoyScreen.kt`: blank name no longer saves "convoy_track" junk → confirms "No name given. Delete this track?" (YES=deleteTempTrack, NO=back to naming). Dialogs NON-CANCELABLE (`onDismissRequest={}`) so outside-touch/back/field-bump do nothing. Patch: `patch_unnamed_track_confirm_2026-06-29_v1.py`.
+
+### 🔴 06-29 TEST WAS INCONCLUSIVE — new code never ran
+- Build succeeded (31 min, near-cold after the var-scope refix). APK installed + force-stopped on Droid 1. Before-DB: `track_properties rows: 0` (the baseline hole). RESYNC ran but the `track_sync.log` showed ALL files ALREADY `<hash>.gpx` (processed=70 renamed=70 added=0) AND NO `=== properties: N tracks written ===` line; after-DB still rows:0. → **the resync ran on OLD code** (app resumed prior-loaded WebView/code from recents, not a true cold launch from icon — the likely miss). Nothing built is disproven; it's UNTESTED.
+- **06-30 verification recipe:** confirm my_tracks holds the ORIGINALS first; pull before-DB (expect rows:0); install rebuilt APK → force-stop → **COLD-LAUNCH FROM THE ICON, not recents**; tap RESYNC ONCE; `tail -40 track_sync.log` must show ONE `=== sync start ===`, real ADDED/renamed lines, AND `=== properties: N tracks written ===`; pull after-DB → `track_properties` ~70 with real metrics. Gut-check distance/speed vs a known ride; watch elevation_gain for the m/ft assumption.
+
+### 📦 BUILD STATUS NOTE (carried into 06-30)
+- The guard / loose-trigger removal / TrackPropertiesUpdater / three wires / import base fix were confirmed BUILD SUCCESSFUL together (the 31-min build). The control-screen / reporting-v3 / trash-filter / autoscroll / disable-filetap / unnamed-confirm patches were recovered from the patch set — **confirm at 06-30 start whether the latest tree builds clean before field testing** (a fresh `assembleGoogleRelease` after grep-verifying each patch is on disk).
+
+<details>
+<summary>📋 06-29 ORIGINAL PLAN (now superseded by the 06-30 plan above — kept for trace)</summary>
 
 ### 📋 06-29 PLAN — get all three track processes under control + visible, then test
-1. **Build the SYNC CONTROL SCREEN.** Dedicated screen: launch sync ONCE on a "Start" tap (owned by the screen, NOT the map lifecycle). Stream a rolling list ("Processing: <file> (N pts) → added/renamed/skipped"). Show recap at end (processed/added/renamed). **REMOVE or gate-to-truly-once the map auto-sync at `ConvoyMapViewerScreen:601`** so sync no longer fires on viewport/redraw. Add a single-flight guard so a sync can't run concurrently regardless. FIRST PULL: `sed -n '585,605p' ConvoyMapViewerScreen.kt` to see/cut the 601 trigger; find all `syncTracksFromFiles` callers; check whether `SpatialDbManager.init` or the insert path re-triggers sync (Fred: "processing a track launches another version").
-2. **NEW TRACKS (create) — field-certify on Droid 2.** Record → save → confirm it displays, file is `<hash>.gpx`, DB row has typed name + hash. Apply the same "no silent process" rule to record-save (it should confirm the save + insert visibly).
-3. **IMPORT revisions.** Make import (a) write `<hash>.gpx` (currently `$baseName.gpx`, ConvoyTrackOps.kt:547) with DB-write-FIRST then file (currently file-first at 547, insert at 569 — reorder), and (b) run under a visible control/progress surface (no silent multi-entity decomposition). KML→GPX preprocess stays a deferred import-only sub-step. PULL: `sed -n '540,575p' ConvoyTrackOps.kt` + its line ending.
-4. **Test all three** under their visible surfaces: resync (control screen), new track (Droid 2), import (progress surface). Two-device split as before (Droid 1 resync, Droid 2 new track) so a failure in one still certifies the other.
-5. **THEN: the route-planning popup / trails-data issue** (BUG A below — tapping near a trail during route build pops the layer popup; gate pointer-events on the trail/track LOAD path when `__routeMode` true, not just at route-mode entry). Gate the next AAB on track fixes + this popup fix.
+1. Build the SYNC CONTROL SCREEN (done). 2. New tracks field-cert on Droid 2 (pending). 3. Import revisions — `<hash>.gpx` + DB-first (base fix done; splitter deferred). 4. Test all three (inconclusive). 5. Route-planning popup BUG A (pending).
+</details>
 
-### Design work still queued (from 06-28 deliberation — see TRACK MODEL section)
-- **Paired add/delete contract:** every spatial track add should also add its `track_properties` extension record (distance/duration/speed from GPX, filename, shared=0); add fails on hash → skip extension too. Deletes must remove both (FK cascade can't be relied on — PRAGMA often off). Best: one `addTrack` / one `deleteTrack` that write/remove BOTH tables; route create/sync/import through them. **track_id vs geom_hash:** they're 1-to-1 (track_id=PK UUID, geom_hash=UNIQUE); track_id is the FK target for surveys/properties/aliases. Kept separate so the hash key can change without breaking links (Fred's call). NOT changing track_id now. **⛔ DELETE-AND-RESYNC IS OFF THE TABLE** — cascade-deletes user surveys/aliases (non-reproducible).
+### Design work still queued (see TRACK MODEL section)
+- **Paired add/delete contract:** the metric ADD half now EXISTS (`updateTrackPropertiesForHash` called by all 3 capture paths). DELETE half NOT built: deletes must remove BOTH spatial + extension (FK cascade unreliable — PRAGMA often off). Best: one `deleteTrack(track_id)` removing both; route create/sync/import deletes through it. **track_id vs geom_hash:** 1-to-1 (track_id=PK UUID = FK target for surveys/properties/aliases; geom_hash=UNIQUE dedup key). Kept separate so the hash key can change without breaking links (Fred's call). NOT changing track_id now. **⛔ DELETE-AND-RESYNC IS OFF THE TABLE** — cascade-deletes user surveys/aliases (non-reproducible).
 
-**THE LESSON OF 06-28 (burn it in):** NO SILENT PROCESSES (above). Also: INSTRUMENT FIRST — we wasted an hour reverse-engineering sync from GPX dumps; the moment we added per-file disk logging, the answer was immediate (logic was fine; it was running loose + concurrent). When behavior is murky, add logging at the decision points and rebuild BEFORE theorizing. And: DO THE BLAST-RADIUS/WHERE-USED CHECK *BEFORE* the build, and BATCH all related changes into ONE build (we burned a 43-min cold build by not folding import in).
-
-**CARRY-FORWARD LESSONS:** 06-25 when X fails and Y succeeds on the SAME input, the bug is in X's path — use differential tests. 06-24 get the runtime fact early; in-app Settings build date is STALE (verify deploy via APK-grep). 06-21 believe the device; 06-22 look at the DATA before changing dependent code. Commit working features SAME-DAY.
+**CARRY-FORWARD LESSONS (burn in):** **06-29 #1: BUILD THE REQUESTED/VISIBLE THING FIRST — don't build infrastructure ahead of the surface Fred explicitly asked for; communicate scope changes, don't silently redirect.** 06-29 #2: INVENTORY each function's original-design fix BEFORE stacking new pieces on it (the import extension wire was sitting on a base fix never made — would've silently no-op'd). 06-28: NO SILENT PROCESSES; INSTRUMENT FIRST (disk log answered in minutes what an hour of theorizing didn't). 06-25: when X fails and Y succeeds on the SAME input, the bug is in X's path — differential tests. 06-24: get the runtime fact early; in-app Settings build date is STALE (verify deploy via APK-grep); **COLD-LAUNCH FROM ICON, not recents** (the likely cause of the 06-29 inconclusive test). 06-21: believe the device. 06-22: look at the DATA before changing dependent code. Commit working features SAME-DAY.
 
 **AFTER track work + popup: lead-cart [2.1] rebuild** (authority docs `GroupTrack_LeadTrackReplacement_Spec.docx` + `GroupTrack_LeadCart_TrackRevision_DemolitionRebuild_2026-06-18.md` — DO NOT re-derive).
 
@@ -16809,7 +16830,12 @@ Once a file is `<hash>.gpx`, the only on-disk place the human name lives is insi
 - **V2.6 (local, buildable now):** the three processes with hash-named track files, DB-first writes, DB-controlled enforcement. Solves: recorded tracks not appearing, sync no-op, filename collisions, timestamp-in-name. Exact-hash dedup.
 - **RULE — GroupTrack writes GPX only.** KML is ELIMINATED as a write/export option from the recorder; new track save is always `.gpx` (drop the `TRACK_EXPORT_FORMAT` KML branch in `finalizeTrack`). GroupTrack writes GPX, reads GPX — one internal format. Record-save and sync are GPX-only.
 - **V2.6 — KML→GPX PREPROCESS (part of IMPORT only):** KML is an inbound foreign format handled inside the **import** process. When import ingests a foreign source that is KML, it converts KML → GPX (coords → `<trkpt>`, name → `<trk><name>`) as a preprocess step, then decomposes the resulting GPX (tracks/waypoints/routes) as normal. NOT a standalone Download-scanning process — it lives in import, the one entry point for foreign formats. Record-save and sync never see KML.
-- **THREE INDEPENDENT TRACK-CAPTURE PROCESSES (keep separate — redundancy is the point):** (1) **add a new track** (record-save) does its OWN inline insert + hash + rename; (2) **sync all existing tracks** walks my_tracks and reconciles; (3) **import a track from a foreign source** decomposes a GPX. None calls another. They share only the `insertTrackToDb` primitive (the DB-controlled write). If one has an issue, the others still capture tracks — nothing is lost.
+- **THREE INDEPENDENT TRACK-CAPTURE PROCESSES (keep separate — redundancy is the point):** (1) **add a new track** (record-save) does its OWN inline insert + hash + rename; (2) **sync all existing tracks** walks my_tracks and reconciles; (3) **import a track from a foreign source** decomposes a GPX. None calls another. They share only the `insertTrackToDb` primitive, `updateTrackPropertiesForHash` (metric feed, 06-29), and — 06-30 — the shared dupe/alias resolver below. If one has an issue, the others still capture tracks — nothing is lost.
+- **⭐ SHARED DUPE/ALIAS RESOLVER (06-30 build — the one identical decision for all three paths):** the alias path works for TRAILS but was NEVER wired for tracks (verified 06-29: no trigger; 0 track aliases; sync's dupe branch at `SpatialDbManager.kt:592` does rename-only). Build ONE resolver, mirror the trail ALIAS path (`resolveByGeom`/`decideAddAction` → ALIAS, alias writer ~1188), and route sync + import + create through it:
+  - new hash → **INSERT** (insert track, file `<hash>.gpx`).
+  - hash exists, **same name** → **DROP** (delete the redundant source file).
+  - hash exists, **different name** → **ALIAS** (write alias → existing track_id, then **DELETE** the source — do NOT rename). The dupe's value is its human name → an alias.
+  This is principle #2 in action: code presents, the DB (via UNIQUE(geom_hash) + the alias writer) decides. It also makes dupe cleanup automatic (no more lingering human-named originals).
 - **V3.0 (server, design block):** the sharing model above + the same-ride fuzzy-matching problem.
 
 ### [CONFIRM] before/at execution
@@ -16947,16 +16973,16 @@ Share Yes → `shared=1` + an `upload_queue` entry. **FINAL survey = enjoyment 1
 
 ---
 
-## 🎯 TRACK SYNC — improvements (V2.6, lower priority; only the silent-failure gap is worth a quick fix)
+## 🎯 TRACK SYNC — 06-29 state + remaining gaps
 
-> Track-sync code is functional (works on Fred's device). The tester scare was the DB delete-gate, not sync. But sync has real gaps surfaced 06-24.
+> Sync was rebuilt 06-28 (hash-keyed, instrumented) and on 06-29 was redefined as **MANUAL-REQUEST ONLY**, given a single-flight guard, a CONTROL SCREEN (visible feed + failures-first recap), a trash filter, and a metric-feed sweep. The loose map-lifecycle auto-call is REMOVED. See 06-29 RESULTS up top. Remaining gaps below.
 
-`SpatialDbManager.syncTracksFromFiles` (~479) walks `my_tracks/*.gpx`, parses each with its own `parseGpxTrackPoints`, name-dedups (`SELECT name FROM tracks`; skip if present), generates a fresh UUID, `INSERT OR IGNORE`. It does NOT split grouped/onX files (only IMPORT splits), has NO update/reconcile (insert-only), and can fail SILENTLY (the tester got no toast).
-- **(a) Quick win:** make sync ALWAYS emit a result toast on EVERY path (N synced / 0 files found / error). The "no feedback" was the real actionable gap.
-- **(b)** route sync through the same import/split pipeline (or detect multi-track/onX files and split) so sync == import.
-- **(c)** upsert + robust identity (geom_hash like trails' `findTrailIdByHash`, vs fragile name-dedup).
+`SpatialDbManager.syncTracksFromFiles(context, onProgress?)` walks `my_tracks/*.gpx`, parses each, checks existence BY HASH (`trackHashExists`), inserts new via `insertTrackToDb`, renames to `<hash>.gpx`, then runs one `backfillAllTrackProperties()` sweep. Single-flight guarded. Reports processed/added/renamed/props/failures to the control screen.
+- **⏸️ DEMOTED — GAP 1b — ORPHAN SPATIAL ROW removal (DB→file reconcile leg).** The REAL fix is the DELETE-ARTIFACT fix (remove row + extension + file together) — that stops orphans being GENERATED. With that in place, this reconcile sweep is OPTIONAL and becomes a **should-never-fire safety net**: it MAY still be linked into sync/the list path as a defensive check, but in a healthy system it should find NO orphan to remove (orphans only ever came from the broken delete). **If it ever DOES fire post-fix, that's a RED FLAG pointing at a new orphan source — not normal operation.** So: not a repair feature, an optional tripwire. Existing orphan(s) like `82a5cb01` get cleaned by the FIXED delete-artifact function itself. Implementation (if kept): a row whose geom_hash has no `<hash>.gpx` file → remove with logging, guard the extension-data cascade.
+- **GAP 2 — multi-track / onX split.** Sync's single-track parser does NOT split grouped/onX files (only IMPORT splits). The `splitMultiTrackFile` path (`ConvoyTrackOps.kt:~230`) still names `$baseName.gpx`, file-only, no extension wire — fold into the hash/DB-first model during the import deep-dive.
+- **GAP 3 — m/ft elevation assumption** in the metric feed (UNVERIFIED — see RESULTS). Verify against a known ride.
 
-Track storage (confirmed 06-24): ONE store. `my_tracks` GPX files (`/sdcard/Documents/my_tracks`) = source of truth. Spatial `tracks` table (type='TRACK') = geometry rows; needs valid bbox to appear in filters/maps. Extension `grouptrack_data.db` has `track_properties` + `track_surveys` (by id), NO tracks table. IMPORT splits onX-grouped files → individual GPX + inserts via `insertTrackToDb`.
+Track storage (confirmed): ONE store. `my_tracks` GPX (`/sdcard/Documents/my_tracks`) = source of truth. Spatial `tracks` (type='TRACK') = geometry rows; needs valid bbox to appear. Extension `grouptrack_data.db` has `track_properties` + `track_surveys` + `artifact_aliases` (by id), NO tracks table. IMPORT splits onX-grouped files → individual GPX + inserts via `insertTrackToDb`.
 
 ---
 
@@ -16987,6 +17013,10 @@ Track storage (confirmed 06-24): ONE store. `my_tracks` GPX files (`/sdcard/Docu
 ---
 
 ## OTHER OPEN (backlog / 2.6)
+
+- **🆕🔴 [06-29] DELETE-ARTIFACT IS LEGACY PRE-SPATIAL — deletes the FILE only, NEVER the DB row.** Confirmed 06-29: even when the file IS present, delete-artifact removes the `<hash>.gpx` file but leaves the spatial `tracks` row (and extension data) behind. Fred's read: this is legacy code from BEFORE the spatial DB — back when a track was just a file, so deleting the file = deleting the track. Post-spatial a track is a (row + file) PAIR, but delete was never updated. **SEVERITY: this is an ongoing ORPHAN GENERATOR** — every track deleted via this function leaves a dangling spatial row (and the orphan persists on the map, since the map draws from DB geometry not the file). The current 74-vs-73 orphan (`82a5cb01` / `9969bdf6`) is one such leftover; the file-vs-row diff found exactly ONE today, but every future delete makes another until fixed. FIX: delete must remove DB row + extension data (`track_properties`/`track_surveys`/`artifact_aliases` by track_id) AND the file if present (missing file = no-op). One `deleteTrack(track_id)` that removes BOTH — pairs with the add-side paired contract. Find ALL callers of the delete-artifact path. (Was mis-described earlier as "file-first fails on orphans" — the real bug is it NEVER touches the row.) First record attempt produces an EMPTY track (0 trackpoints) before Android "recognizes" recording; a second attempt records normally. Evidence: `convoy_track_temp_20260629_135730.gpx` had `<trkseg>` with 0 `<trkpt>`. Likely a location-permission/foreground-service or first-fix warm-up gap in `ConvoyGpsService` start. Investigate the record-start path; ensure the first attempt either waits for a fix or surfaces "acquiring GPS…" rather than silently producing an empty track. (Ties to NO-SILENT-PROCESSES — a failed recording should say so.)
+- **🆕 [06-29] TRACK EXTENDED-DB DATA in artifact detail + track popups.** Surface `track_properties` fields (distance_miles, duration_minutes, avg/max speed, elevation_gain_ft, point_count, recorded_at) in the ArtifactDetailPanel and the on-map track popup. DEPENDS on the metric feed actually populating `track_properties` (verify 06-30 via the cold-launch recipe). Read-only display; pull by track_id.
+- **🆕 [06-29] TRACK RENAME SCOPE FIX.** The track rename action should update ONLY the track NAME field (the human label / `<trk><name>` and the name column), NOT modify/re-write the underlying track record or its geometry/hash. Currently rename does more than rename. Scope it to the name field only.
 
 - **⭐ MAPS FOLLOW THE ARTIFACTS — per-artifact bbox tile download (V2.6, Fred 06-28).** PRINCIPLE: whatever you bring to the field (imported tracks, trails, or a route planned online) brings its supporting map tiles with it — same bbox design for all three artifact types. Plan a route on wifi → the tiles to support it download with it. SPEC (keep simple, ship, then re-evaluate): for each artifact, take its bbox, expand ~½ mile each side, queue a tile-download request into the download queue. **19-track GPX → 19 separate per-track bbox requests** (NOT a union bbox). RATIONALE: Fred's field experience — riders download ~120GB of map data for terrain they rarely ride; a union/region box wastes enormous tile area in the gaps between thin trail corridors. Per-track tight boxes download only the corridors actually ridden. DOUBLE SAVING (Fred 06-28): it's not just empty gaps — OHV riding is backcountry (desert/forest/mountain), which is TILE-LIGHT (few structures/features). The DATA-DENSE tiles are cities/developed communities (building footprints, street grids) — exactly the terrain riders go AROUND, not through. A region bbox clips the edges of towns and sweeps up those heavy urban tiles (a few dense city tiles can outweigh hundreds of backcountry tiles). Per-track corridors thread BETWEEN the developed areas and stay in sparse terrain → less area AND lighter tiles. The 120GB is likely dominated by developed-area tiles the big download boxes incidentally swept up, not the trail miles themselves. APPROACH: ship the per-track-bbox version, then MEASURE actual GB pulled vs the 120GB baseline before adding complexity. Possible later refinement (only if still heavy): polyline-buffer corridor instead of bbox (drops empty bbox corners for diagonal/curvy tracks) — NOT now, don't overcomplicate. OPEN (defer until after first measurement): zoom-level range (biggest volume lever — likely part of the over-download problem); ½-mile expansion math (lat constant ~0.0072°, lon scales by cos(lat)); whether to spawn into the CURRENT per-tile queue or gate on the V2.6 batch-download redesign (crash-past-3-concurrent risk — see TILE DOWNLOAD SPEED). Must obey NO-SILENT-PROCESSES: show "queuing N tile downloads for imported tracks," visible in the queue panel. Likely opt-in toggle at import/route-save (don't auto-pull GB on cellular).
 
@@ -17036,16 +17066,20 @@ Track storage (confirmed 06-24): ONE store. `my_tracks` GPX files (`/sdcard/Docu
 - Device shell/pull paths in Git Bash need `MSYS_NO_PATHCONV=1` on the REMOTE path. State JSON: `/sdcard/Documents/GroupTrack/state/<map>_panel.json` (deleted on cold launch). Route drafts: `/sdcard/Documents/GroupTrack/route_drafts/<name>.json`. my_tracks GPX: `/sdcard/Documents/my_tracks/`. NO sqlite3 on device — pull the DB and query locally via `python3 -c "import sqlite3 …"`. Pulled DBs: spatial `grouptrack_spatial.db`, extension `grouptrack_data.db`.
 - Logcat: `adb -s 8624SBCEDF00001789 logcat -c` → action → `adb -s 8624SBCEDF00001789 logcat -d -s RouteBridge:* convoyLog:* RouteResumeDiag:* TrackSync:* SpatialDbMgr:*`.
 - Patch flow: Claude files → present_files → Fred downloads to `/c/Users/kixaz/Downloads/` → `python3 <name>.py`. UNIQUE versioned filenames; Windows path INSIDE the script = `C:/Users/...`. count==1 guard + runtime newline detect; identical lines need collision-proof anchors. **No stray `</parameter>` or tags on bash commands** (causes `bash: syntax error`).
-- **LINE ENDINGS:** TrailImporter.kt / ConvoyTrailSourceScreen.kt / SpatialDbManager.kt = LF; ConvoyMapViewerScreen.kt + ConvoyRouteToolbar.kt + ConvoySettingsScreen.kt + both HTMLs = CRLF; ConvoyViewModel.kt + RouteDraftStore.kt = LF. RouteManager.kt = check before patching. Commit only named files, never `git add .`.
+- **LINE ENDINGS:** SpatialDbManager.kt / ConvoyViewModel.kt / ConvoyTrackImportScreen.kt / ConvoyTrackOps.kt = LF (ConvoyTrackOps confirmed LF 06-29); TrailImporter.kt / ConvoyTrailSourceScreen.kt = LF; ConvoyMapViewerScreen.kt + ConvoyRouteToolbar.kt + ConvoySettingsScreen.kt + both HTMLs = CRLF; ConvoyGpsService.kt + MainActivity.kt = CRLF; RouteDraftStore.kt = LF; ConvoyScreen.kt = check before patching. Commit only named files, never `git add .`.
 
 ## EOD DOCS — status
 
-- This checklist → **06-28 EOD** (create + sync fixes BUILT & sync VERIFIED working via disk log; real problem = sync runs loose/silent off the map lifecycle; 06-29 plan = build a SYNC CONTROL SCREEN + visible import/create, test all three, then the route-planning popup. STANDING RULE: no silent processes.).
-- Handoff → pairs with this checklist; the prior `GroupTrack_NEXT_SESSION_HANDOFF_2026-06-23.md` is superseded by the V2.5-shipped state captured here.
-- Manual → `app/src/main/assets/grouptrack_manual.html` (committed `a658d7a00`). Masters (NOT committed, archive on Drive/G:): `grouptrack_manual_DRILLDOWN_2026-06-23.html` (~82MB), `grouptrack_manual_LIVE_2026-06-23.html` (~87MB).
-- Release notes → `app/src/main/assets/grouptrack_release_notes.html` (committed). Install-as-update warning preserved.
+- This checklist → **06-29 EOD** (track-capture infrastructure landed + compiles: sync control screen, single-flight guard, loose-trigger removal, sync→manual-only, reporting v3, trash filter, TrackPropertiesUpdater + 3 wires, import base fix, disable file-tap import, unnamed-track-confirm. Field test INCONCLUSIVE (recents-not-icon launch → ran old code; track_properties still 0). SESSION-END FINDING: track aliases NOT wired — 06-30 first build is the shared INSERT/DROP+delete/ALIAS+delete resolver, after dupe cleanup. STANDING RULES: no silent processes; build the requested/visible thing first.).
+- Handoff → pairs with this checklist; reflects the V2.6 track-capture work-in-progress on top of the shipped V2.5 AAB.
+- Manual → `app/src/main/assets/grouptrack_manual.html` (committed `a658d7a00`). Masters (NOT committed, archive on Drive/G:): `grouptrack_manual_DRILLDOWN_2026-06-23.html` (~82MB), `grouptrack_manual_LIVE_2026-06-23.html` (~87MB). No tester-facing manual change 06-29 (all internal infra; nothing field-verified to announce).
+- Release notes → `app/src/main/assets/grouptrack_release_notes.html` (committed, 06-23). Install-as-update warning preserved. No new tester block 06-29 (don't announce unverified track work). Current asset = 11,686 bytes, manual = 3,371,012 bytes — both unchanged in today's set.
+- **⏭️ QUEUED for the NEXT build's release notes — MANDATORY TRACK RESYNC tester instruction.** When the track-capture work (alias resolver + metric feed) is field-verified and SHIPPED, the next build's release notes must tell testers to run a track resync to reconcile their tracks (sync is now manual-request-only). **Exact wording = Fred's draft from the 06-29 session (to be re-pulled from that conversation) — do NOT invent it.** Does NOT apply to the current LIVE V2.5 build; only goes in when the next AAB ships.
 - Lead-track authority → `GroupTrack_LeadTrackReplacement_Spec.docx` + `GroupTrack_LeadCart_TrackRevision_DemolitionRebuild_2026-06-18.md`.
-- **V2.5 AAB cut, uploaded, and LIVE on Play Store. HEAD = `c603bc3f0`. Nothing left uncommitted except the experimental `patch_resume_diag_log` (not in tree).**
+- **V2.5 AAB cut, uploaded, and LIVE on Play Store at `c603bc3f0`. 06-29 track-capture work COMMITTED as WIP marker `0191c7034` (7 files, +531/−59; builds clean via `assembleGoogleRelease`; NOT field-verified). This is the recovery point — a week of applied-but-uncommitted track work is now banked. Untracked `d1.db` + `legacy_sample.gpx` deliberately NOT committed. Next: field-verify on both devices (resync each independently), then commit verified state / build AAB.**
+
+### 06-29 PATCH SET (in Downloads, applied unless noted)
+`patch_sync_singleflight_guard` · `patch_remove_loose_autosync` · `patch_fix_sync_var_scope` · `patch_sync_control_screen_v1` · `patch_sync_autoscroll_v1` · `patch_sync_reporting_backend_v3` (v1/v2 superseded) · `patch_sync_trash_filter_v1` · `patch_track_properties_updater_v2` (v1 superseded) · `patch_wire_track_properties_v1` · `patch_import_base_fix_v1` · `patch_disable_filetap_import_v1` · `patch_unnamed_track_confirm_v1`. (All dated 2026-06-29.)
 
 
 === GroupTrack_V25_MapSourceCatalog_v2.md ===
