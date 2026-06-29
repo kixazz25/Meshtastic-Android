@@ -483,10 +483,44 @@ class ConvoyViewModel @Inject constructor(
     }
     fun finalizeTrack(name: String, context: android.content.Context) {
         val temp = pendingTempFile ?: return
-        gpsService?.finalizeTrack(temp, name)
+        // Finalize the temp file to a clean {name}.gpx (GpsService no longer timestamps).
+        val finalized = gpsService?.finalizeTrack(temp, name)
         pendingTempFile = null
         gpsServiceConn?.let { context.unbindService(it) }
         gpsServiceConn = null; gpsService = null
+        // CREATE: inline insert into spatial DB + normalize file to <hash>.gpx.
+        // Self-contained (does NOT call sync). Shares only insertTrackToDb.
+        try {
+            val f = finalized ?: return
+            var text = f.readText()
+            // Inject the user's typed name into the GPX <trk><name> (recorder hardcodes "Convoy Track").
+            val esc = name.trim()
+                .replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+            text = text.replace("<trk><name>Convoy Track</name>", "<trk><name>$esc</name>")
+            f.writeText(text)
+            val coords = com.geeksville.mesh.convoy.SpatialDbManager.parseGpxTrackPoints(text)
+            if (coords.isEmpty()) { android.util.Log.w("ConvoyVM", "finalizeTrack: no geometry, not a track: ${f.name}"); return }
+            var minLat = Double.MAX_VALUE; var maxLat = -Double.MAX_VALUE
+            var minLon = Double.MAX_VALUE; var maxLon = -Double.MAX_VALUE
+            for ((lon, lat) in coords) {
+                if (lat < minLat) minLat = lat; if (lat > maxLat) maxLat = lat
+                if (lon < minLon) minLon = lon; if (lon > maxLon) maxLon = lon
+            }
+            // WKT built identically to import/sync (it.first it.second) so geom_hash matches.
+            val wkt = "LINESTRING(" + coords.joinToString(",") { "${it.first} ${it.second}" } + ")"
+            val gh = com.geeksville.mesh.convoy.SpatialDbManager.computeGeomHash(wkt)
+            val wasNew = com.geeksville.mesh.convoy.SpatialDbManager.insertTrackToDb(name.trim(), wkt, minLat, maxLat, minLon, maxLon)
+            android.util.Log.i("ConvoyVM", "finalizeTrack insert: new=$wasNew name='${name.trim()}' hash=$gh")
+            // Normalize file to <hash>.gpx (whether newly inserted or a dupe geometry).
+            val target = java.io.File(f.parentFile, "$gh.gpx")
+            if (f.name != target.name) {
+                if (target.exists() && target.absolutePath != f.absolutePath) f.delete() else f.renameTo(target)
+            }
+            // metric feed: derive + write track_properties from the <hash>.gpx (reusable service)
+            com.geeksville.mesh.convoy.SpatialDbManager.updateTrackPropertiesForHash(gh)
+        } catch (e: Exception) {
+            android.util.Log.e("ConvoyVM", "finalizeTrack insert failed: ${e.message}")
+        }
     }
 
     // ── File logger ───────────────────────────────────────────────────────

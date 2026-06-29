@@ -593,14 +593,13 @@ fun ConvoyMapViewerScreen(
                             override fun onPageFinished(view: WebView?, url: String?) {
                                 super.onPageFinished(view, url)
                                 MapSourceManager.init(view?.context ?: return)
-                                // Sync tracks from GPX files on first load
+                                // Initialize spatial DB for map drawing (sync moved to the dedicated control screen)
                                 kotlinx.coroutines.MainScope().launch {
                                     kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                                         try {
                                             SpatialDbManager.init(view?.context ?: return@withContext)
-                                            SpatialDbManager.syncTracksFromFiles(view?.context ?: return@withContext)
                                         } catch (e: Exception) {
-                                            android.util.Log.e("TrackSync", "Sync error: " + e.message)
+                                            android.util.Log.e("TrackSync", "DB init error: " + e.message)
                                         }
                                     }
                                 }
@@ -1311,11 +1310,11 @@ fun ConvoyMapViewerScreen(
                         Surface(
                             modifier = Modifier.fillMaxWidth().clickable {
                                 scope.launch {
-                                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                    val r = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                                         SpatialDbManager.init(context)
                                         SpatialDbManager.syncTracksFromFiles(context)
                                     }
-                                    android.widget.Toast.makeText(context, "Track resync complete", android.widget.Toast.LENGTH_SHORT).show()
+                                    android.widget.Toast.makeText(context, "Sync: ${r.processed} processed, ${r.addedRenamed} added, ${r.renamed} renamed (see track_sync.log)", android.widget.Toast.LENGTH_LONG).show()
                                     webViewRef?.evaluateJavascript("triggerViewportUpdate()", null)
                                 }
                             },

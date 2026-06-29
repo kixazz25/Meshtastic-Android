@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
@@ -84,6 +85,13 @@ fun ConvoyTrackImportScreen(onDismiss: () -> Unit) {
     var recapWaypoints by remember { mutableStateOf(0) }
     var recapRoutes by remember { mutableStateOf(0) }
     var processedFiles by remember { mutableStateOf<List<File>>(emptyList()) }
+
+    // -- SYNC CONTROL dialog state (visible run + failure-first recap) --
+    var showSyncDialog by remember { mutableStateOf(false) }
+    var syncLines by remember { mutableStateOf<List<String>>(emptyList()) }
+    var syncRunning by remember { mutableStateOf(false) }
+    var syncResult by remember { mutableStateOf<SpatialDbManager.TrackSyncResult?>(null) }
+    val syncListState = rememberLazyListState()
 
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -233,13 +241,8 @@ fun ConvoyTrackImportScreen(onDismiss: () -> Unit) {
                 .fillMaxWidth()
                 .padding(horizontal = 12.dp, vertical = 6.dp)
                 .clickable {
-                    scope.launch {
-                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                            SpatialDbManager.init(context)
-                            SpatialDbManager.syncTracksFromFiles(context)
-                        }
-                        android.widget.Toast.makeText(context, "Track resync complete", android.widget.Toast.LENGTH_SHORT).show()
-                    }
+                    // Open the visible sync control dialog (no silent inline run).
+                    syncLines = emptyList(); syncResult = null; showSyncDialog = true
                 },
             shape = RoundedCornerShape(6.dp),
             color = Color(0xFF15512C)
@@ -252,6 +255,117 @@ fun ConvoyTrackImportScreen(onDismiss: () -> Unit) {
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp)
+            )
+        }
+
+        // ====================================================================
+        // SYNC CONTROL DIALOG — visible run, live feed, failure-first recap.
+        // ====================================================================
+        if (showSyncDialog) {
+            AlertDialog(
+                onDismissRequest = { if (!syncRunning) showSyncDialog = false },
+                containerColor = Color(0xFF0A1628),
+                title = {
+                    Text("SYNC TRACKS", color = Color(0xFF4DA6FF),
+                        fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                },
+                text = {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        val res = syncResult
+                        if (res != null && !syncRunning) {
+                            // ---- RECAP: failures first ----
+                            if (res.failures.isEmpty()) {
+                                Text("✓ no failures", color = Color(0xFF39FF14),
+                                    fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            } else {
+                                Text("⚠ ${res.failures.size} FAILED — research these:",
+                                    color = Color(0xFFFFB020),
+                                    fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                Spacer(Modifier.height(4.dp))
+                                LazyColumn(modifier = Modifier.fillMaxWidth().height(120.dp)) {
+                                    items(res.failures) { f ->
+                                        Text(f, color = Color(0xFFFFB020),
+                                            fontFamily = FontFamily.Monospace, fontSize = 11.sp,
+                                            modifier = Modifier.padding(vertical = 1.dp))
+                                    }
+                                }
+                            }
+                            Spacer(Modifier.height(8.dp))
+                            Text("processed ${res.processed} · renamed ${res.renamed}",
+                                color = Color(0xFF97D5A5), fontFamily = FontFamily.Monospace, fontSize = 12.sp)
+                            Text("properties ${res.propsWritten}/${res.propsTotal} written",
+                                color = Color(0xFF97D5A5), fontFamily = FontFamily.Monospace, fontSize = 12.sp)
+                            Spacer(Modifier.height(8.dp))
+                            Text("— full detail below —", color = Color(0xFF4A6080),
+                                fontFamily = FontFamily.Monospace, fontSize = 10.sp)
+                        }
+                        // Auto-scroll the live feed to the newest line (V2.6 fix).
+                        LaunchedEffect(syncLines.size) {
+                            if (syncLines.isNotEmpty()) {
+                                syncListState.animateScrollToItem(syncLines.size - 1)
+                            }
+                        }
+                        // ---- LIVE FEED (always shown; this is the running detail) ----
+                        LazyColumn(
+                            state = syncListState,
+                            modifier = Modifier.fillMaxWidth().height(220.dp)
+                        ) {
+                            items(syncLines) { line ->
+                                val col = when {
+                                    line.startsWith("FAIL:") || line.startsWith("⚠") -> Color(0xFFFFB020)
+                                    line.startsWith("props:") -> Color(0xFF6FB6FF)
+                                    line.startsWith("ADDED") || line.startsWith("===") -> Color(0xFF39FF14)
+                                    else -> Color(0xFF7A8DA0)
+                                }
+                                Text(line, color = col, fontFamily = FontFamily.Monospace, fontSize = 10.sp,
+                                    modifier = Modifier.padding(vertical = 1.dp))
+                            }
+                        }
+                        if (syncRunning) {
+                            Spacer(Modifier.height(8.dp))
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                CircularProgressIndicator(modifier = Modifier.height(16.dp), color = Color(0xFF4DA6FF))
+                                Spacer(Modifier.fillMaxWidth(0.05f).height(1.dp))
+                                Text("  running…", color = Color(0xFF4DA6FF),
+                                    fontFamily = FontFamily.Monospace, fontSize = 11.sp)
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(
+                        enabled = !syncRunning,
+                        onClick = {
+                            syncRunning = true
+                            syncLines = listOf("— starting sync —")
+                            syncResult = null
+                            scope.launch {
+                                val r = withContext(Dispatchers.IO) {
+                                    SpatialDbManager.init(context)
+                                    SpatialDbManager.syncTracksFromFiles(context) { line ->
+                                        syncLines = syncLines + line
+                                    }
+                                }
+                                syncResult = r
+                                syncRunning = false
+                            }
+                        }
+                    ) {
+                        Text(if (syncResult == null) "START" else "RE-RUN",
+                            color = if (syncRunning) Color(0xFF4A6080) else Color(0xFF39FF14),
+                            fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        enabled = !syncRunning,
+                        onClick = { showSyncDialog = false }
+                    ) {
+                        Text("CLOSE",
+                            color = if (syncRunning) Color(0xFF4A6080) else Color(0xFF7A8DA0),
+                            fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+                    }
+                }
             )
         }
 

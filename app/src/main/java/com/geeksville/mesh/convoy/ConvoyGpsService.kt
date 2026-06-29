@@ -215,8 +215,8 @@ class ConvoyGpsService : Service() {
         return try {
             val sdf = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US)
             val safeName = trackName.trim().replace(Regex("[^a-zA-Z0-9_\\- ]"), "").replace(" ", "_")
-            val ext = if (ConvoyConfig.TRACK_EXPORT_FORMAT.uppercase() == "GPX") "gpx" else "kml"
-            val finalName = "${safeName}_${sdf.format(Date())}.$ext"
+            val ext = "gpx"  // GroupTrack writes GPX only (KML eliminated as a write option)
+            val finalName = "${safeName}.$ext"  // clean name; hash-rename happens in ViewModel.finalizeTrack
             val finalFile = File(tempFile.parent, finalName)
             val success = tempFile.renameTo(finalFile)
             if (success) {

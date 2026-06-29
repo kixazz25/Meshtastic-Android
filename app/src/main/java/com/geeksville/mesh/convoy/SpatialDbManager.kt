@@ -38,6 +38,7 @@ object SpatialDbManager {
 
     private var spatialDb: SQLiteDatabase? = null
     private var extensionDb: SQLiteDatabase? = null
+    private val syncRunning = java.util.concurrent.atomic.AtomicBoolean(false)   // single-flight guard for syncTracksFromFiles
     private var initialized = false
 
     private fun dbDir(): File {
@@ -476,8 +477,63 @@ object SpatialDbManager {
     }
 
     /** Sync tracks from GPX files in my_tracks directory */
-    fun syncTracksFromFiles(context: android.content.Context) {
-        val db = spatialDb ?: return
+    /**
+     * Result of a sync pass. Cross-foots: processed == skipped + addedRenamed + renamed.
+     * Geometry-less files are not tracks and are excluded from processed (logged only).
+     */
+    data class TrackSyncResult(
+        val processed: Int,
+        val skipped: Int,
+        val addedRenamed: Int,
+        val renamed: Int,
+        val addedNames: List<String>,
+        val propsWritten: Int = 0,
+        val propsTotal: Int = 0,
+        val failures: List<String> = emptyList()   // "name · hash12 — reason", one per failed track
+    )
+
+    /** Result of backfillAllTrackProperties: counts + identifiable failures. */
+    data class BackfillResult(
+        val written: Int,
+        val total: Int,
+        val failures: List<String>
+    )
+
+    /** Read by hash key: does a track with this geom_hash already exist? */
+    fun trackHashExists(geomHash: String): Boolean {
+        val db = spatialDb ?: return false
+        return try {
+            db.rawQuery("SELECT 1 FROM tracks WHERE geom_hash=? LIMIT 1", arrayOf(geomHash)).use { c ->
+                c.moveToFirst()
+            }
+        } catch (e: Exception) { false }
+    }
+
+    /**
+     * Reconcile my_tracks files into the spatial DB (hash-keyed spatial model).
+     * Per valid track file (one with geometry):
+     *   - if the filename is already an existing hash key  -> SKIPPED (already current)
+     *   - else present to insertTrackToDb (DB enforces UNIQUE(geom_hash)):
+     *        true  (new record)            -> ADDED/RENAMED  (insert + rename to <hash>.gpx)
+     *        false (hash already in DB)     -> RENAMED        (normalize file to <hash>.gpx)
+     * A file with no geometry is not a track: logged and excluded from processed.
+     */
+    fun syncTracksFromFiles(context: android.content.Context, onProgress: ((String) -> Unit)? = null): TrackSyncResult {
+        val db = spatialDb ?: return TrackSyncResult(0, 0, 0, 0, emptyList())
+        if (!syncRunning.compareAndSet(false, true)) {
+            android.util.Log.w("TrackSync", "sync already running -- skipping concurrent call")
+            onProgress?.invoke("⚠ sync already running — this request was ignored")
+            return TrackSyncResult(0, 0, 0, 0, emptyList())
+        }
+        var processed = 0
+        var skipped = 0
+        var addedRenamed = 0
+        var renamed = 0
+        val addedNames = mutableListOf<String>()
+        var syncPropsWritten = 0
+        var syncPropsTotal = 0
+        var syncFailures: List<String> = emptyList()
+        try {
         try {
             val tracksDir = java.io.File(
                 android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOCUMENTS),
@@ -485,48 +541,98 @@ object SpatialDbManager {
             )
             if (!tracksDir.exists() || !tracksDir.isDirectory) {
                 android.util.Log.i("TrackSync", "my_tracks directory not found")
-                return
+                return TrackSyncResult(0, 0, 0, 0, emptyList())
             }
-            val gpxFiles = tracksDir.listFiles { f -> f.name.lowercase().endsWith(".gpx") } ?: return
+            val allFiles = tracksDir.listFiles() ?: emptyArray()
+            // Exclude Android trash (.trashed-<ts>-<name>.gpx, left IN-PLACE on delete) + dotfiles.
+            val trashed = allFiles.count { it.name.startsWith(".trashed-") || it.name.startsWith(".") }
+            val gpxFiles = allFiles.filter { f ->
+                f.name.lowercase().endsWith(".gpx")
+                    && !f.name.startsWith(".trashed-")
+                    && !f.name.startsWith(".")
+            }.toTypedArray()
+            if (trashed > 0) {
+                android.util.Log.i("TrackSync", "ignored $trashed trashed/hidden files")
+                onProgress?.invoke("— ignored $trashed trashed/hidden files —")
+            }
             android.util.Log.i("TrackSync", "Found ${gpxFiles.size} GPX files to sync")
 
-            val existing = mutableSetOf<String>()
-            val cursor = db.rawQuery("SELECT name FROM tracks", null)
-            cursor.use { while (it.moveToNext()) { existing.add(it.getString(0) ?: "") } }
+            // Per-file decision log to disk (logcat unreliable here). Overwrite each run.
+            val logFile = java.io.File(
+                android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOCUMENTS),
+                "GroupTrack/track_sync.log"
+            )
+            val log = StringBuilder()
+            fun L(msg: String) { log.append(msg).append("\n"); android.util.Log.i("TrackSync", msg); onProgress?.invoke(msg) }
+            L("=== sync start: ${gpxFiles.size} gpx files ===")
 
-            var inserted = 0
             for (file in gpxFiles) {
-                val name = file.nameWithoutExtension
-                if (existing.contains(name)) continue
                 try {
                     val text = file.readText()
                     val coords = parseGpxTrackPoints(text)
-                    if (coords.isEmpty()) continue
-
+                    if (coords.isEmpty()) {
+                        L("IGNORE no-geometry: ${file.name} (${file.length()} bytes, 0 pts)")
+                        continue
+                    }
                     var minLat = Double.MAX_VALUE; var maxLat = -Double.MAX_VALUE
                     var minLon = Double.MAX_VALUE; var maxLon = -Double.MAX_VALUE
                     for ((lon, lat) in coords) {
                         if (lat < minLat) minLat = lat; if (lat > maxLat) maxLat = lat
                         if (lon < minLon) minLon = lon; if (lon > maxLon) maxLon = lon
                     }
-
                     val wkt = "LINESTRING(" + coords.joinToString(",") { "${it.first} ${it.second}" } + ")"
-                    val trackId = java.util.UUID.randomUUID().toString()
-                    val now = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", java.util.Locale.US).format(java.util.Date())
+                    val gh = computeGeomHash(wkt)   // THE KEY (computed from geometry, not the filename)
 
-                    db.execSQL(
-                        "INSERT OR IGNORE INTO tracks (track_id, name, geometry, min_lat, max_lat, min_lon, max_lon, bbox, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
-                        arrayOf(trackId, name, wkt, minLat, maxLat, minLon, maxLon, "$minLat,$minLon,$maxLat,$maxLon", now, now)
-                    )
-                    inserted++
+                    processed++
+
+                    val alreadyInDb = trackHashExists(gh)   // check the DB by the HASH KEY
+                    val nameMatch = Regex("<name>([^<]*)</name>").find(text)?.groupValues?.get(1)?.trim()
+                    val recName = if (!nameMatch.isNullOrBlank()) nameMatch else file.nameWithoutExtension
+
+                    if (alreadyInDb) {
+                        renamed++   // already in DB by hash -> no insert, but normalize filename
+                        L("EXISTS: ${file.name} pts=${coords.size} hash=${gh.take(12)} -> in DB, will rename")
+                    } else {
+                        val wasNew = insertTrackToDb(recName, wkt, minLat, maxLat, minLon, maxLon)
+                        if (wasNew) {
+                            addedRenamed++; addedNames.add(recName)
+                            L("ADDED: ${file.name} pts=${coords.size} hash=${gh.take(12)} name='$recName' -> inserted, will rename")
+                        } else {
+                            renamed++
+                            L("DUPE-INSERT: ${file.name} pts=${coords.size} hash=${gh.take(12)} -> insert returned false, will rename")
+                        }
+                    }
+
+                    // Normalize file to <hash>.gpx. NON-DESTRUCTIVE: never delete.
+                    val target = java.io.File(file.parentFile, "$gh.gpx")
+                    if (file.name == target.name) {
+                        L("  rename: already <hash>.gpx, skip")
+                    } else if (target.exists()) {
+                        L("  rename: TARGET ${target.name} ALREADY EXISTS -> leaving ${file.name} in place (no delete)")
+                    } else {
+                        val ok = file.renameTo(target)
+                        L("  rename: ${file.name} -> ${target.name} : renameTo=$ok")
+                    }
                 } catch (e: Exception) {
-                    android.util.Log.e("TrackSync", "Failed to sync ${file.name}: ${e.message}")
+                    L("ERROR: ${file.name} : ${e.message}")
                 }
             }
-            android.util.Log.i("TrackSync", "Sync complete: $inserted new tracks inserted")
+
+            // metric feed: one guarded, SEQUENTIAL sweep -- writes track_properties for
+            // every track (synced + backfills any existing tracks that never had them).
+            val bf = backfillAllTrackProperties { line -> L(line) }
+            syncPropsWritten = bf.written; syncPropsTotal = bf.total; syncFailures = bf.failures
+            L("=== properties: ${bf.written}/${bf.total} written, ${bf.failures.size} failed ===")
+            L("=== sync complete: processed=$processed skipped=$skipped added/renamed=$addedRenamed renamed=$renamed ===")
+            try { logFile.parentFile?.mkdirs(); logFile.writeText(log.toString()) } catch (e: Exception) { android.util.Log.e("TrackSync","log write failed: ${e.message}") }
         } catch (e: Exception) {
             android.util.Log.e("TrackSync", "Sync failed: ${e.message}")
         }
+        } finally {
+            syncRunning.set(false)
+        }
+        return TrackSyncResult(processed, skipped, addedRenamed, renamed, addedNames,
+            syncPropsWritten, syncPropsTotal, syncFailures)
     }
 
     /** Parse GPX file for track points, returns list of (lon, lat) pairs */
@@ -810,6 +916,191 @@ object SpatialDbManager {
 
     
 
+
+    // ===================================================================
+    // TRACK PROPERTIES UPDATER  (metric feed -- GPX-derived, 2026-06-29)
+    // The SINGLE, REUSABLE home for GPX-read + metric-calculation rules that
+    // populate track_properties. Keyed by geom_hash ONLY (no caller state), so
+    // save / import / resync all call updateTrackPropertiesForHash(hash).
+    // insertTrackToDb returns Boolean (not the id); geom_hash is UNIQUE so it
+    // resolves to exactly one spatial row. NO DB trigger, NO schema change.
+    //
+    // [PHASE C SEAM] survey/user-data feed: when the save-fix introduces local
+    //   survey capture, refresh track_surveys for this track_id HERE (same
+    //   program, second feed). Absent-source = no-op, never overwrite-with-null.
+    // [PHASE 3 SEAM] AWS routing of survey data stays in ConvoyEnrollmentQueue/
+    //   submitSurvey -- deferred, do not wire here.
+    // ===================================================================
+
+    private val propertiesBackfillRunning = java.util.concurrent.atomic.AtomicBoolean(false)
+
+    /** One trackpoint with optional elevation (meters) + time (epoch millis). */
+    data class TrackPtFull(val lat: Double, val lon: Double, val eleM: Double?, val timeMs: Long?)
+
+    /** Richer GPX parse: lat, lon, <ele> (m), <time> (ISO 8601 'yyyy-MM-dd'T'HH:mm:ss'Z'').
+     *  Existing parseGpxTrackPoints (lon,lat only, used for WKT/hash) is untouched. */
+    fun parseGpxTrackPointsFull(gpxText: String): List<TrackPtFull> {
+        val out = mutableListOf<TrackPtFull>()
+        val ptRegex = Regex("""<trkpt\b[^>]*\blat="([^"]+)"[^>]*\blon="([^"]+)"[^>]*?>(.*?)</trkpt>""", RegexOption.DOT_MATCHES_ALL)
+        val latLonOnly = Regex("""<trkpt\b[^>]*\blat="([^"]+)"[^>]*\blon="([^"]+)"[^>]*/>""")
+        val eleRegex = Regex("""<ele>([^<]+)</ele>""")
+        val timeRegex = Regex("""<time>([^<]+)</time>""")
+        val sdf = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", java.util.Locale.US)
+        sdf.timeZone = java.util.TimeZone.getTimeZone("UTC")
+        fun parseTime(s: String): Long? = try { sdf.parse(s.trim())?.time } catch (e: Exception) { null }
+
+        for (m in ptRegex.findAll(gpxText)) {
+            val lat = m.groupValues[1].toDoubleOrNull() ?: continue
+            val lon = m.groupValues[2].toDoubleOrNull() ?: continue
+            val inner = m.groupValues[3]
+            val ele = eleRegex.find(inner)?.groupValues?.get(1)?.trim()?.toDoubleOrNull()
+            val tMs = timeRegex.find(inner)?.groupValues?.get(1)?.let { parseTime(it) }
+            out.add(TrackPtFull(lat, lon, ele, tMs))
+        }
+        for (m in latLonOnly.findAll(gpxText)) {
+            val lat = m.groupValues[1].toDoubleOrNull() ?: continue
+            val lon = m.groupValues[2].toDoubleOrNull() ?: continue
+            out.add(TrackPtFull(lat, lon, null, null))
+        }
+        return out
+    }
+
+    private fun haversineMiles(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
+        val R = 3958.7613
+        val dLat = Math.toRadians(lat2 - lat1)
+        val dLon = Math.toRadians(lon2 - lon1)
+        val a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) *
+                Math.sin(dLon / 2) * Math.sin(dLon / 2)
+        return 2 * R * Math.asin(Math.min(1.0, Math.sqrt(a)))
+    }
+
+    /** Derive + upsert track_properties for the track with this geom_hash.
+     *  Reads <hash>.gpx from my_tracks. Writes only GPX-derived columns; never
+     *  touches shared/ride_id/area_id. Returns true on a successful write. */
+    fun updateTrackPropertiesForHash(geomHash: String, onProgress: ((String) -> Unit)? = null): Boolean {
+        val h12 = geomHash.take(12)
+        val sdb = spatialDb ?: return false
+        val edb = extensionDb ?: return false
+
+        var trackId: String? = null
+        var trackName = "?"
+        try {
+            sdb.rawQuery("SELECT track_id, name FROM tracks WHERE geom_hash=? LIMIT 1", arrayOf(geomHash)).use { c ->
+                if (c.moveToFirst()) { trackId = c.getString(0); trackName = c.getString(1) ?: "?" }
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("TrackProps", "track_id lookup failed for $h12: ${e.message}")
+            onProgress?.invoke("FAIL: ? · $h12 — DB lookup error")
+            return false
+        }
+        val tid = trackId ?: run {
+            android.util.Log.w("TrackProps", "no spatial row for hash $h12")
+            onProgress?.invoke("FAIL: ? · $h12 — no DB row")
+            return false
+        }
+
+        val tracksDir = java.io.File(
+            android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOCUMENTS),
+            "my_tracks"
+        )
+        val gpxFile = java.io.File(tracksDir, "$geomHash.gpx")
+        if (!gpxFile.exists()) {
+            android.util.Log.w("TrackProps", "file missing: ${gpxFile.name} (track_id=$tid)")
+            onProgress?.invoke("FAIL: $trackName · $h12 — file missing")
+            return false
+        }
+
+        val pts = try { parseGpxTrackPointsFull(gpxFile.readText()) } catch (e: Exception) {
+            android.util.Log.e("TrackProps", "parse failed ${gpxFile.name}: ${e.message}")
+            onProgress?.invoke("FAIL: $trackName · $h12 — parse failed"); return false
+        }
+        if (pts.isEmpty()) {
+            android.util.Log.w("TrackProps", "no points in ${gpxFile.name}"); return false
+        }
+
+        var distMiles = 0.0
+        var maxMph = 0.0
+        var eleGainFt = 0.0
+        for (i in 1 until pts.size) {
+            val a = pts[i - 1]; val b = pts[i]
+            val seg = haversineMiles(a.lat, a.lon, b.lat, b.lon)
+            distMiles += seg
+            if (a.timeMs != null && b.timeMs != null) {
+                val dtHr = (b.timeMs - a.timeMs) / 3_600_000.0
+                if (dtHr > 0) { val mph = seg / dtHr; if (mph > maxMph && mph < 200) maxMph = mph }
+            }
+            if (a.eleM != null && b.eleM != null) {
+                val d = b.eleM - a.eleM; if (d > 0) eleGainFt += d * 3.280839895
+            }
+        }
+        val firstT = pts.firstOrNull { it.timeMs != null }?.timeMs
+        val lastT = pts.lastOrNull { it.timeMs != null }?.timeMs
+        val durMin: Int? = if (firstT != null && lastT != null && lastT > firstT)
+            ((lastT - firstT) / 60_000L).toInt() else null
+        val avgMph: Double? = if (durMin != null && durMin > 0) distMiles / (durMin / 60.0) else null
+        val recordedAt: String? = firstT?.let {
+            val s = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", java.util.Locale.US)
+            s.timeZone = java.util.TimeZone.getTimeZone("UTC"); s.format(java.util.Date(it))
+        }
+
+        return try {
+            edb.execSQL("INSERT OR IGNORE INTO track_properties (track_id) VALUES (?)", arrayOf<Any>(tid))
+            edb.execSQL(
+                "UPDATE track_properties SET filename=?, source_format=?, recorded_at=?, " +
+                "distance_miles=?, duration_minutes=?, max_speed_mph=?, avg_speed_mph=?, " +
+                "elevation_gain_ft=?, point_count=? WHERE track_id=?",
+                arrayOf<Any?>(
+                    "$geomHash.gpx", "gpx", recordedAt,
+                    distMiles, durMin, maxMph, avgMph,
+                    Math.round(eleGainFt).toInt(), pts.size, tid
+                )
+            )
+            android.util.Log.i("TrackProps",
+                "props track_id=$tid dist=${"%.2f".format(distMiles)}mi dur=${durMin}min avg=${avgMph?.let { "%.1f".format(it) }} pts=${pts.size}")
+            onProgress?.invoke("props: $trackName · $h12 — ${"%.1f".format(distMiles)}mi ${pts.size}pts")
+            true
+        } catch (e: Exception) {
+            android.util.Log.e("TrackProps", "upsert failed track_id=$tid: ${e.message}")
+            false
+        }
+        // [PHASE C SEAM] refresh track_surveys for $tid here once local survey
+        // capture exists (save-fix to follow). [PHASE 3 SEAM] AWS upload deferred.
+    }
+
+    /** SEQUENTIAL, single-flight backfill of track_properties for every track.
+     *  One GPX read at a time -- deliberately NOT parallel (avoids the sync storm
+     *  pattern). Idempotent: metrics are a pure function of the immutable GPX. */
+    fun backfillAllTrackProperties(onProgress: ((String) -> Unit)? = null): BackfillResult {
+        if (!propertiesBackfillRunning.compareAndSet(false, true)) {
+            android.util.Log.w("TrackProps", "backfill already running -- skipping concurrent call")
+            onProgress?.invoke("⚠ properties pass already running — skipped")
+            return BackfillResult(0, 0, emptyList())
+        }
+        try {
+            val sdb = spatialDb ?: return BackfillResult(0, 0, emptyList())
+            val hashes = mutableListOf<String>()
+            sdb.rawQuery("SELECT geom_hash FROM tracks WHERE geom_hash IS NOT NULL", null).use { c ->
+                while (c.moveToNext()) c.getString(0)?.let { hashes.add(it) }
+            }
+            onProgress?.invoke("— properties pass: ${hashes.size} tracks —")
+            var written = 0
+            val failures = mutableListOf<String>()
+            for (h in hashes) {
+                var failLine: String? = null
+                val ok = updateTrackPropertiesForHash(h) { line ->
+                    onProgress?.invoke(line)
+                    if (line.startsWith("FAIL:")) failLine = line.removePrefix("FAIL:").trim()
+                }
+                if (ok) written++ else failLine?.let { failures.add(it) }
+            }
+            android.util.Log.i("TrackProps", "backfill complete: $written/${hashes.size} written, ${failures.size} failed")
+            onProgress?.invoke("— properties done: $written/${hashes.size} written, ${failures.size} failed —")
+            return BackfillResult(written, hashes.size, failures)
+        } finally {
+            propertiesBackfillRunning.set(false)
+        }
+    }
 
     // ===================================================================
     // SHARED ARTIFACT ADD CORE  (ADD-RULES CONTRACT -- see schema_spatial_v3.sql)

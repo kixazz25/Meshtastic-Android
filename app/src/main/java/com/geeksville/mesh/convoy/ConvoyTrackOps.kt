@@ -544,8 +544,29 @@ object ConvoyTrackOps {
                                 .replace("/", "_").replace("\\", "_")
                                 .replace(Regex("[^a-zA-Z0-9_\\- ]"), "")
                                 .trim().ifEmpty { "track_$trackIndex" }
-                            val safeName = "$baseName.gpx"
+                            // IMPORT base fix (2026-06-29): DB-first, hash-named, like save/sync.
+                            // Parse geometry FIRST so we can compute the hash that names the file.
+                            val coords = SpatialDbManager.parseGpxTrackPoints("<trk>${trkContent}</trk>")
+                            if (coords.isEmpty()) {
+                                android.util.Log.w("Import", "skip no-geometry trk #$trackIndex ('$baseName')")
+                                continue
+                            }
+                            var minLat = Double.MAX_VALUE; var maxLat = -Double.MAX_VALUE
+                            var minLon = Double.MAX_VALUE; var maxLon = -Double.MAX_VALUE
+                            for (pair in coords) {
+                                val lon = pair.first; val lat = pair.second
+                                if (lat < minLat) minLat = lat; if (lat > maxLat) maxLat = lat
+                                if (lon < minLon) minLon = lon; if (lon > maxLon) maxLon = lon
+                            }
+                            val wkt = "LINESTRING(" + coords.joinToString(",") { "${it.first} ${it.second}" } + ")"
+                            val gh = SpatialDbManager.computeGeomHash(wkt)   // THE KEY -- names the file
+                            val safeName = "$gh.gpx"
 
+                            // DB record FIRST (derived name kept inside <trk><name>).
+                            val wasNew = SpatialDbManager.insertTrackToDb(baseName, wkt, minLat, maxLat, minLon, maxLon)
+                            if (wasNew) insertedCount++ else droppedCount++
+
+                            // THEN the file, named by hash (collision-proof; identical geometry -> same file = natural dedup).
                             val dest = File(dir, safeName)
                             if (!dest.exists()) {
                                 val singleGpx = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
@@ -556,19 +577,8 @@ object ConvoyTrackOps {
                                     ?: dest.setLastModified(sourceFile.lastModified())
                             }
 
-                            val coords = SpatialDbManager.parseGpxTrackPoints("<trk>${trkContent}</trk>")
-                            if (coords.isNotEmpty()) {
-                                var minLat = Double.MAX_VALUE; var maxLat = -Double.MAX_VALUE
-                                var minLon = Double.MAX_VALUE; var maxLon = -Double.MAX_VALUE
-                                for (pair in coords) {
-                                    val lon = pair.first; val lat = pair.second
-                                    if (lat < minLat) minLat = lat; if (lat > maxLat) maxLat = lat
-                                    if (lon < minLon) minLon = lon; if (lon > maxLon) maxLon = lon
-                                }
-                                val wkt = "LINESTRING(" + coords.joinToString(",") { "${it.first} ${it.second}" } + ")"
-                                val wasNew = SpatialDbManager.insertTrackToDb(baseName, wkt, minLat, maxLat, minLon, maxLon)
-                                if (wasNew) insertedCount++ else droppedCount++
-                            }
+                            // metric feed: derive + write track_properties (reusable service; file now exists as <hash>.gpx)
+                            SpatialDbManager.updateTrackPropertiesForHash(gh)
 
                             trackFiles.add(safeName)
                         } catch (e: Exception) {

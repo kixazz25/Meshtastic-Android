@@ -140,6 +140,7 @@ fun ConvoyScreen(
     var recordingState by viewModel.recordingState
     var showLocationPermissionDialog by remember { mutableStateOf(false) }
     var showNameDialog by remember { mutableStateOf(false) }
+    var showConfirmDelete by remember { mutableStateOf(false) }  // unnamed-track delete confirm
     var showStoragePermissionDialog by remember { mutableStateOf(!android.os.Environment.isExternalStorageManager()) }
 
     // FT-01 FIX: Check all-files access on EVERY resume (not just first composition)
@@ -493,10 +494,8 @@ fun ConvoyScreen(
 
     if (showNameDialog) {
         AlertDialog(
-            onDismissRequest = {
-                showNameDialog = false
-                viewModel.finalizeTrack("convoy_track", context)
-            },
+            // HARDENED: non-cancelable. Outside-touch / back / accidental bump do nothing.
+            onDismissRequest = { },
             title = { Text("Save Track") },
             text = {
                 OutlinedTextField(
@@ -508,16 +507,41 @@ fun ConvoyScreen(
             },
             confirmButton = {
                 TextButton(onClick = {
-                    showNameDialog = false
-                    val name = if (pendingTrackName.isNotBlank()) pendingTrackName.trim() else "convoy_track"
-                    viewModel.finalizeTrack(name, context)
+                    if (pendingTrackName.isBlank()) {
+                        // No name -> ask to delete (do NOT save junk).
+                        showConfirmDelete = true
+                    } else {
+                        showNameDialog = false
+                        viewModel.finalizeTrack(pendingTrackName.trim(), context)
+                    }
                 }) { Text("SAVE") }
             },
             dismissButton = {
                 TextButton(onClick = {
+                    // Explicit discard request -> route through confirm, never silent.
+                    showConfirmDelete = true
+                }) { Text("DELETE") }
+            }
+        )
+    }
+    if (showConfirmDelete) {
+        AlertDialog(
+            // HARDENED: non-cancelable.
+            onDismissRequest = { },
+            title = { Text("No name given") },
+            text = { Text("Delete this track? This cannot be undone.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showConfirmDelete = false
                     showNameDialog = false
                     viewModel.deleteTempTrack()
-                }) { Text("SKIP") }
+                }) { Text("YES, DELETE") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    // Back to naming — track is NOT deleted.
+                    showConfirmDelete = false
+                }) { Text("NO, GO BACK") }
             }
         )
     }
