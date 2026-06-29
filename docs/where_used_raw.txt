@@ -77,6 +77,7 @@ convoy/ConvoyGpsService.kt:194:    fun stopTrack(): File? {
 convoy/ConvoyGpsService.kt:196:        stopLocationUpdates()
 convoy/ConvoyGpsService.kt:212:     * Called after stopTrack() once user has entered a name.
 convoy/ConvoyGpsService.kt:214:    fun finalizeTrack(tempFile: File, trackName: String): File? {
+convoy/ConvoyGpsService.kt:219:            val finalName = "${safeName}.$ext"  // clean name; hash-rename happens in ViewModel.finalizeTrack
 convoy/ConvoyGpsService.kt:230:            Log.e(TAG, "finalizeTrack error: ${e.message}")
 convoy/ConvoyGpsService.kt:242:     * Called by ViewModel on each tick when useRadioGps is true.
 convoy/ConvoyGpsService.kt:245:    fun onRadioPosition(lat: Double, lon: Double, alt: Double) {
@@ -210,26 +211,29 @@ convoy/ConvoyViewModel.kt:471:    fun stopRecording() {
 convoy/ConvoyViewModel.kt:472:        pendingTempFile = gpsService?.stopTrack()
 convoy/ConvoyViewModel.kt:475:    fun deleteTempTrack() {
 convoy/ConvoyViewModel.kt:484:    fun finalizeTrack(name: String, context: android.content.Context) {
-convoy/ConvoyViewModel.kt:486:        gpsService?.finalizeTrack(temp, name)
-convoy/ConvoyViewModel.kt:505:    private fun startTick() {
-convoy/ConvoyViewModel.kt:508:            while (true) { tick(); delay(ConvoySimulation.TICK_MS) }
-convoy/ConvoyViewModel.kt:536:    private fun tick() { try {
-convoy/ConvoyViewModel.kt:545:            ConvoySimulation.tick(nowMs)
-convoy/ConvoyViewModel.kt:547:            readLiveNodes(nowMs)
-convoy/ConvoyViewModel.kt:555:        val state = ConvoyEngine.compute(
-convoy/ConvoyViewModel.kt:569:                gpsService?.onRadioPosition(myCart.latitude, myCart.longitude, myCart.altitude_m.toDouble())
-convoy/ConvoyViewModel.kt:580:            convoyLog("tick | lead=$leadOut | trackFrom=$trackFrom | locked=$_leadLockedFlag | [$accumStr]")
-convoy/ConvoyViewModel.kt:770:            ConvoyEngine.colorSegmentsByNode(
-convoy/ConvoyViewModel.kt:780:    } catch (e: Exception) { /* suppress tick errors */ } }
-convoy/ConvoyViewModel.kt:783:    private fun getPhoneLocation(): android.location.Location? {
-convoy/ConvoyViewModel.kt:805:    private fun readLiveNodes(nowMs: Long): List<ConvoyNode> {
-convoy/ConvoyViewModel.kt:812:                startPhoneGps()
-convoy/ConvoyViewModel.kt:815:            val loc = getPhoneLocation()
-convoy/ConvoyViewModel.kt:865:                    val phoneLoc = getPhoneLocation()
-convoy/ConvoyViewModel.kt:870:                        convoyLog("ZERO POS: node=$callsign — no lastKnown, no phone GPS, dropping node this tick")
-convoy/ConvoyViewModel.kt:952:    fun setPendingDownload(pending: PendingDownload) { _pendingDownload.value = pending }
-convoy/ConvoyViewModel.kt:955:    fun startDownload(context: android.content.Context, pending: PendingDownload) {
-convoy/ConvoyViewModel.kt:992:    fun cancelDownload() {
+convoy/ConvoyViewModel.kt:487:        val finalized = gpsService?.finalizeTrack(temp, name)
+convoy/ConvoyViewModel.kt:502:            if (coords.isEmpty()) { android.util.Log.w("ConvoyVM", "finalizeTrack: no geometry, not a track: ${f.name}"); return }
+convoy/ConvoyViewModel.kt:513:            android.util.Log.i("ConvoyVM", "finalizeTrack insert: new=$wasNew name='${name.trim()}' hash=$gh")
+convoy/ConvoyViewModel.kt:520:            android.util.Log.e("ConvoyVM", "finalizeTrack insert failed: ${e.message}")
+convoy/ConvoyViewModel.kt:537:    private fun startTick() {
+convoy/ConvoyViewModel.kt:540:            while (true) { tick(); delay(ConvoySimulation.TICK_MS) }
+convoy/ConvoyViewModel.kt:568:    private fun tick() { try {
+convoy/ConvoyViewModel.kt:577:            ConvoySimulation.tick(nowMs)
+convoy/ConvoyViewModel.kt:579:            readLiveNodes(nowMs)
+convoy/ConvoyViewModel.kt:587:        val state = ConvoyEngine.compute(
+convoy/ConvoyViewModel.kt:601:                gpsService?.onRadioPosition(myCart.latitude, myCart.longitude, myCart.altitude_m.toDouble())
+convoy/ConvoyViewModel.kt:612:            convoyLog("tick | lead=$leadOut | trackFrom=$trackFrom | locked=$_leadLockedFlag | [$accumStr]")
+convoy/ConvoyViewModel.kt:802:            ConvoyEngine.colorSegmentsByNode(
+convoy/ConvoyViewModel.kt:812:    } catch (e: Exception) { /* suppress tick errors */ } }
+convoy/ConvoyViewModel.kt:815:    private fun getPhoneLocation(): android.location.Location? {
+convoy/ConvoyViewModel.kt:837:    private fun readLiveNodes(nowMs: Long): List<ConvoyNode> {
+convoy/ConvoyViewModel.kt:844:                startPhoneGps()
+convoy/ConvoyViewModel.kt:847:            val loc = getPhoneLocation()
+convoy/ConvoyViewModel.kt:897:                    val phoneLoc = getPhoneLocation()
+convoy/ConvoyViewModel.kt:902:                        convoyLog("ZERO POS: node=$callsign — no lastKnown, no phone GPS, dropping node this tick")
+convoy/ConvoyViewModel.kt:984:    fun setPendingDownload(pending: PendingDownload) { _pendingDownload.value = pending }
+convoy/ConvoyViewModel.kt:987:    fun startDownload(context: android.content.Context, pending: PendingDownload) {
+convoy/ConvoyViewModel.kt:1024:    fun cancelDownload() {
 convoy/GroupTrackTheme.kt:150:                    ConvoySessionManager.clearSession(context)
 convoy/GroupTrackTheme.kt:163:                    val uid = ConvoySessionManager.getUserId(context) ?: "none"
 convoy/GroupTrackTheme.kt:165:                    val sub = ConvoySessionManager.isSubscribed(context)
