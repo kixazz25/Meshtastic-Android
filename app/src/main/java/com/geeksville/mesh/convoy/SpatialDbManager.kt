@@ -407,6 +407,9 @@ object SpatialDbManager {
             else -> return emptyList()
         }
         val results = mutableListOf<Map<String, String?>>()
+        // ids already matched on the OFFICIAL spatial name -- a name hit always
+        // wins over an alias hit for the same artifact (it is NOT "via alias").
+        val nameHitIds = HashSet<String>()
         try {
             val cursor = db.rawQuery(
                 "SELECT $idCol, name, geom_hash FROM $table " +
@@ -416,15 +419,61 @@ object SpatialDbManager {
             )
             cursor.use {
                 while (it.moveToNext()) {
+                    val id = it.getString(0)
+                    nameHitIds.add(id)
                     results.add(mapOf(
-                        "id" to it.getString(0),
+                        "id" to id,
                         "name" to it.getString(1),
                         "geom_hash" to it.getString(2),
-                        "type" to type
+                        "type" to type,
+                        "matched_via_alias" to "false",
+                        "matched_alias" to null
                     ))
                 }
             }
-            android.util.Log.i("ArtifactSearch", "searchByName($type,'$term') -> ${results.size}")
+            // ---- ALIAS PASS: match the term against artifact_aliases (extension DB) ----
+            // artifact_aliases stores artifact_type SINGULAR (see getAliasesFor()).
+            val edb = extensionDb
+            if (edb != null && results.size < limit) {
+                val singular = type.removeSuffix("s")
+                // Collect distinct artifact ids whose alias matches, with the matched text.
+                val aliasMatches = LinkedHashMap<String, String>()  // id -> matched alias text (first hit kept)
+                val ac = edb.rawQuery(
+                    "SELECT artifact_id, alias FROM artifact_aliases " +
+                    "WHERE artifact_type = ? AND alias LIKE ? " +
+                    "ORDER BY is_preferred DESC, alias COLLATE NOCASE LIMIT ?",
+                    arrayOf(singular, "%" + term + "%", limit.toString())
+                )
+                ac.use {
+                    while (it.moveToNext()) {
+                        val aid = it.getString(0) ?: continue
+                        if (aid in nameHitIds) continue          // name hit already covers it
+                        if (!aliasMatches.containsKey(aid)) aliasMatches[aid] = it.getString(1)
+                    }
+                }
+                // For each alias-only match, look up the OFFICIAL name+hash from the spatial table.
+                for ((aid, matchedAlias) in aliasMatches) {
+                    if (results.size >= limit) break
+                    val rc = db.rawQuery(
+                        "SELECT name, geom_hash FROM $table WHERE $idCol = ? LIMIT 1",
+                        arrayOf(aid)
+                    )
+                    rc.use {
+                        if (it.moveToFirst()) {
+                            val offName = it.getString(0)
+                            results.add(mapOf(
+                                "id" to aid,
+                                "name" to offName,                 // ALWAYS the official name
+                                "geom_hash" to it.getString(1),
+                                "type" to type,
+                                "matched_via_alias" to "true",
+                                "matched_alias" to matchedAlias
+                            ))
+                        }
+                    }
+                }
+            }
+            android.util.Log.i("ArtifactSearch", "searchByName($type,'$term') -> ${results.size} (alias-join)")
         } catch (e: Exception) {
             android.util.Log.e("ArtifactSearch", "searchByName failed: ${e.message}")
         }
@@ -585,33 +634,19 @@ object SpatialDbManager {
 
                     processed++
 
-                    val alreadyInDb = trackHashExists(gh)   // check the DB by the HASH KEY
                     val nameMatch = Regex("<name>([^<]*)</name>").find(text)?.groupValues?.get(1)?.trim()
                     val recName = if (!nameMatch.isNullOrBlank()) nameMatch else file.nameWithoutExtension
-
-                    if (alreadyInDb) {
-                        renamed++   // already in DB by hash -> no insert, but normalize filename
-                        L("EXISTS: ${file.name} pts=${coords.size} hash=${gh.take(12)} -> in DB, will rename")
-                    } else {
-                        val wasNew = insertTrackToDb(recName, wkt, minLat, maxLat, minLon, maxLon)
-                        if (wasNew) {
-                            addedRenamed++; addedNames.add(recName)
-                            L("ADDED: ${file.name} pts=${coords.size} hash=${gh.take(12)} name='$recName' -> inserted, will rename")
-                        } else {
-                            renamed++
-                            L("DUPE-INSERT: ${file.name} pts=${coords.size} hash=${gh.take(12)} -> insert returned false, will rename")
-                        }
-                    }
-
-                    // Normalize file to <hash>.gpx. NON-DESTRUCTIVE: never delete.
-                    val target = java.io.File(file.parentFile, "$gh.gpx")
-                    if (file.name == target.name) {
-                        L("  rename: already <hash>.gpx, skip")
-                    } else if (target.exists()) {
-                        L("  rename: TARGET ${target.name} ALREADY EXISTS -> leaving ${file.name} in place (no delete)")
-                    } else {
-                        val ok = file.renameTo(target)
-                        L("  rename: ${file.name} -> ${target.name} : renameTo=$ok")
+                    // UNIFIED ADD: resolver rereads `file`, inserts, and resolves
+                    // INSERT / DROP_NAME / DROP_ALIAS / ALIAS (owns rename + source delete + metrics + alias).
+                    when (resolveTrackAdd(recName, file)) {
+                        AddOutcome.INSERT -> { addedRenamed++; addedNames.add(recName)
+                            L("ADDED: ${file.name} pts=${coords.size} hash=${gh.take(12)} name='$recName' -> INSERT") }
+                        AddOutcome.ALIAS -> { renamed++
+                            L("ALIAS: ${file.name} hash=${gh.take(12)} name='$recName' -> alias added, source removed") }
+                        AddOutcome.DROP_NAME, AddOutcome.DROP_ALIAS -> { renamed++
+                            L("DUPE: ${file.name} hash=${gh.take(12)} -> already known, source removed") }
+                        AddOutcome.NO_GEOMETRY -> { L("SKIP: ${file.name} -> no geometry") }
+                        AddOutcome.ERROR -> { L("ERROR: ${file.name} -> resolveTrackAdd failed") }
                     }
                 } catch (e: Exception) {
                     L("ERROR: ${file.name} : ${e.message}")
@@ -890,7 +925,17 @@ object SpatialDbManager {
      */
     // CHANGED 2026-06-02: returns Boolean (true=row inserted, false=dropped as dupe via
     // INSERT OR IGNORE on UNIQUE(geom_hash)). Detected with changes(). Enables real import recap.
-    fun insertTrackToDb(name: String, geometryWkt: String, minLat: Double, maxLat: Double, minLon: Double, maxLon: Double): Boolean {
+    /** Result of a track insert attempt. Returned on the caller's stack
+     *  (per-thread, race-free) so the add resolver can branch without a
+     *  second lookup. On a dupe, trackId is the EXISTING row's id. */
+    data class TrackInsertResult(
+        val wasNew: Boolean,
+        val trackId: String,
+        val geomHash: String,
+        val name: String
+    )
+
+    fun insertTrackToDb(name: String, geometryWkt: String, minLat: Double, maxLat: Double, minLon: Double, maxLon: Double): TrackInsertResult {
         val db = spatialDb ?: throw IllegalStateException("SpatialDbManager not initialized")
         val id = newId()
         val ts = now()
@@ -898,6 +943,7 @@ object SpatialDbManager {
         val nm = notNamed(name)
         val gh = computeGeomHash(geometryWkt)
         var inserted = false
+        var resolvedId = id
         try {
             db.execSQL(
                 "INSERT OR IGNORE INTO tracks (track_id, name, geometry, min_lat, max_lat, min_lon, max_lon, bbox, type, created_at, updated_at, geom_hash) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
@@ -906,12 +952,111 @@ object SpatialDbManager {
             db.rawQuery("SELECT changes()", null).use { c ->
                 if (c.moveToFirst()) inserted = c.getInt(0) > 0
             }
-            if (inserted) android.util.Log.i("SpatialDb", "Inserted track: $nm")
-            else android.util.Log.i("SpatialDb", "Skipped dupe track: $nm")
+            if (inserted) {
+                android.util.Log.i("SpatialDb", "Inserted track: $nm")
+            } else {
+                // dupe: resolve the EXISTING row's id by the unique geom_hash
+                db.rawQuery("SELECT track_id FROM tracks WHERE geom_hash=? LIMIT 1", arrayOf(gh)).use { c ->
+                    if (c.moveToFirst()) resolvedId = c.getString(0)
+                }
+                android.util.Log.i("SpatialDb", "Skipped dupe track: $nm")
+            }
         } catch (e: Exception) {
             android.util.Log.e("SpatialDb", "Track DB insert failed: ${e.message}")
         }
-        return inserted
+        return TrackInsertResult(inserted, resolvedId, gh, nm)
+    }
+
+    enum class AddOutcome { INSERT, DROP_NAME, DROP_ALIAS, ALIAS, NO_GEOMETRY, ERROR }
+
+    /** THE unified track ADD service. All three capture processes (sync, create,
+     *  import) call this with a name and a file that ALREADY EXISTS on disk.
+     *  Rereads the file (single source of truth), parses, inserts, and resolves:
+     *    INSERT     new hash      -> materialize <hash>.gpx, write metrics, keep file
+     *    DROP_NAME  name==official-> delete source file
+     *    DROP_ALIAS name==alias   -> delete source file
+     *    ALIAS      new name      -> addAlias(existingId,name) + delete source file
+     *  Identical behavior for all callers; no caller-side insert/rename/delete. */
+    fun resolveTrackAdd(name: String, sourceFile: java.io.File): AddOutcome {
+        try {
+            if (!sourceFile.exists()) {
+                android.util.Log.w("TrackAdd", "source missing: ${sourceFile.name}")
+                return AddOutcome.ERROR
+            }
+            val gpxText = sourceFile.readText()
+            val coords = parseGpxTrackPoints(gpxText)   // List<Pair<lon,lat>>
+            if (coords.isEmpty()) {
+                android.util.Log.w("TrackAdd", "no geometry: ${sourceFile.name}")
+                return AddOutcome.NO_GEOMETRY
+            }
+            var minLat = Double.MAX_VALUE; var maxLat = -Double.MAX_VALUE
+            var minLon = Double.MAX_VALUE; var maxLon = -Double.MAX_VALUE
+            for (p in coords) {
+                val lon = p.first; val lat = p.second
+                if (lat < minLat) minLat = lat; if (lat > maxLat) maxLat = lat
+                if (lon < minLon) minLon = lon; if (lon > maxLon) maxLon = lon
+            }
+            val wkt = "LINESTRING(" + coords.joinToString(",") { "${it.first} ${it.second}" } + ")"
+            val res = insertTrackToDb(name, wkt, minLat, maxLat, minLon, maxLon)
+            val hashFile = java.io.File(
+                java.io.File(
+                    android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOCUMENTS),
+                    "my_tracks"
+                ),
+                "${res.geomHash}.gpx"
+            )
+
+            if (res.wasNew) {
+                // INSERT: make the canonical <hash>.gpx exist, then write metrics.
+                try {
+                    if (sourceFile.absolutePath != hashFile.absolutePath) {
+                        if (!hashFile.exists()) {
+                            if (!sourceFile.renameTo(hashFile)) sourceFile.copyTo(hashFile, overwrite = false)
+                        }
+                    }
+                } catch (e: Exception) { android.util.Log.w("TrackAdd", "materialize: ${e.message}") }
+                updateTrackPropertiesForHash(res.geomHash)
+                android.util.Log.i("TrackAdd", "INSERT ${res.geomHash.take(12)} '$name'")
+                return AddOutcome.INSERT
+            }
+
+            // hash exists -> DROP_NAME / DROP_ALIAS / ALIAS. All delete the source file.
+            val officialName = run {
+                var n: String? = null
+                spatialDb?.rawQuery("SELECT name FROM tracks WHERE track_id=? LIMIT 1", arrayOf(res.trackId))?.use {
+                    if (it.moveToFirst()) n = if (it.isNull(0)) null else it.getString(0)
+                }
+                n
+            }
+            val nameMatchesOfficial = officialName != null && officialName.equals(name.trim(), ignoreCase = false)
+            var nameMatchesAlias = false
+            if (!nameMatchesOfficial) {
+                extensionDb?.rawQuery(
+                    "SELECT 1 FROM artifact_aliases WHERE artifact_type='track' AND artifact_id=? AND alias=? LIMIT 1",
+                    arrayOf(res.trackId, name.trim())
+                )?.use { if (it.moveToFirst()) nameMatchesAlias = true }
+            }
+
+            val deleteSource = {
+                try {
+                    if (sourceFile.absolutePath != hashFile.absolutePath && sourceFile.exists()) sourceFile.delete()
+                } catch (e: Exception) { android.util.Log.w("TrackAdd", "del source: ${e.message}") }
+            }
+
+            return when {
+                nameMatchesOfficial -> { deleteSource(); android.util.Log.i("TrackAdd", "DROP_NAME ${res.geomHash.take(12)}"); AddOutcome.DROP_NAME }
+                nameMatchesAlias    -> { deleteSource(); android.util.Log.i("TrackAdd", "DROP_ALIAS ${res.geomHash.take(12)}"); AddOutcome.DROP_ALIAS }
+                else -> {
+                    addAlias("track", res.trackId, name.trim(), res.geomHash, null)
+                    deleteSource()
+                    android.util.Log.i("TrackAdd", "ALIAS ${res.geomHash.take(12)} '$name'")
+                    AddOutcome.ALIAS
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("TrackAdd", "resolveTrackAdd failed: ${e.message}")
+            return AddOutcome.ERROR
+        }
     }
 
     
@@ -1274,18 +1419,64 @@ object SpatialDbManager {
 
     /** Star an alias: set is_preferred=1 on aliasId and clear all siblings for the same artifact,
      *  in one transaction (no db-level one-preferred constraint — enforced here). */
+    /** SWAP: promote an alias to the OFFICIAL local name and demote the old
+     *  official name into that alias row. "Make this my preferred name."
+     *  LOCAL-ONLY -- the AWS canonical (first-identified) name is never touched.
+     *  GUARDED: trails are externally sourced / not user-maintained -> no swap.
+     *  Generic across user types via spatialTableFor(). Two separate DB files,
+     *  so ops are ordered + logged (no shared transaction). */
     fun setPreferredAlias(type: String, artifactId: String, aliasId: String) {
-        val db = extensionDb ?: return
-        val t = type.lowercase().removeSuffix("s")
-        db.beginTransaction()
-        try {
-            db.execSQL("UPDATE artifact_aliases SET is_preferred = 0 WHERE artifact_type = ? AND artifact_id = ?",
-                arrayOf(t, artifactId))
-            db.execSQL("UPDATE artifact_aliases SET is_preferred = 1 WHERE alias_id = ?", arrayOf(aliasId))
-            db.setTransactionSuccessful()
-        } finally {
-            db.endTransaction()
+        val tl = type.lowercase()
+        if (tl == "trail" || tl == "trails") {
+            android.util.Log.i("AliasSwap", "skip: trails are not user-maintained")
+            return
         }
+        val edb = extensionDb ?: return
+        val (table, idCol) = spatialTableFor(type) ?: return
+        val sdb = spatialDb ?: return
+
+        // read the alias text to promote
+        var aliasText: String? = null
+        try {
+            edb.rawQuery("SELECT alias FROM artifact_aliases WHERE alias_id = ? LIMIT 1", arrayOf(aliasId)).use {
+                if (it.moveToFirst()) aliasText = if (it.isNull(0)) null else it.getString(0)
+            }
+        } catch (e: Exception) { android.util.Log.w("AliasSwap", "read alias: ${e.message}") }
+        if (aliasText == null) { android.util.Log.w("AliasSwap", "alias $aliasId not found"); return }
+
+        // read the current official spatial name to demote
+        var oldName: String? = null
+        try {
+            sdb.rawQuery("SELECT name FROM $table WHERE $idCol = ? LIMIT 1", arrayOf(artifactId)).use {
+                if (it.moveToFirst()) oldName = if (it.isNull(0)) null else it.getString(0)
+            }
+        } catch (e: Exception) { android.util.Log.w("AliasSwap", "read name: ${e.message}") }
+
+        // promote: spatial name <- alias text
+        try {
+            sdb.execSQL("UPDATE $table SET name = ? WHERE $idCol = ?", arrayOf<Any>(aliasText!!, artifactId))
+        } catch (e: Exception) { android.util.Log.w("AliasSwap", "set name: ${e.message}") }
+
+        // demote: alias row text <- old official name (skip if old name was blank)
+        try {
+            if (oldName != null && oldName!!.isNotBlank() && oldName != "Not Named") {
+                edb.execSQL("UPDATE artifact_aliases SET alias = ? WHERE alias_id = ?", arrayOf<Any>(oldName!!, aliasId))
+            } else {
+                // nothing meaningful to demote -> remove the now-redundant alias row
+                edb.execSQL("DELETE FROM artifact_aliases WHERE alias_id = ?", arrayOf<Any>(aliasId))
+            }
+        } catch (e: Exception) { android.util.Log.w("AliasSwap", "demote: ${e.message}") }
+
+        android.util.Log.i("AliasSwap", "swapped $type $artifactId: name<->alias($aliasId)")
+    }
+
+    /** Edit one alias row's text. One-at-a-time alias maintenance. */
+    fun renameAlias(aliasId: String, newText: String) {
+        val edb = extensionDb ?: return
+        try {
+            edb.execSQL("UPDATE artifact_aliases SET alias = ? WHERE alias_id = ?", arrayOf<Any>(newText, aliasId))
+            android.util.Log.i("AliasRename", "alias $aliasId -> '$newText'")
+        } catch (e: Exception) { android.util.Log.w("AliasRename", "${e.message}") }
     }
 
     /** Delete one alias row. UI enforces the min-one guard before calling. */
@@ -1431,9 +1622,59 @@ object SpatialDbManager {
             arrayOf<Any>(newName, now(), id))
     }
 
-    /** Delete a track from spatial DB (file delete handled by ConvoyTrackOps) */
+    /** COMPLETE track delete service (detail-panel "delete this track").
+     *  Removes ALL of: spatial tracks row, track_properties row, every
+     *  artifact_aliases row for the track, and the canonical <hash>.gpx file.
+     *  Ordered + logged; each step best-effort (a missing piece is a no-op).
+     *  SEPARATE from the add-time dupe/alias source-file cleanup (that lives in
+     *  the add resolver and deletes the INCOMING source file, not <hash>.gpx). */
     fun deleteTrackFromDb(id: String) {
-        spatialDb?.execSQL("DELETE FROM tracks WHERE track_id=?", arrayOf<Any>(id))
+        // 1. read geom_hash first (needed to locate the file before the row is gone)
+        var geomHash: String? = null
+        try {
+            spatialDb?.rawQuery("SELECT geom_hash FROM tracks WHERE track_id=? LIMIT 1", arrayOf(id))?.use {
+                if (it.moveToFirst()) geomHash = if (it.isNull(0)) null else it.getString(0)
+            }
+        } catch (e: Exception) { android.util.Log.w("TrackDelete", "read hash: ${e.message}") }
+
+        // 2. spatial row
+        try {
+            spatialDb?.execSQL("DELETE FROM tracks WHERE track_id=?", arrayOf<Any>(id))
+        } catch (e: Exception) { android.util.Log.w("TrackDelete", "spatial row: ${e.message}") }
+
+        // 3. extension: track_properties
+        try {
+            extensionDb?.execSQL("DELETE FROM track_properties WHERE track_id=?", arrayOf<Any>(id))
+        } catch (e: Exception) { android.util.Log.w("TrackDelete", "track_properties: ${e.message}") }
+
+        // 4. extension: all aliases for this track (artifact_type stored SINGULAR)
+        try {
+            extensionDb?.execSQL(
+                "DELETE FROM artifact_aliases WHERE artifact_type=? AND artifact_id=?",
+                arrayOf<Any>("track", id)
+            )
+        } catch (e: Exception) { android.util.Log.w("TrackDelete", "aliases: ${e.message}") }
+
+        // 5. canonical <hash>.gpx file in my_tracks
+        val h = geomHash
+        if (h != null && h.isNotBlank()) {
+            try {
+                val tracksDir = java.io.File(
+                    android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOCUMENTS),
+                    "my_tracks"
+                )
+                val f = java.io.File(tracksDir, "$h.gpx")
+                if (f.exists()) {
+                    val ok = f.delete()
+                    android.util.Log.i("TrackDelete", "file $h.gpx deleted=$ok")
+                } else {
+                    android.util.Log.i("TrackDelete", "file $h.gpx not present (no-op)")
+                }
+            } catch (e: Exception) { android.util.Log.w("TrackDelete", "file: ${e.message}") }
+        } else {
+            android.util.Log.i("TrackDelete", "no geom_hash for $id -- no file to remove")
+        }
+        android.util.Log.i("TrackDelete", "deleteTrackFromDb($id) complete")
     }
 
     

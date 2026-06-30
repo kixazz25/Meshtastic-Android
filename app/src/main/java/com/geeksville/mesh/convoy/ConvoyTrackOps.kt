@@ -378,8 +378,10 @@ object ConvoyTrackOps {
         val routeCount: Int,
         val trackFiles: List<String>,
         val errors: List<String>,
-        val inserted: Int = 0,   // ADDED 2026-06-02: tracks newly inserted
-        val dropped: Int = 0     // ADDED 2026-06-02: tracks dropped as dupe (already in library)
+        val inserted: Int = 0,   // tracks newly inserted (INSERT)
+        val dropped: Int = 0,    // tracks that were exact duplicates (DROP_NAME/DROP_ALIAS)
+        val aliased: Int = 0,    // ADDED 2026-06-30: same geometry, new name -> alias recorded
+        val skipped: Int = 0     // ADDED 2026-06-30: no geometry / error
     )
 
     // ── GPX Waypoint Parser ────────────────────────────────────────
@@ -480,13 +482,16 @@ object ConvoyTrackOps {
      */
     suspend fun importGpxAllArtifacts(
         sourceFile: File,
-        context: android.content.Context
+        context: android.content.Context,
+        onProgress: ((String) -> Unit)? = null
     ): ImportArtifactsSummary = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
         val sourceName = sourceFile.name
         val errors = mutableListOf<String>()
         val trackFiles = mutableListOf<String>()
         var waypointCount = 0
         var routeCount = 0
+        fun diag(msg: String) { android.util.Log.i("ImportDiag", msg); onProgress?.invoke(msg) }
+        diag("ENTRY name='$sourceName' exists=${sourceFile.exists()} len=${sourceFile.length()} ext='${sourceFile.extension}'")
 
         try {
             if (!sourceFile.exists()) {
@@ -512,31 +517,22 @@ object ConvoyTrackOps {
             val extPattern = Regex("""<extensions>[\s\S]*?</extensions>""")
             var trackIndex = 0
             var insertedCount = 0
-            var droppedCount = 0
+            var aliasedCount = 0
+            var duplicateCount = 0
+            var skippedCount = 0
 
-            sourceFile.bufferedReader().use { reader ->
-                val block = StringBuilder()
-                var inTrk = false
-                var line: String?
-                while (reader.readLine().also { line = it } != null) {
-                    val ln = line ?: continue
-                    if (!inTrk) {
-                        val s = ln.indexOf("<trk>")
-                        if (s >= 0) { inTrk = true; block.setLength(0); block.append(ln.substring(s)).append("\n") }
-                    } else {
-                        block.append(ln).append("\n")
-                    }
-                    if (inTrk && ln.contains("</trk>")) {  // PERF 2026-06-02: check current line, not whole block (was O(n^2)/track)
-                        // One complete <trk>..</trk> block accumulated. Process and release.
-                        inTrk = false
-                        val rawBlock = block.toString()
-                        block.setLength(0)
-                        val endIdx = rawBlock.indexOf("</trk>")
-                        val trkWhole = rawBlock.substring(0, endIdx + "</trk>".length)
-                        // strip extensions per-block (was whole-file)
-                        val trkClean = extPattern.replace(trkWhole, "")
-                        val trkContent = trkClean.removePrefix("<trk>").removeSuffix("</trk>")
+            // PROVEN regex track-detection (mirrors importTrackFile): match <trk>..</trk>
+            // across newlines with findAll. Replaces the line-streamer that found 0 tracks.
+            run {
+                val fullText = sourceFile.readText()
+                val trkPattern = Regex("""<trk>([\s\S]*?)</trk>""")
+                val matchCount = trkPattern.findAll(fullText).count()
+                diag("READ len=${fullText.length} contains<trk>=${fullText.contains("<trk>")} regexMatches=$matchCount")
+                for (m in trkPattern.findAll(fullText)) {
+                        val rawTrk = m.groupValues[1]
+                        val trkContent = extPattern.replace(rawTrk, "")
                         trackIndex++
+                        diag("TRACK #$trackIndex trkContentLen=${trkContent.length}")
                         try {
                             val rawName = namePattern.find(trkContent)?.groupValues?.get(1)?.trim()
                                 ?: "track_$trackIndex"
@@ -559,16 +555,13 @@ object ConvoyTrackOps {
                                 if (lon < minLon) minLon = lon; if (lon > maxLon) maxLon = lon
                             }
                             val wkt = "LINESTRING(" + coords.joinToString(",") { "${it.first} ${it.second}" } + ")"
-                            val gh = SpatialDbManager.computeGeomHash(wkt)   // THE KEY -- names the file
-                            val safeName = "$gh.gpx"
-
-                            // DB record FIRST (derived name kept inside <trk><name>).
-                            val wasNew = SpatialDbManager.insertTrackToDb(baseName, wkt, minLat, maxLat, minLon, maxLon)
-                            if (wasNew) insertedCount++ else droppedCount++
-
-                            // THEN the file, named by hash (collision-proof; identical geometry -> same file = natural dedup).
-                            val dest = File(dir, safeName)
-                            if (!dest.exists()) {
+                            // FULLY UNIFORM: write the split track under its HUMAN name (the
+                            // same value used for the spatial name). NO hash is computed here --
+                            // the resolver owns computeGeomHash, the rename to <hash>.gpx, dedup
+                            // (INSERT/DROP/ALIAS), source-file delete, aliasing, and the metric feed.
+                            val srcName = "$baseName.gpx"
+                            val dest = File(dir, srcName)
+                            run {
                                 val singleGpx = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
                                     "<gpx version=\"1.1\" creator=\"GroupTrack\">\n" +
                                     "<trk>${trkContent}</trk>\n</gpx>"
@@ -576,15 +569,32 @@ object ConvoyTrackOps {
                                 extractEarliestTime(singleGpx)?.let { dest.setLastModified(it) }
                                     ?: dest.setLastModified(sourceFile.lastModified())
                             }
-
-                            // metric feed: derive + write track_properties (reusable service; file now exists as <hash>.gpx)
-                            SpatialDbManager.updateTrackPropertiesForHash(gh)
-
-                            trackFiles.add(safeName)
+                            when (SpatialDbManager.resolveTrackAdd(baseName, dest)) {
+                                SpatialDbManager.AddOutcome.INSERT -> {
+                                    insertedCount++; trackFiles.add(srcName)
+                                    onProgress?.invoke("INSERT: $baseName")
+                                }
+                                SpatialDbManager.AddOutcome.ALIAS -> {
+                                    aliasedCount++
+                                    onProgress?.invoke("ALIAS: $baseName")
+                                }
+                                SpatialDbManager.AddOutcome.DROP_NAME,
+                                SpatialDbManager.AddOutcome.DROP_ALIAS -> {
+                                    duplicateCount++
+                                    onProgress?.invoke("DUPLICATE: $baseName")
+                                }
+                                SpatialDbManager.AddOutcome.NO_GEOMETRY -> {
+                                    skippedCount++
+                                    onProgress?.invoke("SKIP: $baseName (no geometry)")
+                                }
+                                SpatialDbManager.AddOutcome.ERROR -> {
+                                    skippedCount++; errors.add("Track $trackIndex: resolveTrackAdd error")
+                                    onProgress?.invoke("ERROR: $baseName")
+                                }
+                            }
                         } catch (e: Exception) {
                             errors.add("Track $trackIndex: ${e.message}")
                         }
-                    }
                 }
             }
 
@@ -636,7 +646,7 @@ object ConvoyTrackOps {
             }
 
             android.util.Log.i("Import", "Import complete: ${trackFiles.size} tracks, $waypointCount waypoints, $routeCount routes from $sourceName")
-            ImportArtifactsSummary(sourceName, trackFiles.size, waypointCount, routeCount, trackFiles, errors, insertedCount, droppedCount)
+            ImportArtifactsSummary(sourceName, trackFiles.size, waypointCount, routeCount, trackFiles, errors, insertedCount, duplicateCount, aliasedCount, skippedCount)
 
         } catch (e: Exception) {
             android.util.Log.e("Import", "Import failed for $sourceName: ${e.message}")

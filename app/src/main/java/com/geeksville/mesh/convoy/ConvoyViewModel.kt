@@ -506,18 +506,11 @@ class ConvoyViewModel @Inject constructor(
                 if (lat < minLat) minLat = lat; if (lat > maxLat) maxLat = lat
                 if (lon < minLon) minLon = lon; if (lon > maxLon) maxLon = lon
             }
-            // WKT built identically to import/sync (it.first it.second) so geom_hash matches.
-            val wkt = "LINESTRING(" + coords.joinToString(",") { "${it.first} ${it.second}" } + ")"
-            val gh = com.geeksville.mesh.convoy.SpatialDbManager.computeGeomHash(wkt)
-            val wasNew = com.geeksville.mesh.convoy.SpatialDbManager.insertTrackToDb(name.trim(), wkt, minLat, maxLat, minLon, maxLon)
-            android.util.Log.i("ConvoyVM", "finalizeTrack insert: new=$wasNew name='${name.trim()}' hash=$gh")
-            // Normalize file to <hash>.gpx (whether newly inserted or a dupe geometry).
-            val target = java.io.File(f.parentFile, "$gh.gpx")
-            if (f.name != target.name) {
-                if (target.exists() && target.absolutePath != f.absolutePath) f.delete() else f.renameTo(target)
-            }
-            // metric feed: derive + write track_properties from the <hash>.gpx (reusable service)
-            com.geeksville.mesh.convoy.SpatialDbManager.updateTrackPropertiesForHash(gh)
+            // UNIFIED ADD: the resolver rereads `f`, inserts, and resolves
+            // INSERT / DROP_NAME / DROP_ALIAS / ALIAS -- it owns the rename to
+            // <hash>.gpx, the source-file delete, the metric feed, and aliasing.
+            val outcome = com.geeksville.mesh.convoy.SpatialDbManager.resolveTrackAdd(name.trim(), f)
+            android.util.Log.i("ConvoyVM", "finalizeTrack resolveTrackAdd: $outcome name='${name.trim()}'")
         } catch (e: Exception) {
             android.util.Log.e("ConvoyVM", "finalizeTrack insert failed: ${e.message}")
         }

@@ -82,6 +82,11 @@ fun ConvoyTrackImportScreen(onDismiss: () -> Unit) {
     var recapDatesCorrected by remember { mutableStateOf(0) }
     var recapNew by remember { mutableStateOf(0) }    // ADDED 2026-06-02
     var recapDupe by remember { mutableStateOf(0) }   // ADDED 2026-06-02
+    var recapAliased by remember { mutableStateOf(0) }  // ADDED 2026-06-30
+    var recapSkippedCount by remember { mutableStateOf(0) }  // ADDED 2026-06-30
+    // Live per-record import feed (mirrors the sync control feed).
+    var importLines by remember { mutableStateOf<List<String>>(emptyList()) }
+    val importListState = androidx.compose.foundation.lazy.rememberLazyListState()
     var recapWaypoints by remember { mutableStateOf(0) }
     var recapRoutes by remember { mutableStateOf(0) }
     var processedFiles by remember { mutableStateOf<List<File>>(emptyList()) }
@@ -128,25 +133,32 @@ fun ConvoyTrackImportScreen(onDismiss: () -> Unit) {
             var datesCorrected = 0
             var wptTotal = 0
             var rteTotal = 0
-            var newTotal = 0      // ADDED 2026-06-02: tracks newly inserted
-            var dupeTotal = 0     // ADDED 2026-06-02: tracks already in library
-
+            var newTotal = 0
+            var dupeTotal = 0
+            var aliasedTotal = 0
+            var skippedTotal = 0
             for ((i, f) in sel.withIndex()) {
                 progressCurrent = i + 1
                 progressName = f.name
+                importLines = importLines + "— ${f.name} —"
                 try {
-                    val summary = ConvoyTrackOps.importGpxAllArtifacts(f, context)
+                    val summary = ConvoyTrackOps.importGpxAllArtifacts(f, context) { line ->
+                        importLines = importLines + line
+                    }
                     imported.addAll(summary.trackFiles)
                     wptTotal += summary.waypointCount
                     rteTotal += summary.routeCount
                     datesCorrected += summary.trackFiles.size
                     newTotal += summary.inserted
                     dupeTotal += summary.dropped
+                    aliasedTotal += summary.aliased
+                    skippedTotal += summary.skipped
                     if (summary.errors.isNotEmpty()) {
                         failed.addAll(summary.errors.map { f.name + ": " + it })
                     }
                 } catch (e: Exception) {
                     failed.add(f.name + ": " + (e.message ?: "unknown error"))
+                    importLines = importLines + "ERROR: ${f.name}: ${e.message ?: "unknown"}"
                 }
             }
             recapImported = imported
@@ -157,6 +169,8 @@ fun ConvoyTrackImportScreen(onDismiss: () -> Unit) {
             recapRoutes = rteTotal
             recapNew = newTotal
             recapDupe = dupeTotal
+            recapAliased = aliasedTotal
+            recapSkippedCount = skippedTotal
             android.util.Log.i("Import", "RECAP TRIGGER: new=$newTotal dupe=$dupeTotal files=${imported.size}")
             showProgress = false
             showRecap = true
@@ -168,7 +182,9 @@ fun ConvoyTrackImportScreen(onDismiss: () -> Unit) {
         ImportProgressDialog(
             current = progressCurrent,
             total = progressTotal,
-            currentName = progressName
+            currentName = progressName,
+            feedLines = importLines,
+            listState = importListState
         )
     }
     if (showRecap) {
@@ -181,6 +197,8 @@ fun ConvoyTrackImportScreen(onDismiss: () -> Unit) {
             routes = recapRoutes,
             newCount = recapNew,
             dupeCount = recapDupe,
+            aliasedCount = recapAliased,
+            skippedTrkCount = recapSkippedCount,
             onFilesDelete = {
                 scope.launch {
                     kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
@@ -566,7 +584,13 @@ fun ConvoyTrackImportScreen(onDismiss: () -> Unit) {
 // -- Import Progress Dialog -------------------------------------------
 
 @Composable
-private fun ImportProgressDialog(current: Int, total: Int, currentName: String) {
+private fun ImportProgressDialog(
+    current: Int,
+    total: Int,
+    currentName: String,
+    feedLines: List<String> = emptyList(),
+    listState: androidx.compose.foundation.lazy.LazyListState = androidx.compose.foundation.lazy.rememberLazyListState()
+) {
     AlertDialog(
         onDismissRequest = { /* non-dismissable */ },
         confirmButton = {},
@@ -601,6 +625,32 @@ private fun ImportProgressDialog(current: Int, total: Int, currentName: String) 
                     fontFamily = FontFamily.Monospace,
                     maxLines = 1
                 )
+                if (feedLines.isNotEmpty()) {
+                    Spacer(Modifier.height(10.dp))
+                    LaunchedEffect(feedLines.size) {
+                        listState.animateScrollToItem(feedLines.size - 1)
+                    }
+                    androidx.compose.foundation.lazy.LazyColumn(
+                        state = listState,
+                        modifier = Modifier.fillMaxWidth().height(200.dp)
+                    ) {
+                        items(feedLines.size) { idx ->
+                            val line = feedLines[idx]
+                            val col = when {
+                                line.startsWith("INSERT") -> Color(0xFF39FF14)
+                                line.startsWith("ALIAS") -> Color(0xFF6FB6FF)
+                                line.startsWith("DUPLICATE") -> Color(0xFF7A8DA0)
+                                line.startsWith("SKIP") -> Color(0xFFFFB74D)
+                                line.startsWith("ERROR") -> Color(0xFFFF6B6B)
+                                line.startsWith("—") -> Color(0xFF97D5A5)
+                                else -> Color(0xFFC1C9BF)
+                            }
+                            Text(line, color = col, fontFamily = FontFamily.Monospace,
+                                fontSize = 9.sp, maxLines = 1,
+                                modifier = Modifier.padding(vertical = 1.dp))
+                        }
+                    }
+                }
             }
         },
         containerColor = Color(0xFF1C211C),
@@ -620,6 +670,8 @@ private fun ImportRecapDialog(
     routes: Int = 0,
     newCount: Int = 0,
     dupeCount: Int = 0,
+    aliasedCount: Int = 0,
+    skippedTrkCount: Int = 0,
     onFilesDelete: (() -> Unit)? = null,
     onDismiss: () -> Unit
 ) {
@@ -670,9 +722,15 @@ private fun ImportRecapDialog(
                         fontWeight = FontWeight.Bold
                     )
                 }
-                // ADDED 2026-06-02: real inserted-vs-dupe breakdown
+                // 4-way breakdown (2026-06-30): new / aliased / duplicate / skipped
                 Text(
-                    "$newCount new / $dupeCount already in library",
+                    "$newCount new   ·   $aliasedCount aliased",
+                    color = Color(0xFFC1C9BF),
+                    fontSize = 11.sp,
+                    fontFamily = FontFamily.Monospace
+                )
+                Text(
+                    "$dupeCount duplicate   ·   $skippedTrkCount skipped",
                     color = Color(0xFFC1C9BF),
                     fontSize = 11.sp,
                     fontFamily = FontFamily.Monospace
