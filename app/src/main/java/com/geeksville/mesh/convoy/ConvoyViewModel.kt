@@ -286,7 +286,7 @@ class ConvoyViewModel @Inject constructor(
     private val _simulationMode = MutableStateFlow(false)
     val simulationMode: StateFlow<Boolean> = _simulationMode.asStateFlow()
 
-    private val _myCartId = MutableStateFlow(ConvoySimulation.MY_CART_ID)
+    private val _myCartId = MutableStateFlow("!phone")   // [2026-07-01] device-default (was ConvoySimulation.MY_CART_ID / HOTEL-10 sim ghost); radio overrides on connect via observer
     private fun resolveMyCartId(): String {
         val num = nodeRepository.myNodeInfo.value?.myNodeNum
         return if (num != null) "!%08x".format(num) else _myCartId.value
@@ -329,8 +329,11 @@ class ConvoyViewModel @Inject constructor(
             nodeRepository.myNodeInfo.collect { info ->
                 _myNodeInfo.value = info
                 val num = info?.myNodeNum
-                // _myCartId no longer set here — set ONCE in startGroupTrack()
-                // resolveMyCartId() reads radio info directly for pre-RECORD display
+                // [2026-07-01] Event-driven identity: device-default, radio overrides on connect.
+                // Guard: never reassign identity mid-recording (record-lock).
+                if (!_trackActive.value) {
+                    _myCartId.value = if (num != null) "!%08x".format(num) else "!phone"
+                }
             }
         }
         startTick()
