@@ -1,0 +1,259 @@
+# GroupTrack_AllDocs — INDEX (247 embedded docs)
+grep a topic here first, then jump to the line in GroupTrack_AllDocs.txt. Search-before-derive.
+
+## TICK / LEAD / CART / STANDALONE (current work)  (8)
+- L133: GroupTrack_ConvoyTrackPickerFixPlan_v1.docx
+- L1615: GroupTrack_LeadLock_Problem_Resolution (1).docx
+- L1706: GroupTrack_LeadLock_Problem_Resolution (2).docx
+- L1797: GroupTrack_LeadLock_Problem_Resolution.docx
+- L1875: GroupTrack_LeadTrackReplacement_Spec.docx
+- L4822: GroupTrack_StandaloneMode_Spec_v2.docx
+- L13086: GroupTrack_LeadCart_TrackRevision_DemolitionRebuild_2026-06-18.md
+- L14059: GroupTrack_TickEngine_Reference.md
+
+## TRACK / RECORDING / IMPORT  (217)
+- L1: GroupTrack_AWS_Environment_Reference (1).docx
+- L17: GroupTrack_AWS_Environment_Reference.docx
+- L33: GroupTrack_AWS_Environment_Reference_v2.docx
+- L49: GroupTrack_BL02_channel_num_bug (1).docx
+- L76: GroupTrack_BL02_channel_num_bug.docx
+- L103: GroupTrack_Complete_Roadmap.docx
+- L117: GroupTrack_Complete_Roadmap_v4.docx
+- L235: GroupTrack_DailyDocUpdate_May31.docx
+- L248: GroupTrack_DashboardPlan_Apr7_v1.docx
+- L282: GroupTrack_Dashboard_OpenIssues_Apr11_v1.docx
+- L316: GroupTrack_Dashboard_Testing_Apr7_v1.docx
+- L348: GroupTrack_Day25_WorkPlan.docx
+- L486: GroupTrack_Day26_Summary (1).docx
+- L545: GroupTrack_Day26_Summary.docx
+- L604: GroupTrack_Day27_Summary (1).docx
+- L673: GroupTrack_Day27_Summary (2).docx
+- L742: GroupTrack_Day27_Summary.docx
+- L811: GroupTrack_EC2_launch_reference (1).docx
+- L849: GroupTrack_EC2_launch_reference.docx
+- L887: GroupTrack_EnrollmentAPI_v1.docx
+- L1014: GroupTrack_FieldTest_Apr4_v1.docx
+- L1048: GroupTrack_Firebase_SHA256_Fix.docx
+- L1070: GroupTrack_FridaySessionRef_May1.docx
+- L1085: GroupTrack_Function_CrossRef_V1.docx
+- L1091: GroupTrack_Handoff_May2_EOD.docx
+- L1194: GroupTrack_Handoff_May30.docx
+- L1203: GroupTrack_Handoff_May31.docx
+- L1208: GroupTrack_Handoff_May3_EOD.docx
+- L1240: GroupTrack_Installation_Guide_V2.3 (1).docx
+- L1324: GroupTrack_Installation_Guide_V2.3.docx
+- L1408: GroupTrack_Installation_Guide_V2.4 (1).docx
+- L1530: GroupTrack_Installation_Guide_V2.4.docx
+- L1893: GroupTrack_LivingChecklist.docx
+- L1901: GroupTrack_LivingChecklist_fleshed.docx
+- L1906: GroupTrack_MapIndependence_Design.docx
+- L1918: GroupTrack_MapManager_Spec (1).docx
+- L2089: GroupTrack_MapManager_Spec.docx
+- L2260: GroupTrack_MasterConfig_Reference_v1.docx
+- L2350: GroupTrack_NightlyProcesses_v1.docx
+- L2387: GroupTrack_OfflineMaps_Debug (1).docx
+- L2476: GroupTrack_OfflineMaps_Debug.docx
+- L2565: GroupTrack_OpenIssues_AWS_Plan (1).docx
+- L2586: GroupTrack_OpenIssues_AWS_Plan (2).docx
+- L2607: GroupTrack_OpenIssues_AWS_Plan (3).docx
+- L2628: GroupTrack_OpenIssues_AWS_Plan (4).docx
+- L2649: GroupTrack_OpenIssues_AWS_Plan.docx
+- L2670: GroupTrack_OpenItems_Expanded.docx
+- L2684: GroupTrack_OrgServices_Revenue_v1.docx
+- L2696: GroupTrack_PlayStore_Checklist_v1.docx
+- L2815: GroupTrack_PlayStore_DeploymentNotes_v1.docx
+- L2913: GroupTrack_PlayStore_Keys.docx
+- L2936: GroupTrack_ProductStrategy_Roadmap.docx
+- L2985: GroupTrack_Product_Roadmap_V8 (6).docx
+- L3013: GroupTrack_Product_Roadmap_V9.docx
+- L3173: GroupTrack_Recommit_Issue_Notes.docx
+- L3198: GroupTrack_RideState_PhaseB_Plan (1).docx
+- L3208: GroupTrack_RideState_PhaseB_Plan.docx
+- L3218: GroupTrack_RoutePlanning_DesignNotes.docx
+- L3240: GroupTrack_Saturday_Tasks_Apr19_v1.docx
+- L3301: GroupTrack_SessionCloseout_Apr10_v2.docx
+- L3410: GroupTrack_SessionCloseout_Apr11_v1.docx
+- L3496: GroupTrack_SessionCloseout_Apr7_v1.docx
+- L3548: GroupTrack_SessionCloseout_Apr8_v2.docx
+- L3645: GroupTrack_SessionCloseout_Apr9_v1.docx
+- L3738: GroupTrack_SessionHandoff_Apr15_v1.docx
+- L3827: GroupTrack_SessionHandoff_Apr16_v1.docx
+- L3886: GroupTrack_SessionHandoff_Apr17_v1.docx
+- L3925: GroupTrack_SessionHandoff_Apr20_v1.docx
+- L4052: GroupTrack_SessionHandoff_Apr21_v1.docx
+- L4125: GroupTrack_SessionHandoff_Apr22_EOD_v1.docx
+- L4255: GroupTrack_SessionHandoff_Apr22_v1.docx
+- L4329: GroupTrack_SessionHandoff_Apr9_v1.docx
+- L4458: GroupTrack_SessionSummary_Apr18_v1.docx
+- L4635: GroupTrack_SessionSummary_Apr20_v1.docx
+- L4714: GroupTrack_Session_Apr13_Completed.docx
+- L4776: GroupTrack_Session_Apr13_WalkawaySteps.docx
+- L4815: GroupTrack_Session_Apr13_WorkflowRules.docx
+- L4909: GroupTrack_Strategic_Context.docx
+- L4930: GroupTrack_TaskList_Apr3.docx
+- L4961: GroupTrack_Thursday_PhaseB.docx
+- L4967: GroupTrack_TodoCleanup_Checklist.docx
+- L4974: GroupTrack_TodoCleanup_Checklist_v2 (1).docx
+- L4981: GroupTrack_TrailArchitecture_v2.docx
+- L5328: GroupTrack_Tuesday_Tasks.docx
+- L5334: GroupTrack_User_Guide_V2.3.docx
+- L5371: GroupTrack_User_Guide_V2.4 (1).docx
+- L5440: GroupTrack_User_Guide_V2.4.docx
+- L5509: GroupTrack_User_Guide_V2_4_updated (1).docx
+- L5566: GroupTrack_User_Guide_V2_4_updated.docx
+- L5640: GroupTrack_User_Manual_V2.4_Production.docx
+- L5659: GroupTrack_UtahTrailsData_Reference.docx
+- L5752: GroupTrack_V2.4_Certification_Checklist.docx
+- L5763: GroupTrack_V2.4_Development_Plan.docx
+- L5939: GroupTrack_V2.4_Handoff_Apr23.docx
+- L6146: GroupTrack_V2.4_ReleaseNotes_Apr23.docx
+- L6263: GroupTrack_V2.4_Release_TaskList_v1.docx
+- L6285: GroupTrack_V2.5_ReleaseNotes_May29.docx
+- L6336: GroupTrack_V24_Handoff_Apr29.docx
+- L6369: GroupTrack_V24_Handoff_Apr29_EOD.docx
+- L6501: GroupTrack_V24_Import_Rewrite_Handoff.docx
+- L6511: GroupTrack_V24_OpenTasks_V25_Plan_v2.docx
+- L6615: GroupTrack_V24_RadioMap_Revisions_v2.docx
+- L6687: GroupTrack_V24_TesterInstallGuide.docx
+- L6695: GroupTrack_V24_Turnover_Apr29.docx
+- L6722: GroupTrack_V24_UserManual.docx
+- L6917: GroupTrack_V24_WorkPlan_Apr29.docx
+- L7119: GroupTrack_V25_ActionPlan_v3.docx
+- L7131: GroupTrack_V25_Backlog.docx
+- L7173: GroupTrack_V25_ConsolidatedDesign_May17_v2.docx
+- L7248: GroupTrack_V25_ConsolidatedDesign_v2.docx
+- L7323: GroupTrack_V25_DecisionLog_May17.docx
+- L7594: GroupTrack_V25_DecisionLog_May17_v2.docx
+- L7902: GroupTrack_V25_DecisionLog_May18_v3.docx
+- L8228: GroupTrack_V25_Handoff_May18.docx
+- L8236: GroupTrack_V25_Handoff_May18_final.docx
+- L8244: GroupTrack_V25_Handoff_May29.docx
+- L8252: GroupTrack_V25_LifecycleOwnership.docx
+- L8433: GroupTrack_V25_LifecycleOwnership_v3.docx
+- L8466: GroupTrack_V25_ManualAddendum.docx
+- L8554: GroupTrack_V25_Manual_CookbookDraft.docx
+- L8618: GroupTrack_V25_MasterChecklist.docx
+- L8625: GroupTrack_V25_Planning_v2.docx
+- L8666: GroupTrack_V25_ReleaseNotes.docx
+- L8673: GroupTrack_V25_SessionHandoff_May10_v2.docx
+- L8846: GroupTrack_V25_SessionHandoff_May11_v4.docx
+- L8948: GroupTrack_V25_SessionHandoff_May12.docx
+- L9228: GroupTrack_V25_SessionHandoff_May13.docx
+- L9369: GroupTrack_V25_SessionHandoff_May16.docx
+- L9469: GroupTrack_V25_SpatialArchitecture_v1.docx
+- L9507: GroupTrack_V25_UserManual_v3.docx
+- L9630: GroupTrack_V30_StubInventory.docx
+- L9637: GroupTrack_V3_Architecture_Plan.docx
+- L9956: GroupTrack_V3_CompleteImplementation_FINAL_v2.docx
+- L10134: GroupTrack_V3_CompleteImplementation_v1.docx
+- L10276: GroupTrack_V3_Complete_Task_List.docx
+- L10369: GroupTrack_V3_Implementation_Plan.docx
+- L10386: GroupTrack_V3_MapEnhancements_v1.docx
+- L10705: GroupTrack_V3_Online_Offline_Manual_v2.docx
+- L10894: GroupTrack_V3_PhaseB_Tasks_v2.docx
+- L10938: GroupTrack_V3_PickupGuide_v1.docx
+- L10978: GroupTrack_V3_ProcessSpec_v1.docx
+- L10987: GroupTrack_V3_Registration_Paywall_Spec_v2.docx
+- L11236: GroupTrack_V3_StubbedProcesses_FINAL_v2.docx
+- L11343: GroupTrack_V3_StubbedProcesses_v1.docx
+- L11390: GroupTrack_V3_Task_List_Apr1.docx
+- L11483: GroupTrack_V3_Walkaway_Activity_v1.docx
+- L11678: GroupTrack_Website_Maintenance.docx
+- L11792: GroupTrack_Wednesday_Checklist.docx
+- L11798: GroupTrack_WhereUsed_Reference_v1.docx
+- L11824: GroupTrack_WorkPlan_Apr5_v1.docx
+- L11836: GroupTrack_WorkPlan_Apr6_v1.docx
+- L11871: GroupTrack_WorkPlan_Apr7_v1.docx
+- L11911: GroupTrack_day23_plan (1).docx
+- L11959: GroupTrack_day23_plan.docx
+- L12007: GroupTrack_day23_summary.docx
+- L12040: GroupTrack_day24_summary.docx
+- L12074: GroupTrack_product_roadmap_v8 (5).docx
+- L12212: GroupTrack_rebrand_screen_checklist (1).docx
+- L12247: GroupTrack_rebrand_screen_checklist (2).docx
+- L12282: GroupTrack_rebrand_screen_checklist (3).docx
+- L12317: GroupTrack_rebrand_screen_checklist.docx
+- L12352: GroupTrack_user_manual_v2 (1).docx
+- L12698: GroupTrack_CosmeticBatch_RunSheet_2026-06-10.md
+- L12835: GroupTrack_FullFilterPersistence_ModelChange_DESIGN_2026-06-16.md
+- L13011: GroupTrack_Handoff_2026-06-29.md
+- L13287: GroupTrack_MANUAL_and_RELEASENOTES_revision_instructions_2026-06-19.md
+- L13331: GroupTrack_Manual_CoverageWorksheet_2026-06-18.md
+- L13445: GroupTrack_Manual_CreatingARoute_update_2026-06-10.md
+- L13490: GroupTrack_NEXT_SESSION_HANDOFF_2026-06-23.md
+- L13557: GroupTrack_NH_TrailImport_task_2026-06-10.md
+- L13613: GroupTrack_NewSession_StartupBrief_2026-06-17.md
+- L13733: GroupTrack_QuickStart_Installation_Troubleshooting_v1.md
+- L13949: GroupTrack_ReleaseNotes_update_2026-06-10.md
+- L13981: GroupTrack_Search_Consolidation_Handoff_2026-06-16.md
+- L14217: GroupTrack_TrackArrowDensity_3.9_followup_2026-06-12.md
+- L14263: GroupTrack_UnifiedSearch_DESIGN_2026-06-18.md
+- L14444: GroupTrack_V25_DataProtection_v1.md
+- L14787: GroupTrack_V25_EntityLifecycle_v1.md
+- L15505: GroupTrack_V25_LivingChecklist_2026-06-10.md
+- L15585: GroupTrack_V25_LivingChecklist_CONSOLIDATED_2026-06-13.md
+- L15983: GroupTrack_V25_LivingChecklist_OpenItems_2026-06-15_EOD.md
+- L16208: GroupTrack_V25_LivingChecklist_OpenItems_2026-06-16_EOD.md
+- L16307: GroupTrack_V25_LivingChecklist_OpenItems_2026-06-17_EOD.md
+- L16424: GroupTrack_V25_LivingChecklist_OpenItems_2026-06-18_EOD.md
+- L16703: GroupTrack_V25_LivingChecklist_OpenItems_2026-06-29.md
+- L17085: GroupTrack_V25_MapSourceCatalog_v2.md
+- L17315: GroupTrack_V25_MapTileSourceReference_v1.md
+- L17653: GroupTrack_V25_MasterPlan_v1.md
+- L17897: GroupTrack_V25_OpenIssues_BY_SCREEN_2026-06-10.md
+- L18056: GroupTrack_V25_SessionHandoff_May11.md
+- L18208: GroupTrack_V25_SpatialImplementationGuide_v1.md
+- L18781: GroupTrack_V25_TileSourceCatalog_v1.md
+- L18848: GroupTrack_V25_TrailSourceCatalog_v1.md
+- L19160: GroupTrack_V3_TrackSharing_SpatialModel_2026-06-28.md
+- L20215: GroupTrack_ArtifactPanel_Design_2026-06-12.html
+- L20515: GroupTrack_DecisionLog_APPEND_2026-06-06.html
+- L20633: GroupTrack_TrailImport_Flow_Mockup.html
+- L20817: GroupTrack_UnifiedSearch_mockup_2026-06-18.html
+- L20907: GroupTrack_V2.5_Living_Checklist_2026-06-20_EOD.html
+- L21038: GroupTrack_V25_InteractivePanels.html
+- L21540: GroupTrack_V25_LivingChecklist_2026-06-04b.html
+- L21681: GroupTrack_V25_LivingChecklist_2026-06-04c.html
+- L21834: GroupTrack_V25_LivingChecklist_2026-06-04d.html
+- L21988: GroupTrack_V25_LivingChecklist_2026-06-04e.html
+- L22054: GroupTrack_V25_LivingChecklist_2026-06-05.html
+- L22236: GroupTrack_V25_LivingChecklist_2026-06-06_v3.html
+- L22325: GroupTrack_V25_ScreenReference_v5.html
+- L22678: GroupTrack_V25_UserManual_2026-06-18.html
+- L22796: GroupTrack_V25_UserManual_2026-06-18b.html
+- L22980: GroupTrack_V25_UserManual_2026-06-18b_restructured.html
+- L23904: grouptrack_architecture.html
+- L24486: grouptrack_manual_WORKING_2026-06-21.html
+- L24706: grouptrack_release_notes_WORKING_2026-06-21.html
+- L24799: grouptrack_v3_map_functions.html
+- L25151: grouptrack_v3_proto_v005.html
+- L26066: grouptrack_v3_prototype.html
+- L26763: grouptrack_website.html
+
+## TRAILS / ROUTES / WAYPOINTS  (7)
+- L23163: RouteBuilder_Blueprint_2026-06-03.html
+- L23246: RouteBuilder_Toolbar_FINAL_2026-06-04.html
+- L23366: RouteBuilder_Toolbar_FINAL_v2_2026-06-04.html
+- L23489: RouteBuilder_Toolbar_FINAL_v3_2026-06-04.html
+- L23614: RouteBuilder_Toolbar_LookFeel_2026-06-04.html
+- L23721: RouteBuilder_Toolbar_LookFeel_v2_2026-06-04.html
+- L23853: RouteBuilder_UI_PACT_2026-06-04.html
+
+## PLAY STORE / RELEASE / DEPLOY  (3)
+- L19832: v2.5_release_notes.md
+- L19882: v2.5_release_notes_2026-06-02.md
+- L26979: v2.5_release_notes_2026-06-02.html
+
+## OTHER / HANDOFFS / PLANNING  (12)
+- L12390: CATALOG.md
+- L12472: DEV_ENVIRONMENT_v3.md
+- L19267: INDEX.md
+- L19318: NEW_CONVERSATION_INSTRUCTIONS.md
+- L19419: NEW_CONVERSATION_INSTRUCTIONS_2026-06-02.md
+- L19543: STATE_OF_PLAY_2026-05-31.md
+- L19578: STATE_OF_PLAY_2026-05-31_v2.md
+- L19636: STATE_OF_PLAY_2026-06-01_EOD.md
+- L19681: STATE_OF_PLAY_2026-06-02_v5_EOD.md
+- L19736: handoff_2026-05-31_v2.md
+- L19949: v25_master_checklist.md
+- L20114: v25_master_checklist_v2.md

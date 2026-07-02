@@ -5,8 +5,11 @@
 
 ---
 
-## ⛔ FIRST TASK — WIRE TRACK ALIASES (the repair sequence)
-The dupe/alias path works for TRAILS but was **never wired for tracks** (verified 06-29 on device: spatial DB has no trigger; `artifact_aliases` has 7 rows, all trail-type, zero track aliases; sync's dupe branch at `SpatialDbManager.kt:592` does rename-only and never reaches an ALIAS decision).
+## ⛔ FIRST TASK — WIRE TRACK ALIASES (the repair sequence — research is DONE, build it first)
+The dupe/alias path works for TRAILS but was **never wired for tracks** (verified 06-29 on device: spatial DB has no trigger; `artifact_aliases` has 7 rows, all trail-type, zero track aliases; sync's dupe branch at `SpatialDbManager.kt:592` does rename-only and never reaches an ALIAS decision). It is FULLY documented here + in the checklist — build it before it goes stale; don't re-derive.
+
+## 🛑 SECOND TASK — FIX RECORDING-FAILS-ON-FIRST-ATTEMPT (Android mode) — SHOW-STOPPER
+First record attempt produces an EMPTY 0-point track before Android "recognizes" recording; a second attempt records normally. A rider who hits record and rides captures NOTHING on the first try — the core function of the app is broken. Evidence: `convoy_track_temp_20260629_135730.gpx` had `<trkseg>` with 0 `<trkpt>`. Likely a location-permission / foreground-service / first-fix warm-up gap in `ConvoyGpsService` start. Fix: the first attempt must wait for a fix or surface "acquiring GPS…" — never silently produce an empty track (NO SILENT PROCESSES). Unblocks field-cert CREATE.
 
 **Build ONE shared dupe/alias resolver, route IMPORT + SYNC + CREATE through it (all three resolve identically):**
 - new hash → **INSERT** (insert track, file `<hash>.gpx`).
@@ -15,7 +18,7 @@ The dupe/alias path works for TRAILS but was **never wired for tracks** (verifie
 
 Mirror the trail ALIAS path (`resolveByGeom`/`decideAddAction` → `AddDecision.ALIAS`, alias writer ~SpatialDbManager:1188 — proven by the 7 trail rows). REUSE the existing alias writer; don't reinvent. Resolve track_id by hash for the alias FK. This is principle #2: code presents, the DB decides. It also makes dupe cleanup automatic going forward.
 
-Then in order: (2) field-verify the metric feed (TrackPropertiesUpdater) via the cold-launch recipe; (3) field-cert CREATE on Droid 2; (4) field-cert IMPORT; (5) route-planning popup BUG A. Gate the next AAB on all of the above + popup.
+Then in order: (3) field-verify the metric feed (TrackPropertiesUpdater) via the cold-launch recipe; (4) field-cert CREATE on Droid 2 (needs the recording fix); (5) field-cert IMPORT; (6) route-planning popup BUG A (popup removal during route creation). Gate the next AAB on all of the above + popup. (Step 1 = alias wiring above; step 2 = the recording show-stopper.)
 
 ---
 
