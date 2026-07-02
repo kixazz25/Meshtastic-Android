@@ -1874,6 +1874,51 @@ object SpatialDbManager {
     fun bboxWkt(north: Double, south: Double, east: Double, west: Double): String =
         "POLYGON(($west $south, $east $south, $east $north, $west $north, $west $south))"
 
+    /** [2026-07-01] "Maps follow the tracks" ENGINE.
+     *  Reads a track's bbox by geom_hash, pads 1/2 mile, and submits it to the
+     *  download queue as an area download (mimics the area-download UI call).
+     *  @param hashFileName "<hash>.gpx" or a bare hash.
+     *  @return number of grid cells enqueued (0 = track not found / no bbox).
+     *  MUST be called from a background thread (enqueueArea requirement). */
+    fun downloadMapsForTrackHash(context: Context, hashFileName: String): Int {
+        val hash = hashFileName.substringBeforeLast(".gpx").trim()
+        val sdb = spatialDb ?: return 0
+        var minLat = 0.0; var maxLat = 0.0; var minLon = 0.0; var maxLon = 0.0
+        var name = hash; var found = false
+        try {
+            sdb.rawQuery(
+                "SELECT name, min_lat, max_lat, min_lon, max_lon FROM tracks WHERE geom_hash=? LIMIT 1",
+                arrayOf(hash)
+            ).use { c ->
+                if (c.moveToFirst() && !c.isNull(1)) {
+                    name = c.getString(0) ?: hash
+                    minLat = c.getDouble(1); maxLat = c.getDouble(2)
+                    minLon = c.getDouble(3); maxLon = c.getDouble(4)
+                    found = true
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("TrackMaps", "bbox lookup failed for $hash: ${e.message}")
+            return 0
+        }
+        if (!found) { android.util.Log.w("TrackMaps", "no bbox row for hash $hash"); return 0 }
+        // 1/2-mile pad: lat constant; lon scaled by cos(midLat), guarded near the poles.
+        val padLat = 0.00724
+        val midLat = (minLat + maxLat) / 2.0
+        val padLon = 0.00724 / Math.max(0.01, Math.cos(Math.toRadians(midLat)))
+        // Use enqueue() (computes every tile via calculateTiles) NOT enqueueArea()
+        // (grid-cell split -> empty for a sub-cell-sized per-track box -> totalTiles=0).
+        val entry = DownloadQueueManager.enqueue(
+            context,
+            maxLat + padLat, minLat - padLat,
+            maxLon + padLon, minLon - padLon,
+            "DL $name"
+        )
+        val count = entry.totalTiles
+        android.util.Log.i("TrackMaps", "queued $count tiles for '$name' ($hash)")
+        return count
+    }
+
     /** Parse POINT WKT to lat/lng pair */
     fun parsePoint(wkt: String): Pair<Double, Double>? {
         val match = Regex("POINT\\(([\\d.\\-]+) ([\\d.\\-]+)\\)").find(wkt) ?: return null

@@ -117,6 +117,7 @@ fun ConvoyMapViewerScreen(
     }
     // ── GPX Import: scan Downloads directory ──
     var showImportList by remember { mutableStateOf(false) }
+    var importDownloadMaps by remember { mutableStateOf(false) }   // opt-in: download maps for imported tracks
     var lastViewportSouth by remember { mutableStateOf(37.0) }
     var lastViewportWest by remember { mutableStateOf(-114.0) }
     var lastViewportNorth by remember { mutableStateOf(38.0) }
@@ -167,7 +168,7 @@ fun ConvoyMapViewerScreen(
                 val downloadsDir = android.os.Environment.getExternalStoragePublicDirectory(
                     android.os.Environment.DIRECTORY_DOWNLOADS)
                 val sourceFile = java.io.File(downloadsDir, fileName)
-                val summary = ConvoyTrackOps.importGpxAllArtifacts(sourceFile, context)
+                val summary = ConvoyTrackOps.importGpxAllArtifacts(sourceFile, context, importDownloadMaps)
                 val msg = buildString {
                     append("Imported: ")
                     val parts = mutableListOf<String>()
@@ -1233,6 +1234,16 @@ fun ConvoyMapViewerScreen(
                     },
                     onShare = { id -> scope.launch { ConvoyArtifactOps.share(context, pendingDetailType!!, id) } },
                     onExport = { id -> scope.launch { ConvoyArtifactOps.export(context, pendingDetailType!!, id) } },
+                    onDownloadMaps = { hash ->
+                        Thread {
+                            val n = SpatialDbManager.downloadMapsForTrackHash(context, hash)
+                            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                android.widget.Toast.makeText(context,
+                                    if (n > 0) "Queued $n map areas for download" else "No map area for this track",
+                                    android.widget.Toast.LENGTH_LONG).show()
+                            }
+                        }.start()
+                    },
                     onChangeType = { id, newType ->
                         scope.launch { ConvoyArtifactOps.changeType(context, id, newType); webViewRef?.evaluateJavascript("triggerViewportUpdate()", null) }
                     },
@@ -1329,6 +1340,17 @@ fun ConvoyMapViewerScreen(
                         Spacer(Modifier.height(8.dp))
                         Text("GPX/KML files in Downloads:", color = Color(0xFF4A6080),
                             fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                        Spacer(Modifier.height(4.dp))
+                        // [2026-07-02] per-import opt-in: download map tiles for the tracks in the file you tap.
+                        Row(verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth().clickable { importDownloadMaps = !importDownloadMaps }
+                                .padding(vertical = 2.dp)) {
+                            Text(if (importDownloadMaps) "\u2611" else "\u2610",
+                                color = Color(0xFF39FF14), fontSize = 16.sp,
+                                fontFamily = FontFamily.Monospace, modifier = Modifier.padding(end = 8.dp))
+                            Text("Download maps for imported tracks (may be large)",
+                                color = Color(0xFFB8C4D4), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                        }
                         Spacer(Modifier.height(8.dp))
                         if (importFileList.isEmpty()) {
                             Text("No GPX or KML files found in Downloads",

@@ -42,6 +42,7 @@ fun ArtifactDetailPanel(
     onDelete: ((String) -> Unit)? = null,
     onShare: ((String) -> Unit)? = null,
     onExport: ((String) -> Unit)? = null,
+    onDownloadMaps: ((String) -> Unit)? = null,
     onChangeType: ((String, String) -> Unit)? = null,
     onDeleteAlias: ((String) -> Unit)? = null,
     onDismiss: (String?, String?) -> Unit
@@ -92,6 +93,12 @@ fun ArtifactDetailPanel(
                     if (onExport != null) { DetailActionButton("EXPORT", aGreen) { onExport(id) } }
                     if (artifactType == "Waypoints" && onChangeType != null) {
                         DetailActionButton("CHANGE TYPE", aOrange) { showTypeChooser = true }
+                    }
+                    if (artifactType == "Tracks" && onDownloadMaps != null) {
+                        DetailActionButton("SAVE MAPS", aGreen) {
+                            val gh = detailFields["geom_hash"]
+                            if (!gh.isNullOrBlank()) onDownloadMaps(gh)
+                        }
                     }
                     DetailActionButton("FIT", aBlue) {
                         // onDismiss-only: ConvoyScreen's FIT branch owns the write (live vars +

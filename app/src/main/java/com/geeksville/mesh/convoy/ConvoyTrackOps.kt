@@ -483,6 +483,7 @@ object ConvoyTrackOps {
     suspend fun importGpxAllArtifacts(
         sourceFile: File,
         context: android.content.Context,
+        downloadMaps: Boolean = false,
         onProgress: ((String) -> Unit)? = null
     ): ImportArtifactsSummary = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
         val sourceName = sourceFile.name
@@ -573,6 +574,18 @@ object ConvoyTrackOps {
                                 SpatialDbManager.AddOutcome.INSERT -> {
                                     insertedCount++; trackFiles.add(srcName)
                                     onProgress?.invoke("INSERT: $baseName")
+                                    // [2026-07-01 maps-follow-tracks] queue this new track's map tiles
+                                    // (padded bbox -> download queue). INSERT only; already on IO thread.
+                                    // OPT-IN: only when the import-maps checkbox was checked.
+                                    if (downloadMaps) {
+                                        try {
+                                            val gh = SpatialDbManager.computeGeomHash(wkt)
+                                            val cells = SpatialDbManager.downloadMapsForTrackHash(context, gh)
+                                            onProgress?.invoke("MAPS: $baseName -> $cells cells queued")
+                                        } catch (e: Exception) {
+                                            onProgress?.invoke("MAPS ERR: $baseName ${e.message}")
+                                        }
+                                    }
                                 }
                                 SpatialDbManager.AddOutcome.ALIAS -> {
                                     aliasedCount++

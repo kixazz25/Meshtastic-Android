@@ -1830,6 +1830,16 @@ fun ConvoyScreen(
                         },
                         onShare = { id -> coroutineScope.launch { ConvoyArtifactOps.share(context, pendingDetailType!!, id) } },
                         onExport = { id -> coroutineScope.launch { ConvoyArtifactOps.export(context, pendingDetailType!!, id) } },
+                        onDownloadMaps = { hash ->
+                            Thread {
+                                val n = SpatialDbManager.downloadMapsForTrackHash(context, hash)
+                                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                    android.widget.Toast.makeText(context,
+                                        if (n > 0) "Queued $n map areas for download" else "No map area for this track",
+                                        android.widget.Toast.LENGTH_LONG).show()
+                                }
+                            }.start()
+                        },
                         onChangeType = { id, newType ->
                             coroutineScope.launch { ConvoyArtifactOps.changeType(context, id, newType); webViewRef.value?.evaluateJavascript("try{var b=map.getBounds();Android.onViewportChanged(b.getNorth(),b.getSouth(),b.getEast(),b.getWest(),map.getZoom())}catch(e){}", null) }
                         },
