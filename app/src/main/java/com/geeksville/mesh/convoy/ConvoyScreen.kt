@@ -792,7 +792,7 @@ fun ConvoyScreen(
                             fun onViewportChanged(north: Double, south: Double, east: Double, west: Double, zoom: Double) {
                                 lastViewportSouth = south; lastViewportWest = west; lastViewportNorth = north; lastViewportEast = east
                                 // GATE: reseed convoy state from JSON only if active map changed since last refresh.
-                                if (MapStateStore.lastMapProcessed != "convoy") {
+                                run {   // [refresh-restore 2026-07-01] gate removed: reseed convoy state EVERY viewport event (automatic refresh). Reads convoy JSON only -> map-independence preserved.
                                     val rs = MapStateStore.readMap("convoy")
                                     android.util.Log.e("JSONDIAG", "READ(gate fired) Tr=${rs.types["Trails"]?.state} Tk=${rs.types["Tracks"]?.state} bbox=${rs.bbox} TrChecked=${MapStateStore.checkedIdsFor(rs, "Trails")?.size}")
                                     trailState = rs.types["Trails"]?.state ?: DS_OFF
