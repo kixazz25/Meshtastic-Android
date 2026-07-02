@@ -66,6 +66,7 @@ fun ConvoyTrackImportScreen(onDismiss: () -> Unit) {
     // -- State --------------------------------------------------------
     var files by remember { mutableStateOf<List<File>>(emptyList()) }
     var selected by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var mapsFor by remember { mutableStateOf<Set<String>>(emptySet()) }   // per-file: include map download on import
     var scanning by remember { mutableStateOf(true) }
 
     // Progress dialog state
@@ -142,7 +143,7 @@ fun ConvoyTrackImportScreen(onDismiss: () -> Unit) {
                 progressName = f.name
                 importLines = importLines + "— ${f.name} —"
                 try {
-                    val summary = ConvoyTrackOps.importGpxAllArtifacts(f, context) { line ->
+                    val summary = ConvoyTrackOps.importGpxAllArtifacts(f, context, mapsFor.contains(f.name)) { line ->
                         importLines = importLines + line
                     }
                     imported.addAll(summary.trackFiles)
@@ -436,6 +437,23 @@ fun ConvoyTrackImportScreen(onDismiss: () -> Unit) {
             }
         } else {
             // -- File list --
+            // [2026-07-02] column header over the two checkbox columns + file column
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("IMPORT", color = Color(0xFF39FF14), fontSize = 8.sp,
+                    fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    modifier = Modifier.width(52.dp))
+                Text("MAPS", color = Color(0xFF4DA6FF), fontSize = 8.sp,
+                    fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    modifier = Modifier.width(44.dp))
+                Text("FILE", color = Color(0xFF8B938A), fontSize = 8.sp,
+                    fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f).padding(start = 6.dp))
+            }
             LazyColumn(
                 modifier = Modifier
                     .weight(1f)
@@ -461,18 +479,35 @@ fun ConvoyTrackImportScreen(onDismiss: () -> Unit) {
                                 .padding(horizontal = 8.dp, vertical = 10.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Checkbox(
-                                checked = checked,
-                                onCheckedChange = {
-                                    selected = if (it) selected + file.name
-                                    else selected - file.name
-                                },
-                                colors = CheckboxDefaults.colors(
-                                    checkedColor = Color(0xFF39FF14),
-                                    uncheckedColor = Color(0xFF445566),
-                                    checkmarkColor = Color(0xFF101510)
+                            Box(modifier = Modifier.width(52.dp), contentAlignment = Alignment.Center) {
+                                Checkbox(
+                                    checked = checked,
+                                    onCheckedChange = {
+                                        selected = if (it) selected + file.name
+                                        else selected - file.name
+                                    },
+                                    colors = CheckboxDefaults.colors(
+                                        checkedColor = Color(0xFF39FF14),
+                                        uncheckedColor = Color(0xFF445566),
+                                        checkmarkColor = Color(0xFF101510)
+                                    )
                                 )
-                            )
+                            }
+                            // [2026-07-02] second box: include map-tile download for THIS file on import (default off).
+                            Box(modifier = Modifier.width(44.dp), contentAlignment = Alignment.Center) {
+                                Checkbox(
+                                    checked = mapsFor.contains(file.name),
+                                    onCheckedChange = {
+                                        mapsFor = if (it) mapsFor + file.name
+                                        else mapsFor - file.name
+                                    },
+                                    colors = CheckboxDefaults.colors(
+                                        checkedColor = Color(0xFF4DA6FF),
+                                        uncheckedColor = Color(0xFF445566),
+                                        checkmarkColor = Color(0xFF101510)
+                                    )
+                                )
+                            }
                             Column(
                                 modifier = Modifier
                                     .weight(1f)
