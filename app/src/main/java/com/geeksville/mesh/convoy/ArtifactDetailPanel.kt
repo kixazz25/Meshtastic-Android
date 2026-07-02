@@ -160,16 +160,26 @@ fun ArtifactDetailPanel(
                         Text("no additional details", color = aDim, fontSize = 9.sp, fontFamily = aMono)
                     } else {
                         val techKeys = setOf("min_lat", "max_lat", "min_lon", "max_lon", "created_at", "updated_at", "geom_hash")
-                        detailFields.forEach { (k, v) ->
-                            if (v.isNullOrBlank() || k in techKeys || k == "name") return@forEach
-                            val show = if (k == "geom_hash" && v.length > 12) v.take(12) + "\u2026" else v
+                        // [2026-07-01] Two-column formatted metrics grid: friendly labels + units,
+                        // ordered, paired two-per-row to shrink height. carto_code handled above (band).
+                        val skip = techKeys + setOf("name", "carto_code")
+                        val shownKeys = detailFields.keys
+                            .filter { k -> !detailFields[k].isNullOrBlank() && k !in skip }
+                            .sortedBy { k -> detailOrder(k) }
+                        shownKeys.chunked(2).forEach { pair ->
                             Row(modifier = Modifier.fillMaxWidth()) {
-                                Text(k, color = aDim, fontSize = 8.sp, fontFamily = aMono,
-                                    modifier = Modifier.width(96.dp))
-                                Text(show, color = Color(0xFFB8C4D4), fontSize = 8.sp,
-                                    fontFamily = aMono, maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.weight(1f))
+                                pair.forEach { k ->
+                                    val vShow = formatDetailValue(k, detailFields[k] ?: "")
+                                    Row(modifier = Modifier.weight(1f).padding(end = 4.dp, top = 1.dp, bottom = 1.dp)) {
+                                        Text(prettyLabel(k), color = aDim, fontSize = 8.sp, fontFamily = aMono,
+                                            maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                            modifier = Modifier.width(66.dp))
+                                        Text(vShow, color = Color(0xFFB8C4D4), fontSize = 8.sp,
+                                            fontFamily = aMono, fontWeight = FontWeight.Bold, maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                                    }
+                                }
+                                if (pair.size == 1) Spacer(Modifier.weight(1f))
                             }
                         }
                         val hasTech = detailFields.any { (k, v) -> k in techKeys && !v.isNullOrBlank() }
@@ -291,6 +301,50 @@ private fun DetailActionButton(label: String, color: Color, onClick: () -> Unit)
 // Data stores carto_code as "N - Label" (e.g. "4 - Road-concurrent"); key off the
 // LEADING DIGIT so all label variants of a code map to one color. Codes 1-8 per
 // trail_properties; blank/unknown -> cyan "Unspecified" (default preserved).
+// [2026-07-01] DETAILS display helpers: friendly labels, unit formatting, field order.
+private fun prettyLabel(key: String): String = when (key) {
+    "distance_miles"    -> "Distance"
+    "duration_minutes"  -> "Duration"
+    "avg_speed_mph"     -> "Avg Spd"
+    "max_speed_mph"     -> "Max Spd"
+    "elevation_gain_ft" -> "Elev"
+    "point_count"       -> "Points"
+    "recorded_at"       -> "Recorded"
+    "source_format"     -> "Source"
+    "shared"            -> "Shared"
+    "distance"          -> "Distance"
+    "length_miles"      -> "Length"
+    else -> key.replace('_', ' ')
+        .split(' ').joinToString(" ") { w -> w.replaceFirstChar { it.uppercase() } }
+}
+
+private fun formatDetailValue(key: String, raw: String): String {
+    val v = raw.trim()
+    if (v.isEmpty()) return v
+    fun num(): Double? = v.toDoubleOrNull()
+    fun oneDp(d: Double): String = (Math.round(d * 10.0) / 10.0).let {
+        if (it == Math.floor(it)) it.toInt().toString() else it.toString()
+    }
+    return when (key) {
+        "distance_miles", "length_miles", "distance" -> num()?.let { "${oneDp(it)} mi" } ?: v
+        "duration_minutes" -> num()?.let { "${it.toInt()} min" } ?: v
+        "avg_speed_mph", "max_speed_mph" -> num()?.let { "${it.toInt()} mph" } ?: v
+        "elevation_gain_ft" -> num()?.let { "${it.toInt()} ft" } ?: v
+        "point_count" -> num()?.let { "%,d".format(it.toInt()) } ?: v
+        "shared" -> if (v == "1") "Yes" else if (v == "0") "No" else v
+        "source_format" -> v.uppercase()
+        "recorded_at" -> v.take(10)   // YYYY-MM-DD
+        else -> v
+    }
+}
+
+// Sensible display order for the metrics grid; unknown keys sort after known ones.
+private fun detailOrder(key: String): Int = listOf(
+    "distance_miles", "length_miles", "distance", "duration_minutes",
+    "avg_speed_mph", "max_speed_mph", "elevation_gain_ft", "point_count",
+    "source_format", "shared", "recorded_at"
+).indexOf(key).let { if (it < 0) 99 else it }
+
 private fun cartoStyle(code: String?): Pair<Color, String> = when (code?.trim()?.firstOrNull()) {
     '1' -> Color(0xFFFFCC00) to "Hiking-Only"
     '2' -> Color(0xFFFF8800) to "Hiking & Biking"
