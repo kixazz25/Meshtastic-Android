@@ -288,7 +288,12 @@
         },
         onEachFeature: function(feature, layer) {
           var name = (feature.properties && feature.properties.name) || 'Unnamed Track';
-          layer.bindPopup('<b>' + name + '</b>');
+          var tid = feature.properties && feature.properties.track_id;
+          if (tid && window.Android && window.Android.onTrackTap) {
+            layer.on("click", function(e){ L.DomEvent.stopPropagation(e); window.Android.onTrackTap(tid); });
+          } else {
+            layer.bindPopup('<b>' + name + '</b>');
+          }
         }
       });
       try {
@@ -466,7 +471,14 @@
       var coords = JSON.parse(coordsJson);
       if (coords.length < 2) return;
       var line = L.polyline(coords, {color: color, weight: 3, opacity: 0.9}).addTo(map);
-      line.bindPopup('<b style="color:' + color + ';">' + name + '</b><br>' + coords.length + ' points');
+      var __tid = name.replace(/\.gpx$/i, '');
+      line.on('click', function(e){
+        console.log('ARTIFACTTAP track(file) name=' + name + ' tid=' + __tid + ' routeMode=' + window.__routeMode);
+        if (window.__routeMode) return;
+        L.DomEvent.stopPropagation(e);
+        if (window.Android && window.Android.onTrackTap) { window.Android.onTrackTap(__tid); }
+        else { line.bindPopup('<b style="color:' + color + ';">' + name + '</b><br>' + coords.length + ' points'); line.openPopup(); }
+      });
       importedTracks[name] = line;
     }
 
@@ -674,7 +686,7 @@
     // -- Init --
     document.addEventListener("DOMContentLoaded", function() {
       setTimeout(function() {
-        map = L.map("map", { zoomControl: true, renderer: L.svg({ tolerance: 18 }), tapTolerance: 20, doubleClickZoom: false }).setView([39.8, -98.6], 4);
+        map = L.map("map", { zoomControl: true, renderer: L.svg({ tolerance: 44 }), tapTolerance: 30, doubleClickZoom: false }).setView([39.8, -98.6], 4);
 
     // ---- Waypoint create: long-press -> Kotlin ----
     if (typeof map !== 'undefined' && map && !map.__wptLongPressWired) {

@@ -641,6 +641,14 @@ fun ConvoyScreen(
                                 viewModel.setPendingDownload(pending)
                             }
                         }
+                        @android.webkit.JavascriptInterface
+                        fun onTrackTap(id: String) {
+                            // [2026-07-02] track tap -> open the shared ArtifactDetailPanel (metrics + SAVE MAPS).
+                            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                pendingDetailType = "Tracks"
+                                pendingDetailId = id
+                            }
+                        }
                     }, "Android")
                     webViewRef.value = existing
                     existing
@@ -881,6 +889,14 @@ fun ConvoyScreen(
                                             wv.evaluateJavascript("showDownloadedAreas($json)", null)
                                         }
                                     }.start()
+                                }
+                            }
+                            @android.webkit.JavascriptInterface
+                            fun onTrackTap(id: String) {
+                                // [2026-07-02] track tap -> open the shared ArtifactDetailPanel (metrics + SAVE MAPS).
+                                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                    pendingDetailType = "Tracks"
+                                    pendingDetailId = id
                                 }
                             }
                         }, "Android")

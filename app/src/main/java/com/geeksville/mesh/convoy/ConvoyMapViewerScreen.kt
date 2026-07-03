@@ -512,6 +512,14 @@ fun ConvoyMapViewerScreen(
                                 }.start()
                             }
                             @JavascriptInterface
+                            fun onTrackTap(id: String) {
+                                // [2026-07-02] track tap -> open the shared ArtifactDetailPanel (metrics + SAVE MAPS).
+                                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                    pendingDetailType = "Tracks"
+                                    pendingDetailId = id
+                                }
+                            }
+                            @JavascriptInterface
                             fun onMapReady(n: Double, s: Double, e: Double, w: Double) {
                                 android.os.Handler(android.os.Looper.getMainLooper()).post {
                                     val wv = webViewRef ?: return@post

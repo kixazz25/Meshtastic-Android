@@ -519,7 +519,8 @@ object SpatialDbManager {
                 if (parts.size >= 2) "[${parts[0]},${parts[1]}]" else "[0,0]"
             }
             val cc = (track["carto_code"] ?: "").replace("\"", "\\\"")
-            sb.append("{\"type\":\"Feature\",\"properties\":{\"name\":\"$name\",\"cartoCode\":\"$cc\"},\"geometry\":{\"type\":\"LineString\",\"coordinates\":[$coords]}}")
+            val tid = (track["track_id"] ?: "").replace("\"", "\\\"")
+            sb.append("{\"type\":\"Feature\",\"properties\":{\"name\":\"$name\",\"cartoCode\":\"$cc\",\"track_id\":\"$tid\"},\"geometry\":{\"type\":\"LineString\",\"coordinates\":[$coords]}}")
         }
         sb.append("]}")
         return sb.toString()

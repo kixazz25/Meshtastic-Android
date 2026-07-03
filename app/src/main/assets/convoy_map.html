@@ -239,7 +239,14 @@
       var coords = JSON.parse(coordsJson);
       if (coords.length < 2) return;
       var line = L.polyline(coords, {color: color, weight: 3, opacity: 0.9}).addTo(map);
-      line.bindPopup('<b style="color:' + color + ';">' + name + '</b><br>' + coords.length + ' points');
+      var __tid = name.replace(/\.gpx$/i, '');
+      line.on('click', function(e){
+        console.log('ARTIFACTTAP track(file) name=' + name + ' tid=' + __tid + ' routeMode=' + window.__routeMode);
+        if (window.__routeMode) return;
+        L.DomEvent.stopPropagation(e);
+        if (window.Android && window.Android.onTrackTap) { window.Android.onTrackTap(__tid); }
+        else { line.bindPopup('<b style="color:' + color + ';">' + name + '</b><br>' + coords.length + ' points').openPopup(); }
+      });
       importedTracks[name] = line;
     }
 
@@ -285,7 +292,7 @@
 
     document.addEventListener("DOMContentLoaded", function() {
       setTimeout(function() {
-        map = L.map("map",{zoomControl:true,renderer:L.svg({tolerance:18}),tapTolerance:20,doubleClickZoom:false}).setView([36.1069,-115.1711],4);
+        map = L.map("map",{zoomControl:true,renderer:L.svg({tolerance:44}),tapTolerance:30,doubleClickZoom:false}).setView([36.1069,-115.1711],4);
 
     // ---- Waypoint create: long-press -> Kotlin ----
     if (typeof map !== 'undefined' && map && !map.__wptLongPressWired) {
@@ -315,6 +322,7 @@
     // Defined on window.* so evaluateJavascript (global scope) can reach them.
     window.setRouteMode = function(on) {
       window.__routeMode = !!on;
+      console.log('ROUTEMODE -> ' + window.__routeMode);
       // Stop Leaflet artifact layers from catching the route-build tap (popup +
       // redraw-over-route). While building, route their pointer events out so the
       // tap falls through to map.on('click') -> Android.onMapTap (real coords).
@@ -428,6 +436,7 @@ function loadTrails(geojsonData) {
     onEachFeature: function(feature, layer) {
       var p = feature.properties;
       var name = p.PrimaryName || p.SystemName || p.name || 'Unnamed Trail';
+      layer.on('click', function(){ console.log('ARTIFACTTAP trail name=' + name + ' routeMode=' + window.__routeMode); });
       var cc = p.CartoCode || 'Unknown';
       var surface = p.SurfaceType || 'Unknown';
       var uses = p.DesignatedUses || 'Unknown';
@@ -480,7 +489,17 @@ function loadTracks(geojsonData) {
     },
     onEachFeature: function(feature, layer) {
       var name = (feature.properties && feature.properties.name) || 'Unnamed Track';
-      layer.bindPopup('<b>' + name + '</b>');
+      var tid = feature.properties && feature.properties.track_id;
+      layer.on('click', function(e){
+        console.log('ARTIFACTTAP track(db) name=' + name + ' tid=' + tid + ' routeMode=' + window.__routeMode);
+        if (window.__routeMode) return;                       // BUG A: suppress while route-building
+        L.DomEvent.stopPropagation(e);
+        if (tid && window.Android && window.Android.onTrackTap) {
+          window.Android.onTrackTap(tid);                     // open detail panel
+        } else {
+          layer.bindPopup('<b>' + name + '</b>').openPopup(); // fallback
+        }
+      });
     }
   });
   try {
@@ -572,6 +591,7 @@ function loadWaypoints(geojsonData) {
     onEachFeature: function(feature, layer) {
       var p = feature.properties || {};
       var name = p.name || 'Unnamed Waypoint';
+      layer.on('click', function(){ console.log('ARTIFACTTAP waypoint name=' + name + ' routeMode=' + window.__routeMode); });
       var wType = p.wpt_type || 'other';
       var popup = '<div style="font-family:monospace;font-size:12px;">' +
         '<b style="color:' + waypointColor(wType) + ';">' + name + '</b><br>' +
@@ -617,6 +637,7 @@ function loadRoutes(geojsonData) {
     },
     onEachFeature: function(feature, layer) {
       var name = (feature.properties && feature.properties.name) || 'Unnamed Route';
+      layer.on('click', function(){ console.log('ARTIFACTTAP route name=' + name + ' routeMode=' + window.__routeMode); });
       layer.bindPopup('<b style="color:#FF00FF;">' + name + '</b>');
     }
   });
