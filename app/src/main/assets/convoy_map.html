@@ -336,7 +336,20 @@
         __gtLayers.forEach(function(lyr) {
           if (!lyr || !lyr.eachLayer) return;
           lyr.eachLayer(function(sub) {
-            if (sub && sub._path) sub._path.style.pointerEvents = on ? 'none' : '';
+            if (!sub) return;
+            if (on) {
+              // Stash + remove any bound popup so it can't auto-open during route-build.
+              if (sub.getPopup && sub.getPopup()) {
+                sub._savedPopupContent = sub.getPopup().getContent();
+                sub.unbindPopup();
+              }
+            } else {
+              // Restore the popup we stashed on route-mode entry.
+              if (sub._savedPopupContent != null) {
+                sub.bindPopup(sub._savedPopupContent);
+                sub._savedPopupContent = null;
+              }
+            }
           });
         });
       } catch (e) {}

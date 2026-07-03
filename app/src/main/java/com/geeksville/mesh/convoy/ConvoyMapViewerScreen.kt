@@ -993,7 +993,7 @@ fun ConvoyMapViewerScreen(
                                 showNameDialog = false
                                 routeEntryNonce++
                                 routeMode = true
-                                webViewRef?.evaluateJavascript("setRouteMode(true)", null)  // arm tap-to-place
+                                webViewRef?.evaluateJavascript("window.__routeMode=true;setRouteMode(true)", null)  // arm tap-to-place
                             }
                         }) { androidx.compose.material3.Text("Start") }
                     },
@@ -1017,7 +1017,7 @@ fun ConvoyMapViewerScreen(
                         routeNameTaken = false
                         showNameDialog = true
                     },
-                    onAddPointModeArmed = { webViewRef?.evaluateJavascript("setRouteMode(true)", null) },
+                    onAddPointModeArmed = { webViewRef?.evaluateJavascript("window.__routeMode=true;setRouteMode(true)", null) },
                     onUndo = {
                         RouteManager.undoVertex()
                         scope.launch {
@@ -1151,7 +1151,7 @@ fun ConvoyMapViewerScreen(
                                                 RouteManager.buildSegments { lineId -> byId[lineId]?.let { RouteManager.parseWktLine(it) } }
                                                     .joinToString(",", "[", "]") { "[${it[1]},${it[0]}]" }
                                             }
-                                            webViewRef?.evaluateJavascript("setRouteMode(true); drawBuildLine('" + rsPts + "')", null)
+                                            webViewRef?.evaluateJavascript("window.__routeMode=true;setRouteMode(true); drawBuildLine('" + rsPts + "')", null)
                                             // Second draw after the map settles: the first drawBuildLine can render
                                             // before the build layer is ready (angular); redraw the SAME shape so the
                                             // snapped line shows without needing a manual edit. (Fred: only an edit fixed it.)
