@@ -1091,9 +1091,20 @@ object SpatialDbManager {
         val latLonOnly = Regex("""<trkpt\b[^>]*\blat="([^"]+)"[^>]*\blon="([^"]+)"[^>]*/>""")
         val eleRegex = Regex("""<ele>([^<]+)</ele>""")
         val timeRegex = Regex("""<time>([^<]+)</time>""")
-        val sdf = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", java.util.Locale.US)
-        sdf.timeZone = java.util.TimeZone.getTimeZone("UTC")
-        fun parseTime(s: String): Long? = try { sdf.parse(s.trim())?.time } catch (e: Exception) { null }
+        val utc = java.util.TimeZone.getTimeZone("UTC")
+        val timeFormats = listOf(
+            "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",   // fractional seconds + Z (Gaia/onX exports)
+            "yyyy-MM-dd'T'HH:mm:ss'Z'",       // whole seconds + Z (recorder)
+            "yyyy-MM-dd'T'HH:mm:ssXXX",       // whole seconds + numeric offset (+00:00)
+            "yyyy-MM-dd'T'HH:mm:ss.SSSXXX"    // fractional + numeric offset
+        ).map { java.text.SimpleDateFormat(it, java.util.Locale.US).apply { timeZone = utc; isLenient = false } }
+        fun parseTime(s: String): Long? {
+            val t = s.trim()
+            for (f in timeFormats) {
+                try { return f.parse(t)?.time } catch (e: Exception) { /* try next pattern */ }
+            }
+            return null
+        }
 
         for (m in ptRegex.findAll(gpxText)) {
             val lat = m.groupValues[1].toDoubleOrNull() ?: continue
