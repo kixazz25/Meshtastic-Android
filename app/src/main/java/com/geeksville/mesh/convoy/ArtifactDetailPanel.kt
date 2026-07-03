@@ -169,7 +169,7 @@ fun ArtifactDetailPanel(
                         val techKeys = setOf("min_lat", "max_lat", "min_lon", "max_lon", "created_at", "updated_at", "geom_hash")
                         // [2026-07-01] Two-column formatted metrics grid: friendly labels + units,
                         // ordered, paired two-per-row to shrink height. carto_code handled above (band).
-                        val skip = techKeys + setOf("name", "carto_code")
+                        val skip = techKeys + setOf("name", "carto_code", "max_speed_mph")
                         val shownKeys = detailFields.keys
                             .filter { k -> !detailFields[k].isNullOrBlank() && k !in skip }
                             .sortedBy { k -> detailOrder(k) }
