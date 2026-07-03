@@ -130,6 +130,7 @@ class MainActivity : ComponentActivity() {
 
                     if (appIntroCompleted) {
                         MainScreen(uIViewModel = model)
+                        com.geeksville.mesh.convoy.AutoResyncHost()
                     } else {
                         AppIntroductionScreen(onDone = { model.onAppIntroCompleted() })
                     }

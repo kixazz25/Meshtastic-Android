@@ -41,6 +41,12 @@ object SpatialDbManager {
     private val syncRunning = java.util.concurrent.atomic.AtomicBoolean(false)   // single-flight guard for syncTracksFromFiles
     private var initialized = false
 
+    /** Public GroupTrack dir (Documents/GroupTrack) -- same path the DBs use;
+     *  survives reinstall. Exposed for the launch-time auto-resync receipt. */
+    internal fun groupTrackDir(): File = File(
+        Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS),
+        "GroupTrack"
+    )
     private fun dbDir(): File {
         val dir = File(
             Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS),
