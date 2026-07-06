@@ -10391,7 +10391,7 @@ April 19, 2026  |  v1  |  CONFIDENTIAL
 1. Executive Summary
 GroupTrack V3.0 introduces comprehensive map management enhancements that transform the platform from basic convoy coordination to advanced off-grid navigation and planning. These enhancements integrate V2.5 Map Manager capabilities with V3.0's cloud-enabled services, creating a sophisticated mapping platform for outdoor recreation.
 1.1 Key Enhancements
-V2.5 Map Manager integration with V3.0 online services
+V2.5 Map Manager integration with V3.0 online service
 Dual map architecture: Planning Map and Convoy Map independence
 Advanced ride creation with map bounds and trailhead selection
 Route planning tools with community sharing capabilities
@@ -10408,21 +10408,9 @@ The V2.5 Map Manager operates as an independent mapping system accessible throug
 2.2 Database Integration
 V2.5 Map Manager integrates with the existing database schema through specific field mappings that enable route planning to influence ride creation.
 Route Storage Integration
--- V2.5 routes connect to V3.0 rides via route_id
-UPDATE rides SET route_id = ? WHERE ride_id = ?;
-
--- Auto-calculate map bounds from route data  
-UPDATE rides SET 
-    map_bounds_north = ?, map_bounds_south = ?,
-    map_bounds_east = ?, map_bounds_west = ?
-WHERE ride_id = ?;
+-- V2.5 routes connect to V3.0 rides via route_idUPDATE rides SET route_id = ? WHERE ride_id = ?;-- Auto-calculate map bounds from route data  UPDATE rides SET     map_bounds_north = ?, map_bounds_south = ?,    map_bounds_east = ?, map_bounds_west = ?WHERE ride_id = ?;
 Waypoint Integration
--- Trailhead selection from V2.5 waypoint library
-UPDATE rides SET trailhead_waypoint_id = ? WHERE ride_id = ?;
-
--- Waypoint types: trailhead, staging, hazard, POI
-SELECT waypoint_id, name, type, latitude, longitude 
-FROM waypoints WHERE type = 'trailhead' AND deleted_at IS NULL;
+-- Trailhead selection from V2.5 waypoint libraryUPDATE rides SET trailhead_waypoint_id = ? WHERE ride_id = ?;-- Waypoint types: trailhead, staging, hazard, POISELECT waypoint_id, name, type, latitude, longitude FROM waypoints WHERE type = 'trailhead' AND deleted_at IS NULL;
 3. Dual Map Architecture
 GroupTrack V3.0 implements two independent map systems to serve different use cases without operational conflicts.
 3.1 Planning Map
@@ -10451,15 +10439,7 @@ V3.0 ride creation incorporates sophisticated map features that leverage the ful
 4.1 Map Bounds Integration
 Ride creators can now define precise geographic boundaries for their events using interactive map tools.
 Database Schema Utilization
--- Map bounds fields in rides table (previously unused)
-map_bounds_north    DECIMAL(10,7),
-map_bounds_south    DECIMAL(10,7), 
-map_bounds_east     DECIMAL(10,7),
-map_bounds_west     DECIMAL(10,7),
-
--- Map configuration options
-map_tile_source     VARCHAR(10) DEFAULT 'SAT',  -- SAT, TOPO, HYB
-map_zoom_max        INT DEFAULT 18
+-- Map bounds fields in rides table (previously unused)map_bounds_north    DECIMAL(10,7),map_bounds_south    DECIMAL(10,7), map_bounds_east     DECIMAL(10,7),map_bounds_west     DECIMAL(10,7),-- Map configuration optionsmap_tile_source     VARCHAR(10) DEFAULT 'SAT',  -- SAT, TOPO, HYBmap_zoom_max        INT DEFAULT 18
 Map Bounds Selection Methods
 4.2 Trailhead Selection Integration
 The ride creation process connects to the V2.5 waypoint library for consistent trailhead management across planning and operational phases.
@@ -10470,14 +10450,7 @@ Preview waypoint details with coordinates and descriptions
 Create new waypoints directly from ride creation interface
 Auto-populate ride metadata from selected trailhead information
 Database Integration
--- Trailhead selection updates rides table
-UPDATE rides SET trailhead_waypoint_id = ? WHERE ride_id = ?;
-
--- Waypoint details accessible for ride display
-SELECT w.name, w.latitude, w.longitude, w.description 
-FROM rides r
-JOIN waypoints w ON w.waypoint_id = r.trailhead_waypoint_id
-WHERE r.ride_id = ?;
+-- Trailhead selection updates rides tableUPDATE rides SET trailhead_waypoint_id = ? WHERE ride_id = ?;-- Waypoint details accessible for ride displaySELECT w.name, w.latitude, w.longitude, w.description FROM rides rJOIN waypoints w ON w.waypoint_id = r.trailhead_waypoint_idWHERE r.ride_id = ?;
 5. Advanced Route Planning Tools
 V3.0 introduces comprehensive route planning capabilities that enable detailed trip preparation and community route sharing.
 5.1 Route Creation Interface
@@ -10498,11 +10471,7 @@ Estimated duration and vehicle requirements
 Hazard notifications and special requirements
 Privacy settings (public, private, followers-only)
 Community Integration
--- Route sharing to community track library
-INSERT INTO ride_tracks (
-    track_id, route_id, uploaded_by, name, difficulty,
-    distance_miles, elevation_gain, is_public
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+-- Route sharing to community track libraryINSERT INTO ride_tracks (    track_id, route_id, uploaded_by, name, difficulty,    distance_miles, elevation_gain, is_public) VALUES (?, ?, ?, ?, ?, ?, ?, ?);
 6. Enhanced Tile Management & Offline Capabilities
 V3.0 significantly improves offline mapping capabilities with advanced tile management and download optimization.
 6.1 Tile Download Enhancement
@@ -10543,23 +10512,7 @@ Difficulty rating and vehicle requirements
 Waypoint annotations with hazard warnings
 Timestamp preservation for track playback
 Export Options
-// Enhanced GPX export with metadata
-<gpx creator="GroupTrack V3.0" version="1.1">
-  <metadata>
-    <name>Desert Loop Adventure</name>
-    <desc>Organized ride: moderate difficulty, 45 miles</desc>
-    <author>
-      <name>Trail Boss Mike</name>
-      <email>mike@example.com</email>
-    </author>
-    <keywords>desert,loop,moderate,group-ride</keywords>
-    <extensions>
-      <grouptrack:ride_id>ride_uuid</grouptrack:ride_id>
-      <grouptrack:difficulty>moderate</grouptrack:difficulty>
-      <grouptrack:vehicle_type>4x4 recommended</grouptrack:vehicle_type>
-    </extensions>
-  </metadata>
-</gpx>
+// Enhanced GPX export with metadata<gpx creator="GroupTrack V3.0" version="1.1">  <metadata>    <name>Desert Loop Adventure</name>    <desc>Organized ride: moderate difficulty, 45 miles</desc>    <author>      <name>Trail Boss Mike</name>      <email>mike@example.com</email>    </author>    <keywords>desert,loop,moderate,group-ride</keywords>    <extensions>      <grouptrack:ride_id>ride_uuid</grouptrack:ride_id>      <grouptrack:difficulty>moderate</grouptrack:difficulty>      <grouptrack:vehicle_type>4x4 recommended</grouptrack:vehicle_type>    </extensions>  </metadata></gpx>
 8. Map Configuration Management
 V3.0 introduces comprehensive map configuration options that optimize the mapping experience for different activities and device capabilities.
 8.1 User Preferences
@@ -10568,13 +10521,7 @@ Configuration Categories
 8.2 Ride-Specific Configuration
 Ride organizers can specify map configuration recommendations that optimize the experience for specific events.
 Database Integration
--- Ride-specific map configuration in database
-map_tile_source     VARCHAR(10) DEFAULT 'SAT',
-map_zoom_max        INT DEFAULT 18,
-
--- Configuration inheritance for participants  
-SELECT map_tile_source, map_zoom_max
-FROM rides WHERE ride_id = ?;
+-- Ride-specific map configuration in databasemap_tile_source     VARCHAR(10) DEFAULT 'SAT',map_zoom_max        INT DEFAULT 18,-- Configuration inheritance for participants  SELECT map_tile_source, map_zoom_maxFROM rides WHERE ride_id = ?;
 Configuration Inheritance
 Organizers set recommended map configuration for rides
 Participants receive configuration suggestions during enrollment
@@ -10624,74 +10571,15 @@ Implementation completion requires all map enhancement features to be fully func
 11.1 Database Schema Updates
 Map enhancements utilize existing database fields that require API integration for full functionality.
 Rides Table Map Fields
--- Existing fields to be utilized by enhanced APIs
-map_bounds_north      DECIMAL(10,7),    -- North boundary latitude
-map_bounds_south      DECIMAL(10,7),    -- South boundary latitude  
-map_bounds_east       DECIMAL(10,7),    -- East boundary longitude
-map_bounds_west       DECIMAL(10,7),    -- West boundary longitude
-map_tile_source       VARCHAR(10),      -- SAT, TOPO, HYB, STREET
-map_zoom_max          INT,              -- Maximum zoom level
-trailhead_waypoint_id CHAR(36),         -- FK to waypoints table
-route_id              CHAR(36),         -- FK to routes table
+-- Existing fields to be utilized by enhanced APIsmap_bounds_north      DECIMAL(10,7),    -- North boundary latitudemap_bounds_south      DECIMAL(10,7),    -- South boundary latitude  map_bounds_east       DECIMAL(10,7),    -- East boundary longitudemap_bounds_west       DECIMAL(10,7),    -- West boundary longitudemap_tile_source       VARCHAR(10),      -- SAT, TOPO, HYB, STREETmap_zoom_max          INT,              -- Maximum zoom leveltrailhead_waypoint_id CHAR(36),         -- FK to waypoints tableroute_id              CHAR(36),         -- FK to routes table
 New Tables Required
--- Routes table for V2.5 integration
-CREATE TABLE routes (
-    route_id CHAR(36) PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
-    description TEXT,
-    distance_miles DECIMAL(8,2),
-    elevation_gain INT,
-    difficulty ENUM('easy','moderate','difficult','expert'),
-    route_type ENUM('loop','out-and-back','point-to-point','figure-8'),
-    gpx_data LONGTEXT,
-    created_by CHAR(36),
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    is_public BOOLEAN DEFAULT TRUE
-);
-
--- Waypoints table for trailhead management
-CREATE TABLE waypoints (
-    waypoint_id CHAR(36) PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
-    latitude DECIMAL(10,7) NOT NULL,
-    longitude DECIMAL(10,7) NOT NULL,
-    type ENUM('trailhead','staging','hazard','poi') DEFAULT 'poi',
-    description TEXT,
-    created_by CHAR(36),
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    deleted_at DATETIME NULL
-);
+-- Routes table for V2.5 integrationCREATE TABLE routes (    route_id CHAR(36) PRIMARY KEY,    name VARCHAR(255) NOT NULL,    description TEXT,    distance_miles DECIMAL(8,2),    elevation_gain INT,    difficulty ENUM('easy','moderate','difficult','expert'),    route_type ENUM('loop','out-and-back','point-to-point','figure-8'),    gpx_data LONGTEXT,    created_by CHAR(36),    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,    is_public BOOLEAN DEFAULT TRUE);-- Waypoints table for trailhead managementCREATE TABLE waypoints (    waypoint_id CHAR(36) PRIMARY KEY,    name VARCHAR(255) NOT NULL,    latitude DECIMAL(10,7) NOT NULL,    longitude DECIMAL(10,7) NOT NULL,    type ENUM('trailhead','staging','hazard','poi') DEFAULT 'poi',    description TEXT,    created_by CHAR(36),    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,    deleted_at DATETIME NULL);
 11.2 API Enhancements
 Map functionality requires expanded API endpoints to support the complete feature set.
 Enhanced Ride Creation
-// POST /rides - Enhanced with map fields
-{
-    "ride_name": "Desert Loop Adventure",
-    "description": "Moderate difficulty desert exploration",
-    "ride_date": "2026-05-01",
-    "start_time": "09:00",
-    "trailhead_waypoint_id": "waypoint_uuid",
-    "route_id": "route_uuid",
-    "map_bounds_north": 34.0622,
-    "map_bounds_south": 34.0422, 
-    "map_bounds_east": -118.2337,
-    "map_bounds_west": -118.2537,
-    "map_tile_source": "SAT",
-    "map_zoom_max": 18,
-    "is_public": true
-}
+// POST /rides - Enhanced with map fields{    "ride_name": "Desert Loop Adventure",    "description": "Moderate difficulty desert exploration",    "ride_date": "2026-05-01",    "start_time": "09:00",    "trailhead_waypoint_id": "waypoint_uuid",    "route_id": "route_uuid",    "map_bounds_north": 34.0622,    "map_bounds_south": 34.0422,     "map_bounds_east": -118.2337,    "map_bounds_west": -118.2537,    "map_tile_source": "SAT",    "map_zoom_max": 18,    "is_public": true}
 Route Management APIs
-// Route management endpoints
-POST   /routes              // Create route from planning
-GET    /routes?user_id={}    // User's route library
-PUT    /routes/{id}          // Update route metadata
-DELETE /routes/{id}          // Remove route (soft delete)
-
-// Waypoint management endpoints  
-POST   /waypoints            // Create waypoint
-GET    /waypoints?type={}    // Filter by type
-PUT    /waypoints/{id}       // Update waypoint
-DELETE /waypoints/{id}       // Remove waypoint
+// Route management endpointsPOST   /routes              // Create route from planningGET    /routes?user_id={}    // User's route libraryPUT    /routes/{id}          // Update route metadataDELETE /routes/{id}          // Remove route (soft delete)// Waypoint management endpoints  POST   /waypoints            // Create waypointGET    /waypoints?type={}    // Filter by typePUT    /waypoints/{id}       // Update waypointDELETE /waypoints/{id}       // Remove waypoint
 
 GroupTrack  |  V3.0 Map Revisions & Enhancements  |  Complete Specification  |  April 19, 2026
 Component | Implementation | Benefit
@@ -10700,6 +10588,52 @@ Shared Tile System | Common tile cache and storage | Efficient storage utilizati
 Unified File Access | Routes, waypoints, tracks accessible to both systems | Seamless data sharing between planning and convoy modes
 Entry Point Integration | Access via V3.0 services menu | Clear separation of planning vs operational functions
 Entry Point | Purpose | Functionality
+ | Direct access to planning interface | Full map functionality
+ | Map bounds selection for new rides | Integrated workflow
+ | Waypoint picker from planning library | Consistent trailhead management
+ | GPX/KML preview before adding to library | Validation workflow
+Method | Implementation | Use Case
+Manual Rectangle | Drag corners to define rectangular area | Simple, quick setup
+Route-Based Bounds | Auto-calculate from imported route | Precise fit to planned path
+Radius from Point | Set center point and radius distance | Circular area definition
+Custom Polygon | Draw irregular shape following terrain | Maximum precision for complex areas
+Route Type | Description | Use Case
+Loop Route | Start and end at same location | Most common for day trips
+Out-and-Back | Linear route with return via same path | Destination-focused rides
+Point-to-Point | Different start and end locations | Multi-day or shuttle trips
+Figure-8 | Crossing loop with central meeting point | Complex group coordination
+Optimization | Implementation | Benefit
+Selective Zoom Levels | Download only needed zoom ranges | Reduce storage usage by 60-80%
+Tile Source Mixing | Different sources for different zoom levels | Optimize detail vs overview
+Auto-Cleanup | Remove tiles outside user's activity area | Maintain storage under limits
+Compression | SQLite storage with tile compression | Maximize tile density per MB
+Source | Content | Use Case
+Satellite (SAT) | High-resolution aerial imagery | Terrain recognition, obstacle identification
+Topographic (TOPO) | Contour lines and elevation data | Navigation planning, difficulty assessment
+Hybrid (HYB) | Satellite imagery with road/trail overlay | Combined visual and navigation reference
+Street (STREET) | Road network with labels | Access point identification, emergency reference
+Format | Name | Content Support
+GPX | GPS Exchange Format | Tracks, routes, waypoints
+KML | Keyhole Markup Language | Google Earth compatibility
+TCX | Training Center XML | Garmin device exports
+FIT | Flexible and Interoperable Data Transfer | Modern GPS device format
+Category | Options | Purpose
+Display Settings | Tile source, zoom levels, overlay opacity | Visual optimization for different activities
+Performance Settings | Cache size, download quality, refresh rates | Battery and data usage optimization
+Activity Settings | Default map mode, waypoint display, track recording | Workflow optimization for common tasks
+Offline Settings | Auto-download areas, cleanup policies, storage limits | Offline capability management
+Component | Required Changes | Integration Type
+ConvoyCreateRideScreen.kt | Map bounds selection, trailhead picker integration | Ride creation workflow
+ConvoyNavigation.kt | Planning Map route setup, services menu integration | Navigation architecture
+ConvoyViewModel.kt | Tile download management, import directory scanning | State management
+ConvoyApiClient.kt | Map bounds API fields, route metadata upload | Backend integration
+ConvoySessionManager.kt | Map configuration preferences storage | User settings persistence
+Criteria | Requirement | Validation Type
+Functional Independence | Planning and Convoy maps operate without conflict | Architecture validation
+Feature Completeness | All planned capabilities implemented and tested | Feature validation
+Database Integration | Full utilization of existing map-related schema fields | Data validation
+User Experience | Smooth workflows between planning, creation, and operation | UX validation
+Performance | Responsive operation under offline conditions | Performance validation
 
 
 === GroupTrack_V3_Online_Offline_Manual_v2.docx ===
