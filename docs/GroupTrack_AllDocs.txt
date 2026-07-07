@@ -21020,6 +21020,238 @@ CREATE TABLE dedup_log (
 *GroupTrack V2.5 | Trail Source Catalog and Dedup Method v1 | May 9, 2026*
 
 
+=== GroupTrack_V2_6_DownloadStandardization_Recap_2026-07-07.md ===
+# GroupTrack V2.6 — Map-Download Standardization Recap
+**As of:** 2026-07-07 · Certified on Droid 2 · Committed to `feature/convoy-event-ride`
+
+> Full design + rationale for the shared map-download pipeline. This is the prerequisite ("Step 0 — standardize all map-download submissions through the area-submission process") that the tile-storage plan depended on. Now complete for area, track, and import origins. Read this before touching any download/enqueue/box-1 code.
+
+---
+
+## Why this existed
+The area map-download worked, but each origin (area, track/artifact-detail, import) had its **own** enqueue path — some headless/all-sources, some with a selection screen, some inline loops buried in a Compose handler. Goal: one screen + one process, every origin. Reuse, don't build per-origin. This also sets up the tile-storage migration: standardize the *submission* now, so redirecting the *write* (Pass 1) touches one spine, not four.
+
+---
+
+## The two black boxes
+
+### BOX 1 — source selection (`ConvoyDownloadConfirm`)
+- **Purpose:** present the map sources as checkboxes (+ "replace existing" toggle), return the user's selection. Rules only — which sources, replace or not.
+- **Contract:**
+  ```
+  ConvoyDownloadConfirm(
+      estimatedTiles: Int,          // OPTIONAL — shown only when > 0 (area knows it; batch passes 0)
+      estimatedMB: Float,
+      areaDesc: String,             // optional; hidden when empty
+      bbox: DownloadBbox,           // travels THROUGH box 1 as payload (in, and back out)
+      slots: List<SlotDisplayInfo>, // the sources, from MapSourceManager.getSlotSources()
+      initialReplaceExisting: Boolean,
+      onProceed: (bbox, selectedSlots: List<String>, replaceExisting: Boolean) -> Unit,
+      onCancel, modifier)
+  ```
+- **Bbox-blind by design for batch:** box 1 does NOT own the bbox. Singular origins (area, track) pass a real bbox in; batch (import) passes a blank `DownloadBbox()` and the estimate lines hide (guarded on `estimatedTiles > 0`). The batch substitutes each item's own bbox downstream.
+- **Estimate-zero guard (07-07):** the two estimate `Text`s hide/trim when `estimatedTiles == 0` so the batch popup shows just the source list, no misleading "0 tiles per source" / "~0 total tiles".
+
+### BOX 2 — enqueue processor (`DownloadQueueManager.submitDownload`)
+- **Purpose:** shared, screenless, model-layer. Takes a bbox + the chosen sources and enqueues one divided area-download per source. Callable from any working body, attended or unattended.
+- **Contract:**
+  ```
+  fun submitDownload(context, north, south, east, west,
+                     selectedSlots: List<String>, replaceExisting: Boolean = false) {
+      for (slotName in selectedSlots)
+          enqueueArea(context, slotName, north, south, east, west, replaceExisting)
+  }
+  ```
+- Raw `n/s/e/w` Doubles, NOT `DownloadBbox` (a UI type) — keeps the model UI-free.
+- `enqueueArea` handles large (grid divide via `gridCells`) AND small (single-job fallback when `cells.isEmpty()`) boxes — so it's safe for the small per-track/per-import boxes that batch feeds it unattended. (The historical reason the track path forked to plain `enqueue` — "gridCells empty → totalTiles=0" — no longer holds; the fallback exists.)
+
+---
+
+## The pipeline (one spine, all origins)
+```
+ORIGIN supplies bbox + shows BOX 1 (source selection)
+        area:   drawn bbox
+        track:  getTrackBbox(hash) from spatial DB row + ½-mile pad
+        import: blank bbox at selection; per-track bbox substituted in the loop
+   │
+   ▼  onProceed(bbox, selectedSlots, replace)
+BOX 2  submitDownload(n,s,e,w, selectedSlots, replace)
+   │
+   ▼
+enqueueArea(slot, n,s,e,w)  →  gridCells → per-cell QueueEntry (totalTiles computed here)
+   │                                        └ small box → single-job fallback
+   ▼
+launchWorker(entry)  →  Data payload (entry_id, n,s,e,w, label, refresh_mode, refresh_slot)
+   │
+   ▼
+ConvoyDownloadWorker.doWork()  →  calculateTiles(n,s,e,w) × layers → downloadTiles → WRITE
+        (normal mode = full download; refresh mode = existing tiles only, when replace+slot set)
+```
+
+---
+
+## The three origins — how each is wired
+
+### 1. AREA (`ConvoyMapViewerScreen`)
+Download-confirm overlay block (~1396): `if (showDownloadConfirm && downloadBbox.isValid) { ConvoyDownloadConfirm(bbox = downloadBbox, ...) }`. `onProceed = { bbox, selectedSlots, replace -> ...; Thread { submitDownload(context, bbox.north, bbox.south, bbox.east, bbox.west, selectedSlots, replace) }.start() }`. **Bbox comes from the lambda payload, not a scope re-read.**
+
+### 2. TRACK / artifact detail (`ConvoyMapViewerScreen:onDownloadMaps`)
+`ArtifactDetailPanel` (one component, two hosts) emits the geometry hash via `onDownloadMaps`. Map-viewer host: `getTrackBbox(hash)` → if valid, **null `pendingDetailId`/`pendingDetailType` (dismiss detail panel so box 1 shows on top)** → `downloadBbox = bb; showDownloadConfirm = true`. Reuses the SAME box 1 + onProceed as area. `SpatialDbManager.getTrackBbox(context, hash): DownloadBbox?` = the bbox half extracted from `downloadMapsForTrackHash` (query `tracks WHERE geom_hash`, ½-mile pad: `padLat = 0.00724`; `padLon = 0.00724 / max(0.01, cos(midLat))`), returns padded `DownloadBbox` instead of enqueuing.
+
+### 3. IMPORT / batch (`ConvoyTrackImportScreen` + `ConvoyTrackOps.importGpxAllArtifacts`)
+- Import button: `if (mapsFor.isNotEmpty()) showSourcePopup = true else doImport()`.
+- `if (showSourcePopup)` renders box 1 inside a `Dialog` with **blank bbox** (`DownloadBbox()`), `estimatedTiles = 0` (guarded). `onProceed = { _, sel, replace -> selectedSlots = sel; replaceExisting = replace; showSourcePopup = false; doImport() }` — ignores box 1's returned bbox (`_`); batch supplies per-track bbox.
+- `doImport` loop passes `importGpxAllArtifacts(f, context, if (mapsFor.contains(f.name)) selectedSlots else emptyList(), replaceExisting) { ... }`.
+- `importGpxAllArtifacts` signature: `downloadMapSlots: List<String> = emptyList(), replaceExisting: Boolean = false` (was `downloadMaps: Boolean`). On each track **INSERT**: `if (downloadMapSlots.isNotEmpty()) { gh = computeGeomHash(wkt); bb = getTrackBbox(context, gh); if (bb valid) submitDownload(context, bb.north,bb.south,bb.east,bb.west, downloadMapSlots, replaceExisting) }`.
+- **Routes:** import currently processes **tracks only** — waypoint/route GPX import is a TEMP BYPASS (2026-06-02, untested). So import-maps is tracks-only until route-import is built; route artifacts will use the same submitDownload when they land.
+
+---
+
+## THE DECOMPOSITION SCOPE RULE (why this was hard — bit us twice)
+When you extract an internal function (that shared a screen's scope) into a called external module, **every state variable it read from scope becomes an invisible dependency.** The extracted/deferred call runs at a *different time* than the original inline code — and shared mutable Compose state can be recomposed/reset underneath before the deferred read happens. The code looks identical (same statements) but the *timing of the read* changed.
+
+- **Symptom this session:** box 1's `onProceed` flipped `showDownloadConfirm=false`/`showDownloadPanel=false`, then a `Thread{}` read `downloadBbox` — by thread-run time the value was empty → jobs got `(0,0,0,0)` → `gridCells` produced degenerate/zero → 0 tiles. The synchronous 280k estimate was valid; the deferred job read the box after it was gone.
+- **The rule:** data must travel as an explicit **parameter / message payload carried into the call** — never re-read from a scope that may no longer exist. Snapshot at point-of-intent (box-1-render time, when valid), pass concrete values forward. For disparate/unattended processes (batch), the payload the consumer owns replaces any scope reference.
+- **The practice:** do a **scope/state audit UP FRONT** when decomposing — enumerate every scope var the body touched, confirm each is now a payload param, before building. Not one crash at a time.
+
+Payload continuity, confirmed end-to-end: `submitDownload(n,s,e,w)` → `enqueueArea(n,s,e,w)` → `QueueEntry(north=cell[0]...)` → `launchWorker.putDouble("north", entry.north)` → `doWork.getDouble("north", 0.0)`. Every hop carries concrete coordinates; the only failure was the *origin read time*, now fixed.
+
+---
+
+## Tile-count-at-enqueue fix (07-07)
+`enqueueArea` now computes `totalTiles` at enqueue instead of the `0` placeholder, so the queue UI shows real counts (not red zeros) immediately:
+```
+val slotLayers = MapSourceManager.getDownloadSources().filter { it.first == slotName }.sumOf { it.second.size }
+// small-area entry:  totalTiles = calculateTiles(north, south, east, west).size * slotLayers
+// per-cell entry:    totalTiles = calculateTiles(cell[0], cell[1], cell[2], cell[3]).size * slotLayers
+```
+Matches the worker's own math (`tiles.size * totalLayers`). `ConvoyTileCalculator` + `MapSourceManager` are same-package (already used by the original `enqueue` at lines 127-129) — no imports needed.
+
+---
+
+## Files touched (all committed)
+- `ConvoyDownloadQueue.kt` — added `submitDownload`; tile-count at enqueue.
+- `ConvoyDownloadConfirm.kt` — `bbox` param in + returned via `onProceed`; estimate-zero guard.
+- `ConvoyMapViewerScreen.kt` — area onProceed uses payload bbox; track `onDownloadMaps` feeds box 1 (dismiss detail panel first).
+- `SpatialDbManager.kt` — added `getTrackBbox(context, hash): DownloadBbox?`.
+- `ConvoyTrackOps.kt` — `importGpxAllArtifacts` takes `downloadMapSlots`+`replaceExisting`; INSERT path uses `getTrackBbox`+`submitDownload`.
+- `ConvoyTrackImportScreen.kt` — state (`showSourcePopup`/`selectedSlots`/`replaceExisting`); button gate; box 1 popup; threading.
+- `ConvoyDisplayPanel.kt` / `ConvoySettingsScreen.kt` — V2.6 badges.
+
+## Deferred / open
+- **INSERT-only gate:** import maps fire only on `AddOutcome.INSERT`. Re-importing an existing track with maps checked → nothing (DUPLICATE/ALIAS). Move the maps call out of the INSERT-only branch to fix.
+- **ConvoyScreen artifact-detail host** not wired for box-1 track download (only the map-viewer host is). Wire it, or make box 1 a shared overlay both hosts embed, if that host's detail panel needs track-map download in 2.6.
+- **Leftover debug log** `submitDownload IN:` — remove after storage work.
+
+---
+*Recap — 2026-07-07. The download submission is now one standardized spine; the tile-storage migration redirects its WRITE end (Pass 1) without touching the submission side.*
+
+
+=== GroupTrack_V2_6_Handoff_2026-07-07.md ===
+# GroupTrack V2.6 — Handoff / State of Play
+**As of:** 2026-07-07 EOD · **Prev living-docs update:** 2026-07-06
+
+> Single orientation doc for the current milestone. V2.5 shipped to Play Store 06-24 (`c603bc3f0`). Work is on **V2.6**. **Today (07-07): map-download standardization completed and certified for all three one-up/batch origins. Tomorrow: begin tile-storage migration (loose tree → spatial/MBTiles model).**
+
+---
+
+## What got done today (07-07) — download standardization COMPLETE
+
+**Goal:** take the working area-download model, modularize it, and route **all** map-download origins through the *same* screen + same process. Achieved and certified on Droid 2 for three origins.
+
+### The shared spine (now used by every origin)
+```
+BOX 1 (source selection)  →  onProceed(bbox, selectedSlots, replace)
+        ConvoyDownloadConfirm — presents map sources as checkboxes + replace toggle.
+        bbox travels THROUGH box 1 as a payload param (in and back out) — never scope-read.
+        Estimate (tiles/MB) is OPTIONAL: shown when known (area), hidden when 0 (batch).
+                          │
+BOX 2 (enqueue processor) →  DownloadQueueManager.submitDownload(context, n,s,e,w, selectedSlots, replace)
+        Shared, screenless, model-layer. Loops slots → enqueueArea (grid divide, or
+        single-job fallback for small boxes) → per-cell QueueEntry → launchWorker → doWork.
+```
+
+### The three certified origins
+1. **AREA** — draw area → box 1 → `submitDownload`. (`ConvoyMapViewerScreen` onProceed handler.)
+2. **TRACK (artifact detail)** — SAVE MAPS / download-maps on a track's `ArtifactDetailPanel` → derive bbox via new `SpatialDbManager.getTrackBbox(hash)` → **dismiss detail panel** → box 1 → `submitDownload`. (`ConvoyMapViewerScreen:onDownloadMaps`.)
+3. **IMPORT (batch)** — track import: select GPX + check "maps" → tap Import → **box 1 popup** (bbox-blind, source selection only) → per-track on **INSERT**, `getTrackBbox` → `submitDownload` with the up-front-selected sources. (`ConvoyTrackImportScreen` + `ConvoyTrackOps.importGpxAllArtifacts`.)
+
+### The bugs found and fixed on the way (all committed)
+- **Bbox payload loss (scope-vs-parameter).** The original area handler read `downloadBbox` *inside* a deferred `Thread{}`, AFTER `showDownloadConfirm=false`/`showDownloadPanel=false` state flips → by thread-run time the value was stale/empty → jobs built with zero coordinates → `gridCells(0,0,0,0)` → 0 tiles, nothing downloaded (the "280k estimate but zero jobs" symptom). **Fix: bbox now travels THROUGH box 1 as a payload param** (added `bbox: DownloadBbox` in; `onProceed` returns it; handler uses the lambda's `bbox`, not a scope re-read). Captured at box-1-render time when valid.
+- **Tile count = 0 at enqueue (red queue display).** `enqueueArea` built every `QueueEntry` with `totalTiles = 0` (placeholder); worker computed the real count but never wrote it back → queue showed red zeros even while downloading. **Fix: compute at enqueue** — `totalTiles = ConvoyTileCalculator.calculateTiles(cell).size * slotLayers`, where `slotLayers = getDownloadSources().filter{it.first==slotName}.sumOf{it.second.size}`. Matches the worker's own math.
+- **Track download was headless/all-sources.** Old `downloadMapsForTrackHash` used plain `enqueue` (global `getDownloadSources()`, no box 1). Now split: `getTrackBbox` derives the padded bbox (same hash→row→½-mile pad math), and the UI feeds box 1 → `submitDownload`. (The old `downloadMapsForTrackHash` still exists; the INSERT path in import was repointed off it.)
+- **Box 1 occluded by detail panel.** Track download set `showDownloadConfirm=true` but the `ArtifactDetailPanel` stayed on top. **Fix:** null `pendingDetailId`/`pendingDetailType` before showing box 1.
+
+### THE DECOMPOSITION SCOPE RULE (durable — this bit us twice)
+> **When extracting an internal function (that shared a screen's scope) into a called external module, every state variable it read from scope becomes an invisible dependency. The data must travel as an explicit PARAMETER / MESSAGE PAYLOAD carried into the call — never re-read from a scope that no longer exists when the deferred/threaded/detached job runs.** Do a scope/state audit UP FRONT when decomposing (enumerate every scope var the body touched; confirm each is now a payload param), not one crash at a time. The code always *looks* right — statements are identical — but the *timing* of the read changes, and shared mutable state can be reset/recomposed underneath. For genuinely disparate/unattended processes (batch), carry the data as a message/payload the consumer owns, not a scope reference.
+
+---
+
+## V2.6 version badges → 2.6 (done)
+Three user-visible badges bumped V2.5→V2.6: `ConvoyDisplayPanel.kt:131` + `:140` (`versionTag`), `ConvoySettingsScreen.kt:254` (`GroupTrack v2.5`→`v2.6`). Play-store versionName/versionCode are **git-controlled** (computed in `build.gradle.kts` 65/71) — NOT hand-set.
+**Left alone (logged for 3.0):** `ConvoySearchByAreaScreen.kt:58` (`"V2.5"`) + `:72` (`"Coming in V2.5"`) — this is a **3.0 ride-management placeholder**, unreachable from 2.6 map surfaces (verified: neither ConvoyScreen nor ConvoyMapViewerScreen launch it; reachable only via `GroupTrackTheme:294` ride menu = 3.0). 3.0 pass: repoint the menu to the real search-by-area (FAB Area mode, which IS implemented) or delete the stub.
+
+---
+
+## Open items carried forward
+- **INSERT-only gate on import maps** (deferred bug). Import maps download fires only in the `AddOutcome.INSERT` branch of `importGpxAllArtifacts` → re-importing an **existing** track with "maps" checked downloads **nothing** (it's a DUPLICATE/ALIAS, not INSERT). "MAPS checkbox ignored when track already exists." Fix: move the maps call out of the INSERT-only branch so DUPLICATE/ALIAS-with-maps-checked also downloads. Not required for standardization; deferred.
+- **Leftover debug log** `submitDownload IN: N=...` still in `submitDownload` — harmless, currently useful, remove after storage work settles.
+- **ConvoyScreen artifact-detail host** — `ArtifactDetailPanel` is ONE component rendered by TWO hosts (`ConvoyMapViewerScreen:1226`, `ConvoyScreen:1824`). Only the **map-viewer** host has box 1 wired for track download. ConvoyScreen host has no box 1 state and wasn't wired this pass. If ConvoyScreen's detail panel is reachable in 2.6 and needs track-map download, either add box 1 there or make box 1 a shared overlay both hosts embed. (Deferred — the map-viewer host covers the certified flow.)
+- **`.gitignore`** added for `ersi api key/`, `*.db`, `*.gpx`, `*.png` (keeps the Esri key + local artifacts out of commits). NOTE the `*.png` rule will ignore *new* image assets too — narrow it if real drawables need tracking.
+
+---
+
+## TOMORROW — tile storage: loose tree → spatial / MBTiles model
+
+**Same transfer method, new storage.** The download pipeline (box 1 → submitDownload → divide → worker fetch) is now standardized and certified and does NOT change. What changes is the **write landing** — the "miracle happens" step at the destination end: instead of the worker writing loose tiles to `maps/tiles/<slot>/z/x/y`, tile bytes go into the **spatial/MBTiles model** (SQLite container, tiles table keyed z/x/y, blob).
+
+**Fred's first move (agreed): stake a small area and inspect what the storage model creates.** Reasoning about it is guesswork until we see the artifacts. Today the loose-tree delivery process managed the whole directory/subdirectory tree (SAT, SAT_LABELS_TRANSPORT, SAT_LABELS_PLACES, TOPO, TOPO+ with z/x/y). The new storage's structure is the open question:
+- One `.mbtiles` per TYPE (= cache_dir = old dir name), or one container with a source column?
+- Where do they land? Does the delivery process still create per-source structure, or does the container replace it?
+- Base + overlays each their own DB, composited at the Leaflet layer? (Prior design note.)
+- The state-JSON / resolver that maps a request to storage.
+
+**Method:** small-area download on **Droid 1** (the cleared MBTiles device) → pull the resulting `.mbtiles` to PC (Droid 1 has no sqlite3) → open, inspect schema + tile count → reason about the redesign from real artifacts, not memory.
+
+**Baseline for comparison** (capture on Droid 2's loose tree before migrating):
+`adb -s 24039703201775 shell "ls -R /sdcard/Documents/GroupTrack/maps/tiles/ | head -40"` — the current structure you're migrating FROM.
+
+Full tile-storage design (MBTiles-only hard cutover, unified spine, Pass 1 = redirect the write / Pass 2 = Esri batch transport, schema, `.tpkx` unpack) is in `GroupTrack_V2_6_TileStorage_Recap` — unchanged by today's work; today just *finished* the "standardize all origins through the area submission" prerequisite that recap's Step 0 called for.
+
+---
+
+## Devices / environment
+- **Droid 1** `8624SBCEDF00001789` — field/real-GPS; **USB temperamental** → prefer wireless ADB / Termux / X-plore. Primary MBTiles test device (tiles cleared). No sqlite3 → pull `.mbtiles` to PC.
+- **Droid 2** `24039703201775` — dev; has the full loose tree (SAT, SAT_LABELS_TRANSPORT, SAT_LABELS_PLACES, TOPO, TOPO+). Today's standardization certified here.
+- **Repo:** `C:\Users\kixaz\Meshtastic-Android`, branch `feature/convoy-event-ride`. **Package path `com/geeksville/mesh/convoy/`** (NOT `com/grouptrack/android/`). Package id `com.geeksville.mesh`.
+- **Build:** `./gradlew assembleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease`. Cold ~36min; **warm ~10-13min**. APK: `app/build/outputs/apk/google/release/app-google-release.apk`.
+- **Install:** `adb -s <serial> install -r <apk>`.
+
+## Working style (reinforced today)
+- **One command at a time** — Fred executes each, pastes result, then next.
+- **Patches: surgical `sed` for single lines; temp-file + short Python script for multi-line blocks.** Heredoc pastes with long multiline strings REPEATEDLY splice/corrupt in the terminal (the echo garbles mid-block) — but content usually lands on disk correctly; ALWAYS verify with `sed -n`/`cat` after any patch. Python needs Windows paths (`C:\Users\...`); `sed`/`grep` use `/c/...`.
+- **Impact analysis first** — reference `field_crossref_raw.txt`, `where_used_raw.txt`, `function_universe_raw.txt`, `navigation_xref.txt` before changes. (function_universe indexes signatures/key-lines only — real file reads needed for logic.)
+- **Certify each item on device before reuse/commit.** Commit per verified item; explicit `git add <files>` (never `-A` — the Esri key is untracked).
+
+---
+*Handoff — 2026-07-07 EOD. Download standardization (area + track + import) complete and certified. Tomorrow: stake a small area, inspect the spatial/MBTiles storage the delivery process builds.*
+
+---
+
+## Doc-set status note (manual clarification — 07-07)
+THREE manual artifacts exist; don't confuse them:
+- **`GroupTrack_V24_UserManual_Complete.pdf`** — the last COMPLETE published manual (V2.4, May 2026). Reference-style (feature-by-feature). Baseline.
+- **`GroupTrack_User_Guide_V2_5.pdf`** (V2.5 Cookbook Draft) — the STRUCTURED current manual, built from `navigation_xref.txt` (40 screens) + V2.5 feature docs, cookbook style (how you get there / what you do / where it leads). Chapters 4-6 = current V2.5; Chapters 1-3 = 3.0 preview (banner'd). Marked DRAFT/VERIFY throughout (labels/nav need app authentication). **This is the manual today's download work lands in** — see below. Trail counts: ~49,000 trails / 591 trailheads.
+- **`app/src/main/assets/grouptrack_manual.html`** — **THE TRUE, SHIPPED, CANONICAL MANUAL** (confirmed 07-07, pulled from app assets). Interactive HTML: collapsible L1 map &rarr; L2 launch-point &rarr; L3 sub-flow &rarr; L4 screen hierarchy, search box, reference images. Titled "GroupTrack V2.5 Manual". This is the FINISHED product the V2.5 Cookbook PDF was the rough draft FOR. **Source of truth** &mdash; always pull the manual from app assets (last release, no changes = asset is authoritative). The `grouptrack_manual.html` carried in the doc set is this asset copy.
+
+**Manual revision pending (map onto the V2.5 Cookbook's chapters):**
+1. **Uniform source-selection popup** (today's change) — track download (artifact detail, the "tap a name → detail panel" path in Ch. 4 Work with Artifacts) and import-with-maps (Ch. 4 IMPORT ARTIFACTS / Track Import) now present the SAME source-selection screen (box 1) as area download. Note the consistent source-select step in Ch. 4 + Ch. 5 (Offline Maps & Downloads). Minor.
+2. **Tile-storage rewrite** (tomorrow's migration) — the loose `source/zoom/x/y.png` structure (V2.4 manual Ch. 11) becomes the MBTiles spatial-DB model (one .mbtiles per type, ~35-40% smaller). Material change; pairs with the release-notes upgrade box (install X-plore → delete maps → re-download). Revise + screenshot when Pass 1 ships, then re-point the release-notes manual link. In the Cookbook this touches Ch. 5 (Offline Maps & Downloads).
+3. **Cookbook is still DRAFT/VERIFY** — before publishing, walk each screen in-app, confirm button labels (draft uses code labels), verify each 'Leads to', fill thin screens (Explore/Profile/MyOrganizers/Subscription), add per-screen screenshots. Regenerate nav_xref to keep current.
+
+The V2.4 PDF's Chapter 11 + Chapter 12 (Tile Sources) + Appendix C (which is "Coming in V2.5") are the sections most out of date relative to shipped V2.5/V2.6 — worth a pass when the manual is revised.
+
+
 === GroupTrack_V3_TrackSharing_SpatialModel_2026-06-28.md ===
 # GroupTrack V3.0 — Track Sharing & Spatial Model (Design Target)
 
@@ -22493,7 +22725,7 @@ Release-notes / manual gate: the 2026-06-04 route release-notes draft described 
 First-launch + ? help spec (from V25_OpenItem_FirstLaunchNotes doc, carried): release notes auto-show on install/update with install+setup steps, acknowledge→proceed, rendered off main thread AFTER heavy init, bundled as APK asset (offline). ? help icon deep-links each screen to its manual section; V2.5 scope = Planning Map, Convoy Map (+connection panel), Convoy radio-write menu (the screens that persist to 3.0). Transitional radio-config functions (Apply/Archive/Restore) are fully documented as current-and-supported (NOT labeled deprecated to testers); 3.0 manual rewrites those sections when the functions are replaced.
 
 
-=== GroupTrack_Living_Master_2026-07-06.html ===
+=== GroupTrack_Living_Master_2026-07-07.html ===
 GroupTrack — Living Master Document
   body{font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;line-height:1.55;max-width:960px;margin:0 auto;padding:24px;color:#1a1a1a;background:#fafafa}
   h1{border-bottom:4px solid #2c6e49;padding-bottom:10px;margin-bottom:4px}
@@ -22523,7 +22755,7 @@ GroupTrack — Living Master Document
   th{background:#2c6e49;color:#fff}
   .meta{color:#777;font-size:0.85em}
 GroupTrack — Living Master Document
-Updated 2026-07-06 EOD. Self-contained: all topic detail is written INTO this document (collapsible), so nothing depends on an external file that could be lost. Version-sectioned. This document is part of AllDocs — expand a topic to work it, collapse it when done.
+Updated 2026-07-07 EOD. Self-contained: all topic detail is written INTO this document (collapsible), so nothing depends on an external file that could be lost. Version-sectioned. This document is part of AllDocs — expand a topic to work it, collapse it when done.
   Jump:
   V2.5
   V2.6
@@ -22561,7 +22793,8 @@ Doc follow-ups (not blockers)
   BUG B (resumed route draws angular/chords) — NOT an issue; self-corrects on the next track point.
 V2.6 — SIMPLIFICATION / CLEANUP + FASTER MAPS
 Through-line = subtraction. Clusters: tile storage (A, no-radio, first) → batch transport (B, no-radio) → lead-track rewrite (C, needs radio, last) + no-radio backlog (route-state, draw/connect, recorder, detail-panel wiring, aliases UI).
-▶ TOMORROW'S FIRST MOVE: Standardize all map-download submissions through the area-submission process (Step 0 of the tile plan). First verify the area download submission is "the black box" (cleanly takes (bbox, sources) → chops → queues → submits; owns large-bbox splitting; where it hands off to the return-point write).
+&#9989; STEP 0 DONE (07-07) &mdash; map-download standardization COMPLETE + CERTIFIED. All three origins (area, track/artifact-detail, import/batch) now funnel through ONE shared spine: BOX 1 source-selection screen (ConvoyDownloadConfirm) &rarr; BOX 2 DownloadQueueManager.submitDownload(n,s,e,w, selectedSlots, replace) &rarr; enqueueArea (grid divide / small-box fallback). bbox travels as a payload param through box 1 (never scope-read). Certified on Droid 2, committed to feature/convoy-event-ride. Full design in GroupTrack_V2_6_DownloadStandardization_Recap_2026-07-07.md. Bugs fixed: bbox payload loss (scope-vs-param), totalTiles=0 at enqueue, headless track download, box-1 occlusion. Decomposition scope rule captured (payload-over-scope). V2.6 badges bumped.
+&#9654; TOMORROW'S FIRST MOVE: Tile storage &mdash; same transfer method (box 1 &rarr; submitDownload &rarr; divide &rarr; worker fetch, UNCHANGED), NEW storage. Redirect the worker's WRITE landing from loose maps/tiles/&lt;slot&gt;/z/x/y to the spatial/MBTiles model (the RETURN POINT &rarr; WRITE "miracle" below). First move: STAKE A SMALL AREA and inspect what the storage model actually builds (how many DBs, how created, overlays linked) rather than reason from memory. Test on Droid 1 (cleared MBTiles device; pull .mbtiles to PC). Baseline the loose tree on Droid 2 first (ls -R .../maps/tiles/) for before/after.
 ⭐ TILE STORAGE — unified process (ITEM A Pass 1 + ITEM B Pass 2) DESIGNNEXT
 Design converged 07-06. This is the full design, written in.
 The unified process (one spine, many origins, many destinations)
@@ -22723,7 +22956,7 @@ Device / build quick-ref LOCKED
   One command at a time (Fred executes + pastes; Claude cannot run adb/git/builds or reach the repo/Drive). Patches = dated Python scripts → /c/Users/kixaz/Downloads/, count==1 anchor guard else ABORT, newline detect+preserve, dry-run generators. Line endings vary per file (LF vs CRLF-in-repo — scripts detect+preserve).
   LOGCAT: logcat -c → action → logcat -d | grep &lt;TAG&gt;. JS console.log → ConvoyJS on convoy_map.html; grouptrack_map.html (Planning) does NOT route console.log to logcat → visible on-screen element. Tags: TrackMaps, DownloadQueue, ImportDiag, TrackAdd, TrackDelete, TrackSync, AliasSwap, ConvoyJS.
   DOCS WORKFLOW: this living doc is the container — detail written IN, collapsible, version-sectioned. Generate at EOD, save to Drive GroupTrack_docs + G:, commit to repo docs/, folds into AllDocs. In-app asset filenames stay canonical (grouptrack_manual.html / grouptrack_release_notes.html — those are app ASSETS, a separate track from this living doc).
-Living master document — self-contained (all detail written in, collapsible). Regenerated 2026-07-06 from the 07-03 checklist + the 07-04 (cross-platform) and 07-06 (tile-storage, route-state) sessions + the Mar-14 iPad discussion doc. This document IS the reference — nothing here depends on an external file.
+Living master document — self-contained (all detail written in, collapsible). Regenerated 2026-07-07 from the 07-03 checklist + the 07-04 (cross-platform) and 07-06 (tile-storage, route-state) sessions + the Mar-14 iPad discussion doc. This document IS the reference — nothing here depends on an external file.
 
 
 === GroupTrack_TrailImport_Flow_Mockup.html ===
