@@ -68,6 +68,9 @@ fun ConvoyTrackImportScreen(onDismiss: () -> Unit) {
     var files by remember { mutableStateOf<List<File>>(emptyList()) }
     var selected by remember { mutableStateOf<Set<String>>(emptySet()) }
     var mapsFor by remember { mutableStateOf<Set<String>>(emptySet()) }   // per-file: include map download on import
+    var showSourcePopup by remember { mutableStateOf(false) }
+    var selectedSlots by remember { mutableStateOf<List<String>>(emptyList()) }
+    var replaceExisting by remember { mutableStateOf(false) }
     var scanning by remember { mutableStateOf(true) }
 
     // Progress dialog state
@@ -144,7 +147,7 @@ fun ConvoyTrackImportScreen(onDismiss: () -> Unit) {
                 progressName = f.name
                 importLines = importLines + "— ${f.name} —"
                 try {
-                    val summary = ConvoyTrackOps.importGpxAllArtifacts(f, context, mapsFor.contains(f.name)) { line ->
+                    val summary = ConvoyTrackOps.importGpxAllArtifacts(f, context, if (mapsFor.contains(f.name)) selectedSlots else emptyList(), replaceExisting) { line ->
                         importLines = importLines + line
                     }
                     imported.addAll(summary.trackFiles)
@@ -180,6 +183,34 @@ fun ConvoyTrackImportScreen(onDismiss: () -> Unit) {
     }
 
     // -- Dialogs ------------------------------------------------------
+    if (showSourcePopup) {
+        val slotSources = remember { MapSourceManager.getSlotSources() }
+        val popupSlots = remember(slotSources) {
+            slotSources.map { (k, label, _) ->
+                SlotDisplayInfo(
+                    slotName = k, sourceName = label, directory = k,
+                    tileCount = 0, sizeMB = 0f, preSelected = true
+                )
+            }
+        }
+        androidx.compose.ui.window.Dialog(onDismissRequest = { showSourcePopup = false }) {
+            ConvoyDownloadConfirm(
+                estimatedTiles = 0,
+                estimatedMB = 0f,
+                areaDesc = "Import: download maps for selected tracks",
+                bbox = DownloadBbox(),
+                slots = popupSlots,
+                onProceed = { _, sel, replace ->
+                    selectedSlots = sel
+                    replaceExisting = replace
+                    showSourcePopup = false
+                    doImport()
+                },
+                onCancel = { showSourcePopup = false }
+            )
+        }
+    }
+
     if (showProgress) {
         ImportProgressDialog(
             current = progressCurrent,
@@ -508,7 +539,7 @@ fun ConvoyTrackImportScreen(onDismiss: () -> Unit) {
                     Surface(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable(enabled = selected.isNotEmpty()) { doImport() },
+                            .clickable(enabled = selected.isNotEmpty()) { if (mapsFor.isNotEmpty()) showSourcePopup = true else doImport() },
                         shape = RoundedCornerShape(10.dp),
                         color = if (selected.isNotEmpty()) Color(0xFF15512C)
                         else Color(0xFF1C211C)

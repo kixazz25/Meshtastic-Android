@@ -483,7 +483,8 @@ object ConvoyTrackOps {
     suspend fun importGpxAllArtifacts(
         sourceFile: File,
         context: android.content.Context,
-        downloadMaps: Boolean = false,
+        downloadMapSlots: List<String> = emptyList(),
+        replaceExisting: Boolean = false,
         onProgress: ((String) -> Unit)? = null
     ): ImportArtifactsSummary = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
         val sourceName = sourceFile.name
@@ -577,11 +578,19 @@ object ConvoyTrackOps {
                                     // [2026-07-01 maps-follow-tracks] queue this new track's map tiles
                                     // (padded bbox -> download queue). INSERT only; already on IO thread.
                                     // OPT-IN: only when the import-maps checkbox was checked.
-                                    if (downloadMaps) {
+                                    if (downloadMapSlots.isNotEmpty()) {
                                         try {
                                             val gh = SpatialDbManager.computeGeomHash(wkt)
-                                            val cells = SpatialDbManager.downloadMapsForTrackHash(context, gh)
-                                            onProgress?.invoke("MAPS: $baseName -> $cells cells queued")
+                                            val bb = SpatialDbManager.getTrackBbox(context, gh)
+                                            if (bb != null && bb.isValid) {
+                                                DownloadQueueManager.submitDownload(
+                                                    context, bb.north, bb.south, bb.east, bb.west,
+                                                    downloadMapSlots, replaceExisting
+                                                )
+                                                onProgress?.invoke("MAPS: $baseName queued (${downloadMapSlots.size} sources)")
+                                            } else {
+                                                onProgress?.invoke("MAPS: $baseName no bbox")
+                                            }
                                         } catch (e: Exception) {
                                             onProgress?.invoke("MAPS ERR: $baseName ${e.message}")
                                         }

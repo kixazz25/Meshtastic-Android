@@ -65,8 +65,10 @@ fun ConvoyDownloadConfirm(
             Text("DOWNLOAD TILES", color = green, fontSize = 12.sp,
                 fontFamily = mono, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(4.dp))
-            Text("$estimatedTiles tiles per source", color = txtD,
-                fontSize = 9.sp, fontFamily = mono)
+            if (estimatedTiles > 0) {
+                Text("$estimatedTiles tiles per source", color = txtD,
+                    fontSize = 9.sp, fontFamily = mono)
+            }
             if (areaDesc.isNotEmpty()) {
                 Text(areaDesc, color = txtD, fontSize = 8.sp, fontFamily = mono)
             }
@@ -159,7 +161,7 @@ fun ConvoyDownloadConfirm(
             }
 
             val count = selectedSlots.size
-            Text("$count source${if (count != 1) "s" else ""} \u00b7 ~${estimatedTiles * count} total tiles",
+            Text("$count source${if (count != 1) "s" else ""}" + if (estimatedTiles > 0) " \u00b7 ~${estimatedTiles * count} total tiles" else "",
                 color = txtD, fontSize = 8.sp, fontFamily = mono,
                 modifier = Modifier.padding(top = 4.dp))
         }
