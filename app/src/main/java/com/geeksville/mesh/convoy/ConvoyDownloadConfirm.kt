@@ -42,9 +42,10 @@ fun ConvoyDownloadConfirm(
     estimatedTiles: Int,
     estimatedMB: Float,
     areaDesc: String = "",
+    bbox: DownloadBbox,
     slots: List<SlotDisplayInfo>,
     initialReplaceExisting: Boolean = false,
-    onProceed: (selectedSlots: List<String>, replaceExisting: Boolean) -> Unit,
+    onProceed: (bbox: DownloadBbox, selectedSlots: List<String>, replaceExisting: Boolean) -> Unit,
     onCancel: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -148,7 +149,7 @@ fun ConvoyDownloadConfirm(
                     Text("CANCEL", fontFamily = mono, fontSize = 10.sp)
                 }
                 Button(
-                    onClick = { onProceed(selectedSlots.toList(), replaceExisting) },
+                    onClick = { onProceed(bbox, selectedSlots.toList(), replaceExisting) },
                     enabled = selectedSlots.isNotEmpty(),
                     modifier = Modifier.weight(1f),
                     colors = ButtonDefaults.buttonColors(containerColor = green)

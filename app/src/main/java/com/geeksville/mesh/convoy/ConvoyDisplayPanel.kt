@@ -128,7 +128,7 @@ fun ConvoyDisplayPanel(
                         isOn = false,
                         onToggle = {},
                         enabled = false,
-                        versionTag = "V2.5"
+                        versionTag = "V2.6"
                     )
 
                     // Routes -- V2.5 greyed
@@ -137,7 +137,7 @@ fun ConvoyDisplayPanel(
                         isOn = false,
                         onToggle = {},
                         enabled = false,
-                        versionTag = "V2.5"
+                        versionTag = "V2.6"
                     )
 
                     // Downloaded areas

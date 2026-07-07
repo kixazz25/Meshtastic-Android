@@ -153,12 +153,13 @@ object DownloadQueueManager {
         replaceExisting: Boolean = false
     ): Int {
         init(context)
+        val slotLayers = MapSourceManager.getDownloadSources().filter { it.first == slotName }.sumOf { it.second.size }
         val cells = ConvoyTileDownloader.gridCells(north, south, east, west)
         if (cells.isEmpty()) {
             // Small area — single job
             val entry = QueueEntry(
                 north = north, south = south, east = east, west = west,
-                totalTiles = 0,
+                totalTiles = ConvoyTileCalculator.calculateTiles(north, south, east, west).size * slotLayers,
                 label = "DL $slotName",
                 refreshMode = replaceExisting,
                 refreshSlot = slotName
@@ -174,7 +175,7 @@ object DownloadQueueManager {
         cells.forEachIndexed { i, cell ->
             val entry = QueueEntry(
                 north = cell[0], south = cell[1], east = cell[2], west = cell[3],
-                totalTiles = 0,
+                totalTiles = ConvoyTileCalculator.calculateTiles(cell[0], cell[1], cell[2], cell[3]).size * slotLayers,
                 label = "DL $slotName ${i + 1}/${cells.size}",
                 refreshMode = replaceExisting,
                 refreshSlot = slotName
@@ -186,6 +187,23 @@ object DownloadQueueManager {
         android.util.Log.i(TAG, "Enqueued area: $slotName ${cells.size} cells replace=$replaceExisting")
         startNextIfAvailable()
         return cells.size
+    }
+
+    /**
+     * BOX 2 - shared enqueue processor. No UI. Callable from any working body,
+     * attended or unattended (area / track engine / import loop / sync loop).
+     * Takes a bbox + sources chosen up front (box 1); enqueues one divided
+     * area-download per source. enqueueArea handles large + small boxes.
+     */
+    fun submitDownload(
+        context: Context,
+        north: Double, south: Double, east: Double, west: Double,
+        selectedSlots: List<String>,
+        replaceExisting: Boolean = false
+    ) {
+        for (slotName in selectedSlots) {
+            enqueueArea(context, slotName, north, south, east, west, replaceExisting)
+        }
     }
 
         fun enqueueRefresh(

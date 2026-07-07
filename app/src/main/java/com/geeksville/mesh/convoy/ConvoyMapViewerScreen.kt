@@ -1243,11 +1243,18 @@ fun ConvoyMapViewerScreen(
                     onExport = { id -> scope.launch { ConvoyArtifactOps.export(context, pendingDetailType!!, id) } },
                     onDownloadMaps = { hash ->
                         Thread {
-                            val n = SpatialDbManager.downloadMapsForTrackHash(context, hash)
+                            val bb = SpatialDbManager.getTrackBbox(context, hash)
                             android.os.Handler(android.os.Looper.getMainLooper()).post {
-                                android.widget.Toast.makeText(context,
-                                    if (n > 0) "Queued $n map areas for download" else "No map area for this track",
-                                    android.widget.Toast.LENGTH_LONG).show()
+                                if (bb != null && bb.isValid) {
+                                    pendingDetailId = null
+                                    pendingDetailType = null
+                                    downloadBbox = bb
+                                    showDownloadConfirm = true
+                                } else {
+                                    android.widget.Toast.makeText(context,
+                                        "No map area for this track",
+                                        android.widget.Toast.LENGTH_LONG).show()
+                                }
                             }
                         }.start()
                     },
@@ -1413,19 +1420,16 @@ fun ConvoyMapViewerScreen(
                     estimatedTiles = estimate.tileCount,
                     estimatedMB = estimate.estimatedMB,
                     areaDesc = String.format("%.3f\u00b0N to %.3f\u00b0N", downloadBbox.south, downloadBbox.north),
+                    bbox = downloadBbox,
                     slots = slots,
-                    onProceed = { selectedSlots, replace ->
+                    onProceed = { bbox, selectedSlots, replace ->
                         showDownloadConfirm = false
                         showDownloadPanel = false
                         Thread {
-                            val bb = downloadBbox
-                            for (slotName in selectedSlots) {
-                                DownloadQueueManager.enqueueArea(
-                                    context, slotName,
-                                    bb.north, bb.south, bb.east, bb.west,
-                                    replace
-                                )
-                            }
+                            DownloadQueueManager.submitDownload(
+                                context, bbox.north, bbox.south, bbox.east, bbox.west,
+                                selectedSlots, replace
+                            )
                         }.start()
                     },
                     onCancel = { showDownloadConfirm = false },
