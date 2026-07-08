@@ -101,6 +101,7 @@ object ConvoyTileDownloader {
         sourceUrl: String,
         sourceName: String,
         forceOverwrite: Boolean = false,
+        isOverlay: Boolean = false,   // [V2.6a-WEBP] role -> codec dispatch
         onProgress: (downloaded: Int, total: Int, failCount: Int) -> Unit
     ): Result<DownloadSummary> {
         return try {
@@ -125,7 +126,7 @@ object ConvoyTileDownloader {
                 val url = buildTileUrl(tile, sourceUrl)
                 if (tile.z == 18 && downloaded < 3) android.util.Log.i("TileDownloader", "DL: $url -> $sourceName.mbtiles z${tile.z}/${tile.x}/${tile.y}")
                 val bytes = fetchTileBytes(url)
-                val success = if (bytes != null) MBTilesStore.insertTile(sourceName, tile.z, tile.x, tile.y, bytes) else false
+                val success = if (bytes != null) MBTilesStore.insertTile(sourceName, tile.z, tile.x, tile.y, bytes, isOverlay) else false
                 if (success) downloaded++ else failed++
                 onProgress(downloaded, total, failed)
             }

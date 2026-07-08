@@ -81,7 +81,8 @@ class ConvoyDownloadWorker(
                     tiles = existingTiles,
                     sourceUrl = layer.urlTemplate,
                     sourceName = refreshSlot,
-                    forceOverwrite = true
+                    forceOverwrite = true,
+                    isOverlay = (layer.role == "overlay")
                 ) { downloaded, _, failCount ->
                     totalDownloaded++
                     totalFailed = failCount
@@ -135,7 +136,8 @@ class ConvoyDownloadWorker(
                     context = appContext,
                     tiles = tiles,
                     sourceUrl = layer.urlTemplate,
-                    sourceName = if (layerIndex == 0) slotName else layer.cacheDir
+                    sourceName = if (layerIndex == 0) slotName else layer.cacheDir,
+                    isOverlay = (layer.role == "overlay")
                 ) { downloaded, _, failCount ->
                     totalDownloaded++
                     totalFailed = failCount

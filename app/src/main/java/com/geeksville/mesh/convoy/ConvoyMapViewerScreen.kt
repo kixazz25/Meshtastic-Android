@@ -1,4 +1,5 @@
 package com.geeksville.mesh.convoy
+// [V2.6a-WEBP] read intercepts serve image/webp
 
 import android.annotation.SuppressLint
 import android.location.Geocoder
@@ -586,7 +587,7 @@ fun ConvoyMapViewerScreen(
                                         if (z != null && x != null && y != null) {
                                             val bytes = MBTilesStore.readTile("SAT_LABELS_TRANSPORT", z, x, y)
                                             if (bytes != null) {
-                                                return android.webkit.WebResourceResponse("image/png", null, java.io.ByteArrayInputStream(bytes))
+                                                return android.webkit.WebResourceResponse("image/webp", null, java.io.ByteArrayInputStream(bytes))
                                             }
                                         }
                                     }
@@ -599,7 +600,7 @@ fun ConvoyMapViewerScreen(
                                         if (z != null && x != null && y != null) {
                                             val bytes = MBTilesStore.readTile("SAT_LABELS_PLACES", z, x, y)
                                             if (bytes != null) {
-                                                return android.webkit.WebResourceResponse("image/png", null, java.io.ByteArrayInputStream(bytes))
+                                                return android.webkit.WebResourceResponse("image/webp", null, java.io.ByteArrayInputStream(bytes))
                                             }
                                         }
                                     }

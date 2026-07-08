@@ -78,7 +78,7 @@ object MBTilesStore {
         // reader's content-type. bounds/min-max are optional and left for a
         // later pass; name identifies the tileset.
         try {
-            val format = if (type.startsWith("SAT_LABELS")) "webp" else "png"
+            val format = "webp"   // [V2.6a-WEBP] all tiles stored WebP (base lossy, overlay lossless)
             d.execSQL("INSERT OR REPLACE INTO metadata(name,value) VALUES('name',?)", arrayOf<Any>(type))
             d.execSQL("INSERT OR REPLACE INTO metadata(name,value) VALUES('format',?)", arrayOf<Any>(format))
             d.execSQL("INSERT OR REPLACE INTO metadata(name,value) VALUES('scheme',?)", arrayOf<Any>("xyz"))
@@ -100,12 +100,13 @@ object MBTilesStore {
      * matching the old dest.writeBytes overwrite behavior.
      * Returns true on success.
      */
-    fun insertTile(type: String, z: Int, x: Int, y: Int, bytes: ByteArray): Boolean {
+    fun insertTile(type: String, z: Int, x: Int, y: Int, bytes: ByteArray, isOverlay: Boolean = false): Boolean {
         val d = db(type) ?: return false
+        val stored = TileCodec.encode(bytes, isOverlay)   // [V2.6a-WEBP] lossy base / lossless overlay
         return try {
             d.execSQL(
                 "INSERT OR REPLACE INTO tiles(zoom_level,tile_column,tile_row,tile_data) VALUES(?,?,?,?)",
-                arrayOf<Any>(z, x, y, bytes)
+                arrayOf<Any>(z, x, y, stored)
             )
             true
         } catch (e: Exception) {

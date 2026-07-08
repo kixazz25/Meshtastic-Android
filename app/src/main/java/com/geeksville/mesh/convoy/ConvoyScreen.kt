@@ -1,4 +1,5 @@
 package com.geeksville.mesh.convoy
+// [V2.6a-WEBP] read intercepts serve image/webp
 
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -179,6 +180,9 @@ fun ConvoyScreen(
     var trailsLoaded by remember { mutableStateOf(false) }
     var tracksOn by remember { mutableStateOf(true) }
     var showConvoyTrackPicker by remember { mutableStateOf(false) }
+    // [V2.6a-CONVOY-DLPANEL] standard download-confirm panel state (mirror of viewer)
+    var downloadBbox by remember { mutableStateOf(DownloadBbox()) }
+    var showDownloadConfirm by remember { mutableStateOf(false) }
     var convoyTrackFiles by remember { mutableStateOf<List<String>>(emptyList()) }
     var convoyLoadedTracks by remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
     var convoyTrackSearch by remember { mutableStateOf("") }
@@ -732,7 +736,7 @@ fun ConvoyScreen(
                                         if (z != null && x != null && y != null) {
                                             val bytes = MBTilesStore.readTile(type, z, x, y)
                                             android.util.Log.d("ConvoyIntercept", "TILE mbtiles hit=${bytes != null} type=$type z$z/$x/$y")
-                                            if (bytes != null) return android.webkit.WebResourceResponse("image/png", null, java.io.ByteArrayInputStream(bytes))
+                                            if (bytes != null) return android.webkit.WebResourceResponse("image/webp", null, java.io.ByteArrayInputStream(bytes))
                                         }
                                     }
                                 }
@@ -746,7 +750,7 @@ fun ConvoyScreen(
                                         if (z != null && x != null && y != null) {
                                             val bytes = MBTilesStore.readTile("SAT_LABELS_TRANSPORT", z, x, y)
                                             if (bytes != null) {
-                                                return android.webkit.WebResourceResponse("image/png", null, java.io.ByteArrayInputStream(bytes))
+                                                return android.webkit.WebResourceResponse("image/webp", null, java.io.ByteArrayInputStream(bytes))
                                             }
                                         }
                                     }
@@ -759,7 +763,7 @@ fun ConvoyScreen(
                                         if (z != null && x != null && y != null) {
                                             val bytes = MBTilesStore.readTile("SAT_LABELS_PLACES", z, x, y)
                                             if (bytes != null) {
-                                                return android.webkit.WebResourceResponse("image/png", null, java.io.ByteArrayInputStream(bytes))
+                                                return android.webkit.WebResourceResponse("image/webp", null, java.io.ByteArrayInputStream(bytes))
                                             }
                                         }
                                     }
@@ -1861,12 +1865,19 @@ fun ConvoyScreen(
                         onShare = { id -> coroutineScope.launch { ConvoyArtifactOps.share(context, pendingDetailType!!, id) } },
                         onExport = { id -> coroutineScope.launch { ConvoyArtifactOps.export(context, pendingDetailType!!, id) } },
                         onDownloadMaps = { hash ->
+                            // [V2.6a-CONVOY-DLPANEL] invoke the standard confirm panel (was old direct-queue)
                             Thread {
-                                val n = SpatialDbManager.downloadMapsForTrackHash(context, hash)
+                                val bb = SpatialDbManager.getTrackBbox(context, hash)
                                 android.os.Handler(android.os.Looper.getMainLooper()).post {
-                                    android.widget.Toast.makeText(context,
-                                        if (n > 0) "Queued $n map areas for download" else "No map area for this track",
-                                        android.widget.Toast.LENGTH_LONG).show()
+                                    if (bb != null && bb.isValid) {
+                                        pendingDetailId = null; pendingDetailType = null  // [V2.6a-DLPANEL-CLOSE] close detail when panel opens (mirror viewer)
+                                        downloadBbox = bb
+                                        showDownloadConfirm = true
+                                    } else {
+                                        android.widget.Toast.makeText(context,
+                                            "No map area for this track",
+                                            android.widget.Toast.LENGTH_LONG).show()
+                                    }
                                 }
                             }.start()
                         },
@@ -1922,6 +1933,42 @@ fun ConvoyScreen(
                             }
                             pendingDetailId = null; pendingDetailType = null
                         }
+                    )
+                }
+
+                // [V2.6a-CONVOY-DLPANEL] standard source-select + replace confirm panel
+                if (showDownloadConfirm && downloadBbox.isValid) {
+                    val slotSources = remember { MapSourceManager.getSlotSources() }
+                    val estimate = remember(downloadBbox) { ConvoyTileCalculator.quickEstimate(
+                        downloadBbox.north, downloadBbox.south,
+                        downloadBbox.east, downloadBbox.west) }
+                    val slots = remember(slotSources) { slotSources.map { (legacyKey, shortLabel, _) ->
+                        SlotDisplayInfo(
+                            slotName = legacyKey,
+                            sourceName = shortLabel,
+                            directory = legacyKey,
+                            tileCount = 0,
+                            sizeMB = 0f,
+                            preSelected = true
+                        )
+                    } }
+                    ConvoyDownloadConfirm(
+                        estimatedTiles = estimate.tileCount,
+                        estimatedMB = estimate.estimatedMB,
+                        areaDesc = String.format("%.3f deg N to %.3f deg N", downloadBbox.south, downloadBbox.north),
+                        bbox = downloadBbox,
+                        slots = slots,
+                        onProceed = { bbox, selectedSlots, replace ->
+                            showDownloadConfirm = false
+                            Thread {
+                                DownloadQueueManager.submitDownload(
+                                    context, bbox.north, bbox.south, bbox.east, bbox.west,
+                                    selectedSlots, replace
+                                )
+                            }.start()
+                        },
+                        onCancel = { showDownloadConfirm = false },
+                        modifier = Modifier.padding(16.dp)
                     )
                 }
 
