@@ -59,7 +59,7 @@ class ConvoyDownloadWorker(
 
             // Filter to only tiles that exist on disk (refresh, not create)
             val existingTiles = cellTiles.filter { tile ->
-                ConvoyTileDownloader.tilePath(appContext, refreshSlot, tile).exists()
+                MBTilesStore.hasTile(refreshSlot, tile.z, tile.x, tile.y) /* [V2.6-PASS1-S4] */
             }
 
             val totalTiles = existingTiles.size * layers.size

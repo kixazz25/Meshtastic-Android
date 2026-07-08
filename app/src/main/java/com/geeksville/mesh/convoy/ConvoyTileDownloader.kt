@@ -61,35 +61,35 @@ object ConvoyTileDownloader {
     }
 
     // ── Download a single tile — retry once on failure ───────
-    suspend fun downloadTile(url: String, dest: File): Boolean {
+    // [V2.6-PASS1-WRITE] MBTiles write redirect
+    // Fetch a single tile's bytes (retry once). NO file write - the caller
+    // inserts into MBTilesStore. Returns bytes on success, null on failure.
+    suspend fun fetchTileBytes(url: String): ByteArray? {
         repeat(2) { attempt ->
-            if (!coroutineContext.isActive) return false
+            if (!coroutineContext.isActive) return null
             try {
-                val success = withContext(Dispatchers.IO) {
+                val bytes = withContext(Dispatchers.IO) {
                     val request = Request.Builder()
-                .url(url)
-                .header("User-Agent", "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36")
-                .build()
+                        .url(url)
+                        .header("User-Agent", "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36")
+                        .build()
                     val response = client.newCall(request).execute()
                     if (response.isSuccessful) {
-                        response.body?.bytes()?.let { bytes ->
-                            dest.writeBytes(bytes)
-                            true
-                        } ?: false
+                        response.body?.bytes()
                     } else {
                         android.util.Log.w("TileDownloader", "HTTP ${response.code}: $url")
                         response.close()
-                        false
+                        null
                     }
                 }
-                if (success) return true
+                if (bytes != null) return bytes
             } catch (e: Exception) {
-                android.util.Log.e("TileDownloader", "Tile fail: ${dest.path} err=${e.message}")
-                if (attempt == 1) return false
+                android.util.Log.e("TileDownloader", "Tile fail: $url err=${e.message}")
+                if (attempt == 1) return null
                 kotlinx.coroutines.delay(500)
             }
         }
-        return false
+        return null
     }
 
     // ── Download all tiles in batch ───────────────────────────
@@ -116,19 +116,16 @@ object ConvoyTileDownloader {
                     )
                 }
 
-                val dest = tilePath(context, sourceName, tile)
-
-                // Skip tiles already on disk (resume support) unless forceOverwrite
-                if (!forceOverwrite && dest.exists() && dest.length() > 0) {
+                // [V2.6-PASS1-WRITE] resume-skip via MBTilesStore (sourceName = type)
+                if (!forceOverwrite && MBTilesStore.hasTile(sourceName, tile.z, tile.x, tile.y)) {
                     downloaded++
                     onProgress(downloaded, total, failed)
                     continue
                 }
-
                 val url = buildTileUrl(tile, sourceUrl)
-                if (tile.z == 18 && downloaded < 3) android.util.Log.i("TileDownloader", "DL: $url -> ${dest.path}")
-                val success = downloadTile(url, dest)
-
+                if (tile.z == 18 && downloaded < 3) android.util.Log.i("TileDownloader", "DL: $url -> $sourceName.mbtiles z${tile.z}/${tile.x}/${tile.y}")
+                val bytes = fetchTileBytes(url)
+                val success = if (bytes != null) MBTilesStore.insertTile(sourceName, tile.z, tile.x, tile.y, bytes) else false
                 if (success) downloaded++ else failed++
                 onProgress(downloaded, total, failed)
             }
@@ -147,21 +144,9 @@ object ConvoyTileDownloader {
 
     // ── Scan existing tiles to TileKey list (for refresh) ────
     fun scanTilesToKeys(slotName: String): List<TileKey> {
-        val dir = File(ConvoyConfig.TILE_DIR, slotName)
-        if (!dir.exists()) return emptyList()
-        val keys = mutableListOf<TileKey>()
-        // Directory structure: {slotName}/{z}/{x}/{y}.png
-        dir.listFiles()?.filter { it.isDirectory }?.forEach { zDir ->
-            val z = zDir.name.toIntOrNull() ?: return@forEach
-            zDir.listFiles()?.filter { it.isDirectory }?.forEach { xDir ->
-                val x = xDir.name.toIntOrNull() ?: return@forEach
-                xDir.listFiles()?.filter { it.isFile && it.name.endsWith(".png") }?.forEach { yFile ->
-                    val y = yFile.nameWithoutExtension.toIntOrNull() ?: return@forEach
-                    keys.add(TileKey(z, x, y))
-                }
-            }
-        }
-        android.util.Log.i("TileDownloader", "Scanned $slotName: ${keys.size} tiles")
+        // [V2.6-PASS1-S4] DB-backed: slotName is the type (= old cache_dir).
+        val keys = MBTilesStore.scanKeys(slotName)
+        android.util.Log.i("TileDownloader", "Scanned $slotName: ${keys.size} tiles (mbtiles)")
         return keys
     }
 
@@ -206,20 +191,13 @@ object ConvoyTileDownloader {
 
     // ── Delete all tiles for a source ────────────────────────
     fun deleteSource(context: Context, sourceName: String): Boolean {
-        val dir = File(ConvoyConfig.TILE_DIR, sourceName)
-        return if (dir.exists()) dir.deleteRecursively() else true
+        // [V2.6-PASS1-S4] DB-backed: drop the <type>.mbtiles file.
+        return MBTilesStore.deleteSource(sourceName)
     }
 
     // ── Count tiles and size for a downloaded source ─────────
     fun sourceInfo(context: Context, sourceName: String): Pair<Int, Float> {
-        val dir = File(ConvoyConfig.TILE_DIR, sourceName)
-        if (!dir.exists()) return Pair(0, 0f)
-        var count = 0
-        var bytes = 0L
-        dir.walkTopDown().filter { it.isFile }.forEach {
-            count++
-            bytes += it.length()
-        }
-        return Pair(count, bytes / (1024f * 1024f))
+        // [V2.6-PASS1-S4] DB-backed: tile count + .mbtiles file size.
+        return MBTilesStore.sourceInfo(sourceName)
     }
 }

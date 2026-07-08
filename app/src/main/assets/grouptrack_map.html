@@ -173,8 +173,9 @@
       });
       tileLayer.addTo(map);
       // V2.4: no zoom enforcement — allow overzoom
-      // Label overlays — cleared here, injected from Kotlin via setOverlayLayers()
-      clearOverlayLayers();
+      // Label overlays — re-applied on every base change so the base<->overlay
+      // relationship survives source swaps (offline convoy:// swap AND back). /* [V2.6-PASS1-OVERLAY-REAPPLY] */
+      if (lastOverlayJson) { setOverlayLayers(lastOverlayJson); } else { clearOverlayLayers(); }
       // Auto-toggle trails: ON for SAT and TOPO, OFF for TOPO+
       if (label === 'SAT' || label === 'TOPO') {
         showTrails();
@@ -185,11 +186,13 @@
 
     // -- Overlay layer management (injected from Kotlin) --
     var overlayLayers = [];
+    var lastOverlayJson = null;   /* [V2.6-PASS1-OVERLAY-REAPPLY] remembered so a base swap can re-add overlays */
     function clearOverlayLayers() {
       overlayLayers.forEach(function(layer) { map.removeLayer(layer); });
       overlayLayers = [];
     }
     function setOverlayLayers(jsonStr) {
+      lastOverlayJson = jsonStr;   /* [V2.6-PASS1-OVERLAY-REAPPLY] */
       clearOverlayLayers();
       try {
         var layers = JSON.parse(jsonStr);

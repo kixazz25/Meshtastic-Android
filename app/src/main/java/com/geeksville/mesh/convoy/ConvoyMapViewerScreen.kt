@@ -579,20 +579,28 @@ fun ConvoyMapViewerScreen(
                                 val url = request?.url?.toString() ?: return super.shouldInterceptRequest(view, request)
                                 // Esri URL is tile/z/y/x but local storage is source/z/x/y.png
                                 if (url.contains("/Reference/World_Transportation/MapServer/tile/")) {
+                                    // [V2.6-PASS1-READ] Transportation overlay from MBTiles (raw z/x/y)
                                     val parts = url.split("/tile/").lastOrNull()?.split("/")
                                     if (parts != null && parts.size >= 3) {
-                                        val file = java.io.File(ConvoyConfig.TILE_DIR, "SAT_LABELS_TRANSPORT/${parts[0]}/${parts[2]}/${parts[1]}.png")
-                                        if (file.exists()) {
-                                            return android.webkit.WebResourceResponse("image/png", null, java.io.FileInputStream(file))
+                                        val z = parts[0].toIntOrNull(); val y = parts[1].toIntOrNull(); val x = parts[2].substringBefore('.').toIntOrNull()
+                                        if (z != null && x != null && y != null) {
+                                            val bytes = MBTilesStore.readTile("SAT_LABELS_TRANSPORT", z, x, y)
+                                            if (bytes != null) {
+                                                return android.webkit.WebResourceResponse("image/png", null, java.io.ByteArrayInputStream(bytes))
+                                            }
                                         }
                                     }
                                 }
                                 if (url.contains("/Reference/World_Boundaries_and_Places/MapServer/tile/")) {
+                                    // [V2.6-PASS1-READ] Places overlay from MBTiles (raw z/x/y)
                                     val parts = url.split("/tile/").lastOrNull()?.split("/")
                                     if (parts != null && parts.size >= 3) {
-                                        val file = java.io.File(ConvoyConfig.TILE_DIR, "SAT_LABELS_PLACES/${parts[0]}/${parts[2]}/${parts[1]}.png")
-                                        if (file.exists()) {
-                                            return android.webkit.WebResourceResponse("image/png", null, java.io.FileInputStream(file))
+                                        val z = parts[0].toIntOrNull(); val y = parts[1].toIntOrNull(); val x = parts[2].substringBefore('.').toIntOrNull()
+                                        if (z != null && x != null && y != null) {
+                                            val bytes = MBTilesStore.readTile("SAT_LABELS_PLACES", z, x, y)
+                                            if (bytes != null) {
+                                                return android.webkit.WebResourceResponse("image/png", null, java.io.ByteArrayInputStream(bytes))
+                                            }
                                         }
                                     }
                                 }
@@ -1531,18 +1539,15 @@ fun ConvoyMapViewerScreen(
                                     val tilesDir = java.io.File(ConvoyConfig.TILE_DIR, "SAT/14")
                                     Thread {
                                         val bounds = mutableListOf<String>()
-                                        if (tilesDir.exists()) {
+                                        run {
+                                            // [V2.6-PASS1-S4-VIEWER] DB-backed coverage (raw z/x/y at z14)
                                             val z = 14; val n = 1 shl z
-                                            tilesDir.listFiles()?.forEach { xDir: java.io.File ->
-                                                val x = xDir.name.toLongOrNull() ?: return@forEach
-                                                xDir.listFiles()?.forEach { yFile: java.io.File ->
-                                                    val y = yFile.name.removeSuffix(".png").toLongOrNull() ?: return@forEach
-                                                    val tN = Math.toDegrees(Math.atan(Math.sinh(Math.PI * (1.0 - 2.0 * y / n))))
-                                                    val tS = Math.toDegrees(Math.atan(Math.sinh(Math.PI * (1.0 - 2.0 * (y + 1) / n))))
-                                                    val tW = x.toDouble() / n * 360.0 - 180.0
-                                                    val tE = (x + 1).toDouble() / n * 360.0 - 180.0
-                                                    bounds.add("{\"n\":$tN,\"s\":$tS,\"e\":$tE,\"w\":$tW}")
-                                                }
+                                            for ((x, y) in MBTilesStore.xyAtZoom("SAT", z)) {
+                                                val tN = Math.toDegrees(Math.atan(Math.sinh(Math.PI * (1.0 - 2.0 * y / n))))
+                                                val tS = Math.toDegrees(Math.atan(Math.sinh(Math.PI * (1.0 - 2.0 * (y + 1) / n))))
+                                                val tW = x.toDouble() / n * 360.0 - 180.0
+                                                val tE = (x + 1).toDouble() / n * 360.0 - 180.0
+                                                bounds.add("{\"n\":$tN,\"s\":$tS,\"e\":$tE,\"w\":$tW}")
                                             }
                                         }
                                         val json = "[" + bounds.joinToString(",") + "]"
