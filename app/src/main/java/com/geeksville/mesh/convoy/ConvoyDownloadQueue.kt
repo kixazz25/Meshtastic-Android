@@ -82,7 +82,7 @@ data class QueueEntry(
 // ===========================================================
 object DownloadQueueManager {
 
-    private const val MAX_CONCURRENT = 2
+    private const val MAX_CONCURRENT = 3  // [V2.6b-MAXCONC3] test bump 2->3 (was 2); observe error rate before building JSON tuning rig
     private const val QUEUE_FILE = "download_queue.json"
     private const val TAG = "DownloadQueue"
 

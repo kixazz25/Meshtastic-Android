@@ -4,6 +4,8 @@ import android.content.Context
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.async
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
@@ -31,7 +33,11 @@ data class DownloadSummary(
     val totalMB: Float
 )
 
-object ConvoyTileDownloader {
+object ConvoyTileDownloader {  // [V2.6b-CONCBACKOFF]
+    // [V2.6b] Parallel tile fetch + 429/503 backoff tuning (all network-bound).
+    private const val TILE_FETCH_CONCURRENCY = 8
+    private const val TILE_MAX_RETRIES = 4
+    private const val TILE_BACKOFF_BASE_MS = 400L
 
     private const val AVG_TILE_BYTES = 15_360L    // 15 KB average
     private const val CONNECT_TIMEOUT_S = 10L
@@ -64,33 +70,53 @@ object ConvoyTileDownloader {
     // [V2.6-PASS1-WRITE] MBTiles write redirect
     // Fetch a single tile's bytes (retry once). NO file write - the caller
     // inserts into MBTilesStore. Returns bytes on success, null on failure.
+    // [V2.6b] 429 (Too Many Requests) / 503 are treated as RETRYABLE with exponential
+    // backoff on the SAME tile — never dropped — since throttling is transient and
+    // silently losing tiles under load is worse than a slower download. Honors
+    // Retry-After when sent. Genuine absence (404 etc.) returns null quickly.
     suspend fun fetchTileBytes(url: String): ByteArray? {
-        repeat(2) { attempt ->
+        var attempt = 0
+        while (attempt <= TILE_MAX_RETRIES) {
             if (!coroutineContext.isActive) return null
             try {
-                val bytes = withContext(Dispatchers.IO) {
+                val result = withContext(Dispatchers.IO) {
                     val request = Request.Builder()
                         .url(url)
                         .header("User-Agent", "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36")
                         .build()
                     val response = client.newCall(request).execute()
-                    if (response.isSuccessful) {
-                        response.body?.bytes()
-                    } else {
-                        android.util.Log.w("TileDownloader", "HTTP ${response.code}: $url")
-                        response.close()
-                        null
+                    val code = response.code
+                    when {
+                        response.isSuccessful -> FetchOutcome(response.body?.bytes(), false, 0L)
+                        code == 429 || code == 503 || code == 502 -> {  // [V2.6b-502] 502=transient gateway, retry
+                            val retryAfterMs = response.header("Retry-After")?.toLongOrNull()?.times(1000) ?: 0L
+                            response.close()
+                            android.util.Log.w("TileDownloader", "HTTP $code (retryable) attempt=$attempt: $url")
+                            FetchOutcome(null, true, retryAfterMs)
+                        }
+                        else -> {
+                            android.util.Log.w("TileDownloader", "HTTP $code: $url")
+                            response.close()
+                            FetchOutcome(null, false, 0L)
+                        }
                     }
                 }
-                if (bytes != null) return bytes
+                if (result.bytes != null) return result.bytes
+                if (!result.retryable) return null
+                val backoff = maxOf(result.retryAfterMs, TILE_BACKOFF_BASE_MS * (1L shl attempt))
+                kotlinx.coroutines.delay(backoff)
             } catch (e: Exception) {
-                android.util.Log.e("TileDownloader", "Tile fail: $url err=${e.message}")
-                if (attempt == 1) return null
-                kotlinx.coroutines.delay(500)
+                android.util.Log.e("TileDownloader", "Tile fail attempt=$attempt: $url err=${e.message}")
+                if (attempt >= TILE_MAX_RETRIES) return null
+                kotlinx.coroutines.delay(TILE_BACKOFF_BASE_MS * (1L shl attempt))
             }
+            attempt++
         }
         return null
     }
+
+    // [V2.6b] Outcome of one fetch attempt.
+    private data class FetchOutcome(val bytes: ByteArray?, val retryable: Boolean, val retryAfterMs: Long)
 
     // ── Download all tiles in batch ───────────────────────────
     // onProgress(downloaded, total, failCount) called after each tile.
@@ -109,26 +135,45 @@ object ConvoyTileDownloader {
             var failed = 0
             val total = tiles.size
 
-            for (tile in tiles) {
+            // [V2.6b-CONCURRENCY] Fetch tiles in parallel batches (network is the
+            // bottleneck; OkHttp is thread-safe). INSERT serially per batch —
+            // MBTilesStore holds one cached SQLite handle per type, so concurrent
+            // inserts are unsafe. Overlaps network waits without racing the DB.
+            var loggedZ18 = 0
+            for (fetchBatch in tiles.chunked(TILE_FETCH_CONCURRENCY)) {
                 if (!coroutineContext.isActive) {
-                    // Cancelled — return partial summary as failure
                     return Result.failure(
                         kotlinx.coroutines.CancellationException("Download cancelled")
                     )
                 }
-
-                // [V2.6-PASS1-WRITE] resume-skip via MBTilesStore (sourceName = type)
-                if (!forceOverwrite && MBTilesStore.hasTile(sourceName, tile.z, tile.x, tile.y)) {
-                    downloaded++
-                    onProgress(downloaded, total, failed)
-                    continue
+                // Phase 1 (parallel): resolve each tile to skip / fetched-bytes / fail. No DB.
+                val results = coroutineScope {
+                    fetchBatch.map { tile ->
+                        async {
+                            // [V2.6-PASS1-WRITE] resume-skip via MBTilesStore (sourceName = type)
+                            if (!forceOverwrite && MBTilesStore.hasTile(sourceName, tile.z, tile.x, tile.y)) {
+                                Triple(tile, null as ByteArray?, true)   // already present
+                            } else {
+                                val url = buildTileUrl(tile, sourceUrl)
+                                if (tile.z == 18 && loggedZ18 < 3) {
+                                    loggedZ18++
+                                    android.util.Log.i("TileDownloader", "DL: $url -> $sourceName.mbtiles z${tile.z}/${tile.x}/${tile.y}")
+                                }
+                                Triple(tile, fetchTileBytes(url), false)
+                            }
+                        }
+                    }.map { it.await() }
                 }
-                val url = buildTileUrl(tile, sourceUrl)
-                if (tile.z == 18 && downloaded < 3) android.util.Log.i("TileDownloader", "DL: $url -> $sourceName.mbtiles z${tile.z}/${tile.x}/${tile.y}")
-                val bytes = fetchTileBytes(url)
-                val success = if (bytes != null) MBTilesStore.insertTile(sourceName, tile.z, tile.x, tile.y, bytes, isOverlay) else false
-                if (success) downloaded++ else failed++
-                onProgress(downloaded, total, failed)
+                // Phase 2 (serial): insert in order into the single SQLite handle.
+                for ((tile, bytes, skipped) in results) {
+                    if (skipped) {
+                        downloaded++
+                    } else {
+                        val success = if (bytes != null) MBTilesStore.insertTile(sourceName, tile.z, tile.x, tile.y, bytes, isOverlay) else false
+                        if (success) downloaded++ else failed++
+                    }
+                    onProgress(downloaded, total, failed)
+                }
             }
 
             // Overlay download removed from here.

@@ -63,8 +63,13 @@ object ConvoyTileCalculator {
      * @param zMax   Maximum zoom level (default: ConvoyConfig.DOWNLOAD_ZOOM = 18)
      * @return       Complete list of TileKey objects covering the bounding box
      */
-    fun maxZoomForSource(sourceName: String): Int =
-        if (sourceName == "TRAIL" || sourceName == "TOPO+") 17 else 18
+    // [V2.6b-NO-ZOOM-CAP] Download requests the FULL zoom range for every source.
+    // The old per-source cap (TOPO+/TRAIL -> 17) was a stale download restriction;
+    // removing it means at worst we fetch empty/404 tiles at high zoom (already the
+    // current behavior for sources that top out). The per-source max_zoom in
+    // map_sources.json is retained as a DISPLAY clamp to snap back to — download and
+    // display ceilings are intentionally decoupled.
+    fun maxZoomForSource(sourceName: String): Int = ConvoyConfig.DOWNLOAD_ZOOM
 
     fun calculateTiles(
         north: Double,
