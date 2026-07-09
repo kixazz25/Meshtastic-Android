@@ -14461,6 +14461,30 @@ Deleting a track now removes it completely — the map record, its stored detail
 *Design note for the doc build:* both access points call ONE engine (`downloadMapsForTrackHash`), keyed by the track's geometry hash — the same key used across devices and (future 3.0) the AWS server, so AWS-imported tracks will get maps automatically via the shared import path.
 
 
+=== GroupTrack_Manual_Updates_Needed_2026-07-09.md ===
+# GroupTrack Manual — Updates Needed (as of 2026-07-09)
+**Canonical manual:** `app/src/main/assets/grouptrack_manual.html` (the in-app "?" cookbook). This note lists what the manual needs; it does NOT regenerate the manual (per doc-process: verify the canonical manual, never blindly regenerate — a Windows rename + EOD dedup-skip has carried the wrong manual forward before).
+
+> These are pending edits to fold into the manual when the corresponding features are field-verified. Nothing here is urgent for tomorrow's priority (load-balancing build) — it's the running list so manual updates aren't lost.
+
+## Updates to make (map download section)
+1. **Faster downloads (2.6b).** Add a note that map-area downloads now fetch tiles in parallel and are several times faster than earlier builds; large multi-source areas complete in roughly an hour+ rather than many hours. Mention the app retries tiles on temporary server errors.
+2. **Full-detail topo.** TOPO/TOPO+ now download their full available zoom (the old internal cap is removed). Keep the existing note that USGS TOPO+ has no imagery above ~z15 (source limitation).
+3. **Download requirement reminder** (already emphasized in Quick Start) — off-grid use REQUIRES downloading map areas before losing signal. Ensure the manual's download walkthrough keeps this prominent.
+
+## Updates PENDING feature completion (do NOT add yet — features not built)
+- **Even area-segmentation load balancing** — no user-facing manual change needed (it's internal), but if download-time guidance exists, update expected times once the balanced build ships.
+- **Clear/delete a downloaded area** — once wired, document how to remove a single downloaded map area (tied to the "replace" toggle in the download-confirm panel).
+- **Compression-quality setting** — if the runtime WebP-quality dial ships, document it in map settings.
+
+## Known-issue notes to keep current
+- **TOPO+ blank above ~z15** — USGS source limitation (already in release notes + should be in manual's map-source section).
+- **SAT labels appearing on topo** — if not fixed before the next manual publish, add a known-issue line; remove once the render-side fix lands.
+
+## Verification reminder (doc-process)
+Before any manual publish: confirm `app/src/main/assets/grouptrack_manual.html` is the LATEST (not a stale carried-forward copy — the rename/dedup failure mode). The manual is an in-app ASSET, a separate track from the living master.
+
+
 === GroupTrack_Measurement_Catalog_2026-07-01.md ===
 # GroupTrack — CONVOY MEASUREMENT / DISPLAY CATALOG (2026-07-01)
 Complete inventory of every measurement + value shown on HUD / convoy display, its DERIVATION RULE, and where it's used. Purpose: the tick rewrite MUST continue every one of these. Any value missing post-rewrite = a blank/broken field. Mined from ConvoyNode.kt, ConvoyEngine.kt, ConvoyViewModel.kt (07-01). Fred to confirm each rule (mine or redefine).
@@ -15126,6 +15150,194 @@ Fix (Task 2, scheduled): narrow the gate so suppression applies only while `__ro
 
 ## RECORD ISSUE — STATUS: DIAGNOSED + PLANNED (not open-ended)
 RESOLVED tonight: recording WORKS (GPX writes real points — walk-test verified). The "no track on screen" is the CART/LEAD DISPLAY bug, root-caused to TWO concurrent tick loops (CartDiag log 07-01: one instance stuck HOTEL-10/null-lead, one correct/LEAD; map reads whichever → intermittent). Cart logic is correct. FIX = Task 1 (collapse to one tick loop). NOTE the settled rewrite alternative L13086 DemolitionRebuild [2.1] — Fred decides surgical-stopgap vs rewrite after reading L13086 + L14059.
+
+
+=== GroupTrack_QuickStart_Installation_Troubleshooting_2026-07-08.md ===
+# GroupTrack — Quick Start, Installation & Troubleshooting
+## Beta Tester Reference
+## Updated July 8, 2026 (V2.6)
+
+---
+
+## QUICK START
+
+> ⚠️ **Off-grid rule:** trails have no cell/WiFi. **Download your maps and import your trails BEFORE you ride** — the app can't fetch them in the field. Un-downloaded areas show blank on the trail.
+
+### Before Your First Ride
+
+1. Install GroupTrack APK on your Android device (see Installation below)
+2. Power on your T1000-E Meshtastic radio
+3. Open GroupTrack — radio should connect via Bluetooth automatically
+4. Verify connection: radio icon shows connected in the app
+
+### ⚠️ CRITICAL — Two Radio Restrictions
+
+**RESTRICTION 1 — T1000-E Firmware: DO NOT update beyond 2.6.11**
+
+The T1000-E Meshtastic radio firmware MUST stay at version 2.6.11 or earlier. Updating to any firmware version beyond 2.6.11 will make the radio unstable for Bluetooth connectivity and radio configuration. This is a known issue with newer Meshtastic firmware on the T1000-E hardware.
+
+- Check current firmware: Meshtastic app → Radio Config → Device Info
+- If firmware is 2.6.11 or earlier: DO NOT UPDATE
+- If firmware was accidentally updated beyond 2.6.11: flash back to 2.6.11 using Meshtastic Flasher tool
+- This restriction applies to ALL T1000-E radios used with GroupTrack
+
+**RESTRICTION 2 — Keep Radio Within Bluetooth Range During Rides**
+
+When riding, ALWAYS keep your radio in your cart/vehicle within 50 feet of your phone. Do NOT carry the radio away from your phone (or vice versa) beyond Bluetooth effective range.
+
+- Bluetooth effective range: approximately 50 feet (15 meters)
+- If radio exceeds BLE range while still "connected," the connection enters supervision timeout
+- Symptoms: app freezes/pauses, position updates stop, UI becomes unresponsive
+- The BLE connection does not cleanly disconnect — it hangs in limbo waiting for the radio to reappear
+- Recovery: force close GroupTrack, move radio back within range, reopen app
+- Prevention: leave the radio mounted in your cart. Keep your phone in the cart. They travel together.
+
+### Pre-Ride Checklist
+
+- [ ] Phone charged
+- [ ] Radio charged and firmware at 2.6.11 or earlier
+- [ ] Radio mounted in cart (stays with phone during ride)
+- [ ] GroupTrack installed and opens without errors
+- [ ] Radio connects via Bluetooth (solid connection icon)
+- [ ] **Map tiles downloaded for the ENTIRE ride area** (REQUIRED off-grid — check the blue overlay covers it on Planning Map)
+- [ ] **Trail data / trailheads imported for ride area** (also needed before you lose connectivity)
+- [ ] GPS lock acquired (position shows on map)
+
+---
+
+## INSTALLATION
+
+### Installing GroupTrack APK
+
+**From Play Store (tester):**
+- Accept tester invitation link
+- Download from Play Store
+- Package: com.geeksville.mesh
+
+
+### Post-Install Steps
+
+1. Launch GroupTrack
+2. Grant location permission when prompted
+3. Open Planning Map and verify tile loading
+
+### First-Time Setup (do these in order)
+
+Before your first ride, complete these three setup steps. **For detailed, screen-by-screen walkthroughs with screenshots, open the in-app manual — tap the "?" icon** anywhere in GroupTrack. The manual is cookbook-style (how you get there → what you do → where it leads); the steps below are the short version.
+
+**1. Settings → choose your map sources.**
+Open Settings and select the map sources you want available. The defaults are the three Esri sources (SAT satellite imagery, TOPO, and TOPO+). Leave the defaults unless you have a reason to change them — these are what the download and map screens use. *(Manual: "?" → Settings / Map Sources.)*
+
+**2. Import trails and trailheads, and DOWNLOAD MAPS for your ride area.**
+Load the trail data for your riding area so trails and trailheads show on the map. Then, **while on WiFi/cell, download the map tiles for the area you'll ride** — use the Planning Map download and confirm the blue overlay covers your whole ride area. *(Manual: "?" → Import Artifacts / Trail Sources, and Offline Maps & Downloads.)* If trails don't appear, see "Trail Display Issues" in Troubleshooting.
+
+> ⚠️ **Downloading maps before you ride is REQUIRED for off-grid use.** On the trail you are off the grid — no cell, no WiFi — so the app cannot fetch map tiles in the field. Any area you did not download ahead of time will show blank/grey on the trail. Download every area you plan to ride **before you leave connectivity**, and verify the blue overlay covers it. This applies to trails/trailheads too — import them ahead of time.
+
+**3. Set up the radio.**
+Pair and connect the T1000-E (see Radio Setup below). Do this last, after maps and trails are in place. *(Manual: "?" → Radio / Connection.)*
+
+> Note for upgrading testers: if you're coming from a pre-V2.6 build, do the **V2.6 One-Time Tile Migration** (below) before step 2's tile downloads.
+
+### ⚠️ V2.6 One-Time Tile Migration (upgrading testers)
+
+V2.6 changes how offline map tiles are stored — from thousands of loose files to a single compact database per map type (about half the storage; satellite ~55% smaller, WebP-compressed). Old loose tiles must be cleared once and re-downloaded in the new format before maps will work.
+
+1. **Install X-plore File Manager** (free, Play Store) — it shows a live progress count while deleting, so you always know it's working.
+2. In X-plore, go to `Internal storage → Documents → GroupTrack → maps` and **delete the maps folder**. A large old cache can take a while — keep the device plugged in; the on-screen count shows it's active.
+3. Back in GroupTrack, **re-download** your ride areas (by Area, or from a track/route). They save in the new format at roughly half the size.
+
+Your tracks and routes are NOT affected — this clears only downloaded map *tiles*. This is one-time; future updates won't need it.
+
+### Radio Setup
+
+1. Power on T1000-E radio
+2. **Verify firmware is 2.6.11 or earlier** — DO NOT UPDATE
+3. **Program the radio to the master config default.** In GroupTrack, go to **Convoy Map → Event Ride menu → Update Radio Config**. This loads the T1000-E with the GroupTrack master configuration (the standard settings all convoy radios share) so your radio interoperates with the group. Do this before relying on the radio for a ride — a radio on different settings won't work with the convoy. *(Manual: "?" → Radio / Connection.)*
+4. Open GroupTrack → radio should appear in device list
+5. Select radio to pair
+6. Verify connection: position icon, signal strength visible
+
+### Device Compatibility
+
+**Supported: Android 14 to 16 devices with a Bluetooth radio and a GPS chipset.** Both are required — Bluetooth to hold the connection to the T1000-E radio, and an onboard GPS chipset for position. A device missing either (e.g. a Wi-Fi-only tablet with no GPS) is not compatible.
+
+| Requirement | Needed |
+|-------------|--------|
+| Android version | 14, 15, or 16 |
+| Bluetooth | Required (BLE, to connect the T1000-E) |
+| GPS chipset | Required (onboard location) |
+
+**Known-incompatible pattern:** budget tablets that lack a proper BLE radio (or a GPS chipset) cannot hold the connection to the T1000-E — symptom is a repeating connect/disconnect every 8–10 seconds (supervision timeout reason 0x0008). This is a hardware limitation of those devices, not an app bug; use a device meeting the requirements above.
+
+---
+
+## TROUBLESHOOTING
+
+### BLE Connection Issues
+
+**Symptom: App freezes or pauses during ride**
+- **Cause:** Radio moved beyond Bluetooth range (~50') while still connected. BLE supervision timeout.
+- **Fix:** Force close GroupTrack. Move radio back within range of phone. Reopen app.
+- **Prevention:** Keep radio mounted in cart with phone. They must stay within 50' of each other at all times during a ride.
+
+**Symptom: Radio connects then disconnects repeatedly (8-10 second cycle)**
+- **Cause:** Device hardware incompatibility (Tab8NEU, budget Android tablets). Supervision timeout reason 0x0008.
+- **Fix:** Use a compatible device (see Device Compatibility table above). This is a hardware issue, not an app bug.
+
+**Symptom: Radio won't connect at all after firmware update**
+- **Cause:** T1000-E firmware updated beyond 2.6.11.
+- **Fix:** Flash radio back to firmware 2.6.11 using Meshtastic Flasher tool. Do NOT use any firmware newer than 2.6.11.
+
+**Symptom: Radio connects but position doesn't update**
+- **Cause:** Radio may be out of GPS fix, or BLE connection is degraded.
+- **Fix:** Check radio has clear sky view for GPS. Force close and reconnect. Verify radio firmware is 2.6.11.
+
+### Map and Tile Issues
+
+**Symptom: Map shows blank/grey tiles**
+- **Cause:** No tile cache for this area. Online tiles failed to load (no connectivity or tile source down).
+- **Fix:** Check connectivity. Download tiles for this area while on WiFi. Check blue overlay on Planning Map to confirm tile coverage.
+
+**Symptom: Double labels on satellite map**
+- **Cause:** Old cached tiles (from a hybrid URL) showing baked-in labels plus new overlay labels — typically pre-V2.6 tiles not yet migrated.
+- **Fix:** Do the V2.6 one-time tile migration (Installation → V2.6 One-Time Tile Migration): delete the maps folder via X-plore and re-download. New-format tiles carry labels as a separate overlay, so the doubling goes away.
+
+**Symptom: Map tiles load online but show blank offline**
+- **Cause:** Tiles not downloaded for this area.
+- **Fix:** Before going to the field, download tiles for your ride area using Planning Map download function. Verify blue overlay covers your ride area.
+
+### Trail Display Issues
+
+**Symptom: No trails showing on map**
+- **Cause:** No trail source downloaded, or trail database not loaded.
+- **Fix:** Open Planning Map → Trail Sources → select and download a source (e.g., UGRC Utah Trails).
+
+**Symptom: Trails showing in wrong location**
+- **Cause:** Coordinate system mismatch or corrupt GeoJSON source.
+- **Fix:** Remove trail source and re-download/re-ingest.
+
+### App Issues
+
+**Symptom: App is slow or unresponsive on launch**
+- **Fix:** Force close and reopen. If it keeps happening, report it to the GroupTrack team with your device model and what you were doing.
+
+**Symptom: Missing data after an update**
+- **Good news:** Your saved content is stored outside the app and survives updates and reinstalls — recorded/imported tracks and routes (in `Documents/GroupTrack/data/`) and your downloaded map tiles (in `Documents/GroupTrack/maps/`) are kept.
+- **If maps look empty after a major update:** you may need the one-time tile migration — see "V2.6 One-Time Tile Migration" in Installation.
+
+### Radio Firmware Reference
+
+| Firmware | Status | Notes |
+|----------|--------|-------|
+| 2.6.11 | ✅ APPROVED | Maximum recommended version for T1000-E |
+| 2.6.12+ | ❌ DO NOT USE | Destabilizes BLE and radio configuration |
+| < 2.6.11 | ✅ OK | Earlier versions work but may lack features |
+
+---
+
+*GroupTrack | Quick Start, Installation & Troubleshooting | Updated July 8, 2026 (V2.6)*
+*T1000-E firmware: LOCK TO 2.6.11. Radio stays in cart during rides.*
+*V2.6 change: offline tiles migrated to per-type .mbtiles databases (~55% smaller) — upgrading testers must do the one-time tile migration (see Installation).*
 
 
 === GroupTrack_QuickStart_Installation_Troubleshooting_v1.md ===
@@ -21147,150 +21359,174 @@ Matches the worker's own math (`tiles.size * totalLayers`). `ConvoyTileCalculato
 *Recap — 2026-07-07. The download submission is now one standardized spine; the tile-storage migration redirects its WRITE end (Pass 1) without touching the submission side.*
 
 
-=== GroupTrack_V2_6_Handoff_2026-07-08.md ===
+=== GroupTrack_V2_6_Handoff_2026-07-09.md ===
 # GroupTrack V2.6 — Handoff / State of Play
-**As of:** 2026-07-08 EOD · **Prev living-docs update:** 2026-07-07
+**As of:** 2026-07-09 EOD · **Prev living-docs update:** 2026-07-08
 
-> Single orientation doc for the current milestone. V2.5 shipped to Play Store 06-24 (`c603bc3f0`). Work is on **V2.6**.
+> Single orientation doc for the current milestone. V2.5 shipped to Play Store 06-24 (`c603bc3f0`). Work is on **V2.6**, branch `feature/convoy-event-ride`.
 >
-> **Today (07-08): Pass 1 tile-storage migration (loose tree → MBTiles) + WebP compression BUILT, VERIFIED on Droid 1, COMMITTED. Storage ~55% smaller (measured). V2.6 now split into release milestones 2.6a / 2.6b / 2.6c. Tomorrow: 2.6b — Esri batch transport (tiles Pass 2).**
-> **Yesterday (07-07): map-download standardization completed and certified for all three origins (AREA / TRACK / IMPORT) — see the section below, retained in full.**
+> **⭐ TOP PRIORITY FOR TOMORROW (07-10): AREA SEGMENTATION FOR DOWNLOAD LOAD BALANCING.** This is THE issue. Everything else (concurrency tuning, the JSON tuning rig, async-task counts) is fine-tuning that only matters on top of a load-balanced baseline. See the dedicated section "⭐ LOAD BALANCING — THE PRIORITY BUILD" below. Read that section first.
+>
+> **Today (07-09): tile download SPEED-UP shipped & tested (2.6b) — tile-fetch concurrency + zoom-cap removal + 429/503/502 backoff. ~5× faster (80 min for 125K tiles vs a gut ~6–8 hr before). BUT the speed-up exposed that load balance is what actually governs total time, and current balance is ACCIDENTAL. The proven next build is even segmentation.**
+>
+> **Yesterday (07-08): Pass 1 tile-storage migration (loose tree → MBTiles) + WebP compression BUILT, VERIFIED on Droid 1, COMMITTED. Storage ~55% smaller. Milestones 2.6a / 2.6b / 2.6c.**
 
 ---
 
-## 07-08 — what got done (Pass 1 + WebP, committed & verified)
+## ⭐ LOAD BALANCING — THE PRIORITY BUILD (start here 07-10)
 
-**Commits on `feature/convoy-event-ride`:** `55ce56239` (MBTiles cutover + offline-label fix) · `ccea5977e` (WebP q80 + overlay passthrough + convoy download-panel wiring + detail-close) · `dd52de720` (cleanup). *~110 commits ahead of origin — a `git push` for offsite backup is recommended.*
+### The problem, proven empirically today
+Total download time is governed by **segment balance**, not by concurrency. Two runs of the SAME ~125K-tile area (both on today's build):
+- **~80 minutes** when the work happened to finish balanced (all queues finishing together).
+- **~113 minutes** when it didn't — the small jobs drained at ~45 min and the one big SAT segment ran **alone** for the long tail.
 
-**Milestone split (07-08 decision):**
-- **2.6a — known-good FALLBACK release** (bank to Play Store before the risky transport rewrite): Pass 1 MBTiles cutover + WebP + offline-label fix + convoy download-panel wiring + remaining UI fixes. *"No-radio" is NOT the defining trait of 2.6a — it just happens nothing here touches radio. The ONLY radio-dependent work in all of V2.6 is the lead-track rewrite (2.6c).*
-- **2.6b — Esri batch transport (tiles Pass 2)** — the risky transport rewrite, built alongside + gated. **Tomorrow.**
-- **2.6c — lead-track / tick / my-cart rewrite** — the only radio work; own milestone, last.
+**The 80-min balanced run was balanced BY ACCIDENT** — the big SAT segment happened to have roughly equal tiles to *all the other jobs combined*, so a 2-queue split fell ~50/50 by luck. Add a 3rd queue and that coincidence breaks: the "everything else" half gets subdivided, drains early, and strands the big SAT job → ~113 min. So **current balance is accidental and fragile**; it holds only because big-segment ≈ sum-of-rest at exactly 2 queues, for that particular area. Change the area, tile mix, or concurrency and it breaks.
 
-**Pass 1 MBTiles cutover — SHIPPED.** Loose files → one `.mbtiles` per type via new `MBTilesStore.kt`. Every write, read, helper, and coverage-highlight redirected. Verified Droid 1: SAT base + overlays render online AND offline. Storage = **raw z/x/y, NO TMS flip** (`scheme=xyz`; write & read agree; matches old loose paths; Esri `/tile/{z}/{y}/{x}` reordered by the intercepts). This is the "write landing / miracle-happens" step 07-07 pointed at — now built.
+### Why this is the priority
+The gap between 80 min (good) and 113 min (bad) is **entirely load balance** — nothing else. The concurrency work is done and shipped; the tuning levers are fine-tuning. **The one thing that turns "balanced by luck" into "balanced by guarantee" is even segmentation.** Build that, and every download reliably hits the ~80-min-class balanced case instead of occasionally stranding into 113 min. Do NOT touch concurrency tuning until this is solved — it's premature to tune a balanced system you don't yet have.
 
-**WebP compression — VALIDATED (new `TileCodec.kt`).** Base = lossy WebP **q80**; overlays = **PNG passthrough** (re-encoding sparse-alpha label PNGs to WebP bloats them +167%; store as-is). Dispatch by `layer.role`. Measured: SAT base **9.7 KB/tile (WebP q80)** vs **21.5 KB/tile (Droid 2 loose JPEG, 344,061-tile real baseline)** = **~55% reduction**, clears the 35–40% goal. **q95 tested & REJECTED** — lossy-to-lossy re-encode of already-JPEG source inflates ~5× (19.5 KB/tile); comment left in `TileCodec` so nobody retries. q80 visually lossless at z19 on 11" field screen (Fred confirmed on-device). Learning: re-encoding already-compressed sources fights the source; "drop a zoom level beats raising quality."
+### THE SEGMENTATION METHOD (fully specced — this is the build)
+**Divide the submission area's bounding box into EQUAL AREAS, sized so no area exceeds 50,000 SAT tiles.**
 
-**Convoy download-panel wiring — DONE (closes a 07-07 open item).** This is exactly the 07-07 carried-forward item *"ConvoyScreen artifact-detail host has no box 1 wired."* `ArtifactDetailPanel` is shared and its `onDownloadMaps` is a **caller-supplied callback**; ConvoyScreen was passing the OLD direct-queue value (`downloadMapsForTrackHash`) while the viewer passed the standard box-1 value. Fix: ConvoyScreen now passes the same value (get bbox via `getTrackBbox` → `downloadBbox` + `showDownloadConfirm=true` → `ConvoyDownloadConfirm`) AND closes the detail panel first (nulls `pendingDetailId`/`pendingDetailType`). Pure caller-side in `ConvoyScreen.kt` — shared components untouched. So the box-1 spine now covers BOTH artifact-detail hosts.
+1. **SAT drives the grid sizing.** SAT is the densest source (goes to z18 — the deep zoom quadruples each level and dominates tile count). Estimate SAT's total tiles for the full bbox, then divide into `ceil(SAT_total / 50000)` equal areas. Because SAT is the worst case, every shallower source (TOPO, TOPO+ — lower max zoom, far fewer tiles) rides the SAME grid and is automatically well under the ceiling. **You only estimate SAT.**
 
-**TOPO+ — NOT a bug.** "TOPO+ won't display below z16" = USGS USA_Topo_Maps source coverage (no data above ~z15), confirmed identical online. The `+` round-trips fine through `convoy://tiles/TOPO+/...` and the `.mbtiles` filename.
+2. **Each segment MUST be a COMPLETE VERTICAL SLICE OF THE ZOOM STACK (z-min .. z-max) over its geographic cell — NOT segmented by zoom.** This is the load-balance principle and the reason the method works. Segmenting by zoom would recreate the imbalance (a z18-only job = the ~45K heavy monster; a z10–16 job = trivial). By giving every geographic cell the full zoom stack, each segment carries the SAME SHAPE of work — its proportional share of heavy z18 tiles PLUS the light upper-zoom tiles. Equal-area, full-stack segments therefore do genuinely equal work and finish together in parallel slots. **That comparability IS the load balancing** — it makes the ~80-min balanced case guaranteed rather than lucky.
 
-### TWO DESIGN RULES set 07-08 (forward-looking; sibling to 07-07's DECOMPOSITION SCOPE RULE)
-1. **No nullable-as-shortcut.** A nullable/optional param (`? = null`) must have its justification explained *before use*. `? = null` defers the "is every caller wiring this correctly?" analysis to silent field discovery — exactly how the convoy download callback silently ran the wrong behavior. Optional allowed only with a documented reason a caller legitimately omits it.
-2. **Evaluate at point of contact, not retroactively.** Don't audit existing code for rule-1 violations; but whenever *touching* code with a nullable param, justify it or fix it then.
+3. **The unit** = a vertical column (full zoom) over a horizontal cell (geographic), sized so SAT's full-stack count ≤ 50,000.
+   - **Worked example:** 72,000 SAT tiles → `ceil(72000/50000)` = 2 segments of ~36,000 each (each a full-stack half-cell). That SAME grid applied to TOPO/TOPO+ yields their (smaller) per-cell counts. Elegantly simple: SAT sizes the grid once; everything else inherits it.
 
-### HARDENING backlog (logged 07-08, not done)
-- **`insertTile`/`db()` silent-failure** — when `db(type)` fails to open it returns null and every `insertTile` silently no-ops (loop still counts tiles "done"). Cost most of an afternoon (SAT "1140 tiles in 1 second" wrote nothing). Must **fail loudly** during download. Do before/with 2.6b (batch hammers inserts).
-- **`deleteSource` handle hygiene** — deleting `.mbtiles` while the app holds cached open handles wedges scoped-storage → all writes fail `SQLITE_IOERR_FSTAT` until reboot. Close cached handle before delete + reopen clean. (Root cause of the 07-08 device chaos — a test artifact from repeated `adb rm`, but the app's replace/delete flow could hit it.)
-- **map-source max-zoom self-healing** — per-source `maxNativeZoom` in `map_sources.json`, threaded from Kotlin through `setTileUrl`, drop the `isZ17`/label logic in the map HTML. Fixes TOPO+ "not available" above coverage, generally.
-- **`.nomedia` / Play Store scan** — `SQLITE_IOERR` log showed `com.android.vending` touching tile DBs; verify `.nomedia` suppresses tile-DB scanning.
-- **dead `tilesDir` lines** — 3 orphaned `File(TILE_DIR,"SAT/1x")` declarations (cosmetic, compile-warn).
-- **map compression quality SETTING** (download panel / map controls) — a runtime dial for base WebP quality so it can be A/B'd on-device without a rebuild (Fred can already tune fast via replace-download of a small area). DEFERRED 07-08: build AFTER the WebP core is committed (depends on the codec being correct), then tune with the small-area loop. Quality is already a `BASE_QUALITY` constant in `TileCodec` → becomes a stored pref passed into `encode()`. Legit 2.6a-candidate feature. (q95 already proven bad → practical range ≤80.)
-- **ARCHITECTURAL (own pass, "not today") — panel-owns-download-behavior.** The robust fix for the convoy download bug: move the standard download behavior INTO `ArtifactDetailPanel` (or make `onDownloadMaps` a required, non-null param) so callers CANNOT diverge. Today's caller-side alignment closes the symptom; this closes the class (a caller-supplied callback + nullable default is what let the behavior silently differ). Candidate for the 2.6b cycle or later — test without release pressure. This is the deeper form of the two 07-08 design rules.
+4. **Slight overlap between adjacent cells** (~a tile-width) prevents seam gaps where a tile straddles a cell boundary. Duplicate boundary tiles are negligible and `MBTilesStore.hasTile()` dedupes them.
 
-### Remaining 2.6a items (next sessions, no radio)
-Route+ state persistence (next-session pickup — refined spec below), aliases UI, tracks rename→human-readable swap, the cleanups above. **Dropped from scope:** detail-panel wiring (done — track map-popup), recorder fixes (no known issues).
+5. **Overlays travel WITH SAT.** Confirmed from logcat: a single SAT job downloads base World_Imagery → then the two overlays (`SAT_LABELS_TRANSPORT` = Reference/World_Transportation, `SAT_LABELS_PLACES` = Reference/World_Boundaries_and_Places) sequentially into their own `.mbtiles`. So segmenting SAT automatically segments its overlays — no separate handling.
 
----
+### Prerequisite the segmentation needs
+**`ConvoyTileCalculator.quickEstimate` must become source-aware.** It currently ignores the source and assumes z18 for everything (this is also the root cause of the TOPO+ estimate-vs-actual gap — see below). The segmentation needs an accurate per-source SAT estimate to size the grid, so making `quickEstimate` respect the source's zoom range is the enabling change — and it fixes the TOPO+ estimate gap as the same stroke.
 
-## What got done today (07-07) — download standardization COMPLETE
+### Keep concurrency modest for now
+`MAX_CONCURRENT` stays at **2** (raising it to 3 today REGRESSED time by ~33 min because it broke the accidental balance — see above). After segmentation makes balance guaranteed, run the OPEN EXPERIMENT below to decide if any concurrency change helps.
 
-**Goal:** take the working area-download model, modularize it, and route **all** map-download origins through the *same* screen + same process. Achieved and certified on Droid 2 for three origins.
-
-### The shared spine (now used by every origin)
-```
-BOX 1 (source selection)  →  onProceed(bbox, selectedSlots, replace)
-        ConvoyDownloadConfirm — presents map sources as checkboxes + replace toggle.
-        bbox travels THROUGH box 1 as a payload param (in and back out) — never scope-read.
-        Estimate (tiles/MB) is OPTIONAL: shown when known (area), hidden when 0 (batch).
-                          │
-BOX 2 (enqueue processor) →  DownloadQueueManager.submitDownload(context, n,s,e,w, selectedSlots, replace)
-        Shared, screenless, model-layer. Loops slots → enqueueArea (grid divide, or
-        single-job fallback for small boxes) → per-cell QueueEntry → launchWorker → doWork.
-```
-
-### The three certified origins
-1. **AREA** — draw area → box 1 → `submitDownload`. (`ConvoyMapViewerScreen` onProceed handler.)
-2. **TRACK (artifact detail)** — SAVE MAPS / download-maps on a track's `ArtifactDetailPanel` → derive bbox via new `SpatialDbManager.getTrackBbox(hash)` → **dismiss detail panel** → box 1 → `submitDownload`. (`ConvoyMapViewerScreen:onDownloadMaps`.)
-3. **IMPORT (batch)** — track import: select GPX + check "maps" → tap Import → **box 1 popup** (bbox-blind, source selection only) → per-track on **INSERT**, `getTrackBbox` → `submitDownload` with the up-front-selected sources. (`ConvoyTrackImportScreen` + `ConvoyTrackOps.importGpxAllArtifacts`.)
-
-### The bugs found and fixed on the way (all committed)
-- **Bbox payload loss (scope-vs-parameter).** The original area handler read `downloadBbox` *inside* a deferred `Thread{}`, AFTER `showDownloadConfirm=false`/`showDownloadPanel=false` state flips → by thread-run time the value was stale/empty → jobs built with zero coordinates → `gridCells(0,0,0,0)` → 0 tiles, nothing downloaded (the "280k estimate but zero jobs" symptom). **Fix: bbox now travels THROUGH box 1 as a payload param** (added `bbox: DownloadBbox` in; `onProceed` returns it; handler uses the lambda's `bbox`, not a scope re-read). Captured at box-1-render time when valid.
-- **Tile count = 0 at enqueue (red queue display).** `enqueueArea` built every `QueueEntry` with `totalTiles = 0` (placeholder); worker computed the real count but never wrote it back → queue showed red zeros even while downloading. **Fix: compute at enqueue** — `totalTiles = ConvoyTileCalculator.calculateTiles(cell).size * slotLayers`, where `slotLayers = getDownloadSources().filter{it.first==slotName}.sumOf{it.second.size}`. Matches the worker's own math.
-- **Track download was headless/all-sources.** Old `downloadMapsForTrackHash` used plain `enqueue` (global `getDownloadSources()`, no box 1). Now split: `getTrackBbox` derives the padded bbox (same hash→row→½-mile pad math), and the UI feeds box 1 → `submitDownload`. (The old `downloadMapsForTrackHash` still exists; the INSERT path in import was repointed off it.)
-- **Box 1 occluded by detail panel.** Track download set `showDownloadConfirm=true` but the `ArtifactDetailPanel` stayed on top. **Fix:** null `pendingDetailId`/`pendingDetailType` before showing box 1.
-
-### THE DECOMPOSITION SCOPE RULE (durable — this bit us twice)
-> **When extracting an internal function (that shared a screen's scope) into a called external module, every state variable it read from scope becomes an invisible dependency. The data must travel as an explicit PARAMETER / MESSAGE PAYLOAD carried into the call — never re-read from a scope that no longer exists when the deferred/threaded/detached job runs.** Do a scope/state audit UP FRONT when decomposing (enumerate every scope var the body touched; confirm each is now a payload param), not one crash at a time. The code always *looks* right — statements are identical — but the *timing* of the read changes, and shared mutable state can be reset/recomposed underneath. For genuinely disparate/unattended processes (batch), carry the data as a message/payload the consumer owns, not a scope reference.
+### OPEN EXPERIMENT (only AFTER segmentation — do not do before)
+Once segments are balanced, the concurrency question becomes cleanly testable (today it was confounded by the imbalance). **The two multiplying levers:** total simultaneous requests ≈ `queues (MAX_CONCURRENT) × async-tiles (TILE_FETCH_CONCURRENCY)`. Currently 2 × 8 = 16.
+- **Fred's hypothesis:** at the same total, **fewer queues × more async each may outperform more queues × fewer** — e.g. **2 queues × 12 async (=24) could beat 3 queues × 8 (=24)** — because same request rate (same collision exposure) but parallelism concentrated as async-WITHIN-fewer-jobs avoids stranding, feeds the critical-path segment directly, and wastes fewer slots on small early-draining jobs.
+- **Test as a GRID:** {2, 3 queues} × {8, 12 async}, measuring BOTH total time AND collision/error counts (429/502/503), on balanced segments.
+- **Decision:** if all configs ≈ equal → resource-SATURATED (shared throughput/network/serial-insert maxed), keep 2×8, and the JSON tuning rig has nothing to tune → skip it. If a config wins → that's the setting, and the rig earns its place. The rig should make BOTH knobs tunable.
+- **Note on saturation:** the =3 regression today hinted the shared resource may already be saturated (few 429 errors ≠ spare throughput — you can be at 100% of the pipe with zero errors). The grid test settles it.
 
 ---
 
-## V2.6 version badges → 2.6 (done)
-Three user-visible badges bumped V2.5→V2.6: `ConvoyDisplayPanel.kt:131` + `:140` (`versionTag`), `ConvoySettingsScreen.kt:254` (`GroupTrack v2.5`→`v2.6`). Play-store versionName/versionCode are **git-controlled** (computed in `build.gradle.kts` 65/71) — NOT hand-set.
-**Left alone (logged for 3.0):** `ConvoySearchByAreaScreen.kt:58` (`"V2.5"`) + `:72` (`"Coming in V2.5"`) — this is a **3.0 ride-management placeholder**, unreachable from 2.6 map surfaces (verified: neither ConvoyScreen nor ConvoyMapViewerScreen launch it; reachable only via `GroupTrackTheme:294` ride menu = 3.0). 3.0 pass: repoint the menu to the real search-by-area (FAB Area mode, which IS implemented) or delete the stub.
+## 07-09 — what got done today (tile download speed-up, 2.6b)
+
+**Built + installed to Droid 1 and Droid 2 (BUILD SUCCESSFUL). Three code changes to `ConvoyTileDownloader.kt` and `ConvoyTileCalculator.kt`, plus a job-concurrency test bump.**
+
+1. **Tile-fetch CONCURRENCY** (the ~5× win). The sequential per-tile download loop in `ConvoyTileDownloader.downloadTiles` is now parallelized: fetch tiles in batches of `TILE_FETCH_CONCURRENCY = 8` concurrently (`coroutineScope { … async … }`), then INSERT them SERIALLY per batch. **Fetch-parallel / insert-serial is the required design** — `MBTilesStore` holds one cached SQLite handle per type, so concurrent inserts are unsafe; only the network fetch (OkHttp, thread-safe) is parallelized. Preserves resume-skip (`hasTile`), per-batch cancellation (`isActive`), the z18 debug log, counters + `onProgress`, `forceOverwrite`, `isOverlay`.
+   - *First build failed:* the const wasn't declared inside the object, and `async`/`coroutineScope` were fully-qualified (`kotlinx.coroutines.async`) so `async` didn't bind the `coroutineScope` receiver. Fixed by declaring `TILE_FETCH_CONCURRENCY` in the object, importing `coroutineScope` + `async`, and calling them unqualified.
+
+2. **Removed the stale download zoom cap** in `ConvoyTileCalculator.maxZoomForSource`. It hardcoded TOPO+/TRAIL → 17 (a leftover from the old hand-drawn TOPO+ source). Now returns full `ConvoyConfig.DOWNLOAD_ZOOM` for all sources — download requests the full zoom range; worst case is empty/404 tiles at high zoom (already the current behavior for sources that top out). The per-source `max_zoom` in `map_sources.json` is **retained as a DISPLAY clamp** to snap back to later — download and display ceilings are intentionally decoupled (Fred's call).
+
+3. **429 / 503 / 502 backoff** in `fetchTileBytes`. Previously any non-2xx was a null-drop → the tile was silently LOST with no backoff (the 125K test dropped 2 tiles to 502s). Now 429/503/502 are **retryable**: back off (exponential, base `TILE_BACKOFF_BASE_MS = 400`, up to `TILE_MAX_RETRIES = 4`) and retry the SAME tile; honors `Retry-After`. Genuine 404/other returns null fast. `FetchOutcome` data class holds the outcome. (502 was added after the first 125K test dropped 2 tiles — patch `patch_2026-07-09_add_502_retry_v1`.)
+
+**Test result (125K tiles, SAT + TOPO + TOPO+, Droid, MAX_CONCURRENT=2):** ~80 minutes, ~100% success, ZERO 429s, 2 transient 502s (dropped pre-502-fix). Old-build baseline unknown; Fred's gut ~6–8 hr previously → **~4.5–6× speed-up**. A tester is running a different-track 125K on the OLD build for a firmer baseline (different track, same tile count = best available comparison).
+
+**The performance investigation (the important part) → see "⭐ LOAD BALANCING" above.** Summary: concurrency is NOT a further lever (job-level regressed; the bottleneck is a saturated shared resource); the ~5× came from the shipped tile parallelism; and total time is governed by segment balance, which is currently accidental. Even segmentation is the proven next build.
+
+### New 2.6 backlog items surfaced today
+- **⭐ Area segmentation for load balancing** — THE priority build (full spec above).
+- **`quickEstimate` source-awareness** — prerequisite for segmentation AND fixes the TOPO+ estimate gap (below). Same change.
+- **SAT overlay showing on TOPO / TOPO+ (display bug).** Both SAT overlays (labels + transportation) render on the TOPO and TOPO+ base maps, ALWAYS ON. Confirmed PURELY RENDER-SIDE: overlays download correctly UNDER SAT (gated right at download — verified in logcat), so the bug is only in the Leaflet layer-stack render logic adding overlays regardless of active base. **Fix: show SAT overlays only when base == SAT** — in the map HTML layer-stack / `MapSourceManager` base-overlay association. NOT a download/association problem.
+- **Clear-area / delete-area for downloads — NEVER WIRED.** Left unwritten during the area-download build because the MBTiles cutover was pending (didn't want to write against loose-file storage about to be replaced). Now a real gap: no per-area tile clear for the "replace" flow or for test-clearing. Scope = bbox-surgical delete of tiles within the drawn area from the relevant `.mbtiles`, tied to the "replace" toggle in `ConvoyDownloadConfirm` (NOT whole-source drop); must close/reopen the cached SQLite handle cleanly (handle-hygiene — see the FUSE-wedge hardening item). Scope bbox-vs-whole-source to confirm.
+- **Tile-download tuning rig** (MANUAL tuning, NOT an auto-throttle — Fred rejected an adaptive controller as overkill). Build-decision gated on the balanced grid experiment above. Pieces: (1) 502 retryable — DONE; (2) `MAX_CONCURRENT` settable from JSON, clamped ±1 per cycle, effective on the NEXT set of submits/releases (CANNOT change while jobs running — new value staged, applied when the queue is idle; "cycle" = a fresh submit/release set); (3) error counts broken out by code in the `Complete:` logcat line → `failed=Y [429=a 502=b 503=c]`; (4) a tuning guideline (error-rate thresholds + how to step). The guideline must account for CONTENTION — higher concurrency can regress total time when a saturated resource is split. Rig should make BOTH `MAX_CONCURRENT` and `TILE_FETCH_CONCURRENCY` tunable (the grid test needs both).
+- **TOPO+ estimate-vs-actual gap — ROOT CAUSE FOUND.** "Map 3" TOPO+ = source `esri-usa-topo` (`server.arcgisonline.com/.../USA_Topo_Maps`), `max_zoom: 15` in `map_sources.json` — genuinely tops out ~z15. "Map 2" = a DIFFERENT source `usgs-imagery-topo` (`basemap.nationalmap.gov`, `max_zoom: 16`) that shares the "TOPO+" short_label — which is why switching to it yields tiles at higher zoom. Three mismatched zoom numbers existed: JSON says 15, `maxZoomForSource` hardcoded 17, `quickEstimate` ignored source (assumed 18). Fred removed the download cap (change #2 above) and keeps the JSON `max_zoom` for display. Making `quickEstimate` source-aware closes the estimate gap.
+- **Queue-monitor display check.** The download queue IS persisted to JSON — `ConvoyDownloadQueue.kt` writes `download_queue.json` under `appCtx.filesDir/download_queue/` (`QUEUE_FILE` const line 86; `saveQueue()` ~line 420 writes a `JSONArray` of `entry.toJson()`, called after every queue change; `loadQueue()` reads on startup). This file backs the queue-monitor UI. It is NOT readable on the RELEASE build via `adb` (`run-as` fails on non-debuggable release; `cat /data/data/...` is denied). To inspect next session: X-plore into `Data/com.geeksville.mesh/files/download_queue/`, or add a debug mirror-copy of the file to `/sdcard/Documents/GroupTrack/` inside `saveQueue()`. Fred found the queue-monitor labels confusing ("SAT 2-4 / TOPO 1,2,3,4 / TOPO+ blended") — worth checking against `ConvoyDownloadQueuePanel.kt` render logic; the logcat ground truth is clean: 6 jobs, 2 cells per source, labeled `x/2`.
+
+### Checked and CLOSED today
+- **Convoy-map submission path parity** — Fred earlier saw a convoy-map submission preview look wrong (second cells appeared missing) and cancelled before submitting, then ran from the convoy menu (which correctly built 2 cells each). On re-test the job submitted correctly from convoy with no repeatable issue. Treated as a transient display/misread, not a confirmed bug. Thread closed.
 
 ---
 
-## Open items carried forward
-- **INSERT-only gate on import maps** (deferred bug). Import maps download fires only in the `AddOutcome.INSERT` branch of `importGpxAllArtifacts` → re-importing an **existing** track with "maps" checked downloads **nothing** (it's a DUPLICATE/ALIAS, not INSERT). "MAPS checkbox ignored when track already exists." Fix: move the maps call out of the INSERT-only branch so DUPLICATE/ALIAS-with-maps-checked also downloads. Not required for standardization; deferred.
-- **Leftover debug log** `submitDownload IN: N=...` still in `submitDownload` — harmless, currently useful, remove after storage work settles.
-- **ConvoyScreen artifact-detail host — ✅ RESOLVED 07-08.** (Was: only the map-viewer host had box 1 wired; ConvoyScreen host had none.) ConvoyScreen's `onDownloadMaps` now passes the standard box-1 value (get bbox → `downloadBbox` + `showDownloadConfirm` → `ConvoyDownloadConfirm`) + closes the detail panel first. Box-1 spine now covers BOTH hosts. Pure caller-side; shared `ArtifactDetailPanel` untouched.
-- **`.gitignore`** added for `ersi api key/`, `*.db`, `*.gpx`, `*.png` (keeps the Esri key + local artifacts out of commits). NOTE the `*.png` rule will ignore *new* image assets too — narrow it if real drawables need tracking.
+## Device / build quick-ref (durable)
+- **Droid 1** `8624SBCEDF00001789` (field / real-GPS, primary) · **Droid 2** `24039703201775` (dev, no GPS). Droid 1 USB temperamental → prefer wireless ADB / X-plore.
+- **BUILD:** `./gradlew assembleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease 2>&1 | grep -E "^e:|BUILD|FAILED"` (warm ~15 min, cold ~32 min). APK: `app/build/outputs/apk/google/release/app-google-release.apk`. Install: `adb -s <serial> install -r <apk>`. Cold-launch from icon.
+- **One command at a time** (Fred executes + pastes). **Patches = dated Python scripts** → `/c/Users/kixaz/Downloads/`, UNIQUE filename per iteration, marker-guarded + `.bak` backup, abort-clean if anchor not found verbatim, detect+preserve line endings (convoy files are LF).
+- **⚠ Do NOT `adb rm` `.mbtiles` while the app runs** — wedges scoped storage (`SQLITE_IOERR_FSTAT`) until reboot. Use X-plore + force-stop the app.
+- **LOGCAT:** `adb -s <serial> logcat -c` then `adb -s <serial> logcat | grep -E "TileDownloader|DownloadQueue"`. Enqueue lines fire at submission start (roll out of the circular buffer during long downloads — capture to a file if needed).
+- Repo: `C:\Users\kixaz\Meshtastic-Android`, branch `feature/convoy-event-ride`, package `com.geeksville.mesh` (path `com/geeksville/mesh/convoy/`). **~110+ commits ahead of origin — a `git push` for offsite backup is recommended.** Today's speed-up work was BUILT and tested but is NOT yet noted as committed — confirm commit state at start of 07-10.
 
 ---
 
-## Tile storage — Pass 1 DONE (07-08). Answers to 07-07's open questions.
-The 07-07 open questions about the write-landing are now answered from real artifacts (built + inspected on Droid 1):
-- **One `.mbtiles` per TYPE** (= cache_dir = old dir name), created **lazily** on first `insertTile`. NOT one container with a source column.
-- Base + overlays **each their own DB** (SAT → SAT + SAT_LABELS_TRANSPORT + SAT_LABELS_PLACES), composited at the Leaflet layer. Overlay linkage lives ONLY in `map_sources.json` `layers[]` (role + render_order) — no cross-DB link, no type column.
-- Schema: `tiles(zoom_level,tile_column,tile_row,tile_data)` + `metadata(name,value)` + mandatory unique `tile_index`. Raw z/x/y, `scheme=xyz`.
-- The download pipeline (box 1 → submitDownload → divide → worker fetch) did NOT change — only the write landing did (loose `maps/tiles/<slot>/z/x/y` → `<slot>.mbtiles`), exactly as 07-07 predicted.
+## Milestone split (unchanged)
+- **2.6a** — known-good FALLBACK release (Pass 1 MBTiles + WebP + UI fixes). SHIPPED/committed 07-08.
+- **2.6b** — tile transport/SPEED. Today's concurrency + backoff + zoom-cap = 2.6b speed work. **Segmentation for load balancing is the next 2.6b build.** (Note: the original 2.6b "Esri batch transport / exportTiles / .tpkx" plan is DEAD — the Location Platform key is per-tile only, `exportTiles` needs a different entitlement. Pivoted to client-side concurrency, which is what shipped. See the tile-storage recap + living master for the full transport investigation and the 4-phase Esri cost strategy.)
+- **2.6c** — lead-track / tick / my-cart rewrite (the only radio work; last).
 
-## TOMORROW — 2.6b Esri batch transport (tiles Pass 2)
-**Per-tile HTTP fetch → Esri bulk `exportTiles` / `.tpkx` CompactV2 → unpack into the SAME `MBTilesStore`.** Pass 1's write path (codec q80 base / passthrough overlay, raw z/x/y) is DONE and stays; Pass 2 only changes *how tiles arrive*.
-1. **De-risk first (no Kotlin):** curl the Esri `exportTiles` POST → poll `/jobs/{id}` → download `.tpkx` from Git Bash. Confirm async Export Tiles is authorized under the Location Platform key (pending gate from 07-05).
-2. **Do the `insertTile`/`db()` silent-failure hardening first/alongside** — batch hammers inserts.
-3. **Build `EsriExportTilesProcess` alongside, gated** (`layer.batch?.process`); CompactV2 128×128 bundle unpack (port Vundler.py / compact-cache-bundle) → emit `(type,z,x,y,bytes)` into the existing write contract.
-4. **SAT = 3 separate `.tpkx`** (per-service), same loop, different destination DB.
-5. Verify batch rows == HTML-path rows on Droid 1, open the gate per-source.
-
-Full Pass 2 spec (request format, CompactV2 bit-layout, SAT reassembly, key reuse) is in `GroupTrack_V2_6_TileStorage_Recap` — authoritative and unchanged.
-
-## Route+ state persistence — NEXT-SESSION pickup (2.6a, no radio)
-**07-08 refined fix spec (Fred, hard rule):** while Route+ is active, the route screen **persists through ANY other selection** (?, hamburger, search, another item, panel — anything); the **ONLY** exit is an **explicit close**, which **prompts save-or-discard**. This subsumes the nav-box-disappears issue (state can't be implicitly abandoned → can't be orphaned; the save/discard prompt IS the teardown funnel). Same prompt on BOTH exits (planning-exit + convoy-return). Root cause (located 07-06): ephemeral Compose `remember` routeMode at two copies (`ConvoyMapViewerScreen.kt:129`, `ConvoyScreen.kt:197`) driving one `window.__routeMode`, ~8 scattered teardowns, no funnel. Design: persist to map JSON (per-map keyed) + one teardown funnel = the save/discard prompt. Full detail in memory `/areas/grouptrack-route-state`.
+## Deferred / carried (no radio, next sessions)
+- Route+ state persistence (refined spec in the living master + `/areas/grouptrack-route-state.md`).
+- `insertTile`/`db()` silent-failure hardening (matters MORE now that fetches are parallel — do with/before further download work).
+- `deleteSource` handle-hygiene (needed for delete-area).
+- aliases UI, tracks rename→human-readable swap, dead `tilesDir` lines, `.nomedia` verify, compression-quality runtime setting.
+- git push offsite backup.
 
 ---
 
-## Devices / environment
-- **Droid 1** `8624SBCEDF00001789` — field/real-GPS; **USB temperamental** → prefer wireless ADB / Termux / X-plore. Primary MBTiles test device — now running the WebP build; SAT/TOPO/TOPO+ as `.mbtiles`. No sqlite3 → pull `.mbtiles` to PC (or Python's built-in sqlite3). ⚠ **Do NOT `adb rm` .mbtiles while the app runs** — wedges scoped-storage (`SQLITE_IOERR_FSTAT`), only a **reboot** clears it (cost most of 07-08 afternoon).
-- **Droid 2** `24039703201775` — dev; still has the **old loose-file build + tree** = the uncompressed baseline oracle. SAT loose = **344,061 tiles / 7,410,581,847 bytes = 21,538 B/tile** (the 07-08 WebP baseline comparison). 07-07 standardization was certified here.
-- **Repo:** `C:\Users\kixaz\Meshtastic-Android`, branch `feature/convoy-event-ride`. **Package path `com/geeksville/mesh/convoy/`** (NOT `com/grouptrack/android/`). Package id `com.geeksville.mesh`.
-- **Build:** `./gradlew assembleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease`. Cold ~36min; **warm ~10-13min**. APK: `app/build/outputs/apk/google/release/app-google-release.apk`.
-- **Install:** `adb -s <serial> install -r <apk>`.
+## The two 07-08 design rules (still in force)
+1. **No nullable-as-shortcut** — a nullable/optional param must have its justification explained before use.
+2. **Evaluate at point of contact, not retroactively** — don't audit for violations, but fix/justify when touching such code.
+And the **07-07 DECOMPOSITION SCOPE RULE** — when extracting an internal function into an external module, every scope var it read becomes an invisible dependency; carry data as an explicit payload param, never re-read from a scope that no longer exists at deferred-run time.
 
-## Working style (reinforced today)
-- **One command at a time** — Fred executes each, pastes result, then next.
-- **Patches: surgical `sed` for single lines; temp-file + short Python script for multi-line blocks.** Heredoc pastes with long multiline strings REPEATEDLY splice/corrupt in the terminal (the echo garbles mid-block) — but content usually lands on disk correctly; ALWAYS verify with `sed -n`/`cat` after any patch. Python needs Windows paths (`C:\Users\...`); `sed`/`grep` use `/c/...`.
-- **Impact analysis first** — reference `field_crossref_raw.txt`, `where_used_raw.txt`, `function_universe_raw.txt`, `navigation_xref.txt` before changes. (function_universe indexes signatures/key-lines only — real file reads needed for logic.)
-- **Certify each item on device before reuse/commit.** Commit per verified item; explicit `git add <files>` (never `-A` — the Esri key is untracked).
 
----
-*Handoff — 2026-07-08 EOD. Pass 1 (MBTiles cutover) + WebP (~55%) shipped & committed; convoy box-1 wiring closed the 07-07 host gap. Tomorrow: 2.6b Esri batch transport. Route+ state = next-session pickup. (07-07 download-standardization content retained above in full.)*
+=== GroupTrack_V2_6_ReleaseNotes_2026-07-09.md ===
+# GroupTrack V2.6 — Release Notes
+**Date:** 2026-07-09 · **Milestone:** 2.6a (fallback) committed; 2.6b (map transport/speed) in progress · **Status:** internal draft
+
+> 2.6a is the fallback release (storage cutover + compression + map/UI fixes), committed 07-08. 2.6b adds map-download speed and transport work. Nothing here touches the mesh radio (radio work is 2.6c).
 
 ---
 
-## Doc-set status note (manual clarification — 07-07)
-THREE manual artifacts exist; don't confuse them:
-- **`GroupTrack_V24_UserManual_Complete.pdf`** — the last COMPLETE published manual (V2.4, May 2026). Reference-style (feature-by-feature). Baseline.
-- **`GroupTrack_User_Guide_V2_5.pdf`** (V2.5 Cookbook Draft) — the STRUCTURED current manual, built from `navigation_xref.txt` (40 screens) + V2.5 feature docs, cookbook style (how you get there / what you do / where it leads). Chapters 4-6 = current V2.5; Chapters 1-3 = 3.0 preview (banner'd). Marked DRAFT/VERIFY throughout (labels/nav need app authentication). **This is the manual today's download work lands in** — see below. Trail counts: ~49,000 trails / 591 trailheads.
-- **`app/src/main/assets/grouptrack_manual.html`** — **THE TRUE, SHIPPED, CANONICAL MANUAL** (confirmed 07-07, pulled from app assets). Interactive HTML: collapsible L1 map &rarr; L2 launch-point &rarr; L3 sub-flow &rarr; L4 screen hierarchy, search box, reference images. Titled "GroupTrack V2.5 Manual". This is the FINISHED product the V2.5 Cookbook PDF was the rough draft FOR. **Source of truth** &mdash; always pull the manual from app assets (last release, no changes = asset is authoritative). The `grouptrack_manual.html` carried in the doc set is this asset copy.
+## New in this build
 
-**Manual revision pending (map onto the V2.5 Cookbook's chapters):**
-1. **Uniform source-selection popup** (today's change) — track download (artifact detail, the "tap a name → detail panel" path in Ch. 4 Work with Artifacts) and import-with-maps (Ch. 4 IMPORT ARTIFACTS / Track Import) now present the SAME source-selection screen (box 1) as area download. Note the consistent source-select step in Ch. 4 + Ch. 5 (Offline Maps & Downloads). Minor.
-2. **Tile-storage rewrite** (tomorrow's migration) — the loose `source/zoom/x/y.png` structure (V2.4 manual Ch. 11) becomes the MBTiles spatial-DB model (one .mbtiles per type, ~35-40% smaller). Material change; pairs with the release-notes upgrade box (install X-plore → delete maps → re-download). Revise + screenshot when Pass 1 ships, then re-point the release-notes manual link. In the Cookbook this touches Ch. 5 (Offline Maps & Downloads).
-3. **Cookbook is still DRAFT/VERIFY** — before publishing, walk each screen in-app, confirm button labels (draft uses code labels), verify each 'Leads to', fill thin screens (Explore/Profile/MyOrganizers/Subscription), add per-screen screenshots. Regenerate nav_xref to keep current.
+### Much faster map downloads (2.6b)
+Downloading offline map areas is now **several times faster**. Map tiles are fetched in parallel instead of one at a time, so a large multi-source area (satellite + topo layers) that previously could take many hours now completes in roughly an hour and a half in field testing. The download is also more resilient: if a map server briefly rate-limits or returns a temporary error, the app now backs off and retries that tile instead of skipping it — so downloads finish more complete.
 
-The V2.4 PDF's Chapter 11 + Chapter 12 (Tile Sources) + Appendix C (which is "Coming in V2.5") are the sections most out of date relative to shipped V2.5/V2.6 — worth a pass when the manual is revised.
+*(Draft user-facing line: "Map downloads are now several times faster, and more reliable when the map servers are busy.")*
+
+*Note (internal): further download speed-up via even area-segmentation load balancing is the next 2.6b build — will make large downloads finish in the balanced/fast case every time rather than occasionally running long.*
+
+### Full-detail topo downloads
+The TOPO and TOPO+ map layers now download their full available zoom detail (a previous internal cap that limited them to a lower zoom has been removed). Note the USGS TOPO+ source itself still has no imagery above roughly zoom 15 — that's a source limitation, unchanged.
+
+---
+
+## Carried from 2.6a (already committed 07-08)
+
+### Smaller offline maps (~55% less storage)
+Offline map tiles now use a compact single-database format per map type instead of thousands of loose image files, with efficient WebP compression for satellite imagery. Field testing showed roughly **55%** less satellite-map storage (about 21.5 KB per tile down to 9.7 KB) with no visible difference at normal viewing zoom.
+
+### Offline map labels fixed
+Road and place-name labels on the satellite map now stay visible after going offline and when switching map areas.
+
+### Download maps from the main map
+You can start a map-area download for a track directly from its detail popup on the main (convoy) map.
+
+---
+
+## Known / by-design in this build
+- **TOPO+ (USGS topo)** has no imagery above roughly zoom 15 — a limitation of the USGS source, not the app. (A future update will smoothly upscale the last available zoom instead of showing "map data not available.")
+- **SAT map labels on topo layers** — the satellite road/place labels can currently appear over the TOPO/TOPO+ base maps. A fix to show them only on the satellite base is planned.
+
+---
+
+## Still to land in 2.6b / 2.6a
+- Even area-segmentation load balancing for downloads (faster, consistent large downloads)
+- Clear/delete a downloaded map area (surgical, per-area)
+- SAT-overlay-on-topo display fix
+- Route+ state persistence, track rename, aliases UI, minor cleanups
+
+---
+
+## Upgrade notice
+After updating, previously downloaded offline maps use the old format. To get the storage savings and the new speed, re-download the map areas you use (the old loose-file tiles can be cleared). Field-tester note: if a device holds a very large old loose-tile set, clearing it before re-downloading frees the space immediately. **Do not delete map tiles with a file manager while GroupTrack is running** — close/force-stop the app first.
+
+---
+*Internal draft — 2026-07-09. Publish-ready copy to be finalized when 2.6b lands and the AAB is cut.*
 
 
 === GroupTrack_V2_6_TileStorage_Recap_2026-07-08.md ===
@@ -22966,7 +23202,7 @@ Release-notes / manual gate: the 2026-06-04 route release-notes draft described 
 First-launch + ? help spec (from V25_OpenItem_FirstLaunchNotes doc, carried): release notes auto-show on install/update with install+setup steps, acknowledge→proceed, rendered off main thread AFTER heavy init, bundled as APK asset (offline). ? help icon deep-links each screen to its manual section; V2.5 scope = Planning Map, Convoy Map (+connection panel), Convoy radio-write menu (the screens that persist to 3.0). Transitional radio-config functions (Apply/Archive/Restore) are fully documented as current-and-supported (NOT labeled deprecated to testers); 3.0 manual rewrites those sections when the functions are replaced.
 
 
-=== GroupTrack_Living_Master_2026-07-08.html ===
+=== GroupTrack_Living_Master_2026-07-09.html ===
 GroupTrack — Living Master Document
   body{font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;line-height:1.55;max-width:960px;margin:0 auto;padding:24px;color:#1a1a1a;background:#fafafa}
   h1{border-bottom:4px solid #2c6e49;padding-bottom:10px;margin-bottom:4px}
@@ -22999,7 +23235,7 @@ GroupTrack — Living Master Document
 .shipped-0708{background:#eafaef;border-left:4px solid #0a7d33;padding:10px 14px;margin:8px 0;border-radius:4px;}
 .shipped-0708 p{margin:0;font-size:13px;line-height:1.5;}
 GroupTrack — Living Master Document
-Updated 2026-07-08 EOD. V2.6 milestone split into 2.6a (fallback, Pass 1 + WebP — SHIPPED &amp; committed) / 2.6b (Esri batch transport — next) / 2.6c (lead-track, radio). Self-contained: all topic detail is written INTO this document (collapsible), so nothing depends on an external file that could be lost. Version-sectioned. This document is part of AllDocs — expand a topic to work it, collapse it when done.
+Updated 2026-07-09 (V3.0 Esri download-strategy planning session added). V2.6 milestone split into 2.6a (fallback, Pass 1 + WebP — SHIPPED &amp; committed) / 2.6b (Esri batch transport — next) / 2.6c (lead-track, radio). Self-contained: all topic detail is written INTO this document (collapsible), so nothing depends on an external file that could be lost. Version-sectioned. This document is part of AllDocs — expand a topic to work it, collapse it when done.
   Jump:
   V2.5
   V2.6
@@ -23133,6 +23369,11 @@ Recorder items (needs radio, ITEM C cluster) OPEN
   Android-GPS recording bug (Android-only fails; radio-create certified 06-30). ConvoyGpsService.kt (CRLF): startLocationUpdates (~251-277 prime suspect), onGpsUpdate (~288). Instrument first. + recorder truncation (no &lt;/trk&gt; on interrupt — record-stop must finalize the file).
 Other V2.6 backlog (no-radio) OPEN
   ⚠ MAPS checkbox ignored when track already exists — fires only in the INSERT branch; move the maps call out of AddOutcome.INSERT -&gt; and gate on the checkbox for any non-error outcome.
+  ⚠ CLEAR-AREA / DELETE-AREA for downloads — NEVER WIRED (add to 2.6). The per-area tile clear was deliberately left unwritten during the area-download build because the MBTiles cutover was pending (didn't want to write it against loose-file storage about to be replaced). Now that Pass 1 shipped, it's a real gap: no clean way to clear a specific area's tiles before re-downloading (replace flow), and no surgical clear for testing. Scope = bbox-surgical delete of tiles within the drawn area from the relevant .mbtiles (tied to the "replace" toggle in ConvoyDownloadConfirm), NOT whole-source drop. MUST respect the handle-hygiene hardening (close/reopen the cached SQLite handle cleanly — don't corrupt the DB / trigger the FUSE wedge). [scope to confirm: bbox-surgical vs whole-source]
+  ⚠ UNEVEN QUEUE SEGMENT SIZES waste the concurrency (perf, new 07-09). SAT submits as TWO jobs — one ~60,000 tiles (starts at z18), one ~11,000 — wildly unequal. With MAX_CONCURRENT=2 the 11K finishes fast, then that slot idles / picks up TOPO while the 60K monster runs ~alone → parallelism collapses toward 1× for the long tail. Partly explains the 80 min, AND why raising MAX_CONCURRENT may not help much: an indivisible 60K job hogs one slot the whole download; more slots can't subdivide it. SEGMENTATION METHOD (Fred, 07-09 FINAL). Divide the area bbox into EQUAL AREAS sized so NO area exceeds 50,000 SAT tiles. SAT is the sizing driver (densest source — goes to z18); size the grid to keep SAT ≤50K/cell and every other source (shallower zoom, fewer tiles) is automatically well under 50K in the same cell. So: estimate SAT tiles for the bbox → divide into ceil(SAT_total / 50000) equal areas → ONE uniform grid, computed against SAT only, applied to ALL sources. The grid is UNIFORM (plain equal-area cells); applied to each source's tiles it yields even batches per segment. LOAD BALANCING = process segments sharing the SAME ZOOM VALUES FROM THE SAME SOURCE SEQUENTIALLY (queue homogeneous work → comparable batches → even flow); evenness is a PROCESSING-ORDER property (group like-with-like), not per-source count juggling. ⚠ LOAD-BALANCE PRINCIPLE (the why): each segment MUST be a COMPLETE VERTICAL SLICE OF THE ZOOM STACK (z-min..z-max) for its geographic cell — NOT segmented by zoom. Segmenting by zoom recreates the imbalance (z18-only = the 45K heavy monster; z10-16 = trivial). Full-stack-per-cell gives every segment the SAME SHAPE of work (its share of heavy z18 + light upper layers), so equal-area segments do equal work and finish together in parallel slots — that comparability IS the load balancing. Unit = a vertical column (full zoom) over a horizontal cell, sized so SAT full-stack ≤50K. NOTE the heavy part is z18: tiles there carry more DATA (imagery), so processing accelerates as it climbs past z18 — data-per-tile drives speed, not tile count; splitting the cell halves the heavy-z18 load per slot. Only SAT needs estimating (worst case); others ride the same grid under the ceiling. Slight overlap (~tile-width) prevents seam gaps; hasTile dedupes. Prerequisite for higher MAX_CONCURRENT to pay off; likely a bigger lever than raising it.
+  ⚠ SAT OVERLAY DISPLAYING ON TOPO / TOPO+ (new 07-09). The SAT overlay tiles (labels / transportation — likely SAT_LABELS_TRANSPORT / SAT_LABELS_PLACES) are rendering on top of the TOPO and TOPO+ base maps where they should not appear. Layer-compositing bug: the overlay isn't cleared/swapped when the active base map changes (SAT→TOPO), or overlays render regardless of the active base. Confirmed: ALWAYS ON, BOTH overlays (labels SAT_LABELS_PLACES + transportation SAT_LABELS_TRANSPORT) — not intermittent, not download-dependent. "Always on, both" ⇒ overlays are unconditionally added and NOT gated on the active base; the fix is a "show these overlays only when base == SAT" condition in the Leaflet layer-stack logic (map HTML) / how MapSourceManager associates overlays with a base — not a swap-timing race. Add to 2.6.
+  Tile download SPEED-UP (2.6b, 07-09) — concurrency + zoom-cap + 429 backoff. Parallelized the sequential tile-fetch loop in ConvoyTileDownloader.downloadTiles (fetch 8 concurrently via TILE_FETCH_CONCURRENCY, insert serially — single cached SQLite handle unsafe for concurrent writes). Removed the stale per-source download zoom cap in ConvoyTileCalculator.maxZoomForSource (TOPO+/TRAIL→17 was for the old hand-drawn source; now full range; JSON max_zoom retained as a display clamp). Added 429/503 backoff in fetchTileBytes (retry SAME tile, exponential, honors Retry-After; 404 fast-null) so concurrency can't silently drop tiles under throttling. Reason: current download speed is an adoption obstacle. Built + applied 07-09; testing on Droid 1. 125K-tile test (SAT+TOPO+TOPO+) = 80 min, ~100% success, ZERO 429s, 2 transient 502s [⭐ RECONCILED RESULT: 2 queues vs 3 queues, cause = segment balance. The 80-min run (2 queues) was balanced ONLY BY COINCIDENCE — the big SAT segment happened to have ~equal tiles to ALL other jobs combined, so a 2-slot split fell ~50/50 by luck. With 3 QUEUES that broke: the 3rd slot subdivided the "everything else" half, small jobs drained at ~45 min, and the big SAT job ran ALONE for the tail → ~113 min (92% at 104 min). So current balance is ACCIDENTAL/FRAGILE (holds only because big-segment ≈ sum-of-rest at 2 slots); changing concurrency/area/tile-mix breaks it. EVEN SEGMENTATION replaces luck with guarantee — equal ≤50K-SAT segments hold balance regardless of slot count or area shape. Keep concurrency modest (~2); segmentation is the fix. OPEN EXPERIMENT (post-segmentation): once segments are balanced, run the same area at MAX_CONCURRENT=2 then =3 to isolate concurrency (today's =3 was confounded by imbalance). If 3≈2 → resource-SATURATED, keep 2, SKIP the tuning rig; if 3&lt;2 → spare capacity, build the rig and tune up. Segmentation first (removes the confound), then this clean test. Fred's hypothesis — test as a GRID: the two multiplying levers are queues(MAX_CONCURRENT) × async(TILE_FETCH_CONCURRENCY); at the SAME total (e.g. 24), FEWER queues × MORE async each may WIN — 2×12 could beat 3×8 — because same request rate but parallelism concentrated as async-within-fewer-jobs avoids stranding, feeds the critical path directly, and wastes fewer slots on early-draining small jobs. Test {2,3 queues}×{8,12 async}, measure time + collisions. Rig should make BOTH knobs tunable.] (dropped — 502 not yet in retry set).
+  TILE-DOWNLOAD TUNING RIG (planned, next session) — manual tuning, NOT auto-throttle. Decided against an adaptive feedback controller (overkill). Four pieces: (1) add 502 to the retryable set in fetchTileBytes (currently 429/503 only — the 2 dropped tiles were 502 transient server strain); (2) make MAX_CONCURRENT (job-level, ConvoyDownloadQueue) read from JSON so it's tunable without a rebuild — but clamped to ±1 change per cycle (no jumping 2→8): read JSON target, compare to a PERSISTED last-effective value, step ≤1 toward target, use + persist it. Change is SETTABLE in the queue manager and takes effect on the NEXT set of submits/releases — CANNOT change while jobs are running (new value is staged, applied at the next launch when the queue is idle; running jobs finish under their start value). So a "cycle" = a fresh set of submits/releases (queue idle→launching a new batch), not per-app-launch. (3) break out error counts by code in the Complete: … downloaded=X failed=Y logcat line → failed=Y [429=a 502=b 503=c] for visibility while tuning (no UI); (4) publish a tuning GUIDELINE — error-rate thresholds + how to step concurrency (highest concurrency where error rate stays under threshold). Rationale: current 2×8=16 concurrent (jobs×tiles) gave 0 429s → headroom exists, but more concurrency risks more 502s, so tune manually against visible error counts. "Cycle" for the ±1 clamp = per app launch (simplest); persisted last-effective value is the one bit of new state.
   Draw/connect tracks into a route — (a) free-draw by tapping; (b) connect existing tracks at suggested connection points (detect endpoint proximity, suggest join, stitch). (b)-leaning; scope not locked. Reuses route machinery (RouteManager, ConvoyRouteToolbar, snap-2, bbox) + a new "suggest connection points."
   Maps bbox for all geometry types ("routes like tracks for maps") — now subsumed by the tile front-end origin standardization (all origins through the area submission; route dupes track; imported artifacts via the fit process). Per-artifact "select maps" checkbox for tracks AND routes; route detail panel gets the same "download maps" button.
   Detail-panel wiring cluster (partly done) — repoint file-based rename/delete callers (ConvoyMapViewerScreen ~1681/1700, ConvoyTrackExportSheet ~256/275) to DB services; retire legacy deleteTrack(File) (~63) + renameTrack(File) (~50); add alias-display UI + "matched via alias." Verify vs git.
@@ -23185,6 +23426,273 @@ V3.0 track/ride sharing rules STRATEGY
   Open design problem: same-ride cross-device matching (unsolved).
   Tile redistribution (deferred from V2.6): operator-side rehosting = redistribution = V3.0, gated on real entitlement AND revenue. The licensing line = intent-to-redistribute / who-hosts, not processed-vs-unprocessed. V2.6 = method change only, each client fetches under the app's own entitlement; AWS/Box holds a manifest (tract→extent→hash), not tile bytes. Safe-now AWS alternative: public-domain gov tiles (USGS/USFS/BLM).
   Backend named in roadmap: EC2, RDS, SES; S3 for tiles; PHP API (confirm from V3 spec). Google Play Billing; Apple IAP parallel later.
+⭐ ESRI TILE DOWNLOAD STRATEGY — 4-phase plan (planning session 2026-07-09) STRATEGY
+Origin (07-09): the V2.6b batch transport plan (Esri exportTiles → .tpkx → unpack) was de-risked and found unavailable. Curl against the keyed Location Platform imagery service (ibasemaps-api.arcgis.com/.../World_Imagery/MapServer?f=json, HTTP 200 with the AAPT key) returns only tileInfo — no exportTilesAllowed. The keyed Location Platform endpoint is per-tile only; exportTiles lives on the separate tiledbasemaps.arcgis.com "for Export" instance (a different org/subscription entitlement). So the .tpkx batch plan is dead on the current account, and V2.6b pivots to tile-fetch concurrency on the free endpoint (speed-up, not a transport rewrite).
+The cost reality. Esri Location Platform = 2,000,000 tiles/month free, then $0.15/1,000 flat (no volume tiers; high-volume only via Esri sales). Real GroupTrack usage: track download 200–300k tiles, area download ~500k tiles, heavy users ~100&nbsp;GB ≈ 10.8M tiles. A 100&nbsp;GB cache is a lifetime accumulation (≈900k/mo over a year, under the free tier) — but one-shot bulk on a metered key is financially impossible. Key honesty: the concurrency rewrite speeds downloads up, it does NOT reduce tile volume — on the free tier, faster just means faster accumulation (today's 100&nbsp;GB caches were built under the free tier). Demand-shaping via cost only works on a paid path.
+The four phases:
+  Phase 1 — NOW / BETA: free arcgisonline.com endpoint for everyone; the concurrency patch speeds it up at no cost and no licensing dependency. (This is the immediate V2.6b work.)
+  Phase 2 — OPTIONAL PAID PERSONAL TIER: users who want the faster keyed endpoint and/or big pre-downloads foot their own bill via their own entitlement (BYO-key / ~$100 ArcGIS Personal-Use). Cost self-selects and self-limits. Note: a personal license is still PER-TILE — not the batch/redistribution product.
+  Phase 3 — ENTITY ACCOUNT: past enough $100 personal accounts, it pays to shift to one ArcGIS org/enterprise account + shared key behind the backend proxy + negotiated volume pricing (also the central usage dashboard/billing + the 3.0 key-security model). Crossover economics unknown — depends on Esri's negotiated volume quote (the single deciding number; not published).
+  Phase 4 — FULLY OPTIMIZED ENDGAME: download-once / serve-many with dedup across the whole user base. Riders cluster in the same popular areas, so each region is fetched from Esri once and amortized across everyone who rides there — cost stops scaling with users and scales only with unique geography (bounded, slow-growing). Also solves key security (key server-only) + speed (users pull from GroupTrack) + control (one cache/dashboard/bill).
+Phase-4 distribution refinement — self-managed AREA PACKS (Fred, 07-09). Rather than run a live tile CDN, self-manage distribution: a batch process pulls/builds an area's .mbtiles once, hosts the finished file (FTP or file host / URL+catalog), and GroupTrack devices fetch + import the pre-built .mbtiles into MBTilesStore. Much lighter infra (a file server, not a mapping service) and fits the app's existing MBTiles-file world (store already reads .mbtiles; X-plore flow already moves tile files; import is close to Pass 1). Productized = "download this area pack" through the same download pipeline, pointed at pre-built packs instead of Esri tiles.
+⚠ THE REDISTRIBUTION LICENSE GATE (unchanged by any refinement). Hosting/FTPing an .mbtiles full of Esri tiles is redistribution just as much as live proxy-serving — legally identical on the point that matters. Phases 3–4 require a caching/redistribution-permitted Esri license (the "for Export" / offline entitlement) or a redistributable source. Lighter infra does not lighten the license requirement. The batch build's source is the same fork: free arcgisonline (ToS-gray bulk, just centralized), licensed for-Export (clean, negotiated/pricier), or USGS/USFS/BLM/Sentinel public-domain imagery (free + freely re-hostable — the clean fallback if Esri won't license redistribution).
+The one gate that decides Phase 3 &amp; 4: a single Esri sales conversation — entity/enterprise volume price + whether caching/redistribution is licensed and at what cost (not published, not web-searchable). Also confirm: does Personal-Use / BYO-key permit third-party-app use; Personal-Use is non-commercial (GroupTrack free now, commercial revenue model — revisit on monetization).
+Immediate next (code, safe under ALL phases): apply + build + test the tile-concurrency patch on the free endpoint (fetch-parallel / insert-serial, batch = 8). Do the db()/insertTile silent-failure hardening alongside (matters more once fetches are parallel). Do NOT switch the default to the keyed/metered endpoint. Current download speed is an adoption obstacle — this is the priority.
+REFERENCE (durable — always-loaded)
+Track model + data-integrity architecture (locked) LOCKED
+  SPATIAL tables PURE OGC; properties/surveys/aliases/queues in the EXTENSION db (grouptrack_data.db) by id. Separate SQLite files — NO cross-DB JOIN. Boundary change = stop-and-check. (Note: the tile MBTiles files are ALSO separate per-type SQLite DBs — the DB rules engine's reach over them vs only the GPX/track DBs is a tile Step-0 scope question.)
+  tracks: track_id PK, name, bbox, timestamps, geometry, min/max lat/lon, type, geom_hash NOT NULL UNIQUE (SHA-256 of WKT). track_properties: track_id PK, filename UNIQUE, source_format, recorded_at, distance_miles, duration_minutes, max/avg_speed_mph, elevation_gain_ft, point_count, shared, ride_id, area_id. artifact_aliases: alias_id, artifact_type (SINGULAR), artifact_id, alias, is_preferred (LOCAL), source, geom_hash.
+  Storage: my_tracks GPX (/sdcard/Documents/my_tracks) = SOURCE OF TRUTH; DBs + receipt at /sdcard/Documents/GroupTrack/; tiles at /sdcard/Documents/GroupTrack/maps today (→ MBTiles-only per-type hard cutover = V2.6 tile ITEM A; install/update will STOP creating maps). Track files &lt;track_id&gt;.gpx. DELETE-AND-RESYNC off the table for deletes; forced resync on install = additive rebuild-from-source. Recorder GPX = lat/lon/ele/time only, NO &lt;speed&gt;, 3s sampling (→ 2s change-gated V2.6).
+  "Artifact builds, not process builds": complete tracks fully, test as a unit, THEN routes, THEN waypoints.
+Lessons (burn in) LOCKED
+1 build the visible/requested thing first · 2 inventory the original-design fix before stacking · 3 fix the generator · 4 instrument before theorizing · 5 don't multiply failure points · 6 believe the device/data · 7 blast radius ≠ diff size · 8 green build + on-device verify before "done"; cold-launch from icon; bank a marker before long uncommitted stretches · 9 re-triage vs git · 10 build budget ≤2 builds/feature (~12-22min warm) · 11 use the nav xref for reachability · 12 fix the cause on the right layer (BUG A: popup not refresh) · 13 state test preconditions · 14 forced startup DB actions: one-shot + idempotent + visible + non-destructive + safe-fail · 15 believe the render call-chain · 16 webview bridge calls: decide at EVENT time not layer-build time · 17 heredoc HTML edits leak escapes literally — grep + visual-review after.
+18 (07-04) SCOUR THE CORPUS BEFORE PLANNING — read the docs' full evolution + reasons before offering a view; summaries are a lossy index; partner not new-employee. · 19 (07-05) DESTRUCTIVE ops rank by BLAST RADIUS not speed — surgical-slow &gt; fast-total; MBTiles = surgical+instant. STATE over inference (explicit recorded mode &gt; disk side-effects, resolved at app open). · 20 (07-06) REUSE + FIND THE EXISTING BLACK BOX BEFORE DESIGNING — funnel into the existing proven component (area submission, fit process, one write contract, provider's own unpack, DB rules engine); for any unknown, find the existing component + verify against memory before designing; capture the BLAST RADIUS so a change doesn't underestimate what it breaks. · 21 (07-06) DOC PROCESS — write detail INTO this living doc (collapsible), generate at EOD, paste into GroupTrack docs → AllDocs; memory alone doesn't reach AllDocs and referenced external files can vanish.
+Device / build quick-ref LOCKED
+  Droid 1 8624SBCEDF00001789 (field / real-GPS) · Droid 2 24039703201775 (dev). Droid 1 USB temperamental (moving it drops adb) → prefer WIRELESS ADB (Settings → Developer → Wireless debugging → pair → adb connect &lt;ip&gt;:&lt;port&gt;), Termux, X-plore. Devices have NO sqlite3 — pull .mbtiles to PC to inspect (read GPX directly).
+  Screenshots → /d/grouptrack_screenshots: adb -s 8624SBCEDF00001789 exec-out screencap -p &gt; /d/grouptrack_screenshots/&lt;name&gt;.png; downscale ~600px JPEG. PULL (Git Bash): adb pull //sdcard/... or MSYS_NO_PATHCONV=1 adb pull /sdcard/....
+  BUILD ./gradlew assembleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease 2&gt;&amp;1 | grep -E "^e:|BUILD|FAILED" (warm ~12-22min; cold ~30-40). APK app/build/outputs/apk/google/release/app-google-release.apk; AAB bundleGoogleRelease → app/build/outputs/bundle/googleRelease/app-google-release.aab. Install adb -s &lt;serial&gt; install -r -d &lt;apk&gt;. COLD-LAUNCH FROM ICON. No two Gradle builds at once. Commit only named files, never git add .; then git diff --cached --stat. versionName footer hardcoded "v2.5" (ConvoySettingsScreen.kt ~254) — bump only on a real version change; versionCode git-auto-bumps.
+  One command at a time (Fred executes + pastes; Claude cannot run adb/git/builds or reach the repo/Drive). Patches = dated Python scripts → /c/Users/kixaz/Downloads/, count==1 anchor guard else ABORT, newline detect+preserve, dry-run generators. Line endings vary per file (LF vs CRLF-in-repo — scripts detect+preserve).
+  LOGCAT: logcat -c → action → logcat -d | grep &lt;TAG&gt;. JS console.log → ConvoyJS on convoy_map.html; grouptrack_map.html (Planning) does NOT route console.log to logcat → visible on-screen element. Tags: TrackMaps, DownloadQueue, ImportDiag, TrackAdd, TrackDelete, TrackSync, AliasSwap, ConvoyJS.
+  DOCS WORKFLOW: this living doc is the container — detail written IN, collapsible, version-sectioned. Generate at EOD, save to Drive GroupTrack_docs + G:, commit to repo docs/, folds into AllDocs. In-app asset filenames stay canonical (grouptrack_manual.html / grouptrack_release_notes.html — those are app ASSETS, a separate track from this living doc).
+Living master document — self-contained (all detail written in, collapsible). Regenerated 2026-07-06 from the 07-03 checklist + the 07-04 (cross-platform) and 07-06 (tile-storage, route-state) sessions + the Mar-14 iPad discussion doc. This document IS the reference — nothing here depends on an external file.
+
+
+=== GroupTrack_Living_Master_2026-07-09_EOD.html ===
+GroupTrack — Living Master Document
+  body{font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;line-height:1.55;max-width:960px;margin:0 auto;padding:24px;color:#1a1a1a;background:#fafafa}
+  h1{border-bottom:4px solid #2c6e49;padding-bottom:10px;margin-bottom:4px}
+  .sub{color:#666;font-style:italic;margin-top:0}
+  .versionbar{position:sticky;top:0;background:#fafafa;padding:8px 0;border-bottom:2px solid #ddd;z-index:10;font-size:0.9em}
+  .versionbar a{color:#2c6e49;text-decoration:none;font-weight:600;margin-right:14px}
+  h2{background:#2c6e49;color:#fff;padding:8px 14px;border-radius:5px;margin-top:36px}
+  h3{color:#2c6e49;border-bottom:1px solid #ccc;padding-bottom:4px;margin-top:26px}
+  details{background:#fff;border:1px solid #d8d8d8;border-radius:6px;margin:10px 0;padding:0}
+  details>summary{cursor:pointer;padding:10px 14px;font-weight:600;background:#f0f4f1;border-radius:6px;list-style-position:inside}
+  details[open]>summary{border-bottom:1px solid #e0e0e0;border-radius:6px 6px 0 0}
+  details .body{padding:12px 18px}
+  details details{margin:8px 0;border-color:#e5e5e5}
+  details details>summary{background:#f7f7f7;font-weight:500}
+  code{background:#eef2ef;padding:1px 5px;border-radius:3px;font-size:0.88em}
+  .status{display:inline-block;font-size:0.72em;font-weight:700;padding:2px 8px;border-radius:10px;margin-left:8px;vertical-align:middle}
+  .s-open{background:#fff3cd;color:#856404}
+  .s-verify{background:#cfe2ff;color:#084298}
+  .s-done{background:#d1e7dd;color:#0f5132}
+  .s-strategy{background:#e7d6f5;color:#59258c}
+  .s-next{background:#ffe0cc;color:#8a3d00}
+  .note{background:#fff8e1;border-left:4px solid #f0a500;padding:8px 14px;margin:12px 0}
+  .lock{background:#eef7f1;border-left:4px solid #2c6e49;padding:8px 14px;margin:12px 0}
+  ul{margin-top:6px}
+  table{border-collapse:collapse;width:100%;margin:10px 0;font-size:0.92em}
+  th,td{border:1px solid #ccc;padding:6px 10px;text-align:left}
+  th{background:#2c6e49;color:#fff}
+  .meta{color:#777;font-size:0.85em}
+.status.s-shipped{background:#0a7d33;color:#fff;padding:1px 7px;border-radius:4px;font-size:11px;margin-left:6px;}
+.shipped-0708{background:#eafaef;border-left:4px solid #0a7d33;padding:10px 14px;margin:8px 0;border-radius:4px;}
+.shipped-0708 p{margin:0;font-size:13px;line-height:1.5;}
+GroupTrack — Living Master Document
+Updated 2026-07-09 (V3.0 Esri download-strategy planning session added). V2.6 milestone split into 2.6a (fallback, Pass 1 + WebP — SHIPPED &amp; committed) / 2.6b (Esri batch transport — next) / 2.6c (lead-track, radio). Self-contained: all topic detail is written INTO this document (collapsible), so nothing depends on an external file that could be lost. Version-sectioned. This document is part of AllDocs — expand a topic to work it, collapse it when done.
+  Jump:
+  V2.5
+  V2.6
+  V2.7 (iPad)
+  V3.0
+  Reference
+Doc process (07-06): Detail lives INSIDE this living doc, not in separate referenced files. Generated at EOD, pasted into GroupTrack docs → AllDocs. Memory alone doesn't reach AllDocs and referenced files can vanish under memory pressure — so everything is written in full here. AllDocs xref is the search index; content must physically be present to be found.
+V2.5 — SHIPPED / STABILIZATION
+Status: V2.5 shipped to Play Store 06-24 (c603bc3f0). A fallback 2.5/7-3 AAB was banked 07-03 (docs commit f6d43a75f). Clean baseline d719fbc95 (06-30).
+✅ DONE 07-03 — Fallback 2.5/7-3 AAB banked + docs shipped DONE
+Fallback 2.5/7-3 AAB — banked
+  One 2.5 release with a 2026-07-03 date (same version as live Play Store V2.5, new build); versionName footer literal "v2.5" left as-is (bump only on a real version change).
+  Two finished doc assets overwrote the Jun-23 baselines in app/src/main/assets/ (canonical names grouptrack_manual.html / grouptrack_release_notes.html — the app loads those exact names). Committed only the two named files → f6d43a75f; versionCode auto-bumped. Manual 6,321,871 B / notes 152,088 B.
+  Cut bundleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease → AAB at app/build/outputs/bundle/googleRelease/app-google-release.aab. (Confirm BUILD SUCCESSFUL + .aab present if not yet verified.)
+Docs — folded, illustrated, shipped
+  Release notes: title V2.5, subtitle "Updated 2026-07-03". Two dated sections ("New in this build · 2026-07-03" + "Earlier in this release · 2026-06-23"). Upgrade-notice resync line concrete + bold (run-it-yourself via SYNC TRACKS if it didn't auto-run). Both resync screenshots carried. HELD items (Track aliases, Search-finds-every-name) remain HTML comments — publish when alias UI ships + is field-verified. All 24 dead manual deep-links (#maps/#downloads) retargeted to the real #planning anchor.
+  Manual: 6 embedded ~600px screenshots — detail-panel 2-col metrics + SAVE MAPS + offline-maps benefit + import-checkbox cross-ref; gesture sections state tracks open the detail panel on tap; Import corrected to "Import Tracks from Downloads" (IMPORT/MAPS/FILE columns + RESYNC + per-file MAPS checkbox off by default); resync rewritten to the real SYNC TRACKS flow.
+  Real UI vocabulary captured: IMPORT buckets = new / aliased / duplicate / skipped (NO "updated"). RESYNC = SYNC TRACKS panel: START/CLOSE gate → total → live feed (IGNORE no-geometry; DUPE …) → summary leading with ⚠ N FAILED — research these:, then processed/renamed, properties N/M written, per-track props, === sync complete …===, CLOSE/RE-RUN.
+  Bug fixed: earlier heredoc edits leaked 7 literal \u2019/\u2014 escapes into the manual → all converted to real characters (Lesson #17).
+Doc follow-ups (not blockers)
+  Import-summary screenshot is all-zero (re-import of an existing file — truthful but not illustrative; swap for a non-zero shot later).
+  Save finished docs to Fred's two archive homes (Drive GroupTrack_docs + G:) and repo docs/.
+  If the metrics-panel fix (Duration+Avg Speed) lands before final release, re-shoot the detail-panel image.
+✅ DONE 07-01/02 — crisis recovery + maps-follow-tracks + track-tap panel DONE
+  Crisis recovery: acdaf7b85 restored auto artifact refresh (the e0182045a lastMapProcessed gate had made it manual = the "tracks don't display" crisis). Don't re-add a broad gate; correct end-state = narrow mode-scoped suppression (route-mode/recording only). c74d5f8b1 my-cart device-default/radio-override (HOTEL-10 removed; radio-override pending radio). ccc559015 detail-panel 2-col metrics grid (presentation-only).
+  Maps-follow-tracks — complete + committed: downloadMapsForTrackHash (geom_hash → row → pad ½mi → enqueue). Key bug fixed: enqueueArea gridCells() empty for a sub-cell box → totalTiles=0; use enqueue (single region any size). SAVE MAPS button + import per-file MAPS checkbox committed. ⚠ Open bug carried to V2.6: MAPS checkbox ignored when track already exists (fires only in INSERT branch).
+  Track tap → detail panel — done both screens. Two bugs solved (do NOT re-troubleshoot): wrong render fn (tracks drawn by loadTracks→trackLayer, confirmed via ARTIFACTTAP instrumentation) + bridge-injection timing race (decide bindPopup-vs-onTrackTap at TAP time, not layer-build time). Tap tolerance 18→44 / tapTolerance 20→30 both HTMLs.
+✅ DONE 06-30 — Track services layer (clean baseline d719fbc95) DONE
+  Unified add resolver resolveTrackAdd(name, sourceFile): AddOutcome — the ONE shared add path (SYNC/CREATE/IMPORT). INSERT / DROP_NAME / DROP_ALIAS / ALIAS / NO_GEOMETRY / ERROR. insertTrackToDb → TrackInsertResult(wasNew, trackId, geomHash, name).
+  deleteTrackFromDb(id) — spatial row + track_properties + aliases + &lt;hash&gt;.gpx. setPreferredAlias = SWAP (local-only, trail-guarded). searchByName matches name OR alias (two-query Kotlin merge — separate SQLite files, no JOIN).
+  Import rework: regex splitter restored (Regex("""&lt;trk&gt;([\s\S]*?)&lt;/trk&gt;""").findAll(text) — RAW triple-quoted); the 06-29 bufferedReader streamer found 0 &lt;trk&gt; on valid files. Live per-record feed + 4-way recap.
+  Test fixture — do NOT sweep: orphan spatial row 82a5cb01-… ("St George to Bar10", hash 9969bdf6…, real geometry, NO file) — validates deleteTrackFromDb; it's the ⚠ 1 FAILED — file missing line in resync (expected).
+🗄️ Dispositioned NOT-an-issue (07-03) + archive CLOSED
+  DB delete-gate reinstall wipe — NOT an issue. Root-caused 06-24: SpatialDbManager.init() "v3 one-time delete-gate" deletes both DB files + rebuilds empty, gated on a SharedPreferences marker db_schema_marker &lt; 3. DBs survive uninstall but the prefs marker does not → a full reinstall/clear-data resets the marker → gate re-fires → wipes surviving populated DBs. Disposition: only bit users who did uninstall→fresh-install instead of an in-place Play update during the V2.5 schema conversion; not a live concern. (If ever revisited: gate on the DB's own schema_version table instead of the prefs marker.)
+  BUG B (resumed route draws angular/chords) — NOT an issue; self-corrects on the next track point.
+V2.6 — SIMPLIFICATION / CLEANUP + FASTER MAPS
+Through-line = subtraction. Clusters: tile storage (A, no-radio, first) → batch transport (B, no-radio) → lead-track rewrite (C, needs radio, last) + no-radio backlog (route-state, draw/connect, recorder, detail-panel wiring, aliases UI).
+▶ TOMORROW'S FIRST MOVE: Standardize all map-download submissions through the area-submission process (Step 0 of the tile plan). First verify the area download submission is "the black box" (cleanly takes (bbox, sources) → chops → queues → submits; owns large-bbox splitting; where it hands off to the return-point write).
+⭐ TILE STORAGE — unified process (Pass 1 SHIPPED · Pass 2 NEXT) PASS 1 DONEPASS 2 NEXT
+✅ 07-08 — PASS 1 SHIPPED &amp; VERIFIED on Droid 1 (committed 55ce56239, ccea5977e). Loose files → one .mbtiles per type via MBTilesStore; all writes/reads/helpers/coverage-highlight redirected. Storage = raw z/x/y (no TMS flip; scheme=xyz). WebP compression validated: base lossy q80 = ~55% reduction (21.5 KB/tile loose JPEG → 9.7 KB/tile), clearing the 35–40% goal. Overlays = PNG passthrough (WebP re-encode bloats sparse-alpha labels). q95 tested &amp; rejected (lossy-to-lossy inflation, 5× worse). TOPO+ + verified OK; its "blank below z16" = USGS source coverage, not a bug. New files: MBTilesStore.kt, TileCodec.kt. The detailed design below is retained as record; the four "miracle-happens" open questions are all resolved (see the 07-08 TileStorage recap). Hardening still owed: silent db()-null → insertTile no-op (fail loudly); deleteSource close-handle-before-delete (FUSE wedge).
+Design converged 07-06. This is the full design, written in.
+The unified process (one spine, many origins, many destinations)
+ORIGIN → NORMALIZE → EXPAND → CHOP → FETCH → [RETURN POINT] → WRITE → DESTINATION, pluggable at both ends.
+  ORIGIN → (bbox, source-set) — the only place origins differ.
+  NORMALIZE → (bbox, [sources]) — origins collapse to one canonical request; downstream is origin-blind.
+  EXPAND → layers — each source → its layers via the source def (SAT → base + 2 overlays). "One SAT request → 3 destinations" happens here.
+  CHOP → queue items — bbox → bounded cells; (layer, cell) = one queue item.
+  FETCH → tiles — the ONE place the "miracle" varies: HTML per-tile, or batch export+unbundle, chosen per-layer by whether it has a batch process.
+  RETURN POINT → uniform (type, z, x, y, bytes) stream — both transports emit this.
+  WRITE → destination — the write contract resolves type → its .mbtiles and inserts.
+Two fan points: fan-in at front (many origins → one canonical request); fan-out at back (one request → EXPAND layers → CHOP cells → many tiles → many DBs). Three extension points: add an origin = step 1 only; add a transport = step 5 miracle only; add a destination (new layer/type) = free.
+MBTiles-only hard cutover (the decision)
+Dual-path loose+MBTiles DROPPED — no state-file mode switch, no read/write fork, no Step-0 state-resolver. The ~5 map-invested testers re-download once. Storage format changes; HTML fetch survives. This supersedes the earlier "Steps 0 state-resolver → 1 write-fork → 2 read-fork → 3 batch-fetch" plan and the dual-path coexistence. GPX/track DBs stay separate. Worst case to design for: a tester at 80–90 GB of tiles (loose-file model = millions of files = the bloat/brick/slow-delete root cause).
+Two-pass build
+  Pass 1 — move current transport to spatial-DB storage. HTML fetch unchanged; only the WRITE changes (loose files → MBTiles). Covers all origins + all readers. MapView unchanged. = the V2.6 tile work + the "simplify" goal.
+  Pass 2 — add a batch transport capability. New FETCH miracle built ALONGSIDE, gated off (layer.batch?.process), Esri first, provider-agnostic. Never touches Pass 1's storage — just a new way to feed the same write. Build-alongside-and-gate.
+Write contract + the two "miracles"
+Intercept at the RETURN POINT; everything above it is untouched. Two producers emit (type,z,x,y,bytes) into ONE shared write contract (MBTilesStore.insertTile + TileCodec + type→file resolve + y-flip):
+  Miracle #1 (Pass 1): per-tile HTML write, redirected &lt;cache_dir&gt;/z/x/y.png → &lt;cache_dir&gt;.mbtiles.
+  Miracle #2 (Pass 2): batch .tpkx → unbundle → same stream → same DBs.
+The contract is producer-blind — that's why Pass 2 reuses Pass 1's write. Open: single insertTile vs transaction-batched insertTiles (faster for batch bulk); Miracle #2 streaming per-bundle vs collect-whole-package.
+Schema — one MBTiles per TYPE (resolved 4 ways)
+One MBTiles file per TYPE (= cache_dir = old directory name). No type column; base/overlay declared in each file's metadata; compositing at the Leaflet layer, not in storage. Confirmed by: (1) the render stacks separate per-type layers (we're not rewriting MapView); (2) the MBTiles spec mandates one tileset per file; (3) Esri best practice = base+reference separation; (4) Esri delivers per-service.
+Canonical: tiles(zoom_level, tile_column, tile_row, tile_data) + metadata(name, value) + MANDATORY CREATE UNIQUE INDEX tile_index ON tiles(zoom_level, tile_column, tile_row). WebP yes; NEVER JPEG for overlays (kills alpha). FLAT vs NORMALIZED per type. PMTiles REJECTED (immutable — GroupTrack patches incrementally). TMS y-flip to settle.
+DB naming = old directory names: cache_dir = type = old folder = convoy://tiles/&lt;type&gt;/… URL segment = .mbtiles filename. Migration: cache_dir folder → cache_dir.mbtiles. ⚠ TOPO+ has a + — verify it round-trips through the convoy:// URL + path open. Droid 2 has 5 type folders today: SAT, SAT_LABELS_TRANSPORT, SAT_LABELS_PLACES, TOPO, TOPO+.
+All download origins through the SAME area submission (audit + blast radius)
+The unified process only holds if every origin funnels through the one area submission. Test per origin: does it end at the area submission with (bbox, sources), or bypass it (a second engine)?
+  AREA — user-drawn bbox + selectable sources = the canonical engine.
+  TRACK — bbox derived by padding the track's lat/long extents ½ mile + preference-sourced set → routes through area submission.
+  ROUTE — "dupes track": same adapter shape (pad route extents → resolve sources from preference → area). Confirm it shares track's path.
+  IMPORTED ARTIFACTS — an imported task WRITES A NEW ARTIFACT; the download panel has a "yes" import-maps toggle; if yes → the FIT PROCESS requests a map download for this track, right after track creation. So it is NOT a separate engine — it triggers a track-style download via the fit process → converges through track.
+Prove the list exhaustive with a grep — enumerate every caller of the queue submission + every path reaching ConvoyTileDownloader/ConvoyDownloadWorker; classify each as canonical / adapter / rogue-bypass. May be unnamed origins — from code, not memory. Build a blast-radius process inventory (every process touching tile download/write + what it does) from the xref docs + code so a change doesn't underestimate what it breaks.
+Source-set policy per origin: area = selectable; track/route = preference-default; artifacts = via track (likely track's preference).
+Front-end standardization — WHY (inherit the large-bbox splitting)
+Make each non-area origin a pure origin adapter — produce (bbox, source-set) and submit through the same area submission.
+Primary reason: inherit the area process's large-bbox splitting. The area submission already chops a big bbox into bounded queue items (gridCells/tileBoundsLatLon) — real, tested. Track/route/artifacts on their own paths duplicate or lack it. Routing their bbox through the same submission → they inherit splitting for free. Triple duty: (i) splits big areas today; (ii) splits track/route/artifact downloads once standardized; (iii) sizes batch export jobs in Pass 2 (one split item = one Esri job under the 100k cap).
+Other reasons: origins gain source control (fixed → selectable); convergence happens before the return point by construction → Pass 1's write-redirect is provably one seam. Confirm: does the area submission cleanly take (bbox, sources), or is it entangled with the drawing UI? If entangled, extract a pure (bbox, sources) → submit core first.
+The ONE undefined region — the "miracle-happens" process (destination end)
+Everything upstream is defined. The only open design work is the RETURN POINT → WRITE internals of MBTilesStore. It may already be a black box — before designing from scratch, find the existing tile-landing component and verify its internals against memory; reuse if it matches, design only the delta.
+  (1) How many databases — dynamic: one MBTiles per type; count = however many distinct types across active sources (5 today). Open: who computes the DB set + when (up front from source defs vs lazy)? Rules-engine candidate.
+  (2) How they're created — lifecycle: lazy create-if-absent on first insertTile, or provision up front? Creation writes canonical tiles + metadata + the mandatory tile_index, with metadata (name, base/overlay, format, bounds) at creation.
+  (3) How overlays are linked — the base↔overlay relationship does NOT live in the tile DBs (each standalone, just tiles). It lives in the source definition (layers[] with role + render_order); MapView reads it at render to stack the right overlay DBs; each DB's metadata self-declares base-vs-overlay. Open: confirm nothing else needs the link (coverage? delete cascade?). Rules-engine candidate.
+Pass 2 — batch transport (Esri) full design
+  Core: the unit of variation is the provider's PROCESS, not just a key. Invoke the provider's own download+unbundle; one handler per provider protocol, reused across all its sources; the source def names the process + supplies parameters. One EsriExportTilesProcess serves all Esri sources.
+  Schema: per-layer batch block — { "process":"esri_export_tiles", "export_endpoint":"&lt;MapServer&gt;/exportTiles", "package_format":"tpkx", "requires_key":true, "api_key_param":"token", "max_tiles_per_job":100000 }. process = dispatch key. No block → HTML per-tile.
+  Request (async): POST exportTiles?f=json&amp;tilePackage=true&amp;exportBy=levelId&amp;levels={min-max}&amp;areaOfInterest={AOI wkid 4326}&amp;token={key} → jobId → poll /jobs/{jobId} until esriJobSucceeded → GET result → .tpkx.
+  CompactV2 unpack (spec fully known): .tpkx = ZIP → root.json + iteminfo + thumbnail + tile/ of .bundle files. Each .bundle = 128×128 tile block: 64-byte header at offset 0 (LE) → tile index at byte 64 = 128×128 array of 8-byte records. TileIndexOffset = 64 + 8*(128*(row%128) + (col%128)). Each record: offset = bits 0–39, size = bits 40–63 → seek + read size bytes = raw tile. Absolute (row,col) = bundle base (from .bundle filename e.g. R0000C0000) + in-bundle row/col. Skip size-0. Port from Esri raster-tiles-compactcache (Vundler.py) / @syncpoint/compact-cache-bundle; GDAL 3.8+ ESRIC driver = cross-check oracle. .vtpk shares the same bundle format (vector pbf) → a future vector handler reuses the walk.
+  SAT reassembly: exportTiles is per-service → 3 SAT services = 3 separate .tpkx, same unpack loop, only the destination DB differs (SAT / SAT_LABELS_TRANSPORT / SAT_LABELS_PLACES). Separate, not combined.
+  API key: reuse api_keys.json + getApiKey; inject ?token=&lt;key&gt;; never in source JSON, never logged; decrypt at call-time. Uses Fred's Esri Location Platform account (needs a token — the public tile endpoint doesn't).
+  De-risk first: curl the exportTiles POST→poll→download flow against a real endpoint from Git Bash BEFORE any Kotlin. Confirm exportTiles is enabled on the public arcgisonline.com services.
+Tile action plan (ordered Step 0 → 6)
+  Step 0: verify the area download submission is the black box; origin audit + blast-radius inventory; scope the DB rules engine; pin down the fit process; standardize each non-area origin onto the area submission with a source preference (default = today's behavior).
+  Step 0.5: resolve the miracle-happens design (find the existing black box + verify; settle DB-set enumeration, creation lifecycle, overlay linkage).
+  Step 1 (Pass 1): read code bodies — ConvoyTileDownloader, ConvoyDownloadWorker, ConvoyDownloadQueue; both shouldInterceptRequest (CS 720-748, MVS 578+); overlay JS in convoy_map.html / grouptrack_map.html; show-downloaded/show-queued + MVS:658; how the codebase opens SQLite (SpatialDbManager) + the DB rules engine.
+  Step 2 (Pass 1): scope-lock grep TILE_DIR/tilePath/File(...tiles → zero File(TILE_DIR,...) survivors.
+  Step 3 (Pass 1): write MBTilesStore + TileCodec.toWebp, reusing the rules engine + SpatialDbManager. Settle y-flip, WebP content-type, schema variant, insertTile vs txn insertTiles, TOPO+ +.
+  Step 4 (Pass 1): swap the return-point write to insertTile; route every tile-reference site through MBTilesStore; retire loose-file cleanup. Verify on Droid 1 (pull .mbtiles → SQLite → rows + index; render composite + coverage). Ship Pass 1.
+  Step 5 (Pass 2): curl-de-risk the Esri flow from Git Bash before Kotlin.
+  Step 6 (Pass 2): add the batch block; write EsriExportTilesProcess (port Vundler/compact-cache-bundle); reuse getApiKey; wire the layer.batch?.process dispatch gate closed; verify batch rows == HTML-path rows on Droid 1, then open the gate per-source.
+On-device facts + Esri auth status
+  Tiles at /sdcard/Documents/GroupTrack/maps (loose today). Droid 1 du -sh = 6.4 GB. ConvoyConfig.TILE_DIR = /sdcard/Documents/GroupTrack/maps/tiles/. Serving = convoy://tiles/ scheme → setTileUrl + setOverlayLayers → shouldInterceptRequest (MVS:578, CS:720). Write = ConvoyTileDownloader (tilePath 57, downloadTile 64, downloadTiles 98; called from ConvoyDownloadWorker 79/134). Queue = ConvoyDownloadQueue (bbox → items via gridCells/tileBoundsLatLon). MapSourceManager separates online (getOnlineUrl) vs offline (getLocalUrl) → online maps unaffected.
+  ⚠ WebView/JS not fully observable → verify empirically on-device. grouptrack_map.html (Planning) does NOT route console.log to logcat → use a visible on-screen element.
+  Delete benchmarks (07-05): loose maps delete slow across ALL paths (Termux, app deleteRecursively, privileged adb rm -rf on 6.4GB). Bottleneck = file count not privilege. X-plore ~6GB/hr. ⇒ MBTiles (one-file delete) is the only surgical+fast+in-app tester answer.
+  Esri auth: Location Platform account + billing done 07-05; API key created (Basemaps + Static maps privileges, native-app referrer blank, expiration set). Follow-ups: (1) rotate the key (first value was exposed) → store in a password manager; (2) VERIFY async Export Tiles is authorized under those privileges — the Pass-2 curl-de-risk gate. Key value NOT stored in this doc.
+⭐ ROUTE-STATE PERSISTENCE &amp; TEARDOWN (this morning's issue) OPEN
+Root cause located 07-06 via fresh xref (recommit docs; navigation_xref regenerated 07-06 11:32). Fix design not yet locked — one source-check remains.
+Problem (observed)
+The route nav box disappears; states don't change as they should. Route-planning state is not reliably persisted across navigation, nor reliably torn down on exit. Two repro triggers (with a route open): (a) open/touch another item; (b) close the artifacts panel. Two failure modes: (1) route disappears from the map entirely; (2) route stays drawn but goes dead/inert (geometry visible, controls gone/unresponsive).
+Root cause (located from xref)
+Route mode is held in var routeMode by remember { mutableStateOf(false) } — ephemeral Compose state — at TWO independent copies: ConvoyMapViewerScreen.kt:129 and ConvoyScreen.kt:197. Both drive ONE shared window.__routeMode in convoy_map.html. Teardown = ~8 scattered hardcoded calls per screen of setRouteMode(false); clearBuildLine(); (ConvoyMapViewerScreen 955/1044/1075/1112, arm-on 996/1020, resume 1154; ConvoyScreen 1608/1684/1716/1743, arm-on 1648/1671, resume 1775). No single teardown funnel.
+This one fact explains both failure modes: touching another item / closing the panel recomposes or orphans the remember boolean → Kotlin routeMode resets/desyncs but JS gets NO matching setRouteMode(false); clearBuildLine(). Disappear = a path fired clearBuildLine / a redraw overlaid it. Stays-but-dead = Kotlin routeMode went false so controls detach, but JS still shows the line.
+Intent — Fred's 3 requirements
+  Persist route-planning state in the MAP JSON so nav away + back restores it (survives recomposition/nav, which remember does not).
+  States unique per map — Planning (grouptrack_map.html) vs Convoy (convoy_map.html) must not collide on the shared JS flag; the two booleans need per-map identity.
+  Every exit ends it — save, discard, navigate away, back, mode-switch, backgrounding, item-tap, panel-close — via ONE teardown funnel every exit routes through (replacing the ~8 scattered teardowns).
+Key principle: persist unless/until closed by an exit method — persist across nav, never past an exit.
+Touchpoints + remaining source-check before locking
+Touchpoints: setRouteMode (JS, convoy_map.html) toggled from both screens; window.__routeMode gate if(window.__routeMode)return; at convoy_map.html:495 (BUG A popup suppression — must stay mode-scoped); RouteManager holds build logic (snap/addVertex/undoVertex/clearRoute/routeVertices, buildWktAndBbox, insertRoute); JS build fns drawBuildLine/clearBuildLine/updateRoutes/showRoutes; onTrackTap at ConvoyMapViewerScreen:515, ConvoyScreen:645 &amp; 895.
+07-08 FIX SPEC (Fred, hard rule): while Route+ is active the route screen persists through ANY other selection (?, hamburger, search, item, panel — anything); the only exit is an explicit close, which prompts save-or-discard. This subsumes the persistence issue — state can never be implicitly abandoned, so it can't be orphaned. Same prompt on BOTH exits (planning-exit + convoy-return). Next-session pickup.
+Before locking: the xref indexes definitions + bridge calls, not full handler bodies. Read the actual .kt for the artifact-panel-close (onDismiss/onClose) handler + the onTrackTap bodies and CONFIRM they lack a setRouteMode(false) teardown call (the diagnosis predicts they do). Then design = persist route state to the map JSON (per-map keyed) + single teardown funnel every exit routes through. Lock only after the two-handler read confirms.
+LEAD TRACK / TICK / MY-CART REWRITE (ITEM C — needs radio, LAST) SETTLED, NOT STARTED
+Spec: GroupTrack_LeadCart_TrackRevision_DemolitionRebuild_2026-06-18.md (authority: LeadTrackReplacement_Spec.docx May 31). Problem: lead broadcasts position over radio; code reconstructs path + fills gaps with projection → phantom carts on rebroadcast (worst on switchbacks); three parallel track-drawing flows compete.
+Demolition (part 1)
+Find via fresh xref + dual-language grep + 2-cart field capture, then remove: the 3 parallel LIVE-track flows leadTrackSegments/gpsTrailSegments/routeTrailSegments + trackLeadOnly (~ConvoyScreen 345-350); live drawTrack(...); the lead-lock engine in ConvoyEngine (evaluateLeadLock, tick()→compute()→assignLeadTail(), lockedLeadNodeId, _leadLockedFlag — retire tick-oscillation: two tick entries/cycle ~170ms apart); all projection/proxy substitution (phantom source); per-node live segment-coloring. Do NOT touch: displayed/imported DB tracks (loadTracks/trackLayer), node markers, route lines, route-builder snap-2.
+Rebuild (part 2) + rates + new reqs
+(1) track ONLY the lead cart from broadcasts; (2) snap-2 100-yd radius onto known trail geometry; (3) every other cart = present-position marker only, NOT tracked (kills phantom at root); (4) each cart records own GPS and as it overtakes the lead's positions REPLACES the lead's path on its own map with own GPS. Net = one continuous trail improving in accuracy toward the rear.
+Rates (supersede spec): lead broadcast ~4s (spec 5s); self-record 2s change-gated (spec 1s). Don't fake smoothness with projection. New reqs: remove "track all carts" toggle; lead cart picked from a list unless only 1 displayed (auto-lead); reassignable in cart HUD; lead segment (new pushTrackToMap, 0 refs = single draw/update entry) gets configurable color + weight. Open: overtake overwrite unconditional vs snap-gated (coarse lead data argues snap-gated) — confirm vs May-31 spec. Related: two concurrent ConvoyViewModel instances; cart-identity bug (startGroupTrack stores "!phone").
+Recorder items (needs radio, ITEM C cluster) OPEN
+  2s change-gated sampling (supersedes 1s) — tick 2s; write a GPX point ONLY if moved beyond a threshold (a few meters / snap-2 min — not any-delta, else stationary jitter writes noise). Why not 1s: no snap coverage like onX; onX ~3s. Pairs with Doppler max-speed. ConvoyGpsService interval. Helps only NEW tracks.
+  Capture + store max speed during recording, write on save (Doppler each update, track max live). Recorded not derived → glitch gone.
+  Android-GPS recording bug (Android-only fails; radio-create certified 06-30). ConvoyGpsService.kt (CRLF): startLocationUpdates (~251-277 prime suspect), onGpsUpdate (~288). Instrument first. + recorder truncation (no &lt;/trk&gt; on interrupt — record-stop must finalize the file).
+Other V2.6 backlog (no-radio) OPEN
+  ⚠ MAPS checkbox ignored when track already exists — fires only in the INSERT branch; move the maps call out of AddOutcome.INSERT -&gt; and gate on the checkbox for any non-error outcome.
+  ⚠ CLEAR-AREA / DELETE-AREA for downloads — NEVER WIRED (add to 2.6). The per-area tile clear was deliberately left unwritten during the area-download build because the MBTiles cutover was pending (didn't want to write it against loose-file storage about to be replaced). Now that Pass 1 shipped, it's a real gap: no clean way to clear a specific area's tiles before re-downloading (replace flow), and no surgical clear for testing. Scope = bbox-surgical delete of tiles within the drawn area from the relevant .mbtiles (tied to the "replace" toggle in ConvoyDownloadConfirm), NOT whole-source drop. MUST respect the handle-hygiene hardening (close/reopen the cached SQLite handle cleanly — don't corrupt the DB / trigger the FUSE wedge). [scope to confirm: bbox-surgical vs whole-source]
+  ⚠ UNEVEN QUEUE SEGMENT SIZES waste the concurrency (perf, new 07-09). SAT submits as TWO jobs — one ~60,000 tiles (starts at z18), one ~11,000 — wildly unequal. With MAX_CONCURRENT=2 the 11K finishes fast, then that slot idles / picks up TOPO while the 60K monster runs ~alone → parallelism collapses toward 1× for the long tail. Partly explains the 80 min, AND why raising MAX_CONCURRENT may not help much: an indivisible 60K job hogs one slot the whole download; more slots can't subdivide it. SEGMENTATION METHOD (Fred, 07-09 FINAL). Divide the area bbox into EQUAL AREAS sized so NO area exceeds 50,000 SAT tiles. SAT is the sizing driver (densest source — goes to z18); size the grid to keep SAT ≤50K/cell and every other source (shallower zoom, fewer tiles) is automatically well under 50K in the same cell. So: estimate SAT tiles for the bbox → divide into ceil(SAT_total / 50000) equal areas → ONE uniform grid, computed against SAT only, applied to ALL sources. The grid is UNIFORM (plain equal-area cells); applied to each source's tiles it yields even batches per segment. LOAD BALANCING = process segments sharing the SAME ZOOM VALUES FROM THE SAME SOURCE SEQUENTIALLY (queue homogeneous work → comparable batches → even flow); evenness is a PROCESSING-ORDER property (group like-with-like), not per-source count juggling. ⚠ LOAD-BALANCE PRINCIPLE (the why): each segment MUST be a COMPLETE VERTICAL SLICE OF THE ZOOM STACK (z-min..z-max) for its geographic cell — NOT segmented by zoom. Segmenting by zoom recreates the imbalance (z18-only = the 45K heavy monster; z10-16 = trivial). Full-stack-per-cell gives every segment the SAME SHAPE of work (its share of heavy z18 + light upper layers), so equal-area segments do equal work and finish together in parallel slots — that comparability IS the load balancing. Unit = a vertical column (full zoom) over a horizontal cell, sized so SAT full-stack ≤50K. NOTE the heavy part is z18: tiles there carry more DATA (imagery), so processing accelerates as it climbs past z18 — data-per-tile drives speed, not tile count; splitting the cell halves the heavy-z18 load per slot. Only SAT needs estimating (worst case); others ride the same grid under the ceiling. Slight overlap (~tile-width) prevents seam gaps; hasTile dedupes. Prerequisite for higher MAX_CONCURRENT to pay off; likely a bigger lever than raising it.
+  ⚠ SAT OVERLAY DISPLAYING ON TOPO / TOPO+ (new 07-09). The SAT overlay tiles (labels / transportation — likely SAT_LABELS_TRANSPORT / SAT_LABELS_PLACES) are rendering on top of the TOPO and TOPO+ base maps where they should not appear. Layer-compositing bug: the overlay isn't cleared/swapped when the active base map changes (SAT→TOPO), or overlays render regardless of the active base. Confirmed: ALWAYS ON, BOTH overlays (labels SAT_LABELS_PLACES + transportation SAT_LABELS_TRANSPORT) — not intermittent, not download-dependent. "Always on, both" ⇒ overlays are unconditionally added and NOT gated on the active base; the fix is a "show these overlays only when base == SAT" condition in the Leaflet layer-stack logic (map HTML) / how MapSourceManager associates overlays with a base — not a swap-timing race. Add to 2.6.
+  Tile download SPEED-UP (2.6b, 07-09) — concurrency + zoom-cap + 429 backoff. Parallelized the sequential tile-fetch loop in ConvoyTileDownloader.downloadTiles (fetch 8 concurrently via TILE_FETCH_CONCURRENCY, insert serially — single cached SQLite handle unsafe for concurrent writes). Removed the stale per-source download zoom cap in ConvoyTileCalculator.maxZoomForSource (TOPO+/TRAIL→17 was for the old hand-drawn source; now full range; JSON max_zoom retained as a display clamp). Added 429/503 backoff in fetchTileBytes (retry SAME tile, exponential, honors Retry-After; 404 fast-null) so concurrency can't silently drop tiles under throttling. Reason: current download speed is an adoption obstacle. Built + applied 07-09; testing on Droid 1. 125K-tile test (SAT+TOPO+TOPO+) = 80 min, ~100% success, ZERO 429s, 2 transient 502s [⭐ RECONCILED RESULT: 2 queues vs 3 queues, cause = segment balance. The 80-min run (2 queues) was balanced ONLY BY COINCIDENCE — the big SAT segment happened to have ~equal tiles to ALL other jobs combined, so a 2-slot split fell ~50/50 by luck. With 3 QUEUES that broke: the 3rd slot subdivided the "everything else" half, small jobs drained at ~45 min, and the big SAT job ran ALONE for the tail → ~113 min (92% at 104 min). So current balance is ACCIDENTAL/FRAGILE (holds only because big-segment ≈ sum-of-rest at 2 slots); changing concurrency/area/tile-mix breaks it. EVEN SEGMENTATION replaces luck with guarantee — equal ≤50K-SAT segments hold balance regardless of slot count or area shape. Keep concurrency modest (~2); segmentation is the fix. OPEN EXPERIMENT (post-segmentation): once segments are balanced, run the same area at MAX_CONCURRENT=2 then =3 to isolate concurrency (today's =3 was confounded by imbalance). If 3≈2 → resource-SATURATED, keep 2, SKIP the tuning rig; if 3&lt;2 → spare capacity, build the rig and tune up. Segmentation first (removes the confound), then this clean test. Fred's hypothesis — test as a GRID: the two multiplying levers are queues(MAX_CONCURRENT) × async(TILE_FETCH_CONCURRENCY); at the SAME total (e.g. 24), FEWER queues × MORE async each may WIN — 2×12 could beat 3×8 — because same request rate but parallelism concentrated as async-within-fewer-jobs avoids stranding, feeds the critical path directly, and wastes fewer slots on early-draining small jobs. Test {2,3 queues}×{8,12 async}, measure time + collisions. Rig should make BOTH knobs tunable.] (dropped — 502 not yet in retry set).
+  TILE-DOWNLOAD TUNING RIG (planned, next session) — manual tuning, NOT auto-throttle. Decided against an adaptive feedback controller (overkill). Four pieces: (1) add 502 to the retryable set in fetchTileBytes (currently 429/503 only — the 2 dropped tiles were 502 transient server strain); (2) make MAX_CONCURRENT (job-level, ConvoyDownloadQueue) read from JSON so it's tunable without a rebuild — but clamped to ±1 change per cycle (no jumping 2→8): read JSON target, compare to a PERSISTED last-effective value, step ≤1 toward target, use + persist it. Change is SETTABLE in the queue manager and takes effect on the NEXT set of submits/releases — CANNOT change while jobs are running (new value is staged, applied at the next launch when the queue is idle; running jobs finish under their start value). So a "cycle" = a fresh set of submits/releases (queue idle→launching a new batch), not per-app-launch. (3) break out error counts by code in the Complete: … downloaded=X failed=Y logcat line → failed=Y [429=a 502=b 503=c] for visibility while tuning (no UI); (4) publish a tuning GUIDELINE — error-rate thresholds + how to step concurrency (highest concurrency where error rate stays under threshold). Rationale: current 2×8=16 concurrent (jobs×tiles) gave 0 429s → headroom exists, but more concurrency risks more 502s, so tune manually against visible error counts. "Cycle" for the ±1 clamp = per app launch (simplest); persisted last-effective value is the one bit of new state.
+  Draw/connect tracks into a route — (a) free-draw by tapping; (b) connect existing tracks at suggested connection points (detect endpoint proximity, suggest join, stitch). (b)-leaning; scope not locked. Reuses route machinery (RouteManager, ConvoyRouteToolbar, snap-2, bbox) + a new "suggest connection points."
+  Maps bbox for all geometry types ("routes like tracks for maps") — now subsumed by the tile front-end origin standardization (all origins through the area submission; route dupes track; imported artifacts via the fit process). Per-artifact "select maps" checkbox for tracks AND routes; route detail panel gets the same "download maps" button.
+  Detail-panel wiring cluster (partly done) — repoint file-based rename/delete callers (ConvoyMapViewerScreen ~1681/1700, ConvoyTrackExportSheet ~256/275) to DB services; retire legacy deleteTrack(File) (~63) + renameTrack(File) (~50); add alias-display UI + "matched via alias." Verify vs git.
+  Remove rollback from route UI (Undo stays; keep RouteDraftStore.openDraft). Low-risk; parked. Decided 06-24, reaffirmed 06-30.
+  Track aliases + alias search UI — two HELD release-notes items publish once UI + search ship + field-verified. Backend exists (setPreferredAlias SWAP, searchByName alias-join).
+  Import tolerance (optional) — salvage truncated files like sync does, or surface "malformed: no &lt;/trk&gt;". import_tracks staging dir — parked (current import works via the resolver).
+  Field-verify the metric feed (TrackPropertiesUpdater) — 07-03 resync showed properties 80/81 written, feed IS running; gut-check distance/speed vs a known ride; watch elevation m/ft (&lt;ele&gt; assumed METERS ×3.281→ft).
+  Doc follow-ups: re-shoot detail-panel image if metrics change; non-zero import-summary screenshot.
+Carried from 07-03 "TOMORROW 3" — STATUS TO VERIFY vs git VERIFY
+May have shipped in the 2.5/7-3 build; not confirmed this session — verify against commit history before actioning.
+  Route Bug A — artifact popup suppression during route-build (gate each popup/tap on __routeMode at TAP time; add to trail@439, waypoint@590, route@636 in convoy_map.html, both screens; suppress the popup not the refresh). Extended/superseded by the Route-State work above — the real fix is a persisted per-map state + single teardown funnel.
+  Auto-resync on launch — one-shot + idempotent + visible + safe-fail; touches startup. Memory suggests this shipped as AutoResyncHost/receipt — confirm.
+  Track detail metrics — add Duration + Avg Speed (both in track_properties). Re-shoot the manual screenshot if it lands.
+V2.7 — iPad / CROSS-PLATFORM (post-V2.6 target)
+Standing awareness — not an active task. iPad IS the post-V2.6 target (this overturns the old V3.0 "no iPad support" line). Reasoning arc reconciled 07-04. The evolution below is written in so it's never lost.
+The reconciled strategy (07-04) STRATEGY
+  Key collapse: Convoy is a fork of Meshtastic's messaging (Android = a fork of Meshtastic-Android, Kotlin). The native-vs-PWA-vs-WKWebView arc was all answering "how do we get BLE on iOS?" — a question that dissolves once convoy is seen as a fork of the mesh app. So iPad = a fork of Meshtastic-Apple (Swift/SwiftUI + BLE + protobuf; GPL v3; App-Store-approved; universal). Mac + Xcode = the prerequisite. Flag: Meshtastic-Apple ships native TAK/CoT — reconcile vs the roadmap's "TAK as pattern only."
+  Config write is offloaded: the planning side CREATES a Meshtastic restore FILE (pure file creation, no BLE in GroupTrack's code); Meshtastic's own "restore config" applies it. Confirm the backup/restore format + Apple acceptance at build time.
+  Presentation ~90% shared because it's already web (Leaflet in a WebView). SwiftUI rejected for presentation — it doesn't port to a browser + gives zero reuse of the Android web layer. iPad presentation = the existing web layer in a WKWebView behind a native Swift shell; PC = the same web (planning half) in a browser; Android = the same web unchanged. Swift's only job = the native shell (mesh source + WebView host + JS↔native bridge, the WKScriptMessageHandler analog of Android's JavascriptInterface).
+  Real cost driver = the bridge/I/O surface. What renders inside the WebView ports cleanly; every point where the web reaches out to the device (file I/O, GPS, radio/mesh, camera, share, persistence, offline-tile reads, native dialogs) is a bridge call re-implemented per platform, many with no browser equivalent (why PC is planning-only). Next action: enumerate that surface from the Android code (every JavascriptInterface method + evaluateJavascript/postMessage crossing) — = the true iPad build cost AND which functions can/can't go to PC.
+  Three surfaces split on connectivity: PC = planning-only web app (routes/waypoints/library + config-file generation; no mesh/radio; online); Android + iPad = off-grid native convoy execution (BLE/radio/live mesh — convoy cannot be web). The A/B decision touches only the mobile mesh source; PC proceeds independently.
+  Two candidate iPad-execution patterns (open): (A) BRIDGE — convoy is its own native iOS app consuming mesh over a local loopback port from the separate Meshtastic app (less code; adds a runtime dependency + iOS-lifecycle fragility — the neighbor app must stay foregrounded, a real mark against A for an off-grid safety app); (B) FORK — import Meshtastic's BLE/mesh and extend, exactly as on Android (more work; no runtime dependency; Android-sameness). Not decided; off-grid reliability leans B.
+  Target end-state: a messaging/logic SERVICE LAYER + logic-free presentation panels (panels call the service for everything). Serving all three platforms = the logic rewritten ONCE into one platform-independent implementation, not three copies. Current code isn't built this way (logic woven into the Android fork) → a one-time extraction = the same effort as the bridge-surface inventory seen from the other end.
+  KMP is the natural target: logic is already Kotlin; KMP migration is incremental (share networking/data/domain first; expect/actual IS the "configured API resolves per platform" idea). KMP produces a shared logic module a Swift UI/shell consumes (it does NOT fork Meshtastic-Apple — that's Swift). Readiness gauge: (1) mechanical — KMP plugin preflight + Qodana; (2) architectural — a logic-entanglement inventory vs where_used/function_universe xref (the real effort predictor).
+Sequencing (firm) + next-session deliverables STRATEGY
+  Ship V2.6 on Windows (cleanup + map-download rewrite).
+  Set up the Mac Air and build/run known-good V2.6 on it FIRST — prove the environment with a known-good artifact before piling on KMP.
+  Then KMP plugin preflight + the entanglement inventory vs xref.
+  Then incremental KMP extraction (share domain/logic first).
+  Then iPad.
+Rule: do NOT introduce KMP onto an unproven Mac — one unknown at a time (else a break is ambiguous between KMP and Mac setup). Building V2.6 on Mac is the first rung needed anyway (same env for preflight + eventual Xcode).
+Deliverable 1 — Mac environment build-out: inventory required tools + install-and-confirm one at a time (Git + Terminal/zsh — macOS is real Unix, the Git-Bash/CRLF-heredoc pain may relax; Android Studio + SDK + Gradle + JDK/JavaVM; Python; keystore access — grouptrack-release-key.jks is in iCloud; clone + build V2.6; THEN the KMP plugin; MySQL — purpose TBD; Xcode + Apple Developer enrollment — later rung, iPad only). Deliverable 2 — consolidated cross-domain tooling/stack inventory (PC/local dev, Data/MySQL, AWS/V3.0 backend, Google Play, runtimes) — assemble + confirm from the actual environment + docs, not memory. Feeds the shared-layer language decision.
+iPad open items
+  iPad mesh source: A (bridge/port-listener) vs B (fork Meshtastic-Apple).
+  Service layer: local-on-device vs network vs both.
+  Shared-layer language/runtime (Kotlin/KMP leading, since logic is already Kotlin).
+  Reconcile Meshtastic-Apple's native TAK/CoT vs the roadmap's "TAK as pattern only."
+  Confirm the Meshtastic backup/restore file format + cross-platform acceptance.
+iPad EVOLUTION — how the thinking got here (the 4 prior positions) HISTORY
+The iPad plan evolved four times before 07-04 reconciled it. Kept so the ground isn't re-walked:
+  (1) Roadmap V9 (Mar 25): native-port via external dev.
+  (2) Mar-14 discussion doc — staged Options A–D: (A) fork Meshtastic-Apple in Swift/SwiftUI (rated HIGH, needs Swift skills); (B) React Native/Flutter (LOW — explicitly excluded); (C) WKWebView hybrid reusing convoy_map.html + minimal Swift BLE bridge (MEDIUM, ~2-3 wk); (D) use unmodified Meshtastic-Apple as a display-only viewer (HIGH for viewing, LOW for full convoy). Recommended: D short-term → C (V3) → A (V4). Also recommended MapLibre GL + PMTiles/OpenMapTiles for offline, replacing Leaflet.
+  (3) May notes: PWA-via-Bluefy-then-Capacitor.
+  (4) Repeatedly flagged "iPad V2.5 vs V3.0, not resolved."
+What 07-04 overturned: MapLibre + PMTiles DROPPED (V2.6 tile design went MBTiles-only, PMTiles rejected as immutable, stayed on Leaflet not MapLibre). The A/B/C/D ladder collapsed — since presentation is already web, the WKWebView shell is the presentation host in BOTH remaining candidates, and the open decision narrowed to A (fork) vs a bridge/port-listener for the MESH SOURCE, not a 4-option choice; SwiftUI rejected for presentation. iPad moved from "V4, viewer-only short-term" to "the post-V2.6 target," sequenced through KMP + Mac-first. Several Mar-14 open questions now answered: tile area = ½mi-padded bbox (track) / drawn bbox (area); download at ride/track creation under the app's own entitlement; same architectural relationship as Android (fork). ATAK/CoT-as-pattern-only still holds (mesh replaces the server; protobuf replaces CoT-over-UDP).
+V3.0 — SERVER / SHARING / DISTRIBUTION
+Standing awareness. Gated on real entitlement AND revenue.
+V3.0 track/ride sharing rules STRATEGY
+  LOCAL = preferred name. UNIVERSAL/AWS = first-in for hash sets the canonical name; first-in for (hash,date) sets an alias. Group-ride collapse needs fuzzy/spatial matching. AWS import = stage-to-dir + reuse the local import path.
+  Open design problem: same-ride cross-device matching (unsolved).
+  Tile redistribution (deferred from V2.6): operator-side rehosting = redistribution = V3.0, gated on real entitlement AND revenue. The licensing line = intent-to-redistribute / who-hosts, not processed-vs-unprocessed. V2.6 = method change only, each client fetches under the app's own entitlement; AWS/Box holds a manifest (tract→extent→hash), not tile bytes. Safe-now AWS alternative: public-domain gov tiles (USGS/USFS/BLM).
+  Backend named in roadmap: EC2, RDS, SES; S3 for tiles; PHP API (confirm from V3 spec). Google Play Billing; Apple IAP parallel later.
+⭐ ESRI TILE DOWNLOAD STRATEGY — 4-phase plan (planning session 2026-07-09) STRATEGY
+Origin (07-09): the V2.6b batch transport plan (Esri exportTiles → .tpkx → unpack) was de-risked and found unavailable. Curl against the keyed Location Platform imagery service (ibasemaps-api.arcgis.com/.../World_Imagery/MapServer?f=json, HTTP 200 with the AAPT key) returns only tileInfo — no exportTilesAllowed. The keyed Location Platform endpoint is per-tile only; exportTiles lives on the separate tiledbasemaps.arcgis.com "for Export" instance (a different org/subscription entitlement). So the .tpkx batch plan is dead on the current account, and V2.6b pivots to tile-fetch concurrency on the free endpoint (speed-up, not a transport rewrite).
+The cost reality. Esri Location Platform = 2,000,000 tiles/month free, then $0.15/1,000 flat (no volume tiers; high-volume only via Esri sales). Real GroupTrack usage: track download 200–300k tiles, area download ~500k tiles, heavy users ~100&nbsp;GB ≈ 10.8M tiles. A 100&nbsp;GB cache is a lifetime accumulation (≈900k/mo over a year, under the free tier) — but one-shot bulk on a metered key is financially impossible. Key honesty: the concurrency rewrite speeds downloads up, it does NOT reduce tile volume — on the free tier, faster just means faster accumulation (today's 100&nbsp;GB caches were built under the free tier). Demand-shaping via cost only works on a paid path.
+The four phases:
+  Phase 1 — NOW / BETA: free arcgisonline.com endpoint for everyone; the concurrency patch speeds it up at no cost and no licensing dependency. (This is the immediate V2.6b work.)
+  Phase 2 — OPTIONAL PAID PERSONAL TIER: users who want the faster keyed endpoint and/or big pre-downloads foot their own bill via their own entitlement (BYO-key / ~$100 ArcGIS Personal-Use). Cost self-selects and self-limits. Note: a personal license is still PER-TILE — not the batch/redistribution product.
+  Phase 3 — ENTITY ACCOUNT: past enough $100 personal accounts, it pays to shift to one ArcGIS org/enterprise account + shared key behind the backend proxy + negotiated volume pricing (also the central usage dashboard/billing + the 3.0 key-security model). Crossover economics unknown — depends on Esri's negotiated volume quote (the single deciding number; not published).
+  Phase 4 — FULLY OPTIMIZED ENDGAME: download-once / serve-many with dedup across the whole user base. Riders cluster in the same popular areas, so each region is fetched from Esri once and amortized across everyone who rides there — cost stops scaling with users and scales only with unique geography (bounded, slow-growing). Also solves key security (key server-only) + speed (users pull from GroupTrack) + control (one cache/dashboard/bill).
+Phase-4 distribution refinement — self-managed AREA PACKS (Fred, 07-09). Rather than run a live tile CDN, self-manage distribution: a batch process pulls/builds an area's .mbtiles once, hosts the finished file (FTP or file host / URL+catalog), and GroupTrack devices fetch + import the pre-built .mbtiles into MBTilesStore. Much lighter infra (a file server, not a mapping service) and fits the app's existing MBTiles-file world (store already reads .mbtiles; X-plore flow already moves tile files; import is close to Pass 1). Productized = "download this area pack" through the same download pipeline, pointed at pre-built packs instead of Esri tiles.
+⚠ THE REDISTRIBUTION LICENSE GATE (unchanged by any refinement). Hosting/FTPing an .mbtiles full of Esri tiles is redistribution just as much as live proxy-serving — legally identical on the point that matters. Phases 3–4 require a caching/redistribution-permitted Esri license (the "for Export" / offline entitlement) or a redistributable source. Lighter infra does not lighten the license requirement. The batch build's source is the same fork: free arcgisonline (ToS-gray bulk, just centralized), licensed for-Export (clean, negotiated/pricier), or USGS/USFS/BLM/Sentinel public-domain imagery (free + freely re-hostable — the clean fallback if Esri won't license redistribution).
+The one gate that decides Phase 3 &amp; 4: a single Esri sales conversation — entity/enterprise volume price + whether caching/redistribution is licensed and at what cost (not published, not web-searchable). Also confirm: does Personal-Use / BYO-key permit third-party-app use; Personal-Use is non-commercial (GroupTrack free now, commercial revenue model — revisit on monetization).
+Immediate next (code, safe under ALL phases): apply + build + test the tile-concurrency patch on the free endpoint (fetch-parallel / insert-serial, batch = 8). Do the db()/insertTile silent-failure hardening alongside (matters more once fetches are parallel). Do NOT switch the default to the keyed/metered endpoint. Current download speed is an adoption obstacle — this is the priority.
 REFERENCE (durable — always-loaded)
 Track model + data-integrity architecture (locked) LOCKED
   SPATIAL tables PURE OGC; properties/surveys/aliases/queues in the EXTENSION db (grouptrack_data.db) by id. Separate SQLite files — NO cross-DB JOIN. Boundary change = stop-and-check. (Note: the tile MBTiles files are ALSO separate per-type SQLite DBs — the DB rules engine's reach over them vs only the GPX/track DBs is a tile Step-0 scope question.)

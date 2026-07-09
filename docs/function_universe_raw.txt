@@ -808,7 +808,6 @@ ConvoyDownloadQueue.kt:41:    fun toJson(): JSONObject = JSONObject().apply {
 ConvoyDownloadQueue.kt:59:    companion object {
 ConvoyDownloadQueue.kt:60:        fun fromJson(j: JSONObject): QueueEntry = QueueEntry(
 ConvoyDownloadQueue.kt:83:object DownloadQueueManager {
-ConvoyDownloadQueue.kt:85:    private const val MAX_CONCURRENT = 2
 ConvoyDownloadQueue.kt:86:    private const val QUEUE_FILE = "download_queue.json"
 ConvoyDownloadQueue.kt:87:    private const val TAG = "DownloadQueue"
 ConvoyDownloadQueue.kt:89:    private val _queue = MutableStateFlow<List<QueueEntry>>(emptyList())
@@ -2732,81 +2731,89 @@ ConvoyTileCalculator.kt:31:    const val CEILING_MB = 5000f
 ConvoyTileCalculator.kt:39:    fun lon2tile(lon: Double, z: Int): Int =
 ConvoyTileCalculator.kt:46:    fun lat2tile(lat: Double, z: Int): Int {
 ConvoyTileCalculator.kt:47:        val rad = Math.toRadians(lat)
-ConvoyTileCalculator.kt:66:    fun maxZoomForSource(sourceName: String): Int =
-ConvoyTileCalculator.kt:69:    fun calculateTiles(
-ConvoyTileCalculator.kt:78:        val effectiveZMax = if (sourceName.isNotEmpty()) minOf(zMax, maxZoomForSource(sourceName)) else zMax
-ConvoyTileCalculator.kt:79:        val tiles = mutableListOf<TileKey>()
-ConvoyTileCalculator.kt:81:            val xMin = lon2tile(west, z)
-ConvoyTileCalculator.kt:82:            val xMax = lon2tile(east, z)
-ConvoyTileCalculator.kt:100:    fun estimateSizeMB(tiles: List<TileKey>): Float =
-ConvoyTileCalculator.kt:106:    fun isWithinCeiling(tiles: List<TileKey>): Boolean =
-ConvoyTileCalculator.kt:113:    fun quickEstimate(
-ConvoyTileCalculator.kt:121:        var totalTiles = 0
-ConvoyTileCalculator.kt:123:            val xCount = lon2tile(east, z) - lon2tile(west, z) + 1
-ConvoyTileCalculator.kt:124:            val yCount = lat2tile(south, z) - lat2tile(north, z) + 1
-ConvoyTileCalculator.kt:127:        val sizeMB = totalTiles * AVG_TILE_KB / 1024f
-ConvoyTileCalculator.kt:144:data class TileKey(val z: Int, val x: Int, val y: Int) {
-ConvoyTileCalculator.kt:146:    override fun toString(): String = "$z/$x/$y"
-ConvoyTileCalculator.kt:148:    companion object {
-ConvoyTileCalculator.kt:149:        fun fromString(s: String): TileKey {
-ConvoyTileCalculator.kt:150:            val parts = s.split("/")
-ConvoyTileCalculator.kt:159:data class DownloadEstimate(
-ConvoyTileCalculator.kt:160:    val tileCount: Int,
-ConvoyTileCalculator.kt:161:    val estimatedMB: Float,
-ConvoyTileCalculator.kt:162:    val withinCeiling: Boolean,
-ConvoyTileCalculator.kt:163:    val zoomMin: Int,
-ConvoyTileCalculator.kt:164:    val zoomMax: Int
-ConvoyTileCalculator.kt:166:    val displaySize: String get() = "%.1f MB".format(estimatedMB)
-ConvoyTileCalculator.kt:167:    val displayCount: String get() = "%,d tiles".format(tileCount)
-ConvoyTileCalculator.kt:168:    val summary: String get() = "$displayCount — $displaySize (z$zoomMin–z$zoomMax)"
-ConvoyTileDownloader.kt:28:data class DownloadSummary(
-ConvoyTileDownloader.kt:29:    val downloaded: Int,
-ConvoyTileDownloader.kt:30:    val failed: Int,
-ConvoyTileDownloader.kt:31:    val totalMB: Float
-ConvoyTileDownloader.kt:34:object ConvoyTileDownloader {
-ConvoyTileDownloader.kt:37:    private const val CONNECT_TIMEOUT_S = 10L
-ConvoyTileDownloader.kt:38:    private const val READ_TIMEOUT_S    = 15L
-ConvoyTileDownloader.kt:40:    private val client: OkHttpClient by lazy {
-ConvoyTileDownloader.kt:48:    fun buildTileUrl(tile: TileKey, sourceUrl: String): String {
-ConvoyTileDownloader.kt:57:    fun tilePath(context: Context, sourceName: String, tile: TileKey): File {
-ConvoyTileDownloader.kt:58:        val dir = File(ConvoyConfig.TILE_DIR, "${sourceName}/${tile.z}/${tile.x}")
-ConvoyTileDownloader.kt:67:    suspend fun fetchTileBytes(url: String): ByteArray? {
-ConvoyTileDownloader.kt:71:                val bytes = withContext(Dispatchers.IO) {
-ConvoyTileDownloader.kt:72:                    val request = Request.Builder()
-ConvoyTileDownloader.kt:76:                    val response = client.newCall(request).execute()
-ConvoyTileDownloader.kt:98:    suspend fun downloadTiles(
-ConvoyTileDownloader.kt:108:            var downloaded = 0
-ConvoyTileDownloader.kt:109:            var failed = 0
-ConvoyTileDownloader.kt:110:            val total = tiles.size
-ConvoyTileDownloader.kt:126:                val url = buildTileUrl(tile, sourceUrl)
-ConvoyTileDownloader.kt:128:                val bytes = fetchTileBytes(url)
-ConvoyTileDownloader.kt:129:                val success = if (bytes != null) MBTilesStore.insertTile(sourceName, tile.z, tile.x, tile.y, bytes, isOverlay) else false
-ConvoyTileDownloader.kt:138:            val totalMB = (downloaded * AVG_TILE_BYTES) / (1024f * 1024f)
-ConvoyTileDownloader.kt:147:    fun scanTilesToKeys(slotName: String): List<TileKey> {
-ConvoyTileDownloader.kt:149:        val keys = MBTilesStore.scanKeys(slotName)
-ConvoyTileDownloader.kt:155:    fun tileBoundsLatLon(slotName: String): DoubleArray? {
-ConvoyTileDownloader.kt:156:        val keys = scanTilesToKeys(slotName)
-ConvoyTileDownloader.kt:158:        val zoomGroups = keys.groupBy { it.z }
-ConvoyTileDownloader.kt:159:        val bestZ = zoomGroups.maxByOrNull { it.value.size }?.key ?: return null
-ConvoyTileDownloader.kt:160:        val tilesAtZ = zoomGroups[bestZ] ?: return null
-ConvoyTileDownloader.kt:161:        val minX = tilesAtZ.minOf { it.x }
-ConvoyTileDownloader.kt:162:        val maxX = tilesAtZ.maxOf { it.x }
-ConvoyTileDownloader.kt:163:        val minY = tilesAtZ.minOf { it.y }
-ConvoyTileDownloader.kt:164:        val maxY = tilesAtZ.maxOf { it.y }
-ConvoyTileDownloader.kt:165:        val n = 1 shl bestZ
-ConvoyTileDownloader.kt:166:        val north = Math.toDegrees(Math.atan(Math.sinh(Math.PI * (1.0 - 2.0 * minY / n))))
-ConvoyTileDownloader.kt:167:        val south = Math.toDegrees(Math.atan(Math.sinh(Math.PI * (1.0 - 2.0 * (maxY + 1) / n))))
-ConvoyTileDownloader.kt:168:        val west = minX.toDouble() / n * 360.0 - 180.0
-ConvoyTileDownloader.kt:169:        val east = (maxX + 1).toDouble() / n * 360.0 - 180.0
-ConvoyTileDownloader.kt:175:    fun gridCells(north: Double, south: Double, east: Double, west: Double, gridMiles: Double = 12.0): List<DoubleArray> {
-ConvoyTileDownloader.kt:176:        val step = gridMiles / 69.0
-ConvoyTileDownloader.kt:177:        val cells = mutableListOf<DoubleArray>()
-ConvoyTileDownloader.kt:178:        var lat = south
-ConvoyTileDownloader.kt:180:            val cellN = minOf(lat + step, north)
-ConvoyTileDownloader.kt:181:            var lon = west
-ConvoyTileDownloader.kt:183:                val cellE = minOf(lon + step, east)
-ConvoyTileDownloader.kt:194:    fun deleteSource(context: Context, sourceName: String): Boolean {
-ConvoyTileDownloader.kt:200:    fun sourceInfo(context: Context, sourceName: String): Pair<Int, Float> {
+ConvoyTileCalculator.kt:72:    fun maxZoomForSource(sourceName: String): Int = ConvoyConfig.DOWNLOAD_ZOOM
+ConvoyTileCalculator.kt:74:    fun calculateTiles(
+ConvoyTileCalculator.kt:83:        val effectiveZMax = if (sourceName.isNotEmpty()) minOf(zMax, maxZoomForSource(sourceName)) else zMax
+ConvoyTileCalculator.kt:84:        val tiles = mutableListOf<TileKey>()
+ConvoyTileCalculator.kt:86:            val xMin = lon2tile(west, z)
+ConvoyTileCalculator.kt:87:            val xMax = lon2tile(east, z)
+ConvoyTileCalculator.kt:105:    fun estimateSizeMB(tiles: List<TileKey>): Float =
+ConvoyTileCalculator.kt:111:    fun isWithinCeiling(tiles: List<TileKey>): Boolean =
+ConvoyTileCalculator.kt:118:    fun quickEstimate(
+ConvoyTileCalculator.kt:126:        var totalTiles = 0
+ConvoyTileCalculator.kt:128:            val xCount = lon2tile(east, z) - lon2tile(west, z) + 1
+ConvoyTileCalculator.kt:129:            val yCount = lat2tile(south, z) - lat2tile(north, z) + 1
+ConvoyTileCalculator.kt:132:        val sizeMB = totalTiles * AVG_TILE_KB / 1024f
+ConvoyTileCalculator.kt:149:data class TileKey(val z: Int, val x: Int, val y: Int) {
+ConvoyTileCalculator.kt:151:    override fun toString(): String = "$z/$x/$y"
+ConvoyTileCalculator.kt:153:    companion object {
+ConvoyTileCalculator.kt:154:        fun fromString(s: String): TileKey {
+ConvoyTileCalculator.kt:155:            val parts = s.split("/")
+ConvoyTileCalculator.kt:164:data class DownloadEstimate(
+ConvoyTileCalculator.kt:165:    val tileCount: Int,
+ConvoyTileCalculator.kt:166:    val estimatedMB: Float,
+ConvoyTileCalculator.kt:167:    val withinCeiling: Boolean,
+ConvoyTileCalculator.kt:168:    val zoomMin: Int,
+ConvoyTileCalculator.kt:169:    val zoomMax: Int
+ConvoyTileCalculator.kt:171:    val displaySize: String get() = "%.1f MB".format(estimatedMB)
+ConvoyTileCalculator.kt:172:    val displayCount: String get() = "%,d tiles".format(tileCount)
+ConvoyTileCalculator.kt:173:    val summary: String get() = "$displayCount — $displaySize (z$zoomMin–z$zoomMax)"
+ConvoyTileDownloader.kt:30:data class DownloadSummary(
+ConvoyTileDownloader.kt:31:    val downloaded: Int,
+ConvoyTileDownloader.kt:32:    val failed: Int,
+ConvoyTileDownloader.kt:33:    val totalMB: Float
+ConvoyTileDownloader.kt:38:    private const val TILE_FETCH_CONCURRENCY = 8
+ConvoyTileDownloader.kt:39:    private const val TILE_MAX_RETRIES = 4
+ConvoyTileDownloader.kt:40:    private const val TILE_BACKOFF_BASE_MS = 400L
+ConvoyTileDownloader.kt:43:    private const val CONNECT_TIMEOUT_S = 10L
+ConvoyTileDownloader.kt:44:    private const val READ_TIMEOUT_S    = 15L
+ConvoyTileDownloader.kt:46:    private val client: OkHttpClient by lazy {
+ConvoyTileDownloader.kt:54:    fun buildTileUrl(tile: TileKey, sourceUrl: String): String {
+ConvoyTileDownloader.kt:63:    fun tilePath(context: Context, sourceName: String, tile: TileKey): File {
+ConvoyTileDownloader.kt:64:        val dir = File(ConvoyConfig.TILE_DIR, "${sourceName}/${tile.z}/${tile.x}")
+ConvoyTileDownloader.kt:77:    suspend fun fetchTileBytes(url: String): ByteArray? {
+ConvoyTileDownloader.kt:78:        var attempt = 0
+ConvoyTileDownloader.kt:82:                val result = withContext(Dispatchers.IO) {
+ConvoyTileDownloader.kt:83:                    val request = Request.Builder()
+ConvoyTileDownloader.kt:87:                    val response = client.newCall(request).execute()
+ConvoyTileDownloader.kt:88:                    val code = response.code
+ConvoyTileDownloader.kt:92:                            val retryAfterMs = response.header("Retry-After")?.toLongOrNull()?.times(1000) ?: 0L
+ConvoyTileDownloader.kt:106:                val backoff = maxOf(result.retryAfterMs, TILE_BACKOFF_BASE_MS * (1L shl attempt))
+ConvoyTileDownloader.kt:119:    private data class FetchOutcome(val bytes: ByteArray?, val retryable: Boolean, val retryAfterMs: Long)
+ConvoyTileDownloader.kt:124:    suspend fun downloadTiles(
+ConvoyTileDownloader.kt:134:            var downloaded = 0
+ConvoyTileDownloader.kt:135:            var failed = 0
+ConvoyTileDownloader.kt:136:            val total = tiles.size
+ConvoyTileDownloader.kt:142:            var loggedZ18 = 0
+ConvoyTileDownloader.kt:150:                val results = coroutineScope {
+ConvoyTileDownloader.kt:157:                                val url = buildTileUrl(tile, sourceUrl)
+ConvoyTileDownloader.kt:172:                        val success = if (bytes != null) MBTilesStore.insertTile(sourceName, tile.z, tile.x, tile.y, bytes, isOverlay) else false
+ConvoyTileDownloader.kt:183:            val totalMB = (downloaded * AVG_TILE_BYTES) / (1024f * 1024f)
+ConvoyTileDownloader.kt:192:    fun scanTilesToKeys(slotName: String): List<TileKey> {
+ConvoyTileDownloader.kt:194:        val keys = MBTilesStore.scanKeys(slotName)
+ConvoyTileDownloader.kt:200:    fun tileBoundsLatLon(slotName: String): DoubleArray? {
+ConvoyTileDownloader.kt:201:        val keys = scanTilesToKeys(slotName)
+ConvoyTileDownloader.kt:203:        val zoomGroups = keys.groupBy { it.z }
+ConvoyTileDownloader.kt:204:        val bestZ = zoomGroups.maxByOrNull { it.value.size }?.key ?: return null
+ConvoyTileDownloader.kt:205:        val tilesAtZ = zoomGroups[bestZ] ?: return null
+ConvoyTileDownloader.kt:206:        val minX = tilesAtZ.minOf { it.x }
+ConvoyTileDownloader.kt:207:        val maxX = tilesAtZ.maxOf { it.x }
+ConvoyTileDownloader.kt:208:        val minY = tilesAtZ.minOf { it.y }
+ConvoyTileDownloader.kt:209:        val maxY = tilesAtZ.maxOf { it.y }
+ConvoyTileDownloader.kt:210:        val n = 1 shl bestZ
+ConvoyTileDownloader.kt:211:        val north = Math.toDegrees(Math.atan(Math.sinh(Math.PI * (1.0 - 2.0 * minY / n))))
+ConvoyTileDownloader.kt:212:        val south = Math.toDegrees(Math.atan(Math.sinh(Math.PI * (1.0 - 2.0 * (maxY + 1) / n))))
+ConvoyTileDownloader.kt:213:        val west = minX.toDouble() / n * 360.0 - 180.0
+ConvoyTileDownloader.kt:214:        val east = (maxX + 1).toDouble() / n * 360.0 - 180.0
+ConvoyTileDownloader.kt:220:    fun gridCells(north: Double, south: Double, east: Double, west: Double, gridMiles: Double = 12.0): List<DoubleArray> {
+ConvoyTileDownloader.kt:221:        val step = gridMiles / 69.0
+ConvoyTileDownloader.kt:222:        val cells = mutableListOf<DoubleArray>()
+ConvoyTileDownloader.kt:223:        var lat = south
+ConvoyTileDownloader.kt:225:            val cellN = minOf(lat + step, north)
+ConvoyTileDownloader.kt:226:            var lon = west
+ConvoyTileDownloader.kt:228:                val cellE = minOf(lon + step, east)
+ConvoyTileDownloader.kt:239:    fun deleteSource(context: Context, sourceName: String): Boolean {
+ConvoyTileDownloader.kt:245:    fun sourceInfo(context: Context, sourceName: String): Pair<Int, Float> {
 ConvoyTrackDialogs.kt:23:fun TrackActionDialog(
 ConvoyTrackDialogs.kt:52:private fun ActionRow(label: String, onClick: () -> Unit) {
 ConvoyTrackDialogs.kt:65:fun RenameTrackDialog(
