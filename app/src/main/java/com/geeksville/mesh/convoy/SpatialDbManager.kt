@@ -643,6 +643,7 @@ object SpatialDbManager {
 
                     val nameMatch = Regex("<name>([^<]*)</name>").find(text)?.groupValues?.get(1)?.trim()
                     val recName = if (!nameMatch.isNullOrBlank()) nameMatch else file.nameWithoutExtension
+                    android.util.Log.i("HASHTRACE", "LOOP file=${file.name} loopPts=${coords.size} loopHash=${gh.take(16)} embName='${nameMatch ?: "?"}' recName='$recName'")
                     // UNIFIED ADD: resolver rereads `file`, inserts, and resolves
                     // INSERT / DROP_NAME / DROP_ALIAS / ALIAS (owns rename + source delete + metrics + alias).
                     when (resolveTrackAdd(recName, file)) {
@@ -681,8 +682,13 @@ object SpatialDbManager {
     /** Parse GPX track points — used by ConvoyTrackOps for import */
     fun parseGpxTrackPoints(gpxText: String): List<Pair<Double, Double>> {
         val coords = mutableListOf<Pair<Double, Double>>()
-        val regex = Regex("""lat="([^"]+)"\s+lon="([^"]+)"""")
-        for (match in regex.findAll(gpxText)) {
+        // 2026-07-11: use the SAME robust trkpt-anchored regex as parseGpxTrackPointsFull
+        // so external files (onX/Gaia) with different attribute order/spacing parse into
+        // the SAME point set as our own recorder's files. The fragile `lat=..\s+lon=..`
+        // regex (here since 2026-05-22) matched external files differently -> different
+        // geometry -> different geom_hash -> duplicate tracks. Returns Pair(lon, lat) as before.
+        val ptRegex = Regex("""<trkpt\b[^>]*\blat="([^"]+)"[^>]*\blon="([^"]+)"""")
+        for (match in ptRegex.findAll(gpxText)) {
             val lat = match.groupValues[1].toDoubleOrNull() ?: continue
             val lon = match.groupValues[2].toDoubleOrNull() ?: continue
             coords.add(Pair(lon, lat))
@@ -1004,6 +1010,8 @@ object SpatialDbManager {
                 if (lon < minLon) minLon = lon; if (lon > maxLon) maxLon = lon
             }
             val wkt = "LINESTRING(" + coords.joinToString(",") { "${it.first} ${it.second}" } + ")"
+            val _embName = Regex("<name>([^<]*)</name>").find(gpxText)?.groupValues?.get(1)?.trim() ?: "?"
+            android.util.Log.i("HASHTRACE", "RESOLVE file=${sourceFile.name} passedName='$name' embeddedName='$_embName' pts=${coords.size} first=(${coords.firstOrNull()}) last=(${coords.lastOrNull()}) wktLen=${wkt.length} hash=${computeGeomHash(wkt).take(16)}")
             val res = insertTrackToDb(name, wkt, minLat, maxLat, minLon, maxLon)
             val hashFile = java.io.File(
                 java.io.File(
