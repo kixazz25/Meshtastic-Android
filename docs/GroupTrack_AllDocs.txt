@@ -21359,113 +21359,79 @@ Matches the worker's own math (`tiles.size * totalLayers`). `ConvoyTileCalculato
 *Recap — 2026-07-07. The download submission is now one standardized spine; the tile-storage migration redirects its WRITE end (Pass 1) without touching the submission side.*
 
 
-=== GroupTrack_V2_6_Handoff_2026-07-09.md ===
+=== GroupTrack_V2_6_Handoff_2026-07-11.md ===
 # GroupTrack V2.6 — Handoff / State of Play
-**As of:** 2026-07-09 EOD · **Prev living-docs update:** 2026-07-08
+**As of:** 2026-07-11 EOD · **Prev living-docs update:** 2026-07-09
 
 > Single orientation doc for the current milestone. V2.5 shipped to Play Store 06-24 (`c603bc3f0`). Work is on **V2.6**, branch `feature/convoy-event-ride`.
 >
-> **⭐ TOP PRIORITY FOR TOMORROW (07-10): AREA SEGMENTATION FOR DOWNLOAD LOAD BALANCING.** This is THE issue. Everything else (concurrency tuning, the JSON tuning rig, async-task counts) is fine-tuning that only matters on top of a load-balanced baseline. See the dedicated section "⭐ LOAD BALANCING — THE PRIORITY BUILD" below. Read that section first.
+> **⭐ TOMORROW'S FIRST TASK (new conversation): ROUTE+ PERSISTENCE.** Solve the route-add-disappearing issue by making the map and its exits INERT while route-add mode is active — the route panel must PERSIST and the map must NOT navigate away or close until route-add mode is explicitly cleared. Explicit close is the one exit, and it prompts save-or-discard. Root cause is already located and the fix spec is locked (see the ROUTE+ section below and `/areas/grouptrack-route-state.md`). Do the two-handler read FIRST (see that section), then build.
 >
-> **Today (07-09): tile download SPEED-UP shipped & tested (2.6b) — tile-fetch concurrency + zoom-cap removal + 429/503/502 backoff. ~5× faster (80 min for 125K tiles vs a gut ~6–8 hr before). BUT the speed-up exposed that load balance is what actually governs total time, and current balance is ACCIDENTAL. The proven next build is even segmentation.**
+> **⭐ RELEASE DELAYED ~4 WEEKS (Fred's decision 07-11).** No Monday/partial release. Fred is on holiday ~1 week and does not want to rush. New target ~4 weeks out, scope EXPANDED to a full V2.6-complete release that cleans up ALL open issues AND includes the lead-cart re-engineer. See "⭐ THE ~4-WEEK PLAN" below.
 >
-> **Yesterday (07-08): Pass 1 tile-storage migration (loose tree → MBTiles) + WebP compression BUILT, VERIFIED on Droid 1, COMMITTED. Storage ~55% smaller. Milestones 2.6a / 2.6b / 2.6c.**
+> **Today (07-11): LOAD-BALANCING SEGMENTATION shipped & committed (`e38e43487`).** The priority build from the last two sessions is DONE — the drawn bbox now splits into balanced ≤50K-SAT segments so no single job strands a queue. Verified on Droid 1: "ran faster with two queues than three." Balance is now STRUCTURAL, not accidental. Also shipped in the same commit: 2-queue / 10-async concurrency config.
+>
+> **Yesterday context (07-09): tile download speed-up (2.6b) — concurrency + zoom-cap + backoff, ~5× faster. 07-08: Pass 1 MBTiles + WebP, ~55% smaller, committed.**
 
 ---
 
-## ⭐ LOAD BALANCING — THE PRIORITY BUILD (start here 07-10)
+## ⭐ THE ~4-WEEK PLAN (release delayed — full V2.6 cleanup, calm pace)
 
-### The problem, proven empirically today
-Total download time is governed by **segment balance**, not by concurrency. Two runs of the SAME ~125K-tile area (both on today's build):
-- **~80 minutes** when the work happened to finish balanced (all queues finishing together).
-- **~113 minutes** when it didn't — the small jobs drained at ~45 min and the one big SAT segment ran **alone** for the long tail.
+Rough dependency order. This replaces the earlier "Monday release" framing entirely.
 
-**The 80-min balanced run was balanced BY ACCIDENT** — the big SAT segment happened to have roughly equal tiles to *all the other jobs combined*, so a 2-queue split fell ~50/50 by luck. Add a 3rd queue and that coincidence breaks: the "everything else" half gets subdivided, drains early, and strands the big SAT job → ~113 min. So **current balance is accidental and fragile**; it holds only because big-segment ≈ sum-of-rest at exactly 2 queues, for that particular area. Change the area, tile mix, or concurrency and it breaks.
+1. **⭐ Queue BOOT-LOOP IMMUNITY (top priority — the catastrophe-preventer).** `loadQueue()` on startup must survive ANY garbage in `download_queue.json` without crashing — tolerant parse, skip/quarantine bad entries, never throw during boot. WHY THIS IS #1: the map-source refresh once wrote poison queue entries that crashed the app **repeatedly on startup (a boot loop)** — every launch re-read the bad file and re-crashed. The ONLY recovery was Clear-All-Data, which also wiped the spatial+data DBs + tracks and revoked All-Files access = the whole 07-09→07-11 catastrophe. A poison queue file that boot-loops the app is the single most dangerous bug in the codebase because the only user recovery is destructive. Tolerant load turns the catastrophe into a shrug.
+2. **`saveQueue` atomic-write** — the write side; stops a half-written/poison queue file from ever landing on disk.
+3. **⭐ Route+ PERSISTENCE (tomorrow's first task, user-facing).** See dedicated section below.
+4. **Rest of the hardening trio** — `insertTile` fail-loud (currently `db()`-null makes it a silent no-op while the loop counts "done" — worse now fetches are parallel); `deleteSource` handle-hygiene (close cached SQLite handles before delete or FUSE wedges, `SQLITE_IOERR_FSTAT`, reboot to clear).
+5. **Three REGRESSIONS** — (a) map REFRESH "no longer works" (suspect: bounds-array order mismatch feeding `gridCells` → empty cells → silent no-op; the REFRESH path was NOT touched by segmentation); (b) `quickEstimate` source-awareness (currently ignores source, assumes z18 — also fixes the TOPO+ estimate gap); (c) SAT-overlay-on-TOPO render (overlays show on TOPO/TOPO+ always-on; render-side Leaflet layer-stack, download side is correct).
+6. **Phase-4 FEATURES** — clear-area/delete-area (bbox-surgical tile delete, needs #4 handle-hygiene), THEN map-source-change tile-replace routed through the NEW `segmentCells` feeder (NOT its old ad-hoc path) and gated on the queue hardening (#1/#2). ⚠ This is the crash-trigger feature — do not rebuild it until #1/#2 are solid.
+7. **⭐ LEAD-CART / LEAD-TRACK RE-ENGINEER (2.6c — the big one, needs RADIO).** Settled-not-started demolition/rebuild. Needs 2-cart field capture. Spec `GroupTrack_LeadCart_TrackRevision_DemolitionRebuild_2026-06-18.md` (authority `LeadTrackReplacement_Spec.docx`). Retire the 3 parallel live-track flows (`leadTrackSegments`/`gpsTrailSegments`/`routeTrailSegments` + `trackLeadOnly`), the lead-lock tick engine (`evaluateLeadLock`/`tick`/`assignLeadTail`/`lockedLeadNodeId`), and the projection/proxy substitution (the phantom-cart source). DO NOT touch displayed/imported DB tracks, node markers, route lines, route-builder snap-2. 4 weeks is deliberately enough to do this carefully (field capture + demolition), not jammed.
+8. **Infra close-out** — git-push unblock (purge 3 large `.db` files from history via filter-repo/BFG; ~119 commits ahead of origin, no offsite backup until this clears), then push.
 
-### Why this is the priority
-The gap between 80 min (good) and 113 min (bad) is **entirely load balance** — nothing else. The concurrency work is done and shipped; the tuning levers are fine-tuning. **The one thing that turns "balanced by luck" into "balanced by guarantee" is even segmentation.** Build that, and every download reliably hits the ~80-min-class balanced case instead of occasionally stranding into 113 min. Do NOT touch concurrency tuning until this is solved — it's premature to tune a balanced system you don't yet have.
-
-### THE SEGMENTATION METHOD (fully specced — this is the build)
-**Divide the submission area's bounding box into EQUAL AREAS, sized so no area exceeds 50,000 SAT tiles.**
-
-1. **SAT drives the grid sizing.** SAT is the densest source (goes to z18 — the deep zoom quadruples each level and dominates tile count). Estimate SAT's total tiles for the full bbox, then divide into `ceil(SAT_total / 50000)` equal areas. Because SAT is the worst case, every shallower source (TOPO, TOPO+ — lower max zoom, far fewer tiles) rides the SAME grid and is automatically well under the ceiling. **You only estimate SAT.**
-
-2. **Each segment MUST be a COMPLETE VERTICAL SLICE OF THE ZOOM STACK (z-min .. z-max) over its geographic cell — NOT segmented by zoom.** This is the load-balance principle and the reason the method works. Segmenting by zoom would recreate the imbalance (a z18-only job = the ~45K heavy monster; a z10–16 job = trivial). By giving every geographic cell the full zoom stack, each segment carries the SAME SHAPE of work — its proportional share of heavy z18 tiles PLUS the light upper-zoom tiles. Equal-area, full-stack segments therefore do genuinely equal work and finish together in parallel slots. **That comparability IS the load balancing** — it makes the ~80-min balanced case guaranteed rather than lucky.
-
-3. **The unit** = a vertical column (full zoom) over a horizontal cell (geographic), sized so SAT's full-stack count ≤ 50,000.
-   - **Worked example:** 72,000 SAT tiles → `ceil(72000/50000)` = 2 segments of ~36,000 each (each a full-stack half-cell). That SAME grid applied to TOPO/TOPO+ yields their (smaller) per-cell counts. Elegantly simple: SAT sizes the grid once; everything else inherits it.
-
-4. **Slight overlap between adjacent cells** (~a tile-width) prevents seam gaps where a tile straddles a cell boundary. Duplicate boundary tiles are negligible and `MBTilesStore.hasTile()` dedupes them.
-
-5. **Overlays travel WITH SAT.** Confirmed from logcat: a single SAT job downloads base World_Imagery → then the two overlays (`SAT_LABELS_TRANSPORT` = Reference/World_Transportation, `SAT_LABELS_PLACES` = Reference/World_Boundaries_and_Places) sequentially into their own `.mbtiles`. So segmenting SAT automatically segments its overlays — no separate handling.
-
-### Prerequisite the segmentation needs
-**`ConvoyTileCalculator.quickEstimate` must become source-aware.** It currently ignores the source and assumes z18 for everything (this is also the root cause of the TOPO+ estimate-vs-actual gap — see below). The segmentation needs an accurate per-source SAT estimate to size the grid, so making `quickEstimate` respect the source's zoom range is the enabling change — and it fixes the TOPO+ estimate gap as the same stroke.
-
-### Keep concurrency modest for now
-`MAX_CONCURRENT` stays at **2** (raising it to 3 today REGRESSED time by ~33 min because it broke the accidental balance — see above). After segmentation makes balance guaranteed, run the OPEN EXPERIMENT below to decide if any concurrency change helps.
-
-### OPEN EXPERIMENT (only AFTER segmentation — do not do before)
-Once segments are balanced, the concurrency question becomes cleanly testable (today it was confounded by the imbalance). **The two multiplying levers:** total simultaneous requests ≈ `queues (MAX_CONCURRENT) × async-tiles (TILE_FETCH_CONCURRENCY)`. Currently 2 × 8 = 16.
-- **Fred's hypothesis:** at the same total, **fewer queues × more async each may outperform more queues × fewer** — e.g. **2 queues × 12 async (=24) could beat 3 queues × 8 (=24)** — because same request rate (same collision exposure) but parallelism concentrated as async-WITHIN-fewer-jobs avoids stranding, feeds the critical-path segment directly, and wastes fewer slots on small early-draining jobs.
-- **Test as a GRID:** {2, 3 queues} × {8, 12 async}, measuring BOTH total time AND collision/error counts (429/502/503), on balanced segments.
-- **Decision:** if all configs ≈ equal → resource-SATURATED (shared throughput/network/serial-insert maxed), keep 2×8, and the JSON tuning rig has nothing to tune → skip it. If a config wins → that's the setting, and the rig earns its place. The rig should make BOTH knobs tunable.
-- **Note on saturation:** the =3 regression today hinted the shared resource may already be saturated (few 429 errors ≠ spare throughput — you can be at 100% of the pipe with zero errors). The grid test settles it.
+⚠ **HOLIDAY-WEEK RISK (check when back, not before leaving):** the boot-loop is still latent — the build currently on Droid 1 / any tester phone can still be bricked by a poison `download_queue.json`. If testers actively run the current build during the away week, that's the exposure. Item #1 closes it.
 
 ---
 
-## 07-09 — what got done today (tile download speed-up, 2.6b)
+## ⭐ ROUTE+ PERSISTENCE (tomorrow's first build)
 
-**Built + installed to Droid 1 and Droid 2 (BUILD SUCCESSFUL). Three code changes to `ConvoyTileDownloader.kt` and `ConvoyTileCalculator.kt`, plus a job-concurrency test bump.**
+**The rule (Fred, 07-08 hard spec — supersedes any looser "every exit tears down" phrasing):** While Route+/route-add is ACTIVE, the route screen PERSISTS through ANY other selection (?, hamburger, search, another item, panel, tab — anything). The map and its exits are INERT against Route+ state. The ONLY way out is an EXPLICIT CLOSE, which PROMPTS SAVE-OR-DISCARD. This single rule subsumes the "route nav box disappears" bug — state that can never be implicitly abandoned can't be orphaned. Same prompt on BOTH exits (planning-map exit + convoy-map return).
 
-1. **Tile-fetch CONCURRENCY** (the ~5× win). The sequential per-tile download loop in `ConvoyTileDownloader.downloadTiles` is now parallelized: fetch tiles in batches of `TILE_FETCH_CONCURRENCY = 8` concurrently (`coroutineScope { … async … }`), then INSERT them SERIALLY per batch. **Fetch-parallel / insert-serial is the required design** — `MBTilesStore` holds one cached SQLite handle per type, so concurrent inserts are unsafe; only the network fetch (OkHttp, thread-safe) is parallelized. Preserves resume-skip (`hasTile`), per-batch cancellation (`isActive`), the z18 debug log, counters + `onProgress`, `forceOverwrite`, `isOverlay`.
-   - *First build failed:* the const wasn't declared inside the object, and `async`/`coroutineScope` were fully-qualified (`kotlinx.coroutines.async`) so `async` didn't bind the `coroutineScope` receiver. Fixed by declaring `TILE_FETCH_CONCURRENCY` in the object, importing `coroutineScope` + `async`, and calling them unqualified.
+**Root cause (LOCATED 07-06 from xref):** route mode is held in `var routeMode by remember { mutableStateOf(false) }` — ephemeral Compose state — in TWO copies: `ConvoyMapViewerScreen.kt:129` and `ConvoyScreen.kt:197`, both driving ONE shared `window.__routeMode` in `convoy_map.html`. Teardown = ~8 scattered hardcoded `setRouteMode(false)/clearBuildLine()` calls per screen. NO single funnel. Touching another item / closing the panel recomposes or orphans the `remember` boolean → Kotlin resets but JS gets no matching teardown → route disappears (a path fired clearBuildLine/redraw) OR stays-but-dead (Kotlin false so controls detach, JS still shows the line).
 
-2. **Removed the stale download zoom cap** in `ConvoyTileCalculator.maxZoomForSource`. It hardcoded TOPO+/TRAIL → 17 (a leftover from the old hand-drawn TOPO+ source). Now returns full `ConvoyConfig.DOWNLOAD_ZOOM` for all sources — download requests the full zoom range; worst case is empty/404 tiles at high zoom (already the current behavior for sources that top out). The per-source `max_zoom` in `map_sources.json` is **retained as a DISPLAY clamp** to snap back to later — download and display ceilings are intentionally decoupled (Fred's call).
+**PREREQUISITE before writing code:** read the actual `.kt` for the artifact-panel-close (`onDismiss`/`onClose`) handler + the `onTrackTap` bodies (`ConvoyMapViewerScreen:515`, `ConvoyScreen:645 & 895`) and CONFIRM they currently lack a teardown call (the diagnosis predicts they do). Under the new rule these must NOT tear down at all — they should be no-ops against Route+ state.
 
-3. **429 / 503 / 502 backoff** in `fetchTileBytes`. Previously any non-2xx was a null-drop → the tile was silently LOST with no backoff (the 125K test dropped 2 tiles to 502s). Now 429/503/502 are **retryable**: back off (exponential, base `TILE_BACKOFF_BASE_MS = 400`, up to `TILE_MAX_RETRIES = 4`) and retry the SAME tile; honors `Retry-After`. Genuine 404/other returns null fast. `FetchOutcome` data class holds the outcome. (502 was added after the first 125K test dropped 2 tiles — patch `patch_2026-07-09_add_502_retry_v1`.)
+**Fix direction:** persist route state to the map JSON (per-map keyed, Planning vs Convoy — survives recomposition/nav; `remember` does not); intercept EVERY would-be-exit to no-op against Route+ state; only the explicit-close path runs teardown, through the save/discard prompt (one funnel). Touchpoints: `window.__routeMode` gate at `convoy_map.html:495` (BUG A popup suppression — keep mode-scoped); RouteManager build logic; JS `drawBuildLine`/`clearBuildLine`/`updateRoutes`/`showRoutes`. Full detail in `/areas/grouptrack-route-state.md`.
 
-**Test result (125K tiles, SAT + TOPO + TOPO+, Droid, MAX_CONCURRENT=2):** ~80 minutes, ~100% success, ZERO 429s, 2 transient 502s (dropped pre-502-fix). Old-build baseline unknown; Fred's gut ~6–8 hr previously → **~4.5–6× speed-up**. A tester is running a different-track 125K on the OLD build for a firmer baseline (different track, same tile count = best available comparison).
+---
 
-**The performance investigation (the important part) → see "⭐ LOAD BALANCING" above.** Summary: concurrency is NOT a further lever (job-level regressed; the bottleneck is a saturated shared resource); the ~5× came from the shipped tile parallelism; and total time is governed by segment balance, which is currently accidental. Even segmentation is the proven next build.
+## ⭐ WHAT SHIPPED 07-11 — LOAD-BALANCING SEGMENTATION (committed `e38e43487`)
 
-### New 2.6 backlog items surfaced today
-- **⭐ Area segmentation for load balancing** — THE priority build (full spec above).
-- **`quickEstimate` source-awareness** — prerequisite for segmentation AND fixes the TOPO+ estimate gap (below). Same change.
-- **SAT overlay showing on TOPO / TOPO+ (display bug).** Both SAT overlays (labels + transportation) render on the TOPO and TOPO+ base maps, ALWAYS ON. Confirmed PURELY RENDER-SIDE: overlays download correctly UNDER SAT (gated right at download — verified in logcat), so the bug is only in the Leaflet layer-stack render logic adding overlays regardless of active base. **Fix: show SAT overlays only when base == SAT** — in the map HTML layer-stack / `MapSourceManager` base-overlay association. NOT a download/association problem.
-- **Clear-area / delete-area for downloads — NEVER WIRED.** Left unwritten during the area-download build because the MBTiles cutover was pending (didn't want to write against loose-file storage about to be replaced). Now a real gap: no per-area tile clear for the "replace" flow or for test-clearing. Scope = bbox-surgical delete of tiles within the drawn area from the relevant `.mbtiles`, tied to the "replace" toggle in `ConvoyDownloadConfirm` (NOT whole-source drop); must close/reopen the cached SQLite handle cleanly (handle-hygiene — see the FUSE-wedge hardening item). Scope bbox-vs-whole-source to confirm.
-- **Tile-download tuning rig** (MANUAL tuning, NOT an auto-throttle — Fred rejected an adaptive controller as overkill). Build-decision gated on the balanced grid experiment above. Pieces: (1) 502 retryable — DONE; (2) `MAX_CONCURRENT` settable from JSON, clamped ±1 per cycle, effective on the NEXT set of submits/releases (CANNOT change while jobs running — new value staged, applied when the queue is idle; "cycle" = a fresh submit/release set); (3) error counts broken out by code in the `Complete:` logcat line → `failed=Y [429=a 502=b 503=c]`; (4) a tuning guideline (error-rate thresholds + how to step). The guideline must account for CONTENTION — higher concurrency can regress total time when a saturated resource is split. Rig should make BOTH `MAX_CONCURRENT` and `TILE_FETCH_CONCURRENCY` tunable (the grid test needs both).
-- **TOPO+ estimate-vs-actual gap — ROOT CAUSE FOUND.** "Map 3" TOPO+ = source `esri-usa-topo` (`server.arcgisonline.com/.../USA_Topo_Maps`), `max_zoom: 15` in `map_sources.json` — genuinely tops out ~z15. "Map 2" = a DIFFERENT source `usgs-imagery-topo` (`basemap.nationalmap.gov`, `max_zoom: 16`) that shares the "TOPO+" short_label — which is why switching to it yields tiles at higher zoom. Three mismatched zoom numbers existed: JSON says 15, `maxZoomForSource` hardcoded 17, `quickEstimate` ignored source (assumed 18). Fred removed the download cap (change #2 above) and keeps the JSON `max_zoom` for display. Making `quickEstimate` source-aware closes the estimate gap.
-- **Queue-monitor display check.** The download queue IS persisted to JSON — `ConvoyDownloadQueue.kt` writes `download_queue.json` under `appCtx.filesDir/download_queue/` (`QUEUE_FILE` const line 86; `saveQueue()` ~line 420 writes a `JSONArray` of `entry.toJson()`, called after every queue change; `loadQueue()` reads on startup). This file backs the queue-monitor UI. It is NOT readable on the RELEASE build via `adb` (`run-as` fails on non-debuggable release; `cat /data/data/...` is denied). To inspect next session: X-plore into `Data/com.geeksville.mesh/files/download_queue/`, or add a debug mirror-copy of the file to `/sdcard/Documents/GroupTrack/` inside `saveQueue()`. Fred found the queue-monitor labels confusing ("SAT 2-4 / TOPO 1,2,3,4 / TOPO+ blended") — worth checking against `ConvoyDownloadQueuePanel.kt` render logic; the logcat ground truth is clean: 6 jobs, 2 cells per source, labeled `x/2`.
+**Commit `e38e43487`** "V2.6 tile segmentation: SAT-sized load-balancing grid across all sources; 2x10 download concurrency" — 3 files, +92/-3 (`ConvoyDownloadQueue.kt`, `ConvoyTileCalculator.kt`, `ConvoyTileDownloader.kt`). ⚠ NOT build-verified after the final dry-run-scaffolding strip — the removal was mechanical (standalone function + its one call) so it should compile; it self-verifies at the first build tomorrow (Route+ requires a build).
 
-### Checked and CLOSED today
-- **Convoy-map submission path parity** — Fred earlier saw a convoy-map submission preview look wrong (second cells appeared missing) and cancelled before submitting, then ran from the convoy menu (which correctly built 2 cells each). On re-test the job submitted correctly from convoy with no repeatable issue. Treated as a transient display/misread, not a confirmed bug. Thread closed.
+**What it does:** `ConvoyTileDownloader.segmentCells(n,s,e,w, sizeTiles, segCeilingTiles=50_000, overlapTiles=3, zMax=DOWNLOAD_ZOOM)` REPLACES the fixed-12-mile `gridCells` as the bbox splitter for AREA downloads. Splits the bbox into `max(1, ceil(sizeTiles/50_000))` equal degree-slices of the LONGER axis; each cell is a full z10–z18 vertical slice (never zoom-banded); returns the same `List<DoubleArray>` `[N,S,E,W]` shape as `gridCells` so the enqueue loop (one QueueEntry per cell) is UNCHANGED. Logs each cell + a `SPLIT` summary under `"SEGMENT"` (`adb logcat -s SEGMENT`).
+
+**Sizing (all sources ride the SAT grid):** `enqueueArea` computes `oneLayerTiles = quickEstimate(bbox).tileCount`, `satLayers = getDownloadSources().find{it.first=="SAT"}?.second?.size ?: slotLayers`, `sizeTiles = oneLayerTiles × satLayers`. Every slot (SAT/TOPO/TOPO+, called once each from `submitDownload`'s loop) sizes off SAT's 3-layer total → identical grid. Per-cell `QueueEntry.totalTiles` still uses the current slot's `slotLayers` (separate, correct).
+
+**Overlap:** `pad = if(n>1) overlapTiles × (360/2^zMax) else 0.0` — 3 tile-widths (~0.004° at z18), seam-only, deduped by `hasTile()`. ⚠ HARD-LEARNED: overlap must be TILE-WIDTHS, never fixed degrees (⅛° = ~91 tiles/edge, ballooned a 24,716-tile area to 155,674 in the dry-run).
+
+**Three bugs the dry-run + live logging caught before ship** (Fred insisted on visibility so nothing was a "miracle event"): (1) ⅛° overlap 6× blowup; (2) sizing under-count — `quickEstimate` returns ONE layer but SAT is 3 layers (~24.7K×3=~74K); (3) per-source grid mismatch — SAT split 2 but TOPO/TOPO+ split 1 until all sized off SAT. The dry-run scaffolding was stripped before commit; the `SEGMENT` logcat is the permanent validation tool.
+
+**Concurrency config in the same commit:** `MAX_CONCURRENT=2` (line 85 `ConvoyDownloadQueue.kt`), `TILE_FETCH_CONCURRENCY=10` (line 38 `ConvoyTileDownloader.kt`, was 8). **Open follow-up (not yet run):** time 2×10 vs 2×8 on the balanced segments — if faster, probe 2×12; if flat, saturated at 8.
 
 ---
 
 ## Device / build quick-ref (durable)
 - **Droid 1** `8624SBCEDF00001789` (field / real-GPS, primary) · **Droid 2** `24039703201775` (dev, no GPS). Droid 1 USB temperamental → prefer wireless ADB / X-plore.
-- **BUILD:** `./gradlew assembleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease 2>&1 | grep -E "^e:|BUILD|FAILED"` (warm ~15 min, cold ~32 min). APK: `app/build/outputs/apk/google/release/app-google-release.apk`. Install: `adb -s <serial> install -r <apk>`. Cold-launch from icon.
-- **One command at a time** (Fred executes + pastes). **Patches = dated Python scripts** → `/c/Users/kixaz/Downloads/`, UNIQUE filename per iteration, marker-guarded + `.bak` backup, abort-clean if anchor not found verbatim, detect+preserve line endings (convoy files are LF).
-- **⚠ Do NOT `adb rm` `.mbtiles` while the app runs** — wedges scoped storage (`SQLITE_IOERR_FSTAT`) until reboot. Use X-plore + force-stop the app.
-- **LOGCAT:** `adb -s <serial> logcat -c` then `adb -s <serial> logcat | grep -E "TileDownloader|DownloadQueue"`. Enqueue lines fire at submission start (roll out of the circular buffer during long downloads — capture to a file if needed).
-- Repo: `C:\Users\kixaz\Meshtastic-Android`, branch `feature/convoy-event-ride`, package `com.geeksville.mesh` (path `com/geeksville/mesh/convoy/`). **~110+ commits ahead of origin — a `git push` for offsite backup is recommended.** Today's speed-up work was BUILT and tested but is NOT yet noted as committed — confirm commit state at start of 07-10.
-
----
+- **BUILD:** `./gradlew assembleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease` (warm ~14 min, cold ~32–34 min). APK: `app/build/outputs/apk/google/release/app-google-release.apk`. **INSTALL: `adb -s 8624SBCEDF00001789 install -r -d <apk>` — use BOTH `-r -d` or tiles + user data are wiped.** ⚠ Play Store and local APK have DIFFERENT signing keys — uninstall one before installing the other. Cold-launch from icon.
+- **One command at a time** (Fred executes + pastes). **Patches = dated Python scripts** downloaded to `/c/Users/kixaz/Downloads/`, run via `python ~/Downloads/<name>.py` (abs repo paths baked in; need NOT be in repo). UNIQUE filename per iteration, anchor-verified + abort-clean if not found, LF endings. NEVER heredoc Kotlin.
+- **⚠ Do NOT `adb rm` `.mbtiles` while the app runs** — wedges scoped storage (`SQLITE_IOERR_FSTAT`) until reboot. Use X-plore + force-stop.
+- **LOGCAT:** `adb -s 8624SBCEDF00001789 logcat -s SEGMENT` (segmentation) or `... | grep -E "TileDownloader|DownloadQueue"`. Enqueue lines fire at submission start.
+- Repo: `C:\Users\kixaz\Meshtastic-Android`, branch `feature/convoy-event-ride`, package `com.geeksville.mesh` (path `com/geeksville/mesh/convoy/`; release pkg `com.grouptrack.android`). **~119 commits ahead of origin — push BLOCKED by 3 large `.db` files in history (need filter-repo/BFG purge); offsite backup blocked until cleared.**
 
 ## Milestone split (unchanged)
 - **2.6a** — known-good FALLBACK release (Pass 1 MBTiles + WebP + UI fixes). SHIPPED/committed 07-08.
-- **2.6b** — tile transport/SPEED. Today's concurrency + backoff + zoom-cap = 2.6b speed work. **Segmentation for load balancing is the next 2.6b build.** (Note: the original 2.6b "Esri batch transport / exportTiles / .tpkx" plan is DEAD — the Location Platform key is per-tile only, `exportTiles` needs a different entitlement. Pivoted to client-side concurrency, which is what shipped. See the tile-storage recap + living master for the full transport investigation and the 4-phase Esri cost strategy.)
-- **2.6c** — lead-track / tick / my-cart rewrite (the only radio work; last).
-
-## Deferred / carried (no radio, next sessions)
-- Route+ state persistence (refined spec in the living master + `/areas/grouptrack-route-state.md`).
-- `insertTile`/`db()` silent-failure hardening (matters MORE now that fetches are parallel — do with/before further download work).
-- `deleteSource` handle-hygiene (needed for delete-area).
-- aliases UI, tracks rename→human-readable swap, dead `tilesDir` lines, `.nomedia` verify, compression-quality runtime setting.
-- git push offsite backup.
-
----
+- **2.6b** — tile transport/SPEED. Concurrency + backoff + zoom-cap + **segmentation (shipped 07-11)** = the 2.6b speed work. (The original 2.6b "Esri batch transport / exportTiles / .tpkx" plan is DEAD — Location Platform key is per-tile only. Pivoted to client-side concurrency + segmentation. See recap + living master for the transport investigation and 4-phase Esri cost strategy.)
+- **2.6c** — lead-track / tick / my-cart rewrite (the only radio work; last; now folded into the ~4-week plan).
 
 ## The two 07-08 design rules (still in force)
 1. **No nullable-as-shortcut** — a nullable/optional param must have its justification explained before use.
@@ -21473,9 +21439,11 @@ Once segments are balanced, the concurrency question becomes cleanly testable (t
 And the **07-07 DECOMPOSITION SCOPE RULE** — when extracting an internal function into an external module, every scope var it read becomes an invisible dependency; carry data as an explicit payload param, never re-read from a scope that no longer exists at deferred-run time.
 
 
-=== GroupTrack_V2_6_ReleaseNotes_2026-07-09.md ===
+=== GroupTrack_V2_6_ReleaseNotes_2026-07-11.md ===
 # GroupTrack V2.6 — Release Notes
-**Date:** 2026-07-09 · **Milestone:** 2.6a (fallback) committed; 2.6b (map transport/speed) in progress · **Status:** internal draft
+**Date:** 2026-07-11 · **Milestone:** 2.6a (fallback) committed; 2.6b (map transport/speed) in progress · **Status:** internal draft — RELEASE DELAYED (see note)
+
+> **Release timing (2026-07-11): the V2.6 Play Store release has been DELAYED ~4 weeks** to clean up all open issues without rushing, and to fold in the lead-cart tracking re-engineer. No partial/Monday release. This doc continues to track shipped work; publish-ready copy is finalized when the AAB is cut.
 
 > 2.6a is the fallback release (storage cutover + compression + map/UI fixes), committed 07-08. 2.6b adds map-download speed and transport work. Nothing here touches the mesh radio (radio work is 2.6c).
 
@@ -21483,12 +21451,15 @@ And the **07-07 DECOMPOSITION SCOPE RULE** — when extracting an internal funct
 
 ## New in this build
 
+### Even faster, consistently-balanced map downloads (2.6b) — NEW 07-11
+Large offline map downloads now split the drawn area into **balanced segments** so no single piece can run long by itself. Previously a big satellite area could occasionally strand one download slot on an oversized chunk while the others sat idle — making some downloads take much longer than others for no obvious reason. Now the area is divided so every piece carries a comparable amount of work, and the download reliably finishes in the fast/balanced case every time rather than occasionally running long. In testing, this made a large multi-layer download run faster with two active download slots than it previously did with three.
+
+*(Draft user-facing line: "Large map downloads are now more consistent — they reliably finish in the fast case instead of occasionally running long.")*
+
 ### Much faster map downloads (2.6b)
 Downloading offline map areas is now **several times faster**. Map tiles are fetched in parallel instead of one at a time, so a large multi-source area (satellite + topo layers) that previously could take many hours now completes in roughly an hour and a half in field testing. The download is also more resilient: if a map server briefly rate-limits or returns a temporary error, the app now backs off and retries that tile instead of skipping it — so downloads finish more complete.
 
 *(Draft user-facing line: "Map downloads are now several times faster, and more reliable when the map servers are busy.")*
-
-*Note (internal): further download speed-up via even area-segmentation load balancing is the next 2.6b build — will make large downloads finish in the balanced/fast case every time rather than occasionally running long.*
 
 ### Full-detail topo downloads
 The TOPO and TOPO+ map layers now download their full available zoom detail (a previous internal cap that limited them to a lower zoom has been removed). Note the USGS TOPO+ source itself still has no imagery above roughly zoom 15 — that's a source limitation, unchanged.
@@ -21514,11 +21485,15 @@ You can start a map-area download for a track directly from its detail popup on 
 
 ---
 
-## Still to land in 2.6b / 2.6a
-- Even area-segmentation load balancing for downloads (faster, consistent large downloads)
+## Still to land before the V2.6 release (~4-week plan)
+- **Queue boot-loop immunity** (top priority — app must never be bricked by a bad download-queue file on startup)
+- Route+ state persistence (route-add mode stays put until explicitly closed)
+- Download-queue write hardening (atomic write + tolerant load)
 - Clear/delete a downloaded map area (surgical, per-area)
-- SAT-overlay-on-topo display fix
-- Route+ state persistence, track rename, aliases UI, minor cleanups
+- Map REFRESH fix; SAT-overlay-on-topo display fix; per-source download estimate accuracy
+- Map-source-change tile-replace (routed through the new balanced-download path)
+- Lead-cart / lead-track tracking re-engineer (2.6c, needs radio)
+- Track rename, aliases UI, minor cleanups
 
 ---
 
@@ -21526,12 +21501,12 @@ You can start a map-area download for a track directly from its detail popup on 
 After updating, previously downloaded offline maps use the old format. To get the storage savings and the new speed, re-download the map areas you use (the old loose-file tiles can be cleared). Field-tester note: if a device holds a very large old loose-tile set, clearing it before re-downloading frees the space immediately. **Do not delete map tiles with a file manager while GroupTrack is running** — close/force-stop the app first.
 
 ---
-*Internal draft — 2026-07-09. Publish-ready copy to be finalized when 2.6b lands and the AAB is cut.*
+*Internal draft — 2026-07-11. Release DELAYED ~4 weeks; publish-ready copy to be finalized when the full V2.6 lands and the AAB is cut.*
 
 
-=== GroupTrack_V2_6_TileStorage_Recap_2026-07-08.md ===
+=== GroupTrack_V2_6_TileStorage_Recap_2026-07-11.md ===
 # GroupTrack V2.6 — Tile-Storage Design Recap
-**Date:** 2026-07-08 (updated) · **Author:** Fred (kixaz) + Claude · **Status:** **PASS 1 SHIPPED & VERIFIED on Droid 1 (committed `55ce56239` + `ccea5977e`). WebP compression validated ~55% reduction. Pass 2 (Esri batch transport) = next.**
+**Date:** 2026-07-11 (updated) · **Author:** Fred (kixaz) + Claude · **Status:** **PASS 1 SHIPPED & VERIFIED (`55ce56239` + `ccea5977e`), ~55% WebP reduction. CONCURRENCY SPEED-UP SHIPPED 07-09. LOAD-BALANCING SEGMENTATION SHIPPED & COMMITTED 07-11 (`e38e43487`). Esri batch transport (.tpkx) DEAD on current account — pivoted to client-side concurrency + segmentation. RELEASE DELAYED ~4 weeks.**
 
 > **How to use this in a new conversation:** paste the "Orientation" block, or attach this file. The full authoritative design also lives in memory at `/areas/grouptrack-tile-storage.md` — read that first in the new session. This file is the human-readable mirror.
 
@@ -21684,6 +21659,22 @@ Path `app/src/main/assets/map_sources.json`. Each source: id, producer, map_type
 
 ---
 *Updated 2026-07-08: Pass 1 SHIPPED & verified, WebP validated (~55%, q80), coordinate + TOPO+ questions resolved. Pass 2 (Esri batch transport) spec below is unchanged and remains the authoritative plan for tomorrow's 2.6b work.*
+
+---
+
+## ⭐ 07-11 UPDATE — LOAD-BALANCING SEGMENTATION SHIPPED (commit e38e43487)
+
+The "front-end standardization" and "all origins through the same area engine" design in this recap is now REALIZED for load balancing. `ConvoyTileDownloader.segmentCells(...)` replaced fixed-12-mile `gridCells` as the AREA-download bbox splitter:
+
+- **Method:** split the drawn bbox into `max(1, ceil(sizeTiles/50_000))` equal degree-slices of the LONGER axis; each cell a full z10–z18 vertical slice (never zoom-banded, so every cell carries the same shape of work → they finish together in parallel slots = load balancing).
+- **Sizing:** `sizeTiles = quickEstimate(bbox).tileCount × satLayers` (SAT = 3 layers). Every source (SAT/TOPO/TOPO+) sizes off the SAT grid → identical cells. SAT drives the grid; shallower sources ride it, comfortably under the 50K ceiling.
+- **Overlap:** seam-only, a few tile-widths (`3 × 360/2^zMax` ≈ 0.004° at z18), deduped by `hasTile()`. **Never fixed degrees** — ⅛° = ~91 tiles/edge caused a 6× blowup in the dry-run before it was corrected.
+- **Result (Droid 1):** balanced, "ran faster with two queues than three." Balance is now STRUCTURAL, not the accidental 50/50 luck of the old 12-mile grid.
+- **Validation discipline that paid off:** a dry-run JSON analysis (since stripped) + live `SEGMENT` logcat caught THREE bugs on paper/on-device before ship — overlap blowup, layer under-count, per-source grid mismatch. The `SEGMENT` logcat is the permanent validation tool.
+
+**Concurrency shipped same commit:** `MAX_CONCURRENT=2`, `TILE_FETCH_CONCURRENCY=10`.
+
+**Still owed (part of the ~4-week release plan):** queue boot-loop immunity in `loadQueue` (TOP priority — a poison `download_queue.json` can boot-loop the app, recoverable only by destructive Clear-All-Data); `saveQueue` atomic-write; `insertTile` fail-loud; `deleteSource` handle-hygiene; map REFRESH bounds-order fix; `quickEstimate` source-awareness; SAT-overlay-on-TOPO render fix; clear-area/delete-area; source-switch tile-replace via the new feeder. The map-source-switch tile-replace must route through `segmentCells` (this recap's unified engine), NOT its old ad-hoc path — that ad-hoc path is what wrote the boot-loop poison.
 
 
 === GroupTrack_V2_6a_ReleaseNotes_2026-07-08.md ===
@@ -23202,7 +23193,7 @@ Release-notes / manual gate: the 2026-06-04 route release-notes draft described 
 First-launch + ? help spec (from V25_OpenItem_FirstLaunchNotes doc, carried): release notes auto-show on install/update with install+setup steps, acknowledge→proceed, rendered off main thread AFTER heavy init, bundled as APK asset (offline). ? help icon deep-links each screen to its manual section; V2.5 scope = Planning Map, Convoy Map (+connection panel), Convoy radio-write menu (the screens that persist to 3.0). Transitional radio-config functions (Apply/Archive/Restore) are fully documented as current-and-supported (NOT labeled deprecated to testers); 3.0 manual rewrites those sections when the functions are replaced.
 
 
-=== GroupTrack_Living_Master_2026-07-09.html ===
+=== GroupTrack_Living_Master_2026-07-09_EOD.html ===
 GroupTrack — Living Master Document
   body{font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;line-height:1.55;max-width:960px;margin:0 auto;padding:24px;color:#1a1a1a;background:#fafafa}
   h1{border-bottom:4px solid #2c6e49;padding-bottom:10px;margin-bottom:4px}
@@ -23457,7 +23448,7 @@ Device / build quick-ref LOCKED
 Living master document — self-contained (all detail written in, collapsible). Regenerated 2026-07-06 from the 07-03 checklist + the 07-04 (cross-platform) and 07-06 (tile-storage, route-state) sessions + the Mar-14 iPad discussion doc. This document IS the reference — nothing here depends on an external file.
 
 
-=== GroupTrack_Living_Master_2026-07-09_EOD.html ===
+=== GroupTrack_Living_Master_2026-07-11.html ===
 GroupTrack — Living Master Document
   body{font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;line-height:1.55;max-width:960px;margin:0 auto;padding:24px;color:#1a1a1a;background:#fafafa}
   h1{border-bottom:4px solid #2c6e49;padding-bottom:10px;margin-bottom:4px}
@@ -23490,7 +23481,7 @@ GroupTrack — Living Master Document
 .shipped-0708{background:#eafaef;border-left:4px solid #0a7d33;padding:10px 14px;margin:8px 0;border-radius:4px;}
 .shipped-0708 p{margin:0;font-size:13px;line-height:1.5;}
 GroupTrack — Living Master Document
-Updated 2026-07-09 (V3.0 Esri download-strategy planning session added). V2.6 milestone split into 2.6a (fallback, Pass 1 + WebP — SHIPPED &amp; committed) / 2.6b (Esri batch transport — next) / 2.6c (lead-track, radio). Self-contained: all topic detail is written INTO this document (collapsible), so nothing depends on an external file that could be lost. Version-sectioned. This document is part of AllDocs — expand a topic to work it, collapse it when done.
+Updated 2026-07-11 (segmentation SHIPPED; RELEASE DELAYED ~4 weeks). V2.6 milestone: 2.6a (fallback, Pass 1 + WebP — SHIPPED &amp; committed) / 2.6b (tile speed: concurrency + backoff + SEGMENTATION shipped 07-11) / 2.6c (lead-track, radio, folded into the ~4-week plan). ⭐ RELEASE DELAYED ~4 WEEKS (Fred 07-11) — no rushed/Monday release; full V2.6 cleanup + lead-cart re-engineer at a calm pace. ⭐ TOMORROW STARTS WITH ROUTE+ PERSISTENCE. Self-contained: all topic detail is written INTO this document (collapsible), so nothing depends on an external file that could be lost. Version-sectioned. This document is part of AllDocs — expand a topic to work it, collapse it when done.
   Jump:
   V2.5
   V2.6
@@ -23529,9 +23520,26 @@ Doc follow-ups (not blockers)
 V2.6 — SIMPLIFICATION / CLEANUP + FASTER MAPS
 Through-line = subtraction. Clusters: tile storage (A, no-radio, first) → batch transport (B, no-radio) → lead-track rewrite (C, needs radio, last) + no-radio backlog (route-state, draw/connect, recorder, detail-panel wiring, aliases UI).
 ▶ TOMORROW'S FIRST MOVE: Standardize all map-download submissions through the area-submission process (Step 0 of the tile plan). First verify the area download submission is "the black box" (cleanly takes (bbox, sources) → chops → queues → submits; owns large-bbox splitting; where it hands off to the return-point write).
-⭐ TILE STORAGE — unified process (Pass 1 SHIPPED · Pass 2 NEXT) PASS 1 DONEPASS 2 NEXT
+⭐ TILE STORAGE — unified process (Pass 1 SHIPPED · Concurrency SHIPPED · SEGMENTATION SHIPPED 07-11) PASS 1 DONESEGMENTATION DONE
 ✅ 07-08 — PASS 1 SHIPPED &amp; VERIFIED on Droid 1 (committed 55ce56239, ccea5977e). Loose files → one .mbtiles per type via MBTilesStore; all writes/reads/helpers/coverage-highlight redirected. Storage = raw z/x/y (no TMS flip; scheme=xyz). WebP compression validated: base lossy q80 = ~55% reduction (21.5 KB/tile loose JPEG → 9.7 KB/tile), clearing the 35–40% goal. Overlays = PNG passthrough (WebP re-encode bloats sparse-alpha labels). q95 tested &amp; rejected (lossy-to-lossy inflation, 5× worse). TOPO+ + verified OK; its "blank below z16" = USGS source coverage, not a bug. New files: MBTilesStore.kt, TileCodec.kt. The detailed design below is retained as record; the four "miracle-happens" open questions are all resolved (see the 07-08 TileStorage recap). Hardening still owed: silent db()-null → insertTile no-op (fail loudly); deleteSource close-handle-before-delete (FUSE wedge).
 Design converged 07-06. This is the full design, written in.
+✅ 07-11 SHIPPED — LOAD-BALANCING SEGMENTATION + 2x10 concurrency (commit e38e43487) DONE
+Commit e38e43487 "V2.6 tile segmentation: SAT-sized load-balancing grid across all sources; 2x10 download concurrency" — 3 files, +92/-3. ⚠ NOT build-verified after the final dry-run-scaffolding strip (mechanical removal, should compile; self-verifies at tomorrow's first build).
+What shipped: ConvoyTileDownloader.segmentCells(n,s,e,w, sizeTiles, segCeilingTiles=50_000, overlapTiles=3, zMax=DOWNLOAD_ZOOM) REPLACES fixed-12-mile gridCells as the AREA-download bbox splitter. Splits into max(1, ceil(sizeTiles/50_000)) equal degree-slices of the LONGER axis; each cell a full z10–z18 slice (never zoom-banded); same List&lt;DoubleArray&gt; shape so the enqueue loop is unchanged. Logs each cell + SPLIT under "SEGMENT".
+Sizing (all sources ride SAT grid): sizeTiles = quickEstimate(bbox).tileCount × satLayers (SAT=3 layers); every slot sizes off SAT so SAT/TOPO/TOPO+ get the identical grid. Per-cell totalTiles still uses the current slot's slotLayers (separate, correct). Overlap: if(n&gt;1) 3×(360/2^zMax) ≈0.004° at z18, seam-only, deduped by hasTile().
+⚠ HARD-LEARNED: overlap must be TILE-WIDTHS not degrees — ⅛° = ~91 tiles/edge ballooned a 24,716-tile area to 155,674 (6×) in the dry-run. Three bugs caught before ship by the dry-run JSON + live logging (Fred insisted on visibility): (1) ⅛° overlap 6× blowup; (2) sizing under-count — quickEstimate is ONE layer but SAT is 3; (3) per-source grid mismatch — SAT split 2, TOPO/TOPO+ split 1 until sized off SAT. Dry-run scaffolding stripped before commit; the SEGMENT logcat is the permanent validation tool.
+Concurrency (same commit): MAX_CONCURRENT=2, TILE_FETCH_CONCURRENCY=10 (was 8). RESULT (on-device): "ran faster with two queues than three" — balance now STRUCTURAL not accidental. Open follow-up (not run): time 2×10 vs 2×8; if faster probe 2×12, if flat keep 8.
+⭐ 07-11 RELEASE DELAYED ~4 WEEKS — the plan PLAN
+Fred delayed the V2.6 Play Store release (07-11). Uncomfortable rushing given the uncompiled commit, an un-hardened boot-loop-class bug, and unresolved REFRESH/source-switch entanglement. On holiday ~1 week; does not want to rush. New target ~4 weeks out, scope EXPANDED to a full V2.6-complete release. Order (dependency-driven):
+⭐ Queue BOOT-LOOP IMMUNITY (top priority). loadQueue() must survive ANY garbage in download_queue.json without crashing — tolerant parse, skip/quarantine bad entries, never throw on startup. WHY #1: the map-source refresh once wrote poison queue entries that crashed the app repeatedly on startup (boot loop); only recovery was Clear-All-Data, which also wiped DBs + tracks + revoked All-Files access = the 07-09→07-11 catastrophe. A boot-looping poison file is the most dangerous bug in the app because the only recovery is destructive.
+saveQueue atomic-write — stops a half-written/poison file landing on disk.
+⭐ Route+ persistence — tomorrow's first task (see the ROUTE-STATE section).
+Rest of hardening — insertTile fail-loud; deleteSource handle-hygiene.
+Three regressions — map REFRESH bounds-order; quickEstimate source-awareness; SAT-overlay-on-TOPO render.
+Phase-4 features — clear-area/delete-area, then source-switch tile-replace routed through the NEW segmentCells feeder, gated on the queue hardening.
+⭐ Lead-cart / lead-track re-engineer (2.6c, needs radio) — the big demolition/rebuild; 4 weeks is enough to do the field capture carefully.
+Infra — git-push unblock (purge large .db from history), offsite backup.
+⚠ HOLIDAY-WEEK RISK (check when back): the boot-loop is still latent — the build on Droid 1 / any tester phone can still be bricked by a poison queue file. Item 1 closes it.
 The unified process (one spine, many origins, many destinations)
 ORIGIN → NORMALIZE → EXPAND → CHOP → FETCH → [RETURN POINT] → WRITE → DESTINATION, pluggable at both ends.
   ORIGIN → (bbox, source-set) — the only place origins differ.
@@ -23595,7 +23603,7 @@ On-device facts + Esri auth status
   ⚠ WebView/JS not fully observable → verify empirically on-device. grouptrack_map.html (Planning) does NOT route console.log to logcat → use a visible on-screen element.
   Delete benchmarks (07-05): loose maps delete slow across ALL paths (Termux, app deleteRecursively, privileged adb rm -rf on 6.4GB). Bottleneck = file count not privilege. X-plore ~6GB/hr. ⇒ MBTiles (one-file delete) is the only surgical+fast+in-app tester answer.
   Esri auth: Location Platform account + billing done 07-05; API key created (Basemaps + Static maps privileges, native-app referrer blank, expiration set). Follow-ups: (1) rotate the key (first value was exposed) → store in a password manager; (2) VERIFY async Export Tiles is authorized under those privileges — the Pass-2 curl-de-risk gate. Key value NOT stored in this doc.
-⭐ ROUTE-STATE PERSISTENCE &amp; TEARDOWN (this morning's issue) OPEN
+⭐ ROUTE-STATE PERSISTENCE &amp; TEARDOWN — ⭐ #1 NEXT BUILD (resume here) OPEN
 Root cause located 07-06 via fresh xref (recommit docs; navigation_xref regenerated 07-06 11:32). Fix design not yet locked — one source-check remains.
 Problem (observed)
 The route nav box disappears; states don't change as they should. Route-planning state is not reliably persisted across navigation, nor reliably torn down on exit. Two repro triggers (with a route open): (a) open/touch another item; (b) close the artifacts panel. Two failure modes: (1) route disappears from the map entirely; (2) route stays drawn but goes dead/inert (geometry visible, controls gone/unresponsive).
@@ -23605,7 +23613,7 @@ This one fact explains both failure modes: touching another item / closing the p
 Intent — Fred's 3 requirements
   Persist route-planning state in the MAP JSON so nav away + back restores it (survives recomposition/nav, which remember does not).
   States unique per map — Planning (grouptrack_map.html) vs Convoy (convoy_map.html) must not collide on the shared JS flag; the two booleans need per-map identity.
-  Every exit ends it — save, discard, navigate away, back, mode-switch, backgrounding, item-tap, panel-close — via ONE teardown funnel every exit routes through (replacing the ~8 scattered teardowns).
+  ⚠ SUPERSEDED by the 07-08 hard rule (below): NOT "every exit ends it." The correct rule is the OPPOSITE — while route-add is active the screen PERSISTS through every selection and the map/exits are INERT; the ONLY exit is an EXPLICIT CLOSE, which routes through ONE teardown funnel (the save/discard prompt), replacing the ~8 scattered teardowns. Nothing else tears it down.
 Key principle: persist unless/until closed by an exit method — persist across nav, never past an exit.
 Touchpoints + remaining source-check before locking
 Touchpoints: setRouteMode (JS, convoy_map.html) toggled from both screens; window.__routeMode gate if(window.__routeMode)return; at convoy_map.html:495 (BUG A popup suppression — must stay mode-scoped); RouteManager holds build logic (snap/addVertex/undoVertex/clearRoute/routeVertices, buildWktAndBbox, insertRoute); JS build fns drawBuildLine/clearBuildLine/updateRoutes/showRoutes; onTrackTap at ConvoyMapViewerScreen:515, ConvoyScreen:645 &amp; 895.
@@ -26241,6 +26249,538 @@ Re-apply a previously archived configuration to the connected radio.
 Coming (replaces this menu in a future build): a screen-by-screen radio-config writer that mirrors each Meshtastic config screen, pre-populated and read-only, with a PROCEED button that is disabled (red) until the radio is connected (then green), saving after each screen through all config groups.
 Manual maintenance note (internal): when a screen's functions change AND are complete, update that screen's section here and re-point its ? help anchor. Each landing screen carries one image slot (filename shown in the slot) — recapture only when that screen's layout changes. Transitional radio-config sections (Chapter 5) are removed/rewritten in the 3.0 manual when those functions are replaced.
 screen numbering; named image slots at each landing screen (gs_install, gs_download_trails, gs_map_sources, gs_trail_sources, gs_radio_setup, planning_map, convoy_map, work_with_artifacts, queues_download, radio_write). Getting Started procedures drafted from repo material; [verify] tags mark spots needing a device-confirming pass. -->
+
+=== GroupTrack_manual_2026-07-11.html ===
+GroupTrack V2.5 Manual
+:root{--bg:#10130f;--panel:#181c15;--ink:#e8ece2;--dim:#9aa68c;--line:#2b3324;--accent:#7bb661;--accent2:#d9a441;--warn:#e0563b;--ui:-apple-system,"Segoe UI",Roboto,sans-serif;--body:Georgia,serif;}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 var(--body)}
+header{position:sticky;top:0;background:#10130fe8;border-bottom:1px solid var(--line);padding:12px 16px;z-index:9;backdrop-filter:blur(6px)}
+.ttl{font:700 17px var(--ui)}.ttl b{color:var(--accent)}.sub{font:12px var(--ui);color:var(--dim);margin-top:2px}
+#q{width:100%;margin-top:8px;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:#0c0f0a;color:var(--ink);font:14px var(--ui)}
+main{padding:14px 16px 60px;max-width:860px;margin:0 auto}
+.intro{color:var(--dim);font-style:italic;margin:2px 0 14px}
+details>summary{list-style:none;cursor:pointer}details>summary::-webkit-details-marker{display:none}
+details>summary:before{content:"\25B8";display:inline-block;transition:transform .15s;margin-right:8px}
+details[open]>summary:before{transform:rotate(90deg)}
+/* L1 map */
+details.map{border:1px solid var(--line);border-radius:10px;margin:14px 0;background:#12150f}
+details.map>summary{padding:14px 16px;font:700 20px var(--ui);color:var(--accent)}
+details.map[open]>summary{border-bottom:1px solid var(--line)}
+.mapbody{padding:8px 12px 12px}
+.maprefimg{width:100%;border:1px solid var(--line);border-radius:8px;margin:4px 0 6px;display:block}
+.mapref{font:12px var(--ui);color:var(--dim);font-style:italic;margin:0 0 10px}
+/* L2 launch point */
+details.lp{border:1px solid var(--line);border-left:3px solid var(--accent2);border-radius:8px;margin:8px 0;background:var(--panel)}
+details.lp>summary{padding:11px 13px;font:700 15px var(--ui);color:var(--accent2)}
+.lpbody{padding:4px 12px 8px;border-top:1px solid var(--line)}
+/* L3 sub-flow */
+details.sf{border:1px solid var(--line);border-radius:7px;margin:8px 0;background:#141710}
+details.sf>summary{padding:9px 12px;font:700 13.5px var(--ui);color:var(--accent);display:flex;align-items:center}
+.sftitle{}.cnt{margin-left:auto;font:11px var(--ui);color:var(--dim);border:1px solid var(--line);border-radius:10px;padding:1px 8px}
+.sfbody{padding:2px 10px 6px;border-top:1px solid var(--line)}
+/* L4 screen */
+details.screen{border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:7px;margin:7px 0;background:#141710}
+details.screen>summary{padding:9px 12px;font:700 14px var(--ui);color:var(--accent2)}
+.scrbody{padding:2px 13px 10px;border-top:1px solid var(--line)}
+.scrbody .crumb{font:12px var(--ui);color:var(--dim);margin:6px 0 8px}.scrbody .crumb b{color:var(--ink)}
+.scrbody p{margin:6px 0}
+.scrbody img{width:100%;max-width:520px;border:1px solid var(--line);border-radius:6px;margin:8px 0;display:block}
+.opts{margin:6px 0;padding-left:0;list-style:none}
+.opts li{padding:3px 0 3px 18px;position:relative}
+.opts li:before{content:"\25B8";color:var(--accent);position:absolute;left:0}
+ol.opts{counter-reset:o}ol.opts li:before{content:counter(o)".";counter-increment:o;color:var(--accent2)}
+code{background:#0c0f0a;padding:1px 5px;border-radius:3px;font-size:13px}
+.nohit{display:none !important}
+GroupTrack V2.5 User Manual
+Drill-down edition · device screenshots · 2026-06-23
+Organized the way you navigate the app. Open a map to see its launch points; open a launch point to see its options; drill into an option to reach a single screen. Opening one branch collapses the others, so you always see just where you are.
+Convoy MapEvery lettered control on the Convoy map toolbar. Open a launch point below to drill into it.
+A — GroupTrack → Radio SetupGroupTrack menu
+Convoy Map › GroupTrack icon (Meshtastic left sidebar)
+Tap the GroupTrack icon in the Meshtastic left-hand sidebar (the last icon) to open the GroupTrack menu — a slide-up panel. This is the entry to radio setup, the prerequisite for using GroupTrack with your Meshtastic radios.
+The menu has two sections:
+Event / Ride — the ride and radio options (expand to see them). covered below
+Map Settings — an older submenu of map instructions, now built into the map panel itself. no longer used
+Tap Event / Ride to expand it (next screen).
+Setup Radio5 screensEvent / Ride menu
+Convoy Map › GroupTrack › Event / Ride
+Expanding Event / Ride reveals five options. In V2.5 only the two radio functions are used — ride creation and sharing are moving to the Release 3.0 cloud app.
+Create a Ride coming in 3.0
+Transfer Event/Ride Details via Email — “select a ride and send via email attachment” coming in 3.0
+Import Ride from Downloads — “scan Downloads for .convoy files and import” coming in 3.0
+Apply Ride Info to Radio — “apply master config or ride to connected radio.” used — see below
+Restore Prior Config Post Ride — “select and restore from saved archive.” used — see below
+Tap Apply Ride Info to Radio to begin applying config to a connected radio (next screen).
+Apply Radio Config
+Convoy Map › GroupTrack › Event / Ride › Apply Ride Info to Radio
+This screen applies a configuration to the connected radio so it reports each cart’s location to the Convoy map. The bar at the top shows the connection state — here ● CONNECTED, with the radio model (tracker-t1000-e) and firmware version. A radio must be connected before a config can be applied.
+Apply Master Config — applies your saved master template to the connected radio. This is the function used in V2.5 to set a radio up for a ride. used
+Apply Ride — applies a specific ride’s config. coming in 3.0
+Review Changes → — shows what will change on the radio before you commit.
+Tap Apply Master Config, then Review Changes to proceed (next screen).
+Review — Changes to be Applied
+Convoy Map › GroupTrack › Event / Ride › Apply Ride Info to Radio › Apply Master Config › Review
+The review panel shows exactly what will be written to the radio before you commit. At the top, Long Name lets you set a name for the radio (here “Mike McKinney”) — edit it if you want this radio to carry a specific rider/cart name. Below, the New Channel (here Convoy, AES-256 encrypted) is the channel the radio will join.
+The change table (Field · Current · New Value · Rule) is grouped into accordions you can expand to inspect each setting and see where its value is derived from:
+LoRa — radio/region + modem settings
+Channel — channel name, key, encryption
+Device — device role and behavior
+Position — GPS / position reporting
+Display — on-radio display settings
+Modules — module settings (telemetry, etc.)
+Scrolling to the bottom of the panel shows the full accordion list and the action bar:
+The action bar has two buttons: Cancel (red) backs out without changing the radio, and Proceed to Update (green) writes the config. Tap Proceed to Update to apply (next screen).
+Reconnect Check
+Convoy Map › GroupTrack › Event / Ride › Apply Ride Info to Radio › Apply Master Config › Review › Proceed to Update
+After you proceed, the config is written and the radio reboots. This screen runs a 60-second countdown while the update is applied and the radio reconnects — the radio reboots, Bluetooth auto-disconnects, then auto-reconnects (shown in the log: “waiting for binary install reboot,” “auto BT disconnect,” “auto BT reconnect”). Let it run; Cancel stops the wait if needed.
+When the countdown finishes, an update-apply recap is shown summarizing what was applied. Check the recap: if any settings did not apply correctly, simply reapply the update (return to Apply Master Config and proceed again).
+Verify Config (apply recap)
+Convoy Map › GroupTrack › Event / Ride › Apply Ride Info to Radio › … › Reconnect Check › Verify
+After the reconnect, the app reads the radio back and compares every field against what it tried to write — only errors are shown. The header reports the result, e.g. “5 of 40 fields failed.” A group summary at the bottom shows pass/fail per category (Device, LoRa, Channel, Position, Display, Module).
+In this example all five failures are in the Position group (Position 1/6) — the table lists each failed field with its Expected vs Actual value (e.g. Broadcast Interval expected 5, actual 0).
+If any fields failed, reapply the update — go back to Apply Master Config and proceed again. Radios sometimes need a second pass for a group (often Position) to take. Re-verify until the recap shows all fields passed.
+Restore Radio3 screensArchive Restore
+Convoy Map › GroupTrack › Event / Ride › Restore Prior Config Post Ride
+A key GroupTrack safety feature: before it writes any configuration to a radio, it first saves that radio’s current config to a timestamped archive. Nothing you apply is ever destructive — the prior state is always recoverable. This screen lists the saved archives for the connected radio so you can restore any of them at any time.
+The header shows the radio node and how many archives were found. Each entry is a saved config with its date and time and filename — note the pre_master suffix here, which is the config that was auto-saved just before the master config was applied. The size (e.g. 391b) is shown at right.
+Tap an archive to restore it to the radio. Restore writes the saved config back and runs the same reconnect + verify sequence as Apply, so the radio reboots, reconnects, and the result is verified.
+Restore — confirm (gated)
+Convoy Map › GroupTrack › Event / Ride › Restore Prior Config Post Ride › select archive
+Selecting an archive highlights it (blue, with a check) and reveals a confirmation gate before anything is written. The warning makes the consequences explicit:
+⚠ Restore will overwrite current radio config — the selected archive replaces whatever is on the radio now.
+Selected: the archive’s date/time, so you confirm you picked the right one.
+Radio will reboot after restore.
+Tap ↻ Restore This Archive to proceed. The radio then reboots, reconnects, and the result is verified — the same reconnect + verify sequence shown for Apply (above).
+Restore — write &amp; reconnect
+Convoy Map › GroupTrack › Event / Ride › Restore Prior Config Post Ride › Restore This Archive
+After you confirm, Restore writes the archived config to the radio and runs the same write · reconnect · verify process documented under Apply (the 60-second Reconnect Check, then the Verify recap). When the recap shows all fields passed, the radio is back on the chosen prior configuration.
+✓ This completes Convoy launch point A — GroupTrack / Radio Setup.
+B — REC (record ride track)Recording in progress
+Convoy Map › REC
+The REC button starts track recording for the ride. It works two ways depending on your setup: with no radios it records a track for just this cart (this device’s GPS path); with radio-equipped carts it activates group tracking for the whole convoy. Either way it creates and saves a track for the ride.
+Tap REC and recording begins immediately — no prompt. The button changes to ❚❚ PAUSE, and a live Distance readout appears at the bottom-right and counts up as you move.
+Tap Pause to interrupt recording (next screen).
+Pause3 screensPaused — End or continue
+Convoy Map › REC › Pause
+When you pause, recording holds and an End button appears below the Pause button. From here you choose:
+Pause (top) — hold here; the button changes to Resume so you can continue when ready (see below).
+End (below) — finish the recording and save the track.
+Tap End to finish — you’ll be prompted to name the track (Save Track, below). Or, to continue the ride, the button shows Resume.
+Resume
+Convoy Map › REC › Pause › (continue)
+If you don’t end, the recording stays paused and the button shows ▶ RESUME. Tap it to continue recording the same track from where you left off — the Distance readout picks back up. This lets you pause during stops and resume without starting a new track.
+Save Track (name prompt)
+Convoy Map › REC › Pause › End
+Tapping End stops recording and opens the Save Track prompt. Type a Track name and tap Save to store the recorded track under that name. Skip discards the track (it is not saved). After saving, the REC button returns to its idle state.
+The saved track becomes an artifact you can view, select, and export later from Work with Artifacts and from search.
+C — Zoom (+/−)Zoom
+Convoy Map › Zoom (+/−)
+The + and − buttons at the top-left zoom the map in and out. You can also pinch-to-zoom directly on the map. The current zoom level is shown in the header readout (e.g. N · Z13).
+D — PLAN (launch Planning Map)PLAN
+Convoy Map › PLAN
+The PLAN button switches from the Convoy (live) map to the Planning Map, where you search, download tiles, build routes, and manage artifacts. See Planning Map for everything you can do there. Use BACK on the Planning map to return to the Convoy map.
+E — GROUP (whole group + group HUD)GROUP display + HUD
+Convoy Map › GROUP
+GROUP shows the entire ride group on the map and displays the group heads-up display (HUD) at the bottom-left. It’s one of the bottom-bar view modes (GROUP · MY CART · SELECT CART · HIDE).
+The group HUD reports the whole convoy at a glance:
+Span — the distance from the lead cart to the tail cart (how spread out the group is).
+Carts — total carts in the group.
+Active — carts currently reporting.
+Lost — carts not heard from within the set time window. (The active threshold and the “lost” minutes are both set in setup.)
+△ Lead / ▽ Tail — the front and rear carts, with distance.
+CH% — mesh channel utilization. Radios broadcast position every 5 seconds; if CH% turns red the channel is too busy — slow the broadcast frequency (slide the broadcast interval up) to reduce congestion.
+F — MY CART (my cart + my HUD)MY CART display + HUD
+Convoy Map › MY CART
+MY CART centers the map on your own cart (the starred marker, labeled with your cart name) and shows your cart’s heads-up display — your telemetry plus where you sit within the convoy.
+The my-cart HUD shows:
+Cart name — your cart’s name (e.g. “Fred &amp; June”).
+Heading — your direction of travel.
+Battery — your device/radio battery level.
+Altitude — your elevation.
+Speed — your current speed.
+To Lead / To Tail — your distance to the lead cart and to the tail cart.
+Gap Ahead / Gap Behind — the gap to the cart immediately ahead of and behind you.
+G — SELECT CART (detail on selected cart)SELECT CART
+Convoy Map › SELECT CART
+SELECT CART opens a list of the carts in the group at the top of the screen. Tap the cart you want to view — the map centers on that cart and its heads-up display appears at the bottom-left. The cart currently being viewed is marked CURRENT in the list.
+The selected-cart HUD shows the same details as MY CART, but for the chosen cart: Heading, Battery, Altitude, Speed, To Lead / To Tail, and Gap Ahead / Gap Behind. This lets you check any cart in the convoy, not just your own.
+(pick a cart)1 screenSelected cart — detail &amp; actions
+Convoy Map › SELECT CART › (pick a cart)
+With a cart selected, its detail panel shows its live status and two action buttons. The detail fields include Status (Active), Spd (speed), Bat (battery), Pos # (its position/order in the convoy), Hdg (heading), Alt (altitude), and Seen (time since its last report).
+Set as Lead — designate this cart as the lead cart for the ride.
+Remove from Ride — remove this cart from the group. Use this when a cart is no longer part of the ride (breakdown, left early, etc.). Removing a cart stops “lost” messages for it and keeps the group span and stats accurate to the active riders only — so the GROUP view’s span no longer stretches out to a cart that has dropped off.
+H — HIDE (clear the HUD)HIDE
+Convoy Map › HIDE
+HIDE clears the heads-up display from the map for a clean, unobstructed view. The cart markers stay on the map and the Distance readout remains, but the detailed HUD block is removed. Tap any of the other modes (GROUP, MY CART, or SELECT CART) to bring the HUD back.
+I — Settings gear (Convoy Settings)Convoy Settings (panel 1)
+Convoy Map › Settings gear
+The gear opens Convoy Settings — a list of options that control the app’s behavior. This is where the thresholds referenced elsewhere in the manual are set.
+Map Sources → Change Map Sources — assign tile sources to the SAT / TOPO / TOPO+ slots. (This is the one setting that opens its own screen — see below.)
+Alert Thresholds → Signal Drop — minutes before the radio-disconnect warning fires (e.g. 2 min).
+Signal Lost — minutes without a packet before a node is considered lost (e.g. 10 min). This is the “lost” window reflected in the group HUD’s Lost count.
+Off Track — miles from the convoy track before the off-route alert fires (e.g. 0.5 mi).
+Node Filter — admission settings for which nodes join the group (continues on panel 2).
+(scroll down)1 screenConvoy Settings (panel 2)
+Convoy Map › Settings gear › (scroll down)
+Scrolling down reveals the rest of Convoy Settings:
+Node Filter → Admission Window — a node must have been heard within this window today to appear on the map (e.g. 1 hr).
+Track Display → Multicolor Track — when on, the track is colored by node position.
+Track Recording → Lead Cart Only — record the lead cart’s track only.
+Track Recording Format — KML / GPX — the saved track format (GPX works with Garmin, Strava, AllTrails).
+Removed Carts — lists carts you removed from the ride today (via SELECT CART → Remove from Ride); shows “No carts removed today” when none.
+The app version and build are shown at the bottom of this screen.
+Change Map Sources3 screensMap Sources (drill-down)
+Convoy Map › Settings gear › Change Map Sources
+This is the one Convoy Settings option that opens its own screen. Map Sources assigns a tile source to each of the three fixed map slots used by the SAT / TOPO / TOPO+ buttons on the map toolbar.
+SAT — the satellite slot (e.g. Esri Imagery + Roads + Labels).
+TOPO — the topo slot (e.g. Esri World Topo).
+TOPO+ — the detailed-topo slot (e.g. Esri USA Topo Maps).
+Each slot has a Change button to pick a different source.
+API Keys — some sources (e.g. Thunderforest Outdoors) require an API key; tap to enter the key to unlock them.
+Tap Change on a slot to pick a new source (next screen).
+Change source (picker)
+Convoy Map › Settings gear › Change Map Sources › Change
+Tapping Change opens a list of available tile sources, grouped by category. Tap a source to assign it to that slot; the currently-assigned source is checked.
+Hybrid — imagery with roads/labels (Google Hybrid, Esri Imagery + Roads + Labels, USGS Imagery + Topo).
+Satellite — plain imagery (Google Satellite, Esri World Imagery).
+Topographic — topo maps (Esri USA Topo, Esri World Topo, OpenTopoMap, USGS Topo).
+Street — road maps (Google Roads, OpenStreetMap, CartoDB Voyager).
+Terrain — terrain maps (Google Terrain, and more).
+Select a source and you return to the Map Sources screen with the slot updated (next screen).
+Refresh Tiles (after a source change)
+Convoy Map › Settings gear › Change Map Sources › Change › (select source)
+After you assign a new source to a slot, the app offers to refresh the cached map tiles from the new source. It reports how many existing tiles it found and explains that the refresh downloads them at low priority, with progress visible in Work with Queues, and that it restarts automatically if interrupted.
+Refresh Now — start re-downloading the tiles from the new source right away (low priority).
+Later — keep the new source assignment but don’t refresh the cached tiles now.
+✓ This completes Convoy launch point I — Settings (Convoy Settings → Map Sources → Change → Refresh).
+J / K / L — SAT, TOPO, TOPO+ (map source buttons)SAT · TOPO · TOPO+
+Convoy Map › SAT / TOPO / TOPO+
+These three toolbar buttons switch the displayed map source immediately. Each shows the source assigned to that slot in Convoy Settings → Map Sources (e.g. SAT = Esri Imagery, TOPO = Esri World Topo, TOPO+ = Esri USA Topo).
+They work in either NET or LOCAL mode (see the NET/Local toggle). In local mode they display from tiles downloaded in advance — so you can switch sources and ride with no connection, as long as those map tiles were downloaded ahead of time.
+M — NET / Local (network vs downloaded tiles)NET / Local toggle
+Convoy Map › NET / Local
+This toggle switches between NET (network) and Local map modes:
+NET — fetches map tiles live over the network (online).
+Local — displays only from maps you have downloaded prior to your ride. If you haven’t downloaded the area in advance, local mode will have no maps to show — so download your ride area ahead of time to use it offline.
+N — QUEUES (download queues)Download Queues
+Convoy Map › QUEUES
+Queues opens the Download Queues panel, which manages map-tile downloads. The header shows the current state (e.g. “2 active, 1 queued”), and entries are grouped by status:
+Active — downloads in progress, each showing tiles downloaded and percent, with an X to cancel that entry.
+Queued — downloads waiting to start (numbered #1, #2…), each with a timestamp and an X to remove it.
+Completed — finished downloads, each listing the source (SAT / TOPO / TOPO+) and tile count.
+Global controls: Hold pauses the queue, Cancel All stops everything, and Clear Done removes completed entries from the list. Close dismisses the panel.
+O — Search (universal search)Universal Search
+Convoy Map › Search
+The magnifying glass opens Universal Search — one search across five modes, shown as tabs: Area · Track · Route · Trail · Waypoint. Pick a tab, type in the field (the prompt changes per mode), and press Enter. There are two kinds of search:
+Area — a place search. Type a place name (a town or a feature such as a park, e.g. “Bryce”) and the map repositions there. For common names, include the state to disambiguate — e.g. “Kanab, UT” — so it lands on the right place.
+Track / Route / Trail / Waypoint — artifact searches. These search your saved and imported artifacts by name. The search presents a list of matching hits; select one and its artifact detail panel opens. From the detail panel, use FIT to center the map on it.
+Example — Area search for “Panguitch, UT”: the map repositions to Panguitch and the trails and tracks for that area draw immediately.
+Example — artifact search: searching a name returns a list of matching hits (here two results for “Panguitch”), each with its name and ID.
+Selecting a hit opens that artifact’s detail panel:
+The detail panel shows the artifact’s name and type, an Aliases field, and a Details section — including the Carto Type band, its ID and bounding box, and an expandable technical section. Down the left is the action column: Rename, Delete, Share, Export, and FIT. Tap FIT to center and frame the map on that one artifact. Close dismisses the panel.
+After FIT the panel closes and the map zooms to frame that artifact — here the selected track centered and fit to the view:
+In short: Area moves the map to a place; the artifact modes find a saved item by name and open its details (then FIT centers the map on it).
+P — Work with ArtifactsWork with Artifacts panel
+Convoy Map › Work with Artifacts (hamburger)
+The hamburger opens the Work with Artifacts panel, which controls the four artifact types — Tracks, Trails, Waypoints, Routes — on the map. Important: all of these controls operate on the bounding box of the current display — i.e. the artifacts within the area you’re currently viewing, not the whole database.
+Each type row has three buttons (the highlighted one is the current state):
+OFF — hide that artifact type on the map.
+ALL — show all artifacts of that type within the current view.
+SEL/EDIT — opens a list of that type’s artifacts in the current view for per-artifact control: Select All, Deselect All, or check a custom combination to choose exactly which are shown. (OFF and ALL are in-panel toggles; only SEL/EDIT opens a screen.)
+A + Route button at the top starts building a new route.
+SEL/EDIT1 screenSEL/EDIT list (per-artifact)
+Convoy Map › Work with Artifacts › SEL/EDIT
+Tapping SEL/EDIT on a type opens its list — here Trails (23), all the trails in the current view. Each has a checkbox, with Select All and Deselect All at the top, so you can show every one, hide every one, or pick a custom mix.
+You can also tap an artifact’s name in this list to open its detail info panel (the same panel shown under Search — name, type, Carto Type, IDs, with Rename / Delete / Share / Export / FIT). Tap FIT there to center that one artifact on screen.
++ Route4 screens+ Route — start a route
+Convoy Map › Work with Artifacts › + Route
+Before you start: zoom into the area where you want to build the route. It helps to display Trails and Tracks (turn them on in Work with Artifacts) as a visual guide — the snap-to function works over both tracks and trails, so your route follows a known track or trail wherever one is available, keeping it on established paths.
+Tapping + Route opens the Start a route dialog:
+New Route — create and name a new route to build.
+In Progress — resume an unfinished route you started earlier.
+The only difference is whether you create a new named route or select an existing in-progress one. Choose New Route to begin building (next screen).
+Building the route
+Convoy Map › Work with Artifacts › + Route › New Route
+The Route panel opens for building. Tap the map to place points — the route draws as a pink line, and each new point adds length and snaps to a nearby trail/track when one is available, keeping the route on known paths.
+The panel controls:
+Method — Point (live; tap to place points). Draw and Suggest are marked “soon.”
+Build (n pts) — shows how many points the route has so far.
+Add ON — toggles point-adding on/off as you tap.
+Undo — removes the last point.
+Save — saves the finished route.
+Discard — abandons the route without saving.
+Keep tapping to extend the route; each point snaps to the underlying track/trail.
+Extending &amp; saving the route
+Convoy Map › Work with Artifacts › + Route › (building)
+As you keep tapping, the route grows and the Build point count climbs (here 26 points). The pink route traces the chosen path, snapped to the underlying tracks/trails.
+When you tap Save, you can save the route as a work in progress (to resume and finish later via + Route → In Progress) or as a completed route.
+Save route
+Convoy Map › Work with Artifacts › + Route › Save
+The Save route dialog offers two ways to save:
+Save as in progress — keep editing later; resume it via + Route → In Progress.
+Save as completed route — graduate it to a finished, saved route (then searchable and listed like any other artifact).
+✓ This completes Convoy launch point P — Work with Artifacts.
+Q — ? (Help &amp; Info)Help &amp; Info
+Convoy Map › ?
+The ? button opens Help &amp; Info, with two choices:
+Full Manual — opens the complete user manual, bundled in the app (a screen-by-screen cookbook with its own search box and contents).
+Release Notes — opens the release notes for the current version.
+Full Manual:
+Release Notes — includes the important upgrade warning (install as an update, do not clean-install) and the “What’s new” list for the build:
+Map gestures — tap artifact &amp; long-pressTap an artifact → popup
+Convoy Map › tap an artifact
+Tapping an artifact on the map (a trail, track, etc.) opens a quick-info popup with its name and key properties. This is the fast look-up; for the full detail panel, select the artifact’s name in a search result or a SEL/EDIT list instead.
+The fields shown depend on the artifact type — each type (trail, track, route, waypoint) displays its own relevant data. A trail, for example, shows Type (e.g. “4 - Road-concurrent”), Surface, Uses, Motorized, Horse, and County; other types show their own fields. Tap the × to close the popup.
+Planning MapEvery lettered control on the Planning map toolbar. Open a launch point below to drill into it.
+A — BACK (to Convoy Map)BACK
+Planning Map › BACK
+The BACK button returns from the Planning Map to the Convoy Map (the live ride view). It is the reverse of the Convoy map’s PLAN button.
+B / C / D — SAT, TOPO, TOPO+ (map source buttons)SAT · TOPO · TOPO+
+Planning Map › SAT / TOPO / TOPO+
+These three buttons switch the tile source shown on the map; the change is immediate. Each uses the source assigned to that slot in Map Sources (the same Map Sources settings used by the Convoy map). Same behavior as the Convoy map’s SAT / TOPO / TOPO+ buttons.
+E — QUEUES (download queues)Download Queues
+Planning Map › QUEUES
+Queues opens the Download Queues panel, which manages map-tile downloads. The header shows the current state (e.g. “2 active, 1 queued”), and entries are grouped by status:
+Active — downloads in progress, each showing tiles downloaded and percent, with an X to cancel that entry.
+Queued — downloads waiting to start (numbered #1, #2…), each with a timestamp and an X to remove it.
+Completed — finished downloads, each listing the source (SAT / TOPO / TOPO+) and tile count.
+Global controls: Hold pauses the queue, Cancel All stops everything, and Clear Done removes completed entries from the list. Close dismisses the panel.
+F — Search (universal search)Universal Search
+Planning Map › Search
+The magnifying glass opens Universal Search — one search across five modes, shown as tabs: Area · Track · Route · Trail · Waypoint. Pick a tab, type in the field (the prompt changes per mode), and press Enter. There are two kinds of search:
+Area — a place search. Type a place name (a town or a feature such as a park, e.g. “Bryce”) and the map repositions there. For common names, include the state to disambiguate — e.g. “Kanab, UT” — so it lands on the right place.
+Track / Route / Trail / Waypoint — artifact searches. These search your saved and imported artifacts by name. The search presents a list of matching hits; select one and its artifact detail panel opens. From the detail panel, use FIT to center the map on it.
+Example — Area search for “Panguitch, UT”: the map repositions to Panguitch and the trails and tracks for that area draw immediately.
+Example — artifact search: searching a name returns a list of matching hits (here two results for “Panguitch”), each with its name and ID.
+Selecting a hit opens that artifact’s detail panel:
+The detail panel shows the artifact’s name and type, an Aliases field, and a Details section — including the Carto Type band, its ID and bounding box, and an expandable technical section. Down the left is the action column: Rename, Delete, Share, Export, and FIT. Tap FIT to center and frame the map on that one artifact. Close dismisses the panel.
+After FIT the panel closes and the map zooms to frame that artifact — here the selected track centered and fit to the view:
+In short: Area moves the map to a place; the artifact modes find a saved item by name and open its details (then FIT centers the map on it).
+G — Work with ArtifactsWork with Artifacts panel
+Planning Map › Work with Artifacts (hamburger)
+The hamburger opens the Work with Artifacts panel, which controls the four artifact types — Tracks, Trails, Waypoints, Routes — on the map. Important: all of these controls operate on the bounding box of the current display — i.e. the artifacts within the area you’re currently viewing, not the whole database.
+Each type row has three buttons (the highlighted one is the current state):
+OFF — hide that artifact type on the map.
+ALL — show all artifacts of that type within the current view.
+SEL/EDIT — opens a list of that type’s artifacts in the current view for per-artifact control: Select All, Deselect All, or check a custom combination to choose exactly which are shown. (OFF and ALL are in-panel toggles; only SEL/EDIT opens a screen.)
+A + Route button at the top starts building a new route.
+Planning-only: Import Trails &amp; Import Artifacts
+Planning Map › Work with Artifacts
+The Planning version of this panel is the same as the Convoy one, plus two import buttons at the bottom:
+Import Trails — brings in trails data from external trail resources (the trail-source databases).
+Import Artifacts — imports artifacts from Gaia or onX files, so you can transfer your historical data (tracks, routes, waypoints) from those apps into GroupTrack.
+SEL/EDIT1 screenSEL/EDIT list (per-artifact)
+Planning Map › Work with Artifacts › SEL/EDIT
+Tapping SEL/EDIT on a type opens its list — here Trails (23), all the trails in the current view. Each has a checkbox, with Select All and Deselect All at the top, so you can show every one, hide every one, or pick a custom mix.
+You can also tap an artifact’s name in this list to open its detail info panel (the same panel shown under Search — name, type, Carto Type, IDs, with Rename / Delete / Share / Export / FIT). Tap FIT there to center that one artifact on screen.
++ Route4 screens+ Route — start a route
+Planning Map › Work with Artifacts › + Route
+Before you start: zoom into the area where you want to build the route. It helps to display Trails and Tracks (turn them on in Work with Artifacts) as a visual guide — the snap-to function works over both tracks and trails, so your route follows a known track or trail wherever one is available, keeping it on established paths.
+Tapping + Route opens the Start a route dialog:
+New Route — create and name a new route to build.
+In Progress — resume an unfinished route you started earlier.
+The only difference is whether you create a new named route or select an existing in-progress one. Choose New Route to begin building (next screen).
+Building the route
+Planning Map › Work with Artifacts › + Route › New Route
+The Route panel opens for building. Tap the map to place points — the route draws as a pink line, and each new point adds length and snaps to a nearby trail/track when one is available, keeping the route on known paths.
+The panel controls:
+Method — Point (live; tap to place points). Draw and Suggest are marked “soon.”
+Build (n pts) — shows how many points the route has so far.
+Add ON — toggles point-adding on/off as you tap.
+Undo — removes the last point.
+Save — saves the finished route.
+Discard — abandons the route without saving.
+Keep tapping to extend the route; each point snaps to the underlying track/trail.
+Extending &amp; saving the route
+Planning Map › Work with Artifacts › + Route › (building)
+As you keep tapping, the route grows and the Build point count climbs (here 26 points). The pink route traces the chosen path, snapped to the underlying tracks/trails.
+When you tap Save, you can save the route as a work in progress (to resume and finish later via + Route → In Progress) or as a completed route.
+Save route
+Planning Map › Work with Artifacts › + Route › Save
+The Save route dialog offers two ways to save:
+Save as in progress — keep editing later; resume it via + Route → In Progress.
+Save as completed route — graduate it to a finished, saved route (then searchable and listed like any other artifact).
+✓ This completes Convoy launch point G — Work with Artifacts.
+Import Trails1 screenImport Trails → Select Source
+Planning Map › Work with Artifacts › Import Trails
+Import Trails opens a Select Source list of approved external trail sources. Each entry shows its type, scope, and trail count (e.g. UGRC Utah Trails, Arizona State Parks &amp; Trails, Colorado COTREX, BLM, USFS, USGS National Trails, NPS Public Trails). Sources you’ve already brought in are marked IMPORTED.
+Select a source and tap VALIDATE to import it. The import process runs and reports how many trails were processed and how many were added. (BACK returns without importing.)
+Import Artifacts1 screenImport Artifacts (from Gaia / onX GPX)
+Planning Map › Work with Artifacts › Import Artifacts
+Import Artifacts migrates your historical data from Gaia, onX, or similar apps into GroupTrack. The workflow:
+First (outside GroupTrack): in your current app, export/download the artifacts you want as GPX files, and move them into your device’s Downloads directory.
+Run Import Artifacts — GroupTrack scans Downloads and lists the GPX/KML files it finds.
+Check the file(s) you want (or Select All), then tap Select files to import.
+The import runs, bringing those artifacts into GroupTrack. On completion the GPX files are removed from Downloads.
+The screen header shows how many files were found; each entry lists its name, size, date, and format. A RESYNC TRACKS button is also here — the same one referenced in the upgrade notes for bringing recorded tracks back after an update.
+H — ? (Help &amp; Info)Help &amp; Info
+Planning Map › ?
+The ? button opens Help &amp; Info, with two choices:
+Full Manual — opens the complete user manual, bundled in the app (a screen-by-screen cookbook with its own search box and contents).
+Release Notes — opens the release notes for the current version.
+Full Manual:
+Release Notes — includes the important upgrade warning (install as an update, do not clean-install) and the “What’s new” list for the build:
+I — KEY (map legend)KEY / Legend
+Planning Map › KEY
+The KEY button (bottom-left) opens the map Legend popup, which explains the color of every line on the map. Tap the × to close it.
+OHV / Road — blue
+Hiking &amp; Biking — orange
+Hiking Only — yellow
+Biking Only — purple
+Paved / other — cyan
+Track — green
+Route — magenta
+Waypoint — green marker
+The legend is on the Planning map; the Convoy map does not show it.
+J — Downloads (tiles &amp; artifacts)Downloads panel
+Planning Map › Downloads (bottom-right)
+The Downloads button (bottom-right) opens the Downloads panel — where you set up and start downloads of map tiles and artifacts for offline use. This is different from Queues: Downloads is where you initiate a download (pick an area and what to grab); Queues shows the status/progress of downloads already running.
+Local toggle — switch the map to local (downloaded) tiles.
+Map Controls — download-related map options.
+Select Tiles / Artifacts — choose what to download (map tiles and/or artifacts).
+Draw Area — draw a region on the map to define the download extent.
+Show Downloads — see what has been downloaded.
+Refresh Downloads — re-fetch / update downloaded data.
+Map Controls1 screenDownloads → Map Controls
+Planning Map › Downloads › Map Controls
+Expanding Map Controls sets the two parameters that define a download’s extent and detail:
+Flyover (Mileage) — sets the range of the Area search: how far out from the center the map radius extends (e.g. 0.0 mi). A larger value covers a wider area around the search center.
+Zoom — the maximum zoom level that gets downloaded (e.g. Z18). Higher zoom = more detailed tiles (and more data).
+Select Tiles / Artifacts1 screenDownloads → Select Tiles / Artifacts
+Planning Map › Downloads › Select Tiles / Artifacts
+This section specifies the target of the download — what to act on for the drawn bounding box. Three functions are available now:
+Download Tiles — download map tiles for the drawn bounding box.
+Import Trails — download trail sources for the bounding box (all trails for that area, regardless of source).
+Remove Tiles — remove downloaded tiles from the system for the bounding box area.
+Waypoints, Tracks, and Routes are shown greyed out and tagged V2.6 — those download targets are coming in a later release.
+Draw Area2 screensDownloads → Draw Area
+Planning Map › Downloads › Draw Area
+Draw Area defines the bounding box that the download targets (Download Tiles / Import Trails / Remove Tiles) act on. Expand the Draw Area accordion, then tap Draw Area and use your finger to outline the region of the map you want to select.
+Draw Area — start drawing; trace the area on the map with your finger.
+Clear — remove the drawn area and start over.
+Downloads → drawing &amp; starting the download
+Planning Map › Downloads › Draw Area › (outline)
+The full flow: first check what you want to download (e.g. Download Tiles), then draw your box. The outline appears in orange. When you lift your finger, the panel shows the area’s coordinates and an estimate (e.g. “~1366 tiles · 20 MB”), and a Download Selected button appears.
+Press Download Selected and the download begins — you can watch its progress in Queues. Use the tile/size estimate to gauge how big the download will be before committing.
+Show Downloads1 screenDownloads → Show Downloads
+Planning Map › Downloads › Show Downloads
+Show Downloads overlays your tile coverage on the map as shaded areas, so you can see at a glance what you have offline:
+Downloaded maps area (blue) — areas already downloaded on the device.
+Maps in queue (red) — areas selected and waiting in the download queue.
+Each checkbox toggles its overlay on or off. This is a quick way to confirm your ride area is covered offline before you head out.
+K — Tap an artifact (popup)Tap an artifact → popup
+Planning Map › tap an artifact
+Tapping an artifact on the map opens a quick-info popup with its name and key properties. The fields shown depend on the artifact type — each type (trail, track, route, waypoint) displays its own relevant data. This is the fast look-up; for the full detail panel, select the artifact’s name in a search result or a SEL/EDIT list instead.
+A trail popup, for example, shows Type, Surface, Uses, Motorized, Horse, and County. Tap the × to close it. (Same behavior as the Convoy map.)
+L — GroupTrack → Radio SetupGroupTrack menu
+Planning Map › GroupTrack icon (Meshtastic left sidebar)
+Tap the GroupTrack icon in the Meshtastic left-hand sidebar (the last icon) to open the GroupTrack menu — a slide-up panel. This is the entry to radio setup, the prerequisite for using GroupTrack with your Meshtastic radios.
+The menu has two sections:
+Event / Ride — the ride and radio options (expand to see them). covered below
+Map Settings — an older submenu of map instructions, now built into the map panel itself. no longer used
+Tap Event / Ride to expand it (next screen).
+Setup Radio5 screensEvent / Ride menu
+Planning Map › GroupTrack › Event / Ride
+Expanding Event / Ride reveals five options. In V2.5 only the two radio functions are used — ride creation and sharing are moving to the Release 3.0 cloud app.
+Create a Ride coming in 3.0
+Transfer Event/Ride Details via Email — “select a ride and send via email attachment” coming in 3.0
+Import Ride from Downloads — “scan Downloads for .convoy files and import” coming in 3.0
+Apply Ride Info to Radio — “apply master config or ride to connected radio.” used — see below
+Restore Prior Config Post Ride — “select and restore from saved archive.” used — see below
+Tap Apply Ride Info to Radio to begin applying config to a connected radio (next screen).
+Apply Radio Config
+Planning Map › GroupTrack › Event / Ride › Apply Ride Info to Radio
+This screen applies a configuration to the connected radio so it reports each cart’s location to the Convoy map. The bar at the top shows the connection state — here ● CONNECTED, with the radio model (tracker-t1000-e) and firmware version. A radio must be connected before a config can be applied.
+Apply Master Config — applies your saved master template to the connected radio. This is the function used in V2.5 to set a radio up for a ride. used
+Apply Ride — applies a specific ride’s config. coming in 3.0
+Review Changes → — shows what will change on the radio before you commit.
+Tap Apply Master Config, then Review Changes to proceed (next screen).
+Review — Changes to be Applied
+Planning Map › GroupTrack › Event / Ride › Apply Ride Info to Radio › Apply Master Config › Review
+The review panel shows exactly what will be written to the radio before you commit. At the top, Long Name lets you set a name for the radio (here “Mike McKinney”) — edit it if you want this radio to carry a specific rider/cart name. Below, the New Channel (here Convoy, AES-256 encrypted) is the channel the radio will join.
+The change table (Field · Current · New Value · Rule) is grouped into accordions you can expand to inspect each setting and see where its value is derived from:
+LoRa — radio/region + modem settings
+Channel — channel name, key, encryption
+Device — device role and behavior
+Position — GPS / position reporting
+Display — on-radio display settings
+Modules — module settings (telemetry, etc.)
+Scrolling to the bottom of the panel shows the full accordion list and the action bar:
+The action bar has two buttons: Cancel (red) backs out without changing the radio, and Proceed to Update (green) writes the config. Tap Proceed to Update to apply (next screen).
+Reconnect Check
+Planning Map › GroupTrack › Event / Ride › Apply Ride Info to Radio › Apply Master Config › Review › Proceed to Update
+After you proceed, the config is written and the radio reboots. This screen runs a 60-second countdown while the update is applied and the radio reconnects — the radio reboots, Bluetooth auto-disconnects, then auto-reconnects (shown in the log: “waiting for binary install reboot,” “auto BT disconnect,” “auto BT reconnect”). Let it run; Cancel stops the wait if needed.
+When the countdown finishes, an update-apply recap is shown summarizing what was applied. Check the recap: if any settings did not apply correctly, simply reapply the update (return to Apply Master Config and proceed again).
+Verify Config (apply recap)
+Planning Map › GroupTrack › Event / Ride › Apply Ride Info to Radio › … › Reconnect Check › Verify
+After the reconnect, the app reads the radio back and compares every field against what it tried to write — only errors are shown. The header reports the result, e.g. “5 of 40 fields failed.” A group summary at the bottom shows pass/fail per category (Device, LoRa, Channel, Position, Display, Module).
+In this example all five failures are in the Position group (Position 1/6) — the table lists each failed field with its Expected vs Actual value (e.g. Broadcast Interval expected 5, actual 0).
+If any fields failed, reapply the update — go back to Apply Master Config and proceed again. Radios sometimes need a second pass for a group (often Position) to take. Re-verify until the recap shows all fields passed.
+Restore Radio3 screensArchive Restore
+Planning Map › GroupTrack › Event / Ride › Restore Prior Config Post Ride
+A key GroupTrack safety feature: before it writes any configuration to a radio, it first saves that radio’s current config to a timestamped archive. Nothing you apply is ever destructive — the prior state is always recoverable. This screen lists the saved archives for the connected radio so you can restore any of them at any time.
+The header shows the radio node and how many archives were found. Each entry is a saved config with its date and time and filename — note the pre_master suffix here, which is the config that was auto-saved just before the master config was applied. The size (e.g. 391b) is shown at right.
+Tap an archive to restore it to the radio. Restore writes the saved config back and runs the same reconnect + verify sequence as Apply, so the radio reboots, reconnects, and the result is verified.
+Restore — confirm (gated)
+Planning Map › GroupTrack › Event / Ride › Restore Prior Config Post Ride › select archive
+Selecting an archive highlights it (blue, with a check) and reveals a confirmation gate before anything is written. The warning makes the consequences explicit:
+⚠ Restore will overwrite current radio config — the selected archive replaces whatever is on the radio now.
+Selected: the archive’s date/time, so you confirm you picked the right one.
+Radio will reboot after restore.
+Tap ↻ Restore This Archive to proceed. The radio then reboots, reconnects, and the result is verified — the same reconnect + verify sequence shown for Apply (above).
+Restore — write &amp; reconnect
+Planning Map › GroupTrack › Event / Ride › Restore Prior Config Post Ride › Restore This Archive
+After you confirm, Restore writes the archived config to the radio and runs the same write · reconnect · verify process documented under Apply (the 60-second Reconnect Check, then the Verify recap). When the recap shows all fields passed, the radio is back on the chosen prior configuration.
+✓ This completes Planning launch point L — GroupTrack / Radio Setup.
+// Focus: opening one sibling section at the same level collapses the others.
+function wireSiblings(container, selector){
+  var items=container.querySelectorAll(selector);
+  items.forEach(function(it){
+    it.addEventListener('toggle',function(){
+      if(it.open){ items.forEach(function(o){ if(o!==it && o.parentNode===it.parentNode) o.open=false; }); }
+    });
+  });
+}
+document.querySelectorAll('details.map').forEach(function(mp){
+  wireSiblings(mp.querySelector(':scope > .mapbody'), ':scope > details.lp');
+});
+document.querySelectorAll('details.lp').forEach(function(lp){
+  var b=lp.querySelector(':scope > .lpbody'); if(b){ wireSiblings(b, ':scope > details.sf'); wireSiblings(b, ':scope > details.screen'); }
+});
+document.querySelectorAll('details.sf').forEach(function(sf){
+  var b=sf.querySelector(':scope > .sfbody'); if(b){ wireSiblings(b, ':scope > details.screen'); }
+});
+// Filter: match against data-search across all levels; reveal & open the path to hits.
+var Q=document.getElementById('q');
+function flt(){
+  var t=Q.value.trim().toLowerCase();
+  // reset
+  if(t===''){
+    document.querySelectorAll('details').forEach(function(d){
+      d.classList.remove('nohit');
+      d.open = d.classList.contains('map');   // only maps open at rest
+    });
+    return;
+  }
+  // hide everything first
+  document.querySelectorAll('details.lp, details.sf, details.screen').forEach(function(d){ d.classList.add('nohit'); d.open=false; });
+  // any details whose own text matches => show it and its ancestors+descendants
+  document.querySelectorAll('details.screen, details.sf, details.lp').forEach(function(d){
+    var hay=((d.getAttribute('data-search')||'')+' '+d.textContent).toLowerCase();
+    if(hay.indexOf(t)>=0){
+      d.classList.remove('nohit');
+      // open & reveal ancestors
+      var p=d.parentNode;
+      while(p && p!==document){
+        if(p.tagName && p.tagName.toLowerCase()==='details'){ p.classList.remove('nohit'); p.open=true; }
+        p=p.parentNode;
+      }
+      d.open=true;
+    }
+  });
+  document.querySelectorAll('details.map').forEach(function(mp){ mp.open=true; });
+}
+
 
 === RouteBuilder_Blueprint_2026-06-03.html ===
 GroupTrack — Route Builder Blueprint — 2026-06-03

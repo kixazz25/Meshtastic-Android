@@ -41,7 +41,7 @@
 <body>
 
 <h1>GroupTrack — Living Master Document</h1>
-<p class="sub">Updated 2026-07-09 (V3.0 Esri download-strategy planning session added). <strong>V2.6 milestone split into 2.6a (fallback, Pass 1 + WebP — SHIPPED &amp; committed) / 2.6b (Esri batch transport — next) / 2.6c (lead-track, radio).</strong> Self-contained: all topic detail is written INTO this document (collapsible), so nothing depends on an external file that could be lost. Version-sectioned. This document is part of AllDocs — expand a topic to work it, collapse it when done.</p>
+<p class="sub">Updated 2026-07-11 (segmentation SHIPPED; RELEASE DELAYED ~4 weeks). <strong>V2.6 milestone: 2.6a (fallback, Pass 1 + WebP — SHIPPED &amp; committed) / 2.6b (tile speed: concurrency + backoff + SEGMENTATION shipped 07-11) / 2.6c (lead-track, radio, folded into the ~4-week plan).</strong> <strong>⭐ RELEASE DELAYED ~4 WEEKS (Fred 07-11)</strong> — no rushed/Monday release; full V2.6 cleanup + lead-cart re-engineer at a calm pace. <strong>⭐ TOMORROW STARTS WITH ROUTE+ PERSISTENCE.</strong> Self-contained: all topic detail is written INTO this document (collapsible), so nothing depends on an external file that could be lost. Version-sectioned. This document is part of AllDocs — expand a topic to work it, collapse it when done.</p>
 
 <div class="versionbar">
   <strong>Jump:</strong>
@@ -124,12 +124,33 @@
 <div class="lock"><strong>▶ TOMORROW'S FIRST MOVE:</strong> Standardize all map-download submissions through the area-submission process (Step 0 of the tile plan). First verify the <strong>area download submission is "the black box"</strong> (cleanly takes <code>(bbox, sources)</code> → chops → queues → submits; owns large-bbox splitting; where it hands off to the return-point write).</div>
 
 <details open>
-<summary>⭐ TILE STORAGE — unified process (Pass 1 SHIPPED · Pass 2 NEXT) <span class="status s-shipped">PASS 1 DONE</span><span class="status s-next">PASS 2 NEXT</span></summary>
+<summary>⭐ TILE STORAGE — unified process (Pass 1 SHIPPED · Concurrency SHIPPED · SEGMENTATION SHIPPED 07-11) <span class="status s-shipped">PASS 1 DONE</span><span class="status s-shipped">SEGMENTATION DONE</span></summary>
 <div class="shipped-0708"><p><strong>✅ 07-08 — PASS 1 SHIPPED &amp; VERIFIED on Droid 1 (committed <code>55ce56239</code>, <code>ccea5977e</code>).</strong> Loose files → one <code>.mbtiles</code> per type via <code>MBTilesStore</code>; all writes/reads/helpers/coverage-highlight redirected. Storage = raw z/x/y (no TMS flip; <code>scheme=xyz</code>). <strong>WebP compression validated: base lossy q80 = ~55% reduction</strong> (21.5 KB/tile loose JPEG → 9.7 KB/tile), clearing the 35–40% goal. <strong>Overlays = PNG passthrough</strong> (WebP re-encode bloats sparse-alpha labels). <strong>q95 tested &amp; rejected</strong> (lossy-to-lossy inflation, 5× worse). <code>TOPO+</code> <code>+</code> verified OK; its "blank below z16" = USGS source coverage, not a bug. New files: <code>MBTilesStore.kt</code>, <code>TileCodec.kt</code>. The detailed design below is retained as record; the four "miracle-happens" open questions are all resolved (see the 07-08 TileStorage recap). <strong>Hardening still owed:</strong> silent <code>db()</code>-null → <code>insertTile</code> no-op (fail loudly); <code>deleteSource</code> close-handle-before-delete (FUSE wedge).</p></div>
 <div class="body">
 <p>Design converged 07-06. This is the full design, written in.</p>
 
 <details open>
+<details open><summary>✅ 07-11 SHIPPED — LOAD-BALANCING SEGMENTATION + 2x10 concurrency (commit e38e43487) <span class="status s-shipped">DONE</span></summary>
+<p><strong>Commit <code>e38e43487</code></strong> "V2.6 tile segmentation: SAT-sized load-balancing grid across all sources; 2x10 download concurrency" — 3 files, +92/-3. ⚠ NOT build-verified after the final dry-run-scaffolding strip (mechanical removal, should compile; self-verifies at tomorrow's first build).</p>
+<p><strong>What shipped:</strong> <code>ConvoyTileDownloader.segmentCells(n,s,e,w, sizeTiles, segCeilingTiles=50_000, overlapTiles=3, zMax=DOWNLOAD_ZOOM)</code> REPLACES fixed-12-mile <code>gridCells</code> as the AREA-download bbox splitter. Splits into <code>max(1, ceil(sizeTiles/50_000))</code> equal degree-slices of the LONGER axis; each cell a full z10–z18 slice (never zoom-banded); same <code>List&lt;DoubleArray&gt;</code> shape so the enqueue loop is unchanged. Logs each cell + <code>SPLIT</code> under <code>"SEGMENT"</code>.</p>
+<p><strong>Sizing (all sources ride SAT grid):</strong> <code>sizeTiles = quickEstimate(bbox).tileCount × satLayers</code> (SAT=3 layers); every slot sizes off SAT so SAT/TOPO/TOPO+ get the identical grid. Per-cell <code>totalTiles</code> still uses the current slot's <code>slotLayers</code> (separate, correct). <strong>Overlap:</strong> <code>if(n&gt;1) 3×(360/2^zMax)</code> ≈0.004° at z18, seam-only, deduped by <code>hasTile()</code>.</p>
+<p><strong>⚠ HARD-LEARNED:</strong> overlap must be TILE-WIDTHS not degrees — ⅛° = ~91 tiles/edge ballooned a 24,716-tile area to 155,674 (6×) in the dry-run. <strong>Three bugs caught before ship</strong> by the dry-run JSON + live logging (Fred insisted on visibility): (1) ⅛° overlap 6× blowup; (2) sizing under-count — <code>quickEstimate</code> is ONE layer but SAT is 3; (3) per-source grid mismatch — SAT split 2, TOPO/TOPO+ split 1 until sized off SAT. Dry-run scaffolding stripped before commit; the <code>SEGMENT</code> logcat is the permanent validation tool.</p>
+<p><strong>Concurrency (same commit):</strong> <code>MAX_CONCURRENT=2</code>, <code>TILE_FETCH_CONCURRENCY=10</code> (was 8). RESULT (on-device): "ran faster with two queues than three" — balance now STRUCTURAL not accidental. <strong>Open follow-up (not run):</strong> time 2×10 vs 2×8; if faster probe 2×12, if flat keep 8.</p>
+</details>
+<details open><summary>⭐ 07-11 RELEASE DELAYED ~4 WEEKS — the plan <span class="status s-strategy">PLAN</span></summary>
+<p><strong>Fred delayed the V2.6 Play Store release (07-11).</strong> Uncomfortable rushing given the uncompiled commit, an un-hardened boot-loop-class bug, and unresolved REFRESH/source-switch entanglement. On holiday ~1 week; does not want to rush. New target ~4 weeks out, scope EXPANDED to a full V2.6-complete release. Order (dependency-driven):</p>
+<ol>
+<li><strong>⭐ Queue BOOT-LOOP IMMUNITY (top priority).</strong> <code>loadQueue()</code> must survive ANY garbage in <code>download_queue.json</code> without crashing — tolerant parse, skip/quarantine bad entries, never throw on startup. WHY #1: the map-source refresh once wrote poison queue entries that crashed the app <strong>repeatedly on startup (boot loop)</strong>; only recovery was Clear-All-Data, which also wiped DBs + tracks + revoked All-Files access = the 07-09→07-11 catastrophe. A boot-looping poison file is the most dangerous bug in the app because the only recovery is destructive.</li>
+<li><strong>saveQueue atomic-write</strong> — stops a half-written/poison file landing on disk.</li>
+<li><strong>⭐ Route+ persistence</strong> — tomorrow's first task (see the ROUTE-STATE section).</li>
+<li><strong>Rest of hardening</strong> — insertTile fail-loud; deleteSource handle-hygiene.</li>
+<li><strong>Three regressions</strong> — map REFRESH bounds-order; quickEstimate source-awareness; SAT-overlay-on-TOPO render.</li>
+<li><strong>Phase-4 features</strong> — clear-area/delete-area, then source-switch tile-replace routed through the NEW segmentCells feeder, gated on the queue hardening.</li>
+<li><strong>⭐ Lead-cart / lead-track re-engineer (2.6c, needs radio)</strong> — the big demolition/rebuild; 4 weeks is enough to do the field capture carefully.</li>
+<li><strong>Infra</strong> — git-push unblock (purge large .db from history), offsite backup.</li>
+</ol>
+<p><strong>⚠ HOLIDAY-WEEK RISK (check when back):</strong> the boot-loop is still latent — the build on Droid 1 / any tester phone can still be bricked by a poison queue file. Item 1 closes it.</p>
+</details>
 <summary>The unified process (one spine, many origins, many destinations)</summary>
 <div class="body">
 <p><code>ORIGIN → NORMALIZE → EXPAND → CHOP → FETCH → [RETURN POINT] → WRITE → DESTINATION</code>, pluggable at both ends.</p>
@@ -267,7 +288,7 @@
 </details>
 
 <details>
-<summary>⭐ ROUTE-STATE PERSISTENCE &amp; TEARDOWN (this morning's issue) <span class="status s-open">OPEN</span></summary>
+<summary>⭐ ROUTE-STATE PERSISTENCE &amp; TEARDOWN — ⭐ #1 NEXT BUILD (resume here) <span class="status s-open">OPEN</span></summary>
 <div class="body">
 <p>Root cause located 07-06 via fresh xref (recommit docs; navigation_xref regenerated 07-06 11:32). Fix design not yet locked — one source-check remains.</p>
 
@@ -292,7 +313,7 @@
 <ol>
   <li><strong>Persist</strong> route-planning state in the MAP JSON so nav away + back restores it (survives recomposition/nav, which <code>remember</code> does not).</li>
   <li><strong>States unique per map</strong> — Planning (grouptrack_map.html) vs Convoy (convoy_map.html) must not collide on the shared JS flag; the two booleans need per-map identity.</li>
-  <li><strong>Every exit ends it</strong> — save, discard, navigate away, back, mode-switch, backgrounding, item-tap, panel-close — via ONE teardown funnel every exit routes through (replacing the ~8 scattered teardowns).</li>
+  <li><strong>⚠ SUPERSEDED by the 07-08 hard rule (below): NOT "every exit ends it."</strong> The correct rule is the OPPOSITE — while route-add is active the screen PERSISTS through every selection and the map/exits are INERT; the ONLY exit is an EXPLICIT CLOSE, which routes through ONE teardown funnel (the save/discard prompt), replacing the ~8 scattered teardowns. Nothing else tears it down.</li>
 </ol>
 <p><strong>Key principle:</strong> persist unless/until closed by an exit method — persist across nav, never past an exit.</p>
 </div>
