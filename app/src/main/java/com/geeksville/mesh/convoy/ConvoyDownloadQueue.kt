@@ -82,7 +82,7 @@ data class QueueEntry(
 // ===========================================================
 object DownloadQueueManager {
 
-    private const val MAX_CONCURRENT = 3  // [V2.6b-MAXCONC3] test bump 2->3 (was 2); observe error rate before building JSON tuning rig
+    private const val MAX_CONCURRENT = 2  // [V2.6b] 2 queues (2 beat 3 on balanced segments 07-11); testing 2x10 async
     private const val QUEUE_FILE = "download_queue.json"
     private const val TAG = "DownloadQueue"
 
@@ -154,7 +154,18 @@ object DownloadQueueManager {
     ): Int {
         init(context)
         val slotLayers = MapSourceManager.getDownloadSources().filter { it.first == slotName }.sumOf { it.second.size }
-        val cells = ConvoyTileDownloader.gridCells(north, south, east, west)
+        // SEGMENTATION (2026-07-11): size off REAL job volume = 1-layer estimate * slotLayers.
+        //   SAT = 3 layers over same geography, so slotLayers=3 -> ~24.7K*3 = ~74K -> 2 segments.
+        //   (Bug history: sizing off the bare 1-layer estimate under-segmented; caught by dry-run JSON.)
+        val oneLayerTiles = ConvoyTileCalculator.quickEstimate(north, south, east, west).tileCount
+        // ALL SOURCES RIDE THE SAT-SIZED GRID (design: "SAT sizes the grid, all ride it").
+        // enqueueArea is called once per slot from submitDownload's loop; without this,
+        // SAT (3 layers ~74K) split into 2 but TOPO/TOPO+ (~24K) stayed 1 -> mismatched grids.
+        // So size off the SAT slot's layer count REGARDLESS of which slot is enqueuing:
+        val satLayers = MapSourceManager.getDownloadSources()
+            .find { it.first == "SAT" }?.second?.size ?: slotLayers
+        val sizeTiles = oneLayerTiles * Math.max(1, satLayers)
+        val cells = ConvoyTileDownloader.segmentCells(north, south, east, west, sizeTiles)
         if (cells.isEmpty()) {
             // Small area — single job
             val entry = QueueEntry(

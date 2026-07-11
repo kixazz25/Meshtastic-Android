@@ -138,6 +138,7 @@ object ConvoyTileCalculator {
             zoomMax = zMax
         )
     }
+
 }
 
 // ── Data classes ──────────────────────────────────────────────────────────────
