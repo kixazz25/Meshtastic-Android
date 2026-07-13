@@ -144,6 +144,7 @@ fun ConvoyMapViewerScreen(
     var showInProgressPicker by remember { mutableStateOf(false) }
     var showEntryChoice by remember { mutableStateOf(false) }
     var recoveryDetected by remember { mutableStateOf(false) }
+    var saveOrigName by remember { mutableStateOf("") }   // draft's on-disk name captured when Save panel opens (rename source)
     var recoveryLaunched by remember { mutableStateOf(false) }   // one-shot: recovery detected this session (in onPageFinished)
     var recoveryPending by remember { mutableStateOf(false) }   // show the recovery notice popup after settle
     var routeNameTaken by remember { mutableStateOf(false) }
@@ -1073,7 +1074,7 @@ fun ConvoyMapViewerScreen(
                     },
                     onSaveCompleted = saveCompleted,
                     routeLifecycleState = routeLifecycleState,
-                    onSaveRequested = { showSaveChoice = true },
+                    onSaveRequested = { saveOrigName = routeName; showSaveChoice = true },
                     onDiscardRequested = { showDiscardChoice = true },
                     onSelectInProgress = { showInProgressPicker = true },
                     onExit = {
@@ -1090,27 +1091,61 @@ fun ConvoyMapViewerScreen(
                 androidx.compose.material3.AlertDialog(
                     onDismissRequest = { showSaveChoice = false },
                     title = { androidx.compose.material3.Text("Save route") },
-                    text = { androidx.compose.material3.Text(
-                        if (routeLifecycleState == ROUTE_LS_RESUMED)
-                            "Graduate to a saved route, or keep editing as in-progress."
-                        else "Save as a completed route (needs 2+ points), or keep as in-progress."
-                    ) },
+                    text = {
+                        androidx.compose.foundation.layout.Column {
+                            androidx.compose.material3.Text(
+                                if (routeLifecycleState == ROUTE_LS_RESUMED)
+                                    "Graduate to a saved route, or keep editing as in-progress."
+                                else "Save as a completed route (needs 2+ points), or keep as in-progress."
+                            )
+                            androidx.compose.foundation.layout.Spacer(androidx.compose.ui.Modifier.height(12.dp))
+                            androidx.compose.material3.OutlinedTextField(
+                                value = if (routeName == "Auto Saved In Progress") "" else routeName,
+                                onValueChange = { routeName = it },
+                                singleLine = true,
+                                label = { androidx.compose.material3.Text("Route name (required)") }
+                            )
+                        }
+                    },
                     confirmButton = {
                         androidx.compose.material3.TextButton(onClick = {
-                            showSaveChoice = false
-                            if (pts >= 2) saveCompleted()
-                            else android.widget.Toast.makeText(context, "Need at least 2 points", android.widget.Toast.LENGTH_SHORT).show()
+                            val nm = routeName.trim()
+                            if (nm.isBlank() || nm == "Auto Saved In Progress") {
+                                android.widget.Toast.makeText(context, "Enter a route name", android.widget.Toast.LENGTH_SHORT).show()
+                            } else if (pts < 2) {
+                                android.widget.Toast.makeText(context, "Need at least 2 points", android.widget.Toast.LENGTH_SHORT).show()
+                            } else {
+                                showSaveChoice = false
+                                val oldNm = saveOrigName
+                                scope.launch {
+                                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                        if (oldNm != nm) RouteDraftStore.renameDraft(oldNm, nm)
+                                    }
+                                    routeName = nm
+                                    kotlinx.coroutines.delay(400)
+                                    saveCompleted()
+                                }
+                            }
                         }) { androidx.compose.material3.Text("Save as completed route") }
                     },
                     dismissButton = {
                         androidx.compose.material3.TextButton(onClick = {
-                            showSaveChoice = false
-                            val methodStr = when (routeMethod) { ROUTE_METHOD_DRAW -> "draw"; ROUTE_METHOD_SUGGEST -> "suggest"; else -> "point" }
-                            if (routeLifecycleState == ROUTE_LS_RESUMED) RouteDraftStore.overwriteDraft(routeName, methodStr)
-                            else RouteDraftStore.writeDraft(routeName, methodStr)
-                            RouteManager.clearRoute()
-                            webViewRef?.evaluateJavascript("setRouteMode(false); clearBuildLine();", null)
-                            routeMode = false
+                            val nm = routeName.trim()
+                            if (nm.isBlank() || nm == "Auto Saved In Progress") {
+                                android.widget.Toast.makeText(context, "Enter a route name", android.widget.Toast.LENGTH_SHORT).show()
+                            } else {
+                                showSaveChoice = false
+                                val oldNm = saveOrigName
+                                scope.launch {
+                                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                        if (oldNm != nm) RouteDraftStore.renameDraft(oldNm, nm)
+                                    }
+                                    routeName = nm
+                                    RouteManager.clearRoute()
+                                    webViewRef?.evaluateJavascript("setRouteMode(false); clearBuildLine();", null)
+                                    routeMode = false
+                                }
+                            }
                         }) { androidx.compose.material3.Text("Save as in progress") }
                     }
                 )
