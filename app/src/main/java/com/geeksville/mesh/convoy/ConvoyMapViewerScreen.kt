@@ -127,10 +127,14 @@ fun ConvoyMapViewerScreen(
     var selectedArtifactIds by remember { mutableStateOf<Set<String>>(emptySet()) }
     var pendingWaypoint by remember { mutableStateOf<Pair<Double, Double>?>(null) }
     // ROUTE BUILDER: route mode active -> Route+ toolbar shown (read by next patch)
-    var routeMode by remember { mutableStateOf(false) }
     var addPointMode by remember { mutableStateOf(true) }  // Tap:Route(on)/Artifact(off) — consumed by onMapTap next build
     var routeMethod by remember { mutableStateOf(ROUTE_METHOD_P2P) }
     var routeName by remember { mutableStateOf("") }
+    // Isolated second read of the saved route-open flag (independent of pmSeed@224,
+    // which is read later than this declaration). Gives routeMode its persisted value
+    // BEFORE the back-gate at ~204 uses it, so a crash-left-open route restores on launch.
+    val routeSeedOpen = remember { MapStateStore.readMap("planning").routeState?.open == true }
+    var routeMode by remember { mutableStateOf(routeSeedOpen) }
     var showNameDialog by remember { mutableStateOf(false) }
     var routeEntryNonce by remember { mutableStateOf(0) }   // ++ on every route-mode entry; re-arms toolbar build controls
     // route lifecycle (Layer 2): launch state fixed at New / Select-In-Progress
@@ -139,6 +143,7 @@ fun ConvoyMapViewerScreen(
     var showDiscardChoice by remember { mutableStateOf(false) }
     var showInProgressPicker by remember { mutableStateOf(false) }
     var showEntryChoice by remember { mutableStateOf(false) }
+    var recoveryDetected by remember { mutableStateOf(false) }
     var routeNameTaken by remember { mutableStateOf(false) }
     // live In-Progress list: real draft names from RouteDraftStore (refreshed on draftListTick)
     var draftListTick by remember { mutableStateOf(0) }
@@ -838,6 +843,10 @@ fun ConvoyMapViewerScreen(
                 isConvoyMap = false,
                 onCreateRoute = {
                     // +ROUTE -> choose New vs In-Progress BEFORE the toolbar opens.
+                    // Recovery test: if the SAVED state still had a route open, a prior
+                    // session left it open (crash/kill never closed cleanly) = recovery.
+                    // Test BEFORE setting routeMode on this session.
+                    recoveryDetected = (pmSeed.routeState?.open == true)
                     routeMode = true   // route-add selected: panel has no cancel, both picks build a route
                     showEntryChoice = true
                 },
@@ -916,7 +925,7 @@ fun ConvoyMapViewerScreen(
                 androidx.compose.material3.AlertDialog(
                     onDismissRequest = { showEntryChoice = false },
                     title = { androidx.compose.material3.Text("Start a route") },
-                    text = { androidx.compose.material3.Text("Begin a new route, or resume one in progress?") },
+                    text = { androidx.compose.material3.Text(if (recoveryDetected) "Recovery detected. Begin a new route, or resume one in progress?" else "Begin a new route, or resume one in progress?") },
                     confirmButton = {
                         androidx.compose.material3.TextButton(onClick = {
                             showEntryChoice = false
@@ -1155,6 +1164,7 @@ fun ConvoyMapViewerScreen(
                                         showInProgressPicker = false
                                         routeEntryNonce++
                                         routeMode = true
+                                        savePlanningState()   // stamp open:true on In-Progress resume (matches New Route @872)
                                         scope.launch {
                                             val rsPts = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                                                 SpatialDbManager.init(context)
