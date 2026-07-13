@@ -134,7 +134,7 @@ fun ConvoyMapViewerScreen(
     // which is read later than this declaration). Gives routeMode its persisted value
     // BEFORE the back-gate at ~204 uses it, so a crash-left-open route restores on launch.
     val routeSeedOpen = remember { MapStateStore.readMap("planning").routeState?.open == true }
-    var routeMode by remember { mutableStateOf(routeSeedOpen) }
+    var routeMode by remember { mutableStateOf(false) }   // LIVE session state (back-gate). Recovery launches in onPageFinished after render, not here.
     var showNameDialog by remember { mutableStateOf(false) }
     var routeEntryNonce by remember { mutableStateOf(0) }   // ++ on every route-mode entry; re-arms toolbar build controls
     // route lifecycle (Layer 2): launch state fixed at New / Select-In-Progress
@@ -144,6 +144,8 @@ fun ConvoyMapViewerScreen(
     var showInProgressPicker by remember { mutableStateOf(false) }
     var showEntryChoice by remember { mutableStateOf(false) }
     var recoveryDetected by remember { mutableStateOf(false) }
+    var recoveryLaunched by remember { mutableStateOf(false) }   // one-shot: recovery detected this session (in onPageFinished)
+    var recoveryPending by remember { mutableStateOf(false) }   // show the recovery notice popup after settle
     var routeNameTaken by remember { mutableStateOf(false) }
     // live In-Progress list: real draft names from RouteDraftStore (refreshed on draftListTick)
     var draftListTick by remember { mutableStateOf(0) }
@@ -643,6 +645,13 @@ fun ConvoyMapViewerScreen(
                                         // [Stage 3] Deterministic artifact restore from JSON (not relying on
                                         // fitBounds->moveend->onViewportChanged to draw).
                                         SpatialDisplayManager.drawPersistedState("planning", view, context)
+                                        // Crash recovery: a prior session left a route open. Do NOT auto-launch
+                                        // (races render). Flag it — an informational popup shows after settle
+                                        // telling the user to resume manually via +ROUTE -> In Progress.
+                                        if (routeSeedOpen && !recoveryLaunched) {
+                                            recoveryLaunched = true
+                                            recoveryPending = true
+                                        }
                                         return@postDelayed
                                     }
                                     try {
@@ -1140,6 +1149,19 @@ fun ConvoyMapViewerScreen(
                             webViewRef?.evaluateJavascript("setRouteMode(false); clearBuildLine();", null)
                             routeMode = false
                         }) { androidx.compose.material3.Text("Delete in-progress") }
+                    }
+                )
+            }
+
+            if (recoveryPending) {
+                androidx.compose.material3.AlertDialog(
+                    onDismissRequest = { recoveryPending = false },
+                    title = { androidx.compose.material3.Text("Route recovery") },
+                    text = { androidx.compose.material3.Text("A route was left open from your last session. To resume it, tap +ROUTE and choose \"In Progress\".") },
+                    confirmButton = {
+                        androidx.compose.material3.TextButton(onClick = {
+                            recoveryPending = false
+                        }) { androidx.compose.material3.Text("OK") }
                     }
                 )
             }
