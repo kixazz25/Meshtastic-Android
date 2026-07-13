@@ -448,6 +448,7 @@ fun ConvoyMapViewerScreen(
                             }
                             @JavascriptInterface
                             fun onMapLongPress(lat: Double, lon: Double) {
+                                if (addPointMode) return   // route mode: suppress waypoint drop (Route side of switch)
                                 android.os.Handler(android.os.Looper.getMainLooper()).post {
                                     pendingWaypoint = Pair(lat, lon)
                                 }
@@ -511,6 +512,7 @@ fun ConvoyMapViewerScreen(
                             @JavascriptInterface
                             fun onTrackTap(id: String) {
                                 // [2026-07-02] track tap -> open the shared ArtifactDetailPanel (metrics + SAVE MAPS).
+                                if (addPointMode) return   // route mode: suppress track details (Route side of switch)
                                 android.os.Handler(android.os.Looper.getMainLooper()).post {
                                     pendingDetailType = "Tracks"
                                     pendingDetailId = id
