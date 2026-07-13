@@ -1686,7 +1686,7 @@ fun ConvoyScreen(
                             routeNameTaken = false
                             showRouteNameDialog = true
                         },
-                        onAddPointModeArmed = { webViewRef.value?.evaluateJavascript("setRouteMode(true)", null) },
+                        onAddModeChanged = { _ -> webViewRef.value?.evaluateJavascript("setRouteMode(true)", null) },
                         onUndo = {
                             RouteManager.undoVertex()
                             val pts = RouteManager.routeVertices().joinToString(",", "[", "]") { "[${it.lat},${it.lon}]" }

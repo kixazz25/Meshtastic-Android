@@ -114,6 +114,7 @@ fun ConvoyArtifactsPanel(
                     color = aBlue, fontSize = 11.sp, fontFamily = aMono, fontWeight = FontWeight.Bold,
                     modifier = Modifier.weight(1f)
                 )
+                if (!isConvoyMap) {
                 Surface(
                     modifier = Modifier.clickable { expanded = false; onCreateRoute() },
                     shape = RoundedCornerShape(4.dp),
@@ -124,6 +125,7 @@ fun ConvoyArtifactsPanel(
                         fontFamily = aMono, fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                     )
+                }
                 }
             }
 

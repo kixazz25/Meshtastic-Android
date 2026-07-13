@@ -65,7 +65,7 @@ fun ConvoyRouteToolbar(
     selectedMethod: Int = ROUTE_METHOD_P2P,
     onSelectMethod: (Int) -> Unit = {},
     onNewRoute: () -> Unit = {},
-    onAddPointModeArmed: () -> Unit = {},
+    onAddModeChanged: (Boolean) -> Unit = {},
     onUndo: () -> Unit = {},
     onSaveCompleted: () -> Unit = {},
     onExit: () -> Unit = {},
@@ -130,7 +130,7 @@ fun ConvoyRouteToolbar(
             Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                 MethodChip("Point", selectedMethod == ROUTE_METHOD_P2P, true, building) {
                     // Point = tap-to-place -> Add ON
-                    if (building) { onSelectMethod(ROUTE_METHOD_P2P); addArmed = true; onAddPointModeArmed() }
+                    if (building) { onSelectMethod(ROUTE_METHOD_P2P); addArmed = true; onAddModeChanged(true) }
                 }
                 MethodChip("Draw", selectedMethod == ROUTE_METHOD_DRAW, false, false) {
                     // Draw/Suggest don't tap-to-place -> Add OFF (placeholder methods)
@@ -142,15 +142,21 @@ fun ConvoyRouteToolbar(
             }
 
             Text("BUILD  ($vertexCount pts)", color = if (building) rtTxtD else rtDis, fontSize = 9.sp, fontFamily = rtMono)
-            Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                // Add = single GREEN/RED self-toggle. Press flips armed state.
-                // GREEN(ON)=taps place, RED(OFF)=taps pan. (pan/place wiring lands with snap-2.)
-                BuildBtn(
-                    if (addArmed) "Add ON" else "Add OFF",
-                    if (!building) rtDis else if (addArmed) rtGreen else rtRed,
-                    Modifier.weight(1f)
-                ) { if (building) { addArmed = !addArmed; onAddPointModeArmed() } }
-                BuildBtn("Undo", if (building) rtBlue else rtDis, Modifier.weight(1f)) { if (building) onUndo() }
+            // Segmented Route|Artifact switch: BOTH halves visible, ACTIVE half
+            // reverse-video (filled block + knockout text) so it reads on a B/W
+            // device. Route = addArmed true (taps place vertices);
+            // Artifact = addArmed false (taps do artifact/waypoint).
+            Row(modifier = Modifier.fillMaxWidth()) {
+                SegHalf("Route",    addArmed && building, building, Modifier.weight(1f)) {
+                    if (building && !addArmed) { addArmed = true;  onAddModeChanged(true) }
+                }
+                SegHalf("Artifact", !addArmed && building, building, Modifier.weight(1f)) {
+                    if (building && addArmed) { addArmed = false; onAddModeChanged(false) }
+                }
+            }
+            // Undo on its own row, centered.
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+                BuildBtn("Undo", if (building) rtBlue else rtDis, Modifier.width(120.dp)) { if (building) onUndo() }
             }
             } // end if(!minimized)
 
@@ -198,6 +204,28 @@ private fun MethodChip(label: String, selected: Boolean, live: Boolean, enabled:
             Text(if (live) "live" else "soon",
                 color = if (live) rtGreen else rtAmber,
                 fontSize = 8.sp, fontFamily = rtMono)
+        }
+    }
+}
+
+@Composable
+private fun SegHalf(
+    label: String,
+    active: Boolean,
+    enabled: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    // Reverse-video active state: active -> filled bg + knockout (bg-colored) text.
+    val bg = if (!enabled) rtRowBg else if (active) rtTxtD else rtRowBg
+    val fg = if (!enabled) rtDis   else if (active) rtPanelBg else rtTxtD
+    Surface(
+        modifier = modifier.clickable(enabled = enabled) { onClick() },
+        color = bg,
+        shape = RoundedCornerShape(4.dp)
+    ) {
+        Box(modifier = Modifier.padding(vertical = 7.dp), contentAlignment = Alignment.Center) {
+            Text(label, color = fg, fontSize = 11.sp, fontFamily = rtMono, fontWeight = FontWeight.Bold)
         }
     }
 }

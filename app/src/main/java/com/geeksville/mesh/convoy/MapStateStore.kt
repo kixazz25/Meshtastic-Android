@@ -46,18 +46,28 @@ object MapStateStore {
         val south: Double,
         val west: Double,
         val north: Double,
-        val east: Double
+        val east: Double,
+        val zoom: Double = 15.0   // [zoom-restore 2026-07-12] persisted so reopen restores exact zoom, not a fitBounds recompute
     )
     data class FitArtifact(
         val id: String,
         val name: String,
         val type: String
     )
+    // Route+ in-progress state (per-map). open=route-add mode active;
+    // status: "draft" (WIP, reopenable) or "final" (graduated to DB row);
+    // draftName links to the RouteDraftStore JSON draft of the same name.
+    data class RouteState(
+        val open: Boolean,
+        val status: String,
+        val draftName: String
+    )
     data class MapSnapshot(
         val types: Map<String, TypeState>,
         val panel: PanelBoxes,
         val bbox: BBox? = null,
-        val fitArtifact: FitArtifact? = null
+        val fitArtifact: FitArtifact? = null,
+        val routeState: RouteState? = null
     )
 
     // mapKey is "convoy" or "planning"
@@ -104,12 +114,18 @@ object MapStateStore {
                 val b = org.json.JSONObject()
                 b.put("south", it.south); b.put("west", it.west)
                 b.put("north", it.north); b.put("east", it.east)
+                b.put("zoom", it.zoom)
                 root.put("bbox", b)
             }
             snap.fitArtifact?.let {
                 val fa = org.json.JSONObject()
                 fa.put("id", it.id); fa.put("name", it.name); fa.put("type", it.type)
                 root.put("fitArtifact", fa)
+            }
+            snap.routeState?.let {
+                val rsO = org.json.JSONObject()
+                rsO.put("open", it.open); rsO.put("status", it.status); rsO.put("draftName", it.draftName)
+                root.put("routeState", rsO)
             }
             fileFor(mapKey).writeText(root.toString())
         } catch (e: Exception) {
@@ -157,13 +173,18 @@ object MapStateStore {
             val bboxObj = root.optJSONObject("bbox")
             val bbox = if (bboxObj == null) null else BBox(
                 bboxObj.optDouble("south", 0.0), bboxObj.optDouble("west", 0.0),
-                bboxObj.optDouble("north", 0.0), bboxObj.optDouble("east", 0.0)
+                bboxObj.optDouble("north", 0.0), bboxObj.optDouble("east", 0.0),
+                bboxObj.optDouble("zoom", 15.0)
             )
             val faObj = root.optJSONObject("fitArtifact")
             val fitArtifact = if (faObj == null) null else FitArtifact(
                 faObj.optString("id", ""), faObj.optString("name", ""), faObj.optString("type", "")
             )
-            MapSnapshot(types, panel, bbox, fitArtifact)
+            val rsObj = root.optJSONObject("routeState")
+            val routeState = if (rsObj == null) null else RouteState(
+                rsObj.optBoolean("open", false), rsObj.optString("status", "draft"), rsObj.optString("draftName", "")
+            )
+            MapSnapshot(types, panel, bbox, fitArtifact, routeState)
         } catch (e: Exception) {
             defaults()
         }

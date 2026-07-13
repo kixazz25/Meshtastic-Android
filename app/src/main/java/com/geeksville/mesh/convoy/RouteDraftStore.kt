@@ -216,6 +216,32 @@ object RouteDraftStore {
     // ----- delete ----------------------------------------------------------
 
     /** Remove a draft (graduate cleanup, or Discard -> Delete in-progress). */
+    /**
+     * Rename an existing draft file oldName -> newName, preserving its JSON
+     * contents (the stored `name` field is updated to newName). No geometry
+     * re-serialization. Returns true on success, false if source missing or
+     * target name already taken.
+     */
+    fun renameDraft(oldName: String, newName: String): Boolean {
+        if (oldName == newName) return true
+        val src = fileFor(oldName)
+        if (!src.exists()) return false
+        if (isNameTaken(newName)) return false
+        return try {
+            val root = JSONObject(src.readText())
+            root.put("name", newName)
+            root.put("updatedAt", now())
+            val target = fileFor(newName)
+            val tmp = File(target.parentFile, target.name + ".tmp")
+            tmp.writeText(root.toString())
+            if (target.exists()) target.delete()
+            val ok = tmp.renameTo(target)
+            if (ok) { src.delete(); true } else { tmp.delete(); false }
+        } catch (e: Exception) {
+            false
+        }
+    }
+
     fun deleteDraft(name: String): Boolean {
         return try {
             val f = fileFor(name)

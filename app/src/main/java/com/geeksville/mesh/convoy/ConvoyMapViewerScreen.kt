@@ -128,6 +128,7 @@ fun ConvoyMapViewerScreen(
     var pendingWaypoint by remember { mutableStateOf<Pair<Double, Double>?>(null) }
     // ROUTE BUILDER: route mode active -> Route+ toolbar shown (read by next patch)
     var routeMode by remember { mutableStateOf(false) }
+    var addPointMode by remember { mutableStateOf(true) }  // Tap:Route(on)/Artifact(off) — consumed by onMapTap next build
     var routeMethod by remember { mutableStateOf(ROUTE_METHOD_P2P) }
     var routeName by remember { mutableStateOf("") }
     var showNameDialog by remember { mutableStateOf(false) }
@@ -199,8 +200,13 @@ fun ConvoyMapViewerScreen(
         }
     }
     val keyboardController = LocalSoftwareKeyboardController.current
-    var showExitConfirm by remember { mutableStateOf(false) }
-    BackHandler { showExitConfirm = true }
+    BackHandler {
+        if (routeMode) {
+            android.widget.Toast.makeText(context, "Save or discard your in-progress route first", android.widget.Toast.LENGTH_SHORT).show()
+        } else {
+            onBack()
+        }
+    }
     val coroutineScope = rememberCoroutineScope()
 
     // Download controls state
@@ -254,7 +260,7 @@ fun ConvoyMapViewerScreen(
             "Routes" to MapStateStore.TypeState(routeState, rowsFor("Routes"))
         )
         val panel = MapStateStore.PanelBoxes(panelTilesChecked, panelTrailsChecked, panelRemoveTilesChecked)
-        MapStateStore.saveMap("planning", MapStateStore.MapSnapshot(types, panel, MapStateStore.BBox(lastViewportSouth, lastViewportWest, lastViewportNorth, lastViewportEast), null))
+        MapStateStore.saveMap("planning", MapStateStore.MapSnapshot(types, panel, MapStateStore.BBox(lastViewportSouth, lastViewportWest, lastViewportNorth, lastViewportEast), null, MapStateStore.RouteState(routeMode, "draft", routeName)))
     }
     // [3.1] debounced viewport-settle save: persist frame on pan/zoom/search settle
     val viewportSaveHandler = remember { android.os.Handler(android.os.Looper.getMainLooper()) }
@@ -293,7 +299,13 @@ fun ConvoyMapViewerScreen(
             Text("BACK", color = Color(0xFF4DA6FF),
                 fontSize = 10.sp, fontFamily = FontFamily.Monospace,
                 fontWeight = FontWeight.Bold,
-                modifier = Modifier.clickable { onBack() }.padding(horizontal = 14.dp, vertical = 14.dp))
+                modifier = Modifier.clickable {
+                    if (routeMode) {
+                        android.widget.Toast.makeText(context, "Save or discard your in-progress route first", android.widget.Toast.LENGTH_SHORT).show()
+                    } else {
+                        onBack()
+                    }
+                }.padding(horizontal = 14.dp, vertical = 14.dp))
             Spacer(Modifier.width(12.dp))
             tileSources.forEach { (label, _, _) ->
                 val isActive = pmActiveSource == label
@@ -385,24 +397,8 @@ fun ConvoyMapViewerScreen(
                         )
                     }
 
-        if (showExitConfirm) {
-            androidx.compose.material3.AlertDialog(
-                onDismissRequest = { showExitConfirm = false },
-                title = { Text("Leave Planning Map?") },
-                text = { Text("Your display settings will be preserved.") },
-                confirmButton = {
-                    androidx.compose.material3.TextButton(onClick = {
-                        showExitConfirm = false
-                        onBack()
-                    }) { Text("LEAVE") }
-                },
-                dismissButton = {
-                    androidx.compose.material3.TextButton(onClick = {
-                        showExitConfirm = false
-                    }) { Text("STAY") }
-                }
-            )
-        }
+        // exit-confirm removed: back returns directly when no route active;
+        // when a route is active the BackHandler toast-gates instead (FIX 8).
 
                 // -- WebView --
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
@@ -840,6 +836,7 @@ fun ConvoyMapViewerScreen(
                 isConvoyMap = false,
                 onCreateRoute = {
                     // +ROUTE -> choose New vs In-Progress BEFORE the toolbar opens.
+                    routeMode = true   // route-add selected: panel has no cancel, both picks build a route
                     showEntryChoice = true
                 },
                 onSearch = { type, term ->
@@ -923,9 +920,11 @@ fun ConvoyMapViewerScreen(
                             showEntryChoice = false
                             routeLifecycleState = ROUTE_LS_NEW
                             routeMethod = ROUTE_METHOD_P2P
-                            routeName = ""
+                            routeName = "Auto Saved In Progress"
                             routeNameTaken = false
-                            showNameDialog = true
+                            routeEntryNonce++
+                            routeMode = true
+                            webViewRef?.evaluateJavascript("window.__routeMode=true;setRouteMode(true)", null)  // arm tap-to-place (no name prompt)
                         }) { androidx.compose.material3.Text("New Route") }
                     },
                     dismissButton = {
@@ -1022,13 +1021,22 @@ fun ConvoyMapViewerScreen(
                     onSelectMethod = { routeMethod = it },
                     onNewRoute = {
                         routeLifecycleState = ROUTE_LS_NEW
-                        routeName = ""
+                        routeName = "Auto Saved In Progress"
                         routeNameTaken = false
-                        showNameDialog = true
                     },
-                    onAddPointModeArmed = { webViewRef?.evaluateJavascript("window.__routeMode=true;setRouteMode(true)", null) },
+                    onAddModeChanged = { armed ->
+                        addPointMode = armed
+                        webViewRef?.evaluateJavascript("window.__routeMode=" + armed + ";setRouteMode(" + armed + ")", null)
+                    },
                     onUndo = {
                         RouteManager.undoVertex()
+                        if (routeName.isNotBlank()) {
+                            val methodStr = when (routeMethod) { ROUTE_METHOD_DRAW -> "draw"; ROUTE_METHOD_SUGGEST -> "suggest"; else -> "point" }
+                            runCatching {
+                                if (RouteDraftStore.draftExists(routeName)) RouteDraftStore.overwriteDraft(routeName, methodStr)
+                                else RouteDraftStore.writeDraft(routeName, methodStr)
+                            }
+                        }
                         scope.launch {
                             val pts = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                                 SpatialDbManager.init(context)
