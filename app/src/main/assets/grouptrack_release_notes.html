@@ -9,7 +9,7 @@
 <html lang="en"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<title>GroupTrack V2.5 — Release Notes</title>
+<title>GroupTrack V2.6c — Release Notes</title>
 <style>
   :root{--bg:#10130f;--panel:#181c15;--ink:#e8ece2;--dim:#9aa68c;--line:#2b3324;
     --accent:#7bb661;--accent2:#d9a441;--warn:#e0563b;--ui:-apple-system,"Segoe UI",Roboto,sans-serif;--body:Georgia,serif;}
@@ -37,22 +37,136 @@
 .rnimg-row figcaption{font:12px system-ui,sans-serif;color:#555;margin-top:4px}
 </style></head>
 <body>
-<header><div class="ttl"><b>GroupTrack</b> V2.5 — Release Notes</div>
-<div class="sub">What's new · Field Test Release · Updated 2026-07-03 · grouptrack.org</div></header>
+<header><div class="ttl"><b>GroupTrack</b> V2.6 — Release Notes</div>
+<div class="sub">What's new · Field Test Release · Rel 2.6c · Updated 2026-07-22 · grouptrack.org</div></header>
 <main>
 
 <div class="upgrade">
-  <div class="upgrade-h">⚠ Updating from an earlier version? Read this first.</div>
+  <div class="upgrade-h">⚠ IMPORTANT — read this before you proceed</div>
   <p><strong>Install as an UPDATE — do NOT uninstall the old version and install this as a new install.</strong>
-  Let the app update in place through the Play Store. Uninstalling and then clean-installing
-  <strong>will break the installation</strong>, and you will have to reach out for help to recover it.</p>
-  <p><strong>After the update, on first launch the trail/track database is rebuilt.</strong> So:</p>
-  <ul>
-    <li><strong>Re-import your trails</strong> — open <em>Work with Artifacts → Import Trails</em> and import <em>UGRC Utah Trails</em> again (brings back trails + trailhead waypoints).</li>
-    <li><strong>Resync your recorded tracks.</strong> The resync runs automatically on first launch after the update. <strong>If it did NOT run automatically on your install, you must run it yourself — open the track import screen and tap <em>RESYNC TRACKS</em> — or your tracks will not display.</strong></li>
-    <li><strong>Your GPX track files and downloaded map tiles are not affected</strong> by the update.</li>
-  </ul>
-  <p class="recovery"><strong>If you already did a clean install and it’s broken:</strong> the fix is to remove the two GroupTrack database files from <code>/sdcard/Documents/GroupTrack/</code> before relaunching — contact the organizer for help, as this is a manual step.</p>
+  Let the app update in place through the Play Store.</p>
+  <p><strong>V2.6 changes how offline map tiles are stored</strong> — to a single on-device <strong>spatial database</strong> per map type, which makes stored maps <strong>roughly half the size</strong> (field-measured ~55% smaller for satellite imagery). Before your maps will work, the old tiles must be cleared once and re-downloaded in the new format. Do this first:</p>
+  <ol>
+    <li><strong>Install X-plore.</strong> In the <strong>Google Play Store</strong>, search <strong>&ldquo;X-plore File Manager&rdquo;</strong> and install it (free). X-plore <span class="prog">shows its progress the whole time</span> — a live count of folders remaining and the file names as they clear — so you always know it's working.</li>
+    <li><strong>Delete the old tiles folder.</strong> In X-plore, go to <code>Internal storage → Documents → GroupTrack → maps</code> and delete the <strong>maps</strong> folder. If you've downloaded a lot of maps this can take a while — let it run; the on-screen count shows it's actively working. Keep the device plugged in for a large cleanup.</li>
+    <li><strong>Re-download your maps.</strong> Back in GroupTrack, download the areas you need again (by Area, or from a track or route). They're saved in the new format at roughly half the previous size.</li>
+  </ol>
+  <p><strong>Your tracks and routes are not affected</strong> — this clears only downloaded map <em>tiles</em> (the imagery/topo backgrounds). Recorded tracks, imported tracks, and routes are stored separately and untouched.</p>
+  <p class="recovery">This is a one-time step. Once your maps are re-downloaded in the new format, future updates won't need it.</p>
+</div>
+
+<h2>New in this release · Rel 2.6c · 2026-07-22</h2>
+
+<p style="font:14px var(--ui);color:var(--dim);margin:2px 0 10px">Everything below is new since the 2026-07-06 build.</p>
+
+<h3 style="font:700 15px var(--ui);color:var(--accent2);margin:18px 0 4px">Offline maps &amp; downloads</h3>
+
+<div class="item">
+  <div class="what">Smaller map storage — the spatial-database tile store</div>
+  <div class="means">Offline map tiles now live in a single spatial database per map type instead of millions of separate files, compressed and de-duplicated in one efficient container. See the upgrade note at the top — existing tiles must be cleared once.</div>
+  <div class="benefit">Benefit: about half the storage for your offline maps (field-measured ~55% smaller for satellite), with no visible quality loss at normal zoom.</div>
+  <a class="ml" href="grouptrack_manual.html#planning">Manual: Offline Maps &amp; Downloads</a>
+</div>
+
+<div class="item">
+  <div class="what">Much faster map downloads</div>
+  <div class="means">Map tiles are now fetched in parallel instead of one at a time. A large multi-source area (satellite plus topo layers) that could previously take many hours now completes in roughly an hour and a half in field testing. If a map server is briefly busy or returns a temporary error, the app backs off and retries that tile instead of skipping it.</div>
+  <div class="benefit">Benefit: several times faster downloads, and they finish more complete.</div>
+  <a class="ml" href="grouptrack_manual.html#planning">Manual: Offline Maps &amp; Downloads</a>
+</div>
+
+<div class="item">
+  <div class="what">Big downloads split into balanced pieces</div>
+  <div class="means">A large download area is now divided into evenly sized pieces sized off the real tile count, and every map source uses the same grid so their pieces line up. Two pieces download at once, each fetching several tiles in parallel.</div>
+  <div class="benefit">Benefit: no single oversized job stalls the queue — large areas move steadily instead of sitting on one huge chunk.</div>
+  <a class="ml" href="grouptrack_manual.html#planning">Manual: Offline Maps &amp; Downloads</a>
+</div>
+
+<div class="item">
+  <div class="what">Changing a map source re-downloads in balanced pieces, with progress</div>
+  <div class="means">When you switch a map slot to a different source, the refresh is now split the same way an area download is, instead of a fixed grid. Each piece also reports its real tile count, so the queue shows a total and a progress percentage while it works.</div>
+  <div class="benefit">Benefit: source changes download faster and you can see exactly how far along they are.</div>
+  <a class="ml" href="grouptrack_manual.html#planning">Manual: Map Sources</a>
+</div>
+
+<div class="item">
+  <div class="what">Full-detail topo downloads</div>
+  <div class="means">The TOPO and TOPO+ layers now download their full available zoom detail (a previous internal limit has been removed). The USGS TOPO+ source still has no imagery above about zoom 15 — that is a source limitation, unchanged.</div>
+  <div class="benefit">Benefit: sharper topo maps offline where the source supports it.</div>
+  <a class="ml" href="grouptrack_manual.html#planning">Manual: Offline Maps &amp; Downloads</a>
+</div>
+
+<div class="item">
+  <div class="what">Offline map labels fixed</div>
+  <div class="means">Road and place-name labels on the satellite map now stay visible after you go offline and when you switch map areas. Previously they could vanish on the first offline switch and not come back.</div>
+  <div class="benefit">Benefit: reliable labels wherever you are, on or off the grid.</div>
+</div>
+
+<div class="item">
+  <div class="what">Download maps from the main map</div>
+  <div class="means">You can now start a map-area download for a track straight from its detail panel on the main convoy map — the same source picker and replace option you get on the planning map. Area, track and import downloads all go through the same download panel now.</div>
+  <div class="benefit">Benefit: grab offline maps for a track without leaving the convoy view, and the same controls everywhere.</div>
+  <a class="ml" href="grouptrack_manual.html#planning">Manual: Offline Maps &amp; Downloads</a>
+</div>
+
+<div class="item">
+  <div class="what">Download queue survives interruptions</div>
+  <div class="means">If the app was closed or killed while it was saving the download queue, the queue file could be left damaged — and the app would then keep failing to load it on every later start. The queue is now written safely, and a damaged file is set aside automatically so the app starts clean.</div>
+  <div class="benefit">Benefit: an interrupted download can't leave your queue in a state you'd have to clear app data to escape.</div>
+</div>
+
+<h3 style="font:700 15px var(--ui);color:var(--accent2);margin:18px 0 4px">Building routes</h3>
+
+<div class="item">
+  <div class="what">Route building saves as you go</div>
+  <div class="means">An in-progress route now saves automatically as you place each point, under a working name. There is no "name your route" prompt when you start — you name it when you save. Undo removes the last point and the saved copy updates to match.</div>
+  <div class="benefit">Benefit: a route in progress is never lost, even if the app closes unexpectedly.</div>
+  <a class="ml" href="grouptrack_manual.html#planning">Manual: Routes</a>
+</div>
+
+<div class="item">
+  <div class="what">Naming a route is now required when you save</div>
+  <div class="means">When you save a route, a name is required. The field starts blank for an auto-saved route — type a name before saving. Save as a completed route (needs 2 or more points), or keep it as a named work-in-progress you can resume later.</div>
+  <div class="benefit">Benefit: your saved routes carry real names instead of all sharing the working one.</div>
+  <a class="ml" href="grouptrack_manual.html#planning">Manual: Routes</a>
+</div>
+
+<div class="item">
+  <div class="what">Recovering a route after an unexpected close</div>
+  <div class="means">If the app closes unexpectedly (crash, force-close, battery) while a route is in progress, the next time you open the Planning map GroupTrack shows a notice: a route was left open from your last session. Tap OK, then <strong>+ROUTE → In Progress</strong> and pick the auto-saved route to carry on. A normal route close or save does not trigger the notice.</div>
+  <div class="benefit">Benefit: an interrupted route is still there when you come back, and the app tells you how to get to it.</div>
+  <a class="ml" href="grouptrack_manual.html#planning">Manual: Routes</a>
+</div>
+
+<div class="item">
+  <div class="what">A cleaner route-building mode</div>
+  <div class="means">Starting a route now puts the map straight into route mode, with a Route / Artifact switch so you can choose whether a tap adds a route point or works with artifacts. While you are placing route points, tapping a track no longer opens its details and no waypoint is dropped by mistake. Backing out of an in-progress route asks you to save or discard first.</div>
+  <div class="benefit">Benefit: fewer stray taps and accidental waypoints while building, and no route lost by pressing Back.</div>
+  <a class="ml" href="grouptrack_manual.html#planning">Manual: Routes</a>
+</div>
+
+<h3 style="font:700 15px var(--ui);color:var(--accent2);margin:18px 0 4px">Tracks &amp; artifacts</h3>
+
+<div class="item">
+  <div class="what">Delete and rename now work</div>
+  <div class="means">Deleting or renaming a track, route or waypoint from its detail panel had no effect — the item stayed exactly as it was. Both now work correctly on the convoy map and the planning map, and deleting a track removes it everywhere it was stored, including its recorded file.</div>
+  <div class="benefit">Benefit: you can clean up and correct your saved artifacts instead of watching them pile up.</div>
+  <a class="ml" href="grouptrack_manual.html#planning">Manual: Work with Artifacts</a>
+</div>
+
+<div class="item">
+  <div class="what">Track import tells you what it is doing</div>
+  <div class="means">Importing a batch of tracks used to leave you looking at a blank screen for as long as an hour with no sign of progress. The import now reports track by track as it works through them, so you can see each one being processed and how far along the batch is.</div>
+  <div class="benefit">Benefit: you know the import is running and roughly how much is left, instead of wondering whether the app has hung.</div>
+  <a class="ml" href="grouptrack_manual.html#planning">Manual: Importing</a>
+</div>
+
+<details style="margin-top:26px;border:1px solid var(--line);border-radius:8px;padding:8px 12px;background:var(--panel)">
+<summary style="font:700 15px var(--ui);color:var(--accent);cursor:pointer">Previous releases</summary>
+
+<div class="upgrade" style="margin-top:12px">
+  <div class="upgrade-h">⚠ Note from the earlier V2.5 build</div>
+  <p><strong>After that update, on first launch the trail/track database was rebuilt.</strong> If you are coming from V2.5 or earlier you may still need to re-import <em>UGRC Utah Trails</em> under <em>Work with Artifacts → Import Trails</em>, and run <em>RESYNC TRACKS</em> from the track import screen if your recorded tracks do not display.</p>
 </div>
 
 <h2>New in this build · 2026-07-03</h2>
@@ -237,6 +351,8 @@
   <div class="benefit">Benefit: the basemaps you prefer, and control over big offline downloads.</div>
   <a class="ml" href="grouptrack_manual.html#planning">Manual: Map Sources · Offline Maps &amp; Downloads</a>
 </div>
+
+</details>
 
 <a class="manuallink" href="grouptrack_manual.html">Open the full User Manual &#8594;</a>
 </main>

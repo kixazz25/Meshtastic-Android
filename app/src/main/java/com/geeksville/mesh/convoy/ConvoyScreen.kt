@@ -1451,11 +1451,13 @@ fun ConvoyScreen(
             // Locked under the fixed top-right QUEUES button. 2.6: add
             // ALL|TILE|UPLOAD|DOWNLOAD selector when multiple queues exist.
             androidx.compose.material3.Surface(
+                // CONVOY-QUEUES-WIDTH-2026-07-22: widened to match the Planning
+                // queues panel (was TopEnd + fixed .width(260.dp), which
+                // squeezed the shared DownloadQueuePanel content).
                 modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .statusBarsPadding()
-                    .padding(top = 32.dp, end = 8.dp)
-                    .width(260.dp),
+                    .align(Alignment.Center)
+                    .padding(16.dp)
+                    .fillMaxWidth(0.90f),
                 shape = RoundedCornerShape(10.dp),
                 color = Color(0xEE131820),
                 shadowElevation = 8.dp
