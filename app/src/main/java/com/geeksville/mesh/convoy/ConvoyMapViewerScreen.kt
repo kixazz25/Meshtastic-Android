@@ -1320,13 +1320,13 @@ fun ConvoyMapViewerScreen(
                     // ArtifactListPanel handlers; keyed off pendingDetailType (detail can
                     // open from SEARCH where activeListType is null). Refresh: triggerViewportUpdate().
                     onRename = { id, newName ->
-                        scope.launch { ConvoyArtifactOps.rename(context, pendingDetailType!!, id, newName); webViewRef?.evaluateJavascript("triggerViewportUpdate()", null) }
+                        scope.launch { ConvoyArtifactOps.rename(context, (pendingDetailType ?: return@launch), id, newName); webViewRef?.evaluateJavascript("triggerViewportUpdate()", null) }
                     },
                     onDelete = { id ->
-                        scope.launch { ConvoyArtifactOps.delete(context, pendingDetailType!!, id); webViewRef?.evaluateJavascript("triggerViewportUpdate()", null) }
+                        scope.launch { ConvoyArtifactOps.delete(context, (pendingDetailType ?: return@launch), id); webViewRef?.evaluateJavascript("triggerViewportUpdate()", null) }
                     },
-                    onShare = { id -> scope.launch { ConvoyArtifactOps.share(context, pendingDetailType!!, id) } },
-                    onExport = { id -> scope.launch { ConvoyArtifactOps.export(context, pendingDetailType!!, id) } },
+                    onShare = { id -> scope.launch { ConvoyArtifactOps.share(context, (pendingDetailType ?: return@launch), id) } },
+                    onExport = { id -> scope.launch { ConvoyArtifactOps.export(context, (pendingDetailType ?: return@launch), id) } },
                     onDownloadMaps = { hash ->
                         Thread {
                             val bb = SpatialDbManager.getTrackBbox(context, hash)
@@ -1391,7 +1391,7 @@ fun ConvoyMapViewerScreen(
                             waypointCheckedIds = MapStateStore.checkedIdsFor(rs, "Waypoints")
                             routeCheckedIds = MapStateStore.checkedIdsFor(rs, "Routes")
                         }
-                        pendingDetailId = null; pendingDetailType = null
+                        pendingDetailId = null; if (fittedType != null) pendingDetailType = null
                     }
                 )
             }

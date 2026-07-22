@@ -224,14 +224,25 @@ object DownloadQueueManager {
     ): Int {
         init(context)
         val bounds = ConvoyTileDownloader.tileBoundsLatLon(slotName) ?: return 0
-        val cells = ConvoyTileDownloader.gridCells(bounds[0], bounds[1], bounds[2], bounds[3])
+        // [2026-07-22] segmentation parity with enqueueArea: SAT sizes the grid, all ride it
+        val slotLayers = MapSourceManager.getDownloadSources()
+            .filter { it.first == slotName }.sumOf { it.second.size }
+        val oneLayerTiles = ConvoyTileCalculator
+            .quickEstimate(bounds[0], bounds[1], bounds[2], bounds[3]).tileCount
+        val satLayers = MapSourceManager.getDownloadSources()
+            .find { it.first == "SAT" }?.second?.size ?: slotLayers
+        val sizeTiles = oneLayerTiles * Math.max(1, satLayers)
+        val cells = ConvoyTileDownloader.segmentCells(
+            bounds[0], bounds[1], bounds[2], bounds[3], sizeTiles
+        )
         if (cells.isEmpty()) return 0
 
         val current = _queue.value.toMutableList()
         cells.forEachIndexed { i, cell ->
             val entry = QueueEntry(
                 north = cell[0], south = cell[1], east = cell[2], west = cell[3],
-                totalTiles = 0,
+                totalTiles = ConvoyTileCalculator
+                    .calculateTiles(cell[0], cell[1], cell[2], cell[3]).size * Math.max(1, slotLayers),
                 label = "REFRESH $slotName ${i + 1}/${cells.size}",
                 refreshMode = true,
                 refreshSlot = slotName
@@ -435,7 +446,10 @@ object DownloadQueueManager {
             val file = File(dir, QUEUE_FILE)
             val arr = JSONArray()
             for (entry in _queue.value) arr.put(entry.toJson())
-            file.writeText(arr.toString(2))
+            val tmp = File(dir, QUEUE_FILE + ".tmp")
+            tmp.writeText(arr.toString(2))
+            if (file.exists()) file.delete()
+            if (!tmp.renameTo(file)) { tmp.delete() }
         } catch (e: Exception) {
             android.util.Log.e(TAG, "Save queue failed: ${e.message}")
         }
@@ -454,7 +468,19 @@ object DownloadQueueManager {
             _queue.value = entries
             android.util.Log.i(TAG, "Loaded ${entries.size} queue entries from disk")
         } catch (e: Exception) {
-            android.util.Log.e(TAG, "Load queue failed: ${e.message}")
+            android.util.Log.e(TAG, "Load queue failed: ${e.message} - quarantining")
+            try {
+                val bad = File(appCtx.filesDir, "download_queue/" + QUEUE_FILE)
+                if (bad.exists()) {
+                    val quarantine = File(bad.parentFile, QUEUE_FILE + ".corrupt")
+                    if (quarantine.exists()) quarantine.delete()
+                    if (!bad.renameTo(quarantine)) bad.delete()
+                    android.util.Log.w(TAG, "Quarantined corrupt queue file")
+                }
+            } catch (q: Exception) {
+                android.util.Log.e(TAG, "Quarantine failed: " + q.message)
+            }
+            _queue.value = emptyList()
         }
     }
 }

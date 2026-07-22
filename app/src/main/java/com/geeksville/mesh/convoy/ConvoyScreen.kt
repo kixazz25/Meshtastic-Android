@@ -1852,18 +1852,20 @@ fun ConvoyScreen(
                         // activeListType is null), not activeListType. Refresh uses convoy's
                         // existing onViewportChanged JS round-trip.
                         onRename = { id, newName ->
-                            coroutineScope.launch { ConvoyArtifactOps.rename(context, pendingDetailType!!, id, newName); webViewRef.value?.evaluateJavascript("try{var b=map.getBounds();Android.onViewportChanged(b.getNorth(),b.getSouth(),b.getEast(),b.getWest(),map.getZoom())}catch(e){}", null) }
+                            val capType = pendingDetailType
+                            if (capType != null) coroutineScope.launch { ConvoyArtifactOps.rename(context, capType, id, newName); webViewRef.value?.evaluateJavascript("try{var b=map.getBounds();Android.onViewportChanged(b.getNorth(),b.getSouth(),b.getEast(),b.getWest(),map.getZoom())}catch(e){}", null) }
                         },
                         onDelete = { id ->
-                            coroutineScope.launch {
-                                ConvoyArtifactOps.delete(context, pendingDetailType!!, id)
+                            val capType = pendingDetailType
+                            if (capType != null) coroutineScope.launch {
+                                ConvoyArtifactOps.delete(context, capType, id)
                                 artifactList = artifactList.filter { it["id"] != id }
                                 selectedArtifactIds = selectedArtifactIds - id
                                 webViewRef.value?.evaluateJavascript("try{var b=map.getBounds();Android.onViewportChanged(b.getNorth(),b.getSouth(),b.getEast(),b.getWest(),map.getZoom())}catch(e){}", null)
                             }
                         },
-                        onShare = { id -> coroutineScope.launch { ConvoyArtifactOps.share(context, pendingDetailType!!, id) } },
-                        onExport = { id -> coroutineScope.launch { ConvoyArtifactOps.export(context, pendingDetailType!!, id) } },
+                        onShare = { id -> val capType = pendingDetailType; if (capType != null) coroutineScope.launch { ConvoyArtifactOps.share(context, capType, id) } },
+                        onExport = { id -> val capType = pendingDetailType; if (capType != null) coroutineScope.launch { ConvoyArtifactOps.export(context, capType, id) } },
                         onDownloadMaps = { hash ->
                             // [V2.6a-CONVOY-DLPANEL] invoke the standard confirm panel (was old direct-queue)
                             Thread {
