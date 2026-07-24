@@ -274,6 +274,11 @@ fun ConvoyMapViewerScreen(
     val viewportSaveHandler = remember { android.os.Handler(android.os.Looper.getMainLooper()) }
     val viewportSaveRunnable = remember { Runnable { savePlanningState() } }
     var pmQueuesOpen by remember { mutableStateOf(false) }
+    // CORRIDOR-WIRING-2026-07-24: survives from the corridor button to onProceed, the
+    // same way downloadBbox does. NON-NULL MEANS "this is a corridor job" -
+    // that is what tells onProceed which branch to take. Cleared on BOTH
+    // proceed and cancel, or the next AREA download would be treated as one.
+    var pendingCorridorHash by remember { mutableStateOf<String?>(null) }
     // "?" help: which bundled doc is open ("manual" | "notes" | null = chooser/closed)
     var docsView by remember { mutableStateOf<String?>(null) }
     var showDocsChooser by remember { mutableStateOf(false) }
@@ -1344,6 +1349,29 @@ fun ConvoyMapViewerScreen(
                             }
                         }.start()
                     },
+                    // CORRIDOR-WIRING-2026-07-24: same prompt as area, different submission.
+                    // The bbox below is shown to the dialog ONLY so it has
+                    // something to display - it is the AREA figure, i.e. exactly
+                    // the number the corridor is meant to beat. The real
+                    // corridor count is logged by enqueueCorridor.
+                    onDownloadCorridor = { hash ->
+                        Thread {
+                            val bb = SpatialDbManager.getTrackBbox(context, hash)
+                            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                if (bb != null && bb.isValid) {
+                                    pendingDetailId = null
+                                    pendingDetailType = null
+                                    pendingCorridorHash = hash
+                                    downloadBbox = bb
+                                    showDownloadConfirm = true
+                                } else {
+                                    android.widget.Toast.makeText(context,
+                                        "No geometry for this track",
+                                        android.widget.Toast.LENGTH_LONG).show()
+                                }
+                            }
+                        }.start()
+                    },
                     onChangeType = { id, newType ->
                         scope.launch { ConvoyArtifactOps.changeType(context, id, newType); webViewRef?.evaluateJavascript("triggerViewportUpdate()", null) }
                     },
@@ -1480,9 +1508,13 @@ fun ConvoyMapViewerScreen(
 
             // DisplayPanel removed
 
-                        DownloadQueuePanel(
-                expanded = queueExpanded,
-                onToggle = { queueExpanded = !queueExpanded },
+            // PHASE0-QUEUE-PANEL-2026-07-24: this bottom-left render is the RUNNING-JOBS
+            // INDICATOR only - active count, queued count, tiles remaining.
+            // It no longer expands in place (expanded = false); tapping it
+            // OPENS THE QUEUE MANAGER, which is where every control lives.
+            DownloadQueuePanel(
+                expanded = false,
+                onToggle = { pmQueuesOpen = true },
                 modifier = Modifier.align(Alignment.BottomStart).padding(start = 12.dp, bottom = 8.dp).width(280.dp)
             )
 
@@ -1511,14 +1543,29 @@ fun ConvoyMapViewerScreen(
                     onProceed = { bbox, selectedSlots, replace ->
                         showDownloadConfirm = false
                         showDownloadPanel = false
+                        // CORRIDOR-WIRING-2026-07-24: non-null hash = corridor job. ONE ENTRY
+                        // PER SOURCE, matching how area jobs already appear - so
+                        // progress is per-source and cancelling SAT leaves TOPO.
+                        val corrHash = pendingCorridorHash
+                        pendingCorridorHash = null
                         Thread {
-                            DownloadQueueManager.submitDownload(
-                                context, bbox.north, bbox.south, bbox.east, bbox.west,
-                                selectedSlots, replace
-                            )
+                            if (corrHash != null) {
+                                for (slot in selectedSlots) {
+                                    DownloadQueueManager.enqueueCorridor(
+                                        context, corrHash, slot, replace
+                                    )
+                                }
+                            } else {
+                                DownloadQueueManager.submitDownload(
+                                    context, bbox.north, bbox.south, bbox.east, bbox.west,
+                                    selectedSlots, replace
+                                )
+                            }
                         }.start()
                     },
-                    onCancel = { showDownloadConfirm = false },
+                    // CORRIDOR-WIRING-2026-07-24: clear on cancel too, or the NEXT area
+                    // download would be treated as a corridor job.
+                    onCancel = { showDownloadConfirm = false; pendingCorridorHash = null },
                     modifier = Modifier.align(Alignment.Center).padding(16.dp)
                 )
             }

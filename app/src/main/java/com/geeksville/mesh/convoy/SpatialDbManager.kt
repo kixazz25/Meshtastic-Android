@@ -1912,6 +1912,65 @@ object SpatialDbManager {
      * the bbox instead of enqueuing — so the caller can feed box 1 (source
      * selection) and submitDownload, identical to the area path.
      */
+    /** CORRIDOR-DERIVATION-2026-07-24: geometry -> POINTS, for corridor downloads.
+     *
+     *  Returns ONE INNER LIST PER SEGMENT. Disjoint MULTILINESTRING segments
+     *  must never be joined: interpolating across the gap between two
+     *  segments would stamp a corridor over terrain the rider never crossed -
+     *  and that gap is precisely where a bbox wastes its tiles, so joining
+     *  them would reintroduce the very bug the corridor exists to fix.
+     *
+     *  ⚠ WKT is `lon lat`. This returns (LAT, LON) - flipped, matching the
+     *  convention at :1763. Backwards puts the corridor in another hemisphere.
+     *
+     *  @return segments, or null if the track/geometry is missing. */
+    fun getTrackPoints(context: Context, hashFileName: String): List<List<Pair<Double, Double>>>? {
+        val hash = hashFileName.substringBeforeLast(".gpx").trim()
+        val sdb = spatialDb ?: return null
+        var wkt: String? = null
+        try {
+            sdb.rawQuery(
+                "SELECT geometry FROM tracks WHERE geom_hash=? LIMIT 1",
+                arrayOf(hash)
+            ).use { c -> if (c.moveToFirst()) wkt = c.getString(0) }
+        } catch (e: Exception) {
+            android.util.Log.e("Corridor", "getTrackPoints lookup failed for $hash: ${e.message}")
+            return null
+        }
+        val g = wkt
+        if (g.isNullOrBlank()) {
+            android.util.Log.w("Corridor", "getTrackPoints: no geometry for hash $hash")
+            return null
+        }
+        // Same parse shape as wktToGeoJsonCoords (:342): strip the wrapper, and
+        // for MULTI split the segments on "),(" before trimming stray parens.
+        val segments: List<String> = when {
+            g.startsWith("MULTILINESTRING(") ->
+                g.removePrefix("MULTILINESTRING(").removeSuffix(")")
+                    .split("),(").map { it.trim('(', ')') }
+            g.startsWith("LINESTRING(") ->
+                listOf(g.removePrefix("LINESTRING(").removeSuffix(")"))
+            else -> {
+                android.util.Log.w("Corridor", "getTrackPoints: unsupported WKT for $hash")
+                return null
+            }
+        }
+        val out = segments.mapNotNull { seg ->
+            val pts = seg.split(",").mapNotNull { p ->
+                val parts = p.trim().split(" ")
+                if (parts.size < 2) return@mapNotNull null
+                val lon = parts[0].toDoubleOrNull() ?: return@mapNotNull null
+                val lat = parts[1].toDoubleOrNull() ?: return@mapNotNull null
+                Pair(lat, lon)          // FLIPPED - WKT is lon lat
+            }
+            if (pts.isEmpty()) null else pts
+        }
+        if (out.isEmpty()) return null
+        android.util.Log.i("Corridor",
+            "getTrackPoints $hash: ${out.size} segment(s), ${out.sumOf { it.size }} points")
+        return out
+    }
+
     fun getTrackBbox(context: Context, hashFileName: String): DownloadBbox? {
         val hash = hashFileName.substringBeforeLast(".gpx").trim()
         val sdb = spatialDb ?: return null

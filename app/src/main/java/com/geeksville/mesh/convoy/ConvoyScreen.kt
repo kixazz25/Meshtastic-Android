@@ -177,6 +177,9 @@ fun ConvoyScreen(
     val isLocalTiles by viewModel.isLocalTiles.collectAsStateWithLifecycle()
     var trailsOn by remember { mutableStateOf(false) }
     var queuesOpen by remember { mutableStateOf(false) }
+    // CORRIDOR-WIRING-2026-07-24: see the planning screen - non-null means the pending
+    // confirm is a CORRIDOR job. Cleared on proceed and on cancel.
+    var pendingCorridorHash by remember { mutableStateOf<String?>(null) }
     var trailsLoaded by remember { mutableStateOf(false) }
     var tracksOn by remember { mutableStateOf(true) }
     var showConvoyTrackPicker by remember { mutableStateOf(false) }
@@ -1885,6 +1888,25 @@ fun ConvoyScreen(
                                 }
                             }.start()
                         },
+                        // CORRIDOR-WIRING-2026-07-24: same prompt as area, different
+                        // submission. The bbox is for DISPLAY in the dialog only.
+                        onDownloadCorridor = { hash ->
+                            Thread {
+                                val bb = SpatialDbManager.getTrackBbox(context, hash)
+                                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                    if (bb != null && bb.isValid) {
+                                        pendingDetailId = null; pendingDetailType = null
+                                        pendingCorridorHash = hash
+                                        downloadBbox = bb
+                                        showDownloadConfirm = true
+                                    } else {
+                                        android.widget.Toast.makeText(context,
+                                            "No geometry for this track",
+                                            android.widget.Toast.LENGTH_LONG).show()
+                                    }
+                                }
+                            }.start()
+                        },
                         onChangeType = { id, newType ->
                             coroutineScope.launch { ConvoyArtifactOps.changeType(context, id, newType); webViewRef.value?.evaluateJavascript("try{var b=map.getBounds();Android.onViewportChanged(b.getNorth(),b.getSouth(),b.getEast(),b.getWest(),map.getZoom())}catch(e){}", null) }
                         },
@@ -1964,14 +1986,31 @@ fun ConvoyScreen(
                         slots = slots,
                         onProceed = { bbox, selectedSlots, replace ->
                             showDownloadConfirm = false
+                            // CORRIDOR-WIRING-2026-07-24: non-null hash = corridor job, ONE
+                            // ENTRY PER SOURCE. Without this branch the convoy
+                            // corridor button would open the prompt and then
+                            // SILENTLY SUBMIT AN AREA DOWNLOAD - worse than
+                            // having no button at all.
+                            val corrHash = pendingCorridorHash
+                            pendingCorridorHash = null
                             Thread {
-                                DownloadQueueManager.submitDownload(
-                                    context, bbox.north, bbox.south, bbox.east, bbox.west,
-                                    selectedSlots, replace
-                                )
+                                if (corrHash != null) {
+                                    for (slot in selectedSlots) {
+                                        DownloadQueueManager.enqueueCorridor(
+                                            context, corrHash, slot, replace
+                                        )
+                                    }
+                                } else {
+                                    DownloadQueueManager.submitDownload(
+                                        context, bbox.north, bbox.south, bbox.east, bbox.west,
+                                        selectedSlots, replace
+                                    )
+                                }
                             }.start()
                         },
-                        onCancel = { showDownloadConfirm = false },
+                        // CORRIDOR-WIRING-2026-07-24: clear on cancel too, or the NEXT area
+                        // download would be treated as a corridor job.
+                        onCancel = { showDownloadConfirm = false; pendingCorridorHash = null },
                         modifier = Modifier.padding(16.dp)
                     )
                 }

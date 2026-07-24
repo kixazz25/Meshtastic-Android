@@ -71,6 +71,78 @@ object ConvoyTileCalculator {
     // display ceilings are intentionally decoupled.
     fun maxZoomForSource(sourceName: String): Int = ConvoyConfig.DOWNLOAD_ZOOM
 
+    /** CORRIDOR-DERIVATION-2026-07-24: the tile set within `bufferDeg` of a line.
+     *
+     *  NO POLYGON IS BUILT. Walk the points and stamp every tile within the
+     *  buffer at each zoom into a SET. Overlaps collapse for free - which is
+     *  what makes a self-crossing track (the "figure 7") trivial here, where a
+     *  polygon buffer would need self-intersection handling.
+     *
+     *  ⚠ INTERPOLATION IS NOT OPTIONAL. Track points can be hundreds of metres
+     *  apart on a straight fast section; stamping only at the vertices would
+     *  leave HOLES in the corridor at high zoom. We step at half a tile width
+     *  (at zMax) so no tile between two points can be missed.
+     *
+     *  ⚠ Each SEGMENT is walked independently - never interpolate across the
+     *  gap between two disjoint segments (see getTrackPoints).
+     *
+     *  @param segments one inner list per segment, points as (LAT, LON)
+     *  @param bufferDeg half-width in DEGREES OF LATITUDE (0.00724 ~ half a
+     *         mile, the same pad getTrackBbox uses, so PoC numbers are
+     *         directly comparable to the bbox baseline)
+     *  @return deduped tiles, ready for ConvoyTileDownloader.downloadTiles */
+    fun corridorTiles(
+        segments: List<List<Pair<Double, Double>>>,
+        bufferDeg: Double = 0.00724,
+        zMin: Int = ConvoyConfig.DOWNLOAD_ZOOM_MIN,
+        zMax: Int = ConvoyConfig.DOWNLOAD_ZOOM
+    ): List<TileKey> {
+        val keys = LinkedHashSet<TileKey>()
+        // Half a tile width at zMax, in degrees of longitude.
+        val stepDeg = (360.0 / Math.pow(2.0, zMax.toDouble())) / 2.0
+        for (seg in segments) {
+            if (seg.isEmpty()) continue
+            for (i in seg.indices) {
+                stampPoint(keys, seg[i].first, seg[i].second, bufferDeg, zMin, zMax)
+                if (i == seg.lastIndex) continue
+                val (lat1, lon1) = seg[i]
+                val (lat2, lon2) = seg[i + 1]
+                val dLat = lat2 - lat1
+                val dLon = lon2 - lon1
+                val dist = Math.max(Math.abs(dLat), Math.abs(dLon))
+                val steps = Math.ceil(dist / stepDeg).toInt()
+                if (steps <= 1) continue
+                for (s in 1 until steps) {
+                    val f = s.toDouble() / steps
+                    stampPoint(keys, lat1 + dLat * f, lon1 + dLon * f, bufferDeg, zMin, zMax)
+                }
+            }
+        }
+        android.util.Log.i("Corridor",
+            "corridorTiles: ${segments.size} seg, ${segments.sumOf { it.size }} pts, " +
+            "bufferDeg=$bufferDeg z$zMin-$zMax -> ${keys.size} tiles")
+        return keys.toList()
+    }
+
+    /** CORRIDOR-DERIVATION-2026-07-24: every tile within `bufferDeg` of ONE point, at every
+     *  zoom. Longitude is scaled by cos(lat) so the buffer stays circular on
+     *  the ground rather than stretching east-west away from the equator -
+     *  the same correction getTrackBbox applies to its pad. */
+    private fun stampPoint(
+        into: MutableSet<TileKey>,
+        lat: Double, lon: Double,
+        bufferDeg: Double, zMin: Int, zMax: Int
+    ) {
+        val lonBuf = bufferDeg / Math.max(0.01, Math.cos(Math.toRadians(lat)))
+        for (z in zMin..zMax) {
+            val xMin = lon2tile(lon - lonBuf, z)
+            val xMax = lon2tile(lon + lonBuf, z)
+            val yMin = lat2tile(lat + bufferDeg, z)   // north = smaller y
+            val yMax = lat2tile(lat - bufferDeg, z)
+            for (x in xMin..xMax) for (y in yMin..yMax) into.add(TileKey(z, x, y))
+        }
+    }
+
     fun calculateTiles(
         north: Double,
         south: Double,

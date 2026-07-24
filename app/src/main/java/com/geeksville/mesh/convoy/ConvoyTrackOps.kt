@@ -581,15 +581,25 @@ object ConvoyTrackOps {
                                     if (downloadMapSlots.isNotEmpty()) {
                                         try {
                                             val gh = SpatialDbManager.computeGeomHash(wkt)
-                                            val bb = SpatialDbManager.getTrackBbox(context, gh)
-                                            if (bb != null && bb.isValid) {
-                                                DownloadQueueManager.submitDownload(
-                                                    context, bb.north, bb.south, bb.east, bb.west,
-                                                    downloadMapSlots, replaceExisting
+                                            // CORRIDOR-CUTOVER-2026-07-24: CORRIDOR, not bbox. The old
+                                            // call was ONE submitDownload covering ALL slots;
+                                            // corridor is ONE ENTRY PER SOURCE, so this LOOPS.
+                                            // getTrackBbox is gone from here - the corridor
+                                            // derives from the geometry, and the bounding box
+                                            // was only ever the thing being replaced.
+                                            // ⚠ 10 tracks x 3 sources = 30 rows, not 10.
+                                            var queued = 0
+                                            for (slot in downloadMapSlots) {
+                                                queued += DownloadQueueManager.enqueueCorridor(
+                                                    context, gh, slot, replaceExisting
                                                 )
-                                                onProgress?.invoke("MAPS: $baseName queued (${downloadMapSlots.size} sources)")
+                                            }
+                                            if (queued > 0) {
+                                                onProgress?.invoke(
+                                                    "MAPS: $baseName corridor queued " +
+                                                    "(${downloadMapSlots.size} sources, $queued tiles)")
                                             } else {
-                                                onProgress?.invoke("MAPS: $baseName no bbox")
+                                                onProgress?.invoke("MAPS: $baseName no corridor")
                                             }
                                         } catch (e: Exception) {
                                             onProgress?.invoke("MAPS ERR: $baseName ${e.message}")

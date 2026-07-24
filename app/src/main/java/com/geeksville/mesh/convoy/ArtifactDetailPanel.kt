@@ -43,6 +43,10 @@ fun ArtifactDetailPanel(
     onShare: ((String) -> Unit)? = null,
     onExport: ((String) -> Unit)? = null,
     onDownloadMaps: ((String) -> Unit)? = null,
+    // CORRIDOR-WORKER-2026-07-24: side-by-side with SAVE MAPS so the same track can be
+    // run both ways and compared. Nullable like its sibling - a screen that
+    // does not offer corridor simply passes nothing.
+    onDownloadCorridor: ((String) -> Unit)? = null,
     onChangeType: ((String, String) -> Unit)? = null,
     onDeleteAlias: ((String) -> Unit)? = null,
     onDismiss: (String?, String?) -> Unit
@@ -94,10 +98,20 @@ fun ArtifactDetailPanel(
                     if (artifactType == "Waypoints" && onChangeType != null) {
                         DetailActionButton("CHANGE TYPE", aOrange) { showTypeChooser = true }
                     }
-                    if (artifactType == "Tracks" && onDownloadMaps != null) {
+                    // CORRIDOR-CUTOVER-2026-07-24: the area SAVE MAPS button is GONE.
+                    // Corridor measured ~107,000 tiles against 1,000,000+ for the
+                    // same track (bar 10) - its bbox was ~95% empty desert. The
+                    // side-by-side existed to produce that comparison and has.
+                    // DELETED rather than flagged off: a disabled path left in
+                    // place is how gridCells and downloadMapsForTrackHash both
+                    // outlived their replacements and later looked live.
+                    // NOTE `onDownloadMaps` stays on the SIGNATURE - both screens
+                    // still pass it - but nothing renders it now, so the area
+                    // path is unreachable from this panel.
+                    if (artifactType == "Tracks" && onDownloadCorridor != null) {
                         DetailActionButton("SAVE MAPS", aGreen) {
                             val gh = detailFields["geom_hash"]
-                            if (!gh.isNullOrBlank()) onDownloadMaps(gh)
+                            if (!gh.isNullOrBlank()) onDownloadCorridor(gh)
                         }
                     }
                     DetailActionButton("FIT", aBlue) {
