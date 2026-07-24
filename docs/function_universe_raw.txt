@@ -824,71 +824,72 @@ ConvoyDownloadQueue.kt:129:        val layerCount = MapSourceManager.getDownload
 ConvoyDownloadQueue.kt:130:        val totalTiles = tiles.size * layerCount
 ConvoyDownloadQueue.kt:132:        val entry = QueueEntry(
 ConvoyDownloadQueue.kt:137:        val current = _queue.value.toMutableList()
-ConvoyDownloadQueue.kt:149:    fun enqueueArea(
-ConvoyDownloadQueue.kt:156:        val slotLayers = MapSourceManager.getDownloadSources().filter { it.first == slotName }.sumOf { it.second.size }
-ConvoyDownloadQueue.kt:160:        val oneLayerTiles = ConvoyTileCalculator.quickEstimate(north, south, east, west).tileCount
-ConvoyDownloadQueue.kt:165:        val satLayers = MapSourceManager.getDownloadSources()
-ConvoyDownloadQueue.kt:167:        val sizeTiles = oneLayerTiles * Math.max(1, satLayers)
-ConvoyDownloadQueue.kt:168:        val cells = ConvoyTileDownloader.segmentCells(north, south, east, west, sizeTiles)
-ConvoyDownloadQueue.kt:171:            val entry = QueueEntry(
-ConvoyDownloadQueue.kt:178:            val current = _queue.value.toMutableList()
-ConvoyDownloadQueue.kt:185:        val current = _queue.value.toMutableList()
-ConvoyDownloadQueue.kt:187:            val entry = QueueEntry(
-ConvoyDownloadQueue.kt:209:    fun submitDownload(
-ConvoyDownloadQueue.kt:220:        fun enqueueRefresh(
-ConvoyDownloadQueue.kt:226:        val bounds = ConvoyTileDownloader.tileBoundsLatLon(slotName) ?: return 0
-ConvoyDownloadQueue.kt:228:        val slotLayers = MapSourceManager.getDownloadSources()
-ConvoyDownloadQueue.kt:230:        val oneLayerTiles = ConvoyTileCalculator
-ConvoyDownloadQueue.kt:232:        val satLayers = MapSourceManager.getDownloadSources()
-ConvoyDownloadQueue.kt:234:        val sizeTiles = oneLayerTiles * Math.max(1, satLayers)
-ConvoyDownloadQueue.kt:235:        val cells = ConvoyTileDownloader.segmentCells(
-ConvoyDownloadQueue.kt:240:        val current = _queue.value.toMutableList()
-ConvoyDownloadQueue.kt:242:            val entry = QueueEntry(
-ConvoyDownloadQueue.kt:260:    fun cancel(entryId: String) {
-ConvoyDownloadQueue.kt:261:        val entry = _queue.value.find { it.id == entryId } ?: return
-ConvoyDownloadQueue.kt:271:        val current = _queue.value.toMutableList()
-ConvoyDownloadQueue.kt:280:    fun holdQueue() {
-ConvoyDownloadQueue.kt:284:    fun resumeQueue() {
-ConvoyDownloadQueue.kt:289:    fun isQueuePaused(): Boolean = queuePaused
-ConvoyDownloadQueue.kt:290:    fun cancelAll() {
-ConvoyDownloadQueue.kt:291:        val current = _queue.value.toMutableList()
-ConvoyDownloadQueue.kt:302:        val completed = current.filter { it.status == QueueStatus.COMPLETE }
-ConvoyDownloadQueue.kt:307:    fun removeEntry(entryId: String) {
-ConvoyDownloadQueue.kt:308:        val entry = _queue.value.find { it.id == entryId } ?: return
-ConvoyDownloadQueue.kt:317:        val current = _queue.value.toMutableList()
-ConvoyDownloadQueue.kt:325:    fun clearCompleted() {
-ConvoyDownloadQueue.kt:326:        val terminal = setOf(QueueStatus.COMPLETE, QueueStatus.CANCELLED, QueueStatus.FAILED)
-ConvoyDownloadQueue.kt:327:        val current = _queue.value.toMutableList()
-ConvoyDownloadQueue.kt:334:    fun updateProgress(entryId: String, downloaded: Int, failed: Int) {
-ConvoyDownloadQueue.kt:335:        val current = _queue.value.toMutableList()
-ConvoyDownloadQueue.kt:336:        val idx = current.indexOfFirst { it.id == entryId }
-ConvoyDownloadQueue.kt:350:    fun markComplete(entryId: String, downloaded: Int, failed: Int) {
-ConvoyDownloadQueue.kt:351:        val entry = _queue.value.find { it.id == entryId }
-ConvoyDownloadQueue.kt:354:            val current = _queue.value.toMutableList()
-ConvoyDownloadQueue.kt:373:    fun markFailed(entryId: String, message: String) {
-ConvoyDownloadQueue.kt:382:    private fun startNextIfAvailable() {
-ConvoyDownloadQueue.kt:385:        val current = _queue.value
-ConvoyDownloadQueue.kt:386:        val running = current.count { it.status == QueueStatus.DOWNLOADING }
-ConvoyDownloadQueue.kt:389:        val slotsAvailable = MAX_CONCURRENT - running
-ConvoyDownloadQueue.kt:390:        val queued = current.filter { it.status == QueueStatus.QUEUED }
-ConvoyDownloadQueue.kt:396:    private fun launchWorker(entry: QueueEntry) {
-ConvoyDownloadQueue.kt:397:        val inputData = Data.Builder()
-ConvoyDownloadQueue.kt:408:        val constraints = Constraints.Builder()
-ConvoyDownloadQueue.kt:412:        val workRequest = OneTimeWorkRequestBuilder<ConvoyDownloadWorker>()
-ConvoyDownloadQueue.kt:431:    private fun updateEntry(entryId: String, transform: (QueueEntry) -> QueueEntry) {
-ConvoyDownloadQueue.kt:432:        val current = _queue.value.toMutableList()
-ConvoyDownloadQueue.kt:433:        val idx = current.indexOfFirst { it.id == entryId }
-ConvoyDownloadQueue.kt:442:    private fun saveQueue() {
-ConvoyDownloadQueue.kt:444:            val dir = File(appCtx.filesDir, "download_queue")
-ConvoyDownloadQueue.kt:446:            val file = File(dir, QUEUE_FILE)
-ConvoyDownloadQueue.kt:447:            val arr = JSONArray()
-ConvoyDownloadQueue.kt:449:            val tmp = File(dir, QUEUE_FILE + ".tmp")
-ConvoyDownloadQueue.kt:459:    private fun loadQueue() {
-ConvoyDownloadQueue.kt:461:            val file = File(appCtx.filesDir, "download_queue/$QUEUE_FILE")
-ConvoyDownloadQueue.kt:463:            val arr = JSONArray(file.readText())
-ConvoyDownloadQueue.kt:464:            val entries = mutableListOf<QueueEntry>()
-ConvoyDownloadQueue.kt:473:                val bad = File(appCtx.filesDir, "download_queue/" + QUEUE_FILE)
-ConvoyDownloadQueue.kt:475:                    val quarantine = File(bad.parentFile, QUEUE_FILE + ".corrupt")
+ConvoyDownloadQueue.kt:160:    fun enqueueArea(
+ConvoyDownloadQueue.kt:167:        val slotLayers = MapSourceManager.getDownloadSources().filter { it.first == slotName }.sumOf { it.second.size }
+ConvoyDownloadQueue.kt:171:        val oneLayerTiles = ConvoyTileCalculator.quickEstimate(north, south, east, west).tileCount
+ConvoyDownloadQueue.kt:176:        val satLayers = MapSourceManager.getDownloadSources()
+ConvoyDownloadQueue.kt:178:        val sizeTiles = oneLayerTiles * Math.max(1, satLayers)
+ConvoyDownloadQueue.kt:179:        val cells = ConvoyTileDownloader.segmentCells(north, south, east, west, sizeTiles)
+ConvoyDownloadQueue.kt:182:            val entryTilesWhole =
+ConvoyDownloadQueue.kt:198:            val entry = QueueEntry(
+ConvoyDownloadQueue.kt:205:            val current = _queue.value.toMutableList()
+ConvoyDownloadQueue.kt:212:        val current = _queue.value.toMutableList()
+ConvoyDownloadQueue.kt:214:            val entry = QueueEntry(
+ConvoyDownloadQueue.kt:244:    fun submitDownload(
+ConvoyDownloadQueue.kt:255:        fun enqueueRefresh(
+ConvoyDownloadQueue.kt:261:        val bounds = ConvoyTileDownloader.tileBoundsLatLon(slotName) ?: return 0
+ConvoyDownloadQueue.kt:263:        val slotLayers = MapSourceManager.getDownloadSources()
+ConvoyDownloadQueue.kt:265:        val oneLayerTiles = ConvoyTileCalculator
+ConvoyDownloadQueue.kt:267:        val satLayers = MapSourceManager.getDownloadSources()
+ConvoyDownloadQueue.kt:269:        val sizeTiles = oneLayerTiles * Math.max(1, satLayers)
+ConvoyDownloadQueue.kt:270:        val cells = ConvoyTileDownloader.segmentCells(
+ConvoyDownloadQueue.kt:275:        val current = _queue.value.toMutableList()
+ConvoyDownloadQueue.kt:277:            val entry = QueueEntry(
+ConvoyDownloadQueue.kt:295:    fun cancel(entryId: String) {
+ConvoyDownloadQueue.kt:296:        val entry = _queue.value.find { it.id == entryId } ?: return
+ConvoyDownloadQueue.kt:306:        val current = _queue.value.toMutableList()
+ConvoyDownloadQueue.kt:315:    fun holdQueue() {
+ConvoyDownloadQueue.kt:319:    fun resumeQueue() {
+ConvoyDownloadQueue.kt:324:    fun isQueuePaused(): Boolean = queuePaused
+ConvoyDownloadQueue.kt:325:    fun cancelAll() {
+ConvoyDownloadQueue.kt:326:        val current = _queue.value.toMutableList()
+ConvoyDownloadQueue.kt:337:        val completed = current.filter { it.status == QueueStatus.COMPLETE }
+ConvoyDownloadQueue.kt:342:    fun removeEntry(entryId: String) {
+ConvoyDownloadQueue.kt:343:        val entry = _queue.value.find { it.id == entryId } ?: return
+ConvoyDownloadQueue.kt:352:        val current = _queue.value.toMutableList()
+ConvoyDownloadQueue.kt:360:    fun clearCompleted() {
+ConvoyDownloadQueue.kt:361:        val terminal = setOf(QueueStatus.COMPLETE, QueueStatus.CANCELLED, QueueStatus.FAILED)
+ConvoyDownloadQueue.kt:362:        val current = _queue.value.toMutableList()
+ConvoyDownloadQueue.kt:369:    fun updateProgress(entryId: String, downloaded: Int, failed: Int) {
+ConvoyDownloadQueue.kt:370:        val current = _queue.value.toMutableList()
+ConvoyDownloadQueue.kt:371:        val idx = current.indexOfFirst { it.id == entryId }
+ConvoyDownloadQueue.kt:385:    fun markComplete(entryId: String, downloaded: Int, failed: Int) {
+ConvoyDownloadQueue.kt:386:        val entry = _queue.value.find { it.id == entryId }
+ConvoyDownloadQueue.kt:389:            val current = _queue.value.toMutableList()
+ConvoyDownloadQueue.kt:408:    fun markFailed(entryId: String, message: String) {
+ConvoyDownloadQueue.kt:417:    private fun startNextIfAvailable() {
+ConvoyDownloadQueue.kt:420:        val current = _queue.value
+ConvoyDownloadQueue.kt:421:        val running = current.count { it.status == QueueStatus.DOWNLOADING }
+ConvoyDownloadQueue.kt:424:        val slotsAvailable = MAX_CONCURRENT - running
+ConvoyDownloadQueue.kt:425:        val queued = current.filter { it.status == QueueStatus.QUEUED }
+ConvoyDownloadQueue.kt:431:    private fun launchWorker(entry: QueueEntry) {
+ConvoyDownloadQueue.kt:432:        val inputData = Data.Builder()
+ConvoyDownloadQueue.kt:443:        val constraints = Constraints.Builder()
+ConvoyDownloadQueue.kt:447:        val workRequest = OneTimeWorkRequestBuilder<ConvoyDownloadWorker>()
+ConvoyDownloadQueue.kt:466:    private fun updateEntry(entryId: String, transform: (QueueEntry) -> QueueEntry) {
+ConvoyDownloadQueue.kt:467:        val current = _queue.value.toMutableList()
+ConvoyDownloadQueue.kt:468:        val idx = current.indexOfFirst { it.id == entryId }
+ConvoyDownloadQueue.kt:477:    private fun saveQueue() {
+ConvoyDownloadQueue.kt:479:            val dir = File(appCtx.filesDir, "download_queue")
+ConvoyDownloadQueue.kt:481:            val file = File(dir, QUEUE_FILE)
+ConvoyDownloadQueue.kt:482:            val arr = JSONArray()
+ConvoyDownloadQueue.kt:484:            val tmp = File(dir, QUEUE_FILE + ".tmp")
+ConvoyDownloadQueue.kt:494:    private fun loadQueue() {
+ConvoyDownloadQueue.kt:496:            val file = File(appCtx.filesDir, "download_queue/$QUEUE_FILE")
+ConvoyDownloadQueue.kt:498:            val arr = JSONArray(file.readText())
+ConvoyDownloadQueue.kt:499:            val entries = mutableListOf<QueueEntry>()
+ConvoyDownloadQueue.kt:508:                val bad = File(appCtx.filesDir, "download_queue/" + QUEUE_FILE)
+ConvoyDownloadQueue.kt:510:                    val quarantine = File(bad.parentFile, QUEUE_FILE + ".corrupt")
 ConvoyDownloadQueuePanel.kt:36:private val panelBg = Color(0xE6131820)
 ConvoyDownloadQueuePanel.kt:37:private val accentGreen = Color(0xFF1CF0A0)
 ConvoyDownloadQueuePanel.kt:38:private val accentBlue = Color(0xFF4DA6FF)
