@@ -251,7 +251,7 @@ fun ConvoySettingsScreen(
             // ── Build stamp ──────────────────────────────────────────
             Spacer(Modifier.height(8.dp))
             Text(
-                text     = "GroupTrack Rel 2.6c — Build ${BuildConfig.BUILD_STAMP}",
+                text     = "GroupTrack Rel 2.6d — Build ${BuildConfig.BUILD_STAMP}",
                 style    = MaterialTheme.typography.labelSmall,
                 color    = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                 modifier = Modifier

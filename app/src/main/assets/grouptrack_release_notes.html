@@ -38,7 +38,7 @@
 </style></head>
 <body>
 <header><div class="ttl"><b>GroupTrack</b> V2.6 — Release Notes</div>
-<div class="sub">What's new · Field Test Release · Rel 2.6c · Updated 2026-07-22 · grouptrack.org</div></header>
+<div class="sub">What's new · Field Test Release · Rel 2.6d · Updated 2026-07-24 · grouptrack.org</div></header>
 <main>
 
 <div class="upgrade">
@@ -55,7 +55,92 @@
   <p class="recovery">This is a one-time step. Once your maps are re-downloaded in the new format, future updates won't need it.</p>
 </div>
 
-<h2>New in this release · Rel 2.6c · 2026-07-22</h2>
+<h2>New in this release · Rel 2.6d · 2026-07-24</h2>
+
+<p style="font:14px var(--ui);color:var(--dim);margin:2px 0 10px">Everything below is new since Rel 2.6c.</p>
+
+<h3 style="font:700 15px var(--ui);color:var(--accent2);margin:18px 0 4px">Saving maps for a trail</h3>
+
+<div class="item">
+  <div class="what">Saving maps from a track now follows the trail instead of boxing it in</div>
+  <div class="means">When you save maps for a track, GroupTrack now downloads a corridor along the trail itself &mdash; the path plus about half a mile either side &mdash; instead of the whole rectangle that encloses the track. A long trail that wanders across a wide area used to pull down everything inside that rectangle, most of which is ground nobody rides.</div>
+  <div class="benefit">Benefit: dramatically smaller downloads for the same trail. On a ~100-mile test track that doubles back on itself, the download went from over a million tiles to about 107,000 &mdash; roughly a 90% reduction, and hours off the wait. The gain is largest on long, winding trails; a short compact loop will see less difference, because its rectangle was already close to the trail.</div>
+  <a class="ml" href="grouptrack_manual.html#planning">Manual: Offline Maps &amp; Downloads</a>
+</div>
+
+<div class="item">
+  <div class="what">Importing tracks saves maps the same way</div>
+  <div class="means">When you import tracks with the &ldquo;save maps&rdquo; option turned on, each track now queues a corridor download instead of a rectangle. Each track queues one job <em>per map source</em>, so importing ten tracks with three sources selected produces thirty jobs in the queue &mdash; that is normal, and each one is far smaller than before.</div>
+  <div class="benefit">Benefit: bulk imports no longer queue enormous rectangles of terrain you will never ride.</div>
+  <a class="ml" href="grouptrack_manual.html#planning">Manual: Offline Maps &amp; Downloads</a>
+</div>
+
+<div class="item">
+  <div class="what">A brief pause before a large import starts downloading</div>
+  <div class="means">GroupTrack now works out the exact corridor for each track before queueing it, so a large import spends a moment calculating before the first tile arrives.</div>
+  <div class="benefit">This is expected, not a freeze &mdash; that calculation is what makes the smaller download possible.</div>
+</div>
+
+<h3 style="font:700 15px var(--ui);color:var(--accent2);margin:18px 0 4px">The downloads panel &mdash; rebuilt</h3>
+
+<div class="item">
+  <div class="what">The downloads indicator now opens a full download manager</div>
+  <div class="means">Tapping the downloads indicator no longer half-expands a small popup &mdash; it opens the download manager itself, where everything about the queue lives. The indicator stays compact until you want it.</div>
+  <div class="benefit">Benefit: one tap gets you to the controls instead of a summary you then have to leave.</div>
+  <a class="ml" href="grouptrack_manual.html#planning">Manual: Offline Maps &amp; Downloads</a>
+</div>
+
+<div class="item">
+  <div class="what">The queue list scrolls through every job</div>
+  <div class="means">The queue list previously stopped part-way down and would not scroll further, so with a long queue most jobs simply could not be reached. The list has been rebuilt and now scrolls through the whole queue however many jobs are waiting.</div>
+  <div class="benefit">Benefit: with a couple of hundred jobs queued you can see and reach all of them.</div>
+  <a class="ml" href="grouptrack_manual.html#planning">Manual: Offline Maps &amp; Downloads</a>
+</div>
+
+<div class="item">
+  <div class="what">A summary that shows what is running, what is waiting, and how long it will take</div>
+  <div class="means">Three lines at the top of the manager: what is downloading right now and its tile count, how many jobs are still queued and <strong>their total tiles</strong>, and an estimated time remaining with a projected finish time. The queued tile total is new &mdash; the old summary only counted the jobs actually running, so a large queue looked far smaller than it was. The time estimate is worked out from how fast your own recent downloads actually completed rather than from a fixed guess, and it appears once a couple of downloads have finished on this version.</div>
+  <div class="benefit">Benefit: you can tell at a glance whether a queue finishes overnight or needs trimming before you leave.</div>
+  <a class="ml" href="grouptrack_manual.html#planning">Manual: Offline Maps &amp; Downloads</a>
+</div>
+
+<div class="item">
+  <div class="what">Every job says what kind it is and when it will run</div>
+  <div class="means">Each row in the queue now shows the job&rsquo;s type and its place in the running order &mdash; for example an area download, a trail corridor, a map-source refresh, or a tile deletion &mdash; alongside the source it is fetching and its progress.</div>
+  <div class="benefit">Benefit: the running order is visible instead of looking arbitrary, so you can see why a particular job is waiting.</div>
+  <a class="ml" href="grouptrack_manual.html#planning">Manual: Offline Maps &amp; Downloads</a>
+</div>
+
+<div class="item">
+  <div class="what">Filter the queue by job type &mdash; and act only on what you filtered</div>
+  <div class="means">Filter buttons split the queue by kind: all jobs, areas you drew, trail corridors, map-source refreshes, and deletions. <strong>The filter also controls the Cancel and Clear buttons</strong>, so those act only on the jobs currently shown. Filter to corridors, cancel, and your area downloads are left alone.</div>
+  <div class="benefit">Benefit: you can clear out one kind of job without disturbing the rest.</div>
+  <a class="ml" href="grouptrack_manual.html#planning">Manual: Offline Maps &amp; Downloads</a>
+</div>
+
+<div class="item">
+  <div class="what">Cancel and Clear say exactly what they will do, and ask first</div>
+  <div class="means">The buttons name their scope and count &mdash; &ldquo;CANCEL CORRIDOR (54)&rdquo; when a filter is active, &ldquo;CANCEL ALL (215)&rdquo; when it is not &mdash; and always ask for confirmation before doing anything, with the same scope and count repeated in the question.</div>
+  <div class="benefit">Benefit: nothing destructive happens on a single tap, and you always know whether you are clearing a few jobs or all of them.</div>
+  <a class="ml" href="grouptrack_manual.html#planning">Manual: Offline Maps &amp; Downloads</a>
+</div>
+
+<div class="item">
+  <div class="what">Move a download to the front of the queue</div>
+  <div class="means">Each waiting job has a &#9650; button that moves it ahead of the others. Jobs otherwise run in a sensible order: tile deletions first, then trail corridors, then drawn areas, then map-source refreshes. Promotion applies to the row you tap &mdash; if a track queued three jobs, one per map source, promote each of the three.</div>
+  <div class="benefit">Benefit: the map you need for tomorrow&rsquo;s ride does not sit behind a large area download.</div>
+  <a class="ml" href="grouptrack_manual.html#planning">Manual: Offline Maps &amp; Downloads</a>
+</div>
+
+<h3 style="font:700 15px var(--ui);color:var(--accent2);margin:18px 0 4px">Fixes</h3>
+
+<div class="item">
+  <div class="what">Download options are reachable on the convoy map in portrait</div>
+  <div class="means">On the convoy map, the download options box &mdash; where you pick map sources and choose whether to replace existing tiles &mdash; sat too low and ran off the bottom of the screen, so its buttons could only be reached by turning the phone sideways. It is now centred, matching the planning map.</div>
+  <div class="benefit">Benefit: you no longer have to rotate the device to start a download from the convoy map.</div>
+</div>
+
+<h2>Previously · Rel 2.6c · 2026-07-22</h2>
 
 <p style="font:14px var(--ui);color:var(--dim);margin:2px 0 10px">Everything below is new since the 2026-07-06 build.</p>
 

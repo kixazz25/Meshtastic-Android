@@ -1978,6 +1978,19 @@ fun ConvoyScreen(
                             preSelected = true
                         )
                     } }
+                    // CONFIRM-BOX-2026-07-24: this dialog USED to render wherever its
+                    // parent Column placed it and OVERFLOWED THE BOTTOM of the
+                    // screen, putting its buttons out of reach unless the device
+                    // was rotated. Planning centres the same dialog because
+                    // planning's sits in a Box and can use Modifier.align().
+                    // Convoy's sits in a COLUMN, where align() does not exist -
+                    // so instead of borrowing scope, bring a Box: fillMaxSize
+                    // makes it the whole viewport and contentAlignment centres
+                    // the child without needing the scope extension.
+                    androidx.compose.foundation.layout.Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
                     ConvoyDownloadConfirm(
                         estimatedTiles = estimate.tileCount,
                         estimatedMB = estimate.estimatedMB,
@@ -2011,8 +2024,11 @@ fun ConvoyScreen(
                         // CORRIDOR-WIRING-2026-07-24: clear on cancel too, or the NEXT area
                         // download would be treated as a corridor job.
                         onCancel = { showDownloadConfirm = false; pendingCorridorHash = null },
+                        // modifier LEFT ALONE - it never needed changing, only the
+                        // dialog's PLACEMENT was wrong (see CONFIRM-BOX-2026-07-24 above).
                         modifier = Modifier.padding(16.dp)
                     )
+                    }   // CONFIRM-BOX-2026-07-24: close the centring Box
                 }
 
                 // -- OLD DISPLAY PANEL (disabled for spatial DB) --
