@@ -1987,9 +1987,42 @@ fun ConvoyScreen(
                     // so instead of borrowing scope, bring a Box: fillMaxSize
                     // makes it the whole viewport and contentAlignment centres
                     // the child without needing the scope extension.
-                    androidx.compose.foundation.layout.Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
+                    // CONFIRM-WINDOW-2026-07-25: THIRD attempt, first to address the
+                    // real cause. This dialog lives inside the Column at ~:1495,
+                    // which is .align(Alignment.TopEnd) + .statusBarsPadding() +
+                    // .padding(top = 52.dp, end = 8.dp). fillMaxSize() means "all
+                    // the space MY PARENT OFFERS" - and that space already STARTS
+                    // 52dp + status bar below the top. So patch J's Box centred
+                    // the dialog in a region whose midpoint sits ~40-50dp BELOW
+                    // true screen centre, and the bottom overflowed by that much.
+                    // Planning renders correctly only because its dialog is NOT in
+                    // a Column - it sits in the full-screen Box
+                    // (ConvoyMapViewerScreen:417) and can use .align(Center).
+                    // Patch J was the right KIND of fix in the WRONG PARENT.
+                    //
+                    // Moving this block to root scope would match planning most
+                    // faithfully, but `estimate` and `slots` are computed locally
+                    // just above, INSIDE this Column - moving the dialog alone
+                    // breaks their scope. So: give the dialog its OWN WINDOW. A
+                    // Dialog is not laid out in the parent composition at all; it
+                    // gets a platform window centred on the SCREEN, so the
+                    // Column's offset and padding stop mattering - and it stays
+                    // correct if that Column is ever changed again.
+                    //
+                    // usePlatformDefaultWidth = false preserves existing sizing.
+                    //
+                    // onDismissRequest MIRRORS onCancel: back-press and outside-tap
+                    // must also clear pendingCorridorHash, or a dismissed prompt
+                    // leaves a stale hash and the NEXT area download is submitted
+                    // as a CORRIDOR job.
+                    androidx.compose.ui.window.Dialog(
+                        onDismissRequest = {
+                            showDownloadConfirm = false
+                            pendingCorridorHash = null
+                        },
+                        properties = androidx.compose.ui.window.DialogProperties(
+                            usePlatformDefaultWidth = false
+                        )
                     ) {
                     ConvoyDownloadConfirm(
                         estimatedTiles = estimate.tileCount,
@@ -2028,7 +2061,7 @@ fun ConvoyScreen(
                         // dialog's PLACEMENT was wrong (see CONFIRM-BOX-2026-07-24 above).
                         modifier = Modifier.padding(16.dp)
                     )
-                    }   // CONFIRM-BOX-2026-07-24: close the centring Box
+                    }   // CONFIRM-WINDOW-2026-07-25: close the Dialog window
                 }
 
                 // -- OLD DISPLAY PANEL (disabled for spatial DB) --
