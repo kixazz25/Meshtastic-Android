@@ -318,6 +318,98 @@ object DownloadQueueManager {
         }
     }
 
+    /** DELETE-AREA-2026-07-25: queue a tile DELETE for one bbox, one slot.
+     *
+     *  Mirrors enqueueArea's shape (one entry per slot, submitted from a loop)
+     *  but deliberately does NOT segment. Segmentation exists because a
+     *  download runs for HOURS and must survive interruption; a delete of the
+     *  same area is ~18 indexed statements and completes in under a second.
+     *  Segmenting would multiply queue rows for no benefit.
+     *
+     *  ⚠ refreshMode is LEFT FALSE ON PURPOSE. It is the replace-tiles flag,
+     *  but markComplete() still reads it as "is a refresh" and SILENTLY
+     *  REMOVES such entries from the queue. A delete entry with refreshMode
+     *  set would vanish on completion with no completion row and no stamp.
+     *
+     *  totalTiles is the GEOMETRY count (tiles in the box x layers) -- what
+     *  COULD be there. The worker reports what actually WAS there. */
+    fun enqueueDelete(
+        context: Context,
+        slotName: String,
+        north: Double, south: Double, east: Double, west: Double
+    ): Int {
+        init(context)
+        MapSourceManager.init(context)
+        val slotLayers = MapSourceManager.getDownloadSources()
+            .filter { it.first == slotName }.sumOf { it.second.size }
+        // DELETE-BANDING-2026-07-25: count what is ACTUALLY on disk, not what the
+        // box could hold. Patch M used the geometry count (tiles in box x
+        // layers), which showed "1,500,000 tiles" for an area that held a
+        // fraction of that - and left the progress bar with a denominator it
+        // could never reach, so a finished job looked permanently stuck.
+        //
+        // These are indexed COUNT(*)s over tile_index, ~18 per store, and this
+        // runs on the background thread submitDelete already uses.
+        val tilesInBox = ConvoyTileCalculator.calculateTiles(north, south, east, west)
+        val storeNames: List<String> = run {
+            val layers = MapSourceManager.getSourceByKey(slotName)?.layers ?: emptyList()
+            if (layers.isEmpty()) listOf(slotName)
+            else layers.mapIndexed { i, l -> if (i == 0) slotName else l.cacheDir }
+        }
+        var totalTiles = 0
+        for (store in storeNames) {
+            if (!MBTilesStore.storeExists(store)) continue
+            for ((z, list) in tilesInBox.groupBy { it.z }) {
+                totalTiles += MBTilesStore.countTileRange(
+                    store, z,
+                    list.minOf { it.x }, list.maxOf { it.x },
+                    list.minOf { it.y }, list.maxOf { it.y }
+                )
+            }
+        }
+        val boxTiles = tilesInBox.size
+
+        val entry = QueueEntry(
+            north = north, south = south, east = east, west = west,
+            totalTiles = totalTiles,
+            label = "DEL $slotName",
+            refreshMode = false,
+            refreshSlot = slotName,
+            downloadType = DownloadType.DELETE_AREA_TILES,
+            priority = DownloadPriority.DELETE
+        )
+        val current = _queue.value.toMutableList()
+        current.add(entry)
+        _queue.value = current
+        saveQueue()
+        android.util.Log.i(TAG,
+            "DELETE queued: slot=$slotName box=$boxTiles geom-tiles, stores=$storeNames, " +
+            "ACTUALLY ON DISK=$totalTiles id=${entry.id}")
+        if (totalTiles == 0) {
+            android.util.Log.i(TAG, "DELETE $slotName: nothing on disk in this area")
+        }
+        startNextIfAvailable()
+        return totalTiles
+    }
+
+    /** DELETE-AREA-2026-07-25: submit a delete for EVERY download source.
+     *  Fred: "assume deleting all three sources and skip the screen prompt.
+     *  Delete is a delete. Clear the area of tiles." One entry per slot so
+     *  progress is per-source and cancelling SAT leaves TOPO -- matching how
+     *  area jobs already appear in the panel. */
+    fun submitDelete(
+        context: Context,
+        north: Double, south: Double, east: Double, west: Double
+    ): Int {
+        init(context)
+        MapSourceManager.init(context)
+        var total = 0
+        for ((slotName, _) in MapSourceManager.getDownloadSources()) {
+            total += enqueueDelete(context, slotName, north, south, east, west)
+        }
+        return total
+    }
+
         fun enqueueRefresh(
         context: Context,
         slotName: String,
@@ -615,10 +707,22 @@ object DownloadQueueManager {
             // CORRIDOR-QUEUE-2026-07-24: the corridor worker re-derives its tiles from
             // this. Empty for every non-corridor entry, which ignores it.
             .putString("geom_hash", entry.geomHash)
+            // DELETE-BANDING-2026-07-25: the delete worker reports progress against
+            // the REAL on-disk count computed at enqueue time, not a geometry
+            // estimate it would never reach.
+            .putInt("total_expected", entry.totalTiles)
             .build()
 
+        // DELETE-AREA-2026-07-25: a delete needs NO network. Requiring CONNECTED
+        // for every job would make freeing storage impossible offline -
+        // which is exactly when a user needs to free storage.
         val constraints = Constraints.Builder()
-            .setRequiredNetworkType(NetworkType.CONNECTED)
+            .setRequiredNetworkType(
+                if (entry.downloadType == DownloadType.DELETE_AREA_TILES)
+                    NetworkType.NOT_REQUIRED
+                else
+                    NetworkType.CONNECTED
+            )
             .build()
 
         // CORRIDOR-WORKER-2026-07-24: the QUEUE TYPE selects the worker. Corridor and
@@ -637,15 +741,10 @@ object DownloadQueueManager {
             DownloadType.CORRIDOR ->
                 OneTimeWorkRequestBuilder<ConvoyCorridorWorker>()
 
-            // PLACEHOLDER until ConvoyDeleteWorker exists. Marked FAILED, not
-            // left QUEUED: a job no worker can run would be re-picked forever
-            // and BLOCK THE QUEUE BEHIND IT - the stuck-queue failure of 07-23.
-            DownloadType.DELETE_AREA_TILES -> {
-                android.util.Log.w(TAG,
-                    "No DELETE worker yet - failing entry id=${entry.id}")
-                markFailed(entry.id, "Tile delete not implemented in this build")
-                return
-            }
+            // DELETE-AREA-2026-07-25: wired. Its own worker, not a branch inside
+            // the area worker - it REMOVES tiles rather than fetching them.
+            DownloadType.DELETE_AREA_TILES ->
+                OneTimeWorkRequestBuilder<ConvoyDeleteWorker>()
         }
         val workRequest = builder
             .setInputData(inputData)

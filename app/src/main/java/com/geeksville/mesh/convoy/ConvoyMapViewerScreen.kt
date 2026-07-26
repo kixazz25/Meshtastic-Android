@@ -224,6 +224,12 @@ fun ConvoyMapViewerScreen(
     var downloadReplaceExisting by remember { mutableStateOf(false) }
     var panelTrailsChecked by remember { mutableStateOf(false) }
     var panelRemoveTilesChecked by remember { mutableStateOf(false) }
+    // DELETE-AREA-2026-07-25: gated confirm for tile removal. Deleting is
+    // IRREVERSIBLE and those tiles cost real Esri requests, so the red button
+    // asks before acting - same discipline as the queue panel's scoped
+    // CANCEL/CLEAR. (Source selection is deliberately NOT asked: a delete
+    // clears the area across every source.)
+    var showRemoveTilesConfirm by remember { mutableStateOf(false) }
     var panelFlyoverZoom by remember { mutableStateOf(18) }
     var queueExpanded by remember { mutableStateOf(false) }
     var pmTracksOn by remember { mutableStateOf(false) }
@@ -1608,10 +1614,63 @@ fun ConvoyMapViewerScreen(
                                 if (panelTilesChecked && downloadBbox.isValid) {
                                     showDownloadConfirm = true; showDownloadPanel = false
                                 }
+                                // DELETE-AREA-2026-07-25: the red "Remove Tiles" label
+                                // existed but had no handler - the button did nothing.
+                                if (panelRemoveTilesChecked && downloadBbox.isValid) {
+                                    showRemoveTilesConfirm = true; showDownloadPanel = false
+                                }
                             }
                             .padding(horizontal = 24.dp, vertical = 14.dp)
                     )
                 }
+            }
+            // DELETE-AREA-2026-07-25: gated confirm. States the area and an upper
+            // bound on what will go. The count shown is the GEOMETRY count
+            // (tiles the box covers x layers) - what COULD be there - because a
+            // live COUNT(*) on the main thread would jank the UI. The worker
+            // reports what was actually removed.
+            if (showRemoveTilesConfirm && downloadBbox.isValid) {
+                val delTiles = ConvoyTileCalculator
+                    .calculateTiles(downloadBbox.north, downloadBbox.south,
+                                    downloadBbox.east, downloadBbox.west).size
+                androidx.compose.material3.AlertDialog(
+                    onDismissRequest = { showRemoveTilesConfirm = false },
+                    title = { Text("Remove tiles?", fontFamily = FontFamily.Monospace) },
+                    text = {
+                        Text(
+                            "Delete downloaded map tiles in this area from ALL sources.\n\n" +
+                            String.format("%.3f\u00b0N to %.3f\u00b0N\n",
+                                downloadBbox.south, downloadBbox.north) +
+                            "Up to " + delTiles + " tiles per layer.\n\n" +
+                            "This cannot be undone.",
+                            fontFamily = FontFamily.Monospace, fontSize = 12.sp
+                        )
+                    },
+                    confirmButton = {
+                        Text("REMOVE TILES",
+                            color = Color(0xFFf85149),
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.clickable {
+                                showRemoveTilesConfirm = false
+                                panelRemoveTilesChecked = false
+                                val bb = downloadBbox
+                                Thread {
+                                    DownloadQueueManager.submitDelete(
+                                        context, bb.north, bb.south, bb.east, bb.west)
+                                }.start()
+                            }.padding(12.dp))
+                    },
+                    dismissButton = {
+                        Text("CANCEL",
+                            color = Color(0xFF8B949E),
+                            fontFamily = FontFamily.Monospace,
+                            modifier = Modifier.clickable {
+                                showRemoveTilesConfirm = false
+                            }.padding(12.dp))
+                    },
+                    containerColor = Color(0xFF131820)
+                )
             }
             // ── Download panel (above FAB) ────────────────────────────────
             if (showDownloadPanel) {

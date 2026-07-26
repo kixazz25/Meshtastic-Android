@@ -183,6 +183,86 @@ object MBTilesStore {
     /** Delete all tiles for a type — drops the whole .mbtiles file.
      *  Replaces deleteSource's deleteRecursively. */
     @Synchronized
+    /** DELETE-AREA-2026-07-25: does a store file exist for this type?
+     *  Checked before deleting so we do not CREATE an empty .mbtiles for a
+     *  layer that was never downloaded -- db() opens-or-creates. */
+    fun storeExists(type: String): Boolean = dbFileFor(type).exists()
+
+    /** DELETE-AREA-2026-07-25: how many tiles sit inside this z/x/y rectangle.
+     *  Indexed count via tile_index. Used to report what a delete actually
+     *  removed, and available for an exact pre-count off the main thread. */
+    fun countTileRange(type: String, z: Int, xMin: Int, xMax: Int, yMin: Int, yMax: Int): Int {
+        if (!storeExists(type)) return 0
+        val d = db(type) ?: return 0
+        var n = 0
+        try {
+            d.rawQuery(
+                "SELECT COUNT(*) FROM tiles WHERE zoom_level=? AND tile_column BETWEEN ? AND ? AND tile_row BETWEEN ? AND ?",
+                arrayOf(z.toString(), xMin.toString(), xMax.toString(), yMin.toString(), yMax.toString())
+            ).use { c -> if (c.moveToFirst()) n = c.getInt(0) }
+        } catch (e: Exception) {
+            android.util.Log.e(TAG, "countTileRange $type z$z: ${e.message}")
+        }
+        return n
+    }
+
+    /** DELETE-AREA-2026-07-25: remove every tile inside a z/x/y rectangle.
+     *  Returns rows deleted.
+     *
+     *  ONE STATEMENT PER ZOOM, not one per tile. A bbox is a CONTIGUOUS
+     *  RECTANGLE in x/y at every zoom, so BETWEEN is EXACTLY equivalent to
+     *  enumerating the tiles -- not an approximation. ~18 statements replace
+     *  ~50,000. (A CORRIDOR delete could not use this form: its tile set is
+     *  a buffered line, not a rectangle.)
+     *
+     *  RAW z/x/y, NO FLIP -- same convention as insertTile/readTile. Using
+     *  the TMS-flipped row here would silently delete THE WRONG TILES and
+     *  look like a partial success.
+     *
+     *  NOTE: space is NOT returned to the filesystem by this. SQLite frees
+     *  the pages inside the file; the .mbtiles keeps its size until a VACUUM.
+     *  That is a separate, explicit action -- VACUUM needs roughly the file's
+     *  own size in free space, so it cannot be fired blindly here. */
+    fun deleteTileRange(type: String, z: Int, xMin: Int, xMax: Int, yMin: Int, yMax: Int): Int {
+        if (!storeExists(type)) return 0
+        val d = db(type) ?: return 0
+        return try {
+            d.delete(
+                "tiles",
+                "zoom_level=? AND tile_column BETWEEN ? AND ? AND tile_row BETWEEN ? AND ?",
+                arrayOf(z.toString(), xMin.toString(), xMax.toString(), yMin.toString(), yMax.toString())
+            )
+        } catch (e: Exception) {
+            android.util.Log.e(TAG, "deleteTileRange $type z$z: ${e.message}")
+            0
+        }
+    }
+
+    /** DELETE-AREA-2026-07-25: reclaimable bytes sitting in this store's
+     *  freelist. freelist_count * page_size. Lets the UI say "delete freed
+     *  1.2 GB -- reclaim it?" instead of a blind "compacting...". */
+    fun reclaimableBytes(type: String): Long {
+        if (!storeExists(type)) return 0L
+        val d = db(type) ?: return 0L
+        var pages = 0L
+        var pageSize = 0L
+        try {
+            d.rawQuery("PRAGMA freelist_count", null).use { c -> if (c.moveToFirst()) pages = c.getLong(0) }
+            d.rawQuery("PRAGMA page_size", null).use { c -> if (c.moveToFirst()) pageSize = c.getLong(0) }
+        } catch (e: Exception) {
+            android.util.Log.e(TAG, "reclaimableBytes $type: ${e.message}")
+        }
+        // DELETE-BANDING-2026-07-25: patch M reported "0 MB reclaimable" after
+        // removing 38,896 tiles, which is not credible - those pages went
+        // somewhere. Most likely WAL: freed pages may not appear in the
+        // freelist until a checkpoint. Log the raw values so we know whether
+        // the pragma returns zero or the arithmetic is wrong, BEFORE anyone
+        // designs a VACUUM flow on top of a number that may be meaningless.
+        android.util.Log.i(TAG,
+            "reclaimable $type: freelist_count=$pages page_size=$pageSize -> ${pages * pageSize} bytes")
+        return pages * pageSize
+    }
+
     fun deleteSource(type: String): Boolean {
         handles.remove(type)?.let { try { it.close() } catch (_: Exception) {} }
         val f = dbFileFor(type)
