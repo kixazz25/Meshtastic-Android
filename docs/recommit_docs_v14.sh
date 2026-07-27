@@ -252,6 +252,21 @@ echo "--- Step 3b: Collecting docs by extension [ALLDOCS-BY-EXTENSION-2026-07-27
 # (.py/.sh were never collected, so patch scripts stay out as before.)
 DOC_EXTS="docx pdf txt md html sql"
 
+# ── GUARD 1 [ALLDOCS-GUARDRAILS-2026-07-27]: SECRETS / PERSONAL ────────────
+# A HARD gate, matched case-insensitively on the filename before any copy.
+# On 07-27 an unguarded sweep committed ngrok_recovery_codes.txt, MySQL
+# connection details and a personal PDF into a PUSHED repo (151fffb79).
+# Skips are LOGGED so a near-miss is visible rather than silent.
+SECRET_PATTERNS="ngrok mysql credential password passwd secret token apikey api_key recovery regform private_key keystore .pem .jks .p12 .env .ppk id_rsa"
+
+# ── GUARD 2: RECENCY WINDOW ───────────────────────────────────────────────
+# Collect only what changed recently. No name dependency (a prefix whitelist
+# is what starved AllDocs for two weeks), but a floor so the sweep cannot drag
+# in years of accumulated Downloads and stall on Drive sync.
+# 45 days covers the backlog missing since ~2026-06-10. ONCE THAT BACKLOG IS
+# IN AND COMMITTED, drop this to ~14 -- older files will already be tracked.
+DOC_MAX_AGE_DAYS=45
+
 # ⚠ EXCLUDE THE SCRIPT'S OWN OUTPUTS. Steps 1/1b GENERATE these into $DOCS.
 # Step 3b runs after them, so copying a stale Downloads copy back would CLOBBER
 # the fresh one -- handing the next session a stale xref while it believes the
@@ -275,6 +290,23 @@ for dir in "$DOWNLOADS" "$GDOCS"; do
 
       # Browser duplicate markers -- "name (1).html"
       case "$BN" in *"("*")"*) continue ;; esac
+
+      # GUARD 1: secrets / personal. Case-insensitive, logged when it fires.
+      BN_LC=$(printf '%s' "$BN" | tr '[:upper:]' '[:lower:]')
+      SECRET=0
+      for sp in $SECRET_PATTERNS; do
+        case "$BN_LC" in *"$sp"*) SECRET=1; break ;; esac
+      done
+      if [ "$SECRET" -eq 1 ]; then
+        echo "  SKIP (secret/personal): $BN"
+        SKIPPED_3B=$((SKIPPED_3B+1)); continue
+      fi
+
+      # GUARD 2: recency. Older than the window means it is either already
+      # tracked or deliberately archived -- either way, not new material.
+      if [ -n "$(find "$f" -maxdepth 0 -mtime +$DOC_MAX_AGE_DAYS 2>/dev/null)" ]; then
+        SKIPPED_3B=$((SKIPPED_3B+1)); continue
+      fi
 
       # The script's own generated files
       SKIP=0

@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GroupTrack V2.5 — User Manual (cookbook)</title>
+<style>
+  body { font-family: Arial, Helvetica, sans-serif; color:#1c1c1c; max-width:900px; margin:0 auto; padding:24px; line-height:1.5; }
+  h1 { font-size:26px; color:#1A3A5A; margin-bottom:2px; }
+  .sub { color:#555; font-size:14px; }
+  .stamp { color:#888; font-style:italic; font-size:12px; border-bottom:2px solid #2E75B6; padding-bottom:8px; margin-bottom:18px; }
+  h2 { font-size:19px; color:#1A3A5A; border-bottom:2px solid #2E75B6; padding-bottom:5px; margin-top:34px; }
+  h3 { font-size:15px; color:#1A3A5A; margin-top:22px; margin-bottom:4px; }
+  h4 { font-size:13.5px; color:#2E75B6; margin:14px 0 3px; }
+  .toc { background:#f7f9fb; border:1px solid #dde6ee; border-radius:6px; padding:12px 16px; font-size:13.5px; margin-bottom:20px; }
+  .toc a { color:#2E75B6; text-decoration:none; }
+  .toc a:hover { text-decoration:underline; }
+  ol, ul { margin:5px 0 10px; }
+  li { margin:3px 0; }
+  .help { background:#eef6ff; border:1px solid #b9d6f2; border-radius:4px; padding:2px 7px; font-size:12px; color:#1a5fa8; font-weight:bold; }
+  .note { background:#f0f6fb; border-left:4px solid #2E75B6; padding:8px 12px; border-radius:3px; font-size:13px; margin:10px 0; }
+  .coming { background:#fff8ec; border-left:4px solid #c89000; padding:8px 12px; border-radius:3px; font-size:13px; margin:10px 0; }
+  .transitional { background:#f3eefa; border-left:4px solid #7a4fb0; padding:8px 12px; border-radius:3px; font-size:13px; margin:10px 0; }
+  code { background:#f0f0f0; padding:1px 4px; border-radius:3px; font-size:12.5px; }
+  .screenref { font-size:12px; color:#888; font-style:italic; }
+</style>
+</head>
+<body>
+
+<h1>GroupTrack — User Manual (V2.5)</h1>
+<div class="sub">Cookbook style. Each section is one screen; every function on that screen is documented in place. The <span class="help">? help</span> icon on a screen deep-links to that screen's section here.</div>
+<div class="stamp">V2.5 · 2026-06-13 · Online edition: grouptrack.org/manual · Bundled offline copy ships in-app · Sections map 1:1 to the screens that carry a ? help icon.</div>
+
+<div class="note"><strong>How help links work:</strong> tapping <span class="help">?</span> on a screen opens this manual at that screen's section (the anchors below — <code>#planning-map</code>, <code>#convoy-map</code>, <code>#radio-write</code>, <code>#artifacts</code>). V2.5 scope for the ? icon: the screens that persist into 3.0 — Planning Map, Convoy Map (incl. the Meshtastic connection/monitoring panel), and the Convoy radio-write menu. The goal in 3.0 is ? on every screen.</div>
+
+<div class="toc">
+<strong>Sections</strong><br>
+1. <a href="#planning-map">Planning Map</a> — explore trails, build routes, import/manage artifacts off-radio<br>
+2. <a href="#convoy-map">Convoy Map</a> — live group tracking + Meshtastic connection &amp; monitoring panel<br>
+3. <a href="#radio-write">Convoy Radio-Write Menu</a> — apply / archive / restore radio config <span class="transitional" style="padding:0 5px;">transitional, supported in V2.5</span><br>
+4. <a href="#artifacts">Work with Artifacts</a> — trails, tracks, waypoints, routes (display, select/edit, create)
+</div>
+
+<!-- ============================================================ -->
+<h2 id="planning-map">1 · Planning Map</h2>
+<div class="screenref">Screen: Planning Map · ? help anchor: #planning-map</div>
+<p>The Planning Map is the off-radio workspace: explore downloaded trails, import your track history, build and save routes, and manage what's displayed — all without a radio connected. It shares the spatial database and route engine with the Convoy Map, but keeps its own display state.</p>
+
+<h3>Map basics</h3>
+<ul>
+<li><strong>Pan / zoom:</strong> drag to pan, pinch to zoom. These stay live at all times, even while building a route.</li>
+<li><strong>Base layers (SAT / TOPO / TOPO+):</strong> switch imagery from the layer control. Tiles are served from your offline cache when available.</li>
+<li><strong>Viewport-aware display:</strong> trails, tracks, waypoints, and routes load for the area you're viewing. Zoom in to see more detail; the display fills in as you move.</li>
+</ul>
+
+<h3>Displaying trails, tracks, waypoints, routes</h3>
+<p>See Section 4 (<a href="#artifacts">Work with Artifacts</a>) — the toggle/select/edit controls are shared and documented there.</p>
+<div class="note"><strong>Too many trails in view:</strong> if the current view contains more trails than can be displayed at once, the SEL/Edit control indicates "Too many trails in view — zoom in to reduce." Zoom in to narrow the area until trails become selectable. <span class="coming" style="padding:0 5px;">guidance behavior — coming</span></div>
+
+<h3>Building a route</h3>
+<p>See the full cookbook entry in Section 4 → <a href="#creating-a-route">Creating a Route</a>. Route building works identically on the Planning Map and the Convoy Map.</p>
+
+<h3>Importing trails / tracks</h3>
+<ul>
+<li><strong>Import tracks (GPX):</strong> bring in your recorded track history. Large files import via streaming; duplicates (same geometry) are skipped automatically, and a recap shows new vs. already-in-library.</li>
+<li><strong>Import trails by area:</strong> draw an area to list and download trail sources overlapping it. <span class="coming" style="padding:0 5px;">processing fix in progress</span></li>
+</ul>
+<div class="coming"><strong>Coming:</strong> waypoint and route extraction from GPX (all GPX imports are currently treated as tracks); GPX/KML open-with handler.</div>
+
+<!-- ============================================================ -->
+<h2 id="convoy-map">2 · Convoy Map</h2>
+<div class="screenref">Screen: Convoy Map (incl. Meshtastic connection / monitoring panel) · ? help anchor: #convoy-map</div>
+<p>The Convoy Map is the live group-tracking screen used during a ride. It shows your position and the positions of other riders relayed over the Meshtastic LoRa mesh, plus the same trail/track/waypoint/route display and route-building tools as the Planning Map.</p>
+
+<h3>Connecting to your radio (connection &amp; monitoring panel)</h3>
+<ul>
+<li><strong>Connect:</strong> open the connection panel and pair your Meshtastic device (e.g. T1000-E) over Bluetooth. The panel shows connection state.</li>
+<li><strong>Monitoring:</strong> the panel reports link status and node activity. Use it to confirm the mesh is up before relying on positions.</li>
+</ul>
+<div class="note"><strong>Device compatibility:</strong> some budget Android devices cannot hold a stable Bluetooth link to the radio (the connection drops after several seconds). If positions stop updating and the panel shows repeated disconnects, the device may be incompatible — see the tester compatibility list.</div>
+
+<h3>Live tracking</h3>
+<ul>
+<li><strong>Rider positions:</strong> other riders appear as node markers, updated as mesh packets arrive.</li>
+<li><strong>Your position:</strong> driven by the phone GPS once location permission is granted.</li>
+</ul>
+
+<h3>Waypoints</h3>
+<ul>
+<li><strong>Drop a waypoint:</strong> long-press the map to drop a waypoint pin.</li>
+<li><strong>Pin shape:</strong> waypoints display as <strong>teardrop pins</strong> — the pin's point marks the exact location you dropped it. Each waypoint type has its own color and icon.</li>
+<li><strong>Proximity:</strong> waypoints within 100 m are treated as the same location.</li>
+</ul>
+
+<h3>Download QUEUES (tile downloads)</h3>
+<ul>
+<li><strong>QUEUES:</strong> opens the live download monitor (top-right) showing tile-download progress.</li>
+</ul>
+
+<h3>Building a route on the Convoy Map</h3>
+<p>Identical to the Planning Map — see Section 4 → <a href="#creating-a-route">Creating a Route</a>.</p>
+
+<!-- ============================================================ -->
+<h2 id="radio-write">3 · Convoy Radio-Write Menu (Apply / Archive / Restore)</h2>
+<div class="screenref">Screen: Convoy menu — radio configuration · ? help anchor: #radio-write</div>
+<div class="transitional"><strong>Transitional — current and supported in V2.5.</strong> These radio-configuration functions are how radio writes happen this release. They are slated to be replaced in 3.0, but they work now and you should use them. This manual fully covers them; the 3.0 manual will rewrite this section when the functions change.</div>
+
+<h3>Apply Convoy Config (write to radio)</h3>
+<ol>
+<li>Connect the radio first (Section 2 connection panel) — the write action is unavailable with no Bluetooth link.</li>
+<li>Open the Convoy menu → radio configuration.</li>
+<li>Review the config values (channel, encryption keys, device settings). Values are validated before writing.</li>
+<li>Apply. The write proceeds screen-by-screen / in passes through the config groups; confirm each completes.</li>
+</ol>
+<div class="note"><strong>Field validation:</strong> the config is validated (e.g. full field check) before programming. A two-pass programming approach is used so all config groups are written and confirmed.</div>
+
+<h3>Archive radio config</h3>
+<ul><li>Save the current working radio configuration so it can be restored later. Use this before making changes.</li></ul>
+
+<h3>Restore radio config</h3>
+<ul><li>Re-apply a previously archived configuration to the connected radio.</li></ul>
+
+<div class="coming"><strong>Coming (replaces this menu in a future build):</strong> a screen-by-screen radio-config writer that mirrors each Meshtastic config screen, pre-populated and read-only, with a PROCEED button that is disabled (red) until the radio is connected (then green), saving after each screen through all config groups.</div>
+
+<!-- ============================================================ -->
+<h2 id="artifacts">4 · Work with Artifacts</h2>
+<div class="screenref">Screen: Work with Artifacts (shared by both maps)</div>
+<p>"Work with Artifacts" is the control center for everything you display and create on the map: trails, tracks, waypoints, and routes. The toggle and select/edit controls are the same on the Planning Map and the Convoy Map.</p>
+
+<h3>Display toggles (ON / OFF / SELECTED)</h3>
+<ul>
+<li><strong>ON:</strong> show all artifacts of that type in view.</li>
+<li><strong>OFF:</strong> hide that type.</li>
+<li><strong>SELECTED:</strong> show only the items you've checked in that type's select/edit list.</li>
+</ul>
+
+<h3>Select / Edit list (per type)</h3>
+<ul>
+<li>Open a type's SEL/Edit list to check individual items for SELECTED display, or to open an item's detail.</li>
+<li><strong>Search by name:</strong> choose an artifact type, type a name, and press Enter to find matching trails, tracks, waypoints, or routes by name across your whole database (not just what's on screen). Search is case-insensitive and matches partial names. Tap a result to open its detail. <span class="coming" style="padding:0 5px;">new in this build</span></li>
+<li><strong>Item detail:</strong> tapping an item's name (from a search result or the select/edit list) opens its detail card. The left side lists the actions available for that item's type; the right side shows the item's information. For trails this includes designated uses, surface type, classification (carto code), county, managing agency, and data source. Less-used technical values — bounding coordinates, created/updated dates, and the geometry hash — are tucked under a <strong>▸ technical</strong> toggle so the useful information shows first; tap it to expand. Where a trail has alternate names on record, they appear here too. On the Convoy Map the detail is view-only; full editing is on the Planning Map. <span class="coming" style="padding:0 5px;">fit-to-map coming</span></li>
+<li><strong>List limit:</strong> the list currently shows up to 200 items. <span class="coming" style="padding:0 5px;">paging — coming</span></li>
+<li><strong>Trails over-limit:</strong> when more trails are in view than can be shown, SEL/Edit shows "Too many trails in view — zoom in to reduce." <span class="coming" style="padding:0 5px;">coming</span></li>
+</ul>
+
+<h3>Track display</h3>
+<div class="note">Tracks display as <strong>dashed green</strong> lines from your device's spatial database. When Tracks are on, each track shows <strong>direction-of-travel arrows</strong> along the line so you can read which way it runs — useful for telling a single looping track from two overlapping ones. <em>(Arrows may take a brief pan or zoom to appear right after you toggle Tracks on.)</em></div>
+<h3>Routes display</h3>
+<div class="note">Routes display as <strong>magenta</strong> lines, loaded from your device's spatial database the same viewport-aware way as trails and tracks. Build a route with <strong>+ ROUTE</strong> (see Creating a Route). <em>(Importing routes from GPX, and the Draw / Suggest build methods, are coming in upcoming updates.)</em></div>
+
+<h3 id="creating-a-route">Creating a Route (early access)</h3>
+<p>A route is a planned path you build by tapping the map, then save with a name for later use. Route building works on both the convoy map and the planning map.</p>
+<ol>
+<li>Open the map (convoy or planning).</li>
+<li>Open "Work with Artifacts" and tap <strong>+ ROUTE</strong>. The Route+ toolbar appears.</li>
+<li>Tap <strong>New</strong>. A "Name this route" box appears with a suggested name — accept it or type your own — then start building.</li>
+<li><strong>Add</strong> is on by default (green): tap the map to drop points. If a trail or track is nearby, the point snaps to it and the magenta route line follows the trail's actual shape between your points — so the route traces real trails instead of cutting straight across. Tap away from any trail to place a free point exactly where you tapped. Tip: zoom in while building for the most reliable snapping.</li>
+<li>Use <strong>Undo</strong> to remove the most recent point.</li>
+<li>Pan and zoom freely between taps to position the map.</li>
+<li>Tap <strong>Save</strong> to store the route. It is saved on your device, redraws on the map in magenta, and appears in Work with Artifacts → Routes under the name you gave it.</li>
+<li>Tap <strong>Discard</strong> to leave without saving.</li>
+</ol>
+<div class="coming"><strong>Coming next (not in this build):</strong>
+<ul>
+<li><strong>Save In Progress / Resume:</strong> save a half-finished route and re-open it later to keep editing (the "In Progress" entry).</li>
+<li><strong>Draw</strong> and <strong>Suggest</strong> build methods (placeholders today).</li>
+<li>Renaming/editing a saved route from the Routes list (route maintenance).</li>
+</ul></div>
+<div class="note"><strong>Route maintenance</strong> (rename, edit geometry, delete a completed route) lives in Work with Artifacts → Routes (SEL/Edit), not in the Route+ toolbar. The toolbar is for building only.</div>
+
+<h3>Track / Trail / Waypoint maintenance</h3>
+<ul>
+<li>Per-type maintenance (rename, detail, delete) is reached from each type's SEL/Edit list. <span class="coming" style="padding:0 5px;">trail/route/waypoint maintenance — in progress</span></li>
+<li><strong>Unnamed trails</strong> display as "Not Named." <span class="coming" style="padding:0 5px;">consistent labeling — being aligned at import</span></li>
+</ul>
+
+<div class="note" style="margin-top:24px"><strong>Manual maintenance note (internal):</strong> when a screen's functions change AND are complete, update that screen's section here and re-point its ? help anchor. Transitional radio-config sections (Section 3) are removed/rewritten in the 3.0 manual when those functions are replaced.</div>
+
+</body>
+</html>
