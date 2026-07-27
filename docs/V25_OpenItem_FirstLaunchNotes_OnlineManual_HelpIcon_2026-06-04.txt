@@ -1,0 +1,75 @@
+================================================================
+V2.5 OPEN ITEM — First-Launch Release Notes + Online HTML Manual with ? Help
+2026-06-04 · GroupTrack V2.5 · requirement capture (not yet built)
+================================================================
+
+Two related deliverables. Both OPEN. Tracked here + checklist §J.
+
+----------------------------------------------------------------
+PART 1 — First-launch: Release Notes + Install instructions
+----------------------------------------------------------------
+On install / first launch (and after each update), auto-show the Release Notes,
+INCLUDING the install + setup steps, so a tester sees what's new AND how to get
+going before they start.
+  - In-app PDF (or HTML) viewer; "I have read and acknowledge" -> Acknowledge ->
+    proceed (checklist §J).
+  - Bundle the install/setup content (seed: V2.4 Tester Install Guide) INTO the
+    first-launch content, not just the what's-new list.
+  - Render OFF the main thread, show AFTER heavy init (do not compound ANRs).
+  - Bundle the doc as an APK asset (works offline on first run).
+
+----------------------------------------------------------------
+PART 2 — Online HTML manual, linked from screens via a ? help icon
+----------------------------------------------------------------
+Manual published as HTML at grouptrack.org/manual (searchable, section links).
+Each covered screen gets a ? help icon that DEEP-LINKS to that screen's section.
+Context-sensitive help: tap ? on a screen -> manual opens at that screen's part.
+
+  IDEAL (preferred): ? on EVERY screen.
+  V2.5 REALITY (scope for this release): ? on the screens that survive into 3.0:
+    - Planning Map
+    - Convoy Map (incl. the Meshtastic CONNECTION / monitoring panel)
+    - Convoy MENU for radio writes (Apply/Archive/Restore radio config)
+  Rationale: these are the screens that persist. Putting ? only where the UI is
+  stable avoids wiring help into screens that 3.0 will remove.
+
+  OPEN DESIGN CHOICE (decide at build): ? opens the ONLINE manual in browser,
+  vs an IN-APP webview (offline if the HTML is bundled). Fred leaning: capture
+  requirement now; pick mechanism at build. Bundled-offline is safer for field
+  use (no cell service), argues for in-app webview of a bundled HTML manual.
+
+----------------------------------------------------------------
+TRANSITIONAL-FUNCTION RULE (important — affects manual SCOPE)
+----------------------------------------------------------------
+The OLD convoy-menu functions (radio configuration: Apply Convoy Config,
+Archive, Restore; legacy menu items) are SLATED TO BE REMOVED IN 3.0. BUT they
+still WORK and still SERVE A PURPOSE in V2.5 — radio writes happen through them.
+THEREFORE:
+  - The V2.5 manual MUST fully cover these transitional functions (radio config
+    apply/archive/restore, 40/40 field validation, two-pass programming, etc.),
+    even though they are going away. Testers use them now; they need the docs.
+  - Mark them in the manual as current-and-supported for V2.5. (Do NOT label
+    "deprecated" to testers — they are live and required this release.)
+  - 3.0 cleanup: when these functions are removed/replaced, the corresponding
+    manual sections are removed/rewritten in the 3.0 manual. Carry this as a
+    3.0 doc task so it isn't forgotten.
+  - The radio-config content already exists (V2.4 Manual Ch 13 + Quick Start).
+    V2.5 manual carries it forward; the ? icon on the Convoy menu radio-write
+    screen links to it.
+
+----------------------------------------------------------------
+GATE (consistent with the route-doc gate)
+----------------------------------------------------------------
+Docs change only when a function changes AND is complete. This whole item is
+OPEN/not built, so no live-doc change yet — this is the requirement record.
+When built, the manual gains: a help-link map (screen -> manual section) and the
+first-launch flow; release notes gain the first-launch + install behavior.
+
+----------------------------------------------------------------
+CHECKLIST WIRING
+----------------------------------------------------------------
+Extends §J (First-Launch Release-Notes Gate). Add Part 2 (? help + online manual,
+V2.5 scope = Planning Map / Convoy Map+connection panel / Convoy radio-write menu)
+and the transitional-function manual-scope rule. To fold into checklist on next
+edit.
+================================================================

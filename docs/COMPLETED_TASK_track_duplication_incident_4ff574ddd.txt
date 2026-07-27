@@ -1,0 +1,93 @@
+========================================================================
+COMPLETED TASK (CLOSED) — GroupTrack
+========================================================================
+TASK: Track import/duplication incident — regex fix + investigation
+COMMIT: 4ff574ddd (parseGpxTrackPoints regex fix + HASHTRACE diagnostics,
+        retained intentionally)
+STATUS: CLOSED 2026-07-11 — deliberate close, not a full resolution
+        (the deeper "same-ride two-hashes" behavior could not be
+        replicated, so it is not debuggable). Working state is clean.
+DOC GENERATED: 2026-07-11 (reconciliation offload from working memory)
+------------------------------------------------------------------------
+
+TASK DESCRIPTION
+----------------
+Investigate and fix reported track duplication on import/sync (the same ride
+appearing twice, with different geometry hashes). Two distinct problems were
+found: a permission/all-files-access cascade (RESOLVED), and a
+different-hash "duplicate" behavior (a genuine regex correctness fix landed,
+but the deeper reported behavior could not be reproduced and was closed).
+
+SAVED MEMORY CONTENTS (as of close)
+-----------------------------------
+- FINAL STATUS: the import/duplication crisis was CLOSED — the different-hash
+  "duplicate" behavior CANNOT BE REPLICATED, so it is not debuggable.
+  Deliberate close, not a resolution. Working state achieved: a two-pass load
+  (72 known-good hash-named tracks first, then named files) dedupes
+  correctly; the library is clean and functional. The regex fix + HASHTRACE
+  diagnostics are committed locally (4ff574ddd) and retained intentionally.
+
+- PROBLEM 1 (permission) — RESOLVED, with a durable GOTCHA:
+  Settings -> Clear storage SILENTLY REVOKES the app's ALL FILES ACCESS
+  (MANAGE_EXTERNAL_STORAGE special-access grant). Without it the app can't
+  read/match the shared folder /sdcard/Documents/my_tracks/ -> import/sync
+  can't reconcile -> duplicates + orphans. The original cascade: corrupted
+  download_queue.json -> startup ANR -> Clear storage used to fix it -> that
+  revoked All-Files AND wiped the spatial DB + tracks.
+  RESOLUTION: UNINSTALL + REINSTALL so the grant happens in the setup flow.
+  DURABLE LESSON: after ANY data clear, re-grant All-Files (reinstall setup,
+  or Settings -> Apps -> Special app access -> All files access ->
+  GroupTrack) BEFORE import/sync.
+
+- PROBLEM 2 (different-hash "duplicates") — CLOSED unresolved, cannot
+  replicate. What WAS fixed & committed (4ff574ddd): parseGpxTrackPoints used
+  a fragile regex  lat="([^"]+)"\s+lon="([^"]+)"  (created 2026-05-22,
+  b3368859f) that only matched OUR recorder's exact <trkpt lat="x" lon="y">
+  format; external files (onX/Gaia) with a different attribute order parsed
+  into a different/empty point set -> different WKT -> different geom_hash ->
+  duplicate. FIX = use the same robust trkpt-anchored regex as
+  parseGpxTrackPointsFull:
+    Regex("""<trkpt\b[^>]*\blat="([^"]+)"[^>]*\blon="([^"]+)"""")
+  still returning Pair(lon, lat) (no hash shift for already-correct files);
+  no precision/formula/file change. A genuine correctness fix regardless of
+  the ghost. BUT it did not fully resolve the reported duplication; after
+  extensive tracing the "same ride, two hashes" behavior could not be
+  replicated, so it was closed.
+  Dedup mechanism confirmed sound: tracks table HAS UNIQUE(geom_hash)
+  (verified via .schema); insertTrackToDb uses INSERT OR IGNORE +
+  changes()==0. HASHTRACE named-pass showed hash calc is consistent
+  (loopHash == resolveHash; same file -> same hash from any filename). The
+  scary examples (Bar10 e3/1806 vs 8c/3160) were never proven to be the SAME
+  geometry — likely genuinely different recordings (different point counts)
+  OR old corrupted-DB artifacts; nobody ever raw-counted the files.
+
+- KEY DISCIPLINE if it ever recurs (the one thing that held up): raw
+  grep -c "<trkpt" the actual .gpx files and compare to logged points BEFORE
+  any theory. Hours were burned on both sides assigning point counts from
+  memory/assumption. Do NOT reopen without that raw measurement in hand.
+
+- HASHTRACE diagnostics RETAINED intentionally in SpatialDbManager.kt
+  (Log.i ~line 646 LOOP in syncTracksFromFiles, ~line 1014 RESOLVE in
+  resolveTrackAdd) — kept because they are not used often and are a pain to
+  re-add; harmless Log.i calls. Committed in 4ff574ddd. (Earlier notes said
+  "remove before commit" — that was overridden; they stay.)
+
+- REPAIR TOOLKIT (reusable, kept for future recovery):
+  EMPTY DB baseline at D:/GroupTrack_data/EMPTY_BASELINE/
+  (grouptrack_spatial.db 118784 bytes, grouptrack_data.db 208896 — full
+  schema/framework, zero rows, verified index/table/view counts match the
+  originals). Corrupted originals at D:/db_corrupted/.
+  To reset a device WITHOUT losing All-Files auth: am force-stop
+  com.grouptrack.android -> push both EMPTY_BASELINE DBs to
+  /sdcard/Documents/GroupTrack/ (DBs live in shared storage, no root needed)
+  -> rm /sdcard/Documents/GroupTrack/*.db-journal -> launch -> run add/sync.
+  WORKING LOAD METHOD: two-pass (load ~72 known-good hash-named tracks first
+  and let stabilize, THEN add named files) dedupes cleanly.
+
+NOTE
+----
+This incident also surfaced the download_queue.json boot-loop / ANR class of
+bug and the map-source tile-replace hazard. Those are OPEN hardening items
+tracked in working memory (loadQueue boot-loop immunity, saveQueue
+atomic-write) and are NOT closed by this task.
+========================================================================

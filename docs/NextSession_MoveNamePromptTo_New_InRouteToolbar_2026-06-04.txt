@@ -1,0 +1,53 @@
+================================================================
+NEXT-SESSION NOTE — Move route-name prompt to "New" INSIDE +ROUTE
+2026-06-04 · GroupTrack V2.5 · Build 2 committed ab2be7c04
+================================================================
+
+WHAT BUILD 2 SHIPPED (and why it needs adjusting):
+The route-name dialog currently fires from the ARTIFACT PANEL's onCreateRoute
+callback (i.e. when +ROUTE is tapped to ENTER route mode). So the user is named
+BEFORE choosing what kind of route action they're taking.
+
+THE CORRECTION (next session):
+The name prompt should fire on the "New" click INSIDE the +ROUTE function (the
+Route+ toolbar's New entry button), NOT on +ROUTE / panel open.
+
+WHY (this is the load-bearing reason):
+The Route+ toolbar has TWO entry actions:
+  - New          -> start a brand-new route  -> NAME it (prompt here)
+  - In Progress  -> resume an existing draft  -> REUSE its existing name (no prompt)
+Naming must come AFTER the New-vs-In-Progress selection, because only "New"
+needs a name. Prompting at panel-open (current behavior) names the route before
+that branch exists, which forecloses the In-Progress/resume path. Putting the
+prompt on the toolbar's "New" lets the New-or-In-Progress choice drive the flow:
+New asks for a name; In Progress loads a draft and its saved name.
+
+SCOPE OF THE CHANGE:
+  - MOVE the showRouteNameDialog trigger OFF the artifact-panel onCreateRoute
+    ( +ROUTE just enters route mode / shows the toolbar as today ).
+  - PUT the trigger ON the Route+ toolbar's "New" button (ConvoyRouteToolbar.kt):
+    New -> fire name dialog -> Start sets routeName + begins building.
+  - "In Progress" (when the draft path exists) -> resume, reuse stored name,
+    NO prompt. (In Progress is still [SOON] / disabled until draft-JSON lands.)
+  - Both screens (two-file mirror): the dialog state + onCreateRoute currently
+    live in ConvoyScreen.kt (showRouteNameDialog) and ConvoyMapViewerScreen.kt
+    (showNameDialog). The trigger relocates from panel onCreateRoute to a new
+    toolbar "New" callback wired up through to each screen.
+  - NOTE the name collision history: ConvoyScreen route dialog var is
+    showRouteNameDialog (the track-naming dialog already owns showNameDialog);
+    keep that name when relocating.
+
+HOW IT DOVETAILS WITH THE LIFECYCLE:
+This is the natural lead-in to the draft-JSON work: once New (name) and In
+Progress (resume) are both real toolbar actions, the create-vs-resume branch is
+in place, and the draft JSON save/resume/graduate flow (per
+RouteWriteFunction_DataContract + RouteCreation_Screen_ProcessFlow) hangs off it
+cleanly. Do this relocation as part of, or just before, the draft-JSON build.
+
+SEQUENCING (suggested for next session):
+  1. Build 3 — armed gating (RED Add pans) — independent, do first.
+  2. Relocate name prompt: panel onCreateRoute -> toolbar "New".  (this note)
+  3. Draft-JSON lifecycle: In Progress (resume), Save in-progress, Discard
+     branches, graduate. Naming branch from step 2 feeds this.
+
+================================================================

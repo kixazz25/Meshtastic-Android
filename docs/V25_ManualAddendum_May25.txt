@@ -1,0 +1,171 @@
+GroupTrack V2.5 — Manual Addendum Updates
+Updated: May 25, 2026
+==========================================
+
+UPDATE Chapter 6: Work With Artifacts
+--------------------------------------
+
+ADD Section 6.3 (replace existing):
+
+6.3 Import Functions
+
+Two import functions are available at the bottom of the Work with
+Artifacts panel on the Planning Map:
+
+IMPORT TRAILS
+Opens the trail source management screen for downloading trail
+databases from public land management agencies.
+
+IMPORT ARTIFACTS
+Opens a panel showing all GPX and KML files in your device's
+Downloads folder. Files are listed by name with the most recent
+first. Tap any file to import.
+
+The import parser automatically detects and processes all three
+artifact types from a single GPX file:
+- Tracks (<trk> elements): saved as GPX files in my_tracks/ and
+  indexed in the spatial database
+- Waypoints (<wpt> elements): stored in the spatial database with
+  automatic type mapping
+- Routes (<rte> elements): stored in the spatial database
+
+After import, a summary toast shows counts per type, for example:
+"Imported: 1 track, 10 waypoints, 2 routes"
+
+Source files are automatically deleted from Downloads after
+successful import to keep the folder clean.
+
+RESYNC TRACKS TO SPATIAL DB
+A green button at the top of the import panel. Tap to rebuild the
+spatial database track index from all GPX files in my_tracks/.
+Use after manually adding or removing track files, or as a
+recovery tool if the database and files get out of sync. Track
+display resumes automatically after resync completes.
+
+
+ADD Section 6.5: Waypoint Display
+
+Waypoints display as colored circle markers on the map. Each of
+the 10 standard waypoint types has a distinct color and letter:
+
+Type          Color    Symbol
+Trailhead     Green    TH
+Fuel          Orange   F
+Gate          Red      G
+Hazard        Yellow   !
+Scenic        Cyan     S
+Water         Blue     W
+Camp          Green    C
+Parking       Gray     P
+Rally         Magenta  R
+Other         White    *
+
+Waypoints load dynamically based on your map viewport, using the
+same lazy loading as trails and tracks. Toggle waypoint display
+using the Waypoints switch in the Work with Artifacts panel.
+
+
+ADD Section 6.6: Route Display
+
+Routes display as gold dot-dash lines on the map, visually
+distinct from trails (solid colored lines) and tracks (green
+dashed lines). Route color: #FFD700 (gold), dash pattern:
+15 pixels on, 5 off, 5 on, 5 off.
+
+Routes load dynamically based on your map viewport. Toggle
+route display using the Routes switch in the Work with Artifacts
+panel.
+
+
+UPDATE Chapter 9: Track Display
+---------------------------------
+
+ADD to Section 9.1:
+
+When tracks are imported via IMPORT ARTIFACTS or recorded via the
+convoy map, they are simultaneously saved as GPX files in
+my_tracks/ and indexed in the spatial database. This dual storage
+ensures tracks are available both as files (for sharing and
+export) and as spatial data (for viewport-based map display).
+
+The RESYNC TRACKS function in the import panel can rebuild the
+spatial database index from the GPX files if they get out of sync.
+
+
+UPDATE Appendix C: Feature Status
+-----------------------------------
+
+ADD to C.1 Completed Features:
+
+[done] Waypoint spatial display with type-colored markers
+[done] Route spatial display with gold dot-dash lines
+[done] Import Artifacts panel (scan Downloads, tap to import)
+[done] GPX import for tracks + waypoints + routes in one file
+[done] Import summary toast with per-type counts
+[done] Source file deletion after successful import
+[done] Resync Tracks to spatial DB function
+[done] Zoom level display on map (N · Z14)
+[done] Legend bar updated with all 8 artifact types
+[done] Convoy Map tile serving encoding fix
+[done] Planning Map GPS centering (postDelayed approach)
+
+UPDATE Chapter 6: UI Changes
+------------------------------
+
+REMOVE references to:
+- TRACKS button in the Planning Map header
+- Display Panel (tracks/trails/downloaded toggles)
+- These are fully replaced by Work With Artifacts panel
+
+UPDATE Section 6.1:
+The Work With Artifacts panel is the single control point for all
+artifact display, import, and management on the Planning Map. The
+panel is accessed by tapping the "WORK WITH ARTIFACTS" accordion
+bar. The TRACKS button and Display Panel from V2.4 have been
+removed.
+
+REMOVE from manual:
+- Chapter 5 or any section describing the Display Panel
+- Any reference to the TRACKS header button
+- References to "toggle tracks via TRACKS button"
+
+REPLACE with:
+- "Toggle track display via Work With Artifacts → Tracks switch"
+- "Import artifacts via Work With Artifacts → IMPORT ARTIFACTS"
+
+KEEP:
+- QUEUES button reference (remains on Planning Map header)
+- Download panel reference (accessed via download FAB)
+
+ADD Section 6.7: Select/Edit Artifacts
+
+The SELECT button on each artifact row in Work With Artifacts
+opens the ArtifactListPanel for that artifact type. The panel
+shows all artifacts of the selected type with:
+
+  - Checkbox per artifact: controls individual display on the map
+  - Select All: checks all artifacts for display
+  - Deselect All: unchecks all artifacts
+  - Click artifact name: opens the detail panel
+
+Detail Panel Functions:
+  - RENAME: change the artifact name (all types except Trails)
+  - DELETE: remove the artifact permanently (all types except Trails)
+  - CHANGE TYPE: change waypoint type (Waypoints only)
+    Supported types: trailhead, fuel, gate, hazard, scenic,
+    water, camp, parking, rally, other
+  - ALIASES: view and manage artifact aliases (placeholder)
+  - SHARE: share track file (Tracks only, coming soon)
+
+Trails are read-only — only alias management is available.
+
+ADD Section 7.3: Download Queue Panel
+
+Tap the QUEUES button on the Planning Map header to open the
+download queue panel. The panel shows:
+  - Active downloads with progress
+  - Queued downloads waiting to start
+  - Completed/failed/cancelled downloads
+  - Cancel button for individual downloads
+When no downloads are active, the panel shows "No downloads in
+queue."

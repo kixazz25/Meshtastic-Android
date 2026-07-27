@@ -1,0 +1,62 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GroupTrack V2.5 Manual — Convoy Map (proof)</title>
+<style>:root{--bg:#10130f;--panel:#181c15;--ink:#e8ece2;--dim:#9aa68c;--line:#2b3324;--accent:#7bb661;--accent2:#d9a441;--warn:#e0563b;--ui:-apple-system,"Segoe UI",Roboto,sans-serif;--body:Georgia,serif;}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 var(--body);-webkit-text-size-adjust:100%}
+header{position:sticky;top:0;background:#10130fe8;border-bottom:1px solid var(--line);padding:12px 16px;z-index:9;backdrop-filter:blur(6px)}
+.ttl{font:700 17px var(--ui)}.ttl b{color:var(--accent)}.sub{font:12px var(--ui);color:var(--dim);margin-top:2px}
+#q{width:100%;margin-top:8px;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:#0c0f0a;color:var(--ink);font:14px var(--ui)}
+main{padding:14px 16px 60px;max-width:780px;margin:0 auto}
+h1{font:700 19px var(--ui);color:var(--accent);margin:26px 0 4px;scroll-margin-top:120px}
+h2{font:700 15px var(--ui);color:var(--accent2);margin:18px 0 6px;scroll-margin-top:120px}
+.intro{color:var(--dim);font-style:italic;margin:2px 0 10px}
+.flow{border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:8px;padding:10px 12px;margin:14px 0;background:var(--panel)}
+.flow .fhead{font:700 14px var(--ui);color:var(--accent2);margin-bottom:2px}
+.flow .crumb{font:12px var(--ui);color:var(--dim);margin-bottom:8px}
+.flow .crumb b{color:var(--ink);font-weight:600}
+.depth{font:11px var(--ui);color:var(--accent);border:1px solid var(--line);border-radius:10px;padding:1px 8px;margin-left:6px}
+.step{border:1px solid var(--line);border-radius:6px;padding:8px 10px;margin:6px 0;background:#13180f}
+.step .nm{font:700 14px var(--ui);color:var(--ink)}
+.step .does{font:13px var(--ui);margin:4px 0;color:var(--ink)}
+.capcmd{margin:6px 0 2px;padding:7px 9px;background:#0d1520;border:1px solid #243;border-radius:6px;font-family:monospace;font-size:11px;color:#9fe;white-space:pre-wrap;word-break:break-all;user-select:all}
+.box{background:#13180f;border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin:8px 0;font:14px var(--ui)}
+.hidden{display:none}
+code{background:#0c0f0a;padding:1px 5px;border-radius:3px;font-size:13px}</style></head><body>
+<header>
+<div class="ttl"><b>GroupTrack</b> V2.5 Manual</div>
+<div class="sub">Cookbook · flow-per-path · PROOF: Convoy Map section · 2026-06-22</div>
+<input id="q" placeholder="Filter — type a screen or function (search, fit, import, trail, popup, legend)…" oninput="flt()">
+</header>
+<main>
+<div class="box"><b>How this manual works.</b> Each <i>flow</i> is one complete path to a function, start to finish — no page-flipping. The same function may appear under several flows (one per way to reach it); the badge shows how many panels deep it is. Type in the filter to jump to any screen or function. Screenshots are captured per step (the command under each step writes to <code>D:\grouptrack_screenshots</code>).</div>
+<h1 id="convoy">1. Convoy Map</h1>
+<div class="intro">The live ride view — your group’s vehicles in real time. Everything below is reached starting from the Convoy Map. On the Convoy Map the Work with Artifacts panel is display-only (no editing or import during live operations).</div>
+<div class="flow" data-fn="convoy map (the live map)"><div class="fhead">Convoy Map (the live map)<span class="depth">1 panels</span></div><div class="crumb"><b>Convoy Map</b></div><div class="step"><div class="nm">Convoy Map</div><div class="does">Your group’s vehicles in real time. The right-edge icon column gives you Search, Work with Artifacts (display-only), and Help. Header shows the tile source, QUEUES, and the zoom readout (N · Z##). Track direction shows as pixel-spaced neon arrows.</div><div class="capcmd" data-cap="01">adb -s 8624SBCEDF00001789 exec-out screencap -p &gt; /d/grouptrack_screenshots/01.png</div></div></div>
+<h2 id="convoy-search">Search</h2>
+<div class="flow" data-fn="search (from convoy map)"><div class="fhead">Search (from Convoy Map)<span class="depth">2 panels</span></div><div class="crumb"><b>Convoy Map</b> › Search</div><div class="step"><div class="nm">Search (Universal)</div><div class="does">Tap the search icon to open one search across five modes — <b>Area · Track · Route · Trail · Waypoint</b>. Pick a mode, type, and search.</div><div class="capcmd" data-cap="02">adb -s 8624SBCEDF00001789 exec-out screencap -p &gt; /d/grouptrack_screenshots/02.png</div></div></div>
+<div class="flow" data-fn="artifact detail (via convoy › search)"><div class="fhead">Artifact Detail (via Convoy › Search)<span class="depth">3 panels</span></div><div class="crumb"><b>Convoy Map</b> › Search › (result) › Detail</div><div class="step"><div class="nm">Artifact Detail Panel</div><div class="does">Tapping a search result opens the unified detail panel — rider-facing details, a collapsible technical section, and actions (rename, change type, share, delete, and FIT). For trails it shows the Carto Type band.</div><div class="capcmd" data-cap="03">adb -s 8624SBCEDF00001789 exec-out screencap -p &gt; /d/grouptrack_screenshots/03.png</div></div></div>
+<div class="flow" data-fn="fit (via convoy › search › detail)"><div class="fhead">FIT (via Convoy › Search › Detail)<span class="depth">4 panels</span></div><div class="crumb"><b>Convoy Map</b> › Search › Detail › FIT</div><div class="step"><div class="nm">FIT — recenter to artifact</div><div class="does">FIT recenters and zooms the map to frame the selected artifact with a small margin, keeping it selected. Jump straight to what you searched for.</div><div class="capcmd" data-cap="04">adb -s 8624SBCEDF00001789 exec-out screencap -p &gt; /d/grouptrack_screenshots/04.png</div></div></div>
+<h2 id="convoy-wwa">Work with Artifacts (display-only)</h2>
+<div class="flow" data-fn="work with artifacts (from convoy map)"><div class="fhead">Work with Artifacts (from Convoy Map)<span class="depth">2 panels</span></div><div class="crumb"><b>Convoy Map</b> › Work with Artifacts</div><div class="step"><div class="nm">Work with Artifacts (display-only)</div><div class="does">Tap the Work with Artifacts icon to open the panel. On the Convoy Map it is display-only — toggle Trails / Tracks / Waypoints / Routes on or off. Each type has the three-state control: ON (all in view), OFF (hide), SELECTED (only checked).</div><div class="capcmd" data-cap="05">adb -s 8624SBCEDF00001789 exec-out screencap -p &gt; /d/grouptrack_screenshots/05.png</div></div></div>
+<div class="flow" data-fn="artifact detail (via convoy › work with artifacts)"><div class="fhead">Artifact Detail (via Convoy › Work with Artifacts)<span class="depth">3 panels</span></div><div class="crumb"><b>Convoy Map</b> › Work with Artifacts › (row) › Detail</div><div class="step"><div class="nm">Artifact Detail Panel</div><div class="does">Tapping an artifact row opens the same unified detail panel (display context on Convoy). Shows details, Carto Type for trails, and FIT.</div><div class="capcmd" data-cap="06">adb -s 8624SBCEDF00001789 exec-out screencap -p &gt; /d/grouptrack_screenshots/06.png</div></div></div>
+<div class="flow" data-fn="fit (via convoy › work with artifacts › detail)"><div class="fhead">FIT (via Convoy › Work with Artifacts › Detail)<span class="depth">4 panels</span></div><div class="crumb"><b>Convoy Map</b> › Work with Artifacts › Detail › FIT</div><div class="step"><div class="nm">FIT — recenter to artifact</div><div class="does">Recenters and zooms to frame the selected artifact, keeping it selected.</div><div class="capcmd" data-cap="07">adb -s 8624SBCEDF00001789 exec-out screencap -p &gt; /d/grouptrack_screenshots/07.png</div></div></div>
+<h2 id="convoy-tap">Tapping an artifact on the map</h2>
+<div class="flow" data-fn="artifact detail (via convoy › map tap)"><div class="fhead">Artifact Detail (via Convoy › map tap)<span class="depth">2 panels</span></div><div class="crumb"><b>Convoy Map</b> › (tap artifact) › Detail</div><div class="step"><div class="nm">Artifact Detail Panel</div><div class="does">Tap a trail, track, route, or waypoint directly on the map to open its detail panel — the fastest route. For a trail this also shows the Carto Type in the map popup.</div><div class="capcmd" data-cap="08">adb -s 8624SBCEDF00001789 exec-out screencap -p &gt; /d/grouptrack_screenshots/08.png</div></div></div>
+<div class="flow" data-fn="fit (via convoy › map tap › detail)"><div class="fhead">FIT (via Convoy › map tap › Detail)<span class="depth">3 panels</span></div><div class="crumb"><b>Convoy Map</b> › (tap artifact) › Detail › FIT</div><div class="step"><div class="nm">FIT — recenter to artifact</div><div class="does">Recenters and zooms to frame the tapped artifact.</div><div class="capcmd" data-cap="09">adb -s 8624SBCEDF00001789 exec-out screencap -p &gt; /d/grouptrack_screenshots/09.png</div></div></div>
+<h2 id="convoy-popup">Trail popup</h2>
+<div class="flow" data-fn="trail popup (from convoy map)"><div class="fhead">Trail popup (from Convoy Map)<span class="depth">2 panels</span></div><div class="crumb"><b>Convoy Map</b> › (tap a trail line)</div><div class="step"><div class="nm">Trail popup</div><div class="does">Tap a trail line to open a popup showing its name, Carto Type (e.g. OHV / Road-Concurrent), Surface, and Uses. (Some fields read “Unknown” where the source data is blank.)</div><div class="capcmd" data-cap="10">adb -s 8624SBCEDF00001789 exec-out screencap -p &gt; /d/grouptrack_screenshots/10.png</div></div></div>
+<h2 id="convoy-tracks">Tracks</h2>
+<div class="flow" data-fn="track export (from convoy map)"><div class="fhead">Track Export (from Convoy Map)<span class="depth">2 panels</span></div><div class="crumb"><b>Convoy Map</b> › Track Export</div><div class="step"><div class="nm">Track Export</div><div class="does">View and export your recorded tracks (GPX) — to Downloads or email.</div><div class="capcmd" data-cap="11">adb -s 8624SBCEDF00001789 exec-out screencap -p &gt; /d/grouptrack_screenshots/11.png</div></div></div>
+<div class="flow" data-fn="track import (from convoy map)"><div class="fhead">Track Import (from Convoy Map)<span class="depth">2 panels</span></div><div class="crumb"><b>Convoy Map</b> › Track Import</div><div class="step"><div class="nm">Track Import</div><div class="does">Import tracks from Downloads (GPX/KML). RESYNC TRACKS rebuilds the library from my_tracks/.</div><div class="capcmd" data-cap="12">adb -s 8624SBCEDF00001789 exec-out screencap -p &gt; /d/grouptrack_screenshots/12.png</div></div></div>
+</main>
+<script>
+function flt(){
+ var t=document.getElementById('q').value.toLowerCase().trim();
+ document.querySelectorAll('.flow').forEach(function(f){
+   var hit = !t || f.getAttribute('data-fn').indexOf(t)>=0 || f.textContent.toLowerCase().indexOf(t)>=0;
+   f.classList.toggle('hidden', !hit);
+ });
+ // hide h2 headers with no visible flow after them is left simple for the proof
+}
+</script>
+</body></html>

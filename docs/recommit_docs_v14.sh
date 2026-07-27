@@ -224,6 +224,86 @@ for ext in docx pdf txt md html sql; do
 done
 
 # =========================================================================
+# =========================================================================
+# Step 3b [ALLDOCS-PREFIX-FIX-2026-07-26]: collect docs whose filenames do NOT
+# begin with the literal "GroupTrack" prefix.
+#
+# WHY THIS EXISTS
+#   Steps 2/3 copy into $DOCS with the glob:
+#       "$DOWNLOADS"/GroupTrack*."$ext"
+#   and BASH GLOBS ARE CASE-SENSITIVE. Files named grouptrack_* (lowercase),
+#   or SCOPING_* / BLUEPRINT_* / COMPLETED_TASK_* / workplan_*, match none of
+#   them -- so they never reached $DOCS, and Step 4's HTML folding loop (added
+#   in V13, and correct) had nothing to fold. Every HTML doc produced since
+#   ~2026-07-14 has therefore been absent from AllDocs.
+#
+#   This block is ADDITIVE: it copies the missed files in BEFORE Step 4 runs,
+#   so the existing loops are untouched and the backlog is picked up too.
+# =========================================================================
+echo ""
+echo "--- Step 3b: Collecting docs by extension [ALLDOCS-BY-EXTENSION-2026-07-27] ---"
+
+# rev2 (Fred, 07-27): collect by EXTENSION, not by name prefix.
+#   "suffix extensions are correct. grouptrack prefix is what i'm questioning.
+#    json should be omitted."
+# A prefix whitelist is the original bug in a new coat: "GroupTrack*" starved
+# AllDocs for two weeks, and any fixed prefix list starves it again the first
+# time a doc is named outside it. json dropped -- config/state, not docs.
+# (.py/.sh were never collected, so patch scripts stay out as before.)
+DOC_EXTS="docx pdf txt md html sql"
+
+# ⚠ EXCLUDE THE SCRIPT'S OWN OUTPUTS. Steps 1/1b GENERATE these into $DOCS.
+# Step 3b runs after them, so copying a stale Downloads copy back would CLOBBER
+# the fresh one -- handing the next session a stale xref while it believes the
+# xref is current. Exactly the failure class this fix exists to end.
+SELF_OUTPUTS="GroupTrack_AllDocs.txt field_crossref_raw.txt function_universe_raw.txt where_used_raw.txt navigation_xref.txt"
+
+# The manual is ~3.6 MB, so real docs pass; a stray data dump does not.
+MAX_DOC_BYTES=10485760
+
+shopt -s nullglob
+COPIED_3B=0
+SKIPPED_3B=0
+
+for dir in "$DOWNLOADS" "$GDOCS"; do
+  [ -n "$dir" ] || continue
+  [ -d "$dir" ] || continue
+  for ext in $DOC_EXTS; do
+    for f in "$dir"/*."$ext"; do
+      [ -f "$f" ] || continue
+      BN=$(basename "$f")
+
+      # Browser duplicate markers -- "name (1).html"
+      case "$BN" in *"("*")"*) continue ;; esac
+
+      # The script's own generated files
+      SKIP=0
+      for so in $SELF_OUTPUTS; do
+        [ "$BN" = "$so" ] && SKIP=1
+      done
+      if [ "$SKIP" -eq 1 ]; then
+        SKIPPED_3B=$((SKIPPED_3B+1)); continue
+      fi
+
+      # Implausibly large for a document
+      SZ=$(stat -c%s "$f" 2>/dev/null || echo 0)
+      if [ "$SZ" -gt "$MAX_DOC_BYTES" ]; then
+        echo "  skip (${SZ} bytes, over cap): $BN"
+        SKIPPED_3B=$((SKIPPED_3B+1)); continue
+      fi
+
+      # Copy when absent, or when the source is newer than what is in $DOCS.
+      if [ ! -f "$DOCS/$BN" ] || [ "$f" -nt "$DOCS/$BN" ]; then
+        cp -f "$f" "$DOCS/" 2>/dev/null && COPIED_3B=$((COPIED_3B+1))
+      fi
+    done
+  done
+done
+
+shopt -u nullglob
+echo "  Step 3b copied/updated: $COPIED_3B file(s), skipped: $SKIPPED_3B"
+
+# =========================================================================
 # Step 4: Regenerate AllDocs.txt
 # =========================================================================
 echo ""

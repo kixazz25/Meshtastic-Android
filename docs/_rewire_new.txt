@@ -1,0 +1,23 @@
+        if (showSyncDialog) {
+            SyncTracksDialog(
+                syncLines = syncLines,
+                syncResult = syncResult,
+                syncRunning = syncRunning,
+                onStart = {
+                    syncRunning = true
+                    syncLines = listOf("— starting sync —")
+                    syncResult = null
+                    scope.launch {
+                        val r = withContext(Dispatchers.IO) {
+                            SpatialDbManager.init(context)
+                            SpatialDbManager.syncTracksFromFiles(context) { line ->
+                                syncLines = syncLines + line
+                            }
+                        }
+                        syncResult = r
+                        syncRunning = false
+                    }
+                },
+                onClose = { showSyncDialog = false }
+            )
+        }

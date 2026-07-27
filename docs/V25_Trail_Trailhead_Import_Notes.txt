@@ -1,0 +1,92 @@
+GroupTrack V2.5 — Trail & Trailhead Import Notes
+May 27, 2026
+==========================================
+
+TRAILHEAD ASSET BUILD QUERIES
+==========================================
+
+Each trailhead source needs a one-time query to build
+the bundled JSON asset. Normalize to standard schema:
+  { "name": "...", "id": "...", lat/lon in coordinates }
+
+UGRC UTAH TRAILHEADS (existing — utah_trailheads.json):
+  Endpoint: https://services1.arcgis.com/99lidPhWCzftIe9K/ArcGIS/rest/services/Trailheads/FeatureServer/0/query
+  Query: ?where=1%3D1&outFields=*&f=geojson&outSR=4326
+  Field mapping: PrimaryName → name, TrailheadID → id
+  Records: 591
+  
+  Normalize command (run once, save as asset):
+  curl -o utah_trailheads_raw.json \
+    "https://services1.arcgis.com/99lidPhWCzftIe9K/ArcGIS/rest/services/Trailheads/FeatureServer/0/query?where=1%3D1&outFields=PrimaryName,TrailheadID&f=geojson&outSR=4326"
+  
+  Then normalize PrimaryName→name, TrailheadID→id in the properties
+  of each feature. Save as app/src/main/assets/utah_trailheads.json.
+
+FUTURE SOURCES (when identified):
+  Same pattern: find agency trailhead endpoint, query for geojson,
+  map their field names to standard { name, id }, save as asset,
+  add trailhead_asset field to trail_sources.json.
+
+  Standard asset schema:
+  {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "type": "Feature",
+        "geometry": { "type": "Point", "coordinates": [-113.63, 37.19] },
+        "properties": { "name": "Snow Canyon Trailhead", "id": "1234" }
+      }
+    ]
+  }
+
+==========================================
+TRAIL_SOURCES.JSON UPDATE NEEDED
+==========================================
+
+Add trailhead_asset field to UGRC Utah entry:
+
+  {
+    "id": "ugrc_utah",
+    ...
+    "trailhead_asset": "utah_trailheads.json",
+    ...
+  }
+
+Verify field exists:
+  grep trailhead_asset app/src/main/assets/trail_sources.json
+
+==========================================
+REMAINING ITEMS — TRAIL & TRAILHEAD IMPORTS
+==========================================
+
+COMPLETED (this session):
+  [x] Remove 4 scattered trailhead import buttons
+  [x] Fix A2 layout (BACK/IMPORT in clean rows)
+  [x] Auto-import trailheads after trails (A3 + B4)
+  [x] Source card shows trailhead info text (not button)
+  [x] Clean SourceSelectCard signature
+  [x] importTrailheads bbox filter + progress emission
+  [x] importTrailheads sourceId parameter (no hardcoded "ugrc_")
+
+NEXT PATCH (after build confirms):
+  [ ] Update trail source screen intro text — point to Downloads for area imports
+  [ ] Remove METHOD_SELECT step or simplify (source list is default)
+  [ ] Remove B1_DRAW_AREA placeholder (area imports via Downloads panel)
+  [ ] Wire download panel onExecuteDownload(trails=true) to:
+      - writePendingArea with bbox
+      - navigate to trail source screen (or importByArea directly)
+  [ ] Auto-launch trail import on first Planning Map open (zero trails check)
+  [ ] Normalize utah_trailheads.json fields (PrimaryName→name, TrailheadID→id)
+  [ ] Verify trailhead_asset field exists in trail_sources.json UGRC entry
+
+DEDUP (not yet implemented — design agreed):
+  [ ] Trail dedup: start/end point within 50 yards → alias
+  [ ] Trailhead dedup: single point within 50 yards → alias
+  [ ] Progress counters: new / aliased / duplicates
+
+DOWNLOAD PANEL WIRING:
+  [ ] onExecuteDownload handles trails=true
+  [ ] importByArea called with bbox from download panel
+  [ ] Trailheads auto-import for each source with trailhead_asset
+  [ ] Per-source progress in download flow
+  [ ] Combined tiles + trails + trailheads in one execute

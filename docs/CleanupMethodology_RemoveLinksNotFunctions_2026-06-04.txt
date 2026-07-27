@@ -1,0 +1,57 @@
+================================================================
+CLEANUP METHODOLOGY — Remove LINKS, not FUNCTIONS
+2026-06-04 · GroupTrack V2.5 · standing cleanup principle
+================================================================
+
+A clarification that governs ALL V2.5 cleanup (MAP SETTINGS sub-menu and any
+other "dead UI" removal). Refines checklist §I.
+
+----------------------------------------------------------------
+THE PRINCIPLE
+----------------------------------------------------------------
+When retiring a feature/menu, REMOVE THE LINK THAT LAUNCHES IT — the menu item,
+button, nav callback, or route registration — NOT the underlying function.
+
+  - The function stays in the codebase, orphaned but intact.
+  - An orphaned function compiles fine and ships harmlessly.
+  - There are ALREADY ~40 unused functions living this way. That is the
+    accepted, normal state — dead-but-present, not a defect.
+
+WHY (this is the safer operation):
+  - Removing a CALL SITE / launcher is LOCAL and REVERSIBLE. Removing a FUNCTION
+    risks breaking a caller the xref didn't surface, and is harder to undo.
+  - The function may still be referenced indirectly, or wanted later.
+  - Lower blast radius — consistent with the standing rules (impact analysis
+    before any change; don't route around failures; one change at a time).
+
+----------------------------------------------------------------
+APPLIED TO MAP SETTINGS SUB-MENU
+----------------------------------------------------------------
+Cleanup = remove the MAP SETTINGS sub-menu LINK (the launcher entry in the
+GroupTrack menu), NOT the functions it used to reach. Those functions already
+moved their real use elsewhere (Planning Map, Work-with-Artifacts); after the
+link is gone they simply join the existing orphan set.
+
+REQUIRED before pulling the link (inside the cleanup item):
+  - Impact analysis / where-used on the LINK: confirm nothing else navigates to
+    MAP SETTINGS and nothing depends on that sub-menu being present.
+  - Confirm each function it launched has its real entry point elsewhere (so no
+    USER capability is lost — only the redundant launcher).
+  - Quarantine reversibly (tagged branch / attic), never hard-delete.
+
+----------------------------------------------------------------
+FUNCTION REMOVAL IS A SEPARATE, LATER SWEEP
+----------------------------------------------------------------
+Actually DELETING orphaned functions (the ~40 + any newly orphaned) is a
+DISTINCT, DELIBERATE task with its OWN full impact analysis — NOT bundled into
+link removal. Most likely 3.0-cleanup territory. Until then, orphans stay.
+A full impact analysis + function removal is its own gated operation.
+
+----------------------------------------------------------------
+CHECKLIST WIRING
+----------------------------------------------------------------
+Refine §I (Closing 2.5 -> Dead-Code Quarantine): the quarantine action is
+"remove launchers/links, let functions orphan," with function-deletion deferred
+to a separate impact-analyzed sweep. The ~40 existing orphans are baseline, not
+backlog. Fold on next checklist edit.
+================================================================

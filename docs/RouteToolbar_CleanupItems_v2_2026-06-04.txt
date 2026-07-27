@@ -1,0 +1,50 @@
+================================================================
+ROUTE TOOLBAR — CLEANUP ITEMS (v2, post-commit 89285b00a)
+2026-06-04 · toolbar committed; these are follow-ups for the snap-2 patch
+================================================================
+
+Toolbar at pact compliance, committed 89285b00a. Follow-ups below.
+
+----------------------------------------------------------------
+HEADER AFFORDANCES — current wiring (clarification)
+----------------------------------------------------------------
+Three elements in the toolbar header, each does ONE thing:
+  - ✥ grip handle   -> drag ONLY  (and drag is NOT moving the bar — item 2)
+  - "ROUTE +" title -> tap toggles accordion (minimized = !minimized)
+  - ^ / v chevron    -> tap toggles accordion
+The handle does NOT open the accordion (by design — title/chevron do that).
+
+----------------------------------------------------------------
+1. LABEL: "Amend In-Progress Routes" -> "In Progress"
+----------------------------------------------------------------
+   ConvoyRouteToolbar.kt: EntryBtnDisabled("Amend In-Progress Routes", ...)
+   -> EntryBtnDisabled("In Progress", ...)
+   Trivial; fold into snap-2 patch.
+
+----------------------------------------------------------------
+2. DRAG DECISION — handle doesn't move the bar  (DECIDE in snap-2 patch)
+----------------------------------------------------------------
+   The ✥ handle carries detectDragGestures but the panel doesn't move.
+   Fred: not important.
+   DECISION TO MAKE (don't re-patch twice):
+     Option A — FIX the drag: handle's pointerInput shares offsetX/offsetY
+       with the Surface .offset{}; likely the glyph is too small to hit-test
+       or a parent eats the gesture. Verify with Layout Inspector.
+     Option B — DROP the drag entirely: on a small phone panel, accordion
+       collapse may be all the real-estate management needed. Simpler,
+       less code, no gesture-collision surface. Strong case for this.
+   RECOMMENDATION: Option B unless field use shows the collapsed panel
+   still blocks something important. Collapse-to-get-out-of-the-way is
+   probably sufficient. Decide at snap-2 time.
+
+----------------------------------------------------------------
+3. PLAY LAUNCH-GATE: SpecifyForegroundServiceType lint  (§G)
+----------------------------------------------------------------
+   androidx.work SystemForegroundService needs android:foregroundServiceType
+   in AndroidManifest.xml. Pre-existing (NOT from toolbar). Build succeeded;
+   lint-only. Fix before Play submission; file with the ANR items in §G.
+
+----------------------------------------------------------------
+NEXT SESSION: snap-2 slice #1 (Save-completed, free points) per
+Snap2_Implementation_Plan_v2. Fold items 1 + 2 (drag decision) into it.
+================================================================

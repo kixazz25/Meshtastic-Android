@@ -1,0 +1,308 @@
+GroupTrack V2.5 — Three-State Artifact Toggle
+DESIGN SPECIFICATION
+Created: May 25, 2026
+==========================================
+
+1. OVERVIEW
+==========================================
+Each artifact type (Trails, Tracks, Waypoints, Routes) has
+a three-state display toggle controlling map visibility.
+The system uses a single list per type as the source of
+truth. Display is computed from two inputs: bounding box
+membership and selection state.
+
+2. THREE STATES
+==========================================
+
+State     | Visual  | Meaning
+----------|---------|----------------------------------
+OFF       | Gray    | No artifacts of this type displayed
+ON        | Blue    | All artifacts in bbox displayed
+SELECTED  | Yellow  | Only checked items displayed
+
+State variable per type:
+  enum class ArtifactDisplayState { OFF, ON, SELECTED }
+
+Stored in ConvoyConfig for sharing between Planning Map
+and Convoy Map.
+
+  ConvoyConfig.trailDisplayState = ArtifactDisplayState.OFF
+  ConvoyConfig.trackDisplayState = ArtifactDisplayState.OFF
+  ConvoyConfig.waypointDisplayState = ArtifactDisplayState.OFF
+  ConvoyConfig.routeDisplayState = ArtifactDisplayState.OFF
+
+3. THE LIST
+==========================================
+
+3.1 Data Structure
+Each artifact type maintains a list in Kotlin state:
+
+  data class ArtifactListItem(
+      val id: String,           // trail_id, track_id, etc.
+      val name: String,         // display name
+      val type: String,         // waypoint type, or ""
+      var checked: Boolean,     // user selection state
+      var inBbox: Boolean       // currently in map viewport
+  )
+
+  var trailList by remember { mutableStateOf<List<ArtifactListItem>>(emptyList()) }
+  (same for trackList, waypointList, routeList)
+
+3.2 Display Flag (computed, not stored)
+  
+  item.display = item.inBbox AND statePermits(item)
+
+  fun statePermits(item: ArtifactListItem): Boolean {
+      return when (displayState) {
+          OFF      -> false       // nothing displayed
+          ON       -> true        // everything displayed
+          SELECTED -> item.checked // only checked items
+      }
+  }
+
+3.3 List Population
+The list is populated from a spatial DB query using the
+current map bounding box (south, west, north, east).
+
+  Query: SELECT id, name, type FROM [table]
+         WHERE max_lat >= south AND min_lat <= north
+         AND max_lon >= west AND min_lon <= east
+         ORDER BY name LIMIT 2000
+
+Results are merged with the existing list:
+  - NEW items (id not in current list): added with
+    checked = true if state is ON, false otherwise
+  - EXISTING items (id in current list): keep current
+    checked state, update inBbox = true
+  - MISSING items (in list but not in query): set
+    inBbox = false (item left viewport)
+
+3.4 When List Updates
+The list updates on EVERY bbox change (moveend event).
+This is a background query — does not block UI.
+
+  onViewportChanged → query DB → merge with list → 
+  recalculate display → push to JS
+
+4. STATE TRANSITIONS
+==========================================
+
+4.1 Toggle Button (Display column in ConvoyArtifactsPanel)
+  
+  Current State → Tap → New State | Action
+  OFF            → tap → ON       | All items: checked=true, push all to JS
+  ON             → tap → OFF      | hideAll(), no list change
+  SELECTED       → tap → OFF      | hideAll(), no list change
+
+  Note: toggle never goes directly to SELECTED.
+  SELECTED is only entered via the SELECT panel.
+
+4.2 SELECT Button (Select column in ConvoyArtifactsPanel)
+
+  Tap SELECT → opens ArtifactListPanel for this type
+  
+  If current state is OFF:
+    - List populated from bbox query
+    - All items checked = false (nothing displayed)
+    - State remains OFF until panel closes
+  
+  If current state is ON:
+    - List already populated, all checked = true
+    - Panel opens showing current list
+  
+  If current state is SELECTED:
+    - List already populated with mixed checked states
+    - Panel opens showing current list
+
+4.3 SELECT Panel Close
+
+  On panel close, evaluate final checkbox state:
+  
+  All items checked     → state = ON (blue)
+  No items checked      → state = OFF (gray)
+  Some items checked    → state = SELECTED (yellow)
+
+  Then: single map update based on new state.
+
+4.4 Select All / Deselect All (inside SELECT panel)
+
+  Select All: sets all items checked = true
+    - Does NOT change state
+    - Does NOT update map
+    - State evaluated on panel CLOSE
+
+  Deselect All: sets all items checked = false
+    - Does NOT change state
+    - Does NOT update map
+    - State evaluated on panel CLOSE
+
+  Individual checkbox: toggles single item
+    - Does NOT change state
+    - Does NOT update map
+    - State evaluated on panel CLOSE
+
+5. BBOX CHANGES (ZOOM/PAN)
+==========================================
+
+5.1 State Does Not Change
+Zoom and pan NEVER change the display state. Period.
+No transition from ON to OFF or SELECTED on viewport change.
+
+5.2 List Updates on Bbox Change
+Every moveend → query DB with new bbox → merge with list
+
+  Merge rules by state:
+  
+  State     | New items entering bbox  | Items leaving bbox
+  ----------|--------------------------|-------------------
+  ON        | checked = true, display  | inBbox = false
+  OFF       | checked = false, no disp | inBbox = false
+  SELECTED  | checked = false, no disp | inBbox = false
+
+5.3 Map Update After Merge
+After merging, rebuild display:
+  
+  displayList = list.filter { it.display }
+  // where display = inBbox AND statePermits(item)
+  
+  Build GeoJSON from displayList → push to JS
+
+  For OFF state: push empty GeoJSON or call hide function
+  For ON state: push all items where inBbox = true
+  For SELECTED state: push items where inBbox AND checked
+
+6. MAP RENDERING
+==========================================
+
+6.1 Single Update Function Per Type
+  
+  fun updateArtifactDisplay(type: String) {
+      val list = getListForType(type)
+      val state = getStateForType(type)
+      
+      if (state == OFF) {
+          webViewRef?.evaluateJavascript("hide${type}()", null)
+          return
+      }
+      
+      val displayItems = list.filter { item ->
+          item.inBbox && when (state) {
+              ON -> true
+              SELECTED -> item.checked
+              else -> false
+          }
+      }
+      
+      // Query geometry for displayItems from DB
+      val geojson = buildGeoJson(type, displayItems)
+      webViewRef?.evaluateJavascript("update${type}($geojson)", null)
+  }
+
+6.2 When Map Updates
+Map updates ONLY from explicit actions:
+  1. Toggle tap (state change)
+  2. SELECT panel close (state evaluation)
+  3. Bbox change (list merge + display recalculation)
+
+NO other triggers update the map. No live checkbox updates
+during SELECT panel interaction.
+
+7. GEOMETRY HANDLING
+==========================================
+
+The list stores id/name/type/checked/inBbox — NOT geometry.
+Geometry is queried separately when building GeoJSON for
+map display.
+
+  When map update needed:
+  1. Get IDs of items to display
+  2. Query DB for geometry of those IDs
+  3. Build GeoJSON
+  4. Push to JS
+
+This avoids storing 64K trail geometries in Kotlin state.
+
+Alternative: query geometry during list merge and cache it.
+Tradeoff: more memory vs faster map updates. Decide during
+implementation based on performance testing.
+
+8. DUPLICATE TRAIL NAMES
+==========================================
+
+Related issue: UGRC trails have multiple segments per name.
+Four options under consideration (decide during cleanup):
+
+  1. Group by name: "JEM Trail (12 segments)"
+     - One checkbox controls all segments
+     - List shows segment count
+  
+  2. DISTINCT query: collapse to unique names
+     - Select/deselect toggles ALL segments with that name
+  
+  3. Alias system: user-defined display names
+     - Group segments under custom alias
+     - Future feature
+  
+  4. Append GPS coord: "JEM Trail (37.48, -113.32)"
+     - Each segment uniquely identifiable
+     - Longer list but precise control
+
+Choice affects list merge behavior: if grouping by name,
+merge compares names not IDs. If individual segments,
+merge compares IDs.
+
+9. CONVOY MAP SHARING
+==========================================
+
+State stored in ConvoyConfig (singleton):
+  - Both maps read/write same state
+  - Toggle on Planning Map → reflected on Convoy Map
+  - Toggle on Convoy Map → reflected on Planning Map
+  - List data shared via ViewModel or singleton cache
+
+Convoy Map is display-only: no SELECT, no edit, no import.
+Toggle ON/OFF only.
+
+10. IMPLEMENTATION PLAN
+==========================================
+
+Step 1: Add ArtifactDisplayState enum to ConvoyConfig
+Step 2: Add ArtifactListItem data class
+Step 3: Add per-type list state variables
+Step 4: Modify toggle handler (three-state transitions)
+Step 5: Modify SELECT panel close (state evaluation)
+Step 6: Modify onViewportChanged (merge + state-based push)
+Step 7: Remove live checkbox → map updates
+Step 8: Add visual indicators (gray/blue/yellow toggle)
+Step 9: Test all state transitions
+Step 10: Test zoom/pan behavior in all states
+
+11. FILES TO MODIFY
+==========================================
+ConvoyConfig.kt — ArtifactDisplayState enum, state vars
+ArtifactListPanel.kt — remove live updates, close callback
+ConvoyArtifactsPanel.kt — three-state toggle visual
+ConvoyMapViewerScreen.kt — merge logic, state-based push,
+  toggle handler, SELECT close handler
+SpatialDbManager.kt — geometry query by ID list
+
+12. TESTING MATRIX
+==========================================
+Test each artifact type × each state × each action:
+
+Action              | OFF→  | ON→   | SELECTED→
+--------------------|-------|-------|----------
+Tap toggle          | → ON  | → OFF | → OFF
+Tap SELECT          | opens | opens | opens
+Close (all checked) | → ON  | → ON  | → ON
+Close (none checked)| → OFF | → OFF | → OFF
+Close (some checked)| → SEL | → SEL | → SEL
+Zoom in             | stays | stays | stays
+Zoom out            | stays | stays | stays
+Pan                 | stays | stays | stays
+
+Verify: no display change during SELECT panel interaction.
+Verify: map updates ONLY on toggle tap, panel close, or
+bbox change.
+Verify: new items entering bbox get correct checked default.
+Verify: items leaving bbox set inBbox = false.

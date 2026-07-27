@@ -1,0 +1,82 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>GroupTrack — Workplan 2026-07-27</title>
+<style>
+:root{--bg:#0f1216;--panel:#161b22;--ink:#e6edf3;--dim:#8b949e;--line:#30363d;--accent:#58a6ff;--good:#3fb950;--warn:#d29922;--bad:#f85149;--ui:-apple-system,"Segoe UI",Roboto,sans-serif;--mono:"SF Mono",Consolas,monospace}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 var(--ui);padding:0 0 60px}
+header{position:sticky;top:0;background:#0f1216f0;border-bottom:1px solid var(--line);padding:12px 18px;z-index:5}
+.ttl{font:700 17px var(--ui)}.ttl b{color:var(--accent)}.sub{font:12px var(--mono);color:var(--dim);margin-top:2px}
+main{max-width:900px;margin:0 auto;padding:16px 18px}
+h2{font:700 15px var(--ui);color:var(--accent);margin:22px 0 8px;border-bottom:1px solid var(--line);padding-bottom:4px}
+h3{font:700 13px var(--ui);color:var(--ink);margin:14px 0 4px}
+.tag{display:inline-block;font:700 10px var(--mono);padding:1px 6px;border-radius:4px;margin-right:6px;vertical-align:middle}
+.t-good{background:#12261a;color:var(--good);border:1px solid #1f6f3f}
+.t-warn{background:#2a2312;color:var(--warn);border:1px solid #6f5a1f}
+.t-bad{background:#2a1414;color:var(--bad);border:1px solid #6f2020}
+.t-prog{background:#12203a;color:var(--accent);border:1px solid #1f4f8f}
+.card{border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin:10px 0;background:var(--panel)}
+ul{margin:6px 0 6px 0;padding-left:20px}li{margin:4px 0}ol{margin:6px 0;padding-left:22px}
+code{background:#0c0f0a;padding:1px 5px;border-radius:3px;font:12px var(--mono);color:#e6edf3}
+.note{font:12px var(--mono);color:var(--dim);border-left:3px solid var(--line);padding:4px 10px;margin:8px 0}
+.hi{color:var(--warn);font-weight:700}.step{background:#12203a;border-left:3px solid var(--accent);padding:6px 10px;margin:8px 0}
+</style>
+</head><body>
+<header><div class="ttl"><b>Workplan</b> &mdash; 2026-07-27</div><div class="sub">Order of work &middot; read with grouptrack_living_master_2026-07-26.html and grouptrack_handoff_2026-07-26.html</div></header>
+<main>
+
+<div class="note">Sequenced so each step is independently verifiable and nothing blocks on a decision that has not been made. Steps 0&ndash;2 are cheap and unblock everything else; step 3 is the day's build.</div>
+
+<h2>0 &middot; Post fresh xrefs (first thing)</h2>
+<div class="card">
+<p><span class="tag t-prog">15 min</span> Today added <code>ConvoyDeleteWorker</code>, <code>deleteTileRange</code>/<code>countTileRange</code>/<code>storeExists</code>/<code>reclaimableBytes</code>, <code>enqueueDelete</code>/<code>submitDelete</code>, and changed <code>launchWorker</code>. <b>Yesterday's xref index cannot know about any of it</b>, and tomorrow's work is squarely in trail ingestion &mdash; blast-radius analysis against a stale index would miss exactly the new code.</p>
+<p><b>&#9888; Standing caveat:</b> the xrefs index <b>DECLARATIONS</b>, not call sites. Lambda parameters (e.g. <code>onDownloadCorridor</code>) appear in none of them &mdash; same class as the earlier <code>@JavascriptInterface</code> miss. <b>xref for candidates, grep for call sites.</b></p>
+</div>
+
+<h2>1 &middot; The <code>markComplete</code> refreshMode collision &mdash; ONE LINE, highest value</h2>
+<div class="card">
+<p><span class="tag t-bad">DO THIS BEFORE THE ETA WORK</span> <code>ConvoyDownloadQueue:549</code> branches on <code>entry.refreshMode</code> and <b>silently removes the entry from the queue</b>. But <code>enqueueArea</code> and <code>enqueueCorridor</code> both set <code>refreshMode = replaceExisting</code>.</p>
+<p><b>So any download submitted with REPLACE ticked is deleted on completion instead of marked COMPLETE</b> &mdash; no completion row, no <code>completedAt</code> stamp, <b>no ETA sample</b>. Fix: branch on <code>downloadType == MAP_SOURCE_REFRESH</code>.</p>
+<p><b>Why first:</b> it is one line, it plausibly explains BOTH the refresh-never-completes report AND a large share of the ETA being 50&times; long, and <b>any ETA measurement taken before this fix is untrustworthy</b>. Give it <b>its own patch</b> so its verification is not tangled with anything else.</p>
+</div>
+
+<h2>2 &middot; Settle SAT-frozen-at-15 &mdash; one download, no code</h2>
+<div class="card">
+<p><span class="tag t-bad">GATES PROMOTION PAST THE INTERNAL TRACK</span> Run the same track's corridor with <b>REPLACE TICKED</b>. Replace bypasses the <code>hasTile</code> pre-fetch filter, so SAT must derive and fetch its full corridor.</p>
+<ul>
+<li>SAT returns in the <b>thousands</b> &rarr; the filter was working, 15 was honest remaining work, nothing is broken.</li>
+<li>SAT returns <b>15 again</b> &rarr; <b>SAT corridor derivation/fetch is broken</b>, and the &asymp;90% headline measures what was QUEUED, not what LANDED. <b>Testers would be getting corridor downloads with no satellite imagery.</b></li>
+</ul>
+<p>Costs one download and no code. <b>It is the only open defect that changes what a tester actually receives.</b></p>
+</div>
+
+<h2>3 &middot; OSM trail import &mdash; the day's build</h2>
+<div class="card">
+<p><b>Full design is in the Living Master.</b> Do it in this order &mdash; each step is verifiable before the next.</p>
+<ol>
+<li><b>Validate the field mapping off-device first.</b> <code>osm_trails_extract_2026-07-26.py --bbox -113.70,37.00,-113.40,37.25</code> (add <code>--insecure</code> if the cert bundle is still stale, or <code>pip install --upgrade certifi</code>). <b>Read the ATTRIBUTE COVERAGE table</b> &mdash; the <code>MotorizedAllowed</code> percentage decides whether OSM is a genuine second attribute source or just geometry that extends snap reach. <b>Both are useful; they are different arguments.</b> ⚠ This script is a VALIDATION TOOL, never the user path.</li>
+<li><b>Load the output into <code>grouptrack_display_model.html</code></b> alongside the UGRC subset (<code>geojson_subset_2026-07-26.py</code> cuts the 22MB file to something the browser can hold). Confirm at <b>z15+</b> that coexistence looks the way it did today.</li>
+<li><b>Then write the patch:</b> (a) <code>source_type</code> in <code>trail_sources.json</code>; (b) <code>buildUrl</code> branches on it; (c) response transform branches on it &mdash; <code>elements[]</code> &rarr; FeatureCollection with mapped property names, <b>OSM semantics live HERE so <code>insertFeature</code> stays untouched</b>; (d) catalog entry #9.</li>
+<li><b>Verify on device:</b> Method B &rarr; pick a small area &rarr; import. Check <code>source_ingestions</code> for the run, and that OSM trails render <b>cyan "Unspecified"</b> (blank carto_code) distinct from UGRC.</li>
+</ol>
+<p><b>&#9888; Traps, both fatal if missed:</b> <b>PAGING</b> &mdash; Overpass does not page; a response of &ge; <code>max_records</code> loops forever re-fetching the same page. Treat Overpass as single-page or chunk the bbox. <b><code>file://</code></b> &mdash; <code>httpGet</code> casts to <code>HttpURLConnection</code> and will throw; a local-file source is impossible without touching that method.</p>
+<p><b>&#9888; Do not guess motorized access.</b> <code>highway=track</code> with no access tag &rarr; leave <code>motorized_allowed</code> BLANK. A track is wide enough for a vehicle by definition, but that is physical capability, not legal access &mdash; and legal access is the whole purpose of that column.</p>
+</div>
+
+<h2>4 &middot; If time remains</h2>
+<div class="card">
+<ul>
+<li><b>ETA <code>startedAt</code></b> &mdash; only meaningful AFTER step 1. Three timestamps per entry: submit (<code>createdAt</code>, exists), <b>start-execution (<code>startedAt</code>, MISSING)</b>, finish (<code>completedAt</code>, exists). Stamp in <code>DownloadQueueManager</code> where status goes active, <b>not in each worker</b> &mdash; three workers now, and per-worker duplication is what produced the refresh bug. Re-stamp on resume, and stamp <code>tilesAtStart</code> alongside or the rate comes out too fast. <b>Sampling policy still needs Fred's call.</b></li>
+<li><b>Rotation clears selections</b> &mdash; <code>remember</code> &rarr; <code>rememberSaveable</code> in <code>ConvoyDownloadConfirm</code>. Small, and it removes the last reason to rotate.</li>
+<li><b>COTREX misconfiguration</b> &mdash; <code>"type": "feature_id"</code>, <code>"use": "place_id"</code> are filling <code>carto_code</code> with record IDs. Catalog-only fix.</li>
+<li><b>Identify the three "Find closest point on line" sites</b> in <code>grouptrack_map.html</code> (:39, :89, :827). Authoritative snap is Kotlin, so these are probably display helpers &mdash; but confirm before any renderer work.</li>
+</ul>
+</div>
+
+<h2>&#9940; NOT tomorrow</h2>
+<div class="card">
+<ul>
+<li><b>V2.7 vector rendering</b> &mdash; scoped, parked. It earns its place only inside the convoy tracking rewrite, and only after the open defects are closed.</li>
+<li><b>VACUUM / space reclamation</b> &mdash; blocked until the "0 MB reclaimable" reading is explained.</li>
+<li><b>Manual updates</b> &mdash; the queue sections are current; SAVE MAPS remains deliberately undocumented (Fred: it is one button).</li>
+</ul>
+</div>
+
+</main></body></html>

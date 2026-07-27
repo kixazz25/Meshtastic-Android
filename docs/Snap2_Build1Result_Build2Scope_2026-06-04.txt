@@ -1,0 +1,76 @@
+================================================================
+SNAP-2 BUILD 1 RESULT + BUILD 2 SCOPE (addendum to Continuation Action Plan)
+2026-06-04 · GroupTrack V2.5 · branch feature/convoy-event-ride
+================================================================
+
+Read this alongside Snap2_Continuation_ActionPlan_2026-06-04.txt.
+It records the Build 1 OUTCOME and the (now narrowed) Build 2 scope.
+
+----------------------------------------------------------------
+BUILD 1 — DONE, BUILT, TESTED, COMMITTED
+----------------------------------------------------------------
+- BUILD SUCCESSFUL in 23m 39s.
+- On-device save loop PASSED: +ROUTE -> New -> tap free points -> Save ->
+  route persisted, redrew (magenta), survived Routes toggle OFF/ON
+  (proves it loaded FROM the spatial DB = insertRoute wrote a real row).
+- Committed 69ad30c56 (both screen files), pushed.
+- snap-2 Save-completed SPINE is proven. Free points -> straight-segment
+  LINESTRING -> insertRoute -> redraw. End-to-end route build+save works.
+
+ROUTE NAMING (as-built): Build 1 auto-names each saved route
+  "Route " + System.currentTimeMillis()   e.g. "Route 1749068379421".
+  There is NO name prompt yet (deferred from the spine). Saved routes show
+  in Work-with-Artifacts -> Routes (SEL/EDIT) with that timestamp label.
+
+----------------------------------------------------------------
+ROUTE COLOR — ALREADY MAGENTA (no Build 2 work)
+----------------------------------------------------------------
+Route render color changed from gold-dashed to MAGENTA; all hex values
+already updated in convoy_map.html (showRoutes/updateRoutes). DONE.
+Build 2 does NOT need to touch route color.
+
+----------------------------------------------------------------
+BUILD 2 — NARROWED SCOPE
+----------------------------------------------------------------
+1. SNAP-ON-TAP (core) — both onMapTap handlers (ConvoyScreen ~524 LF,
+   ConvoyMapViewerScreen ~478 CRLF). Replace addVertex(freeVertex) with
+   query-viewport-bounds -> snap(lat,lon,trails,tracks,30.0) ->
+   snapToVertex ?: freeVertex. Full code in the Continuation Plan §3.
+   30m radius, tune on device. webViewRef.value? (ConvoyScreen) vs
+   webViewRef? (viewer).
+2. RELABEL "Amend In-Progress Routes" -> "In Progress"
+   (ConvoyRouteToolbar.kt EntryBtnDisabled).
+
+NOT in Build 2:
+   - Route color (already magenta, done).
+   - Route NAMING prompt -> BACKLOG slice (see below).
+   - Armed-gating (RED Add pans) -> Build 3.
+
+----------------------------------------------------------------
+BACKLOG — ROUTE NAMING PROMPT (own slice, not Build 2)
+----------------------------------------------------------------
+Add a name dialog so a saved route gets a user name instead of
+"Route <timestamp>". Per UI PACT panel-split: naming/rename/edit/delete
+live in Work-with-Artifacts -> Routes (SEL/EDIT), NOT the Route+ toolbar.
+Two parts:
+  (a) optional name at Save time (a small prompt before insertRoute), and/or
+  (b) rename on an existing route via the artifacts Routes list (EDIT).
+The write already supports a name arg: insertRoute(name, wkt, ...). So (a)
+is just capturing a string before the existing insertRoute call; (b) is an
+UPDATE on the route row's name (rides the shared tracks/routes table, §E5;
+display name may live in aliases per the alias model). Small, independent.
+
+----------------------------------------------------------------
+ADD BUTTON RED/GREEN + ROUTE+ PANEL — CONFIRMED OK
+----------------------------------------------------------------
+Fred confirmed on device: everything worked. Add green/red self-toggle
+displays correctly. Route+ panel placement acceptable. The armed-BEHAVIOR
+(tap pans when RED) is still Build 3, separate.
+
+----------------------------------------------------------------
+NEXT SESSION STILL STARTS THE SAME WAY
+----------------------------------------------------------------
+Use the Continuation Action Plan §0 upload list + §7 opening message.
+This addendum just updates: Build 1 = committed (69ad30c56); color = done;
+Build 2 = snap-on-tap + relabel only; naming = backlog.
+================================================================

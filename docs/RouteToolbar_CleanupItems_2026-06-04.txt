@@ -1,0 +1,53 @@
+================================================================
+ROUTE TOOLBAR — CLEANUP ITEMS (post pact-compliance build)
+2026-06-04 · toolbar committed; these are follow-ups
+================================================================
+
+Context: ConvoyRouteToolbar.kt brought to pact compliance and committed
+(Add green/red self-toggle, always-visible Save/Discard, grip handle,
+rule-text comments). Build clean (30m44s). These 3 items remain.
+
+----------------------------------------------------------------
+1. LABEL: "Amend In-Progress Routes" -> "In Progress"
+----------------------------------------------------------------
+   The Start/continue placeholder reads "Amend In-Progress Routes".
+   Shorten to just "In Progress".
+   File: ConvoyRouteToolbar.kt — EntryBtnDisabled("Amend In-Progress Routes", ...)
+   -> EntryBtnDisabled("In Progress", ...)
+   Trivial; fold into the snap-2 patch.
+
+----------------------------------------------------------------
+2. GRIP HANDLE DOES NOT MOVE THE BAR  (fold into snap-2 patch)
+----------------------------------------------------------------
+   The dedicated grip handle (✥) carries detectDragGestures but the
+   panel does not move on the map when dragged. Not important per Fred;
+   add to the snap-2 patch.
+   Likely cause to check: the .offset{} reads offsetX/offsetY but the
+   drag may be consumed before it updates them, OR the handle's
+   pointerInput isn't propagating to the Surface offset (the Surface
+   has the .offset, the handle Text has the detectDragGestures — the
+   state vars are shared, so drag SHOULD update offset; verify the
+   handle isn't zero-size / not hit-testable, or that a parent isn't
+   eating the gesture). Diagnose with the Layout Inspector when we get
+   to it. NOT a blocker — toolbar works, just doesn't reposition.
+
+----------------------------------------------------------------
+3. PLAY LAUNCH-GATE: SpecifyForegroundServiceType lint  (§G)
+----------------------------------------------------------------
+   Build surfaced (lint, non-blocking today):
+   "SpecifyForegroundServiceType — when using setForegroundAsync(), the
+    app must override <service> entry for SystemForegroundService to
+    include the foreground service type in AndroidManifest.xml."
+   Vendor: AOSP / androidx.work.
+   Pre-existing (androidx.work WorkManager service), NOT from the toolbar
+   change. Build SUCCEEDED — this is a lint error in the report, not a
+   compile failure.
+   ACTION (before Play submission, §G launch gate): declare
+   android:foregroundServiceType on the SystemForegroundService <service>
+   entry in AndroidManifest.xml. Belongs with the ANR items in the
+   Google Play launch list. Not urgent now; matters at AAB/submission.
+
+----------------------------------------------------------------
+NEXT SESSION: snap-2 slice #1 (Save-completed, free points) per
+Snap2_Implementation_Plan_v2. Fold items 1 + 2 into that patch.
+================================================================

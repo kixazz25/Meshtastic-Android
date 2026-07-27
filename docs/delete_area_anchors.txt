@@ -1,0 +1,624 @@
+### 1. SUBMIT PATH
+310:    fun submitDownload(
+311-        context: Context,
+312-        north: Double, south: Double, east: Double, west: Double,
+313-        selectedSlots: List<String>,
+314-        replaceExisting: Boolean = false
+315-    ) {
+316-        for (slotName in selectedSlots) {
+317-            enqueueArea(context, slotName, north, south, east, west, replaceExisting)
+318-        }
+319-    }
+320-
+321-        fun enqueueRefresh(
+322-        context: Context,
+323-        slotName: String,
+324-        sourceName: String
+325-    ): Int {
+326-        init(context)
+327-        val bounds = ConvoyTileDownloader.tileBoundsLatLon(slotName) ?: return 0
+328-        // [2026-07-22] segmentation parity with enqueueArea: SAT sizes the grid, all ride it
+329-        val slotLayers = MapSourceManager.getDownloadSources()
+330-            .filter { it.first == slotName }.sumOf { it.second.size }
+331-        val oneLayerTiles = ConvoyTileCalculator
+332-            .quickEstimate(bounds[0], bounds[1], bounds[2], bounds[3]).tileCount
+333-        val satLayers = MapSourceManager.getDownloadSources()
+334-            .find { it.first == "SAT" }?.second?.size ?: slotLayers
+335-        val sizeTiles = oneLayerTiles * Math.max(1, satLayers)
+336-        val cells = ConvoyTileDownloader.segmentCells(
+337-            bounds[0], bounds[1], bounds[2], bounds[3], sizeTiles
+338-        )
+339-        if (cells.isEmpty()) return 0
+340-
+341-        val current = _queue.value.toMutableList()
+342-        cells.forEachIndexed { i, cell ->
+343-            val entry = QueueEntry(
+344-                north = cell[0], south = cell[1], east = cell[2], west = cell[3],
+345-                totalTiles = ConvoyTileCalculator
+346-                    .calculateTiles(cell[0], cell[1], cell[2], cell[3]).size * Math.max(1, slotLayers),
+347-                label = "REFRESH $slotName ${i + 1}/${cells.size}",
+348-                refreshMode = true,
+349-                refreshSlot = slotName,
+350-                // QUEUE-SCHEMA-2026-07-24: refreshMode stays as the REPLACE-TILES
+351-                // behaviour flag; downloadType now carries the KIND. Do not
+352-                // let the two drift into meaning the same thing.
+353-                downloadType = DownloadType.MAP_SOURCE_REFRESH,
+354-                priority = DownloadPriority.REFRESH
+355-            )
+356-            current.add(entry)
+357-        }
+358-        _queue.value = current
+359-        saveQueue()
+360-        android.util.Log.i(TAG, "Enqueued refresh: $slotName ${cells.size} grid cells")
+361-        startNextIfAvailable()
+362-        return cells.size
+363-    }
+364-
+365-    /** CORRIDOR-QUEUE-2026-07-24: queue a CORRIDOR download for ONE track, ONE source.
+### 1b. enqueueArea
+217:    fun enqueueArea(
+218-        context: Context,
+219-        slotName: String,
+220-        north: Double, south: Double, east: Double, west: Double,
+221-        replaceExisting: Boolean = false
+222-    ): Int {
+223-        init(context)
+224-        val slotLayers = MapSourceManager.getDownloadSources().filter { it.first == slotName }.sumOf { it.second.size }
+225-        // SEGMENTATION (2026-07-11): size off REAL job volume = 1-layer estimate * slotLayers.
+226-        //   SAT = 3 layers over same geography, so slotLayers=3 -> ~24.7K*3 = ~74K -> 2 segments.
+227-        //   (Bug history: sizing off the bare 1-layer estimate under-segmented; caught by dry-run JSON.)
+228-        val oneLayerTiles = ConvoyTileCalculator.quickEstimate(north, south, east, west).tileCount
+229-        // ALL SOURCES RIDE THE SAT-SIZED GRID (design: "SAT sizes the grid, all ride it").
+230-        // enqueueArea is called once per slot from submitDownload's loop; without this,
+231-        // SAT (3 layers ~74K) split into 2 but TOPO/TOPO+ (~24K) stayed 1 -> mismatched grids.
+232-        // So size off the SAT slot's layer count REGARDLESS of which slot is enqueuing:
+233-        val satLayers = MapSourceManager.getDownloadSources()
+234-            .find { it.first == "SAT" }?.second?.size ?: slotLayers
+235-        val sizeTiles = oneLayerTiles * Math.max(1, satLayers)
+236-        val cells = ConvoyTileDownloader.segmentCells(north, south, east, west, sizeTiles)
+237-        // SIZECALC-LOG-2026-07-23: every term of the sizing decision on one line.
+238-        run {
+239-            val entryTilesWhole =
+240-                ConvoyTileCalculator.calculateTiles(north, south, east, west).size * slotLayers
+241-            android.util.Log.i(
+242-                "SIZECALC",
+243-                "src=enqueueArea label='DL $slotName' slot=$slotName " +
+244-                "N=$north S=$south E=$east W=$west " +
+245-                "dLat=${north - south} dLon=${east - west} " +
+246-                "oneLayer=$oneLayerTiles slotLayers=$slotLayers satLayers=$satLayers " +
+247-                "sizeTiles=$sizeTiles segments=${cells.size} " +
+248-                "entryTilesWholeBox=$entryTilesWhole " +
+249-                "perCellApprox=${entryTilesWhole / Math.max(1, cells.size)} " +
+250-                "replace=$replaceExisting"
+251-            )
+252-        }
+253-        if (cells.isEmpty()) {
+254-            // Small area — single job
+255-            val entry = QueueEntry(
+256-                north = north, south = south, east = east, west = west,
+257-                totalTiles = ConvoyTileCalculator.calculateTiles(north, south, east, west).size * slotLayers,
+258-                label = "DL $slotName",
+259-                refreshMode = replaceExisting,
+260-                refreshSlot = slotName,
+261-                // QUEUE-SCHEMA-2026-07-24: this branch is UNREACHABLE - segmentCells
+262-                // floors at Math.max(1,..) so cells is never empty. Typed
+### 2. launchWorker
+605:    private fun launchWorker(entry: QueueEntry) {
+606-        val inputData = Data.Builder()
+607-            .putString("entry_id", entry.id)
+608-            .putDouble("north", entry.north)
+609-            .putDouble("south", entry.south)
+610-            .putDouble("east", entry.east)
+611-            .putDouble("west", entry.west)
+612-            .putString("label", entry.label)
+613-            .putBoolean("refresh_mode", entry.refreshMode)
+614-            .putString("refresh_slot", entry.refreshSlot)
+615-            // CORRIDOR-QUEUE-2026-07-24: the corridor worker re-derives its tiles from
+616-            // this. Empty for every non-corridor entry, which ignores it.
+617-            .putString("geom_hash", entry.geomHash)
+618-            .build()
+619-
+620-        val constraints = Constraints.Builder()
+621-            .setRequiredNetworkType(NetworkType.CONNECTED)
+622-            .build()
+623-
+624-        // CORRIDOR-WORKER-2026-07-24: the QUEUE TYPE selects the worker. Corridor and
+625-        // delete are their OWN code paths, not branches inside the area
+626-        // worker - delete in particular REMOVES tiles rather than fetching.
+627-        // This `when` is EXHAUSTIVE on purpose: a 5th DownloadType later
+628-        // becomes a COMPILE ERROR here rather than a silent fallthrough.
+629-        val builder = when (entry.downloadType) {
+630-            // Unchanged. Refresh already rides this worker via refreshMode;
+631-            // how source-refresh replaces map data end to end is a SEPARATE
+632-            // question, out of scope (2.6 task).
+633-            DownloadType.AREA,
+634-            DownloadType.MAP_SOURCE_REFRESH ->
+635-                OneTimeWorkRequestBuilder<ConvoyDownloadWorker>()
+636-
+637-            DownloadType.CORRIDOR ->
+638-                OneTimeWorkRequestBuilder<ConvoyCorridorWorker>()
+639-
+640-            // PLACEHOLDER until ConvoyDeleteWorker exists. Marked FAILED, not
+641-            // left QUEUED: a job no worker can run would be re-picked forever
+642-            // and BLOCK THE QUEUE BEHIND IT - the stuck-queue failure of 07-23.
+643-            DownloadType.DELETE_AREA_TILES -> {
+644-                android.util.Log.w(TAG,
+645-                    "No DELETE worker yet - failing entry id=${entry.id}")
+646-                markFailed(entry.id, "Tile delete not implemented in this build")
+647-                return
+648-            }
+649-        }
+650-        val workRequest = builder
+651-            .setInputData(inputData)
+652-            .setConstraints(constraints)
+653-            .addTag("grouptrack_tile_download")
+654-            .addTag(entry.id)
+655-            .build()
+656-
+657-        WorkManager.getInstance(appCtx).enqueue(workRequest)
+658-
+659-        updateEntry(entry.id) {
+660-            it.copy(
+### 3. DOWNLOAD WORKER (layer loop)
+package com.geeksville.mesh.convoy
+
+import android.app.NotificationManager
+import android.content.Context
+import android.content.pm.ServiceInfo
+import android.os.Build
+import androidx.work.CoroutineWorker
+import androidx.work.Data
+import androidx.work.ForegroundInfo
+import androidx.work.WorkerParameters
+
+/**
+ * Background tile download worker. Runs as foreground service with
+ * progress notification. Survives app backgrounding and device rotation.
+ *
+ * Input data:
+ *   entry_id  -- QueueEntry UUID
+ *   north/south/east/west -- bounding box
+ *   label     -- user-friendly name for notification
+ */
+class ConvoyDownloadWorker(
+    private val appContext: Context,
+    workerParams: WorkerParameters
+) : CoroutineWorker(appContext, workerParams) {
+
+    companion object {
+        private const val TAG = "DownloadWorker"
+        private const val PROGRESS_INTERVAL = 250  // update notification every N tiles
+    }
+
+    override suspend fun doWork(): Result {
+        val entryId = inputData.getString("entry_id") ?: return Result.failure()
+        val north = inputData.getDouble("north", 0.0)
+        val south = inputData.getDouble("south", 0.0)
+        val east = inputData.getDouble("east", 0.0)
+        val west = inputData.getDouble("west", 0.0)
+        val label = inputData.getString("label") ?: "Map tiles"
+        val refreshMode = inputData.getBoolean("refresh_mode", false)
+        val refreshSlot = inputData.getString("refresh_slot") ?: ""
+
+        android.util.Log.i(TAG, "Starting download: $label id=$entryId")
+
+        // Initialize queue manager (handles app-killed restart case)
+        DownloadQueueManager.init(appContext)
+
+        // Show foreground notification
+        showProgress(entryId, label, 0, 1)
+
+        MapSourceManager.init(appContext)
+
+        // ── Refresh mode: single slot, bounds-based, only existing tiles ──
+        if (refreshMode && refreshSlot.isNotEmpty()) {
+            android.util.Log.i(TAG, "REFRESH MODE: slot=$refreshSlot cell bounds N=$north S=$south E=$east W=$west")
+            val source = MapSourceManager.getSourceByKey(refreshSlot)
+            val layers = source?.layers ?: emptyList()
+
+            // Calculate tiles from cell bounds
+            val cellTiles = ConvoyTileCalculator.calculateTiles(north, south, east, west)
+
+            // Filter to only tiles that exist on disk (refresh, not create)
+            val existingTiles = cellTiles.filter { tile ->
+                MBTilesStore.hasTile(refreshSlot, tile.z, tile.x, tile.y) /* [V2.6-PASS1-S4] */
+            }
+
+            val totalTiles = existingTiles.size * layers.size
+            var totalDownloaded = 0
+            var totalFailed = 0
+
+            android.util.Log.i(TAG, "Refresh cell: ${cellTiles.size} in bounds, ${existingTiles.size} exist on disk, ${layers.size} layers")
+            DownloadQueueManager.updateProgress(entryId, 0, 0)
+
+            if (existingTiles.isEmpty()) {
+                DownloadQueueManager.markComplete(entryId, 0, 0)
+                return Result.success()
+            }
+
+            for (layer in layers) {
+                if (isStopped) return Result.failure()
+                val result = ConvoyTileDownloader.downloadTiles(
+                    context = appContext,
+                    tiles = existingTiles,
+                    sourceUrl = layer.urlTemplate,
+                    sourceName = refreshSlot,
+                    forceOverwrite = true,
+                    isOverlay = (layer.role == "overlay")
+                ) { downloaded, _, failCount ->
+                    totalDownloaded++
+                    totalFailed = failCount
+                    if (totalDownloaded % PROGRESS_INTERVAL == 0 || totalDownloaded == totalTiles) {
+                        showProgress(entryId, label, totalDownloaded, totalTiles)
+                        DownloadQueueManager.updateProgress(entryId, totalDownloaded, totalFailed)
+                        setProgressAsync(
+                            Data.Builder()
+                                .putInt("downloaded", totalDownloaded)
+                                .putInt("total", totalTiles)
+                                .putInt("failed", totalFailed)
+                                .build()
+                        )
+                    }
+                }
+                result.onFailure { e ->
+                    android.util.Log.e(TAG, "Refresh layer ${layer.cacheDir} failed: ${e.message}")
+                }
+            }
+            DownloadQueueManager.markComplete(entryId, totalDownloaded, totalFailed)
+            return Result.success()
+        }
+
+        // ── Normal mode: all slots from bounding box ──
+        // Calculate tile keys for the bounding box
+        val tiles = ConvoyTileCalculator.calculateTiles(north, south, east, west)
+
+        // Get all layers to download from MapSourceManager
+        val allSources = MapSourceManager.getDownloadSources()
+        val downloadSources = if (refreshSlot.isNotEmpty()) allSources.filter { it.first == refreshSlot } else allSources
+        val totalLayers = downloadSources.sumOf { it.second.size }
+        val totalTiles = tiles.size * totalLayers
+        var totalDownloaded = 0
+        var totalFailed = 0
+
+        android.util.Log.i(TAG, "Tiles: ${tiles.size} x $totalLayers layers = $totalTiles total")
+
+        DownloadQueueManager.updateProgress(entryId, 0, 0)
+
+        for ((slotName, layers) in downloadSources) {
+            for ((layerIndex, layer) in layers.withIndex()) {
+                // Check if WorkManager cancelled us
+                if (isStopped) {
+                    android.util.Log.i(TAG, "Worker stopped by system/user")
+                    return Result.failure()
+                }
+
+                android.util.Log.d(TAG, "Layer: ${layer.cacheDir} url=${layer.urlTemplate.take(60)}...")
+
+                val result = ConvoyTileDownloader.downloadTiles(
+                    context = appContext,
+                    tiles = tiles,
+                    sourceUrl = layer.urlTemplate,
+                    sourceName = if (layerIndex == 0) slotName else layer.cacheDir,
+                    isOverlay = (layer.role == "overlay")
+                ) { downloaded, _, failCount ->
+                    totalDownloaded++
+                    totalFailed = failCount
+
+                    // Throttle notification + queue updates
+                    if (totalDownloaded % PROGRESS_INTERVAL == 0 || totalDownloaded == totalTiles) {
+                        showProgress(entryId, label, totalDownloaded, totalTiles)
+                        DownloadQueueManager.updateProgress(entryId, totalDownloaded, totalFailed)
+                        setProgressAsync(
+                            Data.Builder()
+                                .putInt("downloaded", totalDownloaded)
+                                .putInt("total", totalTiles)
+                                .putInt("failed", totalFailed)
+                                .build()
+                        )
+                    }
+                }
+
+                result.onFailure { e ->
+                    android.util.Log.e(TAG, "Layer ${layer.cacheDir} failed: ${e.message}")
+                }
+            }
+        }
+
+        // -- Complete --------------------------------------
+        DownloadQueueManager.markComplete(entryId, totalDownloaded, totalFailed)
+
+        // Show completion notification (separate ID so it persists)
+        val nm = appContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        nm.notify(
+            entryId.hashCode() + 10000,
+            ConvoyDownloadNotification.completeNotification(appContext, label, totalDownloaded).build()
+        )
+
+        android.util.Log.i(TAG, "Complete: $label -- $totalDownloaded downloaded, $totalFailed failed")
+        return Result.success()
+    }
+
+    private fun showProgress(entryId: String, label: String, downloaded: Int, total: Int) {
+        try {
+            val notification = ConvoyDownloadNotification
+                .progressNotification(appContext, label, downloaded, total)
+                .addAction(
+                    android.R.drawable.ic_menu_close_clear_cancel,
+                    "Cancel",
+                    ConvoyDownloadNotification.cancelIntent(appContext, entryId)
+                )
+            val info = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                ForegroundInfo(
+                    entryId.hashCode(),
+                    notification.build(),
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+                )
+            } else {
+                ForegroundInfo(entryId.hashCode(), notification.build())
+            }
+            setForegroundAsync(info)
+        } catch (e: Exception) {
+            // Worker may be finishing -- safe to ignore
+            android.util.Log.d(TAG, "setForeground skipped: ${e.message}")
+### 4. LAYER MODEL
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyCorridorWorker.kt:95:        val source = MapSourceManager.getSourceByKey(slotName)
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyCorridorWorker.kt:96:        val layers = source?.layers ?: emptyList()
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyCorridorWorker.kt:119:                isOverlay = (layer.role == "overlay")
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyDownloadQueue.kt:183:        val layerCount = MapSourceManager.getDownloadSources().sumOf { it.second.size }
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyDownloadQueue.kt:224:        val slotLayers = MapSourceManager.getDownloadSources().filter { it.first == slotName }.sumOf { it.second.size }
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyDownloadQueue.kt:233:        val satLayers = MapSourceManager.getDownloadSources()
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyDownloadQueue.kt:329:        val slotLayers = MapSourceManager.getDownloadSources()
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyDownloadQueue.kt:333:        val satLayers = MapSourceManager.getDownloadSources()
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyDownloadQueue.kt:401:        val slotLayers = MapSourceManager.getDownloadSources()
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyDownloadWorker.kt:54:            val source = MapSourceManager.getSourceByKey(refreshSlot)
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyDownloadWorker.kt:55:            val layers = source?.layers ?: emptyList()
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyDownloadWorker.kt:85:                    isOverlay = (layer.role == "overlay")
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyDownloadWorker.kt:114:        val allSources = MapSourceManager.getDownloadSources()
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyDownloadWorker.kt:140:                    isOverlay = (layer.role == "overlay")
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyTileDownloader.kt:130:        isOverlay: Boolean = false,   // [V2.6a-WEBP] role -> codec dispatch
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyTileDownloader.kt:172:                        val success = if (bytes != null) MBTilesStore.insertTile(sourceName, tile.z, tile.x, tile.y, bytes, isOverlay) else false
+app/src/main/java/com/geeksville/mesh/convoy/MBTilesStore.kt:21: *   insertTile and readTile therefore both use raw z/x/y. Do NOT introduce a
+app/src/main/java/com/geeksville/mesh/convoy/MBTilesStore.kt:103:    fun insertTile(type: String, z: Int, x: Int, y: Int, bytes: ByteArray, isOverlay: Boolean = false): Boolean {
+app/src/main/java/com/geeksville/mesh/convoy/MBTilesStore.kt:105:        val stored = TileCodec.encode(bytes, isOverlay)   // [V2.6a-WEBP] lossy base / lossless overlay
+app/src/main/java/com/geeksville/mesh/convoy/MBTilesStore.kt:113:            android.util.Log.e(TAG, "insertTile $type z$z/$x/$y: ${e.message}")
+app/src/main/java/com/geeksville/mesh/convoy/MapSourceManager.kt:161:    fun getDownloadSources(): List<Pair<String, List<TileLayer>>> {
+app/src/main/java/com/geeksville/mesh/convoy/MapSourceManager.kt:165:                Pair(slot.legacyKey, it.layers)
+app/src/main/java/com/geeksville/mesh/convoy/MapSourceManager.kt:170:    fun getSourceByKey(legacyKey: String): TileSource? {
+app/src/main/java/com/geeksville/mesh/convoy/MapSourceManager.kt:177:        getSourceByKey(legacyKey)?.baseUrl ?: ""
+app/src/main/java/com/geeksville/mesh/convoy/MapSourceManager.kt:183:        getSourceByKey(legacyKey)?.overlayLayers ?: emptyList()
+app/src/main/java/com/geeksville/mesh/convoy/TileCodec.kt:33:    /** Encode tile bytes to WebP by role. isOverlay=true -> lossless. */
+app/src/main/java/com/geeksville/mesh/convoy/TileCodec.kt:34:    fun encode(bytes: ByteArray, isOverlay: Boolean): ByteArray {
+app/src/main/java/com/geeksville/mesh/convoy/TileCodec.kt:38:        if (isOverlay) return bytes
+app/src/main/java/com/geeksville/mesh/convoy/TileCodec.kt:43:            val quality = if (isOverlay) OVERLAY_QUALITY else BASE_QUALITY
+app/src/main/java/com/geeksville/mesh/convoy/TileCodec.kt:44:            val ok = compressWebp(bmp, isOverlay, quality, out)
+app/src/main/java/com/geeksville/mesh/convoy/TileCodec.kt:48:            android.util.Log.w(TAG, "encode failed (${if (isOverlay) "overlay" else "base"}) -> passthrough: ${e.message}")
+### 5. DELETE BUTTON
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyDownloadPanel.kt:211:                ArtifactCheckRow("Remove Tiles", red, removeTilesChecked, true) { onRemoveTilesCheckedChange(it) }
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt:226:    var panelRemoveTilesChecked by remember { mutableStateOf(false) }
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt:270:        val panel = MapStateStore.PanelBoxes(panelTilesChecked, panelTrailsChecked, panelRemoveTilesChecked)
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt:1582:                (panelTilesChecked || panelTrailsChecked || panelRemoveTilesChecked)) {
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt:1583:                val execLabel = if (panelRemoveTilesChecked && !panelTilesChecked && !panelTrailsChecked)
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt:1584:                    "Remove Tiles" else "Download Selected"
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt:1585:                val execColor = if (panelRemoveTilesChecked && !panelTilesChecked && !panelTrailsChecked)
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt:1624:                    removeTilesChecked = panelRemoveTilesChecked,
+app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt:1625:                    onRemoveTilesCheckedChange = { panelRemoveTilesChecked = it },
+### 6. QueueEntry + enum
+// matches and what a scoped cancel catches. Kept SEPARATE from `priority`
+// (which is only about turn order) so a promoted CORRIDOR job is still
+// CORRIDOR for filtering. DELETE_AREA_TILES is declared now even though it is
+// unwired - the control already exists in the panel, and declaring it once
+// avoids a second schema migration later. NOTE it REMOVES tiles rather than
+// fetching them, so launchWorker must DISPATCH ON TYPE when it is wired.
+enum class DownloadType { AREA, CORRIDOR, MAP_SOURCE_REFRESH, DELETE_AREA_TILES }
+
+// QUEUE-SCHEMA-2026-07-24: default turn order per kind. Explicit numbers, not the
+// enum ordinal - an ordinal silently changes meaning if anyone reorders the
+// enum. 1 is reserved for manual promotion and is never submitted at.
+object DownloadPriority {
+    const val DELETE = 0
+    const val PROMOTED = 1
+    const val CORRIDOR = 2
+    const val AREA = 3
+    const val REFRESH = 4
+    fun forType(t: DownloadType): Int = when (t) {
+        DownloadType.DELETE_AREA_TILES -> DELETE
+        DownloadType.CORRIDOR -> CORRIDOR
+        DownloadType.AREA -> AREA
+        DownloadType.MAP_SOURCE_REFRESH -> REFRESH
+    }
+}
+
+data class QueueEntry(
+    val id: String = UUID.randomUUID().toString(),
+    val north: Double = 0.0,
+    val south: Double = 0.0,
+    val east: Double = 0.0,
+    val west: Double = 0.0,
+    val status: QueueStatus = QueueStatus.QUEUED,
+    val totalTiles: Int = 0,
+    val downloadedTiles: Int = 0,
+    val failedTiles: Int = 0,
+    val retryCount: Int = 0,
+    val createdAt: Long = System.currentTimeMillis(),
+    val label: String = "",
+    val workRequestId: String? = null,
+    val refreshMode: Boolean = false,
+    val refreshSlot: String = "",
+    // QUEUE-SCHEMA-2026-07-24: see DownloadType / DownloadPriority above.
+    val downloadType: DownloadType = DownloadType.AREA,
+    val priority: Int = DownloadPriority.AREA,
+    // 0L until the job finishes. With createdAt this gives an OBSERVED rate
+    // (downloadedTiles / elapsed) that the panel averages over the last 2
+    // completed entries for its ETA - persisted, so it survives a restart.
+    val completedAt: Long = 0L,
+    // CORRIDOR-QUEUE-2026-07-24: the track this entry belongs to. Written ONLY by the
+    // corridor path, read ONLY by the corridor worker - inert to everything
+    // else. The corridor stores a GEOMETRY REFERENCE rather than a tile list:
+    // a 60K-tile list would be megabytes per entry in download_queue.json.
+    // The worker re-derives from this hash at run time.
+    val geomHash: String = ""
+) {
+    fun toJson(): JSONObject = JSONObject().apply {
+        put("id", id)
+        put("north", north)
+        put("south", south)
+        put("east", east)
+        put("west", west)
+        put("status", status.name)
+        put("totalTiles", totalTiles)
+        put("downloadedTiles", downloadedTiles)
+        put("failedTiles", failedTiles)
+        put("retryCount", retryCount)
+        put("createdAt", createdAt)
+        put("label", label)
+        put("workRequestId", workRequestId ?: "")
+        put("refreshMode", refreshMode)
+        put("refreshSlot", refreshSlot)
+        // QUEUE-SCHEMA-2026-07-24
+        put("downloadType", downloadType.name)
+        put("priority", priority)
+        put("completedAt", completedAt)
+        put("geomHash", geomHash)   // CORRIDOR-QUEUE-2026-07-24
+    }
+
+    companion object {
+        fun fromJson(j: JSONObject): QueueEntry = QueueEntry(
+            id = j.optString("id", UUID.randomUUID().toString()),
+            north = j.optDouble("north", 0.0),
+            south = j.optDouble("south", 0.0),
+            east = j.optDouble("east", 0.0),
+            west = j.optDouble("west", 0.0),
+            status = try { QueueStatus.valueOf(j.optString("status", "QUEUED")) } catch (_: Exception) { QueueStatus.QUEUED },
+            totalTiles = j.optInt("totalTiles", 0),
+            downloadedTiles = j.optInt("downloadedTiles", 0),
+            failedTiles = j.optInt("failedTiles", 0),
+            retryCount = j.optInt("retryCount", 0),
+            createdAt = j.optLong("createdAt", System.currentTimeMillis()),
+            label = j.optString("label", ""),
+            workRequestId = j.optString("workRequestId", "").ifEmpty { null },
+            refreshMode = j.optBoolean("refreshMode", false),
+            refreshSlot = j.optString("refreshSlot", ""),
+            // QUEUE-SCHEMA-2026-07-24: EVERY entry already on a tester's device
+            // lacks these keys. optString/optInt/optLong + the try-catch keep
+            // this total - a throw here is the boot-loop mechanism.
+            downloadType = try {
+                DownloadType.valueOf(j.optString("downloadType", "AREA"))
+            } catch (_: Exception) { DownloadType.AREA },
+            priority = j.optInt("priority", DownloadPriority.AREA),
+            completedAt = j.optLong("completedAt", 0L),
+            // CORRIDOR-QUEUE-2026-07-24: defaulted - legacy entries lack this key.
+            geomHash = j.optString("geomHash", "")
+        )
+    }
+}
+
+// ===========================================================
+// DownloadQueueManager -- singleton queue, max 2 concurrent
+// ===========================================================
+object DownloadQueueManager {
+
+    private const val MAX_CONCURRENT = 2  // [V2.6b] 2 queues (2 beat 3 on balanced segments 07-11); testing 2x10 async
+    private const val QUEUE_FILE = "download_queue.json"
+### 7. estimateRemaining + markComplete
+547:    fun markComplete(entryId: String, downloaded: Int, failed: Int) {
+548-        val entry = _queue.value.find { it.id == entryId }
+549-        if (entry?.refreshMode == true) {
+550-            // Refresh cells: silently remove from queue, no log clutter
+551-            val current = _queue.value.toMutableList()
+552-            current.removeAll { it.id == entryId }
+553-            _queue.value = current
+554-            saveQueue()
+555-            android.util.Log.d(TAG, "Refresh cell complete, removed: id=$entryId downloaded=$downloaded")
+556-        } else {
+557-            updateEntry(entryId) {
+558-                it.copy(
+559-                    // COMPLETEDAT-STAMP-2026-07-24: without this stamp completedAt stays
+560-                    // 0L forever, estimateRemaining() finds no usable samples,
+561-                    // and the summary's duration / completion-time line never
+562-                    // renders. With createdAt this is the elapsed time behind
+563-                    // the observed rate (downloadedTiles / elapsed).
+564-                    completedAt = System.currentTimeMillis(),
+565-                    status = QueueStatus.COMPLETE,
+566-                    downloadedTiles = downloaded,
+567-                    failedTiles = failed
+568-                )
+569-            }
+570-            android.util.Log.i(TAG, "Complete: id=$entryId downloaded=$downloaded failed=$failed")
+571-        }
+572-        startNextIfAvailable()
+573-    }
+574-
+575-    // -- Mark failed from Worker ---------------------------
+576:    fun markFailed(entryId: String, message: String) {
+577-        updateEntry(entryId) {
+578-            it.copy(status = QueueStatus.FAILED, retryCount = it.retryCount + 1)
+579-        }
+580-        android.util.Log.e(TAG, "Failed: id=$entryId reason=$message")
+581-        startNextIfAvailable()
+582-    }
+583-
+584-    // -- Launch next queued entry if under concurrency cap --
+585-    private fun startNextIfAvailable() {
+586-        if (!initialized) return
+587-        if (queuePaused) return
+588-        val current = _queue.value
+589-        val running = current.count { it.status == QueueStatus.DOWNLOADING }
+590-        if (running >= MAX_CONCURRENT) return
+591-
+592-        val slotsAvailable = MAX_CONCURRENT - running
+593-        // QUEUE-SCHEMA-2026-07-24: there was NO ordering here before - it took
+594-        // whatever came first in list order, which is why refreshes appeared
+595-        // to "run ahead" (they were simply enqueued first). sortedBy is
+596-        // STABLE, so equal priorities keep their relative list order and a
+597-        // promoted job runs ahead of its peers without reshuffling them.
+598-        val queued = current.filter { it.status == QueueStatus.QUEUED }
+599-            .sortedBy { it.priority }
+600-        for (next in queued.take(slotsAvailable)) {
+601-            launchWorker(next)
+602-        }
+603-    }
+604-
+605-    private fun launchWorker(entry: QueueEntry) {
+606-        val inputData = Data.Builder()
+### 8. TileCalculator
+72:    fun maxZoomForSource(sourceName: String): Int = ConvoyConfig.DOWNLOAD_ZOOM
+73-
+74-    /** CORRIDOR-DERIVATION-2026-07-24: the tile set within `bufferDeg` of a line.
+75-     *
+76-     *  NO POLYGON IS BUILT. Walk the points and stamp every tile within the
+77-     *  buffer at each zoom into a SET. Overlaps collapse for free - which is
+78-     *  what makes a self-crossing track (the "figure 7") trivial here, where a
+79-     *  polygon buffer would need self-intersection handling.
+80-     *
+81-     *  ⚠ INTERPOLATION IS NOT OPTIONAL. Track points can be hundreds of metres
+82-     *  apart on a straight fast section; stamping only at the vertices would
+83-     *  leave HOLES in the corridor at high zoom. We step at half a tile width
+84-     *  (at zMax) so no tile between two points can be missed.
+--
+146:    fun calculateTiles(
+147-        north: Double,
+148-        south: Double,
+149-        east: Double,
+150-        west: Double,
+151-        zMin: Int = ConvoyConfig.DOWNLOAD_ZOOM_MIN,
+152-        zMax: Int = ConvoyConfig.DOWNLOAD_ZOOM,
+153-        sourceName: String = ""
+154-    ): List<TileKey> {
+155-        val effectiveZMax = if (sourceName.isNotEmpty()) minOf(zMax, maxZoomForSource(sourceName)) else zMax
+156-        val tiles = mutableListOf<TileKey>()
+157-        for (z in zMin..effectiveZMax) {
+158-            val xMin = lon2tile(west, z)
+--
+190:    fun quickEstimate(
+191-        north: Double,
+192-        south: Double,
+193-        east: Double,
+194-        west: Double,
+195-        zMin: Int = ConvoyConfig.DOWNLOAD_ZOOM_MIN,
+196-        zMax: Int = ConvoyConfig.DOWNLOAD_ZOOM
+197-    ): DownloadEstimate {
+198-        var totalTiles = 0
+199-        for (z in zMin..zMax) {
+200-            val xCount = lon2tile(east, z) - lon2tile(west, z) + 1
+201-            val yCount = lat2tile(south, z) - lat2tile(north, z) + 1
+202-            totalTiles += xCount * yCount

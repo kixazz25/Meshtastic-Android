@@ -1,0 +1,151 @@
+================================================================
+SNAP-2 — START HERE NEXT SESSION  (diagnostic-first plan to finish snap-to-trail)
+2026-06-04 (evening) · GroupTrack V2.5 · branch feature/convoy-event-ride
+================================================================
+
+This is the doc the NEXT conversation opens with. It begins with ONE logcat
+diagnostic (cheap, ~1 build) that tells us WHY snap isn't working, then the full
+sequence to complete snap-2 from wherever that lands.
+
+Read alongside: SNAP2_TRUE_STATE_and_NextStep_2026-06-04_EVENING.txt (the full
+state) and GroupTrack_V25_LivingChecklist_2026-06-04e.html (§E corrected).
+
+----------------------------------------------------------------
+THE TRUTH (don't relitigate)
+----------------------------------------------------------------
+WORKS (committed): route FRAMEWORK — drop points -> STRAIGHT LINES -> name ->
+  save to spatial DB -> redraw magenta. Solid scaffold.
+DOES NOT WORK: SNAP-TO-TRAIL. Points stay where tapped; they do NOT adjust to
+  trail geometry. snap() was wired into onMapTap and compiles, but produces
+  straight lines on device. snap-to-trail is the unbuilt core feature.
+GOAL THIS NEXT SESSION: make a tapped point near a trail land ON the trail.
+
+----------------------------------------------------------------
+STEP 0 — confirm tree state before anything (2 min)
+----------------------------------------------------------------
+  cd ~/Meshtastic-Android
+  git log --oneline -4 > /tmp/gl.txt 2>&1; cat /tmp/gl.txt
+  git status --short
+Expect HEAD around 5fdf4b5ff (magenta) + possibly the name-relocation commit if
+it was committed at end of the prior session. Note: ConvoyRouteToolbar.kt is
+CRLF now (was LF); ConvoyScreen LF; ConvoyMapViewer CRLF. cat -A before patches.
+
+----------------------------------------------------------------
+STEP 1 — THE DIAGNOSTIC (the actual starting point) — ~1 build
+----------------------------------------------------------------
+Add logging to the onMapTap snap path on ONE screen (ConvoyScreen, LF) to answer
+the only question that matters first: IS THE SNAP STARVING FOR DATA?
+
+A diagnostic patch will insert, inside onMapTap right where snap is called, the
+equivalent of:
+    android.util.Log.d("SnapDiag", "tap lat=$lat lon=$lon bounds S=$lastViewportSouth W=$lastViewportWest N=$lastViewportNorth E=$lastViewportEast")
+    val trails = SpatialDbManager.queryTrailsByViewport(lastViewportSouth, lastViewportWest, lastViewportNorth, lastViewportEast)
+    val tracks = SpatialDbManager.queryTracksByViewport(lastViewportSouth, lastViewportWest, lastViewportNorth, lastViewportEast)
+    android.util.Log.d("SnapDiag", "trails=${trails.size} tracks=${tracks.size}")
+    val s = RouteManager.snap(lat, lon, trails, tracks, 30.0)
+    android.util.Log.d("SnapDiag", "snapResult=${s}")
+(Exact patch to be written next session against the CURRENT onMapTap — re-read
+the block first; the relocation may have shifted lines.)
+
+BUILD, install Droid, then:
+  adb -s 8624SBCEDF00001789 logcat -s SnapDiag
+TAP right ON a visible trail (zoom in so trails are drawn — trail display min
+zoom is 8; be well above it). Read the log.
+
+READ THE RESULT:
+  - trails=0  -> SNAP IS STARVING. The viewport query returns no trails. This is
+      the most likely case. Go to STEP 2A.
+  - trails>0 but snapResult=null -> data is there, snap MATH/RADIUS fails.
+      Go to STEP 2B.
+  - trails>0 and snapResult=non-null but the point still draws at the tap ->
+      the snapped vertex isn't being used/drawn. Go to STEP 2C.
+  - "SnapDiag" never logs at all -> onMapTap isn't reaching the snap path (JS
+      bridge / armed state). Go to STEP 2D.
+
+----------------------------------------------------------------
+STEP 2 — FIX, by what Step 1 showed
+----------------------------------------------------------------
+2A. trails=0 (starving) — MOST LIKELY
+    - Check the bounds in the log: are S/W/N/E sane for where you are, or are
+      they 0.0 / stale? ConvoyScreen seeds lastViewport* = 0.0 and sets them on
+      the first onViewportChanged. If you entered route mode and tapped before a
+      viewport event, bounds are 0 -> query returns nothing.
+      FIX: ensure bounds are current at tap — either read map.getBounds() via JS
+      at tap time, or guarantee onViewportChanged has fired (it normally has).
+    - Check argument ORDER: queryTrailsByViewport(south, west, north, east).
+      Confirm the call passes them in that order (a known prior gotcha: the
+      query signature vs call-site order — verify against where_used).
+    - Check DB init + that trails actually exist in the spatial DB for this area
+      (Work-with-Artifacts -> Trails ON shows them? if trails don't DISPLAY,
+      they won't snap either).
+    - Confirm zoom: below the trail display min, the set may be empty.
+
+2B. trails>0, snapResult=null (math/radius)
+    - Radius: 30 m may be too tight for a finger tap. Temporarily raise to 60-80
+      m to confirm snapping works at all, then tune down.
+    - Geometry parse: snap() uses parseWktLine -> List<DoubleArray>. Confirm the
+      DoubleArray is [lon,lat] vs [lat,lon] consistently with how snap measures
+      distance. A lon/lat swap makes every distance huge -> nothing in radius.
+    - Confirm the "geometry" map key holds WKT LINESTRING text snap can parse.
+
+2C. snapResult good but point draws at tap (not used)
+    - Ensure the vertex ADDED is snapToVertex(s), not freeVertex, and that
+      drawBuildLine uses routeVertices() AFTER addVertex. Re-read the onMapTap
+      block; the snapped lat/lon must be what's pushed to JS.
+
+2D. SnapDiag never logs (tap not reaching snap)
+    - onMapTap JS bridge not firing in route mode, or armed-state gating it.
+      Confirm setRouteMode(true) ran and convoy_map.html emits Android.onMapTap.
+      (This overlaps the future armed-gating work.)
+
+----------------------------------------------------------------
+STEP 3 — once snap works on ConvoyScreen
+----------------------------------------------------------------
+  - MIRROR the exact fix to ConvoyMapViewerScreen.kt (CRLF) — two-file mirror.
+  - REMOVE the SnapDiag logging (or leave one gated line) — clean patch.
+  - Build, test BOTH maps: tap on a trail -> point on the trail; tap empty ->
+    free point; Save -> route follows trail geometry (buildSegments slices
+    same-line snapped vertices) -> persists -> redraws magenta.
+  - Commit: "snap-2: trail-snapping working (tap adjusts to trail/track geometry)".
+
+----------------------------------------------------------------
+STEP 4 — then the remaining route features (separate, later)
+----------------------------------------------------------------
+  - Armed gating (Add RED -> tap pans).
+  - Draft-JSON in-progress lifecycle (save/resume/graduate/discard) per
+    RouteWriteFunction_DataContract.
+  - Draw / Suggest methods.
+  - Confirm the name-prompt relocation (panel -> New Route button) is committed.
+
+----------------------------------------------------------------
+TIME ESTIMATE (set expectation)
+----------------------------------------------------------------
+Snap-to-trail alone: best case ~half a session (2A starving-data fix, 1-2
+builds), typical ~a full session (2B math/radius, 2-3 builds), worst ~1-2
+sessions (snap() rework). Step 1 logcat converts this range into a real number
+in the first ~20 min. The remaining features (Step 4) are additional sessions
+beyond snap.
+
+----------------------------------------------------------------
+HARD RULES
+----------------------------------------------------------------
+  - Diagnose from logcat EVIDENCE; do not theorize/patch blind.
+  - cat -A before every patch. ConvoyScreen LF · ConvoyMapViewer CRLF ·
+    ConvoyRouteToolbar CRLF. Route mode = two-file mirror.
+  - One change, build, device-test, commit. Release builds Droid 1 only.
+  - Don't touch ConvoyConfig.
+  - snap-2 is the FEATURE; "framework done" is NOT "snap-2 done." Don't mark
+    snap-2 complete until a tap lands ON a trail on device.
+
+----------------------------------------------------------------
+OPENING MESSAGE FOR THE NEW SESSION
+----------------------------------------------------------------
+  "GroupTrack V2.5 snap-2. State: route FRAMEWORK works (drop points, straight
+   lines, name, save to spatial DB, redraw, committed). snap-TO-TRAIL does NOT
+   work — that's the job. Start with STEP 1 in SNAP2_START_HERE: a logcat
+   diagnostic patch on ConvoyScreen onMapTap to print trails=N at the tap, so we
+   learn if snap is starving for data (most likely) vs math/radius vs wiring.
+   I'll install, test, paste the SnapDiag log. Branch feature/convoy-event-ride.
+   ConvoyScreen LF, ConvoyMapViewer CRLF, ConvoyRouteToolbar CRLF; two-file
+   mirror; don't touch ConvoyConfig. Confirm tree state (STEP 0) first."
+================================================================

@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GroupTrack — Route Lifecycle: Adaptive Save/Discard DESIGN — 2026-06-05</title>
+<link href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.30.0/tabler-icons.min.css" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0e1116; --surface:#161b22; --surface2:#1c2230; --line:#2a3340;
+    --text:#e6edf3; --text2:#9aa7b4; --text3:#6b7785;
+    --green:#1CF0A0; --greenbg:#10241c; --greenln:#1d6e56;
+    --red:#ff5a52; --redbg:#2a1212; --redln:#a32d2d;
+    --amber:#EF9F27; --amberbg:#2a200d; --amberln:#854f0b;
+    --blue:#4DA6FF; --bluebg:#0c2740; --blueln:#185fa5;
+    --coral:#D85A30; --gold:#FFC83D; --purple:#C679FF; --purplebg:#1e1230;
+  }
+  *{ box-sizing:border-box; }
+  body{ margin:0; background:var(--bg); color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+    padding:24px; line-height:1.5; max-width:1080px; margin:0 auto; }
+  h1{ font-size:22px; color:#fff; margin:0 0 2px; }
+  .sub{ font-size:13px; color:var(--text2); margin-bottom:6px; }
+  .stamp{ font-size:11px; color:var(--text3); font-style:italic; border-bottom:2px solid var(--blue); padding-bottom:10px; margin-bottom:20px; }
+  h2{ font-size:16px; color:#fff; border-bottom:1px solid var(--line); padding-bottom:6px; margin:30px 0 12px; }
+  h3{ font-size:13px; color:var(--gold); text-transform:uppercase; letter-spacing:.05em; margin:20px 0 8px; }
+  .legend{ font-size:11px; color:var(--text2); margin-bottom:18px; display:flex; gap:16px; flex-wrap:wrap; }
+  .dot{ display:inline-block; width:8px; height:8px; border-radius:2px; vertical-align:1px; margin-right:4px; }
+  .principle{ background:var(--surface); border-left:3px solid var(--gold); border-radius:0 8px 8px 0; padding:11px 15px; font-size:12.5px; color:var(--text2); margin:0 0 18px; }
+  .principle b{ color:var(--gold); }
+
+  /* phones / panels */
+  .twoup{ display:flex; gap:22px; flex-wrap:wrap; justify-content:center; align-items:flex-start; margin-bottom:8px; }
+  .phone{ width:330px; background:#000; border-radius:26px; padding:11px; border:1px solid #222; }
+  .caption{ text-align:center; font-size:11px; color:var(--text2); margin-top:8px; max-width:330px; }
+  .screen{ background:linear-gradient(#1a2230,#0e1320); border-radius:18px; overflow:hidden; position:relative; min-height:540px; }
+  .map{ position:absolute; inset:0; background:
+      repeating-linear-gradient(0deg,transparent 0 40px,rgba(255,255,255,.03) 40px 41px),
+      repeating-linear-gradient(90deg,transparent 0 40px,rgba(255,255,255,.03) 40px 41px),
+      radial-gradient(circle at 28% 32%, rgba(40,70,55,.55), transparent 55%),
+      radial-gradient(circle at 70% 60%, rgba(40,60,80,.4), transparent 55%); }
+  .route-demo{ position:absolute; left:26px; top:54px; width:230px; height:150px; }
+
+  /* toolbar */
+  .toolbar{ position:absolute; left:10px; right:10px; bottom:10px; background:rgba(20,25,33,.98);
+    border:1px solid var(--line); border-radius:16px; padding:12px; }
+  .draghandle{ display:flex; align-items:center; justify-content:center; gap:6px; color:var(--text3);
+    font-size:10px; padding:2px 0 8px; border-bottom:.5px solid var(--line); margin-bottom:8px; }
+  .draghandle i{ font-size:14px; }
+  .tbhead{ display:flex; justify-content:space-between; align-items:center; }
+  .tbtitle{ font-size:14px; font-weight:600; color:#fff; }
+  .tbtitle i{ color:var(--gold); }
+  .tbmeta{ font-size:11px; color:var(--text2); }
+  .chev{ color:var(--text2); font-size:16px; }
+  .grouplabel{ font-size:9.5px; color:var(--text3); text-transform:uppercase; letter-spacing:.05em; margin:9px 0 4px; }
+  .row{ display:grid; gap:6px; }
+  .r3{ grid-template-columns:repeat(3,1fr); } .r2{ grid-template-columns:repeat(2,1fr); }
+  .btn{ border:.5px solid var(--line); border-radius:9px; padding:9px 4px; text-align:center; background:var(--surface2); position:relative; }
+  .btn i{ font-size:17px; display:block; } .btn span{ font-size:10.5px; display:block; margin-top:3px; }
+  .live{ border-color:var(--greenln); } .live i,.live span{ color:var(--green); } .live.fill{ background:var(--greenbg); }
+  .soon{ opacity:.72; } .soon i,.soon span{ color:var(--amber); }
+  .soon::after{ content:"soon"; font-size:8px; color:var(--amber); display:block; margin-top:1px; opacity:.8; }
+  .addon{ border:1.5px solid var(--greenln); background:var(--greenbg); } .addon i,.addon span{ color:var(--green); }
+  .statedot{ display:inline-block; width:7px; height:7px; border-radius:50%; margin-left:4px; vertical-align:1px; background:var(--green); box-shadow:0 0 5px var(--green); }
+  .exit{ border-top:.5px solid var(--line); margin-top:12px; padding-top:11px; }
+  .save{ border:.5px solid var(--blueln); background:var(--bluebg); } .save i,.save span{ color:var(--blue); }
+  .discard{ border:.5px solid var(--redln); background:var(--redbg); } .discard i,.discard span{ color:var(--red); }
+  .exit .btn{ padding:11px 4px; } .exit .btn span{ font-weight:600; font-size:12px; }
+
+  /* annotation callouts on the mockup */
+  .anno{ position:absolute; font-size:9.5px; line-height:1.3; background:var(--purplebg); border:1px solid var(--purple);
+    color:#e9d4ff; border-radius:6px; padding:5px 7px; max-width:150px; z-index:5; }
+  .anno b{ color:var(--purple); }
+  .anno::before{ content:""; position:absolute; width:8px; height:8px; background:var(--purplebg); border-right:1px solid var(--purple); border-bottom:1px solid var(--purple); }
+
+  /* adaptive choice "screen" mockups */
+  .choicescreen{ background:linear-gradient(#1a2230,#0e1320); border-radius:18px; min-height:540px; position:relative; padding:18px 16px; overflow:hidden; }
+  .csdim{ position:absolute; inset:0; background:rgba(0,0,0,.45); }
+  .cshead{ position:relative; font-size:15px; font-weight:600; color:#fff; text-align:center; margin:6px 0 4px; }
+  .cssub{ position:relative; font-size:11px; color:var(--text2); text-align:center; margin-bottom:18px; }
+  .cscard{ position:relative; background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:14px; margin-bottom:12px; }
+  .cscard.blue{ border-color:var(--blueln); } .cscard.green{ border-color:var(--greenln); }
+  .cscard.amber{ border-color:var(--amberln); } .cscard.red{ border-color:var(--redln); }
+  .cscard.gray{ border-color:var(--line); }
+  .cstitle{ font-size:13.5px; font-weight:600; color:#fff; display:flex; align-items:center; gap:8px; }
+  .cstitle i{ font-size:18px; }
+  .blue .cstitle i{ color:var(--blue);} .green .cstitle i{ color:var(--green);} .amber .cstitle i{ color:var(--amber);} .red .cstitle i{ color:var(--red);}
+  .csbody{ font-size:11px; color:var(--text2); margin-top:5px; }
+  .cstag{ font-size:9px; font-weight:700; padding:1px 6px; border-radius:3px; margin-left:6px; }
+  .t-live{ background:#0f3a2b; color:var(--green);} .t-soon{ background:#3a2c0d; color:var(--amber);}
+  .csstate{ position:relative; font-size:10px; color:var(--text3); text-align:center; margin-bottom:14px; font-style:italic; }
+
+  /* tables */
+  table{ border-collapse:collapse; width:100%; font-size:12px; margin:6px 0 4px; }
+  th,td{ border:.5px solid var(--line); padding:7px 10px; text-align:left; vertical-align:top; }
+  th{ background:var(--surface2); color:#fff; font-weight:600; } td{ color:var(--text2); }
+  .tg{ color:var(--green); font-weight:600; } .ta{ color:var(--amber); font-weight:600; } .tb{ color:var(--blue); font-weight:600; }
+  code{ background:#0f0f10; padding:1px 5px; border-radius:3px; font-size:11.5px; color:#d8d8d8; }
+  .mono{ font-family:ui-monospace,Menlo,Consolas,monospace; }
+
+  /* flow diagram */
+  .flow{ display:flex; flex-wrap:wrap; gap:10px; align-items:center; font-size:11px; margin:10px 0; }
+  .node{ border:1px solid var(--line); border-radius:8px; padding:8px 12px; background:var(--surface); color:var(--text); }
+  .node.live{ border-color:var(--greenln); } .node.soon{ border-color:var(--amberln); }
+  .arrow{ color:var(--text3); font-size:16px; }
+  .pin{ position:absolute; width:12px; height:12px; border-radius:50%; background:var(--green); border:2px solid #0e1320; transform:translate(-50%,-50%); box-shadow:0 0 6px rgba(28,240,160,.5); }
+  .seg{ position:absolute; height:2.5px; background:var(--green); transform-origin:left center; }
+</style>
+</head>
+<body>
+
+<h1>Route Lifecycle — Adaptive Save / Discard</h1>
+<div class="sub">DESIGN + STUB→FUNCTION MANIFEST · for approval before any code is written</div>
+<div class="stamp">2026-06-05 · based on RouteBuilder_Toolbar_FINAL_v3, RouteSaveDiscard_Rules, RouteWriteFunction_DataContract, RouteCreation_Screen_ProcessFlow · recovery base commit 204405fc7</div>
+
+<div class="legend">
+  <span><span class="dot" style="background:#1CF0A0"></span>LIVE (built, committed)</span>
+  <span><span class="dot" style="background:#EF9F27"></span>SOON (to be written — this work)</span>
+  <span><span class="dot" style="background:#4DA6FF"></span>SAVE surface</span>
+  <span><span class="dot" style="background:#ff5a52"></span>DISCARD surface</span>
+  <span><span class="dot" style="background:#C679FF"></span>annotation / rule callout</span>
+</div>
+
+<div class="principle">
+  <b>Core rule (governs the whole flow):</b> a route is EITHER an in-process JSON file OR a completed spatial-DB row — never both. The JSON is interim storage holding the SAME data the completed-save consumes (the vertex chain), so a route can be picked up, redisplayed, and editing continued. Graduation writes the DB row and deletes the JSON.<br>
+  <b>Adaptive principle:</b> Save and Discard are each ONE entry point that opens a CHOICE SCREEN. The current route STATE (new vs resumed · ≥2 pts · draft-on-disk) determines which choices the screen presents. Both behave symmetrically.
+</div>
+
+<!-- ============================================================ -->
+<h2>1 · The toolbar (build-only) — current approved design, annotated</h2>
+<div class="principle">
+  <b>Panel-split rule:</b> the Route+ toolbar BUILDS only. Copy / rename / edit / delete a COMPLETED route lives in Work-with-Artifacts → Routes (SEL/EDIT), never here. The toolbar's only persistence actions are <b>Save</b> and <b>Discard</b>, both adaptive.
+</div>
+
+<div class="twoup">
+  <div>
+    <div class="phone">
+      <div class="screen">
+        <div class="map"></div>
+        <div class="route-demo" id="demo"></div>
+
+        <!-- annotations -->
+        <div class="anno" style="left:8px; top:60px;"><b>New</b> = empty chain + Add ON. <b>Amend</b> = resume a draft JSON. <span style="color:var(--amber)">Amend = SOON</span></div>
+        <div class="anno" style="right:8px; top:150px;"><b>Add</b> GREEN=taps place · RED=taps pan. <span style="color:var(--amber)">RED-gating SOON</span></div>
+
+        <div class="toolbar tb-expanded">
+          <div class="draghandle"><i class="ti ti-grip-horizontal"></i> drag to move</div>
+          <div class="tbhead">
+            <div class="tbtitle"><i class="ti ti-route"></i> Route+</div>
+            <div><span class="tbmeta">3 pts · 1.4 mi</span> &nbsp;<i class="ti ti-chevron-down chev"></i></div>
+          </div>
+          <div class="grouplabel">Start / continue</div>
+          <div class="row r2">
+            <div class="btn live fill"><i class="ti ti-plus"></i><span>New</span></div>
+            <div class="btn soon"><i class="ti ti-file-pencil"></i><span>Amend In-Progress</span></div>
+          </div>
+          <div class="grouplabel">Method</div>
+          <div class="row r3">
+            <div class="btn live fill"><i class="ti ti-point"></i><span>Point-tap</span></div>
+            <div class="btn soon"><i class="ti ti-scribble"></i><span>Draw</span></div>
+            <div class="btn soon"><i class="ti ti-bulb"></i><span>Suggest</span></div>
+          </div>
+          <div class="grouplabel">Build</div>
+          <div class="row r2">
+            <div class="btn addon"><i class="ti ti-map-pin-plus"></i><span>Add ON<span class="statedot"></span></span></div>
+            <div class="btn live"><i class="ti ti-arrow-back-up"></i><span>Undo</span></div>
+          </div>
+          <div class="exit">
+            <div class="grouplabel" style="margin-top:0">Exit — adaptive</div>
+            <div class="row r2">
+              <div class="btn save"><i class="ti ti-device-floppy"></i><span>Save</span></div>
+              <div class="btn discard"><i class="ti ti-trash"></i><span>Discard</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="caption">Build toolbar. <b style="color:var(--blue)">Save</b> &amp; <b style="color:var(--red)">Discard</b> each open an adaptive CHOICE SCREEN (next section). Everything else is in-memory until a deliberate Save.</div>
+  </div>
+
+  <div style="max-width:330px;">
+    <h3>Stubbed callbacks on this toolbar</h3>
+    <table>
+      <tr><th>Stub (call site)</th><th>Today</th></tr>
+      <tr><td class="mono">onSave<br>(ConvoyScreen ~1353,<br>ConvoyMapViewerScreen ~846)</td><td>only the completed-save path (buildWktAndBbox → insertRoute). NO adaptive screen, NO draft option.</td></tr>
+      <tr><td class="mono">onExit / Discard</td><td>clearRoute + setRouteMode(false) + clearBuildLine. NO adaptive screen, NO resumed-draft branch.</td></tr>
+      <tr><td class="mono">onAmend / In-Progress</td><td>button present but DISABLED. No resume logic.</td></tr>
+    </table>
+    <div class="principle" style="margin-top:10px;">
+      <b>Two-file mirror:</b> every change here is made identically in <code>ConvoyScreen.kt</code> (convoy map) and <code>ConvoyMapViewerScreen.kt</code> (planning map), driving the shared <code>RouteManager</code>. Line endings: ConvoyScreen LF · ViewerScreen CRLF · Toolbar CRLF.
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2>2 · Adaptive SAVE screen — choices driven by route state</h2>
+<div class="principle">
+  Tapping <b style="color:var(--blue)">Save</b> opens a full screen. What it offers depends on whether the route is NEW or a RESUMED draft, and on point count. The screen is the disambiguator — one Save entry, state-driven choices.
+</div>
+
+<div class="twoup">
+
+  <!-- NEW route save screen -->
+  <div>
+    <div class="phone"><div class="choicescreen">
+      <div class="csdim"></div>
+      <div class="cshead">Save route</div>
+      <div class="cssub">How do you want to save?</div>
+      <div class="csstate">STATE: new route · 3 pts placed</div>
+
+      <div class="cscard blue">
+        <div class="cstitle"><i class="ti ti-circle-check"></i> Save as completed route <span class="cstag t-live">LIVE</span></div>
+        <div class="csbody">Finish it. Builds WKT + bbox from the vertex chain and writes ONE route row to the spatial DB. Appears in Work-with-Artifacts → Routes.<br><b>Condition:</b> needs ≥2 points (else disabled w/ hint).</div>
+      </div>
+
+      <div class="cscard amber">
+        <div class="cstitle"><i class="ti ti-device-floppy"></i> Save in progress <span class="cstag t-soon">SOON</span></div>
+        <div class="csbody">Keep working later. Writes a DRAFT JSON holding the full vertex chain. NOT in the spatial DB. Resume via "Amend In-Progress".</div>
+      </div>
+
+      <div class="cscard gray">
+        <div class="cstitle"><i class="ti ti-arrow-back"></i> Cancel</div>
+        <div class="csbody">Back to building. No write.</div>
+      </div>
+    </div></div>
+    <div class="caption">SAVE screen when route is <b>new</b>.</div>
+  </div>
+
+  <!-- RESUMED draft save screen -->
+  <div>
+    <div class="phone"><div class="choicescreen">
+      <div class="csdim"></div>
+      <div class="cshead">Save route</div>
+      <div class="cssub">This route was opened from a saved draft.</div>
+      <div class="csstate">STATE: resumed draft "Bar 10 North" · 6 pts</div>
+
+      <div class="cscard blue">
+        <div class="cstitle"><i class="ti ti-circle-check"></i> Save as completed (graduate) <span class="cstag t-soon">SOON</span></div>
+        <div class="csbody">Finish it. Same completed-save path → DB row, THEN delete the draft JSON (route becomes a DB-row, no longer a draft).<br><b>Condition:</b> needs ≥2 points.</div>
+      </div>
+
+      <div class="cscard amber">
+        <div class="cstitle"><i class="ti ti-device-floppy"></i> Save changes to draft <span class="cstag t-soon">SOON</span></div>
+        <div class="csbody">Keep it a draft. OVERWRITES the existing draft JSON with the current vertex chain.</div>
+      </div>
+
+      <div class="cscard gray">
+        <div class="cstitle"><i class="ti ti-arrow-back"></i> Cancel</div>
+        <div class="csbody">Back to building. No write.</div>
+      </div>
+    </div></div>
+    <div class="caption">SAVE screen when route is a <b>resumed draft</b>.</div>
+  </div>
+
+</div>
+
+<!-- ============================================================ -->
+<h2>3 · Adaptive DISCARD screen — same pattern, state-driven</h2>
+<div class="principle">
+  Tapping <b style="color:var(--red)">Discard</b> opens a full screen, symmetric to Save. A NEW route just clears (with a confirm). A RESUMED draft offers roll-back vs delete. <b>Discard NEVER writes</b> except the explicit "delete draft" choice.
+</div>
+
+<div class="twoup">
+
+  <!-- NEW route discard -->
+  <div>
+    <div class="phone"><div class="choicescreen">
+      <div class="csdim"></div>
+      <div class="cshead">Discard route</div>
+      <div class="cssub">Leave without saving?</div>
+      <div class="csstate">STATE: new route · not saved anywhere</div>
+
+      <div class="cscard red">
+        <div class="cstitle"><i class="ti ti-trash"></i> Discard &amp; exit <span class="cstag t-live">LIVE</span></div>
+        <div class="csbody">Clears the unsaved route from the screen and exits route mode. NO write (nothing was ever persisted).</div>
+      </div>
+
+      <div class="cscard gray">
+        <div class="cstitle"><i class="ti ti-arrow-back"></i> Keep building</div>
+        <div class="csbody">Back to building. Route stays on screen.</div>
+      </div>
+    </div></div>
+    <div class="caption">DISCARD screen when route is <b>new</b>.</div>
+  </div>
+
+  <!-- RESUMED draft discard -->
+  <div>
+    <div class="phone"><div class="choicescreen">
+      <div class="csdim"></div>
+      <div class="cshead">Discard route</div>
+      <div class="cssub">This route was opened from a saved draft.</div>
+      <div class="csstate">STATE: resumed draft "Bar 10 North"</div>
+
+      <div class="cscard amber">
+        <div class="cstitle"><i class="ti ti-arrow-back-up"></i> Roll back to last save <span class="cstag t-soon">SOON</span></div>
+        <div class="csbody">Drop THIS session's edits. The draft JSON on disk is UNTOUCHED — exiting just abandons in-memory changes. (Revert = reload the unchanged file.) NO write.</div>
+      </div>
+
+      <div class="cscard red">
+        <div class="cstitle"><i class="ti ti-trash-x"></i> Delete in-progress route <span class="cstag t-soon">SOON</span></div>
+        <div class="csbody">Remove the draft JSON entirely (prune a dead in-process route). This is the ONLY discard path that writes (a delete).</div>
+      </div>
+
+      <div class="cscard gray">
+        <div class="cstitle"><i class="ti ti-arrow-back"></i> Keep building</div>
+        <div class="csbody">Back to building. No change.</div>
+      </div>
+    </div></div>
+    <div class="caption">DISCARD screen when route is a <b>resumed draft</b>.</div>
+  </div>
+
+</div>
+
+<!-- ============================================================ -->
+<h2>4 · The rules that control the process flow</h2>
+<table>
+  <tr><th>STATE</th><th>Save tapped → screen offers</th><th>Discard tapped → screen offers</th></tr>
+  <tr>
+    <td><b>NEW</b>, &lt;2 pts</td>
+    <td>Save-completed <span class="ta">disabled</span> (need ≥2) · Save in-progress <span class="ta">soon</span> · Cancel</td>
+    <td>Discard &amp; exit <span class="tg">live</span> · Keep building</td>
+  </tr>
+  <tr>
+    <td><b>NEW</b>, ≥2 pts</td>
+    <td>Save-completed <span class="tg">live</span> · Save in-progress <span class="ta">soon</span> · Cancel</td>
+    <td>Discard &amp; exit <span class="tg">live</span> · Keep building</td>
+  </tr>
+  <tr>
+    <td><b>RESUMED</b>, &lt;2 pts</td>
+    <td>Graduate <span class="ta">disabled</span> · Save-changes-to-draft <span class="ta">soon</span> · Cancel</td>
+    <td>Roll back <span class="ta">soon</span> · Delete in-progress <span class="ta">soon</span> · Keep building</td>
+  </tr>
+  <tr>
+    <td><b>RESUMED</b>, ≥2 pts</td>
+    <td>Graduate (+delete draft) <span class="ta">soon</span> · Save-changes-to-draft <span class="ta">soon</span> · Cancel</td>
+    <td>Roll back <span class="ta">soon</span> · Delete in-progress <span class="ta">soon</span> · Keep building</td>
+  </tr>
+</table>
+<div class="principle">
+  <b>The deciding conditions</b> (what the adaptive screens read): <code>currentDraftId</code> (null = NEW · set = RESUMED) · <code>routeVertexCount() ≥ 2</code> · (implicitly) draft-on-disk = same as RESUMED. These are the ONLY inputs that shape the screens.
+</div>
+
+<!-- ============================================================ -->
+<h2>5 · The three writes — the entire persistence surface</h2>
+<table>
+  <tr><th>Write</th><th>Triggered by</th><th>Status</th></tr>
+  <tr><td>create draft JSON</td><td>Save → "Save in progress" (NEW)</td><td class="ta">SOON</td></tr>
+  <tr><td>overwrite draft JSON</td><td>Save → "Save changes to draft" (RESUMED)</td><td class="ta">SOON</td></tr>
+  <tr><td>insertRoute (+ delete draft if resumed)</td><td>Save → "Save as completed" / "Graduate"</td><td><span class="tg">LIVE</span> (insertRoute half) · <span class="ta">SOON</span> (draft-delete half)</td></tr>
+  <tr><td>delete draft JSON</td><td>Discard → "Delete in-progress"</td><td class="ta">SOON</td></tr>
+</table>
+<div class="principle">Everything else is in-memory until a deliberate Save. Roll-back, discard-new, and cancel NEVER write.</div>
+
+<!-- ============================================================ -->
+<h2>6 · Functions to be written — stub → function manifest</h2>
+<div class="principle">
+  This is the build manifest. <code>RouteManager</code> is a pure singleton (no Context/file I/O), so the interim JSON store is a NEW Context-holding component (working name <code>RouteDraftStore</code>). The adaptive screens + <code>currentDraftId</code> state live in the two screen files. Nothing here is written yet — this table is the spec.
+</div>
+
+<h3>A · Interim JSON store (new component — RouteDraftStore)</h3>
+<table>
+  <tr><th>Function</th><th>Inputs</th><th>Output</th><th>Used by</th></tr>
+  <tr><td class="mono tb">writeDraft</td><td>vertex chain (from routeVertices()), name, method · generates draftId + timestamps</td><td>draftId</td><td>Save → Save in-progress (NEW)</td></tr>
+  <tr><td class="mono tb">overwriteDraft</td><td>draftId, vertex chain, name, method, updatedAt</td><td>ok/fail</td><td>Save → Save changes to draft (RESUMED)</td></tr>
+  <tr><td class="mono tb">listDrafts</td><td>—</td><td>list of {draftId, name, updatedAt, pointCount}</td><td>Amend In-Progress picker (name + date + point count)</td></tr>
+  <tr><td class="mono tb">openDraft</td><td>draftId</td><td>vertex chain + name + method</td><td>Amend In-Progress → resume</td></tr>
+  <tr><td class="mono tb">deleteDraft</td><td>draftId</td><td>ok/fail</td><td>graduate (post-insert) · Discard → Delete in-progress</td></tr>
+</table>
+<div class="principle">
+  <b>Storage location:</b> dedicated subfolder <code>/sdcard/Documents/GroupTrack/route_drafts/</code>, one JSON per draft keyed <code>&lt;draftId&gt;.json</code>. User-visible, survives reinstall, isolated from the spatial DB / map-state files.<br>
+  <b>JSON shape (per DataContract):</b> <code>{ schemaVersion, draftId, name, createdAt, updatedAt, method, vertices:[{lat,lon,lineId,lineType,segmentIndex,t,snapped}…] }</code> — the VERTEX CHAIN, never wkt. wkt/bbox are derived at graduation by replaying buildWktAndBbox, so a resumed draft graduates through the IDENTICAL completed-save path.
+</div>
+
+<h3>B · Route-mode state (added to both screens)</h3>
+<table>
+  <tr><th>State</th><th>Meaning</th><th>Drives</th></tr>
+  <tr><td class="mono ta">currentDraftId : String?</td><td>null = NEW route · set = RESUMED from that draft</td><td>which adaptive Save/Discard choices appear; whether graduate deletes a draft</td></tr>
+</table>
+
+<h3>C · Adaptive screen handlers (replace the stubs in both screen files)</h3>
+<table>
+  <tr><th>Handler</th><th>Replaces stub</th><th>Reads</th><th>Calls</th></tr>
+  <tr><td class="mono">openSaveScreen</td><td>onSave</td><td>currentDraftId, routeVertexCount()</td><td>buildWktAndBbox→insertRoute (live) · writeDraft/overwriteDraft (soon) · deleteDraft on graduate (soon)</td></tr>
+  <tr><td class="mono">openDiscardScreen</td><td>onExit</td><td>currentDraftId</td><td>clearRoute/clearBuildLine (live) · deleteDraft (soon) · roll-back = reload openDraft (soon)</td></tr>
+  <tr><td class="mono">resumeDraft</td><td>(enable Amend btn)</td><td>chosen draftId</td><td>openDraft → addVertex×N → redraw → set currentDraftId</td></tr>
+</table>
+
+<h3>D · Build sequence (your chosen order)</h3>
+<table>
+  <tr><th>Patch</th><th>What</th><th>Proof</th></tr>
+  <tr><td>1</td><td>Adaptive Save/Discard SCREENS + currentDraftId state; draft store calls STUBBED (log only)</td><td>tap Save/Discard in each state → correct screen + branch logged; no file I/O risk</td></tr>
+  <tr><td>2</td><td>Real RouteDraftStore (write/overwrite/list/open/delete); swap stubs for real calls</td><td>write a draft → list → open → vertices round-trip (logcat)</td></tr>
+  <tr><td>3</td><td>Enable Amend In-Progress: picker (name+date+pts) → resume; wire Delete + graduate-delete</td><td>full lifecycle end-to-end, both maps</td></tr>
+</table>
+
+<!-- ============================================================ -->
+<h2>7 · Process-flow state diagram</h2>
+<div class="flow">
+  <span class="node">Idle</span><span class="arrow">→</span>
+  <span class="node live">Naming</span><span class="arrow">→</span>
+  <span class="node live">Building</span><span class="arrow">→</span>
+  <span class="node">Save screen</span>
+</div>
+<div class="flow" style="margin-left:30px;">
+  <span class="arrow">↳</span><span class="node live">Completed (DB row)</span><span class="arrow">→</span><span class="node">Idle</span>
+  <span style="width:18px"></span>
+  <span class="arrow">↳</span><span class="node soon">Draft (JSON)</span><span class="arrow">→</span><span class="node soon">Amend → Building</span>
+</div>
+<div class="flow">
+  <span class="node">Building</span><span class="arrow">→</span>
+  <span class="node">Discard screen</span><span class="arrow">→</span>
+  <span class="node live">cleared (new)</span>
+  <span class="arrow">|</span>
+  <span class="node soon">roll-back (draft kept)</span>
+  <span class="arrow">|</span>
+  <span class="node soon">draft deleted</span>
+</div>
+<div class="principle" style="margin-top:14px;">
+  <b>Gate for doc release to testers:</b> release notes + manual go out only when the FULL lifecycle functions end-to-end — create + snap-2 + draft save/resume + adaptive discard. As of the recovery base (204405fc7): LIVE = create + name + Save-completed + redraw. This document specifies the SOON half.
+</div>
+
+<!-- ============================================================ -->
+<h2>8 · Test scenario checklist — nav/rules with STUBS</h2>
+<div class="principle">
+  <b>How to test before functions exist:</b> the draft-store calls are STUBBED (log a line + show a confirmation), so the navigation and adaptive-rule branching can be fully exercised without real file I/O. Walk each scenario; verify the EXPECTED screen/branch appears. The <b>VERIFY</b> column says whether stubs fully prove it (✓ stub) or whether it can only be CONFIRMED once the real function is written (◐ needs fn). Build/harden the UI against the ✓-stub rows first; the ◐ rows get re-walked after the function pass.
+</div>
+
+<h3>A · Launch / origin fork (sets the state that governs everything)</h3>
+<table>
+  <tr><th>#</th><th>Scenario to emulate</th><th>Expected</th><th>Verify</th></tr>
+  <tr><td>L1</td><td>+ROUTE → tap <b>New</b></td><td>Naming dialog → Building, <code>currentDraftId=null</code> (NEW state), Add ON</td><td class="tg">✓ stub</td></tr>
+  <tr><td>L2</td><td>+ROUTE → tap <b>Select In-Progress</b> (picker)</td><td>picker opens listing drafts (name+date+pts); pick one → Building, <code>currentDraftId=set</code> (RESUMED state), vertices redrawn</td><td class="ta">◐ needs listDrafts + openDraft</td></tr>
+  <tr><td>L3</td><td>Select In-Progress with NO drafts on disk</td><td>picker shows empty state ("no in-progress routes"); no crash</td><td class="ta">◐ needs listDrafts</td></tr>
+  <tr><td>L4</td><td>Picker UI itself (open/scroll/cancel) with FAKE seeded list</td><td>list renders, rows tappable, cancel returns to entry row</td><td class="tg">✓ stub (hardcoded list)</td></tr>
+</table>
+
+<h3>B · Collapsed title bar — Save/Discard quick access</h3>
+<table>
+  <tr><th>#</th><th>Scenario</th><th>Expected</th><th>Verify</th></tr>
+  <tr><td>C1</td><td>Collapse the panel (chevron)</td><td>collapses to title bar (Route+ · pt count · chevron) WITH Save + Discard reachable on that bar</td><td class="tg">✓ stub</td></tr>
+  <tr><td>C2</td><td>Tap Save on the COLLAPSED bar</td><td>opens the adaptive Save screen for the current state (no need to expand)</td><td class="tg">✓ stub</td></tr>
+  <tr><td>C3</td><td>Tap Discard on the COLLAPSED bar</td><td>opens the adaptive Discard screen for the current state</td><td class="tg">✓ stub</td></tr>
+  <tr><td>C4</td><td>Drag the collapsed bar aside</td><td>moves on the grip handle only; Save/Discard taps don't trigger a drag (no QUEUES-style collision)</td><td class="tg">✓ stub</td></tr>
+</table>
+
+<h3>C · Adaptive SAVE screen — correct choices per state</h3>
+<table>
+  <tr><th>#</th><th>State emulated</th><th>Expected screen</th><th>Verify</th></tr>
+  <tr><td>S1</td><td>NEW, ≥2 pts → Save</td><td>screen: [Save completed ENABLED] [Save in-progress] [Cancel]</td><td class="tg">✓ stub (screen + branch logged)</td></tr>
+  <tr><td>S2</td><td>NEW, &lt;2 pts → Save</td><td>screen: [Save completed DISABLED + "need ≥2"] [Save in-progress] [Cancel]</td><td class="tg">✓ stub</td></tr>
+  <tr><td>S3</td><td>RESUMED, ≥2 pts → Save</td><td>screen: [Graduate (+delete draft) ENABLED] [Save changes to draft] [Cancel]</td><td class="tg">✓ stub (correct screen shown)</td></tr>
+  <tr><td>S4</td><td>NEW → Save → "Save completed"</td><td>buildWktAndBbox→insertRoute, clear, exit, redraw (this half is LIVE today)</td><td class="tg">✓ LIVE</td></tr>
+  <tr><td>S5</td><td>NEW → Save → "Save in-progress"</td><td>stub logs "would writeDraft"; UI confirms + exits. REAL persistence unverified.</td><td class="ta">◐ needs writeDraft</td></tr>
+  <tr><td>S6</td><td>RESUMED → Save → "Graduate"</td><td>stub logs "insertRoute + would deleteDraft". DB row LIVE; draft-delete unverified.</td><td class="ta">◐ needs deleteDraft</td></tr>
+  <tr><td>S7</td><td>RESUMED → Save → "Save changes to draft"</td><td>stub logs "would overwriteDraft". REAL overwrite unverified.</td><td class="ta">◐ needs overwriteDraft</td></tr>
+</table>
+
+<h3>D · Adaptive DISCARD screen — correct choices per state</h3>
+<table>
+  <tr><th>#</th><th>State emulated</th><th>Expected screen</th><th>Verify</th></tr>
+  <tr><td>D1</td><td>NEW → Discard</td><td>screen: [Discard &amp; exit] [Keep building]</td><td class="tg">✓ stub</td></tr>
+  <tr><td>D2</td><td>NEW → Discard → "Discard &amp; exit"</td><td>clearRoute + clearBuildLine + exit, NO write (LIVE today)</td><td class="tg">✓ LIVE</td></tr>
+  <tr><td>D3</td><td>RESUMED → Discard</td><td>screen: [Roll back to last save] [Delete in-progress] [Keep building]</td><td class="tg">✓ stub (correct screen)</td></tr>
+  <tr><td>D4</td><td>RESUMED → Discard → "Roll back"</td><td>stub: drop in-memory edits, exit; draft file UNTOUCHED (no write). Full revert-reload unverified.</td><td class="ta">◐ needs openDraft (reload)</td></tr>
+  <tr><td>D5</td><td>RESUMED → Discard → "Delete in-progress"</td><td>stub logs "would deleteDraft"; UI confirms + exits. REAL delete unverified.</td><td class="ta">◐ needs deleteDraft</td></tr>
+</table>
+
+<h3>E · Both maps (mirror parity)</h3>
+<table>
+  <tr><th>#</th><th>Scenario</th><th>Expected</th><th>Verify</th></tr>
+  <tr><td>M1</td><td>Walk A–D on the CONVOY map (ConvoyScreen)</td><td>all nav/rules behave per above</td><td class="tg">✓ stub</td></tr>
+  <tr><td>M2</td><td>Walk A–D on the PLANNING map (ConvoyMapViewerScreen)</td><td>identical behavior (two-file mirror)</td><td class="tg">✓ stub</td></tr>
+</table>
+
+<div class="principle">
+  <b>Summary:</b> the rows marked <span class="tg">✓ stub</span> harden the navigation + adaptive-rule SKELETON with no functions written — that's the UI-first pass. The rows marked <span class="ta">◐ needs fn</span> are the SAME scenarios re-walked after the RouteDraftStore functions land, to confirm real persistence. UI hardens first; functions last; then re-walk the ◐ rows end-to-end on both maps.
+</div>
+
+<script>
+  function draw(id){var d=document.getElementById(id); if(!d)return;
+    var pts=[[15,20],[80,75],[150,40],[215,60]];
+    for(var i=0;i<pts.length-1;i++){var x1=pts[i][0],y1=pts[i][1],x2=pts[i+1][0],y2=pts[i+1][1];
+      var len=Math.round(Math.hypot(x2-x1,y2-y1)),ang=Math.atan2(y2-y1,x2-x1)*180/Math.PI;
+      var s=document.createElement('div');s.className='seg';s.style.left=x1+'px';s.style.top=y1+'px';s.style.width=len+'px';s.style.transform='rotate('+ang+'deg)';d.appendChild(s);}
+    pts.forEach(function(p){var el=document.createElement('div');el.className='pin';el.style.left=p[0]+'px';el.style.top=p[1]+'px';d.appendChild(el);});}
+  draw('demo');
+</script>
+
+</body>
+</html>

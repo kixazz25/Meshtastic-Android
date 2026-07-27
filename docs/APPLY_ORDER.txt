@@ -1,0 +1,37 @@
+ITEM 2 — AUTO-RESYNC ON LAUNCH + JSON RECEIPT
+Apply in this order. All verified in sandbox against your real code.
+
+STEP 1 — Drop two new Kotlin files into the convoy package:
+  Copy SyncTracksDialog.kt  -> app/src/main/java/com/geeksville/mesh/convoy/
+  Copy AutoResyncHost.kt    -> app/src/main/java/com/geeksville/mesh/convoy/
+
+STEP 2 — Run three patch scripts (keep _rewire_old.txt and _rewire_new.txt
+         in the SAME folder as the rewire script when you run it):
+  python3 patch_add_grouptrackdir_2026-07-03_v1.py       (SpatialDbManager: +groupTrackDir accessor)
+  python3 patch_rewire_import_synctracks_2026-07-03_v1.py (import screen -> shared dialog)
+  python3 patch_mainactivity_hook_2026-07-03_v1.py        (MainActivity: +AutoResyncHost() call)
+
+Each patch has a count==1 anchor guard and aborts cleanly if it doesn't match.
+Line endings auto-detected + preserved per file.
+
+STEP 3 — Build:
+  ./gradlew assembleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease 2>&1 | grep -E "^e:|BUILD|FAILED"
+
+VERIFY (one resync covers BOTH item 1 and item 2):
+  - Install, COLD-LAUNCH FROM ICON. Because the receipt won't exist yet for
+    AUTO_RESYNC_VERSION=1, the SYNC TRACKS panel should auto-appear and run.
+  - Let it finish. Then tap the 188-pt Utah track -> Duration / Avg Spd populate,
+    Max Spd no longer 0 (item 1 verified via the auto-resync = item 2 verified).
+  - Confirm receipt written:
+    adb -s 8624SBCEDF00001789 shell "cat /sdcard/Documents/GroupTrack/autoresync_receipt.json"
+  - Kill + relaunch: panel should NOT reappear (receipt gate works).
+
+COMMIT (items 1+2 together — item 1 parser already committed as 918cd04aa; this
+commits item 2's files):
+  git add app/src/main/java/com/geeksville/mesh/convoy/SyncTracksDialog.kt \
+          app/src/main/java/com/geeksville/mesh/convoy/AutoResyncHost.kt \
+          app/src/main/java/com/geeksville/mesh/convoy/ConvoyTrackImportScreen.kt \
+          app/src/main/java/com/geeksville/mesh/convoy/SpatialDbManager.kt \
+          app/src/main/java/com/geeksville/mesh/MainActivity.kt
+  git status   (confirm ONLY those 5, nothing else)
+  git commit -m "feat: auto-resync migration on launch with public JSON receipt; extract shared SyncTracksDialog"

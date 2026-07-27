@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>V2.5 Scaffold §5-7 — Details + Waypoint + Track Save</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
+:root{--bg:#0e1117;--s:#161b22;--s2:#21262d;--b:#30363d;--t:#c9d1d9;--td:#8b949e;--tb:#f0f6fc;--blue:#58a6ff;--grn:#3fb950;--org:#d29922;--red:#f85149;--pur:#bc8cff;--cy:#39d2c0}
+*{box-sizing:border-box;margin:0;padding:0}body{font-family:'IBM Plex Sans',sans-serif;background:var(--bg);color:var(--t);line-height:1.6;padding:2rem}
+h1{font-size:1.4rem;color:var(--tb);border-bottom:2px solid var(--blue);padding-bottom:.4rem;margin-bottom:1.2rem}
+h2{font-size:1.1rem;color:var(--blue);margin:1.5rem 0 .6rem}
+h3{font-size:.95rem;color:var(--grn);margin:1rem 0 .4rem}
+code{font-family:'JetBrains Mono',monospace;font-size:.8rem;background:var(--s2);padding:2px 5px;border-radius:3px;color:var(--cy)}
+.m{background:var(--s);border:2px dashed var(--org);border-radius:8px;margin:1rem 0;max-width:380px;overflow:hidden}
+.mt{background:var(--s2);padding:6px 10px;font-weight:600;font-size:.8rem;color:var(--tb);border-bottom:1px solid var(--b)}
+.mb{padding:10px}
+.mr{display:flex;justify-content:space-between;padding:3px 0;font-size:.78rem;border-bottom:1px solid var(--s2)}
+.ml{color:var(--td)}.mv{color:var(--tb)}
+.b{font-size:.63rem;padding:2px 6px;border-radius:3px;border:1px solid var(--b);color:var(--t);background:var(--s2);margin:2px}
+.b.on{border-color:var(--blue);color:var(--blue)}
+.bl{font-size:.8rem;padding:6px 12px;border-radius:4px;border:1px solid var(--b);color:var(--tb);background:var(--s2);margin:2px}
+.bl.p{background:var(--blue);color:#fff;border-color:var(--blue)}
+.tag{display:inline-block;font-size:.63rem;font-weight:600;padding:2px 6px;border-radius:3px;margin-right:3px}
+.al{font-size:.75rem;padding:2px 0}.at{font-size:.58rem;padding:1px 4px;border-radius:2px;margin-left:3px}
+.at-a{background:#1a3a1a;color:var(--grn)}.at-u{background:#1a2a3a;color:var(--blue)}.at-w{background:#2a1a2a;color:var(--pur)}
+.tg{display:grid;grid-template-columns:repeat(2,1fr);gap:5px;padding:5px 0}
+.tb{padding:7px;text-align:center;border:1px solid var(--b);border-radius:4px;font-size:.76rem;font-weight:500;background:var(--s2);color:var(--t)}
+.rx{background:#1a1e25;border-left:3px solid var(--org);padding:9px 12px;margin:.8rem 0;border-radius:0 5px 5px 0}
+.rx h4{color:var(--org);margin:0 0 5px;font-size:.82rem}.rx ul{padding-left:1rem}.rx li{font-size:.8rem;margin-bottom:2px}
+.px{background:#111922;border-left:3px solid var(--blue);padding:9px 12px;margin:.8rem 0;border-radius:0 5px 5px 0}
+.px h4{color:var(--blue);margin:0 0 5px;font-size:.82rem}.px ol{padding-left:1rem}.px li{font-size:.8rem;margin-bottom:2px}
+.sec{border-bottom:1px solid var(--b);padding-bottom:1.2rem;margin-bottom:1.2rem}
+.inf{width:100%;padding:6px 8px;background:var(--s2);border:1px solid var(--b);border-radius:4px;color:var(--tb);font-size:.8rem;font-family:inherit;margin:3px 0}
+.stars{display:flex;gap:5px;justify-content:center;padding:6px 0;font-size:1.1rem}
+</style></head><body>
+
+<!-- ═══════════════ §5 DETAIL PANELS ═══════════════ -->
+<h1>§5 Artifact Detail Panels (one pattern, 4 types)</h1>
+<p style="font-size:.8rem;color:var(--td)">UI SCAFFOLDING NEXT | Same composable, 4 type configs</p>
+
+<div class="sec">
+<h2>TRAIL DETAIL</h2>
+<div class="m"><div class="mt">ARTIFACT DETAIL</div><div class="mb">
+  <div style="display:flex;align-items:center;gap:5px;margin-bottom:6px"><span class="tag" style="background:var(--grn);color:#fff">TRAIL</span><strong style="color:var(--tb)">Harris Rim Loop</strong></div>
+  <div style="font-size:.72rem;color:var(--td);margin-bottom:4px">ALIASES</div>
+  <div class="al">★ Harris Rim Loop <span class="at at-a">agency</span></div>
+  <div class="al">☆ Harris OHV Trail <span class="at at-u">user</span></div>
+  <div style="font-size:.72rem;color:var(--td);margin:6px 0 3px">CLASSIFICATION (trail_properties)</div>
+  <div class="mr"><span class="ml">Motorized</span><span class="mv">Yes</span></div>
+  <div class="mr"><span class="ml">Surface</span><span class="mv">Unpaved</span></div>
+  <div class="mr"><span class="ml">CartoCode</span><span class="mv">4</span></div>
+  <div style="font-size:.72rem;color:var(--td);margin:6px 0 3px">ATTRIBUTION</div>
+  <div class="mr"><span class="ml">Steward</span><span class="mv">USFS</span></div>
+  <div class="mr"><span class="ml">County</span><span class="mv">KANE</span></div>
+  <div style="display:flex;gap:3px;justify-content:center;margin-top:8px"><button class="b on">FIT</button><button class="b">+ ALIAS</button></div>
+</div></div>
+
+<h2>TRACK DETAIL</h2>
+<div class="m"><div class="mt">ARTIFACT DETAIL</div><div class="mb">
+  <div style="display:flex;align-items:center;gap:5px;margin-bottom:6px"><span class="tag" style="background:var(--blue);color:#fff">TRACK</span><strong style="color:var(--tb)">Morning Ride 05-15</strong></div>
+  <div style="font-size:.72rem;color:var(--td);margin-bottom:4px">ALIASES</div>
+  <div class="al">★ Morning Ride 05-15 <span class="at at-u">user</span></div>
+  <div style="font-size:.72rem;color:var(--td);margin:6px 0 3px">TRACK DATA (track_properties)</div>
+  <div class="mr"><span class="ml">Distance</span><span class="mv">12.4 mi</span></div>
+  <div class="mr"><span class="ml">Duration</span><span class="mv">2h 15m</span></div>
+  <div class="mr"><span class="ml">Max Speed</span><span class="mv">34 mph</span></div>
+  <div style="font-size:.72rem;color:var(--td);margin:6px 0 3px">SURVEY (track_surveys)</div>
+  <div class="mr"><span class="ml">Enjoyment</span><span class="mv">★★★★☆</span></div>
+  <div class="mr"><span class="ml">Ride Again</span><span class="mv">Yes</span></div>
+  <div style="display:flex;gap:3px;justify-content:center;margin-top:8px"><button class="b on">FIT</button><button class="b">+ ALIAS</button><button class="b">TO ROUTE</button><button class="b" style="border-color:var(--red);color:var(--red)">DELETE</button></div>
+</div></div>
+
+<h2>WAYPOINT DETAIL</h2>
+<div class="m"><div class="mt">ARTIFACT DETAIL</div><div class="mb">
+  <div style="display:flex;align-items:center;gap:5px;margin-bottom:6px"><span class="tag" style="background:var(--org);color:#000">GATE</span><strong style="color:var(--tb)">Gate 4</strong></div>
+  <div style="font-size:.72rem;color:var(--td);margin-bottom:4px">ALIASES</div>
+  <div class="al">★ Gate 4 <span class="at at-u">user</span></div>
+  <div class="al">☆ Red Canyon Gate <span class="at at-w">aws</span></div>
+  <div style="font-size:.72rem;color:var(--td);margin:6px 0 3px">PROPERTIES (waypoint_properties)</div>
+  <div class="mr"><span class="ml">Elevation</span><span class="mv">4,320 ft</span></div>
+  <div class="mr"><span class="ml">Description</span><span class="mv">Locked, BLM key</span></div>
+  <div style="display:flex;gap:3px;justify-content:center;margin-top:8px"><button class="b on">FIT</button><button class="b">+ ALIAS</button><button class="b">EDIT</button><button class="b" style="border-color:var(--red);color:var(--red)">DELETE</button></div>
+  <div style="text-align:center;font-size:.68rem;color:var(--td);margin-top:4px">Owner: WaypointManager. DELETE blocked if route trailhead.</div>
+</div></div>
+
+<h2>ROUTE DETAIL</h2>
+<div class="m"><div class="mt">ARTIFACT DETAIL</div><div class="mb">
+  <div style="display:flex;align-items:center;gap:5px;margin-bottom:6px"><span class="tag" style="background:var(--pur);color:#fff">ROUTE</span><strong style="color:var(--tb)">Bar 10 Saturday Loop</strong></div>
+  <div style="font-size:.72rem;color:var(--td);margin-bottom:4px">ALIASES</div>
+  <div class="al">★ Bar 10 Saturday Loop <span class="at at-u">user</span></div>
+  <div style="font-size:.72rem;color:var(--td);margin:6px 0 3px">ROUTE DATA (route_properties)</div>
+  <div class="mr"><span class="ml">Distance</span><span class="mv">28.7 mi</span></div>
+  <div class="mr"><span class="ml">Method</span><span class="mv">Draw</span></div>
+  <div class="mr"><span class="ml">Trailhead</span><span class="mv" style="color:var(--org)">Not assigned</span></div>
+  <div style="display:flex;gap:3px;justify-content:center;margin-top:8px"><button class="b on">FIT</button><button class="b">+ ALIAS</button><button class="b">SET TH</button><button class="b" style="border-color:var(--red);color:var(--red)">DELETE</button></div>
+  <div style="text-align:center;font-size:.68rem;color:var(--td);margin-top:4px">Owner: RouteManager. DELETE blocked if ride assigned. TH required V2.6.</div>
+</div></div>
+</div>
+
+<div class="sec">
+<div class="rx"><h4>DETAIL PANEL PATTERN (same composable, 4 type configs)</h4><ul>
+  <li>Badge + display_name + aliases + type-specific properties + actions</li>
+  <li>Alias source tags: agency (trail import), user (manual), aws (V2.6 standardization)</li>
+  <li>Star = preferred. One per artifact. LOCAL ONLY (is_preferred not sent to AWS).</li>
+  <li>Min 1 alias always. Agency/AWS undeletable. User deletable unless only one.</li>
+</ul></div>
+<div class="rx"><h4>DELETE RULES</h4><ul>
+  <li>TRAIL: no delete (agency data, batch remove by source only)</li>
+  <li>TRACK: warn if route.source_track_id references it</li>
+  <li>WAYPOINT: BLOCK if route.trailhead_id references it</li>
+  <li>ROUTE: BLOCK if route_properties.ride_id not null</li>
+  <li>All deletes cascade: properties + aliases + survey(track) + queue entries + data_log</li>
+</ul></div>
+</div>
+
+<!-- ═══════════════ §6 WAYPOINT CREATION ═══════════════ -->
+<h1>§6 Waypoint Creation — Long Press + Proximity + Alias</h1>
+<p style="font-size:.8rem;color:var(--td)">UI SCAFFOLDING NEXT</p>
+
+<div class="sec">
+<div class="m"><div class="mt">WAYPOINT CREATION FLOW</div><div class="mb">
+  <div style="font-size:.82rem;color:var(--tb);margin-bottom:6px">1. SELECT TYPE</div>
+  <div class="tg">
+    <div class="tb">TRAILHEAD</div><div class="tb">FUEL</div>
+    <div class="tb">GATE</div><div class="tb">HAZARD</div>
+    <div class="tb">SCENIC</div><div class="tb">WATER</div>
+    <div class="tb">CAMP</div><div class="tb">PARKING</div>
+    <div class="tb">RALLY</div><div class="tb">OTHER</div>
+  </div>
+
+  <div style="font-size:.82rem;color:var(--tb);margin:10px 0 6px">2. PROXIMITY CHECK (100m)</div>
+  <div style="background:var(--s2);border-radius:4px;padding:6px 8px;margin-bottom:6px">
+    <div style="font-size:.8rem;color:var(--tb)">📍 Gate 4 — 85m away</div>
+    <div class="al">★ Gate 4 <span class="at at-u">user</span></div>
+    <div style="display:flex;gap:4px;margin-top:6px">
+      <button class="b on">ADD ALIAS</button>
+      <button class="b">SET PREFERRED</button>
+    </div>
+  </div>
+  <div style="text-align:center"><button class="bl">CREATE NEW WAYPOINT</button></div>
+
+  <div style="font-size:.82rem;color:var(--tb);margin:10px 0 6px">3. NAME + SHARE</div>
+  <input class="inf" value="Gate 5 — Sand Hollow">
+  <div style="display:flex;gap:6px;justify-content:center;margin-top:8px">
+    <button class="bl">NO</button>
+    <button class="bl p">SHARE</button>
+  </div>
+</div></div>
+</div>
+
+<div class="sec">
+<div class="px"><h4>WAYPOINT CREATION LIFECYCLE (Owner: WaypointManager)</h4><ol>
+  <li>Long-press → type select → proximity check via proximity_config (100m default)</li>
+  <li>IF NEARBY: show existing + aliases → (A) add alias, (B) set preferred, (C) create new</li>
+  <li>IF (A): AliasManager adds alias. No new spatial. Done.</li>
+  <li>IF (C) or NO NEARBY: name → insert waypoints (spatial, POINT WKT) → insert waypoint_properties → AliasManager first alias → AuditLogger data_log → share? → QueueManager upload_queue</li>
+</ol></div>
+<div class="px"><h4>DATABASE WRITES</h4><ol>
+  <li>grouptrack_spatial.db: INSERT INTO waypoints (waypoint_id, name, type, geometry, created_at, updated_at)</li>
+  <li>grouptrack_data.db: INSERT INTO waypoint_properties, artifact_aliases, data_log</li>
+  <li>geometry = SpatialDbManager.pointWkt(lat, lng)</li>
+</ol></div>
+<div class="rx"><h4>PROXIMITY CONFIG (soft-coded, adjustable)</h4><ul>
+  <li>waypoint: 100m | trail: 80% overlap | track: 70% overlap | route: 85% overlap</li>
+</ul></div>
+</div>
+
+<!-- ═══════════════ §7 TRACK SAVE ═══════════════ -->
+<h1>§7 Track Save Flow</h1>
+<p style="font-size:.8rem;color:var(--td)">UI SCAFFOLDING NEXT</p>
+
+<div class="sec">
+<div class="m"><div class="mt">TRACK SAVE — NAME + SHARE + SURVEY</div><div class="mb">
+  <div style="font-size:.82rem;color:var(--tb);margin-bottom:4px">SAVE TRACK</div>
+  <div style="font-size:.75rem;color:var(--td);margin-bottom:6px">GPS recording complete. 12.4 mi, 2h 15m.</div>
+  <input class="inf" value="Morning Ride 05-15">
+  <div style="display:flex;gap:6px;justify-content:center;margin-top:6px">
+    <button class="bl">SKIP</button><button class="bl p">SAVE</button>
+  </div>
+
+  <div style="font-size:.82rem;color:var(--tb);margin:12px 0 6px">SHARE</div>
+  <div style="display:flex;gap:6px;justify-content:center">
+    <button class="bl">NO</button><button class="bl p">YES</button>
+  </div>
+
+  <div style="font-size:.82rem;color:var(--tb);margin:12px 0 6px">RATE THIS RIDE</div>
+  <div class="stars"><span style="color:var(--org)">1</span><span style="color:var(--org)">2</span><span style="color:var(--org)">3</span><span style="color:var(--org)">4</span><span style="color:var(--org)">5</span></div>
+  <div style="font-size:.82rem;color:var(--tb);text-align:center;margin:6px 0">RIDE AGAIN?</div>
+  <div style="display:flex;gap:6px;justify-content:center">
+    <button class="bl">NO</button><button class="bl p">YES</button>
+  </div>
+  <div style="text-align:center;margin-top:8px"><button class="bl">DONE</button></div>
+</div></div>
+</div>
+
+<div class="px"><h4>TRACK CREATION LIFECYCLE (Owner: TrackManager)</h4><ol>
+  <li>GPS stops or file imported → name prompt → Save/Skip</li>
+  <li>Save GPX/KML to my_tracks/ → insert tracks (bbox = bboxWkt from points)</li>
+  <li>Insert track_properties (distance, duration, speed, elevation)</li>
+  <li>AliasManager: first alias (preferred, source='user')</li>
+  <li>Share Y/N → if Y: shared=1, upload_queue entry</li>
+  <li>Survey → insert track_surveys (enjoyment 1-5, ride again Y/N)</li>
+  <li>AuditLogger: data_log entry</li>
+  <li>TileRequestTrigger: tile_queue HIGH priority</li>
+</ol></div>
+<div class="rx"><h4>V2.6 POST-UPLOAD</h4><ul>
+  <li>AWS returns area track aliases → user picks standard or keeps own</li>
+  <li>Three options: ACCEPT STANDARD | KEEP MINE REMOVE AWS | KEEP MINE KEEP AWS</li>
+  <li>Internet-gated startup check. JSON inbox: Documents/GroupTrack/data/alias_review/</li>
+</ul></div>
+
+<p style="text-align:center;color:var(--td);margin-top:1.5rem;font-size:.72rem;font-style:italic">V2.5 Scaffold §5-7 | Source: ScreenReference v5 §5-7 verbatim | May 19, 2026</p>
+</body></html>

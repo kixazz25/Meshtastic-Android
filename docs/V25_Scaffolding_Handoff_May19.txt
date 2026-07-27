@@ -1,0 +1,313 @@
+GroupTrack V2.5 Scaffolding Handoff — May 19, 2026
+====================================================
+SESSION WILL NOT BE AVAILABLE FOR ONE WEEK.
+This document is the complete handoff for resuming work.
+
+Branch: feature/convoy-event-ride
+Project root: ~/Meshtastic-Android
+Convoy dir: app/src/main/java/com/geeksville/mesh/convoy/
+
+=============================================
+WHAT WAS COMPLETED THIS SESSION (May 19)
+=============================================
+
+COMMIT a46030073: "V2.5 Pass 1: scaffold"
+  - 13 new composable/lifecycle files created in convoy/
+  - Routes.kt: added ConvoyTrailSources + ConvoyRouteCreate
+  - ConvoyNavigation.kt: entries + callbacks for trail sources + route create
+  - QUEUES text button added to both maps
+  - TRACKS shifted left on Planning Map header
+
+COMMIT e6baa321b: "V2.5: trail source catalog + scanner tool"
+  - trail_sources.json asset: 8 trail sources (6 import-ready)
+  - tools/scan_trail_sources.py: reusable scanner
+  - tools/trail_scan_report.json: scan results
+
+COMMIT (pending): TrailImporter + schema v2 + ArtifactsPanel wiring
+  - TrailImporter.kt: REAL implementation (not stub)
+    - importFullSource(context, sourceId) — Method A
+    - importByArea(context, sourceIds, south, west, north, east) — Method B
+    - HTTP query → GeoJSON parse → bbox extract → dedup → insert
+    - Pagination (2000 records), source catalog from trail_sources.json
+  - schema_spatial_v1_to_v2.sql: adds min_lat/max_lat/min_lon/max_lon to trails
+  - schema_spatial_v1.sql: updated for fresh installs with bbox columns
+  - SpatialDbManager.kt: added getSpatialDb(), getExtensionDb(),
+    queryTrailsByViewport(), wktToGeoJsonCoords(), buildTrailGeoJson()
+  - ConvoyArtifactsPanel added to ConvoyScreen.kt (convoy map)
+  - ConvoyArtifactsPanel added to ConvoyMapViewerScreen.kt (planning map)
+    NOTE: planning map wiring may not be working — Fred reports it missing
+
+COMMIT (pending): 4 missing scaffold files
+  - ConvoyArtifactOps.kt (stub: fit, rename, delete, toRoute, toTrack, etc.)
+  - ConvoySharePromptDialog.kt (composable: share yes/no dialog)
+  - ConvoyTrackSaveOps.kt (stub: parseGpxMetadata, insertTrackRow, triggerTileFollow)
+  - ConvoyDownloadPanel.kt (composable: V2.5 active + V2.6 stubs)
+
+=============================================
+ALL 17 SCAFFOLD FILES (all should exist after pending commits)
+=============================================
+
+UI Panels/Screens:
+  1. ConvoyArtifactsPanel.kt — accordion with 4 artifact type rows
+  2. ConvoyArtifactDetailPanel.kt — standardized detail on map click
+  3. ConvoyQueuesPanel.kt — 3 queue headers, priority filter, item template
+  4. ConvoyWaypointCreateDialog.kt — type grid + name input
+  5. ConvoySharePromptDialog.kt — yes/no share dialog
+  6. ConvoyTrailSourceScreen.kt — catalog list + edit form
+  7. ConvoyRouteCreateScreen.kt — draw mode overlay + save
+  8. ConvoyDownloadPanel.kt — V2.5 download tiles + remove tiles by area + V2.6 stubs
+
+Ops/Logic:
+  9. ConvoyArtifactOps.kt — all artifact actions (FIT, RENAME, DELETE, etc.)
+  10. ConvoyTrackSaveOps.kt — GPS track save pipeline
+  11. TrailImporter.kt — REAL: HTTP + GeoJSON + dedup + insert (Method A + B)
+
+Lifecycle Owners (all stubs):
+  12. TrackManager.kt
+  13. WaypointManager.kt
+  14. RouteManager.kt
+  15. AliasManager.kt
+  16. AuditLogger.kt
+  17. QueueManager.kt
+
+=============================================
+13 WIRING GAPS — THE PUNCH LIST
+=============================================
+
+Each gap = an existing button/trigger that needs to be connected to an existing file.
+No new files needed. All targets exist.
+
+GAP 1: QUEUES button → open ConvoyQueuesPanel
+  WHERE: ConvoyScreen.kt line ~985 (Surface with "QUEUES" text)
+         ConvoyMapViewerScreen.kt (QUEUES in header row)
+  HOW: Add boolean state var (queuesOpen). On click toggle state.
+       When true, show ConvoyQueuesPanel composable.
+  TARGET: ConvoyQueuesPanel.kt
+
+GAP 2: + ROUTE button → navigate to ConvoyRouteCreateScreen
+  WHERE: ConvoyArtifactsPanel.kt title bar has "+ ROUTE" text
+  HOW: The onCreateRoute callback needs to call navController.navigate(ConvoyRoutes.ConvoyRouteCreate)
+  TARGET: ConvoyRouteCreateScreen.kt (route already exists in Routes.kt)
+
+GAP 3: Artifacts SELECT buttons → open display/edit lists
+  WHERE: ConvoyArtifactsPanel.kt grid buttons (SELECT under Display, Edit/Display columns)
+  HOW: Each button's onClick should expand a list section below that row showing
+       artifacts of that type from viewport query. Use state to track which type is expanded.
+  TARGET: Inline expansion within ConvoyArtifactsPanel (no separate file needed)
+
+GAP 4: Artifacts IMPORT buttons → open import flows
+  WHERE: ConvoyArtifactsPanel.kt grid (IMPORT column)
+  HOW:
+    - Tracks IMPORT → launch file picker for GPX/KML from Downloads
+    - Trails IMPORT → navigate to trail import method selection (TrailSourceScreen or new flow)
+    - Waypoints IMPORT → launch file picker for GPX waypoint file
+    - Routes IMPORT → disabled (show toast "Import as track, convert via EDIT")
+  TARGET: Various (file picker, TrailSourceScreen, toast)
+
+GAP 5: Artifacts Display toggles → toggle map layers
+  WHERE: ConvoyArtifactsPanel.kt (toggle switches per type row)
+  HOW: Each toggle calls evaluateJavascript on the WebView to show/hide that layer type.
+       Needs WebView reference passed into the panel.
+  TARGET: JavaScript functions in convoy_map.html / grouptrack_map.html
+
+GAP 6: Long-press on map → open WaypointCreateDialog
+  WHERE: convoy_map.html AND grouptrack_map.html (JavaScript)
+         ConvoyScreen.kt AND ConvoyMapViewerScreen.kt (Kotlin bridge)
+  HOW:
+    JS: Add map.on('contextmenu', function(e) { Android.onLongPress(e.latlng.lat, e.latlng.lng); });
+    Kotlin: Add @JavascriptInterface fun onLongPress(lat: Double, lon: Double) to WebView client
+    On receive: set state to show ConvoyWaypointCreateDialog with lat/lon
+  TARGET: ConvoyWaypointCreateDialog.kt
+
+GAP 7: Click artifact on map → open ArtifactDetailPanel
+  WHERE: convoy_map.html AND grouptrack_map.html (JavaScript)
+         ConvoyScreen.kt AND ConvoyMapViewerScreen.kt (Kotlin bridge)
+  HOW:
+    JS: On trail/track/waypoint/route click, call Android.onArtifactClick(type, id)
+    Kotlin: Add @JavascriptInterface fun onArtifactClick(type: String, id: String)
+    On receive: set state to show ConvoyArtifactDetailPanel with type + id
+  TARGET: ConvoyArtifactDetailPanel.kt
+
+GAP 8: + WPT FAB on Planning Map
+  WHERE: ConvoyMapViewerScreen.kt (add FloatingActionButton)
+  HOW: Add FAB with waypoint icon in bottom-left area. On click, show
+       ConvoyWaypointCreateDialog at map center coordinates.
+  TARGET: ConvoyWaypointCreateDialog.kt
+
+GAP 9: + RTE FAB on Planning Map
+  WHERE: ConvoyMapViewerScreen.kt (add FloatingActionButton)
+  HOW: Add FAB with route icon. On click, navigate to ConvoyRouteCreateScreen.
+  TARGET: ConvoyRouteCreateScreen.kt
+
+GAP 10: DisplayPanel replaced by ArtifactsPanel
+  WHERE: ConvoyScreen.kt (~line 997 ConvoyDisplayPanel call)
+         ConvoyMapViewerScreen.kt (ConvoyDisplayPanel call)
+  HOW: Remove ConvoyDisplayPanel composable call. ConvoyArtifactsPanel
+       takes its place. The accordion pill replaces the old display pill.
+       ArtifactsPanel CLOSED state = "> WORK WITH ARTIFACTS [+ ROUTE]"
+       Same draggable behavior as current DisplayPanel.
+  NOTE: Currently they are side-by-side. Should be ONLY ArtifactsPanel.
+
+GAP 11: Show Tiles Downloaded toggle
+  WHERE: ConvoyArtifactsPanel.kt or display section
+  HOW: Toggle switch. When on:
+    - Query source_ingestions for bounds_json → draw BLUE rectangles on map
+    - Query tile_queue for pending area_json → draw RED rectangles on map
+    JS: Add showTileAreas(blueRects, redRects) and hideTileAreas() functions
+  VISUAL: Blue fill = completed tile areas, Red fill = pending tile downloads
+
+GAP 12: Show Artifacts Downloaded toggle
+  WHERE: ConvoyArtifactsPanel.kt or display section
+  HOW: Toggle switch. When on:
+    - Query source_ingestions for bounds_json → draw BLACK DIAGONAL STRIPES on map
+    JS: Add showArtifactAreas(rects) and hideArtifactAreas() functions
+    Use SVG pattern for diagonal stripes in Leaflet
+  VISUAL: Black diagonal stripe pattern overlay
+
+GAP 13: Remove Tiles by Area
+  WHERE: Existing download controls on Planning Map (or ConvoyDownloadPanel.kt)
+  HOW: Button that activates area draw mode. User draws rectangle.
+       On confirm, creates REMOVE_AREA job in tile_queue at LOWEST priority.
+       Deletes tiles within drawn bounds from shared storage.
+  TARGET: Area selector (same transient component as tile download area draw)
+
+=============================================
+ARTIFACTS PANEL UI FIXES (Fred's feedback)
+=============================================
+
+1. NOT DRAGGABLE — must have draggable accordion pill like DisplayPanel
+2. TOGGLE SHIFTED LEFT — rebalance layout
+3. GRID TOO TIGHT — space Type | Display | Edit | Import evenly
+4. HARD TO TAP — increase touch targets, use available width
+5. NOT ON PLANNING MAP — verify wiring, may need re-patching
+6. REPLACES DisplayPanel — not side-by-side (GAP 10 above)
+
+=============================================
+TRAIL IMPORT — READY TO WIRE (after scaffolding)
+=============================================
+
+TrailImporter.kt is BUILT (real implementation, not stub):
+  - importFullSource(context, "ugrc_utah_trails") — Method A
+  - importByArea(context, listOf("ugrc_utah_trails","azsp_trails"), s, w, n, e) — Method B
+
+SpatialDbManager has viewport query:
+  - queryTrailsByViewport(south, west, north, east) → List<Triple<id, name, wkt>>
+  - buildTrailGeoJson(trails) → GeoJSON FeatureCollection string
+  - wktToGeoJsonCoords(wkt) → coordinate array string
+
+Schema v2 migration (bbox columns) ready in assets.
+
+LAZY LOAD WIRING NEEDED:
+  1. Add JavaScript: map.on('moveend') → report bounds to Kotlin
+  2. Kotlin receives bounds → queryTrailsByViewport() → buildTrailGeoJson()
+  3. Call evaluateJavascript("loadTrails(" + geojson + "); showTrails();")
+  4. Replace static utah_trails_stgeorge.geojson loading (ConvoyMapViewerScreen.kt line ~488)
+
+CURRENT static loading pattern (to replace):
+  val json = context.assets.open("utah_trails_stgeorge.geojson").bufferedReader().use { it.readText() }
+  webViewRef?.post { webViewRef?.evaluateJavascript("loadTrails(" + json + "); showTrails();", null) }
+
+JavaScript functions already exist in convoy_map.html:
+  loadTrails(geojsonData) — line 47
+  showTrails() — line 84
+  hideTrails() — line 88
+  toggleTrails() — line 92
+
+=============================================
+TRAIL SOURCE CATALOG (8 sources, 6 import-ready)
+=============================================
+
+Asset: app/src/main/assets/trail_sources.json
+Scanner: tools/scan_trail_sources.py (run: python3 tools/scan_trail_sources.py)
+
+  UGRC Utah           49,096 trails  ✅ queryable
+  Arizona SP         170,076 trails  ✅ queryable (layer 3!)
+  BLM GTLF            19,104 trails  ✅ queryable
+  USFS NFS             86,073 trails  ✅ queryable (server flaps)
+  USGS National        34,220 trails  ✅ queryable
+  NPS                  31,347 trails  ✅ queryable
+  COTREX                1,871 trails  ⚠️ partial subset
+  MVUM                      — trails  ❌ display-only
+
+=============================================
+KEY FILE LOCATIONS
+=============================================
+
+ConvoyScreen.kt (convoy map):
+  - QUEUES button: ~line 985
+  - ArtifactsPanel call: before ConvoyDisplayPanel
+  - DisplayPanel call: ~line 997 "ConvoyDisplayPanel("
+  - WebView: webViewRef variable
+  - Trail loading: lines ~484-493
+
+ConvoyMapViewerScreen.kt (planning map):
+  - Header row: lines 120-159 (BACK | PLANNING MAP | TRACKS | QUEUES)
+  - ArtifactsPanel call: before "// -- FLOATING DISPLAY PANEL --"
+  - DisplayPanel call: after "// -- FLOATING DISPLAY PANEL --"
+  - Trail loading: similar pattern to convoy map
+  - WebView: webViewRef variable
+
+ConvoyArtifactsPanel.kt:
+  - Accordion with pill, 4 type rows
+  - Title bar has "> WORK WITH ARTIFACTS [+ ROUTE]"
+  - Grid: Type | Display (toggle) | Edit/Display | Import
+  - isConvoyMap param controls EDIT/IMPORT visibility
+
+Routes.kt: core/navigation/src/main/kotlin/org/meshtastic/core/navigation/Routes.kt
+  - ConvoyTrailSources and ConvoyRouteCreate already exist
+
+ConvoyNavigation.kt: app/src/main/java/com/geeksville/mesh/navigation/ConvoyNavigation.kt
+
+convoy_map.html: app/src/main/assets/convoy_map.html
+  - loadTrails(), showTrails(), hideTrails(), toggleTrails() exist
+  - trailLayer, trailsVisible state variables exist
+
+grouptrack_map.html: app/src/main/assets/grouptrack_map.html (planning map)
+
+Spatial DB: Documents/GroupTrack/grouptrack_spatial.db
+Extension DB: Documents/GroupTrack/grouptrack_data.db
+Schema: app/src/main/assets/schema_spatial_v1.sql (has bbox columns)
+Migration: app/src/main/assets/schema_spatial_v1_to_v2.sql
+
+=============================================
+DESIGN DECISIONS (for reference)
+=============================================
+
+- Work with Artifacts REPLACES ConvoyDisplayPanel. Same draggable pill.
+- Closed: "> WORK WITH ARTIFACTS [+ ROUTE]"
+- Open: grid with Type | Display (toggle) | Edit/Display | Import
+- Convoy Map: DISPLAY only. No EDIT, no IMPORT.
+- Planning Map: Full DISPLAY + EDIT + IMPORT.
+- Trail categories: OHV | Hike+Bike | Hike | Bike
+- Show Tiles Downloaded: blue=completed, red=pending
+- Show Artifacts Downloaded: black diagonal stripes
+- Remove Tiles by Area: on download controls
+- Two import methods: Method A (full source), Method B (area + multiple sources)
+- Display name: COALESCE(preferred_alias, spatial.name, agency_id, 'Unnamed')
+- Every data change journaled via AuditLogger
+
+=============================================
+BUILD COMMANDS
+=============================================
+
+Debug build: ./gradlew assembleGoogleDebug
+Release build: ./gradlew assembleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease
+AAB: ./gradlew bundleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease
+Install Android 1: adb -s 8624SBCEDF00001789 install -r -d app/build/outputs/apk/google/release/app-google-release.apk
+Install Android 2: adb -s 24039703201775 install -r -d [apk]
+
+Patch scripts: python3 "/c/Users/kixaz/Downloads/patch_name.py"
+  - Always uniquely versioned, never reuse names
+  - encoding='utf-8' on all file operations
+  - Never heredoc (CRLF errors on Windows Git Bash)
+
+=============================================
+NEXT SESSION PRIORITY ORDER
+=============================================
+
+1. Read ConvoyScreen.kt, ConvoyMapViewerScreen.kt, ConvoyArtifactsPanel.kt current state
+2. Fix ArtifactsPanel: draggable, on BOTH maps, grid spacing, replaces DisplayPanel
+3. Close 13 wiring gaps (one comprehensive patch)
+4. Build, install, verify all 38 launch points on device
+5. Wire trail import lazy load
+6. Test: import UGRC Utah → display on map → viewport lazy load

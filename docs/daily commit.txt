@@ -1,0 +1,95 @@
+#!/bin/bash
+# convoy_commit_master.sh — P-003
+# Pulls master config + apply list from phone Downloads,
+# copies to app/src/main/assets/, copies GroupTrack docs from
+# Windows Downloads to docs/, commits and pushes to repo.
+#
+# Place in: C:\Users\kixaz\Meshtastic-Android\
+# Usage: bash convoy_commit_master.sh
+# Schedule: Windows Task Scheduler — daily at midnight
+
+export PATH=$PATH:/c/Users/kixaz/AppData/Local/Android/Sdk/platform-tools
+cd /c/Users/kixaz/Meshtastic-Android
+
+ASSETS="app/src/main/assets"
+DOCS="docs"
+DOWNLOADS="/c/Users/kixaz/Downloads"
+
+echo "=== GROUPTRACK NIGHTLY COMMIT ==="
+echo ""
+
+# ── Copy GroupTrack docs from Downloads to repo ───────────────────────────────
+echo "--- DOCS ---"
+doc_count=0
+for f in "$DOWNLOADS"/GroupTrack*.docx; do
+    if [ -f "$f" ]; then
+        cp "$f" "$DOCS/"
+        echo "✓ $(basename $f)"
+        doc_count=$((doc_count + 1))
+    fi
+done
+if [ $doc_count -eq 0 ]; then
+    echo "No GroupTrack*.docx files found in Downloads — skipping"
+else
+    echo "$doc_count doc(s) copied to docs/"
+fi
+echo ""
+
+# ── Pull master config assets from phone ─────────────────────────────────────
+echo "--- RADIO ASSETS ---"
+
+# Check device connected
+DEVICE=$(adb devices | grep -v "List" | grep "device" | awk '{print $1}' | head -1)
+if [ -z "$DEVICE" ]; then
+    echo "WARNING: No device connected — skipping radio asset pull"
+    echo "Connect phone via USB and enable USB debugging to include assets."
+else
+    echo "Device: $DEVICE"
+
+    # Pull master_config.json
+    echo "Pulling master_config.json..."
+    adb -s "$DEVICE" shell "cat /sdcard/Download/master_config.json" > "$ASSETS/master_config.json"
+    if [ $? -ne 0 ] || [ ! -s "$ASSETS/master_config.json" ]; then
+        echo "WARNING: Could not pull master_config.json — skipping"
+    else
+        echo "✓ master_config.json"
+    fi
+
+    # Pull convoy_apply_list.json
+    echo "Pulling convoy_apply_list.json..."
+    adb -s "$DEVICE" shell "cat /sdcard/Download/convoy_apply_list.json" > "$ASSETS/convoy_apply_list.json"
+    if [ $? -ne 0 ] || [ ! -s "$ASSETS/convoy_apply_list.json" ]; then
+        echo "WARNING: Could not pull convoy_apply_list.json — skipping"
+    else
+        echo "✓ convoy_apply_list.json"
+    fi
+fi
+echo ""
+
+# ── Commit and push ───────────────────────────────────────────────────────────
+echo "--- COMMIT ---"
+
+git add "$DOCS/" "$ASSETS/master_config.json" "$ASSETS/convoy_apply_list.json" 2>/dev/null
+
+# Check if there is anything to commit
+if git diff --cached --quiet; then
+    echo "Nothing to commit — all files up to date"
+    exit 0
+fi
+
+DATE=$(date +"%Y-%m-%d %H:%M")
+git commit -m "chore: nightly sync — docs + assets — $DATE"
+if [ $? -ne 0 ]; then
+    echo "ERROR: git commit failed"
+    exit 1
+fi
+
+git push origin feature/convoy-event-ride
+if [ $? -eq 0 ]; then
+    echo ""
+    echo "=== DONE ==="
+    echo "Docs and assets committed and pushed."
+else
+    echo "ERROR: git push failed — check connection and credentials"
+    exit 1
+fi

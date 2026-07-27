@@ -1,0 +1,17 @@
+                                    if (downloadMapSlots.isNotEmpty()) {
+                                        try {
+                                            val gh = SpatialDbManager.computeGeomHash(wkt)
+                                            val bb = SpatialDbManager.getTrackBbox(context, gh)
+                                            if (bb != null && bb.isValid) {
+                                                DownloadQueueManager.submitDownload(
+                                                    context, bb.north, bb.south, bb.east, bb.west,
+                                                    downloadMapSlots, replaceExisting
+                                                )
+                                                onProgress?.invoke("MAPS: $baseName queued (${downloadMapSlots.size} sources)")
+                                            } else {
+                                                onProgress?.invoke("MAPS: $baseName no bbox")
+                                            }
+                                        } catch (e: Exception) {
+                                            onProgress?.invoke("MAPS ERR: $baseName ${e.message}")
+                                        }
+                                    }

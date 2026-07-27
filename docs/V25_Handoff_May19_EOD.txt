@@ -1,0 +1,224 @@
+GroupTrack V2.5 Handoff — May 19, 2026 (End of Day)
+=====================================================
+Branch: feature/convoy-event-ride
+Project root: ~/Meshtastic-Android
+Last commit: edbd2b2d4 "V2.5: 4 missing scaffold files + trail source catalog + TrailImporter + schema v2"
+Pending commit (after build passes): includes import crash fix + all dirty file changes below
+
+=====================================================
+UNCOMMITTED CHANGES (7 dirty files)
+=====================================================
+
+1. TrailImporter.kt — crash fix: wrapped schema_version query in try/catch
+2. ConvoyArtifactsPanel.kt — full rewrite: draggable (XY), wider grid, drag handle pill
+3. ConvoyScreen.kt — queuesOpen state, QUEUES click wired, QueuesPanel toggle
+4. ConvoyMapViewerScreen.kt — pmQueuesOpen state, QUEUES wired, onNavigateToTrailSources param, Trails IMPORT wired to navigation
+5. ConvoyTrailSourceScreen.kt — full rewrite: §9 import flow (method select, source select, validate, processing)
+6. ConvoyNavigation.kt — added onNavigateToTrailSources callback to MapViewer composable entry
+7. trail_sources.json — added "format": "arcgis_geojson" to all 8 sources
+
+convoy_map.html — REVERTED (lazy load JS broke Leaflet initialization, caused map sources to disappear)
+grouptrack_map.html — REVERTED (same issue)
+
+=====================================================
+WHAT WORKS (verified on device)
+=====================================================
+
+- ArtifactsPanel shows on both maps
+- ArtifactsPanel is draggable (XY, anywhere on screen)
+- ArtifactsPanel accordion expands/collapses
+- ArtifactsPanel grid shows 4 rows: Tracks, Trails, Waypoints, Routes
+- ArtifactsPanel grid has Display toggle, SELECT, IMPORT per row
+- Planning Map: IMPORT column visible. Convoy Map: IMPORT column hidden (display only)
+- QUEUES button toggles on Planning Map (opens/closes QueuesPanel)
+- Download button works (unchanged from prior version)
+- Map sources load (after HTML revert)
+- All 17 scaffold files exist and compile
+
+=====================================================
+KNOWN ISSUES (unresolved)
+=====================================================
+
+ISSUE 1: IMPORT HARD CRASH
+  Status: UNRESOLVED — crash fix applied but not yet tested
+  Symptom: App hard crashes immediately after tapping IMPORT ALL TRAILS on processing step
+  Probable cause: TrailImporter.applyMigrationIfNeeded() queries schema_version table
+    without try/catch. If table doesn't exist (first run, partial DB init), unhandled
+    exception kills the coroutine and crashes the app.
+  Fix applied: Wrapped rawQuery in try/catch, defaults to version=0 on failure
+  File: TrailImporter.kt line ~applyMigrationIfNeeded function
+  TEST FIRST TOMORROW: This is the #1 priority. If crash persists, the cause is elsewhere.
+  
+  If crash persists, diagnose with:
+    adb -s 8624SBCEDF00001789 logcat -c
+    (reproduce crash on device)
+    adb -s 8624SBCEDF00001789 logcat -d 2>&1 | tail -100
+
+ISSUE 2: QUEUES WRONG POSITION ON CONVOY MAP
+  Status: UNRESOLVED
+  Symptom: QUEUES button appears under the maps bar instead of above it
+  Cause: QUEUES is inside a Column with padding(top = 52.dp) which positions
+    everything below the maps bar. QUEUES should be a separate element at top=8dp.
+  Location: ConvoyScreen.kt line ~977 (Column modifier)
+  Fix needed: Move QUEUES Surface out of the Column into its own Box aligned TopEnd
+    with padding(top = 8.dp, end = 8.dp). Keep ArtifactsPanel + DisplayPanel in the
+    Column at top=52dp.
+  On Planning Map: QUEUES is in the header row — correct position, works fine.
+
+ISSUE 3: QUEUES DOUBLE ACCORDION ON CONVOY MAP
+  Status: PARTIALLY FIXED
+  Symptom: Tapping QUEUES stacks QueuesPanel + ArtifactsPanel + DisplayPanel
+  Current state: A fix was attempted to make QueuesPanel exclusive (if/else with
+    ArtifactsPanel) but this has not been tested on device yet.
+  Location: ConvoyScreen.kt lines ~997-1001
+  The dirty files contain an if/else that shows QueuesPanel OR ArtifactsPanel, not both.
+
+ISSUE 4: DOWNLOAD PANEL PLACEHOLDERS NOT ADDED
+  Status: ACKNOWLEDGED, NOT STARTED
+  Symptom: Download button works but does not show new placeholder items
+  Missing placeholders: Delete tiles by area, Show downloaded tiles area,
+    Show downloaded artifacts area, Flyover slider (duplicate from settings)
+  File: ConvoyDownloadPanel.kt exists as stub but is NOT wired to any screen
+  The existing download button still shows the old download panel code
+  Fix needed: Wire ConvoyDownloadPanel into the Planning Map download controls,
+    or add placeholder items directly to the existing download panel
+
+ISSUE 5: LAZY LOAD NOT WIRED
+  Status: REVERTED
+  What happened: JavaScript was added to convoy_map.html and grouptrack_map.html
+    to report viewport bounds on map move. The JS was inserted at the wrong scope
+    (function definition level, not initialization block), which broke Leaflet
+    initialization entirely. All map sources disappeared.
+  Fix: HTML files reverted to committed state via git checkout
+  Remaining work: Re-add lazy load JS INSIDE the map initialization block,
+    add @JavascriptInterface receiver in Kotlin, wire viewport query
+
+=====================================================
+IMPORT FLOW — WHAT'S BUILT
+=====================================================
+
+ConvoyTrailSourceScreen.kt — Full §9 step-based import flow:
+  Step 1: METHOD_SELECT — two cards: "Import Full Source" / "Import by Area"
+  Step 2a: A1_SOURCE_SELECT — radio button list of approved sources from trail_sources.json
+  Step 3a: A2_VALIDATE — shows source details (name, agency, format, scope, coverage, trail count)
+  Step 4a: A3_PROCESSING — progress indicator, calls TrailImporter.importFullSource()
+  Step 2b: B1_DRAW_AREA — placeholder (needs JS bridge for area draw)
+  Step 3b: B2_SUGGESTED — placeholder (shows sources, filters out fully imported)
+  Step 4b: B3_VALIDATE — placeholder
+  Step 5b: B4_PROCESSING — placeholder
+
+Source list reads trail_sources.json from assets (read-only).
+Ingestion history read from source_ingestions table in extension DB.
+Fully imported sources show green checkmark with trail count.
+Area import (Method B) filters out fully imported sources.
+
+Navigation: Planning Map → Trails IMPORT → navigates to ConvoyTrailSourceScreen
+  Wired via: onNavigateToTrailSources callback through ConvoyMapViewerScreen
+
+TrailImporter.kt — Real engine (not stub):
+  importFullSource(context, sourceId) — Method A, downloads all trails
+  importByArea(context, sourceIds, south, west, north, east) — Method B
+  Pipeline: buildUrl → httpGet → parseGeoJSON → computeBbox → dedup → insertTrail + insertProperties
+  Pagination: 2000 records per page
+  Dedup: by source_id + source_unique_id in trail_properties table
+
+SpatialDbManager.kt — Viewport query ready:
+  getSpatialDb() / getExtensionDb() — accessors
+  queryTrailsByViewport(south, west, north, east, limit) — bbox spatial query
+  wktToGeoJsonCoords(wkt) — WKT to GeoJSON coordinate conversion
+  buildTrailGeoJson(trails) — builds FeatureCollection for JS injection
+
+Schema v2 migration: schema_spatial_v1_to_v2.sql adds min_lat/max_lat/min_lon/max_lon + bbox index
+
+=====================================================
+TRAIL SOURCE CATALOG
+=====================================================
+
+Asset: app/src/main/assets/trail_sources.json (8 sources, format field added)
+Scanner: tools/scan_trail_sources.py
+
+  UGRC Utah           49,096 trails  active        arcgis_geojson
+  Arizona SP         170,076 trails  active        arcgis_geojson
+  BLM GTLF            19,104 trails  active        arcgis_geojson
+  USFS NFS            86,073 trails  active        arcgis_geojson (server flaps)
+  USGS National       34,220 trails  active        arcgis_geojson
+  NPS                 31,347 trails  active        arcgis_geojson
+  COTREX               1,871 trails  partial       arcgis_geojson
+  MVUM                     — trails  display_only  arcgis_geojson
+
+=====================================================
+SCAFFOLDING STATUS — 13 WIRING GAPS
+=====================================================
+
+GAP 1:  QUEUES → QueuesPanel        WIRED (dirty) — needs position fix on convoy map
+GAP 2:  + ROUTE → RouteCreateScreen NOT WIRED — callback exists but not connected to nav
+GAP 3:  SELECT buttons → lists      NOT WIRED — placeholder callbacks
+GAP 4:  IMPORT buttons → flows      WIRED for Trails (dirty) — others not wired
+GAP 5:  Display toggles → JS        NOT WIRED — needs WebView ref threading
+GAP 6:  Long-press → waypoint       NOT WIRED — needs JS handler + Kotlin bridge
+GAP 7:  Artifact click → detail     NOT WIRED — needs JS handler + Kotlin bridge
+GAP 8:  + WPT FAB                   NOT CREATED
+GAP 9:  + RTE FAB                   NOT CREATED
+GAP 10: DisplayPanel → ArtifactsPanel swap  DEFERRED — both exist side by side
+GAP 11: Show Tiles Downloaded toggle NOT CREATED — belongs on download panel
+GAP 12: Show Artifacts Downloaded   NOT CREATED — belongs on download panel
+GAP 13: Remove Tiles by Area        NOT CREATED — belongs on download panel
+
+=====================================================
+COMMITS TODAY (May 19)
+=====================================================
+
+a46030073 — V2.5 Pass 1: scaffold (13 files, routes, nav, QUEUES)
+e6baa321b — V2.5: trail source catalog + scanner (8 sources)
+bde6066a0 — V2.5: TrailImporter engine, schema v2, SpatialDbManager, ArtifactsPanel wired
+3a8d9d3d5 — V2.5 benchmark: scaffolding gaps identified
+edbd2b2d4 — V2.5: 4 missing scaffold files (ArtifactOps, SharePrompt, TrackSaveOps, DownloadPanel)
+PENDING   — V2.5: import crash fix + all dirty changes (build running)
+
+=====================================================
+KEY FILE LOCATIONS
+=====================================================
+
+ConvoyScreen.kt — convoy map, QUEUES + ArtifactsPanel + DisplayPanel in TopEnd Column
+ConvoyMapViewerScreen.kt — planning map, header row has QUEUES, ArtifactsPanel + DisplayPanel
+ConvoyArtifactsPanel.kt — draggable accordion, 4 artifact rows
+ConvoyTrailSourceScreen.kt — §9 import flow
+ConvoyNavigation.kt — route entries, callback threading
+TrailImporter.kt — import engine (Method A + B)
+SpatialDbManager.kt — spatial + extension DB management, viewport query
+ConvoyQueuesPanel.kt — 3 queue headers, priority filter
+ConvoyDownloadPanel.kt — stub, NOT wired
+ConvoyArtifactDetailPanel.kt — stub, NOT wired
+ConvoyWaypointCreateDialog.kt — stub, NOT wired
+
+Routes.kt: ConvoyTrailSources, ConvoyRouteCreate (both exist)
+convoy_map.html / grouptrack_map.html — CLEAN (lazy load JS reverted)
+trail_sources.json — 8 sources with format field
+schema_spatial_v1.sql — includes bbox columns
+schema_spatial_v1_to_v2.sql — migration for existing DBs
+
+=====================================================
+NEXT SESSION PRIORITY
+=====================================================
+
+1. TEST IMPORT — install APK, try import flow, see if crash fix works
+2. If crash persists — clear logcat, reproduce, dump immediately, read stack trace
+3. If import works — verify trails in spatial DB, then wire lazy load properly
+4. Fix QUEUES position on convoy map (move out of Column, own Box at top=8dp)
+5. Wire download panel placeholders (4 items)
+6. Close remaining wiring gaps
+
+=====================================================
+BUILD / INSTALL / TEST COMMANDS
+=====================================================
+
+Build release: ./gradlew assembleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease
+Build debug: ./gradlew assembleGoogleDebug (faster, better crash logging)
+Install Android 1: adb -s 8624SBCEDF00001789 install -r -d app/build/outputs/apk/google/release/app-google-release.apk
+Install debug: adb -s 8624SBCEDF00001789 install -r -d app/build/outputs/apk/google/debug/app-google-universal-debug.apk
+
+Logcat for import: adb -s 8624SBCEDF00001789 logcat -s TrailImporter
+Logcat clear + dump: adb -s 8624SBCEDF00001789 logcat -c  (then reproduce)  adb -s 8624SBCEDF00001789 logcat -d 2>&1 | tail -100
+
+Patch workflow: python3 "/c/Users/kixaz/Downloads/[patch_name].py"
+Always -r -d on install. Always encoding='utf-8' in patches. Never heredoc.

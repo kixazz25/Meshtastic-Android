@@ -1,0 +1,272 @@
+GroupTrack V2.5 — Session Handoff
+May 27, 2026 EOD
+==========================================
+
+SESSION SUMMARY
+==========================================
+Branch: feature/convoy-event-ride
+Testers: 18 enrolled
+Field test: Wednesday May 28 (convoy map fixes)
+
+COMMITS THIS SESSION (chronological)
+==========================================
+1. 8121b5a6f — Lead track proxy + auto-sense connectivity
+2. e1835db6f — Combined header, search, download accordion (prior session)
+3. 4a29a634b — 4 accordion sections, proximity 5sec, queue bbox JS, QueueManager stub removed
+4. 0e713b5dc — SAT default via onMapReady, show downloads auto-ON, accordion all collapsed
+5. 57f95a242 — Proximity threshold fix, queue bbox wiring, download panel cleanup, refresh button
+6. (unnumbered) — GPX builders (waypoint, route, trail) - StringBuilder safe
+7. (unnumbered) — GPX share/export wired, button styling, proximity Kotlin-side, refresh button, description column fix
+8. PENDING COMMIT — Trailhead import infrastructure, import guard removed, IMPORT UTAH TRAILHEADS button
+
+CURRENT BUILD STATE (building or just built)
+==========================================
+Contains all committed items plus:
+- Trailhead import button on trail source selection screen
+- Import guard removed (sources always selectable)
+- insertWaypointWithId() for deterministic dedup (ugrc_ prefix)
+- importTrailheads() function in TrailImporter
+- utah_trailheads.json bundled as asset (568 records)
+- trail_sources.json updated with trailhead_asset field
+- CatalogSource data class extended with trailheadAsset field
+- Proximity real handler NOT yet replaced (dead copies patched, line 711 still old JS)
+
+FEATURES COMPLETED THIS SESSION
+==========================================
+✅ Lead track proxy (actual GPS, snap on activation)
+✅ Auto-sense connectivity (ConnectivityManager, local tiles when offline)
+✅ 4 accordion sections in download panel (all collapsed by default)
+✅ SAT default via map.whenReady() callback (no race condition)
+✅ Show downloads auto-ON (blue/red areas)
+✅ Queue bbox JS functions (showQueuedAreas/clearQueuedAreas)
+✅ Queue bbox Kotlin wiring (onShowMapsInQueue)
+✅ Download panel cleanup (trail toggle removed, refresh button)
+✅ GPX builders using StringBuilder (no triple-quote corruption)
+✅ GPX share/export wired to detail panel
+✅ SHARE button expanded to all artifact types
+✅ EXPORT button added to all artifact types
+✅ Proximity timeout 4→5 seconds
+✅ QueueManager.kt stub deleted (DownloadQueueManager is real)
+✅ insertWaypointWithId() for deterministic dedup
+✅ importTrailheads() in TrailImporter
+✅ utah_trailheads.json asset bundled (568 UGRC trailheads)
+✅ Trailhead import button on source selection screen
+✅ Import guard removed for re-importable sources
+
+OPEN ISSUES — MUST FIX BEFORE WAYPOINTS
+==========================================
+
+ISSUE 1: PROXIMITY TAP (CRITICAL)
+  STATUS: Not working
+  ROOT CAUSE: grouptrack_map.html has 3 click handlers (lines 9, 73, 711).
+    Lines 9 and 73 are dead code inside <script src="..."> tags.
+    Line 711 is the REAL handler — still uses old JS layer-based proximity.
+    Kotlin-side onProximityTap handler EXISTS at line 381 of ConvoyMapViewerScreen.
+    showProximityPopup JS function EXISTS at line 14 (dead copy location).
+  FIX: Open grouptrack_map.html in text editor. Delete lines 9-54 and 73-104
+    (dead copies). Replace lines 709-754 (real handler) with:
+      map.on('click', function(e) {
+        try { Android.onProximityTap(e.latlng.lat, e.latlng.lng); } catch(ex) {}
+      });
+    Move showProximityPopup function to line ~700 area (inside the real script block).
+  ALTERNATIVE: Abandon proximity tap. Build unified artifact list with
+    toggle-to-identify as the production feature (see DESIGN DECISION below).
+
+ISSUE 2: SHARE/EXPORT BUTTON FONT
+  STATUS: Visual mismatch with RENAME/DELETE buttons
+  ROOT CAUSE: Unknown — all use identical DetailActionButton composable.
+    System high-visibility mode may render differently based on layout tree position.
+  FIX: Rebuild detail panel from scratch. New composable name, all buttons
+    created in one pass. Clean room approach.
+
+ISSUE 3: TRAILHEAD IMPORT BUTTON
+  STATUS: Button added at line 207, should be visible in source selection screen.
+    Not yet tested — current build may resolve this.
+  VERIFY: After install, go to Trail Import → IMPORT FULL SOURCE → 
+    IMPORT UTAH TRAILHEADS button should appear below BACK/VALIDATE row.
+
+ISSUE 4: IMPORT GUARD FOR RE-IMPORT
+  STATUS: Guard removed (sources always selectable)
+  FUTURE: Need proper re-import strategy. INSERT OR IGNORE with ugrc_ prefix
+    IDs prevents duplicates. Trail reimport behavior not tested.
+  OPEN ITEM: Test reimport — does importFullSource duplicate trail data?
+
+DESIGN DECISIONS THIS SESSION
+==========================================
+
+DECISION: Artifact Identification Approach
+  GOAL: Users need to identify overlapping artifacts to reduce clutter
+    during route planning.
+  REJECTED: JS proximity tap (4 hours, no working result due to scope issues)
+  APPROVED: Unified artifact list with toggle-to-identify
+    - One scrollable list: all types together (trails + tracks + waypoints + routes)
+    - Color-coded by type
+    - Type filter pills: [ALL] [TRAILS] [TRACKS] [WAYPOINTS] [ROUTES]
+    - Updates live on zoom/pan (same viewport query data)
+    - Check/uncheck → instant map refresh
+    - Tap item name → highlight/pulse on map
+    - Optional: press coordinate → Compose dialog lists nearby items from
+      viewport data, toggle on/off
+    - Optional: directional arrowheads on track/trail lines
+  KEY INSIGHT: Selection drives the map, not the other way around.
+    The list is the interface, the map is the display.
+
+DECISION: Trail Imports Include Trailheads
+  - trail_sources.json has trailhead_asset field per source
+  - Future: trail import automatically includes trailheads in same process
+  - Deterministic IDs: ugrc_ + TrailheadID for dedup
+  - No spatial DB schema changes
+
+DECISION: Detail Panel Rebuild
+  - Current panel has inconsistent button rendering
+  - Solution: rebuild from scratch with new composable name
+  - All buttons created in one pass with identical styling
+  - Include: RENAME, DELETE, CHANGE TYPE, SHARE, EXPORT, ALIASES
+
+DECISION: Track Survey on Save Panel
+  - After recording stops, save panel includes:
+    Difficulty: [Easy] [Moderate] [Hard] [Expert]
+    Ride again? [Yes] [No]
+    Share with community? [Yes] [No]
+  - Local capture in V2.5, upload to hosted DB in V2.6
+  - Adapt existing ride survey (ConvoyCompletedRideDetailScreen) structure
+
+DECISION: Trail Section Numbering
+  - Duplicate trail names get Windows-style suffixes
+  - "Hurricane Rim Trail", "Hurricane Rim Trail (2)"
+  - Display-time fix in ArtifactListPanel, no data modification
+  - 85% overlap detection deferred to V2.6 hosted model
+
+DECISION: Waypoint Import Architecture
+  - trail_sources.json: trailhead_asset field
+  - Checkbox on import screen when trailhead data available
+  - Future: single import process imports both trails + trailheads
+  - UGRC trailhead query URL documented for V2.6 live query
+
+ORPHANED/STUB FILES — ACCOUNTED FOR
+==========================================
+- ConvoyArtifactOps.kt — 12 functions, deferred to future release
+- AliasManager.kt — stub, aliases V2.6+
+- AuditLogger.kt — stub, audit V3.0
+- RouteManager.kt — stub, route ops coming in route planning
+- TrackManager.kt — stub, handled by ConvoyTrackOps
+- WaypointManager.kt — stub, waypoint ops coming
+- ConvoyTrackSaveOps.kt — stub, handled by ConvoyGpsService
+- QueueManager.kt — DELETED (DownloadQueueManager is real)
+
+TOMORROW NIGHT BATTLE PLAN
+==========================================
+
+PROCESS CHANGE: Diagnose → Options → Pick → Execute
+  1. Fred states the OBJECTIVE (what the user needs)
+  2. Claude diagnoses the problem space
+  3. Claude presents options with tradeoffs
+  4. We pick one together
+  5. Execute once, VERIFY before building, test, commit
+  Never chase a solution past the second failure without reassessing the goal.
+
+PRIORITY 1: Clean baseline
+  - Verify current build compiles
+  - Install and test trailhead import button
+  - Commit all dirty files
+  - git log to confirm clean state
+
+PRIORITY 2: Trailhead import (if not done today)
+  - Test IMPORT UTAH TRAILHEADS button
+  - Verify 568 waypoints in spatial DB
+  - Verify waypoint markers appear on map at St George zoom
+
+PRIORITY 3: Proximity replacement
+  OPTION A: Manual HTML edit (5 min in text editor)
+    - Delete dead click handlers at lines 9-54 and 73-104
+    - Replace line 711 handler with Android.onProximityTap callback
+    - Add showProximityPopup function in the real script block
+  OPTION B: Unified artifact list (production feature)
+    - Build the toggle-to-identify panel
+    - Replaces proximity entirely
+  RECOMMENDATION: Do BOTH. Option A is 5 minutes. Option B is the real feature.
+
+PRIORITY 4: Detail panel rebuild
+  - New composable: ArtifactDetailPanel (not ArtifactDetailDialog)
+  - All buttons created together: RENAME, DELETE, CHANGE TYPE, SHARE, EXPORT, ALIASES
+  - Consistent styling guaranteed
+
+PRIORITY 5: Waypoint creation
+  - Long-press → dialog → 11 types → description → save
+  - Three files: grouptrack_map.html, ConvoyMapViewerScreen.kt, SpatialDbManager.kt
+  - Spec loaded: V25_Waypoint_Creation_Spec.txt
+
+PRIORITY 6: Route planning Phase 1
+  - Manual tap-to-place points
+  - Line connections
+  - Snap to trail
+  - Save to spatial DB
+
+REMAINING V2.5 ITEMS (after waypoints + routes)
+==========================================
+- Trail section numbering (duplicate names)
+- Track survey on save panel (difficulty, ride again, share)
+- Download Hold/Resume/Cancel verification
+- Import process: combined trails + trailheads in single flow
+- Manual + release notes (end of Planning Map development)
+- First-launch release notes screen
+- Online manual with TOC index + keyword search
+
+RELEASE SUMMARY ADDITIONS (from this session)
+==========================================
+- Lead track proxy uses actual GPS, proxy only on stale + position match
+- Auto-sense connectivity: local tiles when offline
+- SAT default via map-ready callback
+- 4 accordion sections in download panel
+- GPX share/export for waypoints, routes, trails
+- UGRC trailhead import (568 Utah trailheads)
+- Deterministic waypoint IDs for reimport safety
+- Download refresh button always visible
+- Queue bbox visualization (red areas)
+
+MANUAL SECTIONS TO UPDATE
+==========================================
+Chapter 4: Planning Map
+  - Download panel: 4 accordion sections
+  - SAT default behavior
+  - IMPORT TRAILHEADS button
+  - Refresh downloads button
+  - Show Downloads section
+
+Chapter 6: Display Panel / Artifacts
+  - SHARE and EXPORT buttons in detail dialog
+  - Three-state toggle behavior (unchanged but document)
+
+Chapter 7: Trail Import (new or expanded)
+  - Trail sources with trailhead data
+  - Import Trails checkbox
+  - Import Trailheads checkbox
+  - UGRC Utah Trails source details
+
+Chapter 8: GPX Export (new)
+  - SHARE function (email intent)
+  - EXPORT function (Downloads folder)
+  - Supported types: waypoints, routes, trails
+
+Chapter TBD: Waypoint Creation (after feature built)
+Chapter TBD: Route Planning (after feature built)
+
+FIELD TEST WEDNESDAY
+==========================================
+Android 1 (8624SBCEDF00001789) has:
+- Lead track proxy fix (no ghost parallel track)
+- Auto-sense connectivity (local tiles when offline)
+- SAT default on map open
+- 4 accordion download panel
+- GPX share/export
+
+Test focus:
+- Lead track proxy in convoy with 2+ vehicles
+- Auto-sense: drive into no-coverage area, verify local tiles activate
+- Planning map: verify SAT loads on open
+
+UPLOAD AT NEXT SESSION START
+==========================================
+V25_Handoff_May27_EOD.txt (this document)
+V25_Waypoint_Creation_Spec.txt
+V25_Route_Planning_Spec.txt

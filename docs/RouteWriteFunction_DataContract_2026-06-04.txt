@@ -1,0 +1,92 @@
+================================================================
+ROUTE WRITE FUNCTION — data contract (so in-progress JSON mirrors it)
+2026-06-04 · Build 1 (Save-as-completed) shipped · draft JSON = future
+================================================================
+
+WHY THIS DOC: when we build the in-progress (draft) JSON create/open/delete
+functions later, the draft MUST carry everything the completed-save needs, so
+that "graduate draft -> completed route" is a clean replay of the SAME write.
+This documents exactly what the completed-save consumes, as the spec the draft
+JSON must mirror.
+
+----------------------------------------------------------------
+THE COMPLETED-SAVE WRITE (Build 1, onSaveCompleted)
+----------------------------------------------------------------
+Inputs it consumes at save time:
+  1. RouteManager vertices (the in-progress chain) — the ONLY true source of
+     the route's shape. Each Vertex (RouteManager.kt:159):
+        lat: Double
+        lon: Double
+        lineId: String?      // trail_id or track_id if snapped; null if free
+        lineType: String?    // "trail" / "track" if snapped; null if free
+        segmentIndex: Int    // index into the snapped line's segments; -1 if free
+        t: Double            // 0..1 position along that segment; 0.0 if free
+        snapped: Boolean     // true = snapped to a line, false = free-placed
+  2. Viewport bounds (lastViewportS/W/N/E) — used ONLY to fetch the trail/track
+     geometry needed to slice snapped same-line segments. NOT part of the route
+     identity; just the lookup source at save time.
+
+What it produces / writes:
+  buildWktAndBbox(lineGeom) -> Pair<wkt, [minLat,maxLat,minLon,maxLon]>
+  SpatialDbManager.insertRoute(name, wkt, minLat, maxLat, minLon, maxLon) -> id
+    name : "Route <System.currentTimeMillis()>"   (auto; naming UX later)
+    wkt  : LINESTRING(lon lat, lon lat, ...)        (built from the vertices)
+    bbox : minLat,maxLat,minLon,maxLon              (derived from the wkt pts)
+
+KEY INSIGHT: the COMPLETED row stores only wkt + bbox + name (the resolved
+geometry). But the VERTICES (with snapped/lineId/segmentIndex/t) are richer than
+the wkt — they record HOW the route was built (which trail each leg rides). The
+completed row throws that away (it only needs the final line). The DRAFT must
+NOT throw it away — see below.
+
+----------------------------------------------------------------
+WHAT THE IN-PROGRESS (DRAFT) JSON MUST CONTAIN  (future build)
+----------------------------------------------------------------
+A draft must let us RESUME building exactly where we left off, which means
+restoring the RouteManager vertex chain verbatim. So the draft JSON must store
+the FULL vertex list, not the resolved wkt:
+
+  {
+    "schemaVersion": 1,
+    "draftId": "<uuid or timestamp>",
+    "name": "<user name or null>",          // null until named
+    "createdAt": <epochMillis>,
+    "updatedAt": <epochMillis>,
+    "method": 0,                              // ROUTE_METHOD_P2P etc.
+    "vertices": [
+      { "lat":.., "lon":.., "lineId":<str|null>, "lineType":<str|null>,
+        "segmentIndex":.., "t":.., "snapped":<bool> },
+      ...
+    ]
+    // NOTE: do NOT store wkt/bbox in the draft. Those are DERIVED at
+    // graduation time by replaying buildWktAndBbox over the restored vertices
+    // (so a resumed draft graduates through the IDENTICAL completed-save path).
+  }
+
+RESUME (open draft) = parse JSON -> for each vertex, RouteManager.addVertex(
+  Vertex(lat,lon,lineId,lineType,segmentIndex,t,snapped)) -> redraw drawBuildLine.
+GRADUATE (save resumed draft as completed) = the EXACT Build-1 onSaveCompleted
+  path (buildWktAndBbox -> insertRoute) + delete the draft JSON.
+
+----------------------------------------------------------------
+THE THREE WRITES (unchanged; for reference)
+----------------------------------------------------------------
+  create draft JSON     — Save in-progress (new)      [soon]
+  overwrite draft JSON  — Save with changes (resumed)  [soon]
+  insertRoute + delete draft — Save as completed (graduation)  [Build 1 LIVE,
+                          minus the draft-delete which only applies once drafts exist]
+
+RULE (from the engine framing): a route is EITHER a draft-file OR a DB-row,
+never both. Graduation deletes the draft. Delete-saved-route = NO; resave may
+ALIAS per §K/§L DB rules.
+
+----------------------------------------------------------------
+WHY VERTICES, NOT WKT, IN THE DRAFT (the load-bearing reason)
+----------------------------------------------------------------
+If a draft stored only the wkt, resuming would give a "dumb" polyline — you
+couldn't undo to a prior snapped vertex, couldn't tell which legs ride a trail,
+couldn't re-slice if the underlying trail changed. Storing the vertex chain
+preserves the BUILD STATE, so Amend-In-Progress is true editing, not just
+redrawing a frozen line. The wkt is always re-derivable from vertices; the
+reverse is not true. Store the richer thing.
+================================================================

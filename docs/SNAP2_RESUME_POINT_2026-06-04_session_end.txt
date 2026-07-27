@@ -1,0 +1,100 @@
+================================================================
+SNAP-2 — EXACT RESUME POINT (read AFTER SNAP2_START_HERE)
+2026-06-04 (evening, session end) · branch feature/convoy-event-ride
+================================================================
+
+This is a one-screen pin of EXACTLY where the prior session stopped, so the new
+conversation wastes zero time. Pairs with SNAP2_START_HERE_NextSession_2026-06-04
+(the full diagnostic-first plan) and SNAP2_TRUE_STATE_..._EVENING (the true state).
+
+----------------------------------------------------------------
+EXACT STOP POINT
+----------------------------------------------------------------
+- The SnapDiag logcat diagnostic was NOT built. There is NO logging in any APK.
+  (Session ended before writing/applying/building it. That is why "nothing
+  logged" — the code to log does not exist yet.)
+- The logcat diagnostic is STILL STEP 1. Nothing about the plan changed.
+
+----------------------------------------------------------------
+UNRESOLVED TREE QUESTION — RESOLVE FIRST (STEP 0)
+----------------------------------------------------------------
+The route-NAME-prompt relocation (panel onCreate -> toolbar "New Route" button,
+onNewRoute callback) was EDITED into 3 files this session
+(ConvoyScreen LF, ConvoyMapViewer CRLF, ConvoyRouteToolbar CRLF) but it is
+UNCONFIRMED whether it (a) built BUILD SUCCESSFUL and (b) was committed.
+
+NEW SESSION: run this FIRST and report before any patch:
+  cd ~/Meshtastic-Android
+  git log --oneline -4 > /tmp/gl.txt 2>&1; cat /tmp/gl.txt
+  git status --short
+  file app/src/main/java/com/geeksville/mesh/convoy/ConvoyRouteToolbar.kt
+Interpret:
+  - If a commit like "route name prompt -> New Route button" exists at HEAD ->
+    relocation committed; tree should be clean of .kt changes. Good.
+  - If git status shows MODIFIED ConvoyScreen/ConvoyMapViewer/ConvoyRouteToolbar
+    -> relocation is UNCOMMITTED. Decide: build+test+commit it FIRST (clean
+    baseline), THEN add the SnapDiag diagnostic. Do NOT stack the diagnostic on
+    an unbuilt/uncommitted relocation.
+  - Confirm ConvoyRouteToolbar.kt is CRLF (it flipped from LF this session).
+
+----------------------------------------------------------------
+THEN — STEP 1 (the diagnostic), exactly as in SNAP2_START_HERE
+----------------------------------------------------------------
+Write a SnapDiag patch on ConvoyScreen onMapTap (LF) that logs, at the tap:
+  - the viewport bounds (lastViewportSouth/West/North/East)
+  - trails=${trails.size}  tracks=${tracks.size}  from queryTrails/TracksByViewport
+  - snapResult=${s} from RouteManager.snap(lat,lon,trails,tracks,30.0)
+RE-READ the current onMapTap block before writing (relocation may have shifted
+lines). Behavior-neutral (logging only). Build once.
+
+TRIGGERING THE LOG (this confused us — be explicit):
+  The log fires ONLY on a map tap WHILE BUILDING A ROUTE. Sequence:
+    +ROUTE -> New Route -> name -> Start (Add must be GREEN) -> TAP the map near
+    a visible trail (zoom in past trail-display min ~8). Just panning logs
+    nothing.
+  Read:  adb -s 8624SBCEDF00001789 logcat -s SnapDiag
+  Tap ON a visible trail. Report the trails=N and snapResult lines.
+
+----------------------------------------------------------------
+WHAT THE LOG DECIDES (then go to SNAP2_START_HERE Step 2A-2D)
+----------------------------------------------------------------
+  trails=0                      -> STARVING (most likely): bounds 0/stale, arg
+                                   order, zoom, or DB. -> Step 2A.
+  trails>0, snapResult=null     -> math/radius (raise 30->60-80 to confirm;
+                                   check lon/lat vs lat/lon parse). -> Step 2B.
+  trails>0, snap ok, draws@tap  -> snapped vertex not used/drawn. -> Step 2C.
+  SnapDiag never prints         -> tap not reaching snap (JS bridge/armed). 2D.
+
+----------------------------------------------------------------
+TIME EXPECTATION
+----------------------------------------------------------------
+Snap-to-trail alone: ~half a session (starving-data fix) to a full session
+(math/radius), worst ~1-2 sessions (snap rework). Step 1 narrows it in the first
+~20 min. Remaining route features (armed gating, draft-JSON lifecycle,
+Draw/Suggest) are SEPARATE, additional sessions — NOT part of "snap working."
+
+----------------------------------------------------------------
+DOC SET FOR THE NEW SESSION (Drive, GroupTrack_docs)
+----------------------------------------------------------------
+  - THIS file (exact resume point)
+  - SNAP2_START_HERE_NextSession_2026-06-04 (full diagnostic-first plan)
+  - SNAP2_TRUE_STATE_and_NextStep_2026-06-04_EVENING (true state, line endings)
+  - GroupTrack_V25_LivingChecklist_2026-06-04e (§E corrected)
+  - RouteWriteFunction_DataContract_2026-06-04 (draft-JSON, for later)
+Plus xref files from docs/ after recommit (field_crossref, where_used,
+function_universe, navigation_xref, AllDocs).
+
+----------------------------------------------------------------
+OPENING MESSAGE
+----------------------------------------------------------------
+  "GroupTrack V2.5 snap-2, resuming. snap-TO-TRAIL is NOT working (points make
+   straight lines, don't adjust to trails); the route framework (drop/name/save/
+   redraw) IS committed. No diagnostic was built last session. STEP 0: confirm
+   tree state (is the route-name relocation committed? is the tree clean? is
+   ConvoyRouteToolbar CRLF?). STEP 1: write a SnapDiag logcat patch on
+   ConvoyScreen onMapTap printing trails=N + snapResult at the tap; I build,
+   tap on a trail while building a route, paste the log. Branch
+   feature/convoy-event-ride. ConvoyScreen LF, ConvoyMapViewer CRLF, toolbar
+   CRLF; two-file mirror; don't touch ConvoyConfig; diagnose from logcat, not
+   theory."
+================================================================

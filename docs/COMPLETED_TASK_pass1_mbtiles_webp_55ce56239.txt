@@ -1,0 +1,67 @@
+========================================================================
+COMPLETED TASK — GroupTrack V2.6a
+========================================================================
+TASK: Pass 1 — tile-storage MBTiles cutover + WebP compression
+COMMITS: 55ce56239 (MBTiles cutover + offline-label fix)
+         ccea5977e (WebP + overlay passthrough + convoy download panel)
+         dd52de720 (cleanup)
+NEW FILES: MBTilesStore.kt, TileCodec.kt
+STATUS: SHIPPED + verified on-device (Droid 1), 2026-07-08.
+DOC GENERATED: 2026-07-11 (reconciliation offload from working memory)
+------------------------------------------------------------------------
+
+TASK DESCRIPTION
+----------------
+Convert the tile store from millions of loose files (the bloat / slow-delete
+/ brick root cause) to one MBTiles SQLite database per tile type, and add
+WebP compression to cut storage. HTTP tile-fetch unchanged; only the WRITE
+side and storage format change. This was "Pass 1" of the two-pass tile plan
+(Pass 2 = a batch-transport capability, deferred).
+
+SAVED MEMORY CONTENTS (as of completion)
+----------------------------------------
+- PASS 1 SHIPPED & verified on Droid 1 (2026-07-08). Committed 55ce56239
+  (MBTiles cutover + offline-label fix) and ccea5977e (WebP + overlay
+  passthrough + convoy download panel); cleanup dd52de720. New files
+  MBTilesStore.kt + TileCodec.kt. Convoy artifact-detail download-panel
+  callback wiring fixed in ConvoyScreen.kt.
+
+- STORAGE: raw z/x/y — NO TMS flip; scheme = xyz; Esri URL /tile/{z}/{y}/{x}
+  reordered by intercepts. One .mbtiles per type. Schema:
+  tiles(zoom_level, tile_column, tile_row, tile_data) + metadata +
+  mandatory UNIQUE tile_index. DB filename = the old directory name per type
+  (cache_dir = type = old folder = convoy://tiles/<type>/ URL segment).
+
+- CODEC (TileCodec.kt): base = lossy WebP q80; overlays = PNG passthrough
+  (WebP bloats sparse-alpha label tiles by +167%); dispatch by layer.role.
+  q80 validated ~55% reduction (9.7 vs 21.5 KB/tile, clearing the 35-40%
+  goal). q95 REJECTED (lossy-to-lossy inflation, ~5x worse). Never encode
+  above q80.
+
+- TOPO+ "blank below z16" = USGS USA_Topo_Maps source coverage (no data
+  above ~z15), NOT a bug.
+
+- The write contract intercepts at the RETURN POINT: per-tile write
+  redirected from <cache_dir>/z/x/y.png to <cache_dir>.mbtiles via
+  MBTilesStore.insertTile + TileCodec + type->file resolve. The contract is
+  producer-blind (which is why the deferred Pass 2 batch transport can reuse
+  the same write path).
+
+- Decision that framed the work: MBTiles-only HARD CUTOVER (no dual loose +
+  MBTiles path, no state-file mode switch, no read/write fork). The ~5
+  map-invested testers re-download once. Storage format changes; HTTP fetch
+  survives unchanged. Worst case designed for: a tester at 80-90 GB of tiles
+  (loose-file model = millions of files = the bloat/brick/slow-delete root
+  cause). Delete benchmarks (07-05) showed loose-file delete is slow across
+  ALL paths (Termux, app deleteRecursively, privileged adb rm -rf on 6.4 GB)
+  — bottleneck is file COUNT not privilege — so a one-file MBTiles delete is
+  the only surgical + fast + in-app answer.
+
+KNOWN HARDENING OWED AT SHIP (carried forward to working memory, NOT closed)
+---------------------------------------------------------------------------
+- db()-null makes insertTile silently no-op while the loop counts tiles done
+  — must fail loudly during download (matters more now fetches are
+  parallel).
+- deleteSource must close cached SQLite handles before delete or FUSE wedges
+  (SQLITE_IOERR_FSTAT; only a device reboot clears it).
+========================================================================

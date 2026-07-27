@@ -1,0 +1,1478 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Convoy Tracker - Implementation &amp; Testing Schedule</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+    /* CSS for syntax highlighting */
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    .sourceCode { overflow: visible; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      {   }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+    code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+    code span.at { color: #7d9029; } /* Attribute */
+    code span.bn { color: #40a070; } /* BaseN */
+    code span.bu { color: #008000; } /* BuiltIn */
+    code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+    code span.ch { color: #4070a0; } /* Char */
+    code span.cn { color: #880000; } /* Constant */
+    code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+    code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+    code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+    code span.dt { color: #902000; } /* DataType */
+    code span.dv { color: #40a070; } /* DecVal */
+    code span.er { color: #ff0000; font-weight: bold; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #40a070; } /* Float */
+    code span.fu { color: #06287e; } /* Function */
+    code span.im { color: #008000; font-weight: bold; } /* Import */
+    code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+    code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+    code span.op { color: #666666; } /* Operator */
+    code span.ot { color: #007020; } /* Other */
+    code span.pp { color: #bc7a00; } /* Preprocessor */
+    code span.sc { color: #4070a0; } /* SpecialChar */
+    code span.ss { color: #bb6688; } /* SpecialString */
+    code span.st { color: #4070a0; } /* String */
+    code span.va { color: #19177c; } /* Variable */
+    code span.vs { color: #4070a0; } /* VerbatimString */
+    code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Convoy Tracker - Implementation &amp; Testing
+Schedule</h1>
+</header>
+<h1
+id="meshtastic-convoy-tracker-implementation-testing-schedule">Meshtastic
+Convoy Tracker — Implementation &amp; Testing Schedule</h1>
+<p><strong>Project:</strong> Meshtastic Convoy Tracker<br />
+<strong>Repository:</strong>
+https://github.com/kixazz25/convoyprojectv4<br />
+<strong>Hardware:</strong> SenseCAP T1000-E (×2 confirmed, ×3+
+planned)<br />
+<strong>Connection Method:</strong> Bluetooth Low Energy (BLE)<br />
+<strong>Date:</strong> March 2, 2026<br />
+<strong>Version:</strong> 1.0</p>
+<hr />
+<h2 id="project-status-summary">Project Status Summary</h2>
+<h3 id="completed-day-1-march-2-2026">Completed (Day 1 — March 2,
+2026)</h3>
+<table>
+<colgroup>
+<col style="width: 17%" />
+<col style="width: 35%" />
+<col style="width: 47%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>#</th>
+<th>Task</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>1</td>
+<td>GitHub account, repo, Git, SSH key</td>
+<td>☑ Done</td>
+</tr>
+<tr class="even">
+<td>2</td>
+<td>Python 3.14, venv, dependencies installed</td>
+<td>☑ Done</td>
+</tr>
+<tr class="odd">
+<td>3</td>
+<td>Project scaffolding — all source files generated</td>
+<td>☑ Done</td>
+</tr>
+<tr class="even">
+<td>4</td>
+<td>Meshtastic radio configuration (T1000-E × 2)</td>
+<td>☑ Done</td>
+</tr>
+<tr class="odd">
+<td>5</td>
+<td>Initial commit pushed to GitHub</td>
+<td>☑ Done</td>
+</tr>
+<tr class="even">
+<td>6</td>
+<td>Mesh communication verified — text messaging works</td>
+<td>☑ Done</td>
+</tr>
+<tr class="odd">
+<td>7</td>
+<td>GPS position broadcasting verified via ATAK</td>
+<td>☑ Done</td>
+</tr>
+<tr class="even">
+<td>8</td>
+<td>BLE connection from PC confirmed (meshtastic –ble-scan)</td>
+<td>☑ Done</td>
+</tr>
+</tbody>
+</table>
+<h3 id="known-issues-documented">Known Issues Documented</h3>
+<table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 29%" />
+<col style="width: 44%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Issue</th>
+<th>Impact</th>
+<th>Workaround</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Meshtastic phone apps (iOS &amp; Android) don’t render remote node
+positions on mesh map</td>
+<td>Does not affect Python tracker — app bug only</td>
+<td>Use ATAK for visual map; Python tracker reads positions directly via
+BLE</td>
+</tr>
+<tr class="even">
+<td>T1000-E BLE disconnect/reconnect loop on some Android devices</td>
+<td>Secondary Android only; primary devices stable</td>
+<td>Disable battery optimization; manually disconnect before leaving BLE
+range</td>
+</tr>
+<tr class="odd">
+<td>Windows BLE + Python CLI sometimes fails to connect</td>
+<td>Intermittent on Windows</td>
+<td>Retry connection; close Web Client tabs first; ensure only one BLE
+client at a time</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="implementation-schedule">Implementation Schedule</h2>
+<h3 id="day-2-python-to-mesh-connection-gps-verification">Day 2 —
+Python-to-Mesh Connection &amp; GPS Verification</h3>
+<p><strong>Goal:</strong> Establish reliable Python BLE connection to
+T1000-E and verify GPS data flows into the Python tracker.</p>
+<p><strong>Tasks:</strong></p>
+<table>
+<colgroup>
+<col style="width: 11%" />
+<col style="width: 22%" />
+<col style="width: 25%" />
+<col style="width: 40%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>#</th>
+<th>Task</th>
+<th>Owner</th>
+<th>Est. Time</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>2.1</td>
+<td>Verify Python BLE connection to T1000-E</td>
+<td>FRED</td>
+<td>15 min</td>
+</tr>
+<tr class="even">
+<td>2.2</td>
+<td>Run test_connection.py — confirm node info and node list</td>
+<td>BOTH</td>
+<td>15 min</td>
+</tr>
+<tr class="odd">
+<td>2.3</td>
+<td>Run test_gps.py — listen for POSITION_APP packets for 2 min</td>
+<td>BOTH</td>
+<td>15 min</td>
+</tr>
+<tr class="even">
+<td>2.4</td>
+<td>Run test_kml.py — generate test KML and open in Google Earth</td>
+<td>BOTH</td>
+<td>15 min</td>
+</tr>
+<tr class="odd">
+<td>2.5</td>
+<td>Debug any BLE connection issues on Windows</td>
+<td>BOTH</td>
+<td>30 min</td>
+</tr>
+<tr class="even">
+<td>2.6</td>
+<td>Commit test results and any code fixes to GitHub</td>
+<td>FRED</td>
+<td>10 min</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Prerequisites:</strong> - Both T1000-E devices powered on and
+outdoors (GPS lock) - iPhone disconnected from T1000-E before Python
+connects - Git Bash open with venv activated in project directory</p>
+<p><strong>Deliverables:</strong> - Confirmed POSITION_APP packets
+received in Python - test_convoy.kml file viewable in Google Earth -
+Console output screenshots saved to docs/</p>
+<hr />
+<h3 id="day-3-core-module-integration-testing">Day 3 — Core Module
+Integration Testing</h3>
+<p><strong>Goal:</strong> Test each Python module individually, then
+test them working together.</p>
+<p><strong>Tasks:</strong></p>
+<table>
+<colgroup>
+<col style="width: 11%" />
+<col style="width: 22%" />
+<col style="width: 25%" />
+<col style="width: 40%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>#</th>
+<th>Task</th>
+<th>Owner</th>
+<th>Est. Time</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>3.1</td>
+<td>Test mesh_interface.py — BLE connect, listen, disconnect cycle</td>
+<td>BOTH</td>
+<td>30 min</td>
+</tr>
+<tr class="even">
+<td>3.2</td>
+<td>Test gps_handler.py — feed live positions, verify haversine
+distance</td>
+<td>BOTH</td>
+<td>30 min</td>
+</tr>
+<tr class="odd">
+<td>3.3</td>
+<td>Test convoy_manager.py — verify spread calculation with 2 nodes</td>
+<td>BOTH</td>
+<td>30 min</td>
+</tr>
+<tr class="even">
+<td>3.4</td>
+<td>Test kml_export.py — generate KML from live node positions</td>
+<td>BOTH</td>
+<td>20 min</td>
+</tr>
+<tr class="odd">
+<td>3.5</td>
+<td>Run unit tests: python -m pytest tests/</td>
+<td>BOTH</td>
+<td>15 min</td>
+</tr>
+<tr class="even">
+<td>3.6</td>
+<td>Fix any bugs found during testing</td>
+<td>CLAUDE</td>
+<td>30 min</td>
+</tr>
+<tr class="odd">
+<td>3.7</td>
+<td>Commit fixes to GitHub</td>
+<td>FRED</td>
+<td>10 min</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Test Procedure for 3.1 (mesh_interface.py):</strong> 1.
+Disconnect iPhone from T1000-E 2. Run:
+<code>python -c "from src.mesh_interface import MeshInterface; m = MeshInterface({'connection_type': 'ble', 'ble_device_name': 'Lead_8e42'}); m.connect(); print(m.get_node_list()); m.disconnect()"</code>
+3. Should print node info and list of known nodes 4. If connection
+fails, try with BLE address instead of name</p>
+<p><strong>Test Procedure for 3.2 (gps_handler.py):</strong> 1. Connect
+to T1000-E via mesh_interface 2. Register position callback on
+gps_handler 3. Wait for 2 position updates from each node 4. Verify
+haversine distance calculates correctly between the two T1000-E
+positions 5. Verify bearing calculation returns reasonable direction</p>
+<p><strong>Test Procedure for 3.3 (convoy_manager.py):</strong> 1. Feed
+positions from two T1000-E nodes into convoy_manager 2. Verify convoy
+spread reports the distance between the two nodes 3. Test alert
+thresholds: move one T1000-E to trigger warning/critical alerts 4.
+Verify status report includes all node positions and spread</p>
+<hr />
+<h3 id="day-4-convoy-spread-simulation-no-hardware">Day 4 — Convoy
+Spread Simulation (No Hardware)</h3>
+<p><strong>Goal:</strong> Run the hardware-free simulation to validate
+convoy logic at scale without needing 3+ physical devices.</p>
+<p><strong>Tasks:</strong></p>
+<table>
+<colgroup>
+<col style="width: 11%" />
+<col style="width: 22%" />
+<col style="width: 25%" />
+<col style="width: 40%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>#</th>
+<th>Task</th>
+<th>Owner</th>
+<th>Est. Time</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>4.1</td>
+<td>Run convoy_spread_sim.py with 3 nodes, 500m spread</td>
+<td>BOTH</td>
+<td>15 min</td>
+</tr>
+<tr class="even">
+<td>4.2</td>
+<td>Run convoy_spread_sim.py with 5 nodes, 2000m spread</td>
+<td>BOTH</td>
+<td>15 min</td>
+</tr>
+<tr class="odd">
+<td>4.3</td>
+<td>Run convoy_spread_sim.py with 3 nodes, 5000m spread (critical alert
+test)</td>
+<td>BOTH</td>
+<td>15 min</td>
+</tr>
+<tr class="even">
+<td>4.4</td>
+<td>Open each generated KML in Google Earth — verify node placement</td>
+<td>FRED</td>
+<td>20 min</td>
+</tr>
+<tr class="odd">
+<td>4.5</td>
+<td>Verify warning and critical alerts fire at correct thresholds</td>
+<td>BOTH</td>
+<td>15 min</td>
+</tr>
+<tr class="even">
+<td>4.6</td>
+<td>Claude: Enhance simulation to support moving convoy (time-series
+positions)</td>
+<td>CLAUDE</td>
+<td>45 min</td>
+</tr>
+<tr class="odd">
+<td>4.7</td>
+<td>Run moving convoy simulation — verify track lines in KML</td>
+<td>BOTH</td>
+<td>20 min</td>
+</tr>
+<tr class="even">
+<td>4.8</td>
+<td>Commit simulation results and enhanced sim code to GitHub</td>
+<td>FRED</td>
+<td>10 min</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Simulation Commands:</strong></p>
+<pre><code>cd ~/convoyprojectv4
+source venv/Scripts/activate
+python simulations/convoy_spread_sim.py --nodes 3 --spread 500
+python simulations/convoy_spread_sim.py --nodes 5 --spread 2000
+python simulations/convoy_spread_sim.py --nodes 3 --spread 5000</code></pre>
+<hr />
+<h3 id="day-5-web-dashboard-deployment">Day 5 — Web Dashboard
+Deployment</h3>
+<p><strong>Goal:</strong> Launch the Flask + Folium web dashboard and
+verify live map display.</p>
+<p><strong>Tasks:</strong></p>
+<table>
+<colgroup>
+<col style="width: 11%" />
+<col style="width: 22%" />
+<col style="width: 25%" />
+<col style="width: 40%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>#</th>
+<th>Task</th>
+<th>Owner</th>
+<th>Est. Time</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>5.1</td>
+<td>Start web dashboard: python src/web_dashboard.py</td>
+<td>BOTH</td>
+<td>15 min</td>
+</tr>
+<tr class="even">
+<td>5.2</td>
+<td>Open http://localhost:5000 in browser — verify map loads</td>
+<td>FRED</td>
+<td>5 min</td>
+</tr>
+<tr class="odd">
+<td>5.3</td>
+<td>Connect T1000-E via BLE and feed live positions to dashboard</td>
+<td>BOTH</td>
+<td>30 min</td>
+</tr>
+<tr class="even">
+<td>5.4</td>
+<td>Verify auto-refresh updates node positions on the map</td>
+<td>BOTH</td>
+<td>15 min</td>
+</tr>
+<tr class="odd">
+<td>5.5</td>
+<td>Test REST API endpoints (node list, positions, convoy status)</td>
+<td>BOTH</td>
+<td>20 min</td>
+</tr>
+<tr class="even">
+<td>5.6</td>
+<td>Claude: Add convoy spread indicator to the map (circle/line showing
+spread)</td>
+<td>CLAUDE</td>
+<td>45 min</td>
+</tr>
+<tr class="odd">
+<td>5.7</td>
+<td>Claude: Add alert banner to dashboard when spread exceeds
+threshold</td>
+<td>CLAUDE</td>
+<td>30 min</td>
+</tr>
+<tr class="even">
+<td>5.8</td>
+<td>Commit dashboard enhancements to GitHub</td>
+<td>FRED</td>
+<td>10 min</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Dashboard API Endpoints to Test:</strong></p>
+<pre><code>GET /api/nodes          — List all nodes with positions
+GET /api/positions      — Current positions for all nodes
+GET /api/convoy/status  — Convoy spread, alerts, node count
+GET /api/convoy/kml     — Download current KML file</code></pre>
+<hr />
+<h3 id="day-6-two-node-live-field-test-stationary">Day 6 — Two-Node Live
+Field Test (Stationary)</h3>
+<p><strong>Goal:</strong> Full end-to-end test with both T1000-E devices
+in their intended convoy positions, stationary.</p>
+<p><strong>Tasks:</strong></p>
+<table>
+<colgroup>
+<col style="width: 11%" />
+<col style="width: 22%" />
+<col style="width: 25%" />
+<col style="width: 40%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>#</th>
+<th>Task</th>
+<th>Owner</th>
+<th>Est. Time</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>6.1</td>
+<td>Place T1000-E #1 at location A (e.g., front of building)</td>
+<td>FRED</td>
+<td>5 min</td>
+</tr>
+<tr class="even">
+<td>6.2</td>
+<td>Place T1000-E #2 at location B (e.g., parking lot, 100m+ away)</td>
+<td>FRED</td>
+<td>5 min</td>
+</tr>
+<tr class="odd">
+<td>6.3</td>
+<td>Start the full tracker: python src/tracker.py –config
+config/default_config.yaml</td>
+<td>BOTH</td>
+<td>10 min</td>
+</tr>
+<tr class="even">
+<td>6.4</td>
+<td>Verify both nodes appear in console output with updating
+positions</td>
+<td>BOTH</td>
+<td>10 min</td>
+</tr>
+<tr class="odd">
+<td>6.5</td>
+<td>Verify web dashboard shows both nodes at correct locations</td>
+<td>BOTH</td>
+<td>10 min</td>
+</tr>
+<tr class="even">
+<td>6.6</td>
+<td>Verify KML export generates correct file with both nodes
+plotted</td>
+<td>BOTH</td>
+<td>10 min</td>
+</tr>
+<tr class="odd">
+<td>6.7</td>
+<td>Verify convoy spread calculation matches actual distance between
+locations</td>
+<td>BOTH</td>
+<td>10 min</td>
+</tr>
+<tr class="even">
+<td>6.8</td>
+<td>Run for 15 minutes — check for stability, memory leaks, connection
+drops</td>
+<td>BOTH</td>
+<td>15 min</td>
+</tr>
+<tr class="odd">
+<td>6.9</td>
+<td>Document results: actual vs. expected positions, spread
+accuracy</td>
+<td>BOTH</td>
+<td>15 min</td>
+</tr>
+<tr class="even">
+<td>6.10</td>
+<td>Commit results to GitHub</td>
+<td>FRED</td>
+<td>10 min</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Test Checklist:</strong> - [ ] Both nodes reporting GPS
+coordinates - [ ] Positions update at expected intervals (every 30-60
+seconds) - [ ] Distance between nodes matches real-world distance
+(within 10m) - [ ] KML file opens correctly in Google Earth - [ ] Web
+dashboard shows both pins at correct locations - [ ] No Python crashes
+or BLE disconnections during 15-minute run - [ ] Console logs show clean
+position updates without errors</p>
+<hr />
+<h3 id="day-7-two-node-mobile-field-test-moving">Day 7 — Two-Node Mobile
+Field Test (Moving)</h3>
+<p><strong>Goal:</strong> Test convoy tracking while vehicles are
+actually moving.</p>
+<p><strong>Tasks:</strong></p>
+<table>
+<colgroup>
+<col style="width: 11%" />
+<col style="width: 22%" />
+<col style="width: 25%" />
+<col style="width: 40%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>#</th>
+<th>Task</th>
+<th>Owner</th>
+<th>Est. Time</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>7.1</td>
+<td>Mount T1000-E #1 in vehicle A (lead)</td>
+<td>FRED</td>
+<td>5 min</td>
+</tr>
+<tr class="even">
+<td>7.2</td>
+<td>Mount T1000-E #2 in vehicle B (tail) — OR carry on foot</td>
+<td>FRED</td>
+<td>5 min</td>
+</tr>
+<tr class="odd">
+<td>7.3</td>
+<td>Start tracker on laptop in one vehicle (BLE to nearest T1000-E)</td>
+<td>FRED</td>
+<td>10 min</td>
+</tr>
+<tr class="even">
+<td>7.4</td>
+<td>Drive/walk a 1-2 mile route with varying distance between nodes</td>
+<td>FRED</td>
+<td>20 min</td>
+</tr>
+<tr class="odd">
+<td>7.5</td>
+<td>Monitor live dashboard during movement</td>
+<td>FRED</td>
+<td>20 min</td>
+</tr>
+<tr class="even">
+<td>7.6</td>
+<td>After route: export final KML and review track lines in Google
+Earth</td>
+<td>BOTH</td>
+<td>15 min</td>
+</tr>
+<tr class="odd">
+<td>7.7</td>
+<td>Verify spread calculations tracked correctly during movement</td>
+<td>BOTH</td>
+<td>15 min</td>
+</tr>
+<tr class="even">
+<td>7.8</td>
+<td>Test alert triggers: intentionally increase separation beyond
+warning threshold</td>
+<td>FRED</td>
+<td>10 min</td>
+</tr>
+<tr class="odd">
+<td>7.9</td>
+<td>Document: GPS accuracy while moving, update frequency, BLE
+stability</td>
+<td>BOTH</td>
+<td>15 min</td>
+</tr>
+<tr class="even">
+<td>7.10</td>
+<td>Commit route data and results to GitHub</td>
+<td>FRED</td>
+<td>10 min</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Important Notes:</strong> - Laptop must stay within BLE range
+of one T1000-E (~10m) - The other T1000-E communicates via LoRa mesh
+(can be km away) - If laptop can’t ride in vehicle, run tracker from a
+fixed location and let both vehicles drive the route - ATAK on phone can
+be used as backup visual monitor</p>
+<hr />
+<h3 id="day-8-third-node-integration-chain-testing">Day 8 — Third Node
+Integration &amp; Chain Testing</h3>
+<p><strong>Goal:</strong> Add a third T1000-E node and test mesh relay
+chain behavior.</p>
+<p><strong>Prerequisites:</strong> Acquire third T1000-E device.</p>
+<p><strong>Tasks:</strong></p>
+<table>
+<colgroup>
+<col style="width: 11%" />
+<col style="width: 22%" />
+<col style="width: 25%" />
+<col style="width: 40%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>#</th>
+<th>Task</th>
+<th>Owner</th>
+<th>Est. Time</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>8.1</td>
+<td>Configure third T1000-E with matching channel (import URL)</td>
+<td>FRED</td>
+<td>15 min</td>
+</tr>
+<tr class="even">
+<td>8.2</td>
+<td>Assign node roles: Lead, Mid, Tail</td>
+<td>FRED</td>
+<td>10 min</td>
+</tr>
+<tr class="odd">
+<td>8.3</td>
+<td>Update default_config.yaml with node role assignments</td>
+<td>CLAUDE</td>
+<td>10 min</td>
+</tr>
+<tr class="even">
+<td>8.4</td>
+<td>Stationary test: place 3 nodes at 100m intervals</td>
+<td>FRED</td>
+<td>15 min</td>
+</tr>
+<tr class="odd">
+<td>8.5</td>
+<td>Verify all 3 nodes appear in tracker with correct positions</td>
+<td>BOTH</td>
+<td>15 min</td>
+</tr>
+<tr class="even">
+<td>8.6</td>
+<td>Verify convoy spread = distance from lead to tail (not lead to
+mid)</td>
+<td>BOTH</td>
+<td>10 min</td>
+</tr>
+<tr class="odd">
+<td>8.7</td>
+<td>Mesh relay test: place nodes so Lead and Tail are out of direct
+range</td>
+<td>FRED</td>
+<td>30 min</td>
+</tr>
+<tr class="even">
+<td>8.8</td>
+<td>Verify Mid node relays position data between Lead and Tail</td>
+<td>BOTH</td>
+<td>15 min</td>
+</tr>
+<tr class="odd">
+<td>8.9</td>
+<td>Document relay performance: latency, reliability, dropped
+packets</td>
+<td>BOTH</td>
+<td>15 min</td>
+</tr>
+<tr class="even">
+<td>8.10</td>
+<td>Commit to GitHub</td>
+<td>FRED</td>
+<td>10 min</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Relay Test Setup:</strong></p>
+<pre><code>Lead (Node 1) ←— 500m —→ Mid (Node 2) ←— 500m —→ Tail (Node 3)
+                          ↑ relay node
+Lead and Tail are 1km apart — may not have direct LoRa contact
+Mid relays packets between them</code></pre>
+<hr />
+<h3 id="day-9-configuration-file-export-distribution-system">Day 9 —
+Configuration File Export &amp; Distribution System</h3>
+<p><strong>Goal:</strong> Create importable configuration files so new
+convoy members can join instantly.</p>
+<p><strong>Tasks:</strong></p>
+<table>
+<colgroup>
+<col style="width: 11%" />
+<col style="width: 22%" />
+<col style="width: 25%" />
+<col style="width: 40%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>#</th>
+<th>Task</th>
+<th>Owner</th>
+<th>Est. Time</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>9.1</td>
+<td>Claude: Create Python script to export current mesh config as a
+distributable file</td>
+<td>CLAUDE</td>
+<td>45 min</td>
+</tr>
+<tr class="even">
+<td>9.2</td>
+<td>Claude: Create script to generate QR codes for channel URL</td>
+<td>CLAUDE</td>
+<td>30 min</td>
+</tr>
+<tr class="odd">
+<td>9.3</td>
+<td>Claude: Create convoy_setup.py — interactive setup wizard for new
+nodes</td>
+<td>CLAUDE</td>
+<td>60 min</td>
+</tr>
+<tr class="even">
+<td>9.4</td>
+<td>Test: export config from configured node, import on a fresh
+node</td>
+<td>BOTH</td>
+<td>20 min</td>
+</tr>
+<tr class="odd">
+<td>9.5</td>
+<td>Test: scan QR code from phone to join convoy channel</td>
+<td>FRED</td>
+<td>10 min</td>
+</tr>
+<tr class="even">
+<td>9.6</td>
+<td>Document the distribution workflow in HARDWARE_SETUP.md</td>
+<td>CLAUDE</td>
+<td>30 min</td>
+</tr>
+<tr class="odd">
+<td>9.7</td>
+<td>Commit to GitHub</td>
+<td>FRED</td>
+<td>10 min</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Deliverables:</strong> -
+<code>scripts/export_config.py</code> — exports channel URL and settings
+- <code>scripts/generate_qr.py</code> — generates printable QR code for
+channel join - <code>scripts/convoy_setup.py</code> — interactive
+wizard: scans for device, applies convoy config -
+<code>docs/HARDWARE_SETUP.md</code> — step-by-step guide for adding new
+nodes to the convoy</p>
+<hr />
+<h3 id="day-10-kml-export-enhancements-route-recording">Day 10 — KML
+Export Enhancements &amp; Route Recording</h3>
+<p><strong>Goal:</strong> Enhance KML output for professional convoy
+tracking visualization.</p>
+<p><strong>Tasks:</strong></p>
+<table>
+<colgroup>
+<col style="width: 11%" />
+<col style="width: 22%" />
+<col style="width: 25%" />
+<col style="width: 40%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>#</th>
+<th>Task</th>
+<th>Owner</th>
+<th>Est. Time</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>10.1</td>
+<td>Claude: Add time-stamped track lines (breadcrumb trails) per
+node</td>
+<td>CLAUDE</td>
+<td>45 min</td>
+</tr>
+<tr class="even">
+<td>10.2</td>
+<td>Claude: Add convoy spread visualization (polygon or corridor)</td>
+<td>CLAUDE</td>
+<td>45 min</td>
+</tr>
+<tr class="odd">
+<td>10.3</td>
+<td>Claude: Add color-coded nodes (green=ok, yellow=warning,
+red=critical)</td>
+<td>CLAUDE</td>
+<td>30 min</td>
+</tr>
+<tr class="even">
+<td>10.4</td>
+<td>Claude: Add auto-export timer (KML saved every N seconds)</td>
+<td>CLAUDE</td>
+<td>20 min</td>
+</tr>
+<tr class="odd">
+<td>10.5</td>
+<td>Test: run tracker for 10 minutes and review KML output</td>
+<td>BOTH</td>
+<td>15 min</td>
+</tr>
+<tr class="even">
+<td>10.6</td>
+<td>Claude: Add KMZ export (compressed with embedded icons)</td>
+<td>CLAUDE</td>
+<td>30 min</td>
+</tr>
+<tr class="odd">
+<td>10.7</td>
+<td>Commit to GitHub</td>
+<td>FRED</td>
+<td>10 min</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="day-11-stability-endurance-testing">Day 11 — Stability &amp;
+Endurance Testing</h3>
+<p><strong>Goal:</strong> Run the tracker for an extended period to
+identify stability issues.</p>
+<p><strong>Tasks:</strong></p>
+<table>
+<colgroup>
+<col style="width: 11%" />
+<col style="width: 22%" />
+<col style="width: 25%" />
+<col style="width: 40%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>#</th>
+<th>Task</th>
+<th>Owner</th>
+<th>Est. Time</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>11.1</td>
+<td>Start tracker with all available nodes</td>
+<td>BOTH</td>
+<td>10 min</td>
+</tr>
+<tr class="even">
+<td>11.2</td>
+<td>Run continuously for 1 hour</td>
+<td>FRED</td>
+<td>60 min</td>
+</tr>
+<tr class="odd">
+<td>11.3</td>
+<td>Monitor: memory usage, CPU, BLE connection stability</td>
+<td>FRED</td>
+<td>During run</td>
+</tr>
+<tr class="even">
+<td>11.4</td>
+<td>Monitor: position update frequency and consistency</td>
+<td>FRED</td>
+<td>During run</td>
+</tr>
+<tr class="odd">
+<td>11.5</td>
+<td>Monitor: KML file size growth over time</td>
+<td>FRED</td>
+<td>During run</td>
+</tr>
+<tr class="even">
+<td>11.6</td>
+<td>After 1 hour: review logs for errors, warnings, dropped
+connections</td>
+<td>BOTH</td>
+<td>20 min</td>
+</tr>
+<tr class="odd">
+<td>11.7</td>
+<td>Claude: Fix any stability issues found</td>
+<td>CLAUDE</td>
+<td>30-60 min</td>
+</tr>
+<tr class="even">
+<td>11.8</td>
+<td>Claude: Add automatic BLE reconnection logic</td>
+<td>CLAUDE</td>
+<td>45 min</td>
+</tr>
+<tr class="odd">
+<td>11.9</td>
+<td>Commit to GitHub</td>
+<td>FRED</td>
+<td>10 min</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Metrics to Record:</strong> - Total uptime - Number of BLE
+disconnections - Average position update interval (actual
+vs. configured) - Total position packets received per node - Any Python
+exceptions or errors in logs - Final memory usage vs. starting memory
+usage</p>
+<hr />
+<h3 id="day-12-android-app-research-planning">Day 12 — Android App
+Research &amp; Planning</h3>
+<p><strong>Goal:</strong> Research and plan the Android companion app
+for convoy tracking.</p>
+<p><strong>Tasks:</strong></p>
+<table>
+<colgroup>
+<col style="width: 11%" />
+<col style="width: 22%" />
+<col style="width: 25%" />
+<col style="width: 40%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>#</th>
+<th>Task</th>
+<th>Owner</th>
+<th>Est. Time</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>12.1</td>
+<td>Research: Kotlin + Jetpack Compose for Meshtastic BLE</td>
+<td>BOTH</td>
+<td>60 min</td>
+</tr>
+<tr class="even">
+<td>12.2</td>
+<td>Research: Android Meshtastic SDK / library options</td>
+<td>BOTH</td>
+<td>30 min</td>
+</tr>
+<tr class="odd">
+<td>12.3</td>
+<td>Research: MapBox or Google Maps integration for Android</td>
+<td>BOTH</td>
+<td>30 min</td>
+</tr>
+<tr class="even">
+<td>12.4</td>
+<td>Define Android app requirements and feature list</td>
+<td>BOTH</td>
+<td>30 min</td>
+</tr>
+<tr class="odd">
+<td>12.5</td>
+<td>Claude: Generate Android project scaffolding</td>
+<td>CLAUDE</td>
+<td>60 min</td>
+</tr>
+<tr class="even">
+<td>12.6</td>
+<td>Claude: Create ANDROID_APP.md — architecture and development
+plan</td>
+<td>CLAUDE</td>
+<td>45 min</td>
+</tr>
+<tr class="odd">
+<td>12.7</td>
+<td>Commit to GitHub</td>
+<td>FRED</td>
+<td>10 min</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Android App Feature Requirements (Draft):</strong> - BLE
+connection to T1000-E - Live map showing all convoy node positions -
+Convoy spread indicator with warning/critical colors - Alert
+notifications when spread exceeds threshold - Message sending/receiving
+- KML export and share - Offline map tile support (no cell service)</p>
+<hr />
+<h2 id="testing-framework-summary">Testing Framework Summary</h2>
+<h3 id="test-types">Test Types</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Type</th>
+<th>Tool</th>
+<th>When</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Unit Tests</strong></td>
+<td>pytest</td>
+<td>Day 3, ongoing</td>
+</tr>
+<tr class="even">
+<td><strong>Simulation Tests</strong></td>
+<td>convoy_spread_sim.py</td>
+<td>Day 4</td>
+</tr>
+<tr class="odd">
+<td><strong>Integration Tests</strong></td>
+<td>Live T1000-E + Python</td>
+<td>Days 2-3</td>
+</tr>
+<tr class="even">
+<td><strong>Stationary Field Test</strong></td>
+<td>2 nodes, fixed positions</td>
+<td>Day 6</td>
+</tr>
+<tr class="odd">
+<td><strong>Mobile Field Test</strong></td>
+<td>2 nodes, moving vehicles</td>
+<td>Day 7</td>
+</tr>
+<tr class="even">
+<td><strong>Chain Relay Test</strong></td>
+<td>3 nodes, relay scenario</td>
+<td>Day 8</td>
+</tr>
+<tr class="odd">
+<td><strong>Endurance Test</strong></td>
+<td>1+ hour continuous run</td>
+<td>Day 11</td>
+</tr>
+</tbody>
+</table>
+<h3 id="test-commands-quick-reference">Test Commands Quick
+Reference</h3>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Activate environment</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> ~/convoyprojectv4</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="bu">source</span> venv/Scripts/activate</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Unit tests</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> <span class="at">-m</span> pytest tests/ <span class="at">-v</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a><span class="co"># Simulation (no hardware)</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> simulations/convoy_spread_sim.py <span class="at">--nodes</span> 3 <span class="at">--spread</span> 1500</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a><span class="co"># BLE scan</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a><span class="ex">meshtastic</span> <span class="at">--ble-scan</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a><span class="co"># Live connection test</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> tests/test_connection.py</span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a><span class="co"># GPS listener test</span></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> tests/test_gps.py</span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a><span class="co"># KML generation test</span></span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> tests/test_kml.py</span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a><span class="co"># Full tracker</span></span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> src/tracker.py <span class="at">--config</span> config/default_config.yaml</span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a><span class="co"># Web dashboard</span></span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> src/web_dashboard.py</span></code></pre></div>
+<hr />
+<h2 id="hardware-inventory">Hardware Inventory</h2>
+<table>
+<colgroup>
+<col style="width: 19%" />
+<col style="width: 14%" />
+<col style="width: 31%" />
+<col style="width: 14%" />
+<col style="width: 19%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Device</th>
+<th>Name</th>
+<th>BLE Address</th>
+<th>Role</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>T1000-E #1</td>
+<td>Lead_8e42</td>
+<td>FE:2F:8E:32:8E:42</td>
+<td>Lead Vehicle</td>
+<td>☑ Configured</td>
+</tr>
+<tr class="even">
+<td>T1000-E #2</td>
+<td>(TBD)</td>
+<td>(TBD)</td>
+<td>Tail Vehicle</td>
+<td>☑ Configured</td>
+</tr>
+<tr class="odd">
+<td>T1000-E #3</td>
+<td>(TBD)</td>
+<td>(TBD)</td>
+<td>Mid Vehicle</td>
+<td>☐ Not acquired</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="risk-register">Risk Register</h2>
+<table>
+<colgroup>
+<col style="width: 16%" />
+<col style="width: 29%" />
+<col style="width: 21%" />
+<col style="width: 32%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Risk</th>
+<th>Likelihood</th>
+<th>Impact</th>
+<th>Mitigation</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Windows BLE connection unreliable</td>
+<td>Medium</td>
+<td>High</td>
+<td>Add auto-reconnect logic; test on Linux as fallback</td>
+</tr>
+<tr class="even">
+<td>T1000-E GPS slow to lock indoors</td>
+<td>High</td>
+<td>Medium</td>
+<td>Always start devices outdoors; document warm-up time</td>
+</tr>
+<tr class="odd">
+<td>Meshtastic phone app map bug</td>
+<td>Confirmed</td>
+<td>Low</td>
+<td>Use ATAK or Python dashboard for visualization</td>
+</tr>
+<tr class="even">
+<td>T1000-E file system corruption from BLE drops</td>
+<td>Medium</td>
+<td>High</td>
+<td>Manually disconnect before leaving BLE range; keep firmware
+updated</td>
+</tr>
+<tr class="odd">
+<td>LoRa range insufficient for convoy spread</td>
+<td>Low</td>
+<td>High</td>
+<td>Test actual range; switch to LONG_MODERATE preset if needed</td>
+</tr>
+<tr class="even">
+<td>Position broadcast interval too slow for real-time</td>
+<td>Low</td>
+<td>Medium</td>
+<td>Already configured to 30-60 sec; can reduce further if needed</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="project-file-structure-current">Project File Structure
+(Current)</h2>
+<pre><code>convoyprojectv4/
+├── README.md
+├── setup.py
+├── requirements.txt
+├── config/
+│   └── default_config.yaml          ← Updated for BLE
+├── src/
+│   ├── __init__.py
+│   ├── tracker.py                   ← Main entry point
+│   ├── mesh_interface.py            ← Updated for BLE
+│   ├── gps_handler.py
+│   ├── convoy_manager.py
+│   ├── kml_export.py
+│   └── web_dashboard.py
+├── tests/
+│   ├── __init__.py
+│   └── test_convoy_spread.py
+├── simulations/
+│   ├── convoy_spread_sim.py
+│   └── sample_data/
+│       └── sample_positions.json
+├── scripts/                          ← Day 9: config export tools
+├── docs/                             ← Day 1 task list, config guide
+└── output/                           ← Generated KML files</code></pre>
+<hr />
+<h2 id="documents-generated">Documents Generated</h2>
+<table>
+<colgroup>
+<col style="width: 31%" />
+<col style="width: 28%" />
+<col style="width: 40%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Document</th>
+<th>Version</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Day1_Tasks_ConvoyTracker_v2.1</td>
+<td>2.1</td>
+<td>Day 1 setup guide with BLE/Web Client corrections</td>
+</tr>
+<tr class="even">
+<td>Meshtastic_Config_Guide_ConvoyTracker</td>
+<td>1.0</td>
+<td>Full radio configuration reference for convoy use</td>
+</tr>
+<tr class="odd">
+<td>Implementation_Testing_Schedule</td>
+<td>1.0</td>
+<td>This document — 12-day development plan</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<p><em>Implementation &amp; Testing Schedule for Meshtastic Convoy
+Tracker project.</em><br />
+<em>Repository: https://github.com/kixazz25/convoyprojectv4</em><br />
+<em>Version 1.0 — March 2, 2026</em></p>
+</body>
+</html>

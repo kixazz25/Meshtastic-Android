@@ -1,0 +1,409 @@
+GroupTrack V2.5 Handoff — May 21, 2026 (Morning Pickup)
+=======================================================
+Branch: feature/convoy-event-ride
+Project root: ~/Meshtastic-Android
+Device: Android 1 serial 8624SBCEDF00001789
+Build cmd: ./gradlew assembleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease
+Install cmd: adb -s 8624SBCEDF00001789 install -r -d app/build/outputs/apk/google/release/app-google-release.apk
+
+=======================================================
+DOCS TO UPLOAD AT SESSION START
+=======================================================
+
+1. This file: V25_Handoff_May21_Morning.txt
+2. field_crossref_raw.txt (from docs/ in repo)
+3. where_used_raw.txt (from docs/ in repo)
+4. trail_sources.json (from app/src/main/assets/)
+5. V25_Handoff_May20_EOD.txt (prior session handoff — for context)
+
+=======================================================
+CRITICAL: OVERNIGHT BUILD STATUS
+=======================================================
+
+A build was launched overnight with:
+  - patch_v25_lift_panel_state_v1.py (checkbox state fix)
+  - Planning Map tightening (header, search accordion)
+  - Tile directory fix (refresh writes to slot dir)
+  - Draw Area enabled fix (sed)
+
+FIRST THING: Check if build succeeded:
+  tail -5 build.log
+
+If FAILED: check error with:
+  grep "e: file\|Unresolved reference" build.log | head -10
+
+If SUCCESSFUL: install and test checkboxes:
+  adb -s 8624SBCEDF00001789 install -r -d app/build/outputs/apk/google/release/app-google-release.apk
+  Then: Planning Map → ↕ FAB → check Tiles → verify checkbox stays checked
+
+=======================================================
+PROBLEM 1: DOWNLOAD PANEL CHECKBOXES NOT HOLDING STATE
+=======================================================
+
+SYMPTOM:
+  Tapping a checkbox (Tiles, Trails, etc.) appears to check it but
+  it instantly reverts to unchecked. Cannot check any box. Cannot
+  draw area (requires checked box). Cannot download tiles or trails.
+
+ROOT CAUSE:
+  The download panel (ConvoyDownloadPanel.kt) used internal
+  `remember { mutableStateOf(false) }` for checkbox state. The panel
+  is inside `if (showDownloadPanel)` in ConvoyMapViewerScreen. When
+  ANY state in the parent composable changes, Compose may recreate
+  the panel, resetting all `remember` state to defaults.
+
+  This was ALWAYS happening but was invisible when defaults were
+  `true` — resetting to "checked" looked correct. When we changed
+  defaults to `false`, the reset became visible: check → reset to
+  unchecked → appears broken.
+
+FIX APPLIED (in overnight build):
+  patch_v25_lift_panel_state_v1.py
+
+  Lifted all checkbox state from ConvoyDownloadPanel (child) to
+  ConvoyMapViewerScreen (parent):
+
+  BEFORE (in ConvoyDownloadPanel.kt):
+    var tilesChecked by remember { mutableStateOf(false) }  // RESETS on recompose
+
+  AFTER (in ConvoyMapViewerScreen.kt):
+    var panelTilesChecked by remember { mutableStateOf(false) }  // SURVIVES
+    // passed as parameter to ConvoyDownloadPanel
+
+  ConvoyDownloadPanel now receives checkbox state as parameters with
+  callback lambdas (onTilesCheckedChange, etc.) instead of managing
+  its own state. Parent state survives panel recomposition.
+
+  Files modified:
+    ConvoyMapViewerScreen.kt — added state vars + passed to panel
+    ConvoyDownloadPanel.kt — changed to accept params, removed internal state
+
+TEST:
+  1. Planning Map → tap ↕ FAB → panel opens
+  2. Tap "Download Tiles" checkbox → should stay checked
+  3. Tap "Import Trails" checkbox → should stay checked
+  4. Tap "Draw Area" → should be enabled (checkbox is checked)
+  5. Draw rectangle → bbox should appear in panel
+  6. Tap "Download Selected" → should trigger download
+
+=======================================================
+PROBLEM 2: TILE DOWNLOAD FOR ALL 3 SOURCES
+=======================================================
+
+CURRENT STATE:
+  The download panel's execute callback only downloads tiles for
+  the ACTIVE tile source (whichever button is selected: SAT, TOPO,
+  or TOPO+). User expects one draw → download all sources.
+
+WHERE THE CODE IS:
+  ConvoyMapViewerScreen.kt, onExecuteDownload callback (~line 563):
+
+    onExecuteDownload = { tiles, trails, removeTiles ->
+        if (tiles && downloadBbox.isValid) {
+            val bb = downloadBbox
+            Thread {
+                val estimate = ConvoyTileCalculator.quickEstimate(...)
+                val pending = ConvoyViewModel.PendingDownload(
+                    sourceName = ConvoyConfig.ACTIVE_TILE_SOURCE,  // ← ONLY active source
+                    sourceUrl = ConvoyConfig.TILE_SOURCES[ConvoyConfig.ACTIVE_TILE_SOURCE] ?: ""
+                )
+                convoyViewModel.startDownload(context, pending)
+            }.start()
+        }
+    }
+
+FIX NEEDED:
+  Replace single-source download with all-sources download.
+  ConvoyDownloadWorker.kt already handles multi-source in normal mode
+  (line 120: `for ((slotName, layers) in downloadSources)`). The issue
+  is only in how the download is ENQUEUED from the panel.
+
+  Option A (simple): Call startDownload once — the worker already
+  iterates all sources via MapSourceManager.getDownloadSources().
+  Just remove the sourceName/sourceUrl from PendingDownload and let
+  the worker handle all sources.
+
+  Option B (explicit): Loop through getSlotSources() in the execute
+  callback and enqueue one download per source.
+
+  Check ConvoyDownloadWorker.kt normal mode (line 108-145):
+    val downloadSources = MapSourceManager.getDownloadSources()
+    for ((slotName, layers) in downloadSources) { ... }
+  This already downloads ALL sources for the bbox. The PendingDownload
+  just needs to not filter to a single source.
+
+ALSO FIXED (May 20):
+  Tile directory naming bug in ConvoyDownloadWorker.kt line 83:
+    OLD: sourceName = layer.cacheDir    ← wrote to "caltopo_usfs/"
+    NEW: sourceName = refreshSlot       ← writes to "TOPO+"
+  This fixes SOURCE_REFRESH writing to wrong directory.
+
+  Normal download (line 135) still uses layer.cacheDir — this is
+  CORRECT for now because SAT has overlay layers (SAT_LABELS_TRANSPORT,
+  SAT_LABELS_PLACES) that need their own directories. The proper fix:
+  use slotName for base layers, layer.cacheDir for overlay layers.
+  Needs a conditional check on whether the layer is base or overlay.
+
+TILE DIRECTORIES ON DEVICE:
+  /sdcard/Documents/GroupTrack/maps/tiles/
+    SAT/                  ← Esri Imagery base tiles
+    SAT_LABELS_TRANSPORT/ ← Esri overlay
+    SAT_LABELS_PLACES/    ← Esri overlay
+    TOPO/                 ← Esri World Topo
+    TOPO+/                ← CalTopo USFS (after fix)
+    caltopo_usfs/         ← DELETED (was orphaned from bug)
+
+=======================================================
+TASK: LAZY LOAD TRAILS FROM SPATIAL DB
+=======================================================
+
+This is the #1 priority for May 21. All trail data is in the spatial
+DB (49K UGRC Utah trails). The task is to display them on both maps
+via viewport-based lazy loading.
+
+ARCHITECTURE:
+  1. JS viewport change → report bounds to Kotlin
+  2. Kotlin queries SpatialDbManager → builds GeoJSON
+  3. Kotlin injects GeoJSON via evaluateJavascript
+  4. Leaflet renders trail layer on map
+
+STEP 1: JS — Add viewport listener + updateTrails function
+  Files: convoy_map.html AND grouptrack_map.html
+
+  Add to both HTML files:
+    // Trail layer
+    var trailLayer = null;
+
+    function updateTrails(geojsonStr) {
+      if (trailLayer) map.removeLayer(trailLayer);
+      var data = JSON.parse(geojsonStr);
+      trailLayer = L.geoJSON(data, {
+        style: function(feature) {
+          var cc = feature.properties.CartoCode || 0;
+          var color = cc == 4 ? '#FF6600' :   // OHV
+                      cc == 1 ? '#22AA22' :   // Hiking
+                      cc == 2 ? '#2288DD' :   // Hiking+Biking
+                      cc == 5 ? '#DD8822' :   // Biking
+                      '#888888';               // Other
+          return { color: color, weight: 2, opacity: 0.7 };
+        }
+      }).addTo(map);
+    }
+
+    function clearTrails() {
+      if (trailLayer) { map.removeLayer(trailLayer); trailLayer = null; }
+    }
+
+  Add viewport change listener (debounced):
+    var trailDebounce = null;
+    map.on('moveend', function() {
+      if (trailDebounce) clearTimeout(trailDebounce);
+      trailDebounce = setTimeout(function() {
+        var b = map.getBounds();
+        if (typeof Android !== 'undefined' && Android.onViewportChanged) {
+          Android.onViewportChanged(
+            b.getNorth(), b.getSouth(),
+            b.getEast(), b.getWest(),
+            map.getZoom()
+          );
+        }
+      }, 300);
+    });
+
+STEP 2: Kotlin — Add JavascriptInterface for viewport
+  Files: ConvoyScreen.kt AND ConvoyMapViewerScreen.kt
+
+  Add to the WebView's addJavascriptInterface object:
+    @JavascriptInterface
+    fun onViewportChanged(north: Double, south: Double,
+                          east: Double, west: Double, zoom: Int) {
+      if (!trailsVisible) return  // respect display toggle
+      android.os.Handler(android.os.Looper.getMainLooper()).post {
+        scope.launch(Dispatchers.IO) {
+          val geojson = SpatialDbManager.queryTrailsAsGeoJson(
+            context, south, west, north, east
+          )
+          withContext(Dispatchers.Main) {
+            webViewRef?.evaluateJavascript(
+              "updateTrails('${geojson.replace("'", "\\'")}')", null
+            )
+          }
+        }
+      }
+    }
+
+STEP 3: SpatialDbManager — Query + GeoJSON builder
+  File: SpatialDbManager.kt
+
+  May already exist — check for:
+    fun queryTrailsByViewport(south, west, north, east)
+    fun buildTrailGeoJson(cursor)
+
+  If not, create:
+    fun queryTrailsAsGeoJson(context: Context,
+        south: Double, west: Double,
+        north: Double, east: Double): String {
+      val db = getSpatialDb(context)
+      // Query trails table where first coordinate is within bbox
+      // Filter by CartoCode 1, 2, 4, 5 (hiking, biking, OHV)
+      val cursor = db.rawQuery("""
+        SELECT trail_id, geometry_json FROM trails
+        WHERE min_lat <= ? AND max_lat >= ?
+        AND min_lon <= ? AND max_lon >= ?
+      """, arrayOf(north.toString(), south.toString(),
+                   east.toString(), west.toString()))
+      // Build FeatureCollection
+      val sb = StringBuilder("{\"type\":\"FeatureCollection\",\"features\":[")
+      var first = true
+      while (cursor.moveToNext()) {
+        if (!first) sb.append(",")
+        first = false
+        val geom = cursor.getString(1)
+        sb.append("{\"type\":\"Feature\",\"geometry\":$geom,\"properties\":{}}")
+      }
+      cursor.close()
+      sb.append("]}")
+      return sb.toString()
+    }
+
+  NOTE: The trails table schema may need min_lat/max_lat/min_lon/max_lon
+  columns for spatial indexing. Check current schema:
+    grep "CREATE TABLE trails" app/src/main/assets/schema_extension_v1.sql
+
+STEP 4: Wire Trails toggle to lazy load
+  The Trails toggle on ConvoyDisplayPanel controls `trailsVisible`.
+  When toggled ON: call onViewportChanged to load current viewport.
+  When toggled OFF: call clearTrails() via evaluateJavascript.
+
+  In the toggle handler:
+    onTrailsToggle = {
+      trailsVisible = !trailsVisible
+      if (trailsVisible) {
+        // Trigger initial load
+        webViewRef?.evaluateJavascript("triggerViewportUpdate()", null)
+      } else {
+        webViewRef?.evaluateJavascript("clearTrails()", null)
+      }
+    }
+
+  Add to JS: function triggerViewportUpdate() that fires the moveend
+  handler manually.
+
+STEP 5: Performance considerations
+  - 49K trails is too many to send at once — limit by zoom level
+  - At zoom < 10: don't load trails (too many, too small)
+  - At zoom 10-14: load simplified/thinned trails
+  - At zoom 14+: load full detail
+  - Consider limiting to 2000 features per viewport update
+  - GeoJSON string can be large — consider chunking if > 1MB
+
+=======================================================
+TASK: WORK WITH ARTIFACTS — TRAIL SELECT/EDIT
+=======================================================
+
+After lazy load is working, implement the Select/Edit function for
+trails in the Work with Artifacts panel.
+
+DESIGN (from Fred's specification):
+  - Select/Edit button opens an overlay on the map
+  - Lists all trails in current map bbox
+  - Each trail has a checkbox (checked = visible on map)
+  - Select All / Deselect All buttons
+  - Fit All button (zoom out to show all trails)
+  - Search by name or date
+  - Click trail title → popup menu: Share, Rename, Fix Date, etc.
+  - Deselect All → trails toggle goes OFF
+  - Close overlay → map reflects selections
+
+IMPLEMENTATION PLAN:
+  1. Create ConvoyTrailSelectPanel.kt composable
+     - Receives list of trails from SpatialDbManager query
+     - Checkbox per trail
+     - Select All / Deselect All / Fit All buttons
+     - Search field (filters list by name)
+     - Title click → DropdownMenu with actions
+
+  2. Wire to ArtifactsPanel Select/Edit button for Trails row
+     - Button opens ConvoyTrailSelectPanel as overlay
+     - Panel queries trails in current viewport bbox
+     - Selection state stored in a Set<String> (trail IDs)
+
+  3. Update lazy load to respect selection
+     - If Select/Edit was used, only load selected trail IDs
+     - If no selection filter active, load all in viewport
+     - Selection state persists until cleared
+
+  4. Wire toggle linkage
+     - Toggle ON: requires at least 1 trail selected (or all)
+     - Toggle OFF: hides all trails regardless of selection
+     - Deselect All → toggle OFF
+     - Select single: Deselect All → check one → toggle ON
+
+=======================================================
+OPEN UI ISSUES (from May 20)
+=======================================================
+
+MUST FIX (before Play Store):
+  1. ✅ Download panel checkboxes (fixed in overnight build)
+  2. QUEUES on convoy map — fine, draggable ✅
+  3. QUEUES on Planning Map — needs testing with new layout
+  4. +/- zoom controls — pushed to 95px, may need adjustment
+  5. REC button — verify not covering +/-
+  6. Work with Artifacts bar thickness — reduce on both maps
+  7. Remove GPX prompt Y/N after track import
+  8. +ROUTE button nav wiring on artifacts panel
+  9. Planning Map blank on return from trail source screen
+  10. Trail-type filtering on ArcGIS queries
+  11. Cancel All Downloads button (WorkManager.cancelAllWork())
+  12. Gear → Storage Management (Delete Tiles, Delete Spatial DB)
+  13. Tile source change → prompt delete old tiles Y/N
+  14. Normal download path (line 135): use slotName for base layer,
+      layer.cacheDir for overlays (needs base vs overlay check)
+
+DEFERRED:
+  - Map orientation toggle (True North / Heading Up) in gear
+  - Track line weight slider in gear
+  - DisplayPanel → ArtifactsPanel swap
+  - Long-press → waypoint creation (JS bridge)
+
+=======================================================
+KEY FILES REFERENCE
+=======================================================
+
+Trail import system:
+  TrailImporter.kt — import engine, progress, JSON records, bbox rejection
+  ConvoyTrailSourceScreen.kt — UI for Method A + Method B
+  SpatialDbManager.kt — DB init, schema, queries
+  trail_sources.json — source catalog (8 sources)
+
+Download panel:
+  ConvoyDownloadPanel.kt — panel UI (state now lifted to parent)
+  ConvoyMapViewerScreen.kt — parent with panel state + wiring
+  ConvoyDownloadWorker.kt — WorkManager tile downloader
+  ConvoyDownloadQueue.kt — queue management
+  ConvoyTileDownloader.kt — tile fetch + storage
+
+Maps:
+  convoy_map.html — Convoy Map Leaflet (needs trail layer)
+  grouptrack_map.html — Planning Map Leaflet (needs trail layer)
+  ConvoyScreen.kt — Convoy Map composable
+  ConvoyMapViewerScreen.kt — Planning Map composable
+
+Config:
+  ConvoyConfig.kt — TILE_DIR, ACTIVE_TILE_SOURCE, tile URLs
+  MapSourceManager.kt — slot/source mapping, getSlotSources()
+
+=======================================================
+BUILD / TEST COMMANDS
+=======================================================
+
+Build: ./gradlew assembleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease
+Install: adb -s 8624SBCEDF00001789 install -r -d app/build/outputs/apk/google/release/app-google-release.apk
+Force stop: adb -s 8624SBCEDF00001789 shell "am force-stop com.grouptrack.android"
+Logcat: adb -s 8624SBCEDF00001789 logcat -d | grep "TrailImporter\|DownloadPanel\|SpatialDb"
+Check tiles: adb -s 8624SBCEDF00001789 shell "ls /sdcard/Documents/GroupTrack/maps/tiles/"
+Check trails: adb -s 8624SBCEDF00001789 shell "cat /sdcard/Documents/GroupTrack/data/trail_areas/*.json"
+Check DB: adb -s 8624SBCEDF00001789 shell "ls -la /sdcard/Documents/GroupTrack/*.db"
+
+Patch workflow: python3 "/c/Users/kixaz/Downloads/[patch_name].py"
+Always -r -d on install. Always encoding='utf-8' in patches. Never heredoc.

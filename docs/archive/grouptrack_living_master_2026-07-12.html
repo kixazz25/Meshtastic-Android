@@ -1,0 +1,67 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>GroupTrack — Living Master — 2026-07-12</title>
+<style>
+:root{--bg:#0f1216;--panel:#161b22;--ink:#e6edf3;--dim:#8b949e;--line:#30363d;--accent:#58a6ff;--good:#3fb950;--warn:#d29922;--bad:#f85149;--ui:-apple-system,"Segoe UI",Roboto,sans-serif;--mono:"SF Mono",Consolas,monospace}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 var(--ui);padding:0 0 60px}
+header{position:sticky;top:0;background:#0f1216f0;border-bottom:1px solid var(--line);padding:12px 18px;z-index:5}
+.ttl{font:700 17px var(--ui)}.ttl b{color:var(--accent)}.sub{font:12px var(--mono);color:var(--dim);margin-top:2px}
+main{max-width:900px;margin:0 auto;padding:16px 18px}
+h2{font:700 15px var(--ui);color:var(--accent);margin:22px 0 8px;border-bottom:1px solid var(--line);padding-bottom:4px}
+h3{font:700 13px var(--ui);color:var(--ink);margin:14px 0 4px}
+.tag{display:inline-block;font:700 10px var(--mono);padding:1px 6px;border-radius:4px;margin-right:6px;vertical-align:middle}
+.t-good{background:#12261a;color:var(--good);border:1px solid #1f6f3f}
+.t-warn{background:#2a2312;color:var(--warn);border:1px solid #6f5a1f}
+.t-bad{background:#2a1414;color:var(--bad);border:1px solid #6f2020}
+.t-prog{background:#12203a;color:var(--accent);border:1px solid #1f4f8f}
+.card{border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin:10px 0;background:var(--panel)}
+ul{margin:6px 0 6px 0;padding-left:20px}li{margin:4px 0}ol{margin:6px 0;padding-left:22px}
+code{background:#0c0f0a;padding:1px 5px;border-radius:3px;font:12px var(--mono);color:#e6edf3}
+.note{font:12px var(--mono);color:var(--dim);border-left:3px solid var(--line);padding:4px 10px;margin:8px 0}
+.hi{color:var(--warn);font-weight:700}.step{background:#12203a;border-left:3px solid var(--accent);padding:6px 10px;margin:8px 0}
+</style>
+</head><body>
+<header><div class="ttl"><b>GroupTrack</b> — Living Master Checklist</div><div class="sub">2026-07-12 · INTERNAL · work to be performed only</div></header>
+<main>
+
+<div class="note">Work TO BE PERFORMED only — In-Progress + Open. NO Completed section: each completed task gets its own recap doc (title = task title, full design + fix detail) committed through AllDocs.</div>
+
+<h2>In-Progress</h2>
+<h3>Route+ persistence — RESTORE side (THE #1 build)</h3>
+<div class="card">
+<p><span class="tag t-prog">ACTIVE</span> <span class="tag t-bad">tree still stuck-armed (pre-Step-0)</span> SAVE side verified working (not committed). RESTORE side: Direction-2 plan converged; building in pieces.</p>
+<p><b>Plan (Direction 2):</b> convoy opens to last bbox (like planner) + bullseye MY-CART-center icon on both maps + recovery rides on the bbox load (draft-exists check → message → open into route-place, after draw completes).</p>
+<p><b>Piece 1 (convoy, next up):</b></p>
+<ul>
+<li><b>Step 0:</b> remove stuck-armed code — revert CS line 201 to <code>mutableStateOf(false)</code>, delete guards at 307/321/336. (Confirmed still on disk.)</li>
+<li><b>1a:</b> convoy opens to last bbox. onPageFinished already restores bbox when present — Step 0 may fix this by itself; test before patching further.</li>
+<li><b>1b:</b> bullseye icon in the convoy control cluster (magnifier/hamburger/?) → existing MY CART center task. Still need to find the icon-cluster render site.</li>
+</ul>
+<p><b>Pieces 2-3:</b> bullseye on planner; recovery-on-bbox-load (both maps, shared components).</p>
+<p><b>Both validations answered:</b> GPS-center is page-load-isolated (CS:726); saveMap fires viewport/panel-only so recovery keys off draft existence, not routeState.open.</p>
+</div>
+
+<h2>Open (not started / backlog)</h2>
+<div class="card">
+<ul>
+<li><span class="tag t-warn">BUG</span> In-progress picker not listing a populated draft (empty "test track" showed, 33-vert "test route2" did not) — inspect <code>listDrafts</code> query.</li>
+<li><b>loadQueue boot-loop immunity</b> — poison queue file boot-loops the app; top tile-storage priority.</li>
+<li>saveQueue atomic-write hardening.</li>
+<li>Clear-area / delete-area (gated on queue hardening).</li>
+<li>The three no-radio regressions.</li>
+<li>Lead-cart re-engineer; tuning rig.</li>
+<li>git push blocked by 3 large <code>.db</code> in history (filter-repo / BFG).</li>
+<li>Esri tile-cost 4-phase strategy.</li>
+<li>V2.6 release delayed ~4 weeks; scope expanded to full V2.6-complete.</li>
+</ul>
+</div>
+
+<h2>Doc / release tasks (pending)</h2>
+<div class="card">
+<ul>
+<li><b>Manual (HOLD to V2.6 end):</b> add install/quick-start section (Fred has source docs) + apply staged Route+ manual updates + 18-screen capture sweep — together into the canonical HTML manual.</li>
+<li><b>Reconciliation offload (after Route+ completes):</b> one titled recap doc per completed task (tile segmentation, Pass-1/WebP, concurrency, track-dup, V2.5, track-services), full design+fix detail → AllDocs. Verify each vs git.</li>
+</ul>
+</div>
+
+<div class="note">Canonical manual: <code>app/src/main/assets/grouptrack_manual.html</code> — verify identity before EOD. Annotated copy with 18 capture markers exists (3.37MB, 76 images, verified whole).</div>
+
+</main></body></html>

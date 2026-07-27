@@ -1,0 +1,99 @@
+================================================================
+SNAP-2 — RESUME POINT (UPDATE 2) · relocation committed + the data-source lead
+2026-06-04 (session end, final) · branch feature/convoy-event-ride
+================================================================
+
+Supersedes SNAP2_RESUME_POINT_2026-06-04_session_end on two points below.
+Still read with SNAP2_START_HERE_NextSession (full plan) + SNAP2_TRUE_STATE_EVENING.
+
+----------------------------------------------------------------
+UPDATE 1 — tree is now CLEAN (Step 0 partially answered)
+----------------------------------------------------------------
+The route name-prompt relocation (panel-open -> toolbar "New Route" button,
+onNewRoute) BUILT (BUILD SUCCESSFUL) and is COMMITTED:
+    1bb7e083f  route: move name prompt from panel-open to New Route button (onNewRoute)
+HEAD = 1bb7e083f. Tree clean of .kt changes. New session can skip the
+"is the relocation committed?" check — it is. Still confirm endings:
+    ConvoyScreen.kt = LF · ConvoyMapViewerScreen.kt = CRLF · ConvoyRouteToolbar.kt = CRLF.
+
+Commit ladder now:
+    1bb7e083f  name prompt -> New Route button     (framework refinement)
+    5fdf4b5ff  magenta render
+    ab2be7c04  Build 2: snap-on-tap WIRED + name dialog + In Progress relabel
+    69ad30c56  Build 1: Save-completed (free points)
+    89285b00a  toolbar pact compliance
+
+----------------------------------------------------------------
+UPDATE 2 — THE DATA-SOURCE LEAD (sharpens Step 1; Fred's recall)
+----------------------------------------------------------------
+IMPORTANT prior-context Fred recalled at session end:
+
+The viewport queries queryTrailsByViewport / queryTracksByViewport were built
+for the LAZY-LOAD DISPLAY (limit what draws to the bounding box). That display
+path WORKS — trails/tracks DO show on the map viewport-aware.
+
+For SNAP, the design was to REUSE those same bounding-box queries to feed snap
+its candidate trails/tracks at the tap. BUT we discussed, and NEVER CONFIRMED,
+whether that query actually RETURNS DATA in the SNAP context. The snap queries
+were effectively never ACTIVATED/PROVEN against real returned rows.
+
+=> This makes "STARVING FOR DATA" (Step 2A) the PRIME suspect, and gives a
+   precise test: trails clearly DISPLAY on the map, but does the SNAP path get
+   the same rows?
+
+THE ONE NUMBER THAT DECIDES IT — from the Step 1 SnapDiag log:
+   trails=N at the tap, WHILE trails are visibly displayed on the map.
+     - trails=0 while trails are visibly drawn -> the DISPLAY query gets data but
+       the SNAP query does NOT. The two call paths differ. Compare them directly:
+         * What bounds does the DISPLAY/lazy-load pass vs what the TAP path passes
+           (lastViewportSouth/West/North/East — are they current at tap, or
+           0.0/stale because route mode was entered before a viewport event)?
+         * Argument ORDER at each call site: queryTrailsByViewport(south,west,
+           north,east). A swap in ONE path explains data-there-but-not-for-snap.
+         * Same DB instance / init state in both paths.
+     - trails>0 at the tap -> data is fine; move to snap math/radius (Step 2B):
+       raise 30m -> 60-80m to confirm, check lon/lat vs lat/lon in parseWktLine.
+
+So Step 1 is not just "is there data" — it's "does the SNAP path get the data the
+DISPLAY path already proves exists." Diff the two call sites if trails=0.
+
+----------------------------------------------------------------
+STILL TRUE
+----------------------------------------------------------------
+- No SnapDiag diagnostic was built. It is STILL the first patch to write.
+- Log fires ONLY on a map tap WHILE BUILDING A ROUTE (+ROUTE -> New Route ->
+  name -> Start, Add GREEN -> tap near a displayed trail, zoomed in past display
+  min ~8). Panning logs nothing.
+- snap-TO-TRAIL is the unbuilt core. Framework (drop/name/save/redraw) is done.
+- Remaining after snap: armed gating, draft-JSON lifecycle, Draw/Suggest.
+
+----------------------------------------------------------------
+NEW-SESSION FIRST MOVES
+----------------------------------------------------------------
+1. git log --oneline -4  (expect HEAD 1bb7e083f, clean) ; cat -A toolbar to
+   confirm CRLF.
+2. Write SnapDiag patch on ConvoyScreen onMapTap (LF): log bounds, trails=N,
+   tracks=N, snapResult. RE-READ onMapTap first (relocation shifted lines).
+3. ALSO log (or read) what the DISPLAY/lazy-load query passes, so trails=N at
+   tap can be compared to the display path that clearly works.
+4. Build, install Droid 1, logcat -s SnapDiag, build a route, tap ON a displayed
+   trail, paste the log.
+5. Branch by result per Step 2A-2D in SNAP2_START_HERE; prime suspect = 2A
+   (snap path not getting the rows the display path gets).
+
+----------------------------------------------------------------
+OPENING MESSAGE
+----------------------------------------------------------------
+  "GroupTrack V2.5 snap-2, resuming. Framework committed (HEAD 1bb7e083f: drop
+   points/straight lines/name/save/redraw). snap-TO-TRAIL NOT working. KEY LEAD:
+   the queryTrailsByViewport/queryTracksByViewport queries work for DISPLAY
+   (trails draw on the map) but were never proven to feed SNAP — snap likely
+   starves for data. STEP 1: SnapDiag logcat patch on ConvoyScreen onMapTap
+   printing trails=N + snapResult at the tap; compare to the display path which
+   clearly returns rows. I build, tap on a displayed trail while building a
+   route, paste the log. If trails=0 while trails are visibly drawn -> diff the
+   display vs tap call sites (bounds currency, arg order south/west/north/east,
+   DB instance). Branch feature/convoy-event-ride; ConvoyScreen LF, ConvoyMapViewer
+   CRLF, toolbar CRLF; two-file mirror; don't touch ConvoyConfig; diagnose from
+   logcat not theory."
+================================================================

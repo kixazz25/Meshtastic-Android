@@ -1,0 +1,90 @@
+================================================================
+ROUTE SAVE / DISCARD RULES — stub-callback text (handy reference)
+2026-06-04 · per RouteBuilder_UI_PACT_2026-06-04
+================================================================
+
+PURPOSE: the exact rule text to drop into the existing (stubbed)
+ConvoyRouteToolbar callbacks. NO logic yet — this is the text that
+self-documents the pact at the call site, so when we write the rules
+we implement against it. Both screens get the identical text.
+
+----------------------------------------------------------------
+WHERE IT GOES (call sites, from the reads)
+----------------------------------------------------------------
+ConvoyScreen.kt
+  ~1353  if (routeMode) { ConvoyRouteToolbar( ... ) }
+         onSaveCompleted = { /* STUB — Save rules below */ }
+         onExit          = { /* clearRoute + setRouteMode(false) + clearBuildLine — Discard rules below */ }
+
+ConvoyMapViewerScreen.kt
+  ~846   if (routeMode) { ConvoyRouteToolbar( ... ) }
+         onSaveCompleted = { /* STUB — same */ }
+         onExit          = { ... same ... }
+
+Map-tap vertex placement (currently freeVertex only, snap() NOT wired):
+  ConvoyScreen.kt        ~522-525   addVertex(freeVertex(lat,lon)) -> drawBuildLine
+  ConvoyMapViewerScreen  ~476-479   addVertex(freeVertex(lat,lon)) -> drawBuildLine
+
+----------------------------------------------------------------
+SAVE — adaptive (goes in onSaveCompleted)
+----------------------------------------------------------------
+New route, >=2 pts      -> Save as completed:
+                             buildWktAndBbox -> insertRoute (DB row)
+                             + delete draft JSON if one existed   [graduation]
+New route               -> Save in-progress:
+                             create a new draft JSON              [soon — draft I/O pass]
+Resumed draft, >=2 pts  -> Save as completed: same graduation
+Resumed draft           -> Save with changes:
+                             overwrite the existing draft JSON    [soon — draft I/O pass]
+
+ONLY writes anywhere in route creation:
+  - create draft JSON      (Save in-progress, new)
+  - overwrite draft JSON   (Save with changes, resumed)
+  - insertRoute (+ delete draft JSON if any)   (Save as completed)
+
+FIRST-PASS LIVE leg: Save as completed ONLY.
+  buildWktAndBbox(lineGeom) -> Pair<wkt, [minLat,maxLat,minLon,maxLon]>
+  -> SpatialDbManager.insertRoute(name, wkt, minLat, maxLat, minLon, maxLon)
+  -> clearRoute() + setRouteMode(false) + clearBuildLine()
+  -> re-fire route lazy-load so the new DB row draws (updateRoutes/showRoutes)
+
+----------------------------------------------------------------
+DISCARD — adaptive (goes in onExit)
+----------------------------------------------------------------
+New route (no draft on disk)
+        -> remove unsaved route from screen; NO write
+           (clearRoute() + clearBuildLine() + setRouteMode(false))
+Resumed draft
+        -> PROMPT:
+             [Roll back to original]  drop THIS session's changes,
+                                       keep the draft as opened; NO write
+             [Delete entire in-progress]  remove the draft JSON   [soon — draft I/O pass]
+
+NEVER writes on: roll back, discard, remove-unsaved.
+
+FIRST-PASS LIVE leg: remove-unsaved (clear screen) ONLY.
+  (this is exactly what onExit already does today —
+   clearRoute + setRouteMode(false) + clearBuildLine)
+
+----------------------------------------------------------------
+SNAP-ON-TAP (the other unwired piece — next slice, not Save/Discard)
+----------------------------------------------------------------
+Today the tap places freeVertex (raw coord). To snap:
+  val s = RouteManager.snap(tapLat, tapLon, trails, tracks, radiusM)
+  val v = if (s != null) RouteManager.snapToVertex(s) else RouteManager.freeVertex(tapLat, tapLon)
+  RouteManager.addVertex(v)
+OPEN QUESTION for that slice: where do `trails`/`tracks` line lists
+come from at tap time (viewport query vs already-loaded display set)?
+Snap rule: trail-first strict; tracks only if no trail in range; radius in meters.
+
+----------------------------------------------------------------
+STATE / ACTIVITY / CONDITION / ACTION (the engine framing)
+----------------------------------------------------------------
+STATES:      Route(base) -> New -> In Progress -> Completed
+ACTIVITIES:  Save, Discard   (the user actions that drive transitions)
+CONDITIONS:  >=2 pts? · new vs resumed · draft-on-disk? · (delete-saved = NO; resave = YES, may ALIAS per DB rules)
+ACTIONS (reusable black boxes, params + execute):
+  JSON layer:     write JSON · open JSON · delete JSON
+  Spatial DB:     add (insertRoute) · update · delete  [governed by §K/§L insert-boundary + alias rules]
+Everything in-memory until a deliberate Save.
+A route is EITHER a draft-file OR a DB-row, never both.

@@ -1,0 +1,131 @@
+================================================================
+ROUTE CREATION — SCREEN + PROCESS FLOW
+2026-06-04 · GroupTrack V2.5 · as-built (Build 1+2) + full target lifecycle
+================================================================
+
+PURPOSE: document the route-creation SCREEN and its PROCESS FLOW — the states,
+steps, and branches a user walks. Marks what is LIVE now vs what completes the
+lifecycle (the gate: no doc RELEASE to testers until the full lifecycle —
+create + snap-2 + JSON draft save/resume + discard — functions end to end).
+
+LEGEND:  [LIVE] shipped in Build 1+2   ·   [SOON] designed, not yet built
+
+----------------------------------------------------------------
+THE SCREEN — Route+ toolbar (overlay on convoy map AND planning map)
+----------------------------------------------------------------
+Route creation is an OVERLAY toolbar on top of either map, not a separate
+screen. The map stays live underneath (pan/zoom work throughout). Opened from
+Work-with-Artifacts -> "+ ROUTE".
+
+Toolbar anatomy (per UI PACT, locked 2026-06-04):
+  HEADER:  ✥ grip handle (drag to move — panel must be expanded) ·
+           "ROUTE +" title (tap toggles accordion) · ^/v chevron
+  ENTRY ROW:  [ New ]  [ In Progress ]   ([SOON] In Progress = resume a draft)
+  METHOD ROW: ( Point ) [LIVE]  ( Draw ) [SOON]  ( Suggest ) [SOON]
+  BUILD ROW:  [ Add ]  [ Undo ]          (Add = green ON / red OFF self-toggle)
+  ACTION ROW (always visible, survives accordion collapse):
+              [ Save ]   [ Discard ]
+  Panel-split rule: the toolbar BUILDS only. Copy/rename/edit/delete a COMPLETED
+  route + route detail live in Work-with-Artifacts -> Routes (SEL/EDIT), NOT here.
+
+----------------------------------------------------------------
+PROCESS FLOW — states and transitions
+----------------------------------------------------------------
+STATES:   Idle -> Naming -> Building -> (Completed | Draft) -> Idle
+                                  \-> Discarded -> Idle
+
+(1) IDLE (route mode off)
+     User taps "+ ROUTE" in Work-with-Artifacts, then "New".
+     --> transition to NAMING.
+
+(2) NAMING  [LIVE]
+     A "Name this route" dialog appears, prefilled "Route <timestamp>" (editable).
+       - Start  -> set routeName (blank falls back to timestamp); enter BUILDING.
+       - Cancel -> back to IDLE (no route created, route mode NOT entered).
+     This name is held in route-mode state for the whole session. It is the SAME
+     value the draft-JSON "name" field will persist [SOON], and the value
+     insertRoute() writes on Save. One capture, two consumers.
+
+(3) BUILDING  [LIVE for Point method]
+     Route mode is on; the Route+ toolbar is visible; the map is live.
+     Add toggle:
+       - GREEN ("Add ON")  -> a map tap PLACES a vertex.
+       - RED ("Add OFF")   -> a map tap PANS the map (no placement). [SOON: armed
+                              gating — Build 3 — currently taps place regardless]
+     Placing a vertex (Point method) [LIVE]:
+       - On tap, the app queries the on-screen trails + tracks and SNAPS the
+         point to the nearest within 30 m (TRAIL-FIRST, track fallback).
+       - No trail/track in range -> a FREE point at the exact tap location.
+       - A magenta line connects vertices in order as you build.
+     Undo [LIVE]: removes the most recent vertex; the line redraws.
+     Pan/zoom [LIVE]: work between taps to reposition the map.
+     Method:
+       - Point [LIVE] = the snap-tap behavior above.
+       - Draw [SOON] = freehand drag (placeholder).
+       - Suggest [SOON] = drop POIs, app proposes ~5 candidate routes (future).
+
+(4a) SAVE -> COMPLETED  [LIVE]
+     User taps "Save".
+       - If fewer than 2 vertices -> toast "Need at least 2 points to save";
+         stay in BUILDING.
+       - Else: buildWktAndBbox over the vertex chain (snapped same-line vertices
+         slice the trail/track geometry; free vertices = straight segments) ->
+         insertRoute(routeName, wkt, bbox...) writes ONE row (type=ROUTE) in the
+         shared tracks/routes spatial table -> clearRoute -> exit route mode ->
+         re-fire viewport so the new route REDRAWS (magenta) -> back to IDLE.
+       - The completed row stores ONLY name + wkt + bbox. It is now a DB-ROW.
+       - Appears in Work-with-Artifacts -> Routes under its name; loads viewport-
+         aware like trails/tracks.
+
+(4b) SAVE IN-PROGRESS -> DRAFT  [SOON]
+     User chooses to save a half-finished route to resume later.
+       - Writes a DRAFT JSON file holding the FULL vertex chain (NOT wkt):
+         {schemaVersion, draftId, name, createdAt, updatedAt, method,
+          vertices:[{lat,lon,lineId|null,lineType|null,segmentIndex,t,snapped}...]}
+       - A route is EITHER a draft-file OR a DB-row, never both.
+     RESUME (via "In Progress") [SOON]:
+       - Open the draft JSON -> addVertex() each vertex -> drawBuildLine ->
+         re-enter BUILDING with the exact prior state (true editing: can undo to
+         a snapped vertex, see which legs ride a trail).
+     GRADUATE (Save a resumed draft as completed) [SOON]:
+       - The IDENTICAL (4a) path: buildWktAndBbox -> insertRoute -> DELETE the
+         draft JSON.
+
+(5) DISCARD  [partial LIVE]
+     User taps "Discard"/"EXIT".
+       - New route, no draft on disk [LIVE]: clear the unsaved route from screen,
+         exit route mode. NO write. (This is what EXIT does today.)
+       - Resumed draft [SOON]: PROMPT —
+           [Roll back to original] drop THIS session's changes, keep the draft as
+              opened; NO write.
+           [Delete entire in-progress] remove the draft JSON.
+       - NEVER writes on roll-back / discard / remove-unsaved.
+
+----------------------------------------------------------------
+THE THREE WRITES (the entire persistence surface of route creation)
+----------------------------------------------------------------
+  create draft JSON       — Save in-progress (new)        [SOON]
+  overwrite draft JSON    — Save with changes (resumed)   [SOON]
+  insertRoute + delete-draft — Save as completed (graduation)  [LIVE for the
+                            insertRoute half; draft-delete half arrives with drafts]
+Everything else is in-memory until a deliberate Save. (Standing-rules framing:
+states / activities (Save, Discard) / conditions / reusable action black-boxes.)
+
+----------------------------------------------------------------
+GATE FOR DOC RELEASE
+----------------------------------------------------------------
+Release notes + manual go to TESTERS only when the FULL lifecycle functions:
+create + snap-2 + draft JSON save/resume + discard branches, end to end. As of
+Build 1+2, LIVE = create + name + snap-tap + Save-completed + redraw. SOON =
+draft JSON (save in-progress / resume / graduate), Discard prompt for resumed
+drafts, armed gating, Draw/Suggest. This doc is the build spec for closing that
+gap (the new conversation's work).
+
+----------------------------------------------------------------
+PROVENANCE
+----------------------------------------------------------------
+Build 1 (69ad30c56): Save-completed -> insertRoute + redraw.
+Build 2 (pending commit): snap-on-tap (30m) + name-on-New + "In Progress" label.
+Write contract: RouteWriteFunction_DataContract_2026-06-04.
+UI pact: RouteBuilder_UI_PACT_2026-06-04.
+================================================================

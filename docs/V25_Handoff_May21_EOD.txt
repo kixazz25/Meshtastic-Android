@@ -1,0 +1,196 @@
+GroupTrack V2.5 Handoff — May 21, 2026 (End of Day)
+=====================================================
+Branch: feature/convoy-event-ride
+Commit: c8273d619
+Device: Android 1 serial 8624SBCEDF00001789
+Tester device: serial 47181FDAS005VJ (storage recovered — cleared MediaProvider)
+
+=====================================================
+COMPLETED TODAY (May 21)
+=====================================================
+
+SESSION 1 (Morning — from overnight build):
+  1. Download panel checkbox state fix verified working
+  2. Unified download confirm screen (ConvoyDownloadConfirm.kt)
+     - Shows all 3 map sources: SAT/TOPO/TOPO+
+     - Checkboxes per source (pre-selected by caller)
+     - Replace existing toggle, PROCEED / CANCEL buttons
+  3. enqueueArea() in ConvoyDownloadQueue.kt
+     - Unified queue function for all download types
+     - Grid cell breakup for large areas
+     - Fixed parameter order bug (was creating 753K cells — OOM crash)
+  4. Worker base layer directory fix (slotName vs layer.cacheDir)
+  5. HTTP status code logging added to ConvoyTileDownloader.kt
+
+SESSION 2 (Afternoon — tile download debugging):
+  6. ROOT CAUSE FOUND: Stale external map_sources.json
+     - MapSourceManager.init() read external JSON before bundled asset
+     - External copy was created on first install with old CalTopo URLs
+     - Asset updates never took effect — external file always won
+     - CalTopo S3 bucket returns HTTP 403 Forbidden (confirmed via curl)
+     - CalTopo no longer serves tiles to non-browser clients (Pro API only)
+  7. FIX: MapSourceManager now reads ONLY from bundled asset
+     - Removed external-first logic from init()
+     - Disabled saveExternalJson() (was persisting slot changes to external)
+     - Deleted stale external copy from device
+  8. CalTopo (caltopo-usfs) removed from map_sources.json catalog
+     - S3 tiles blocked (403). Pro API requires paid subscription.
+     - TOPO+ slot now correctly maps to Esri USA Topo
+  9. Worker slot filter added to ConvoyDownloadWorker.kt
+     - Normal mode now respects refreshSlot parameter
+     - Downloads only selected source, not all 3
+     - Reduced job size: ~1,600 tiles vs ~29,000
+  10. User-Agent header added to ConvoyTileDownloader.kt
+      - Chrome-style User-Agent on all OkHttp tile requests
+      - Good practice even though root cause was wrong URL
+  11. TOPO+ tiles downloading successfully from Esri USA Topo
+      - 16,500+ tiles written and verified on device
+      - Zero failures
+
+TESTER DEVICE RECOVERY:
+  12. Tester device 47181FDAS005VJ had 7M+ tile files (2-day download)
+      - Cleared files via ADB: find -type f -delete
+      - Cleared empty directories: rm -rf GroupTrack directory
+      - Cleared MediaProvider cache: pm clear com.google.android.providers.media.module
+      - File manager still slow — recommended alternative file manager app
+
+=====================================================
+CURRENT STATE OF DEVICE (Android 1)
+=====================================================
+
+TOPO+ tiles: ~16,500 in /sdcard/Documents/GroupTrack/maps/tiles/TOPO+/
+SAT tiles: existing coverage intact
+TOPO tiles: existing coverage intact
+map_sources.json: deleted from external — app reads bundled asset
+
+NOTE: TOPO+ tiles were cleared during debugging. Only the area
+downloaded today has TOPO+ coverage. Other regions need re-download.
+Old CalTopo tiles would not have been usable anyway (wrong source).
+
+=====================================================
+OPEN BUGS
+=====================================================
+
+TILE DOWNLOAD:
+  1. Double-enqueue: area download may include full-map refresh job
+     - enqueueRefresh() only called from ConvoyMapSourceScreen.kt:271
+     - Triggered by source change prompt, not area download
+     - Need to confirm this is user-action, not code bug
+  2. Tile estimate on confirm screen counts all sources, not selected
+  3. Downloaded areas overlay hardcoded to SAT/14 — should use active source
+  4. Source change should prompt "delete old tiles?" not "refresh?"
+  5. No "Cancel All Downloads" button
+  6. No max tile count safety check (tester queued millions)
+
+UI/UX (carried from morning):
+  7. QUEUES position on Planning Map needs adjustment
+  8. Work with Artifacts bar thickness — reduce on both maps
+  9. Remove GPX prompt after track import
+  10. +ROUTE nav wiring
+  11. Planning Map blank on return from trail source screen
+
+ARCHITECTURE:
+  12. MapSourceManager slot changes don't persist across restart
+      (saveExternalJson disabled — future: SharedPreferences)
+
+=====================================================
+TOMORROW'S PRIORITY: LAZY LOAD TRAILS FROM SPATIAL DB
+=====================================================
+
+This is the #1 V2.5 feature task. All trail data (49K UGRC Utah
+trails) must display via viewport-based lazy loading from the spatial
+database, replacing the 22MB bundled GeoJSON asset.
+
+ARCHITECTURE (5 steps from morning handoff):
+
+  STEP 1: JS — viewport listener + updateTrails()
+    Files: convoy_map.html AND grouptrack_map.html
+    - Add trailLayer variable
+    - Add updateTrails(geojsonStr) function with CartoCode coloring
+    - Add clearTrails() function
+    - Add debounced moveend listener → Android.onViewportChanged()
+    - Add triggerViewportUpdate() for manual trigger
+
+  STEP 2: Kotlin — JavascriptInterface for viewport
+    Files: ConvoyScreen.kt AND ConvoyMapViewerScreen.kt
+    - @JavascriptInterface onViewportChanged(north, south, east, west, zoom)
+    - Check trailsVisible flag
+    - Query SpatialDbManager on IO dispatcher
+    - Inject GeoJSON via evaluateJavascript("updateTrails(...)")
+
+  STEP 3: SpatialDbManager — query + GeoJSON builder
+    File: SpatialDbManager.kt
+    - queryTrailsAsGeoJson(context, south, west, north, east): String
+    - Query trails table WHERE bbox intersects viewport
+    - Build FeatureCollection JSON string
+    - CHECK: trails table must have min_lat/max_lat/min_lon/max_lon columns
+    - Schema: grouptrack_trails_schema_v1.sql
+
+  STEP 4: Wire Trails toggle to lazy load
+    - Toggle ON → triggerViewportUpdate() via evaluateJavascript
+    - Toggle OFF → clearTrails() via evaluateJavascript
+
+  STEP 5: Performance
+    - Zoom < 10: don't load trails (too many)
+    - Zoom 10-14: load simplified/thinned
+    - Zoom 14+: full detail
+    - Limit to 2000 features per viewport
+    - Chunk GeoJSON if > 1MB
+
+PRE-WORK CHECK:
+  Before starting, verify:
+  1. SpatialDbManager.kt exists and has trails table schema
+  2. Trails data has been migrated from GeoJSON to spatial DB
+  3. If not migrated, write migration function first:
+     parse utah_trails_stgeorge.geojson → insert into trails table
+
+=====================================================
+KEY FILES REFERENCE
+=====================================================
+
+Tile download (today's changes):
+  ConvoyTileDownloader.kt — User-Agent header, HTTP logging
+  ConvoyDownloadWorker.kt — slot filter added (line 113-114)
+  MapSourceManager.kt — asset-only init, saveExternalJson disabled
+  map_sources.json — CalTopo removed, 15 sources remaining
+  ConvoyDownloadConfirm.kt — NEW, unified confirm screen
+  ConvoyDownloadPanel.kt — lifted state to parent
+  ConvoyDownloadQueue.kt — enqueueArea() with grid cells
+
+Trail system (tomorrow):
+  SpatialDbManager.kt — DB init, schema, queries
+  TrailImporter.kt — import engine
+  convoy_map.html — Convoy Map (needs trail layer)
+  grouptrack_map.html — Planning Map (needs trail layer)
+  ConvoyScreen.kt — Convoy Map composable
+  ConvoyMapViewerScreen.kt — Planning Map composable
+  utah_trails_stgeorge.geojson — 5,732 trails, 22MB (to be replaced)
+
+Lifecycle/architecture docs:
+  GroupTrack_V25_LifecycleOwnership_v3.docx
+  GroupTrack_V25_DecisionLog_May18_v3.docx
+  GroupTrack_V25_ScreenReference_v5.html
+
+=====================================================
+BUILD / TEST COMMANDS
+=====================================================
+
+Build: ./gradlew assembleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease
+Install: adb -s 8624SBCEDF00001789 install -r -d app/build/outputs/apk/google/release/app-google-release.apk
+Force stop: adb -s 8624SBCEDF00001789 shell "am force-stop com.grouptrack.android"
+Logcat: adb -s 8624SBCEDF00001789 logcat -d | grep "TileDownloader|DownloadWorker|SpatialDb|TrailImporter"
+Check tiles: adb -s 8624SBCEDF00001789 shell "find /sdcard/Documents/GroupTrack/maps/tiles/TOPO+ -name '*.png' | wc -l"
+Check DB: adb -s 8624SBCEDF00001789 shell "ls -la /sdcard/Documents/GroupTrack/*.db"
+
+Patch workflow: python3 "/c/Users/kixaz/Downloads/[patch_name].py"
+Always -r -d on install. Always encoding='utf-8' in patches. Never heredoc.
+
+=====================================================
+DOCS TO UPLOAD IN NEW SESSION
+=====================================================
+
+1. This file: V25_Handoff_May21_EOD.txt
+2. GroupTrack_AllDocs.txt
+3. GroupTrack_V25_ScreenReference_v5.html
+4. GroupTrack_V25_LifecycleOwnership_v3.docx
+5. GroupTrack_V25_DecisionLog_May18_v3.docx

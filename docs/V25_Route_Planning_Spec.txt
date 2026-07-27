@@ -1,0 +1,175 @@
+GroupTrack V2.5+ — Route Planning
+IMPLEMENTATION SPECIFICATION
+==========================================
+
+1. OVERVIEW
+==========================================
+Route planning between multiple points with trail-based
+path discovery, multiple route options displayed for
+comparison, and optional 3D terrain preview before
+selecting and saving a route.
+
+2. WORKFLOW SUMMARY
+==========================================
+  1. Enter start point (town name or map tap)
+  2. Enter end point (town name or map tap)
+  3. Optionally add intermediate waypoints
+  4. System finds all viable trail routes in corridor
+  5. Display multiple route options on map
+  6. User can preview routes in 3D terrain scrubber
+  7. User selects preferred route
+  8. Name and save route to spatial DB
+  9. Add waypoints along saved route
+
+3. POINT ENTRY
+==========================================
+Start/end points entered by:
+  - Tap on map → lat/lon captured
+  - Search bar → geocode town name → lat/lon
+  - Select existing waypoint → lat/lon from DB
+  - Type coordinates directly
+
+Intermediate points (optional):
+  - Tap on map between start/end
+  - Snap to existing waypoints
+  - "Must pass through" constraint for route finder
+
+4. CORRIDOR CALCULATION
+==========================================
+  - Draw line from start to end point
+  - Buffer line by 50-80 miles perpendicular
+  - Creates search corridor polygon
+  - Query all trails + tracks within corridor
+  - Build trail network graph from segments
+
+5. ROUTE DISCOVERY
+==========================================
+Trail Network Graph:
+  - Nodes: segment endpoints + intersections
+  - Edges: trail segments (weight = distance)
+  - Round coordinates to 5 decimal places for matching
+  - ~64K edges from Utah trail data
+
+Algorithm: K-Shortest Paths (Yen's Algorithm)
+  - Find top 3-5 shortest routes
+  - Each route uses different trail combinations
+  - Include intermediate "must pass" points
+  - Filter routes that exceed max distance threshold
+
+6. MULTI-ROUTE DISPLAY
+==========================================
+Each discovered route displayed in different color:
+  Route 1: Blue (shortest)
+  Route 2: Green (alternative)
+  Route 3: Orange (scenic/longer)
+  Route 4: Purple (if applicable)
+
+Route info cards (overlay):
+  ┌─────────────────────────┐
+  │ Route 1: Blue           │
+  │ 47.3 mi  Est: 4h 20m   │
+  │ Elev gain: 2,840 ft     │
+  │ [PREVIEW] [SELECT]      │
+  └─────────────────────────┘
+
+Tap card → highlights route on map
+Tap PREVIEW → opens 3D terrain scrubber
+Tap SELECT → saves as route
+
+7. 3D TERRAIN PREVIEW (SCRUBBER)
+==========================================
+Interactive terrain viewer along selected route:
+
+  ┌──────────────────────────────┐
+  │                              │
+  │   [Satellite terrain view]   │
+  │   at current slider position │
+  │                              │
+  ├──────────────────────────────┤
+  │ ▓▓▓▓▓░░░░░░░░░░░░░░░░░░░░  │ ← Elevation profile
+  │ ↑ Current position           │
+  ├──────────────────────────────┤
+  │ ◄ [━━━━━●━━━━━━━━━━━━━] ►  │ ← Scrub slider
+  │ Mile 12.4 / 47.3  Elev 6820│
+  └──────────────────────────────┘
+
+Features:
+  - Drag slider: move through route at own pace
+  - Tap elevation profile: jump to that point
+  - Terrain snapshots every 300ft from cached tiles
+  - Waypoint alerts as they approach
+  - Works offline (cached satellite tiles)
+  - Bearing-oriented view (looking forward along route)
+
+8. ROUTE SELECTION & SAVE
+==========================================
+After preview, user selects route:
+  1. Tap SELECT on preferred route card
+  2. Name dialog: "Name this route: [__________]"
+  3. Save to spatial DB (routes table)
+  4. Route geometry stored as LINESTRING WKT
+  5. Route appears in artifact list
+  6. Can add waypoints along saved route
+
+Route table fields:
+  route_id, name, geometry, description,
+  min_lat, max_lat, min_lon, max_lon,
+  distance_miles, source, created_at, updated_at
+
+9. MANUAL ROUTE BUILDING (Phase 1)
+==========================================
+Before full path discovery is built:
+  - Tap points on map to create route manually
+  - Points connect with straight lines
+  - Optional snap to nearest trail
+  - Save as route to spatial DB
+  - Foundation for later path discovery
+
+10. IMPLEMENTATION PHASES
+==========================================
+
+Phase 1 (V2.5): Manual Route Building
+  - Tap points on map
+  - Connect with lines
+  - Snap to trail (optional)
+  - Save to spatial DB
+  Files: grouptrack_map.html, ConvoyMapViewerScreen.kt,
+         SpatialDbManager.kt
+
+Phase 2 (V2.5+): Trail Network + Shortest Path
+  - Build graph from trail segments
+  - A* shortest path between points
+  - Display proposed route
+  - Accept/modify/cancel
+  Files: TrailNetworkGraph.kt (new),
+         ConvoyMapViewerScreen.kt
+
+Phase 3 (V2.6): Multi-Route Discovery
+  - K-shortest paths (Yen's algorithm)
+  - Corridor-based search
+  - Multiple route display + comparison
+  - Route info cards
+  Files: TrailNetworkGraph.kt, RouteFinderPanel.kt (new)
+
+Phase 4 (V3.0): 3D Preview + Advanced
+  - Terrain scrubber with slider
+  - Cesium.js or Mapbox GL 3D
+  - Weight options (elevation, surface, difficulty)
+  - Turn-by-turn integration
+  Files: RoutePreviewScreen.kt (new),
+         terrain_preview.html (new)
+
+11. FILES TO CREATE/MODIFY
+==========================================
+New:
+  TrailNetworkGraph.kt — graph builder + A* + Yen's
+  RouteBuilderPanel.kt — manual route creation UI
+  RouteFinderPanel.kt — multi-route display + cards
+  RoutePreviewScreen.kt — 3D terrain scrubber
+  terrain_preview.html — Cesium/Mapbox 3D WebView
+
+Modify:
+  grouptrack_map.html — route drawing layer, tap handler
+  ConvoyMapViewerScreen.kt — route builder mode
+  SpatialDbManager.kt — route insert, distance calc
+  schema_spatial_v1.sql — distance_miles column

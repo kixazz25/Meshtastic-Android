@@ -1,0 +1,130 @@
+GroupTrack V2.5 — Download Queue Management Requirements
+==========================================================
+May 21, 2026 — Documented after tester incident (7M tiles, 2-day
+uncontrolled download, device storage lockup, forced MediaProvider
+clear, file manager permanently unresponsive)
+
+==========================================================
+PROBLEM STATEMENT
+==========================================================
+
+Current queue has no user controls. Once a download starts there
+is no way to pause, cancel, or clear it. A tester downloaded for
+2 days, creating 7 million tile files that:
+  - Filled device storage
+  - Locked the Android file manager permanently
+  - Required ADB intervention to delete files
+  - Required MediaProvider cache clear to recover
+  - File manager still unresponsive after reboot + clear
+  - This was a personal phone, not a test device
+
+==========================================================
+REQUIRED FUNCTIONS
+==========================================================
+
+1. HOLD QUEUE (Pause/Resume)
+   Location: DownloadQueueManager.kt
+   Behavior:
+     - Toggle button on download panel: PAUSE / RESUME
+     - PAUSE: stops processing next queue entry
+     - Current active worker completes its tile batch normally
+     - No new workers launched until RESUME
+     - Queue entries preserved in their current state
+     - Visual indicator: paused icon on queue display
+   UI: ConvoyDownloadPanel.kt — toggle button near queue list
+
+2. CANCEL SINGLE QUEUE ITEM
+   Location: DownloadQueueManager.kt
+   Behavior:
+     - Swipe-to-dismiss or X button on individual queue entry
+     - If entry is PENDING: remove from queue, no cleanup needed
+     - If entry is ACTIVE: cancel WorkManager job, remove from queue
+     - If entry is COMPLETE: remove from display only
+     - Cancelled tiles already written to disk are KEPT (not deleted)
+     - Confirmation prompt: "Cancel download of [label]?"
+   UI: ConvoyDownloadPanel.kt — X button per queue row
+
+3. CLEAR ALL QUEUE
+   Location: DownloadQueueManager.kt
+   Behavior:
+     - Button: CLEAR QUEUE
+     - Cancels all active WorkManager jobs
+     - Removes all PENDING and ACTIVE entries
+     - COMPLETE entries optionally cleared (checkbox)
+     - Tiles already on disk are KEPT
+     - Confirmation prompt: "Cancel all pending downloads?"
+   UI: ConvoyDownloadPanel.kt — button at top/bottom of queue list
+
+4. MAX TILE COUNT SAFETY CHECK
+   Location: ConvoyDownloadConfirm.kt
+   Behavior:
+     - Before PROCEED, calculate total tiles across all selected slots
+     - Warning threshold: 50,000 tiles — show yellow warning with
+       estimated storage (tile count × 15KB avg)
+     - Hard ceiling: 500,000 tiles — block with red message,
+       suggest smaller area
+     - Show estimated download time at current connection speed
+     - Show estimated storage impact
+   UI: ConvoyDownloadConfirm.kt — warning/block in confirm dialog
+
+5. CANCEL ALL DOWNLOADS BUTTON
+   Location: ConvoyDownloadPanel.kt or notification
+   Behavior:
+     - Prominent red button when downloads are active
+     - Cancels ALL active workers via WorkManager
+     - Clears entire queue
+     - Shows summary: "Cancelled. X tiles downloaded, Y pending removed."
+     - Also accessible from notification action button
+   UI: ConvoyDownloadPanel.kt — red button, also notification action
+
+==========================================================
+IMPLEMENTATION NOTES
+==========================================================
+
+WorkManager cancellation:
+  WorkManager.getInstance(context).cancelUniqueWork(entryId)
+  WorkManager.getInstance(context).cancelAllWork()  // nuclear option
+
+Queue persistence:
+  Queue is saved to SharedPreferences (download_queue.xml)
+  Cancel/clear must also update persisted queue
+  On app restart, stale ACTIVE entries should be marked FAILED
+
+State machine per entry:
+  PENDING → ACTIVE → COMPLETE
+  PENDING → CANCELLED (user cancel)
+  ACTIVE → CANCELLED (user cancel mid-download)
+  ACTIVE → FAILED (error/crash)
+
+Notification actions:
+  Current notification has Cancel button per worker
+  Add: Cancel All action that clears entire queue
+  Add: Pause action that holds queue processing
+
+==========================================================
+PRIORITY
+==========================================================
+
+These controls MUST be implemented before the next APK goes to
+external testers. The 7M tile incident proves uncontrolled
+downloads are a real risk on personal devices.
+
+Implementation order:
+  1. Max tile count safety check (prevents the problem)
+  2. Cancel All Downloads (emergency stop)
+  3. Cancel single item (selective control)
+  4. Clear queue (cleanup)
+  5. Hold/Pause (nice to have but less critical)
+
+Estimated effort: 1 session for items 1-4, separate session for 5.
+
+==========================================================
+RELATED OPEN ISSUES
+==========================================================
+
+- Double-enqueue: area download may trigger full refresh
+  (enqueueRefresh called from ConvoyMapSourceScreen.kt:271)
+- Source change should prompt delete old tiles, not refresh
+- Queue progress not showing in download panel display
+- Worker downloads ALL sources when user selects one (FIXED May 21)
+- Tile estimate on confirm screen counts all sources (needs slot filter)

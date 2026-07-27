@@ -1,0 +1,210 @@
+GroupTrack V2.5 — Status & Open Items
+May 28, 2026
+==========================================
+
+FIELD TEST: Friday May 30
+TRACK-DBG logging active on all devices
+Data collection ride with 2-4 carts
+
+==========================================
+SECTION 1: CLEANUP ISSUES (ship quality)
+==========================================
+
+IMPORT CLEANUP — COMPLETED:
+  [x] Trail import: 4 scattered trailhead buttons removed
+  [x] Trail import: A2 layout fixed (BACK/IMPORT clean rows)
+  [x] Trail import: auto-import trailheads after trails
+  [x] Trail import: source card shows trailhead availability as info
+  [x] Trail import: area import works from download panel
+  [x] TrailImporter: bbox filter for area trailhead import
+  [x] TrailImporter: sourceId parameter (no hardcoded "ugrc_")
+  [x] TrailImporter: progress emission every 50 records
+  [x] GPX import: switched to importGpxAllArtifacts (all types)
+  [x] GPX import: extensions stripping (onXmaps crash fix)
+  [x] GPX import: waypoint/route counts in recap dialog
+  [x] GPX import: DELETE FILES / KEEP FILES buttons
+  [x] GPX import: IMPORT ARTIFACTS button wired to file picker screen
+  [x] Track: Branch 2 (multi-cart segments) removed
+
+IMPORT CLEANUP — REMAINING:
+  [ ] Remove old scanDownloadsForGpx inline function (dead code)
+  [ ] Remove old "Work with Tracks" from map settings submenu
+  [ ] Trail source screen intro text (point to Downloads for area)
+  [ ] Remove METHOD_SELECT / B1_DRAW_AREA steps (area via Downloads)
+  [ ] Auto-launch trail import on first Planning Map open (zero trails)
+  [ ] Normalize utah_trailheads.json fields (PrimaryName→name)
+  [ ] trailSourceCount in download panel (currently hardcoded 0)
+
+PLANNING MAP CLEANUP — REMAINING:
+  [ ] Proximity tap: 3 dead click handlers in HTML
+  [ ] Share/export button font mismatch
+  [ ] Trail section numbering (duplicate name suffixes)
+  [ ] Detail panel rebuild (consistent button styling)
+
+CONVOY MAP CLEANUP — REMAINING:
+  [ ] Remove old ConvoyDisplayPanel after spatial DB confirmed
+  [ ] Remove old file-based track loading (JS injection)
+  [ ] Remove old trail JS injection
+  [ ] SAT/TOPO bar move to North indicator line
+  [ ] North indicator move down, show zoom level (Z18)
+  [ ] Remove node fix (blocklist persistence — reappears)
+
+==========================================
+SECTION 2: TRACK TROUBLESHOOTING
+==========================================
+
+STATUS: Diagnostic logging deployed, awaiting field data
+
+WHAT WE KNOW:
+  - 3 carts, 6 visible tracks (3 out, 3 back)
+  - All tracks are BLACK (not multi-colored)
+  - trackLeadOnly = true (Branch 1 runs)
+  - 0 PROXY SNAP events
+  - 0 CART SUB events
+  - drawTrack() JS clears and redraws every tick
+  - addMarker() JS does not draw trails
+  - Branch 2 (multi-cart segments) now REMOVED
+
+TRACK-DBG LOGGING (active in current build):
+  TICK log: trackLeadOnly state, leadId, segment count, node count
+  SEG-WRITE log: nodeId, coordinates, proxy status, running total
+  Watch live: adb -s [serial] logcat -s TRACK-DBG
+
+FIELD TEST PLAN (Friday):
+  1. Start ride with 2+ carts
+  2. Watch TRACK-DBG on laptop: adb logcat -s TRACK-DBG
+  3. Capture: does leadId change? Do segments grow >1 per tick?
+  4. Capture: are coordinates from lead position or elsewhere?
+  5. If phantom lines persist with Branch 2 removed:
+     - Check gpsTrail inclusion in display assembly
+     - Check ConvoyScreen lines 270-305 for gpsTrail
+     - Check if old loadTrackFile is auto-loading saved tracks
+
+REMAINING INVESTIGATION:
+  [ ] Verify gpsTrail is NOT added to drawTrack activeSegments
+  [ ] Check if old ConvoyDisplayPanel track toggle auto-loads files
+  [ ] Direction arrows on track lines (diagnostic + feature)
+  [ ] Lead track spec: V25_ConvoyTrack_LeadOnly_Spec.md
+
+==========================================
+SECTION 3: CONVOY MAP SPATIAL DB (in current build)
+==========================================
+
+STATUS: Patch applied, building now, untested
+
+WHAT'S WIRED:
+  - ConvoyArtifactsPanel callbacks: displayStates, onSetState, onEditDisplay
+  - onViewportChanged JS interface in ConvoyScreen.kt
+  - Spatial DB queries: trails, tracks, waypoints, routes by viewport
+  - GeoJSON push: updateTrails, updateTracks, updateWaypoints, updateRoutes
+  - ArtifactListPanel for select/edit
+  - convoy_map.html: triggerViewportUpdate + moveend/zoomend listeners
+  - Show/hide functions for all artifact types
+
+WHAT MAY NEED FIXES:
+  - Duplicate showTracks/hideTracks in convoy_map.html (old + new)
+  - waypointLayer/routeLayer variable naming conflicts
+  - DS_OFF/DS_ON/DS_SELECTED values must match ConvoyConfig
+  - Old ConvoyDisplayPanel still present (can coexist for now)
+
+TESTING SEQUENCE:
+  1. Install build on droid
+  2. Open convoy map with imported trails/trailheads
+  3. Expand WORK WITH ARTIFACTS panel
+  4. Toggle Trails ON — do trails appear?
+  5. Toggle Waypoints ON — do trailheads appear?
+  6. Tap Edit/Display — does ArtifactListPanel open?
+  7. If YES → remove old display panel in next patch
+
+==========================================
+SECTION 4: NEW FEATURES — WAYPOINTS & ROUTES
+==========================================
+
+WAYPOINT CREATION (Priority 4 from battle plan):
+  Objective: User creates waypoints by long-pressing on map
+  
+  Three files:
+    grouptrack_map.html:
+      - map.on('contextmenu') handler
+      - Android.onLongPress(lat, lng)
+    
+    ConvoyMapViewerScreen.kt:
+      - State vars: showCreateDialog, createLat, createLon
+      - onLongPress JavascriptInterface method
+      - Create waypoint Compose dialog
+      - 11 type pill buttons:
+        trailhead, water, campsite, viewpoint, parking,
+        gate, hazard, fuel, shelter, junction, other
+      - Name field + optional description
+      - SAVE calls SpatialDbManager.insertWaypoint()
+      - triggerViewportUpdate() refreshes map
+    
+    SpatialDbManager.kt:
+      - insertWaypoint() already exists
+      - description column: handle gracefully if missing
+
+ROUTE PLANNING PHASE 1 (Priority 5 from battle plan):
+  Objective: User creates routes by tapping points on map
+  
+    - Tap mode: place points sequentially
+    - Lines connect points in real time
+    - Save as LINESTRING to routes table
+    - Optional: snap to nearest trail segment
+    - SpatialDbManager.insertRoute() already exists
+
+PREREQUISITES:
+  - Convoy map spatial DB working (current build)
+  - GPX import working with all artifact types (current build)
+  - Both need testing before starting waypoint/route development
+
+==========================================
+SECTION 5: BUILD & DEPLOY
+==========================================
+
+CURRENT BUILD:
+  Status: building (40 min full rebuild after clean)
+  Contents: everything — trail cleanup, GPX all-artifacts,
+            track diagnostics, convoy spatial, import wiring fix
+  
+  After build succeeds:
+    1. Verify APK timestamp: ls -la app/build/outputs/apk/google/release/
+    2. Install on droids:
+       adb -s 8624SBCEDF00001789 install -r -d app/build/outputs/apk/google/release/app-google-release.apk
+       adb -s 24039703201775 install -r -d app/build/outputs/apk/google/release/app-google-release.apk
+    3. Test: trail import, GPX import, convoy map artifacts
+    4. Build AAB: ./gradlew bundleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease
+    5. Upload AAB to Play Store Internal Testing
+    6. Tester devices update from store
+    7. Roll back Play Store version (controlled rollout)
+    8. Set up all 4 devices: import trails, trailheads, resync tracks
+    9. Commit: git add -A && git commit -m "V2.5: full import cleanup + convoy spatial + track diagnostics"
+
+BUILD RULE (going forward):
+  After every Python patch:
+    touch app/src/main/java/com/geeksville/mesh/convoy/*.kt
+  Or verify APK timestamp after build:
+    ls -la app/build/outputs/apk/google/release/app-google-release.apk
+
+DEVICE SERIALS:
+  Android 1: 8624SBCEDF00001789
+  Android 2: 24039703201775
+  Tester 1:  P10V07162601000362
+  Tester 2:  TC5010926B071521
+
+==========================================
+SECTION 6: DEFERRED ITEMS (post-V2.5)
+==========================================
+
+  [ ] Trail dedup: start/end point within 50 yards → alias
+  [ ] Trailhead dedup: single point within 50 yards → alias
+  [ ] Live UGRC trailhead query (replace bundled asset)
+  [ ] NET mode: upload/download spatial DB to community DB
+  [ ] Trail overlap detection (85% threshold)
+  [ ] Waypoint catalog per route suggestion
+  [ ] Public POI imports for route planning corridor
+  [ ] User/Public waypoint source filter
+  [ ] Track survey on save (difficulty, ride again, share)
+  [ ] Track survey upload to community DB
+  [ ] Directional arrowheads on track/trail lines
+  [ ] Combined trail + trailhead import in single process
+  [ ] Package migration (com.geeksville.mesh → com.grouptrack.android)

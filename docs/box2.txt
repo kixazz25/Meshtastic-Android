@@ -1,0 +1,17 @@
+
+    /**
+     * BOX 2 - shared enqueue processor. No UI. Callable from any working body,
+     * attended or unattended (area / track engine / import loop / sync loop).
+     * Takes a bbox + sources chosen up front (box 1); enqueues one divided
+     * area-download per source. enqueueArea handles large + small boxes.
+     */
+    fun submitDownload(
+        context: Context,
+        north: Double, south: Double, east: Double, west: Double,
+        selectedSlots: List<String>,
+        replaceExisting: Boolean = false
+    ) {
+        for (slotName in selectedSlots) {
+            enqueueArea(context, slotName, north, south, east, west, replaceExisting)
+        }
+    }

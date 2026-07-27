@@ -1,0 +1,63 @@
+========================================================================
+COMPLETED TASK — GroupTrack V2.6b
+========================================================================
+TASK: Tile-download concurrency speed-up (+ zoom-cap removal + backoff)
+COMMIT: 18a7054a2
+STATUS: SHIPPED 2026-07-09; tested on Droid 1.
+DOC GENERATED: 2026-07-11 (reconciliation offload from working memory)
+------------------------------------------------------------------------
+
+TASK DESCRIPTION
+----------------
+Parallelize the previously-sequential tile-fetch loop to make downloads
+substantially faster (download speed was an adoption obstacle), remove a
+stale per-source download zoom cap, and add HTTP backoff so concurrency
+can't silently drop tiles under throttling. This was the pivot after the
+Esri batch-export (.tpkx) transport plan was found unavailable on the
+current account.
+
+SAVED MEMORY CONTENTS (as of completion)
+----------------------------------------
+- V2.6b tile download speed-up SHIPPED, commit 18a7054a2:
+  * fetch concurrency: parallel-fetch / serial-insert,
+    TILE_FETCH_CONCURRENCY=8 (N tiles fetched in parallel via async,
+    inserted serially because one cached SQLite handle per type is unsafe
+    for concurrent writes);
+  * removed the stale TOPO+/TRAIL download zoom cap in
+    ConvoyTileCalculator.maxZoomForSource (the ->17 cap was for the old
+    hand-drawn source; now full range, with map_sources.json max_zoom
+    retained only as a display clamp);
+  * added 429 / 503 / 502 retry with exponential backoff in fetchTileBytes
+    (retry the SAME tile, honor Retry-After; 404 fast-null) so concurrency
+    can't silently drop tiles under throttling.
+  ~5x faster. 125K-tile test (SAT+TOPO+TOPO+) = 80 min, ~100% success, ZERO
+  429s, 2 transient 502s. MAX_CONCURRENT was committed =3 ON PURPOSE to test
+  on balanced segments next (later reverted to 2 once segmentation shipped —
+  see the segmentation task).
+
+- CONTEXT — why this and not batch transport: the V2.6b plan had been an
+  Esri exportTiles -> .tpkx -> unpack batch transport. De-risk via curl
+  found the keyed Location Platform imagery endpoint returns only tileInfo
+  (no exportTilesAllowed) — it is PER-TILE only; exportTiles lives on a
+  separate "for Export" instance / subscription. So the .tpkx batch plan was
+  DEAD on the current account and V2.6b pivoted to this concurrency speed-up
+  on the free arcgisonline endpoint (no licensing dependency).
+
+- KEY HONESTY captured at the time: concurrency SPEEDS DOWNLOADS UP but does
+  NOT reduce tile VOLUME. On the free tier, faster just means faster
+  accumulation. Demand-shaping by cost only works on a paid path. (Feeds the
+  4-phase Esri cost strategy, which remains an OPEN planning item in working
+  memory, not part of this completed task.)
+
+- RELATED FINDING documented alongside: the FUSE wedge — repeated adb rm of
+  .mbtiles while the app holds open handles causes silent write failure
+  (SQLITE_IOERR_FSTAT -> db() returns null -> insertTile no-ops while the
+  download loop counts tiles done); only a device reboot clears it.
+
+FOLLOW-ON (superseded / continued elsewhere, NOT part of this task)
+------------------------------------------------------------------
+- The "MAX_CONCURRENT=3 to test balanced segments next" note led directly
+  into the load-balancing SEGMENTATION task (commit e38e43487), which
+  reverted MAX_CONCURRENT to 2 and raised TILE_FETCH_CONCURRENCY to 10. See
+  that task's completed doc.
+========================================================================

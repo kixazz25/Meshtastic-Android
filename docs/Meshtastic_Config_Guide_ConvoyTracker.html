@@ -1,0 +1,1174 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Meshtastic Config Guide - Convoy Tracker</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Meshtastic Config Guide - Convoy Tracker</h1>
+</header>
+<h1 id="meshtastic-radio-configuration-guide-convoy-tracker">Meshtastic
+Radio Configuration Guide — Convoy Tracker</h1>
+<p><strong>Purpose:</strong> Complete configuration reference for
+Meshtastic radios being repurposed for convoy tracking.<br />
+<strong>Important:</strong> These radios have been in service. Before
+configuring for convoy use, review ALL settings below — previous
+configurations may conflict with convoy tracker requirements.<br />
+<strong>Configuration Tool:</strong> Meshtastic Web Client at
+https://client.meshtastic.org via Bluetooth<br />
+<strong>Date:</strong> March 2, 2026</p>
+<hr />
+<h2 id="before-you-start-reset-vs.-reconfigure">BEFORE YOU START: Reset
+vs. Reconfigure</h2>
+<p>Since these radios have prior configurations, you have two
+options:</p>
+<p><strong>Option A: Factory Reset (Recommended for clean
+start)</strong></p>
+<ol type="1">
+<li>Connect to the device via Web Client (Bluetooth).</li>
+<li>Go to <strong>Config → Device</strong> and look for a
+<strong>Factory Reset</strong> or <strong>Reset to Defaults</strong>
+option.</li>
+<li>After reset, the device reboots and all settings return to
+defaults.</li>
+<li>You will need to set the Region again before the device will
+transmit.</li>
+</ol>
+<p><strong>Option B: Reconfigure in place</strong></p>
+<p>Keep existing settings but review and change each section below. This
+preserves any custom hardware GPIO settings that may be specific to your
+board.</p>
+<hr />
+<h2 id="configuration-section-1-user-device-identity">Configuration
+Section 1: USER (Device Identity)</h2>
+<p><strong>Web Client Path:</strong> Config → User</p>
+<table>
+<colgroup>
+<col style="width: 18%" />
+<col style="width: 27%" />
+<col style="width: 54%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Setting</th>
+<th>Description</th>
+<th>Convoy Recommended Value</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Long Name</strong></td>
+<td>Friendly name shown on other devices and the mesh</td>
+<td>Name each by role: <code>Convoy-Lead</code>,
+<code>Convoy-Mid</code>, <code>Convoy-Tail</code>,
+<code>Convoy-4</code>, etc.</td>
+</tr>
+<tr class="even">
+<td><strong>Short Name</strong></td>
+<td>4-character ID shown on small displays</td>
+<td><code>LEAD</code>, <code>MID1</code>, <code>TAIL</code>,
+<code>CV04</code>, etc.</td>
+</tr>
+<tr class="odd">
+<td><strong>Is Licensed (HAM)</strong></td>
+<td>Enables HAM mode: higher TX power but disables encryption</td>
+<td><strong>OFF</strong> — Leave disabled. Convoy needs encryption for
+private channel.</td>
+</tr>
+<tr class="even">
+<td><strong>Is Unmessageable</strong></td>
+<td>Tells other nodes this device won’t read direct messages</td>
+<td><strong>OFF</strong> — Convoy nodes should be messageable for
+alerts.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Why it matters for convoy:</strong> Clear naming lets you
+instantly identify which vehicle is which on the mesh, in the Web
+Client, and in your Python tracker.</p>
+<hr />
+<h2 id="configuration-section-2-device-role-behavior">Configuration
+Section 2: DEVICE (Role &amp; Behavior)</h2>
+<p><strong>Web Client Path:</strong> Config → Device</p>
+<table>
+<colgroup>
+<col style="width: 18%" />
+<col style="width: 27%" />
+<col style="width: 54%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Setting</th>
+<th>Description</th>
+<th>Convoy Recommended Value</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Role</strong></td>
+<td>Defines how the device behaves on the mesh</td>
+<td>See role guide below</td>
+</tr>
+<tr class="even">
+<td><strong>Rebroadcast Mode</strong></td>
+<td>How the device relays other nodes’ packets</td>
+<td><strong>ALL</strong> (default) — Every convoy node should relay
+packets to extend the chain</td>
+</tr>
+<tr class="odd">
+<td><strong>Node Info Broadcast Seconds</strong></td>
+<td>How often the device announces itself</td>
+<td><strong>900</strong> (15 min, default) — No need to change</td>
+</tr>
+<tr class="even">
+<td><strong>Double Tap as Button Press</strong></td>
+<td>Accelerometer double-tap acts as button</td>
+<td><strong>OFF</strong> — Not needed for convoy</td>
+</tr>
+<tr class="odd">
+<td><strong>Disable Triple Click</strong></td>
+<td>Disables triple-press GPS toggle on the button</td>
+<td><strong>ON</strong> — Prevents accidental GPS disable while
+driving</td>
+</tr>
+<tr class="even">
+<td><strong>LED Heartbeat Disabled</strong></td>
+<td>Turns off the blinking LED</td>
+<td>Your preference. OFF saves a tiny bit of power.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="device-role-guide-for-convoy-tracking">Device Role Guide for
+Convoy Tracking</h3>
+<table>
+<colgroup>
+<col style="width: 21%" />
+<col style="width: 32%" />
+<col style="width: 46%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Role</th>
+<th>Use For</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>CLIENT</strong> (recommended)</td>
+<td>All convoy vehicles</td>
+<td>Full functionality: sends, receives, relays messages. GPS active.
+Screen active. Best for vehicles where someone can see the screen.</td>
+</tr>
+<tr class="even">
+<td><strong>CLIENT_MUTE</strong></td>
+<td>Vehicles that don’t need to relay</td>
+<td>Sends and receives but does NOT rebroadcast other nodes’ messages.
+Use only if the convoy is small and every node is in direct range of
+every other node.</td>
+</tr>
+<tr class="odd">
+<td><strong>ROUTER</strong></td>
+<td>DO NOT USE for convoy</td>
+<td>Designed for fixed infrastructure. No screen, no Bluetooth after
+initial config. Will break your convoy tracker connection.</td>
+</tr>
+<tr class="even">
+<td><strong>TRACKER</strong></td>
+<td>Unattended asset tracking</td>
+<td>Sleeps aggressively, wakes only to send position. No message relay.
+Only use if a vehicle has no driver monitoring the device.</td>
+</tr>
+<tr class="odd">
+<td><strong>REPEATER</strong></td>
+<td>DO NOT USE for convoy</td>
+<td>Retransmits only. No GPS, no messages, no screen. Infrastructure
+role only.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Convoy recommendation: Set ALL convoy nodes to
+CLIENT.</strong></p>
+<hr />
+<h2 id="configuration-section-3-lora-radio-settings">Configuration
+Section 3: LORA (Radio Settings)</h2>
+<p><strong>Web Client Path:</strong> Config → LoRa</p>
+<p>This is the most critical section. ALL nodes in the convoy MUST have
+identical LoRa settings or they cannot communicate.</p>
+<table>
+<colgroup>
+<col style="width: 18%" />
+<col style="width: 27%" />
+<col style="width: 54%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Setting</th>
+<th>Description</th>
+<th>Convoy Recommended Value</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Region</strong></td>
+<td>Legal frequency band for your country</td>
+<td><strong>US</strong> (for United States). MUST be set correctly or
+device won’t transmit.</td>
+</tr>
+<tr class="even">
+<td><strong>Modem Preset</strong></td>
+<td>Speed vs. range tradeoff</td>
+<td><strong>LONG_FAST</strong> (default) — Best balance for convoy use.
+Good range with reasonable speed.</td>
+</tr>
+<tr class="odd">
+<td><strong>Max Hops</strong></td>
+<td>How many times a message can be relayed</td>
+<td><strong>3</strong> (default) — Sufficient for most convoys. Increase
+to 4-5 only for very long convoys (10+ vehicles).</td>
+</tr>
+<tr class="even">
+<td><strong>Transmit Power</strong></td>
+<td>Radio output power in dBm</td>
+<td><strong>0</strong> (use max legal power, default) — Leave at 0
+unless you have a specific reason to reduce.</td>
+</tr>
+<tr class="odd">
+<td><strong>Frequency Slot</strong></td>
+<td>Specific frequency within the region band</td>
+<td><strong>0</strong> (default) — Only change if you experience
+interference from other Meshtastic users in your area.</td>
+</tr>
+<tr class="even">
+<td><strong>TX Enabled</strong></td>
+<td>Whether the device can transmit</td>
+<td><strong>ON</strong> — Must be on for convoy communication.</td>
+</tr>
+<tr class="odd">
+<td><strong>Ignore MQTT</strong></td>
+<td>Ignore messages that came through the internet</td>
+<td><strong>ON</strong> — Convoy tracker should only use direct mesh,
+not internet-relayed messages.</td>
+</tr>
+<tr class="even">
+<td><strong>OK to MQTT</strong></td>
+<td>Allow your packets to be uploaded to MQTT</td>
+<td><strong>OFF</strong> — Keep convoy positions private, off the
+internet.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="modem-preset-options-for-reference">Modem Preset Options (for
+reference)</h3>
+<table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 21%" />
+<col style="width: 21%" />
+<col style="width: 31%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Preset</th>
+<th>Speed</th>
+<th>Range</th>
+<th>Best For</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>SHORT_TURBO</td>
+<td>Fastest</td>
+<td>Shortest</td>
+<td>NOT legal in all regions (500kHz BW)</td>
+</tr>
+<tr class="even">
+<td>SHORT_FAST</td>
+<td>Very Fast</td>
+<td>Short</td>
+<td>Urban, close range</td>
+</tr>
+<tr class="odd">
+<td>SHORT_SLOW</td>
+<td>Fast</td>
+<td>Medium-Short</td>
+<td>—</td>
+</tr>
+<tr class="even">
+<td>MEDIUM_FAST</td>
+<td>Medium-Fast</td>
+<td>Medium</td>
+<td>Urban convoys, &lt;2km spacing</td>
+</tr>
+<tr class="odd">
+<td>MEDIUM_SLOW</td>
+<td>Medium</td>
+<td>Medium-Long</td>
+<td>—</td>
+</tr>
+<tr class="even">
+<td><strong>LONG_FAST</strong></td>
+<td><strong>Medium</strong></td>
+<td><strong>Long</strong></td>
+<td><strong>RECOMMENDED for convoy. Default preset.</strong></td>
+</tr>
+<tr class="odd">
+<td>LONG_MODERATE</td>
+<td>Slow</td>
+<td>Longer</td>
+<td>Extended range convoy if LONG_FAST isn’t enough</td>
+</tr>
+<tr class="even">
+<td>LONG_SLOW</td>
+<td>Very Slow</td>
+<td>Very Long</td>
+<td>Maximum range but messages take seconds to send</td>
+</tr>
+<tr class="odd">
+<td>VERY_LONG_SLOW</td>
+<td>Slowest</td>
+<td>Maximum</td>
+<td>Extreme range, major delay</td>
+</tr>
+</tbody>
+</table>
+<p><strong>For convoy tracking, LONG_FAST is the best default.</strong>
+It provides good range between vehicles while keeping message delivery
+fast enough for real-time tracking. Only switch to LONG_MODERATE or
+LONG_SLOW if you’re experiencing gaps in the mesh chain at highway
+convoy distances.</p>
+<hr />
+<h2
+id="configuration-section-4-channels-communication-encryption">Configuration
+Section 4: CHANNELS (Communication &amp; Encryption)</h2>
+<p><strong>Web Client Path:</strong> Channels</p>
+<p>Channels define who can communicate and how messages are encrypted.
+For convoy use, you want a private encrypted channel.</p>
+<h3 id="channel-0-primary-channel">Channel 0 (Primary Channel)</h3>
+<table>
+<colgroup>
+<col style="width: 18%" />
+<col style="width: 27%" />
+<col style="width: 54%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Setting</th>
+<th>Description</th>
+<th>Convoy Recommended Value</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Name</strong></td>
+<td>Channel identifier (must match on all nodes)</td>
+<td><code>CONVOY</code></td>
+</tr>
+<tr class="even">
+<td><strong>PSK (Pre-Shared Key)</strong></td>
+<td>Encryption key</td>
+<td>Click <strong>Generate</strong> to create a random AES256 key. All
+nodes must have the same PSK.</td>
+</tr>
+<tr class="odd">
+<td><strong>Downlink Enabled</strong></td>
+<td>Allow messages from MQTT to this channel</td>
+<td><strong>OFF</strong> — Keep convoy communications local to the mesh
+only.</td>
+</tr>
+<tr class="even">
+<td><strong>Uplink Enabled</strong></td>
+<td>Send messages from this channel to MQTT</td>
+<td><strong>OFF</strong> — Don’t upload convoy data to the
+internet.</td>
+</tr>
+<tr class="odd">
+<td><strong>Position Enabled</strong></td>
+<td>Share GPS position on this channel</td>
+<td><strong>ON</strong> — This is essential for the convoy tracker.</td>
+</tr>
+<tr class="even">
+<td><strong>Position Precision</strong></td>
+<td>How precise the shared location is</td>
+<td><strong>Full precision (32)</strong> — Convoy tracking needs exact
+positions, not approximate.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="important-notes-on-channels">Important Notes on Channels</h3>
+<ul>
+<li>The <strong>PSK must match exactly</strong> on all convoy nodes. The
+easiest way: configure Channel 0 on one device, then use the
+<strong>Share/QR/URL</strong> feature to copy the exact settings to all
+other devices.</li>
+<li>If the radios had a different primary channel from previous use
+(like the default <code>LongFast</code>), you MUST change it on ALL
+devices. Mismatched channel names or PSKs mean devices cannot
+communicate.</li>
+<li><strong>Position is only automatically broadcast on the
+lowest-indexed channel with position enabled.</strong> Make sure Channel
+0 (CONVOY) has position enabled.</li>
+<li>You can add a secondary public channel (Channel 1) set to
+<code>LongFast</code> with default PSK if you also want to participate
+in the public mesh, but this is optional and not needed for convoy
+tracking.</li>
+</ul>
+<h3 id="how-to-copy-channel-settings-to-all-devices">How to Copy Channel
+Settings to All Devices</h3>
+<ol type="1">
+<li>Configure Channel 0 on the first device with name
+<code>CONVOY</code> and a generated PSK.</li>
+<li>In the Web Client Channels page, find the <strong>Share</strong> or
+<strong>QR code</strong> button.</li>
+<li>Copy the <strong>Channel URL</strong> (looks like
+<code>https://meshtastic.org/e/#...</code>).</li>
+<li><strong>Save this URL</strong> — it contains all channel and LoRa
+settings.</li>
+<li>Connect to each additional device via Bluetooth.</li>
+<li>In Channels, use <strong>Import</strong> or paste the URL to apply
+the same settings.</li>
+<li>Verify by checking that the Channel name and PSK match on all
+devices.</li>
+</ol>
+<hr />
+<h2 id="configuration-section-5-position-gps-settings">Configuration
+Section 5: POSITION (GPS Settings)</h2>
+<p><strong>Web Client Path:</strong> Config → Position</p>
+<p>This is the second most critical section for convoy tracking. These
+settings control how often and how accurately GPS positions are shared
+across the mesh.</p>
+<table>
+<colgroup>
+<col style="width: 18%" />
+<col style="width: 27%" />
+<col style="width: 54%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Setting</th>
+<th>Description</th>
+<th>Convoy Recommended Value</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>GPS Mode</strong></td>
+<td>Whether GPS hardware is active</td>
+<td><strong>ENABLED</strong> — Must be on for position tracking.</td>
+</tr>
+<tr class="even">
+<td><strong>GPS Update Interval</strong></td>
+<td>How often the device reads GPS (seconds)</td>
+<td><strong>15 seconds</strong> — Frequent enough for real-time tracking
+without excessive power draw.</td>
+</tr>
+<tr class="odd">
+<td><strong>GPS Attempt Time</strong></td>
+<td>How long to try for a GPS fix each cycle</td>
+<td><strong>0</strong> (default: 15 min) — Leave at default unless GPS
+is slow to lock.</td>
+</tr>
+<tr class="even">
+<td><strong>Fixed Position</strong></td>
+<td>Lock position to a saved coordinate</td>
+<td><strong>OFF</strong> — Convoy vehicles are moving. Only use for a
+fixed base station.</td>
+</tr>
+<tr class="odd">
+<td><strong>Smart Broadcast</strong></td>
+<td>Increase broadcast frequency when moving</td>
+<td><strong>ON</strong> (recommended) — Broadcasts more often while
+driving, less when stopped. Ideal for convoy.</td>
+</tr>
+<tr class="even">
+<td><strong>Smart Broadcast Min Distance</strong></td>
+<td>Minimum meters traveled before broadcasting</td>
+<td><strong>50 meters</strong> — Lower than default (100m) for tighter
+convoy tracking.</td>
+</tr>
+<tr class="odd">
+<td><strong>Smart Broadcast Min Interval</strong></td>
+<td>Minimum seconds between broadcasts</td>
+<td><strong>15 seconds</strong> — Matches GPS update interval.</td>
+</tr>
+<tr class="even">
+<td><strong>Broadcast Interval</strong></td>
+<td>Fixed interval for broadcasting position (when not moving)</td>
+<td><strong>30 seconds</strong> — More frequent than default (15 min) so
+the tracker always has recent data.</td>
+</tr>
+<tr class="odd">
+<td><strong>Position Flags</strong></td>
+<td>Which data to include in position packets</td>
+<td>Enable: <strong>ALTITUDE</strong>, <strong>SPEED</strong>,
+<strong>HEADING</strong>, <strong>TIMESTAMP</strong> — All useful for
+convoy tracking.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="understanding-gps-update-vs.-broadcast-interval">Understanding
+GPS Update vs. Broadcast Interval</h3>
+<p>These are two different things:</p>
+<ul>
+<li><strong>GPS Update Interval</strong> (15 sec): How often the device
+checks with the GPS chip for a new location. This happens locally on the
+device.</li>
+<li><strong>Broadcast Interval</strong> (30 sec): How often the device
+sends its position to the mesh network so other nodes can see it.</li>
+<li><strong>Smart Broadcast</strong>: When enabled, it overrides the
+broadcast interval when the device is moving — sending updates more
+frequently based on distance traveled and the smart minimum
+settings.</li>
+</ul>
+<p>For convoy tracking, you want both intervals short so your Python
+tracker gets fresh data. The tradeoff is more mesh traffic and slightly
+higher battery usage.</p>
+<h3 id="convoy-optimized-position-settings-summary">Convoy-Optimized
+Position Settings Summary</h3>
+<pre><code>GPS Mode:                    ENABLED
+GPS Update Interval:         15 seconds
+Fixed Position:              OFF
+Smart Broadcast:             ON
+Smart Min Distance:          50 meters
+Smart Min Interval:          15 seconds
+Broadcast Interval:          30 seconds
+Position Flags:              ALTITUDE + SPEED + HEADING + TIMESTAMP</code></pre>
+<hr />
+<h2 id="configuration-section-6-power-battery-sleep">Configuration
+Section 6: POWER (Battery &amp; Sleep)</h2>
+<p><strong>Web Client Path:</strong> Config → Power</p>
+<table>
+<colgroup>
+<col style="width: 18%" />
+<col style="width: 27%" />
+<col style="width: 54%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Setting</th>
+<th>Description</th>
+<th>Convoy Recommended Value</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Power Saving</strong></td>
+<td>Enable aggressive sleep mode</td>
+<td><strong>OFF</strong> — Convoy nodes must stay awake to receive and
+relay messages in real-time.</td>
+</tr>
+<tr class="even">
+<td><strong>Shutdown on Battery Timeout</strong></td>
+<td>Auto-shutdown when on battery</td>
+<td><strong>0</strong> (disabled) — Don’t auto-shutdown during a convoy
+run.</td>
+</tr>
+<tr class="odd">
+<td><strong>ADC Multiplier Override</strong></td>
+<td>Battery voltage calculation</td>
+<td>Leave at default unless your board reads battery incorrectly.</td>
+</tr>
+<tr class="even">
+<td><strong>Wait for Bluetooth</strong></td>
+<td>Seconds to keep BLE active</td>
+<td><strong>0</strong> (always on, default) — Needed for Python tracker
+BLE connection.</td>
+</tr>
+<tr class="odd">
+<td><strong>Light Sleep Interval</strong></td>
+<td>Seconds of idle before light sleep</td>
+<td><strong>0</strong> (default) — Let the firmware manage this.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Important for convoy:</strong> If these radios were
+previously configured as routers or trackers, Power Saving may have been
+enabled. <strong>Turn it OFF.</strong> Power Saving causes the device to
+sleep and miss incoming messages, which will create gaps in your convoy
+tracking data.</p>
+<hr />
+<h2 id="configuration-section-7-display-screen-settings">Configuration
+Section 7: DISPLAY (Screen Settings)</h2>
+<p><strong>Web Client Path:</strong> Config → Display</p>
+<table>
+<colgroup>
+<col style="width: 18%" />
+<col style="width: 27%" />
+<col style="width: 54%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Setting</th>
+<th>Description</th>
+<th>Convoy Recommended Value</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Screen Timeout</strong></td>
+<td>Seconds before screen turns off</td>
+<td><strong>0</strong> (always on) or <strong>300</strong> (5 min).
+Useful to see status while driving.</td>
+</tr>
+<tr class="even">
+<td><strong>GPS Coordinates Format</strong></td>
+<td>How coordinates display on screen</td>
+<td><strong>DMS</strong> (degrees/minutes/seconds) or
+<strong>DEC</strong> (decimal) — your preference.</td>
+</tr>
+<tr class="odd">
+<td><strong>Units</strong></td>
+<td>Imperial or Metric</td>
+<td>Your preference.</td>
+</tr>
+<tr class="even">
+<td><strong>OLED Auto-Detect</strong></td>
+<td>Display type detection</td>
+<td>Leave at default unless your screen shows artifacts.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2
+id="configuration-section-8-bluetooth-connection-settings">Configuration
+Section 8: BLUETOOTH (Connection Settings)</h2>
+<p><strong>Web Client Path:</strong> Config → Bluetooth</p>
+<table>
+<colgroup>
+<col style="width: 18%" />
+<col style="width: 27%" />
+<col style="width: 54%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Setting</th>
+<th>Description</th>
+<th>Convoy Recommended Value</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Bluetooth Enabled</strong></td>
+<td>Enable BLE radio</td>
+<td><strong>ON</strong> — Required for Python tracker BLE connection and
+Web Client configuration.</td>
+</tr>
+<tr class="even">
+<td><strong>Pairing Mode</strong></td>
+<td>How BLE pairing works</td>
+<td><strong>Random PIN</strong> (default) or <strong>Fixed PIN</strong>
+— Random is more secure.</td>
+</tr>
+<tr class="odd">
+<td><strong>Fixed PIN</strong></td>
+<td>PIN code if using fixed mode</td>
+<td>Set a PIN you’ll remember (e.g., <code>123456</code>).</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Important:</strong> Only ONE BLE client can connect to a
+Meshtastic device at a time. If your phone is connected via the
+Meshtastic app, your Python tracker cannot connect via BLE, and vice
+versa. Disconnect the phone app before running the Python tracker.</p>
+<hr />
+<h2 id="configuration-section-9-network-wifimqtt">Configuration Section
+9: NETWORK (WiFi/MQTT)</h2>
+<p><strong>Web Client Path:</strong> Config → Network</p>
+<table>
+<colgroup>
+<col style="width: 18%" />
+<col style="width: 27%" />
+<col style="width: 54%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Setting</th>
+<th>Description</th>
+<th>Convoy Recommended Value</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>WiFi Enabled</strong></td>
+<td>Connect device to a WiFi network</td>
+<td><strong>OFF</strong> — Convoy tracker works off-grid via LoRa mesh.
+No WiFi needed.</td>
+</tr>
+<tr class="even">
+<td><strong>MQTT Enabled</strong></td>
+<td>Connect to an MQTT broker via internet</td>
+<td><strong>OFF</strong> — Keep convoy data on the local mesh only.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Note:</strong> If these radios were previously used with MQTT
+(internet mesh bridging), make sure MQTT is disabled. You don’t want
+convoy positions being uploaded to a public MQTT server.</p>
+<hr />
+<h2
+id="configuration-section-10-telemetry-environmental-data">Configuration
+Section 10: TELEMETRY (Environmental Data)</h2>
+<p><strong>Web Client Path:</strong> Modules → Telemetry</p>
+<table>
+<colgroup>
+<col style="width: 18%" />
+<col style="width: 27%" />
+<col style="width: 54%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Setting</th>
+<th>Description</th>
+<th>Convoy Recommended Value</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Device Metrics Update Interval</strong></td>
+<td>How often battery/voltage data is sent</td>
+<td><strong>900</strong> (15 min, default) — Useful to monitor battery
+levels.</td>
+</tr>
+<tr class="even">
+<td><strong>Environment Update Interval</strong></td>
+<td>How often temp/humidity is sent (if sensor attached)</td>
+<td><strong>0</strong> (disabled) unless you have environmental
+sensors.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="full-convoy-configuration-checklist">Full Convoy Configuration
+Checklist</h2>
+<p>Use this checklist when configuring EACH radio via the Web
+Client:</p>
+<table>
+<colgroup>
+<col style="width: 8%" />
+<col style="width: 26%" />
+<col style="width: 26%" />
+<col style="width: 20%" />
+<col style="width: 17%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>#</th>
+<th>Section</th>
+<th>Setting</th>
+<th>Value</th>
+<th>Done</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>1</td>
+<td>User</td>
+<td>Long Name</td>
+<td><code>Convoy-Lead</code> / <code>Convoy-Mid</code> /
+<code>Convoy-Tail</code></td>
+<td>☐</td>
+</tr>
+<tr class="even">
+<td>2</td>
+<td>User</td>
+<td>Short Name</td>
+<td><code>LEAD</code> / <code>MID1</code> / <code>TAIL</code></td>
+<td>☐</td>
+</tr>
+<tr class="odd">
+<td>3</td>
+<td>User</td>
+<td>Is Licensed</td>
+<td>OFF</td>
+<td>☐</td>
+</tr>
+<tr class="even">
+<td>4</td>
+<td>User</td>
+<td>Is Unmessageable</td>
+<td>OFF</td>
+<td>☐</td>
+</tr>
+<tr class="odd">
+<td>5</td>
+<td>Device</td>
+<td>Role</td>
+<td>CLIENT</td>
+<td>☐</td>
+</tr>
+<tr class="even">
+<td>6</td>
+<td>Device</td>
+<td>Rebroadcast Mode</td>
+<td>ALL</td>
+<td>☐</td>
+</tr>
+<tr class="odd">
+<td>7</td>
+<td>Device</td>
+<td>Disable Triple Click</td>
+<td>ON</td>
+<td>☐</td>
+</tr>
+<tr class="even">
+<td>8</td>
+<td>LoRa</td>
+<td>Region</td>
+<td>US (or your region)</td>
+<td>☐</td>
+</tr>
+<tr class="odd">
+<td>9</td>
+<td>LoRa</td>
+<td>Modem Preset</td>
+<td>LONG_FAST</td>
+<td>☐</td>
+</tr>
+<tr class="even">
+<td>10</td>
+<td>LoRa</td>
+<td>Max Hops</td>
+<td>3</td>
+<td>☐</td>
+</tr>
+<tr class="odd">
+<td>11</td>
+<td>LoRa</td>
+<td>TX Enabled</td>
+<td>ON</td>
+<td>☐</td>
+</tr>
+<tr class="even">
+<td>12</td>
+<td>LoRa</td>
+<td>Ignore MQTT</td>
+<td>ON</td>
+<td>☐</td>
+</tr>
+<tr class="odd">
+<td>13</td>
+<td>LoRa</td>
+<td>OK to MQTT</td>
+<td>OFF</td>
+<td>☐</td>
+</tr>
+<tr class="even">
+<td>14</td>
+<td>Channels</td>
+<td>Ch 0 Name</td>
+<td>CONVOY</td>
+<td>☐</td>
+</tr>
+<tr class="odd">
+<td>15</td>
+<td>Channels</td>
+<td>Ch 0 PSK</td>
+<td>Generated AES256 (same on all devices)</td>
+<td>☐</td>
+</tr>
+<tr class="even">
+<td>16</td>
+<td>Channels</td>
+<td>Ch 0 Downlink</td>
+<td>OFF</td>
+<td>☐</td>
+</tr>
+<tr class="odd">
+<td>17</td>
+<td>Channels</td>
+<td>Ch 0 Uplink</td>
+<td>OFF</td>
+<td>☐</td>
+</tr>
+<tr class="even">
+<td>18</td>
+<td>Channels</td>
+<td>Ch 0 Position Enabled</td>
+<td>ON</td>
+<td>☐</td>
+</tr>
+<tr class="odd">
+<td>19</td>
+<td>Channels</td>
+<td>Ch 0 Position Precision</td>
+<td>Full (32)</td>
+<td>☐</td>
+</tr>
+<tr class="even">
+<td>20</td>
+<td>Position</td>
+<td>GPS Mode</td>
+<td>ENABLED</td>
+<td>☐</td>
+</tr>
+<tr class="odd">
+<td>21</td>
+<td>Position</td>
+<td>GPS Update Interval</td>
+<td>15 sec</td>
+<td>☐</td>
+</tr>
+<tr class="even">
+<td>22</td>
+<td>Position</td>
+<td>Fixed Position</td>
+<td>OFF</td>
+<td>☐</td>
+</tr>
+<tr class="odd">
+<td>23</td>
+<td>Position</td>
+<td>Smart Broadcast</td>
+<td>ON</td>
+<td>☐</td>
+</tr>
+<tr class="even">
+<td>24</td>
+<td>Position</td>
+<td>Smart Min Distance</td>
+<td>50 m</td>
+<td>☐</td>
+</tr>
+<tr class="odd">
+<td>25</td>
+<td>Position</td>
+<td>Smart Min Interval</td>
+<td>15 sec</td>
+<td>☐</td>
+</tr>
+<tr class="even">
+<td>26</td>
+<td>Position</td>
+<td>Broadcast Interval</td>
+<td>30 sec</td>
+<td>☐</td>
+</tr>
+<tr class="odd">
+<td>27</td>
+<td>Position</td>
+<td>Position Flags</td>
+<td>ALTITUDE + SPEED + HEADING + TIMESTAMP</td>
+<td>☐</td>
+</tr>
+<tr class="even">
+<td>28</td>
+<td>Power</td>
+<td>Power Saving</td>
+<td>OFF</td>
+<td>☐</td>
+</tr>
+<tr class="odd">
+<td>29</td>
+<td>Power</td>
+<td>Wait for Bluetooth</td>
+<td>0 (always on)</td>
+<td>☐</td>
+</tr>
+<tr class="even">
+<td>30</td>
+<td>Bluetooth</td>
+<td>Enabled</td>
+<td>ON</td>
+<td>☐</td>
+</tr>
+<tr class="odd">
+<td>31</td>
+<td>Network</td>
+<td>WiFi Enabled</td>
+<td>OFF</td>
+<td>☐</td>
+</tr>
+<tr class="even">
+<td>32</td>
+<td>Network</td>
+<td>MQTT Enabled</td>
+<td>OFF</td>
+<td>☐</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="after-configuration-verify-all-nodes-see-each-other">After
+Configuration: Verify All Nodes See Each Other</h2>
+<ol type="1">
+<li>Power on ALL convoy devices.</li>
+<li>Connect to any one device via the Web Client.</li>
+<li>Go to the <strong>Nodes</strong> page.</li>
+<li>You should see all other convoy devices listed with their
+names.</li>
+<li>Go to <strong>Messages</strong> and send a test message — confirm it
+arrives on other devices.</li>
+<li>Check the <strong>Map</strong> or <strong>Position</strong> view to
+see if GPS coordinates are coming through.</li>
+</ol>
+<p>If a device is missing from the Nodes list, it likely has mismatched
+LoRa settings or channel configuration. Re-verify steps 8-19 on that
+device.</p>
+<hr />
+<p><em>Configuration guide for Meshtastic Convoy Tracker
+project.</em><br />
+<em>Reference: https://meshtastic.org/docs/configuration/</em><br />
+<em>Version 1.0 — March 2, 2026</em></p>
+</body>
+</html>

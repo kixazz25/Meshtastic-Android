@@ -1,0 +1,133 @@
+================================================================
+SNAP-2 — TRUE CURRENT STATE + NEXT STEP  (supersedes Snap2_Continuation_ActionPlan)
+2026-06-04 (evening) · GroupTrack V2.5 · branch feature/convoy-event-ride
+================================================================
+
+>>> READ THIS FIRST. It corrects an earlier handoff that said "snap-2
+    completed." That was WRONG and cost a full session of confusion. The
+    correction is below in plain language. <<<
+
+----------------------------------------------------------------
+THE ONE THING TO BE CLEAR ABOUT — snap-2 is NOT done
+----------------------------------------------------------------
+"snap-2" = the feature where route points SNAP TO TRAILS (a tapped point
+adjusts onto the nearest trail/track geometry). 
+
+THAT TRAIL-SNAPPING IS NOT IMPLEMENTED / NOT WORKING ON DEVICE.
+
+What we actually built is the FRAMEWORK to get a route created and saved, using
+the SIMPLE case: drop points -> STRAIGHT LINES between them -> name -> save to
+spatial DB -> redraw. That framework works and is committed. It is the scaffold
+that snap-2 will hang on. It is NOT snap-2 itself.
+
+Plain status:
+  WORKS (committed):
+    - +ROUTE opens the Route+ toolbar
+    - New Route -> name dialog -> Start (naming now on the New Route button)
+    - Tap map -> drops points -> connected by STRAIGHT LINES (point-to-point)
+    - Save -> writes route to spatial DB (insertRoute), redraws magenta,
+      persists across a Routes toggle
+    - Undo removes last point
+  DOES NOT WORK / NOT BUILT:
+    - SNAP TO TRAIL: points do NOT adjust to trail geometry. They stay where
+      you tapped. The snap() call was wired into onMapTap in a patch and it
+      COMPILED, but it was NEVER tested/proven on device, and the observed
+      behavior is straight lines, not snapping. Treat snap-to-trail as
+      UNPROVEN / effectively not implemented.
+
+----------------------------------------------------------------
+NEXT STEP — implement and PROVE snap-to-trail
+----------------------------------------------------------------
+This is the actual snap-2 work, on top of the working framework:
+  1. Verify the snap path is even reached: does onMapTap call
+     RouteManager.snap(...) and does it return a non-null SnapResult when a
+     trail is on screen near the tap? Add a Log.d at the snap call and on the
+     result; tap near a known trail; read logcat.
+  2. Verify the viewport query feeds snap REAL geometry:
+     queryTrailsByViewport / queryTracksByViewport must return rows with usable
+     "geometry" for the current view. If the lists are empty (wrong bounds,
+     zoom < display min, DB not init), snap has nothing to match -> always
+     falls back to freeVertex (straight line). CHECK THIS FIRST — most likely
+     cause of "no snapping."
+  3. Verify snap math: snap() finds nearest point on a line within radius
+     (30 m literal). If geometry is present but nothing snaps, the radius or the
+     nearest-point math is the suspect (tune radius; check lat/lon vs lon/lat
+     ordering in the geometry parse).
+  4. Verify the snapped point is what gets added: snapToVertex(s) result must be
+     the vertex added + drawn, not the raw tap.
+  Prove on device: tap ON a visible trail -> the point lands ON the trail line,
+  not at the fingertip. Only then is snap-2 real.
+
+----------------------------------------------------------------
+CODE STATE / FILE FACTS (verified this session)
+----------------------------------------------------------------
+HEAD = 5fdf4b5ff (magenta render) on top of:
+  ab2be7c04  Build 2 (snap-on-tap WIRED + name-on-New + In Progress relabel)
+  69ad30c56  Build 1 (Save-completed -> insertRoute + redraw, free points)
+  89285b00a  Route+ toolbar pact compliance
+Plus an UNCOMMITTED working-tree change in progress THIS session: the route-NAME
+prompt was MOVED from panel-open to the toolbar's "New Route" button (onNewRoute
+callback). Three files edited (ConvoyScreen, ConvoyMapViewerScreen,
+ConvoyRouteToolbar). Build of that relocation was [STATE PENDING — confirm].
+
+>>> LINE-ENDING CORRECTION (caused a patch to abort this session): <<<
+  ConvoyScreen.kt          = LF
+  ConvoyMapViewerScreen.kt = CRLF
+  ConvoyRouteToolbar.kt    = CRLF  <-- CHANGED. Was LF earlier; the working tree
+     flipped it to CRLF (git diff HEAD was EMPTY, so only endings changed, not
+     content). ANY future toolbar patch MUST be CRLF until normalized.
+  Always `cat -A` to confirm endings before writing a patch. Anchor-guarded
+  patches that check endings are what PREVENTED corruption — keep that.
+
+----------------------------------------------------------------
+KEY FUNCTIONS (already exist in RouteManager / SpatialDbManager)
+----------------------------------------------------------------
+RouteManager: snap(tapLat,tapLon,trails,tracks,radiusM):SnapResult? (trail-first,
+  track-fallback) · snapToVertex(s):Vertex · freeVertex(lat,lon):Vertex ·
+  addVertex/undoVertex/clearRoute/routeVertices · parseWktLine(wkt):List<DoubleArray>
+  · buildSegments · buildWktAndBbox():Pair<wkt,bbox>?
+SpatialDbManager: insertRoute(name,wkt,minLat,maxLat,minLon,maxLon) ·
+  queryTrailsByViewport/queryTracksByViewport(south,west,north,east) ->
+  List<Map<String,String?>> keys "geometry","trail_id"/"track_id" (self-guards
+  null DB -> emptyList).
+The onMapTap handler (both screens) currently queries viewport -> snap() ->
+  snapToVertex ?: freeVertex -> addVertex -> drawBuildLine. This is the code to
+  DIAGNOSE per "Next Step" above — it compiles but snapping isn't observed.
+
+----------------------------------------------------------------
+OTHER snap-2 / route features still unbuilt (AFTER snap-to-trail works)
+----------------------------------------------------------------
+  - Armed gating: when Add is RED, tap should PAN not place (today always places).
+  - Draft-JSON in-progress lifecycle: Save-in-progress, Resume ("In Progress"
+    button, currently disabled), Graduate, Discard/roll-back. Schema +
+    rules in RouteWriteFunction_DataContract.
+  - Draw / Suggest methods (placeholders).
+  - Route naming relocation to "New Route" button — IN PROGRESS this session
+    (see code state above); confirm it built + committed.
+
+----------------------------------------------------------------
+HARD RULES
+----------------------------------------------------------------
+  - Route mode is a TWO-FILE MIRROR (ConvoyScreen + ConvoyMapViewerScreen must
+    stay behaviorally identical). Toolbar is the third file.
+  - cat -A before every patch. ConvoyScreen LF · ConvoyMapViewer CRLF ·
+    Toolbar CRLF (changed). Match endings or the patch aborts.
+  - Don't touch ConvoyConfig fields (shared state).
+  - Diagnose snap from EVIDENCE (logcat), don't theorize. Most likely culprit:
+    viewport query returning no trails (so it silently free-points).
+  - One change, build, test. Release builds on Droid 1 only.
+
+----------------------------------------------------------------
+OPENING MESSAGE FOR A NEW SESSION
+----------------------------------------------------------------
+  "Continuing GroupTrack V2.5 snap-2. CORRECTION on prior handoffs: snap-2 is
+   NOT complete. What works = the FRAMEWORK (drop points -> straight lines ->
+   name -> save to spatial DB -> redraw, committed). What does NOT work =
+   SNAP-TO-TRAIL; points don't adjust to trail geometry. Next step = diagnose
+   and implement snap-to-trail (start by checking whether queryTrailsByViewport
+   returns trails at the tap, via logcat). Branch feature/convoy-event-ride.
+   File endings: ConvoyScreen LF, ConvoyMapViewer CRLF, ConvoyRouteToolbar CRLF.
+   Two-file mirror for route mode. Don't touch ConvoyConfig. There may be an
+   uncommitted name-prompt-relocation in the tree — confirm its build/commit
+   state first."
+================================================================

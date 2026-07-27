@@ -1,0 +1,160 @@
+GroupTrack V2.5 — Import Process UX Requirements
+May 27, 2026
+==========================================
+
+PRINCIPLE: No blind processes. Every import communicates
+start, progress, completion, and results to the user.
+
+==========================================
+1. IMPORT TRAILS (ConvoyTrailSourceScreen.kt)
+==========================================
+
+CURRENT STATE:
+- Full source import: launches, no visible progress, result message appears eventually
+- Area import: draw bounding box flow exists but untested/broken
+- Checkboxes and IMPORT button hidden inside BACK button Row (layout broken)
+- Import guard blocks re-import (partially removed)
+
+REQUIRED UX FLOW — FULL SOURCE:
+  Step 1: SELECT SOURCE
+    - Source cards with status (NEW / IMPORTED / PARTIALLY IMPORTED)
+    - Select source → VALIDATE button
+  
+  Step 2: VALIDATE + CONFIGURE
+    - Source details displayed
+    - Checkboxes BELOW the BACK button row (not inside it):
+      ☑ Import Trails (green)
+      ☑ Import Trailheads (orange, only if trailhead_asset exists)
+    - IMPORT SELECTED button (green)
+    - BACK button
+  
+  Step 3: PROCESSING (gated — cannot leave until complete or cancelled)
+    - Header: "IMPORTING: [source name]"
+    - Progress bar (determinate if record count known, indeterminate if not)
+    - Live counters:
+      "Fetched: 1,247 | Inserted: 1,102 | Skipped: 145 | Errors: 0"
+    - For trailheads: "Trailheads: 568 imported"
+    - CANCEL button (stops import, keeps what was already inserted)
+    - No navigation away until complete or cancelled
+  
+  Step 4: RESULTS SUMMARY (gated — must acknowledge)
+    - Green success banner or red error banner
+    - Summary: "Import Complete"
+      "Trails: 1,102 inserted, 145 duplicates skipped, 0 errors"
+      "Trailheads: 568 imported"
+    - DONE button → returns to source selection
+    - Source card now shows "IMPORTED" status
+
+REQUIRED UX FLOW — AREA IMPORT:
+  Step 1: DRAW AREA
+    - Bounding box drawn on map (same as download panel draw)
+    - Confirm area → show suggested sources
+  
+  Step 2: SELECT SOURCES
+    - Sources with overlapping coverage shown
+    - Checkboxes to select which sources to import from
+  
+  Step 3: PROCESSING (same gated screen as full source)
+  Step 4: RESULTS SUMMARY (same gated screen)
+
+LAYOUT FIX NEEDED:
+  Line ~243: Row containing BACK button also contains checkboxes
+  Fix: Close Row after BACK/VALIDATE. Add checkboxes in Column below.
+
+==========================================
+2. IMPORT TRAILHEADS (TrailImporter.importTrailheads)
+==========================================
+
+CURRENT STATE:
+- Function exists, works (568 records imported successfully)
+- Button placement: added at top of source list, also on source card (hidden)
+- No progress feedback during import
+- Result shown as text line after completion
+
+REQUIRED UX:
+- Button visible on VALIDATE screen (alongside trail import checkbox)
+- When importing trailheads:
+  - Show "Importing trailheads..." with spinner
+  - Show count: "Processing: 234 / 568"
+  - Show result: "568 trailheads imported"
+- Integrated into the trail import flow (not a separate button)
+- Future: combined single process (trails + trailheads together)
+
+==========================================
+3. IMPORT ARTIFACTS (ConvoyTrackImportScreen.kt)
+==========================================
+
+CURRENT STATE:
+- Scans Downloads folder for GPX/KML files
+- Shows file list
+- User selects files to import
+- Import runs — unclear progress, no per-file status
+
+REQUIRED UX FLOW:
+  Step 1: FILE LIST
+    - Scan Downloads for GPX/KML files
+    - Show list with file name, size, date
+    - User taps ONE file to begin import
+    - Only one file processed at a time
+  
+  Step 2: PROCESSING (gated)
+    - "Importing: [filename]"
+    - Progress bar
+    - Live counters:
+      "Tracks: 3 | Waypoints: 12 | Routes: 1"
+    - Cannot navigate away
+  
+  Step 3: RESULTS (gated — must acknowledge)
+    - Success: "Import Complete"
+      "[filename] processed successfully"
+      "Tracks: 3 imported | Waypoints: 12 imported | Routes: 1 imported"
+    - REMOVE SOURCE FILE option:
+      "Remove [filename] from Downloads? (Recommended)"
+      [REMOVE] [KEEP]
+    - After remove/keep:
+      "Select another file or exit"
+      [IMPORT ANOTHER] [DONE]
+  
+  Step 4: If IMPORT ANOTHER → return to Step 1 (file list refreshed)
+          If DONE → exit import screen
+
+KEY RULES:
+- ONE file at a time — never batch
+- File removed ONLY after successful processing
+- User explicitly confirms removal
+- Clear instruction to select next file or exit
+- No silent failures — every error displayed
+
+==========================================
+IMPLEMENTATION NOTES
+==========================================
+
+PROGRESS TRACKING:
+- TrailImporter already has StateFlow<ImportProgress> with:
+  sourceId, sourceName, fetched, inserted, skipped, rejected
+- Use collectAsState() in Compose to show live updates
+- Add similar progress tracking to importTrailheads()
+- Add similar progress tracking to GPX artifact import
+
+GATED SCREENS:
+- Use BackHandler to prevent back navigation during import
+- Disable all buttons except CANCEL during processing
+- CANCEL sets a flag that import loop checks
+
+LAYOUT FIX PRIORITY:
+- Move checkboxes outside BACK button Row
+- This is the #1 fix — everything else works but is hidden
+
+FILE CLEANUP:
+- ConvoyTrackImportScreen needs:
+  - context.contentResolver.delete() for MediaStore-managed files
+  - or File.delete() for direct file access
+  - Only after confirmed successful import
+  - User opt-in (not automatic)
+
+==========================================
+SCREENS AFFECTED
+==========================================
+ConvoyTrailSourceScreen.kt — layout fix + progress + results gate
+TrailImporter.kt — progress StateFlow for trailheads
+ConvoyTrackImportScreen.kt — one-at-a-time + progress + file removal

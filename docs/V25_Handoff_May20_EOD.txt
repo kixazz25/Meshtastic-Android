@@ -1,0 +1,182 @@
+GroupTrack V2.5 Handoff — May 20, 2026 (End of Day)
+=====================================================
+Branch: feature/convoy-event-ride
+Project root: ~/Meshtastic-Android
+Last build: BUILD SUCCESSFUL (UI positions fix + defaults)
+Pending commit: UI cleanup + defaults + zoom control positioning
+
+=====================================================
+COMPLETED TODAY (May 20)
+=====================================================
+
+IMPORT SYSTEM — FULLY WORKING
+  - Schema init fix: hasTable check replaces file-exists check
+  - SQL parser fix: comment lines stripped before semicolon split
+  - Method A (full source): 49K UGRC Utah trails imported successfully
+  - Method B (area import): bbox chain working end-to-end
+    JS draw → onAreaSelected → downloadBbox state → pending_area.json → 
+    trail source screen → multi-select sources → importByArea with bbox
+  - Progress bar: live counts (records read, outside area, imported, dupes)
+  - Client-side bbox rejection in import loop
+  - JSON trail area records written after import (full_source + area types)
+  - Source imported flags: isSourceFullyImported() checks JSON records
+  - Import restricted to Method A only from Artifacts panel
+  - Method B accessed via Download Panel draw area flow
+
+DOWNLOAD PANEL — NEW DESIGN
+  - Flyover section: mileage slider + zoom level (Z18 default)
+  - LOCAL/NET toggle (NET = V2.6 stubs)
+  - Artifact type checkboxes: Tiles, Trails, Remove Tiles (V2.6: Waypoints, Tracks, Routes)
+  - Draw Area / Clear buttons with bbox display + estimates
+  - Download Selected button
+  - Show Downloads toggles (maps area, queue, trail areas)
+  - All defaults OFF on app start
+  - FAB icon changed to bidirectional ↕
+
+SCHEMA + DATA
+  - area_downloads table added (extension DB)
+  - .nomedia files created in GroupTrack/, maps/, maps/tiles/
+  - Trail area JSON records: Documents/GroupTrack/data/trail_areas/
+    - source_{id}.json for full source imports
+    - area_{timestamp}.json for area imports  
+    - pending_area.json as Method B signal (unprocessed/processed)
+
+UI CLEANUP
+  - DONE button exits screen after import (both A3 and B4)
+  - Imported sources greyed out with "IMPORTED" label (not checkmark)
+  - SIM/LIVE toggle removed from convoy screen
+  - Duplicate comments cleaned
+  - QUEUES repositioned (above maps bar, needs fine-tuning)
+  - Leaflet +/- zoom controls pushed down to avoid REC overlap
+
+ARCHITECTURE DISCUSSIONS DOCUMENTED
+  - V3.0 ride packages: bbox-based upload/download of all artifact types
+  - AWS server-side trail ingestion for V2.6 (replaces client-side agency queries)
+  - JSON trail area records drive map overlays + prevent re-processing
+  - area_downloads table supports all artifact types + ride linkage
+  - Work with Artifacts function design captured (see below)
+
+=====================================================
+TABLED / BACKLOGGED — MUST FIX
+=====================================================
+
+UI POSITIONING (in progress, build running)
+  1. QUEUES button: above maps bar at top=2dp — build running, untested
+  2. +/- zoom controls: pushed to 95px — build running, untested
+  3. REC button still covers +/- if 95px isn't enough
+  4. QUEUES must not cover NET/LOCAL switch
+  5. Maps bar: consider making transparent
+
+IMPORT FIXES
+  6. Method B: verify multi-select checkboxes appear (not radio buttons)
+  7. Trail-type filtering on ArcGIS queries (exclude non-trail features)
+  8. Planning Map blank on return from trail source screen
+
+UI ITEMS NOT YET BUILT
+  9. Remove GPX prompt Y/N after track import
+  10. Work with Artifacts bar — make thinner
+  11. +ROUTE button nav wiring on artifacts panel
+  12. Long-press → waypoint creation (JS bridge)
+  13. Map orientation toggle placeholder in gear (True North / Heading Up)
+  14. Track line weight slider placeholder in gear
+  15. QUEUES double accordion fix on convoy map
+  16. DisplayPanel → ArtifactsPanel swap (deferred)
+
+=====================================================
+NEXT SESSION PRIORITIES
+=====================================================
+
+1. FINISH UI POSITIONING
+   - Test QUEUES at top=2dp, +/- at 95px
+   - Adjust if needed until REC, QUEUES, +/-, maps bar don't overlap
+   - Commit clean
+
+2. LAZY LOAD TRAILS FROM SPATIAL DB (BIG MILESTONE)
+   - Replace static GeoJSON injection with viewport queries
+   - Trails toggle on display panel activates lazy load
+   - JS: viewport change listener → report bounds to Kotlin
+   - Kotlin: @JavascriptInterface → SpatialDbManager.queryTrailsByViewport()
+   - Build GeoJSON → evaluateJavascript("updateTrails(...)") 
+   - Filter by CartoCode 1/2/4/5
+   - Both maps (convoy + planning)
+   - Test with 49K Utah trails
+
+3. WORK WITH ARTIFACTS — TRAIL IMPLEMENTATION
+   After lazy load works:
+   - Select/Edit: bbox-bounded checkbox list overlay
+   - Selection controls map display (check = visible)
+   - Select All / Deselect All (deselect = toggle OFF)
+   - Fit All (zoom to show all trails)
+   - Search by name or date
+   - Click title → popup menu (Share, Rename, maintenance)
+
+4. CLICK-TO-ACTION
+   After Work with Artifacts:
+   - Click trail on map → detail panel
+   - Detail: badge + display name + aliases + classification + actions
+   - Actions: FIT, +ALIAS
+   - This completes the trail artifact pattern
+
+=====================================================
+WORK WITH ARTIFACTS DESIGN (from session discussion)
+=====================================================
+
+Grid: 4 rows × 3 columns
+  Rows: Tracks, Trails, Waypoints, Routes
+  Columns: Display, Select/Edit, Import
+
+DISPLAY TOGGLE (Column 1):
+  - ON/OFF per artifact type
+  - Lazy load shows what's in viewport
+  - Goes OFF if Deselect All in Select column
+
+SELECT/EDIT (Column 2):
+  - Opens overlay on map (takes real estate)
+  - Lists artifacts of that type in current map bbox
+  - Checkbox per item controls map visibility
+  - Select All / Deselect All
+  - Fit All (zoom to show all of that type)
+  - Search by name or date
+  - Click item title → popup menu: Share, Rename, Fix Date, etc.
+  - Changes not visible until overlay closed (return to map)
+  - Toggle linked to selection: 1+ selected = ON, all deselected = OFF
+  - To show single item: Deselect All → select that one
+
+IMPORT (Column 3):
+  - Trails: from trail sources (Method A, already built)
+  - Tracks/Waypoints/Routes: list files from downloads dir by extension
+  - Click file to import
+  - Refresh map on return after import
+  - Prompt to remove source file after import (Y/N)
+  - Pattern: existing Work with Tracks function
+
+=====================================================
+KEY FILE LOCATIONS
+=====================================================
+
+Modified today:
+  SpatialDbManager.kt — hasTable fix, SQL parser, .nomedia, area_downloads migration
+  TrailImporter.kt — progress StateFlow, JSON trail area records, bbox rejection
+  ConvoyTrailSourceScreen.kt — progress bar UI, Method B multi-select, source flags
+  ConvoyDownloadPanel.kt — full rewrite (flyover, LOCAL/NET, checkboxes, draw area)
+  ConvoyMapViewerScreen.kt — panel wiring, bbox state, debug logging
+  ConvoyScreen.kt — SIM/LIVE removed, QUEUES repositioned
+  convoy_map.html — zoom control CSS
+  grouptrack_map.html — zoom control CSS
+  schema_extension_v1.sql — area_downloads table
+
+Trail area JSON directory: Documents/GroupTrack/data/trail_areas/
+
+=====================================================
+BUILD / TEST COMMANDS
+=====================================================
+
+Build: ./gradlew assembleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease
+Install: adb -s 8624SBCEDF00001789 install -r -d app/build/outputs/apk/google/release/app-google-release.apk
+Clear DBs: adb -s 8624SBCEDF00001789 shell "am force-stop com.grouptrack.android" (FIRST!)
+  then: rm /sdcard/Documents/GroupTrack/grouptrack_spatial.db grouptrack_data.db
+Logcat: adb -s 8624SBCEDF00001789 logcat -d | grep "TrailImporter\|DownloadPanel\|SpatialDb"
+Check JSON: adb shell "cat /sdcard/Documents/GroupTrack/data/trail_areas/*.json"
+
+Patch workflow: python3 "/c/Users/kixaz/Downloads/[patch_name].py"
+Always -r -d on install. Always encoding='utf-8' in patches. Never heredoc.

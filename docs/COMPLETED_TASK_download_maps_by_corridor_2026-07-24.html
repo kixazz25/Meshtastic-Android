@@ -1,0 +1,187 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Download Maps by Corridor — Completed Task</title>
+<style>
+:root{--bg:#0f1216;--panel:#161b22;--ink:#e6edf3;--dim:#8b949e;--line:#30363d;--accent:#58a6ff;--good:#3fb950;--warn:#d29922;--bad:#f85149;--ui:-apple-system,"Segoe UI",Roboto,sans-serif;--mono:"SF Mono",Consolas,monospace}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 var(--ui);padding:0 0 60px}
+header{position:sticky;top:0;background:#0f1216f0;border-bottom:1px solid var(--line);padding:12px 18px;z-index:5}
+.ttl{font:700 17px var(--ui)}.ttl b{color:var(--accent)}.sub{font:12px var(--mono);color:var(--dim);margin-top:2px}
+main{max-width:900px;margin:0 auto;padding:16px 18px}
+h2{font:700 15px var(--ui);color:var(--accent);margin:22px 0 8px;border-bottom:1px solid var(--line);padding-bottom:4px}
+h3{font:700 13px var(--ui);color:var(--ink);margin:14px 0 4px}
+.tag{display:inline-block;font:700 10px var(--mono);padding:1px 6px;border-radius:4px;margin-right:6px;vertical-align:middle}
+.t-good{background:#12261a;color:var(--good);border:1px solid #1f6f3f}
+.t-warn{background:#2a2312;color:var(--warn);border:1px solid #6f5a1f}
+.t-bad{background:#2a1414;color:var(--bad);border:1px solid #6f2020}
+.t-prog{background:#12203a;color:var(--accent);border:1px solid #1f4f8f}
+.card{border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin:10px 0;background:var(--panel)}
+ul{margin:6px 0 6px 0;padding-left:20px}li{margin:4px 0}ol{margin:6px 0;padding-left:22px}
+code{background:#0c0f0a;padding:1px 5px;border-radius:3px;font:12px var(--mono);color:#e6edf3}
+.note{font:12px var(--mono);color:var(--dim);border-left:3px solid var(--line);padding:4px 10px;margin:8px 0}
+.hi{color:var(--warn);font-weight:700}.step{background:#12203a;border-left:3px solid var(--accent);padding:6px 10px;margin:8px 0}
+</style>
+</head><body>
+<header><div class="ttl"><b>Download Maps by Corridor</b> &mdash; design, build, proof, cutover</div><div class="sub">COMPLETED TASK &middot; Phase 2 &middot; 2026-07-24 &middot; patches F, G1&ndash;G4, H (+ I failed, J) &middot; proven on device</div></header>
+<main>
+
+<div class="note">The full record for the corridor feature, from the measurement that motivated it through the cutover that retired the bbox path for tracks. The Living Master entry is gone &mdash; this is the record. Read this before touching corridor derivation, <code>ConvoyCorridorWorker</code>, or the artifact panel's SAVE MAPS controls. Prerequisite reading: <code>COMPLETED_TASK_download_queue_schema_and_panel_2026-07-24.html</code> (the queue had to carry job type and priority before corridor entries could exist).</div>
+
+<h2>The headline</h2>
+<div class="card">
+<p><span class="tag t-good">PROVEN ON DEVICE</span> Tester track "bar 10" &mdash; the ~100-mile figure-7 that started this whole investigation:</p>
+<table style="width:100%;border-collapse:collapse;font:12px var(--mono)">
+<tr style="color:var(--accent)"><td><b>Model</b></td><td><b>Tiles queued (3 sources)</b></td><td><b>Notes</b></td></tr>
+<tr><td>bbox (old)</td><td><b>1,000,000+</b></td><td>~95% empty desert; Fred: "8 hours to download an area that will not be ridden"</td></tr>
+<tr><td><b>corridor (new)</b></td><td><b>65,000 + 21,000 + 21,000 &asymp; 107,000</b></td><td>half-mile buffer, same geography</td></tr>
+</table>
+<p><b>&asymp;90% reduction.</b> Built, queued and downloaded end to end on the planning map. G1&ndash;G4 all compiled first try (14m03s).</p>
+<p><b>&#9888; Three caveats that must travel with this number.</b></p>
+<ul>
+<li><b>Bar 10 is the BEST CASE.</b> It is the longest, thinnest track available, so it shows corridor at its most favourable. A <b>compact</b> track's bbox is already close to its corridor and the gain there will be modest. When quoting this to testers, say so &mdash; the headline comes from the worst-shaped track.</li>
+<li><b>This is BEFORE the z-cap.</b> If TOPO+ really tops out at z15, a meaningful slice of its 21,000 is requests that will 404. That saving compounds <i>on top</i> of this one and must be measured <b>separately</b> &mdash; two variables, two measurements.</li>
+<li><b>The 894,507 planning baseline was not the comparable number.</b> 894,507 was <code>sizeTiles</code> (the SAT-sizing figure); the real bbox total queued across all sources was <b>higher</b>, over a million. The two were never the same quantity.</li>
+</ul>
+<p>The 65K/21K/21K split is <b>per source</b> and uneven because of <b>layer counts</b>, not different geometry &mdash; same corridor, SAT carrying 3 layers where the others carry fewer.</p>
+</div>
+
+<h2>Why bbox was the wrong model</h2>
+<div class="card">
+<p>Measured 07-23. Bar 10 is a single path ~100 miles long with a ~10-mile spread at the top &mdash; "like a figure 7". It <b>alone accounted for 22% of all tiles</b> in a 10-track import (894,507 <code>sizeTiles</code> &rarr; 18 cells per source). Its bounding rectangle is ~100&times;10 miles while the ridden corridor is <b>~half a mile wide</b>.</p>
+<p><b>&#9888; Segmentation was never the bug.</b> Every split in the 07-23 trace satisfied <code>ceil(sizeTiles/50000)</code> exactly. Four theories died on inspection before the real finding landed. <b>The MODEL was wrong, not the math</b> &mdash; which is why no amount of tuning the splitter would ever have helped.</p>
+<h3>&#11088; THE RULE</h3>
+<p><b>Anything TRACK-based or ROUTE-based submits a CORRIDOR download. User-DRAWN area downloads keep the BBOX.</b> The user drew a rectangle &rarr; the rectangle <i>is</i> the request. The user picked a track or route &rarr; they want the line and its immediate surroundings, not the rectangle enclosing it.</p>
+</div>
+
+<h2>Architecture &mdash; the decisions that shaped it</h2>
+<div class="card">
+<h3>&#11088;&#11088;&#11088; downloadType SELECTS THE WORKER</h3>
+<p>Fred: <i>"so the downloadType would specify the worker. great design when we get to the delete function."</i> <code>launchWorker</code> <b>dispatches on type</b> and enqueues a different Worker class &mdash; dispatch <b>at the boundary</b>, not a branch inside shared logic (patch F).</p>
+<table style="width:100%;border-collapse:collapse;font:12px var(--mono)">
+<tr style="color:var(--accent)"><td><b>DownloadType</b></td><td><b>Worker</b></td></tr>
+<tr><td>AREA</td><td>ConvoyDownloadWorker</td></tr>
+<tr><td><b>CORRIDOR</b></td><td><b>ConvoyCorridorWorker (new)</b></td></tr>
+<tr><td>MAP_SOURCE_REFRESH</td><td>ConvoyDownloadWorker (refresh branch)</td></tr>
+<tr><td>DELETE_AREA_TILES</td><td><b>ConvoyDeleteWorker (when written)</b></td></tr>
+</table>
+<p><b>&#11088; Why declaring the 4th enum value early paid off.</b> Delete <b>removes</b> tiles rather than fetching &mdash; opposite direction, different completion semantics, <b>no network</b>. A shared-worker model would need a flag threaded through a download worker plus branches inside it. With type-selected workers it is simply a third worker that never touches the network, and <b>nothing existing changes</b>. It also makes priority 0 coherent: deletes run first because they free storage.</p>
+
+<h3>&#9940; CORRIDOR IS NOT FITTED INTO THE AREA MACHINERY</h3>
+<p>Claude drifted there <b>twice</b> &mdash; first a <code>downloadType</code> parameter threaded through <code>submitDownload</code>, then "add a branch to <code>ConvoyDownloadWorker</code>" &mdash; and Fred overruled both: <i>"why are we fitting this into the area download box. it is its own code? does not exist?"</i> and <i>"convoy download worker would be replaced by a corridor version?"</i> <b>None of the corridor path existed; it is all new code ALONGSIDE the area path.</b> <code>ConvoyDownloadWorker</code> was not touched.</p>
+
+<h3>&#11088; Only TWO shared artifacts were affected</h3>
+<ol>
+<li><code>QueueEntry</code> gains <code>geomHash: String = ""</code> so an entry can name its track &mdash; <b>written only</b> by the corridor process, <b>read only</b> by the corridor worker, therefore <b>inert</b> to everything else. Existing readers use <code>opt*</code> defaults and ignore unknown keys; the four existing construction sites needed no edits.</li>
+<li><code>launchWorker</code> picks the Worker class by type.</li>
+</ol>
+<p>That is the whole footprint. <b>Buffer width needs no field</b> &mdash; it is a constant (the half-mile <code>getTrackBbox</code> already uses).</p>
+
+<h3>&#11088; What the entry carries &mdash; Option B</h3>
+<p><b>&#9940; Run-boxes were RULED OUT.</b> Fred: <i>"cannot use boxes, the startup time for new area requests is long 5-10 seconds added to every new bbox request. not workable."</i> 30 run-boxes = 3&ndash;5 minutes of pure startup overhead before a tile moves &mdash; worse than the problem being solved.</p>
+<p><b>&#9940; Option A (serialize the tile list into the entry) was REJECTED</b> &mdash; a 60K-tile list is megabytes per entry in <code>download_queue.json</code>, the one file with no recovery path on a release build.</p>
+<p><b>&#11088; Option B shipped:</b> the entry stores a <b>geometry reference</b> &mdash; <code>geomHash</code> + <code>downloadType=CORRIDOR</code> (+ bbox for display/progress). The <b>worker re-derives the tile list at run time</b>. Startup cost is paid <b>once per corridor entry</b>, not per box.</p>
+<p><b>Persistence concern is mitigated by <code>hasTile()</code>:</b> the mbtiles store is the source of truth for what is already down, so a corridor entry re-derives its list on resume and simply skips what landed. <b>The tile list never needs persisting.</b></p>
+
+<h3>&#9888; Accepted duplication &mdash; deliberate, and it has a cost</h3>
+<p><code>ConvoyCorridorWorker</code> duplicates progress (<code>updateProgress</code>), completion (<code>markComplete</code>), notifications, and the <code>downloadTiles</code> call. Different tile <b>derivation</b>, same plumbing. <b>Cost: a change to any of that plumbing now lands in two places.</b> Traded deliberately for the clean split &mdash; but see the open refresh-completion issue below, which is exactly this cost coming due.</p>
+</div>
+
+<h2>Derivation &mdash; the model</h2>
+<div class="card">
+<p>The standard GIS name is <b>buffering a linestring</b>, but for tile downloading <b>no polygon is needed</b>: walk the line's points and, for each, emit the tiles within the buffer radius at each zoom, <b>deduped into a SET</b>. Overlaps and self-intersections (the figure-7 doubles back on itself) collapse automatically. No join geometry, no self-intersection cases.</p>
+<ul>
+<li><b>Buffer width</b> = the same half-mile the bbox path already used &mdash; <code>getTrackBbox</code> pads 0.00724&deg; lat and 0.00724/cos(midLat) lon (SpatialDbManager:1915). Keeping the same value made the PoC directly comparable to the old baseline.</li>
+<li><b>&#9888; WKT coordinate order is <code>lon lat</code></b> &mdash; SpatialDbManager:1763 flips with <code>parts[1], parts[0]</code>. <b>Getting this backwards puts the geometry in the wrong hemisphere.</b></li>
+<li><b>Geometry shapes:</b> tracks are <code>MULTILINESTRING</code> <i>or</i> <code>LINESTRING</code>; routes are plain <code>LINESTRING</code>. Parse model copied from <code>wktToGeoJsonCoords</code> (SpatialDbManager:340-361), which handles both &mdash; strip prefix/suffix, and for MULTI split on <code>"),("</code> then trim parens. It returns a JSON <i>string</i> so it was not directly reusable; a sibling returning POINTS was written instead.</li>
+<li><b>&#11088; MULTILINESTRING matters:</b> disjoint segments are walked <b>separately</b> and buffered independently. That is precisely the case where the bbox spans the empty gap between segments and the corridor does not.</li>
+</ul>
+<h3>&#11088; The corridor worker filters PRE-FETCH</h3>
+<p>The open question from 07-23 &mdash; does <code>hasTile()</code> skip the <b>request</b> or only the <b>write</b>? &mdash; resolved: <code>MBTilesStore.hasTile</code> is at MBTilesStore.kt:136; <code>ConvoyDownloadWorker:61</code> filters and sizes <code>totalTiles</code> off the filtered list (:65), so the <b>refresh branch genuinely skips requests</b>, while the <b>main path (:111-117) has no filter at all</b> and downloads everything.</p>
+<p><b>So the corridor worker copies the :61 pattern.</b> Without it a resumed corridor would re-request every tile from Esri and only then find it already had them &mdash; <b>full network cost paid twice</b>, real money on per-tile pricing. It also makes <code>totalTiles</code> <b>honest</b>: remaining work, not the whole corridor.</p>
+</div>
+
+<h2>What shipped &mdash; patch by patch</h2>
+<div class="card">
+<table style="width:100%;border-collapse:collapse;font:12px var(--mono)">
+<tr style="color:var(--accent)"><td><b>Patch</b></td><td><b>What it did</b></td></tr>
+<tr><td><b>F</b></td><td><code>launchWorker</code> dispatches on <code>downloadType</code> &mdash; the boundary that makes everything else possible</td></tr>
+<tr><td><b>G1</b></td><td>corridor derivation &mdash; geometry &rarr; points (SpatialDbManager), points+buffer &rarr; tile SET (ConvoyTileCalculator)</td></tr>
+<tr><td><b>G2</b></td><td><code>enqueueCorridor</code> &mdash; build + enqueue, <code>geomHash</code> on the entry, one entry per source</td></tr>
+<tr><td><b>G3</b></td><td><b><code>ConvoyCorridorWorker</code></b> &mdash; derives from geometry, filters pre-fetch against <code>hasTile</code>, downloads per layer with foreground progress</td></tr>
+<tr><td><b>G4</b></td><td>wiring &mdash; orange <code>SAVE MAPS CORR</code> button beside the green area button on BOTH maps, <code>pendingCorridorHash</code> carrying the hash to <code>onProceed</code>, cleared on proceed AND cancel</td></tr>
+<tr><td><b>H</b></td><td><b>CUTOVER</b> &mdash; area button deleted from the artifact panel; track import swapped bbox &rarr; corridor</td></tr>
+<tr><td><s>I</s></td><td><s>convoy confirm centring</s> &mdash; <b>FAILED TO COMPILE</b>, see below</td></tr>
+<tr><td><b>J</b></td><td>convoy confirm centring, done correctly &mdash; Box wrapper</td></tr>
+</table>
+<p>The shared <code>ConvoyDownloadConfirm</code> prompt (source selection + replace-tiles Y/N) is used unchanged by both paths. That is <b>user intent</b> &mdash; identical regardless of geometry &mdash; so each caller passes its own <code>onProceed</code> lambda in rather than the prompt branching on a mode flag.</p>
+</div>
+
+<h2>The cutover (patch H) &mdash; two decisions worth keeping</h2>
+<div class="card">
+<h3>1. The area button was DELETED, not flagged off</h3>
+<p>The side-by-side existed to produce the comparison, and it has. <b>Leaving a disabled path behind is exactly how <code>gridCells</code> and <code>downloadMapsForTrackHash</code> both survived their own replacements and later masqueraded as live code</b> &mdash; two dead functions this project has already had to chase down.</p>
+<p>The <code>onDownloadMaps</code> <b>parameter</b> stays on the composable &mdash; the two screens still pass it and removing it would touch call sites for no benefit &mdash; but nothing renders it, so <b>the area path is unreachable from the artifact panel</b>. Deleting the parameter is a separate cleanup if it ever matters.</p>
+
+<h3>2. The import swap was a LOOP, not a substitution</h3>
+<p>The old call was <b>one</b> <code>submitDownload</code> covering <b>all</b> slots. Corridor is <b>one entry per source</b>, so the import loops the slots. Everything needed was already in hand at ConvoyTrackOps:586 &mdash; <code>gh</code> (computed one line earlier), <code>downloadMapSlots</code>, <code>replaceExisting</code>. <code>getTrackBbox</code> is no longer called there.</p>
+<p><b>&#9888; Ten tracks &times; three sources = 30 queue rows, not 10.</b> That is the same shape the area path already produced (<code>submitDownload</code> looped slots internally), so the panel needed no change &mdash; but the row COUNT is per track per source, and testers will see it.</p>
+<p><b>&#9888; <code>enqueueCorridor</code> DERIVES the corridor to get its tile count</b>, so a large import does that work per track per source on the IO thread. Already an IO thread at that call site, so no new threading &mdash; but <b>a 10-track import will spend real time in derivation before the first tile moves</b>. If that reads as a hang to a tester, it isn't; it is the cost Option B deliberately pays once per entry instead of 5&ndash;10s per run-box.</p>
+<p><b>Untouched:</b> area downloads from the map (draw-a-box) work exactly as before. The cutover changed only the artifact panel and the importer.</p>
+</div>
+
+<h2>&#9940; Patch I &mdash; a wrong diagnosis worth recording</h2>
+<div class="card">
+<p><b>The bug:</b> the shared <code>ConvoyDownloadConfirm</code> popup renders mid-panel on CONVOY and <b>overflows the bottom</b> &mdash; its buttons unreachable unless the device is rotated to landscape. Planning shows the same dialog centred and fully accessible.</p>
+<p><b>The diagnosis (wrong):</b> one missing modifier.</p>
+<pre style="background:#0c0f0a;padding:8px;border-radius:4px;font:11px var(--mono);overflow-x:auto">convoy    ConvoyScreen.kt:2014        modifier = Modifier.padding(16.dp)
+planning  ConvoyMapViewerScreen:1569  modifier = Modifier.align(Alignment.Center).padding(16.dp)</pre>
+<p>It looked like the <b>same drift pattern as the 07-22 queues-panel width bug</b> &mdash; two hand-mirrored call sites where one lost a modifier the other kept. Patch I simply added <code>.align(Alignment.Center)</code> to convoy's chain.</p>
+<p><b>It did not compile:</b> <code>'fun Modifier.align' cannot be called in this context with an implicit receiver.</code></p>
+<p><b>The real cause:</b> <code>Modifier.align()</code> is a <b>BoxScope extension</b> &mdash; it only exists inside a <code>Box</code>. Planning's dialog sits in a Box; <b>convoy's sits in a Column</b> (ConvoyScreen ~1495). The missing modifier was never drift between mirrored call sites; it was a <b>consequence of different containers</b>.</p>
+<p><b>&#11088; THE LESSON: the symptom matched a known bug, the cause did not.</b> Pattern-matching to a bug this project has already seen is a hypothesis, not a diagnosis &mdash; and here the previous bug's shape actively misled, because the <i>fix</i> that worked last time was scope-illegal this time.</p>
+<h3>Patch J &mdash; bring a Box rather than borrow scope</h3>
+<pre style="background:#0c0f0a;padding:8px;border-radius:4px;font:11px var(--mono);overflow-x:auto">Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+    ConvoyDownloadConfirm( ... )
+}</pre>
+<p><code>contentAlignment</code> centres the child <b>without needing the scope extension</b>, so it works regardless of what encloses it. <code>fillMaxSize</code> makes the Box the whole viewport, so "centre" means centre of the <b>screen</b> &mdash; which is what stops a tall dialog running off the bottom. The dialog's own <code>modifier = Modifier.padding(16.dp)</code> was left alone; only its <b>placement</b> was ever wrong.</p>
+<p><b>Anchor design note:</b> patch J's anchor spans the <b>whole call</b> &mdash; open paren through the closing brace of the enclosing <code>if</code> &mdash; so the wrapper's braces cannot land in the wrong place. That is the one way this class of fix fails twice.</p>
+<p><b>&#9888; Convoy freeze &mdash; why this was allowed.</b> <code>ConvoyScreen.kt</code> is frozen, but <b>the freeze protects a LAYER, not the file</b>: the Kotlin&harr;JS&harr;Leaflet&harr;self-saving-setView&harr;shared-MapStateStore tangle. This is a Compose layout wrapper around an overlay dialog &mdash; nothing near the WebView, the JS bridge, or map state. Same reasoning as the 07-22 queues width fix, which shipped clean.</p>
+</div>
+
+<h2>Rollout &mdash; as executed</h2>
+<div class="card">
+<ol>
+<li><span class="tag t-good">DONE</span> Corridor button added <b>alongside</b> the area button on both maps (G4), so the same track could be run both ways on real geography with nothing regressing for testers.</li>
+<li><span class="tag t-good">DONE</span> <b>Compared</b> &mdash; bar 10, ~107,000 vs 1,000,000+.</li>
+<li><span class="tag t-good">DONE</span> <b>Removed</b> the area button from the artifact panel (H).</li>
+<li><span class="tag t-good">DONE</span> <b>Replaced</b> the bbox derivation in track import (H).</li>
+<li><span class="tag t-prog">PENDING</span> Install H+J build on Droid 1 and Droid 2; confirm the ETA renders once two corridor jobs start <i>and</i> finish on a stamped build.</li>
+</ol>
+<p><b>Deliberately NOT done (deferred, by design):</b></p>
+<ul>
+<li><b>No splitting.</b> One entry per track per source. Measure first; decide on segmenting corridors after real numbers exist.</li>
+<li><b>Route corridors</b> &mdash; the routes table has min/max lat/lon and geometry is fetchable by id (SpatialDbManager:1755), but there is <b>no getRouteBbox and no download-by-route path at all today</b>. The route corridor is a NEW capability with nothing legacy to preserve &mdash; build it right the first time, no migration risk.</li>
+<li><b>Delete-area tiles</b> &mdash; the enum value exists, the worker does not.</li>
+</ul>
+<p><b>&#9888; ROLLBACK NOTE:</b> a corridor entry read by an <b>older build</b> parses fine (defaulted reads) but that build's worker would download its <b>BBOX</b>. Only matters if a rollback ships &mdash; but it would be silent, and it would be the exact behaviour this task removed.</p>
+</div>
+
+<h2>Open items this task leaves behind</h2>
+<div class="card">
+<p>These are live in the Living Master; recorded here so the corridor context travels with them.</p>
+<ul>
+<li><span class="tag t-bad">OPEN</span> <b>Refresh does not log as a completed job</b> (found 07-24). Bears directly on the corridor ETA &mdash; see the Living Master entry. The accepted per-worker duplication means <b>completion is called separately by each worker</b>, so this class of miss can exist independently in <code>ConvoyCorridorWorker</code>.</li>
+<li><span class="tag t-bad">OPEN</span> <b>Per-source z-level download limits</b> &mdash; <code>maxZoomForSource()</code> is a stub returning <code>DOWNLOAD_ZOOM</code> and ignoring its argument, so everything pulls to z18 including sources capped at 15. <b><code>corridorTiles</code> inherits the same gap</b> &mdash; it has no source awareness either, so fixing the stub alone will NOT fix corridor; the source must be passed in.</li>
+<li><span class="tag t-warn">METHOD</span> The xref docs index <b>declarations</b>. <code>onDownloadMaps</code> is a <b>lambda parameter</b> and appears in none of them &mdash; same class as the earlier <code>@JavascriptInterface</code> miss. <b>xref for candidates, grep for call sites.</b></li>
+</ul>
+</div>
+
+<h2>Durable lessons</h2>
+<div class="card">
+<ul>
+<li><b>When the math is right and the answer is still wrong, check the MODEL.</b> Segmentation was provably correct at every split; the rectangle was the wrong shape for a line. Four theories died before anyone questioned the geometry.</li>
+<li><b>Dispatch at the boundary, not inside shared logic.</b> Type-selects-worker meant corridor cost <b>two</b> shared-artifact changes and touched <code>ConvoyDownloadWorker</code> not at all &mdash; and delete-area now costs nothing existing.</li>
+<li><b>Delete the replaced path in the same commit.</b> This codebase has already been misled twice by dead functions that outlived their replacements.</li>
+<li><b>A matching symptom is not a matching cause.</b> Patch I failed because the previous bug's fix was scope-illegal in the new container.</li>
+<li><b>Measure one variable at a time.</b> The corridor number and the z-cap number must not be taken together, or neither is attributable.</li>
+</ul>
+</div>
+
+</main></body></html>

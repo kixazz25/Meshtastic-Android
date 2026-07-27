@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GroupTrack — Esri raster + OSM vector labels prototype</title>
+<link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
+<style>
+  html,body{margin:0;height:100%;background:#0a0e14;font-family:ui-monospace,Menlo,Consolas,monospace}
+  #map{position:absolute;inset:0}
+  #panel{position:absolute;top:10px;left:10px;z-index:5;background:#131820ee;color:#c9d1d9;
+         border:1px solid #2a3441;border-radius:8px;padding:12px 14px;font-size:12px;
+         min-width:250px;box-shadow:0 4px 16px #0008}
+  #panel h1{font-size:12px;margin:0 0 4px;color:#3fb950;letter-spacing:.04em}
+  #panel .sub{color:#6e7d90;font-size:10px;margin-bottom:10px;line-height:1.5}
+  .row{display:flex;align-items:center;gap:8px;padding:5px 0;cursor:pointer;user-select:none}
+  .row input{accent-color:#3fb950;cursor:pointer;margin:0}
+  .row label{cursor:pointer;flex:1}
+  .grp{border-top:1px solid #2a3441;margin-top:8px;padding-top:8px}
+  .grp .hdr{color:#6e7d90;font-size:10px;letter-spacing:.08em;margin-bottom:4px}
+  .esri{color:#f0883e}.osm{color:#58a6ff}.mine{color:#3fb950}.terr{color:#a371f7}
+  #readout{position:absolute;bottom:10px;left:10px;z-index:5;background:#131820ee;color:#8b949e;
+           border:1px solid #2a3441;border-radius:6px;padding:6px 10px;font-size:10px}
+  #err{position:absolute;top:10px;right:10px;z-index:6;background:#5a1d1d;color:#ffd7d7;
+       border-radius:6px;padding:8px 12px;font-size:11px;max-width:320px;display:none}
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div id="err"></div>
+
+<div id="panel">
+  <h1>ESRI RASTER + OSM VECTOR LABELS</h1>
+  <div class="sub">Toggle Esri's raster labels against OSM vector labels over the same imagery. Compare coverage before committing.</div>
+
+  <div class="grp">
+    <div class="hdr">BASE IMAGERY</div>
+    <div class="row"><input type="checkbox" id="sat" checked><label for="sat" class="esri">Esri World Imagery (raster)</label></div>
+  </div>
+
+  <div class="grp">
+    <div class="hdr">ESRI LABELS — RASTER, WHAT YOU DOWNLOAD NOW</div>
+    <div class="row"><input type="checkbox" id="esriRef"><label for="esriRef" class="esri">Boundaries &amp; Places</label></div>
+    <div class="row"><input type="checkbox" id="esriTrans"><label for="esriTrans" class="esri">Transportation</label></div>
+  </div>
+
+  <div class="grp">
+    <div class="hdr">3D TERRAIN — LEAFLET CANNOT DO THIS AT ALL</div>
+    <div class="row"><input type="checkbox" id="terr"><label for="terr" class="terr">elevation (drape imagery on terrain)</label></div>
+    <div class="row"><input type="checkbox" id="shade"><label for="shade" class="terr">hillshade</label></div>
+    <div class="row" style="gap:6px"><label for="exag" style="flex:0 0 auto;color:#a371f7">exaggeration</label>
+      <input type="range" id="exag" min="1" max="3" step="0.1" value="1.4" style="flex:1;accent-color:#a371f7"></div>
+    <div style="color:#6e7d90;font-size:10px;margin-top:4px;line-height:1.5">
+      Tilt with <b>ctrl + drag</b> (or two fingers). Elevation is a separate
+      DEM source — it does not come from the imagery.
+    </div>
+  </div>
+
+  <div class="grp">
+    <div class="hdr">YOUR DATA — GEOJSON FROM THE SPATIAL DB</div>
+    <div class="row"><input type="checkbox" id="gjOn" checked><label for="gjOn" class="mine">tracks / routes / trails</label></div>
+    <div class="row"><input type="checkbox" id="gjLbl" checked><label for="gjLbl" class="mine">their names</label></div>
+    <input type="file" id="gjFile" accept=".geojson,.json" style="width:100%;margin-top:6px;font-size:10px;color:#8b949e">
+    <div id="gjInfo" style="color:#6e7d90;font-size:10px;margin-top:5px;line-height:1.5">
+      Export GeoJSON from grouptrack.gpkg and drop it here.
+    </div>
+  </div>
+
+  <div class="grp">
+    <div class="hdr">OSM LABELS — VECTOR, THE ALTERNATIVE</div>
+    <div class="row"><input type="checkbox" id="vPlace" checked><label for="vPlace" class="osm">place — settlements</label></div>
+    <div class="row"><input type="checkbox" id="vRoad" checked><label for="vRoad" class="osm">transportation_name — roads</label></div>
+    <div class="row"><input type="checkbox" id="vPeak" checked><label for="vPeak" class="osm">mountain_peak</label></div>
+    <div class="row"><input type="checkbox" id="vWater" checked><label for="vWater" class="osm">water_name</label></div>
+    <div class="row"><input type="checkbox" id="vPoi"><label for="vPoi" class="osm">poi</label></div>
+    <div class="row"><input type="checkbox" id="vTrack"><label for="vTrack" class="osm">tracks &amp; paths (geometry)</label></div>
+  </div>
+</div>
+
+<div id="readout">move the map — zoom/centre shown here</div>
+
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script>
+// ---------------------------------------------------------------------------
+// Esri raster tiles use {z}/{y}/{x} order (row before column) — NOT the usual
+// {z}/{x}/{y}. Getting this backwards yields a map that looks plausible but is
+// transposed. Same raw z/x/y convention MBTilesStore uses; no TMS flip.
+// ---------------------------------------------------------------------------
+const ESRI = 'https://services.arcgisonline.com/ArcGIS/rest/services';
+const r = (p) => [`${ESRI}/${p}/MapServer/tile/{z}/{y}/{x}`];
+
+// OpenFreeMap serves the OpenMapTiles schema with no key required — same layer
+// names you would get from a self-hosted Planetiler build, so a style written
+// here carries over to your own tiles unchanged.
+const OMT = 'https://tiles.openfreemap.org/planet';
+
+const style = {
+  version: 8,
+  glyphs: 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf',
+  sources: {
+    sat:       { type:'raster', tiles:r('World_Imagery'), tileSize:256, maxzoom:19,
+                 attribution:'Esri, Maxar, Earthstar Geographics' },
+    esriRef:   { type:'raster', tiles:r('Reference/World_Boundaries_and_Places'), tileSize:256, maxzoom:19 },
+    esriTrans: { type:'raster', tiles:r('Reference/World_Transportation'), tileSize:256, maxzoom:19 },
+    omt:       { type:'vector', url:`${OMT}/tiles.json`, attribution:'© OpenStreetMap contributors' },
+    // YOUR SPATIAL DB. Identical to what spatial_artifacts.js already builds -
+    // wktToGeoJsonCoords output, unchanged. MapLibre takes GeoJSON natively,
+    // exactly as Leaflet does, so the data path from SpatialDbManager does not
+    // change at all. Only the RENDERING call differs.
+    mine:      { type:'geojson', data:{ type:'FeatureCollection', features:[] } },
+    // ELEVATION. Public AWS terrain tiles, terrarium encoding, no key needed.
+    // These encode metres-above-sea-level in the RGB channels rather than a
+    // pre-rendered grey hillshade - so the CLIENT computes relief, and the same
+    // tiles can drive elevation lookup, slope shading or a viewshed. Capped at
+    // z13: terrain shape does not need the zoom depth imagery does, which is
+    // why a DEM for a whole state is small.
+    dem:       { type:'raster-dem',
+                 tiles:['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'],
+                 encoding:'terrarium', tileSize:256, maxzoom:13,
+                 attribution:'Terrain: Mapzen / AWS Open Data' }
+  },
+  layers: [
+    { id:'bg', type:'background', paint:{ 'background-color':'#0a0e14' } },
+    { id:'sky', type:'sky', paint:{ 'sky-color':'#1a2433', 'horizon-blend':0.4 } },
+    { id:'sat', type:'raster', source:'sat' },
+    { id:'shade', type:'hillshade', source:'dem', layout:{visibility:'none'},
+      paint:{ 'hillshade-exaggeration':0.5, 'hillshade-shadow-color':'#000000' } },
+    { id:'esriTrans', type:'raster', source:'esriTrans', layout:{visibility:'none'} },
+    { id:'esriRef',   type:'raster', source:'esriRef',   layout:{visibility:'none'} },
+
+    // --- OSM track/path geometry: what OHV-relevant ways exist at all -------
+    { id:'vTrack', source:'omt', 'source-layer':'transportation', type:'line',
+      filter:['in','class','track','path'],
+      layout:{visibility:'none','line-cap':'round'},
+      paint:{ 'line-color':'#f0883e', 'line-width':['interpolate',['linear'],['zoom'],10,0.6,16,2.5],
+              'line-opacity':0.9 } },
+
+    // --- YOUR ARTIFACTS ----------------------------------------------------
+    // Casing + line, drawn from the geojson source. Note the colour is a
+    // DATA-DRIVEN EXPRESSION over feature properties: MapLibre reads `rating`
+    // straight off the feature, so the 1-5 star field being added to
+    // track_properties can drive rendering with no extra layers and no
+    // per-feature style callbacks. Leaflet cannot do this natively.
+    { id:'mineCase', source:'mine', type:'line',
+      layout:{ 'line-cap':'round','line-join':'round' },
+      paint:{ 'line-color':'#000000','line-opacity':0.55,
+              'line-width':['interpolate',['linear'],['zoom'],8,3,16,9] } },
+    { id:'mineLine', source:'mine', type:'line',
+      layout:{ 'line-cap':'round','line-join':'round' },
+      paint:{ 'line-color':[
+                'case',
+                ['has','rating'],
+                  ['interpolate',['linear'],['to-number',['get','rating']],
+                    1,'#8b949e', 3,'#3fb950', 5,'#f0883e'],
+                '#3fb950'
+              ],
+              'line-width':['interpolate',['linear'],['zoom'],8,1.5,16,5] } },
+    { id:'mineLabel', source:'mine', type:'symbol',
+      layout:{ 'symbol-placement':'line','text-field':['get','name'],
+               'text-font':['Noto Sans Bold'],'text-size':11 },
+      paint:{ 'text-color':'#3fb950','text-halo-color':'#000000','text-halo-width':1.8 } },
+
+    // --- Labels: the layers that would replace Esri's raster label tiles ----
+    { id:'vRoad', source:'omt', 'source-layer':'transportation_name', type:'symbol',
+      layout:{ 'symbol-placement':'line', 'text-field':['coalesce',['get','name'],['get','ref']],
+               'text-font':['Noto Sans Regular'], 'text-size':11 },
+      paint:{ 'text-color':'#ffffff','text-halo-color':'#000000','text-halo-width':1.6 } },
+
+    { id:'vWater', source:'omt', 'source-layer':'water_name', type:'symbol',
+      layout:{ 'text-field':['get','name'], 'text-font':['Noto Sans Italic'], 'text-size':11 },
+      paint:{ 'text-color':'#9ecbff','text-halo-color':'#000000','text-halo-width':1.4 } },
+
+    { id:'vPeak', source:'omt', 'source-layer':'mountain_peak', type:'symbol',
+      layout:{ 'text-field':['concat',['get','name'],'  ',['get','ele'],'m'],
+               'text-font':['Noto Sans Regular'], 'text-size':10, 'text-offset':[0,0.6] },
+      paint:{ 'text-color':'#ffd7a8','text-halo-color':'#000000','text-halo-width':1.4 } },
+
+    { id:'vPoi', source:'omt', 'source-layer':'poi', type:'symbol',
+      layout:{ visibility:'none', 'text-field':['get','name'],
+               'text-font':['Noto Sans Regular'], 'text-size':10 },
+      paint:{ 'text-color':'#c9d1d9','text-halo-color':'#000000','text-halo-width':1.4 } },
+
+    { id:'vPlace', source:'omt', 'source-layer':'place', type:'symbol',
+      layout:{ 'text-field':['get','name'], 'text-font':['Noto Sans Bold'],
+               'text-size':['interpolate',['linear'],['zoom'],6,11,12,17] },
+      paint:{ 'text-color':'#ffffff','text-halo-color':'#000000','text-halo-width':2 } }
+  ]
+};
+
+const map = new maplibregl.Map({
+  container:'map', style,
+  center:[-109.5498, 38.5733],   // Moab — swap for your own riding areas
+  zoom:11, maxZoom:19, hash:true
+});
+map.addControl(new maplibregl.NavigationControl(), 'bottom-right');
+map.addControl(new maplibregl.ScaleControl({unit:'imperial'}), 'bottom-right');
+
+const bind = (id, layer) => {
+  const el = document.getElementById(id);
+  el.addEventListener('change', () => {
+    map.setLayoutProperty(layer, 'visibility', el.checked ? 'visible' : 'none');
+  });
+};
+map.on('load', () => {
+  [['sat','sat'],['esriRef','esriRef'],['esriTrans','esriTrans'],
+   ['vPlace','vPlace'],['vRoad','vRoad'],['vPeak','vPeak'],
+   ['vWater','vWater'],['vPoi','vPoi'],['vTrack','vTrack']].forEach(([i,l]) => bind(i,l));
+
+  // your-data toggles cover casing + line together
+  document.getElementById('gjOn').addEventListener('change', (e) => {
+    const v = e.target.checked ? 'visible' : 'none';
+    map.setLayoutProperty('mineCase','visibility',v);
+    map.setLayoutProperty('mineLine','visibility',v);
+  });
+  bind('gjLbl','mineLabel');
+  bind('shade','shade');
+
+  // 3D terrain is not a layer - it displaces the whole scene, so imagery and
+  // your track lines drape over the landform rather than sitting flat.
+  const exag = document.getElementById('exag');
+  const applyTerrain = () => {
+    if (document.getElementById('terr').checked) {
+      map.setTerrain({ source:'dem', exaggeration: parseFloat(exag.value) });
+      if (map.getPitch() < 20) map.easeTo({ pitch:62, duration:900 });
+    } else {
+      map.setTerrain(null);
+      map.easeTo({ pitch:0, bearing:0, duration:700 });
+    }
+  };
+  document.getElementById('terr').addEventListener('change', applyTerrain);
+  exag.addEventListener('input', () => {
+    if (document.getElementById('terr').checked) {
+      map.setTerrain({ source:'dem', exaggeration: parseFloat(exag.value) });
+    }
+  });
+});
+
+// --- load a GeoJSON export from the spatial DB ---------------------------
+document.getElementById('gjFile').addEventListener('change', (ev) => {
+  const f = ev.target.files && ev.target.files[0];
+  if (!f) return;
+  const info = document.getElementById('gjInfo');
+  const rdr = new FileReader();
+  rdr.onload = () => {
+    try {
+      const gj = JSON.parse(rdr.result);
+      const feats = gj.type === 'FeatureCollection' ? gj.features
+                  : gj.type === 'Feature' ? [gj] : [];
+      if (!feats.length) { info.textContent = 'No features found in that file.'; return; }
+      map.getSource('mine').setData({ type:'FeatureCollection', features:feats });
+
+      // report which properties came through - these are what styling can key on
+      const props = new Set();
+      feats.slice(0,200).forEach(ft => Object.keys(ft.properties||{}).forEach(k => props.add(k)));
+      info.innerHTML = feats.length + ' feature(s) loaded.<br>props: ' +
+                       (props.size ? [...props].slice(0,12).join(', ') : '(none)');
+
+      // fit to the data
+      let n=-90,s=90,e=-180,w=180;
+      const walk = (c) => {
+        if (typeof c[0] === 'number') {
+          if (c[1]>n)n=c[1]; if (c[1]<s)s=c[1];
+          if (c[0]>e)e=c[0]; if (c[0]<w)w=c[0];
+        } else c.forEach(walk);
+      };
+      feats.forEach(ft => ft.geometry && ft.geometry.coordinates && walk(ft.geometry.coordinates));
+      if (w<=e && s<=n) map.fitBounds([[w,s],[e,n]], { padding:60, maxZoom:16 });
+    } catch (err) {
+      info.textContent = 'Could not parse: ' + err.message;
+    }
+  };
+  rdr.readAsText(f);
+});
+
+const readout = document.getElementById('readout');
+const upd = () => {
+  const c = map.getCenter();
+  readout.textContent = `z${map.getZoom().toFixed(1)}  ${c.lat.toFixed(4)}, ${c.lng.toFixed(4)}`;
+};
+map.on('move', upd); map.on('load', upd);
+
+map.on('error', (e) => {
+  const box = document.getElementById('err');
+  box.style.display = 'block';
+  box.textContent = 'Tile/style error: ' + (e.error && e.error.message ? e.error.message : 'see console');
+});
+</script>
+</body>
+</html>

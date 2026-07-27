@@ -1,0 +1,190 @@
+================================================================
+SNAP-2 CONTINUATION ACTION PLAN
+Pick up here in a NEW conversation after Build 1 is built + tested
+2026-06-04 · GroupTrack V2.5 · branch feature/convoy-event-ride
+================================================================
+
+PURPOSE: this is the single doc a fresh session reads first to resume
+snap-2 route implementation without re-deriving anything. Read it top to
+bottom, then say the OPENING MESSAGE at the end.
+
+----------------------------------------------------------------
+0. UPLOAD THESE AT SESSION START (in this order)
+----------------------------------------------------------------
+From the recommit (docs/ after running recommit_docs_v14.sh):
+  1. field_crossref_raw.txt        (full codebase xref)
+  2. GroupTrack_AllDocs.txt        (all docs folded to text)
+  3. function_universe_raw.txt     (every fun/class/val, with line #s)
+  4. where_used_raw.txt            (call sites)
+  5. navigation_xref.txt           (screen routing)
+From Drive (GroupTrack_docs folder):
+  6. GroupTrack_V25_LivingChecklist_2026-06-04d.html   (THE durable tracker)
+  7. Snap2_Implementation_Plan_v2_2026-06-04.html      (the wiring spec)
+  8. RouteWriteFunction_DataContract_2026-06-04.txt    (draft-JSON spec)
+  9. THIS doc
+
+----------------------------------------------------------------
+1. WHERE WE ARE (exact)
+----------------------------------------------------------------
+DONE + committed:
+  - Convoy parity cleared: waypoint drop (1d9e2172b), QUEUES real monitor (2a67c3fdc)
+  - Route+ toolbar at UI-PACT compliance (89285b00a): Add green/red self-toggle,
+    always-visible Save/Discard, grip-handle drag, rule-text comments
+  - Route scaffold + map-tap bridge (9fc26e5b1, earlier)
+
+IN FLIGHT — BUILD 1 (Save-completed): two patches written, tested, delivered:
+  - patch_v25_snap2_save_convoyscreen_v1.py   (ConvoyScreen.kt, LF)
+  - patch_v25_snap2_save_mapviewer_v1.py      (ConvoyMapViewerScreen.kt, CRLF)
+  They fill onSaveCompleted on both screens: query retained viewport bounds ->
+  build lineId->WKT map from queryTrailsByViewport+queryTracksByViewport ->
+  buildWktAndBbox { id -> parseWktLine(byId[id]) } -> insertRoute -> clearRoute
+  -> setRouteMode(false)+clearBuildLine -> routeMode=false -> re-fire onViewportChanged.
+  Off main thread (MainScope + Dispatchers.IO). Toast "Need at least 2 points" if <2.
+
+  >>> STATUS WHEN THIS DOC WAS WRITTEN: patches delivered; Fred applying +
+      building. The NEW session must first confirm the outcome (see §2). <<<
+
+NOT YET WRITTEN:
+  - BUILD 2 (snap-on-tap)
+  - BUILD 3 (armed gating)
+  - Label rename "Amend In-Progress Routes" -> "In Progress" (fold into Build 2 patch)
+
+----------------------------------------------------------------
+2. FIRST THING THE NEW SESSION DOES — confirm Build 1 result
+----------------------------------------------------------------
+Ask Fred / confirm from his paste:
+  (a) Did both save patches apply clean? (anchor-guarded; abort clean if not)
+  (b) Did `./gradlew assembleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease`
+      report BUILD SUCCESSFUL?
+  (c) On device (both Droids, -r -d install): +ROUTE -> New -> tap a few FREE points
+      -> Save. Does the route (1) persist, (2) redraw gold-dashed, (3) survive a
+      Routes toggle OFF/ON (proves it loaded from the spatial DB, not just memory)?
+
+BRANCHES:
+  - If YES to all -> Build 1 spine PROVEN. Commit it. Proceed to §3 (Build 2).
+    Suggested commit msg:
+      "snap-2 Build 1: Save-completed route -> insertRoute spatial DB + redraw (free points)"
+  - If build FAILED -> get the `e:` line. Likely suspects: coroutine import
+    (file already uses kotlinx.coroutines.MainScope in onEditDisplay so should
+    resolve), `context` scope (also used in onEditDisplay), or an anchor that
+    drifted (re-read the onSaveCompleted block, re-issue patch).
+  - If save does nothing / no row -> check: was vertexCount >= 2? did insertRoute
+    get a valid wkt? Add a Log.d on the built wkt + bbox before insertRoute, rebuild.
+  - If saved but doesn't redraw -> the re-fire onViewportChanged may be racing
+    setRouteMode(false). Confirm Routes display state is ON; confirm
+    queryRoutesByViewport returns the new row (it's committed by then).
+
+----------------------------------------------------------------
+3. BUILD 2 — snap-on-tap (the next patch)
+----------------------------------------------------------------
+GOAL: tapped points snap to nearest trail (trail-first) or track (fallback)
+within 30m, instead of free-placing raw coordinates.
+
+TWO patches (line-ending split, same as Build 1):
+  - ConvoyScreen.kt = LF        (onMapTap ~line 524)
+  - ConvoyMapViewerScreen.kt = CRLF  (onMapTap ~line 478)
+
+In EACH onMapTap handler, REPLACE:
+    RouteManager.addVertex(RouteManager.freeVertex(lat, lon))
+WITH (off main thread; viewport bounds already retained as
+lastViewportSouth/West/North/East — ConvoyScreen 200-203, viewer 116-119):
+    // query the on-screen trail/track set, snap, fall back to free
+    kotlinx.coroutines.MainScope().launch {
+        val v = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            SpatialDbManager.init(context)
+            val trails = SpatialDbManager.queryTrailsByViewport(
+                lastViewportSouth, lastViewportWest, lastViewportNorth, lastViewportEast)
+            val tracks = SpatialDbManager.queryTracksByViewport(
+                lastViewportSouth, lastViewportWest, lastViewportNorth, lastViewportEast)
+            val s = RouteManager.snap(lat, lon, trails, tracks, 30.0)
+            if (s != null) RouteManager.snapToVertex(s) else RouteManager.freeVertex(lat, lon)
+        }
+        RouteManager.addVertex(v)
+        val pts = RouteManager.routeVertices().joinToString(",", "[", "]") { "[${it.lat},${it.lon}]" }
+        webViewRef<.value?|?>.evaluateJavascript("drawBuildLine('" + pts + "')", null)
+    }
+  NOTE the webViewRef difference: ConvoyScreen uses webViewRef.value? ;
+  ConvoyMapViewerScreen uses webViewRef? .
+
+  CAUTION: the existing handler already does the addVertex + drawBuildLine
+  synchronously inside Handler(Looper.getMainLooper()).post{...}. Build 2 moves
+  the snap query to a background coroutine. Keep the drawBuildLine on the main
+  thread after addVertex. Re-read the exact current block before patching
+  (Build 1 did not touch onMapTap, so it should be unchanged from the reads in
+  this session's transcript).
+
+ALSO in the same Build 2 patch (ConvoyRouteToolbar.kt, LF):
+  relabel  EntryBtnDisabled("Amend In-Progress Routes", ...)  ->  "In Progress"
+
+TEST Build 2: +ROUTE -> New -> tap NEAR a visible trail -> vertex should land
+ON the trail line, not where the finger was. Tap near a track with no trail
+nearby -> snaps to track. Tap in empty space -> free point (no snap). Save ->
+route rides the trail geometry (buildSegments slices same-line snapped vertices).
+Radius 30m is a starting value — tune on device (if it snaps too eagerly,
+lower to 15-20m; if it misses, raise).
+
+----------------------------------------------------------------
+4. BUILD 3 — armed gating (last snap-2 slice)
+----------------------------------------------------------------
+GOAL: when Add toggle is RED (off), a map tap PANS the map instead of placing
+a point. Today the toolbar tracks addArmed but the JS bridge places on every tap.
+
+APPROACH:
+  - The toolbar's onAddPointModeArmed currently just calls setRouteMode(true).
+    Extend it to carry the armed boolean: e.g. setRouteMode(armed) or a new
+    JS fn setAddArmed(true/false).
+  - In convoy_map.html, the onMapTap emitter should only call
+    Android.onMapTap(...) when armed === true. When false, let the tap fall
+    through to normal Leaflet pan (do nothing / don't preventDefault).
+  - Wire the toolbar Add toggle so flipping it pushes the new state to JS.
+  Requires reading convoy_map.html's route-mode tap handler first.
+
+TEST: Add ON (green) -> taps place. Press Add -> RED -> taps pan/zoom, no points.
+Press again -> green -> placing resumes.
+
+----------------------------------------------------------------
+5. HARD RULES (do not violate — from this session + standing rules)
+----------------------------------------------------------------
+  - ConvoyScreen.kt = LF, ConvoyMapViewerScreen.kt = CRLF. Separate patches,
+    matching endings. cat -A to confirm before writing any patch.
+  - Route mode is a TWO-FILE MIRROR: the two screens must stay behaviorally
+    identical. Change both, build once.
+  - Patches: unique versioned filenames; anchor-guarded; abort clean on drift.
+  - Impact analysis FIRST: read field_crossref / where_used / function_universe
+    before writing code. (Standing rule 31.)
+  - Build discipline: ~3 builds/day; batch; one logical change per build.
+  - Release builds only on Droid 1 (8624SBCEDF00001789). Never debug on it.
+  - insertRoute writes into the SHARED tracks/routes table as type=ROUTE; it
+    rides the add-core dedup BYPASS (inline INSERT OR IGNORE) — same open item
+    as tracks (checklist §K). Don't "fix" dedup as a side effect of snap-2.
+  - Snap data source RESOLVED: re-query viewport at tap using retained bounds.
+    Do NOT add a displayedTrails/Tracks state var (zero-new-state was the call).
+  - DO NOT modify ConvoyConfig fields (shared state — breaks convoy map + downloader).
+
+----------------------------------------------------------------
+6. AFTER SNAP-2 IS PROVEN (next horizon, not this session)
+----------------------------------------------------------------
+  - AAB: bundleGoogleRelease, bump versionCode > 29320587, fix
+    SpecifyForegroundServiceType in AndroidManifest.xml (with ANR items).
+    PRE-AAB: verify streaming-parser geometry not over-capturing (checklist §K).
+  - Then route backfill use-cases ONE at a time (each its own patch):
+    Amend In-Progress (draft JSON I/O per the DataContract), Save in-progress,
+    Discard roll-back, Copy (lives in Work-with-Artifacts), Draw, Suggest.
+  - recommit_docs_v14.sh: deploy it (adds dated-archive pass; v13 only archived _v#).
+
+----------------------------------------------------------------
+7. OPENING MESSAGE FOR THE NEW SESSION
+----------------------------------------------------------------
+Paste this to start:
+
+  "Continuing GroupTrack V2.5 snap-2 routes. Build 1 (Save-completed) was
+   [built + tested / failed — details below]. Docs uploaded: checklist d,
+   Snap2 plan v2, write-contract, continuation plan. If Build 1 passed,
+   commit it and write Build 2 (snap-on-tap, 30m, both screens + 'In Progress'
+   relabel). Branch feature/convoy-event-ride. Remember: ConvoyScreen LF,
+   ConvoyMapViewer CRLF; route mode is a two-file mirror; re-query viewport
+   at tap for snap; don't touch ConvoyConfig."
+
+================================================================
+END — this doc + checklist d + Snap2 plan v2 + write-contract = full pickup set.
+================================================================

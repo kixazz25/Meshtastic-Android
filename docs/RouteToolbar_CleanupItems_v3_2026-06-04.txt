@@ -1,0 +1,59 @@
+================================================================
+ROUTE TOOLBAR — CLEANUP ITEMS (v3, post-commit 89285b00a)
+2026-06-04 · handle hit-testing bug diagnosed
+================================================================
+
+Toolbar at pact compliance, committed 89285b00a.
+
+----------------------------------------------------------------
+HANDLE BUG — DIAGNOSED (symptom: "handle opens the accordion")
+----------------------------------------------------------------
+Observed: tapping the ✥ grip handle toggles the accordion (collapse/expand)
+instead of dragging the panel.
+
+Root cause (two halves of one hit-testing problem):
+  - The ✥ handle has ONLY pointerInput{ detectDragGestures }. A detectDrag
+    only fires on DRAG motion, NOT on a tap. So a tap on the handle is not
+    consumed by the handle.
+  - The handle is the first child of the header Row; the title beside it has
+    Modifier.weight(1f).clickable { minimized = !minimized }. The unconsumed
+    tap falls through / bleeds to the weighted title's clickable -> accordion
+    toggles.
+  - The glyph is tiny, so the finger likely lands partly on the title hit
+    area too.
+Net: the drag never moves the bar (item 2) AND taps near the handle trigger
+the accordion. Same class of tap-vs-gesture collision as the QUEUES button.
+
+----------------------------------------------------------------
+RECOMMENDED FIX (snap-2 patch) — DROP THE DRAG
+----------------------------------------------------------------
+Strongest option (Option B from v2, now reinforced by this bug):
+  - Remove the detectDragGestures + offsetX/offsetY + .offset{} entirely.
+  - Header becomes purely: title + chevron, both .clickable -> accordion.
+  - Remove the ✥ handle, OR keep it as a non-interactive visual grip (no
+    pointerInput at all) so it can't eat or bleed taps.
+  - Result: no drag, no collision, no tap-bleed. Accordion is the only
+    real-estate control — sufficient on a ~380px phone panel.
+
+If drag is genuinely wanted later: it must be a real draggable with its own
+consumed tap+drag handling (separate pointerInput that consumes taps), placed
+so it doesn't overlap the title's clickable hit area. More work; not worth it
+now per Fred ("not important").
+
+----------------------------------------------------------------
+ALSO FOLD INTO SNAP-2 PATCH
+----------------------------------------------------------------
+1. LABEL: "Amend In-Progress Routes" -> "In Progress"
+   ConvoyRouteToolbar.kt EntryBtnDisabled label.
+
+----------------------------------------------------------------
+PLAY LAUNCH-GATE (§G, not now)
+----------------------------------------------------------------
+SpecifyForegroundServiceType lint — androidx.work SystemForegroundService
+needs android:foregroundServiceType in AndroidManifest.xml. Pre-existing,
+lint-only, build succeeded. Fix before Play submission, with the ANR items.
+
+----------------------------------------------------------------
+NEXT SESSION: snap-2 slice #1 (Save-completed, free points) per
+Snap2_Implementation_Plan_v2. Fold in: drop-drag fix + label rename.
+================================================================

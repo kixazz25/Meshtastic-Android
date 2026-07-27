@@ -1,0 +1,118 @@
+GroupTrack V2.5 — New Conversation Startup Checklist
+=====================================================
+Upload ALL of these documents before any code changes.
+Read them in this order. Do not proceed without them.
+=====================================================
+
+REQUIRED UPLOADS (in order):
+
+1. V25_Handoff_May28_EOD.txt
+   - Session summary, what works, what doesn't
+   - What went wrong and why
+   - Current state of all uncommitted files
+   - Area trail import investigation
+   - Track redesign composite concept
+   - Cleanup items and rules
+
+2. V25_ArtifactDisplay_Design.txt
+   - TARGET ARCHITECTURE for shared artifact display
+   - processArtifact() function spec with inputs/outputs
+   - onViewportChanged, onSetState, onEditDisplay, onDismiss
+   - State variables, JS functions, implementation order
+   - THIS IS THE BLUEPRINT — implement step by step
+
+3. field_crossref_raw.txt
+   - Field-level read/write locations across entire codebase
+   - MUST REFERENCE before modifying any file
+   - Shows every field, where it's read, where it's written
+
+4. where_used_raw.txt
+   - Function call sites — what calls what
+   - MUST REFERENCE before modifying any function
+   - Shows full call chains
+
+5. function_universe_raw.txt
+   - All functions with file names and line numbers
+   - Use to locate any function quickly
+   - Cross-reference with where_used for impact analysis
+
+6. GroupTrack_AllDocs.txt
+   - Complete project documentation
+   - Architecture decisions, API design, business model
+   - Historical context for all features
+
+7. V25_SharedArtifactDisplay_Model.kt
+   - Model function showing the pattern for tracks
+   - Clone for trails, waypoints, routes
+   - Shows how both maps call the same function
+
+OPTIONAL BUT HELPFUL:
+
+8. V25_ConvoyTrack_LeadOnly_Spec.md
+   - Full pipeline trace of convoy track drawing
+   - Relevant for track display debugging
+
+9. V25_Import_UX_Requirements.txt
+   - Import UX spec for trail/track import screens
+
+10. V25_BattlePlan_May28__1_.txt
+    - Original battle plan for May 28 session
+
+=====================================================
+FIRST ACTIONS IN NEW CONVERSATION
+=====================================================
+
+1. Upload documents 1-7 above
+2. Read handoff (doc 1) — understand current state
+3. Read design doc (doc 2) — understand target architecture
+4. Verify current branch and commit:
+     git log --oneline -3
+     git status --short
+5. Check if last build succeeded:
+     ls -la app/build/outputs/apk/google/release/app-google-release.apk
+6. If uncommitted changes exist, verify they match handoff doc
+7. Begin implementation per design doc implementation order
+
+=====================================================
+RULES (non-negotiable)
+=====================================================
+
+- Impact analysis BEFORE every code change
+- Reference field_crossref and where_used BEFORE modifying files
+- One change at a time, test after each
+- Verify APK timestamp after every build
+- touch *.kt after Python patches (Windows incremental build issue)
+- Never leave dual systems active — remove old before adding new
+- No direction changes without Fred's explicit agreement
+- Commit working states before starting new changes
+- Write the plan, confirm the plan, execute the plan
+- encoding='utf-8' on ALL Python open/write calls
+- Install command: adb -s [serial] install -r -d [apk]
+- Never omit -r -d flags (preserves data)
+- Build: ./gradlew assembleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease
+- AAB: ./gradlew bundleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease
+
+=====================================================
+DEVICE SERIALS
+=====================================================
+
+Android 1: 8624SBCEDF00001789
+Android 2: 24039703201775
+Tester 1:  P10V07162601000362
+Tester 2:  TC5010926B071521
+
+=====================================================
+KEY FILE LOCATIONS
+=====================================================
+
+Convoy map:     app/src/main/assets/convoy_map.html
+Planning map:   app/src/main/assets/grouptrack_map.html
+Shared JS:      app/src/main/assets/spatial_artifacts.js
+Convoy screen:  app/src/main/java/com/geeksville/mesh/convoy/ConvoyScreen.kt
+Planning screen: app/src/main/java/com/geeksville/mesh/convoy/ConvoyMapViewerScreen.kt
+Spatial DB:     app/src/main/java/com/geeksville/mesh/convoy/SpatialDbManager.kt
+Config:         app/src/main/java/com/geeksville/mesh/convoy/ConvoyConfig.kt
+Trail import:   app/src/main/java/com/geeksville/mesh/convoy/TrailImporter.kt
+Track ops:      app/src/main/java/com/geeksville/mesh/convoy/ConvoyTrackOps.kt
+Trail sources:  app/src/main/assets/trail_sources.json
+Artifacts panel: app/src/main/java/com/geeksville/mesh/convoy/ConvoyArtifactsPanel.kt

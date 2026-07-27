@@ -1,0 +1,145 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>GroupTrack — Handoff — 2026-07-22</title>
+<style>
+:root{--bg:#0f1216;--panel:#161b22;--ink:#e6edf3;--dim:#8b949e;--line:#30363d;--accent:#58a6ff;--good:#3fb950;--warn:#d29922;--bad:#f85149;--ui:-apple-system,"Segoe UI",Roboto,sans-serif;--mono:"SF Mono",Consolas,monospace}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 var(--ui);padding:0 0 60px}
+header{position:sticky;top:0;background:#0f1216f0;border-bottom:1px solid var(--line);padding:12px 18px;z-index:5}
+.ttl{font:700 17px var(--ui)}.ttl b{color:var(--accent)}.sub{font:12px var(--mono);color:var(--dim);margin-top:2px}
+main{max-width:900px;margin:0 auto;padding:16px 18px}
+h2{font:700 15px var(--ui);color:var(--accent);margin:22px 0 8px;border-bottom:1px solid var(--line);padding-bottom:4px}
+h3{font:700 13px var(--ui);color:var(--ink);margin:14px 0 4px}
+.tag{display:inline-block;font:700 10px var(--mono);padding:1px 6px;border-radius:4px;margin-right:6px;vertical-align:middle}
+.t-good{background:#12261a;color:var(--good);border:1px solid #1f6f3f}
+.t-warn{background:#2a2312;color:var(--warn);border:1px solid #6f5a1f}
+.t-bad{background:#2a1414;color:var(--bad);border:1px solid #6f2020}
+.t-prog{background:#12203a;color:var(--accent);border:1px solid #1f4f8f}
+.card{border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin:10px 0;background:var(--panel)}
+ul{margin:6px 0 6px 0;padding-left:20px}li{margin:4px 0}ol{margin:6px 0;padding-left:22px}
+code{background:#0c0f0a;padding:1px 5px;border-radius:3px;font:12px var(--mono);color:#e6edf3}
+.note{font:12px var(--mono);color:var(--dim);border-left:3px solid var(--line);padding:4px 10px;margin:8px 0}
+.hi{color:var(--warn);font-weight:700}.step{background:#12203a;border-left:3px solid var(--accent);padding:6px 10px;margin:8px 0}
+</style>
+</head><body>
+<header><div class="ttl"><b>GroupTrack</b> — Handoff</div><div class="sub">2026-07-22 · INTERNAL resume context · Rel 2.6c PUBLISHED to Play internal track · unsegmented-enqueue bypass root-caused (first open item)</div></header>
+<main>
+
+<div class="note">Carry this into the next conversation. Supersedes 2026-07-13. Route+ memory lives in the frozen-map memory file; this is the human-readable mirror. Supersedes 2026-07-12. Read "COMMITS + STATE" then "NEXT SESSION" first.</div>
+
+<h2>⭐ WHAT HAPPENED 2026-07-22 (this session)</h2>
+<div class="card">
+<p><b>Rel 2.6c is PUBLISHED to the Play internal track.</b> Code committed <code>0d7e44b74</code>; the convoy queues width fix + both 2.6c assets committed after; APK verified on device; AAB built and uploaded.</p>
+<h3>Shipped this session</h3>
+<ul>
+<li><b>Convoy DOWNLOAD QUEUES panel width fix.</b> Convoy’s Surface used <code>.align(TopEnd).statusBarsPadding().padding(top=32,end=8).width(260.dp)</code> — a FIXED 260dp in the top-right corner — while Planning used <code>.align(Center).padding(16.dp).fillMaxWidth(0.90f)</code>. Both wrap the SAME <code>DownloadQueuePanel</code> at the same font sizes, so Convoy squeezed the content into ~1/3 the width: “CLEAR DONE” stacked ONE LETTER PER LINE, queue rows fragmented. Fixed by matching Planning’s chain. Patch <code>patch_convoy_queues_width_2026-07-22.py</code> (dry-run → apply, count==1 anchor, CRLF-aware, .bak). Built green 11m03s, verified on device. <b>Convoy and Planning do NOT share this Surface</b> (separate copies, grep-confirmed) so Planning was unaffected. NOTE this is in the FROZEN <code>ConvoyScreen.kt</code>, but it is a Compose layout attribute only — nothing near the WebView / JS bridge / Leaflet / setView / MapStateStore.</li>
+<li><b>Manual updated for 2.6c</b> (see Living Master for the full list). Convoy route-building section removed; 6 screenshots recaptured; prose corrected; banners stripped.</li>
+<li><b>Release notes</b> title corrected to V2.6c.</li>
+</ul>
+<h3>⭐ Asset-naming convention settled (Fred)</h3>
+<p>Deliverables are versioned in <b>Downloads</b> (<code>grouptrack_manual_2.6c.html</code>, <code>grouptrack_release_notes_2.6c.html</code>) but copied into assets under the <b>canonical unchanged names</b> — the rename happens in transit, so the app’s loader needs no code change:</p>
+<p><code>cp ~/Downloads/grouptrack_manual_2.6c.html app/src/main/assets/grouptrack_manual.html</code><br>
+<code>cp ~/Downloads/grouptrack_release_notes_2.6c.html app/src/main/assets/grouptrack_release_notes.html</code></p>
+<h3>⭐ CANONICAL MANUAL QUESTION — CLOSED</h3>
+<p>The long-running “is it the 3.37MB annotated copy or a 6.3MB asset?” ambiguity is <b>resolved</b>: post-copy <code>ls -la</code> showed <b>3,637,240 bytes</b> byte-exact, and the pre-existing asset was the annotated file. <b>There is no 6.3MB manual.</b> Canonical = <code>app/src/main/assets/grouptrack_manual.html</code>.</p>
+<h3>⚠ Diagnostic lesson (cost ~20 min)</h3>
+<p>“Still showing old release notes” after reinstall was <b>the wrong device</b> — Droid 1 was sitting on top of Droid 2 and was running an older build. The APK was correct all along (<code>unzip -l</code> confirmed both assets byte-exact inside it). <b>Check the installed build’s timestamp against the build you just ran before theorizing about caching.</b></p>
+</div>
+
+<h2>⭐⭐⭐ FIRST OPEN ITEM — unsegmented <code>enqueue()</code> bypasses (root-caused, NOT patched)</h2>
+<div class="card">
+<p><b>Symptom:</b> artifact/track imports with “download maps” selected produce SAT submissions of <b>62,000+ tiles in a SINGLE queue entry</b>, though segmentation caps cells at 50,000.</p>
+<p><b>Cause:</b> two callers use bare <code>DownloadQueueManager.enqueue()</code>, which computes the whole box in one entry (<code>calculateTiles</code>, ConvoyDownloadQueue:127) with no split and no cap:</p>
+<ul>
+<li><code>SpatialDbManager.kt:1973</code> (<code>downloadMapsForTrackHash</code>) — the track-import path, <b>the 62K source</b>. Its bypass comment was VALID against the old fixed-12-mile <code>gridCells</code> (which returned NOTHING for a sub-12-mile box → totalTiles=0).</li>
+<li><code>ConvoyViewModel.kt:989</code> (<code>startDownload</code>) ← <code>ConvoyScreen:472</code>, fed by <code>setPendingDownload</code> at <code>:645</code>/<code>:876</code> — <b>no stated reason</b>, simply predates segmentation.</li>
+</ul>
+<p><b>⭐ Migration is SAFE — the blocker is cleared.</b> <code>segmentCells</code> (ConvoyTileDownloader:254) cannot return empty: <code>Math.max(1, ceil(sizeTiles/50_000))</code> floors at 1 and slices the ACTUAL bbox fractionally instead of snapping to a fixed grid, so a tiny per-track box yields exactly ONE cell. The documented reason for the SpatialDbManager bypass is dead.</p>
+<p><b>Fix:</b> route both through <code>submitDownload → enqueueArea → segmentCells</code>. <b>Do NOT call <code>segmentCells</code> directly</b> — it needs <code>sizeTiles</code> = layer-aware volume (<code>quickEstimate × slotLayers</code>), which <code>enqueueArea</code> already computes. <code>getTrackBbox()</code> (SpatialDbManager:1915) already exists as the correct replacement shape.</p>
+<p><b>⚠ Dependency:</b> <code>sizeTiles</code> comes from <code>quickEstimate</code>, which has the known source-awareness bug — a bad estimate UNDER-SPLITS even after migration. Test entry sizes after; don’t assume 62K is gone.</p>
+<p><b>✅ Fred’s source-switch hypothesis — DISCONFIRMED 07-23 (xref trace).</b> <code>startDownload</code> is NOT the source refresh: both <code>setPendingDownload</code> sites (ConvoyScreen :645/:876) are inside <code>onAreaSelected</code>, declared TWICE (:629, :860) as duplicate copies in two WebView JS-interface blocks — so bypass #2 is the convoy <b>draw-area selection</b> path. The map-source refresh lives in <code>ConvoyMapSourceScreen.kt</code> (:81-83) and calls <code>enqueueRefresh</code> at :271 → <code>segmentCells</code> = ALREADY SEGMENTED. Bypass / boot-loop / source-switch are NOT one thread. <b>⚠ AM FIRST STEP:</b> Fred says there are no active downloads on convoy — if draw-area selection is unreachable in the UI, bypass #2 is DEAD CODE (delete, don’t migrate). Confirm reachability on the device. Only <code>SpatialDbManager:1973</code> (track import) is confirmed live.</p>
+<p><b>Cleanup in the same commit:</b> delete dead <code>gridCells</code> (ConvoyTileDownloader:297) — grep shows ZERO call sites.</p>
+</div>
+
+<h2>Focus this session</h2>
+<p>Closed two threads to a committed, building, safe state before a week away, both on the <b>PLANNER</b> (MVS = ConvoyMapViewerScreen.kt): (1) <b>Route+ crash recovery</b> — shipped an interim manual-resume notice popup; auto-resume deferred. (2) <b>Save-name</b> — required naming on save, ending the "everything is auto-saved" problem. Convoy map stays FROZEN; the 07-12 Direction-2 convoy-first plan is SUPERSEDED (recovery landed on the planner instead).</p>
+
+<h2>⭐ COMMITS + STATE (feature/convoy-event-ride)</h2>
+<div class="card">
+<p><b>2.6c published 07-22.</b> Rel 2.6c code = <code>0d7e44b74</code>; convoy queues width fix + 2.6c assets committed after. Prior HEAD (07-13 session) = <code>a5a33dbfa</code>. Branch still local-only, ~130 commits ahead of origin — <b>push still blocked by 3 large .db in history; this is a single point of failure on the laptop and is now a Fred priority.</b></p>
+<ul>
+<li><code>a5af51128</code> — "Route recovery: seed routeMode from saved open (isolated read); In-Progress resume save; recovery-detect note." <span class="tag t-warn">PARTLY SUPERSEDED</span> The direct-seed arming was later REVERTED (see below); what remains live from this commit: the In-Progress resume <code>savePlanningState()</code> and the isolated-read machinery.</li>
+<li><code>bd6625583</code> — "Recovery: show manual-resume notice popup after settle (auto-resume deferred)." <span class="tag t-good">SHIPPED interim</span></li>
+<li><code>a5a33dbfa</code> — "Save-name: required name on save panel; in-progress=rename, completed=rename+spatial write." <span class="tag t-good">HEAD</span></li>
+</ul>
+<p>Prior known-good rollback point: <code>c03a942f5</code> (V2.6b). Artifact-suppression: <code>c570aa9d6</code>.</p>
+</div>
+
+<h2>Route recovery — what landed (interim) + exact mechanism</h2>
+<div class="card">
+<p><b>Shipped behavior:</b> crash mid-route → relaunch → planner settles → notice popup: <i>"A route was left open from your last session. To resume it, tap +ROUTE and choose In Progress."</i> → OK. User resumes via the proven In-Progress picker path. Clean exit → NO popup (verified — the important negative test).</p>
+<h3>Detection (isolated second read)</h3>
+<p>At the <code>routeMode</code> declaration (MVS ~136-137): <code>val routeSeedOpen = remember { MapStateStore.readMap("planning").routeState?.open == true }</code>. This is a DUPLICATE JSON read, independent of <code>pmSeed</code> (which is read later at ~224). <span class="hi">Do NOT move pmSeed up to share it — scope risk; Fred explicitly chose to duplicate the read.</span></p>
+<h3>Trigger (after render)</h3>
+<p>In <code>onPageFinished</code>'s <code>postDelayed</code> block (MVS ~645), immediately AFTER <code>SpatialDisplayManager.drawPersistedState("planning", view, context)</code> and BEFORE <code>return@postDelayed</code>: a one-shot guarded flag set — <code>if (routeSeedOpen && !recoveryLaunched) { recoveryLaunched = true; recoveryPending = true }</code>. Guard vars declared near ~146: <code>recoveryLaunched</code>, <code>recoveryPending</code> (plus <code>recoveryDetected</code> from the earlier detect patch).</p>
+<h3>The popup</h3>
+<p>An AlertDialog gated on <code>recoveryPending</code>, placed just BEFORE the <code>showInProgressPicker</code> dialog (MVS ~1160). Single OK button sets <code>recoveryPending = false</code>. Purely informational — no load, no arm.</p>
+<h3>Why auto-resume was DEFERRED (the core lesson)</h3>
+<p><span class="hi">Processing before render.</span> Three approaches all failed the same way — armed but not drawable:</p>
+<ul>
+<li><b>Seeding routeMode true at init</b> — armed the route before the map/desktop rendered → route "started" into an unrendered surface (no draw, "no prompt", message swallowed). ALSO broke compile: MVS:204 BackHandler back-gate uses <code>routeMode</code> before a moved declaration; and seeding the LIVE field fought the back-gate's need for blank-on-launch AND reintroduced the old convoy stuck-arm. REVERTED — routeMode stays <code>mutableStateOf(false)</code>.</li>
+<li><b>Direct load in onPageFinished</b> (<code>loadIntoRouteManager</code> + <code>routeMode=true</code>) — came up armed but NOT drawable because it SKIPPED the geometry redraw the In-Progress picker does (queryGeomByIds → buildSegments → JS <code>drawBuildLine</code>).</li>
+</ul>
+<p>Manual In-Progress resume works flawlessly (Fred verified: exit → +ROUTE → In Progress → auto-saved route loads + draws + arms). So the interim ships the notice and defers automation.</p>
+<h3>Auto-resume — the plan when back</h3>
+<p>After settle, TRIGGER THE EXISTING In-Progress picker path (it does the redraw correctly) — do NOT rebuild the load in onPageFinished. Cleanest: give the recovery popup a "Resume" button → <code>showInProgressPicker = true</code> → user taps the "Auto Saved In Progress" draft → proven path (loadIntoRouteManager → routeName/routeMethod/routeLifecycleState=ROUTE_LS_RESUMED → routeEntryNonce++ → routeMode=true → savePlanningState → scope.launch{ BY-ID rederive → drawBuildLine }). The In-Progress select handler is at MVS ~1159-1195; mirror or invoke it.</p>
+</div>
+
+<h2>Save-name — the "everything is auto-saved" fix (committed a5a33dbfa)</h2>
+<div class="card">
+<p><b>Problem:</b> every route saved silently keeping the auto-name "Auto Saved In Progress". The auto-name was introduced so a crash leaves a recoverable named draft; the name requirement moved from up-front to SAVE but was never wired.</p>
+<p><b>Key structural fact (Fred):</b> the draft writes on EVERY data point, so the save action only needs a RENAME — not a re-write.</p>
+<h3>Save-choice panel ("Save route" AlertDialog, MVS ~1091)</h3>
+<ul>
+<li>Required name field (OutlinedTextField) in the <code>text={}</code> block. Value blank if current name == "Auto Saved In Progress", else editable. Both buttons gated on a non-blank, non-auto name (toast "Enter a route name" otherwise).</li>
+<li>Original on-disk name captured when the panel opens: <code>onSaveRequested = { saveOrigName = routeName; showSaveChoice = true }</code>. <code>saveOrigName</code> declared near ~146. This is the rename SOURCE (correct whether auto-named or already-named).</li>
+<li><b>Save as in progress</b> (dismissButton): <code>renameDraft(saveOrigName, newName)</code> ONLY (dropped the old writeDraft/overwriteDraft — draft already written per point) → clearRoute + routeMode=false. Runs in <code>scope.launch{ withContext(IO){ rename } }</code>.</li>
+<li><b>Save as completed</b> (confirmButton): gated on pts≥2 → <code>scope.launch{ withContext(IO){ renameDraft(saveOrigName,newName) }; routeName=newName; delay(400); saveCompleted() }</code>. The <code>delay(400)</code> lets the async rename settle before <code>saveCompleted()</code>'s <code>insertRoute</code> (MVS ~984) reads the renamed routeName. saveCompleted's spatial-DB write logic UNCHANGED.</li>
+</ul>
+<p><b>renameDraft</b> (RouteDraftStore:225): writes new-name file (tmp→rename), <code>src.delete()</code> on success, <code>isNameTaken</code> guard. <span class="tag t-warn">VERIFY</span> a leftover "Auto Saved In Progress" file appeared ONCE then was gone on retest — run several cycles when back to confirm cleanup is reliable; if it recurs, inspect the <code>isNameTaken</code> false-block and whether a COMPLETED save should DELETE the graduated draft (route now lives in spatial DB, draft's job done).</p>
+</div>
+
+<h2>Architecture settled — DO NOT re-litigate</h2>
+<ul>
+<li><code>routeMode</code> stays <code>mutableStateOf(false)</code> at init (MVS ~137). It is LIVE session state read by the back-gate (MVS:204 <code>BackHandler { if (routeMode) toast else onBack() }</code>). NOT seeded from persistence. Seeding created a chicken-and-egg (back wants blank-on-launch; seed wants true-after-crash — same var, opposite needs) AND reintroduced the convoy stuck-arm.</li>
+<li>"Every field writes on every update" is THE RULE and STAYS (Fred: "it's not the writes that failed, it's the seeding, and that is on us"). Do NOT propose write-only markers / omitting fields from saves / separate marker stores.</li>
+<li>Recovery DETECTION = isolated duplicate JSON read; recovery ACTION only after render (onPageFinished postDelayed), never during init.</li>
+<li>Convoy map (ConvoyScreen.kt) FROZEN — layered Kotlin↔JS↔Leaflet↔self-saving-setView↔shared-MapStateStore process undocumented. Route+ is planner-only. 07-12 Direction-2 convoy-first plan SUPERSEDED. Known pre-existing convoy bbox-padding cumulative-zoom-out bug left as-is.</li>
+<li>The compiler self-documents forward-reference errors — let it review rather than hand-auditing uses (that's how the MVS:204 conflict surfaced).</li>
+</ul>
+
+<h2>Key code anchors (MVS = ConvoyMapViewerScreen.kt, approximate post-commit lines)</h2>
+<div class="card"><ul>
+<li>~136-137: <code>routeSeedOpen</code> (isolated read) + <code>routeMode = mutableStateOf(false)</code></li>
+<li>~146: <code>recoveryDetected</code>, <code>recoveryLaunched</code>, <code>recoveryPending</code>, <code>saveOrigName</code> vars</li>
+<li>~204: BackHandler back-gate <code>if (routeMode)</code></li>
+<li>~224: <code>pmSeed = MapStateStore.readMap("planning")</code>; ~226-229 trail/track/waypoint/routeState seeds</li>
+<li>~242/264: <code>savePlanningState()</code> def; writes <code>RouteState(routeMode,"draft",routeName)</code></li>
+<li>~613/645: <code>onPageFinished</code> → postDelayed → <code>drawPersistedState</code> → recovery-pending flag → <code>return@postDelayed</code>; CS:726-equivalent GPS-center is the ELSE branch (don't touch)</li>
+<li>~965/984: <code>saveCompleted</code> def / <code>insertRoute</code></li>
+<li>~1091: "Save route" AlertDialog (name field + both save buttons)</li>
+<li>~1160: recovery notice AlertDialog (recoveryPending) then showInProgressPicker</li>
+<li>~1159-1195: In-Progress select handler (the proven resume path to reuse for auto-resume)</li>
+<li>RouteDraftStore.kt: writeDraft 85, overwriteDraft 92, draftExists 167, renameDraft 225, deleteDraft 245</li>
+</ul></div>
+
+<h2>Next session — start here</h2>
+<ol>
+<li><b>FIRST OPEN ITEM</b> (above): migrate the two <code>enqueue()</code> bypasses onto <code>submitDownload/enqueueArea/segmentCells</code>; delete dead <code>gridCells</code>; answer Fred’s source-switch hypothesis. Re-test import-with-maps entry sizes.</li>
+<li><b>Fix 6 — planner padding drift</b> (Fred priority: “annoying continually entering a shrinking panel”). Explicit <code>fitToBounds(bbox, padding:Int)</code>; restore passes 0, content-fit ~60; default the arg if shared with convoy. Scope with the two greps in the Living Master.</li>
+<li><b>git push unblock</b> (Fred priority) — purge 3 large .db from history, <code>*.db</code> to .gitignore, push. <b>Do this FIRST and ALONE; full repo backup to external media before running filter-repo</b> (rewrites every hash; branch exists nowhere else).</li>
+<li><b>loadQueue boot-loop immunity</b> + saveQueue atomic-write — still the top catastrophe-preventer, and now live on tester devices via 2.6c. Tolerant parse, quarantine-and-continue, never let a queue entry crash boot. <b>Possibly linked to item 1</b> (oversized unsegmented entries as the poison payload).</li>
+<li>Route+ auto-resume; verify save-name draft cleanup across several cycles.</li>
+<li>BUILD point-counter refresh; in-progress picker not listing populated drafts.</li>
+</ol>
+
+<div class="note">Install: <code>adb -s 24039703201775 install -r -d app/build/outputs/apk/google/release/app-google-release.apk</code> (-r -d mandatory). Build: <code>./gradlew assembleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease</code>. Test device Droid 2 = 24039703201775 (sacrificial). Claude cannot run adb/git/gradle — Fred executes. Rel 2.6c = <code>0d7e44b74</code> + later commits (2.6c PUBLISHED). Patch convention: uniquely-named Python to /c/Users/kixaz/Downloads/, dry-run default (--apply), count==1 anchor, CRLF-aware.</div>
+
+</main></body></html>

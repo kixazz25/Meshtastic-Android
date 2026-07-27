@@ -1,0 +1,112 @@
+========================================================================
+COMPLETED TASK — GroupTrack V2.6
+========================================================================
+TASK: Tile-download load-balancing segmentation (+ 2x10 concurrency)
+COMMIT: e38e43487 — "V2.6 tile segmentation: SAT-sized load-balancing
+        grid across all sources; 2x10 download concurrency"
+        (3 files, +92/-3: ConvoyDownloadQueue.kt, ConvoyTileCalculator.kt,
+        ConvoyTileDownloader.kt)
+STATUS: SHIPPED + committed 2026-07-11. Validated on-device (Droid 1).
+DOC GENERATED: 2026-07-11 (reconciliation offload from working memory)
+------------------------------------------------------------------------
+
+TASK DESCRIPTION
+----------------
+Replace the fixed-12-mile area-download grid with a load-balancing
+segmentation that splits any download bbox into equal-area cells sized so
+no single cell exceeds ~50,000 SAT tiles, so parallel download slots do
+comparable work and finish together instead of one giant job stranding a
+slot for the long tail. Goal: make download balance STRUCTURAL rather than
+the accidental luck of the old grid.
+
+SAVED MEMORY CONTENTS (as of completion)
+----------------------------------------
+- COMMITTED e38e43487 (3 files +92/-3: ConvoyDownloadQueue.kt,
+  ConvoyTileCalculator.kt, ConvoyTileDownloader.kt). Branch 119 ahead of
+  origin (push-blocked by large .db files in history — separate infra item).
+
+- WHAT SHIPPED: ConvoyTileDownloader.segmentCells(north, south, east, west,
+  sizeTiles, segCeilingTiles=50_000, overlapTiles=3, zMax=DOWNLOAD_ZOOM)
+  REPLACES the fixed-12-mile gridCells as the bbox splitter for AREA
+  downloads. Splits bbox into n = max(1, ceil(sizeTiles / 50_000)) equal
+  degree-slices of the LONGER axis; each cell is a full z10-z18 vertical
+  slice (NEVER zoom-banded); returns the same List<DoubleArray> [N,S,E,W]
+  shape as gridCells so the enqueue loop (one QueueEntry per cell) is
+  UNCHANGED. Logs every cell + a SPLIT summary under "SEGMENT"
+  (adb logcat -s SEGMENT). REFRESH path (gridCells ~line 216) LEFT
+  UNTOUCHED. cells.isEmpty() branch now dead but harmless. Heavy inline
+  notes in segmentCells document the bug history.
+
+- SIZING (layer-aware, all-sources-ride-SAT-grid): enqueueArea computes
+  oneLayerTiles = quickEstimate(bbox).tileCount, then
+  satLayers = getDownloadSources().find{it.first=="SAT"}?.second?.size ?:
+  slotLayers, then sizeTiles = oneLayerTiles × satLayers -> passed to
+  segmentCells. So EVERY slot (called once each from submitDownload's
+  per-slot loop, line 211) sizes off SAT's 3-layer total -> identical
+  segment grid for SAT/TOPO/TOPO+. SAT key is literally "SAT"
+  (MapSourceManager line 143 SlotConfig / line 53 activeSourceKey).
+  SEPARATE variables, both correct: sizeTiles uses satLayers (grid COUNT,
+  always SAT); per-cell QueueEntry.totalTiles = calculateTiles(cell).size ×
+  slotLayers (current slot's REAL per-cell count).
+
+- OVERLAP (final, correct): pad = if(n>1) overlapTiles × (360 / 2^zMax)
+  else 0.0 — i.e. 3 tile-widths ~0.004 deg at z18, applied outward on every
+  edge, SEAM-ONLY (a 1-segment area gets ZERO pad). hasTile() dedupes
+  overlap fetches -> zero redundant storage.
+  HARD-LEARNED: overlap must be TILE-WIDTHS, NOT degrees. Earlier specs of
+  1/8 / 1/4 / 1/2 degree were ALL catastrophically wrong — 1/8 deg at z18
+  ~= 91 tiles/edge, which ballooned a 24,716-tile area to 155,674 (6x) in
+  the dry-run JSON. One tile at z18 = 360 / 2^18 = 0.00137 deg. Never pad in
+  fixed degrees.
+
+- THE THREE BUGS the belt-and-suspenders validation caught before final
+  ship (visibility insisted on so nothing was a "miracle event" — it paid
+  off):
+  (1) OVERLAP 1/8-deg = 91-tiles -> 6x blowup (caught by dry-run JSON);
+  (2) SIZING under-count — quickEstimate returns ONE layer (~24,716) but SAT
+      downloads 3 layers over the same geography = ~74,148 ~= real 74K
+      (caught by reading the JSON: "24,716 × 3 sources");
+  (3) PER-SOURCE GRID MISMATCH — enqueueArea called per-slot so SAT split 2
+      but TOPO/TOPO+ split 1 (caught by live SEGMENT logcat).
+  Bugs 1 & 2 caught ON PAPER via the dry-run JSON before any segmented
+  download ran; bug 3 caught live. Dry-run scaffolding (analyzeSegmentation
+  + its JSON writer) was STRIPPED before commit (strip_dryrun_analysis.py) —
+  the SEGMENT logcat is the permanent validation tool.
+
+- RESULT (on-device): segmentation balanced, "ran faster with two queues
+  active instead of 3" — 2 queues BEATS 3, the priority validated. Balance
+  is now STRUCTURAL (no single job big enough to strand a slot), not the
+  accidental 50/50 luck of the old 12-mile grid. Worked examples: 74K SAT ->
+  2 segments ~37K each; 212K full-strip -> 5 bands ~42.5K each; ~30K
+  corridor -> 1 job (no split).
+
+- CONCURRENCY CONFIG shipped in same commit: MAX_CONCURRENT=2 (line 85
+  ConvoyDownloadQueue.kt — was bumped to 3 for a test, reverted),
+  TILE_FETCH_CONCURRENCY=10 (line 38 ConvoyTileDownloader.kt, was 8).
+  TILE_FETCH_CONCURRENCY = tiles.chunked(N) batch in downloadTiles ~line
+  143: N tiles fetched parallel via async, inserted SERIAL (one cached
+  SQLite handle/type = concurrent writes unsafe).
+  Patch scripts used: implement_segmentation_v2.py,
+  fix_all_sources_use_sat_grid.py, set_2queues_10async.py,
+  strip_dryrun_analysis.py.
+
+- DESIGN RULES (durable, for future segmentation work):
+  ROUNDING = segment count ceil(estimate / 50K), always round toward
+  MORE / SMALLER cells (212K/50K = 4.24 -> ceil 5 = ~42.5K safe, not
+  4 = 53K over).
+  CUT DIRECTION = cut the LONGER axis; keep cells as near-square as the area
+  allows (cuts_long / cuts_short ~= length ratio); skinny areas band along
+  their length.
+  SUBMISSION ORDER unchanged (SAT-first already).
+  OPEN geometry option (deferred): a fixed-1/4-deg-grid snap instead of
+  dynamic slices would add cross-download dedup (aligns with the Phase-4
+  download-once/serve-many strategy) — dynamic slices shipped; fixed-grid is
+  a future option.
+
+OPEN FOLLOW-UP (not part of this completed task; tracked in working memory)
+--------------------------------------------------------------------------
+- Timing test 2x10 vs 2x8 on balanced segments (async-only variable); if
+  faster probe 2x12, if flat keep 8.
+- Commit was not build-verified after the final dry-run-scaffolding strip
+  (mechanical removal, should compile — self-verifies at next build).
+========================================================================

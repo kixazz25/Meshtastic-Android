@@ -1,0 +1,449 @@
+GroupTrack V2.5 — Shared Artifact Display System
+===================================================
+Design Document — May 28, 2026
+Applied to: BOTH ConvoyScreen.kt AND ConvoyMapViewerScreen.kt
+===================================================
+
+OVERVIEW
+--------
+One generic pipeline handles all artifact types (trails, tracks, 
+waypoints, routes, and any future types). The pipeline:
+  1. Queries the spatial DB for items in the map bounding box
+  2. Builds a filter list of all items found
+  3. Applies display state (ON/OFF/SELECTED) to determine selection
+  4. Pushes selected items to the map for rendering
+  
+The filter list ALWAYS drives the display. Nothing renders on the 
+map unless it is in the filter list and marked as selected.
+
+Both maps call the same functions. No duplicate implementations.
+
+===================================================
+CURRENT STATE (broken — two disconnected paths)
+===================================================
+
+PATH A — Display (viewport handler):
+  Map moves → onViewportChanged → query spatial DB → build GeoJSON
+  → push to JS → map renders
+  Filter list is NOT populated. Display happens independently.
+
+PATH B — Filter (user action):
+  User taps Edit/Display → separate query → populate filter list
+  → user toggles items → on close, update ConvoyConfig → 
+  trigger viewport refresh → PATH A runs with filter applied
+  
+PROBLEM: Path A displays without consulting the filter list.
+Path B is a separate query with separate state. They diverge.
+This exists on BOTH planning map and convoy map.
+
+===================================================
+TARGET STATE — One Path
+===================================================
+
+Map moves → processArtifact(type, bbox) →
+  Step 1: Query spatial DB for ALL items of this type in bbox
+  Step 2: Build filter list from query results
+  Step 3: Apply toggle state to determine selected items
+  Step 4: Build GeoJSON from SELECTED items only  
+  Step 5: Push GeoJSON to map display
+  Step 6: Store filter list for Edit/Display panel
+
+User taps Edit/Display → shows STORED filter list (no new query)
+User changes selections → re-run Steps 3-5 with new selections
+
+===================================================
+FUNCTION 1: processArtifact()
+===================================================
+
+LOCATION: New file SpatialDisplayManager.kt 
+          (or static function in SpatialDbManager.kt)
+
+SIGNATURE:
+  fun processArtifact(
+      type: String,              // "Trails", "Tracks", "Waypoints", "Routes"
+      south: Double,             // Bounding box south
+      west: Double,              // Bounding box west  
+      north: Double,             // Bounding box north
+      east: Double,              // Bounding box east
+      zoom: Int,                 // Current map zoom level
+      webView: WebView?,         // WebView to push display to
+      context: Context,          // Android context for DB init
+      onFilterListReady: (List<Map<String,String?>>, Set<String>) -> Unit
+                                 // Callback: (allItems, selectedIds)
+  )
+
+INPUTS:
+  - type: artifact type string, drives which query/builder to call
+  - south, west, north, east: bounding box from map viewport
+  - zoom: map zoom level (controls query limits and min zoom thresholds)
+  - webView: target WebView for JS display calls
+  - context: Android context for SpatialDbManager.init()
+  - onFilterListReady: callback to update Compose state on main thread
+
+OUTPUTS (via side effects):
+  - WebView receives updateType(geojson) and showType() calls
+  - onFilterListReady receives the full item list and selected IDs
+  - ConvoyConfig is NOT modified (read only)
+
+INTERNAL FLOW:
+
+  1. READ display state from ConvoyConfig:
+     val state = when(type) {
+         "Trails"    -> ConvoyConfig.trailDisplayState
+         "Tracks"    -> ConvoyConfig.trackDisplayState
+         "Waypoints" -> ConvoyConfig.waypointDisplayState
+         "Routes"    -> ConvoyConfig.routeDisplayState
+         else -> return
+     }
+
+  2. If state == DS_OFF:
+     - Call hideType() on WebView
+     - Call onFilterListReady(emptyList(), emptySet())
+     - Return
+
+  3. QUERY spatial DB:
+     SpatialDbManager.init(context)
+     val allItems = when(type) {
+         "Trails"    -> if (zoom >= 8) queryTrailsByViewport(s,w,n,e,limit) else emptyList()
+         "Tracks"    -> queryTracksByViewport(s,w,n,e, if(zoom>=12) 200 else 50)
+         "Waypoints" -> queryWaypointsByViewport(s,w,n,e,limit)
+         "Routes"    -> queryRoutesByViewport(s,w,n,e,limit)
+     }
+
+  4. BUILD filter list:
+     val idField = when(type) {
+         "Trails"->"trail_id"; "Tracks"->"track_id"
+         "Waypoints"->"waypoint_id"; "Routes"->"route_id"
+     }
+     val filterList = allItems.map { item ->
+         mapOf("id" to (item[idField] ?: ""),
+               "name" to (item["name"] ?: item["PrimaryName"] ?: "Unnamed"))
+     }
+
+  5. READ checked IDs from ConvoyConfig:
+     val checkedIds = when(type) {
+         "Trails"    -> ConvoyConfig.trailChecked
+         "Tracks"    -> ConvoyConfig.trackChecked
+         "Waypoints" -> ConvoyConfig.waypointChecked
+         "Routes"    -> ConvoyConfig.routeChecked
+         else -> null
+     }
+
+  6. APPLY display state to determine selected items:
+     val selectedItems: List<Map<String,String?>>
+     val selectedIds: Set<String>
+     
+     when(state) {
+         DS_ON -> {
+             selectedItems = allItems         // everything displays
+             selectedIds = allItems.mapNotNull { it[idField] }.toSet()
+         }
+         DS_SELECTED -> {
+             if (checkedIds != null) {
+                 selectedItems = allItems.filter { it[idField] in checkedIds }
+                 selectedIds = checkedIds
+             } else {
+                 selectedItems = allItems      // no prior selection, show all
+                 selectedIds = allItems.mapNotNull { it[idField] }.toSet()
+             }
+         }
+         else -> {
+             selectedItems = emptyList()
+             selectedIds = emptySet()
+         }
+     }
+
+  7. BUILD GeoJSON from selected items:
+     val json = when(type) {
+         "Trails"    -> SpatialDbManager.buildTrailGeoJson(selectedItems)
+         "Tracks"    -> SpatialDbManager.buildTrackGeoJson(selectedItems)
+         "Waypoints" -> SpatialDbManager.buildWaypointGeoJson(selectedItems)
+         "Routes"    -> SpatialDbManager.buildRouteGeoJson(selectedItems)
+     }
+
+  8. PUSH to map display:
+     val jsUpdate = when(type) {
+         "Trails"->"updateTrails"; "Tracks"->"updateTracks"
+         "Waypoints"->"updateWaypoints"; "Routes"->"updateRoutes"
+     }
+     val jsShow = when(type) {
+         "Trails"->"showTrails"; "Tracks"->"showTracks"
+         "Waypoints"->"showWaypoints"; "Routes"->"showRoutes"
+     }
+     Handler(Looper.getMainLooper()).post {
+         webView?.evaluateJavascript("$jsUpdate($json)", null)
+         webView?.evaluateJavascript("$jsShow()", null)
+     }
+
+  9. DELIVER filter list to UI:
+     Handler(Looper.getMainLooper()).post {
+         onFilterListReady(filterList, selectedIds)
+     }
+
+===================================================
+FUNCTION 2: onViewportChanged handler
+===================================================
+
+LOCATION: ConvoyScreen.kt AND ConvoyMapViewerScreen.kt
+          (inside addJavascriptInterface)
+
+Both maps have IDENTICAL handler code:
+
+  @JavascriptInterface
+  fun onViewportChanged(north: Double, south: Double, 
+                        east: Double, west: Double, zoom: Double) {
+      lastViewportSouth = south
+      lastViewportWest = west
+      lastViewportNorth = north  
+      lastViewportEast = east
+      lastZoom = zoom.toInt()
+      
+      Thread {
+          for (type in listOf("Trails", "Tracks", "Waypoints", "Routes")) {
+              processArtifact(
+                  type = type,
+                  south = south, west = west, north = north, east = east,
+                  zoom = zoom.toInt(),
+                  webView = webViewRef.value,  // or webViewRef for planning map
+                  context = context,
+                  onFilterListReady = { list, ids ->
+                      // Store for the active panel if it matches this type
+                      when(type) {
+                          "Trails"    -> { trailFilterList = list; trailSelectedIds = ids }
+                          "Tracks"    -> { trackFilterList = list; trackSelectedIds = ids }
+                          "Waypoints" -> { wptFilterList = list; wptSelectedIds = ids }
+                          "Routes"    -> { routeFilterList = list; routeSelectedIds = ids }
+                      }
+                      // If this type's panel is currently open, refresh it
+                      if (activeListType == type) {
+                          artifactList = list
+                          selectedArtifactIds = ids
+                      }
+                  }
+              )
+          }
+      }.start()
+  }
+
+INPUTS: bounding box coordinates from JavaScript map.on('moveend')
+OUTPUTS: stored filter lists per type, map display updated
+
+===================================================
+FUNCTION 3: onSetState handler
+===================================================
+
+LOCATION: ConvoyArtifactsPanel callback in both screens
+
+  onSetState = { typeName, newState ->
+      // Update config
+      when(typeName) {
+          "Trails"    -> { ConvoyConfig.trailDisplayState = newState; trailState = newState }
+          "Tracks"    -> { ConvoyConfig.trackDisplayState = newState; trackState = newState }
+          "Waypoints" -> { ConvoyConfig.waypointDisplayState = newState; waypointState = newState }
+          "Routes"    -> { ConvoyConfig.routeDisplayState = newState; routeState = newState }
+      }
+      
+      // If turning OFF, clear checked IDs
+      if (newState == DS_OFF) {
+          when(typeName) {
+              "Trails"    -> ConvoyConfig.trailChecked = null
+              "Tracks"    -> ConvoyConfig.trackChecked = null
+              "Waypoints" -> ConvoyConfig.waypointChecked = null
+              "Routes"    -> ConvoyConfig.routeChecked = null
+          }
+      }
+      
+      // Re-run processArtifact for this type with current viewport
+      Thread {
+          processArtifact(
+              type = typeName,
+              south = lastViewportSouth, west = lastViewportWest,
+              north = lastViewportNorth, east = lastViewportEast,
+              zoom = lastZoom,
+              webView = webViewRef.value,
+              context = context,
+              onFilterListReady = { list, ids -> ... }  // same as above
+          )
+      }.start()
+  }
+
+INPUTS: artifact type name, new state value (DS_ON, DS_OFF, DS_SELECTED)
+OUTPUTS: ConvoyConfig updated, processArtifact re-run
+
+===================================================
+onEditDisplay — NO QUERY, just show stored list
+===================================================
+
+  onEditDisplay = { typeName ->
+      val list = when(typeName) {
+          "Trails"    -> trailFilterList
+          "Tracks"    -> trackFilterList
+          "Waypoints" -> wptFilterList
+          "Routes"    -> routeFilterList
+          else -> emptyList()
+      }
+      val ids = when(typeName) {
+          "Trails"    -> trailSelectedIds
+          "Tracks"    -> trackSelectedIds
+          "Waypoints" -> wptSelectedIds
+          "Routes"    -> routeSelectedIds
+          else -> emptySet()
+      }
+      if (list.isNotEmpty()) {
+          artifactList = list
+          selectedArtifactIds = ids
+          activeListType = typeName
+      } else {
+          Toast.makeText(context, "No $typeName in view", LENGTH_SHORT).show()
+      }
+  }
+
+INPUTS: artifact type name
+OUTPUTS: opens ArtifactListPanel with already-populated data
+NOTE: NO spatial DB query. List was built by processArtifact.
+
+===================================================
+onDismiss — save selections, re-display
+===================================================
+
+  onDismiss = {
+      val checked = selectedArtifactIds
+      val allIds = artifactList.mapNotNull { it["id"] }.toSet()
+      val newState = when {
+          checked.isEmpty() -> DS_OFF
+          checked.containsAll(allIds) && allIds.size == checked.size -> DS_ON
+          else -> DS_SELECTED
+      }
+      
+      // Save to config
+      when(activeListType) {
+          "Trails" -> {
+              ConvoyConfig.trailDisplayState = newState
+              ConvoyConfig.trailChecked = if (newState == DS_SELECTED) checked else null
+              trailState = newState
+          }
+          // Same pattern for Tracks, Waypoints, Routes
+      }
+      
+      // Re-run display with new filter
+      val type = activeListType ?: return
+      activeListType = null
+      
+      Thread {
+          processArtifact(
+              type = type,
+              south = lastViewportSouth, west = lastViewportWest,
+              north = lastViewportNorth, east = lastViewportEast,
+              zoom = lastZoom,
+              webView = webViewRef.value,
+              context = context,
+              onFilterListReady = { list, ids -> ... }
+          )
+      }.start()
+  }
+
+INPUTS: user's checkbox selections from ArtifactListPanel
+OUTPUTS: ConvoyConfig updated, map display refreshed
+
+===================================================
+STATE VARIABLES NEEDED (per screen)
+===================================================
+
+Compose state (in each screen):
+  var trailState         // DS_OFF, DS_ON, DS_SELECTED
+  var trackState
+  var waypointState  
+  var routeState
+  var trailFilterList    // List<Map<String,String?>> — all items in bbox
+  var trackFilterList
+  var wptFilterList
+  var routeFilterList
+  var trailSelectedIds   // Set<String> — currently selected item IDs
+  var trackSelectedIds
+  var wptSelectedIds
+  var routeSelectedIds
+  var artifactList       // current panel's list (whichever type is open)
+  var selectedArtifactIds // current panel's selections
+  var activeListType     // which panel is open, null if none
+  var lastViewportSouth/West/North/East/Zoom  // last known viewport
+
+Persistent state (ConvoyConfig — shared between maps):
+  trailDisplayState, trackDisplayState, waypointDisplayState, routeDisplayState
+  trailChecked, trackChecked, waypointChecked, routeChecked
+
+===================================================
+JS FUNCTIONS (spatial_artifacts.js — shared)
+===================================================
+
+Per artifact type (Trails as example):
+  loadTrails(geojsonData)    — creates Leaflet GeoJSON layer
+  updateTrails(geojsonData)  — replaces layer, preserves visibility
+  showTrails()               — adds layer to map, sets visible flag
+  hideTrails()               — removes layer from map, clears flag
+  clearTrails()              — removes and nulls layer
+  toggleTrails()             — show/hide toggle
+
+Same pattern for Tracks, Waypoints, Routes.
+
+Currently inlined into convoy_map.html (Android WebView blocks 
+external script includes from file:// URLs).
+
+PROPER FIX: Kotlin reads spatial_artifacts.js from assets and 
+injects via evaluateJavascript after WebView loads:
+  val js = context.assets.open("spatial_artifacts.js")
+      .bufferedReader().use { it.readText() }
+  webView.evaluateJavascript(js, null)
+Apply to BOTH maps. Remove inline duplicates from BOTH HTML files.
+grouptrack_map.html still has its own inline versions — needs same cleanup.
+
+===================================================
+IMPLEMENTATION ORDER
+===================================================
+
+1. Write processArtifact() function — test with Tracks only
+2. Wire convoy map onViewportChanged to call processArtifact for Tracks
+3. Verify: tracks display, filter list populates, ON/OFF/SEL works
+4. Add Trails, Waypoints, Routes to the loop
+5. Wire planning map onViewportChanged to same function
+6. Verify planning map still works
+7. Implement Kotlin JS injection for spatial_artifacts.js
+8. Remove inline spatial functions from both HTML files
+9. Clean commit
+
+===================================================
+EXISTING SPATIAL DB FUNCTIONS (SpatialDbManager.kt)
+===================================================
+
+Query functions (return List<Map<String,String?>>):
+  queryTrailsByViewport(south, west, north, east, limit)
+  queryTracksByViewport(south, west, north, east, limit)
+  queryWaypointsByViewport(south, west, north, east, limit)
+  queryRoutesByViewport(south, west, north, east, limit)
+  queryArtifactList(table, south, west, north, east)
+
+GeoJSON builders (return String):
+  buildTrailGeoJson(trails)
+  buildTrackGeoJson(tracks)
+  buildWaypointGeoJson(waypoints)
+  buildRouteGeoJson(routes)
+
+Init:
+  init(context) — opens/creates the spatial GeoPackage DB
+
+All of these exist and work. No changes needed.
+
+===================================================
+ADDING NEW ARTIFACT TYPES IN THE FUTURE
+===================================================
+
+To add a new artifact type (e.g., "POIs"):
+1. Add query function: queryPoisByViewport() in SpatialDbManager
+2. Add GeoJSON builder: buildPoiGeoJson() in SpatialDbManager
+3. Add JS display functions: loadPois/updatePois/showPois/hidePois
+   in spatial_artifacts.js
+4. Add ConvoyConfig fields: poiDisplayState, poiChecked
+5. Add "POIs" case to the when() blocks in processArtifact
+6. Add POI toggle to ConvoyArtifactsPanel
+
+No changes to processArtifact logic, onViewportChanged, 
+onEditDisplay, or onDismiss. The generic pipeline handles it.

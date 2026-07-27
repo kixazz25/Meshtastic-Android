@@ -1,0 +1,122 @@
+GroupTrack V2.5 — Handoff Document
+May 26, 2026 End of Day
+==========================================
+
+SESSION SUMMARY
+==========================================
+Full-day session: three-state toggle system, combined header
+bar, search cleanup, download accordion, proximity tap,
+GPX builder (attempted, deferred), cleanup pass progress.
+
+BRANCH: feature/convoy-event-ride
+PROJECT: ~/Meshtastic-Android
+18 TESTERS ENROLLED
+
+COMMITS (May 26)
+==========================================
+1. V2.5: three-state radio buttons, ConvoyConfig sync state,
+   show-after-push, null guard, direct state setter
+2. (Pending) Combined header, search cleanup, download
+   accordion, proximity tap, GPX ref removal
+
+CURRENT BUILD STATE
+==========================================
+Build running or just completed. Contains:
+- Combined header: BACK | SAT TOPO TOPO+ | QUEUES
+- Search: Enter key, keyboard dismiss, collapsed default
+- Download panel: 3 accordion sections
+- Proximity tap in JS (multi-label 4 sec)
+- Three-state toggles with ConvoyConfig sync
+- Show-after-push (reliable first-tap ON)
+- State persistence (survives navigation)
+- Back guard ("Leave Planning Map?" dialog)
+- Green pill buttons (inactive), blue+white (active)
+- Broken GPX builder refs removed (placeholder toast)
+
+INSTALL COMMAND
+==========================================
+adb -s 8624SBCEDF00001789 install -r -d \
+  app/build/outputs/apk/google/release/app-google-release.apk
+
+BUILD COMMAND
+==========================================
+./gradlew assembleGoogleRelease \
+  -x uploadCrashlyticsMappingFileGoogleRelease
+
+DEVICE SERIALS
+==========================================
+Android 1 (tester): 8624SBCEDF00001789
+Android 2 (dev): 24039703201775
+Tester P10_T: P10V07162601000362
+
+WORKING FEATURES
+==========================================
+[X] Three-state radio buttons (OFF/ALL/SEL-EDIT)
+[X] Direct state setter (each button sets explicitly)
+[X] ConvoyConfig sync (reliable toggle, thread-safe)
+[X] Show-after-push (first tap works)
+[X] SELECTED filter locks on zoom/pan
+[X] ArtifactListPanel (list, checkboxes, detail dialog)
+[X] RENAME/DELETE/CHANGE TYPE functions
+[X] Panel close → state evaluation (ON/OFF/SELECTED)
+[X] No live checkbox updates during SELECT panel
+[X] Queue panel live data + empty state
+[X] GPX import (tracks/waypoints/routes)
+[X] Resync Tracks button
+[X] Legend (solid/dashed/pin)
+[X] Trail color infrastructure (CartoCode ready)
+[X] Artifact click popups
+[X] State persistence (ConvoyConfig init)
+[X] Back navigation guard
+[X] Combined header bar (BACK + sources + QUEUES)
+[X] Search: Enter key, keyboard dismiss, collapsed default
+[X] SAT/TOPO/TOPO+ source switching in header
+
+KNOWN ISSUES
+==========================================
+- Header button tap targets too small (need bigger padding)
+- SAT default doesn't auto-load on map open (race condition)
+- GPS centering unreliable (postDelayed approach)
+- Trail duplicate names in SELECT list
+- Bars not truly transparent (needs Box overlay layout)
+- GPX builder deferred (syntax errors in triple-quoted strings)
+
+KEY SOURCE FILES
+==========================================
+ConvoyMapViewerScreen.kt — Planning Map (main file, ~1000 lines)
+ConvoyArtifactsPanel.kt — Work With Artifacts panel + radio buttons
+ArtifactListPanel.kt — SELECT/EDIT list + detail dialog
+SpatialDbManager.kt — spatial DB queries, CRUD, GeoJSON builders
+ConvoyTrackOps.kt — track file operations, share, export
+ConvoyDownloadPanel.kt — download panel with accordions
+ConvoyDownloadQueue.kt — download queue manager
+ConvoyConfig.kt — shared config, display states, tile sources
+grouptrack_map.html — Planning Map Leaflet WebView + proximity tap
+convoy_map.html — Convoy Map Leaflet WebView
+
+DEV ENVIRONMENT RULES
+==========================================
+- Patch scripts: Python, unique names, encoding='utf-8'
+- Never use heredoc (CRLF errors on Windows/Git Bash)
+- Install: adb -s [serial] install -r -d [apk] (always -r -d)
+- Git Bash: use //sdcard/ (double slash) for adb push
+- V3_FEATURES_ENABLED must be false for tester release
+- Keystore: grouptrack-release-key.jks, NEVER commit
+
+NEXT SESSION PRIORITIES
+==========================================
+1. Commit current build (test first)
+2. Fix header button tap targets
+3. Continue cleanup pass (17 items remaining)
+4. Waypoint creation (long-press, 11 types, description)
+5. Route planning (manual point-to-point first)
+
+UPLOAD AT SESSION START
+==========================================
+Upload these documents:
+  V25_Handoff_May26_EOD.txt (this file)
+  V25_Checklist_May26.txt
+  V25_ThreeStateToggle_DesignSpec.txt
+  V25_Waypoint_Creation_Spec.txt
+  V25_Route_Planning_Spec.txt
+  V25_Future_Features_Spec.txt

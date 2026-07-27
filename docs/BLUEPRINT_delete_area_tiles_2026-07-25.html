@@ -1,0 +1,152 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Delete Area Tiles — Process Blueprint</title>
+<style>
+:root{--bg:#0f1216;--panel:#161b22;--ink:#e6edf3;--dim:#8b949e;--line:#30363d;--accent:#58a6ff;--good:#3fb950;--warn:#d29922;--bad:#f85149;--ui:-apple-system,"Segoe UI",Roboto,sans-serif;--mono:"SF Mono",Consolas,monospace}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 var(--ui);padding:0 0 60px}
+header{position:sticky;top:0;background:#0f1216f0;border-bottom:1px solid var(--line);padding:12px 18px;z-index:5}
+.ttl{font:700 17px var(--ui)}.ttl b{color:var(--accent)}.sub{font:12px var(--mono);color:var(--dim);margin-top:2px}
+main{max-width:900px;margin:0 auto;padding:16px 18px}
+h2{font:700 15px var(--ui);color:var(--accent);margin:22px 0 8px;border-bottom:1px solid var(--line);padding-bottom:4px}
+h3{font:700 13px var(--ui);color:var(--ink);margin:14px 0 4px}
+.tag{display:inline-block;font:700 10px var(--mono);padding:1px 6px;border-radius:4px;margin-right:6px;vertical-align:middle}
+.t-good{background:#12261a;color:var(--good);border:1px solid #1f6f3f}
+.t-warn{background:#2a2312;color:var(--warn);border:1px solid #6f5a1f}
+.t-bad{background:#2a1414;color:var(--bad);border:1px solid #6f2020}
+.t-prog{background:#12203a;color:var(--accent);border:1px solid #1f4f8f}
+.card{border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin:10px 0;background:var(--panel)}
+ul{margin:6px 0 6px 0;padding-left:20px}li{margin:4px 0}ol{margin:6px 0;padding-left:22px}
+code{background:#0c0f0a;padding:1px 5px;border-radius:3px;font:12px var(--mono);color:#e6edf3}
+.note{font:12px var(--mono);color:var(--dim);border-left:3px solid var(--line);padding:4px 10px;margin:8px 0}
+.hi{color:var(--warn);font-weight:700}.step{background:#12203a;border-left:3px solid var(--accent);padding:6px 10px;margin:8px 0}
+</style>
+</head><body>
+<header><div class="ttl"><b>Delete Area Tiles</b> &mdash; process blueprint</div><div class="sub">DESIGN &middot; 2026-07-25 &middot; not yet built &middot; model = the AREA DOWNLOAD path with the direction reversed</div></header>
+<main>
+
+<div class="note"><b>Fred's shape:</b> <i>"should be area download code with local removes replac[ing] remote retrieved and adds."</i> This blueprint follows that literally where it serves, and flags the <b>one place it should not</b> &mdash; with the reasoning, so the call is yours. Nothing here is built. Prerequisite reading: <code>COMPLETED_TASK_download_maps_by_corridor_2026-07-24.html</code> (worker dispatch, entry model, the two completion bugs this must not repeat).</div>
+
+<h2>The mirror &mdash; what is identical, what is substituted</h2>
+<div class="card">
+<table style="width:100%;border-collapse:collapse;font:12px var(--mono)">
+<tr style="color:var(--accent)"><td><b>Stage</b></td><td><b>AREA DOWNLOAD (exists)</b></td><td><b>DELETE AREA (to build)</b></td></tr>
+<tr><td>Launch</td><td>draw bbox on map</td><td><b>same</b> &mdash; draw bbox on map</td></tr>
+<tr><td>Prompt</td><td>ConvoyDownloadConfirm: sources + replace</td><td><b>same dialog, different semantics</b> (see below)</td></tr>
+<tr><td>Enqueue</td><td>submitDownload &rarr; loop slots, segment, N entries</td><td>enqueueDelete &rarr; loop slots, <b>NO segmentation</b></td></tr>
+<tr><td>Entry</td><td>QueueEntry, type=AREA, priority=3</td><td>QueueEntry, type=<b>DELETE_AREA_TILES</b>, priority=<b>0</b></td></tr>
+<tr><td>Dispatch</td><td>launchWorker &rarr; ConvoyDownloadWorker</td><td>launchWorker &rarr; <b>ConvoyDeleteWorker</b></td></tr>
+<tr><td>Tile set</td><td>ConvoyTileCalculator from bbox</td><td><b>same call, same bbox</b></td></tr>
+<tr><td><b>Per tile</b></td><td><b>fetch from network &rarr; insertTile</b></td><td><b>&#9733; DELETE FROM tiles &#9733;</b></td></tr>
+<tr><td>Progress</td><td>showProgress every 25</td><td><b>same</b></td></tr>
+<tr><td>Completion</td><td>markComplete(id, done, failed)</td><td><b>same</b></td></tr>
+</table>
+<p><b>&#11088; The substitution is ONE line of the loop.</b> Everything structural &mdash; dispatch on type, the entry model, progress, notifications, completion, cancellation, the panel row, the filter chip &mdash; is already built and already generic. That is the payoff from the <b>downloadType-selects-the-worker</b> decision: delete costs <b>nothing existing</b>.</p>
+<p><b>Already in place, unused:</b> <code>DELETE_AREA_TILES</code> is declared in the enum, <b>priority 0 is reserved</b> (deletes run first because they free storage), and the <code>DEL</code> filter chip is already rendering in the queue panel. <b>Only the worker and the submit path are missing.</b></p>
+</div>
+
+<h2>&#9888; Where delete is NOT a download, and must not pretend to be</h2>
+<div class="card">
+<h3>1. &#9888;&#9888; DELETE MUST NOT FEED THE ETA ACCUMULATOR</h3>
+<p>The accumulator settled 07-25 is <b>tiles downloaded &divide; execution time</b>. A delete removes 50,000 tiles in <b>seconds</b>. If deletes are added to it, tiles-per-minute is inflated by orders of magnitude and <b>every subsequent download estimate collapses toward zero</b>.</p>
+<p><b>Rule: only <code>DownloadType.AREA</code>, <code>CORRIDOR</code> and <code>MAP_SOURCE_REFRESH</code> contribute to the accumulator. DELETE contributes nothing, ever.</b> This is the single most damaging mistake available in this feature, and it would present as "the ETA went crazy" days later with no obvious cause.</p>
+
+<h3>2. Segmentation exists for a constraint delete does not share</h3>
+<p>Downloads segment at <code>ceil(sizeTiles/50000)</code> because a big area takes <b>hours</b> and must survive interruption. A delete of the same area is <b>~18 indexed statements</b> and completes in under a second. <b>Segmenting it would mirror a solution to a problem delete does not have</b> &mdash; and would multiply queue rows for no benefit.</p>
+<p><b>Recommendation: one entry per slot, no segmentation.</b></p>
+
+<h3>3. Destructive, and irreversible</h3>
+<p>A download is additive and safe &mdash; the worst case is wasted bandwidth. <b>A delete cannot be undone</b> (the tiles came from paid Esri requests). The <b>gated confirm with scope and count</b> built in Phase 0b is the right pattern &mdash; reuse it, do not invent a second one. The confirm should state <b>the exact tile count that will be removed</b>, per source.</p>
+
+<h3>4. The prompt's "replace existing tiles" checkbox is meaningless here</h3>
+<p>Source selection <b>is</b> meaningful &mdash; "delete SAT, keep TOPO" is a real intent. Replace is not. <b>Open decision:</b> a delete variant of the dialog, or a mode flag that hides the checkbox. Prefer the variant &mdash; a mode flag inside a shared dialog is how <code>refreshMode</code> ended up carrying two meanings.</p>
+</div>
+
+<h2>Stage by stage</h2>
+<div class="card">
+<h3>Stage 1 &mdash; launch</h3>
+<p>Same bbox draw the area download uses. Entry point is a <b>DELETE</b> action beside SAVE MAPS, or a mode on the existing draw. <b>Open:</b> where it lives in the UI.</p>
+
+<h3>Stage 2 &mdash; count, then confirm</h3>
+<p><b>&#11088; Count with the real predicate, not an estimate.</b> The download path sizes with <code>quickEstimate</code>, which answers <i>"how many tiles SHOULD be there"</i>. A delete must answer <i>"how many ARE there"</i> &mdash; those differ, often hugely, on a partially-downloaded area.</p>
+<pre style="background:#0c0f0a;padding:8px;border-radius:4px;font:11px var(--mono);overflow-x:auto">SELECT COUNT(*) FROM tiles
+ WHERE zoom_level=? AND tile_column BETWEEN ? AND ? AND tile_row BETWEEN ? AND ?</pre>
+<p>One indexed count per zoom, ~18 queries, instant. That number goes in the confirm dialog AND becomes the entry's <code>totalTiles</code>, so the panel row shows honest progress.</p>
+
+<h3>Stage 3 &mdash; enqueue</h3>
+<p>One <code>QueueEntry</code> per selected slot: <code>downloadType = DELETE_AREA_TILES</code>, <code>priority = 0</code>, <code>label = "DEL &lt;slot&gt;"</code> (matching the <code>DL</code>/<code>CORR</code> convention already on screen), bbox carried in the existing north/south/east/west fields. <b>No new entry fields are needed.</b></p>
+
+<h3>Stage 4 &mdash; dispatch</h3>
+<p><code>launchWorker</code> gains one branch: <code>DownloadType.DELETE_AREA_TILES -&gt; ConvoyDeleteWorker</code>. The <code>Data.Builder</code> already passes <code>entry_id</code>, bbox, <code>refresh_slot</code> and <code>label</code>. <b>No <code>geom_hash</code>, no <code>refresh_mode</code>.</b></p>
+
+<h3>Stage 5 &mdash; the worker</h3>
+<p>Structure copied from <code>ConvoyDownloadWorker</code>: validate inputs &rarr; <code>markFailed</code> + <code>Result.failure()</code> on a blank slot &rarr; init managers &rarr; <code>showProgress</code> &rarr; derive the tile ranges from the bbox using <b>the same <code>ConvoyTileCalculator</code> call the download uses</b> &rarr; delete &rarr; progress &rarr; <code>markComplete</code>.</p>
+<p><b>&#11088; Deriving with the same calculator is the correctness guarantee</b> &mdash; it is what makes "delete what I downloaded" true by construction rather than by two functions agreeing to stay in step.</p>
+<p><b>&#9888; RAW z/x/y, NO FLIP.</b> MBTilesStore stores raw (comments at :98 and :122). Using the flipped TMS convention here would silently delete <b>the wrong rows</b> and look like a partial success.</p>
+
+<h3>Stage 6 &mdash; the delete itself (THE decision)</h3>
+<p><b>Option A &mdash; per-tile loop (literal mirror of the download)</b></p>
+<ul>
+<li>+ identical structure and progress granularity; cancellable at any tile</li>
+<li>&minus; ~50,000 individual statements for a large area</li>
+</ul>
+<p><b>Option B &mdash; range delete per zoom (recommended)</b></p>
+<pre style="background:#0c0f0a;padding:8px;border-radius:4px;font:11px var(--mono);overflow-x:auto">DELETE FROM tiles
+ WHERE zoom_level=? AND tile_column BETWEEN ? AND ? AND tile_row BETWEEN ? AND ?</pre>
+<ul>
+<li>+ <b>~18 statements instead of 50,000</b>, riding the existing <code>UNIQUE INDEX tile_index</code>; sub-second</li>
+<li>+ wrap in one transaction &rarr; all-or-nothing, no half-deleted area</li>
+<li>&minus; progress per zoom level (18 updates) rather than per tile; cancellation between zooms only</li>
+</ul>
+<p><b>18 progress updates is ample for an operation measured in seconds.</b> The per-tile loop's fine granularity exists because downloads run for hours.</p>
+<p><b>&#11088; A bbox is a CONTIGUOUS RECTANGLE in x/y at every zoom</b> &mdash; that is what makes the range form exactly equivalent to the loop, not an approximation. It is only true because the source geometry is a rectangle; <b>a corridor delete could not use this form</b> and would need the tile-set loop.</p>
+
+<h3>Stage 7 &mdash; completion</h3>
+<p><code>markComplete(entryId, deletedCount, 0)</code> <b>after</b> the transaction commits.</p>
+<p><b>&#9888; Do not repeat the two corridor-worker defects:</b> (1) <code>markComplete</code> firing <b>before</b> the work stops &mdash; the 07-24 captures showed jobs marked <i>Done</i> still counting; (2) a zero result returning blind success. <b>For delete, zero tiles removed IS a legitimate outcome</b> (nothing was there) &mdash; but it must <b>say so</b> ("0 tiles removed"), not look like a completed deletion of a full area.</p>
+</div>
+
+<h2>&#9888; Space does not come back on its own</h2>
+<div class="card">
+<p>SQLite frees pages <b>inside</b> the file; the <code>.mbtiles</code> stays the same size on disk. <b>There is no VACUUM anywhere in MBTilesStore.</b> So without a further step: user deletes an area, storage does not move, <b>the tool looks broken</b>.</p>
+<ul>
+<li><b>Measure first &mdash; free and exact:</b> <code>PRAGMA freelist_count</code> &times; <code>PRAGMA page_size</code> = reclaimable bytes. Turns a blind "compacting&hellip;" into <b>"delete freed 1.2 GB &mdash; reclaim it now?"</b>, and lets you skip the vacuum when it is not worth the churn.</li>
+<li><b>&#9888; VACUUM catch-22:</b> needs roughly the file's own size in free space &mdash; so it fails exactly when it is most needed. <b>Check free space before offering it.</b></li>
+<li><b>Better primitive:</b> <code>VACUUM INTO '/path/compacted.mbtiles'</code> (SQLite 3.27+, fine on Android 11+) &mdash; writes a compacted copy to a path you choose, then delete + rename. <b>The original is untouched until the copy succeeds.</b></li>
+<li><b>Age the problem out:</b> set <code>PRAGMA auto_vacuum=INCREMENTAL</code> in <code>initSchema</code> for NEW files, then <code>PRAGMA incremental_vacuum(N)</code> releases pages cheaply and interruptibly. Can only be set before tables exist &mdash; existing stores need one full VACUUM to convert.</li>
+<li>VACUUM <b>cannot run inside a transaction</b>, and the handle is cached (<code>handles</code> HashMap at :40) &mdash; it wants the same close/reopen discipline <code>deleteSource</code> already uses at :187.</li>
+<li><b>&#9940; External storage cannot be vacuum scratch.</b> Drive is a network API with no seek; removable media is SAF-only under scoped storage and SQLite needs a POSIX path. Archiving to external is fine &mdash; that is a plain file copy.</li>
+</ul>
+<p><b>Recommendation: reclamation is a SEPARATE, EXPLICIT action</b> &mdash; not automatic at the end of every delete. Deletes should stay fast and safe; compaction is slow, space-hungry, and occasionally impossible.</p>
+</div>
+
+<h2>&#9888; Open questions &mdash; answer before writing code</h2>
+<div class="card">
+<ol>
+<li><b>&#9733; Are a slot's layers separate <code>.mbtiles</code> types?</b> SAT carries three layers. If types are per-layer, the delete must <b>loop the slot's layers exactly as the download does</b> &mdash; otherwise it clears base imagery and <b>leaves the transportation and places overlays behind</b>, which would look like a failed delete. <b>This is the one question that can invalidate the whole design; settle it first.</b><br>
+<code>grep -n "insertTile\|isOverlay" ConvoyDownloadWorker.kt ConvoyTileDownloader.kt</code></li>
+<li><b>Is there a tile cache above MBTilesStore?</b> If the WebView/Leaflet layer holds bitmaps in memory, deleted tiles may keep rendering until it is invalidated &mdash; and the user concludes the delete did not work.</li>
+<li><b>Per-tile loop or range delete</b> (Stage 6). Recommendation: range.</li>
+<li><b>Reclamation policy:</b> never / offered / automatic. Recommendation: offered, with the freelist measurement shown.</li>
+<li><b>Confirm dialog:</b> delete variant, or shared dialog with a mode flag. Recommendation: variant.</li>
+<li><b>UI entry point</b> for the delete bbox draw.</li>
+</ol>
+</div>
+
+<h2>Verification plan</h2>
+<div class="card">
+<ul>
+<li><b>Count before / after</b> per zoom with the range predicate &mdash; should go to zero inside the box.</li>
+<li><b>Tiles just OUTSIDE the bbox survive</b> &mdash; the off-by-one that a range delete makes easy. Test with an area adjacent to one you keep.</li>
+<li><b>File size unchanged without vacuum</b> &mdash; expected, and the reason reclamation is a separate action.</li>
+<li><b>Freelist grows</b> by roughly the deleted volume &mdash; proves the pages were actually released internally.</li>
+<li><b>Map display</b> over the deleted area falls back to NET or blank, not stale cached tiles.</li>
+<li><b>Re-download the same area</b> and confirm it fetches rather than skipping via <code>hasTile</code> &mdash; the round trip that proves the rows are genuinely gone.</li>
+<li><b>&#9733; ETA sanity after a delete</b> &mdash; run a download afterwards and confirm tiles/minute is unchanged. This is the check that catches delete leaking into the accumulator.</li>
+</ul>
+</div>
+
+<h2>Related tool &mdash; <code>deleteSource()</code> already exists</h2>
+<div class="card">
+<p><code>MBTilesStore.deleteSource(type)</code> at <b>:186</b> removes the cached handle, closes it, and <b>drops the whole <code>.mbtiles</code> file</b>. Space returns <b>instantly</b>, no vacuum.</p>
+<p><b>&#11088; For TEST RESET this is the better tool than a bbox delete</b> &mdash; it gives a <b>guaranteed-empty baseline</b> rather than leftovers you then have to reason about. Bbox delete is the shipping feature; whole-source drop is the reset button. Worth confirming whether it is reachable from the UI today, since clean devices are what make the SAT-15 measurement trustworthy.</p>
+</div>
+
+</main></body></html>

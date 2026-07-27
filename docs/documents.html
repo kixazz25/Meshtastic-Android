@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Documents | GroupTrack</title>
+<style>
+  :root {
+    --blue-dark: #1a3a5c;
+    --blue-mid: #2563a8;
+    --blue-sky: #4AB8E8;
+    --orange: #f97316;
+    --text: #1f2937;
+    --text-light: #6b7280;
+    --bg: #ffffff;
+    --bg-alt: #f8fafc;
+    --border: #e5e7eb;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    color: var(--text);
+    background: var(--bg);
+    line-height: 1.6;
+  }
+
+  /* NAV */
+  nav {
+    background: var(--blue-dark);
+    padding: 0 2rem;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 60px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  }
+  .nav-logo {
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: #fff;
+    text-decoration: none;
+    letter-spacing: -0.5px;
+  }
+  .nav-logo span { color: var(--blue-sky); }
+  nav ul { list-style: none; display: flex; gap: 1.5rem; }
+  nav ul a {
+    color: #cbd5e1;
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: color 0.2s;
+  }
+  nav ul a:hover { color: var(--blue-sky); }
+  nav ul a.active { color: var(--blue-sky); }
+
+  /* HERO */
+  .hero {
+    background: linear-gradient(135deg, var(--blue-dark) 0%, #0f2744 100%);
+    color: #fff;
+    text-align: center;
+    padding: 3.5rem 2rem 3rem;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at 60% 40%, rgba(74,184,232,0.12) 0%, transparent 70%);
+  }
+  .hero-badge {
+    display: inline-block;
+    background: rgba(74,184,232,0.2);
+    border: 1px solid var(--blue-sky);
+    color: var(--blue-sky);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 2px;
+    padding: 0.3rem 1rem;
+    border-radius: 20px;
+    margin-bottom: 1.2rem;
+    text-transform: uppercase;
+    position: relative;
+  }
+  .hero h1 {
+    font-size: 2.4rem;
+    font-weight: 800;
+    line-height: 1.15;
+    margin-bottom: 0.75rem;
+    position: relative;
+  }
+  .hero h1 em { color: var(--blue-sky); font-style: normal; }
+  .hero p {
+    font-size: 1rem;
+    color: #94a3b8;
+    max-width: 560px;
+    margin: 0 auto;
+    position: relative;
+  }
+
+  /* APP SHOWCASE */
+  .showcase {
+    padding: 4rem 2rem;
+    background: var(--bg-alt);
+  }
+  .showcase .container {
+    max-width: 1000px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1fr 1.6fr;
+    gap: 3rem;
+    align-items: center;
+  }
+  .showcase-text .section-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--blue-sky);
+    margin-bottom: 0.5rem;
+  }
+  .showcase-text h2 {
+    font-size: 1.8rem;
+    font-weight: 800;
+    color: var(--blue-dark);
+    margin-bottom: 1rem;
+    line-height: 1.2;
+  }
+  .showcase-text p {
+    font-size: 0.95rem;
+    color: var(--text-light);
+    margin-bottom: 0.75rem;
+    line-height: 1.7;
+  }
+  .spec-list {
+    list-style: none;
+    margin-top: 1.25rem;
+  }
+  .spec-list li {
+    font-size: 0.88rem;
+    padding: 0.35rem 0;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    gap: 0.5rem;
+    align-items: flex-start;
+    color: var(--text);
+  }
+  .spec-list li:last-child { border-bottom: none; }
+  .spec-list li::before { content: "✓"; color: var(--blue-sky); font-weight: 700; flex-shrink: 0; }
+
+  .showcase-img {
+    display: flex;
+    justify-content: center;
+  }
+  .phone-frame {
+    position: relative;
+    display: inline-block;
+    border-radius: 24px;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(26,58,92,0.25), 0 4px 16px rgba(0,0,0,0.15);
+    border: 3px solid #2a4a6e;
+    max-width: 280px;
+    width: 100%;
+  }
+  .phone-frame img {
+    width: 100%;
+    display: block;
+  }
+  .phone-caption {
+    text-align: center;
+    font-size: 0.75rem;
+    color: var(--text-light);
+    margin-top: 0.75rem;
+    font-style: italic;
+  }
+
+  /* DOCUMENTS GRID */
+  .docs-section {
+    padding: 4rem 2rem;
+  }
+  .docs-section .container {
+    max-width: 960px;
+    margin: 0 auto;
+  }
+  .section-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--blue-sky);
+    margin-bottom: 0.5rem;
+  }
+  .docs-section h2 {
+    font-size: 2rem;
+    font-weight: 800;
+    color: var(--blue-dark);
+    margin-bottom: 0.5rem;
+  }
+  .docs-section .section-intro {
+    font-size: 1rem;
+    color: var(--text-light);
+    margin-bottom: 2.5rem;
+  }
+  .doc-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1.5rem;
+  }
+  .doc-card {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-top: 4px solid var(--blue-sky);
+    border-radius: 8px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    transition: box-shadow 0.2s, transform 0.2s;
+  }
+  .doc-card:hover { box-shadow: 0 6px 20px rgba(0,0,0,0.1); transform: translateY(-2px); }
+  .doc-icon { font-size: 2rem; margin-bottom: 0.25rem; }
+  .doc-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--blue-dark);
+  }
+  .doc-desc {
+    font-size: 0.85rem;
+    color: var(--text-light);
+    flex: 1;
+    line-height: 1.5;
+  }
+  .doc-meta {
+    font-size: 0.75rem;
+    color: #9ca3af;
+    margin-top: 0.25rem;
+  }
+  .doc-link {
+    display: inline-block;
+    margin-top: 0.75rem;
+    background: var(--blue-dark);
+    color: #fff;
+    font-size: 0.82rem;
+    font-weight: 600;
+    padding: 0.5rem 1.25rem;
+    border-radius: 5px;
+    text-decoration: none;
+    transition: background 0.2s;
+    align-self: flex-start;
+  }
+  .doc-link:hover { background: var(--blue-mid); }
+
+  /* FOOTER */
+  footer {
+    background: var(--blue-dark);
+    color: #64748b;
+    text-align: center;
+    padding: 1.5rem;
+    font-size: 0.82rem;
+  }
+  footer a { color: var(--blue-sky); text-decoration: none; }
+
+  @media (max-width: 700px) {
+    .showcase .container { grid-template-columns: 1fr; }
+    .showcase-img { order: -1; }
+    .phone-frame { max-width: 200px; }
+    nav ul { display: none; }
+    .hero h1 { font-size: 1.8rem; }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a href="https://grouptrack.org" class="nav-logo">Group<span>Track</span></a>
+  <ul>
+    <li><a href="https://grouptrack.org/#mission">Mission</a></li>
+    <li><a href="https://grouptrack.org/#features">Features</a></li>
+    <li><a href="https://grouptrack.org/#downloads">Downloads</a></li>
+    <li><a href="/commitment.html">Beta Testing</a></li>
+    <li><a href="/documents.html" class="active">Documents</a></li>
+    <li><a href="https://grouptrack.org/#contact">Contact</a></li>
+  </ul>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-badge">Resources</div>
+  <h1>GroupTrack <em>Documents</em></h1>
+  <p>User guides, installation instructions, and reference materials for the GroupTrack beta program.</p>
+</div>
+
+<!-- APP SHOWCASE -->
+<section class="showcase">
+  <div class="container">
+    <div class="showcase-text">
+      <div class="section-label">The App in Action</div>
+      <h2>Off-Grid Group Tracking — Live on the Trail</h2>
+      <p>GroupTrack running at Gooseberry Mesa — a 6.4 mile ride with real-time lead tracking over LoRa mesh radio. No cell service. No WiFi. Every rider on the map.</p>
+      <p>The hybrid satellite map, offline tile cache, and lead telemetry panel are all visible here — exactly what your group sees on the trail.</p>
+      <ul class="spec-list">
+        <li>Hybrid satellite map with offline tile cache</li>
+        <li>Live lead telemetry — speed, heading, altitude, battery</li>
+        <li>LoRa mesh radio — no cell or WiFi required</li>
+        <li>Lead track drawn in real time as the group moves</li>
+        <li>GroupTrack nav panel — always accessible from the sidebar</li>
+      </ul>
+    </div>
+    <div class="showcase-img">
+      <div>
+        <div class="phone-frame">
+          <img src="/app_screenshot.png" alt="GroupTrack app running at Gooseberry Mesa — live lead tracking over LoRa mesh radio">
+        </div>
+        <div class="phone-caption">Gooseberry Mesa field test · April 2026 · 6.40 mi</div>
+      </div>
+
+      <div class="doc-card" style="border-top-color: #22c55e;">
+        <div class="doc-icon">✅</div>
+        <div class="doc-title">V2.4 Certification Checklist</div>
+        <div class="doc-desc">Interactive tester evaluation form. Set status per item, add notes, export summary to coordinator. All 16 sections, 80+ test items.</div>
+        <div class="doc-meta">HTML · Interactive · April 2026</div>
+        <a class="doc-link" href="/docs/GroupTrack_V2.4_Certification_Checklist_v2.html" target="_blank">Open Checklist</a>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- DOCUMENTS -->
+<section class="docs-section">
+  <div class="container">
+    <div class="section-label">Reference Materials</div>
+    <h2>Download Documents</h2>
+    <p class="section-intro">All documentation for the GroupTrack V2.4 beta program. Updated as the software evolves.</p>
+
+    <div class="doc-grid">
+
+      <div class="doc-card">
+        <div class="doc-icon">📖</div>
+        <div class="doc-title">User Guide V2.4</div>
+        <div class="doc-desc">Complete reference for the GroupTrack application — convoy map, lead lock, offline tiles, radio configuration, and all V2.4 features.</div>
+        <div class="doc-meta">PDF · V2.4 · April 2026</div>
+        <a class="doc-link" href="/docs/GroupTrack_User_Guide_V2.4.pdf" target="_blank">Download PDF</a>
+      </div>
+
+      <div class="doc-card">
+        <div class="doc-icon">⚙️</div>
+        <div class="doc-title">Installation Guide V2.4</div>
+        <div class="doc-desc">Step-by-step setup for the GroupTrack app and SenseCAP T1000-E radio — from unboxing to your first tracked ride.</div>
+        <div class="doc-meta">PDF · V2.4 · April 2026</div>
+        <a class="doc-link" href="/docs/GroupTrack_Installation_Guide_V2.4.pdf" target="_blank">Download PDF</a>
+      </div>
+
+      <div class="doc-card">
+        <div class="doc-icon">❓</div>
+        <div class="doc-title">FAQ & Beta Program</div>
+        <div class="doc-desc">Frequently asked questions about hardware requirements, beta testing commitment, and what to expect from the program.</div>
+        <div class="doc-meta">PDF · Beta Program · April 2026</div>
+        <a class="doc-link" href="/docs/GroupTrack_FAQ.pdf" target="_blank">Download PDF</a>
+      </div>
+
+
+      <div class="doc-card" style="border-top-color: #22c55e;">
+        <div class="doc-icon">✅</div>
+        <div class="doc-title">V2.4 Certification Checklist</div>
+        <div class="doc-desc">Interactive tester evaluation form. Set status per item, add notes, export summary to coordinator. All 16 sections, 80+ test items.</div>
+        <div class="doc-meta">HTML · Interactive · April 2026</div>
+        <a class="doc-link" href="/docs/GroupTrack_V2.4_Certification_Checklist_v2.html" target="_blank">Open Checklist</a>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <p>© 2026 GroupTrack &nbsp;|&nbsp; <a href="https://grouptrack.org">grouptrack.org</a> &nbsp;|&nbsp; Off-grid convoy tracking for motorcycles, hikers, and overlanders</p>
+</footer>
+
+</body>
+</html>

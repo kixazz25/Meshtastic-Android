@@ -1,0 +1,113 @@
+GroupTrack V2.5 — Feature Checklist
+Updated: May 25, 2026 EOD
+=====================================
+
+PLANNING MAP — WORK WITH ARTIFACTS
+=====================================
+
+DISPLAY TOGGLES:
+[X] Trail toggle → preloaded, instant show/hide
+[X] Track toggle → preloaded, instant show/hide
+[X] Waypoint toggle → preloaded, instant show/hide
+[X] Route toggle → preloaded, instant show/hide
+[X] Preload architecture: data loaded on viewport change, toggle = visibility
+
+IMPORT:
+[X] IMPORT TRAILS button → trail source management screen
+[X] IMPORT ARTIFACTS button → Downloads scan → list panel → tap to import
+[X] GPX track parsing (<trk>) → file + spatial DB
+[X] GPX waypoint parsing (<wpt>) → spatial DB
+[X] GPX route parsing (<rte>) → spatial DB
+[X] Import summary toast (counts per type)
+[X] Source file deletion after import
+[X] RESYNC TRACKS TO SPATIAL DB button
+[ ] Import summary panel (replace toast with panel + proceed/cancel + GPX delete gate)
+
+SELECT/LIST MANAGER (ArtifactListPanel):
+[X] Reusable composable for all 4 types
+[X] SELECT button wired to list panel
+[X] List artifacts from DB (full extent query)
+[X] Checkbox per item (show/hide)
+[X] Select All / Deselect All
+[X] Click name → detail panel with type-specific actions
+[X] Rename function (waypoints/routes/tracks)
+[X] Delete function (waypoints/routes/tracks)
+[X] Change Type function (waypoints only, 10 types)
+[ ] Share function (tracks only — needs ConvoyTrackOps wiring)
+[ ] Individual artifact show/hide on map via JS (checkbox → map update)
+[ ] FIT to selected (zoom to checked items)
+[ ] Alias panel (placeholder — not built)
+
+MAINTENANCE (per artifact type):
+[X] Rename — waypoints: DB direct, routes: DB direct, tracks: DB + file trigger
+[X] Delete — waypoints: DB direct, routes: DB direct, tracks: DB + file trigger
+[X] Change Type — waypoints: 10 standard types
+[ ] Share — tracks only: file via share sheet
+[ ] Copy to Downloads — tracks only
+[ ] Fix Date — tracks only
+[ ] Alias management — all types (placeholder)
+
+DOWNLOADS:
+[X] Queue panel wired to live DownloadQueueManager data
+[X] Queue panel shows "No downloads in queue" when empty
+[X] QUEUES button → floating overlay panel
+[ ] Hold/Resume/Cancel controls tested with active downloads
+[ ] Download shading on map (blue=on disk, pink=queued, red=pending)
+[ ] Download panel landscape fix (accordion segments)
+[ ] Queue job summaries (records read/written)
+[ ] Max tile count safety check (50K warn, 500K block)
+[ ] Download area: select route/track + waypoints → create ride (placeholder)
+
+UI CLEANUP:
+[X] Remove TRACKS button from header
+[X] Remove ConvoyDisplayPanel
+[X] Remove duplicate track picker panel
+[X] Column headings: Display + Select (Import removed)
+[X] Legend: solid lines (trails), dashed lines (tracks/routes), pin (waypoints)
+[X] LegendItem composable with line/dash/pin styles
+[ ] Header bar fully transparent (currently 0x88, needs 0x33 or lower)
+[ ] Search/FIND bar transparent
+[ ] SAT default tile source on map open (ConvoyConfig shared — needs timing fix)
+[ ] FIND chevron accordion (expand search left)
+[ ] SAT/TOPO/TOPO+ transparent text links
+[ ] Query order: trails LAST (heaviest query)
+[ ] Async independent queries (trails doesn't block others)
+
+GPS/MAP:
+[ ] Planning Map GPS centering (postDelayed approach — not working reliably)
+[X] Planning Map fallback view (US center z4)
+[X] Convoy Map zoom display
+[X] Trail colors: CartoCode infrastructure ready (cyan default, colors when data populated)
+[ ] maxNativeZoom from tile directory scan
+[ ] Offline tile rendering at z18 (encoding fix applied, needs field verification)
+
+=====================================
+CONVOY MAP (AFTER PLANNING MAP COMPLETE)
+=====================================
+
+[ ] Wire ConvoyArtifactsPanel toggle handlers (all 4 types)
+[ ] Add onViewportChanged to JavaScript interface
+[ ] Switch trails from bundled GeoJSON to spatial DB lazy load
+[ ] Switch tracks from file-by-file to spatial DB lazy load
+[ ] Waypoint + route display via spatial DB
+[ ] Display-only mode (no edit, no import)
+[ ] Share toggle state between maps (ConvoyConfig/ViewModel)
+[ ] Share data between maps (singleton cache)
+[ ] Transparent bottom bar with text links
+[ ] Remove DISPLAY button
+[ ] Tile encoding fix verified in field
+
+=====================================
+DEFERRED TO LATER
+=====================================
+
+[ ] Waypoint creation (long-press on map)
+[ ] Route creation (draw/snap-to-trail)
+[ ] Track-to-route conversion
+[ ] Trail properties in spatial DB (CartoCode re-import)
+[ ] Non-lead cart track filter (phantom tracks fix)
+[ ] GPX recording filter (local device GPS only)
+[ ] Tile source investigation (z18 rural coverage)
+[ ] Click-to-action enhanced popups (date, length, properties)
+[ ] Import summary panel with proceed/cancel gate
+[ ] Loading flags (gray toggles until queries complete)

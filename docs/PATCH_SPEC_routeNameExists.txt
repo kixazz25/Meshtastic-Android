@@ -1,0 +1,64 @@
+PATCH SPEC — add SpatialDbManager.routeNameExists(name)
+=======================================================
+Layer 1 (toolkit) dependency for RouteDraftStore.isNameTaken().
+Target file: SpatialDbManager.kt   (line endings: confirm with cat -A before patching)
+
+WHY
+  RouteDraftStore.isNameTaken(name) checks BOTH the draft store AND the routes DB
+  so a draft can never collide on the route-table insert at graduation
+  (DecisionLog 2026-06-05, unique-name rule). The draft half is in RouteDraftStore;
+  this is the DB half. No route-name query exists yet (confirmed via function_universe:
+  routes has query{RoutesByViewport,...}, insertRoute, renameRoute, deleteRoute — no name lookup).
+
+PLACEMENT
+  Add as a new public fun in the SpatialDbManager route region, e.g. immediately
+  AFTER insertRoute (ends before insertTrackToDb at SpatialDbManager.kt:672) or
+  next to renameRoute (905)/deleteRoute (911). Either is fine; it only needs spatialDb.
+
+ANCHOR (insert after the closing brace of insertRoute, before)
+  fun insertTrackToDb(name: String, geometryWkt: String, minLat: Double, maxLat: Double, minLon: Double, maxLon: Double): Boolean {
+
+FUNCTION (Kotlin)
+-----------------------------------------------------------------
+    /**
+     * True if a COMPLETED route with this name already exists in the routes table.
+     * Case-insensitive, trimmed. Used by RouteDraftStore.isNameTaken to enforce the
+     * demand-unique-name rule across both worlds (drafts + routes DB), so graduation's
+     * insertRoute never produces a name-dupe on the route table.
+     */
+    fun routeNameExists(name: String): Boolean {
+        val db = spatialDb ?: return false
+        val needle = name.trim()
+        if (needle.isEmpty()) return false
+        return try {
+            val c = db.rawQuery(
+                "SELECT 1 FROM routes WHERE name IS NOT NULL " +
+                    "AND lower(trim(name)) = lower(trim(?)) LIMIT 1",
+                arrayOf(needle)
+            )
+            val exists = c.moveToFirst()
+            c.close()
+            exists
+        } catch (e: Exception) {
+            android.util.Log.e(TAG, "routeNameExists failed", e)
+            false
+        }
+    }
+-----------------------------------------------------------------
+
+NOTES
+  - TAG already exists in SpatialDbManager ("SpatialDbMgr"); reuse it.
+  - Uses the existing `routes` table `name` column (confirmed: insertRoute writes
+    name + geom_hash to routes).
+  - No schema change. No new imports (android.util.Log fully-qualified inline,
+    or add the import if the file already imports it — it does, used elsewhere).
+  - If you later want this to also block against IN-PROGRESS drafts from the DB
+    side, no — drafts live only as JSON; RouteDraftStore.isNameTaken handles the
+    draft half. This fun is the DB half only.
+
+SAFETY RE-CHECK AT GRADUATION (design note, not this patch)
+  Per the unique-name rule, also re-verify uniqueness at graduation (a name free
+  when the draft was created could in principle be taken before it graduates —
+  unlikely single-user). At the graduate step, before insertRoute, call
+  routeNameExists(name); if true, re-prompt rather than insert. Wire this in the
+  graduation handler (Layer 3), not here.

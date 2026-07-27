@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GroupTrack — display model over raw satellite</title>
+<style>
+:root{
+  /* Overlay palette is chosen AGAINST Utah slickrock, not from it.
+     Desert imagery is warm tan/rust, so warm line colours disappear into it.
+     Everything drawn on top is deliberately COOL and saturated. */
+  --easy:#35D07F; --moderate:#4EA1FF; --difficult:#B47CFF; --extreme:#FF4D6D;
+  --route:#22D3EE; --trail:#EDE4D3; --waypoint:#FFB020;
+  --panel:#11161dF2; --edge:#232d3a; --ink:#c9d3de; --dim:#6c7a8a; --hot:#35D07F;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:#0b0f14;
+  font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;color:var(--ink)}
+#map{position:absolute;inset:0}
+
+.pane{position:absolute;z-index:5;background:var(--panel);border:1px solid var(--edge);
+  border-radius:10px;backdrop-filter:blur(8px);box-shadow:0 8px 32px #0009}
+#ctl{top:12px;left:12px;width:286px;max-height:calc(100% - 24px);overflow-y:auto;padding:14px}
+#ctl::-webkit-scrollbar{width:6px}#ctl::-webkit-scrollbar-thumb{background:var(--edge);border-radius:3px}
+
+h1{font-size:11px;letter-spacing:.14em;margin:0 0 2px;color:var(--hot);font-weight:700}
+.tag{font-size:9.5px;color:var(--dim);letter-spacing:.05em;line-height:1.6;margin-bottom:12px}
+
+.sec{border-top:1px solid var(--edge);margin-top:12px;padding-top:10px}
+.sec:first-of-type{border-top:none;margin-top:0;padding-top:0}
+.hdr{font-size:9px;letter-spacing:.16em;color:var(--dim);margin-bottom:7px;display:flex;
+  justify-content:space-between;align-items:baseline}
+.hdr .n{color:var(--edge);font-size:9px}
+
+.row{display:flex;align-items:center;gap:9px;padding:4px 0;cursor:pointer;user-select:none;font-size:11.5px}
+.row input{accent-color:var(--hot);cursor:pointer;margin:0;flex:0 0 auto}
+.row label{cursor:pointer;flex:1;line-height:1.3}
+.row svg{flex:0 0 34px}
+.sub{font-size:9.5px;color:var(--dim);margin:1px 0 6px 25px;line-height:1.5}
+
+input[type=file]{width:100%;font-size:9.5px;color:var(--dim);margin-top:5px}
+input[type=range]{width:100%;accent-color:var(--difficult)}
+
+#legend{display:grid;grid-template-columns:auto 1fr;gap:4px 9px;align-items:center;
+  font-size:10px;margin-top:2px}
+#legend .k{width:14px;height:14px;border-radius:3px;border:1px solid #0006}
+
+#read{bottom:12px;left:12px;padding:7px 11px;font-size:10px;color:var(--dim);letter-spacing:.04em}
+#insp{bottom:12px;right:12px;width:262px;padding:12px;display:none;max-height:44%;overflow-y:auto}
+#insp h2{font-size:10px;letter-spacing:.12em;margin:0 0 8px;color:var(--hot)}
+#insp table{width:100%;border-collapse:collapse;font-size:10.5px}
+#insp td{padding:2.5px 0;vertical-align:top}
+#insp td:first-child{color:var(--dim);padding-right:10px;white-space:nowrap}
+#insp .x{position:absolute;top:9px;right:11px;color:var(--dim);cursor:pointer;font-size:13px}
+#err{position:absolute;top:12px;right:12px;z-index:9;background:#3a1218;color:#ffd9de;
+  border:1px solid #7a2733;border-radius:9px;padding:11px 13px;font-size:11px;max-width:330px;
+  display:none;line-height:1.55}
+#err b{color:#ff8fa0;letter-spacing:.08em}
+#errmsg{margin-top:5px;font-size:10.5px;word-break:break-word}
+.maplibregl-popup-content{background:var(--panel);color:var(--ink);border:1px solid var(--edge);
+  font-family:inherit;font-size:11px}
+</style>
+</head>
+<body>
+<div id="map"></div>
+
+<div class="pane" id="ctl">
+  <h1>DISPLAY MODEL</h1>
+  <div class="tag">Four artifact types over raw Esri imagery — no Esri label tiles.
+    Sample Moab geometry loaded; swap in your own exports below.</div>
+
+  <div class="sec">
+    <div class="hdr"><span>BASE</span></div>
+    <div class="row"><input type="checkbox" id="sat" checked><label for="sat">Esri imagery — raw</label></div>
+    <div class="row"><input type="checkbox" id="lbl" checked><label for="lbl">OSM labels — vector</label></div>
+    <div class="sub">The two label stores this replaces are ⅔ of every SAT download.</div>
+    <div class="row"><input type="checkbox" id="terr"><label for="terr">Elevation — 3D</label></div>
+    <input type="range" id="exag" min="1" max="3" step="0.1" value="1.5">
+  </div>
+
+  <div class="sec">
+    <div class="hdr"><span>OSM GEOMETRY</span><span class="n">compare</span></div>
+    <div class="row">
+      <svg width="34" height="10"><line x1="1" y1="5" x2="33" y2="5" stroke="#FF6B35" stroke-width="2.2" stroke-opacity=".95"/></svg>
+      <input type="checkbox" id="osmTrk" checked><label for="osmTrk">OSM tracks &amp; paths</label>
+    </div>
+    <div class="sub">Drawn UNDER your data in orange. Where orange hides beneath your
+      line, OSM duplicates what you hold. Orange alone = something you do not have.
+      Yours alone = OSM adds no label there.</div>
+  </div>
+
+  <div class="sec">
+    <div class="hdr"><span>TRAILS</span><span class="n" id="nTrail">—</span></div>
+    <div class="row">
+      <svg width="34" height="10"><line x1="1" y1="5" x2="33" y2="5" stroke="#EDE4D3" stroke-width="2" stroke-opacity=".72"/></svg>
+      <input type="checkbox" id="trailOn" checked><label for="trailOn">curated reference</label>
+    </div>
+    <div class="sub">From the national trail model. Deliberately quiet — context, not your work.</div>
+    <input type="file" id="fTrail" accept=".geojson,.json">
+  </div>
+
+  <div class="sec">
+    <div class="hdr"><span>TRACKS</span><span class="n" id="nTrack">—</span></div>
+    <div class="row">
+      <svg width="34" height="10"><line x1="1" y1="5" x2="33" y2="5" stroke="#4EA1FF" stroke-width="3.4"/></svg>
+      <input type="checkbox" id="trackOn" checked><label for="trackOn">recorded</label>
+    </div>
+    <div class="sub">Colour is an expression over <b>rating</b> — read straight off the feature.</div>
+    <div id="legend">
+      <span class="k" style="background:var(--easy)"></span><span>1 · easy</span>
+      <span class="k" style="background:var(--moderate)"></span><span>2–3 · moderate</span>
+      <span class="k" style="background:var(--difficult)"></span><span>4 · difficult</span>
+      <span class="k" style="background:var(--extreme)"></span><span>5 · extreme</span>
+    </div>
+    <div class="row" style="margin-top:6px"><input type="checkbox" id="trackLbl" checked><label for="trackLbl">names along the line</label></div>
+    <input type="file" id="fTrack" accept=".geojson,.json">
+  </div>
+
+  <div class="sec">
+    <div class="hdr"><span>ROUTES</span><span class="n" id="nRoute">—</span></div>
+    <div class="row">
+      <svg width="34" height="10"><line x1="1" y1="5" x2="33" y2="5" stroke="#22D3EE" stroke-width="3" stroke-dasharray="6 4"/></svg>
+      <input type="checkbox" id="routeOn" checked><label for="routeOn">planned</label>
+    </div>
+    <div class="sub">Dashed reads as intent, not history — a route hasn't been ridden yet.</div>
+    <input type="file" id="fRoute" accept=".geojson,.json">
+  </div>
+
+  <div class="sec">
+    <div class="hdr"><span>WAYPOINTS</span><span class="n" id="nWpt">—</span></div>
+    <div class="row">
+      <svg width="34" height="14"><circle cx="17" cy="7" r="5" fill="#FFB020" stroke="#0b0f14" stroke-width="1.6"/></svg>
+      <input type="checkbox" id="wptOn" checked><label for="wptOn">markers</label>
+    </div>
+    <div class="row"><input type="checkbox" id="wptLbl" checked><label for="wptLbl">names</label></div>
+    <input type="file" id="fWpt" accept=".geojson,.json">
+  </div>
+
+  <div class="sec">
+    <div class="sub" style="margin-left:0">Tap any feature to inspect its properties.
+      Tilt with ctrl + drag.</div>
+  </div>
+</div>
+
+<div class="pane" id="read">move the map</div>
+<div id="err">
+  <b>MAP DID NOT LOAD</b>
+  <div id="errmsg"></div>
+  <div style="color:var(--dim);margin-top:6px">Satellite and your artifacts do not need
+  the internet vector source. If only the OSM labels failed, everything else still draws.</div>
+</div>
+
+<div class="pane" id="insp">
+  <span class="x" id="inspX">×</span>
+  <h2 id="inspT">FEATURE</h2>
+  <table id="inspB"></table>
+</div>
+
+<script>
+/* ---------------------------------------------------------------------------
+   SAMPLE GEOMETRY — deterministic, generated from real Moab-area anchors.
+   Stands in for grouptrack.gpkg so the display model is visible immediately.
+   Replace any layer with a real export using the file pickers.
+--------------------------------------------------------------------------- */
+let seed = 20260726;
+const rnd = () => (seed = (seed * 1664525 + 1013904223) % 4294967296) / 4294967296;
+
+function walk(lon, lat, steps, spread, drift) {
+  const pts = []; let h = rnd() * Math.PI * 2;
+  for (let i = 0; i < steps; i++) {
+    h += (rnd() - 0.5) * drift;
+    lon += Math.cos(h) * spread; lat += Math.sin(h) * spread * 0.8;
+    pts.push([+lon.toFixed(5), +lat.toFixed(5)]);
+  }
+  return pts;
+}
+const fc = (f) => ({ type:'FeatureCollection', features:f });
+const line = (coords, props) =>
+  ({ type:'Feature', geometry:{ type:'LineString', coordinates:coords }, properties:props });
+const point = (c, props) =>
+  ({ type:'Feature', geometry:{ type:'Point', coordinates:c }, properties:props });
+
+const TRACKS = fc([
+  line(walk(-109.5150, 38.5766, 120, 0.00042, 1.5), { name:'Slickrock Practice Loop', rating:2, type:'Tracks', length_mi:2.3 }),
+  line(walk(-109.5000, 38.5700, 190, 0.00050, 1.2), { name:"Hell's Revenge", rating:5, type:'Tracks', length_mi:6.5 }),
+  line(walk(-109.6300, 38.5400, 240, 0.00055, 1.0), { name:'Poison Spider Mesa', rating:4, type:'Tracks', length_mi:13.0 }),
+  line(walk(-109.5100, 38.5650, 150, 0.00045, 1.4), { name:'Fins N Things', rating:3, type:'Tracks', length_mi:9.4 }),
+  line(walk(-109.4500, 38.5500, 210, 0.00058, 0.9), { name:'Porcupine Rim', rating:4, type:'Tracks', length_mi:15.2 }),
+  line(walk(-109.6050, 38.5200, 160, 0.00048, 1.1), { name:'Kane Creek Canyon', rating:1, type:'Tracks', length_mi:7.1 })
+]);
+
+const TRAILS = fc([
+  line(walk(-109.7000, 38.6400, 260, 0.00060, 0.8), { name:'Gemini Bridges Road', type:'Trails', source:'UGRC', surface:'dirt' }),
+  line(walk(-109.5600, 38.6100, 300, 0.00062, 0.7), { name:'Sovereign Trail System', type:'Trails', source:'UGRC', surface:'slickrock' }),
+  line(walk(-109.6600, 38.4900, 280, 0.00058, 0.9), { name:'Chicken Corners', type:'Trails', source:'BLM', surface:'sand' }),
+  line(walk(-109.4300, 38.6200, 240, 0.00056, 0.8), { name:'Onion Creek', type:'Trails', source:'UGRC', surface:'gravel' })
+]);
+
+const ROUTES = fc([
+  line(walk(-109.5480, 38.5730, 170, 0.00060, 0.6), { name:'Saturday — north loop', type:'Routes', planned_for:'2026-08-01', waypoints:6 }),
+  line(walk(-109.5900, 38.5450, 140, 0.00055, 0.7), { name:'Sunday — canyon run', type:'Routes', planned_for:'2026-08-02', waypoints:4 })
+]);
+
+const WPT_KINDS = [
+  ['Trailhead','trailhead'], ['Camp','camp'], ['Water','water'], ['Fuel','fuel'],
+  ['Hazard — ledge','hazard'], ['Viewpoint','viewpoint'], ['Gate','gate'],
+  ['Junction','junction'], ['Staging area','staging'], ['Radio relay','relay']
+];
+const WAYPOINTS = fc(WPT_KINDS.map(([nm, kind], i) => {
+  const t = TRACKS.features[i % TRACKS.features.length].geometry.coordinates;
+  const c = t[Math.floor(rnd() * t.length)];
+  return point(c, { name:nm, kind, type:'Waypoints', elev_ft: 4200 + Math.floor(rnd()*1800) });
+}));
+
+/* ------------------------------------------------------------------------ */
+const ESRI = 'https://services.arcgisonline.com/ArcGIS/rest/services';
+// Esri raster tiles are {z}/{y}/{x} — row before column, NOT the usual x/y.
+const OMT = 'https://tiles.openfreemap.org/planet';
+
+// rating -> colour. The break points follow OHV difficulty convention
+// (easy / moderate / difficult / extreme) rather than an arbitrary ramp, so the
+// map speaks the vocabulary riders already read on trail signage.
+const RATING_COLOR = [
+  'match', ['to-string', ['coalesce', ['get','rating'], 0]],
+  '1', '#35D07F', '2', '#4EA1FF', '3', '#4EA1FF',
+  '4', '#B47CFF', '5', '#FF4D6D',
+  '#8A94A2'
+];
+
+const style = {
+  version: 8,
+  glyphs: 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf',
+  sources: {
+    sat:{ type:'raster', tiles:[`${ESRI}/World_Imagery/MapServer/tile/{z}/{y}/{x}`],
+          tileSize:256, maxzoom:19, attribution:'Esri, Maxar, Earthstar Geographics' },
+    omt:{ type:'vector', url:`${OMT}/tiles.json`, attribution:'© OpenStreetMap contributors' },
+    dem:{ type:'raster-dem',
+          tiles:['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'],
+          encoding:'terrarium', tileSize:256, maxzoom:13,
+          attribution:'Terrain: Mapzen / AWS Open Data' },
+    trails:{ type:'geojson', data:TRAILS },
+    tracks:{ type:'geojson', data:TRACKS },
+    routes:{ type:'geojson', data:ROUTES },
+    wpts:{ type:'geojson', data:WAYPOINTS }
+  },
+  layers: [
+    { id:'bg', type:'background', paint:{ 'background-color':'#0b0f14' } },
+    // NOTE: no 'sky' layer. type:'sky' is MapLibre v5+; on v4 it is an unknown
+    // layer type and the WHOLE style is rejected, giving a blank canvas.
+    { id:'sat', type:'raster', source:'sat' },
+
+    // OSM TRACK/PATH GEOMETRY — the comparison layer. Orange because nothing in
+    // the artifact palette is warm, so overlap reads instantly: your cool line
+    // sitting on top of orange = duplicate; bare orange = OSM has something you
+    // do not; your line with no orange = OSM contributes no name there.
+    { id:'osmTrk', source:'omt', 'source-layer':'transportation', type:'line',
+      filter:['in','class','track','path'],
+      layout:{ 'line-cap':'round','line-join':'round' },
+      paint:{ 'line-color':'#FF6B35','line-opacity':0.95,
+              'line-width':['interpolate',['linear'],['zoom'],10,1.2,16,4] } },
+
+    // TRAILS — curated reference. Quiet on purpose: context beneath your work,
+    // never competing with it.
+    { id:'trailLine', source:'trails', type:'line',
+      layout:{ 'line-cap':'round','line-join':'round' },
+      paint:{ 'line-color':'#EDE4D3','line-opacity':0.72,
+              'line-width':['interpolate',['linear'],['zoom'],9,0.8,16,2.4],
+              'line-dasharray':[4,2] } },
+
+    // ROUTES — planned. Dashed reads as intent rather than history.
+    { id:'routeCase', source:'routes', type:'line',
+      layout:{ 'line-cap':'round','line-join':'round' },
+      paint:{ 'line-color':'#04252b','line-opacity':0.85,
+              'line-width':['interpolate',['linear'],['zoom'],9,3.5,16,9] } },
+    { id:'routeLine', source:'routes', type:'line',
+      layout:{ 'line-cap':'butt','line-join':'round' },
+      paint:{ 'line-color':'#22D3EE','line-dasharray':[2.2,1.4],
+              'line-width':['interpolate',['linear'],['zoom'],9,1.8,16,4.5] } },
+
+    // TRACKS — recorded, and the loudest thing on the map. Dark casing keeps
+    // them legible over both bright slickrock and shadowed canyon.
+    { id:'trackCase', source:'tracks', type:'line',
+      layout:{ 'line-cap':'round','line-join':'round' },
+      paint:{ 'line-color':'#05080c','line-opacity':0.8,
+              'line-width':['interpolate',['linear'],['zoom'],9,4,16,11] } },
+    { id:'trackLine', source:'tracks', type:'line',
+      layout:{ 'line-cap':'round','line-join':'round' },
+      paint:{ 'line-color':RATING_COLOR,
+              'line-width':['interpolate',['linear'],['zoom'],9,2,16,5.5] } },
+
+    // OSM labels — replacing the two Esri raster label stores.
+    { id:'lblRoad', source:'omt', 'source-layer':'transportation_name', type:'symbol',
+      layout:{ 'symbol-placement':'line','text-field':['coalesce',['get','name'],['get','ref']],
+               'text-font':['Noto Sans Regular'],'text-size':10.5 },
+      paint:{ 'text-color':'#ffffff','text-halo-color':'#000000','text-halo-width':1.6 } },
+    { id:'lblWater', source:'omt', 'source-layer':'water_name', type:'symbol',
+      layout:{ 'text-field':['get','name'],'text-font':['Noto Sans Italic'],'text-size':10.5 },
+      paint:{ 'text-color':'#9ecbff','text-halo-color':'#000000','text-halo-width':1.4 } },
+    { id:'lblPeak', source:'omt', 'source-layer':'mountain_peak', type:'symbol',
+      layout:{ 'text-field':['get','name'],'text-font':['Noto Sans Regular'],'text-size':10,
+               'text-offset':[0,0.7] },
+      paint:{ 'text-color':'#ffd7a8','text-halo-color':'#000000','text-halo-width':1.4 } },
+    { id:'lblPlace', source:'omt', 'source-layer':'place', type:'symbol',
+      layout:{ 'text-field':['get','name'],'text-font':['Noto Sans Bold'],
+               'text-size':['interpolate',['linear'],['zoom'],6,11,12,17] },
+      paint:{ 'text-color':'#ffffff','text-halo-color':'#000000','text-halo-width':2 } },
+
+    // Artifact names sit ABOVE basemap labels — yours win collisions.
+    { id:'trackLbl', source:'tracks', type:'symbol',
+      layout:{ 'symbol-placement':'line','text-field':['get','name'],
+               'text-font':['Noto Sans Bold'],'text-size':11,'text-letter-spacing':0.04 },
+      paint:{ 'text-color':'#ffffff','text-halo-color':'#05080c','text-halo-width':2.2 } },
+
+    // WAYPOINTS — circle + label, no sprite sheet needed.
+    { id:'wptDot', source:'wpts', type:'circle',
+      paint:{ 'circle-radius':['interpolate',['linear'],['zoom'],9,3.5,16,7],
+              'circle-color':['match',['get','kind'],
+                'hazard','#FF4D6D','water','#22D3EE','fuel','#FFB020',
+                'camp','#35D07F','relay','#B47CFF','#FFB020'],
+              'circle-stroke-color':'#05080c','circle-stroke-width':1.8 } },
+    { id:'wptLbl', source:'wpts', type:'symbol',
+      layout:{ 'text-field':['get','name'],'text-font':['Noto Sans Regular'],
+               'text-size':10,'text-offset':[0,1.1],'text-anchor':'top' },
+      paint:{ 'text-color':'#FFD79A','text-halo-color':'#05080c','text-halo-width':1.8 } }
+  ]
+};
+
+function boot() {
+const map = new maplibregl.Map({
+  container:'map', style, center:[-109.5498,38.5733], zoom:11.4, maxZoom:19, hash:true
+});
+map.addControl(new maplibregl.NavigationControl({visualizePitch:true}),'bottom-right');
+map.addControl(new maplibregl.ScaleControl({unit:'imperial'}),'bottom-right');
+
+/* ---- counts ---- */
+const counts = () => {
+  document.getElementById('nTrail').textContent = TRAILS.features.length;
+  document.getElementById('nTrack').textContent = TRACKS.features.length;
+  document.getElementById('nRoute').textContent = ROUTES.features.length;
+  document.getElementById('nWpt').textContent   = WAYPOINTS.features.length;
+};
+
+/* ---- toggles ---- */
+const vis = (layers, on) => layers.forEach(l =>
+  map.getLayer(l) && map.setLayoutProperty(l,'visibility', on ? 'visible':'none'));
+const bind = (id, layers) => {
+  const el = document.getElementById(id);
+  el.addEventListener('change', () => vis(layers, el.checked));
+};
+
+map.on('load', () => {
+  counts();
+  bind('sat',['sat']);
+  bind('lbl',['lblRoad','lblWater','lblPeak','lblPlace']);
+  bind('osmTrk',['osmTrk']);
+  bind('trailOn',['trailLine']);
+  bind('trackOn',['trackCase','trackLine']);
+  bind('trackLbl',['trackLbl']);
+  bind('routeOn',['routeCase','routeLine']);
+  bind('wptOn',['wptDot']);
+  bind('wptLbl',['wptLbl']);
+
+  const exag = document.getElementById('exag');
+  const terr = document.getElementById('terr');
+  const applyTerrain = () => {
+    if (terr.checked) {
+      map.setTerrain({ source:'dem', exaggeration:parseFloat(exag.value) });
+      if (map.getPitch() < 20) map.easeTo({ pitch:60, duration:900 });
+    } else {
+      map.setTerrain(null);
+      map.easeTo({ pitch:0, bearing:0, duration:700 });
+    }
+  };
+  terr.addEventListener('change', applyTerrain);
+  exag.addEventListener('input', () => {
+    if (terr.checked) map.setTerrain({ source:'dem', exaggeration:parseFloat(exag.value) });
+  });
+
+  // ---- inspector: MapLibre has no DOM per feature, so hit-test instead.
+  // This is exactly the change spatial_artifacts.js needs — click handlers
+  // bound per feature become one queryRenderedFeatures call.
+  const HIT = ['trackLine','trailLine','routeLine','wptDot','osmTrk'];
+  map.on('click', (e) => {
+    const f = map.queryRenderedFeatures(e.point, { layers:HIT })[0];
+    const box = document.getElementById('insp');
+    if (!f) { box.style.display='none'; return; }
+    document.getElementById('inspT').textContent =
+      (f.properties.type || 'FEATURE').toUpperCase();
+    document.getElementById('inspB').innerHTML = Object.entries(f.properties)
+      .map(([k,v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join('');
+    box.style.display='block';
+  });
+  HIT.forEach(l => {
+    map.on('mouseenter', l, () => map.getCanvas().style.cursor='pointer');
+    map.on('mouseleave', l, () => map.getCanvas().style.cursor='');
+  });
+});
+document.getElementById('inspX').onclick = () =>
+  document.getElementById('insp').style.display='none';
+
+/* ---- load your own exports ---- */
+const loadInto = (inputId, srcId, store, countId) => {
+  document.getElementById(inputId).addEventListener('change', (ev) => {
+    const file = ev.target.files && ev.target.files[0]; if (!file) return;
+    const rd = new FileReader();
+    rd.onload = () => {
+      try {
+        const gj = JSON.parse(rd.result);
+        const feats = gj.type==='FeatureCollection' ? gj.features
+                    : gj.type==='Feature' ? [gj] : [];
+        if (!feats.length) { alert('No features in that file.'); return; }
+        store.features = feats;
+        map.getSource(srcId).setData(store);
+        document.getElementById(countId).textContent = feats.length;
+        let n=-90,s=90,e=-180,w=180;
+        const walkC = (c) => { if (typeof c[0]==='number'){
+          if(c[1]>n)n=c[1]; if(c[1]<s)s=c[1]; if(c[0]>e)e=c[0]; if(c[0]<w)w=c[0];
+        } else c.forEach(walkC); };
+        feats.forEach(ft => ft.geometry && walkC(ft.geometry.coordinates));
+        if (w<=e && s<=n) map.fitBounds([[w,s],[e,n]],{padding:70,maxZoom:15});
+      } catch (err) { alert('Could not parse: ' + err.message); }
+    };
+    rd.readAsText(file);
+  });
+};
+loadInto('fTrail','trails',TRAILS,'nTrail');
+loadInto('fTrack','tracks',TRACKS,'nTrack');
+loadInto('fRoute','routes',ROUTES,'nRoute');
+loadInto('fWpt','wpts',WAYPOINTS,'nWpt');
+
+const read = document.getElementById('read');
+const upd = () => { const c = map.getCenter();
+  read.textContent = `z${map.getZoom().toFixed(1)}   ${c.lat.toFixed(4)}, ${c.lng.toFixed(4)}   pitch ${map.getPitch().toFixed(0)}°`; };
+map.on('move',upd); map.on('load',upd);
+// A blank map must explain itself rather than failing silently.
+map.on('error',(e)=>{
+  const m = (e && e.error && e.error.message) ? e.error.message : String(e && e.error || 'unknown');
+  console.warn('map error:', e && e.error);
+  const box = document.getElementById('err');
+  const msg = document.getElementById('errmsg');
+  if (!box.style.display || box.style.display === 'none') {
+    box.style.display = 'block';
+    msg.textContent = m;
+  } else if (msg.textContent.indexOf(m) === -1) {
+    msg.textContent += '  |  ' + m;
+  }
+});
+// If the style never finishes loading, say so rather than showing an empty box.
+setTimeout(() => {
+  if (!map.isStyleLoaded()) {
+    const box = document.getElementById('err');
+    if (box.style.display !== 'block') {
+      box.style.display = 'block';
+      document.getElementById('errmsg').textContent =
+        'Style did not finish loading after 12s. Check the browser console (F12).';
+    }
+  }
+}, 12000);
+}  // end boot()
+
+/* ---------------------------------------------------------------------------
+   MapLibre is loaded from a CDN. If one is blocked or unreachable the library
+   never defines `maplibregl` and every line above throws. Try three in turn and
+   say so plainly if none answers, rather than leaving a blank page.
+--------------------------------------------------------------------------- */
+(function () {
+  const V = '4.7.1';
+  const JS = [
+    'https://cdn.jsdelivr.net/npm/maplibre-gl@' + V + '/dist/maplibre-gl.js',
+    'https://unpkg.com/maplibre-gl@' + V + '/dist/maplibre-gl.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/' + V + '/maplibre-gl.js'
+  ];
+  const CSS = [
+    'https://cdn.jsdelivr.net/npm/maplibre-gl@' + V + '/dist/maplibre-gl.css',
+    'https://unpkg.com/maplibre-gl@' + V + '/dist/maplibre-gl.css',
+    'https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/' + V + '/maplibre-gl.css'
+  ];
+
+  const fatal = (msg) => {
+    const box = document.getElementById('err');
+    box.style.display = 'block';
+    document.getElementById('errmsg').textContent = msg;
+  };
+
+  const loadCss = (i) => {
+    if (i >= CSS.length) return;
+    const l = document.createElement('link');
+    l.rel = 'stylesheet'; l.href = CSS[i];
+    l.onerror = () => loadCss(i + 1);
+    document.head.appendChild(l);
+  };
+
+  const loadJs = (i) => {
+    if (i >= JS.length) {
+      fatal('Could not load the MapLibre library from any CDN (jsdelivr, unpkg, cdnjs). ' +
+            'Something on this network is blocking them, or there is no internet. ' +
+            'Note the satellite tiles need internet too.');
+      return;
+    }
+    const sc = document.createElement('script');
+    sc.src = JS[i];
+    sc.onload = () => {
+      if (window.maplibregl) { loadCss(0); boot(); }
+      else loadJs(i + 1);
+    };
+    sc.onerror = () => loadJs(i + 1);
+    document.head.appendChild(sc);
+  };
+
+  loadJs(0);
+})();
+</script>
+</body>
+</html>

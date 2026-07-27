@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>V2.5 Scaffold §1-3 — Maps + Settings</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
+:root{--bg:#0e1117;--s:#161b22;--s2:#21262d;--b:#30363d;--t:#c9d1d9;--td:#8b949e;--tb:#f0f6fc;--blue:#58a6ff;--grn:#3fb950;--org:#d29922;--red:#f85149;--pur:#bc8cff;--cy:#39d2c0}
+*{box-sizing:border-box;margin:0;padding:0}body{font-family:'IBM Plex Sans',sans-serif;background:var(--bg);color:var(--t);line-height:1.6;padding:2rem}
+h1{font-size:1.4rem;color:var(--tb);border-bottom:2px solid var(--blue);padding-bottom:.4rem;margin-bottom:1.2rem}
+h2{font-size:1.1rem;color:var(--blue);margin:1.5rem 0 .6rem}
+code{font-family:'JetBrains Mono',monospace;font-size:.8rem;background:var(--s2);padding:2px 5px;border-radius:3px;color:var(--cy)}
+.m{background:var(--s);border:2px solid var(--b);border-radius:8px;margin:1rem 0;max-width:380px;overflow:hidden}
+.m.new{border-style:dashed;border-color:var(--org)}
+.mt{background:var(--s2);padding:6px 10px;font-weight:600;font-size:.8rem;color:var(--tb);border-bottom:1px solid var(--b)}
+.mb{padding:10px}
+.mr{display:flex;justify-content:space-between;padding:4px 0;font-size:.78rem;border-bottom:1px solid var(--s2)}
+.ml{color:var(--td)}.mv{color:var(--tb)}
+.b{font-size:.65rem;padding:2px 6px;border-radius:3px;border:1px solid var(--b);color:var(--t);background:var(--s2);margin:2px}
+.rx{background:#1a1e25;border-left:3px solid var(--org);padding:9px 12px;margin:.8rem 0;border-radius:0 5px 5px 0}
+.rx h4{color:var(--org);margin:0 0 5px;font-size:.82rem}.rx ul{padding-left:1rem}.rx li{font-size:.8rem;margin-bottom:2px}
+.px{background:#111922;border-left:3px solid var(--blue);padding:9px 12px;margin:.8rem 0;border-radius:0 5px 5px 0}
+.px h4{color:var(--blue);margin:0 0 5px;font-size:.82rem}.px ul{padding-left:1rem}.px li{font-size:.8rem;margin-bottom:2px}
+.gx{background:#171a11;border-left:3px solid var(--grn);padding:9px 12px;margin:.8rem 0;border-radius:0 5px 5px 0}
+.gx h4{color:var(--grn);margin:0 0 5px;font-size:.82rem}.gx ul{padding-left:1rem}.gx li{font-size:.8rem;margin-bottom:2px}
+.sec{border-bottom:1px solid var(--b);padding-bottom:1.2rem;margin-bottom:1.2rem}
+.tag{display:inline-block;font-size:.6rem;font-weight:600;padding:2px 5px;border-radius:3px;margin-left:3px}
+.fab{display:inline-block;padding:6px 12px;border-radius:16px;font-size:.78rem;font-weight:600;margin:3px}
+</style></head><body>
+
+<!-- ═══════════════ §1 CONVOY MAP ═══════════════ -->
+<h1>§1 Convoy Map — Base View</h1>
+<p style="font-size:.8rem;color:var(--td)">IMPLEMENTED — PRODUCTION + V2.5 ADDITIONS</p>
+
+<div class="sec">
+<div class="m">
+<div class="mt">CONVOY MAP — BASE VIEW</div>
+<div class="mb">
+  <div class="mr"><span class="mv">MAP BAR: PLANNING MAP | SAT | TOPO | TOPO+ | NET/LOCAL</span></div>
+  <div class="mr"><span class="mv">HUD BAR: GROUP | MY CART | SELECT CART | HIDE | GEAR</span></div>
+  <div style="font-size:.72rem;color:var(--td);margin:6px 0 3px">DISPLAY PANEL (draggable)</div>
+  <div class="mr"><span class="ml">Tracks</span><span class="mv">ON</span></div>
+  <div class="mr"><span class="ml">Trails</span><span class="mv">ON</span></div>
+  <div class="mr"><span class="ml">Waypoints</span><span class="mv">OFF <span class="tag" style="background:var(--org);color:#000">V2.5</span></span></div>
+  <div class="mr"><span class="ml">Routes</span><span class="mv">OFF <span class="tag" style="background:var(--org);color:#000">V2.5</span></span></div>
+  <div class="mr"><span class="ml">Downloaded Areas</span><span class="mv">ON</span></div>
+  <div style="font-size:.72rem;color:var(--td);margin:8px 0 3px">V2.5 ADDITIONS</div>
+  <div class="mr"><span class="mv">WORK WITH ARTIFACTS (DISPLAY only)</span></div>
+  <div class="mr"><span class="mv">WORK WITH QUEUES [Q: 3]</span></div>
+  <div class="mr"><span class="mv">LONG-PRESS: WAYPOINT CREATION</span></div>
+</div></div>
+
+<div class="rx"><h4>CONVOY MAP PROCESS RULES</h4><ul>
+  <li>DISPLAY only for artifacts. No EDIT. No IMPORT.</li>
+  <li>Click artifact → detail + aliases (read-only)</li>
+  <li>Long-press → waypoint creation (same flow as Planning)</li>
+  <li>Map source change via GEAR > Settings > Map Sources</li>
+</ul></div>
+<div class="px"><h4>ALIAS RULES — CONVOY MAP</h4><ul>
+  <li>View aliases: YES | Add: NO | Set preferred: NO | Delete: NO</li>
+</ul></div>
+<div class="gx"><h4>DATABASE</h4><ul>
+  <li>Reads: grouptrack_spatial.db (trails, tracks, waypoints, routes)</li>
+  <li>Display name: <code>COALESCE(preferred_alias, spatial.name, agency_id, 'Unnamed')</code></li>
+  <li>Query bounded by map viewport for performance</li>
+</ul></div>
+<div class="gx"><h4>IMPLEMENTED ✓</h4><ul>
+  <li>✓ HUD bar (GROUP|MY CART|SELECT CART|HIDE|GEAR)</li>
+  <li>✓ Map source buttons (SAT/TOPO/TOPO+ from MapSourceManager)</li>
+  <li>✓ Overlay injection from Kotlin (no hardcoded HTML URLs)</li>
+  <li>✓ NET/LOCAL toggle</li>
+  <li>✓ SpatialDbManager.init() on startup</li>
+</ul></div>
+</div>
+
+<!-- ═══════════════ §2 SETTINGS ═══════════════ -->
+<h1>§2 Settings — Map Sources + API Keys</h1>
+<p style="font-size:.8rem;color:var(--td)">IMPLEMENTED — TESTED</p>
+
+<div class="sec">
+<div class="m">
+<div class="mt">SETTINGS > MAP SOURCES</div>
+<div class="mb">
+  <div style="font-size:.72rem;color:var(--td);margin-bottom:3px">CURRENT ASSIGNMENTS</div>
+  <div class="mr"><span class="ml">SAT</span><span class="mv">Esri Imagery + Labels</span></div>
+  <div class="mr"><span class="ml">TOPO</span><span class="mv">Esri World Topo</span></div>
+  <div class="mr"><span class="ml">TOPO+</span><span class="mv">CalTopo USFS ← changed</span></div>
+  <div style="font-size:.72rem;color:var(--td);margin:6px 0 3px">SELECT SOURCE FOR: [slot]</div>
+  <div class="mr"><span class="mv">Sources grouped: HYB | SAT | TOPO | STREET | TERRAIN | OUTDOOR</span></div>
+  <div class="mr"><span class="mv">16 sources total. Locked icon if key required + not entered.</span></div>
+  <div style="font-size:.72rem;color:var(--td);margin:6px 0 3px">API KEYS</div>
+  <div class="mr"><span class="ml">Thunderforest Outdoors</span><span class="mv" style="color:var(--grn)">✓ Key configured</span></div>
+  <div class="mr"><span class="mv" style="font-size:.72rem">Keys in Documents/GroupTrack/api_keys.json (local only)</span></div>
+</div></div>
+
+<div class="gx"><h4>FILES (IMPLEMENTED)</h4><ul>
+  <li>ConvoyMapSourceScreen.kt — UI</li>
+  <li>MapSourceManager.kt — external JSON read/write + API key mgmt</li>
+  <li>ConvoyDownloadQueue.kt — enqueueRefresh (grid cells)</li>
+  <li>ConvoyDownloadWorker.kt — refresh mode (bounds + exists check)</li>
+  <li>ConvoyTileDownloader.kt — scanTilesToKeys + tileBoundsLatLon + gridCells</li>
+</ul></div>
+</div>
+
+<!-- ═══════════════ §3 PLANNING MAP ═══════════════ -->
+<h1>§3 Planning Map — Base + Download</h1>
+
+<div class="sec">
+<div class="m new">
+<div class="mt">PLANNING MAP — BASE VIEW</div>
+<div class="mb">
+  <div class="mr"><span class="mv">MAP BAR: CONVOY | SAT | TOPO | TOPO+ | SEARCH</span></div>
+  <div style="font-size:.72rem;color:var(--td);margin:4px 0 3px">DISPLAY PANEL</div>
+  <div class="mr"><span class="mv">Tracks / Trails / Waypoints / Routes / Downloaded — toggles</span></div>
+  <div class="mr"><span class="mv">WORK WITH ARTIFACTS (full: DISPLAY+EDIT+IMPORT)</span></div>
+  <div class="mr"><span class="mv">WORK WITH QUEUES [Q: 3]</span></div>
+  <div style="font-size:.72rem;color:var(--td);margin:6px 0 3px">FABs (bottom)</div>
+  <div style="display:flex;gap:4px;justify-content:center;padding:6px 0">
+    <span class="fab" style="background:var(--org);color:#000">+ WPT</span>
+    <span class="fab" style="background:var(--pur);color:#fff">+ RTE</span>
+    <span class="fab" style="background:var(--blue);color:#fff">DOWNLOAD ↓</span>
+  </div>
+</div></div>
+
+<div class="rx"><h4>PLANNING MAP PROCESS RULES</h4><ul>
+  <li>Full artifact management: DISPLAY + EDIT + IMPORT</li>
+  <li>Click artifact → detail + aliases + actions</li>
+  <li>Long-press → waypoint creation with proximity + alias</li>
+  <li>+ WPT FAB → same as long-press</li>
+  <li>+ RTE FAB → route creation (draw/snap/convert)</li>
+</ul></div>
+<div class="px"><h4>ALIAS RULES — PLANNING MAP</h4><ul>
+  <li>View: YES | Add: YES | Set preferred: YES | Delete user: YES | Delete agency/aws: NO</li>
+</ul></div>
+<div class="gx"><h4>DATABASE</h4><ul>
+  <li>Reads: both databases. Spatial for geometry, extension for properties+aliases.</li>
+  <li>Writes: all creation flows write to both databases via lifecycle owners.</li>
+</ul></div>
+</div>
+
+<p style="text-align:center;color:var(--td);margin-top:1.5rem;font-size:.72rem;font-style:italic">V2.5 Scaffold §1-3 | Source: ScreenReference v5 §1-3 verbatim | May 19, 2026</p>
+</body></html>

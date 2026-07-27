@@ -1,0 +1,184 @@
+# ConvoyScreen.kt — Two targeted changes
+# Apply these edits in Android Studio or any text editor
+
+# ═══════════════════════════════════════════════════════════════
+# CHANGE 1: Update ConvoyScreen function signature
+# Add onNavigateToSettings parameter
+# ═══════════════════════════════════════════════════════════════
+
+# FIND this line (around line 67):
+fun ConvoyScreen(
+    viewModel: ConvoyViewModel = hiltViewModel()
+) {
+
+# REPLACE WITH:
+fun ConvoyScreen(
+    onNavigateToSettings: () -> Unit = {},
+    viewModel: ConvoyViewModel = hiltViewModel()
+) {
+
+# ═══════════════════════════════════════════════════════════════
+# CHANGE 2: Add gear icon to HudModeRow
+# ═══════════════════════════════════════════════════════════════
+
+# FIND this block (the HIDE button, near bottom of HudModeRow):
+        // HIDE button
+        Surface(
+            modifier = Modifier.clickable { onModeChange(HudMode.COLLAPSED) },
+            shape = RoundedCornerShape(10.dp),
+            color = Color(0xFF2A3545)
+        ) {
+            Text(
+                text = "HIDE",
+                color = Color(0xFF7A8DA0),
+                fontSize = 11.sp,
+                fontFamily = FontFamily.Monospace,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
+            )
+        }
+    }
+}
+
+# REPLACE WITH (adds gear button after HIDE):
+        // HIDE button
+        Surface(
+            modifier = Modifier.clickable { onModeChange(HudMode.COLLAPSED) },
+            shape = RoundedCornerShape(10.dp),
+            color = Color(0xFF2A3545)
+        ) {
+            Text(
+                text = "HIDE",
+                color = Color(0xFF7A8DA0),
+                fontSize = 11.sp,
+                fontFamily = FontFamily.Monospace,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
+            )
+        }
+        // SETTINGS gear button
+        Surface(
+            modifier = Modifier.clickable { onNavigateToSettings() },
+            shape = RoundedCornerShape(10.dp),
+            color = Color(0xFF2A3545)
+        ) {
+            Text(
+                text = "⚙",
+                color = Color(0xFF7A8DA0),
+                fontSize = 14.sp,
+                fontFamily = FontFamily.Monospace,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
+            )
+        }
+    }
+}
+
+# ═══════════════════════════════════════════════════════════════
+# CHANGE 3: Remove alert sliders from map settings panel
+# ═══════════════════════════════════════════════════════════════
+
+# FIND and DELETE this entire block (inside the expanded map settings column):
+                        Spacer(Modifier.height(10.dp))
+
+                        // ── Alert thresholds ─────────────────────────────
+                        Text("ALERTS", color = Color(0xFF4A6080), fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                        Spacer(Modifier.height(4.dp))
+
+                        Text("SIGNAL DROP  ${signalDropMinutes.toInt()} min", color = Color(0xFF4A6080), fontSize = 8.sp,
+                            fontFamily = FontFamily.Monospace)
+                        Slider(value = signalDropMinutes, onValueChange = { signalDropMinutes = it },
+                            onValueChangeFinished = { ConvoyConfig.SIGNAL_DROP_MINUTES = signalDropMinutes },
+                            valueRange = 1f..10f, steps = 8, modifier = Modifier.fillMaxWidth())
+
+                        Text("LOST  ${lostMinutes.toInt()} min", color = Color(0xFF4A6080), fontSize = 8.sp,
+                            fontFamily = FontFamily.Monospace)
+                        Slider(value = lostMinutes, onValueChange = { lostMinutes = it },
+                            onValueChangeFinished = { ConvoyConfig.LOST_MINUTES = lostMinutes },
+                            valueRange = 5f..30f, steps = 4, modifier = Modifier.fillMaxWidth())
+
+                        Text("OFF TRACK  ${"%.1f".format(offTrackMiles)} mi", color = Color(0xFF4A6080), fontSize = 8.sp,
+                            fontFamily = FontFamily.Monospace)
+                        Slider(value = offTrackMiles, onValueChange = { offTrackMiles = it },
+                            onValueChangeFinished = { ConvoyConfig.OFF_TRACK_MILES = offTrackMiles },
+                            valueRange = 0.1f..2f, steps = 18, modifier = Modifier.fillMaxWidth())
+
+# ALSO DELETE these now-unused state variables at the top of ConvoyScreen:
+    var signalDropMinutes by remember { mutableStateOf(2f) }
+    var lostMinutes by remember { mutableStateOf(10f) }
+    var offTrackMiles by remember { mutableStateOf(0.5f) }
+
+# ═══════════════════════════════════════════════════════════════
+# CHANGE 4: Update HudModeRow signature to accept onNavigateToSettings
+# ═══════════════════════════════════════════════════════════════
+
+# FIND:
+fun HudModeRow(current: HudMode, onModeChange: (HudMode) -> Unit) {
+
+# REPLACE WITH:
+fun HudModeRow(current: HudMode, onModeChange: (HudMode) -> Unit, onNavigateToSettings: () -> Unit = {}) {
+
+# AND update the GroupHud and MyCartHud calls to pass it through:
+# In GroupHud — FIND:
+        HudModeRow(current = HudMode.GROUP, onModeChange = onModeChange)
+# REPLACE WITH:
+        HudModeRow(current = HudMode.GROUP, onModeChange = onModeChange, onNavigateToSettings = onNavigateToSettings)
+
+# In MyCartHud — FIND:
+        HudModeRow(current = HudMode.MY_CART, onModeChange = onModeChange)
+# REPLACE WITH:
+        HudModeRow(current = HudMode.MY_CART, onModeChange = onModeChange, onNavigateToSettings = onNavigateToSettings)
+
+# AND update GroupHud and MyCartHud signatures:
+# FIND:
+fun GroupHud(
+    state: ConvoyEngine.ConvoyState,
+    onModeChange: (HudMode) -> Unit
+) {
+# REPLACE WITH:
+fun GroupHud(
+    state: ConvoyEngine.ConvoyState,
+    onModeChange: (HudMode) -> Unit,
+    onNavigateToSettings: () -> Unit = {}
+) {
+
+# FIND:
+fun MyCartHud(
+    state: ConvoyEngine.ConvoyState,
+    myCartId: String,
+    onModeChange: (HudMode) -> Unit
+) {
+# REPLACE WITH:
+fun MyCartHud(
+    state: ConvoyEngine.ConvoyState,
+    myCartId: String,
+    onModeChange: (HudMode) -> Unit,
+    onNavigateToSettings: () -> Unit = {}
+) {
+
+# AND in ConvoyScreen, update the HUD calls to pass onNavigateToSettings:
+# FIND:
+                HudMode.GROUP -> GroupHud(
+                    state = convoyState,
+                    onModeChange = { viewModel.setHudMode(it) }
+                )
+# REPLACE WITH:
+                HudMode.GROUP -> GroupHud(
+                    state = convoyState,
+                    onModeChange = { viewModel.setHudMode(it) },
+                    onNavigateToSettings = onNavigateToSettings
+                )
+
+# FIND:
+                HudMode.MY_CART -> MyCartHud(
+                    state = convoyState,
+                    myCartId = viewModel.myCartId.collectAsStateWithLifecycle().value,
+                    onModeChange = { viewModel.setHudMode(it) }
+                )
+# REPLACE WITH:
+                HudMode.MY_CART -> MyCartHud(
+                    state = convoyState,
+                    myCartId = viewModel.myCartId.collectAsStateWithLifecycle().value,
+                    onModeChange = { viewModel.setHudMode(it) },
+                    onNavigateToSettings = onNavigateToSettings
+                )

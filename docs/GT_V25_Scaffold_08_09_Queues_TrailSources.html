@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>V2.5 Scaffold §8-9 — Queues + Trail Sources (revised)</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
+:root{--bg:#0e1117;--s:#161b22;--s2:#21262d;--b:#30363d;--t:#c9d1d9;--td:#8b949e;--tb:#f0f6fc;--blue:#58a6ff;--grn:#3fb950;--org:#d29922;--red:#f85149;--pur:#bc8cff;--cy:#39d2c0}
+*{box-sizing:border-box;margin:0;padding:0}body{font-family:'IBM Plex Sans',sans-serif;background:var(--bg);color:var(--t);line-height:1.6;padding:2rem}
+h1{font-size:1.4rem;color:var(--tb);border-bottom:2px solid var(--blue);padding-bottom:.4rem;margin-bottom:1.2rem}
+h2{font-size:1.1rem;color:var(--blue);margin:1.5rem 0 .6rem}
+h3{font-size:.95rem;color:var(--grn);margin:1rem 0 .4rem}
+code{font-family:'JetBrains Mono',monospace;font-size:.8rem;background:var(--s2);padding:2px 5px;border-radius:3px;color:var(--cy)}
+.m{background:var(--s);border:2px dashed var(--org);border-radius:8px;margin:1rem 0;max-width:380px;overflow:hidden}
+.mt{background:var(--s2);padding:6px 10px;font-weight:600;font-size:.8rem;color:var(--tb);border-bottom:1px solid var(--b)}
+.mb{padding:10px}
+.mr{display:flex;justify-content:space-between;padding:3px 0;font-size:.78rem;border-bottom:1px solid var(--s2)}
+.ml{color:var(--td)}.mv{color:var(--tb)}
+.b{font-size:.63rem;padding:2px 6px;border-radius:3px;border:1px solid var(--b);color:var(--t);background:var(--s2);margin:2px}
+.b.on{border-color:var(--blue);color:var(--blue)}
+.bl{font-size:.8rem;padding:6px 12px;border-radius:4px;border:1px solid var(--b);color:var(--tb);background:var(--s2);margin:2px;display:inline-block}
+.bl.p{background:var(--blue);color:#fff;border-color:var(--blue)}
+.qh{display:flex;align-items:center;padding:7px 8px;border-bottom:1px solid var(--b)}
+.qi{width:20px;height:20px;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:.65rem;margin-right:7px;font-weight:700}
+.qn{flex:1;font-weight:500;font-size:.82rem}
+.qc{background:var(--s2);padding:1px 6px;border-radius:8px;font-size:.68rem;color:var(--td);margin-right:5px}
+.qit{display:flex;align-items:center;padding:4px 8px 4px 34px;border-bottom:1px solid var(--s2);font-size:.78rem}
+.qit .n{flex:1}.qs{font-size:.63rem;padding:2px 5px;border-radius:3px}
+.s-a{background:#0d3320;color:var(--grn)}.s-p{background:#2d2410;color:var(--org)}
+.fb{display:flex;gap:3px;padding:6px 8px;border-bottom:1px solid var(--b)}
+.sc{background:var(--s2);border:1px solid var(--b);border-radius:5px;padding:7px;margin:4px 0}
+.sc.sel{border-color:var(--grn)}.sc.match{border-color:var(--blue);border-style:dashed}
+.sn{font-weight:600;font-size:.82rem;color:var(--tb)}
+.sm{font-size:.72rem;color:var(--td);margin-top:2px}
+.mc{background:var(--s2);border:2px solid var(--b);border-radius:6px;padding:10px;margin:5px 0}
+.mc.sel{border-color:var(--blue)}
+.mc h4{color:var(--tb);margin:0 0 3px;font-size:.84rem}
+.mc p{color:var(--td);font-size:.75rem;margin:0}
+.ob{height:5px;border-radius:3px;background:var(--s2);overflow:hidden;margin-top:3px}
+.of{height:100%;border-radius:3px}
+.tg{display:inline-block;width:24px;height:13px;border-radius:7px;position:relative;margin-right:5px}
+.tg.on{background:var(--grn)}.tg.off{background:var(--s2);border:1px solid var(--b)}
+.arr{text-align:center;color:var(--blue);font-size:1rem;padding:3px 0}
+.vok{background:#1a2a1a;border:1px solid var(--grn);border-radius:4px;padding:5px 7px;font-size:.75rem;color:var(--grn);margin:5px 0}
+.rx{background:#1a1e25;border-left:3px solid var(--org);padding:9px 12px;margin:.8rem 0;border-radius:0 5px 5px 0}
+.rx h4{color:var(--org);margin:0 0 5px;font-size:.82rem}.rx ul{padding-left:1rem}.rx li{font-size:.8rem;margin-bottom:2px}
+.px{background:#111922;border-left:3px solid var(--blue);padding:9px 12px;margin:.8rem 0;border-radius:0 5px 5px 0}
+.px h4{color:var(--blue);margin:0 0 5px;font-size:.82rem}
+.px ul,.px ol{padding-left:1rem}.px li{font-size:.8rem;margin-bottom:2px}
+.sec{border-bottom:1px solid var(--b);padding-bottom:1.2rem;margin-bottom:1.2rem}
+</style></head><body>
+
+<!-- ═══════ §8 QUEUES (v5 verbatim) ═══════ -->
+<h1>§8 Work with Queues (3 queues, one template)</h1>
+<p style="font-size:.8rem;color:var(--td)">UI SCAFFOLDING NEXT</p>
+<div class="sec">
+<div class="m"><div class="mt">WORK WITH QUEUES</div><div class="mb">
+  <div class="fb"><button class="b on">ALL</button><button class="b">TILE</button><button class="b">UPLOAD</button><button class="b">DOWNLOAD</button></div>
+  <div class="qh"><div class="qi" style="background:#0d3320;color:var(--grn)">▦</div><span class="qn">Tile Queue</span><span class="qc">7</span></div>
+  <div class="qit"><span class="n">SAT z17 St George</span><span class="qs s-a">ACTIVE 67%</span></div>
+  <div class="qit"><span class="n">REFRESH TOPO+ 3/12</span><span class="qs s-a">ACTIVE</span></div>
+  <div class="qh"><div class="qi" style="background:#1a1530;color:var(--pur)">▲</div><span class="qn">Upload Queue</span><span class="qc">3</span></div>
+  <div class="qit"><span class="n">Morning Ride track</span><span class="qs s-p">PENDING</span></div>
+  <div style="padding:3px 8px 3px 34px;font-size:.68rem;color:var(--pur);font-style:italic;border-bottom:1px solid var(--s2)">V2.5: collect only. V2.6: processes.</div>
+  <div class="qh"><div class="qi" style="background:#0d2233;color:var(--blue)">▼</div><span class="qn">Download Queue</span><span class="qc">0</span></div>
+  <div style="padding:3px 8px 3px 34px;font-size:.68rem;color:var(--td);font-style:italic">V2.6 active.</div>
+</div></div>
+</div>
+<div class="px"><h4>QUEUE PROCESS RULES</h4><ul><li>Three SEPARATE tables: tile_queue, upload_queue, download_queue</li><li>Owner: QueueManager for all three</li><li>Same display template, same status model, filtered views</li><li>Completion → transfer_history</li></ul></div>
+<div class="px"><h4>TILE PRIORITY (Owner: TileRequestTrigger)</h4><ul><li>HIGH — tracks, routes (user created, immediate tiles)</li><li>MED — source refresh (grid cells)</li><li>LOW — trails (imported, background)</li></ul></div>
+<div class="rx"><h4>REFRESH RULES (IMPLEMENTED)</h4><ul><li>✓ Grid cells ~12mi, each separate WorkManager job</li><li>✓ Single slot only. Bounds-based. Only existing files. forceOverwrite.</li><li>✓ User downloads jump ahead. Completed cells auto-removed.</li></ul></div>
+
+<!-- ═══════════════════════════════════════════ -->
+<!-- ═══════ §9 TRAIL SOURCES (REVISED) ═══════ -->
+<!-- ═══════════════════════════════════════════ -->
+
+<h1>§9 Trail Source Management (REVISED)</h1>
+<p style="font-size:.8rem;color:var(--td)">Two import methods. Validation screen before each. UI SCAFFOLDING NEXT.</p>
+
+<!-- 9.1 CATALOG -->
+<div class="sec">
+<h2>9.1 Trail Source Catalog</h2>
+<div class="m"><div class="mt">TRAIL SOURCE CATALOG</div><div class="mb">
+  <div style="font-size:.72rem;color:var(--td);margin-bottom:4px">APPROVED SOURCES</div>
+  <div class="sc"><div class="sn">UGRC Utah Trails</div><div class="sm">GeoJSON | Utah | OHV+Multi</div></div>
+  <div class="sc"><div class="sn">BLM GTLF Motorized Trails</div><div class="sm">GeoJSON | National | Motorized</div></div>
+  <div class="sc"><div class="sn">USFS NFS Trails</div><div class="sm">Shapefile | National | All</div></div>
+  <div style="font-size:.72rem;color:var(--td);margin:8px 0 4px">SOURCE DETAILS</div>
+  <div class="mr"><span class="ml">Name</span><span class="mv">UGRC Utah Trails</span></div>
+  <div class="mr"><span class="ml">Format</span><span class="mv">GeoJSON</span></div>
+  <div class="mr"><span class="ml">Types</span><span class="mv">OHV, Multi-Use</span></div>
+</div></div>
+</div>
+
+<!-- 9.2 METHOD SELECTION -->
+<div class="sec">
+<h2>9.2 Import Method Selection</h2>
+<div class="m"><div class="mt">TRAIL IMPORT — SELECT METHOD</div><div class="mb">
+  <div class="mc sel"><h4>📦 IMPORT FULL SOURCE</h4><p>Select a source and import its entire dataset.</p></div>
+  <div class="mc"><h4>🗺️ IMPORT BY AREA</h4><p>Draw a bounding area. Sources with content in that area are suggested.</p></div>
+  <div style="display:flex;gap:4px;justify-content:center;margin-top:8px"><button class="bl">CANCEL</button><button class="bl p">NEXT</button></div>
+</div></div>
+</div>
+
+<!-- 9.3 METHOD A -->
+<div class="sec">
+<h2>9.3 Method A — Import Full Source</h2>
+<h3>A-1: Select Source</h3>
+<div class="m"><div class="mt">FULL SOURCE — SELECT</div><div class="mb">
+  <div class="sc sel"><div style="display:flex;align-items:center;gap:5px"><span class="tg on"></span><div><div class="sn">UGRC Utah Trails</div><div class="sm">GeoJSON | Utah | OHV+Multi</div></div></div></div>
+  <div class="sc"><div style="display:flex;align-items:center;gap:5px"><span class="tg off"></span><div><div class="sn">BLM GTLF Motorized</div><div class="sm">GeoJSON | National | Motorized</div></div></div></div>
+  <div class="sc"><div style="display:flex;align-items:center;gap:5px"><span class="tg off"></span><div><div class="sn">USFS NFS Trails</div><div class="sm">Shapefile | National | All</div></div></div></div>
+  <div style="display:flex;gap:4px;justify-content:center;margin-top:8px"><button class="bl">BACK</button><button class="bl p">VALIDATE</button></div>
+</div></div>
+<div class="arr">▼</div>
+<h3>A-2: Validate Source</h3>
+<div class="m"><div class="mt">FULL SOURCE — VALIDATE</div><div class="mb">
+  <div style="font-size:.78rem;color:var(--tb);margin-bottom:5px">Validating: UGRC Utah Trails</div>
+  <div class="mr"><span class="ml">URL</span><span class="mv">gis.utah.gov/data/recreation/trails</span></div>
+  <div class="mr"><span class="ml">Format</span><span class="mv">GeoJSON</span></div>
+  <div class="mr"><span class="ml">Coverage</span><span class="mv">Utah (36.9–42.0°N, 109.0–114.1°W)</span></div>
+  <div class="mr"><span class="ml">Trail Types</span><span class="mv">OHV, Multi-Use</span></div>
+  <div class="mr"><span class="ml">Last Imported</span><span class="mv" style="color:var(--org)">Never</span></div>
+  <div class="mr"><span class="ml">Dedup</span><span class="mv">source_unique_id match → add alias</span></div>
+  <div class="vok">✓ Source reachable · ✓ Format valid · ✓ No active import</div>
+  <div style="display:flex;gap:4px;justify-content:center;margin-top:8px"><button class="bl">BACK</button><button class="bl p">IMPORT ALL TRAILS</button></div>
+</div></div>
+<div class="arr">▼</div>
+<h3>A-3: Processing</h3>
+<div class="m"><div class="mt">FULL SOURCE — IMPORTING</div><div class="mb">
+  <div class="mr"><span class="ml">Download</span><span class="mv" style="color:var(--grn)">✓ Complete (4.2 MB)</span></div>
+  <div class="mr"><span class="ml">Parse</span><span class="mv" style="color:var(--grn)">✓ 2,412 trails</span></div>
+  <div class="mr"><span class="ml">Dedup</span><span class="mv" style="color:var(--grn)">✓ 0 matches</span></div>
+  <div class="mr"><span class="ml">Import</span><span class="mv" style="color:var(--org)">1,847 / 2,412</span></div>
+  <div class="mr"><span class="ml">Tile refresh</span><span class="mv" style="color:var(--td)">Waiting</span></div>
+  <div class="ob"><div class="of" style="width:76%;background:var(--grn)"></div></div>
+</div></div>
+</div>
+
+<!-- 9.4 METHOD B -->
+<div class="sec">
+<h2>9.4 Method B — Import by Area</h2>
+<h3>B-1: Draw Bounding Area</h3>
+<div class="m"><div class="mt">AREA IMPORT — DRAW AREA</div><div class="mb">
+  <div style="background:var(--s2);height:90px;border-radius:4px;display:flex;align-items:center;justify-content:center;color:var(--td);font-size:.75rem">[ Map with bounding area selector ]<br>Transient — not saved</div>
+  <div style="font-size:.7rem;color:var(--td);text-align:center;margin-top:3px">37.05–37.22°N, 113.48–113.72°W</div>
+  <div style="display:flex;gap:4px;justify-content:center;margin-top:8px"><button class="bl">CANCEL</button><button class="bl p">FIND SOURCES</button></div>
+</div></div>
+<div class="arr">▼</div>
+<h3>B-2: Suggested Sources</h3>
+<div class="m"><div class="mt">AREA IMPORT — SUGGESTED SOURCES</div><div class="mb">
+  <div style="font-size:.78rem;color:var(--tb);margin-bottom:5px">Sources with content in your area:</div>
+  <div class="sc match"><div style="display:flex;align-items:center;gap:5px"><span class="tg on"></span><div><div class="sn">UGRC Utah Trails</div><div class="sm">OHV+Multi · 78% overlap</div></div></div><div class="ob"><div class="of" style="width:78%;background:var(--blue)"></div></div></div>
+  <div class="sc match"><div style="display:flex;align-items:center;gap:5px"><span class="tg off"></span><div><div class="sn">BLM GTLF Motorized</div><div class="sm">Motorized · 34% overlap</div></div></div><div class="ob"><div class="of" style="width:34%;background:var(--blue)"></div></div></div>
+  <div class="sc" style="opacity:.5"><div class="sn" style="font-size:.78rem">USFS NFS Trails</div><div class="sm">0% overlap — no content in area</div></div>
+  <div style="display:flex;gap:4px;justify-content:center;margin-top:8px"><button class="bl">BACK</button><button class="bl p">VALIDATE SELECTED</button></div>
+</div></div>
+<div class="arr">▼</div>
+<h3>B-3: Validate Selection</h3>
+<div class="m"><div class="mt">AREA IMPORT — VALIDATE</div><div class="mb">
+  <div style="font-size:.78rem;color:var(--tb);margin-bottom:5px">Validating selected sources for area:</div>
+  <div class="sc"><div class="sn">UGRC Utah Trails</div>
+    <div class="mr"><span class="ml">URL</span><span class="mv" style="color:var(--grn)">✓ Reachable</span></div>
+    <div class="mr"><span class="ml">Format</span><span class="mv" style="color:var(--grn)">✓ GeoJSON</span></div>
+    <div class="mr"><span class="ml">Area filter</span><span class="mv">Only trails within drawn boundary</span></div>
+    <div class="mr"><span class="ml">Dedup</span><span class="mv">source_unique_id → alias if exists</span></div>
+  </div>
+  <div class="vok">✓ All selected sources validated</div>
+  <div style="display:flex;gap:4px;justify-content:center;margin-top:8px"><button class="bl">BACK</button><button class="bl p">IMPORT AREA TRAILS</button></div>
+</div></div>
+<div class="arr">▼</div>
+<h3>B-4: Processing</h3>
+<div class="m"><div class="mt">AREA IMPORT — IMPORTING</div><div class="mb">
+  <div class="mr"><span class="ml">Download</span><span class="mv" style="color:var(--grn)">✓ Complete</span></div>
+  <div class="mr"><span class="ml">Filter to area</span><span class="mv" style="color:var(--grn)">✓ 247 of 1,892 trails</span></div>
+  <div class="mr"><span class="ml">Dedup</span><span class="mv" style="color:var(--grn)">✓ 12 matches → aliases added</span></div>
+  <div class="mr"><span class="ml">Import</span><span class="mv" style="color:var(--org)">189 / 235</span></div>
+  <div class="mr"><span class="ml">Tile refresh</span><span class="mv" style="color:var(--td)">Waiting</span></div>
+  <div class="ob"><div class="of" style="width:80%;background:var(--grn)"></div></div>
+</div></div>
+</div>
+
+<!-- RULES -->
+<div class="rx"><h4>TRAIL SOURCE RULES</h4><ul>
+  <li>Table: trail_sources (extension db). Vetted/approved catalog.</li>
+  <li>Two import methods: full source OR area-based with suggested sources.</li>
+  <li>Both methods validate before import: URL reachable, format valid, no active import.</li>
+  <li>Import → TrailImporter: parse → dedup (source_unique_id) → insert/alias → log → tile LOW</li>
+  <li>Dedup match = add alias. New = full chain.</li>
+  <li>Area import filters downloaded data to drawn boundary only.</li>
+  <li>Area selector is transient — not saved.</li>
+  <li>source_ingestions tracks import history per source.</li>
+</ul></div>
+<div class="px"><h4>SCREEN NAVIGATION (Phase 0 placeholders)</h4><ul>
+  <li>Work with Artifacts → Trails → IMPORT → Method Selection (9.2)</li>
+  <li>Method A: Select (A-1) → Validate (A-2) → Processing (A-3)</li>
+  <li>Method B: Draw Area (B-1) → Suggested Sources (B-2) → Validate (B-3) → Processing (B-4)</li>
+  <li>Settings → Trail Source Management → Catalog (9.1)</li>
+  <li>All screens wired as navigation placeholders before any import logic.</li>
+</ul></div>
+
+<p style="text-align:center;color:var(--td);margin-top:1.5rem;font-size:.72rem;font-style:italic">V2.5 Scaffold §8-9 | §8 v5 verbatim | §9 revised: two import methods + validation | May 19, 2026</p>
+</body></html>

@@ -1,0 +1,60 @@
+================================================================
+ROUTE TOOLBAR — CLEANUP ITEMS (v4, post-commit 89285b00a)
+2026-06-04 · handle behavior pinned down (open vs collapsed)
+================================================================
+
+Toolbar at pact compliance, committed 89285b00a.
+
+----------------------------------------------------------------
+HANDLE BUG — CONFIRMED BEHAVIOR (the clincher)
+----------------------------------------------------------------
+Observed, state-dependent:
+  - Accordion OPEN  -> dragging the ✥ handle MOVES the bar (works).
+  - Accordion COLLAPSED -> tapping the handle OPENS the accordion
+    (drag doesn't engage; tap bleeds to the title's clickable).
+
+This confirms the hit-test collision: drag and accordion-tap fight over
+the same pixels in the cramped 248dp header, and which one wins depends
+on the layout state (open header has room for the drag to register;
+collapsed header tightens so the tap lands on the title's
+.clickable{ minimized = !minimized }).
+
+Same root cause as the QUEUES button tap-vs-drag collision, new location.
+You cannot reliably have BOTH "tap toggles accordion" and "drag moves bar"
+sharing the header pixels — they steal each other's gestures.
+
+----------------------------------------------------------------
+FIX OPTIONS (decide in snap-2 patch) — ranked by drag value
+----------------------------------------------------------------
+A. DROP THE DRAG  [RECOMMENDED — Fred has twice said drag not important]
+   Remove detectDragGestures + offsetX/offsetY + .offset{}. Header = title
+   + chevron, both toggle accordion. ✥ removed or made non-interactive
+   (no pointerInput). No collision, ever. Accordion alone manages
+   real-estate on a phone panel.
+
+B. KEEP DRAG, SEPARATE THE ZONES
+   Give ✥ a real fixed touch target (32-40dp) with its OWN pointerInput
+   that consumes taps too; ensure the title .clickable does NOT extend
+   under it. Hard on a 248dp panel — little room for two non-overlapping
+   gesture zones.
+
+C. DEDICATED DRAG STRIP
+   Move drag to its own row/strip along the panel top edge, separate from
+   title/chevron. Cleanest if drag is truly wanted; most layout work.
+
+----------------------------------------------------------------
+ALSO FOLD INTO SNAP-2 PATCH
+----------------------------------------------------------------
+1. LABEL: "Amend In-Progress Routes" -> "In Progress"
+
+----------------------------------------------------------------
+PLAY LAUNCH-GATE (§G, not now)
+----------------------------------------------------------------
+SpecifyForegroundServiceType lint — androidx.work SystemForegroundService
+needs android:foregroundServiceType in AndroidManifest.xml. Pre-existing,
+lint-only, build succeeded. Fix before Play submission with the ANR items.
+
+----------------------------------------------------------------
+NEXT SESSION: snap-2 slice #1 (Save-completed, free points) per
+Snap2_Implementation_Plan_v2. Fold in: drag decision (rec: drop) + label.
+================================================================

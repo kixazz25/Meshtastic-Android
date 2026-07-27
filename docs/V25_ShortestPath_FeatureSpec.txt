@@ -1,0 +1,217 @@
+GroupTrack V2.5+ — Shortest Trail Path Route Builder
+FEATURE SPECIFICATION
+Created: May 25, 2026
+==========================================
+
+1. CONCEPT
+==========================================
+User taps two points on the map. The system calculates
+the shortest path along the trail network between those
+points and displays it as a proposed route. The user can
+then modify, extend, or refine the route before saving.
+
+This provides a first-pass route that follows real trails,
+eliminating manual point-by-point tracing. The route is
+then enhanced with waypoints, detours, and custom segments.
+
+2. WORKFLOW
+==========================================
+Step 1: User enables trail display (ON or SELECTED)
+Step 2: User taps START ROUTE button
+Step 3: User taps Point A on map → snaps to nearest trail
+Step 4: User taps Point B on map → snaps to nearest trail
+Step 5: System calculates shortest trail path A→B
+Step 6: Path displayed on map as proposed route (dashed line)
+Step 7: User can:
+  - Accept → save as route to spatial DB
+  - Add waypoints along the route (tap to insert)
+  - Add intermediate points (tap to create via-point,
+    recalculates path through via-point)
+  - Modify segments (drag to reroute through different trail)
+  - Extend (tap Point C → calculates B→C, appends)
+  - Cancel → discard
+
+3. TECHNICAL APPROACH
+==========================================
+
+3.1 Trail Network Graph
+Build a graph from trail segments in the spatial DB:
+
+  Nodes: unique lat/lon endpoints of trail segments
+    - Segment start point
+    - Segment end point
+    - Intersection points (where segments share endpoints)
+  
+  Edges: trail segments connecting nodes
+    - Weight: segment distance (meters)
+    - Optional weights: elevation gain, surface type,
+      difficulty rating (from CartoCode when available)
+
+  Graph construction:
+    - Query all trail segments in region
+    - Extract start/end coordinates
+    - Round coordinates to ~1m precision for matching
+      (5 decimal places ≈ 1.1m)
+    - Group matching endpoints → create nodes
+    - Each segment → create edge between its endpoint nodes
+
+3.2 Shortest Path Algorithm
+  
+  Option A: Dijkstra's Algorithm
+    - Simple, reliable, finds optimal path
+    - O(E log V) with priority queue
+    - Best for small-medium networks (<100K edges)
+    - Our 64K segments → ~64K edges, ~50K nodes
+    - Fast enough for client-side on Android
+  
+  Option B: A* Algorithm
+    - Dijkstra + heuristic (straight-line distance to goal)
+    - Faster than Dijkstra for point-to-point queries
+    - Same optimality guarantee with admissible heuristic
+    - Better for large networks
+  
+  Recommendation: A* with haversine distance heuristic.
+
+3.3 Implementation Options
+
+  Option 1: Pure Kotlin (recommended for V2.5)
+    - Build graph from spatial DB query
+    - Implement A* in Kotlin
+    - ~200-300 lines of code
+    - No external dependencies
+    - Graph built on demand for the visible region
+    - Cache graph for repeated queries in same area
+  
+  Option 2: GraphHopper Android SDK
+    - Full-featured routing engine (Java)
+    - Offline capable, hiking profile built-in
+    - Pre-processes trail network into routing graph
+    - More setup but more features (turn-by-turn, ETA)
+    - Better for V3.0 or production release
+  
+  Option 3: Turf.js in WebView
+    - JavaScript spatial analysis
+    - Runs in existing Leaflet WebView
+    - Network analysis limited but possible
+    - Good for prototyping, not for production
+
+4. DATA REQUIREMENTS
+==========================================
+Already available:
+  [X] 64K trail segments with geometry (spatial DB)
+  [X] Trail names and attributes
+  [X] Viewport query infrastructure
+  [X] Route storage in spatial DB
+
+Need to add:
+  [ ] Graph builder (segments → nodes + edges)
+  [ ] Node matching (endpoint rounding/clustering)
+  [ ] A* implementation
+  [ ] Snap-to-nearest-trail function
+  [ ] Path display on Leaflet map
+  [ ] Route save from computed path
+
+5. SNAP-TO-TRAIL FUNCTION
+==========================================
+When user taps the map:
+  1. Get tap coordinates (lat, lon)
+  2. Query spatial DB for trail segments within ~100m
+  3. For each nearby segment, find closest point on line
+  4. Return the closest point + segment ID + distance
+  5. If distance < threshold (50m): snap to trail
+  6. If distance > threshold: place point at tap location
+
+  SQL for nearby segments:
+    SELECT trail_id, geometry FROM trails
+    WHERE min_lat <= tap_lat + buffer
+    AND max_lat >= tap_lat - buffer
+    AND min_lon <= tap_lon + buffer
+    AND max_lon >= tap_lon - buffer
+
+  Closest point on line segment:
+    Standard point-to-line-segment projection formula.
+    Iterate through all coordinate pairs in the linestring.
+
+6. ROUTE MODIFICATION
+==========================================
+After initial shortest-path calculation:
+
+  6.1 Add Via-Point
+    - User taps on map between A and B
+    - Point snaps to nearest trail
+    - Recalculate: A→via→B
+    - Display updated path
+
+  6.2 Drag to Reroute
+    - User drags a segment to different trail
+    - Identify nearest node on new trail
+    - Recalculate affected sub-path
+    - Update display
+
+  6.3 Extend Route
+    - User taps new endpoint C
+    - Calculate B→C
+    - Append to existing route
+    - Multiple extensions supported (A→B→C→D→...)
+
+  6.4 Add Waypoints
+    - Tap along route to add waypoints
+    - Select waypoint type (fuel, water, camp, etc.)
+    - Waypoints saved to spatial DB
+    - Displayed on map with route
+
+7. WEIGHT OPTIONS (FUTURE)
+==========================================
+Beyond simple distance:
+
+  - Elevation gain (prefer flatter routes)
+  - Surface type (prefer paved or prefer dirt)
+  - Difficulty rating (match to vehicle capability)
+  - Scenic value (prefer scenic-rated trails)
+  - Avoid highways (stay on trails)
+
+These require additional trail attributes in spatial DB.
+CartoCode data provides surface type and some ratings.
+Elevation data requires DEM integration.
+
+8. INTEGRATION WITH EXISTING FEATURES
+==========================================
+  - SELECT system: display specific trails as reference
+  - Toggle ON/OFF: control which trails are in the network
+  - Import: add trails from new sources to expand network
+  - Waypoint creation: add stops along computed route
+  - Ride creation: save route + waypoints as ride package
+  - Download: ensure tiles available for route area
+
+9. IMPLEMENTATION PHASES
+==========================================
+
+Phase 1 (V2.5): Manual Route Building
+  - Tap points on map to create route
+  - Points connect with straight lines
+  - Optional snap to nearest trail point
+  - Save as route to spatial DB
+
+Phase 2 (V2.5+): Shortest Path
+  - Build trail network graph
+  - A* shortest path between two points
+  - Display proposed route
+  - Accept/modify/cancel
+
+Phase 3 (V3.0): Full Route Builder
+  - Via-points and drag-to-reroute
+  - Weight options (distance, elevation, surface)
+  - GraphHopper integration for turn-by-turn
+  - Route sharing and collaboration
+  - Integration with ride creation workflow
+
+10. FILES TO CREATE/MODIFY
+==========================================
+New:
+  TrailNetworkGraph.kt — graph builder + A* algorithm
+  RouteBuilderPanel.kt — UI for route creation mode
+
+Modify:
+  grouptrack_map.html — route drawing layer, tap handler
+  ConvoyMapViewerScreen.kt — route builder mode toggle
+  SpatialDbManager.kt — snap-to-trail query, route save

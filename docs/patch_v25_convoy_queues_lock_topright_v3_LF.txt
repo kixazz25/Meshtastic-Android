@@ -1,0 +1,183 @@
+#!/usr/bin/env python3
+"""
+patch_v25_convoy_queues_lock_topright_v3_LF.py
+
+CONTEXT
+  Commit 9644dbc61 was meant to repoint convoy QUEUES at the real
+  DownloadQueuePanel, but the panel block on disk STILL called ConvoyQueuesPanel
+  (the dead [Pass 1 scaffold]) pinned at top=36.dp -- which is why pressing QUEUES
+  still opened the empty scaffold under the map bar, not under the button.
+
+  Fred's decision: stop trying to make the panel "follow" a draggable button.
+  LOCK the QUEUES button in the upper-right corner exactly like the planning map,
+  drop the drag entirely, and open the real DownloadQueuePanel directly under it.
+
+  NOTE: this is the LF variant. After the 9644dbc61 commit, git normalized
+  ConvoyScreen.kt from CRLF to LF ("LF will be replaced by CRLF" warning ->
+  git touched it -> now LF). The v2 CRLF patch aborted on its guard (correctly,
+  no corruption). This v3 matches LF anchors.
+
+WHAT THIS DOES (ConvoyScreen.kt, LF)
+  1. Button: remove the .offset{IntOffset(queuesOffsetX..)} and the
+     detectDragGestures pointerInput. Button stays pinned via
+     .align(TopEnd).padding(top=2.dp,end=8.dp); tap becomes a plain .clickable.
+  2. Panel: replace ConvoyQueuesPanel(...) with the REAL monitor --
+     "DOWNLOAD QUEUES" header + DownloadQueuePanel(expanded=true,...) +
+     DownloadQueueManager.queue empty-state -- pinned at fixed top=32.dp,end=8.dp.
+
+  Leaves queuesOffsetX/Y (~177-178) and the detectDragGestures import (line 9)
+  in place but now unused -> flag for dead-code sweep, not touched here.
+
+  DownloadQueuePanel / DownloadQueueManager are in package
+  com.geeksville.mesh.convoy (same as ConvoyScreen.kt) -> no new imports.
+
+RUN FROM ~/Meshtastic-Android
+  python C:/Users/kixaz/Downloads/patch_v25_convoy_queues_lock_topright_v3_LF.py
+"""
+
+import sys, os
+
+PATH = "app/src/main/java/com/geeksville/mesh/convoy/ConvoyScreen.kt"
+
+# ---- 1) BUTTON: replace the draggable Surface modifier block ----
+OLD_BTN = (
+    '        // -- QUEUES button (draggable) --\n'
+    '        Surface(\n'
+    '            modifier = Modifier\n'
+    '                .align(Alignment.TopEnd)\n'
+    '                .statusBarsPadding()\n'
+    '                .padding(top = 2.dp, end = 8.dp)\n'
+    '                .offset { androidx.compose.ui.unit.IntOffset(queuesOffsetX.roundToInt(), queuesOffsetY.roundToInt()) }\n'
+    '                .pointerInput(Unit) {\n'
+    '                    detectDragGestures { change, dragAmount ->\n'
+    '                        change.consume()\n'
+    '                        queuesOffsetX += dragAmount.x\n'
+    '                        queuesOffsetY += dragAmount.y\n'
+    '                    }\n'
+    '                }\n'
+    '                // FIX 2026-06-02: tap was consumed by detectDragGestures; handle tap\n'
+    '                // in its own pointerInput so tap + drag coexist (was a dead .clickable).\n'
+    '                .pointerInput(Unit) {\n'
+    '                    detectTapGestures { queuesOpen = !queuesOpen }\n'
+    '                },\n'
+    '            shape = RoundedCornerShape(6.dp),\n'
+    '            color = Color(0xFF2A3545)\n'
+    '        ) {\n'
+)
+NEW_BTN = (
+    '        // -- QUEUES button (LOCKED top-right, like planning map; drag removed 2026-06-03) --\n'
+    '        Surface(\n'
+    '            modifier = Modifier\n'
+    '                .align(Alignment.TopEnd)\n'
+    '                .statusBarsPadding()\n'
+    '                .padding(top = 2.dp, end = 8.dp)\n'
+    '                .clickable { queuesOpen = !queuesOpen },\n'
+    '            shape = RoundedCornerShape(6.dp),\n'
+    '            color = Color(0xFF2A3545)\n'
+    '        ) {\n'
+)
+
+# ---- 2) PANEL: replace ConvoyQueuesPanel(...) with the real DownloadQueuePanel monitor ----
+OLD_PANEL = (
+    '        if (queuesOpen) {\n'
+    '            ConvoyQueuesPanel(\n'
+    '                onDismiss = { queuesOpen = false },\n'
+    '                modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding()\n'
+    '                    .padding(top = 36.dp, end = 8.dp)\n'
+    '            )\n'
+    '        }\n'
+)
+NEW_PANEL = (
+    '        if (queuesOpen) {\n'
+    '            // Real download-queue monitor (matches planning "DOWNLOAD QUEUES").\n'
+    '            // Locked under the fixed top-right QUEUES button. 2.6: add\n'
+    '            // ALL|TILE|UPLOAD|DOWNLOAD selector when multiple queues exist.\n'
+    '            androidx.compose.material3.Surface(\n'
+    '                modifier = Modifier\n'
+    '                    .align(Alignment.TopEnd)\n'
+    '                    .statusBarsPadding()\n'
+    '                    .padding(top = 32.dp, end = 8.dp)\n'
+    '                    .width(260.dp),\n'
+    '                shape = RoundedCornerShape(10.dp),\n'
+    '                color = Color(0xEE131820),\n'
+    '                shadowElevation = 8.dp\n'
+    '            ) {\n'
+    '                Column(modifier = Modifier.padding(8.dp)) {\n'
+    '                    Row(modifier = Modifier.fillMaxWidth(),\n'
+    '                        horizontalArrangement = Arrangement.SpaceBetween,\n'
+    '                        verticalAlignment = Alignment.CenterVertically) {\n'
+    '                        Text("DOWNLOAD QUEUES", color = Color(0xFF1CF0A0),\n'
+    '                            fontSize = 13.sp, fontFamily = FontFamily.Monospace,\n'
+    '                            fontWeight = FontWeight.Bold,\n'
+    '                            modifier = Modifier.padding(start = 8.dp, top = 4.dp))\n'
+    '                        Text("CLOSE", color = Color(0xFF7A8DA0),\n'
+    '                            fontSize = 11.sp, fontFamily = FontFamily.Monospace,\n'
+    '                            fontWeight = FontWeight.Bold,\n'
+    '                            modifier = Modifier.clickable { queuesOpen = false }.padding(8.dp))\n'
+    '                    }\n'
+    '                    DownloadQueuePanel(\n'
+    '                        expanded = true,\n'
+    '                        onToggle = { queuesOpen = false }\n'
+    '                    )\n'
+    '                    val queueState = DownloadQueueManager.queue.collectAsState()\n'
+    '                    if (queueState.value.isEmpty()) {\n'
+    '                        Text("No downloads in queue",\n'
+    '                            color = Color(0xFF4A6080), fontSize = 10.sp,\n'
+    '                            fontFamily = FontFamily.Monospace,\n'
+    '                            modifier = Modifier.padding(8.dp))\n'
+    '                    }\n'
+    '                }\n'
+    '            }\n'
+    '        }\n'
+)
+
+
+def main():
+    if not os.path.exists(PATH):
+        sys.exit("ERROR: not in ~/Meshtastic-Android (file not found: %s)" % PATH)
+
+    with open(PATH, "rb") as f:
+        text = f.read().decode("utf-8")
+
+    # v3: file is LF after git normalized it. Refuse if it's CRLF (use v2 then).
+    if "\r\n" in text:
+        sys.exit("ERROR: file has CRLF; use the CRLF patch (v2) instead. No edit made.")
+
+    nb = text.count(OLD_BTN)
+    if nb != 1:
+        if "QUEUES button (draggable)" not in text:
+            sys.exit("ERROR: button block already changed or anchor missing (found %d). "
+                     "Re-grep 1227-1250 and check. No edit made." % nb)
+        sys.exit("ERROR: button block matched %d times (expected 1). Whitespace drift. No edit made." % nb)
+
+    npn = text.count(OLD_PANEL)
+    if npn != 1:
+        if "ConvoyQueuesPanel(" not in text:
+            sys.exit("ERROR: ConvoyQueuesPanel block not found (found %d). Maybe already repointed. "
+                     "Re-grep ~1255. No edit made." % npn)
+        sys.exit("ERROR: panel block matched %d times (expected 1). Drift. No edit made." % npn)
+
+    new_text = text.replace(OLD_BTN, NEW_BTN, 1).replace(OLD_PANEL, NEW_PANEL, 1)
+
+    with open(PATH, "wb") as f:
+        f.write(new_text.encode("utf-8"))
+
+    print("OK: QUEUES button locked top-right (drag removed); panel repointed to real")
+    print("    DownloadQueuePanel + DownloadQueueManager, pinned under the button.")
+    print()
+    print("UNUSED NOW (left in place; flag for dead-code sweep):")
+    print("    - queuesOffsetX / queuesOffsetY (~177-178)")
+    print("    - import detectDragGestures (line 9)  [verify before removing]")
+    print()
+    print("NEXT:")
+    print("  git --no-pager diff app/src/main/java/com/geeksville/mesh/convoy/ConvoyScreen.kt")
+    print("  ./gradlew assembleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease")
+    print()
+    print("IF BUILD FAILS on unresolved reference:")
+    print("  collectAsState -> import androidx.compose.runtime.collectAsState")
+    print("  Arrangement    -> import androidx.compose.foundation.layout.Arrangement")
+    print("  width          -> import androidx.compose.foundation.layout.width")
+
+
+if __name__ == "__main__":
+    main()

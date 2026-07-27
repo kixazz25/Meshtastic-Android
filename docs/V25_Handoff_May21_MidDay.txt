@@ -1,0 +1,155 @@
+GroupTrack V2.5 Handoff — May 21, 2026 (Mid-Day)
+===================================================
+Branch: feature/convoy-event-ride
+Device: Android 1 serial 8624SBCEDF00001789
+Tester device: serial 47181FDAS005VJ (has 7M tile download stuck — needs pm clear)
+
+===================================================
+CRITICAL PROBLEM: CalTopo tile download fails
+===================================================
+
+SYMPTOM:
+  Unified download confirm screen works. PROCEED queues jobs.
+  Worker runs and reports progress. But ALL CalTopo (TOPO+) tiles
+  fail. SAT and TOPO tiles succeed (skipped — already exist).
+  
+  Log evidence:
+    Complete: DL TOPO+ 1/1 -- 7650 downloaded, 1530 failed
+    - 7650 "downloaded" = 6120 SAT/TOPO skipped + 1530 TOPO+ attempts  
+    - 1530 failed = ALL CalTopo tiles
+    - 0 .png files written to TOPO+/ directory
+
+  CalTopo URL is correct:
+    https://caltopo.s3.amazonaws.com/topo/18/48623/101641.png
+  
+  File path is correct:
+    /storage/emulated/0/Documents/GroupTrack/maps/tiles/TOPO+/18/48623/101641.png
+
+WHAT WORKS:
+  - CalTopo tiles display ONLINE (WebView loads them from URL)
+  - SAT/TOPO tile downloads succeed
+  - Directory TOPO+ exists and is writable (verified with touch)
+  - buildTileUrl does NOT use sourceName (URL is identical)
+
+WHAT FAILS:
+  - CalTopo HTTP downloads return non-successful response
+  - No exception thrown (catch block not triggered)
+  - No "Tile fail" log (exception path not hit)
+  - The response.isSuccessful check returns false → returns false → counted as failed
+
+PENDING FIX (applied to source, not yet built):
+  Added HTTP status code logging:
+    Log.w("TileDownloader", "HTTP ${response.code}: $url")
+  This will show the actual HTTP error (403, 404, etc.)
+  
+  Build command:
+    ./gradlew assembleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease
+
+THEORY:
+  CalTopo S3 may reject non-browser User-Agent. OkHttp default
+  User-Agent is "okhttp/4.x". WebView sends Chrome User-Agent.
+  The downloadTile function does NOT set a User-Agent header:
+    val request = Request.Builder().url(url).build()  // no headers
+  
+  Fix would be: add User-Agent header matching what WebView sends.
+
+IMPORTANT QUESTION:
+  Fred says CalTopo downloads WORKED before (created caltopo_usfs
+  directory with Z18 tiles). The code used the same OkHttp client.
+  What changed? Possible explanations:
+  1. The old caltopo_usfs files were NOT CalTopo content (maybe 
+     Esri tiles written to wrong dir due to the directory bug)
+  2. CalTopo changed their S3 settings recently
+  3. Something else changed in the HTTP client
+
+===================================================
+WHAT WAS COMPLETED TODAY (May 21)
+===================================================
+
+1. Unified download confirm screen (ConvoyDownloadConfirm.kt)
+   - Shows all 3 map sources: SAT/TOPO/TOPO+
+   - Checkboxes per source (pre-selected by caller)
+   - Replace existing toggle
+   - Show details for storage
+   - PROCEED / CANCEL buttons
+   - Wired into download panel execute flow
+
+2. enqueueArea() function in ConvoyDownloadQueue.kt
+   - Unified queue function for all download types
+   - Breaks large areas into grid cells
+   - Fixed parameter order bug (was creating 753K grid cells!)
+
+3. Download panel checkbox state fix
+   - Lifted state from panel to parent (ConvoyMapViewerScreen)
+   - Checkboxes survive panel recomposition
+
+4. Grid cell parameter fix
+   - gridCells(south, west, north, east) → gridCells(north, south, east, west)
+   - Was creating 753,424 cells instead of 1 → OOM crash
+
+5. Worker base layer directory fix
+   - sourceName = if (layerIndex == 0) slotName else layer.cacheDir
+   - Base tiles go to slot directory (SAT/TOPO/TOPO+)
+   - Overlay tiles keep their own directory (SAT_LABELS_TRANSPORT etc.)
+
+===================================================
+OPEN ISSUES
+===================================================
+
+TILE DOWNLOAD:
+  1. CalTopo HTTP downloads failing — need HTTP status code to debug
+  2. Worker downloads ALL sources even when user selects one
+     (normal mode ignores refreshSlot — needs filter)
+  3. Tester device (47181FDAS005VJ) needs: pm clear com.grouptrack.android
+     and rm -rf /sdcard/Documents/GroupTrack/maps/tiles/*
+
+UI/UX:
+  4. Queue progress not showing in download panel display
+  5. QUEUES position on Planning Map needs adjustment
+  6. Work with Artifacts bar thickness
+  7. Remove GPX prompt after track import
+  8. +ROUTE nav wiring
+  9. Cancel All Downloads button needed
+
+ARCHITECTURE:
+  10. Worker should filter by selected slot (don't download all sources)
+  11. Separate "replace" (forceOverwrite) from "refresh" (scan existing)
+  12. Source swap should use unified download, not separate enqueueRefresh
+
+===================================================
+NEXT PRIORITIES
+===================================================
+
+1. Get HTTP status code from CalTopo failures (build pending)
+2. Fix CalTopo download (likely User-Agent header)
+3. Filter worker to selected slot only
+4. THEN move to lazy load trail display
+
+===================================================
+KEY FILES
+===================================================
+
+ConvoyDownloadConfirm.kt — new confirm screen
+ConvoyDownloadPanel.kt — panel with lifted state
+ConvoyDownloadQueue.kt — enqueueArea() added
+ConvoyDownloadWorker.kt — base layer uses slotName, logging added
+ConvoyTileDownloader.kt — HTTP status logging added (not built yet)
+ConvoyMapViewerScreen.kt — confirm wiring, panel state lifted
+
+===================================================
+BUILD / TEST
+===================================================
+
+Build: ./gradlew assembleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease
+Install: adb -s 8624SBCEDF00001789 install -r -d app/build/outputs/apk/google/release/app-google-release.apk
+Logcat: adb -s 8624SBCEDF00001789 logcat -d | grep "TileDownloader\|DownloadWorker\|HTTP" | tail -20
+Check tiles: adb -s 8624SBCEDF00001789 shell "find /sdcard/Documents/GroupTrack/maps/tiles/TOPO+ -name '*.png' | wc -l"
+
+===================================================
+DOCS TO UPLOAD IN NEW SESSION
+===================================================
+
+1. This file: V25_Handoff_May21_MidDay.txt
+2. V25_Handoff_May21_Morning.txt (has lazy load instructions)
+3. field_crossref_raw.txt
+4. trail_sources.json

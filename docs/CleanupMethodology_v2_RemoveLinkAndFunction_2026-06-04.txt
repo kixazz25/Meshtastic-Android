@@ -1,0 +1,70 @@
+================================================================
+CLEANUP METHODOLOGY v2 — Remove the LINK *and* the orphaned FUNCTION
+2026-06-04 · GroupTrack V2.5 · SUPERSEDES "RemoveLinksNotFunctions" v1
+================================================================
+
+CORRECTION to v1. v1 said "remove links, let functions orphan." That minimizes
+REMOVAL risk but creates a real, daily MAINTENANCE cost: orphaned functions
+still appear in every grep, every xref, every impact analysis, and bloat every
+file. ~40 such orphans already exist and are being fought through daily. That is
+NOT an acceptable steady state — it is debt accruing interest every session.
+
+----------------------------------------------------------------
+THE CORRECTED PRINCIPLE
+----------------------------------------------------------------
+Cleanup removes BOTH the launcher (link/button/nav/route) AND the function(s)
+it reached — provided removal is PROVEN safe. The goal is a codebase where what
+you read is what is live. Dead code is not "harmless," it is friction.
+
+Removal is SAFE TO DELETE (not just orphan) when, via the existing xref tooling:
+  - where_used / function_universe shows ZERO live callers of the function, AND
+  - no AllDocs / planned-feature mention treats it as a keep, AND
+  - any user capability it provided has a confirmed live entry point elsewhere
+    (so no capability is lost — only the dead path).
+When all three hold, DELETE the function, don't orphan it.
+
+This is NOT "delete blindly." It is "delete what the xref PROVES dead." The
+xref infrastructure (field_crossref / where_used / function_universe) exists
+precisely to make deletion safe — use it for that, not just to justify leaving
+orphans.
+
+----------------------------------------------------------------
+SEQUENCE FOR A CLEANUP TARGET (e.g. MAP SETTINGS sub-menu)
+----------------------------------------------------------------
+1. Identify the launcher (the MAP SETTINGS sub-menu link) and the set of
+   functions reachable ONLY through it.
+2. xref each: confirm the launcher has no other navigators; confirm each
+   reachable function has zero OTHER live callers; confirm each moved-capability
+   has its real entry point elsewhere.
+3. Remove the launcher AND the now-proven-dead functions in the same reversible
+   change (tagged branch / attic snapshot first — reversible, never a blind
+   hard-delete).
+4. Build + test. The codebase shrinks to live-only.
+5. Functions that xref CANNOT prove dead (ambiguous callers, reflection, planned
+   use) -> leave them, flag them, revisit. Only PROVEN-dead gets deleted.
+
+----------------------------------------------------------------
+THE EXISTING ~40 ORPHANS
+----------------------------------------------------------------
+Treat as a BACKLOG to burn down, not a baseline to accept. As cleanup items
+touch each area, xref the local orphans and delete the proven-dead ones in the
+same pass. Don't do a single giant "delete 40 functions" sweep (blast radius);
+retire them incrementally, proven-dead, area by area, each its own build+test.
+
+----------------------------------------------------------------
+WHY THIS STILL RESPECTS THE STANDING RULES
+----------------------------------------------------------------
+- Impact analysis before any change: YES — the xref proof IS the impact
+  analysis, and now it gates DELETION, not just link-removal.
+- Reversible, never hard-delete blind: YES — tagged branch / attic first.
+- One change at a time, build+test after: YES — area by area, not one mega-sweep.
+- Lower blast radius: achieved by PROOF + increments, not by leaving dead code.
+
+----------------------------------------------------------------
+CHECKLIST WIRING
+----------------------------------------------------------------
+§I (Closing 2.5 -> Dead-Code Quarantine): the action is "xref-prove dead, then
+remove launcher AND function together, reversibly, area by area." The ~40
+existing orphans become an incremental burn-down, not an accepted baseline.
+Supersede the v1 "links not functions" note. Fold on next checklist edit.
+================================================================

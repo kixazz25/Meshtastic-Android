@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>What's My Commitment? | GroupTrack</title>
+<style>
+  :root {
+    --blue-dark: #1a3a5c;
+    --blue-mid: #2563a8;
+    --blue-sky: #4AB8E8;
+    --orange: #f97316;
+    --amber: #d97706;
+    --text: #1f2937;
+    --text-light: #6b7280;
+    --bg: #ffffff;
+    --bg-alt: #f8fafc;
+    --border: #e5e7eb;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    color: var(--text);
+    background: var(--bg);
+    line-height: 1.6;
+  }
+
+  /* ── NAV ── */
+  nav {
+    background: var(--blue-dark);
+    padding: 0 2rem;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 60px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  }
+  .nav-logo {
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: #fff;
+    text-decoration: none;
+    letter-spacing: -0.5px;
+  }
+  .nav-logo span { color: var(--blue-sky); }
+  nav ul { list-style: none; display: flex; gap: 1.5rem; }
+  nav ul a {
+    color: #cbd5e1;
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: color 0.2s;
+  }
+  nav ul a:hover { color: var(--blue-sky); }
+
+  /* ── HERO ── */
+  .hero {
+    background: linear-gradient(135deg, var(--blue-dark) 0%, #0f2744 100%);
+    color: #fff;
+    text-align: center;
+    padding: 4rem 2rem 3rem;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at 60% 40%, rgba(74,184,232,0.12) 0%, transparent 70%);
+  }
+  .hero-badge {
+    display: inline-block;
+    background: rgba(74,184,232,0.2);
+    border: 1px solid var(--blue-sky);
+    color: var(--blue-sky);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 2px;
+    padding: 0.3rem 1rem;
+    border-radius: 20px;
+    margin-bottom: 1.2rem;
+    text-transform: uppercase;
+  }
+  .hero h1 {
+    font-size: 2.8rem;
+    font-weight: 800;
+    line-height: 1.15;
+    margin-bottom: 1rem;
+    position: relative;
+  }
+  .hero h1 em { color: var(--blue-sky); font-style: normal; }
+  .hero p {
+    font-size: 1.1rem;
+    color: #94a3b8;
+    max-width: 600px;
+    margin: 0 auto 2rem;
+    position: relative;
+  }
+  .hero-cta {
+    display: inline-block;
+    background: var(--orange);
+    color: #fff;
+    font-weight: 700;
+    font-size: 1rem;
+    padding: 0.85rem 2.2rem;
+    border-radius: 6px;
+    text-decoration: none;
+    transition: background 0.2s, transform 0.15s;
+    position: relative;
+  }
+  .hero-cta:hover { background: #ea6c04; transform: translateY(-1px); }
+
+  /* ── SECTION ── */
+  section { padding: 4rem 2rem; }
+  section:nth-child(even) { background: var(--bg-alt); }
+  .container { max-width: 960px; margin: 0 auto; }
+  .section-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--blue-sky);
+    margin-bottom: 0.5rem;
+  }
+  h2 {
+    font-size: 2rem;
+    font-weight: 800;
+    color: var(--blue-dark);
+    margin-bottom: 1rem;
+    line-height: 1.2;
+  }
+  .section-intro {
+    font-size: 1.05rem;
+    color: var(--text-light);
+    max-width: 680px;
+    margin-bottom: 2.5rem;
+  }
+
+  /* ── VALUE CARDS ── */
+  .value-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+  }
+  .value-card {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-top: 4px solid var(--blue-sky);
+    border-radius: 8px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  }
+  .value-card .price {
+    font-size: 2rem;
+    font-weight: 800;
+    color: var(--blue-dark);
+    margin-bottom: 0.25rem;
+  }
+  .value-card .price-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-light);
+    margin-bottom: 1rem;
+  }
+  .value-card ul { list-style: none; padding: 0; }
+  .value-card ul li {
+    padding: 0.4rem 0;
+    font-size: 0.95rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+  .value-card ul li:last-child { border-bottom: none; }
+  .value-card ul li::before { content: "✓"; color: var(--blue-sky); font-weight: 700; flex-shrink: 0; }
+
+  /* ── PRODUCT CARDS ── */
+  .product-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 2rem;
+    margin-top: 1rem;
+  }
+  .product-card {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.07);
+    transition: transform 0.2s, box-shadow 0.2s;
+    display: flex;
+    flex-direction: column;
+  }
+  .product-card:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
+  .product-img-wrap {
+    background: #f1f5f9;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    height: 200px;
+    overflow: hidden;
+  }
+  .product-img-wrap img {
+    max-height: 160px;
+    max-width: 100%;
+    object-fit: contain;
+    transition: transform 0.3s;
+  }
+  .product-card:hover .product-img-wrap img { transform: scale(1.05); }
+  .product-badge {
+    background: var(--blue-dark);
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 0.2rem 0.6rem;
+    border-radius: 3px;
+    display: inline-block;
+    margin-bottom: 0.5rem;
+  }
+  .product-badge.recommended { background: var(--orange); }
+  .product-info { padding: 1.25rem 1.25rem 1rem; flex: 1; display: flex; flex-direction: column; }
+  .product-name { font-size: 1.05rem; font-weight: 700; color: var(--blue-dark); margin-bottom: 0.25rem; }
+  .product-spec { font-size: 0.85rem; color: var(--text-light); margin-bottom: 0.75rem; line-height: 1.5; }
+  .product-price { font-size: 1.5rem; font-weight: 800; color: var(--blue-dark); margin-bottom: 0.25rem; }
+  .product-price-note { font-size: 0.8rem; color: var(--text-light); margin-bottom: 1rem; }
+  .product-features { list-style: none; padding: 0; margin-bottom: 1.25rem; flex: 1; }
+  .product-features li {
+    font-size: 0.85rem;
+    padding: 0.3rem 0;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    gap: 0.5rem;
+    align-items: flex-start;
+  }
+  .product-features li:last-child { border-bottom: none; }
+  .product-features li::before { content: "•"; color: var(--blue-sky); font-weight: 700; flex-shrink: 0; }
+  .btn-amazon {
+    display: block;
+    background: var(--amber);
+    color: #fff;
+    text-align: center;
+    font-weight: 700;
+    font-size: 0.95rem;
+    padding: 0.75rem;
+    border-radius: 6px;
+    text-decoration: none;
+    margin: 0 1.25rem 1.25rem;
+    transition: background 0.2s;
+  }
+  .btn-amazon:hover { background: #b45309; }
+  .btn-amazon span { font-size: 0.75rem; font-weight: 400; display: block; opacity: 0.85; }
+
+  /* ── FAQ ── */
+  .faq-list { display: flex; flex-direction: column; gap: 1rem; }
+  .faq-item {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .faq-q {
+    padding: 1.1rem 1.5rem;
+    font-weight: 700;
+    font-size: 1rem;
+    color: var(--blue-dark);
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #f8fafc;
+  }
+  .faq-q::after { content: "▼"; font-size: 0.75rem; color: var(--blue-sky); }
+  .faq-a {
+    padding: 1rem 1.5rem;
+    font-size: 0.95rem;
+    color: var(--text);
+    border-top: 1px solid var(--border);
+    line-height: 1.7;
+  }
+
+  /* ── CONTACT ── */
+  .contact-box {
+    background: linear-gradient(135deg, var(--blue-dark), #0f2744);
+    color: #fff;
+    border-radius: 12px;
+    padding: 3rem 2rem;
+    text-align: center;
+  }
+  .contact-box h2 { color: #fff; margin-bottom: 0.75rem; }
+  .contact-box p { color: #94a3b8; margin-bottom: 1.5rem; font-size: 1rem; }
+  .contact-box a.email-btn {
+    display: inline-block;
+    background: var(--blue-sky);
+    color: var(--blue-dark);
+    font-weight: 800;
+    padding: 0.85rem 2rem;
+    border-radius: 6px;
+    text-decoration: none;
+    font-size: 1rem;
+    transition: background 0.2s;
+  }
+  .contact-box a.email-btn:hover { background: #7dd3f0; }
+  .contact-note { margin-top: 1rem; font-size: 0.8rem; color: #64748b; }
+
+  /* ── FOOTER ── */
+  footer {
+    background: var(--blue-dark);
+    color: #64748b;
+    text-align: center;
+    padding: 1.5rem;
+    font-size: 0.82rem;
+  }
+  footer a { color: var(--blue-sky); text-decoration: none; }
+
+  /* ── DISCLAIMER ── */
+  .disclaimer {
+    background: #fffbeb;
+    border: 1px solid #fcd34d;
+    border-radius: 6px;
+    padding: 0.75rem 1.25rem;
+    font-size: 0.82rem;
+    color: #92400e;
+    margin-top: 1.5rem;
+    text-align: center;
+  }
+
+  @media (max-width: 600px) {
+    .hero h1 { font-size: 1.9rem; }
+    nav ul { display: none; }
+    h2 { font-size: 1.5rem; }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a href="https://grouptrack.org" class="nav-logo">Group<span>Track</span></a>
+  <ul>
+    <li><a href="https://grouptrack.org/#mission">Mission</a></li>
+    <li><a href="https://grouptrack.org/#features">Features</a></li>
+    <li><a href="https://grouptrack.org/#downloads">Downloads</a></li>
+    <li><a href="https://grouptrack.org/#faq">FAQ</a></li>
+    <li><a href="https://grouptrack.org/#contact">Contact</a></li>
+  </ul>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-badge">Beta Testing Program</div>
+  <h1>What's My <em>Commitment?</em></h1>
+  <p>Everything you need to get your group on the trail with real-time off-grid tracking. No subscriptions during beta. No markup on hardware.</p>
+  <a href="#hardware" class="hero-cta">See the Hardware →</a>
+</div>
+
+<!-- VALUE SUMMARY -->
+<section>
+  <div class="container">
+    <div class="section-label">Why It's Worth It</div>
+    <h2>Three Ways to Get Started</h2>
+    <p class="section-intro">Whether you already have an Android, just want to be on the map, or want the full group experience — there's an entry point for every rider.</p>
+    <div class="value-grid">
+      <div class="value-card" style="border-top-color: #22c55e;">
+        <div class="price" style="color: #16a34a;">$50</div>
+        <div class="price-label">Already Have an Android? — Radio Only</div>
+        <ul>
+          <li>1× SenseCAP T1000-E radio</li>
+          <li>Android 12 or above — you're ready</li>
+          <li>Download the free GroupTrack app</li>
+          <li>On the map and being tracked instantly</li>
+          <li>Software is free — golden for $50</li>
+        </ul>
+      </div>
+      <div class="value-card">
+        <div class="price">$150</div>
+        <div class="price-label">New to Android — Radio + Tablet</div>
+        <ul>
+          <li>1× SenseCAP T1000-E radio</li>
+          <li>1× Android tablet</li>
+          <li>Visible to every Android in the group</li>
+          <li>GPS tracked in real time on the map</li>
+          <li>Software free during beta</li>
+        </ul>
+      </div>
+      <div class="value-card" style="border-top-color: var(--orange);">
+        <div class="price" style="color: var(--orange);">$350</div>
+        <div class="price-label">Complete Group Package — 5 Carts + 1 Android</div>
+        <ul>
+          <li>5× SenseCAP T1000-E radios — one per cart</li>
+          <li>1× Android tablet — live map for the group</li>
+          <li>All 5 riders on the map and being tracked</li>
+          <li>Lead track always visible in front of you</li>
+          <li>Full offline map for your riding area</li>
+        </ul>
+      </div>
+    </div>
+    <p style="font-size:0.9rem; color: var(--text-light); text-align:center;">No WiFi. No cellular. No subscription during beta. Must have at least one Android in the group.</p>
+  </div>
+</section>
+
+<!-- HARDWARE -->
+<section id="hardware">
+  <div class="container">
+    <div class="section-label">Required Hardware</div>
+    <h2>What You Need to Get Out There</h2>
+    <p class="section-intro">GroupTrack makes nothing on hardware. Buy from anywhere — Amazon recommended for speed and return policy.</p>
+
+    <div class="product-grid">
+
+      <!-- RADIO -->
+      <div class="product-card">
+        <div class="product-img-wrap">
+          <img src="https://m.media-amazon.com/images/I/61z0JxCVoAL._AC_SL1500_.jpg"
+               alt="SenseCAP T1000-E LoRa Tracker"
+               onerror="this.src='https://via.placeholder.com/300x160/1a3a5c/4AB8E8?text=SenseCAP+T1000-E'">
+        </div>
+        <div class="product-info">
+          <span class="product-badge recommended">Recommended Radio</span>
+          <div class="product-name">SenseCAP T1000-E</div>
+          <div class="product-spec">Meshtastic LoRa GPS Tracker — one per rider</div>
+          <div class="product-price">~$50</div>
+          <div class="product-price-note">per unit</div>
+          <ul class="product-features">
+            <li>LoRa mesh radio — up to 10 miles per hop</li>
+            <li>Built-in GPS — no phone required</li>
+            <li>Weatherproof compact form factor</li>
+            <li>Meshtastic firmware 2.6+ compatible</li>
+            <li>Pairs to Android via Bluetooth</li>
+            <li>Long battery life — full day ride</li>
+          </ul>
+        </div>
+        <a class="btn-amazon" href="https://a.co/d/0dnPDTx4" target="_blank" rel="noopener">
+          View on Amazon
+          <span>Opens amazon.com — GroupTrack earns nothing on this purchase</span>
+        </a>
+      </div>
+
+      <!-- TABLET 10" -->
+      <div class="product-card">
+        <div class="product-img-wrap">
+          <img src="https://m.media-amazon.com/images/I/71w+mXtd9UL._AC_SL1500_.jpg"
+               alt="10.1 inch Android Tablet"
+               onerror="this.src='https://via.placeholder.com/300x160/1a3a5c/4AB8E8?text=10%22+Android+Tablet'">
+        </div>
+        <div class="product-info">
+          <span class="product-badge">Android Tablet — 10"</span>
+          <div class="product-name">10.1" Android Tablet</div>
+          <div class="product-spec">18GB RAM · 128GB ROM · Expandable GPS</div>
+          <div class="product-price">~$86</div>
+          <div class="product-price-note">good entry point for lead/tail riders</div>
+          <ul class="product-features">
+            <li>Android 14 — fully supported</li>
+            <li>128GB storage — ample tile cache space</li>
+            <li>18GB RAM — smooth map rendering</li>
+            <li>Expandable storage via microSD</li>
+            <li>Built-in GPS for position reporting</li>
+          </ul>
+        </div>
+        <a class="btn-amazon" href="https://a.co/d/08dLXQUQ" target="_blank" rel="noopener">
+          View on Amazon
+          <span>Opens amazon.com — GroupTrack earns nothing on this purchase</span>
+        </a>
+      </div>
+
+      <!-- TABLET 11" -->
+      <div class="product-card">
+        <div class="product-img-wrap">
+          <img src="https://m.media-amazon.com/images/I/71e2RpfMFcL._AC_SL1500_.jpg"
+               alt="11 inch Android Tablet"
+               onerror="this.src='https://via.placeholder.com/300x160/1a3a5c/4AB8E8?text=11%22+Android+Tablet'">
+        </div>
+        <div class="product-info">
+          <span class="product-badge">Android Tablet — 11"</span>
+          <div class="product-name">11" Android Tablet</div>
+          <div class="product-spec">Android 14 · 20GB RAM · 128GB · WiFi 6 · BT5 · GPS</div>
+          <div class="product-price">~$95</div>
+          <div class="product-price-note">best map visibility for lead rider</div>
+          <ul class="product-features">
+            <li>Larger screen — better map visibility</li>
+            <li>WiFi 6 — faster tile pre-downloads</li>
+            <li>20GB RAM — best performance</li>
+            <li>Bluetooth 5 — reliable radio pairing</li>
+            <li>Built-in GPS — no radio required for position</li>
+          </ul>
+        </div>
+        <a class="btn-amazon" href="https://a.co/d/0hcV15Yn" target="_blank" rel="noopener">
+          View on Amazon
+          <span>Opens amazon.com — GroupTrack earns nothing on this purchase</span>
+        </a>
+      </div>
+
+    </div>
+
+    <div class="disclaimer">
+      ⚠ GroupTrack makes no revenue on hardware purchases. Links are provided for convenience only. You are welcome to purchase from any retailer. Amazon is recommended for return policy and delivery speed.
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section id="faq">
+  <div class="container">
+    <div class="section-label">Before You Reach Out</div>
+    <h2>Frequently Asked Questions</h2>
+    <p class="section-intro">Straight answers about what you're getting into.</p>
+
+    <div class="faq-list">
+      <div class="faq-item">
+        <div class="faq-q">What is required for beta testing?</div>
+        <div class="faq-a">A beta test group needs two things: an individual or group willing to invest in SenseCAP T1000-E radio devices — one per vehicle — and at least one Android tablet in the group to run the GroupTrack application. The software is free during the beta program.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">Are iPads supported?</div>
+        <div class="faq-a">Not presently. An iOS port requires demonstrated interest and a use case that supports the extended development effort for an Apple device. If your group is iPad-based, reach out and make your case — it helps prioritize the roadmap.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">Do I need cell service or WiFi on the trail?</div>
+        <div class="faq-a">No. GroupTrack runs entirely over LoRa mesh radio in the field. You need internet access once before the ride to download map tiles for your area. After that, everything works with WiFi and cell completely off.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">How many riders can I track?</div>
+        <div class="faq-a">GroupTrack supports up to 10 active nodes on the convoy map. The more riders in your group, the greater your mesh range — each radio automatically relays for others in the network.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">What else should I know before reaching out?</div>
+        <div class="faq-a">A sense of humor is required. You are on the leading edge of technology and the development and support team is one person — not a cast of thousands.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">How do I apply for beta testing?</div>
+        <div class="faq-a">Send an email to info@grouptrack.org with: a description of your testing group and the riding scenarios you plan to test, a brief insight into your technology comfort level, and your Android OS version if you already have a device. Android 14 or above preferred — Android 10 and below will not work.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CONTACT -->
+<section>
+  <div class="container">
+    <div class="contact-box">
+      <h2>Ready to Apply for Beta Testing?</h2>
+      <p>We respond to every message. Tell us about your group and your riding area.</p>
+      <a href="mailto:info@grouptrack.org?subject=Beta Testing Request" class="email-btn">✉ &nbsp;info@grouptrack.org</a>
+      <div class="contact-note">Subject line: Beta Testing Request &nbsp;|&nbsp; www.grouptrack.org</div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <p>GroupTrack &nbsp;|&nbsp; © 2026 GroupTrack &nbsp;|&nbsp; Developed by Fred Kix &nbsp;|&nbsp;
+  <a href="mailto:kixazz25@gmail.com">kixazz25@gmail.com</a> &nbsp;|&nbsp;
+  <a href="https://www.grouptrack.org">www.grouptrack.org</a></p>
+</footer>
+
+</body>
+</html>

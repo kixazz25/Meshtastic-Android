@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>V2.5 Scaffold — Master Build Sequence</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
+:root{--bg:#0e1117;--s:#161b22;--s2:#21262d;--b:#30363d;--t:#c9d1d9;--td:#8b949e;--tb:#f0f6fc;--blue:#58a6ff;--grn:#3fb950;--org:#d29922;--red:#f85149;--pur:#bc8cff;--cy:#39d2c0}
+*{box-sizing:border-box;margin:0;padding:0}body{font-family:'IBM Plex Sans',sans-serif;background:var(--bg);color:var(--t);line-height:1.6;padding:2rem}
+h1{font-size:1.4rem;color:var(--tb);border-bottom:2px solid var(--blue);padding-bottom:.4rem;margin-bottom:1.2rem}
+h2{font-size:1.1rem;color:var(--blue);margin:1.5rem 0 .6rem}
+code{font-family:'JetBrains Mono',monospace;font-size:.8rem;background:var(--s2);padding:2px 5px;border-radius:3px;color:var(--cy)}
+.tag{display:inline-block;font-size:.63rem;font-weight:600;padding:2px 6px;border-radius:3px;margin-right:3px}
+.td{background:var(--grn);color:#000}.tn{background:var(--blue);color:#fff}.tl{background:var(--s2);color:var(--td)}
+.ph{background:var(--s);border:2px solid var(--b);border-radius:8px;padding:12px;margin:.6rem 0}
+.ph.a{border-color:var(--blue)}.ph.d{border-color:var(--grn)}
+.pt{font-size:.95rem;font-weight:700;color:var(--tb);margin-bottom:4px}
+.pd{font-size:.8rem;color:var(--td);margin-bottom:6px}
+.tk{padding:3px 0;border-bottom:1px solid var(--s2);font-size:.8rem;display:flex;align-items:flex-start;gap:5px}
+.tk:last-child{border-bottom:none}
+.ck{width:14px;height:14px;border:1px solid var(--b);border-radius:3px;flex-shrink:0;margin-top:2px}
+.ck.d{background:var(--grn);border-color:var(--grn)}
+.dp{color:var(--org);font-size:.75rem;margin-top:5px}
+.rx{background:#1a1e25;border-left:3px solid var(--org);padding:9px 12px;margin:.8rem 0;border-radius:0 5px 5px 0}
+.rx h4{color:var(--org);margin:0 0 5px;font-size:.82rem}.rx ul{padding-left:1rem}.rx li{font-size:.8rem;margin-bottom:2px}
+.sec{border-bottom:1px solid var(--b);padding-bottom:1.2rem;margin-bottom:1.2rem}
+table{width:100%;border-collapse:collapse;margin:.6rem 0;font-size:.8rem}
+th{text-align:left;padding:5px 7px;background:var(--s2);color:var(--tb);border:1px solid var(--b)}
+td{padding:5px 7px;border:1px solid var(--b)}
+</style></head><body>
+
+<h1>Master Build Sequence — v5 Lifecycle Owners</h1>
+<p style="font-size:.8rem;color:var(--td)">Source: Handoff May 18 §3 + ScreenReference v5 §1-10</p>
+
+<div class="sec">
+<h2>Completed (Handoff §1-2)</h2>
+<table>
+<tr><th>Item</th><th>Status</th></tr>
+<tr><td>Spatial DB (grouptrack_spatial.db) + app startup</td><td><span class="tag td">DONE</span></td></tr>
+<tr><td>Extension DB (grouptrack_data.db)</td><td><span class="tag td">DONE</span></td></tr>
+<tr><td>MapSourceManager + ConvoyMapSourceScreen</td><td><span class="tag td">DONE</span></td></tr>
+<tr><td>Grid tile refresh (SOURCE_REFRESH)</td><td><span class="tag td">DONE</span></td></tr>
+<tr><td>Overlay injection from Kotlin</td><td><span class="tag td">DONE</span></td></tr>
+<tr><td>WKT helpers + schema versioning</td><td><span class="tag td">DONE</span></td></tr>
+</table>
+</div>
+
+<div class="sec">
+<h2>Build Phases</h2>
+
+<div class="ph a">
+<div class="pt"><span class="tag tn">PHASE 0</span> Composable Shells + Navigation</div>
+<div class="pd">Handoff §3.1-3.2. Every new file compiles. Navigation wired. Zero feature logic.</div>
+<div class="tk"><span class="ck"></span>ConvoyArtifactsPanel.kt — v5 §4 layout</div>
+<div class="tk"><span class="ck"></span>ConvoyArtifactDetailPanel.kt — v5 §5 layout (one composable, 4 type configs)</div>
+<div class="tk"><span class="ck"></span>ConvoyQueuesPanel.kt — v5 §8 layout</div>
+<div class="tk"><span class="ck"></span>ConvoyWaypointCreateDialog.kt — v5 §6 layout</div>
+<div class="tk"><span class="ck"></span>ConvoyTrailSourceScreen.kt — v5 §9 layout</div>
+<div class="tk"><span class="ck"></span>ConvoyRouteCreateScreen.kt — draw/snap/convert stubs</div>
+<div class="tk"><span class="ck"></span>Lifecycle owner stubs: TrackManager, WaypointManager, RouteManager, AliasManager, AuditLogger, QueueManager, TileRequestTrigger</div>
+<div class="tk"><span class="ck"></span>Routes.kt + ConvoyNavigation.kt — entries for all new screens</div>
+<div class="tk"><span class="ck"></span>ConvoyDisplayPanel.kt — WORK WITH ARTIFACTS button + WORK WITH QUEUES</div>
+<div class="tk"><span class="ck"></span>ConvoyScreen.kt — Q button, long-press placeholder, artifact click placeholder</div>
+<div class="tk"><span class="ck"></span>ConvoyMapViewerScreen.kt — same + FABs (+ WPT, + RTE, ↓ DOWNLOAD)</div>
+<div class="tk"><span class="ck"></span>ConvoySettingsScreen.kt — Trail Source Management entry</div>
+<div class="dp">Deliverable: Clean build. All navigation works. All stubs compile.</div>
+</div>
+
+<div class="ph">
+<div class="pt"><span class="tag tl">PHASE 1</span> DB Queries + AliasManager + Display Data</div>
+<div class="pd">Handoff §3.3. Viewport queries. COALESCE display names. Empty states.</div>
+<div class="tk"><span class="ck"></span>AliasManager.kt — COALESCE display name, add/delete/prefer, source tags</div>
+<div class="tk"><span class="ck"></span>AuditLogger.kt — data_log writes (before + after with WKT)</div>
+<div class="tk"><span class="ck"></span>SpatialDbManager.kt — viewport-bounded queries (all 4 types + alias join)</div>
+<div class="tk"><span class="ck"></span>Wire panels to spatial db queries + alias display</div>
+<div class="tk"><span class="ck"></span>Wire DISPLAY toggles to map via evaluateJavascript</div>
+<div class="dp">Depends on: Phase 0. Deliverable: Panels show data. Alias system working.</div>
+</div>
+
+<div class="ph">
+<div class="pt"><span class="tag tl">PHASE 2</span> Waypoint Creation (v5 §6 full chain)</div>
+<div class="pd">First end-to-end creation. Long-press → type → proximity → alias/create → share.</div>
+<div class="tk"><span class="ck"></span>JS onLongPress(lat, lon) on both HTML maps</div>
+<div class="tk"><span class="ck"></span>WaypointManager.kt — proximity check, 3-option flow, insert chain</div>
+<div class="tk"><span class="ck"></span>QueueManager.kt — upload_queue inserts from share prompt</div>
+<div class="tk"><span class="ck"></span>JS addWaypoint(id, lat, lon, type, name) on both HTML maps</div>
+<div class="dp">Depends on: Phase 1. Deliverable: First complete spatial creation chain.</div>
+</div>
+
+<div class="ph">
+<div class="pt"><span class="tag tl">PHASE 3</span> Track Save + Detail Actions (v5 §5+§7)</div>
+<div class="pd">TrackManager integrates save with spatial db. Detail panel actions wired.</div>
+<div class="tk"><span class="ck"></span>TrackManager.kt — GPX parse, insert chain, survey, TO ROUTE</div>
+<div class="tk"><span class="ck"></span>TileRequestTrigger.kt — spatial data → tile_queue at priority</div>
+<div class="tk"><span class="ck"></span>JS onArtifactClick(type, id) on both HTML maps</div>
+<div class="tk"><span class="ck"></span>Detail actions: FIT, +ALIAS, DELETE (with guards per v5 §5)</div>
+<div class="dp">Depends on: Phase 2. Deliverable: Full artifact lifecycle.</div>
+</div>
+
+<div class="ph">
+<div class="pt"><span class="tag tl">PHASE 4</span> Trail Import (v5 §9 — Utah Pilot)</div>
+<div class="pd">Handoff §3.4. TrailImporter pipeline. UGRC first source. Replace static GeoJSON.</div>
+<div class="tk"><span class="ck"></span>TrailImporter.kt — parse, dedup (source_unique_id), insert/alias, log</div>
+<div class="tk"><span class="ck"></span>ConvoyTrailSourceScreen.kt — CRUD + IMPORT FROM SOURCE</div>
+<div class="tk"><span class="ck"></span>Trail display from spatial db on both maps (replace static asset)</div>
+<div class="tk"><span class="ck"></span>source_ingestions logging</div>
+<div class="dp">Depends on: Phase 3. Deliverable: Real UGRC data on map.</div>
+</div>
+
+<div class="ph">
+<div class="pt"><span class="tag tl">PHASE 5</span> Route Creation + V2.6 Stubs</div>
+<div class="pd">RouteManager draw + save. V2.6 stubs with paygate.</div>
+<div class="tk"><span class="ck"></span>JS enterRouteDrawMode() / exitRouteDrawMode() on Planning Map</div>
+<div class="tk"><span class="ck"></span>RouteManager.kt — save, SET TH, ride enrollment guard</div>
+<div class="tk"><span class="ck"></span>V2.6 download stubs (paygate / "coming soon")</div>
+<div class="dp">Depends on: Phase 4. Deliverable: Complete V2.5 feature set.</div>
+</div>
+</div>
+
+<div class="sec">
+<h2>New Files (v5 Lifecycle Owners)</h2>
+<table>
+<tr><th>File</th><th>Type</th><th>v5 Owner</th><th>Phase</th></tr>
+<tr><td><code>ConvoyArtifactsPanel.kt</code></td><td>UI</td><td>—</td><td>0</td></tr>
+<tr><td><code>ConvoyArtifactDetailPanel.kt</code></td><td>UI</td><td>—</td><td>0</td></tr>
+<tr><td><code>ConvoyQueuesPanel.kt</code></td><td>UI</td><td>—</td><td>0</td></tr>
+<tr><td><code>ConvoyWaypointCreateDialog.kt</code></td><td>Dialog</td><td>—</td><td>0</td></tr>
+<tr><td><code>ConvoyTrailSourceScreen.kt</code></td><td>UI</td><td>—</td><td>0</td></tr>
+<tr><td><code>ConvoyRouteCreateScreen.kt</code></td><td>UI</td><td>—</td><td>0</td></tr>
+<tr><td><code>TrackManager.kt</code></td><td>Ops</td><td>TrackManager</td><td>0→3</td></tr>
+<tr><td><code>WaypointManager.kt</code></td><td>Ops</td><td>WaypointManager</td><td>0→2</td></tr>
+<tr><td><code>RouteManager.kt</code></td><td>Ops</td><td>RouteManager</td><td>0→5</td></tr>
+<tr><td><code>TrailImporter.kt</code></td><td>Ops</td><td>TrailImporter</td><td>0→4</td></tr>
+<tr><td><code>AliasManager.kt</code></td><td>Ops</td><td>AliasManager</td><td>0→1</td></tr>
+<tr><td><code>AuditLogger.kt</code></td><td>Ops</td><td>AuditLogger</td><td>0→1</td></tr>
+<tr><td><code>QueueManager.kt</code></td><td>Ops</td><td>QueueManager</td><td>0→2</td></tr>
+</table>
+
+<h2>Modified Files</h2>
+<table>
+<tr><th>File</th><th>Change</th><th>Phase</th></tr>
+<tr><td><code>Routes.kt</code></td><td>Route entries for new screens</td><td>0</td></tr>
+<tr><td><code>ConvoyNavigation.kt</code></td><td>Composable entries + callbacks</td><td>0</td></tr>
+<tr><td><code>ConvoyDisplayPanel.kt</code></td><td>WORK WITH ARTIFACTS + QUEUES buttons</td><td>0</td></tr>
+<tr><td><code>ConvoyScreen.kt</code></td><td>Q button, long-press, artifact click</td><td>0-3</td></tr>
+<tr><td><code>ConvoyMapViewerScreen.kt</code></td><td>Same + FABs (+ WPT, + RTE, ↓ DOWNLOAD)</td><td>0-3</td></tr>
+<tr><td><code>ConvoySettingsScreen.kt</code></td><td>Trail Source Management entry</td><td>0</td></tr>
+<tr><td><code>SpatialDbManager.kt</code></td><td>Viewport queries, alias join, delete guards</td><td>1-4</td></tr>
+<tr><td><code>convoy_map.html</code></td><td>onLongPress, onArtifactClick, addWaypoint</td><td>2-4</td></tr>
+<tr><td><code>grouptrack_map.html</code></td><td>Same + enterRouteDrawMode</td><td>2-5</td></tr>
+</table>
+</div>
+
+<div class="rx"><h4>STANDING RULES</h4><ul>
+  <li>Phase 0 scaffolding ships first. All UI placeholders before feature code.</li>
+  <li>One comprehensive patch per agreed design. Uniquely versioned Python.</li>
+  <li>Display name = <code>COALESCE(preferred_alias, spatial.name, agency_id, 'Unnamed')</code></li>
+  <li>Every data change journaled via AuditLogger. No exceptions.</li>
+  <li>Never build V2.6 processing code during V2.5.</li>
+  <li>Never commit V3_FEATURES_ENABLED = true.</li>
+  <li>Install always -r -d. Build always -x uploadCrashlyticsMappingFileGoogleRelease.</li>
+</ul></div>
+
+<p style="text-align:center;color:var(--td);margin-top:1.5rem;font-size:.72rem;font-style:italic">V2.5 Master Build Sequence | Source: Handoff May 18 + ScreenReference v5 | May 19, 2026</p>
+</body></html>

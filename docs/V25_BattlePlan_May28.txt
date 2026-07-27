@@ -1,0 +1,128 @@
+GroupTrack V2.5 — Battle Plan May 28 Night Session
+==========================================
+
+PROCESS RULES (lessons from May 27)
+==========================================
+1. Fred states the OBJECTIVE (what the user needs)
+2. Claude diagnoses the problem space completely
+3. Claude presents 2-3 options with tradeoffs
+4. We pick one together
+5. VERIFY code changes with grep BEFORE building
+6. Never chase a solution past the second failure
+7. When stuck, step back to the goal and evaluate alternatives
+
+STARTUP SEQUENCE
+==========================================
+1. Upload this document + V25_Handoff_May27_EOD.txt + V25_Checklist_May27.txt
+2. git log --oneline -10 (verify clean state)
+3. git status --short (verify no dirty files)
+4. If dirty files exist: review, commit or discard
+5. Verify latest build installs and runs
+
+PRIORITY 1: CLEAN BASELINE (15 min)
+==========================================
+Goal: Known-good starting point
+- Install latest build on Android 1
+- Test: map opens with SAT, accordion works, refresh button visible
+- Test: IMPORT UTAH TRAILHEADS button visible and functional
+- If trailhead import works: verify waypoints appear on map
+- Commit if uncommitted changes exist
+
+PRIORITY 2: PROXIMITY REPLACEMENT (30 min)
+==========================================
+Objective: Users need to identify overlapping artifacts on the map
+
+OPTION A: Manual HTML fix (5 min)
+  - Open grouptrack_map.html in Windows text editor (VS Code, Notepad++)
+  - Delete lines 5-55 (dead proximity in leaflet.js script tag)
+  - Delete lines ~55-105 (dead proximity in leaflet.draw.js script tag)
+  - Find real proximity handler (~line 700): "Proximity tap: show all nearby"
+  - Replace entire handler (through closing });) with:
+      map.on('click', function(e) {
+        try { Android.onProximityTap(e.latlng.lat, e.latlng.lng); } catch(ex) {}
+      });
+  - Add showProximityPopup function nearby (already in Kotlin interface)
+  - Save, build, test
+
+OPTION B: Unified artifact list (production feature, 2 hours)
+  - One scrollable list: trails + tracks + waypoints + routes together
+  - Color-coded by type
+  - Type filter pills: [ALL] [TRAILS] [TRACKS] [WAYPOINTS] [ROUTES]
+  - Updates live on zoom/pan
+  - Check/uncheck = instant map refresh (toggle to identify)
+  - Tap item = highlight/pulse on map
+
+OPTION C: Coordinate press dialog (1 hour)
+  - Press on map sends lat/lng to Kotlin
+  - Kotlin checks viewport results (already in memory)
+  - Compose dialog lists nearby items with checkboxes
+  - Toggle on/off = immediate map update
+
+RECOMMENDATION: Do A first (5 min fix), then build B or C as the real feature.
+
+PRIORITY 3: DETAIL PANEL REBUILD (1 hour)
+==========================================
+Objective: All action buttons display identically
+
+Approach: Create new composable ArtifactDetailPanel
+  - Replace existing detail dialog
+  - All buttons: RENAME, DELETE, SHARE, EXPORT, CHANGE TYPE, ALIASES
+  - Created in one pass with identical styling
+  - Same DetailActionButton composable, same colors, same fonts
+  - No conditional insertion that might affect layout tree
+
+PRIORITY 4: WAYPOINT CREATION (2 hours)
+==========================================
+Objective: User creates waypoints by long-pressing on map
+
+Three files, clean pipeline:
+  grouptrack_map.html:
+    - map.on('contextmenu') handler
+    - Android.onLongPress(lat, lng)
+
+  ConvoyMapViewerScreen.kt:
+    - State vars: showCreateDialog, createLat, createLon
+    - onLongPress JavascriptInterface
+    - Create waypoint Compose dialog
+    - 11 type pill buttons
+    - Name field + optional description
+    - SAVE calls insertWaypoint()
+    - triggerViewportUpdate() refreshes map
+
+  SpatialDbManager.kt:
+    - insertWaypoint() already exists
+    - description column: handle gracefully if missing
+
+PRIORITY 5: ROUTE PLANNING PHASE 1 (2 hours)
+==========================================
+Objective: User creates routes by tapping points on map
+
+  - Tap mode: place points sequentially
+  - Lines connect points
+  - Save as LINESTRING to routes table
+  - Optional snap to nearest trail segment
+
+REMAINING ITEMS (after priorities 1-5)
+==========================================
+- Trail section numbering (display-time suffix for duplicates)
+- Track survey on save panel
+- Combined trail + trailhead import process
+- Manual + release notes (end of Planning Map development)
+- First-launch release notes screen
+
+UGRC DATA REFERENCE
+==========================================
+Trail service: https://services1.arcgis.com/99lidPhWCzftIe9K/ArcGIS/rest/services/TrailsAndPathways/FeatureServer/0/query
+Trailhead service: https://services1.arcgis.com/99lidPhWCzftIe9K/ArcGIS/rest/services/Trailheads/FeatureServer/0/query
+Trailhead refresh: curl -o app/src/main/assets/utah_trailheads.json "URL?where=1%3D1&outFields=*&f=geojson&outSR=4326"
+
+FIELD TEST NOTES (Wednesday May 28)
+==========================================
+Test device: Android 1 (8624SBCEDF00001789)
+Package: com.grouptrack.android
+Features to test:
+  - Lead track proxy with 2+ vehicles
+  - Auto-sense connectivity (drive into no-coverage area)
+  - SAT default on Planning Map open
+  - Download panel 4 accordions
+  - Refresh downloads button

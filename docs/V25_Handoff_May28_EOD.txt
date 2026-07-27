@@ -1,0 +1,228 @@
+GroupTrack V2.5 — Handoff May 28 EOD
+==========================================
+Branch: feature/convoy-event-ride
+Last commit: c0ad6b509 "V2.5: Trail import cleanup, TrailImporter bbox, 
+             track Branch 2 removed + diagnostics, GPX import restored"
+All changes since that commit are UNCOMMITTED.
+Rollback: git checkout -- .
+
+Field test: Thursday June 4
+Tester devices: P10V07162601000362, TC5010926B071521
+Dev devices: 8624SBCEDF00001789, 24039703201775
+
+==========================================
+SESSION SUMMARY — May 28 (15+ hours)
+==========================================
+
+WHAT WORKS (confirmed on device):
+  - Convoy map loads with tiles
+  - Work with Artifacts panel renders on convoy map
+  - ArtifactListPanel opens from Edit/Display button
+  - Spatial DB viewport queries fire (artifacts found in bounding box)
+  - Artifact list populates correctly per viewport
+  - Select/deselect state persists correctly
+  - Zoom/pan refreshes artifact list correctly
+  - Waypoints displayed on convoy map (confirmed briefly)
+  - Trail import by source (auto-trailheads) — tested, working
+  - Trail import by area — fires but hangs on API fetch
+  - GPX import screen: IMPORT ARTIFACTS wired to file picker
+  - GPX import: importGpxAllArtifacts with extensions stripping
+  - Track diagnostics: Branch 2 removed, TRACK-DBG logging active
+
+WHAT DOESN'T WORK (as of last test):
+  - Trails/tracks/waypoints/routes NOT RENDERING on convoy map
+  - Root cause: Android WebView blocks <script src="file://...">
+  - spatial_artifacts.js cannot load as external script
+  - FIX APPLIED (untested): JS content inlined into convoy_map.html
+  - Build running at session end — test needed
+
+==========================================
+WHAT WENT WRONG
+==========================================
+
+1. SHARED JS FILE APPROACH:
+   - Plan: create spatial_artifacts.js, include in both HTML files
+   - Reality: Android WebView blocks file:// script includes
+   - Hours wasted trying external includes before discovering this
+   - Fix: inline the JS content, or inject via Kotlin evaluateJavascript
+
+2. DUAL WEBVIEW INTERFACES:
+   - ConvoyScreen.kt has TWO addJavascriptInterface calls (line 474 + 594)
+   - Line 474: existing/reused WebView — NO onViewportChanged
+   - Line 594: new WebView — HAS onViewportChanged
+   - App reuses existing WebView, so handler never fired
+   - Fix: added onViewportChanged to BOTH interfaces
+
+3. OLD DISPLAY PANEL NOT REMOVED:
+   - Plan: remove old ConvoyDisplayPanel when adding new spatial system
+   - Reality: wrapped in if(false) instead of removing
+   - Old showTracks/showTrails JS functions conflicted with spatial versions
+   - Convoy map had TWO track systems: file-based (showTracks) vs spatial (showSpatialTracks)
+   - Kotlin called showTracks() which hit the file-based version
+
+4. FUNCTION NAME CONFLICTS:
+   - convoy_map.html had updateSpatialTracks, planning map had updateTracks
+   - Kotlin called updateTracks which didn't exist on convoy map
+   - 37 duplicate/conflicting functions existed in convoy_map.html
+
+5. NO IMPACT ANALYSIS:
+   - field_crossref_raw.txt, where_used_raw.txt, function_universe_raw.txt 
+     were uploaded but NOT USED for convoy map changes
+   - Changes made without tracing call chains
+   - Dual WebView issue could have been found immediately
+
+6. GRADLE BUILD ISSUES:
+   - Incremental builds not detecting Python patch changes
+   - Multiple "successful" builds that didn't produce new APKs
+   - gradle clean deleted APKs, failed builds left no replacement
+   - DS_OFF constants placed between @Composable and function
+   - mutableIntStateOf not available in this Compose version
+
+==========================================
+CURRENT STATE OF FILES (uncommitted)
+==========================================
+
+ConvoyScreen.kt:
+  - DS_OFF/DS_ON/DS_SELECTED constants
+  - Display state variables (trailState, trackState, etc.)
+  - checkedIds state variables
+  - onViewportChanged in BOTH WebView JS interfaces
+  - ConvoyArtifactsPanel wired (displayStates, onSetState with show/hide,
+    onEditDisplay with SpatialDbManager query)
+  - ArtifactListPanel with toggle/select/deselect
+  - onDismiss saves state to ConvoyConfig + triggers viewport refresh
+  - Old ConvoyDisplayPanel wrapped in if(false)
+  - Viewport handler filters by checkedIds per artifact type
+  - onSetState calls show/hide before viewport refresh
+
+convoy_map.html:
+  - 37 old spatial functions REMOVED
+  - spatial_artifacts.js content INLINED at end of file
+  - triggerViewportUpdate function added
+  - updateTracks alias added (before cleanup removed it)
+  - Viewport visibility guard removed
+  - Old file-based showTracks/hideTracks REMOVED
+  - Shared functions now at bottom: updateTrails, updateTracks,
+    updateWaypoints, updateRoutes, all show/hide/clear/toggle,
+    trailColor, trailWeight, waypointColor, waypointSymbol
+
+spatial_artifacts.js:
+  - EXISTS in assets folder (9806 bytes)
+  - Contains ALL shared spatial display functions
+  - Currently inlined into convoy_map.html (can't load as external script)
+  - NOT yet used by grouptrack_map.html (planning map still has inline versions)
+
+ConvoyTrackImportScreen.kt:
+  - importGpxAllArtifacts replaces importTrackFile
+  - Waypoint/route counts in recap dialog
+  - DELETE FILES / KEEP FILES buttons
+  - LocalContext added for importGpxAllArtifacts call
+
+ConvoyTrackOps.kt:
+  - Extensions stripping in importGpxAllArtifacts (regex, needs string loop fix)
+  - Extensions stripping in importTrackFile (same)
+
+ConvoyMapViewerScreen.kt:
+  - IMPORT ARTIFACTS wired to onNavigateToTrackImport (file picker screen)
+
+ConvoyViewModel.kt:
+  - Branch 2 (multi-cart segments) REMOVED
+  - TRACK-DBG tick diagnostic logging
+  - TRACK-DBG segment write logging
+
+==========================================
+TOMORROW'S PRIORITIES
+==========================================
+
+PRIORITY 1: VERIFY CONVOY MAP SPATIAL DISPLAY
+  Build is running (inlined JS). Test:
+  1. Install on device
+  2. Open convoy map
+  3. Toggle Trails ON — do trails render on map?
+  4. Toggle Tracks ON — do tracks render?
+  5. Toggle Waypoints ON — do waypoints render?
+  6. Edit/Display — does filter apply on close?
+  IF YES: commit and proceed to cleanup
+  IF NO: check logcat for ConvoyJS errors, fix specific issue
+  FALLBACK: git checkout -- . (reverts to c0ad6b509)
+
+PRIORITY 2: PROPER SHARED JS APPROACH
+  Android WebView blocks external script includes.
+  Long-term fix: Kotlin reads spatial_artifacts.js from assets
+  and injects via evaluateJavascript after WebView loads.
+  Apply to BOTH ConvoyScreen.kt AND ConvoyMapViewerScreen.kt.
+  Then remove inline duplicates from BOTH HTML files.
+  
+  Pattern:
+    val jsContent = context.assets.open("spatial_artifacts.js")
+        .bufferedReader().use { it.readText() }
+    webView.evaluateJavascript(jsContent, null)
+  
+  Call this in onPageFinished or after map init.
+
+PRIORITY 3: REMOVE OLD DISPLAY PANEL
+  Once spatial display is confirmed working:
+  - Remove if(false) wrapper — delete entire ConvoyDisplayPanel block
+  - Remove old file-based track loading code
+  - Remove tracksVisible, tracksLoaded, trailsOn, trailsLoaded state vars
+  - Clean commit
+
+PRIORITY 4: PLANNING MAP MIGRATION
+  grouptrack_map.html still has inline spatial functions.
+  Apply same approach: Kotlin injects spatial_artifacts.js,
+  remove inline duplicates from grouptrack_map.html.
+  Test planning map still works after migration.
+
+PRIORITY 5: GPX LARGE FILE FIX
+  Extensions stripping regex causes catastrophic backtracking on 32MB files.
+  Replace with string loop (indexOf/substring).
+
+PRIORITY 6: AAB BUILD FOR TESTERS
+  After all above confirmed:
+  ./gradlew bundleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease
+  Upload to Play Store Internal Testing.
+
+==========================================
+REFERENCE DOCUMENTS (upload at session start)
+==========================================
+
+MUST UPLOAD AND REFERENCE BEFORE ANY CODE CHANGES:
+  - field_crossref_raw.txt — field read/write locations
+  - where_used_raw.txt — function call sites  
+  - function_universe_raw.txt — all functions with line numbers
+  - GroupTrack_AllDocs.txt — project documentation
+  - V25_Status_May28.txt — comprehensive status
+  - This handoff document
+
+==========================================
+CLEANUP ITEMS (post-convoy-spatial)
+==========================================
+
+  - Remove old scanDownloadsForGpx (dead code after import wiring)
+  - Remove old "Work with Tracks" from map settings
+  - Trail source screen intro text + remove METHOD_SELECT/B1_DRAW_AREA
+  - V2.5 release notes first-launch screen (all features)
+  - trailSourceCount hardcoded 0 (functional bug — area import)
+  - Area trail import API fetch hangs (needs timeout + error handling)
+  - SAT/TOPO bar, North indicator, zoom level display
+  - Remove node persistence (blocklist)
+  - QUEUES button on convoy map broken
+  - Track survey on stop (name + difficulty + share)
+  - Upload queue schema (define + populate for V2.6)
+  - V2.5 user manual (HTML, twisters, hot-linked TOC)
+  - Large GPX regex → string loop
+  - Direction arrows on track lines
+
+==========================================
+RULES FOR NEXT SESSION
+==========================================
+
+1. Upload reference docs FIRST
+2. Impact analysis BEFORE any code change
+3. One change at a time, test after each
+4. Verify APK timestamp after every build
+5. touch *.kt after Python patches
+6. Never leave dual systems active — remove old before adding new
+7. No direction changes without explicit agreement
+8. Commit working states before starting new changes
+9. Write the plan, confirm the plan, execute the plan

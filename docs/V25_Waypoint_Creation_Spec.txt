@@ -1,0 +1,156 @@
+GroupTrack V2.5 — Waypoint Creation
+IMPLEMENTATION SPECIFICATION
+==========================================
+
+1. OVERVIEW
+==========================================
+Long-press on Planning Map creates a waypoint at the tap
+location. User selects type, enters name and description,
+saves to spatial DB. Waypoint appears on map immediately.
+
+2. WAYPOINT TYPES (11)
+==========================================
+ #  Type          Icon  Use
+ 1  trailhead     boot  Trail start/end, staging area
+ 2  fuel          pump  Gas station, fuel stop
+ 3  gate          bar   Gate (add code/instructions in desc)
+ 4  hazard        warn  Danger: sharp turn, cliff, water
+ 5  scenic        cam   Viewpoint, photo opportunity
+ 6  water         drop  Water source, creek crossing
+ 7  camp          tent  Campsite, overnight stop
+ 8  parking       P     Parking area, vehicle staging
+ 9  rally         pin   Meetup point, regrouping spot
+10  instruction   note  Trail guidance with text details
+11  other         star  General purpose marker
+
+3. INSTRUCTION/GUIDANCE WAYPOINT
+==========================================
+The "instruction" type is for trail guidance that displays
+text details to riders approaching the waypoint:
+
+  Examples:
+  - "Sharp left at fork — stay on lower trail"
+  - "Gate code: 4521 — open and close behind you"
+  - "Cell service available here"
+  - "Water crossing — 2ft center, stay left"
+  - "Speed limit 15mph — residential area"
+
+Description text displays in:
+  - Map popup (tap waypoint)
+  - Ride preview alerts (approaching waypoint)
+  - Convoy HUD notifications (during ride)
+  - Exported GPX <desc> element
+
+4. CREATION WORKFLOW
+==========================================
+Step 1: User long-presses on Planning Map
+Step 2: Capture lat/lon at tap point
+Step 3: Dialog opens:
+  ┌──────────────────────────────┐
+  │ CREATE WAYPOINT              │
+  │                              │
+  │ Lat: 37.4826  Lon: -113.317 │
+  │                              │
+  │ Name: [________________]    │
+  │                              │
+  │ Type: [trailhead ▼]         │
+  │   (dropdown: 11 types)       │
+  │                              │
+  │ Description:                 │
+  │ [________________________]  │
+  │ [________________________]  │
+  │                              │
+  │ [SAVE]         [CANCEL]     │
+  └──────────────────────────────┘
+
+Step 4: User fills name, selects type, adds description
+Step 5: Tap SAVE
+Step 6: Insert into spatial DB (waypoints table)
+Step 7: Waypoint appears on map immediately
+Step 8: Toast: "Waypoint saved: [name]"
+
+5. SPATIAL DB INSERT
+==========================================
+Table: waypoints
+Fields:
+  waypoint_id: UUID generated
+  name: user input
+  type: selected from 11 types
+  description: user input (optional, text)
+  geometry: POINT(lon lat) WKT
+  min_lat, max_lat: lat
+  min_lon, max_lon: lon
+  source: 'user'
+  created_at: ISO timestamp
+  updated_at: ISO timestamp
+
+SQL:
+  INSERT INTO waypoints (waypoint_id, name, type, description,
+    geometry, min_lat, max_lat, min_lon, max_lon, source,
+    created_at, updated_at)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'user', ?, ?)
+
+6. DESCRIPTION FIELD
+==========================================
+Must add 'description' column to waypoints table if not
+present:
+
+  ALTER TABLE waypoints ADD COLUMN description TEXT
+
+Add migration in SpatialDbManager init:
+  try { db.rawQuery("SELECT description FROM waypoints LIMIT 1") }
+  catch { db.execSQL("ALTER TABLE waypoints ADD COLUMN description TEXT") }
+
+7. JAVASCRIPT INTERFACE
+==========================================
+Long-press handler in grouptrack_map.html:
+
+  map.on('contextmenu', function(e) {
+    // or use press-and-hold detection
+    Android.onLongPress(e.latlng.lat, e.latlng.lng);
+  });
+
+Kotlin JavascriptInterface:
+  @JavascriptInterface
+  fun onLongPress(lat: Double, lon: Double) {
+      // Show create waypoint dialog
+      showCreateWaypointDialog = true
+      createWaypointLat = lat
+      createWaypointLon = lon
+  }
+
+8. MAP UPDATE AFTER SAVE
+==========================================
+After insert:
+  1. triggerViewportUpdate() — re-queries waypoints
+  2. New waypoint appears in layer
+  3. If waypointState is OFF, auto-switch to ON
+  4. Toast confirmation
+
+9. FILES TO MODIFY
+==========================================
+SpatialDbManager.kt:
+  - Add description column migration
+  - Add insertWaypoint() function
+  
+ConvoyMapViewerScreen.kt:
+  - Add long-press state variables
+  - Add create waypoint dialog composable
+  - Add JavascriptInterface onLongPress
+  - Wire save to SpatialDbManager.insertWaypoint()
+  
+grouptrack_map.html:
+  - Add map.on('contextmenu') handler
+  - Call Android.onLongPress(lat, lng)
+
+10. TESTING
+==========================================
+  1. Long-press on map → dialog opens with correct lat/lon
+  2. Select each of 11 types → saves correctly
+  3. Add description text → saved and shown in popup
+  4. Waypoint appears on map immediately after save
+  5. Waypoint shows in SELECT list
+  6. Waypoint editable (rename, delete, change type)
+  7. Instruction type: description displays in popup
+  8. Cancel → no waypoint created
+  9. Duplicate name handling (allow or warn?)

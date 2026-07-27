@@ -1,0 +1,27 @@
+write new ride or master config.
+
+master config apply starts with reading a card and saving it the  history of card images by card number and date.
+
+1. with the current radio image now available we use the check list determine which field values are changed . The checked  fields will be the checklist of which values in the radios original configuration will be changed . 
+1. checked field are swapped from master config to replace values in the file that original saved image.
+   Channel name and encryption key are not in the checklist but their values come from the config master
+2. all other field are left in the original image.
+3. current long name is displayed and allowed to be changed before the card is written
+4. after write card is rebooted.
+
+
+New Ride update
+reads image of card to be updated and saves it to the history of images by card number and date.
+then it reads the master configuration and updates the checked field only in the original master config
+it retrieved the channel name and the channel key from the ride file and updates that data in the working radio image (master config)
+any field not checked we than use the data from the saved card image to substitute.
+1. Checked fields have their values replaced by the values in the master config 
+2. Channel and encryption key com from the ride file
+3. unchecked field come from the original card image
+4. the long name from the radio is used to show value and allow entry of a new long name
+
+card image is then written to radio and rebooted.
+changes
+
+use the import function from meshtastic client to save current config an dth export function to write new cfgs after
+write the archived save to file of current just before the new card write to the radio. construct the write function gated and when update radio is slected write archival save and insert a place holder for radio write so we can eval the saved copy before writing new config to the radio.

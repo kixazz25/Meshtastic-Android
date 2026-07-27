@@ -1,0 +1,150 @@
+GroupTrack V2.5 — Handoff Document V2
+May 25, 2026 End of Day
+==========================================
+
+SESSION SUMMARY
+==========================================
+Full-day session: preload architecture, ArtifactListPanel
+(select/edit/CRUD), viewport filter system, Planning Map
+cleanup, queue panel wiring.
+
+COMMITS (May 25) — ALL COMMITTED
+==========================================
+1. preload architecture, track param fix, trail colors,
+   import list, resync, display fixes
+2. queue panel live, track param fix, trail colors, SAT default
+3. ArtifactListPanel select/edit, detail panel, checkbox
+   filter, viewport bounds, queue panel live
+4. viewport filter, trail toggle ON, checkbox map filter,
+   SAT ConvoyConfig (pending — commit before tomorrow)
+
+CURRENT BUILD STATE
+==========================================
+Installed on Android 1 (8624SBCEDF00001789).
+
+WORKING:
+- SELECT button opens ArtifactListPanel for all 4 types
+- Checkbox select/deselect individual artifacts
+- Select All / Deselect All
+- "Working with [name]" centered detail dialog
+- Detail actions: RENAME, DELETE, CHANGE TYPE (waypoints),
+  SHARE/COPY/FIX DATE placeholders (tracks), VIEW ALIASES
+- Viewport bounds stored — list shows viewport artifacts
+- Viewport filter: checkbox state filters map display
+- Trail toggle defaults ON (matches auto-display)
+- Queue panel: QUEUES button shows live DownloadQueuePanel
+- Queue empty state: "No downloads in queue"
+- All 4 artifact display toggles (preload architecture)
+- GPX import (tracks/waypoints/routes from Downloads)
+- Import summary toast
+- Resync Tracks button
+- Legend: solid/dashed lines + pin icons
+- Trail color infrastructure (CartoCode ready)
+- Artifact click popups (name + type, all 4 types)
+
+IN PROGRESS — ISSUES FOUND:
+- Filter too aggressive on zoom: selectedIds-only hides new
+  segments entering viewport. Need dynamic list merge.
+- Trail toggle inverted: first tap turns OFF (trails auto-show)
+  — set pmTrailsOn=true as temp fix, need JS wasVisible fix
+- SAT default tile source not loading on map open
+- Bars not transparent (0x88 too dark)
+- Duplicate trail names in SELECT list (multi-segment)
+- SELECT panel doesn't update on viewport change
+
+ARCHITECTURE — KEY DECISIONS
+==========================================
+[DECISION] selectedArtifactIds IS the JS filter
+  Viewport handler filters query results by selectedIds
+  before building GeoJSON. Checkbox updates set, triggers
+  viewport refresh. Clean separation: Kotlin filters, JS
+  renders whatever it receives.
+
+[DECISION] Three-state toggle (planned, not yet implemented)
+  Gray: OFF, nothing displayed
+  Blue: ON, all items displayed
+  Yellow: ON, SELECT filter active (partial display)
+
+[DECISION] Dynamic list merge on zoom (planned)
+  When viewport changes with SELECT active:
+  - Keep existing checked/unchecked state
+  - Add new items entering viewport as UNCHECKED
+  - Selected items stay on map, new items don't auto-show
+  - User decides what to add
+
+[DECISION] Preload architecture
+  onViewportChanged ALWAYS queries all 4 types. Data pushed
+  to JS layers. Toggle = visibility only (show/hide). moveend
+  always fires. JS update preserves visibility (wasVisible).
+
+[DECISION] Trail duplicate name options (for cleanup)
+  1. Group by name: "JEM Trail (12 segments)"
+  2. DISTINCT query: collapse to unique names
+  3. Alias system: rename/group under display name
+  4. Append GPS coord: "JEM Trail (37.48, -113.32)"
+
+KEY SOURCE FILES
+==========================================
+NEW:
+  ArtifactListPanel.kt — select/edit composable
+    (list, checkboxes, detail dialog, CRUD actions)
+
+MODIFIED:
+  ConvoyMapViewerScreen.kt — SELECT wiring, viewport filter,
+    queue panel, trail toggle, SAT ConvoyConfig, viewport
+    bounds storage, checkbox refresh trigger
+  SpatialDbManager.kt — queryArtifactList, CRUD operations
+    (rename/delete/changeType for waypoints/routes/tracks)
+  ConvoyArtifactsPanel.kt — column headings (Display + Select)
+
+TOMORROW'S PLAN
+==========================================
+Priority 1: Fix SELECT filter behavior
+  - Dynamic list merge on viewport change
+  - New items enter unchecked
+  - Three-state toggle (gray/blue/yellow)
+  - Shared toggle state between maps (ConvoyConfig)
+
+Priority 2: Waypoint creation
+  - Long-press on map → add waypoint
+  - Pick type from 10 standard types
+  - Name the waypoint
+  - Save to spatial DB
+  - Appears on map immediately
+
+Priority 3: Route building
+  - Tap points on map to create route
+  - Snap-to-trail (optional)
+  - Uses selected artifacts as reference layers
+  - Save as route to spatial DB
+
+Priority 4: Final cleanup pass
+  - Transparent bars (header, search, legend)
+  - FIND button to left of search field
+  - SAT default tile source fix
+  - Query reorder (trails LAST)
+  - Async independent queries
+  - Import summary panel (replace toast)
+  - Select All Artifacts master toggle
+  - Loading flags (gray toggles until complete)
+  - Trail auto-display JS fix (wasVisible)
+
+UPLOAD AT SESSION START
+==========================================
+Upload this file: V25_Handoff_May25_EOD.txt
+
+COMMIT BEFORE STARTING
+==========================================
+If not committed tonight:
+cd ~/Meshtastic-Android && git add -A && git commit -m \
+  "V2.5: viewport filter, trail toggle ON, checkbox map filter"
+
+DEV ENVIRONMENT
+==========================================
+Build: ./gradlew assembleGoogleRelease \
+  -x uploadCrashlyticsMappingFileGoogleRelease
+Install: adb -s 8624SBCEDF00001789 install -r -d \
+  app/build/outputs/apk/google/release/app-google-release.apk
+Project: ~/Meshtastic-Android
+Branch: feature/convoy-event-ride
+18 testers enrolled

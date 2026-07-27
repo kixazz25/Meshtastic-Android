@@ -1,0 +1,57 @@
+========================================================================
+COMPLETED TASK — GroupTrack V2.5
+========================================================================
+TASK: V2.5 milestone — trail/GeoPackage architecture, ArtifactListPanel,
+      tile-download root-cause fix, Play Store ANR work
+COMMITS: c603bc3f0 (V2.5 shipped to Play Store 2026-06-24)
+         c8273d619 (tile-download root-cause fix, May 21)
+         d719fbc95 (clean baseline, 06-30)
+         f6d43a75f (fallback 2.5/7-3 AAB + docs, 07-03)
+STATUS: SHIPPED to Play Store 2026-06-24.
+DOC GENERATED: 2026-07-11 (reconciliation offload from working memory)
+------------------------------------------------------------------------
+
+TASK DESCRIPTION
+----------------
+The V2.5 release: established the national trail / GeoPackage data
+architecture, shipped the ArtifactListPanel UI, root-caused and fixed the
+tile-download failure, and cleared Play Store ANRs — the stable baseline that
+V2.6 builds on.
+
+SAVED MEMORY CONTENTS (as of completion)
+----------------------------------------
+- V2.5 shipped multiple milestones (May-June 2026); shipped to Play Store
+  2026-06-24 (c603bc3f0). Fallback 2.5/7-3 AAB banked 07-03 (docs commit
+  f6d43a75f). Clean baseline d719fbc95 (06-30).
+
+- ARCHITECTURE: national trail model with a unified GeoPackage
+  (grouptrack.gpkg) for trails + waypoints + routes. Three engines —
+  ingestion (fed/state/crowdsource -> MySQL), distribution (bbox API on AWS),
+  local display (viewport lazy-load). Region-based downloads paired with
+  tiles. Utah pilot; NGA geopackage-android lib; UGRC trail overlays. Trail
+  Architecture v2 doc completed.
+
+- ArtifactListPanel BUILT: select/edit/CRUD; viewport filter wired; trail
+  toggle defaults ON; queue panel live (V2.5 May 25 EOD; handoff
+  V25_Handoff_May25_EOD.txt). 18 testers active at that stage.
+
+- TILE-DOWNLOAD ROOT-CAUSE FIX (commit c8273d619, May 21): root cause was a
+  stale external map_sources.json (CalTopo returning 403). Fixes: asset-only
+  reads, CalTopo removed, worker slot filter, HTTP logging.
+
+- PLAY STORE ANR FIXES (May 3): removed the blocking startActivity for
+  MANAGE_EXTERNAL_STORAGE from onCreate; added permission guards on tick and
+  startPhoneGps; moved the all-files dialog to ConvoyScreen as a non-blocking
+  prompt. New AAB built for upload. (Tester device recorded: P10_T,
+  P10V07162601000362, 3GB RAM, Android 16.)
+
+- SCOPE decisions recorded at V2.5: ATAK removed from project scope; the
+  no-iPad-support line was in force at that time (later overturned — iPad
+  became the post-V2.6 target; that reversal is tracked separately in the
+  cross-platform working memory). V2.4 was the last standalone Android build
+  and the iOS-port source.
+
+- Open items noted at V2.5 (later carried into V2.6 work): double-enqueue
+  bug, source-change tile cleanup. Convoy source path confirmed as
+  com/geeksville/mesh/convoy/.
+========================================================================

@@ -1,0 +1,35 @@
+    /**
+     * Derive the padded download bbox for a track's geometry hash.
+     * Same lookup + 1/2-mile pad as downloadMapsForTrackHash, but returns
+     * the bbox instead of enqueuing — so the caller can feed box 1 (source
+     * selection) and submitDownload, identical to the area path.
+     */
+    fun getTrackBbox(context: Context, hashFileName: String): DownloadBbox? {
+        val hash = hashFileName.substringBeforeLast(".gpx").trim()
+        val sdb = spatialDb ?: return null
+        var minLat = 0.0; var maxLat = 0.0; var minLon = 0.0; var maxLon = 0.0
+        var found = false
+        try {
+            sdb.rawQuery(
+                "SELECT name, min_lat, max_lat, min_lon, max_lon FROM tracks WHERE geom_hash=? LIMIT 1",
+                arrayOf(hash)
+            ).use { c ->
+                if (c.moveToFirst() && !c.isNull(1)) {
+                    minLat = c.getDouble(1); maxLat = c.getDouble(2)
+                    minLon = c.getDouble(3); maxLon = c.getDouble(4)
+                    found = true
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("TrackMaps", "getTrackBbox lookup failed for $hash: ${e.message}")
+            return null
+        }
+        if (!found) { android.util.Log.w("TrackMaps", "getTrackBbox: no bbox row for hash $hash"); return null }
+        val padLat = 0.00724
+        val midLat = (minLat + maxLat) / 2.0
+        val padLon = 0.00724 / Math.max(0.01, Math.cos(Math.toRadians(midLat)))
+        return DownloadBbox(
+            north = maxLat + padLat, south = minLat - padLat,
+            east = maxLon + padLon, west = minLon - padLon
+        )
+    }

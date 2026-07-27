@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GroupTrack — Session Recap 2026-06-03 — Route Builder Stage 1</title>
+<style>
+  body { font-family: Arial, Helvetica, sans-serif; color:#1c1c1c; max-width:900px; margin:0 auto; padding:24px; line-height:1.45; }
+  h1 { font-size:24px; color:#1A3A5A; margin-bottom:2px; }
+  .sub { color:#555; font-size:13px; }
+  .stamp { color:#888; font-style:italic; font-size:12px; border-bottom:2px solid #2E75B6; padding-bottom:8px; margin-bottom:16px; }
+  h2 { font-size:17px; color:#2E75B6; margin-top:24px; border-bottom:1px solid #e0e0e0; padding-bottom:3px; }
+  h3 { font-size:14px; color:#1A3A5A; margin-top:14px; margin-bottom:3px; }
+  code { background:#f0f0f0; padding:1px 4px; border-radius:3px; font-size:12px; }
+  table { border-collapse:collapse; width:100%; font-size:12.5px; margin:8px 0; }
+  th,td { border:1px solid #ddd; padding:5px 7px; text-align:left; vertical-align:top; }
+  th { background:#f7f7f7; color:#1A3A5A; }
+  .done { background:#dff0e3; color:#1d5c34; font-weight:bold; padding:1px 5px; border-radius:3px; font-size:11px; }
+  .wip  { background:#faf0d0; color:#7a5a00; font-weight:bold; padding:1px 5px; border-radius:3px; font-size:11px; }
+  .next { background:#e2ebfa; color:#234; font-weight:bold; padding:1px 5px; border-radius:3px; font-size:11px; }
+  .note { background:#f0f6fb; border-left:4px solid #2E75B6; padding:7px 11px; border-radius:3px; font-size:12.5px; margin:8px 0; }
+  ul{margin:5px 0;} li{margin:3px 0;}
+</style>
+</head>
+<body>
+
+<h1>Session Recap — Route Builder Stage 1</h1>
+<div class="sub">Convoy + Planning maps · feature/convoy-event-ride · commit 9fc26e5b1</div>
+<div class="stamp">2026-06-03 · Scope: only COMPLETE + on-device-verified items marked done. In-progress and deferred clearly separated.</div>
+
+<h2>1. Committed this session (commit 9fc26e5b1)</h2>
+<table>
+<tr><th>Item</th><th>Status</th><th>Notes</th></tr>
+<tr><td>RouteManager engine</td><td><span class="done">DONE</span></td><td>snap (trail-first, meters, nearest-point-on-line), slice, builder state (addVertex/undoVertex/clearRoute/routeVertices/routeVertexCount), buildWktAndBbox, freeVertex/snapToVertex. Pure, DB-decoupled.</td></tr>
+<tr><td>+ROUTE entry</td><td><span class="done">DONE</span></td><td>Collapses artifacts panel, opens Route+ toolbar. Both maps.</td></tr>
+<tr><td>Route+ toolbar (shared)</td><td><span class="done">DONE</span></td><td>ConvoyRouteToolbar.kt. Method chips (Point live / Draw,Suggest soon), Add/Undo, Save-completed, guarded Exit.</td></tr>
+<tr><td>onMapTap bridge</td><td><span class="done">DONE — verified on-device</span></td><td>All 3 "Android" interface blocks (convoy x2, planning x1). Route-mode-gated JS click handler. Tap places point, cyan/now-magenta line draws. Logcat RouteBridge confirms fire.</td></tr>
+<tr><td>buildLayer rendering</td><td><span class="done">DONE</span></td><td>Separate from completed-route layer. Whole-chain redraw via drawBuildLine.</td></tr>
+<tr><td>QUEUES button alignment</td><td><span class="done">DONE</span></td><td>Aligned to N/Z18 indicator (top:8px, statusBarsPadding removed). Convoy map.</td></tr>
+</table>
+
+<div class="note"><strong>Stage 1 milestone:</strong> the WebView&harr;Kotlin tap bridge is proven end-to-end. Tap places points, lines draw, undo/exit work, pan works while placing. This was the riskiest boundary (waypoint silent-failure history); it now fires reliably. Root-cause fixed mid-session: the JS funcs (setRouteMode/drawBuildLine/clearBuildLine) were trapped in the DOMContentLoaded scope; moved to window.* so evaluateJavascript reaches them.</div>
+
+<h2>2. Applied but NOT yet committed (in the next build)</h2>
+<table>
+<tr><th>Item</th><th>Status</th><th>Notes</th></tr>
+<tr><td>Route color &rarr; magenta (#FF00FF)</td><td><span class="wip">BUILT, uncommitted</span></td><td>Legend + completed-route line + build line, both maps. Reason: gold blended into desert terrain; magenta pops on-screen while riding and matches the legend (option B — legend is the spec). Convoy map has NO legend (planning only).</td></tr>
+<tr><td>Toolbar entry gate</td><td><span class="wip">BUILT, uncommitted</span></td><td>Build controls greyed until "New Route" selected. New Route arms placement; "In-Progress" entry is a "soon" placeholder. Exit resets the gate. Add armed-until-exit (no toggle — deferred until Draw needs it).</td></tr>
+</table>
+<div class="note">These two ride into the build running now. After on-device verify (gate greys/enables correctly; route renders magenta), commit them.</div>
+
+<h2>3. Next up — Stage 2: snap</h2>
+<table>
+<tr><th>Item</th><th>Status</th><th>Notes</th></tr>
+<tr><td>Snap-2 wiring</td><td><span class="next">NEXT</span></td><td>In onMapTap: query spatial DB for nearby trail/track lines in radius &rarr; RouteManager.snap (already built) &rarr; snapped vertex instead of freeVertex. Makes routes follow trails. The snap LOGIC exists and is committed; only the DB-query-and-call wiring remains.</td></tr>
+</table>
+
+<h2>4. Deferred — documented design, build later (see RouteBuilder_Blueprint + addenda)</h2>
+<ul>
+<li><strong>Save completed</strong> &rarr; buildWktAndBbox &rarr; insertRoute &rarr; delete draft. (onSaveCompleted stub present.)</li>
+<li><strong>Draft I/O</strong> — Save-as-draft / Continue-in-progress (private JSON in filesDir; in-memory until save; overwrite-temp-then-rename). Quick list, no search.</li>
+<li><strong>Copy &amp; Modify</strong> — from artifact route list (completed routes are in DB); needs search/find.</li>
+<li><strong>Shared artifact detail panel</strong> — generic display for ALL types; ACTIONS type-conditioned (rename/delete/copy); copy is a new file-level function. Own focused pass + xref impact assessment. Detail via SEL/EDIT list (map lines too thin to tap).</li>
+<li><strong>Method 2 (Draw / finger-trace)</strong> — pan vs draw is the SAME gesture; needs dragIntent PAN/TRACE toggle (this is where an arm/disarm toggle finally earns its place).</li>
+<li><strong>Method 3 (Suggest)</strong> — needs trail-network graph; far future.</li>
+</ul>
+
+<h2>5. Working method (for continuity)</h2>
+<div class="note">Rapid prototyping: explode rough feature items into executable detail BEFORE building; catch bad design/state/use-case cheaply at design time, not via post-build refactor (proven by the interim-JSON / draft-storage decision). Detail deepens only to firmness of intent &times; use case &times; knowledge; where firm, build; where moving, scaffold-and-defer. Documentation of current rules + current code (xrefs) + current functionality (this recap / checklist) IS the input to impact assessment, which enables expansion without breaking. Live-read-before-every-patch; string-anchored guarded patches (abort, no partial writes); per-file CRLF/LF preserved.</div>
+
+</body>
+</html>

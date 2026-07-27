@@ -1,0 +1,10 @@
+                    onDownloadMaps = { hash ->
+                        Thread {
+                            val n = SpatialDbManager.downloadMapsForTrackHash(context, hash)
+                            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                android.widget.Toast.makeText(context,
+                                    if (n > 0) "Queued $n map areas for download" else "No map area for this track",
+                                    android.widget.Toast.LENGTH_LONG).show()
+                            }
+                        }.start()
+                    },

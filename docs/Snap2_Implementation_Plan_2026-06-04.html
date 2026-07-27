@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GroupTrack — Snap-2 Implementation Plan — 2026-06-04</title>
+<style>
+  body { font-family: Arial, Helvetica, sans-serif; color:#1c1c1c; max-width:880px; margin:0 auto; padding:24px; line-height:1.5; }
+  h1 { font-size:23px; color:#1A3A5A; margin-bottom:2px; }
+  .sub { color:#555; font-size:14px; }
+  .stamp { color:#888; font-style:italic; font-size:12px; border-bottom:2px solid #2E75B6; padding-bottom:8px; margin-bottom:18px; }
+  h2 { font-size:17px; color:#2E75B6; margin-top:24px; border-bottom:1px solid #e0e0e0; padding-bottom:3px; }
+  h3 { font-size:14px; color:#1A3A5A; margin-top:16px; margin-bottom:4px; }
+  .note { background:#f0f6fb; border-left:4px solid #2E75B6; padding:8px 12px; border-radius:3px; font-size:13px; margin:8px 0; }
+  .win { background:#eef7ee; border-left:4px solid #2e8b57; padding:8px 12px; border-radius:3px; font-size:13px; margin:8px 0; }
+  .open { background:#fff8e8; border-left:4px solid #e0b870; padding:8px 12px; border-radius:3px; font-size:13px; margin:8px 0; }
+  code { background:#f0f0f0; padding:1px 4px; border-radius:3px; font-size:12px; }
+  pre { background:#f6f6f6; border:1px solid #e0e0e0; border-radius:4px; padding:10px 12px; font-size:12px; overflow-x:auto; line-height:1.4; }
+  table { border-collapse:collapse; width:100%; font-size:12.5px; margin:8px 0; }
+  th,td { border:1px solid #ddd; padding:6px 9px; text-align:left; vertical-align:top; }
+  th { background:#f7f7f7; color:#1A3A5A; }
+</style>
+</head>
+<body>
+
+<h1>Snap-2 Implementation Plan</h1>
+<div class="sub">Pre-flight research for the snap-2 logic slice. The toolbar UI is pact-compliant (this session); this plan is the wiring that comes next.</div>
+<div class="stamp">Researched 2026-06-04 from function_universe / where_used / field_crossref · NO code written · walk in and patch</div>
+
+<div class="win"><strong>Headline finding:</strong> the entire snap-2 path composes from functions that ALREADY EXIST and already compile. No new parsing, no new query, no new geometry code. Two call-site edits + one stub fill. The types line up end-to-end — verified below.</div>
+
+<h2>1. The snap data-source question — RESOLVED</h2>
+<p>The open question was: <code>snap(tapLat, tapLon, trails, tracks, radiusM)</code> needs trail + track line lists at tap time, but the tap handler only has lat/lon. Where do the lists come from?</p>
+<div class="win"><strong>Answer: query the viewport at tap time.</strong> The types match exactly with zero transformation:
+<ul>
+<li><code>queryTrailsByViewport(south,west,north,east,limit): List&lt;Map&lt;String,String?&gt;&gt;</code> (SpatialDbManager:265)</li>
+<li><code>queryTracksByViewport(...): List&lt;Map&lt;String,String?&gt;&gt;</code> (SpatialDbManager:342)</li>
+<li><code>snap()</code> wants exactly <code>trails: List&lt;Map&lt;String,String?&gt;&gt;</code>, <code>tracks: List&lt;Map&lt;String,String?&gt;&gt;</code></li>
+</ul>
+And the KEYS match: <code>snap</code>→<code>nearestPointOnLines</code> reads <code>line["geometry"]</code> (RouteManager:114) and <code>line[idKey]</code> (115), where idKey is <code>"trail_id"</code>/<code>"track_id"</code>. The viewport queries return maps with exactly those keys (same maps <code>buildTrailGeoJson</code> consumes via <code>trail["geometry"]</code>). Drop-in.</div>
+<div class="note"><strong>Recommendation:</strong> query the viewport ONCE when route mode is entered (or on viewport change), cache <code>trails</code>+<code>tracks</code> in two vals the tap handler closes over. Re-querying on every tap is wasteful and risks lag. The current map already tracks <code>lastViewportSouth/West/North/East</code> (seen in onEditDisplay) — reuse those bounds. Cache invalidates on pan/zoom (the viewport-change callback already fires).</div>
+
+<h2>2. The two edits (exact call sites)</h2>
+
+<h3>Edit A — snap on tap (replace free-place)</h3>
+<p>Both screens, the onMapTap bridge. Today (ConvoyScreen ~522-525, ConvoyMapViewerScreen ~476-479):</p>
+<pre>RouteManager.addVertex(RouteManager.freeVertex(lat, lon))
+val pts = RouteManager.routeVertices().joinToString(...) { "[${it.lat},${it.lon}]" }
+webViewRef...evaluateJavascript("drawBuildLine('" + pts + "')", null)</pre>
+<p>Becomes:</p>
+<pre>val s = RouteManager.snap(lat, lon, cachedTrails, cachedTracks, SNAP_RADIUS_M)
+val v = if (s != null) RouteManager.snapToVertex(s) else RouteManager.freeVertex(lat, lon)
+RouteManager.addVertex(v)
+val pts = RouteManager.routeVertices().joinToString(...) { "[${it.lat},${it.lon}]" }
+webViewRef...evaluateJavascript("drawBuildLine('" + pts + "')", null)</pre>
+<div class="note">Only fires when Add is ARMED (green). The toolbar now owns <code>addArmed</code>; the host must know the armed state at tap time. Cleanest: <code>onAddPointModeArmed</code> already pushes <code>setRouteMode(true/false)</code> to JS — extend it to carry the armed flag, and gate the JS tap-emit on it (tap only emits when armed). Decide next session: gate in JS (cleaner — pan works when disarmed) vs gate in Kotlin.</div>
+
+<h3>Edit B — Save completed (fill the stub)</h3>
+<p>The <code>onSaveCompleted = { }</code> stub at both call sites. Fill with:</p>
+<pre>// lineGeom lambda: lineId -> that line's WKT -> List&lt;DoubleArray&gt;
+val byId: Map&lt;String, String&gt; = (cachedTrails + cachedTracks)
+    .mapNotNull { m -> val id = m["trail_id"] ?: m["track_id"]; val g = m["geometry"]
+                       if (id != null && g != null) id to g else null }.toMap()
+val res = RouteManager.buildWktAndBbox { lineId -> byId[lineId]?.let { RouteManager.parseWktLine(it) } }
+if (res != null) {
+    val (wkt, bbox) = res   // bbox = [minLat,maxLat,minLon,maxLon]
+    val name = "Route " + System.currentTimeMillis()   // naming UX = later
+    SpatialDbManager.insertRoute(name, wkt, bbox[0], bbox[1], bbox[2], bbox[3])
+    RouteManager.clearRoute()
+    // redraw: re-fire route lazy-load so the new DB row draws gold dashed
+    // (reuse existing queryRoutesByViewport -> buildRouteGeoJson -> updateRoutes/showRoutes)
+    webViewRef...evaluateJavascript("setRouteMode(false); clearBuildLine();", null)
+}</pre>
+<div class="win"><code>parseWktLine(wkt): List&lt;DoubleArray&gt;</code> (RouteManager:42) is EXACTLY the return type <code>buildWktAndBbox</code>'s lambda needs. The lambda is a one-liner over the cached maps. No new code.</div>
+
+<h2>3. Function inventory — all present, all compile</h2>
+<table>
+<tr><th>Function</th><th>Location</th><th>Role in snap-2</th></tr>
+<tr><td><code>snap(tapLat,tapLon,trails,tracks,radiusM): SnapResult?</code></td><td>RouteManager:138</td><td>trail-first, track-fallback</td></tr>
+<tr><td><code>snapToVertex(s): Vertex</code></td><td>RouteManager:169</td><td>snapped vertex</td></tr>
+<tr><td><code>freeVertex(lat,lon): Vertex</code></td><td>RouteManager:172</td><td>no-snap fallback</td></tr>
+<tr><td><code>addVertex / undoVertex / clearRoute / routeVertices</code></td><td>RouteManager:180-184</td><td>builder state (LIVE today)</td></tr>
+<tr><td><code>buildWktAndBbox(lineGeom): Pair&lt;String,DoubleArray&gt;?</code></td><td>RouteManager:246</td><td>WKT + bbox for the save</td></tr>
+<tr><td><code>parseWktLine(wkt): List&lt;DoubleArray&gt;</code></td><td>RouteManager:42</td><td>the lineGeom lambda body</td></tr>
+<tr><td><code>queryTrailsByViewport / queryTracksByViewport</code></td><td>SpatialDbManager:265 / 342</td><td>the snap data source</td></tr>
+<tr><td><code>insertRoute(name,wkt,minLat,maxLat,minLon,maxLon): String</code></td><td>SpatialDbManager:647</td><td>the DB write</td></tr>
+<tr><td><code>buildRouteGeoJson / queryRoutesByViewport</code></td><td>SpatialDbManager:543 / 517</td><td>redraw after save (already wired for display)</td></tr>
+</table>
+
+<h2>4. Open questions to settle next session (not blockers)</h2>
+<div class="open"><strong>Q1 — armed-state gating:</strong> when Add is RED (off), a tap should PAN, not place. Gate the tap-emit in JS (cleaner) or in Kotlin? The toolbar owns <code>addArmed</code>; the host needs it. Likely: extend <code>onAddPointModeArmed</code> to push the flag to JS, JS only emits onMapTap when armed.</div>
+<div class="open"><strong>Q2 — SNAP_RADIUS_M value:</strong> blueprint says meters, tune by testing. Start ~30m? Define as a const, adjust on device.</div>
+<div class="open"><strong>Q3 — cache timing:</strong> query trails/tracks on route-mode entry, or on every viewport change while in route mode? (Pan during build → stale cache → snaps to off-screen geometry.) Recommend: re-query on viewport-change while routeMode is true.</div>
+<div class="open"><strong>Q4 — VERIFY on the box:</strong> confirm <code>drawBuildLine</code>, <code>setRouteMode</code>, <code>clearBuildLine</code> exist in convoy_map.html (they're called today, so they should — but the HTML wasn't fully in AllDocs to confirm here). One grep: <code>grep -n "function drawBuildLine\|function setRouteMode\|function clearBuildLine" app/src/main/assets/convoy_map.html</code></div>
+<div class="open"><strong>Q5 — naming UX:</strong> first pass auto-names ("Route &lt;timestamp&gt;"). A name prompt is a later refinement, not the proven slice.</div>
+
+<h2>5. Suggested slice order (smallest first)</h2>
+<ol>
+<li><strong>Save-completed first</strong> (Edit B) using the current free-place tap. This proves the whole spine end-to-end: place free points → Save → buildWktAndBbox → insertRoute → DB row → redraw. No snap yet. Smallest provable win.</li>
+<li><strong>Then snap-on-tap</strong> (Edit A) + the cache. Now points snap to trails.</li>
+<li><strong>Then armed-state gating</strong> (Q1) so RED actually pans.</li>
+</ol>
+<div class="note">This order means the FIRST build proves "a route reaches the DB and draws" — the highest-value, lowest-risk confirmation — before adding snap complexity. Matches the one-use-case-end-to-end discipline.</div>
+
+<h2>6. One-file-per-patch note</h2>
+<p>Edits A and B touch the SAME two screen files (ConvoyScreen.kt, ConvoyMapViewerScreen.kt). Per one-file-per-patch: do ConvoyScreen first, build, test on device, then mirror to ConvoyMapViewerScreen. OR — since they must stay identical (drift risk) — do both in one patch but treat it as one logical change, build once. Recommend the latter for route mode (the two must match), as the blueprint's scaffold build-order already notes ("BOTH screens, identical, one pass").</p>
+
+</body>
+</html>
