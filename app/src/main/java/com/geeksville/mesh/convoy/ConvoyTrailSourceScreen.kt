@@ -379,7 +379,11 @@ fun ConvoyTrailSourceScreen(onNavigateBack: () -> Unit = {}) {
                         val imported = TrailImporter.isSourceFullyImported(src.id)
                         val checked = src.id in selectedSourceIds
                         Surface(
-                            modifier = Modifier.fillMaxWidth().clickable(enabled = !imported) {
+                            // RESELECT-2026-07-27: imported is a LABEL, not a lock. A1 was
+                            // fixed this way in 60a7c6de2; B2 never was, so a source that
+                            // reported "processed" could never be re-imported -- including
+                            // one that inserted zero trails.
+                            modifier = Modifier.fillMaxWidth().clickable {
                                 selectedSourceIds = if (checked) selectedSourceIds - src.id
                                     else selectedSourceIds + src.id
                             },
@@ -388,24 +392,21 @@ fun ConvoyTrailSourceScreen(onNavigateBack: () -> Unit = {}) {
                             border = if (checked) androidx.compose.foundation.BorderStroke(1.dp, green) else null
                         ) {
                             Row(modifier = Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                                if (imported) {
-                                    Text("\u2014", color = Color(0xFF4A6080), fontSize = 16.sp,
-                                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp))
-                                } else {
-                                    Checkbox(
-                                        checked = checked,
-                                        onCheckedChange = { isChecked ->
-                                            selectedSourceIds = if (isChecked) selectedSourceIds + src.id
-                                                else selectedSourceIds - src.id
-                                        },
-                                        colors = CheckboxDefaults.colors(checkedColor = green, checkmarkColor = Color.Black)
-                                    )
-                                }
+                                // RESELECT-2026-07-27: always render the checkbox.
+                                Checkbox(
+                                    checked = checked,
+                                    onCheckedChange = { isChecked ->
+                                        selectedSourceIds = if (isChecked) selectedSourceIds + src.id
+                                            else selectedSourceIds - src.id
+                                    },
+                                    colors = CheckboxDefaults.colors(checkedColor = green, checkmarkColor = Color.Black)
+                                )
                                 Column(modifier = Modifier.weight(1f).padding(start = 8.dp)) {
                                     Text(src.name, color = if (imported) green else txtB,
                                         fontSize = 11.sp, fontFamily = mono, fontWeight = FontWeight.Bold)
                                     if (imported) {
-                                        Text("IMPORTED", color = green, fontSize = 9.sp, fontFamily = mono)
+                                        Text("IMPORTED \u00b7 tap to re-import", color = green,
+                                            fontSize = 9.sp, fontFamily = mono)
                                     } else {
                                         Text("${src.trailCount} trails | ${src.scope}",
                                             color = txtD, fontSize = 9.sp, fontFamily = mono)

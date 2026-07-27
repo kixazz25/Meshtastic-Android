@@ -1606,6 +1606,10 @@ fun ConvoyMapViewerScreen(
                         modifier = Modifier
                             .clickable {
                                 if (panelTrailsChecked && downloadBbox.isValid) {
+                                    // LAUNCHMODE-FIX-2026-07-27: the panel callback at ~:1711
+                                    // sets this; THIS path never did, so the trail screen opened
+                                    // on SELECT_SOURCE and ignored the area just written.
+                                    TrailImporter.launchMode = TrailImporter.LaunchMode.BY_AREA
                                     TrailImporter.writePendingArea(
                                         downloadBbox.north, downloadBbox.south,
                                         downloadBbox.east, downloadBbox.west)

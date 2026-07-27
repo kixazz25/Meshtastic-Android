@@ -93,6 +93,23 @@ object TrailImporter {
         val source = catalog.firstOrNull { it.id == sourceId }
             ?: return@withContext ImportResult(sourceId, 0, 0, 1, "Source not found: $sourceId")
 
+        // OVERPASS-REQUIRE-BBOX-2026-07-27: an Overpass source with no bbox is a
+        // user error, not a query to attempt. ArcGIS tolerates a missing bbox
+        // because it PAGES and the server caps records per request; Overpass
+        // assembles the ENTIRE result before sending anything, so an unbounded
+        // query cannot complete. The first attempt asked for every track and
+        // path on Earth and was rejected after 99 seconds.
+        //
+        // ⚠ A DEFAULT MEANING "EVERYTHING" IS ONLY SAFE WHEN THE CONSUMER IS
+        // BOUNDED. Where it is not, absence of a filter must be an ERROR.
+        if (source.sourceType == "overpass" &&
+            (south == null || west == null || north == null || east == null)) {
+            val msg = "OpenStreetMap import needs an area. Draw one on the map, " +
+                      "tick Trails, then select OpenStreetMap from the suggested sources."
+            Log.w(TAG, "Refused unbounded overpass query for ${source.id}: no bbox")
+            return@withContext ImportResult(sourceId, 0, 0, 1, msg)
+        }
+
         SpatialDbManager.init(context)
         applyMigrationIfNeeded(context)
         val sDb = SpatialDbManager.getSpatialDb()
@@ -112,7 +129,10 @@ object TrailImporter {
                 fetched = fetched, inserted = inserted, skipped = skipped,
                 rejected = rejected, errors = errors, offset = offset
             ))
-            val json = httpGet(url)
+            // OVERPASS-TIMEOUT-2026-07-27: match the [timeout:180] in the Overpass
+            // query. Client and server were disagreeing -- server allowed 180s,
+            // client hung up at 60s. ArcGIS sources keep the 60s default.
+            val json = httpGet(url, if (source.sourceType == "overpass") 180_000 else 60_000)
             if (json == null) { errors++; break }
 
             val root = try { JSONObject(json) } catch (_: Exception) { errors++; break }
@@ -121,7 +141,10 @@ object TrailImporter {
                 errors++; break
             }
 
-            val features = root.optJSONArray("features") ?: JSONArray()
+            // OSM-IMPORT-2026-07-27: transform Overpass elements[] into the same
+            // features array the ArcGIS path produces. insertFeature is untouched.
+            val features = if (source.sourceType == "overpass") overpassToFeatures(root)
+                           else root.optJSONArray("features") ?: JSONArray()
             if (features.length() == 0) { hasMore = false; continue }
 
             val pageCount = features.length()
@@ -164,7 +187,12 @@ object TrailImporter {
                 sDb.endTransaction(); eDb.endTransaction()
             }
 
-            hasMore = features.length() >= PAGE_SIZE
+            // OSM-IMPORT-2026-07-27: ⚠ Overpass returns the WHOLE bbox in one
+            // response -- it does not page. Without this the loop would re-fetch
+            // the same page forever; dedup would skip every row, so it would spin
+            // silently rather than erroring.
+            hasMore = if (source.sourceType == "overpass") false
+                      else features.length() >= PAGE_SIZE
             offset += PAGE_SIZE
         }
 
@@ -185,7 +213,156 @@ object TrailImporter {
 
     // ── HTTP + URL ──────────────────────────────────────
 
+    // =====================================================================
+    // OSM-IMPORT-2026-07-27: Overpass support.
+    //
+    // Overpass returns {"elements":[{type,id,tags,geometry:[{lat,lon}...]}]},
+    // NOT a GeoJSON FeatureCollection. These helpers turn it into the exact
+    // shape insertFeature already consumes, so that function -- and the whole
+    // dedup / ALIAS / trail_properties pipeline below it -- stays untouched.
+    //
+    // The emitted property NAMES must match the catalog entry's `fields` block.
+    // =====================================================================
+
+    /** Overpass accepts a plain GET with ?data=<urlencoded query>, so httpGet
+     *  needs no change. `out geom;` returns way geometry inline, so no separate
+     *  node resolution is required.
+     *
+     *  ⚠ OVERPASS DOES NOT PAGE -- one bbox query returns everything. The
+     *  caller forces hasMore=false for this source type; without that the
+     *  importer re-fetches the same page forever (dedup skips every row, so it
+     *  spins silently rather than erroring).
+     *
+     *  Written with plain concatenation and no regex on purpose: no Kotlin
+     *  string templates, so no '$' to mishandle when this is generated. */
+    private fun buildOverpassUrl(src: Src, s: Double?, w: Double?, n: Double?, e: Double?): String {
+        // OVERPASS-REQUIRE-BBOX-2026-07-27: NEVER default to the whole planet.
+        // The caller guards this, but if some future path bypasses that guard
+        // the failure must stay loud rather than becoming a worldwide request.
+        if (s == null || w == null || n == null || e == null) {
+            Log.e(TAG, "buildOverpassUrl called with no bbox - refusing")
+            return ""
+        }
+        val south = s
+        val west = w
+        val north = n
+        val east = e
+        val bbox = "(" + south + "," + west + "," + north + "," + east + ")"
+        val q = "[out:json][timeout:180];(" +
+                "way[\"highway\"=\"track\"]" + bbox + ";" +
+                "way[\"highway\"=\"path\"]" + bbox + ";" +
+                ");out geom;"
+        return src.queryUrl + "?data=" + java.net.URLEncoder.encode(q, "UTF-8")
+    }
+
+    private fun osmIsYes(v: String): Boolean =
+        v.trim().lowercase() in listOf("yes", "designated", "permissive", "official", "destination", "true", "1")
+
+    private fun osmIsNo(v: String): Boolean =
+        v.trim().lowercase() in listOf("no", "private", "false", "0")
+
+    /** Collapse OSM's several motor-access tags into ONE Yes/No/blank value.
+     *
+     *  ⚠ WHY COLLAPSED: insertFeature reads only four fieldExtras keys
+     *  (motorized, surface, county, manager|steward) and drops the rest
+     *  SILENTLY -- which is why usgs_national_trails declares atv, motorcycle
+     *  and ohv50 and none of the three ever reach the DB. Emitting OSM's four
+     *  access tags separately would send them nowhere.
+     *
+     *  ⚠ highway=track with NO access tag returns BLANK, not a guessed "Yes".
+     *  A track is wide enough for a vehicle by definition, but that is PHYSICAL
+     *  capability, not LEGAL access -- and legal access is the entire purpose of
+     *  this column. A wrong "Yes" is worse than an empty field. */
+    private fun osmMotorized(tags: JSONObject): String {
+        for (t in listOf("motor_vehicle", "atv", "motorcycle", "4wd_only", "motorcar", "ohv")) {
+            val v = tags.optString(t, "")
+            if (v.isBlank()) continue
+            if (osmIsYes(v)) return "Yes"
+            if (osmIsNo(v)) return "No"
+        }
+        return ""
+    }
+
+    /** Synthesize a DesignatedUses string from the access tag set, so the value
+     *  reads like the government sources' equivalent field. */
+    private fun osmUses(tags: JSONObject, motorized: String): String {
+        val parts = ArrayList<String>()
+        if (motorized == "Yes") parts.add("Motorized")
+        val hw = tags.optString("highway", "")
+        if (osmIsYes(tags.optString("bicycle", "")) || hw == "path") parts.add("Bike")
+        if (osmIsYes(tags.optString("foot", "")) || hw == "path") parts.add("Hike")
+        if (osmIsYes(tags.optString("horse", ""))) parts.add("Equestrian")
+        if (parts.isEmpty()) return ""
+        if (parts.size > 2) return "Multiuse"
+        return parts.joinToString("/")
+    }
+
+    /** elements[] -> the features array insertFeature already consumes.
+     *
+     *  Emits LineString (an OSM way IS one line). The caller's client-side bbox
+     *  rejection expects nested coordinates and simply no-ops on a LineString --
+     *  harmless, because Overpass has already filtered by bbox server-side. */
+    private fun overpassToFeatures(root: JSONObject): JSONArray {
+        val out = JSONArray()
+        val els = root.optJSONArray("elements") ?: return out
+        for (i in 0 until els.length()) {
+            val el = els.optJSONObject(i) ?: continue
+            if (el.optString("type") != "way") continue
+            val geom = el.optJSONArray("geometry") ?: continue
+            if (geom.length() < 2) continue
+
+            val coords = JSONArray()
+            for (j in 0 until geom.length()) {
+                val p = geom.optJSONObject(j) ?: continue
+                coords.put(JSONArray().put(p.optDouble("lon")).put(p.optDouble("lat")))
+            }
+            if (coords.length() < 2) continue
+
+            val tags = el.optJSONObject("tags") ?: JSONObject()
+            val motorized = osmMotorized(tags)
+
+            val props = JSONObject()
+            props.put("osm_id", el.optLong("id").toString())   // stable across extracts
+            // OSM-NAME-REVERT-2026-07-27: name, else ref, and NOTHING further.
+            //
+            // ⚠ DO NOT ADD AN ID-BASED FALLBACK HERE. The shared add-core already
+            // applies one: SpatialDbManager.notNamed() (:1297) turns null/blank
+            // into the literal 'Not Named' for ALL FOUR artifact types, and that
+            // string is a SENTINEL that search deliberately EXCLUDES (:422, and
+            // ArtifactSearch.kt:65). A synthesized name like "OSM track 12345678"
+            // looks real, so search would INCLUDE it -- filling results with
+            // meaningless numeric IDs and hiding which ways are genuinely named.
+            //
+            // `ref` is kept because it is REAL OSM data arriving through the same
+            // `name` property the ArcGIS sources use: two of the first nine
+            // imported ways came in as '28G' and '28J', Forest Service route
+            // designations.
+            props.put("name", tags.optString("name", "").ifBlank { tags.optString("ref", "") })
+            props.put("CartoCode", "")                          // blank -> cyan "Unspecified"
+            props.put("DesignatedUses", osmUses(tags, motorized))
+            props.put("MotorizedAllowed", motorized)
+            props.put("SurfaceType", tags.optString("surface", ""))
+            props.put("OwnerSteward", tags.optString("operator", ""))
+
+            val g = JSONObject()
+            g.put("type", "LineString")
+            g.put("coordinates", coords)
+
+            val f = JSONObject()
+            f.put("type", "Feature")
+            f.put("geometry", g)
+            f.put("properties", props)
+            out.put(f)
+        }
+        return out
+    }
+
+
     private fun buildUrl(src: Src, s: Double?, w: Double?, n: Double?, e: Double?, offset: Int): String {
+        // OSM-IMPORT-2026-07-27: Overpass is an HTTP query API exactly as ArcGIS
+        // REST is -- but the query string is entirely different. Branch here;
+        // everything downstream of the response is source-agnostic.
+        if (src.sourceType == "overpass") return buildOverpassUrl(src, s, w, n, e)
         val sb = StringBuilder(src.queryUrl)
         sb.append("?f=geojson&outSR=4326&outFields=*")
         if (s != null && w != null && n != null && e != null) {
@@ -198,14 +375,54 @@ object TrailImporter {
         return sb.toString()
     }
 
-    private fun httpGet(urlStr: String): String? {
+    /** OVERPASS-TIMEOUT-2026-07-27: readTimeoutMs is a parameter now, defaulted
+     *  to the previous hardcoded 60s so all 8 ArcGIS sources are unchanged.
+     *
+     *  ⚠ 60s is the WRONG ceiling for Overpass: the public instance QUEUES under
+     *  load, and Overpass DOES NOT PAGE -- it assembles the entire bbox
+     *  server-side before sending a byte. The first OSM import died at exactly
+     *  60s while the server was still working. */
+    private fun httpGet(urlStr: String, readTimeoutMs: Int = 60_000): String? {
+        // HTTP-ERROR-DETAIL-2026-07-27: this used to log ONLY ex.message, which for
+        // several common exceptions IS THE URL -- so a rate limit, a rejected query,
+        // an OOM during parse, a DNS failure and a TLS failure all produced the same
+        // line. Overpass explains itself in the RESPONSE BODY (errorStream), which
+        // was never read. A whole day was spent inferring what the server had been
+        // stating outright.
+        //
+        // ⚠ catch is Throwable, not Exception, ON PURPOSE: OutOfMemoryError is an
+        // Error, so `catch (ex: Exception)` misses it entirely and a memory failure
+        // on a large response would vanish with no log line at all.
         return try {
             val conn = URL(urlStr).openConnection() as HttpURLConnection
-            conn.connectTimeout = 15_000; conn.readTimeout = 60_000
+            conn.connectTimeout = 15_000; conn.readTimeout = readTimeoutMs
             conn.setRequestProperty("User-Agent", "GroupTrack/2.5")
-            conn.inputStream.bufferedReader().use { it.readText() }
-        } catch (ex: Exception) {
-            Log.e(TAG, "HTTP: ${ex.message}"); null
+
+            // Read the CODE before touching any stream: this alone separates
+            // "server said no" from "never got a response".
+            val code = conn.responseCode
+            if (code !in 200..299) {
+                val body = try {
+                    conn.errorStream?.bufferedReader()?.use { it.readText() } ?: "(no error body)"
+                } catch (e2: Throwable) {
+                    "(error body unreadable: " + e2.javaClass.simpleName + ")"
+                }
+                val trimmed = if (body.length > 2000) body.substring(0, 2000) + " ...[truncated]" else body
+                Log.e(TAG, "HTTP " + code + " " + conn.responseMessage + " -- server said: " + trimmed)
+                Log.e(TAG, "HTTP " + code + " for URL: " + urlStr)
+                return null
+            }
+
+            val text = conn.inputStream.bufferedReader().use { it.readText() }
+            Log.i(TAG, "HTTP " + code + " OK, " + text.length + " chars")
+            text
+        } catch (ex: Throwable) {
+            // Class FIRST -- SocketTimeoutException, UnknownHostException,
+            // SSLHandshakeException and OutOfMemoryError are all distinguishable
+            // here, and were indistinguishable before.
+            Log.e(TAG, "HTTP FAILED [" + ex.javaClass.simpleName + "] " + ex.message)
+            Log.e(TAG, "HTTP FAILED for URL: " + urlStr)
+            null
         }
     }
 
@@ -497,7 +714,13 @@ object TrailImporter {
             )
             if (f.exists()) {
                 val j = JSONObject(f.readText())
-                j.optString("status") == "processed" && j.optString("type") == "full_source"
+                // RESELECT-2026-07-27: writeTrailAreaJson sets status=processed
+                // UNCONDITIONALLY, and type=full_source whenever the bbox is null.
+                // Three FAILED OSM runs (0 inserted) therefore marked it imported.
+                // A run that inserted nothing did not import anything.
+                j.optString("status") == "processed" &&
+                    j.optString("type") == "full_source" &&
+                    j.optInt("trail_count", 0) > 0
             } else false
         } catch (_: Exception) { false }
     }
@@ -614,7 +837,10 @@ object TrailImporter {
         data class Src(
         val id: String, val name: String, val queryUrl: String, val maxRecords: Int,
         val fieldId: String, val fieldName: String, val fieldType: String, val fieldUse: String,
-        val fieldExtras: Map<String, String>
+        val fieldExtras: Map<String, String>,
+        // OSM-IMPORT-2026-07-27: which API this source speaks. Defaulted, so all
+        // 8 existing ArcGIS entries are unaffected and need no catalog change.
+        val sourceType: String = "arcgis_rest"
     )
 
     private fun loadCatalog(context: Context): List<Src>? {
@@ -630,7 +856,9 @@ object TrailImporter {
                 f.keys().forEach { k -> if (k !in listOf("id", "name", "type", "use")) extras[k] = f.getString(k) }
                 Src(s.getString("id"), s.getString("name"), s.getString("query_url"),
                     s.optInt("max_records", 2000),
-                    f.getString("id"), f.getString("name"), f.optString("type", ""), f.optString("use", ""), extras)
+                    f.getString("id"), f.getString("name"), f.optString("type", ""), f.optString("use", ""), extras,
+                    // OSM-IMPORT-2026-07-27
+                    s.optString("source_type", "arcgis_rest"))
             }
         } catch (ex: Exception) { Log.e(TAG, "Catalog: ${ex.message}"); null }
     }
