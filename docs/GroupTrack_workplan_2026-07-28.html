@@ -1,0 +1,80 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>GroupTrack — Workplan 2026-07-28</title>
+<style>
+:root{--bg:#0f1216;--panel:#161b22;--ink:#e6edf3;--dim:#8b949e;--line:#30363d;--accent:#58a6ff;--good:#3fb950;--warn:#d29922;--bad:#f85149;--ui:-apple-system,"Segoe UI",Roboto,sans-serif;--mono:"SF Mono",Consolas,monospace}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 var(--ui);padding:0 0 60px}
+header{position:sticky;top:0;background:#0f1216f0;border-bottom:1px solid var(--line);padding:12px 18px;z-index:5}
+.ttl{font:700 17px var(--ui)}.ttl b{color:var(--accent)}.sub{font:12px var(--mono);color:var(--dim);margin-top:2px}
+main{max-width:900px;margin:0 auto;padding:16px 18px}
+h2{font:700 15px var(--ui);color:var(--accent);margin:22px 0 8px;border-bottom:1px solid var(--line);padding-bottom:4px}
+h3{font:700 13px var(--ui);color:var(--ink);margin:14px 0 4px}
+.tag{display:inline-block;font:700 10px var(--mono);padding:1px 6px;border-radius:4px;margin-right:6px;vertical-align:middle}
+.t-good{background:#12261a;color:var(--good);border:1px solid #1f6f3f}
+.t-warn{background:#2a2312;color:var(--warn);border:1px solid #6f5a1f}
+.t-bad{background:#2a1414;color:var(--bad);border:1px solid #6f2020}
+.t-prog{background:#12203a;color:var(--accent);border:1px solid #1f4f8f}
+.card{border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin:10px 0;background:var(--panel)}
+ul{margin:6px 0 6px 0;padding-left:20px}li{margin:4px 0}ol{margin:6px 0;padding-left:22px}
+code{background:#0c0f0a;padding:1px 5px;border-radius:3px;font:12px var(--mono);color:#e6edf3}
+.note{font:12px var(--mono);color:var(--dim);border-left:3px solid var(--line);padding:4px 10px;margin:8px 0}
+.hi{color:var(--warn);font-weight:700}.step{background:#12203a;border-left:3px solid var(--accent);padding:6px 10px;margin:8px 0}
+</style>
+</head><body>
+<header><div class="ttl"><b>Workplan</b> &mdash; 2026-07-28</div><div class="sub">Read with GroupTrack_handoff_2026-07-27.html &middot; working tree clean at <code>7e2173da2</code></div></header>
+<main>
+
+<div class="note">Ordered so nothing blocks on an unmade decision, and so the risky step comes after the cheap ones. Steps 1&ndash;2 are small and have been displaced twice already.</div>
+
+<h2>0 &middot; Revoke the ngrok codes (if not already done)</h2>
+<div class="card">
+<p><span class="tag t-bad">SECURITY</span> They were committed and pushed in <code>151fffb79</code>. Removal from HEAD (<code>ddb48650b</code>) does NOT undo that &mdash; anyone with the repo can check out that commit. Revoking takes two minutes and closes the actual exposure. Scrubbing history with <code>filter-repo</code> is a separate, lower-priority decision.</p>
+</div>
+
+<h2>1 &middot; The <code>markComplete</code> refreshMode collision &mdash; ONE LINE</h2>
+<div class="card">
+<p><span class="tag t-bad">DISPLACED TWICE ALREADY</span> <code>ConvoyDownloadQueue:549</code> branches on <code>entry.refreshMode</code> and <b>silently removes the entry from the queue</b>. But <code>enqueueArea</code> AND <code>enqueueCorridor</code> both set <code>refreshMode = replaceExisting</code>.</p>
+<p><b>So any download submitted with REPLACE ticked is deleted on completion instead of marked COMPLETE</b> &mdash; no row, no <code>completedAt</code>, <b>no ETA sample</b>. Strong candidate for BOTH the refresh-never-completes report AND much of the ETA being ~50&times; long. Fix: branch on <code>downloadType == MAP_SOURCE_REFRESH</code>. <b>Own patch</b> &mdash; and <b>any ETA measurement taken before it is untrustworthy</b>.</p>
+</div>
+
+<h2>2 &middot; Settle SAT-frozen-at-15 &mdash; one download, no code</h2>
+<div class="card">
+<p>Run the same track's corridor with <b>REPLACE TICKED</b>. Replace bypasses the <code>hasTile</code> pre-fetch filter, so SAT must derive and fetch its full corridor. Thousands &rarr; the filter was working and 15 was honest. <b>15 again &rarr; SAT corridor derivation is broken</b>, and the &asymp;90% corridor headline measures what was QUEUED, not what LANDED. Costs one download. <b>Still the only open defect that changes what a tester receives.</b></p>
+</div>
+
+<h2>3 &middot; THE DAY'S BUILD &mdash; staged-DB import by area</h2>
+<div class="card">
+<p><b>Fred's architecture (decided 07-27 EOD):</b> a STAGED reference DB on the device; the user draws an area with the existing region tools and pulls only that area's trails into the LIVE spatial DB. <b>The 106,879 trails never land wholesale</b> &mdash; which removes the concern about tripling the viewport bbox-scan working set.</p>
+<h3>What has to be built</h3>
+<ol>
+<li><b>A local-file read path.</b> <code>httpGet</code> does <code>URL(urlStr).openConnection() as HttpURLConnection</code> &mdash; <b>that cast THROWS on <code>file://</code></b>. The staged DB is SQLite, so this is not an httpGet variant at all: it is a direct <code>SQLiteDatabase.openDatabase(path, null, OPEN_READONLY)</code> against the staged file.</li>
+<li><b>An area query against the staged DB.</b> Every row already carries <code>min_lat/max_lat/min_lon/max_lon</code> WITH A BBOX INDEX &mdash; built for exactly this. Same overlap predicate the viewport queries already use.</li>
+<li><b>Insert into the live DB</b> via the existing path so dedup, ALIAS and <code>trail_properties</code> all behave normally. The staged rows carry <code>wkt</code> in the app's EXACT format and a matching <code>geom_hash</code>, so this is close to a table copy.</li>
+<li><b>Get the staged file onto the device</b> &mdash; <code>adb push</code> for testing; a real mechanism later.</li>
+</ol>
+<h3>Field mapping from the staged schema</h3>
+<p><code>osm_id</code> &rarr; <code>source_unique_id</code> &middot; <code>name</code> &rarr; name (blank takes the <code>'Not Named'</code> sentinel; <code>ref</code> is already folded into name at subset time) &middot; <code>wkt</code> &rarr; geometry &middot; <code>geom_hash</code> &rarr; geom_hash &middot; <code>fclass</code> &rarr; ? &middot; <code>min/max</code> &rarr; bbox columns.</p>
+<p><b>&#9888; TWO DECISIONS, both deliberate rather than drifted into:</b> (a) does <code>fclass</code> go to <code>carto_code</code> (drives line colour, and that mapping is duplicated in THREE hand-synchronised places including a FROZEN file), or somewhere else? <b>Leaving carto_code BLANK renders cyan "Unspecified" and touches none of them.</b> (b) <b>Do NOT map <code>motorized_hint</code> onto <code>motorized_allowed</code></b> without consciously accepting an inference in a legal-access column.</p>
+</div>
+
+<h2>4 &middot; Verify small before large</h2>
+<div class="card">
+<p><b>Droid 2 first</b> &mdash; it is sacrificial; Droid 1 holds the real data. Push a staged file, draw ONE riding area, import a few hundred trails.</p>
+<ul>
+<li>Trails render, and OSM is visually distinguishable from UGRC</li>
+<li><b>Snap-2 picks them up</b> &mdash; <code>RouteManager.snap(lat, lon, trails, tracks, 30.0)</code> is renderer- and source-independent, so this should be free. Confirm it.</li>
+<li>Search behaviour with a large unnamed population (the <code>'Not Named'</code> sentinel is excluded from search by design)</li>
+<li><b>Viewport paint speed</b> &mdash; the one thing that genuinely changes at volume</li>
+</ul>
+<p><b>&#9940; NO delete-trail in the release</b> (Fred): a route's snapped vertices carry <code>lineId</code>, so deleting a trail orphans them silently. Cleanup stays a LAPTOP operation &mdash; pull the DBs, <code>DELETE ... WHERE source_id='osm_trails'</code>, push back. Same pattern as the EMPTY_BASELINE reset.</p>
+</div>
+
+<h2>5 &middot; Later &mdash; not tomorrow</h2>
+<div class="card">
+<ul>
+<li><b>50-state automation.</b> Fred: <i>"identify the state, download and process without intervention."</i> Geofabrik's URL pattern is uniform (<code>&lt;state&gt;-latest-free.gpkg.zip</code>), the layer names are identical, and the subset script already runs unchanged. <b>DISCUSS AFTER the three states are imported.</b></li>
+<li><b>ETA <code>startedAt</code></b> &mdash; only meaningful after step 1. Three timestamps: submit (<code>createdAt</code>, exists), start-execution (<b>MISSING</b>), finish (<code>completedAt</code>, exists). Stamp in <code>DownloadQueueManager</code> where status goes active, NOT per worker. Sampling policy still needs Fred's call.</li>
+<li>Rotation clears source selections (<code>remember</code> &rarr; <code>rememberSaveable</code>) &middot; VACUUM / space reclamation, blocked on the unexplained "0 MB reclaimable" &middot; COTREX catalog misconfiguration (<code>type: feature_id</code> fills carto_code with record IDs) &middot; V2.7 vector rendering, parked for the convoy tracking rewrite.</li>
+<li><b>Overpass resilience</b>, IF that path is kept at all: detect 504 and say "server busy" rather than a generic error, retry with backoff, rotate endpoints. <b>The Geofabrik path may make this moot.</b></li>
+</ul>
+</div>
+
+</main></body></html>

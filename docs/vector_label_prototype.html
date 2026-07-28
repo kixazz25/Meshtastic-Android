@@ -4,7 +4,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>GroupTrack — Esri raster + OSM vector labels prototype</title>
-<link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
 <style>
   html,body{margin:0;height:100%;background:#0a0e14;font-family:ui-monospace,Menlo,Consolas,monospace}
   #map{position:absolute;inset:0}
@@ -79,7 +78,6 @@
 
 <div id="readout">move the map — zoom/centre shown here</div>
 
-<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 <script>
 // ---------------------------------------------------------------------------
 // Esri raster tiles use {z}/{y}/{x} order (row before column) — NOT the usual
@@ -121,7 +119,8 @@ const style = {
   },
   layers: [
     { id:'bg', type:'background', paint:{ 'background-color':'#0a0e14' } },
-    { id:'sky', type:'sky', paint:{ 'sky-color':'#1a2433', 'horizon-blend':0.4 } },
+    // NOTE: no 'sky' layer. type:'sky' is MapLibre v5+; on v4 it is an unknown
+    // layer type and the WHOLE style is rejected -> blank canvas.
     { id:'sat', type:'raster', source:'sat' },
     { id:'shade', type:'hillshade', source:'dem', layout:{visibility:'none'},
       paint:{ 'hillshade-exaggeration':0.5, 'hillshade-shadow-color':'#000000' } },
@@ -187,6 +186,7 @@ const style = {
   ]
 };
 
+function boot() {
 const map = new maplibregl.Map({
   container:'map', style,
   center:[-109.5498, 38.5733],   // Moab — swap for your own riding areas
@@ -284,6 +284,34 @@ map.on('error', (e) => {
   box.style.display = 'block';
   box.textContent = 'Tile/style error: ' + (e.error && e.error.message ? e.error.message : 'see console');
 });
+}  // end boot()
+
+/* MapLibre is CDN-loaded. If one CDN is blocked the library never defines
+   maplibregl and every line above throws. Try three, then say so plainly. */
+(function () {
+  const V = '4.7.1';
+  const J = ['https://cdn.jsdelivr.net/npm/maplibre-gl@'+V+'/dist/maplibre-gl.js',
+             'https://unpkg.com/maplibre-gl@'+V+'/dist/maplibre-gl.js',
+             'https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/'+V+'/maplibre-gl.js'];
+  const C = ['https://cdn.jsdelivr.net/npm/maplibre-gl@'+V+'/dist/maplibre-gl.css',
+             'https://unpkg.com/maplibre-gl@'+V+'/dist/maplibre-gl.css',
+             'https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/'+V+'/maplibre-gl.css'];
+  const css = (i) => { if (i>=C.length) return;
+    const l=document.createElement('link'); l.rel='stylesheet'; l.href=C[i];
+    l.onerror=()=>css(i+1); document.head.appendChild(l); };
+  const js = (i) => {
+    if (i>=J.length) {
+      const b=document.getElementById('err'); b.style.display='block';
+      b.textContent='Could not load MapLibre from any CDN (jsdelivr, unpkg, cdnjs). '+
+                    'Something on this network is blocking them, or there is no internet '+
+                    '- note the satellite tiles need internet too.';
+      return; }
+    const sc=document.createElement('script'); sc.src=J[i];
+    sc.onload=()=>{ if (window.maplibregl) { css(0); boot(); } else js(i+1); };
+    sc.onerror=()=>js(i+1);
+    document.head.appendChild(sc); };
+  js(0);
+})();
 </script>
 </body>
 </html>
