@@ -171,7 +171,13 @@ object OsmImportLedger {
         found: Int,
         inserted: Int,
         aliased: Int,
-        dropped: Int
+        dropped: Int,
+        geometryChanged: Int = 0,
+        errors: Int = 0,
+        pointsFound: Int = 0,
+        pointsInserted: Int = 0,
+        pointsDropped: Int = 0,
+        pointsMoved: Int = 0
     ) {
         val j = read(ctx, slug) ?: return
         val arr = j.optJSONArray("imports") ?: JSONArray()
@@ -182,12 +188,101 @@ object OsmImportLedger {
         o.put("inserted", inserted)
         o.put("aliased", aliased)
         o.put("dropped", dropped)
+        // OSM-C3A-IMPORT-2026-07-28: a known osm_id whose geometry no longer matches
+        // anything in the DB -- the trail moved since the last import. Recorded
+        // separately because it is the number that says whether re-importing a
+        // state is worth doing, and because these rows ACCUMULATE (the old
+        // geometry is never removed, since routes snap to it by lineId).
+        o.put("geometry_changed", geometryChanged)
+        o.put("errors", errors)
+        // OSM-C3C-POINTS-2026-07-28: points are always WHOLE STATE regardless of the
+        // trail bbox, so these totals do not vary with scope -- which is worth
+        // knowing when reading a run that imported a small area.
+        o.put("points_found", pointsFound)
+        o.put("points_inserted", pointsInserted)
+        o.put("points_dropped", pointsDropped)
+        o.put("points_moved", pointsMoved)
         o.put("at", now())
         arr.put(o)
         j.put("imports", arr)
+        // The pending record has done its job the moment the import lands.
+        j.remove("pending_import")
         write(ctx, slug, j)
-        Log.i(TAG, "import recorded: $slug scope=$scope inserted=$inserted aliased=$aliased")
+        Log.i(TAG, "import recorded: $slug scope=$scope inserted=$inserted " +
+            "aliased=$aliased dropped=$dropped geomChanged=$geometryChanged " +
+            "errors=$errors points=+$pointsInserted/~$pointsMoved/=$pointsDropped")
     }
+
+    // -- pending import (the screen-to-screen handoff) ----------------------
+
+    /**
+     * OSM-C3A-IMPORT-2026-07-28: what row 3 is waiting on.
+     *
+     * Fred 2026-07-28: row 3 offers WHOLE STATE or SELECT AREA. Whole state
+     * writes its bbox straight from subset_meta and imports. Area writes a
+     * null bbox, closes the panel, and the planning map's area draw fills it in
+     * and relaunches the panel.
+     *
+     * So this is not crash recovery -- it is the CHANNEL BETWEEN TWO SCREENS,
+     * which is why whole state writes it too. One read path, one launch
+     * trigger, regardless of how the bbox arrived.
+     *
+     * THE PANEL'S RULE IS ONE LINE: on open, if bbox is present, launch.
+     *
+     * ⚠ CLEARING MUST BE RELIABLE. The trigger is "bbox present" and the panel
+     * re-derives on every refresh, so a pending record that outlives its import
+     * re-enqueues on every open. appendImport removes it; enqueueUniqueWork with
+     * KEEP makes a duplicate enqueue a no-op in the meantime.
+     */
+    fun setPendingImport(ctx: Context, slug: String, scope: String, bbox: DoubleArray?) {
+        val j = read(ctx, slug) ?: return
+        val o = JSONObject()
+        o.put("scope", scope)
+        o.put("chosen_at", now())
+        if (bbox != null && bbox.size == 4) {
+            val b = JSONObject()
+            b.put("s", bbox[0]); b.put("w", bbox[1]); b.put("n", bbox[2]); b.put("e", bbox[3])
+            o.put("bbox", b)
+        } else {
+            o.put("bbox", JSONObject.NULL)
+        }
+        j.put("pending_import", o)
+        write(ctx, slug, j)
+        Log.i(TAG, "pending import: $slug scope=$scope bbox=${bbox?.joinToString(",") ?: "(awaiting draw)"}")
+    }
+
+    /** The chosen scope, or null if row 3 has not been answered. */
+    fun pendingScope(ctx: Context, slug: String): String? {
+        val p = read(ctx, slug)?.optJSONObject("pending_import") ?: return null
+        return p.optString("scope", "").ifEmpty { null }
+    }
+
+    /** [s, w, n, e], or null when still awaiting a draw. */
+    fun pendingBbox(ctx: Context, slug: String): DoubleArray? {
+        val p = read(ctx, slug)?.optJSONObject("pending_import") ?: return null
+        val b = p.optJSONObject("bbox") ?: return null
+        return doubleArrayOf(
+            b.optDouble("s", Double.NaN), b.optDouble("w", Double.NaN),
+            b.optDouble("n", Double.NaN), b.optDouble("e", Double.NaN)
+        ).takeIf { it.none { v -> v.isNaN() } }
+    }
+
+    /** Fill in the bbox an area draw produced. Called from the planning map. */
+    fun setPendingBbox(ctx: Context, slug: String, s: Double, w: Double, n: Double, e: Double) {
+        val scope = pendingScope(ctx, slug) ?: "area"
+        setPendingImport(ctx, slug, scope, doubleArrayOf(s, w, n, e))
+    }
+
+    /** User backed out of the choice, or cancelled while awaiting a draw. */
+    fun clearPendingImport(ctx: Context, slug: String) {
+        val j = read(ctx, slug) ?: return
+        if (!j.has("pending_import")) return
+        j.remove("pending_import")
+        write(ctx, slug, j)
+        Log.i(TAG, "pending import cleared: $slug")
+    }
+
+    // -- cleanup ------------------------------------------------------------
 
     // -- cleanup ------------------------------------------------------------
 
