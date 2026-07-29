@@ -18366,6 +18366,422 @@ Where My Cart is assigned radio-vs-Android:
 **FIX DIRECTION (Fred to decide):** complete GPS-01/02 the RIGHT way — "work WITH tick": in Android/standalone mode, ensure a cart node exists for the device, is stamped `isMyCart`, and has its position refreshed from the live phone GPS EVERY tick (same cadence a radio node gets from mesh packets). The GPX recording (service `onGpsUpdate`→`writeGpxPoint`) should be fed by that same single live phone-GPS stream. Do NOT re-introduce the version that "fought tick." Keep radio path untouched.
 
 
+=== GroupTrack_COMPONENT_CONTRACTS_osm_import_2026-07-28.md ===
+# GroupTrack — OSM Trail Import: Component Contracts
+
+**2026-07-28 · INTERNAL · design spec, nothing built · Release 2.6e**
+
+Four independent components dropped into one gate container. Each is specified by
+**the state it enters at, the work it performs, and the state it leaves** — so each
+can be written and tested alone, then wired in without renegotiating anything.
+
+Prerequisite reading: `GroupTrack_handoff_2026-07-27.html` (the Geofabrik pivot,
+the two-tier staging decision, the WKT/hash byte-exactness requirement).
+
+---
+
+## 0 · THE CONTAINER
+
+### Working directory — one per state, app-private
+
+```
+getExternalFilesDir(null)/osm/<slug>/
+    ledger.json                    created by C1, deleted by C4
+    <slug>-latest-free.gpkg.zip    RECOVERY POINT 1
+    <slug>.gpkg                    transient — exists ONLY inside C2
+    osm_trails_<slug>.db           RECOVERY POINT 2
+```
+
+App-private on purpose. Not `Downloads`: a public folder is mutable by other apps
+and by the user, and a browser-delivered file arrives as `content://`, which
+`SQLiteDatabase.openDatabase()` cannot open.
+
+### The rules
+
+| | Rule |
+|---|---|
+| **R1** | Stage is **derived from disk**, never stored. No stage counter, no status field. |
+| **R2** | Only **two paths** are ever consulted — the zip and the skinny DB. The `.gpkg` is never a recovery point. |
+| **R3** | **Existence must mean COMPLETE.** In-flight work uses `.part` / `.tmp` and is renamed atomically on success. Derivation only looks for final names. |
+| **R4** | The ledger **never gates**. It records outcomes. When ledger and disk disagree, **disk wins**. |
+| **R5** | Derivation runs at **moments** — panel open, job completion, return from background. No file watcher. |
+| **R6** | Derivation is **per-slug**. Utah and Arizona can sit at different stages simultaneously. |
+| **R7** | On ACQUIRE entry, sweep debris only: `*.part`, `*.tmp`, `*.gpkg`. Never blind-delete the directory. |
+
+### Derivation
+
+```kotlin
+fun stageOf(slug: String): Stage {
+    val dir    = File(getExternalFilesDir(null), "osm/$slug")
+    val zip    = File(dir, "$slug-latest-free.gpkg.zip")
+    val skinny = File(dir, "osm_trails_$slug.db")
+    return when {
+        skinny.exists() && verifySkinny(skinny) -> Stage.IMPORT
+        zip.exists()    && verifyZip(zip)       -> Stage.REDUCE
+        else                                    -> Stage.ACQUIRE
+    }
+}
+```
+
+### Verification — existence proves a rename, not good bytes
+
+| Artifact | Check |
+|---|---|
+| **zip** | size == `ledger.download.expected_bytes` **AND** `ZipFile` opens and lists an entry (central directory only — fast; catches truncation) |
+| **skinny** | `SELECT COUNT(*) FROM osm_trails` succeeds **AND** `subset_meta.feature_count` exists **AND** the two match **AND** `subset_meta.source_download` == `ledger.download.completed` |
+
+⚠ The last clause closes the mismatch case: a fresh zip beside a stale skinny DB
+both verify individually and are silently inconsistent.
+
+**Failed verification deletes that artifact and drops the stage by exactly one.**
+Automatic, no dialog. Bad state clears; the run does not restart.
+
+### Button state
+
+| On disk | Green | Also enabled |
+|---|---|---|
+| nothing | **1 ACQUIRE** | — |
+| zip only | **2 REDUCE** | 1 (re-download — gated, destructive) |
+| skinny DB | **3 IMPORT** | 4 (cleanup — destructive) |
+
+⚠ Step 3 stays green after imports. "Finished" is the user's judgement, not the
+app's. Step 4 sits enabled but not green beside it.
+
+**Start over** — one manual button, gated, names what is lost. This is the "clear
+and start again" escape; it is deliberately *not* the automatic failure behaviour.
+
+### Gate popups
+
+Every stage runs behind a gated confirm that names the action **and its cost**,
+reusing the pattern already built for the queue panel's scoped CANCEL/CLEAR.
+
+---
+
+## 1 · C1 — ACQUIRE
+
+**Fetch one state's Geofabrik extract into app storage.**
+
+### Enters at
+Neither recovery point present (or a re-download explicitly confirmed).
+Directory may hold debris.
+
+### Work performed
+- Sweep debris per R7; write a fresh `ledger.json` (carrying forward any prior `imports[]`).
+- Resolve slug → `https://download.geofabrik.de/north-america/us/<slug>-latest-free.gpkg.zip`
+  from the shipped asset `geofabrik_states.json`.
+- Free-space check **before** starting: ~1.05 GB peak needed downstream.
+- Download to `<slug>-latest-free.gpkg.zip.part`, **resumable via HTTP Range**.
+- On completion, verify length against `Content-Length`, then **atomic rename** to final.
+
+### Leaves at
+`<slug>-latest-free.gpkg.zip` present and verifiable → **stage REDUCE**.
+
+**Failure exit:** `.part` remains, no final name → stage unchanged (ACQUIRE). Re-run resumes.
+
+### Mechanism
+WorkManager **foreground** job. Determinate progress: **MB, rate, and ETA** — not a bare percentage.
+
+⚠ On resume the bar starts at the **resumed offset**, not zero. HTTP Range means
+the first byte of the session is not the first byte of the file. A tester who
+loses signal at 80% and sees 0% will kill it.
+
+### Ledger writes
+`download` — `expected_bytes`, `actual_bytes`, `resumed_from`, `started`, `completed`.
+
+### Notes
+- ⚠ California has no flat state file — only `california/norcal` and `california/socal`.
+- ⚠ Geofabrik is a free service. Fifty testers pulling 314 MB–1.6 GB files is real
+  bandwidth; read their usage terms before wide release. Same class of dependency
+  as Overpass, which failed on load 07-27.
+
+---
+
+## 2 · C2 — REDUCE
+
+**Unzip and skinny-select, as one atomic operation.**
+
+### Enters at
+Zip present and verified. No skinny DB.
+
+### Work performed
+- Unzip to `<slug>.gpkg` (`java.util.zip.ZipInputStream` — built into Android, no dependency).
+- `SELECT COUNT(*)` on `gis_osm_roads_free` with the fclass filter → exact bar total.
+- Filter to trail classes: `track`, `track_grade1..5`, `path`, `bridleway`.
+- **Decode GPKG-binary → WKT** in the app's exact format.
+- Compute `geom_hash`; compute per-row `min/max lat/lon`.
+- Write `osm_trails_<slug>.db.tmp` with `ix_hash`, `ix_name`, `ix_bbox`, and `subset_meta`
+  (including `source_download` stamped from `ledger.download.completed`).
+- **Atomic rename** to final, **then** delete the zip and the `.gpkg`.
+
+### Leaves at
+`osm_trails_<slug>.db` present and verifiable, zip and `.gpkg` gone → **stage IMPORT**.
+
+**Failure exit:** `.tmp` and possibly `.gpkg` remain; zip still present → stage
+unchanged (REDUCE). Re-run sweeps and repeats. **No re-download.**
+
+### Mechanism
+WorkManager **foreground** job. Determinate — the count is known before the pass
+starts. Update per batch (5,000 rows), not per row.
+
+### Ledger writes
+`extract` — `gpkg_bytes`, `classes`, `candidate_rows`, `kept`, `bad_geometry`,
+`skinny_bytes`, `zip_deleted`, `gpkg_deleted`, `completed`.
+
+### ⚠ This is the risk component — the only genuinely new Kotlin
+
+**GPKG-binary → WKT**, ~60 lines: a short header (magic `GP`, version, flags,
+srs_id, optional envelope) wrapping standard WKB.
+
+- ⛔ **The envelope size is encoded in flags bits 1-3** (0/32/48/48/64 bytes). Get
+  it wrong and the WKB starts at the wrong offset, producing **plausible-looking
+  garbage coordinates rather than an error**.
+- ⛔ **The WKT must be byte-exact** — `geom_hash` is a hash of the string:
+  ```
+  TrailImporter.coordRingToWkt (:545)
+      comma with NO space, single space between lon and lat,
+      Kotlin Double.toString() — shortest round-trip, NOT fixed precision
+  SpatialDbManager.computeGeomHash (:1288)
+      SHA-256(wkt utf-8), hex lowercase
+
+  LINESTRING(-112.771625 37.069884,-112.770892 37.070113)
+  ```
+  In Kotlin this is native, so it is **easier on-device than it was in Python**,
+  where matching it took a second attempt.
+- `osm_gpkg_subset_v2_2026-07-27.py` is a **working reference to port from**.
+  ⚠ It is currently missing from AllDocs — locate it before this component starts.
+
+### ⚠ Storage
+```
+314 MB zip + 631 MB gpkg + ~108 MB skinny  = ~1.05 GB PEAK
+after rename + deletes                     =  ~108 MB
+```
+The peak is unavoidable — SQLite needs random access, so the `.gpkg` must be fully
+written before it can be read. Check free space at the gate, not during.
+
+⚠ **The zip survives until the skinny rename succeeds.** That costs ~100 MB and
+buys the recovery point: a skinny pass dying at 80% re-runs instead of forcing a
+314 MB re-download over mobile data.
+
+### Why a skinny pass at all
+The `.gpkg` is 631 MB across ~20 layers; `gis_osm_roads_free` alone is ~700,000
+rows once footways (241,360 in Utah) and residential streets are counted. Querying
+it per area draw would scan that every time. One pass produces ~108 MB of
+trails-only rows **with a bbox index**, after which every area query is instant —
+and lets the 631 MB source be deleted immediately.
+
+---
+
+## 3 · C3 — IMPORT
+
+**Move trails from the skinny DB into the live spatial DB, by scope.**
+
+### Enters at
+Skinny DB present and verified. Repeatable — runs as many times as the user chooses.
+
+### Work performed
+
+**C3a — SELECT.** Panel offers whole state or a drawn area. Produces one value:
+
+```kotlin
+sealed interface ImportScope {
+    object WholeState : ImportScope
+    data class Area(val bbox: Bbox) : ImportScope
+}
+```
+
+A sealed type rather than `Bbox?` — clears CODE RULE 1 outright (no null to
+justify), and makes "whole state" impossible to confuse with "caller forgot to
+set it". Exhaustive `when`; the compiler catches a missed branch if a third scope
+ever appears.
+
+**C3b — QUERY.** Scope decides only the WHERE clause.
+
+```sql
+-- Area: OVERLAP, not containment — a trail crossing the drawn edge is kept whole,
+-- matching queryTrailsByViewport. Covered by ix_bbox.
+WHERE max_lat >= ? AND min_lat <= ? AND max_lon >= ? AND min_lon <= ?
+```
+
+**Count first, then confirm.** `SELECT COUNT(*)` with the same predicate, shown in
+the gate popup. Whole state says 89,554; a drawn box says 1,204. That is the
+moment the volume decision gets made by a human looking at the real number.
+
+**C3c — INSERT.** Loop through `SpatialDbManager.insertTrail` — *not* raw INSERTs
+— so `INSERT` / `DROP` / `ALIAS`, the `notNamed()` sentinel and `trail_properties`
+all behave exactly as they do for the eight catalog sources. Staged rows already
+carry app-exact WKT and a matching `geom_hash`, so this is close to a table copy.
+
+### Leaves at
+Rows in `trails` + `trail_properties`; one `imports[]` entry appended.
+**Stage unchanged — still IMPORT.** Step 3 remains green; step 4 remains enabled.
+
+**Failure exit:** partial insert is safe — `source_unique_id` dedup makes a re-run
+UPDATE rather than duplicate.
+
+### Mechanism
+WorkManager **foreground** job (whole-state is 87,533 inserts). Bar **resets per
+import** rather than accumulating.
+
+### Ledger writes
+Appends to `imports[]` — `scope`, `bbox` (null for whole state), `found`,
+`inserted`, `aliased`, `dropped`, `at`.
+
+### Field mapping
+
+| staged | lands in | note |
+|---|---|---|
+| `wkt` | `trails.geometry` | already app-exact, no conversion |
+| `geom_hash` | `trails.geom_hash` | already computed the same way |
+| `name` | `trails.name` | blank → `notNamed()` sentinel, as every other source |
+| `min/max lat/lon` | `trails` bbox cols | already computed |
+| `osm_id` | `trail_properties.source_unique_id` | stable across extracts → re-import UPDATES |
+| *(fixed)* | `trail_properties.source_id` | `osm_trails` |
+| `fclass` | **DECISION (a)** | |
+| `motorized_hint` | **DECISION (b)** | ⛔ NOT legal access |
+| `ref` | — | already folded into `name` at reduce time |
+| `maxspeed` | — | no column; not OHV-relevant |
+
+### ⚠ Two decisions — default answers, reversible, both avoid a paired edit
+
+**(a) `fclass` → leave `carto_code` BLANK.** Renders cyan "Unspecified", visually
+distinct from every coded government source, honest (OSM has no carto
+classification), and touches none of the three hand-synchronised places the
+colour mapping lives in — `ArtifactDetailPanel.kt` (~:316, carries an explicit
+PAIRED-EDIT WARNING), `convoy_map.html` (**FROZEN**) and `grouptrack_map.html`.
+Colour keys off the leading digit.
+
+**(b) `motorized_hint` → NOT mapped to `motorized_allowed`.** It is inferred from
+fclass — physical capability, not legal access — and that column's entire purpose
+is legal access. A wrong "Yes" there is worse than an empty field.
+
+⚠ Note the irony to keep in view: OSM is the **only** source in the DB carrying
+real `motorized_allowed` values (UGRC has 49,098 trails and not one), but that
+field **does not survive the Geofabrik path** — the free roads layer has no access
+tags at any tier. What is gained instead is `fclass` = `track_grade1..5`, real OHV
+difficulty on every track rather than sparse tagging.
+
+### ⛔ No delete-trail in this release
+A route's snapped vertices carry `lineId`, so deleting a trail orphans them
+silently. Cleanup stays a laptop operation — pull the DBs,
+`DELETE ... WHERE source_id='osm_trails'`, push back. Bulk delete-by-source in-app
+was considered and rejected on that dependency.
+
+### Verification order (Droid 2 first — Droid 1 holds the real data)
+1. Push a staged file, draw ONE area, import a few hundred trails.
+2. Trails render; OSM visually distinguishable from UGRC.
+3. **Snap-2 picks them up** — `RouteManager.snap(lat, lon, trails, tracks, 30.0)` is
+   source- and renderer-independent, so this should be free. Confirm, don't assume.
+4. Search behaves with a large unnamed population (`Not Named` is excluded by design).
+5. **Viewport paint speed** — the one thing that genuinely changes at volume.
+   Measure before and after.
+6. **Re-import the same area** → expect already-imported, not new. Proves
+   `source_unique_id` dedup and that re-import is safe.
+
+### ⚠ Whole-state import reverses a decision — knowingly
+Two-tier staging was chosen specifically so the state never lands wholesale:
+```
+live spatial DB today:   49,125   (UGRC + NPS)
++ Utah OSM whole state:  87,533
+                       = ~137,000 trails
+```
+That is the ~3× viewport bbox-scan working set the staging design avoided. It may
+be fine — step 5 above is how you find out. Suggested hedge: keep whole-state in
+the UI, make it the **non-default**, and put the count in the gate popup.
+
+---
+
+## 4 · C4 — CLEANUP
+
+**Reclaim space and close out the run.**
+
+### Enters at
+Skinny DB present. User has decided they are finished importing.
+
+### Work performed
+- Gated confirm naming exactly what is removed and how much space returns.
+- Append one line to a **permanent** `osm_import_history.json`.
+- Delete `osm_trails_<slug>.db`, then `ledger.json`, then the directory.
+
+### Leaves at
+Directory gone → **stage ACQUIRE**. Imported trails remain in the live spatial DB.
+
+### Mechanism
+Plain coroutine — **not** a worker. File deletes finish in seconds and do not
+report progress. **Indeterminate spinner; a fake percentage is not honest.**
+
+### Ledger writes
+`cleanup` — `deleted[]`, `bytes_reclaimed`, `at` — written immediately before the
+ledger itself is removed.
+
+### ⚠ The transient ledger deletes the record of the run
+Both can be true: the per-state ledger is transient exactly as specified, and at
+cleanup it appends one durable line elsewhere.
+
+```json
+{ "state":"utah", "extracted":89554, "imports":2, "trails_added":88731,
+  "completed":"2026-07-28T10:02:11" }
+```
+
+Kilobytes, and it is what tells you six weeks from now which states a tester
+actually loaded. **Open decision — confirm before C4 is written.**
+
+⚠ C4 is also the **re-run escape**: declining it keeps the skinny DB, so more
+areas can be imported later without re-downloading anything.
+
+---
+
+## BUILD ORDER
+
+**Container → C3 → C2 → C1 → C4**
+
+**Container first, because it is testable with nothing built.** Derivation reads
+files; `adb push` a dummy zip and watch step 2 go green, delete it and push a
+dummy skinny DB and watch step 3 go green, push garbage and watch verification
+drop it back a stage. The whole state machine gets proven with `touch` and
+`adb push` — no download, no decoder, no import.
+
+**C3 next, because it defines the contract C2 must satisfy.** Building the reduce
+pass first means guessing at the schema; building the importer first gives the
+reduce pass a proven target — exact columns, exact WKT, exact hash. And C3 is the
+only component testable **today**, against the three already-staged files on `D:`
+(Utah 87,533 / AZ 10,714 / NV 8,632) via `adb push`.
+
+**C2 next** — the only genuinely new Kotlin and the real risk. **C1 after** —
+well understood; the tile downloads proved resumable foreground work. **C4 last**
+— trivial, and cannot be tested until something exists to delete.
+
+---
+
+## OPEN — carried in the component that owns them
+
+| | Decision | Default | Blocks |
+|---|---|---|---|
+| C3 | `fclass` → `carto_code` | **blank** | nothing |
+| C3 | `motorized_hint` → `motorized_allowed` | **no** | nothing |
+| C3 | whole-state default on/off | **off** | nothing |
+| C4 | permanent history line | **yes** | C4 only |
+| — | do C1/C2/C3 ride the existing download queue, or stand alone? | **stand alone** | C1 |
+
+The queue question is the only real trade: riding the queue gets progress UI,
+cancellation and persistence free, but its schema and panel are tile-shaped
+(z/x/y, tile counts, corridor derivation) and a 314 MB file download is not that.
+Standing alone duplicates worker-dispatch plumbing that already exists.
+
+---
+
+## ⚠ MISSING FROM ALLDOCS — locate before the components that need them
+
+| File | Needed by |
+|---|---|
+| `osm_gpkg_subset_v2_2026-07-27.py` | **C2** — the GPKG decoder reference to port |
+| `process_state_2026-07-27.py` | C2 — test-data generation |
+| `COMPLETED_TASK_download_queue_schema_and_panel_2026-07-24.html` | the queue-vs-standalone decision |
+
+All are referenced by docs that *are* in AllDocs but have no section of their own.
+⚠ This also means the 07-27 note to drop `DOC_MAX_AGE_DAYS` from 45 to ~14 is not
+yet safe — the backlog run demonstrably did not capture everything.
+
+
 === GroupTrack_CartTrack_Rules_2026-06-30.md ===
 # GroupTrack — Cart / Recording / Display Process Rules (2026-06-30)
 Governing rules for the recording, my-cart, cart-display, and lead-track processes. Written to stop the Android-standalone track-recording/display bug from being mis-diagnosed. Source: field observation (Fred) + code (xref) + git history.
@@ -19521,6 +19937,261 @@ The services exist; the **detail-panel UI is still calling the legacy file-only 
 - Patches: standalone dated python → Downloads → `python3 <name>.py`; **unique versioned filenames**; count==1 anchor guard, runtime newline detect, all-or-nothing; **raw-string anchors** (`r'''...'''`); include blank lines inside multi-line anchors exactly (`cat -A` to reveal). Commit only named files, never `git add .`. LINE ENDINGS: SpatialDbManager/ConvoyViewModel/ConvoyTrackImportScreen/ConvoyTrackOps = LF; ConvoyMapViewerScreen/ConvoySettingsScreen/HTMLs/ConvoyGpsService/MainActivity = CRLF.
 
 
+=== GroupTrack_Handoff_2026-07-28.md ===
+# GroupTrack — Session Handoff
+**2026-07-28** · branch `feature/convoy-event-ride` · **commit `3fd526517`**
+
+Internal doc — resume context, deliberately detailed rather than brief.
+
+---
+
+## What shipped today
+
+**OSM trail import: C1 ACQUIRE + C2 REDUCE, complete, verified, committed.**
+11 files changed, 2,912 insertions. `3fd526517` is the rollback point.
+
+Plus, built but **not committed and not wired**: C3a (trails import worker) and
+C3c (points import, same worker). Both compile green. **Nothing has written a
+single row into the production spatial DB yet.**
+
+---
+
+## ⭐ THE VERIFICATION — the thing that makes C2 trustworthy
+
+`geom_hash` is SHA-256 over WKT, and the WKT format is a contract: comma with
+NO space, Kotlin `Double.toString()`. A hash over a string differing by one
+space is a completely different hash. If the Kotlin formatted WKT even slightly
+differently from `TrailImporter.coordRingToWkt`, cross-source dedup would
+silently stop recognising its own rows, re-imports would duplicate instead of
+update, and **nothing anywhere would report an error.**
+
+That failure is invisible from inside the app. So the device-built skinny was
+compared against one built by the validated Python:
+
+```
+device rows whose geom_hash exists in the reference: 89,448 of 89,536 (99.902%)
+shared osm_id, disagreeing hash: 58
+  GEOMETRY CHANGED : 58     <- real OSM edits between the two extracts
+  FORMAT DIFFERS   :  0     <- would have been a port bug
+```
+
+**Zero format differences.** All 58 disagreements are real geometry changes,
+several with identical point counts but different coordinates — exactly what a
+mapper nudging a trail looks like. Had the WKT diverged, all 89,536 would have
+mismatched, not 58.
+
+This proves the GPKG envelope offset AND the WKT contract byte for byte.
+
+---
+
+## ⭐ THE DEDUP RULE — tested across all three artifact types
+
+Fred: *"dupe hash is dupe trail, no dupe hash is a second trail. period."*
+And: *"it is very important across sources that we do not duplicate geo hashes."*
+
+Tested against real Utah + Arizona data before anything reaches production:
+
+**Trails — the rule is exactly right, no configuration needed:**
+- Utah: 89,536 rows, 89,536 distinct hashes, 89,536 distinct `osm_id`. Perfect.
+- Arizona: 1 hash collision in 134,242.
+- **313 trails shared across the Utah/Arizona border — ALL 313 hash-match.**
+  Geofabrik ships border ways WHOLE in both extracts. Importing Arizona after
+  Utah drops all 313 as duplicates. One trail each, automatically.
+- Zero same-geometry-different-id.
+
+> ⭐ That also retires a worry: `geometryChanged` will NOT be polluted by border
+> fragments, because there are none. It measures real edits only.
+
+**Points — thinner, still clean:** 3,674 places + 4,048 natural, every one a
+distinct `osm_id`, 24 exact-coordinate collisions between them.
+
+**539 same-name pairs within 500 m (6.98%)** — but that number OVERSTATES it:
+- `twin peaks — natural/peak × natural/peak, 206 m` — **two summits.** Not a
+  duplicate at all.
+- `desert mound — places/locality × natural/peak, 485 m` — the peak, and the
+  place named after it.
+- `westbrook — locality × locality, 185 m` — a genuine duplicate.
+
+`locality` is 2,846 of 3,674 places (77%) — OSM's noisiest class, sorted last by
+the `fclass` label priority, so most never render together at normal zoom.
+
+> ⭐ **It is a RENDERING number, not a data one.** OSM says these are separate
+> objects and the rule reproduces OSM faithfully. Collapse by
+> name-within-distance AT DRAW TIME, where it is reversible — never at ingest.
+
+---
+
+## ⛔ THE DAY'S BIGGEST WASTE — and the lesson
+
+**Hours were lost to `adb` commands pointed at a package that does not exist.**
+
+The Kotlin package is `com.geeksville.mesh` (Meshtastic fork lineage). The
+**installed application id is `com.grouptrack.android`** — renamed for Play.
+Source package and application id are independent. I conflated them and never
+checked.
+
+Every dead end today was that one error:
+- `ls /sdcard/Android/data/com.geeksville.mesh/...` → "No such file"
+- `rm -rf` on that path → deleted nothing
+- "Arizona is gone" this morning → **wrong**; it was still there
+- Theories invented to explain it: Android 11 directory restriction, secondary
+  volume, MediaStore ghosts, stale FUSE view. **All wrong.**
+
+`pm list packages | grep -i geeksville` returns **nothing**. That one command
+would have ended it in the first minute. I kept deferring it in favour of
+theories.
+
+> ⭐ **LESSON, durable: verify identity before diagnosing behaviour.** When
+> several unrelated commands all return "not found", suspect the path, not the
+> platform.
+
+---
+
+## ⭐ THE STORAGE MOVE — a correction that was already documented
+
+Fred: *"we have hit roadblocks all day with data in the app area. there is a
+reason we moved data to public area."*
+
+The OSM working directory was in `getExternalFilesDir()`. On a release build
+that is unreachable: `run-as` is blocked by signing, `adb` is blocked by Android
+11+, and no file manager can browse `Android/data`. **There was no inspection
+route at all** — verifying an extract would have required *writing an export
+feature to work around a directory choice.*
+
+The planning state file already lives in `Documents/GroupTrack/state` **for
+exactly this reason.** The decision was on record; I did not apply it.
+
+Moved to `Documents/GroupTrack/osm/<slug>/` with one-shot migration.
+
+⚠ **Two consequences, both accepted:** files now survive uninstall and are not
+cleared by Clear Storage (right for a 630 MB extract — a reinstall should not
+cost another download), which makes **CANCEL the only cleanup path**, so CANCEL
+has to keep working.
+
+---
+
+## Other findings worth carrying
+
+**⚠ `updateExistingFeature` does NOT update geometry.** Its own comment says
+*NEVER geometry/bbox/geom_hash*. I had claimed `osm_id` as `source_unique_id`
+means "re-import updates rather than duplicates" — **that is wrong.** A trail
+whose geometry changed would have its new shape silently discarded.
+**Fred's call: insert as a second trail.** Stronger reason than the low count —
+routes snap by `lineId`, so replacing geometry orphans every saved route
+touching that trail. Adding a row touches nothing.
+
+**⚠ Two Python-to-Kotlin traps, same class:**
+- `PRAGMA journal_mode=OFF` **returns a row**, so Android's `execSQL` rejects it.
+  `sqlite3.execute` does not care. Cost one build.
+- Kotlin's `Byte` is **signed**; every GPKG byte read must mask `0xFF` first.
+  Guarded from the start. ⚠ Note the flags byte never exceeds `0x3F`, so that
+  mask is defensive — the mask that genuinely matters is in `geomHash`, where
+  digest bytes are half ≥ `0x80`.
+
+**⚠ `spatial_artifacts.js` is an orphan.** File exists, nothing loads it, and
+both HTMLs carry inlined divergent copies (convoy 9 refs, planner 15). The V2.7
+plan names this file as its rewrite target — so 2.7 would start from stale code.
+**Delete it or maintain it; current state is the only unacceptable one.**
+
+**Filename fix:** Geofabrik serves both `-latest-` and dated `-YYMMDD-` variants.
+The probe demanded "latest" and reported "extract not found" for a file sitting
+in Downloads. Now accepts either; slug derivation strips the trailing
+date/`latest` so `north-carolina-260728` does not become `north`.
+
+**⚠ Progress bug root cause was NOT the throttle.** Fred's observation — "unzip
+logged progress, only trails did not" — ruled that out. **WorkManager DISCARDS
+progress Data on a terminal state.** `getProgress()` is empty once a worker
+finishes, so the final forced publish is real but unreadable. Earlier layers
+escaped because a *later* pass published while still RUNNING and carried their
+completed state along. Nothing follows trails. Fixed in the panel: a SUCCEEDED
+state means every layer completed, by definition.
+
+---
+
+## Measured numbers (replace earlier estimates)
+
+| | |
+|---|---|
+| Utah zip → gpkg | 630 MB uncompressed |
+| Arizona zip → gpkg | 610 MB → 1,214 MB (2.09×) |
+| **C2 on device, end to end** | **~40 s** (unzip 14 s, trails 23 s, natural 1.2 s) |
+| C2 on desktop (Arizona trails) | 60.7 s |
+| Utah skinny | 108 MB · 89,536 trails · 3,674 places · 4,048 natural |
+| Arizona | 134,242 trails |
+| Free-space gate (Utah) | needed 788 MB, had 33 GB |
+
+> ⚠ **My 8–20 minute device estimate was wrong by ~20×** — and that error is what
+> sized the 30-second progress tick, which is why nothing rendered.
+
+> ⚠ **Per-state variance is large** (Utah 89,536 vs Arizona 134,242 — 50% apart
+> between neighbours). Size gates and ETAs must be derived per state, never
+> scaled from one sample.
+
+> ⚠ **~0.08% of Utah's trails changed in two days** (18 removed + 58 edited).
+> That is the natural refresh rate of the data.
+
+---
+
+## Next session — start here
+
+1. **Consider committing C3a + C3c** as a checkpoint. They compile against the real
+   `SpatialDbManager` API — the risky part proven — and committing keeps tomorrow's panel
+   work separable from tonight's worker work if something needs reverting.
+2. **Write C3b** — the Living Master has the complete specification; nothing
+   should need re-deriving.
+3. **Before the first real write:** dry-run mode, and delete-by-source for trails.
+4. Then Utah whole-state import, area stubbed.
+
+**Do NOT touch the production spatial DB until C3b + dry run are in place.**
+
+---
+
+## Doc set produced this session
+
+| File | Notes |
+|---|---|
+| `GroupTrack_Living_Master_2026-07-28.md` | In-Progress + Open. Carries the full C3b specification. |
+| `GroupTrack_Handoff_2026-07-28.md` | This file. |
+| `COMPLETED_TASK_osm_import_c1_c2_2026-07-28.html` | Per-task permanent record for the committed work. |
+| `grouptrack_release_notes_2.6e.html` | 2.6e current, 2.6d demoted to "Previously", **2.6c moved into the collapsed block**. |
+| `grouptrack_manual_2.6e.html` | New "Import OSM Data" subsection (5 screens) under Planning Map → G — Work with Artifacts. |
+
+⚠ **C3c build confirmed green (14m20s) after the first doc pass** — the Living Master's
+"pending confirmation" note has been corrected.
+
+### Manual — screenshots still needed
+The new section carries **7 `PENDING-CAPTURE` comments** (invisible, per house convention —
+never visible banners). Captures required, 720px WebP, ~110KB ceiling at q60:
+
+1. WORK WITH ARTIFACTS panel showing all three buttons (IMPORT OSM DATA is new, planner only)
+2. OSM panel generic — `IMPORT OSM TRAIL DATA`, gate button under row 1
+3. OSM panel adopted — `OSM TRAIL DATA - UTAH`, row 1 ticked, gate gone, row 2 green
+4. Extract running — the four per-type rows, one mid-progress
+5. Extract complete — row 2 ticked, rows 3–4 armed
+6. CANCEL confirm dialog
+7. "No Geofabrik extract found" dialog
+8. Geofabrik download page as it opens from the button
+
+⚠ The manual work was deliberately held for the **V2.6 close**, bundled with the
+install/quick-start section and the 18-screen sweep. These OSM screens will want
+re-checking at that pass rather than being done twice by accident.
+
+### Version note
+
+
+⚠ **2.6d shipped 07-24/25** (commit `703625fb8`, versionCode 29320744). Today's OSM work is
+therefore **2.6e**, and the release notes are labelled accordingly — say the word if you want
+it folded into 2.6d instead; it is a one-word change.
+
+The manual is versioned in Downloads as `grouptrack_manual_2.6e.html` and copies into assets
+under the canonical unchanged name:
+`cp ~/Downloads/grouptrack_manual_2.6e.html app/src/main/assets/grouptrack_manual.html`
+
+**The prior 2.6d manual was used as the baseline** and edited in place — 3,611,797 → 3,618,279
+bytes, `<details>`/`<summary>` balance verified, image count unchanged at 72, file still
+closes with `</html>`.
+
+
 === GroupTrack_LeadCart_TrackRevision_DemolitionRebuild_2026-06-18.md ===
 # GroupTrack — Lead-Cart Track Revision: Demolition + Rebuild Plan
 **2026-06-18 · checklist item [2.1] · branch feature/convoy-event-ride**
@@ -19720,6 +20391,409 @@ the broader V2.5 order — but it is must-ship V2.5, not deferred.
 - **Out of scope (do not touch):** displayed/imported DB tracks
   (`loadTracks` / `trackLayer`), node position markers, route lines, the
   route-builder snap-2.
+
+
+=== GroupTrack_Living_Master_2026-07-28.md ===
+# GroupTrack — Living Master Checklist
+**2026-07-28 EOD** · branch `feature/convoy-event-ride` · baseline commit `3fd526517`
+
+> Living Master carries **In-Progress + Open only**. Completed work graduates out
+> into its own titled doc in AllDocs (see `COMPLETED_TASK_osm_import_c1_c2_2026-07-28.html`).
+
+---
+
+# ⭐ IN-PROGRESS — C3 IMPORT (release 2.6e)
+
+## Where the OSM pipeline stands tonight
+
+| Component | State |
+|---|---|
+| **C1 ACQUIRE** | ✅ SHIPPED + verified on device. Committed `3fd526517`. |
+| **C2 REDUCE** | ✅ SHIPPED + verified against an independent reference. Committed `3fd526517`. |
+| **C3a** trails import worker | ✅ Built green. **Not wired — nothing calls it.** |
+| **C3c** points import (same worker) | ✅ Built green, confirmed 14m20s. **Not wired, not committed.** |
+| **C3b** panel wiring | ⛔ **NOT WRITTEN — this is the next build.** |
+| **C4 CLEANUP** | ⛔ Stub. Design settled (below). |
+
+**Nothing has yet written a single row into the production spatial DB.**
+Everything to date is read-only or writes only to the skinny.
+
+---
+
+# 🔴 C3b — THE NEXT BUILD (full specification)
+
+Everything below was settled in conversation 07-28 and is not re-litigated.
+This section exists so C3b can be written without re-deriving any of it.
+
+## The handoff mechanism — why JSON and not Compose state
+
+Row 3 offers **WHOLE STATE** or **SELECT AREA**. Area requires the planning map,
+which means the OSM panel must go away and come back.
+
+**Fred's design (07-28):** row 3 simply *closes the panel*. The map's bbox
+submission *relaunches* it. There is **no flag in MVS**, no `AreaDrawPurpose`
+enum, and no navigation change.
+
+> ⭐ **Why this works:** R1 — stage is derived from disk, never stored. The panel
+> can be destroyed and recreated and lands in exactly the same place. That rule
+> was written for crash recovery; this is an unplanned payoff.
+
+> ⚠ **Why a flag was rejected:** the `routeMode` leak. There were two back paths
+> and only one was gated — the on-screen BACK bypassed the `BackHandler`
+> entirely. A `osmAwaitingBbox` flag in MVS has the identical shape, and every
+> exit path would have to clear it. Closing the panel means there is nothing to
+> leak.
+
+## The ledger record — uniform, both scopes
+
+```json
+"pending_import": {
+  "scope": "state",
+  "chosen_at": "2026-07-28T22:41:09",
+  "map_area":      { "s": 36.99, "w": -114.05, "n": 42.00, "e": -109.04 },
+  "selected_area": { "s": 36.99, "w": -114.05, "n": 42.00, "e": -109.04 }
+}
+```
+
+- **`map_area`** — ALWAYS the state extent. Positions the planning map. 5% margin
+  so the box occupies ~95% of the view.
+- **`selected_area`** — what actually gets imported.
+
+| scope | map_area | selected_area |
+|---|---|---|
+| state | state extent | state extent (identical, written immediately) |
+| area | state extent | `null` until the draw fills it |
+
+**THE PANEL'S RULE IS ONE LINE: on open, if `selected_area` is present, launch.**
+
+Both paths converge there. The map never has to ask where to open — the answer
+is in the record regardless of scope. The importer never has to know which
+scope it is.
+
+> ⭐ **Whole state is not a separate code path.** The extent is derived from the
+> trails themselves, so every trail overlaps it *by definition*. A full-extent
+> area import returns exactly the rows a `SELECT *` would — identically, not
+> approximately. One function, exercised two ways. **Testing whole state IS
+> testing area.**
+
+> ⚠ **This bends R1 knowingly.** R1 said the ledger never decides what runs next.
+> "User chose area and hasn't drawn yet" is not derivable from any disk artifact,
+> so it genuinely must be stored. The STAGE stays IMPORT throughout — this is a
+> sub-state inside it, not a competing stage.
+
+## The area cycle, step by step
+
+```
+1. Row 3 tapped
+   -> dialog: WHOLE STATE / SELECT AREA / cancel
+
+2a. WHOLE STATE
+   -> extent = OsmImportStage.skinnyExtent(ctx, slug)
+        SELECT MIN(min_lat), MIN(min_lon), MAX(max_lat), MAX(max_lon)
+        FROM osm_trails            (sub-second over 89,536 rows)
+   -> setPendingImport(scope="state", map_area=extent, selected_area=extent)
+   -> OsmImportWorker.enqueue()
+   -> panel STAYS OPEN, progress rows appear under row 3
+
+2b. SELECT AREA
+   -> setPendingImport(scope="area", map_area=extent, selected_area=null)
+   -> showOsmPanel = false                 (panel closes; MVS is underneath)
+   -> open the download panel with "Import OSM" CHECKED
+   -> map framed to map_area with 5% margin
+
+3. User draws + submits
+   -> ConvoyMapViewerScreen bbox handler sees osmChecked
+   -> slug from OsmImportStage.statesInFlight().firstOrNull()
+   -> OsmImportLedger.setPendingBbox(ctx, slug, s, w, n, e)
+   -> showOsmPanel = true                  (panel relaunches)
+
+4. Panel opens, sees selected_area present
+   -> OsmImportWorker.enqueue()            (KEEP makes a double-enqueue a no-op)
+   -> progress rows under row 3
+
+5. Import completes
+   -> appendImport() writes the record AND removes pending_import
+   -> row 3 ticks, row 4 arms
+```
+
+> ⚠ **Clearing must be airtight.** The trigger is "selected_area present" and the
+> panel re-derives on every refresh. A pending record that outlives its import
+> re-enqueues on every panel open. `appendImport` removes it; `enqueueUniqueWork`
+> with `KEEP` makes a duplicate enqueue harmless in the meantime — but the
+> removal is the actual fix, not the KEEP.
+
+> ⚠ **Row 3 must SHOW the pending state.** `WAITING FOR AREA — draw one, or
+> cancel`, with a visible cancel. An invisible mode is precisely the `routeMode`
+> failure. If the user picks area, gets distracted, and returns tomorrow, the
+> panel must explain itself.
+
+## The panel's own checkbox row (ConvoyDownloadPanel.kt)
+
+The panel already carries intent in checkbox state — **this is why
+`AreaDrawPurpose` is unnecessary**:
+
+```
+Download Tiles    blue    tilesChecked
+Import Trails     green   trailsChecked
+Remove Tiles      red     removeTilesChecked
+Import OSM        orange  osmChecked          <- NEW ROW
+```
+
+`Draw Area` is enabled when any is checked (`ConvoyDownloadPanel.kt` ~:243).
+The caller dispatches on whichever ones are. **The checkboxes are the routing.**
+
+New row needs:
+- `osmChecked: Boolean` + `onOsmCheckedChange` — same shape as the other three
+- added to the `enabled =` condition on Draw Area
+- ⚠ **`osmAvailable: Boolean`** — disabled when no skinny exists. Same mechanism
+  the V2.6 stub rows already use.
+- bbox display line mirroring `"Trails: $trailSourceCount sources found"`:
+  **`"OSM: 8,412 trails in area"`** — indexed count off `ix_osm_trails_bbox`,
+  instant, appears the moment the box is drawn.
+
+> ⭐ **The count IS the confirmation.** The user sees exactly what they are
+> committing to before submitting, so a confirm dialog adds nothing. (Whole-state
+> is the exception — see Open Questions.)
+
+> ⚠ **Checkboxes are not mutually exclusive.** Tiles + OSM both checked = one
+> draw does both. Arguably a feature. But dispatch must handle combinations, and
+> **OSM must never become a `QueueEntry`** — see the yardstick warning below.
+
+## ⛔ OSM MUST NOT ENTER THE DOWNLOAD QUEUE
+
+Share the **drawer**. Never the queue.
+
+`DownloadQueueManager.submitDownload` is not involved. The yardstick averages
+tiles-per-minute; deletes were excluded from it precisely because a different
+unit poisons `avgMinutesPer100` and every later download estimate collapses
+toward zero. **An OSM import measured in ROWS does exactly the same thing.**
+
+Same UI, separate pipeline.
+
+## Tally assertion (add in C3b — 3 lines)
+
+Fred: *"processed should equal added, rejected, and dupes identified."*
+
+```kotlin
+val tallied = inserted + aliased + dropped + geomChanged + errors
+if (tallied != found) Log.e(TAG, "TALLY MISMATCH: found=$found accounted=$tallied")
+```
+
+Same for points: `pointsFound == pointsInserted + pointsMoved + pointsDropped`.
+
+> ⚠ Reading the C3a loop back, every path *appears* to increment exactly one
+> counter — but "appears complete" is how the `deleteOriginal` assumption went
+> wrong this morning. The assertion turns a silent accounting hole into a log
+> line on the first run.
+
+Record the result: **`"balanced": true/false` per type in the import record**, so
+the audit is in the file rather than a logcat buffer that is gone by morning.
+
+## Per-layer point counters (amend in C3b)
+
+Points are currently one bucket. If `natural` silently stops importing, the
+total still looks plausible. Split by layer — `places_found`, `natural_found` —
+generated from the catalog, so enabling `pois` adds its keys automatically.
+
+## Row 4 summary
+
+Row 4 detail reads the state's own `imports[]`:
+
+```
+CLEANUP    3 imports · 12,847 added · 402 aliased · 1,633 dupes · 58 changed
+```
+
+> ⚠ **Sum WITHIN one state's ledger only.** Do NOT sum across history files —
+> see the History section.
+
+---
+
+# 🔴 C4 CLEANUP — settled, not written
+
+## The ledger is RENAMED, not copied
+
+```
+osm/utah/ledger.json  ->  osm/history/utah_2026-07-28_224109.json
+```
+
+- **Rename replaces the delete.** `finalizeAndDelete` currently removes the
+  ledger; now the rename IS the removal. If the rename fails, the ledger stays
+  put — cleanup cannot destroy the record even by accident, because deletion is
+  not a separate step that could succeed on its own.
+- **Nothing is serialized twice**, so the archived record is byte-identical to
+  what the import wrote.
+- ⚠ **`history/` sits OUTSIDE `osm/<slug>/`** — CANCEL and cleanup both remove
+  `osm/<slug>/` wholesale and would take the history with it. (This is also why
+  `discardState` is deliberately non-recursive.)
+- ⚠ **Never pruned.** A few KB each. Chosen, not overlooked.
+
+## ⭐ C4 NO LONGER AUTO-ROLLS AFTER IMPORT
+
+**This reverses an earlier decision and the reason matters.** C3→C4 auto-roll was
+settled when whole-state was the only scope. With area scope it is wrong:
+import Moab, cleanup fires, skinny deleted — a second area costs a 630 MB
+re-download, defeating the entire point of area scope.
+
+**Cleanup is explicit.** Row 4 arms after import; the user decides when they are
+done with the state. Whole-state import may *suggest* it.
+
+## History is per-run, never aggregated
+
+Fred 07-28: *"the history is just that, results of one run at one moment in
+time."*
+
+- **History = what a run did.** One file, one run, read on its own.
+  **No cross-run arithmetic anywhere.**
+- **The database = what exists now.** "How many OSM trails do I have" is
+  `COUNT(*) FROM trail_properties WHERE source_id='osm'` — asked of the DB,
+  never derived from history.
+
+> ⚠ Summing runs produces a number that *looks* like inventory and is not. A
+> re-imported area contributes inserts and dupes that add up to nothing
+> meaningful. Better no total than a misleading one.
+
+A history browser (list by state + timestamp, open one run, show its counters
+and whether they balanced) is a later, cheap feature — the filenames already
+carry both filter keys.
+
+---
+
+# 🔴 OPEN QUESTIONS — C3b
+
+1. **Does whole-state import need a confirmation dialog?** 89,536 trails into the
+   production spatial DB with no undo — the only reversal is delete-by-source,
+   which does not exist for trails. Extract was recoverable; this is not.
+   Recommend: put the count in the dialog — *"Import 89,536 Utah trails into your
+   map database?"*
+2. **Dry-run mode before the first real write.** Walk all rows, make every
+   decision, count everything, write nothing. Gives the full INSERT/ALIAS/DROP
+   distribution across a whole state — which a 1,000-row cap cannot, since it
+   samples whatever sorts first by rowid.
+   > ⚠ A partial write is worse than it sounds: a cap landing mid-page rolls the
+   > transaction back and can leave trails without properties rows, which are
+   > invisible to the uid set and re-import forever. Dry run has no such edge.
+3. **Delete-by-source for TRAILS.** `deleteAllOsmPoints` exists (unwired) for
+   points. There is no equivalent for trails. **Should exist before the first
+   real write** — otherwise a bad import means restoring the spatial DB by hand.
+4. **Area stub must NOT write a pending record.** If SELECT AREA writes
+   `scope:"area", selected_area:null` while the map handoff is unbuilt, the panel
+   waits forever for a draw that cannot happen — and the only exit is CANCEL,
+   which deletes the 630 MB extract. **The stub is a toast and nothing else.**
+
+---
+
+# 🔴 OPEN — C2 follow-ups (small, not blocking)
+
+- **C2 does not hash points.** The rule is now uniform (identity = `geom_hash`),
+  so C2 should compute one. Measured value is low — 24 exact-coordinate
+  collisions across 7,722 Utah points — and C3c computes it at import time
+  instead. **Rides along whenever C2 is next touched. Does not justify
+  re-extracting every state.**
+- **State extent in `subset_meta`.** Considered mandatory, then found not to be:
+  `SELECT MIN/MAX` over 89,536 rows is sub-second. `skinnyExtent()` in C3b
+  avoids forcing a re-extract of already-built states.
+- ⚠ **OSM place names contain characters outside cp1252** (e.g. U+02BC in
+  *Naatsisʼáán*). SQLite is UTF-8 so storage is fine, and Leaflet labels will be
+  fine — but any future CSV export or `Log.i` on a name must cope. This crashed
+  a PC-side analysis script today.
+
+---
+
+# 🔴 OPEN — carried forward (unchanged today)
+
+- **`markComplete` refreshMode collision** — `ConvoyDownloadQueue.kt:641`.
+  ONE LINE fix, displaced twice. Strong candidate for both the
+  refresh-never-completes report and much of the ETA starvation.
+- **Delete patch N** — banding + real progress denominator. Written, not applied.
+- **"0 MB reclaimable"** — reproducible after 38,896 and 40,912 tile removals.
+  Settle whether `freelist_count` is meaningful before designing any VACUUM flow.
+- **SAT frozen at 15**
+- **V2.7 vector rendering / MapLibre** — scoped only, nothing decided.
+- **COTREX misconfiguration** — `carto_code` filled with record IDs for Colorado.
+- **50-state automation** — after three states import cleanly.
+- **AllDocs gaps:** `COMPLETED_TASK_download_queue_schema_and_panel_2026-07-24.html`,
+  `process_state_2026-07-27.py`, `Manual_Updates_Needed_2026-07-13`.
+  ⚠ Do NOT drop `DOC_MAX_AGE_DAYS` 45→14 until resolved.
+  ✅ `osm_gpkg_subset_v2_2026-07-27.py` — located today in Downloads; still needs
+  filing into AllDocs.
+- **Security (07-27, open):** `151fffb79` removed from HEAD in `ddb48650b`.
+  MySQL `info.txt` not yet verified for credentials. Files absent from HEAD and
+  working tree. History scrub (filter-repo) = separate decision.
+
+---
+
+# 🔴 OPEN — MANUAL: full OSM walkthrough capture sweep
+
+Fred 07-28: *"we will need to capture the entire OSM process from websites through
+complete import before the final manual is completed."*
+
+⚠ **The 8 `PENDING-CAPTURE` markers in `grouptrack_manual_2.6e.html` cover only the built
+half** (C1 + C2 + CANCEL). A website-to-imported-trails walkthrough needs C3 and C4 screens
+that **do not exist yet**, so the sweep cannot complete until those are built. Do not attempt
+it piecemeal — a half-captured walkthrough is worse than none, because the gap is invisible
+to a reader following along.
+
+## Full capture list (~20 screens)
+
+**Off-device — the part currently missing entirely**
+1. Geofabrik site as it opens from OPEN GEOFABRIK
+2. Geofabrik region/state page — *which* link to take (`.gpkg.zip`, not `.osm.pbf` or `.shp.zip`)
+3. Browser download in progress, and completed
+
+**C1 ACQUIRE — built, markers in place**
+4. OSM panel, generic — `IMPORT OSM TRAIL DATA`, gate button under row 1
+5. "No Geofabrik extract found" dialog (tapping the gate too early)
+6. Panel after adoption — `OSM TRAIL DATA - UTAH`, row 1 ticked, gate gone, row 2 green
+
+**C2 REDUCE — built, markers in place**
+7. Extract running — four per-type rows, one mid-progress with % and time left
+8. Extract complete — row 2 ticked, rows 3–4 armed
+
+**C3 IMPORT — ⛔ NOT BUILT, cannot capture yet**
+9. Row 3 choice dialog — WHOLE STATE / SELECT AREA
+10. Whole-state confirm showing the trail count
+11. Panel closed → planning map with **Import OSM** checked in SELECT TILES / ARTIFACTS
+12. Area drawn — bbox display reading `OSM: 8,412 trails in area`
+13. Panel relaunched, import running with progress
+14. Import complete — row 3 ticked, row 4 armed
+15. ⭐ **OSM trails rendered on the planning map** — the payoff shot, and the one that proves
+    the whole chain to a reader
+
+**C4 CLEANUP — ⛔ NOT BUILT**
+16. Row 4 summary showing the run totals
+17. Cleanup confirm
+18. Panel returned to the start
+
+**Recaptures**
+19. ⚠ **Work with Artifacts panel** — the existing image predates 2.6e and shows TWO buttons
+    where the caption now says three. Already marked. **Must not ship as-is** — a tester reads
+    three, sees two, files a false bug.
+20. CANCEL confirm dialog (marker in place)
+
+## Capture standards
+720px wide WebP · ~110KB ceiling at q60 (satellite-heavy frames will not hit 80KB without
+becoming unreadable — legibility wins) · invisible `PENDING-CAPTURE` HTML comments, **never
+visible banners**.
+
+⚠ After every structural manual edit, verify: `<details>`/`<summary>` open-close balance ·
+image count · file still ends `</html>`. Current baseline: **115/115, 72 images**.
+
+⚠ This sweep folds into the **end-of-V2.6 manual pass**, alongside the install/quick-start
+section and the existing 18-screen sweep — one pass, not two.
+
+---
+
+# ⛔ FROZEN / DO NOT TOUCH
+
+- **Convoy map** — frozen 07-12. The freeze is about a **LAYER, not a FILE**:
+  the Kotlin↔JS↔Leaflet↔self-saving-`setView`↔`MapStateStore` tangle.
+- ⚠ **`spatial_artifacts.js` is an ORPHAN.** Discovered 07-28: the file exists in
+  assets, **nothing loads it**, and both `convoy_map.html` (9 `trailLayer` refs)
+  and `grouptrack_map.html` (15) carry **inlined divergent copies**. The V2.7 plan
+  names this file as the thing it rewrites — so 2.7 would start from stale code.
+  **Decide: delete it, or keep it updated as canonical.** Current state is the
+  only unacceptable one. **Do not unify the copies now** — that work gets deleted
+  by the MapLibre swap.
 
 
 === GroupTrack_MANUAL_and_RELEASENOTES_revision_instructions_2026-06-19.md ===
@@ -34918,6 +35992,229 @@ Dispatch at the boundary, not inside shared logic. Type-selects-worker meant cor
 Delete the replaced path in the same commit. This codebase has already been misled twice by dead functions that outlived their replacements.
 A matching symptom is not a matching cause. Patch I failed because the previous bug's fix was scope-illegal in the new container.
 Measure one variable at a time. The corridor number and the z-cap number must not be taken together, or neither is attributable.
+
+
+=== COMPLETED_TASK_osm_import_c1_c2_2026-07-28.html ===
+OSM Trail Import — C1 ACQUIRE + C2 REDUCE
+  body { background:#0d1117; color:#c9d1d9; font-family:-apple-system,Segoe UI,Roboto,sans-serif;
+         line-height:1.6; max-width:1000px; margin:0 auto; padding:24px; }
+  h1 { color:#3fb950; border-bottom:2px solid #3fb950; padding-bottom:8px; }
+  h2 { color:#58a6ff; margin-top:32px; border-bottom:1px solid #30363d; padding-bottom:4px; }
+  h3 { color:#d29922; margin-top:24px; }
+  .item { background:#161b22; border:1px solid #30363d; border-left:3px solid #3fb950;
+          border-radius:6px; padding:12px 16px; margin:12px 0; }
+  .warn { border-left-color:#d29922; }
+  .bad  { border-left-color:#f85149; }
+  .key  { border-left-color:#a371f7; }
+  code { background:#161b22; padding:2px 6px; border-radius:3px; color:#79c0ff;
+         font-family:ui-monospace,Consolas,monospace; font-size:0.9em; }
+  pre { background:#161b22; border:1px solid #30363d; border-radius:6px; padding:12px;
+        overflow-x:auto; font-size:0.85em; }
+  table { border-collapse:collapse; width:100%; margin:12px 0; font-size:0.92em; }
+  th,td { border:1px solid #30363d; padding:6px 10px; text-align:left; }
+  th { background:#161b22; color:#58a6ff; }
+  .meta { color:#8b949e; font-size:0.9em; }
+OSM Trail Import — C1 ACQUIRE + C2 REDUCE
+  Completed 2026-07-28 · commit 3fd526517 ·
+  branch feature/convoy-event-ride · release 2.6e ·
+  11 files changed, 2,912 insertions
+Permanent per-task record. Full design and fix detail retained so the feature can be
+reviewed or changed later without reconstructing the reasoning.
+What the feature does
+The user downloads a Geofabrik state extract in their browser. The app detects it,
+adopts it, reduces it to a small local database, and stages it for import. GroupTrack
+never obtains, hosts, or distributes OSM-derived data — which is what keeps ODbL
+share-alike off Fred entirely rather than merely mitigated.
+Working directory
+/sdcard/Documents/GroupTrack/osm/&lt;slug&gt;/
+    ledger.json                       created C1, renamed away at C4
+    &lt;slug&gt;-latest-free.gpkg.zip       RECOVERY POINT 1
+    &lt;slug&gt;.gpkg                       transient, exists only inside C2
+    ready_for_import.db               RECOVERY POINT 2
+Architecture rules (durable)
+RuleStatement
+R1Stage is DERIVED FROM DISK, never stored. No status field anywhere.
+R2Only the zip and the skinny are recovery points. The .gpkg never is.
+R3Existence means COMPLETE — .part + atomic rename.
+R5Derivation happens at MOMENTS: panel open, job done, return from background.
+R7On ACQUIRE entry, sweep debris only. Never blind-delete the directory.
+R1's unplanned payoff. Because stage derives from disk, the panel can be
+destroyed and recreated and lands in exactly the same place. That rule was written for
+crash recovery — it is what makes C3's area-selection handoff possible with no state
+flag at all: row 3 closes the panel, the map's bbox submission relaunches it, and
+nothing needs preserving across the gap.
+C1 ACQUIRE
+MediaStore query, not a filesystem scan — browser-agnostic and
+    location-independent. findCandidates() queries
+    MediaStore.Downloads.
+adoptCandidate() copies via ContentResolver.openInputStream
+    → .part → atomic rename. Not renameTo —
+    content:// plus cross-volume.
+probeDownloads() returns a sealed AcquireProbe:
+    NotFound / BadFile / Found / Several.
+    Deliberately no StillDownloading — Android browsers are indistinguishable
+    from "not done yet".
+FIELD FIX — dated filenames. Geofabrik serves the same product under two
+spellings: utah-latest-free.gpkg.zip and
+arizona-260728-free.gpkg.zip. The probe demanded "latest" and reported
+"extract not found" for a 610 MB file sitting in Downloads. Now accepts either.
+Slug derivation strips the trailing -latest or a trailing 6–8 digit
+date. Not "text before the first hyphen" — that would reduce
+north-carolina-260728 to north, and nobody would notice until a
+two-word state.
+C2 REDUCE
+The catalog — what gets extracted is data, not code
+assets/osm_layers.json declares each layer's source table, target table,
+columns, and optional filter. Fred: "a json to control items placed in skinny import
+file … so we edit json rather than recompile code."
+An asset alone would not have delivered that — assets are baked into the
+APK, so editing one still means a rebuild. The catalog is therefore read from an
+on-disk override at
+/sdcard/Documents/GroupTrack/config/osm_layers.json if present, falling back
+to the asset. Public directory on purpose: run-as is blocked on release
+builds, so app-private storage is not reachable by adb push.
+A broken override falls back and logs rather than bricking the feature.
+The failure mode of a hand-edited config is a typo, and a typo should cost you your
+customization — not the import.
+Shipped state: trails, places, natural enabled;
+pois present but disabled. Flipping one boolean and pushing an override is how
+you find out whether 48k POIs help or clutter — without a rebuild and without another
+610 MB unzip.
+The decoder
+Ported from osm_gpkg_subset_v2_2026-07-27.py, itself written because v1
+would have lied: it emitted WKT as "lon lat, lon lat" at fixed
+precision while the app writes comma-with-no-space and shortest-round-trip
+Double.toString(). Every feature would have reported as new.
+THE SIGNED-BYTE TRAP. Python's blob[3] is unsigned 0–255;
+Kotlin's Byte is signed. A direct transcription of
+(blob[3] &gt;&gt; 1) &amp; 0x07 sign-extends and returns the wrong envelope
+size — which starts the WKB read at the wrong offset and yields plausible garbage
+coordinates, not an exception. Every byte read masks 0xFF first.
+⚠ Correction made during the work: the GPKG flags byte uses only bits 0–5,
+so it never exceeds 0x3F and cannot sign-extend on valid input. The mask
+there is defensive. The mask that is genuinely load-bearing is in
+geomHash, where SHA-256 digest bytes are uniformly distributed and roughly
+half exceed 0x80.
+One thing got simpler in Kotlin. The Python contorted itself to imitate
+Double.toString() and carried a warning about exponent notation near the prime
+meridian. In Kotlin we are the authority — whatever Double.toString()
+emits is by definition what the app emits. The edge case does not get handled; it stops
+existing.
+Point layers run first — the decoder self-test
+After the GPKG header a point is two doubles: almost nothing to get wrong in the body.
+So a bad envelope offset shows up against a town you recognise in seconds, rather than
+silently poisoning 89,536 linestrings where it is invisible. Any point outside the layer's
+own declared extent aborts the run before trails are written.
+Validated on the PC first: Phoenix decoded 0.05 km from its known
+position, 1,581 of 1,581 Arizona places inside the declared extent.
+Progress model
+Fred: "a simple counter per type, what % of that type has processed, check box when
+type is completed" and "time is preferred just relative to each type being
+transferred."
+No blended bar, no whole-job ETA. Unzip moves BYTES; passes move ROWS; per-row cost differs
+by orders of magnitude between a 1,581-row places pass and a 134,242-row trails pass. Each
+type owns its denominator, and the rate window never crosses a type boundary
+— carrying a rate across one is exactly how the shipped download ETA came out ~50× long.
+⚠ Two bugs found by using it, and their real causes
+1. PRAGMA journal_mode=OFF returns a row. SQLite reports back
+the mode it settled on, making the statement a QUERY — and Android's execSQL
+rejects anything returning data. The Python does the identical thing legally, because
+sqlite3.execute does not care. The transcription was faithful; the
+assumption that both APIs tolerate the same statement was not.
+2. Progress rows never ticked — and the throttle was NOT the cause.
+My first diagnosis blamed the 30-second publish interval. Fred's observation — "unzip
+logged progress, only trails did not" — ruled that out, since a throttle would hit
+both equally.
+Real cause: WorkManager DISCARDS progress Data on a terminal state.
+getProgress() is empty once a worker finishes, so the worker's final forced
+publish is real but unreadable. Earlier layers escaped because a LATER pass
+published while still RUNNING and carried their completed state along. Nothing follows
+trails. Fixed in the panel: a SUCCEEDED state means every layer completed, by definition.
+The 30-second tick was a contributing error — sized against my estimate of 8–20 minutes per
+pass when reality was 40 seconds end to end.
+⭐ The storage move
+The working directory was originally in getExternalFilesDir(). On a release
+build that is unreachable by anything: run-as blocked by
+signing, adb blocked by Android 11+, no file manager can browse
+Android/data.
+Two consequences: an extract could not be inspected without writing an export feature to
+work around a directory choice; and a user who downloaded the wrong state had no way to
+delete a 610 MB file from inside the app or outside it — the only exit being Settings →
+Clear Storage, which also silently revokes All Files Access, breaking the
+feature they were escaping from.
+Moved to Documents/GroupTrack/osm/ with one-shot migration on first path
+resolution. The planning state file already lived in Documents/GroupTrack/state
+for exactly this reason — the decision was on record and had not been applied here.
+⚠ Files now survive uninstall and are not cleared by Clear Storage. Right for a 610 MB
+extract, but it makes CANCEL the only cleanup path.
+CANCEL — every stage needs a way out
+Fred, on being unable to remove a wrong download: "that is not really handy because
+we cannot get rid of it now."
+CLEANUP existed but was armed only at IMPORT, so at EXTRACT it was greyed out — the one
+control that would have helped was disabled precisely when needed.
+The general lesson, worth more than the button: the pipeline was designed as a
+forward path, and the only reverse gear was parked at the end of it.
+CANCEL sits at the bottom of the panel rather than beside EXTRACT — bottom placement
+removes the misfire risk instead of mitigating it, and needs no
+RowSpec or StageRow change. It also closed a gap neither of us had
+named: there was no way to stop a running extract. The worker already
+checked isStopped; nothing called cancelUniqueWork.
+⭐ Verification — the evidence C2 is correct
+Device-built skinny compared against one built by the validated Python:
+device rows whose geom_hash exists in the reference: 89,448 of 89,536 (99.902%)
+shared osm_id, disagreeing hash: 58
+  GEOMETRY CHANGED : 58     real OSM edits between the two extracts
+  FORMAT DIFFERS   :  0     would have been a port bug
+Several of the 58 have identical point counts but different coordinates — exactly
+what a mapper nudging a trail looks like. Had the WKT contract diverged, all 89,536 would
+have mismatched, not 58. This proves the envelope offset AND the WKT contract byte for byte,
+which is what makes geom_hash dedup trustworthy.
+Measured performance
+MetricValue
+C2 on device, end to end~40 s (unzip 14 s, trails 23 s, natural 1.2 s)
+Utah skinny108 MB · 89,536 trails · 3,674 places · 4,048 natural
+Arizonazip 610 MB → gpkg 1,214 MB (2.09×) · 134,242 trails
+Free-space gateuncompressed + 25%; Utah needed 788 MB
+My device estimate was wrong by ~20× (predicted 8–20 min, actual 40 s) —
+and that error is what sized the progress tick, which is why nothing rendered.
+Per-state variance is large: Utah 89,536 vs Arizona 134,242, 50% apart
+between neighbouring states. Size gates and ETAs must be derived per state, never scaled
+from one sample.
+Decisions and rejected alternatives
+DecisionRejected alternative, and why
+User downloads via browser; app detectsIn-app download — GroupTrack would touch Geofabrik traffic; licensing cleaner this way, and the browser handles resume/background
+Overlay panel inside MVS, no RouteA nav route — would have forced a core-module edit and two-ConvoyNavigation ambiguity
+Skinny is ready_for_import.db for every statePer-state filename — only one state is ever in flight, and the old name said "osm_trails" while the file also holds places and natural
+carto_code BLANKA synthetic code — OSM has no carto classification; blank renders cyan "Unspecified" and touches none of the three hand-synchronised colour files
+osm_id → source_unique_id—
+Table name resolved from gpkg_contentsHardcoding — Geofabrik's GPKG drops the _1 suffix its shapefile spec documents; a wrong name gives a silent empty table
+MULTILINESTRING stops at a degenerate partSkip-and-continue (what the Python does) — without the part's length there is no way to resynchronise, and continuing would decode from a wrong offset
+⛔ Lesson: verify identity before diagnosing behaviour
+Hours were lost to adb commands pointed at
+com.geeksville.mesh — the Kotlin package. The installed application id
+is com.grouptrack.android, renamed for Play. Source package and application id
+are independent.
+Every dead end traced to that one error: empty ls, an rm -rf that
+deleted nothing, a false "Arizona is gone" reading, and three invented theories (Android 11
+restrictions, secondary volume, MediaStore ghosts).
+pm list packages | grep -i geeksville returns nothing and would have ended it in
+the first minute.
+When several unrelated commands all return "not found", suspect the path, not the
+platform.
+Files
+NEW   assets/osm_layers.json
+NEW   convoy/OsmImportStage.kt        paths, probe, adopt, stage derivation, CANCEL
+NEW   convoy/OsmImportLedger.kt       per-state JSON record
+NEW   convoy/OsmImportPanel.kt        four-row panel
+NEW   convoy/OsmLayerCatalog.kt       catalog + on-disk override
+NEW   convoy/OsmGpkgDecoder.kt        GPKG binary -> WKT / point
+NEW   convoy/OsmExtractWorker.kt      C2 worker
+NEW   convoy/OsmExtractProgress.kt    per-type progress model
+MOD   convoy/ConvoyArtifactsPanel.kt  IMPORT OSM DATA button (planner only)
+MOD   convoy/ConvoyMapViewerScreen.kt panel overlay
+MOD   assets/trail_sources.json       Overpass entry removed from the catalog
+C3 IMPORT and C4 CLEANUP remain stubs at this commit. Their design is
+recorded in the 2026-07-28 Living Master.
 
 
 === ConvoyTracker_Implementation_Schedule.html ===
@@ -61891,6 +63188,565 @@ function flt(){
 }
 
 
+=== grouptrack_manual_2.6e.html ===
+GroupTrack V2.6e Manual
+:root{--bg:#10130f;--panel:#181c15;--ink:#e8ece2;--dim:#9aa68c;--line:#2b3324;--accent:#7bb661;--accent2:#d9a441;--warn:#e0563b;--ui:-apple-system,"Segoe UI",Roboto,sans-serif;--body:Georgia,serif;}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 var(--body)}
+header{position:sticky;top:0;background:#10130fe8;border-bottom:1px solid var(--line);padding:12px 16px;z-index:9;backdrop-filter:blur(6px)}
+.ttl{font:700 17px var(--ui)}.ttl b{color:var(--accent)}.sub{font:12px var(--ui);color:var(--dim);margin-top:2px}
+#q{width:100%;margin-top:8px;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:#0c0f0a;color:var(--ink);font:14px var(--ui)}
+main{padding:14px 16px 60px;max-width:860px;margin:0 auto}
+.intro{color:var(--dim);font-style:italic;margin:2px 0 14px}
+details>summary{list-style:none;cursor:pointer}details>summary::-webkit-details-marker{display:none}
+details>summary:before{content:"\25B8";display:inline-block;transition:transform .15s;margin-right:8px}
+details[open]>summary:before{transform:rotate(90deg)}
+/* L1 map */
+details.map{border:1px solid var(--line);border-radius:10px;margin:14px 0;background:#12150f}
+details.map>summary{padding:14px 16px;font:700 20px var(--ui);color:var(--accent)}
+details.map[open]>summary{border-bottom:1px solid var(--line)}
+.mapbody{padding:8px 12px 12px}
+.maprefimg{width:100%;border:1px solid var(--line);border-radius:8px;margin:4px 0 6px;display:block}
+.mapref{font:12px var(--ui);color:var(--dim);font-style:italic;margin:0 0 10px}
+/* L2 launch point */
+details.lp{border:1px solid var(--line);border-left:3px solid var(--accent2);border-radius:8px;margin:8px 0;background:var(--panel)}
+details.lp>summary{padding:11px 13px;font:700 15px var(--ui);color:var(--accent2)}
+.lpbody{padding:4px 12px 8px;border-top:1px solid var(--line)}
+/* L3 sub-flow */
+details.sf{border:1px solid var(--line);border-radius:7px;margin:8px 0;background:#141710}
+details.sf>summary{padding:9px 12px;font:700 13.5px var(--ui);color:var(--accent);display:flex;align-items:center}
+.sftitle{}.cnt{margin-left:auto;font:11px var(--ui);color:var(--dim);border:1px solid var(--line);border-radius:10px;padding:1px 8px}
+.sfbody{padding:2px 10px 6px;border-top:1px solid var(--line)}
+/* L4 screen */
+details.screen{border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:7px;margin:7px 0;background:#141710}
+details.screen>summary{padding:9px 12px;font:700 14px var(--ui);color:var(--accent2)}
+.scrbody{padding:2px 13px 10px;border-top:1px solid var(--line)}
+.scrbody .crumb{font:12px var(--ui);color:var(--dim);margin:6px 0 8px}.scrbody .crumb b{color:var(--ink)}
+.scrbody p{margin:6px 0}
+.scrbody img{width:100%;max-width:520px;border:1px solid var(--line);border-radius:6px;margin:8px 0;display:block}
+.opts{margin:6px 0;padding-left:0;list-style:none}
+.opts li{padding:3px 0 3px 18px;position:relative}
+.opts li:before{content:"\25B8";color:var(--accent);position:absolute;left:0}
+ol.opts{counter-reset:o}ol.opts li:before{content:counter(o)".";counter-increment:o;color:var(--accent2)}
+code{background:#0c0f0a;padding:1px 5px;border-radius:3px;font-size:13px}
+.nohit{display:none !important}
+GroupTrack V2.6e User Manual
+Drill-down edition · device screenshots · 2026-06-23
+Organized the way you navigate the app. Open a map to see its launch points; open a launch point to see its options; drill into an option to reach a single screen. Opening one branch collapses the others, so you always see just where you are.
+Convoy MapEvery lettered control on the Convoy map toolbar. Open a launch point below to drill into it.
+A — GroupTrack → Radio SetupGroupTrack menu
+Convoy Map › GroupTrack icon (Meshtastic left sidebar)
+Tap the GroupTrack icon in the Meshtastic left-hand sidebar (the last icon) to open the GroupTrack menu — a slide-up panel. This is the entry to radio setup, the prerequisite for using GroupTrack with your Meshtastic radios.
+The menu has two sections:
+Event / Ride — the ride and radio options (expand to see them). covered below
+Map Settings — an older submenu of map instructions, now built into the map panel itself. no longer used
+Tap Event / Ride to expand it (next screen).
+Setup Radio5 screensEvent / Ride menu
+Convoy Map › GroupTrack › Event / Ride
+Expanding Event / Ride reveals five options. In V2.5 only the two radio functions are used — ride creation and sharing are moving to the Release 3.0 cloud app.
+Create a Ride coming in 3.0
+Transfer Event/Ride Details via Email — “select a ride and send via email attachment” coming in 3.0
+Import Ride from Downloads — “scan Downloads for .convoy files and import” coming in 3.0
+Apply Ride Info to Radio — “apply master config or ride to connected radio.” used — see below
+Restore Prior Config Post Ride — “select and restore from saved archive.” used — see below
+Tap Apply Ride Info to Radio to begin applying config to a connected radio (next screen).
+Apply Radio Config
+Convoy Map › GroupTrack › Event / Ride › Apply Ride Info to Radio
+This screen applies a configuration to the connected radio so it reports each cart’s location to the Convoy map. The bar at the top shows the connection state — here ● CONNECTED, with the radio model (tracker-t1000-e) and firmware version. A radio must be connected before a config can be applied.
+Apply Master Config — applies your saved master template to the connected radio. This is the function used in V2.5 to set a radio up for a ride. used
+Apply Ride — applies a specific ride’s config. coming in 3.0
+Review Changes → — shows what will change on the radio before you commit.
+Tap Apply Master Config, then Review Changes to proceed (next screen).
+Review — Changes to be Applied
+Convoy Map › GroupTrack › Event / Ride › Apply Ride Info to Radio › Apply Master Config › Review
+The review panel shows exactly what will be written to the radio before you commit. At the top, Long Name lets you set a name for the radio (here “Mike McKinney”) — edit it if you want this radio to carry a specific rider/cart name. Below, the New Channel (here Convoy, AES-256 encrypted) is the channel the radio will join.
+The change table (Field · Current · New Value · Rule) is grouped into accordions you can expand to inspect each setting and see where its value is derived from:
+LoRa — radio/region + modem settings
+Channel — channel name, key, encryption
+Device — device role and behavior
+Position — GPS / position reporting
+Display — on-radio display settings
+Modules — module settings (telemetry, etc.)
+Scrolling to the bottom of the panel shows the full accordion list and the action bar:
+The action bar has two buttons: Cancel (red) backs out without changing the radio, and Proceed to Update (green) writes the config. Tap Proceed to Update to apply (next screen).
+Reconnect Check
+Convoy Map › GroupTrack › Event / Ride › Apply Ride Info to Radio › Apply Master Config › Review › Proceed to Update
+After you proceed, the config is written and the radio reboots. This screen runs a 60-second countdown while the update is applied and the radio reconnects — the radio reboots, Bluetooth auto-disconnects, then auto-reconnects (shown in the log: “waiting for binary install reboot,” “auto BT disconnect,” “auto BT reconnect”). Let it run; Cancel stops the wait if needed.
+When the countdown finishes, an update-apply recap is shown summarizing what was applied. Check the recap: if any settings did not apply correctly, simply reapply the update (return to Apply Master Config and proceed again).
+Verify Config (apply recap)
+Convoy Map › GroupTrack › Event / Ride › Apply Ride Info to Radio › … › Reconnect Check › Verify
+After the reconnect, the app reads the radio back and compares every field against what it tried to write — only errors are shown. The header reports the result, e.g. “5 of 40 fields failed.” A group summary at the bottom shows pass/fail per category (Device, LoRa, Channel, Position, Display, Module).
+In this example all five failures are in the Position group (Position 1/6) — the table lists each failed field with its Expected vs Actual value (e.g. Broadcast Interval expected 5, actual 0).
+If any fields failed, reapply the update — go back to Apply Master Config and proceed again. Radios sometimes need a second pass for a group (often Position) to take. Re-verify until the recap shows all fields passed.
+Restore Radio3 screensArchive Restore
+Convoy Map › GroupTrack › Event / Ride › Restore Prior Config Post Ride
+A key GroupTrack safety feature: before it writes any configuration to a radio, it first saves that radio’s current config to a timestamped archive. Nothing you apply is ever destructive — the prior state is always recoverable. This screen lists the saved archives for the connected radio so you can restore any of them at any time.
+The header shows the radio node and how many archives were found. Each entry is a saved config with its date and time and filename — note the pre_master suffix here, which is the config that was auto-saved just before the master config was applied. The size (e.g. 391b) is shown at right.
+Tap an archive to restore it to the radio. Restore writes the saved config back and runs the same reconnect + verify sequence as Apply, so the radio reboots, reconnects, and the result is verified.
+Restore — confirm (gated)
+Convoy Map › GroupTrack › Event / Ride › Restore Prior Config Post Ride › select archive
+Selecting an archive highlights it (blue, with a check) and reveals a confirmation gate before anything is written. The warning makes the consequences explicit:
+⚠ Restore will overwrite current radio config — the selected archive replaces whatever is on the radio now.
+Selected: the archive’s date/time, so you confirm you picked the right one.
+Radio will reboot after restore.
+Tap ↻ Restore This Archive to proceed. The radio then reboots, reconnects, and the result is verified — the same reconnect + verify sequence shown for Apply (above).
+Restore — write &amp; reconnect
+Convoy Map › GroupTrack › Event / Ride › Restore Prior Config Post Ride › Restore This Archive
+After you confirm, Restore writes the archived config to the radio and runs the same write · reconnect · verify process documented under Apply (the 60-second Reconnect Check, then the Verify recap). When the recap shows all fields passed, the radio is back on the chosen prior configuration.
+✓ This completes Convoy launch point A — GroupTrack / Radio Setup.
+B — REC (record ride track)Recording in progress
+Convoy Map › REC
+The REC button starts track recording for the ride. It works two ways depending on your setup: with no radios it records a track for just this cart (this device’s GPS path); with radio-equipped carts it activates group tracking for the whole convoy. Either way it creates and saves a track for the ride.
+Tap REC and recording begins immediately — no prompt. The button changes to ❚❚ PAUSE, and a live Distance readout appears at the bottom-right and counts up as you move.
+Tap Pause to interrupt recording (next screen).
+Pause3 screensPaused — End or continue
+Convoy Map › REC › Pause
+When you pause, recording holds and an End button appears below the Pause button. From here you choose:
+Pause (top) — hold here; the button changes to Resume so you can continue when ready (see below).
+End (below) — finish the recording and save the track.
+Tap End to finish — you’ll be prompted to name the track (Save Track, below). Or, to continue the ride, the button shows Resume.
+Resume
+Convoy Map › REC › Pause › (continue)
+If you don’t end, the recording stays paused and the button shows ▶ RESUME. Tap it to continue recording the same track from where you left off — the Distance readout picks back up. This lets you pause during stops and resume without starting a new track.
+Save Track (name prompt)
+Convoy Map › REC › Pause › End
+Tapping End stops recording and opens the Save Track prompt. Type a Track name and tap Save to store the recorded track under that name. Skip discards the track (it is not saved). After saving, the REC button returns to its idle state.
+The saved track becomes an artifact you can view, select, and export later from Work with Artifacts and from search.
+C — Zoom (+/−)Zoom
+Convoy Map › Zoom (+/−)
+The + and − buttons at the top-left zoom the map in and out. You can also pinch-to-zoom directly on the map. The current zoom level is shown in the header readout (e.g. N · Z13).
+D — PLAN (launch Planning Map)PLAN
+Convoy Map › PLAN
+The PLAN button switches from the Convoy (live) map to the Planning Map, where you search, download tiles, build routes, and manage artifacts. See Planning Map for everything you can do there. Use BACK on the Planning map to return to the Convoy map.
+E — GROUP (whole group + group HUD)GROUP display + HUD
+Convoy Map › GROUP
+GROUP shows the entire ride group on the map and displays the group heads-up display (HUD) at the bottom-left. It’s one of the bottom-bar view modes (GROUP · MY CART · SELECT CART · HIDE).
+The group HUD reports the whole convoy at a glance:
+Span — the distance from the lead cart to the tail cart (how spread out the group is).
+Carts — total carts in the group.
+Active — carts currently reporting.
+Lost — carts not heard from within the set time window. (The active threshold and the “lost” minutes are both set in setup.)
+△ Lead / ▽ Tail — the front and rear carts, with distance.
+CH% — mesh channel utilization. Radios broadcast position every 5 seconds; if CH% turns red the channel is too busy — slow the broadcast frequency (slide the broadcast interval up) to reduce congestion.
+F — MY CART (my cart + my HUD)MY CART display + HUD
+Convoy Map › MY CART
+MY CART centers the map on your own cart (the starred marker, labeled with your cart name) and shows your cart’s heads-up display — your telemetry plus where you sit within the convoy.
+The my-cart HUD shows:
+Cart name — your cart’s name (e.g. “Fred &amp; June”).
+Heading — your direction of travel.
+Battery — your device/radio battery level.
+Altitude — your elevation.
+Speed — your current speed.
+To Lead / To Tail — your distance to the lead cart and to the tail cart.
+Gap Ahead / Gap Behind — the gap to the cart immediately ahead of and behind you.
+G — SELECT CART (detail on selected cart)SELECT CART
+Convoy Map › SELECT CART
+SELECT CART opens a list of the carts in the group at the top of the screen. Tap the cart you want to view — the map centers on that cart and its heads-up display appears at the bottom-left. The cart currently being viewed is marked CURRENT in the list.
+The selected-cart HUD shows the same details as MY CART, but for the chosen cart: Heading, Battery, Altitude, Speed, To Lead / To Tail, and Gap Ahead / Gap Behind. This lets you check any cart in the convoy, not just your own.
+(pick a cart)1 screenSelected cart — detail &amp; actions
+Convoy Map › SELECT CART › (pick a cart)
+With a cart selected, its detail panel shows its live status and two action buttons. The detail fields include Status (Active), Spd (speed), Bat (battery), Pos # (its position/order in the convoy), Hdg (heading), Alt (altitude), and Seen (time since its last report).
+Set as Lead — designate this cart as the lead cart for the ride.
+Remove from Ride — remove this cart from the group. Use this when a cart is no longer part of the ride (breakdown, left early, etc.). Removing a cart stops “lost” messages for it and keeps the group span and stats accurate to the active riders only — so the GROUP view’s span no longer stretches out to a cart that has dropped off.
+H — HIDE (clear the HUD)HIDE
+Convoy Map › HIDE
+HIDE clears the heads-up display from the map for a clean, unobstructed view. The cart markers stay on the map and the Distance readout remains, but the detailed HUD block is removed. Tap any of the other modes (GROUP, MY CART, or SELECT CART) to bring the HUD back.
+I — Settings gear (Convoy Settings)Convoy Settings (panel 1)
+Convoy Map › Settings gear
+The gear opens Convoy Settings — a list of options that control the app’s behavior. This is where the thresholds referenced elsewhere in the manual are set.
+Map Sources → Change Map Sources — assign tile sources to the SAT / TOPO / TOPO+ slots. (This is the one setting that opens its own screen — see below.)
+Alert Thresholds → Signal Drop — minutes before the radio-disconnect warning fires (e.g. 2 min).
+Signal Lost — minutes without a packet before a node is considered lost (e.g. 10 min). This is the “lost” window reflected in the group HUD’s Lost count.
+Off Track — miles from the convoy track before the off-route alert fires (e.g. 0.5 mi).
+Node Filter — admission settings for which nodes join the group (continues on panel 2).
+(scroll down)1 screenConvoy Settings (panel 2)
+Convoy Map › Settings gear › (scroll down)
+Scrolling down reveals the rest of Convoy Settings:
+Node Filter → Admission Window — a node must have been heard within this window today to appear on the map (e.g. 1 hr).
+Track Display → Multicolor Track — when on, the track is colored by node position.
+Track Recording → Lead Cart Only — record the lead cart’s track only.
+Track Recording Format — KML / GPX — the saved track format (GPX works with Garmin, Strava, AllTrails).
+Removed Carts — lists carts you removed from the ride today (via SELECT CART → Remove from Ride); shows “No carts removed today” when none.
+The app version and build are shown at the bottom of this screen.
+Change Map Sources3 screensMap Sources (drill-down)
+Convoy Map › Settings gear › Change Map Sources
+This is the one Convoy Settings option that opens its own screen. Map Sources assigns a tile source to each of the three fixed map slots used by the SAT / TOPO / TOPO+ buttons on the map toolbar.
+SAT — the satellite slot (e.g. Esri Imagery + Roads + Labels).
+TOPO — the topo slot (e.g. Esri World Topo).
+TOPO+ — the detailed-topo slot (e.g. Esri USA Topo Maps).
+Each slot has a Change button to pick a different source.
+API Keys — some sources (e.g. Thunderforest Outdoors) require an API key; tap to enter the key to unlock them.
+Tap Change on a slot to pick a new source (next screen).
+Change source (picker)
+Convoy Map › Settings gear › Change Map Sources › Change
+Tapping Change opens a list of available tile sources, grouped by category. Tap a source to assign it to that slot; the currently-assigned source is checked.
+Hybrid — imagery with roads/labels (Google Hybrid, Esri Imagery + Roads + Labels, USGS Imagery + Topo).
+Satellite — plain imagery (Google Satellite, Esri World Imagery).
+Topographic — topo maps (Esri USA Topo, Esri World Topo, OpenTopoMap, USGS Topo).
+Street — road maps (Google Roads, OpenStreetMap, CartoDB Voyager).
+Terrain — terrain maps (Google Terrain, and more).
+Select a source and you return to the Map Sources screen with the slot updated (next screen).
+Refresh Tiles (after a source change)
+Convoy Map › Settings gear › Change Map Sources › Change › (select source)
+After you assign a new source to a slot, the app offers to refresh the cached map tiles from the new source. It reports how many existing tiles it found and explains that the refresh downloads them at low priority, with progress visible in Work with Queues, and that it restarts automatically if interrupted.
+Refresh Now — start re-downloading the tiles from the new source right away (low priority).
+Later — keep the new source assignment but don’t refresh the cached tiles now.
+✓ This completes Convoy launch point I — Settings (Convoy Settings → Map Sources → Change → Refresh).
+J / K / L — SAT, TOPO, TOPO+ (map source buttons)SAT · TOPO · TOPO+
+Convoy Map › SAT / TOPO / TOPO+
+These three toolbar buttons switch the displayed map source immediately. Each shows the source assigned to that slot in Convoy Settings → Map Sources (e.g. SAT = Esri Imagery, TOPO = Esri World Topo, TOPO+ = Esri USA Topo).
+They work in either NET or LOCAL mode (see the NET/Local toggle). In local mode they display from tiles downloaded in advance — so you can switch sources and ride with no connection, as long as those map tiles were downloaded ahead of time.
+M — NET / Local (network vs downloaded tiles)NET / Local toggle
+Convoy Map › NET / Local
+This toggle switches between NET (network) and Local map modes:
+NET — fetches map tiles live over the network (online).
+Local — displays only from maps you have downloaded prior to your ride. If you haven’t downloaded the area in advance, local mode will have no maps to show — so download your ride area ahead of time to use it offline.
+N — QUEUES (download queues)Download Queues
+Convoy Map › QUEUES
+Queues opens the Download Queues panel — the download manager for map tiles. Tapping the downloads indicator opens the same panel. The list scrolls through the whole queue however many jobs are waiting.
+A three-line summary sits at the top:
+Downloading now — what is running and its tile count.
+In queue — how many jobs are waiting and the tiles they add up to, so a large queue no longer looks small.
+Time remaining — an estimate with a projected finish, worked out from how fast your own recent downloads actually completed. It appears once a couple of downloads have finished on this version. Long estimates are shown in days and hours; anything past eight hours is rounded to the hour, because a short sample cannot honestly promise minute accuracy.
+Segmented downloads: a large download area is automatically split into balanced segments — shown as 1/2, 2/2 and so on, each with its own tile count. The split keeps the segments close in size so the work is spread evenly, and each segment progresses independently. A download that stops partway can resume without restarting the segments that already finished.
+Entries are grouped by status:
+Active — downloads in progress, each showing tiles downloaded and percent, with an X to cancel that entry.
+Queued — downloads waiting to start (numbered #1, #2…), each with a timestamp and an X to remove it.
+Completed — finished downloads, each listing the source (SAT / TOPO / TOPO+) and tile count.
+Every row also shows what kind of job it is and where it sits in the running order, so the queue explains itself instead of looking arbitrary. Jobs run in this order unless you change it: tile deletions first, then trail corridors, then areas you drew, then map-source refreshes.
+Move a job to the front: each waiting job has a ▲ button that promotes it ahead of the others. Promotion applies to the row you tap — if a track queued three jobs, one per map source, promote each of the three. (▲ promotes; X cancels.)
+Filter the queue: the filter buttons split the list by job kind — all jobs, areas you drew, trail corridors, map-source refreshes, and deletions. The filter also controls Cancel and Clear, which act only on the jobs you can currently see. Filter to corridors, cancel, and your area downloads are left untouched.
+Cancel and Clear say what they will do. Each button names its scope and count — for example CANCEL CORRIDOR (54) when a filter is active, or CANCEL ALL (215) when none is — and always asks you to confirm first, repeating the same scope and count in the question. Nothing destructive happens on a single tap.
+Hold pauses the queue and Close dismisses the panel. Controls that have nothing to act on — Hold and Cancel with an empty queue — are not shown.
+O — Search (universal search)Universal Search
+Convoy Map › Search
+The magnifying glass opens Universal Search — one search across five modes, shown as tabs: Area · Track · Route · Trail · Waypoint. Pick a tab, type in the field (the prompt changes per mode), and press Enter. There are two kinds of search:
+Area — a place search. Type a place name (a town or a feature such as a park, e.g. “Bryce”) and the map repositions there. For common names, include the state to disambiguate — e.g. “Kanab, UT” — so it lands on the right place.
+Track / Route / Trail / Waypoint — artifact searches. These search your saved and imported artifacts by name. The search presents a list of matching hits; select one and its artifact detail panel opens. From the detail panel, use FIT to center the map on it.
+Example — Area search for “Panguitch, UT”: the map repositions to Panguitch and the trails and tracks for that area draw immediately.
+Example — artifact search: searching a name returns a list of matching hits (here two results for “Panguitch”), each with its name and ID.
+Selecting a hit opens that artifact’s detail panel:
+The detail panel shows the artifact’s name and type, an Aliases field, and a Details section — including the Carto Type band, its ID and bounding box, and an expandable technical section. Down the left is the action column: Rename, Delete, Share, Export, and FIT. Tap FIT to center and frame the map on that one artifact. Close dismisses the panel.
+After FIT the panel closes and the map zooms to frame that artifact — here the selected track centered and fit to the view:
+In short: Area moves the map to a place; the artifact modes find a saved item by name and open its details (then FIT centers the map on it).
+P — Work with ArtifactsWork with Artifacts panel
+Convoy Map › Work with Artifacts (hamburger)
+The hamburger opens the Work with Artifacts panel, which controls the four artifact types — Tracks, Trails, Waypoints, Routes — on the map. Important: all of these controls operate on the bounding box of the current display — i.e. the artifacts within the area you’re currently viewing, not the whole database.
+Each type row has three buttons (the highlighted one is the current state):
+OFF — hide that artifact type on the map.
+ALL — show all artifacts of that type within the current view.
+SEL/EDIT — opens a list of that type’s artifacts in the current view for per-artifact control: Select All, Deselect All, or check a custom combination to choose exactly which are shown. (OFF and ALL are in-panel toggles; only SEL/EDIT opens a screen.)
+SEL/EDIT1 screenSEL/EDIT list (per-artifact)
+Convoy Map › Work with Artifacts › SEL/EDIT
+Tapping SEL/EDIT on a type opens its list — here Trails (23), all the trails in the current view. Each has a checkbox, with Select All and Deselect All at the top, so you can show every one, hide every one, or pick a custom mix.
+You can also tap an artifact’s name in this list to open its detail info panel (the same panel shown under Search — name, type, Carto Type, IDs, with Rename / Delete / Share / Export / FIT). Tap FIT there to center that one artifact on screen.
+✓ This completes Convoy launch point P — Work with Artifacts.
+Q — ? (Help &amp; Info)Help &amp; Info
+Convoy Map › ?
+The ? button opens Help &amp; Info, with two choices:
+Full Manual — opens the complete user manual, bundled in the app (a screen-by-screen cookbook with its own search box and contents).
+Release Notes — opens the release notes for the current version.
+Full Manual:
+Release Notes — includes the important upgrade warning (install as an update, do not clean-install) and the “What’s new” list for the build:
+Map gestures — tap artifact &amp; long-pressTap an artifact → popup
+Convoy Map › tap an artifact
+Tapping an artifact on the map (a trail, track, etc.) opens a quick-info popup with its name and key properties. This is the fast look-up; for the full detail panel, select the artifact’s name in a search result or a SEL/EDIT list instead.
+The fields shown depend on the artifact type — each type (trail, track, route, waypoint) displays its own relevant data. A trail, for example, shows Type (e.g. “4 - Road-concurrent”), Surface, Uses, Motorized, Horse, and County; other types show their own fields. Tap the × to close the popup.
+Planning MapEvery lettered control on the Planning map toolbar. Open a launch point below to drill into it.
+A — BACK (to Convoy Map)BACK
+Planning Map › BACK
+The BACK button returns from the Planning Map to the Convoy Map (the live ride view). It is the reverse of the Convoy map’s PLAN button.
+B / C / D — SAT, TOPO, TOPO+ (map source buttons)SAT · TOPO · TOPO+
+Planning Map › SAT / TOPO / TOPO+
+These three buttons switch the tile source shown on the map; the change is immediate. Each uses the source assigned to that slot in Map Sources (the same Map Sources settings used by the Convoy map). Same behavior as the Convoy map’s SAT / TOPO / TOPO+ buttons.
+E — QUEUES (download queues)Download Queues
+Planning Map › QUEUES
+Queues opens the Download Queues panel — the download manager for map tiles. Tapping the downloads indicator opens the same panel. The list scrolls through the whole queue however many jobs are waiting.
+A three-line summary sits at the top:
+Downloading now — what is running and its tile count.
+In queue — how many jobs are waiting and the tiles they add up to, so a large queue no longer looks small.
+Time remaining — an estimate with a projected finish, worked out from how fast your own recent downloads actually completed. It appears once a couple of downloads have finished on this version. Long estimates are shown in days and hours; anything past eight hours is rounded to the hour, because a short sample cannot honestly promise minute accuracy.
+Segmented downloads: a large download area is automatically split into balanced segments — shown as 1/2, 2/2 and so on, each with its own tile count. The split keeps the segments close in size so the work is spread evenly, and each segment progresses independently. A download that stops partway can resume without restarting the segments that already finished.
+Entries are grouped by status:
+Active — downloads in progress, each showing tiles downloaded and percent, with an X to cancel that entry.
+Queued — downloads waiting to start (numbered #1, #2…), each with a timestamp and an X to remove it.
+Completed — finished downloads, each listing the source (SAT / TOPO / TOPO+) and tile count.
+Every row also shows what kind of job it is and where it sits in the running order, so the queue explains itself instead of looking arbitrary. Jobs run in this order unless you change it: tile deletions first, then trail corridors, then areas you drew, then map-source refreshes.
+Move a job to the front: each waiting job has a ▲ button that promotes it ahead of the others. Promotion applies to the row you tap — if a track queued three jobs, one per map source, promote each of the three. (▲ promotes; X cancels.)
+Filter the queue: the filter buttons split the list by job kind — all jobs, areas you drew, trail corridors, map-source refreshes, and deletions. The filter also controls Cancel and Clear, which act only on the jobs you can currently see. Filter to corridors, cancel, and your area downloads are left untouched.
+Cancel and Clear say what they will do. Each button names its scope and count — for example CANCEL CORRIDOR (54) when a filter is active, or CANCEL ALL (215) when none is — and always asks you to confirm first, repeating the same scope and count in the question. Nothing destructive happens on a single tap.
+Hold pauses the queue and Close dismisses the panel. Controls that have nothing to act on — Hold and Cancel with an empty queue — are not shown.
+F — Search (universal search)Universal Search
+Planning Map › Search
+The magnifying glass opens Universal Search — one search across five modes, shown as tabs: Area · Track · Route · Trail · Waypoint. Pick a tab, type in the field (the prompt changes per mode), and press Enter. There are two kinds of search:
+Area — a place search. Type a place name (a town or a feature such as a park, e.g. “Bryce”) and the map repositions there. For common names, include the state to disambiguate — e.g. “Kanab, UT” — so it lands on the right place.
+Track / Route / Trail / Waypoint — artifact searches. These search your saved and imported artifacts by name. The search presents a list of matching hits; select one and its artifact detail panel opens. From the detail panel, use FIT to center the map on it.
+Example — Area search for “Panguitch, UT”: the map repositions to Panguitch and the trails and tracks for that area draw immediately.
+Example — artifact search: searching a name returns a list of matching hits (here two results for “Panguitch”), each with its name and ID.
+Selecting a hit opens that artifact’s detail panel:
+The detail panel shows the artifact’s name and type, an Aliases field, and a Details section — including the Carto Type band, its ID and bounding box, and an expandable technical section. Down the left is the action column: Rename, Delete, Share, Export, and FIT. Tap FIT to center and frame the map on that one artifact. Close dismisses the panel.
+After FIT the panel closes and the map zooms to frame that artifact — here the selected track centered and fit to the view:
+In short: Area moves the map to a place; the artifact modes find a saved item by name and open its details (then FIT centers the map on it).
+G — Work with ArtifactsWork with Artifacts panel
+Planning Map › Work with Artifacts (hamburger)
+The hamburger opens the Work with Artifacts panel, which controls the four artifact types — Tracks, Trails, Waypoints, Routes — on the map. Important: all of these controls operate on the bounding box of the current display — i.e. the artifacts within the area you’re currently viewing, not the whole database.
+Each type row has three buttons (the highlighted one is the current state):
+OFF — hide that artifact type on the map.
+ALL — show all artifacts of that type within the current view.
+SEL/EDIT — opens a list of that type’s artifacts in the current view for per-artifact control: Select All, Deselect All, or check a custom combination to choose exactly which are shown. (OFF and ALL are in-panel toggles; only SEL/EDIT opens a screen.)
+A + Route button at the top starts building a new route.
+Planning-only: Import Trails &amp; Import Artifacts
+Planning Map › Work with Artifacts
+The Planning version of this panel is the same as the Convoy one, plus three import buttons at the bottom (IMPORT TRAILS, IMPORT ARTIFACTS and IMPORT OSM DATA):
+Import Trails — brings in trails data from external trail resources (the trail-source databases).
+Import Artifacts — imports artifacts from Gaia or onX files, so you can transfer your historical data (tracks, routes, waypoints) from those apps into GroupTrack.
+SEL/EDIT1 screenSEL/EDIT list (per-artifact)
+Planning Map › Work with Artifacts › SEL/EDIT
+Tapping SEL/EDIT on a type opens its list — here Trails (23), all the trails in the current view. Each has a checkbox, with Select All and Deselect All at the top, so you can show every one, hide every one, or pick a custom mix.
+You can also tap an artifact’s name in this list to open its detail info panel (the same panel shown under Search — name, type, Carto Type, IDs, with Rename / Delete / Share / Export / FIT). Tap FIT there to center that one artifact on screen.
++ Route4 screens+ Route — start a route
+Planning Map › Work with Artifacts › + Route
+Before you start: zoom into the area where you want to build the route. It helps to display Trails and Tracks (turn them on in Work with Artifacts) as a visual guide — the snap-to function works over both tracks and trails, so your route follows a known track or trail wherever one is available, keeping it on established paths.
+Tapping + Route opens the Start a route dialog:
+New Route — start building a new route straight away. You are not asked for a name here — the route is saved automatically as you build, and you name it when you tap Save.
+In Progress — resume an unfinished route you started earlier.
+The only difference is whether you start a fresh route or resume one already in progress. Choose New Route to begin building (next screen). Because every point is saved as you go, a route left unfinished can always be picked up again from In Progress.
+Building the route
+Planning Map › Work with Artifacts › + Route › New Route
+The Route panel opens for building. Tap the map to place points — the route draws as a pink line, and each new point adds length and snaps to a nearby trail/track when one is available, keeping the route on known paths.
+The panel controls:
+Method — Point (live; tap to place points). Draw and Suggest are marked “soon.”
+Build (n pts) — shows how many points the route has so far.
+Add ON — toggles point-adding on/off as you tap.
+Undo — removes the last point.
+Save — saves the finished route.
+Discard — abandons the route without saving.
+Keep tapping to extend the route; each point snaps to the underlying track/trail.
+Extending &amp; saving the route
+Planning Map › Work with Artifacts › + Route › (building)
+As you keep tapping, the route grows and the Build point count climbs (here 20 points). The pink route traces the chosen path, snapped to the underlying tracks/trails.
+When you tap Save, you can save the route as a work in progress (to resume and finish later via + Route → In Progress) or as a completed route.
+Save route
+Planning Map › Work with Artifacts › + Route › Save
+The Save route dialog offers two ways to save:
+Save as in progress — keep editing later; resume it via + Route → In Progress.
+Save as completed route — graduate it to a finished, saved route (then searchable and listed like any other artifact).
+✓ This completes Convoy launch point G — Work with Artifacts.
+Import Trails1 screenImport Trails → Select Source
+Planning Map › Work with Artifacts › Import Trails
+Import Trails opens a Select Source list of approved external trail sources. Each entry shows its type, scope, and trail count (e.g. UGRC Utah Trails, Arizona State Parks &amp; Trails, Colorado COTREX, BLM, USFS, USGS National Trails, NPS Public Trails). Sources you’ve already brought in are marked IMPORTED.
+Select a source and tap VALIDATE to import it. The import process runs and reports how many trails were processed and how many were added. (BACK returns without importing.)
+Import Artifacts1 screenImport Artifacts (from Gaia / onX GPX)
+Planning Map › Work with Artifacts › Import Artifacts
+Import Artifacts migrates your historical data from Gaia, onX, or similar apps into GroupTrack. The workflow:
+First (outside GroupTrack): in your current app, export/download the artifacts you want as GPX files, and move them into your device’s Downloads directory.
+Run Import Artifacts — GroupTrack scans Downloads and lists the GPX/KML files it finds.
+Check the file(s) you want (or Select All), then tap Select files to import.
+The import runs, bringing those artifacts into GroupTrack. On completion the GPX files are removed from Downloads.
+The screen header shows how many files were found; each entry lists its name, size, date, and format. A RESYNC TRACKS button is also here — the same one referenced in the upgrade notes for bringing recorded tracks back after an update.
+Import OSM Data5 screensImport OSM Data — the four steps
+Planning Map › Work with Artifacts › Import OSM Data
+Import OSM Data brings OpenStreetMap trail data onto your device. OpenStreetMap often covers ground the official government trail sources do not, and once the data is imported it works entirely offline.
+You prepare one state at a time. When it comes to importing, you choose either the whole state or an area you draw on the map &mdash; a corner of Arizona, a stretch of Nevada. You can come back and draw another area from the same download without fetching anything again, which is why the working files stay until you clean them up.
+The panel has four steps. Each one shows its own progress and ticks green when it finishes, so you always know where you are:
+DOWNLOAD — get the state file from Geofabrik in your browser.
+EXTRACT — GroupTrack builds a compact trail database from it.
+IMPORT TO SPATIAL — add the trails to your map: the whole state, or an area you draw.
+CLEANUP — remove the working files when you are done with that state.
+Steps 3 and 4 are not active in this build. The buttons appear but do not do anything yet. Anything you download and extract now is kept, and will be ready when they arrive.
+Step 1 — Download your state
+Planning Map › Work with Artifacts › Import OSM Data › Download
+Tap OPEN GEOFABRIK. Your browser opens the Geofabrik download site, which publishes free OpenStreetMap extracts. Choose your state and download the file ending in .gpkg.zip.
+The file is large — usually 300–600 MB — so use Wi-Fi. The download runs in your browser, so you can leave GroupTrack while it works.
+When it has finished, come back to GroupTrack and tap CLICK HERE WHEN DOWNLOAD HAS COMPLETED. GroupTrack finds the file in your Downloads, copies it into its own working folder, and removes the browser copy. Step 1 ticks green and the panel header changes to name your state.
+If it reports that no extract was found, the download has probably not finished yet. Wait and tap the button again.
+Step 2 — Extract the trail database
+Planning Map › Work with Artifacts › Import OSM Data › Extract
+Tap EXTRACT. GroupTrack unpacks the download and pulls out just the parts it needs, discarding everything else. This takes about a minute for most states.
+Four rows appear, and each one reports separately:
+Unzip — unpacking the downloaded file.
+Place names — towns, villages and localities.
+Peaks, springs, water — natural landmarks.
+Trails and tracks — the trail data itself.
+Each row shows its own percentage and its own estimate of time remaining, and ticks when it is done. The work continues if you lock the screen or switch apps.
+Space: unpacking needs roughly double the download size while it runs. GroupTrack checks before it starts and tells you if there is not enough room.
+Changing your mind — CANCEL
+Planning Map › Work with Artifacts › Import OSM Data › Cancel
+Downloaded the wrong state, or want to start again? CANCEL AND DELETE DOWNLOAD at the bottom of the panel stops whatever is running and removes the working files for that state. The panel returns to the beginning, ready for a fresh download.
+While an extract is running the button reads CANCEL EXTRACT instead, and stops it cleanly.
+You will be asked to confirm, because the download has to be repeated if you change your mind again.
+Where the files are kept
+Planning Map › Work with Artifacts › Import OSM Data
+GroupTrack keeps its OSM working files in Internal storage → Documents → GroupTrack → osm, where you can see and manage them with a file manager if you want to.
+GroupTrack needs All files access to find your browser downloads. If you ever use Settings → Clear storage, Android switches this permission off silently, and the import will report that it cannot find a download that is plainly there. Turn it back on under Settings → Apps → Special app access → All files access → GroupTrack.
+H — ? (Help &amp; Info)Help &amp; Info
+Planning Map › ?
+The ? button opens Help &amp; Info, with two choices:
+Full Manual — opens the complete user manual, bundled in the app (a screen-by-screen cookbook with its own search box and contents).
+Release Notes — opens the release notes for the current version.
+Full Manual:
+Release Notes — includes the important upgrade warning (install as an update, do not clean-install) and the “What’s new” list for the build:
+I — KEY (map legend)KEY / Legend
+Planning Map › KEY
+The KEY button (bottom-left) opens the map Legend popup, which explains the color of every line on the map. Tap the × to close it.
+OHV / Road — blue
+Hiking &amp; Biking — orange
+Hiking Only — yellow
+Biking Only — purple
+Paved / other — cyan
+Track — green
+Route — magenta
+Waypoint — green marker
+The legend is on the Planning map; the Convoy map does not show it.
+J — Downloads (tiles &amp; artifacts)Downloads panel
+Planning Map › Downloads (bottom-right)
+The Downloads button (bottom-right) opens the Downloads panel — where you set up and start downloads of map tiles and artifacts for offline use. This is different from Queues: Downloads is where you initiate a download (pick an area and what to grab); Queues shows the status/progress of downloads already running.
+Local toggle — switch the map to local (downloaded) tiles.
+Map Controls — download-related map options.
+Select Tiles / Artifacts — choose what to download (map tiles and/or artifacts).
+Draw Area — draw a region on the map to define the download extent.
+Show Downloads — see what has been downloaded.
+Refresh Downloads — re-fetch / update downloaded data.
+Map Controls1 screenDownloads → Map Controls
+Planning Map › Downloads › Map Controls
+Expanding Map Controls sets the two parameters that define a download’s extent and detail:
+Flyover (Mileage) — sets the range of the Area search: how far out from the center the map radius extends (e.g. 0.0 mi). A larger value covers a wider area around the search center.
+Zoom — the maximum zoom level that gets downloaded (e.g. Z18). Higher zoom = more detailed tiles (and more data).
+Select Tiles / Artifacts1 screenDownloads → Select Tiles / Artifacts
+Planning Map › Downloads › Select Tiles / Artifacts
+This section specifies the target of the download — what to act on for the drawn bounding box. Three functions are available now:
+Download Tiles — download map tiles for the drawn bounding box.
+Import Trails — download trail sources for the bounding box (all trails for that area, regardless of source).
+Remove Tiles — remove downloaded tiles from the system for the bounding box area.
+Waypoints, Tracks, and Routes are shown greyed out and tagged V2.6 — those download targets are coming in a later release.
+Draw Area2 screensDownloads → Draw Area
+Planning Map › Downloads › Draw Area
+Draw Area defines the bounding box that the download targets (Download Tiles / Import Trails / Remove Tiles) act on. Expand the Draw Area accordion, then tap Draw Area and use your finger to outline the region of the map you want to select.
+Draw Area — start drawing; trace the area on the map with your finger.
+Clear — remove the drawn area and start over.
+Downloads → drawing &amp; starting the download
+Planning Map › Downloads › Draw Area › (outline)
+The full flow: first check what you want to download (e.g. Download Tiles), then draw your box. The outline appears in orange. When you lift your finger, the panel shows the area’s coordinates and an estimate (e.g. “~1366 tiles · 20 MB”), and a Download Selected button appears.
+Press Download Selected and the download begins — you can watch its progress in Queues. Use the tile/size estimate to gauge how big the download will be before committing.
+Show Downloads1 screenDownloads → Show Downloads
+Planning Map › Downloads › Show Downloads
+Show Downloads overlays your tile coverage on the map as shaded areas, so you can see at a glance what you have offline:
+Downloaded maps area (blue) — areas already downloaded on the device.
+Maps in queue (red) — areas selected and waiting in the download queue.
+Each checkbox toggles its overlay on or off. This is a quick way to confirm your ride area is covered offline before you head out.
+K — Tap an artifact (popup)Tap an artifact → popup
+Planning Map › tap an artifact
+Tapping an artifact on the map opens a quick-info popup with its name and key properties. The fields shown depend on the artifact type — each type (trail, track, route, waypoint) displays its own relevant data. This is the fast look-up; for the full detail panel, select the artifact’s name in a search result or a SEL/EDIT list instead.
+A trail popup, for example, shows Type, Surface, Uses, Motorized, Horse, and County. Tap the × to close it. (Same behavior as the Convoy map.)
+L — GroupTrack → Radio SetupGroupTrack menu
+Planning Map › GroupTrack icon (Meshtastic left sidebar)
+Tap the GroupTrack icon in the Meshtastic left-hand sidebar (the last icon) to open the GroupTrack menu — a slide-up panel. This is the entry to radio setup, the prerequisite for using GroupTrack with your Meshtastic radios.
+The menu has two sections:
+Event / Ride — the ride and radio options (expand to see them). covered below
+Map Settings — an older submenu of map instructions, now built into the map panel itself. no longer used
+Tap Event / Ride to expand it (next screen).
+Setup Radio5 screensEvent / Ride menu
+Planning Map › GroupTrack › Event / Ride
+Expanding Event / Ride reveals five options. In V2.5 only the two radio functions are used — ride creation and sharing are moving to the Release 3.0 cloud app.
+Create a Ride coming in 3.0
+Transfer Event/Ride Details via Email — “select a ride and send via email attachment” coming in 3.0
+Import Ride from Downloads — “scan Downloads for .convoy files and import” coming in 3.0
+Apply Ride Info to Radio — “apply master config or ride to connected radio.” used — see below
+Restore Prior Config Post Ride — “select and restore from saved archive.” used — see below
+Tap Apply Ride Info to Radio to begin applying config to a connected radio (next screen).
+Apply Radio Config
+Planning Map › GroupTrack › Event / Ride › Apply Ride Info to Radio
+This screen applies a configuration to the connected radio so it reports each cart’s location to the Convoy map. The bar at the top shows the connection state — here ● CONNECTED, with the radio model (tracker-t1000-e) and firmware version. A radio must be connected before a config can be applied.
+Apply Master Config — applies your saved master template to the connected radio. This is the function used in V2.5 to set a radio up for a ride. used
+Apply Ride — applies a specific ride’s config. coming in 3.0
+Review Changes → — shows what will change on the radio before you commit.
+Tap Apply Master Config, then Review Changes to proceed (next screen).
+Review — Changes to be Applied
+Planning Map › GroupTrack › Event / Ride › Apply Ride Info to Radio › Apply Master Config › Review
+The review panel shows exactly what will be written to the radio before you commit. At the top, Long Name lets you set a name for the radio (here “Mike McKinney”) — edit it if you want this radio to carry a specific rider/cart name. Below, the New Channel (here Convoy, AES-256 encrypted) is the channel the radio will join.
+The change table (Field · Current · New Value · Rule) is grouped into accordions you can expand to inspect each setting and see where its value is derived from:
+LoRa — radio/region + modem settings
+Channel — channel name, key, encryption
+Device — device role and behavior
+Position — GPS / position reporting
+Display — on-radio display settings
+Modules — module settings (telemetry, etc.)
+Scrolling to the bottom of the panel shows the full accordion list and the action bar:
+The action bar has two buttons: Cancel (red) backs out without changing the radio, and Proceed to Update (green) writes the config. Tap Proceed to Update to apply (next screen).
+Reconnect Check
+Planning Map › GroupTrack › Event / Ride › Apply Ride Info to Radio › Apply Master Config › Review › Proceed to Update
+After you proceed, the config is written and the radio reboots. This screen runs a 60-second countdown while the update is applied and the radio reconnects — the radio reboots, Bluetooth auto-disconnects, then auto-reconnects (shown in the log: “waiting for binary install reboot,” “auto BT disconnect,” “auto BT reconnect”). Let it run; Cancel stops the wait if needed.
+When the countdown finishes, an update-apply recap is shown summarizing what was applied. Check the recap: if any settings did not apply correctly, simply reapply the update (return to Apply Master Config and proceed again).
+Verify Config (apply recap)
+Planning Map › GroupTrack › Event / Ride › Apply Ride Info to Radio › … › Reconnect Check › Verify
+After the reconnect, the app reads the radio back and compares every field against what it tried to write — only errors are shown. The header reports the result, e.g. “5 of 40 fields failed.” A group summary at the bottom shows pass/fail per category (Device, LoRa, Channel, Position, Display, Module).
+In this example all five failures are in the Position group (Position 1/6) — the table lists each failed field with its Expected vs Actual value (e.g. Broadcast Interval expected 5, actual 0).
+If any fields failed, reapply the update — go back to Apply Master Config and proceed again. Radios sometimes need a second pass for a group (often Position) to take. Re-verify until the recap shows all fields passed.
+Restore Radio3 screensArchive Restore
+Planning Map › GroupTrack › Event / Ride › Restore Prior Config Post Ride
+A key GroupTrack safety feature: before it writes any configuration to a radio, it first saves that radio’s current config to a timestamped archive. Nothing you apply is ever destructive — the prior state is always recoverable. This screen lists the saved archives for the connected radio so you can restore any of them at any time.
+The header shows the radio node and how many archives were found. Each entry is a saved config with its date and time and filename — note the pre_master suffix here, which is the config that was auto-saved just before the master config was applied. The size (e.g. 391b) is shown at right.
+Tap an archive to restore it to the radio. Restore writes the saved config back and runs the same reconnect + verify sequence as Apply, so the radio reboots, reconnects, and the result is verified.
+Restore — confirm (gated)
+Planning Map › GroupTrack › Event / Ride › Restore Prior Config Post Ride › select archive
+Selecting an archive highlights it (blue, with a check) and reveals a confirmation gate before anything is written. The warning makes the consequences explicit:
+⚠ Restore will overwrite current radio config — the selected archive replaces whatever is on the radio now.
+Selected: the archive’s date/time, so you confirm you picked the right one.
+Radio will reboot after restore.
+Tap ↻ Restore This Archive to proceed. The radio then reboots, reconnects, and the result is verified — the same reconnect + verify sequence shown for Apply (above).
+Restore — write &amp; reconnect
+Planning Map › GroupTrack › Event / Ride › Restore Prior Config Post Ride › Restore This Archive
+After you confirm, Restore writes the archived config to the radio and runs the same write · reconnect · verify process documented under Apply (the 60-second Reconnect Check, then the Verify recap). When the recap shows all fields passed, the radio is back on the chosen prior configuration.
+✓ This completes Planning launch point L — GroupTrack / Radio Setup.
+// Focus: opening one sibling section at the same level collapses the others.
+function wireSiblings(container, selector){
+  var items=container.querySelectorAll(selector);
+  items.forEach(function(it){
+    it.addEventListener('toggle',function(){
+      if(it.open){ items.forEach(function(o){ if(o!==it && o.parentNode===it.parentNode) o.open=false; }); }
+    });
+  });
+}
+document.querySelectorAll('details.map').forEach(function(mp){
+  wireSiblings(mp.querySelector(':scope > .mapbody'), ':scope > details.lp');
+});
+document.querySelectorAll('details.lp').forEach(function(lp){
+  var b=lp.querySelector(':scope > .lpbody'); if(b){ wireSiblings(b, ':scope > details.sf'); wireSiblings(b, ':scope > details.screen'); }
+});
+document.querySelectorAll('details.sf').forEach(function(sf){
+  var b=sf.querySelector(':scope > .sfbody'); if(b){ wireSiblings(b, ':scope > details.screen'); }
+});
+// Filter: match against data-search across all levels; reveal & open the path to hits.
+var Q=document.getElementById('q');
+function flt(){
+  var t=Q.value.trim().toLowerCase();
+  // reset
+  if(t===''){
+    document.querySelectorAll('details').forEach(function(d){
+      d.classList.remove('nohit');
+      d.open = d.classList.contains('map');   // only maps open at rest
+    });
+    return;
+  }
+  // hide everything first
+  document.querySelectorAll('details.lp, details.sf, details.screen').forEach(function(d){ d.classList.add('nohit'); d.open=false; });
+  // any details whose own text matches => show it and its ancestors+descendants
+  document.querySelectorAll('details.screen, details.sf, details.lp').forEach(function(d){
+    var hay=((d.getAttribute('data-search')||'')+' '+d.textContent).toLowerCase();
+    if(hay.indexOf(t)>=0){
+      d.classList.remove('nohit');
+      // open & reveal ancestors
+      var p=d.parentNode;
+      while(p && p!==document){
+        if(p.tagName && p.tagName.toLowerCase()==='details'){ p.classList.remove('nohit'); p.open=true; }
+        p=p.parentNode;
+      }
+      d.open=true;
+    }
+  });
+  document.querySelectorAll('details.map').forEach(function(mp){ mp.open=true; });
+}
+
+
 === grouptrack_manual_2026-07-09.html ===
 GroupTrack V2.5 Manual
 :root{--bg:#10130f;--panel:#181c15;--ink:#e8ece2;--dim:#9aa68c;--line:#2b3324;--accent:#7bb661;--accent2:#d9a441;--warn:#e0563b;--ui:-apple-system,"Segoe UI",Roboto,sans-serif;--body:Georgia,serif;}
@@ -66679,6 +68535,316 @@ Tracks &amp; artifacts
   Benefit: you know the import is running and roughly how much is left, instead of wondering whether the app has hung.
   Manual: Importing
 Previous releases
+  ⚠ Note from the earlier V2.5 build
+  After that update, on first launch the trail/track database was rebuilt. If you are coming from V2.5 or earlier you may still need to re-import UGRC Utah Trails under Work with Artifacts → Import Trails, and run RESYNC TRACKS from the track import screen if your recorded tracks do not display.
+New in this build · 2026-07-03
+  Maps follow the tracks
+  Open a track's detail panel and tap SAVE MAPS to download the map tiles covering that track's area, so the maps travel with the track. On import, each file has its own Download maps checkbox in the import list (with IMPORT / MAPS / FILE columns), off by default — turn it on per file to pull tiles as you import.
+  Benefit: the maps you need in the field come with the tracks you brought, without downloading whole regions.
+  Manual: Maps follow the tracks
+  Track details at a glance
+  A track's detail panel now shows its metrics — distance, duration, average and max speed, elevation, and point count — laid out in a clean grid.
+  Benefit: see what a ride actually was, right where you manage the track.
+  Manual: Tracks
+  Tap a track to open its details
+  Tapping a track on either map now opens its full detail panel — metrics, SAVE MAPS, and rename / delete / share — the same way trails already did.
+  Benefit: one tap on the map gets you everything about that track.
+  Manual: The artifact detail panel
+  Easier to tap tracks
+  Track lines now have a larger touch target, so tapping a thin or dashed track registers reliably instead of taking several tries.
+  Benefit: tracks respond the first time you tap them.
+  Manual: Tracks
+  Smarter track import
+  Importing tracks now ends with a clear summary that reports how many items were processed and how each one was handled — counted as new, aliased, duplicate, and skipped. Nothing happens silently — every file is accounted for.
+  Benefit: you can see exactly what each import did, item by item.
+  Manual: Importing tracks
+  Resync shows its work
+  Resyncing your recorded tracks now opens a SYNC TRACKS panel with a START / CLOSE choice. Tap START and it shows the total tracks to be synced and a live, rolling feed of each track as it’s processed — tracks with no usable points are ignored, and tracks already in your library are recognized as duplicates instead of re-added.
+  On install, this runs automatically. The panels below show what that looks like. If you see the SYNC TRACKS panel appear on first launch and finish, you’re set. If it did not appear, run it yourself: open the track import screen and tap RESYNC TRACKS — otherwise your tracks won’t display.
+  While it runs — live feedWhen it finishes — summary
+  Benefit: a resync tells you exactly what it reconciled, line by line.
+  Manual: Resyncing tracks
+  Cleaner deletes
+  Deleting a track now removes it completely — its map record, its details, its alternate names, and its file — with no leftover fragments.
+  Benefit: a deleted track is fully gone, not lingering on the map.
+  Manual: Deleting a track
+  Bug fixes
+  Restored the automatic map refresh so tracks and artifacts display without a manual nudge, and corrected the cart identity shown before recording.
+  Benefit: the map behaves as expected again.
+  Manual: Maps
+<!-- HOLD until alias detail-panel UI + alias-aware search ship and are field-verified (per 06-30 drafts + living checklist):
+  Track aliases
+  Tracks can carry alternate names; the same route under a different name is recognized instead of duplicated. View a track's alternate names, pick a preferred name, and rename an alias from its detail panel.
+  Benefit: one track, however many names people call it.
+  Manual: Track names and aliases
+  Search finds every name
+  Search now matches a track's official name or any of its aliases, so a trail is findable by whatever name you remember.
+  Benefit: find it by any name it goes by.
+  Manual: Searching by name or alias
+-->
+Earlier in this release · 2026-06-23
+  Trails draw in their classification colors
+  On the map, each trail is drawn in the color of its type — OHV / Road-Concurrent in blue, Hiking &amp; Biking in orange, Hiking-Only in yellow, Biking-Only in purple, and paved or other trails in cyan.
+  Benefit: see at a glance which trails suit your vehicle, right on the map.
+  Manual: The trail color legend
+  A color key you can pop up and tuck away
+  On the Planning Map, tap the KEY button to open a compact color legend that explains every trail color plus tracks, routes, and waypoints. Tap outside it to close. It stays out of your way until you need it.
+  Benefit: a quick reference for the map colors, without cluttering the screen.
+  Manual: The trail color legend
+  Search an area and the trails are right there
+  When you search for a place and the map jumps there, the trails and tracks for that area now draw immediately — no need to nudge the map to make them appear.
+  Benefit: go straight to an area and start planning, with everything already on screen.
+  Manual: Universal search
+  Find anything, then fit it to your screen
+  One search on either map covers Areas, Tracks, Routes, Trails, and Waypoints. Tap a result to open its detail, then tap FIT to fly the map to it and frame it on its own.
+  Benefit: jump straight to the trail or track you mean, instead of hunting the map.
+  Manual: Universal search · the detail panel · FIT
+  One detail panel for every artifact
+  Trails, tracks, routes, and waypoints all open the same detail panel — from a search result, a select/edit row, or by tapping the artifact on the map. Rename, change type, share, or delete from one place.
+  Benefit: the same simple panel everywhere, so you always know where the controls are.
+  Manual: The artifact detail panel
+  Trail type and color, on the trail itself
+  Each trail’s classification — OHV / Road-Concurrent, Hiking &amp; Biking, Hiking-Only, Paved Shared Use, and so on — shows as a colored Carto Type band in its detail panel, and now also in the popup when you tap a trail on the map.
+  Benefit: tell at a glance which trails are open to your vehicle.
+  Manual: Carto Type · the CartoCode color legend
+  Refresh trail data without starting over
+  In Trail Sources, an already-imported source now stays selectable. Pick it again and run it to refresh trail classification and details on the trails you already have — your geometry and recorded tracks are untouched. A live recap counts records as they process.
+  Benefit: pull updated trail info anytime, without re-downloading from scratch.
+  Manual: Trail Sources
+  Help on both maps
+  The ? button that opens the manual and release notes is on the Convoy Map as well as the Planning Map.
+  Benefit: help is one tap away wherever you are.
+  Manual: Convoy &amp; Planning maps
+  Clearer direction arrows on tracks
+  Direction-of-travel arrows on tracks are evenly spaced on screen and stay readable as you zoom, drawn in the same neon green as the track.
+  Benefit: read which way a track runs at a glance, even on long tracks.
+  Manual: Tracks
+  Each map remembers where you left it
+  The Convoy and Planning maps each restore their own last view and what you had selected, independently of each other.
+  Benefit: pick up exactly where you were, on the right map.
+  Manual: Maps
+  Build routes that follow real trails
+  Tap to drop points and each one snaps to the nearest trail or track; tap away from a trail to place a free point. Name it and save (early access).
+  Benefit: lay out a route along established paths in seconds.
+  Manual: Creating a Route
+  Bring your own trail data
+  Trail data is no longer bundled with the app. You import the regions where you ride — by Source (pick a land agency) or by Area (draw a box). One-time, a few minutes on WiFi; it’s permanent on your device after that.
+  Benefit: trails for the places you actually ride, across many states and agencies.
+  Manual: Trail Sources
+  Faster maps with the spatial database
+  Trails and tracks load only for the part of the map you’re looking at, from an on-device spatial database. Tracks sync in automatically from your GPX files on launch.
+  Benefit: instant pan and zoom even with tens of thousands of trails.
+  Manual: Trail &amp; track display
+  Work with Artifacts, now icon-driven
+  A right-edge icon column on both maps gives you search, Work with Artifacts, and help. The panel opens expanded and collapses closed — the old always-on bar is gone.
+  Benefit: more map, controls one tap away when you want them.
+  Manual: The right-edge icon column
+  More map sources, and download controls
+  16 tile sources (Google, Esri, USGS, OpenTopo, OSM, Thunderforest, CartoDB) assignable to your SAT / TOPO / TOPO+ buttons, with API-key management. The download queue supports hold, resume, cancel, and a settable number of simultaneous downloads.
+  Benefit: the basemaps you prefer, and control over big offline downloads.
+  Manual: Map Sources · Offline Maps &amp; Downloads
+Open the full User Manual &#8594;
+
+
+=== grouptrack_release_notes_2.6e.html ===
+<!-- ============================================================
+     GroupTrack V2.5 — Release Notes
+     Rebuilt 2026-06-22. Format per direction: each entry = WHAT changed ·
+     WHAT it means to you · the BENEFIT — brief, with a link to the manual section
+     for detail. Upgrade warning preserved verbatim at top (protects tester DBs).
+     Manual links target the rebuilt 2026-06-21 manual's section anchors.
+============================================================ -->
+GroupTrack V2.6e — Release Notes
+  :root{--bg:#10130f;--panel:#181c15;--ink:#e8ece2;--dim:#9aa68c;--line:#2b3324;
+    --accent:#7bb661;--accent2:#d9a441;--warn:#e0563b;--ui:-apple-system,"Segoe UI",Roboto,sans-serif;--body:Georgia,serif;}
+  *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 var(--body);-webkit-text-size-adjust:100%}
+  header{position:sticky;top:0;background:linear-gradient(180deg,#10130f,#10130fe8);border-bottom:1px solid var(--line);padding:14px 16px;z-index:5}
+  .ttl{font:700 18px var(--ui)}.ttl b{color:var(--accent)} .sub{font:12px var(--ui);color:var(--dim);margin-top:2px}
+  main{padding:14px 16px 56px;max-width:760px;margin:0 auto}
+  h2{font:700 17px var(--ui);color:var(--accent);margin:22px 0 6px;border-bottom:1px solid var(--line);padding-bottom:4px}
+  .item{border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin:10px 0;background:var(--panel)}
+  .item .what{font:700 15px var(--ui);color:var(--ink);margin-bottom:3px}
+  .item .means{font:14px var(--body);margin:3px 0}
+  .item .benefit{font:13px var(--ui);color:var(--accent);margin-top:4px}
+  .item a.ml{font:12px var(--ui);color:var(--dim);text-decoration:underline;display:inline-block;margin-top:6px}
+  p{margin:6px 0}li{margin:4px 0 4px 4px}
+  .upgrade{background:#2a1512;border:1px solid var(--warn);border-left:5px solid var(--warn);border-radius:8px;padding:12px 14px;margin:14px 0 8px;font-family:var(--ui)}
+  .upgrade-h{font:700 15px var(--ui);color:var(--warn);margin-bottom:6px}
+  .upgrade p{font-size:14px}.upgrade ul{font-size:14px}
+  .upgrade .recovery{margin-top:10px;color:var(--dim);font-size:13px}
+  code{background:#0c0f0a;padding:1px 5px;border-radius:3px;font-size:13px}
+  a.manuallink{display:inline-block;margin-top:18px;color:var(--accent);font:700 14px var(--ui);text-decoration:none;
+    border:1px solid var(--accent);border-radius:8px;padding:9px 14px}
+.rnimg{display:block;max-width:280px;width:100%;height:auto;border:1px solid #ccc;border-radius:6px;margin:10px 0}
+.rnimg-row{display:flex;gap:12px;flex-wrap:wrap;margin:10px 0}
+.rnimg-row figure{margin:0;max-width:280px}
+.rnimg-row figcaption{font:12px system-ui,sans-serif;color:#555;margin-top:4px}
+GroupTrack V2.6 — Release Notes
+What's new · Field Test Release · Rel 2.6e · Updated 2026-07-28 · grouptrack.org
+  ⚠ IMPORTANT — read this before you proceed
+  Install as an UPDATE — do NOT uninstall the old version and install this as a new install.
+  Let the app update in place through the Play Store.
+  V2.6 changes how offline map tiles are stored — to a single on-device spatial database per map type, which makes stored maps roughly half the size (field-measured ~55% smaller for satellite imagery). Before your maps will work, the old tiles must be cleared once and re-downloaded in the new format. Do this first:
+    Install X-plore. In the Google Play Store, search &ldquo;X-plore File Manager&rdquo; and install it (free). X-plore shows its progress the whole time — a live count of folders remaining and the file names as they clear — so you always know it's working.
+    Delete the old tiles folder. In X-plore, go to Internal storage → Documents → GroupTrack → maps and delete the maps folder. If you've downloaded a lot of maps this can take a while — let it run; the on-screen count shows it's actively working. Keep the device plugged in for a large cleanup.
+    Re-download your maps. Back in GroupTrack, download the areas you need again (by Area, or from a track or route). They're saved in the new format at roughly half the previous size.
+  Your tracks and routes are not affected — this clears only downloaded map tiles (the imagery/topo backgrounds). Recorded tracks, imported tracks, and routes are stored separately and untouched.
+  This is a one-time step. Once your maps are re-downloaded in the new format, future updates won't need it.
+New in this release &middot; Rel 2.6e &middot; 2026-07-28
+OpenStreetMap trail data
+  Import OpenStreetMap trails &mdash; a whole state, or just the area you ride
+  GroupTrack can now take a free OpenStreetMap extract and turn it into trail data held on your own device. It fills in ground the official trail sources do not cover, and once imported it works entirely offline. You prepare one state at a time, then import either the whole state or just an area you draw on the map &mdash; a corner of Arizona or a stretch of Nevada &mdash; without downloading anything again. Open the planning map, tap WORK WITH ARTIFACTS, then IMPORT OSM DATA.
+  Benefit: far more trail coverage in areas where government data is thin or missing.
+  Manual: Work with Artifacts
+  Four steps, each showing its own progress
+  1 &mdash; Download. Tap OPEN GEOFABRIK, choose your state, and download the file in your browser. 2 &mdash; Extract. Come back to GroupTrack and tap the button under step&nbsp;1. The app finds your download and builds a compact trail database from it. 3 &mdash; Import. Add the trails to your map &mdash; the whole state, or an area you draw. You can draw more than one area from the same download. 4 &mdash; Clean up. Remove the working files when you are finished with that state.
+  Benefit: each step tells you what it is doing, how far along it is, and roughly how long is left &mdash; and ticks green when it finishes.
+  Manual: Importing OSM data
+  Place names, peaks and springs come with it
+  Alongside trails, the import collects named places, mountain peaks, springs, caves and other natural features. These are the landmarks that matter once you are past the edge of the towns.
+  Benefit: recognisable names on the map in country where satellite labels have run out.
+  Manual: Importing OSM data
+  Cancel at any point
+  Downloaded the wrong state, or changed your mind part-way through? CANCEL AND DELETE DOWNLOAD at the bottom of the panel stops whatever is running and clears the working files.
+  Benefit: a wrong download costs you a minute, not a stuck screen you cannot get out of.
+  Manual: Importing OSM data
+Before you start
+  Check you have room
+  A state download is large &mdash; typically 300&ndash;600&nbsp;MB, and roughly double that while the data is being unpacked. GroupTrack checks before it begins and tells you if there is not enough space. Working files are kept in Documents &rarr; GroupTrack &rarr; osm where you can see them yourself.
+  Benefit: no half-finished import that fails part-way through and leaves you guessing.
+  Manual: Importing OSM data
+  GroupTrack needs All files access
+  The app needs All files access to see your browser downloads. If you ever clear the app&rsquo;s storage, Android switches this off silently and the import will report that it cannot find your download. Turn it back on under Settings &rarr; Apps &rarr; Special app access &rarr; All files access.
+  Benefit: you will know why the import cannot see a file that is plainly sitting in your Downloads folder.
+  Manual: Permissions
+Still to come in this release
+  Steps 3 and 4 are not active yet
+  Downloading and extracting are complete in this build. Import and Clean up appear in the panel but do not do anything yet &mdash; they are the next piece of work. Everything you extract now is kept and will be ready when they arrive.
+  Benefit: you can download and prepare your states now, and import them as soon as the next build lands.
+Previously · Rel 2.6d · 2026-07-24
+Everything below is new since Rel 2.6c.
+Saving maps for a trail
+  Saving maps from a track now follows the trail instead of boxing it in
+  When you save maps for a track, GroupTrack now downloads a corridor along the trail itself &mdash; the path plus about half a mile either side &mdash; instead of the whole rectangle that encloses the track. A long trail that wanders across a wide area used to pull down everything inside that rectangle, most of which is ground nobody rides.
+  Benefit: dramatically smaller downloads for the same trail. On a ~100-mile test track that doubles back on itself, the download went from over a million tiles to about 107,000 &mdash; roughly a 90% reduction, and hours off the wait. The gain is largest on long, winding trails; a short compact loop will see less difference, because its rectangle was already close to the trail.
+  Manual: Offline Maps &amp; Downloads
+  Importing tracks saves maps the same way
+  When you import tracks with the &ldquo;save maps&rdquo; option turned on, each track now queues a corridor download instead of a rectangle. Each track queues one job per map source, so importing ten tracks with three sources selected produces thirty jobs in the queue &mdash; that is normal, and each one is far smaller than before.
+  Benefit: bulk imports no longer queue enormous rectangles of terrain you will never ride.
+  Manual: Offline Maps &amp; Downloads
+  A brief pause before a large import starts downloading
+  GroupTrack now works out the exact corridor for each track before queueing it, so a large import spends a moment calculating before the first tile arrives.
+  This is expected, not a freeze &mdash; that calculation is what makes the smaller download possible.
+The downloads panel &mdash; rebuilt
+  The downloads indicator now opens a full download manager
+  Tapping the downloads indicator no longer half-expands a small popup &mdash; it opens the download manager itself, where everything about the queue lives. The indicator stays compact until you want it.
+  Benefit: one tap gets you to the controls instead of a summary you then have to leave.
+  Manual: Offline Maps &amp; Downloads
+  The queue list scrolls through every job
+  The queue list previously stopped part-way down and would not scroll further, so with a long queue most jobs simply could not be reached. The list has been rebuilt and now scrolls through the whole queue however many jobs are waiting.
+  Benefit: with a couple of hundred jobs queued you can see and reach all of them.
+  Manual: Offline Maps &amp; Downloads
+  A summary that shows what is running, what is waiting, and how long it will take
+  Three lines at the top of the manager: what is downloading right now and its tile count, how many jobs are still queued and their total tiles, and an estimated time remaining with a projected finish time. The queued tile total is new &mdash; the old summary only counted the jobs actually running, so a large queue looked far smaller than it was. The time estimate is worked out from how fast your own recent downloads actually completed rather than from a fixed guess, and it appears once a couple of downloads have finished on this version.
+  Benefit: you can tell at a glance whether a queue finishes overnight or needs trimming before you leave.
+  Manual: Offline Maps &amp; Downloads
+  Every job says what kind it is and when it will run
+  Each row in the queue now shows the job&rsquo;s type and its place in the running order &mdash; for example an area download, a trail corridor, a map-source refresh, or a tile deletion &mdash; alongside the source it is fetching and its progress.
+  Benefit: the running order is visible instead of looking arbitrary, so you can see why a particular job is waiting.
+  Manual: Offline Maps &amp; Downloads
+  Filter the queue by job type &mdash; and act only on what you filtered
+  Filter buttons split the queue by kind: all jobs, areas you drew, trail corridors, map-source refreshes, and deletions. The filter also controls the Cancel and Clear buttons, so those act only on the jobs currently shown. Filter to corridors, cancel, and your area downloads are left alone.
+  Benefit: you can clear out one kind of job without disturbing the rest.
+  Manual: Offline Maps &amp; Downloads
+  Cancel and Clear say exactly what they will do, and ask first
+  The buttons name their scope and count &mdash; &ldquo;CANCEL CORRIDOR (54)&rdquo; when a filter is active, &ldquo;CANCEL ALL (215)&rdquo; when it is not &mdash; and always ask for confirmation before doing anything, with the same scope and count repeated in the question.
+  Benefit: nothing destructive happens on a single tap, and you always know whether you are clearing a few jobs or all of them.
+  Manual: Offline Maps &amp; Downloads
+  Move a download to the front of the queue
+  Each waiting job has a &#9650; button that moves it ahead of the others. Jobs otherwise run in a sensible order: tile deletions first, then trail corridors, then drawn areas, then map-source refreshes. Promotion applies to the row you tap &mdash; if a track queued three jobs, one per map source, promote each of the three.
+  Benefit: the map you need for tomorrow&rsquo;s ride does not sit behind a large area download.
+  Manual: Offline Maps &amp; Downloads
+Freeing up space
+  Remove downloaded maps for an area
+  Draw an area on the planning map, open the downloads panel, tick Remove Tiles and press the red button. GroupTrack asks you to confirm, then removes every downloaded map tile inside that area &mdash; across all map sources, including the road and place-name layers that sit on top of satellite imagery. The removal runs as a job in the download queue like any other, so you can watch it and carry on using the app.
+  Benefit: you can clear out map data for places you have finished riding without wiping everything and starting again. Useful when the device is filling up and you only want back the space taken by one region.
+  Manual: Offline Maps &amp; Downloads
+  Removal cannot be undone, so it asks first
+  The confirmation names the area and gives an upper bound on how many tiles will go. Nothing is removed until you confirm.
+  Benefit: a mis-tap cannot cost you hours of downloading.
+  Storage does not drop immediately after a removal
+  The tiles are gone and the space inside GroupTrack&rsquo;s map files is free for new downloads to reuse &mdash; but the files themselves keep their current size on disk until they are compacted. Compacting is not automatic yet.
+  This is expected. New map downloads will fill the freed space rather than growing the files further.
+  Large areas take a while, and you can watch or stop them
+  Removing map data from a large area is a lot of work and can run for several minutes. Progress updates steadily as it goes, and Cancel takes effect promptly if you change your mind.
+  Benefit: a big removal behaves like any other queued job &mdash; visible, and yours to stop.
+Fixes
+  Download options are reachable on the convoy map in portrait
+  On the convoy map, the download options box &mdash; where you pick map sources and choose whether to replace existing tiles &mdash; sat too low and ran off the bottom of the screen, so its buttons could only be reached by turning the phone sideways. It now opens centred on the screen, matching the planning map, and can be dismissed with the back button.
+  Benefit: you no longer have to rotate the device to start a download from the convoy map.
+  Map source choices are still lost if you rotate the device
+  If you turn the phone while the download options box is open, the ticked map sources reset.
+  Known limitation in this build. You should no longer need to rotate to reach the buttons, so pick your sources and confirm without turning the device.
+Previous releases
+Previously · Rel 2.6c · 2026-07-22
+Everything below is new since the 2026-07-06 build.
+Offline maps &amp; downloads
+  Smaller map storage — the spatial-database tile store
+  Offline map tiles now live in a single spatial database per map type instead of millions of separate files, compressed and de-duplicated in one efficient container. See the upgrade note at the top — existing tiles must be cleared once.
+  Benefit: about half the storage for your offline maps (field-measured ~55% smaller for satellite), with no visible quality loss at normal zoom.
+  Manual: Offline Maps &amp; Downloads
+  Much faster map downloads
+  Map tiles are now fetched in parallel instead of one at a time. A large multi-source area (satellite plus topo layers) that could previously take many hours now completes in roughly an hour and a half in field testing. If a map server is briefly busy or returns a temporary error, the app backs off and retries that tile instead of skipping it.
+  Benefit: several times faster downloads, and they finish more complete.
+  Manual: Offline Maps &amp; Downloads
+  Big downloads split into balanced pieces
+  A large download area is now divided into evenly sized pieces sized off the real tile count, and every map source uses the same grid so their pieces line up. Two pieces download at once, each fetching several tiles in parallel.
+  Benefit: no single oversized job stalls the queue — large areas move steadily instead of sitting on one huge chunk.
+  Manual: Offline Maps &amp; Downloads
+  Changing a map source re-downloads in balanced pieces, with progress
+  When you switch a map slot to a different source, the refresh is now split the same way an area download is, instead of a fixed grid. Each piece also reports its real tile count, so the queue shows a total and a progress percentage while it works.
+  Benefit: source changes download faster and you can see exactly how far along they are.
+  Manual: Map Sources
+  Full-detail topo downloads
+  The TOPO and TOPO+ layers now download their full available zoom detail (a previous internal limit has been removed). The USGS TOPO+ source still has no imagery above about zoom 15 — that is a source limitation, unchanged.
+  Benefit: sharper topo maps offline where the source supports it.
+  Manual: Offline Maps &amp; Downloads
+  Offline map labels fixed
+  Road and place-name labels on the satellite map now stay visible after you go offline and when you switch map areas. Previously they could vanish on the first offline switch and not come back.
+  Benefit: reliable labels wherever you are, on or off the grid.
+  Download maps from the main map
+  You can now start a map-area download for a track straight from its detail panel on the main convoy map — the same source picker and replace option you get on the planning map. Area, track and import downloads all go through the same download panel now.
+  Benefit: grab offline maps for a track without leaving the convoy view, and the same controls everywhere.
+  Manual: Offline Maps &amp; Downloads
+  Download queue survives interruptions
+  If the app was closed or killed while it was saving the download queue, the queue file could be left damaged — and the app would then keep failing to load it on every later start. The queue is now written safely, and a damaged file is set aside automatically so the app starts clean.
+  Benefit: an interrupted download can't leave your queue in a state you'd have to clear app data to escape.
+Building routes
+  Route building saves as you go
+  An in-progress route now saves automatically as you place each point, under a working name. There is no "name your route" prompt when you start — you name it when you save. Undo removes the last point and the saved copy updates to match.
+  Benefit: a route in progress is never lost, even if the app closes unexpectedly.
+  Manual: Routes
+  Naming a route is now required when you save
+  When you save a route, a name is required. The field starts blank for an auto-saved route — type a name before saving. Save as a completed route (needs 2 or more points), or keep it as a named work-in-progress you can resume later.
+  Benefit: your saved routes carry real names instead of all sharing the working one.
+  Manual: Routes
+  Recovering a route after an unexpected close
+  If the app closes unexpectedly (crash, force-close, battery) while a route is in progress, the next time you open the Planning map GroupTrack shows a notice: a route was left open from your last session. Tap OK, then +ROUTE → In Progress and pick the auto-saved route to carry on. A normal route close or save does not trigger the notice.
+  Benefit: an interrupted route is still there when you come back, and the app tells you how to get to it.
+  Manual: Routes
+  A cleaner route-building mode
+  Starting a route now puts the map straight into route mode, with a Route / Artifact switch so you can choose whether a tap adds a route point or works with artifacts. While you are placing route points, tapping a track no longer opens its details and no waypoint is dropped by mistake. Backing out of an in-progress route asks you to save or discard first.
+  Benefit: fewer stray taps and accidental waypoints while building, and no route lost by pressing Back.
+  Manual: Routes
+Tracks &amp; artifacts
+  Delete and rename now work
+  Deleting or renaming a track, route or waypoint from its detail panel had no effect — the item stayed exactly as it was. Both now work correctly on the convoy map and the planning map, and deleting a track removes it everywhere it was stored, including its recorded file.
+  Benefit: you can clean up and correct your saved artifacts instead of watching them pile up.
+  Manual: Work with Artifacts
+  Track import tells you what it is doing
+  Importing a batch of tracks used to leave you looking at a blank screen for as long as an hour with no sign of progress. The import now reports track by track as it works through them, so you can see each one being processed and how far along the batch is.
+  Benefit: you know the import is running and roughly how much is left, instead of wondering whether the app has hung.
+  Manual: Importing
   ⚠ Note from the earlier V2.5 build
   After that update, on first launch the trail/track database was rebuilt. If you are coming from V2.5 or earlier you may still need to re-import UGRC Utah Trails under Work with Artifacts → Import Trails, and run RESYNC TRACKS from the track import screen if your recorded tracks do not display.
 New in this build · 2026-07-03

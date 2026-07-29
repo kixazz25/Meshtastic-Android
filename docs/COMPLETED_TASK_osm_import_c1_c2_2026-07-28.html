@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>OSM Trail Import — C1 ACQUIRE + C2 REDUCE</title>
+<style>
+  body { background:#0d1117; color:#c9d1d9; font-family:-apple-system,Segoe UI,Roboto,sans-serif;
+         line-height:1.6; max-width:1000px; margin:0 auto; padding:24px; }
+  h1 { color:#3fb950; border-bottom:2px solid #3fb950; padding-bottom:8px; }
+  h2 { color:#58a6ff; margin-top:32px; border-bottom:1px solid #30363d; padding-bottom:4px; }
+  h3 { color:#d29922; margin-top:24px; }
+  .item { background:#161b22; border:1px solid #30363d; border-left:3px solid #3fb950;
+          border-radius:6px; padding:12px 16px; margin:12px 0; }
+  .warn { border-left-color:#d29922; }
+  .bad  { border-left-color:#f85149; }
+  .key  { border-left-color:#a371f7; }
+  code { background:#161b22; padding:2px 6px; border-radius:3px; color:#79c0ff;
+         font-family:ui-monospace,Consolas,monospace; font-size:0.9em; }
+  pre { background:#161b22; border:1px solid #30363d; border-radius:6px; padding:12px;
+        overflow-x:auto; font-size:0.85em; }
+  table { border-collapse:collapse; width:100%; margin:12px 0; font-size:0.92em; }
+  th,td { border:1px solid #30363d; padding:6px 10px; text-align:left; }
+  th { background:#161b22; color:#58a6ff; }
+  .meta { color:#8b949e; font-size:0.9em; }
+</style>
+</head>
+<body>
+
+<h1>OSM Trail Import — C1 ACQUIRE + C2 REDUCE</h1>
+<p class="meta">
+  Completed 2026-07-28 · commit <code>3fd526517</code> ·
+  branch <code>feature/convoy-event-ride</code> · release 2.6e ·
+  11 files changed, 2,912 insertions
+</p>
+
+<p>Permanent per-task record. Full design and fix detail retained so the feature can be
+reviewed or changed later without reconstructing the reasoning.</p>
+
+<h2>What the feature does</h2>
+<p>The user downloads a Geofabrik state extract in their browser. The app detects it,
+adopts it, reduces it to a small local database, and stages it for import. GroupTrack
+never obtains, hosts, or distributes OSM-derived data — which is what keeps ODbL
+share-alike off Fred entirely rather than merely mitigated.</p>
+
+<div class="item key">
+<strong>Working directory</strong>
+<pre>/sdcard/Documents/GroupTrack/osm/&lt;slug&gt;/
+    ledger.json                       created C1, renamed away at C4
+    &lt;slug&gt;-latest-free.gpkg.zip       RECOVERY POINT 1
+    &lt;slug&gt;.gpkg                       transient, exists only inside C2
+    ready_for_import.db               RECOVERY POINT 2</pre>
+</div>
+
+<h2>Architecture rules (durable)</h2>
+<table>
+<tr><th>Rule</th><th>Statement</th></tr>
+<tr><td>R1</td><td>Stage is DERIVED FROM DISK, never stored. No status field anywhere.</td></tr>
+<tr><td>R2</td><td>Only the zip and the skinny are recovery points. The <code>.gpkg</code> never is.</td></tr>
+<tr><td>R3</td><td>Existence means COMPLETE — <code>.part</code> + atomic rename.</td></tr>
+<tr><td>R5</td><td>Derivation happens at MOMENTS: panel open, job done, return from background.</td></tr>
+<tr><td>R7</td><td>On ACQUIRE entry, sweep debris only. Never blind-delete the directory.</td></tr>
+</table>
+
+<div class="item">
+<strong>R1's unplanned payoff.</strong> Because stage derives from disk, the panel can be
+destroyed and recreated and lands in exactly the same place. That rule was written for
+crash recovery — it is what makes C3's area-selection handoff possible with <em>no state
+flag at all</em>: row 3 closes the panel, the map's bbox submission relaunches it, and
+nothing needs preserving across the gap.
+</div>
+
+<h2>C1 ACQUIRE</h2>
+<ul>
+<li><strong>MediaStore query, not a filesystem scan</strong> — browser-agnostic and
+    location-independent. <code>findCandidates()</code> queries
+    <code>MediaStore.Downloads</code>.</li>
+<li><code>adoptCandidate()</code> copies via <code>ContentResolver.openInputStream</code>
+    → <code>.part</code> → atomic rename. <strong>Not</strong> <code>renameTo</code> —
+    <code>content://</code> plus cross-volume.</li>
+<li><code>probeDownloads()</code> returns a sealed <code>AcquireProbe</code>:
+    <code>NotFound</code> / <code>BadFile</code> / <code>Found</code> / <code>Several</code>.
+    Deliberately no <code>StillDownloading</code> — Android browsers are indistinguishable
+    from "not done yet".</li>
+</ul>
+
+<div class="item warn">
+<strong>FIELD FIX — dated filenames.</strong> Geofabrik serves the same product under two
+spellings: <code>utah-latest-free.gpkg.zip</code> and
+<code>arizona-260728-free.gpkg.zip</code>. The probe demanded "latest" and reported
+"extract not found" for a 610 MB file sitting in Downloads. Now accepts either.
+<br><br>
+Slug derivation strips the trailing <code>-latest</code> <em>or</em> a trailing 6–8 digit
+date. <strong>Not</strong> "text before the first hyphen" — that would reduce
+<code>north-carolina-260728</code> to <code>north</code>, and nobody would notice until a
+two-word state.
+</div>
+
+<h2>C2 REDUCE</h2>
+
+<h3>The catalog — what gets extracted is data, not code</h3>
+<p><code>assets/osm_layers.json</code> declares each layer's source table, target table,
+columns, and optional filter. Fred: <em>"a json to control items placed in skinny import
+file … so we edit json rather than recompile code."</em></p>
+
+<div class="item warn">
+<strong>An asset alone would not have delivered that</strong> — assets are baked into the
+APK, so editing one still means a rebuild. The catalog is therefore read from an
+<strong>on-disk override</strong> at
+<code>/sdcard/Documents/GroupTrack/config/osm_layers.json</code> if present, falling back
+to the asset. Public directory on purpose: <code>run-as</code> is blocked on release
+builds, so app-private storage is not reachable by <code>adb push</code>.
+<br><br>
+A broken override <strong>falls back and logs</strong> rather than bricking the feature.
+The failure mode of a hand-edited config is a typo, and a typo should cost you your
+customization — not the import.
+</div>
+
+<p>Shipped state: <code>trails</code>, <code>places</code>, <code>natural</code> enabled;
+<code>pois</code> present but disabled. Flipping one boolean and pushing an override is how
+you find out whether 48k POIs help or clutter — without a rebuild and without another
+610 MB unzip.</p>
+
+<h3>The decoder</h3>
+<p>Ported from <code>osm_gpkg_subset_v2_2026-07-27.py</code>, itself written because v1
+<em>would have lied</em>: it emitted WKT as <code>"lon lat, lon lat"</code> at fixed
+precision while the app writes comma-with-no-space and shortest-round-trip
+<code>Double.toString()</code>. Every feature would have reported as new.</p>
+
+<div class="item bad">
+<strong>THE SIGNED-BYTE TRAP.</strong> Python's <code>blob[3]</code> is unsigned 0–255;
+Kotlin's <code>Byte</code> is signed. A direct transcription of
+<code>(blob[3] &gt;&gt; 1) &amp; 0x07</code> sign-extends and returns the wrong envelope
+size — which starts the WKB read at the wrong offset and yields <strong>plausible garbage
+coordinates, not an exception</strong>. Every byte read masks <code>0xFF</code> first.
+<br><br>
+<strong>⚠ Correction made during the work:</strong> the GPKG flags byte uses only bits 0–5,
+so it never exceeds <code>0x3F</code> and cannot sign-extend on valid input. The mask
+there is <em>defensive</em>. The mask that is genuinely load-bearing is in
+<code>geomHash</code>, where SHA-256 digest bytes are uniformly distributed and roughly
+half exceed <code>0x80</code>.
+</div>
+
+<div class="item">
+<strong>One thing got simpler in Kotlin.</strong> The Python contorted itself to imitate
+<code>Double.toString()</code> and carried a warning about exponent notation near the prime
+meridian. In Kotlin we <em>are</em> the authority — whatever <code>Double.toString()</code>
+emits is by definition what the app emits. The edge case does not get handled; it stops
+existing.
+</div>
+
+<h3>Point layers run first — the decoder self-test</h3>
+<p>After the GPKG header a point is two doubles: almost nothing to get wrong in the body.
+So a bad envelope offset shows up against a town you recognise in seconds, rather than
+silently poisoning 89,536 linestrings where it is invisible. Any point outside the layer's
+own declared extent <strong>aborts the run before trails are written</strong>.</p>
+<p>Validated on the PC first: Phoenix decoded <strong>0.05 km</strong> from its known
+position, 1,581 of 1,581 Arizona places inside the declared extent.</p>
+
+<h3>Progress model</h3>
+<p>Fred: <em>"a simple counter per type, what % of that type has processed, check box when
+type is completed"</em> and <em>"time is preferred just relative to each type being
+transferred."</em></p>
+<div class="item">
+No blended bar, no whole-job ETA. Unzip moves BYTES; passes move ROWS; per-row cost differs
+by orders of magnitude between a 1,581-row places pass and a 134,242-row trails pass. Each
+type owns its denominator, and <strong>the rate window never crosses a type boundary</strong>
+— carrying a rate across one is exactly how the shipped download ETA came out ~50× long.
+</div>
+
+<h2>⚠ Two bugs found by using it, and their real causes</h2>
+
+<div class="item bad">
+<strong>1. <code>PRAGMA journal_mode=OFF</code> returns a row.</strong> SQLite reports back
+the mode it settled on, making the statement a QUERY — and Android's <code>execSQL</code>
+rejects anything returning data. The Python does the identical thing legally, because
+<code>sqlite3.execute</code> does not care. <em>The transcription was faithful; the
+assumption that both APIs tolerate the same statement was not.</em>
+</div>
+
+<div class="item bad">
+<strong>2. Progress rows never ticked — and the throttle was NOT the cause.</strong>
+My first diagnosis blamed the 30-second publish interval. Fred's observation — <em>"unzip
+logged progress, only trails did not"</em> — ruled that out, since a throttle would hit
+both equally.
+<br><br>
+<strong>Real cause: WorkManager DISCARDS progress <code>Data</code> on a terminal state.</strong>
+<code>getProgress()</code> is empty once a worker finishes, so the worker's final forced
+publish is real but <em>unreadable</em>. Earlier layers escaped because a LATER pass
+published while still RUNNING and carried their completed state along. Nothing follows
+trails. Fixed in the panel: a SUCCEEDED state means every layer completed, by definition.
+<br><br>
+The 30-second tick was a contributing error — sized against my estimate of 8–20 minutes per
+pass when reality was 40 seconds end to end.
+</div>
+
+<h2>⭐ The storage move</h2>
+<p>The working directory was originally in <code>getExternalFilesDir()</code>. On a release
+build that is <strong>unreachable by anything</strong>: <code>run-as</code> blocked by
+signing, <code>adb</code> blocked by Android 11+, no file manager can browse
+<code>Android/data</code>.</p>
+<div class="item warn">
+Two consequences: an extract could not be inspected without <em>writing an export feature to
+work around a directory choice</em>; and a user who downloaded the wrong state had no way to
+delete a 610 MB file from inside the app or outside it — the only exit being Settings →
+Clear Storage, <strong>which also silently revokes All Files Access</strong>, breaking the
+feature they were escaping from.
+<br><br>
+Moved to <code>Documents/GroupTrack/osm/</code> with one-shot migration on first path
+resolution. The planning state file already lived in <code>Documents/GroupTrack/state</code>
+<em>for exactly this reason</em> — the decision was on record and had not been applied here.
+<br><br>
+⚠ Files now survive uninstall and are not cleared by Clear Storage. Right for a 610 MB
+extract, but it makes <strong>CANCEL the only cleanup path</strong>.
+</div>
+
+<h2>CANCEL — every stage needs a way out</h2>
+<p>Fred, on being unable to remove a wrong download: <em>"that is not really handy because
+we cannot get rid of it now."</em></p>
+<p>CLEANUP existed but was armed only at IMPORT, so at EXTRACT it was greyed out — the one
+control that would have helped was disabled precisely when needed.</p>
+<div class="item key">
+<strong>The general lesson, worth more than the button: the pipeline was designed as a
+forward path, and the only reverse gear was parked at the end of it.</strong>
+</div>
+<p>CANCEL sits at the bottom of the panel rather than beside EXTRACT — bottom placement
+<em>removes</em> the misfire risk instead of mitigating it, and needs no
+<code>RowSpec</code> or <code>StageRow</code> change. It also closed a gap neither of us had
+named: <strong>there was no way to stop a running extract.</strong> The worker already
+checked <code>isStopped</code>; nothing called <code>cancelUniqueWork</code>.</p>
+
+<h2>⭐ Verification — the evidence C2 is correct</h2>
+<p>Device-built skinny compared against one built by the validated Python:</p>
+<pre>device rows whose geom_hash exists in the reference: 89,448 of 89,536 (99.902%)
+
+shared osm_id, disagreeing hash: 58
+  GEOMETRY CHANGED : 58     real OSM edits between the two extracts
+  FORMAT DIFFERS   :  0     would have been a port bug</pre>
+<div class="item key">
+Several of the 58 have <em>identical point counts but different coordinates</em> — exactly
+what a mapper nudging a trail looks like. Had the WKT contract diverged, all 89,536 would
+have mismatched, not 58. This proves the envelope offset AND the WKT contract byte for byte,
+which is what makes <code>geom_hash</code> dedup trustworthy.
+</div>
+
+<h2>Measured performance</h2>
+<table>
+<tr><th>Metric</th><th>Value</th></tr>
+<tr><td>C2 on device, end to end</td><td><strong>~40 s</strong> (unzip 14 s, trails 23 s, natural 1.2 s)</td></tr>
+<tr><td>Utah skinny</td><td>108 MB · 89,536 trails · 3,674 places · 4,048 natural</td></tr>
+<tr><td>Arizona</td><td>zip 610 MB → gpkg 1,214 MB (2.09×) · 134,242 trails</td></tr>
+<tr><td>Free-space gate</td><td>uncompressed + 25%; Utah needed 788 MB</td></tr>
+</table>
+<div class="item warn">
+<strong>My device estimate was wrong by ~20×</strong> (predicted 8–20 min, actual 40 s) —
+and that error is what sized the progress tick, which is why nothing rendered.
+<br><br>
+<strong>Per-state variance is large:</strong> Utah 89,536 vs Arizona 134,242, 50% apart
+between neighbouring states. Size gates and ETAs must be derived per state, never scaled
+from one sample.
+</div>
+
+<h2>Decisions and rejected alternatives</h2>
+<table>
+<tr><th>Decision</th><th>Rejected alternative, and why</th></tr>
+<tr><td>User downloads via browser; app detects</td><td>In-app download — GroupTrack would touch Geofabrik traffic; licensing cleaner this way, and the browser handles resume/background</td></tr>
+<tr><td>Overlay panel inside MVS, no Route</td><td>A nav route — would have forced a core-module edit and two-<code>ConvoyNavigation</code> ambiguity</td></tr>
+<tr><td>Skinny is <code>ready_for_import.db</code> for every state</td><td>Per-state filename — only one state is ever in flight, and the old name said "osm_trails" while the file also holds places and natural</td></tr>
+<tr><td><code>carto_code</code> BLANK</td><td>A synthetic code — OSM has no carto classification; blank renders cyan "Unspecified" and touches none of the three hand-synchronised colour files</td></tr>
+<tr><td><code>osm_id</code> → <code>source_unique_id</code></td><td>—</td></tr>
+<tr><td>Table name resolved from <code>gpkg_contents</code></td><td>Hardcoding — Geofabrik's GPKG drops the <code>_1</code> suffix its shapefile spec documents; a wrong name gives a silent empty table</td></tr>
+<tr><td>MULTILINESTRING stops at a degenerate part</td><td>Skip-and-continue (what the Python does) — without the part's length there is no way to resynchronise, and continuing would decode from a wrong offset</td></tr>
+</table>
+
+<h2>⛔ Lesson: verify identity before diagnosing behaviour</h2>
+<div class="item bad">
+Hours were lost to <code>adb</code> commands pointed at
+<code>com.geeksville.mesh</code> — the <em>Kotlin package</em>. The installed application id
+is <code>com.grouptrack.android</code>, renamed for Play. Source package and application id
+are independent.
+<br><br>
+Every dead end traced to that one error: empty <code>ls</code>, an <code>rm -rf</code> that
+deleted nothing, a false "Arizona is gone" reading, and three invented theories (Android 11
+restrictions, secondary volume, MediaStore ghosts).
+<code>pm list packages | grep -i geeksville</code> returns nothing and would have ended it in
+the first minute.
+<br><br>
+<strong>When several unrelated commands all return "not found", suspect the path, not the
+platform.</strong>
+</div>
+
+<h2>Files</h2>
+<pre>NEW   assets/osm_layers.json
+NEW   convoy/OsmImportStage.kt        paths, probe, adopt, stage derivation, CANCEL
+NEW   convoy/OsmImportLedger.kt       per-state JSON record
+NEW   convoy/OsmImportPanel.kt        four-row panel
+NEW   convoy/OsmLayerCatalog.kt       catalog + on-disk override
+NEW   convoy/OsmGpkgDecoder.kt        GPKG binary -> WKT / point
+NEW   convoy/OsmExtractWorker.kt      C2 worker
+NEW   convoy/OsmExtractProgress.kt    per-type progress model
+MOD   convoy/ConvoyArtifactsPanel.kt  IMPORT OSM DATA button (planner only)
+MOD   convoy/ConvoyMapViewerScreen.kt panel overlay
+MOD   assets/trail_sources.json       Overpass entry removed from the catalog</pre>
+
+<p class="meta">C3 IMPORT and C4 CLEANUP remain stubs at this commit. Their design is
+recorded in the 2026-07-28 Living Master.</p>
+
+</body>
+</html>
