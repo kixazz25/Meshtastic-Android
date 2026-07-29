@@ -1,5 +1,6 @@
 package com.geeksville.mesh.convoy
 
+import androidx.compose.foundation.clickable
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -84,6 +85,28 @@ private data class RowSpec(
     val isNext: Boolean
 )
 
+/**
+ * OSM-C3B-SCOPE-2026-07-29: which of the two values on row 3's launch line is
+ * ticked. UI state only.
+ *
+ * ⚠ NOT the domain type. `ImportScope` (sealed, OsmImportStage.kt:28) is the
+ * domain type and stays untouched. This exists because the sealed type
+ * deliberately CANNOT represent the state row 3 needs: AREA chosen but not yet
+ * drawn -- `ImportScope.Area` requires coordinates, and at selection time there
+ * are none. Resolution to a bbox happens at action time, not here.
+ *
+ * CODE RULE 1 -- the null is NOT a shortcut. The choice is genuinely absent
+ * until the user makes it, and "absent" is exactly what disables IMPORT. A
+ * default would mean importing a state the user never chose.
+ *
+ * `ledgerValue` matches OsmImportWorker:101, which defaults pendingScope to
+ * "state".
+ */
+private enum class Row3Choice(val ledgerValue: String, val label: String) {
+    WHOLE_STATE("state", "FULL STATE"),
+    AREA("area", "SELECTED AREA")
+}
+
 @Composable
 fun OsmImportPanel(
     onNavigateBack: () -> Unit = {}
@@ -103,6 +126,29 @@ fun OsmImportPanel(
     var message by remember { mutableStateOf<String?>(null) }
     var confirm by remember { mutableStateOf<Pair<String, () -> Unit>?>(null) }
     var refreshTick by remember { mutableStateOf(0) }
+    // OSM-C3B-SCOPE-2026-07-29: row 3's launch-line choice. Null until chosen,
+    // and null is what keeps IMPORT disabled.
+    var importScope by remember { mutableStateOf<Row3Choice?>(null) }
+    // OSM-C3B-GATE-2026-07-29: the recap shown after the pending record is
+    // written. CANCEL-only -- it stands exactly where enqueue() will go, so
+    // C3c replaces it rather than reworking this path.
+    var gateRecap by remember { mutableStateOf<String?>(null) }
+
+    // OSM-C3B-GATE-2026-07-29: CANCEL-only. Dismiss does NOT clear the pending
+    // record -- it stays on disk so the panel can be reopened to confirm the
+    // rule re-derives off the same values, and so the JSON can be read.
+    gateRecap?.let { body ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { gateRecap = null },
+            title = { Text("IMPORT \u2014 GATED (C3 not wired)") },
+            text = { Text(body, fontSize = 12.sp) },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = { gateRecap = null }) {
+                    Text("CANCEL")
+                }
+            }
+        )
+    }
 
     // OSM-C2-WIRING-2026-07-28: C2 runs in a worker, so its progress is not this
     // panel's state -- it is READ from WorkManager. handledExtractId exists to
@@ -125,6 +171,49 @@ fun OsmImportPanel(
             withContext(Dispatchers.IO) { OsmImportStage.stageOf(ctx, slug!!) }
         }
         Log.i(PANEL_TAG, "derived: slug=$slug stage=$stage permission=$permissionOk inFlight=${found.size}")
+
+        // OSM-C3B-LAUNCH-2026-07-29: THE PANEL'S RULE, ONE LINE.
+        //
+        // Fred 07-29: "code will always be proceed to update if json has bbox
+        // values or launch area downloads if it does not... button selection
+        // will be bypassed if we have bbox values."
+        //
+        // ⚠ THIS ALSO CLOSES A REAL BUG: importScope is remember{}, so
+        // reopening after a draw resets it to null. Without this, re-ticking
+        // SELECTED AREA would call setPendingImport(bbox = null) and OVERWRITE
+        // the bbox the map just filled in -- looping forever, silently.
+        //
+        // R1: derived from disk at a MOMENT (R5). No flag crosses the gap.
+        val s0 = slug
+        if (s0 != null) {
+            val ready = withContext(Dispatchers.IO) {
+                OsmImportLedger.pendingBbox(ctx, s0)
+            }
+            if (ready != null) {
+                val sc0 = withContext(Dispatchers.IO) {
+                    OsmImportLedger.pendingScope(ctx, s0)
+                } ?: "state"
+                val n0 = withContext(Dispatchers.IO) {
+                    OsmImportStage.countTrailsInBbox(
+                        ctx, s0, ready[0], ready[1], ready[2], ready[3]
+                    )
+                }
+                Log.i(PANEL_TAG, "pending bbox present -- GATE (scope=$sc0 " +
+                    "S${ready[0]} W${ready[1]} N${ready[2]} E${ready[3]} n=$n0)")
+                // C3c replaces this block with OsmImportWorker.enqueue(ctx, s0).
+                gateRecap = buildString {
+                    append("READY TO IMPORT\n\n")
+                    append("Scope:  ").append(sc0).append("\n")
+                    append("State:  ").append(OsmImportStage.displayName(s0)).append("\n\n")
+                    append("  S  ").append(ready[0]).append("\n")
+                    append("  W  ").append(ready[1]).append("\n")
+                    append("  N  ").append(ready[2]).append("\n")
+                    append("  E  ").append(ready[3]).append("\n\n")
+                    append("Trails overlapping: ").append(n0).append("\n\n")
+                    append("Nothing imported. C3 is not wired.")
+                }
+            }
+        }
     }
 
     /**
@@ -238,10 +327,17 @@ fun OsmImportPanel(
         RowSpec(
             number = 3,
             title = "IMPORT TO SPATIAL",
-            detail = if (skinnyExists) "Whole state, or draw an area" else "Waiting",
+            detail = if (!skinnyExists) "Waiting"
+                else when (importScope) {
+                    null -> "Choose a scope below"
+                    Row3Choice.WHOLE_STATE -> "Whole state"
+                    Row3Choice.AREA -> "Draw an area on the planning map"
+                },
             done = false,
             actionLabel = "IMPORT",
-            enabled = !busy && skinnyExists,
+            // OSM-C3B-SCOPE-2026-07-29: one of the two values must be selected
+            // before IMPORT does anything.
+            enabled = !busy && skinnyExists && importScope != null,
             isNext = skinnyExists
         ),
         RowSpec(
@@ -320,9 +416,69 @@ fun OsmImportPanel(
                                 refreshTick++
                             }
                         }
-                        3 -> confirm = "Import trails into the map database?" to {
-                            runStub(scope, "IMPORT (C3)") {
-                                busy = it; busyLabel = "Importing"
+                        // OSM-C3B-WIRING-2026-07-29: writes the pending_import
+                        // record, then STOPS at a recap. Nothing enqueues.
+                        3 -> {
+                            val s = slug
+                            val sc = importScope
+                            if (s == null || sc == null) {
+                                message = "No state in flight, or no scope chosen."
+                            } else {
+                                scope.launch {
+                                    busy = true; busyLabel = "Resolving scope"
+                                    val recap = withContext(Dispatchers.IO) {
+                                        val bbox = if (sc == Row3Choice.WHOLE_STATE) {
+                                            OsmImportStage.trailExtent(ctx, s)
+                                        } else null
+                                        OsmImportLedger.setPendingImport(
+                                            ctx, s, sc.ledgerValue, bbox
+                                        )
+                                        // Read BACK from disk. The gate must show
+                                        // what actually landed, not what we meant
+                                        // to write -- that is the whole point.
+                                        val wrote = OsmImportLedger.pendingBbox(ctx, s)
+                                        val wroteScope =
+                                            OsmImportLedger.pendingScope(ctx, s) ?: "(none)"
+                                        buildString {
+                                            append("PENDING RECORD WRITTEN\n\n")
+                                            append("Scope:  ").append(sc.label)
+                                            append("   (ledger: ").append(wroteScope).append(")\n")
+                                            append("State:  ")
+                                            append(OsmImportStage.displayName(s)).append("\n\n")
+                                            if (wrote == null) {
+                                                append("  bbox: (awaiting area draw)\n\n")
+                                                append("Row 3 closes and the planning map\n")
+                                                append("fills this in. Map handoff NOT wired.\n")
+                                            } else {
+                                                append("  S  ").append(wrote[0]).append("\n")
+                                                append("  W  ").append(wrote[1]).append("\n")
+                                                append("  N  ").append(wrote[2]).append("\n")
+                                                append("  E  ").append(wrote[3]).append("\n\n")
+                                                val n = OsmImportStage.countTrailsInBbox(
+                                                    ctx, s, wrote[0], wrote[1], wrote[2], wrote[3]
+                                                )
+                                                append("Trails overlapping: ").append(n).append("\n")
+                                                if (sc == Row3Choice.WHOLE_STATE) {
+                                                    append("(must equal the full row count)\n")
+                                                }
+                                                append("\n")
+                                            }
+                                            append("Nothing imported. C3 is not wired.")
+                                        }
+                                    }
+                                    busy = false; busyLabel = ""
+                                    // OSM-C3B-AREA-2026-07-29: with no bbox
+                                    // there is nothing to validate, so the
+                                    // gate would only obstruct. Close the
+                                    // panel -- MVS sees the close, positions
+                                    // the map on the state extent and opens
+                                    // the draw panel.
+                                    if (sc == Row3Choice.AREA) {
+                                        onNavigateBack()
+                                    } else {
+                                        gateRecap = recap
+                                    }
+                                }
                             }
                         }
                         4 -> confirm = "Delete the working files?" to {
@@ -333,6 +489,28 @@ fun OsmImportPanel(
                     }
                 }
             )
+
+            // OSM-C3B-SCOPE-2026-07-29: row 3's launch line. Rendered here
+            // rather than inside StageRow so StageRow stays untouched -- it is
+            // shared by all four rows and only row 3 has a choice to offer.
+            if (row.number == 3 && skinnyExists && !busy) {
+                androidx.compose.foundation.layout.Row(
+                    modifier = Modifier.padding(start = 16.dp, top = 2.dp)
+                ) {
+                    Row3Choice.values().forEach { opt ->
+                        Text(
+                            text = (if (importScope == opt) "\u2611 " else "\u2610 ") + opt.label,
+                            fontSize = 12.sp,
+                            modifier = Modifier
+                                .clickable {
+                                    importScope = if (importScope == opt) null else opt
+                                }
+                                .padding(end = 18.dp, top = 2.dp, bottom = 2.dp)
+                        )
+                    }
+                }
+            }
+
             Spacer(Modifier.height(8.dp))
 
             // OSM-C2-WIRING-2026-07-28: per-type progress belongs UNDER the row that

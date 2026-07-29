@@ -305,6 +305,13 @@ fun ConvoyMapViewerScreen(
     var legendExpanded by remember { mutableStateOf(false) }
     var downloadBbox by remember { mutableStateOf(DownloadBbox()) }
     var isDrawingArea by remember { mutableStateOf(false) }
+    // OSM-C3B-AREA-2026-07-29: the IMPORT OSM checkbox on the download panel.
+    // Preselected when a pending_import is awaiting a draw -- derived from
+    // disk at panel open (R1), never passed across the panel gap.
+    var panelOsmChecked by remember { mutableStateOf(false) }
+    // The slug the pending draw belongs to. Null means no draw is expected,
+    // which is what stops a stray area draw from filling someone's record.
+    var osmAwaitingSlug by remember { mutableStateOf<String?>(null) }
     val downloadState by convoyViewModel.downloadState.collectAsState()
 
     // Tile sources from map_sources.json — single source of truth
@@ -964,6 +971,71 @@ fun ConvoyMapViewerScreen(
                     )
                 }
             }
+            // OSM-C3B-AREA-2026-07-29: closing the OSM panel is the handoff.
+            //
+            // R1 -- nothing is passed. The panel closed; we read DISK to find
+            // out whether it closed because row 3 chose SELECTED AREA. A flag
+            // crossing the gap is the routeMode failure.
+            LaunchedEffect(showOsmPanel) {
+                if (!showOsmPanel) {
+                    val pend = kotlinx.coroutines.withContext(
+                        kotlinx.coroutines.Dispatchers.IO
+                    ) {
+                        val s = OsmImportStage.statesInFlight(context).firstOrNull()
+                        if (s == null) null
+                        else if (OsmImportLedger.pendingScope(context, s) == null) null
+                        else if (OsmImportLedger.pendingBbox(context, s) != null) null
+                        else Pair(s, OsmImportStage.trailExtent(context, s))
+                    }
+                    val slug = pend?.first
+                    val ext = pend?.second
+                    if (slug != null && ext != null) {
+                        // ext is [s, w, n, e]
+                        val fS = ext[0]; val fW = ext[1]; val fN = ext[2]; val fE = ext[3]
+                        // OSM-C3B-FIT-2026-07-29: NO PADDING. Fred 07-29:
+                        // "if we remove your 5% of use fit we have no issues."
+                        //
+                        // MVS:1475 is the FIX 6 loop in the open --
+                        // "bbox+10% pad -> lastViewport -> fitBounds" puts the
+                        // PADDED box into lastViewport*, savePlanningState
+                        // persists it, and the next restore pads THAT. Passing
+                        // the raw extent keeps the OSM path out of that loop.
+                        // ⚠ Removes our contribution, not the mechanism.
+                        android.util.Log.i(
+                            "OsmArea",
+                            "awaiting draw for $slug -- fit S$fS N$fN W$fW E$fE (no pad)"
+                        )
+                        webViewRef?.evaluateJavascript(
+                            "fitBounds([" + fS + "," + fN + "],[" + fW + "," + fE + "])", null
+                        )
+                        // PERSIST THE FRAME. savePlanningState() reads
+                        // lastViewport*, and ONLY onViewportChanged (MVS:559)
+                        // sets those -- it then debounces 400ms and saves.
+                        // MVS:669 says fitBounds normally reaches it via
+                        // moveend, so this is either the fix or a duplicate the
+                        // debounce coalesces. It reads getBounds() AFTER the
+                        // move, so it cannot persist a stale frame.
+                        kotlinx.coroutines.delay(700)
+                        webViewRef?.evaluateJavascript(
+                            "try{var b=map.getBounds();" +
+                                "Android.onViewportChanged(b.getNorth(),b.getSouth()," +
+                                "b.getEast(),b.getWest(),map.getZoom())}catch(e){}",
+                            null
+                        )
+                        // Let the 400ms debounce fire before anything else
+                        // touches the map.
+                        kotlinx.coroutines.delay(500)
+                        android.util.Log.i("OsmArea", "viewport reported + saved")
+                        osmAwaitingSlug = slug
+                        panelOsmChecked = true
+                        downloadBbox = DownloadBbox()
+                        // OPEN THE DRAW PANEL LAST. Its own LaunchedEffect sets
+                        // pmDownloadedOn = true, which redraws -- previously
+                        // racing a map move that had not been persisted yet.
+                        showDownloadPanel = true
+                    }
+                }
+            }
 
             // -- ARTIFACT LIST PANEL (SELECT/EDIT) --
             if (showEntryChoice) {
@@ -1603,8 +1675,61 @@ fun ConvoyMapViewerScreen(
             LaunchedEffect(showDownloadPanel) {
                 if (showDownloadPanel) {
                     pmDownloadedOn = true
+                    // OSM-C3B-AREA-2026-07-29: derive the preselect from disk
+                    // at panel open (R5 -- derivation runs at MOMENTS). Covers
+                    // arriving here by any route, not just from row 3.
+                    val await = kotlinx.coroutines.withContext(
+                        kotlinx.coroutines.Dispatchers.IO
+                    ) {
+                        val s = OsmImportStage.statesInFlight(context).firstOrNull()
+                        if (s != null &&
+                            OsmImportLedger.pendingScope(context, s) != null &&
+                            OsmImportLedger.pendingBbox(context, s) == null
+                        ) s else null
+                    }
+                    if (await != null) {
+                        osmAwaitingSlug = await
+                        panelOsmChecked = true
+                    }
                 } else {
                     pmDownloadedOn = false
+                }
+            }
+            // OSM-C3B-AREA-2026-07-29: THE DRAW COMPLETING IS THE SUBMIT.
+            //
+            // There is no OSM execute button. Fred 07-29: "relaunch import and
+            // close area selection when the area is processed." onAreaSelected
+            // is a @JavascriptInterface with no slug and no scope, and disk I/O
+            // there would run on the JS thread -- so it keeps doing only what it
+            // does today (set downloadBbox) and the reaction happens here.
+            LaunchedEffect(downloadBbox, panelOsmChecked, osmAwaitingSlug) {
+                val slug = osmAwaitingSlug
+                if (slug != null && panelOsmChecked && downloadBbox.isValid) {
+                    val ok = kotlinx.coroutines.withContext(
+                        kotlinx.coroutines.Dispatchers.IO
+                    ) {
+                        OsmImportLedger.setPendingBbox(
+                            context, slug,
+                            s = downloadBbox.south,
+                            w = downloadBbox.west,
+                            n = downloadBbox.north,
+                            e = downloadBbox.east
+                        )
+                        // Read back. The gate must show what LANDED.
+                        OsmImportLedger.pendingBbox(context, slug) != null
+                    }
+                    android.util.Log.i(
+                        "OsmArea",
+                        "drawn bbox written for $slug ok=$ok " +
+                            "S${downloadBbox.south} W${downloadBbox.west} " +
+                            "N${downloadBbox.north} E${downloadBbox.east}"
+                    )
+                    // Close the draw panel, reopen the import panel. Row 3 now
+                    // finds a bbox and gates.
+                    osmAwaitingSlug = null
+                    panelOsmChecked = false
+                    showDownloadPanel = false
+                    showOsmPanel = true
                 }
             }
             // ── Floating download execute button (outside panel for landscape) ──
@@ -1710,6 +1835,8 @@ fun ConvoyMapViewerScreen(
                     onTrailsCheckedChange = { panelTrailsChecked = it },
                     removeTilesChecked = panelRemoveTilesChecked,
                     onRemoveTilesCheckedChange = { panelRemoveTilesChecked = it },
+                    osmChecked = panelOsmChecked,
+                    onOsmCheckedChange = { panelOsmChecked = it },
                     flyoverZoom = panelFlyoverZoom,
                     onFlyoverZoomChange = { panelFlyoverZoom = it; ConvoyConfig.SEARCH_FLY_ZOOM = it },
                     tileEstimate = if (downloadBbox.isValid) {

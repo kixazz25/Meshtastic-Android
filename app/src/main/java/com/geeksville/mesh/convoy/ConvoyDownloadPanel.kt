@@ -52,6 +52,11 @@ fun ConvoyDownloadPanel(
     onTrailsCheckedChange: (Boolean) -> Unit = {},
     removeTilesChecked: Boolean = false,
     onRemoveTilesCheckedChange: (Boolean) -> Unit = {},
+    // OSM-C3B-AREA-2026-07-29: IMPORT OSM. Routing lives in the checkbox, which
+    // is why no AreaDrawPurpose is needed. Deliberately NOT part of
+    // onExecuteDownload -- OSM must never become a QueueEntry.
+    osmChecked: Boolean = false,
+    onOsmCheckedChange: (Boolean) -> Unit = {},
     flyoverZoom: Int = 18,
     onFlyoverZoomChange: (Int) -> Unit = {},
     tileEstimate: String = "",
@@ -209,6 +214,7 @@ fun ConvoyDownloadPanel(
                 ArtifactCheckRow("Download Tiles", blue, tilesChecked, true) { onTilesCheckedChange(it) }
                 ArtifactCheckRow("Import Trails", green, trailsChecked, true) { onTrailsCheckedChange(it) }
                 ArtifactCheckRow("Remove Tiles", red, removeTilesChecked, true) { onRemoveTilesCheckedChange(it) }
+                ArtifactCheckRow("Import OSM", purple, osmChecked, true) { onOsmCheckedChange(it) }
                 Spacer(Modifier.height(2.dp))
                 ArtifactCheckRow("Waypoints", dimText, false, false, "V2.6") {}
                 ArtifactCheckRow("Tracks", dimText, false, false, "V2.6") {}
@@ -243,7 +249,7 @@ fun ConvoyDownloadPanel(
                 PanelActionButton(
                     label = if (isDrawing) "Drawing..." else "Draw Area",
                     color = blue,
-                    enabled = !isNetMode && (tilesChecked || trailsChecked || removeTilesChecked),
+                    enabled = !isNetMode && (tilesChecked || trailsChecked || removeTilesChecked || osmChecked),
                     modifier = Modifier.weight(1f)
                 ) { onDrawArea() }
                 PanelActionButton(

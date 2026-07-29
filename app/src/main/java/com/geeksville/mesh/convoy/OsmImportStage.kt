@@ -392,6 +392,94 @@ object OsmImportStage {
      * rooted at a derived path is exactly the shape of mistake that removes
      * more than it was asked to.
      */
+    /**
+     * OSM-C3B-EXTENT-2026-07-29: the WHOLE STATE bbox.
+     *
+     * subset_meta does NOT carry an extent -- it holds source_file, classes,
+     * feature_count, built_at, wkt_format, hash_algo, attribution and nothing
+     * else. The extent is therefore derived from the trails themselves, which
+     * is the more correct source anyway: a stored value can drift from the
+     * rows, this cannot. Covered by ix_osm_trails_bbox (min_lat,max_lat,
+     * min_lon,max_lon), so it is an index scan.
+     *
+     * Returns [s, w, n, e] -- the order OsmImportLedger.setPendingImport
+     * writes and OsmImportWorker destructures. NOT the "west,south,east,north"
+     * form documented for the history string.
+     */
+    fun trailExtent(ctx: Context, slug: String): DoubleArray? {
+        val f = skinnyFor(ctx, slug)
+        if (!f.exists()) return null
+        var db: SQLiteDatabase? = null
+        return try {
+            db = SQLiteDatabase.openDatabase(
+                f.absolutePath, null, SQLiteDatabase.OPEN_READONLY
+            )
+            var out: DoubleArray? = null
+            db.rawQuery(
+                "SELECT MIN(min_lat), MAX(max_lat), MIN(min_lon), MAX(max_lon) " +
+                    "FROM osm_trails", null
+            ).use { c ->
+                if (c.moveToFirst() && !c.isNull(0)) {
+                    val minLat = c.getDouble(0)
+                    val maxLat = c.getDouble(1)
+                    val minLon = c.getDouble(2)
+                    val maxLon = c.getDouble(3)
+                    // [s, w, n, e]
+                    out = doubleArrayOf(minLat, minLon, maxLat, maxLon)
+                }
+            }
+            Log.i(TAG, "trailExtent $slug = ${out?.joinToString(",") ?: "(none)"}")
+            out
+        } catch (e: Exception) {
+            Log.w(TAG, "trailExtent failed $slug: ${e.javaClass.simpleName} ${e.message}")
+            null
+        } finally {
+            try { db?.close() } catch (_: Exception) {}
+        }
+    }
+
+    /**
+     * OSM-C3B-EXTENT-2026-07-29: how many trails OVERLAP a bbox.
+     *
+     * Overlap, not containment -- the same test OsmImportWorker applies, so
+     * this number is the one the import will actually move. On a FULL STATE
+     * box it must equal the total row count exactly: every trail overlaps its
+     * own extent by definition. Anything less means the extent or the
+     * coordinate order is wrong, which is the whole point of showing it.
+     */
+    fun countTrailsInBbox(
+        ctx: Context,
+        slug: String,
+        s: Double,
+        w: Double,
+        n: Double,
+        e: Double
+    ): Int {
+        val f = skinnyFor(ctx, slug)
+        if (!f.exists()) return -1
+        var db: SQLiteDatabase? = null
+        return try {
+            db = SQLiteDatabase.openDatabase(
+                f.absolutePath, null, SQLiteDatabase.OPEN_READONLY
+            )
+            var out = -1
+            db.rawQuery(
+                "SELECT COUNT(*) FROM osm_trails " +
+                    "WHERE min_lat <= ? AND max_lat >= ? " +
+                    "AND min_lon <= ? AND max_lon >= ?",
+                arrayOf(n.toString(), s.toString(), e.toString(), w.toString())
+            ).use { c ->
+                if (c.moveToFirst()) out = c.getInt(0)
+            }
+            out
+        } catch (ex: Exception) {
+            Log.w(TAG, "countTrailsInBbox failed $slug: ${ex.javaClass.simpleName}")
+            -1
+        } finally {
+            try { db?.close() } catch (_: Exception) {}
+        }
+    }
+
     fun discardState(ctx: Context, slug: String): Boolean {
         val dir = dirFor(ctx, slug)
         var ok = true
