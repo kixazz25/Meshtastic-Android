@@ -163,23 +163,35 @@ fun ConvoyArtifactsPanel(
                         Spacer(modifier = Modifier.height(8.dp))
                         Row(modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            // OSM-IMPORT-2026-07-28: three-across. Font 9->8sp and
+                            // horizontal padding 8->4dp on ALL THREE so they share
+                            // the row evenly rather than a new style beside two old ones.
                             Surface(
                                 modifier = Modifier.weight(1f).clickable { onImport("Trails") },
                                 shape = RoundedCornerShape(4.dp), color = Color(0xFF0D1520)
                             ) {
-                                Text("IMPORT TRAILS", color = aGreen, fontSize = 9.sp,
+                                Text("IMPORT TRAILS", color = aGreen, fontSize = 8.sp,
                                     fontFamily = aMono, fontWeight = FontWeight.Bold,
                                     textAlign = TextAlign.Center,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp))
+                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 6.dp))
                             }
                             Surface(
                                 modifier = Modifier.weight(1f).clickable { onImport("Artifacts") },
                                 shape = RoundedCornerShape(4.dp), color = Color(0xFF0D1520)
                             ) {
-                                Text("IMPORT ARTIFACTS", color = aBlue, fontSize = 9.sp,
+                                Text("IMPORT ARTIFACTS", color = aBlue, fontSize = 8.sp,
                                     fontFamily = aMono, fontWeight = FontWeight.Bold,
                                     textAlign = TextAlign.Center,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp))
+                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 6.dp))
+                            }
+                            Surface(
+                                modifier = Modifier.weight(1f).clickable { onImport("OSM") },
+                                shape = RoundedCornerShape(4.dp), color = Color(0xFF0D1520)
+                            ) {
+                                Text("IMPORT OSM DATA", color = aOrange, fontSize = 8.sp,
+                                    fontFamily = aMono, fontWeight = FontWeight.Bold,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 6.dp))
                             }
                         }
                     }

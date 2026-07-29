@@ -143,6 +143,10 @@ fun ConvoyMapViewerScreen(
     var showDiscardChoice by remember { mutableStateOf(false) }
     var showInProgressPicker by remember { mutableStateOf(false) }
     var showEntryChoice by remember { mutableStateOf(false) }
+    // OSM-IMPORT-2026-07-28: OSM import overlay. No nav route on purpose -- the
+    // panel is planner-only, and every row's state is DERIVED FROM DISK, so
+    // there is nothing to preserve across recomposition.
+    var showOsmPanel by remember { mutableStateOf(false) }
     var recoveryDetected by remember { mutableStateOf(false) }
     var saveOrigName by remember { mutableStateOf("") }   // draft's on-disk name captured when Save panel opens (rename source)
     var recoveryLaunched by remember { mutableStateOf(false) }   // one-shot: recovery detected this session (in onPageFinished)
@@ -935,10 +939,30 @@ fun ConvoyMapViewerScreen(
                     when (typeName) {
                         "Trails" -> onNavigateToTrailSources()
                         "Artifacts" -> onNavigateToTrackImport()
+                        // OSM-IMPORT-2026-07-28
+                        "OSM" -> showOsmPanel = true
                         else -> onNavigateToTrackImport()
                     }
                 }
             )
+            }
+
+            // OSM-IMPORT-2026-07-28: OSM import overlay (planner only).
+            // Full-screen so the four-stage panel owns the surface while open.
+            // BackHandler closes it -- there is no back-stack entry to pop.
+            if (showOsmPanel) {
+                androidx.activity.compose.BackHandler(enabled = true) {
+                    showOsmPanel = false
+                }
+                androidx.compose.foundation.layout.Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color(0xFF0F1216))
+                ) {
+                    OsmImportPanel(
+                        onNavigateBack = { showOsmPanel = false }
+                    )
+                }
             }
 
             // -- ARTIFACT LIST PANEL (SELECT/EDIT) --

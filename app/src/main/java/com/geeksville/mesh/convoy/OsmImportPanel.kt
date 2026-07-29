@@ -1,0 +1,698 @@
+package com.geeksville.mesh.convoy
+
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.util.Log
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.work.WorkInfo
+import androidx.work.WorkManager
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+
+/**
+ * OsmImportPanel -- the container the four components drop into.
+ *
+ * Four rows, one green. Row state is DERIVED FROM DISK every refresh; nothing
+ * here stores a stage. The ledger is written by the components and read only
+ * for display -- it never decides what runs next.
+ *
+ * THE ONE HARD RULE: EXTRACT cannot launch unless a zip has been identified as
+ * existing. Tapping it earlier is harmless and simply reports that nothing was
+ * found.
+ *
+ * C2 / C3 / C4 are not built. Their actions call stubs so the panel and its
+ * derivation can be exercised by moving files around before any component
+ * exists -- push a dummy zip and EXTRACT goes green; delete it and DOWNLOAD
+ * goes green again.
+ */
+
+private const val PANEL_TAG = "OsmPanel"
+
+private const val GEOFABRIK_URL =
+    "https://download.geofabrik.de/north-america/us.html"
+
+private val GREEN = Color(0xFF3FB950)
+private val DIM = Color(0xFF8B949E)
+
+private data class RowSpec(
+    val number: Int,
+    val title: String,
+    val detail: String,
+    val done: Boolean,
+    val actionLabel: String?,
+    val enabled: Boolean,
+    val isNext: Boolean
+)
+
+@Composable
+fun OsmImportPanel(
+    onNavigateBack: () -> Unit = {}
+) {
+    // OSM-GENERIC-2026-07-28: the state is UNKNOWN until a file is adopted, so it is
+    // DERIVED from disk like everything else here -- never passed in. Wording
+    // stays generic until there is something real to name.
+    val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    var slug by remember { mutableStateOf<String?>(null) }
+    var stage by remember { mutableStateOf(OsmStage.ACQUIRE) }
+    var permissionOk by remember { mutableStateOf(true) }
+    var busy by remember { mutableStateOf(false) }
+    var busyLabel by remember { mutableStateOf("") }
+    var progress by remember { mutableStateOf(0f) }
+    var message by remember { mutableStateOf<String?>(null) }
+    var confirm by remember { mutableStateOf<Pair<String, () -> Unit>?>(null) }
+    var refreshTick by remember { mutableStateOf(0) }
+
+    // OSM-C2-WIRING-2026-07-28: C2 runs in a worker, so its progress is not this
+    // panel's state -- it is READ from WorkManager. handledExtractId exists to
+    // stop the terminal state being acted on more than once; see the polling
+    // effect below.
+    var extracting by remember { mutableStateOf(false) }
+    var extractItems by remember {
+        mutableStateOf<List<OsmExtractProgress.Item>>(emptyList())
+    }
+    var handledExtractId by remember { mutableStateOf<String?>(null) }
+
+    // R5: derivation runs at MOMENTS. This is one of them.
+    LaunchedEffect(refreshTick) {
+        permissionOk = OsmImportStage.hasAllFilesAccess()
+        val found = withContext(Dispatchers.IO) { OsmImportStage.statesInFlight(ctx) }
+        slug = found.firstOrNull()
+        stage = if (slug == null) {
+            OsmStage.ACQUIRE
+        } else {
+            withContext(Dispatchers.IO) { OsmImportStage.stageOf(ctx, slug!!) }
+        }
+        Log.i(PANEL_TAG, "derived: slug=$slug stage=$stage permission=$permissionOk inFlight=${found.size}")
+    }
+
+    /**
+     * OSM-C2-WIRING-2026-07-28: follow the extract worker.
+     *
+     * Keyed on slug + refreshTick so that ARRIVING at the panel while an
+     * extract is already running re-attaches to it. C2 runs for minutes; the
+     * user will leave and come back, and finding an empty panel would look
+     * like the work had been lost.
+     *
+     * Polled rather than observed as LiveData -- observeAsState needs a Compose
+     * artifact I could not confirm is on this project's classpath, and a 2s
+     * poll needs nothing new. The worker forces a publish at every type start
+     * and completion, so transitions show up at once despite the 30s tick.
+     *
+     * ⚠ handledExtractId is what stops the loop: bumping refreshTick on
+     * SUCCEEDED restarts this effect, which would see SUCCEEDED again and bump
+     * again, forever.
+     */
+    LaunchedEffect(slug, refreshTick) {
+        val s = slug
+        if (s == null) {
+            extracting = false
+            extractItems = emptyList()
+            return@LaunchedEffect
+        }
+        val wm = WorkManager.getInstance(ctx)
+        val name = OsmExtractWorker.uniqueName(s)
+        while (true) {
+            val infos = withContext(Dispatchers.IO) {
+                try {
+                    wm.getWorkInfosForUniqueWork(name).get()
+                } catch (e: Exception) {
+                    Log.w(PANEL_TAG, "work query failed: ${e.javaClass.simpleName}")
+                    null
+                }
+            }
+            val info = infos?.firstOrNull()
+            if (info == null) {
+                extracting = false
+                break
+            }
+            val json = info.progress.getString(OsmExtractProgress.KEY)
+            if (json != null) extractItems = OsmExtractProgress.fromJson(json)
+
+            if (info.state.isFinished) {
+                extracting = false
+                val id = info.id.toString()
+                if (handledExtractId != id) {
+                    handledExtractId = id
+                    if (info.state == WorkInfo.State.FAILED) {
+                        message = info.outputData.getString(OsmExtractWorker.KEY_ERROR)
+                            ?: "Extract failed. See log."
+                        extractItems = emptyList()
+                    } else if (info.state == WorkInfo.State.SUCCEEDED) {
+                        // OSM-C2-PROGRESS-COUNTERS-2026-07-28: WorkManager DISCARDS progress Data
+                        // on a terminal state -- getProgress() is empty once the
+                        // worker finishes. The worker's final forced publish is
+                        // real but unreadable, which is why the LAST layer never
+                        // ticked while earlier ones did: a later pass published
+                        // while still RUNNING and carried their completed state
+                        // with it. Nothing follows trails.
+                        //
+                        // Do not wait for data that will never arrive: a
+                        // succeeded extract means every layer completed.
+                        extractItems = extractItems.map {
+                            it.copy(complete = true, done = if (it.total > 0) it.total else it.done)
+                        }
+                    }
+                    Log.i(PANEL_TAG, "extract finished: ${info.state}")
+                    refreshTick++
+                }
+                break
+            }
+            extracting = true
+            delay(2_000)
+        }
+    }
+
+    val zipExists = stage == OsmStage.REDUCE || stage == OsmStage.IMPORT
+    val skinnyExists = stage == OsmStage.IMPORT
+
+    val rows = listOf(
+        RowSpec(
+            number = 1,
+            title = "DOWNLOAD",
+            detail = if (zipExists && slug != null) {
+                "${OsmImportStage.displayName(slug!!)} extract in place"
+            } else {
+                "Pick a state at Geofabrik and download its .gpkg.zip"
+            },
+            done = zipExists,
+            actionLabel = if (zipExists) null else "OPEN GEOFABRIK",
+            enabled = !busy,
+            isNext = !zipExists
+        ),
+        RowSpec(
+            number = 2,
+            title = "EXTRACT",
+            detail = when {
+                skinnyExists -> "Trail database ready"
+                zipExists -> "Unzip and select trails"
+                else -> "Waiting for a downloaded file"
+            },
+            done = skinnyExists,
+            actionLabel = if (skinnyExists) null else "EXTRACT",
+            // THE ONE HARD RULE
+            enabled = !busy && zipExists && !extracting,
+            isNext = zipExists && !skinnyExists
+        ),
+        RowSpec(
+            number = 3,
+            title = "IMPORT TO SPATIAL",
+            detail = if (skinnyExists) "Whole state, or draw an area" else "Waiting",
+            done = false,
+            actionLabel = "IMPORT",
+            enabled = !busy && skinnyExists,
+            isNext = skinnyExists
+        ),
+        RowSpec(
+            number = 4,
+            title = "CLEANUP",
+            detail = if (skinnyExists) "Remove working files" else "Waiting",
+            done = false,
+            actionLabel = "CLEAN UP",
+            enabled = !busy && skinnyExists,
+            isNext = false
+        )
+    )
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
+        Text(
+            text = if (slug == null) "IMPORT OSM TRAIL DATA"
+            else "OSM TRAIL DATA - ${OsmImportStage.displayName(slug!!).uppercase()}",
+            fontWeight = FontWeight.Bold,
+            fontSize = 16.sp,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = "Data (c) OpenStreetMap contributors, ODbL",
+            fontSize = 11.sp,
+            color = DIM
+        )
+        Spacer(Modifier.height(12.dp))
+
+        if (!permissionOk) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.errorContainer
+                )
+            ) {
+                Column(Modifier.padding(12.dp)) {
+                    Text(
+                        "GroupTrack cannot see your downloads",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "All files access is off. Settings > Apps > Special app " +
+                            "access > All files access > GroupTrack. " +
+                            "Clearing app storage switches this off silently.",
+                        fontSize = 12.sp
+                    )
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+        }
+
+        rows.forEach { row ->
+            StageRow(
+                row = row,
+                onAction = {
+                    when (row.number) {
+                        1 -> openGeofabrik(ctx)
+                        2 -> confirm = "Unzip the extract and build the trail " +
+                            "database? This takes several minutes and needs " +
+                            "free space for the unzipped file." to {
+                            val s = slug
+                            if (s == null) {
+                                message = "No state in flight. Tap REFRESH."
+                            } else {
+                                extractItems = emptyList()
+                                handledExtractId = null
+                                extracting = true
+                                OsmExtractWorker.enqueue(ctx, s)
+                                refreshTick++
+                            }
+                        }
+                        3 -> confirm = "Import trails into the map database?" to {
+                            runStub(scope, "IMPORT (C3)") {
+                                busy = it; busyLabel = "Importing"
+                            }
+                        }
+                        4 -> confirm = "Delete the working files?" to {
+                            runStub(scope, "CLEANUP (C4)") {
+                                busy = it; busyLabel = "Cleaning up"
+                            }
+                        }
+                    }
+                }
+            )
+            Spacer(Modifier.height(8.dp))
+
+            // OSM-C2-WIRING-2026-07-28: per-type progress belongs UNDER the row that
+            // started it, not in the panel's shared busy area at the bottom --
+            // the bottom spinner is for short foreground actions, and C2 is
+            // neither short nor foreground.
+            if (row.number == 2 && extractItems.isNotEmpty()) {
+                ExtractProgressList(extractItems)
+                Spacer(Modifier.height(8.dp))
+            }
+
+            // OSM-GENERIC-2026-07-28: the check gate sits BETWEEN step 1 and
+            // step 2, where the disjointed hand-off actually happens -- the
+            // user leaves for the browser after step 1 and returns here.
+            // Tapping it IS the poll (R5); there is no file watcher.
+            if (row.number == 1 && !zipExists) {
+                Button(
+                    onClick = {
+                        scope.launch {
+                            busy = true
+                            busyLabel = "Looking for a downloaded file"
+                            val probe = withContext(Dispatchers.IO) {
+                                OsmImportStage.probeDownloads(ctx)
+                            }
+                            when (probe) {
+                                is OsmImportStage.AcquireProbe.NotFound -> {
+                                    busy = false
+                                    message = "No Geofabrik extract found in your " +
+                                        "downloads. If the download is still running, " +
+                                        "try again when it finishes."
+                                }
+                                is OsmImportStage.AcquireProbe.Several -> {
+                                    busy = false
+                                    message = "Found ${probe.all.size} matching files. " +
+                                        "Delete the ones you don't want and try again."
+                                }
+                                is OsmImportStage.AcquireProbe.BadFile -> {
+                                    busy = false
+                                    message = "Found ${probe.candidate.displayName}, but " +
+                                        "it is incomplete or not a Geofabrik extract."
+                                }
+                                is OsmImportStage.AcquireProbe.Found -> {
+                                    busyLabel = "Copying ${probe.candidate.displayName}"
+                                    val c = probe.candidate
+                                    val ok = withContext(Dispatchers.IO) {
+                                        OsmImportStage.sweepDebris(ctx, c.slug)
+                                        OsmImportLedger.create(
+                                            ctx, c.slug,
+                                            OsmImportStage.displayName(c.slug),
+                                            "Geofabrik ${c.displayName} (user download)",
+                                            OsmImportLedger.priorImports(ctx, c.slug)
+                                        )
+                                        OsmImportStage.adoptCandidate(ctx, c) { copied, total ->
+                                            if (total > 0) progress = copied.toFloat() / total
+                                        }
+                                    }
+                                    if (ok) {
+                                        withContext(Dispatchers.IO) {
+                                            OsmImportLedger.recordAcquire(
+                                                ctx, c.slug, c.displayName, c.bytes, "MediaStore"
+                                            )
+                                        }
+                                        message = "Copied ${c.displayName}."
+                                    } else {
+                                        message = "Could not copy ${c.displayName}. See log."
+                                    }
+                                    busy = false
+                                    progress = 0f
+                                    refreshTick++
+                                }
+                            }
+                        }
+                    },
+                    enabled = !busy && permissionOk,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("CLICK HERE WHEN DOWNLOAD HAS COMPLETED", fontSize = 12.sp)
+                }
+                Spacer(Modifier.height(8.dp))
+            }
+        }
+
+        Spacer(Modifier.height(8.dp))
+
+        OutlinedButton(
+            onClick = { refreshTick++ },
+            enabled = !busy,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("REFRESH")
+        }
+
+        // OSM-CANCEL-BUTTON-2026-07-28: the way out.
+        //
+        // At the BOTTOM, not beside EXTRACT: a destructive control next to the
+        // primary action is a misfire waiting to happen, and moving it away
+        // removes that risk rather than mitigating it.
+        //
+        // Shown only when there is something to cancel, so it does not sit
+        // there inviting a tap on an empty panel.
+        if (slug != null) {
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(
+                onClick = {
+                    val s = slug!!
+                    val name = OsmImportStage.displayName(s)
+                    // The confirm names the CONSEQUENCE, not just the action.
+                    // "Delete" alone reads as tidying up; the download has to
+                    // be repeated, and that belongs before the tap rather than
+                    // after it.
+                    confirm = (if (extracting) {
+                        "Stop extracting $name and delete the download? " +
+                            "You will have to download it again."
+                    } else {
+                        "Delete the downloaded $name extract and start over? " +
+                            "You will have to download it again."
+                    }) to {
+                        scope.launch {
+                            busy = true
+                            busyLabel = "Cancelling"
+                            // Order matters: stop the worker BEFORE removing
+                            // files, or it writes into a directory that is
+                            // being deleted underneath it. The worker checks
+                            // isStopped in both its unzip and row loops and
+                            // unwinds through its finally block, so the delay
+                            // is to let that finish rather than to hope.
+                            withContext(Dispatchers.IO) {
+                                WorkManager.getInstance(ctx)
+                                    .cancelUniqueWork(OsmExtractWorker.uniqueName(s))
+                            }
+                            delay(1_000)
+                            val ok = withContext(Dispatchers.IO) {
+                                OsmImportStage.discardState(ctx, s)
+                            }
+                            extracting = false
+                            extractItems = emptyList()
+                            handledExtractId = null
+                            busy = false
+                            if (!ok) message = "Some files could not be removed. See log."
+                            refreshTick++
+                        }
+                    }
+                },
+                enabled = !busy,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    if (extracting) "CANCEL EXTRACT" else "CANCEL AND DELETE DOWNLOAD",
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+        }
+
+        if (busy) {
+            Spacer(Modifier.height(12.dp))
+            Text(busyLabel, fontSize = 12.sp, color = DIM)
+            Spacer(Modifier.height(4.dp))
+            if (progress > 0f) {
+                LinearProgressIndicator(
+                    progress = { progress },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            } else {
+                CircularProgressIndicator(Modifier.size(20.dp))
+            }
+        }
+    }
+
+    message?.let { text ->
+        AlertDialog(
+            onDismissRequest = { message = null },
+            title = { Text("OSM import") },
+            text = { Text(text) },
+            confirmButton = {
+                TextButton(onClick = { message = null }) { Text("OK") }
+            }
+        )
+    }
+
+    confirm?.let { (text, action) ->
+        AlertDialog(
+            onDismissRequest = { confirm = null },
+            title = { Text("Confirm") },
+            text = { Text(text) },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirm = null
+                    action()
+                }) { Text("CONTINUE") }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirm = null }) { Text("CANCEL") }
+            }
+        )
+    }
+}
+
+/**
+ * OSM-C2-WIRING-2026-07-28: one row per extracted type, each with its OWN
+ * denominator.
+ *
+ * SHAPE SET BY FRED 2026-07-28: "a simple counter per type, what % of that
+ * type has processed, check box when type is completed", and "time is
+ * preferred just relative to each type being transferred."
+ *
+ * So there is deliberately NO blended bar and NO whole-job estimate. Unzip
+ * moves bytes and the passes move rows; per-row cost differs by orders of
+ * magnitude between a 1,581-row places pass and a 134,242-row trails pass. A
+ * single bar would sit still through the unzip, sprint through places, then
+ * crawl -- and a whole-run average would be dominated by whichever type
+ * happened to run first.
+ *
+ * The rows come from the worker, which builds them from the catalog, so
+ * enabling "pois" in osm_layers.json makes a POIs row appear here with no edit
+ * to this file.
+ *
+ * ⚠ These use checkbox glyphs at Fred's request. StageRow deliberately does
+ * not -- see its comment about a checkbox reading as an INPUT on the panel
+ * next door. Both styles now live in one screen; swap the glyphs below if the
+ * consistency matters more.
+ */
+@Composable
+private fun ExtractProgressList(items: List<OsmExtractProgress.Item>) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(6.dp)
+    ) {
+        Column(Modifier.padding(12.dp)) {
+            items.forEachIndexed { idx, item ->
+                if (idx > 0) Spacer(Modifier.height(10.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = if (item.complete) "\u2611" else "\u2610",
+                        color = if (item.complete) GREEN else DIM,
+                        fontSize = 15.sp,
+                        modifier = Modifier.width(24.dp)
+                    )
+                    Text(
+                        text = item.label,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Text(
+                        text = "${item.percent}%",
+                        fontSize = 13.sp,
+                        color = if (item.complete) GREEN else DIM
+                    )
+                }
+                Spacer(Modifier.height(3.dp))
+                LinearProgressIndicator(
+                    progress = { item.percent / 100f },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 24.dp)
+                )
+                val counts = if (item.total > 0L) {
+                    "${grouped(item.done)} / ${grouped(item.total)}"
+                } else {
+                    grouped(item.done)
+                }
+                val eta = OsmExtractProgress.etaText(item.etaSec)
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = if (item.complete || eta.isEmpty()) counts else "$counts   $eta",
+                    fontSize = 11.sp,
+                    color = DIM,
+                    modifier = Modifier.padding(start = 24.dp)
+                )
+            }
+        }
+    }
+}
+
+/** 134242 -> "134,242". Long counts are unreadable without separators. */
+private fun grouped(v: Long): String =
+    String.format(java.util.Locale.US, "%,d", v)
+
+@Composable
+private fun StageRow(row: RowSpec, onAction: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(6.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Status glyph, NOT a checkbox. On the download panel next door a
+            // checkbox is an INPUT; here it would be an OUTPUT. Same control,
+            // opposite meaning, adjacent screens -- so this is deliberately not
+            // a checkbox and has no touch target.
+            Box(
+                modifier = Modifier.width(28.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = if (row.done) "\u2713" else "${row.number}",
+                    color = if (row.done) GREEN else DIM,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp
+                )
+            }
+
+            Column(Modifier.weight(1f)) {
+                Text(
+                    text = row.title,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp,
+                    color = if (row.isNext) GREEN
+                    else MaterialTheme.colorScheme.onSurface
+                )
+                Text(text = row.detail, fontSize = 12.sp, color = DIM)
+            }
+
+            row.actionLabel?.let { label ->
+                Spacer(Modifier.width(8.dp))
+                Button(
+                    onClick = onAction,
+                    enabled = row.enabled,
+                    colors = if (row.isNext) {
+                        ButtonDefaults.buttonColors(containerColor = GREEN)
+                    } else {
+                        ButtonDefaults.buttonColors()
+                    }
+                ) {
+                    Text(label, fontSize = 12.sp)
+                }
+            }
+        }
+    }
+}
+
+private fun openGeofabrik(ctx: Context) {
+    try {
+        ctx.startActivity(
+            Intent(Intent.ACTION_VIEW, Uri.parse(GEOFABRIK_URL))
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        )
+    } catch (e: Exception) {
+        Log.e(PANEL_TAG, "could not open browser: ${e.javaClass.simpleName} ${e.message}")
+    }
+}
+
+/**
+ * Placeholder for C2 / C3 / C4. Logs, waits, clears. Replaced one at a time as
+ * each component lands.
+ */
+private fun runStub(
+    scope: kotlinx.coroutines.CoroutineScope,
+    what: String,
+    setBusy: (Boolean) -> Unit
+) {
+    scope.launch {
+        Log.i(PANEL_TAG, "STUB: $what would run here")
+        setBusy(true)
+        kotlinx.coroutines.delay(600)
+        setBusy(false)
+    }
+}

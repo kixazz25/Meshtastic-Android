@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "_comment": "Controls what C2 (REDUCE) pulls out of the Geofabrik GPKG into the skinny DB. An override at /sdcard/Documents/GroupTrack/config/osm_layers.json takes precedence over this bundled copy; see OsmLayerCatalog.kt. Table names verified against arizona.gpkg 2026-07-28 -- the GPKG does NOT carry the _1 suffix the shapefile spec documents.",
+  "layers": [
+    {
+      "id": "trails",
+      "label": "Trails and tracks",
+      "enabled": true,
+      "required": true,
+      "source_table": "gis_osm_roads_free",
+      "geometry": "line",
+      "target_table": "osm_trails",
+      "columns": ["osm_id", "fclass", "name", "ref", "maxspeed"],
+      "filter_column": "fclass",
+      "filter_values": [
+        "track", "track_grade1", "track_grade2", "track_grade3",
+        "track_grade4", "track_grade5", "path", "bridleway"
+      ]
+    },
+    {
+      "id": "places",
+      "label": "Place names",
+      "enabled": true,
+      "required": false,
+      "source_table": "gis_osm_places_free",
+      "geometry": "point",
+      "target_table": "osm_places",
+      "columns": ["osm_id", "fclass", "name", "population"]
+    },
+    {
+      "id": "natural",
+      "label": "Peaks, springs, water features",
+      "enabled": true,
+      "required": false,
+      "source_table": "gis_osm_natural_free",
+      "geometry": "point",
+      "target_table": "osm_natural",
+      "columns": ["osm_id", "fclass", "name"]
+    },
+    {
+      "id": "pois",
+      "label": "Points of interest",
+      "enabled": false,
+      "required": false,
+      "source_table": "gis_osm_pois_free",
+      "geometry": "point",
+      "target_table": "osm_pois",
+      "columns": ["osm_id", "fclass", "name"]
+    }
+  ]
+}
