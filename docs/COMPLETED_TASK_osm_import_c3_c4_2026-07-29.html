@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>OSM Trail Import — C3 IMPORT + C4 CLEANUP</title><style>
+:root{--bg:#0f1511;--fg:#dfe7e0;--accent:#6fbf73;--accent2:#9ad4a0;
+--card:#17201a;--line:#2b3a2f;--ui:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+*{box-sizing:border-box}
+body{margin:0;padding:28px 20px 60px;background:var(--bg);color:var(--fg);
+font:15px/1.6 var(--ui);max-width:980px;margin-inline:auto}
+h1{font-size:26px;margin:0 0 2px;color:#fff}
+p.sub{margin:0 0 22px;color:#8ea394;font-size:13px}
+h2{font-size:19px;margin:30px 0 8px;color:var(--accent);
+border-bottom:1px solid var(--line);padding-bottom:5px}
+h3{font-size:15px;margin:20px 0 6px;color:var(--accent2)}
+code{background:#0b0f0c;border:1px solid var(--line);border-radius:3px;
+padding:1px 4px;font-size:13px;color:#cfe6d2}
+ul,ol{margin:8px 0 8px 22px;padding:0}
+li{margin:5px 0}
+table{border-collapse:collapse;margin:10px 0;font-size:14px}
+th,td{border:1px solid var(--line);padding:5px 11px;text-align:right}
+th{background:#1b241d;color:var(--accent2)}
+td:first-child,th:first-child{text-align:left}
+.box{background:var(--card);border-left:4px solid var(--line);
+border-radius:5px;padding:11px 15px;margin:14px 0}
+.box p{margin:7px 0}
+.box.ok{border-left-color:var(--accent)}
+.box.star{border-left-color:#e8c14a}
+.box.warn{border-left-color:#d99b3d}
+.box.bad{border-left-color:#c9584f}
+b{color:#fff}
+</style></head><body>
+<h1>OSM Trail Import &mdash; C3 IMPORT + C4 CLEANUP</h1>
+<p class="sub">Completed task record &middot; 2026-07-29 &middot; branch
+<code>feature/convoy-event-ride</code></p>
+
+<div class="box ok">
+<b>Commits</b>
+<ul>
+<li><code>3a9d0fbf5</code> &mdash; C3a+C3c: OSM import worker (trails + points),
+<code>pending_import</code> ledger API. 2 files, 688 insertions.</li>
+<li><code>44c7781e7</code> &mdash; C3b: row 3 scope selection + area-draw round trip,
+gated. 4 files, 405 insertions.</li>
+<li><code>f724d78dd</code> &mdash; C3c+C4: import wired to the spatial DB, cleanup
+archives and sweeps. 2 files, 357 insertions.</li>
+</ul>
+<p>Baseline entering the day: <code>3fd526517</code> (C1+C2).</p>
+</div>
+
+<h2>What shipped</h2>
+<p>The four-row OSM panel is complete end to end. A user downloads a Geofabrik
+state extract in their browser, the app adopts and reduces it (C1+C2, shipped
+07-28), then <b>imports it into the production spatial database</b> &mdash; whole
+state or an area drawn on the map &mdash; and <b>cleans up</b>, archiving the run
+record and deleting the working files.</p>
+
+<div class="box star">
+<b>The first real import landed, and both balance assertions held.</b>
+<table>
+<tr><th>Type</th><th>found</th><th>inserted</th><th>aliased</th><th>dropped</th><th>balanced</th></tr>
+<tr><td>trails</td><td>89,536</td><td>89,527</td><td>0</td><td>9</td><td>&#10003;</td></tr>
+<tr><td>points</td><td>7,722</td><td>7,679</td><td>&mdash;</td><td>43</td><td>&#10003;</td></tr>
+</table>
+<p>Places 3,674 + natural 4,048 = 7,722. Import wall time approximately three
+minutes on Droid&nbsp;2.</p>
+<p><b>&#11088;&#11088; <code>dropped = 9</code> exactly reproduces the 07-27 laptop
+measurement</b> (&ldquo;Utah 9 hash matches out of 89,554&rdquo;). The on-device
+dedup arrived at the same answer as the offline reference, which confirms the WKT
+contract and <code>geom_hash</code> identity end to end on real data &mdash; not
+by inspection, by agreement between two independent implementations.
+<code>aliased = 0</code> is also correct: the 2,021 name-matches were pruned on
+the laptop before staging.</p>
+</div>
+
+<h2>C3a + C3c &mdash; the worker</h2>
+<ul>
+<li><b>One worker does trails AND points</b> in a single dedup session and writes
+one ledger record. Fred: <i>&ldquo;one import so we do not have to parse code to
+import separately.&rdquo;</i></li>
+<li>Trails route through <code>SpatialDbManager.insertTrail</code>
+(INSERT / DROP / ALIAS). Points go to a new <code>reference_points</code> table
+created by the import (<code>CREATE TABLE IF NOT EXISTS</code> &mdash; a new empty
+table needs no migration and no <code>schema_version</code> bump), with
+<code>UNIQUE(geom_hash)</code>.</li>
+<li><b>Points must NOT go in <code>waypoints</code></b>. Those are user-authored:
+editable, deletable, listed, V3-shared. 3,674 OSM localities would bury the
+user&rsquo;s own waypoints and make &ldquo;remove all OSM data&rdquo;
+impossible.</li>
+<li><code>beginDedupSession()</code> is mandatory &mdash;
+<code>resolveByGeom</code> and <code>sourceUidSeen</code> read in-memory HashMaps.
+Skip it and every trail looks new: 89,536 duplicates with nothing reporting an
+error.</li>
+<li>Counters: found &middot; inserted &middot; aliased &middot; dropped &middot;
+geometryChanged &middot; errors &middot; points_*. Fred: <i>&ldquo;processed
+should equal added, rejected, and dupes identified&rdquo;</i> &rarr; tally
+assertion with <code>balanced: true/false</code> recorded per type.</li>
+</ul>
+
+<div class="box warn">
+<b>Re-import inserts a second trail; it does not update geometry.</b>
+<code>updateExistingFeature</code> never touches geometry, bbox or
+<code>geom_hash</code> &mdash; its own comment says so. The stronger reason is
+not the count: routes snap by <code>lineId</code>, so replacing geometry would
+silently orphan every saved route touching that trail.</div>
+
+<h2>C3b &mdash; scope selection and the area round trip</h2>
+<h3>As built, where it differs from the pre-build spec</h3>
+<p>The specification called for <code>map_area</code> and
+<code>selected_area</code> in the ledger. <b>As implemented</b>,
+<code>pending_import</code> carries <code>scope</code> plus a single
+<code>bbox</code>, and row 3 uses a <code>Row3Choice</code> enum
+(<code>FULL</code> / <code>AREA</code>). Whole state derives its bbox from
+<code>OsmImportStage.trailExtent()</code>.</p>
+
+<div class="box star">
+<b>The panel&rsquo;s rule is one line, and it held: on every derive, if a pending
+bbox is present &rarr; launch.</b> Checking on <i>derive</i> rather than on
+<i>open</i> is what prevents <code>Row3Choice</code> resetting on reopen and
+wiping a bbox the user had already drawn. That was a real bug, caught before it
+shipped.</div>
+
+<h3>Whole state is not a separate code path</h3>
+<p>The extent comes from the trails themselves, so every trail overlaps it by
+definition and a full-extent area import returns exactly what
+<code>SELECT *</code> would. <b>Testing whole state IS testing area.</b>
+Confirmed: 89,536 overlapping on the full extent, matching
+<code>extract.kept</code> exactly.</p>
+
+<h3>The area cycle</h3>
+<ol>
+<li>Row 3 &rarr; SELECTED AREA &rarr; IMPORT writes <code>pending_import</code>
+with a null bbox and <b>closes the panel</b>.</li>
+<li><code>ConvoyMapViewerScreen</code> sees the close, positions the planning map
+on the state extent, ticks <b>Import OSM</b> and opens the draw panel.</li>
+<li>The drawn bbox arrives at <code>onAreaSelected</code>, is written to the
+ledger, the draw panel closes and the OSM panel reopens.</li>
+<li>The derive effect finds the bbox and raises the confirm.</li>
+</ol>
+<p><b>The draw completing IS the submit</b> &mdash; there is no separate OSM
+execute button. Verified: 25,400 trails in the drawn box against 89,536 whole
+state.</p>
+
+<div class="box star">
+<b>&#11088;&#11088; The handoff mechanism already existed.</b>
+<code>TrailImporter</code> has <code>writePendingArea</code> /
+<code>readPendingArea</code> / <code>clearPendingArea</code>. The OSM handoff is
+the <b>second instance of a shipped mechanism</b>, not a new invention. Found via
+the navigation xref. The recurring lesson of this project, again: <i>the file
+already knows.</i></div>
+
+<h3>No flag in the map screen</h3>
+<p>Both panels are flags in one screen, so no navigation is involved. A
+persistent mode flag was rejected because of the <code>routeMode</code> leak
+&mdash; two back paths, one gated. R1 (stage derived from disk) means nothing
+needs preserving across the gap. <code>osmAwaitingSlug</code> is derived from
+disk and guards against a stray draw filling the wrong record.</p>
+
+<h3>No AreaDrawPurpose</h3>
+<p><code>ConvoyDownloadPanel</code> already carries intent in checkbox state
+(Download Tiles / Import Trails / Remove Tiles). An <b>Import OSM</b> row was
+added; <b>the checkboxes ARE the routing.</b></p>
+
+<div class="box bad">
+<b>OSM never becomes a QueueEntry.</b> It shares the drawer, never the queue. An
+import measured in ROWS would poison the tiles-per-minute yardstick exactly as
+deletes would. OSM never touches <code>onExecuteDownload</code> and cannot reach
+the queue.</div>
+
+<div class="box warn">
+<b>Area filters WHICH rows go, never geometry.</b> Overlap, not containment; a
+boundary trail comes over WHOLE. Clipping would change the WKT &rarr; change
+<code>geom_hash</code> &rarr; break dedup against a later whole-state
+import.</div>
+
+<h2>C3c &mdash; wiring, and the progress display</h2>
+<ul>
+<li>The C3b gate became the launch: a confirm dialog naming the count and the
+four coordinates, then <code>OsmImportWorker.enqueue</code>. Both scopes reach
+<b>one</b> launch point.</li>
+<li><b>Visibility is derived from WorkManager, never stored.</b> Leaving the panel
+and returning re-attaches to a running import. A local <code>showProgress</code>
+flag would have been the <code>routeMode</code> failure again.</li>
+<li><b>Live counts from progress; final counts from disk.</b> WorkManager
+discards progress <code>Data</code> on a terminal state, so
+<code>getProgress()</code> is empty once the worker finishes. The completion
+recap reads <code>imports[]</code>, which <code>appendImport</code> writes before
+the worker returns.</li>
+</ul>
+
+<div class="box bad">
+<b>Fix &mdash; the confirm re-raised every few seconds.</b>
+<code>pending_import</code> <i>deliberately</i> outlives a run; that is what makes
+a failed or cancelled import reprocess unattended, and
+<code>appendImport</code> clears it only on success. So the derive effect kept
+finding the bbox and raising the dialog again. No damage &mdash;
+<code>enqueueUniqueWork(KEEP)</code> made every repeat a no-op &mdash; but
+unusable.
+<br><b>Fix:</b> ask WorkManager whether work is already ENQUEUED/RUNNING before
+prompting.
+<br><b>Rejected:</b> clearing the record on accept. That breaks unattended
+reprocess by design &mdash; a crash between enqueue and completion would leave
+nothing to resume from.</div>
+
+<div class="box bad">
+<b>Fix &mdash; the completion dialog cycled forever.</b> OK cleared the dialog
+string and bumped <code>refreshTick</code>, which restarted the observer, which
+re-read the permanent <code>imports[]</code> and raised it again. The
+<code>importFinal == null</code> guard could not help: OK is what makes it null.
+<br><b>Fix:</b> latch on the record&rsquo;s own <code>at</code> timestamp. A
+nullable dialog string can never answer &ldquo;have I shown this?&rdquo;</div>
+
+<div class="box warn">
+<b>My error &mdash; the progress overlay showed nothing for the entire run.</b> I
+read every <code>Int</code> in <code>progress.keyValueMap</code>. The worker
+publishes <b>one JSON string</b> under <code>osm_extract_progress</code>, in the
+shape C2 had already established, and it was in the log the whole time. Guessing
+key names generically instead of reading the payload was the wrong
+instinct.</div>
+
+<h2>C4 &mdash; cleanup</h2>
+<ol>
+<li>Enumerate and size the working files.</li>
+<li><b>Archive the ledger by RENAME</b> &mdash;
+<code>osm/&lt;slug&gt;/ledger.json</code> &rarr;
+<code>osm/history/&lt;slug&gt;_&lt;date&gt;T&lt;time&gt;.json</code>, via
+<code>OsmImportLedger.archiveLedger()</code>.</li>
+<li><code>OsmImportStage.discardState()</code> sweeps the zip, gpkg and skinny,
+then the directory.</li>
+</ol>
+
+<div class="box star">
+<b>&#11088;&#11088; Order is load-bearing: rename BEFORE the sweep.</b>
+<code>discardState</code> deletes <code>ledger.json</code> along with the data
+files, so a rename afterwards would have nothing to rename.
+<code>history/</code> sits OUTSIDE <code>osm/&lt;slug&gt;/</code> and the sweep
+cannot reach it. <b>That is why rename beats copy:</b> the record is safe before
+anything destructive runs, and a copy leaves a window where both exist and the
+wrong one is deleted.
+<br><b>If the rename fails the sweep does not run.</b> Losing the run record to
+keep a cleanup on schedule is the wrong trade; the files can go on a later
+pass.</div>
+
+<p>Measured on the first real cleanup: <b>3 files, 422&nbsp;MB removed</b>
+(<code>utah-latest-free.gpkg.zip</code> 314&nbsp;MB,
+<code>ready_for_import.db</code> 108&nbsp;MB, <code>ledger.json</code>), record
+kept as <code>utah_2026-07-29T135649.json</code>.</p>
+
+<h3>Decisions taken on the day</h3>
+<ul>
+<li><b>No cleanup screen.</b> Row 4 is a process that executes. Fred: <i>&ldquo;it
+has to be selected to run after imports. button goes green after
+imports.&rdquo;</i></li>
+<li><b>Row 4 arms off <code>imports[]</code> being non-empty</b> &mdash; derived,
+not a flag, so it survives navigation and reflects what actually happened.</li>
+<li><b>Acknowledging the recap closes the panel.</b> Correct rather than merely
+convenient: cleanup removed the working directory, so
+<code>statesInFlight()</code> is empty and the panel would derive back to row 1
+anyway.</li>
+<li><b>Cleanup does not auto-roll after import</b> &mdash; it waits to be
+selected.</li>
+</ul>
+
+<div class="box bad">
+<b>&#11088; REVERSAL &mdash; no multi-area from one download.</b> Fred 07-29:
+<i>&ldquo;no multi areas from one download. areas are downloaded to support a
+ride and we are killing downloads after import process.&rdquo;</i> Rationale:
+<i>&ldquo;3 minute download vs cascading complexity for imports.&rdquo;</i>
+<br>This reverses the 07-28 decision that kept the extract alive so a second area
+could be drawn from it. The trade was weighed and taken: carrying extract
+lifetime across imports means a driver that reasons about which areas share a
+download, and cleanup that has to know whether anyone still needs the file. That
+complexity compounds; the download does not. The state machine collapses back to
+acquire &rarr; extract &rarr; import &rarr; cleanup, once through, nothing
+surviving between runs.
+<br><b>Consequence:</b> the reprocess-driver cost model moves from <i>per
+state</i> to <i>per import</i>. The &ldquo;group by state, replay all area records
+from one download&rdquo; idea assumed the extract persisted.
+<br><b>Optional-retain seam is marked in the code</b> (Fred: <i>&ldquo;if we have
+any issue we can make removing the downloaded file optional&rdquo;</i>). Keeping
+the ZIP alone (~330&nbsp;MB) makes a re-import a 40-second re-extract instead of
+a 3-minute download &mdash; the middle option if the trade ever looks wrong in
+the field.</div>
+
+<h2>Dry-run mode &mdash; proposed and rejected</h2>
+<div class="box bad">
+<p>I pushed for a dry-run before the first write, on the grounds that it would
+give the full INSERT/ALIAS/DROP distribution across all 89,536 rows and test the
+balance assertion before any row existed.</p>
+<p><b>Fred killed it with the decisive objection:</b> a dry run cannot see the
+case that matters &mdash; <i>&ldquo;an issue in a trail in this run that was
+simulated as added but is duped within db.&rdquo;</i>
+<code>resolveByGeom</code> and <code>sourceUidSeen</code> read <b>in-memory</b>
+HashMaps filled by <code>beginDedupSession()</code>. A dry run reproduces a stale
+session faithfully and reports &ldquo;added&rdquo; for a row that will collide on
+the real write. <b>It simulates the decision, not the database&rsquo;s response
+to it.</b></p>
+<p>The real run catches exactly that, immediately, via
+<code>UNIQUE(geom_hash)</code> and the balance assertion. And recovery is cheap:
+all imported trail rows carry <code>source_id='osm'</code>, so a bad import is a
+laptop <code>DELETE ... WHERE source_id='osm'</code> on a sacrificial device.
+Points differ &mdash; they carry no <code>source_id</code>;
+<code>reference_points</code> is OSM-only by construction, so that is a
+full-table delete.</p>
+<p><b>Do not re-propose dry-run mode.</b></p>
+</div>
+<p>What did ship instead, because no undo exists in-app: a confirm dialog naming
+the trail count and the four coordinates.</p>
+
+<h2>Documentation produced</h2>
+<ul>
+<li><b>Manual</b> &mdash; the <i>Import OSM Data</i> section under Planning Map
+&rarr; G &mdash; Work with Artifacts went from <b>5 screens to 8</b>, with
+<b>18 captures embedded</b> at 720px WebP q60 (all under the 115&nbsp;KB ceiling;
+manual 3.62 &rarr; 4.53&nbsp;MB). Screens: the four steps &middot; Step 1
+Download &middot; Step 2 Extract &middot; Step 3 Import &middot; Step 4 Cleanup
+&middot; What OpenStreetMap adds &middot; CANCEL &middot; Where the files are
+kept.</li>
+<li>The <b>Work with Artifacts recapture</b> is done &mdash; three buttons now
+visible, closing the caption/image mismatch that was flagged do-not-ship.</li>
+<li>Two statements in the old text were <b>false and were corrected</b>:
+&ldquo;steps 3 and 4 are not active in this build&rdquo;, and &ldquo;you can come
+back and draw another area from the same download&rdquo;.</li>
+<li><b>Fred&rsquo;s framing paragraph</b> opens the section, before the step list:
+<i>&ldquo;This is a four-step process, and GroupTrack keeps track of your
+progress. Any time you leave &mdash; for any reason &mdash; you can come back,
+select IMPORT OSM DATA again, and you will be brought to the next step in your
+process.&rdquo;</i> This is the user-facing statement of R1, and it is what stops
+people restarting from step 1 and re-downloading 330&nbsp;MB they already
+have.</li>
+<li>Section title stays <b>Import OSM Data</b> &mdash; Fred: <i>&ldquo;it is a
+button name just like import trails data.&rdquo;</i> I renamed it to prose and
+had to revert.</li>
+</ul>
+
+<div class="box warn">
+<b>Still open in that section:</b> the <i>adoption moment</i> (the panel
+immediately after &ldquo;CLICK HERE WHEN DOWNLOAD HAS COMPLETED&rdquo; succeeds
+&mdash; slide 7 was absent from the set), and the CANCEL confirm, deliberately
+not captured. Also worth a glance: the before/after Kanab captions were written
+from filenames, not from observed content.</div>
+
+<h2>Lessons, recorded so they are not repeated</h2>
+<ul>
+<li><b>The file already knows &mdash; twice in one day.</b> A
+<code>sealed interface ImportScope</code> already existed at
+<code>OsmImportStage.kt:28</code>; my enum redeclared it and cost a 17-minute
+build. Renamed to <code>Row3Choice</code>. Hours later, the same shape:
+<code>TrailImporter</code> already had the pending-area handoff.</li>
+<li><b>Half an idiom is a bug.</b> <code>MVS:1436</code> pairs
+<code>fitBounds</code> with an explicit viewport report at <code>:1440</code>. I
+copied the fit and not the report, so the map moved and the position never
+persisted.</li>
+<li><b>An intention in a comment is not an implementation.</b>
+<code>OsmImportLedger:222</code> claimed whole state writes its bbox from
+<code>subset_meta</code>. <code>subset_meta</code> has no extent &mdash; seven
+keys, none of them a bbox. The extent now comes from the trails themselves, which
+is the better source anyway: a stored value can drift from the rows, this
+cannot.</li>
+<li><b>Five coordinate orderings coexist in this feature.</b> Ledger
+<code>s,w,n,e</code> &middot; <code>trailExtent</code> <code>[s,w,n,e]</code>
+&middot; <code>ImportScope.Area</code> <code>south,west,north,east</code> &middot;
+<code>asLedgerString</code> <code>west,south,east,north</code> &middot;
+<code>DownloadBbox</code> <code>north,south,east,west</code> &middot;
+<code>fitBounds([S,N],[W,E])</code>. <b>Named arguments at every call site,
+never positional.</b></li>
+</ul>
+
+<div class="box warn">
+<b>Unexplained and parked:</b> <code>bad_geometry: 0</code> on the 07-29 extract
+against 89,394 on 07-28, with identical <code>kept: 89536</code> and
+<code>candidate_rows: 186652</code>. Either the counting changed between runs, or
+the earlier figure was the <code>droppedNoName</code> collision flagged that
+morning.</div>
+
+<h2>Verification trail</h2>
+<ul>
+<li>Whole-state overlap count 89,536 equals <code>extract.kept</code> exactly
+&mdash; the pass criterion for the extent and coordinate order.</li>
+<li>Extent larger than official Utah bounds on all four sides, as expected:
+Geofabrik ships border ways whole (313 UT/AZ trails).</li>
+<li><code>imports[]</code> stayed empty through the entire gated phase &mdash;
+nothing touched the spatial DB until the wiring commit.</li>
+<li>Both balance assertions held on the first real import.</li>
+<li>Area draw: 25,400 trails, well under the whole-state 89,536.</li>
+<li>Cleanup: 422&nbsp;MB removed, record archived, panel closed.</li>
+</ul>
+<h2>Appendix &mdash; the specification as it stood, moved verbatim</h2>
+<div class="box warn">These sections were the working specification in <code>GroupTrack_Living_Master</code> before the build. They are moved here <b>unedited</b> rather than summarised, so the design reasoning survives in full and nothing depends on my account of it. Where the build diverged, the body of this document says so.</div>
+<pre># 🔴 C3b — THE NEXT BUILD (full specification)
+
+Everything below was settled in conversation 07-28 and is not re-litigated.
+This section exists so C3b can be written without re-deriving any of it.
+
+## The handoff mechanism — why JSON and not Compose state
+
+Row 3 offers **WHOLE STATE** or **SELECT AREA**. Area requires the planning map,
+which means the OSM panel must go away and come back.
+
+**Fred's design (07-28):** row 3 simply *closes the panel*. The map's bbox
+submission *relaunches* it. There is **no flag in MVS**, no `AreaDrawPurpose`
+enum, and no navigation change.
+
+&gt; ⭐ **Why this works:** R1 — stage is derived from disk, never stored. The panel
+&gt; can be destroyed and recreated and lands in exactly the same place. That rule
+&gt; was written for crash recovery; this is an unplanned payoff.
+
+&gt; ⚠ **Why a flag was rejected:** the `routeMode` leak. There were two back paths
+&gt; and only one was gated — the on-screen BACK bypassed the `BackHandler`
+&gt; entirely. A `osmAwaitingBbox` flag in MVS has the identical shape, and every
+&gt; exit path would have to clear it. Closing the panel means there is nothing to
+&gt; leak.
+
+## The ledger record — uniform, both scopes
+
+```json
+"pending_import": {
+  "scope": "state",
+  "chosen_at": "2026-07-28T22:41:09",
+  "map_area":      { "s": 36.99, "w": -114.05, "n": 42.00, "e": -109.04 },
+  "selected_area": { "s": 36.99, "w": -114.05, "n": 42.00, "e": -109.04 }
+}
+```
+
+- **`map_area`** — ALWAYS the state extent. Positions the planning map. 5% margin
+  so the box occupies ~95% of the view.
+- **`selected_area`** — what actually gets imported.
+
+| scope | map_area | selected_area |
+|---|---|---|
+| state | state extent | state extent (identical, written immediately) |
+| area | state extent | `null` until the draw fills it |
+
+**THE PANEL'S RULE IS ONE LINE: on open, if `selected_area` is present, launch.**
+
+Both paths converge there. The map never has to ask where to open — the answer
+is in the record regardless of scope. The importer never has to know which
+scope it is.
+
+&gt; ⭐ **Whole state is not a separate code path.** The extent is derived from the
+&gt; trails themselves, so every trail overlaps it *by definition*. A full-extent
+&gt; area import returns exactly the rows a `SELECT *` would — identically, not
+&gt; approximately. One function, exercised two ways. **Testing whole state IS
+&gt; testing area.**
+
+&gt; ⚠ **This bends R1 knowingly.** R1 said the ledger never decides what runs next.
+&gt; "User chose area and hasn't drawn yet" is not derivable from any disk artifact,
+&gt; so it genuinely must be stored. The STAGE stays IMPORT throughout — this is a
+&gt; sub-state inside it, not a competing stage.
+
+## The area cycle, step by step
+
+```
+1. Row 3 tapped
+   -&gt; dialog: WHOLE STATE / SELECT AREA / cancel
+
+2a. WHOLE STATE
+   -&gt; extent = OsmImportStage.skinnyExtent(ctx, slug)
+        SELECT MIN(min_lat), MIN(min_lon), MAX(max_lat), MAX(max_lon)
+        FROM osm_trails            (sub-second over 89,536 rows)
+   -&gt; setPendingImport(scope="state", map_area=extent, selected_area=extent)
+   -&gt; OsmImportWorker.enqueue()
+   -&gt; panel STAYS OPEN, progress rows appear under row 3
+
+2b. SELECT AREA
+   -&gt; setPendingImport(scope="area", map_area=extent, selected_area=null)
+   -&gt; showOsmPanel = false                 (panel closes; MVS is underneath)
+   -&gt; open the download panel with "Import OSM" CHECKED
+   -&gt; map framed to map_area with 5% margin
+
+3. User draws + submits
+   -&gt; ConvoyMapViewerScreen bbox handler sees osmChecked
+   -&gt; slug from OsmImportStage.statesInFlight().firstOrNull()
+   -&gt; OsmImportLedger.setPendingBbox(ctx, slug, s, w, n, e)
+   -&gt; showOsmPanel = true                  (panel relaunches)
+
+4. Panel opens, sees selected_area present
+   -&gt; OsmImportWorker.enqueue()            (KEEP makes a double-enqueue a no-op)
+   -&gt; progress rows under row 3
+
+5. Import completes
+   -&gt; appendImport() writes the record AND removes pending_import
+   -&gt; row 3 ticks, row 4 arms
+```
+
+&gt; ⚠ **Clearing must be airtight.** The trigger is "selected_area present" and the
+&gt; panel re-derives on every refresh. A pending record that outlives its import
+&gt; re-enqueues on every panel open. `appendImport` removes it; `enqueueUniqueWork`
+&gt; with `KEEP` makes a duplicate enqueue harmless in the meantime — but the
+&gt; removal is the actual fix, not the KEEP.
+
+&gt; ⚠ **Row 3 must SHOW the pending state.** `WAITING FOR AREA — draw one, or
+&gt; cancel`, with a visible cancel. An invisible mode is precisely the `routeMode`
+&gt; failure. If the user picks area, gets distracted, and returns tomorrow, the
+&gt; panel must explain itself.
+
+## The panel's own checkbox row (ConvoyDownloadPanel.kt)
+
+The panel already carries intent in checkbox state — **this is why
+`AreaDrawPurpose` is unnecessary**:
+
+```
+Download Tiles    blue    tilesChecked
+Import Trails     green   trailsChecked
+Remove Tiles      red     removeTilesChecked
+Import OSM        orange  osmChecked          &lt;- NEW ROW
+```
+
+`Draw Area` is enabled when any is checked (`ConvoyDownloadPanel.kt` ~:243).
+The caller dispatches on whichever ones are. **The checkboxes are the routing.**
+
+New row needs:
+- `osmChecked: Boolean` + `onOsmCheckedChange` — same shape as the other three
+- added to the `enabled =` condition on Draw Area
+- ⚠ **`osmAvailable: Boolean`** — disabled when no skinny exists. Same mechanism
+  the V2.6 stub rows already use.
+- bbox display line mirroring `"Trails: $trailSourceCount sources found"`:
+  **`"OSM: 8,412 trails in area"`** — indexed count off `ix_osm_trails_bbox`,
+  instant, appears the moment the box is drawn.
+
+&gt; ⭐ **The count IS the confirmation.** The user sees exactly what they are
+&gt; committing to before submitting, so a confirm dialog adds nothing. (Whole-state
+&gt; is the exception — see Open Questions.)
+
+&gt; ⚠ **Checkboxes are not mutually exclusive.** Tiles + OSM both checked = one
+&gt; draw does both. Arguably a feature. But dispatch must handle combinations, and
+&gt; **OSM must never become a `QueueEntry`** — see the yardstick warning below.
+
+## ⛔ OSM MUST NOT ENTER THE DOWNLOAD QUEUE
+
+Share the **drawer**. Never the queue.
+
+`DownloadQueueManager.submitDownload` is not involved. The yardstick averages
+tiles-per-minute; deletes were excluded from it precisely because a different
+unit poisons `avgMinutesPer100` and every later download estimate collapses
+toward zero. **An OSM import measured in ROWS does exactly the same thing.**
+
+Same UI, separate pipeline.
+
+## Tally assertion (add in C3b — 3 lines)
+
+Fred: *"processed should equal added, rejected, and dupes identified."*
+
+```kotlin
+val tallied = inserted + aliased + dropped + geomChanged + errors
+if (tallied != found) Log.e(TAG, "TALLY MISMATCH: found=$found accounted=$tallied")
+```
+
+Same for points: `pointsFound == pointsInserted + pointsMoved + pointsDropped`.
+
+&gt; ⚠ Reading the C3a loop back, every path *appears* to increment exactly one
+&gt; counter — but "appears complete" is how the `deleteOriginal` assumption went
+&gt; wrong this morning. The assertion turns a silent accounting hole into a log
+&gt; line on the first run.
+
+Record the result: **`"balanced": true/false` per type in the import record**, so
+the audit is in the file rather than a logcat buffer that is gone by morning.
+
+## Per-layer point counters (amend in C3b)
+
+Points are currently one bucket. If `natural` silently stops importing, the
+total still looks plausible. Split by layer — `places_found`, `natural_found` —
+generated from the catalog, so enabling `pois` adds its keys automatically.
+
+## Row 4 summary
+
+Row 4 detail reads the state's own `imports[]`:
+
+```
+CLEANUP    3 imports · 12,847 added · 402 aliased · 1,633 dupes · 58 changed
+```
+
+&gt; ⚠ **Sum WITHIN one state's ledger only.** Do NOT sum across history files —
+&gt; see the History section.
+
+---</pre>
+<pre># 🔴 C4 CLEANUP — settled, not written
+
+## The ledger is RENAMED, not copied
+
+```
+osm/utah/ledger.json  -&gt;  osm/history/utah_2026-07-28_224109.json
+```
+
+- **Rename replaces the delete.** `finalizeAndDelete` currently removes the
+  ledger; now the rename IS the removal. If the rename fails, the ledger stays
+  put — cleanup cannot destroy the record even by accident, because deletion is
+  not a separate step that could succeed on its own.
+- **Nothing is serialized twice**, so the archived record is byte-identical to
+  what the import wrote.
+- ⚠ **`history/` sits OUTSIDE `osm/&lt;slug&gt;/`** — CANCEL and cleanup both remove
+  `osm/&lt;slug&gt;/` wholesale and would take the history with it. (This is also why
+  `discardState` is deliberately non-recursive.)
+- ⚠ **Never pruned.** A few KB each. Chosen, not overlooked.
+
+## ⭐ C4 NO LONGER AUTO-ROLLS AFTER IMPORT
+
+**This reverses an earlier decision and the reason matters.** C3→C4 auto-roll was
+settled when whole-state was the only scope. With area scope it is wrong:
+import Moab, cleanup fires, skinny deleted — a second area costs a 630 MB
+re-download, defeating the entire point of area scope.
+
+**Cleanup is explicit.** Row 4 arms after import; the user decides when they are
+done with the state. Whole-state import may *suggest* it.
+
+## History is per-run, never aggregated
+
+Fred 07-28: *"the history is just that, results of one run at one moment in
+time."*
+
+- **History = what a run did.** One file, one run, read on its own.
+  **No cross-run arithmetic anywhere.**
+- **The database = what exists now.** "How many OSM trails do I have" is
+  `COUNT(*) FROM trail_properties WHERE source_id='osm'` — asked of the DB,
+  never derived from history.
+
+&gt; ⚠ Summing runs produces a number that *looks* like inventory and is not. A
+&gt; re-imported area contributes inserts and dupes that add up to nothing
+&gt; meaningful. Better no total than a misleading one.
+
+A history browser (list by state + timestamp, open one run, show its counters
+and whether they balanced) is a later, cheap feature — the filenames already
+carry both filter keys.
+
+---</pre>
+<pre># 🔨 C3b — GATED BUILD (applied 07-29, not yet verified on device)
+
+`patch_c3b_row3_scope_2026-07-29.py` — 7 anchors, dry run clean, applied.
+Backups `.bak_20260729_100043`.
+
+## What it does
+- **Row 3 launch line carries two values** — FULL STATE / SELECTED AREA, checkbox
+  glyphs, rendered in the `rows.forEach` loop rather than inside `StageRow`
+  (StageRow is shared by all four rows; only row 3 has a choice).
+- **IMPORT is disabled until one is selected** — `enabled = !busy &amp;&amp; skinnyExists &amp;&amp;
+  importScope != null`. Fred 07-29: *"one must be selected for import button to function."*
+- **FULL STATE derives the extent and writes `pending_import`; SELECTED AREA writes a
+  null bbox.** Both go through `setPendingImport`, one channel.
+- **Then it STOPS at a CANCEL-only recap** showing scope + the four bbox values
+  individually + the overlap count. Nothing calls `OsmImportWorker.enqueue`.
+
+## ⭐ Why the gate is where it is
+It stands exactly where `enqueue()` will go, so **C3c is a swap, not a rewrite** —
+which is the point Fred made on 07-29: *"it keeps us out of the weeds of rewriting a
+section because of behaviour issues."* C3b's job ends at *correct `pending_import` on
+disk at the right moment*; C3c's begins by consuming it.
+
+## ⭐ The recap READS BACK from disk
+It does not print what it meant to write — it re-reads via `pendingBbox`. A transposed
+pair shows up in the S/W/N/E lines instead of being masked. Four values labelled
+individually, never a joined string: `36.99,-114.05,42.00,-109.04` hides what
+`S 36.99 / W -114.05` makes obvious.
+
+## ✅ PASS CRITERION — exact, from the 07-28 ledger
+Utah `extract.kept = 89536`. **A FULL STATE recap MUST show `Trails overlapping: 89536`.**
+Every trail overlaps its own extent by definition. Any other number means the extent
+query or the coordinate order is wrong.
+
+## ⚠ CANCEL does NOT clear the pending record
+Deliberate. The record stays on disk so the panel can be reopened to confirm the rule
+re-derives off the same values, and so the JSON can be read between runs.
+
+## Findings that drove the build
+- ⛔ **`subset_meta` has NO extent.** Seven keys only: `source_file`, `classes`,
+  `feature_count`, `built_at`, `wkt_format`, `hash_algo`, `attribution`. So
+  `OsmImportLedger:222` (*"whole state writes its bbox straight from subset_meta"*)
+  describes an intention that was never built. **Extent now derived by
+  `OsmImportStage.trailExtent()`** — `SELECT MIN(min_lat), MAX(max_lat), MIN(min_lon),
+  MAX(max_lon) FROM osm_trails`, covered by `ix_osm_trails_bbox`. ⭐ More correct than a
+  stored value anyway: the extent comes from the trails themselves, which is *why* whole
+  state is not a special case.
+- **No 5% margin on `selected_area`.** The margin was specced for positioning the map;
+  the import filter wants the true extent. Padding a box that already contains
+  everything only widens it.
+- ⚠ **`scope` at `OsmImportPanel.kt:95` is `rememberCoroutineScope()`.** The import
+  choice is named `importScope` so it cannot shadow it.
+- **`LaunchedEffect(refreshTick)` is the derive moment** (R5). The launch rule belongs
+  there. Panel re-entry re-composes it, so the relaunch-after-draw path needs no new
+  machinery.
+- **Only `clickable` was missing from imports** — `padding`, `sp`, `Dispatchers`,
+  `launch`, `withContext` were already present, so the panel already does
+  `scope.launch { withContext(Dispatchers.IO) }` in the style the patch uses.
+- **Nothing touches the skinny.** Both new helpers open `OPEN_READONLY`; C4 is still a
+  stub. The skinny is stable across every test cycle, so **no restore is needed between
+  runs** — `setPendingImport` overwrites the record wholesale rather than accumulating.
+
+## ⚠ Uncertain until the build lands
+`material3` vs `material` for the recap `AlertDialog`/`TextButton`, and whether the
+two-value line inherits a readable colour on the panel background. Both are
+compile-or-eyeball fixes, not design problems.
+
+---
+
+## 🔨 PART 2 — the area-draw round trip (applied 07-29, build pending)
+
+`patch_c3b_area_draw_2026-07-29.py` — 7 anchors, dry run clean, applied.
+Backups `.bak_20260729_114606`.
+
+⭐ **BOTH PANELS ARE FLAGS IN ONE SCREEN.** `showOsmPanel` (MVS:149) and
+`showDownloadPanel` (MVS:225). `OsmImportPanel` is called at **MVS:962** — it is
+not a route. So the whole round trip is state changes in `ConvoyMapViewerScreen`:
+no navigation, no `ConvoyRoutes` entry, no `AreaDrawPurpose`. Fred 07-29:
+*"if you close the import process as this is launched you will be on the planning
+map, just need to refresh the position."*
+
+**The trip:**
+1. Row 3 SELECTED AREA writes `pending_import` with a null bbox, closes the panel.
+2. `LaunchedEffect(showOsmPanel)` sees the close, reads DISK (R1 — nothing is
+   passed), and if a record is awaiting a draw: positions the map on the state
+   extent + 5% and opens the download panel with IMPORT OSM ticked.
+3. User draws. `onAreaSelected` sets `downloadBbox` as it always has.
+4. `LaunchedEffect(downloadBbox, …)` writes `setPendingBbox`, closes the download
+   panel, reopens the OSM panel — where row 3 finds a bbox and GATES.
+
+- ⭐ **THE DRAW COMPLETING IS THE SUBMIT.** No OSM execute button. Fred 07-29:
+  *"relaunch import and close area selection when the area is processed."*
+- ⚠ **`onAreaSelected` is a `@JavascriptInterface`** (MVS:480) with no slug and no
+  coroutine scope — disk I/O there would run on the JS thread. It keeps doing only
+  what it does today; the reaction happens in composable scope.
+- ⛔ **OSM never touches `onExecuteDownload`**, so it cannot reach the download
+  queue. An import measured in ROWS would poison the tiles-per-minute yardstick.
+- ⛔ **THE 5% PAD WAS REMOVED — see the FIX 6 section below.** I claimed it
+  "sidestepped" FIX 6 because `fitBounds` pads nothing. **Wrong** — the drift comes
+  from padded values being SAVED, not from the fit function. Fred 07-29: *"if we
+  remove your 5% of use fit we have no issues."* The OSM path now passes the raw
+  extent.
+- ⚠ **Padding is PER AXIS** — `(n-s)*0.05` and `(e-w)*0.05` separately. One figure
+  would skew tall or wide states. Utah is nearly square so it would have hidden.
+- ⚠ **`osmAwaitingSlug` is the guard** that stops a stray area draw from filling
+  someone else's record.
+
+## ⭐⭐ THE XREF FINDING THAT DE-RISKED THIS — the handoff already exists
+
+Fred 07-29: *"i would use the navigation xref doc to identify the import trails
+function and then the functions where used to trace what is called."* That found:
+
+**`TrailImporter.kt` already has `writePendingArea`:645 / `readPendingArea`:668 /
+`clearPendingArea`:680**, consumed by `ConvoyTrailSourceScreen:75/:83`. The
+download panel writes a pending area to JSON, navigates, and the target screen
+reads it back — **exactly what `OsmImportLedger.setPendingBbox` / `pendingBbox` /
+`clearPendingImport` does.** MVS:1737 is the working template.
+
+⭐ **The OSM handoff is the SECOND INSTANCE of a shipped mechanism, not a new
+one.** Built from first principles it would have worked and nobody would have
+known there was a pattern to match.
+
+⚠ **FIVE coordinate orderings are now in play. Named arguments at every call
+site, never positional:**
+
+| Thing | Order |
+|---|---|
+| `OsmImportLedger` pending record | `s, w, n, e` |
+| `OsmImportStage.trailExtent()` | `[s, w, n, e]` |
+| `ImportScope.Area(...)` constructor | `south, west, north, east` |
+| `ImportScope.asLedgerString()` | `west,south,east,north` |
+| `DownloadBbox(...)` | `north, south, east, west` |
+| `TrailImporter.writePendingArea(...)` | `north, south, east, west` |
+| `fitBounds([S,N],[W,E])` | S,N then W,E |
+
+## ⛔ THE WASTED BUILD — 17 minutes, and the lesson is the same one
+
+The first C3b build failed on `Redeclaration: ImportScope`. **A sealed interface
+of that name already existed at `OsmImportStage.kt:28`** — and its doc comment
+already made the CODE RULE 1 argument my enum restated (*"sealed rather than
+`Bbox? = null`, deliberately: with `Bbox? = null` every call site is ambiguous
+between 'the user chose whole state' and 'the caller forgot to set it'"*).
+
+⚠ **I had been shown a fragment of that very declaration and did not read it.**
+The `asLedgerString()` comment at `:37` was in the fragment; I read it as a stray
+note about ledger format instead of asking what it was attached to. Fixed by
+renaming the panel's type to `Row3Choice` (UI state, not the domain type).
+
+⭐ **Same lesson twice in one day, from opposite directions: THE FILE ALREADY
+KNOWS.** The xref read found a shipped pattern; the skipped read cost a build.
+
+---</pre></body></html>
