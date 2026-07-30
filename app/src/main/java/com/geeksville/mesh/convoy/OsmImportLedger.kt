@@ -294,6 +294,58 @@ object OsmImportLedger {
      * still tells you six weeks from now which states a tester actually loaded,
      * and it costs kilobytes.
      */
+    /**
+     * OSM-C4-ARCHIVE-2026-07-29: the run record becomes the archive entry.
+     *
+     * RENAME, NOT COPY. Fred: "the ledger should be appended to json, that is
+     * the purpose of renaming the json." The whole ledger -- acquire, extract,
+     * every import -- moves to history under a name that identifies the run.
+     *
+     * ⭐ WHY RENAME BEATS COPY: the record is safe BEFORE anything destructive
+     * runs, so cleanup cannot destroy it even by accident. A copy leaves a
+     * window where both exist and the wrong one is deleted.
+     *
+     * ⚠ history/ SITS OUTSIDE osm/<slug>/, which discardState() sweeps
+     * wholesale. Anything inside that directory is gone.
+     *
+     * ⚠ MUST BE CALLED BEFORE THE SWEEP. discardState deletes ledger.json
+     * along with everything else; afterwards there is nothing to rename.
+     *
+     * History is PER-RUN and never aggregated. Fred 07-28: "the history is just
+     * that, results of one run at one moment in time." Summing runs produces a
+     * number that looks like inventory and is not -- "how many OSM trails do I
+     * have" is a question for the spatial DB, not for these files.
+     */
+    fun archiveLedger(ctx: Context, slug: String): File? {
+        val src = File(OsmImportStage.dirFor(ctx, slug), FILENAME)
+        if (!src.exists()) {
+            Log.w(TAG, "archiveLedger: no ledger for $slug")
+            return null
+        }
+        val histDir = File(OsmImportStage.rootDir(ctx), "history")
+        if (!histDir.exists() && !histDir.mkdirs()) {
+            Log.e(TAG, "archiveLedger: could not create history dir")
+            return null
+        }
+        val ts = java.text.SimpleDateFormat(
+            "yyyy-MM-dd'T'HHmmss", java.util.Locale.US
+        ).format(java.util.Date())
+        var dst = File(histDir, "${slug}_$ts.json")
+        // Two runs in the same second would collide. Cheap to make impossible.
+        var n = 1
+        while (dst.exists()) {
+            dst = File(histDir, "${slug}_${ts}_$n.json")
+            n++
+        }
+        return if (src.renameTo(dst)) {
+            Log.i(TAG, "ledger archived: ${dst.name}")
+            dst
+        } else {
+            Log.e(TAG, "archiveLedger: rename FAILED for $slug -- nothing removed")
+            null
+        }
+    }
+
     fun finalizeAndDelete(
         ctx: Context,
         slug: String,

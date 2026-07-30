@@ -1,5 +1,6 @@
 package com.geeksville.mesh.convoy
 
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.clickable
 import android.content.Context
 import android.content.Intent
@@ -130,9 +131,200 @@ fun OsmImportPanel(
     // and null is what keeps IMPORT disabled.
     var importScope by remember { mutableStateOf<Row3Choice?>(null) }
     // OSM-C3B-GATE-2026-07-29: the recap shown after the pending record is
-    // written. CANCEL-only -- it stands exactly where enqueue() will go, so
-    // C3c replaces it rather than reworking this path.
+    // written on the SELECTED AREA path. CANCEL-only.
     var gateRecap by remember { mutableStateOf<String?>(null) }
+    // OSM-C3C-PROGRESS-2026-07-29: import progress.
+    //
+    // ⭐ VISIBILITY IS DERIVED FROM WORKMANAGER, NOT STORED. importRunning is
+    // only a nudge to start observing; the observer below sets it from the
+    // worker's real state, so navigating away and back re-attaches instead of
+    // showing an empty panel. A stored flag would be the routeMode failure.
+    var importRunning by remember { mutableStateOf(false) }
+    var importPhase by remember { mutableStateOf("") }
+    var importCounts by remember { mutableStateOf<List<Pair<String, Int>>>(emptyList()) }
+    var importFinal by remember { mutableStateOf<String?>(null) }
+    // OSM-C4-2026-07-29: derived from imports[] on every refresh.
+    var importsDone by remember { mutableStateOf(false) }
+    // OSM-C3C-LATCH-2026-07-29: the "at" of the last import already shown.
+    // imports[] is PERMANENT, so "have I shown this?" cannot be answered by a
+    // nullable dialog string -- dismissing it is what makes it null. The
+    // record's own timestamp is the only stable answer.
+    var lastShownImportAt by remember { mutableStateOf<String?>(null) }
+    var cleanupRecap by remember { mutableStateOf<String?>(null) }
+
+    // OSM-C3C-PROGRESS-2026-07-29: follow the import worker.
+    //
+    // Keyed on slug + refreshTick so ARRIVING at the panel while an import is
+    // already running re-attaches to it. 89,536 rows takes minutes; the user
+    // will leave and come back, and an empty panel would look like failure.
+    LaunchedEffect(slug, refreshTick) {
+        val s = slug ?: return@LaunchedEffect
+        val wm = androidx.work.WorkManager.getInstance(ctx)
+        while (true) {
+            val infos = withContext(Dispatchers.IO) {
+                try {
+                    wm.getWorkInfosForUniqueWork(OsmImportWorker.uniqueName(s)).get()
+                } catch (e: Exception) {
+                    null
+                }
+            }
+            val wi = infos?.firstOrNull()
+            if (wi == null) {
+                importRunning = false
+            } else if (wi.state == androidx.work.WorkInfo.State.RUNNING ||
+                wi.state == androidx.work.WorkInfo.State.ENQUEUED
+            ) {
+                importRunning = true
+                // OSM-C3C-PROGRESS-2026-07-29: the worker publishes ONE
+                // STRING under "osm_extract_progress", the shape C2 already
+                // established:
+                //   [{"id":"trails","label":"...","done":N,"total":N,
+                //     "complete":true,"eta_sec":-1}, ...]
+                // Parsed here rather than through OsmExtractProgress so a
+                // function-name guess cannot cost a build. A format change
+                // degrades the label; it cannot crash.
+                val raw = wi.progress.getString("osm_extract_progress")
+                if (raw.isNullOrBlank()) {
+                    importPhase = "Importing"
+                    importCounts = emptyList()
+                } else {
+                    try {
+                        val arr = org.json.JSONArray(raw)
+                        val items = ArrayList<Pair<String, Int>>()
+                        var current = "Importing"
+                        for (i in 0 until arr.length()) {
+                            val o = arr.optJSONObject(i) ?: continue
+                            val lbl = o.optString("label", o.optString("id", "?"))
+                            val done = o.optInt("done", 0)
+                            val total = o.optInt("total", 0)
+                            val complete = o.optBoolean("complete", false)
+                            items.add(Pair(lbl + (if (total > 0) " / $total" else ""), done))
+                            // The item being serviced = first not complete.
+                            if (!complete && current == "Importing") current = lbl
+                        }
+                        importPhase = current
+                        importCounts = items
+                    } catch (e: Exception) {
+                        Log.w(PANEL_TAG, "progress unparseable: ${e.javaClass.simpleName}")
+                        importPhase = "Importing"
+                    }
+                }
+            } else {
+                // ⚠ WorkManager DISCARDS progress Data on a terminal state, so
+                // the final counters are NOT readable from getProgress(). They
+                // come from imports[] in the ledger, which appendImport writes
+                // before the worker returns. Live from progress, final from disk.
+                importRunning = false
+                if (wi.state == androidx.work.WorkInfo.State.SUCCEEDED) {
+                    val last = withContext(Dispatchers.IO) {
+                        OsmImportLedger.read(ctx, s)
+                            ?.optJSONArray("imports")
+                            ?.let { arr ->
+                                if (arr.length() == 0) null
+                                else arr.optJSONObject(arr.length() - 1)
+                            }
+                    }
+                    // OSM-C3C-LATCH-2026-07-29: once per RECORD, keyed on its
+                    // own "at". imports[] is permanent, so a nullable dialog
+                    // string cannot answer "have I shown this" -- dismissing it
+                    // is what makes it null, and the next refresh raises it
+                    // again. A new import brings a new "at" and shows once.
+                    val at = last?.optString("at", "") ?: ""
+                    if (last != null && at.isNotEmpty() && at != lastShownImportAt) {
+                        lastShownImportAt = at
+                        importFinal = last.toString(2)
+                        Log.i(PANEL_TAG, "import complete ($at)")
+                    }
+                } else if (wi.state == androidx.work.WorkInfo.State.FAILED) {
+                    val err = wi.outputData.getString(OsmImportWorker.KEY_ERROR)
+                    Log.w(PANEL_TAG, "import FAILED: $err")
+                    if (importFinal == null) importFinal = "IMPORT FAILED\n\n" + (err ?: "no detail")
+                }
+                break
+            }
+            kotlinx.coroutines.delay(1000)
+        }
+    }
+
+    // OSM-C3C-PROGRESS-2026-07-29: the overlay. Fred 07-29: "display the
+    // import item being serviced with the current state recap."
+    if (importRunning) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { },
+            title = { Text("IMPORTING") },
+            text = {
+                Column {
+                    Text(importPhase, fontSize = 13.sp)
+                    Spacer(Modifier.height(8.dp))
+                    if (importCounts.isEmpty()) {
+                        Text("starting\u2026", fontSize = 12.sp)
+                    } else {
+                        importCounts.forEach { (k, v) ->
+                            Text("$k: $v", fontSize = 12.sp)
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "Runs in the background \u2014 leaving this screen is safe.",
+                        fontSize = 11.sp
+                    )
+                }
+            },
+            confirmButton = { }
+        )
+    }
+
+    cleanupRecap?.let { body ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { cleanupRecap = null },
+            title = { Text("CLEANUP") },
+            text = {
+                androidx.compose.foundation.layout.Box(
+                    modifier = Modifier.heightIn(max = 380.dp)
+                ) {
+                    Text(body, fontSize = 11.sp)
+                }
+            },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = {
+                    // OSM-C4-CLOSE-2026-07-29: acknowledging cleanup ends the
+                    // four-step process, so the panel closes itself.
+                    //
+                    // \u2b50 Also correct rather than merely convenient: cleanup
+                    // removed osm/<slug>/, so statesInFlight() is now empty and
+                    // the panel would derive back to row 1 ACQUIRE. Closing
+                    // matches what it would show.
+                    //
+                    // \u26a0 CLEANUP's OK only. The import recap keeps dismissing
+                    // to the panel, because row 4 still has to be reachable.
+                    cleanupRecap = null
+                    onNavigateBack()
+                }) { Text("OK") }
+            }
+        )
+    }
+
+    importFinal?.let { body ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { importFinal = null },
+            title = { Text("IMPORT COMPLETE") },
+            text = {
+                androidx.compose.foundation.layout.Box(
+                    modifier = Modifier.heightIn(max = 380.dp)
+                ) {
+                    Text(body, fontSize = 11.sp)
+                }
+            },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = {
+                    // No refreshTick++ -- the latch above decides whether this
+                    // ever shows again, and re-deriving here only restarted the
+                    // observer that raised it.
+                    importFinal = null
+                }) { Text("OK") }
+            }
+        )
+    }
 
     // OSM-C3B-GATE-2026-07-29: CANCEL-only. Dismiss does NOT clear the pending
     // record -- it stays on disk so the panel can be reopened to confirm the
@@ -172,6 +364,14 @@ fun OsmImportPanel(
         }
         Log.i(PANEL_TAG, "derived: slug=$slug stage=$stage permission=$permissionOk inFlight=${found.size}")
 
+        // OSM-C4-2026-07-29: row 4 arms once an import has landed. Fred:
+        // "it has to be selected to run after imports. button goes green after
+        // imports." DERIVED from the ledger (R1), never a flag -- so it
+        // survives navigation and reflects what actually happened.
+        importsDone = if (slug == null) false else withContext(Dispatchers.IO) {
+            (OsmImportLedger.read(ctx, slug!!)?.optJSONArray("imports")?.length() ?: 0) > 0
+        }
+
         // OSM-C3B-LAUNCH-2026-07-29: THE PANEL'S RULE, ONE LINE.
         //
         // Fred 07-29: "code will always be proceed to update if json has bbox
@@ -198,19 +398,26 @@ fun OsmImportPanel(
                         ctx, s0, ready[0], ready[1], ready[2], ready[3]
                     )
                 }
-                Log.i(PANEL_TAG, "pending bbox present -- GATE (scope=$sc0 " +
+                Log.i(PANEL_TAG, "pending bbox present -- LAUNCH (scope=$sc0 " +
                     "S${ready[0]} W${ready[1]} N${ready[2]} E${ready[3]} n=$n0)")
-                // C3c replaces this block with OsmImportWorker.enqueue(ctx, s0).
-                gateRecap = buildString {
-                    append("READY TO IMPORT\n\n")
-                    append("Scope:  ").append(sc0).append("\n")
-                    append("State:  ").append(OsmImportStage.displayName(s0)).append("\n\n")
-                    append("  S  ").append(ready[0]).append("\n")
-                    append("  W  ").append(ready[1]).append("\n")
-                    append("  N  ").append(ready[2]).append("\n")
-                    append("  E  ").append(ready[3]).append("\n\n")
-                    append("Trails overlapping: ").append(n0).append("\n\n")
-                    append("Nothing imported. C3 is not wired.")
+                // OSM-C3C-WIRE-2026-07-29: this was the gate. It is now the
+                // launch, which is what building it gated bought us -- a swap,
+                // not a rewrite.
+                //
+                // ⚠ NO UNDO EXISTS IN-APP. Removing a bad import is a laptop
+                // operation (DELETE ... WHERE source_id='osm'), so the count
+                // goes in the dialog and the user confirms it.
+                val label = if (sc0 == "state") "the whole state" else "this area"
+                confirm = ("Import $n0 " + OsmImportStage.displayName(s0) +
+                    " trails ($label) into your map database?\n\n" +
+                    "S ${ready[0]}   N ${ready[2]}\n" +
+                    "W ${ready[1]}   E ${ready[3]}\n\n" +
+                    "Places and natural features import whole-state " +
+                    "regardless of area. There is no undo.") to {
+                    Log.i(PANEL_TAG, "enqueue import $s0 scope=$sc0 n=$n0")
+                    OsmImportWorker.enqueue(ctx, s0)
+                    importRunning = true
+                    refreshTick++
                 }
             }
         }
@@ -343,11 +550,14 @@ fun OsmImportPanel(
         RowSpec(
             number = 4,
             title = "CLEANUP",
-            detail = if (skinnyExists) "Remove working files" else "Waiting",
+            detail = if (!skinnyExists) "Waiting"
+                else if (importsDone) "Archive the record and remove working files"
+                else "Waiting for an import",
             done = false,
             actionLabel = "CLEAN UP",
-            enabled = !busy && skinnyExists,
-            isNext = false
+            // OSM-C4-2026-07-29: arms only after an import has landed.
+            enabled = !busy && skinnyExists && importsDone,
+            isNext = importsDone
         )
     )
 
@@ -467,23 +677,91 @@ fun OsmImportPanel(
                                         }
                                     }
                                     busy = false; busyLabel = ""
-                                    // OSM-C3B-AREA-2026-07-29: with no bbox
-                                    // there is nothing to validate, so the
-                                    // gate would only obstruct. Close the
-                                    // panel -- MVS sees the close, positions
-                                    // the map on the state extent and opens
-                                    // the draw panel.
+                                    Log.i(PANEL_TAG, "pending written: $recap")
+                                    // OSM-UNGATE-2026-07-29: ONE LAUNCH POINT.
+                                    //
+                                    // AREA closes the panel and hands off to
+                                    // the map, which fills the bbox and reopens
+                                    // this panel. FULL STATE already has its
+                                    // bbox, so it just bumps the tick -- the
+                                    // derive effect finds the bbox and raises
+                                    // the confirm dialog. Both scopes arrive at
+                                    // the SAME launch, and neither stops at a
+                                    // recap.
                                     if (sc == Row3Choice.AREA) {
                                         onNavigateBack()
                                     } else {
-                                        gateRecap = recap
+                                        refreshTick++
                                     }
                                 }
                             }
                         }
-                        4 -> confirm = "Delete the working files?" to {
-                            runStub(scope, "CLEANUP (C4)") {
-                                busy = it; busyLabel = "Cleaning up"
+                        // OSM-C4-2026-07-29: no screen -- a process that runs.
+                        4 -> confirm = ("Archive the import record and remove the " +
+                            "working files?\n\nThe download and extract are deleted. " +
+                            "Re-importing this state means downloading it again.") to {
+                            val s = slug
+                            if (s == null) {
+                                message = "No state in flight."
+                            } else {
+                                scope.launch {
+                                    busy = true; busyLabel = "Cleaning up"
+                                    val recap = withContext(Dispatchers.IO) {
+                                        // 1. Size what is about to go.
+                                        val dir = OsmImportStage.dirFor(ctx, s)
+                                        val files = dir.listFiles()
+                                            ?.filter { !it.isDirectory }
+                                            ?.map { Pair(it.name, it.length()) }
+                                            ?: emptyList()
+                                        val bytes = files.sumOf { it.second }
+                                        // 2. ARCHIVE BY RENAME -- BEFORE the sweep.
+                                        //    discardState deletes ledger.json too, so
+                                        //    afterwards there is nothing to rename.
+                                        //    history/ sits OUTSIDE osm/<slug>/, so the
+                                        //    sweep cannot reach it.
+                                        val archived = OsmImportLedger.archiveLedger(ctx, s)
+                                        // 3. SWEEP -- but ONLY if the record is safe.
+                                        //    \u26a0 Losing the run record to keep a cleanup
+                                        //    on schedule is the wrong trade. The files
+                                        //    can always be removed on the next pass.
+                                        //    \u2b50 OPTIONAL-RETAIN SEAM: to keep the ZIP
+                                        //    (a re-import becomes a 40-second re-extract
+                                        //    instead of a 3-minute download), filter it
+                                        //    out here instead of calling discardState.
+                                        val swept = if (archived != null) {
+                                            OsmImportStage.discardState(ctx, s)
+                                        } else {
+                                            Log.e(PANEL_TAG, "archive FAILED -- sweep skipped")
+                                            false
+                                        }
+                                        buildString {
+                                            if (archived == null) {
+                                                append("CLEANUP DID NOT RUN\n\n")
+                                                append("The import record could not be ")
+                                                append("archived, so nothing was removed.\n")
+                                                append("Your files are untouched.")
+                                            } else {
+                                                append("CLEANUP COMPLETE\n\n")
+                                                append("Import record kept as:\n  ")
+                                                append(archived.name).append("\n\n")
+                                                append("Removed ").append(files.size)
+                                                append(" file(s), ")
+                                                append(bytes / 1048576L).append(" MB:\n")
+                                                files.forEach { (n2, b) ->
+                                                    append("  ").append(n2).append("  ")
+                                                    append(b / 1048576L).append(" MB\n")
+                                                }
+                                                if (!swept) {
+                                                    append("\n\u26a0 Some files could not be ")
+                                                    append("removed \u2014 see the log.")
+                                                }
+                                            }
+                                        }
+                                    }
+                                    busy = false; busyLabel = ""
+                                    cleanupRecap = recap
+                                    refreshTick++
+                                }
                             }
                         }
                     }
