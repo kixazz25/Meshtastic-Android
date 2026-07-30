@@ -435,6 +435,19 @@ fun ConvoyMapViewerScreen(
             AndroidView(
                 factory = { ctx ->
                     WebView(ctx).apply {
+                        // TAPTRACE-2026-07-30: the planner had NO WebChromeClient,
+                        // so every console.log in grouptrack_map.html has gone
+                        // nowhere. Convoy has had one since :777 (ConvoyJS).
+                        webChromeClient = object : android.webkit.WebChromeClient() {
+                            override fun onConsoleMessage(
+                                cm: android.webkit.ConsoleMessage
+                            ): Boolean {
+                                android.util.Log.d(
+                                    "MapJS", cm.message() + "  @" + cm.lineNumber()
+                                )
+                                return true
+                            }
+                        }
                         settings.javaScriptEnabled = true
                         settings.allowFileAccessFromFileURLs = true
                         settings.domStorageEnabled = true
@@ -448,8 +461,19 @@ fun ConvoyMapViewerScreen(
                                     val v = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                                         SpatialDbManager.init(context)
                                         val trails = SpatialDbManager.queryTrailsByViewport(lastViewportSouth, lastViewportWest, lastViewportNorth, lastViewportEast)
-                                        val tracks = SpatialDbManager.queryTracksByViewport(lastViewportSouth, lastViewportWest, lastViewportNorth, lastViewportEast)
-                                        val s = RouteManager.snap(lat, lon, trails, tracks, 30.0)
+                                        // SNAP2-TRAILS-ONLY-2026-07-30 (Fred, 2.6e): route planning
+                                        // snaps to TRAILS only. No trail in range -> plain point.
+                                        // Tracks still render and stay tappable for details; they
+                                        // are simply not snap targets.
+                                        //
+                                        // The queryTracksByViewport that stood here fed nothing but
+                                        // the snap call, so removing it also drops one viewport query
+                                        // from EVERY map tap.
+                                        //
+                                        // The by-id redraw below still queries tracks, which is what
+                                        // lets routes saved before this change keep drawing. Harmless
+                                        // to keep; becomes dead code once old routes are gone.
+                                        val s = RouteManager.snapTrailsOnly(lat, lon, trails, 30.0)
                                         if (s != null) RouteManager.snapToVertex(s) else RouteManager.freeVertex(lat, lon)
                                     }
                                     RouteManager.addVertex(v)
@@ -478,7 +502,17 @@ fun ConvoyMapViewerScreen(
                             }
                             @JavascriptInterface
                             fun onMapLongPress(lat: Double, lon: Double) {
-                                if (addPointMode) return   // route mode: suppress waypoint drop (Route side of switch)
+                                // WAYPOINT-ALWAYS-2026-07-30 (Fred): "waypoints
+                                // (long press) should always register to create
+                                // waypoints." The guard removed here was added
+                                // because popups were not responding, so long
+                                // presses were frustrated attempts at a popup that
+                                // dropped waypoints instead. The cause is fixed in
+                                // this same build (bind always + stopPropagation).
+                                android.util.Log.d(
+                                    "LongPress",
+                                    "onMapLongPress lat=$lat lon=$lon addPointMode=$addPointMode"
+                                )
                                 android.os.Handler(android.os.Looper.getMainLooper()).post {
                                     pendingWaypoint = Pair(lat, lon)
                                 }
@@ -496,6 +530,16 @@ fun ConvoyMapViewerScreen(
                             fun onMapBoundsReady(n: Double, s: Double, e: Double, w: Double) {}
                             @JavascriptInterface
                             fun onProximityTap(lat: Double, lon: Double) {
+                                // TAPTRACE-2026-07-30: silent until now. The four
+                                // display states are logged because every branch
+                                // below is gated on them -- a DS_OFF type
+                                // contributes nothing and looks like a dead tap.
+                                android.util.Log.d(
+                                    "ProxTap",
+                                    "onProximityTap lat=$lat lon=$lon " +
+                                        "trail=$trailState track=$trackState " +
+                                        "wpt=$waypointState route=$routeState"
+                                )
                                 // Query all artifact types near tap point from spatial DB
                                 val radius = 0.002 // ~200 meters in degrees
                                 val south = lat - radius; val north = lat + radius
@@ -542,8 +586,24 @@ fun ConvoyMapViewerScreen(
                             @JavascriptInterface
                             fun onTrackTap(id: String) {
                                 // [2026-07-02] track tap -> open the shared ArtifactDetailPanel (metrics + SAVE MAPS).
-                                if (addPointMode) return   // route mode: suppress track details (Route side of switch)
+                                //
+                                // TAPTRACE-2026-07-30: addPointMode is a KOTLIN flag,
+                                // distinct from the JS window.__routeMode. The 07-30
+                                // logs proved __routeMode=false at tap time; they say
+                                // nothing about this one. If it is stuck true, the
+                                // return below is silent -- no log, no panel, no
+                                // crash. The guard is KEPT (suppressing a detail
+                                // panel mid-route-draw is reasonable) but is now
+                                // visible.
+                                android.util.Log.d(
+                                    "TrackTap", "PLANNER bridge id=$id addPointMode=$addPointMode"
+                                )
+                                if (addPointMode) {
+                                    android.util.Log.d("TrackTap", "PLANNER SUPPRESSED by addPointMode")
+                                    return
+                                }
                                 android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                    android.util.Log.d("TrackTap", "PLANNER post -> setting state id=$id")
                                     pendingDetailType = "Tracks"
                                     pendingDetailId = id
                                 }
@@ -1415,6 +1475,10 @@ fun ConvoyMapViewerScreen(
                     onOpenDetail = { t, id -> activeListType = null; pendingDetailType = t; pendingDetailId = id }
                 )
             }
+            android.util.Log.d(
+                "DetailGate",
+                "PLANNER gate type=$pendingDetailType id=$pendingDetailId"
+            )
             if (pendingDetailId != null && pendingDetailType != null) {
                 ArtifactDetailPanel(
                     artifactType = pendingDetailType!!,

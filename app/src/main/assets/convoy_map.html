@@ -313,6 +313,9 @@
     if (typeof map !== 'undefined' && map && !map.__routeTapWired) {
       map.__routeTapWired = true;
       window.__routeMode = false;
+      // TRACKPOPUP-2026-07-30: false = tracks show a plain popup instead of
+      // calling Android.onTrackTap. Set true to restore the detail panel.
+      window.__detailPanelEnabled = false;
       window.__buildLayer = null;
       map.on('click', function(e) {
         try {
@@ -510,7 +513,14 @@ function loadTracks(geojsonData) {
         console.log('ARTIFACTTAP track(db) name=' + name + ' tid=' + tid + ' routeMode=' + window.__routeMode);
         if (window.__routeMode) return;                       // BUG A: suppress while route-building
         L.DomEvent.stopPropagation(e);
-        if (tid && window.Android && window.Android.onTrackTap) {
+        // TRACKPOPUP-2026-07-30 (Fred): "i cannot accept no popups on tracks."
+        // The detail panel does not open from a map tap on either map -- the
+        // bridge fires with a good id and the composable never renders. Until
+        // that is fixed, skip the bridge and take the popup branch below.
+        // Flip window.__detailPanelEnabled back to true (below, or live via
+        // evaluateJavascript) to restore the detail panel without a build.
+        if (window.__detailPanelEnabled !== false &&
+            tid && window.Android && window.Android.onTrackTap) {
           window.Android.onTrackTap(tid);                     // open detail panel
         } else {
           layer.bindPopup('<b>' + name + '</b>').openPopup(); // fallback

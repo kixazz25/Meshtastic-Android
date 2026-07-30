@@ -9,6 +9,7 @@
   <script>
     // ── Proximity tap: delegate to Kotlin for spatial DB query ──
     map.on('click', function(e) {
+      console.log('MAPCLICK handler-1 kotlin-proximity routeMode=' + window.__routeMode);
       try { Android.onProximityTap(e.latlng.lat, e.latlng.lng); } catch(ex) {}
     });
 
@@ -73,6 +74,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js">
     // ── Proximity tap: show all nearby artifacts ──────────
     map.on('click', function(e) {
+      console.log('MAPCLICK handler-js-proximity-scan routeMode=' + window.__routeMode);
       var nearby = [];
       var searchRadius = 30; // meters
       var clickLatLng = e.latlng;
@@ -246,7 +248,22 @@
           if (owner) popup += '<b>Steward:</b> ' + owner + '<br>';
           if (county) popup += '<b>County:</b> ' + county + '<br>';
           popup += '</div>';
-          if (!window.__routeMode) layer.bindPopup(popup);
+          // TAPTRACE-2026-07-30: bind ALWAYS -- suppression during route build is
+          // setRouteMode's job (it stashes + unbinds, restores on exit). Binding
+          // conditionally at DRAW time meant a layer drawn during route mode had
+          // nothing to stash and stayed popup-less forever.
+          // stopPropagation mirrors what the track handler already does: without
+          // it the layer click opens this popup AND reaches map.on('click'),
+          // whose popup closes it again -- the 547 ms double-fire in the log.
+          layer.bindPopup(popup);
+          layer.on('click', function(e){
+            console.log('ARTIFACTTAP trail(db) routeMode=' + window.__routeMode);
+            if (window.__routeMode) return;   // ROUTEFALLTHROUGH-2026-07-30: let the tap reach map.on('click')
+            // -> Android.onMapTap so a vertex is placed. Tapping ON a trail is
+            // the commonest route-building gesture; swallowing it here would
+            // break drawing. Mirrors what the track handlers already do.
+            L.DomEvent.stopPropagation(e);
+          });
         }
       });
     }
@@ -398,7 +415,16 @@
           var popup = '<div style="font-family:monospace;font-size:12px;">' +
             '<b style="color:' + waypointColor(wType) + ';">' + name + '</b><br>' +
             '<span style="color:#aaa;">Type: ' + wType + '</span></div>';
-          if (!window.__routeMode) layer.bindPopup(popup);
+          // TAPTRACE-2026-07-30: see the trail block above.
+          layer.bindPopup(popup);
+          layer.on('click', function(e){
+            console.log('ARTIFACTTAP waypoint name=' + name + ' routeMode=' + window.__routeMode);
+            if (window.__routeMode) return;   // ROUTEFALLTHROUGH-2026-07-30: let the tap reach map.on('click')
+            // -> Android.onMapTap so a vertex is placed. Tapping ON a trail is
+            // the commonest route-building gesture; swallowing it here would
+            // break drawing. Mirrors what the track handlers already do.
+            L.DomEvent.stopPropagation(e);
+          });
         }
       });
     }
@@ -437,7 +463,16 @@
         },
         onEachFeature: function(feature, layer) {
           var name = (feature.properties && feature.properties.name) || 'Unnamed Route';
-          if (!window.__routeMode) layer.bindPopup('<b style="color:#FF00FF;">' + name + '</b>');
+          // TAPTRACE-2026-07-30: see the trail block above.
+          layer.bindPopup('<b style="color:#FF00FF;">' + name + '</b>');
+          layer.on('click', function(e){
+            console.log('ARTIFACTTAP route name=' + name + ' routeMode=' + window.__routeMode);
+            if (window.__routeMode) return;   // ROUTEFALLTHROUGH-2026-07-30: let the tap reach map.on('click')
+            // -> Android.onMapTap so a vertex is placed. Tapping ON a trail is
+            // the commonest route-building gesture; swallowing it here would
+            // break drawing. Mirrors what the track handlers already do.
+            L.DomEvent.stopPropagation(e);
+          });
         }
       });
     }
@@ -479,7 +514,11 @@
         console.log('ARTIFACTTAP track(file) name=' + name + ' tid=' + __tid + ' routeMode=' + window.__routeMode);
         if (window.__routeMode) return;
         L.DomEvent.stopPropagation(e);
-        if (window.Android && window.Android.onTrackTap) { window.Android.onTrackTap(__tid); }
+        // TRACKPOPUP-2026-07-30: see convoy_map.html. Skip the bridge while the
+        // detail panel does not render from a map tap; the else branch below
+        // shows a plain popup instead.
+        if (window.__detailPanelEnabled !== false &&
+            window.Android && window.Android.onTrackTap) { window.Android.onTrackTap(__tid); }
         else { line.bindPopup('<b style="color:' + color + ';">' + name + '</b><br>' + coords.length + ' points'); line.openPopup(); }
       });
       importedTracks[name] = line;
@@ -707,6 +746,9 @@
     if (typeof map !== 'undefined' && map && !map.__routeTapWired) {
       map.__routeTapWired = true;
       window.__routeMode = false;
+      // TRACKPOPUP-2026-07-30: false = tracks show a plain popup instead of
+      // calling Android.onTrackTap. Set true to restore the detail panel.
+      window.__detailPanelEnabled = false;
       window.__buildLayer = null;
       map.on('click', function(e) {
         try {
@@ -719,6 +761,7 @@
     // Defined on window.* so evaluateJavascript (global scope) can reach them.
     window.setRouteMode = function(on) {
       window.__routeMode = !!on;
+      console.log('ROUTEMODE -> ' + window.__routeMode);
       // Suppress artifact popups while route-building: unbind on ON (stash first),
       // rebind on OFF. Trail/waypoint/route use bindPopup() which auto-opens on
       // tap, so a handler return-guard alone can't stop them.
@@ -811,6 +854,7 @@
   
     // ── Proximity tap: show all nearby artifacts ──────────
     map.on('click', function(e) {
+      console.log('MAPCLICK handler-js-proximity-scan routeMode=' + window.__routeMode);
       var nearby = [];
       var searchRadius = 30; // meters
       var clickLatLng = e.latlng;

@@ -150,6 +150,35 @@ object RouteManager {
         )
     }
 
+    // ---- ROUTE PLANNING snap: TRAILS ONLY (Fred 07-29/07-30, 2.6e) ---
+    // "tracks can appear on map but snap2 should not be applied to tracks."
+    // "only add points if trail is not available."
+    //
+    // Snapping a route to a TRACK was wrong twice over:
+    //   1. COVERAGE -- track-snapping existed because UGRC's 49,125 trails
+    //      left real ground unreferenced. At 89,527 OSM trails that gap is
+    //      largely closed.
+    //   2. lineId CORRECTNESS -- a track's lineId is PER-RIDER. Ten riders on
+    //      one trail produce ten tracks with ten ids, so a route snapped to a
+    //      track never denoted shared geometry. Wrong for the lead-cart
+    //      contract from the start.
+    //
+    // Returns null when no trail is within radius; the caller then free-places
+    // a plain point, exactly as it already does when snap() finds nothing.
+    //
+    // \u26d4 DO NOT "simplify" this back into snap() by passing an empty track
+    // list. snap() still serves the two FROZEN ConvoyScreen.kt call sites
+    // (:580, :795) and must keep its signature. A named function also keeps
+    // the policy visible at the definition instead of hiding it in an empty
+    // argument that a later reader will helpfully re-fill.
+    fun snapTrailsOnly(
+        tapLat: Double, tapLon: Double,
+        trails: List<Map<String, String?>>,
+        radiusM: Double
+    ): SnapResult? = nearestPointOnLines(
+        tapLat, tapLon, trails, "trail", "trail_id", radiusM
+    )
+
     // ===================================================================
     // SLICE + BUILDER STATE  (patch v25 route slice/builder)
     // ===================================================================

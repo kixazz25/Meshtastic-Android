@@ -651,7 +651,9 @@ fun ConvoyScreen(
                         @android.webkit.JavascriptInterface
                         fun onTrackTap(id: String) {
                             // [2026-07-02] track tap -> open the shared ArtifactDetailPanel (metrics + SAVE MAPS).
+                            android.util.Log.d("TrackTap", "CONVOY(reuse :652) bridge id=$id")
                             android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                android.util.Log.d("TrackTap", "CONVOY(reuse) post -> setting state id=$id")
                                 pendingDetailType = "Tracks"
                                 pendingDetailId = id
                             }
@@ -915,7 +917,9 @@ fun ConvoyScreen(
                             @android.webkit.JavascriptInterface
                             fun onTrackTap(id: String) {
                                 // [2026-07-02] track tap -> open the shared ArtifactDetailPanel (metrics + SAVE MAPS).
+                                android.util.Log.d("TrackTap", "CONVOY(create :916) bridge id=$id")
                                 android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                    android.util.Log.d("TrackTap", "CONVOY(create) post -> setting state id=$id")
                                     pendingDetailType = "Tracks"
                                     pendingDetailId = id
                                 }
@@ -1843,6 +1847,10 @@ fun ConvoyScreen(
                         onOpenDetail = { t, id -> activeListType = null; pendingDetailType = t; pendingDetailId = id }
                     )
                 }
+                android.util.Log.d(
+                    "DetailGate",
+                    "CONVOY gate type=$pendingDetailType id=$pendingDetailId"
+                )
                 if (pendingDetailId != null && pendingDetailType != null) {
                     ArtifactDetailPanel(
                         artifactType = pendingDetailType!!,

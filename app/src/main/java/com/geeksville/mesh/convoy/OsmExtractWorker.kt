@@ -178,6 +178,53 @@ class OsmExtractWorker(
             }
             gpkg.delete()
 
+            // OSM-ZIPDEL-2026-07-30 (Fred): "when we extract the zip should be
+            // removed. that is the process."
+            //
+            // The zip is recovery point 1 ONLY until the skinny exists. It
+            // exists now -- published by the atomic rename above -- so the zip
+            // is redundant from here on. C4 never removed it: discardState()
+            // sweeps osm/<slug>/ and has no business in the user's Downloads
+            // folder, so every import left the original behind.
+            //
+            // Matched by SLUG against the same shape OsmImportStage:104
+            // accepts, including the "(1)" a browser adds to a repeat
+            // download. Duplicates of this state therefore all go in one pass,
+            // which a retained URI would not have caught.
+            //
+            // \u26a0 NOT MediaStore -- its delete moves to trash and this must be
+            // permanent. All Files Access is held, so File.delete() is direct.
+            //
+            // \u26a0 GUARDED: a failure here must NEVER fail the extract. The
+            // skinny is published and the run stands regardless.
+            try {
+                val dl = android.os.Environment.getExternalStoragePublicDirectory(
+                    android.os.Environment.DIRECTORY_DOWNLOADS
+                )
+                val zipPat = Regex(
+                    "^" + Regex.escape(slug) +
+                        "-(?:latest|\\d{6,8})-free\\.gpkg(?:\\s*\\(\\d+\\))?" +
+                        "\\.zip(?:\\s*\\(\\d+\\))?$",
+                    RegexOption.IGNORE_CASE
+                )
+                var removed = 0
+                var freedMb = 0L
+                dl?.listFiles()?.forEach { f ->
+                    if (!f.isDirectory && zipPat.matches(f.name)) {
+                        val mb = f.length() / 1048576L
+                        if (f.delete()) {
+                            removed++; freedMb += mb
+                            Log.i(TAG, "deleted download ${f.name} ($mb MB)")
+                        } else {
+                            Log.w(TAG, "could not delete download ${f.name}")
+                        }
+                    }
+                }
+                Log.i(TAG, "downloads swept for $slug: $removed file(s), $freedMb MB")
+            } catch (e: Exception) {
+                Log.w(TAG, "download sweep skipped: ${e.javaClass.simpleName}")
+            }
+
             OsmImportLedger.recordExtract(
                 ctx = ctx,
                 slug = slug,

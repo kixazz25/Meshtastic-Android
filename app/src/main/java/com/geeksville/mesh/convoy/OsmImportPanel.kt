@@ -230,6 +230,22 @@ fun OsmImportPanel(
                     // is what makes it null, and the next refresh raises it
                     // again. A new import brings a new "at" and shows once.
                     val at = last?.optString("at", "") ?: ""
+                    // OSM-C4-ARM-2026-07-30: arm row 4 the moment the import
+                    // lands, not when the recap is dismissed. Fred: "button
+                    // goes green after imports."
+                    //
+                    // STILL DERIVED, NOT A FLAG: the observer has just read
+                    // imports[] off the ledger, so a non-null record IS the
+                    // derivation -- the same disk source the stage effect uses,
+                    // read at a different moment. That effect is keyed on
+                    // refreshTick, and nothing bumps the tick when a worker
+                    // finishes, so it never re-ran and the row stayed grey.
+                    //
+                    // OUTSIDE THE LATCH ON PURPOSE: lastShownImportAt answers
+                    // "have I shown this recap?", which is not the same question
+                    // as "has an import landed?". Inside the latch, row 4 would
+                    // fail to arm on any poll after the dialog had been shown.
+                    if (last != null) importsDone = true
                     if (last != null && at.isNotEmpty() && at != lastShownImportAt) {
                         lastShownImportAt = at
                         importFinal = last.toString(2)
@@ -407,17 +423,46 @@ fun OsmImportPanel(
                 // ⚠ NO UNDO EXISTS IN-APP. Removing a bad import is a laptop
                 // operation (DELETE ... WHERE source_id='osm'), so the count
                 // goes in the dialog and the user confirms it.
-                val label = if (sc0 == "state") "the whole state" else "this area"
-                confirm = ("Import $n0 " + OsmImportStage.displayName(s0) +
-                    " trails ($label) into your map database?\n\n" +
-                    "S ${ready[0]}   N ${ready[2]}\n" +
-                    "W ${ready[1]}   E ${ready[3]}\n\n" +
-                    "Places and natural features import whole-state " +
-                    "regardless of area. There is no undo.") to {
-                    Log.i(PANEL_TAG, "enqueue import $s0 scope=$sc0 n=$n0")
-                    OsmImportWorker.enqueue(ctx, s0)
+                // OSM-C3C-LOOP-2026-07-29: ASK WORKMANAGER BEFORE PROMPTING.
+                //
+                // pending_import DELIBERATELY survives the run -- that is what
+                // makes a failed or cancelled import reprocess unattended, and
+                // appendImport clears it only on success. So the bbox is still
+                // there while the worker runs, and without this check the
+                // derive effect raises the dialog again on every refresh.
+                //
+                // \u2b50 The overlay derives visibility from the same source, so
+                // the dialog and the overlay cannot disagree about whether an
+                // import is in flight.
+                val inFlight = withContext(Dispatchers.IO) {
+                    try {
+                        androidx.work.WorkManager.getInstance(ctx)
+                            .getWorkInfosForUniqueWork(OsmImportWorker.uniqueName(s0))
+                            .get()
+                            .any { !it.state.isFinished }
+                    } catch (e: Exception) {
+                        Log.w(PANEL_TAG, "work state unreadable: ${e.javaClass.simpleName}")
+                        false
+                    }
+                }
+                if (inFlight) {
+                    Log.i(PANEL_TAG, "import already in flight for $s0 -- no prompt")
                     importRunning = true
-                    refreshTick++
+                } else {
+                    val label = if (sc0 == "state") "the whole state" else "this area"
+                    confirm = ("Import $n0 " + OsmImportStage.displayName(s0) +
+                        " trails ($label) into your map database?\n\n" +
+                        "S ${ready[0]}   N ${ready[2]}\n" +
+                        "W ${ready[1]}   E ${ready[3]}\n\n" +
+                        "Places and natural features import whole-state " +
+                        "regardless of area. There is no undo.") to {
+                        Log.i(PANEL_TAG, "enqueue import $s0 scope=$sc0 n=$n0")
+                        OsmImportWorker.enqueue(ctx, s0)
+                        // No refreshTick++ -- the observer picks the worker up
+                        // on its own poll. Bumping the tick forced an immediate
+                        // re-derive, which is what made the loop tight.
+                        importRunning = true
+                    }
                 }
             }
         }
@@ -969,18 +1014,42 @@ fun OsmImportPanel(
     }
 
     confirm?.let { (text, action) ->
+        // OSM-CONFIRMTRACE-2026-07-30: DIAGNOSTIC. Fred saw CONTINUE need two
+        // presses on two different panels (Arizona run, 07-30).
+        //
+        // The dialog itself is correct -- it clears `confirm` then runs
+        // action() -- so the first press works and dismisses. Something
+        // re-raises a dialog that looks identical.
+        //
+        // Keyed on `text`: the let-block exits on dismiss and re-enters on a
+        // re-raise, so a duplicate prints a second SHOWN with the same text.
+        //   two SHOWN, one CONTINUE -> RE-RAISED. Suspect the derive effect at
+        //       :453 -- its in-flight guard covers the IMPORT worker only, and
+        //       row 2 is the EXTRACT worker.
+        //   one SHOWN, two CONTINUE -> not dismissing; look at recomposition.
+        androidx.compose.runtime.LaunchedEffect(text) {
+            Log.i(PANEL_TAG, "CONFIRM SHOWN: " + text.take(70).replace("\n", " "))
+        }
         AlertDialog(
-            onDismissRequest = { confirm = null },
+            onDismissRequest = {
+                Log.i(PANEL_TAG, "CONFIRM dismissed (tap outside)")
+                confirm = null
+            },
             title = { Text("Confirm") },
             text = { Text(text) },
             confirmButton = {
                 TextButton(onClick = {
+                    Log.i(PANEL_TAG, "CONFIRM -> CONTINUE pressed")
                     confirm = null
                     action()
+                    Log.i(PANEL_TAG, "CONFIRM -> action() returned")
                 }) { Text("CONTINUE") }
             },
             dismissButton = {
-                TextButton(onClick = { confirm = null }) { Text("CANCEL") }
+                TextButton(onClick = {
+                    Log.i(PANEL_TAG, "CONFIRM -> CANCEL pressed")
+                    confirm = null
+                }) { Text("CANCEL") }
             }
         )
     }
