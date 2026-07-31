@@ -122,6 +122,12 @@ fun ConvoyMapViewerScreen(
     var lastViewportWest by remember { mutableStateOf(-114.0) }
     var lastViewportNorth by remember { mutableStateOf(38.0) }
     var lastViewportEast by remember { mutableStateOf(-113.0) }
+    // SNAPRADIUS-2026-07-30: zoom has always been arriving on
+    // onViewportChanged(n, s, e, w, zoom) and was being discarded. Snap needs
+    // it to express its radius in the same units the popup hit test uses.
+    // Default 16.0 is a mid-range planning zoom; it is overwritten by the
+    // first viewport event, which fires on load.
+    var lastViewportZoom by remember { mutableStateOf(16.0) }
     var activeListType by remember { mutableStateOf<String?>(null) }
     var artifactList by remember { mutableStateOf<List<Map<String, String?>>>(emptyList()) }
     var selectedArtifactIds by remember { mutableStateOf<Set<String>>(emptySet()) }
@@ -473,7 +479,40 @@ fun ConvoyMapViewerScreen(
                                         // The by-id redraw below still queries tracks, which is what
                                         // lets routes saved before this change keep drawing. Harmless
                                         // to keep; becomes dead code once old routes are gone.
-                                        val s = RouteManager.snapTrailsOnly(lat, lon, trails, 30.0)
+                                        // SNAPRADIUS-2026-07-30 (Fred): "we need to open
+                                        // distance for snap 2 to same distance as popup."
+                                        //
+                                        // The popup hit test is Leaflet's renderer tolerance --
+                                        // 44 PIXELS (L.svg({tolerance: 44}) on the map
+                                        // constructor). Snap was a fixed 30 METRES. Pixels scale
+                                        // with zoom and metres do not, so the two only agreed
+                                        // near z17: at z16 the popup reached ~85 m while snap
+                                        // refused past 30 m. That is why a tap could pop a
+                                        // trail's name and still free-place the vertex.
+                                        //
+                                        // Deriving from Leaflet's own tolerance means a retune
+                                        // there keeps the two in step instead of silently
+                                        // drifting apart again.
+                                        //
+                                        // Clamp 15..150 m (Fred: "capped 150"). CEILING: at z14
+                                        // the raw figure is ~340 m and, trail-first being
+                                        // absolute but NEAREST deciding among trails, OSM density
+                                        // would start snapping to a parallel trail. FLOOR: at z18
+                                        // the raw figure is ~21 m, below today's 30 m -- without
+                                        // it, close-in drawing would get worse.
+                                        val mPerPx = 156543.03392 *
+                                            kotlin.math.cos(Math.toRadians(lat)) /
+                                            Math.pow(2.0, lastViewportZoom)
+                                        val snapRadiusM = (44.0 * mPerPx).coerceIn(15.0, 150.0)
+                                        val s = RouteManager.snapTrailsOnly(lat, lon, trails, snapRadiusM)
+                                        android.util.Log.d(
+                                            "RouteBridge",
+                                            "onMapTap lat=$lat lon=$lon zoom=$lastViewportZoom " +
+                                                "radius=${snapRadiusM.toInt()}m trails=${trails.size} -> " +
+                                                if (s != null) "SNAPPED ${s.lineType} ${s.lineId}"
+                                                else if (trails.isEmpty()) "FREE (no candidates)"
+                                                else "FREE (nearest beyond radius)"
+                                        )
                                         if (s != null) RouteManager.snapToVertex(s) else RouteManager.freeVertex(lat, lon)
                                     }
                                     RouteManager.addVertex(v)
@@ -625,6 +664,7 @@ fun ConvoyMapViewerScreen(
                             @JavascriptInterface
                             fun onViewportChanged(north: Double, south: Double, east: Double, west: Double, zoom: Double) {
                                 lastViewportSouth = south; lastViewportWest = west; lastViewportNorth = north; lastViewportEast = east
+                                lastViewportZoom = zoom   // SNAPRADIUS-2026-07-30: was discarded
                                 viewportSaveHandler.removeCallbacks(viewportSaveRunnable); viewportSaveHandler.postDelayed(viewportSaveRunnable, 400)
                                 // GATE: reseed this map's local state from JSON only if the active
                                 // map changed since last refresh (else live vars stay authoritative).

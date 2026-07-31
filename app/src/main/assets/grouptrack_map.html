@@ -6,70 +6,6 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="leaflet.polylineDecorator.js"></script>
-  <script>
-    // ── Proximity tap: delegate to Kotlin for spatial DB query ──
-    map.on('click', function(e) {
-      console.log('MAPCLICK handler-1 kotlin-proximity routeMode=' + window.__routeMode);
-      try { Android.onProximityTap(e.latlng.lat, e.latlng.lng); } catch(ex) {}
-    });
-
-    // Show proximity popup from Kotlin results
-    function showProximityPopup(lat, lon, html) {
-      var popup = L.popup({autoClose: true, closeOnClick: true})
-        .setLatLng([lat, lon])
-        .setContent('<div style="font-size:11px;line-height:1.6;">' + html + '</div>')
-        .openOn(map);
-      setTimeout(function() { map.closePopup(popup); }, 5000);
-    }
-
-    // Legacy — kept for compatibility but no longer used
-    var __legacy_proximity_unused = function(e) {
-      var nearby = [];
-      var searchRadius = 200;
-      var clickLatLng = e.latlng;
-      
-      function checkLayer(layer, typeName, color) {
-        if (!layer) return;
-        layer.eachLayer(function(feat) {
-          var latlng = null;
-          if (feat.getLatLng) {
-            latlng = feat.getLatLng();
-          } else if (feat.getLatLngs) {
-            var latlngs = feat.getLatLngs();
-            if (latlngs.length > 0) {
-              // Find closest point on line
-              var minDist = Infinity;
-              var flatCoords = latlngs.flat ? latlngs.flat(2) : latlngs;
-              for (var i = 0; i < flatCoords.length; i++) {
-                if (flatCoords[i] && flatCoords[i].lat !== undefined) {
-                  var d = clickLatLng.distanceTo(flatCoords[i]);
-                  if (d < minDist) { minDist = d; latlng = flatCoords[i]; }
-                }
-              }
-            }
-          }
-          if (latlng && clickLatLng.distanceTo(latlng) < searchRadius) {
-            var name = feat.feature ? (feat.feature.properties.name || 'Unnamed') : 'Unnamed';
-            nearby.push('<span style="color:' + color + ';">' + typeName + ':</span> ' + name);
-          }
-        });
-      }
-      
-      checkLayer(trailLayer, 'Trail', '#1CF0A0');
-      checkLayer(trackLayer, 'Track', '#4DA6FF');
-      checkLayer(waypointLayer, 'Waypoint', '#FF8C42');
-      checkLayer(routeLayer, 'Route', '#BC8CFF');
-      
-      if (nearby.length >= 1) {
-        var popup = L.popup({autoClose: true, closeOnClick: true})
-          .setLatLng(clickLatLng)
-          .setContent('<div style="font-size:11px;line-height:1.6;">' + nearby.join('<br>') + '</div>')
-          .openOn(map);
-        setTimeout(function() { map.closePopup(popup); }, 5000);
-      }
-    });
-
-  </script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css"/>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js">
     // ── Proximity tap: show all nearby artifacts ──────────
@@ -730,6 +666,37 @@
       setTimeout(function() {
         map = L.map("map", { zoomControl: true, renderer: L.svg({ tolerance: 44 }), tapTolerance: 30, doubleClickZoom: false }).setView([39.8, -98.6], 4);
 
+    // ---- Proximity tap -> Kotlin (PROXFIX-2026-07-30) ----
+    // MOVED HERE from the head-of-file script block that used to sit at
+    // :9-72. Its first statement was map.on('click', ...) -- but map is created
+    // on the line above THIS comment, ~720 lines later. It threw
+    //     Uncaught TypeError: Cannot read properties of undefined (reading 'on')
+    // at parse time and killed the whole block. Two things died with it:
+    //   1. Android.onProximityTap was never registered -> short taps never
+    //      reached Kotlin at all.
+    //   2. showProximityPopup was never defined -> ConvoyMapViewerScreen.kt:578
+    //      called it by name into nothing.
+    // Neither was visible: the planner had no WebChromeClient until 2026-07-30.
+    //
+    // The guard + __proxTapWired flag copy the long-press handler below, which
+    // survived precisely because it sat in this block and checked first.
+    if (typeof map !== 'undefined' && map && !map.__proxTapWired) {
+      map.__proxTapWired = true;
+      map.on('click', function(e) {
+        console.log('MAPCLICK handler-1 kotlin-proximity routeMode=' + window.__routeMode);
+        try { Android.onProximityTap(e.latlng.lat, e.latlng.lng); } catch(ex) {}
+      });
+    }
+    // Show proximity popup from Kotlin results. Called by name from
+    // ConvoyMapViewerScreen.kt:578 via evaluateJavascript -- this is the ONLY
+    // definition in the codebase, so it must stay reachable at global scope.
+    window.showProximityPopup = function(lat, lon, html) {
+      var popup = L.popup({autoClose: true, closeOnClick: true})
+        .setLatLng([lat, lon])
+        .setContent('<div style="font-size:11px;line-height:1.6;">' + html + '</div>')
+        .openOn(map);
+      setTimeout(function() { map.closePopup(popup); }, 5000);
+    };
     // ---- Waypoint create: long-press -> Kotlin ----
     if (typeof map !== 'undefined' && map && !map.__wptLongPressWired) {
       map.__wptLongPressWired = true;
