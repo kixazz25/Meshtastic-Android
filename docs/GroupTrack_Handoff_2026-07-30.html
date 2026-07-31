@@ -1,0 +1,162 @@
+<!-- GroupTrack handoff 2026-07-30. Internal. Format settled 07-30: HTML, edit in place. -->
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>GroupTrack — Handoff — 2026-07-30</title>
+<style>
+:root{--bg:#0f1216;--panel:#161b22;--ink:#e6edf3;--dim:#8b949e;--line:#30363d;--accent:#58a6ff;--good:#3fb950;--warn:#d29922;--bad:#f85149;--ui:-apple-system,"Segoe UI",Roboto,sans-serif;--mono:"SF Mono",Consolas,monospace}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 var(--ui);padding:0 0 60px}
+header{position:sticky;top:0;background:#0f1216f0;border-bottom:1px solid var(--line);padding:12px 18px;z-index:5}
+.ttl{font:700 17px var(--ui)}.ttl b{color:var(--accent)}.sub{font:12px var(--mono);color:var(--dim);margin-top:2px}
+main{max-width:900px;margin:0 auto;padding:16px 18px}
+h2{font:700 15px var(--ui);color:var(--accent);margin:22px 0 8px;border-bottom:1px solid var(--line);padding-bottom:4px}
+h3{font:700 13px var(--ui);color:var(--ink);margin:14px 0 4px}
+.tag{display:inline-block;font:700 10px var(--mono);padding:1px 6px;border-radius:4px;margin-right:6px;vertical-align:middle}
+.t-good{background:#12261a;color:var(--good);border:1px solid #1f6f3f}
+.t-warn{background:#2a2312;color:var(--warn);border:1px solid #6f5a1f}
+.t-bad{background:#2a1414;color:var(--bad);border:1px solid #6f2020}
+.t-prog{background:#12203a;color:var(--accent);border:1px solid #1f4f8f}
+.card{border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin:10px 0;background:var(--panel)}
+ul,ol{margin:6px 0;padding-left:20px}li{margin:4px 0}
+code{background:#0c0f0a;padding:1px 5px;border-radius:3px;font:12px var(--mono);color:#e6edf3}
+.note{font:12px var(--mono);color:var(--dim);border-left:3px solid var(--line);padding:4px 10px;margin:8px 0}
+.hi{color:var(--warn);font-weight:700}
+.step{background:#12203a;border-left:3px solid var(--accent);padding:6px 10px;margin:8px 0}
+.src{font:11px var(--mono);color:var(--dim);border-top:1px dotted var(--line);margin-top:8px;padding-top:5px}
+table{border-collapse:collapse;width:100%;font:12.5px var(--mono);margin:8px 0}
+th,td{border:1px solid var(--line);padding:5px 7px;text-align:left;vertical-align:top}
+th{background:#12203a;color:var(--accent)}
+</style></head><body>
+<header><div class="ttl"><b>GroupTrack</b> — Handoff — 2026-07-30</div><div class="sub">INTERNAL · resume context · HTML (the .md handoff is retired) · edit in place</div></header>
+<main>
+
+<div class="note">FOR CLAUDE'S USE — resume context, not a user document. Richer
+detail is better here than polished brevity. Format settled 07-30: HTML,
+internal palette, edited in place. The .md handoff is retired.</div>
+
+<h2>Where 2.6e stands at end of 2026-07-30</h2>
+<div class="card">
+<p><span class="tag t-good">SHIPPED TODAY</span> snap-2 trails only · OSM zip deleted
+after extract · <b>planner proximity taps (root cause)</b> · popups on trails and
+tracks · waypoints always on long press · snap radius matched to popup reach ·
+<code>unclassified</code> roads importing · full tap tracing on the planner.</p>
+<p><span class="tag t-bad">OPEN</span> convoy popups/waypoints · OSM point display ·
+artifact detail panel · delete-by-source · HYB dead source · the <code>:813</code>
+duplicate scan · <code>addPointMode</code> stuck true · <code>bad_geometry</code>
+counting.</p>
+<p><b>Commits:</b> <code>e84117e83</code> (items 1–3a) and the follow-up carrying
+item 4, item 5 and the filter change.</p>
+</div>
+
+<h2>⭐⭐ THE FINDING OF THE DAY — read this before touching either map</h2>
+<div class="card">
+<p><b><code>grouptrack_map.html</code> opened with a script block whose first
+statement was <code>map.on('click', ...)</code> — but <code>map</code> is not created
+until 720 lines later.</b> It threw at parse time and killed the whole block. Two
+things died with it:</p>
+<ol>
+<li><code>Android.onProximityTap</code> was <b>never registered</b> — short taps never
+reached Kotlin at all.</li>
+<li><code>showProximityPopup</code> was never defined. It is the <b>only</b> definition
+in the codebase and <code>ConvoyMapViewerScreen.kt:578</code> calls it by name, so even
+a successful query had nothing to render into.</li>
+</ol>
+<p>⚠ <b>Invisible for as long as it has existed</b> — the planner had no
+<code>WebChromeClient</code>, so its console output went nowhere. Confirmed
+pre-existing against <code>HEAD~1</code>.</p>
+<p>⭐ <b>Everything we changed downstream first — bind guards, stopPropagation,
+stash/restore, route mode — sat below a handler that was never registered.</b> That is
+the lesson: <b>instrument before theorising</b>, and a console bridge is instrumentation.</p>
+</div>
+
+<h2>⭐ Two flags for one concept — still unresolved</h2>
+<div class="card">
+<p><b>Kotlin <code>addPointMode</code> and JS <code>window.__routeMode</code> mean the
+same thing and nothing keeps them in sync.</b> Proven divergent 07-30:</p>
+<div class="step">TrackTap: PLANNER bridge id=8f8c39b1… <b>addPointMode=true</b><br>
+TrackTap: PLANNER SUPPRESSED by addPointMode<br>
+— while every ARTIFACTTAP line in the same session read <b>routeMode=false</b>.</div>
+<p>Route mode was off. The Kotlin flag was on. Every track tap died at that guard.</p>
+<p>⚠ <b>Fred's framing, and it is the right one:</b> route mode is the wrong predicate.
+It means "Route+ is open". What actually needs guarding is "the next tap places a
+vertex". The fix is <b>one flag, one setter, both sides updated from the same call</b>
+— and the narrow name, not the screen-state name.</p>
+<p>⛔ Note item 3b's fall-through guard currently keys off <code>__routeMode</code>. If
+the predicate changes, that has to change with it or it drifts again.</p>
+</div>
+
+<h2>Convoy — different disease from the planner</h2>
+<div class="card">
+<p>⛔ <b>Convoy does NOT have the parse-order defect.</b> Its <code>map</code> is created
+at <code>:298</code> inside the first block, and <code>clearMarkers</code> (<code>:184</code>)
+and <code>drawTrack</code> (<code>:275</code>) are defined in that same block. It parses
+cleanly.</p>
+<p>Its errors are <b>timing</b>: <code>ConvoyScreen.kt:296</code> and <code>:397</code>
+call <code>evaluateJavascript("clearMarkers()")</code> and <code>drawTrack(...)</code>
+against a page that is not ready — they fired one second before the planner opened,
+which is convoy being torn down.</p>
+<p>⭐ <b>Convoy already has a working console bridge</b> — <code>ConvoyJS</code> at
+<code>ConvoyScreen.kt:777</code>, twelve <code>console.log</code> calls including four
+ARTIFACTTAP and a ROUTEMODE trace. <b>Diagnosable with no build.</b></p>
+<p>⚠ Convoy also carries <b>dead route-mode scaffolding</b> from when route add was
+removed — <code>var routeMode</code> at <code>:204</code>, <code>__routeMode</code> guards,
+<code>setRouteMode</code> with stash/unbind. On a map that cannot build routes those can
+only do harm: if anything ever calls <code>setRouteMode(true)</code>, every popup is
+unbound with no path back. Fred's read: convoy is adopting planner values it never sets.</p>
+</div>
+
+<h2>Tomorrow — Fred's three</h2>
+<div class="card">
+<ol>
+<li><b>Popups and waypoints on convoy.</b> Start with the existing ConvoyJS logs — no
+build needed. Rule the timing errors in or out, then decide on the dead scaffolding.</li>
+<li><b>Layer to display the spatial layer</b>, to assess replacing places in the SAT
+MBTiles. <code>reference_points</code> holds Utah 7,723 and Arizona 9,324 and nothing
+renders them. Places are POINTS — <b>Leaflet renders them today</b> via
+<code>L.divIcon</code>, no MapLibre and <b>no glyph bundling</b>. Additive beside the
+Esri layers; JSON toggle per map (Fred 07-30). Retiring
+<code>SAT_LABELS_PLACES</code> takes bar 10 from ~107,000 tiles to ~85,300, and
+<code>MBTilesStore.deleteSource(type)</code> already exists. ⚠ <b>Config change first,
+then delete</b>, or the next download refills it.</li>
+<li><b>Reinstate artifact detail as a popup</b>, both maps. Currently behind
+<code>window.__detailPanelEnabled = false</code> (item 3a). The bridge fires with a good
+id and the panel never renders. ⚠ Two candidate causes and they are not the same:
+the planner has the stuck <code>addPointMode</code> guard; convoy has no such guard and
+still fails. <code>TrackTap</code>/<code>DetailGate</code> traces are in the build.</li>
+</ol>
+</div>
+
+<h2>⚠ Process lessons — both cost real time today</h2>
+<div class="card">
+<p><b>1. Build on verified work, not on an empty queue.</b> Items 1 and 2 were validated
+an hour before we built. We held them to bundle item 3, which was still diagnostic —
+and item 3 introduced a defect (3b) that forced a second build anyway. Worse: items 1
+and 2 <b>could have been tested and certified</b> in that window. Bundling does not just
+delay verification, it entangles it — if one item misbehaves the others are implicated
+until proven otherwise.</p>
+<p><b>2. Never bundle diagnostics with fixes.</b> Settled work and exploratory work have
+different risk. Item 3 was instrumentation written <i>because</i> we did not understand
+the tap layers; putting it in the same build as two verified fixes let the unknown
+break the known.</p>
+<p><b>3. Check source timestamps against the APK before testing.</b> Twice today we
+tested a binary that predated the change — once losing a whole tap session. Twenty
+seconds of <code>ls -la</code> against forty minutes of rebuild.</p>
+</div>
+
+<h2>Environment notes worth keeping</h2>
+<div class="card">
+<ul>
+<li><b><code>MSYS_NO_PATHCONV=1</code> fixes the REMOTE adb path and breaks the LOCAL
+one.</b> When both appear in one command the local side needs Windows form. <code>adb
+exec-out</code> with a shell redirect avoids the conflict — the safer idiom for reading
+device files.</li>
+<li><b>Per-file newline detection is not optional.</b> Today: <code>OsmExtractWorker.kt</code>
+LF, <code>OsmImportPanel.kt</code> CRLF, <code>grouptrack_map.html</code> LF,
+<code>convoy_map.html</code> CRLF — in the same patch run.</li>
+<li>⚠ <b>A literal <code>&lt;/script&gt;</code> inside a JS comment terminates the script
+element.</b> Item 4 v2 caught this in my own replacement text. Patch scripts that emit
+HTML should refuse to insert script tags.</li>
+<li><b>The slug regex handles browser duplicates.</b> Utah imported from
+<code>utah-260729-free.gpkg (1).zip</code> correctly.</li>
+</ul>
+</div>
+
+</main></body></html>
