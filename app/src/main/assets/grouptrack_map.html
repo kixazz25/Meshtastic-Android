@@ -156,7 +156,15 @@
           return {
             color: trailColor(cc),
             weight: trailWeight(cc),
-            opacity: 0.85
+            opacity: 0.85,
+            // SMOOTHFACTOR-TRAILS-2026-07-31: Leaflet simplifies polylines in SCREEN SPACE
+            // and defaults smoothFactor to 1.0. At z11 a winding trail's
+            // vertices fall sub-pixel apart, most are discarded, and the line
+            // draws as a few long chords across terrain. Nothing here ever set
+            // this - the low-zoom splay was never a deliberate performance
+            // choice. 0 = no simplification (test value; see the script header
+            // on mid-zoom cost before treating it as the ship value).
+            smoothFactor: 0
           };
         },
         onEachFeature: function(feature, layer) {
@@ -239,6 +247,12 @@
       if (trackLayer) map.removeLayer(trackLayer);
       if (trackArrows) { map.removeLayer(trackArrows); trackArrows = null; }
       trackLayer = L.geoJSON(geojsonData, {
+        // CANVAS-RENDERER-2026-07-31: tracks are pinned to the SVG renderer while the
+        // map default is canvas. polylineDecorator (track arrows, ~line 257)
+        // walks per-path geometry that canvas does not expose. Tracks number in
+        // the low hundreds so the DOM cost is irrelevant here; trails are the
+        // layer canvas exists for.
+        renderer: L.svg(),
         style: function() {
           return { color: '#39FF14', weight: 3, opacity: 0.85, dashArray: '10,5' };
         },
@@ -664,7 +678,7 @@
     // -- Init --
     document.addEventListener("DOMContentLoaded", function() {
       setTimeout(function() {
-        map = L.map("map", { zoomControl: true, renderer: L.svg({ tolerance: 44 }), tapTolerance: 30, doubleClickZoom: false }).setView([39.8, -98.6], 4);
+        map = L.map("map", { zoomControl: true, renderer: L.canvas({ tolerance: 44 }), tapTolerance: 30, doubleClickZoom: false }).setView([39.8, -98.6], 4);
 
     // ---- Proximity tap -> Kotlin (PROXFIX-2026-07-30) ----
     // MOVED HERE from the head-of-file script block that used to sit at
@@ -715,7 +729,12 @@
       window.__routeMode = false;
       // TRACKPOPUP-2026-07-30: false = tracks show a plain popup instead of
       // calling Android.onTrackTap. Set true to restore the detail panel.
-      window.__detailPanelEnabled = false;
+      // DETAILPANEL-ON-2026-07-31: re-enabled. Was a 07-30 stopgap (tracks showed a
+      // plain popup because the detail panel would not open). Worth flipping
+      // now because the 07-30 work added TrackTap logging around the planner's
+      // addPointMode guard, so a failure is no longer silent — it says where it
+      // stops.
+      window.__detailPanelEnabled = true;
       window.__buildLayer = null;
       map.on('click', function(e) {
         try {
@@ -868,5 +887,15 @@
     });
 
   </script>
+
+<!-- CANVAS-RENDERER-2026-07-31: renderer switched from L.svg to L.canvas.
+     `tolerance` is a Canvas option and was IGNORED by L.svg, so the
+     effective tap target was the 3px stroke width, not 44px. Device
+     evidence 07-31: ~40 taps at z18, 3 hits, 0 trails.
+     Canvas also removes the one-DOM-element-per-path cost that ANR'd
+     the WebView at 120,000 trails -- so the z11 gate and 10,000 cap
+     in SpatialDisplayManager are worth revisiting SEPARATELY once
+     this is proven stable.
+     WATCH: polylineDecorator track arrows may not survive canvas. -->
 </body>
 </html>

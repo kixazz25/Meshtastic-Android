@@ -136,6 +136,31 @@
       var b = map.getBounds();
       Android.onMapBoundsReady(b.getNorth(), b.getSouth(), b.getEast(), b.getWest());
     }
+    // CONVOY-LONGPRESS-2026-07-31: called from ConvoyScreen's touch listener when its
+    // 500ms timer fires. Converts a container point to a latlng and calls the
+    // EXISTING bridge method, so pendingWaypoint and the waypoint dialog at
+    // ConvoyScreen.kt:982 are unchanged.
+    //
+    // ⚠ window.* on purpose — evaluateJavascript runs at global scope and
+    // cannot see function declarations nested inside the DOMContentLoaded
+    // closure. Same convention as setRouteMode below.
+    //
+    // ⚠ This bypasses Leaflet layer hit-testing, so it fires over trails and
+    // tracks too. That MATCHES the planner, where the 07-30 fix was "long press
+    // always drops a waypoint, both modes".
+    window.longPressAt = function(x, y) {
+      try {
+        var ll = map.containerPointToLatLng([x, y]);
+        console.log('LONGPRESS -> ' + ll.lat + ',' + ll.lng);
+        if (window.Android && Android.onMapLongPress) {
+          Android.onMapLongPress(ll.lat, ll.lng);
+        } else {
+          console.log('LONGPRESS: Android.onMapLongPress MISSING');
+        }
+      } catch (err) {
+        console.log('LONGPRESS ERR ' + err);
+      }
+    };
     var searchCenterMarker = null;
     var crosshairLines = [];
     function showSearchCenter(lat, lng) {
@@ -295,7 +320,7 @@
 
     document.addEventListener("DOMContentLoaded", function() {
       setTimeout(function() {
-        map = L.map("map",{zoomControl:true,renderer:L.svg({tolerance:44}),tapTolerance:30,doubleClickZoom:false}).setView([36.1069,-115.1711],4);
+        map = L.map("map",{zoomControl:true,renderer:L.canvas({tolerance:44}),tapTolerance:30,doubleClickZoom:false}).setView([36.1069,-115.1711],4);
 
     // ---- Waypoint create: long-press -> Kotlin ----
     if (typeof map !== 'undefined' && map && !map.__wptLongPressWired) {
@@ -315,7 +340,12 @@
       window.__routeMode = false;
       // TRACKPOPUP-2026-07-30: false = tracks show a plain popup instead of
       // calling Android.onTrackTap. Set true to restore the detail panel.
-      window.__detailPanelEnabled = false;
+      // DETAILPANEL-ON-2026-07-31: re-enabled. Was a 07-30 stopgap (tracks showed a
+      // plain popup because the detail panel would not open). Worth flipping
+      // now because the 07-30 work added TrackTap logging around the planner's
+      // addPointMode guard, so a failure is no longer silent — it says where it
+      // stops.
+      window.__detailPanelEnabled = true;
       window.__buildLayer = null;
       map.on('click', function(e) {
         try {
@@ -449,7 +479,12 @@ function loadTrails(geojsonData) {
       return {
         color: trailColor(cc),
         weight: trailWeight(cc),
-        opacity: 0.85
+        opacity: 0.85,
+        // SMOOTHFACTOR-TRAILS-2026-07-31: see grouptrack_map.html. Leaflet's smoothFactor
+        // default of 1.0 is what splays trails at z11. A style option on a
+        // GeoJSON layer is NOT in the frozen viewport tangle - no listeners, no
+        // setView/fitBounds/reportViewport.
+        smoothFactor: 0
       };
     },
     onEachFeature: function(feature, layer) {
@@ -503,6 +538,9 @@ function loadTracks(geojsonData) {
   if (trackLayer) map.removeLayer(trackLayer);
   if (trackArrows) { map.removeLayer(trackArrows); trackArrows = null; }
   trackLayer = L.geoJSON(geojsonData, {
+    // CANVAS-RENDERER-2026-07-31: tracks pinned to SVG -- see grouptrack_map.html.
+    // polylineDecorator (arrows, ~line 533) needs per-path geometry.
+    renderer: L.svg(),
     style: function() {
       return { color: '#39FF14', weight: 3, opacity: 0.85, dashArray: '10,5' };
     },
@@ -693,5 +731,15 @@ function clearRoutes() {
 }
 
 </script>
+
+<!-- CANVAS-RENDERER-2026-07-31: renderer switched from L.svg to L.canvas.
+     `tolerance` is a Canvas option and was IGNORED by L.svg, so the
+     effective tap target was the 3px stroke width, not 44px. Device
+     evidence 07-31: ~40 taps at z18, 3 hits, 0 trails.
+     Canvas also removes the one-DOM-element-per-path cost that ANR'd
+     the WebView at 120,000 trails -- so the z11 gate and 10,000 cap
+     in SpatialDisplayManager are worth revisiting SEPARATELY once
+     this is proven stable.
+     WATCH: polylineDecorator track arrows may not survive canvas. -->
 </body>
 </html>

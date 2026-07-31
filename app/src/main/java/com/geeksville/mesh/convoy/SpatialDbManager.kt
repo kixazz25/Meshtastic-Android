@@ -273,7 +273,18 @@ object SpatialDbManager {
         val db = spatialDb ?: return emptyList()
         val results = mutableListOf<MutableMap<String, String?>>()
         val cursor = db.rawQuery(
-            "SELECT trail_id, name, geometry, carto_code AS CartoCode FROM trails WHERE max_lat >= ? AND min_lat <= ? AND max_lon >= ? AND min_lon <= ? LIMIT ?",
+            // TRAILS-GATE-ORDER-2026-07-31: ORDER BY added. LIMIT without it returned
+            // whichever rows SQLite reached first — rowid, i.e. IMPORT ORDER.
+            // That produced longitude-banded results, and made Arizona trails
+            // invisible behind Utah's lower rowids until the viewport shrank.
+            // Named first (OSM carries no carto_code), then largest extent —
+            // squared bbox diagonal, no sqrt needed for ordering, and both
+            // columns already exist and are indexed.
+            "SELECT trail_id, name, geometry, carto_code AS CartoCode FROM trails " +
+                "WHERE max_lat >= ? AND min_lat <= ? AND max_lon >= ? AND min_lon <= ? " +
+                "ORDER BY (CASE WHEN name IS NULL OR name = '' THEN 1 ELSE 0 END), " +
+                "((max_lat-min_lat)*(max_lat-min_lat)+(max_lon-min_lon)*(max_lon-min_lon)) DESC " +
+                "LIMIT ?",
             arrayOf(south.toString(), north.toString(), west.toString(), east.toString(), limit.toString())
         )
         while (cursor.moveToNext()) {

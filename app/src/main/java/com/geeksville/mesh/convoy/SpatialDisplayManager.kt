@@ -43,7 +43,29 @@ object SpatialDisplayManager {
             "trail_id",
             { s, w, n, e, lim -> SpatialDbManager.queryTrailsByViewport(s, w, n, e, lim) },
             { SpatialDbManager.buildTrailGeoJson(it) },
-            "updateTrails", "showTrails", "hideTrails", 8
+            // TRAILS-GATE-ORDER-2026-07-31: minZoom 8 -> 11.
+            //
+            // ⭐ THIS IS WHAT MAKES THE CAP SAFE. Below z11 the viewport is a
+            // whole state and every trail matches — the case that ANR'd at
+            // 120,000 and churned membership at 500. Gating it away means the
+            // cap should never bind in normal use.
+            //
+            // ⚠ COST: no trails below z11. Judging corridor coverage before a
+            // download happens on an emptier map. Accepted — at that density
+            // they were unreadable anyway, which is what started this.
+            //
+            // ⚠ If z11 still stalls, raise this to 12 BEFORE lowering the cap.
+            // SVG DOM construction is the constraint, not the row count.
+            // TRAILS-MINZOOM-10-2026-07-31: 11 -> 10 after device testing (Fred).
+            // ⚠ At z10 the viewport roughly quadruples and the 20,000 cap DOES
+            // bind in dense country — you see the top 20,000 by the ORDER BY
+            // (named first, then largest extent), not everything. That is only
+            // tolerable BECAUSE of the ORDER BY: without it, binding the cap
+            // meant an arbitrary rowid subset that churned on every pan.
+            // If z10 stalls, go back to 11 — do NOT lower the cap, or trails
+            // start disappearing at z11 too, where they currently all fit.
+            // TRAILS-Z11-10K-2026-07-31: back to 11 after z10 was tested and rejected.
+            "updateTrails", "showTrails", "hideTrails", 11
         )
         "Tracks" -> TypeBinding(
             "track_id",
@@ -94,8 +116,43 @@ object SpatialDisplayManager {
 
         SpatialDbManager.init(context)
 
-        val limit = if (type == "Tracks") { if (zoom >= 12) 200 else 50 }
-                    else { if (zoom < 14) 500 else 2000 }
+        // TRAILS-LIMIT-ALL-2026-07-31: trails get their own branch.
+        //
+        // ⭐ THE DEFECT THIS FIXES: queryTrailsByViewport has NO `ORDER BY`, so
+        // `LIMIT 500` returned whichever 500 rows SQLite reached first — rowid
+        // order, i.e. import insertion order, which is spatially meaningless.
+        // At z8 roughly 89,536 Utah trails match the bbox and 500 drew. Move
+        // the viewport slightly and a DIFFERENT arbitrary 500 came back.
+        // Nothing was ever misplaced — the MEMBERSHIP CHURNED.
+        //
+        // ⭐ Which is why TRACKS looked fine throughout: a few hundred exist, so
+        // their cap never binds. And why it appeared to "resolve at z12" —
+        // that is simply where the viewport shrinks below 500 trails. There is
+        // no z12 threshold in this code; the only 12 is the Tracks row limit.
+        //
+        // ⚠⚠ RISK: both maps render with L.svg, so this is a DOM element per
+        // trail. If z8 stalls the WebView, the lever is the RENDERER
+        // (L.canvas — one surface, handles six figures) NOT a lower cap.
+        // Lowering the cap just restores the churn. Canvas changes hit-testing,
+        // so tap handling needs re-checking if it comes to that.
+        //
+        // Waypoints and Routes keep the old behaviour deliberately.
+        val limit = when (type) {
+            "Tracks" -> if (zoom >= 12) 200 else 50
+            // TRAILS-GATE-ORDER-2026-07-31: 120,000 ANR'd the WebView at z8 — SVG builds
+            // a DOM element per trail. This is now a SAFETY VALVE, not the
+            // mechanism: the minZoom 11 gate below means the wide-viewport case
+            // that matched 120,000 rows never happens. If it ever binds, the
+            // ORDER BY in queryTrailsByViewport makes the result STABLE.
+            // TRAILS-Z11-10K-2026-07-31: 20,000 -> 10,000 with the gate back at z11.
+            // z10 was tested and rejected — the viewport quadruples and 20,000
+            // SVG paths is more DOM than the WebView builds comfortably.
+            // ⭐ A tighter cap is only safe BECAUSE of the ORDER BY: binding it
+            // now returns the SAME named-and-largest 10,000 every time, where
+            // before it returned an arbitrary rowid subset that churned on pan.
+            "Trails" -> 10_000
+            else -> if (zoom < 14) 500 else 2000
+        }
 
         val raw = b.query(south, west, north, east, limit)
         val items = if (state == DS_SELECTED && checkedIds != null)

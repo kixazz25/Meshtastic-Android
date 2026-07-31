@@ -200,6 +200,18 @@ fun ConvoyScreen(
         var pendingDetailId by remember { mutableStateOf<String?>(null) }
         var pendingDetailType by remember { mutableStateOf<String?>(null) }
         var pendingWaypoint by remember { mutableStateOf<Pair<Double, Double>?>(null) }
+
+        // CONVOY-LONGPRESS-2026-07-31: long-press detection state.
+        //
+        // ⚠ ARRAYS, NOT MutableState, DELIBERATELY. The touch listener is
+        // installed inside `update = { }`, which re-runs on every
+        // recomposition. MutableState mutated from a touch event would trigger
+        // recomposition -> re-run update -> reinstall the listener MID-GESTURE.
+        // Arrays are stable references whose contents change without
+        // recomposing.
+        val lpHandler = remember { android.os.Handler(android.os.Looper.getMainLooper()) }
+        val lpRunnable = remember { arrayOfNulls<Runnable>(1) }
+        val lpDown = remember { FloatArray(2) }
         // ROUTE BUILDER: route mode active -> Route+ toolbar shown (read by next patch)
         var routeMode by remember { mutableStateOf(false) }
         var routeMethod by remember { mutableStateOf(ROUTE_METHOD_P2P) }
@@ -598,6 +610,9 @@ fun ConvoyScreen(
                         @android.webkit.JavascriptInterface
                         fun onMapLongPress(lat: Double, lon: Double) {
                             android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                // WAYPOINT-TRACE-2026-07-31
+                                android.util.Log.d("ConvoyTap",
+                                    "onMapLongPress [UPDATE :571] lat=$lat lon=$lon")
                                 pendingWaypoint = Pair(lat, lon)
                             }
                         }
@@ -815,6 +830,9 @@ fun ConvoyScreen(
                             @android.webkit.JavascriptInterface
                             fun onMapLongPress(lat: Double, lon: Double) {
                                 android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                    // WAYPOINT-TRACE-2026-07-31
+                                    android.util.Log.d("ConvoyTap",
+                                        "onMapLongPress [FACTORY :788] lat=$lat lon=$lon")
                                     pendingWaypoint = Pair(lat, lon)
                                 }
                             }
@@ -936,6 +954,49 @@ fun ConvoyScreen(
                 view.visibility = if (viewModel.hasSeenNodes.value)
                     android.view.View.VISIBLE else android.view.View.GONE
                 view.setOnTouchListener { v, event ->
+                    // CONVOY-LONGPRESS-2026-07-31: detect long-press HERE rather than in
+                    // Leaflet.
+                    //
+                    // convoy_map.html:303 uses map.on('contextmenu'), and
+                    // Leaflet 1.9 dropped its own tap handler — it depends on
+                    // the BROWSER firing a native contextmenu. Installing this
+                    // OnTouchListener intercepts before View.onTouchEvent, and
+                    // onTouchEvent is what starts the long-press timer. So the
+                    // WebView never synthesises one and Leaflet's handler never
+                    // runs. Device-confirmed 07-31: seven long-presses, ZERO
+                    // ConvoyJS output, while taps logged normally.
+                    //
+                    // Rather than fight that, detect it in the listener that is
+                    // already here and reuse the screen-coordinate path
+                    // findNearestMarker already proves works.
+                    when (event.action) {
+                        android.view.MotionEvent.ACTION_DOWN -> {
+                            lpDown[0] = event.x
+                            lpDown[1] = event.y
+                            val lx = event.x.toInt()
+                            val ly = event.y.toInt()
+                            lpRunnable[0]?.let { lpHandler.removeCallbacks(it) }
+                            val r = Runnable {
+                                android.util.Log.i("ConvoyTap", "LONGPRESS at x=$lx y=$ly")
+                                view.evaluateJavascript("longPressAt($lx, $ly)", null)
+                            }
+                            lpRunnable[0] = r
+                            lpHandler.postDelayed(r, 500L)
+                        }
+                        android.view.MotionEvent.ACTION_MOVE -> {
+                            // A drag is not a press. Slop, not zero, or the
+                            // gesture cancels on the smallest finger tremor.
+                            if (kotlin.math.abs(event.x - lpDown[0]) > 20f ||
+                                kotlin.math.abs(event.y - lpDown[1]) > 20f) {
+                                lpRunnable[0]?.let { lpHandler.removeCallbacks(it) }
+                            }
+                        }
+                        android.view.MotionEvent.ACTION_POINTER_DOWN,
+                        android.view.MotionEvent.ACTION_UP,
+                        android.view.MotionEvent.ACTION_CANCEL -> {
+                            lpRunnable[0]?.let { lpHandler.removeCallbacks(it) }
+                        }
+                    }
                     if (event.action == android.view.MotionEvent.ACTION_MOVE ||
                         event.action == android.view.MotionEvent.ACTION_POINTER_DOWN ||
                         event.action == android.view.MotionEvent.ACTION_UP) { viewModel.setAutoPan(false) }
@@ -979,6 +1040,13 @@ fun ConvoyScreen(
             }
         }
 
+                    // WAYPOINT-TRACE-2026-07-31: does this gate even evaluate?
+                    // ⚠ Logging in composition is a side effect and comes OUT
+                    // once this path is understood. It is here because nothing
+                    // else distinguishes "state never written" from "state
+                    // written into a scope this composition does not observe".
+                    if (pendingWaypoint != null) android.util.Log.d(
+                        "ConvoyTap", "DIALOG gate pendingWaypoint=$pendingWaypoint")
                     pendingWaypoint?.let { (wLat, wLon) ->
                         androidx.compose.material3.AlertDialog(
                             onDismissRequest = { pendingWaypoint = null },

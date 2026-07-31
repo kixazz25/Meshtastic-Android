@@ -133,7 +133,32 @@ fun ConvoyMapViewerScreen(
     var selectedArtifactIds by remember { mutableStateOf<Set<String>>(emptySet()) }
     var pendingWaypoint by remember { mutableStateOf<Pair<Double, Double>?>(null) }
     // ROUTE BUILDER: route mode active -> Route+ toolbar shown (read by next patch)
-    var addPointMode by remember { mutableStateOf(true) }  // Tap:Route(on)/Artifact(off) — consumed by onMapTap next build
+    // ADDPOINTMODE-DEFAULT-2026-07-31: was mutableStateOf(true).
+    //
+    // ⭐ DEVICE-CONFIRMED 07-31: with the default true, EVERY planner track tap
+    // was suppressed by the guard at :640 — "PLANNER SUPPRESSED by
+    // addPointMode" — with no route ever drawn. Leaflet's bindPopup showed
+    // instead, which is why the planner gave a popup where convoy gave the
+    // detail panel. (Convoy's onTrackTap has no such guard.)
+    //
+    // The old comment said "consumed by onMapTap next build". That build never
+    // came, and the placeholder default shipped ON.
+    //
+    // ⭐ THE GUARD IS CORRECT AND STAYS — suppressing a detail panel
+    // mid-route-draw is reasonable. Only the starting value was wrong. The one
+    // assignment in this file, :1256 `addPointMode = armed`, sets it true when
+    // route mode arms and false when it unarms, so the value still comes from
+    // arming; it just no longer STARTS armed.
+    //
+    // ⚠ NOT seeded from the state JSON, deliberately. routeMode two lines below
+    // is "LIVE session state ... Recovery launches in onPageFinished after
+    // render, not here" — arming before the map renders is the failure that
+    // decision prevents. false is simply the honest initial state: on launch
+    // you are not adding route points.
+    //
+    // ⚠ :553 (onMapLongPress) also reads this and has been seeing true since
+    // launch. Planner long-press behaviour may change — check it.
+    var addPointMode by remember { mutableStateOf(false) }  // Tap:Route(on)/Artifact(off)
     var routeMethod by remember { mutableStateOf(ROUTE_METHOD_P2P) }
     var routeName by remember { mutableStateOf("") }
     // Isolated second read of the saved route-open flag (independent of pmSeed@224,
