@@ -1,0 +1,143 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<title>COMPLETED — 2026-07-31 · Trails display, canvas renderer, tap fixes</title>
+<style>
+:root{--bg:#0f1216;--panel:#161b22;--ink:#e6edf3;--dim:#8b949e;--line:#30363d;--accent:#58a6ff;--good:#3fb950;--warn:#d29922;--bad:#f85149;--ui:-apple-system,"Segoe UI",Roboto,sans-serif;--mono:"SF Mono",Consolas,monospace}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 var(--ui);padding:18px}
+main{max-width:940px;margin:0 auto}
+h1{font:700 18px var(--ui);color:var(--good);border-bottom:2px solid var(--good);padding-bottom:6px}
+h2{font:700 15px var(--ui);color:var(--accent);margin:26px 0 8px;border-bottom:1px solid var(--line);padding-bottom:4px}
+h3{font:700 13px var(--ui);margin:16px 0 4px}
+.card{border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin:10px 0;background:var(--panel)}
+code{background:#0c0f0a;padding:1px 5px;border-radius:3px;font:12px var(--mono)}
+pre{background:#0c0f0a;border:1px solid var(--line);border-radius:6px;padding:10px;overflow-x:auto;font:12px var(--mono)}
+table{border-collapse:collapse;width:100%;font:13px var(--ui);margin:8px 0}
+th,td{border:1px solid var(--line);padding:5px 8px;text-align:left;vertical-align:top}
+th{background:var(--panel);color:var(--accent)}
+.sub{font:12px var(--mono);color:var(--dim)}
+</style></head><body><main>
+
+<h1>COMPLETED — 2026-07-31 · Trails display, canvas renderer, tap fixes</h1>
+<p class="sub">Graduated out of the Living Master. Six files, 249 insertions. Thirteen builds.</p>
+
+<div class="card"><b>Two bugs closed that had been misattributed for months, one diagnosed to a
+specific July commit, and a route-mode design settled that is smaller than what it replaces.</b></div>
+
+<h2>⭐⭐ 1 — TRAILS: the six-month "not fixable because of volume" bug</h2>
+<div class="card">
+<p><code>SpatialDbManager.queryTrailsByViewport</code> used <code>LIMIT</code> with <b>no
+<code>ORDER BY</code></b>. SQLite therefore returned whichever rows it reached first — rowid order,
+i.e. <b>OSM import insertion order</b>, which carries no spatial meaning.</p>
+<p>At z8 roughly 89,536 Utah trails matched the bbox and 500 drew. Any viewport change returned a
+<b>DIFFERENT arbitrary 500</b>. Nothing was ever misplaced — <b>the membership churned.</b></p>
+<h3>What identified it — both from behaviour, neither from code</h3>
+<ul>
+<li><b>"Seems to load bands by longitude."</b> A Geofabrik extract walks its own spatial index, so
+insertion order carries a rough geographic sweep. The first 500 by rowid is a STRIPE, not a scatter.</li>
+<li><b>"Adding Arizona places the trails below the tracks."</b> Utah imported first and holds the low
+rowids, so every Arizona trail sorted after every Utah trail. <b>Import order made visible.</b></li>
+</ul>
+<p>⭐ <b>Volume was never the variable.</b> smoothFactor is a per-polyline screen-space tolerance and
+behaves identically at 500 artifacts or 89,000. The story that this was unfixable because of trail
+count made a prediction — that doubling coverage would worsen it — and that prediction failed.</p>
+<p>⭐ <b>And the tap test is what redirected the whole hunt.</b> Taps fired on trails where they were
+DRAWN, proving Leaflet placed them exactly where the data said. The data was never wrong; there was
+just an arbitrary subset of it.</p>
+<h3>The fix</h3>
+<pre>ORDER BY (CASE WHEN name IS NULL OR name = '' THEN 1 ELSE 0 END),
+         ((max_lat-min_lat)*(max_lat-min_lat)+(max_lon-min_lon)*(max_lon-min_lon)) DESC</pre>
+<p>Named first — OSM carries no <code>carto_code</code>, so <code>name</code> is the only quality
+signal. Then largest bbox extent (squared diagonal, no sqrt needed for ordering, both columns already
+indexed). Plus <b>minZoom 11</b> and a <b>10,000 row cap as a safety valve</b>, not the mechanism.</p>
+<p>⚠ Why tracks were never affected: a few hundred exist, so their cap never binds. That is also why
+it appeared to "resolve at z12" — that is simply where viewport trail density drops under the cap.
+<b>No z12 threshold exists in the code.</b></p>
+</div>
+
+<h2>⭐⭐ 2 — CANVAS RENDERER: <code>tolerance</code> had never worked</h2>
+<div class="card">
+<pre>renderer: L.svg({ tolerance: 44 })</pre>
+<p><code>tolerance</code> is an option of <b>L.Canvas</b>. <b>L.SVG ignores it.</b> Under SVG,
+hit-testing is done natively by the browser against the <code>&lt;path&gt;</code> element — so the
+effective tap target was the <b>stroke width, 3 pixels</b>. On both maps, since at least 07-08.</p>
+<p><b>Device evidence:</b> ~40 taps at z18, <b>3 hits, 0 trails.</b></p>
+<p>⛔ Note this was suspected of the OPPOSITE — that a 44px halo was swallowing taps at OSM density.
+It was doing nothing at all. And commit <code>ef00baca8</code> had raised it from 18 to 44 believing
+it worked.</p>
+<p><b>Fix:</b> both maps to <code>L.canvas</code>. ⭐ <b>Tracks pinned to <code>L.svg()</code>
+per-layer</b> so <code>polylineDecorator</code> keeps the per-path geometry its arrows need — Leaflet
+takes a renderer per layer, not only per map.</p>
+<p>⚠ Canvas also removes the one-DOM-element-per-path cost that ANR'd the WebView at 120,000 trails.
+<b>The z11 gate and 10,000 cap are worth revisiting</b> now that constraint is gone — separately, with
+its own test.</p>
+</div>
+
+<h2>⭐ 3 — CONVOY LONG-PRESS WAYPOINTS</h2>
+<div class="card">
+<p>Seven long-presses produced ZERO console output while taps logged cleanly. <code>convoy_map.html</code>
+uses <code>map.on('contextmenu')</code>, and <b>Leaflet 1.9 removed its own tap handler</b> — it relies
+on the browser firing a native contextmenu. <code>ConvoyScreen.kt:938</code> installs a
+<code>setOnTouchListener</code> on the WebView (the planner has none), which intercepts before
+<code>View.onTouchEvent</code> — and <code>onTouchEvent</code> is what starts the long-press timer.</p>
+<p><b>Fix:</b> detect the long-press in that listener — 500 ms timer, 20 px move slop — and call
+<code>longPressAt(x,y)</code>, which converts a container point to a latlng and calls the EXISTING
+bridge. <code>pendingWaypoint</code> and the dialog were complete all along; only the gesture never
+arrived.</p>
+<p>⚠ Timer state is held in <code>remember</code>ed arrays, not <code>MutableState</code> — the
+listener lives in <code>update = { }</code> which re-runs on every recomposition, and state mutated
+from a touch event would reinstall the listener mid-gesture.</p>
+<p>⭐ Canvas later restored native contextmenu as well, so <code>onMapLongPress</code> now fires
+twice per press from two paths. Harmless (second write wins) but the timer is now redundant.</p>
+</div>
+
+<h2>⭐ 4 — addPointMode DEFAULTED TRUE</h2>
+<div class="card">
+<pre>var addPointMode by remember { mutableStateOf(true) }
+    // Tap:Route(on)/Artifact(off) — consumed by onMapTap next build</pre>
+<p>"Next build" never came. The flag shipped defaulted ON, so <b>every planner track tap was
+suppressed</b> — device-confirmed as <code>PLANNER SUPPRESSED by addPointMode</code> with no route
+ever drawn. Convoy has no such guard, which is why the two maps behaved differently.</p>
+<p>The only assignment is <code>:1256</code> — <code>addPointMode = armed</code> — so the value still
+comes from arming; it just no longer STARTS armed. <b>The guard itself is correct and stays.</b></p>
+<p>⭐ Fixing it also restored <b>planner long-press</b>, since <code>:553</code> reads the same flag.</p>
+</div>
+
+<h2>⚠ IN THE COMMIT, TO REMOVE BEFORE RELEASE</h2>
+<div class="card">
+<ul>
+<li><b><code>smoothFactor: 0</code></b> on trails, both maps. Device-disproven as a fix for the splay.
+Left in deliberately — small, isolated, reversible in seconds, and separating it at the end of a long
+session was judged the greater risk.</li>
+<li><b>Three <code>WAYPOINT-TRACE</code> log lines</b> in <code>ConvoyScreen.kt</code>. One fires
+<b>every 5 seconds</b> (the convoy screen recomposes on a timer) and would spam production logs.
+Retained by decision until the spatial-labels work is done, since that will need the same tracing.</li>
+</ul>
+</div>
+
+<h2>Files</h2>
+<table>
+<tr><th>File</th><th>Change</th></tr>
+<tr><td><code>SpatialDbManager.kt</code></td><td>ORDER BY on queryTrailsByViewport</td></tr>
+<tr><td><code>SpatialDisplayManager.kt</code></td><td>trails minZoom 11, cap 10,000</td></tr>
+<tr><td><code>ConvoyMapViewerScreen.kt</code></td><td>addPointMode default false</td></tr>
+<tr><td><code>ConvoyScreen.kt</code></td><td>long-press timer; 3 trace log lines</td></tr>
+<tr><td><code>convoy_map.html</code></td><td>canvas + tracks→SVG; detailPanelEnabled; longPressAt; smoothFactor</td></tr>
+<tr><td><code>grouptrack_map.html</code></td><td>canvas + tracks→SVG; detailPanelEnabled; smoothFactor</td></tr>
+</table>
+
+<h2>⚠ METHOD NOTE — thirteen builds, and why</h2>
+<div class="card">
+<p>Seven hypotheses were tested and eliminated on trails alone before the cause was found; four more
+on convoy taps. Every one was a plausible mechanism, and every one was disproven on device.</p>
+<p>⭐ <b>What actually solved both bugs was reasoning about BEHAVIOUR, not code</b> — the longitude
+banding, the Arizona ordering, the tap test, and "planner has popups and convoy doesn't, which is
+backwards". Each was decisive and none came from reading source.</p>
+<p>⚠ <b>The structural cost driver is patchy instrumentation.</b> Tap handlers log, bridges mostly do
+not, state writes never do. Every hunt begins by spending a build to see anything at all. <b>A
+one-time tracing pass across tap → bridge → state → composition, kept permanently, would repay itself
+immediately.</b></p>
+<p>⭐ <b>Fred, at the end:</b> <i>"our errors were at 30,000 feet and we were dealing in the details."</i>
+State the rule in English first and check the code against it — not the reverse. Both real fixes came
+from that direction.</p>
+</div>
+
+</main></body></html>

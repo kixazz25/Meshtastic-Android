@@ -36360,6 +36360,165 @@ MBTilesStore.deleteSource(type) at :186 removes the cached handle, closes it, an
 &#11088; For TEST RESET this is the better tool than a bbox delete &mdash; it gives a guaranteed-empty baseline rather than leftovers you then have to reason about. Bbox delete is the shipping feature; whole-source drop is the reset button. Worth confirming whether it is reachable from the UI today, since clean devices are what make the SAT-15 measurement trustworthy.
 
 
+=== COMPLETED_TASK_2026-07-30_nine_items.html ===
+COMPLETED — 2026-07-30 · Nine items, two commits
+:root{--bg:#0f1216;--panel:#161b22;--ink:#e6edf3;--dim:#8b949e;--line:#30363d;--accent:#58a6ff;--good:#3fb950;--warn:#d29922;--bad:#f85149;--ui:-apple-system,"Segoe UI",Roboto,sans-serif;--mono:"SF Mono",Consolas,monospace}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 var(--ui);padding:18px}
+main{max-width:900px;margin:0 auto}
+h1{font:700 18px var(--ui);color:var(--good);border-bottom:2px solid var(--good);padding-bottom:6px}
+h2{font:700 15px var(--ui);color:var(--accent);margin:22px 0 8px;border-bottom:1px solid var(--line);padding-bottom:4px}
+h3{font:700 13px var(--ui);margin:14px 0 4px}
+.card{border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin:10px 0;background:var(--panel)}
+code{background:#0c0f0a;padding:1px 5px;border-radius:3px;font:12px var(--mono)}
+table{border-collapse:collapse;width:100%;font:13px var(--ui);margin:8px 0}
+th,td{border:1px solid var(--line);padding:5px 8px;text-align:left}
+th{background:var(--panel);color:var(--accent)}
+.sub{font:12px var(--mono);color:var(--dim)}
+COMPLETED — 2026-07-30 · Nine items, two commits
+Graduated out of the Living Master 2026-07-31. Commits e84117e83 + follow-up.
+All verified on device.
+Why this doc exists: completed work leaves the Living Master and gets its own
+titled record. In-flight design does the opposite — it expands in place on the checklist.
+Confusing those two rules is what caused the 07-28 document loss.
+✅ 00b — SHIPPED 07-30 (EOD). Nine items, two commits, all verified on device.
+VERIFIED commits e84117e83 + follow-up
+#ItemVerified
+1Route planning snaps to trails only (RouteManager.snapTrailsOnly)straight line over tracks ✓
+2Geofabrik zip deleted from Downloads after a successful extractNevada + Utah ✓
+2Confirm-dialog trace (diagnostic)no double CONTINUE recurred
+3Tap tracing, planner: MapJS · ARTIFACTTAP · MAPCLICK · ProxTap · LongPress · TrackTap · DetailGate✓
+3Long press always drops a waypoint, both modes✓
+3Popups bind unconditionally + stopPropagationtrails + tracks ✓
+3aTracks fall back to a plain popup; detail panel behind window.__detailPanelEnabled✓
+3bLayer taps fall through while route mode is on, so vertices still land✓
+4⭐⭐ PLANNER PROXIMITY ROOT CAUSE — dead head-of-file block deleted, wiring moved after the map constructor✓
+5Snap radius derived from zoom, clamped 15–150 mz14–z18 all snap ✓
+—unclassified added to the OSM trails filterUtah +14,506 ✓
+Also done: Arizona AREA captures complete (8 embedded in the manual, from
+observed content not filenames) · manual Step 4 corrected for the new zip timing.
+What this unblocked
+The Arizona AREA captures could be taken — 8 embedded in the manual, chosen from observed
+content rather than filenames.
+Manual Step 4 corrected for the new zip-deletion timing.
+⭐ Item 4 (planner proximity root cause — dead head-of-file block deleted, wiring moved after the
+map constructor) is the one worth remembering: three symptoms had been chased separately for days
+and all three were downstream of it.
+
+
+=== COMPLETED_TASK_2026-07-31_trails_canvas_taps.html ===
+COMPLETED — 2026-07-31 · Trails display, canvas renderer, tap fixes
+:root{--bg:#0f1216;--panel:#161b22;--ink:#e6edf3;--dim:#8b949e;--line:#30363d;--accent:#58a6ff;--good:#3fb950;--warn:#d29922;--bad:#f85149;--ui:-apple-system,"Segoe UI",Roboto,sans-serif;--mono:"SF Mono",Consolas,monospace}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 var(--ui);padding:18px}
+main{max-width:940px;margin:0 auto}
+h1{font:700 18px var(--ui);color:var(--good);border-bottom:2px solid var(--good);padding-bottom:6px}
+h2{font:700 15px var(--ui);color:var(--accent);margin:26px 0 8px;border-bottom:1px solid var(--line);padding-bottom:4px}
+h3{font:700 13px var(--ui);margin:16px 0 4px}
+.card{border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin:10px 0;background:var(--panel)}
+code{background:#0c0f0a;padding:1px 5px;border-radius:3px;font:12px var(--mono)}
+pre{background:#0c0f0a;border:1px solid var(--line);border-radius:6px;padding:10px;overflow-x:auto;font:12px var(--mono)}
+table{border-collapse:collapse;width:100%;font:13px var(--ui);margin:8px 0}
+th,td{border:1px solid var(--line);padding:5px 8px;text-align:left;vertical-align:top}
+th{background:var(--panel);color:var(--accent)}
+.sub{font:12px var(--mono);color:var(--dim)}
+COMPLETED — 2026-07-31 · Trails display, canvas renderer, tap fixes
+Graduated out of the Living Master. Six files, 249 insertions. Thirteen builds.
+Two bugs closed that had been misattributed for months, one diagnosed to a
+specific July commit, and a route-mode design settled that is smaller than what it replaces.
+⭐⭐ 1 — TRAILS: the six-month "not fixable because of volume" bug
+SpatialDbManager.queryTrailsByViewport used LIMIT with no
+ORDER BY. SQLite therefore returned whichever rows it reached first — rowid order,
+i.e. OSM import insertion order, which carries no spatial meaning.
+At z8 roughly 89,536 Utah trails matched the bbox and 500 drew. Any viewport change returned a
+DIFFERENT arbitrary 500. Nothing was ever misplaced — the membership churned.
+What identified it — both from behaviour, neither from code
+"Seems to load bands by longitude." A Geofabrik extract walks its own spatial index, so
+insertion order carries a rough geographic sweep. The first 500 by rowid is a STRIPE, not a scatter.
+"Adding Arizona places the trails below the tracks." Utah imported first and holds the low
+rowids, so every Arizona trail sorted after every Utah trail. Import order made visible.
+⭐ Volume was never the variable. smoothFactor is a per-polyline screen-space tolerance and
+behaves identically at 500 artifacts or 89,000. The story that this was unfixable because of trail
+count made a prediction — that doubling coverage would worsen it — and that prediction failed.
+⭐ And the tap test is what redirected the whole hunt. Taps fired on trails where they were
+DRAWN, proving Leaflet placed them exactly where the data said. The data was never wrong; there was
+just an arbitrary subset of it.
+The fix
+ORDER BY (CASE WHEN name IS NULL OR name = '' THEN 1 ELSE 0 END),
+         ((max_lat-min_lat)*(max_lat-min_lat)+(max_lon-min_lon)*(max_lon-min_lon)) DESC
+Named first — OSM carries no carto_code, so name is the only quality
+signal. Then largest bbox extent (squared diagonal, no sqrt needed for ordering, both columns already
+indexed). Plus minZoom 11 and a 10,000 row cap as a safety valve, not the mechanism.
+⚠ Why tracks were never affected: a few hundred exist, so their cap never binds. That is also why
+it appeared to "resolve at z12" — that is simply where viewport trail density drops under the cap.
+No z12 threshold exists in the code.
+⭐⭐ 2 — CANVAS RENDERER: tolerance had never worked
+renderer: L.svg({ tolerance: 44 })
+tolerance is an option of L.Canvas. L.SVG ignores it. Under SVG,
+hit-testing is done natively by the browser against the &lt;path&gt; element — so the
+effective tap target was the stroke width, 3 pixels. On both maps, since at least 07-08.
+Device evidence: ~40 taps at z18, 3 hits, 0 trails.
+⛔ Note this was suspected of the OPPOSITE — that a 44px halo was swallowing taps at OSM density.
+It was doing nothing at all. And commit ef00baca8 had raised it from 18 to 44 believing
+it worked.
+Fix: both maps to L.canvas. ⭐ Tracks pinned to L.svg()
+per-layer so polylineDecorator keeps the per-path geometry its arrows need — Leaflet
+takes a renderer per layer, not only per map.
+⚠ Canvas also removes the one-DOM-element-per-path cost that ANR'd the WebView at 120,000 trails.
+The z11 gate and 10,000 cap are worth revisiting now that constraint is gone — separately, with
+its own test.
+⭐ 3 — CONVOY LONG-PRESS WAYPOINTS
+Seven long-presses produced ZERO console output while taps logged cleanly. convoy_map.html
+uses map.on('contextmenu'), and Leaflet 1.9 removed its own tap handler — it relies
+on the browser firing a native contextmenu. ConvoyScreen.kt:938 installs a
+setOnTouchListener on the WebView (the planner has none), which intercepts before
+View.onTouchEvent — and onTouchEvent is what starts the long-press timer.
+Fix: detect the long-press in that listener — 500 ms timer, 20 px move slop — and call
+longPressAt(x,y), which converts a container point to a latlng and calls the EXISTING
+bridge. pendingWaypoint and the dialog were complete all along; only the gesture never
+arrived.
+⚠ Timer state is held in remembered arrays, not MutableState — the
+listener lives in update = { } which re-runs on every recomposition, and state mutated
+from a touch event would reinstall the listener mid-gesture.
+⭐ Canvas later restored native contextmenu as well, so onMapLongPress now fires
+twice per press from two paths. Harmless (second write wins) but the timer is now redundant.
+⭐ 4 — addPointMode DEFAULTED TRUE
+var addPointMode by remember { mutableStateOf(true) }
+    // Tap:Route(on)/Artifact(off) — consumed by onMapTap next build
+"Next build" never came. The flag shipped defaulted ON, so every planner track tap was
+suppressed — device-confirmed as PLANNER SUPPRESSED by addPointMode with no route
+ever drawn. Convoy has no such guard, which is why the two maps behaved differently.
+The only assignment is :1256 — addPointMode = armed — so the value still
+comes from arming; it just no longer STARTS armed. The guard itself is correct and stays.
+⭐ Fixing it also restored planner long-press, since :553 reads the same flag.
+⚠ IN THE COMMIT, TO REMOVE BEFORE RELEASE
+smoothFactor: 0 on trails, both maps. Device-disproven as a fix for the splay.
+Left in deliberately — small, isolated, reversible in seconds, and separating it at the end of a long
+session was judged the greater risk.
+Three WAYPOINT-TRACE log lines in ConvoyScreen.kt. One fires
+every 5 seconds (the convoy screen recomposes on a timer) and would spam production logs.
+Retained by decision until the spatial-labels work is done, since that will need the same tracing.
+Files
+FileChange
+SpatialDbManager.ktORDER BY on queryTrailsByViewport
+SpatialDisplayManager.kttrails minZoom 11, cap 10,000
+ConvoyMapViewerScreen.ktaddPointMode default false
+ConvoyScreen.ktlong-press timer; 3 trace log lines
+convoy_map.htmlcanvas + tracks→SVG; detailPanelEnabled; longPressAt; smoothFactor
+grouptrack_map.htmlcanvas + tracks→SVG; detailPanelEnabled; smoothFactor
+⚠ METHOD NOTE — thirteen builds, and why
+Seven hypotheses were tested and eliminated on trails alone before the cause was found; four more
+on convoy taps. Every one was a plausible mechanism, and every one was disproven on device.
+⭐ What actually solved both bugs was reasoning about BEHAVIOUR, not code — the longitude
+banding, the Arizona ordering, the tap test, and "planner has popups and convoy doesn't, which is
+backwards". Each was decisive and none came from reading source.
+⚠ The structural cost driver is patchy instrumentation. Tap handlers log, bridges mostly do
+not, state writes never do. Every hunt begins by spending a build to see anything at all. A
+one-time tracing pass across tap → bridge → state → composition, kept permanently, would repay itself
+immediately.
+⭐ Fred, at the end: "our errors were at 30,000 feet and we were dealing in the details."
+State the rule in English first and check the code against it — not the reverse. Both real fixes came
+from that direction.
+
+
 === COMPLETED_TASK_convoy_queues_width_fix_2026-07-22.html ===
 Convoy Download Queues Panel Width Fix — Completed Task
 :root{--bg:#0f1216;--panel:#161b22;--ink:#e6edf3;--dim:#8b949e;--line:#30363d;--accent:#58a6ff;--good:#3fb950;--warn:#d29922;--bad:#f85149;--ui:-apple-system,"Segoe UI",Roboto,sans-serif;--mono:"SF Mono",Consolas,monospace}
@@ -63323,6 +63482,710 @@ Doc / release tasks (pending)
 STANDING RULES ADDED 07-30 — carry forward: (1) No assertion about what exists in the doc set without grepping AllDocs first. (2) Every topic is embedded here with its source-document reference; nothing enters memory as a topic without entering this checklist with its references. (3) Design in flight expands in place; detail graduates only on completion. (4) Discussions get written when they happen, not at EOD. (5) Section titles name the release's purpose, never one feature inside it.
 
 
+=== grouptrack_living_master_2026-07-31.html ===
+GroupTrack — Living Master — 2026-07-31
+:root{--bg:#0f1216;--panel:#161b22;--ink:#e6edf3;--dim:#8b949e;--line:#30363d;--accent:#58a6ff;--good:#3fb950;--warn:#d29922;--bad:#f85149;--ui:-apple-system,"Segoe UI",Roboto,sans-serif;--mono:"SF Mono",Consolas,monospace}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 var(--ui);padding:0 0 60px}
+header{position:sticky;top:0;background:#0f1216f0;border-bottom:1px solid var(--line);padding:12px 18px;z-index:5}
+.ttl{font:700 17px var(--ui)}.ttl b{color:var(--accent)}.sub{font:12px var(--mono);color:var(--dim);margin-top:2px}
+main{max-width:900px;margin:0 auto;padding:16px 18px}
+h2{font:700 15px var(--ui);color:var(--accent);margin:22px 0 8px;border-bottom:1px solid var(--line);padding-bottom:4px}
+h3{font:700 13px var(--ui);color:var(--ink);margin:14px 0 4px}
+.tag{display:inline-block;font:700 10px var(--mono);padding:1px 6px;border-radius:4px;margin-right:6px;vertical-align:middle}
+.t-good{background:#12261a;color:var(--good);border:1px solid #1f6f3f}
+.t-warn{background:#2a2312;color:var(--warn);border:1px solid #6f5a1f}
+.t-bad{background:#2a1414;color:var(--bad);border:1px solid #6f2020}
+.t-prog{background:#12203a;color:var(--accent);border:1px solid #1f4f8f}
+.card{border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin:10px 0;background:var(--panel)}
+ul{margin:6px 0 6px 0;padding-left:20px}li{margin:4px 0}ol{margin:6px 0;padding-left:22px}
+code{background:#0c0f0a;padding:1px 5px;border-radius:3px;font:12px var(--mono);color:#e6edf3}
+.note{font:12px var(--mono);color:var(--dim);border-left:3px solid var(--line);padding:4px 10px;margin:8px 0}
+.hi{color:var(--warn);font-weight:700}.step{background:#12203a;border-left:3px solid var(--accent);padding:6px 10px;margin:8px 0}
+.src{font:11px var(--mono);color:var(--dim);border-top:1px dotted var(--line);margin-top:8px;padding-top:5px}
+table{border-collapse:collapse;width:100%;font:12.5px var(--mono);margin:8px 0}
+th,td{border:1px solid var(--line);padding:5px 7px;text-align:left;vertical-align:top}
+th{background:#12203a;color:var(--accent)}
+GroupTrack — Living Master Checklist2026-07-30 · INTERNAL · work to be performed only · rebuilt on the 2026-07-27 HTML baseline · release map restored · EOD: 9 items shipped, root cause found
+Work TO BE PERFORMED only — In-Progress + Open. NO Completed section: each completed task gets its own recap doc (title = task title, full design + fix detail) committed through AllDocs.
+FORMAT, settled 07-30 (Fred): Living Master and handoff are HTML, internal palette, edited in place. The 07-28 and 07-29 reversion to .md is recorded below as a loss event, not a precedent.
+BASELINE PROVENANCE: supersedes grouptrack_living_master_2026-07-27.html (91,646 chars, 120 marked sections, recovered from AllDocs), plus GroupTrack_Living_Master_2026-07-28.md and _2026-07-29.md. Style template = grouptrack_living_master_2026-07-24.html.
+🔴🔴 00a — TOMORROW (07-31 EOD): ROUTE MODE. Spec settled, fix is mostly DELETION.
+Route planning is unusable today and has been since 43ab77e16 (07-03). The
+design was settled tonight in English before any code — do it in that order tomorrow.
+⭐⭐ THE SPECIFICATION (Fred, 07-31, verbatim intent)
+ConceptMeansRule
+Persistencestate RECREATION — position, zoom, artifact display states,
+checked listsBoth maps write on every screen refresh. Puts the map back as you left it.
+Route modeACTIVELY PLOTTING POINTS RIGHT NOW
+⭐ FALSE ON EVERY MAP ENTRY, BOTH MAPS, UNCONDITIONALLY. Entered ONLY by choosing Add
+Route. Never restored from persistence.
+Draft filea route was not finished
+Produces ONE MESSAGE on planner entry: "you have an unsaved route". That is all it does.
+No arming, no geometry restore, no drawBuildLine.
+routeState.opena session ended without terminating
+An END-STATE write. Records only; never arms anything.
+THE TAP RULE, entire:
+Route mode OFF → tap opens artifacts (popup / detail panel)
+Route mode ON → tap places a route point. Nothing else consumes it.
+⭐⭐ THEREFORE POPUPS NEVER NEED SUPPRESSING. If the tap does not reach the artifact layer,
+no popup can open. Every unbind, stash, restore and bind-gate in the codebase exists to solve a
+problem that correct tap routing makes impossible.
+THREE EXITS, one entry. Save · save in progress · discard. Each terminates route mode and
+writes the end state. To save a recovered draft you go through Add Route like any other route — no
+special-cased recovery path.
+⚠ Route mode is an ACTIVITY, not restorable state. Fred: "a file on disk means you have
+not finished a route. The state is actively plotting points." Two different things, and conflating
+them is the whole mess.
+⚠ Fred on why a boolean was not enough: "I have had continue messages with no in-flight
+files." The flag claimed a state nothing verified — and setting it false does not undo what
+setting it true DID (unbound popups, changed pointer events). Termination must REASSERT consequences,
+not just write a value.
+⛔ THE REGRESSION — commit 43ab77e16, 07-03
+Titled "suppress artifact popups during route-build on both maps (unbind/rebind + bind-gate +
+force-flag)". It replaced a working stateless mechanism with a broken stateful one:
+- if (sub &amp;&amp; sub._path) sub._path.style.pointerEvents = on ? 'none' : '';
++ if (on)  { sub._savedPopupContent = sub.getPopup().getContent(); sub.unbindPopup(); }
++ else     { sub.bindPopup(sub._savedPopupContent); sub._savedPopupContent = null; }
+⭐ The deleted line was correct. Stateless, nothing stashed, and it suppressed the TAP
+rather than the popup — which is what let route-build taps fall through to the map. The function's own
+surviving comment still describes that behaviour: "route their pointer events out so the tap falls
+through to map.on('click') → Android.onMapTap (real coords)."
+⚠ Why stash/restore cannot work: the viewport lazy-load rebuilds layers on every pan.
+_savedPopupContent lives on layer objects that get replaced, so the stash is lost and
+popups unbind PERMANENTLY. Observed 07-31: route mode off, popups still gone.
+⚠⚠ AND THE GATES ARE INVERTED BETWEEN MAPS — Fred spotted this from behaviour alone:
+Planner gates at BIND time (if (!window.__routeMode) layer.bindPopup(...)) —
+so it does nothing to layers already drawn. Arming on a populated map has no effect. Ineffective on
+the map that owns route mode.
+Convoy guards at TAP time (if (window.__routeMode) return;) — always
+effective. On the map that cannot create routes at all.
+🔴 TOMORROW'S WORK — mostly deletion
+⛔ Delete the stash/restore block, both maps
+⛔ Delete the bind-time gates (if (!window.__routeMode) layer.bindPopup(...))
+⛔ Delete convoy's __routeMode tap guard
+⭐ Restore pointer-events routing on route mode
+⭐ setRouteMode(false) unconditionally on every map entry, both maps — the
+call, not just the flag, so consequences are reasserted
+⛔ Remove the arming at ConvoyMapViewerScreen.kt:1447
+(window.__routeMode=true;setRouteMode(true); drawBuildLine(...)) — this is the named
+violation: persistence arming a live session flag
+⭐ Convoy writes routeState.open = false explicitly on every save, so the handoff
+cannot carry a stale armed state. Absent ≠ false.
+⭐ Route-mode state visible and manually terminable in the planner UI — with three exits, "did
+that discard actually terminate it?" is currently unanswerable
+⚠⚠ CHECK FIRST, BEFORE WRITING ANY OF IT: the restored mechanism uses
+sub._path, which is an SVG DOM property. Both maps moved to L.canvas today
+and canvas paths are NOT DOM elements. _path may be undefined, in which case canvas needs
+its own hit-test bypass. This is the one unknown between here and a clean fix.
+⚠ ALSO OPEN — detail panel never confirmed
+Both maps show a popup rather than the artifact detail panel. We never established whether
+ArtifactDetailPanel composes at all — the DetailGate tag was left out of
+every logcat filter today (my error). The gate logs unconditionally at
+ConvoyScreen.kt:1920 and ConvoyMapViewerScreen.kt:1520.
+One tap, no build: adb logcat -s TrackTap:V DetailGate:V ConvoyJS:V
+CONVOY gate type=Tracks id=… → panel IS composed; fault is inside it
+type=null → state not reaching the gate
+nothing → the block is not composing
+⚠ Likely entangled with the route-mode unbind, so do this AFTER the route-mode fix — it may
+resolve itself.
+✅ SHIPPED TODAY — graduated out
+Trails ORDER BY + z11 + 10k cap (the six-month bug) · canvas renderer with tracks
+pinned to SVG · convoy long-press waypoints · addPointMode default false · detail panel
+re-enabled. Six files, 249 insertions, thirteen builds.
+Full record: COMPLETED_TASK_2026-07-31_trails_canvas_taps.html
+⚠ CONVOY TANGLE — evidence for the 2.7 rewrite, gathered today
+Two addJavascriptInterface objects, both named "Android" —
+ConvoyScreen.kt:571 (update path) and :788 (factory). Near-identical method
+sets; onMapBoundsReady exists in only ONE while convoy_map.html:137 calls it
+UNGUARDED. ⭐ Trace confirmed [FACTORY :788] wins — unknown until today.
+findNearestMarker on every ACTION_UP, returning "" on all ~40
+taps today. A parallel hit-test racing Leaflet's own binding at convoy_map.html:200.
+Contributes nothing; cheap removal.
+Uncaught ReferenceError: drawTrack is not defined on every page load. This is
+the checklist's "drawTrack/clearMarkers against a page that is not ready", now confirmed. Caller is
+ConvoyScreen.kt:397.
+Route-mode scaffolding on a map with no route-create entry point (§07b).
+spatial_artifacts.js orphaned with divergent inlined copies (§07b).
+⚠ And today ADDED surface area — canvas, the long-press timer, three trace lines. All
+justified, all more code on the map that has to work off-grid. Fred: "we have made a lot of changes
+to convoy which is never good." Legitimate unease; mitigated by every change being device-tested,
+origin clean, and .bak_* files at every patch point.
+📦 DOC SET — 2.6e assets ready for the Sunday release
+grouptrack_manual_2.6e.html — Import OSM Data section, 5 screens. ⚠ 8
+PENDING-CAPTURE markers outstanding, incl. a RECAPTURE of the Work-with-Artifacts panel
+(shows two buttons where the caption now says three).
+grouptrack_release_notes_2.6e.html — 2.6e current, 2.6d "Previously", 2.6c
+into the collapsed block. Trails display behaviour added 07-31.
+GroupTrack_QuickStart_Installation_Troubleshooting_2026-07-30.html — updated
+for OSM imports.
+⚠ All three are edited in place from prior versions, never regenerated. Copy into assets
+under the canonical unchanged names.
+⚠⚠ 00 — DOCUMENT LOSS EVENT, 07-28. Read before trusting any recent checklist.
+ROOT CAUSE OF TODAY process, not code
+The Living Master went from 91,646 chars (07-27, HTML) to 17,971 chars (07-28, markdown) in one day — ~80% of the document gone, at the same moment the format flipped. V2.7 collapsed to a single bullet ("vector rendering / MapLibre — scoped only, nothing decided") and the convoy tracking rewrite vanished entirely.
+⭐ THE RULE THIS RESTORES (Fred 07-30): AllDocs is the safety net, never the working surface — reaching into it means the living document already failed. The Living Checklist + the daily process updates ARE the living, breathing goals and timelines: they expand in detail as design is worked, and the archive is the by-product of having written things down as they happened.
+⛔ MY ERROR, CORRECTED: I applied the "detail graduates out to per-task docs" rule (07-11/07-12) to live design. That rule is for completed work only. Applied to in-flight design it strips exactly what the process exists to accumulate — which is how MapLibre, iPad and 3.0 each decayed into bare issue-lists. Design in flight EXPANDS IN PLACE here. Detail leaves only when a task completes and has its own titled doc, and even then purpose/scope/state/references stay.
+⚠ Also from 07-04 and violated on 07-29: "discussions get written when they happen, not at EOD." Batching to EOD is what required reconstruction the following day.
+Evidence: 07-27 vs 07-28 char counts, AllDocs. Prior instance on record: 07-29 Living Master — "i am sure not doing this resulted in dropping the convoy map redo."
+✅ 00b — SHIPPED 07-30 (graduated out)
+Nine items, two commits (e84117e83 + follow-up), all device-verified — snap-to-trails-only,
+zip deletion after extract, tap tracing, the planner proximity root cause, zoom-derived snap radius, and
+unclassified added to the trails filter (Utah +14,506).
+Full record: COMPLETED_TASK_2026-07-30_nine_items.html. Completed work leaves this
+checklist; in-flight design stays and expands here.
+⭐⭐ 00c — THE ROOT CAUSE, and why nothing downstream helped
+PRE-EXISTING invisible until 07-30
+grouptrack_map.html opened with a script block whose first statement was
+map.on('click', ...) — but map is not created until 720 lines
+later. It threw at parse time and killed the whole block:
+Android.onProximityTap was never registered → short taps never
+reached Kotlin. That is "no taps register".
+showProximityPopup was never defined → the only definition in the
+codebase, called by name from ConvoyMapViewerScreen.kt:578. Even a
+successful query had nothing to render into.
+Confirmed pre-existing against HEAD~1. ⚠ Never visible because the
+planner had no WebChromeClient — its console output went nowhere.
+⭐ EVERY DOWNSTREAM THEORY WAS BELOW A HANDLER THAT WAS NEVER REGISTERED —
+bind guards, stopPropagation, stash/restore, route mode. What broke it open was eight
+lines connecting a console bridge, turning on instrumentation that was already written
+and dark.
+Full detail: COMPLETED_TASK_planner_tap_handling_2026-07-30.html
+⭐ 00d — OSM DEDUP PROVEN ACROSS DOWNLOADS (Utah re-import, 07-30)
+the property the 50-state plan depends on
+found 104,018 = inserted 14,506 + dropped 89,436 + geometry_changed 76 ✓
+dropped 89,436 ≈ the 89,527 imported on 07-29. Trail-side dedup
+across two separate downloads two days apart — geom_hash recognised its
+own rows and duplicated nothing. Never tested until now.
+inserted 14,506 — the new unclassified roads.
+geometry_changed 76 — real OSM edits between extracts, matching the
+~0.08%-per-two-days churn measured earlier. Exactly what that counter exists for.
+Points 7,720 of 7,723 dropped, 1 inserted, 2 moved.
+⚠ Nevada's two runs used non-overlapping areas, so its dropped: 0 is
+correct and proves nothing about trails; only Utah's whole-state re-import does.
+Filter now: track, track_grade1..5, path, bridleway, unclassified.
+Still excluded and available if wanted: tertiary (the paved spine — e.g. the
+long Pine Valley Road segments), service, residential,
+footway (109,468 in Nevada), cycleway.
+🔴🔴 00e — TODAY (07-31): CONVOY FIXES · SPATIAL LABELS ON BOTH MAPS · TRACK DETAIL
+Fred, 07-30 EOD and confirmed 07-31: "CONVOY FIXES FOR 2.6e, and places tags from spatial.db,
+polish for playstore." Three items. All three are display-layer work; none of them touch the import
+pipeline, which is done.
+⭐ AGREED ORDER (Fred 07-31) — commit between each:
+smoothFactor — trails (built), then tracks and routes. Commit.
+Switchable spatial place labels. Commit.
+Convoy popup / waypoint tap. Commit.
+JS cleanup — LAST, see §07b, with a controlled AAB built and kept as a fallback. It is the
+only step with no user-visible upside if it goes wrong.
+A — Convoy map: popups and waypoints
+⭐ Diagnosable with no build. Convoy already has a live console bridge — ConvoyJS at
+ConvoyScreen.kt:777, four ARTIFACTTAP lines and a ROUTEMODE trace. Read the log before writing
+anything.
+⛔ Convoy does NOT have the planner's parse defect. That was fixed 07-30 (item 4, the dead
+head-of-file block). Convoy's failures are drawTrack / clearMarkers called against
+a page that is not ready — a different cause with a different remedy. The established one is
+postDelayed(600) in onPageFinished, which every other WebView JS init in this app
+already uses.
+⚠ Dead route-mode scaffolding. routeMode is still declared at
+ConvoyScreen.kt:204, left from when route-add was removed from convoy. On a map that cannot
+build routes, those guards can only do harm — they can suppress a tap and there is nothing they can
+usefully protect. Delete them in the same commit rather than working around them.
+⚠ Convoy map is FROZEN — but the freeze is a LAYER, not a FILE: the
+Kotlin↔JS↔Leaflet↔self-saving-setView↔MapStateStore tangle. Tap handling is not in
+that tangle, so this work is allowed. Rules stand: never add a moveend listener, never call
+setView / fitBounds / reportViewport.
+B — Spatial label layer on BOTH maps (the SAT_LABELS_PLACES assessment)
+reference_points holds Utah 7,723 / Arizona 9,324 and nothing renders them —
+confirmed on the 07-31 xref, where the table appears only at OsmImportWorker.kt:307, its index
+creation.
+⭐⭐ NEW FINDING (07-31 xref) — and it corrects what I claimed on 07-28. I said labels would have to
+be hand-mirrored into both HTML files through the orphaned spatial_artifacts.js. They do
+not. SpatialDisplayManager is already map-agnostic:
+drawPersistedState(mapKey, webView, context) at :116 — takes the map key and
+reads MapStateStore.readMap(mapKey)
+TypeBinding registry at :31 carrying query / build /
+jsUpdate / jsShow / jsHide / minZoom
+bindingFor(type) at :41 — adding a type is adding a registry entry
+DS_OFF / DS_ON / DS_SELECTED — the ON/OFF persistence pattern
+already exists
+So: add a Places TypeBinding and the Kotlin side serves both maps for free. Only the
+three JS receiver functions (jsUpdate/jsShow/jsHide) need to exist in
+both HTMLs. Materially smaller than the two-file hand-mirror I described.
+⭐ minZoom is already a per-binding field, so the fclass zoom-thinning has a home
+without inventing anything: city/town/village first, locality last — it is 2,846 of Utah's 3,674
+places and is the noisy class.
+Rendering: places are POINTS, so L.divIcon renders them today — no MapLibre and
+no glyph bundling, which is the requirement most likely to be missed and the one that silently breaks
+offline labels.
+Persistence: additive beside the Esri layers, default OFF, ON/OFF in the per-map JSON via
+savePlanningState() (ConvoyMapViewerScreen.kt:265), and captured in
+BOTH screens' reseed block.
+⚠ The three-state comparison is the point. Esri-only / OSM-only / both. Both-on will be hard to
+read — "Moab" drawn twice a few pixels apart, one baked into the tile and one as a divIcon over
+it. The OSM-only state is where the answer lives: does OSM alone carry enough to ride by?
+⚠ The A/B has never been run. 07-26 was a browser prototype at mid-zoom; Esri's raster labels are
+densest at z16–18, which is the fair test and the one that decides retirement.
+If OSM wins: retiring SAT_LABELS_PLACES takes bar 10 from ~107,000 to ~85,300 tiles
+(≈20% of total download — one of three near-identical stores, not the ⅔ that "eliminate the Esri label DBs"
+implies; road labels need MapLibre and are 2.7). ⚠ Config change first — remove it from
+getDownloadSources() — then deleteSource(). Reversed, the next download refills
+the file you just emptied. deleteSource() drops the whole .mbtiles: space back
+instantly, no VACUUM, and it sidesteps the unresolved "0 MB reclaimable" question entirely.
+C — Artifact detail in place of the default popup (tracks)
+Behind window.__detailPanelEnabled = false today. The 07-30 work landed
+3a — tracks fall back to a plain popup as a deliberate stopgap; this is the item that replaces the
+stopgap with the real detail panel, on both maps.
+⚠⚠ TWO DEFECTS WEARING ONE SYMPTOM — do not assume one fix serves both. The planner's
+addPointMode guard was stuck true with route mode off. Convoy has no such guard and
+fails anyway. Same visible outcome, unrelated causes. Fixing the planner and testing only there would
+ship convoy still broken.
+Sequence with item A: convoy's tap path has to work before its detail panel can be judged,
+so A is a prerequisite for the convoy half of C — but not for the planner half.
+⚠ 00f — TWO FLAGS FOR ONE CONCEPT (the defect behind item 3)
+Kotlin addPointMode and JS window.__routeMode mean the same
+thing and nothing keeps them in sync. Proven divergent:
+TrackTap: PLANNER bridge id=8f8c39b1… addPointMode=true
+TrackTap: PLANNER SUPPRESSED by addPointMode
+— every ARTIFACTTAP in the same session: routeMode=false
+⭐ Fred's framing is the fix: route mode is the wrong predicate — it means
+"Route+ is open", when what needs guarding is "the next tap places a vertex". One flag,
+one setter, both sides updated from the same call, and the narrow name.
+⛔ item 3b's fall-through keys off __routeMode; if the predicate changes,
+that changes with it or it drifts again.
+⚠ 00g — PROCESS LESSONS 07-30 (durable, not 2.6e detail)
+Build on verified work, not on an empty queue. Items 1–2 were validated an hour
+before the build and held to bundle item 3 — which was still diagnostic, introduced a
+defect, and forced a second build anyway. They could have been tested and certified in
+that window. Bundling delays verification AND entangles it.
+Never bundle diagnostics with fixes. Exploratory work can break settled work.
+Check source timestamps against the APK before testing. Twice today we tested a
+binary that predated the change, once losing a whole tap session.
+Connect the channel before theorising about what you cannot see. An unread log
+looks like evidence of absence.
+⚠⚠ 01 — ARCHIVE INTEGRITY: two holes in the safety net
+AllDocs IS NOT COMPLETE
+(a) Word TABLES are dropped by the docx→text extraction that builds AllDocs. Confirmed: GroupTrack_OpenIssues_AWS_Plan.docx (March 29, "V2.4 Open Issues + V3.0 AWS Implementation Plan — Detailed Task Sequence") carries 772 characters total — every section heading present, every table body empty. GroupTrack_V30_StubInventory.docx is down to 242 chars for the same reason.
+(b) GroupTrack_Product_Roadmap_V9.docx content is NOT in AllDocs at all. The filename is referenced 5 times; the substance lives in 28 tables and every task ID returns zero hits: V30-DB-01, V30-API-01, V40-TSW-01, zip_coordinates, grouptrack_monthly — all 0. This is why AllDocs searches on release scope returned contradictory second-hand fragments.
+(c) Referenced but absent: GroupTrack_V3_Implementation_Plan_Final.pdf (cited 5×, not in the corpus). GroupTrack_V3_Implementation_Plan.docx is present but is the 1,286-char stub, not the Final.
+(d) Duplication inflates the corpus: GroupTrack_OpenIssues_AWS_Plan.docx appears six times — base plus (1)–(4) — six copies of a 772-char shell.
+ACTION: re-export the table-bearing docs (roadmap V9, the March-29 AWS plan, StubInventory) to a text-preserving format before the next AllDocs build, and locate the Final PDF. Until then, AllDocs cannot be treated as a backstop for anything table-formatted.
+Source: direct read of GroupTrack_Product_Roadmap_V9.docx (28 tables, 156 paragraphs) vs grep of GroupTrack_AllDocs.txt.
+🗺 02 — RELEASE MAP (restored 07-30). Titles name the release's PURPOSE, never one feature.
+AUTHORITATIVE = FRED'S CURRENT NUMBERING
+ReleaseOWNS (purpose)Frame / state
+2.6eOSM trail import end to end — acquire, reduce, import, cleanup — plus the docs for itC1–C4 shipped; three panel defects + docs open
+2.7Convoy tracking rewrite (lead track replacement, lead cart lock, snap-2) + MapLibre / vector rendering4 weeks (Fred's frame) · scoped, nothing built
+2.8Move development to the Mac Air — build known-good on Mac, then KMP preflight + entanglement inventorySequencing firm 07-04; number stated by Fred 07-30
+3.0Server-side / hosting functions. Built through Phase B and parked with a completion task list. Purpose to be stated in Fred's words — not inferred.Schema live; endpoints serving; parked
+4.0Paygated release of back-end GroupTrack server-side functions (Fred 07-30)Planned
+iPadiOS convoy execution — post-V2.6 target, ahead of the paygated backendA/B undecided; Mac + Xcode prerequisite
+⚠ NUMBERING COLLISION IS REAL AND SITS IN THE RECORD — do not silently reconcile it. Roadmap V9 (2026-03-25) runs V2.3 → V2.4 → V2.4-iOS → V3.0 (BACKEND + BILLING + RIDE DISTRIBUTION) → V4.0 (FULL MAP DISTRIBUTION + ARCHITECTURE REVIEW) → V5.0, and contains no 2.5, 2.6, 2.7 or 2.8 at all — the whole current 2.x band was inserted beneath it. Other AllDocs documents assign AWS backend + billing to 3.0. Fred's numbering above is authoritative; the roadmap's is superseded and named here so the history stays visible.
+⛔ The old V3.0 doc line "ATAK removed; no iPad support" is OVERTURNED (07-04 session). iPad is the post-V2.6 target.
+Sources: GroupTrack_Product_Roadmap_V9.docx (read directly, tables included) · GroupTrack_CrossPlatform_iPad_Strategy_2026-07-04.md · Fred 07-30.
+🟠 03 — 2.6e: ROW 4 CLEANUP DOES NOT ARM (the only survivor of the C3c three)
+⭐ VERIFIED AGAINST THE 07-31 XREF: the confirm-loop patch IS now in the tree. Two of the three
+07-29 symptoms are gone, and this item shrinks accordingly. It no longer blocks anything.
+SymptomState
+(1) Confirm re-raises after OK✅ fixed — inFlight now present at OsmImportPanel.kt:437
+(2) CANCEL reveals the IMPORTING overlay✅ same fix — the refreshTick++ beside it is gone
+(3) Row 4 CLEANUP does not arm until a manual REFRESH🔴 open — real, and mine
+Proof the patch landed: inFlight was absent from all four xref docs on 07-30 and
+now appears once; and val label = if (sc0 == "state") has moved from line 410 to 452 —
+exactly the predicted post-patch position inside the } else { branch.
+The remaining defect
+importsDone is declared at OsmImportPanel.kt:147 and derived inside the first
+LaunchedEffect keyed on refreshTick. Nothing re-derives it when an import
+finishes, so row 4 stays grey until the user taps REFRESH.
+The fix — one assignment, in the observer. Set importsDone = true where the completion
+record is latched, beside importFinal = last.toString(2). The observer block runs
+val last at :219 and latches val at at :232.
+⭐ Better than restoring refreshTick++ in the completion dialog's OK, which would arm
+row 4 only once the dialog is dismissed — Fred asked for green after imports. The observer has just
+read imports[] off the ledger, so this stays R1-derived rather than becoming stored state.
+⛔ Dead hypotheses, do not re-chase: uniqueName sits at
+OsmImportWorker.kt:71, two lines above enqueue at 73 — no name mismatch, no
+enqueue/WorkManager race, and the shared confirm state is not the cause.
+🔴 04 — 2.6e RELEASE TASK: SNAP-2 APPLIES TO TRAILS ONLY
+2.6e route planning only — NOT track recording
+⭐⭐ Fred 07-29: "tracks can appear on map but snap2 should not be applied to tracks." Route planning snaps to trails only. Tracks keep rendering and stay tappable for details.
+Two independent reasons it is right, not a workaround:
+Coverage. Track-snapping existed because UGRC's 49,125 trails left real ground unreferenced. At 89,527 OSM trails that gap is largely closed.
+lineId correctness. A snapped vertex stores lineId, and a track's lineId is per-rider — ten riders on one trail produce ten tracks with ten IDs. Snapping a route to a track never denoted shared geometry, so it was already wrong for the lead-cart contract.
+⭐ SNAP-2 HAS TWO APPLICATIONS AND ONLY ONE CHANGES. Fred: "i am talking about route planning, not track recording. snap2 applies to each cart's track recording individually currently." The recording side snaps each cart's track ONTO trails — it consumes trails as targets, never tracks — so removing tracks from the target set cannot break it. ⚠ One track per cart per database currently.
+Likely small: stop passing the track list to RouteManager.snap(lat, lon, trails, tracks, 30.0). Snap eligibility separates cleanly from display and from tap-for-details.
+⚠⚠ VERIFY: this AVOIDS the whole-line bug, it does not fix it. A recorded track is ONE continuous LineString while curated trail networks are pre-segmented — that is why dropping a point ingested the whole track and trails behaved. But Geofabrik ships OSM ways, and a long way is a long single LineString. Test route-drawing on one deliberately long OSM trail before concluding the symptom is gone.
+⛔ Do NOT physically split stored tracks or trails. Changing geometry changes geom_hash → breaks dedup and orphans every lineId. If a fix is needed it is linear referencing in Kotlin: record the snapped POINT and its position along the line, never the line's whole geometry.
+🔴 05 — 2.6e IN-PROGRESS: manual, quickstart, asset copy
+code done, docs open
+Done 07-29
+✅ Manual Import OSM Data section under Planning Map → G — Work with Artifacts: 5 screens → 8, 18 captures at 720px WebP q60 (3.62 → 4.53 MB). Title stays Import OSM Data — Fred: "it is a button name just like import trails data." I renamed it to prose and had to revert.
+✅ Work-with-Artifacts recapture — three buttons visible, closing the caption/image mismatch.
+✅ Two false statements corrected: "steps 3 and 4 are not active in this build" and "you can come back and draw another area from the same download."
+Open
+🔴 NEXT (Fred, 07-30): import OSM for an AREA of Arizona and capture it. New screens, none of which exist: row 3 with SELECTED AREA ticked · the panel closing and the map jumping to the state extent with the draw panel open and Import OSM ticked · drawing the box · the panel reopening with the confirm showing the area count · area completion recap.
+⭐ Capture ONCE, reuse for both scopes — rows 1–2 are identical for state and area; only row 3 differs.
+🔴 Still missing: the adoption moment (panel right after "CLICK HERE WHEN DOWNLOAD HAS COMPLETED" succeeds — Fred's slide 7) and the CANCEL confirm (deliberately not captured — "i am not going to screen capture the cancel"; it is an escape hatch, not a step).
+⚠ Verify the before/after Kanab captions — those two images rendered blank for me, so their captions follow filenames rather than observed content.
+⚠⚠ ASSET COPY — testers see nothing without it. Before the next build, cp the manual and release notes into app/src/main/assets/ under the canonical names grouptrack_manual.html and grouptrack_release_notes.html. The rename happens in transit so the in-app "?" loader needs no code change.
+QUICKSTART (Fred 07-29, for 07-30)
+Baseline is GroupTrack_QuickStart_Installation_Troubleshooting_2026-07-08.md — the July 8 (V2.6) one, NOT ..._v1.md (May 9).
+Insertion point: First-Time Setup → step 2 — OSM becomes the second half of that step, both captures side by side.
+⚠ The quickstart has no images at all. Adding captures changes its nature: either it becomes HTML like the manual, or it points at the manual's 8-screen section. ⛔ Pointing conflicts with the doc mandate.
+⚠ Stale facts to fix in the same pass: it says Package: com.geeksville.mesh (wrong since 07-26 — should be com.grouptrack.android, which the older v1 gets right); Troubleshooting says "Planning Map → Trail Sources", a path that may no longer match the three-button panel.
+⚠ 07-08 dropped sections v1 had (superset rule): Developer Notes, Emergency Recovery, local-APK install with the -r -d rule, and the Play-Store-vs-local signing-key warning. The -r -d rule and the signing warning now exist nowhere in the quickstart and a tester installing a local APK needs both.
+🔴 06 — 2.6e OPEN: delete-by-source for TRAILS
+exposure grew by 89,527 rows on 07-29
+89,527 OSM trails are in the production spatial DB and there is no in-app way to remove them. deleteAllOsmPoints exists (unwired) for points; there is no trail equivalent.
+⚠ Recovery today is a laptop operation: pull the DBs, DELETE ... WHERE source_id='osm', push back. Fine on Droid 2 (sacrificial), not fine for a tester.
+⛔ It cannot simply be added: a route's snapped vertices carry lineId, so deleting a trail orphans them silently. That is why bulk delete-by-source was considered and rejected for the release. ⭐ This now needs a decision rather than another deferral.
+⚠ Points differ — they carry no source_id; reference_points is OSM-only by construction, so that is a full-table delete. Any delete-by-source must also check for other sources aliasing a row first.
+🔴 07 — 2.6e OPEN: C2 follow-ups (small, not blocking)
+⚠ bad_geometry: 0 on the 07-29 extract vs 89,394 on 07-28, with identical kept: 89536 and candidate_rows: 186652. Either the counting changed between runs, or the earlier figure was the droppedNoName collision. Parked, unexplained. There is a comment at OsmExtractWorker.kt:156 about what the field means. If the two are summed, a genuine decode failure is invisible.
+⚠ OSM place names contain characters outside cp1252 (U+02BC in Naatsisʼáán). SQLite is UTF-8 so storage is fine; any CSV export or Log.i on a name must cope. Crashed a PC-side script.
+⚠ trail_properties — unknown whether it has UNIQUE(source_id, source_unique_id). C3a uses a plain INSERT in try/catch so the first run announces it.
+🧹 07b — 2.6e LAST: JS CLEANUP / DEAD-CODE REMOVAL (behind a fallback AAB)
+Sequenced LAST by agreement (Fred 07-31), after smoothFactor, place labels and the convoy
+tap fixes are each committed — and with a controlled AAB built and kept so there is something
+to fall back to. It is the only step on the board with no user-visible upside if it goes wrong.
+⚠⚠ THE FINDING THAT OUTRANKS THE REST — BOTH MAPS LOAD LEAFLET FROM THE INTERNET
+Both map assets pull their core library from public CDNs:
+convoy_map.html:7 and grouptrack_map.html:7 —
+https://unpkg.com/leaflet@1.9.4/dist/leaflet.js
+convoy_map.html:10 and grouptrack_map.html:10 —
+https://cdnjs.cloudflare.com/.../leaflet.draw.js
+⭐ Line 8 on both is leaflet.polylineDecorator.js with no protocol — a local
+asset. So the vendoring pattern already exists in these very files; two libraries simply did not follow it.
+⚠ Fred reports all maps render offline today, so this is NOT confirmed as a live defect. The
+likely benign explanation is shouldInterceptRequest — the app already intercepts
+convoy://tiles/ and may also serve these URLs from assets, in which case the CDN strings are
+addresses that are never fetched and there is nothing to fix.
+Two commands settle it, no build:
+ls app/src/main/assets/ | grep -i "\.js$"
+grep -rn "unpkg\|cdnjs\|leaflet" app/src/main/java/com/geeksville/mesh/convoy/ --include=*.kt | grep -v "\.bak"
+How to read it: local copy and an interception rule → working as designed, withdraw the
+concern. Local copy but no interception → the local file is unused. No local copy → offline rendering is
+riding the WebView cache, which survives normal use but not Clear Storage, not cache eviction, and is
+not guaranteed across app updates. The equivalent field test is airplane mode after Clear Storage.
+If it does need fixing: download both files into assets/ and change four
+src attributes. No logic change, no version drift, and it removes a runtime dependency on two
+third-party CDNs from an app whose purpose is working with no signal.
+✅ CONFIRMED DEAD — spatial_artifacts.js
+Grep-verified orphan: no &lt;script src&gt; loads it anywhere, and every reference in
+app/src/main/ is a comment. The live code is inlined in both HTMLs and has since diverged
+(convoy 9 trailLayer refs, planner 15).
+Delete the file AND its six comments — convoy_map.html lines 26, 221, 226, 233, 405,
+406. The comments are worse than the file: they sit directly above the real declarations at :411
+and tell the next reader the code lives somewhere it does not.
+⚠ Why it cannot simply wait for 2.7: the V2.7 plan names this file as its rewrite target. Leaving it
+means MapLibre starts from code that has not been live in months. Deleting it forces 2.7 to rewrite from the
+inlined copies, which are the truth.
+⛔ Unifying the two inlined copies stays deferred — that work is deleted by the
+MapLibre swap and is already on the ruled-out list. Only the orphan and its comments go now.
+⛔ NOT DEAD CODE — drawRoute and clearMap
+field_crossref SECTION 4 lists both with zero callers, which reads as a clean
+weed-wacking target. It is not. Neither exists in either HTML at all — grep returns nothing.
+They are stale entries in the xref generator's hardcoded bridge-method list. Nothing to delete;
+fix the list in recommit_docs_v14.sh or accept the noise. Recorded so the next pass does not
+re-chase them.
+⚠⚠ DURABLE — WHAT THE XREFS CAN AND CANNOT CONFIRM (blast radius)
+Established 07-31 while checking exactly this. The xrefs are the blast-radius tool, but their coverage is
+narrower than it looks:
+where_used_raw.txt is 253 lines and indexes .kt ONLY. Zero HTML, zero
+JS. function_universe and navigation_xref likewise.
+⛔ So an empty result for a JS symbol means THE TOOL DID NOT LOOK — it is byte-identical to "safe
+to delete". This is a false-safety trap and it is how a live function gets removed.
+⭐ field_crossref is the strongest of the four: SECTION 4 bridge-method caller
+analysis, SECTION 5 state-field [R]/[W] map, SECTION 7 code issues and warnings.
+The [R]/[W] markers are what actually answer "who writes this, who reads it".
+⚠ It picks up JS fields it tracks (e.g. convoy_map.html:514) but not JS
+functions — coverage is field-shaped, not file-shaped.
+Rule: for anything JS-side, grep the assets. The xref is necessary and not sufficient.
+⚠ .bak_* files in assets/ pollute every grep — four convoy backups
+matched the spatial_artifacts search alone. Use --exclude='*.bak*'.
+✅ ALSO GOES IN THIS PASS — dead __routeMode scaffolding on convoy
+Proven inert 07-31 via field_crossref SECTION 5: every write to
+window.__routeMode comes from ConvoyMapViewerScreen.kt (the planner) at
+:1155, :1232, :1257, :1447. Zero writes from
+ConvoyScreen.kt.
+So on convoy the variable is permanently undefined → falsy → the guard at
+convoy_map.html:514 never fires.
+⚠⚠ Which means it is NOT the cause of the convoy tap failures, despite being labelled
+// BUG A: suppress while route-building. That comment is an active false lead and has already
+cost time. Removing it is worth more than the two lines it deletes.
+🔵🔵 08 — RELEASE TARGET 2.7 — CONVOY TRACKING REWRITE + MapLibre / VECTOR RENDERING
+4-WEEK FRAME (FRED) scoped, nothing built
+PURPOSE
+Rewrite convoy tracking — the originating requirement — on a renderer that can carry it. Fred: "2.7 is a rewrite of convoy tracking functionality — may be the point we need to introduce these discussions."
+SCOPE — 2.7 owns all of this
+1a Lead track replacement · 1b Lead cart lock ("In Progress (Not Yet Built)") · 1c Snap-2 on the lead cart track · 1d Vector rendering / MapLibre · 1e spatial_artifacts.js
+2 Roads / street names — ingest only · 3 Reprocess / refresh driver · 4 Removals and edits (open, not decided)
+⚠ Why this section exists: the convoy tracking rewrite was assigned to 2.7 in session more than two weeks ago and never reached AllDocs — 07-29 was spent reconstructing it from GroupTrack_LeadTrackReplacement_Spec.docx, the Lead Cart Lock section and MAP-06 instead of reading it.
+⭐⭐⭐ THE SEQUENCING ARGUMENT (strongest point; survives any storage number)
+The dominant cost is not MapLibre — it is operating on FROZEN CODE. ConvoyScreen.kt is frozen to protect the Kotlin↔JS↔Leaflet↔self-saving-setView↔shared-MapStateStore tangle. A convoy tracking rewrite must open exactly that tangle anyway. → The choice is not "rewrite convoy now, renderer later"; it is rewrite that layer ONCE with MapLibre as the target, or TWICE.
+⭐⭐ THE onX BENCHMARK (Fred 07-30) — the structural case
+onX is vector-based, does three presentations, allows the map to be changed, at ~¼ our storage. Our own device data agrees: the 07-26 delete log showed one SAT job walking three near-identical stores at z18 (SAT 10,295 · SAT_LABELS_TRANSPORT 10,292 · SAT_LABELS_PLACES 10,294). Bar 10 post-corridor ≈ 107,000 raster tiles (SAT ~21,700 + transport ~21,700 + places ~21,700 + TOPO 21,000 + TOPO+ 21,000). Strip everything that is not photography → ~21,700, one fifth.
+Vector is paid once and serves every presentation. One dataset restyled client-side gives satellite-with-labels, topo and road. Raster pays the full price per presentation — five stores today.
+Switching maps becomes free — a consequence of the data being geometry rather than pictures. Not matchable with raster at any storage budget.
+Vector stops at ~z14 and the client renders deeper. Since z15–18 is ~98% of raster tile count, vector does not shrink those levels — it removes them.
+⭐⭐ DOWNLOAD TIME IS A RELIABILITY METRIC, not a storage complaint (Fred). "8 hours to download an area that will not be ridden." A long job fails partway, needs retry logic we know is imperfect, demands mains power, and gates ride-readiness. The yardstick is time-to-ride-ready and probability of completion. Every open queue defect is amplified by long jobs and materially reduced by short ones.
+⛔ CORRECTION TO MY OWN ANALYSIS: I talked the saving down to ≈20% and let that stand as if it settled the question. It answers a narrower one — retiring one label store, on one corridor, in one presentation. The "whole-state road vectors don't shrink with corridor" objection holds for a single corridor in a single presentation and stops being decisive once amortised across three presentations and repeat rides in a region. I was defending a narrow reading of a number instead of testing the case.
+⭐ What stays true regardless: satellite imagery is raster, permanently — roughly the ~21,700 floor. The saving is everything that is not photography.
+🔴 THE GATE — WebGL on the cheapest field device (NOT YET RUN, half a day)
+MapLibre GL JS requires WebGL in the WebView. The fleet includes $60 tablets, and one documented class already cannot hold a BLE connection. onX ships native rendering on modern phones; we would ship GL JS in a WebView on budget hardware. If WebGL will not perform there, this model is unavailable to us at any storage saving — and learning that during the rewrite is the expensive way.
+TEST: load vector_label_prototype.html in a plain WebView on Droid 2 and on the cheapest tablet. Check WebGL context creation, pan/zoom at z16–18, frame rate, memory. No frozen code touched. Do this before 2.7 commits to MapLibre.
+🔴 TWO MEASUREMENTS OUTSTANDING (seconds each, gpkgs already on D:)
+How many gis_osm_roads_free rows carry a non-blank name (Arizona total 1,205,574; trails filter to 134,242 — named roads across all classes could be several hundred thousand, and road labels need LINE geometry for placement, so potentially 300 MB+ on a 108 MB skinny).
+How many carry a non-blank ref. If named roads come back ~50k, extract now and never revisit. If ~500k, ref-only is likely the answer — forest/county road numbers (FR 123, CR 45) are worth more than street names for OHV and are renderable in Leaflet today as a midpoint divIcon.
+⚠ The "revisit the data" cost is worse than a re-extract: C4 deletes the zip, so adding a layer to the catalog later means users re-download ~600 MB per state.
+THE FIVE WORK ITEMS (renderer)
+THE RENDERER. Leaflet cannot draw vector tiles → MapLibre GL JS in the same WebView. spatial_artifacts.js rewritten: L.polyline → GeoJSON sources + layer specs; per-feature click handlers → queryRenderedFeatures (MapLibre gives NO DOM per feature). The data path from SpatialDbManager is UNCHANGED.
+TILE INTERCEPTION — MapLibre's addProtocol replaces the WebView request intercept; still serving bytes from MBTiles.
+⚠ GLYPHS — easiest requirement to miss. MapLibre renders text from font PBFs fetched by URL. Offline means bundling them in assets. No equivalent exists in the raster world, so nothing in the pipeline handles it. Miss it and labels silently do not render offline.
+MAP STATE — MapLibre's camera adds bearing and pitch; MapStateStore + the self-saving setView need rework. Nearest the frozen tangle.
+GETTING LABEL TILES ON DEVICE — planetiler --only-layers=place,poi,transportation_name,water_name,mountain_peak over a state bbox = a labels-only tileset. Then a product decision: bundle it, or a "download this region" flow.
+⚠ ONLY THEN drop the two overlay layers from SAT's entry in getDownloadSources(). One-line config change, but it MUST come LAST or satellite ships with no labels.
+⭐⭐ THE CROSS-PLATFORM MULTIPLIER
+The presentation layer is already web (Leaflet/HTML/JS in a WebView) and is the ~90% shared surface for iPad and PC; SwiftUI was rejected for presentation precisely because it gives zero reuse of it. MapLibre GL JS is a web library — identical in an Android WebView, an iPad WKWebView and a PC browser. A renderer swap is a one-time change the layer all three surfaces inherit. ⚠⚠ The corollary is a real risk: doing the tracking rewrite on Leaflet BAKES LEAFLET into the layer iPad and PC are both waiting on — a long-tailed decision made by omission.
+✅ Validated in a browser prototype 07-26 (no build, no device, no frozen code)
+Esri raster imagery + OSM vector labels composite correctly — "the image overlays look perfect."
+⭐ OSM vector labels carry MORE data than Esri's downloaded roads/places layers — the opposite of the predicted outcome.
+✅ 3D terrain works; Leaflet cannot do it at all. Terrain-RGB encodes metres above sea level in RGB, so the client holds raw elevation → slope-angle shading computed on device, arguably worth more than satellite imagery for an OHV app and a fraction of the cost.
+⛔ OSM trail coverage is sparse at low zoom — OSM is a BASEMAP, not a trail source. ⚠ Minor ways only appear from ~z14, so any coverage comparison must be at z15+.
+⛔ RULED OUT
+Vector satellite imagery (cannot exist) · OSM as a trail authority · tiling user-authored artifacts (tiles are static; tracks are edited constantly) · doing this as a standalone 2.6 task.
+Sources: SCOPING_v2.7_vector_rendering_2026-07-26.html · 07-26 Living Master V2.7 KICKOFF · GroupTrack_NewTick_Design_2026-07-01.md (tick/lead/identity rewrite) · GroupTrack_LeadTrackReplacement_Spec.docx · convoy_mapping_ipad_discussion.md (Mar 14) · Fred 07-30 (onX).
+🆕 2.7 FEATURE — TRAIL GAP FILL FROM RIDDEN TRACKS (Fred 07-31)
+THE PROBLEM, in Fred's words: "trying to draw a route using bits of a track you have
+already ridden but trails still do not show."
+Route building composes from trails. A stretch you have ridden but which the trail
+collection does not cover exists only inside a track — and a track cannot be composed with,
+because it is stored as ONE geometry. So when planning, you cannot see all your real choices even
+though you have the ground truth on the device.
+⭐ These are not a new class of artifact. Fred: "they are trails that simply do not
+appear in that collection. you need a trail to ride." Same table, same rendering — the collection
+is just missing a piece.
+⭐⭐ DISPLAY FIRST, INSERT SECOND — the shape that makes it tractable
+Fred: "may be simpler to have a function that shows the map with a colour segment that is
+missing and can be added."
+Show uncovered stretches as an overlay; the rider decides which become trails.
+For tracks in view, compute which point runs have no trail within tolerance
+Render those runs as a distinct overlay
+Tap the track → artifact detail panel → Add Trail Segment
+Only then does anything enter the trails table
+⭐ This removes three problems at once, which is why it is better than automatic insertion
+at import time:
+Tolerance stops being critical. A false positive is visible noise the rider ignores, not a
+duplicate trail silently written to the DB.
+Naming resolves itself — the user is looking at it.
+Nothing accumulates against dedup, and GPS wobble never becomes authoritative geometry by
+accident.
+⭐ And it is useful before the insert step is written at all. Simply SEEING where ridden
+ground is missing from the collection answers the original frustration; adding it becomes optional.
+Design detail settled 07-31
+Detection. Sample the track's points; for each, test distance to trail geometry returned by
+queryTrailsByViewport for a small bbox. Consecutive points with nothing within tolerance
+form an uncovered run. Discard runs below a minimum length.
+⭐ RouteManager.snap(lat, lon, trails, tracks, 30.0) already performs this proximity
+test and returns null when nothing is near — "null" IS "uncovered", so detection is mostly
+free.
+Tolerance 20–30 m, matching the existing snap radius. ⚠ Too tight and GPS wobble alongside a
+mapped trail reads as uncovered, producing a shadow trail parallel to a real one — that is the failure
+mode to design against, and it is the argument for showing rather than auto-inserting.
+Naming — Fred's rule: inherit the name ONLY if the trail either side of the gap carries the
+same name. Both endpoints agreeing is strong evidence it is one trail; disagreeing means it
+connects two, and inventing a name there would be wrong. Otherwise leave it unnamed.
+⚠ Unnamed is correct, not a fallback. Fred: "most of our trails are unnamed now and named
+would have a major trail connotation." A named trail SIGNALS significance to a rider, and today's
+ORDER BY sorts named first — so auto-naming gap fills would both inflate that signal and
+outrank real named trails at low zoom.
+Colour. ⚠ Dashed is already taken — tracks are #39FF14 dashed, routes
+#FF00FF dot-dash, trails carry carto_code colours. A solid line in an unused
+colour will read more clearly than another dash pattern.
+🔴 OPEN QUESTION — which gap, when a track has several
+The detail panel opens for the WHOLE track, but uncovered stretches are specific sub-ranges. A
+track with three gaps makes "Add Trail Segment" ambiguous — and that is exactly the case that
+motivated this.
+⭐ Fred's motivating case: several tracks named Broken Ridge in one area. From a
+route-planning standpoint that is unusable, because you can only select whole tracks. Segmenting the
+uncovered stretches makes it a set of distinct short pieces you can assemble — and "which Broken
+Ridge" stops mattering, because you are choosing a STRETCH, not a name.
+Likely resolution: the overlay lines are separate L.polyline objects, so each
+can carry its own point-range identity and pass that through — rather than routing everything via
+track_id alone.
+⚠ Worth measuring before building
+How much would this actually find? Utah now carries 89,536 OSM trails. If ridden tracks are
+95% covered, this produces stubs and the effort is not repaid; at 40% it is a substantial feature.
+⭐ Measurable PC-side in minutes against the spatial DB — sample a track's points, test
+distance to trail geometry, report the uncovered fraction. No app code. And measure it on the
+Broken Ridge area specifically, not statewide — that is the case that motivates it.
+⚠ Depends on today's detail-panel work. The flow ends at "tap the track → panel → Add Trail
+Segment", which only became possible once addPointMode stopped suppressing planner track
+taps and __detailPanelEnabled was re-enabled. Both landed 07-31.
+🔵 09 — RELEASE TARGET 2.8 — MOVE DEVELOPMENT TO THE MAC AIR
+SEQUENCING FIRM 07-04
+ORDER, and the rule attached: (1) ship 2.6 on Windows; (2) set up the Mac Air and build/run known-good 2.6 on it FIRST — prove the environment with a known-good artifact before piling on KMP; (3) KMP plugin preflight + the logic-entanglement inventory against the xref docs; (4) incremental KMP extraction (share domain/logic first); (5) iPad. ⛔ RULE: do NOT introduce KMP onto an unproven Mac — one unknown at a time, else a break is ambiguous between KMP and Mac setup.
+Deliverable 1 — Mac environment build-out, install-and-confirm one at a time: Git + Terminal/zsh (macOS is real Unix — the Git-Bash/CRLF-heredoc pain that drove the Python-patch convention may relax) · Android Studio + SDK + Gradle + JDK · Python · keystore access (grouptrack-release-key.jks is in iCloud → reachable) · clone + build 2.6 · then the KMP plugin · MySQL (purpose TBD) · Xcode + Apple Developer enrollment (later rung, iPad only).
+Deliverable 2 — consolidated cross-domain tooling/stack inventory (PC/local dev · data · AWS backend · Google Play · runtimes). Assemble from the actual environment and docs, NOT from memory — a wrong tooling list is worse than none. Feeds the shared-service-layer language decision.
+⚠ The 2.8 release number is not in AllDocs — the 07-04 record has the ordered sequence with no number attached. Recorded here so it stops living only in conversation.
+Source: GroupTrack_CrossPlatform_iPad_Strategy_2026-07-04.md + /areas/grouptrack-crossplatform.md; number from Fred 07-30.
+🟣 10 — RELEASE TARGET 3.0 — SERVER-SIDE / HOSTING. BUILT THROUGH PHASE B, PARKED.
+IMPLEMENTED AND PARKED — not "planned"
+⛔ MY MEMORY WAS WRONG AND KEPT REGENERATING THE ERROR. /areas/grouptrack-v3.md described 3.0 as a three-line "planned premium feature (cloud sync)" and carried the overturned no-iPad line. That file is what produced every mis-titled release section this week. It gets rewritten, not compacted.
+STATE — what is actually built
+Tables live: users, rides, enrollments, invites. PHP endpoints serving /rides, /enrollments, /invites. "Phase B complete." Live rows: 5 rides, 11 public rides, committed. Invite emails queued. map_status = READY in use.
+Stack: Google Sign-In · AWS RDS MySQL · PHP REST API on EC2. RDS was ACTIVE as of March; EC2 BLOCKED on a support case (PRE-01/02/03), which gated the rest.
+Roadmap task IDs exist and are trackable: PRE-01..03 · V30-DB-01..08 · V30-BILL-01..06 · V30-API-01..12 · V30-SES-01..05. Their "OPEN" markers are stale, not accurate — reconcile against what shipped.
+📚 DOCUMENT SET — eighteen documents, none previously referenced from this checklist
+GroupTrack_V3_Complete_Task_List.docx (6,187) · GroupTrack_V3_StubbedProcesses_FINAL_v2.docx (13,148 — the parked-code inventory) · GroupTrack_V3_Architecture_Plan.docx (17,074) · GroupTrack_V3_Walkaway_Activity_v1.docx (16,500) · GroupTrack_V3_Registration_Paywall_Spec_v2.docx (14,260) · GroupTrack_V3_CompleteImplementation_FINAL_v2.docx (8,940) · V30_Walkaway_Stub_Inventory_v1.docx (4,458) · GroupTrack_V3_PhaseB_Tasks_v2.docx (2,353) · GroupTrack_V3_PickupGuide_v1.docx (1,704) · plus V3_ProcessSpec_v1, V3_Online_Offline_Manual_v2, V3_MapEnhancements_v1, V3_TrackSharing_SpatialModel_2026-06-28, V3_CompleteImplementation_v1, V3_StubbedProcesses_v1, V3_Task_List_Apr1, GroupTrack_V30_StubInventory (hollowed — 242 chars), GroupTrack_V3_Implementation_Plan (stub).
+NEXT: read Complete Task List + StubbedProcesses + PickupGuide end to end and reconstruct the actual completion state — what is built, what is stubbed, what remains — as this block's content. Fred to state 3.0's PURPOSE in his own words; it is not inferred here.
+Server-side function that belongs under a hosting release (NOT a release title)
+Same-ride track dedup — pruning duplicate recordings when tracks are served. ⚠ This is a HOSTING problem and only exists once tracks are served. Locally, ten riders each holding their own recording of one ride is CORRECT.
+⛔ geom_hash cannot do this job. Perfect for trails (89,536 rows / 89,536 hashes; the 313 UT/AZ border trails collapsing automatically prove it). Useless for tracks from one ride: ten devices drop GPS points at different moments → ten point sets, ten hashes, all legitimately the same ride.
+⭐ COLLAPSE FOR PRESENTATION, DO NOT DELETE. Canonical track per hash, hash + date → alias. Nobody loses their own ride and the collapse stays reversible. Server-side, not on the phone. Scope is bounded (same bbox + date window). Goal is "prune as best we can", not perfect matching.
+Candidate metrics (none chosen): bbox overlap + Hausdorff/Fréchet · rounded/simplified-geometry hash · start/stop coordinates + time window (Fred 07-29, cheaper than either) ⚠ needs tolerance on both axes.
+⭐ CROSS-REFERENCE, not scope: 2.7's snap-2 makes recorded tracks converge on shared trail geometry, so part of this becomes hash-matchable outright. That work belongs to 2.7.
+⚠ Two riders on the same ground can store different lineIds. For DRAWING it does not matter; it matters only when two routes are COMPARED. Fix at compare time by geometry proximity, never by making snap pick differently.
+🟣 11 — RELEASE TARGET 4.0 — PAYGATED BACK-END SERVER-SIDE FUNCTIONS
+PLANNED
+Fred 07-30: 4.0 is the paygated release of back-end GroupTrack server-side functions.
+⚠ Roadmap V9 splits this differently and the collision is unresolved: it puts the paygate at V3.0 (Google Play + Apple IAP at $3.00/month, billing, ride distribution, SES) and map/tile distribution through AWS at V4.0 — AWS as tile broker, Level 1 universal tile registry, Level 2 per-user/per-ride dedup, TileSyncWorker, visual dedup overlay (green = AWS cached, blue = locally cached), React Native architecture evaluation. Task IDs: V40-DB-01..05, V40-TSW-01..04, V40-VDO-01..02, V40-RN-01..03.
+Revenue model on record: one tier, $3.00/month, all features. Google Play takes 15% (net $2.55); Apple IAP 30% (net $2.10). Google Sign-In email as the cross-platform identifier. Plus organization services (community ride posting, route publishing, regional marketing access, automated ride email) and advertising as a third stream at scale — never on safety-critical screens.
+DECISION NEEDED: confirm which numbering holds for paygate-vs-tile-distribution so these two blocks stop overlapping.
+📱 12 — iPAD — POST-V2.6 TARGET (restored 07-30; was absent from the checklist entirely)
+185 AllDocs mentions · 0 in the Living Master before today
+The evolution — four iterations, all in the corpus
+Native port via external dev — Roadmap V9, Mar 25 (iOS-01..08: fork Meshtastic-iOS, Apple Developer enrollment $99/yr, port the coordination layer, WKWebView + convoy_map.html, offline tiles in Swift, Apple IAP, TestFlight, com.grouptrack.ios).
+Staged Options A–D incl. WKWebView hybrid — Mar 14 discussion doc (short term: Meshtastic Apple as a display-only viewer, zero dev cost; medium: WKWebView hybrid, 2–3 weeks; long: full Swift fork).
+PWA-via-Bluefy-then-Capacitor — May notes.
+Repeatedly flagged "iPad V2.5 vs V3.0, not resolved."
+⭐ THE COLLAPSE (07-04) — the whole PWA arc solved a non-problem
+Convoy is a fork/extension of core Meshtastic's messaging. The native-vs-PWA-vs-WKWebView arc was all answering "how do we get BLE on iOS?" — a question that dissolves once convoy is understood as a fork of the mesh app. So iPad = a fork of Meshtastic-Apple (Swift/SwiftUI + Core Data + BLE + protobuf; already App-Store-approved; universal incl. iPad; ships an offline map + radio config). Mac + Xcode is the prerequisite. ⚠ FLAG: Meshtastic-Apple ships native TAK/CoT — reconcile against the roadmap's "TAK as design pattern only."
+🔴 STILL OPEN — the A/B decision
+(A) BRIDGE — convoy is its own native iOS app consuming mesh messages from the separate Meshtastic app over a local port. Less code; adds a runtime dependency + iOS-lifecycle fragility. (B) FORK — import Meshtastic's BLE/mesh and extend, as on Android. More work; no runtime dependency; same architecture as Android. Trade: effort favours A; field reliability + Android-sameness favour B. For an off-grid safety app, "bridge dies if iOS backgrounds the neighbour app" is a real mark against A — leans B, not decided.
+Settled
+Three surfaces split on connectivity: PC = planning-only web app (no mesh, no radio, online) · Android + iPad = off-grid native convoy execution. Convoy cannot be web.
+SwiftUI REJECTED for presentation — does not port to a browser, zero reuse of the Android web layer. Swift's only job on iPad is the native shell (mesh source + WebView host + JS↔native bridge).
+Config write is offloaded: the planning side creates a Meshtastic restore FILE; Meshtastic's own restore applies it. GroupTrack never does BLE for config.
+KMP is the natural target — logic is already Kotlin; migration is incremental, expect/actual is literally "configured API resolves per platform." Does not let you fork Meshtastic-Apple (that is Swift); produces a shared logic module a Swift shell consumes.
+Target end-state: a messaging/logic service layer behind an interface + logic-free presentation panels. Serving three platforms means logic written ONCE, not three copies.
+🔴 NEXT ACTION (unchanged since 07-04, still not done)
+Enumerate the bridge/IO surface from the current Android code — every JavascriptInterface method + every evaluateJavascript/postMessage crossing. That inventory is the true iPad build cost AND which functions can/cannot go to PC. It is the blast-radius question the xref docs answer.
+Sources: GroupTrack_CrossPlatform_iPad_Strategy_2026-07-04.md · convoy_mapping_ipad_discussion.md (Mar 14) · Roadmap V9 §iPad Strategy + iOS-01..08.
+🔴🔴 13 — TILE SOURCE HYB IS DEAD (Fred 07-30) — live tester-facing defect
+NEW predicted risk, materialized
+Google Hybrid no longer functions — the URL returns no data. Roadmap V9 records MAP-01 | SAT=Esri, HYB=Google, TOPO=Esri Topo, RD=Carto Voyager | All 4 working | COMPLETE (March). One of four selectable sources now returns nothing.
+A dead source can still be chosen and queued — jobs segment and enqueue normally, then every tile fails. Burns queue time; may leave an empty/partial .mbtiles that later looks like a corrupt download.
+⚠ Rule it in or out as a feeder for the open queue defects — markComplete refreshMode collision, refresh-never-completes, ETA starvation. A source where every fetch fails is exactly the input that would make completion accounting behave strangely.
+The manual and any source-picker capture showing four working sources are now wrong.
+ACTION: grep getDownloadSources() and the tile_sources table for HYB. Decide disable behind a marked constant (the pattern used for map-refresh) vs remove. Do not delete the entry silently — it is the record of why.
+⛔ REJECTED — AND WHY (this section is new and belongs on every release block)
+Google Hybrid / Google tiles: rejected on download reliability, field-observed — free Google download resources proved slow and unreliable at bulk scale — and now on dead endpoint. NOT rejected on quality or storage, and NOT reversible by a storage argument.
+⚠ THE ARCHIVE CURRENTLY ARGUES THE OPPOSITE. GroupTrack_V25_MapTileSourceReference_v1.md (May 9) says Google tiles "work reliably and have for years" and recommends them as "the best free option for off-road", calling Google Hybrid "best overall hybrid." Fred's field evidence overturned that and the overturning was never written down. A future session scouring the corpus finds "one store instead of three, saves 3×" and re-proposes exactly what already failed. This entry exists to close that loop.
+⭐⭐ THE METHOD LESSON (Fred 07-30) — why this happened
+That May 9 document is 19,514 chars and eight sections: every URL template, {y}/{x} ordering gotchas, rate limits, API-key tiers, a tile_sources table design, Leaflet integration code. It is a thorough catalogue with no risk analysis, no strengths/weaknesses column, and no storage arithmetic — and the consequence sat in its own text: Google Hybrid = satellite + labels in ONE stream (1×); Esri World Imagery = no labels, therefore two extra raster label stores (3×). SAT_LABELS_TRANSPORT / SAT_LABELS_PLACES appear in the handoffs from May 10 — the very next day — and the multiplication was never performed. It surfaced on 07-26 from a delete log, and Fred spotted it: "it is 65,000 tiles because of the three layers."
+The Esri choice was right on the axis that governs (bulk download reliability beats storage efficiency for an offline-first app). A risk table would not have changed the source — it would have moved the vector conversation to May, before Leaflet was wired in and before the tangle froze.
+⚠ Also unweighed at the time and still live: Esri World Imagery is flagged in that same doc as legacy "mature support" — Esri pushing migration, max zoom 19 vs Google's 20. Both are risk-column entries about the dependency the whole map rests on.
+⭐ STANDING STRUCTURE, all release blocks: options side by side · strengths · weaknesses · what it costs later · the risk that would reverse the choice · the cheap test that would settle it. Applied now: the WebGL-on-cheap-device test before MapLibre is committed to.
+🔴🔴 14 — CARRIED FROM 07-27: MAP REFRESH ON SOURCE CHANGE (do first, stop-the-bleeding)
+DO FIRST not a root-cause fix
+The REPLACE/refresh function on the map-source select screen spawned 3287 downloads, lat/long spanning the continental US; downloads then stopped entirely.
+⚠ Cancel All does NOT persist. Cancel appeared to clear the queue; all 3287 jobs resurfaced on restart — the clear happens in memory and is never written to disk, so loadQueue re-reads the stale file every launch. This is the boot-loop mechanism, demonstrated — just without a crash.
+⛔ No recovery path on a release build. adb run-as = denied; X-plore cannot reach Android/data/&lt;pkg&gt;/ — Android 13+ removed third-party file-manager access entirely, MANAGE_EXTERNAL_STORAGE excludes it, the document-tree picker refuses it. Only root, adb-on-debuggable, or the app itself can read there. The only escape is Clear-App-Data.
+Decision (Fred 07-23): turn off the JSON write / auto-refresh on source change. Refresh becomes manually requested as an Area download, riding the hardened submitDownload → enqueueArea → segmentCells path. DISABLE, don't delete — gate behind a marked constant; the bug is still undiagnosed and the path will be wanted.
+⚠ This does NOT fix Cancel All — separate defect, still open.
+⛔ DO NOT run replace-map-source again until this ships — recovery costs an hour and possibly all app-internal data.
+Root cause still open: leading hypothesis is that the bbox handed to enqueueRefresh is not the viewport — a zero-initialised value, or swapped bounds arguments. Note 3287 ≈ ceil(enormous/50K), so segmentation worked correctly on garbage input → the bug is upstream of segmentCells. Compare ConvoyMapSourceScreen.kt:255-290 against ConvoyDownloadQueue.kt:218-250 for argument order; also read ConvoyDownloadQueue.kt:440-490 (:473 declares a quarantine file, and it is likely the same function where cancel's persistence fails).
+🔴 15 — CARRIED FROM 07-27: RECOVERY SYSTEM FOR APP-PROTECTED DATA (the "Repair Area")
+OPEN
+⭐⭐ KEY CONSEQUENCE: filesDir holds radio configs, radio backups, users, rides and events — not just tiles. With no recovery path on a release build (see §14), a wedged file there is unreachable and Clear-App-Data destroys real user data.
+The repair area is a HOLDING area — copy-back is GROUPED, not per-file.
+Archive naming + retention defined; ⭐ the retention sweep runs ON APP OPEN, EVERY OPEN — not on repair-screen entry (a phone that never opens the screen must still be swept).
+⭐⭐ The manifest JSON is a work order + audit record.
+⭐⭐ Apply on RESTART, not on exit.
+Applied-repair HISTORY retained.
+Full design detail is in the 07-27 baseline text and must be carried forward verbatim into this block on the next pass — it was written once and has not been re-derived since.
+🔴🔴 16 — CARRIED FROM 07-27: THREE DEVICE DEFECTS (07-24 PM) + completion-state family
+gate the Play upload, not the build
+⚠ ETA poisoning (likely feeder of defect 1): completedAt gets stamped early, so throughput maths is computed against work that has not happened.
+⭐ Same family as the refresh bug — completion state and actual work drifting apart. Two symptoms, one root shape.
+⛔ The benign explanation is dead. First read was "hasTile skipped tiles already on device"; that no longer accounts for it.
+⚠ If SAT is broken, testers get corridor downloads with no satellite imagery — the primary layer. Highest-severity of the three.
+🔴🔴 markComplete refreshMode COLLISION (found 07-26 — ONE LINE, high value)
+ConvoyDownloadQueue.kt:641. ⚠ enqueueArea AND enqueueCorridor both set refreshMode = replaceExisting, so any area/corridor job collides. ⭐ Strong candidate for BOTH the refresh-never-completes report AND a large share of the ETA starvation. Displaced twice already — do it.
+🔴 REFRESH DOES NOT LOG AS A COMPLETED JOB (new 07-24)
+⚠ Bigger than a cosmetic status. ⚠⚠ Does it hold a concurrency slot? If the entry never leaves running/active, it consumes a slot forever. ⭐ Check ConvoyCorridorWorker in the SAME pass — the corridor worker deliberately duplicates completion calls per worker, so this class of miss can exist independently there. Confirmed still live: the corridor COMPLETED_TASK doc references it as an open Living Master entry bearing on the corridor ETA.
+🔴 RESTORE PER-SOURCE Z-LEVEL DOWNLOAD LIMITS
+⛔ ConvoyTileCalculator.maxZoomForSource(sourceName) (:72) is a STUB returning ConvoyConfig.DOWNLOAD_ZOOM and ignoring its argument — everything pulls to z18 including sources capped at 15. ⚠ corridorTiles inherits the same gap. ⚠ Cost is severe: tile counts quadruple per zoom. ⭐ It also affects MAP DISPLAY, not just downloads (Fred: "we should not zoom to levels the source cannot serve"). ⚠ SEQUENCING: capping z changes the corridor baseline numbers — the bar-10 measurement and every ≈80%/≈20% figure above are computed at the current cap.
+Dead code to delete together
+downloadMapsForTrackHash (SpatialDbManager:1945, zero callers) · gridCells (ConvoyTileDownloader:297, zero callers) · the unreachable if (cells.isEmpty()) branch in enqueueArea (~:168-186). ⚠ Also getTrackBbox (SpatialDbManager:1975) is a SECOND hardcoded FROM tracks (:1981).
+⛔ My SIZECALC logging patch is BROKEN
+It applied and built, but every value printed as literal text (sizeTiles=$sizeTiles) because I wrote ${'$'} escapes into the Kotlin. Fix: emit plain $slotName. The pre-existing SEGMENT logs are what actually carried the data. Backup at ConvoyDownloadQueue.kt.bak_20260723_134052.
+🔵 17 — CARRIED FROM 07-27: NEXT BUILD — G5 ROUTE CORRIDORS (design settled 07-24, not written)
+ready to write
+⭐ The blocker dissolved on inspection: the routes table already carries geom_hash. ⚠ Defects to fix while in there: insertRoute returns a fabricated id on duplicates — newId(), then INSERT OR IGNORE, then returns the fabricated id rather than the surviving row's.
+🔵 18 — CARRIED FROM 07-27: CORRIDOR FOLLOW-ONS · 🟡 QUEUE PANEL RESIDUE
+not started
+Corridor follow-ons — not started. Queue panel residue (from the Phase 0/0b task): ⚠ filter accuracy and row detail are still only partly testable — legacy entries all load with the same shape, so the filter cannot be exercised against a realistic mix. ⭐ Scoped counts verified correct on device 07-24: CANCEL ALL (6) vs CLEAR ALL (3).
+Delete lesson worth keeping: the first cut used ONE DELETE ... BETWEEN per zoom — it bounded the statement but the row scan was still wide; the fix was per-cell bounds.
+🟠 19 — FIX 6 — PLANNER PADDING DRIFT (Fred priority)
+FRED PRIORITY
+"Annoying continually entering a shrinking panel." Trail shrinks / map grows on every reopen: the FIT function is reused for persistence, so restore re-pads an already-padded saved bbox → cumulative zoom-out.
+Chosen fix: explicit padding argument — fitToBounds(bbox, padding:Int); restore passes 0, content-fit passes ~60. If the function is SHARED with convoy, default the argument to the content-fit value so convoy's call site is untouched (respects the freeze).
+Scope first: grep -rn "fitBounds\|fitToBounds" --include='*.kt' app/src/main/java/ and grep -n "fitBounds" app/src/main/assets/*.html — the planner fit may go through the HTML.
+THE PERSIST CHAIN (confirmed 07-29, three hops): the fit call → (…, 400) (MVS:284-285) → savePlanningState() (MVS:259) writes planning_panel.json. ⚠ savePlanningState() reads lastViewport* and ONLY onViewportChanged sets them, so a redraw racing a map move can persist a stale viewport.
+⛔ CORRECTION: "convoy has cumulative zoom-out" is misleading as written — the convoy map is frozen and its call site is untouched; the drift is the planner's restore path.
+THE PLANNER HAS TWO FIT IDIOMS AND THEY DISAGREE — site idiom vs content idiom. Reconcile before patching.
+🔴 20 — THREE PLANNER ISSUES surfaced 07-29 by OSM coverage (NOT chased)
+pre-existing fragilities, newly visible
+⭐ All three appeared the moment coverage nearly doubled (49,125 UGRC → 89,527 OSM). Nothing in the 07-29 patches touched snap, route drawing or waypoint placement. Fred: "tracks and trails are virtually on top of each other."
+Snap should NOT resolve against trails when drawing on a track. ⭐ ELEVATED — now a 2.6e release task with its own section (§04). ⛔ Read RouteManager.snap's ranking before proposing anything — a preference order may already be expressible in how it is structured.
+Dropping a point selects the WHOLE TRACK — with tracks, not trails. Candidate cause: onProximityTap in MVS uses val radius = 0.002 (~200 m) and queries ALL artifact types. ⚠ Candidate, NOT a diagnosis.
+Waypoints cannot be dropped outside route mode — likely the same tap consumed by proximity selection. The most likely genuine bug of the three.
+💡 THE DIAGNOSTIC NOT YET RUN: try all three where OSM added little — ground UGRC already covered. Normal there + chaotic in dense areas = tolerance/radius. Chaotic everywhere = something else changed. Five minutes, and it decides whether the fix is a number or a redesign.
+⚠⚠ 21 — UNRECONCILED — items present on 07-24/07-27, absent from 07-29
+carry, then adjudicate — a wrongly-carried item costs a line; a wrongly-dropped one costs the item
+Twelve searched strings from the 07-24 baseline appear zero times in the 07-29 markdown. All are still in AllDocs, so the history survived — but the Living Master is the work queue, and an item not in the queue does not get worked. Restored above where they belong (§14–§18); listed here so the audit is visible:
+REFRESH DOES NOT LOG AS A COMPLETED JOB → §16 (confirmed still live via the corridor completed-task doc)
+RESTORE PER-SOURCE Z-LEVEL DOWNLOAD LIMITS / maxZoomForSource stub → §16
+CORRIDOR FOLLOW-ONS · QUEUE PANEL RESIDUE → §18
+THREE DEFECTS FOUND ON DEVICE 07-24 PM → §16
+RECOVERY SYSTEM / the Repair Area → §15
+Cancel All does not persist · the 3287-download incident → §14
+Dead code: downloadMapsForTrackHash, gridCells → §16
+⚠ Possible successors that need confirming rather than assuming: "SAT frozen at 15" may be the z-limits item under a different name; "refresh-never-completes" is tracked under markComplete. Confirm against git before removing either.
+In-Progress
+Route+ crash recovery — AUTO-RESUME
+INTERIM DONE + COMMITTED (bd6625583) auto-resume DEFERRED
+Shipped: crash mid-route → relaunch → planner settles → notice popup "A route was left open from your last session. To resume it, tap +ROUTE and choose In Progress." Clean exit → no popup (verified). Reliable, cannot break.
+Next: wire auto-resume by triggering the EXISTING In-Progress picker path (it does the geometry redraw); do NOT rebuild the load in onPageFinished. Cleanest: recovery popup gains a "Resume" button → showInProgressPicker = true → user taps the "Auto Saved In Progress" draft → proven path (MVS ~1159-1195): loadIntoRouteManager → routeName/routeMethod/routeLifecycleState=ROUTE_LS_RESUMED → routeEntryNonce++ → routeMode=true → savePlanningState → scope.launch{ BY-ID rederive → drawBuildLine }.
+Why deferred — processing before render. Seeding routeMode at init armed before the map drew (armed-but-not-drawable, message swallowed), broke compile (MVS:204 back-gate uses routeMode), and reintroduced convoy stuck-arm → REVERTED. onPageFinished direct-load also not-drawable.
+Locked: routeMode stays mutableStateOf(false); recovery detection = isolated duplicate read MapStateStore.readMap("planning").routeState?.open at MVS ~136 (do NOT move pmSeed); the "every field writes on every update" rule stays — the bug was seeding, not writing.
+2.6e — see §03–§07
+Open (not started / backlog)
+NEW 07-22 — BUILD point counter stale. Route panel showed BUILD (0 pts) while 6–8 points were drawn and geometry persisted, then correctly showed (20 pts) at the Save panel. Count updates LATE, not never — UI refresh/recomposition timing, not data loss. Likely the toolbar reading a stale/unhoisted count rather than routeVertexCount.
+VERIFY — Save-name draft clearing.
+"0 MB reclaimable" — reproducible after 38,896 and 40,912 tile removals. Settle whether freelist_count is meaningful before designing any VACUUM flow. ⭐ Sidestepped for label stores by MBTilesStore.deleteSource(type) — drops the whole file, space returns instantly, app recreates it empty. ⚠ ORDER: config change FIRST (drop the entry from getDownloadSources()), then deleteSource().
+Delete patch N — banding + real progress denominator. Written, not applied.
+SAT frozen at 15 — ⚠ confirm whether this is the z-limits item under another name.
+COTREX misconfiguration — carto_code filled with record IDs for Colorado; cotrex_colorado maps "type": "feature_id".
+50-state OSM automation — after three states import cleanly. ⭐⭐ THE PREDICTION TO WATCH ON THE ARIZONA RUN: Geofabrik ships border ways whole, so Arizona's extract contains the same 313 UT/AZ border trails already in the DB from Utah. Arizona should report a non-trivial dropped where Utah reported 9. If it does, that is geom_hash deduplicating across two independent state downloads — the property the 50-state plan depends on, never yet tested.
+Security (07-27, open): 151fffb79 removed from HEAD in ddb48650b. MySQL info.txt not yet verified for credentials. Files absent from HEAD and working tree. History scrub (filter-repo) = separate decision.
+AllDocs gaps: COMPLETED_TASK_download_queue_schema_and_panel_2026-07-24.html · process_state_2026-07-27.py · Manual_Updates_Needed_2026-07-13 · osm_gpkg_subset_v2_2026-07-27.py (located in Downloads, still needs filing). ⚠ Do NOT drop DOC_MAX_AGE_DAYS 45→14 until resolved. Plus the archive-integrity items in §01.
+Convoy map — FROZEN
+DO NOT TOUCH
+Frozen 07-12. The freeze is about a LAYER, not a FILE. Both convoy_map.html (9 trailLayer refs) and grouptrack_map.html (15) carry inlined divergent copies, and spatial_artifacts.js is an orphan — nothing loads it. Convoy's copy sits next to the frozen layer: additive only, reuse the existing viewport hook, never add a moveend listener, never call setView/fitBounds/reportViewport.
+⚠ The divergence is resolved by the MapLibre swap (§08), not before — and convoy goes LAST in that sequencing, as part of the tracking rewrite.
+Doc / release tasks (pending)
+🔴 Correct COMPLETED_TASK_osm_import_c3_c4_2026-07-29.html — it claims the in-flight guard shipped (§03).
+🔴 Rewrite /areas/grouptrack-v3.md — the generator of this week's release errors (§10). Correct, don't compact; point it at the eighteen V3 docs.
+🔴 Handoff moves to HTML, internal palette, same as this file.
+🔴 ASSET COPY before the next build (§05).
+🔴 Quickstart pass with the stale-package and -r -d fixes (§05).
+🟡 Re-export table-bearing docs so AllDocs stops losing them; locate GroupTrack_V3_Implementation_Plan_Final.pdf; de-duplicate the six copies of the March-29 AWS plan (§01).
+🟡 Benchmark onX's offline package structure accurately — vector basemap vs imagery layers, region granularity, cached zooms — into §08 rather than approximated (§08).
+🟡 REJECTED — AND WHY sections to be added to each release block. Started with Google Hybrid (§13). Others owed: ATAK/TAK integration, React Native, PWA-via-Bluefy, SwiftUI for presentation, tiling user artifacts, dry-run import mode.
+STANDING RULES ADDED 07-30 — carry forward: (1) No assertion about what exists in the doc set without grepping AllDocs first. (2) Every topic is embedded here with its source-document reference; nothing enters memory as a topic without entering this checklist with its references. (3) Design in flight expands in place; detail graduates only on completion. (4) Discussions get written when they happen, not at EOD. (5) Section titles name the release's purpose, never one feature inside it.
+
+
 === grouptrack_manual.html ===
 GroupTrack V2.5 Manual
 :root{--bg:#10130f;--panel:#181c15;--ink:#e8ece2;--dim:#9aa68c;--line:#2b3324;--accent:#7bb661;--accent2:#d9a441;--warn:#e0563b;--ui:-apple-system,"Segoe UI",Roboto,sans-serif;--body:Georgia,serif;}
@@ -70995,7 +71858,7 @@ GroupTrack V2.6e — Release Notes
 .rnimg-row figure{margin:0;max-width:280px}
 .rnimg-row figcaption{font:12px system-ui,sans-serif;color:#555;margin-top:4px}
 GroupTrack V2.6 — Release Notes
-What's new · Field Test Release · Rel 2.6e · Updated 2026-07-28 · grouptrack.org
+What's new · Field Test Release · Rel 2.6e · Updated 2026-07-31 · grouptrack.org
   ⚠ IMPORTANT — read this before you proceed
   Install as an UPDATE — do NOT uninstall the old version and install this as a new install.
   Let the app update in place through the Play Store.
@@ -71005,15 +71868,51 @@ What's new · Field Test Release · Rel 2.6e · Updated 2026-07-28 · grouptrack
     Re-download your maps. Back in GroupTrack, download the areas you need again (by Area, or from a track or route). They're saved in the new format at roughly half the previous size.
   Your tracks and routes are not affected — this clears only downloaded map tiles (the imagery/topo backgrounds). Recorded tracks, imported tracks, and routes are stored separately and untouched.
   This is a one-time step. Once your maps are re-downloaded in the new format, future updates won't need it.
-New in this release &middot; Rel 2.6e &middot; 2026-07-28
+New in this release &middot; Rel 2.6e &middot; 2026-07-31
+Showing trails on the map
+  Trails appear from zoom&nbsp;10, and fill in as you zoom closer
+  Zoomed further out than zoom&nbsp;10, trails are not drawn at all &mdash; at that scale they merge into a solid mass that tells you nothing. From zoom&nbsp;10 the largest and named trails appear, enough to see where the trail country is. As you zoom in, smaller and less prominent trails fill in around them. By zoom&nbsp;12 and closer you are seeing every trail available for the area on screen.
+  Benefit: a readable map at every zoom &mdash; an overview that shows the main routes, and full detail once you are close enough to use it.
+  Manual: Planning map
+  The trails you see no longer change as you pan
+  Previously, moving the map could swap which trails were drawn &mdash; some vanished, others appeared, with no obvious reason. Trails are now chosen consistently, so panning across an area shows the same trails each time, and the most significant ones are always among them.
+  Benefit: what you see stays put, so you can trust that a trail really is&nbsp;&mdash; or is not&nbsp;&mdash; there.
+  Manual: Planning map
+Tapping the map
+  Tapping a trail or a track now opens its details reliably
+  Tapping the planning map has been unreliable &mdash; sometimes a name appeared, more often several taps were needed and nothing happened. That is fixed. A single tap on a trail or a track opens its details, and a tap on open ground lists whatever is nearby.
+  Benefit: the map answers the first time you tap it.
+  Manual: Planning map
+  Long press always drops a waypoint
+  Press and hold anywhere on the planning map to place a waypoint. This now works in every situation, including while you are building a route &mdash; previously it was blocked whenever route building was open.
+  Benefit: you can mark something the moment you notice it, without leaving what you were doing.
+  Manual: Planning map
+Building routes
+  Routes snap to trails, and draw straight lines everywhere else
+  When you tap while building a route, the point attaches to a trail if there is one under your finger. Recorded tracks are no longer used as snap targets &mdash; they still draw on the map and you can still tap them for details, but a route drawn across open ground now runs straight between your points instead of following someone's recording.
+  Benefit: routes follow the trail network, and a track you rode once does not pull your route off course.
+  Manual: Planning map
+  Snapping now reaches as far as tapping does
+  Snapping used to work within a fixed distance on the ground, while tapping worked within a distance on the screen &mdash; so when you zoomed out, a tap could show a trail's name and still not attach to it. The two now match at every zoom level.
+  Benefit: you can draw a route zoomed out over a wide area, not just zoomed right in.
+  Manual: Planning map
+OpenStreetMap trail data
+  Unpaved public roads now import alongside the trails
+  The import now includes the bottom rung of the public road network &mdash; the unclassified roads that are often dirt, gravel or stone and are exactly what a lot of riding actually follows. For Utah that added about 14,500 routes on top of what was already there.
+  Benefit: far fewer places where you can see a road on the satellite image but there is nothing to snap to.
+  Manual: Importing OSM data
+  The downloaded file is removed as soon as it has been used
+  The Geofabrik download is several hundred megabytes and is only needed until the trail database has been built from it. It is now deleted the moment the extract succeeds, rather than waiting for cleanup.
+  Benefit: the largest file of the set stops occupying your device as early as possible.
+  Manual: Importing OSM data
 OpenStreetMap trail data
   Import OpenStreetMap trails &mdash; a whole state, or just the area you ride
-  GroupTrack can now take a free OpenStreetMap extract and turn it into trail data held on your own device. It fills in ground the official trail sources do not cover, and once imported it works entirely offline. You prepare one state at a time, then import either the whole state or just an area you draw on the map &mdash; a corner of Arizona or a stretch of Nevada &mdash; without downloading anything again. Open the planning map, tap WORK WITH ARTIFACTS, then IMPORT OSM DATA.
+  GroupTrack can now take a free OpenStreetMap extract and turn it into trail data held on your own device. It fills in ground the official trail sources do not cover, and once imported it works entirely offline. You prepare one state at a time, then import either the whole state or just an area you draw on the map &mdash; a corner of Arizona or a stretch of Nevada. Open the planning map, tap WORK WITH ARTIFACTS, then IMPORT OSM DATA.
   Benefit: far more trail coverage in areas where government data is thin or missing.
   Manual: Work with Artifacts
   Four steps, each showing its own progress
-  1 &mdash; Download. Tap OPEN GEOFABRIK, choose your state, and download the file in your browser. 2 &mdash; Extract. Come back to GroupTrack and tap the button under step&nbsp;1. The app finds your download and builds a compact trail database from it. 3 &mdash; Import. Add the trails to your map &mdash; the whole state, or an area you draw. You can draw more than one area from the same download. 4 &mdash; Clean up. Remove the working files when you are finished with that state.
-  Benefit: each step tells you what it is doing, how far along it is, and roughly how long is left &mdash; and ticks green when it finishes.
+  1 &mdash; Download. Tap OPEN GEOFABRIK, choose your state, and download the file in your browser. 2 &mdash; Extract. Come back to GroupTrack and tap the button under step&nbsp;1. The app finds your download and builds a compact trail database from it. 3 &mdash; Import. Add the trails to your map &mdash; the whole state, or an area you draw. 4 &mdash; Clean up. Remove the working files and keep a record of what was imported.
+  Benefit: each step tells you what it is doing, how far along it is, and roughly how long is left &mdash; and ticks green when it finishes. Leave the app at any point and come back: you are returned to the next step, not to the beginning.
   Manual: Importing OSM data
   Place names, peaks and springs come with it
   Alongside trails, the import collects named places, mountain peaks, springs, caves and other natural features. These are the landmarks that matter once you are past the edge of the towns.
@@ -71032,10 +71931,32 @@ Before you start
   The app needs All files access to see your browser downloads. If you ever clear the app&rsquo;s storage, Android switches this off silently and the import will report that it cannot find your download. Turn it back on under Settings &rarr; Apps &rarr; Special app access &rarr; All files access.
   Benefit: you will know why the import cannot see a file that is plainly sitting in your Downloads folder.
   Manual: Permissions
-Still to come in this release
-  Steps 3 and 4 are not active yet
-  Downloading and extracting are complete in this build. Import and Clean up appear in the panel but do not do anything yet &mdash; they are the next piece of work. Everything you extract now is kept and will be ready when they arrive.
-  Benefit: you can download and prepare your states now, and import them as soon as the next build lands.
+Adding the trails to your map
+  Choose the whole state, or draw the area you ride
+  Step&nbsp;3 asks how much of the state you want. FULL STATE takes every trail in the extract. SELECTED AREA closes the panel, moves the map to cover your state with the drawing tools open, and imports only what is inside the box you draw. The IMPORT button stays greyed out until you have chosen, so you cannot start without saying what you want.
+  Benefit: a state download can be turned into exactly the ground you are riding, instead of everything.
+  Manual: Importing OSM data
+  You are told how many trails before anything is added
+  The confirmation names the count and the area &mdash; for Utah, 89,536 trails for the whole state. Place names and natural features are always imported for the whole state even when you have drawn an area, because there are only a few thousand of them and they are useful everywhere. There is no undo, so the count is there to be read.
+  Benefit: no surprises about the size of what you just started.
+  Manual: Importing OSM data
+  The import runs in the background
+  Importing a whole state takes a few minutes. It runs with a notification, so you can lock the screen or use another app. Come back to the panel and it re-attaches to the running import rather than looking as though nothing happened.
+  Benefit: you are not held on one screen watching a bar.
+  Manual: Importing OSM data
+  Importing the same ground twice is safe
+  When it finishes you get a summary: how many trails were added, how many matched something you already had and were recorded as another name for it, and how many were identical to trails already on your map so nothing was added. Import a state you already have and it will report almost everything as identical and add nothing.
+  Benefit: you will never end up with two copies of the same trail.
+  Manual: Importing OSM data
+Cleaning up
+  Step 4 turns green once an import has landed
+  Cleanup is not automatic &mdash; it waits for you to choose it. The downloaded file has already been removed by this point; cleanup clears what is left, the unpacked data and the trail database built from it. It keeps a small record of what you downloaded, what was extracted and exactly what each import added, written before anything is deleted.
+  Benefit: the large working files do not sit on your device once they have done their job.
+  Manual: Importing OSM data
+  Re-importing a state means downloading it again
+  Because the working files are removed, importing that state again later &mdash; another area, or the whole state &mdash; starts with a fresh download from Geofabrik. That is usually about three minutes on Wi-Fi. Importing ground you already have is safe: it reports almost everything as already present and adds nothing, so you never end up with two copies of a trail.
+  Benefit: nothing large is kept on the chance you might want it.
+  Manual: Importing OSM data
 Previously · Rel 2.6d · 2026-07-24
 Everything below is new since Rel 2.6c.
 Saving maps for a trail

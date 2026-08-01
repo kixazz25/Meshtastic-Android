@@ -38,7 +38,7 @@
 </style></head>
 <body>
 <header><div class="ttl"><b>GroupTrack</b> V2.6 — Release Notes</div>
-<div class="sub">What's new · Field Test Release · Rel 2.6e · Updated 2026-07-28 · grouptrack.org</div></header>
+<div class="sub">What's new · Field Test Release · Rel 2.6e · Updated 2026-07-31 · grouptrack.org</div></header>
 <main>
 
 <div class="upgrade">
@@ -55,21 +55,83 @@
   <p class="recovery">This is a one-time step. Once your maps are re-downloaded in the new format, future updates won't need it.</p>
 </div>
 
-<h2>New in this release &middot; Rel 2.6e &middot; 2026-07-28</h2>
+<h2>New in this release &middot; Rel 2.6e &middot; 2026-07-31</h2>
+
+<h3 style="font:700 15px var(--ui);color:var(--accent2);margin:18px 0 4px">Showing trails on the map</h3>
+
+<div class="item">
+  <div class="what">Trails appear from zoom&nbsp;10, and fill in as you zoom closer</div>
+  <div class="means">Zoomed further out than <strong>zoom&nbsp;10</strong>, trails are not drawn at all &mdash; at that scale they merge into a solid mass that tells you nothing. From <strong>zoom&nbsp;10</strong> the <strong>largest and named trails</strong> appear, enough to see where the trail country is. As you zoom in, smaller and less prominent trails fill in around them. By <strong>zoom&nbsp;12</strong> and closer you are seeing <strong>every trail</strong> available for the area on screen.</div>
+  <div class="benefit">Benefit: a readable map at every zoom &mdash; an overview that shows the main routes, and full detail once you are close enough to use it.</div>
+  <a class="ml" href="grouptrack_manual.html#planning">Manual: Planning map</a>
+</div>
+
+<div class="item">
+  <div class="what">The trails you see no longer change as you pan</div>
+  <div class="means">Previously, moving the map could swap which trails were drawn &mdash; some vanished, others appeared, with no obvious reason. Trails are now chosen consistently, so panning across an area shows the same trails each time, and the most significant ones are always among them.</div>
+  <div class="benefit">Benefit: what you see stays put, so you can trust that a trail really is&nbsp;&mdash; or is not&nbsp;&mdash; there.</div>
+  <a class="ml" href="grouptrack_manual.html#planning">Manual: Planning map</a>
+</div>
+
+<h3 style="font:700 15px var(--ui);color:var(--accent2);margin:18px 0 4px">Tapping the map</h3>
+
+<div class="item">
+  <div class="what">Tapping a trail or a track now opens its details reliably</div>
+  <div class="means">Tapping the planning map has been unreliable &mdash; sometimes a name appeared, more often several taps were needed and nothing happened. That is fixed. A single tap on a trail or a track opens its details, and a tap on open ground lists whatever is nearby.</div>
+  <div class="benefit">Benefit: the map answers the first time you tap it.</div>
+  <a class="ml" href="grouptrack_manual.html#planning">Manual: Planning map</a>
+</div>
+<div class="item">
+  <div class="what">Long press always drops a waypoint</div>
+  <div class="means">Press and hold anywhere on the planning map to place a waypoint. This now works in every situation, including while you are building a route &mdash; previously it was blocked whenever route building was open.</div>
+  <div class="benefit">Benefit: you can mark something the moment you notice it, without leaving what you were doing.</div>
+  <a class="ml" href="grouptrack_manual.html#planning">Manual: Planning map</a>
+</div>
+
+<h3 style="font:700 15px var(--ui);color:var(--accent2);margin:18px 0 4px">Building routes</h3>
+
+<div class="item">
+  <div class="what">Routes snap to trails, and draw straight lines everywhere else</div>
+  <div class="means">When you tap while building a route, the point attaches to a trail if there is one under your finger. Recorded tracks are no longer used as snap targets &mdash; they still draw on the map and you can still tap them for details, but a route drawn across open ground now runs straight between your points instead of following someone's recording.</div>
+  <div class="benefit">Benefit: routes follow the trail network, and a track you rode once does not pull your route off course.</div>
+  <a class="ml" href="grouptrack_manual.html#planning">Manual: Planning map</a>
+</div>
+<div class="item">
+  <div class="what">Snapping now reaches as far as tapping does</div>
+  <div class="means">Snapping used to work within a fixed distance on the ground, while tapping worked within a distance on the screen &mdash; so when you zoomed out, a tap could show a trail's name and still not attach to it. The two now match at every zoom level.</div>
+  <div class="benefit">Benefit: you can draw a route zoomed out over a wide area, not just zoomed right in.</div>
+  <a class="ml" href="grouptrack_manual.html#planning">Manual: Planning map</a>
+</div>
+
+<h3 style="font:700 15px var(--ui);color:var(--accent2);margin:18px 0 4px">OpenStreetMap trail data</h3>
+
+<div class="item">
+  <div class="what">Unpaved public roads now import alongside the trails</div>
+  <div class="means">The import now includes the bottom rung of the public road network &mdash; the unclassified roads that are often dirt, gravel or stone and are exactly what a lot of riding actually follows. For Utah that added about 14,500 routes on top of what was already there.</div>
+  <div class="benefit">Benefit: far fewer places where you can see a road on the satellite image but there is nothing to snap to.</div>
+  <a class="ml" href="grouptrack_manual.html#planning">Manual: Importing OSM data</a>
+</div>
+<div class="item">
+  <div class="what">The downloaded file is removed as soon as it has been used</div>
+  <div class="means">The Geofabrik download is several hundred megabytes and is only needed until the trail database has been built from it. It is now deleted the moment the extract succeeds, rather than waiting for cleanup.</div>
+  <div class="benefit">Benefit: the largest file of the set stops occupying your device as early as possible.</div>
+  <a class="ml" href="grouptrack_manual.html#planning">Manual: Importing OSM data</a>
+</div>
+
 
 <h3 style="font:700 15px var(--ui);color:var(--accent2);margin:18px 0 4px">OpenStreetMap trail data</h3>
 
 <div class="item">
   <div class="what">Import OpenStreetMap trails &mdash; a whole state, or just the area you ride</div>
-  <div class="means">GroupTrack can now take a free OpenStreetMap extract and turn it into trail data held on your own device. It fills in ground the official trail sources do not cover, and once imported it works entirely offline. You prepare <b>one state at a time</b>, then import either the <b>whole state</b> or just an <b>area you draw on the map</b> &mdash; a corner of Arizona or a stretch of Nevada &mdash; without downloading anything again. Open the planning map, tap <strong>WORK WITH ARTIFACTS</strong>, then <strong>IMPORT OSM DATA</strong>.</div>
+  <div class="means">GroupTrack can now take a free OpenStreetMap extract and turn it into trail data held on your own device. It fills in ground the official trail sources do not cover, and once imported it works entirely offline. You prepare <b>one state at a time</b>, then import either the <b>whole state</b> or just an <b>area you draw on the map</b> &mdash; a corner of Arizona or a stretch of Nevada. Open the planning map, tap <strong>WORK WITH ARTIFACTS</strong>, then <strong>IMPORT OSM DATA</strong>.</div>
   <div class="benefit">Benefit: far more trail coverage in areas where government data is thin or missing.</div>
   <a class="ml" href="grouptrack_manual.html#planning">Manual: Work with Artifacts</a>
 </div>
 
 <div class="item">
   <div class="what">Four steps, each showing its own progress</div>
-  <div class="means"><strong>1 &mdash; Download.</strong> Tap OPEN GEOFABRIK, choose your state, and download the file in your browser. <strong>2 &mdash; Extract.</strong> Come back to GroupTrack and tap the button under step&nbsp;1. The app finds your download and builds a compact trail database from it. <strong>3 &mdash; Import.</strong> Add the trails to your map &mdash; the whole state, or an area you draw. You can draw more than one area from the same download. <strong>4 &mdash; Clean up.</strong> Remove the working files when you are finished with that state.</div>
-  <div class="benefit">Benefit: each step tells you what it is doing, how far along it is, and roughly how long is left &mdash; and ticks green when it finishes.</div>
+  <div class="means"><strong>1 &mdash; Download.</strong> Tap OPEN GEOFABRIK, choose your state, and download the file in your browser. <strong>2 &mdash; Extract.</strong> Come back to GroupTrack and tap the button under step&nbsp;1. The app finds your download and builds a compact trail database from it. <strong>3 &mdash; Import.</strong> Add the trails to your map &mdash; the whole state, or an area you draw. <strong>4 &mdash; Clean up.</strong> Remove the working files and keep a record of what was imported.</div>
+  <div class="benefit">Benefit: each step tells you what it is doing, how far along it is, and roughly how long is left &mdash; and ticks green when it finishes. Leave the app at any point and come back: you are returned to the next step, not to the beginning.</div>
   <a class="ml" href="grouptrack_manual.html#planning">Manual: Importing OSM data</a>
 </div>
 
@@ -103,12 +165,50 @@
   <a class="ml" href="grouptrack_manual.html#planning">Manual: Permissions</a>
 </div>
 
-<h3 style="font:700 15px var(--ui);color:var(--accent2);margin:18px 0 4px">Still to come in this release</h3>
+<h3 style="font:700 15px var(--ui);color:var(--accent2);margin:18px 0 4px">Adding the trails to your map</h3>
 
 <div class="item">
-  <div class="what">Steps 3 and 4 are not active yet</div>
-  <div class="means">Downloading and extracting are complete in this build. <strong>Import</strong> and <strong>Clean up</strong> appear in the panel but do not do anything yet &mdash; they are the next piece of work. Everything you extract now is kept and will be ready when they arrive.</div>
-  <div class="benefit">Benefit: you can download and prepare your states now, and import them as soon as the next build lands.</div>
+  <div class="what">Choose the whole state, or draw the area you ride</div>
+  <div class="means">Step&nbsp;3 asks how much of the state you want. <strong>FULL STATE</strong> takes every trail in the extract. <strong>SELECTED AREA</strong> closes the panel, moves the map to cover your state with the drawing tools open, and imports only what is inside the box you draw. The IMPORT button stays greyed out until you have chosen, so you cannot start without saying what you want.</div>
+  <div class="benefit">Benefit: a state download can be turned into exactly the ground you are riding, instead of everything.</div>
+  <a class="ml" href="grouptrack_manual.html#planning">Manual: Importing OSM data</a>
+</div>
+
+<div class="item">
+  <div class="what">You are told how many trails before anything is added</div>
+  <div class="means">The confirmation names the count and the area &mdash; for Utah, 89,536 trails for the whole state. Place names and natural features are always imported for the whole state even when you have drawn an area, because there are only a few thousand of them and they are useful everywhere. There is no undo, so the count is there to be read.</div>
+  <div class="benefit">Benefit: no surprises about the size of what you just started.</div>
+  <a class="ml" href="grouptrack_manual.html#planning">Manual: Importing OSM data</a>
+</div>
+
+<div class="item">
+  <div class="what">The import runs in the background</div>
+  <div class="means">Importing a whole state takes a few minutes. It runs with a notification, so you can lock the screen or use another app. Come back to the panel and it re-attaches to the running import rather than looking as though nothing happened.</div>
+  <div class="benefit">Benefit: you are not held on one screen watching a bar.</div>
+  <a class="ml" href="grouptrack_manual.html#planning">Manual: Importing OSM data</a>
+</div>
+
+<div class="item">
+  <div class="what">Importing the same ground twice is safe</div>
+  <div class="means">When it finishes you get a summary: how many trails were <b>added</b>, how many <b>matched something you already had</b> and were recorded as another name for it, and how many were <b>identical</b> to trails already on your map so nothing was added. Import a state you already have and it will report almost everything as identical and add nothing.</div>
+  <div class="benefit">Benefit: you will never end up with two copies of the same trail.</div>
+  <a class="ml" href="grouptrack_manual.html#planning">Manual: Importing OSM data</a>
+</div>
+
+<h3 style="font:700 15px var(--ui);color:var(--accent2);margin:18px 0 4px">Cleaning up</h3>
+
+<div class="item">
+  <div class="what">Step 4 turns green once an import has landed</div>
+  <div class="means">Cleanup is not automatic &mdash; it waits for you to choose it. The downloaded file has already been removed by this point; cleanup clears what is left, the unpacked data and the trail database built from it. It keeps a small record of what you downloaded, what was extracted and exactly what each import added, written before anything is deleted.</div>
+  <div class="benefit">Benefit: the large working files do not sit on your device once they have done their job.</div>
+  <a class="ml" href="grouptrack_manual.html#planning">Manual: Importing OSM data</a>
+</div>
+
+<div class="item">
+  <div class="what">Re-importing a state means downloading it again</div>
+  <div class="means">Because the working files are removed, importing that state again later &mdash; another area, or the whole state &mdash; starts with a fresh download from Geofabrik. That is usually about three minutes on Wi-Fi. Importing ground you already have is safe: it reports almost everything as already present and adds nothing, so you never end up with two copies of a trail.</div>
+  <div class="benefit">Benefit: nothing large is kept on the chance you might want it.</div>
+  <a class="ml" href="grouptrack_manual.html#planning">Manual: Importing OSM data</a>
 </div>
 
 <h2>Previously · Rel 2.6d · 2026-07-24</h2>
