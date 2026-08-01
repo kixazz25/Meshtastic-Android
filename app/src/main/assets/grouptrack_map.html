@@ -259,11 +259,17 @@
         onEachFeature: function(feature, layer) {
           var name = (feature.properties && feature.properties.name) || 'Unnamed Track';
           var tid = feature.properties && feature.properties.track_id;
-          if (tid && window.Android && window.Android.onTrackTap) {
-            layer.on("click", function(e){ L.DomEvent.stopPropagation(e); window.Android.onTrackTap(tid); });
-          } else {
-            layer.bindPopup('<b>' + name + '</b>');
-          }
+          // TRACKTAP-BINDTIME-2026-08-01: bridge was tested at BIND time; if
+          // addJavascriptInterface had not landed, a popup was bound permanently.
+          layer.on("click", function(e){
+            L.DomEvent.stopPropagation(e);
+            if (tid && window.__detailPanelEnabled !== false &&
+                window.Android && window.Android.onTrackTap) {
+              window.Android.onTrackTap(tid);
+            } else {
+              layer.bindPopup('<b>' + name + '</b>').openPopup();
+            }
+          });
         }
       });
       try {

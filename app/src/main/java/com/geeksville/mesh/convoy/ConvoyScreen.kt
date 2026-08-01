@@ -710,11 +710,9 @@ fun ConvoyScreen(
                                 // is no condition to get wrong, and route mode is a PLANNER
                                 // concept convoy should never carry.
                                 view?.evaluateJavascript("setRouteMode(false)", null)
-                                android.widget.Toast.makeText(view?.context ?: return,
-                                    "ROUTE MODE OFF  <-  CONVOY page setup", android.widget.Toast.LENGTH_LONG).show()
                                 android.util.Log.i("RouteModeTrace", "CONVOY:entry OFF <- page setup")
                                 // Auto-sense connectivity: use local tiles if no internet
-                                val ctx = view.context ?: return
+                                val ctx = view?.context ?: return
                                 val cm = ctx?.getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager
                                 val hasInternet = cm?.activeNetwork?.let { net ->
                                     cm.getNetworkCapabilities(net)?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
@@ -889,13 +887,6 @@ fun ConvoyScreen(
                                     // state. Convoy can never arm it (the panel anchor is hidden), so it is forced
                                     // OFF here, on the same cadence the display state is reseeded. WRITE-ONLY --
                                     // this value is never read back from JSON. Do not "fix" that asymmetry.
-                                    webViewRef.value?.evaluateJavascript("window.__routeMode = false;", null)
-                                    if (!routeModeResetLogged) {
-                                        routeModeResetLogged = true
-                                        android.widget.Toast.makeText(context,
-                                            "ROUTE MODE OFF  <-  CONVOY reseed entry", android.widget.Toast.LENGTH_LONG).show()
-                                        android.util.Log.i("RouteModeTrace", "CONVOY:reseed OFF <- viewport reseed (first this entry)")
-                                    }
                                 }
                                 val z = zoom.toInt()
                                 // [Fix1] Unify with path A: draw through the shared SpatialDisplayManager.
