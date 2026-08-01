@@ -141,7 +141,11 @@ object RouteDraftStore {
 
     // ----- list ------------------------------------------------------------
 
-    data class DraftInfo(val name: String, val updatedAt: String, val pointCount: Int)
+    data class DraftInfo(val name: String, val updatedAt: String, val pointCount: Int, val createdAt: String = "")
+
+    /** [draft-resolver 2026-08-01] The unnamed-draft literal. A draft under this name is a
+     *  crash remnant: Route+ arms with it, and a clean exit always renames or deletes it. */
+    const val UNNAMED = "Auto Saved In Progress"
 
     /** List drafts for the In-Progress picker: name + date + point count. */
     fun listDrafts(): List<DraftInfo> {
@@ -153,8 +157,9 @@ object RouteDraftStore {
                 val o = JSONObject(f.readText())
                 val name = o.optString("name", f.nameWithoutExtension)
                 val updated = o.optString("updatedAt", "")
+                val created = o.optString("createdAt", "")
                 val pts = o.optJSONArray("vertices")?.length() ?: 0
-                out.add(DraftInfo(name, updated, pts))
+                out.add(DraftInfo(name, updated, pts, created))
             } catch (e: Exception) {
                 Log.w(TAG, "skip unreadable draft ${f.name}: ${e.message}")
             }

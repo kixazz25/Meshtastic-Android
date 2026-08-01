@@ -182,10 +182,20 @@ fun ConvoyMapViewerScreen(
     var saveOrigName by remember { mutableStateOf("") }   // draft's on-disk name captured when Save panel opens (rename source)
     var recoveryLaunched by remember { mutableStateOf(false) }   // one-shot: recovery detected this session (in onPageFinished)
     var recoveryPending by remember { mutableStateOf(false) }   // show the recovery notice popup after settle
+    // [draft-resolver 2026-08-01] Unnamed-draft resolver. Runs at planner entry and at
+    // Route+ launch. File ops ONLY -- never arms route mode, never loads geometry.
+    var showDraftResolve by remember { mutableStateOf(false) }
+    var draftResolvePts by remember { mutableStateOf(0) }
+    var draftResolveName by remember { mutableStateOf("") }
+    var draftResolveErr by remember { mutableStateOf("") }
+    var pendingInventory by remember { mutableStateOf(false) }
+    var resolverRan by remember { mutableStateOf(false) }
     var routeNameTaken by remember { mutableStateOf(false) }
     // live In-Progress list: real draft names from RouteDraftStore (refreshed on draftListTick)
     var draftListTick by remember { mutableStateOf(0) }
-    val emulatedDrafts = RouteDraftStore.listDrafts().map { it.name }
+    // [draft-resolver 2026-08-01] The unnamed draft is a crash remnant, not a resumable
+    // route -- the resolver renames or deletes it. Never offer it in the picker.
+    val emulatedDrafts = RouteDraftStore.listDrafts().map { it.name }.filter { it != RouteDraftStore.UNNAMED }
     var newWaypointType by remember { mutableStateOf("other") }
     var newWaypointName by remember { mutableStateOf("") }
 
@@ -694,6 +704,26 @@ fun ConvoyMapViewerScreen(
                                 // GATE: reseed this map's local state from JSON only if the active
                                 // map changed since last refresh (else live vars stay authoritative).
                                 if (MapStateStore.lastMapProcessed != "planning") {
+                                    // ROUTEMODE-OBSERVE-2026-08-01: ⭐ ROUTE MODE OFF ON MAP ENTRY.
+                                    //
+                                    // This gate already exists to correct every OTHER stale
+                                    // JS value on entry -- viewport, display states, checked
+                                    // rows. Route mode is the same category of stale state
+                                    // and was simply MISSING FROM THE LIST.
+                                    //
+                                    // Fred: "the state of the prior value of each map was
+                                    // always the prior value of the previous map (no resets).
+                                    // why we had no idea what was happening."
+                                    //
+                                    // ⚠ setRouteMode(false), NOT `__routeMode = false` -- the
+                                    // function also reasserts consequences (the popup
+                                    // unbind/rebind). The raw flag would clear the value and
+                                    // leave whatever the previous state applied, which is
+                                    // exactly the "mode off, popups still gone" seen 07-31.
+                                    android.widget.Toast.makeText(context,
+                                        "ROUTE MODE OFF  <-  PLANNER map entry", android.widget.Toast.LENGTH_LONG).show()
+                                    android.util.Log.i("RouteModeTrace", "PLANNER:entry OFF <- map entry reseed")
+                                    webViewRef?.evaluateJavascript("setRouteMode(false)", null)
                                     val rs = MapStateStore.readMap("planning")
                                     trailState = rs.types["Trails"]?.state ?: DS_OFF
                                     trackState = rs.types["Tracks"]?.state ?: DS_OFF
@@ -783,6 +813,25 @@ fun ConvoyMapViewerScreen(
                                 // Trails loaded on demand via TRAILS button
                                 // Center map on device GPS position (matches Convoy Map approach)
                                 view?.postDelayed({
+                                    // [draft-resolver 2026-08-01] PLANNER ENTRY caller. Outside the
+                                    // pmbb branch: a cold launch with no persisted frame must resolve too.
+                                    if (!resolverRan) {
+                                        resolverRan = true
+                                        val u = RouteDraftStore.listDrafts().firstOrNull { it.name == RouteDraftStore.UNNAMED }
+                                        if (u == null) {
+                                            pendingInventory = true
+                                        } else if (u.pointCount < 2) {
+                                            RouteDraftStore.deleteDraft(RouteDraftStore.UNNAMED)
+                                            android.util.Log.i("RouteModeTrace",
+                                                "RESOLVER: deleted unnamed draft, " + u.pointCount + " pts (crash remnant)")
+                                            pendingInventory = true
+                                        } else {
+                                            draftResolvePts = u.pointCount
+                                            draftResolveName = ""
+                                            draftResolveErr = ""
+                                            showDraftResolve = true
+                                        }
+                                    }
                                     // [3.1] persisted-frame-open: planning restores last-session bbox
                                     val pmbb = pmSeed.bbox
                                     if (pmbb != null) {
@@ -796,9 +845,11 @@ fun ConvoyMapViewerScreen(
                                         // Crash recovery: a prior session left a route open. Do NOT auto-launch
                                         // (races render). Flag it — an informational popup shows after settle
                                         // telling the user to resume manually via +ROUTE -> In Progress.
+                                        // [draft-resolver 2026-08-01] Retired: the resolver above acts on
+                                        // the draft directory directly instead of showing a notice that tells
+                                        // the user to go do it themselves.
                                         if (routeSeedOpen && !recoveryLaunched) {
                                             recoveryLaunched = true
-                                            recoveryPending = true
                                         }
                                         return@postDelayed
                                     }
@@ -1004,6 +1055,24 @@ fun ConvoyMapViewerScreen(
                     // session left it open (crash/kill never closed cleanly) = recovery.
                     // Test BEFORE setting routeMode on this session.
                     recoveryDetected = (pmSeed.routeState?.open == true)
+                    // [routeplus-resolver 2026-08-01] ROUTE+ caller. Resolve any unnamed
+                    // draft BEFORE the New/In-Progress choice -- New Route reuses the
+                    // UNNAMED filename, so an unresolved remnant would be overwritten.
+                    run {
+                        val u = RouteDraftStore.listDrafts().firstOrNull { it.name == RouteDraftStore.UNNAMED }
+                        if (u == null) {
+                            // nothing to resolve
+                        } else if (u.pointCount < 2) {
+                            RouteDraftStore.deleteDraft(RouteDraftStore.UNNAMED)
+                            android.util.Log.i("RouteModeTrace",
+                                "RESOLVER: deleted unnamed draft at Route+, " + u.pointCount + " pts (crash remnant)")
+                        } else {
+                            draftResolvePts = u.pointCount
+                            draftResolveName = ""
+                            draftResolveErr = ""
+                            showDraftResolve = true
+                        }
+                    }
                     routeMode = true   // route-add selected: panel has no cancel, both picks build a route
                     showEntryChoice = true
                 },
@@ -1171,12 +1240,26 @@ fun ConvoyMapViewerScreen(
                     confirmButton = {
                         androidx.compose.material3.TextButton(onClick = {
                             showEntryChoice = false
+                            // [routeplus-resolver 2026-08-01] Guard: New Route writes to the
+                            // UNNAMED filename. If a remnant is still there (resolver dialog not
+                            // yet answered), starting fresh would silently overwrite it.
+                            if (RouteDraftStore.draftExists(RouteDraftStore.UNNAMED)) {
+                                android.widget.Toast.makeText(context,
+                                    "A route is already in progress -- resolve it first",
+                                    android.widget.Toast.LENGTH_LONG).show()
+                                android.util.Log.w("RouteModeTrace", "RESOLVER: New Route blocked, unnamed draft present")
+                                return@TextButton
+                            }
                             routeLifecycleState = ROUTE_LS_NEW
                             routeMethod = ROUTE_METHOD_P2P
                             routeName = "Auto Saved In Progress"
                             routeNameTaken = false
                             routeEntryNonce++
                             routeMode = true
+                            // ROUTEMODE-OBSERVE-2026-08-01
+                            android.widget.Toast.makeText(context,
+                                "ROUTE MODE ON  <-  arm tap-to-place (no name prompt)", android.widget.Toast.LENGTH_LONG).show()
+                            android.util.Log.i("RouteModeTrace", "PLANNER:1180 ON <- arm tap-to-place (no name prompt)")
                             webViewRef?.evaluateJavascript("window.__routeMode=true;setRouteMode(true)", null)  // arm tap-to-place (no name prompt)
                         }) { androidx.compose.material3.Text("New Route") }
                     },
@@ -1213,6 +1296,10 @@ fun ConvoyMapViewerScreen(
                     }
                     if (res) {
                         RouteManager.clearRoute()
+                        // ROUTEMODE-OBSERVE-2026-08-01
+                        android.widget.Toast.makeText(context,
+                            "ROUTE MODE OFF  <-  SAVE completed", android.widget.Toast.LENGTH_LONG).show()
+                        android.util.Log.i("RouteModeTrace", "PLANNER:1216 OFF <- SAVE completed")
                         webViewRef?.evaluateJavascript("setRouteMode(false); clearBuildLine();", null)
                         routeMode = false
                         webViewRef?.evaluateJavascript("try{var b=map.getBounds();Android.onViewportChanged(b.getNorth(),b.getSouth(),b.getEast(),b.getWest(),map.getZoom())}catch(e){}", null)
@@ -1254,6 +1341,10 @@ fun ConvoyMapViewerScreen(
                                 showNameDialog = false
                                 routeEntryNonce++
                                 routeMode = true
+                                // ROUTEMODE-OBSERVE-2026-08-01
+                                android.widget.Toast.makeText(context,
+                                    "ROUTE MODE ON  <-  arm tap-to-place", android.widget.Toast.LENGTH_LONG).show()
+                                android.util.Log.i("RouteModeTrace", "PLANNER:1257 ON <- arm tap-to-place")
                                 webViewRef?.evaluateJavascript("window.__routeMode=true;setRouteMode(true)", null)  // arm tap-to-place
                             }
                         }) { androidx.compose.material3.Text("Start") }
@@ -1279,6 +1370,16 @@ fun ConvoyMapViewerScreen(
                     },
                     onAddModeChanged = { armed ->
                         addPointMode = armed
+                        // ROUTEMODE-OBSERVE-2026-08-01: ⭐ THIS IS THE DRAW / ARTIFACT BUTTON.
+                        // `armed` true = Draw selected, false = Artifact selected.
+                        // Per Fred: selecting Artifact ends DRAW MODE but the route
+                        // SESSION continues -- it is not an exit.
+                        android.widget.Toast.makeText(context,
+                            "ROUTE MODE " + (if (armed) "ON" else "OFF") +
+                                "  <-  " + (if (armed) "DRAW button" else "ARTIFACT button"),
+                            android.widget.Toast.LENGTH_LONG).show()
+                        android.util.Log.i("RouteModeTrace",
+                            "PLANNER:1282 " + armed + " <- " + (if (armed) "DRAW" else "ARTIFACT"))
                         webViewRef?.evaluateJavascript("window.__routeMode=" + armed + ";setRouteMode(" + armed + ")", null)
                     },
                     onUndo = {
@@ -1311,6 +1412,10 @@ fun ConvoyMapViewerScreen(
                     onSelectInProgress = { showInProgressPicker = true },
                     onExit = {
                         RouteManager.clearRoute()
+                        // ROUTEMODE-OBSERVE-2026-08-01
+                        android.widget.Toast.makeText(context,
+                            "ROUTE MODE OFF  <-  onExit", android.widget.Toast.LENGTH_LONG).show()
+                        android.util.Log.i("RouteModeTrace", "PLANNER:1314 OFF <- onExit")
                         webViewRef?.evaluateJavascript("setRouteMode(false); clearBuildLine();", null)
                         routeMode = false
                     }
@@ -1376,6 +1481,11 @@ fun ConvoyMapViewerScreen(
                                     RouteManager.clearRoute()
                                     webViewRef?.evaluateJavascript("setRouteMode(false); clearBuildLine();", null)
                                     routeMode = false
+                                    // [saveinprogress-trace 2026-08-01] This path disarmed silently -- no trace,
+                                    // no toast. Every route-mode write announces itself while instrumentation is in.
+                                    android.widget.Toast.makeText(context,
+                                        "ROUTE MODE OFF  <-  PLANNER:saveInProgress", android.widget.Toast.LENGTH_LONG).show()
+                                    android.util.Log.i("RouteModeTrace", "PLANNER:saveInProgress OFF <- SAVE AS IN PROGRESS")
                                 }
                             }
                         }) { androidx.compose.material3.Text("Save as in progress") }
@@ -1420,6 +1530,75 @@ fun ConvoyMapViewerScreen(
                 )
             }
 
+            if (showDraftResolve) {
+                androidx.compose.material3.AlertDialog(
+                    onDismissRequest = { },
+                    title = { androidx.compose.material3.Text("Unfinished route") },
+                    text = {
+                        androidx.compose.foundation.layout.Column {
+                            androidx.compose.material3.Text(
+                                "A route with " + draftResolvePts + " points was left unnamed by your last session. Name it to keep it, or discard it."
+                            )
+                            androidx.compose.foundation.layout.Spacer(androidx.compose.ui.Modifier.height(12.dp))
+                            androidx.compose.material3.OutlinedTextField(
+                                value = draftResolveName,
+                                onValueChange = { draftResolveName = it; draftResolveErr = "" },
+                                singleLine = true,
+                                isError = draftResolveErr.isNotEmpty(),
+                                label = { androidx.compose.material3.Text("Route name") }
+                            )
+                            if (draftResolveErr.isNotEmpty()) {
+                                androidx.compose.material3.Text(
+                                    draftResolveErr,
+                                    color = androidx.compose.material3.MaterialTheme.colorScheme.error
+                                )
+                            }
+                        }
+                    },
+                    confirmButton = {
+                        androidx.compose.material3.TextButton(onClick = {
+                            val nm = draftResolveName.trim()
+                            if (nm.isBlank()) {
+                                draftResolveErr = "Enter a name"
+                            } else if (RouteDraftStore.isNameTaken(nm)) {
+                                draftResolveErr = "That name is already used"
+                            } else if (RouteDraftStore.renameDraft(RouteDraftStore.UNNAMED, nm)) {
+                                android.util.Log.i("RouteModeTrace", "RESOLVER: renamed unnamed draft -> " + nm)
+                                showDraftResolve = false
+                                pendingInventory = true
+                            } else {
+                                draftResolveErr = "Rename failed"
+                            }
+                        }) { androidx.compose.material3.Text("Keep") }
+                    },
+                    dismissButton = {
+                        androidx.compose.material3.TextButton(onClick = {
+                            RouteDraftStore.deleteDraft(RouteDraftStore.UNNAMED)
+                            android.util.Log.i("RouteModeTrace", "RESOLVER: discarded unnamed draft")
+                            showDraftResolve = false
+                            pendingInventory = true
+                        }) { androidx.compose.material3.Text("Discard") }
+                    }
+                )
+            }
+            // [draft-resolver 2026-08-01] Inventory toast -- runs only after the resolver
+            // has finished, so the unnamed draft is gone and a just-named one appears on
+            // its own merits. 600ms lets the rename/delete land on disk first.
+            if (pendingInventory) {
+                androidx.compose.runtime.LaunchedEffect(Unit) {
+                    kotlinx.coroutines.delay(600)
+                    val list = RouteDraftStore.listDrafts()
+                        .filter { it.name != RouteDraftStore.UNNAMED }
+                        .sortedBy { it.createdAt }
+                    val msg = if (list.isEmpty()) "No in-progress routes"
+                        else "In progress:\n" + list.joinToString("\n") {
+                            it.name + "  (" + (if (it.createdAt.length >= 10) it.createdAt.substring(0, 10) else it.createdAt) + ")"
+                        }
+                    android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_LONG).show()
+                    android.util.Log.i("RouteModeTrace", "RESOLVER: inventory " + list.size + " draft(s)")
+                    pendingInventory = false
+                }
+            }
             if (recoveryPending) {
                 androidx.compose.material3.AlertDialog(
                     onDismissRequest = { recoveryPending = false },
@@ -1469,6 +1648,13 @@ fun ConvoyMapViewerScreen(
                                                 RouteManager.buildSegments { lineId -> byId[lineId]?.let { RouteManager.parseWktLine(it) } }
                                                     .joinToString(",", "[", "]") { "[${it[1]},${it[0]}]" }
                                             }
+                                            // ROUTEMODE-OBSERVE-2026-08-01: ⛔ SUSPECT. This ARMS route mode
+                                            // from a RECOVERY path. Fred's rule: route mode is
+                                            // entered ONLY by Route+ / Draw. If this toast fires
+                                            // without the user choosing to draw, THIS IS THE LEAK.
+                                            android.widget.Toast.makeText(context,
+                                                "ROUTE MODE ON  <-  RECOVERY (:1472) - suspect", android.widget.Toast.LENGTH_LONG).show()
+                                            android.util.Log.w("RouteModeTrace", "PLANNER:1472 ON <- RECOVERY RESUME")
                                             webViewRef?.evaluateJavascript("window.__routeMode=true;setRouteMode(true); drawBuildLine('" + rsPts + "')", null)
                                             // Second draw after the map settles: the first drawBuildLine can render
                                             // before the build layer is ready (angular); redraw the SAME shape so the
