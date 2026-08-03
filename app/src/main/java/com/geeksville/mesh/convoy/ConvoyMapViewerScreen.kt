@@ -619,7 +619,8 @@ fun ConvoyMapViewerScreen(
                                         "wpt=$waypointState route=$routeState"
                                 )
                                 // Query all artifact types near tap point from spatial DB
-                                val radius = 0.002 // ~200 meters in degrees
+                                if (routeMode) return  // ROUTETAP-2026-08-02: placing route points -- no artifact popups
+                                val radius = 0.0009 // ~100 meters in degrees (ROUTETAP-2026-08-02: was 0.002/200m)
                                 val south = lat - radius; val north = lat + radius
                                 val west = lon - radius; val east = lon + radius
                                 val nlTrail = trailState; val nlTrack = trackState
