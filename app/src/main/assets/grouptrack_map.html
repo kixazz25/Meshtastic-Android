@@ -653,13 +653,13 @@
     //
     // The guard + __proxTapWired flag copy the long-press handler below, which
     // survived precisely because it sat in this block and checked first.
-    if (typeof map !== 'undefined' && map && !map.__proxTapWired) {
-      map.__proxTapWired = true;
-      map.on('click', function(e) {
-        console.log('MAPCLICK handler-1 kotlin-proximity routeMode=' + window.__routeMode);
-        try { Android.onProximityTap(e.latlng.lat, e.latlng.lng); } catch(ex) {}
-      });
-    }
+    // PROXREMOVE-2026-08-03: planner proximity tap REMOVED (Fred 08-03).
+    // Was a click registration bridging to Kotlin, which queried the spatial DB
+    // and popped a list of artifacts the map was NOT rendering - phantom trails
+    // on a blank map, because the query layer does not consult visibility state.
+    // Also inert during route planning by design (ROUTETAP-2026-08-02 guard), and
+    // redundant with ARTIFACTTAP when route mode is off. The Kotlin side is left
+    // in place and is now uncalled; retire it with its caller.
     // Show proximity popup from Kotlin results. Called by name from
     // ConvoyMapViewerScreen.kt:578 via evaluateJavascript -- this is the ONLY
     // definition in the codebase, so it must stay reachable at global scope.
@@ -798,52 +798,13 @@
     });
   
     // ── Proximity tap: show all nearby artifacts ──────────
-    map.on('click', function(e) {
-      console.log('MAPCLICK handler-js-proximity-scan routeMode=' + window.__routeMode);
-      var nearby = [];
-      var searchRadius = 30; // meters
-      var clickLatLng = e.latlng;
-      
-      function checkLayer(layer, typeName, color) {
-        if (!layer) return;
-        layer.eachLayer(function(feat) {
-          var latlng = null;
-          if (feat.getLatLng) {
-            latlng = feat.getLatLng();
-          } else if (feat.getLatLngs) {
-            var latlngs = feat.getLatLngs();
-            if (latlngs.length > 0) {
-              // Find closest point on line
-              var minDist = Infinity;
-              var flatCoords = latlngs.flat ? latlngs.flat(2) : latlngs;
-              for (var i = 0; i < flatCoords.length; i++) {
-                if (flatCoords[i] && flatCoords[i].lat !== undefined) {
-                  var d = clickLatLng.distanceTo(flatCoords[i]);
-                  if (d < minDist) { minDist = d; latlng = flatCoords[i]; }
-                }
-              }
-            }
-          }
-          if (latlng && clickLatLng.distanceTo(latlng) < searchRadius) {
-            var name = feat.feature ? (feat.feature.properties.name || 'Unnamed') : 'Unnamed';
-            nearby.push('<span style="color:' + color + ';">' + typeName + ':</span> ' + name);
-          }
-        });
-      }
-      
-      checkLayer(trailLayer, 'Trail', '#1CF0A0');
-      checkLayer(trackLayer, 'Track', '#4DA6FF');
-      checkLayer(waypointLayer, 'Waypoint', '#FF8C42');
-      checkLayer(routeLayer, 'Route', '#BC8CFF');
-      
-      if (nearby.length > 1) {
-        var popup = L.popup({autoClose: true, closeOnClick: true})
-          .setLatLng(clickLatLng)
-          .setContent('<div style="font-size:11px;line-height:1.6;">' + nearby.join('<br>') + '</div>')
-          .openOn(map);
-        setTimeout(function() { map.closePopup(popup); }, 5000);
-      }
-    });
+    // PROXREMOVE-2026-08-03: top-level JS artifact scan REMOVED (Fred 08-03).
+    // It sat OUTSIDE the DOMContentLoaded/setTimeout callback that creates the map
+    // object at ~:640, so it evaluated at PARSE TIME against an undefined variable
+    // and threw on every single page load:
+    //   Uncaught TypeError: Cannot read properties of undefined (reading 'on')
+    // It therefore never registered - which is why the 08-02 three-tap test never
+    // saw its log tag fire once. Third copy of a block relocated on 07-30 (~:642).
 
   </script>
 

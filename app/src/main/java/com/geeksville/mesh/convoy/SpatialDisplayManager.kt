@@ -65,7 +65,26 @@ object SpatialDisplayManager {
             // If z10 stalls, go back to 11 — do NOT lower the cap, or trails
             // start disappearing at z11 too, where they currently all fit.
             // TRAILS-Z11-10K-2026-07-31: back to 11 after z10 was tested and rejected.
-            "updateTrails", "showTrails", "hideTrails", 11
+            // TRAILS-Z10-RETRY-2026-08-03: 11 -> 10 again (Fred 08-03).
+            // ⭐⭐ THE REJECTION ABOVE DOES NOT APPLY TO THE CURRENT CODE. Fred
+            // 08-03: z10 was reverted BEFORE the display was capped at the first
+            // 10,000 trails. So it was measured on an UNCAPPED z10 viewport -
+            // a whole state, every trail matching, which is the 120,000-at-z8
+            // case that ANR'd. It never tested a capped z10 at all.
+            // ⭐ The marker name TRAILS-Z11-10K-2026-07-31 reads as though the cap
+            // was already in place when it reverted. IT WAS NOT. Do not honour
+            // that rejection as evidence about this configuration.
+            // ⭐ Second change since: the same 07-31 commit switched both maps from
+            // L.svg to L.canvas - one surface, no DOM element per feature - so the
+            // DOM-construction cost the rejection rested on is gone too.
+            // ⚠ Still a RETRY, not a proven win. Canvas fails differently -
+            // frame time, not ANR. VERIFY: fit a large-extent trail at z10 and
+            // watch for pan lag. If it stalls, put this back to 11 and do NOT
+            // lower the row cap (see the z10 note above for why).
+            // ⚠ The cap figure in the comment above says 20,000; the release board
+            // says 10,000. One of the two is stale - check the limit block before
+            // relying on either number.
+            "updateTrails", "showTrails", "hideTrails", 10
         )
         "Tracks" -> TypeBinding(
             "track_id",
