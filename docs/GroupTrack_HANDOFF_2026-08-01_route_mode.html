@@ -1,0 +1,311 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>HANDOFF — 2026-08-01 · Route mode stabilisation, six-step plan</title>
+<style>
+:root{--bg:#0f1216;--panel:#161b22;--ink:#e6edf3;--dim:#8b949e;--line:#30363d;--accent:#58a6ff;--good:#3fb950;--warn:#d29922;--bad:#f85149;--ui:-apple-system,"Segoe UI",Roboto,sans-serif;--mono:"SF Mono",Consolas,monospace}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 var(--ui);padding:18px}
+main{max-width:980px;margin:0 auto}
+h1{font:700 19px var(--ui);color:var(--good);border-bottom:2px solid var(--good);padding-bottom:6px}
+h2{font:700 16px var(--ui);color:var(--accent);margin:28px 0 8px;border-bottom:1px solid var(--line);padding-bottom:4px}
+h3{font:700 13.5px var(--ui);margin:16px 0 4px;color:#e6edf3}
+.card{border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin:10px 0;background:var(--panel)}
+.step{border-left:3px solid var(--accent);background:#12203a;padding:10px 14px;margin:12px 0;border-radius:0 6px 6px 0}
+.now{border-left-color:var(--good);background:#12261a}
+code{background:#0c0f0a;padding:1px 5px;border-radius:3px;font:12px var(--mono)}
+pre{background:#0c0f0a;border:1px solid var(--line);border-radius:6px;padding:10px;overflow-x:auto;font:12px var(--mono)}
+table{border-collapse:collapse;width:100%;font:13px var(--ui);margin:8px 0}
+th,td{border:1px solid var(--line);padding:5px 8px;text-align:left;vertical-align:top}
+th{background:#12203a;color:var(--accent)}
+.sub{font:12px var(--mono);color:var(--dim)}
+ol li,ul li{margin:5px 0}
+</style></head><body><main>
+
+<h1>HANDOFF — 2026-08-01 · Route mode stabilisation</h1>
+<p class="sub">Branch <code>feature/convoy-event-ride</code> · last commit <code>59bdf5401</code> (pushed)
+· one uncommitted patch applied, build running at session end</p>
+
+<div class="card">
+<b>Read this first, then <code>grouptrack_living_master_2026-07-31.html</code> §00a.</b> This document
+is the ordered plan and the reasoning behind it. §00a carries the deeper diagnosis of the popup /
+route-mode regression.
+</div>
+
+<h2>⭐⭐ THE GOVERNING SPECIFICATION — settled 07-31, do not re-derive</h2>
+<div class="card">
+<table>
+<tr><th>Concept</th><th>Means</th><th>Rule</th></tr>
+<tr><td><b>Persistence</b></td><td>state RECREATION — position, zoom, artifact display states,
+checked rows</td><td>Both maps write on every screen refresh. Restores the map as you left it.</td></tr>
+<tr><td><b>Route mode</b></td><td>ACTIVELY PLOTTING POINTS RIGHT NOW</td>
+<td>⭐ <b>FALSE ON EVERY MAP ENTRY, BOTH MAPS.</b> Armed ONLY by user action — Route+, Draw, or a
+recovery Continue. <b>Never by persistence.</b></td></tr>
+<tr><td><b>Draft file</b></td><td>a route was not finished</td><td>Drives a message and the resolver.
+Never arms anything.</td></tr>
+</table>
+<p><b>THE TAP RULE, entire:</b> route mode OFF → tap opens artifacts. Route mode ON → tap places a
+route point, nothing else consumes it.</p>
+<p>⭐⭐ <b>THEREFORE POPUPS NEVER NEED SUPPRESSING.</b> If the tap does not reach the artifact layer,
+no popup can open. Every unbind / stash / restore / bind-gate in the codebase solves a problem that
+correct tap routing makes impossible.</p>
+<p>⚠ <b>Route mode is an ACTIVITY, not restorable state.</b> A file on disk means a route is
+unfinished; route mode means points are being placed now. Conflating those two is the whole mess.</p>
+</div>
+
+<h2>WHERE WE ARE</h2>
+<div class="card">
+<p><b>Committed and pushed:</b> <code>59bdf5401</code> — trails <code>ORDER BY</code> + z11 gate + 10k
+cap (the six-month bug), canvas renderer with tracks pinned to SVG, convoy long-press waypoints,
+<code>addPointMode</code> default false, detail panel re-enabled.</p>
+<p><b>Applied, building at session end, NOT yet committed:</b>
+<code>patch_routemode_observe_v4_2026-08-01.py</code> — 15 anchors: 13 toasts at every route-mode
+write site, plus the 2 entry resets.</p>
+<p><b>⚠ Also in the tree, to remove before release:</b> <code>smoothFactor</code> on trails (device-
+disproven, harmless); three <code>WAYPOINT-TRACE</code> log lines in <code>ConvoyScreen</code>, one
+firing every 5s.</p>
+</div>
+
+<h2>⭐⭐ THE FINDING THAT MADE 07-31 UNREADABLE</h2>
+<div class="card">
+<p>The 08-01 06:56 field cross-reference lists <b>13 writes to route mode</b> — 6 planner, 7 convoy —
+and <b>not one of them at map entry</b>.</p>
+<p>The maps <b>share a WebView</b>, so <code>window.__routeMode</code> survives a screen switch. The
+JS-side reset at <code>grouptrack_map.html:729</code> / <code>convoy_map.html:340</code> sits inside
+<code>if (!map.__routeTapWired)</code> — a once-per-map-OBJECT guard that only re-runs on a page load,
+not on entry.</p>
+<p><b>Fred:</b> <i>"the state of the prior value of each map was always the prior value of the
+previous map (no resets). why we had no idea what was happening."</i></p>
+<p>⚠ <b>And it is worse than route mode alone.</b> The planner reseeds display state on entry behind
+<code>if (MapStateStore.lastMapProcessed != "planning")</code> (<code>:696</code>). <b>Convoy has no
+such gate</b> — it only SETS <code>lastMapProcessed</code> at <code>:876</code>, never tests it. So
+convoy has been inheriting whatever the planner left in every shared JS value.</p>
+</div>
+
+<h2>🔴 STEP 1 — VALIDATE THE INSTRUMENTATION (build finishing at session end)</h2>
+<div class="step now">
+<p><b>Install, then run:</b></p>
+<pre>adb -s 24039703201775 install -r -d app/build/outputs/apk/google/release/app-google-release.apk
+MSYS_NO_PATHCONV=1 adb -s 24039703201775 logcat -c &amp;&amp; MSYS_NO_PATHCONV=1 adb -s 24039703201775 logcat -s RouteModeTrace:V</pre>
+<h3>Test sequence — every step should produce a toast</h3>
+<ol>
+<li><b>Enter planner</b> → <code>OFF ← PLANNER map entry</code></li>
+<li><b>Enter convoy</b> → <code>OFF ← CONVOY page setup</code></li>
+<li><b>Switch back and forth several times</b> → a toast EVERY time.
+⭐ <b>Silence on any switch is the leak.</b></li>
+<li><b>Route+ → Draw</b> → <code>ON ← DRAW button</code></li>
+<li><b>Artifact button</b> → <code>OFF ← ARTIFACT button</code></li>
+<li><b>Save</b> → <code>OFF ← SAVE completed</code></li>
+<li><b>Discard / exit</b> → <code>OFF ← onExit</code></li>
+<li><b>Save as in progress</b> → <code>OFF ← SAVE AS IN PROGRESS</code></li>
+<li><b>Delete in-progress</b> → <code>OFF ← DELETE IN-PROGRESS</code></li>
+</ol>
+<h3>⭐ Two questions this build exists to answer</h3>
+<p><b>1. Do convoy's three ARM sites ever fire?</b> <code>CONVOY:1743</code>, <code>:1766</code>,
+<code>:1870</code> are tagged "unexpected". Convoy has a fully wired route panel in Kotlin even though
+route creation is reportedly not launchable there. <b>If they never toast, those seven convoy sites
+are dead and removable WITH EVIDENCE</b> — not belief. ⚠ On 07-31 this code was almost removed on
+reasoning alone and Fred stopped it; the xref showed why that was right.</p>
+<p><b>2. Does <code>PLANNER:1472</code> fire without you choosing to draw?</b> Tagged "RECOVERY —
+suspect". It arms route mode from a recovery path. ⚠ <b>It may be CORRECT</b> if it only fires when an
+unnamed draft exists — §00a currently lists it for deletion on an assumption that has not been tested.
+The toast decides.</p>
+<p class="sub">⚠ Do not jump to conclusions from the labels. "Suspect" and "unexpected" are questions
+for the instrumentation, not verdicts.</p>
+</div>
+
+<h2>🔴 STEP 2 — FIX WHATEVER STEP 1 EXPOSES</h2>
+<div class="step">
+<p>Only what the toasts point at. The four OFF actions and two ARM actions in the spec are the
+contract; any path that produces no toast is a missing transition.</p>
+<p><b>Four actions turn route mode OFF:</b> map entry · save · discard · <b>select Artifact</b>
+(⭐ ends DRAW MODE but the route SESSION continues — it is not an exit, and it is the one most likely
+to be missed).</p>
+<p><b>Two arm it:</b> opening Route+ · selecting Draw.</p>
+<p>⚠ Also add <b>observability on the route button in the route panel</b> — with six transitions and
+no visible state, "did that discard actually turn it off?" is currently unanswerable.</p>
+</div>
+
+<h2>🔴 STEP 3 — UNNAMED-DRAFT RESOLVER</h2>
+<div class="step">
+<p><b>Two draft types, two meanings:</b></p>
+<table>
+<tr><th>Draft</th><th>Means</th><th>Response</th></tr>
+<tr><td><b>Named</b></td><td>user deliberately saved as in-progress</td><td>Soft reminder —
+"you have unfinished routes"</td></tr>
+<tr><td><b>Unnamed</b></td><td>never saved, no normal end of job — abnormal</td><td>⚠ Resolution
+prompt: <b>Save (name it)</b> or <b>Discard</b></td></tr>
+</table>
+<h3>⭐ THE KEY DESIGN DECISION — file operations only</h3>
+<p>Fred: <i>"we can even write a separate section of code for that instance that just renames or
+deletes the json without touching the route state."</i></p>
+<p><b>The resolver renames or deletes a FILE. It does not open Route+, arm route mode, load geometry
+or draw a build line.</b> That removes the whole reconciliation problem — entry sets route mode off,
+the prompt resolves the file, route mode stays off.</p>
+<p>⚠ <b>And it likely makes <code>:1472</code> deletable</b> — the recovery arming exists to RESUME a
+draft, and if resolution does not resume, nothing needs it. Confirm with the step-1 toast first.</p>
+<h3>The logic</h3>
+<pre>unnamed draft exists?
+  no        → return
+  &lt;2 points → delete silently, LOG IT, return
+  ≥2 points → prompt: Save (name it) / Discard
+              → rename or delete the file
+              → return</pre>
+<p>⭐ <b>The &lt;2-point silent discard matters:</b> a draft with one point or none carries nothing
+worth recovering, and prompting for it is noise. ⚠ <b>But log it</b> — it is the only trace that a
+crash occurred, and losing it hides how often that happens.</p>
+<h3>Called from TWO places</h3>
+<p><b>Planner entry</b> and <b>Route+ launch.</b> One resolver, two callers. ⭐ Route+ cannot start
+with the slot occupied because the resolver has already cleared it — <b>the unnamed slot is
+single-occupancy.</b></p>
+<p>⚠ Named drafts do NOT block Route+. They are parked, not in the way.</p>
+<p>⚠ "Save" here means <b>keep the file and give it a name</b> — not "resume and save properly". So
+it needs the route-name dialog, not a plain confirm. Label the button to match.</p>
+</div>
+
+<h2>🔴 STEP 4 — TAP BEHAVIOUR PER MODE, PER PANEL</h2>
+<div class="step">
+<p>This is where the 07-03 regression lives. <b>Do not start it before steps 1–3</b>, or a wrong tap
+is indistinguishable from a stale state.</p>
+<table>
+<tr><th>Mode</th><th>Tap does</th></tr>
+<tr><td>Draw</td><td>places a route point — nothing else consumes it</td></tr>
+<tr><td>Artifact</td><td><b>tracks → ARTIFACT DETAIL PANEL</b> (not a popup); trails → popup</td></tr>
+</table>
+<p>⭐ <b>The detail panel chain is already proven:</b> <code>ARTIFACTTAP</code> →
+<code>onTrackTap</code> → <code>pendingDetailType</code>/<code>pendingDetailId</code> → gate →
+<code>ArtifactDetailPanel</code>. <code>__detailPanelEnabled</code> is already <code>true</code> on
+both maps. Convoy was showing the panel correctly on 07-31.</p>
+<p>⚠ <b>The planner is untested since the <code>addPointMode</code> fix.</b> The popup seen afterwards
+was probably the proximity scan — which is step 5's problem. <b>Steps 4 and 5 are entangled:</b> a
+proximity popup racing the detail panel looks exactly like the panel not working.</p>
+<h3>⚠⚠ THE HARD REQUIREMENT — visible + snappable + non-interactive</h3>
+<p>During a route draw you must SEE trails, SNAP to them, and NOT TAP them. Three concerns the code
+currently collapses into one flag.</p>
+<p>⛔ <b>Hiding layers is not a workaround</b> — snap is fed from <code>queryTrailsByViewport</code>,
+and with trails hidden there is no snap and no guidance. Tracks were removed from snap on 07-30
+(<code>snapTrailsOnly</code> — a track is one geometry, so snapping pulled the whole thing).</p>
+<p>⚠ <b>And the SVG approach will not work.</b> <code>sub._path.style.pointerEvents</code> — the line
+commit <code>43ab77e16</code> deleted — is an SVG DOM property, and <b>both maps moved to L.canvas on
+07-31</b>. Canvas paths are not DOM elements. The canvas mechanism is:</p>
+<pre>lyr.eachLayer(function(sub) { sub.options.interactive = !on; });</pre>
+<p><b>⚠ VERIFY THIS FIRST — it is the one unknown between the spec and the patch.</b> Stateless,
+survives layer rebuilds, and replaces the stash/restore block entirely.</p>
+<p>⚠ <b>Trails have no <code>onTrailTap</code> bridge on either map</b> — they can only ever produce a
+popup. That is a gap, not a bug.</p>
+<p>⛔ <b>Route drawing is BLOCKED as of 07-31.</b> Before canvas the tap was SHARED (popup AND vertex
+— messy but usable); now the artifact consumes it and no vertex lands. ⚠ <b>Canvas did not break the
+suppression — it removed the accident that was masking it.</b> Reverting canvas is the wrong trade:
+it would restore a broken mechanism to a merely tolerable failure mode while giving back the trail
+hit-rate fix (3 hits in 40 taps at z18).</p>
+</div>
+
+<h2>🔴 STEP 5 — HIDDEN ARTIFACTS CONTRIBUTE NOTHING</h2>
+<div class="step">
+<p>Fred: <i>"hide keeps them from being placed on the map, not just invisible"</i> — a hidden type
+must not participate in taps, proximity, snap or selection. <b>Visibility IS the selection.</b></p>
+<h3>Observed defect</h3>
+<p><b>Trails OFF, tap a track on the planner, get a list of TRAIL names.</b></p>
+<p><b>Cause:</b> <code>hideTrails()</code> does <code>map.removeLayer(trailLayer)</code> and sets
+<code>trailsVisible = false</code> — it does <b>NOT null the variable</b>. The proximity scan at
+<code>grouptrack_map.html:831</code> calls <code>checkLayer(trailLayer, …)</code>, which skips only
+on <code>null</code>. A detached-but-populated layer is still fully walkable.</p>
+<p>⚠ It also explains "occasionally the detail panel instead" — the scan is a MAP-level click handler
+racing the layer's own handler.</p>
+<p>⚠ And behaviour depends on HOW you turned it off: <code>clearTrails()</code> nulls the variable,
+<code>hideTrails()</code> does not.</p>
+<h3>The fix</h3>
+<p>⛔ <b>Do NOT null on hide</b> — the retained variable is a CACHE. <code>loadTrails</code> rebuilds
+from a fresh GeoJSON payload, so nulling means a full query and rebuild per toggle. At 10,000 trails
+that is a visible cost.</p>
+<pre>function checkLayer(layer, visible, typeName, color) {
+  if (!layer || !visible) return;</pre>
+<p>Four call sites, both maps. Correct regardless of which path turned the type off.</p>
+<p>⚠ <b>There is also a DUPLICATE proximity scan</b> — a pure-JS copy at <code>:813</code> running
+alongside the restored Kotlin path, so two popups race per tap. Knowingly accepted on 07-30. A third,
+dead copy sits at <code>:74-123</code> inside a <code>src</code>-bearing script tag whose inline
+content the browser ignores.</p>
+</div>
+
+<h2>🔴 STEP 6 — SNAP VERIFICATION</h2>
+<div class="step">
+<p>Verify route points snap to <b>trails only</b>, and — under step 5's rule — <b>visible trails
+only</b>.</p>
+<p>⚠ <code>RouteManager.snap(lat, lon, trails, tracks, 30.0)</code> is fed from
+<code>queryTrailsByViewport</code> / <code>queryTracksByViewport</code> — <b>database queries, not
+layers</b>. Those know nothing about display state, so a vertex can probably snap to a HIDDEN trail.
+<b>Not verified</b> — <code>ConvoyScreen.kt:596</code> builds the <code>byId</code> map from both
+queries with no visibility filter that I saw, but I only read part of it.</p>
+</div>
+
+<h2>⚠ REFERENCE — the 13 route-mode write sites (xref 08-01 06:56)</h2>
+<div class="card">
+<table>
+<tr><th>Planner — ConvoyMapViewerScreen.kt</th><th>Convoy — ConvoyScreen.kt</th></tr>
+<tr><td>
+1180 ON — arm, no name prompt<br>
+1216 OFF — save completed<br>
+1257 ON — arm tap-to-place<br>
+1282 <b>TOGGLE — the DRAW/ARTIFACT button</b><br>
+1314 OFF — onExit<br>
+1472 ON — ⚠ recovery arm
+</td><td>
+1703 OFF — save completed<br>
+1743 ON — ⚠ arm (unexpected)<br>
+1766 ON — ⚠ onAddModeChanged (unexpected)<br>
+1779 OFF — onExit<br>
+1811 OFF — save as in progress<br>
+1838 OFF — delete in-progress<br>
+1870 ON — ⚠ resume arm (unexpected)
+</td></tr>
+</table>
+<p>⚠ <b>Line numbers shift with every patch.</b> These are from the 08-01 06:56 xref, before the
+observe patch was applied. <b>Re-derive with grep before using any of them.</b> Stale line numbers
+cost real time on 07-31.</p>
+</div>
+
+<h2>⚠ NAMING COLLISION — know this before reading the code</h2>
+<div class="card">
+<p><code>routeState</code> means TWO UNRELATED THINGS in <code>ConvoyMapViewerScreen.kt</code>:</p>
+<ul>
+<li><b>local var</b> (<code>:701</code>) = the ROUTES ARTIFACT display state (DS_OFF/ON/SELECTED)</li>
+<li><b><code>MapSnapshot.routeState</code></b> = the route SESSION record (open/status/draftName)</li>
+</ul>
+<p>Same name, same file, different concepts. This caused genuine confusion in discussion. Worth
+renaming during the cleanup pass.</p>
+<p>⚠ Similarly: <code>ConvoyScreen.kt</code> is <b>convoy</b>; <code>ConvoyMapViewerScreen.kt</code> is
+the <b>planner</b>. Both start with "Convoy" and neither says "planner".</p>
+</div>
+
+<h2>⭐ METHOD — what actually worked, and what did not</h2>
+<div class="card">
+<p><b>07-31 cost thirteen builds.</b> Seven hypotheses were eliminated on trails alone, four more on
+convoy taps. Every one was a plausible mechanism and every one was disproven on device.</p>
+<p>⭐ <b>What solved both real bugs was reasoning about BEHAVIOUR, not code</b> — "bands by
+longitude", "adding Arizona puts trails below the tracks", the tap test, and "planner has popups and
+convoy doesn't, which is backwards". Each was decisive; none came from reading source.</p>
+<p><b>Fred:</b> <i>"our errors were at 30,000 feet and we were dealing in the details."</i> ⭐
+<b>State the rule in English first, then check the code against it.</b> Not the reverse.</p>
+<p>⚠ <b>The structural cost driver is patchy instrumentation.</b> Tap handlers log, bridges mostly do
+not, state writes never do — so every hunt begins by spending a build to see anything. <b>Today's
+patch is that lesson applied.</b> Fred: <i>"the absence of the toast is the absence of a change
+request."</i></p>
+<p>⚠ <b>Blast radius:</b> <code>where_used_raw.txt</code> and <code>function_universe_raw.txt</code>
+index <b>.kt ONLY</b> — an empty result for a JS symbol means the tool did not look, not that nothing
+uses it. <code>field_crossref_raw.txt</code> is the strongest of the four ([R]/[W] markers, bridge
+caller analysis, code warnings). <b>For anything JS-side, grep the assets.</b></p>
+</div>
+
+<h2>Environment reminders</h2>
+<div class="card">
+<ul>
+<li>Application id <b><code>com.grouptrack.android</code></b>; Kotlin source path is still
+<code>com/geeksville/mesh/convoy/</code>. ⚠ Package name ≠ source path — this cost hours on 07-28.</li>
+<li>Droid 2 (dev) <code>24039703201775</code> · Droid 1 (field) <code>8624SBCEDF00001789</code></li>
+<li><code>MSYS_NO_PATHCONV=1</code> for all adb shell commands with device paths</li>
+<li>⚠ <code>adb pull</code> to a drive ROOT fails — pull to a subdirectory</li>
+<li>Build ≈ 10–40 min: <code>./gradlew assembleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease 2>&1 | grep -E "^e:|BUILD|FAILED"</code></li>
+<li>⚠ Do not chain apply and build with <code>&amp;&amp;</code> — the chain broke silently twice on
+07-31. Run them separately.</li>
+</ul>
+</div>
+
+</main></body></html>

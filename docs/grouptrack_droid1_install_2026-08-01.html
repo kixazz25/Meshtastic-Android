@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GroupTrack — Droid 1 Install Procedure</title>
+<style>
+  :root{
+    --bg:#0f1216; --panel:#161b22; --panel2:#1c2229; --line:#30363d;
+    --fg:#e6edf3; --muted:#8b949e; --accent:#58a6ff;
+    --red:#f85149; --amber:#d29922; --green:#3fb950; --purple:#bc8cff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;padding:28px 20px 80px;background:var(--bg);color:var(--fg);
+       font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  .wrap{max-width:1000px;margin:0 auto}
+  header{border-bottom:2px solid var(--accent);padding-bottom:14px;margin-bottom:24px}
+  h1{margin:0 0 6px;font-size:25px;letter-spacing:-.3px}
+  .sub{color:var(--muted);font-size:14px}
+  h2{font-size:18px;margin:32px 0 12px;padding-bottom:6px;border-bottom:1px solid var(--line);color:var(--accent)}
+  h3{font-size:15px;margin:20px 0 8px}
+  .card{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--line);
+        border-radius:6px;padding:13px 15px;margin:10px 0}
+  .card.red{border-left-color:var(--red)}
+  .card.amber{border-left-color:var(--amber)}
+  .card.green{border-left-color:var(--green)}
+  .card.blue{border-left-color:var(--accent)}
+  .card.purple{border-left-color:var(--purple)}
+  .card h4{margin:0 0 6px;font-size:14px;font-weight:600}
+  .card p{margin:6px 0}
+  .step{background:var(--panel);border:1px solid var(--line);border-radius:6px;
+        padding:14px 16px;margin:12px 0;position:relative;padding-left:52px}
+  .step .n{position:absolute;left:14px;top:13px;width:26px;height:26px;border-radius:50%;
+           background:var(--accent);color:#0d1117;font-weight:700;font-size:14px;
+           display:flex;align-items:center;justify-content:center}
+  .step h4{margin:0 0 7px;font-size:15px}
+  .step.stop{border-left:3px solid var(--red)}
+  .step.stop .n{background:var(--red);color:#fff}
+  code{background:var(--panel2);border:1px solid var(--line);border-radius:4px;
+       padding:1px 5px;font:13px/1.4 ui-monospace,SFMono-Regular,Consolas,monospace;color:#a5d6ff}
+  pre{background:var(--panel2);border:1px solid var(--line);border-radius:6px;
+      padding:11px 13px;overflow-x:auto;font:12.5px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace;color:#a5d6ff}
+  pre code{background:none;border:none;padding:0}
+  ul{margin:7px 0 7px 20px;padding:0} li{margin:4px 0}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:14px}
+  th,td{border:1px solid var(--line);padding:7px 10px;text-align:left;vertical-align:top}
+  th{background:var(--panel2);font-weight:600;color:var(--accent)}
+  .muted{color:var(--muted)}
+  .stopbox{background:#2b1113;border:2px solid var(--red);border-radius:8px;padding:16px 18px;margin:18px 0}
+  .stopbox h3{margin:0 0 8px;color:#ff9d96;font-size:17px}
+  .ok{color:var(--green);font-weight:600}
+  .no{color:var(--red);font-weight:600}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>GroupTrack — Droid 1 Install Procedure</h1>
+  <div class="sub">
+    Written 2026-08-01, after the same-day spatial-DB loss on Droid 2.<br>
+    <strong>Droid 1 = <code>8624SBCEDF00001789</code> — PRIMARY field device. Its data is the one to protect.</strong>
+  </div>
+</header>
+
+<div class="stopbox">
+  <h3>⛔ READ THIS BEFORE INSTALLING ANYTHING ON DROID 1</h3>
+  <p><strong>Today an <code>adb install -r -d</code> destroyed the entire spatial database on Droid 2</strong> — ~89 k trails, all tracks, waypoints and routes. The app did not warn; it reported <code>0 trails, 0 tracks, 0 waypoints, 0 routes</code> and carried on.</p>
+  <p><strong>The underlying defect is NOT yet fixed.</strong> <code>SpatialDbManager</code> still opens with create-if-missing, so any install that costs the app its all-files authority will overwrite Droid 1's databases exactly the same way.</p>
+  <p class="no">Recommendation: do not install to Droid 1 until the DB open-failure fix ships — unless you back up first (Step&nbsp;2 below) and accept the risk.</p>
+</div>
+
+<h2>Pre-flight — three questions that decide everything</h2>
+
+<div class="card red">
+  <h4>Q1 · Is Droid 1 running a SIDELOADED build or a PLAY build?</h4>
+  <p>Since the 07-26 package merge, <strong>both are <code>com.grouptrack.android</code> but they are signed with different keys</strong> — local APKs with <code>grouptrack-release-key.jks</code>, Play builds with Play App Signing.</p>
+  <p><strong>You cannot cross from one to the other without uninstalling</strong>, and uninstalling wipes tiles and app data. Expect <code>INSTALL_FAILED_UPDATE_INCOMPATIBLE</code>, or Play silently offering nothing.</p>
+  <pre><code>MSYS_NO_PATHCONV=1 adb -s 8624SBCEDF00001789 shell dumpsys package com.grouptrack.android | grep -E "versionCode|versionName|firstInstallTime|lastUpdateTime|installerPackageName"</code></pre>
+  <p><code>installerPackageName=com.android.vending</code> → <strong>Play build.</strong> Null or a shell installer → <strong>sideload.</strong></p>
+  <p class="no">⛔ Decide per device: sideload OR Play. Not both. If Droid 1 is on Play and you want to sideload, that is a stop-and-think moment, not a retry.</p>
+</div>
+
+<div class="card amber">
+  <h4>Q2 · Is the APK's version code HIGHER than what's installed?</h4>
+  <p><code>versionCode</code> is git-derived (<code>gitVersionProvider.get() + vcOffset</code>) and <strong>can regress</strong>. A regression is what turned today's install into a fresh install.</p>
+  <p>Note the <code>versionCode</code> from Q1. The build prints its own — line 213 of <code>build.gradle.kts</code> logs <em>"Version code is set to:"</em>. Let it through the filter:</p>
+  <pre><code>./gradlew assembleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease 2>&amp;1 | grep -E "Version code|^e:|BUILD|FAILED"</code></pre>
+  <p>If the new one is lower, <strong>do not install</strong>. Override for that build instead:</p>
+  <pre><code>-Pandroid.injected.version.code=NNNNNNNN    # pick a value above what's on the device</code></pre>
+</div>
+
+<div class="card amber">
+  <h4>Q3 · Is USB stable, or should this be wireless?</h4>
+  <p>Droid 1's USB is temperamental — moving the cable drops adb, and a drop mid-install is exactly when things go wrong.</p>
+  <p><strong>Prefer wireless:</strong> Settings → Developer options → Wireless debugging → pair → <code>adb connect ip:port</code>.</p>
+</div>
+
+<h2>Procedure</h2>
+
+<div class="step stop">
+  <div class="n">1</div>
+  <h4>Confirm the device and that only one is attached</h4>
+  <pre><code>adb devices -l</code></pre>
+  <p>Every command below is explicitly <code>-s 8624SBCEDF00001789</code>. <strong>Never run an install without <code>-s</code></strong> when two devices are connected — Droid 2 is the sacrificial device, Droid 1 is not.</p>
+</div>
+
+<div class="step stop">
+  <div class="n">2</div>
+  <h4>BACK UP — this is the step that would have saved today</h4>
+  <pre><code>cd /d/grouptrack_backups   # or wherever you keep them
+mkdir -p droid1_2026-08-01
+
+adb -s 8624SBCEDF00001789 exec-out run-as com.grouptrack.android true 2>/dev/null || true
+
+MSYS_NO_PATHCONV=1 adb -s 8624SBCEDF00001789 exec-out \
+  "cat /sdcard/Documents/GroupTrack/grouptrack_spatial.db" > droid1_2026-08-01/grouptrack_spatial.db
+
+MSYS_NO_PATHCONV=1 adb -s 8624SBCEDF00001789 exec-out \
+  "cat /sdcard/Documents/GroupTrack/grouptrack_data.db" > droid1_2026-08-01/grouptrack_data.db</code></pre>
+  <p><code>exec-out</code> with a shell redirect avoids the <code>MSYS_NO_PATHCONV</code> local/remote path conflict, and does not corrupt binaries the way <code>adb pull</code> can.</p>
+  <p><strong>Verify the sizes are real before continuing:</strong></p>
+  <pre><code>ls -la droid1_2026-08-01/</code></pre>
+  <p class="no">⚠ A spatial DB of <strong>118,784 bytes</strong> or a data DB of <strong>208,896 bytes</strong> is an EMPTY SCHEMA, not data. Those are the exact sizes the destroyed files came back as on Droid 2. If you see them, stop — the damage already happened.</p>
+  <p>Also worth having: <code>my_tracks/</code>, <code>state/</code>, <code>route_drafts/</code>.</p>
+  <pre><code>adb -s 8624SBCEDF00001789 pull /sdcard/Documents/GroupTrack/my_tracks   droid1_2026-08-01/
+adb -s 8624SBCEDF00001789 pull /sdcard/Documents/GroupTrack/state       droid1_2026-08-01/
+adb -s 8624SBCEDF00001789 pull /sdcard/Documents/GroupTrack/route_drafts droid1_2026-08-01/</code></pre>
+  <p class="muted">Tiles under <code>maps/</code> and OSM extracts under <code>osm/</code> are large and survived intact today — skip unless you have time.</p>
+</div>
+
+<div class="step">
+  <div class="n">3</div>
+  <h4>Record the "before" state</h4>
+  <pre><code>MSYS_NO_PATHCONV=1 adb -s 8624SBCEDF00001789 shell ls -la /sdcard/Documents/GroupTrack/</code></pre>
+  <p>Keep this output. It is your comparison point in Step 7 — file sizes and timestamps for both <code>.db</code> files.</p>
+</div>
+
+<div class="step">
+  <div class="n">4</div>
+  <h4>Verify the APK is newer than the sources it should contain</h4>
+  <pre><code>cd /c/Users/kixaz/Meshtastic-Android
+ls -la --time-style=+%m-%d_%H:%M:%S app/build/outputs/apk/google/release/app-google-release.apk</code></pre>
+  <p>The APK must be newer than every source file you expect in it. Twenty seconds versus a wasted test session against a stale binary.</p>
+</div>
+
+<div class="step stop">
+  <div class="n">5</div>
+  <h4>Install — plain <code>-r</code>, never <code>-d</code></h4>
+  <pre><code>adb -s 8624SBCEDF00001789 install -r app/build/outputs/apk/google/release/app-google-release.apk</code></pre>
+  <table>
+    <tr><th>Result</th><th>Meaning</th><th>Action</th></tr>
+    <tr><td class="ok">Success</td><td>Normal update, data intact</td><td>Continue to Step 6</td></tr>
+    <tr><td class="no">INSTALL_FAILED_VERSION_DOWNGRADE</td><td>Version code regressed. <strong>Nothing installed, nothing lost.</strong></td><td>Stop. Fix the version code (Q2). <strong>Do not add <code>-d</code>.</strong></td></tr>
+    <tr><td class="no">INSTALL_FAILED_UPDATE_INCOMPATIBLE</td><td>Signature mismatch — the device has a Play build</td><td>Stop. See Q1. Uninstalling wipes the data.</td></tr>
+    <tr><td class="no">First-install questions appear</td><td>⛔ Treated as a NEW install. This is what cost Droid 2's database.</td><td><strong>CANCEL. Do not proceed.</strong> Investigate before retrying.</td></tr>
+  </table>
+</div>
+
+<div class="step stop">
+  <div class="n">6</div>
+  <h4>Grant all-files access BEFORE first launch</h4>
+  <p><strong>Settings → Apps → GroupTrack → Permissions → Files and media → Allow management of all files</strong></p>
+  <p>Not grantable from adb on most builds. <strong>Do this before opening the app.</strong> If the app launches without it, the failed DB open creates empty databases over the real ones — that is the exact sequence from today.</p>
+  <p>While you're there, confirm <strong>Location → Allow all the time</strong> if you intend to record tracks.</p>
+</div>
+
+<div class="step stop">
+  <div class="n">7</div>
+  <h4>Ten-second check BEFORE trusting anything</h4>
+  <pre><code>MSYS_NO_PATHCONV=1 adb -s 8624SBCEDF00001789 shell ls -la /sdcard/Documents/GroupTrack/*.db</code></pre>
+  <p>Compare against Step 3.</p>
+  <ul>
+    <li><span class="ok">Sizes unchanged, tens of MB</span> → databases intact, proceed.</li>
+    <li><span class="no">Hundreds of KB, timestamp = now</span> → <strong>they have been replaced with empty schemas.</strong> Stop using the app immediately and restore from Step 2.</li>
+  </ul>
+  <p>Confirm from the app's own startup log:</p>
+  <pre><code>MSYS_NO_PATHCONV=1 adb -s 8624SBCEDF00001789 logcat -d -s SpatialDbMgr:I | tail -5</code></pre>
+  <p>Expect real counts. <code>Spatial DB: 0 trails, 0 tracks, 0 waypoints, 0 routes</code> means the open failed and the app is running on an empty schema.</p>
+</div>
+
+<div class="step">
+  <div class="n">8</div>
+  <h4>Cold-launch from the icon and confirm</h4>
+  <ul>
+    <li>Trails and tracks draw on the convoy map</li>
+    <li>Trails and tracks draw on the planner</li>
+    <li>Artifact lists populate</li>
+    <li>Map opens to the persisted frame, not a GPS fallback to somewhere unexpected</li>
+  </ul>
+</div>
+
+<h2>If the databases were replaced — restore</h2>
+
+<div class="card red">
+  <h4>Recovery from a Step 2 backup</h4>
+  <p>Force-stop the app first so nothing holds the files open:</p>
+  <pre><code>MSYS_NO_PATHCONV=1 adb -s 8624SBCEDF00001789 shell am force-stop com.grouptrack.android
+
+adb -s 8624SBCEDF00001789 push droid1_2026-08-01/grouptrack_spatial.db /sdcard/Documents/GroupTrack/
+adb -s 8624SBCEDF00001789 push droid1_2026-08-01/grouptrack_data.db    /sdcard/Documents/GroupTrack/
+
+MSYS_NO_PATHCONV=1 adb -s 8624SBCEDF00001789 shell rm -f /sdcard/Documents/GroupTrack/*.db-journal
+MSYS_NO_PATHCONV=1 adb -s 8624SBCEDF00001789 shell ls -la /sdcard/Documents/GroupTrack/*.db</code></pre>
+  <p>Then confirm all-files access is still granted (Step 6) before launching.</p>
+</div>
+
+<div class="card green">
+  <h4>No backup? Rebuild is not catastrophic</h4>
+  <p>Measured on Droid 2 today: <strong>complete data-model reconstruction in under one hour</strong> — OSM import, Utah state trails, tracks, waypoints. GPX files in <code>my_tracks/</code>, tiles in <code>maps/</code>, OSM extracts in <code>osm/</code> and the per-map JSONs all survive this failure mode. Only the two <code>.db</code> files are replaced.</p>
+</div>
+
+<h2>Standing rules for Droid 1</h2>
+
+<div class="card purple">
+  <ul>
+    <li><strong>Droid 1 is not a test device.</strong> Anything risky, destructive, or unproven runs on Droid 2 first. Droid 1 receives only verified-safe work and real-GPS field testing.</li>
+    <li><strong>Plain <code>-r</code>. Never <code>-d</code>.</strong></li>
+    <li><strong>First-install questions = cancel.</strong></li>
+    <li><strong>Back up the two <code>.db</code> files before any install</strong> until the open-failure fix ships.</li>
+    <li><strong>Sideload or Play, not both.</strong></li>
+    <li><strong>Prefer wireless adb</strong> — USB drops when the cable moves.</li>
+    <li><strong>Droid 1 holds BLE to T1000-E radios reliably</strong> (unlike the budget tablets), so it stays the radio-test device.</li>
+  </ul>
+</div>
+
+<div class="card blue">
+  <h4>Quick reference</h4>
+  <table>
+    <tr><th>Item</th><th>Value</th></tr>
+    <tr><td>Serial</td><td><code>8624SBCEDF00001789</code></td></tr>
+    <tr><td>Package</td><td><code>com.grouptrack.android</code></td></tr>
+    <tr><td>APK path</td><td><code>app/build/outputs/apk/google/release/app-google-release.apk</code></td></tr>
+    <tr><td>Data root</td><td><code>/sdcard/Documents/GroupTrack/</code></td></tr>
+    <tr><td>Install</td><td><code>adb -s 8624SBCEDF00001789 install -r &lt;apk&gt;</code></td></tr>
+    <tr><td>Empty-schema sizes</td><td>spatial <strong>118,784</strong> · data <strong>208,896</strong></td></tr>
+  </table>
+</div>
+
+</div>
+</body>
+</html>
