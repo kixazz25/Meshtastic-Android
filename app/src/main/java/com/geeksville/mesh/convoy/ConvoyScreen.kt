@@ -255,9 +255,6 @@ fun ConvoyScreen(
             // this is the repeating event that exists. WRITE-ONLY: never read back.
             // NOTE: no JS reset here -- webViewRef is declared below this fun and cannot
             // be forward-referenced. The planner's entry reset covers the trip back.
-            android.widget.Toast.makeText(context,
-                "ROUTE MODE OFF  <-  CONVOY saveConvoyState", android.widget.Toast.LENGTH_LONG).show()
-            android.util.Log.i("RouteModeTrace", "CONVOY:saveConvoyState OFF <- panel write")
             // [Fix1] Mirror planning: SELECTED rows from persistent per-type checked-id set
             // (NOT activeListType-gated artifactList) -> no clobber of non-active types.
             fun rowsFor(type: String): List<MapStateStore.Row> {
@@ -698,19 +695,7 @@ fun ConvoyScreen(
                         setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null)
                         webViewClient = object : android.webkit.WebViewClient() {
                             override fun onPageFinished(view: android.webkit.WebView?, url: String?) {
-                                // ROUTEMODE-OBSERVE-2026-08-01: ⭐ ROUTE MODE OFF, UNCONDITIONALLY.
-                                //
-                                // Fred: "not an issue for convoy, we can reseed when placed in
-                                // webview. it is always off and webview is used for every page
-                                // presentation. simpler."
-                                //
-                                // ⚠ Convoy has NO lastMapProcessed gate -- it only SETS the
-                                // value at :876 and never TESTS it, so unlike the planner it
-                                // never reseeds on entry at all. Unconditional here means there
-                                // is no condition to get wrong, and route mode is a PLANNER
-                                // concept convoy should never carry.
                                 view?.evaluateJavascript("setRouteMode(false)", null)
-                                android.util.Log.i("RouteModeTrace", "CONVOY:entry OFF <- page setup")
                                 // Auto-sense connectivity: use local tiles if no internet
                                 val ctx = view?.context ?: return
                                 val cm = ctx?.getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager
@@ -1730,10 +1715,6 @@ fun ConvoyScreen(
                         }
                         if (res) {
                             RouteManager.clearRoute()
-                            // ROUTEMODE-OBSERVE-2026-08-01
-                            android.widget.Toast.makeText(context,
-                                "ROUTE MODE OFF  <-  SAVE completed", android.widget.Toast.LENGTH_LONG).show()
-                            android.util.Log.i("RouteModeTrace", "CONVOY:1703 OFF <- SAVE completed")
                             webViewRef.value?.evaluateJavascript("setRouteMode(false); clearBuildLine();", null)
                             routeMode = false
                             webViewRef.value?.evaluateJavascript("try{var b=map.getBounds();Android.onViewportChanged(b.getNorth(),b.getSouth(),b.getEast(),b.getWest(),map.getZoom())}catch(e){}", null)
@@ -1774,12 +1755,6 @@ fun ConvoyScreen(
                                     routeLifecycleState = ROUTE_LS_NEW
                                     showRouteNameDialog = false
                                     routeMode = true
-                                    // ROUTEMODE-OBSERVE-2026-08-01: ⚠ CONVOY ARMING ROUTE MODE.
-                                    // If this ever toasts, convoy route creation IS
-                                    // reachable and these sites are NOT dead.
-                                    android.widget.Toast.makeText(context,
-                                        "ROUTE MODE ON  <-  CONVOY:1743 arm - unexpected", android.widget.Toast.LENGTH_LONG).show()
-                                    android.util.Log.w("RouteModeTrace", "CONVOY:1743 ON <- arm tap-to-place")
                                     webViewRef.value?.evaluateJavascript("setRouteMode(true)", null)  // arm tap-to-place
                                 }
                             }) { androidx.compose.material3.Text("Start") }
@@ -1803,11 +1778,7 @@ fun ConvoyScreen(
                             routeNameTaken = false
                             showRouteNameDialog = true
                         },
-                        // ROUTEMODE-OBSERVE-2026-08-01: ⚠ CONVOY DRAW BUTTON.
                         onAddModeChanged = { _ ->
-                            android.widget.Toast.makeText(context,
-                                "ROUTE MODE ON  <-  CONVOY:1766 onAddModeChanged - unexpected", android.widget.Toast.LENGTH_LONG).show()
-                            android.util.Log.w("RouteModeTrace", "CONVOY:1766 ON <- onAddModeChanged")
                             webViewRef.value?.evaluateJavascript("setRouteMode(true)", null)
                         },
                         onUndo = {
@@ -1822,10 +1793,6 @@ fun ConvoyScreen(
                         onSelectInProgress = { showInProgressPicker = true },
                         onExit = {
                             RouteManager.clearRoute()
-                            // ROUTEMODE-OBSERVE-2026-08-01
-                            android.widget.Toast.makeText(context,
-                                "ROUTE MODE OFF  <-  onExit", android.widget.Toast.LENGTH_LONG).show()
-                            android.util.Log.i("RouteModeTrace", "CONVOY:1779 OFF <- onExit")
                             webViewRef.value?.evaluateJavascript("setRouteMode(false); clearBuildLine();", null)
                             routeMode = false
                         }
@@ -1858,10 +1825,6 @@ fun ConvoyScreen(
                                 else RouteDraftStore.writeDraft(routeName, methodStr)
                                 draftListTick++
                                 RouteManager.clearRoute()
-                                // ROUTEMODE-OBSERVE-2026-08-01
-                                android.widget.Toast.makeText(context,
-                                    "ROUTE MODE OFF  <-  SAVE AS IN PROGRESS", android.widget.Toast.LENGTH_LONG).show()
-                                android.util.Log.i("RouteModeTrace", "CONVOY:1811 OFF <- SAVE AS IN PROGRESS")
                                 webViewRef.value?.evaluateJavascript("setRouteMode(false); clearBuildLine();", null)
                                 routeMode = false
                             }) { androidx.compose.material3.Text("Save as in progress") }
@@ -1889,10 +1852,6 @@ fun ConvoyScreen(
                                 RouteDraftStore.deleteDraft(routeName)
                                 draftListTick++
                                 RouteManager.clearRoute()
-                                // ROUTEMODE-OBSERVE-2026-08-01
-                                android.widget.Toast.makeText(context,
-                                    "ROUTE MODE OFF  <-  DELETE IN-PROGRESS", android.widget.Toast.LENGTH_LONG).show()
-                                android.util.Log.i("RouteModeTrace", "CONVOY:1838 OFF <- DELETE IN-PROGRESS")
                                 webViewRef.value?.evaluateJavascript("setRouteMode(false); clearBuildLine();", null)
                                 routeMode = false
                             }) { androidx.compose.material3.Text("Delete in-progress") }
@@ -1925,10 +1884,6 @@ fun ConvoyScreen(
                                             showInProgressPicker = false
                                             routeMode = true
                                             val rsPts = RouteManager.routeVertices().joinToString(",", "[", "]") { "[${it.lat},${it.lon}]" }
-                                            // ROUTEMODE-OBSERVE-2026-08-01: ⚠ CONVOY RESUME ARM.
-                                            android.widget.Toast.makeText(context,
-                                                "ROUTE MODE ON  <-  CONVOY:1870 resume - unexpected", android.widget.Toast.LENGTH_LONG).show()
-                                            android.util.Log.w("RouteModeTrace", "CONVOY:1870 ON <- resume")
                                             webViewRef.value?.evaluateJavascript("setRouteMode(true); drawBuildLine('" + rsPts + "')", null)
                                         }) { androidx.compose.material3.Text(d) }
                                         androidx.compose.material3.TextButton(onClick = {

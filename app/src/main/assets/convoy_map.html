@@ -44,7 +44,7 @@
       var isZ17 = label === "TOPO+" ||
                   url.indexOf("opentopomap") !== -1 || url.indexOf("USGSImageryTopo") !== -1;
       currentMaxNative = isZ17 ? 17 : 18;
-      tileLayer = L.tileLayer(url, {maxZoom:19, maxNativeZoom:currentMaxNative, crossOrigin:false, tileSize:256});
+      tileLayer = L.tileLayer(url, {maxZoom:19, maxNativeZoom:currentMaxNative, crossOrigin:false, tileSize:256, subdomains: (url.indexOf('google.com') !== -1 ? '0123' : 'abc')});  // SUBDOMAINS-2026-08-02
       tileLayer.on("tileerror", function(e) { console.log("TILE ERROR: " + e.tile.src); });
       tileLayer.addTo(map);
       if (map.getZoom() > currentMaxNative) { map.setZoom(currentMaxNative); }

@@ -53,6 +53,7 @@ object ConvoyTileDownloader {  // [V2.6b-CONCBACKOFF]
     // ── Build the full URL for a single tile ─────────────────
     fun buildTileUrl(tile: TileKey, sourceUrl: String): String {
         return sourceUrl
+            .replace("{s}", (((tile.x + tile.y) % 4 + 4) % 4).toString())  // SUBDOMAIN-2026-08-02
             .replace("{z}", tile.z.toString())
             .replace("{x}", tile.x.toString())
             .replace("{y}", tile.y.toString())
