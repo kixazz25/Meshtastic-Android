@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GroupTrack — Session Handoff — 2026-08-02</title>
+<style>
+  :root{--bg:#0f1216;--panel:#161b22;--panel2:#1c2229;--line:#30363d;--fg:#e6edf3;
+        --muted:#8b949e;--accent:#58a6ff;--red:#f85149;--amber:#d29922;--green:#3fb950;--purple:#bc8cff;}
+  *{box-sizing:border-box}
+  body{margin:0;padding:28px 20px 80px;background:var(--bg);color:var(--fg);
+       font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  .wrap{max-width:1080px;margin:0 auto}
+  header{border-bottom:2px solid var(--accent);padding-bottom:14px;margin-bottom:26px}
+  h1{margin:0 0 6px;font-size:26px;letter-spacing:-.3px}
+  .sub{color:var(--muted);font-size:14px}
+  h2{font-size:19px;margin:34px 0 12px;padding-bottom:6px;border-bottom:1px solid var(--line);color:var(--accent)}
+  h3{font-size:15px;margin:20px 0 8px}
+  .card{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--line);
+        border-radius:6px;padding:13px 15px;margin:10px 0}
+  .card.red{border-left-color:var(--red)} .card.amber{border-left-color:var(--amber)}
+  .card.green{border-left-color:var(--green)} .card.blue{border-left-color:var(--accent)}
+  .card.purple{border-left-color:var(--purple)}
+  .card h4{margin:0 0 6px;font-size:14px;font-weight:600}
+  .card p{margin:6px 0}
+  .tag{display:inline-block;font-size:11px;font-weight:600;letter-spacing:.4px;
+       padding:2px 8px;border-radius:11px;margin-right:6px;vertical-align:middle}
+  .t-done{background:#0f2f1a;color:#56d364;border:1px solid #1f6b34}
+  .t-open{background:#3a2d0c;color:#e3b341;border:1px solid #6b5312}
+  .t-block{background:#3d1418;color:#ff9d96;border:1px solid #6e2229}
+  .t-new{background:#1c2b3d;color:#79c0ff;border:1px solid #2c4f7c}
+  code{background:var(--panel2);border:1px solid var(--line);border-radius:4px;
+       padding:1px 5px;font:13px/1.4 ui-monospace,SFMono-Regular,Consolas,monospace;color:#a5d6ff}
+  pre{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:11px 13px;
+      overflow-x:auto;font:12.5px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace;color:#a5d6ff}
+  pre code{background:none;border:none;padding:0}
+  ul,ol{margin:7px 0 7px 20px;padding:0} li{margin:4px 0}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:14px}
+  th,td{border:1px solid var(--line);padding:7px 10px;text-align:left;vertical-align:top}
+  th{background:var(--panel2);font-weight:600;color:var(--accent)}
+  .muted{color:var(--muted)}
+  .lesson{background:#1a1410;border:1px solid #6b5312;border-radius:6px;padding:13px 15px;margin:12px 0}
+  .lesson h4{margin:0 0 6px;color:var(--amber);font-size:14px}
+  .step{background:var(--panel2);border-left:2px solid var(--accent);padding:8px 12px;margin:8px 0;border-radius:0 4px 4px 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+
+<header>
+  <h1>GroupTrack — Reinstall Procedure</h1>
+  <div class="sub">
+    Protecting map and trail data across an uninstall / reinstall &middot; 2026-08-03<br>
+    <strong>Manual procedure. Automation is a separate discussion.</strong>
+  </div>
+</header>
+
+<h2>Why this procedure exists</h2>
+
+<div class="card red">
+  <h4>The failure it prevents</h4>
+  <p>On 2026-08-01 a reinstall destroyed the spatial database — roughly <strong>89,000 trails</strong>. The mechanism:</p>
+  <ol>
+    <li>The app was reinstalled over existing data in <code>Documents/GroupTrack/</code>.</li>
+    <li><strong>Android showed All-Files access as GRANTED</strong> — the grant record survives an uninstall because the
+      package name is unchanged. The new install did <strong>not</strong> actually hold that authority; the OS denied at
+      the filesystem layer while the permission screen reported it on.</li>
+    <li>The app therefore could not read the existing databases, and its <strong>create-if-missing</strong> open wrote
+      empty schemas <em>over</em> them.</li>
+    <li>It then reported <code>0 trails, 0 tracks, 0 waypoints, 0 routes</code> as though that were normal.</li>
+  </ol>
+</div>
+
+<div class="card amber">
+  <h4>Why it cannot simply be checked for</h4>
+  <p><code>Environment.isExternalStorageManager()</code> returns <strong>true</strong> in this state and is
+  <strong>wrong</strong>. The permission API reads the stale grant record; the filesystem enforces the truth. There is no
+  API question that returns the right answer.</p>
+  <p>And the ordering cannot be fixed by blocking startup: <strong>the app must run before it can be granted
+  authority</strong>, so refusing to start until it can read would deadlock a reinstalled device permanently.</p>
+  <p><strong>Hence a procedure: put the data out of reach until the app has been granted authority properly.</strong></p>
+</div>
+
+<h2>What is at risk</h2>
+
+<table>
+  <tr><th>Location</th><th>Contents</th><th>Survives uninstall?</th></tr>
+  <tr><td><code>Documents/GroupTrack/</code></td>
+      <td>Spatial DB, map stores (<code>.mbtiles</code>), OSM working files, route drafts, API keys, column file</td>
+      <td><strong>Yes</strong> — public shared storage</td></tr>
+  <tr><td><code>My Tracks/</code></td><td>Recorded and imported track files</td><td><strong>Yes</strong></td></tr>
+  <tr><td>App-private storage</td><td>App settings, internal state</td><td>No — removed by uninstall</td></tr>
+</table>
+
+<div class="card">
+  <p>The data surviving is <em>why</em> the failure is possible. It is still there after an uninstall; the app just
+  cannot see it, and then overwrites it. <strong>There is no backup — the map databases are 50–60 GB.</strong></p>
+</div>
+
+<h2>⭐ THE PROCEDURE</h2>
+
+<div class="card red">
+  <h4>⛔ Do this BEFORE the install, not after</h4>
+  <p>Once the app has run and written blank databases over the real ones, renaming is too late. <strong>The rename must
+  happen while the app is uninstalled or before the new install is launched for the first time.</strong></p>
+</div>
+
+<div class="step"><strong>STEP 1 — Rename both data directories.</strong> Using X-plore or any file manager:
+<pre><code>Documents/GroupTrack   →   Documents/GroupTrack.bak
+My Tracks              →   My Tracks.bak</code></pre>
+Renaming is instant regardless of size — it does not copy 50–60 GB. Do not move them to another volume.</div>
+
+<div class="step"><strong>STEP 2 — Confirm the originals are gone.</strong> There must be <strong>no</strong>
+<code>Documents/GroupTrack</code> and <strong>no</strong> <code>My Tracks</code> remaining. If either still exists, the
+app will find it and the procedure has not worked.</div>
+
+<div class="step"><strong>STEP 3 — Install the app.</strong>
+<pre><code>adb -s [serial] install -r [apk]</code></pre>
+Plain <code>-r</code>, never <code>-d</code>. If it prompts first-install questions on an already-installed app,
+<strong>cancel</strong> — that is a version-code regression, a separate problem.</div>
+
+<div class="step"><strong>STEP 4 — Launch the app and let it complete first run.</strong> It will create fresh, empty
+<code>GroupTrack</code> and <code>My Tracks</code> directories. <strong>This is expected and is the point of the
+procedure</strong> — it is creating blanks in a place where there is nothing to destroy.</div>
+
+<div class="step"><strong>STEP 5 — Grant All-Files access, properly.</strong> Settings → Apps → GroupTrack →
+Permissions → Files and media → <strong>Allow management of all files</strong>.
+<p>⚠ <strong>If it already shows as granted, toggle it OFF and back ON.</strong> A stale grant record from the previous
+install is exactly the condition that caused the data loss. Toggling forces a real re-grant.</p></div>
+
+<div class="step"><strong>STEP 6 — Verify the app actually has authority.</strong> Do not trust the Settings screen.
+Confirm the app can genuinely read and write: open a map, record a short track, or check that it lists what it created in
+step 4. <strong>A behavioural check is the only proof.</strong></div>
+
+<div class="step"><strong>STEP 7 — Close the app completely.</strong> Force-stop it. It must not be running while the
+directories are swapped.</div>
+
+<div class="step"><strong>STEP 8 — Delete the blank directories the app created.</strong>
+<pre><code>Documents/GroupTrack     ← delete (the empty one from step 4)
+My Tracks                ← delete (the empty one from step 4)</code></pre>
+⚠ <strong>Check they are empty first.</strong> If either contains anything you created between steps 4 and 7, move it
+aside before deleting.</div>
+
+<div class="step"><strong>STEP 9 — Rename the backups back.</strong>
+<pre><code>Documents/GroupTrack.bak   →   Documents/GroupTrack
+My Tracks.bak              →   My Tracks</code></pre></div>
+
+<div class="step"><strong>STEP 10 — Launch and verify the data is back.</strong> Check the trail count, the tracks list,
+and that maps draw from the stores. <strong>A count of zero means stop and investigate — do not download, do not
+import, do not let the app write anything</strong> until it is understood.</div>
+
+<h2>Verification commands</h2>
+
+<div class="card">
+  <p><strong>Before starting</strong> — record the current sizes so you can compare afterwards:</p>
+  <pre><code>MSYS_NO_PATHCONV=1 adb -s [serial] shell ls -la /sdcard/Documents/GroupTrack/*.db
+MSYS_NO_PATHCONV=1 adb -s [serial] shell ls -la /sdcard/Documents/GroupTrack/maps/</code></pre>
+  <p><strong>After step 9</strong> — the same command must show the same sizes. A spatial DB in the
+  <strong>hundreds of KB</strong> rather than <strong>tens of MB</strong> means it has been replaced with an empty
+  schema.</p>
+</div>
+
+<h2>If the procedure was missed</h2>
+
+<div class="card amber">
+  <h4>Symptom: the app reports 0 trails / 0 tracks after a reinstall</h4>
+  <p><strong>Stop immediately.</strong> Do not download, import, or record anything — every write makes recovery harder.</p>
+  <p>Check whether the databases were actually overwritten or are merely unreadable:</p>
+  <pre><code>MSYS_NO_PATHCONV=1 adb -s [serial] shell ls -la /sdcard/Documents/GroupTrack/*.db</code></pre>
+  <ul>
+    <li><strong>Tens of MB</strong> — the data is intact and this is an authority problem. Grant All-Files (toggle off
+      and on), restart, re-check.</li>
+    <li><strong>Hundreds of KB</strong> — an empty schema has been written over it. The map stores
+      (<code>.mbtiles</code>) are usually still intact since they are opened differently; the spatial DB is not
+      recoverable without a rebuild.</li>
+  </ul>
+  <p class="muted">⭐ A complete data-model rebuild — OSM import, trails, tracks, waypoints — was measured at
+  <strong>under one hour</strong> on 08-01. Painful, not fatal.</p>
+</div>
+
+<h2>Related, and still owed in code</h2>
+
+<div class="card">
+  <p>This procedure protects whoever remembers to run it. Two code changes protect everyone else, and neither blocks
+  anything:</p>
+  <ul>
+    <li><strong>REFUSE-TO-CREATE.</strong> <code>SpatialDbManager</code> must never create-if-missing on a path it cannot
+      verify. A failed open must abort, not write an empty schema. <strong>This alone would have prevented 08-01</strong>
+      and costs nothing at runtime.</li>
+    <li><strong>ROW-COUNT SANITY + <code>.lastgood</code> copy.</strong> After each successful startup, copy the DB. A
+      startup reporting zero rows where the previous run reported 89,000 is a red flag the app should raise, not report
+      as normal.</li>
+  </ul>
+  <p class="muted">⚠ Also outstanding: <code>SpatialDbMgr</code> logs the literal <code>${spatialFile.absolutePath}</code>
+  — string interpolation is broken, so the DB path never appears in the log. That is the diagnostic that would have made
+  the 08-01 loss obvious immediately.</p>
+</div>
+
+<div class="lesson">
+  <h4>Why the rename works when checking does not</h4>
+  <p>Every detection approach fails because the app creates blanks <em>before</em> authority arrives, and the permission
+  API reports the wrong answer at exactly that moment. The rename does not detect anything — it <strong>removes the data
+  from the path the app will write to</strong> until authority is real. Nothing to detect, nothing to destroy.</p>
+</div>
+
+</div>
+</body>
+</html>

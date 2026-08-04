@@ -3826,51 +3826,82 @@ MapSourceManager.kt:58:    private fun externalDir(): File {
 MapSourceManager.kt:59:        val dir = File(android.os.Environment.getExternalStoragePublicDirectory(
 MapSourceManager.kt:66:    private fun externalJsonFile(): File = File(externalDir(), "map_sources.json")
 MapSourceManager.kt:67:    private fun apiKeysFile(): File = File(externalDir(), "api_keys.json")
-MapSourceManager.kt:69:    private var apiKeys: MutableMap<String, String> = mutableMapOf()
-MapSourceManager.kt:71:    fun init(context: Context) {
-MapSourceManager.kt:76:            val json = context.assets.open("map_sources.json")
-MapSourceManager.kt:79:            val root = JSONObject(json)
-MapSourceManager.kt:80:            val sourcesArray = root.getJSONArray("sources")
-MapSourceManager.kt:81:            val parsed = mutableListOf<TileSource>()
-MapSourceManager.kt:83:                val s = sourcesArray.getJSONObject(i)
-MapSourceManager.kt:84:                val layersArray = s.getJSONArray("layers")
-MapSourceManager.kt:85:                val layers = mutableListOf<TileLayer>()
-MapSourceManager.kt:87:                    val l = layersArray.getJSONObject(j)
-MapSourceManager.kt:108:            val slotsArray = root.getJSONArray("default_slots")
-MapSourceManager.kt:109:            val slots = mutableListOf<SlotConfig>()
-MapSourceManager.kt:111:                val sl = slotsArray.getJSONObject(i)
-MapSourceManager.kt:128:    private fun loadFallback() {
-MapSourceManager.kt:151:    fun getSlotSources(): List<Triple<String, String, String>> {
-MapSourceManager.kt:161:    fun getDownloadSources(): List<Pair<String, List<TileLayer>>> {
-MapSourceManager.kt:170:    fun getSourceByKey(legacyKey: String): TileSource? {
-MapSourceManager.kt:172:        val slot = defaultSlots.find { it.legacyKey == legacyKey }
-MapSourceManager.kt:176:    fun getOnlineUrl(legacyKey: String): String =
-MapSourceManager.kt:179:    fun getLocalUrl(legacyKey: String): String =
-MapSourceManager.kt:182:    fun getOverlayLayers(legacyKey: String): List<TileLayer> =
-MapSourceManager.kt:185:    fun getAllOverlayLayers(): List<TileLayer> {
-MapSourceManager.kt:192:    fun setActive(legacyKey: String) {
-MapSourceManager.kt:196:    fun getActiveOnlineUrl(): String = getOnlineUrl(activeSourceKey)
-MapSourceManager.kt:197:    fun getActiveLocalUrl(): String = getLocalUrl(activeSourceKey)
-MapSourceManager.kt:200:    fun getOverlayJson(legacyKey: String): String {
-MapSourceManager.kt:201:        val layers = getOverlayLayers(legacyKey)
-MapSourceManager.kt:203:        val sb = StringBuilder("[")
-MapSourceManager.kt:213:    fun updateSlotSource(legacyKey: String, newSourceId: String) {
-MapSourceManager.kt:215:        val slotIndex = defaultSlots.indexOfFirst { it.legacyKey == legacyKey }
-MapSourceManager.kt:217:        val oldSlot = defaultSlots[slotIndex]
-MapSourceManager.kt:226:    private fun saveExternalJson() {
-MapSourceManager.kt:231:    private fun loadApiKeys() {
-MapSourceManager.kt:233:            val file = apiKeysFile()
-MapSourceManager.kt:235:            val json = JSONObject(file.readText(Charsets.UTF_8))
-MapSourceManager.kt:243:    fun saveApiKey(sourceId: String, key: String) {
-MapSourceManager.kt:246:            val json = JSONObject()
-MapSourceManager.kt:256:    fun getApiKey(sourceId: String): String = apiKeys[sourceId] ?: ""
-MapSourceManager.kt:259:    fun isSourceAvailable(sourceId: String): Boolean {
-MapSourceManager.kt:260:        val source = sources.find { it.id == sourceId } ?: return false
-MapSourceManager.kt:265:    fun getAllSources(): List<TileSource> {
-MapSourceManager.kt:271:    fun getSlotAssignments(): List<SlotConfig> {
-MapSourceManager.kt:277:    fun resolveUrl(urlTemplate: String, sourceId: String): String {
-MapSourceManager.kt:278:        val key = apiKeys[sourceId] ?: ""
-MapSourceManager.kt:282:    private fun ensureInit() {
+MapSourceManager.kt:75:    private fun columnFile(): File = File(externalDir(), "map_slots.json")
+MapSourceManager.kt:77:    private var columnFileVersion: Long = -1L
+MapSourceManager.kt:78:    private var usedFallback: Boolean = false
+MapSourceManager.kt:79:    private var columnsTerminated: MutableSet<String> = mutableSetOf()
+MapSourceManager.kt:82:    private fun currentVersionCode(context: Context): Long = try {
+MapSourceManager.kt:83:        val pi = context.packageManager.getPackageInfo(context.packageName, 0)
+MapSourceManager.kt:100:    private fun syncColumnFile(context: Context) {
+MapSourceManager.kt:109:        val vc = currentVersionCode(context)
+MapSourceManager.kt:110:        val file = columnFile()
+MapSourceManager.kt:113:            val existing = try {
+MapSourceManager.kt:136:    private fun readTerminated(root: JSONObject) {
+MapSourceManager.kt:138:        val arr = root.optJSONArray("columns") ?: return
+MapSourceManager.kt:140:            val c = arr.getJSONObject(i)
+MapSourceManager.kt:159:    private fun writeColumnFile(vc: Long, existing: JSONObject?) {
+MapSourceManager.kt:161:            val priorById = mutableMapOf<String, String>()
+MapSourceManager.kt:162:            val priorActive = existing?.optString("active", "") ?: ""
+MapSourceManager.kt:165:                    val c = arr.getJSONObject(i)
+MapSourceManager.kt:166:                    val k = c.optString("legacy_key", "")
+MapSourceManager.kt:167:                    val sid = c.optString("source_id", "")
+MapSourceManager.kt:173:            val cols = org.json.JSONArray()
+MapSourceManager.kt:176:                val sourceId = priorById[slot.legacyKey] ?: slot.sourceId
+MapSourceManager.kt:177:                val src = sources.find { it.id == sourceId }
+MapSourceManager.kt:178:                val terminated = (src == null)
+MapSourceManager.kt:180:                val o = JSONObject()
+MapSourceManager.kt:191:            val root = JSONObject()
+MapSourceManager.kt:198:            val dest = columnFile()
+MapSourceManager.kt:199:            val tmp = File(dest.parentFile, dest.name + ".tmp")
+MapSourceManager.kt:215:    fun terminatedColumns(): Set<String> = columnsTerminated.toSet()
+MapSourceManager.kt:217:    private var apiKeys: MutableMap<String, String> = mutableMapOf()
+MapSourceManager.kt:219:    fun init(context: Context) {
+MapSourceManager.kt:224:            val json = context.assets.open("map_sources.json")
+MapSourceManager.kt:227:            val root = JSONObject(json)
+MapSourceManager.kt:228:            val sourcesArray = root.getJSONArray("sources")
+MapSourceManager.kt:229:            val parsed = mutableListOf<TileSource>()
+MapSourceManager.kt:231:                val s = sourcesArray.getJSONObject(i)
+MapSourceManager.kt:232:                val layersArray = s.getJSONArray("layers")
+MapSourceManager.kt:233:                val layers = mutableListOf<TileLayer>()
+MapSourceManager.kt:235:                    val l = layersArray.getJSONObject(j)
+MapSourceManager.kt:256:            val slotsArray = root.getJSONArray("default_slots")
+MapSourceManager.kt:257:            val slots = mutableListOf<SlotConfig>()
+MapSourceManager.kt:259:                val sl = slotsArray.getJSONObject(i)
+MapSourceManager.kt:279:    private fun loadFallback() {
+MapSourceManager.kt:308:    fun getSlotSources(): List<Triple<String, String, String>> {
+MapSourceManager.kt:318:    fun getDownloadSources(): List<Pair<String, List<TileLayer>>> {
+MapSourceManager.kt:327:    fun getSourceByKey(legacyKey: String): TileSource? {
+MapSourceManager.kt:329:        val slot = defaultSlots.find { it.legacyKey == legacyKey }
+MapSourceManager.kt:333:    fun getOnlineUrl(legacyKey: String): String =
+MapSourceManager.kt:336:    fun getLocalUrl(legacyKey: String): String =
+MapSourceManager.kt:339:    fun getOverlayLayers(legacyKey: String): List<TileLayer> =
+MapSourceManager.kt:342:    fun getAllOverlayLayers(): List<TileLayer> {
+MapSourceManager.kt:349:    fun setActive(legacyKey: String) {
+MapSourceManager.kt:356:    fun getActiveOnlineUrl(): String = getOnlineUrl(activeSourceKey)
+MapSourceManager.kt:357:    fun getActiveLocalUrl(): String = getLocalUrl(activeSourceKey)
+MapSourceManager.kt:360:    fun getOverlayJson(legacyKey: String): String {
+MapSourceManager.kt:361:        val layers = getOverlayLayers(legacyKey)
+MapSourceManager.kt:363:        val sb = StringBuilder("[")
+MapSourceManager.kt:373:    fun updateSlotSource(legacyKey: String, newSourceId: String) {
+MapSourceManager.kt:375:        val slotIndex = defaultSlots.indexOfFirst { it.legacyKey == legacyKey }
+MapSourceManager.kt:377:        val oldSlot = defaultSlots[slotIndex]
+MapSourceManager.kt:386:    private fun saveExternalJson() {
+MapSourceManager.kt:394:        val ctx = appContext
+MapSourceManager.kt:412:    private fun readColumnFileOrNull(): JSONObject? {
+MapSourceManager.kt:414:            val f = columnFile()
+MapSourceManager.kt:423:    private fun loadApiKeys() {
+MapSourceManager.kt:425:            val file = apiKeysFile()
+MapSourceManager.kt:427:            val json = JSONObject(file.readText(Charsets.UTF_8))
+MapSourceManager.kt:435:    fun saveApiKey(sourceId: String, key: String) {
+MapSourceManager.kt:438:            val json = JSONObject()
+MapSourceManager.kt:448:    fun getApiKey(sourceId: String): String = apiKeys[sourceId] ?: ""
+MapSourceManager.kt:451:    fun isSourceAvailable(sourceId: String): Boolean {
+MapSourceManager.kt:452:        val source = sources.find { it.id == sourceId } ?: return false
+MapSourceManager.kt:457:    fun getAllSources(): List<TileSource> {
+MapSourceManager.kt:463:    fun getSlotAssignments(): List<SlotConfig> {
+MapSourceManager.kt:469:    fun resolveUrl(urlTemplate: String, sourceId: String): String {
+MapSourceManager.kt:470:        val key = apiKeys[sourceId] ?: ""
+MapSourceManager.kt:474:    private fun ensureInit() {
 MapStateStore.kt:28:object MapStateStore {
 MapStateStore.kt:30:    private const val DIR = "/sdcard/Documents/GroupTrack/state"
 MapStateStore.kt:31:    private val TYPES = listOf("Trails", "Tracks", "Waypoints", "Routes")
@@ -5177,27 +5208,27 @@ SpatialDisplayManager.kt:36:        val jsShow: String,
 SpatialDisplayManager.kt:37:        val jsHide: String,
 SpatialDisplayManager.kt:38:        val minZoom: Int
 SpatialDisplayManager.kt:41:    private fun bindingFor(type: String): TypeBinding? = when (type) {
-SpatialDisplayManager.kt:95:    fun processArtifact(
-SpatialDisplayManager.kt:104:        val b = bindingFor(type) ?: return
-SpatialDisplayManager.kt:105:        val wv = webView ?: return
-SpatialDisplayManager.kt:106:        val main = Handler(Looper.getMainLooper())
-SpatialDisplayManager.kt:140:        val limit = when (type) {
-SpatialDisplayManager.kt:157:        val raw = b.query(south, west, north, east, limit)
-SpatialDisplayManager.kt:158:        val items = if (state == DS_SELECTED && checkedIds != null)
-SpatialDisplayManager.kt:161:        val json = b.build(items)
-SpatialDisplayManager.kt:173:    fun drawPersistedState(mapKey: String, webView: WebView?, context: Context) {
-SpatialDisplayManager.kt:174:        val rs = MapStateStore.readMap(mapKey)
-SpatialDisplayManager.kt:176:        val states = mapOf(
-SpatialDisplayManager.kt:182:        val selectLists = mapOf(
-SpatialDisplayManager.kt:190:        val latSpan = bbox.north - bbox.south
-SpatialDisplayManager.kt:191:        val lonSpan = bbox.east - bbox.west
-SpatialDisplayManager.kt:192:        val latPad = if (latSpan > 0.0) latSpan * 0.15 else 0.01
-SpatialDisplayManager.kt:193:        val lonPad = if (lonSpan > 0.0) lonSpan * 0.15 else 0.01
-SpatialDisplayManager.kt:194:        val fS = bbox.south - latPad; val fN = bbox.north + latPad
-SpatialDisplayManager.kt:195:        val fW = bbox.west - lonPad;  val fE = bbox.east + lonPad
-SpatialDisplayManager.kt:204:    fun processViewport(
-SpatialDisplayManager.kt:212:            val st = states[type] ?: DS_OFF
-SpatialDisplayManager.kt:213:            val ids = selectLists[type]
+SpatialDisplayManager.kt:126:    fun processArtifact(
+SpatialDisplayManager.kt:135:        val b = bindingFor(type) ?: return
+SpatialDisplayManager.kt:136:        val wv = webView ?: return
+SpatialDisplayManager.kt:137:        val main = Handler(Looper.getMainLooper())
+SpatialDisplayManager.kt:171:        val limit = when (type) {
+SpatialDisplayManager.kt:188:        val raw = b.query(south, west, north, east, limit)
+SpatialDisplayManager.kt:189:        val items = if (state == DS_SELECTED && checkedIds != null)
+SpatialDisplayManager.kt:192:        val json = b.build(items)
+SpatialDisplayManager.kt:204:    fun drawPersistedState(mapKey: String, webView: WebView?, context: Context) {
+SpatialDisplayManager.kt:205:        val rs = MapStateStore.readMap(mapKey)
+SpatialDisplayManager.kt:207:        val states = mapOf(
+SpatialDisplayManager.kt:213:        val selectLists = mapOf(
+SpatialDisplayManager.kt:221:        val latSpan = bbox.north - bbox.south
+SpatialDisplayManager.kt:222:        val lonSpan = bbox.east - bbox.west
+SpatialDisplayManager.kt:223:        val latPad = if (latSpan > 0.0) latSpan * 0.15 else 0.01
+SpatialDisplayManager.kt:224:        val lonPad = if (lonSpan > 0.0) lonSpan * 0.15 else 0.01
+SpatialDisplayManager.kt:225:        val fS = bbox.south - latPad; val fN = bbox.north + latPad
+SpatialDisplayManager.kt:226:        val fW = bbox.west - lonPad;  val fE = bbox.east + lonPad
+SpatialDisplayManager.kt:235:    fun processViewport(
+SpatialDisplayManager.kt:243:            val st = states[type] ?: DS_OFF
+SpatialDisplayManager.kt:244:            val ids = selectLists[type]
 SyncTracksDialog.kt:36:fun SyncTracksDialog(
 SyncTracksDialog.kt:43:    val syncListState = rememberLazyListState()
 SyncTracksDialog.kt:53:                val res = syncResult
