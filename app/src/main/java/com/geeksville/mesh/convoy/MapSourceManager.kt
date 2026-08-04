@@ -66,6 +66,154 @@ object MapSourceManager {
     private fun externalJsonFile(): File = File(externalDir(), "map_sources.json")
     private fun apiKeysFile(): File = File(externalDir(), "api_keys.json")
 
+    // ---- COLUMNFILE-2026-08-03: USER COLUMN FILE (write-only in phase 1) ----
+    // The user-owned column table. Holds slot -> source plus the active key and
+    // the URL TEMPLATE per column. Never holds the sources array: that is what
+    // made 79251ae72 necessary, because a stale copy served stale URLs.
+    // PHASE 1: written and maintained, NOT read for resolution. defaultSlots is
+    // still authoritative, so behaviour is unchanged.
+    private fun columnFile(): File = File(externalDir(), "map_slots.json")
+
+    private var columnFileVersion: Long = -1L
+    private var usedFallback: Boolean = false
+    private var columnsTerminated: MutableSet<String> = mutableSetOf()
+
+    /** Installed version code, used to decide when the install pass runs. */
+    private fun currentVersionCode(context: Context): Long = try {
+        val pi = context.packageManager.getPackageInfo(context.packageName, 0)
+        if (android.os.Build.VERSION.SDK_INT >= 28) pi.longVersionCode
+        else @Suppress("DEPRECATION") pi.versionCode.toLong()
+    } catch (e: Exception) {
+        android.util.Log.e("MapSourceMgr", "COLUMNFILE-2026-08-03: version code unavailable: ${e.message}")
+        -1L
+    }
+
+    /**
+     * Seed or maintain the column file. Called at the END of init(), after the
+     * asset has parsed, so defaultSlots and sources are populated.
+     *
+     * UNREADABLE IS NOT ABSENT. If the file exists but cannot be read we log and
+     * return without writing. Treating a read failure as "absent" is exactly the
+     * create-if-missing shape that destroyed the spatial DB on 08-01, and
+     * All-Files access has been observed reporting TRUE while denied.
+     */
+    private fun syncColumnFile(context: Context) {
+        // COLUMNFILE-2026-08-03: HARD STOP. If the hardcoded fallback supplied the data,
+        // the column file is NOT touched - not seeded, not updated, not expired.
+        // Fallback data must never reach the user column table by any route.
+        if (usedFallback) {
+            android.util.Log.e("MapSourceMgr",
+                "COLUMNFILE-2026-08-03: FALLBACK WAS USED - column file left untouched")
+            return
+        }
+        val vc = currentVersionCode(context)
+        val file = columnFile()
+
+        if (file.exists()) {
+            val existing = try {
+                JSONObject(file.readText(Charsets.UTF_8))
+            } catch (e: Exception) {
+                android.util.Log.e("MapSourceMgr",
+                    "COLUMNFILE-2026-08-03: column file present but UNREADABLE - not seeding, not overwriting: ${e.message}")
+                return
+            }
+            columnFileVersion = existing.optLong("version_code", -1L)
+            if (columnFileVersion == vc) {
+                android.util.Log.i("MapSourceMgr",
+                    "COLUMNFILE-2026-08-03: column file current (vc=$vc), no install pass")
+                readTerminated(existing)
+                return
+            }
+            android.util.Log.i("MapSourceMgr",
+                "COLUMNFILE-2026-08-03: INSTALL PASS (file vc=$columnFileVersion -> app vc=$vc)")
+            writeColumnFile(vc, existing)
+        } else {
+            android.util.Log.i("MapSourceMgr", "COLUMNFILE-2026-08-03: column file ABSENT - seeding from defaults")
+            writeColumnFile(vc, null)
+        }
+    }
+
+    private fun readTerminated(root: JSONObject) {
+        columnsTerminated.clear()
+        val arr = root.optJSONArray("columns") ?: return
+        for (i in 0 until arr.length()) {
+            val c = arr.getJSONObject(i)
+            if (c.optString("status", "active") == "terminated") {
+                columnsTerminated.add(c.optString("legacy_key", ""))
+            }
+        }
+        if (columnsTerminated.isNotEmpty()) {
+            android.util.Log.w("MapSourceMgr",
+                "COLUMNFILE-2026-08-03: TERMINATED SOURCE IN COLUMN(S): $columnsTerminated")
+        }
+    }
+
+    /**
+     * Write the column file. When [existing] is non-null this is the INSTALL PASS:
+     * each column keeps its user-chosen source_id and only the url_template and
+     * status are refreshed from the catalogue. Slot assignments are NEVER changed
+     * here - a release may retire a source, it may not repoint a user's column.
+     * [existing] is null on first-run seed, where there is no prior file to carry
+     * assignments forward from; that is the only case it may be null.
+     */
+    private fun writeColumnFile(vc: Long, existing: JSONObject?) {
+        try {
+            val priorById = mutableMapOf<String, String>()
+            val priorActive = existing?.optString("active", "") ?: ""
+            existing?.optJSONArray("columns")?.let { arr ->
+                for (i in 0 until arr.length()) {
+                    val c = arr.getJSONObject(i)
+                    val k = c.optString("legacy_key", "")
+                    val sid = c.optString("source_id", "")
+                    if (k.isNotEmpty() && sid.isNotEmpty()) priorById[k] = sid
+                }
+            }
+
+            columnsTerminated.clear()
+            val cols = org.json.JSONArray()
+            defaultSlots.forEach { slot ->
+                // user assignment wins over the catalogue default
+                val sourceId = priorById[slot.legacyKey] ?: slot.sourceId
+                val src = sources.find { it.id == sourceId }
+                val terminated = (src == null)
+                if (terminated) columnsTerminated.add(slot.legacyKey)
+                val o = JSONObject()
+                o.put("slot", slot.slot)
+                o.put("legacy_key", slot.legacyKey)
+                o.put("source_id", sourceId)
+                o.put("short_label", src?.shortLabel ?: "")
+                o.put("url_template", src?.baseUrl ?: "")
+                o.put("requires_key", src?.requiresKey ?: false)
+                o.put("status", if (terminated) "terminated" else "active")
+                cols.put(o)
+            }
+
+            val root = JSONObject()
+            root.put("version_code", vc)
+            root.put("active", if (priorActive.isNotEmpty()) priorActive else activeSourceKey)
+            root.put("columns", cols)
+
+            // atomic: temp then rename. A truncated column file read at worker
+            // start is a mystery a week later.
+            val dest = columnFile()
+            val tmp = File(dest.parentFile, dest.name + ".tmp")
+            tmp.writeText(root.toString(2), Charsets.UTF_8)
+            if (dest.exists()) dest.delete()
+            if (!tmp.renameTo(dest)) {
+                android.util.Log.e("MapSourceMgr", "COLUMNFILE-2026-08-03: rename failed, column file NOT updated")
+                return
+            }
+            columnFileVersion = vc
+            android.util.Log.i("MapSourceMgr",
+                "COLUMNFILE-2026-08-03: wrote ${cols.length()} columns (vc=$vc, terminated=$columnsTerminated)")
+        } catch (e: Exception) {
+            android.util.Log.e("MapSourceMgr", "COLUMNFILE-2026-08-03: column write failed: ${e.message}")
+        }
+    }
+
+    /** Columns whose assigned source no longer exists in the catalogue. */
+    fun terminatedColumns(): Set<String> = columnsTerminated.toSet()
+
     private var apiKeys: MutableMap<String, String> = mutableMapOf()
 
     fun init(context: Context) {
@@ -119,6 +267,9 @@ object MapSourceManager {
             initialized = true
             loadApiKeys()
             android.util.Log.i("MapSourceMgr", "Loaded ${sources.size} sources, ${defaultSlots.size} slots, ${apiKeys.size} API keys")
+            // COLUMNFILE-2026-08-03: seed / maintain the user column file. WRITE ONLY in
+            // phase 1 - nothing reads it for resolution yet.
+            syncColumnFile(context)
         } catch (e: Exception) {
             android.util.Log.e("MapSourceMgr", "JSON load failed: ${e.message}")
             loadFallback()
@@ -127,6 +278,12 @@ object MapSourceManager {
 
     private fun loadFallback() {
         android.util.Log.w("MapSourceMgr", "Using hardcoded fallback")
+        // COLUMNFILE-2026-08-03
+        usedFallback = true
+        android.util.Log.e("MapSourceMgr",
+            "COLUMNFILE-2026-08-03: FALLBACK REQUESTED - hardcoded sources in use. "
+            + "Column file will NOT be written. Caller: "
+            + android.util.Log.getStackTraceString(Throwable()))
         sources = listOf(
             TileSource("esri-imagery-overlays", "Esri", "HYB", "Esri Imagery + Roads + Labels", "SAT",
                 listOf(
@@ -191,6 +348,9 @@ object MapSourceManager {
 
     fun setActive(legacyKey: String) {
         activeSourceKey = legacyKey
+        // COLUMNFILE-2026-08-03: the active column is user state and must survive the
+        // process. It was in-memory only, defaulting to "SAT" at :53.
+        saveExternalJson()
     }
 
     fun getActiveOnlineUrl(): String = getOnlineUrl(activeSourceKey)
@@ -222,9 +382,41 @@ object MapSourceManager {
         android.util.Log.i("MapSourceMgr", "Slot $legacyKey updated to source $newSourceId")
     }
 
-    /** Save current slot assignments to external JSON */
+    /** Save current slot assignments to the user column file. */
     private fun saveExternalJson() {
-        // Disabled — asset is single source of truth
+        // COLUMNFILE-2026-08-03: was an empty body that was still being called. It now
+        // persists the user's column table. It does NOT write the sources array -
+        // that is the distinction from the external file 79251ae72 removed.
+        if (usedFallback) {
+            android.util.Log.e("MapSourceMgr", "COLUMNFILE-2026-08-03: FALLBACK WAS USED - not persisting")
+            return
+        }
+        val ctx = appContext
+        if (ctx == null) {
+            android.util.Log.w("MapSourceMgr", "COLUMNFILE-2026-08-03: no context, slot change not persisted")
+            return
+        }
+        // COLUMNFILE-SAVEFIX-2026-08-03: pass null, NOT the on-disk file.
+        // Passing the existing file made writeColumnFile apply its install-pass
+        // rule (priorById wins over slot.sourceId), so the STALE on-disk source
+        // overwrote the selection the user had just made. Verified on Droid 1:
+        // "Slot SAT updated to source google-satellite" while the file still read
+        // esri-imagery-overlays.
+        // On the SAVE path defaultSlots is the truth - it was mutated moments ago
+        // by updateSlotSource() - and activeSourceKey is the truth for the active
+        // column. Only the INSTALL PASS may carry a prior assignment forward.
+        writeColumnFile(currentVersionCode(ctx), null)
+    }
+
+    /** Current column file as JSON, or null when absent/unreadable. */
+    private fun readColumnFileOrNull(): JSONObject? {
+        return try {
+            val f = columnFile()
+            if (!f.exists()) null else JSONObject(f.readText(Charsets.UTF_8))
+        } catch (e: Exception) {
+            android.util.Log.e("MapSourceMgr", "COLUMNFILE-2026-08-03: column read failed: ${e.message}")
+            null
+        }
     }
 
     /** Load API keys from external file */

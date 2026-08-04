@@ -84,7 +84,19 @@ object SpatialDisplayManager {
             // ⚠ The cap figure in the comment above says 20,000; the release board
             // says 10,000. One of the two is stale - check the limit block before
             // relying on either number.
-            "updateTrails", "showTrails", "hideTrails", 10
+            // TRAILS-Z10-REVERTED-ANR-2026-08-03: 10 -> 11. Fred saw ANR messages at z10 on device.
+            // ⭐⭐ THIS CLOSES THE z10 QUESTION - it is not the same result as 07-31.
+            // 07-31 was measured UNCAPPED on L.svg. This attempt was CAPPED at
+            // 10,000 rows on L.canvas - both objections addressed - and it STILL
+            // ANRs. So the constraint is neither DOM construction nor an uncapped
+            // result set: it is the ROW COUNT ITSELF at a z10 viewport, where the
+            // area is ~4x z11. Do not attempt z10 again without a fundamentally
+            // different mechanism (vector tiles / MapLibre - that is 2.7).
+            // ⚠ CORRECTION to the 08-03 comment above: it claimed canvas fails on
+            // frame time rather than ANR. Device evidence says canvas ANRs too.
+            // ⛔ DO NOT lower the row cap as an alternative. At z11 trails currently
+            // all fit; lowering the cap makes them disappear at z11 as well.
+            "updateTrails", "showTrails", "hideTrails", 11
         )
         "Tracks" -> TypeBinding(
             "track_id",
