@@ -53,6 +53,24 @@ class ConvoyDownloadWorker(
             android.util.Log.i(TAG, "REFRESH MODE: slot=$refreshSlot cell bounds N=$north S=$south E=$east W=$west")
             val source = MapSourceManager.getSourceByKey(refreshSlot)
             val layers = source?.layers ?: emptyList()
+            // SLOTTRACE-2026-08-04: TEMPORARY. Remove in the commit that closes the trace.
+            // What did this slot actually resolve to, in this process, at this moment?
+            if (source == null) {
+                android.util.Log.e(TAG,
+                    "SLOTTRACE-2026-08-04: slot=$refreshSlot RESOLVED TO NOTHING. "
+                    + "No layers, so nothing will download and this job will still "
+                    + "report success. Column is terminated or the id is unknown.")
+            } else {
+                android.util.Log.d(TAG,
+                    "SLOTTRACE-2026-08-04: slot=$refreshSlot -> id=${source.id} "
+                    + "label=${source.shortLabel} layers=${layers.size} "
+                    + "baseUrl=${source.baseUrl}")
+                layers.forEach { ly ->
+                    android.util.Log.d(TAG,
+                        "SLOTTRACE-2026-08-04:   layer role=${ly.role} cacheDir=${ly.cacheDir} "
+                        + "url=${ly.urlTemplate}")
+                }
+            }
 
             // Calculate tiles from cell bounds
             val cellTiles = ConvoyTileCalculator.calculateTiles(north, south, east, west)
@@ -100,6 +118,11 @@ class ConvoyDownloadWorker(
                 }
                 result.onFailure { e ->
                     android.util.Log.e(TAG, "Refresh layer ${layer.cacheDir} failed: ${e.message}")
+                    // SLOTTRACE-2026-08-04: TEMPORARY. A cause with no context cost an evening
+                    // of reconstruction on 08-02 ("CORR SAT failed", nothing else).
+                    android.util.Log.e(TAG,
+                        "SLOTTRACE-2026-08-04: FAILURE slot=$refreshSlot layer=${layer.cacheDir} "
+                        + "url=${layer.urlTemplate} cause=${e::class.java.simpleName}: ${e.message}")
                 }
             }
             DownloadQueueManager.markComplete(entryId, totalDownloaded, totalFailed)

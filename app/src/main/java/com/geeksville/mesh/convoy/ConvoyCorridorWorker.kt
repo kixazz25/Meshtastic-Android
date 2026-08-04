@@ -93,6 +93,17 @@ class ConvoyCorridorWorker(
         }
 
         val source = MapSourceManager.getSourceByKey(slotName)
+        // SLOTTRACE-2026-08-04: TEMPORARY. Remove in the commit that closes the trace.
+        if (source == null) {
+            android.util.Log.e(TAG,
+                "SLOTTRACE-2026-08-04: slot=$slotName RESOLVED TO NOTHING - corridor will "
+                + "download no tiles. Column terminated or id unknown.")
+        } else {
+            android.util.Log.d(TAG,
+                "SLOTTRACE-2026-08-04: slot=$slotName -> id=${source.id} "
+                + "label=${source.shortLabel} layers=${source.layers.size} "
+                + "baseUrl=${source.baseUrl}")
+        }
         val layers = source?.layers ?: emptyList()
         if (layers.isEmpty()) {
             android.util.Log.e(TAG, "No layers for slot=$slotName")
@@ -134,6 +145,11 @@ class ConvoyCorridorWorker(
             }
             result.onFailure { e ->
                 android.util.Log.e(TAG, "Corridor layer ${layer.cacheDir} failed: ${e.message}")
+                // SLOTTRACE-2026-08-04: TEMPORARY. "CORR SAT failed" with no exception and no
+                // HTTP status is what made the 08-02 corridor failure unrecoverable.
+                android.util.Log.e(TAG,
+                    "SLOTTRACE-2026-08-04: FAILURE slot=$slotName layer=${layer.cacheDir} "
+                    + "url=${layer.urlTemplate} cause=${e::class.java.simpleName}: ${e.message}")
             }
         }
 

@@ -670,7 +670,6 @@ class ConvoyViewModel @Inject constructor(
             }
         }
 
-        android.util.Log.w("TRACK-DBG", "TICK: leadOnly=${_trackLeadOnly.value} leadId=$lockedLeadNodeId segs=${_routeTrailSegments.value.size} nodes=${state.nodes.size}")
         // ── Build trail segments — lead actual GPS + proxy snap ──────────
         if (_trackLeadOnly.value) {
             // Get lead's ACTUAL position from node (never use resolved/substituted)
@@ -767,7 +766,6 @@ class ConvoyViewModel @Inject constructor(
                         nodeId = lockedLeadNodeId ?: ""
                     )
                     if (_trackActive.value) {
-                        android.util.Log.w("TRACK-DBG", "SEG-WRITE: node=${seg.nodeId} from=${String.format("%.5f,%.5f",seg.startLat,seg.startLon)} to=${String.format("%.5f,%.5f",seg.endLat,seg.endLon)} proxy=$proxySnapped total=${_routeTrailSegments.value.size+1}")
                         _routeTrailSegments.value = _routeTrailSegments.value + seg
                     }
                 }

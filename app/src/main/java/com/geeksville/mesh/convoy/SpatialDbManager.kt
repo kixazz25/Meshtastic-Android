@@ -163,9 +163,12 @@ object SpatialDbManager {
             }
             if (!hasTable(spatialDb!!, "schema_version")) {
                 runSchemaFromAsset(context, spatialDb!!, "schema_spatial_v3.sql")
-                android.util.Log.i(TAG, "Applied spatial schema: \${spatialFile.absolutePath}")
+                // CLEANUP-2026-08-04: the $ was backslash-escaped, so this logged the
+                // LITERAL text and the DB path never appeared. That is the line that
+                // would have made the 08-01 loss obvious immediately.
+                android.util.Log.i(TAG, "Applied spatial schema: ${spatialFile.absolutePath}")
             } else {
-                android.util.Log.i(TAG, "Opened spatial database: \${spatialFile.absolutePath}")
+                android.util.Log.i(TAG, "Opened spatial database: ${spatialFile.absolutePath}")
             }
 
             // Open/create extension database

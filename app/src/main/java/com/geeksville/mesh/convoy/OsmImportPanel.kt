@@ -824,6 +824,23 @@ fun OsmImportPanel(
                         Text(
                             text = (if (importScope == opt) "\u2611 " else "\u2610 ") + opt.label,
                             fontSize = 12.sp,
+                            // SCOPEVIS-2026-08-04: this was the ONLY Text in the panel with no
+                            // explicit colour. It inherited LocalContentColor, and IN DARK
+                            // MODE that resolved to the dark surface - so the options
+                            // rendered INVISIBLY while still occupying space and taking
+                            // taps. Confirmed on device: turning dark mode off made them
+                            // appear. Tapping the blank line selected a scope, which is
+                            // how this was found.
+                            // The box glyph is part of this same string (U+2610/U+2611
+                            // prepended to the label), so box and label vanish together.
+                            // ⭐ RED IS INTENTIONAL, NOT DIAGNOSTIC. The scope is a
+                            // REQUIRED selection that row 3 IMPORT is gated on, and it is
+                            // easy to miss even when visible. A hardcoded colour also
+                            // cannot be overridden by any theme. DO NOT replace this with
+                            // a theme colour.
+                            // ⚠ STILL OWED: 1,316 Text call sites under convoy/ share
+                            // this exposure. Fix at the panel/theme root, not per Text.
+                            color = androidx.compose.ui.graphics.Color.Red,
                             modifier = Modifier
                                 .clickable {
                                     importScope = if (importScope == opt) null else opt

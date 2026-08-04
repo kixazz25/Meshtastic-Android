@@ -70,8 +70,9 @@ object MapSourceManager {
     // The user-owned column table. Holds slot -> source plus the active key and
     // the URL TEMPLATE per column. Never holds the sources array: that is what
     // made 79251ae72 necessary, because a stale copy served stale URLs.
-    // PHASE 1: written and maintained, NOT read for resolution. defaultSlots is
-    // still authoritative, so behaviour is unchanged.
+    // PHASE 2 (COLUMNFILE-PHASE2-2026-08-04): now READ at init and applied over defaultSlots.
+    // The column file is authoritative for ASSIGNMENT; the asset stays
+    // authoritative for URLs, layers and cache_dir. default_slots is SEED-ONLY.
     private fun columnFile(): File = File(externalDir(), "map_slots.json")
 
     private var columnFileVersion: Long = -1L
@@ -122,14 +123,90 @@ object MapSourceManager {
                 android.util.Log.i("MapSourceMgr",
                     "COLUMNFILE-2026-08-03: column file current (vc=$vc), no install pass")
                 readTerminated(existing)
+                // COLUMNFILE-PHASE2-2026-08-04: the file is the user's assignment table. Apply it.
+                applyColumnFile(existing)
                 return
             }
             android.util.Log.i("MapSourceMgr",
                 "COLUMNFILE-2026-08-03: INSTALL PASS (file vc=$columnFileVersion -> app vc=$vc)")
             writeColumnFile(vc, existing)
+            // COLUMNFILE-PHASE2-2026-08-04: re-read what the install pass just wrote. It carried the
+            // user's assignments forward (priorById) and refreshed url_template, so
+            // the file - not defaultSlots - is the correct post-install state.
+            readColumnFileOrNull()?.let { applyColumnFile(it) }
         } else {
             android.util.Log.i("MapSourceMgr", "COLUMNFILE-2026-08-03: column file ABSENT - seeding from defaults")
             writeColumnFile(vc, null)
+        }
+    }
+
+    /**
+     * COLUMNFILE-PHASE2-2026-08-04: THE COLUMN FILE IS NOW AUTHORITATIVE FOR ASSIGNMENT.
+     *
+     * Replaces defaultSlots with the user's column table and sets the active
+     * column from it. Called ONLY after the asset has parsed, so `sources`
+     * (URLs, layers, cache_dir) still comes from the catalogue and a release
+     * can still correct a URL for existing users. default_slots is SEED-ONLY
+     * from here on.
+     *
+     * A column whose source_id is not in the catalogue is applied ANYWAY. It
+     * then resolves to null until the user reselects, which is what the
+     * terminated state is for. It is deliberately NOT repointed at a catalogue
+     * default - that would hide the retirement.
+     *
+     * Refuses to apply an empty or malformed column list: better to run on the
+     * catalogue defaults than on nothing.
+     */
+    private fun applyColumnFile(root: JSONObject) {
+        if (usedFallback) {
+            android.util.Log.e("MapSourceMgr",
+                "COLUMNFILE-PHASE2-2026-08-04: FALLBACK WAS USED - column file NOT applied")
+            return
+        }
+        val arr = root.optJSONArray("columns")
+        if (arr == null || arr.length() == 0) {
+            android.util.Log.e("MapSourceMgr",
+                "COLUMNFILE-PHASE2-2026-08-04: column list missing or empty - keeping catalogue defaults")
+            return
+        }
+        val loaded = mutableListOf<SlotConfig>()
+        for (i in 0 until arr.length()) {
+            val c = arr.getJSONObject(i)
+            val key = c.optString("legacy_key", "")
+            val sid = c.optString("source_id", "")
+            val slotNo = c.optInt("slot", i + 1)
+            if (key.isEmpty() || sid.isEmpty()) {
+                android.util.Log.w("MapSourceMgr",
+                    "COLUMNFILE-PHASE2-2026-08-04: skipping malformed column row $i")
+                continue
+            }
+            loaded.add(SlotConfig(slotNo, sid, key))
+        }
+        if (loaded.isEmpty()) {
+            android.util.Log.e("MapSourceMgr",
+                "COLUMNFILE-PHASE2-2026-08-04: no usable column rows - keeping catalogue defaults")
+            return
+        }
+
+        defaultSlots = loaded
+
+        val wantActive = root.optString("active", "")
+        if (wantActive.isNotEmpty() && loaded.any { it.legacyKey == wantActive }) {
+            activeSourceKey = wantActive
+        } else if (wantActive.isNotEmpty()) {
+            android.util.Log.w("MapSourceMgr",
+                "COLUMNFILE-PHASE2-2026-08-04: active '$wantActive' is not a column - keeping '$activeSourceKey'")
+        }
+
+        val resolved = loaded.count { s -> sources.any { it.id == s.sourceId } }
+        android.util.Log.i("MapSourceMgr",
+            "COLUMNFILE-PHASE2-2026-08-04: APPLIED ${loaded.size} columns, $resolved resolve to a source, "
+            + "active=$activeSourceKey")
+        loaded.forEach { s ->
+            val src = sources.find { it.id == s.sourceId }
+            android.util.Log.i("MapSourceMgr",
+                "COLUMNFILE-PHASE2-2026-08-04:   slot ${s.slot} ${s.legacyKey} -> ${s.sourceId} "
+                + (if (src == null) "[TERMINATED - no catalogue entry]" else "url=${src.baseUrl}"))
         }
     }
 
