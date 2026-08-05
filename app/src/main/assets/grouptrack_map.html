@@ -606,7 +606,10 @@
       if (lats.length === 1) { map.setView([lats[0], lons[0]], 16); return; }
       var b = L.latLngBounds();
       for (var i = 0; i < lats.length; i++) b.extend([lats[i], lons[i]]);
-      map.fitBounds(b, { padding: [60, 60], maxZoom: currentMaxNative });
+      // NOPAD-2026-08-04: 60px padding removed - the saved bbox is the frame we want.
+      // maxZoom STAYS: it stops the fit zooming past downloaded tile coverage,
+      // which ends at z18.
+      map.fitBounds(b, { maxZoom: currentMaxNative });
     }
 
     function fitTrailBounds() {

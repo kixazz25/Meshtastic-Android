@@ -714,7 +714,17 @@ fun ConvoyMapViewerScreen(
                                     // unbind/rebind). The raw flag would clear the value and
                                     // leave whatever the previous state applied, which is
                                     // exactly the "mode off, popups still gone" seen 07-31.
-                                    webViewRef?.evaluateJavascript("setRouteMode(false)", null)
+                                    // VIEWPORTMAIN-2026-08-05: was a DIRECT evaluateJavascript on the JavaBridge thread.
+                                    // @JavascriptInterface methods run off-main; WebView methods must run on
+                                    // main and THROW otherwise -- and the throw aborted the rest of this
+                                    // method, so the state reads, lastMapProcessed and processViewport below
+                                    // never ran. Post to main and continue. Mirrors SpatialDisplayManager,
+                                    // which posts every evaluateJavascript through main.post.
+                                    webViewRef?.let { _wv ->
+                                        android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                            _wv.evaluateJavascript("setRouteMode(false)", null)
+                                        }
+                                    }
                                     val rs = MapStateStore.readMap("planning")
                                     trailState = rs.types["Trails"]?.state ?: DS_OFF
                                     trackState = rs.types["Tracks"]?.state ?: DS_OFF
@@ -821,8 +831,16 @@ fun ConvoyMapViewerScreen(
                                         }
                                     }
                                     // [3.1] persisted-frame-open: planning restores last-session bbox
-                                    val pmbb = pmSeed.bbox
+                                    // PLANNERSEED-2026-08-05: was pmSeed.bbox -- pmSeed is a remember block captured
+                                    // at FIRST COMPOSE (MVS:287) and is stale on re-entry. Re-read FRESH.
+                                    // Mirrors convoy [Fix2] (ConvoyScreen.kt:728).
+                                    val pmbb = MapStateStore.readMap("planning").bbox
                                     if (pmbb != null) {
+                                        // PLANNERSEED-2026-08-05: SEED lastViewport* BEFORE draw -- closes the stale
+                                        // window for every artifact query that reads these fields until
+                                        // onViewportChanged fires. Mirrors ConvoyScreen.kt:730-733.
+                                        lastViewportSouth = pmbb.south; lastViewportWest = pmbb.west
+                                        lastViewportNorth = pmbb.north; lastViewportEast = pmbb.east
                                         view?.evaluateJavascript(
                                             "fitBounds([" + pmbb.south + "," + pmbb.north + "],[" + pmbb.west + "," + pmbb.east + "])", null
                                         )

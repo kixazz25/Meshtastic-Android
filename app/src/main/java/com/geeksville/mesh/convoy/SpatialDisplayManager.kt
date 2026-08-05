@@ -217,13 +217,13 @@ object SpatialDisplayManager {
             "Routes" to MapStateStore.checkedIdsFor(rs, "Routes")
         )
         val restoreZoom = 14  // generous limit + passes minZoom gates; bbox bounds the query
-        // Move the map to the saved frame (padded ~15%) so the artifact is visible & framed.
-        val latSpan = bbox.north - bbox.south
-        val lonSpan = bbox.east - bbox.west
-        val latPad = if (latSpan > 0.0) latSpan * 0.15 else 0.01
-        val lonPad = if (lonSpan > 0.0) lonSpan * 0.15 else 0.01
-        val fS = bbox.south - latPad; val fN = bbox.north + latPad
-        val fW = bbox.west - lonPad;  val fE = bbox.east + lonPad
+        // NOPAD-2026-08-04: 15% PAD REMOVED. Move the map to the saved frame EXACTLY.
+        // Added 8a0e4e70b with FIT, on top of fitBounds() which was ALREADY
+        // padding by 60px since V2.4 - the two compounded. Neither was
+        // FIT-specific: this is the only Kotlin caller of fitBounds(), so map
+        // re-entry paid for FIT's framing and zoomed out a little every time.
+        val fS = bbox.south; val fN = bbox.north
+        val fW = bbox.west;  val fE = bbox.east
         webView?.post {
             webView.evaluateJavascript("fitBounds([$fS,$fN],[$fW,$fE])", null)
         }

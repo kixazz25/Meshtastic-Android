@@ -637,30 +637,26 @@ object DownloadQueueManager {
 
     // -- Mark complete from Worker -------------------------
     fun markComplete(entryId: String, downloaded: Int, failed: Int) {
-        val entry = _queue.value.find { it.id == entryId }
-        if (entry?.refreshMode == true) {
-            // Refresh cells: silently remove from queue, no log clutter
-            val current = _queue.value.toMutableList()
-            current.removeAll { it.id == entryId }
-            _queue.value = current
-            saveQueue()
-            android.util.Log.d(TAG, "Refresh cell complete, removed: id=$entryId downloaded=$downloaded")
-        } else {
-            updateEntry(entryId) {
-                it.copy(
-                    // COMPLETEDAT-STAMP-2026-07-24: without this stamp completedAt stays
-                    // 0L forever, estimateRemaining() finds no usable samples,
-                    // and the summary's duration / completion-time line never
-                    // renders. With createdAt this is the elapsed time behind
-                    // the observed rate (downloadedTiles / elapsed).
-                    completedAt = System.currentTimeMillis(),
-                    status = QueueStatus.COMPLETE,
-                    downloadedTiles = downloaded,
-                    failedTiles = failed
-                )
-            }
-            android.util.Log.i(TAG, "Complete: id=$entryId downloaded=$downloaded failed=$failed")
+        // SHOWALLCOMPLETE-2026-08-05: the refreshMode branch used to SILENTLY REMOVE the entry --
+        // no COMPLETE status, no completedAt stamp, no row on the panel. But
+        // refreshMode is ALSO the replace-tiles flag, so every REPLACE download
+        // deleted its own completion (two Google corridor runs, 561 and 681 tiles,
+        // both flawless and both invisible, 08-05). Only FAILED entries survived,
+        // which is the opposite of useful. ALL completions are now visible.
+        updateEntry(entryId) {
+            it.copy(
+                // COMPLETEDAT-STAMP-2026-07-24: without this stamp completedAt stays
+                // 0L forever, estimateRemaining() finds no usable samples,
+                // and the summary's duration / completion-time line never
+                // renders. With createdAt this is the elapsed time behind
+                // the observed rate (downloadedTiles / elapsed).
+                completedAt = System.currentTimeMillis(),
+                status = QueueStatus.COMPLETE,
+                downloadedTiles = downloaded,
+                failedTiles = failed
+            )
         }
+        android.util.Log.i(TAG, "Complete: id=$entryId downloaded=$downloaded failed=$failed")
         startNextIfAvailable()
     }
 
