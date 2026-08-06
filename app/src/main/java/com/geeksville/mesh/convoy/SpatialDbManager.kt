@@ -1628,6 +1628,45 @@ object SpatialDbManager {
         return results
     }
 
+    /**
+     * CORRIDORQUERY-2026-08-05: EVERY track, for the corridor picker.
+     *
+     * Distinct from queryArtifactList above, which is VIEWPORT-BOUNDED and does not
+     * return geom_hash, and from searchByName, which needs a term and drops unnamed
+     * rows. enqueueCorridor keys on geom_hash, so the picker must carry it per row.
+     *
+     * NO bbox. NO LIMIT -- "ALL" in the picker has to mean all.
+     * Unnamed tracks ARE included (they have geometry and deserve coverage); the
+     * picker renders a blank name as "(unnamed)".
+     * ORDER BY name COLLATE NOCASE, geom_hash -- names are NOT unique, so a row is a
+     * name-occurrence and the picker numbers repeats 1..n off this stable ordering.
+     * Type filter matches queryArtifactList: routes share the tracks table.
+     *
+     * Each row: {id, name, geom_hash}. name may be null or blank.
+     */
+    fun queryAllTracksForCorridor(): List<Map<String, String?>> {
+        val db = spatialDb ?: return emptyList()
+        val results = mutableListOf<Map<String, String?>>()
+        try {
+            val sql = "SELECT track_id, name, geom_hash FROM tracks " +
+                "WHERE (type='TRACK' OR type IS NULL) " +
+                "ORDER BY name COLLATE NOCASE, geom_hash"
+            db.rawQuery(sql, null).use {
+                while (it.moveToNext()) {
+                    results.add(mapOf(
+                        "id" to it.getString(0),
+                        "name" to it.getString(1),
+                        "geom_hash" to it.getString(2)
+                    ))
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("SpatialDb", "queryAllTracksForCorridor failed: ${e.message}")
+        }
+        android.util.Log.i("SpatialDb", "CORRIDORQUERY-2026-08-05: ${results.size} track(s) for picker")
+        return results
+    }
+
     /** Rename a waypoint */
     fun renameWaypoint(id: String, newName: String) {
         spatialDb?.execSQL("UPDATE waypoints SET name=?, updated_at=? WHERE waypoint_id=?",

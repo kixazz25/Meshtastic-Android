@@ -48,6 +48,14 @@ fun ConvoyDownloadPanel(
     bbox: DownloadBbox = DownloadBbox(),
     tilesChecked: Boolean = false,
     onTilesCheckedChange: (Boolean) -> Unit = {},
+    // PANELROWS-2026-08-05: corridor downloads. Defaulted so the other callers
+    // (ConvoyScreen, ConvoyTrackImportScreen) compile untouched.
+    // Deliberately NOT folded into onExecuteDownload: that callback's three
+    // booleans are all bbox-driven and a corridor has no bbox. Same reasoning
+    // as the OSM comment below -- routing lives in the checkbox.
+    corridorChecked: Boolean = false,
+    onCorridorCheckedChange: (Boolean) -> Unit = {},
+    onSelectCorridorTracks: () -> Unit = {},
     trailsChecked: Boolean = false,
     onTrailsCheckedChange: (Boolean) -> Unit = {},
     removeTilesChecked: Boolean = false,
@@ -211,14 +219,40 @@ fun ConvoyDownloadPanel(
 
             if (!isNetMode) {
                 // LOCAL MODE
-                ArtifactCheckRow("Download Tiles", blue, tilesChecked, true) { onTilesCheckedChange(it) }
-                ArtifactCheckRow("Import Trails", green, trailsChecked, true) { onTrailsCheckedChange(it) }
-                ArtifactCheckRow("Remove Tiles", red, removeTilesChecked, true) { onRemoveTilesCheckedChange(it) }
-                ArtifactCheckRow("Import OSM", purple, osmChecked, true) { onOsmCheckedChange(it) }
+                // PANELROWS-2026-08-05: ordered live -> stub -> set-elsewhere.
+                // The two greyed imports sit LAST on purpose: the next patch adds
+                // origin-dependent expansion (BUTTON expands the actionable rows,
+                // a TRAIL/OSM import expands those), which wants them contiguous.
+                ArtifactCheckRow("Download Tiles by Area", blue, tilesChecked, true) { onTilesCheckedChange(it) }
+                ArtifactCheckRow("Download Tiles by Corridor", blue, corridorChecked, true) {
+                    onCorridorCheckedChange(it)
+                    // Routing lives in the checkbox: ticking it opens the track
+                    // picker, the way the OSM import routes from its own checkbox.
+                    if (it) onSelectCorridorTracks()
+                }
+                ArtifactCheckRow("Remove Tiles by Area", red, removeTilesChecked, true) { onRemoveTilesCheckedChange(it) }
+                // V2.7 -- designed, not built. ConvoyDeleteWorker and
+                // DELETE_AREA_TILES already exist; by-track needs corridor-shaped
+                // deletion (the same derivation enqueueCorridor already does), and
+                // Clear Tile Source drops the whole SAT column (base + both label
+                // stores) and is destructive enough to need its own confirm.
+                ArtifactCheckRow("Remove Tiles by Track", dimText, false, false, "V2.7") {}
+                ArtifactCheckRow("Clear Tile Source", dimText, false, false, "V2.7") {}
                 Spacer(Modifier.height(2.dp))
-                ArtifactCheckRow("Waypoints", dimText, false, false, "V2.6") {}
-                ArtifactCheckRow("Tracks", dimText, false, false, "V2.6") {}
-                ArtifactCheckRow("Routes", dimText, false, false, "V2.6") {}
+                // V3.0 -- artifact downloads from the CONSOLIDATED ALL-USER
+                // DATABASE (server-side release). NOT V2.6: these were mislabelled,
+                // and a stub promising the wrong release is worse than no badge.
+                ArtifactCheckRow("Waypoints", dimText, false, false, "V3.0") {}
+                ArtifactCheckRow("Tracks", dimText, false, false, "V3.0") {}
+                ArtifactCheckRow("Routes", dimText, false, false, "V3.0") {}
+                Spacer(Modifier.height(2.dp))
+                // SET ELSEWHERE -- both are driven from the ARTIFACT side and only
+                // populate this state. Greyed rather than hidden: a tickable box
+                // would offer control that does not exist here, but hiding them
+                // would create state that is set and never rendered. They show
+                // their real checked value and are simply not interactive.
+                ArtifactCheckRow("Import Trails by Area", green, trailsChecked, false) {}
+                ArtifactCheckRow("Import OSM by Area", purple, osmChecked, false) {}
             } else {
                 // NET MODE - all V2.6 stubs
                 ArtifactCheckRow("\u2195 Tiles", dimText, false, false, "V2.6") {}

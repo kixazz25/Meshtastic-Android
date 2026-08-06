@@ -472,6 +472,74 @@ object DownloadQueueManager {
      *
      *  MUST be called from a background thread (DB read + tile derivation).
      *  @return tiles queued, or 0 if the track has no usable geometry. */
+    /** CORRIDORBATCH-2026-08-05: what a corridor batch queued.
+     *  jobs    = queue entries created (tracks x slots, minus skips)
+     *  tiles   = summed tile count across those entries, for the ETA
+     *  skipped = tracks with no usable geometry -- reported, never silent */
+    data class CorridorBatchResult(
+        val jobs: Int = 0,
+        val tiles: Int = 0,
+        val skipped: Int = 0
+    )
+
+    /** CORRIDORBATCH-2026-08-05: queue corridor downloads for MANY tracks across MANY slots.
+     *
+     *  Gives corridor the same contract enqueueArea already has: the caller hands
+     *  over the work, this owns the decomposition. Three callers share it --
+     *  the artifact panel (one track), the download picker (selected tracks), and
+     *  refresh (all tracks, ONE map column, replace = true).
+     *
+     *  ONE ENTRY PER TRACK PER SLOT, matching CORRIDOR-WIRING-2026-07-24: progress
+     *  stays per-source and cancelling SAT leaves TOPO running.
+     *
+     *  A track with no usable geometry is SKIPPED AND COUNTED. enqueueCorridor
+     *  returns 0 for those; across a large batch that would otherwise be silent.
+     *
+     *  ⛔ MUST be called from a background thread -- enqueueCorridor reads the DB
+     *  and derives the corridor per call (~50-100 ms per track per slot).
+     *
+     *  Does NOT clear any store. A clear is destructive and belongs in its own
+     *  queued job ordered ahead of this one. */
+    fun enqueueCorridorBatch(
+        context: Context,
+        geomHashes: List<String>,
+        slotNames: List<String>,
+        replaceExisting: Boolean
+    ): CorridorBatchResult {
+        if (geomHashes.isEmpty() || slotNames.isEmpty()) {
+            android.util.Log.w(TAG,
+                "CORRIDORBATCH-2026-08-05: nothing to queue " +
+                "(tracks=${geomHashes.size} slots=${slotNames.size})")
+            return CorridorBatchResult()
+        }
+        var jobs = 0
+        var tiles = 0
+        val skippedHashes = mutableListOf<String>()
+        for (hash in geomHashes) {
+            // A track with no geometry fails identically for every slot, so record
+            // the skip ONCE per track rather than once per slot.
+            var queuedForThisTrack = 0
+            for (slot in slotNames) {
+                val t = enqueueCorridor(context, hash, slot, replaceExisting)
+                if (t > 0) { jobs++; tiles += t; queuedForThisTrack++ }
+            }
+            if (queuedForThisTrack == 0) skippedHashes.add(hash)
+        }
+        if (skippedHashes.isNotEmpty()) {
+            // Joined OUTSIDE the log template: Kotlin does not allow a nested string
+            // literal inside a ${...} expression -- the quote terminates the outer string.
+            val skippedShort = skippedHashes.joinToString(separator = ", ") { it.take(8) }
+            android.util.Log.w(TAG,
+                "CORRIDORBATCH-2026-08-05: skipped ${skippedHashes.size} track(s) with no usable " +
+                "geometry: $skippedShort")
+        }
+        android.util.Log.i(TAG,
+            "CORRIDORBATCH-2026-08-05: ${geomHashes.size} track(s) x ${slotNames.size} slot(s) " +
+            "-> $jobs job(s), $tiles tile(s), ${skippedHashes.size} skipped, " +
+            "replace=$replaceExisting")
+        return CorridorBatchResult(jobs = jobs, tiles = tiles, skipped = skippedHashes.size)
+    }
+
     fun enqueueCorridor(
         context: Context,
         geomHash: String,

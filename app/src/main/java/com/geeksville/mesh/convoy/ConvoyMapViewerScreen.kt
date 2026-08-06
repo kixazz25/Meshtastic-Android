@@ -31,6 +31,7 @@ import androidx.compose.ui.window.Popup
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -334,6 +335,15 @@ fun ConvoyMapViewerScreen(
     // that is what tells onProceed which branch to take. Cleared on BOTH
     // proceed and cancel, or the next AREA download would be treated as one.
     var pendingCorridorHash by remember { mutableStateOf<String?>(null) }
+    // CORRIDORWIRE-2026-08-05: corridor download by track selection.
+    // corridorChecked / showCorridorPicker are rememberSaveable so a rotation does
+    // not drop them -- the 07-25 defect on the download-confirm dialog was exactly
+    // that (plain remember, rotate to reach the buttons, lose the selections).
+    // corridorTracks is a plain remember: List<TrackPickInfo> is not Bundle-saveable
+    // and it is cheap to reload on open.
+    var corridorChecked by rememberSaveable { mutableStateOf(false) }
+    var showCorridorPicker by rememberSaveable { mutableStateOf(false) }
+    var corridorTracks by remember { mutableStateOf<List<TrackPickInfo>>(emptyList()) }
     // "?" help: which bundled doc is open ("manual" | "notes" | null = chooser/closed)
     var docsView by remember { mutableStateOf<String?>(null) }
     var showDocsChooser by remember { mutableStateOf(false) }
@@ -1976,6 +1986,51 @@ fun ConvoyMapViewerScreen(
                     modifier = Modifier.align(Alignment.Center).padding(16.dp)
                 )
             }
+            // ── CORRIDORWIRE-2026-08-05: corridor track picker ────────────
+            // Sibling to the download-confirm overlay above, same container idiom.
+            // NOT gated on downloadBbox.isValid -- a corridor has no bbox, which is
+            // the whole reason the picker collects its own sources.
+            if (showCorridorPicker) {
+                val corridorSlots = remember {
+                    MapSourceManager.getSlotSources().map { (legacyKey, shortLabel, _) ->
+                        SlotDisplayInfo(
+                            slotName = legacyKey,
+                            sourceName = shortLabel,
+                            directory = legacyKey,
+                            preSelected = true
+                        )
+                    }
+                }
+                ConvoyCorridorPicker(
+                    tracks = corridorTracks,
+                    slots = corridorSlots,
+                    onProceed = { hashes, slotsSel, replace ->
+                        showCorridorPicker = false
+                        corridorChecked = false
+                        showDownloadPanel = false
+                        // ⛔ scope.launch is MAIN-dispatched; only the enqueue goes to
+                        // IO. enqueueCorridorBatch derives per track per slot and must
+                        // be off-main; Toast.makeText requires main and THROWS
+                        // otherwise, taking the rest of the block with it silently.
+                        scope.launch {
+                            val r = withContext(Dispatchers.IO) {
+                                DownloadQueueManager.enqueueCorridorBatch(
+                                    context, hashes, slotsSel, replace
+                                )
+                            }
+                            val msg = if (r.skipped > 0)
+                                "Queued ${r.jobs} job(s), ${r.tiles} tiles - " +
+                                "${r.skipped} track(s) skipped (no geometry)"
+                            else
+                                "Queued ${r.jobs} job(s), ${r.tiles} tiles"
+                            android.widget.Toast.makeText(context, msg,
+                                android.widget.Toast.LENGTH_LONG).show()
+                        }
+                    },
+                    onCancel = { showCorridorPicker = false; corridorChecked = false },
+                    modifier = Modifier.align(Alignment.Center).padding(16.dp)
+                )
+            }
             // ── Auto show/hide download overlays when panel opens/closes ──
             LaunchedEffect(showDownloadPanel) {
                 if (showDownloadPanel) {
@@ -2136,6 +2191,29 @@ fun ConvoyMapViewerScreen(
                     bbox = downloadBbox,
                     tilesChecked = panelTilesChecked,
                     onTilesCheckedChange = { panelTilesChecked = it },
+                    // CORRIDORWIRE-2026-08-05: corridor routes from its own checkbox
+                    // (the OSM idiom), not through onExecuteDownload -- that
+                    // callback's booleans are all bbox-driven and a corridor has none.
+                    corridorChecked = corridorChecked,
+                    onCorridorCheckedChange = { corridorChecked = it },
+                    onSelectCorridorTracks = {
+                        scope.launch {
+                            val rows = withContext(Dispatchers.IO) {
+                                SpatialDbManager.queryAllTracksForCorridor()
+                            }
+                            corridorTracks = trackPickRowsFrom(rows)
+                            if (corridorTracks.isEmpty()) {
+                                // Same shape as the ":1136" empty-result toast: an
+                                // empty list is a real state, not an error.
+                                android.widget.Toast.makeText(context,
+                                    "No tracks available - record or import a track first",
+                                    android.widget.Toast.LENGTH_LONG).show()
+                                corridorChecked = false
+                            } else {
+                                showCorridorPicker = true
+                            }
+                        }
+                    },
                     trailsChecked = panelTrailsChecked,
                     onTrailsCheckedChange = { panelTrailsChecked = it },
                     removeTilesChecked = panelRemoveTilesChecked,
