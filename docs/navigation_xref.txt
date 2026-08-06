@@ -1,7 +1,7 @@
 =================================================================
 GROUPTRACK -- NAVIGATION CROSS-REFERENCE (screen routing for user manual)
 =================================================================
-Generated: 2026-08-06 01:22
+Generated: 2026-08-06 16:55
 Nav host file(s) found:  app/src/main/java/com/geeksville/mesh/navigation/ConvoyNavigation.kt app/src/main/java/com/geeksville/mesh/ui/Main.kt
 
 === A. NAV HOST ROUTES (every destination) ===
@@ -235,7 +235,7 @@ ConvoyInviteSendScreen.kt:78:            NavBtn3("📻", "RADIO") { onNavigateTo
 ConvoyMapBar.kt:33:    onNavigate: () -> Unit,
 ConvoyMapBar.kt:53:                modifier = Modifier.weight(1f).clickable { onNavigate() },
 ConvoyMapSourceScreen.kt:72:    onNavigateBack: () -> Unit
-ConvoyMapSourceScreen.kt:131:                    IconButton(onClick = onNavigateBack) {
+ConvoyMapSourceScreen.kt:147:                    IconButton(onClick = onNavigateBack) {
 ConvoyMapViewerScreen.kt:82:    onNavigateToTrackExport: () -> Unit = {},
 ConvoyMapViewerScreen.kt:83:    onNavigateToTrackImport: () -> Unit = {},
 ConvoyMapViewerScreen.kt:84:    onNavigateToTrailSources: () -> Unit = {},
@@ -478,13 +478,14 @@ UnifiedSearch.kt:250:                                    onOpenDetail(cap, r.id)
 --- ConvoyMapSourceScreen.kt ---
 71:fun ConvoyMapSourceScreen(
 72:    onNavigateBack: () -> Unit
-131:                    IconButton(onClick = onNavigateBack) {
-249:                onDismissRequest = { refreshSlot = null },
-289:                onDismissRequest = { refreshSlot = null },
-314:            onDismiss = { showApiKeyDialog = null }
-494:    onDismiss: () -> Unit
-499:        onDismissRequest = onDismiss,
-525:            TextButton(onClick = onDismiss) { Text("Cancel") }
+147:                    IconButton(onClick = onNavigateBack) {
+273:                onDismissRequest = { },
+299:                onDismissRequest = { },
+431:                onDismissRequest = { refreshSlot = null },
+463:            onDismiss = { showApiKeyDialog = null }
+643:    onDismiss: () -> Unit
+648:        onDismissRequest = onDismiss,
+674:            TextButton(onClick = onDismiss) { Text("Cancel") }
 --- ConvoyMapViewerScreen.kt ---
 80:fun ConvoyMapViewerScreen(
 81:    onBack: () -> Unit,
@@ -960,20 +961,22 @@ UnifiedSearch.kt:250:                                    onOpenDetail(cap, r.id)
 65:                Text("COPY & SHARE LINK", color = GroupTrackColors.Navy,
 69:            Text(text = "Riders tap the link to download ride data, maps, and radio config automatically.",
 --- ConvoyMapSourceScreen.kt ---
-129:                title = { Text("Map Sources") },
-201:                ) { Text("< Back to slots") }
-250:                title = { Text("Refresh Tiles") },
-253:                        Text("Source changed for $slot.")
-255:                        Text("$refreshTileCount existing tiles found.")
-280:                    }) { Text("Refresh Now") }
-283:                    TextButton(onClick = { refreshSlot = null }) { Text("Later") }
-290:                title = { Text("Refresh Queued") },
-292:                    Text("$refreshTileCount grid cells queued for refresh at low priority. "
-297:                    TextButton(onClick = { refreshSlot = null }) { Text("OK") }
-500:        title = { Text("API Key: $sourceName") },
-512:                    label = { Text("API Key") },
-522:            ) { Text("Save") }
-525:            TextButton(onClick = onDismiss) { Text("Cancel") }
+145:                title = { Text("Map Sources") },
+217:                ) { Text("< Back to slots") }
+274:                title = { Text("Map Source Changed") },
+277:                        Text("$slot is now using the new source.")
+279:                        Text("$refreshTileCount stored tiles came from the previous source.")
+290:                    TextButton(onClick = { showPanel = true }) { Text("NEXT STEP") }
+300:                title = { Text("Set up $slot") },
+347:                        Text("CLEAR removes $nStores store(s), about $mb MB.")
+394:                        }) { Text("CLEAR TILES") }
+424:                        }) { Text("KEEP TILES") }
+432:                title = { Text("Done") },
+446:                    }) { Text("OK") }
+649:        title = { Text("API Key: $sourceName") },
+661:                    label = { Text("API Key") },
+671:            ) { Text("Save") }
+674:            TextButton(onClick = onDismiss) { Text("Cancel") }
 --- ConvoyMapViewerScreen.kt ---
 384:            Text("BACK", color = Color(0xFF4DA6FF),
 418:            Text("QUEUES", color = Color(0xFF1CF0A0),

@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<title>GroupTrack — Map Source Change: Panel Flow — 2026-08-06 v3</title>
+<style>
+ :root{--bg:#0f1216;--panel:#161b22;--panel2:#1c2229;--line:#30363d;--fg:#e6edf3;
+   --muted:#8b949e;--accent:#58a6ff;--red:#f85149;--amber:#d29922;--green:#3fb950;
+   --dim:#484f58;}
+ *{box-sizing:border-box}
+ body{margin:0;padding:28px 20px 80px;background:var(--bg);color:var(--fg);
+  font:15px/1.6 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+ .wrap{max-width:1180px;margin:0 auto}
+ header{border-bottom:2px solid var(--accent);padding-bottom:14px;margin-bottom:26px}
+ h1{margin:0 0 6px;font-size:26px} .sub{color:var(--muted);font-size:14px}
+ h2{font-size:19px;margin:34px 0 12px;padding-bottom:6px;
+   border-bottom:1px solid var(--line);color:var(--accent)}
+ .card{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--line);
+   border-radius:6px;padding:13px 15px;margin:10px 0}
+ .card.red{border-left-color:var(--red)} .card.amber{border-left-color:var(--amber)}
+ .card.green{border-left-color:var(--green)} .card.blue{border-left-color:var(--accent)}
+ code{background:var(--panel2);border:1px solid var(--line);border-radius:4px;padding:1px 5px;
+   font:12.5px ui-monospace,Consolas,monospace;color:#a5d6ff}
+ pre{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:11px 13px;
+   overflow-x:auto;font:12.5px/1.5 ui-monospace,Consolas,monospace;color:#a5d6ff}
+ ul{margin:7px 0 7px 20px} li{margin:4px 0}
+ .hi{color:#ffd479} .muted{color:var(--muted)}
+ table{width:100%;border-collapse:collapse;margin:12px 0;font-size:14px}
+ th,td{border:1px solid var(--line);padding:7px 10px;text-align:left;vertical-align:top}
+ th{background:var(--panel2);color:var(--accent)}
+ .flow{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-start;margin:18px 0}
+ .step{flex:1 1 300px;min-width:290px}
+ .arrow{align-self:center;color:var(--accent);font-size:26px;padding:0 2px}
+ .stepno{display:inline-block;background:var(--accent);color:#0b1015;font-weight:700;
+   border-radius:4px;padding:1px 7px;font-size:12px;margin-right:6px}
+ .screen{background:#11161c;border:1px solid var(--line);border-radius:10px;
+   overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,.35)}
+ .bar{background:#1b2129;padding:9px 12px;font-size:13px;font-weight:600;
+   border-bottom:1px solid var(--line);color:#cfd8e3}
+ .body{padding:12px}
+ .slot{background:#1a2028;border:1px solid #2b323b;border-radius:6px;padding:9px 11px;margin:7px 0}
+ .slot .k{font-size:11px;color:var(--accent);letter-spacing:.06em;font-weight:700}
+ .slot .v{font-size:13px} .slot .m{font-size:11px;color:var(--muted)}
+ .note{color:var(--muted);font-size:12px}
+ .warn{color:#ff7b72;font-size:12px}
+ .intro{background:#141b23;border:1px solid #2b323b;border-left:3px solid var(--accent);
+   border-radius:6px;padding:10px 11px;font-size:12.5px;line-height:1.55;margin-bottom:10px}
+ .intro b{color:#e6edf3}
+ .btns{display:flex;gap:8px;justify-content:flex-end;margin-top:12px;flex-wrap:wrap}
+ .btn{border-radius:5px;padding:7px 13px;font-size:12px;font-weight:700;
+   border:1px solid var(--accent);color:var(--accent);background:transparent}
+ .btn.go{background:#123055;color:#cfe6ff}
+ .btn.ghost{border-color:var(--dim);color:var(--muted)}
+ .sec{border:1px solid #2b323b;border-radius:7px;padding:10px 11px;margin:10px 0;background:#161c23}
+ .sec .h{font-size:10.5px;letter-spacing:.09em;font-weight:700;color:var(--accent);margin-bottom:8px}
+ .row{display:flex;align-items:flex-start;gap:9px;margin:9px 0;font-size:12.5px}
+ .rad{width:13px;height:13px;border:1px solid var(--muted);border-radius:50%;flex:none;margin-top:3px}
+ .rad.on{border-color:var(--accent);box-shadow:inset 0 0 0 3px var(--accent)}
+ .sm{font-size:11px;color:var(--muted);display:block;margin-top:2px;line-height:1.5}
+ .rec{display:inline-block;font-size:9.5px;font-weight:700;letter-spacing:.06em;
+   background:#12321f;color:var(--green);border:1px solid #1d5c33;border-radius:3px;
+   padding:1px 5px;margin-left:5px;vertical-align:middle}
+ .tot{background:#12202f;border:1px solid #24486b;border-radius:6px;padding:9px 11px;
+   margin-top:10px;font-size:12.5px}
+ .tag{display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.05em;
+   border-radius:3px;padding:2px 7px;margin-left:6px;vertical-align:middle}
+ .tag.built{background:#12321f;color:var(--green);border:1px solid #1d5c33}
+ .tag.todo{background:#3a2a10;color:var(--amber);border:1px solid #6b4d16}
+ .tag.exists{background:#1b2735;color:var(--accent);border:1px solid #24486b}
+</style></head><body><div class="wrap">
+
+<header>
+<h1>Map Source Change — Panel Flow <span class="muted" style="font-size:16px">v3</span></h1>
+<div class="sub">2026-08-06 v3 &middot; INTERNAL &middot; design confirmation<br>
+<b class="hi">v3: no per-item picker.</b> Three whole options — all tracks, all areas, nothing now.
+The explanation carries the reasoning instead of a selection UI. Refresh button renamed
+<b>NEXT STEP</b>.</div>
+</header>
+
+<h2>Shape</h2>
+<div class="card blue">
+<pre>Map Sources ──► Select Source ──► [RECORD OPENED] ──► "NEXT STEP" ──► THE PANEL ──► result ──► History
+  EXISTS          EXISTS            before the          renamed from      one surface,
+  unchanged       unchanged         slot changes        "Refresh Now"     every decision</pre>
+<p class="hi">⭐ <b>Our modifications start at the button.</b> The source selection screen exists
+and works — it is not touched. The button that said <b>Refresh Now</b> becomes <b>NEXT STEP</b>
+and opens the panel.</p>
+</div>
+
+<h2><span class="stepno">1</span>Existing screens — unchanged <span class="tag exists">EXISTS</span></h2>
+<div class="flow">
+  <div class="step">
+    <div class="screen">
+      <div class="bar">Map Sources</div>
+      <div class="body">
+        <div class="slot"><div class="k">SAT</div><div class="v">Esri Imagery + Overlays</div>
+          <div class="m">Esri &middot; 3 stores &middot; 4.70 GB</div></div>
+        <div class="slot"><div class="k">TOPO</div><div class="v">Esri Topographic</div>
+          <div class="m">367 MB</div></div>
+        <div class="slot"><div class="k">TOPO+</div><div class="v">Esri USA Topo</div>
+          <div class="m">49 MB</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="arrow">▶</div>
+  <div class="step">
+    <div class="screen">
+      <div class="bar">Select Source for SAT</div>
+      <div class="body">
+        <div class="note">HYBRID</div>
+        <div class="slot"><div class="v">Google Hybrid ✓</div>
+          <div class="m">1 store &middot; labels baked into the imagery</div></div>
+        <div class="slot"><div class="v">Esri Imagery + Overlays</div>
+          <div class="m">3 stores &middot; current</div></div>
+      </div>
+    </div>
+    <div class="card amber"><p class="note">⭐ <b>The record opens here</b> — inside
+      <code>applySource</code>, <b>before</b> <code>updateSlotSource</code>. Afterwards the
+      outgoing source's cache dirs are unreachable and the label stores become orphans.</p></div>
+  </div>
+  <div class="arrow">▶</div>
+  <div class="step">
+    <div class="screen">
+      <div class="bar">Map Source Changed</div>
+      <div class="body">
+        <div style="background:#1a2028;border:1px solid #333b45;border-radius:8px;padding:12px">
+          <div style="font-size:14px;font-weight:700;margin-bottom:8px">SAT is now Google Hybrid</div>
+          <p class="note">142,880 stored tiles came from Esri Imagery + Overlays.</p>
+          <div class="btns"><span class="btn go">NEXT STEP</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="card red"><p class="note">⛔ <b>No dismiss.</b> Back-button and outside-tap do
+      nothing — the only way on is NEXT STEP. The panel itself carries the do-nothing option.</p></div>
+  </div>
+</div>
+
+<h2><span class="stepno">2</span>THE PANEL — explanation, then three options</h2>
+
+<div class="flow">
+  <div class="step" style="flex:1 1 480px">
+    <div class="screen">
+      <div class="bar">SAT — set up your maps for Google Hybrid</div>
+      <div class="body">
+
+        <div class="intro">
+          <b>Your stored tiles came from Esri and cannot be converted.</b> Esri satellite needs
+          two extra label stores for place and road names; Google Hybrid has those names baked
+          into the imagery and does not use them.<br><br>
+          <b class="hi">Either way you lose labels on your existing Esri tiles</b> — the new
+          source does not fetch label overlays, so those tiles will draw as plain satellite from
+          now on. Clearing at least reclaims the 461 MB the label stores are using.<br><br>
+          <b>We recommend clearing</b> for a move from Esri to Google Hybrid — unless you are
+          already running corridor-based tiles, in which case your storage is already efficient
+          and replacing in place keeps your maps working throughout.<br><br>
+          <b>If you clear, any reload choice is comfortable.</b> If you are not sure, choose
+          <b>Nothing now</b>: your Esri tiles stay exactly as they are and you can refresh on
+          demand later with Download Tiles by Area or by Track.
+        </div>
+
+        <div class="sec">
+          <div class="h">1 — EXISTING TILES</div>
+          <div class="row"><span class="rad on"></span>
+            <span><b>Clear them</b><span class="rec">RECOMMENDED</span>
+              <span class="sm">Removes 3 stores, frees 4,812 MB. Single source, nothing stale left.</span>
+              <span class="warn">Cannot be undone. No backup. Download history is cleared too.</span></span></div>
+          <div class="row"><span class="rad"></span>
+            <span><b>Replace in place</b> <span class="tag todo">NEXT</span>
+              <span class="sm">Re-downloads your existing coverage on the new source, keeping your
+              storage method — area stays area, corridor stays corridor. Maps keep working
+              throughout. No space reclaimed. <b>Best if you are already on corridors.</b></span></span></div>
+          <div class="row"><span class="rad"></span>
+            <span><b>Keep them as they are</b>
+              <span class="sm">Nothing removed, nothing downloaded. Your Esri tiles keep working
+              without labels; anything new comes from Google Hybrid.</span></span></div>
+        </div>
+
+        <div class="sec">
+          <div class="h">2 — RELOAD <span class="tag todo">NEXT</span></div>
+          <div class="row"><span class="rad on"></span>
+            <span><b>All tracks — corridors</b><span class="rec">IF YOU HAVE TRACKS</span>
+              <span class="sm">Corridors around every imported track. Recommended when you have
+              track histories — coverage follows where you actually ride, using about two thirds
+              less storage. 8 tracks · ~161,000 tiles · about 4 hours.</span></span></div>
+          <div class="row"><span class="rad"></span>
+            <span><b>All areas</b><span class="rec">IF YOU DO NOT</span>
+              <span class="sm">Rebuilds your area coverage on the new source. Recommended if you
+              downloaded areas and do not intend to import tracks.</span></span></div>
+          <div class="row"><span class="rad"></span>
+            <span><b>Nothing now</b>
+              <span class="sm">Nothing is queued. Draw an area or import tracks whenever you
+              like — Download Tiles by Area and by Track are always available.</span></span></div>
+        </div>
+
+        <div class="tot">
+          <b>Clear</b> 3 stores · 4,812 MB freed<br>
+          <b>Then download</b> 8 corridor jobs · ~161,000 tiles · <b>about 4 hours</b><br>
+          <span class="note">Runs in the background and survives restarts.</span>
+        </div>
+
+        <div class="btns">
+          <span class="btn ghost">CANCEL</span>
+          <span class="btn go">PROCEED</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="step" style="flex:1 1 330px">
+    <div class="card blue">
+      <p class="hi">⭐ <b>No picker.</b> All tracks or all areas — whole options, no per-item
+      selection. The explanation does the work a selection UI would have done, and there is far
+      less to build.</p>
+    </div>
+    <div class="card green">
+      <p>⭐ <b>The recommendation is conditional and stated, not computed.</b> Clear unless you
+      are already on corridors · all-tracks if you have tracks · all-areas if you do not ·
+      nothing-now if unsure. Four sentences, no decision engine.</p>
+    </div>
+    <div class="card amber">
+      <p>⚠ <b>"All areas" needs the area list to survive the clear.</b> Queue entries carry
+      <code>north/south/east/west</code>, but a clear wipes queue history — so <b>clear + all
+      areas cannot both be honoured</b> unless the bboxes are copied into the migration record
+      first. ⭐ Cheap fix: snapshot them into the record at <code>begin()</code>.</p>
+    </div>
+    <div class="card red">
+      <p>⛔ <b>CANCEL must complete the record</b>, not just close the panel — otherwise it
+      dangles as a permanently interrupted migration and pollutes the next source change on this
+      column.</p>
+    </div>
+  </div>
+</div>
+
+<h2><span class="stepno">3</span>What PROCEED runs</h2>
+<div class="card">
+<pre>CLEAR HALF  ── BUILT, compiles ───────────────────────────────
+1  begin()            record written — ABORT if it cannot be written
+2  holdQueue()        no new jobs start
+3  cancelAll()        cancels DOWNLOADING workers (keeps COMPLETE)
+4  awaitIdle()        poll ≤15s — cancelWorkById is ASYNC and returns early.
+                      timeout ⇒ FAIL, do not delete under a live worker
+5  clearCompleted()   drains the history cancelAll deliberately kept
+6  deleteSource(dir)  per OLD-source cache dir, noteDeleted() after each
+7  complete()         + resumeQueue()
+
+RELOAD HALF ── NEXT ──────────────────────────────────────────
+8  all tracks  → enqueueCorridorBatch(all hashes, [new slot], replace=false)
+   all areas   → area enqueue over snapshotted bboxes, replace=false
+   nothing now → no-op, recorded as the choice</pre>
+<p>⭐ <b>replace=false after a clear</b>, forced and locked: on an empty store there is nothing
+to replace, and <code>hasTile</code> then deduplicates across the whole batch so overlapping
+corridors fetch shared tiles once.</p>
+</div>
+
+<h2>Build state</h2>
+<table>
+<tr><th>Piece</th><th>State</th></tr>
+<tr><td>Map Sources screen, source selection</td><td><span class="tag exists">EXISTS</span> untouched</td></tr>
+<tr><td><code>ConvoySourceMigration</code> — record, measure, resume, history</td><td><span class="tag built">BUILT</span></td></tr>
+<tr><td><code>ConvoySourceClear</code> — hold, cancel, await idle, clear, delete</td><td><span class="tag built">BUILT</span></td></tr>
+<tr><td>Record opened before <code>updateSlotSource</code>; no silent dismiss</td><td><span class="tag built">BUILT</span> patch 3 pending</td></tr>
+<tr><td>Button renamed <b>NEXT STEP</b></td><td><span class="tag todo">reissue patch 3</span></td></tr>
+<tr><td>Panel: explanation + 3 tile options + 3 reload options</td><td><span class="tag todo">NEXT</span></td></tr>
+<tr><td>Replace in place</td><td><span class="tag todo">NEXT</span> needs enqueue with <code>replace=true</code></td></tr>
+<tr><td>Area bbox snapshot into the record</td><td><span class="tag todo">NEXT</span> required for clear + all areas</td></tr>
+<tr><td>Source history section · startup resume prompt</td><td><span class="tag todo">NEXT</span> <code>history()</code>, <code>hasUnfinished()</code> exist</td></tr>
+</table>
+
+<div class="card red">
+<p class="hi">⛔ <b>Open</b></p>
+<ul>
+<li><b>Snapshot area bboxes at <code>begin()</code></b> or "clear + all areas" cannot work.</li>
+<li><b>CANCEL and Keep must complete the record.</b></li>
+<li><b>Segmentation threshold — 60,000 or 50,000?</b> The panel's estimate rests on it.</li>
+<li><b>Prove on Droid 2 before Droid 1.</b> GB deleted, no backup.</li>
+</ul>
+</div>
+
+</div></body></html>

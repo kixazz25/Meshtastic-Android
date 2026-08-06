@@ -1446,28 +1446,39 @@ ConvoyMapSourceScreen.kt:90:    var topoSourceId by remember {
 ConvoyMapSourceScreen.kt:93:    var topoPlusSourceId by remember {
 ConvoyMapSourceScreen.kt:97:    fun currentSourceId(slot: String): String = when (slot) {
 ConvoyMapSourceScreen.kt:104:    fun applySource(slot: String, sourceId: String) {
-ConvoyMapSourceScreen.kt:113:        val checkSlot = slot
-ConvoyMapSourceScreen.kt:115:            val count = withContext(Dispatchers.IO) {
-ConvoyMapSourceScreen.kt:156:                    val sourceId = currentSourceId(slotKey)
-ConvoyMapSourceScreen.kt:157:                    val source = allSources.find { it.id == sourceId }
-ConvoyMapSourceScreen.kt:182:                    val hasKey = MapSourceManager.getApiKey(source.id).isNotEmpty()
-ConvoyMapSourceScreen.kt:194:                val slotKey = selectedSlot!!
-ConvoyMapSourceScreen.kt:195:                val currentId = currentSourceId(slotKey)
-ConvoyMapSourceScreen.kt:205:                val grouped = allSources.groupBy { it.mapType }
-ConvoyMapSourceScreen.kt:206:                val typeOrder = listOf("HYB", "SAT", "TOPO", "STREET", "TERRAIN", "OUTDOOR")
-ConvoyMapSourceScreen.kt:207:                val typeLabels = mapOf(
-ConvoyMapSourceScreen.kt:213:                    val sourcesInType = grouped[type] ?: return@forEach
-ConvoyMapSourceScreen.kt:222:                        val isSelected = source.id == currentId
-ConvoyMapSourceScreen.kt:223:                        val isAvailable = MapSourceManager.isSourceAvailable(source.id)
-ConvoyMapSourceScreen.kt:268:                        val source = allSources.find { it.id == currentSourceId(slot) }
-ConvoyMapSourceScreen.kt:270:                            val cellCount = withContext(Dispatchers.IO) {
-ConvoyMapSourceScreen.kt:305:        val source = allSources.find { it.id == sourceId }
-ConvoyMapSourceScreen.kt:322:private fun SectionHeader(title: String) {
-ConvoyMapSourceScreen.kt:332:private fun SlotCard(
-ConvoyMapSourceScreen.kt:389:private fun SourceRow(
-ConvoyMapSourceScreen.kt:452:private fun ApiKeyRow(
-ConvoyMapSourceScreen.kt:489:private fun ApiKeyDialog(
-ConvoyMapSourceScreen.kt:496:    var keyText by remember { mutableStateOf(currentKey) }
+ConvoyMapSourceScreen.kt:113:        val fromSourceId = currentSourceId(slot)
+ConvoyMapSourceScreen.kt:115:            val fromDirs = allSources.find { it.id == fromSourceId }?.allCacheDirs ?: emptyList()
+ConvoyMapSourceScreen.kt:116:            val toDirs = allSources.find { it.id == sourceId }?.allCacheDirs ?: emptyList()
+ConvoyMapSourceScreen.kt:129:        val checkSlot = slot
+ConvoyMapSourceScreen.kt:131:            val count = withContext(Dispatchers.IO) {
+ConvoyMapSourceScreen.kt:172:                    val sourceId = currentSourceId(slotKey)
+ConvoyMapSourceScreen.kt:173:                    val source = allSources.find { it.id == sourceId }
+ConvoyMapSourceScreen.kt:198:                    val hasKey = MapSourceManager.getApiKey(source.id).isNotEmpty()
+ConvoyMapSourceScreen.kt:210:                val slotKey = selectedSlot!!
+ConvoyMapSourceScreen.kt:211:                val currentId = currentSourceId(slotKey)
+ConvoyMapSourceScreen.kt:221:                val grouped = allSources.groupBy { it.mapType }
+ConvoyMapSourceScreen.kt:222:                val typeOrder = listOf("HYB", "SAT", "TOPO", "STREET", "TERRAIN", "OUTDOOR")
+ConvoyMapSourceScreen.kt:223:                val typeLabels = mapOf(
+ConvoyMapSourceScreen.kt:229:                    val sourcesInType = grouped[type] ?: return@forEach
+ConvoyMapSourceScreen.kt:238:                        val isSelected = source.id == currentId
+ConvoyMapSourceScreen.kt:239:                        val isAvailable = MapSourceManager.isSourceAvailable(source.id)
+ConvoyMapSourceScreen.kt:262:    var showPanel by remember { mutableStateOf(false) }
+ConvoyMapSourceScreen.kt:263:    var clearResult by remember { mutableStateOf<String?>(null) }
+ConvoyMapSourceScreen.kt:303:                        val rec = ConvoySourceMigration.inProgress().firstOrNull { f ->
+ConvoyMapSourceScreen.kt:306:                        val root = rec?.let { ConvoySourceMigration.read(it) }
+ConvoyMapSourceScreen.kt:307:                        val mb = (root?.optLong("from_bytes_total", 0L) ?: 0L) / (1024L * 1024L)
+ConvoyMapSourceScreen.kt:308:                        val dirs = root?.optJSONArray("from_cache_dirs")
+ConvoyMapSourceScreen.kt:309:                        val nStores = dirs?.length() ?: 0
+ConvoyMapSourceScreen.kt:369:                            val record = ConvoySourceMigration.inProgress().firstOrNull { f ->
+ConvoyMapSourceScreen.kt:374:                                    .plus("changed. Tiles are only removed when the removal ")
+ConvoyMapSourceScreen.kt:397:                            val record = ConvoySourceMigration.inProgress().firstOrNull { f ->
+ConvoyMapSourceScreen.kt:454:        val source = allSources.find { it.id == sourceId }
+ConvoyMapSourceScreen.kt:471:private fun SectionHeader(title: String) {
+ConvoyMapSourceScreen.kt:481:private fun SlotCard(
+ConvoyMapSourceScreen.kt:538:private fun SourceRow(
+ConvoyMapSourceScreen.kt:601:private fun ApiKeyRow(
+ConvoyMapSourceScreen.kt:638:private fun ApiKeyDialog(
+ConvoyMapSourceScreen.kt:645:    var keyText by remember { mutableStateOf(currentKey) }
 ConvoyMapViewerScreen.kt:58:private const val DS_OFF = 0
 ConvoyMapViewerScreen.kt:60:private val WAYPOINT_TYPES: List<Pair<String, String>> = listOf(
 ConvoyMapViewerScreen.kt:75:private const val DS_ON = 1
@@ -2920,6 +2931,100 @@ ConvoySimulation.kt:86:            val battery = when (callsign) {
 ConvoySimulation.kt:113:    fun computeState(nowMs: Long = System.currentTimeMillis()): ConvoyEngine.ConvoyState {
 ConvoySimulation.kt:114:        val nodes = tick(nowMs)
 ConvoySimulation.kt:119:    fun reset() {
+ConvoySourceClear.kt:35:object ConvoySourceClear {
+ConvoySourceClear.kt:37:    private const val TAG = "SourceClear"
+ConvoySourceClear.kt:40:    private const val IDLE_TIMEOUT_MS = 15_000L
+ConvoySourceClear.kt:41:    private const val IDLE_POLL_MS = 250L
+ConvoySourceClear.kt:56:    private val detachedScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+ConvoySourceClear.kt:63:    fun clearColumnDetached(record: File, onResult: (Result) -> Unit) {
+ConvoySourceClear.kt:65:            val r = clearColumn(record)
+ConvoySourceClear.kt:71:    fun removeOrphanedStoresDetached(record: File, onResult: (Result) -> Unit) {
+ConvoySourceClear.kt:73:            val r = removeOrphanedStores(record)
+ConvoySourceClear.kt:78:    sealed class Result {
+ConvoySourceClear.kt:79:        data class Success(
+ConvoySourceClear.kt:80:            val deletedDirs: List<String>,
+ConvoySourceClear.kt:81:            val bytesFreed: Long
+ConvoySourceClear.kt:84:        data class Failed(val reason: String) : Result()
+ConvoySourceClear.kt:98:    suspend fun clearColumn(record: File): Result = withContext(Dispatchers.IO) {
+ConvoySourceClear.kt:99:        val root = ConvoySourceMigration.read(record)
+ConvoySourceClear.kt:102:        val slot = root.optString("slot", "?")
+ConvoySourceClear.kt:103:        val fromArr = root.optJSONArray("from_cache_dirs")
+ConvoySourceClear.kt:105:            val why = "record has no from_cache_dirs - nothing safe to delete"
+ConvoySourceClear.kt:110:        val allDirs = ArrayList<String>()
+ConvoySourceClear.kt:113:        val alreadyArr = root.optJSONArray("deleted_cache_dirs")
+ConvoySourceClear.kt:114:        val already = HashSet<String>()
+ConvoySourceClear.kt:118:        val todo = allDirs.filter { it !in already }
+ConvoySourceClear.kt:125:        val bytesBefore = ConvoySourceMigration.totalBytes(todo)
+ConvoySourceClear.kt:141:                val why = "workers still running after ${IDLE_TIMEOUT_MS}ms - " +
+ConvoySourceClear.kt:159:            val deleted = ArrayList<String>()
+ConvoySourceClear.kt:160:            val failedDirs = ArrayList<String>()
+ConvoySourceClear.kt:162:                val ok = try {
+ConvoySourceClear.kt:177:                val why = "could not delete: ${failedDirs.joinToString(", ")}"
+ConvoySourceClear.kt:190:            val why = "unexpected failure: ${e.message}"
+ConvoySourceClear.kt:202:    private suspend fun awaitIdle(): Boolean {
+ConvoySourceClear.kt:203:        var waited = 0L
+ConvoySourceClear.kt:205:            val busy = DownloadQueueManager.queue.value
+ConvoySourceClear.kt:214:        val stillBusy = DownloadQueueManager.queue.value
+ConvoySourceClear.kt:247:    suspend fun removeOrphanedStores(record: File): Result = withContext(Dispatchers.IO) {
+ConvoySourceClear.kt:248:        val root = ConvoySourceMigration.read(record)
+ConvoySourceClear.kt:251:        val fromArr = root.optJSONArray("from_cache_dirs")
+ConvoySourceClear.kt:252:        val toArr = root.optJSONArray("to_cache_dirs")
+ConvoySourceClear.kt:254:        val from = ArrayList<String>()
+ConvoySourceClear.kt:256:        val to = HashSet<String>()
+ConvoySourceClear.kt:259:        val alreadyArr = root.optJSONArray("deleted_cache_dirs")
+ConvoySourceClear.kt:260:        val already = HashSet<String>()
+ConvoySourceClear.kt:265:        val orphans = from.filter { it !in to && it !in already }
+ConvoySourceClear.kt:272:        val busy = DownloadQueueManager.queue.value
+ConvoySourceClear.kt:275:            val why = "$busy download(s) in progress - try again when the queue is idle"
+ConvoySourceClear.kt:280:        val bytes = ConvoySourceMigration.totalBytes(orphans)
+ConvoySourceClear.kt:284:        val deleted = ArrayList<String>()
+ConvoySourceClear.kt:285:        val failedDirs = ArrayList<String>()
+ConvoySourceClear.kt:287:            val ok = try {
+ConvoySourceClear.kt:302:            val why = "could not delete: ${failedDirs.joinToString(", ")}"
+ConvoySourceClear.kt:316:    fun hasUnfinished(): Boolean = ConvoySourceMigration.inProgress().isNotEmpty()
+ConvoySourceMigration.kt:20: * go?" - so this object writes that answer down BEFORE the deletion starts.
+ConvoySourceMigration.kt:37:object ConvoySourceMigration {
+ConvoySourceMigration.kt:39:    private const val TAG = "SourceMigration"
+ConvoySourceMigration.kt:40:    private const val SCHEMA = 1
+ConvoySourceMigration.kt:43:    private fun migrationDir(): File {
+ConvoySourceMigration.kt:44:        val maps = ConvoyConfig.TILE_DIR.parentFile
+ConvoySourceMigration.kt:45:        val dir = if (maps != null) File(maps, "source_changes")
+ConvoySourceMigration.kt:51:    private fun stamp(d: Date): String =
+ConvoySourceMigration.kt:54:    private fun safe(s: String): String =
+ConvoySourceMigration.kt:58:    private fun bytesForCacheDir(cacheDir: String): Long {
+ConvoySourceMigration.kt:59:        var total = 0L
+ConvoySourceMigration.kt:61:            val f = File(ConvoyConfig.TILE_DIR, "$cacheDir.mbtiles$suffix")
+ConvoySourceMigration.kt:72:    fun measureBytes(cacheDirs: List<String>): Map<String, Long> {
+ConvoySourceMigration.kt:73:        val out = LinkedHashMap<String, Long>()
+ConvoySourceMigration.kt:78:    fun totalBytes(cacheDirs: List<String>): Long =
+ConvoySourceMigration.kt:83:     * MapSourceManager.updateSlotSource - see the class comment.
+ConvoySourceMigration.kt:87:     * unrecorded GB-scale delete is the failure this object exists to prevent.
+ConvoySourceMigration.kt:89:    fun begin(
+ConvoySourceMigration.kt:97:            val now = Date()
+ConvoySourceMigration.kt:98:            val name = "${stamp(now)}_${safe(slot)}_${safe(fromSourceId)}_to_${safe(toSourceId)}.json"
+ConvoySourceMigration.kt:99:            val dest = File(migrationDir(), name)
+ConvoySourceMigration.kt:101:            val sizes = measureBytes(fromCacheDirs)
+ConvoySourceMigration.kt:102:            val sizeObj = JSONObject()
+ConvoySourceMigration.kt:105:            val root = JSONObject()
+ConvoySourceMigration.kt:133:    private fun write(dest: File, root: JSONObject) {
+ConvoySourceMigration.kt:134:        val tmp = File(dest.parentFile, dest.name + ".tmp")
+ConvoySourceMigration.kt:143:    fun read(record: File): JSONObject? = try {
+ConvoySourceMigration.kt:150:    private fun update(record: File, block: (JSONObject) -> Unit) {
+ConvoySourceMigration.kt:151:        val root = read(record) ?: return
+ConvoySourceMigration.kt:160:    fun setPhase(record: File, phase: String) {
+ConvoySourceMigration.kt:165:    fun noteQueueCleared(record: File) {
+ConvoySourceMigration.kt:174:    fun noteDeleted(record: File, cacheDir: String) {
+ConvoySourceMigration.kt:176:            val arr = it.optJSONArray("deleted_cache_dirs") ?: JSONArray()
+ConvoySourceMigration.kt:184:    fun noteReloadChoice(record: File, choice: String) {
+ConvoySourceMigration.kt:188:    fun complete(record: File) {
+ConvoySourceMigration.kt:202:    fun fail(record: File, reason: String) {
+ConvoySourceMigration.kt:211:    fun inProgress(): List<File> {
+ConvoySourceMigration.kt:212:        val dir = migrationDir()
+ConvoySourceMigration.kt:213:        val files = dir.listFiles { f -> f.isFile && f.name.endsWith(".json") }
+ConvoySourceMigration.kt:216:            val root = read(f)
+ConvoySourceMigration.kt:222:    fun history(): List<File> {
+ConvoySourceMigration.kt:223:        val dir = migrationDir()
+ConvoySourceMigration.kt:224:        val files = dir.listFiles { f -> f.isFile && f.name.endsWith(".json") }
 ConvoySubMenu.kt:46:fun ConvoySubMenu(
 ConvoySubMenu.kt:68:        var expanded by remember { mutableStateOf<String?>(null) }
 ConvoySubMenu.kt:243:private fun AccordionHeader(
