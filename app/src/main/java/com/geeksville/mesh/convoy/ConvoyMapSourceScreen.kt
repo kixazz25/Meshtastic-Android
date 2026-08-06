@@ -102,6 +102,22 @@ fun ConvoyMapSourceScreen(
     }
 
     fun applySource(slot: String, sourceId: String) {
+        // SOURCEPANEL-2026-08-06: open the migration record BEFORE the slot
+        // assignment changes. Afterwards currentSourceId(slot) returns the NEW
+        // source and the OUTGOING source's cache dirs exist nowhere in live
+        // state - that is how SAT_LABELS_PLACES and SAT_LABELS_TRANSPORT would
+        // become orphans nothing knows to remove.
+        // If the record cannot be written the source change still proceeds but
+        // no clear is offered: an unrecorded GB-scale delete is exactly what
+        // the record exists to prevent, so degrading to "no clear" is safe.
+        val fromSourceId = currentSourceId(slot)
+        if (fromSourceId.isNotEmpty() && fromSourceId != sourceId) {
+            val fromDirs = allSources.find { it.id == fromSourceId }?.allCacheDirs ?: emptyList()
+            val toDirs = allSources.find { it.id == sourceId }?.allCacheDirs ?: emptyList()
+            if (fromDirs.isNotEmpty()) {
+                ConvoySourceMigration.begin(slot, fromSourceId, fromDirs, sourceId, toDirs)
+            }
+        }
         MapSourceManager.updateSlotSource(slot, sourceId)
         when (slot) {
             "SAT" -> satSourceId = sourceId
@@ -242,59 +258,192 @@ fun ConvoyMapSourceScreen(
         }
     }
 
-    // ── Refresh Confirmation Dialog ──────────────────────────────
+    // SOURCEPANEL-2026-08-06: three phases - intro, panel, result.
+    var showPanel by remember { mutableStateOf(false) }
+    var clearResult by remember { mutableStateOf<String?>(null) }
+
+    // ── Source Change Panel ──────────────────────────────────────
     refreshSlot?.let { slot ->
-        if (!refreshEnqueued) {
+        if (!refreshEnqueued && !showPanel) {
+            // ── PHASE 1: intro ───────────────────────────────────
+            // SOURCEPANEL-2026-08-06: no silent exit. "Later" was a dismissal
+            // with no owner - it left the column pointing at a new source over
+            // a store full of the old one, with nothing recording the mismatch.
             AlertDialog(
-                onDismissRequest = { refreshSlot = null },
-                title = { Text("Refresh Tiles") },
+                onDismissRequest = { },
+                title = { Text("Map Source Changed") },
                 text = {
                     Column {
-                        Text("Source changed for $slot.")
+                        Text("$slot is now using the new source.")
                         Spacer(Modifier.height(8.dp))
-                        Text("$refreshTileCount existing tiles found.")
+                        Text("$refreshTileCount stored tiles came from the previous source.")
                         Spacer(Modifier.height(4.dp))
                         Text(
-                            "Refresh downloads from the new source at low priority. "
-                            + "Progress visible in Work with Queues. "
-                            + "Restarts automatically if interrupted.",
+                            "Stored tiles cannot be converted. The next step explains "
+                            + "your options and what each one costs.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 },
                 confirmButton = {
-                    TextButton(onClick = {
-                        val source = allSources.find { it.id == currentSourceId(slot) }
-                        scope.launch {
-                            val cellCount = withContext(Dispatchers.IO) {
-                                DownloadQueueManager.enqueueRefresh(
-                                    context = context,
-                                    slotName = slot,
-                                    sourceName = source?.name ?: slot
-                                )
-                            }
-                            refreshTileCount = cellCount
-                            refreshEnqueued = true
+                    TextButton(onClick = { showPanel = true }) { Text("NEXT STEP") }
+                }
+            )
+        } else if (!refreshEnqueued) {
+            // ── PHASE 2: THE PANEL ───────────────────────────────
+            // One surface for the whole decision. Reload options and
+            // replace-in-place are named but not built yet; the panel says so
+            // rather than pretending they are absent.
+            AlertDialog(
+                onDismissRequest = { },
+                title = { Text("Set up $slot") },
+                text = {
+                    Column {
+                        val rec = ConvoySourceMigration.inProgress().firstOrNull { f ->
+                            ConvoySourceMigration.read(f)?.optString("slot") == slot
                         }
-                    }) { Text("Refresh Now") }
+                        val root = rec?.let { ConvoySourceMigration.read(it) }
+                        val mb = (root?.optLong("from_bytes_total", 0L) ?: 0L) / (1024L * 1024L)
+                        val dirs = root?.optJSONArray("from_cache_dirs")
+                        val nStores = dirs?.length() ?: 0
+
+                        Text(
+                            "Your stored tiles came from the previous source and cannot "
+                            + "be converted.",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        Spacer(Modifier.height(6.dp))
+                        // SOURCEPANELFIX-2026-08-06: advisory leads, mechanism follows.
+                        Text(
+                            "Please be advised: no matter which option you select, you "
+                            + "will lose Esri place and road label information.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "The new source does not fetch label overlays, so those "
+                            + "stores are removed either way and their space is "
+                            + "reclaimed.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            "We recommend CLEAR when moving from Esri to Google Hybrid, "
+                            + "unless you are already running corridor-based tiles.",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            "If you are not sure, choose KEEP. Your tiles stay exactly as "
+                            + "they are and you can refresh on demand later with Download "
+                            + "Tiles by Area or by Track.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Text("CLEAR removes $nStores store(s), about $mb MB.")
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "This cannot be undone. There is no backup. Your download "
+                            + "history for this column is cleared too, so note any areas "
+                            + "you want to redraw.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            "Nothing downloads now either way. Reload options and "
+                            + "replace-in-place arrive in the next build; until then use "
+                            + "Download Tiles by Area or by Track when you are ready.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 },
-                dismissButton = {
-                    TextButton(onClick = { refreshSlot = null }) { Text("Later") }
+                confirmButton = {
+                    Column {
+                        TextButton(onClick = {
+                            val record = ConvoySourceMigration.inProgress().firstOrNull { f ->
+                                ConvoySourceMigration.read(f)?.optString("slot") == slot
+                            }
+                            if (record == null) {
+                                clearResult = "No migration record for $slot, so nothing was "
+                                    .plus("changed. Tiles are only removed when the removal ")
+                                    .plus("can be recorded.")
+                                refreshEnqueued = true
+                            } else {
+                                // SOURCEPANELFIX-2026-08-06: detached. This ran on
+                                // rememberCoroutineScope(), which is cancelled when the
+                                // screen leaves composition - navigating away mid-delete
+                                // could kill a GB-scale operation partway through.
+                                ConvoySourceClear.clearColumnDetached(record) { r ->
+                                    clearResult = when (r) {
+                                        is ConvoySourceClear.Result.Success ->
+                                            "Cleared ${r.deletedDirs.size} store(s), about "
+                                                .plus("${r.bytesFreed / (1024L * 1024L)} MB freed. ")
+                                                .plus("Draw areas or import tracks when ready.")
+                                        is ConvoySourceClear.Result.Failed ->
+                                            "Clear failed: ${r.reason}"
+                                    }
+                                    refreshEnqueued = true
+                                }
+                            }
+                        }) { Text("CLEAR TILES") }
+
+                        TextButton(onClick = {
+                            val record = ConvoySourceMigration.inProgress().firstOrNull { f ->
+                                ConvoySourceMigration.read(f)?.optString("slot") == slot
+                            }
+                            if (record == null) {
+                                clearResult = "Tiles kept. No migration record was open."
+                                refreshEnqueued = true
+                            } else {
+                                // SOURCEPANELFIX-2026-08-06: detached, same reason.
+                                // Orphaned label stores are reclaimed here too -
+                                // they are dead the moment the source changes.
+                                ConvoySourceClear.removeOrphanedStoresDetached(record) { r ->
+                                    ConvoySourceMigration.noteReloadChoice(record, "kept_existing_tiles")
+                                    ConvoySourceMigration.complete(record)
+                                    clearResult = when (r) {
+                                        is ConvoySourceClear.Result.Success ->
+                                            if (r.deletedDirs.isEmpty())
+                                                "Tiles kept. Nothing was removed."
+                                            else
+                                                "Tiles kept. Removed ${r.deletedDirs.size} unused "
+                                                    .plus("label store(s), about ")
+                                                    .plus("${r.bytesFreed / (1024L * 1024L)} MB freed.")
+                                        is ConvoySourceClear.Result.Failed ->
+                                            "Tiles kept. Label stores not removed: ${r.reason}"
+                                    }
+                                    refreshEnqueued = true
+                                }
+                            }
+                        }) { Text("KEEP TILES") }
+                    }
                 }
             )
         } else {
             // Confirmation that refresh was queued
             AlertDialog(
                 onDismissRequest = { refreshSlot = null },
-                title = { Text("Refresh Queued") },
+                title = { Text("Done") },
                 text = {
-                    Text("$refreshTileCount grid cells queued for refresh at low priority. "
-                        + "Each cell downloads independently. "
-                        + "Check Work with Queues for progress.")
+                    // SOURCEPANEL-2026-08-06: reports the actual outcome.
+                    Text(clearResult ?: "No changes were made.")
                 },
                 confirmButton = {
-                    TextButton(onClick = { refreshSlot = null }) { Text("OK") }
+                    // SOURCEPANELFIX-2026-08-06: reset showPanel too. It is declared
+                    // below applySource, so applySource cannot clear it - without this
+                    // the NEXT source change with tiles present skips the intro and
+                    // opens straight on the panel.
+                    TextButton(onClick = {
+                        showPanel = false
+                        clearResult = null
+                        refreshSlot = null
+                    }) { Text("OK") }
                 }
             )
         }
