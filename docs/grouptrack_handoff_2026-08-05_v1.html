@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<title>GroupTrack — Session Handoff — 2026-08-05 v1</title>
+<style>
+ :root{--bg:#0f1216;--panel:#161b22;--panel2:#1c2229;--line:#30363d;--fg:#e6edf3;
+   --muted:#8b949e;--accent:#58a6ff;--red:#f85149;--amber:#d29922;--green:#3fb950;}
+ *{box-sizing:border-box}
+ body{margin:0;padding:28px 20px 80px;background:var(--bg);color:var(--fg);
+  font:15px/1.6 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+ .wrap{max-width:1080px;margin:0 auto}
+ header{border-bottom:2px solid var(--accent);padding-bottom:14px;margin-bottom:26px}
+ h1{margin:0 0 6px;font-size:26px} .sub{color:var(--muted);font-size:14px}
+ h2{font-size:19px;margin:32px 0 12px;padding-bottom:6px;border-bottom:1px solid var(--line);color:var(--accent)}
+ h3{font-size:15px;margin:20px 0 8px}
+ .card{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--line);
+   border-radius:6px;padding:13px 15px;margin:10px 0}
+ .card.red{border-left-color:var(--red)} .card.amber{border-left-color:var(--amber)}
+ .card.green{border-left-color:var(--green)} .card.blue{border-left-color:var(--accent)}
+ code{background:var(--panel2);border:1px solid var(--line);border-radius:4px;padding:1px 5px;
+   font:13px ui-monospace,Consolas,monospace;color:#a5d6ff}
+ pre{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:11px 13px;
+   overflow-x:auto;font:12.5px/1.5 ui-monospace,Consolas,monospace;color:#a5d6ff}
+ table{width:100%;border-collapse:collapse;margin:12px 0;font-size:14px}
+ th,td{border:1px solid var(--line);padding:7px 10px;text-align:left;vertical-align:top}
+ th{background:var(--panel2);color:var(--accent)}
+ ul,ol{margin:7px 0 7px 20px} li{margin:4px 0}
+ .hi{color:#ffd479} .muted{color:var(--muted)}
+</style></head><body><div class="wrap">
+<header>
+<h1>GroupTrack — Session Handoff</h1>
+<div class="sub">2026-08-05 v1 &middot; INTERNAL &middot; companion to
+<code>grouptrack_living_master_2026-08-05_v2.html</code><br>
+HEAD <code>44e10e1ed</code> &middot; 2.6e fallback tagged and <b>PUBLISHED TO PLAY</b> at <code>10b2e7fa3</code></div>
+</header>
+
+<h2>1 &middot; The day in one line</h2>
+<div class="card green">
+<p class="hi"><b>A single line on the wrong thread had been stopping the planner from drawing for three days.</b></p>
+<pre>ConvoyMapViewerScreen.kt:717   inside @JavascriptInterface onViewportChanged
+    webViewRef?.evaluateJavascript("setRouteMode(false)", null)
+
+java.lang.RuntimeException: A WebView method was called on thread 'JavaBridge'.</pre>
+<p>The throw aborted the method before the state reads, before <code>lastMapProcessed</code> was set, and before
+<code>processViewport</code> — the actual draw. <b>And because the flag was never set, the gate it sits in stayed
+open forever</b>, so every later viewport event re-entered and threw again.</p>
+<p class="hi">⭐ Everything followed from it: nothing drew on direct entry; artifacts appeared only after a convoy
+visit (residue on the shared WebView); the trails toggle did nothing (assigned two lines after the throw); the
+restore logged a continental bbox (assigned <em>before</em> the throw, never refreshed). <b>08-03's "FIT bug closed,
+mechanism not established" was the same defect</b> — removing the proximity block changed timing enough to mask it.</p>
+</div>
+
+<h2>2 &middot; What shipped</h2>
+<table>
+<tr><th>Commit</th><th>Contents</th></tr>
+<tr><td><code>10b2e7fa3</code><br><span class="muted">tag <code>v2.6e-fallback</code>, PUBLISHED</span></td>
+<td><code>VIEWPORTMAIN-2026-08-05</code> the fix above &middot; <code>PLANNERSEED-2026-08-05</code> fresh re-read +
+<code>lastViewport*</code> seed (correct, <b>not</b> the cause — recorded honestly) &middot;
+<code>SHOWALLCOMPLETE-2026-08-05</code> &middot; <code>NOPAD-2026-08-04</code> &middot;
+<code>WEBVIEWDEBUG-2026-08-04</code> REMOVED</td></tr>
+<tr><td><code>44e10e1ed</code></td>
+<td>Corridor download by track selection — six markers, 5 files, 558 insertions.
+<b>Verified Droid 2: ALL tracks → 262 jobs queued.</b></td></tr>
+</table>
+<div class="card amber">
+<p>⚠ <b>Archive:</b> <code>Downloads/grouptrack_2.6e_fallback/</code> holds
+<code>grouptrack_2.6e_10b2e7fa3.aab</code> and
+<code>grouptrack_2.6e_10b2e7fa3_APK-HAS-WEBVIEWDEBUG.apk</code>.
+<b>The archived APK predates the debug-flag removal</b> — the filename says so. Rebuild the APK from the tag
+before any tester sideload.</p>
+</div>
+
+<h2>3 &middot; The queue was deleting its own successes</h2>
+<div class="card red">
+<p><code>markComplete()</code> branched on <code>entry.refreshMode</code> and <b>silently removed the entry</b> —
+no status, no stamp, no row. <b>But <code>refreshMode</code> is also the REPLACE-TILES flag</b>, and both of the
+day's Google corridor runs logged <code>replace=true</code>:</p>
+<pre>08:31:29  Corridor complete: CORR SAT downloaded=561 failed=0
+08:47:04  Corridor complete: CORR SAT downloaded=681 failed=0</pre>
+<p class="hi">⛔ Both flawless. Neither visible. <code>markFailed</code> does not take that path, so
+<b>the only download entries that ever survived were the ones that FAILED</b> — which is why 08-02's
+<code>"CORR SAT failed"</code> was the only artifact left to reason from.</p>
+<p>⭐ <b>THE PRINCIPLE:</b> the queue is the RECORD. Deleting rows to reduce clutter destroys evidence
+permanently; <b>filtering hides it reversibly.</b> Display concerns do not mutate state.</p>
+<p>⚠ Still owed: the flag is overloaded — split <code>isRefreshCell</code> from <code>replaceTiles</code>.
+The schema comment at <code>:442-444</code> already forbids the conflation; <code>markComplete</code> was the drift.</p>
+</div>
+
+<h2>4 &middot; Google Hybrid is proven</h2>
+<div class="card green">
+<pre>slot=SAT -> id=google-hybrid label=HYB  baseUrl=https://mt{s}.google.com/vt/lyrs=y...
+DL: mt1 / mt0 / mt3 .google.com          561 tiles, failed=0, 53 seconds
+                                          681 tiles, failed=0, 56 seconds
+                                       18,000 tiles, completed</pre>
+<p class="hi">⭐⭐ <b>This retires the "2–3 days to solve the Google download issue" framing.</b> Slot resolution
+is eliminated as a cause: the config held still and the download succeeded.</p>
+<p>⭐ ~11 tiles/second sustained — the ETA's ~690/hour is off by roughly <b>fiftyfold</b>, matching 07-25.
+The accumulator work stands.</p>
+<p>⚠ Still unexplained: whatever <code>"CORR SAT failed"</code> was on 08-02. A FAILED job is a different
+animal from a completion that deleted itself.</p>
+<p>⛔ <b>The SELinux ioctl denial on the FUSE-mounted store fires on ORDINARY runs</b> (logged mid-download,
+no harm done — 561 tiles wrote straight afterwards). It is the same denial class that preceded the 08-01 data
+loss. <b>Refuse-to-create is guarding a condition that occurs regularly</b>, and <code>SAT.mbtiles</code> is
+4.2 GB of unbacked work behind it.</p>
+</div>
+
+<h2>5 &middot; START HERE TOMORROW</h2>
+<div class="card red">
+<ol>
+<li class="hi"><b>Record a track offline on DROID 1 and confirm it draws.</b> The LAST unverified 2.6e must-fix
+(symptom 3 of the offline-startup item, open since 08-02). Needs real GPS — Droid 2 has none. ⚠ Its result decides
+whether the degradation work is still owed.</li>
+<li><b>Rebuild the APK from <code>v2.6e-fallback</code></b> and replace the flagged copy in the archive.</li>
+<li><b>Track name on corridor queue jobs</b> — requested tonight, small, high value at 262 rows.
+See 00-CORRIDOR-DL in the Living Master.</li>
+<li><b>Corridor job splitting</b> — the numbers the 07-24 note asked for now exist.
+See 00-ENQUEUE-PRINCIPLE.</li>
+<li><b>Manual: section planning-K</b> still describes tapping an artifact to open a multi-artifact popup.
+<b>Planner proximity was removed on 08-03</b> — the prose is now wrong. ⭐ Section E of
+<code>navigation_xref.txt</code> is the right source: it is what the user actually taps.</li>
+</ol>
+</div>
+
+<h2>6 &middot; Method notes worth keeping</h2>
+<div class="card amber">
+<ul>
+<li class="hi">⭐ <b>Read the HEAD of a stack trace before theorising.</b> The root cause sat at frame 99 of a trace
+present in every capture from 09:00. The exception type was one line above it. Nobody read up until the afternoon.</li>
+<li>⭐ <b>Filter the FILE, not the stream.</b> <code>adb logcat -d &gt; file</code> then grep. A bad pattern on a
+live stream is indistinguishable from a silent app — and Ctrl-C does not reach <code>adb.exe</code> in Git-Bash,
+so the redirect stops advancing while the prompt looks stuck.</li>
+<li>⭐ <b>A negative grep is only as good as its pattern.</b> Twice today a scan reported "clean" when it could not
+have matched what was there (log tags held in <code>TAG</code> constants; a range inside a
+<code>&lt;script src&gt;</code> whose inline body never executes).</li>
+<li class="hi">⭐⭐ <b>Convoy is the reference implementation; divergence is a defect until proven intentional.</b>
+Four times this week convoy had a fix the planner did not. Three are now closed; the reseed gate is the one
+legitimate difference.</li>
+<li class="hi">⚠⚠ <b>PATCH VERIFIERS MUST DERIVE THEIR EXPECTATIONS, NOT ASSERT THEM.</b> Five rollbacks today were
+the verifier, never the change: brace counts including comment text, a global string check catching an untouched
+block, an identifier matching the patch's own explanatory comment, and twice a hand-counted marker total.
+<b>The guards behaved correctly every time — they refused writes they could not prove and left the tree clean —
+but each cost a re-run.</b></li>
+<li class="hi">⛔ <b>An <code>--apply</code> whose output was never read is NOT applied.</b>
+<code>CORRIDORQUERY</code> was recorded as landed and was not; it surfaced two patches later as an unresolved
+reference. <code>git diff --stat</code> is the authoritative answer to what is really in the tree.</li>
+</ul>
+</div>
+
+<h2>7 &middot; Device state</h2>
+<table>
+<tr><th>Device</th><th>State</th></tr>
+<tr><td>Droid 1 <code>8624SBCEDF00001789</code></td>
+<td>Sideloaded (<code>installerPackageName=null</code>, confirmed 08-05 — no Play signature collision).
+Has GPS. <b>The device that can close the offline track-draw test.</b></td></tr>
+<tr><td>Droid 2 <code>24039703201775</code></td>
+<td>Sacrificial. No GPS. Carries the corridor build and the 262-job queue.</td></tr>
+</table>
+
+</div></body></html>

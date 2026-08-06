@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GroupTrack — Install &amp; Reinstall Design — 2026-08-04</title>
+<style>
+  :root{--bg:#0f1216;--panel:#161b22;--panel2:#1c2229;--line:#30363d;--fg:#e6edf3;
+        --muted:#8b949e;--accent:#58a6ff;--red:#f85149;--amber:#d29922;--green:#3fb950;--purple:#bc8cff;}
+  *{box-sizing:border-box}
+  body{margin:0;padding:28px 20px 80px;background:var(--bg);color:var(--fg);
+       font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  .wrap{max-width:1080px;margin:0 auto}
+  header{border-bottom:2px solid var(--accent);padding-bottom:14px;margin-bottom:26px}
+  h1{margin:0 0 6px;font-size:26px;letter-spacing:-.3px}
+  .sub{color:var(--muted);font-size:14px}
+  h2{font-size:19px;margin:34px 0 12px;padding-bottom:6px;border-bottom:1px solid var(--line);color:var(--accent)}
+  h3{font-size:15px;margin:20px 0 8px}
+  .card{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--line);
+        border-radius:6px;padding:13px 15px;margin:10px 0}
+  .card.red{border-left-color:var(--red)} .card.amber{border-left-color:var(--amber)}
+  .card.green{border-left-color:var(--green)} .card.blue{border-left-color:var(--accent)}
+  .card.purple{border-left-color:var(--purple)}
+  .card h4{margin:0 0 6px;font-size:14px;font-weight:600}
+  .card p{margin:6px 0}
+  .tag{display:inline-block;font-size:11px;font-weight:600;letter-spacing:.4px;
+       padding:2px 8px;border-radius:11px;margin-right:6px;vertical-align:middle}
+  .t-done{background:#0f2f1a;color:#56d364;border:1px solid #1f6b34}
+  .t-open{background:#3a2d0c;color:#e3b341;border:1px solid #6b5312}
+  .t-block{background:#3d1418;color:#ff9d96;border:1px solid #6e2229}
+  .t-new{background:#1c2b3d;color:#79c0ff;border:1px solid #2c4f7c}
+  code{background:var(--panel2);border:1px solid var(--line);border-radius:4px;
+       padding:1px 5px;font:13px/1.4 ui-monospace,SFMono-Regular,Consolas,monospace;color:#a5d6ff}
+  pre{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:11px 13px;
+      overflow-x:auto;font:12.5px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace;color:#a5d6ff}
+  pre code{background:none;border:none;padding:0}
+  ul,ol{margin:7px 0 7px 20px;padding:0} li{margin:4px 0}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:14px}
+  th,td{border:1px solid var(--line);padding:7px 10px;text-align:left;vertical-align:top}
+  th{background:var(--panel2);font-weight:600;color:var(--accent)}
+  .muted{color:var(--muted)}
+  .lesson{background:#1a1410;border:1px solid #6b5312;border-radius:6px;padding:13px 15px;margin:12px 0}
+  .lesson h4{margin:0 0 6px;color:var(--amber);font-size:14px}
+  .step{background:var(--panel2);border-left:2px solid var(--accent);padding:8px 12px;margin:8px 0;border-radius:0 4px 4px 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+
+
+<header>
+  <h1>GroupTrack — Install &amp; Reinstall Design</h1>
+  <div class="sub">
+    Design conversation, 2026-08-04 &middot; <strong>NOT BUILT — this is the agreed design, not code</strong><br>
+    Supersedes the manual-only approach in <code>grouptrack_reinstall_procedure_2026-08-03.html</code>,
+    which remains valid as the fallback for anyone who does not use the in-app path.
+  </div>
+</header>
+
+<h2>1 · The problem this solves</h2>
+
+<div class="card red">
+  <h4>What happened on 2026-08-01</h4>
+  <p>A reinstall destroyed the spatial database — roughly <strong>89,000 trails</strong>. The mechanism:</p>
+  <ol>
+    <li>The app was reinstalled over existing data in <code>Documents/GroupTrack/</code>.</li>
+    <li><strong>Android reported All-Files access as GRANTED</strong> — the grant record survives an
+      uninstall because the package name is unchanged. The new install did <strong>not</strong> actually
+      hold that authority; the OS denied at the filesystem layer while the permission screen said
+      otherwise.</li>
+    <li>The app could not read the existing databases, and its <strong>create-if-missing</strong> open
+      wrote empty schemas <em>over</em> them.</li>
+    <li>It then reported <code>0 trails, 0 tracks, 0 waypoints, 0 routes</code> as if normal.</li>
+  </ol>
+  <p>⚠⚠ <strong>There is no backup. The map databases are 50–60 GB.</strong></p>
+</div>
+
+<div class="card amber">
+  <h4>Why the obvious defences do not work</h4>
+  <p><strong>The permission API cannot be trusted.</strong>
+  <code>Environment.isExternalStorageManager()</code> returns <strong>true</strong> in this state and is
+  <strong>wrong</strong>. It reads the stale grant record; the filesystem enforces the truth. There is no
+  API question that returns the right answer — <strong>only a real read attempt does.</strong></p>
+  <p><strong>Blocking startup until the app can read would DEADLOCK the device.</strong> The app must
+  run before it can be granted authority, so refusing to start until it can read means a reinstalled
+  device can never be recovered. This was proposed and correctly rejected.</p>
+  <p><strong>The app cannot act at uninstall time.</strong> Android has no uninstall hook.
+  <code>ACTION_PACKAGE_REMOVED</code> is broadcast to <em>other</em> apps — your own process is already
+  gone. A companion app could hear it, but only <em>after</em> removal, which is too late to be useful:
+  the danger is not the uninstall, it is the <strong>next install running blind</strong>.</p>
+</div>
+
+<h2>2 · ⭐ The design — GroupTrack triggers its own uninstall</h2>
+
+<div class="card blue">
+  <h4>The key realisation</h4>
+  <p><strong>The app can uninstall itself.</strong> <code>Intent.ACTION_DELETE</code> /
+  <code>ACTION_UNINSTALL_PACKAGE</code> launches the system uninstall dialog — and at that moment the app
+  is <strong>alive and holds authority</strong>. So it can do the dangerous bookkeeping itself, while it
+  still can.</p>
+  <p>That converts the ten-step manual procedure into two taps.</p>
+</div>
+
+<h3>The flow</h3>
+
+<div class="step"><strong>1 · User taps "Prepare for reinstall"</strong> in the app.</div>
+
+<div class="step"><strong>2 · The app renames its own data directories</strong> — it has authority right
+now, so this simply works:
+<pre><code>Documents/GroupTrack  →  Documents/GroupTrack.bak
+My Tracks             →  My Tracks.bak</code></pre>
+Renaming is instant regardless of size — it does not copy 50–60 GB.</div>
+
+<div class="step"><strong>3 · The app fires the uninstall intent on itself.</strong> The user confirms the
+system dialog.</div>
+
+<div class="step"><strong>4 · User installs the new build and launches it.</strong> The app finds no
+<code>GroupTrack/</code>, creates fresh empty directories, and completes first run.
+<strong>This is expected and is the point</strong> — it is creating blanks where there is nothing to
+destroy, because the real data is out of reach under <code>.bak</code>.</div>
+
+<div class="step"><strong>5 · The All-Files grant is requested FIRST, before anything touches the
+database.</strong> See §3 — this is the ordering half of the design and it matters as much as the
+rename.</div>
+
+<div class="step"><strong>6 · After the grant, the app attempts a REAL READ of the <code>.bak</code>
+directories.</strong> Not <code>isExternalStorageManager()</code> — an actual read. That is the only
+proof that authority is real.</div>
+
+<div class="step"><strong>7 · If the read succeeds and <code>.bak</code> exists → prompt:</strong>
+<em>"Found your previous data. Restore it?"</em></div>
+
+<div class="step"><strong>8 · On confirm:</strong> verify the blank directories are EMPTY, delete them,
+rename the <code>.bak</code> directories back.
+<p>⚠⚠ <strong>THIS IS THE REVERSE-RISK MOMENT.</strong> Everything up to here protected against
+overwriting real data with blanks. This step DELETES directories. If the empty-check is wrong, it
+deletes the wrong thing. <strong>Refuse if non-empty, log what was found, and ask</strong> — a user who
+recorded a track or downloaded tiles between steps 4 and 7 has real data in those "blanks".</p></div>
+
+<h2>3 · ⭐⭐ The ordering fix — grant BEFORE the database</h2>
+
+<div class="card red">
+  <h4>This is the half that prevents 08-01 rather than working around it</h4>
+  <p><strong>The 08-01 failure was an ordering failure.</strong> The app opened the DB before authority
+  was real. It did not prompt, because it <em>tested</em> and the test lied.</p>
+  <p><strong>So: make the All-Files prompt UNCONDITIONAL on first run, and put it FIRST.</strong> Fred:
+  <em>"we never got the prompt in the failed install as the app looked like it had authority. probably
+  should not be a test but unconditional grant there."</em></p>
+  <p>⭐ <strong>The app already knows it is a fresh install</strong> — it is already asking first-run
+  questions. That IS the signal. No new detection is needed: move the grant to the front of the existing
+  first-run sequence, before <code>SpatialDbManager</code> opens anything.</p>
+  <p><strong>Cost:</strong> one extra tap for a user who already has the permission. <strong>Against
+  losing 50–60 GB, that is not a close call.</strong></p>
+  <p>⚠ <strong>A reinstall-over-existing-data IS a fresh install from the app's point of view</strong> —
+  which is exactly what you want here: grant first, then the behavioural read finds either the
+  <code>.bak</code> directories or the real ones.</p>
+</div>
+
+<div class="card">
+  <h4>Verify behaviourally, then recover</h4>
+  <p>After the prompt, attempt a real read. <strong>If it still fails, the app is in the stale-grant
+  state</strong> — and it should say so, at the moment it matters, with the recovery step:
+  <strong>toggle All-Files access OFF and back ON in Settings.</strong></p>
+  <p>⭐ And if that does not clear it, the message must say: <strong>"Reinstalling is safe — your maps
+  and tracks are stored outside the app and are not removed."</strong> That single sentence turns a
+  data-loss panic into a two-minute fix. Nothing in the app currently says it.</p>
+</div>
+
+<h2>4 · The first-run marker</h2>
+
+<div class="card">
+  <h4>Where it lives, and why not in shared storage</h4>
+  <p>A small JSON recording first-run state — but it must go in <strong>app-private storage
+  (<code>filesDir</code>)</strong>, NOT <code>Documents/GroupTrack/</code>.</p>
+  <p>⛔ <strong>The trap, if it went in shared storage:</strong> that file lives in the very storage the
+  authority question is about. If All-Files is not granted the app cannot read it — so
+  <strong>"file absent" and "cannot see the file" look identical</strong>. That is precisely the
+  confusion that caused 08-01, reproduced in a new file.</p>
+  <p>✅ <code>filesDir</code> needs no authority and is always readable. And it is <strong>wiped by
+  uninstall</strong>, which makes it a better signal, not a worse one:</p>
+  <p class="hi"><strong>marker ABSENT + data PRESENT in <code>Documents/</code> = a reinstall over
+  existing data.</strong> That is the detector 08-01 needed, and it comes free with the same file.</p>
+  <p><strong>Contents:</strong> a status field and the version code —
+  <code>{"status":"in_progress"}</code> → <code>{"status":"complete","version_code":N}</code>. Keeping it
+  after completion (rather than deleting) answers both questions with one file: <em>has setup run?</em>
+  and <em>is this a reinstall?</em> It also gives crash recovery — if the app dies mid-first-run the
+  marker survives as <code>in_progress</code>, and the next launch knows setup never finished.</p>
+</div>
+
+<h2>5 · Still owed in code, regardless of any of the above</h2>
+
+<div class="card amber">
+  <p>The procedure and the flow protect whoever uses them. <strong>These protect everyone else</strong>,
+  and neither blocks anything:</p>
+  <ul>
+    <li>⭐⭐ <strong>REFUSE-TO-CREATE.</strong> <code>SpatialDbManager</code> must never create-if-missing
+      on a path it cannot verify. A failed open must ABORT, not write an empty schema.
+      <strong>This alone would have prevented 08-01</strong> and costs nothing at runtime. It is the
+      single highest-value item on this page.</li>
+    <li><strong>ROW-COUNT SANITY + <code>.lastgood</code> copy.</strong> Copy the DB after each
+      successful startup. A startup reporting zero rows where the previous run reported 89,000 is a red
+      flag the app should raise, not report as normal.</li>
+  </ul>
+  <p class="muted">✅ Already fixed 2026-08-04: <code>SpatialDbManager</code> :166/:168 logged the
+  LITERAL <code>${spatialFile.absolutePath}</code> because the <code>$</code> was backslash-escaped — so
+  the DB path never appeared in the log. That was the diagnostic that would have made the 08-01 loss
+  obvious immediately.</p>
+</div>
+
+<h2>6 · Open questions</h2>
+
+<div class="card">
+  <ul>
+    <li><strong>What if the user cancels the uninstall dialog?</strong> The directories are already
+      renamed and the app is still installed — it would find no data. Needs an undo path: on next
+      launch, if <code>.bak</code> exists and the app is clearly NOT freshly installed, offer to rename
+      back. (Doing the rename only after removal is confirmed is not possible — the app cannot observe
+      its own uninstall.)</li>
+    <li><strong>Uninstalls done from Settings or the launcher bypass the button entirely.</strong> The
+      manual procedure stays documented as the fallback, and refuse-to-create covers the case where
+      neither was used.</li>
+    <li>⚠ <strong>Worth verifying on Droid 2 rather than assuming:</strong> that an uninstall really does
+      leave <code>Documents/GroupTrack/</code> intact. It should — public shared storage — but Android
+      has changed storage behaviour repeatedly, and <strong>this entire design rests on that
+      assumption.</strong></li>
+  </ul>
+</div>
+
+<div class="lesson">
+  <h4>Why the rename works when checking does not</h4>
+  <p>Every detection approach fails for the same reason: the app creates blanks <em>before</em> authority
+  arrives, and the permission API reports the wrong answer at exactly that moment. <strong>The rename
+  does not detect anything — it removes the data from the path the app will write to, until authority is
+  real.</strong> Nothing to detect, nothing to destroy.</p>
+</div>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>GroupTrack — Tooling &amp; Troubleshooting Reference — 2026-08-05</title>
+<style>
+  :root{
+    --bg:#0f1216; --panel:#161b22; --panel2:#1c2430; --ink:#e6edf3;
+    --muted:#8b949e; --accent:#58a6ff; --warn:#d29922; --bad:#f85149; --good:#3fb950;
+    --line:#30363d;
+  }
+  *{box-sizing:border-box}
+  body{background:var(--bg);color:var(--ink);font:15px/1.6 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:0;padding:32px 28px 80px}
+  h1{font-size:26px;margin:0 0 4px;color:var(--ink)}
+  .sub{color:var(--muted);font-size:13px;margin-bottom:28px}
+  h2{font-size:20px;margin:34px 0 12px;padding-bottom:8px;border-bottom:1px solid var(--line);color:var(--accent)}
+  h3{font-size:16px;margin:22px 0 8px;color:var(--ink)}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px 16px;margin:12px 0}
+  .card.warn{border-left:3px solid var(--warn)}
+  .card.bad{border-left:3px solid var(--bad)}
+  .card.good{border-left:3px solid var(--good)}
+  .tag{display:inline-block;font-size:11px;font-weight:600;letter-spacing:.04em;padding:2px 8px;border-radius:10px;background:var(--panel2);color:var(--muted);border:1px solid var(--line);margin-right:6px;vertical-align:middle}
+  .tag.a{color:var(--accent);border-color:#1f6feb}
+  .tag.w{color:var(--warn);border-color:#9e6a03}
+  .tag.b{color:var(--bad);border-color:#8b2c28}
+  .tag.g{color:var(--good);border-color:#238636}
+  table{border-collapse:collapse;width:100%;margin:12px 0;font-size:14px}
+  th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+  th{background:var(--panel2);color:var(--accent);font-weight:600}
+  code,pre{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:13px}
+  code{background:var(--panel2);padding:1px 5px;border-radius:4px;color:#c9d1d9}
+  pre{background:#0b0e12;border:1px solid var(--line);border-radius:6px;padding:12px 14px;overflow-x:auto;color:#c9d1d9}
+  ul,ol{margin:8px 0 8px 22px;padding:0}
+  li{margin:5px 0}
+  .muted{color:var(--muted)}
+  .lead{color:var(--muted);font-size:14px;margin:0 0 10px}
+</style>
+</head>
+<body>
+
+<h1>GroupTrack — Tooling &amp; Troubleshooting Reference</h1>
+<div class="sub">Created 2026-08-05 · additive section for the Living Master · branch <code>feature/convoy-event-ride</code></div>
+
+<div class="card bad">
+<span class="tag b">WHY THIS EXISTS</span>
+<p style="margin:8px 0 0">Four separate defects this week shared one shape: <strong>a method aborted before its real work, silently, and no structural tool could have found it.</strong> The existing xrefs answer <em>where is this touched</em>. Every one of these bugs lived on a different axis — <em>on what thread, in what lifecycle phase, against which page</em>. This section documents what each tool can and cannot answer, the execution-context contracts that have no tool at all, and step-by-step recipes aimed at specific results.</p>
+</div>
+
+<h2>1 · The xref tools — what each one actually indexes</h2>
+
+<p class="lead">All three live in the repo root and are regenerated on demand (<code>recommit</code> rebuilds them). They are <strong>DEFINITION / SYMBOL INDEXES, NOT A CALL GRAPH.</strong></p>
+
+<table>
+<tr><th style="width:26%">Tool</th><th style="width:30%">Indexes</th><th>Use it to answer</th></tr>
+<tr>
+  <td><code>field_crossref_raw.txt</code></td>
+  <td>Field and property declarations with <code>[R]</code> / <code>[W]</code> markers and line numbers</td>
+  <td><strong>Who reads and who writes a field.</strong> The 08-02 source-persistence root cause came straight out of this: <code>MapSourceManager</code> had exactly two writes, both the API-keys file, so nothing persisted a slot. A field with many <code>[R]</code> and no <code>[W]</code> is a value nobody maintains.</td>
+</tr>
+<tr>
+  <td><code>where_used_raw.txt</code></td>
+  <td>Symbol occurrences by file and line</td>
+  <td><strong>Blast radius of a rename or signature change.</strong> First stop before touching a shared symbol.</td>
+</tr>
+<tr>
+  <td><code>function_universe_raw.txt</code></td>
+  <td>Function declarations with signatures and locations</td>
+  <td><strong>Does this function exist, where, and with what signature.</strong> Also the starting list for a dead-code sweep — but see §4 before deleting anything on its say-so.</td>
+</tr>
+<tr>
+  <td><code>grep</code></td>
+  <td>Raw text</td>
+  <td><strong>CALL SITES. Source of truth, always.</strong> Use <code>--include='*.kt'</code> to skip <code>.bak_*</code> files.</td>
+</tr>
+</table>
+
+<div class="card warn">
+<span class="tag w">THE STANDING RULE</span>
+<p style="margin:8px 0 0"><strong>xref for candidates, grep for call sites.</strong> The xrefs give signatures and locations; they do not tell you who calls what. Every time that rule has been skipped it has cost a session.</p>
+</div>
+
+<h3>Known blind spots — each one cost real time</h3>
+
+<table>
+<tr><th style="width:34%">Invisible to the xrefs</th><th>Evidence</th></tr>
+<tr><td><strong>Lambda parameters</strong></td><td><code>onDownloadMaps</code> is a lambda parameter on a composable and appears in <em>no</em> xref. Looked dead; was live in two screens.</td></tr>
+<tr><td><strong><code>var X by remember { }</code> locals</strong></td><td><code>addPointMode</code> is in no xref, which is why "find where it is declared" took a whole session.</td></tr>
+<tr><td><strong>Annotated bridge methods</strong></td><td><code>@JavascriptInterface</code> methods were missed in an earlier sweep for the same reason.</td></tr>
+<tr><td><strong>Tags held in constants</strong></td><td>08-05: <code>grep "Log\.[a-z](\"TAG\""</code> returned nothing across four well-instrumented files — the tags are <code>TAG</code> constants, not literals at the call site. The scan reported silence that did not exist.</td></tr>
+<tr><td><strong>Anything inside a non-executing block</strong></td><td>08-03: a def-scan of a deleted range found only <code>checkLayer</code> and reported it clean — the range was inside a <code>&lt;script src="…"&gt;</code> tag whose inline body <em>never executes by spec</em>. The scan could not have seen what was wrong.</td></tr>
+</table>
+
+<div class="card bad">
+<span class="tag b">⛔ THE PATTERN BEHIND ALL FIVE</span>
+<p style="margin:8px 0 0"><strong>Scanning for one shape of evidence and reporting "clean" when the scan could not have seen what was there.</strong> A negative result from a grep is only as good as the pattern. Before trusting an empty result, prove the pattern can match a known-present case.</p>
+</div>
+
+<h2>2 · Layer contracts — the axis with no tooling</h2>
+
+<p class="lead">These are execution-context rules. Violating one produces valid, compiling code that silently does nothing. <strong>Every row here was discovered by a production failure, not by review.</strong></p>
+
+<table>
+<tr><th style="width:24%">Boundary</th><th style="width:14%">Runs on</th><th>Rule</th><th style="width:16%">Learned</th></tr>
+<tr>
+  <td><code>@JavascriptInterface</code> methods</td>
+  <td>JavaBridge thread</td>
+  <td><strong>Any WebView or UI call MUST go through <code>Handler(Looper.getMainLooper()).post { }</code>.</strong> <code>evaluateJavascript</code> and <code>Toast</code> throw off-main, and <strong>the throw aborts the rest of the method silently.</strong></td>
+  <td>08-01 convoy · 08-05 planner (<code>:717</code>)</td>
+</tr>
+<tr>
+  <td>Argument positions</td>
+  <td>—</td>
+  <td><strong>Never <code>?: return</code> inside an argument.</strong> It reads as a null-safe accessor and is an early exit from the entire enclosing function.</td>
+  <td>08-01 <code>onPageFinished</code></td>
+</tr>
+<tr>
+  <td><code>onPageFinished</code></td>
+  <td>main</td>
+  <td>Page is not ready until the <code>postDelayed</code> completes. Kotlin→JS calls before it fail with <code>&lt;fn&gt; is not defined</code> — visible only in a console log.</td>
+  <td>07-30, still live</td>
+</tr>
+<tr>
+  <td><code>evaluateJavascript(fn)</code></td>
+  <td>main only</td>
+  <td>The named function must exist in <strong>both</strong> map HTMLs. <code>SpatialDisplayManager</code> is map-agnostic; its <code>jsUpdate</code>/<code>jsShow</code>/<code>jsHide</code> contract assumes parity that is hand-maintained.</td>
+  <td>standing</td>
+</tr>
+<tr>
+  <td>WorkManager workers</td>
+  <td>fresh process</td>
+  <td>Jobs survive app death. <code>ensureInit()</code> re-reads config from scratch — <strong>never trust in-memory state across the process boundary.</strong> A slot resolved at execution time may differ from the one queued against.</td>
+  <td>08-02 / 08-03</td>
+</tr>
+<tr>
+  <td><code>shouldInterceptRequest</code></td>
+  <td>network thread</td>
+  <td>No UI, no WebView calls.</td>
+  <td>standing</td>
+</tr>
+<tr>
+  <td>Composable declaration order</td>
+  <td>—</td>
+  <td>A local <code>fun</code> defined before a <code>val</code> cannot forward-reference it.</td>
+  <td>08-01</td>
+</tr>
+</table>
+
+<div class="card good">
+<span class="tag g">⭐ AUTOMATABLE — the one check worth scripting</span>
+<p style="margin:8px 0 6px">Row 1 is mechanical: <strong>scan for WebView/UI calls inside <code>@JavascriptInterface</code> method bodies</strong> (brace-depth walk over the two screen files) and report them. Seconds to run, and it would have caught <code>ConvoyMapViewerScreen.kt:717</code> the day it was written.</p>
+<p style="margin:0"><strong>It also answers the divergence question for free:</strong> run it against both screens and diff. <em>Convoy clean, planner flagged</em> is the output that would have ended 08-05 at 9am instead of 4pm.</p>
+</div>
+
+<h2>3 · Divergence is a defect until proven intentional</h2>
+
+<div class="card">
+<p style="margin:0 0 8px"><strong>Convoy is the reference implementation.</strong> Four times this week convoy had a fix the planner did not, and nobody knew until it broke:</p>
+<ol style="margin:0">
+  <li><code>[Fix2]</code> fresh re-read of <code>MapStateStore</code> — convoy <code>:728</code>. Planner still read a first-compose <code>remember</code>. <span class="muted">(fixed 08-05, <code>PLANNERSEED</code>)</span></li>
+  <li>Seeding <code>lastViewport*</code> before draw — convoy <code>:730-733</code>. Planner had no equivalent. <span class="muted">(fixed 08-05)</span></li>
+  <li>Posting <code>evaluateJavascript</code> to main — convoy does it via <code>SpatialDisplayManager</code>. Planner called direct. <span class="muted">(fixed 08-05, <code>VIEWPORTMAIN</code>)</span></li>
+  <li>Reseed gate — convoy dropped it 07-01; planner retains it. <strong>This one IS intentional</strong> (convoy is persistent and owns one map identity; the planner is entered and left, and the gate prevents cross-map bleed).</li>
+</ol>
+</div>
+
+<div class="card warn">
+<span class="tag w">⚠ THE LIMIT</span>
+<p style="margin:8px 0 0">The maps are <strong>not symmetric by nature</strong> and should not be forced to be. Convoy has no entry event; the planner does. Making the lifecycles identical would reintroduce the contamination <code>MapStateStore</code> exists to prevent. <strong>The target is SHARED CODE, not MATCHED CODE</strong> — two hand-maintained copies drift again no matter how carefully aligned today. <code>SpatialDisplayManager</code> has been the reliable layer all week precisely because there is one copy. This is the same argument that makes the 2.7 service-layer work worth doing.</p>
+</div>
+
+<h2>4 · Recipe — dead-code prune (2.7)</h2>
+
+<div class="card bad">
+<span class="tag b">⛔ READ FIRST — THE TRAP UNIQUE TO THIS CODEBASE</span>
+<p style="margin:8px 0 0"><strong>Kotlin calls JavaScript functions BY NAME, from inside a string.</strong> <code>ConvoyMapViewerScreen.kt:578</code> calls <code>showProximityPopup</code> that way. <strong>No JS tool sees that call. No Kotlin tool sees it either.</strong> A JS function with zero references in the HTML can be fully live; a Kotlin function whose only caller is a nav registration can be fully dead. Neither toolchain crosses the boundary — <em>you</em> are the only thing that does.</p>
+</div>
+
+<h3>The sequence — do not skip a step</h3>
+<ol>
+  <li><strong>Candidate list</strong> from <code>function_universe_raw.txt</code>.</li>
+  <li><strong>Grep the Kotlin</strong> for the bare name: <code>grep -rn "name" --include='*.kt' app/src/</code></li>
+  <li><strong>Grep the ASSETS</strong> — both map HTMLs and any <code>.js</code>: <code>grep -rn "name" app/src/main/assets/</code></li>
+  <li><strong>Grep for the name inside STRINGS</strong> — this is the cross-boundary step and the one that gets skipped: <code>grep -rn '"[^"]*name[^"]*"' --include='*.kt' app/src/</code></li>
+  <li><strong>Check nav registration.</strong> A destination can be registered with no <code>navigate()</code> caller — e.g. <code>ConvoyRouteCreateScreen.kt</code>, a 27-line stub registered at <code>ConvoyNavigation.kt:87</code> and reachable from nowhere.</li>
+  <li><strong>Confirm at runtime before deleting.</strong> Add one log line, build, exercise the app, confirm silence. Cheaper than a wrong deletion.</li>
+  <li><strong>Delete WITH its caller, in the same commit.</strong> Never leave a dead pair for later.</li>
+</ol>
+
+<div class="card warn">
+<span class="tag w">⚠ CURRENT DEAD-OR-DYING INVENTORY</span>
+<ul style="margin:8px 0 0">
+  <li><code>showProximityPopup</code> + Kotlin <code>onProximityTap</code> + its <code>ROUTETAP-2026-08-02</code> guard — planner proximity was removed 08-03; these are now uncalled. <strong>When this path retires, must-fix #3 stays closed but closed BY REMOVAL, not by the guard.</strong> Record it that way or a future session reads the guard as load-bearing.</li>
+  <li><code>ConvoyRouteCreateScreen.kt</code> — stub, registered, no caller.</li>
+  <li><code>spatial_artifacts.js</code> — orphan, nothing loads it; both HTMLs carry divergent inlined copies.</li>
+  <li>Convoy dead <code>__routeMode</code> scaffolding — permanently dead given <code>TAPRESET</code>; the <code>// BUG A</code> comment at <code>convoy_map.html:552</code> is a proven false lead.</li>
+  <li><code>gridCells</code> (<code>ConvoyTileDownloader:297</code>) · <code>downloadMapsForTrackHash</code> (<code>SpatialDbManager:1945</code>).</li>
+  <li>Duplicate <code>var tracksVisible</code> in <code>convoy_map.html</code> — <code>:27</code> declares <code>true</code>, <code>:443</code> declares <code>false</code>. Same variable, two <code>var</code>s, opposite values.</li>
+  <li><code>TRACK-DBG: TICK</code> (twice per 5s — <strong>actively destroys logcat evidence</strong>) · <code>WAYPOINT-TRACE</code> · <code>smoothFactor</code> on trails.</li>
+</ul>
+</div>
+
+<h2>5 · Recipe — "it should draw and it doesn't"</h2>
+
+<p class="lead">The 08-05 sequence, generalised. Each step is a measurement, not a theory.</p>
+
+<ol>
+  <li><strong>Prove the channel before believing silence.</strong> Console tags: planner <code>MapJS</code> · convoy <code>ConvoyJS</code> · sources <code>MapSourceMgr</code> · workers <code>CorridorWorker</code>/<code>DownloadQueue</code>/<code>TileDownloader</code>/<code>Corridor</code>. Filter the FILE, never the stream — a bad pattern on a live stream is indistinguishable from a silent app.
+    <pre>adb -s &lt;serial&gt; logcat -d &gt; /d/cap.txt &amp;&amp; wc -l /d/cap.txt</pre>
+    <span class="muted">Use <code>-d</code> (dump and exit). Streaming with a pipe does not respond to Ctrl-C in Git-Bash and truncates silently.</span></li>
+  <li><strong>READ THE HEAD OF ANY STACK TRACE.</strong> The 08-05 root cause was at frame 99 of a trace present in every capture from 9am; the exception type was one line above it. <em>Nobody read up.</em></li>
+  <li><strong>Partition with gestures, not code:</strong> cold start → direct entry (no other map first) → pan → fit. Which gesture fails localises the defect faster than any read.</li>
+  <li><strong>Compare against convoy at every step.</strong> A hypothesis that cannot answer "then why does convoy work?" is dead before it costs a build.</li>
+  <li><strong>Separate <em>stale</em> from <em>absent</em>.</strong> Wrong-region artifacts = a bad bbox. No artifacts, prior content persisting = the draw never ran. <span class="muted">Conflating these cost most of 08-05.</span></li>
+  <li><strong>Watch for residue on the shared WebView.</strong> Convoy is persistent; its drawn layers survive. Artifacts on the planner may be convoy's pixels, not the planner's output. <strong>Any test that visits convoy first is contaminated.</strong></li>
+</ol>
+
+<h2>6 · Standing hazards worth re-reading before a build</h2>
+
+<table>
+<tr><th style="width:32%">Hazard</th><th>Check</th></tr>
+<tr><td>APK older than the source you patched</td><td><code>ls -la --time-style=+%H:%M:%S &lt;apk&gt; &lt;changed sources&gt;</code> — 20 seconds vs a wasted test session</td></tr>
+<tr><td>Asset copied but not the one you edited</td><td>Verify by <strong>content grep for a marker unique to today's edit</strong>, never by "cp succeeded"</td></tr>
+<tr><td>Cheap compile gate skipped</td><td><code>./gradlew compileGoogleReleaseKotlin</code> — 1–4 min vs 12–40. Patch scripts prove the anchor matched; only the compiler proves the code is valid</td></tr>
+<tr><td>Diagnostic work bundled with fixes</td><td>Never. Settled and exploratory work carry different risk, and bundling entangles verification</td></tr>
+<tr><td>Instrumentation left in</td><td><strong>It comes out in the commit that closes the task</strong>, not on a cleanup list. All of this week's rendering failures happened in the window between "found it" and "we'll clean that up"</td></tr>
+<tr><td>Device clock confusion</td><td>Droid 2 is on Utah time; the laptop is Eastern. logcat timestamps are DEVICE time</td></tr>
+<tr><td>Install downgrade</td><td>Plain <code>-r</code>, never <code>-d</code>. Cancel immediately on first-install prompts for an already-installed app</td></tr>
+</table>
+
+<div class="card">
+<span class="tag a">TOOLING OWED</span>
+<ul style="margin:8px 0 0">
+  <li><strong>Bridge-thread scanner</strong> (§2) — highest value, smallest effort.</li>
+  <li><strong>Cross-boundary name checker</strong> — every <code>evaluateJavascript("fn(...)")</code> in Kotlin has a matching <code>function fn</code> in <em>both</em> HTMLs. Would have caught <code>setRouteMode is not defined</code> and its two siblings.</li>
+  <li><strong>Screen-parity diff</strong> — the two screen files' handling of the same shared-manager calls, side by side.</li>
+</ul>
+</div>
+
+</body>
+</html>
