@@ -1431,54 +1431,55 @@ ConvoyInviteSendScreen.kt:31:    val context = LocalContext.current
 ConvoyInviteSendScreen.kt:84:private fun NavBtn3(icon: String, label: String, onClick: () -> Unit) {
 ConvoyMapBar.kt:30:fun ConvoyMapBar(
 ConvoyMapBar.kt:78:                val isActive = activeSource == label
-ConvoyMapSourceScreen.kt:71:fun ConvoyMapSourceScreen(
-ConvoyMapSourceScreen.kt:74:    val allSources = remember { MapSourceManager.getAllSources() }
-ConvoyMapSourceScreen.kt:75:    val context = LocalContext.current
-ConvoyMapSourceScreen.kt:76:    val slots = remember { MapSourceManager.getSlotAssignments() }
-ConvoyMapSourceScreen.kt:77:    var selectedSlot by remember { mutableStateOf<String?>(null) }
-ConvoyMapSourceScreen.kt:78:    var showApiKeyDialog by remember { mutableStateOf<String?>(null) }
-ConvoyMapSourceScreen.kt:81:    var refreshSlot by remember { mutableStateOf<String?>(null) }
-ConvoyMapSourceScreen.kt:82:    var refreshTileCount by remember { mutableStateOf(0) }
-ConvoyMapSourceScreen.kt:83:    var refreshEnqueued by remember { mutableStateOf(false) }
-ConvoyMapSourceScreen.kt:84:    val scope = rememberCoroutineScope()
-ConvoyMapSourceScreen.kt:87:    var satSourceId by remember {
-ConvoyMapSourceScreen.kt:90:    var topoSourceId by remember {
-ConvoyMapSourceScreen.kt:93:    var topoPlusSourceId by remember {
-ConvoyMapSourceScreen.kt:97:    fun currentSourceId(slot: String): String = when (slot) {
-ConvoyMapSourceScreen.kt:104:    fun applySource(slot: String, sourceId: String) {
-ConvoyMapSourceScreen.kt:113:        val fromSourceId = currentSourceId(slot)
-ConvoyMapSourceScreen.kt:115:            val fromDirs = allSources.find { it.id == fromSourceId }?.allCacheDirs ?: emptyList()
-ConvoyMapSourceScreen.kt:116:            val toDirs = allSources.find { it.id == sourceId }?.allCacheDirs ?: emptyList()
-ConvoyMapSourceScreen.kt:129:        val checkSlot = slot
-ConvoyMapSourceScreen.kt:131:            val count = withContext(Dispatchers.IO) {
-ConvoyMapSourceScreen.kt:172:                    val sourceId = currentSourceId(slotKey)
-ConvoyMapSourceScreen.kt:173:                    val source = allSources.find { it.id == sourceId }
-ConvoyMapSourceScreen.kt:198:                    val hasKey = MapSourceManager.getApiKey(source.id).isNotEmpty()
-ConvoyMapSourceScreen.kt:210:                val slotKey = selectedSlot!!
-ConvoyMapSourceScreen.kt:211:                val currentId = currentSourceId(slotKey)
-ConvoyMapSourceScreen.kt:221:                val grouped = allSources.groupBy { it.mapType }
-ConvoyMapSourceScreen.kt:222:                val typeOrder = listOf("HYB", "SAT", "TOPO", "STREET", "TERRAIN", "OUTDOOR")
-ConvoyMapSourceScreen.kt:223:                val typeLabels = mapOf(
-ConvoyMapSourceScreen.kt:229:                    val sourcesInType = grouped[type] ?: return@forEach
-ConvoyMapSourceScreen.kt:238:                        val isSelected = source.id == currentId
-ConvoyMapSourceScreen.kt:239:                        val isAvailable = MapSourceManager.isSourceAvailable(source.id)
-ConvoyMapSourceScreen.kt:262:    var showPanel by remember { mutableStateOf(false) }
-ConvoyMapSourceScreen.kt:263:    var clearResult by remember { mutableStateOf<String?>(null) }
-ConvoyMapSourceScreen.kt:303:                        val rec = ConvoySourceMigration.inProgress().firstOrNull { f ->
-ConvoyMapSourceScreen.kt:306:                        val root = rec?.let { ConvoySourceMigration.read(it) }
-ConvoyMapSourceScreen.kt:307:                        val mb = (root?.optLong("from_bytes_total", 0L) ?: 0L) / (1024L * 1024L)
-ConvoyMapSourceScreen.kt:308:                        val dirs = root?.optJSONArray("from_cache_dirs")
-ConvoyMapSourceScreen.kt:309:                        val nStores = dirs?.length() ?: 0
-ConvoyMapSourceScreen.kt:369:                            val record = ConvoySourceMigration.inProgress().firstOrNull { f ->
-ConvoyMapSourceScreen.kt:374:                                    .plus("changed. Tiles are only removed when the removal ")
-ConvoyMapSourceScreen.kt:397:                            val record = ConvoySourceMigration.inProgress().firstOrNull { f ->
-ConvoyMapSourceScreen.kt:454:        val source = allSources.find { it.id == sourceId }
-ConvoyMapSourceScreen.kt:471:private fun SectionHeader(title: String) {
-ConvoyMapSourceScreen.kt:481:private fun SlotCard(
-ConvoyMapSourceScreen.kt:538:private fun SourceRow(
-ConvoyMapSourceScreen.kt:601:private fun ApiKeyRow(
-ConvoyMapSourceScreen.kt:638:private fun ApiKeyDialog(
-ConvoyMapSourceScreen.kt:645:    var keyText by remember { mutableStateOf(currentKey) }
+ConvoyMapSourceScreen.kt:72:fun ConvoyMapSourceScreen(
+ConvoyMapSourceScreen.kt:75:    val allSources = remember { MapSourceManager.getAllSources() }
+ConvoyMapSourceScreen.kt:76:    val context = LocalContext.current
+ConvoyMapSourceScreen.kt:77:    val slots = remember { MapSourceManager.getSlotAssignments() }
+ConvoyMapSourceScreen.kt:78:    var selectedSlot by remember { mutableStateOf<String?>(null) }
+ConvoyMapSourceScreen.kt:79:    var showApiKeyDialog by remember { mutableStateOf<String?>(null) }
+ConvoyMapSourceScreen.kt:82:    var refreshSlot by remember { mutableStateOf<String?>(null) }
+ConvoyMapSourceScreen.kt:83:    var refreshTileCount by remember { mutableStateOf(0) }
+ConvoyMapSourceScreen.kt:84:    var refreshEnqueued by remember { mutableStateOf(false) }
+ConvoyMapSourceScreen.kt:85:    val scope = rememberCoroutineScope()
+ConvoyMapSourceScreen.kt:88:    var satSourceId by remember {
+ConvoyMapSourceScreen.kt:91:    var topoSourceId by remember {
+ConvoyMapSourceScreen.kt:94:    var topoPlusSourceId by remember {
+ConvoyMapSourceScreen.kt:98:    fun currentSourceId(slot: String): String = when (slot) {
+ConvoyMapSourceScreen.kt:105:    fun applySource(slot: String, sourceId: String) {
+ConvoyMapSourceScreen.kt:114:        val fromSourceId = currentSourceId(slot)
+ConvoyMapSourceScreen.kt:116:            val fromDirs = allSources.find { it.id == fromSourceId }?.allCacheDirs ?: emptyList()
+ConvoyMapSourceScreen.kt:117:            val toDirs = allSources.find { it.id == sourceId }?.allCacheDirs ?: emptyList()
+ConvoyMapSourceScreen.kt:130:        val checkSlot = slot
+ConvoyMapSourceScreen.kt:132:            val count = withContext(Dispatchers.IO) {
+ConvoyMapSourceScreen.kt:173:                    val sourceId = currentSourceId(slotKey)
+ConvoyMapSourceScreen.kt:174:                    val source = allSources.find { it.id == sourceId }
+ConvoyMapSourceScreen.kt:199:                    val hasKey = MapSourceManager.getApiKey(source.id).isNotEmpty()
+ConvoyMapSourceScreen.kt:211:                val slotKey = selectedSlot!!
+ConvoyMapSourceScreen.kt:212:                val currentId = currentSourceId(slotKey)
+ConvoyMapSourceScreen.kt:222:                val grouped = allSources.groupBy { it.mapType }
+ConvoyMapSourceScreen.kt:223:                val typeOrder = listOf("HYB", "SAT", "TOPO", "STREET", "TERRAIN", "OUTDOOR")
+ConvoyMapSourceScreen.kt:224:                val typeLabels = mapOf(
+ConvoyMapSourceScreen.kt:230:                    val sourcesInType = grouped[type] ?: return@forEach
+ConvoyMapSourceScreen.kt:239:                        val isSelected = source.id == currentId
+ConvoyMapSourceScreen.kt:240:                        val isAvailable = MapSourceManager.isSourceAvailable(source.id)
+ConvoyMapSourceScreen.kt:263:    var showPanel by remember { mutableStateOf(false) }
+ConvoyMapSourceScreen.kt:265:    var migChoice by remember { mutableStateOf("") }
+ConvoyMapSourceScreen.kt:266:    var clearResult by remember { mutableStateOf<String?>(null) }
+ConvoyMapSourceScreen.kt:313:                        val rec = ConvoySourceMigration.inProgress().firstOrNull { f ->
+ConvoyMapSourceScreen.kt:316:                        val root = rec?.let { ConvoySourceMigration.read(it) }
+ConvoyMapSourceScreen.kt:317:                        val mb = (root?.optLong("from_bytes_total", 0L) ?: 0L) / (1024L * 1024L)
+ConvoyMapSourceScreen.kt:318:                        val dirs = root?.optJSONArray("from_cache_dirs")
+ConvoyMapSourceScreen.kt:319:                        val nStores = dirs?.length() ?: 0
+ConvoyMapSourceScreen.kt:381:                            val record = ConvoySourceMigration.inProgress().firstOrNull { f ->
+ConvoyMapSourceScreen.kt:386:                                    .plus("changed. Tiles are only removed when the removal ")
+ConvoyMapSourceScreen.kt:451:        val source = allSources.find { it.id == sourceId }
+ConvoyMapSourceScreen.kt:468:private fun SectionHeader(title: String) {
+ConvoyMapSourceScreen.kt:478:private fun SlotCard(
+ConvoyMapSourceScreen.kt:535:private fun SourceRow(
+ConvoyMapSourceScreen.kt:598:private fun ApiKeyRow(
+ConvoyMapSourceScreen.kt:635:private fun ApiKeyDialog(
+ConvoyMapSourceScreen.kt:642:    var keyText by remember { mutableStateOf(currentKey) }
+ConvoyMapSourceScreen.kt:682:private fun MigrationOption(
 ConvoyMapViewerScreen.kt:58:private const val DS_OFF = 0
 ConvoyMapViewerScreen.kt:60:private val WAYPOINT_TYPES: List<Pair<String, String>> = listOf(
 ConvoyMapViewerScreen.kt:75:private const val DS_ON = 1
@@ -4166,15 +4167,24 @@ MBTilesStore.kt:196:        val d = db(type) ?: return 0
 MBTilesStore.kt:197:        var n = 0
 MBTilesStore.kt:226:    fun deleteTileRange(type: String, z: Int, xMin: Int, xMax: Int, yMin: Int, yMax: Int): Int {
 MBTilesStore.kt:228:        val d = db(type) ?: return 0
-MBTilesStore.kt:244:    fun reclaimableBytes(type: String): Long {
-MBTilesStore.kt:246:        val d = db(type) ?: return 0L
-MBTilesStore.kt:247:        var pages = 0L
-MBTilesStore.kt:248:        var pageSize = 0L
-MBTilesStore.kt:266:    fun deleteSource(type: String): Boolean {
-MBTilesStore.kt:268:        val f = dbFileFor(type)
-MBTilesStore.kt:270:        var ok = true
-MBTilesStore.kt:272:            val s = File(f.parentFile, f.name + suffix)
-MBTilesStore.kt:281:    fun closeAll() {
+MBTilesStore.kt:265:    fun deleteTiles(type: String, tiles: List<TileKey>): Int {
+MBTilesStore.kt:268:        val d = db(type) ?: return 0
+MBTilesStore.kt:269:        var removed = 0
+MBTilesStore.kt:274:                    val (z, x) = key
+MBTilesStore.kt:275:                    val rows = group.map { it.y }
+MBTilesStore.kt:276:                    var i = 0
+MBTilesStore.kt:278:                        val chunk = rows.subList(i, minOf(i + 500, rows.size))
+MBTilesStore.kt:279:                        val placeholders = chunk.joinToString(",") { "?" }
+MBTilesStore.kt:280:                        val args = ArrayList<String>(chunk.size + 2)
+MBTilesStore.kt:307:    fun reclaimableBytes(type: String): Long {
+MBTilesStore.kt:309:        val d = db(type) ?: return 0L
+MBTilesStore.kt:310:        var pages = 0L
+MBTilesStore.kt:311:        var pageSize = 0L
+MBTilesStore.kt:329:    fun deleteSource(type: String): Boolean {
+MBTilesStore.kt:331:        val f = dbFileFor(type)
+MBTilesStore.kt:333:        var ok = true
+MBTilesStore.kt:335:            val s = File(f.parentFile, f.name + suffix)
+MBTilesStore.kt:344:    fun closeAll() {
 OsmExtractProgress.kt:27: * download ETA came out ~50x long: it measured across an interval whose rate
 OsmExtractProgress.kt:34:object OsmExtractProgress {
 OsmExtractProgress.kt:37:    const val KEY = "osm_extract_progress"

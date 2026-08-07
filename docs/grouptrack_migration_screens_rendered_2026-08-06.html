@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<title>GroupTrack — Source Map Migration: Rendered Screens — 2026-08-06</title>
+<style>
+ :root{--bg:#0f1216;--panel:#161b22;--panel2:#1c2229;--line:#30363d;--fg:#e6edf3;
+   --muted:#8b949e;--accent:#58a6ff;--red:#f85149;--amber:#d29922;--green:#3fb950;--dim:#484f58;}
+ *{box-sizing:border-box}
+ body{margin:0;padding:26px 20px 80px;background:var(--bg);color:var(--fg);
+  font:15px/1.6 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+ .wrap{max-width:1150px;margin:0 auto}
+ header{border-bottom:2px solid var(--accent);padding-bottom:14px;margin-bottom:24px}
+ h1{margin:0 0 6px;font-size:25px} .sub{color:var(--muted);font-size:14px}
+ h2{font-size:18px;margin:28px 0 12px;padding-bottom:6px;border-bottom:1px solid var(--line);color:var(--accent)}
+ h3{font-size:14.5px;margin:14px 0 8px}
+ .card{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--line);
+   border-radius:6px;padding:13px 15px;margin:10px 0}
+ .card.red{border-left-color:var(--red)} .card.amber{border-left-color:var(--amber)}
+ .card.green{border-left-color:var(--green)} .card.blue{border-left-color:var(--accent)}
+ code{background:var(--panel2);border:1px solid var(--line);border-radius:4px;padding:1px 5px;
+   font:12.5px ui-monospace,Consolas,monospace;color:#a5d6ff}
+ ul{margin:7px 0 7px 20px} li{margin:4px 0}
+ .hi{color:#ffd479} .muted{color:var(--muted)}
+ .grid{display:flex;flex-wrap:wrap;gap:18px;align-items:flex-start}
+ .col{flex:1 1 330px;min-width:300px}
+
+ /* Material3 AlertDialog approximation */
+ .dlg{background:#20262d;border-radius:28px;padding:24px;max-width:360px;
+   box-shadow:0 6px 24px rgba(0,0,0,.55);font-size:13px}
+ .dlg .ttl{font-size:19px;line-height:1.3;margin-bottom:16px;color:#e6edf3}
+ .dlg .txt{max-height:420px;overflow-y:auto;padding-right:4px}
+ .b{font-size:14px;line-height:1.45;margin:0;color:#e2e8ef}
+ .s{font-size:12px;line-height:1.5;margin:0;color:#b9c3ce}
+ .e{font-size:12px;line-height:1.5;margin:0;color:#f2b8b5}
+ .sp4{height:4px}.sp6{height:6px}.sp8{height:8px}.sp10{height:10px}
+ .acts{display:flex;flex-direction:column;align-items:flex-end;margin-top:18px;gap:2px}
+ .tb{color:#a8c8ff;font-size:14px;font-weight:600;padding:8px 10px;letter-spacing:.01em}
+ .tb.off{color:#5b636c}
+ .scrollnote{font-size:11px;color:var(--muted);text-align:center;margin-top:4px}
+</style></head><body><div class="wrap">
+
+<header>
+<h1>Source Map Migration — Rendered Screens</h1>
+<div class="sub">2026-08-06 · INTERNAL · <b class="hi">exactly what <code>patch_source_scaffold_2026-08-06d.py</code> will produce</b><br>
+Strings copied verbatim from the patch. Numbers shown are Droid 2's real values.</div>
+</header>
+
+<h2>The three phases</h2>
+<div class="grid">
+
+  <div class="col">
+    <h3>PHASE 1 — after the source is picked</h3>
+    <div class="dlg">
+      <div class="ttl">Map Source Changed</div>
+      <div class="txt">
+        <p class="b">SAT is now using the new source.</p>
+        <div class="sp8"></div>
+        <p class="b">142880 stored tiles came from the previous source.</p>
+        <div class="sp4"></div>
+        <p class="s">Stored tiles cannot be converted. The next step explains your options and
+          what each one costs.</p>
+      </div>
+      <div class="acts"><span class="tb">NEXT STEP</span></div>
+    </div>
+    <div class="card"><p class="muted" style="font-size:12.5px">Non-dismissible. Back-button and
+      outside-tap do nothing — NEXT STEP is the only way on.</p></div>
+  </div>
+
+  <div class="col" style="flex:1 1 380px">
+    <h3>PHASE 2 — the migration panel</h3>
+    <div class="dlg">
+      <div class="ttl">Source Map Migration - SAT</div>
+      <div class="txt">
+        <p class="s">Google Hybrid carries roads and place names inside the satellite imagery, so
+          it needs one map store instead of three and shows street names even with no signal.</p>
+        <div class="sp6"></div>
+        <p class="e">Your stored Esri tiles cannot be converted as they are. Road labels, place
+          names and feature names will no longer show on them.</p>
+        <div class="sp4"></div>
+        <p class="s">The separate name files those come from are removed either way, whichever
+          option you choose.</p>
+        <div class="sp10"></div>
+
+        <p class="b">DELETE AND START OVER - smallest and fastest</p>
+        <p class="s">Clear these maps and rebuild around your tracks. Downloading along your tracks
+          uses about two thirds less storage than boxed areas - you get the ground you actually
+          ride and little else, and every future track brings its own maps. Frees 3 store(s),
+          about 5507 MB.</p>
+        <div class="sp4"></div>
+        <p class="e">This cannot be undone. There is no backup. Your download history for this slot
+          is cleared too, so note any areas you want to redraw.</p>
+        <div class="sp10"></div>
+
+        <p class="b">MOVE EVERYTHING TO THE NEW SOURCE - automatic</p>
+        <p class="s">We convert your existing maps to Google Hybrid in the background, so road and
+          place names come back across all of your coverage as quickly as possible - track maps
+          first, then your areas underneath. Your maps stay usable the whole time.</p>
+        <div class="sp4"></div>
+        <p class="s">All of the downloads are submitted at once and run as background tasks. Every
+          image is slowly replaced from the new source until your whole map has moved over.</p>
+        <div class="sp10"></div>
+
+        <p class="b">I'LL MOVE TRACKS AND AREAS ON MY SCHEDULE</p>
+        <p class="s">Nothing is downloaded or removed. Your existing maps stay exactly as they are,
+          so you always have something to fall back on. Refresh ground as you need it from the
+          downloads panel - by track, or by drawing an area, with Replace tiles ticked. Downloading
+          by track is the lighter option.</p>
+        <div class="sp4"></div>
+        <p class="s">Not the best choice if you depend on road and place names - ground you have
+          not refreshed stays without them.</p>
+      </div>
+      <div class="acts">
+        <span class="tb">DELETE AND START OVER</span>
+        <span class="tb off">MOVE EVERYTHING AUTOMATICALLY</span>
+        <span class="tb">MOVE ON MY SCHEDULE</span>
+      </div>
+    </div>
+    <div class="scrollnote">▲ the body scrolls — it does not fit on one screen ▼</div>
+  </div>
+
+  <div class="col">
+    <h3>PHASE 3 — the outcome</h3>
+    <div class="dlg">
+      <div class="ttl">Done</div>
+      <div class="txt">
+        <p class="b">Cleared 3 store(s), about 5507 MB freed. Draw areas or import tracks when
+          ready.</p>
+      </div>
+      <div class="acts"><span class="tb">OK</span></div>
+    </div>
+    <div class="card"><p class="muted" style="font-size:12.5px">Dismissible — the work is done and
+      OK does the same thing. OK also resets the panel state so the next source change starts at
+      phase 1.</p></div>
+  </div>
+</div>
+
+<h2>⚠ What the render exposes</h2>
+
+<div class="card red">
+<h3>⛔ 1 — Phase 2 is far too long for an AlertDialog</h3>
+<p>Roughly <b>320 words</b> in a Material3 dialog body. It will render as a tall scrolling block on
+a phone, with the three buttons below the fold on first view — <b>so a user sees a wall of text and
+no visible actions.</b></p>
+<p class="hi">⭐ This is the strongest argument yet for making it a full screen rather than a dialog.
+The content is a decision page, not a confirmation.</p>
+<p>⚠ Short of that: cut each option to one sentence and move the detail behind the button, or drop
+the two "not the best choice / removed either way" lines, which are qualifiers rather than
+information.</p>
+</div>
+
+<div class="card red">
+<h3>⛔ 2 — Three stacked buttons in <code>confirmButton</code> will look wrong</h3>
+<p>Material3 expects one or two actions laid out horizontally. Three <code>TextButton</code>s in a
+<code>Column</code> render <b>right-aligned and stacked</b>, which reads as an accidental layout
+rather than a choice list.</p>
+<p>⭐ The options are already described in the body, so the buttons are repeating text the user just
+read. <b>Making them selectable rows in the body with a single CONTINUE action</b> would fix both
+this and the length problem.</p>
+</div>
+
+<div class="card amber">
+<h3>⚠ 3 — The greyed middle option is the informative one</h3>
+<p>You said nobody should make a delete decision without knowing the other options. As rendered,
+the user can only pick <b>delete everything</b> or <b>do nothing</b> — <b>the option that makes the
+delete decision informed is the one they cannot choose.</b></p>
+<p>⭐ It reads better once delete-by-track exists and all three are live. That is one function,
+copied from <code>enqueueDelete</code>.</p>
+</div>
+
+<div class="card amber">
+<h3>⚠ 4 — Smaller things</h3>
+<ul>
+<li><b>"142880"</b> has no thousands separator — it is interpolated raw.</li>
+<li><b>"3 store(s)"</b> — the <code>(s)</code> construction appears twice.</li>
+<li><b>"about 5507 MB"</b> — 5.5 GB would read better at this size.</li>
+<li><b>The option headings are plain body text</b>, same weight as everything else, so they do not
+stand out as headings on device.</li>
+</ul>
+</div>
+
+<div class="card green">
+<h3>⭐ What is right</h3>
+<ul>
+<li><b>Title is now honest</b> — Source Map Migration, matching <code>ConvoySourceMigration</code>
+and <code>maps/source_changes/</code>.</li>
+<li><b>The advisory leads</b> — label loss is stated before any option is presented.</li>
+<li><b>"Removed either way"</b> heads off the obvious follow-up.</li>
+<li><b>Each option names its action</b>, and each has a distinct reason to be chosen.</li>
+<li><b>Phase 1 is non-dismissible, phase 3 is</b> — the decision cannot be escaped, the receipt
+can.</li>
+</ul>
+</div>
+
+</div></body></html>

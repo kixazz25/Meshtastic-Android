@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<title>GroupTrack — Session Handoff — 2026-08-06 v1</title>
+<style>
+ :root{--bg:#0f1216;--panel:#161b22;--panel2:#1c2229;--line:#30363d;--fg:#e6edf3;
+   --muted:#8b949e;--accent:#58a6ff;--red:#f85149;--amber:#d29922;--green:#3fb950;}
+ *{box-sizing:border-box}
+ body{margin:0;padding:28px 20px 80px;background:var(--bg);color:var(--fg);
+  font:15px/1.6 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+ .wrap{max-width:1080px;margin:0 auto}
+ header{border-bottom:2px solid var(--accent);padding-bottom:14px;margin-bottom:26px}
+ h1{margin:0 0 6px;font-size:26px} .sub{color:var(--muted);font-size:14px}
+ h2{font-size:19px;margin:32px 0 12px;padding-bottom:6px;border-bottom:1px solid var(--line);color:var(--accent)}
+ h3{font-size:15px;margin:20px 0 8px}
+ .card{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--line);
+   border-radius:6px;padding:13px 15px;margin:10px 0}
+ .card.red{border-left-color:var(--red)} .card.amber{border-left-color:var(--amber)}
+ .card.green{border-left-color:var(--green)} .card.blue{border-left-color:var(--accent)}
+ code{background:var(--panel2);border:1px solid var(--line);border-radius:4px;padding:1px 5px;
+   font:13px ui-monospace,Consolas,monospace;color:#a5d6ff}
+ pre{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:11px 13px;
+   overflow-x:auto;font:12.5px/1.5 ui-monospace,Consolas,monospace;color:#a5d6ff}
+ table{width:100%;border-collapse:collapse;margin:12px 0;font-size:14px}
+ th,td{border:1px solid var(--line);padding:7px 10px;text-align:left;vertical-align:top}
+ th{background:var(--panel2);color:var(--accent)}
+ ul,ol{margin:7px 0 7px 20px} li{margin:4px 0}
+ .hi{color:#ffd479} .muted{color:var(--muted)}
+</style></head><body><div class="wrap">
+<header>
+<h1>GroupTrack — Session Handoff</h1>
+<div class="sub">2026-08-06 v1 &middot; INTERNAL &middot; companion to
+<code>grouptrack_living_master_2026-08-06_v3.html</code><br>
+HEAD <code>a0675be42</code> &middot; three commits pushed &middot; APK built 23:04 and installed on Droid 2</div>
+</header>
+
+<h2>1 &middot; The day in one line</h2>
+<div class="card green">
+<p class="hi"><b>Source map migration went from a reload engine to one question with three answers, and the code shrank with it.</b></p>
+<p>The morning built and proved the destructive half. The afternoon and evening was design — and most of it was spent removing things. What shipped is smaller than what was written.</p>
+<p class="hi">⭐ <b>THE UNLOCK, and it was Fred's:</b> <i>"remove the tracks — the things we could put back."</i> Every earlier design tried to preserve both storage shapes at once, which forced detection logic, decision matrices and per-item pickers. Take the tracks out and the area bounds become honest by themselves, and tracks cost ~10 minutes each to restore.</p>
+</div>
+
+<h2>2 &middot; What shipped</h2>
+<table>
+<tr><th>Commit</th><th>Contents</th></tr>
+<tr><td><code>27dfb433d</code></td>
+<td>Migration record + guarded clear. <code>ConvoySourceMigration.kt</code>, <code>ConvoySourceClear.kt</code>, screen wiring. 3 files, 723 insertions. <b>Clear proven on Droid 2 — 3 stores removed, TOPO/TOPO+ untouched.</b></td></tr>
+<tr><td><code>54a62e4f6</code></td>
+<td>Migration panel: three selectable rows, one CONTINUE disabled until a row is chosen, title <b>"Source Map Migration"</b>. +111/&minus;71.</td></tr>
+<tr><td><code>a0675be42</code></td>
+<td><code>MBTilesStore.deleteTiles(type, tiles: List&lt;TileKey&gt;)</code>. 63 insertions. <b>Step 1a of 3.</b> Nothing calls it yet.</td></tr>
+</table>
+<div class="card">
+<p>⭐ <b>Verified on device tonight:</b> three rows render, radios work, headings bold and larger, CONTINUE gated on selection, both live options behave. <b>Fred: "all good except automated refresh"</b> — which is the option deliberately left disabled.</p>
+</div>
+
+<h2>3 &middot; The design, settled</h2>
+<div class="card blue">
+<pre>1  DELETE AND START OVER    protect NOTHING     clear · rebuild around tracks · draw new areas
+2  MOVE EVERYTHING          protect the AREA    delete track tiles · refresh area · re-import tracks
+   (automatic, background)                      all downloads submitted at once; every image slowly
+                                                replaced from the new source
+3  MOVE ON MY SCHEDULE      protect EVERYTHING  nothing touched; convert manually, ground by ground,
+                                                with Replace tiles ticked</pre>
+<p>⭐ <b>No map-type question.</b> "How were these downloaded?" only existed to route an automated refresh — which is just as well, because <b>nothing on disk records how a store was built.</b></p>
+<p>⭐ <b>Clear is now only ever chosen on purpose.</b> No case is forced into it, which is what removed the "are you riding soon?" question entirely.</p>
+<p class="hi">⭐ <b>The governing constraint (Fred): these screens process ALL or delete ALL.</b> No partial conversion. That single rule removed the detection logic, the matrices and the pickers.</p>
+</div>
+
+<h2>4 &middot; What is left</h2>
+<div class="card red">
+<h3>The one new function the whole design needs</h3>
+<pre>1a  MBTilesStore.deleteTiles        ✅ DONE, committed a0675be42
+
+1b  ConvoyCorridorDeleteWorker.kt   NEW FILE. Mirrors ConvoyCorridorWorker's discovery
+                                    (geomHash → getTrackPoints → corridorTiles → loop
+                                    layers) with deleteTiles instead of downloadTiles.
+                                    Nothing dispatches to it, so it compiles alone.
+
+1c  QUEUE WIRING — ⛔ ATOMIC
+      · DownloadType.DELETE_CORRIDOR_TILES
+      · DownloadPriority.forType() → DELETE
+      · launchWorker dispatch → ConvoyCorridorDeleteWorker
+      · enqueueDeleteCorridor + batch, DEFAULT = ALL TRACKS (no picker, no list)</pre>
+<p>⛔ <b>1c cannot be split.</b> The <code>when</code> at <code>ConvoyDownloadQueue.kt:797</code> is exhaustive <b>by design</b> — its own comment says a fifth <code>DownloadType</code> should become a compile error rather than a silent fallthrough. Adding the enum breaks the build until the dispatch branch lands.</p>
+<p class="hi">⛔ <b>WHY <code>deleteTiles</code> HAD TO EXIST — the crux.</b> The store could previously delete only a RANGE (<code>deleteTileRange</code>, min/max x and y) or a WHOLE SOURCE. <b>A corridor is neither.</b> Pointing the existing <code>ConvoyDeleteWorker</code> at a corridor deletes its <b>bounding box</b> — the hull problem inverted: instead of downloading ground the user never had, it would <b>delete ground the user still wants.</b></p>
+</div>
+
+<div class="card amber">
+<h3>Four quick items, per Fred</h3>
+<ol>
+<li><b>Delete track maps</b> — 1b + 1c above.</li>
+<li><b>Artifact popups in route mode.</b> ⛔ Two blockers first: <code>checkLayer(layer, typeName, color)</code> has <b>no <code>visible</code> parameter</b>, and <b>two copies exist</b> in <code>grouptrack_map.html</code> (~18 and ~854) — a duplicate proximity scan, two popups racing per tap — while <code>convoy_map.html</code> has neither. <b>Resolve the duplication before patching.</b> ⚠ Do NOT null the layer on hide; it is a cache, and nulling forces a full rebuild per toggle at 10,000 trails.</li>
+<li><b>Google Hybrid as new-install default.</b> <code>patch_default_slot1_hybrid_2026-08-06.py</code>, written and never applied. One value in <code>default_slots</code>; no migration code needed because <code>writeColumnFile:253</code> already keeps existing users on their saved column. ⚠ Neither Droid can verify it — both have <code>map_slots.json</code>, so it needs a genuine fresh install on <b>Droid 2</b>.</li>
+<li><b>z7 trails and tracks.</b> A <code>minZoom</code> change. ⚠ 11→10 was <b>reverted the same session after ANRs</b>, and z7 is four levels lower. Mitigation is the 40,000→10,000 trail cut. ⭐ Tracks are cheap; <b>trails are the risk</b>. Row cap is <code>if (z &lt; 14) 500 else 2000</code>, and the z10 ANR cause was never established.</li>
+</ol>
+<p>⭐ <b>Manual impact: only items 2 and 4</b> — tap behaviour, and what is visible at low zoom.</p>
+</div>
+
+<h2>5 &middot; Open defects</h2>
+<div class="card red">
+<ul>
+<li class="hi">⛔ <b>THE ×3 ESTIMATE.</b> A Google corridor download <b>estimated 1,560 tiles and downloaded 520</b> — ratio exactly 3 = Esri's layer count. Estimate uses <code>getDownloadSources().filter{...}.sumOf{...}</code> → 3; worker uses <code>getSourceByKey(slot)?.layers</code> → 1. <b>The worker is right.</b> ⭐ Second site: <code>ConvoyDownloadQueue.kt:183</code> sums layers across EVERY slot with no filter and takes no <code>slotName</code>, so it cannot price a selection — callers <code>ConvoyViewModel:987</code> and <b><code>SpatialDbManager:2085</code> (track import)</b>. Fred: <i>search git for the total-tiles calc, it was modified to correct display values.</i> ⛔ <b>Fix before any screen quotes times or sizes — the migration panel is about to.</b></li>
+<li><b>5-second settle delay</b> before <code>resumeQueue()</code>, after the delete loop. One line. FUSE needs a beat between unlink and the re-create that a resuming worker triggers.</li>
+<li><b>Record hygiene</b> — <code>begin()</code> runs unconditionally but the dialog only shows <code>if (count &gt; 0)</code>, leaving records at <code>"phase": "opened"</code> (8 on Droid 2).</li>
+<li><b>Bytes accounting</b> — report <code>from_bytes_total</code> across all runs so the store count and the MB figure agree.</li>
+<li><b>Track name on corridor queue jobs</b> — reinstated for testing legibility. Resolve from <code>geomHash</code> at display time, <b>batched</b>; no schema change.</li>
+<li><b>Is "Replace tiles" plainly reachable on the AREA download path?</b> Option 3's instructions depend on it. Unverified.</li>
+</ul>
+</div>
+
+<h2>6 &middot; Method notes from today</h2>
+<div class="card amber">
+<ul>
+<li class="hi">⛔⛔ <b>A GREEN BUILD PROVES NOTHING IF THE APPLY DID NOT RUN.</b> <b>Three</b> phantom applies today, each hidden by a successful compile of unchanged code. ⭐ <b>The fix that worked: append the marker count to the gate</b> — <code>./gradlew compile... && grep -c MARKER file</code> — so the build result and the file state come back together. <code>git diff --stat</code> is the authoritative answer.</li>
+<li class="hi">⚠⚠ <b>A CHECK ABOUT CODE MUST RUN ON CODE, NOT ON PROSE.</b> Two more patches aborted on their own doc comments — one grepping for a forbidden string that appeared in the KDoc explaining why it was forbidden. <b>Strip comments before checking.</b> Third occurrence of this class in two days.</li>
+<li class="hi">⚠ <b>VERIFIERS MUST DERIVE, NOT ASSERT.</b> A patch aborted asserting zero dismissible dialogs when the correct derived answer was one. <b>count before − removed + added = expected after.</b></li>
+<li class="hi">⭐⭐ <b>SCOPE-CREEP DETECTOR (Fred):</b> <i>"When scope expands and focus is lost and you cannot precisely describe the options and their benefits — back up."</i> The inability to state each option and what it is for <b>is</b> the symptom. ⭐ <b>Recovery move: ask what we are trying to accomplish and what the obstacles are — not what to build next.</b> The design got smaller every time that was asked.</li>
+<li>⭐ <b>Render before shipping a screen.</b> Drawing the panel at real dialog proportions exposed ~320 words with the actions below the fold, and three stacked buttons that read as a layout accident. Neither was visible in code.</li>
+</ul>
+</div>
+
+<h2>7 &middot; Rejected, and why</h2>
+<div class="card">
+<table>
+<tr><th>Design</th><th>Why</th></tr>
+<tr><td><code>runMigration</code> with <code>TileChoice</code>/<code>ReloadChoice</code> enums</td><td>Written, never applied. Repopulation is the existing Download Tiles by Area / by Track.</td></tr>
+<tr><td><code>ConvoyReloadHolder</code> — park queue entries in JSON</td><td>Built, compiled, <b>deleted unused</b>. Solved an ordering problem that step-splitting removes.</td></tr>
+<tr><td>Rename instead of delete (<code>SAT</code>→<code>SAT__old</code>)</td><td>Patch written, never applied. Unnecessary once the queue drain and the file delete are separated.</td></tr>
+<tr><td>A dedicated refresh panel</td><td>Forced an either/or. A real user can have both shapes, and the downloads panel already offers both with Replace.</td></tr>
+<tr><td>Map-type question / detection / decision matrix</td><td>Removed entirely by the all-or-nothing rule.</td></tr>
+<tr><td>Corridor/area coverage overlay</td><td>Right visualisation, wrong cost. <b>There is no bbox rendering anywhere in the app today.</b></td></tr>
+</table>
+</div>
+
+<h2>8 &middot; Facts learned today</h2>
+<div class="card blue">
+<p><b>Google Hybrid's cache dir is <code>google_hybrid</code>, not <code>SAT</code></b> — one layer, its own file. The SAT <b>column</b> changes store FILENAME with its source. ⚠ Anything keyed on the literal <code>"SAT"</code> is reasoning about a store that only exists under Esri.</p>
+<p><b>Under Esri the worker DOES fetch all three layers.</b> They were stale since 08-02 only because everything since ran on Hybrid. <b>So the ×3 is correct under Esri and wrong only under Hybrid — fix the estimate to read the live assignment, do not remove the multiplier.</b></p>
+<p>⛔ <b><code>enqueueRefresh</code> shares <code>segmentCells</code> with <code>enqueueArea</code></b> (parity comment dated 07-22). The "second chopper needs retiring" claim in 00-ENQUEUE-PRINCIPLE is <b>WRONG</b> — correct it there.</p>
+<p><b><code>tileBoundsLatLon(:201)</code></b> derives its box as min/max over tiles at the <b>densest zoom only</b> — a hull, not a coverage map.</p>
+<p><b>Droid 2 SAT column:</b> <code>SAT.mbtiles</code> 5,314,371,584 (was 4.24 GB on 08-02) + labels 210,006,016 + 251,092,992 = <b>≈5,507 MB</b>. ✅ The app runs fine with no <code>SAT.mbtiles</code> present — <code>db()</code> is open-or-create.</p>
+</div>
+
+<h2>9 &middot; The bigger idea, recorded late</h2>
+<div class="card green">
+<p class="hi">⭐⭐ <b>Fred: "I do not care about route. I am trying to create a method where a PRE-RIDE ROUTE CAN BE DISTRIBUTED AND IMPORTED WITH MAPS, allowing a rider to download accurate maps with efficient space utilisation BEFORE TRAILS ARE CAPTURED."</b></p>
+<p><b>The route is the distribution unit.</b> A leader plots the ride, emails it out, and each rider imports it and downloads exactly the corridor that ride needs. Nobody has to have ridden the ground, and nobody has to box a region.</p>
+<p>⭐ <b>Why it is accurate:</b> a SNAPPED route's geometry IS trail geometry — snap-2 pulls the trail's own vector points — padded half a mile either side. <b>Corridor-quality coverage for ground never ridden.</b></p>
+<p>⭐ <b>Email survives it.</b> The snapping happened at authoring time, so the coordinates already follow the trail. What does not travel is the per-vertex <code>lineId</code> — a local DB reference. So a shared route downloads maps and draws perfectly; <b>re-snapping is re-established locally by adding or removing a point.</b></p>
+<p><b>What it needs:</b> route <code>geom_hash</code> (a column, one call at insert, a backfill — <code>computeGeomHash(wkt)</code> exists and <code>insertRoute</code> already receives the WKT) · artifact TYPE carried alongside the hash so the worker looks in the right table · a distribution format and import path, mirroring track import's corridor option.</p>
+<p>⛔ Without the hash, <code>ConvoyCorridorWorker</code> resolves against TRACKS, finds nothing, and <b>fails quietly</b> — the batch counts no-geometry as <i>skipped</i>.</p>
+</div>
+
+<h2>10 &middot; Device and doc state</h2>
+<table>
+<tr><td><b>Droid 2</b> <code>24039703201775</code></td>
+<td>Sacrificial, no GPS. Carries tonight's build (APK 23:04:39). SAT cleared and partly rebuilt during testing.</td></tr>
+<tr><td><b>Droid 1</b> <code>8624SBCEDF00001789</code></td>
+<td>Sideloaded, <code>installerPackageName=null</code>. Has GPS — <b>the device that can close the offline track-draw test</b>, still the last unverified 2.6e must-fix.</td></tr>
+</table>
+<div class="card">
+<p><b>EOD doc set 2026-08-06:</b> <code>grouptrack_living_master_2026-08-06_v3.html</code> (superset held 64→66 h2) &middot;
+<code>grouptrack_release_notes_2_6e_2026-08-06.html</code> &middot;
+<code>GroupTrack_QuickStart_Installation_Troubleshooting_2026-08-06_v2.html</code> &middot;
+<code>grouptrack_manual_2026-08-06.html</code> &middot; this handoff.</p>
+<p>⚠ <b>The manual carries three invisible <code>PENDING-REDOC-2026-08-06</code> markers</b> on the map-source screens. Those screens no longer exist in the app. ⚠ <b>Also stale and unmarked:</b> section planning-K still describes tapping an artifact to open a multi-artifact popup, removed 08-03 — and items 2 and 4 above will make the artifact/tap sections stale too. <b>Decide before the asset copy, not after.</b></p>
+</div>
+
+<h2>11 &middot; Tomorrow</h2>
+<div class="card red">
+<p class="hi">Fred: <i>"the rest of the pending 2.6e list, updating assets, building a new Play Store release."</i></p>
+<ol>
+<li><b>Asset copy</b> — manual + release notes into <code>app/src/main/assets/</code> under canonical unchanged names. ⚠ <b>Verify by content grep, not copy success.</b></li>
+<li><b>The four quick items</b> (section 4).</li>
+<li><b>The ×3 estimate</b> — before any screen quotes numbers.</li>
+<li><b>Pre-release cleanup</b> — <code>TRACK-DBG: TICK</code> (floods the buffer, destroys evidence), <code>WAYPOINT-TRACE</code>, failed-job-records-no-reason.</li>
+<li><b>Record a track offline on Droid 1</b> — the last unverified 2.6e must-fix, open since 08-02.</li>
+</ol>
+<p>⚠ <b><code>/areas/grouptrack-2-6e-tasks.md</code> is near its size cap.</b> Worth splitting the completed 08-05 material out at the start of the session rather than hitting it mid-flow.</p>
+</div>
+
+</div></body></html>
