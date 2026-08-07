@@ -238,6 +238,69 @@ object MBTilesStore {
         }
     }
 
+    /**
+     * MBTILESDELTILES-2026-08-06
+     *
+     * Delete an EXPLICIT LIST of tiles. The primitive a corridor delete needs.
+     *
+     * WHY IT HAD TO EXIST: this store could previously delete only a RANGE
+     * (deleteTileRange, min/max x and y) or a WHOLE SOURCE (deleteSource).
+     * A corridor is neither. Deleting a corridor by range would remove its
+     * BOUNDING BOX - the same hull that makes an area refresh over corridors
+     * wrong, except inverted: instead of downloading ground the user never
+     * had, it would delete ground the user still wants.
+     *
+     * Grouped by (z, x) and deleted with tile_row IN (...). A corridor is a
+     * thin strip, so most (z, x) pairs hold a short run of consecutive rows -
+     * this collapses tens of thousands of statements into a few hundred.
+     * Chunked at 500 binds; SQLite allows 999 and the query already uses two.
+     *
+     * One transaction for the whole call - a half-deleted corridor is not a
+     * state worth leaving behind, and it is markedly faster.
+     *
+     * Returns the number of rows actually removed, which is what the worker
+     * should report: the caller's tile list is what COULD be there, not what
+     * WAS. (Same distinction the DELETE-BANDING-2026-07-25 note draws.)
+     */
+    fun deleteTiles(type: String, tiles: List<TileKey>): Int {
+        if (tiles.isEmpty()) return 0
+        if (!storeExists(type)) return 0
+        val d = db(type) ?: return 0
+        var removed = 0
+        return try {
+            d.beginTransaction()
+            try {
+                for ((key, group) in tiles.groupBy { it.z to it.x }) {
+                    val (z, x) = key
+                    val rows = group.map { it.y }
+                    var i = 0
+                    while (i < rows.size) {
+                        val chunk = rows.subList(i, minOf(i + 500, rows.size))
+                        val placeholders = chunk.joinToString(",") { "?" }
+                        val args = ArrayList<String>(chunk.size + 2)
+                        args.add(z.toString())
+                        args.add(x.toString())
+                        for (y in chunk) args.add(y.toString())
+                        removed += d.delete(
+                            "tiles",
+                            "zoom_level=? AND tile_column=? AND tile_row IN ($placeholders)",
+                            args.toTypedArray()
+                        )
+                        i += chunk.size
+                    }
+                }
+                d.setTransactionSuccessful()
+            } finally {
+                d.endTransaction()
+            }
+            android.util.Log.i(TAG,
+                "deleteTiles $type: ${tiles.size} requested, $removed actually removed")
+            removed
+        } catch (e: Exception) {
+            android.util.Log.e(TAG, "deleteTiles $type: ${e.message}")
+            removed
+        }
+    }
     /** DELETE-AREA-2026-07-25: reclaimable bytes sitting in this store's
      *  freelist. freelist_count * page_size. Lets the UI say "delete freed
      *  1.2 GB -- reclaim it?" instead of a blind "compacting...". */
