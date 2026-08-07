@@ -51,6 +51,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.material3.RadioButton
 
 /**
  * ConvoyMapSourceScreen — assign tile sources to the 3 fixed map slots.
@@ -260,6 +261,8 @@ fun ConvoyMapSourceScreen(
 
     // SOURCEPANEL-2026-08-06: three phases - intro, panel, result.
     var showPanel by remember { mutableStateOf(false) }
+    // MIGSCREEN-2026-08-06: "", "delete", "auto" or "manual".
+    var migChoice by remember { mutableStateOf("") }
     var clearResult by remember { mutableStateOf<String?>(null) }
 
     // ── Source Change Panel ──────────────────────────────────────
@@ -297,9 +300,16 @@ fun ConvoyMapSourceScreen(
             // rather than pretending they are absent.
             AlertDialog(
                 onDismissRequest = { },
-                title = { Text("Set up $slot") },
+                title = {
+                    // MIGSCREEN-2026-08-06: larger and bold.
+                    Text(
+                        "Source Map Migration - $slot",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                },
                 text = {
-                    Column {
+                    Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                         val rec = ConvoySourceMigration.inProgress().firstOrNull { f ->
                             ConvoySourceMigration.read(f)?.optString("slot") == slot
                         }
@@ -309,63 +319,65 @@ fun ConvoyMapSourceScreen(
                         val nStores = dirs?.length() ?: 0
 
                         Text(
-                            "Your stored tiles came from the previous source and cannot "
-                            + "be converted.",
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                        Spacer(Modifier.height(6.dp))
-                        // SOURCEPANELFIX-2026-08-06: advisory leads, mechanism follows.
-                        Text(
-                            "Please be advised: no matter which option you select, you "
-                            + "will lose Esri place and road label information.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.error
-                        )
-                        Spacer(Modifier.height(4.dp))
-                        Text(
-                            "The new source does not fetch label overlays, so those "
-                            + "stores are removed either way and their space is "
-                            + "reclaimed.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(Modifier.height(6.dp))
-                        Text(
-                            "We recommend CLEAR when moving from Esri to Google Hybrid, "
-                            + "unless you are already running corridor-based tiles.",
+                            "Google Hybrid carries roads and place names inside the "
+                            + "satellite imagery, so it needs one map store instead of "
+                            + "three and shows street names even with no signal.",
                             style = MaterialTheme.typography.bodySmall
                         )
                         Spacer(Modifier.height(6.dp))
                         Text(
-                            "If you are not sure, choose KEEP. Your tiles stay exactly as "
-                            + "they are and you can refresh on demand later with Download "
-                            + "Tiles by Area or by Track.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(Modifier.height(8.dp))
-                        Text("CLEAR removes $nStores store(s), about $mb MB.")
-                        Spacer(Modifier.height(4.dp))
-                        Text(
-                            "This cannot be undone. There is no backup. Your download "
-                            + "history for this column is cleared too, so note any areas "
-                            + "you want to redraw.",
+                            "Your stored Esri tiles cannot be converted as they are. "
+                            + "Road labels, place names and feature names will no longer "
+                            + "show on them. The separate name files those come from are "
+                            + "removed either way, whichever option you choose.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.error
                         )
-                        Spacer(Modifier.height(8.dp))
-                        Text(
-                            "Nothing downloads now either way. Reload options and "
-                            + "replace-in-place arrive in the next build; until then use "
-                            + "Download Tiles by Area or by Track when you are ready.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        Spacer(Modifier.height(12.dp))
+
+                        // ---- option rows ----
+                        MigrationOption(
+                            selected = migChoice == "delete",
+                            enabled = true,
+                            onSelect = { migChoice = "delete" },
+                            heading = "Delete and start over",
+                            body = "Clear these maps and rebuild around your tracks. "
+                                + "Downloading along your tracks uses about two thirds less "
+                                + "storage than boxed areas. Frees $nStores store(s), about "
+                                + "$mb MB. This cannot be undone and there is no backup - "
+                                + "your download history for this slot is cleared too."
+                        )
+                        MigrationOption(
+                            selected = migChoice == "auto",
+                            enabled = false,
+                            onSelect = { },
+                            heading = "Move everything to the new source",
+                            body = "All of the downloads are submitted at once and run as "
+                                + "background tasks. Every image is slowly replaced from the "
+                                + "new source until your whole map has moved over - track "
+                                + "maps first, then your areas. Your maps stay usable "
+                                + "throughout. Best if you rely on road and place names."
+                        )
+                        MigrationOption(
+                            selected = migChoice == "manual",
+                            enabled = true,
+                            onSelect = { migChoice = "manual" },
+                            heading = "I'll move tracks and areas on my schedule",
+                            body = "Nothing is downloaded or removed. Your existing maps stay "
+                                + "as they are, so you always have something to fall back on. "
+                                + "Refresh ground as you need it from the downloads panel, "
+                                + "with Replace tiles ticked. Ground you have not refreshed "
+                                + "stays without road and place names."
                         )
                     }
                 },
                 confirmButton = {
-                    Column {
-                        TextButton(onClick = {
+                    // MIGSCREEN-2026-08-06: ONE action. Disabled until a row is
+                    // selected - nobody makes a delete decision without having seen
+                    // the alternatives.
+                    TextButton(
+                        enabled = migChoice.isNotEmpty(),
+                        onClick = {
                             val record = ConvoySourceMigration.inProgress().firstOrNull { f ->
                                 ConvoySourceMigration.read(f)?.optString("slot") == slot
                             }
@@ -374,11 +386,7 @@ fun ConvoyMapSourceScreen(
                                     .plus("changed. Tiles are only removed when the removal ")
                                     .plus("can be recorded.")
                                 refreshEnqueued = true
-                            } else {
-                                // SOURCEPANELFIX-2026-08-06: detached. This ran on
-                                // rememberCoroutineScope(), which is cancelled when the
-                                // screen leaves composition - navigating away mid-delete
-                                // could kill a GB-scale operation partway through.
+                            } else if (migChoice == "delete") {
                                 ConvoySourceClear.clearColumnDetached(record) { r ->
                                     clearResult = when (r) {
                                         is ConvoySourceClear.Result.Success ->
@@ -390,39 +398,28 @@ fun ConvoyMapSourceScreen(
                                     }
                                     refreshEnqueued = true
                                 }
-                            }
-                        }) { Text("CLEAR TILES") }
-
-                        TextButton(onClick = {
-                            val record = ConvoySourceMigration.inProgress().firstOrNull { f ->
-                                ConvoySourceMigration.read(f)?.optString("slot") == slot
-                            }
-                            if (record == null) {
-                                clearResult = "Tiles kept. No migration record was open."
-                                refreshEnqueued = true
                             } else {
-                                // SOURCEPANELFIX-2026-08-06: detached, same reason.
-                                // Orphaned label stores are reclaimed here too -
-                                // they are dead the moment the source changes.
                                 ConvoySourceClear.removeOrphanedStoresDetached(record) { r ->
-                                    ConvoySourceMigration.noteReloadChoice(record, "kept_existing_tiles")
+                                    ConvoySourceMigration.noteReloadChoice(record, migChoice)
                                     ConvoySourceMigration.complete(record)
                                     clearResult = when (r) {
                                         is ConvoySourceClear.Result.Success ->
                                             if (r.deletedDirs.isEmpty())
-                                                "Tiles kept. Nothing was removed."
+                                                "Your maps are unchanged."
                                             else
-                                                "Tiles kept. Removed ${r.deletedDirs.size} unused "
-                                                    .plus("label store(s), about ")
+                                                "Your maps are unchanged. Removed "
+                                                    .plus("${r.deletedDirs.size} unused label ")
+                                                    .plus("store(s), about ")
                                                     .plus("${r.bytesFreed / (1024L * 1024L)} MB freed.")
                                         is ConvoySourceClear.Result.Failed ->
-                                            "Tiles kept. Label stores not removed: ${r.reason}"
+                                            "Your maps are unchanged. Label stores not "
+                                                .plus("removed: ${r.reason}")
                                     }
                                     refreshEnqueued = true
                                 }
                             }
-                        }) { Text("KEEP TILES") }
-                    }
+                        }
+                    ) { Text("CONTINUE") }
                 }
             )
         } else {
@@ -674,4 +671,47 @@ private fun ApiKeyDialog(
             TextButton(onClick = onDismiss) { Text("Cancel") }
         }
     )
+}
+
+
+// MIGSCREEN-2026-08-06: one selectable option row for the migration panel.
+// Heading is deliberately larger and bold so the three choices read as choices
+// rather than as more paragraphs. A disabled row stays readable - the user can
+// see what they are choosing against even when it cannot be picked yet.
+@Composable
+private fun MigrationOption(
+    selected: Boolean,
+    enabled: Boolean,
+    onSelect: () -> Unit,
+    heading: String,
+    body: String
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(enabled = enabled) { onSelect() }
+            .padding(vertical = 6.dp),
+        verticalAlignment = Alignment.Top
+    ) {
+        RadioButton(
+            selected = selected,
+            enabled = enabled,
+            onClick = if (enabled) onSelect else null
+        )
+        Column(modifier = Modifier.padding(start = 4.dp, top = 10.dp)) {
+            Text(
+                heading,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = if (enabled) MaterialTheme.colorScheme.onSurface
+                        else MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(
+                body,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
 }
