@@ -60,6 +60,14 @@ fun ConvoyDownloadPanel(
     onTrailsCheckedChange: (Boolean) -> Unit = {},
     removeTilesChecked: Boolean = false,
     onRemoveTilesCheckedChange: (Boolean) -> Unit = {},
+    // REMOVETRACK-PREVIEW-2026-08-07F: corridor-shaped tile removal. Routing
+    // lives in the checkbox (the corridor/OSM idiom) because this operation
+    // takes NO AREA and NO SELECTION -- it is all tracks, always -- so it
+    // cannot use the tick-then-Draw-Area flow the rows around it use.
+    // Deliberately NOT added to onExecuteDownload: that callback's three
+    // booleans are all bbox-driven.
+    removeTrackChecked: Boolean = false,
+    onRemoveTrackCheckedChange: (Boolean) -> Unit = {},
     // OSM-C3B-AREA-2026-07-29: IMPORT OSM. Routing lives in the checkbox, which
     // is why no AreaDrawPurpose is needed. Deliberately NOT part of
     // onExecuteDownload -- OSM must never become a QueueEntry.
@@ -231,12 +239,23 @@ fun ConvoyDownloadPanel(
                     if (it) onSelectCorridorTracks()
                 }
                 ArtifactCheckRow("Remove Tiles by Area", red, removeTilesChecked, true) { onRemoveTilesCheckedChange(it) }
-                // V2.7 -- designed, not built. ConvoyDeleteWorker and
-                // DELETE_AREA_TILES already exist; by-track needs corridor-shaped
-                // deletion (the same derivation enqueueCorridor already does), and
-                // Clear Tile Source drops the whole SAT column (base + both label
-                // stores) and is destructive enough to need its own confirm.
-                ArtifactCheckRow("Remove Tiles by Track", dimText, false, false, "V2.7") {}
+                // REMOVETRACK-PREVIEW-2026-08-07F: ACTIVATED. The corridor-shaped
+                // deletion this row was reserved for is now built --
+                // MBTilesStore.deleteTiles (a0675be42) + the corridor derivation
+                // in ConvoyCorridorDelete (0a40ec07e / 733164e12).
+                // ⚠ PATCH 1 SCOPE: ticking this runs the PREVIEW and logs counts.
+                // It deletes nothing. Patch 2 adds the roll-up panel and the
+                // permanent confirm at the point of no return.
+                ArtifactCheckRow("Remove Tiles by Track", red, removeTrackChecked, true) {
+                    onRemoveTrackCheckedChange(it)
+                }
+                // V2.7 -- Clear Tile Source drops the whole SAT column (base +
+                // both label stores) and is destructive enough to need its own
+                // confirm. ⚠ Its warning must travel with it: in the migration
+                // flow the user has been told they lose labels until tiles are
+                // replaced; as a bare panel row it has none of that framing.
+                // Wires to ConvoySourceClear (27dfb433d), which exists.
+                // The row itself is the untouched line below.
                 ArtifactCheckRow("Clear Tile Source", dimText, false, false, "V2.7") {}
                 Spacer(Modifier.height(2.dp))
                 // V3.0 -- artifact downloads from the CONSOLIDATED ALL-USER

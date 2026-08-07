@@ -2187,6 +2187,8 @@ fun ConvoyMapViewerScreen(
             }
             // ── Download panel (above FAB) ────────────────────────────────
             if (showDownloadPanel) {
+            // REMOVETRACK-PREVIEW-2026-08-07F: transient, not persisted.
+            var removeTrackChecked by remember { mutableStateOf(false) }
                 ConvoyDownloadPanel(
                     bbox = downloadBbox,
                     tilesChecked = panelTilesChecked,
@@ -2218,6 +2220,40 @@ fun ConvoyMapViewerScreen(
                     onTrailsCheckedChange = { panelTrailsChecked = it },
                     removeTilesChecked = panelRemoveTilesChecked,
                     onRemoveTilesCheckedChange = { panelRemoveTilesChecked = it },
+                    // REMOVETRACK-PREVIEW-2026-08-07F
+                    // State is remember{} (declared below the panel), NOT lifted
+                    // into MapStateStore like removeTilesChecked is. A PERSISTED
+                    // checkbox that launches an action would re-fire on every
+                    // panel load -- this is an action, not a state, so it unticks
+                    // itself when the preview returns.
+                    removeTrackChecked = removeTrackChecked,
+                    onRemoveTrackCheckedChange = { ticked ->
+                        removeTrackChecked = ticked
+                        if (ticked) {
+                            scope.launch {
+                                val preview = withContext(Dispatchers.IO) {
+                                    // Slot name is the store type: the slot IS the
+                                    // store, so column 1 is SAT whatever source is
+                                    // assigned to it.
+                                    ConvoyCorridorDelete.previewAllTracks(context, "SAT")
+                                }
+                                android.util.Log.i(
+                                    "REMOVETRACK",
+                                    "REMOVETRACK-PREVIEW-2026-08-07F tracks=${preview.tracks.size} " +
+                                        "geomTiles=${preview.totalTiles} onDisk=${preview.onDiskTotal} " +
+                                        "byStore=${preview.onDiskByStore} shared=${preview.overlapSavings} " +
+                                        "skipNoGeom=${preview.skippedNoGeom} skipEmpty=${preview.skippedEmpty}"
+                                )
+                                android.widget.Toast.makeText(
+                                    context,
+                                    "${preview.tracks.size} tracks - ${preview.onDiskTotal} tiles on disk",
+                                    android.widget.Toast.LENGTH_LONG
+                                ).show()
+                                // Action, not state.
+                                removeTrackChecked = false
+                            }
+                        }
+                    },
                     osmChecked = panelOsmChecked,
                     onOsmCheckedChange = { panelOsmChecked = it },
                     flyoverZoom = panelFlyoverZoom,
