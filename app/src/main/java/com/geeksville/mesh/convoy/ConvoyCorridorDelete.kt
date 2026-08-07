@@ -54,12 +54,23 @@ object ConvoyCorridorDelete {
      *                         and an unexplained gap between the two numbers is
      *                         exactly what would look like a bug later.
      */
+    /**
+     * @param onDiskByStore  store name -> tiles of this corridor set actually
+     *                       present in that store. CORRDELETE-ONDISK-2026-08-07D.
+     * @param onDiskTotal    sum across stores -- the number the delete should
+     *                       actually remove, and the figure stage 3 verifies
+     *                       against. ALWAYS <= totalTiles: a corridor crossing
+     *                       ground that was never downloaded contributes
+     *                       geometry tiles that are not in any store.
+     */
     data class PreviewResult(
         val tracks: List<TrackPreview>,
         val skippedNoGeom: Int,
         val skippedEmpty: Int,
         val totalTiles: Int,
-        val overlapSavings: Int
+        val overlapSavings: Int,
+        val onDiskByStore: Map<String, Int>,
+        val onDiskTotal: Int
     )
 
     /**
@@ -68,7 +79,8 @@ object ConvoyCorridorDelete {
      * Runs a DB read per track and a tile computation per track, so it must not
      * be called on the main thread.
      */
-    fun previewAllTracks(context: Context): PreviewResult {
+    fun previewAllTracks(context: Context, slotName: String): PreviewResult {
+        MapSourceManager.init(context)
         val hashes = SpatialDbManager.allTrackGeomHashes()
         android.util.Log.i(TAG, "CORRDELETE-STAGE1-2026-08-07B preview start: ${hashes.size} tracks with geom_hash")
 
@@ -97,17 +109,36 @@ object ConvoyCorridorDelete {
             previews.add(TrackPreview(geomHash, name, corridor.size))
         }
 
+        // CORRDELETE-ONDISK-2026-08-07D: store list copied from
+        // ConvoyDownloadQueue.enqueueDelete :354-358. Reads the LIVE layer
+        // assignment, so it is right under Esri (3 stores) and Hybrid (1)
+        // without this function knowing which is active.
+        val storeNames: List<String> = run {
+            val layers = MapSourceManager.getSourceByKey(slotName)?.layers ?: emptyList()
+            if (layers.isEmpty()) listOf(slotName)
+            else layers.mapIndexed { i, l -> if (i == 0) slotName else l.cacheDir }
+        }
+        val distinctList = distinct.toList()
+        val onDisk = LinkedHashMap<String, Int>()
+        for (store in storeNames) {
+            onDisk[store] = MBTilesStore.countTiles(store, distinctList)
+        }
+        val onDiskTotal = onDisk.values.sum()
+
         val result = PreviewResult(
             tracks = previews,
             skippedNoGeom = skippedNoGeom,
             skippedEmpty = skippedEmpty,
             totalTiles = distinct.size,
-            overlapSavings = naiveSum - distinct.size
+            overlapSavings = naiveSum - distinct.size,
+            onDiskByStore = onDisk,
+            onDiskTotal = onDiskTotal
         )
         android.util.Log.i(
             TAG,
             "CORRDELETE-STAGE1-2026-08-07B preview done: ${previews.size} tracks, ${result.totalTiles} distinct tiles, " +
-                "${result.overlapSavings} shared, skipped noGeom=$skippedNoGeom empty=$skippedEmpty"
+                "${result.overlapSavings} shared, skipped noGeom=$skippedNoGeom empty=$skippedEmpty, " +
+                "ON DISK=${result.onDiskTotal} across ${onDisk.size} store(s) $onDisk"
         )
         return result
     }

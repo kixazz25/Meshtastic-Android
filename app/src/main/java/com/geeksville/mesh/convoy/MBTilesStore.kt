@@ -262,6 +262,52 @@ object MBTilesStore {
      * should report: the caller's tile list is what COULD be there, not what
      * WAS. (Same distinction the DELETE-BANDING-2026-07-25 note draws.)
      */
+    /** CORRDELETE-ONDISK-2026-08-07D: how many of these EXACT tiles are on
+     *  disk. Deliberately mirrors deleteTiles() below -- same grouping, same
+     *  500-bind chunking, same WHERE shape -- because a pre-count that selects
+     *  on different criteria than the delete is worse than no pre-count: it
+     *  reads as authoritative while disagreeing with what actually happens.
+     *
+     *  countTileRange() cannot serve here. It takes min/max x and y, which is a
+     *  BOUNDING BOX, and a corridor is not one -- the box around a corridor
+     *  includes ground the corridor never touches.
+     *
+     *  Indexed COUNT(*) per (z, x) group. Read-only, no transaction, safe to
+     *  run before the user has confirmed anything. Background thread only. */
+    fun countTiles(type: String, tiles: List<TileKey>): Int {
+        if (tiles.isEmpty()) return 0
+        if (!storeExists(type)) return 0
+        val d = db(type) ?: return 0
+        var found = 0
+        return try {
+            for ((key, group) in tiles.groupBy { it.z to it.x }) {
+                val (z, x) = key
+                val rows = group.map { it.y }
+                var i = 0
+                while (i < rows.size) {
+                    val chunk = rows.subList(i, minOf(i + 500, rows.size))
+                    val placeholders = chunk.joinToString(",") { "?" }
+                    val args = ArrayList<String>(chunk.size + 2)
+                    args.add(z.toString())
+                    args.add(x.toString())
+                    for (y in chunk) args.add(y.toString())
+                    d.rawQuery(
+                        "SELECT COUNT(*) FROM tiles " +
+                            "WHERE zoom_level=? AND tile_column=? AND tile_row IN ($placeholders)",
+                        args.toTypedArray()
+                    ).use { c -> if (c.moveToFirst()) found += c.getInt(0) }
+                    i += chunk.size
+                }
+            }
+            android.util.Log.i(TAG,
+                "countTiles $type: ${tiles.size} requested, $found present")
+            found
+        } catch (e: Exception) {
+            android.util.Log.e(TAG, "countTiles $type: ${e.message}")
+            found
+        }
+    }
+
     fun deleteTiles(type: String, tiles: List<TileKey>): Int {
         if (tiles.isEmpty()) return 0
         if (!storeExists(type)) return 0
