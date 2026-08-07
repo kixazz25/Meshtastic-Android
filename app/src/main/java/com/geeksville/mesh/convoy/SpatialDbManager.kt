@@ -1977,6 +1977,41 @@ object SpatialDbManager {
      *  convention at :1763. Backwards puts the corridor in another hemisphere.
      *
      *  @return segments, or null if the track/geometry is missing. */
+    // CORRDELETE-STAGE1-2026-08-07B
+    /**
+     * Every track carrying a geom_hash, with its current name.
+     *
+     * Takes no Context and opens nothing: the pattern at :1266 is
+     * `val sdb = spatialDb ?: return <empty>` -- spatialDb is a property that
+     * is either already open or is not, and inventing an open path here would
+     * diverge from every other reader in this file.
+     *
+     * Same row source as the backfill query -- tracks WHERE geom_hash IS NOT
+     * NULL -- but returns name alongside so a caller iterating all tracks does
+     * not need a second read per row. Name is nullable because the column is.
+     *
+     * Returned as a list of (geom_hash, name) pairs rather than a map: names
+     * are not unique, and a map keyed on name would silently collapse tracks.
+     */
+    fun allTrackGeomHashes(): List<Pair<String, String?>> {
+        val out = ArrayList<Pair<String, String?>>()
+        val sdb = spatialDb ?: return out
+        try {
+            sdb.rawQuery(
+                "SELECT geom_hash, name FROM tracks WHERE geom_hash IS NOT NULL",
+                null
+            ).use { c ->
+                while (c.moveToNext()) {
+                    val gh = c.getString(0) ?: continue
+                    out.add(gh to (if (c.isNull(1)) null else c.getString(1)))
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.e(TAG, "CORRDELETE-STAGE1-2026-08-07B allTrackGeomHashes failed: ${e.message}")
+        }
+        return out
+    }
+
     fun getTrackPoints(context: Context, hashFileName: String): List<List<Pair<Double, Double>>>? {
         val hash = hashFileName.substringBeforeLast(".gpx").trim()
         val sdb = spatialDb ?: return null
