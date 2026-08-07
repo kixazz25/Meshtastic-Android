@@ -102,7 +102,18 @@ object ConvoyCorridorDelete {
      *
      * Background thread only.
      */
-    fun deleteAllTrackCorridors(context: Context, slotName: String): DeleteResult {
+    fun deleteAllTrackCorridors(
+        context: Context,
+        slotName: String,
+        // CORRPROGRESS-2026-08-07K: REQUIRED, deliberately not defaulted.
+        // No caller legitimately wants a silent multi-minute irreversible
+        // delete, so an optional callback would be a shortcut rather than a
+        // state a caller could actually be in. (CODE RULE 1.)
+        // ⛔ FIRES ON THE CALLING THREAD, which is Dispatchers.IO. The callback
+        // must not touch Compose state or show a Toast directly -- the caller
+        // is responsible for crossing back to main.
+        onProgress: (done: Int, total: Int, trackName: String) -> Unit
+    ): DeleteResult {
         MapSourceManager.init(context)
         val hashes = SpatialDbManager.allTrackGeomHashes()
         android.util.Log.i(TAG, "CORRMIGRATE-2026-08-07H delete start: ${hashes.size} tracks")
@@ -140,6 +151,10 @@ object ConvoyCorridorDelete {
             DownloadQueueManager.recordCompletedDelete(
                 context, "DEL CORR $shown", removedThisTrack, geomHash
             )
+            // CORRPROGRESS-2026-08-07K: reported AFTER the row is written, so
+            // "N done" means N tracks are fully accounted for -- deleted AND
+            // recorded -- not merely started.
+            onProgress(processed, hashes.size, shown)
         }
 
         android.util.Log.i(TAG,

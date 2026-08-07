@@ -360,6 +360,11 @@ fun ConvoyMapViewerScreen(
         mutableStateOf<ConvoyCorridorDelete.PreviewResult?>(null)
     }
     var migrateDone by remember { mutableStateOf(false) }
+    // CORRPROGRESS-2026-08-07K: free-text line under the checkmarks, and the
+    // 0f..1f bar fraction. -1f means "no determinate progress" (the scan,
+    // which cannot know its total until it has read the tracks).
+    var migrateProgress by remember { mutableStateOf("") }
+    var migrateFraction by remember { mutableFloatStateOf(-1f) }
     var corridorTracks by remember { mutableStateOf<List<TrackPickInfo>>(emptyList()) }
     // "?" help: which bundled doc is open ("manual" | "notes" | null = chooser/closed)
     var docsView by remember { mutableStateOf<String?>(null) }
@@ -2074,10 +2079,24 @@ fun ConvoyMapViewerScreen(
                             if (migrateBusy) {
                                 Spacer(Modifier.height(4.dp))
                                 Text(
-                                    "Working...",
+                                    if (migrateProgress.isBlank()) "Working..."
+                                    else migrateProgress,
                                     color = Color(0xFFd29922), fontSize = 10.sp,
                                     fontFamily = FontFamily.Monospace
                                 )
+                                // CORRPROGRESS-2026-08-07K: determinate bar only
+                                // when a fraction is known. An indeterminate bar
+                                // during the scan would imply progress it cannot
+                                // measure.
+                                if (migrateFraction >= 0f) {
+                                    Spacer(Modifier.height(4.dp))
+                                    androidx.compose.material3.LinearProgressIndicator(
+                                        progress = { migrateFraction },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        color = Color(0xFF3fb950),
+                                        trackColor = Color(0xFF30363d)
+                                    )
+                                }
                             }
                             if (!migrateDone && !migrateBusy && p != null) {
                                 Spacer(Modifier.height(8.dp))
@@ -2138,8 +2157,24 @@ fun ConvoyMapViewerScreen(
                                         SpatialDbManager.allTrackGeomHashes().map { it.first }
                                     }
                                     val del = withContext(Dispatchers.IO) {
-                                        ConvoyCorridorDelete.deleteAllTrackCorridors(context, "SAT")
+                                        ConvoyCorridorDelete.deleteAllTrackCorridors(
+                                            context, "SAT"
+                                        ) { done, total, name ->
+                                            // ⛔ This lambda runs on IO. Compose
+                                            // state must be written on main --
+                                            // a direct write here is the fault
+                                            // that killed convoy's artifact
+                                            // draw twice.
+                                            scope.launch(Dispatchers.Main) {
+                                                migrateProgress =
+                                                    "Deleting track $done of $total - $name"
+                                                migrateFraction =
+                                                    if (total > 0) done.toFloat() / total else -1f
+                                            }
+                                        }
                                     }
+                                    migrateProgress = ""
+                                    migrateFraction = -1f
                                     migrateSteps = migrateSteps + (
                                         "Deleted ${del.tilesRemoved} tiles from " +
                                             "${del.tracksProcessed} tracks")
@@ -2395,6 +2430,10 @@ fun ConvoyMapViewerScreen(
                             // All reversible -- nothing is destroyed until the gate.
                             scope.launch {
                                 migrateBusy = true
+                                // CORRPROGRESS-2026-08-07K: the scan measured
+                                // 33-61s on a 5.3 GB store. Say so, or the
+                                // dialog looks stalled before it even starts.
+                                migrateProgress = "Scanning tracks - this can take a minute"
                                 migrateSteps = listOf("Holding queue and clearing pending work")
                                 val preview = withContext(Dispatchers.IO) {
                                     DownloadQueueManager.holdQueue()
@@ -2409,6 +2448,7 @@ fun ConvoyMapViewerScreen(
                                     "Scanned ${preview.tracks.size} tracks - " +
                                         "${preview.onDiskTotal} tiles on disk"
                                 )
+                                migrateProgress = ""
                                 migrateBusy = false
                                 showMigrateGate = true
                             }
