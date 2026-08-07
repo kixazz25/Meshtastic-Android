@@ -74,6 +74,80 @@ object ConvoyCorridorDelete {
     )
 
     /**
+     * CORRMIGRATE-2026-08-07H: per-track delete outcome.
+     */
+    data class DeleteResult(
+        val tracksProcessed: Int,
+        val tilesRemoved: Int,
+        val byStore: Map<String, Int>
+    )
+
+    /**
+     * CORRMIGRATE-2026-08-07H -- THE IRREVERSIBLE STEP.
+     *
+     * Deletes every track's corridor tiles from the slot's store(s). Recovery
+     * is a full corridor re-download; there is no undo.
+     *
+     * Runs INLINE, not through the queue. The caller must have called
+     * holdQueue() and cancelAll() first -- otherwise a running job can write
+     * tiles into a store this loop is removing from.
+     *
+     * Discovery is identical to previewAllTracks() above and to
+     * ConvoyCorridorWorker, so the tiles removed are the tiles that were
+     * counted and the tiles the corridor download would fetch.
+     *
+     * A completion row is written per track AFTER its delete, carrying the
+     * actual removed count and the geom_hash so the queue panel can resolve
+     * the track name.
+     *
+     * Background thread only.
+     */
+    fun deleteAllTrackCorridors(context: Context, slotName: String): DeleteResult {
+        MapSourceManager.init(context)
+        val hashes = SpatialDbManager.allTrackGeomHashes()
+        android.util.Log.i(TAG, "CORRMIGRATE-2026-08-07H delete start: ${hashes.size} tracks")
+
+        // Same live-layer derivation as ConvoyDownloadQueue.enqueueDelete :354-358.
+        val storeNames: List<String> = run {
+            val layers = MapSourceManager.getSourceByKey(slotName)?.layers ?: emptyList()
+            if (layers.isEmpty()) listOf(slotName)
+            else layers.mapIndexed { i, l -> if (i == 0) slotName else l.cacheDir }
+        }
+
+        val byStore = LinkedHashMap<String, Int>()
+        var processed = 0
+        var total = 0
+
+        for ((geomHash, name) in hashes) {
+            val segments = SpatialDbManager.getTrackPoints(context, geomHash)
+            if (segments == null || segments.isEmpty()) continue
+            val corridor = ConvoyTileCalculator.corridorTiles(segments)
+            if (corridor.isEmpty()) continue
+
+            var removedThisTrack = 0
+            for (store in storeNames) {
+                val removed = MBTilesStore.deleteTiles(store, corridor)
+                removedThisTrack += removed
+                byStore[store] = (byStore[store] ?: 0) + removed
+            }
+            total += removedThisTrack
+            processed++
+
+            // Label carries the track name -- with 88 tracks a queue of
+            // "DEL CORR" rows is unreadable. Falls back to a short hash so a
+            // nameless track still produces a diagnosable row.
+            val shown = if (name.isNullOrBlank()) geomHash.take(8) else name
+            DownloadQueueManager.recordCompletedDelete(
+                context, "DEL CORR $shown", removedThisTrack, geomHash
+            )
+        }
+
+        android.util.Log.i(TAG,
+            "CORRMIGRATE-2026-08-07H delete done: $processed tracks, $total tiles, $byStore")
+        return DeleteResult(processed, total, byStore)
+    }
+
+    /**
      * Count what a full corridor delete would remove. Deletes nothing.
      *
      * Runs a DB read per track and a tile computation per track, so it must not

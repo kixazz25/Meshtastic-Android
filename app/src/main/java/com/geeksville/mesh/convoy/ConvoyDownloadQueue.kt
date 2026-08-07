@@ -500,6 +500,55 @@ object DownloadQueueManager {
      *
      *  Does NOT clear any store. A clear is destructive and belongs in its own
      *  queued job ordered ahead of this one. */
+    /** CORRMIGRATE-2026-08-07H: write a COMPLETED row for a delete that ran
+     *  INLINE rather than through the queue.
+     *
+     *  The corridor delete deliberately does not enter the queue -- it runs
+     *  while the queue is held, so it cannot race anything. But the user still
+     *  needs to see it happened, and the queue is where this app records work.
+     *  markComplete() cannot be used: it expects an entry that was queued and
+     *  dispatched. This writes a terminal row directly.
+     *
+     *  Written AFTER the delete with the ACTUAL removed count, so the row is
+     *  truthful. A row written before would claim a completion that had not
+     *  happened yet if the app died mid-delete.
+     *
+     *  Uses the EXISTING DownloadType.DELETE_AREA_TILES. The name says "area"
+     *  and this is a corridor, but the behaviour is right (priority 0, sorts
+     *  with deletes) and the LABEL carries the distinction to the user. Adding
+     *  an enum value would re-trigger the exhaustive `when` at :797 -- the
+     *  build-breaking window this whole design exists to avoid. */
+    fun recordCompletedDelete(
+        context: Context,
+        label: String,
+        tilesRemoved: Int,
+        // CORRMIGRATE-SCOPE-2026-08-07J: NOT nullable. QueueEntry.geomHash is
+        // non-null, and the only caller is the corridor delete loop, which
+        // reaches this call solely for tracks whose hash came back non-null
+        // from allTrackGeomHashes(). No caller legitimately has nothing to
+        // pass, so a nullable here would be a shortcut rather than a state.
+        geomHash: String
+    ) {
+        init(context)
+        val now = System.currentTimeMillis()
+        val entry = QueueEntry(
+            status = QueueStatus.COMPLETE,
+            totalTiles = tilesRemoved,
+            downloadedTiles = tilesRemoved,
+            label = label,
+            downloadType = DownloadType.DELETE_AREA_TILES,
+            priority = DownloadPriority.DELETE,
+            createdAt = now,
+            completedAt = now,
+            geomHash = geomHash
+        )
+        val current = _queue.value.toMutableList()
+        current.add(entry)
+        _queue.value = current
+        saveQueue()
+        android.util.Log.i(TAG, "CORRMIGRATE-2026-08-07H recorded: $label tiles=$tilesRemoved")
+    }
+
     fun enqueueCorridorBatch(
         context: Context,
         geomHashes: List<String>,

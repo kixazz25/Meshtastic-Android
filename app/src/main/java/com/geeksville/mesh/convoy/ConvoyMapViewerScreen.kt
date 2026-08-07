@@ -343,6 +343,23 @@ fun ConvoyMapViewerScreen(
     // and it is cheap to reload on open.
     var corridorChecked by rememberSaveable { mutableStateOf(false) }
     var showCorridorPicker by rememberSaveable { mutableStateOf(false) }
+    // CORRMIGRATE-SCOPE-2026-08-07J: corridor-delete migration state.
+    // SCREEN level on purpose -- these were first written inside
+    // `if (showDownloadPanel) {`, where they were BOTH forward-referenced by
+    // the dialog 300 lines above AND destroyed whenever the panel closed. The
+    // gate must outlive the panel, so it belongs here with showDownloadPanel
+    // itself.
+    // remember, not rememberSaveable: a migration half-restored across process
+    // death would re-open the gate with stale counts. Losing the dialog on
+    // process death is correct -- nothing is destroyed before PROCEED.
+    var removeTrackChecked by remember { mutableStateOf(false) }
+    var showMigrateGate by remember { mutableStateOf(false) }
+    var migrateBusy by remember { mutableStateOf(false) }
+    var migrateSteps by remember { mutableStateOf(listOf<String>()) }
+    var migratePreview by remember {
+        mutableStateOf<ConvoyCorridorDelete.PreviewResult?>(null)
+    }
+    var migrateDone by remember { mutableStateOf(false) }
     var corridorTracks by remember { mutableStateOf<List<TrackPickInfo>>(emptyList()) }
     // "?" help: which bundled doc is open ("manual" | "notes" | null = chooser/closed)
     var docsView by remember { mutableStateOf<String?>(null) }
@@ -2031,6 +2048,152 @@ fun ConvoyMapViewerScreen(
                     modifier = Modifier.align(Alignment.Center).padding(16.dp)
                 )
             }
+            // ── CORRMIGRATE-2026-08-07H: migration roll-up + permanent gate ──
+            if (showMigrateGate) {
+                val p = migratePreview
+                androidx.compose.material3.AlertDialog(
+                    onDismissRequest = { },
+                    containerColor = Color(0xEE131820),
+                    title = {
+                        Text(
+                            if (migrateDone) "Refresh started" else "Refresh map tiles",
+                            color = Color(0xFFE6EDF3), fontSize = 12.sp,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    },
+                    text = {
+                        Column {
+                            migrateSteps.forEach { s ->
+                                Text(
+                                    "\u2713 " + s,
+                                    color = Color(0xFF3fb950), fontSize = 10.sp,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                                Spacer(Modifier.height(3.dp))
+                            }
+                            if (migrateBusy) {
+                                Spacer(Modifier.height(4.dp))
+                                Text(
+                                    "Working...",
+                                    color = Color(0xFFd29922), fontSize = 10.sp,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                            }
+                            if (!migrateDone && !migrateBusy && p != null) {
+                                Spacer(Modifier.height(8.dp))
+                                Text(
+                                    "Remove ${p.onDiskTotal} track tiles and rebuild " +
+                                        "from the new source?",
+                                    color = Color(0xFFf85149), fontSize = 11.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Spacer(Modifier.height(6.dp))
+                                Text(
+                                    "Track coverage is removed and re-downloaded. " +
+                                        "Tracks reappear one at a time as each finishes - " +
+                                        "track coverage is queued first.\n\n" +
+                                        "Your area maps stay visible the whole time. Old " +
+                                        "tiles are replaced as new ones arrive.\n\n" +
+                                        "Downloads continue in the background and resume " +
+                                        "if the app or device restarts.",
+                                    color = Color(0xFFE6EDF3), fontSize = 10.sp,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                            }
+                            if (migrateDone) {
+                                Spacer(Modifier.height(8.dp))
+                                Text(
+                                    "Downloads continue in the background and resume " +
+                                        "if the app or device restarts. Your area maps " +
+                                        "stay visible while tiles are replaced. Track " +
+                                        "coverage returns first.",
+                                    color = Color(0xFFE6EDF3), fontSize = 10.sp,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                            }
+                        }
+                    },
+                    confirmButton = {
+                        if (migrateDone) {
+                            androidx.compose.material3.TextButton(onClick = {
+                                showMigrateGate = false
+                                removeTrackChecked = false
+                                migrateDone = false
+                                migrateSteps = listOf()
+                                migratePreview = null
+                            }) {
+                                Text("DONE", color = Color(0xFF3fb950), fontSize = 11.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.Bold)
+                            }
+                        } else if (!migrateBusy && p != null) {
+                            androidx.compose.material3.TextButton(onClick = {
+                                // PAST THIS POINT THERE ARE NO MORE GATES.
+                                // Stopping after the delete would strand the user
+                                // with removed coverage and nothing queued.
+                                scope.launch {
+                                    migrateBusy = true
+                                    val hashes = withContext(Dispatchers.IO) {
+                                        SpatialDbManager.allTrackGeomHashes().map { it.first }
+                                    }
+                                    val del = withContext(Dispatchers.IO) {
+                                        ConvoyCorridorDelete.deleteAllTrackCorridors(context, "SAT")
+                                    }
+                                    migrateSteps = migrateSteps + (
+                                        "Deleted ${del.tilesRemoved} tiles from " +
+                                            "${del.tracksProcessed} tracks")
+                                    val batch = withContext(Dispatchers.IO) {
+                                        DownloadQueueManager.enqueueCorridorBatch(
+                                            context, hashes, listOf("SAT"), true
+                                        )
+                                    }
+                                    migrateSteps = migrateSteps + (
+                                        "Queued ${batch.jobs} track corridors " +
+                                            "(${batch.tiles} tiles)")
+                                    val cells = withContext(Dispatchers.IO) {
+                                        DownloadQueueManager.enqueueRefresh(
+                                            context, "SAT", "SAT"
+                                        )
+                                    }
+                                    migrateSteps = migrateSteps + "Queued area refresh ($cells cells)"
+                                    withContext(Dispatchers.IO) {
+                                        DownloadQueueManager.resumeQueue()
+                                    }
+                                    migrateSteps = migrateSteps + "Queue released"
+                                    migrateBusy = false
+                                    migrateDone = true
+                                }
+                            }) {
+                                Text("PROCEED", color = Color(0xFFf85149), fontSize = 11.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    },
+                    dismissButton = {
+                        if (!migrateDone && !migrateBusy) {
+                            androidx.compose.material3.TextButton(onClick = {
+                                // Nothing has been destroyed. Release the queue so
+                                // backing out does not leave it held.
+                                scope.launch {
+                                    withContext(Dispatchers.IO) {
+                                        DownloadQueueManager.resumeQueue()
+                                    }
+                                    showMigrateGate = false
+                                    removeTrackChecked = false
+                                    migrateSteps = listOf()
+                                    migratePreview = null
+                                }
+                            }) {
+                                Text("CANCEL", color = Color(0xFF4A6080), fontSize = 11.sp,
+                                    fontFamily = FontFamily.Monospace)
+                            }
+                        }
+                    }
+                )
+            }
+
             // ── Auto show/hide download overlays when panel opens/closes ──
             LaunchedEffect(showDownloadPanel) {
                 if (showDownloadPanel) {
@@ -2187,8 +2350,6 @@ fun ConvoyMapViewerScreen(
             }
             // ── Download panel (above FAB) ────────────────────────────────
             if (showDownloadPanel) {
-            // REMOVETRACK-PREVIEW-2026-08-07F: transient, not persisted.
-            var removeTrackChecked by remember { mutableStateOf(false) }
                 ConvoyDownloadPanel(
                     bbox = downloadBbox,
                     tilesChecked = panelTilesChecked,
@@ -2230,27 +2391,26 @@ fun ConvoyMapViewerScreen(
                     onRemoveTrackCheckedChange = { ticked ->
                         removeTrackChecked = ticked
                         if (ticked) {
+                            // CORRMIGRATE-2026-08-07H step 1-3: hold, clear, scan.
+                            // All reversible -- nothing is destroyed until the gate.
                             scope.launch {
+                                migrateBusy = true
+                                migrateSteps = listOf("Holding queue and clearing pending work")
                                 val preview = withContext(Dispatchers.IO) {
-                                    // Slot name is the store type: the slot IS the
-                                    // store, so column 1 is SAT whatever source is
-                                    // assigned to it.
+                                    DownloadQueueManager.holdQueue()
+                                    DownloadQueueManager.cancelAll()
+                                    // The slot IS the store: column 1 is SAT
+                                    // whatever source is assigned to it.
                                     ConvoyCorridorDelete.previewAllTracks(context, "SAT")
                                 }
-                                android.util.Log.i(
-                                    "REMOVETRACK",
-                                    "REMOVETRACK-PREVIEW-2026-08-07F tracks=${preview.tracks.size} " +
-                                        "geomTiles=${preview.totalTiles} onDisk=${preview.onDiskTotal} " +
-                                        "byStore=${preview.onDiskByStore} shared=${preview.overlapSavings} " +
-                                        "skipNoGeom=${preview.skippedNoGeom} skipEmpty=${preview.skippedEmpty}"
+                                migratePreview = preview
+                                migrateSteps = listOf(
+                                    "Queue held, pending work cleared (history kept)",
+                                    "Scanned ${preview.tracks.size} tracks - " +
+                                        "${preview.onDiskTotal} tiles on disk"
                                 )
-                                android.widget.Toast.makeText(
-                                    context,
-                                    "${preview.tracks.size} tracks - ${preview.onDiskTotal} tiles on disk",
-                                    android.widget.Toast.LENGTH_LONG
-                                ).show()
-                                // Action, not state.
-                                removeTrackChecked = false
+                                migrateBusy = false
+                                showMigrateGate = true
                             }
                         }
                     },
