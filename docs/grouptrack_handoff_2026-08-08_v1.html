@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GroupTrack — Session Handoff — 2026-08-08 v1</title>
+<style>
+ :root{--bg:#0f1216;--panel:#161b22;--panel2:#1c2229;--line:#30363d;--fg:#e6edf3;
+   --muted:#8b949e;--accent:#58a6ff;--red:#f85149;--amber:#d29922;--green:#3fb950;}
+ *{box-sizing:border-box}
+ body{margin:0;padding:28px 20px 80px;background:var(--bg);color:var(--fg);
+  font:15px/1.6 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+ .wrap{max-width:1080px;margin:0 auto}
+ header{border-bottom:2px solid var(--accent);padding-bottom:14px;margin-bottom:26px}
+ h1{margin:0 0 6px;font-size:26px} .sub{color:var(--muted);font-size:14px}
+ h2{font-size:19px;margin:32px 0 12px;padding-bottom:6px;border-bottom:1px solid var(--line);color:var(--accent)}
+ .card{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--line);
+   border-radius:6px;padding:13px 15px;margin:10px 0}
+ .card.red{border-left-color:var(--red)} .card.amber{border-left-color:var(--amber)}
+ .card.green{border-left-color:var(--green)} .card.blue{border-left-color:var(--accent)}
+ .card h4{margin:0 0 6px;font-size:14px;font-weight:600}
+ code{background:var(--panel2);border:1px solid var(--line);border-radius:4px;padding:1px 5px;
+   font:13px ui-monospace,Consolas,monospace;color:#a5d6ff}
+ pre{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:11px 13px;
+   overflow-x:auto;font:12.5px/1.5 ui-monospace,Consolas,monospace;color:#a5d6ff}
+ table{width:100%;border-collapse:collapse;margin:12px 0;font-size:14px}
+ th,td{border:1px solid var(--line);padding:7px 10px;text-align:left;vertical-align:top}
+ th{background:var(--panel2);color:var(--accent)}
+ ul,ol{margin:7px 0 7px 20px} li{margin:4px 0}
+ .hi{color:#ffd479} .muted{color:var(--muted)}
+</style></head><body><div class="wrap">
+<header>
+<h1>GroupTrack — Session Handoff</h1>
+<div class="sub">2026-08-08 v1 &middot; INTERNAL &middot; companion to
+<code>grouptrack_living_master_2026-08-08_v6.html</code><br>
+HEAD <code>d92e472fb</code> &middot; branch <code>feature/convoy-event-ride</code> &middot;
+14 commits today, all green</div>
+</header>
+
+<h2>1 &middot; START HERE</h2>
+<div class="card red">
+<p class="hi"><b>Install, run option 2, and read the FIRST line of the step list.</b></p>
+<pre>cd /c/Users/kixaz/Meshtastic-Android &amp;&amp; ls -la --time-style=+%H:%M:%S \
+  app/build/outputs/apk/google/release/app-google-release.apk \
+  &amp;&amp; adb -s 24039703201775 install -r \
+  app/build/outputs/apk/google/release/app-google-release.apk</pre>
+<p>Step 0 prints <b>"Selected: track maps + areas"</b> from the values the confirm handler
+actually received. <b>If that disagrees with what you ticked, yesterday's defect is still
+live</b> — and you know in one second instead of twenty minutes.</p>
+<p>⚠ <b>NOTHING IN <code>d92e472fb</code> HAS RUN ON A DEVICE.</b></p>
+</div>
+
+<h2>2 &middot; What happened yesterday, and why</h2>
+<div class="card red">
+<ol>
+<li>Option 2 ran with corridors selected. <b>The delete never executed</b> — <code>optTracks</code>
+was false at the handler though the box appeared ticked.</li>
+<li>Corridor tiles stayed on disk, so <b>the area pass read them as area coverage</b> and queued
+172 jobs to re-download that ground as rectangles.</li>
+<li>The panel never dismissed: <code>refreshEnqueued</code> was set only at the end of the
+coroutine.</li>
+<li>Entries were cleared while WorkManager still held the jobs. Workers take everything from
+<code>inputData</code> and <b>never consult the queue</b>, so they ran 20 minutes at 0 tiles.</li>
+<li>The panel returns early when the queue is empty, so <b>RELEASE and CANCEL were off screen.</b>
+Force-stop rescheduled them.</li>
+<li>Clearing app data was the only exit. <b>The spatial DB went with it.</b></li>
+</ol>
+<p class="hi">⭐ <b>THE MEASUREMENT THAT MATTERS:</b> 30 tracks swept up as areas cost <b>2M+ tiles
+on one source</b>; 89 tracks as corridors cost <b>1.5M across three</b>. Corridors were designed
+for ~90% fewer tiles and that holds. <b>The delete is not space reclamation — it is what stops
+corridor ground being re-covered as boxes.</b> It is now mandatory whenever corridors are
+selected.</p>
+</div>
+
+<h2>3 &middot; What shipped</h2>
+<table>
+<tr><th>Commit</th><th>Contents</th></tr>
+<tr><td><code>6f48b83f5</code></td><td>THROUGHPUT — <code>startedAt</code> +
+<code>tilesPerSec</code>; estimator uses real run time; layer count from the SAT slot</td></tr>
+<tr><td><code>4b126268e</code></td><td>MIGOPT2 — option 2 enabled (⚠ this is the build that failed
+on device; superseded)</td></tr>
+<tr><td><code>e4ffedbb1</code></td><td>QEVAL — completed-row detail, concurrency stepper, aggregate
+throughput</td></tr>
+<tr><td><code>c5fc7985b</code></td><td>QTRUTH + ORPHAN — whole-run estimator, aggregate fix, default
+3 slots, twisties, row format, corridor names, orphan worker block, held-queue escape</td></tr>
+<tr><td><code>d92e472fb</code></td><td>MIGSURFACE — migration panel as an in-place step list, delete
+mandatory with corridors, step-0 diagnostic, always exitable</td></tr>
+</table>
+
+<h2>4 &middot; Throughput — new baseline</h2>
+<div class="card blue">
+<pre>PER SLOT     AGGREGATE
+2 slots 13.1     26.2
+3 slots 10.0     30.0
+4 slots  8.3     33.2     zero failures at every setting
+
+Sustained: ~140,000 tiles/hour · 1.5M tiles across three sources</pre>
+<p>⚠ <b>CONFOUNDED:</b> the three jobs hit three DIFFERENT sources, so part of the gain is
+parallelism across hosts rather than concurrency against one. A clean test is SAT-only jobs at 2, 3
+and 4.</p>
+<p>⭐ <b>Default is now 3.</b> ⚠ This supersedes the 07-11 "2 beat 3" result, measured against Esri
+at ~11 tiles/sec — a different server characteristic entirely.</p>
+<p>⚠ Your device has <b>4</b> persisted from testing; <code>loadMaxConcurrent</code> reads the saved
+value, so the new default of 3 only applies to a device that has never set it.</p>
+</div>
+
+<h2>5 &middot; The estimator was 8-10x long</h2>
+<div class="card red">
+<p>The panel said <b>Aug 12 5 AM</b> (~86h) for 1.5M tiles. Real rate ~140,000/hour ≈ <b>10h</b>.</p>
+<p>Three compounding causes: the rate came from ONE entry (a per-slot rate while 3-4 slots ran);
+averaging two entries did not fix it because concurrent windows overlap; and
+<code>createdAt</code> is <b>queue time</b>, so a job that waited behind 87 others carried hours of
+waiting in its elapsed.</p>
+<p class="hi">⭐ <b>Replaced with your formulation:</b> total tiles completed ÷ elapsed since the
+earliest job started. That IS the aggregate rate by construction — concurrency cannot fool it, and
+it absorbs stalls, holds and slot changes. Same arithmetic as the yardstick ledger, so the two
+finally agree.</p>
+</div>
+
+<h2>6 &middot; Docs — screen captures needed</h2>
+<div class="card amber">
+<p>The manual and quickstart carry <b>ANNOTATE</b> markers where captures are needed. Nine in the
+manual, five in the quickstart, covering:</p>
+<ul>
+<li>Map Sources list · "Map Source Changed" intro · the three-option panel</li>
+<li>Option 2 selected with both checkboxes and the warning text</li>
+<li>The step list mid-run with the progress bar</li>
+<li>Download queue button · queue panel expanded with speed line and slots stepper</li>
+<li>A completed row expanded · the QUEUE HELD banner with RELEASE</li>
+</ul>
+<p>⚠ The manual's 3 <code>PENDING-REDOC</code> markers are <b>untouched</b> — the new section says
+it supersedes those screens rather than editing markers that date when they were placed.</p>
+</div>
+
+<h2>7 &middot; Method notes</h2>
+<div class="card amber">
+<ul>
+<li class="hi">⛔⛔ <b>A GUARD THAT SEARCHES FOR THE OLD CODE FINDS IT IN YOUR OWN COMMENT.</b>
+Three times today. ⭐ Fixed structurally: every patch script now self-tests each guard string
+against every replacement block before shipping. <b>Describe the old code, never quote it.</b></li>
+<li class="hi">⛔ <b>MULTI-LINE ANCHORS FROM <code>sed</code> OUTPUT ARE UNRELIABLE</b> — blank lines
+between statements are invisible there. Two anchors failed on it. Use <code>cat -A</code>, or
+anchor on one unique line.</li>
+<li>⚠ <b>A FILE-WIDE GUARD FLAGS CORRECT CODE.</b> Checking <code>active.size</code> had vanished
+flagged a legitimate call. Guard the expression, not the token.</li>
+<li>⚠ <b>A WINDOW ANCHORED ON THE FIRST OCCURRENCE LANDS IN THE WRONG PLACE</b> — the
+<code>finally</code> check searched from the option ROW, hundreds of lines above the branch.</li>
+<li>⚠ <b>A PATCH INTRODUCING A COMPOSE SYMBOL MUST ADD ITS IMPORT IN THE SAME EDIT.</b> Twice today
+a patch named the imports in its own output and shipped without them.</li>
+<li class="hi">⭐⭐ <b>THE REASSEMBLY WAS THE HARD PART, NOT THE PIECES.</b> Every component was
+already built and proven. Calling them in order from a different screen introduced two defects and
+cost a device rebuild.</li>
+</ul>
+</div>
+
+<h2>8 &middot; Device state</h2>
+<table>
+<tr><th>Device</th><th>State</th></tr>
+<tr><td>Droid 1 <code>8624SBCEDF00001789</code></td><td>Untouched. Has GPS.</td></tr>
+<tr><td>Droid 2 <code>24039703201775</code></td><td><b>Rebuilt after data loss.</b> 490k Utah OSM
+trails imported, tracks re-imported, corridors re-downloading. Concurrency persisted at 4.</td></tr>
+</table>
+
+<div class="card amber">
+<p>⚠ <b>Memory file <code>/areas/grouptrack-2-6e-tasks.md</code> still needs splitting</b> before
+the next write — carried from yesterday, still not done.</p>
+</div>
+
+</div></body></html>

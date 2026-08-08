@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GroupTrack — Session Handoff — 2026-08-07 v1</title>
+<style>
+ :root{--bg:#0f1216;--panel:#161b22;--panel2:#1c2229;--line:#30363d;--fg:#e6edf3;
+   --muted:#8b949e;--accent:#58a6ff;--red:#f85149;--amber:#d29922;--green:#3fb950;}
+ *{box-sizing:border-box}
+ body{margin:0;padding:28px 20px 80px;background:var(--bg);color:var(--fg);
+  font:15px/1.6 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+ .wrap{max-width:1080px;margin:0 auto}
+ header{border-bottom:2px solid var(--accent);padding-bottom:14px;margin-bottom:26px}
+ h1{margin:0 0 6px;font-size:26px} .sub{color:var(--muted);font-size:14px}
+ h2{font-size:19px;margin:32px 0 12px;padding-bottom:6px;border-bottom:1px solid var(--line);color:var(--accent)}
+ h3{font-size:15px;margin:20px 0 8px}
+ .card{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--line);
+   border-radius:6px;padding:13px 15px;margin:10px 0}
+ .card.red{border-left-color:var(--red)} .card.amber{border-left-color:var(--amber)}
+ .card.green{border-left-color:var(--green)} .card.blue{border-left-color:var(--accent)}
+ .card h4{margin:0 0 6px;font-size:14px;font-weight:600}
+ code{background:var(--panel2);border:1px solid var(--line);border-radius:4px;padding:1px 5px;
+   font:13px ui-monospace,Consolas,monospace;color:#a5d6ff}
+ pre{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:11px 13px;
+   overflow-x:auto;font:12.5px/1.5 ui-monospace,Consolas,monospace;color:#a5d6ff}
+ table{width:100%;border-collapse:collapse;margin:12px 0;font-size:14px}
+ th,td{border:1px solid var(--line);padding:7px 10px;text-align:left;vertical-align:top}
+ th{background:var(--panel2);color:var(--accent)}
+ ul,ol{margin:7px 0 7px 20px} li{margin:4px 0}
+ .hi{color:#ffd479} .muted{color:var(--muted)}
+</style></head><body><div class="wrap">
+<header>
+<h1>GroupTrack — Session Handoff</h1>
+<div class="sub">2026-08-07 v1 &middot; INTERNAL &middot; companion to
+<code>grouptrack_living_master_2026-08-07_v5.html</code><br>
+HEAD <code>d9eca454f</code> &middot; branch <code>feature/convoy-event-ride</code> &middot;
+8 commits today, all green</div>
+</header>
+
+<h2>1 &middot; The day in one line</h2>
+<div class="card green">
+<p class="hi"><b>We built the automated tile refresh, ran it end to end, and the run told us the
+design was wrong.</b></p>
+<p>The corridor delete works — 617,255 tiles removed across 88 tracks on Droid 2, verified against
+a prediction that differed only by a change Fred made in between. But watching it run surfaced the
+arithmetic that kills the design it belongs to: <b>a full store refresh at real scale is 50-60 GB
+and days of downloading.</b> The redesign that came out of that is in
+<code>00-MIGRATION-V2</code> and it is smaller, additive, and has no irreversible step.</p>
+</div>
+
+<h2>2 &middot; What shipped</h2>
+<table>
+<tr><th>Commit</th><th>Contents</th></tr>
+<tr><td><code>0a40ec07e</code></td><td>CORRDELETE-STAGE1 — <code>previewAllTracks</code> (counts only)
++ <code>allTrackGeomHashes()</code></td></tr>
+<tr><td><code>733164e12</code></td><td>CORRDELETE-ONDISK — <code>countTiles</code> mirrors
+<code>deleteTiles</code>; preview reports on-disk totals</td></tr>
+<tr><td><code>51dfe47ab</code></td><td>REMOVETRACK-PREVIEW — "Remove Tiles by Track" activated
+(existing greyed V2.7 placeholder, not a new row)</td></tr>
+<tr><td><code>0c1415cd4</code></td><td>CORRMIGRATE — delete loop, completion rows, roll-up gate,
+orchestration</td></tr>
+<tr><td><code>d9eca454f</code></td><td>CORRPROGRESS — per-track progress + dialog meter</td></tr>
+</table>
+
+<h2>3 &middot; What the run measured</h2>
+<div class="card blue">
+<pre>89 tracks total, 88 with geometry
+633,050 corridor tiles by geometry
+619,005 ON DISK    97.8% -- corridors sit almost entirely inside downloaded coverage
+472,129 SHARED     43% of raw work is ground another track already covers
+      1 store      SAT only
+ 33-61s scan       warm cache roughly halves it
+617,255 deleted    1,750 fewer than predicted -- a delete-by-area ran in between
+  ~25 min delete   88 tracks, comparable to CREATE time</pre>
+<p>⭐ <b>The gap was ACCOUNTED FOR, which is the verification working.</b> The prediction is a
+point-in-time snapshot, not a contract — anything touching the store between scan and delete moves
+it legitimately.</p>
+<p>⚠ <b>NOT CAPTURED:</b> the closing counts (corridors queued, area refresh cells) were never
+read back, and neither were the per-track <code>deleteTiles SAT</code> timings. Both are still in
+the buffer if Droid 2 has not been restarted:
+<code>adb -s 24039703201775 logcat -d | grep -iE "CORRMIGRATE|CORRIDORBATCH|Enqueued refresh"</code></p>
+</div>
+
+<h2>4 &middot; The design conclusion</h2>
+<div class="card red">
+<p class="hi"><b>"This is a trail riding decision. Google maps is available ONLINE in either map as
+soon as the change in map sources is made."</b></p>
+<p>⛔ <b>The migration concerns OFFLINE STORED TILES ONLY.</b> Online rendering switches instantly.</p>
+<p class="hi"><b>"Refreshing 50-60 GB of data is just not an option."</b></p>
+<p>Which is why mandatory-delete-then-rebuild cannot be offered. Full detail in
+<code>00-MIGRATION-V2</code>; the short version:</p>
+<ul>
+<li><b>Delete becomes OPTIONAL everywhere, default off.</b> Replace overwrites in place, so the
+delete is only for reclaiming space. With it off the operation is ADDITIVE — no point of no
+return, no permanent gate.</li>
+<li><b>Areas stay on original map data until refreshed.</b> Nothing blank, nothing deleted; only
+Esri\u2019s label overlays are lost.</li>
+<li><b>Option 2</b> = corridors and areas, each optional. <b>Option 3</b> = leave maps in place,
+with optional immediate corridor refresh. <b>Option 1</b> = clear and start over, for anyone
+uncertain.</li>
+<li>⭐ <b>The scan\u2019s real job is helping the user choose</b>, not verifying the delete.</li>
+</ul>
+</div>
+
+<h2>5 &middot; START HERE TOMORROW</h2>
+<div class="card red">
+<ol>
+<li class="hi"><b>Capture the closing counts from Droid 2</b> before the buffer rolls — corridor
+jobs queued, refresh cells, and the per-track delete timings.</li>
+<li><b>Read <code>tileBoundsLatLon(slotName)</code></b> (<code>ConvoyTileDownloader</code>). Five
+minutes, and it settles whether the delete meaningfully shrinks the area refresh or whether the
+area box covered the corridors all along.</li>
+<li><b>Verify the two tap items are not stale</b> —
+<code>grep -c "checkLayer" app/src/main/assets/grouptrack_map.html</code>. Planner proximity was
+removed 08-03; both items predate it and may already be closed.</li>
+<li><b>z7 for tracks</b> — <code>minZoom</code> is per-binding so tracks are independent of trails;
+~200 tracks, previously rendered at every zoom, low risk. ⚠ Check whether the
+<code>if (z &lt; 14) 500</code> row cap is per-type or shared.</li>
+<li><b>The estimate cluster</b> — ×3 layers, per-slot-vs-aggregate, overlapping averages. Fix
+before any screen quotes a duration.</li>
+</ol>
+</div>
+
+<h2>6 &middot; Method notes worth keeping</h2>
+<div class="card amber">
+<ul>
+<li class="hi">⚠⚠ <b>RENAMING A PATCH RENAMES THE MARKERS IT LEAVES BEHIND.</b> New failure mode
+from the never-reuse-a-name rule: patch 07e was re-issued as 07f, and patch 07g then anchored on
+the 07E marker that no longer existed. The guard caught it and refused the write.</li>
+<li class="hi">⛔ <b>A LOCAL DECLARED INSIDE <code>if (showDownloadPanel)</code> CEASES TO EXIST
+WHEN THE PANEL CLOSES</b> — and was also 300 lines below its use. TWO faults in one placement, ~36
+cascade errors from one root. Same trap as the 08-01 <code>webViewRef</code> error.</li>
+<li>⭐ <b>PATCH GUARDS SHOULD CHECK ORDERING, NOT JUST PRESENCE.</b> The fix patch added "declaration
+index must precede use index" and "each var declared exactly once" — both derived, both would have
+caught the above at patch time instead of after a 2m13s build.</li>
+<li class="hi">⭐ <b>FILTER THE FILE, NOT THE STREAM</b> (re-learned). <code>./gradlew ... | grep</code>
+buffers and the terminal looks identical whether the build is working or wedged. Redirect to a file
+and <code>tail</code> it from a second window.</li>
+<li>⚠ <b>A CHAIN OF <code>&amp;&amp;</code>-LINKED GREPS DIES ON THE FIRST EMPTY RESULT</b> — everything
+after it silently never runs, and reads as "the code does not exist". Use semicolons.</li>
+<li>⚠ <b><code>git diff --stat</code> DOES NOT SHOW NEW FILES</b> — an untracked file looks like a
+failed patch. Check <code>git status</code> or grep the file directly.</li>
+<li class="hi">⭐⭐ <b>THE DESIGN GOT SMALLER EVERY TIME FRED ASKED WHAT WE WERE TRYING TO
+ACCOMPLISH.</b> Started as a new worker file plus an atomic four-part queue patch with a
+deliberate build-breaking window; ended as one function calling four existing production
+components in order. The atomic patch disappeared entirely because deletes never enter the queue.</li>
+<li>⚠ <b>I OFFERED TO ROLL BACK WHEN THE TREE WENT RED.</b> Fred said continue; the errors were one
+misplaced declaration block. The rollback would have cost the evening.</li>
+<li>⚠ <b>I ASSERTED THINGS ABOUT THE PANEL FROM MEMORY AND WAS WRONG TWICE</b> (hold-state
+invisible; slot-is-not-the-store). Read before claiming.</li>
+</ul>
+</div>
+
+<h2>7 &middot; Device state</h2>
+<table>
+<tr><th>Device</th><th>State</th></tr>
+<tr><td>Droid 1 <code>8624SBCEDF00001789</code></td>
+<td>Untouched today. Has GPS. <b>Still the only device that can close the offline track-draw
+test.</b></td></tr>
+<tr><td>Droid 2 <code>24039703201775</code></td>
+<td>Carries the 15:14 build. <b>617,255 corridor tiles deleted; corridor rebuild + area refresh
+queued and draining (~5 hours).</b> Spatial DB verified intact after install (280 MB / 28 MB).</td></tr>
+</table>
+
+<div class="card amber">
+<p>⚠ <b>Memory file <code>/areas/grouptrack-2-6e-tasks.md</code> is ~2.3 KB from its cap</b> and
+will reject the next write. Split before the next EOD pass.</p>
+</div>
+
+</div></body></html>

@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GroupTrack — Option 2: Automated Tile Refresh — Process Flow — 2026-08-07</title>
+<style>
+ :root{--bg:#0f1216;--panel:#161b22;--panel2:#1c2229;--line:#30363d;--fg:#e6edf3;
+   --muted:#8b949e;--accent:#58a6ff;--red:#f85149;--amber:#d29922;--green:#3fb950;--purple:#bc8cff;}
+ *{box-sizing:border-box}
+ body{margin:0;padding:28px 20px 80px;background:var(--bg);color:var(--fg);
+  font:15px/1.6 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+ .wrap{max-width:1080px;margin:0 auto}
+ header{border-bottom:2px solid var(--accent);padding-bottom:14px;margin-bottom:26px}
+ h1{margin:0 0 6px;font-size:26px;letter-spacing:-.3px} .sub{color:var(--muted);font-size:14px}
+ h2{font-size:19px;margin:34px 0 12px;padding-bottom:6px;border-bottom:1px solid var(--line);color:var(--accent)}
+ h3{font-size:15px;margin:20px 0 8px}
+ .card{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--line);
+   border-radius:6px;padding:13px 15px;margin:10px 0}
+ .card.red{border-left-color:var(--red)} .card.amber{border-left-color:var(--amber)}
+ .card.green{border-left-color:var(--green)} .card.blue{border-left-color:var(--accent)}
+ .card.purple{border-left-color:var(--purple)}
+ .card h4{margin:0 0 6px;font-size:14px;font-weight:600}
+ .card p{margin:6px 0}
+ .tag{display:inline-block;font-size:11px;font-weight:600;letter-spacing:.4px;
+   padding:2px 8px;border-radius:11px;margin-right:6px;vertical-align:middle}
+ .t-done{background:#0f2f1a;color:#56d364;border:1px solid #1f6b34}
+ .t-open{background:#3a2d0c;color:#e3b341;border:1px solid #6b5312}
+ .t-block{background:#3d1418;color:#ff9d96;border:1px solid #6e2229}
+ .t-new{background:#1c2b3d;color:#79c0ff;border:1px solid #2c4f7c}
+ code{background:var(--panel2);border:1px solid var(--line);border-radius:4px;padding:1px 5px;
+   font:13px ui-monospace,Consolas,monospace;color:#a5d6ff}
+ pre{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:11px 13px;
+   overflow-x:auto;font:12.5px/1.5 ui-monospace,Consolas,monospace;color:#a5d6ff}
+ pre code{background:none;border:none;padding:0}
+ table{width:100%;border-collapse:collapse;margin:12px 0;font-size:14px}
+ th,td{border:1px solid var(--line);padding:7px 10px;text-align:left;vertical-align:top}
+ th{background:var(--panel2);color:var(--accent);font-weight:600}
+ ul,ol{margin:7px 0 7px 20px;padding:0} li{margin:4px 0}
+ .muted{color:var(--muted)} .hi{color:#ffd479}
+ .step{background:var(--panel2);border-left:2px solid var(--accent);padding:9px 13px;
+   margin:9px 0;border-radius:0 4px 4px 0}
+ .step b{color:var(--accent)}
+ .gate{background:#1a1410;border-left:2px solid var(--amber);padding:9px 13px;
+   margin:9px 0;border-radius:0 4px 4px 0}
+ .gate b{color:var(--amber)}
+</style></head><body><div class="wrap">
+
+<header>
+<h1>Option 2 — Automated Tile Data Refresh</h1>
+<div class="sub">
+2026-08-07 &middot; INTERNAL &middot; process flow from option select to queue release<br>
+Base commit <code>733164e12</code> &middot; stage 1 committed and inert &middot; stages 2–5 NOT BUILT<br>
+Companion to <code>grouptrack_living_master_2026-08-06_v4.html</code> §00-MIGRATION
+</div>
+</header>
+
+<h2>1 &middot; What option 2 is</h2>
+
+<div class="card blue">
+<p>From the Source Map Migration panel, three options. This document covers <b>option 2 only</b>.</p>
+<table>
+<tr><th>#</th><th>Option</th><th>Protects</th><th>Behaviour</th></tr>
+<tr><td>1</td><td>Delete and start over</td><td class="muted">nothing</td>
+<td>Clear the column, rebuild around tracks, draw new areas. <b>Already built</b> —
+<code>ConvoySourceClear.kt</code>, commit <code>27dfb433d</code>, proven on Droid 2.</td></tr>
+<tr><td class="hi">2</td><td class="hi">Move everything (automatic)</td><td class="hi">the AREA</td>
+<td class="hi">Delete track tiles, refresh the area, re-import tracks. All submitted at once;
+every image slowly replaced from the new source. <b>This document.</b></td></tr>
+<tr><td>3</td><td>Move on my schedule</td><td class="muted">everything</td>
+<td>Nothing touched. Convert manually, ground by ground, with Replace tiles ticked.
+<b>Already built</b> — existing download paths.</td></tr>
+</table>
+<p>⭐ <b>The governing constraint (Fred):</b> these screens process ALL or delete ALL. No partial
+conversion. That single rule removed the detection logic, the decision matrices and the pickers.</p>
+</div>
+
+<div class="card">
+<h4>Why the delete is not a loss</h4>
+<p>Track corridors are <b>deleted and requeued in the same operation</b>. The store ends with the same
+coverage shape it started with, sourced from the new provider. Corridors outrank area work in the
+queue, so the re-imports drain before the slow area rebuild even starts.</p>
+<p>⚠ The slot IS the store. Column 1 writes to <code>SAT</code> regardless of which source is assigned —
+which is why <b>Replace tiles</b> exists: old tiles keep rendering until new ones overwrite them in the
+same store. A source change therefore needs a deliberate migration, not just a repointed URL.</p>
+</div>
+
+<h2>2 &middot; The flow</h2>
+
+<div class="step"><b>0 · User selects option 2</b> on the migration panel and confirms.
+<span class="tag t-done">BUILT</span> Panel rewritten 08-06 (<code>54a62e4f6</code>): three selectable rows,
+CONTINUE disabled until one is chosen.</div>
+
+<div class="step"><b>1 · holdQueue()</b> — <code>ConvoyDownloadQueue.kt:637</code>. Sets
+<code>queuePaused = true</code>. Nothing new dispatches.
+<span class="tag t-done">EXISTS</span></div>
+
+<div class="step"><b>2 · cancelAll()</b> — <code>:647</code>. Cancels the WorkManager job for every entry in
+<code>DOWNLOADING</code> state, then <b>keeps COMPLETE entries and removes the rest</b>:
+<pre><code>_queue.value = completed  // keep completed for history, remove rest</code></pre>
+✅ Confirmed: <b>download history survives the migration.</b> Only pending and in-flight work is discarded.
+<span class="tag t-done">EXISTS</span></div>
+
+<div class="gate"><b>⏸ GATE A — after hold, before anything is read</b><br>
+Queue is now empty and quiet. <b>This is the only point where the store is guaranteed still.</b>
+Counting before the hold would give a number already stale by the time it is read.</div>
+
+<div class="step"><b>3 · previewAllTracks(context, slotName)</b> —
+<code>ConvoyCorridorDelete.kt</code>. Counts only, deletes nothing.
+<span class="tag t-done">BUILT 08-07</span> commits <code>0a40ec07e</code> + <code>733164e12</code>
+<pre><code>allTrackGeomHashes()        every track with geom_hash, plus name
+  per track:
+    getTrackPoints(ctx, geomHash)      SpatialDbManager:1980
+    corridorTiles(segments)            ConvoyTileCalculator:94
+  distinct via HashSet&lt;TileKey&gt;        TileKey is a data class -> value equality
+  countTiles(store, distinct)          MBTilesStore, exact on-disk count</code></pre></div>
+
+<div class="gate"><b>⏸ GATE B — the destructive confirm. PERMANENT.</b><br>
+Checkbox launches a full-text confirm. PROCEED / CANCEL.<br>
+Shows: tracks with geometry &middot; <b>tiles on disk, per store</b> &middot; geometry total &middot;
+tracks skipped for no geometry &middot; tracks skipped for empty corridor.<br>
+<b>CANCEL must call resumeQueue()</b> — backing out should not leave the queue held.</div>
+
+<div class="step"><b>4 · Delete track corridor tiles</b> — <code>deleteTiles(type, tiles)</code>,
+<code>MBTilesStore.kt:265</code>. Runs <b>inline, not through the queue.</b>
+<span class="tag t-block">NOT BUILT</span></div>
+
+<div class="step"><b>5 · Write completion rows</b> under the existing
+<code>DownloadType.DELETE_AREA_TILES</code>, label <code>DEL CORR &lt;track name&gt;</code>.
+<span class="tag t-block">NOT BUILT</span></div>
+
+<div class="gate"><b>⏸ GATE C — after delete, before rebuild</b><br>
+Deleted count vs GATE B's on-disk prediction. These should match. A mismatch is the signal to stop.</div>
+
+<div class="step"><b>6 · Requeue track corridors</b> — <code>enqueueCorridorBatch</code> <code>:503</code> /
+<code>enqueueCorridor</code> <code>:543</code>. Existing path, all tracks.
+<span class="tag t-open">WIRING ONLY</span></div>
+
+<div class="step"><b>7 · Submit area downloads</b> — <code>enqueueArea</code> <code>:217</code>.
+After step 4 the only tiles left are the ones area downloads created, so the remainder <em>is</em> the
+area set. <span class="tag t-open">WIRING ONLY</span></div>
+
+<div class="gate"><b>⏸ GATE D — before release</b><br>
+Queue populated, nothing running. Last look before anything drains.</div>
+
+<div class="step"><b>8 · resumeQueue()</b> — <code>:641</code>. Sets <code>queuePaused = false</code> and
+calls <code>startNextIfAvailable()</code>. Drain begins.
+<span class="tag t-done">EXISTS</span></div>
+
+<h2>3 &middot; Why the sequence holds</h2>
+
+<div class="card green">
+<h4>The order is structural, not enforced by priority</h4>
+<p>Deletes never enter the queue. <b>They run inline while the queue is held</b>, so they cannot race
+anything — you cannot lose a race you are not in.</p>
+<p>⭐ <b>This is what removes the atomic patch.</b> No new <code>DownloadType</code>, no priority
+mapping, no dispatch branch — so the exhaustive <code>when</code> at
+<code>ConvoyDownloadQueue.kt:797</code> never fires, and there is no window where the tree will not build.
+The earlier 1b/1c plan required exactly that window.</p>
+</div>
+
+<div class="card">
+<h4>Drain order after release — already correct, no change needed</h4>
+<pre><code>DownloadPriority        (ConvoyDownloadQueue.kt:36-41)
+  DELETE    = 0
+  PROMOTED  = 1
+  CORRIDOR  = 2     <-- track re-imports drain first
+  AREA      = 3
+  REFRESH   = 4</code></pre>
+<p>Corridors outrank area work, so track coverage returns before the slow area rebuild starts. Area
+imagery is never absent because the refresh replaces in place.</p>
+</div>
+
+<div class="card amber">
+<h4>⚠ The concurrency seam</h4>
+<p><code>MAX_CONCURRENT = 2</code> (<code>:139</code>). Priority governs which job is picked next; it does
+not stop a running job continuing alongside a higher-priority one. With hundreds queued in order, both
+slots stay inside the same phase almost the whole time — <b>the exception is the boundary</b>, where the
+last corridor and the first area job can occupy the two slots together.</p>
+<p>⭐ <b>Fred's assessment: acceptable</b> — they are different tracks, so the two jobs at a seam do not
+touch the same tiles. Recorded so that if a track later shows holes after a migration, this is the first
+place to look rather than a fact to re-derive.</p>
+<p class="muted">Considered and not needed: dropping concurrency to 1 while deletes are pending. The
+inline-delete design makes it moot — nothing is queued to race.</p>
+</div>
+
+<h2>4 &middot; Build state</h2>
+
+<table>
+<tr><th>Piece</th><th>Where</th><th>State</th></tr>
+<tr><td><code>holdQueue()</code> / <code>resumeQueue()</code></td><td>ConvoyDownloadQueue :637 / :641</td>
+<td><span class="tag t-done">EXISTS</span></td></tr>
+<tr><td><code>cancelAll()</code></td><td>:647 — keeps COMPLETE</td><td><span class="tag t-done">EXISTS</span></td></tr>
+<tr><td><code>corridorTiles(segments)</code></td><td>ConvoyTileCalculator :94</td>
+<td><span class="tag t-done">EXISTS</span> standalone, no worker</td></tr>
+<tr><td><code>getTrackPoints(ctx, hash)</code></td><td>SpatialDbManager :1980</td>
+<td><span class="tag t-done">EXISTS</span> ⚠ param named <code>hashFileName</code>, takes a raw geom_hash</td></tr>
+<tr><td><code>deleteTiles(type, tiles)</code></td><td>MBTilesStore :265</td>
+<td><span class="tag t-done">a0675be42</span></td></tr>
+<tr><td><code>allTrackGeomHashes()</code></td><td>SpatialDbManager</td><td><span class="tag t-done">0a40ec07e</span></td></tr>
+<tr><td><code>previewAllTracks(ctx, slot)</code></td><td>ConvoyCorridorDelete</td><td><span class="tag t-done">0a40ec07e</span> uncalled</td></tr>
+<tr><td><code>countTiles(type, tiles)</code></td><td>MBTilesStore</td><td><span class="tag t-done">733164e12</span></td></tr>
+<tr><td>Panel row activation</td><td>ConvoyDownloadPanel ~:229–239</td><td><span class="tag t-block">NOT BUILT</span></td></tr>
+<tr><td>Confirm dialog (GATE B)</td><td>new</td><td><span class="tag t-block">NOT BUILT</span></td></tr>
+<tr><td>Delete loop + completion rows</td><td>ConvoyCorridorDelete</td><td><span class="tag t-block">NOT BUILT</span></td></tr>
+<tr><td>Requeue + area submit + release</td><td>wiring</td><td><span class="tag t-block">NOT BUILT</span></td></tr>
+</table>
+
+<h2>5 &middot; The panel rows</h2>
+
+<div class="card blue">
+<p>Both destructive rows already exist in <code>ConvoyDownloadPanel.kt</code> as greyed V2.7
+placeholders. Neither is a new row — both are activations, and the code comment beside them already
+describes this work:</p>
+<pre><code>ArtifactCheckRow("Remove Tiles by Track", dimText, false, false, "V2.7") {}
+ArtifactCheckRow("Clear Tile Source",     dimText, false, false, "V2.7") {}</code></pre>
+<p class="muted">&ldquo;by-track needs corridor-shaped deletion (the same derivation enqueueCorridor
+already does), and Clear Tile Source drops the whole SAT column (base + both label stores) and is
+destructive enough to need its own confirm.&rdquo;</p>
+<table>
+<tr><th>Row</th><th>Wires to</th><th>State</th></tr>
+<tr><td>Remove Tiles by Track</td><td>this document, stages 4–8</td><td>being built</td></tr>
+<tr><td>Clear Tile Source</td><td>option 1's clear — <code>ConvoySourceClear.kt</code></td>
+<td>code exists, proven on device</td></tr>
+</table>
+</div>
+
+<div class="card amber">
+<h4>⚠ The interaction mismatch</h4>
+<p>Every row in this section is a <b>checkbox that arms an area operation</b> — tick "Remove Tiles by
+Area", then tap <b>Draw Area</b>, and the delete runs against the drawn bbox. <code>Draw Area</code>'s
+<code>enabled</code> tests <code>tilesChecked || trailsChecked || removeTilesChecked || osmChecked</code>.</p>
+<p><b>Corridor delete takes no area and no selection.</b> It is all tracks, immediately. So it does not
+fit the tick-then-draw idiom.</p>
+<p>⭐ <b>Settled:</b> checkbox launches a full-text confirm. Precedent exists in this very section —
+"Download Tiles by Corridor" routes from its own checkbox (<code>onSelectCorridorTracks()</code>), and
+the comment states <em>"Routing lives in the checkbox."</em> The tick reverts on dismiss: this is an
+action, not a state.</p>
+</div>
+
+<div class="card red">
+<h4>⚠ Clear Tile Source needs its warning carried with it</h4>
+<p>Inside the migration flow the user has chosen an option and been told they lose labels until tiles
+are replaced. <b>Exposed as a bare panel row, it is the same destructive operation with none of that
+framing</b> — a one-tap way to drop 5+ GB. The confirm must carry the warning, not just ask PROCEED.</p>
+</div>
+
+<h2>6 &middot; The two numbers at GATE B</h2>
+
+<div class="card">
+<table>
+<tr><th>Figure</th><th>Means</th></tr>
+<tr><td><code>totalTiles</code></td><td>Distinct corridor tiles by <b>geometry</b>. An upper bound.</td></tr>
+<tr><td><code>onDiskTotal</code></td><td>Tiles <b>actually present</b> in the store(s). What the delete
+will remove, and what GATE C verifies against.</td></tr>
+<tr><td><code>overlapSavings</code></td><td>Naive per-track sum minus distinct — tiles shared by two or
+more corridors.</td></tr>
+</table>
+<p><code>onDiskTotal &le; totalTiles</code> always. The gap is corridor crossing ground that was never
+downloaded.</p>
+<p>⛔ <b>Why this distinction exists</b> — <code>DELETE-BANDING-2026-07-25</code>,
+<code>MBTilesStore.kt:345-349</code>: a geometry count produced &ldquo;1,500,000 tiles&rdquo; for an area
+holding a fraction of that, leaving a progress denominator the job could never reach. <b>A finished job
+looked permanently stuck.</b> Showing the geometry number at a confirm would reproduce that as a
+verification failure.</p>
+<p>⭐ <code>countTiles</code> deliberately mirrors <code>deleteTiles</code> line for line — same
+<code>groupBy { z to x }</code>, same 500-bind chunking, same WHERE shape. <b>A pre-count selecting on
+different criteria than the delete would read as authoritative while disagreeing with what happens.</b></p>
+</div>
+
+<h2>7 &middot; Open questions</h2>
+
+<div class="card amber">
+<ul>
+<li><b>Does <code>enqueueRefresh</code> freeze the bbox onto each entry, or does the worker re-derive
+it?</b> The &ldquo;execution order does not matter&rdquo; property rests on this. It is a reading of the
+code, <b>not confirmed in the worker.</b></li>
+<li><b>Completion rows before or after the delete?</b> Before means a row survives an app death but
+claims a completion that has not happened. After means the row is truthful but a crash leaves no trace.
+<span class="muted">Leaning: after, carrying the actual removed count.</span></li>
+<li><b><code>countTiles</code> performance on a large store.</b> A COUNT per (z,x) group across a full
+corridor set on Droid 2's 5.3 GB <code>SAT.mbtiles</code> is the one thing in this design that cannot be
+predicted. First run answers it.</li>
+<li><b>Threading.</b> Preview is a DB read plus tile computation per track plus a COUNT per store —
+background thread only. ⛔ Anything touching the WebView or a Toast from that thread must post back
+via <code>Handler(Looper.getMainLooper())</code>. Three convoy rendering failures in this arc were
+instrumentation aborting a method before its real work.</li>
+<li><b>Track name on corridor queue rows.</b> Write the name at enqueue; <b>re-resolve at completion and
+refresh it if the hash still resolves, otherwise leave what is there.</b> Never overwrite a real name
+with nothing — a completed row is the record that it happened, and a deleted track must not erase it.</li>
+</ul>
+</div>
+
+<h2>8 &middot; What this design removed</h2>
+
+<div class="card green">
+<table>
+<tr><th>Dropped</th><th>Why</th></tr>
+<tr><td><code>ConvoyCorridorDeleteWorker.kt</code> (step 1b)</td>
+<td>Deletes run inline. <code>corridorTiles</code> is a standalone calculator, not worker-bound.</td></tr>
+<tr><td>Queue wiring 1c — enum, priority, dispatch, enqueue</td>
+<td>Nothing is queued, so nothing needs a type. <b>Removes the build-breaking atomic window entirely.</b></td></tr>
+<tr><td>Concurrency gating to 1 during deletes</td><td>Moot once deletes leave the queue.</td></tr>
+<tr><td>Track picker for the delete</td><td>All tracks, always. No selection UI.</td></tr>
+</table>
+<p class="hi">⭐ Final shape: one function, two callers, four existing calls in the right order —
+against a plan that was a new worker file plus an atomic four-part queue patch.</p>
+</div>
+
+</div></body></html>
