@@ -36,6 +36,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
@@ -264,6 +267,19 @@ fun ConvoyMapSourceScreen(
     // MIGSCREEN-2026-08-06: "", "delete", "auto" or "manual".
     var migChoice by remember { mutableStateOf("") }
     var clearResult by remember { mutableStateOf<String?>(null) }
+    // MIGOPT2-2026-08-08D: option 2 sub-selections. Independent -- users are
+    // one or the other (a corridor-based map has few areas, an area-based map
+    // has few tracks), so the panel lets them say which rather than guessing.
+    var optTracks by remember { mutableStateOf(false) }
+    var optAreas by remember { mutableStateOf(false) }
+    // Option 3's optional immediate corridor refresh: Replace ON, NO delete.
+    var optManualCorridors by remember { mutableStateOf(false) }
+    // Roll-up state. remember, not rememberSaveable: a half-restored migration
+    // would re-open mid-sequence with stale counts.
+    var migRunning by remember { mutableStateOf(false) }
+    var migSteps by remember { mutableStateOf(listOf<String>()) }
+    var migProgress by remember { mutableStateOf("") }
+    var migFraction by remember { mutableFloatStateOf(-1f) }
 
     // ── Source Change Panel ──────────────────────────────────────
     refreshSlot?.let { slot ->
@@ -349,15 +365,72 @@ fun ConvoyMapSourceScreen(
                         )
                         MigrationOption(
                             selected = migChoice == "auto",
-                            enabled = false,
-                            onSelect = { },
+                            enabled = true,
+                            onSelect = { migChoice = "auto" },
                             heading = "Move everything to the new source",
-                            body = "All of the downloads are submitted at once and run as "
-                                + "background tasks. Every image is slowly replaced from the "
-                                + "new source until your whole map has moved over - track "
-                                + "maps first, then your areas. Your maps stay usable "
-                                + "throughout. Best if you rely on road and place names."
+                            body = "Everything is submitted at once and runs in the "
+                                + "background. Your maps stay usable throughout - each "
+                                + "image is replaced as its new version arrives. Choose "
+                                + "what to move below. Best if you rely on road and place "
+                                + "names, and you can leave it running."
                         )
+                        // MIGOPT2-2026-08-08D: sub-choices, shown only when the
+                        // option is selected. Indented to read as belonging to it.
+                        if (migChoice == "auto") {
+                            Column(modifier = Modifier.padding(start = 40.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Checkbox(
+                                        checked = optTracks,
+                                        onCheckedChange = { optTracks = it }
+                                    )
+                                    Text(
+                                        "Refresh track corridors",
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                }
+                                Text(
+                                    // ⚠ The honest trade. Not selecting this does NOT
+                                    // lose the tracks -- the area refresh covers that
+                                    // ground as RECTANGLES, which loads far more tiles
+                                    // for the same trails. Duration is a working
+                                    // estimate (Fred 08-08: under an hour typically,
+                                    // two at the extreme), so it is stated as a range
+                                    // and never as a promise.
+                                    "Your track maps are removed and rebuilt from the new "
+                                    + "source. Without this, tracks are covered as boxed "
+                                    + "areas instead, which downloads a good deal more for "
+                                    + "the same ground. Adds roughly one to two hours.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(start = 12.dp, bottom = 6.dp)
+                                )
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Checkbox(
+                                        checked = optAreas,
+                                        onCheckedChange = { optAreas = it }
+                                    )
+                                    Text(
+                                        "Refresh areas",
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                }
+                                Text(
+                                    "Your boxed map areas are replaced from the new source. "
+                                    + "Time depends on how much area you hold.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(start = 12.dp, bottom = 6.dp)
+                                )
+                                if (!optTracks && !optAreas) {
+                                    Text(
+                                        "Choose at least one.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.error,
+                                        modifier = Modifier.padding(start = 12.dp)
+                                    )
+                                }
+                            }
+                        }
                         MigrationOption(
                             selected = migChoice == "manual",
                             enabled = true,
@@ -369,6 +442,34 @@ fun ConvoyMapSourceScreen(
                                 + "with Replace tiles ticked. Ground you have not refreshed "
                                 + "stays without road and place names."
                         )
+                        // MIGOPT2-2026-08-08D: the path most heavy-track users take
+                        // (Fred 08-08) -- leave the maps in place, but ADD corridor
+                        // maps for the tracks from the new source now. Replace ON,
+                        // NO delete: nothing is being torn down, these tiles are
+                        // added. Areas stay on the original source until refreshed.
+                        if (migChoice == "manual") {
+                            Column(modifier = Modifier.padding(start = 40.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Checkbox(
+                                        checked = optManualCorridors,
+                                        onCheckedChange = { optManualCorridors = it }
+                                    )
+                                    Text(
+                                        "Add track maps now",
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                }
+                                Text(
+                                    "Downloads map coverage along your tracks from the new "
+                                    + "source, so your trails have road and place names "
+                                    + "straight away. Nothing is removed. Your areas are "
+                                    + "left alone until you refresh them yourself.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(start = 12.dp)
+                                )
+                            }
+                        }
                     }
                 },
                 confirmButton = {
@@ -376,7 +477,11 @@ fun ConvoyMapSourceScreen(
                     // selected - nobody makes a delete decision without having seen
                     // the alternatives.
                     TextButton(
-                        enabled = migChoice.isNotEmpty(),
+                        // MIGOPT2-2026-08-08D: option 2 additionally needs at least
+                        // one box ticked -- "move everything" that moves nothing is
+                        // not a state worth allowing.
+                        enabled = migChoice.isNotEmpty() &&
+                            (migChoice != "auto" || optTracks || optAreas),
                         onClick = {
                             val record = ConvoySourceMigration.inProgress().firstOrNull { f ->
                                 ConvoySourceMigration.read(f)?.optString("slot") == slot
@@ -386,6 +491,95 @@ fun ConvoyMapSourceScreen(
                                     .plus("changed. Tiles are only removed when the removal ")
                                     .plus("can be recorded.")
                                 refreshEnqueued = true
+                            } else if (migChoice == "auto") {
+                                // MIGOPT2-2026-08-08D: runs ON SCREEN, not detached.
+                                // The delete is an inline loop with no queue entry --
+                                // killing the process mid-run strands the user with
+                                // removed coverage and nothing scheduled to rebuild it.
+                                migRunning = true
+                                migSteps = listOf()
+                                scope.launch {
+                                    ConvoySourceMigration.noteReloadChoice(record, "auto")
+                                    // Step 1: quiet the queue. Deleting from a store a
+                                    // running job is writing to is the one ordering
+                                    // that cannot be allowed.
+                                    migProgress = "Holding queue"
+                                    withContext(Dispatchers.IO) {
+                                        DownloadQueueManager.holdQueue()
+                                        DownloadQueueManager.cancelAll()
+                                    }
+                                    migSteps = migSteps +
+                                        "Queue held, pending work cleared (history kept)"
+
+                                    if (optTracks) {
+                                        // Step 2: scan. Read-only -- nothing is
+                                        // destroyed until the delete below.
+                                        migProgress = "Scanning tracks - this can take a minute"
+                                        val preview = withContext(Dispatchers.IO) {
+                                            ConvoyCorridorDelete.previewAllTracks(context, "SAT")
+                                        }
+                                        migSteps = migSteps +
+                                            "Scanned ${preview.tracks.size} tracks - " +
+                                            "${preview.onDiskTotal} tiles"
+
+                                        // Step 3: THE DELETE. The long one.
+                                        val del = withContext(Dispatchers.IO) {
+                                            ConvoyCorridorDelete.deleteAllTrackCorridors(
+                                                context, "SAT"
+                                            ) { done, total, name ->
+                                                // ⛔ fires on IO -- Compose state must
+                                                // be written on main.
+                                                scope.launch(Dispatchers.Main) {
+                                                    migProgress =
+                                                        "Removing corridor map $done of $total - $name"
+                                                    migFraction =
+                                                        if (total > 0) done.toFloat() / total
+                                                        else -1f
+                                                }
+                                            }
+                                        }
+                                        migProgress = ""
+                                        migFraction = -1f
+                                        migSteps = migSteps +
+                                            "Removed ${del.tilesRemoved} tiles from " +
+                                            "${del.tracksProcessed} track maps"
+
+                                        // Step 4: requeue. Seconds -- the queue does
+                                        // the downloading afterwards.
+                                        migProgress = "Submitting track maps"
+                                        val hashes = withContext(Dispatchers.IO) {
+                                            SpatialDbManager.allTrackGeomHashes().map { h -> h.first }
+                                        }
+                                        val batch = withContext(Dispatchers.IO) {
+                                            DownloadQueueManager.enqueueCorridorBatch(
+                                                context, hashes, listOf("SAT"), true
+                                            )
+                                        }
+                                        migSteps = migSteps +
+                                            "Submitted ${batch.jobs} track maps (${batch.tiles} tiles)"
+                                    }
+
+                                    if (optAreas) {
+                                        migProgress = "Submitting areas"
+                                        val cells = withContext(Dispatchers.IO) {
+                                            DownloadQueueManager.enqueueRefresh(context, "SAT", "SAT")
+                                        }
+                                        migSteps = migSteps + "Submitted area refresh ($cells cells)"
+                                    }
+
+                                    migProgress = ""
+                                    withContext(Dispatchers.IO) {
+                                        DownloadQueueManager.resumeQueue()
+                                    }
+                                    migSteps = migSteps + "Queue released"
+                                    ConvoySourceMigration.complete(record)
+                                    migRunning = false
+                                    clearResult = "Everything is submitted. Downloads are " +
+                                        "running in the background and can be monitored in " +
+                                        "the download queue. They resume by themselves if " +
+                                        "the app or device restarts."
+                                    refreshEnqueued = true
+                                }
                             } else if (migChoice == "delete") {
                                 ConvoySourceClear.clearColumnDetached(record) { r ->
                                     clearResult = when (r) {
@@ -402,6 +596,26 @@ fun ConvoyMapSourceScreen(
                                 ConvoySourceClear.removeOrphanedStoresDetached(record) { r ->
                                     ConvoySourceMigration.noteReloadChoice(record, migChoice)
                                     ConvoySourceMigration.complete(record)
+                                    // MIGOPT2-2026-08-08D: option 3's optional
+                                    // immediate corridor refresh. Replace ON, no
+                                    // delete -- corridors are ADDED from the new
+                                    // source. Enqueue only, so it is seconds; the
+                                    // queue downloads afterwards.
+                                    if (optManualCorridors) {
+                                        scope.launch {
+                                            val added = withContext(Dispatchers.IO) {
+                                                val hs = SpatialDbManager.allTrackGeomHashes()
+                                                    .map { h -> h.first }
+                                                DownloadQueueManager.enqueueCorridorBatch(
+                                                    context, hs, listOf("SAT"), true
+                                                )
+                                            }
+                                            clearResult = (clearResult ?: "") +
+                                                " Submitted ${added.jobs} track maps " +
+                                                "(${added.tiles} tiles) - monitor them in " +
+                                                "the download queue."
+                                        }
+                                    }
                                     clearResult = when (r) {
                                         is ConvoySourceClear.Result.Success ->
                                             if (r.deletedDirs.isEmpty())
@@ -421,6 +635,44 @@ fun ConvoyMapSourceScreen(
                         }
                     ) { Text("CONTINUE") }
                 }
+            )
+        } else if (migRunning) {
+            // ── MIGOPT2-2026-08-08D: PHASE 2b - the roll-up ──────
+            // No dismiss, no buttons. The delete cannot be interrupted safely,
+            // and the enqueues take seconds. The user watches or waits.
+            AlertDialog(
+                onDismissRequest = { },
+                title = { Text("Moving your maps") },
+                text = {
+                    Column {
+                        migSteps.forEach { s ->
+                            Text("\u2713  " + s, style = MaterialTheme.typography.bodySmall)
+                            Spacer(Modifier.height(3.dp))
+                        }
+                        if (migProgress.isNotBlank()) {
+                            Spacer(Modifier.height(6.dp))
+                            Text(
+                                migProgress,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                        if (migFraction >= 0f) {
+                            Spacer(Modifier.height(6.dp))
+                            LinearProgressIndicator(
+                                progress = { migFraction },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                        Spacer(Modifier.height(10.dp))
+                        Text(
+                            "Please leave this on screen until it finishes.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                },
+                confirmButton = { }
             )
         } else {
             // Confirmation that refresh was queued
