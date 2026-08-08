@@ -162,7 +162,14 @@ object DownloadQueueManager {
     // ⚠ RAISING takes effect as jobs finish (startNextIfAvailable fills the new
     // slots on the next completion). LOWERING does not pull running jobs back;
     // it drifts down as they finish. Correct, not a bug.
-    private var maxConcurrent: Int = 2
+    // QTRUTH-2026-08-08L: default 2 -> 3. Measured 08-08, per slot: 2 slots
+    // 13.1 t/s, 3 slots 10.0, 4 slots 8.3 -- aggregate 26.2 / 30.0 / 33.2,
+    // zero failures at any setting. Rising with shrinking increments, so 3 is
+    // most of the available gain with one fewer connection per source.
+    // ⚠ CONFOUNDED: those three jobs hit three DIFFERENT sources, so part of
+    // the gain is parallelism across hosts rather than concurrency against
+    // one. A clean test is several SAT-only jobs at 2, 3 and 4.
+    private var maxConcurrent: Int = 3
     val MAX_CONCURRENT: Int get() = maxConcurrent
 
     /** QEVAL-2026-08-08I: clamped 1..4 and persisted. */
@@ -183,8 +190,8 @@ object DownloadQueueManager {
     fun loadMaxConcurrent(context: Context) {
         maxConcurrent = try {
             context.getSharedPreferences("convoy_queue", Context.MODE_PRIVATE)
-                .getInt("max_concurrent", 2).coerceIn(1, 4)
-        } catch (e: Exception) { 2 }
+                .getInt("max_concurrent", 3).coerceIn(1, 4)
+        } catch (e: Exception) { 3 }
     }
     private const val QUEUE_FILE = "download_queue.json"
     private const val TAG = "DownloadQueue"
@@ -687,7 +694,17 @@ object DownloadQueueManager {
         val entry = QueueEntry(
             north = n, south = s, east = e, west = w,
             totalTiles = totalTiles,
-            label = "CORR $slotName",
+            // QTRUTH-2026-08-08L: was the bare type-plus-slot string for EVERY
+            // corridor job --
+            // 272 identical rows. The hash is already in hand, so the name is
+            // too. Type and priority come from the row format now, so the
+            // label carries slot + track only.
+            label = "$slotName " + (
+                SpatialDbManager.allTrackGeomHashes()
+                    .firstOrNull { it.first == geomHash }?.second
+                    ?.takeIf { n -> n.isNotBlank() }
+                    ?: geomHash.take(8)
+            ),
             refreshMode = replaceExisting,
             refreshSlot = slotName,
             downloadType = DownloadType.CORRIDOR,

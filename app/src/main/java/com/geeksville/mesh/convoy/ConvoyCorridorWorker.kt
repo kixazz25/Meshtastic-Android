@@ -62,6 +62,15 @@ class ConvoyCorridorWorker(
         android.util.Log.i(TAG, "Starting corridor: $label hash=$geomHash id=$entryId")
         DownloadQueueManager.init(appContext)
         MapSourceManager.init(appContext)
+        // ── ORPHAN-2026-08-08O: no entry, no work. See ConvoyDownloadWorker
+        // for the full note. Deliberately AFTER init (the queue must be loaded
+        // before it can be asked) and deliberately WITHOUT markFailed. ──
+        if (DownloadQueueManager.queue.value.none { it.id == entryId }) {
+            android.util.Log.w(TAG,
+                "ORPHAN-2026-08-08O: no queue entry for id=$entryId ('$label'). "
+                + "Nothing owns this job, so there is no work. Throwing it out.")
+            return Result.failure()
+        }
         showProgress(entryId, label, 0, 1)
 
         // -- Derive the corridor from the track geometry -----------------

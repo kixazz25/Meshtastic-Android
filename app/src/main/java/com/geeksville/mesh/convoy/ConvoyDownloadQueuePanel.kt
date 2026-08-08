@@ -67,15 +67,25 @@ fun DownloadQueuePanel(
     val qeCtx = LocalContext.current
     LaunchedEffect(Unit) { DownloadQueueManager.loadMaxConcurrent(qeCtx) }
     var qeSlots by remember { mutableIntStateOf(DownloadQueueManager.MAX_CONCURRENT) }
+    // QTRUTH-2026-08-08L: section fold state. Completed starts CLOSED -- it is
+    // history, and after a big run it is the longest section by far.
+    var qtQueuedOpen by remember { mutableStateOf(true) }
+    var qtDoneOpen by remember { mutableStateOf(false) }
     val shown = queue.filter { typeFilter == null || it.downloadType == typeFilter }
     val active = shown.filter { it.status == QueueStatus.DOWNLOADING }
     val queued = shown.filter { it.status == QueueStatus.QUEUED }
     val completed = shown.filter { it.status in setOf(QueueStatus.COMPLETE, QueueStatus.FAILED, QueueStatus.CANCELLED) }
 
+    // ── ORPHAN-2026-08-08O: the escape hatch must outlive the queue. ──
+    // On 08-08 an abandoned migration left the queue HELD with no entries. The
+    // panel returned here, so the only control that could have released it was
+    // not on screen. A held queue with nothing in it is precisely when the
+    // Release button matters.
+    val qoHeld = DownloadQueueManager.isQueuePaused()
     // Nothing to show
-    if (queue.isEmpty()) return
+    if (queue.isEmpty() && !qoHeld) return
     // Only completed items and not expanded -- nothing to show
-    if (active.isEmpty() && queued.isEmpty() && !expanded) return
+    if (active.isEmpty() && queued.isEmpty() && !expanded && !qoHeld) return
 
     Surface(
         modifier = modifier.padding(horizontal = 12.dp),
@@ -87,6 +97,46 @@ fun DownloadQueuePanel(
             // QUEUE-PANEL-B-2026-07-24: confirm dialog for scoped destructive actions
             confirmAction?.let { (msg, act) ->
                 ConfirmDialog(msg, onConfirm = act, onDismiss = { confirmAction = null })
+            }
+            // ── ORPHAN-2026-08-08O: held-queue banner + escape controls ──
+            // Shown whenever the queue is held, whatever else is on screen. A
+            // held queue looks exactly like a stalled one, and on 08-08 that
+            // cost an app-data wipe.
+            if (qoHeld) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "QUEUE HELD - nothing will start",
+                        color = dangerRed, fontSize = 9.sp,
+                        fontFamily = mono, fontWeight = FontWeight.Bold,
+                        modifier = Modifier.weight(1f)
+                    )
+                    ActionButton("RELEASE", accentGreen) {
+                        DownloadQueueManager.resumeQueue()
+                    }
+                }
+            }
+            // ORPHAN-2026-08-08O: cancel is reachable even with no entries --
+            // workers can outlive the rows that describe them.
+            if (qoHeld || queue.isEmpty()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    ActionButton("CANCEL WORKERS", dangerRed) {
+                        confirmAction = Pair(
+                            "Stop every download job, including any still running "
+                            + "with no queue entry, and release the queue?"
+                        ) {
+                            DownloadQueueManager.cancelAll()
+                            DownloadQueueManager.resumeQueue()
+                            confirmAction = null
+                        }
+                    }
+                }
             }
             // -- Summary bar (always visible, tappable) --
             QueueSummaryBar(
@@ -101,8 +151,14 @@ fun DownloadQueuePanel(
             // This sums the running jobs, which is the number the concurrency
             // experiment turns on.
             if (expanded) {
-                val qeLive = active.sumOf { e ->
-                    val began = if (e.startedAt > 0L) e.startedAt else 0L
+                // QTRUTH-2026-08-08L: sum EVERY running job in the UNFILTERED
+                // queue. It previously summed `active`, which is scoped by the
+                // type chip, and contributed 0 for any job whose startedAt was
+                // 0 (anything already running when the build was installed) --
+                // so it reported roughly one job's rate.
+                val qeRunning = queue.filter { it.status == QueueStatus.DOWNLOADING }
+                val qeLive = qeRunning.sumOf { e ->
+                    val began = if (e.startedAt > 0L) e.startedAt else e.createdAt
                     val secs = if (began > 0L)
                         (System.currentTimeMillis() - began) / 1000.0 else 0.0
                     if (secs > 0.0) e.downloadedTiles / secs else 0.0
@@ -115,7 +171,7 @@ fun DownloadQueuePanel(
                 ) {
                     Text(
                         String.format("%.1f tiles/sec across %d running",
-                            qeLive, active.size),
+                            qeLive, qeRunning.size),
                         color = accentBlue, fontSize = 9.sp, fontFamily = mono
                     )
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -268,27 +324,44 @@ fun DownloadQueuePanel(
 
                     // Queued items
                     if (queued.isNotEmpty()) {
+                        // QTRUTH-2026-08-08L: collapsible. 272 rows is not a list
+                        // anyone reads; it is something you scroll past.
                         item(key = "hdr_queued") {
                             Spacer(Modifier.height(10.dp))
-                            Text("QUEUED", color = dimText, fontSize = 9.sp,
-                                fontFamily = mono, fontWeight = FontWeight.Bold)
+                            Text(
+                                (if (qtQueuedOpen) "\u25BC " else "\u25B6 ") +
+                                    "QUEUED (${queued.size})",
+                                color = dimText, fontSize = 9.sp,
+                                fontFamily = mono, fontWeight = FontWeight.Bold,
+                                modifier = Modifier.clickable { qtQueuedOpen = !qtQueuedOpen }
+                            )
                             Spacer(Modifier.height(4.dp))
                         }
-                        itemsIndexed(queued, key = { _, e -> "q" + e.id }) { idx, entry ->
-                            QueuedItemRow(entry, position = idx + 1)
+                        if (qtQueuedOpen) {
+                            itemsIndexed(queued, key = { _, e -> "q" + e.id }) { idx, entry ->
+                                QueuedItemRow(entry, position = idx + 1)
+                            }
                         }
                     }
 
                     // Completed/failed items
                     if (completed.isNotEmpty()) {
+                        // QTRUTH-2026-08-08L: collapsible, same reason.
                         item(key = "hdr_done") {
                             Spacer(Modifier.height(10.dp))
-                            Text("COMPLETED", color = dimText, fontSize = 9.sp,
-                                fontFamily = mono, fontWeight = FontWeight.Bold)
+                            Text(
+                                (if (qtDoneOpen) "\u25BC " else "\u25B6 ") +
+                                    "COMPLETED (${completed.size})",
+                                color = dimText, fontSize = 9.sp,
+                                fontFamily = mono, fontWeight = FontWeight.Bold,
+                                modifier = Modifier.clickable { qtDoneOpen = !qtDoneOpen }
+                            )
                             Spacer(Modifier.height(4.dp))
                         }
-                        items(completed, key = { e -> "c" + e.id }) { entry ->
-                            CompletedItemRow(entry)
+                        if (qtDoneOpen) {
+                            items(completed, key = { e -> "c" + e.id }) { entry ->
+                                CompletedItemRow(entry)
+                            }
                         }
                     }
 
@@ -351,26 +424,44 @@ private fun estimateRemaining(tilesRemaining: Int): Pair<String, String>? {
     // it survives a restart, and averaging two smooths the connectivity swings
     // that make instantaneous sampling useless on a trail.
     if (tilesRemaining <= 0) return null
-    val done = DownloadQueueManager.queue.value
-        .filter { it.status == QueueStatus.COMPLETE && it.completedAt > 0L && it.downloadedTiles > 0 }
-        .sortedByDescending { it.completedAt }
-        .take(2)
-    if (done.size < 2) return null
+    // ── QTRUTH-2026-08-08L: THE WHOLE-RUN RATE (Fred, 08-08) ──
+    // Total tiles completed since the run began, over elapsed wall-clock since
+    // the earliest job started. That IS the aggregate rate by construction --
+    // no per-slot arithmetic, no overlapping windows, no MAX_CONCURRENT
+    // multiplier. Change concurrency mid-run and the average absorbs it.
+    // Measured 08-08: the previous two-entry method said Aug 12 5 AM (~86h)
+    // for 1.5M tiles; the real rate was ~140,000/hour, i.e. ~10h. 8-10x long.
+    val all = DownloadQueueManager.queue.value
+    val done = all.filter {
+        it.status == QueueStatus.COMPLETE && it.completedAt > 0L && it.downloadedTiles > 0
+    }
+    if (done.isEmpty()) return null
     // THROUGHPUT-2026-08-08C: prefer the rate the job STORED at completion.
     // Falls back to computing from startedAt, then to createdAt for entries
     // that predate the field. createdAt is QUEUE time -- a job that waited
     // behind others carries that wait in its elapsed, which is what made these
     // estimates unusable.
-    val rates = done.mapNotNull {
-        if (it.tilesPerSec > 0.0) it.tilesPerSec
-        else {
-            val began = if (it.startedAt > 0L) it.startedAt else it.createdAt
-            val sec = (it.completedAt - began) / 1000.0
-            if (sec > 0) it.downloadedTiles / sec else null
+    // Earliest real start across everything the queue has touched -- completed
+    // AND still running, so a long job in flight does not shorten the window.
+    // startedAt is 0 on entries written before it existed; createdAt is the
+    // honest fallback there.
+    val firstStart = all.mapNotNull { e ->
+        // QTRUTH-2026-08-08M: mapNotNull discards the nulls, so no further
+        // guard is needed -- and the previous one compared a Long? with >.
+        when {
+            e.startedAt > 0L -> e.startedAt
+            e.completedAt > 0L -> e.createdAt
+            e.status == QueueStatus.DOWNLOADING -> e.createdAt
+            else -> null
         }
-    }
-    if (rates.isEmpty()) return null
-    val rate = rates.average()
+    }.filter { it > 0L }.minOrNull() ?: return null
+
+    val tilesDone = done.sumOf { it.downloadedTiles.toLong() } +
+        all.filter { it.status == QueueStatus.DOWNLOADING }
+           .sumOf { it.downloadedTiles.toLong() }
+    val elapsedSec = (System.currentTimeMillis() - firstStart) / 1000.0
+    if (elapsedSec <= 0.0 || tilesDone <= 0L) return null
+    val rate = tilesDone / elapsedSec
     if (rate <= 0.0) return null
     var sec = (tilesRemaining / rate).toLong()
     // Round anything over ~8h to the nearest hour: a two-sample rate cannot
@@ -541,8 +632,12 @@ private fun QueuedItemRow(entry: QueueEntry, position: Int) {
     ) {
         // QUEUE-PANEL-B-2026-07-24: per-job detail - kind and turn order, so the
         // queue explains its own ordering rather than looking arbitrary.
+        // QTRUTH-2026-08-08L: was "#7 [CORR/p2] CORR SAT". The bracket read as
+        // punctuation rather than as the thing you filtered by -- the type
+        // token now matches the chip text exactly (same scopeLabel call), and
+        // priority follows it as a bare number.
         Text(
-            "#$position  [${scopeLabel(entry.downloadType)}/p${entry.priority}]  ${entry.label.ifEmpty { "Download" }}",
+            "#$position  ${scopeLabel(entry.downloadType)} ${entry.priority}  ${entry.label.ifEmpty { "Download" }}",
             color = brightText, fontSize = 9.sp, fontFamily = mono
         )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

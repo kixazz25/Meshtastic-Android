@@ -42,6 +42,24 @@ class ConvoyDownloadWorker(
 
         // Initialize queue manager (handles app-killed restart case)
         DownloadQueueManager.init(appContext)
+        // ── ORPHAN-2026-08-08O: no entry, no work. ──
+        // This worker takes every parameter from inputData, so it will happily
+        // run with no queue entry behind it -- which is what happened on 08-08
+        // when an abandoned migration cleared the entries while WorkManager
+        // still held the jobs. They ran for 20 minutes reporting 0 tiles and
+        // could not be cancelled, because the panel hides itself when the
+        // queue is empty.
+        // ⚠ FAILURE, not success: an orphan reporting success puts a lie in
+        // the log. failure() is also terminal, where retry() would resurrect
+        // it on backoff.
+        // ⚠ No markFailed here -- there is no entry to mark, and writing one
+        // would trade a running ghost for a permanent row.
+        if (DownloadQueueManager.queue.value.none { it.id == entryId }) {
+            android.util.Log.w(TAG,
+                "ORPHAN-2026-08-08O: no queue entry for id=$entryId ('$label'). "
+                + "Nothing owns this job, so there is no work. Throwing it out.")
+            return Result.failure()
+        }
 
         // Show foreground notification
         showProgress(entryId, label, 0, 1)
