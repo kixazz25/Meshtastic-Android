@@ -70,6 +70,17 @@ data class QueueEntry(
     // (downloadedTiles / elapsed) that the panel averages over the last 2
     // completed entries for its ETA - persisted, so it survives a restart.
     val completedAt: Long = 0L,
+    // THROUGHPUT-2026-08-08C: when the job ACTUALLY STARTED, not when it was
+    // enqueued. createdAt above is queue time -- a job that sat behind 87
+    // others carries hours of waiting in (completedAt - createdAt), which made
+    // every observed rate a fraction of the real one. 0L until dispatched.
+    val startedAt: Long = 0L,
+    // THROUGHPUT-2026-08-08C: tiles per second, COMPUTED AT COMPLETION and
+    // stored. The job is the only thing that knows both its duration and its
+    // tile count at the moment both are true, so the calculation belongs there
+    // rather than being re-derived from timestamps at render time. 0.0 until
+    // complete. Persisted, so history is readable later.
+    val tilesPerSec: Double = 0.0,
     // CORRIDOR-QUEUE-2026-07-24: the track this entry belongs to. Written ONLY by the
     // corridor path, read ONLY by the corridor worker - inert to everything
     // else. The corridor stores a GEOMETRY REFERENCE rather than a tile list:
@@ -78,6 +89,9 @@ data class QueueEntry(
     val geomHash: String = ""
 ) {
     fun toJson(): JSONObject = JSONObject().apply {
+        // THROUGHPUT-2026-08-08C
+        put("startedAt", startedAt)
+        put("tilesPerSec", tilesPerSec)
         put("id", id)
         put("north", north)
         put("south", south)
@@ -125,6 +139,10 @@ data class QueueEntry(
             } catch (_: Exception) { DownloadType.AREA },
             priority = j.optInt("priority", DownloadPriority.AREA),
             completedAt = j.optLong("completedAt", 0L),
+            // THROUGHPUT-2026-08-08C: optLong/optDouble defaults mean an OLD
+            // download_queue.json loads clean -- absent fields read as 0.
+            startedAt = j.optLong("startedAt", 0L),
+            tilesPerSec = j.optDouble("tilesPerSec", 0.0),
             // CORRIDOR-QUEUE-2026-07-24: defaulted - legacy entries lack this key.
             geomHash = j.optString("geomHash", "")
         )
@@ -180,8 +198,20 @@ object DownloadQueueManager {
         init(context)
         val tiles = ConvoyTileCalculator.calculateTiles(north, south, east, west)
         MapSourceManager.init(context)
-        val layerCount = MapSourceManager.getDownloadSources().sumOf { it.second.size }
-        val totalTiles = tiles.size * layerCount
+        // THROUGHPUT-2026-08-08C: was an UNFILTERED sumOf over getDownloadSources
+        // -- the layer count of EVERY download source added together (its own
+        // log line below says layerCountAllSlots, slot=ALL). Under Esri that
+        // summed to 3 and happened to match what one Esri download wrote, so it
+        // looked right. Under Google Hybrid one layer is written and the
+        // estimate stayed at 3x: measured 08-08, a job estimated 19,000 and
+        // finished at 6,463 (2.94x).
+        // ⚠ NOT a blanket removal of the multiplier. A slot back on Esri must
+        // still count its 3 layers. This takes the layer count of the slot
+        // being written, matching enqueueArea's segmented path (:257) and the
+        // workers (ConvoyCorridorWorker:114, ConvoyDownloadWorker:83).
+        val layerCount = MapSourceManager.getDownloadSources()
+            .filter { it.first == "SAT" }.sumOf { it.second.size }
+        val totalTiles = tiles.size * Math.max(1, layerCount)
 
         val entry = QueueEntry(
             north = north, south = south, east = east, west = west,
@@ -770,7 +800,17 @@ object DownloadQueueManager {
                 completedAt = System.currentTimeMillis(),
                 status = QueueStatus.COMPLETE,
                 downloadedTiles = downloaded,
-                failedTiles = failed
+                failedTiles = failed,
+                // THROUGHPUT-2026-08-08C: computed here, where duration and
+                // tile count are both known and both final. Falls back to
+                // createdAt only for an entry that predates the startedAt
+                // field -- a stale-but-present number beats none, and the
+                // panel can tell the difference because startedAt is 0.
+                tilesPerSec = run {
+                    val began = if (it.startedAt > 0L) it.startedAt else it.createdAt
+                    val sec = (System.currentTimeMillis() - began) / 1000.0
+                    if (sec > 0.0) downloaded / sec else 0.0
+                }
             )
         }
         android.util.Log.i(TAG, "Complete: id=$entryId downloaded=$downloaded failed=$failed")
@@ -808,6 +848,11 @@ object DownloadQueueManager {
     }
 
     private fun launchWorker(entry: QueueEntry) {
+        // THROUGHPUT-2026-08-08C: the job starts HERE. Without this stamp the
+        // observed rate is measured from enqueue time and is wrong by however
+        // long the job waited. Written before the worker is built so it is set
+        // even if WorkManager defers the actual start by a moment.
+        updateEntry(entry.id) { it.copy(startedAt = System.currentTimeMillis()) }
         val inputData = Data.Builder()
             .putString("entry_id", entry.id)
             .putDouble("north", entry.north)

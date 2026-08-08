@@ -291,9 +291,18 @@ private fun estimateRemaining(tilesRemaining: Int): Pair<String, String>? {
         .sortedByDescending { it.completedAt }
         .take(2)
     if (done.size < 2) return null
+    // THROUGHPUT-2026-08-08C: prefer the rate the job STORED at completion.
+    // Falls back to computing from startedAt, then to createdAt for entries
+    // that predate the field. createdAt is QUEUE time -- a job that waited
+    // behind others carries that wait in its elapsed, which is what made these
+    // estimates unusable.
     val rates = done.mapNotNull {
-        val sec = (it.completedAt - it.createdAt) / 1000.0
-        if (sec > 0) it.downloadedTiles / sec else null
+        if (it.tilesPerSec > 0.0) it.tilesPerSec
+        else {
+            val began = if (it.startedAt > 0L) it.startedAt else it.createdAt
+            val sec = (it.completedAt - began) / 1000.0
+            if (sec > 0) it.downloadedTiles / sec else null
+        }
     }
     if (rates.isEmpty()) return null
     val rate = rates.average()
