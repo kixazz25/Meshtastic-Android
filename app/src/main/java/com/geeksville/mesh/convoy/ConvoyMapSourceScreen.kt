@@ -279,6 +279,10 @@ fun ConvoyMapSourceScreen(
     var migRunning by remember { mutableStateOf(false) }
     var migSteps by remember { mutableStateOf(listOf<String>()) }
     var migProgress by remember { mutableStateOf("") }
+    // MIGSURFACE-2026-08-08Q: the growing step list. Each entry is
+    // (label, done) -- rendered in place under the options, OSM-import style,
+    // rather than in a second dialog.
+    var migLog by remember { mutableStateOf(listOf<Pair<String, Boolean>>()) }
     var migFraction by remember { mutableFloatStateOf(-1f) }
 
     // ── Source Change Panel ──────────────────────────────────────
@@ -396,10 +400,16 @@ fun ConvoyMapSourceScreen(
                                     // estimate (Fred 08-08: under an hour typically,
                                     // two at the extreme), so it is stated as a range
                                     // and never as a promise.
-                                    "Your track maps are removed and rebuilt from the new "
-                                    + "source. Without this, tracks are covered as boxed "
-                                    + "areas instead, which downloads a good deal more for "
-                                    + "the same ground. Adds roughly one to two hours.",
+                                    // MIGSURFACE-2026-08-08Q: the figure is measured,
+                                    // not estimated. 08-08: 30 tracks swept up as
+                                    // areas cost 2M+ tiles on one source; 89 tracks
+                                    // as proper corridors cost 1.5M across three.
+                                    // Corridors were designed for ~90% fewer tiles
+                                    // and that holds.
+                                    "Your track maps are removed and rebuilt along your "
+                                    + "tracks. Leave this off and the same ground is "
+                                    + "covered as boxed areas instead, which downloads "
+                                    + "roughly ten times as many tiles for it.",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.padding(start = 12.dp, bottom = 6.dp)
@@ -492,6 +502,140 @@ fun ConvoyMapSourceScreen(
                                     .plus("can be recorded.")
                                 refreshEnqueued = true
                             } else if (migChoice == "auto") {
+                                // MIGSURFACE-2026-08-08Q: runs ON SCREEN, in place.
+                                migRunning = true
+                                migLog = listOf()
+                                scope.launch {
+                                    try {
+                                        ConvoySourceMigration.noteReloadChoice(record, "auto")
+                                        // ── STEP 0: what did the handler ACTUALLY get? ──
+                                        // On 08-08 the delete silently did not run because
+                                        // optTracks was false here while the box appeared
+                                        // ticked. Recording it makes a repeat one line on
+                                        // screen instead of an evening of inference.
+                                        android.util.Log.i("MIGSURFACE",
+                                            "MIGSURFACE-2026-08-08Q start: tracks=$optTracks "
+                                            + "areas=$optAreas slot=$slot")
+                                        migLog = migLog + Pair(
+                                            "Selected: " +
+                                                (if (optTracks) "track maps" else "") +
+                                                (if (optTracks && optAreas) " + " else "") +
+                                                (if (optAreas) "areas" else ""),
+                                            true
+                                        )
+
+                                        // ── Quiet the queue. Deleting from a store a
+                                        // running job is writing to is the one ordering
+                                        // that cannot be allowed. ──
+                                        migProgress = "Holding queue"
+                                        withContext(Dispatchers.IO) {
+                                            DownloadQueueManager.holdQueue()
+                                            DownloadQueueManager.cancelAll()
+                                        }
+                                        migLog = migLog + Pair(
+                                            "Queue held, pending work cleared", true)
+
+                                        if (optTracks) {
+                                            migLog = migLog + Pair("Scanning track maps", false)
+                                            migProgress = "Reading tracks - this can take a minute"
+                                            val preview = withContext(Dispatchers.IO) {
+                                                ConvoyCorridorDelete.previewAllTracks(context, "SAT")
+                                            }
+                                            migLog = migLog.dropLast(1) + Pair(
+                                                "Scanned ${preview.tracks.size} tracks - " +
+                                                "${preview.onDiskTotal} tiles", true)
+
+                                            // ⛔ THE DELETE. Not optional when corridors
+                                            // are selected: leaving these tiles in place
+                                            // is what makes the area pass re-cover the
+                                            // same ground as boxes, at ~10x the tiles.
+                                            migLog = migLog + Pair("Removing track maps", false)
+                                            val del = withContext(Dispatchers.IO) {
+                                                ConvoyCorridorDelete.deleteAllTrackCorridors(
+                                                    context, "SAT"
+                                                ) { done, total, name ->
+                                                    // ⛔ fires on IO -- hop to main.
+                                                    scope.launch(Dispatchers.Main) {
+                                                        migProgress =
+                                                            "Removing corridor map $done of $total - $name"
+                                                        migFraction =
+                                                            if (total > 0) done.toFloat() / total
+                                                            else -1f
+                                                    }
+                                                }
+                                            }
+                                            migProgress = ""
+                                            migFraction = -1f
+                                            migLog = migLog.dropLast(1) + Pair(
+                                                "Removed ${del.tilesRemoved} tiles from " +
+                                                "${del.tracksProcessed} track maps", true)
+
+                                            migProgress = "Submitting track maps"
+                                            val hashes = withContext(Dispatchers.IO) {
+                                                SpatialDbManager.allTrackGeomHashes()
+                                                    .map { h -> h.first }
+                                            }
+                                            val batch = withContext(Dispatchers.IO) {
+                                                DownloadQueueManager.enqueueCorridorBatch(
+                                                    context, hashes, listOf("SAT"), true
+                                                )
+                                            }
+                                            migLog = migLog + Pair(
+                                                "Submitted ${batch.jobs} track maps " +
+                                                "(${batch.tiles} tiles)", true)
+                                        }
+
+                                        if (optAreas) {
+                                            // What is LEFT after the corridor delete. On a
+                                            // corridor-only map that is nothing, and zero
+                                            // is a legitimate answer -- submit nothing and
+                                            // say so, rather than queueing jobs against
+                                            // ground that is not there (08-08: 172 of them).
+                                            migProgress = "Checking remaining map areas"
+                                            val cells = withContext(Dispatchers.IO) {
+                                                DownloadQueueManager.enqueueRefresh(
+                                                    context, "SAT", "SAT")
+                                            }
+                                            migLog = migLog + Pair(
+                                                if (cells > 0)
+                                                    "Submitted map areas ($cells jobs)"
+                                                else
+                                                    "No map areas to process",
+                                                true
+                                            )
+                                        }
+
+                                        migProgress = ""
+                                        withContext(Dispatchers.IO) {
+                                            DownloadQueueManager.resumeQueue()
+                                        }
+                                        migLog = migLog + Pair("Queue released", true)
+                                        ConvoySourceMigration.complete(record)
+                                        clearResult = "Everything is submitted. Downloads run " +
+                                            "in the background and can be watched in the " +
+                                            "download queue. They resume by themselves if the " +
+                                            "app or device restarts."
+                                    } catch (e: Exception) {
+                                        // ⚠ 08-08: a throw here left the panel up with no
+                                        // way out. Release the queue and report, always.
+                                        android.util.Log.e("MIGSURFACE",
+                                            "MIGSURFACE-2026-08-08Q failed: ${e.message}", e)
+                                        withContext(Dispatchers.IO) {
+                                            DownloadQueueManager.resumeQueue()
+                                        }
+                                        migLog = migLog + Pair("Stopped: ${e.message}", true)
+                                        clearResult = "The move stopped partway: ${e.message}. " +
+                                            "The queue has been released. Anything already " +
+                                            "submitted is still in the download queue."
+                                    } finally {
+                                        // Terminal state cannot be skipped by a throw.
+                                        migProgress = ""
+                                        migFraction = -1f
+                                        migRunning = false
+                                        refreshEnqueued = true
+                                    }
+                                }
+                            } else if (migChoice == "auto_unreachable") {
                                 // MIGOPT2-2026-08-08D: runs ON SCREEN, not detached.
                                 // The delete is an inline loop with no queue entry --
                                 // killing the process mid-run strands the user with
@@ -637,6 +781,14 @@ fun ConvoyMapSourceScreen(
                 }
             )
         } else if (migRunning) {
+            // MIGSURFACE-2026-08-08Q: see the step list built below. This branch
+            // is retained so the panel has a surface while work runs.
+            MigrationSteps(
+                steps = migLog,
+                progress = migProgress,
+                fraction = migFraction
+            )
+        } else if (false) {
             // ── MIGOPT2-2026-08-08D: PHASE 2b - the roll-up ──────
             // No dismiss, no buttons. The delete cannot be interrupted safely,
             // and the enqueues take seconds. The user watches or waits.
@@ -712,6 +864,64 @@ fun ConvoyMapSourceScreen(
             onDismiss = { showApiKeyDialog = null }
         )
     }
+}
+
+/**
+ * MIGSURFACE-2026-08-08Q: the growing step list, modelled on the OSM import
+ * panel's ExtractProgressList. Steps accumulate in place and everything below
+ * slides down -- one surface, not a chain of dialogs.
+ */
+@Composable
+private fun MigrationSteps(
+    steps: List<Pair<String, Boolean>>,
+    progress: String,
+    fraction: Float
+) {
+    AlertDialog(
+        onDismissRequest = { },
+        title = { Text("Moving your maps") },
+        text = {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                steps.forEach { (label, done) ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            if (done) "\u2611" else "\u2610",
+                            fontSize = 15.sp,
+                            modifier = Modifier.width(24.dp)
+                        )
+                        Text(
+                            label,
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    Spacer(Modifier.height(6.dp))
+                }
+                if (progress.isNotBlank()) {
+                    Text(
+                        progress,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(start = 24.dp)
+                    )
+                }
+                if (fraction >= 0f) {
+                    Spacer(Modifier.height(4.dp))
+                    LinearProgressIndicator(
+                        progress = { fraction },
+                        modifier = Modifier.fillMaxWidth().padding(start = 24.dp)
+                    )
+                }
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    "Please leave this on screen until it finishes.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        },
+        confirmButton = { }
+    )
 }
 
 // ── Composables ───────────────────────────────────────────────────────────────
