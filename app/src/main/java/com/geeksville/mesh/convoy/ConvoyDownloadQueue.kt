@@ -154,7 +154,38 @@ data class QueueEntry(
 // ===========================================================
 object DownloadQueueManager {
 
-    private const val MAX_CONCURRENT = 2  // [V2.6b] 2 queues (2 beat 3 on balanced segments 07-11); testing 2x10 async
+    // QEVAL-2026-08-08I: was a compile-time constant of 2.
+    // [V2.6b] 2 queues (2 beat 3 on balanced segments 07-11) -- but that was
+    // measured against ESRI at ~11 tiles/sec. Google Hybrid runs ~25, a
+    // different server characteristic, so the conclusion does not carry over.
+    // Runtime-settable 1..4 so it can be re-measured without a rebuild.
+    // ⚠ RAISING takes effect as jobs finish (startNextIfAvailable fills the new
+    // slots on the next completion). LOWERING does not pull running jobs back;
+    // it drifts down as they finish. Correct, not a bug.
+    private var maxConcurrent: Int = 2
+    val MAX_CONCURRENT: Int get() = maxConcurrent
+
+    /** QEVAL-2026-08-08I: clamped 1..4 and persisted. */
+    fun setMaxConcurrent(context: Context, value: Int) {
+        val v = value.coerceIn(1, 4)
+        maxConcurrent = v
+        try {
+            context.getSharedPreferences("convoy_queue", Context.MODE_PRIVATE)
+                .edit().putInt("max_concurrent", v).apply()
+        } catch (e: Exception) {
+            android.util.Log.w(TAG, "setMaxConcurrent persist failed: ${e.message}")
+        }
+        android.util.Log.i(TAG, "QEVAL-2026-08-08I maxConcurrent=$v")
+        startNextIfAvailable()
+    }
+
+    /** QEVAL-2026-08-08I: restore the saved value. Safe to call repeatedly. */
+    fun loadMaxConcurrent(context: Context) {
+        maxConcurrent = try {
+            context.getSharedPreferences("convoy_queue", Context.MODE_PRIVATE)
+                .getInt("max_concurrent", 2).coerceIn(1, 4)
+        } catch (e: Exception) { 2 }
+    }
     private const val QUEUE_FILE = "download_queue.json"
     private const val TAG = "DownloadQueue"
 

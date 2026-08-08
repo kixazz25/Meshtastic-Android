@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.sp
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import androidx.compose.ui.platform.LocalContext
 
 // ----------------------------------------------------------------
 // Download Queue Panel -- summary pill + expandable detail view
@@ -61,6 +62,11 @@ fun DownloadQueuePanel(
     // rows you cannot see is how the wrong thing gets wiped.
     var typeFilter by remember { mutableStateOf<DownloadType?>(null) }
     var confirmAction by remember { mutableStateOf<Pair<String, () -> Unit>?>(null) }
+    // QEVAL-2026-08-08I: restore the persisted concurrency once per panel entry.
+    // Cheap, and the manager is a singleton that may outlive any one screen.
+    val qeCtx = LocalContext.current
+    LaunchedEffect(Unit) { DownloadQueueManager.loadMaxConcurrent(qeCtx) }
+    var qeSlots by remember { mutableIntStateOf(DownloadQueueManager.MAX_CONCURRENT) }
     val shown = queue.filter { typeFilter == null || it.downloadType == typeFilter }
     val active = shown.filter { it.status == QueueStatus.DOWNLOADING }
     val queued = shown.filter { it.status == QueueStatus.QUEUED }
@@ -88,6 +94,65 @@ fun DownloadQueuePanel(
                 queued = queued,
                 onClick = onToggle
             )
+            // ── QEVAL-2026-08-08I: AGGREGATE throughput + concurrency control ──
+            // ⚠ Aggregate, not per-job. Per-job tiles/sec FALLS as slots are
+            // added -- each job takes a smaller share of the same pipe -- so a
+            // single row reads like a regression when throughput is actually up.
+            // This sums the running jobs, which is the number the concurrency
+            // experiment turns on.
+            if (expanded) {
+                val qeLive = active.sumOf { e ->
+                    val began = if (e.startedAt > 0L) e.startedAt else 0L
+                    val secs = if (began > 0L)
+                        (System.currentTimeMillis() - began) / 1000.0 else 0.0
+                    if (secs > 0.0) e.downloadedTiles / secs else 0.0
+                }
+                Spacer(Modifier.height(6.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        String.format("%.1f tiles/sec across %d running",
+                            qeLive, active.size),
+                        color = accentBlue, fontSize = 9.sp, fontFamily = mono
+                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("slots", color = dimText, fontSize = 9.sp, fontFamily = mono)
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            "-",
+                            color = if (qeSlots > 1) accentGreen else dimText,
+                            fontSize = 13.sp, fontFamily = mono,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier
+                                .clickable(enabled = qeSlots > 1) {
+                                    qeSlots -= 1
+                                    DownloadQueueManager.setMaxConcurrent(qeCtx, qeSlots)
+                                }
+                                .padding(horizontal = 8.dp)
+                        )
+                        Text(
+                            "$qeSlots",
+                            color = brightText, fontSize = 11.sp,
+                            fontFamily = mono, fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            "+",
+                            color = if (qeSlots < 4) accentGreen else dimText,
+                            fontSize = 13.sp, fontFamily = mono,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier
+                                .clickable(enabled = qeSlots < 4) {
+                                    qeSlots += 1
+                                    DownloadQueueManager.setMaxConcurrent(qeCtx, qeSlots)
+                                }
+                                .padding(horizontal = 8.dp)
+                        )
+                    }
+                }
+            }
 
             // -- Expanded detail --
             AnimatedVisibility(
@@ -510,8 +575,23 @@ private fun QueuedItemRow(entry: QueueEntry, position: Int) {
     }
 }
 
+/** QEVAL-2026-08-08I: elapsed span. Seconds under a minute, so a fast job does
+ *  not read as "0m". */
+private fun qdElapsed(ms: Long): String {
+    if (ms <= 0L) return "-"
+    val s = ms / 1000
+    return when {
+        s < 60 -> "${s}s"
+        s < 3600 -> "${s / 60}m ${s % 60}s"
+        else -> "${s / 3600}h ${(s % 3600) / 60}m"
+    }
+}
+
 @Composable
 private fun CompletedItemRow(entry: QueueEntry) {
+    // QEVAL-2026-08-08I: per-row state keyed on id -- each row owns whether it
+    // is expanded, so the list stays scannable with detail one tap away.
+    var qdOpen by remember(entry.id) { mutableStateOf(false) }
     val statusText = when (entry.status) {
         QueueStatus.COMPLETE -> "Done"
         QueueStatus.FAILED -> "Failed"
@@ -524,6 +604,10 @@ private fun CompletedItemRow(entry: QueueEntry) {
         QueueStatus.CANCELLED -> dimText
         else -> dimText
     }
+    Column(modifier = Modifier
+        .fillMaxWidth()
+        .clickable { qdOpen = !qdOpen }   // QEVAL-2026-08-08I
+    ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -538,6 +622,38 @@ private fun CompletedItemRow(entry: QueueEntry) {
             "${entry.downloadedTiles} tiles",
             color = dimText, fontSize = 9.sp, fontFamily = mono
         )
+    }
+    // ── QEVAL-2026-08-08I: the detail. All of this was already recorded on
+    // the entry and simply never shown. ──
+    if (qdOpen) {
+        val began = if (entry.startedAt > 0L) entry.startedAt else entry.createdAt
+        val dur = if (entry.completedAt > 0L) entry.completedAt - began else 0L
+        // Prefer the rate the job STORED at completion. Entries that predate
+        // startedAt fall back to a rate that includes queue wait -- marked
+        // with a tilde rather than passed off as measured.
+        val stored = entry.tilesPerSec
+        val rate = if (stored > 0.0) stored
+                   else if (dur > 0L) entry.downloadedTiles * 1000.0 / dur else 0.0
+        val approx = stored <= 0.0 && entry.startedAt <= 0L
+        Column(modifier = Modifier.padding(start = 12.dp, bottom = 4.dp)) {
+            Text(
+                "started  ${if (began > 0L) dateFmt.format(Date(began)) else "-"}" +
+                    "    took  ${qdElapsed(dur)}",
+                color = dimText, fontSize = 8.sp, fontFamily = mono
+            )
+            Text(
+                (if (approx) "~" else "") + String.format("%.1f tiles/sec", rate),
+                color = accentBlue, fontSize = 8.sp, fontFamily = mono
+            )
+            // Submitted vs actual. A ~3x gap means an enqueue path is still
+            // inflating its estimate (see the 08-08 layer-count fix).
+            Text(
+                "downloaded ${entry.downloadedTiles}  of ${entry.totalTiles} submitted" +
+                    (if (entry.failedTiles > 0) "   ${entry.failedTiles} failed" else ""),
+                color = dimText, fontSize = 8.sp, fontFamily = mono
+            )
+        }
+    }
     }
 }
 
