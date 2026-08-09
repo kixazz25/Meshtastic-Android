@@ -121,16 +121,24 @@ object MBTilesStore {
         // on storage that already logs SELinux denials, and a database the
         // framework considers corrupt can be DELETED by the default error
         // handler. Crash-safety is not tradeable here for delete speed.
-        try {
-            d.execSQL("PRAGMA secure_delete=OFF")
-            d.execSQL("PRAGMA synchronous=NORMAL")
-            d.rawQuery("PRAGMA journal_mode=TRUNCATE", null).use { c ->
-                if (c.moveToFirst()) {
-                    android.util.Log.i(TAG, "MBPRAGMA-2026-08-09D: journal=" + c.getString(0) + " secure_delete=OFF synchronous=NORMAL")
+        // MBPRAGMA-2026-08-09G: every pragma goes through rawQuery, one try each.
+        //
+        // The previous attempt used execSQL for two of the three and set
+        // NOTHING on device: Android refuses any statement that returns a
+        // row, and these return their new value. The first call threw and
+        // took the other two down with it, including the one already written
+        // correctly. Separate try blocks so a single failure cannot silence
+        // the rest, and each logs what SQLite actually reports back.
+        for (p in listOf("secure_delete=OFF", "synchronous=NORMAL",
+                         "journal_mode=TRUNCATE")) {
+            try {
+                d.rawQuery("PRAGMA $p", null).use { c ->
+                    val got = if (c.moveToFirst()) c.getString(0) else "(no row)"
+                    android.util.Log.i(TAG, "MBPRAGMA-2026-08-09G: $p -> $got")
                 }
+            } catch (e: Exception) {
+                android.util.Log.w(TAG, "MBPRAGMA-2026-08-09G: $p FAILED: ${e.message}")
             }
-        } catch (e: Exception) {
-            android.util.Log.w(TAG, "MBPRAGMA-2026-08-09D: pragma set failed: ${e.message}")
         }
         d.execSQL("CREATE TABLE IF NOT EXISTS tiles (zoom_level INTEGER, tile_column INTEGER, tile_row INTEGER, tile_data BLOB)")
         d.execSQL("CREATE TABLE IF NOT EXISTS metadata (name TEXT, value TEXT)")
