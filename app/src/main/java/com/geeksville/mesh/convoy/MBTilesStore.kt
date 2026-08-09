@@ -89,6 +89,49 @@ object MBTilesStore {
     }
 
     private fun ensureSchema(d: SQLiteDatabase) {
+        // MBPRAGMA-2026-08-09D: per-connection pragmas, set on EVERY open.
+        //
+        // No pragmas were set anywhere in this file before this, so every
+        // store ran on Android defaults.
+        //
+        // secure_delete: Android ships it ON, which overwrites freed content
+        // with zeros instead of marking pages free. Tiles average ~23 KB, so
+        // a 21,852-tile delete wrote ~500 MB of zeros -- measured 08-09 at
+        // ~2.6 MB/s, which is what made the corridor delete ~98 tiles/sec.
+        //
+        // synchronous NORMAL: the default forces an fsync on every commit.
+        // SQLite runs millions of statements per second, so statement volume
+        // alone cannot explain the measured time -- commit cost can. NORMAL
+        // keeps the rollback journal, so a crash still rolls back cleanly and
+        // a rolled-back delete is simply re-run.
+        //
+        // All three are PER-CONNECTION: none is persisted in the file,
+        // nothing already written is touched, and there is no migration.
+        // That is why this needs no upgrade path for existing stores.
+        //
+        // *** DO NOT SWITCH THIS TO A NON-DURABLE JOURNAL SETTING. *** The
+        // two modes that skip the rollback journal entirely leave the file in
+        // an UNDEFINED STATE if a write is interrupted -- not a partial
+        // delete you can re-run, a potentially corrupt database. And the
+        // write-ahead option is PERSISTENT: it changes the file format and
+        // adds companion files, so it WOULD need a real migration, and
+        // SQLite documents it as performing badly above ~100 MB per
+        // transaction and failing outright above a gigabyte -- which a
+        // 600k-tile delete exceeds. These stores are ~14 GB with NO BACKUP,
+        // on storage that already logs SELinux denials, and a database the
+        // framework considers corrupt can be DELETED by the default error
+        // handler. Crash-safety is not tradeable here for delete speed.
+        try {
+            d.execSQL("PRAGMA secure_delete=OFF")
+            d.execSQL("PRAGMA synchronous=NORMAL")
+            d.rawQuery("PRAGMA journal_mode=TRUNCATE", null).use { c ->
+                if (c.moveToFirst()) {
+                    android.util.Log.i(TAG, "MBPRAGMA-2026-08-09D: journal=" + c.getString(0) + " secure_delete=OFF synchronous=NORMAL")
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.w(TAG, "MBPRAGMA-2026-08-09D: pragma set failed: ${e.message}")
+        }
         d.execSQL("CREATE TABLE IF NOT EXISTS tiles (zoom_level INTEGER, tile_column INTEGER, tile_row INTEGER, tile_data BLOB)")
         d.execSQL("CREATE TABLE IF NOT EXISTS metadata (name TEXT, value TEXT)")
         d.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS tile_index ON tiles(zoom_level, tile_column, tile_row)")
