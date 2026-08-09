@@ -313,7 +313,20 @@ fun ConvoyMapSourceScreen(
                     TextButton(onClick = { showPanel = true }) { Text("NEXT STEP") }
                 }
             )
-        } else if (!refreshEnqueued) {
+        // MIGRENDER-2026-08-09E: this branch must YIELD once the migration starts.
+        //
+        // The chain below it holds the step checklist, the progress line and
+        // the bar. refreshEnqueued only flips true at the END of the run, so
+        // without the second condition this branch won the chain for the
+        // whole migration and NONE of that surface could ever draw. The user
+        // pressed CONTINUE, the screen did not change, and a multi-minute
+        // irreversible delete ran with no feedback at all.
+        //
+        // Every piece of the checklist was already built and correct. The
+        // defect was the ORDER OF THE BRANCHES, not any of the parts -- which
+        // is why reading the callback, the threading, the state writes and the
+        // renderer in turn all came up clean.
+        } else if (!refreshEnqueued && !migRunning) {
             // ── PHASE 2: THE PANEL ───────────────────────────────
             // One surface for the whole decision. Reload options and
             // replace-in-place are named but not built yet; the panel says so
