@@ -208,7 +208,27 @@ object SpatialDisplayManager {
             // ⭐ A tighter cap is only safe BECAUSE of the ORDER BY: binding it
             // now returns the SAME named-and-largest 10,000 every time, where
             // before it returned an arbitrary rowid subset that churned on pan.
-            "Trails" -> 10_000
+            // TRAILS-CAP-2026-08-09B: cap is now ZOOM-DEPENDENT.
+            //
+            // The gate came down to 9 the same day (see ZOOM-Z9-2026-08-09
+            // above), which opened viewports several times wider than the
+            // level this cap was sized for. On device the draw was too slow
+            // there. Cutting the wide-view cap fixes the draw without
+            // touching the close-in case, where far fewer rows match anyway
+            // and the cap does not bind.
+            //
+            // *** DISPLAY CAP ONLY - THE TRAIL SET IS UNCHANGED AT 10,000. ***
+            // Nothing leaves the database. The ORDER BY in
+            // queryTrailsByViewport (named first, then largest extent) makes
+            // the capped subset STABLE across pans and keeps the trails worth
+            // seeing - which is what makes a tighter cap tolerable here where
+            // it was not before, when binding it returned an arbitrary rowid
+            // subset that churned on every pan.
+            //
+            // IF THE WIDE VIEW IS STILL SLOW: lower the low-zoom figure
+            // first. Do not raise the gate back up - the wide view is what
+            // testers asked for (orient wide, zoom for detail).
+            "Trails" -> if (zoom < 10) 2_000 else 5_000
             else -> if (zoom < 14) 500 else 2000
         }
 
