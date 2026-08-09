@@ -96,7 +96,28 @@ object SpatialDisplayManager {
             // frame time rather than ANR. Device evidence says canvas ANRs too.
             // ⛔ DO NOT lower the row cap as an alternative. At z11 trails currently
             // all fit; lowering the cap makes them disappear at z11 as well.
-            "updateTrails", "showTrails", "hideTrails", 11
+            // ZOOM-Z9-2026-08-09: trails gate lowered to 9.
+            //
+            // *** CORRECTS THE CONCLUSION IN THE COMMENT BLOCK ABOVE. ***
+            // That block ends by saying this level must not be attempted again
+            // without vector tiles / MapLibre. Fred 08-09: that is NOT what the
+            // device showed. The ANR was a ROW-COUNT event - it happened with a
+            // twenty-thousand-row cap. The level itself ran fine. The later move
+            // back up was a PRODUCT judgement about what testers needed, and a
+            // survey since has reversed it: they want to orient at a wide view
+            // and zoom in for detail.
+            //
+            // *** WHY THIS IS SAFE NOW, STRUCTURALLY. *** The trail set itself was
+            // cut to 10,000 rows total. The cap below can therefore NEVER bind at
+            // any zoom - the worst case at any viewport is the entire set, which
+            // is half the row count that ANR'd. Going wider costs nothing once the
+            // set is smaller than the cap.
+            //
+            // IF IT DOES STALL: drop the trail set to 7,500 (Fred's stated lever).
+            // Do NOT raise this gate back up as the first move, and do NOT lower
+            // the cap below - at the previous gate trails all fit, and a tighter
+            // cap makes them vanish there too.
+            "updateTrails", "showTrails", "hideTrails", 9
         )
         "Tracks" -> TypeBinding(
             "track_id",
@@ -169,7 +190,13 @@ object SpatialDisplayManager {
         //
         // Waypoints and Routes keep the old behaviour deliberately.
         val limit = when (type) {
-            "Tracks" -> if (zoom >= 12) 200 else 50
+            // ZOOM-Z9-2026-08-09: tracks cap is now FLAT.
+            // It previously halved above a mid-level threshold and returned a
+            // fraction of the set below it - so zooming out to orient showed only
+            // a quarter of a rider's tracks, which reads as broken. Tracks were
+            // never gated by minZoom (it is 0); this cap was the actual limiter.
+            // ~200 tracks in practice, so 500 draws everything with headroom.
+            "Tracks" -> 500
             // TRAILS-GATE-ORDER-2026-07-31: 120,000 ANR'd the WebView at z8 — SVG builds
             // a DOM element per trail. This is now a SAFETY VALVE, not the
             // mechanism: the minZoom 11 gate below means the wide-viewport case
