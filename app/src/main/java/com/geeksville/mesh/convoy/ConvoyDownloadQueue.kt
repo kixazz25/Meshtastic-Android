@@ -673,7 +673,9 @@ object DownloadQueueManager {
             android.util.Log.w(TAG, "enqueueCorridor: no geometry for $geomHash")
             return 0
         }
-        val tiles = ConvoyTileCalculator.corridorTiles(segments)
+        // ZOOMSLOT-2026-08-10D: pass the slot so the zoom rule applies. The delete
+        // path deliberately does not - see corridorTiles.
+        val tiles = ConvoyTileCalculator.corridorTiles(segments, slotName = slotName)
         if (tiles.isEmpty()) {
             android.util.Log.w(TAG, "enqueueCorridor: empty corridor for $geomHash")
             return 0

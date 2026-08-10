@@ -71,6 +71,28 @@ object ConvoyTileCalculator {
     // display ceilings are intentionally decoupled.
     fun maxZoomForSource(sourceName: String): Int = ConvoyConfig.DOWNLOAD_ZOOM
 
+    /**
+     * ZOOMSLOT-2026-08-10D: THE DOWNLOAD ZOOM RULE. Satellite to z18, rendered maps to z16.
+     *
+     * Economics, not capability: each level quadruples the tile count. Above z18
+     * satellite imagery in open country is upscaled rather than sharper, and
+     * above z16 a topo map has said everything it has to say - contours do not
+     * gain detail, labels just get bigger. So the levels above these cost 4x
+     * per step and return nothing.
+     *
+     * KEYED ON THE SLOT, NOT THE SOURCE, because every download path already
+     * carries the slot and none of them carry the source. That is also why this
+     * publishes as a rule a rider can understand instead of a table of vendor
+     * ceilings nobody should have to know.
+     *
+     * An empty slot means NO CAP - see the note on corridorTiles.
+     */
+    fun maxZoomForSlot(slotName: String): Int = when (slotName.uppercase()) {
+        "" -> ConvoyConfig.DOWNLOAD_ZOOM
+        "SAT" -> minOf(18, ConvoyConfig.DOWNLOAD_ZOOM)
+        else -> minOf(16, ConvoyConfig.DOWNLOAD_ZOOM)
+    }
+
     /** CORRIDOR-DERIVATION-2026-07-24: the tile set within `bufferDeg` of a line.
      *
      *  NO POLYGON IS BUILT. Walk the points and stamp every tile within the
@@ -95,11 +117,28 @@ object ConvoyTileCalculator {
         segments: List<List<Pair<Double, Double>>>,
         bufferDeg: Double = 0.00724,
         zMin: Int = ConvoyConfig.DOWNLOAD_ZOOM_MIN,
-        zMax: Int = ConvoyConfig.DOWNLOAD_ZOOM
+        zMax: Int = ConvoyConfig.DOWNLOAD_ZOOM,
+        // ZOOMSLOT-2026-08-10D: slot for the zoom rule. EMPTY MEANS NO CAP, and that default
+        // exists for one caller in particular: ConvoyCorridorDelete.
+        //
+        // *** A CAPPED DELETE WOULD STRAND TILES FOREVER. *** The delete derives
+        // the set it removes from this same function. Cap it, and it computes a
+        // smaller set than an older build stored - leaving z17-z18 tiles that
+        // nothing can subsequently find or remove, on a store measured in
+        // gigabytes. So the delete deliberately does NOT pass a slot and keeps
+        // computing the full historical range.
+        //
+        // Only the two DOWNLOAD paths pass one. That asymmetry is the point.
+        slotName: String = ""
     ): List<TileKey> {
         val keys = LinkedHashSet<TileKey>()
-        // Half a tile width at zMax, in degrees of longitude.
-        val stepDeg = (360.0 / Math.pow(2.0, zMax.toDouble())) / 2.0
+        val zTop = minOf(zMax, maxZoomForSlot(slotName))
+        if (zTop < zMax) {
+            android.util.Log.i("Corridor",
+                "ZOOMSLOT-2026-08-10D: $slotName capped z$zMax -> z$zTop")
+        }
+        // Half a tile width at zTop, in degrees of longitude.
+        val stepDeg = (360.0 / Math.pow(2.0, zTop.toDouble())) / 2.0
         for (seg in segments) {
             if (seg.isEmpty()) continue
             for (i in seg.indices) {

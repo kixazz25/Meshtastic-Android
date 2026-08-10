@@ -82,7 +82,7 @@ class ConvoyCorridorWorker(
             DownloadQueueManager.markFailed(entryId, "Track geometry not found")
             return Result.failure()
         }
-        val corridor = ConvoyTileCalculator.corridorTiles(segments)
+        val corridor = ConvoyTileCalculator.corridorTiles(segments, slotName = slotName)
         if (corridor.isEmpty()) {
             android.util.Log.w(TAG, "Empty corridor for hash=$geomHash")
             DownloadQueueManager.markComplete(entryId, 0, 0)
