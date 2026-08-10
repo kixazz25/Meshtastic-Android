@@ -9,7 +9,7 @@
 <html lang="en"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<title>GroupTrack V2.6e — Release Notes</title>
+<title>GroupTrack V2.6e — Release Notes — 2026-08-08</title>
 <style>
   :root{--bg:#10130f;--panel:#181c15;--ink:#e8ece2;--dim:#9aa68c;--line:#2b3324;
     --accent:#7bb661;--accent2:#d9a441;--warn:#e0563b;--ui:-apple-system,"Segoe UI",Roboto,sans-serif;--body:Georgia,serif;}
@@ -37,8 +37,41 @@
 .rnimg-row figcaption{font:12px system-ui,sans-serif;color:#555;margin-top:4px}
 </style></head>
 <body>
+<div style="border-left:3px solid #7bb661;padding:10px 14px;margin:14px 0;background:#181c15">
+<h3 style="margin:0 0 6px">New in this build (2026-08-09)</h3>
+<ul style="margin:6px 0 0 18px">
+<li><b>Download time estimates are now correct.</b> The estimate and the speed shown on the queue
+panel were two separate calculations that could disagree by a wide margin. They are now the same
+number: tiles remaining divided by the speed on screen.</li>
+<li><b>The map source change now shows its progress.</b> A step list appears while your maps are
+being moved, with a progress bar for the removal stage. Previously the screen did not change at
+all while the work ran.</li>
+<li><b>Simultaneous downloads default to 4</b> on a new install, and the queue panel shows the
+combined rate across all of them.</li>
+<li><b>Trails now appear when zoomed further out</b>, so you can find an area before zooming in
+for detail. All of your tracks are shown at any zoom &mdash; previously only some were drawn when
+zoomed out.</li>
+</ul>
+<h3 style="margin:14px 0 6px">New in this build (2026-08-08)</h3>
+<ul style="margin:6px 0 0 18px">
+<li><b>Changing your satellite map source</b> now asks what to do with tiles you already
+downloaded, and can move your track maps and map areas over for you.</li>
+<li><b>Download times are far more accurate.</b> The estimate now measures the whole run
+instead of sampling two jobs, which was reading several times too long. (Refined again in the
+2026-08-09 build above.)</li>
+<li><b>Live download speed</b> on the queue panel, with a control for how many downloads run
+at once (1-4, four by default).</li>
+<li><b>Tap a finished download</b> to see when it started, how long it took and its average
+speed.</li>
+<li><b>Track downloads show the trail name</b> instead of all reading the same.</li>
+<li><b>Queued and completed lists fold away</b> so a long queue stays readable.</li>
+<li><b>A held queue can always be released.</b> Previously the controls could disappear while
+downloads were still running.</li>
+</ul>
+</div>
+
 <header><div class="ttl"><b>GroupTrack</b> V2.6 — Release Notes</div>
-<div class="sub">What's new · Field Test Release · Rel 2.6e · Updated 2026-07-28 · grouptrack.org</div></header>
+<div class="sub">What's new · Field Test Release · Rel 2.6e · Updated 2026-08-09 · grouptrack.org</div></header>
 <main>
 
 <div class="upgrade">
@@ -55,7 +88,118 @@
   <p class="recovery">This is a one-time step. Once your maps are re-downloaded in the new format, future updates won't need it.</p>
 </div>
 
-<h2>New in this release &middot; Rel 2.6e &middot; 2026-07-30</h2>
+<h2>New in this release &middot; Rel 2.6e &middot; 2026-08-06</h2>
+
+<div class="item">
+<h3>Google Hybrid is the new satellite default &mdash; for new installations</h3>
+<p>New installations now use <strong>Google Hybrid</strong> for the satellite slot (SAT). It carries
+roads and place names inside the satellite imagery, so it needs <strong>one tile store instead of
+three</strong> and shows street names with no signal.</p>
+<p><strong>If you already have GroupTrack installed, nothing changes.</strong> You keep whatever
+source you were using. Nothing is downloaded or deleted behind your back. To switch, go to
+<strong>Settings &rarr; Map Sources &rarr; SAT</strong> and choose Google Hybrid.</p>
+</div>
+
+<div class="item">
+<h3>Source Map Migration &mdash; choose what happens to your stored maps</h3>
+<p>Changing the source on a map slot that already holds tiles now opens a
+<strong>Source Map Migration</strong> screen instead of the old Refresh Tiles prompt.</p>
+<p><strong>Your stored Esri tiles cannot be converted as they are.</strong> Road labels, place names
+and feature names will no longer show on them &mdash; the separate name files those come from are
+removed either way, whichever option you choose. That frees a few hundred MB on its own.</p>
+<p>Three options:</p>
+<ul>
+<li><strong>Delete and start over</strong> &mdash; removes the stored maps for that slot and frees
+the space, so you can rebuild around your tracks. Downloading along tracks uses about two thirds
+less storage than boxed areas. <strong>Cannot be undone; there is no backup</strong>, and your
+download history for the slot is cleared too, so note any areas you will want to redraw.</li>
+<li><strong>Move everything to the new source</strong> &mdash; converts your existing maps in the
+background, track maps first and then your areas, with your maps usable throughout. Best if you
+rely on road and place names. <em>Arriving shortly &mdash; not selectable in this build.</em></li>
+<li><strong>Move tracks and areas on my schedule</strong> &mdash; nothing removed, nothing
+downloaded. Refresh ground as you need it from the downloads panel with <strong>Replace
+tiles</strong> ticked.</li>
+</ul>
+<p>You cannot continue until you have chosen, and the screen cannot be dismissed by accident
+&mdash; a source change always ends in a decision.</p>
+</div>
+
+<div class="item">
+<h3>A record of every source change</h3>
+<p>Every map source change is now written to a file before anything is removed, including which
+stores were deleted and how much space they held. Clearing a slot also clears its download history,
+so this record is what remains to explain where a set of maps went.</p>
+</div>
+
+<div class="item">
+<h3>Fixes</h3>
+<ul>
+<li><strong>Completed downloads stay in the queue.</strong> Downloads that finished with the replace
+option set were being removed from the queue on completion, so a successful run left no trace and
+only failures remained visible.</li>
+<li><strong>Removing maps no longer stops if you leave the screen.</strong> Clearing a map slot now
+runs to completion in the background rather than being cancelled when you navigate away.</li>
+<li><strong>Unused label files are removed when you change source.</strong> Switching to a source
+that does not use separate name files previously left them on the device with nothing able to use
+them.</li>
+</ul>
+</div>
+
+<div class="item">
+<h3>Known issues</h3>
+<ul>
+<li><strong>Download size estimates read high on Google Hybrid.</strong> Estimated tile counts for
+track corridors can be about three times the number actually downloaded. The download itself is
+correct &mdash; only the estimate is wrong.</li>
+<li><strong>The manual's map source screens are out of date.</strong> The Refresh Tiles screens it
+shows have been replaced by Source Map Migration. Updated screens are coming.</li>
+</ul>
+</div>
+
+<h2>Previously &middot; Rel 2.6e &middot; 2026-08-02</h2>
+
+<h3 style="font:700 15px var(--ui);color:var(--accent2);margin:18px 0 4px">Satellite maps</h3>
+
+<div class="item">
+  <div class="what">Google Hybrid works again &mdash; satellite imagery with roads and place names built in</div>
+  <div class="means">Google Hybrid had stopped returning any map tiles and looked like a source that had been withdrawn. It turned out to be a fault in how the app built the web address for each tile, so every request went nowhere. It now works both online and for downloads. Unlike the plain satellite view, Google Hybrid already has road lines and place names printed into the image, so you get them without a separate labels layer.</div>
+</div>
+
+<h3 style="font:700 15px var(--ui);color:var(--accent2);margin:18px 0 4px">Planning routes</h3>
+
+<div class="item">
+  <div class="what">One panel now handles everything when you tap +ROUTE</div>
+  <div class="means">Starting a route used to walk you through up to three separate pop-ups before you could do anything. There is now a single panel listing every unfinished route with the date you started it and how many points it has, with <strong>Continue</strong>, <strong>Rename</strong> and <strong>Delete</strong> on each one, plus <strong>Plan a New Route</strong> and <strong>Cancel</strong> at the bottom.</div>
+</div>
+
+<div class="item">
+  <div class="what">An unfinished route left by a crash no longer blocks you silently</div>
+  <div class="means">If the app closes while you are drawing, the part-finished route is kept under a placeholder name. When you enter the planning map you now get a short message telling you how many unfinished routes you have. Starting a brand-new route is blocked until you either give that one a proper name or delete it &mdash; and the message says so, rather than simply doing nothing.</div>
+</div>
+
+<div class="item">
+  <div class="what">Cancelling out of route planning really cancels</div>
+  <div class="means">Previously, tapping +ROUTE and then backing out could leave the map still in point-placing mode, so the next tap dropped a route point instead of opening a trail. Cancelling &mdash; or tapping outside the panel &mdash; now switches it off properly.</div>
+</div>
+
+<div class="item">
+  <div class="what">Tapping while drawing a route no longer opens trail information</div>
+  <div class="means">While you are placing points, a tap sometimes also popped up details for whatever was underneath. Taps now go to the route only.</div>
+</div>
+
+<div class="item">
+  <div class="what">Map taps are more precise</div>
+  <div class="means">A tap used to look about 200 metres out for anything nearby, which meant it often found something on the far side of your own position marker. That is now about 100 metres, so what you get is what you aimed at.</div>
+</div>
+
+<h3 style="font:700 15px var(--ui);color:var(--accent2);margin:18px 0 4px">Off-grid</h3>
+
+<div class="item">
+  <div class="what">Your position shows on the map with no internet connection</div>
+  <div class="means">Starting the app out of signal could leave you with a blank screen and no vehicle marker, even though the app knew where you were and was recording your track correctly. The marker and your recorded track now draw as they should. If you are somewhere you have not downloaded maps for, the background will still be empty &mdash; there is nothing stored to draw &mdash; but your position appears on top of it.</div>
+</div>
+
+<h2>Previously &middot; Rel 2.6e &middot; 2026-07-30</h2>
 
 <h3 style="font:700 15px var(--ui);color:var(--accent2);margin:18px 0 4px">Tapping the map</h3>
 
