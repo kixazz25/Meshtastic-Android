@@ -40,10 +40,19 @@
     function setTileUrl(url, label) {
       if (tileLayer) map.removeLayer(tileLayer);
       console.log("TILE URL: " + url + " LABEL: " + label);
-      var isZ16 = false;
-      var isZ17 = label === "TOPO+" ||
-                  url.indexOf("opentopomap") !== -1 || url.indexOf("USGSImageryTopo") !== -1;
-      currentMaxNative = isZ17 ? 17 : 18;
+      // ZOOMSLOT-2026-08-10E: satellite to z18, rendered maps to z16 - the SAME
+      // rule the download path uses (ConvoyTileCalculator.maxZoomForSlot),
+      // so the map never offers a zoom level the store cannot hold.
+      //
+      // Was a list of source names capped at 17. Keyed on the slot instead:
+      // one sentence, no table of vendor ceilings, and nothing to update
+      // when a source is added.
+      //
+      // Stores built before the cap hold higher topo tiles. They are not
+      // deleted and cost nothing, but they stop being drawn - the map
+      // upscales instead. That is the trade for display and download
+      // agreeing; leaving them out of step is what produced blank tiles.
+      currentMaxNative = (label === "SAT") ? 18 : 16;
       tileLayer = L.tileLayer(url, {maxZoom:19, maxNativeZoom:currentMaxNative, crossOrigin:false, tileSize:256, subdomains: (url.indexOf('google.com') !== -1 ? '0123' : 'abc')});  // SUBDOMAINS-2026-08-02
       tileLayer.on("tileerror", function(e) { console.log("TILE ERROR: " + e.tile.src); });
       tileLayer.addTo(map);
