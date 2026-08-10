@@ -2030,8 +2030,34 @@ object SpatialDbManager {
             android.util.Log.w("Corridor", "getTrackPoints: no geometry for hash $hash")
             return null
         }
-        // Same parse shape as wktToGeoJsonCoords (:342): strip the wrapper, and
-        // for MULTI split the segments on "),(" before trimming stray parens.
+        // ROUTECORR-2026-08-10A: the parse moved to parseWktSegments below so tracks and
+        // routes share ONE copy and cannot drift apart later. Behaviour here is
+        // unchanged - same input, same output, same failure cases.
+        val out = parseWktSegments(g, hash, "getTrackPoints") ?: return null
+        android.util.Log.i("Corridor",
+            "getTrackPoints $hash: ${out.size} segment(s), ${out.sumOf { it.size }} points")
+        return out
+    }
+
+    /**
+     * ROUTECORR-2026-08-10A: WKT LINESTRING / MULTILINESTRING to lat/lon segments.
+     *
+     * Extracted verbatim out of getTrackPoints. Same parse shape as
+     * wktToGeoJsonCoords (:342): strip the wrapper, and for MULTI split the
+     * segments before trimming stray parens.
+     *
+     * Returns null for blank or unsupported geometry - the caller decides what
+     * that means. Never throws.
+     *
+     * @param tag caller name, for the log line only
+     */
+    private fun parseWktSegments(
+        wkt: String,
+        hash: String,
+        tag: String
+    ): List<List<Pair<Double, Double>>>? {
+        val g = wkt.trim()
+        if (g.isBlank()) return null
         val segments: List<String> = when {
             g.startsWith("MULTILINESTRING(") ->
                 g.removePrefix("MULTILINESTRING(").removeSuffix(")")
@@ -2039,7 +2065,7 @@ object SpatialDbManager {
             g.startsWith("LINESTRING(") ->
                 listOf(g.removePrefix("LINESTRING(").removeSuffix(")"))
             else -> {
-                android.util.Log.w("Corridor", "getTrackPoints: unsupported WKT for $hash")
+                android.util.Log.w("Corridor", "$tag: unsupported WKT for $hash")
                 return null
             }
         }
@@ -2053,11 +2079,55 @@ object SpatialDbManager {
             }
             if (pts.isEmpty()) null else pts
         }
-        if (out.isEmpty()) return null
+        return if (out.isEmpty()) null else out
+    }
+
+    /**
+     * ROUTECORR-2026-08-10A: route geometry by geom_hash. The routes-table twin of
+     * getTrackPoints.
+     *
+     * Safe to key on the hash: the device schema declares UNIQUE(geom_hash) on
+     * routes, so at most one row can answer.
+     */
+    fun getRoutePoints(context: Context, hashFileName: String): List<List<Pair<Double, Double>>>? {
+        val hash = hashFileName.substringBeforeLast(".gpx").trim()
+        val sdb = spatialDb ?: return null
+        var wkt: String? = null
+        try {
+            sdb.rawQuery(
+                "SELECT geometry FROM routes WHERE geom_hash=? LIMIT 1",
+                arrayOf(hash)
+            ).use { c -> if (c.moveToFirst()) wkt = c.getString(0) }
+        } catch (e: Exception) {
+            android.util.Log.e("Corridor", "getRoutePoints lookup failed for $hash: ${e.message}")
+            return null
+        }
+        val g = wkt
+        if (g.isNullOrBlank()) return null
+        val out = parseWktSegments(g, hash, "getRoutePoints") ?: return null
         android.util.Log.i("Corridor",
-            "getTrackPoints $hash: ${out.size} segment(s), ${out.sumOf { it.size }} points")
+            "getRoutePoints $hash: ${out.size} segment(s), ${out.sumOf { it.size }} points")
         return out
     }
+
+    /**
+     * ROUTECORR-2026-08-10A: THE corridor geometry lookup. Tracks first, then routes.
+     *
+     * *** WHY THERE IS NO ARTIFACT-TYPE PARAMETER. *** geom_hash is
+     * CONTENT-ADDRESSED - computed from the WKT itself - and both tables declare
+     * it unique. The same hash therefore means the same geometry wherever it is
+     * stored, so a corridor derived from either table is identical.
+     *
+     * That is what lets route corridors reuse the entire existing pipeline
+     * unchanged: no new enqueueCorridor parameter, no new QueueEntry field, no
+     * inputData change, no worker change, and no serialisation risk to a queue
+     * file already persisted on devices.
+     *
+     * A route drawn along an existing track resolves from tracks first. Not a
+     * conflict - the geometry is identical, so the tiles are too.
+     */
+    fun getCorridorGeometry(context: Context, hashFileName: String): List<List<Pair<Double, Double>>>? =
+        getTrackPoints(context, hashFileName) ?: getRoutePoints(context, hashFileName)
 
     fun getTrackBbox(context: Context, hashFileName: String): DownloadBbox? {
         val hash = hashFileName.substringBeforeLast(".gpx").trim()
