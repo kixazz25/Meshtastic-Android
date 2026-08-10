@@ -2191,6 +2191,56 @@ object SpatialDbManager {
         )
     }
 
+    /**
+     * ROUTECORR-2026-08-10C: route bbox by geom_hash. The routes-table twin of getTrackBbox.
+     *
+     * Same padding as the track version - half a mile, adjusted for longitude
+     * convergence - so a route and a track over identical ground produce an
+     * identical box.
+     */
+    fun getRouteBbox(context: Context, hashFileName: String): DownloadBbox? {
+        val hash = hashFileName.substringBeforeLast(".gpx").trim()
+        val sdb = spatialDb ?: return null
+        var minLat = 0.0; var maxLat = 0.0; var minLon = 0.0; var maxLon = 0.0
+        var found = false
+        try {
+            sdb.rawQuery(
+                "SELECT min_lat, max_lat, min_lon, max_lon FROM routes WHERE geom_hash=? LIMIT 1",
+                arrayOf(hash)
+            ).use { c ->
+                if (c.moveToFirst() && !c.isNull(0)) {
+                    minLat = c.getDouble(0); maxLat = c.getDouble(1)
+                    minLon = c.getDouble(2); maxLon = c.getDouble(3)
+                    found = true
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("TrackMaps", "getRouteBbox lookup failed for $hash: ${e.message}")
+            return null
+        }
+        if (!found) return null
+        val padLat = 0.00724
+        val midLat = (minLat + maxLat) / 2.0
+        val padLon = 0.00724 / Math.max(0.01, Math.cos(Math.toRadians(midLat)))
+        return DownloadBbox(
+            north = maxLat + padLat, south = minLat - padLat,
+            east = maxLon + padLon, west = minLon - padLon
+        )
+    }
+
+    /**
+     * ROUTECORR-2026-08-10C: bbox for a corridor download. Tracks first, then routes.
+     *
+     * The SAVE MAPS action needs this BEFORE the download pipeline is reached,
+     * so without it a route fails at the very first step and the user is told
+     * the artifact has no geometry when it has perfectly good geometry.
+     *
+     * Same reasoning as getCorridorGeometry: geom_hash is content-addressed and
+     * unique in both tables, so whichever answers gives the same box.
+     */
+    fun getCorridorBbox(context: Context, hashFileName: String): DownloadBbox? =
+        getTrackBbox(context, hashFileName) ?: getRouteBbox(context, hashFileName)
+
     fun downloadMapsForTrackHash(context: Context, hashFileName: String): Int {
         val hash = hashFileName.substringBeforeLast(".gpx").trim()
         val sdb = spatialDb ?: return 0

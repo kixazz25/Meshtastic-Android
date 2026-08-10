@@ -108,7 +108,11 @@ fun ArtifactDetailPanel(
                     // NOTE `onDownloadMaps` stays on the SIGNATURE - both screens
                     // still pass it - but nothing renders it now, so the area
                     // path is unreachable from this panel.
-                    if (artifactType == "Tracks" && onDownloadCorridor != null) {
+                    // ROUTECORR-2026-08-10C: routes reach the same pipeline. The corridor lookups
+                    // resolve either table by geom_hash, so this one callback
+                    // serves both and there is nothing route-specific below it.
+                    if ((artifactType == "Tracks" || artifactType == "Routes") &&
+                        onDownloadCorridor != null) {
                         DetailActionButton("SAVE MAPS", aGreen) {
                             val gh = detailFields["geom_hash"]
                             if (!gh.isNullOrBlank()) onDownloadCorridor(gh)

@@ -1795,7 +1795,10 @@ fun ConvoyMapViewerScreen(
                     // corridor count is logged by enqueueCorridor.
                     onDownloadCorridor = { hash ->
                         Thread {
-                            val bb = SpatialDbManager.getTrackBbox(context, hash)
+                            // ROUTECORR-2026-08-10C: tracks then routes - a route needs a box too.
+                            // The onDownloadMaps lambda above is the AREA path and
+                            // stays tracks-only.
+                            val bb = SpatialDbManager.getCorridorBbox(context, hash)
                             android.os.Handler(android.os.Looper.getMainLooper()).post {
                                 if (bb != null && bb.isValid) {
                                     pendingDetailId = null
@@ -1805,7 +1808,7 @@ fun ConvoyMapViewerScreen(
                                     showDownloadConfirm = true
                                 } else {
                                     android.widget.Toast.makeText(context,
-                                        "No geometry for this track",
+                                        "No geometry stored for this item",
                                         android.widget.Toast.LENGTH_LONG).show()
                                 }
                             }
