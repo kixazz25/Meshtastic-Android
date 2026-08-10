@@ -2129,6 +2129,38 @@ object SpatialDbManager {
     fun getCorridorGeometry(context: Context, hashFileName: String): List<List<Pair<Double, Double>>>? =
         getTrackPoints(context, hashFileName) ?: getRoutePoints(context, hashFileName)
 
+    /**
+     * ROUTECORR-2026-08-10B: display name for a corridor job, by geom_hash. Tracks, then routes.
+     *
+     * Replaces a full scan. The previous label lookup pulled EVERY track hash and
+     * name into a list and searched it, on every corridor enqueue - so a 272-job
+     * submission did that 272 times. Both tables index geom_hash, so one indexed
+     * row each is enough.
+     *
+     * Returns null when neither table has the hash, or the row has no usable
+     * name. The caller decides what to show instead.
+     */
+    fun nameForGeomHash(hash: String): String? {
+        val h = hash.substringBeforeLast(".gpx").trim()
+        val sdb = spatialDb ?: return null
+        for (table in listOf("tracks", "routes")) {
+            try {
+                sdb.rawQuery(
+                    "SELECT name FROM $table WHERE geom_hash=? LIMIT 1",
+                    arrayOf(h)
+                ).use { c ->
+                    if (c.moveToFirst() && !c.isNull(0)) {
+                        val nm = c.getString(0)
+                        if (!nm.isNullOrBlank()) return nm
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.w("Corridor", "ROUTECORR-2026-08-10B: name lookup failed in $table: ${e.message}")
+            }
+        }
+        return null
+    }
+
     fun getTrackBbox(context: Context, hashFileName: String): DownloadBbox? {
         val hash = hashFileName.substringBeforeLast(".gpx").trim()
         val sdb = spatialDb ?: return null

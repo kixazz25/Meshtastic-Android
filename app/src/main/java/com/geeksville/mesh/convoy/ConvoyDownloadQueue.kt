@@ -665,7 +665,10 @@ object DownloadQueueManager {
     ): Int {
         init(context)
         MapSourceManager.init(context)
-        val segments = SpatialDbManager.getTrackPoints(context, geomHash)
+        // ROUTECORR-2026-08-10B: tracks first, then routes. See getCorridorGeometry -
+        // geom_hash is content-addressed, so the same hash is the same
+        // geometry wherever it is stored and the corridor is identical.
+        val segments = SpatialDbManager.getCorridorGeometry(context, geomHash)
         if (segments.isNullOrEmpty()) {
             android.util.Log.w(TAG, "enqueueCorridor: no geometry for $geomHash")
             return 0
@@ -699,11 +702,11 @@ object DownloadQueueManager {
             // 272 identical rows. The hash is already in hand, so the name is
             // too. Type and priority come from the row format now, so the
             // label carries slot + track only.
+            // ROUTECORR-2026-08-10B: one indexed row per table instead of scanning every
+            // track. Also picks up route names, so a route corridor reads as its
+            // route rather than as a hash fragment.
             label = "$slotName " + (
-                SpatialDbManager.allTrackGeomHashes()
-                    .firstOrNull { it.first == geomHash }?.second
-                    ?.takeIf { n -> n.isNotBlank() }
-                    ?: geomHash.take(8)
+                SpatialDbManager.nameForGeomHash(geomHash) ?: geomHash.take(8)
             ),
             refreshMode = replaceExisting,
             refreshSlot = slotName,

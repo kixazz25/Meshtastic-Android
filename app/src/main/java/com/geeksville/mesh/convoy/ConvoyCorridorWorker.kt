@@ -74,7 +74,9 @@ class ConvoyCorridorWorker(
         showProgress(entryId, label, 0, 1)
 
         // -- Derive the corridor from the track geometry -----------------
-        val segments = SpatialDbManager.getTrackPoints(appContext, geomHash)
+        // ROUTECORR-2026-08-10B: the worker re-resolves independently at run time, so it
+        // needs the same tracks-then-routes lookup as the enqueue.
+        val segments = SpatialDbManager.getCorridorGeometry(appContext, geomHash)
         if (segments.isNullOrEmpty()) {
             android.util.Log.e(TAG, "No geometry for hash=$geomHash")
             DownloadQueueManager.markFailed(entryId, "Track geometry not found")
