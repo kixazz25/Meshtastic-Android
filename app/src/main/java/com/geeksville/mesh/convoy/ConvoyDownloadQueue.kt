@@ -169,7 +169,7 @@ object DownloadQueueManager {
     // ⚠ CONFOUNDED: those three jobs hit three DIFFERENT sources, so part of
     // the gain is parallelism across hosts rather than concurrency against
     // one. A clean test is several SAT-only jobs at 2, 3 and 4.
-    private var maxConcurrent: Int = 3
+    private var maxConcurrent: Int = 4
     val MAX_CONCURRENT: Int get() = maxConcurrent
 
     /** QEVAL-2026-08-08I: clamped 1..4 and persisted. */
@@ -190,8 +190,8 @@ object DownloadQueueManager {
     fun loadMaxConcurrent(context: Context) {
         maxConcurrent = try {
             context.getSharedPreferences("convoy_queue", Context.MODE_PRIVATE)
-                .getInt("max_concurrent", 3).coerceIn(1, 4)
-        } catch (e: Exception) { 3 }
+                .getInt("max_concurrent", 4).coerceIn(1, 4)
+        } catch (e: Exception) { 4 }
     }
     private const val QUEUE_FILE = "download_queue.json"
     private const val TAG = "DownloadQueue"

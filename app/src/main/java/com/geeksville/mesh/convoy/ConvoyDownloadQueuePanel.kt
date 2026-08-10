@@ -156,13 +156,12 @@ fun DownloadQueuePanel(
                 // type chip, and contributed 0 for any job whose startedAt was
                 // 0 (anything already running when the build was installed) --
                 // so it reported roughly one job's rate.
+                // ETA-ONERATE-2026-08-09H: the rate is computed ONCE, by liveRate() below,
+                // and the completion estimate divides by this same value. They
+                // were previously two independent calculations that disagreed by
+                // about 6x on screen at the same moment.
                 val qeRunning = queue.filter { it.status == QueueStatus.DOWNLOADING }
-                val qeLive = qeRunning.sumOf { e ->
-                    val began = if (e.startedAt > 0L) e.startedAt else e.createdAt
-                    val secs = if (began > 0L)
-                        (System.currentTimeMillis() - began) / 1000.0 else 0.0
-                    if (secs > 0.0) e.downloadedTiles / secs else 0.0
-                }
+                val qeLive = liveRate(queue)
                 Spacer(Modifier.height(6.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -418,51 +417,46 @@ private fun fmtDuration(totalSec: Long): String {
     }
 }
 
-private fun estimateRemaining(tilesRemaining: Int): Pair<String, String>? {
-    // QUEUE-PANEL-B-2026-07-24: rate from THE LAST 2 COMPLETED entries. A completed
-    // entry is a clean measurement over a known tile count, it is persisted so
-    // it survives a restart, and averaging two smooths the connectivity swings
-    // that make instantaneous sampling useless on a trail.
-    if (tilesRemaining <= 0) return null
-    // ── QTRUTH-2026-08-08L: THE WHOLE-RUN RATE (Fred, 08-08) ──
-    // Total tiles completed since the run began, over elapsed wall-clock since
-    // the earliest job started. That IS the aggregate rate by construction --
-    // no per-slot arithmetic, no overlapping windows, no MAX_CONCURRENT
-    // multiplier. Change concurrency mid-run and the average absorbs it.
-    // Measured 08-08: the previous two-entry method said Aug 12 5 AM (~86h)
-    // for 1.5M tiles; the real rate was ~140,000/hour, i.e. ~10h. 8-10x long.
-    val all = DownloadQueueManager.queue.value
-    val done = all.filter {
-        it.status == QueueStatus.COMPLETE && it.completedAt > 0L && it.downloadedTiles > 0
+/**
+ * ETA-ONERATE-2026-08-09H: THE rate. One definition, used for the number on screen and
+ * for the completion estimate, so the two cannot disagree.
+ *
+ * Sums the running jobs rather than reading one of them: per-job tiles/sec
+ * FALLS as slots are added, because each job takes a smaller share of the same
+ * pipe, so a single row reads like a regression when throughput is actually up.
+ * Summing is aggregate by construction and needs no concurrency multiplier.
+ */
+private fun liveRate(entries: List<QueueEntry>): Double =
+    entries.filter { it.status == QueueStatus.DOWNLOADING }.sumOf { e ->
+        val began = if (e.startedAt > 0L) e.startedAt else e.createdAt
+        val secs = if (began > 0L)
+            (System.currentTimeMillis() - began) / 1000.0 else 0.0
+        if (secs > 0.0) e.downloadedTiles / secs else 0.0
     }
-    if (done.isEmpty()) return null
-    // THROUGHPUT-2026-08-08C: prefer the rate the job STORED at completion.
-    // Falls back to computing from startedAt, then to createdAt for entries
-    // that predate the field. createdAt is QUEUE time -- a job that waited
-    // behind others carries that wait in its elapsed, which is what made these
-    // estimates unusable.
-    // Earliest real start across everything the queue has touched -- completed
-    // AND still running, so a long job in flight does not shorten the window.
-    // startedAt is 0 on entries written before it existed; createdAt is the
-    // honest fallback there.
-    val firstStart = all.mapNotNull { e ->
-        // QTRUTH-2026-08-08M: mapNotNull discards the nulls, so no further
-        // guard is needed -- and the previous one compared a Long? with >.
-        when {
-            e.startedAt > 0L -> e.startedAt
-            e.completedAt > 0L -> e.createdAt
-            e.status == QueueStatus.DOWNLOADING -> e.createdAt
-            else -> null
-        }
-    }.filter { it > 0L }.minOrNull() ?: return null
 
-    val tilesDone = done.sumOf { it.downloadedTiles.toLong() } +
-        all.filter { it.status == QueueStatus.DOWNLOADING }
-           .sumOf { it.downloadedTiles.toLong() }
-    val elapsedSec = (System.currentTimeMillis() - firstStart) / 1000.0
-    if (elapsedSec <= 0.0 || tilesDone <= 0L) return null
-    val rate = tilesDone / elapsedSec
-    if (rate <= 0.0) return null
+/**
+ * ETA-ONERATE-2026-08-09H: tiles remaining divided by the rate ALREADY ON SCREEN.
+ *
+ * This function used to compute its own rate from every completed entry over
+ * elapsed-since-the-earliest-job, falling back to createdAt -- QUEUE TIME --
+ * so a job that waited hours behind others carried that wait as if it were
+ * download time. Measured 08-09: 37.2 tiles/sec displayed, "3 hours" for
+ * 69,000 tiles, which implies 6.4 tiles/sec. Two numbers, same screen, one
+ * of them six times out.
+ *
+ * It was asymmetric too: the denominator reached back to the first job QUEUED
+ * while the numerator only counted entries still in the list, so clearing
+ * completed rows shrank one side and not the other.
+ *
+ * Now there is one rate. If the panel says 37 tiles/sec and 69,000 tiles are
+ * left, the estimate is 31 minutes -- the arithmetic the user can do in their
+ * head. Nothing to drift.
+ *
+ * @param tilesRemaining active-remaining + queued total
+ * @param rate           tiles/sec from liveRate(), the displayed value
+ */
+private fun estimateRemaining(tilesRemaining: Int, rate: Double): Pair<String, String>? {
+    if (tilesRemaining <= 0 || rate <= 0.0) return null
     var sec = (tilesRemaining / rate).toLong()
     // Round anything over ~8h to the nearest hour: a two-sample rate cannot
     // justify minute precision. Off by 30% on a 30-hour job is NINE HOURS out,
@@ -517,7 +511,8 @@ private fun QueueSummaryBar(
             // line 3 - total duration AND completion stamp; renders only once
             // a rate is known (Phase 1). Both, because they answer different
             // questions: how long to wait vs when it will actually be done.
-            val eta = estimateRemaining(activeTiles + queuedTiles)
+            // ETA-ONERATE-2026-08-09H: same rate the panel shows.
+            val eta = estimateRemaining(activeTiles + queuedTiles, liveRate(active))
             if (eta != null) {
                 Text(
                     "~${eta.first}  ·  done ${eta.second}",
