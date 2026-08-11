@@ -256,6 +256,58 @@ object MBTilesStore {
         } catch (e: Exception) { Pair(0, 0f) }
     }
 
+    /**
+     * REFRESHOOM-2026-08-11L: the tiles this store ACTUALLY HOLDS inside a lat/lon box.
+     *
+     * Replaces computing every tile in the rectangle and filtering to the ones
+     * on disk. That filter was correct but it built the whole rectangle first:
+     * a sparse corridor spread over degrees of ground is millions of TileKey
+     * objects before one is discarded, and on 08-11 it exhausted a 512 MB heap
+     * and killed the app on the first Recreate job.
+     *
+     * Bounded by what is STORED, not by the size of the box -- so a job holding
+     * 50,000 tiles allocates 50,000 objects however much ground it spans. It is
+     * also faster: one indexed range scan per level instead of millions of
+     * allocations plus a hasTile query each.
+     *
+     * ⚠ RAW z/x/y, no TMS flip -- and NORTH is the SMALLER tile row, which is
+     * why north maps to yMin here. Same convention calculateTiles uses.
+     */
+    fun tilesInBounds(type: String, north: Double, south: Double,
+                      east: Double, west: Double): List<TileKey> {
+        val d = db(type) ?: return emptyList()
+        val out = ArrayList<TileKey>()
+        for (z in zoomLevelsPresent(type)) {
+            val n = 1L shl z
+            fun lon2x(lon: Double): Long =
+                Math.floor((lon + 180.0) / 360.0 * n).toLong()
+            fun lat2y(lat: Double): Long {
+                val r = Math.toRadians(lat)
+                return Math.floor(
+                    (1.0 - Math.log(Math.tan(r) + 1.0 / Math.cos(r)) / Math.PI) / 2.0 * n
+                ).toLong()
+            }
+            val xMin = lon2x(west).coerceIn(0L, n - 1)
+            val xMax = lon2x(east).coerceIn(0L, n - 1)
+            val yMin = lat2y(north).coerceIn(0L, n - 1)
+            val yMax = lat2y(south).coerceIn(0L, n - 1)
+            try {
+                d.rawQuery(
+                    "SELECT tile_column, tile_row FROM tiles WHERE zoom_level=? " +
+                    "AND tile_column BETWEEN ? AND ? AND tile_row BETWEEN ? AND ?",
+                    arrayOf(z.toString(), xMin.toString(), xMax.toString(),
+                            yMin.toString(), yMax.toString())
+                ).use { c ->
+                    while (c.moveToNext())
+                        out.add(TileKey(z, c.getInt(0), c.getInt(1)))
+                }
+            } catch (e: Exception) {
+                android.util.Log.e(TAG, "REFRESHOOM-2026-08-11L tilesInBounds $type z$z: ${e.message}")
+            }
+        }
+        return out
+    }
+
     /** All (z,x,y) keys for a type. Replaces scanTilesToKeys' dir walk. */
     fun scanKeys(type: String): List<TileKey> {
         val d = db(type) ?: return emptyList()

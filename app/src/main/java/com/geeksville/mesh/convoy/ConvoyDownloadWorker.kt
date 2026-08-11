@@ -91,18 +91,25 @@ class ConvoyDownloadWorker(
             }
 
             // Calculate tiles from cell bounds
-            val cellTiles = ConvoyTileCalculator.calculateTiles(north, south, east, west)
-
-            // Filter to only tiles that exist on disk (refresh, not create)
-            val existingTiles = cellTiles.filter { tile ->
-                MBTilesStore.hasTile(refreshSlot, tile.z, tile.x, tile.y) /* [V2.6-PASS1-S4] */
-            }
-
+            // REFRESHOOM-2026-08-11L: ask the store what it HOLDS in these bounds.
+            //
+            // This used to compute every tile in the rectangle and then keep the
+            // ones on disk. The filter was right; building the rectangle first
+            // was not. A sparse corridor spread over degrees of ground is
+            // millions of objects allocated and immediately discarded, and on
+            // 08-11 that exhausted a 512 MB heap and killed the app on the first
+            // Recreate job.
+            //
+            // Now bounded by what is stored, whatever the box size -- and
+            // faster, since one indexed range scan per level replaces the
+            // allocations and a per-tile existence check.
+            val existingTiles = MBTilesStore.tilesInBounds(
+                refreshSlot, north, south, east, west)
             val totalTiles = existingTiles.size * layers.size
             var totalDownloaded = 0
             var totalFailed = 0
 
-            android.util.Log.i(TAG, "Refresh cell: ${cellTiles.size} in bounds, ${existingTiles.size} exist on disk, ${layers.size} layers")
+            android.util.Log.i(TAG, "REFRESHOOM-2026-08-11L Refresh cell: ${existingTiles.size} stored tile(s) in bounds, ${layers.size} layer(s)")
             DownloadQueueManager.updateProgress(entryId, 0, 0)
 
             if (existingTiles.isEmpty()) {
