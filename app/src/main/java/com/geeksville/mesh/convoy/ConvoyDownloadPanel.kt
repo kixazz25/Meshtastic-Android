@@ -68,6 +68,11 @@ fun ConvoyDownloadPanel(
     // booleans are all bbox-driven.
     removeTrackChecked: Boolean = false,
     onRemoveTrackCheckedChange: (Boolean) -> Unit = {},
+    // RECREATE-2026-08-11A: Recreate Tiles by Source. Takes the slot the greyed
+    // Clear Tile Source row held -- that capability lives inside the
+    // source-replace flow and needs no direct entry point here.
+    recreateSourceChecked: Boolean = false,
+    onRecreateSourceCheckedChange: (Boolean) -> Unit = {},
     // OSM-C3B-AREA-2026-07-29: IMPORT OSM. Routing lives in the checkbox, which
     // is why no AreaDrawPurpose is needed. Deliberately NOT part of
     // onExecuteDownload -- OSM must never become a QueueEntry.
@@ -256,7 +261,23 @@ fun ConvoyDownloadPanel(
                 // replaced; as a bare panel row it has none of that framing.
                 // Wires to ConvoySourceClear (27dfb433d), which exists.
                 // The row itself is the untouched line below.
-                ArtifactCheckRow("Clear Tile Source", dimText, false, false, "V2.7") {}
+                // RECREATE-2026-08-11A: RECREATE TILES BY SOURCE -- replaces the greyed
+                // Clear Tile Source row.
+                //
+                // Re-downloads every tile the store already holds, in place.
+                // It never asks what a bbox COULD cover, only what the store
+                // HAS -- so ground with no tiles never becomes work, disjoint
+                // coverage stays disjoint, and corridor shape cannot be lost
+                // because the tiles being refreshed ARE the corridor.
+                //
+                // With INSERT OR REPLACE the old tile stays until the new one
+                // lands, so coverage never drops while it runs.
+                //
+                // *** ITERATION 1: ticking this runs the SCAN and logs what it
+                // WOULD submit. It queues nothing and downloads nothing. ***
+                ArtifactCheckRow("Recreate Tiles by Source", green, recreateSourceChecked, true) {
+                    onRecreateSourceCheckedChange(it)
+                }
                 Spacer(Modifier.height(2.dp))
                 // V3.0 -- artifact downloads from the CONSOLIDATED ALL-USER
                 // DATABASE (server-side release). NOT V2.6: these were mislabelled,

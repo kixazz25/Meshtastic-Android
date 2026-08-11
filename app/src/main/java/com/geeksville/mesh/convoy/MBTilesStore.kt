@@ -220,6 +220,43 @@ object MBTilesStore {
 
     // [V2.6-PASS1-S4] (x,y) tile columns/rows present at a zoom for a type.
     // Feeds the coverage-highlight walks (replaces listFiles on <type>/<z>).
+    /**
+     * RECREATE-2026-08-11A: which zoom levels actually hold tiles for this store.
+     *
+     * The whole point of Recreate-by-Source: never ask what a bbox COULD cover,
+     * ask what the store HAS. A level with no rows is simply absent from this
+     * list and never becomes work.
+     */
+    fun zoomLevelsPresent(type: String): List<Int> {
+        val d = db(type) ?: return emptyList()
+        val out = ArrayList<Int>()
+        try {
+            d.rawQuery("SELECT DISTINCT zoom_level FROM tiles ORDER BY zoom_level", null).use { c ->
+                while (c.moveToNext()) out.add(c.getInt(0))
+            }
+        } catch (e: Exception) {
+            android.util.Log.e(TAG, "RECREATE-2026-08-11A zoomLevelsPresent $type: ${e.message}")
+        }
+        return out
+    }
+
+    /**
+     * RECREATE-2026-08-11A: how many tiles exist at one zoom. COUNT only -- no rows
+     * materialised, no blobs touched, so this is cheap even on a 15 GB store.
+     */
+    fun countAtZoom(type: String, z: Int): Int {
+        val d = db(type) ?: return 0
+        try {
+            d.rawQuery("SELECT COUNT(*) FROM tiles WHERE zoom_level=?",
+                arrayOf(z.toString())).use { c ->
+                if (c.moveToFirst()) return c.getInt(0)
+            }
+        } catch (e: Exception) {
+            android.util.Log.e(TAG, "RECREATE-2026-08-11A countAtZoom $type z$z: ${e.message}")
+        }
+        return 0
+    }
+
     fun xyAtZoom(type: String, z: Int): List<Pair<Long, Long>> {
         val d = db(type) ?: return emptyList()
         val out = ArrayList<Pair<Long, Long>>()

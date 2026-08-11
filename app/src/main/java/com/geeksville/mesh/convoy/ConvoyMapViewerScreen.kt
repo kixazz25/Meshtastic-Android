@@ -353,6 +353,8 @@ fun ConvoyMapViewerScreen(
     // death would re-open the gate with stale counts. Losing the dialog on
     // process death is correct -- nothing is destroyed before PROCEED.
     var removeTrackChecked by remember { mutableStateOf(false) }
+    // RECREATE-2026-08-11A: Recreate Tiles by Source -- scan-and-report, queues nothing yet.
+    var recreateSourceChecked by remember { mutableStateOf(false) }
     var showMigrateGate by remember { mutableStateOf(false) }
     var migrateBusy by remember { mutableStateOf(false) }
     var migrateSteps by remember { mutableStateOf(listOf<String>()) }
@@ -2425,6 +2427,47 @@ fun ConvoyMapViewerScreen(
                     // checkbox that launches an action would re-fire on every
                     // panel load -- this is an action, not a state, so it unticks
                     // itself when the preview returns.
+                    recreateSourceChecked = recreateSourceChecked,
+                    onRecreateSourceCheckedChange = { ticked ->
+                        recreateSourceChecked = ticked
+                        if (!ticked) return@ConvoyDownloadPanel
+                        // RECREATE-2026-08-11A: SCAN ONLY. Reads what the store holds and
+                        // reports the jobs it WOULD build. Queues nothing.
+                        //
+                        // Off the main thread deliberately: a 15 GB store can
+                        // hold millions of rows, and walking the queue on the UI
+                        // thread is what ANR'd the 3,287-job cancel on 08-11.
+                        val slot = ConvoyConfig.ACTIVE_TILE_SOURCE
+                        Thread {
+                            try {
+                                val levels = MBTilesStore.zoomLevelsPresent(slot)
+                                if (levels.isEmpty()) {
+                                    android.util.Log.i("Recreate",
+                                        "RECREATE-2026-08-11A $slot: no tiles stored - nothing to recreate")
+                                    return@Thread
+                                }
+                                var total = 0L
+                                val perZoom = StringBuilder()
+                                for (z in levels) {
+                                    val n = MBTilesStore.countAtZoom(slot, z)
+                                    total += n
+                                    perZoom.append("   z").append(z).append(" ").append(n).append("\n")
+                                }
+                                // 50000 tiles per job. The job cannot carry a
+                                // tile list in inputData, so a real submission
+                                // would carry a re-queryable range and let the
+                                // worker re-derive -- same shape as corridor jobs
+                                // resolving geometry from a hash.
+                                val jobs = ((total + 50000 - 1) / 50000).toInt()
+                                android.util.Log.i("Recreate",
+                                    "RECREATE-2026-08-11A $slot SCAN: ${levels.size} zoom level(s), " +
+                                    "$total tile(s) stored -> would build $jobs job(s) " +
+                                    "of up to 50000 tiles\n" + perZoom.toString())
+                            } catch (e: Exception) {
+                                android.util.Log.e("Recreate", "RECREATE-2026-08-11A scan failed: ${e.message}")
+                            }
+                        }.start()
+                    },
                     removeTrackChecked = removeTrackChecked,
                     onRemoveTrackCheckedChange = { ticked ->
                         removeTrackChecked = ticked
