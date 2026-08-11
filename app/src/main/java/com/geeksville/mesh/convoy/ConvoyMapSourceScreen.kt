@@ -385,75 +385,30 @@ fun ConvoyMapSourceScreen(
                             enabled = true,
                             onSelect = { migChoice = "auto" },
                             heading = "Move everything to the new source",
-                            body = "Everything is submitted at once and runs in the "
-                                + "background. Your maps stay usable throughout - each "
-                                + "image is replaced as its new version arrives. Choose "
-                                + "what to move below. Best if you rely on road and place "
-                                + "names, and you can leave it running."
+                            // OPT2-UI-2026-08-11J: there is nothing to choose any more, so the
+                            // line telling the user to choose below had to go with
+                            // the checkboxes.
+                            body = "Everything you have stored for this source is "
+                                + "replaced from the new one, in place. Your maps stay "
+                                + "usable throughout - each image is replaced as its new "
+                                + "version arrives, so nothing is removed first. Best if "
+                                + "you rely on road and place names, and you can leave it "
+                                + "running."
                         )
-                        // MIGOPT2-2026-08-08D: sub-choices, shown only when the
-                        // option is selected. Indented to read as belonging to it.
-                        if (migChoice == "auto") {
-                            Column(modifier = Modifier.padding(start = 40.dp)) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Checkbox(
-                                        checked = optTracks,
-                                        onCheckedChange = { optTracks = it }
-                                    )
-                                    Text(
-                                        "Refresh track corridors",
-                                        style = MaterialTheme.typography.bodyMedium
-                                    )
-                                }
-                                Text(
-                                    // ⚠ The honest trade. Not selecting this does NOT
-                                    // lose the tracks -- the area refresh covers that
-                                    // ground as RECTANGLES, which loads far more tiles
-                                    // for the same trails. Duration is a working
-                                    // estimate (Fred 08-08: under an hour typically,
-                                    // two at the extreme), so it is stated as a range
-                                    // and never as a promise.
-                                    // MIGSURFACE-2026-08-08Q: the figure is measured,
-                                    // not estimated. 08-08: 30 tracks swept up as
-                                    // areas cost 2M+ tiles on one source; 89 tracks
-                                    // as proper corridors cost 1.5M across three.
-                                    // Corridors were designed for ~90% fewer tiles
-                                    // and that holds.
-                                    "Your track maps are removed and rebuilt along your "
-                                    + "tracks. Leave this off and the same ground is "
-                                    + "covered as boxed areas instead, which downloads "
-                                    + "roughly ten times as many tiles for it.",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(start = 12.dp, bottom = 6.dp)
-                                )
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Checkbox(
-                                        checked = optAreas,
-                                        onCheckedChange = { optAreas = it }
-                                    )
-                                    Text(
-                                        "Refresh areas",
-                                        style = MaterialTheme.typography.bodyMedium
-                                    )
-                                }
-                                Text(
-                                    "Your boxed map areas are replaced from the new source. "
-                                    + "Time depends on how much area you hold.",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(start = 12.dp, bottom = 6.dp)
-                                )
-                                if (!optTracks && !optAreas) {
-                                    Text(
-                                        "Choose at least one.",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.error,
-                                        modifier = Modifier.padding(start = 12.dp)
-                                    )
-                                }
-                            }
-                        }
+                        // OPT2-UI-2026-08-11J: the two sub-choices are GONE -- the one for
+                        // track corridors and the one for areas. They existed
+                        // because the old run made two passes, and the delete
+                        // between them was
+                        // mandatory -- corridor tiles left on disk were read by the
+                        // area pass as area coverage, and the same ground came back
+                        // as rectangles at roughly ten times the tiles.
+                        //
+                        // Recreate reads what the store actually holds, so there is
+                        // one pass, no delete, and nothing to choose.
+                        //
+                        // ⭐ This also removes the 08-08 A-01 defect by construction:
+                        // that was a checkbox whose state did not reach the handler.
+                        // There is no checkbox state left to arrive wrong.
                         MigrationOption(
                             selected = migChoice == "manual",
                             enabled = true,
@@ -504,7 +459,9 @@ fun ConvoyMapSourceScreen(
                         // one box ticked -- "move everything" that moves nothing is
                         // not a state worth allowing.
                         enabled = migChoice.isNotEmpty() &&
-                            (migChoice != "auto" || optTracks || optAreas),
+                            // OPT2-RECREATE-2026-08-11I: option 2 has no sub-choices left,
+                            // so picking it IS the whole answer.
+                            true,
                         onClick = {
                             val record = ConvoySourceMigration.inProgress().firstOrNull { f ->
                                 ConvoySourceMigration.read(f)?.optString("slot") == slot
@@ -521,113 +478,62 @@ fun ConvoyMapSourceScreen(
                                 scope.launch {
                                     try {
                                         ConvoySourceMigration.noteReloadChoice(record, "auto")
-                                        // ── STEP 0: what did the handler ACTUALLY get? ──
-                                        // On 08-08 the delete silently did not run because
-                                        // optTracks was false here while the box appeared
-                                        // ticked. Recording it makes a repeat one line on
-                                        // screen instead of an evening of inference.
+                                        // ── OPT2-RECREATE-2026-08-11I: ONE CALL. ──
+                                        //
+                                        // This replaced a two-pass run: preview
+                                        // every track corridor, DELETE it, submit
+                                        // corridor downloads, then submit an area
+                                        // refresh over whatever was left.
+                                        //
+                                        // The delete was mandatory in that design
+                                        // because the AREA pass inferred its scope
+                                        // from a bounding box -- corridor tiles left
+                                        // on disk were read as area coverage and the
+                                        // same ground came back as rectangles at
+                                        // roughly ten times the tiles.
+                                        //
+                                        // There is no area pass now. Recreate reads
+                                        // what the store actually HOLDS and refreshes
+                                        // exactly that, so nothing infers shape and
+                                        // corridor geometry cannot be lost -- the
+                                        // tiles being refreshed ARE the corridor.
+                                        //
+                                        // The hold-and-cancel went with the delete.
+                                        // Quietening the queue was delete safety:
+                                        // removing tiles from a store a running job
+                                        // is writing to is the one ordering that
+                                        // cannot be allowed. Recreate only ADDS, and
+                                        // replace-in-place is safe alongside anything.
+                                        // Dropping it also means there is no longer a
+                                        // window where the queue is held and the
+                                        // submit never runs, and the migration no
+                                        // longer cancels downloads the user queued
+                                        // for their own reasons.
                                         android.util.Log.i("MIGSURFACE",
-                                            "MIGSURFACE-2026-08-08Q start: tracks=$optTracks "
-                                            + "areas=$optAreas slot=$slot")
+                                            "OPT2-RECREATE-2026-08-11I start: slot=$slot")
                                         migLog = migLog + Pair(
-                                            "Selected: " +
-                                                (if (optTracks) "track maps" else "") +
-                                                (if (optTracks && optAreas) " + " else "") +
-                                                (if (optAreas) "areas" else ""),
+                                            "Reading the maps stored for $slot", false)
+                                        migProgress = "Reading the store"
+                                        val jobs = withContext(Dispatchers.IO) {
+                                            DownloadQueueManager
+                                                .enqueueRecreateSource(context, slot)
+                                        }
+                                        migProgress = ""
+                                        migFraction = -1f
+                                        migLog = migLog.dropLast(1) + Pair(
+                                            if (jobs > 0)
+                                                "Submitted $jobs download job(s)"
+                                            else
+                                                "Nothing stored for $slot - nothing to do",
                                             true
                                         )
-
-                                        // ── Quiet the queue. Deleting from a store a
-                                        // running job is writing to is the one ordering
-                                        // that cannot be allowed. ──
-                                        migProgress = "Holding queue"
-                                        withContext(Dispatchers.IO) {
-                                            DownloadQueueManager.holdQueue()
-                                            DownloadQueueManager.cancelAll()
-                                        }
-                                        migLog = migLog + Pair(
-                                            "Queue held, pending work cleared", true)
-
-                                        if (optTracks) {
-                                            migLog = migLog + Pair("Scanning track maps", false)
-                                            migProgress = "Reading tracks - this can take a minute"
-                                            val preview = withContext(Dispatchers.IO) {
-                                                ConvoyCorridorDelete.previewAllTracks(context, "SAT")
-                                            }
-                                            migLog = migLog.dropLast(1) + Pair(
-                                                "Scanned ${preview.tracks.size} tracks - " +
-                                                "${preview.onDiskTotal} tiles", true)
-
-                                            // ⛔ THE DELETE. Not optional when corridors
-                                            // are selected: leaving these tiles in place
-                                            // is what makes the area pass re-cover the
-                                            // same ground as boxes, at ~10x the tiles.
-                                            migLog = migLog + Pair("Removing track maps", false)
-                                            val del = withContext(Dispatchers.IO) {
-                                                ConvoyCorridorDelete.deleteAllTrackCorridors(
-                                                    context, "SAT"
-                                                ) { done, total, name ->
-                                                    // ⛔ fires on IO -- hop to main.
-                                                    scope.launch(Dispatchers.Main) {
-                                                        migProgress =
-                                                            "Removing corridor map $done of $total - $name"
-                                                        migFraction =
-                                                            if (total > 0) done.toFloat() / total
-                                                            else -1f
-                                                    }
-                                                }
-                                            }
-                                            migProgress = ""
-                                            migFraction = -1f
-                                            migLog = migLog.dropLast(1) + Pair(
-                                                "Removed ${del.tilesRemoved} tiles from " +
-                                                "${del.tracksProcessed} track maps", true)
-
-                                            migProgress = "Submitting track maps"
-                                            val hashes = withContext(Dispatchers.IO) {
-                                                SpatialDbManager.allTrackGeomHashes()
-                                                    .map { h -> h.first }
-                                            }
-                                            val batch = withContext(Dispatchers.IO) {
-                                                DownloadQueueManager.enqueueCorridorBatch(
-                                                    context, hashes, listOf("SAT"), true
-                                                )
-                                            }
-                                            migLog = migLog + Pair(
-                                                "Submitted ${batch.jobs} track maps " +
-                                                "(${batch.tiles} tiles)", true)
-                                        }
-
-                                        if (optAreas) {
-                                            // What is LEFT after the corridor delete. On a
-                                            // corridor-only map that is nothing, and zero
-                                            // is a legitimate answer -- submit nothing and
-                                            // say so, rather than queueing jobs against
-                                            // ground that is not there (08-08: 172 of them).
-                                            migProgress = "Checking remaining map areas"
-                                            val cells = withContext(Dispatchers.IO) {
-                                                DownloadQueueManager.enqueueRefresh(
-                                                    context, "SAT", "SAT")
-                                            }
-                                            migLog = migLog + Pair(
-                                                if (cells > 0)
-                                                    "Submitted map areas ($cells jobs)"
-                                                else
-                                                    "No map areas to process",
-                                                true
-                                            )
-                                        }
-
-                                        migProgress = ""
-                                        withContext(Dispatchers.IO) {
-                                            DownloadQueueManager.resumeQueue()
-                                        }
-                                        migLog = migLog + Pair("Queue released", true)
                                         ConvoySourceMigration.complete(record)
-                                        clearResult = "Everything is submitted. Downloads run " +
-                                            "in the background and can be watched in the " +
-                                            "download queue. They resume by themselves if the " +
-                                            "app or device restarts."
+                                        clearResult = "Everything is submitted. Your maps " +
+                                            "keep working while this runs - each tile is " +
+                                            "replaced as it arrives, so nothing is removed " +
+                                            "first. Downloads run in the background and can " +
+                                            "be watched in the download queue. They resume by " +
+                                            "themselves if the app or device restarts."
                                     } catch (e: Exception) {
                                         // ⚠ 08-08: a throw here left the panel up with no
                                         // way out. Release the queue and report, always.

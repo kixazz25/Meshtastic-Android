@@ -374,6 +374,61 @@ fun ConvoyMapViewerScreen(
     var recreateProgress by remember { mutableStateOf("") }
     var showRecreateResults by remember { mutableStateOf(false) }
 
+    // RECREATE-2026-08-11F: the scan runs HERE, keyed on the chosen slot, rather than inside
+    // the tick handler. Ticking the row sets the slot and opens the panel;
+    // picking a different slot inside the panel re-keys this effect and it
+    // scans again. One path, so there is no rescan branch to keep in step.
+    LaunchedEffect(recreateSlot, showRecreateResults) {
+        val slot = recreateSlot
+        if (!showRecreateResults || slot.isBlank()) return@LaunchedEffect
+        recreateRows = emptyList()
+        recreateTotal = 0L
+        recreateProgress = ""
+        recreateScanning = true
+        // Off the main thread deliberately: a large store holds millions of
+        // rows, and walking work on the UI thread is what ANR'd the 3,287-job
+        // cancel on 08-11.
+        Thread {
+            val rows = ArrayList<Pair<Int, Int>>()
+            var total = 0L
+            try {
+                val levels = MBTilesStore.zoomLevelsPresent(slot)
+                for ((idx, z) in levels.withIndex()) {
+                    val n = MBTilesStore.countAtZoom(slot, z)
+                    rows.add(z to n)
+                    total += n
+                    android.util.Log.i("Recreate", "RECREATE-2026-08-11F $slot z$z $n tile(s)")
+                    val soFar = ArrayList(rows)
+                    val runTotal = total
+                    val line = "level ${idx + 1} of ${levels.size} - $runTotal tile(s) so far"
+                    android.os.Handler(android.os.Looper.getMainLooper()).post {
+                        if (recreateSlot == slot) {
+                            recreateRows = soFar
+                            recreateTotal = runTotal
+                            recreateProgress = line
+                        }
+                    }
+                }
+                val jobs = if (total <= 0L) 0 else ((total + 50000 - 1) / 50000).toInt()
+                android.util.Log.i("Recreate",
+                    "RECREATE-2026-08-11F $slot TOTAL $total tile(s) in ${rows.size} level(s) " +
+                    "-> $jobs job(s) of up to 50000")
+            } catch (e: Exception) {
+                android.util.Log.e("Recreate", "RECREATE-2026-08-11F scan failed: ${e.message}")
+            }
+            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                // RECREATE-2026-08-11F: a slower scan of the PREVIOUS slot must not overwrite
+                // the results of the one the user has since picked.
+                if (recreateSlot == slot) {
+                    recreateRows = rows
+                    recreateTotal = total
+                    recreateProgress = ""
+                    recreateScanning = false
+                }
+            }
+        }.start()
+    }
+
     // RECREATE-2026-08-11B: the results dialog. Placed here rather than in the layout tree --
     // an AlertDialog renders in its own window, so it does not need to sit
     // inside a Box or Column, and anchoring at the state declarations avoids
@@ -386,6 +441,24 @@ fun ConvoyMapViewerScreen(
             title = { Text("Recreate $recreateSlot") },
             text = {
                 Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                    // RECREATE-2026-08-11F: which source. Slot keys come from
+                    // getSlotSources(), the same list the tile-source picker
+                    // uses, so this cannot offer a slot the app does not have.
+                    Row(modifier = Modifier.fillMaxWidth()) {
+                        MapSourceManager.getSlotSources().forEach { s ->
+                            val key = s.first
+                            TextButton(
+                                enabled = !recreateScanning && key != recreateSlot,
+                                onClick = { recreateSlot = key }
+                            ) {
+                                Text(
+                                    if (key == recreateSlot) "[$key]" else key,
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(4.dp))
                     if (recreateScanning) {
                         Text("Reading the store...")
                         if (recreateProgress.isNotBlank()) {
@@ -439,14 +512,17 @@ fun ConvoyMapViewerScreen(
                     onClick = {
                         showRecreateResults = false
                         recreateSourceChecked = false
-                        // RECREATE-2026-08-11B: THE SUBMITTER IS NOT WRITTEN YET. This logs
-                        // its intent and does nothing else, deliberately -- the
-                        // numbers above are checked against a known store before
-                        // anything is allowed to queue.
-                        android.util.Log.i("Recreate",
-                            "RECREATE-2026-08-11B PROCEED requested: $recreateSlot, " +
-                            "$recreateTotal tile(s), $jobs job(s) - " +
-                            "submitter not implemented, nothing queued")
+                        // RECREATE-2026-08-11G: submit. Off the main thread -- the quadtree
+                        // runs a COUNT per quadrant per level, and walking work
+                        // on the UI thread is what ANR'd the 3,287-job cancel.
+                        val slot = recreateSlot
+                        Thread {
+                            // RECREATE-2026-08-11H: the composable's Context is `context`.
+                            val queued = DownloadQueueManager
+                                .enqueueRecreateSource(context, slot)
+                            android.util.Log.i("Recreate",
+                                "RECREATE-2026-08-11G PROCEED $slot -> $queued job(s) queued")
+                        }.start()
                     }
                 ) { Text("PROCEED TO COPY") }
             },
@@ -2540,64 +2616,12 @@ fun ConvoyMapViewerScreen(
                         // Off the main thread deliberately: a 15 GB store can
                         // hold millions of rows, and walking the queue on the UI
                         // thread is what ANR'd the 3,287-job cancel on 08-11.
-                        val slot = ConvoyConfig.ACTIVE_TILE_SOURCE
-                        recreateSlot = slot
-                        recreateRows = emptyList()
-                        recreateTotal = 0L
-                        recreateProgress = ""
-                        recreateScanning = true
+                        // RECREATE-2026-08-11F: open the panel and let the effect above scan.
+                        // The slot starts at whatever the map is showing and the
+                        // user can change it in the panel.
+                        recreateSlot = ConvoyConfig.ACTIVE_TILE_SOURCE
                         showRecreateResults = true
-                        // RECREATE-2026-08-11C: clear the row as the panel opens. The
-                        // dialog is driven by showRecreateResults, not by the
-                        // checkbox, so the tick has done its job -- leaving it
-                        // set just shows a checked row behind the panel.
                         recreateSourceChecked = false
-                        // RECREATE-2026-08-11B: off the main thread deliberately. A large
-                        // store holds millions of rows, and walking work on the
-                        // UI thread is what ANR'd the 3,287-job cancel on 08-11.
-                        Thread {
-                            val rows = ArrayList<Pair<Int, Int>>()
-                            var total = 0L
-                            try {
-                                val levels = MBTilesStore.zoomLevelsPresent(slot)
-                                for ((idx, z) in levels.withIndex()) {
-                                    val n = MBTilesStore.countAtZoom(slot, z)
-                                    rows.add(z to n)
-                                    total += n
-                                    // RECREATE-2026-08-11B: report after EACH level, so the
-                                    // dialog fills in as it goes rather than
-                                    // sitting blank until the whole scan ends.
-                                    val soFar = ArrayList(rows)
-                                    val runTotal = total
-                                    val line = "level ${idx + 1} of ${levels.size} - " +
-                                               "$runTotal tile(s) so far"
-                                    android.os.Handler(android.os.Looper.getMainLooper()).post {
-                                        recreateRows = soFar
-                                        recreateTotal = runTotal
-                                        recreateProgress = line
-                                    }
-                                    // RECREATE-2026-08-11B: one line PER LEVEL. Summing these
-                                    // is the store's own row count, so the scan
-                                    // can be verified without pulling the file.
-                                    android.util.Log.i("Recreate",
-                                        "RECREATE-2026-08-11B $slot z$z $n tile(s)")
-                                }
-                                val jobs = if (total <= 0L) 0
-                                           else ((total + 50000 - 1) / 50000).toInt()
-                                android.util.Log.i("Recreate",
-                                    "RECREATE-2026-08-11B $slot TOTAL $total tile(s) in " +
-                                    "${rows.size} level(s) -> $jobs job(s) of up to 50000")
-                            } catch (e: Exception) {
-                                android.util.Log.e("Recreate",
-                                    "RECREATE-2026-08-11B scan failed: ${e.message}")
-                            }
-                            android.os.Handler(android.os.Looper.getMainLooper()).post {
-                                recreateRows = rows
-                                recreateTotal = total
-                                recreateProgress = ""
-                                recreateScanning = false
-                            }
-                        }.start()
                     },
                     removeTrackChecked = removeTrackChecked,
                     onRemoveTrackCheckedChange = { ticked ->

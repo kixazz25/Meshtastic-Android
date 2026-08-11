@@ -727,6 +727,121 @@ object DownloadQueueManager {
         return totalTiles
     }
 
+    /**
+     * RECREATE-2026-08-11G: RECREATE A SOURCE -- re-download every tile the store already
+     * holds, in place.
+     *
+     * WHY THIS EXISTS. enqueueRefresh above derives a bbox from the store's
+     * EXTENT and chops that rectangle into grid cells. Coverage in two distant
+     * places makes a rectangle spanning both, and every empty cell in between
+     * still becomes a job: 3,287 of them on 08-11, with an ETA of 194 days.
+     *
+     * Here a quadrant is COUNTED before it is queued, and dropped when it holds
+     * nothing. Disjoint coverage therefore stays disjoint by construction rather
+     * than by inference, and totalTiles is the STORED count so the estimate is
+     * honest before the first tile moves.
+     *
+     * The worker needs no change: it already filters refresh jobs to hasTile, so
+     * a tile you do not hold is never fetched. What was wrong was queueing the
+     * ground at all.
+     *
+     * Submitted as MAP_SOURCE_REFRESH -- the existing type. No enum change, so
+     * nothing can break a queue file already persisted on a device.
+     *
+     * Corridor shape survives because nothing here infers shape: the tiles being
+     * refreshed ARE the corridor. And with replace-in-place the old tile stays
+     * until the new one lands, so coverage never drops while it runs.
+     *
+     * @return the number of jobs queued
+     */
+    fun enqueueRecreateSource(
+        context: Context,
+        slotName: String,
+        maxTilesPerJob: Int = 50000
+    ): Int {
+        init(context)
+        MapSourceManager.init(context)
+
+        val levels = MBTilesStore.zoomLevelsPresent(slotName)
+        if (levels.isEmpty()) {
+            android.util.Log.i(TAG, "RECREATE-2026-08-11G $slotName: nothing stored")
+            return 0
+        }
+        // The finest level present gives the tightest starting box.
+        val refZ = levels.max()
+        val ext = MBTilesStore.tileExtentAtZoom(slotName, refZ) ?: return 0
+
+        // Stored tiles inside a tile-space box at refZ, summed across EVERY
+        // level present. A coarser level is mapped down into refZ space so one
+        // box means the same ground at every zoom.
+        fun storedIn(x0: Long, x1: Long, y0: Long, y1: Long): Int {
+            var n = 0
+            for (z in levels) {
+                if (z <= refZ) {
+                    val s = refZ - z
+                    n += MBTilesStore.countInTileRange(
+                        slotName, z, x0 shr s, x1 shr s, y0 shr s, y1 shr s)
+                } else {
+                    val s = z - refZ
+                    n += MBTilesStore.countInTileRange(
+                        slotName, z, x0 shl s, ((x1 + 1) shl s) - 1,
+                        y0 shl s, ((y1 + 1) shl s) - 1)
+                }
+            }
+            return n
+        }
+
+        val boxes = ArrayList<LongArray>()
+        var dropped = 0
+        fun split(x0: Long, x1: Long, y0: Long, y1: Long, depth: Int) {
+            val n = storedIn(x0, x1, y0, y1)
+            if (n == 0) { dropped++; return }          // <-- the whole point
+            val single = (x0 == x1 && y0 == y1)
+            if (n <= maxTilesPerJob || single || depth > 24) {
+                boxes.add(longArrayOf(x0, x1, y0, y1, n.toLong())); return
+            }
+            val mx = (x0 + x1) / 2
+            val my = (y0 + y1) / 2
+            split(x0, mx, y0, my, depth + 1)
+            split(mx + 1, x1, y0, my, depth + 1)
+            split(x0, mx, my + 1, y1, depth + 1)
+            split(mx + 1, x1, my + 1, y1, depth + 1)
+        }
+        split(ext[0], ext[1], ext[2], ext[3], 0)
+        if (boxes.isEmpty()) return 0
+
+        val n = 1L shl refZ
+        fun lonOf(x: Long) = x.toDouble() / n * 360.0 - 180.0
+        fun latOf(y: Long) = Math.toDegrees(
+            Math.atan(Math.sinh(Math.PI * (1.0 - 2.0 * y.toDouble() / n))))
+
+        val slotLayers = MapSourceManager.getDownloadSources()
+            .filter { it.first == slotName }.sumOf { it.second.size }
+        val current = _queue.value.toMutableList()
+        var totalTiles = 0L
+        boxes.forEachIndexed { i, b ->
+            val tiles = b[4].toInt() * Math.max(1, slotLayers)
+            totalTiles += tiles
+            current.add(QueueEntry(
+                north = latOf(b[2]), south = latOf(b[3] + 1),
+                west = lonOf(b[0]), east = lonOf(b[1] + 1),
+                totalTiles = tiles,
+                label = "RECREATE $slotName ${i + 1}/${boxes.size}",
+                refreshMode = true,
+                refreshSlot = slotName,
+                downloadType = DownloadType.MAP_SOURCE_REFRESH,
+                priority = DownloadPriority.REFRESH
+            ))
+        }
+        _queue.value = current
+        saveQueue()
+        android.util.Log.i(TAG,
+            "RECREATE-2026-08-11G $slotName: ${boxes.size} job(s), $totalTiles tile(s), " +
+            "$dropped empty quadrant(s) dropped")
+        startNextIfAvailable()
+        return boxes.size
+    }
+
     /** QUEUE-SCHEMA-2026-07-24: move ONE entry to priority 1 (runs next).
      *  Per ENTRY, not per submission - a 3-source track is 3 rows and 3 taps.
      *  Promotion is ADDITIVE: a second promoted job simply becomes another 1

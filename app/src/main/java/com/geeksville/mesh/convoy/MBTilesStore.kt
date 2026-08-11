@@ -194,6 +194,57 @@ object MBTilesStore {
         } catch (e: Exception) { false }
     }
 
+    /**
+     * RECREATE-2026-08-11G: how many STORED tiles fall inside a tile-coordinate range at one
+     * zoom. Indexed range scan on tile_index -- no blobs, so it stays cheap on a
+     * multi-gigabyte store even when called hundreds of times by the quadtree.
+     *
+     * This is the whole basis of Recreate: never ask what a box COULD cover,
+     * ask what it HAS.
+     */
+    fun countInTileRange(type: String, z: Int, xMin: Long, xMax: Long,
+                         yMin: Long, yMax: Long): Int {
+        val d = db(type) ?: return 0
+        return try {
+            d.rawQuery(
+                "SELECT COUNT(*) FROM tiles WHERE zoom_level=? " +
+                "AND tile_column BETWEEN ? AND ? AND tile_row BETWEEN ? AND ?",
+                arrayOf(z.toString(), xMin.toString(), xMax.toString(),
+                        yMin.toString(), yMax.toString())
+            ).use { if (it.moveToFirst()) it.getInt(0) else 0 }
+        } catch (e: Exception) {
+            android.util.Log.e(TAG, "RECREATE-2026-08-11G countInTileRange $type z$z: ${e.message}")
+            0
+        }
+    }
+
+    /**
+     * RECREATE-2026-08-11G: the tile-coordinate extent actually occupied at one zoom, as
+     * [xMin, xMax, yMin, yMax]. Null when the level holds nothing.
+     *
+     * MIN/MAX only, so this is the store's bounding box -- deliberately. It is
+     * the STARTING box for the quadtree, which then discards whatever inside it
+     * turns out to be empty. The extent lies about disjoint coverage; the
+     * quadtree is what corrects for that.
+     */
+    fun tileExtentAtZoom(type: String, z: Int): LongArray? {
+        val d = db(type) ?: return null
+        return try {
+            d.rawQuery(
+                "SELECT MIN(tile_column), MAX(tile_column), " +
+                "MIN(tile_row), MAX(tile_row) FROM tiles WHERE zoom_level=?",
+                arrayOf(z.toString())
+            ).use { c ->
+                if (c.moveToFirst() && !c.isNull(0))
+                    longArrayOf(c.getLong(0), c.getLong(1), c.getLong(2), c.getLong(3))
+                else null
+            }
+        } catch (e: Exception) {
+            android.util.Log.e(TAG, "RECREATE-2026-08-11G tileExtentAtZoom $type z$z: ${e.message}")
+            null
+        }
+    }
+
     /** Tile count + size (MB) for a type. Replaces sourceInfo's dir walk. */
     fun sourceInfo(type: String): Pair<Int, Float> {
         val d = db(type) ?: return Pair(0, 0f)

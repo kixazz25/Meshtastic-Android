@@ -99,6 +99,19 @@ object ConvoyConfig {
     var TRACK_EXPORT_FORMAT = "GPX"  // GPX = default (Garmin/Strava/AllTrails), KML = Google Earth/route donation
     var DOWNLOAD_ZOOM = 18
     var SEARCH_FLY_ZOOM = 10
-    const val DOWNLOAD_ZOOM_MIN = 10
+    // ZOOMFLOOR-2026-08-11E: floor lowered from the old value so a rider who
+    // zooms out offline still has a basemap. Below the floor NOTHING is
+    // downloaded, so the map goes blank -- tracks and trails still draw
+    // as vectors, but the imagery is absent and that reads as broken.
+    //
+    // It costs almost nothing. For a 42-mile corridor the low levels are
+    // on the order of 5-8 tiles in total, against 11,163 for the range
+    // above them -- a z10 tile already covers 31 km, and each level down
+    // roughly halves the count until it bottoms out at one.
+    //
+    // A corridor is not a corridor at these zooms and that is fine: one
+    // z4 tile is ~2,500 km across, so it covers most of the western US.
+    // A continental view for a single tile.
+    const val DOWNLOAD_ZOOM_MIN = 4
     var TRACK_MULTICOLOR = true
 }
