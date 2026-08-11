@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GroupTrack — Handoff — 2026-08-09 EOD</title>
+<style>
+ :root{--bg:#0f1216;--panel:#161b22;--panel2:#1c2229;--line:#30363d;--fg:#e6edf3;
+   --muted:#8b949e;--accent:#58a6ff;--red:#f85149;--amber:#d29922;--green:#3fb950;}
+ *{box-sizing:border-box}
+ body{margin:0;padding:28px 20px 80px;background:var(--bg);color:var(--fg);
+  font:15px/1.6 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+ .wrap{max-width:1080px;margin:0 auto}
+ header{border-bottom:2px solid var(--accent);padding-bottom:14px;margin-bottom:26px}
+ h1{margin:0 0 6px;font-size:26px} .sub{color:var(--muted);font-size:14px}
+ h2{font-size:19px;margin:32px 0 12px;padding-bottom:6px;border-bottom:1px solid var(--line);color:var(--accent)}
+ .card{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--line);
+   border-radius:6px;padding:13px 15px;margin:10px 0}
+ .card.red{border-left-color:var(--red)} .card.amber{border-left-color:var(--amber)}
+ .card.green{border-left-color:var(--green)} .card.blue{border-left-color:var(--accent)}
+ .card h4{margin:0 0 6px;font-size:14px;font-weight:600}
+ code{background:var(--panel2);border:1px solid var(--line);border-radius:4px;padding:1px 5px;
+   font:13px ui-monospace,Consolas,monospace;color:#a5d6ff}
+ pre{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:11px 13px;
+   overflow-x:auto;font:12.5px/1.5 ui-monospace,Consolas,monospace;color:#a5d6ff}
+ table{width:100%;border-collapse:collapse;margin:12px 0;font-size:14px}
+ th,td{border:1px solid var(--line);padding:7px 10px;text-align:left;vertical-align:top}
+ th{background:var(--panel2);color:var(--accent)}
+ ul,ol{margin:7px 0 7px 20px} li{margin:5px 0}
+ .hi{color:#ffd479} .muted{color:var(--muted)}
+</style></head><body><div class="wrap">
+<header>
+<h1>GroupTrack — Handoff</h1>
+<div class="sub">2026-08-09 EOD &middot; HEAD <code>4552b2934</code> &middot; tree clean<br>
+<b>A-01 PASSED · ETA FIX VERIFIED ON DEVICE · MIGRATION RUNNING UNATTENDED</b></div>
+</header>
+
+<h2>⭐⭐ VERIFIED ON DEVICE TONIGHT</h2>
+<div class="card green">
+<h4>1 — A-01 PASSED. The 08-08 data-loss defect is FIXED.</h4>
+<pre>MIGSURFACE-2026-08-08Q start: tracks=true areas=true slot=SAT</pre>
+<p>And now <b>visible on screen</b>, not just in logcat — the checklist reads
+<b>"Selected: track maps + areas"</b> as its first line
+(<code>moving_maps_in_progress</code>). On 08-08 <code>optTracks</code> was false here despite the
+box being ticked, which is the chain that ended in the lost spatial DB.</p>
+</div>
+<div class="card green">
+<h4>2 — The migration checklist RENDERS. Branch fix confirmed.</h4>
+<p><code>MIGRENDER-2026-08-09E</code>. The option-panel branch (<code>!refreshEnqueued</code>) sat
+ABOVE the checklist branch (<code>migRunning</code>) in the same if/else chain, and
+<code>refreshEnqueued</code> only flips at the END of the run — so <b>the checklist was
+unreachable for the entire migration.</b> Every part of it was already built and correct;
+<b>the defect was the ORDER OF THE BRANCHES</b>, which is why reading the callback, the threading,
+the state writes and the renderer in turn all came up clean.</p>
+</div>
+<div class="card green">
+<h4>3 — ⭐⭐ THE ETA FIX IS VERIFIED. Arithmetic checked against the screen.</h4>
+<pre>47,674 active + 1,036,839 queued = 1,084,513 tiles
+1,084,513 / 19.3 tiles/sec       =    56,192 sec = 15.6 h
+rounded to the hour (>8h rule)   =    16h 0m     <-- exactly what the panel showed</pre>
+<p><b>The estimate and the displayed rate now agree.</b> <code>ETA-ONERATE-2026-08-09H</code>
+extracted <code>liveRate()</code> as the single definition and deleted 22 lines of independent
+measurement — including the <code>firstStart</code> block that fell back to <code>createdAt</code>,
+i.e. QUEUE TIME, which is what produced the 6x.</p>
+<p class="muted">Before: 37.2 tiles/sec displayed and "3 hours" for 69,000 tiles — its own rate
+said 31 minutes.</p>
+</div>
+
+<h2>⛔⛔ THE FINDING THAT MATTERS MOST — SINGLE-SOURCE THROUGHPUT</h2>
+<div class="card red">
+<p class="hi"><b>19-21 tiles/sec sustained tonight, against 62 last night. Same device, same
+source, same 4 slots.</b></p>
+<p><b>The difference: tonight all four jobs hit ONE host.</b> Last night's 62 was three jobs across
+THREE different sources (SAT / TOPO / TOPO+) — so most of that number was <b>parallelism across
+hosts, not concurrency against one.</b></p>
+<p>⛔ <b>THIS RETIRES THE 08-08 CONCURRENCY BASELINE COMPLETELY.</b> 2 slots 26.2 / 3 slots 30.0 /
+4 slots 33.2 were never measuring what they appeared to. The 08-08 note flagged the confound
+explicitly and asked for exactly this test. <b>Per-host throughput is the ceiling, not slot
+count.</b></p>
+<p>⚠ <b>PRODUCT CONSEQUENCE:</b> a single-source migration is inherently slower than a mixed one.
+Fred's store: <b>~16 hours, not the ~5 the old numbers implied.</b> Nothing is broken — that is
+what one tile host gives one client. <b>The docs must not quote per-slot figures.</b></p>
+<p>⚠ Unchecked: whether Google is pacing or rejecting.
+<code>logcat | grep -iE "429|403|rate limit|too many"</code> — a 429 is explicit throttling,
+silence means pacing.</p>
+</div>
+
+<h2>The corridor delete — settled, not a defect</h2>
+<div class="card amber">
+<p><b>~95-100 tiles/sec, linear with tile count.</b> 88 of 88 tracks completed. 633,050 distinct
+tiles, 472,129 of them shared between corridors.</p>
+<p class="hi">⛔⛔ <b>SEVEN HYPOTHESES WERE PROPOSED AND EVERY ONE DIED.</b> Recorded so none is
+re-proposed:</p>
+<table>
+<tr><th>Proposed</th><th>Killed by</th></tr>
+<tr><td>Missing transaction wrapper</td><td>Already one transaction, 500 rows/statement — <code>MBTilesStore:317-340</code></td></tr>
+<tr><td>Missing index</td><td><code>tile_index</code> already exists, created on every open — <code>:94</code></td></tr>
+<tr><td>O(n²) shared-tile re-derivation</td><td>The PREVIEW did all 88 tracks in 40 seconds</td></tr>
+<tr><td>Run deletes concurrently</td><td>One SQLite file, one writer at a time</td></tr>
+<tr><td>Delete the distinct union instead of per-track</td><td>Re-deleting absent rows costs 0.4 s/track — nothing to reclaim</td></tr>
+<tr><td>Drop and rebuild the index</td><td>It is the only way to find the rows; a rebuild on ~2M rows is worse</td></tr>
+<tr><td class="hi"><b>secure_delete / synchronous / journal_mode pragmas</b></td>
+<td class="hi"><b>APPLIED AND CONFIRMED ON DEVICE. NO EFFECT.</b></td></tr>
+</table>
+<p class="hi">⭐⭐ <b>THE ANSWER: IT IS NOT SLOW.</b> Deletes run at ~100 tiles/sec; downloads run at
+~20-62. <b>The delete is FASTER PER TILE THAN THE DOWNLOAD.</b> Removing 633k tiles in under two
+hours is proportionate to the ten hours it took to fetch them.</p>
+<p>⭐ <b>And the baseline that matters:</b> before MBTiles there was NO removal option at all —
+testers factory-reset their devices. Two hours unattended replaced days of manual work or a wipe.</p>
+<p>⚠ <b>THE CONTROLLED COMPARISON, by accident:</b> the five tracks deleted this morning were
+re-visited tonight and returned <code>tiles=0</code> in <b>0.4 seconds each</b>. Bar 10 overnighter:
+<b>189 s with rows, 0.4 s without</b>. Same corridor, same statements. <b>The cost is the physical
+row removal, nothing else.</b></p>
+</div>
+
+<h2>⭐⭐ THE IDEA WORTH KEEPING — A REBUILD MANIFEST</h2>
+<div class="card blue">
+<p class="hi">Fred, 08-09: <i>"save downloads in queue and flag source area or corr. if we lose
+data we can recreate by resubmitting areas and corridors that have been completed — kind of a
+rebuild my map script."</i> And: <i>"if you store it on Google Drive it can be used to seed another
+device."</i> And: <i>"and a DR tool."</i></p>
+<p><b>Keep completed download jobs — scope and kind — and you have a MANIFEST of how the store was
+built.</b> Every corridor by geom hash, every area by bbox, each tagged. Not a log, a recipe.</p>
+<p><b>What it gives:</b></p>
+<ul>
+<li><b>DR.</b> Two data-loss events in nine days, both ending in manual reconstruction. With a
+manifest: reinstall, pull, resubmit, walk away. ⚠ Covers TILES only — tracks and trails are
+captured data and need real backup.</li>
+<li><b>Device seeding.</b> A manifest is kilobytes; 14 GB of tiles is not. New phone: install, pull,
+rebuild. A seed, not a transfer.</li>
+<li><b>Coverage sharing.</b> A ride leader builds the coverage for a trip and shares the recipe.
+⭐ The route-import goal generalised to whole stores.</li>
+<li><b>It dissolves the delete ordering constraint.</b> Area scope currently must be inferred from
+what survives on disk, which is WHY corridors must be deleted first. A manifest records what was
+requested, so scope no longer comes from disk.</li>
+</ul>
+<p>⚠ <b>The pieces mostly exist</b> — completed entries already carry <code>geomHash</code>, bbox,
+slot and tile counts. Missing: an explicit kind flag, and CLEAR currently destroys them.
+⭐ <b>The hide-not-delete change already designed for the yardstick serves both.</b></p>
+<p>⚠ <b>It must not live in <code>download_queue.json</code></b> — that file quarantines to
+<code>.corrupt</code> on a bad parse and has boot-looped the app. A DR tool cannot share fate with
+the thing it protects. ⭐ Off-device, which is what the Drive idea already does.</p>
+<p>⚠ A shared manifest carries <b>where you ride</b>. Be deliberate before it becomes a sharing
+feature.</p>
+<p>⚠⚠ <b>WHY TILE-BY-TILE REFRESH WAS REJECTED</b> (considered and killed tonight): a single job
+over 1.28M tiles is <b>one unit with no restart point</b>. Fred: <i>"one two week job with no
+restart for failsafe. not buying it."</i> <b>The corridors and areas are not just scope — they are
+the FAILURE BOUNDARIES</b> that make a multi-day job survivable. Chunking by count (~40k per job)
+would work, but the payload must be a re-queryable range, not a tile list.</p>
+<p>⚠ <b>And the MBTiles metadata carries nothing useful</b> — name, format, scheme. Checked day one.
+There is no record of how any tile got there, which is the same gap behind the coverage-confidence
+question. <b>It is our file; we can add rows.</b></p>
+</div>
+
+<h2>🔴 NEW REGRESSION — queue row spacing</h2>
+<div class="card red">
+<p>Fred 08-09: <b>~20 lines of vertical space between queue rows, only when the panel is expanded
+vertically.</b> Introduced by tonight's <code>ETA-ONERATE</code> edit, which replaced the block
+where <code>qeLive</code> was computed inside <code>if (expanded)</code>.</p>
+<p>⚠ "Only when expanded vertically" points at a fill/arrangement problem, not a fixed padding
+value — a <code>Column</code> child spreading to fill available height.</p>
+<pre>diff ConvoyDownloadQueuePanel.kt.bak_20260809_202249 ConvoyDownloadQueuePanel.kt</pre>
+<p>⭐ The diff is small (48 insertions / 53 deletions across two files) so anything structural will
+be obvious. <b>NOT YET DIAGNOSED.</b></p>
+</div>
+
+<h2>Shipped tonight — all committed, tree clean at <code>4552b2934</code></h2>
+<div class="card">
+<table>
+<tr><th>Commit</th><th>What</th><th>State</th></tr>
+<tr><td><code>4552b2934</code></td><td>remove two stray empty files</td><td>⚠ created by an unquoted shell redirect and swept in by <code>git add -A</code></td></tr>
+<tr><td><code>774a7308c</code></td><td>ETA-ONERATE + concurrency default 3→4</td><td class="hi"><b>ETA VERIFIED</b> · default is seed-only, unverifiable on either device</td></tr>
+<tr><td><code>789dec159</code></td><td>MBPRAGMA-G — three pragmas via rawQuery</td><td>applied on device, <b>no effect</b></td></tr>
+<tr><td><code>b88818dd4</code></td><td>MIGRENDER — checklist can render</td><td class="hi"><b>VERIFIED</b></td></tr>
+<tr><td><code>50d36b5a7</code></td><td>MBPRAGMA (D) — the version that failed</td><td>superseded by G</td></tr>
+<tr><td><code>cfe6ce1ec</code></td><td>TRAILS-CAP — 2,000 below z10 / 5,000 above</td><td>tested fine</td></tr>
+<tr><td><code>3d2933f7d</code></td><td>ZOOM-Z9 — gate to 9, tracks cap flat 500</td><td>tested fine</td></tr>
+<tr><td><i>+ asset</i></td><td>DEFAULT-SAT — new installs seed google-hybrid</td><td>⚠ ships unverified</td></tr>
+</table>
+</div>
+
+<h2>📸 SCREENSHOTS CAPTURED — 11, ready for the doc pass</h2>
+<div class="card blue">
+<p><code>ersi_starting_map</code> · <code>current_map_source</code> ·
+<code>Change_map_source</code> · <code>new_map_source_select</code> ·
+<code>map_source_changed_next_step</code> · <code>migration_choices_explained</code> ·
+<code>move_everything_options</code> · <b><code>moving_maps_in_progress</code></b> ·
+<code>completion_message_rebuild_started</code> · <b><code>submitted_map_rebuild_jobs</code></b> ·
+plus the battery/standby settings screen.</p>
+<p>⭐ <b>Two of these did not exist before tonight:</b> the in-progress checklist (the branch fix
+made it renderable) and the queue panel with a real backlog and a correct ETA.</p>
+<p>⚠ Screenshots contain track names and locations — review before any go into a distributed
+manual.</p>
+</div>
+
+<h2>▶ NEXT SESSION</h2>
+<div class="card">
+<ol>
+<li><b>Check the migration finished.</b> ~16 h from ~20:30, so it should complete overnight.
+Confirm the queue drained, nothing FAILED, and the spatial DB is intact.</li>
+<li><b>Diagnose the row-spacing regression</b> — diff against the backup.</li>
+<li><b>Panel copy before the delete</b> — tile count from the preview, "a few hours, does not need
+watching", and Fred's line: <i>"Check your device periodically to view progress and receive an
+estimate on the remaining download time."</i></li>
+<li><b>THE DOC PASS</b> — manual + quickstart + release notes, in one edit:
+map-source flow with the 11 captures · battery/standby guidance (wall charger, unrestricted,
+standby optimizers off) · <b>the All-Files correction</b> (both docs currently say the permission
+"switches off silently" — it does not, it still reads as granted) · the undocumented queue panel
+(concurrency stepper, aggregate rate, completed-row detail, track names on corridor rows, QUEUE HELD
+recovery) · z9 map display · <b>no per-slot throughput figures</b>.</li>
+<li><b>Then the AAB.</b></li>
+</ol>
+</div>
+
+<h2>Still open, not touched tonight</h2>
+<div class="card">
+<ul>
+<li><b>Route corridors</b> — designed in full, living master section 17. ⛔ Resolve the
+<code>geom_hash</code> contradiction first.</li>
+<li><b>All-Files authority fix</b> — designed, not built. <code>00-INSTALL</code> + <code>00-REFUSE</code>.</li>
+<li><b>The estimate refinement Fred specified:</b> first sample at 5 minutes, recalc hourly from the
+last hour, tiles as the unit. ⭐ Tonight fixed the 6x; this is the second-order fix so a rate step
+is followed rather than averaged away.</li>
+<li><b>Queue the delete instead of running it inline</b> — would make it survive app close and give
+progress for free. ⚠ Needs a run-alone gate; the delete must be exclusive.</li>
+<li>Nine <code>.bak_</code> files in the source tree polluting every grep.</li>
+</ul>
+</div>
+
+</div></body></html>

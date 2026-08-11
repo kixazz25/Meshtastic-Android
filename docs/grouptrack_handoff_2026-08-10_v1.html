@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GroupTrack — Handoff — 2026-08-10</title>
+<style>
+ :root{--bg:#0f1216;--panel:#161b22;--panel2:#1c2229;--line:#30363d;--fg:#e6edf3;
+   --muted:#8b949e;--accent:#58a6ff;--red:#f85149;--amber:#d29922;--green:#3fb950;}
+ *{box-sizing:border-box}
+ body{margin:0;padding:28px 20px 80px;background:var(--bg);color:var(--fg);
+  font:15px/1.6 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+ .wrap{max-width:1080px;margin:0 auto}
+ header{border-bottom:2px solid var(--accent);padding-bottom:14px;margin-bottom:26px}
+ h1{margin:0 0 6px;font-size:26px} .sub{color:var(--muted);font-size:14px}
+ h2{font-size:19px;margin:32px 0 12px;padding-bottom:6px;border-bottom:1px solid var(--line);color:var(--accent)}
+ .card{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--line);
+   border-radius:6px;padding:13px 15px;margin:10px 0}
+ .card.red{border-left-color:var(--red)} .card.amber{border-left-color:var(--amber)}
+ .card.green{border-left-color:var(--green)} .card.blue{border-left-color:var(--accent)}
+ .card h4{margin:0 0 6px;font-size:14px;font-weight:600}
+ code{background:var(--panel2);border:1px solid var(--line);border-radius:4px;padding:1px 5px;
+   font:13px ui-monospace,Consolas,monospace;color:#a5d6ff}
+ pre{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:11px 13px;
+   overflow-x:auto;font:12.5px/1.5 ui-monospace,Consolas,monospace;color:#a5d6ff}
+ table{width:100%;border-collapse:collapse;margin:12px 0;font-size:14px}
+ th,td{border:1px solid var(--line);padding:7px 10px;text-align:left;vertical-align:top}
+ th{background:var(--panel2);color:var(--accent)}
+ ul,ol{margin:7px 0 7px 20px} li{margin:5px 0}
+ .hi{color:#ffd479} .muted{color:var(--muted)}
+</style></head><body><div class="wrap">
+<header>
+<h1>GroupTrack — Handoff</h1>
+<div class="sub">2026-08-10 &middot; HEAD <code>15e1acebf</code> &middot; tree clean<br>
+<b>ROUTE CORRIDORS SHIPPED · ZOOM CAP · ROTATION BUG FIXED · AAB BUILDING</b></div>
+</header>
+
+<h2>Where the tree is</h2>
+<div class="card">
+<table>
+<tr><th>Commit</th><th>What</th><th>State</th></tr>
+<tr><td><code>15e1acebf</code></td><td>ROTATE — MainActivity survives rotation</td><td class="hi"><b>NOT TESTED</b></td></tr>
+<tr><td><code>151febe07</code></td><td>ZOOMSLOT display — both maps</td><td>installed, zoom continues + upscales as intended</td></tr>
+<tr><td><code>490096e49</code></td><td>ZOOMSLOT download — corridor cap</td><td>installed</td></tr>
+<tr><td><code>7abeb1bfb</code></td><td>ROUTECORR 3 — SAVE MAPS for routes</td><td class="hi"><b>VERIFIED on device</b></td></tr>
+<tr><td><code>4c71fecdd</code></td><td>ROUTECORR 2 — geometry + label</td><td class="hi"><b>VERIFIED</b></td></tr>
+<tr><td><code>b9017aaca</code></td><td>ROUTECORR 1 — resolvers</td><td class="hi"><b>VERIFIED</b></td></tr>
+<tr><td><code>79389e3f6</code></td><td>docs — manual + release notes into assets</td><td>content-verified 1/2/1</td></tr>
+</table>
+<p>⚠ <b>The AAB was building at handoff.</b> It contains everything above. ⚠ An AAB cannot be
+sideloaded — the tester and both devices need an <b>APK</b>, which is a separate
+<code>assembleGoogleRelease</code>. ⭐ <code>./gradlew assembleGoogleRelease bundleGoogleRelease</code>
+in ONE invocation produces both from a single compile.</p>
+</div>
+
+<h2>⭐⭐ Route corridors — shipped and verified</h2>
+<div class="card green">
+<pre>getRoutePoints &lt;hash&gt;: 1 segment(s), 181 points
+CORRIDOR queued: slot=TOPO tiles=1848 ... hash=4f771154...</pre>
+<p><b>SAVE MAPS on a route&rsquo;s artifact panel derives and queues a corridor</b>, same pipeline
+as tracks. <code>getRoutePoints</code> firing proves the fallback chain resolved from the routes
+table.</p>
+<p class="hi">⭐⭐⭐ <b>The design collapsed from a cross-file refactor to three small commits</b>
+because the device schema says
+<code>CREATE TABLE routes (... geom_hash TEXT NOT NULL, UNIQUE(geom_hash))</code> and
+<code>insertRoute</code> already computes it. <b>The hash is content-addressed and unique in both
+tables</b>, so the same hash means the same geometry wherever stored — no artifact-type parameter,
+no QueueEntry field, no inputData change, no worker change.</p>
+<p>⚠ <b>The 07-27 note had this right all along.</b> The 08-06 note claiming routes lacked
+<code>geom_hash</code> was WRONG and drove a much larger design.
+⭐⭐ <b>CHECK THE SCHEMA BEFORE DESIGNING AROUND A DATA MODEL.</b></p>
+<p>⛔ <b>NOT done, and it blocks GPX import:</b> <code>insertRoute</code> does
+<code>newId()</code> → <code>INSERT OR IGNORE</code> → <code>return id</code>. On duplicate
+geometry nothing inserts and a <b>fabricated id is returned</b>. Fix: read back the surviving
+<code>route_id</code> by <code>geom_hash</code>. The panel path does not need it.</p>
+</div>
+
+<h2>⭐ Zoom cap — SAT z18, rendered z16</h2>
+<div class="card green">
+<p><b>Keyed on the SLOT</b>, because every download path already carries it and none carry the
+source. Publishes as one sentence.</p>
+<p>⛔⛔ <b>THE CAP IS OPT-IN AND MUST STAY THAT WAY.</b> <code>ConvoyCorridorDelete</code> calls the
+same <code>corridorTiles</code>. A capped delete computes a SMALLER set than an older build stored,
+<b>leaving z17-z18 tiles nothing can ever remove.</b> Empty slot = no cap; only the two DOWNLOAD
+paths pass one.</p>
+<p>⚠ <b>STILL UNCAPPED:</b> the AREA path (<code>calculateTiles</code> has a
+<code>sourceName</code> parameter NOTHING passes — nine call sites) and <code>quickEstimate</code>
+(no slot, so the preview overstates).</p>
+<p>⭐ Display uses <code>maxNativeZoom</code>, so zoom continues past the cap and <b>upscales</b>
+rather than stopping. Agreed as the better behaviour — artifact overlays stay sharp, so a waypoint
+can still be placed precisely over a soft basemap.</p>
+</div>
+
+<h2>⛔⛔ What the tester&rsquo;s run exposed</h2>
+<div class="card red">
+<h4>1 — Rotation destroyed a running migration. FIXED, untested.</h4>
+<p>MainActivity had no <code>configChanges</code>, so Android recreated it on rotation and took the
+composable — and the coroutine the delete runs on — with it.
+Fred: <i>"just leave the screen open unless an action is taken to end it. period."</i></p>
+<p>⭐ Chosen over <code>rememberSaveable</code> deliberately: saving state rebuilds the panel but the
+coroutine is still cancelled — <b>it would look alive while doing nothing.</b> Keeping the activity
+keeps the WORK. ⚠ A swipe-away still ends it.</p>
+</div>
+<div class="card red">
+<h4>2 — STRANDED: delete completed, submit never ran.</h4>
+<p>Corridors removed, queue <b>empty</b>, coverage gone, <b>no indication anything was wrong.</b>
+⭐ Recovery is a re-run — already-deleted corridors skip at ~0.4 s each and it reaches the submit.
+⚠ <b>The app cannot DETECT this state.</b> A launch check for "coverage removed, nothing scheduled"
+would turn a confusing hour into a prompt.</p>
+</div>
+<div class="card red">
+<h4>3 — A successful delete was recorded as FAILED.</h4>
+<p>First pass logged failures; the second popped through in seconds, which is the signature of
+nothing left to delete. <b>The tiles came off and the record said otherwise.</b> The delete and
+<code>recordCompletedDelete</code> are not atomic, so a failure in the RECORD is indistinguishable
+from a failure to DELETE.</p>
+<p>⚠ <b>This is what made an hour of diagnosis necessary</b>, and on a destructive operation it is
+worse than cosmetic — a user either re-runs needlessly or believes their data survived when it did
+not.</p>
+</div>
+
+<h2>⭐⭐ The delete is device-bound, not code-bound — settled</h2>
+<div class="card amber">
+<p class="hi"><b>Samsung tablet: 99 tracks in 15 SECONDS. Droid 2: ~1.8 hours. Same build.</b></p>
+<p>⛔ Every hypothesis chased on 08-09 was hunting a defect in code that runs hundreds of times
+faster on ordinary hardware. Seven died; the answer was slow storage.</p>
+<p>⛔ <b>DOCS CONSEQUENCE: the panel copy saying "a few hours" is calibrated to the slowest device
+owned</b> and will alarm everyone else. Say it depends on the device and how much is held; let the
+meter carry the rest. <b>No duration claim.</b></p>
+</div>
+
+<h2>▶ NEXT SESSION</h2>
+<div class="card">
+<ol>
+<li class="hi"><b>Test the rotation fix</b> — start a delete, rotate mid-run, confirm the panel
+stays and the count keeps moving. That is the one thing shipped untested.</li>
+<li class="hi"><b>HIDE completed and cancelled queue entries on hold-and-cancel.</b> The
+tester&rsquo;s panel was too congested to find live activity. ⭐ <b>Hide, not remove</b> — the
+estimator and the yardstick compute from completed rows. Same <code>hidden</code> flag already
+designed for the yardstick, defaulted false on read.</li>
+<li><b>Panel copy</b> — drop the duration claim, per the tablet finding.</li>
+<li><b><code>insertRoute</code> duplicate fix</b>, then GPX route import (state unknown), then
+route-create-on-save.</li>
+<li><b>Menu / submenu cleanup</b> — multiple items. ⚠ <code>Import Ride from Downloads</code> has
+NO caller; its callback falls back to <code>{}</code> and already does nothing.</li>
+<li><b>Route mileage</b> — column on route build + running total during draw.</li>
+<li><b>Per-source zoom override</b> — shipped default, user-editable.</li>
+</ol>
+</div>
+
+<h2>Still open from 08-09</h2>
+<div class="card">
+<ul>
+<li>🔴 <b>Queue row spacing regression</b> — ~20 lines of vertical space when expanded. Not
+diagnosed. Diff against <code>ConvoyDownloadQueuePanel.kt.bak_20260809_202249</code>.</li>
+<li>🔴 <b>All-Files authority fix</b> — designed, not built. <code>00-INSTALL</code> +
+<code>00-REFUSE</code>.</li>
+<li><b>Estimate refinement</b> — first sample at 5 min, hourly from the last hour, tiles as the
+unit. The 6x is fixed; this is the second-order one.</li>
+<li><b>Latent:</b> the <code>auto_unreachable</code> branch writes <code>migSteps</code>, rendered
+only inside an <code>else if (false)</code> — dead code. That path shows nothing at all.</li>
+<li><b>CONTINUE is not guarded against a second tap</b> — two racing deletes would not be harmless.</li>
+<li>⚠ <b>The coverage overlay may draw BOXES rather than corridor footprints.</b> If so, any
+conclusion from LOOKING at the map is suspect; log-derived tile counts are unaffected.</li>
+</ul>
+</div>
+
+</div></body></html>
