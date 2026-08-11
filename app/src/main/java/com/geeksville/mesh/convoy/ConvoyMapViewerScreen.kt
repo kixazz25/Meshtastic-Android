@@ -23,6 +23,12 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.activity.compose.BackHandler
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.ExperimentalComposeUiApi
+// RECREATE-2026-08-11D: imports for the Recreate results dialog.
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.TextButton
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Icon
 import androidx.compose.material.icons.Icons
@@ -355,6 +361,103 @@ fun ConvoyMapViewerScreen(
     var removeTrackChecked by remember { mutableStateOf(false) }
     // RECREATE-2026-08-11A: Recreate Tiles by Source -- scan-and-report, queues nothing yet.
     var recreateSourceChecked by remember { mutableStateOf(false) }
+    // RECREATE-2026-08-11B: scan results, shown before anything is queued.
+    // rows = one (zoom, count) pair per level actually present in the store.
+    var recreateRows by remember { mutableStateOf(listOf<Pair<Int, Int>>()) }
+    var recreateTotal by remember { mutableStateOf(0L) }
+    var recreateSlot by remember { mutableStateOf("") }
+    var recreateScanning by remember { mutableStateOf(false) }
+    // RECREATE-2026-08-11B: live progress while the scan runs -- which level it is
+    // reading and the running tile count. A COUNT per level is fast, but
+    // on a large store it is not instant, and a dialog that says nothing
+    // for several seconds reads as hung.
+    var recreateProgress by remember { mutableStateOf("") }
+    var showRecreateResults by remember { mutableStateOf(false) }
+
+    // RECREATE-2026-08-11B: the results dialog. Placed here rather than in the layout tree --
+    // an AlertDialog renders in its own window, so it does not need to sit
+    // inside a Box or Column, and anchoring at the state declarations avoids
+    // guessing at a position in a very large composable.
+    if (showRecreateResults) {
+        val jobs = if (recreateTotal <= 0L) 0
+                   else ((recreateTotal + 50000 - 1) / 50000).toInt()
+        AlertDialog(
+            onDismissRequest = { showRecreateResults = false },
+            title = { Text("Recreate $recreateSlot") },
+            text = {
+                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                    if (recreateScanning) {
+                        Text("Reading the store...")
+                        if (recreateProgress.isNotBlank()) {
+                            Spacer(Modifier.height(6.dp))
+                            Text(recreateProgress,
+                                 style = MaterialTheme.typography.bodySmall)
+                        }
+                        if (recreateRows.isNotEmpty()) {
+                            Spacer(Modifier.height(6.dp))
+                            recreateRows.forEach { (z, n) ->
+                                Row(modifier = Modifier.fillMaxWidth()) {
+                                    Text("z$z", modifier = Modifier.width(48.dp),
+                                         style = MaterialTheme.typography.bodySmall)
+                                    Text(n.toString(),
+                                         style = MaterialTheme.typography.bodySmall)
+                                }
+                            }
+                        }
+                    } else if (recreateRows.isEmpty()) {
+                        Text("No tiles are stored for $recreateSlot, so there is " +
+                             "nothing to recreate.")
+                    } else {
+                        Text("These are the tiles this source actually holds. " +
+                             "Only these are re-downloaded -- ground with no tiles " +
+                             "is never requested.",
+                             style = MaterialTheme.typography.bodySmall)
+                        Spacer(Modifier.height(8.dp))
+                        recreateRows.forEach { (z, n) ->
+                            Row(modifier = Modifier.fillMaxWidth()) {
+                                Text("z$z", modifier = Modifier.width(48.dp),
+                                     style = MaterialTheme.typography.bodyMedium)
+                                Text(n.toString(),
+                                     style = MaterialTheme.typography.bodyMedium)
+                            }
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        Text("$recreateTotal tile(s) in ${recreateRows.size} zoom level(s)",
+                             style = MaterialTheme.typography.bodyMedium)
+                        Text("$jobs job(s) of up to 50000 tiles",
+                             style = MaterialTheme.typography.bodySmall)
+                        Spacer(Modifier.height(8.dp))
+                        Text("Your maps keep working while this runs -- each tile is " +
+                             "replaced in place, so nothing is removed first.",
+                             style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !recreateScanning && recreateRows.isNotEmpty(),
+                    onClick = {
+                        showRecreateResults = false
+                        recreateSourceChecked = false
+                        // RECREATE-2026-08-11B: THE SUBMITTER IS NOT WRITTEN YET. This logs
+                        // its intent and does nothing else, deliberately -- the
+                        // numbers above are checked against a known store before
+                        // anything is allowed to queue.
+                        android.util.Log.i("Recreate",
+                            "RECREATE-2026-08-11B PROCEED requested: $recreateSlot, " +
+                            "$recreateTotal tile(s), $jobs job(s) - " +
+                            "submitter not implemented, nothing queued")
+                    }
+                ) { Text("PROCEED TO COPY") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showRecreateResults = false
+                    recreateSourceChecked = false
+                }) { Text("CANCEL") }
+            }
+        )
+    }
     var showMigrateGate by remember { mutableStateOf(false) }
     var migrateBusy by remember { mutableStateOf(false) }
     var migrateSteps by remember { mutableStateOf(listOf<String>()) }
@@ -2438,33 +2541,61 @@ fun ConvoyMapViewerScreen(
                         // hold millions of rows, and walking the queue on the UI
                         // thread is what ANR'd the 3,287-job cancel on 08-11.
                         val slot = ConvoyConfig.ACTIVE_TILE_SOURCE
+                        recreateSlot = slot
+                        recreateRows = emptyList()
+                        recreateTotal = 0L
+                        recreateProgress = ""
+                        recreateScanning = true
+                        showRecreateResults = true
+                        // RECREATE-2026-08-11C: clear the row as the panel opens. The
+                        // dialog is driven by showRecreateResults, not by the
+                        // checkbox, so the tick has done its job -- leaving it
+                        // set just shows a checked row behind the panel.
+                        recreateSourceChecked = false
+                        // RECREATE-2026-08-11B: off the main thread deliberately. A large
+                        // store holds millions of rows, and walking work on the
+                        // UI thread is what ANR'd the 3,287-job cancel on 08-11.
                         Thread {
+                            val rows = ArrayList<Pair<Int, Int>>()
+                            var total = 0L
                             try {
                                 val levels = MBTilesStore.zoomLevelsPresent(slot)
-                                if (levels.isEmpty()) {
-                                    android.util.Log.i("Recreate",
-                                        "RECREATE-2026-08-11A $slot: no tiles stored - nothing to recreate")
-                                    return@Thread
-                                }
-                                var total = 0L
-                                val perZoom = StringBuilder()
-                                for (z in levels) {
+                                for ((idx, z) in levels.withIndex()) {
                                     val n = MBTilesStore.countAtZoom(slot, z)
+                                    rows.add(z to n)
                                     total += n
-                                    perZoom.append("   z").append(z).append(" ").append(n).append("\n")
+                                    // RECREATE-2026-08-11B: report after EACH level, so the
+                                    // dialog fills in as it goes rather than
+                                    // sitting blank until the whole scan ends.
+                                    val soFar = ArrayList(rows)
+                                    val runTotal = total
+                                    val line = "level ${idx + 1} of ${levels.size} - " +
+                                               "$runTotal tile(s) so far"
+                                    android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                        recreateRows = soFar
+                                        recreateTotal = runTotal
+                                        recreateProgress = line
+                                    }
+                                    // RECREATE-2026-08-11B: one line PER LEVEL. Summing these
+                                    // is the store's own row count, so the scan
+                                    // can be verified without pulling the file.
+                                    android.util.Log.i("Recreate",
+                                        "RECREATE-2026-08-11B $slot z$z $n tile(s)")
                                 }
-                                // 50000 tiles per job. The job cannot carry a
-                                // tile list in inputData, so a real submission
-                                // would carry a re-queryable range and let the
-                                // worker re-derive -- same shape as corridor jobs
-                                // resolving geometry from a hash.
-                                val jobs = ((total + 50000 - 1) / 50000).toInt()
+                                val jobs = if (total <= 0L) 0
+                                           else ((total + 50000 - 1) / 50000).toInt()
                                 android.util.Log.i("Recreate",
-                                    "RECREATE-2026-08-11A $slot SCAN: ${levels.size} zoom level(s), " +
-                                    "$total tile(s) stored -> would build $jobs job(s) " +
-                                    "of up to 50000 tiles\n" + perZoom.toString())
+                                    "RECREATE-2026-08-11B $slot TOTAL $total tile(s) in " +
+                                    "${rows.size} level(s) -> $jobs job(s) of up to 50000")
                             } catch (e: Exception) {
-                                android.util.Log.e("Recreate", "RECREATE-2026-08-11A scan failed: ${e.message}")
+                                android.util.Log.e("Recreate",
+                                    "RECREATE-2026-08-11B scan failed: ${e.message}")
+                            }
+                            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                recreateRows = rows
+                                recreateTotal = total
+                                recreateProgress = ""
+                                recreateScanning = false
                             }
                         }.start()
                     },
