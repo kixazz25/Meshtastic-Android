@@ -703,7 +703,23 @@
     // ---- Route build: tap -> Kotlin (route mode only) ----
     if (typeof map !== 'undefined' && map && !map.__routeTapWired) {
       map.__routeTapWired = true;
-      window.__routeMode = false;
+      // ROUTEMODEFIX-2026-08-12W: the route-mode reset that used to sit here is GONE.
+      //
+      // It disarmed route planning on pan and zoom. This block is guarded by
+      // __routeTapWired, but the guard only holds for one map object - whenever
+      // the map is rebuilt or this setup runs again, the assignment fired and
+      // silently ended the draw session.
+      //
+      // Both reported symptoms were that one flag: with __routeMode false the
+      // artifact handlers stop returning early (popups come back) and the map
+      // click handler stops forwarding to Android.onMapTap (no points drop).
+      //
+      // Route mode is an ACTIVITY, not restorable state. It is armed only by a
+      // user action and cleared by save, discard, or the Kotlin planner-entry
+      // reset. A drawing routine has no business touching it.
+      //
+      // No initialiser is needed: undefined is falsy, so every read
+      // guard in this file behaves exactly as it did before.
       // TRACKPOPUP-2026-07-30: false = tracks show a plain popup instead of
       // calling Android.onTrackTap. Set true to restore the detail panel.
       // DETAILPANEL-ON-2026-07-31: re-enabled. Was a 07-30 stopgap (tracks showed a
