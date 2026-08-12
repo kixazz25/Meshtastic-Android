@@ -547,8 +547,13 @@
         for (var i = 0; i < bounds.length; i++) {
           var b = bounds[i];
           var rect = L.rectangle([[b.s, b.w], [b.n, b.e]], {
-            color: '#FF3333', weight: 1, fillColor: '#FF3333', fillOpacity: 0.15,
-            dashArray: '6,3'
+            // OVERLAYZ16-2026-08-12E: a corridor bbox is an OVERSIZED ESTIMATE - the box
+            // around a winding track, not the band that will be fetched. Drawn
+            // HOLLOW with a longer dash: a filled box says "this ground", an
+            // outline says "somewhere in here".
+            color: '#FF3333', weight: b.corridor ? 2 : 1, fillColor: '#FF3333',
+            fillOpacity: b.corridor ? 0.0 : 0.15,
+            dashArray: b.corridor ? '12,8' : '6,3'
           }).addTo(map);
           if (b.label) rect.bindTooltip(b.label, {permanent: false, direction: 'center'});
           queuedLayers.push(rect);

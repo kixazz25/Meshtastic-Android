@@ -2707,16 +2707,50 @@ fun ConvoyMapViewerScreen(
                                     Thread {
                                         val bounds = mutableListOf<String>()
                                         run {
-                                            // [V2.6-PASS1-S4-VIEWER] DB-backed coverage (raw z/x/y at z14)
-                                            val z = 14; val n = 1 shl z
+                                            // OVERLAYZ16-2026-08-12E: z16, and MERGED INTO RUNS.
+                                            //
+                                            // Was z14. The funnel made that
+                                            // misleading: at z14 the buffer is
+                                            // 4.87 miles either side, so it drew
+                                            // a ten-mile swath reading "I have
+                                            // this whole area" when at z18 you
+                                            // hold 0.6. It showed the WIDEST
+                                            // part of the funnel as the coverage.
+                                            //
+                                            // z16 answers "where do I have
+                                            // DETAIL" instead of "where do I
+                                            // have something" - the question
+                                            // that matters when planning an area.
+                                            //
+                                            // ⭐ MERGING IS WHAT MAKES z16
+                                            // VIABLE, not an optimisation.
+                                            // Measured: 3,139 rects at z14 but
+                                            // 33,650 at z16, and Leaflet degrades
+                                            // past ~10-20k. The band is 9 tiles
+                                            // wide, so one rect per row of
+                                            // contiguous x gives ~3,700.
+                                            val z = 16; val n = 1 shl z
+                                            val byRow = HashMap<Long, MutableList<Long>>()
                                             for ((x, y) in MBTilesStore.xyAtZoom("SAT", z)) {
-                                                val tN = Math.toDegrees(Math.atan(Math.sinh(Math.PI * (1.0 - 2.0 * y / n))))
-                                                val tS = Math.toDegrees(Math.atan(Math.sinh(Math.PI * (1.0 - 2.0 * (y + 1) / n))))
-                                                val tW = x.toDouble() / n * 360.0 - 180.0
-                                                val tE = (x + 1).toDouble() / n * 360.0 - 180.0
-                                                bounds.add("{\"n\":$tN,\"s\":$tS,\"e\":$tE,\"w\":$tW}")
+                                                byRow.getOrPut(y) { ArrayList() }.add(x)
+                                            }
+                                            for ((ry, xs) in byRow) {
+                                                xs.sort()
+                                                var i = 0
+                                                while (i < xs.size) {
+                                                    var j = i
+                                                    while (j + 1 < xs.size && xs[j + 1] == xs[j] + 1) j++
+                                                    val tN = Math.toDegrees(Math.atan(Math.sinh(Math.PI * (1.0 - 2.0 * ry / n))))
+                                                    val tS = Math.toDegrees(Math.atan(Math.sinh(Math.PI * (1.0 - 2.0 * (ry + 1) / n))))
+                                                    val tW = xs[i].toDouble() / n * 360.0 - 180.0
+                                                    val tE = (xs[j] + 1).toDouble() / n * 360.0 - 180.0
+                                                    bounds.add("{\"n\":$tN,\"s\":$tS,\"e\":$tE,\"w\":$tW}")
+                                                    i = j + 1
+                                                }
                                             }
                                         }
+                                        android.util.Log.i("Overlay",
+                                            "OVERLAYZ16-2026-08-12E z16 merged -> ${bounds.size} rect(s)")
                                         val json = "[" + bounds.joinToString(",") + "]"
                                         android.os.Handler(android.os.Looper.getMainLooper()).post {
                                             wv.evaluateJavascript("showDownloadedAreas($json)", null)
@@ -2737,7 +2771,12 @@ fun ConvoyMapViewerScreen(
                             val q = DownloadQueueManager.queue.value
                             val pending = q.filter { it.status == QueueStatus.DOWNLOADING || it.status == QueueStatus.QUEUED }
                             val bounds = pending.map { e ->
-                                "{" + "\"n\":" + e.north + ",\"s\":" + e.south + ",\"e\":" + e.east + ",\"w\":" + e.west + ",\"label\":\"" + e.label.replace("\"", "") + "\"}"
+                                // OVERLAYZ16-2026-08-12E: geomHash non-empty means CORRIDOR, and a
+                                // corridor's bbox is the box around a WINDING TRACK -
+                                // a huge rectangle for a job that fetches a narrow band
+                                // inside it. Flagged so it can be drawn as an estimate
+                                // rather than as coverage.
+                                "{" + "\"n\":" + e.north + ",\"s\":" + e.south + ",\"e\":" + e.east + ",\"w\":" + e.west + ",\"corridor\":" + (e.geomHash.isNotEmpty()) + ",\"label\":\"" + e.label.replace("\"", "") + "\"}"
                             }
                             val json = "[" + bounds.joinToString(",") + "]"
                             wv.evaluateJavascript("showQueuedAreas(" + json + ")", null)
