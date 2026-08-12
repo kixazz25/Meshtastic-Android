@@ -219,10 +219,35 @@ object ConvoyTileCalculator {
                 latBuf = bufferDeg
                 lonBuf = bufferDeg / cosLat
             }
-            val xMin = lon2tile(lon - lonBuf, z)
-            val xMax = lon2tile(lon + lonBuf, z)
-            val yMin = lat2tile(lat + latBuf, z)   // north = smaller y
-            val yMax = lat2tile(lat - latBuf, z)
+            // FUNNELCLAMP-2026-08-12G: CLAMP TO THE WORLD.
+            //
+            // At z4 the world is sixteen tiles wide and the funnel buffer is
+            // ninety degrees of longitude, so lon - buffer runs off the west
+            // edge and lon2tile returns -1. The server answers HTTP 400 and the
+            // job records a failure for a tile that cannot exist.
+            //
+            // That is what produced an identical failed=20 on four unrelated
+            // tracks: at these zooms the buffer dominates the track completely,
+            // so every track in the same region generates the same handful of
+            // out-of-range URLs.
+            //
+            // MBTilesStore.tilesInBounds already coerces exactly this way. This
+            // was the inconsistency - the old flat buffer never came near a
+            // world edge, so it never showed.
+            //
+            // ⚠ CLAMP, DO NOT WRAP. A buffer wider than the world would, if
+            // wrapped, request the entire tile row, which is not what a corridor
+            // means. Stopping at the edge is correct: what lies beyond is ocean
+            // or the far hemisphere.
+            //
+            // ⚠ x and y clamp for different reasons - x because the buffer can
+            // exceed the world's width, y because latitudes past the Mercator
+            // limit have no tile at all.
+            val world = (1 shl z) - 1
+            val xMin = lon2tile(lon - lonBuf, z).coerceIn(0, world)
+            val xMax = lon2tile(lon + lonBuf, z).coerceIn(0, world)
+            val yMin = lat2tile(lat + latBuf, z).coerceIn(0, world)   // north = smaller y
+            val yMax = lat2tile(lat - latBuf, z).coerceIn(0, world)
             for (x in xMin..xMax) for (y in yMin..yMax) into.add(TileKey(z, x, y))
         }
     }
