@@ -82,7 +82,9 @@ class ConvoyCorridorWorker(
             DownloadQueueManager.markFailed(entryId, "Track geometry not found")
             return Result.failure()
         }
-        val corridor = ConvoyTileCalculator.corridorTiles(segments, slotName = slotName)
+        // FUNNEL-2026-08-12B: funnel ON for downloads. The delete deliberately does not.
+        val corridor = ConvoyTileCalculator.corridorTiles(
+            segments, slotName = slotName, funnelH = 4)
         if (corridor.isEmpty()) {
             android.util.Log.w(TAG, "Empty corridor for hash=$geomHash")
             DownloadQueueManager.markComplete(entryId, 0, 0)

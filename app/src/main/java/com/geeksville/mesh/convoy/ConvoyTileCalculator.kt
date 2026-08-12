@@ -129,7 +129,32 @@ object ConvoyTileCalculator {
         // computing the full historical range.
         //
         // Only the two DOWNLOAD paths pass one. That asymmetry is the point.
-        slotName: String = ""
+        slotName: String = "",
+        // FUNNEL-2026-08-12B: HOW MANY TILE WIDTHS OF MAP TO KEEP EITHER SIDE OF THE TRACK.
+        // 0 = flat bufferDeg, exactly today's behaviour.
+        //
+        // The buffer stops being one distance for every zoom and becomes a
+        // function of the zoom, so the screen FILLS at every level instead of
+        // only where a tile happens to be narrower than the band.
+        //
+        // WHY: group tracking. The app auto-zooms to keep the whole group in
+        // frame and first cart to last may be three miles apart. Measured, a
+        // three-mile spread lands on z14 with EIGHTY PERCENT OF THE SCREEN
+        // WHITE; two miles lands on z15 at 61%; one mile on z16 at 22% -
+        // which is exactly why z16 is the last good level today.
+        //
+        // H = ceil(screen half-diagonal in tiles). The half-diagonal is the
+        // right measure because the furthest screen point from a line through
+        // centre is a corner, and it does not change when the device rotates.
+        // Worst case is a large tablet at 3.33 tiles, so four.
+        //
+        // *** EXACTLY THE SAME ASYMMETRY AS slotName ABOVE, FOR THE SAME
+        // REASON. *** ConvoyCorridorDelete derives what it REMOVES from this
+        // function. At z18 the funnel buffer is NARROWER than the flat one, so
+        // a funnel-based delete would compute a smaller set than older builds
+        // stored - stranding the outer tiles where nothing can ever find or
+        // remove them. The delete does not pass this. Only downloads do.
+        funnelH: Int = 0
     ): List<TileKey> {
         val keys = LinkedHashSet<TileKey>()
         val zTop = minOf(zMax, maxZoomForSlot(slotName))
@@ -142,7 +167,7 @@ object ConvoyTileCalculator {
         for (seg in segments) {
             if (seg.isEmpty()) continue
             for (i in seg.indices) {
-                stampPoint(keys, seg[i].first, seg[i].second, bufferDeg, zMin, zMax)
+                stampPoint(keys, seg[i].first, seg[i].second, bufferDeg, zMin, zTop, funnelH)
                 if (i == seg.lastIndex) continue
                 val (lat1, lon1) = seg[i]
                 val (lat2, lon2) = seg[i + 1]
@@ -153,13 +178,13 @@ object ConvoyTileCalculator {
                 if (steps <= 1) continue
                 for (s in 1 until steps) {
                     val f = s.toDouble() / steps
-                    stampPoint(keys, lat1 + dLat * f, lon1 + dLon * f, bufferDeg, zMin, zMax)
+                    stampPoint(keys, lat1 + dLat * f, lon1 + dLon * f, bufferDeg, zMin, zTop, funnelH)
                 }
             }
         }
         android.util.Log.i("Corridor",
             "corridorTiles: ${segments.size} seg, ${segments.sumOf { it.size }} pts, " +
-            "bufferDeg=$bufferDeg z$zMin-$zMax -> ${keys.size} tiles")
+            "FUNNEL-2026-08-12B bufferDeg=$bufferDeg funnelH=$funnelH z$zMin-$zTop -> ${keys.size} tiles")
         return keys.toList()
     }
 
@@ -170,14 +195,34 @@ object ConvoyTileCalculator {
     private fun stampPoint(
         into: MutableSet<TileKey>,
         lat: Double, lon: Double,
-        bufferDeg: Double, zMin: Int, zMax: Int
+        bufferDeg: Double, zMin: Int, zMax: Int, funnelH: Int = 0
     ) {
-        val lonBuf = bufferDeg / Math.max(0.01, Math.cos(Math.toRadians(lat)))
+        val cosLat = Math.max(0.01, Math.cos(Math.toRadians(lat)))
         for (z in zMin..zMax) {
+            // FUNNEL-2026-08-12B: the buffer is per-zoom when funnelH > 0.
+            //
+            // One tile at zoom z spans 360 / 2^z degrees of longitude, so H
+            // tile widths IS H * 360 / 2^z degrees - an exact conversion, not
+            // an approximation. The latitude half-width is the same GROUND
+            // distance, which is the longitude one scaled by cos(lat); that is
+            // the existing lonBuf = bufferDeg / cos(lat) relationship inverted.
+            //
+            // No floor is needed at H=4: at z18 it already works out wider
+            // than the quarter-mile minimum a loosely-recorded track wants, so
+            // the rule stays one expression with no special case.
+            val latBuf: Double
+            val lonBuf: Double
+            if (funnelH > 0) {
+                lonBuf = funnelH * 360.0 / Math.pow(2.0, z.toDouble())
+                latBuf = lonBuf * cosLat
+            } else {
+                latBuf = bufferDeg
+                lonBuf = bufferDeg / cosLat
+            }
             val xMin = lon2tile(lon - lonBuf, z)
             val xMax = lon2tile(lon + lonBuf, z)
-            val yMin = lat2tile(lat + bufferDeg, z)   // north = smaller y
-            val yMax = lat2tile(lat - bufferDeg, z)
+            val yMin = lat2tile(lat + latBuf, z)   // north = smaller y
+            val yMax = lat2tile(lat - latBuf, z)
             for (x in xMin..xMax) for (y in yMin..yMax) into.add(TileKey(z, x, y))
         }
     }

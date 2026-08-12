@@ -675,7 +675,10 @@ object DownloadQueueManager {
         }
         // ZOOMSLOT-2026-08-10D: pass the slot so the zoom rule applies. The delete
         // path deliberately does not - see corridorTiles.
-        val tiles = ConvoyTileCalculator.corridorTiles(segments, slotName = slotName)
+        // FUNNEL-2026-08-12B: funnel ON for the estimate too, so the queued count
+        // matches what the worker will actually fetch.
+        val tiles = ConvoyTileCalculator.corridorTiles(
+            segments, slotName = slotName, funnelH = 4)
         if (tiles.isEmpty()) {
             android.util.Log.w(TAG, "enqueueCorridor: empty corridor for $geomHash")
             return 0
