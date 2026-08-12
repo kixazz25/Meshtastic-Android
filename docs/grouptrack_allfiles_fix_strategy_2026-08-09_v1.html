@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GroupTrack — All-Files Authority Fix Strategy — 2026-08-09 v1</title>
+<style>
+ :root{--bg:#0f1216;--panel:#161b22;--panel2:#1c2229;--line:#30363d;--fg:#e6edf3;
+   --muted:#8b949e;--accent:#58a6ff;--red:#f85149;--amber:#d29922;--green:#3fb950;}
+ *{box-sizing:border-box}
+ body{margin:0;padding:28px 20px 80px;background:var(--bg);color:var(--fg);
+  font:15px/1.6 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+ .wrap{max-width:1100px;margin:0 auto}
+ header{border-bottom:2px solid var(--red);padding-bottom:14px;margin-bottom:26px}
+ h1{margin:0 0 6px;font-size:26px} .sub{color:var(--muted);font-size:14px}
+ h2{font-size:19px;margin:34px 0 12px;padding-bottom:6px;border-bottom:1px solid var(--line);color:var(--accent)}
+ h3{font-size:15px;margin:22px 0 8px;color:#ffd479}
+ .card{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--line);
+   border-radius:6px;padding:13px 15px;margin:10px 0}
+ .card.red{border-left-color:var(--red)} .card.amber{border-left-color:var(--amber)}
+ .card.green{border-left-color:var(--green)} .card.blue{border-left-color:var(--accent)}
+ .card h4{margin:0 0 6px;font-size:14px;font-weight:600}
+ code{background:var(--panel2);border:1px solid var(--line);border-radius:4px;padding:1px 5px;
+   font:13px ui-monospace,Consolas,monospace;color:#a5d6ff}
+ pre{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:11px 13px;
+   overflow-x:auto;font:12.5px/1.5 ui-monospace,Consolas,monospace;color:#a5d6ff}
+ table{width:100%;border-collapse:collapse;margin:12px 0;font-size:14px}
+ th,td{border:1px solid var(--line);padding:7px 10px;text-align:left;vertical-align:top}
+ th{background:var(--panel2);color:var(--accent)}
+ ul,ol{margin:7px 0 7px 20px} li{margin:5px 0}
+ .hi{color:#ffd479} .muted{color:var(--muted)}
+</style></head><body><div class="wrap">
+<header>
+<h1>All-Files Authority — Fix Strategy</h1>
+<div class="sub">2026-08-09 v1 &middot; INTERNAL &middot; the 08-01 and 08-08 data-loss root cause<br>
+⚠ DESIGN ONLY — no code written. Supersedes the permission reasoning in
+<code>00-INSTALL</code>, which assumed a stale grant from a previous install.</div>
+</header>
+
+<h2>1 &middot; The defect, located</h2>
+<div class="card red">
+<p class="hi"><b>Both halves of the failure are on one screen.</b></p>
+<pre>ConvoyScreen.kt:145  var showStoragePermissionDialog by remember {
+                         mutableStateOf(!Environment.isExternalStorageManager()) }
+ConvoyScreen.kt:151  if (!Environment.isExternalStorageManager()) { ... }
+ConvoyScreen.kt:433  ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION
+OsmImportStage.kt:575 Environment.isExternalStorageManager()</pre>
+<p><b>FAULT 1 — WRONG SOURCE OF TRUTH.</b> <code>isExternalStorageManager()</code> reads the AppOps
+record. In the failure state that record says <b>granted</b> while the filesystem refuses access.
+So the expression initialises <code>showStoragePermissionDialog</code> to <b>false</b> and
+<b>the prompt never fires.</b> Fred: <i>"the app said it had all authority, the checkbox was yes,
+but the app did not have all authority."</i></p>
+<p><b>FAULT 2 — FAR TOO LATE IN THE CYCLE.</b> The check lives inside a Composable, so it runs when
+the convoy screen composes: after <code>Application.onCreate()</code>, after the Activity starts,
+<b>after Meshtastic's setup has run</b>, and after anything that touched storage on the way. The
+authority request is one of the LAST things in startup when it needs to be one of the first.</p>
+</div>
+
+<h2>2 &middot; Why the record and the enforcement disagree</h2>
+<div class="card blue">
+<p>AOSP: storage access is enforced by a <b>per-process mount view</b>, not by the permission
+record. Three views exist (<code>/mnt/runtime/default</code>, <code>/read</code>,
+<code>/write</code>); <b>a mount namespace is created for each app at Zygote fork time</b> and the
+appropriate view bind-mounted in. Upgrades are meant to be applied to running apps by vold, and
+<b>downgrades are meant to kill the process</b>.</p>
+<p>⭐ <b>So there are two independent sources of truth</b> — the AppOps record (what the API and the
+settings toggle read) and the mount view (what the filesystem obeys) — and the reconciliation
+between them has documented gaps. CommonsWare recorded a case where a storage privilege downgrade
+did NOT terminate the process, leaving a stale view behind.</p>
+<p>⚠ <b>HYPOTHESIS, NOT PROVEN.</b> It fits every symptom and it is assembled from AOSP's documented
+design plus a documented gap — not from GroupTrack's logs. <b>Several earlier explanations this
+session were wrong.</b> Nothing below depends on this being right.</p>
+</div>
+
+<h2>3 &middot; What is actually at risk</h2>
+<div class="card green">
+<table>
+<tr><th>Thing</th><th>At risk?</th></tr>
+<tr><td>Data in <code>Documents/GroupTrack/</code></td>
+<td><b>NO.</b> Public shared storage — survives clear-cache, clear-data, uninstall, all of it.</td></tr>
+<tr><td>Lost storage access</td>
+<td><b>Recoverable.</b> Uninstall + reinstall establishes a proper grant (observed).</td></tr>
+<tr><td class="hi"><b>The app writing a blank over the real DB</b></td>
+<td class="hi"><b>THE ONLY PERMANENT LOSS.</b> Everything else is an inconvenience.</td></tr>
+</table>
+<p class="hi">⭐ <b>THIS IS THE WHOLE POINT OF THE STRATEGY.</b> We do not have to fix the
+permission to stop losing data. We have to stop the app proceeding when it cannot see its own
+files.</p>
+</div>
+
+<h2>4 &middot; The fix, in build order</h2>
+
+<div class="card red">
+<h4>STEP 1 — REPLACE THE TEST. Never ask the API.</h4>
+<p>The only truthful question is a <b>real read of a path All-Files actually governs.</b> The app
+always has authority to <code>filesDir</code>/<code>cacheDir</code>, so reading those proves
+nothing.</p>
+<pre>fun hasRealStorageAccess(): Boolean = try {
+    val d = File(Environment.getExternalStorageDirectory(), "Documents/GroupTrack")
+    d.exists() &amp;&amp; d.canRead() &amp;&amp; d.list() != null      // plain File I/O, no SQLite
+} catch (e: Exception) { false }</pre>
+<p>⚠ <b>"Cannot see it" and "it is not there" get the SAME treatment.</b> The app must never read
+invisibility as emptiness — that is precisely the mistake that built blanks over real data. Treat
+it as UNKNOWN and refuse.</p>
+<p>⛔ <b>Plain <code>File</code> I/O only. No SQLite anywhere in this test</b> — an open is the
+dangerous operation, and it must not happen before the answer is known.</p>
+</div>
+
+<div class="card red">
+<h4>STEP 2 — MOVE IT EARLIER. <code>Application.onCreate()</code>.</h4>
+<p>That is the earliest our code runs: before any Activity, <b>before Meshtastic's setup</b>, before
+anything touches storage.</p>
+<p>⚠ <b>UI cannot be shown from <code>Application.onCreate()</code></b> — so it sets a flag rather
+than prompting. The flag is what everything downstream reads; the prompt comes at the first
+Activity.</p>
+<p>⭐ Setting state early is enough, because Step 3 is what actually protects the data.</p>
+</div>
+
+<div class="card red">
+<h4>STEP 3 — REFUSE TO CREATE. The floor under everything.</h4>
+<p>Gate every DB and tile-store open on the flag. If access is not real: <b>do not open, do not
+create, do not run setup work.</b></p>
+<ul>
+<li><code>SpatialDbManager</code> — the spatial DB open</li>
+<li><code>MBTilesStore</code> — the tile stores. ⚠ <b>The maps survived 08-08 by luck, not by
+design. Nothing structural protected them.</b></li>
+</ul>
+<p>⭐ <b>This is the only step that does not depend on understanding the permission bug.</b> It
+works whatever the cause turns out to be, and it converts the worst case from "rebuild 490,000
+trails" to "reinstall and carry on."</p>
+<p>⚠ <b>ALSO CHECK THE DATABASE ERROR HANDLER.</b> If <code>SpatialDbManager</code> opens without
+passing a <code>DatabaseErrorHandler</code>, Android's default <b>deletes a database it considers
+corrupt and recreates it</b> — and an unreadable file is indistinguishable from a corrupt one.
+A custom handler that logs and throws is a one-parameter change.
+<b>UNVERIFIED — grep it before building:</b>
+<code>grep -rn "openOrCreateDatabase\|DatabaseErrorHandler" SpatialDbManager.kt</code></p>
+<p>⚠ <b>Fred restored a real DB by hand and the app zeroed it out and reset it.</b> That is not
+explained by a missing file — it means something destroyed a populated database it could not open.
+Until that is understood, <b>Step 3 must sit ahead of every open, not merely ahead of creation.</b></p>
+</div>
+
+<div class="card amber">
+<h4>STEP 4 — SAY SOMETHING TRUE. Only promise what has been observed.</h4>
+<p>When the read fails:</p>
+<pre>"GroupTrack cannot reach its map storage.
+
+ Your maps and tracks are safe in Documents/GroupTrack — nothing
+ has been changed or deleted.
+
+ The storage permission shows as granted but is not working.
+ Uninstall GroupTrack and install it again to fix it."</pre>
+<p>⚠ <b>Do NOT promise the settings toggle will fix it.</b> Firing
+<code>ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION</code> opens the same page the app already
+appears granted on — <b>entry state and exit state are identical</b> (Fred's point, and it is
+right). Turning it off then on MIGHT force the process kill that reconciles the view, but
+<b>that has never been demonstrated</b>: by the time it was tried on 08-08 the data was already
+gone, so nothing was proven.</p>
+<p>⭐ <b>Uninstall + reinstall is the ONLY remedy actually observed to work.</b> Say that until
+something else is tested.</p>
+</div>
+
+<div class="card blue">
+<h4>STEP 5 — INSTRUMENT THE REFUSAL SCREEN.</h4>
+<p>This has now cost data twice and the behaviour is not understood. Put the evidence on screen so
+the next occurrence is a photograph, not an evening of reconstruction:</p>
+<ul>
+<li>what <code>isExternalStorageManager()</code> claims</li>
+<li>whether the plain read succeeded</li>
+<li>what <code>filesDir</code> contains</li>
+<li>what is visible in <code>Documents/GroupTrack/</code>, and file sizes if readable</li>
+<li>what triggered this startup path</li>
+</ul>
+<p>⭐ Costs nothing, needs no theory, and captures whatever the cause actually is.</p>
+</div>
+
+<h2>5 &middot; Still unknown — do not build past these</h2>
+<div class="card amber">
+<ul>
+<li class="hi"><b>WHAT LAUNCHES SETUP WITHOUT AN INSTALL?</b> Fred: <i>"it is redefining core app
+functionality without all object authority, and it stays that way until an uninstall."</i> Clear-cache
+satisfied whatever condition setup keys on. <b>Not yet read.</b>
+<code>grep -rn "firstRun\|setupComplete\|isFirstLaunch\|hasRunSetup" app/src/main/java/com/geeksville/mesh/</code>
+⚠ Setup is Meshtastic's, not ours — which is exactly why Step 3 guards the OPENS rather than
+trying to gate a flow we do not own.</li>
+<li><b>Does the toggle off-then-on cycle restore access?</b> Untested. If yes, Step 4's message
+softens to two taps.</li>
+<li><b>Does <code>appops set &lt;pkg&gt; MANAGE_EXTERNAL_STORAGE allow</code> + force-stop restore
+it?</b> That would isolate record vs process.</li>
+<li><b>Why did a hand-restored populated DB get zeroed?</b> The error handler is the leading
+candidate and is unverified.</li>
+</ul>
+</div>
+
+<h2>6 &middot; Testing — and why it is awkward</h2>
+<div class="card amber">
+<p>⛔ <b>NOT ON DROID 2.</b> It carries 490k Utah trails and a live corridor rebuild. It stopped
+being a test device on 08-08.</p>
+<p>⭐ <b>The state can be reproduced non-destructively:</b> on a spare device, put a small dummy
+<code>grouptrack_spatial.db</code> and a marker file in <code>Documents/GroupTrack/</code>, then
+clear cache / reinstall over the top. Observe: does the permission read as granted, does a plain
+read succeed, does the dummy survive. <b>Same state, nothing real at risk.</b></p>
+<p>⚠ <b>Verify the founding assumption of <code>00-INSTALL</code> while you are there:</b> that an
+uninstall leaves <code>Documents/GroupTrack/</code> intact. It should — public shared storage — but
+Android has changed storage behaviour repeatedly and the entire rename-based design rests on it.</p>
+</div>
+
+<h2>7 &middot; What this changes in 00-INSTALL</h2>
+<div class="card">
+<ul>
+<li><b>KEEP:</b> grant before the database; <code>filesDir</code> marker (not shared storage);
+refuse-to-create as the floor; the rejection of blocking startup entirely.</li>
+<li><b>CORRECT:</b> the doc says the API "reads the stale grant record" from a previous install.
+<b>It is not stale — the grant was live and the enforcement disagreed.</b> No permission API returns
+the right answer at any time.</li>
+<li><b>CORRECT:</b> "make the prompt unconditional and put it first" is <b>necessary but not
+sufficient.</b> The user was already granted, so an unconditional prompt shows a permission that is
+already on and changes nothing. <b>The gate must be a real read.</b></li>
+<li><b>NOTE:</b> the self-uninstall rename flow still only covers the path where the user taps the
+button. <b>Settings-initiated clear-data and clear-cache bypass it entirely — and that is what bit
+us both times.</b></li>
+</ul>
+</div>
+
+</div></body></html>

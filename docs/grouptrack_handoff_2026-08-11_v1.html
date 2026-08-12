@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GroupTrack — Handoff — 2026-08-11 EOD</title>
+<style>
+ :root{--bg:#0f1216;--panel:#161b22;--panel2:#1c2229;--line:#30363d;--fg:#e6edf3;
+   --muted:#8b949e;--accent:#58a6ff;--red:#f85149;--amber:#d29922;--green:#3fb950;}
+ *{box-sizing:border-box}
+ body{margin:0;padding:28px 20px 80px;background:var(--bg);color:var(--fg);
+  font:15px/1.6 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+ .wrap{max-width:1080px;margin:0 auto}
+ header{border-bottom:2px solid var(--accent);padding-bottom:14px;margin-bottom:26px}
+ h1{margin:0 0 6px;font-size:26px} .sub{color:var(--muted);font-size:14px}
+ h2{font-size:19px;margin:32px 0 12px;padding-bottom:6px;border-bottom:1px solid var(--line);color:var(--accent)}
+ h3{font-size:15px;margin:20px 0 8px;color:var(--fg)}
+ .card{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--line);
+   border-radius:6px;padding:13px 15px;margin:10px 0}
+ .card.red{border-left-color:var(--red)} .card.amber{border-left-color:var(--amber)}
+ .card.green{border-left-color:var(--green)} .card.blue{border-left-color:var(--accent)}
+ code{background:var(--panel2);border:1px solid var(--line);border-radius:4px;padding:1px 5px;
+   font:13px ui-monospace,Consolas,monospace;color:#a5d6ff}
+ pre{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:11px 13px;
+   overflow-x:auto;font:12.5px/1.5 ui-monospace,Consolas,monospace;color:#a5d6ff}
+ table{width:100%;border-collapse:collapse;margin:12px 0;font-size:14px}
+ th,td{border:1px solid var(--line);padding:7px 10px;text-align:left;vertical-align:top}
+ th{background:var(--panel2);color:var(--accent)}
+ ul,ol{margin:7px 0 7px 20px} li{margin:5px 0}
+ .hi{color:#ffd479} .muted{color:var(--muted)}
+</style></head><body><div class="wrap">
+<header>
+<h1>GroupTrack — Handoff</h1>
+<div class="sub">2026-08-11 EOD &middot; HEAD <code>e128cfc65</code> &middot; HTML reverted as a bisect<br>
+<b>ROOT CAUSE 1 CLOSED · TWO OPEN ISSUES · STORAGE PROVEN FINE</b></div>
+</header>
+
+<h2>⚠⚠ Read this first — how the day actually went</h2>
+<div class="card red">
+<p class="hi"><b>Eight hours on blank screens with no cause found until late.</b> Fred:
+<i>"we blamed and hypothesised for 8 hours."</i></p>
+<p>⛔⛔ <b>That is my failure, and it is the 07-30 lesson ignored.</b> I proposed SIX mechanisms
+before instrumenting anything: storage &middot; the databases &middot; the zoom cap &middot; device
+state &middot; the planner&rsquo;s missing interceptor &middot; my own HTML edit. <b>All six
+died.</b></p>
+<p class="hi">⭐⭐ <b>The trace took twenty minutes to write and answered more than the whole day of
+theorising. INSTRUMENT ON THE FIRST BLANK SCREEN, NOT THE EIGHTH.</b></p>
+</div>
+
+<h2>✅ What was proven tonight</h2>
+<div class="card green">
+<h3>Storage is fine — the hard negative result</h3>
+<p><code>bbox_count.py</code> against Bar 10&rsquo;s real bbox, on the pulled 1 GB TOPO store:</p>
+<pre>  z    in bbox   box size   %full
+  10        6          6   100.0%
+  12       28         40    70.0%
+  14      193        532    36.3%
+  16     1836       7800    23.5%
+  18    24613     121394    20.3%</pre>
+<p><b>Tiles at EVERY zoom 10-18.</b> ⭐ And the %-full column is a corridor&rsquo;s signature —
+100% at z10 falling to 20% at z18 as tiles shrink below the band.
+<b>So a blank map is RETRIEVAL or DISPLAY. Never storage.</b></p>
+</div>
+<div class="card green">
+<h3>Convoy offline works correctly</h3>
+<pre>REQ convoy://tiles/SAT/13/1513/3197.png
+MATCHED convoy://
+readTile type=SAT z=13 x=1513 y=3197</pre>
+<p>Full chain firing on Utah ground. ⭐⭐ <b>And the "missing" corners are REAL CORRIDOR SHAPE, not
+a fault.</b> The track runs upper-left to lower-right; the blank corners are upper-right and
+lower-left — the ground furthest from the diagonal, which a half-mile band never covered. At z16 the
+screen sits inside the band and fills; zoom out and the view widens past it.</p>
+</div>
+<div class="card green">
+<h3>Root cause 1 is closed and verified on device</h3>
+<p>Recreate submitted <b>625,386 tiles</b> — matching the scan to the tile — and downloads ran.
+Against the morning&rsquo;s <b>3,287 jobs and a 194-day ETA</b>.</p>
+</div>
+
+<h2>🔴 ISSUE 1 — the planner makes NO tile requests at all</h2>
+<div class="card red">
+<p><b>Zero OFFTRACE lines from the planner. Confirmed twice — including with today&rsquo;s HTML
+change reverted, so today&rsquo;s work is ELIMINATED as the cause.</b></p>
+<p class="hi">⭐⭐ <b>Fred&rsquo;s reading, and it is probably right: the planner may never have been
+built to display local tiles.</b> <i>"Planner by definition requires an internet connection. Convoy
+uses device GPS to position for the ride."</i> He is only hitting this because he is in New
+Hampshire, using the planner to navigate to Utah ground via persistence —
+<b>probably the first offline test of the planner ever.</b></p>
+<p>⚠ <b>Consistent with the code.</b> <code>ConvoyMapViewerScreen.shouldInterceptRequest</code>
+(976-1005) matches ONLY two hardcoded Esri overlay URLs and returns super.
+<b>No <code>convoy://</code> branch exists.</b> ⚠ And those two stores are
+<b>24,576 bytes — empty schemas with no tiles.</b></p>
+<p class="hi">⭐ Fred: <i>"hardcoding means something is fundamentally wrong and the quick repair has
+exceeded its life expectancy."</i> The offline path should resolve source &rarr;
+<code>cache_dir</code> &rarr; store from <code>map_sources.json</code>, which already carries
+<code>cache_dir</code> per layer.</p>
+<p>▶ <b>NEXT:</b> decide whether the planner SHOULD serve offline tiles at all. If yes, mirror the
+working branch at <code>ConvoyScreen:757</code> rather than writing a second implementation.
+⚠ But the zero-requests finding suggests something further up as well — the trace logs every URL
+containing "tile" or starting with <code>convoy://</code>, and a Google URL
+(<code>mt0.google.com/vt/lyrs=y</code>) matches neither. <b>Widen the trace filter first.</b></p>
+</div>
+
+<h2>🔴 ISSUE 2 — the horizon. Not a bug; a design gap with a 4% fix.</h2>
+<div class="card amber">
+<p>At z16 the screen fills. At z15 and z14 the corners go white. ⭐ <b>The corridor is a half-mile
+band and the view widens faster than the band does.</b></p>
+<p class="hi">⚠ <b>Each zoom is an INDEPENDENT tile set.</b> Having z18 gives you nothing at z13 —
+they are separate downloads of the same ground at different resolutions. <b>"Less detail" does not
+mean "less data": it means more ground per tile, so a wider view, so more of it outside your
+coverage.</b></p>
+<h3>⭐⭐ The fix Fred arrived at — a horizon measured in TILES, not miles</h3>
+<pre>buffer(z) = H &times; tileWidth(z)
+tiles(z)  = (trackLength / tileWidth(z) + 1) &times; (2H + 1)
+
+H = 2  ->  always two tiles of map beyond the track, at every zoom</pre>
+<p><b>Cost: 4%.</b> For the 42-mile Parowan track — 10,791 tiles today at half a mile everywhere —
+H=2 with z16-18 left unchanged comes to <b>11,214 tiles</b>, and it fills the view all the way down
+to z9.</p>
+<table>
+<tr><th>Zoom</th><th>Buffer</th><th>Tiles</th></tr>
+<tr><td>z9</td><td>78 mi</td><td><b>10</b></td></tr>
+<tr><td>z12</td><td>9.8 mi</td><td>48</td></tr>
+<tr><td>z14</td><td>2.4 mi</td><td>177</td></tr>
+<tr><td>z16-18</td><td>&frac12; mi (unchanged)</td><td>595 &middot; 2,094 &middot; 7,807</td></tr>
+</table>
+<p>⭐ <b>z9 at seventy-eight miles of buffer costs TEN TILES</b>, because one z9 tile is 156 km wide.
+The same widening at z18 would cost hundreds of thousands. The count is dominated by
+<code>trackLength / tileWidth</code>; the buffer is only a constant multiplier.</p>
+<p>⚠ <code>corridorTiles</code> already loops per zoom with <code>bufferDeg</code> as a parameter —
+the buffer just becomes a function of z. ⚠ Existing stores keep their shape; only new downloads get
+the horizon.</p>
+</div>
+
+<h2>⛔ The OOM — and the last link in root cause 1 was mine</h2>
+<div class="card red">
+<p>The first Recreate job <b>killed the app: 512 MB, OutOfMemory.</b></p>
+<p class="hi">⛔ <b>I recorded "the worker was never the problem" because it filters to
+<code>hasTile</code>. It does — but only AFTER <code>calculateTiles</code> materialises the WHOLE
+RECTANGLE.</b> A Recreate box holds at most 50,000 STORED tiles but can span degrees of ground: at
+z18 a three-degree box is roughly <b>4.8 million TileKey objects</b> built into a list before one is
+filtered.</p>
+<p>⭐ <b>Fixed <code>e128cfc65</code></b> — <code>MBTilesStore.tilesInBounds()</code> asks the store
+what it holds. Bounded by what is stored, not by the size of the box, and faster: one indexed range
+scan per level instead of millions of allocations plus a per-tile existence check.
+<b>Fred&rsquo;s original sentence, finally built: stream real tiles in existence by zoom for x lon
+and lat.</b></p>
+<p>⚠ The old code even LOGGED the ratio — <i>"N in bounds, M exist on disk"</i>. The waste was
+visible all along; it only mattered when a box got big enough to exhaust the heap.</p>
+</div>
+
+<h2>State of the tree</h2>
+<div class="card">
+<table>
+<tr><th>Commit</th><th>What</th><th>State</th></tr>
+<tr><td><code>e128cfc65</code></td><td>REFRESHOOM — refresh queries the store</td><td>compile-green, NOT device-tested</td></tr>
+<tr><td><code>8aed3df8d</code></td><td>option 2 = one call, checkboxes gone, slot picker, z4 floor</td><td class="hi"><b>submitter VERIFIED</b></td></tr>
+<tr><td><code>fe78e70fe</code></td><td>Recreate iteration 2 — dialog, per-zoom log</td><td class="hi"><b>VERIFIED</b></td></tr>
+<tr><td><code>56a153055</code></td><td>Recreate iteration 1 — scan + report</td><td class="hi"><b>VERIFIED</b></td></tr>
+</table>
+<p>⚠ <b>UNCOMMITTED:</b> the OFFTRACE instrumentation (three files) and the HTML revert to
+<code>151febe07^</code>. ⭐ <b>Decide whether to restore the ZOOMSLOT display change</b> — the
+slot-keyed z18/z16 cap is otherwise wanted, and the bisect proved it was NOT the planner cause.</p>
+</div>
+
+<h2>▶ Tomorrow, in order</h2>
+<div class="card blue">
+<ol>
+<li class="hi"><b>Widen the OFFTRACE filter and re-run the planner.</b> It currently misses Google
+URLs entirely — <code>mt0.google.com/vt/lyrs=y</code> contains no "tile" and is not
+<code>convoy://</code>. <b>Zero lines may mean "requests I did not match", not "no requests".</b>
+That single gap could be the whole of issue 1.</li>
+<li><b>Decide the planner question:</b> should it serve offline tiles at all? Fred&rsquo;s reading
+is that it was never meant to.</li>
+<li><b>The horizon buffer</b> — 4%, and <code>corridorTiles</code> already has the shape for it.</li>
+<li><b>Root cause 2</b> — the cancel ANR. Main-thread walk, needs backgrounding and batched saves.</li>
+<li><b>Root cause 3</b> — <code>00-REFUSE</code>. Blocked a safe recovery THREE times today.</li>
+<li>Device-test <code>e128cfc65</code>; restore or drop the HTML revert.</li>
+</ol>
+</div>
+
+<h2>⚠ Method — what cost time today</h2>
+<div class="card amber">
+<ul>
+<li class="hi">⛔⛔ <b>SIX MECHANISMS BEFORE ANY INSTRUMENTATION.</b> The single most expensive
+pattern of the day, and it is already written down from 07-30.</li>
+<li>⭐ The patch-guard self-test caught a quoted label for the <b>fifth</b> time — and worked.</li>
+<li>⛔ <b>A six-line anchor built from <code>sed</code> output matched ZERO times</b> — the
+documented failure. Fixed by bracketing between two unique SINGLE lines.</li>
+<li>⚠ A verify that asserted <code>migChoice == "auto"</code> had vanished would have flagged the
+correct RUN branch. <b>Guard the expression, not the token.</b></li>
+<li>⚠ A patch introduced five Compose symbols with no imports (<b>third</b> time) — now asserted
+structurally in the generator rather than remembered.</li>
+<li>⚠ <code>ctx</code> was named for a Context called <code>context</code>.</li>
+</ul>
+</div>
+
+</div></body></html>

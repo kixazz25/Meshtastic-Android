@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GroupTrack — Test Plan — 2026-08-09 v1</title>
+<style>
+ :root{--bg:#0f1216;--panel:#161b22;--panel2:#1c2229;--line:#30363d;--fg:#e6edf3;
+   --muted:#8b949e;--accent:#58a6ff;--red:#f85149;--amber:#d29922;--green:#3fb950;}
+ *{box-sizing:border-box}
+ body{margin:0;padding:28px 20px 80px;background:var(--bg);color:var(--fg);
+  font:15px/1.6 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+ .wrap{max-width:1120px;margin:0 auto}
+ header{border-bottom:2px solid var(--accent);padding-bottom:14px;margin-bottom:26px}
+ h1{margin:0 0 6px;font-size:26px} .sub{color:var(--muted);font-size:14px}
+ h2{font-size:19px;margin:34px 0 12px;padding-bottom:6px;border-bottom:1px solid var(--line);color:var(--accent)}
+ h3{font-size:15px;margin:22px 0 8px;color:#ffd479}
+ .card{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--line);
+   border-radius:6px;padding:13px 15px;margin:10px 0}
+ .card.red{border-left-color:var(--red)} .card.amber{border-left-color:var(--amber)}
+ .card.green{border-left-color:var(--green)} .card.blue{border-left-color:var(--accent)}
+ code{background:var(--panel2);border:1px solid var(--line);border-radius:4px;padding:1px 5px;
+   font:13px ui-monospace,Consolas,monospace;color:#a5d6ff}
+ pre{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:11px 13px;
+   overflow-x:auto;font:12.5px/1.5 ui-monospace,Consolas,monospace;color:#a5d6ff}
+ table{width:100%;border-collapse:collapse;margin:12px 0;font-size:14px}
+ th,td{border:1px solid var(--line);padding:7px 10px;text-align:left;vertical-align:top}
+ th{background:var(--panel2);color:var(--accent)}
+ td.chk{width:52px;text-align:center;color:var(--muted);font-size:18px}
+ td.id{width:64px;color:var(--muted);font-family:ui-monospace,Consolas,monospace;font-size:12px}
+ ul,ol{margin:7px 0 7px 20px} li{margin:4px 0}
+ .hi{color:#ffd479} .muted{color:var(--muted)}
+</style></head><body><div class="wrap">
+<header>
+<h1>GroupTrack — Test Plan</h1>
+<div class="sub">2026-08-09 v1 &middot; INTERNAL &middot; covers everything shipped 08-07 and 08-08
+that has NOT been verified on a device<br>
+HEAD <code>d92e472fb</code> &middot; 14 commits on 08-08, all green, <b>none device-tested</b></div>
+</header>
+
+<div class="card red">
+<h4>⛔ BEFORE ANYTHING — PROTECT THE DEVICE</h4>
+<p>Droid 2 lost its spatial DB on 08-08 and has been rebuilt: 490k Utah OSM trails, tracks
+re-imported, corridors re-downloading. <b>That is real work now.</b></p>
+<pre>MSYS_NO_PATHCONV=1 adb -s 24039703201775 shell ls -la /sdcard/Documents/GroupTrack/*.db</pre>
+<p>Record the sizes before you start and after each destructive test. ⚠ <b>Any test that clears,
+deletes or uninstalls goes LAST</b>, after everything non-destructive has passed.</p>
+</div>
+
+<div class="card amber">
+<h4>⚠ THROUGHPUT NOTE — the overnight slowdown, and what it is NOT</h4>
+<p>7 PM → 7 AM produced <b>90 jobs, ~7.5/hour</b>. Daytime was ~24/hour, and the rate roughly
+<b>doubled again</b> when daytime resumed on 08-09. <b>Overnight ran at about a third of daytime
+speed.</b></p>
+<p>⭐⭐ <b>DOZE IS THE LEADING EXPLANATION AFTER ALL — AND THE REASON IS THE POWER SOURCE.</b>
+Droid 2 was charging <b>from the laptop's USB port, and the laptop sleeps.</b> A sleeping host
+commonly cuts or throttles USB power, so <b>Android may well have seen the device as UNPLUGGED for
+much of the night</b> — which satisfies all three Doze conditions (unplugged, screen off,
+stationary). ⚠ <b>"Plugged into a PC" is NOT the same as "on power."</b> Use a wall charger for any
+overnight run that is being measured.</p>
+<p>⚠ <b>RECORD OF THE REASONING, so it is not re-litigated:</b> Doze was proposed → withdrawn when
+Fred said the device was plugged in → <b>reinstated</b> when he identified the source as a sleeping
+PC. <b>Neither the first nor the second call was safe on the evidence available at the time.</b></p>
+<p><b>STILL POSSIBLE ALONGSIDE IT</b> — none ruled out, and all would hit real users:</p>
+<ul>
+<li><b>Thermal throttling</b> — leading candidate. Four concurrent slots for twelve hours on charge
+heats both radio and battery. Check: <code>adb shell dumpsys thermalservice | head -30</code></li>
+<li><b>WiFi power save with the screen off</b> — many devices drop the radio to low power even
+while charging.</li>
+<li><b>OEM background management</b> — vendor-specific, independent of Doze AND of charging.</li>
+<li><b>Tile server behaviour</b> — least likely overnight in the US, not impossible.</li>
+</ul>
+<p>⚠ <b>THE 08-09 EVENING RUN IS CONFOUNDED — THREE VARIABLES CHANGED AT ONCE:</b> Doze disabled
+via ADB, battery optimization + all auto-optimization turned off for GroupTrack, and the power
+situation understood. ⭐ <b>RESULT: 36 tiles/sec — a NEW HIGH, above the 33.2 aggregate measured at
+4 slots on 08-08</b>, which had been the ceiling. So the changes did more than recover the daytime
+rate. ⚠ Which single change delivered it is NOT established.</p>
+<p>⭐⭐ <b>PRODUCT CONSEQUENCE, not just a test note:</b> users cannot run ADB. Large corridor
+downloads left running overnight will hit whatever this is. <b>The app should request a battery
+optimization exemption</b> (<code>REQUEST_IGNORE_BATTERY_OPTIMIZATIONS</code>), and the manual and
+quickstart should say <b>plug in AND set the app to Unrestricted</b> before a large download.</p>
+<p>⚠ <b>Do not quote overnight completion times from daytime rates</b> until this is settled.</p>
+</div>
+
+<h2>A &middot; Migration panel — <code>d92e472fb</code>, entirely untested</h2>
+<div class="card red">
+<p class="hi"><b>A-01 IS THE WHOLE POINT OF THIS BUILD. Do it first, before anything else.</b></p>
+</div>
+<table>
+<tr><th class="id">ID</th><th>Test</th><th>Expected</th><th class="chk">✓</th></tr>
+<tr><td class="id">A-01</td>
+<td><b>Step 0 checkbox truth.</b> Change SAT source, pick option 2, tick BOTH boxes, CONTINUE.</td>
+<td class="hi"><b>First line reads "Selected: track maps + areas".</b> If it disagrees with what
+you ticked, the 08-08 defect is STILL LIVE — stop and report.</td><td class="chk">☐</td></tr>
+<tr><td class="id">A-02</td><td>Intro dialog appears on source change</td>
+<td>Shows the stored tile count for the slot</td><td class="chk">☐</td></tr>
+<tr><td class="id">A-03</td><td>Three options render; option 2 is now selectable</td>
+<td>Not greyed out</td><td class="chk">☐</td></tr>
+<tr><td class="id">A-04</td><td>Select option 2 with NEITHER box ticked</td>
+<td>CONTINUE disabled; "Choose at least one." in red</td><td class="chk">☐</td></tr>
+<tr><td class="id">A-05</td><td>Tick one box</td><td>CONTINUE enables</td><td class="chk">☐</td></tr>
+<tr><td class="id">A-06</td><td>Checkbox warning text under "Refresh track corridors"</td>
+<td>Says leaving it off covers the ground as boxed areas at ~10x the tiles</td><td class="chk">☐</td></tr>
+<tr><td class="id">A-07</td><td>Select option 3</td>
+<td>"Add track maps now" checkbox appears</td><td class="chk">☐</td></tr>
+<tr><td class="id">A-08</td><td><b>AREAS ONLY</b> — tick areas, not tracks. CONTINUE.</td>
+<td>Completes in seconds. Steps: held → (areas result) → released. <b>No delete runs.</b>
+⚠ If there is no area coverage it must say "No map areas to process" and submit NOTHING</td><td class="chk">☐</td></tr>
+<tr><td class="id">A-09</td><td>Step list renders as ticked rows accumulating</td>
+<td>☑ per completed step, in place, list grows downward</td><td class="chk">☐</td></tr>
+<tr><td class="id">A-10</td><td><b>TRACKS</b> — tick tracks. CONTINUE. ⚠ ~25 min + rebuild.</td>
+<td>Scan reports N tracks/M tiles → delete runs with a progress bar → "Removed X tiles from Y track
+maps" → "Submitted N track maps"</td><td class="chk">☐</td></tr>
+<tr><td class="id">A-11</td><td>Delete progress meter advances</td>
+<td>"Removing corridor map N of M — &lt;track name&gt;" with a moving bar</td><td class="chk">☐</td></tr>
+<tr><td class="id">A-12</td><td>Panel dismisses at the end</td>
+<td>Result screen with an OK button. <b>08-08 it never dismissed.</b></td><td class="chk">☐</td></tr>
+<tr><td class="id">A-13</td><td>Queue is RELEASED afterwards</td>
+<td>Jobs start draining; no QUEUE HELD banner left behind</td><td class="chk">☐</td></tr>
+<tr><td class="id">A-14</td><td>Option 3 + "Add track maps now"</td>
+<td>Corridors submitted, <b>nothing deleted</b>, areas untouched</td><td class="chk">☐</td></tr>
+<tr><td class="id">A-15</td><td>Option 1 (clear and start over) — ⛔ DESTRUCTIVE, do last</td>
+<td>Store cleared, MB freed reported, spatial DB UNTOUCHED</td><td class="chk">☐</td></tr>
+</table>
+
+<h2>B &middot; Queue panel — <code>e4ffedbb1</code> + <code>c5fc7985b</code></h2>
+<table>
+<tr><th class="id">ID</th><th>Test</th><th>Expected</th><th class="chk">✓</th></tr>
+<tr><td class="id">B-01</td><td class="hi"><b>Whole-run estimator.</b> With a queue draining, read
+the completion estimate</td>
+<td class="hi"><b>Should approximate remaining tiles ÷ observed rate.</b> 08-08 it said Aug 12 for
+what was a ~10 hour job. ⚠ Compare against a hand figure before trusting it</td><td class="chk">☐</td></tr>
+<tr><td class="id">B-02</td><td>Aggregate rate line</td>
+<td>"N tiles/sec across M running" — <b>M must match the number actually running</b></td><td class="chk">☐</td></tr>
+<tr><td class="id">B-03</td><td>Aggregate SUMS the jobs</td>
+<td>With 3 jobs at ~10 each it reads ~30, not ~10</td><td class="chk">☐</td></tr>
+<tr><td class="id">B-04</td><td>Concurrency stepper − / +</td>
+<td>Clamps 1–4; running count follows as jobs complete</td><td class="chk">☐</td></tr>
+<tr><td class="id">B-05</td><td>Stepper persists across app restart</td>
+<td>⚠ Droid 2 has <b>4</b> stored from testing; the new default of 3 only applies to a device that
+never set it</td><td class="chk">☐</td></tr>
+<tr><td class="id">B-06</td><td>Twisties on QUEUED / COMPLETED</td>
+<td>Both fold; counts shown; COMPLETED starts closed</td><td class="chk">☐</td></tr>
+<tr><td class="id">B-07</td><td>Row format</td>
+<td><code>#7  CORR 2  SAT &lt;track&gt;</code> — type token matches the filter chip text</td><td class="chk">☐</td></tr>
+<tr><td class="id">B-08</td><td>Corridor jobs carry track names</td>
+<td>⚠ Only jobs enqueued by THIS build — older rows keep old labels</td><td class="chk">☐</td></tr>
+<tr><td class="id">B-09</td><td>Tap a completed row</td>
+<td>Expands: started, took, tiles/sec, downloaded-of-submitted</td><td class="chk">☐</td></tr>
+<tr><td class="id">B-10</td><td class="hi"><b>Layer-count fix.</b> On a completed AREA job, compare
+downloaded vs submitted</td>
+<td class="hi"><b>They should roughly match.</b> A ~3x gap means an enqueue path still inflates.
+08-08 measured 19,000 submitted vs 6,463 actual</td><td class="chk">☐</td></tr>
+<tr><td class="id">B-11</td><td>Stored rate vs reconstructed</td>
+<td>Jobs run under this build show a plain figure; older ones show <code>~</code></td><td class="chk">☐</td></tr>
+</table>
+
+<h2>C &middot; Aisle 6 — the unrecoverable queue</h2>
+<div class="card amber">
+<p>⚠ These reproduce the 08-08 failure deliberately. <b>Do them when the queue is expendable</b>,
+not mid-rebuild.</p>
+</div>
+<table>
+<tr><th class="id">ID</th><th>Test</th><th>Expected</th><th class="chk">✓</th></tr>
+<tr><td class="id">C-01</td><td>Hold the queue with jobs present</td>
+<td><b>QUEUE HELD — nothing will start</b> banner + RELEASE</td><td class="chk">☐</td></tr>
+<tr><td class="id">C-02</td><td class="hi"><b>The 08-08 trap:</b> hold the queue, then cancel all
+so it is held AND empty</td>
+<td class="hi"><b>Panel still renders</b> with the banner and RELEASE. <b>08-08 it vanished
+entirely and there was no way out.</b></td><td class="chk">☐</td></tr>
+<tr><td class="id">C-03</td><td>RELEASE</td><td>Banner clears, queued jobs start</td><td class="chk">☐</td></tr>
+<tr><td class="id">C-04</td><td>CANCEL WORKERS with jobs running</td>
+<td>Confirm dialog → everything stops → queue released</td><td class="chk">☐</td></tr>
+<tr><td class="id">C-05</td><td class="hi"><b>Orphan block.</b> Start jobs, cancel all so entries
+go but WorkManager still holds them</td>
+<td class="hi">Log shows <code>ORPHAN-2026-08-08O: no queue entry for id=…</code> and the worker
+<b>fails immediately</b>. <b>08-08 they ran 20 minutes at 0 tiles.</b></td><td class="chk">☐</td></tr>
+<tr><td class="id">C-06</td><td>Orphans do not resurrect after force-stop</td>
+<td>Force-stop, reopen — no jobs running with no entries</td><td class="chk">☐</td></tr>
+<tr><td class="id">C-07</td><td>Orphan writes no failure rows</td>
+<td>No phantom FAILED entries appear in COMPLETED</td><td class="chk">☐</td></tr>
+</table>
+<pre>adb -s 24039703201775 logcat -d | grep -iE "ORPHAN-2026-08-08O|Queue PAUSED|Queue RESUMED"</pre>
+
+<h2>D &middot; Regression — things that already worked</h2>
+<table>
+<tr><th class="id">ID</th><th>Test</th><th>Expected</th><th class="chk">✓</th></tr>
+<tr><td class="id">D-01</td><td>Corridor geometry</td>
+<td>⭐ Bar Track verified "spot on" 08-08 — re-check after any corridor change</td><td class="chk">☐</td></tr>
+<tr><td class="id">D-02</td><td>Corridor + Replace together</td>
+<td>Replace ON fetches every tile (no skip). <code>ConvoyCorridorWorker:83</code></td><td class="chk">☐</td></tr>
+<tr><td class="id">D-03</td><td>Downloads panel still opens; existing rows work</td>
+<td>Area/corridor/delete rows unaffected by the row-format change</td><td class="chk">☐</td></tr>
+<tr><td class="id">D-04</td><td>Filter chips still scope display AND destructive actions</td>
+<td>Cancel acts only on what is visible (except CANCEL WORKERS, which is deliberate)</td><td class="chk">☐</td></tr>
+<tr><td class="id">D-05</td><td>Offline track draw on <b>Droid 1</b></td>
+<td>✅ Closed 08-08 — re-verify only if rendering changes</td><td class="chk">☐</td></tr>
+<tr><td class="id">D-06</td><td>Spatial DB intact after every test above</td>
+<td>280 MB / 28 MB or larger. <b>Check after each destructive test.</b></td><td class="chk">☐</td></tr>
+</table>
+
+<h2>E &middot; Not yet built — do NOT test, listed so nothing is assumed</h2>
+<div class="card">
+<ul>
+<li><b>Install redesign</b> (<code>00-INSTALL</code>) — designed 08-04, no code. See the separate
+discussion.</li>
+<li><b>Data-loss guards</b> — refuse-to-create on DB open, behavioural All-Files check,
+<code>.lastgood</code>. ⚠ Never started, and there have now been TWO data-loss events.</li>
+<li><b>z9 for tracks and trails</b> — testers asked for z9 on 08-08.</li>
+<li><b><code>default_slots</code> → google-hybrid</b> — patch written, never applied.</li>
+<li><b>Asset copy</b> of manual + release notes into <code>app/src/main/assets/</code>.</li>
+<li><b>Cleanup 07b</b> — ~12 items.</li>
+<li><b>Hide-not-delete queue history</b> — deferred to 2.7. ⚠ Clearing completed rows still
+destroys the estimator's input.</li>
+</ul>
+</div>
+
+</div></body></html>

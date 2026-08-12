@@ -127,6 +127,43 @@ owned</b> and will alarm everyone else. Say it depends on the device and how muc
 meter carry the rest. <b>No duration claim.</b></p>
 </div>
 
+<h2>🔵 2.7 STARTS WITH THE DEAD-CODE SWEEP</h2>
+<div class="card blue">
+<p class="hi"><b>Fred 08-11: this is the FIRST 2.7 task, before the convoy rewrite.</b>
+<b>You cannot cleanly rewrite what you cannot tell is in use</b> — every dead path carried in is a
+path that gets ported.</p>
+<p><b>METHOD, in order:</b> strip unused functionality from the PANELS and kill their launch points
+&rarr; clean the GroupTrack menu, submenus and settings panel &rarr; then use the xrefs to nominate
+unreferenced functions and remove them <b>ONE AT A TIME with a build between each</b>.
+⭐ Use <code>compileGoogleReleaseKotlin</code> (~2 min), not a full assemble.</p>
+<p><b>SCOPE SOUNDING 08-11:</b> 995 function declarations, 894 unique names, 123 files. 165 named
+in an xref, <b>729 not</b>.</p>
+<p>⛔⛔ <b>729 IS NOT A CANDIDATE LIST.</b> The run was captured while
+<code>where_used_raw.txt</code> was still generating — 24 KB against a 481 KB function universe, so
+nearly empty. The comparison reduced to <i>"functions not in a click trace"</i>, which excludes
+<b>every worker, bridge method, service and internal call by construction</b>. Proof: 
+<code>SpatialDbManager</code> shows 91 unreached and <code>MBTilesStore</code> 18 — among the
+busiest code in the app. <b>Re-run once the xrefs finish.</b></p>
+<p class="hi">⭐ <b>THE TRACTABLE SLICE IS THE 230 <code>private</code> FILE-LOCAL FUNCTIONS</b> —
+their callers are all in ONE file, so grep is decisive and the compiler proves the removal.
+(Also: 37 top-level Composable-cased, 13 overrides which are NOT candidates, 449 public surface.)</p>
+<p>⭐⭐ <b>STANDING RULE: THE XREF NOMINATES, GREP CONFIRMS. WHEN THEY DISAGREE, GREP WINS AND THE
+FUNCTION STAYS.</b> Cheaper to leave an orphan than to remove something the compiler cannot catch.
+⚠ Hidden callers: WorkManager workers · <code>@JavascriptInterface</code> bridge methods (called
+from HTML — zero Kotlin callers on live code) · Compose callbacks passed as parameters ·
+string-named nav routes · lifecycle overrides.</p>
+<p>⭐ <b>Already-confirmed dead, all of which LOOKED live:</b> <code>Import Ride from Downloads</code>
+(callback has no caller) · <code>setMaxOfflineZoom</code> (indicator fed by a replaced directory
+layout) · the <code>migSteps</code> renderer inside <code>else if (false)</code> ·
+<code>ConvoyRouteCreateScreen</code> (registered in nav, never navigated to) · convoy
+<code>__routeMode</code> scaffolding · <code>spatial_artifacts.js</code>. Full list in the living
+master section <b>00-DEADCODE</b>.</p>
+<p>⭐ <b>One free constraint for the rewrite:</b> the cross-platform arc already landed on <b>a
+service layer with logic-free panels</b>. Convoy logic in composables must be redone for iPad;
+in a service layer it does not. Not a two-platform design — just awareness of which side of the
+line new code falls on.</p>
+</div>
+
 <h2>▶ NEXT SESSION</h2>
 <div class="card">
 <ol>
