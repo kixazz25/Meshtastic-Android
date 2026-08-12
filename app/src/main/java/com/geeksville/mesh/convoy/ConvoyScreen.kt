@@ -156,6 +156,38 @@ fun ConvoyScreen(
     }
     var pendingTrackName by viewModel.pendingTrackName
     val context = LocalContext.current
+    // PLANGATE-2026-08-12C: live internet state for the PLAN button.
+    //
+    // The planning map cannot serve offline tiles, so opening it without a
+    // connection gives a blank screen. Rather than let that happen, the button
+    // reports the state and refuses.
+    //
+    // ⚠ A CALLBACK, NOT A ONE-TIME READ: a rider who loses signal mid-ride has
+    // to see the button change without restarting. Registered and unregistered
+    // with the composable.
+    var hasInternet by remember { mutableStateOf(true) }
+    DisposableEffect(Unit) {
+        val cm = context.getSystemService(android.content.Context.CONNECTIVITY_SERVICE)
+            as? android.net.ConnectivityManager
+        fun probe(): Boolean {
+            val net = cm?.activeNetwork ?: return false
+            return cm.getNetworkCapabilities(net)
+                ?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
+        }
+        hasInternet = probe()
+        val cb = object : android.net.ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(n: android.net.Network) {
+                android.os.Handler(android.os.Looper.getMainLooper()).post { hasInternet = probe() }
+            }
+            override fun onLost(n: android.net.Network) {
+                android.os.Handler(android.os.Looper.getMainLooper()).post { hasInternet = probe() }
+            }
+        }
+        try { cm?.registerDefaultNetworkCallback(cb) } catch (e: Exception) {
+            android.util.Log.e("PlanGate", "PLANGATE-2026-08-12C register failed: ${e.message}")
+        }
+        onDispose { try { cm?.unregisterNetworkCallback(cb) } catch (e: Exception) { } }
+    }
     MapSourceManager.init(context)
     SpatialDbManager.init(context)
 
@@ -1406,7 +1438,17 @@ fun ConvoyScreen(
         // -- FIXED SOURCE BAR --
         ConvoyMapBar(
             navLabel = "PLAN",
-            onNavigate = onNavigateToMapViewer,
+            // PLANGATE-2026-08-12C: green with a connection, yellow without. NOT red - the
+            // record button beside this one is red, and a second red control
+            // reads as a second recording state.
+            navTint = if (hasInternet) Color(0xFF2E7D32) else Color(0xFFB8860B),
+            onNavigate = {
+                if (hasInternet) onNavigateToMapViewer()
+                else android.widget.Toast.makeText(
+                    context, "Planning Map requires internet access",
+                    android.widget.Toast.LENGTH_LONG
+                ).show()
+            },
             activeSource = mapTypeLabel,
             isOffline = isOfflineMode,
             onSourceChange = { label ->

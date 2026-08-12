@@ -35,6 +35,9 @@ fun ConvoyMapBar(
     isOffline: Boolean,
     onSourceChange: (label: String) -> Unit,
     onOfflineToggle: (Boolean) -> Unit,
+    // PLANGATE-2026-08-12C: tint for the nav button. NULL keeps the default,
+    // so the planning map's own bar is untouched by this.
+    navTint: Color? = null,
     modifier: Modifier = Modifier
 ) {
     Surface(
@@ -52,11 +55,15 @@ fun ConvoyMapBar(
             Surface(
                 modifier = Modifier.weight(1f).clickable { onNavigate() },
                 shape = RoundedCornerShape(4.dp),
-                color = Color(0xFF2A3545)
+                // PLANGATE-2026-08-12C: green with a connection, yellow without.
+                color = navTint ?: Color(0xFF2A3545)
             ) {
                 Text(
                     if (navIsBack) "<  $navLabel" else navLabel,
-                    color = Color(0xFF7A8DA0),
+                    // PLANGATE-2026-08-12C: lift the label when the button is tinted,
+                    // or the muted grey disappears against the fill.
+                    color = if (navTint != null) Color(0xFFE6EDF3)
+                            else Color(0xFF7A8DA0),
                     fontSize = 10.sp,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold,
