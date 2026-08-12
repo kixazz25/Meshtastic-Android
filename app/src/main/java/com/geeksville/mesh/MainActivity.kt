@@ -78,6 +78,9 @@ class MainActivity : ComponentActivity() {
         installSplashScreen()
 
         super.onCreate(savedInstanceState)
+        // RECIPE-2026-08-12L: write today's map recipe if it is not already there.
+        // Background, best effort, and it can never block a launch.
+        com.geeksville.mesh.convoy.ConvoyMapRecipe.writeDailyAsync(this)
 
         // [Fix2] Session-only: clear convoy saved frame on cold launch so a fresh app
         // start centers on GPS, not last session frame. Once per process (not rotation).

@@ -366,6 +366,96 @@ fun ConvoyDownloadPanel(
 
             } // end expandDrawArea
 
+            // ── RECIPEPANEL-2026-08-12K: MAP RECOVERY (collapsible) ──
+            //
+            // DISPLAY ONLY - this is how you SEE that the daily recipe writer
+            // is running. Today's date under ARCHIVED means it ran.
+            //
+            // Two sections because they mean different things:
+            //   ARCHIVED = this device's own saves
+            //   DOWNLOAD = the inbox, where a mailed recipe lands
+            //
+            // ⚠ APPLY and EMAIL are the recovery ACTIONS and are not wired yet.
+            var expandRecovery by remember { mutableStateOf(false) }
+            var archivedRows by remember { mutableStateOf(listOf<String>()) }
+            var inboxRows by remember { mutableStateOf(listOf<String>()) }
+            LaunchedEffect(expandRecovery) {
+                if (!expandRecovery) return@LaunchedEffect
+                fun scan(d: java.io.File): List<String> {
+                    val out = ArrayList<String>()
+                    try {
+                        // NEWEST FIRST - the name carries the date, so a plain
+                        // descending sort by name is chronological.
+                        val fs = d.listFiles()?.filter {
+                            it.name.startsWith("grouptrack_maps_") && it.name.endsWith(".gtmaps")
+                        }?.sortedByDescending { it.name } ?: emptyList()
+                        for (f in fs) {
+                            val date = f.name.removePrefix("grouptrack_maps_")
+                                .removeSuffix(".gtmaps")
+                            try {
+                                // ⚠ best effort: a half-written or hand-edited
+                                // file reads as unreadable, never breaks the panel.
+                                val o = org.json.JSONObject(f.readText())
+                                val a = o.getJSONArray("slots")
+                                var tiles = 0L
+                                for (i in 0 until a.length()) tiles += a.getJSONObject(i).optLong("tiles")
+                                out.add("$date   ${a.length()} slot(s)   $tiles tiles   ${f.length() / 1024} KB")
+                            } catch (e: Exception) {
+                                out.add("$date   unreadable (${f.length()} bytes)")
+                            }
+                        }
+                    } catch (e: Exception) {
+                        out.add("could not read: ${e.message}")
+                    }
+                    return out
+                }
+                val ext = android.os.Environment.getExternalStorageDirectory()
+                archivedRows = scan(java.io.File(ext, "Documents/GroupTrack/recipes"))
+                inboxRows = scan(android.os.Environment
+                    .getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS))
+            }
+            Surface(
+                modifier = Modifier.fillMaxWidth().clickable { expandRecovery = !expandRecovery },
+                color = Color.Transparent
+            ) {
+                Row(modifier = Modifier.padding(vertical = 4.dp, horizontal = 8.dp)) {
+                    Text(if (expandRecovery) "▼" else "▶", color = Color(0xFF8b949e), fontSize = 10.sp)
+                    Spacer(Modifier.width(6.dp))
+                    Text("MAP RECOVERY", color = Color(0xFF8b949e), fontSize = 10.sp,
+                        fontFamily = mono, fontWeight = FontWeight.Bold)
+                }
+            }
+            if (expandRecovery) {
+                Spacer(Modifier.height(4.dp))
+                Text("A daily record of what your maps cover. Kept 60 days.",
+                    color = Color(0xFF8b949e), fontSize = 9.sp, fontFamily = mono,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp))
+                Spacer(Modifier.height(4.dp))
+                Text("ARCHIVED GTMAPS", color = Color(0xFF4DA6FF), fontSize = 9.sp,
+                    fontFamily = mono, fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 1.dp))
+                if (archivedRows.isEmpty()) {
+                    Text("none yet - written once a day at startup",
+                        color = Color(0xFF8b949e), fontSize = 9.sp, fontFamily = mono,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 1.dp))
+                } else archivedRows.forEach { r ->
+                    Text(r, color = Color(0xFFc9d1d9), fontSize = 9.sp, fontFamily = mono,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 1.dp))
+                }
+                Spacer(Modifier.height(4.dp))
+                Text("DOWNLOAD GTMAPS", color = Color(0xFF4DA6FF), fontSize = 9.sp,
+                    fontFamily = mono, fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 1.dp))
+                if (inboxRows.isEmpty()) {
+                    Text("none - recipes sent to you arrive here",
+                        color = Color(0xFF8b949e), fontSize = 9.sp, fontFamily = mono,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 1.dp))
+                } else inboxRows.forEach { r ->
+                    Text(r, color = Color(0xFFc9d1d9), fontSize = 9.sp, fontFamily = mono,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 1.dp))
+                }
+                Spacer(Modifier.height(6.dp))
+            }
             // ── SHOW DOWNLOADS (collapsible) ──
             Surface(
                 modifier = Modifier.fillMaxWidth().clickable { expandShowDownloads = !expandShowDownloads },

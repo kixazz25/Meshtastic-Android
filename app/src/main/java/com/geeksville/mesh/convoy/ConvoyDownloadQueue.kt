@@ -757,26 +757,37 @@ object DownloadQueueManager {
      *
      * @return the number of jobs queued
      */
-    fun enqueueRecreateSource(
-        context: Context,
-        slotName: String,
-        maxTilesPerJob: Int = 50000
-    ): Int {
+    /**
+     * RECIPE-2026-08-12L: what a source's coverage IS, as boxes.
+     *
+     * Lifted unchanged out of enqueueRecreateSource, which is verified working
+     * and therefore not rewritten. ⭐ The point of extracting it: the daily
+     * RECIPE and an actual REBUILD now derive from the SAME code, so a recipe
+     * can never describe something a rebuild would not queue.
+     *
+     * A quadtree that COUNTS stored tiles per quadrant and DROPS the empty
+     * ones, splitting until each box holds at most maxTilesPerJob. Disjoint
+     * coverage stays disjoint by construction rather than by inference - which
+     * is the whole fix for the 3,287-job, 194-day incident.
+     */
+    class RecipeResult(
+        val slot: String, val refZ: Int, val levels: List<Int>,
+        val boxes: List<LongArray>, val dropped: Int, val totalTiles: Long
+    )
+
+    fun deriveRecipe(
+        context: Context, slotName: String, maxTilesPerJob: Int = 50000
+    ): RecipeResult? {
         init(context)
         MapSourceManager.init(context)
-
         val levels = MBTilesStore.zoomLevelsPresent(slotName)
         if (levels.isEmpty()) {
-            android.util.Log.i(TAG, "RECREATE-2026-08-11G $slotName: nothing stored")
-            return 0
+            android.util.Log.i(TAG, "RECIPE-2026-08-12L $slotName: nothing stored")
+            return null
         }
-        // The finest level present gives the tightest starting box.
         val refZ = levels.max()
-        val ext = MBTilesStore.tileExtentAtZoom(slotName, refZ) ?: return 0
+        val ext = MBTilesStore.tileExtentAtZoom(slotName, refZ) ?: return null
 
-        // Stored tiles inside a tile-space box at refZ, summed across EVERY
-        // level present. A coarser level is mapped down into refZ space so one
-        // box means the same ground at every zoom.
         fun storedIn(x0: Long, x1: Long, y0: Long, y1: Long): Int {
             var n = 0
             for (z in levels) {
@@ -796,12 +807,15 @@ object DownloadQueueManager {
 
         val boxes = ArrayList<LongArray>()
         var dropped = 0
+        var total = 0L
         fun split(x0: Long, x1: Long, y0: Long, y1: Long, depth: Int) {
             val n = storedIn(x0, x1, y0, y1)
-            if (n == 0) { dropped++; return }          // <-- the whole point
+            if (n == 0) { dropped++; return }
             val single = (x0 == x1 && y0 == y1)
             if (n <= maxTilesPerJob || single || depth > 24) {
-                boxes.add(longArrayOf(x0, x1, y0, y1, n.toLong())); return
+                boxes.add(longArrayOf(x0, x1, y0, y1, n.toLong()))
+                total += n
+                return
             }
             val mx = (x0 + x1) / 2
             val my = (y0 + y1) / 2
@@ -811,13 +825,25 @@ object DownloadQueueManager {
             split(mx + 1, x1, my + 1, y1, depth + 1)
         }
         split(ext[0], ext[1], ext[2], ext[3], 0)
-        if (boxes.isEmpty()) return 0
+        return RecipeResult(slotName, refZ, levels, boxes, dropped, total)
+    }
 
-        val n = 1L shl refZ
+    fun enqueueRecreateSource(
+        context: Context,
+        slotName: String,
+        maxTilesPerJob: Int = 50000
+    ): Int {
+        init(context)
+        MapSourceManager.init(context)
+
+        val r = deriveRecipe(context, slotName, maxTilesPerJob) ?: return 0
+        val boxes = r.boxes
+        val dropped = r.dropped
+        if (boxes.isEmpty()) return 0
+        val n = 1L shl r.refZ
         fun lonOf(x: Long) = x.toDouble() / n * 360.0 - 180.0
         fun latOf(y: Long) = Math.toDegrees(
             Math.atan(Math.sinh(Math.PI * (1.0 - 2.0 * y.toDouble() / n))))
-
         val slotLayers = MapSourceManager.getDownloadSources()
             .filter { it.first == slotName }.sumOf { it.second.size }
         val current = _queue.value.toMutableList()
