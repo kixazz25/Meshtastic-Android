@@ -171,6 +171,10 @@ object MBTilesStore {
      * This is the read contract every shouldInterceptRequest branch calls.
      */
     fun readTile(type: String, z: Int, x: Int, y: Int): ByteArray? {
+        // OFFTRACE-2026-08-11M: what the store actually returns. A null here
+        // with tiles on disk means the lookup, not the map.
+        android.util.Log.i("OFFTRACE", "OFFTRACE-2026-08-11M readTile type=$type z=$z x=$x y=$y")
+
         val d = db(type) ?: return null
         return try {
             d.rawQuery(

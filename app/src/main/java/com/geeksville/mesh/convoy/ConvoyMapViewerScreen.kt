@@ -975,6 +975,14 @@ fun ConvoyMapViewerScreen(
                         webViewClient = object : WebViewClient() {
                             override fun shouldInterceptRequest(view: WebView?, request: android.webkit.WebResourceRequest?): android.webkit.WebResourceResponse? {
                                 val url = request?.url?.toString() ?: return super.shouldInterceptRequest(view, request)
+                                // OFFTRACE-2026-08-11M: log EVERY request. ⚠ This interceptor has NO
+                                // convoy:// branch at all -- only the two Esri overlay
+                                // URLs below -- so a convoy:// request falls through to
+                                // super and the WebView cannot resolve the scheme.
+                                // Logging first, before assuming that is the whole story.
+                                if (url.contains("tile") || url.startsWith("convoy://")) {
+                                    android.util.Log.i("OFFTRACE", "OFFTRACE-2026-08-11M planner REQ $url")
+                                }
                                 // Esri URL is tile/z/y/x but local storage is source/z/x/y.png
                                 if (url.contains("/Reference/World_Transportation/MapServer/tile/")) {
                                     // [V2.6-PASS1-READ] Transportation overlay from MBTiles (raw z/x/y)

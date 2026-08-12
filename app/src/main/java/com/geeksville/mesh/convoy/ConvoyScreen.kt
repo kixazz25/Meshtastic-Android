@@ -754,7 +754,14 @@ fun ConvoyScreen(
                             }
                             override fun shouldInterceptRequest(view: android.webkit.WebView?, request: android.webkit.WebResourceRequest?): android.webkit.WebResourceResponse? {
                                 val url = request?.url?.toString() ?: return super.shouldInterceptRequest(view, request)
+                                // OFFTRACE-2026-08-11M: log EVERY request the WebView makes. If no
+                                // convoy:// line ever appears, the map is still asking
+                                // for https and the interceptor is irrelevant.
+                                if (url.contains("tile") || url.startsWith("convoy://")) {
+                                    android.util.Log.i("OFFTRACE", "OFFTRACE-2026-08-11M convoy-map REQ $url")
+                                }
                                 if (url.startsWith("convoy://tiles/")) {
+                                    android.util.Log.i("OFFTRACE", "OFFTRACE-2026-08-11M convoy-map MATCHED convoy://")
                                     // [V2.6-PASS1-READ] base tile from MBTiles. Path = <type>/<z>/<x>/<y>.png
                                     // Split from the RIGHT: last 3 = z/x/y; everything before = type (keeps TOPO+).
                                     val tilePath = url.removePrefix("convoy://tiles/")
