@@ -251,7 +251,19 @@ fun ConvoySettingsScreen(
             // ── Build stamp ──────────────────────────────────────────
             Spacer(Modifier.height(8.dp))
             Text(
-                text     = "GroupTrack Rel 2.6d — Build ${BuildConfig.BUILD_STAMP}",
+                // HTMLVER-2026-08-13B: the release string here was one letter behind.
+                text     = "GroupTrack Rel 2.6e — Build ${BuildConfig.BUILD_STAMP}",
+                style    = MaterialTheme.typography.labelSmall,
+                color    = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp)
+            )
+            // HTMLVER-2026-08-13B: which bundled map HTML actually loaded. An old date
+            // here means the device is running stale assets - the thing that cost
+            // an evening of bisecting on 08-11 because it could not be seen.
+            Text(
+                text     = "Map HTML: ${ConvoyConfig.MAP_HTML_VERSION}",
                 style    = MaterialTheme.typography.labelSmall,
                 color    = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                 modifier = Modifier

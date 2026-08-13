@@ -721,12 +721,27 @@ fun ConvoyScreen(
                 } else {
                     android.webkit.WebView(ctx).apply {
                         settings.javaScriptEnabled = true
+                                    // HTMLVER-2026-08-13B: never serve a cached copy of a
+                                    // bundled asset. ⚠ A cache-buster on the URL is NOT
+                                    // used - WebView treats file:///android_asset/x.html
+                                    // as a filename, so a query string risks a 404.
+                                    settings.cacheMode = android.webkit.WebSettings.LOAD_NO_CACHE
                         settings.domStorageEnabled = true
                         settings.allowFileAccessFromFileURLs = true
                         settings.allowUniversalAccessFromFileURLs = true
                         setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null)
                         webViewClient = object : android.webkit.WebViewClient() {
                             override fun onPageFinished(view: android.webkit.WebView?, url: String?) {
+                            // HTMLVER-2026-08-13B: read the HTML's own version back so settings
+                            // can show it. Cheap, once per page load.
+                            view?.evaluateJavascript("window.__htmlVersion || ''") { v ->
+                                val clean = v?.trim('"') ?: ""
+                                if (clean.isNotBlank() && clean != "null") {
+                                    ConvoyConfig.MAP_HTML_VERSION = clean
+                                    android.util.Log.i("HtmlVer", "HTMLVER-2026-08-13B loaded $clean")
+                                }
+                            }
+
                                 view?.evaluateJavascript("setRouteMode(false)", null)
                                 // Auto-sense connectivity: use local tiles if no internet
                                 val ctx = view?.context ?: return
@@ -1558,6 +1573,11 @@ fun ConvoyScreen(
                         factory = { ctx ->
                             android.webkit.WebView(ctx).apply {
                                 settings.javaScriptEnabled = true
+                                    // HTMLVER-2026-08-13B: never serve a cached copy of a
+                                    // bundled asset. ⚠ A cache-buster on the URL is NOT
+                                    // used - WebView treats file:///android_asset/x.html
+                                    // as a filename, so a query string risks a 404.
+                                    settings.cacheMode = android.webkit.WebSettings.LOAD_NO_CACHE
                                 settings.allowFileAccess = true
                                 @Suppress("DEPRECATION")
                                 settings.allowFileAccessFromFileURLs = true

@@ -66,6 +66,13 @@ fun ConvoyRouteToolbar(
     onSelectMethod: (Int) -> Unit = {},
     onNewRoute: () -> Unit = {},
     onAddModeChanged: (Boolean) -> Unit = {},
+    // ARMSTATE-2026-08-13F: THE REAL ARMED STATE, passed in.
+    //
+    // This was a private `remember` initialised to true, so the toolbar could
+    // show Draw lit while the map had stopped accepting taps. The buttons now
+    // both REFLECT this value and TOGGLE it through onAddModeChanged - one
+    // value, read by the display and by the logic, with nothing holding a copy.
+    addArmed: Boolean = false,
     onUndo: () -> Unit = {},
     onSaveCompleted: () -> Unit = {},
     onExit: () -> Unit = {},
@@ -84,11 +91,13 @@ fun ConvoyRouteToolbar(
     // Add button armed-state (pact): GREEN = ON (taps place points),
     // RED = OFF (taps pan/reposition). ON on entry for Point; selecting
     // Draw/Suggest sets it OFF (those methods don't tap-to-place).
-    var addArmed by remember { mutableStateOf(true) }
+    // ARMSTATE-2026-08-13F: the private copy is gone - addArmed is a parameter.
     // Re-arm build controls on every route-mode entry (NEW / RESUMED / future
     // extend). Without this, building stays false from a prior exit (line ~174)
     // and a resumed route can place points but cannot Undo/Save.
-    androidx.compose.runtime.LaunchedEffect(routeEntryNonce) { building = true; addArmed = true }
+    // ARMSTATE-2026-08-13F: armed the DISPLAY on route entry without telling the
+    // planner. The arm sites set the real value now.
+    androidx.compose.runtime.LaunchedEffect(routeEntryNonce) { building = true }
     Surface(
         modifier = modifier
             .width(248.dp)
@@ -130,14 +139,14 @@ fun ConvoyRouteToolbar(
             Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                 MethodChip("Point", selectedMethod == ROUTE_METHOD_P2P, true, building) {
                     // Point = tap-to-place -> Add ON
-                    if (building) { onSelectMethod(ROUTE_METHOD_P2P); addArmed = true; onAddModeChanged(true) }
+                    if (building) { onSelectMethod(ROUTE_METHOD_P2P); onAddModeChanged(true) }
                 }
                 MethodChip("Draw", selectedMethod == ROUTE_METHOD_DRAW, false, false) {
                     // Draw/Suggest don't tap-to-place -> Add OFF (placeholder methods)
-                    addArmed = false
+                    onAddModeChanged(false)
                 }
                 MethodChip("Suggest", selectedMethod == ROUTE_METHOD_SUGGEST, false, false) {
-                    addArmed = false
+                    onAddModeChanged(false)
                 }
             }
 
@@ -148,10 +157,10 @@ fun ConvoyRouteToolbar(
             // Artifact = addArmed false (taps do artifact/waypoint).
             Row(modifier = Modifier.fillMaxWidth()) {
                 SegHalf("Route",    addArmed && building, building, Modifier.weight(1f)) {
-                    if (building && !addArmed) { addArmed = true;  onAddModeChanged(true) }
+                    if (building && !addArmed) { onAddModeChanged(true) }
                 }
                 SegHalf("Artifact", !addArmed && building, building, Modifier.weight(1f)) {
-                    if (building && addArmed) { addArmed = false; onAddModeChanged(false) }
+                    if (building && addArmed) { onAddModeChanged(false) }
                 }
             }
             // Undo on its own row, centered.
@@ -182,7 +191,8 @@ fun ConvoyRouteToolbar(
                 //   NEVER writes on: roll back, discard, remove-unsaved.
                 //   FIRST-PASS LIVE leg: remove-unsaved (what onExit does today).
                 BuildBtn("Discard", rtRed, Modifier.weight(1f)) {
-                    building = false; addArmed = true
+                    // ARMSTATE-2026-08-13F: closing no longer re-arms a display flag.
+                    building = false
                     if (routeLifecycleState == ROUTE_LS_RESUMED) onDiscardRequested() else onExit()
                 }
             }

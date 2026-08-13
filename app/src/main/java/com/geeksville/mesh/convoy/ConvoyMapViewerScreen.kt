@@ -206,7 +206,19 @@ fun ConvoyMapViewerScreen(
     // [route-panel 2026-08-02] ALL drafts including the unnamed auto-save. The auto-save
     // belongs in the picker -- it is renamed or deleted there, and New Route is blocked
     // until it is. Sorted oldest-first by createdAt for the list display.
-    val emulatedDrafts = RouteDraftStore.listDrafts().sortedBy { it.createdAt }
+    // DISCARDWINS-2026-08-13C: keyed on draftListTick, which was WRITE-ONLY.
+    //
+    // The tick is incremented after a delete and after a rename, and was read
+    // nowhere. Compose only recomposes when a state it READS changes, so the
+    // increment fired into nothing, the list never rebuilt, and a deleted draft
+    // stayed on screen to be deleted again.
+    //
+    // ⚠ It was also a bare val, so it re-read the draft directory from disk on
+    // EVERY recomposition, on the main thread. Keying a remember on the tick
+    // fixes both: the write causes a rebuild, and a rebuild happens only then.
+    val emulatedDrafts = remember(draftListTick) {
+        RouteDraftStore.listDrafts().sortedBy { it.createdAt }
+    }
     var newWaypointType by remember { mutableStateOf("other") }
     var newWaypointName by remember { mutableStateOf("") }
 
@@ -707,6 +719,11 @@ fun ConvoyMapViewerScreen(
                             }
                         }
                         settings.javaScriptEnabled = true
+                                    // HTMLVER-2026-08-13B: never serve a cached copy of a
+                                    // bundled asset. ⚠ A cache-buster on the URL is NOT
+                                    // used - WebView treats file:///android_asset/x.html
+                                    // as a filename, so a query string risks a 404.
+                                    settings.cacheMode = android.webkit.WebSettings.LOAD_NO_CACHE
                         settings.allowFileAccessFromFileURLs = true
                         settings.domStorageEnabled = true
                         settings.allowFileAccess = true
@@ -1013,6 +1030,16 @@ fun ConvoyMapViewerScreen(
                                 return super.shouldInterceptRequest(view, request)
                             }
                             override fun onPageFinished(view: WebView?, url: String?) {
+                            // HTMLVER-2026-08-13B: read the HTML's own version back so settings
+                            // can show it. Cheap, once per page load.
+                            view?.evaluateJavascript("window.__htmlVersion || ''") { v ->
+                                val clean = v?.trim('"') ?: ""
+                                if (clean.isNotBlank() && clean != "null") {
+                                    ConvoyConfig.MAP_HTML_VERSION = clean
+                                    android.util.Log.i("HtmlVer", "HTMLVER-2026-08-13B loaded $clean")
+                                }
+                            }
+
                                 super.onPageFinished(view, url)
                                 MapSourceManager.init(view?.context ?: return)
                                 // Initialize spatial DB for map drawing (sync moved to the dedicated control screen)
@@ -1044,6 +1071,10 @@ fun ConvoyMapViewerScreen(
                                             pendingInventory = true
                                         } else if (u.pointCount < 2) {
                                             RouteDraftStore.deleteDraft(RouteDraftStore.UNNAMED)
+                                            // LISTTICK-2026-08-13G: the In-Progress list is keyed on this tick. Without the
+                                            // bump the file is deleted and the row stays on screen, so a
+                                            // delete that already worked looks broken and gets repeated.
+                                            draftListTick++
                                             android.util.Log.i("RouteModeTrace",
                                                 "RESOLVER: deleted unnamed draft, " + u.pointCount + " pts (crash remnant)")
                                             pendingInventory = true
@@ -1222,6 +1253,11 @@ fun ConvoyMapViewerScreen(
                             factory = { ctx ->
                                 WebView(ctx).apply {
                                     settings.javaScriptEnabled = true
+                                    // HTMLVER-2026-08-13B: never serve a cached copy of a
+                                    // bundled asset. ⚠ A cache-buster on the URL is NOT
+                                    // used - WebView treats file:///android_asset/x.html
+                                    // as a filename, so a query string risks a 404.
+                                    settings.cacheMode = android.webkit.WebSettings.LOAD_NO_CACHE
                                     settings.allowFileAccess = true
                                     settings.allowFileAccessFromFileURLs = true
                                     webViewClient = WebViewClient()
@@ -1291,10 +1327,16 @@ fun ConvoyMapViewerScreen(
                             // nothing to resolve
                         } else if (u.pointCount < 2) {
                             RouteDraftStore.deleteDraft(RouteDraftStore.UNNAMED)
+                            // LISTTICK-2026-08-13G: the In-Progress list is keyed on this tick. Without the
+                            // bump the file is deleted and the row stays on screen, so a
+                            // delete that already worked looks broken and gets repeated.
+                            draftListTick++
                             android.util.Log.i("RouteModeTrace",
                                 "RESOLVER: deleted unnamed draft at Route+, " + u.pointCount + " pts (crash remnant)")
                         }
                     }
+                    // ARMSTATE-2026-08-13F: keep the armed state in step with the session.
+                    addPointMode = true
                     routeMode = true   // route-add selected: panel has no cancel, both picks build a route
                     showInProgressPicker = true
                 },
@@ -1477,6 +1519,8 @@ fun ConvoyMapViewerScreen(
                             routeName = "Auto Saved In Progress"
                             routeNameTaken = false
                             routeEntryNonce++
+                            // ARMSTATE-2026-08-13F: keep the armed state in step with the session.
+                            addPointMode = true
                             routeMode = true
                             webViewRef?.evaluateJavascript("window.__routeMode=true;setRouteMode(true)", null)  // arm tap-to-place (no name prompt)
                         }) { androidx.compose.material3.Text("New Route") }
@@ -1515,6 +1559,8 @@ fun ConvoyMapViewerScreen(
                     if (res) {
                         RouteManager.clearRoute()
                         webViewRef?.evaluateJavascript("setRouteMode(false); clearBuildLine();", null)
+                        // ARMSTATE-2026-08-13F: keep the armed state in step with the session.
+                        addPointMode = false
                         routeMode = false
                         webViewRef?.evaluateJavascript("try{var b=map.getBounds();Android.onViewportChanged(b.getNorth(),b.getSouth(),b.getEast(),b.getWest(),map.getZoom())}catch(e){}", null)
                     } else {
@@ -1554,6 +1600,8 @@ fun ConvoyMapViewerScreen(
                                 routeLifecycleState = ROUTE_LS_NEW
                                 showNameDialog = false
                                 routeEntryNonce++
+                                // ARMSTATE-2026-08-13F: keep the armed state in step with the session.
+                                addPointMode = true
                                 routeMode = true
                                 webViewRef?.evaluateJavascript("window.__routeMode=true;setRouteMode(true)", null)  // arm tap-to-place
                             }
@@ -1578,6 +1626,8 @@ fun ConvoyMapViewerScreen(
                         routeName = "Auto Saved In Progress"
                         routeNameTaken = false
                     },
+                    // ARMSTATE-2026-08-13F: the highlight is the real armed state.
+                    addArmed = addPointMode,
                     onAddModeChanged = { armed ->
                         addPointMode = armed
                         // `armed` true = Draw selected, false = Artifact selected.
@@ -1616,6 +1666,8 @@ fun ConvoyMapViewerScreen(
                     onExit = {
                         RouteManager.clearRoute()
                         webViewRef?.evaluateJavascript("setRouteMode(false); clearBuildLine();", null)
+                        // ARMSTATE-2026-08-13F: keep the armed state in step with the session.
+                        addPointMode = false
                         routeMode = false
                     }
                 )
@@ -1679,6 +1731,8 @@ fun ConvoyMapViewerScreen(
                                     routeName = nm
                                     RouteManager.clearRoute()
                                     webViewRef?.evaluateJavascript("setRouteMode(false); clearBuildLine();", null)
+                                    // ARMSTATE-2026-08-13F: keep the armed state in step with the session.
+                                    addPointMode = false
                                     routeMode = false
                                     // [saveinprogress-trace 2026-08-01] This path disarmed silently -- no trace,
                                     // no toast. Every route-mode write announces itself while instrumentation is in.
@@ -1717,10 +1771,33 @@ fun ConvoyMapViewerScreen(
                     dismissButton = {
                         androidx.compose.material3.TextButton(onClick = {
                             showDiscardChoice = false
-                            RouteDraftStore.deleteDraft(routeName)
+                            // DISCARDWINS-2026-08-13C: ORDER MATTERS, AND SO DOES THE NAME.
+                            //
+                            // Autosave is a crash net. A discard is a deliberate
+                            // choice to throw the work away, so it has to win
+                            // unconditionally - which means killing the autosave
+                            // path for the session, not just deleting the file.
+                            //
+                            // Clear the route FIRST: deleting while vertices are
+                            // still held left something that a later redraw could
+                            // save straight back.
+                            //
+                            // Then blank the name. Both per-point save sites are
+                            // guarded by routeName.isNotBlank(), and that guard was
+                            // never disarmed - so the name survived the discard and
+                            // any later save wrote the draft back under it. That is
+                            // why a fresh autosave appeared on the way out.
                             RouteManager.clearRoute()
+                            RouteDraftStore.deleteDraft(routeName)
+                            // LISTTICK-2026-08-13G: the In-Progress list is keyed on this tick. Without the
+                            // bump the file is deleted and the row stays on screen, so a
+                            // delete that already worked looks broken and gets repeated.
+                            draftListTick++
                             webViewRef?.evaluateJavascript("setRouteMode(false); clearBuildLine();", null)
+                            // ARMSTATE-2026-08-13F: keep the armed state in step with the session.
+                            addPointMode = false
                             routeMode = false
+                            routeName = ""
                         }) { androidx.compose.material3.Text("Delete in-progress") }
                     }
                 )
@@ -1770,6 +1847,10 @@ fun ConvoyMapViewerScreen(
                     dismissButton = {
                         androidx.compose.material3.TextButton(onClick = {
                             RouteDraftStore.deleteDraft(RouteDraftStore.UNNAMED)
+                            // LISTTICK-2026-08-13G: the In-Progress list is keyed on this tick. Without the
+                            // bump the file is deleted and the row stays on screen, so a
+                            // delete that already worked looks broken and gets repeated.
+                            draftListTick++
                             android.util.Log.i("RouteModeTrace", "RESOLVER: discarded unnamed draft")
                             showDraftResolve = false
                             pendingInventory = true
@@ -1824,6 +1905,8 @@ fun ConvoyMapViewerScreen(
                                         routeLifecycleState = ROUTE_LS_RESUMED
                                         showInProgressPicker = false
                                         routeEntryNonce++
+                                        // ARMSTATE-2026-08-13F: keep the armed state in step with the session.
+                                        addPointMode = true
                                         routeMode = true
                                         savePlanningState()   // stamp open:true on In-Progress resume (matches New Route @872)
                                         scope.launch {
@@ -1874,6 +1957,8 @@ fun ConvoyMapViewerScreen(
                             routeName = RouteDraftStore.UNNAMED
                             routeNameTaken = false
                             routeEntryNonce++
+                            // ARMSTATE-2026-08-13F: keep the armed state in step with the session.
+                            addPointMode = true
                             routeMode = true
                             webViewRef?.evaluateJavascript("window.__routeMode=true;setRouteMode(true)", null)
                         }) { androidx.compose.material3.Text("+ Plan a New Route") }

@@ -23,6 +23,11 @@ object ConvoyConfig {
         set(value) { MapSourceManager.setActive(value) }
     // ESRI_LABELS_URL / ESRI_TRANSPORT_URL removed.
     // Overlay URLs now come from MapSourceManager.getOverlayLayers().
+    // HTMLVER-2026-08-13B: what the bundled map HTML reported when it last loaded.
+    // Written by whichever map screen loaded most recently, displayed in
+    // settings. "not reported" means no map has been opened yet this session,
+    // or the HTML predates the version marker - which is itself the answer.
+    @JvmField var MAP_HTML_VERSION: String = "not reported"
     const val LOCAL_TILE_BASE = "convoy://tiles/"
 
     // Shared tile storage — package-independent, survives app reinstall/rename
