@@ -167,7 +167,13 @@
           // stopPropagation mirrors what the track handler already does: without
           // it the layer click opens this popup AND reaches map.on('click'),
           // whose popup closes it again -- the 547 ms double-fire in the log.
-          layer.bindPopup(popup);
+          // POPUPBIND-2026-08-13H: while route mode is ON, STASH instead of binding.
+          // A pan rebuilds these layers, and a freshly bound popup absorbs the
+          // tap before it reaches the map handler - so no vertex is recorded and
+          // it looks like route mode dropped. setRouteMode's OFF branch restores
+          // anything holding _savedPopupContent, so this is symmetric with it.
+          if (window.__routeMode) { layer._savedPopupContent = popup; }
+          else { layer.bindPopup(popup); }
           layer.on('click', function(e){
             console.log('ARTIFACTTAP trail(db) routeMode=' + window.__routeMode);
             if (window.__routeMode) return;   // ROUTEFALLTHROUGH-2026-07-30: let the tap reach map.on('click')
@@ -340,7 +346,13 @@
             '<b style="color:' + waypointColor(wType) + ';">' + name + '</b><br>' +
             '<span style="color:#aaa;">Type: ' + wType + '</span></div>';
           // TAPTRACE-2026-07-30: see the trail block above.
-          layer.bindPopup(popup);
+          // POPUPBIND-2026-08-13H: while route mode is ON, STASH instead of binding.
+          // A pan rebuilds these layers, and a freshly bound popup absorbs the
+          // tap before it reaches the map handler - so no vertex is recorded and
+          // it looks like route mode dropped. setRouteMode's OFF branch restores
+          // anything holding _savedPopupContent, so this is symmetric with it.
+          if (window.__routeMode) { layer._savedPopupContent = popup; }
+          else { layer.bindPopup(popup); }
           layer.on('click', function(e){
             console.log('ARTIFACTTAP waypoint name=' + name + ' routeMode=' + window.__routeMode);
             if (window.__routeMode) return;   // ROUTEFALLTHROUGH-2026-07-30: let the tap reach map.on('click')
@@ -388,7 +400,12 @@
         onEachFeature: function(feature, layer) {
           var name = (feature.properties && feature.properties.name) || 'Unnamed Route';
           // TAPTRACE-2026-07-30: see the trail block above.
-          layer.bindPopup('<b style="color:#FF00FF;">' + name + '</b>');
+          // POPUPBIND-2026-08-13H: same as the trail and waypoint binds above.
+          if (window.__routeMode) {
+            layer._savedPopupContent = '<b style="color:#FF00FF;">' + name + '</b>';
+          } else {
+            layer.bindPopup('<b style="color:#FF00FF;">' + name + '</b>');
+          }
           layer.on('click', function(e){
             console.log('ARTIFACTTAP route name=' + name + ' routeMode=' + window.__routeMode);
             if (window.__routeMode) return;   // ROUTEFALLTHROUGH-2026-07-30: let the tap reach map.on('click')
