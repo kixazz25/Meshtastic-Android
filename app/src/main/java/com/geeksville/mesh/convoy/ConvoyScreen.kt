@@ -309,6 +309,10 @@ fun ConvoyScreen(
             // active use) so drawPersistedState can restore it on re-entry.
             MapStateStore.saveMap("convoy", MapStateStore.MapSnapshot(types, MapStateStore.PanelBoxes(), MapStateStore.BBox(lastViewportSouth, lastViewportWest, lastViewportNorth, lastViewportEast), null))
         }
+    // [viewport-save 2026-08-13] debounced viewport-settle save (mirror planning MVS:260-261/540) —
+    // convoy previously never persisted the frame on pan/zoom; this writes the current bbox on settle.
+    val viewportSaveHandler = remember { android.os.Handler(android.os.Looper.getMainLooper()) }
+    val viewportSaveRunnable = remember { Runnable { saveConvoyState() } }
     var showConvoyMenu by remember { mutableStateOf(false) }
         var pendingImportNav by remember { mutableStateOf(false) }
     val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
@@ -661,6 +665,7 @@ fun ConvoyScreen(
                         @android.webkit.JavascriptInterface
                         fun onViewportChanged(north: Double, south: Double, east: Double, west: Double, zoom: Double) {
                             lastViewportSouth = south; lastViewportWest = west; lastViewportNorth = north; lastViewportEast = east
+                            viewportSaveHandler.removeCallbacks(viewportSaveRunnable); viewportSaveHandler.postDelayed(viewportSaveRunnable, 400)
                             val wv = webViewRef.value
                             Thread {
                                 val rs = MapStateStore.readMap("convoy")
@@ -910,6 +915,7 @@ fun ConvoyScreen(
                             @android.webkit.JavascriptInterface
                             fun onViewportChanged(north: Double, south: Double, east: Double, west: Double, zoom: Double) {
                                 lastViewportSouth = south; lastViewportWest = west; lastViewportNorth = north; lastViewportEast = east
+                                viewportSaveHandler.removeCallbacks(viewportSaveRunnable); viewportSaveHandler.postDelayed(viewportSaveRunnable, 400)
                                 // GATE: reseed convoy state from JSON only if active map changed since last refresh.
                                 run {   // [refresh-restore 2026-07-01] gate removed: reseed convoy state EVERY viewport event (automatic refresh). Reads convoy JSON only -> map-independence preserved.
                                     val rs = MapStateStore.readMap("convoy")
