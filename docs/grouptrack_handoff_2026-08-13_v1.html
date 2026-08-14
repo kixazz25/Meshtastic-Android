@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GroupTrack — Handoff — 2026-08-13 EOD</title>
+<style>
+ :root{--bg:#0f1216;--panel:#161b22;--panel2:#1c2229;--line:#30363d;--fg:#e6edf3;
+   --muted:#8b949e;--accent:#58a6ff;--red:#f85149;--amber:#d29922;--green:#3fb950;}
+ *{box-sizing:border-box}
+ body{margin:0;padding:28px 20px 80px;background:var(--bg);color:var(--fg);
+  font:15px/1.6 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+ .wrap{max-width:1080px;margin:0 auto}
+ header{border-bottom:2px solid var(--accent);padding-bottom:14px;margin-bottom:26px}
+ h1{margin:0 0 6px;font-size:26px} .sub{color:var(--muted);font-size:14px}
+ h2{font-size:19px;margin:32px 0 12px;padding-bottom:6px;border-bottom:1px solid var(--line);color:var(--accent)}
+ h3{font-size:15px;margin:20px 0 8px;color:var(--fg)}
+ .card{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--line);
+   border-radius:6px;padding:13px 15px;margin:10px 0}
+ .card.red{border-left-color:var(--red)} .card.amber{border-left-color:var(--amber)}
+ .card.green{border-left-color:var(--green)} .card.blue{border-left-color:var(--accent)}
+ code{background:var(--panel2);border:1px solid var(--line);border-radius:4px;padding:1px 5px;
+   font:13px ui-monospace,Consolas,monospace;color:#a5d6ff}
+ pre{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:11px 13px;
+   overflow-x:auto;font:12.5px/1.5 ui-monospace,Consolas,monospace;color:#a5d6ff}
+ table{width:100%;border-collapse:collapse;margin:12px 0;font-size:14px}
+ th,td{border:1px solid var(--line);padding:7px 10px;text-align:left;vertical-align:top}
+ th{background:var(--panel2);color:var(--accent)}
+ ul,ol{margin:7px 0 7px 20px} li{margin:5px 0}
+ .hi{color:#ffd479} .muted{color:var(--muted)}
+</style></head><body><div class="wrap">
+<header>
+<h1>GroupTrack — Handoff</h1>
+<div class="sub">2026-08-13 EOD &middot; HEAD <code>f9652276c</code> &middot; branch <code>feature/convoy-event-ride</code><br>
+<b>THE AUTOSAVE-SURVIVES-DISCARD BUG IS CLOSED &amp; DEVICE-VERIFIED &middot; PLAY AAB BUILD IN PROGRESS AT EOD &middot; FULL 2.6e PLAN + SEQUENCE FINALIZED</b></div>
+</header>
+<div class="card green">
+<p class="hi">⭐ Beyond the bug fix, this session finalized the whole 2.6e plan and the release roadmap, all in the Living Master (v18): the <b>overriding rule</b> (identify duplicate implementations → factor into callable modules, every segment), the <b>2.6e open-items list</b> (§00-2.6e-OPEN), the <b>implementation sequence + stub plan</b> (§00-2.6e-SEQUENCE), the <b>release index</b> (§00-RELEASES), and <b>2.7 / 2.8 discussion substrates</b> (§00-2.7-DISCUSSION, §00-2.8-DISCUSSION) so those tiers can be planned without re-analysis. Read §00-2.6e-SEQUENCE to start next session.</p>
+</div>
+
+<h2>✅ The day's win — the discard bug, closed</h2>
+<div class="card green">
+<h3>Root cause (proven by reading the branch, not theorizing)</h3>
+<p>The toolbar Discard button (<code>ConvoyRouteToolbar:196</code>) branches:</p>
+<pre>if (routeLifecycleState == ROUTE_LS_RESUMED) onDiscardRequested() else onExit()</pre>
+<p>For a <b>NEW</b> route (<code>ROUTE_LS_NEW</code>) it calls <code>onExit()</code> — which cleared
+the route from screen and memory but had <b>no <code>deleteDraft</code></b>. So the per-point autosave
+had already written <code>Auto Saved In Progress.json</code> to disk, and discard never removed it.</p>
+<p class="hi">⭐ There was never a "phantom" being recreated on entry. It was <b>one legitimate
+autosave that discard failed to delete</b> — it looked like it "kept coming back" because it never
+left. The old comment on <code>onExit</code> assumed "new route = no draft on disk," which was false.</p>
+</div>
+<div class="card green">
+<h3>The fix</h3>
+<p>Added to <code>onExit</code> (<code>ConvoyMapViewerScreen.kt</code> ~1651):</p>
+<pre>RouteDraftStore.deleteDraft(routeName)
+draftListTick++</pre>
+<p>Same commit also <b>removed</b> the two inline entry-path <code>deleteDraft(UNNAMED)</code> branches
+bolted on during the earlier DISCARDWINS attempts (they fought the flow). Net
+<code>7 insertions, 22 deletions</code>.</p>
+<p><b>Device-verified (Droid 2):</b> create route, drop 5 points, press Discard →
+<code>route_drafts/</code> empty, <code>Auto Saved In Progress.json</code> gone. Committed
+<code>f9652276c</code>, verified in HEAD by grep.</p>
+</div>
+
+<h2>🗺 The blast-radius survey — the plan before the hammer</h2>
+<div class="card blue">
+<p>Before touching more, we mapped every discard/clear/delete site. The teardown is <b>6 steps</b>:
+<code>clearRoute</code> · <code>deleteDraft(name)</code> · JS <code>setRouteMode(false)+clearBuildLine</code>
+· <code>addPointMode=false</code> · <code>routeMode=false</code> · <code>draftListTick++</code>.</p>
+<table>
+<tr><th>Site (~line, MVS)</th><th>What</th><th>Teardown status</th></tr>
+<tr><td>~1646 onExit</td><td>NEW-route discard</td><td>✅ complete (today)</td></tr>
+<tr><td>~1775 dialog "Delete in-progress"</td><td>RESUMED discard</td><td>✅ complete</td></tr>
+<tr><td>~1834 resolver "Discard"</td><td>UNNAMED remnant</td><td>❌ missing clearRoute+JS+arm flags</td></tr>
+<tr><td>~1923 picker "Delete"</td><td>list-management</td><td>⚠ may legitimately differ</td></tr>
+<tr><td>~1539</td><td>SAVE-as-completed (graduation)</td><td>NOT a discard</td></tr>
+<tr><td>~1717</td><td>SAVE-as-WIP (rename)</td><td>NOT a discard</td></tr>
+</table>
+<p class="hi">⭐ The survey confirmed <b>no other discard leaks</b> beyond the onExit one — the two
+"clear-without-delete" sites (1539, 1717) are SAVE paths, not discards. And
+<code>listDrafts()</code> reads ALL <code>.json</code> with no UNNAMED filter, so the "autosave not in
+the picker" was the fix working (no orphan to list), not a separate exclusion bug.</p>
+</div>
+
+<h2>▶ Next session — implementation sequence (full detail in Living Master §00-2.6e-SEQUENCE)</h2>
+<div class="card blue">
+<p class="hi">The day produced a finalized, sequenced 2.6f plan built on one overriding rule: <b>identify duplicate implementations and factor them into callable modules whenever discovered.</b> ⭐ WE ARE NOW ON RELEASE 2.6f (the module/consolidation work) — DONE = every <code>STUB:</code> marker wired and implemented, verified by <code>grep -rn "STUB:" app/src</code> returning ZERO. Next session executes it via a stub-first pass, after recommit v16 + a per-task blast-radius analysis against the freshly-regenerated xref set.</p>
+<p><b>PHASE 0 (the two ready tasks):</b></p>
+<ol>
+<li><b>Discard consolidation</b> — consistency pass then extract <code>teardownRouteSession()</code> + <code>discardDraft(name)</code>. The archetype. Full blast-radius table in §00-STARTHERE 08-14.</li>
+<li><b>Recommit v16</b> — verify no docs-sweep.</li>
+</ol>
+<p><b>PHASE 1 — STUB ID + CREATION PASS</b> (one pass, one build): define each module's signature + place grep-able markers at every touchpoint, no bodies yet. Modules + markers:</p>
+<table>
+<tr><th>Module</th><th>Marker</th><th>Touchpoints</th></tr>
+<tr><td>discardDraft/teardownRouteSession</td><td><code>STUB:DISCARD</code></td><td>MVS onExit·dialog·resolver (·picker if Fred says)</td></tr>
+<tr><td>LocalTileModule</td><td><code>STUB:TILEINTERCEPT</code></td><td>convoy + planner <code>shouldInterceptRequest</code></td></tr>
+<tr><td>RideCalc (distance+time)</td><td><code>STUB:RIDECALC</code></td><td>artifact detail routes·tracks, Route+</td></tr>
+<tr><td>RouteDetail+fit (wiring)</td><td><code>STUB:ROUTEDETAIL</code>·<code>STUB:ROUTEFIT</code></td><td>route popup-intercept, WIP launcher, artifacts panel</td></tr>
+</table>
+<p><b>PHASE 2 — build out + replace stubs</b>, each module its own conversation, verify <code>grep -c MARKER</code> → 0: DISCARD → TILEINTERCEPT → RIDECALC → ROUTEDETAIL/FIT → DB-trigger cluster (rename/delete + shared ext-DB + route-dedup [needs schema read first]) → radio-meter crash-guard.</p>
+<p><b>PHASE 3 — last, own sessions:</b> install/authority redesign (fresh-install verify) → rebuild/recovery function.</p>
+<p><b>PRE-SHIP GATES:</b> credential rotation · version-code bump · route-mode disarm · cache-buster.</p>
+</div>
+
+<h2>⚠ Method — what this session reinforced</h2>
+<div class="card red">
+<ul>
+<li class="hi"><b>READ THE CODE FIRST.</b> The answer was a single branch (<code>ROUTE_LS_NEW → onExit</code>,
+no delete). Several plausible theories — empty-shell phantom, persist-guard, between-gates create,
+gut-the-autosave — were all disproven by code + device evidence. They cost time; the branch read
+closed it in minutes.</li>
+<li><b>VERIFY BY RESULT ON DISK, not "patch applied."</b> Confirmed the fix by <code>ls</code> on the
+device and grep of the committed file, not by trusting the apply.</li>
+<li><b>DON'T delete a working mechanism to fix a sequencing bug inside it.</b> Early in the session we
+nearly removed the whole autosave; the real defect was one missing delete call on one exit path.</li>
+<li><b>Blast-radius survey before the hammer.</b> Mapping all six sites proved there were no hidden
+leaks and turned a scary "wholesale" change into a bounded, known one.</li>
+</ul>
+</div>
+
+<h2>⚠ Carried forward (unchanged from 08-12 handoff)</h2>
+<div class="card amber">
+<ul>
+<li><b>Route mode, second disarm path</b> — still open, release-affecting. The logcat read
+(<code>ROUTEMODE -&gt;|ARTIFACTTAP</code>) is the next step, no new code needed.</li>
+<li><b>Stale-asset cache-buster</b> — version-stamped asset URL + <code>setCacheMode(LOAD_NO_CACHE)</code>.
+⛔ Cache-clear is NOT an available remedy on this app (all-files-authority loss → empty-DB overwrite).</li>
+<li class="hi">⛔ <b>SECRETS IN GIT HISTORY</b> — rotate the ngrok codes and MySQL credentials
+(committed 07-27; the guard only stops new copies).</li>
+<li class="hi"><b>DISK</b> — <code>docs/</code> ~162 MB / 717 files; <code>app/build</code> safe to delete
+between builds.</li>
+<li><b>Root cause 2</b> (cancel ANR) and <b>Root cause 3</b> (<code>00-REFUSE</code>) still unbuilt.</li>
+</ul>
+</div>
+
+<h2>📦 Working-tree state at EOD</h2>
+<div class="card">
+<ul>
+<li>HEAD <code>f9652276c</code> — "planner discard: onExit deletes autosave draft on new-route discard".</li>
+<li>Prior: <code>3bbb71484</code> convoy viewport-settle save (reapply of the 07-12 checkout loss).</li>
+<li><b>Untracked:</b> <code>docs/recommit_docs_v16.sh</code> — commit by name before running (Task 2).</li>
+<li>⛔ <b>Do NOT apply</b> <code>patch_routedraft_persist_guard_2026-08-13.py</code> — the empty-shell
+theory it addressed was disproven.</li>
+<li>Play AAB (<code>bundleGoogleRelease</code>) was building at EOD — confirm versionCode bumped
+(git-derived; a commit was added) before uploading.</li>
+</ul>
+</div>
+
+</div></body></html>

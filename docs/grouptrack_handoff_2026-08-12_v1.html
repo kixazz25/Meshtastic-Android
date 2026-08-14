@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GroupTrack — Handoff — 2026-08-12 EOD</title>
+<style>
+ :root{--bg:#0f1216;--panel:#161b22;--panel2:#1c2229;--line:#30363d;--fg:#e6edf3;
+   --muted:#8b949e;--accent:#58a6ff;--red:#f85149;--amber:#d29922;--green:#3fb950;}
+ *{box-sizing:border-box}
+ body{margin:0;padding:28px 20px 80px;background:var(--bg);color:var(--fg);
+  font:15px/1.6 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+ .wrap{max-width:1080px;margin:0 auto}
+ header{border-bottom:2px solid var(--accent);padding-bottom:14px;margin-bottom:26px}
+ h1{margin:0 0 6px;font-size:26px} .sub{color:var(--muted);font-size:14px}
+ h2{font-size:19px;margin:32px 0 12px;padding-bottom:6px;border-bottom:1px solid var(--line);color:var(--accent)}
+ h3{font-size:15px;margin:20px 0 8px;color:var(--fg)}
+ .card{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--line);
+   border-radius:6px;padding:13px 15px;margin:10px 0}
+ .card.red{border-left-color:var(--red)} .card.amber{border-left-color:var(--amber)}
+ .card.green{border-left-color:var(--green)} .card.blue{border-left-color:var(--accent)}
+ code{background:var(--panel2);border:1px solid var(--line);border-radius:4px;padding:1px 5px;
+   font:13px ui-monospace,Consolas,monospace;color:#a5d6ff}
+ pre{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:11px 13px;
+   overflow-x:auto;font:12.5px/1.5 ui-monospace,Consolas,monospace;color:#a5d6ff}
+ table{width:100%;border-collapse:collapse;margin:12px 0;font-size:14px}
+ th,td{border:1px solid var(--line);padding:7px 10px;text-align:left;vertical-align:top}
+ th{background:var(--panel2);color:var(--accent)}
+ ul,ol{margin:7px 0 7px 20px} li{margin:5px 0}
+ .hi{color:#ffd479} .muted{color:var(--muted)}
+</style></head><body><div class="wrap">
+<header>
+<h1>GroupTrack — Handoff</h1>
+<div class="sub">2026-08-12 EOD &middot; HEAD <code>58d5ccfe3</code> &middot; branch pushed clean<br>
+<b>THE FUNNEL SHIPPED AND IS VERIFIED &middot; 2.6e READY TO BUNDLE &middot; ROUTE MODE PART-FIXED</b></div>
+</header>
+
+<h2>✅ What shipped and is verified on device</h2>
+<div class="card green">
+<h3>The corridor funnel &mdash; the day&rsquo;s main piece</h3>
+<p><b>Fred:</b> <i>"behaviour on downloads is perfect. Every zoom level displays a full rendering.
+Just perfect."</i></p>
+<p><code>buffer(z) = H &times; tileWidth(z)</code>, H=4 with ceiling, z9-z18. Verified against Bar
+10&rsquo;s real store at <b>100% coverage at every level</b> and <b>9% CHEAPER</b> than the flat
+band it replaced. Full design, math and device verification in the taper file.</p>
+<p>⭐ <b>The requirement was GROUP TRACKING, not "looking ahead"</b> &mdash; the app auto-zooms to
+keep the whole group in frame, and a three-mile spread lands on z14 where <b>80% of the screen was
+white</b>. That is what was being corrected.</p>
+</div>
+<div class="card green">
+<h3>Everything else that landed</h3>
+<table>
+<tr><th>Commit</th><th>What</th></tr>
+<tr><td><code>8b310ae05</code></td><td>ZOOMSLOT display cap restored (the 08-11 bisect revert had been swept into a docs commit)</td></tr>
+<tr><td><code>3807ec6a0</code></td><td>the FUNNEL + the ZOOMSLOT-cap defect</td></tr>
+<tr><td><code>b758ac0a5</code></td><td>OFFTRACE instrumentation</td></tr>
+<tr><td><code>8179e3d68</code></td><td>PLANGATE &mdash; PLAN button green/yellow, toast when offline</td></tr>
+<tr><td><code>b8783ece4</code></td><td>overlay z16 + run merging + corridor flag on queued jobs</td></tr>
+<tr><td><code>a0f70bb5c</code></td><td>FUNNELCLAMP &mdash; world-edge clamp</td></tr>
+<tr><td><code>8cf124d9b</code></td><td>the daily map RECIPE writer + MAP RECOVERY panel</td></tr>
+<tr><td><code>c9eab4a6d</code></td><td>manual + release notes for the release</td></tr>
+<tr><td><code>6257587e8</code></td><td>ROUTEMODEFIX</td></tr>
+</table>
+<p>⭐ <b>The recipe writer is proven:</b> <code>2026-08-12 &middot; 3 slot(s) &middot; 1,993,015
+tiles &middot; 10 KB</code>. Ten kilobytes describing two million tiles.</p>
+</div>
+
+<h2>⛔ Two real defects found by reading, not by guessing</h2>
+<div class="card red">
+<h3>The ZOOMSLOT cap had never fired</h3>
+<p><code>corridorTiles</code> computed <code>zTop</code> from the slot cap and <b>logged it</b>,
+then passed <code>zMax</code> to both <code>stampPoint</code> calls. Only <code>stepDeg</code> used
+the capped value. <b>So topo corridor downloads had been stamping z17/z18 all along while the log
+claimed z16.</b></p>
+<p>⚠ That made download and delete agree by accident; they now disagree deliberately &mdash; capped
+download, uncapped delete, which is the safe direction.</p>
+</div>
+<div class="card red">
+<h3>The funnel asked for tiles that cannot exist</h3>
+<pre>HTTP 400: https://mt3.google.com/vt/lyrs=y&amp;x=-1&amp;y=4&amp;z=4</pre>
+<p>At z4 the world is sixteen tiles wide and the funnel buffer is <b>ninety degrees of
+longitude</b>, so <code>lon - buffer</code> ran off the west edge and <code>lon2tile</code> returned
+&minus;1.</p>
+<p class="hi">⭐ <b>That is why four unrelated tracks all reported <code>failed=20</code></b> &mdash;
+at those zooms the buffer dominates the track completely, so every Utah track produced the same
+handful of impossible URLs. Identical counts across unrelated tracks was the tell. <b>No coverage
+was ever missing.</b></p>
+</div>
+
+<h2>🔴 ROUTE MODE &mdash; found, part-fixed, NOT closed</h2>
+<div class="card red">
+<p><b>Symptom:</b> route planning disarms on pan and zoom. Points stop dropping AND artifact popups
+come back.</p>
+<p>⭐ <b>Both symptoms are one cause</b> &mdash; that is the tap rule working correctly on a flag
+that was wrongly cleared. <code>__routeMode</code> false means the artifact handlers stop returning
+early (popups fire) and the map click handler stops forwarding to <code>Android.onMapTap</code> (no
+vertex lands).</p>
+<p><b>FOUND:</b> a bare <code>window.__routeMode = false;</code> inside the map tap-wiring block in
+<code>grouptrack_map.html</code>. Guarded by <code>map.__routeTapWired</code> &mdash; but that
+property lives ON THE MAP OBJECT, so a rebuilt map passes the guard and the reset fires again.
+Removed in <code>6257587e8</code>.</p>
+<p class="hi">⚠⚠ <b>STILL DROPS OCCASIONALLY.</b> Fred, after the fix: <i>"seems to be better on
+pan but still drops out occasionally."</i> <b>There is a second disarm path and it is not
+identified.</b></p>
+<p>▶ <b>NEXT, and it needs no new code:</b> <code>setRouteMode</code> already logs every call.
+Clear logcat, arm Draw, pan until it drops, then read:</p>
+<pre>adb -s &lt;serial&gt; logcat -d | grep -iE "ROUTEMODE -&gt;|ARTIFACTTAP" | tail -20</pre>
+<p><b>ROUTEMODE -&gt; false present</b> &rarr; something called <code>setRouteMode</code>, and it is
+one of the Kotlin sites (1586, the Draw/Artifact toggle, is the candidate &mdash; it is the only one
+that pushes a VARIABLE rather than a literal).<br>
+<b>Absent, but taps show <code>routeMode=false</code></b> &rarr; another bare assignment exists.</p>
+</div>
+
+<h2>⚠ THE STALE-ASSET PROBLEM &mdash; Fred&rsquo;s morning question</h2>
+<div class="card amber">
+<p>A Samsung device did not reflect the revised HTML after an update.</p>
+<p class="hi">⛔ <b>CLEARING THE CACHE IS NOT AN AVAILABLE REMEDY ON THIS APP.</b> A cache clear
+triggers a settings/state restore that comes back WITHOUT all-files authority, and the
+create-if-missing DB open can then write empty schemas over good data. Same catastrophe class as the
+08-01 loss &mdash; triggered by something that is harmless on a normal app.</p>
+<p><b>It must be fixed in CODE:</b></p>
+<ol>
+<li><b>Cache-buster on the asset URL</b> &mdash;
+<code>file:///android_asset/grouptrack_map.html?v=&lt;versionCode&gt;</code>. The query changes
+every build, so a stale entry cannot be served. ⭐ Self-maintaining, and the one that actually
+forces it.</li>
+<li><b><code>setCacheMode(LOAD_NO_CACHE)</code></b> on the WebView settings. Simpler, but a hint
+rather than a guarantee for <code>file://</code> assets.</li>
+</ol>
+<p>⭐ Do both. ⚠ And it explains at least some of the 08-11 evening: a device running new Kotlin
+against old HTML would behave exactly as described and defeat every bisect.</p>
+</div>
+
+<h2>🔧 The tools were broken and nobody was told</h2>
+<div class="card red">
+<p class="hi">⛔⛔ <b><code>where_used_raw.txt</code> had been generating 24 KB against a 481 KB
+function universe &mdash; for days &mdash; and reported success every run.</b></p>
+<p><b>Cause:</b> step 1 greps a HARDCODED list of about sixty names from the radio and ride era.
+Nothing from the map work was ever added. <b>Proof:</b> a grep of the generated index found ZERO
+occurrences of four current map symbols that have plenty of call sites in the source.</p>
+<p>⚠ <b>It cost real time.</b> Hunting the route-mode reset, the index that should have listed every
+writer returned nothing &mdash; not because they are unused, but because they were never on the
+list.</p>
+<p>⭐ <b>FIXED, and the fixed index is what solved it:</b> the search set is now DERIVED from
+<code>function_universe_raw.txt</code>. <b>24 KB &rarr; 2,099,813 bytes</b>, and one grep then
+eliminated every Kotlin path and left only the JS.</p>
+<p class="hi">⚠⚠ <b>BUT THE FIX WAS LOST</b> when <code>recommit_docs_v14.sh</code> was restored from
+a backup. Last night&rsquo;s run reported <code>254 call sites</code> &mdash; it is back to the old
+behaviour. <b>Use <code>gen_xrefs.sh</code> for research</b> (all four indexes, no git, nothing that
+can stall), or re-apply the fix to the recommit script.</p>
+</div>
+<div class="card amber">
+<h3>And the recommit script itself is fine</h3>
+<p>Last night&rsquo;s uninterrupted run reached DONE and pushed both commits
+(<code>adb116e39</code>, <code>58d5ccfe3</code>). The earlier "crashes" were the interrupts &mdash;
+step 6 runs after the commit and push, so a cancelled pass leaves the cross-reference stale with no
+warning.</p>
+<p>⭐ <code>recommit_docs_v15.sh</code> exists and is committed but <b>has never been run</b>: it
+moves the cross-reference BEFORE the commit, carries the where-used fix, and adds freshness
+assertions and a completion marker. ⚠ Its git section is lifted verbatim from v14 and is untested.</p>
+</div>
+
+<h2>▶ Open, in Fred&rsquo;s order</h2>
+<div class="card blue">
+<ol>
+<li class="hi"><b>Auto-save / discard functionality</b> &mdash; Fred&rsquo;s topic for this morning.</li>
+<li><b>Route mode, second disarm path</b> &mdash; the logcat read above. Release-affecting.</li>
+<li><b>The asset cache-buster</b> &mdash; version-stamped URL + <code>setCacheMode</code>.</li>
+<li><b>Bundle and publish 2.6e.</b> ⚠ Check the version code is bumped or Play rejects it.</li>
+<li><b>Root cause 2</b> &mdash; the cancel ANR (main-thread walk, batched saves).</li>
+<li><b>Root cause 3</b> &mdash; <code>00-REFUSE</code>, still the highest-value unbuilt item.</li>
+<li><b>Manual, post-release:</b> PLAN connection requirement, MAP RECOVERY, Recreate Tiles by
+Source. All text &mdash; the capture set is closed.</li>
+</ol>
+</div>
+
+<h2>⚠ Housekeeping that is becoming urgent</h2>
+<div class="card amber">
+<ul>
+<li class="hi"><b>DISK.</b> <code>docs/</code> is <b>162 MB across 717 files</b>, mostly archived
+manuals at 3-6 MB each. A full build took <b>52 minutes</b> last night against 12-15 normally, which
+is disk pressure showing. <code>app/build</code> is safe to delete between builds, and the archive
+folder is history rather than working material.</li>
+<li class="hi">⛔ <b>SECRETS ARE IN GIT HISTORY.</b> The 07-27 guard correctly SKIPS three files
+every run &mdash; a registration form, MySQL connection details and ngrok recovery codes &mdash; but
+the guard only stops NEW copies. Those were committed and pushed on 07-27. <b>Rotate the ngrok codes
+and the MySQL credentials.</b> Removing them from history does not un-expose them.</li>
+<li>⚠ <b><code>git add -u</code> swept the pending doc purge into the ROUTEMODEFIX commit</b>
+&mdash; 79 files, 216,737 deletions under a one-line code message. Nothing was lost (the archive
+move was working), but the commit is mislabelled.</li>
+</ul>
+</div>
+
+<h2>⚠ Method &mdash; what cost time</h2>
+<div class="card red">
+<ul>
+<li class="hi">⛔⛔ <b>THE PATCH-GUARD LESSON FIRED TWICE MORE (sixth and seventh occurrences).</b>
+Both times an explanatory comment QUOTED the very string the guard was checking had gone.
+<b>DESCRIBE THE OLD CODE, NEVER QUOTE IT.</b> The self-test caught both before they shipped.</li>
+<li>⛔ <b>A guard scoped to the whole FILE flagged a correct replacement</b> &mdash; the names also
+appear elsewhere in the script. <b>Guard the expression, not the token.</b></li>
+<li>⛔ <b>A multi-line anchor built from <code>sed</code> output matched zero times</b>, and another
+used <code>&amp;mdash;</code> where the file holds a literal em dash. <b>Bracket between two unique
+SINGLE lines; never reproduce prose you are replacing.</b></li>
+<li>⚠ <b>I proposed three wrong causes for the xref failure</b> (obsolete-since-May, clobbered by
+the HTML edit, step 5 dying) before reading the script. <b>Read first.</b> Fred:
+<i>"no more brainstorming rabbit holes."</i></li>
+<li>⚠ <b>And I read upload timestamps as file mtimes</b> and built a whole theory on it. Check what
+a timestamp actually refers to before reasoning from it.</li>
+</ul>
+</div>
+
+</div></body></html>
