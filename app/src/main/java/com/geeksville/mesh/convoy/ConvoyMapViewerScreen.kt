@@ -1067,20 +1067,7 @@ fun ConvoyMapViewerScreen(
                                     if (!resolverRan) {
                                         resolverRan = true
                                         val u = RouteDraftStore.listDrafts().firstOrNull { it.name == RouteDraftStore.UNNAMED }
-                                        if (u == null) {
-                                            pendingInventory = true
-                                        } else if (u.pointCount < 2) {
-                                            RouteDraftStore.deleteDraft(RouteDraftStore.UNNAMED)
-                                            // LISTTICK-2026-08-13G: the In-Progress list is keyed on this tick. Without the
-                                            // bump the file is deleted and the row stays on screen, so a
-                                            // delete that already worked looks broken and gets repeated.
-                                            draftListTick++
-                                            android.util.Log.i("RouteModeTrace",
-                                                "RESOLVER: deleted unnamed draft, " + u.pointCount + " pts (crash remnant)")
-                                            pendingInventory = true
-                                        } else {
-                                            pendingInventory = true
-                                        }
+                                        pendingInventory = true
                                     }
                                     // [3.1] persisted-frame-open: planning restores last-session bbox
                                     // PLANNERSEED-2026-08-05: was pmSeed.bbox -- pmSeed is a remember block captured
@@ -1325,14 +1312,6 @@ fun ConvoyMapViewerScreen(
                         val u = RouteDraftStore.listDrafts().firstOrNull { it.name == RouteDraftStore.UNNAMED }
                         if (u == null) {
                             // nothing to resolve
-                        } else if (u.pointCount < 2) {
-                            RouteDraftStore.deleteDraft(RouteDraftStore.UNNAMED)
-                            // LISTTICK-2026-08-13G: the In-Progress list is keyed on this tick. Without the
-                            // bump the file is deleted and the row stays on screen, so a
-                            // delete that already worked looks broken and gets repeated.
-                            draftListTick++
-                            android.util.Log.i("RouteModeTrace",
-                                "RESOLVER: deleted unnamed draft at Route+, " + u.pointCount + " pts (crash remnant)")
                         }
                     }
                     // ARMSTATE-2026-08-13F: keep the armed state in step with the session.
@@ -1665,6 +1644,12 @@ fun ConvoyMapViewerScreen(
                     onSelectInProgress = { showInProgressPicker = true },
                     onExit = {
                         RouteManager.clearRoute()
+                        // ONEXITDELETE-2026-08-13: NEW-route Discard routes here (toolbar sends
+                        // ROUTE_LS_NEW to onExit, not onDiscardRequested). The per-point autosave
+                        // already wrote "Auto Saved In Progress.json" to disk, so onExit must delete
+                        // it too or the draft survives the discard.
+                        RouteDraftStore.deleteDraft(routeName)
+                        draftListTick++
                         webViewRef?.evaluateJavascript("setRouteMode(false); clearBuildLine();", null)
                         // ARMSTATE-2026-08-13F: keep the armed state in step with the session.
                         addPointMode = false
