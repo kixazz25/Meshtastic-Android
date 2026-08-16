@@ -142,13 +142,14 @@ fun ConvoyScreen(
     var showLocationPermissionDialog by remember { mutableStateOf(false) }
     var showNameDialog by remember { mutableStateOf(false) }
     var showConfirmDelete by remember { mutableStateOf(false) }  // unnamed-track delete confirm
-    var showStoragePermissionDialog by remember { mutableStateOf(!android.os.Environment.isExternalStorageManager()) }
+    var showStoragePermissionDialog by remember { mutableStateOf(false) }  // 2.6f: authority owned by ConvoyAuthorityGate; launch prompt neutered
 
     // FT-01 FIX: Check all-files access on EVERY resume (not just first composition)
     // Re-checks when user returns from Settings after Grant button, and on every app restart
     androidx.lifecycle.compose.LifecycleResumeEffect(Unit) {
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
-            if (!android.os.Environment.isExternalStorageManager()) {
+            // 2.6f: launch-time all-files prompt neutered - ConvoyAuthorityGate owns authority
+            if (false) {
                 showStoragePermissionDialog = true
             }
         }
