@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import java.io.File
+import androidx.compose.runtime.LaunchedEffect
 
 // Meshtastic palette (matches ConvoyEmailGateScreen)
 private val MshBg        = Color(0xFF101510)
@@ -72,6 +73,7 @@ private val MshError     = Color(0xFFFFB4AB)
 private sealed class AuthorityState {
     object CheckingStorage   : AuthorityState()   // evaluating the real read
     object NeedStorage       : AuthorityState()   // all-files not granted → prompt
+    object StorageDeclined   : AuthorityState()   // GATESTATES-2026-08-16B: returned from settings without granting
     object NeedBackground    : AuthorityState()   // fine OK → need "all the time"
     object Granted           : AuthorityState()   // everything satisfied
 }
@@ -139,6 +141,23 @@ fun ConvoyAuthorityGateScreenV2(
 
     var state by remember { mutableStateOf<AuthorityState>(evaluateState(context)) }
 
+    // === GATESTATES-2026-08-16B ===
+    // Was authority ALREADY real on the first evaluation of this session? If so nothing
+    // was just granted, there is no grant to settle, and the gate has nothing to say --
+    // proceed without showing a screen. The Continue barrier below is retained for the
+    // path where the state changed to Granted during this session (returning from the
+    // settings page), which is the case that raced the DB open.
+    val passedOnEntry = remember { state is AuthorityState.Granted }
+
+    // Set when the all-files settings page is launched. On resume, still-no-storage plus
+    // this flag means the user went and came back without granting -- which is a
+    // different thing to say than the first-time prompt.
+    var settingsVisited by remember { mutableStateOf(false) }
+
+    LaunchedEffect(passedOnEntry) {
+        if (passedOnEntry) onProceed()
+    }
+
     // Background ("all the time") location request launcher.
     // NOTE: fine location is handled by the base Meshtastic app, so the gate
     // requests ONLY background location here — no duplicate fine-location prompt.
@@ -157,7 +176,14 @@ fun ConvoyAuthorityGateScreenV2(
     // settle barrier that lets the grant land before convoy/DB opens, and makes
     // the grant screen unmissable.
     LifecycleResumeEffect(Unit) {
-        state = evaluateState(context)
+        // GATESTATES-2026-08-16B: if the user has been to the settings page and storage is
+        // still not real, say so explicitly rather than redrawing the same prompt.
+        val fresh = evaluateState(context)
+        state = if (fresh is AuthorityState.NeedStorage && settingsVisited) {
+            AuthorityState.StorageDeclined
+        } else {
+            fresh
+        }
         onPauseOrDispose { }
     }
 
@@ -196,6 +222,9 @@ fun ConvoyAuthorityGateScreenV2(
                     )
                     Spacer(Modifier.height(24.dp))
                     GateButton("Grant all-files access") {
+                        // GATESTATES-2026-08-16B: record that the settings page was opened, so a
+                        // return without a grant becomes StorageDeclined rather than a repeat.
+                        settingsVisited = true
                         // Correct app-specific intent ONLY. No list-variant fallback.
                         try {
                             val intent = Intent(
@@ -216,12 +245,47 @@ fun ConvoyAuthorityGateScreenV2(
                     }
                 }
 
+                is AuthorityState.StorageDeclined -> {
+                    // === GATESTATES-2026-08-16B ===
+                    // No proceed door. Without all-files access the app cannot open its
+                    // maps, trails or tracks -- there is no degraded mode worth entering.
+                    // Exiting is safe: the gate halts before any database is opened or
+                    // created, so nothing on the device is changed.
+                    GateBody(
+                        title = "All-files access not granted",
+                        body = "GroupTrack will not open without this access. Your " +
+                            "offline maps, trails and tracks are stored in shared " +
+                            "storage and cannot be read without it.\n\n" +
+                            "Exiting is safe \u2014 nothing on your device is changed or " +
+                            "removed. Grant access at any time and everything will be " +
+                            "as you left it."
+                    )
+                    Spacer(Modifier.height(24.dp))
+                    GateButton("Try again") {
+                        settingsVisited = true
+                        try {
+                            val intent = Intent(
+                                Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+                                Uri.parse("package:" + context.packageName)
+                            )
+                            context.startActivity(intent)
+                        } catch (_: Exception) {
+                            try {
+                                context.startActivity(
+                                    Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
+                                )
+                            } catch (_: Exception) { /* no-op: user can retry */ }
+                        }
+                    }
+                }
+
                 is AuthorityState.NeedBackground -> {
                     GateBody(
-                        title = "Background location required",
+                        title = "Background location recommended",
                         body = "GroupTrack reports your position to your convoy while " +
-                            "riding, even when the screen is off. Please allow location " +
-                            "\"all the time\"."
+                            "riding, even when the screen is off. Without \"all the " +
+                            "time\" location, track recording stops when the screen " +
+                            "sleeps.\n\nYou can continue without it and grant it later."
                     )
                     Spacer(Modifier.height(24.dp))
                     GateButton("Allow all the time") {
@@ -233,6 +297,12 @@ fun ConvoyAuthorityGateScreenV2(
                             state = evaluateState(context)
                         }
                     }
+                    Spacer(Modifier.height(12.dp))
+                    // GATESTATES-2026-08-16B: background location is not destructive to decline --
+                    // it reduces functionality and is reversible from system settings, so a
+                    // skip is offered. Deliberately NOT remembered: the prompt recurs every
+                    // launch because the degradation is silent until a track is lost.
+                    GateOutlineButton("Skip for now") { onProceed() }
                 }
 
                 is AuthorityState.Granted -> {
