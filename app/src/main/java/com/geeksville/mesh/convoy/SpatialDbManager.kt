@@ -32,6 +32,7 @@ object SpatialDbManager {
 
     private const val TAG = "SpatialDbMgr"
     private const val SPATIAL_DB = "grouptrack_spatial.db"
+    private const val MARKER_FILE = ".db_schema_version"
     private const val EXTENSION_DB = "grouptrack_data.db"
     private const val SPATIAL_SCHEMA_VERSION = 3
     private const val EXTENSION_SCHEMA_VERSION = 3
@@ -67,12 +68,89 @@ object SpatialDbManager {
             val dir = dbDir()
             // === V2.5 DB REVISION v3: one-time delete-gate (regenerate-not-migrate) ===
             // DBs live in PUBLIC storage and survive uninstall/clear-data, so this in-app
-            // delete is the SOLE clearing mechanism. Gated by a SharedPreferences marker so it
-            // fires exactly once per upgrade (marker < 3). After delete, the open/create below
+            // delete is the SOLE clearing mechanism. Gated by a marker FILE stored beside the
+            // DBs (see DBMARKER-SHARED-2026-08-16 below) so the gate and the data it guards share
+            // a lifetime; an app-private marker did not survive uninstall and fired on reinstall.
+            // After delete, the open/create below
             // finds the files missing and rebuilds fresh from the shipped v3 schema assets.
             try {
+                // === DBMARKER-SHARED-2026-08-16 ===
+                // The marker now lives in a FILE beside the databases so it shares their
+                // lifetime. SharedPreferences is app-private and does not survive an
+                // uninstall, while the DBs in public storage do -- that mismatch made this
+                // gate fire on every reinstall and delete live data.
+                val markerFile = File(dir, MARKER_FILE)
+
+                // Read order: marker file -> legacy prefs value -> 0.
+                // The prefs fallback carries existing installs across the changeover; without
+                // it, the first launch of this build would see no file and delete everything.
                 val prefs = context.getSharedPreferences("grouptrack_db", Context.MODE_PRIVATE)
-                val dbMarker = prefs.getInt("db_schema_marker", 0)
+                var dbMarker = 0
+                try {
+                    if (markerFile.exists()) {
+                        dbMarker = markerFile.readText().trim().toIntOrNull() ?: 0
+                    }
+                } catch (ex: Exception) {
+                    android.util.Log.w(TAG, "DB marker: file read failed: " + ex.message)
+                }
+                if (dbMarker <= 0) {
+                    val legacy = prefs.getInt("db_schema_marker", 0)
+                    if (legacy > 0) {
+                        dbMarker = legacy
+                        android.util.Log.i(TAG, "DB marker: adopted legacy prefs value " + legacy)
+                    }
+                }
+
+                // Row-count guard. Populated databases mean this install has already been
+                // through the migration whatever the marker says, so the delete is skipped
+                // and the marker is stamped instead. A count that cannot be taken (the
+                // SELinux ioctl denial on the FUSE-mounted file is routine) returns -1 and
+                // is treated as populated: refuse to delete on uncertainty.
+                var existingRows = -1
+                try {
+                    val probe = File(dir, SPATIAL_DB)
+                    if (!probe.exists()) {
+                        existingRows = 0
+                    } else {
+                        val rdb = SQLiteDatabase.openDatabase(
+                            probe.absolutePath, null, SQLiteDatabase.OPEN_READONLY
+                        )
+                        rdb.use { db ->
+                            var total = 0
+                            for (t in listOf("trails", "tracks", "waypoints", "routes")) {
+                                try {
+                                    db.rawQuery("SELECT COUNT(*) FROM " + t, null).use { c ->
+                                        if (c.moveToFirst()) total += c.getInt(0)
+                                    }
+                                } catch (_: Exception) {
+                                    // Table absent on a genuinely fresh DB; contributes nothing.
+                                }
+                            }
+                            existingRows = total
+                        }
+                    }
+                } catch (ex: Exception) {
+                    android.util.Log.w(TAG, "DB marker: row probe failed, assuming populated: " + ex.message)
+                    existingRows = -1
+                }
+
+                if (dbMarker < 3 && existingRows != 0) {
+                    // Data present (or unreadable) but the marker is behind: this is a
+                    // reinstall over live databases, not a fresh install. Stamp and skip.
+                    android.util.Log.w(
+                        TAG,
+                        "DB v3 migration: SKIPPED -- marker " + dbMarker + " but rows=" + existingRows +
+                            " (reinstall over existing data); stamping marker, no delete"
+                    )
+                    try {
+                        markerFile.writeText("3")
+                    } catch (ex: Exception) {
+                        android.util.Log.e(TAG, "DB marker: stamp failed: " + ex.message)
+                    }
+                    prefs.edit().putInt("db_schema_marker", 3).apply()
+                    dbMarker = 3
+                }
+
                 if (dbMarker < 3) {
                     // Delete each DB plus its SQLite sidecars (-journal/-wal/-shm). A stale
                     // journal/wal left by a mid-write kill could otherwise REPLAY into the
@@ -98,6 +176,14 @@ object SpatialDbManager {
                     }
                     android.util.Log.i(TAG, "DB v3 migration: spatial-clean=" + sd + " extension-clean=" + ed + " (marker was " + dbMarker + ")")
                     if (sd && ed) {
+                        // DBMARKER-SHARED-2026-08-16: write the file first -- it is the one that
+                        // survives an uninstall. The prefs value is kept in step so a
+                        // rollback to the previous build still reads a sane marker.
+                        try {
+                            File(dir, MARKER_FILE).writeText("3")
+                        } catch (ex: Exception) {
+                            android.util.Log.e(TAG, "DB marker: write failed: " + ex.message)
+                        }
                         prefs.edit().putInt("db_schema_marker", 3).apply()
                         android.util.Log.i(TAG, "DB v3 migration: marker set to 3; DBs will rebuild from v3 assets")
                     } else {
