@@ -59,13 +59,18 @@ fun NavGraphBuilder.convoyGraph(
     // ── Main convoy map screen ────────────────────────────────────────────
     // Pre-convoy authority gate (self-contained, app boots here) ----------
     composable<ConvoyRoutes.ConvoyAuthorityGate> {
+        val navGateContext = androidx.compose.ui.platform.LocalContext.current
         com.geeksville.mesh.convoy.ConvoyAuthorityGateScreenV2(
             onProceed = {
                 navController?.navigate(ConvoyRoutes.Convoy) {
                     popUpTo(ConvoyRoutes.ConvoyAuthorityGate) { inclusive = true }
                 }
             },
-            onExit = { navController?.popBackStack() }
+            // GATERETRY-2026-08-16: the gate is the nav START destination, so there is
+            // nothing beneath it on the back stack and popBackStack() returns false and
+            // no-ops -- Exit was a dead button. Exiting from the start destination means
+            // leaving the app, so finish the hosting activity.
+            onExit = { (navGateContext as? android.app.Activity)?.finish() }
         )
     }
     composable<ConvoyRoutes.Convoy> {

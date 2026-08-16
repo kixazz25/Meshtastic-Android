@@ -126,10 +126,29 @@ private fun hasBackgroundLocation(context: android.content.Context): Boolean {
  *  NOTE: fine location is handled by the base Meshtastic app, so the gate does
  *  NOT request it — only all-files and background ("all the time") location.
  */
-private fun evaluateState(context: android.content.Context): AuthorityState = when {
-    !hasRealStorageAccess()         -> AuthorityState.NeedStorage
-    !hasBackgroundLocation(context) -> AuthorityState.NeedBackground
-    else                            -> AuthorityState.Granted
+private fun evaluateState(context: android.content.Context): AuthorityState =
+    evaluateState(context, -1)
+
+/** GATERETRY-2026-08-16: same evaluation, but it says what it saw and what it chose.
+ *  attempt is the retry index for the post-settings poll, or -1 when not retrying.
+ *  Working out what the gate concluded previously meant inferring it from platform
+ *  quota noise around the canary file; one line removes that guesswork.
+ */
+private fun evaluateState(context: android.content.Context, attempt: Int): AuthorityState {
+    val storage = hasRealStorageAccess()
+    val background = hasBackgroundLocation(context)
+    val result = when {
+        !storage    -> AuthorityState.NeedStorage
+        !background -> AuthorityState.NeedBackground
+        else        -> AuthorityState.Granted
+    }
+    android.util.Log.i(
+        "ConvoyGate",
+        "eval: realStorage=" + storage + " background=" + background +
+            " -> " + result.javaClass.simpleName +
+            (if (attempt >= 0) " (attempt " + attempt + ")" else "")
+    )
+    return result
 }
 
 @Composable
@@ -175,16 +194,42 @@ fun ConvoyAuthorityGateScreenV2(
     // authority is real, show a "Continue" button — the user's tap is a natural
     // settle barrier that lets the grant land before convoy/DB opens, and makes
     // the grant screen unmissable.
+    // === GATERETRY-2026-08-16 ===
+    // Bumped on every resume. The resume effect itself no longer decides anything: a
+    // single probe taken the instant the user returns from the settings page can read
+    // "not granted" simply because the grant has not landed yet, and the old code latched
+    // that into StorageDeclined with nothing left to re-evaluate.
+    var resumeTick by remember { mutableStateOf(0) }
+
     LifecycleResumeEffect(Unit) {
-        // GATESTATES-2026-08-16B: if the user has been to the settings page and storage is
-        // still not real, say so explicitly rather than redrawing the same prompt.
-        val fresh = evaluateState(context)
+        resumeTick++
+        onPauseOrDispose { }
+    }
+
+    LaunchedEffect(resumeTick) {
+        if (resumeTick == 0) return@LaunchedEffect
+        var fresh = evaluateState(context, 0)
+        // Only the post-settings case needs patience: the user has just been sent to grant
+        // all-files access, so a negative read here is more likely to be a grant still
+        // settling than a real refusal. Re-check a few times before concluding.
+        if (fresh is AuthorityState.NeedStorage && settingsVisited) {
+            state = AuthorityState.CheckingStorage
+            var attempt = 1
+            while (attempt <= 4 && fresh is AuthorityState.NeedStorage) {
+                kotlinx.coroutines.delay(400L)
+                fresh = evaluateState(context, attempt)
+                attempt++
+            }
+        }
         state = if (fresh is AuthorityState.NeedStorage && settingsVisited) {
+            android.util.Log.w(
+                "ConvoyGate",
+                "storage still not real after retries; showing StorageDeclined"
+            )
             AuthorityState.StorageDeclined
         } else {
             fresh
         }
-        onPauseOrDispose { }
     }
 
     Surface(color = MshBg, modifier = Modifier.fillMaxSize()) {
