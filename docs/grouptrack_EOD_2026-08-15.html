@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>GroupTrack EOD 2026-08-15</title>
+<style>
+body{font-family:system-ui,sans-serif;max-width:900px;margin:2rem auto;padding:0 1rem;background:#101510;color:#dfe4dc;line-height:1.5}
+h1,h2{color:#97d5a5}h2{border-bottom:1px solid #2a3a2a;padding-top:1rem;margin-top:1.5rem}
+code{background:#1c211c;padding:1px 5px;border-radius:3px;color:#c1c9bf;font-size:.9em}
+.hi{background:#15251a;border-left:3px solid #97d5a5;padding:.6rem .8rem;margin:.6rem 0}
+.warn{background:#2a1a15;border-left:3px solid #ffb4ab;padding:.6rem .8rem;margin:.6rem 0}
+.done{color:#97d5a5}.todo{color:#ffd479}
+ul{margin:.3rem 0}li{margin:.2rem 0}
+</style></head><body>
+<h1>GroupTrack — End of Day — 2026-08-15</h1>
+<p><b>Branch:</b> <code>test/authority-api36</code> (throwaway, off feature/convoy-event-ride) · <b>Session focus:</b> pre-convoy authority gate + API 36 compliance</p>
+
+<div class="hi"><b>PICK UP HERE TOMORROW:</b> A release build is running (started ~1:30am) with ConvoyAuthorityGateScreenV2 + AutoResyncHost killed. When done: clean-install release-only on Droid 2 and run the definitive test. The authority work is code-complete; it needs one clean release-only device verification.</div>
+
+<h2>WHAT GOT DONE TODAY</h2>
+<ul>
+<li class="done">✅ Google Play <b>closed testing is LIVE</b> (approved, tripwire-safe all-files justification passed) — separate prior milestone, holding.</li>
+<li class="done">✅ Built <b>ConvoyAuthorityGateScreenV2</b> — the pre-convoy authority gate. Compiles + builds at target 36.</li>
+<li class="done">✅ Wired it as the app <b>nav START destination</b> (app boots into gate → hands off to Convoy on Continue). Covers all doors: startDestination + both Convoy-tab entries. Commits <code>1c6ede315</code> (standalone) + <code>5fc18aed9</code> (wired).</li>
+<li class="done">✅ Neutered convoy's launch-time all-files prompt (ConvoyScreen.kt 145/152) — gate owns authority now. KEPT the point-of-use recording guard (~1299) as layered defense.</li>
+<li class="done">✅ Three V2 bug fixes after release testing: (1) <b>write-canary</b> real-read, (2) <b>Continue settle-barrier</b>, (3) removed <b>duplicate fine-location</b> prompt.</li>
+<li class="done">✅ Found + killed <b>AutoResyncHost</b> (MainActivity:134) — vestigial startup migration opening the DB pre-authority.</li>
+<li class="done">✅ Bumped TARGET_SDK 35→36 (config.properties) — app <b>builds clean at API 36</b>.</li>
+</ul>
+
+<h2>THE CORE BUG — FULLY DIAGNOSED (research-confirmed)</h2>
+<div class="hi"><b>Authority attaches to the UID (security principal), NOT the package (identity), and they can diverge.</b> A running app IS GroupTrack by identity (package/icon/name) but can be a DIFFERENT UID than the one granted all-files access — so it presents as authorized but isn't. isExternalStorageManager()/the toggle read identity-level/stale records (can lie); actual file I/O checks the UID (truth). Data exists (existence doesn't need the grant) but is unreadable (I/O needs the UID grant). Reinstall churn can reassign the UID, stranding the grant.</div>
+<p><b>The fix philosophy:</b> don't trust "am I GroupTrack?" (identity, lies) — verify "can THIS UID actually do the I/O?" (principal, truth) = the <b>write-canary</b> (writes+deletes <code>.authority_probe</code>; scoped storage forbids it in Documents/GroupTrack without real MANAGE_EXTERNAL_STORAGE, so success = ground truth).</p>
+
+<h2>⚠ THE DEBUG DETOUR (my mistake — important context)</h2>
+<div class="warn">Most of tonight's confusion ("data there, can't read") was caused by <b>debug builds</b>. Claude used <code>assembleGoogleDebug</code> for fast compile checks — but debug installs as a SEPARATE app (<code>.debug</code> suffix, different package + UID + authority sandbox). That stranded/confused authority vs the release app. <b>Fred's rule is RELEASE-ONLY for exactly this reason.</b> LESSON: build RELEASE only on this project, even for compile checks. The gate work was never failing — the debug install was the problem.</div>
+
+<h2>NEXT SESSION — EXACT STEPS</h2>
+<ol>
+<li><b>Confirm the running build finished</b> (release, ConvoyAuthorityGateScreenV2 + AutoResyncHost killed).</li>
+<li><b>Clean Droid 2</b> (sacrificial, serial <code>24039703201775</code> — NEVER Droid 1 <code>8624SBCEDF00001789</code>):<br>
+<code>adb -s 24039703201775 uninstall com.grouptrack.android</code><br>
+<code>adb -s 24039703201775 shell appops set com.grouptrack.android MANAGE_EXTERNAL_STORAGE default</code> (reset stale record; may error if not installed — fine)</li>
+<li><b>Install release-only</b> (plain -r, NEVER -d):<br>
+<code>adb -s 24039703201775 install -r app/build/outputs/apk/google/release/app-google-release.apk</code></li>
+<li><b>Verify clean baseline:</b> <code>adb -s 24039703201775 shell appops get com.grouptrack.android MANAGE_EXTERNAL_STORAGE</code> (should be "default"/"No operations")</li>
+<li><b>Launch + test the gate.</b> Expect: gate HOLDS (no flash-past) → all-files prompt (not false "granted") → tap Grant opens REAL system toggle → grant → return → Continue button (settle barrier) → ONE location prompt → convoy loads → DB opens AFTER Continue, against real authority. Droid 2 data is EXPENDABLE — recreate as needed.</li>
+<li><b>DOCUMENT the location screens</b> this pass (how many prompts, GroupTrack vs system, order) — confirm the duplicate is gone.</li>
+<li>If mismatch persists (toggle greyed / stuck-on / "allow"+"default;rejected" split): test the UID grant — <code>adb -s 24039703201775 shell appops set --uid com.grouptrack.android MANAGE_EXTERNAL_STORAGE allow</code>, relaunch, does DB read? Also disable Android's "Remove permissions if app is unused" in app settings.</li>
+<li>When the gate passes clean: <b>merge test/authority-api36 → feature/convoy-event-ride</b>.</li>
+</ol>
+
+<h2>ANDROID 16 vs API 36 — GENERATION REQUIREMENT (open thread to continue)</h2>
+<div class="hi"><b>Deadline:</b> from Aug 31 2026, new apps + updates must target API 36 or Play rejects. Nov 1 extension available via Play Console form (insurance). SDK config in <code>config.properties</code> (repo root): MIN_SDK=26 / TARGET_SDK / COMPILE_SDK, read by build-logic/convention/.../KotlinAndroid.kt. On test/authority-api36: TARGET_SDK=36. App BUILDS clean at 36. Version ladder: 34=A14, 35=A15, 36=A16, 37=A17(newest). Deadline needs 36 NOT 37.</div>
+<div class="warn"><b>OPEN — must resolve for 2.6f:</b> WHY the app retreated to 35 in April: TARGET_SDK=36 GREYED OUT the all-files toggle on Android 16 (couldn't enable MANAGE_EXTERNAL_STORAGE, the core of the 50-60GB map model). The whole authority-gate redesign IS the correct-A16-all-files-flow fix. NEXT SESSION must characterize API-36 behavior via the release test: does the record-vs-access mismatch persist on 36? does the toggle grey on fresh uninstall (should be clean; if greyed = the force-off-then-grant/double-prompt UX problem is live)? Decision tree in living master §authority: best case = clean on 36 (no double-prompt); middle = plain re-grant clears it; worst = force-off-then-grant needing a GATED EXPLAINER screen bracketing two uncontrolled OS-settings trips (app CANNOT self-revoke MANAGE_EXTERNAL_STORAGE; <code>adb shell appops set ... MANAGE_EXTERNAL_STORAGE default</code> resets it for TESTING only). Only build force-off if the test proves it's needed.</div>
+
+<h2>RELEASE RE-SEQUENCING (settled)</h2>
+<ul>
+<li><b>2.6f = PLAY STORE COMPLIANCE ONLY</b> — authority gate + API 36 + all-files/background-location done right. Narrow, shippable, protects the live closed-test distribution. (Current work.)</li>
+<li><b>2.6g = THE OPEN 2.6 CLEANUP</b> — discard module class, import-route, fit-route, map recovery from recipe, route-dedup, shared extension DB, rename/delete triggers, radio-meter guard, all STUB work. The old "every STUB wired" done-check describes 2.6g now, NOT 2.6f.</li>
+<li><b>2.7 = CONVOY REWRITE</b> + the route planner below + MapLibre/spatial direction.</li>
+<li>Reason for split: 2 weeks + hard deadline = do ONE thing well; complex functions can't be serviced in that window.</li>
+</ul>
+
+<h2>2.7 FEATURE — "MOST INTERESTING ROUTE" PLANNER (captured for 2.7)</h2>
+<div class="hi"><b>The feature:</b> user drops vertices/waypoints all over a map → app auto-designs 3-4 DISTINCT rideable routes, each 45-60 miles / 5-9 hours of riding (OHV speeds), that collectively connect all the dropped points. Multi-day trip planning over the trail network.</div>
+<p><b>THE DIFFERENTIATOR:</b> existing nav (Google/onX) optimizes SHORTEST/FASTEST. Ours optimizes the MOST INTERESTING route — the best RIDE, not the quickest path. Borrow the routing machinery (graph traversal — solved) but CHANGE THE OBJECTIVE FUNCTION from minimize-distance to MAXIMIZE-INTERESTINGNESS. The real work = DEFINING "interesting" (product problem = where we win): trail quality/difficulty, scenery, loop-ness, variety, hitting waypoints, within the 45-60mi/5-9hr envelope. Leans on spatial DB (89K trails) + RideCalc (10-15mph → makes it multi-DAY planning). Constrained vehicle-routing problem. Big nav apps can't easily do this (shortest-path, no OHV trail data). NOT 2.6f — 2.7+ / possible premium tier.</p>
+
+<h2>KEY FILES / FACTS</h2>
+<ul>
+<li>Gate: <code>app/src/main/java/com/geeksville/mesh/convoy/ConvoyAuthorityGateScreenV2.kt</code> (fun ConvoyAuthorityGateScreenV2, write-canary + Continue settle-barrier + bg-location only)</li>
+<li>Wiring: Routes.kt (ConvoyAuthorityGate route) · ConvoyNavigation.kt (composable dest, calls V2) · Main.kt (startDestination=ConvoyAuthorityGate, tab entries 448/461 redirected)</li>
+<li>Killed: AutoResyncHost() call at MainActivity.kt:134 (file AutoResyncHost.kt left unused)</li>
+<li>Neutered: ConvoyScreen.kt 145/152 (launch all-files); KEPT ~1299 (recording point-of-use guard)</li>
+<li>Commits on test/authority-api36: <code>1c6ede315</code> (gate standalone) → <code>5fc18aed9</code> (wired) → [tonight's commit: V2 + AutoResyncHost kill]</li>
+<li>Devices: Droid 2 = <code>24039703201775</code> (SACRIFICIAL, data expendable). Droid 1 = <code>8624SBCEDF00001789</code> (PROTECTED, 89K trails, NEVER destructive-test).</li>
+<li>Build: <code>./gradlew assembleGoogleRelease -x uploadCrashlyticsMappingFileGoogleRelease</code>. RELEASE ONLY — never debug on this project.</li>
+<li>MSYS_NO_PATHCONV=1 for adb shell commands with device paths.</li>
+</ul>
+
+<p style="margin-top:2rem;color:#8b938a"><i>Full detail in living master grouptrack_living_master_2026-08-14_v18.html. This EOD is the quick-start; the living master has the complete diagnostic chain, decision trees, and all design records.</i></p>
+</body></html>
