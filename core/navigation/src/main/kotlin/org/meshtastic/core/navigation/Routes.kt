@@ -178,6 +178,7 @@ object FirmwareRoutes {
 
 object ConvoyRoutes {
     @Serializable data object Convoy : Route
+    @Serializable data object ConvoyAuthorityGate : Route  // 2.6f pre-convoy authority gate
     @Serializable data object ConvoySettings : Route
     @Serializable data object ConvoyMapSources : Route
     @Serializable data object ConvoyEnrollment : Route

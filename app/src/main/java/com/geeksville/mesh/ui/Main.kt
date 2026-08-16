@@ -445,7 +445,7 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
                                     uIViewModel.emitScrollToTopEvent(ScrollToTopEvent.ConversationsTabPressed)
                                 }
                                 TopLevelDestination.Convoy -> {
-                                    navController.navigate(ConvoyRoutes.Convoy) {
+                                    navController.navigate(ConvoyRoutes.ConvoyAuthorityGate) {
                                         popUpTo(navController.graph.findStartDestination().id) { saveState = true }
                                         launchSingleTop = true
                                     }
@@ -458,7 +458,7 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
                             }
                         } else {
                             if (destination == TopLevelDestination.Convoy) {
-                                navController.navigate(ConvoyRoutes.Convoy) {
+                                navController.navigate(ConvoyRoutes.ConvoyAuthorityGate) {
                                     popUpTo(navController.graph.findStartDestination().id) { saveState = true }
                                     launchSingleTop = true
                                 }
@@ -482,7 +482,7 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
     ) {
         NavHost(
             navController = navController,
-            startDestination = ConvoyRoutes.Convoy,
+            startDestination = ConvoyRoutes.ConvoyAuthorityGate,
             modifier = Modifier.fillMaxSize(),
         ) {
             contactsGraph(navController, uIViewModel.scrollToTopEventFlow)
