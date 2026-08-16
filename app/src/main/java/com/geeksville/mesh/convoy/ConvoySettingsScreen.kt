@@ -252,7 +252,7 @@ fun ConvoySettingsScreen(
             Spacer(Modifier.height(8.dp))
             Text(
                 // HTMLVER-2026-08-13B: the release string here was one letter behind.
-                text     = "GroupTrack Rel 2.6e — Build ${BuildConfig.BUILD_STAMP}",
+                text     = "GroupTrack Rel 2.6f — Build ${BuildConfig.BUILD_STAMP}",
                 style    = MaterialTheme.typography.labelSmall,
                 color    = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                 modifier = Modifier
