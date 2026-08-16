@@ -9,7 +9,7 @@
 <html lang="en"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<title>GroupTrack V2.6e — Release Notes — 2026-08-12</title>
+<title>GroupTrack V2.6f — Release Notes — 2026-08-16</title>
 <style>
   :root{--bg:#10130f;--panel:#181c15;--ink:#e8ece2;--dim:#9aa68c;--line:#2b3324;
     --accent:#7bb661;--accent2:#d9a441;--warn:#e0563b;--ui:-apple-system,"Segoe UI",Roboto,sans-serif;--body:Georgia,serif;}
@@ -115,7 +115,7 @@ downloads were still running.</li>
 </div>
 
 <header><div class="ttl"><b>GroupTrack</b> V2.6 — Release Notes</div>
-<div class="sub">What's new · Field Test Release · Rel 2.6e · Updated 2026-08-09 · grouptrack.org</div></header>
+<div class="sub">What's new · Field Test Release · Rel 2.6f · Updated 2026-08-16 · grouptrack.org</div></header>
 <main>
 
 <div class="upgrade">
@@ -132,7 +132,74 @@ downloads were still running.</li>
   <p class="recovery">This is a one-time step. Once your maps are re-downloaded in the new format, future updates won't need it.</p>
 </div>
 
-<h2>New in this release &middot; Rel 2.6e &middot; 2026-08-06</h2>
+<!-- RELNOTES-2.6F-2026-08-16 -->
+<h2>New in this release &middot; Rel 2.6f &middot; 2026-08-16</h2>
+
+<div class="item">
+<h3>Reinstalling GroupTrack no longer erases your trails, tracks and waypoints</h3>
+<p>This is the important one. A one-time database upgrade step could not tell the difference between a
+<strong>brand-new installation</strong> and a <strong>reinstall over data you already had</strong>. On a
+reinstall it treated your existing databases as out of date and cleared them &mdash; so trails, tracks and
+waypoints were lost, while your downloaded maps stayed behind. If that has happened to you, this is why,
+and it was not something you did wrong.</p>
+<p><strong>It is fixed.</strong> GroupTrack now records that upgrade <em>alongside your data</em> rather
+than in storage that an uninstall wipes. As a second, independent safeguard, it will not clear a database
+that still contains records &mdash; and if it cannot read a database well enough to be sure, it leaves it
+alone rather than guessing.</p>
+<p>Downloaded map tiles were never affected by this. If you lost trails but kept your maps, that was this
+bug.</p>
+</div>
+
+<div class="item">
+<h3>The setup screen only appears when something is actually missing</h3>
+<p>GroupTrack keeps 50&ndash;60&nbsp;GB of offline maps in shared storage so they survive updates and
+reinstalls, which is why it asks for all-files access. That screen now behaves sensibly:</p>
+<ul>
+<li>If access is already granted, <strong>you go straight to the map</strong> &mdash; no prompt.</li>
+<li>It confirms access <strong>by actually using it</strong>, rather than trusting the system's answer.
+Android can report access the app does not really have, and that mismatch was behind a lot of confusing
+&ldquo;my data is there but nothing shows&rdquo; behaviour.</li>
+<li>It no longer gets <strong>stuck</strong> after you grant access and come back.</li>
+<li>The <strong>Exit</strong> button works. Previously it did nothing.</li>
+</ul>
+<p><strong>If you decline all-files access, GroupTrack will not open.</strong> There is no reduced mode
+&mdash; without it the app cannot read your maps, trails or tracks at all. <strong>Exiting is
+safe:</strong> nothing on your device is changed or removed, and if you grant access later everything is
+exactly as you left it.</p>
+</div>
+
+<div class="item">
+<h3>&ldquo;All the time&rdquo; location is now optional &mdash; with a deliberate reminder</h3>
+<p>Background location is what lets GroupTrack report your position to your convoy and keep recording a
+track <strong>while the screen is off</strong>. You can now skip it and carry on into the app.</p>
+<p>You will be asked again <strong>every time you start GroupTrack</strong> while it is turned off. That
+is on purpose, not a bug: without it, <strong>track recording stops when your screen sleeps</strong>, and
+you will not find out until you get home to a track that ends where you put the phone in your pocket. You
+can turn it on at any time in Android settings.</p>
+</div>
+
+<div class="item">
+<h3>Route planner fixes</h3>
+<p>These shipped in the previous field-test build and were not written up at the time:</p>
+<ul>
+<li><strong>Discarding a new route now really discards it.</strong> An
+<em>Auto&nbsp;Saved&nbsp;In&nbsp;Progress</em> draft could survive a discard and reappear afterwards. It
+was never a phantom being recreated &mdash; it was one real autosave that discard failed to delete, so it
+looked like it kept coming back because it never left.</li>
+<li><strong>Route mode no longer switches itself off when you pan or zoom.</strong></li>
+<li><strong>Tapping to drop a vertex is no longer absorbed by a trail or waypoint popup</strong> while
+you are drawing a route.</li>
+<li><strong>The In-Progress list refreshes</strong> as soon as you delete a draft.</li>
+</ul>
+</div>
+
+<div class="item">
+<h3>Android 16</h3>
+<p>GroupTrack now targets <strong>Android&nbsp;16</strong>, as required by Google Play for app updates
+from 31&nbsp;August&nbsp;2026. The minimum supported version is unchanged at <strong>Android&nbsp;8.0</strong>.</p>
+</div>
+
+<h2>Previously &middot; Rel 2.6e &middot; 2026-08-06</h2>
 
 <div class="item">
 <h3>Google Hybrid is the new satellite default &mdash; for new installations</h3>
