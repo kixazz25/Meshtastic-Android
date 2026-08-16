@@ -59,7 +59,7 @@ fun NavGraphBuilder.convoyGraph(
     // ── Main convoy map screen ────────────────────────────────────────────
     // Pre-convoy authority gate (self-contained, app boots here) ----------
     composable<ConvoyRoutes.ConvoyAuthorityGate> {
-        com.geeksville.mesh.convoy.ConvoyAuthorityGateScreen(
+        com.geeksville.mesh.convoy.ConvoyAuthorityGateScreenV2(
             onProceed = {
                 navController?.navigate(ConvoyRoutes.Convoy) {
                     popUpTo(ConvoyRoutes.ConvoyAuthorityGate) { inclusive = true }

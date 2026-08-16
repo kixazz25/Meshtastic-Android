@@ -49,7 +49,7 @@ private val MshOutline   = Color(0xFF8B938A)
 private val MshError     = Color(0xFFFFB4AB)
 
 /**
- * ConvoyAuthorityGateScreen
+ * ConvoyAuthorityGateScreenV2
  *
  * Pre-convoy authority gate. Runs BEFORE convoy is reachable and grants the two
  * foundational authorities properly, replacing the juvenile grants that were
@@ -72,7 +72,6 @@ private val MshError     = Color(0xFFFFB4AB)
 private sealed class AuthorityState {
     object CheckingStorage   : AuthorityState()   // evaluating the real read
     object NeedStorage       : AuthorityState()   // all-files not granted → prompt
-    object NeedFineLocation  : AuthorityState()   // storage OK → need foreground location
     object NeedBackground    : AuthorityState()   // fine OK → need "all the time"
     object Granted           : AuthorityState()   // everything satisfied
 }
@@ -87,17 +86,26 @@ private sealed class AuthorityState {
 fun hasRealStorageAccess(
     canaryDir: File = File(Environment.getExternalStorageDirectory(), "Documents/GroupTrack")
 ): Boolean {
+    // Below API R the legacy model applies and this path is directly accessible.
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return true
+
+    // Necessary first gate: if the OS says we are NOT the storage manager, we
+    // definitely do not have all-files access. (This can go stale-TRUE after
+    // clear-data, so it is necessary but NOT sufficient — hence the write test.)
+    if (!Environment.isExternalStorageManager()) return false
+
+    // Sufficient test: actually exercise all-files authority by writing and
+    // deleting a canary file in the target dir. Scoped storage / MediaStore does
+    // NOT permit this in Documents/GroupTrack without MANAGE_EXTERNAL_STORAGE, so
+    // a successful write+delete is ground-truth proof of real access. This catches
+    // the stale-TRUE case: isExternalStorageManager() lies "yes" but the write fails.
     return try {
-        // Below API R the legacy model applies and this path is directly accessible.
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return true
-        // Accurate test: can we actually see/enter the directory on disk?
-        if (canaryDir.exists()) {
-            // A real, granted manager can list it; a juvenile/absent grant cannot.
-            canaryDir.canRead() && canaryDir.listFiles() != null
-        } else {
-            // Not yet created: can we create it? Only a real grant allows this.
-            canaryDir.mkdirs() || canaryDir.exists()
-        }
+        if (!canaryDir.exists() && !canaryDir.mkdirs()) return false
+        val canary = File(canaryDir, ".authority_probe")
+        canary.writeText("probe")           // throws if access is not real
+        val ok = canary.exists() && canary.canRead()
+        canary.delete()
+        ok
     } catch (_: SecurityException) {
         false
     } catch (_: Exception) {
@@ -112,22 +120,18 @@ private fun hasBackgroundLocation(context: android.content.Context): Boolean {
     ) == android.content.pm.PackageManager.PERMISSION_GRANTED
 }
 
-private fun hasFineLocation(context: android.content.Context): Boolean {
-    return ContextCompat.checkSelfPermission(
-        context, android.Manifest.permission.ACCESS_FINE_LOCATION
-    ) == android.content.pm.PackageManager.PERMISSION_GRANTED
-}
-
-/** Compute the correct starting state from current, real authority. */
+/** Compute the correct starting state from current, real authority.
+ *  NOTE: fine location is handled by the base Meshtastic app, so the gate does
+ *  NOT request it — only all-files and background ("all the time") location.
+ */
 private fun evaluateState(context: android.content.Context): AuthorityState = when {
-    !hasRealStorageAccess()       -> AuthorityState.NeedStorage
-    !hasFineLocation(context)     -> AuthorityState.NeedFineLocation
+    !hasRealStorageAccess()         -> AuthorityState.NeedStorage
     !hasBackgroundLocation(context) -> AuthorityState.NeedBackground
-    else                          -> AuthorityState.Granted
+    else                            -> AuthorityState.Granted
 }
 
 @Composable
-fun ConvoyAuthorityGateScreen(
+fun ConvoyAuthorityGateScreenV2(
     onProceed: () -> Unit,
     onExit: () -> Unit
 ) {
@@ -135,14 +139,9 @@ fun ConvoyAuthorityGateScreen(
 
     var state by remember { mutableStateOf<AuthorityState>(evaluateState(context)) }
 
-    // Foreground (fine) location request launcher.
-    val fineLocationLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { _ ->
-        state = evaluateState(context)
-    }
-
     // Background ("all the time") location request launcher.
+    // NOTE: fine location is handled by the base Meshtastic app, so the gate
+    // requests ONLY background location here — no duplicate fine-location prompt.
     val bgLocationLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { _ ->
@@ -152,12 +151,13 @@ fun ConvoyAuthorityGateScreen(
     // Re-evaluate every time we return to this screen (e.g. back from the
     // system all-files settings page). Re-verify with the REAL READ — never
     // trust that the user actually toggled it on.
+    // IMPORTANT: do NOT auto-proceed here. Auto-proceeding raced the authority
+    // grant into the DB open (the "flash-past"). Instead we re-check and, when
+    // authority is real, show a "Continue" button — the user's tap is a natural
+    // settle barrier that lets the grant land before convoy/DB opens, and makes
+    // the grant screen unmissable.
     LifecycleResumeEffect(Unit) {
         state = evaluateState(context)
-        // If everything is satisfied, proceed out of the gate.
-        if (state is AuthorityState.Granted) {
-            onProceed()
-        }
         onPauseOrDispose { }
     }
 
@@ -216,20 +216,6 @@ fun ConvoyAuthorityGateScreen(
                     }
                 }
 
-                is AuthorityState.NeedFineLocation -> {
-                    GateBody(
-                        title = "Location access required",
-                        body = "GroupTrack needs location access to show your position " +
-                            "and track your ride."
-                    )
-                    Spacer(Modifier.height(24.dp))
-                    GateButton("Grant location") {
-                        fineLocationLauncher.launch(
-                            android.Manifest.permission.ACCESS_FINE_LOCATION
-                        )
-                    }
-                }
-
                 is AuthorityState.NeedBackground -> {
                     GateBody(
                         title = "Background location required",
@@ -251,9 +237,23 @@ fun ConvoyAuthorityGateScreen(
 
                 is AuthorityState.Granted -> {
                     GateBody(
-                        title = "Ready",
-                        body = "All access granted. Starting GroupTrack…"
+                        title = "Access granted",
+                        body = "All-files and location access confirmed. Tap Continue " +
+                            "to start GroupTrack."
                     )
+                    Spacer(Modifier.height(24.dp))
+                    GateButton("Continue") {
+                        // Final settle barrier: re-verify authority is STILL real
+                        // at the moment of proceeding (not a stale earlier check),
+                        // then hand off to convoy. The user's tap gave the grant
+                        // time to settle before the DB opens.
+                        if (hasRealStorageAccess() && hasBackgroundLocation(context)) {
+                            onProceed()
+                        } else {
+                            // Authority slipped between grant and tap — re-gate.
+                            state = evaluateState(context)
+                        }
+                    }
                 }
             }
 
