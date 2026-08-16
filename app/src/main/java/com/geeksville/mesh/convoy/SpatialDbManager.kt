@@ -101,6 +101,22 @@ object SpatialDbManager {
                     }
                 }
 
+                // === DBMARKER-STAMP-2026-08-16 ===
+                // Lay the marker file down whenever it is missing but the resolved marker is
+                // already current. Without this, an install whose marker came from the legacy
+                // prefs value reaches neither of the branches that write the file, and stays
+                // protected only by app-private state -- the very lifetime mismatch this
+                // marker was moved to public storage to eliminate. Writes only when absent,
+                // so it is a no-op on every subsequent launch.
+                if (dbMarker >= 3 && !markerFile.exists()) {
+                    try {
+                        markerFile.writeText(dbMarker.toString())
+                        android.util.Log.i(TAG, "DB marker: stamped missing marker file at " + dbMarker)
+                    } catch (ex: Exception) {
+                        android.util.Log.e(TAG, "DB marker: stamp-if-missing failed: " + ex.message)
+                    }
+                }
+
                 // Row-count guard. Populated databases mean this install has already been
                 // through the migration whatever the marker says, so the delete is skipped
                 // and the marker is stamped instead. A count that cannot be taken (the
