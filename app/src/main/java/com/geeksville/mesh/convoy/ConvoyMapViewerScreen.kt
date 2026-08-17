@@ -1537,6 +1537,21 @@ fun ConvoyMapViewerScreen(
                     }
                     if (res) {
                         RouteManager.clearRoute()
+                        // === GRADUATE-DELETEDRAFT-2026-08-17 ===
+                        // Graduation is a TRANSITION, not a copy: RouteDraftStore's own header
+                        // states a route lives as a draft JSON or a spatial-DB row, never both,
+                        // and ConvoyRouteToolbar documents this path as "insertRoute (DB row) +
+                        // delete draft if any". The delete was missing, so a graduated route
+                        // stayed in route_drafts/ and in the In-Progress picker, and reopening
+                        // that stale draft forked the route into two diverging versions.
+                        // Both names are removed: the named WIP this graduated from, and the
+                        // per-point autosave -- which exists whether or not the route was ever
+                        // named, and is the file left behind when routeName is blank, because
+                        // insertRoute substitutes a generated name for the DB row only.
+                        // deleteDraft returns true for an absent file, so a miss is a no-op.
+                        RouteDraftStore.deleteDraft(routeName)
+                        RouteDraftStore.deleteDraft(RouteDraftStore.UNNAMED)
+                        draftListTick++
                         webViewRef?.evaluateJavascript("setRouteMode(false); clearBuildLine();", null)
                         // ARMSTATE-2026-08-13F: keep the armed state in step with the session.
                         addPointMode = false
