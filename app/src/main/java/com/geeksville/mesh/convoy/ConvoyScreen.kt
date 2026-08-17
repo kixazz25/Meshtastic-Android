@@ -2492,6 +2492,19 @@ fun GroupHud(
         else                 -> Color(0xFF00CC44)
     }
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy((-8).dp)) {
+        // === HUDINTGATE-2026-08-17 ===
+        // Only rendered when there is a group. Dragging this slider calls setGpsInterval ->
+        // channelViewModel.setConfig, and with no radio attached the binder throws
+        // RemoteException("Not connected to radio") on the main thread and kills the app.
+        // setGpsInterval's own try/catch does NOT catch it: setConfig returns before the
+        // throw, so the exception fires outside that block. Not rendering the control is
+        // the reliable fix. It is also the correct behaviour on its own terms — with a
+        // single node there is nobody to broadcast to, so the interval is meaningless.
+        // NOTE: node count infers radio presence rather than testing it. The direct signal
+        // is ConvoyViewModel.myNodeInfo != null (what ConvoyApplyRadioScreen uses). If
+        // convoy state is ever populated without a radio (see simulationMode), guard
+        // setGpsInterval too.
+        if (state.nodes.size > 1) {
         // Vertical interval slider — flush against HudCard
         Column(
             modifier = Modifier.padding(0.dp).offset(x = (-12).dp),
@@ -2519,6 +2532,7 @@ fun GroupHud(
                 fontWeight = FontWeight.SemiBold,
                 style = androidx.compose.ui.text.TextStyle(shadow = androidx.compose.ui.graphics.Shadow(color = androidx.compose.ui.graphics.Color.White, offset = androidx.compose.ui.geometry.Offset(0f, 0f), blurRadius = 6f)))
         }
+        } // HUDINTGATE-2026-08-17: end group-only interval slider
         HudCard {
             Text("GROUP", color = Color(0xFF111111), fontSize = 13.sp,
                 fontWeight = FontWeight.Bold, letterSpacing = 2.sp,
