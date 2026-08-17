@@ -1730,6 +1730,13 @@ fun ConvoyMapViewerScreen(
                                     }
                                     routeName = nm
                                     RouteManager.clearRoute()
+                                    // SAVEWIP-LISTTICK-2026-08-17: refresh the In-Progress list. Save-as-WIP
+                                    // wrote the draft but never bumped the tick, and the list is
+                                    // built in remember(draftListTick) — so the new draft did not
+                                    // appear until the user left the map and came back, which
+                                    // rebuilt the screen. (Correctly NO deleteDraft here: save-WIP
+                                    // is a rename, so the file persists under its new name.)
+                                    draftListTick++
                                     webViewRef?.evaluateJavascript("setRouteMode(false); clearBuildLine();", null)
                                     // ARMSTATE-2026-08-13F: keep the armed state in step with the session.
                                     addPointMode = false
