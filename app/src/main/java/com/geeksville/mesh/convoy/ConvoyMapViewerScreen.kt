@@ -596,7 +596,8 @@ fun ConvoyMapViewerScreen(
                 .padding(horizontal = 6.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("BACK", color = Color(0xFF4DA6FF),
+            // PLAINCTRL-2026-08-17: says where it goes, not just that it goes back.
+            Text("Back to Ride", color = Color(0xFF4DA6FF),
                 fontSize = 10.sp, fontFamily = FontFamily.Monospace,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.clickable {

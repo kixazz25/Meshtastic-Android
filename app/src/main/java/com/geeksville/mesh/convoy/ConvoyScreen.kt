@@ -1459,7 +1459,8 @@ fun ConvoyScreen(
         // ── Task 5.3: Show Lead Track toggle + Task 5.4: Route Recorder ──
         // -- FIXED SOURCE BAR --
         ConvoyMapBar(
-            navLabel = "PLAN",
+            // PLAINCTRL-2026-08-17: plain language for the planning entry point.
+            navLabel = "Ride Planning",
             // PLANGATE-2026-08-12C: green with a connection, yellow without. NOT red - the
             // record button beside this one is red, and a second red control
             // reads as a second recording state.
@@ -1530,16 +1531,33 @@ fun ConvoyScreen(
         }
         // -- ARTIFACTS FAB (opens WORK WITH ARTIFACTS expanded; hidden while panel open) --
         if (!showArtifactsPanel) {
+            // PLAINCTRL-2026-08-17: surface dropped (option A) -- bare clickable words over the
+            // map instead of a 40dp filled circle. Colour is carried by contentColor on a
+            // transparent surface so the control still reports as clickable to a11y.
             androidx.compose.material3.Surface(
                 onClick = { showArtifactsPanel = true },
-                shape = androidx.compose.foundation.shape.CircleShape,
-                color = androidx.compose.ui.graphics.Color(0xEE131820),
-                contentColor = androidx.compose.ui.graphics.Color.White,
-                shadowElevation = 6.dp,
-                modifier = Modifier.align(Alignment.TopEnd).padding(top = 200.dp, end = 12.dp).size(40.dp)
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp),
+                color = androidx.compose.ui.graphics.Color.Transparent,
+                contentColor = androidx.compose.ui.graphics.Color(0xFF111111),
+                modifier = Modifier.align(Alignment.TopEnd).padding(top = 200.dp, end = 12.dp)
             ) {
                 androidx.compose.foundation.layout.Box(contentAlignment = Alignment.Center) {
-                    androidx.compose.material3.Text("\u2630", fontSize = 18.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                    // PLAINCTRL-2026-08-17: words, not a glyph. Riders are 65-75 and icon
+                    // literacy cannot be assumed. White blur shadow matches GroupHud so the
+                    // text survives bright satellite imagery now that the dark fill is gone.
+                    androidx.compose.material3.Text(
+                        "Map Features",
+                        fontSize = 13.sp,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                        style = androidx.compose.ui.text.TextStyle(
+                            shadow = androidx.compose.ui.graphics.Shadow(
+                                color = androidx.compose.ui.graphics.Color.White,
+                                offset = androidx.compose.ui.geometry.Offset(0f, 0f),
+                                blurRadius = 6f
+                            )
+                        ),
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp)
+                    )
                 }
             }
         }

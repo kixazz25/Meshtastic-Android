@@ -145,9 +145,15 @@ fun ConvoyArtifactsPanel(
                         modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp, horizontal = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Type", color = aTxtD, fontSize = 9.sp, fontFamily = aMono,
+                        // PLAINLABELS-2026-08-17D: plain language. "Type" told a new rider nothing.
+                        Text("Map Feature", color = aTxtD, fontSize = 9.sp, fontFamily = aMono,
                             fontWeight = FontWeight.Bold, modifier = Modifier.weight(1.2f))
-
+                        // PLAINLABELS-2026-08-17D: labels the three display buttons to the right. The
+                        // colour convention is otherwise unguessable -- the ACTIVE state draws a
+                        // blue surface (0xFF2266CC), the others green (0xFF2D8B2D). Unconditional:
+                        // the buttons appear on BOTH maps, so the header does too.
+                        Text("Display Action", color = aTxtD, fontSize = 9.sp, fontFamily = aMono,
+                            fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                         if (!isConvoyMap) {
 
                         }
@@ -179,7 +185,10 @@ fun ConvoyArtifactsPanel(
                                 modifier = Modifier.weight(1f).clickable { onImport("Artifacts") },
                                 shape = RoundedCornerShape(4.dp), color = Color(0xFF0D1520)
                             ) {
-                                Text("IMPORT ARTIFACTS", color = aBlue, fontSize = 8.sp,
+                                // PLAINLABELS-2026-08-17D: label ONLY. The onImport argument on the
+                                // clickable above is a dispatch key matched in
+                                // ConvoyMapViewerScreen -- it MUST NOT change with this label.
+                                Text("IMPORT FEATURES", color = aBlue, fontSize = 8.sp,
                                     fontFamily = aMono, fontWeight = FontWeight.Bold,
                                     textAlign = TextAlign.Center,
                                     modifier = Modifier.padding(horizontal = 4.dp, vertical = 6.dp))
@@ -378,7 +387,9 @@ private fun ArtifactRow(
             Surface(shape = RoundedCornerShape(3.dp),
                 color = if (state == 2) Color(0xFF2266CC) else Color(0xFF2D8B2D),
                 modifier = Modifier.clickable { onEditDisplay(typeName) }.padding(2.dp)) {
-                Text("SEL/EDIT", color = if (state == 2) Color.White else Color(0xFF39FF14),
+                // PLAINLABELS-2026-08-17D: plain-language label for the third toggle.
+                // These three are ACTIONS you tap, not states you read.
+                Text("SELECT", color = if (state == 2) Color.White else Color(0xFF39FF14),
                     fontSize = 10.sp, fontFamily = aMono, fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp))
             }
