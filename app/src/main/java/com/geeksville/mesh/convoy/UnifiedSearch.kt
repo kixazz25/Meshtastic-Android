@@ -279,7 +279,7 @@ fun UnifiedSearch(
             // hamburger.
             shape = RoundedCornerShape(4.dp),
             color = Color.Transparent,
-            contentColor = Color(0xFF111111)
+            contentColor = Color(0xFFFF00FF)
         ) {
             Box(contentAlignment = Alignment.Center) {
                 // PLAINCTRL-2026-08-17: words, not a glyph -- see the hamburger note in

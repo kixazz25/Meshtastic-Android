@@ -1180,7 +1180,7 @@ fun ConvoyMapViewerScreen(
                 // PLAINCTRL3-2026-08-18B: circle + fixed size dropped so the word renders in full.
                 shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp),
                 color = Color.Transparent,
-                contentColor = Color(0xFF111111),
+                contentColor = Color(0xFFFF00FF),
                 modifier = Modifier.align(Alignment.TopEnd).padding(top = 116.dp, end = 12.dp)
             ) {
                 androidx.compose.foundation.layout.Box(contentAlignment = Alignment.Center) {
@@ -1210,7 +1210,7 @@ fun ConvoyMapViewerScreen(
                     // PLAINCTRL3-2026-08-18B: fill + size dropped, glyph replaced with words,
                     // matching the convoy hamburger treatment from round 1.
                     color = Color.Transparent,
-                    contentColor = Color(0xFF111111),
+                    contentColor = Color(0xFFFF00FF),
                     modifier = Modifier.align(Alignment.TopEnd).padding(top = 64.dp, end = 12.dp)
                 ) {
                     androidx.compose.foundation.layout.Box(contentAlignment = Alignment.Center) {

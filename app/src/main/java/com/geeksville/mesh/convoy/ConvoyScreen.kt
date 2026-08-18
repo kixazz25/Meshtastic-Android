@@ -1523,7 +1523,7 @@ fun ConvoyScreen(
             // top padding tightened from 252 to 184 to close the gap in the text column.
             shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp),
             color = androidx.compose.ui.graphics.Color.Transparent,
-            contentColor = androidx.compose.ui.graphics.Color(0xFF111111),
+            contentColor = androidx.compose.ui.graphics.Color(0xFFFF00FF),
             modifier = Modifier.align(Alignment.TopEnd).padding(top = 184.dp, end = 12.dp)
         ) {
             androidx.compose.foundation.layout.Box(contentAlignment = Alignment.Center) {
@@ -1552,7 +1552,7 @@ fun ConvoyScreen(
                 onClick = { showArtifactsPanel = true },
                 shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp),
                 color = androidx.compose.ui.graphics.Color.Transparent,
-                contentColor = androidx.compose.ui.graphics.Color(0xFF111111),
+                contentColor = androidx.compose.ui.graphics.Color(0xFFFF00FF),
                 // PLAINCTRL3-2026-08-18B: top padding tightened from 200 to 152 to even the column.
                 modifier = Modifier.align(Alignment.TopEnd).padding(top = 152.dp, end = 12.dp)
             ) {
