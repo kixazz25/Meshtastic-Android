@@ -1519,11 +1519,12 @@ fun ConvoyScreen(
         // -- "?" HELP BUTTON (ported from planning 2026-06-18; TopStart to clear QUEUES) --
         androidx.compose.material3.Surface(
             onClick = { showDocsChooser = true },
-            shape = androidx.compose.foundation.shape.CircleShape,
-            color = androidx.compose.ui.graphics.Color(0xEE131820),
-            contentColor = androidx.compose.ui.graphics.Color.White,
-            shadowElevation = 6.dp,
-            modifier = Modifier.align(Alignment.TopEnd).padding(top = 252.dp, end = 12.dp).size(40.dp)
+            // PLAINCTRL3-2026-08-18B: circle + fixed size dropped so the word renders in full;
+            // top padding tightened from 252 to 184 to close the gap in the text column.
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp),
+            color = androidx.compose.ui.graphics.Color.Transparent,
+            contentColor = androidx.compose.ui.graphics.Color(0xFF111111),
+            modifier = Modifier.align(Alignment.TopEnd).padding(top = 184.dp, end = 12.dp)
         ) {
             androidx.compose.foundation.layout.Box(contentAlignment = Alignment.Center) {
                 // PLAINCTRL2-2026-08-17: the word, for the same reason as the others.
@@ -1552,7 +1553,8 @@ fun ConvoyScreen(
                 shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp),
                 color = androidx.compose.ui.graphics.Color.Transparent,
                 contentColor = androidx.compose.ui.graphics.Color(0xFF111111),
-                modifier = Modifier.align(Alignment.TopEnd).padding(top = 200.dp, end = 12.dp)
+                // PLAINCTRL3-2026-08-18B: top padding tightened from 200 to 152 to even the column.
+                modifier = Modifier.align(Alignment.TopEnd).padding(top = 152.dp, end = 12.dp)
             ) {
                 androidx.compose.foundation.layout.Box(contentAlignment = Alignment.Center) {
                     // PLAINCTRL-2026-08-17: words, not a glyph. Riders are 65-75 and icon

@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.roundToInt
+import androidx.compose.foundation.background
 
 // ----------------------------------------------------------------
 // ConvoyArtifactsPanel -- V2.5 Scaffold
@@ -160,9 +161,21 @@ fun ConvoyArtifactsPanel(
                         }
                     }
                     // PLAINCTRL2-2026-08-17: the colour convention is otherwise unguessable.
-                    Text("blue = on   green = available",
-                        color = aTxtD, fontSize = 8.sp, fontFamily = aMono,
-                        modifier = Modifier.padding(start = 4.dp, bottom = 3.dp))
+                    // PLAINCTRL3-2026-08-18B: colour blocks so the convention is visible, not
+                    // just described. Small Box with the actual surface colour inline.
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(start = 4.dp, bottom = 3.dp)
+                    ) {
+                        Box(modifier = Modifier.size(8.dp).background(
+                            Color(0xFF2266CC),
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(2.dp)))
+                        Text(" blue = on   ", color = aTxtD, fontSize = 8.sp, fontFamily = aMono)
+                        Box(modifier = Modifier.size(8.dp).background(
+                            Color(0xFF2D8B2D),
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(2.dp)))
+                        Text(" green = available", color = aTxtD, fontSize = 8.sp, fontFamily = aMono)
+                    }
 
                     // Artifact rows
                     ArtifactRow("Tracks",    aBlue,   isConvoyMap, onSetState, onEditDisplay, onImport, displayStates)

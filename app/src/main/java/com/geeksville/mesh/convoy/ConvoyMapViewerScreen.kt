@@ -1177,11 +1177,11 @@ fun ConvoyMapViewerScreen(
             // -- "?" HELP BUTTON (opens bundled release notes / manual) --
             androidx.compose.material3.Surface(
                 onClick = { showDocsChooser = true },
-                shape = androidx.compose.foundation.shape.CircleShape,
-                color = Color(0xEE131820),
-                contentColor = Color.White,
-                shadowElevation = 6.dp,
-                modifier = Modifier.align(Alignment.TopEnd).padding(top = 116.dp, end = 12.dp).size(40.dp)
+                // PLAINCTRL3-2026-08-18B: circle + fixed size dropped so the word renders in full.
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp),
+                color = Color.Transparent,
+                contentColor = Color(0xFF111111),
+                modifier = Modifier.align(Alignment.TopEnd).padding(top = 116.dp, end = 12.dp)
             ) {
                 androidx.compose.foundation.layout.Box(contentAlignment = Alignment.Center) {
                     // PLAINCTRL2-2026-08-17: the word, for the same reason as the others.
@@ -1207,13 +1207,26 @@ fun ConvoyMapViewerScreen(
                     // PLAINCTRL2-2026-08-17: the planner has its OWN artifacts FAB -- round 1
                     // changed only the convoy one on the assumption it was shared.
                     shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp),
-                    color = Color(0xEE131820),
-                    contentColor = Color.White,
-                    shadowElevation = 6.dp,
-                    modifier = Modifier.align(Alignment.TopEnd).padding(top = 64.dp, end = 12.dp).size(40.dp)
+                    // PLAINCTRL3-2026-08-18B: fill + size dropped, glyph replaced with words,
+                    // matching the convoy hamburger treatment from round 1.
+                    color = Color.Transparent,
+                    contentColor = Color(0xFF111111),
+                    modifier = Modifier.align(Alignment.TopEnd).padding(top = 64.dp, end = 12.dp)
                 ) {
                     androidx.compose.foundation.layout.Box(contentAlignment = Alignment.Center) {
-                        androidx.compose.material3.Text("\u2630", fontSize = 18.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                        androidx.compose.material3.Text(
+                            "Map Features",
+                            fontSize = 13.sp,
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                            style = androidx.compose.ui.text.TextStyle(
+                                shadow = androidx.compose.ui.graphics.Shadow(
+                                    color = androidx.compose.ui.graphics.Color.White,
+                                    offset = androidx.compose.ui.geometry.Offset(0f, 0f),
+                                    blurRadius = 6f
+                                )
+                            ),
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp)
+                        )
                     }
                 }
             }
