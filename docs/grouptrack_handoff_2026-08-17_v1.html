@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GroupTrack — Handoff — 2026-08-17 EOD</title>
+<style>
+ :root{--bg:#0f1216;--panel:#161b22;--panel2:#1c2229;--line:#30363d;--fg:#e6edf3;
+   --muted:#8b949e;--accent:#58a6ff;--red:#f85149;--amber:#d29922;--green:#3fb950;}
+ *{box-sizing:border-box}
+ body{margin:0;padding:28px 20px 80px;background:var(--bg);color:var(--fg);
+  font:15px/1.6 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+ .wrap{max-width:1080px;margin:0 auto}
+ header{border-bottom:2px solid var(--accent);padding-bottom:14px;margin-bottom:26px}
+ h1{margin:0 0 6px;font-size:26px} .sub{color:var(--muted);font-size:14px}
+ h2{font-size:19px;margin:32px 0 12px;padding-bottom:6px;border-bottom:1px solid var(--line);color:var(--accent)}
+ h3{font-size:15px;margin:20px 0 8px;color:var(--fg)}
+ .card{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--line);
+   border-radius:6px;padding:13px 15px;margin:10px 0}
+ .card.red{border-left-color:var(--red)} .card.amber{border-left-color:var(--amber)}
+ .card.green{border-left-color:var(--green)} .card.blue{border-left-color:var(--accent)}
+ code{background:var(--panel2);border:1px solid var(--line);border-radius:4px;padding:1px 5px;
+   font:13px ui-monospace,Consolas,monospace;color:#a5d6ff}
+ pre{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:11px 13px;
+   overflow-x:auto;font:12.5px/1.5 ui-monospace,Consolas,monospace;color:#a5d6ff}
+ table{width:100%;border-collapse:collapse;margin:12px 0;font-size:14px}
+ th,td{border:1px solid var(--line);padding:7px 10px;text-align:left;vertical-align:top}
+ th{background:var(--panel2);color:var(--accent)}
+ ul,ol{margin:7px 0 7px 20px} li{margin:5px 0}
+ .hi{color:#ffd479} .muted{color:var(--muted)}
+</style></head><body><div class="wrap">
+<header>
+<h1>GroupTrack — Handoff</h1>
+<div class="sub">2026-08-17 EOD &middot; HEAD <code>f71e2ddc9</code> &middot; branch <code>feature/convoy-event-ride</code><br>
+<b>2.6f PUBLISHED &middot; NOV 1 EXTENSION GRANTED &middot; 12+ TESTERS OPTED IN, 14-DAY CLOCK RUNNING &middot; THREE DEFECTS FIXED AND DEVICE-VERIFIED &middot; DISCARD WAS NEVER THE PROBLEM — SAVE WAS</b></div>
+</header>
+
+<div class="card green">
+<p class="hi">⭐ A release day and a diagnosis day. 2.6f is live with the deadline pressure removed
+entirely; three real defects were found and closed; and the consolidation work we had queued turned
+out to be aimed at the wrong target — which Fred caught by asking what each site actually is.</p>
+</div>
+
+<h2>✅ Play Store — both paths secured</h2>
+<div class="card green">
+<ul>
+<li><b>AAB <code>29320868</code> live</b> on Closed testing - Alpha, 100% rollout, 177 countries,
+target 36 (<code>26+36</code>). The old <code>29320854</code> (<code>26+35</code>) is deactivated —
+and is the "highest non-compliant target" the policy page names.</li>
+<li class="hi"><b>Nov 1 extension GRANTED.</b> The Aug 31 deadline is off the critical path.</li>
+<li class="hi"><b>12+ testers opted in — that gate is struck through.</b> The <b>14-day continuous
+run</b> is now the only remaining production gate. Started the day at 6 of 29; the Testers Community
+CSV plus Fred's own list cleared it.</li>
+<li>⚠ 12 testers <b>continuously</b> — if someone opts out the count can break. Comfortably above 12
+is safer than exactly 12.</li>
+<li>⚠ The API-36 notice will not clear until a <b>production</b> release exists. With the extension
+granted, moot.</li>
+<li><b>Console navigation, for next time:</b> Policy status is <b>Monitor and improve → Policy and
+programs → Policy status</b>. Country availability is per <b>track</b>, not per release. There is
+<b>no per-tester enrollment list</b> — counts only.</li>
+</ul>
+</div>
+
+<h2>✅ Three defects fixed and device-verified</h2>
+<div class="card green">
+<table>
+<tr><th>Commit</th><th>Fix</th><th>Status</th></tr>
+<tr><td><code>a17b10fda</code></td><td><b>Graduation deletes the WIP draft.</b> Restores the documented draft-or-DB-never-both invariant.</td><td>verified</td></tr>
+<tr><td><code>9a26af073</code></td><td><b>GroupHud interval slider only renders with a group.</b> Dragging it with no radio was a fatal <code>RemoteException</code>.</td><td>✅ "radio config removed if no radio, confirmed"</td></tr>
+<tr><td><code>f71e2ddc9</code></td><td><b>Save-as-WIP bumps <code>draftListTick</code>.</b> The new draft appears in the In-Progress list without leaving the map.</td><td>verified</td></tr>
+</table>
+</div>
+
+<h2>⛔⛔ The correction that matters — discard was never diverged</h2>
+<div class="card red">
+<p class="hi"><b>Fred:</b> <i>"the issue was standardizing the discard function. i have seen no
+divergence in discard. our divergence is in save correct?"</i> — <b>and the code agrees.</b></p>
+<p><code>onExit</code> (~1646) and the in-progress dialog (~1775) <b>both do all five operations,
+identically. No drift.</b> The "six variants of discard" plan was built on a survey table that
+counted SAVE sites and LIST-MANAGEMENT sites as discard variants.</p>
+<ul>
+<li>~1834 <b>resolver</b> presents the discard CHOICE when an in-progress file is found <b>on
+entry</b> — nothing loaded yet, so its omissions are correct.</li>
+<li>~1923 <b>picker</b> is the In-Progress list, a reminder when more than one autosave exists.
+<i>"Not part of the discard process."</i> Nothing to tear down.</li>
+<li>~1539 and ~1717 are <b>saves, not discards</b> — and save-as-WIP <b>renames</b>, so it correctly
+has no <code>deleteDraft</code>.</li>
+<li class="hi"><code>setRouteMode</code> <i>"just does not belong in the discard function"</i> — it is
+ambient exit behaviour that got copied in because it sat nearby.</li>
+</ul>
+<p class="note">⚠ <b>Method note, worth more than the fix.</b> Claude built an elaborate consolidation
+plan from a grep table; Fred dismantled it by asking what each site <i>is</i>. <b>The tell was that
+the "variants" needed increasingly baroque justification to remain variants.</b> The real defect sat
+in code nobody had looked at, because the 08-13 survey filed it under a different word.</p>
+</div>
+
+<h2>⚠⚠ A guard that was never reached — second time in two days</h2>
+<div class="card amber">
+<p><code>ConvoyViewModel.setGpsInterval</code> <b>already</b> wrapped <code>setConfig</code> in
+try/catch, logging "Failed to set GPS interval" — and the app still died. <code>setConfig</code>
+returns before the binder throws, so the exception fires <b>outside</b> the try block.</p>
+<p class="hi">⭐ <b>When a guard exists and the failure happens anyway, the guard is not being reached
+— check that before adding another one.</b> Yesterday's latched gate state was the same shape: code
+that reads correct, behaves otherwise.</p>
+<p><b>Two more things banked from that crash:</b></p>
+<ul>
+<li><b>R8-minified stacks are actively misleading.</b> That trace named <code>coil3</code>,
+<code>okhttp3</code>, <code>RoomRawQuery</code> and <code>UsbKt</code> — all nonsense. Trust only
+frames naming real behaviour; file attribution is a hint, not a fact. It sent Claude to the wrong
+file twice.</li>
+<li><b>Find a UI element by its LABEL.</b> Greps for "meter", "broadcast" and "Slider" all missed it.
+<code>grep -n '"INT"'</code> found it in one shot.</li>
+</ul>
+</div>
+
+<h2>⛔ ACTION FIRST THING TOMORROW — the quickstart tells testers to wipe their data</h2>
+<div class="card red">
+<p>Quickstart Emergency Recovery: <i>"If everything is broken: 1. Uninstall GroupTrack … 4. Launch —
+spatial data should still be there"</i>, plus <i>"your saved content survives updates and
+reinstalls."</i></p>
+<p><b>That is the exact sequence that emptied both databases three times on 08-15/08-16.</b> The
+document instructs the destructive action AND supplies the reassurance that made it feel safe. True
+now on 2.6f because of the marker fix; not true on any earlier build.</p>
+<p class="hi">⚠ <b>Live exposure:</b> any tester still on <code>29320854</code> who follows that
+procedure loses trails, tracks and waypoints. <b>Tell testers to take the update before following
+any recovery steps.</b> Corrected quickstart (v3) is in today's doc set — warning block added at
+Emergency Recovery, both reassurance claims scoped to 2.6f+, and the two conflicting dates in the
+header and footer reconciled.</p>
+</div>
+
+<h2>🗺 Trail data — the suggester's claim has to shrink</h2>
+<div class="card blue">
+<p>Full detail in <code>grouptrack_design_trail_data_route_suggestion_2026-08-17.html</code> (11
+sections) and Living Master <b>00-TRAILDATA</b>. Every number measured off <code>utah.gpkg</code> and
+the 08-16 backup.</p>
+<ul>
+<li><b>160,628 trails: OSM 112,696 (70%) + UGRC 47,932 (30%). No BLM data at all.</b> OSM rows carry
+geometry and name only.</li>
+<li><b><code>motorized_allowed</code> is empty, 0 rows.</b> "Multiuse" is not permission. Nothing in
+either dataset affirmatively says OHVs are allowed.</li>
+<li class="hi"><b>The scenic layer is already imported</b> — <code>reference_points</code>, 16,992
+rows: peak 6,051, spring 4,855, cliff 525, volcano 131. No new ingestion needed for v1.</li>
+<li><b>68% of OSM tracks carry no grade</b>, and grade5 is the largest graded group. ⛔
+<code>fclass</code> as an exclusion filter is <b>withdrawn</b> — but it has a better use as the
+<b>speed input</b>.</li>
+<li><b>BLM publishes what nothing else does:</b> state OHV Designation polygons (Open/Limited/Closed)
+and national GTLF route designations. ⭐ <b>"Limited" means stay on designated routes.</b> ⛔ BLM land
+only — outside it the layer is silent, and <b>silence must not read as "open."</b></li>
+<li class="hi"><b>v1 is carried by scenic + loop + variety + envelope.</b> "Trail quality and
+difficulty" was named first and is not available.</li>
+</ul>
+</div>
+
+<h2>⭐ RideCalc — calibrated against 88 real tracks</h2>
+<div class="card green">
+<p>Filtering <code>avg_speed_mph</code> to 3–25 as "actually riding":</p>
+<table>
+<tr><th>distance band</th><th>n</th><th>avg mph</th><th>range</th></tr>
+<tr><td>under 10 mi</td><td>9</td><td>6.1</td><td>3.2 – 13.2</td></tr>
+<tr><td>10 – 25</td><td>3</td><td>12.4</td><td>10.2 – 16.3</td></tr>
+<tr><td>25 – 45</td><td>9</td><td>11.8</td><td>8.5 – 24.0</td></tr>
+<tr><td><b>45+</b></td><td><b>31</b></td><td><b>15.3</b></td><td><b>8.9 – 23.6</b></td></tr>
+</table>
+<p><b>Default speed range: 12–18 mph</b> for 45–60 mile planning, from 31 filtered tracks. Fred's
+SWAG of 12–17 was essentially right.</p>
+<p class="hi">⭐⭐ <b>But the mechanism is not what it looks like.</b> Claude read the rising trend as
+terrain. Fred's explanation is better and simpler: <i>"a break or two and lunch on a short ride is a
+higher percent of the total time."</i> So <code>avg_speed_mph</code> is an <b>elapsed-time
+average including stops</b> — which is exactly what a day-planner wants, and removes the need for a
+separate stopped-time parameter. ⚠ It also means the short bands measure lunch, not riding — do not
+extrapolate 6.1 mph downward.</p>
+<p><b>Parameters:</b> speed range (estimation only) and distance bounds (the hard constraint, upper
+<b>and lower</b>) both user-adjustable with defaults in settings. Time is derived and reported as a
+range, never a point figure.</p>
+<p class="note">⚠ <b>Track data quality, found in passing:</b> <code>max_speed_mph</code> pins at
+199–200 constantly · one row shows <b>99,379 ft</b> gain on 57 miles · one row 0.0 hours on 50 miles ·
+several rows at 47–66 mph avg are almost certainly <b>trailer miles</b>.</p>
+</div>
+
+<h2>▶ Tomorrow</h2>
+<div class="card blue">
+<ol>
+<li class="hi"><b>Send the tester notice</b> about updating before any recovery step, and ship the
+corrected quickstart.</li>
+<li class="hi"><b>Stay interruptible.</b> Feedback expected Tue/Wed; the testing company anticipates
+two builds mid-window.</li>
+<li><b>Expect INSET bugs, not layout bugs.</b> Positioning and window-dismissal reports are most
+likely <b>API 36 edge-to-edge</b> — the opt-out is gone at target 36. Several reports may collapse
+into one fix. First wide-device exposure: two devices tested, testers span 17,575.</li>
+<li><b>RideCalc extraction</b> — the agreed next prereq, pure extraction, three callers,
+interruptible.</li>
+<li><b>Gap-fillers:</b> the width ruler (standalone, 2D, no dependencies) and the startup-task survey
+(an hour of grep, no builds, no device risk).</li>
+<li class="hi"><b>NOT tomorrow:</b> the import consolidation — long uninterruptible middle.</li>
+</ol>
+</div>
+
+<h2>📦 State at EOD</h2>
+<div class="card">
+<ul>
+<li>HEAD <code>f71e2ddc9</code> on <code>feature/convoy-event-ride</code>. Today:
+<code>a17b10fda</code> → <code>9a26af073</code> → <code>f71e2ddc9</code>.</li>
+<li><b>Droid 1</b> <code>8624SBCEDF00001789</code> — has the 2.6f build and, for the first time,
+<b>a backup</b>: <code>/d/grouptrack_droid1_backup_2026-08-16.tar</code>, 325,477,376 bytes,
+verified restorable (both DBs extracted from it today for analysis).</li>
+<li><b>Droid 2</b> <code>24039703201775</code> — carries the three-fix build, used for today's
+verification.</li>
+<li><b>Inspection copies</b> at <code>/d/gt_inspect/</code> (both DBs, extracted from the backup) and
+the Geofabrik source at <code>/d/Utah_Extract/utah.gpkg</code>, 662 MB.</li>
+<li><b>Patch scripts</b> (Downloads): <code>patch_save_graduation_deletes_draft_2026-08-17.py</code> ·
+<code>patch_hud_interval_slider_gate_2026-08-17.py</code> ·
+<code>patch_savewip_draftlisttick_2026-08-17.py</code>.</li>
+<li class="hi">⚠ <b>Refuse-to-create still unbuilt</b>, and the startup-task survey still not started.
+Two one-shot startup tasks found so far; no reason to assume they are the last.</li>
+<li><b>Dead code noted, not touched:</b> the second <code>saveCompleted</code> at
+<code>ConvoyScreen.kt:1771</code> — unreachable (Route+ is planner-only), convoy frozen. Remove when
+the freeze lifts.</li>
+</ul>
+</div>
+
+</div></body></html>

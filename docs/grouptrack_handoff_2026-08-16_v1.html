@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GroupTrack — Handoff — 2026-08-16 EOD</title>
+<style>
+ :root{--bg:#0f1216;--panel:#161b22;--panel2:#1c2229;--line:#30363d;--fg:#e6edf3;
+   --muted:#8b949e;--accent:#58a6ff;--red:#f85149;--amber:#d29922;--green:#3fb950;}
+ *{box-sizing:border-box}
+ body{margin:0;padding:28px 20px 80px;background:var(--bg);color:var(--fg);
+  font:15px/1.6 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+ .wrap{max-width:1080px;margin:0 auto}
+ header{border-bottom:2px solid var(--accent);padding-bottom:14px;margin-bottom:26px}
+ h1{margin:0 0 6px;font-size:26px} .sub{color:var(--muted);font-size:14px}
+ h2{font-size:19px;margin:32px 0 12px;padding-bottom:6px;border-bottom:1px solid var(--line);color:var(--accent)}
+ h3{font-size:15px;margin:20px 0 8px;color:var(--fg)}
+ .card{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--line);
+   border-radius:6px;padding:13px 15px;margin:10px 0}
+ .card.red{border-left-color:var(--red)} .card.amber{border-left-color:var(--amber)}
+ .card.green{border-left-color:var(--green)} .card.blue{border-left-color:var(--accent)}
+ code{background:var(--panel2);border:1px solid var(--line);border-radius:4px;padding:1px 5px;
+   font:13px ui-monospace,Consolas,monospace;color:#a5d6ff}
+ pre{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:11px 13px;
+   overflow-x:auto;font:12.5px/1.5 ui-monospace,Consolas,monospace;color:#a5d6ff}
+ table{width:100%;border-collapse:collapse;margin:12px 0;font-size:14px}
+ th,td{border:1px solid var(--line);padding:7px 10px;text-align:left;vertical-align:top}
+ th{background:var(--panel2);color:var(--accent)}
+ ul,ol{margin:7px 0 7px 20px} li{margin:5px 0}
+ .hi{color:#ffd479} .muted{color:var(--muted)}
+</style></head><body><div class="wrap">
+<header>
+<h1>GroupTrack — Handoff</h1>
+<div class="sub">2026-08-16 EOD &middot; HEAD <code>a9f327780</code> &middot; branch <code>test/authority-api36</code><br>
+<b>REINSTALL WAS DELETING BOTH DATABASES — FOUND, FIXED, CERTIFIED &middot; AUTHORITY GATE DEVICE-VERIFIED ON ALL THREE PATHS &middot; TARGET 36 CONFIRMED CLEAN &middot; 2.6f IS FOUR ITEMS FROM THE AAB</b></div>
+</header>
+
+<div class="card green">
+<p class="hi">⭐ The session opened on what looked like an API-36 question and closed on a data-loss
+defect that had been live for months. Along the way the April blocker that created this branch turned
+out not to exist, one earlier diagnosis was withdrawn, and a fix built on a wrong theory was corrected
+by its own instrumentation before it shipped. Full detail in Living Master v19 —
+<b>00-STARTHERE 08-16</b>, then <b>00-MARKER-LIFETIME</b>.</p>
+</div>
+
+<h2>⛔⛔ The headline — a plain reinstall was deleting both databases</h2>
+<div class="card red">
+<h3>Root cause</h3>
+<p>The v3 delete-gate in <code>SpatialDbManager.init()</code> was gated on
+<code>db_schema_marker</code> in <b>SharedPreferences (app-private)</b>. The databases it deletes live
+in <code>Documents/GroupTrack/</code> (<b>public</b>). An uninstall wipes the marker and not the data,
+so every reinstall read <code>marker was 0</code>, concluded "pre-v3", and deleted both files.</p>
+<pre>08:15:02.463  DB v3 migration: delete grouptrack_spatial.db = true
+08:15:02.503  DB v3 migration: delete grouptrack_data.db = true
+08:15:02.514  DB v3 migration: spatial-clean=true extension-clean=true (marker was 0)
+08:15:02.978  Spatial DB: 0 trails, 0 tracks, 0 waypoints, 0 routes</pre>
+<p class="hi">⭐ <b>Three wipes in twelve hours traced to this one defect</b> — 08-15 23:22, 08-16 07:10,
+08-16 08:15. Not a failed open, not an authority problem: the app deliberately deleted the data because
+it could not tell "never migrated" from "migrated, then reinstalled." The authority canary ran 340 ms
+BEFORE the deletion and passed.</p>
+<p class="hi">⭐⭐ <b><code>AutoResyncHost</code>'s conviction is WITHDRAWN.</b> Killing it on 08-15 was
+correct — vestigial startup migration opening the DB pre-authority — but it did not cause these wipes,
+and yesterday's EOD credited it with the whole thing.</p>
+<p>⚠ This is the <b>inverted form of the guard specced after 08-01</b>: <i>marker absent + external DB
+present = fresh install over existing data → STOP</i>. The marker was designed as a stop condition and
+implemented as a delete trigger.</p>
+</div>
+
+<div class="card green">
+<h3>The fix — two commits, two independent halves</h3>
+<table>
+<tr><th>Commit</th><th>What</th></tr>
+<tr><td><code>233e61e50</code></td><td>Marker moves to a FILE, <code>.db_schema_version</code>, beside the DBs so its lifetime matches theirs. Read order <b>file → legacy prefs → 0</b> (the prefs fallback carries existing installs across; without it the fix would itself have wiped every current install once). Plus a <b>row-count guard</b>: populated DBs mean already-migrated whatever the marker says → stamp and skip. An unreadable count returns −1 and is treated as populated — <b>refuse to delete on uncertainty</b>.</td></tr>
+<tr><td><code>c503b3247</code></td><td><b>Stamp-if-missing.</b> Caught on device, not in review: an install whose marker came from legacy prefs reached <i>neither</i> writing branch, so the file was never laid down and the install stayed protected by app-private state — the exact mismatch being fixed.</td></tr>
+</table>
+<h3>Certification (Droid 2)</h3>
+<ul>
+<li>Install over live data → marker file appears containing <code>3</code>, sizes unchanged.</li>
+<li>Uninstall → <b>marker survives</b> in <code>Documents/</code>, prefs gone with the package.</li>
+<li>Reinstall → <b>no migration block in the log at all</b>, and
+<code>Spatial DB: 152200 trails, 88 tracks, 559 waypoints</code>. Byte-identical sizes.</li>
+</ul>
+<p class="hi">⭐ That proves the <i>marker</i> path, not the row guard catching a miss — belt and braces
+verified independently.</p>
+</div>
+
+<h2>✅ Authority gate — settled, and the correction worth keeping</h2>
+<div class="card green">
+<table>
+<tr><th>Situation</th><th>Behaviour</th></tr>
+<tr><td>Authority real on the FIRST evaluation</td><td><b>No gate</b> — straight to Convoy.</td></tr>
+<tr><td>Became Granted during the session</td><td><b>Continue barrier retained</b> (the flash-past race is still real).</td></tr>
+<tr><td>Returned from settings without granting</td><td><b><code>StorageDeclined</code></b> — states the app will not open, and that exiting is safe. <b>Try again / Exit. No proceed door.</b></td></tr>
+<tr><td>Background location ungranted</td><td>Advisory. <b>Skip for now</b> proceeds; deliberately NOT remembered, so it recurs every launch.</td></tr>
+</table>
+<p><b>Fred's rules behind it:</b> storage — <i>"the app is unusable without that authority, period"</i>,
+<i>"cancel is the option that should be taken."</i> Background — <i>"not destructive, it reduces
+functionality and can be quickly changed"</i>, and the repeat is wanted because <i>"it warns of
+degradation when recording a track with an app that goes to sleep."</i></p>
+</div>
+<div class="card red">
+<h3>⚠⚠ The diagnosis correction — record this, not the first story</h3>
+<p>Grant all-files, return, screen <b>stayed</b> declined; force-close then passed immediately.
+Claude's theory was a <b>settle race</b> and built a 5×400 ms retry loop on it.</p>
+<p class="hi">The logs disproved it the moment they existed: every retry read
+<code>realStorage=false</code> through attempt 4, and the successful grant passed on <b>attempt 0</b>.
+The retries never rescued a grant.</p>
+<p><b>Real defect:</b> <code>LifecycleResumeEffect</code> evaluated <b>once</b> and <b>latched</b>
+<code>StorageDeclined</code> with nothing left to re-evaluate. <b>Latched state, not a timing race.</b>
+The fix that mattered was re-evaluating on resume. ⭐ A fix built on an unverified theory can pass its
+test for a reason unrelated to the theory — the instrumentation added in the same patch is the only
+reason this did not ship recorded as a race that never existed.</p>
+<p><b>Also fixed:</b> Exit was a <b>dead button</b> — <code>popBackStack()</code> from the nav START
+destination has nothing to pop and no-ops. Now finishes the activity.</p>
+<p><b>New:</b> gate logging, tag <code>ConvoyGate</code> —
+<code>adb -s &lt;serial&gt; logcat -s ConvoyGate</code>. ⚠ <code>MediaProvider</code> "Failed to update
+quota type for <code>.authority_probe</code>" is <b>noise</b>, present on clean passes too.</p>
+</div>
+
+<h2>✅ API 36 — the April blocker does not exist</h2>
+<div class="card green">
+<p class="hi">⭐⭐ <b>The all-files toggle does NOT grey out at target 36 on Android 16.</b> Confirmed on
+device. This kills the whole worst-case branch: no force-off-then-grant, no gated explainer bracketing
+two OS-settings trips, no double-prompt UX. That question is why this branch exists.</p>
+<p>Nothing in Android 16's documented behaviour changes touches <code>MANAGE_EXTERNAL_STORAGE</code> —
+the API-36 storage changes are photo-picker/selected-media. April's retreat to 35 was far more likely
+the record-vs-UID divergence than a platform rule.</p>
+<p>⚠ Naming, so it stays out of the release notes: <b>Android 16 IS API 36.</b> There is no "Android 16
+API level 15." From Aug 31 every <b>update</b> must target 36; API 35 only keeps a published build
+discoverable.</p>
+</div>
+
+<h2>▶ Next session — 2.6f is four items from the AAB</h2>
+<div class="card blue">
+<ol>
+<li><b>Merge</b> <code>test/authority-api36</code> → <code>feature/convoy-event-ride</code>.</li>
+<li><b>Version code</b> — git-derived and can regress. Confirm it is above what is published.</li>
+<li><b>AAB → upload → review.</b> Review time is not ours to control; new target SDK + changed
+all-files flow on a re-review.</li>
+<li class="hi"><b>File the Nov 1 extension form.</b> Still not done. Costs a form; takes the deadline
+off the critical path.</li>
+</ol>
+<p><b>✂ Dropped from the gate list:</b> asset copy + content-grep (no asset change — internal
+requirement only) · cache-buster (no asset update, and clear-cache is a working remedy again) ·
+credential rotation (ngrok never used, MySQL creds already changed).</p>
+</div>
+<div class="card amber">
+<h3>⚠ Held OUT of 2.6f, deliberately</h3>
+<p>Discard refactoring, map-recipe re-import and route recovery were floated for this release
+(<i>"that will bulletproof the app"</i>) and held to <b>2.6g</b> on the 08-15 reasoning: <i>2 weeks +
+hard deadline = do ONE thing well</i>. All three touch save paths or new code paths — and the save path
+is what graduates a WIP into a permanent route, i.e. the machinery behind the only unrecoverable data
+class. Designs are captured in Living Master <b>00-DISCARD-DESIGN</b> and <b>00-STARTUP-SURVEY</b> so
+nothing is re-derived.</p>
+<p class="hi">⭐ If time opens up, the cheapest real win is <b>archive-on-graduate</b>: copy the WIP JSON
+into a <code>completed/</code> subfolder at save time. No new read path, no format decision, and it
+closes the only unrecoverable class on its own.</p>
+</div>
+
+<h2>⚠ Method — what today reinforced</h2>
+<div class="card red">
+<ul>
+<li class="hi"><b>The cheaper test passing is not evidence the expensive one will.</b> Clear-cache passed
+byte-identical and would have been accepted as proof the install work was done. Fred pushed for the
+uninstall/reinstall anyway — that is the run that found the defect.</li>
+<li><b>Capture the log before the buffer rolls.</b> 353,608 lines; the answer was three
+<code>I/</code> lines in it. Five-minute diagnosis instead of another evening.</li>
+<li class="hi"><b>A guard and the thing it guards must share a lifetime.</b> App-private state protecting
+public-storage data. It reads as correct in review because both halves are individually sensible — look
+for the shape wherever a flag decides whether to touch data that outlives the flag.</li>
+<li><b>Instrumentation before theorising, again.</b> The gate emitted nothing, so its decisions had to be
+inferred from platform quota noise. One log line per evaluation turned the next question into a reading
+— and immediately disproved the theory a fix had just been built around.</li>
+<li><b><code>cat -A</code> when an anchor spans lines.</b> A <code>sed</code>-derived anchor missed a
+blank line; the patch aborted at anchor 6 of 6, no write, tree clean. Re-issued as
+<code>...16b.py</code> with the rationale in the header rather than reusing the name.</li>
+<li><b>Unplug the protected device.</b> Droid 1 was on the bus with an <code>uninstall</code> queued
+next. Two devices attached means a missing <code>-s</code> errors rather than picking one, so the real
+exposure was a mistyped serial — still a stop-and-unplug moment on 89K trails with no backup.</li>
+</ul>
+</div>
+
+<h2>📦 State at EOD</h2>
+<div class="card">
+<ul>
+<li>HEAD <code>a9f327780</code> on <code>test/authority-api36</code>. Preceding:
+<code>c503b3247</code> (stamp-if-missing) → <code>233e61e50</code> (marker to shared storage + row
+guard) → <code>a9f327780</code> (gate retry/logging/Exit).</li>
+<li><b>Droid 2</b> <code>24039703201775</code> — carries the <code>a9f327780</code> release build and a
+full rebuilt dataset: <b>152,200 trails · 88 tracks · 559 waypoints</b>,
+<code>grouptrack_data.db</code> 28.4 MB, <code>grouptrack_spatial.db</code> 281 MB,
+<code>.db_schema_version</code> present = <code>3</code>.</li>
+<li><b>Droid 1</b> <code>8624SBCEDF00001789</code> — PROTECTED, unplugged early, took no part in
+destructive testing. Still on the pre-08-16 build.</li>
+<li><b>Patch scripts</b> (Downloads): <code>patch_db_schema_marker_shared_2026-08-16.py</code> ·
+<code>patch_db_marker_stamp_if_missing_2026-08-16.py</code> ·
+<code>patch_authority_gate_states_2026-08-16b.py</code> ·
+<code>patch_gate_resume_retry_2026-08-16.py</code>. ⛔ Delete
+<code>patch_authority_gate_states_2026-08-16.py</code> (no suffix) — it aborted and was superseded by
+the <code>b</code> re-issue.</li>
+<li><code>.bak_*</code> files from four patches are in the tree, untracked/ignored.</li>
+<li class="hi">⚠ <b>Refuse-to-create (00-REFUSE) remains unbuilt</b> and is now load-bearing rather than
+aspirational. Today's fix closes this trigger; refuse-to-create is what makes the NEXT unknown trigger
+loud instead of silent. No backup, 50–60 GB.</li>
+<li><b>Manual not regenerated this session</b> — no asset change in 2.6f, so nothing shipped stale. The
+3 <code>PENDING-REDOC-2026-08-06</code> markers and the wrong planning-K section are unchanged and
+carry to 2.6g.</li>
+</ul>
+</div>
+
+</div></body></html>

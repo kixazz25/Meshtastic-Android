@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GroupTrack — Design Record — Trail Data, Route Suggestion, Width Ruler — 2026-08-17</title>
+<style>
+ :root{--bg:#0f1216;--panel:#161b22;--panel2:#1c2229;--line:#30363d;--fg:#e6edf3;
+   --muted:#8b949e;--accent:#58a6ff;--red:#f85149;--amber:#d29922;--green:#3fb950;}
+ *{box-sizing:border-box}
+ body{margin:0;padding:28px 20px 80px;background:var(--bg);color:var(--fg);
+  font:15px/1.6 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+ .wrap{max-width:1080px;margin:0 auto}
+ header{border-bottom:2px solid var(--accent);padding-bottom:14px;margin-bottom:26px}
+ h1{margin:0 0 6px;font-size:25px} .sub{color:var(--muted);font-size:14px}
+ h2{font-size:19px;margin:34px 0 12px;padding-bottom:6px;border-bottom:1px solid var(--line);color:var(--accent)}
+ h3{font-size:15px;margin:20px 0 8px;color:var(--fg)}
+ .card{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--line);
+   border-radius:6px;padding:13px 15px;margin:10px 0}
+ .card.red{border-left-color:var(--red)} .card.amber{border-left-color:var(--amber)}
+ .card.green{border-left-color:var(--green)} .card.blue{border-left-color:var(--accent)}
+ code{background:var(--panel2);border:1px solid var(--line);border-radius:4px;padding:1px 5px;
+   font:13px ui-monospace,Consolas,monospace;color:#a5d6ff}
+ pre{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:11px 13px;
+   overflow-x:auto;font:12.5px/1.5 ui-monospace,Consolas,monospace;color:#a5d6ff}
+ table{width:100%;border-collapse:collapse;margin:12px 0;font-size:14px}
+ th,td{border:1px solid var(--line);padding:7px 10px;text-align:left;vertical-align:top}
+ th{background:var(--panel2);color:var(--accent)}
+ ul,ol{margin:7px 0 7px 20px} li{margin:5px 0}
+ .hi{color:#ffd479} .muted{color:var(--muted)}
+ .num{text-align:right;font-family:ui-monospace,Consolas,monospace}
+</style></head><body><div class="wrap">
+<header>
+<h1>GroupTrack — Design Record</h1>
+<div class="sub">2026-08-17 &middot; Trail data reality · route-suggestion scoring · the width ruler<br>
+<b>SOURCE: measured against <code>utah.gpkg</code> (Geofabrik free, OSM as of 2026-07-29) and the
+2026-08-11 spatial DB backup from Droid 1. Every number below came off those two files, not from
+estimation.</b></div>
+</header>
+
+<div class="card blue">
+<p class="hi">⭐ WHY THIS EXISTS. The 2.7 "most interesting route" feature was moved up into 2.6g on
+the reasoning that we are already inside route handling and the authority/install work that pushed it
+out resolved in two days rather than the protracted slog budgeted for. That is a sound reason to
+reverse the decision. But moving it up made the data question urgent, and investigating it changed
+the design substantially &mdash; the differentiator does <b>not</b> rest where we assumed it did.</p>
+</div>
+
+<h2>1. What the trail data actually contains</h2>
+
+<div class="card red">
+<h3>⛔ Finding 1 — the OSM import carries geometry and name, nothing else</h3>
+<p>Rows in <code>trails</code> from the OSM imports have <code>carto_code</code> and
+<code>source_id</code> <b>both empty</b>. No class, no grade, no width, no access. The extract's class
+list (<code>track</code>, <code>track_grade1</code>&ndash;<code>5</code>, <code>path</code>,
+<code>bridleway</code>, <code>unclassified</code>) was used to decide <em>what to keep</em> and then
+discarded rather than written to the row.</p>
+<p><b>Scale of it:</b> 112,696 trails with no <code>carto_code</code> against ~47,600 classified. The
+classified ones are the <b>Utah government trail dataset</b> from the V2.5 work, carrying that agency's
+permitted-use taxonomy. The OSM imports never had a mapping written, because the two vocabularies
+describe different things.</p>
+</div>
+
+<div class="card red">
+<h3>⛔ Finding 2 — OSM grade does NOT mean OHV permission. They are orthogonal.</h3>
+<p><code>tracktype</code> (grade1&ndash;5) classifies <b>surface firmness, construction and
+maintenance</b> &mdash; grade1 hardest/paved, grade5 unimproved. It began life as a passability measure
+and drifted to firmness. <b>Legal access is a different tag entirely</b> (<code>access</code>,
+<code>motor_vehicle</code>, <code>atv</code>, <code>ohv</code>/<code>orv</code>,
+<code>maxwidth</code>), and access defaults are country- and land-manager-specific.</p>
+<p class="hi">⚠ In <b>arid regions specifically</b> &mdash; i.e. Utah and Arizona &mdash; the OSM wiki
+notes mappers often cannot apply the drainage/maintenance criteria that separate grade3 from grade4 and
+fall back on firmness or smoothness. So the middle of the scale is least reliable exactly where we
+operate.</p>
+<p><b>What OSM does give us:</b> <code>highway=track</code> implies the way is wide enough for a typical
+four-wheeled vehicle. <code>path</code> and <code>bridleway</code> do not. <b>That is a real rideability
+signal even with no permission data.</b></p>
+</div>
+
+<div class="card amber">
+<h3>⚠ Finding 3 — the free Geofabrik extract cannot supply permission or width</h3>
+<p><code>gis_osm_roads_free</code> columns, read from the file:</p>
+<pre>fid · geom · osm_id · code · fclass · name · ref · oneway · maxspeed · layer · bridge · tunnel</pre>
+<p><b>No <code>motor_vehicle</code>, no <code>atv</code>, no <code>ohv</code>, no <code>maxwidth</code>,
+no separate <code>tracktype</code>.</b> Those tags exist in OSM but are not in the free export. Getting
+them means the full PBF or Geofabrik's paid extended export &mdash; a different pipeline, real work.</p>
+<p class="hi">⭐ But <code>fclass</code> IS present, and Geofabrik folds tracktype into it: the values
+are exactly <code>track_grade1</code>&ndash;<code>5</code>, <code>track</code>, <code>path</code>,
+<code>bridleway</code>, <code>unclassified</code>. <b>The grade data we thought was missing is in the
+file we already have.</b> It is one field away from being usable.</p>
+</div>
+
+<div class="card">
+<h3>Finding 4 — the grade distribution, measured (Utah)</h3>
+<table>
+<tr><th>fclass</th><th class="num">count</th><th>read</th></tr>
+<tr><td><code>track</code></td><td class="num">49,514</td><td>vehicle-width, <b>no grade given</b></td></tr>
+<tr><td><code>path</code></td><td class="num">15,567</td><td>not vehicle-width &rarr; exclude</td></tr>
+<tr><td><code>unclassified</code></td><td class="num">14,459</td><td>minor public road &mdash; real road, include</td></tr>
+<tr><td><code>track_grade5</code></td><td class="num">9,832</td><td>unimproved &mdash; <b>largest graded group</b></td></tr>
+<tr><td><code>track_grade3</code></td><td class="num">5,508</td><td>middle, least reliable in arid terrain</td></tr>
+<tr><td><code>track_grade2</code></td><td class="num">3,863</td><td>unpaved, imported material</td></tr>
+<tr><td><code>track_grade4</code></td><td class="num">3,477</td><td>middle, least reliable in arid terrain</td></tr>
+<tr><td><code>bridleway</code></td><td class="num">1,471</td><td>not vehicle-width &rarr; exclude</td></tr>
+<tr><td><code>track_grade1</code></td><td class="num">327</td><td>paved &mdash; almost absent</td></tr>
+</table>
+<p class="hi">⭐⭐ <b>68% of tracks (49,514 of 72,521) carry NO grade.</b> A ride-quality term built on
+grade is blind on two-thirds of the network. And <b>grade5 is the largest graded group</b> &mdash;
+this is a backcountry network, so grade5 cannot be a rejection criterion without discarding the biggest
+classified set in the state.</p>
+</div>
+
+<h2>2. The rideability rule (settled)</h2>
+<div class="card green">
+<p><b>Fred's stance, and the data forces it anyway:</b> <i>"error on the side of inclusive"</i> and
+<i>"go one layer up in classification just to be more inclusive."</i> Excluding a rideable trail is
+worse than including a marginal one &mdash; a rider can look at a route and reject it, but cannot see
+what was filtered out.</p>
+<table>
+<tr><th>Decision</th><th>Applies to</th></tr>
+<tr><td><b>INCLUDE</b></td><td><code>track</code> + all <code>track_grade*</code> + <code>unclassified</code></td></tr>
+<tr><td><b>EXCLUDE</b></td><td><code>path</code> + <code>bridleway</code> (17,038 ways &mdash; not vehicle-width)</td></tr>
+<tr><td><b>GRADE</b></td><td><b>a weak SCORING term, never a filter</b>, applied only where present</td></tr>
+</table>
+<p class="hi">⭐ Grade-as-score rather than grade-as-filter also keeps the network connected: a single
+grade5 link between two grade2 stretches must not break a route. The suggester prefers firmer ground
+when it has a choice and accepts rough ground to complete a good loop.</p>
+<p><b>THE CHANGE THIS REQUIRES:</b> carry <code>fclass</code> into the <code>trails</code> table at
+import. One field, in a pipeline already built. It pays off three times &mdash; the path/bridleway
+exclusion, the map colouring something meaningful instead of 70% cyan, and the routing objective
+getting its rideability input.</p>
+<p class="note">⚠ Also worth pulling from the same GPKG while there:
+<code>gis_osm_water_a_free</code> (lakes/reservoirs as scenic attractors &mdash; we currently only have
+springs as points) and <code>gis_osm_protected_areas_a_free</code>. <b>The second is the one permission
+signal the free extract does give us:</b> designated wilderness prohibits motorized use entirely, so a
+route crossing it is a hard error, not a preference.</p>
+</div>
+
+<h2>3. Scenic scoring — what is available today</h2>
+<div class="card green">
+<p><b><code>reference_points</code>: 16,992 rows, <code>fclass</code>-indexed and bbox-indexed.</b> This
+was the good surprise &mdash; the scenic layer is already imported.</p>
+<table>
+<tr><th>Attractors (~11,773)</th><th>Settlement / navigational (~5,220)</th></tr>
+<tr><td>peak 6,051 · spring 4,855 · cliff 525 · volcano 131 · cave_entrance 96 · tree 80 · island 26 · beach 8</td>
+<td>locality 3,271 · hamlet 1,220 · village 436 · town 143 · suburb 47 · county 42 · city 40 · farm 21</td></tr>
+</table>
+<p>Separately, <code>waypoints</code> holds 559 rows, all <code>trailhead</code> &mdash; trail-network
+access points, a different job.</p>
+</div>
+
+<div class="card">
+<h3>The objective function</h3>
+<p><b>Maximize interestingness subject to constraints</b> &mdash; not minimize distance. That inversion
+is the differentiator; existing nav optimizes shortest/fastest and cannot easily do this because they
+lack OHV trail data and the objective is wrong for them.</p>
+<p><b>Hard constraints (a candidate fails):</b> total distance within 45&ndash;60 mi · estimated ride
+time 5&ndash;9 h (RideCalc, 10&ndash;15 mph) · passes through all assigned drop points · connected on
+the trail graph.</p>
+<table>
+<tr><th>Score term</th><th>Computed from</th><th>Available</th></tr>
+<tr><td>Scenic proximity</td><td>weighted attractor count within a buffer of the path</td><td>✅ 11,773 pts, indexed</td></tr>
+<tr><td>Loop closure</td><td>start/end distance ratio</td><td>✅ geometry</td></tr>
+<tr><td>Variety</td><td>penalty for re-traversing a segment</td><td>✅ graph</td></tr>
+<tr><td>Settlement avoidance</td><td>negative weight near town/village/hamlet</td><td>✅ 5,220 pts</td></tr>
+<tr><td>Ride quality (grade)</td><td><code>fclass</code> grade where present</td><td>⚠ after import change; blind on 68%</td></tr>
+<tr><td>Elevation gain / variety</td><td>&mdash;</td><td>❌ no elevation data anywhere</td></tr>
+<tr><td>Legal OHV permission</td><td>&mdash;</td><td>❌ Utah state data only; <b>nothing for Arizona</b></td></tr>
+</table>
+<p class="hi">⚠⚠ <b>THE CONCLUSION THAT MATTERS:</b> v1 is carried by <b>scenic proximity, loop closure,
+variety and the distance/time envelope</b>. Grade is a tiebreaker on a third of the network. "Trail
+quality and difficulty" &mdash; named first when the feature was described &mdash; is <b>not</b>
+available and should not be claimed.</p>
+<p><b>Open design decisions:</b> (a) buffer distance for "passes near" &mdash; a peak two miles off
+trail is not part of the ride; half a mile is a starting value, needs tuning. (b) <b>Does v1 produce
+ONE route or 3&ndash;4 distinct ones?</b> Multi-route with coverage across all drop points is a
+substantially harder optimization than best-single-route. Recommendation: v1 = one route per drop-point
+set, and the user groups the points themselves.</p>
+</div>
+
+<div class="card red">
+<h3>⛔ The safety boundary — non-negotiable</h3>
+<p>For <b>Arizona there is no permission data at all</b>, and OSM lags real-world closures everywhere.
+Routing a rider onto a trail where motorized use is prohibited &mdash; by travel management plan,
+wilderness designation, or private land &mdash; is a different class of error from a dull route.</p>
+<p><b>Any suggested route built from OSM-only trails must say so in the UI and point at the land
+manager's MVUM / BLM designation as the authority.</b> This is not legal cover; it is the difference
+between a useful tool and one that strands someone on a closed trail.</p>
+</div>
+
+<h2>4. The width ruler (Fred, 2026-08-17)</h2>
+<div class="card green">
+<p class="hi">⭐ <b>The problem it solves:</b> at z16 and below on satellite imagery a rider can tell a
+hiking/biking/bridle trail from a vehicle track, but <b>cannot tell a 54" trail from a 72" one</b>
+&mdash; and that is exactly the fact OSM cannot supply either.</p>
+<p><b>The mechanic:</b> a rotatable on-map reference, positioned along a trail, sized in real-world
+units. Meters-per-pixel is known exactly at any zoom and latitude, so the scale is exact even though
+the imagery is not.</p>
+<p><b>Two bands, not one and not a tick scale:</b> inner mark at <b>50"</b>, outer at <b>72"</b>
+&mdash; the UTV range. Three readable outcomes: narrower than inner · between the bands · wider than
+outer. Between-the-bands is the honest "go check the MVUM" signal rather than a number to trust.</p>
+<p class="note">⛔ <b>Deliberately NOT a tick-marked scale.</b> Ticks invite reading a measurement off
+imagery that cannot support one. The tool answers "which side of these two widths", not "how many
+inches".</p>
+</div>
+<div class="card amber">
+<h3>⚠ Honest limits — these belong in the UI, not just this doc</h3>
+<ul>
+<li><b>Imagery resolution is the real limit, not zoom.</b> Google Hybrid is roughly 0.3&ndash;0.6 m/px
+in rural terrain. 50" = 1.27 m ≈ 2&ndash;4 px; 72" = 1.83 m ≈ 3&ndash;6 px. Beyond a point you are
+looking at upsampled tiles, not more detail &mdash; the tool is honest at some scales and misleading at
+others, and should say which.</li>
+<li><b>The gap between the bands is only ~0.56 m</b> &mdash; a pixel or two. They will often look
+nearly coincident. <b>That is the correct behaviour</b>: it shows the rider the distinction is at the
+edge of what the imagery resolves. The visual must survive near-overlap without looking broken.</li>
+<li><b>What you see is the disturbed corridor, not the legal tread</b> &mdash; often wider than the
+tread, sometimes narrower under tree cover. Eight feet of visible scar may be a 50" trail with
+braiding.</li>
+<li class="hi"><b>Erring large is the right failure mode.</b> Fred: <i>"error on the large side, 74"
+vs 50" &mdash; that should be discernable."</i> A marginal trail gets flagged for verification rather
+than a rider being sent home on a false negative, and a wide machine is never told a narrow trail
+fits.</li>
+<li><b>Colour:</b> desert imagery is tan/orange, so warm colours vanish. Cyan + magenta hold up on arid
+ground and stay distinguishable for most colour-vision types. Avoid a red/green pair.</li>
+</ul>
+<p><b>Sequencing:</b> the ruler is a <b>2D overlay computed from meters-per-pixel</b> &mdash; it works
+on the existing Leaflet map today, standalone, with no dependency on the renderer decision. Build it in
+2.6g. When MapLibre lands it gains terrain context for free.</p>
+</div>
+
+<h2>5. Terrain — why it is 2.7, and what it drags with it</h2>
+<div class="card blue">
+<p>3D terrain would address what the data cannot: no elevation column, no grade on 68% of tracks, no
+width. A rider could judge steepness, exposure and drainage crossings directly &mdash; which is most of
+what "is this rideable" actually means.</p>
+<p><b>But it rides on the MapLibre swap</b>, the largest single piece on the roadmap, and the convoy
+tracking rewrite depends on the same decision. The ruler does not need to wait for it; terrain does.</p>
+<p class="hi">⚠ <b>For the 2.7 scoping, flag now:</b> terrain rendering needs an elevation source
+(DEM tiles / terrain-RGB) &mdash; that is <b>another offline data store alongside the 50&ndash;60 GB of
+imagery</b>, so it is a storage and download-pipeline question as much as a rendering one. It belongs
+in the MapLibre scoping rather than being discovered afterwards.</p>
+</div>
+
+<h2>5b. CORRECTIONS to sections 1–2 (same session, later in the conversation)</h2>
+<div class="card red">
+<h3>⛔ <code>fclass</code> as an EXCLUSION FILTER is WITHDRAWN</h3>
+<p>Section 2 above proposed excluding <code>path</code> and <code>bridleway</code> using
+<code>fclass</code>. <b>Fred's objection kills it:</b> <i>"it would not add it as allowed usage, it
+would eliminate some trails from the planning process and we have no idea what some is."</i></p>
+<p>Acting on a crowd-sourced classification with no accuracy guarantee means removing trails from
+planning based on a tag we cannot audit. <b>That is a worse failure than the one it fixes.</b> A hiking
+trail appearing in the candidate set is VISIBLE — the rider sees it and rejects it. A rideable trail
+silently filtered out is INVISIBLE. It also contradicts the inclusive stance the same section
+adopts.</p>
+<p><b>If <code>fclass</code> has a role it is a display hint or a soft score</b> — colour a trail
+differently, rank it lower, leave it visible and selectable. That is a much smaller claim and does not
+justify an upsert redesign plus a two-state re-import.</p>
+</div>
+<div class="card amber">
+<h3>⚠ The re-import is NOT a prerequisite — sequence corrected</h3>
+<p>Section 7 lists carrying <code>fclass</code> as item 3, a gate before the suggester. <b>That was
+wrong.</b> Two reasons:</p>
+<ul>
+<li><b>The exclusion it was meant to enable is withdrawn</b> (above), so most of its value evaporates.</li>
+<li><b>The Utah subset already has this signal.</b> <code>carto_code</code> drives the map colours today
+(yellow Hiking Only, purple Biking Only). On the 30% with Utah data, exclusion information already
+exists. <code>fclass</code> would only add it for the OSM 70%.</li>
+</ul>
+<p><b>And the mechanics are worse than assumed:</b> <code>SpatialDbManager.kt:1659</code> is
+<code>INSERT OR IGNORE INTO trails (...)</code> and the column list does not include
+<code>carto_code</code> at all. Against <code>UNIQUE(geom_hash)</code> a re-import would <b>skip every
+existing row and change nothing</b>. Carrying a new field needs an upsert or a targeted
+<code>UPDATE</code> keyed on <code>geom_hash</code> — bulk writes to a spatial DB that has been emptied
+three times this month, with refuse-to-create still unbuilt.</p>
+<p class="hi">⭐ <b>Net: the trail-data work comes OFF the critical path.</b> It is a route-quality
+improvement, not a gate. ⭐ <b>Extract-time filtering</b> was raised as an alternative (no upsert, no
+bulk write — the extract already filters, <code>candidate_rows 201757 → kept 104186</code>). Right
+mechanism, wrong policy for a classification we do not trust: it makes the exclusion permanent AND
+invisible. <b>Better version: carry <code>fclass</code> at extract and filter nothing</b> — the field
+lands, everything stays visible, the app decides reversibly.</p>
+<p class="note">⚠ Context that softened this: trails visible on the basemap imagery are NOT limited to
+what is in the DB. A rider always sees more than we catalogue, and can evaluate anything with the width
+ruler. So DB exclusion removes a trail from the ROUTING CANDIDATE SET, not from view. ⬜ <b>OPEN:</b>
+does the planner allow drawing a route over terrain with no DB trail underneath, or does route-building
+SNAP to catalogued trails? If it snaps, an excluded trail really is unusable for planning and the ruler
+only helps evaluate something that cannot be planned through.</p>
+</div>
+<div class="card">
+<h3>The trail attribute layer, as it actually stands (measured)</h3>
+<p><code>trail_properties</code> — 160,628 rows, one per trail, in the EXTENSION DB
+(<code>grouptrack_data.db</code>), not the spatial DB.</p>
+<table>
+<tr><th>Column</th><th>Populated</th><th>Note</th></tr>
+<tr><td><code>source_id</code>, <code>agency_id</code></td><td>160,628 (all)</td><td>⭐ provenance DOES exist — it is here, not on <code>trails</code></td></tr>
+<tr><td><code>surface_type</code>, <code>carto_code</code>, <code>county</code></td><td>47,932</td><td>the Utah (UGRC) subset</td></tr>
+<tr><td><code>designated_uses</code></td><td>43,417</td><td>Multiuse 38,688 · Pedestrian 2,746 · Bike 1,459</td></tr>
+<tr><td><b><code>motorized_allowed</code></b></td><td><b>0 — EMPTY</b></td><td>column designed for it, nothing ever written</td></tr>
+</table>
+<p><b><code>surface_type</code> is a genuine addition:</b> Unpaved 30,576 / Paved 17,046 — complete
+across the Utah subset, unlike OSM grade which is missing on 68%.</p>
+<p class="hi">⚠ <b>But <code>designated_uses</code> is NOT permission.</b> "Multiuse" does not say
+whether motorized is included. Same shape as <code>carto_code</code>: a use taxonomy separating
+hiker-only from shared, not motorized from non-motorized. <b>Nothing in either dataset affirmatively
+says "OHVs are allowed here."</b></p>
+<p><b>SOURCES, measured:</b> <code>osm</code> 112,696 · <code>ugrc_utah_trails</code> 47,932. <b>No BLM
+data at all</b> — the Utah set is UGRC, the state geographic resource center. ⚠ And
+<code>trail_sources</code> — the registry table — is <b>EMPTY</b>, while every trail carries a
+<code>source_id</code> string. Provenance is written without a corresponding source record.</p>
+<p class="note">⚠ Data hygiene for anyone switching on these strings: the literal text
+<code>null</code> appears in <code>designated_uses</code> (459) and <code>surface_type</code> (309),
+plus a blank-with-space and a trailing-space <code>"Paved "</code>.</p>
+</div>
+
+<h2>5c. BLM RESTRICTIONS — the real permission source (researched 2026-08-17)</h2>
+<div class="card green">
+<p class="hi">⭐⭐⭐ <b>Fred's framing, which is the correct one:</b> what we want to process is
+<b>BLM restrictions, by area or trail</b> — and BLM only has authority over BLM land. This is a
+RESTRICTIONS layer, not a geometry source. BLM was previously evaluated and set aside on coverage
+grounds (OSM and UGRC give far more trails) — that judgement was about GEOMETRY. The designation
+attributes are a different axis and nothing else provides them.</p>
+<h3>What BLM publishes</h3>
+<table>
+<tr><th>Dataset</th><th>Scope</th><th>Carries</th></tr>
+<tr><td><b>State OHV Designation polygons</b><br><code>OHV_DSG_PUB_POLY</code> (e.g. "BLM UT Off-Highway Vehicle Designations (Polygon)")</td><td><b>STATE-level</b> — not per-field-office, not national</td><td><b>Open / Limited / Closed</b> per CFR 8342, plus special restrictions (designated-routes-only, seasonal-use-only). Set through the RMP process.</td></tr>
+<tr><td><b><code>BLM_Natl_GTLF</code></b> (Ground Transportation Linear Features)</td><td><b>NATIONAL</b>, route-level</td><td><code>PLAN_OHV_ROUTE_DSGNTN</code> Open/Closed/Limited · <code>PLAN_MODE_TRNSPRT</code> Motorized/Non-Motorized/Non-Mechanized · <code>PLAN_ALLOW_MODE_TRNSPRT</code> (HIK_ONLY, EQU_ONLY, +19) · <code>PLAN_ASSET_CLASS</code> (road / primitive road = 4WD high-clearance / trail) · <code>OHV_DSGNTN_LIM_EXPLAIN</code> (250 chars)</td></tr>
+<tr><td><b>BLM Natl NLCS Wilderness Areas Polygons</b></td><td>NATIONAL</td><td>Wilderness, WSAs, Other Related Lands — motorized prohibited outright</td></tr>
+</table>
+<p><b>All downloadable</b> from the BLM Geospatial Business Platform Hub as Shapefile, File
+Geodatabase, GeoJSON, KML, CSV or GeoServices. For two states that is two polygon downloads, not
+fifty.</p>
+<p class="hi">⭐⭐ <b>"LIMITED" IS THE DESIGNATION THAT MATTERS, and it is almost certainly dominant in
+our riding areas.</b> It does not mean vaguely-restricted — it means <b>you must stay on designated
+routes</b>. So an area being Limited is NOT permission to plan freely within it. This is precisely
+where the two layers compose:</p>
+<ul>
+<li><b>Area polygons</b> answer <i>can I be here at all</i> — Closed blocks outright, Open permits free
+routing, <b>Limited means routes-only</b></li>
+<li><b>GTLF routes</b> resolve the Limited case — which specific routes carry the designation</li>
+</ul>
+<p><b>This is the first thing that lets the planner say something AFFIRMATIVE</b> rather than "not
+obviously prohibited."</p>
+</div>
+<div class="card red">
+<h3>⛔ Limits that belong in the UI, not just this doc</h3>
+<ul>
+<li><b>BLM land only.</b> USFS MVUM is a separate dataset; state, tribal and private land are covered by
+neither. <b>Outside BLM land the layer is SILENT, and silence must not read as "open."</b> Shading only
+BLM-restricted areas means unshaded ground includes land under entirely different rules.</li>
+<li><b>BLM explicitly says to verify current limitations with the local field office</b>, as restrictions
+may vary from what the data depicts.</li>
+<li><b>Routes may be additionally limited by time and/or season</b> — so "Open" is not unconditional.</li>
+<li>Some legacy field-office datasets carry scale limits (e.g. not to be used beyond 1:24,000).</li>
+</ul>
+</div>
+<div class="card blue">
+<h3>The planner behaviour Fred specified</h3>
+<p><b>Highlight restricted areas in colour, and block vertex dropping inside them.</b> Mechanically:
+polygon overlay for display, point-in-polygon on tap for the block.</p>
+<ul>
+<li class="hi"><b>Blocking silently is worse than blocking with a reason.</b> A tap that does nothing
+reads as a bug. Show the area name and its designation — same reasoning as the authority gate's
+declined screen.</li>
+<li class="hi"><b>A route can CROSS a closed area with no vertex inside it.</b> Two points either side
+and the path between crosses. So the polygon test must also run on the <b>route line</b>, not just on
+the tap.</li>
+<li><b>Label honestly.</b> Until MVUM is ingested, the layer shows BLM designations — say that, rather
+than "restricted areas", which implies coverage we do not have.</li>
+</ul>
+</div>
+
+<h2>5d. THE SOURCE REGISTRY + BBOX SELECTION MODEL (Fred, 2026-08-17)</h2>
+<div class="card green">
+<p class="hi">⭐⭐ <b>The design:</b> rather than a per-state checklist, the user selects an AREA;
+sources are chosen by intersecting that area against each source's recorded coverage boundary; each
+selected source is then imported within the same bbox. <b>Ride area, not administrative geography</b> —
+which matches how people plan, since trips cross state lines without anyone caring.</p>
+<p><b>TWO ENTRY POINTS, ONE PIPELINE.</b> States have bboxes, so "pick Utah" and "draw a rectangle" both
+resolve to a bbox. The state list is a convenience layer over well-known extents — no separate code
+path, no parallel checklist to maintain.</p>
+<p><b>The registry already exists and is already the right shape.</b> <code>trail_sources</code>:
+<code>source_id · name · agency · url · format · trail_types · coverage_state · boundary · approved ·
+last_checked_at</code>. Someone designed exactly this and never populated it. <b>Seeding it makes the
+"what sources cover this area" checklist a QUERY rather than a maintained document.</b></p>
+<table>
+<tr><th>source_id</th><th>agency</th><th>kind</th><th>status</th></tr>
+<tr><td><code>ugrc_utah_trails</code></td><td>UGRC</td><td>trails</td><td>in use — 47,932</td></tr>
+<tr><td><code>osm</code></td><td>Geofabrik</td><td>trails</td><td>in use — 112,696</td></tr>
+<tr><td><code>blm_ohv_areas_&lt;st&gt;</code></td><td>BLM</td><td><b>restriction polygons</b></td><td>identified, not built</td></tr>
+<tr><td><code>blm_natl_gtlf</code></td><td>BLM</td><td><b>route designations</b></td><td>identified, not built</td></tr>
+</table>
+<h3>What this forces us to design</h3>
+<ul>
+<li><b><code>boundary</code> must be populated per source</b> before intersection is possible. Geofabrik
+extracts have state bounds, UGRC is Utah, GTLF is national, BLM area layers are per-state. Some are
+rectangles, some real polygons.</li>
+<li class="hi"><b>The registry needs a <code>kind</code> alongside <code>format</code>.</b> Sources
+produce different things — trails, restriction polygons, route designations. bbox selection is uniform;
+what happens after it branches by kind. <b>Restrictions are NOT trails and must not be forced into
+<code>trails</code>/<code>trail_properties</code></b> — they have their own lifecycle and update
+cadence, and forcing them in is how a fourth thing fails to fit later.</li>
+<li><b><code>format</code> is the real work.</b> GPKG, Shapefile, GeoJSON and ArcGIS REST are four
+fetch-and-parse paths. Listing a source is data entry; importing it is not.</li>
+<li><b>State bbox ≠ state.</b> Utah's rectangle clips corners of NV/AZ/CO/WY. ⭐ Fred: <i>"that's ok,
+better more than not enough — our trails already show completely if they cross state lines."</i> So
+spillover is a feature. ⬜ Worth confirming clipped trails arrive WHOLE in the routing graph too, or the
+suggester would treat a clipped segment as a dead end.</li>
+</ul>
+<p><b>Natural starting point, testable against data already held:</b> populate
+<code>trail_sources</code> for the two sources in use, with boundaries, and confirm the intersection
+picks them correctly. No new source required to prove the model.</p>
+</div>
+
+<h2>6. RideCalc and the ride envelope (settled 2026-08-17)</h2>
+<div class="card green">
+<p><b>RideCalc is PURE EXTRACTION &mdash; no new capability.</b> One calculation applied to any
+polyline, three callers: artifact detail (tracks and trails), Route+ (planned routes), and the
+suggester (candidate routes). Exactly the shape the overriding module rule wants, and the reason it
+must be extracted <i>before</i> the suggester rather than alongside it &mdash; it is currently
+duplicated across artifact detail and Route+, so building on the duplicate means doing it twice.</p>
+<table>
+<tr><th>Parameter</th><th>Role</th><th>Adjustable</th></tr>
+<tr><td><b>Speed range</b> (mph)</td><td>Estimation only &mdash; a RANGE, not a point value</td><td>✅ default in settings, user-adjustable</td></tr>
+<tr><td><b>Distance bounds</b> (mi)</td><td><b>The hard constraint</b> the suggester satisfies &mdash; upper AND lower</td><td>✅ default in settings, user-adjustable</td></tr>
+<tr><td><b>Ride time</b></td><td><b>Derived output</b>, reported as a range</td><td>&mdash; never entered directly</td></tr>
+</table>
+<p class="hi">⭐ <b>Why distance carries the constraint and time does not:</b> the two are coupled
+through speed, so making both hard bounds creates a which-one-bound-first problem and a route that
+silently fails the limit the rider cared about. One constraint to satisfy, one range to report. A
+55-mile suggestion reports e.g. 4.5&ndash;6.5 h rather than a single figure that will be wrong.</p>
+<p class="hi">⚠ <b>The LOWER bound matters as much as the upper</b> and is easy to overlook: without
+it the suggester satisfies "under 60 miles" with a 12-mile loop that technically touches every drop
+point. The lower bound is what makes it a day's ride rather than a shortcut.</p>
+<p><b>Why both are adjustable:</b> an experienced group on fast desert two-track and a mixed group
+with newcomers on technical ground need different envelopes, and the app should not try to infer
+which. A rider who sets 6&ndash;10 mph gets an estimate reflecting their reality instead of a default
+that flatters it. Multi-day trip planning falls out of the same control rather than needing separate
+logic.</p>
+<p class="note">⬜ <b>OPEN, not a blocker:</b> the default speed range could be MEASURED from the 88
+recorded tracks (real distances and durations, sitting in the 08-16 backup) rather than assumed at
+10&ndash;15 mph. Cheap to compute, and it would make the estimate defensible instead of guessed
+&mdash; potentially per-rider, since someone's own history predicts their pace better than an
+average.</p>
+</div>
+
+<h2>7. Build sequence &mdash; plumbing first</h2>
+<div class="card blue">
+<p class="hi">⭐ <b>Fred, 2026-08-17:</b> <i>"must is to get all the plumbing out of the way before
+addressing the route suggestion build."</i> Items 1&ndash;5 are all plumbing &mdash; none is the
+feature; all are things the feature would trip over, or that would make it harder to build cleanly.
+Building the suggester on duplicated RideCalc and six discard variants would ADD to the tangle rather
+than work from a clean base.</p>
+<table>
+<tr><th>#</th><th>Item</th><th>Why here</th></tr>
+<tr><td>1</td><td><b>Radio-meter removal</b> (app cancels when selected with no radio attached)</td><td>Hard crash, reachable from the dashboard, and testers are on radio-less devices for the next 14 days</td></tr>
+<tr><td>2</td><td><b>Refuse-to-create</b></td><td>Small, and it protects everything downstream &mdash; bulk DB writes are coming</td></tr>
+<tr><td>3</td><td><b>Carry <code>fclass</code> at import + RE-IMPORT Utah/AZ</b></td><td>⚠ <b>THE LONG POLE, and it is not code time.</b> Utah alone was 104,186 trails from a 663 MB source; AZ on top. Start the clock EARLY &mdash; it finishes on its own schedule. Backfills 112,696 rows.</td></tr>
+<tr><td>4</td><td><b>RideCalc extraction</b></td><td>The suggester needs the envelope; extract before, not during</td></tr>
+<tr><td>5</td><td><b>Discard/save standardization</b></td><td>Five-plus-one boundary, six sites classified by destination</td></tr>
+<tr><td>6</td><td><b>Suggest-trail-route</b></td><td>Depends on 3 and 4</td></tr>
+<tr><td>7</td><td><b>Width ruler</b></td><td>Standalone, 2D, no dependencies &mdash; fits any gap</td></tr>
+</table>
+</div>
+
+<h2>6. What this changes about the plan</h2>
+<div class="card">
+<ol>
+<li><b>Route dedup comes OFF the 2.6g list</b> &mdash; hash-naming is the dedup method, same as tracks.
+Already solved by the naming scheme.</li>
+<li><b>The second route-mode disarm path comes OFF as a separate item</b> &mdash; it is absorbed by the
+discard/save consolidation. Standardize the five, leave the exit/return decision in the calling stream.
+⭐ Consequence: "did we find every disarm path" stops being a discoverable question and becomes a
+<b>classification</b> question &mdash; every one of the six sites gets a deliberate exit-or-stay
+answer. Nothing left to inference. That is the actual fix for the tangle.</li>
+<li><b>Carry <code>fclass</code> at import</b> &mdash; new, small, and it unblocks rideability, the map
+colouring, and the routing objective at once.</li>
+<li><b>RideCalc extraction moves ahead of the suggester</b> &mdash; the suggester needs the time
+envelope, and RideCalc is currently duplicated across artifact detail and Route+. Build on the
+duplicate and you either do it twice or block later.</li>
+<li><b>The width ruler is new scope</b>, standalone, 2D, no renderer dependency.</li>
+<li class="hi"><b>The suggester's claim shrinks to what the data supports:</b> scenic + loop + variety +
+envelope. Still a real differentiator &mdash; big nav optimizes shortest/fastest and lacks OHV trail
+data &mdash; but "trail quality and difficulty" is not part of v1.</li>
+</ol>
+</div>
+
+</div></body></html>

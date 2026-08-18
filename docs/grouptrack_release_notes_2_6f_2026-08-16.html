@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GroupTrack — Release Notes — 2.6f</title>
+<style>
+ :root{--bg:#101510;--panel:#1c211c;--line:#2a3a2a;--fg:#dfe4dc;--muted:#8b938a;
+   --accent:#97d5a5;--amber:#ffd479;--red:#ffb4ab;}
+ *{box-sizing:border-box}
+ body{margin:0;padding:28px 20px 80px;background:var(--bg);color:var(--fg);
+  font:15px/1.6 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+ .wrap{max-width:900px;margin:0 auto}
+ header{border-bottom:2px solid var(--accent);padding-bottom:14px;margin-bottom:26px}
+ h1{margin:0 0 6px;font-size:26px;color:var(--accent)} .sub{color:var(--muted);font-size:14px}
+ h2{font-size:18px;margin:30px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--line);color:var(--accent)}
+ h3{font-size:15px;margin:18px 0 6px}
+ .card{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--line);
+   border-radius:6px;padding:13px 15px;margin:10px 0}
+ .card.key{border-left-color:var(--accent)} .card.warn{border-left-color:var(--amber)}
+ code{background:#0c0f0a;border:1px solid var(--line);border-radius:4px;padding:1px 5px;
+   font:13px ui-monospace,Consolas,monospace;color:#c1c9bf}
+ ul,ol{margin:7px 0 7px 20px} li{margin:5px 0}
+ .hi{color:var(--amber)} .muted{color:var(--muted)}
+ .internal{border:1px dashed var(--line);border-radius:6px;padding:10px 14px;margin:18px 0;
+   color:var(--muted);font-size:13.5px}
+</style></head><body><div class="wrap">
+<header>
+<h1>GroupTrack 2.6f</h1>
+<div class="sub">2026-08-16 &middot; Google Play compliance release &middot; branch
+<code>test/authority-api36</code> → <code>feature/convoy-event-ride</code><br>
+<span class="hi">DRAFT — do not publish until the AAB is built from the merged branch and the version
+code is confirmed.</span></div>
+</header>
+
+<div class="card key">
+<p><b>2.6f is a compliance and data-safety release.</b> There are no new features. It brings GroupTrack
+onto Android 16 (API 36) ahead of Google Play's 31 August requirement, rebuilds how the app asks for
+storage access, and fixes a serious problem in which reinstalling the app could erase your saved trails,
+tracks and waypoints.</p>
+</div>
+
+<h2>What's fixed</h2>
+
+<h3 class="hi">Reinstalling the app no longer erases your data</h3>
+<div class="card">
+<p>A one-time database upgrade step could not tell the difference between a brand-new installation and a
+reinstall over data you already had. On a reinstall it treated your existing databases as out of date and
+cleared them, so trails, tracks and waypoints were lost while your downloaded maps stayed behind.</p>
+<p><b>This is fixed.</b> The app now records the upgrade alongside your data instead of in storage that
+an uninstall wipes, and — as a second, independent safeguard — it will not clear a database that still
+contains records. If it cannot read a database well enough to be sure, it leaves it alone.</p>
+<p class="muted">Downloaded map tiles were never affected by this and did not need recovering.</p>
+</div>
+
+<h3>A clearer setup screen for storage access</h3>
+<div class="card">
+<p>GroupTrack keeps 50–60 GB of offline maps in shared storage so they survive app updates and
+reinstalls, which is why it needs all-files access. The setup screen now:</p>
+<ul>
+<li><b>Only appears when something is actually missing.</b> If access is already granted, GroupTrack goes
+straight to the map with no prompt.</li>
+<li><b>Confirms access by actually using it</b>, rather than trusting the system's answer — which can
+report access the app does not really have.</li>
+<li><b>Tells you plainly what happens if you decline.</b> GroupTrack cannot open your maps, trails or
+tracks without this access and will not start. Exiting is safe: nothing on your device is changed or
+removed, and granting access later leaves everything as you left it.</li>
+<li><b>No longer gets stuck</b> after you grant access and return to the app.</li>
+</ul>
+</div>
+
+<h3>Background location is now optional</h3>
+<div class="card">
+<p>"Allow all the time" location is what lets GroupTrack report your position to your convoy and keep
+recording a track while the screen is off. You can now skip it and continue into the app.</p>
+<p class="hi">You will be reminded each time you start GroupTrack while it is turned off — deliberately.
+Without it, <b>track recording stops when your screen sleeps</b>, and that is not obvious until you get
+home and find the track is short. You can turn it on at any time in Android settings.</p>
+</div>
+
+<h3>Smaller fixes</h3>
+<div class="card">
+<ul>
+<li>The <b>Exit</b> button on the setup screen now closes the app. Previously it did nothing.</li>
+<li>Clearing the app's cache is safe again and no longer resets your setup.</li>
+</ul>
+</div>
+
+<h2>Compatibility</h2>
+<div class="card">
+<p>GroupTrack now targets <b>Android 16 (API 36)</b>, required by Google Play for app updates from
+31 August 2026. Minimum supported version is unchanged at <b>Android 8.0</b>.</p>
+</div>
+
+<div class="internal">
+<b>INTERNAL — strip before publishing to testers.</b>
+<ul>
+<li>Commits: <code>233e61e50</code> marker→shared storage + row-count guard ·
+<code>c503b3247</code> stamp-if-missing · <code>a9f327780</code> gate retry + logging + Exit ·
+plus <code>GATESTATES-2026-08-16B</code>.</li>
+<li>Certified on Droid 2: clear-cache byte-identical; uninstall/reinstall over live data →
+<code>152200 trails, 88 tracks, 559 waypoints</code>, no migration block in the log.</li>
+<li>⚠ <b>Do not claim data loss is impossible.</b> This release closes one trigger. <b>Refuse-to-create
+is still unbuilt</b>, so a failed DB open on another path can still create an empty database over real
+data. Wording above is deliberately scoped to reinstall.</li>
+<li>✅ <b>Delta verified against the live closed test (versionCode 29320854 = <code>2b7252305</code>,
+08-14 14:14):</b> the twelve commits in this AAB are <b>all 2.6f compliance work</b> — gate V2 and its
+wiring, the marker/row-guard fix, gate behaviour + logging + Exit, the version string, one docs recommit.
+The 2.6e route work (corridors, Google Hybrid, refresh redesign, the <code>f9652276c</code> discard fix,
+<code>8df2066a5</code> popup-bind) is all BELOW that point and already in testers' hands. Nothing
+unreleased rides along, so these notes need no coverage of it.</li>
+<li>No asset change in this release, so the bundled manual and in-app release notes are NOT being
+recopied — and since the delta is compliance-only, there is no feature documentation owed either. The 3
+<code>PENDING-REDOC-2026-08-06</code> markers and the stale planning-K manual section carry to 2.6g.</li>
+</ul>
+</div>
+
+</div></body></html>
