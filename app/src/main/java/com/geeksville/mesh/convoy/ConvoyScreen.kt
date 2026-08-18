@@ -1526,7 +1526,20 @@ fun ConvoyScreen(
             modifier = Modifier.align(Alignment.TopEnd).padding(top = 252.dp, end = 12.dp).size(40.dp)
         ) {
             androidx.compose.foundation.layout.Box(contentAlignment = Alignment.Center) {
-                androidx.compose.material3.Text("?", fontSize = 22.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                // PLAINCTRL2-2026-08-17: the word, for the same reason as the others.
+                androidx.compose.material3.Text(
+                    "Help",
+                    fontSize = 13.sp,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                    style = androidx.compose.ui.text.TextStyle(
+                        shadow = androidx.compose.ui.graphics.Shadow(
+                            color = androidx.compose.ui.graphics.Color.White,
+                            offset = androidx.compose.ui.geometry.Offset(0f, 0f),
+                            blurRadius = 6f
+                        )
+                    ),
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp)
+                )
             }
         }
         // -- ARTIFACTS FAB (opens WORK WITH ARTIFACTS expanded; hidden while panel open) --

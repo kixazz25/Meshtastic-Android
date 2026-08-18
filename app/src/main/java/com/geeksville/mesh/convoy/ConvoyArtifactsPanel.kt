@@ -110,7 +110,8 @@ fun ConvoyArtifactsPanel(
                 )
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
-                    "WORK WITH ARTIFACTS",
+                    // PLAINCTRL2-2026-08-17: matches the FAB that opens this panel.
+                    "WORK WITH MAP FEATURES",
                     color = aBlue, fontSize = 11.sp, fontFamily = aMono, fontWeight = FontWeight.Bold,
                     modifier = Modifier.weight(1f)
                 )
@@ -158,6 +159,10 @@ fun ConvoyArtifactsPanel(
 
                         }
                     }
+                    // PLAINCTRL2-2026-08-17: the colour convention is otherwise unguessable.
+                    Text("blue = on   green = available",
+                        color = aTxtD, fontSize = 8.sp, fontFamily = aMono,
+                        modifier = Modifier.padding(start = 4.dp, bottom = 3.dp))
 
                     // Artifact rows
                     ArtifactRow("Tracks",    aBlue,   isConvoyMap, onSetState, onEditDisplay, onImport, displayStates)

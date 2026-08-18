@@ -273,11 +273,13 @@ fun UnifiedSearch(
                 barOpen = !barOpen
                 if (barOpen) showResults = false
             },
-            shape = CircleShape,
-            color = panelBg,
-            contentColor = Color.White,
-            shadowElevation = 6.dp,
-            modifier = Modifier.size(40.dp)
+            // PLAINCTRL2-2026-08-17: the container, not just the label. This Surface still
+            // pinned the control to a 40dp circle after the glyph became a word, so the word
+            // was clipped to its first two letters. Transparent + unsized, matching the
+            // hamburger.
+            shape = RoundedCornerShape(4.dp),
+            color = Color.Transparent,
+            contentColor = Color(0xFF111111)
         ) {
             Box(contentAlignment = Alignment.Center) {
                 // PLAINCTRL-2026-08-17: words, not a glyph -- see the hamburger note in

@@ -1184,14 +1184,29 @@ fun ConvoyMapViewerScreen(
                 modifier = Modifier.align(Alignment.TopEnd).padding(top = 116.dp, end = 12.dp).size(40.dp)
             ) {
                 androidx.compose.foundation.layout.Box(contentAlignment = Alignment.Center) {
-                    androidx.compose.material3.Text("?", fontSize = 22.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                    // PLAINCTRL2-2026-08-17: the word, for the same reason as the others.
+                    androidx.compose.material3.Text(
+                        "Help",
+                        fontSize = 13.sp,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                        style = androidx.compose.ui.text.TextStyle(
+                            shadow = androidx.compose.ui.graphics.Shadow(
+                                color = androidx.compose.ui.graphics.Color.White,
+                                offset = androidx.compose.ui.geometry.Offset(0f, 0f),
+                                blurRadius = 6f
+                            )
+                        ),
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp)
+                    )
                 }
             }
             // -- ARTIFACTS FAB (opens WORK WITH ARTIFACTS expanded; hidden while panel open) --
             if (!showArtifactsPanel) {
                 androidx.compose.material3.Surface(
                     onClick = { showArtifactsPanel = true },
-                    shape = androidx.compose.foundation.shape.CircleShape,
+                    // PLAINCTRL2-2026-08-17: the planner has its OWN artifacts FAB -- round 1
+                    // changed only the convoy one on the assumption it was shared.
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp),
                     color = Color(0xEE131820),
                     contentColor = Color.White,
                     shadowElevation = 6.dp,
@@ -2902,7 +2917,23 @@ fun ConvoyMapViewerScreen(
                 shadowElevation = 6.dp
             ) {
                 Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                    Text("↕", color = Color.White, fontSize = 18.sp)
+                    // === MAPSFAB-2026-08-17B ===
+                    // The word above the arrow. This button opens the transfers panel, whose
+                    // header flips by mode -- so naming the SUBJECT covers both directions,
+                    // and the arrow already says "in and out".
+                    // The circle, its size, its offset and its drag handling are deliberately
+                    // untouched: this FAB is dragged around the map by hand, so its bounds
+                    // must not change. It is the one control that keeps an icon shape.
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Text("MAPS", color = Color.White, fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            lineHeight = 10.sp)
+                        Text("↕", color = Color.White, fontSize = 14.sp,
+                            lineHeight = 15.sp)
+                    }
                 }
             }
         }
