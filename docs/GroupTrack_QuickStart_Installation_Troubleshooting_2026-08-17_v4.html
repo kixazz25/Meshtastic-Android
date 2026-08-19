@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GroupTrack — Quick Start, Installation &amp; Troubleshooting</title>
+<style>
+:root{--bg:#10130f;--panel:#181c15;--ink:#e8ece2;--dim:#9aa68c;--line:#2b3324;--accent:#7bb661;--accent2:#d9a441;--warn:#e0563b;--ui:-apple-system,"Segoe UI",Roboto,sans-serif}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.6 var(--ui);padding:0 0 60px}
+header{position:sticky;top:0;background:#10130fee;border-bottom:1px solid var(--line);padding:12px 16px;z-index:5}
+.ttl{font:700 18px var(--ui)}.ttl b{color:var(--accent)}
+.sub{font:12px var(--ui);color:var(--dim);margin-top:2px}
+main{max-width:860px;margin:0 auto;padding:16px}
+h2{font:700 16px var(--ui);color:var(--accent);margin:26px 0 8px;border-top:2px solid var(--accent);border-bottom:1px solid var(--line);padding:8px 0 5px}
+h3{font:700 14px var(--ui);color:var(--accent2);margin:18px 0 5px}
+p{margin:8px 0}ul,ol{margin:6px 0;padding-left:22px}li{margin:5px 0}
+code{background:#0b0e08;color:#cfe3bf;padding:1px 5px;border-radius:3px;font:12.5px ui-monospace,Consolas,monospace}
+pre{background:#0b0e08;border:1px solid var(--line);border-radius:6px;padding:10px 12px;overflow-x:auto}
+pre code{background:none;padding:0}
+strong,b{color:#fff}
+blockquote{border-left:4px solid var(--warn);background:var(--panel);margin:10px 0;padding:8px 14px;border-radius:0 6px 6px 0}
+blockquote p{margin:4px 0}
+hr{border:0;border-top:1px solid var(--line);margin:20px 0}
+table{width:100%;border-collapse:collapse;margin:10px 0;font-size:14px}
+th,td{border:1px solid var(--line);padding:6px 9px;text-align:left;vertical-align:top}
+th{background:var(--panel);color:var(--accent)}
+.mode{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:0 6px 6px 0;padding:10px 14px;margin:10px 0}
+.mode.grp{border-left-color:var(--accent2)}
+.step{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:12px 15px;margin:12px 0}
+.step h3{margin-top:0}
+.opt{display:inline-block;background:#2b3324;color:var(--dim);font:700 11px var(--ui);padding:2px 7px;border-radius:10px;vertical-align:middle;margin-left:6px}
+.req{display:inline-block;background:#1f3a17;color:var(--accent);font:700 11px var(--ui);padding:2px 7px;border-radius:10px;vertical-align:middle;margin-left:6px}
+</style></head><body>
+<header>
+<div class="ttl"><b>GroupTrack</b> — Quick Start, Installation &amp; Troubleshooting</div>
+<div class="sub">Beta Tester Reference · Updated August 17, 2026 (V2.6f)</div>
+</header>
+<main>
+
+<blockquote>
+<p><b>⚠️ UPDATE FIRST — DO NOT UNINSTALL ON AN OLD BUILD.</b></p>
+<p>Before following any recovery step in this document, make sure you are on <b>Rel 2.6f or later</b>
+(Settings shows the release). On builds before 2.6f, uninstalling and reinstalling <b>erased saved
+trails, tracks and waypoints</b> — a one-time database upgrade step could not tell a reinstall from
+a brand-new install and cleared the databases. Downloaded map tiles were not affected. <b>2.6f fixes
+this</b>, and additionally refuses to clear a database that still holds records. If you are on an
+older build, take the update from Play first — an <b>update</b> is safe and never triggered this.</p>
+</blockquote>
+
+<h2>Which mode are you running?</h2>
+<p>GroupTrack works two ways. <b>You do not need a radio to use the app.</b> Pick the mode that
+matches your situation — everything else in this document is the same for both.</p>
+
+<div class="mode">
+<h3 style="margin-top:0">1 · Solo mode — Android GPS <span class="req">DEFAULT</span></h3>
+<p>Your phone or tablet's own GPS provides your position. <b>No Meshtastic radio, no Bluetooth
+pairing, no radio firmware to worry about.</b> You get offline maps, trail data, route planning and
+track recording — everything except seeing other riders.</p>
+<p>This is the default and it is what most testers should start with. If you have never used
+GroupTrack before, use solo mode until you are comfortable with the app.</p>
+</div>
+
+<div class="mode grp">
+<h3 style="margin-top:0">2 · Group mode — mesh radios <span class="opt">OPTIONAL</span></h3>
+<p>Adds live tracking of everyone else in your convoy. <b>Every rider you want to see needs their own
+Meshtastic radio</b> paired to their own device — the radios form the mesh that carries positions
+where there is no cell signal.</p>
+<p>Group mode is an <b>addition</b> to solo mode, not a replacement. Set the app up and get
+comfortable first; add the radio afterwards. See <b>Adding a radio</b> below.</p>
+</div>
+
+<h2>Device requirements</h2>
+<table>
+<tr><th>Requirement</th><th>Solo mode</th><th>Group mode</th></tr>
+<tr><td>Android version</td><td>14, 15 or 16</td><td>14, 15 or 16</td></tr>
+<tr><td>Onboard GPS chipset</td><td><b>Required</b></td><td><b>Required</b></td></tr>
+<tr><td>Bluetooth (BLE)</td><td>Not needed</td><td><b>Required</b> — to hold the radio connection</td></tr>
+<tr><td>Free storage</td><td colspan="2">Plan on 50–60 GB if you download imagery for a large area</td></tr>
+</table>
+<p>A Wi-Fi-only tablet with no GPS chipset cannot run GroupTrack in either mode. Budget tablets that
+lack a proper BLE radio cannot hold a radio connection — see <b>Troubleshooting</b>.</p>
+
+<h2>FIRST RUN — do these steps in order</h2>
+<p>Steps 1–4 build on each other and should be done in order. <b>Step 5 is optional.</b> The in-app
+manual is the reference throughout — this document tells you the order, the manual tells you the
+detail.</p>
+
+<div class="step">
+<h3>Step 1 · Open the manual and get familiar with it</h3>
+<p>Open the manual from the <b>"?"</b> in the app and spend a few minutes on its <b>structure</b> —
+what sections exist and roughly where things live. You are not reading it cover to cover. You are
+learning where to look, because the next three steps each send you back to it.</p>
+<p>Everything else in this quick start assumes you can find a topic in the manual when pointed at
+one.</p>
+</div>
+
+<div class="step">
+<h3>Step 2 · Import trails</h3>
+<p>Open the <b>hamburger panel</b> and go to the <b>artifacts display</b> — this is where trails,
+tracks, routes and waypoints are managed.</p>
+<p><b>Read the manual's "Import trails" section before you start.</b> Then, in the app:</p>
+<ol>
+<li><b>Select a source.</b> Use the <b>first entry — UGRC Utah Trails</b> — as your starting point.
+(This is the Utah Geospatial Resource Center's curated trail dataset.)</li>
+<li><b>Validate</b> the source.</li>
+<li><b>Process</b> the import.</li>
+</ol>
+<p>This gives you a curated, agency-maintained trail set with use classifications — the coloured
+trails you will see on the map. It is the smaller of the two trail sources but the better-described
+one.</p>
+</div>
+
+<div class="step">
+<h3>Step 3 · Import Open Source Maps (OSM) trail data</h3>
+<p><b>Look up the Open Source Maps import function in the manual first</b>, then follow the prompts
+and screens in the app. It is a four-stage process on a single panel and the app tells you what it
+needs at each stage.</p>
+<p>This adds substantially more ground than the curated source alone — for Utah roughly 104,000
+trails and unpaved roads, against about 48,000 from the state source.</p>
+<p>Two things the prompts will not tell you:</p>
+<ul>
+<li>Take the file ending <code>-latest-free.gpkg.zip</code> (about 330 MB for Utah). <b>The other
+formats on that page will download and then be rejected.</b></li>
+<li>When the download finishes, <b>tap the green bar yourself</b>. Nothing happens automatically —
+GroupTrack does not watch your downloads folder.</li>
+</ul>
+</div>
+
+<div class="step">
+<h3>Step 4 · Check your map source</h3>
+<p>Open the map source settings and confirm what you are using. <b>The default values are chosen for
+performance and usability — leave them alone unless you have a specific reason.</b></p>
+<p>If you do change a source, the app will tell you what happens to any tiles you have already
+downloaded. Read that screen rather than clicking through it.</p>
+</div>
+
+<div class="step">
+<h3>Step 5 · Bring in your own tracks and waypoints <span class="opt">OPTIONAL</span></h3>
+<p>If you already have riding history in <b>onX</b>, <b>Gaia</b> or another app, you can bring it
+across. Nothing is lost by skipping this — but your own past rides are the most useful trail data
+you own, because you know what they were like.</p>
+<p><b>First, get the GPX files onto this device.</b> Two routes, depending on where the other app
+lives:</p>
+<ul>
+<li><b>The other app is on this Android device</b> — export to GPX from within it and download the
+files here.</li>
+<li><b>The other app is elsewhere</b> (a different phone, a desktop) — export to GPX and
+<b>email the files to yourself as attachments</b>, then open the mail on this device and download
+them.</li>
+</ul>
+<p>Either way the GPX files end up in this device's downloads. GroupTrack does not reach into onX or
+Gaia — it reads files you have already put on the device.</p>
+<p><b>Then import them:</b></p>
+<ol>
+<li>Select <b>Import artifacts</b>. Your downloaded tracks will be listed.</li>
+<li><b>Tick the tracks you want.</b> You do not have to take everything you exported.</li>
+<li>Tap <b>Import selected</b> at the bottom of the panel to process them.</li>
+</ol>
+<p>Imported tracks behave like tracks you recorded yourself — they appear on the map, carry distance
+and time, and can be used for planning.</p>
+</div>
+
+<hr>
+<p><b>After steps 1–4</b> you have the app, the manual, trail data from two sources, and a working
+map — a complete solo-mode setup. Download map tiles for the area you ride and you are ready.
+<b>Step 5 is optional</b> and can be done at any time, including months later.</p>
+
+<h2>Adding a radio <span class="opt">OPTIONAL — GROUP MODE ONLY</span></h2>
+<p>Skip this entire section if you are running solo. Do it <b>last</b>, after maps and trails are in
+place and you are comfortable with the app. The manual covers pairing under <b>Radio /
+Connection</b>.</p>
+
+<blockquote>
+<p><b>⚠️ T1000-E firmware: DO NOT update beyond 2.6.11.</b></p>
+<p>T1000-E firmware must stay at <b>2.6.11 or earlier</b>. Any newer version destabilises Bluetooth
+connectivity and radio configuration — a known issue with newer Meshtastic firmware on this
+hardware.</p>
+<p>Check it in the Meshtastic app under <b>Radio Config → Device Info</b>. If it is 2.6.11 or
+earlier, <b>do not update</b>. If it was updated by accident, flash back to 2.6.11 with the
+Meshtastic Flasher tool. This applies to every T1000-E used with GroupTrack.</p>
+</blockquote>
+
+<blockquote>
+<p><b>⚠️ Keep the radio within Bluetooth range during rides.</b></p>
+<p>Keep your radio in your cart or vehicle, <b>within about 50 feet of your phone</b>, for the whole
+ride. Carrying one away from the other breaks the Bluetooth link and the app will pause or freeze
+until they are back in range.</p>
+</blockquote>
+
+<h3>Radio firmware reference</h3>
+<table>
+<tr><th>Firmware</th><th>Status</th><th>Notes</th></tr>
+<tr><td>2.6.11</td><td>✅ APPROVED</td><td>Maximum recommended version for T1000-E</td></tr>
+<tr><td>2.6.12 and newer</td><td>❌ DO NOT USE</td><td>Destabilises BLE and radio configuration</td></tr>
+<tr><td>Earlier than 2.6.11</td><td>✅ OK</td><td>Works, but may lack features</td></tr>
+</table>
+
+<h2>Upgrading testers — one-time tile migration</h2>
+<p>Only if you are coming from a build earlier than V2.6. <b>Do this before downloading any tiles.</b></p>
+<p>V2.6 changed how offline tiles are stored — from thousands of loose files to one compact database
+per map type, roughly half the storage (satellite about 55% smaller). Old loose tiles must be cleared
+once and re-downloaded in the new format.</p>
+<ol>
+<li>Install <b>X-plore File Manager</b> (free, Play Store). It shows a live progress count while
+deleting, so you can see it working.</li>
+<li>In X-plore go to <b>Internal storage → Documents → GroupTrack → maps</b> and delete the
+<b>maps</b> folder. A large old cache takes a while — keep the device plugged in.</li>
+<li>Back in GroupTrack, download the areas you need again. They are saved in the new format at
+roughly half the previous size.</li>
+</ol>
+<p>Your tracks, trails and routes are <b>not</b> affected — this clears downloaded map imagery only.
+It is a one-time step; future updates will not need it.</p>
+
+<h2>TROUBLESHOOTING</h2>
+
+<h3>Map and trail display</h3>
+<p><b>Trails do not appear.</b> Check you completed Step 2 and Step 3 — with no trail import there is
+nothing to draw. Then check your zoom level; trail detail appears as you zoom in.</p>
+<p><b>Map is blank or grey offline.</b> You have no downloaded tiles for that area at that zoom.
+Download the area while you have a connection.</p>
+
+<h3>App behaviour</h3>
+<p><b>Missing data after an update.</b> Your saved content is stored outside the app. It always
+survives <b>updates</b>; on <b>2.6f and later</b> it also survives a full uninstall and reinstall.
+If trails or tracks are missing after an update, re-check the artifacts panel before assuming
+loss — and see the warning at the top of this document if you are on an older build.</p>
+<p><b>App asks for storage access on every launch.</b> Grant "all files access" when asked.
+GroupTrack keeps 50–60 GB of offline maps in shared storage so they survive updates and reinstalls,
+which is why it needs that permission. Without it the app cannot open your maps, trails or tracks and
+will not start.</p>
+<p><b>Location prompt keeps appearing.</b> If you skipped "allow all the time", GroupTrack reminds
+you each launch. That is deliberate: without it, <b>track recording stops when your screen
+sleeps</b>, and you will not find out until you get home to a short track. Grant it in Android
+settings whenever you like.</p>
+
+<h3>Radio connection <span class="opt">GROUP MODE ONLY</span></h3>
+<p><b>App freezes or pauses during a ride.</b> The radio moved out of Bluetooth range while still
+connected. Force close GroupTrack, bring the radio back within range, reopen. Prevention: radio
+stays in the cart with the phone.</p>
+<p><b>Radio connects then disconnects every 8–10 seconds.</b> Device hardware incompatibility —
+supervision timeout reason <code>0x0008</code>, seen on budget tablets without a proper BLE radio.
+Use a device that meets the requirements above. This is hardware, not an app bug.</p>
+<p><b>Radio will not connect after a firmware update.</b> Firmware went beyond 2.6.11. Flash back to
+2.6.11 with the Meshtastic Flasher tool.</p>
+
+<h3>Emergency recovery</h3>
+<blockquote>
+<p><b>Check your version first.</b> Everything below assumes <b>2.6f or later</b>. On earlier builds
+an uninstall erased saved trails, tracks and waypoints — take the update from Play before doing any
+of this.</p>
+</blockquote>
+<p>If the app is badly broken and an update has not fixed it:</p>
+<ol>
+<li>Uninstall GroupTrack.</li>
+<li>Reinstall from Play.</li>
+<li>Grant all-files access when asked.</li>
+<li>Launch. Your trails, tracks, routes and waypoints in <code>Documents/GroupTrack/</code> will
+still be there.</li>
+</ol>
+<p>Downloaded map tiles do <b>not</b> survive an uninstall on any build — you will re-download those.</p>
+
+<hr>
+<p class="sub">GroupTrack · Quick Start, Installation &amp; Troubleshooting · Updated August 17, 2026
+(V2.6f)<br>
+<b>Solo mode uses your Android GPS and needs no radio.</b> Radios are optional and only add
+multi-rider tracking. T1000-E firmware: lock to 2.6.11; radio stays in the cart during rides.</p>
+
+</main></body></html>
