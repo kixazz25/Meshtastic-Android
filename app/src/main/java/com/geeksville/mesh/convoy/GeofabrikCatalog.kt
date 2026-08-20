@@ -147,6 +147,37 @@ object GeofabrikCatalog {
         return result.sortedBy { it.displayName }
     }
 
+
+    /**
+     * Detect the user's home state from the device's last known GPS position.
+     * Uses LocationManager: GPS_PROVIDER → NETWORK_PROVIDER fallback.
+     * Returns null if no fix is available or the location is outside the US.
+     *
+     * Caller must hold ACCESS_FINE_LOCATION or ACCESS_COARSE_LOCATION
+     * (the authority gate grants this before this is ever called).
+     */
+    @Suppress("MissingPermission")
+    fun detectHomeState(context: Context): GeofabrikState? {
+        val states = load(context)
+        if (states.isEmpty()) return null
+
+        val lm = context.getSystemService(android.content.Context.LOCATION_SERVICE)
+                as? android.location.LocationManager ?: return null
+
+        val loc = lm.getLastKnownLocation(android.location.LocationManager.GPS_PROVIDER)
+            ?: lm.getLastKnownLocation(android.location.LocationManager.NETWORK_PROVIDER)
+
+        if (loc == null || (loc.latitude == 0.0 && loc.longitude == 0.0)) {
+            Log.w(TAG, "detectHomeState: no usable location (loc=${loc != null})")
+            return null
+        }
+
+        val result = findByLocation(states, loc.latitude, loc.longitude)
+        Log.i(TAG, "detectHomeState: lat=%.4f lon=%.4f → %s".format(
+            loc.latitude, loc.longitude, result?.name ?: "outside US"))
+        return result
+    }
+
     /** Clear the cache (e.g. after a live refresh). */
     fun invalidate() { cached = null }
 }

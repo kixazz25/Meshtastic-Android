@@ -188,6 +188,7 @@ fun ConvoyMapViewerScreen(
     // panel is planner-only, and every row's state is DERIVED FROM DISK, so
     // there is nothing to preserve across recomposition.
     var showOsmPanel by remember { mutableStateOf(false) }
+    var showHomeStatePicker by remember { mutableStateOf(false) }
     var recoveryDetected by remember { mutableStateOf(false) }
     var saveOrigName by remember { mutableStateOf("") }   // draft's on-disk name captured when Save panel opens (rename source)
     var recoveryLaunched by remember { mutableStateOf(false) }   // one-shot: recovery detected this session (in onPageFinished)
@@ -1413,7 +1414,7 @@ fun ConvoyMapViewerScreen(
                         "Trails" -> onNavigateToTrailSources()
                         "Artifacts" -> onNavigateToTrackImport()
                         // OSM-IMPORT-2026-07-28
-                        "OSM" -> showOsmPanel = true
+                        "OSM" -> showHomeStatePicker = true
                         else -> onNavigateToTrackImport()
                     }
                 }
@@ -1423,6 +1424,21 @@ fun ConvoyMapViewerScreen(
             // OSM-IMPORT-2026-07-28: OSM import overlay (planner only).
             // Full-screen so the four-stage panel owns the surface while open.
             // BackHandler closes it -- there is no back-stack entry to pop.
+            // HOME-STATE-PICKER-2026-08-20: test harness, wired to IMPORT OSM DATA
+            if (showHomeStatePicker) {
+                androidx.activity.compose.BackHandler(enabled = true) {
+                    showHomeStatePicker = false
+                }
+                androidx.compose.foundation.layout.Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color(0xFF0F1216))
+                ) {
+                    HomeStatePickerScreen(
+                        onNavigateBack = { showHomeStatePicker = false }
+                    )
+                }
+            }
             if (showOsmPanel) {
                 androidx.activity.compose.BackHandler(enabled = true) {
                     showOsmPanel = false
