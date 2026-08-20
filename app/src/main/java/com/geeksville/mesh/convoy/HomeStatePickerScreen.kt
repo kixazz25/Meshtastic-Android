@@ -343,7 +343,36 @@ private fun ProgressPanel(progress: ImportProgress?) {
         return
     }
 
+    val dlLive by HomeStateImportController.downloadDetailFlow.collectAsState()
+
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+        // Remember when we started for the running clock
+        val startTimeMs = remember { System.currentTimeMillis() }
+        var clockTick by remember { mutableStateOf(System.currentTimeMillis()) }
+        LaunchedEffect(Unit) {
+            while (true) {
+                kotlinx.coroutines.delay(1000)
+                clockTick = System.currentTimeMillis()
+            }
+        }
+
+        // Blinking "Do not close" banner — TOP of panel, unmissable
+        val blink = (clockTick / 800) % 2 == 0L
+        Surface(
+            color = if (blink) Color(0xFF1A3A1A) else Color(0xFF2A1A1A),
+            shape = RoundedCornerShape(6.dp),
+            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+        ) {
+            Text(
+                "Do not close GroupTrack while importing",
+                color = if (blink) green else Color(0xFFFF8844),
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(8.dp)
+            )
+        }
+
         // Source count + time estimate
         Text("Processing ${progress.totalSources} sources for ${progress.stateName}",
             color = blue, fontSize = 14.sp, fontWeight = FontWeight.Bold)
@@ -375,8 +404,9 @@ private fun ProgressPanel(progress: ImportProgress?) {
                         Text("  ✅ Complete — ${src.imported} records",
                             color = green, fontSize = 11.sp)
                     } else if (isCurrent) {
+                        val liveDetail = dlLive ?: src.stepDetail
                         Text("  ► ${src.currentStep ?: "Processing"}${
-                            src.stepDetail?.let { " — $it" } ?: ""
+                            liveDetail?.let { " — $it" } ?: ""
                         }", color = blue, fontSize = 11.sp)
                     } else if (isFailed) {
                         Text("  ✗ Failed", color = Color(0xFFCC4444), fontSize = 11.sp)
@@ -387,9 +417,9 @@ private fun ProgressPanel(progress: ImportProgress?) {
             }
         }
 
-        // Footer
-        val elapsed = progress.elapsedMs / 1000
-        Text("Elapsed: ${elapsed / 60}m ${elapsed % 60}s · Do not close GroupTrack",
+        // Elapsed time (calculated from clock, not progress snapshot)
+        val elSec = (System.currentTimeMillis() - startTimeMs) / 1000
+        Text("Elapsed: ${elSec / 60}m ${elSec % 60}s",
             color = txtDim, fontSize = 10.sp, modifier = Modifier.fillMaxWidth(),
             textAlign = TextAlign.Center)
     }

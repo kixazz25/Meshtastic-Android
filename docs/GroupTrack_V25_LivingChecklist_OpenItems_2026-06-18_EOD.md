@@ -69,7 +69,6 @@ attribution / About screen.
 > This is a significant, settled V2.5 design that had fallen off the active
 > checklist. Authority doc: `GroupTrack_LeadTrackReplacement_Spec.docx` (May 31).
 > It is NOT done. Carry it every session until it ships.
-> **Full plan: `GroupTrack_LeadCart_TrackRevision_DemolitionRebuild_2026-06-18.md`.**
 
 **The problem:** the current lead-cart tracking is a hodgepodge of evolved
 lead-cart rules + position projection. It's unreliable — **phantom carts report in
@@ -100,8 +99,8 @@ always owns its wake) or snap-gated (an off-trail cart beyond a threshold does n
 overwrite, so a wild detour doesn't corrupt the composite)? An earlier note had an
 off-trail guard.
 
-### Planning doc — DEMOLITION + REBUILD (written 06-18)
-`GroupTrack_LeadCart_TrackRevision_DemolitionRebuild_2026-06-18.md` has two parts:
+### Planning doc to produce — DEMOLITION + REBUILD
+Write a track-revision planning doc with two parts:
 - **Part 1 — identify and remove ALL previous track-recording methods/processes.**
   Catalog every existing flow/file to rip out, with discovery steps to find them
   all: the three parallel flows (`leadTrackSegments` / `gpsTrailSegments` /

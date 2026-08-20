@@ -61,6 +61,7 @@ data class ImportProgress(
 object HomeStateImportController {
 
     private val _progress = MutableStateFlow<ImportProgress?>(null)
+    internal val downloadDetailFlow = MutableStateFlow<String?>(null)
     val progress: StateFlow<ImportProgress?> = _progress
 
     // ── Manifest I/O ─────────────────────────────────────────────
@@ -217,12 +218,13 @@ object HomeStateImportController {
         updateSourceStep(src, "Downloading", "$gpkgUrl")
         val zipFile = OsmImportStage.zipFor(context, slug)
         if (!zipFile.exists()) {
-            val ok = downloadFile(gpkgUrl, zipFile)
+            val ok = downloadFile(gpkgUrl, zipFile, src)
             if (!ok) {
                 Log.e(TAG, "Download failed for $slug")
                 return false
             }
         }
+        downloadDetailFlow.value = null
         Log.i(TAG, "Download complete: ${zipFile.name} (${zipFile.length() / 1_048_576} MB)")
 
         // Step 2: Create the ledger (required before setPendingImport)
@@ -319,7 +321,7 @@ object HomeStateImportController {
 
     // ── HTTP download ────────────────────────────────────────────
 
-    private fun downloadFile(urlStr: String, dest: File): Boolean {
+    private fun downloadFile(urlStr: String, dest: File, activeSrc: JSONObject? = null): Boolean {
         return try {
             dest.parentFile?.mkdirs()
             val conn = URL(urlStr).openConnection() as HttpURLConnection
@@ -330,7 +332,7 @@ object HomeStateImportController {
             if (conn.responseCode == 302 || conn.responseCode == 301) {
                 val redirect = conn.getHeaderField("Location")
                 conn.disconnect()
-                if (redirect != null) return downloadFile(redirect, dest)
+                if (redirect != null) return downloadFile(redirect, dest, activeSrc)
                 return false
             }
             if (conn.responseCode != 200) {
@@ -338,6 +340,8 @@ object HomeStateImportController {
                 conn.disconnect()
                 return false
             }
+            val totalBytes = conn.contentLength.toLong()
+            var downloaded = 0L
             val tmp = File(dest.parent, dest.name + ".tmp")
             FileOutputStream(tmp).use { out ->
                 conn.inputStream.use { inp ->
@@ -345,6 +349,14 @@ object HomeStateImportController {
                     var n: Int
                     while (inp.read(buf).also { n = it } > 0) {
                         out.write(buf, 0, n)
+                        downloaded += n
+                        if (activeSrc != null && totalBytes > 0) {
+                            val dlMB = downloaded / 1_048_576
+                            val totMB = totalBytes / 1_048_576
+                            val detail = "$dlMB MB of $totMB MB"
+                            activeSrc.put("step_detail", detail)
+                            downloadDetailFlow.value = detail
+                        }
                     }
                 }
             }
@@ -425,6 +437,19 @@ object HomeStateImportController {
                 } catch (_: Exception) { null }
             }
             ?.firstOrNull()
+    }
+
+    /**
+     * True if at least one completed import manifest exists.
+     * No completed manifests = never imported = fresh install.
+     */
+    fun hasCompletedImport(ctx: Context): Boolean {
+        val dir = importsDir(ctx)
+        return dir.listFiles()?.any { f ->
+            try {
+                f.extension == "json" && JSONObject(f.readText()).optString("process_state") == "completed"
+            } catch (_: Exception) { false }
+        } ?: false
     }
 
     // ── Utilities ────────────────────────────────────────────────

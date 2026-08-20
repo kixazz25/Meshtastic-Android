@@ -23,41 +23,41 @@ ACTUAL app navigation (40 nav destinations) rather than from memory.
 
 ## MANUAL 1 — FREE MAP PRODUCT (V2.5) — screen inventory + coverage
 
-Status legend: COVERED in current 06-18 manual · PARTIAL/needs detail · MISSING · SCAFFOLD/stub (don't document as live yet)
+Status legend: ✅ covered in current 06-18 manual · ⚠️ partial/needs detail · ❌ missing · 🚧 scaffold/stub (don't document as live yet)
 
 ### Section 1 · Getting Started (one section, stepped)
 | Step | Screen(s) involved | xref screen | Manual status |
 |---|---|---|---|
-| 1 Install | first launch, storage-permission dialog ("Storage Access Required"), location-permission dialog | ConvoyScreen | PARTIAL — drafted, [verify] |
-| 2 Download trails | Trail Sources (IMPORT FULL SOURCE / IMPORT BY AREA / VALIDATE / IMPORT TRAILS / progress recap) | ConvoyTrailSourceScreen | PARTIAL — drafted from memory; xref shows richer flow, needs detail |
-| 3 Map sources | Map Sources (assign SAT/TOPO/TOPO+ slots, API Key dialog, Refresh Tiles) | ConvoyMapSourceScreen | PARTIAL — [verify menu path]; xref confirms reached from Settings -> "Change Map Sources" |
-| 4 Trail sources (add/update) | Trail Sources again | ConvoyTrailSourceScreen | PARTIAL — drafted |
-| 5 Radio setup (optional) | connect panel + the radio-write sequence | (multiple, see Radio section) | PARTIAL — drafted, points to radio chapter |
-| 6 Release upgrades | ? help chooser (Release Notes / Full Manual) + Play Store | ConvoyScreen/MapViewer ? dialog | PARTIAL — added in plan, not yet written into manual |
+| 1 Install | first launch, storage-permission dialog ("Storage Access Required"), location-permission dialog | ConvoyScreen | ⚠️ drafted, [verify] |
+| 2 Download trails | Trail Sources (IMPORT FULL SOURCE / IMPORT BY AREA / VALIDATE / IMPORT TRAILS / progress recap) | ConvoyTrailSourceScreen | ⚠️ drafted from memory — xref shows richer flow, needs detail |
+| 3 Map sources | Map Sources (assign SAT/TOPO/TOPO+ slots, API Key dialog, Refresh Tiles) | ConvoyMapSourceScreen | ⚠️ drafted, [verify menu path] — xref confirms it's reached from Settings → "Change Map Sources" |
+| 4 Trail sources (add/update) | Trail Sources again | ConvoyTrailSourceScreen | ⚠️ drafted |
+| 5 Radio setup (optional) | connect panel + the radio-write sequence | (multiple, see Radio section) | ⚠️ drafted, points to radio chapter |
+| 6 Release upgrades | ? help chooser (Release Notes / Full Manual) + Play Store | ConvoyScreen/MapViewer ? dialog | ⚠️ added in plan, not yet written into manual |
 
 ### Section 2 · Planning Map
 | Screen | xref | On-screen functions (from xref labels) | Status |
 |---|---|---|---|
-| Planning Map (Map Viewer) | ConvoyMapViewerScreen | BACK, QUEUES, SEARCH+MAP collapsible, Search-area field ("press Enter"), New Waypoint dialog (Name optional / Create / Cancel), "Leave Planning Map?" (settings preserved), ? Help & Info (Release Notes / Full Manual / Close), DOWNLOAD QUEUES panel, Start-a-route (New Route / resume) | COVERED landing; PARTIAL — QUEUES + ? + route-start need their own slots/detail |
+| Planning Map (Map Viewer) | ConvoyMapViewerScreen | BACK, QUEUES, SEARCH+MAP collapsible, Search-area field ("press Enter"), New Waypoint dialog (Name optional / Create / Cancel), "Leave Planning Map?" (settings preserved), **? Help & Info** (Release Notes / Full Manual / Close), DOWNLOAD QUEUES panel, Start-a-route (New Route / resume) | ✅ landing covered; ⚠️ QUEUES + ? + route-start need their own slots/detail |
 
 ### Section 3 · Convoy Map
 | Screen | xref | On-screen functions | Status |
 |---|---|---|---|
-| Convoy Map | ConvoyScreen | Storage/Location permission dialogs, Area-Too-Large, Download-Map-Area (mi×mi, tiles/MB, source, DOWNLOAD/CANCEL), Download Error, Save Track (name / SAVE / SKIP), New Waypoint (Name optional / Create / Cancel) | COVERED landing; MISSING — download-area dialog, save-track dialog not documented |
-| Download Queues | (ConvoyMapViewerScreen panel) | DOWNLOAD QUEUES / CLOSE / "No downloads in queue" | PARTIAL — slot present, needs detail |
+| Convoy Map | ConvoyScreen | Storage/Location permission dialogs, Area-Too-Large, Download-Map-Area (mi×mi, tiles/MB, source, DOWNLOAD/CANCEL), Download Error, **Save Track (name / SAVE / SKIP)**, New Waypoint (Name optional / Create / Cancel) | ✅ landing covered; ❌ download-area dialog, save-track dialog not documented |
+| Download Queues | (ConvoyMapViewerScreen panel) | DOWNLOAD QUEUES / CLOSE / "No downloads in queue" | ⚠️ slot present, needs detail |
 
 ### Section 4 · Work with Artifacts (+ detail panel)
 | Screen | xref | On-screen functions | Status |
 |---|---|---|---|
-| Work with Artifacts | (ConvoyArtifactsPanel / ConvoyScreen) | toggles ON/OFF/SELECTED, search-by-name, SEL/Edit list | COVERED |
-| Artifact Detail panel | ArtifactDetailPanel.kt | Type, ALIASES, DETAILS, technical toggle, FIT, CLOSE, Rename dialog, Delete dialog ("cannot be undone") | COVERED FIT + detail; PARTIAL — rename/delete are stubs (Pass-1), note as in-progress |
+| Work with Artifacts | (ConvoyArtifactsPanel / ConvoyScreen) | toggles ON/OFF/SELECTED, search-by-name, SEL/Edit list | ✅ covered |
+| Artifact Detail panel | ArtifactDetailPanel.kt | Type, ALIASES, DETAILS, technical toggle, **FIT**, CLOSE, Rename dialog, Delete dialog ("cannot be undone") | ✅ FIT + detail covered; ⚠️ rename/delete are stubs (Pass-1) — note as in-progress |
 
-### Section 5 · Convoy Settings  — MISSING FROM MANUAL — must add
+### Section 5 · Convoy Settings  ❌ MISSING FROM MANUAL — must add
 | Screen | xref | On-screen functions | Status |
 |---|---|---|---|
-| Convoy Settings | ConvoySettingsScreen | Change Map Sources (-> Map Sources), alert thresholds: Signal Drop / Signal Lost / Off Track / Admission Window, Multicolor Track toggle, Lead Cart Only toggle, Track Recording Format (KML/GPX), "No carts removed today" / Reinstate, build-stamp footer | MISSING — NOT in manual. This is the "~20 fields, one screenshot" screen. Note: Lead Cart Only + Multicolor Track tie directly to the lead-cart rebuild [2.1] — wording here changes when [2.1] lands. |
+| Convoy Settings | ConvoySettingsScreen | **Change Map Sources** (→ Map Sources), alert thresholds: **Signal Drop / Signal Lost / Off Track / Admission Window**, **Multicolor Track** toggle, **Lead Cart Only** toggle, **Track Recording Format (KML/GPX)**, "No carts removed today" / Reinstate, build-stamp footer | ❌ NOT in manual. This is the "~20 fields, one screenshot" screen. **Note:** Lead Cart Only + Multicolor Track tie directly to the lead-cart rebuild [2.1] — wording here will change when [2.1] lands. |
 
-### Section 6 · Convoy Radio-Write  — SEVERELY UNDER-COVERED — it's a multi-screen flow
+### Section 6 · Convoy Radio-Write  ⚠️ SEVERELY UNDER-COVERED — it's a multi-screen flow
 The manual treats this as one "menu." The xref shows a full sequence:
 | Screen | xref | Role |
 |---|---|---|
@@ -66,17 +66,17 @@ The manual treats this as one "menu." The xref shows a full sequence:
 | Apply Radio | ConvoyApplyRadioScreen | select ride, changes-to-be-applied, new channel + AES-256, PROCEED |
 | Master Capture | ConvoyMasterCaptureScreen | CAPTURE MASTER CONFIG; reads LoRa region/preset/hop/TX/freq/channel/PSK from connected radio; Frequency-MHz entry; PROCEED |
 | Archive / Restore | ConvoyArchiveRestoreScreen | select archive, "RESTORE WILL OVERWRITE", reboot-after, countdown, DONE/TRY AGAIN |
-| Radio Config Steps | ConvoyRadioConfigScreens | Step N of M: Archive -> Device -> LoRa -> Position -> Channel+PSK writes, reboot warnings |
+| Radio Config Steps | ConvoyRadioConfigScreens | Step N of M: Archive → Device → LoRa → Position → Channel+PSK writes, reboot warnings |
 | Reconnect Wait | ConvoyReconnectWaitScreen | BT off/on instructions, countdown, auto-proceed |
 | Verify Config | ConvoyVerifyConfigScreen | field-by-field compare, FAILED FIELDS table, per-group pass/total |
-| Broadcast | ConvoyBroadcastScreen | (ride broadcast — likely 3.0/online, verify scope) |
+| Broadcast | ConvoyBroadcastScreen | *(ride broadcast — likely 3.0/online, verify scope)* |
 
-**Status: the manual's single Radio-Write section must expand to cover this
+**Status: ⚠️ the manual's single Radio-Write section must expand to cover this
 sequence, OR explicitly scope it to the user-facing entry points and mark the
-internal write-steps as guided/automatic. Decide depth with Fred. Transitional —
-slated for 3.0 replacement, but supported and used in V2.5.**
+internal write-steps as guided/automatic.** Decide depth with Fred. Transitional —
+slated for 3.0 replacement, but supported and used in V2.5.
 
-### Scaffolds — do NOT document as live
+### Scaffolds — do NOT document as live (🚧)
 | Screen | xref | Why |
 |---|---|---|
 | Search By Area | ConvoySearchByAreaScreen | renders "Coming in V2.5 / REQUIRES V2.5 MAP FUNCTIONS" — stub |
@@ -94,18 +94,18 @@ ConvoySignIn, ConvoyTerms, ConvoyPrivacy, ConvoySubscription, ConvoyDashboard,
 ConvoyProfile, ConvoyCreateRide, ConvoyCreateEvent, ConvoyMyRides, ConvoyRideDetail,
 ConvoyCompletedRides, ConvoyCompletedRideDetail, ConvoyEnrollment, ConvoyInviteSend,
 ConvoyMyOrganizers, ConvoyTransferRide, ConvoyEmailGate, ConvoyDownloadRideConfig,
-ConvoyExplore, ConvoyBroadcast (broadcast may be online-only — verify).
+ConvoyExplore, ConvoyBroadcast *(broadcast may be online-only — verify)*.
 
 ---
 
 ## COMPLETION PLAN (when V2.5 feature-complete)
 
 1. Hold until search + lead-cart land (they change screens).
-2. Add the missing Manual 1 sections: Convoy Settings (the ~20-field screen),
-   and expand Radio-Write to the real sequence (depth TBD with Fred).
+2. Add the missing Manual 1 sections: **Convoy Settings** (the ~20-field screen),
+   and expand **Radio-Write** to the real sequence (depth TBD with Fred).
 3. Correct the Getting Started [verify] spots against the device (install path,
    Map Sources menu path, trail-source re-import dedupe).
 4. Reconcile every Manual 1 section against this worksheet's function lists.
-5. THEN number image slots 001...NNN in manual order (three-digit) and produce the
+5. THEN number image slots `001…NNN` in manual order (three-digit) and produce the
    numbered shot list; capture per the list.
 6. Manual 2 (online services) is a separate, later build.

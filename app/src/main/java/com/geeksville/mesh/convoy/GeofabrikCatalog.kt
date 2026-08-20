@@ -172,8 +172,28 @@ object GeofabrikCatalog {
             return null
         }
 
+        // Use Geocoder for accurate state detection (bbox overlaps at borders)
+        try {
+            val geocoder = android.location.Geocoder(context)
+            @Suppress("DEPRECATION")
+            val addresses = geocoder.getFromLocation(loc.latitude, loc.longitude, 1)
+            val adminArea = addresses?.firstOrNull()?.adminArea
+            if (adminArea != null) {
+                val match = states.firstOrNull { it.name.equals(adminArea, ignoreCase = true) }
+                    ?: states.firstOrNull { it.parentState?.equals(adminArea, ignoreCase = true) == true }
+                if (match != null) {
+                    Log.i(TAG, "detectHomeState: geocoder → $adminArea → ${match.name}")
+                    return match
+                }
+                Log.w(TAG, "detectHomeState: geocoder returned '$adminArea' but no state match")
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "detectHomeState: geocoder failed, falling back to bbox", e)
+        }
+
+        // Fallback to bbox matching
         val result = findByLocation(states, loc.latitude, loc.longitude)
-        Log.i(TAG, "detectHomeState: lat=%.4f lon=%.4f → %s".format(
+        Log.i(TAG, "detectHomeState: bbox fallback lat=%.4f lon=%.4f → %s".format(
             loc.latitude, loc.longitude, result?.name ?: "outside US"))
         return result
     }

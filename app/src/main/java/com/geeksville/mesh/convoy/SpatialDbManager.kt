@@ -1940,6 +1940,47 @@ object SpatialDbManager {
             return null
         }
     }
+    /**
+     * TRACK EXPORT: read the GPX file from my_tracks by track_id (= geom_hash),
+     * return Pair(displayName, gpxContent). The file is already valid GPX.
+     */
+    fun buildTrackGpxById(trackId: String): Pair<String, String>? {
+        val db = spatialDb ?: return null
+        // Get display name from the tracks table
+        // track_id is a UUID; the file on disk is named by geom_hash
+        var name: String = trackId
+        var geomHash: String = trackId
+        try {
+            db.rawQuery("SELECT name, geom_hash FROM tracks WHERE track_id=? LIMIT 1", arrayOf(trackId)).use { c ->
+                if (c.moveToFirst()) {
+                    name = c.getString(0) ?: trackId
+                    geomHash = c.getString(1) ?: trackId
+                }
+            }
+        } catch (_: Exception) { }
+
+        // Read the GPX file from Documents/my_tracks/{geom_hash}.gpx
+        val tracksDir = java.io.File(
+            android.os.Environment.getExternalStoragePublicDirectory(
+                android.os.Environment.DIRECTORY_DOCUMENTS),
+            "my_tracks"
+        )
+        val gpxFile = java.io.File(tracksDir, "$geomHash.gpx")
+        if (!gpxFile.exists()) {
+            android.util.Log.e("SpatialDb", "Track file not found: ${gpxFile.absolutePath}")
+            return null
+        }
+
+        return try {
+            val content = gpxFile.readText()
+            android.util.Log.i("SpatialDb", "buildTrackGpxById: $name (${content.length} chars)")
+            name to content
+        } catch (e: Exception) {
+            android.util.Log.e("SpatialDb", "Failed to read track file", e)
+            null
+        }
+    }
+
 
     /**
      * Fetch geometry (WKT) for a set of artifact IDs, keyed by id. Used to rederive

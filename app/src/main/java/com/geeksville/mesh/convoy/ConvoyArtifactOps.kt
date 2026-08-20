@@ -124,7 +124,8 @@ object ConvoyArtifactOps {
                 "Waypoints" -> SpatialDbManager.buildWaypointGpxById(artifactId)
                 "Routes" -> SpatialDbManager.buildRouteGpxById(artifactId)
                 "Trails" -> SpatialDbManager.buildTrailGpxById(artifactId)
-                else -> null   // Tracks shared via file manager
+                "Tracks" -> SpatialDbManager.buildTrackGpxById(artifactId)
+                else -> null
             }
         }
 
