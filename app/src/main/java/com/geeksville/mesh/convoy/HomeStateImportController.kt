@@ -112,7 +112,7 @@ object HomeStateImportController {
         // Geofabrik entry last
         sources.put(JSONObject().apply {
             put("id", "geofabrik_${state.slug.replace("/", "_")}")
-            put("name", "${state.name} OSM Trails")
+            put("name", "${state.name} Open Source Maps")
             put("process", "geofabrik_full_state")
             put("slug", state.slug)
             put("gpkg_url", state.gpkgUrl)
@@ -225,9 +225,14 @@ object HomeStateImportController {
         }
         Log.i(TAG, "Download complete: ${zipFile.name} (${zipFile.length() / 1_048_576} MB)")
 
-        // Step 2: Set pending bbox for the import worker (WHOLE STATE)
-        val bbox = doubleArrayOf(state.bboxSouth, state.bboxWest, state.bboxNorth, state.bboxEast)
-        OsmImportLedger.setPendingImport(context, slug, "state", bbox)
+        // Step 2: Create the ledger (required before setPendingImport)
+        OsmImportLedger.create(
+            context, slug,
+            OsmImportStage.displayName(slug),
+            "Geofabrik ${state.name} (auto download)",
+            OsmImportLedger.priorImports(context, slug)
+        )
+        Log.i(TAG, "Ledger created for $slug")
 
         // Step 3: Extract
         updateSourceStep(src, "Extracting", null)
@@ -238,7 +243,12 @@ object HomeStateImportController {
             return false
         }
 
-        // Step 4: Import
+        // Step 4: Set pending bbox AFTER extract (extract may init the ledger)
+        val bbox = doubleArrayOf(state.bboxSouth, state.bboxWest, state.bboxNorth, state.bboxEast)
+        OsmImportLedger.setPendingImport(context, slug, "state", bbox)
+        Log.i(TAG, "setPendingImport for $slug: state bbox")
+
+        // Step 5: Import
         updateSourceStep(src, "Importing", null)
         OsmImportWorker.enqueue(context, slug)
         val importOk = awaitWorker(context, OsmImportWorker.uniqueName(slug))
@@ -316,6 +326,13 @@ object HomeStateImportController {
             conn.connectTimeout = 30_000
             conn.readTimeout = 60_000
             conn.connect()
+            conn.instanceFollowRedirects = true
+            if (conn.responseCode == 302 || conn.responseCode == 301) {
+                val redirect = conn.getHeaderField("Location")
+                conn.disconnect()
+                if (redirect != null) return downloadFile(redirect, dest)
+                return false
+            }
             if (conn.responseCode != 200) {
                 Log.e(TAG, "Download HTTP ${conn.responseCode} for $urlStr")
                 conn.disconnect()
