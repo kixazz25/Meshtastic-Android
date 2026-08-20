@@ -615,7 +615,7 @@ private fun ValidationRow(label: String, value: String) {
 
 // ── Catalog loader ──
 
-private fun loadSourceCatalog(context: Context): List<CatalogSource> {
+internal fun loadSourceCatalog(context: Context): List<CatalogSource> {
     return try {
         val json = context.assets.open("trail_sources.json").bufferedReader().use { it.readText() }
         val root = JSONObject(json)
