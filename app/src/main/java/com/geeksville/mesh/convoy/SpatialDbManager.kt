@@ -48,7 +48,10 @@ object SpatialDbManager {
         Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS),
         "GroupTrack"
     )
-    private fun dbDir(): File {
+    // GATEJOB-2026-08-21F: internal so the startup job can test for the DB FILE
+    // without opening it. init() calls openOrCreateDatabase, which creates an
+    // empty schema where real data should be -- the 08-01 mechanism.
+    internal fun dbDir(): File {
         val dir = File(
             Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS),
             "GroupTrack"

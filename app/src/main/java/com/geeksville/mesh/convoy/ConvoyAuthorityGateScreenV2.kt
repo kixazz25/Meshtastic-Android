@@ -76,7 +76,17 @@ private sealed class AuthorityState {
     object StorageDeclined   : AuthorityState()   // GATESTATES-2026-08-16B: returned from settings without granting
     object NeedBackground    : AuthorityState()   // fine OK → need "all the time"
     object Granted           : AuthorityState()   // everything satisfied
+    // GATEJOB-2026-08-21G: authority is satisfied but the rider has no trails.
+    // Evaluated only AFTER storage and background pass, so it can never
+    // pre-empt or alter any of the three certified authority paths.
+    object NeedTrailData     : AuthorityState()   // authority OK, zero trails -> Home State
 }
+
+// GATEJOB-2026-08-21G: one-shot latch. evaluateState runs on every resume and on
+// every retry attempt; the sweep MOVES FILES and the trail check OPENS A DATABASE.
+// Neither belongs in something that fires on a loop, so the job runs once per
+// process, on the first evaluation that gets past authority.
+private var startupJobDone = false
 
 /**
  * The accurate authority test. Attempts a REAL read of the spatial-DB directory
@@ -137,10 +147,38 @@ private fun evaluateState(context: android.content.Context): AuthorityState =
 private fun evaluateState(context: android.content.Context, attempt: Int): AuthorityState {
     val storage = hasRealStorageAccess()
     val background = hasBackgroundLocation(context)
+    // GATEJOB-2026-08-21G: THE STARTUP JOB. Runs inside the authority loop, which is
+    // what makes it run on an ESTABLISHED device too -- there the gate evaluates,
+    // passes silently and renders nothing, but this still executes.
+    // Slot confirmed 08-16: AFTER the authority gate, BEFORE Convoy. The all-files
+    // grant is already proven by real use at this point, and nothing can have
+    // launched an import yet, so the sweep cannot collide with a live manifest.
+    if (storage && background && !startupJobDone) {
+        startupJobDone = true
+        try {
+            HomeStateImportController.sweepManifests(context)
+        } catch (e: Exception) {
+            // Housekeeping must never block the gate. A sweep that fails leaves
+            // the manifests where they are and retries next launch.
+            android.util.Log.e("ConvoyGate", "startup sweep failed: " + e.message)
+        }
+    }
+
+    val needsTrails = if (storage && background) {
+        try {
+            HomeStateImportController.needsTrailData(context)
+        } catch (e: Exception) {
+            // Never strand the rider at the gate over a failed check.
+            android.util.Log.e("ConvoyGate", "trail check failed: " + e.message)
+            false
+        }
+    } else false
+
     val result = when {
-        !storage    -> AuthorityState.NeedStorage
-        !background -> AuthorityState.NeedBackground
-        else        -> AuthorityState.Granted
+        !storage     -> AuthorityState.NeedStorage
+        !background  -> AuthorityState.NeedBackground
+        needsTrails  -> AuthorityState.NeedTrailData
+        else         -> AuthorityState.Granted
     }
     android.util.Log.i(
         "ConvoyGate",
@@ -167,6 +205,10 @@ fun ConvoyAuthorityGateScreenV2(
     // path where the state changed to Granted during this session (returning from the
     // settings page), which is the case that raced the DB open.
     val passedOnEntry = remember { state is AuthorityState.Granted }
+    // GATEJOB-2026-08-21G: NeedTrailData is deliberately NOT part of passedOnEntry.
+    // passedOnEntry means "nothing to say, proceed without a screen"; this state
+    // exists precisely to show one. Keeping them separate is what leaves the
+    // certified clean-pass behaviour exactly as it was.
 
     // Set when the all-files settings page is launched. On resume, still-no-storage plus
     // this flag means the user went and came back without granting -- which is a
@@ -350,6 +392,22 @@ fun ConvoyAuthorityGateScreenV2(
                     GateOutlineButton("Skip for now") { onProceed() }
                 }
 
+                // GATEJOB-2026-08-21G: authority satisfied, no trails yet. The picker
+                // owns this surface -- it already carries the state list, the
+                // progress display and the completion recap. Full-screen because
+                // the import is the whole task at this point.
+                is AuthorityState.NeedTrailData -> {
+                    HomeStatePickerScreen(
+                        onNavigateBack = {
+                            // Re-evaluate rather than proceed: if the rider imported,
+                            // trails now exist and this resolves to Granted. If they
+                            // backed out, the gate asks again -- the setup is offered
+                            // again on next launch by design.
+                            state = evaluateState(context)
+                            if (state is AuthorityState.NeedTrailData) onProceed()
+                        }
+                    )
+                }
                 is AuthorityState.Granted -> {
                     GateBody(
                         title = "Access granted",
