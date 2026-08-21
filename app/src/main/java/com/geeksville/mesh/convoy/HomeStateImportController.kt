@@ -668,14 +668,43 @@ object HomeStateImportController {
                 val target = if (id.isBlank()) File(history, f.name)
                              else File(history, "$id.json")
 
-                if (f.renameTo(target)) {
-                    swept++
-                    Log.i(TAG, "sweep: ${f.name} -> history/${target.name} " +
-                        "(${if (allCounted) "completed" else "KILLED"})")
-                } else {
-                    Log.w(TAG, "sweep: could not move ${f.name} -- left in place, " +
-                        "will retry next launch")
+                // SWEEPMOVE-2026-08-21H: log the CLASSIFICATION before attempting the
+                // move. The previous log said only "could not move", which made a
+                // correct classification look like a broken one.
+                val verdict = if (allCounted) "completed" else "KILLED"
+                Log.i(TAG, "sweep: ${f.name} classified $verdict -> history/${target.name}")
+
+                // SWEEPMOVE-2026-08-21H: COPY-THEN-DELETE, not renameTo.
+                // renameTo() returns false on FUSE-mounted external storage when
+                // the move crosses into a subdirectory -- measured on Droid 2
+                // 2026-08-21 with a writable target directory and a valid file.
+                // It fails by RETURNING FALSE, so there is no exception to catch.
+                // Order matters: verify the copy landed before deleting the
+                // original, so a part-way failure leaves a DUPLICATE, never a loss.
+                var moved = false
+                try {
+                    target.writeText(f.readText())
+                    if (target.exists() && target.length() == f.length()) {
+                        if (f.delete()) {
+                            moved = true
+                        } else {
+                            // Copy is safe; the original would not delete. Say so
+                            // plainly -- next launch will see both.
+                            Log.w(TAG, "sweep: copied ${f.name} but could not delete " +
+                                "the original -- duplicate left in imports/")
+                        }
+                    } else {
+                        Log.w(TAG, "sweep: copy of ${f.name} did not verify " +
+                            "(target ${target.length()}B vs source ${f.length()}B) -- " +
+                            "original left in place")
+                        target.delete()
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "sweep: move of ${f.name} failed: ${e.message} -- " +
+                        "original left in place, will retry next launch")
                 }
+
+                if (moved) swept++
             } catch (e: Exception) {
                 // A manifest we cannot parse is still evidence. Never delete it.
                 Log.e(TAG, "sweep: ${f.name} unreadable, left in place: ${e.message}")
