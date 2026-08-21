@@ -92,16 +92,24 @@ object HomeStateImportController {
         file.writeText(manifest.toString(2))
     }
 
+    // AREABUILD-2026-08-21B: takes the RUN's bbox and the state LIST. A state import
+    // passes one state and its own corners; an area import passes the drawn box
+    // and every state it touches. Nothing downstream can tell the difference.
     private fun buildManifest(
-        state: GeofabrikState,
+        areaType: String,
+        areaLabel: String,
+        bboxSouth: Double, bboxWest: Double, bboxNorth: Double, bboxEast: Double,
+        states: List<GeofabrikState>,
+        geofabrikProcess: String,
         catalogSourceIds: List<String>,
         catalogSourceNames: Map<String, String>
     ): JSONObject {
         val area = JSONObject().apply {
-            put("type", "state")
-            put("state", state.name)
-            put("bbox", JSONArray(listOf(state.bboxWest, state.bboxSouth, state.bboxEast, state.bboxNorth)))
-            put("states", JSONArray(listOf(state.parentState ?: state.name)))
+            put("type", areaType)
+            put("state", areaLabel)
+            // bbox order is W,S,E,N -- matches the existing file and the design spec.
+            put("bbox", JSONArray(listOf(bboxWest, bboxSouth, bboxEast, bboxNorth)))
+            put("states", JSONArray(states.map { it.parentState ?: it.name }.distinct()))
         }
 
         val sources = JSONArray()
@@ -123,28 +131,36 @@ object HomeStateImportController {
             })
         }
 
-        // Geofabrik entry last
-        sources.put(JSONObject().apply {
-            put("id", "geofabrik_${state.slug.replace("/", "_")}")
-            put("name", "${state.name} Open Source Maps")
-            put("process", "geofabrik_full_state")
-            put("slug", state.slug)
-            put("gpkg_url", state.gpkgUrl)
-            put("status", "pending")
-            put("imported", 0)
-            // MANIFESTCOUNTS-2026-08-21: recap counters. selected = dupes + adds + errors.
-            put("processed", 0)
-            put("selected", 0)
-            put("dupes", 0)
-            put("adds", 0)
-            put("errors", 0)
-        })
+        // Geofabrik entries last (sparse data -- catalog sources enrich first).
+        // AREABUILD-2026-08-21B: ONE ROW PER STATE the bbox touches. The execution loop
+        // is unchanged -- it just sees N pending rows. Border trails arrive WHOLE
+        // in both states' extracts and geom_hash collapses them, so overlap is
+        // absorbed rather than duplicated (measured 07-28: 313 UT/AZ border trails,
+        // all 313 hash-matching).
+        for (gs in states) {
+            sources.put(JSONObject().apply {
+                put("id", "geofabrik_${gs.slug.replace("/", "_")}")
+                put("name", "${gs.name} Open Source Maps")
+                put("process", geofabrikProcess)
+                put("slug", gs.slug)
+                put("gpkg_url", gs.gpkgUrl)
+                put("status", "pending")
+                put("imported", 0)
+                // MANIFESTCOUNTS-2026-08-21: recap counters. selected = dupes + adds + errors.
+                put("processed", 0)
+                put("selected", 0)
+                put("dupes", 0)
+                put("adds", 0)
+                put("errors", 0)
+            })
+        }
 
         return JSONObject().apply {
             // MANIFESTCOUNTS-2026-08-21: stable per-run identifier. Field, not filename --
             // manifests written before this change have no id and must still read
             // as valid. Slug (not name) because California ships as two entries.
-            put("manifest_id", "${state.slug}-${iso8601Now()}")
+            // AREABUILD-2026-08-21B: areaLabel is already slug-safe (see executeArea).
+            put("manifest_id", "${areaLabel.lowercase().replace(' ', '-')}-${iso8601Now()}")
             put("process_state", "in_progress")
             put("started_at", iso8601Now())
             put("completed_at", JSONObject.NULL)
@@ -160,21 +176,72 @@ object HomeStateImportController {
      * Updates [progress] StateFlow throughout.
      * Returns true if all sources completed successfully.
      */
+    // AREABUILD-2026-08-21B: STATE entry point -- unchanged for every existing caller.
+    // A state import is an area import whose bbox happens to be a state's corners.
     suspend fun execute(context: Context, state: GeofabrikState): Boolean =
+        executeRun(
+            context,
+            areaType = "state",
+            areaLabel = state.name,
+            bboxSouth = state.bboxSouth, bboxWest = state.bboxWest,
+            bboxNorth = state.bboxNorth, bboxEast = state.bboxEast,
+            states = listOf(state),
+            geofabrikProcess = "geofabrik_full_state"
+        )
+
+    /**
+     * AREABUILD-2026-08-21B: AREA entry point. The rider draws a box; the caller
+     * resolves the states with GeofabrikCatalog.findByBbox() and hands them here.
+     *
+     * ⚠ The states' own Geofabrik bboxes are the REFERENCE used to select them,
+     * never the area imported. Utah's bbox clips corners of NV/AZ/CO/WY -- filtering
+     * by it would pull ground the rider never drew. Every source filters by the
+     * drawn bbox.
+     */
+    suspend fun executeArea(
+        context: Context,
+        bboxSouth: Double, bboxWest: Double, bboxNorth: Double, bboxEast: Double,
+        states: List<GeofabrikState>
+    ): Boolean {
+        // Slug-safe: this label becomes the manifest filename AND the manifest_id.
+        val label = if (states.size == 1) "area-${states[0].slug}"
+                    else "area-${states.size}-states"
+        return executeRun(
+            context,
+            areaType = "bbox",
+            areaLabel = label,
+            bboxSouth = bboxSouth, bboxWest = bboxWest,
+            bboxNorth = bboxNorth, bboxEast = bboxEast,
+            states = states,
+            geofabrikProcess = "geofabrik_area"
+        )
+    }
+
+    private suspend fun executeRun(
+        context: Context,
+        areaType: String,
+        areaLabel: String,
+        bboxSouth: Double, bboxWest: Double, bboxNorth: Double, bboxEast: Double,
+        states: List<GeofabrikState>,
+        geofabrikProcess: String
+    ): Boolean =
         withContext(Dispatchers.IO) {
             val startMs = System.currentTimeMillis()
-            Log.i(TAG, "Starting home state import for ${state.name}")
-
-            // 1. Find catalog sources that intersect the state bbox
+            Log.i(TAG, "Starting import: $areaLabel type=$areaType " +
+                "states=${states.size} bbox S=$bboxSouth W=$bboxWest N=$bboxNorth E=$bboxEast")
+            // 1. Catalog sources intersecting the RUN's bbox
             val catalogSources = findCatalogSourcesInBbox(
-                context, state.bboxSouth, state.bboxWest, state.bboxNorth, state.bboxEast
+                context, bboxSouth, bboxWest, bboxNorth, bboxEast
             )
             val catalogIds = catalogSources.map { it.first }
             val catalogNames = catalogSources.associate { it.first to it.second }
-
-            // 2. Build and write the manifest
-            val manifest = buildManifest(state, catalogIds, catalogNames)
-            val mFile = manifestFile(context, state.name)
+            // 2. Build and write the manifest -- the whole plan, before any of it runs
+            val manifest = buildManifest(
+                areaType, areaLabel,
+                bboxSouth, bboxWest, bboxNorth, bboxEast,
+                states, geofabrikProcess, catalogIds, catalogNames
+            )
+            val mFile = manifestFile(context, areaLabel)
             writeManifest(mFile, manifest)
 
             val sources = manifest.getJSONArray("sources")
@@ -183,7 +250,7 @@ object HomeStateImportController {
             Log.i(TAG, "Manifest: $totalSources sources, file=${mFile.name}")
 
             // 3. Publish initial progress
-            publishProgress(state.name, totalSources, sources, "running", startMs)
+            publishProgress(areaLabel, totalSources, sources, "running", startMs)
 
             // 4. Loop through sources
             var allOk = true
@@ -195,11 +262,19 @@ object HomeStateImportController {
                 src.put("status", "in_progress")
                 src.put("started_at", iso8601Now())
                 writeManifest(mFile, manifest)
-                publishProgress(state.name, totalSources, sources, "running", startMs)
+                publishProgress(areaLabel, totalSources, sources, "running", startMs)
 
+                // AREAREFACTOR-2026-08-21A: runners take the run's bbox, not a state object.
+                // AREABUILD-2026-08-21B: geofabrik_area routes to the SAME runner --
+                // download and extract are identical (Geofabrik only ships whole
+                // states); only the import filter differs, and that is the bbox.
                 val ok = when (src.getString("process")) {
-                    "geofabrik_full_state" -> runGeofabrikSource(context, src, state)
-                    "trails_list_area" -> runCatalogSource(context, src, state)
+                    "geofabrik_full_state", "geofabrik_area" -> runGeofabrikSource(
+                        context, src,
+                        bboxSouth, bboxWest, bboxNorth, bboxEast)
+                    "trails_list_area" -> runCatalogSource(
+                        context, src,
+                        bboxSouth, bboxWest, bboxNorth, bboxEast)
                     else -> {
                         Log.e(TAG, "Unknown process type: ${src.getString("process")}")
                         false
@@ -214,25 +289,29 @@ object HomeStateImportController {
                     allOk = false
                 }
                 writeManifest(mFile, manifest)
-                publishProgress(state.name, totalSources, sources, "running", startMs)
+                publishProgress(areaLabel, totalSources, sources, "running", startMs)
             }
 
             // 5. Mark manifest complete
             manifest.put("process_state", if (allOk) "completed" else "completed")
             manifest.put("completed_at", iso8601Now())
             writeManifest(mFile, manifest)
-            publishProgress(state.name, totalSources, sources,
+            publishProgress(areaLabel, totalSources, sources,
                 if (allOk) "completed" else "failed", startMs)
 
             Log.i(TAG, "Home state import ${if (allOk) "COMPLETED" else "COMPLETED WITH ERRORS"} " +
-                "for ${state.name} in ${(System.currentTimeMillis() - startMs) / 1000}s")
+                "for ${areaLabel} in ${(System.currentTimeMillis() - startMs) / 1000}s")
             allOk
         }
 
     // ── Geofabrik source: download → extract → import → cleanup ──
 
+    // AREAREFACTOR-2026-08-21A: `state` removed. A multi-state area run has no single
+    // state -- each Geofabrik row IS its own state, and its slug/url/name already
+    // live on the row. The bbox is a property of the RUN, so it is passed in.
     private suspend fun runGeofabrikSource(
-        context: Context, src: JSONObject, state: GeofabrikState
+        context: Context, src: JSONObject,
+        bboxSouth: Double, bboxWest: Double, bboxNorth: Double, bboxEast: Double
     ): Boolean {
         val slug = src.getString("slug")
         val gpkgUrl = src.getString("gpkg_url")
@@ -254,7 +333,7 @@ object HomeStateImportController {
         OsmImportLedger.create(
             context, slug,
             OsmImportStage.displayName(slug),
-            "Geofabrik ${state.name} (auto download)",
+            "Geofabrik ${src.optString("name", slug)} (auto download)",
             OsmImportLedger.priorImports(context, slug)
         )
         Log.i(TAG, "Ledger created for $slug")
@@ -269,9 +348,17 @@ object HomeStateImportController {
         }
 
         // Step 4: Set pending bbox AFTER extract (extract may init the ledger)
-        val bbox = doubleArrayOf(state.bboxSouth, state.bboxWest, state.bboxNorth, state.bboxEast)
-        OsmImportLedger.setPendingImport(context, slug, "state", bbox)
-        Log.i(TAG, "setPendingImport for $slug: state bbox")
+        // AREAREFACTOR-2026-08-21A: the RUN's bbox, not the state's. For a state import these
+        // are the same four numbers. For an area import they are the drawn box --
+        // which is the whole point: a state's Geofabrik bbox clips neighbouring
+        // states' corners and would pull ground the rider never drew.
+        val bbox = doubleArrayOf(bboxSouth, bboxWest, bboxNorth, bboxEast)
+        // AREABUILD-2026-08-21B: the scope must match the row. Telling the OSM worker
+        // "state" on an area row would invite it to treat the run as whole-state.
+        val scope = if (src.optString("process") == "geofabrik_area") "area" else "state"
+        OsmImportLedger.setPendingImport(context, slug, scope, bbox)
+        Log.i(TAG, "setPendingImport for $slug: bbox " +
+            "S=$bboxSouth W=$bboxWest N=$bboxNorth E=$bboxEast")
 
         // Step 5: Import
         updateSourceStep(src, "Importing", null)
@@ -319,8 +406,10 @@ object HomeStateImportController {
 
     // ── Catalog source: importByArea (existing function) ─────────
 
+    // AREAREFACTOR-2026-08-21A: `state` removed -- this path only ever wanted the bbox.
     private suspend fun runCatalogSource(
-        context: Context, src: JSONObject, state: GeofabrikState
+        context: Context, src: JSONObject,
+        bboxSouth: Double, bboxWest: Double, bboxNorth: Double, bboxEast: Double
     ): Boolean {
         val sourceId = src.getString("id")
         updateSourceStep(src, "Importing", null)
@@ -328,7 +417,7 @@ object HomeStateImportController {
         return try {
             val results = TrailImporter.importByArea(
                 context, listOf(sourceId),
-                state.bboxSouth, state.bboxWest, state.bboxNorth, state.bboxEast
+                bboxSouth, bboxWest, bboxNorth, bboxEast
             )
             val total = results.sumOf { it.inserted }
             src.put("imported", total)
