@@ -193,6 +193,11 @@ fun ConvoyMapViewerScreen(
     // "area import overlay is open" flag. One piece of state, not two -- two
     // flags for one concept is the 00f defect this codebase already carries.
     var areaImportBbox by remember { mutableStateOf<DoubleArray?>(null) }
+    // TRAILSELECT-2026-08-21D: the Import Trails selector, and the any-state picker
+    // it drills down to. Two booleans because they are two different screens,
+    // not two names for one state.
+    var showTrailImportSelector by remember { mutableStateOf(false) }
+    var showAnyStatePicker by remember { mutableStateOf(false) }
     var recoveryDetected by remember { mutableStateOf(false) }
     var saveOrigName by remember { mutableStateOf("") }   // draft's on-disk name captured when Save panel opens (rename source)
     var recoveryLaunched by remember { mutableStateOf(false) }   // one-shot: recovery detected this session (in onPageFinished)
@@ -1415,10 +1420,15 @@ fun ConvoyMapViewerScreen(
                 },
                 onImport = { typeName ->
                     when (typeName) {
-                        "Trails" -> onNavigateToTrailSources()
+                        // TRAILSELECT-2026-08-21D: was onNavigateToTrailSources() -- the old
+                        // source-SELECTION screen. Now the BY STATE / BY AREA selector.
+                        "Trails" -> showTrailImportSelector = true
                         "Artifacts" -> onNavigateToTrackImport()
                         // OSM-IMPORT-2026-07-28
-                        "OSM" -> showHomeStatePicker = true
+                        // TRAILSELECT-2026-08-21D: "Import OSM Data" REMOVED (design §2). OSM is
+                        // no longer a separate concept -- it is one source inside
+                        // Import Trails. Screenshots captured 08-21 before removal.
+                        "OSM" -> { /* removed - see Import Trails */ }
                         else -> onNavigateToTrackImport()
                     }
                 }
@@ -1449,6 +1459,99 @@ fun ConvoyMapViewerScreen(
             // indicators, the do-not-close banner and the completion recap.
             // Building a second progress UI would be two implementations of one
             // thing, which is the rule this release is meant to enforce.
+            // TRAILSELECT-2026-08-21D: IMPORT TRAILS -- the selector. Selection UI only;
+            // it decides which entry point runs and does no work itself.
+            if (showTrailImportSelector) {
+                androidx.activity.compose.BackHandler(enabled = true) {
+                    showTrailImportSelector = false
+                }
+                androidx.compose.foundation.layout.Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color(0xFF0F1216)),
+                    contentAlignment = androidx.compose.ui.Alignment.Center
+                ) {
+                    androidx.compose.foundation.layout.Column(
+                        horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            "Import Trails",
+                            color = Color(0xFF7BB661),
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        androidx.compose.foundation.layout.Spacer(Modifier.height(8.dp))
+                        Text(
+                            "Load trails, scenic points and places from every\n" +
+                            "available source for a whole state or a drawn area.",
+                            color = Color(0xFF8899AA),
+                            fontSize = 13.sp,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        )
+                        androidx.compose.foundation.layout.Spacer(Modifier.height(28.dp))
+
+                        // BY STATE -> any-state list. No GPS, no pre-selection.
+                        androidx.compose.material3.Button(
+                            onClick = {
+                                showTrailImportSelector = false
+                                showAnyStatePicker = true
+                            },
+                            modifier = Modifier.width(260.dp)
+                        ) {
+                            Text("BY STATE", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                        }
+                        androidx.compose.foundation.layout.Spacer(Modifier.height(6.dp))
+                        Text(
+                            "A whole state - a trip to Colorado",
+                            color = Color(0xFF667788), fontSize = 11.sp
+                        )
+                        androidx.compose.foundation.layout.Spacer(Modifier.height(20.dp))
+
+                        // BY AREA -> download panel, row pre-checked, rider draws.
+                        androidx.compose.material3.Button(
+                            onClick = {
+                                showTrailImportSelector = false
+                                panelTrailsChecked = true
+                                showDownloadPanel = true
+                            },
+                            modifier = Modifier.width(260.dp)
+                        ) {
+                            Text("BY AREA", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                        }
+                        androidx.compose.foundation.layout.Spacer(Modifier.height(6.dp))
+                        Text(
+                            "Draw a box - may cross state lines",
+                            color = Color(0xFF667788), fontSize = 11.sp
+                        )
+                        androidx.compose.foundation.layout.Spacer(Modifier.height(32.dp))
+
+                        androidx.compose.material3.TextButton(
+                            onClick = { showTrailImportSelector = false }
+                        ) {
+                            Text("Cancel", color = Color(0xFF8899AA), fontSize = 13.sp)
+                        }
+                    }
+                }
+            }
+
+            // TRAILSELECT-2026-08-21D: ANY-STATE picker. Same screen and same import
+            // process as Home State; it simply enters at the list.
+            if (showAnyStatePicker) {
+                androidx.activity.compose.BackHandler(enabled = true) {
+                    showAnyStatePicker = false
+                }
+                androidx.compose.foundation.layout.Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color(0xFF0F1216))
+                ) {
+                    HomeStatePickerScreen(
+                        onNavigateBack = { showAnyStatePicker = false },
+                        anyState = true
+                    )
+                }
+            }
+
             val areaBb = areaImportBbox
             if (areaBb != null) {
                 androidx.activity.compose.BackHandler(enabled = true) {
@@ -2668,14 +2771,22 @@ fun ConvoyMapViewerScreen(
                         modifier = Modifier
                             .clickable {
                                 if (panelTrailsChecked && downloadBbox.isValid) {
-                                    // LAUNCHMODE-FIX-2026-07-27: the panel callback at ~:1711
-                                    // sets this; THIS path never did, so the trail screen opened
-                                    // on SELECT_SOURCE and ignored the area just written.
-                                    TrailImporter.launchMode = TrailImporter.LaunchMode.BY_AREA
-                                    TrailImporter.writePendingArea(
-                                        downloadBbox.north, downloadBbox.south,
-                                        downloadBbox.east, downloadBbox.west)
-                                    onNavigateToTrailSources()
+                                    // TRAILSELECT-2026-08-21D: THE EXIT THAT ACTUALLY FIRES.
+                                    // Patch C replaced the panel's own callback; this
+                                    // EXECUTE-label path is the second exit to the same
+                                    // old screen and was still live. Both now run the
+                                    // area import -- every intersecting source, no
+                                    // selection step (design §4: no checklist, ever).
+                                    // ⚠ launchMode/writePendingArea are vestigial here;
+                                    // remove in the cleanup pass after device verify.
+                                    android.util.Log.i("DownloadPanel",
+                                        "AREA IMPORT (exec): S=${downloadBbox.south} " +
+                                        "W=${downloadBbox.west} N=${downloadBbox.north} " +
+                                        "E=${downloadBbox.east}")
+                                    areaImportBbox = doubleArrayOf(
+                                        downloadBbox.south, downloadBbox.west,
+                                        downloadBbox.north, downloadBbox.east)
+                                    showDownloadPanel = false
                                 }
                                 if (panelTilesChecked && downloadBbox.isValid) {
                                     showDownloadConfirm = true; showDownloadPanel = false

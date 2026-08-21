@@ -52,7 +52,12 @@ fun HomeStatePickerScreen(
     // not a shortcut. ABSENT = state mode (geocode, offer, rider picks).
     // PRESENT = area mode (bbox already drawn; detection is meaningless and the
     // screen enters at its running phase). Order is S, W, N, E.
-    areaBbox: DoubleArray? = null
+    areaBbox: DoubleArray? = null,
+    // TRAILSELECT-2026-08-21D: ANY-STATE mode. Home State is the INSTALL concept --
+    // GPS detect, "your Home state is X", pre-selected. This is a trip to
+    // Colorado: no detection, no pre-selection, no home-state language.
+    // Same screen, same import process, different entry phase.
+    anyState: Boolean = false
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -89,6 +94,12 @@ fun HomeStatePickerScreen(
         }
         val states = withContext(Dispatchers.IO) { GeofabrikCatalog.load(context) }
         allStates = GeofabrikCatalog.displayList(states)
+        // TRAILSELECT-2026-08-21D: any-state entry -- straight to the list, nothing chosen.
+        if (anyState) {
+            phase = "list"
+            Log.i(TAG, "ANY-STATE import: ${allStates.size} states, no pre-selection")
+            return@LaunchedEffect
+        }
         val detected = withContext(Dispatchers.IO) { GeofabrikCatalog.detectHomeState(context) }
         detectedState = detected
         if (detected != null) {
