@@ -110,7 +110,12 @@ fun ConvoyDownloadPanel(
     var showMaps by remember { mutableStateOf(true) }
     var expandMapControls by remember { mutableStateOf(false) }
     var expandSelectTypes by remember { mutableStateOf(false) }
-    var expandDrawArea by remember { mutableStateOf(false) }
+    // EXPANDDRAW-2026-08-21L: open the draw section when the panel was opened WITH
+    // trails already checked -- i.e. from Import Trails -> BY AREA, where drawing
+    // is the only reason the rider is here. Opened any other way it stays closed.
+    // remember() captures the initial value; trailsChecked is set before the panel
+    // opens and never flips while it is open, so that is the correct semantics.
+    var expandDrawArea by remember { mutableStateOf(trailsChecked) }
     var expandShowDownloads by remember { mutableStateOf(false) }
     var showQueue by remember { mutableStateOf(true) }
     // showTrails removed — not needed
