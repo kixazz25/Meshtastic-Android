@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<title>GroupTrack — Startup State Picker V2 Mockup</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,-apple-system,sans-serif;background:#0d1117;color:#e6edf3;
+  display:flex;justify-content:center;align-items:center;min-height:100vh;flex-direction:column;gap:20px}
+
+.label{color:#667788;font-size:12px;margin-bottom:4px;text-align:center}
+
+.device{width:800px;height:480px;background:#131820;border:2px solid #333;border-radius:12px;
+  overflow:hidden;position:relative;display:flex;flex-direction:column}
+
+.header{background:#1a2233;padding:14px 20px;border-bottom:1px solid #2a3444;text-align:center}
+.header h1{font-size:20px;color:#7bb661;margin:0 0 4px;letter-spacing:0.5px}
+.header p{font-size:12px;color:#8899aa;margin:0}
+
+/* === STATE A: GPS detected, confirm === */
+.confirm-panel{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:30px}
+.detected-icon{font-size:48px;margin-bottom:12px}
+.detected-state{font-size:32px;color:#7bb661;font-weight:700;margin-bottom:6px}
+.detected-sub{font-size:13px;color:#8899aa;margin-bottom:4px}
+.detected-sources{font-size:14px;color:#4da6ff;margin:12px 0 4px}
+.detected-est{font-size:12px;color:#8899aa;margin-bottom:20px}
+.btn-row{display:flex;gap:12px;align-items:center;margin-top:8px}
+.proceed-btn{background:#7bb661;color:#0d1117;border:none;border-radius:8px;padding:14px 32px;
+  font-size:16px;font-weight:700;cursor:pointer;letter-spacing:0.5px}
+.proceed-btn:hover{background:#8cc972}
+.proceed-btn .sub{font-size:10px;font-weight:400;display:block;margin-top:2px;opacity:0.8}
+.reselect-btn{background:transparent;color:#4da6ff;border:1px solid #2a3444;border-radius:8px;
+  padding:14px 24px;font-size:14px;cursor:pointer}
+.reselect-btn:hover{border-color:#4da6ff;background:#1a2844}
+
+/* === STATE B: manual selection === */
+.select-panel{flex:1;display:none;padding:16px 20px;gap:16px;overflow:hidden}
+.select-panel.active{display:flex}
+.confirm-panel.hidden{display:none}
+
+.left{flex:1;display:flex;flex-direction:column}
+.left h2{font-size:14px;color:#4da6ff;margin:0 0 8px}
+
+.search-box{background:#1a2233;border:1px solid #2a3444;border-radius:6px;padding:8px 10px;
+  color:#e6edf3;font-size:13px;width:100%;margin-bottom:8px;outline:none}
+.search-box:focus{border-color:#4da6ff}
+.search-box::placeholder{color:#556677}
+
+.state-list{flex:1;overflow-y:auto;border:1px solid #2a3444;border-radius:6px;background:#0d1117}
+.state-item{padding:8px 12px;font-size:13px;cursor:pointer;border-bottom:1px solid #1a2233;
+  display:flex;justify-content:space-between;align-items:center}
+.state-item:hover{background:#1a2844}
+.state-item.selected{background:#1a3a2a;border-left:3px solid #7bb661}
+.state-item .name{color:#e6edf3}
+.state-item .info{font-size:10px;color:#667788}
+
+.right{width:280px;display:flex;flex-direction:column;gap:10px}
+.preview{flex:1;background:#1a2233;border-radius:8px;border:1px solid #2a3444;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;padding:12px}
+.preview .state-name{font-size:20px;color:#7bb661;font-weight:700;margin:0 0 8px}
+.preview .bbox-val{font-size:11px;color:#aabbcc;font-family:monospace;margin:1px 0}
+.preview .source-count{font-size:12px;color:#4da6ff;margin-top:10px}
+.preview .trail-est{font-size:11px;color:#8899aa;margin-top:4px}
+.preview .source-list{font-size:10px;color:#667788;margin-top:8px}
+
+.go-btn{background:#7bb661;color:#0d1117;border:none;border-radius:8px;padding:14px 20px;
+  font-size:15px;font-weight:700;cursor:pointer;width:100%;letter-spacing:0.5px}
+.go-btn:hover{background:#8cc972}
+.go-btn:disabled{background:#334433;color:#556655;cursor:default}
+.go-btn .sub{font-size:10px;font-weight:400;display:block;margin-top:2px;opacity:0.8}
+
+.footer{background:#1a2233;padding:6px 20px;border-top:1px solid #2a3444;
+  font-size:10px;color:#556677;text-align:center}
+
+.state-list::-webkit-scrollbar{width:6px}
+.state-list::-webkit-scrollbar-track{background:#0d1117}
+.state-list::-webkit-scrollbar-thumb{background:#2a3444;border-radius:3px}
+
+.tabs{display:flex;gap:20px;margin-bottom:8px}
+.tab{font-size:12px;color:#556677;cursor:pointer;padding-bottom:4px}
+.tab.active{color:#4da6ff;border-bottom:2px solid #4da6ff}
+</style>
+</head><body>
+
+<div class="label">STATE A — GPS detected, one-tap confirm</div>
+<div class="device" id="deviceA">
+  <div class="header">
+    <h1>Welcome to GroupTrack</h1>
+    <p>Let's load trail data for your area so your first map has everything</p>
+  </div>
+  
+  <div class="confirm-panel" id="confirmPanel">
+    <div class="detected-icon">📍</div>
+    <div style="font-size:13px;color:#8899aa;margin-bottom:4px">Based on your location, your home state is</div>
+    <div class="detected-state">Utah</div>
+    <div class="detected-sources">3 data sources available</div>
+    <div class="detected-est">~160,000 estimated trails · OSM Trails · UGRC State Trails · Scenic Points</div>
+    <div class="btn-row">
+      <button class="proceed-btn" onclick="showProgress()">
+        LOAD UTAH TRAIL DATA
+        <span class="sub">Downloads and imports all available sources</span>
+      </button>
+      <button class="reselect-btn" onclick="showSelect()">Choose a<br>different state</button>
+    </div>
+  </div>
+  
+  <div class="select-panel" id="selectPanel">
+    <div class="left">
+      <h2>Select Your Home State</h2>
+      <input type="text" class="search-box" id="search" placeholder="Search states..." oninput="filterStates()">
+      <div class="state-list" id="stateList"></div>
+    </div>
+    <div class="right">
+      <div class="preview" id="preview">
+        <div style="color:#556677;font-size:13px">Select a state</div>
+      </div>
+      <button class="go-btn" id="goBtn" disabled onclick="showProgress()">
+        LOAD TRAIL DATA
+        <span class="sub">Downloads and imports all available sources</span>
+      </button>
+      <button class="reselect-btn" style="width:100%;padding:8px;font-size:12px" onclick="showConfirm()">← Back to detected state</button>
+    </div>
+  </div>
+  
+  <div class="footer">
+    GroupTrack V2.6g · Internet connection required · Data downloads range from 50 MB to 800 MB depending on state
+  </div>
+</div>
+
+<div class="label" style="margin-top:20px">STATE B — After pressing LOAD (progress view)</div>
+<div class="device">
+  <div class="header">
+    <h1>Importing Trail Data</h1>
+    <p>Processing 3 sources for Utah · Please keep the app open</p>
+  </div>
+  
+  <div style="flex:1;padding:20px;overflow-y:auto">
+    <div style="margin-bottom:16px">
+      <div style="font-size:14px;color:#4da6ff;font-weight:600;margin-bottom:10px">
+        Source 1 of 3 — Utah OSM Trails (Geofabrik)
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;margin-left:8px">
+        <div style="font-size:12px"><span style="color:#7bb661">✅</span>&nbsp; Download GPKG <span style="color:#556677;font-size:10px">— 132 MB, completed in 2m 14s</span></div>
+        <div style="font-size:12px"><span style="color:#7bb661">✅</span>&nbsp; Extract trails <span style="color:#556677;font-size:10px">— 112,696 trails found</span></div>
+        <div style="font-size:12px"><span style="color:#4da6ff">►</span>&nbsp; Importing to database <span style="color:#4da6ff;font-size:10px">— 47,200 of 112,696</span>
+          <div style="margin:4px 0 0 18px;background:#1a2233;border-radius:3px;height:6px;width:300px">
+            <div style="background:#4da6ff;height:6px;border-radius:3px;width:42%"></div>
+          </div>
+        </div>
+        <div style="font-size:12px;color:#556677">○&nbsp; Cleanup working files</div>
+      </div>
+    </div>
+    
+    <div style="margin-bottom:16px">
+      <div style="font-size:14px;color:#556677;margin-bottom:8px">
+        Source 2 of 3 — Utah UGRC State Trails
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px;margin-left:8px">
+        <div style="font-size:12px;color:#556677">○&nbsp; Download source data</div>
+        <div style="font-size:12px;color:#556677">○&nbsp; Extract trails</div>
+        <div style="font-size:12px;color:#556677">○&nbsp; Import to database</div>
+        <div style="font-size:12px;color:#556677">○&nbsp; Cleanup working files</div>
+      </div>
+    </div>
+    
+    <div style="margin-bottom:16px">
+      <div style="font-size:14px;color:#556677;margin-bottom:8px">
+        Source 3 of 3 — Utah Scenic Points
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px;margin-left:8px">
+        <div style="font-size:12px;color:#556677">○&nbsp; Download source data</div>
+        <div style="font-size:12px;color:#556677">○&nbsp; Extract points</div>
+        <div style="font-size:12px;color:#556677">○&nbsp; Import to database</div>
+        <div style="font-size:12px;color:#556677">○&nbsp; Cleanup working files</div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="footer">
+    Elapsed: 4m 32s · Do not close GroupTrack while importing
+  </div>
+</div>
+
+<div class="label" style="margin-top:20px">STATE C — Import complete</div>
+<div class="device">
+  <div class="header">
+    <h1>Trail Data Loaded</h1>
+    <p>Your maps are ready</p>
+  </div>
+  
+  <div style="flex:1;padding:20px;display:flex;flex-direction:column;align-items:center;justify-content:center">
+    <div style="font-size:48px;margin-bottom:12px">✅</div>
+    <div style="font-size:22px;color:#7bb661;font-weight:700;margin-bottom:16px">Utah — Import Complete</div>
+    
+    <div style="background:#1a2233;border-radius:8px;padding:14px 24px;margin-bottom:20px;min-width:400px">
+      <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #2a3444">
+        <span style="font-size:13px;color:#e6edf3">Utah OSM Trails</span>
+        <span style="font-size:13px;color:#7bb661;font-weight:600">112,696 trails</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #2a3444">
+        <span style="font-size:13px;color:#e6edf3">Utah UGRC State Trails</span>
+        <span style="font-size:13px;color:#7bb661;font-weight:600">47,932 trails</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #2a3444">
+        <span style="font-size:13px;color:#e6edf3">Utah Scenic Points</span>
+        <span style="font-size:13px;color:#7bb661;font-weight:600">16,992 points</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:8px 0 2px;font-weight:700">
+        <span style="font-size:14px;color:#e6edf3">Total</span>
+        <span style="font-size:14px;color:#7bb661">177,620 records</span>
+      </div>
+    </div>
+    
+    <div style="font-size:11px;color:#8899aa;margin-bottom:16px">
+      47,932 trails enriched with names and surface types from UGRC data
+    </div>
+    
+    <button class="proceed-btn" style="padding:14px 40px" onclick="alert('→ Ride Map')">
+      OPEN RIDE MAP
+      <span class="sub">Your trails are ready</span>
+    </button>
+  </div>
+  
+  <div class="footer">
+    Completed in 12m 45s · Add more areas later from Map Features → Import Trails by Area
+  </div>
+</div>
+
+<script>
+const states = [
+  {name:"Alabama",slug:"alabama",sources:2,est:"~85,000"},
+  {name:"Alaska",slug:"alaska",sources:1,est:"~12,000"},
+  {name:"Arizona",slug:"arizona",sources:3,est:"~145,000"},
+  {name:"California",slug:"california",sources:4,est:"~320,000"},
+  {name:"Colorado",slug:"colorado",sources:3,est:"~195,000"},
+  {name:"Idaho",slug:"idaho",sources:2,est:"~110,000"},
+  {name:"Montana",slug:"montana",sources:2,est:"~125,000"},
+  {name:"Nevada",slug:"nevada",sources:2,est:"~98,000"},
+  {name:"New Mexico",slug:"new-mexico",sources:2,est:"~115,000"},
+  {name:"Oregon",slug:"oregon",sources:2,est:"~135,000"},
+  {name:"Utah",slug:"utah",sources:3,est:"~160,000"},
+  {name:"Washington",slug:"washington",sources:2,est:"~142,000"},
+  {name:"Wyoming",slug:"wyoming",sources:2,est:"~88,000"}
+];
+
+let selected = null;
+
+function renderStates(filter) {
+  const list = document.getElementById('stateList');
+  const f = (filter||'').toLowerCase();
+  list.innerHTML = '';
+  states.filter(s => !f || s.name.toLowerCase().includes(f)).forEach(s => {
+    const div = document.createElement('div');
+    div.className = 'state-item' + (selected && selected.slug === s.slug ? ' selected' : '');
+    div.innerHTML = `<span class="name">${s.name}</span>
+      <span class="info">${s.sources} source${s.sources>1?'s':''} · ${s.est}</span>`;
+    div.onclick = () => { selected = s; renderStates(filter); updatePreview(); };
+    list.appendChild(div);
+  });
+}
+
+function updatePreview() {
+  if (!selected) return;
+  const s = selected;
+  document.getElementById('preview').innerHTML = `
+    <div class="state-name">${s.name}</div>
+    <div class="source-count">${s.sources} source${s.sources>1?'s':''}</div>
+    <div class="trail-est">${s.est} estimated trails</div>`;
+  document.getElementById('goBtn').disabled = false;
+}
+
+function filterStates() { renderStates(document.getElementById('search').value); }
+function showSelect() {
+  document.getElementById('confirmPanel').classList.add('hidden');
+  document.getElementById('selectPanel').classList.add('active');
+}
+function showConfirm() {
+  document.getElementById('confirmPanel').classList.remove('hidden');
+  document.getElementById('selectPanel').classList.remove('active');
+}
+function showProgress() { alert('→ See STATE B mockup below'); }
+
+renderStates();
+</script>
+</body></html>

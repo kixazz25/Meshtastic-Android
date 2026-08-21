@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>GroupTrack — EOD Handoff — 2026-08-18</title>
+<style>
+body{font:15px/1.6 system-ui,sans-serif;max-width:900px;margin:20px auto;padding:0 16px;background:#fdfdfd;color:#222}
+h1{font-size:22px;border-bottom:2px solid #7bb661;padding-bottom:6px}
+h2{font-size:17px;color:#2a6e1a;margin:22px 0 6px;border-bottom:1px solid #ddd;padding-bottom:4px}
+h3{font-size:15px;margin:14px 0 4px}
+li{margin:4px 0} code{background:#eef;padding:1px 4px;border-radius:3px;font-size:13px}
+.warn{background:#fff3cd;border-left:3px solid #e6a817;padding:8px 12px;margin:10px 0}
+.good{background:#e8f5e9;border-left:3px solid #4caf50;padding:8px 12px;margin:10px 0}
+</style></head><body>
+<h1>GroupTrack — EOD Handoff — 2026-08-18</h1>
+
+<div class="good"><b>Play Store AAB published.</b> Closed testing - Alpha, 100% rollout, API 36.
+Asset-verified: <code>RELNOTES-2026-08-18N</code> = 1, <code>Ride Map</code> = 41 inside the AAB.</div>
+
+<h2>Commits Today (9 total, 2 amended)</h2>
+<ul>
+<li><code>a17b10fda</code> — <b>fix:</b> graduation deletes WIP draft (draft-or-DB-never-both invariant restored)</li>
+<li><code>9a26af073</code> — <b>fix:</b> GroupHud interval slider only renders with a group (fatal crash on drag without radio)</li>
+<li><code>f71e2ddc9</code> — <b>fix:</b> save-as-WIP bumps <code>draftListTick</code> (list refreshes immediately)</li>
+<li><code>748f2cf00</code> — <b>feat:</b> UI labels round 1 (PLAN→Ride Planning, BACK→Back to Ride, convoy hamburger→Map Features, convoy Search text, IMPORT FEATURES, SELECT, Type→Map Feature, Display Action header)</li>
+<li><code>2393a4616</code> — <b>feat:</b> UI labels round 2 (Search FAB fix, planner controls, panel title, colour legend, MAPS FAB)</li>
+<li><code>68d034634</code> — <b>fix:</b> Help clipping to "HE", planner hamburger still a glyph, convoy column spacing, colour legend blocks + background import</li>
+<li><code>b98d8c5df</code> — <b>feat:</b> Search, Map Features, Help in magenta (<code>0xFFFF00FF</code>) for terrain contrast</li>
+<li><code>70917751f</code> (amended) — <b>docs:</b> manual — full terminology update, six new annotated screenshots with Fred-positioned labels, old panel titles blurred, all 108 images scaled to 720p/JPEG-75 (5.7 MB)</li>
+<li><code>09affe47e</code> (amended) — <b>docs:</b> release notes — 2026-08-18 build entries</li>
+</ul>
+
+<h2>What Shipped in the UI</h2>
+<ul>
+<li><b>Every control has a word, not an icon.</b> Hamburger → "Map Features", magnifier → "Search", ? → "Help" on both maps. All in magenta with white blur shadow.</li>
+<li><b>"Artifacts" vocabulary eliminated.</b> Panel = "Work with Map Features", button = "IMPORT FEATURES", toggle = "SELECT", column = "Map Feature".</li>
+<li><b>Map names:</b> Convoy Map → Ride Map, Planning Map → Ride Planning Map.</li>
+<li><b>Navigation:</b> PLAN → "Ride Planning", BACK → "Back to Ride".</li>
+<li><b>Download FAB:</b> MAPS with ⇅ arrows in the 48dp circle.</li>
+<li><b>Colour legend:</b> blue = on, green = available, with actual colour blocks.</li>
+</ul>
+
+<h2>Manual Changes (108 images, 30 sections)</h2>
+<ul>
+<li>42 × "Convoy Map" → "Ride Map"</li>
+<li>49 × "Planning Map" → "Ride Planning Map"</li>
+<li>37 × "Work with Artifacts" → "Work with Map Features"</li>
+<li>20 × "SEL/EDIT" → "SELECT"</li>
+<li>~80 × "artifact(s)" → "feature(s)" in prose</li>
+<li>6 alt texts updated</li>
+<li>6 new screenshots embedded (2 annotated maps + 2 Map Features panels + Import panel)</li>
+<li>5 old screenshots blurred where sub-screens overlay stale panel titles</li>
+<li>All 108 images scaled to 720p, recompressed to JPEG quality 75</li>
+</ul>
+
+<h2>Design Work Captured (from earlier in session, documented in design record)</h2>
+<ul>
+<li><b>Trail data reality</b> — measured against utah.gpkg and Droid 1 backup. 160K trails, no BLM data, motorized_allowed EMPTY, scenic layer already imported.</li>
+<li><b>RideCalc calibration</b> — 12–18 mph default from 31 filtered tracks; mechanism is stopped-time dilution, not terrain.</li>
+<li><b>BLM restrictions</b> — state OHV designation polygons + GTLF route-level. "Limited" = designated-routes-only.</li>
+<li><b>Import consolidation model</b> — select area, intersect sources, loop existing pipeline.</li>
+<li><b>fclass as speed input</b>, not filter (Fred: "we have no idea what some is").</li>
+</ul>
+
+<h2>Patch Script Lessons (banked)</h2>
+<ul>
+<li>Always use <b>dated filenames</b> for deliverables — <code>grouptrack_manual_2026-08-18.html</code> not <code>grouptrack_manual.html</code> — to avoid download overwrite confusion.</li>
+<li>Comments in patch replacements <b>never quote a string a guard watches</b>.</li>
+<li>Python <code>\u2630</code> in a triple-quoted string is the GLYPH, not the escape text — <b>double the backslash</b> when the file contains the literal escape.</li>
+<li><code>contentColor</code> on a Surface ≠ the text colour — the Surface background carries the visual state.</li>
+<li>Verify assets INSIDE the shipping artifact: <code>unzip -p &lt;aab&gt; base/assets/&lt;file&gt; | grep -c "&lt;marker&gt;"</code>.</li>
+</ul>
+
+<h2>Devices</h2>
+<ul>
+<li><b>Droid 1</b> (<code>8624SBCEDF00001789</code>) — PROTECTED, 89K trails, updated and verified</li>
+<li><b>Droid 2</b> (<code>24039703201775</code>) — SACRIFICIAL, updated and verified</li>
+</ul>
+
+<h2>Next Session — What's Queued</h2>
+<ul>
+<li><b>Context-sensitive help wiring</b> — anchors exist (convoy-A through Q, planning-A through L); wiring is anchor + open details parents + scroll. <code>planning-K</code> has PENDING-REDOC wrong content.</li>
+<li><b>2.6g plumbing (before route suggester):</b> refuse-to-create, RideCalc extraction, startup-task survey, declared startup phase, fclass carry at extract, import consolidation.</li>
+<li><b>Manual:</b> 3 × PENDING-REDOC-2026-08-06 markers + stale planning-K section.</li>
+<li><b>Dead code:</b> second <code>saveCompleted</code> at ConvoyScreen.kt:1771 — remove when convoy freeze lifts.</li>
+</ul>
+
+</body></html>

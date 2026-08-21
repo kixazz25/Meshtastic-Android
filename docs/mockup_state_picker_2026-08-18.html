@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<title>GroupTrack — Startup State Picker Mockup</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,-apple-system,sans-serif;background:#0d1117;color:#e6edf3;
+  display:flex;justify-content:center;align-items:center;min-height:100vh}
+
+.device{width:800px;height:480px;background:#131820;border:2px solid #333;border-radius:12px;
+  overflow:hidden;position:relative;display:flex;flex-direction:column}
+
+.header{background:#1a2233;padding:12px 20px;border-bottom:1px solid #2a3444;text-align:center}
+.header h1{font-size:18px;color:#7bb661;margin:0 0 4px}
+.header p{font-size:12px;color:#8899aa;margin:0}
+
+.content{flex:1;display:flex;padding:16px 20px;gap:16px;overflow:hidden}
+
+.left{flex:1;display:flex;flex-direction:column}
+.left h2{font-size:14px;color:#4da6ff;margin:0 0 8px}
+.left p{font-size:11px;color:#8899aa;margin:0 0 10px;line-height:1.5}
+
+.search-box{background:#1a2233;border:1px solid #2a3444;border-radius:6px;padding:8px 10px;
+  color:#e6edf3;font-size:13px;width:100%;margin-bottom:8px;outline:none}
+.search-box:focus{border-color:#4da6ff}
+.search-box::placeholder{color:#556677}
+
+.state-list{flex:1;overflow-y:auto;border:1px solid #2a3444;border-radius:6px;background:#0d1117}
+.state-item{padding:8px 12px;font-size:13px;cursor:pointer;border-bottom:1px solid #1a2233;
+  display:flex;justify-content:space-between;align-items:center}
+.state-item:hover{background:#1a2844}
+.state-item.selected{background:#1a3a2a;border-left:3px solid #7bb661}
+.state-item .name{color:#e6edf3}
+.state-item .info{font-size:10px;color:#667788}
+
+.right{width:280px;display:flex;flex-direction:column;gap:10px}
+.preview{flex:1;background:#1a2233;border-radius:8px;border:1px solid #2a3444;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;padding:12px}
+.preview .state-name{font-size:20px;color:#7bb661;font-weight:700;margin:0 0 8px}
+.preview .bbox-label{font-size:10px;color:#667788;margin:2px 0}
+.preview .bbox-val{font-size:11px;color:#aabbcc;font-family:monospace}
+.preview .source-count{font-size:12px;color:#4da6ff;margin-top:12px}
+.preview .trail-est{font-size:11px;color:#8899aa;margin-top:4px}
+
+.go-btn{background:#7bb661;color:#0d1117;border:none;border-radius:8px;padding:14px 20px;
+  font-size:15px;font-weight:700;cursor:pointer;width:100%;letter-spacing:0.5px}
+.go-btn:hover{background:#8cc972}
+.go-btn:disabled{background:#334433;color:#556655;cursor:default}
+.go-btn .sub{font-size:10px;font-weight:400;display:block;margin-top:2px;opacity:0.8}
+
+.skip{text-align:center;margin-top:6px}
+.skip a{font-size:11px;color:#667788;text-decoration:underline;cursor:pointer}
+.skip a:hover{color:#aabbcc}
+
+.footer{background:#1a2233;padding:6px 20px;border-top:1px solid #2a3444;
+  font-size:10px;color:#556677;text-align:center}
+
+.state-list::-webkit-scrollbar{width:6px}
+.state-list::-webkit-scrollbar-track{background:#0d1117}
+.state-list::-webkit-scrollbar-thumb{background:#2a3444;border-radius:3px}
+
+.badge{display:inline-block;background:#2a3444;color:#8899aa;font-size:9px;
+  padding:1px 6px;border-radius:3px;margin-left:6px}
+</style>
+</head><body>
+
+<div class="device">
+  <div class="header">
+    <h1>Welcome to GroupTrack</h1>
+    <p>Pick your home state to load trail data, map features, and scenic points</p>
+  </div>
+  
+  <div class="content">
+    <div class="left">
+      <h2>Select Your Home State</h2>
+      <input type="text" class="search-box" id="search" placeholder="Search states..." oninput="filterStates()">
+      <div class="state-list" id="stateList"></div>
+    </div>
+    
+    <div class="right">
+      <div class="preview" id="preview">
+        <div style="color:#556677;font-size:13px">Select a state to see<br>available trail data</div>
+      </div>
+      <button class="go-btn" id="goBtn" disabled onclick="startImport()">
+        IMPORT ALL TRAIL DATA
+        <span class="sub">Downloads and imports every available source</span>
+      </button>
+      <div class="skip"><a>Skip for now — I'll import later</a></div>
+    </div>
+  </div>
+  
+  <div class="footer">
+    GroupTrack V2.6g · Internet connection required · Data downloads range from 50 MB to 800 MB depending on state
+  </div>
+</div>
+
+<script>
+const states = [
+  {name:"Alabama",slug:"alabama",bbox:[-88.47,30.22,-84.89,35.01],sources:2,est:"~85,000"},
+  {name:"Alaska",slug:"alaska",bbox:[-179.15,51.21,-129.98,71.39],sources:1,est:"~12,000"},
+  {name:"Arizona",slug:"arizona",bbox:[-114.82,31.33,-109.04,37.00],sources:3,est:"~145,000"},
+  {name:"Arkansas",slug:"arkansas",bbox:[-94.62,33.00,-89.64,36.50],sources:2,est:"~62,000"},
+  {name:"California",slug:"california",bbox:[-124.41,32.53,-114.13,42.01],sources:4,est:"~320,000"},
+  {name:"Colorado",slug:"colorado",bbox:[-109.06,36.99,-102.04,41.00],sources:3,est:"~195,000"},
+  {name:"Connecticut",slug:"connecticut",bbox:[-73.73,40.99,-71.79,42.05],sources:1,est:"~18,000"},
+  {name:"Delaware",slug:"delaware",bbox:[-75.79,38.45,-75.05,39.84],sources:1,est:"~8,000"},
+  {name:"Florida",slug:"florida",bbox:[-87.63,24.52,-80.03,31.00],sources:2,est:"~95,000"},
+  {name:"Georgia",slug:"georgia",bbox:[-85.61,30.36,-80.84,35.00],sources:2,est:"~78,000"},
+  {name:"Hawaii",slug:"hawaii",bbox:[-160.24,18.91,-154.81,22.24],sources:1,est:"~15,000"},
+  {name:"Idaho",slug:"idaho",bbox:[-117.24,41.99,-111.04,49.00],sources:2,est:"~110,000"},
+  {name:"Illinois",slug:"illinois",bbox:[-91.51,36.97,-87.50,42.51],sources:1,est:"~72,000"},
+  {name:"Indiana",slug:"indiana",bbox:[-88.10,37.77,-84.78,41.76],sources:1,est:"~55,000"},
+  {name:"Iowa",slug:"iowa",bbox:[-96.64,40.38,-90.14,43.50],sources:1,est:"~45,000"},
+  {name:"Kansas",slug:"kansas",bbox:[-102.05,36.99,-94.59,40.00],sources:1,est:"~38,000"},
+  {name:"Kentucky",slug:"kentucky",bbox:[-89.57,36.50,-81.96,39.15],sources:1,est:"~58,000"},
+  {name:"Louisiana",slug:"louisiana",bbox:[-94.04,28.93,-88.82,33.02],sources:1,est:"~42,000"},
+  {name:"Maine",slug:"maine",bbox:[-71.08,43.06,-66.95,47.46],sources:1,est:"~35,000"},
+  {name:"Maryland",slug:"maryland",bbox:[-79.49,37.91,-75.05,39.72],sources:1,est:"~32,000"},
+  {name:"Massachusetts",slug:"massachusetts",bbox:[-73.51,41.24,-69.93,42.89],sources:1,est:"~28,000"},
+  {name:"Michigan",slug:"michigan",bbox:[-90.42,41.70,-82.12,48.31],sources:2,est:"~92,000"},
+  {name:"Minnesota",slug:"minnesota",bbox:[-97.24,43.50,-89.49,49.38],sources:1,est:"~68,000"},
+  {name:"Mississippi",slug:"mississippi",bbox:[-91.66,30.17,-88.10,34.99],sources:1,est:"~48,000"},
+  {name:"Missouri",slug:"missouri",bbox:[-95.77,36.00,-89.10,40.61],sources:1,est:"~72,000"},
+  {name:"Montana",slug:"montana",bbox:[-116.05,44.36,-104.04,49.00],sources:2,est:"~125,000"},
+  {name:"Nebraska",slug:"nebraska",bbox:[-104.05,40.00,-95.31,43.00],sources:1,est:"~35,000"},
+  {name:"Nevada",slug:"nevada",bbox:[-120.01,35.00,-114.04,42.00],sources:2,est:"~98,000"},
+  {name:"New Hampshire",slug:"new-hampshire",bbox:[-72.56,42.70,-70.70,45.31],sources:1,est:"~22,000"},
+  {name:"New Jersey",slug:"new-jersey",bbox:[-75.56,38.93,-73.89,41.36],sources:1,est:"~25,000"},
+  {name:"New Mexico",slug:"new-mexico",bbox:[-109.05,31.33,-103.00,37.00],sources:2,est:"~115,000"},
+  {name:"New York",slug:"new-york",bbox:[-79.76,40.50,-71.86,45.02],sources:2,est:"~85,000"},
+  {name:"North Carolina",slug:"north-carolina",bbox:[-84.32,33.84,-75.46,36.59],sources:2,est:"~82,000"},
+  {name:"North Dakota",slug:"north-dakota",bbox:[-104.05,45.94,-96.55,49.00],sources:1,est:"~22,000"},
+  {name:"Ohio",slug:"ohio",bbox:[-84.82,38.40,-80.52,42.32],sources:1,est:"~62,000"},
+  {name:"Oklahoma",slug:"oklahoma",bbox:[-103.00,33.62,-94.43,37.00],sources:1,est:"~55,000"},
+  {name:"Oregon",slug:"oregon",bbox:[-124.57,41.99,-116.46,46.29],sources:2,est:"~135,000"},
+  {name:"Pennsylvania",slug:"pennsylvania",bbox:[-80.52,39.72,-74.69,42.27],sources:2,est:"~78,000"},
+  {name:"Rhode Island",slug:"rhode-island",bbox:[-71.86,41.15,-71.12,42.02],sources:1,est:"~8,000"},
+  {name:"South Carolina",slug:"south-carolina",bbox:[-83.35,32.03,-78.54,35.22],sources:1,est:"~45,000"},
+  {name:"South Dakota",slug:"south-dakota",bbox:[-104.06,42.48,-96.44,45.95],sources:1,est:"~28,000"},
+  {name:"Tennessee",slug:"tennessee",bbox:[-90.31,34.98,-81.65,36.68],sources:1,est:"~68,000"},
+  {name:"Texas",slug:"texas",bbox:[-106.65,25.84,-93.51,36.50],sources:2,est:"~185,000"},
+  {name:"Utah",slug:"utah",bbox:[-114.05,37.00,-109.04,42.00],sources:3,est:"~160,000"},
+  {name:"Vermont",slug:"vermont",bbox:[-73.44,42.73,-71.46,45.02],sources:1,est:"~18,000"},
+  {name:"Virginia",slug:"virginia",bbox:[-83.68,36.54,-75.24,39.47],sources:2,est:"~75,000"},
+  {name:"Washington",slug:"washington",bbox:[-124.73,45.54,-116.92,49.00],sources:2,est:"~142,000"},
+  {name:"West Virginia",slug:"west-virginia",bbox:[-82.64,37.20,-77.72,40.64],sources:1,est:"~48,000"},
+  {name:"Wisconsin",slug:"wisconsin",bbox:[-92.89,42.49,-86.25,47.31],sources:1,est:"~65,000"},
+  {name:"Wyoming",slug:"wyoming",bbox:[-111.06,40.99,-104.05,45.01],sources:2,est:"~88,000"}
+];
+
+let selected = null;
+
+function renderStates(filter) {
+  const list = document.getElementById('stateList');
+  const f = (filter||'').toLowerCase();
+  list.innerHTML = '';
+  states.filter(s => !f || s.name.toLowerCase().includes(f)).forEach(s => {
+    const div = document.createElement('div');
+    div.className = 'state-item' + (selected && selected.slug === s.slug ? ' selected' : '');
+    div.innerHTML = `<span class="name">${s.name}</span>
+      <span class="info">${s.sources} source${s.sources>1?'s':''} · ${s.est} trails</span>`;
+    div.onclick = () => selectState(s);
+    list.appendChild(div);
+  });
+}
+
+function filterStates() {
+  renderStates(document.getElementById('search').value);
+}
+
+function selectState(s) {
+  selected = s;
+  renderStates(document.getElementById('search').value);
+  
+  const preview = document.getElementById('preview');
+  preview.innerHTML = `
+    <div class="state-name">${s.name}</div>
+    <div class="bbox-label">Coverage Area</div>
+    <div class="bbox-val">${s.bbox[1].toFixed(1)}°N to ${s.bbox[3].toFixed(1)}°N</div>
+    <div class="bbox-val">${Math.abs(s.bbox[0]).toFixed(1)}°W to ${Math.abs(s.bbox[2]).toFixed(1)}°W</div>
+    <div class="source-count">${s.sources} data source${s.sources>1?'s':''} available</div>
+    <div class="trail-est">${s.est} estimated trails</div>
+    <div style="margin-top:10px;font-size:10px;color:#667788">
+      OSM Trails · ${s.sources > 1 ? 'State Trail Data · ' : ''}Scenic Points
+    </div>
+  `;
+  
+  document.getElementById('goBtn').disabled = false;
+}
+
+function startImport() {
+  if (!selected) return;
+  // This is just a mockup — show a confirmation
+  const preview = document.getElementById('preview');
+  preview.innerHTML = `
+    <div style="color:#7bb661;font-size:16px;font-weight:700;margin-bottom:8px">Starting Import</div>
+    <div style="color:#aabbcc;font-size:12px;line-height:1.8">
+      Processing ${selected.sources} sources for ${selected.name}...<br>
+      <br>
+      <span style="color:#4da6ff">Source 1 of ${selected.sources}: OSM Trails</span><br>
+      <span style="color:#7bb661">✅</span> Download GPKG<br>
+      <span style="color:#4da6ff">►</span> Extracting trails...<br>
+      <span style="color:#556677">○</span> Import to database<br>
+      <span style="color:#556677">○</span> Cleanup
+    </div>
+  `;
+  document.getElementById('goBtn').disabled = true;
+  document.getElementById('goBtn').textContent = 'IMPORTING...';
+}
+
+renderStates();
+</script>
+</body></html>

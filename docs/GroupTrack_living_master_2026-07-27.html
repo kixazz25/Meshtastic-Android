@@ -356,31 +356,6 @@ Result:  LINESTRING(-112.771625 37.069884,-112.770892 37.070113)</pre>
   2  SKINNY SELECT       89,554 trails available       [ EXTRACT ]   <- gate
   3  IMPORT TO SPATIAL   0 areas imported              -- waiting
   4  CLEANUP             739 MB reclaimable            -- waiting</pre>
-<h4>⭐⭐ SCOPE CHOSEN AT LAUNCH: WHOLE STATE or AREA &mdash; carried through every stage (Fred, 07-27 late)</h4>
-<p><b>DECOMPOSE THIS IN THE MORNING.</b> Fred: <i>"launch screen should prompt for whole state or area. carry forward through process."</i></p>
-<p><b>⚠ THE CHOICE DOES NOT AFFECT THE DOWNLOAD.</b> Geofabrik serves whole states only &mdash; there is no partial fetch, no range-by-bbox. Utah is 314 MB whether you want all of it or one county. <b>So the scope choice bites at the SKINNY step, as a clip during extraction.</b></p>
-<pre style="background:#0c0f0a;padding:8px;border-radius:4px;font:11px var(--mono);overflow-x:auto">                WHOLE STATE              AREA
-1 DOWNLOAD      314 MB zip               314 MB zip      <- IDENTICAL
-2 SKINNY        all trail classes        clipped to bbox <- WHERE IT BITES
-                Utah = 89,554 / 108 MB   AZ strip = 10,714 / 12.3 MB
-3 IMPORT        draw areas within it     often the whole skinny DB
-4 CLEANUP       same                     same, reclaims more</pre>
-<p><b>⭐ The saving is real and measured.</b> Today: whole Utah 108 MB vs the Arizona strip at 12.3 MB and the Nevada corner at 7.9 MB &mdash; and Arizona kept 10,721 of 134,242 candidate rows, i.e. <b>8% of the state</b>. For a rider who only wants one border strip, clipping at skinny time avoids carrying ten times the data they will ever draw against.</p>
-<p><b>What "carry forward" means concretely:</b> the scope and (if AREA) the bbox are captured at launch, written into the control JSON as part of the run's provenance, shown on every panel row so the user can see what they chose, and <b>used by stage 2</b>. Stage 3 then behaves slightly differently: for AREA scope the skinny DB is often small enough to import wholesale; for WHOLE STATE the user draws within it.</p>
-<p><b>⚠ Open question for the decomposition:</b> if scope is AREA, is the bbox entered <b>before the download starts</b> (so the user commits up front) or <b>at the skinny gate</b> (so they can decide after seeing the download succeed)? The second is friendlier &mdash; a 314 MB download should not be gated behind typing four coordinates &mdash; but it means the launch screen asks a question whose answer is not needed for two more stages. <b>Decide deliberately.</b></p>
-
-<h4>⭐ AREA ENTRY FOR IMPORT &mdash; MAP DRAW *AND* A LAT/LONG FORM (Fred, 07-27 late)</h4>
-<p>Fred: <i>"adb push is not a process we can replicate in app. suggest we write that piece. lat/long form + map with import from new spatial db."</i></p>
-<p><b>⚠ THE SEQUENCING POINT FIRST.</b> The earlier plan said "test the import half first by <code>adb push</code>-ing a staged DB". <code>adb push</code> is fine as a <b>DEV BOOTSTRAP</b> &mdash; the file lands in the same app-private path either way, so the import code cannot tell how it arrived &mdash; but it <b>must not be the shape the feature is designed around</b>. Nothing user-facing may assume a file that appeared by magic.</p>
-<p><b>Stage 3 (IMPORT TO SPATIAL) takes an area from EITHER of two inputs:</b></p>
-<ul>
-<li><b>MAP DRAW</b> &mdash; the existing region tools, same as tile downloads. The natural path for a rider.</li>
-<li><b>LAT/LONG FORM</b> &mdash; four fields (N, S, E, W) typed directly.</li>
-</ul>
-<p><b>⭐ The form is not just a testing affordance.</b> It is precise, repeatable, and <b>independent of the map-draw plumbing</b> &mdash; which matters here: <code>B1_DRAW_AREA</code> on the trail-source screen is an <b>unimplemented stub</b>, and that screen only receives a bbox when entered from the planning map via <code>launchMode = BY_AREA</code>. A form sidesteps that entirely. It also lets a tester type coordinates for a known riding area and get <b>the identical import every run</b>, which a hand-drawn box can never do.</p>
-<p><b>Design notes for the form:</b> pre-fill from the current map viewport so it starts somewhere sensible rather than blank &middot; validate N&gt;S and E&gt;W before enabling import (an inverted box silently returns zero rows) &middot; show the <b>count found</b> before the confirm, same "count, confirm, then act" discipline as the queue panel's scoped CANCEL &middot; keep the last-used box so a retry does not mean retyping four decimals.</p>
-<p><b>⚠ Build order follows from this:</b> stage 3 can be built and exercised against an <code>adb push</code>-ed staged DB, <b>but stages 1&ndash;2 (download + skinny) must exist before any tester sees it</b>. The import piece is the smaller half; the acquisition half is what makes it usable.</p>
-
 <h4>⭐⭐⭐ SIMPLIFIED &mdash; TWO RECOVERY POINTS ONLY (Fred, 07-27 late, SUPERSEDES the 5-gate model)</h4>
 <p>Fred: <i>"simplify the process. two recovery points: zipped, and skinnied file ready for import. pick up is either file. when skinny is created the zip is removed."</i></p>
 <p><b>⭐ THE KEY MOVE: the <code>.gpkg</code> is NEVER a recovery point.</b> Unzip and skinny-select are ONE ATOMIC OPERATION &mdash; the extracted <code>.gpkg</code> exists only inside it and is gone when it ends, whether it succeeded or not. So there are only ever <b>two files worth resuming from</b>:</p>
