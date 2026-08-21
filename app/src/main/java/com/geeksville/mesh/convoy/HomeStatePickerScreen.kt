@@ -428,6 +428,23 @@ private fun ProgressPanel(progress: ImportProgress?) {
 // ── Panel 4: Completion ──────────────────────────────────────────
 
 @Composable
+private fun RecapLine(label: String, value: Int) {
+    // MANIFESTUI-2026-08-21: -1 is NOT zero. A counter the source never reported
+    // must say so rather than imply a clean run.
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 1.dp),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(label, color = txtLight, fontSize = 11.sp)
+        Text(
+            if (value < 0) "not reported" else "$value",
+            color = if (value < 0) Color(0xFF888888) else txtLight,
+            fontSize = 11.sp
+        )
+    }
+}
+
+@Composable
 private fun CompletionPanel(progress: ImportProgress?, onDone: () -> Unit) {
     Column(
         modifier = Modifier.fillMaxSize().padding(24.dp),
@@ -444,16 +461,36 @@ private fun CompletionPanel(progress: ImportProgress?, onDone: () -> Unit) {
         Surface(color = cardBg, shape = RoundedCornerShape(8.dp)) {
             Column(modifier = Modifier.padding(16.dp).widthIn(min = 300.dp)) {
                 progress?.sources?.forEach { src ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(src.name, color = txtLight, fontSize = 13.sp)
-                        Text(
-                            if (src.status == "completed") "${src.imported}" else "failed",
-                            color = if (src.status == "completed") green else Color(0xFFCC4444),
-                            fontSize = 13.sp, fontWeight = FontWeight.Bold
-                        )
+                    // MANIFESTUI-2026-08-21: the summary line is unchanged -- records
+                    // added, one number. Detail is behind a twisty so the recap
+                    // does not overwhelm the rider.
+                    var showDetail by remember(src.id) { mutableStateOf(false) }
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth()
+                                .clickable { showDetail = !showDetail }
+                                .padding(vertical = 4.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                (if (showDetail) "\u25BE  " else "\u25B8  ") + src.name,
+                                color = txtLight, fontSize = 13.sp
+                            )
+                            Text(
+                                if (src.status == "completed") "${src.imported}" else "failed",
+                                color = if (src.status == "completed") green else Color(0xFFCC4444),
+                                fontSize = 13.sp, fontWeight = FontWeight.Bold
+                            )
+                        }
+                        if (showDetail) {
+                            Column(modifier = Modifier.padding(start = 16.dp, bottom = 6.dp)) {
+                                RecapLine("Records processed", src.processed)
+                                RecapLine("Records selected", src.selected)
+                                RecapLine("Duplicates", src.dupes)
+                                RecapLine("Adds", src.adds)
+                                RecapLine("Unprocessed errors", src.errors)
+                            }
+                        }
                     }
                 }
 

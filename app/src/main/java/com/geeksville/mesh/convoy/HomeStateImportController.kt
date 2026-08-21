@@ -42,6 +42,13 @@ data class ImportSourceProgress(
     val processType: String,        // "geofabrik_full_state" | "trails_list_area"
     val status: String,             // "pending" | "in_progress" | "completed" | "failed"
     val imported: Int = 0,
+    // MANIFESTUI-2026-08-21: the recap five. -1 means NOT REPORTED by this source,
+    // which is not the same as zero -- the UI must be able to say so.
+    val processed: Int = -1,
+    val selected: Int = -1,
+    val dupes: Int = -1,
+    val adds: Int = -1,
+    val errors: Int = -1,
     val currentStep: String? = null, // "Downloading" | "Extracting" | "Importing" | "Cleanup"
     val stepDetail: String? = null,  // "47,200 of 112,000"
 )
@@ -107,6 +114,12 @@ object HomeStateImportController {
                 put("process", "trails_list_area")
                 put("status", "pending")
                 put("imported", 0)
+                // MANIFESTCOUNTS-2026-08-21: recap counters. selected = dupes + adds + errors.
+                put("processed", 0)
+                put("selected", 0)
+                put("dupes", 0)
+                put("adds", 0)
+                put("errors", 0)
             })
         }
 
@@ -119,9 +132,19 @@ object HomeStateImportController {
             put("gpkg_url", state.gpkgUrl)
             put("status", "pending")
             put("imported", 0)
+            // MANIFESTCOUNTS-2026-08-21: recap counters. selected = dupes + adds + errors.
+            put("processed", 0)
+            put("selected", 0)
+            put("dupes", 0)
+            put("adds", 0)
+            put("errors", 0)
         })
 
         return JSONObject().apply {
+            // MANIFESTCOUNTS-2026-08-21: stable per-run identifier. Field, not filename --
+            // manifests written before this change have no id and must still read
+            // as valid. Slug (not name) because California ships as two entries.
+            put("manifest_id", "${state.slug}-${iso8601Now()}")
             put("process_state", "in_progress")
             put("started_at", iso8601Now())
             put("completed_at", JSONObject.NULL)
@@ -266,6 +289,25 @@ object HomeStateImportController {
             val last = imports.getJSONObject(imports.length() - 1)
             val count = last.optInt("inserted", 0) + last.optInt("updated", 0)
             src.put("imported", count)
+            // MANIFESTCOUNTS-2026-08-21: the recap five from the OSM ledger.
+            // -1 means NOT REPORTED by this ledger, which is not the same as
+            // zero. The recap must be able to say "not reported" rather than
+            // claim a clean run it cannot vouch for.
+            val gAdds    = last.optInt("inserted", -1)
+            val gDropped = last.optInt("dropped", -1)
+            val gAliased = last.optInt("aliased", -1)
+            val gErrors  = last.optInt("errors", -1)
+            val gFound   = last.optInt("found", -1)
+            val gDupes   = if (gDropped < 0 && gAliased < 0) -1
+                           else maxOf(gDropped, 0) + maxOf(gAliased, 0)
+            src.put("processed", gFound)
+            // Whole-state import applies no out-of-area cut, so nothing is
+            // rejected: selected == processed. The BY AREA path must override
+            // this when it lands -- there, selected is the bbox result.
+            src.put("selected", gFound)
+            src.put("dupes", gDupes)
+            src.put("adds", gAdds)
+            src.put("errors", gErrors)
         }
 
         // Step 5: Cleanup
@@ -290,6 +332,21 @@ object HomeStateImportController {
             )
             val total = results.sumOf { it.inserted }
             src.put("imported", total)
+            // MANIFESTCOUNTS-2026-08-21: the recap five, straight off ImportResult --
+            // TrailImporter already computes every one of these and discards
+            // all but `inserted`. processed = the whole tally; `rejected` is
+            // out-of-area, so selected is processed minus rejected.
+            val pDropped  = results.sumOf { it.dropped }
+            val pAliased  = results.sumOf { it.aliased }
+            val pSkipped  = results.sumOf { it.skipped }
+            val pRejected = results.sumOf { it.rejected }
+            val pErrors   = results.sumOf { it.errors }
+            val pProcessed = total + pDropped + pAliased + pSkipped + pRejected + pErrors
+            src.put("processed", pProcessed)
+            src.put("selected", pProcessed - pRejected)
+            src.put("dupes", pDropped + pAliased + pSkipped)
+            src.put("adds", total)
+            src.put("errors", pErrors)
             Log.i(TAG, "Catalog source $sourceId: $total records")
             true
         } catch (e: Exception) {
@@ -405,6 +462,13 @@ object HomeStateImportController {
                 processType = s.getString("process"),
                 status = s.getString("status"),
                 imported = s.optInt("imported", 0),
+                // MANIFESTUI-2026-08-21: manifests written before 2026-08-21 carry no
+                // counters. Absent must read as -1 (not reported), never 0.
+                processed = s.optInt("processed", -1),
+                selected = s.optInt("selected", -1),
+                dupes = s.optInt("dupes", -1),
+                adds = s.optInt("adds", -1),
+                errors = s.optInt("errors", -1),
                 currentStep = s.optString("current_step", null),
                 stepDetail = s.optString("step_detail", null),
             )
