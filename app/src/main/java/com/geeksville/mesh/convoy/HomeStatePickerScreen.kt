@@ -222,7 +222,10 @@ private fun ConfirmPanel(
                 onClick = onLoad,
                 colors = ButtonDefaults.buttonColors(containerColor = green),
                 shape = RoundedCornerShape(8.dp),
-                modifier = Modifier.height(52.dp)
+                // PICKERFIX-2026-08-21K: was height(52.dp) -- a FIXED box, so the second
+                // line ("Downloads all available sources") was sliced mid-glyph.
+                // heightIn keeps the minimum and lets the button grow to its content.
+                modifier = Modifier.heightIn(min = 52.dp)
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("LOAD ${state.name.uppercase()} TRAIL DATA",
@@ -235,7 +238,8 @@ private fun ConfirmPanel(
             OutlinedButton(
                 onClick = onSelectDifferent,
                 shape = RoundedCornerShape(8.dp),
-                modifier = Modifier.height(52.dp)
+                // PICKERFIX-2026-08-21K: same fixed-height crop as the button beside it.
+                modifier = Modifier.heightIn(min = 52.dp)
             ) {
                 Text("Select a different\nHome state",
                     color = blue, fontSize = 12.sp, textAlign = TextAlign.Center)
@@ -512,8 +516,14 @@ private fun CompletionPanel(progress: ImportProgress?, onDone: () -> Unit) {
                                 (if (showDetail) "\u25BE  " else "\u25B8  ") + src.name,
                                 color = txtLight, fontSize = 13.sp
                             )
+                            // PICKERFIX-2026-08-21K: adds stays the headline number. When
+                            // duplicates are non-zero the line says so, because a
+                            // re-import that found everything already present would
+                            // otherwise read exactly like a total failure.
                             Text(
-                                if (src.status == "completed") "${src.imported}" else "failed",
+                                if (src.status != "completed") "failed"
+                                else if (src.dupes > 0) "${src.imported} \u00B7 ${src.dupes} already had"
+                                else "${src.imported}",
                                 color = if (src.status == "completed") green else Color(0xFFCC4444),
                                 fontSize = 13.sp, fontWeight = FontWeight.Bold
                             )
@@ -536,7 +546,16 @@ private fun CompletionPanel(progress: ImportProgress?, onDone: () -> Unit) {
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text("Total", color = txtLight, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                    Text("${progress?.sources?.sumOf { it.imported } ?: 0}",
+                    // PICKERFIX-2026-08-21K: same treatment as the source lines. A run whose
+                    // records were all already present shows "0" without this, and
+                    // "Import Complete / Total 0" teaches the rider that a working
+                    // import looks like a broken one.
+                    Text(
+                        run {
+                            val added = progress?.sources?.sumOf { it.imported } ?: 0
+                            val had = progress?.sources?.sumOf { if (it.dupes > 0) it.dupes else 0 } ?: 0
+                            if (had > 0) "$added \u00B7 $had already had" else "$added"
+                        },
                         color = green, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 }
             }

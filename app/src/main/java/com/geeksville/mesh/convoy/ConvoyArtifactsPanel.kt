@@ -201,6 +201,11 @@ fun ConvoyArtifactsPanel(
                                 // where we chose it, not where the renderer wraps.
                                 Text("IMPORT TRAILS BY\nSTATE OR AREA", color = aGreen, fontSize = 8.sp,
                                     fontFamily = aMono, fontWeight = FontWeight.Bold,
+                                    // BTNLINE-2026-08-21J: the default lineHeight comes from the type
+                                    // scale and does not shrink with fontSize, so two 8sp lines got
+                                    // a body-text line box. 10.sp is ~1.2x -- the lines flow like a
+                                    // wrapped sentence and the button loses the excess height.
+                                    lineHeight = 10.sp,
                                     textAlign = TextAlign.Center,
                                     modifier = Modifier.padding(horizontal = 4.dp, vertical = 6.dp))
                             }
@@ -216,6 +221,9 @@ fun ConvoyArtifactsPanel(
                                 // thing to a rider; tracks/waypoints/routes do not.
                                 Text("IMPORT TRACKS,\nWAYPOINTS & ROUTES", color = aBlue, fontSize = 8.sp,
                                     fontFamily = aMono, fontWeight = FontWeight.Bold,
+                                    // BTNLINE-2026-08-21J: same tight leading as the button beside it --
+                                    // both must shrink together or the row goes lopsided.
+                                    lineHeight = 10.sp,
                                     textAlign = TextAlign.Center,
                                     modifier = Modifier.padding(horizontal = 4.dp, vertical = 6.dp))
                             }
