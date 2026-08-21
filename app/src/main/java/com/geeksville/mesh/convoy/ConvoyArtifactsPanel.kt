@@ -194,7 +194,12 @@ fun ConvoyArtifactsPanel(
                                 modifier = Modifier.weight(1f).clickable { onImport("Trails") },
                                 shape = RoundedCornerShape(4.dp), color = Color(0xFF0D1520)
                             ) {
-                                Text("IMPORT TRAILS", color = aGreen, fontSize = 8.sp,
+                                // PANELBTN-2026-08-21E: LABEL ONLY. The clickable above
+                                // passes a dispatch key matched by string in
+                                // ConvoyMapViewerScreen -- it must not change with this
+                                // label. Two lines written explicitly so the break lands
+                                // where we chose it, not where the renderer wraps.
+                                Text("IMPORT TRAILS BY\nSTATE OR AREA", color = aGreen, fontSize = 8.sp,
                                     fontFamily = aMono, fontWeight = FontWeight.Bold,
                                     textAlign = TextAlign.Center,
                                     modifier = Modifier.padding(horizontal = 4.dp, vertical = 6.dp))
@@ -206,20 +211,21 @@ fun ConvoyArtifactsPanel(
                                 // PLAINLABELS-2026-08-17D: label ONLY. The onImport argument on the
                                 // clickable above is a dispatch key matched in
                                 // ConvoyMapViewerScreen -- it MUST NOT change with this label.
-                                Text("IMPORT FEATURES", color = aBlue, fontSize = 8.sp,
+                                // PANELBTN-2026-08-21E: names what it imports instead of the
+                                // category word. "Features" and "Trails" read as the same
+                                // thing to a rider; tracks/waypoints/routes do not.
+                                Text("IMPORT TRACKS,\nWAYPOINTS & ROUTES", color = aBlue, fontSize = 8.sp,
                                     fontFamily = aMono, fontWeight = FontWeight.Bold,
                                     textAlign = TextAlign.Center,
                                     modifier = Modifier.padding(horizontal = 4.dp, vertical = 6.dp))
                             }
-                            Surface(
-                                modifier = Modifier.weight(1f).clickable { onImport("OSM") },
-                                shape = RoundedCornerShape(4.dp), color = Color(0xFF0D1520)
-                            ) {
-                                Text("IMPORT OSM DATA", color = aOrange, fontSize = 8.sp,
-                                    fontFamily = aMono, fontWeight = FontWeight.Bold,
-                                    textAlign = TextAlign.Center,
-                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 6.dp))
-                            }
+                            // PANELBTN-2026-08-21E: "IMPORT OSM DATA" REMOVED (design spec §2).
+                            // OSM is no longer a separate concept -- it is one source inside
+                            // Import Trails, run automatically with every other source that
+                            // covers the chosen state or area. Patch D killed its handler;
+                            // the button itself survived and rendered as a dead control.
+                            // Screenshots of the old flow were captured 2026-08-21 for the
+                            // manual before removal.
                         }
                     }
                 }
