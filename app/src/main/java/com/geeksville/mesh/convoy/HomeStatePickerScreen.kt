@@ -47,7 +47,12 @@ private val txtLight = Color(0xFFE6EDF3)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeStatePickerScreen(
-    onNavigateBack: () -> Unit = {}
+    onNavigateBack: () -> Unit = {},
+    // AREAWIRE-2026-08-21C: CODE RULE 1 justification -- this is a MODE DISCRIMINATOR,
+    // not a shortcut. ABSENT = state mode (geocode, offer, rider picks).
+    // PRESENT = area mode (bbox already drawn; detection is meaningless and the
+    // screen enters at its running phase). Order is S, W, N, E.
+    areaBbox: DoubleArray? = null
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -62,6 +67,26 @@ fun HomeStatePickerScreen(
 
     // ── Detect on launch ─────────────────────────────────────────
     LaunchedEffect(Unit) {
+        // AREAWIRE-2026-08-21C: AREA MODE -- skip detection entirely. The states are
+        // resolved from the DRAWN bbox; their own Geofabrik bboxes are only the
+        // reference used to select them, never the area imported.
+        if (areaBbox != null) {
+            val all = withContext(Dispatchers.IO) { GeofabrikCatalog.load(context) }
+            val hits = GeofabrikCatalog.findByBbox(
+                all, areaBbox[0], areaBbox[1], areaBbox[2], areaBbox[3]
+            )
+            Log.i(TAG, "AREA import: bbox S=${areaBbox[0]} W=${areaBbox[1]} " +
+                "N=${areaBbox[2]} E=${areaBbox[3]} -> ${hits.size} state(s): " +
+                hits.joinToString(", ") { it.slug })
+            phase = "running"
+            // An empty state list is NOT an error -- catalog sources may still
+            // intersect the box. The manifest records exactly what was resolved.
+            HomeStateImportController.executeArea(
+                context, areaBbox[0], areaBbox[1], areaBbox[2], areaBbox[3], hits
+            )
+            phase = "done"
+            return@LaunchedEffect
+        }
         val states = withContext(Dispatchers.IO) { GeofabrikCatalog.load(context) }
         allStates = GeofabrikCatalog.displayList(states)
         val detected = withContext(Dispatchers.IO) { GeofabrikCatalog.detectHomeState(context) }

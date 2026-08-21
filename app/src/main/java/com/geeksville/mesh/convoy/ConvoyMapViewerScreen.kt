@@ -189,6 +189,10 @@ fun ConvoyMapViewerScreen(
     // there is nothing to preserve across recomposition.
     var showOsmPanel by remember { mutableStateOf(false) }
     var showHomeStatePicker by remember { mutableStateOf(false) }
+    // AREAWIRE-2026-08-21C: non-null holds the drawn bbox (S,W,N,E) AND is the
+    // "area import overlay is open" flag. One piece of state, not two -- two
+    // flags for one concept is the 00f defect this codebase already carries.
+    var areaImportBbox by remember { mutableStateOf<DoubleArray?>(null) }
     var recoveryDetected by remember { mutableStateOf(false) }
     var saveOrigName by remember { mutableStateOf("") }   // draft's on-disk name captured when Save panel opens (rename source)
     var recoveryLaunched by remember { mutableStateOf(false) }   // one-shot: recovery detected this session (in onPageFinished)
@@ -1436,6 +1440,28 @@ fun ConvoyMapViewerScreen(
                 ) {
                     HomeStatePickerScreen(
                         onNavigateBack = { showHomeStatePicker = false }
+                    )
+                }
+            }
+
+            // AREAWIRE-2026-08-21C: AREA import overlay. Same screen as the state
+            // picker -- it already owns the running/done phases, the step
+            // indicators, the do-not-close banner and the completion recap.
+            // Building a second progress UI would be two implementations of one
+            // thing, which is the rule this release is meant to enforce.
+            val areaBb = areaImportBbox
+            if (areaBb != null) {
+                androidx.activity.compose.BackHandler(enabled = true) {
+                    areaImportBbox = null
+                }
+                androidx.compose.foundation.layout.Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color(0xFF0F1216))
+                ) {
+                    HomeStatePickerScreen(
+                        onNavigateBack = { areaImportBbox = null },
+                        areaBbox = areaBb
                     )
                 }
             }
@@ -2830,8 +2856,19 @@ fun ConvoyMapViewerScreen(
                         android.util.Log.i("DownloadPanel", "onNavigateToTrailSources: n=${bbox.north} s=${bbox.south} e=${bbox.east} w=${bbox.west} valid=${bbox.isValid}")
                         TrailImporter.launchMode = TrailImporter.LaunchMode.BY_AREA
                         TrailImporter.writePendingArea(bbox.north, bbox.south, bbox.east, bbox.west)
-                        android.util.Log.i("DownloadPanel", "writePendingArea called, navigating...")
-                        onNavigateToTrailSources()
+                        // AREAWIRE-2026-08-21C: THE DEVIATION POINT. The bbox handoff above
+                        // is unchanged and already proven. What changes is the
+                        // destination: no source SELECTION screen. Every source that
+                        // intersects the box runs, because running them all is what
+                        // makes the upsert enrichment work (design spec §4).
+                        // ⚠ writePendingArea/launchMode above are now vestigial for
+                        // this path -- remove in the cleanup pass, AFTER device verify.
+                        android.util.Log.i("DownloadPanel",
+                            "AREA IMPORT: launching for bbox S=${bbox.south} W=${bbox.west} " +
+                            "N=${bbox.north} E=${bbox.east}")
+                        areaImportBbox = doubleArrayOf(
+                            bbox.south, bbox.west, bbox.north, bbox.east)
+                        showDownloadPanel = false
                     },
 
                     onShowDownloadedMaps = { show ->
