@@ -665,8 +665,15 @@ object HomeStateImportController {
                 // timestamp, so two runs on the same day stop colliding in
                 // history. No id means an old manifest: keep its filename.
                 val id = json.optString("manifest_id", "")
-                val target = if (id.isBlank()) File(history, f.name)
-                             else File(history, "$id.json")
+                // SWEEPNAME-2026-08-21I: SANITIZE THE FILENAME. manifest_id carries an
+                // ISO timestamp (HH:mm:ss) and Android's external storage is
+                // FAT/exFAT-derived -- a ':' in a filename fails the create with
+                // EPERM. Measured on Droid 2 2026-08-21. The id INSIDE the file is
+                // untouched: it is what gets read back on a support call, and the
+                // contents were never the problem.
+                val safeId = id.replace(':', '-')
+                val target = if (safeId.isBlank()) File(history, f.name)
+                             else File(history, "$safeId.json")
 
                 // SWEEPMOVE-2026-08-21H: log the CLASSIFICATION before attempting the
                 // move. The previous log said only "could not move", which made a
