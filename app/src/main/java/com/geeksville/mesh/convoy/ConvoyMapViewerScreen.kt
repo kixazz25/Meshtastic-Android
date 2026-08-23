@@ -1520,8 +1520,17 @@ fun ConvoyMapViewerScreen(
                             // almost certainly centred on where they mean to start -- but
                             // a rider who has panned away gets a corridor around the wrong
                             // place. Replacing this is one line once the pin drop exists.
-                            val cLat = (lastViewportSouth + lastViewportNorth) / 2.0
-                            val cLon = (lastViewportWest + lastViewportEast) / 2.0
+                            // ROUTEEXPLORE-2026-08-23V: TEMPORARY -- Panguitch town park,
+                            // Main St. The exact anchor the research used on 08-22, so
+                            // this run can be held against a known answer instead of
+                            // producing routes on unknown ground.
+                            // ⚠ REMOVE when the pin drop is wired; the viewport midpoint
+                            // below is what it replaces.
+                            val cLat = 37.8222
+                            val cLon = -112.4358
+                            @Suppress("UNUSED_EXPRESSION")
+                            run { lastViewportSouth; lastViewportNorth
+                                  lastViewportWest; lastViewportEast }
                             aiBusy = true
                             aiResults = emptyList()
                             Thread {

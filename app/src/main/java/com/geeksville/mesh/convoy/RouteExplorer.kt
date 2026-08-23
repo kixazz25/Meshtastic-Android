@@ -457,6 +457,25 @@ object RouteExplorer {
         val poiNodes = poiAt.keys.toList()
         Log.i(TAG, "corridor: ${g.edges.size} edges, ${poiNodes.size} POI nodes")
 
+        // ROUTEEXPLORE-2026-08-23V: tell the rider what is actually around them BEFORE
+        // searching. Without this an empty result is indistinguishable from a
+        // broken search -- and the "widen the range" message would be actively
+        // wrong advice when the real problem is no trail data here.
+        onProgress?.invoke(Progress(
+            "Looking around",
+            "${g.edges.size} trail sections, ${poiNodes.size} features nearby"
+        ))
+        if (poiNodes.isEmpty()) {
+            onProgress?.invoke(Progress(
+                "Nothing to build a ride from",
+                if (g.edges.isEmpty())
+                    "There is no trail data around here. Import some, or start somewhere else."
+                else
+                    "There are trails here but no named features \u2014 nothing to route between."
+            ))
+            return emptyList()
+        }
+
         val anchor = nearestNode(req.anchorLat, req.anchorLon, g)
         val pen = HashMap<Int, Double>()
         val picks = ArrayList<Triple<List<Int>, Double, List<Long>>>()
@@ -539,7 +558,13 @@ object RouteExplorer {
         }
 
         if (picks.isEmpty()) {
-            onProgress?.invoke(Progress("No rides found", "Try a wider distance range"))
+            // ROUTEEXPLORE-2026-08-23V: reached only when the corridor HAS features -- the
+            // empty case returned above. So widening the band really is the advice.
+            onProgress?.invoke(Progress(
+                "No rides found",
+                "There are ${poiNodes.size} features here but none fit that distance. " +
+                    "Try a wider range."
+            ))
             return emptyList()
         }
 
