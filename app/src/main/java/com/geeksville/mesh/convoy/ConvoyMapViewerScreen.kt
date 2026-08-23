@@ -177,7 +177,15 @@ fun ConvoyMapViewerScreen(
     // the floating toolbar -- it carries a name field, two modes, two ranges and
     // the results list, which the toolbar has no room for. Same pattern as
     // showHomeStatePicker.
-    var showAiDesign by remember { mutableStateOf(false) }   // LIVE session state (back-gate). Recovery launches in onPageFinished after render, not here.
+    var showAiDesign by remember { mutableStateOf(false) }
+    // WIPNOTES-2026-08-23S: the WIP narrative panel. Only reachable while a draft is
+    // open, and only when that draft actually carries notes.
+    var showWipNotes by remember { mutableStateOf(false) }
+    // ROUTEEXPLORE-2026-08-23T: the explorer runs off-thread and reports back through
+    // these. The panel renders whatever aiResults holds.
+    var aiBusy by remember { mutableStateOf(false) }
+    var aiProgress by remember { mutableStateOf("") }
+    var aiResults by remember { mutableStateOf<List<AiRouteResult>>(emptyList()) }   // LIVE session state (back-gate). Recovery launches in onPageFinished after render, not here.
     var showNameDialog by remember { mutableStateOf(false) }
     var routeEntryNonce by remember { mutableStateOf(0) }   // ++ on every route-mode entry; re-arms toolbar build controls
     // route lifecycle (Layer 2): launch state fixed at New / Select-In-Progress
@@ -1446,6 +1454,48 @@ fun ConvoyMapViewerScreen(
             // HOME-STATE-PICKER-2026-08-20: test harness, wired to IMPORT OSM DATA
             // ROUTEAI-2026-08-23P: AI Design overlay. Opens on the method change,
             // closes on confirm so it does not hog the map while explaining itself.
+            // WIPNOTES-2026-08-23S: DETAILS. Circular like the MAPS FAB so it costs
+            // almost no room. TopEnd under Help (Search 12, ? 64, Help 116).
+            // ⚠ Shown ONLY when the open draft HAS notes -- its presence is what
+            // tells the rider this route came with a description.
+            if (routeMode && !showAiDesign && !showWipNotes &&
+                routeName.isNotBlank() && RouteDraftStore.hasNotes(routeName)) {
+                Surface(
+                    shape = androidx.compose.foundation.shape.CircleShape,
+                    color = Color(0xEE131820),
+                    modifier = Modifier.align(Alignment.TopEnd)
+                        .padding(top = 168.dp, end = 12.dp)
+                        .size(44.dp)
+                        .clickable { showWipNotes = true }
+                ) {
+                    androidx.compose.foundation.layout.Box(
+                        contentAlignment = Alignment.Center
+                    ) {
+                        androidx.compose.material3.Text(
+                            "DETAIL",
+                            color = Color(0xFFBC8CFF),
+                            fontSize = 8.sp,
+                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                        )
+                    }
+                }
+            }
+
+            // WIPNOTES-2026-08-23S: the narrative itself. A scrollable window with a
+            // scrollbar -- NOT auto-scrolling. The entries are mile-prefixed lines
+            // and they read badly if they wrap mid-entry, so the body is sized to
+            // fit one.
+            if (showWipNotes) {
+                androidx.activity.compose.BackHandler(enabled = true) { showWipNotes = false }
+                ConvoyNotesPanel(
+                    title = routeName,
+                    subtitle = "Work in progress — not saved yet",
+                    sections = notesFromDraft(RouteDraftStore.readNotes(routeName)),
+                    onClose = { showWipNotes = false }
+                )
+            }
+
             if (showAiDesign) {
                 androidx.activity.compose.BackHandler(enabled = true) {
                     showAiDesign = false
@@ -1456,10 +1506,57 @@ fun ConvoyMapViewerScreen(
                 ) {
                     ConvoyAiDesignPanel(
                         anchorName = "",
-                        results = null,          // STUB:AISEARCH
-                        onFindRides = { _, _, _, _, _, _ ->
-                            // STUB:AISEARCH -- the exploratory search attaches here.
-                            // The panel stays open and switches to its results phase.
+                        results = if (aiBusy || aiResults.isEmpty()) null else aiResults,
+                        // ROUTEEXPLORE-2026-08-23T: the search stub is now wired.
+                        // ⚠ OFF THE MAIN THREAD. Building the graph is the heavy
+                        // step -- ~27,000 edges for a corridor this size. It is
+                        // cached per corridor afterwards, but the FIRST run in an
+                        // area takes real time and would freeze the map.
+                        onFindRides = { mode, rname, miLow, miHigh, mphLow, mphHigh ->
+                            // ROUTEEXPLORE-2026-08-23U: the anchor.
+                            // ⚠ STAND-IN, NOT THE DESIGN. The panel is meant to take a
+                            // DROPPED PIN as the trailhead. Until that is wired, the map
+                            // centre is a fair proxy -- a rider setting up a ride has
+                            // almost certainly centred on where they mean to start -- but
+                            // a rider who has panned away gets a corridor around the wrong
+                            // place. Replacing this is one line once the pin drop exists.
+                            val cLat = (lastViewportSouth + lastViewportNorth) / 2.0
+                            val cLon = (lastViewportWest + lastViewportEast) / 2.0
+                            aiBusy = true
+                            aiResults = emptyList()
+                            Thread {
+                                try {
+                                    // ROUTEEXPLORE-2026-08-23U: getSpatialDb() is NULLABLE -- the DB
+                                    // is absent before any import has run. Fail with something
+                                    // readable rather than an NPE inside a worker thread.
+                                    val db = SpatialDbManager.getSpatialDb()
+                                    if (db == null) {
+                                        aiProgress = "No trail data on this device yet"
+                                        aiBusy = false
+                                        return@Thread
+                                    }
+                                    val out = RouteExplorer.explore(
+                                        db,
+                                        RouteExplorer.Request(
+                                            anchorLat = cLat, anchorLon = cLon,
+                                            name = rname,
+                                            milesLow = miLow.toDouble(),
+                                            milesHigh = miHigh.toDouble(),
+                                            mphLow = mphLow.toDouble(),
+                                            mphHigh = mphHigh.toDouble()
+                                        )
+                                    ) { p -> aiProgress = p.step + (if (p.detail.isNotBlank()) " \u2014 " + p.detail else "") }
+                                    aiResults = out.map {
+                                        AiRouteResult(it.name, it.miles, it.hoursLow,
+                                            it.hoursHigh, it.featureCount, it.featureMix)
+                                    }
+                                } catch (e: Exception) {
+                                    android.util.Log.e("RouteExplorer", "explore failed", e)
+                                    aiProgress = "Could not build rides: " + (e.message ?: "error")
+                                } finally {
+                                    aiBusy = false
+                                }
+                            }.start()
                         },
                         onContinue = { showAiDesign = false },
                         onClose = {

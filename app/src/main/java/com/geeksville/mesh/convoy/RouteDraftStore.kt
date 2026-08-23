@@ -148,6 +148,55 @@ object RouteDraftStore {
     const val UNNAMED = "Auto Saved In Progress"
 
     /** List drafts for the In-Progress picker: name + date + point count. */
+    /**
+     * WIPNOTES-2026-08-23S: the narrative for ONE draft, or null if it has none.
+     *
+     * The notes live INSIDE the draft file as a `notes` block beside `vertices`
+     * -- one file, no sidecar. listDrafts() deliberately does not carry them:
+     * it is a light summary for the picker and every entry would be bloated by
+     * a narrative the picker never shows.
+     *
+     * Returns the raw JSON so the caller decides how much of it to render. A
+     * hand-drawn route has no notes and returns null, which is what hides the
+     * DETAILS button.
+     */
+    fun readNotes(name: String): JSONObject? {
+        return try {
+            val f = fileFor(name)
+            if (!f.exists()) null
+            else JSONObject(f.readText()).optJSONObject("notes")
+        } catch (e: Exception) {
+            Log.w(TAG, "readNotes failed for $name: ${e.message}")
+            null
+        }
+    }
+
+    /** WIPNOTES-2026-08-23S: cheap test for the DETAILS button's visibility. */
+    fun hasNotes(name: String): Boolean = readNotes(name) != null
+
+    /**
+     * ROUTEEXPLORE-2026-08-23T: write a draft from a SUPPLIED JSONObject.
+     *
+     * writeDraft() above serialises RouteManager's LIVE vertex chain -- what the
+     * rider has drawn. The explorer has no live chain: it has a finished object
+     * carrying vertices AND a notes block. This writes that.
+     *
+     * ⚠ Reuses fileFor()/draftDir() deliberately, so the .nomedia guard and the
+     * naming rules stay in ONE place. A second path writing drafts its own way
+     * would drift from the first.
+     */
+    fun writeRawDraft(name: String, doc: JSONObject): Boolean {
+        return try {
+            draftDir()
+            fileFor(name).writeText(doc.toString())
+            Log.i(TAG, "wrote generated draft: $name (${doc.optJSONArray("vertices")?.length() ?: 0} pts)")
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "writeRawDraft failed for $name: ${e.message}")
+            false
+        }
+    }
+
     fun listDrafts(): List<DraftInfo> {
         val dir = draftDir()
         val files = dir.listFiles { f -> f.isFile && f.name.endsWith(".json") } ?: return emptyList()
