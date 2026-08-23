@@ -942,7 +942,11 @@ object SpatialDbManager {
                 val parts = pair.trim().split(" ")
                 if (parts.size >= 2) "[${parts[0]},${parts[1]}]" else "[0,0]"
             }
-            sb.append("{\"type\":\"Feature\",\"properties\":{\"name\":\"$name\"},\"geometry\":{\"type\":\"LineString\",\"coordinates\":[$coords]}}")
+            // ROUTETAP-2026-08-23Z: emit route_id. It was in the row map all along
+            // (queryRoutesByViewport returns it) but never reached properties, so
+            // the JS had nothing to hand back on a tap. Tracks already carry theirs.
+            val rid = (route["route_id"] ?: "").replace("\"", "\\\"")
+            sb.append("{\"type\":\"Feature\",\"properties\":{\"name\":\"$name\",\"route_id\":\"$rid\"},\"geometry\":{\"type\":\"LineString\",\"coordinates\":[$coords]}}")
         }
         sb.append("]}")
         return sb.toString()

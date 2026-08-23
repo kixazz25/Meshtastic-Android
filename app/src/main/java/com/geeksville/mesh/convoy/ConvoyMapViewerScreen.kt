@@ -185,7 +185,10 @@ fun ConvoyMapViewerScreen(
     // these. The panel renders whatever aiResults holds.
     var aiBusy by remember { mutableStateOf(false) }
     var aiProgress by remember { mutableStateOf("") }
-    var aiResults by remember { mutableStateOf<List<AiRouteResult>>(emptyList()) }   // LIVE session state (back-gate). Recovery launches in onPageFinished after render, not here.
+    var aiResults by remember { mutableStateOf<List<AiRouteResult>>(emptyList()) }
+    // ROUTETAP-2026-08-23Z: a SAVED route's narrative, read from route_notes. Distinct
+    // from showWipNotes, which reads the draft file -- two sources, one panel.
+    var savedNotesRouteId by remember { mutableStateOf<String?>(null) }   // LIVE session state (back-gate). Recovery launches in onPageFinished after render, not here.
     var showNameDialog by remember { mutableStateOf(false) }
     var routeEntryNonce by remember { mutableStateOf(0) }   // ++ on every route-mode entry; re-arms toolbar build controls
     // route lifecycle (Layer 2): launch state fixed at New / Select-In-Progress
@@ -942,6 +945,26 @@ fun ConvoyMapViewerScreen(
                                 }
                             }
                             @JavascriptInterface
+                            fun onRouteTap(id: String) {
+                                // ROUTETAP-2026-08-23Z: mirrors onTrackTap above. A route
+                                // is an artifact we own, so it opens the shared detail
+                                // panel; trails and waypoints keep their popups.
+                                android.util.Log.d(
+                                    "RouteTap", "PLANNER bridge id=$id addPointMode=$addPointMode"
+                                )
+                                // ⚠ SAME SUPPRESSION AS TRACKS. Opening a detail panel
+                                // mid-draw would interrupt route building, and the tap
+                                // has already been allowed through to place a vertex.
+                                if (addPointMode) {
+                                    android.util.Log.d("RouteTap", "PLANNER SUPPRESSED by addPointMode")
+                                    return
+                                }
+                                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                    pendingDetailType = "Routes"
+                                    pendingDetailId = id
+                                }
+                            }
+                            @JavascriptInterface
                             fun onMapReady(n: Double, s: Double, e: Double, w: Double) {
                                 android.os.Handler(android.os.Looper.getMainLooper()).post {
                                     val wv = webViewRef ?: return@post
@@ -1485,6 +1508,17 @@ fun ConvoyMapViewerScreen(
             // scrollbar -- NOT auto-scrolling. The entries are mile-prefixed lines
             // and they read badly if they wrap mid-entry, so the body is sized to
             // fit one.
+            // ROUTETAP-2026-08-23Z: the saved-route narrative. Same panel as the WIP
+            // one; only the builder differs.
+            savedNotesRouteId?.let { rid ->
+                androidx.activity.compose.BackHandler(enabled = true) { savedNotesRouteId = null }
+                ConvoyNotesPanel(
+                    title = "Route details",
+                    sections = notesFromRouteId(rid),
+                    onClose = { savedNotesRouteId = null }
+                )
+            }
+
             if (showWipNotes) {
                 androidx.activity.compose.BackHandler(enabled = true) { showWipNotes = false }
                 ConvoyNotesPanel(
@@ -2385,6 +2419,14 @@ fun ConvoyMapViewerScreen(
                     },
                     onShare = { id -> scope.launch { ConvoyArtifactOps.share(context, (pendingDetailType ?: return@launch), id) } },
                     onExport = { id -> scope.launch { ConvoyArtifactOps.export(context, (pendingDetailType ?: return@launch), id) } },
+                    // ROUTETAP-2026-08-23Z: Y declared the NARRATIVE button but nothing
+                    // passed the lambda, so it never appeared. This supplies it.
+                    // ⚠ ROUTES ONLY for now -- tracks and waypoints have no narrative
+                    // to show, and a button that opens an empty panel is worse than
+                    // no button.
+                    onShowNotes = if (pendingDetailType == "Routes") {
+                        { rid -> savedNotesRouteId = rid }
+                    } else null,
                     onDownloadMaps = { hash ->
                         Thread {
                             val bb = SpatialDbManager.getTrackBbox(context, hash)

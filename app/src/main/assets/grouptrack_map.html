@@ -413,6 +413,18 @@
             // the commonest route-building gesture; swallowing it here would
             // break drawing. Mirrors what the track handlers already do.
             L.DomEvent.stopPropagation(e);
+            // ROUTETAP-2026-08-23Z: a route is an artifact we own, so it opens the
+            // shared detail panel rather than a popup -- exactly as tracks do.
+            // Trails and waypoints keep bindPopup: they are imported data.
+            var __rid = feature.properties && feature.properties.route_id;
+            if (__rid && window.Android && window.Android.onRouteTap) {
+              window.Android.onRouteTap(__rid);
+            } else {
+              // ⚠ visible on purpose. If the id never reaches properties the tap
+              // would silently do nothing, which is the hardest kind of failure
+              // to find later.
+              console.log('ARTIFACTTAP route NO ID -- detail panel unreachable');
+            }
           });
         }
       });
