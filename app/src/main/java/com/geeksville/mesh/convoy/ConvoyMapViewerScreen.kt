@@ -172,7 +172,12 @@ fun ConvoyMapViewerScreen(
     // which is read later than this declaration). Gives routeMode its persisted value
     // BEFORE the back-gate at ~204 uses it, so a crash-left-open route restores on launch.
     val routeSeedOpen = remember { MapStateStore.readMap("planning").routeState?.open == true }
-    var routeMode by remember { mutableStateOf(false) }   // LIVE session state (back-gate). Recovery launches in onPageFinished after render, not here.
+    var routeMode by remember { mutableStateOf(false) }
+    // ROUTEAI-2026-08-23P: the AI Design panel is a full-screen overlay, not part of
+    // the floating toolbar -- it carries a name field, two modes, two ranges and
+    // the results list, which the toolbar has no room for. Same pattern as
+    // showHomeStatePicker.
+    var showAiDesign by remember { mutableStateOf(false) }   // LIVE session state (back-gate). Recovery launches in onPageFinished after render, not here.
     var showNameDialog by remember { mutableStateOf(false) }
     var routeEntryNonce by remember { mutableStateOf(0) }   // ++ on every route-mode entry; re-arms toolbar build controls
     // route lifecycle (Layer 2): launch state fixed at New / Select-In-Progress
@@ -1439,6 +1444,34 @@ fun ConvoyMapViewerScreen(
             // Full-screen so the four-stage panel owns the surface while open.
             // BackHandler closes it -- there is no back-stack entry to pop.
             // HOME-STATE-PICKER-2026-08-20: test harness, wired to IMPORT OSM DATA
+            // ROUTEAI-2026-08-23P: AI Design overlay. Opens on the method change,
+            // closes on confirm so it does not hog the map while explaining itself.
+            if (showAiDesign) {
+                androidx.activity.compose.BackHandler(enabled = true) {
+                    showAiDesign = false
+                    routeMethod = ROUTE_METHOD_P2P
+                }
+                androidx.compose.foundation.layout.Box(
+                    modifier = Modifier.fillMaxSize().background(Color(0xFF0F1419))
+                ) {
+                    ConvoyAiDesignPanel(
+                        anchorName = "",
+                        results = null,          // STUB:AISEARCH
+                        onFindRides = { _, _, _, _, _, _ ->
+                            // STUB:AISEARCH -- the exploratory search attaches here.
+                            // The panel stays open and switches to its results phase.
+                        },
+                        onContinue = { showAiDesign = false },
+                        onClose = {
+                            showAiDesign = false
+                            // Nothing was built, so do not leave the rider in a mode
+                            // that does nothing.
+                            routeMethod = ROUTE_METHOD_P2P
+                        }
+                    )
+                }
+            }
+
             if (showHomeStatePicker) {
                 androidx.activity.compose.BackHandler(enabled = true) {
                     showHomeStatePicker = false
@@ -1788,7 +1821,13 @@ fun ConvoyMapViewerScreen(
                     vertexCount = RouteManager.routeVertexCount(),
                     routeEntryNonce = routeEntryNonce,
                     selectedMethod = routeMethod,
-                    onSelectMethod = { routeMethod = it },
+                    onSelectMethod = {
+                        routeMethod = it
+                        // ROUTEAI-2026-08-23P: STUB:AIDESIGN is satisfied here. The
+                        // toolbar already reports the change, so no new callback is
+                        // needed on the shared component.
+                        if (it == ROUTE_METHOD_SUGGEST) showAiDesign = true
+                    },
                     onNewRoute = {
                         routeLifecycleState = ROUTE_LS_NEW
                         routeName = "Auto Saved In Progress"
