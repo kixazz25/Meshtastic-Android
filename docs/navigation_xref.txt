@@ -1,7 +1,7 @@
 =================================================================
 GROUPTRACK -- NAVIGATION CROSS-REFERENCE (screen routing for user manual)
 =================================================================
-Generated: 2026-08-20 21:54
+Generated: 2026-08-23 01:29
 Nav host file(s) found:  app/src/main/java/com/geeksville/mesh/navigation/ConvoyNavigation.kt app/src/main/java/com/geeksville/mesh/ui/Main.kt
 
 === A. NAV HOST ROUTES (every destination) ===
@@ -179,6 +179,7 @@ ArtifactListPanel.kt:53:    onOpenDetail: (String, String) -> Unit = { _, _ -> }
 ArtifactListPanel.kt:141:                            onNameClick = { onOpenDetail(artifactType, id) }
 ConvoyApplyRadioScreen.kt:513:                                navController?.navigate(org.meshtastic.core.navigation.ConvoyRoutes.ConvoyReconnectWait)
 ConvoyApplyRadioScreen.kt:524:                                navController?.navigate(org.meshtastic.core.navigation.ConvoyRoutes.ConvoyReconnectWait)
+ConvoyAuthorityGateScreenV2.kt:401:                        onNavigateBack = {
 ConvoyBroadcastScreen.kt:26:    onNavigateToCreateRide: () -> Unit = {},
 ConvoyBroadcastScreen.kt:27:    onNavigateToFieldRadio: () -> Unit = {},
 ConvoyBroadcastScreen.kt:83:            BcastNavBtn("＋", "+RIDE") { onNavigateToCreateRide() }
@@ -242,17 +243,16 @@ ConvoyMapSourceScreen.kt:151:                    IconButton(onClick = onNavigate
 ConvoyMapViewerScreen.kt:88:    onNavigateToTrackExport: () -> Unit = {},
 ConvoyMapViewerScreen.kt:89:    onNavigateToTrackImport: () -> Unit = {},
 ConvoyMapViewerScreen.kt:90:    onNavigateToTrailSources: () -> Unit = {},
-ConvoyMapViewerScreen.kt:1170:                onOpenDetail = { type, id ->
-ConvoyMapViewerScreen.kt:1414:                        "Trails" -> onNavigateToTrailSources()
-ConvoyMapViewerScreen.kt:1415:                        "Artifacts" -> onNavigateToTrackImport()
-ConvoyMapViewerScreen.kt:1418:                        else -> onNavigateToTrackImport()
-ConvoyMapViewerScreen.kt:1438:                        onNavigateBack = { showHomeStatePicker = false }
-ConvoyMapViewerScreen.kt:1452:                        onNavigateBack = { showOsmPanel = false }
-ConvoyMapViewerScreen.kt:2074:                    onOpenDetail = { t, id -> activeListType = null; pendingDetailType = t; pendingDetailId = id }
-ConvoyMapViewerScreen.kt:2652:                                    onNavigateToTrailSources()
-ConvoyMapViewerScreen.kt:2829:                    onNavigateToTrailSources = { bbox ->
-ConvoyMapViewerScreen.kt:2830:                        android.util.Log.i("DownloadPanel", "onNavigateToTrailSources: n=${bbox.north} s=${bbox.south} e=${bbox.east} w=${bbox.west} valid=${bbox.isValid}")
-ConvoyMapViewerScreen.kt:2834:                        onNavigateToTrailSources()
+ConvoyMapViewerScreen.kt:1179:                onOpenDetail = { type, id ->
+ConvoyMapViewerScreen.kt:1426:                        "Artifacts" -> onNavigateToTrackImport()
+ConvoyMapViewerScreen.kt:1432:                        else -> onNavigateToTrackImport()
+ConvoyMapViewerScreen.kt:1452:                        onNavigateBack = { showHomeStatePicker = false }
+ConvoyMapViewerScreen.kt:1549:                        onNavigateBack = { showAnyStatePicker = false },
+ConvoyMapViewerScreen.kt:1566:                        onNavigateBack = { areaImportBbox = null },
+ConvoyMapViewerScreen.kt:1581:                        onNavigateBack = { showOsmPanel = false }
+ConvoyMapViewerScreen.kt:2203:                    onOpenDetail = { t, id -> activeListType = null; pendingDetailType = t; pendingDetailId = id }
+ConvoyMapViewerScreen.kt:2966:                    onNavigateToTrailSources = { bbox ->
+ConvoyMapViewerScreen.kt:2967:                        android.util.Log.i("DownloadPanel", "onNavigateToTrailSources: n=${bbox.north} s=${bbox.south} e=${bbox.east} w=${bbox.west} valid=${bbox.isValid}")
 ConvoyMyRidesScreen.kt:31:    onNavigateToRideDetail: () -> Unit = {},
 ConvoyMyRidesScreen.kt:32:    onNavigateToCreateRide: () -> Unit = {},
 ConvoyMyRidesScreen.kt:33:    onNavigateToFieldRadio: () -> Unit = {},
@@ -353,8 +353,8 @@ GroupTrackTheme.kt:291:                    GtMenuItem("Search by Name",        t
 GroupTrackTheme.kt:292:                    GtMenuItem("Search by Organizer",   true)  { closeAll(); onNavigateToCompletedRides("BY ORGANIZER") }
 GroupTrackTheme.kt:293:                    GtMenuItem("Search by Date Range",  true)  { closeAll(); onNavigateToCompletedRides("BY DATE") }
 GroupTrackTheme.kt:294:                    GtMenuItem("Search by Area",        true)  { closeAll(); onNavigateToSearchByArea() }
-HomeStatePickerScreen.kt:50:    onNavigateBack: () -> Unit = {}
-HomeStatePickerScreen.kt:152:                onDone = onNavigateBack
+HomeStatePickerScreen.kt:50:    onNavigateBack: () -> Unit = {},
+HomeStatePickerScreen.kt:188:                onDone = onNavigateBack
 OsmImportPanel.kt:113:    onNavigateBack: () -> Unit = {}
 OsmImportPanel.kt:317:                    onNavigateBack()
 OsmImportPanel.kt:737:                                        onNavigateBack()
@@ -379,8 +379,9 @@ UnifiedSearch.kt:250:                                    onOpenDetail(cap, r.id)
 272:                            modifier = Modifier.fillMaxWidth().clickable { onBack() },
 368:                            modifier = Modifier.fillMaxWidth().clickable { onBack() },
 --- ConvoyAuthorityGateScreenV2.kt ---
-183:    val bgLocationLauncher = rememberLauncherForActivityResult(
-338:                            bgLocationLauncher.launch(
+225:    val bgLocationLauncher = rememberLauncherForActivityResult(
+380:                            bgLocationLauncher.launch(
+401:                        onNavigateBack = {
 --- ConvoyBroadcastScreen.kt ---
 25:fun ConvoyBroadcastScreen(
 26:    onNavigateToCreateRide: () -> Unit = {},
@@ -504,31 +505,31 @@ UnifiedSearch.kt:250:                                    onOpenDetail(cap, r.id)
 88:    onNavigateToTrackExport: () -> Unit = {},
 89:    onNavigateToTrackImport: () -> Unit = {},
 90:    onNavigateToTrailSources: () -> Unit = {},
-284:            onBack()
-453:            onDismissRequest = { showRecreateResults = false },
-608:                        onBack()
-645:                            onDismissRequest = { pendingWaypoint = null },
-1237:                    onDismissRequest = { showDocsChooser = false },
-1330:                onDismiss = { showArtifactsPanel = false },
-1414:                        "Trails" -> onNavigateToTrailSources()
-1415:                        "Artifacts" -> onNavigateToTrackImport()
-1418:                        else -> onNavigateToTrackImport()
-1438:                        onNavigateBack = { showHomeStatePicker = false }
-1452:                        onNavigateBack = { showOsmPanel = false }
-1525:                    onDismissRequest = { showEntryChoice = false },
-1612:                    onDismissRequest = { showNameDialog = false },
-1725:                    onDismissRequest = { showSaveChoice = false },
-1800:                    onDismissRequest = { showDiscardChoice = false },
-1860:                    onDismissRequest = { },
-1930:                    onDismissRequest = { recoveryPending = false },
-1943:                    onDismissRequest = { showInProgressPicker = false; routeMode = false; webViewRef?.evaluateJavascript("window.__routeMode=false;setRouteMode(false)", null) },
-2027:                    onDismissRequest = { draftRenameTarget = null },
-2041:                    onDismiss = {
-2147:                    onDismiss = { fittedType, fittedId ->
-2389:                    onDismissRequest = { },
-2652:                                    onNavigateToTrailSources()
-2677:                    onDismissRequest = { showRemoveTilesConfirm = false },
-2829:                    onNavigateToTrailSources = { bbox ->
+293:            onBack()
+462:            onDismissRequest = { showRecreateResults = false },
+617:                        onBack()
+654:                            onDismissRequest = { pendingWaypoint = null },
+1246:                    onDismissRequest = { showDocsChooser = false },
+1339:                onDismiss = { showArtifactsPanel = false },
+1423:                        // TRAILSELECT-2026-08-21D: was onNavigateToTrailSources() -- the old
+1426:                        "Artifacts" -> onNavigateToTrackImport()
+1432:                        else -> onNavigateToTrackImport()
+1452:                        onNavigateBack = { showHomeStatePicker = false }
+1549:                        onNavigateBack = { showAnyStatePicker = false },
+1566:                        onNavigateBack = { areaImportBbox = null },
+1581:                        onNavigateBack = { showOsmPanel = false }
+1654:                    onDismissRequest = { showEntryChoice = false },
+1741:                    onDismissRequest = { showNameDialog = false },
+1854:                    onDismissRequest = { showSaveChoice = false },
+1929:                    onDismissRequest = { showDiscardChoice = false },
+1989:                    onDismissRequest = { },
+2059:                    onDismissRequest = { recoveryPending = false },
+2072:                    onDismissRequest = { showInProgressPicker = false; routeMode = false; webViewRef?.evaluateJavascript("window.__routeMode=false;setRouteMode(false)", null) },
+2156:                    onDismissRequest = { draftRenameTarget = null },
+2170:                    onDismiss = {
+2276:                    onDismiss = { fittedType, fittedId ->
+2518:                    onDismissRequest = { },
+2814:                    onDismissRequest = { showRemoveTilesConfirm = false },
 --- ConvoyMasterCaptureMaintScreen.kt ---
 13:fun ConvoyMasterCaptureMaintScreen(
 14:    onBack: () -> Unit,
@@ -714,12 +715,12 @@ UnifiedSearch.kt:250:                                    onOpenDetail(cap, r.id)
 215:                    modifier = Modifier.clickable { onBack() }.padding(end = 12.dp))
 --- HomeStatePickerScreen.kt ---
 49:fun HomeStatePickerScreen(
-50:    onNavigateBack: () -> Unit = {}
-145:                onBack = if (detectedState != null) {{ phase = "confirm" }} else null
-152:                onDone = onNavigateBack
-225:    onBack: (() -> Unit)?
-322:            if (onBack != null) {
-324:                    onClick = onBack,
+50:    onNavigateBack: () -> Unit = {},
+181:                onBack = if (detectedState != null) {{ phase = "confirm" }} else null
+188:                onDone = onNavigateBack
+265:    onBack: (() -> Unit)?
+362:            if (onBack != null) {
+364:                    onClick = onBack,
 
 === E. USER-VISIBLE LABELS (what the user taps -- Text/label/title) ===
 --- ConvoyApplyListMaintenanceScreen.kt ---
@@ -776,13 +777,13 @@ UnifiedSearch.kt:250:                                    onOpenDetail(cap, r.id)
 361:                            Text("TRY AGAIN", color = Color(0xFF8B938A), fontSize = 13.sp,
 371:                            Text("CANCEL", color = Color(0xFFFFB4AB), fontSize = 13.sp,
 --- ConvoyAuthorityGateScreenV2.kt ---
-107:        canary.writeText("probe")           // throws if access is not real
-244:                text = "GroupTrack Setup",
-256:                        title = "Checking access…",
-263:                        title = "All-files access required",
-300:                        title = "All-files access not granted",
-329:                        title = "Background location recommended",
-355:                        title = "Access granted",
+117:        canary.writeText("probe")           // throws if access is not real
+286:                text = "GroupTrack Setup",
+298:                        title = "Checking access…",
+305:                        title = "All-files access required",
+342:                        title = "All-files access not granted",
+371:                        title = "Background location recommended",
+413:                        title = "Access granted",
 --- ConvoyBroadcastScreen.kt ---
 34:        GroupTrackHeader(subtitle = "Broadcast")
 38:            Text(text = "SUNDAY DESERT RUN", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
@@ -1006,56 +1007,56 @@ UnifiedSearch.kt:250:                                    onOpenDetail(cap, r.id)
 1049:            ) { Text("Save") }
 1052:            TextButton(onClick = onDismiss) { Text("Cancel") }
 --- ConvoyMapViewerScreen.kt ---
-454:            title = { Text("Recreate $recreateSlot") },
-476:                        Text("Reading the store...")
-486:                                    Text("z$z", modifier = Modifier.width(48.dp),
-494:                        Text("No tiles are stored for $recreateSlot, so there is " +
-497:                        Text("These are the tiles this source actually holds. " +
-504:                                Text("z$z", modifier = Modifier.width(48.dp),
-511:                        Text("$recreateTotal tile(s) in ${recreateRows.size} zoom level(s)",
-513:                        Text("$jobs job(s) of up to 50000 tiles",
-516:                        Text("Your maps keep working while this runs -- each tile is " +
-540:                ) { Text("PROCEED TO COPY") }
-546:                }) { Text("CANCEL") }
-601:            Text("Back to Ride", color = Color(0xFF4DA6FF),
-635:            Text("QUEUES", color = Color(0xFF1CF0A0),
-646:                            title = { androidx.compose.material3.Text("New Waypoint") },
-667:                                        label = { androidx.compose.material3.Text("Name (optional)") },
-690:                                }) { androidx.compose.material3.Text("Create") }
-697:                                }) { androidx.compose.material3.Text("Cancel") }
-1167:                mapContext = "planning",
-1238:                    title = { androidx.compose.material3.Text("Help & Info") },
-1239:                    text = { androidx.compose.material3.Text("View the release notes or the full user manual.") },
-1242:                            androidx.compose.material3.Text("Release Notes")
-1247:                            androidx.compose.material3.Text("Full Manual")
-1265:                                androidx.compose.material3.Text("Close")
-1301:                            Text("DOWNLOAD QUEUES", color = Color(0xFF1CF0A0),
-1305:                            Text("CLOSE", color = Color(0xFF7A8DA0),
-1317:                            Text("No downloads in queue",
-1526:                    title = { androidx.compose.material3.Text("Start a route") },
-1550:                        }) { androidx.compose.material3.Text("New Route") }
-1556:                        }) { androidx.compose.material3.Text("In Progress") }
-1613:                    title = { androidx.compose.material3.Text("Name this route") },
-1621:                            label = { androidx.compose.material3.Text("Route name") }
-1647:                        }) { androidx.compose.material3.Text("Start") }
-1652:                        }) { androidx.compose.material3.Text("Cancel") }
-1726:                    title = { androidx.compose.material3.Text("Save route") },
-1739:                                label = { androidx.compose.material3.Text("Route name (required)") }
-1762:                        }) { androidx.compose.material3.Text("Save as completed route") }
-1793:                        }) { androidx.compose.material3.Text("Save as in progress") }
-1801:                    title = { androidx.compose.material3.Text("Discard in-progress route") },
-1802:                    text = { androidx.compose.material3.Text("Roll back to the last saved draft, or delete this in-progress route entirely.") },
-1821:                        }) { androidx.compose.material3.Text("Roll back") }
-1853:                        }) { androidx.compose.material3.Text("Delete in-progress") }
-1861:                    title = { androidx.compose.material3.Text("Unfinished route") },
-1873:                                label = { androidx.compose.material3.Text("Route name") }
-1897:                        }) { androidx.compose.material3.Text("Keep") }
-1909:                        }) { androidx.compose.material3.Text("Discard") }
-1931:                    title = { androidx.compose.material3.Text("Route recovery") },
-1932:                    text = { androidx.compose.material3.Text("A route was left open from your last session. To resume it, tap +ROUTE and choose \"In Progress\".") },
-1936:                        }) { androidx.compose.material3.Text("OK") }
-1944:                    title = { androidx.compose.material3.Text("Start a new route") },
-1988:                                    androidx.compose.material3.TextButton(onClick = { draftRenameTarget = d; draftRenameText = if (d == RouteDraftStore.UNNAMED) "" else d; draftRenameErr = "" }) { androidx.compose.material3.Text("Rename") }
+463:            title = { Text("Recreate $recreateSlot") },
+485:                        Text("Reading the store...")
+495:                                    Text("z$z", modifier = Modifier.width(48.dp),
+503:                        Text("No tiles are stored for $recreateSlot, so there is " +
+506:                        Text("These are the tiles this source actually holds. " +
+513:                                Text("z$z", modifier = Modifier.width(48.dp),
+520:                        Text("$recreateTotal tile(s) in ${recreateRows.size} zoom level(s)",
+522:                        Text("$jobs job(s) of up to 50000 tiles",
+525:                        Text("Your maps keep working while this runs -- each tile is " +
+549:                ) { Text("PROCEED TO COPY") }
+555:                }) { Text("CANCEL") }
+610:            Text("Back to Ride", color = Color(0xFF4DA6FF),
+644:            Text("QUEUES", color = Color(0xFF1CF0A0),
+655:                            title = { androidx.compose.material3.Text("New Waypoint") },
+676:                                        label = { androidx.compose.material3.Text("Name (optional)") },
+699:                                }) { androidx.compose.material3.Text("Create") }
+706:                                }) { androidx.compose.material3.Text("Cancel") }
+1176:                mapContext = "planning",
+1247:                    title = { androidx.compose.material3.Text("Help & Info") },
+1248:                    text = { androidx.compose.material3.Text("View the release notes or the full user manual.") },
+1251:                            androidx.compose.material3.Text("Release Notes")
+1256:                            androidx.compose.material3.Text("Full Manual")
+1274:                                androidx.compose.material3.Text("Close")
+1310:                            Text("DOWNLOAD QUEUES", color = Color(0xFF1CF0A0),
+1314:                            Text("CLOSE", color = Color(0xFF7A8DA0),
+1326:                            Text("No downloads in queue",
+1501:                            Text("BY STATE", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+1519:                            Text("BY AREA", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+1531:                            Text("Cancel", color = Color(0xFF8899AA), fontSize = 13.sp)
+1655:                    title = { androidx.compose.material3.Text("Start a route") },
+1679:                        }) { androidx.compose.material3.Text("New Route") }
+1685:                        }) { androidx.compose.material3.Text("In Progress") }
+1742:                    title = { androidx.compose.material3.Text("Name this route") },
+1750:                            label = { androidx.compose.material3.Text("Route name") }
+1776:                        }) { androidx.compose.material3.Text("Start") }
+1781:                        }) { androidx.compose.material3.Text("Cancel") }
+1855:                    title = { androidx.compose.material3.Text("Save route") },
+1868:                                label = { androidx.compose.material3.Text("Route name (required)") }
+1891:                        }) { androidx.compose.material3.Text("Save as completed route") }
+1922:                        }) { androidx.compose.material3.Text("Save as in progress") }
+1930:                    title = { androidx.compose.material3.Text("Discard in-progress route") },
+1931:                    text = { androidx.compose.material3.Text("Roll back to the last saved draft, or delete this in-progress route entirely.") },
+1950:                        }) { androidx.compose.material3.Text("Roll back") }
+1982:                        }) { androidx.compose.material3.Text("Delete in-progress") }
+1990:                    title = { androidx.compose.material3.Text("Unfinished route") },
+2002:                                label = { androidx.compose.material3.Text("Route name") }
+2026:                        }) { androidx.compose.material3.Text("Keep") }
+2038:                        }) { androidx.compose.material3.Text("Discard") }
+2060:                    title = { androidx.compose.material3.Text("Route recovery") },
+2061:                    text = { androidx.compose.material3.Text("A route was left open from your last session. To resume it, tap +ROUTE and choose \"In Progress\".") },
 --- ConvoyMasterCaptureScreen.kt ---
 144:                    text     = "\u2190",
 150:                    text          = "CAPTURE MASTER CONFIG",
@@ -1344,31 +1345,30 @@ UnifiedSearch.kt:250:                                    onOpenDetail(cap, r.id)
 287:                        Text("GRP", color = Color(0xFF4A6080), fontSize = 8.sp,
 327:                                Text("${if (passed == total) "\u2713" else "\u2717"} $grp: $passed/$total",
 --- HomeStatePickerScreen.kt ---
-171:        Text("\uD83D\uDCCD", fontSize = 48.sp) // 📍
-173:        Text("Based on your location, your Home state is",
-192:                    Text("LOAD ${state.name.uppercase()} TRAIL DATA",
-194:                    Text("Downloads all available sources",
-204:                Text("Select a different\nHome state",
-210:        Text("Internet required · Est. 7 minutes per source",
-236:                placeholder = { Text("Search states...", color = txtDim) },
-262:                            Text("${item.entries.size} region${if (item.entries.size > 1) "s" else ""}",
-296:                        Text("${selectedItem.entries.size} region${if (selectedItem.entries.size > 1) "s" else ""} to process",
-301:                        Text("Select a state", color = txtDim, fontSize = 13.sp)
-317:                Text("LOAD TRAIL DATA", fontWeight = FontWeight.Bold,
-328:                    Text("← Back to detected state", color = txtDim, fontSize = 12.sp)
-377:        Text("Processing ${progress.totalSources} sources for ${progress.stateName}",
-379:        Text("Est. ~${progress.estimatedMinutesRemaining} minutes remaining",
-404:                        Text("  ✅ Complete — ${src.imported} records",
-408:                        Text("  ► ${src.currentStep ?: "Processing"}${
-412:                        Text("  ✗ Failed", color = Color(0xFFCC4444), fontSize = 11.sp)
-414:                        Text("  ○ Waiting", color = txtDim, fontSize = 11.sp)
-422:        Text("Elapsed: ${elSec / 60}m ${elSec % 60}s",
-437:        Text("✅", fontSize = 48.sp)
-439:        Text("${progress?.stateName ?: ""} — Import Complete",
-465:                    Text("Total", color = txtLight, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-466:                    Text("${progress?.sources?.sumOf { it.imported } ?: 0}",
-475:        Text("Completed in ${elapsed / 60}m ${elapsed % 60}s",
-486:            Text("OPEN RIDE MAP", color = Color(0xFF0D1117),
+207:        Text("\uD83D\uDCCD", fontSize = 48.sp) // 📍
+209:        Text("Based on your location, your Home state is",
+231:                    Text("LOAD ${state.name.uppercase()} TRAIL DATA",
+233:                    Text("Downloads all available sources",
+244:                Text("Select a different\nHome state",
+250:        Text("Internet required · Est. 7 minutes per source",
+276:                placeholder = { Text("Search states...", color = txtDim) },
+302:                            Text("${item.entries.size} region${if (item.entries.size > 1) "s" else ""}",
+336:                        Text("${selectedItem.entries.size} region${if (selectedItem.entries.size > 1) "s" else ""} to process",
+341:                        Text("Select a state", color = txtDim, fontSize = 13.sp)
+357:                Text("LOAD TRAIL DATA", fontWeight = FontWeight.Bold,
+368:                    Text("← Back to detected state", color = txtDim, fontSize = 12.sp)
+417:        Text("Processing ${progress.totalSources} sources for ${progress.stateName}",
+419:        Text("Est. ~${progress.estimatedMinutesRemaining} minutes remaining",
+444:                        Text("  ✅ Complete — ${src.imported} records",
+448:                        Text("  ► ${src.currentStep ?: "Processing"}${
+452:                        Text("  ✗ Failed", color = Color(0xFFCC4444), fontSize = 11.sp)
+454:                        Text("  ○ Waiting", color = txtDim, fontSize = 11.sp)
+462:        Text("Elapsed: ${elSec / 60}m ${elSec % 60}s",
+494:        Text("✅", fontSize = 48.sp)
+496:        Text("${progress?.stateName ?: ""} — Import Complete",
+548:                    Text("Total", color = txtLight, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+567:        Text("Completed in ${elapsed / 60}m ${elapsed % 60}s",
+578:            Text("OPEN RIDE MAP", color = Color(0xFF0D1117),
 --- ArtifactDetailPanel.kt ---
 82:                Text("Type: ${singular.uppercase()}", color = aDim, fontSize = 10.sp,
 137:                    Text("ALIASES", color = aOrange, fontSize = 9.sp,
@@ -1392,36 +1392,35 @@ UnifiedSearch.kt:250:                                    onOpenDetail(cap, r.id)
 157:                        Text("Display Action", color = aTxtD, fontSize = 9.sp, fontFamily = aMono,
 173:                        Text(" blue = on   ", color = aTxtD, fontSize = 8.sp, fontFamily = aMono)
 177:                        Text(" green = available", color = aTxtD, fontSize = 8.sp, fontFamily = aMono)
-197:                                Text("IMPORT TRAILS", color = aGreen, fontSize = 8.sp,
-209:                                Text("IMPORT FEATURES", color = aBlue, fontSize = 8.sp,
-218:                                Text("IMPORT OSM DATA", color = aOrange, fontSize = 8.sp,
-269:                    Text("v", color = aTxtD, fontSize = 10.sp, fontFamily = aMono)
-336:                Text("pick a type, then FIND", color = aTxtD, fontSize = 9.sp, fontFamily = aMono)
-341:                    Text("showing first 200 — refine",
-354:                        Text("#${r.seq}", color = aBlue, fontSize = 9.sp, fontFamily = aMono,
-390:                Text("OFF", color = if (state == 0) Color.White else Color(0xFF39FF14),
-399:                Text("ALL", color = if (state == 1) Color.White else Color(0xFF39FF14),
-410:                Text("SELECT", color = if (state == 2) Color.White else Color(0xFF39FF14),
+202:                                Text("IMPORT TRAILS BY\nSTATE OR AREA", color = aGreen, fontSize = 8.sp,
+222:                                Text("IMPORT TRACKS,\nWAYPOINTS & ROUTES", color = aBlue, fontSize = 8.sp,
+283:                    Text("v", color = aTxtD, fontSize = 10.sp, fontFamily = aMono)
+350:                Text("pick a type, then FIND", color = aTxtD, fontSize = 9.sp, fontFamily = aMono)
+355:                    Text("showing first 200 — refine",
+368:                        Text("#${r.seq}", color = aBlue, fontSize = 9.sp, fontFamily = aMono,
+404:                Text("OFF", color = if (state == 0) Color.White else Color(0xFF39FF14),
+413:                Text("ALL", color = if (state == 1) Color.White else Color(0xFF39FF14),
+424:                Text("SELECT", color = if (state == 2) Color.White else Color(0xFF39FF14),
 --- ConvoyDisplayPanel.kt ---
 111:                        label = "Tracks",
 119:                        label = "Trails",
 127:                        label = "Waypoints",
 136:                        label = "Routes",
 --- ConvoyDownloadPanel.kt ---
-166:                    Text("MAP CONTROLS", color = blue, fontSize = 10.sp,
-175:                    Text("Mileage", color = dimText, fontSize = 9.sp,
-194:                    Text("Zoom", color = dimText, fontSize = 9.sp,
-226:                    Text("SELECT TILES / ARTIFACTS", color = green, fontSize = 10.sp,
-315:                    Text("DRAW AREA", color = blue, fontSize = 10.sp,
-330:                    label = "Clear",
-424:                    Text("MAP RECOVERY", color = Color(0xFF8b949e), fontSize = 10.sp,
-430:                Text("A daily record of what your maps cover. Kept 60 days.",
-434:                Text("ARCHIVED GTMAPS", color = Color(0xFF4DA6FF), fontSize = 9.sp,
-438:                    Text("none yet - written once a day at startup",
-446:                Text("DOWNLOAD GTMAPS", color = Color(0xFF4DA6FF), fontSize = 9.sp,
-450:                    Text("none - recipes sent to you arrive here",
-467:                    Text("SHOW DOWNLOADS", color = Color(0xFF8b949e), fontSize = 10.sp,
-490:                Text("REFRESH DOWNLOADS", color = Color(0xFF4DA6FF),
+171:                    Text("MAP CONTROLS", color = blue, fontSize = 10.sp,
+180:                    Text("Mileage", color = dimText, fontSize = 9.sp,
+199:                    Text("Zoom", color = dimText, fontSize = 9.sp,
+231:                    Text("SELECT TILES / ARTIFACTS", color = green, fontSize = 10.sp,
+320:                    Text("DRAW AREA", color = blue, fontSize = 10.sp,
+335:                    label = "Clear",
+429:                    Text("MAP RECOVERY", color = Color(0xFF8b949e), fontSize = 10.sp,
+435:                Text("A daily record of what your maps cover. Kept 60 days.",
+439:                Text("ARCHIVED GTMAPS", color = Color(0xFF4DA6FF), fontSize = 9.sp,
+443:                    Text("none yet - written once a day at startup",
+451:                Text("DOWNLOAD GTMAPS", color = Color(0xFF4DA6FF), fontSize = 9.sp,
+455:                    Text("none - recipes sent to you arrive here",
+472:                    Text("SHOW DOWNLOADS", color = Color(0xFF8b949e), fontSize = 10.sp,
+495:                Text("REFRESH DOWNLOADS", color = Color(0xFF4DA6FF),
 --- ConvoyDownloadQueuePanel.kt ---
 177:                        Text("slots", color = dimText, fontSize = 9.sp, fontFamily = mono)
 539:        title = { Text("Confirm", color = brightText, fontSize = 12.sp, fontFamily = mono) },

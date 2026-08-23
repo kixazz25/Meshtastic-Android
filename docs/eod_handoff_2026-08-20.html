@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<title>GroupTrack — Session Handoff — 2026-08-20</title>
+<style>
+body{font:14px/1.6 system-ui,sans-serif;max-width:900px;margin:20px auto;padding:0 16px;background:#fdfdfd;color:#222}
+h1{font-size:20px;border-bottom:2px solid #7bb661;padding-bottom:6px}
+h2{font-size:16px;color:#2a6e1a;margin:22px 0 6px;border-bottom:1px solid #ddd;padding-bottom:4px}
+h3{font-size:14px;margin:12px 0 4px;color:#333}
+code{background:#eef;padding:1px 4px;border-radius:3px;font-size:12px}
+.done{color:#2a6e1a;font-weight:bold} .pend{color:#cc6600;font-weight:bold}
+.box{background:#f0f7ed;border-left:3px solid #7bb661;padding:8px 12px;margin:10px 0}
+.warn{background:#fff3e0;border-left:3px solid #cc6600;padding:8px 12px;margin:10px 0}
+table{border-collapse:collapse;width:100%;margin:8px 0}td,th{border:1px solid #ccc;padding:4px 8px;font-size:12px;text-align:left}th{background:#eef}
+</style></head><body>
+
+<h1>GroupTrack — Session Handoff — 2026-08-20</h1>
+<p>Session focus: <b>Home State Import Pipeline — built from zero to device-verified in one session.</b></p>
+
+<h2>1. What Shipped Today</h2>
+
+<h3>New Files Created (6)</h3>
+<table>
+<tr><th>File</th><th>Purpose</th></tr>
+<tr><td><code>app/src/main/assets/geofabrik_states.json</code></td><td>54 US state/territory entries with GPKG download URLs. California split North/South.</td></tr>
+<tr><td><code>GeofabrikCatalog.kt</code></td><td>Data class, JSON loader with cache, <code>detectHomeState()</code> via Geocoder, <code>findByLocation()</code>, <code>findByBbox()</code>, <code>displayList()</code>.</td></tr>
+<tr><td><code>HomeStateImportController.kt</code></td><td>Manifest-driven orchestrator. Builds JSON manifest, loops sources (catalog + Geofabrik), updates manifest at each state change, publishes <code>StateFlow&lt;ImportProgress&gt;</code>, download progress via <code>downloadDetailFlow</code>. Has <code>hasCompletedImport()</code> ready for gate.</td></tr>
+<tr><td><code>HomeStatePickerScreen.kt</code></td><td>Four-phase Composable: detecting → confirm (GPS pre-select) → list (searchable) → running (progress) → done (completion summary).</td></tr>
+<tr><td><code>release-assets/prepare_release_assets.py</code></td><td>One-command pre-release: finds newest dated docs, refreshes Geofabrik, copies/renames to app assets, verifies markers.</td></tr>
+<tr><td><code>release-assets/update_geofabrik_states.py</code></td><td>Scrapes Geofabrik's live index, rebuilds <code>geofabrik_states.json</code> with accurate download URLs.</td></tr>
+</table>
+
+<h3>Existing Files Modified (4)</h3>
+<table>
+<tr><th>File</th><th>Change</th></tr>
+<tr><td><code>ConvoyMapViewerScreen.kt</code></td><td><code>showHomeStatePicker</code> state variable + dispatch on <code>"OSM"</code> + rendering block</td></tr>
+<tr><td><code>ConvoyTrailSourceScreen.kt</code></td><td><code>loadSourceCatalog</code> changed from <code>private</code> to <code>internal</code></td></tr>
+<tr><td><code>trail_sources.json</code></td><td>Plain-language names: UGRC→Utah, BLM→Bureau of Land Management, USFS→US Forest Service, USGS→US Geological Survey, NPS→National Park Service</td></tr>
+<tr><td><code>release-assets/</code></td><td>Folder created with 5 files: 2 scripts, 1 JSON, 2 dated HTML docs</td></tr>
+</table>
+
+<h3>Commits (08-20)</h3>
+<table>
+<tr><th>#</th><th>Hash</th><th>Message</th></tr>
+<tr><td>1</td><td><code>93fee6cd8</code></td><td>release-assets folder</td></tr>
+<tr><td>2</td><td><code>99d4bf359</code></td><td>geofabrik_states.json asset</td></tr>
+<tr><td>3</td><td><code>aca984aba</code></td><td>GeofabrikCatalog.kt</td></tr>
+<tr><td>4</td><td><code>9ff086778</code></td><td>HomeStateImportController.kt</td></tr>
+<tr><td>5</td><td><code>03de4b19f</code></td><td>HomeStatePickerScreen + wiring</td></tr>
+<tr><td>6</td><td><code>ee0a7ffb3</code></td><td>Ledger fix, redirect, source names, pipeline verified</td></tr>
+<tr><td>7</td><td><code>f42700b1b</code></td><td>Download progress, Geocoder, blinking banner (current HEAD)</td></tr>
+</table>
+
+<h2>2. Device Verification — Droid 2</h2>
+<div class="box">
+<b>NH import end-to-end:</b> 3 catalog sources (US Forest Service 1,004 + US Geological Survey 0 + National Park Service 6)
++ Geofabrik download (129 MB, 302 redirect followed) → extract (42,338 trails, 980 places, 2,107 natural) → import → cleanup.
+<b>Total: ~43,348 records.</b>
+</div>
+
+<h3>Bugs Found and Fixed During Build</h3>
+<table>
+<tr><th>Bug</th><th>Fix</th></tr>
+<tr><td><code>ImportResult</code> has <code>inserted</code> and <code>skipped</code>, no <code>updated</code></td><td>Fixed <code>sumOf</code></td></tr>
+<tr><td>Geofabrik returns 302 redirect (<code>-latest-</code> → dated file via Squid proxy)</td><td>Added redirect following with recursive <code>downloadFile(redirect, dest, activeSrc)</code></td></tr>
+<tr><td><code>OsmImportLedger.setPendingImport()</code> silently returns if no ledger exists</td><td>Added <code>OsmImportLedger.create()</code> call before extract (matching <code>OsmImportPanel.kt:900</code> pattern)</td></tr>
+<tr><td><code>loadSourceCatalog</code> was <code>private</code> in <code>ConvoyTrailSourceScreen.kt</code></td><td>Changed to <code>internal</code></td></tr>
+<tr><td>GPS bbox overlap at NH/MA border (42.88°N)</td><td>Added Geocoder reverse lookup with bbox fallback</td></tr>
+<tr><td>Download progress: <code>downloadDetail</code> as plain <code>var</code> invisible to Compose</td><td>Changed to <code>MutableStateFlow&lt;String?&gt;</code> (<code>downloadDetailFlow</code>)</td></tr>
+<tr><td><code>collectAsState()</code> inside <code>LazyColumn</code> items block</td><td>Hoisted to <code>ProgressPanel</code> top level</td></tr>
+<tr><td>Guard <code>if (src.currentStep == "Downloading")</code> never matched</td><td>Removed guard — <code>dlLive</code> shown whenever non-null</td></tr>
+</table>
+
+
+<h3>Track Export/Share Fix</h3>
+<table>
+<tr><th>Root Cause</th><td>Commit <code>62dffa858</code> unified the detail panel but never added a Track case to <code>buildGpx()</code>. The <code>else -&gt; null</code> comment said "Tracks shared via file manager" — but that was wrong, not a design choice.</td></tr>
+<tr><th>Fix</th><td>Added <code>SpatialDbManager.buildTrackGpxById()</code> — reads the hash-named GPX file from <code>Documents/my_tracks/{geom_hash}.gpx</code>, looks up display name from DB, returns <code>Pair(name, content)</code>. Added <code>"Tracks" -&gt; buildTrackGpxById</code> case to <code>ConvoyArtifactOps.buildGpx()</code>. Both share and export paths now work.</td></tr>
+<tr><th>Status</th><td class="pend">APK built — awaiting device verification</td></tr>
+<tr><th>Old path</th><td><code>ConvoyTrackExportSheet</code> + <code>ConvoySubMenu.onExportTracks</code> still exists and works. To be removed (redundant).</td></tr>
+</table>
+
+<h2>3. Pending Items</h2>
+
+<h3>2.6g Release Checklist (Tomorrow)</h3>
+<table>
+<tr><th>#</th><th>Item</th><th>Status</th></tr>
+<tr><td>1</td><td>Verify track export/share on device</td><td class="pend">APK BUILT</td></tr>
+<tr><td>2</td><td>Gate integration — wire <code>hasCompletedImport()</code> to Granted state in <code>ConvoyAuthorityGateScreenV2.kt</code></td><td class="pend">READY TO WIRE</td></tr>
+<tr><td>3</td><td>Delete "Import OSM Data" from Map Features panel</td><td class="pend">PENDING</td></tr>
+<tr><td>4</td><td>Rewire "Import Trails" → BY STATE / BY AREA mode selector</td><td class="pend">PENDING</td></tr>
+<tr><td>5</td><td>Build Import by Area (Pass 2 — bbox drawing, multi-state Geofabrik)</td><td class="pend">PENDING</td></tr>
+<tr><td>6</td><td>Remove old "Work with Tracks" menu item from <code>ConvoySubMenu</code> (redundant after export fix)</td><td class="pend">PENDING</td></tr>
+<tr><td>7</td><td>Processed/added/duped counts on completion screen</td><td class="pend">PENDING</td></tr>
+<tr><td>8</td><td>Update manual — new Installation &amp; First-Time Setup section, Import Trails, screenshot placeholders</td><td class="pend">SECTIONS DRAFTED</td></tr>
+<tr><td>9</td><td>Update quickstart — 4-step first-time flow</td><td class="pend">SECTION DRAFTED</td></tr>
+<tr><td>10</td><td>Update release notes — V2.6g complete</td><td class="pend">DRAFT EXISTS</td></tr>
+<tr><td>11</td><td>Play Store AAB build + publish to Closed testing</td><td class="pend">PENDING</td></tr>
+</table>
+
+<h3>Pass 2 — Import Trails by Area (BY AREA mode)</h3>
+<table>
+<tr><th>Item</th><th>Status</th></tr>
+<tr><td>Mode selector screen: BY STATE / BY AREA</td><td class="pend">PENDING</td></tr>
+<tr><td>BY AREA: opens download panel with "Import Trails by Area" pre-checked → draw bbox</td><td class="pend">PENDING</td></tr>
+<tr><td>Multiple Geofabrik states when bbox crosses state lines</td><td class="pend">PENDING</td></tr>
+</table>
+
+<h3>Future Items</h3>
+<table>
+<tr><th>Item</th><th>Status</th></tr>
+<tr><td>Upsert SQL change — <code>INSERT OR IGNORE</code> → <code>ON CONFLICT(geom_hash) DO UPDATE SET</code></td><td class="pend">PENDING</td></tr>
+<tr><td>POI/trailhead import from catalog sources with <code>trailheadAsset</code></td><td class="pend">PENDING</td></tr>
+<tr><td>Live Geofabrik index refresh on app startup</td><td class="pend">PENDING</td></tr>
+</table>
+
+<h2>4. Architecture Decisions Made Today</h2>
+<ul>
+<li><b>Manifest check for fresh install</b> — <code>hasCompletedImport()</code> checks for completed JSON manifests in <code>Documents/GroupTrack/imports/</code>, NOT a DB query (DB may not exist on fresh install).</li>
+<li><b>Geocoder for GPS detection</b> — bbox matching fails at state borders (NH/MA overlap at 42.88°N). Geocoder returns actual state name. Bbox is fallback.</li>
+<li><b><code>OsmImportLedger.create()</code> MUST be called before <code>setPendingImport()</code></b> — the ledger silently returns null if no file exists.</li>
+<li><b>Geofabrik <code>-latest-</code> URLs return 302 redirects</b> — <code>HttpURLConnection</code> needs explicit redirect following.</li>
+<li><b>Download progress requires <code>MutableStateFlow</code></b> not plain <code>var</code> for Compose visibility across threads.</li>
+<li><b><code>collectAsState()</code> must be hoisted</b> above <code>LazyColumn</code> items block.</li>
+</ul>
+
+<h2>5. Final Configuration (After Certification)</h2>
+<table>
+<tr><th>Entry Point</th><th>Action</th><th>Visibility</th></tr>
+<tr><td>Authority gate</td><td>Zero completed manifests → straight to BY STATE picker</td><td>Only when <code>hasCompletedImport() == false</code></td></tr>
+<tr><td>Map Features → "Import Trails"</td><td>Mode selector: BY STATE / BY AREA</td><td>Always visible</td></tr>
+<tr><td>Map Features → "Import OSM Data"</td><td>REMOVED</td><td>Gone</td></tr>
+<tr><td>Download panel → "Import Trails by Area"</td><td>Stays greyed, only activated by BY AREA function</td><td>Row stays, not manually checkable</td></tr>
+<tr><td>Download panel → "Import OSM by Area"</td><td>REMOVED</td><td>Gone</td></tr>
+</table>
+
+</body></html>

@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<title>GroupTrack — POI Proximity Analysis — Panguitch Area</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,sans-serif;background:#0d1117;color:#e6edf3}
+#map{width:100%;height:65vh}
+.panel{padding:12px 16px;background:#131820;max-height:35vh;overflow-y:auto}
+h2{font-size:16px;color:#7bb661;margin:0 0 8px}
+h3{font-size:13px;color:#4da6ff;margin:12px 0 4px}
+.stat{display:inline-block;background:#1a2233;border-radius:6px;padding:6px 12px;margin:4px;font-size:12px}
+.stat b{color:#7bb661;font-size:14px}
+.legend{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
+.leg{font-size:11px;display:flex;align-items:center;gap:4px}
+.dot{width:10px;height:10px;border-radius:50%;display:inline-block}
+.poi-list{font-size:11px;color:#aabbcc;columns:2;column-gap:20px;margin:6px 0}
+.poi-list div{padding:1px 0;break-inside:avoid}
+.note{font-size:10px;color:#667788;margin-top:8px;font-style:italic}
+table{border-collapse:collapse;width:100%;margin:6px 0}
+td,th{border:1px solid #2a3444;padding:3px 8px;font-size:11px;text-align:left}
+th{background:#1a2233;color:#4da6ff}
+</style>
+</head><body>
+
+<div id="map"></div>
+<div class="panel" id="panel">
+<h2>POI Proximity Analysis — Loading...</h2>
+</div>
+
+<script>
+// ── Representative Panguitch OHV route (Sandy Caddy Creek / Casto Canyon area) ──
+// This approximates a day ride east of Panguitch into the Dixie NF
+const track = [
+    [37.822, -112.435],  // Panguitch town
+    [37.815, -112.420],  // heading east
+    [37.805, -112.395],  // climbing
+    [37.795, -112.375],  // ridgeline
+    [37.785, -112.355],  // Casto Canyon area
+    [37.775, -112.340],  // deeper into canyon
+    [37.760, -112.330],  // fork south
+    [37.745, -112.320],  // high mesa
+    [37.730, -112.335],  // turning west
+    [37.720, -112.360],  // south of Panguitch Lake
+    [37.715, -112.390],  // approaching lake
+    [37.710, -112.420],  // lake area
+    [37.715, -112.445],  // west side
+    [37.720, -112.465],  // camp area
+    // Day 2 — return via different route
+    [37.730, -112.450],  // heading north
+    [37.745, -112.440],  // through forest
+    [37.760, -112.435],  // Sandy Creek area
+    [37.775, -112.430],  // climbing back
+    [37.790, -112.425],  // approaching town
+    [37.800, -112.430],  // outskirts
+    [37.810, -112.435],  // back to town
+    [37.822, -112.435],  // Panguitch
+];
+
+// ── POI data (simulating what reference_points would contain from Utah GPKG) ──
+// Types match the actual fclass distribution: peak, spring, cliff, cave_entrance, 
+// locality, hamlet, village, trailhead
+const pois = [
+    // PEAKS — the dominant category (6,051 in Utah)
+    {name: "Red Desert Peak", lat: 37.802, lon: -112.388, type: "peak", elev: "8,240 ft"},
+    {name: "Castle Rock", lat: 37.778, lon: -112.345, type: "peak", elev: "8,890 ft"},
+    {name: "Pine Point", lat: 37.750, lon: -112.328, type: "peak", elev: "9,120 ft"},
+    {name: "Horse Valley Knoll", lat: 37.735, lon: -112.370, type: "peak", elev: "8,650 ft"},
+    {name: "Sunset Bluff", lat: 37.718, lon: -112.408, type: "peak", elev: "8,100 ft"},
+    {name: "Table Mountain", lat: 37.768, lon: -112.445, type: "peak", elev: "8,400 ft"},
+    {name: "Blue Spring Mountain", lat: 37.740, lon: -112.310, type: "peak", elev: "9,450 ft"},
+    {name: "Mammoth Peak", lat: 37.710, lon: -112.455, type: "peak", elev: "8,750 ft"},
+    // SPRINGS — second largest (4,855 in Utah)
+    {name: "Willow Spring", lat: 37.808, lon: -112.410, type: "spring"},
+    {name: "Red Creek Spring", lat: 37.788, lon: -112.362, type: "spring"},
+    {name: "Casto Spring", lat: 37.770, lon: -112.338, type: "spring"},
+    {name: "Horse Valley Spring", lat: 37.725, lon: -112.355, type: "spring"},
+    {name: "Pine Lake Spring", lat: 37.712, lon: -112.430, type: "spring"},
+    {name: "Sandy Creek Spring", lat: 37.755, lon: -112.432, type: "spring"},
+    // CLIFFS — 525 in Utah
+    {name: "Red Canyon Rim", lat: 37.795, lon: -112.380, type: "cliff"},
+    {name: "Casto Canyon Spires", lat: 37.762, lon: -112.332, type: "cliff"},
+    // CAVE ENTRANCE — 96 in Utah
+    {name: "Mammoth Cave", lat: 37.748, lon: -112.342, type: "cave_entrance"},
+    // SETTLEMENTS
+    {name: "Panguitch", lat: 37.822, lon: -112.435, type: "locality"},
+    {name: "Hatch", lat: 37.655, lon: -112.432, type: "hamlet"},
+    {name: "Spry", lat: 37.787, lon: -112.455, type: "hamlet"},
+    // TRAILHEADS — from waypoints table
+    {name: "Casto Canyon TH", lat: 37.782, lon: -112.350, type: "trailhead"},
+    {name: "Sandy Creek TH", lat: 37.810, lon: -112.428, type: "trailhead"},
+    {name: "Horse Valley TH", lat: 37.728, lon: -112.380, type: "trailhead"},
+    {name: "Panguitch Lake TH", lat: 37.715, lon: -112.445, type: "trailhead"},
+    // FEATURES outside the half-mile buffer (to show what's NOT included)
+    {name: "Bryce Point", lat: 37.605, lon: -112.165, type: "peak", elev: "8,310 ft", far: true},
+    {name: "Powell Point", lat: 37.910, lon: -112.340, type: "peak", elev: "10,188 ft", far: true},
+    {name: "Brian Head Peak", lat: 37.693, lon: -112.850, type: "peak", elev: "11,307 ft", far: true},
+];
+
+// ── Half-mile proximity check ──
+const HALF_MILE_DEG = 0.00725; // ~0.5 mi in degrees at this latitude
+
+function distToSegment(p, v, w) {
+    const l2 = (w[0]-v[0])**2 + (w[1]-v[1])**2;
+    if (l2 === 0) return Math.sqrt((p[0]-v[0])**2 + (p[1]-v[1])**2);
+    let t = ((p[0]-v[0])*(w[0]-v[0]) + (p[1]-v[1])*(w[1]-v[1])) / l2;
+    t = Math.max(0, Math.min(1, t));
+    const proj = [v[0] + t*(w[0]-v[0]), v[1] + t*(w[1]-v[1])];
+    return Math.sqrt((p[0]-proj[0])**2 + (p[1]-proj[1])**2);
+}
+
+function minDistToTrack(poi) {
+    let minD = Infinity;
+    for (let i = 0; i < track.length - 1; i++) {
+        const d = distToSegment([poi.lat, poi.lon], track[i], track[i+1]);
+        minD = Math.min(minD, d);
+    }
+    return minD;
+}
+
+// ── Categorize POIs ──
+const typeColors = {
+    peak: "#ff6644",
+    spring: "#44aaff",
+    cliff: "#ff44ff",
+    cave_entrance: "#ffaa00",
+    locality: "#ffffff",
+    hamlet: "#cccccc",
+    village: "#aaaaaa",
+    trailhead: "#7bb661",
+};
+const typeLabels = {
+    peak: "⛰️ Peak",
+    spring: "💧 Spring",
+    cliff: "🪨 Cliff",
+    cave_entrance: "🕳️ Cave",
+    locality: "🏘️ Town",
+    hamlet: "🏠 Hamlet",
+    village: "🏡 Village",
+    trailhead: "🅿️ Trailhead",
+};
+
+const nearbyPois = [];
+const farPois = [];
+
+pois.forEach(p => {
+    p.dist = minDistToTrack(p);
+    p.distMiles = p.dist / 0.01449; // rough deg-to-miles at 37°N
+    if (p.dist <= HALF_MILE_DEG && !p.far) {
+        nearbyPois.push(p);
+    } else {
+        farPois.push(p);
+    }
+});
+
+nearbyPois.sort((a, b) => a.dist - b.dist);
+
+// ── Build map ──
+const map = L.map('map').setView([37.765, -112.400], 12);
+L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+    attribution: 'Esri Satellite',
+    maxZoom: 18
+}).addTo(map);
+
+// Track
+L.polyline(track, {color: '#7bb661', weight: 4, opacity: 0.9}).addTo(map);
+
+// Half-mile buffer (approximate)
+track.forEach((pt, i) => {
+    if (i % 2 === 0) {
+        L.circle(pt, {radius: 805, color: '#7bb661', fillColor: '#7bb661', 
+            fillOpacity: 0.05, weight: 0.5, opacity: 0.3}).addTo(map);
+    }
+});
+
+// POIs
+nearbyPois.forEach(p => {
+    const c = typeColors[p.type] || '#ffffff';
+    L.circleMarker([p.lat, p.lon], {
+        radius: 7, fillColor: c, color: '#fff', weight: 1.5, fillOpacity: 0.9
+    }).addTo(map).bindPopup(
+        `<b>${p.name}</b><br>${typeLabels[p.type]}${p.elev ? '<br>'+p.elev : ''}<br>` +
+        `<i>${p.distMiles.toFixed(2)} mi from track</i>`
+    );
+});
+
+// Far POIs (dimmed)
+farPois.forEach(p => {
+    L.circleMarker([p.lat, p.lon], {
+        radius: 4, fillColor: '#555', color: '#333', weight: 1, fillOpacity: 0.4
+    }).addTo(map).bindPopup(`<b>${p.name}</b><br>${typeLabels[p.type]}<br><i>Outside ½-mile buffer</i>`);
+});
+
+// Start/end marker
+L.marker(track[0]).addTo(map).bindPopup('<b>Start/End: Panguitch</b>');
+
+// ── Build stats panel ──
+const typeCounts = {};
+nearbyPois.forEach(p => {
+    typeCounts[p.type] = (typeCounts[p.type] || 0) + 1;
+});
+
+const totalNearby = nearbyPois.length;
+const totalFar = farPois.length;
+const trackLenMi = (() => {
+    let d = 0;
+    for (let i = 0; i < track.length - 1; i++) {
+        d += Math.sqrt((track[i+1][0]-track[i][0])**2 + (track[i+1][1]-track[i][1])**2);
+    }
+    return d / 0.01449;
+})();
+
+let html = `
+<h2>POI Proximity Analysis — Panguitch Overnighter</h2>
+<p style="font-size:12px;color:#aabbcc">Simulated 2-day OHV route east of Panguitch into Dixie NF, ~${trackLenMi.toFixed(0)} miles.
+Half-mile buffer applied. POI types from Utah <code>reference_points</code> and <code>waypoints</code>.</p>
+
+<div>
+<span class="stat"><b>${totalNearby}</b> POIs within ½ mile</span>
+<span class="stat"><b>${totalFar}</b> outside buffer</span>
+<span class="stat"><b>${trackLenMi.toFixed(1)}</b> mi track length</span>
+<span class="stat"><b>${(totalNearby / trackLenMi).toFixed(1)}</b> POIs per mile</span>
+</div>
+
+<h3>By Type (within ½ mile)</h3>
+<div class="legend">
+`;
+
+Object.entries(typeCounts).sort((a,b) => b[1]-a[1]).forEach(([type, count]) => {
+    html += `<span class="leg"><span class="dot" style="background:${typeColors[type]}"></span>
+        ${typeLabels[type]}: <b>${count}</b></span>`;
+});
+
+html += `</div>
+
+<h3>What's Near Your Route</h3>
+<table>
+<tr><th>Name</th><th>Type</th><th>Distance</th><th>Details</th></tr>
+`;
+
+nearbyPois.forEach(p => {
+    html += `<tr>
+        <td style="color:${typeColors[p.type]}">${p.name}</td>
+        <td>${typeLabels[p.type]}</td>
+        <td>${p.distMiles.toFixed(2)} mi</td>
+        <td>${p.elev || '—'}</td>
+    </tr>`;
+});
+
+html += `</table>
+
+<h3>What This Tells the Route Suggester</h3>
+<table>
+<tr><th>Signal</th><th>Value</th><th>Meaning</th></tr>
+<tr><td>⛰️ Peak density</td><td>${typeCounts.peak || 0} peaks within ½ mi</td>
+    <td>High scenic value — ridgeline and viewpoint riding</td></tr>
+<tr><td>💧 Spring proximity</td><td>${typeCounts.spring || 0} springs within ½ mi</td>
+    <td>Water availability — longer rides possible</td></tr>
+<tr><td>🅿️ Trailhead access</td><td>${typeCounts.trailhead || 0} trailheads within ½ mi</td>
+    <td>Staging areas and alternate start/end points</td></tr>
+<tr><td>🪨 Cliff/cave features</td><td>${(typeCounts.cliff||0) + (typeCounts.cave_entrance||0)} features</td>
+    <td>Dramatic terrain — interesting riding AND hazard awareness</td></tr>
+<tr><td>🏘️ Settlement avoidance</td><td>${(typeCounts.locality||0) + (typeCounts.hamlet||0)} settlements</td>
+    <td>Minimize town crossings for a backcountry experience</td></tr>
+<tr><td>📊 POI density</td><td>${(totalNearby / trackLenMi).toFixed(1)}/mi</td>
+    <td>${(totalNearby/trackLenMi) > 0.5 ? 'HIGH — scenically rich corridor' : 'MODERATE — some interesting stops'}</td></tr>
+</table>
+
+<div class="note">
+<b>Data reality:</b> Utah has 11,773 scenic attractors (peaks, springs, cliffs, caves) and 5,220 settlements
+in <code>reference_points</code>, plus 559 trailheads in <code>waypoints</code>. These are ALREADY IMPORTED —
+no new data source needed. The half-mile buffer is the scoring radius for the route suggester:
+a route that passes near more attractors and fewer settlements scores higher.
+<br><br>
+<b>What's missing:</b> Elevation data (not in the trail DB), trail surface/difficulty (only on 30% of trails),
+and BLM permission designations (not imported yet). Those add safety and pace — but scenic proximity
+and settlement avoidance work TODAY with data that's already on the device.
+</div>
+`;
+
+document.getElementById('panel').innerHTML = html;
+</script>
+</body></html>

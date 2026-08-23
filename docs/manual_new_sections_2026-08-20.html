@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<title>GroupTrack Manual — New Sections for 2.6g — 2026-08-20</title>
+<style>
+body{font:14px/1.6 system-ui,sans-serif;max-width:900px;margin:20px auto;padding:0 16px;background:#fdfdfd;color:#222}
+h1{font-size:20px;border-bottom:2px solid #7bb661;padding-bottom:6px}
+h2{font-size:16px;color:#2a6e1a;margin:22px 0 6px;border-bottom:1px solid #ddd;padding-bottom:4px}
+h3{font-size:14px;margin:12px 0 4px;color:#333}
+code{background:#eef;padding:1px 4px;border-radius:3px;font-size:12px}
+.placeholder{background:#fff3e0;border:2px dashed #cc6600;padding:20px;margin:12px 0;text-align:center;color:#cc6600;font-weight:bold;border-radius:8px}
+.note{background:#e8f4fd;border-left:3px solid #4da6ff;padding:8px 12px;margin:10px 0;font-size:12px}
+.insert{background:#f0f7ed;border:2px solid #7bb661;padding:8px 12px;margin:10px 0}
+</style></head><body>
+
+<h1>GroupTrack Manual — New Sections for V2.6g</h1>
+<p>These sections are to be INSERTED into the existing manual. Each is annotated with its insertion point.</p>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="insert">INSERT AFTER: Table of Contents, BEFORE: "Getting Started" or equivalent section</div>
+
+<h2>Installation &amp; First-Time Setup</h2>
+
+<h3>What Happens on First Launch</h3>
+<p>When you install GroupTrack for the first time, the app walks you through three steps before you reach the Ride Map:</p>
+<ol>
+<li><b>Permissions</b> — GroupTrack needs access to your device's storage (for map tiles and trail data) and your location (for GPS tracking and state detection). The Authority Gate guides you through granting these.</li>
+<li><b>Home State Trail Data</b> — GroupTrack detects your state from your GPS position and offers to download trail data for your entire state. This includes trails from multiple federal and state agencies plus Open Source Maps (OpenStreetMap). One tap starts the process.</li>
+<li><b>Ride Map</b> — Once trail data is loaded, you land on the Ride Map with trails, scenic points, and places already on your map.</li>
+</ol>
+
+<div class="placeholder">📷 SCREENSHOT PLACEHOLDER: Authority Gate — permissions granted screen showing "Access granted" with Continue button</div>
+
+<h3>Home State Setup</h3>
+<p>After permissions are granted, GroupTrack checks whether trail data exists on your device. If this is a fresh install (no trail data), the Home State Setup screen appears automatically.</p>
+
+<h4>GPS Detection</h4>
+<p>GroupTrack uses your device's GPS and Android's reverse geocoder to determine your state. The screen shows:</p>
+<blockquote><em>"Based on your location, your Home state is <b>New Hampshire</b>"</em></blockquote>
+<p>Two options are presented:</p>
+<ul>
+<li><b>LOAD [STATE] TRAIL DATA</b> — starts the import immediately for the detected state</li>
+<li><b>Select a different Home state</b> — opens the full state picker list</li>
+</ul>
+
+<div class="placeholder">📷 SCREENSHOT PLACEHOLDER: Home State Setup — GPS detection showing "Based on your location, your Home state is New Hampshire" with LOAD and Select Different buttons</div>
+
+<h4>State Picker List</h4>
+<p>If you tap "Select a different Home state" — or if GPS detection fails — you see the full state list. All 50 US states plus District of Columbia, Puerto Rico, and US Virgin Islands are available. California is split into California North (San Luis Obispo area and north) and California South (Santa Barbara/Bakersfield area and south) due to data size.</p>
+<p>Type in the search box to filter. Tap a state to select it, then tap <b>LOAD TRAIL DATA</b>.</p>
+
+<div class="placeholder">📷 SCREENSHOT PLACEHOLDER: State Picker List — showing searchable state list with one state selected and LOAD TRAIL DATA button</div>
+
+<h4>Import Processing</h4>
+<p>After tapping LOAD, GroupTrack processes every available data source for your state. A progress screen shows:</p>
+<ul>
+<li><b>Source count and time estimate</b> — "Processing 4 sources for New Hampshire — Est. ~28 minutes remaining"</li>
+<li><b>Per-source progress</b> — each source listed with step indicators:
+    <ul>
+    <li>✅ = completed</li>
+    <li>► = in progress (with detail like "23 MB of 129 MB" during downloads)</li>
+    <li>○ = waiting</li>
+    </ul>
+</li>
+<li><b>Running elapsed clock</b> at the bottom</li>
+<li><b>"Do not close GroupTrack while importing"</b> — a blinking banner at the top of the screen</li>
+</ul>
+<p>The import runs unattended. You do not need to interact with it — just leave GroupTrack open until it completes.</p>
+
+<div class="placeholder">📷 SCREENSHOT PLACEHOLDER: Import Progress — showing 4 sources, first completed with checkmark, second in progress with download MB counter, two waiting</div>
+
+<h4>Data Sources</h4>
+<p>GroupTrack imports trails from multiple federal and state agencies. The exact sources depend on your state:</p>
+<ul>
+<li><b>US Forest Service Trails</b> — national forest trail systems</li>
+<li><b>US Geological Survey National Trails</b> — USGS trail database</li>
+<li><b>National Park Service Trails</b> — national park trail systems</li>
+<li><b>Bureau of Land Management Trails</b> — BLM managed routes and designations</li>
+<li><b>State agency trails</b> — varies by state (e.g. Utah Trails and Pathways, Arizona State Parks &amp; Trails, Colorado Trail Explorer)</li>
+<li><b>Open Source Maps</b> — OpenStreetMap trail data via Geofabrik, including trails, scenic points (peaks, springs, cliffs), and places (towns, hamlets)</li>
+</ul>
+<p>All sources are combined using a deduplication system that matches trails by geometry. When multiple sources have data for the same trail, GroupTrack keeps the most complete information from each source — a trail name from one source and surface type from another are merged into a single, richer record.</p>
+
+<h4>Completion</h4>
+<p>When all sources finish, a summary screen shows:</p>
+<ul>
+<li>Each source name with its record count</li>
+<li>Grand total of all records</li>
+<li>Total elapsed time</li>
+<li>An <b>OPEN RIDE MAP</b> button to proceed to your map</li>
+</ul>
+
+<div class="placeholder">📷 SCREENSHOT PLACEHOLDER: Completion Summary — showing all 4 sources with counts, grand total, elapsed time, and OPEN RIDE MAP button</div>
+
+<h4>What if I Skip?</h4>
+<p>You can skip the Home State Setup. GroupTrack will open with an empty map — no trails, no scenic points. The setup will be offered again on your next launch. You can also import trail data later from the Map Features panel.</p>
+
+<h4>What if the Import is Interrupted?</h4>
+<p>If GroupTrack closes during an import (battery dies, app crash, phone restart), the import is automatically detected on next launch. GroupTrack will ask: "A trail import for [state] was not finished. Complete now?" Sources already completed are skipped — only the remaining sources are processed.</p>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="insert">INSERT IN: "Map Features" section, replacing the current "Import OSM Data" description</div>
+
+<h2>Import Trails (Map Features Panel)</h2>
+
+<p>After your initial Home State setup, you can import trail data for additional areas from the <b>Map Features</b> panel.</p>
+
+<div class="note">During development: accessible via "IMPORT OSM DATA" on the Map Features panel. After certification: renamed to "Import Trails" with state/area mode selector.</div>
+
+<h3>Import Trails by State</h3>
+<p>Tap <b>Import Trails</b> on the Map Features panel, then select <b>BY STATE</b>. The state picker appears (same as the first-time setup). Select a state and tap LOAD. All sources for that state are processed.</p>
+<p>Use this when you're planning a trip to a new state and want complete trail data before you go.</p>
+
+<h3>Import Trails by Area (Coming Soon)</h3>
+<p>Tap <b>Import Trails</b> on the Map Features panel, then select <b>BY AREA</b>. The Ride Planning Map opens with bbox drawing enabled. Draw a rectangle over the area you want trail data for. All sources that intersect your drawn area are processed — if your rectangle crosses state lines, multiple Geofabrik state downloads are included automatically.</p>
+<p>Use this when you want trail data for a specific riding area rather than an entire state.</p>
+
+<div class="placeholder">📷 SCREENSHOT PLACEHOLDER: Mode Selector — BY STATE / BY AREA buttons on the Import Trails screen (when built)</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="insert">INSERT AS: New section in Quickstart guide</div>
+
+<h2>Quickstart — First-Time Setup</h2>
+
+<ol>
+<li><b>Install GroupTrack</b> from the Google Play Store</li>
+<li><b>Grant permissions</b> — tap through the Authority Gate to grant storage and location access</li>
+<li><b>Load your Home State</b> — GroupTrack detects your state and offers to download trail data. Tap <b>LOAD</b>. This takes 3–10 minutes depending on your state and internet speed.</li>
+<li><b>Open the Ride Map</b> — once trails are loaded, tap <b>OPEN RIDE MAP</b>. Your map now shows trails, scenic points, and places from multiple data sources.</li>
+</ol>
+<p><b>That's it.</b> You're ready to plan a ride. Tap any trail on the map to see its details, or use the Route+ planner to build a route.</p>
+
+<div class="placeholder">📷 SCREENSHOT PLACEHOLDER: Quickstart flow — 4 steps shown as annotated screenshots (permissions → GPS detect → progress → ride map with trails)</div>
+
+</body></html>

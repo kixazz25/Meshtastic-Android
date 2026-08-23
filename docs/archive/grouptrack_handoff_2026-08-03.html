@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GroupTrack — Session Handoff — 2026-08-03</title>
+<style>
+  :root{--bg:#0f1216;--panel:#161b22;--panel2:#1c2229;--line:#30363d;--fg:#e6edf3;
+        --muted:#8b949e;--accent:#58a6ff;--red:#f85149;--amber:#d29922;--green:#3fb950;--purple:#bc8cff;}
+  *{box-sizing:border-box}
+  body{margin:0;padding:28px 20px 80px;background:var(--bg);color:var(--fg);
+       font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  .wrap{max-width:1080px;margin:0 auto}
+  header{border-bottom:2px solid var(--accent);padding-bottom:14px;margin-bottom:26px}
+  h1{margin:0 0 6px;font-size:26px;letter-spacing:-.3px}
+  .sub{color:var(--muted);font-size:14px}
+  h2{font-size:19px;margin:34px 0 12px;padding-bottom:6px;border-bottom:1px solid var(--line);color:var(--accent)}
+  h3{font-size:15px;margin:20px 0 8px}
+  .card{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--line);
+        border-radius:6px;padding:13px 15px;margin:10px 0}
+  .card.red{border-left-color:var(--red)} .card.amber{border-left-color:var(--amber)}
+  .card.green{border-left-color:var(--green)} .card.blue{border-left-color:var(--accent)}
+  .card.purple{border-left-color:var(--purple)}
+  .card h4{margin:0 0 6px;font-size:14px;font-weight:600}
+  .card p{margin:6px 0}
+  .tag{display:inline-block;font-size:11px;font-weight:600;letter-spacing:.4px;
+       padding:2px 8px;border-radius:11px;margin-right:6px;vertical-align:middle}
+  .t-done{background:#0f2f1a;color:#56d364;border:1px solid #1f6b34}
+  .t-open{background:#3a2d0c;color:#e3b341;border:1px solid #6b5312}
+  .t-block{background:#3d1418;color:#ff9d96;border:1px solid #6e2229}
+  .t-new{background:#1c2b3d;color:#79c0ff;border:1px solid #2c4f7c}
+  code{background:var(--panel2);border:1px solid var(--line);border-radius:4px;
+       padding:1px 5px;font:13px/1.4 ui-monospace,SFMono-Regular,Consolas,monospace;color:#a5d6ff}
+  pre{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:11px 13px;
+      overflow-x:auto;font:12.5px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace;color:#a5d6ff}
+  pre code{background:none;border:none;padding:0}
+  ul,ol{margin:7px 0 7px 20px;padding:0} li{margin:4px 0}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:14px}
+  th,td{border:1px solid var(--line);padding:7px 10px;text-align:left;vertical-align:top}
+  th{background:var(--panel2);font-weight:600;color:var(--accent)}
+  .muted{color:var(--muted)}
+  .lesson{background:#1a1410;border:1px solid #6b5312;border-radius:6px;padding:13px 15px;margin:12px 0}
+  .lesson h4{margin:0 0 6px;color:var(--amber);font-size:14px}
+  .step{background:var(--panel2);border-left:2px solid var(--accent);padding:8px 12px;margin:8px 0;border-radius:0 4px 4px 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+
+<header>
+  <h1>GroupTrack — Session Handoff</h1>
+  <div class="sub">
+    Monday 2026-08-03 · branch <code>feature/convoy-event-ride</code> · release target <strong>2.6e</strong><br>
+    Commit <code>dd8370e37</code> · tag <code>v2.6e-fallback</code> (moved) · pushed ·
+    <strong>FIT bug closed · z10 REVERTED after ANRs · column file phase 1 VERIFIED · fallback rebuilt</strong>
+  </div>
+</header>
+
+<div class="card blue">
+  <h4>Read this first</h4>
+  <p>Three parts. <strong>Morning:</strong> closed the FIT bug, shipped a fallback AAB, updated the manual.
+  <strong>Afternoon:</strong> a long design session on map sources that produced the six-step plan and a phase-1 patch.
+  <strong>Evening:</strong> z10 was reverted after ANRs on device, phase 1 was tested and a real bug found and fixed in
+  it, and the fallback was rebuilt and re-tagged. Section 5 is still the one to read before writing more code.</p>
+  <p class="muted">⚠ Two things stated earlier in this document were overtaken the same evening — the z10 change and
+  phase 1 being untested. <strong>Section 10 carries the corrections and wins where they disagree.</strong></p>
+</div>
+
+<h2>1 · The planner FIT bug — CLOSED</h2>
+
+<div class="card green">
+  <h4><span class="tag t-done">FIXED</span>Removing planner proximity fixed it. The mechanism is NOT established.</h4>
+  <p><strong>Symptom at 08-02 close:</strong> fit-to-artifact on the planning map rendered nothing and produced
+  <strong>zero logcat</strong> — no <code>JSONDIAG</code>, no <code>MapJS</code> — from a live PID. Convoy did the
+  identical fit correctly every time. Exiting to convoy and returning cured it.</p>
+  <p><strong>What was found:</strong> <code>grouptrack_map.html</code> carried a <em>third</em> copy of the proximity
+  block — a bare <code>map.on('click', …)</code> at ~:801, at the script block's top level. <code>map</code> is not
+  created until ~:640, inside <code>DOMContentLoaded</code> → <code>setTimeout(500)</code>. So :801 evaluated at
+  <strong>parse time</strong> against an undefined variable and threw
+  <code>Uncaught TypeError: Cannot read properties of undefined (reading 'on')</code> on every page load. The comment
+  block at :642–655 documents the same defect being found and relocated on 07-30 — this copy was left behind.</p>
+</div>
+
+<div class="lesson">
+  <h4>⛔ The honest state of this fix</h4>
+  <p>A def-scan of the deleted range found only <code>checkLayer</code>, nested inside the handler — nothing the fit
+  path needs. <strong>Fit working afterwards is an observed result with no proven cause.</strong> It is recorded that
+  way deliberately. <strong>Do not re-add a top-level handler to that file without understanding why.</strong></p>
+  <p class="muted">Also worth recording: the 08-02 three-tap test concluded <em>"handler-js-proximity-scan never fired
+  once — the JS scan is not in the live path."</em> True, but not because it was inert by design. Its registration threw
+  before it could attach. It was dead because it was broken.</p>
+</div>
+
+<div class="card green">
+  <h4><span class="tag t-done">ALSO FIXED</span>Phantom popups on a blank map</h4>
+  <p>A list of trails popping up where nothing was drawn came from the <em>other</em> proximity path:
+  <code>Android.onProximityTap</code> → Kotlin queries the spatial DB → <code>showProximityPopup</code>.
+  <strong>The query layer never consults visibility state</strong>, so it reported artifacts the map was not drawing.</p>
+</div>
+
+<h2>2 · What shipped in the fallback AAB</h2>
+
+<table>
+  <tr><th>Change</th><th>File</th><th>Note</th></tr>
+  <tr><td>Planner proximity removed</td><td><code>grouptrack_map.html</code></td>
+      <td>Both registrations. <code>PROXREMOVE-2026-08-03</code></td></tr>
+  <tr><td>Trails minZoom 11 → 10</td><td><code>SpatialDisplayManager.kt</code></td>
+      <td>One value. <code>TRAILS-Z10-RETRY-2026-08-03</code></td></tr>
+  <tr><td>Route-creation captures</td><td><code>grouptrack_manual.html</code></td>
+      <td>12 screens. PENDING-CAPTURE 11 → 10</td></tr>
+  <tr><td>23 stale <code>.bak_*</code> files</td><td><code>assets/</code></td>
+      <td>~785 KB, out of the bundle</td></tr>
+</table>
+
+<div class="card">
+  <h4>Kept deliberately</h4>
+  <p><code>window.showProximityPopup</code> — <code>ConvoyMapViewerScreen.kt:578</code> still calls it by name and it is
+  the only definition in the codebase. Kotlin <code>onProximityTap</code> and its <code>ROUTETAP-2026-08-02</code> guard
+  are untouched and <strong>now uncalled</strong>. ⚠ When that path retires, the ROUTETAP guard retires with it —
+  must-fix #3 stays closed but closed <em>by removal</em>, not by the guard. Record it that way or a future session
+  reads the guard as load-bearing.</p>
+</div>
+
+<div class="card amber">
+  <h4><span class="tag t-open">VERIFY</span>Trails z10 is a retry, not a settled win</h4>
+  <p>The 07-31 rejection does not apply: <strong>z10 was reverted BEFORE the display was capped at 10,000 trails</strong>
+  (Fred), so it tested an uncapped viewport. The same 07-31 commit also moved both maps to <code>L.canvas</code>.
+  ⚠ Canvas fails on frame time, not ANR. <strong>Owed: fit a large-extent trail at z10 and watch for pan lag.</strong></p>
+  <p class="muted">⚠ The in-code comment says a 20,000 cap; the board says 10,000. One is stale.</p>
+</div>
+
+<div class="card amber">
+  <h4><span class="tag t-open">OWED</span>The manual now documents behaviour that no longer exists</h4>
+  <p>Section <code>planning-K</code> describes tapping an artifact to open a multi-artifact popup. Proximity is gone from
+  the planner. <strong>This needs a prose correction, not a screenshot.</strong> The convoy equivalent is unaffected.</p>
+</div>
+
+<h2>3 · Release state</h2>
+
+<div class="card green">
+  <p><strong>Commit</strong> <code>a385c2221</code> · <strong>tag</strong> <code>v2.6e-fallback</code> · branch and tag
+  pushed. APK + AAB archived to <code>Downloads/grouptrack_2.6e_fallback/</code>, off the build directory so a Gradle
+  clean cannot take them.</p>
+  <p>⚠ <strong>The archived APK predates the z10 change</strong> — that only reached the bundle. If the fallback is ever
+  sideloaded expecting bundle behaviour, rebuild the APK from the tag first.</p>
+</div>
+
+<div class="card">
+  <h4>Version code — exposure narrowed, not closed</h4>
+  <p>Fred: <em>"our exposure for the release is my sideloads. nobody else is sideloading. playstore publishing protects
+  the regression."</em> Correct — Play rejects a code at or below what is published. Sideload exposure is closed
+  operationally by the plain <code>-r</code> rule. ⚠ What remains is the <strong>AAB upload itself</strong> being
+  rejected if the git-derived code went backwards. Annoyance, not data risk. One grep settles it:</p>
+  <pre><code>grep -rn "gitVersionProvider\|VERSION_CODE_OFFSET\|vcOffset" --include=*.kts .</code></pre>
+</div>
+
+<h2>4 · ⛔ Corrections to the record (Fred, 08-03)</h2>
+
+<div class="card red">
+  <h4>1 · The 215 jobs were NOT a submit-per-track</h4>
+  <p>Fred: <em>"the import by track does not exist in area refresh. all track boundaries became bboxes and that is how we
+  ended up with 215 jobs."</em> <strong>Refresh converted each track BOUNDARY into a BBOX</strong> and enqueued area jobs
+  from them. A switchbacked trail's bounding box covers the whole mountain; its corridor covers a line buffer.
+  <strong>That difference IS the 215 jobs</strong> — and it is the same reason corridor downloads were built on 07-24.</p>
+</div>
+
+<div class="card red">
+  <h4>2 · Corridor refresh does not exist</h4>
+  <p>Fred: <em>"the refresh does not currently support corridor imports."</em> So step 5 is <strong>BUILD, not
+  MIGRATE</strong>. The 08-02 wording — "reuses proven code" — understates it.</p>
+  <p>⭐ Follow-on: the corridor worker <strong>re-derives its tiles at run time from track geometry</strong>, so it never
+  builds oversized cells. The <code>gridCells</code> → <code>segmentCells</code> migration is an <strong>AREA-path
+  problem only</strong>, and area stays as an option, so that migration is still owed.</p>
+</div>
+
+<div class="card red">
+  <h4>3 · "Corridor is the default" is wrong</h4>
+  <p>Fred: <em>"during the refresh the user must select if he prefers area or corridor imports."</em> It is a
+  <strong>choice presented at refresh time</strong>, not a default the app applies. ⚠ Record it this way or a future
+  session builds a silent default and the prompt never appears.</p>
+</div>
+
+<h2>5 · ⭐⭐⭐ THE COLUMN FILE — design session, and what it revealed</h2>
+
+<div class="card blue">
+  <h4>The split (Fred's architecture, unchanged)</h4>
+  <p><strong>CATALOG</strong> = <code>map_sources.json</code> in assets. Sources, templates, layers,
+  <code>default_slots</code>. Ships with the app, read-only, replaced every release. <strong>This is what made the
+  <code>{s}</code> fix reach existing users</strong> — had the catalogue been copied to user space on first run, no
+  existing user would have received it.</p>
+  <p><strong>COLUMN FILE</strong> = the user's table. Slot → source, plus the active key and the URL template.
+  <strong>A mapping table, not a replication of the catalogue.</strong></p>
+</div>
+
+<div class="card">
+  <h4>Why this is not a reversion of <code>79251ae72</code></h4>
+  <p>That commit killed an external file that held <strong>the whole catalogue, URLs included</strong> — a stale copy
+  served stale URLs and broke tile downloads. The column file holds three rows and points at names. Different thing.</p>
+</div>
+
+<h3>The five catalogue rules (Fred)</h3>
+<div class="card">
+  <ol>
+    <li><strong>Names never change.</strong> A rename is a tombstone plus a new entry appended at the bottom.</li>
+    <li><strong>Only the URL value is mutable</strong>, applied at release.</li>
+    <li><strong>Deletes tombstone</strong> — entries never leave the list, so sequence holds.</li>
+    <li><strong>The user owns</strong> slot assignment, active slot, and API keys. Everything else seeds from the catalogue.</li>
+    <li><strong>A scheme change is a delete-and-append, not a URL edit</strong> (Claude's addition, accepted) — different
+      projection or max native zoom means the tiles already in that column's store stop matching the template.</li>
+  </ol>
+</div>
+
+<h3>⭐⭐ What the blast radius actually found</h3>
+
+<div class="card red">
+  <h4>1 · <code>defaultSlots</code> is not a constant. It is mutable in-memory state.</h4>
+  <pre><code>:50   private var defaultSlots: List&lt;SlotConfig&gt; = emptyList()
+:118  defaultSlots = slots                    &lt;- loaded from the asset
+:142  defaultSlots = listOf(...)              &lt;- hardcoded fallback
+:218  defaultSlots = defaultSlots.toMutableList().apply { ... }   &lt;- the user's slot change</code></pre>
+  <p>Line 218 is the user's selection. <strong>Nothing persists it.</strong> Six read sites — <code>:153, :163, :172,
+  :187, :215, :273</code> — all funnel through this one field, which is why the fix is smaller than the FIX 1/2/3
+  framing suggested: <strong>you do not convert the readers, you change where the field is loaded from.</strong></p>
+</div>
+
+<div class="card red">
+  <h4>2 · The asset is read exactly ONCE per process</h4>
+  <p><code>init()</code> guards at <code>:72</code> with <code>if (initialized) return</code>, set at <code>:119</code>.
+  Every <code>ensureInit()</code> call returns immediately after the first. <strong>Nothing else opens
+  <code>map_sources.json</code>.</strong> So the asset cannot be overwriting a selection mid-session, and no tripwire is
+  needed — reading the code answered it.</p>
+</div>
+
+<div class="card red">
+  <h4>3 · ⛔ THE ORDERING HAZARD — <code>ensureInit()</code> / <code>loadFallback()</code></h4>
+  <p><code>ensureInit()</code> at <code>:282–286</code> calls <code>loadFallback()</code> when not initialized — and
+  <code>loadFallback()</code> sets <code>initialized = true</code> at <code>:147</code>. So:</p>
+  <ul>
+    <li>any getter fires before <code>init(context)</code> → hardcoded Esri loads → <code>initialized = true</code></li>
+    <li>the real <code>init()</code> runs later → sees <code>initialized</code> already true → <strong>returns
+      immediately and never reads the asset</strong></li>
+    <li>the process runs entirely on hardcoded Esri, announced by a single <code>Log.w</code> nobody is watching for</li>
+  </ul>
+  <p><strong>That would look exactly like the reported symptom</strong> — slot 1 back on Esri, no explanation. It is an
+  ordering bug, independent of persistence.</p>
+  <p>⭐ <strong>Fred's call:</strong> <em>"sounds like a trap … i am afraid of why it is there."</em> Rather than remove
+  it blind, phase 1 <strong>logs the request with a stack trace naming the caller</strong> and <strong>refuses to write
+  the column file at all when fallback ran</strong>. Nothing removed, nothing commented, no risk — and if it fires, the
+  caller names itself.</p>
+</div>
+
+<div class="card amber">
+  <h4>4 · Resolution is LATE, and the job carries a slot name</h4>
+  <pre><code>[W] ConvoyDownloadQueue.kt:706   .putString("refresh_slot", entry.refreshSlot)
+[R] ConvoyCorridorWorker.kt:52   val slotName = inputData.getString("refresh_slot") ?: ""
+[R] ConvoyDownloadWorker.kt:39   val refreshSlot = inputData.getString("refresh_slot") ?: ""</code></pre>
+  <p>The worker resolves slot → source → URL <strong>at execution time</strong>. A slot that changes between queue and
+  execution silently redirects the download — and stores are keyed by the layer's <code>cache_dir</code>, so the wrong
+  tiles land in the store you believe holds the right ones. <strong>No error. Quiet success against the wrong source.</strong></p>
+  <p>⭐ This is why the column file is <strong>load-bearing, not merely correct</strong>: it makes late resolution safe.</p>
+</div>
+
+<div class="card amber">
+  <h4>5 · Fred's mechanism for the download failure</h4>
+  <p><em>"esri would not work when the connection was established with google … the reason for the failure."</em> If the
+  downloader holds a client configured for the Google host and the slot re-resolves mid-run to an Esri template on a
+  different host, in-flight requests aim at the wrong endpoint and fail silently — which is exactly what
+  <strong>"CORR SAT failed"</strong> with no exception and no HTTP status looks like.</p>
+  <p>⚠ <strong>Hypothesis, not finding.</strong> Unknown whether the downloader keeps a persistent client per host or
+  builds a request per tile. Per-tile would mean contamination rather than failure. Both disappear once resolution is
+  stable, which is the useful part.</p>
+</div>
+
+<div class="card amber">
+  <h4>6 · The verification loop was itself the contamination loop</h4>
+  <p>Fred's method for confirming tiles were being replaced was to <strong>view offline maps of that column</strong> —
+  which required switching sources to flush the cache. Switching sources is what triggers the re-resolve. So checking
+  whether the swap was working is what broke the swap, and repeating the check repeated the damage.</p>
+  <p>⭐ This likely also explains the <strong>refresh "reset"</strong> (5%→4%). A job re-resolving mid-run and restarting
+  its accounting against a different tile set would look exactly like a percentage going backwards. <strong>Retest after
+  phase 2 — a free measurement that may retire a P0-shaped item.</strong></p>
+</div>
+
+<div class="card">
+  <h4>Two other things found</h4>
+  <p><strong>The write hook already exists.</strong> <code>updateSlotSource()</code> at <code>:213</code> already calls
+  <code>saveExternalJson()</code> at <code>:221</code> — an empty body. Persistence was one function to fill, no new call
+  sites.</p>
+  <p><strong><code>ConvoyMapSourceScreen.kt:59</code> claims something untrue:</strong> <em>"Writes slot changes to
+  external Documents/GroupTrack/map_sources.json."</em> It does not. The comment describes the feature being built now,
+  left behind when <code>saveExternalJson()</code> was gutted.</p>
+  <p><strong>An orphan local:</strong> <code>ConvoyMapViewerScreen.kt:97</code> — <code>var activeSource by remember {
+  mutableStateOf("SAT") }</code>, never synced to the global, and it drives the map-bar highlight via
+  <code>isActive = activeSource == label</code>. <strong>The UI can show SAT highlighted while the source is something
+  else.</strong> Convoy has no equivalent. Independent of the file work.</p>
+</div>
+
+<h2>6 · ⭐ STEP 1 — PHASE 1 PATCH: written, compiled, awaiting device test</h2>
+
+<div class="card green">
+  <h4><span class="tag t-new">READY</span><code>patch_column_file_phase1b_2026-08-03.py</code> · marker <code>COLUMNFILE-2026-08-03</code></h4>
+  <p>Applied and compiled — <code>compileGoogleReleaseKotlin</code> BUILD SUCCESSFUL in 2m 04s. Full build running at
+  session close. <strong>Not yet committed.</strong></p>
+</div>
+
+<div class="card blue">
+  <h4>⭐ WRITE ONLY. NO BEHAVIOUR CHANGE. That is the point.</h4>
+  <p><code>getSlotSources</code>, <code>getDownloadSources</code>, <code>getSourceByKey</code> and
+  <code>getAllOverlayLayers</code> <strong>still read <code>defaultSlots</code></strong> — the patch's own verification
+  refuses to write if they do not. The app behaves exactly as it does today, which is what makes this half independently
+  testable and safe to commit before the reader work.</p>
+</div>
+
+<h3>What the patch does — five anchored edits</h3>
+<div class="card">
+  <div class="step"><strong>EDIT 1 · Column-file plumbing</strong>, inserted after <code>apiKeysFile()</code>:
+  <code>columnFile()</code> → <code>Documents/GroupTrack/map_slots.json</code>, <code>currentVersionCode()</code>,
+  <code>syncColumnFile()</code>, <code>readTerminated()</code>, <code>writeColumnFile()</code>,
+  <code>terminatedColumns()</code>.</div>
+  <div class="step"><strong>EDIT 2 · <code>syncColumnFile(context)</code> called at the END of <code>init()</code></strong>,
+  after the asset parses so <code>defaultSlots</code> and <code>sources</code> are populated.</div>
+  <div class="step"><strong>EDIT 3 · <code>saveExternalJson()</code> filled in</strong> — was an empty body that was
+  still being called. Plus <code>readColumnFileOrNull()</code>.</div>
+  <div class="step"><strong>EDIT 4 · <code>setActive()</code> persists</strong> the active key. It was in-memory only,
+  defaulting to <code>"SAT"</code> at <code>:53</code>.</div>
+  <div class="step"><strong>EDIT 5 · <code>loadFallback()</code> records that it was requested</strong> — sets a flag and
+  logs with a stack trace. Its own behaviour is unchanged.</div>
+</div>
+
+<h3>The rules the patch encodes</h3>
+<div class="card">
+  <table>
+    <tr><th>Condition</th><th>Action</th></tr>
+    <tr><td>Column file <strong>absent</strong></td><td>Seed from <code>defaultSlots</code> + catalogue, stamp version code</td></tr>
+    <tr><td>Present, <strong>same version code</strong></td><td>Load only. No install pass.</td></tr>
+    <tr><td>Present, <strong>different version code</strong></td><td><strong>INSTALL PASS</strong> — refresh
+      <code>url_template</code> per column from the catalogue by <code>source_id</code>; mark
+      <code>status: "terminated"</code> where the source is gone; <strong>slot assignments never touched</strong>; re-stamp</td></tr>
+    <tr><td>Present but <strong>unreadable</strong></td><td><strong>LOG AND STOP.</strong> No seed, no overwrite.</td></tr>
+    <tr><td><strong>Fallback ran</strong></td><td><strong>NO WRITE AT ALL.</strong> Log and return.</td></tr>
+  </table>
+</div>
+
+<div class="lesson">
+  <h4>Why "unreadable ≠ absent" is not pedantry</h4>
+  <p>Treating a read failure as absent is the <strong>create-if-missing shape that destroyed the spatial DB on
+  08-01</strong> (~89k trails). All-Files access has been observed reporting <code>true</code> while denied. If an
+  unreadable column file were treated as absent, seeding would overwrite the user's assignments with catalogue defaults —
+  the exact bug being fixed, arriving through the back door.</p>
+</div>
+
+<h3>File shape</h3>
+<pre><code>Documents/GroupTrack/map_slots.json
+
+{
+  "version_code": 2060512,
+  "active": "SAT",
+  "columns": [
+    { "slot": 1, "legacy_key": "SAT",   "source_id": "esri-imagery-overlays",
+      "short_label": "SAT", "url_template": "https://...", "requires_key": false,
+      "status": "active" },
+    { "slot": 2, "legacy_key": "TOPO",  ... },
+    { "slot": 3, "legacy_key": "TOPO+", ... }
+  ]
+}</code></pre>
+
+<div class="card">
+  <h4>Design points inside the patch</h4>
+  <ul>
+    <li><strong>Stores the URL TEMPLATE, not a resolved URL.</strong> <code>resolveUrl()</code> at <code>:277</code>
+      injects <code>{key}</code> at use time, and keys are persisted separately in <code>api_keys.json</code>.</li>
+    <li><strong>Atomic write</strong> — temp file then rename. A truncated column file read at worker start is a mystery
+      a week later.</li>
+    <li><strong><code>map_slots.json</code>, not <code>map_sources.json</code>.</strong> <code>externalJsonFile()</code>
+      at <code>:66</code> already claims that name and it is the file <code>79251ae72</code> killed.</li>
+    <li><strong>The install pass carries the user's assignment forward</strong> — <code>priorById</code> wins over
+      <code>slot.sourceId</code>. A release may retire a source; it may not repoint a column the user chose.</li>
+  </ul>
+</div>
+
+<div class="card amber">
+  <h4><span class="tag t-open">DECISION OWED</span>What "terminated" means</h4>
+  <p>The patch currently marks a column terminated when its <code>source_id</code> is <strong>not found</strong> in the
+  catalogue. Fred's rules call for an explicit tombstone instead — a <code>status</code> field on the catalogue entry, so
+  a retired source stays in the list and keeps the sequence. <strong>That is an asset change plus one line here.</strong>
+  Absence works today because nothing has been retired yet; the explicit tombstone is what rule 3 requires.</p>
+</div>
+
+<h3>⭐ TEST PLAN — Droid 2, four checks</h3>
+<div class="card">
+  <ol>
+    <li><strong>Seeds on first run.</strong> Cold start, then
+      <code>adb shell cat /sdcard/Documents/GroupTrack/map_slots.json</code>. Expect three columns plus
+      <code>version_code</code> and <code>active</code>.</li>
+    <li><strong>Regenerates if deleted.</strong> Delete, force-stop, cold start, <code>cat</code> again.</li>
+    <li><strong>Does not overwrite on restart.</strong> Cold start twice; logcat should read
+      <code>column file current (vc=…), no install pass</code>.</li>
+    <li><strong>Persists a slot change.</strong> Change a source in Map Sources, then <code>cat</code>. The new
+      <code>source_id</code> must be in the file. <strong>This is the check that proves
+      <code>saveExternalJson()</code> is wired</strong> — and it also shows whether the slot change now survives a
+      restart, which is the symptom that started all of this.</li>
+  </ol>
+  <pre><code>adb -s 24039703201775 logcat -c
+adb -s 24039703201775 logcat -v time -s MapSourceMgr:V</code></pre>
+  <p><strong>Watch for:</strong> <code>COLUMNFILE-2026-08-03: FALLBACK REQUESTED</code>. If it never appears, the
+  ordering hazard is not firing and the question dies quietly. If it does, the stack names the caller.</p>
+</div>
+
+<h2>7 · Steps 2–6 — goals</h2>
+
+<div class="card">
+  <h4>STEP 2 · The app reads the column file</h4>
+  <p><strong>Goal:</strong> nothing resolves from <code>default_slots</code> at run time once the user file exists.
+  <code>defaultSlots</code> becomes <strong>seed-only</strong>. Because all six readers funnel through that one field,
+  this is a change to <em>where the field is loaded</em>, not a conversion of every call site.
+  <strong>Also owed here:</strong> the orphan local at <code>ConvoyMapViewerScreen.kt:97</code>, and reconciliation on
+  init — walk the columns, expire any pointing at a retired or missing source.</p>
+</div>
+
+<div class="card">
+  <h4>STEP 3 · Test a Google download</h4>
+  <p><strong>Goal:</strong> measure HYB against ground that has stopped moving. ⭐ Fred placed the test here
+  deliberately — before any download-shape work. <strong>The result is diagnostic either way:</strong> if the failure
+  disappears, resolution was the cause; if it persists, resolution is eliminated for good and you are debugging a real
+  download problem on solid ground.</p>
+  <p>⚠ Start the capture <em>before</em> queueing, and remove <code>TRACK-DBG: TICK</code> first — it fires twice every
+  5 s and destroyed the evidence last time. Log the <strong>resolved URL per job</strong>; that single line separates
+  slot-resolution from a genuine download failure.</p>
+</div>
+
+<div class="card">
+  <h4>STEP 4 · Corridor checkbox on the download panel</h4>
+  <p><strong>Goal:</strong> a second checkbox beside Area. Area → draw box (existing). Corridor → a <strong>list of
+  tracks</strong>, select all or check as many as needed. ⭐ Every download origin already routes through one panel
+  (<code>ConvoyDownloadConfirm</code> → <code>submitDownload</code>), so this lands in one place.</p>
+  <p>⚠ Select-all needs an <strong>estimate-and-confirm gate</strong> — the user should see the count before it queues.</p>
+</div>
+
+<div class="card">
+  <h4>STEP 5 · Refresh becomes area OR corridor, user chooses</h4>
+  <p><strong>Goal:</strong> the refresh asks which method. <strong>Corridor refresh must be BUILT — it does not
+  exist.</strong> The track-list picker from step 4 is reused here; build it once, use it twice.</p>
+</div>
+
+<div class="card">
+  <h4>STEP 6 · Route the choice to the right enqueue</h4>
+  <p><strong>Goal:</strong> <code>enqueueArea</code> or the corridor enqueue, submitting jobs for the changed source.
+  ⚠ <strong>Still owed alongside:</strong> the <code>gridCells</code> → <code>segmentCells</code> migration on the AREA
+  path (corridor re-derives at run time and never builds oversized cells), and a check of
+  <code>enqueueRefresh</code>'s argument order against <code>enqueueArea</code> — <strong>swapped bounds remains the
+  leading unverified hypothesis for the 07-23 continental incident</strong>.</p>
+</div>
+
+<div class="card blue">
+  <h4>Terminated-source behaviour, as settled</h4>
+  <ul>
+    <li><strong>The installer expires the source and stops.</strong> Notification is somebody else's task.</li>
+    <li>On map load with a terminated column, the <strong>selector fires</strong>. User picks or cancels; cancel means it
+      returns next restart.</li>
+    <li><strong>The column keeps serving its current maps throughout</strong> — offline tiles are unaffected, nothing
+      blanks, nothing blocks an off-grid start.</li>
+    <li>A terminated column is <strong>unchecked and not selectable</strong> for new downloads or refresh.</li>
+  </ul>
+</div>
+
+<h2>8 · Lesson of the day</h2>
+
+<div class="lesson">
+  <h4>⭐⭐ The method is trusted. The mistake was not removing the instrumentation.</h4>
+  <p>Fred, correcting the record: <em>"the breakthrough on route was trapping the state and visually seeing what triggers
+  were failing. i chose the method is trusted. the mistake was not removing the instrumentation when we finished."</em></p>
+  <p>So the lesson is <strong>not</strong> "instrumentation is expensive." It is:</p>
+  <ul>
+    <li><strong>Instrumentation is temporary by definition.</strong> It comes out when the task closes, in the same commit
+      that closes it — not on a cleanup list where it accumulates until it does damage.</li>
+    <li>All three of this week's rendering failures happened in the window between <em>"found it"</em> and
+      <em>"someday we'll clean that up."</em></li>
+    <li>The mechanical rules still hold — <code>Log.d</code> not <code>Toast</code>, nothing in an argument position,
+      off-main-thread awareness — but those are about <em>what</em> you write, not <em>whether</em>.</li>
+  </ul>
+  <p class="muted">⚠ Live instance: <code>showProximityPopup</code> and the Kotlin <code>onProximityTap</code> are dead
+  but still present. Same pattern, smaller stakes. They come out with their caller.</p>
+</div>
+
+<div class="lesson">
+  <h4>⚠ And one about direction</h4>
+  <p>Fred called the direction on the FIT bug — <em>"every fiber of my body blames proximity"</em> — while my elimination
+  of that code range was wrong twice. Recorded because the reasoning pattern matters more than the fix: I was scanning for
+  one shape of evidence (<code>function name(</code>) and reported the range clean when the scan could not have seen what
+  was there.</p>
+</div>
+
+<h2>10 · Evening — z10 reverted, phase 1 verified, fallback rebuilt</h2>
+
+<div class="card red">
+  <h4><span class="tag t-block">REVERTED</span>Trails z10 → 11. ANRs on device.</h4>
+  <p><strong>⭐⭐ This CLOSES the z10 question rather than repeating 07-31.</strong> That rejection was measured
+  <strong>uncapped on L.svg</strong>. This attempt was <strong>capped at 10,000 rows on L.canvas</strong> — both
+  objections addressed — and it <strong>still ANRs</strong>. The constraint is neither DOM construction nor an uncapped
+  result set: it is the <strong>row count itself at a z10 viewport</strong>, ~4× the area of z11.</p>
+  <p>⛔ <strong>Do not attempt z10 again without a fundamentally different mechanism</strong> (vector tiles / MapLibre —
+  2.7). ⛔ <strong>Do not lower the row cap as an alternative</strong>: at z11 trails currently all fit, and a lower cap
+  makes them disappear there too. <strong>If z11 ever misbehaves, try 12 first</strong> — raising the gate costs nothing
+  at zooms that already work.</p>
+  <p class="muted">⚠ Correction to my own comment from this morning: it claimed canvas fails on frame time rather than
+  ANR. Device evidence says canvas ANRs too.</p>
+</div>
+
+<div class="card amber">
+  <h4>The Play build had z10 in it</h4>
+  <p>Uploaded 08-03 13:03, replacing 2.6d (<code>29320746</code>). Corrected by tonight's rebuild
+  (<code>29320781</code>, comfortably above). <strong>The <code>v2.6e-fallback</code> tag was MOVED</strong> off
+  <code>a385c2221</code> onto <code>dd8370e37</code> — a fallback that ANRs is not a fallback.</p>
+</div>
+
+<div class="card green">
+  <h4><span class="tag t-done">VERIFIED</span>Column file phase 1 — both devices</h4>
+  <p>Checks 1, 3 and 4 pass. No <code>FALLBACK REQUESTED</code> on either device, so the ordering hazard is not firing
+  on this path. Droid 2 file reads <code>version_code 29320781</code>, <code>active "SAT"</code>, three columns with real
+  templates and <code>status "active"</code>; cold restart logs <code>column file current (vc=…), no install pass</code>.</p>
+  <p>⭐ <strong>The catalogue holds 15 sources</strong>, three assigned — twelve available to the selector. <strong>Google
+  is a first-class entry</strong> (<code>google-satellite</code>), not something to hand-add. That matters for step 3.</p>
+</div>
+
+<div class="card red">
+  <h4><span class="tag t-done">FOUND + FIXED</span>A real bug in phase 1 — caught by check 4</h4>
+  <p><strong>Symptom:</strong> changing a source logged <em>both</em> <code>wrote 3 columns</code> and <code>Slot SAT
+  updated to source google-satellite</code> — and the file still read <code>esri-imagery-overlays</code>. The mutation
+  happened, the write happened, and the change was discarded.</p>
+  <p><strong>Cause (my design error):</strong> <code>saveExternalJson()</code> passed <code>readColumnFileOrNull()</code>
+  as <code>existing</code>, so <code>writeColumnFile()</code> applied its install-pass rule
+  <code>priorById[slot.legacyKey] ?: slot.sourceId</code>. <code>priorById</code> is built from the file <em>on
+  disk</em>, which still held the old source — so every save let the stale value overwrite the fresh selection.</p>
+  <p>⭐ <strong>The distinction:</strong> "prior assignment wins" is <strong>correct for the INSTALL PASS</strong> — a
+  release may retire a source but must never repoint a column the user chose. It is <strong>exactly wrong for the SAVE
+  PATH</strong>, where <code>defaultSlots</code> is the truth. Fix: the save path passes <code>null</code>. Install pass
+  untouched. <code>COLUMNFILE-SAVEFIX-2026-08-03</code>.</p>
+  <p>✅ Verified: slot 1 now writes <code>google-satellite</code> with template
+  <code>https://mt{s}.google.com/vt/lyrs=s&amp;x={x}&amp;y={y}&amp;z={z}</code>, carrying the <code>{s}</code> fix.</p>
+</div>
+
+<div class="lesson">
+  <h4>⭐⭐ Checks 1–3 all passed and the file looked correct</h4>
+  <p>Only <em>changing a source</em> exposed it. A phase built to be "write-only, safe to commit" would have been
+  committed broken. <strong>Check 4 existed precisely to catch this, and it did.</strong> The value of a test plan is the
+  check you were tempted to skip.</p>
+</div>
+
+<div class="card">
+  <h4>Minor, not fixed</h4>
+  <p>Three <code>wrote 3 columns</code> lines per interaction — both <code>setActive()</code> and
+  <code>updateSlotSource()</code> call <code>saveExternalJson()</code>, and entering Map Sources appears to trigger
+  <code>setActive</code> on its own. Harmless (atomic, idempotent content) but more disk traffic than needed.</p>
+</div>
+
+<div class="card blue">
+  <h4>⭐⭐⭐ The display model — settled this evening, NOT built</h4>
+  <p><strong>The workflow:</strong> find your area → look at tracks around it → drop waypoints → <em>now</em> turn trails
+  on. Trails come last, after you know what you want.</p>
+  <p><strong>Why:</strong> <em>"see the ground, see the features, see the trail — not a 100 mile line on the map."</em>
+  Drilling into the yarnball, a thick blue line resolves into 30 trails, and there are hundreds of such spots. That
+  intimidates rather than helps. ⭐ <strong>The panel is a participation switch, not a density filter</strong> —
+  <em>"you are not using select/omit to turn trails on and off, you are using zoom to narrow what appears; the right tool
+  for the job."</em></p>
+  <p><strong>Seven items:</strong> 5,000 ceiling flat at every zoom · toggle disabled below z11 with
+  <code>Trails (Z11 or greater to display)</code> · trails forced off on <em>map change</em> (not every panel entry) ·
+  viewport state still restores, only visibility overridden · search by track/trail/town/park returning ~100 sq mi ·
+  no GPS snapback on the planner · manual. <strong>Full detail in the Living Master under 00-DISPLAY.</strong></p>
+  <p>⭐ Tunables named in one place (<code>TRAILS_MIN_ZOOM</code>, <code>TRAILS_MAX_ROWS</code>), with a
+  <strong>temporary</strong> dev control to tune live — 39-minute builds make tuning by rebuild expensive.
+  ⛔ It comes out in the commit that closes the task.</p>
+</div>
+
+<div class="card purple">
+  <h4>⭐ The stated endstate — Suggest</h4>
+  <p>Fred: <em>"set your points of interest, your waypoint to embark and return from, the range of distance and time,
+  and let the software recommend routes that touch all your points. That is my vision for endstate."</em> That is the
+  <code>Suggest</code> button already in the Route panel marked "soon".</p>
+  <p><strong>The product in one line:</strong> <em>"the route map is the palette — the routes and trails and the infinite
+  combinations to create a unique experience visiting points of interest."</em></p>
+  <p>⚠ Connectivity is the hard part, not the routing. ⚠ Time is harder than distance — start distance-only.
+  ⭐ <strong>This is why track-to-trail matters:</strong> tracks are certainty, trails are a claim, and FILL closes
+  exactly the junctions the router needs. Detail in the Living Master under 00-ENDSTATE.</p>
+</div>
+
+<h2>9 · Reference</h2>
+<table>
+  <tr><th>Item</th><th>Value</th></tr>
+  <tr><td>HEAD</td><td><code>dd8370e37</code>, tag <code>v2.6e-fallback</code> (moved off <code>a385c2221</code>), pushed</td></tr>
+  <tr><td>Uncommitted</td><td>none — tree clean at <code>dd8370e37</code></td></tr>
+  <tr><td>Patches</td><td><code>patch_column_file_phase1b</code> · <code>patch_columnfile_savefix</code> · <code>patch_trails_minzoom_revert11</code> (all 2026-08-03, Downloads)</td></tr>
+  <tr><td>Fallback archive</td><td><code>Downloads/grouptrack_2.6e_fallback/</code></td></tr>
+  <tr><td>Asset backups</td><td><code>Downloads/asset_baks_20260803/</code> (23 files)</td></tr>
+  <tr><td>Column file</td><td><code>/sdcard/Documents/GroupTrack/map_slots.json</code></td></tr>
+  <tr><td>Console tags</td><td>planner <code>MapJS</code> · convoy <code>ConvoyJS</code> · sources <code>MapSourceMgr</code></td></tr>
+  <tr><td>Compile gate</td><td><code>./gradlew compileGoogleReleaseKotlin</code> — 2m 04s today</td></tr>
+</table>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<title>GroupTrack — Unified Import Design Spec — 2026-08-18</title>
+<style>
+body{font:15px/1.6 system-ui,sans-serif;max-width:960px;margin:20px auto;padding:0 16px;background:#fdfdfd;color:#222}
+h1{font-size:22px;border-bottom:2px solid #7bb661;padding-bottom:6px}
+h2{font-size:17px;color:#2a6e1a;margin:28px 0 8px;border-bottom:1px solid #ddd;padding-bottom:4px}
+h3{font-size:15px;margin:16px 0 6px;color:#333}
+li{margin:4px 0} code{background:#eef;padding:1px 4px;border-radius:3px;font-size:13px}
+.box{background:#f0f7ed;border-left:3px solid #7bb661;padding:10px 14px;margin:12px 0}
+.warn{background:#fff3cd;border-left:3px solid #e6a817;padding:10px 14px;margin:12px 0}
+.red{background:#fde8e8;border-left:3px solid #cc3333;padding:10px 14px;margin:12px 0}
+table{border-collapse:collapse;width:100%;margin:10px 0}
+th,td{border:1px solid #ddd;padding:6px 10px;font-size:13px;text-align:left}
+th{background:#f5f5f5;font-weight:600}
+.status{font-weight:600}
+.exists{color:#2a6e1a}
+.modify{color:#cc7700}
+.create{color:#cc3333}
+</style></head><body>
+
+<h1>GroupTrack — Unified Trail Import — Design Spec</h1>
+<p><em>Authored 2026-08-18, updated 2026-08-20. Captures the full design including all late-session refinements. This document is the build reference.</em></p>
+
+<div class="box"><b>ONE SENTENCE:</b> Merge all trail import paths into a single bbox-driven pipeline that processes every available source, enriches existing records via upsert with alias preservation, and is triggered automatically on fresh install or manually from Map Features → Import Trails by Area.</div>
+
+<!-- ================================================================ -->
+<h2>1. The Two Entry Points</h2>
+
+<h3>1A. Fresh Install (Authority Gate)</h3>
+<ul>
+<li><b>Trigger:</b> Authority gate detects <code>trails</code> AND <code>waypoints</code> tables both have zero rows.</li>
+<li><b>GPS auto-detect:</b> Location permission is already granted (cleared by the gate). Get a GPS fix, intersect against state bboxes from the shipped Geofabrik asset. Pre-select the detected state.</li>
+<li><b>UI:</b> "Based on your location, your Home state is <b>[State]</b>." Two buttons: <b>LOAD [STATE] TRAIL DATA</b> (primary) and <b>Select a different Home state</b> (opens state picker).</li>
+<li><b>Processing:</b> Geofabrik downloads the <b>whole state file directly</b> (already segmented by state — no bbox filtering needed). All other sources use the state bbox to filter. ALL sources run, NO checklist.</li>
+<li><b>Completion:</b> Gate re-checks → trails > 0 → gate clears → rider sees Ride Map with trails loaded.</li>
+</ul>
+
+<h3>1B. Post-Install (Map Features → Import Trails by Area)</h3>
+<ul>
+<li><b>Entry:</b> Map Features panel → "Import Trails by Area" (renamed from "Import Trails").</li>
+<li><b>Action:</b> Opens the download panel with "Import Trails by Area" <b>pre-checked</b> (passed in, not user-selectable on the panel — row stays greyed on the download panel itself).</li>
+<li><b>Bbox:</b> Rider draws a rectangle on the map using the existing bbox drawing function.</li>
+<li><b>Confirmation:</b> Shows drawn bbox coordinates, a map of the area, which states are intersected, and a flat list of all sources with estimated counts.</li>
+<li><b>Processing:</b> Geofabrik downloads each state that intersects the drawn bbox (may be multiple). All other sources use the drawn bbox. ALL sources run, NO checklist.</li>
+</ul>
+
+<div class="warn"><b>Both paths are identical except for how the area is defined.</b> Fresh install = state picker (Geofabrik uses whole state file). Post-install = drawn bbox (Geofabrik uses bbox-intersected state files). Same controller, same source loop, same upsert, same progress UI.</div>
+
+<!-- ================================================================ -->
+<h2>2. Menu and Panel Changes</h2>
+
+<table>
+<tr><th>Location</th><th>Current</th><th>New</th></tr>
+<tr>
+<td><b>Map Features panel</b></td>
+<td>"Import Trails" + "Import OSM Data"</td>
+<td>"Import Trails by Area" (only). "Import OSM Data" removed.</td>
+</tr>
+<tr>
+<td><b>Download panel</b><br><code>ConvoyDownloadPanel.kt:294</code></td>
+<td><code>ArtifactCheckRow("Import Trails by Area", green, trailsChecked, <b>false</b>) {}</code></td>
+<td>Stays <b>greyed</b> on the download panel itself &mdash; rider cannot check it manually. Only activated when PASSED IN pre-checked from Map Features. The download panel&rsquo;s existing bbox drawing handles the area selection.</td>
+</tr>
+<tr>
+<td><b>Download panel</b><br><code>ConvoyDownloadPanel.kt:295</code></td>
+<td><code>ArtifactCheckRow("Import OSM by Area", purple, osmChecked, <b>false</b>) {}</code></td>
+<td><b>REMOVED.</b> OSM is now just another source inside Import Trails by Area.</td>
+</tr>
+</table>
+
+<!-- ================================================================ -->
+<h2>3. Source Model</h2>
+
+<p>Sources are <b>flat</b> — not tiered by state vs federal vs OSM. Each source is a data provider with a format. The pipeline dispatches to the right handler per format.</p>
+
+<h3>Source Discovery</h3>
+<p>Intersect the area bbox against each catalog source's bbox (<code>CatalogSource.boundaryN/S/E/W</code>). If they overlap, the source has trails in the area and gets processed.</p>
+
+<h3>Source Record (existing <code>CatalogSource</code> data class)</h3>
+<table>
+<tr><th>Field</th><th>Purpose</th></tr>
+<tr><td><code>id</code></td><td>Unique source identifier</td></tr>
+<tr><td><code>name</code></td><td>Display name ("Utah UGRC Trails")</td></tr>
+<tr><td><code>agency</code></td><td>Data provider</td></tr>
+<tr><td><code>format</code></td><td>Processing format: Geofabrik GPKG, ArcGIS REST, GeoJSON, Shapefile</td></tr>
+<tr><td><code>scope</code></td><td>Coverage scope</td></tr>
+<tr><td><code>boundaryN/S/E/W</code></td><td>Source coverage bbox</td></tr>
+<tr><td><code>trailCount</code></td><td>Estimated trails in source</td></tr>
+</table>
+
+<h3>Processing Order</h3>
+<ul>
+<li>Order does <b>NOT</b> affect correctness — upsert rules guarantee the same result regardless.</li>
+<li>OSM (Geofabrik) processes <b>last</b> as an efficiency choice — 70% of OSM trails have minimal data, so downloading 663 MB last avoids it entirely when other sources already covered the trails.</li>
+<li>Typical import: <b>4–7 sources</b> depending on the area.</li>
+</ul>
+
+<!-- ================================================================ -->
+<h2>4. The Upsert Rules</h2>
+
+<div class="box"><b>NO CHECKLIST, EVER.</b> Both paths process EVERY source that intersects the bbox. The rider picks the area, hits GO, every source runs. No selection step. The reason: running all sources is what makes the upsert work &mdash; each source enriches the same trail by filling in blanks. Skipping a source = missing the enrichment.</div>
+
+<div class="red"><b>THIS IS THE CRITICAL CHANGE.</b> Current code: <code>INSERT OR IGNORE INTO trails (...) ON CONFLICT(geom_hash) DO NOTHING</code>. A duplicate from a richer source is SILENTLY SKIPPED. New rule: enrich existing records.</div>
+
+<h3>Field-Level Rules</h3>
+<table>
+<tr><th>Condition</th><th>Action</th></tr>
+<tr><td>New <code>geom_hash</code> — trail not in DB</td><td>INSERT the full record. Tag with source name.</td></tr>
+<tr><td><code>geom_hash</code> matches, existing field is <b>blank/empty/"Unnamed"</b></td><td><b>UPDATE</b> with incoming data. "Unnamed" is treated as blank.</td></tr>
+<tr><td><code>geom_hash</code> matches, existing field is <b>non-blank</b></td><td><b>KEEP</b> existing data. Do not overwrite.</td></tr>
+<tr><td><code>geom_hash</code> matches, both have a <b>real name</b> (not "Unnamed")</td><td>Keep existing name. <b>ADD incoming name as an ALIAS.</b></td></tr>
+<tr><td><code>geom_hash</code> matches, existing is "Unnamed", incoming has a name</td><td><b>REPLACE</b> "Unnamed" with the real name. Do NOT alias "Unnamed".</td></tr>
+</table>
+
+<h3>SQL Shape</h3>
+<pre><code>INSERT INTO trails (geom_hash, name, trail_type, surface_type, source_id, ...)
+VALUES (?, ?, ?, ?, ?, ...)
+ON CONFLICT(geom_hash) DO UPDATE SET
+  name = CASE 
+    WHEN trails.name IS NULL OR trails.name = '' OR trails.name = 'Unnamed'
+    THEN excluded.name
+    ELSE trails.name
+  END,
+  trail_type = CASE
+    WHEN trails.trail_type IS NULL OR trails.trail_type = ''
+    THEN excluded.trail_type
+    ELSE trails.trail_type
+  END,
+  surface_type = CASE
+    WHEN trails.surface_type IS NULL OR trails.surface_type = ''
+    THEN excluded.surface_type
+    ELSE trails.surface_type
+  END,
+  source_id = excluded.source_id
+  -- source_id always updates to most recent source
+</code></pre>
+
+<p><b>Alias insertion</b> is a separate step after the upsert: if <code>geom_hash</code> matched AND both old and new names are non-blank and different, insert the incoming name into the aliases table.</p>
+
+<!-- ================================================================ -->
+<h2>5. The Geofabrik State Asset</h2>
+
+<p>A JSON file shipped in <code>app/src/main/assets/</code>, one entry per US state.</p>
+
+<pre><code>{
+  "states": [
+    {
+      "name": "Utah",
+      "slug": "utah",
+      "bbox": [-114.053, 37.000, -109.041, 42.001],
+      "url_template": "https://download.geofabrik.de/north-america/us/{slug}-latest-free.shp.zip"
+    },
+    ...
+  ]
+}</code></pre>
+
+<div class="warn"><b>Build this by mining the Geofabrik state listing page.</b> 50 states + DC + territories. The <code>-latest-</code> URL is a moving target (Fred's file was <code>utah-260810-free</code>), so record the resolved filename in the import receipt.</div>
+
+<!-- ================================================================ -->
+<h2>6. Progress UI</h2>
+
+<h3>Header</h3>
+<p>"Processing N sources for [State/Area]"</p>
+
+<h3>Per Source</h3>
+<p>"Starting [source name] — source X of N"</p>
+<p>All steps shown up front for each source:</p>
+<table>
+<tr><th>Indicator</th><th>Meaning</th></tr>
+<tr><td style="color:green;font-size:18px">✅</td><td>Step completed</td></tr>
+<tr><td style="color:#4da6ff;font-size:18px">►</td><td>Step in progress (with count where applicable)</td></tr>
+<tr><td style="color:#999;font-size:18px">○</td><td>Step not started</td></tr>
+</table>
+
+<p>Steps per source: Download → Extract/Reduce → Import (with row count progress) → Cleanup</p>
+
+<h3>Completion Summary</h3>
+<p>Table showing each source name and how many records it contributed. Grand total. Enrichment note (e.g. "47,932 trails enriched with names and surface types from UGRC data").</p>
+
+<h3>Footer</h3>
+<p>Elapsed time. For fresh install: "OPEN RIDE MAP" button. For post-install: "Add more areas later from Map Features → Import Trails by Area."</p>
+
+<!-- ================================================================ -->
+<h2>7. Existing Components</h2>
+
+<table>
+<tr><th>Component</th><th>File</th><th>Status</th></tr>
+<tr><td>Authority gate pattern</td><td><code>ConvoyAuthorityGateScreenV2.kt</code></td><td class="status exists">✅ EXISTS</td></tr>
+<tr><td>Geofabrik download (C1)</td><td><code>OsmImportPanel.kt</code> / <code>OsmImportStage.kt</code></td><td class="status exists">✅ EXISTS</td></tr>
+<tr><td>Skinny DB reduction (C2)</td><td><code>OsmImportStage.kt</code></td><td class="status exists">✅ EXISTS</td></tr>
+<tr><td>OSM import into trails (C3)</td><td><code>OsmImportStage.kt</code></td><td class="status exists">✅ EXISTS</td></tr>
+<tr><td>Catalog source import (full)</td><td><code>TrailImporter.kt</code></td><td class="status exists">✅ EXISTS</td></tr>
+<tr><td>Import by area (bbox filtering)</td><td><code>TrailImporter.importByArea()</code> line 76</td><td class="status exists">✅ EXISTS (greyed out)</td></tr>
+<tr><td><code>LaunchMode.BY_AREA</code></td><td><code>TrailImporter.kt:639</code></td><td class="status exists">✅ EXISTS</td></tr>
+<tr><td>Bbox drawing on map</td><td><code>ConvoyMapViewerScreen.kt:2581,2764</code></td><td class="status exists">✅ EXISTS</td></tr>
+<tr><td><code>CatalogSource</code> data class</td><td><code>ConvoyTrailSourceScreen.kt:50</code></td><td class="status exists">✅ EXISTS</td></tr>
+<tr><td>Trail progress reporting</td><td><code>TrailImporter.progress</code> (StateFlow)</td><td class="status exists">✅ EXISTS</td></tr>
+<tr><td>Download panel rows</td><td><code>ConvoyDownloadPanel.kt:294-295</code></td><td class="status exists">✅ EXISTS</td></tr>
+<tr><td><code>trail_sources</code> registry table</td><td><code>SpatialDbManager</code></td><td class="status exists">✅ EXISTS (currently empty)</td></tr>
+<tr><td><code>isSourceFullyImported()</code></td><td><code>TrailImporter.kt:708</code></td><td class="status exists">✅ EXISTS</td></tr>
+</table>
+
+<!-- ================================================================ -->
+
+<!-- ================================================================ -->
+<h2>7A. JSON Manifest — Controller, Recovery, and History</h2>
+
+<div class="box"><b>The JSON manifest IS the controller AND the recovery file AND the history.</b> One file per import run, stored in <code>Documents/GroupTrack/imports/</code>. Survives uninstall.</div>
+
+<h3>Three Process Wrappers (existing)</h3>
+<table>
+<tr><th><code>process</code> value</th><th>Wrapper</th><th>When used</th></tr>
+<tr><td><code>geofabrik_full_state</code></td><td>Download whole state GPKG, import all</td><td>Fresh install (state picker)</td></tr>
+<tr><td><code>geofabrik_area</code></td><td>Download state GPKG, filter by bbox</td><td>Drawn bbox crossing state lines</td></tr>
+<tr><td><code>trails_list_area</code></td><td>Catalog source filtered by bbox</td><td>Every non-Geofabrik source</td></tr>
+</table>
+
+<h3>Home State Example</h3>
+<pre><code>{
+  "process_state": "in_progress",
+  "started_at": "2026-08-18T14:32:00",
+  "completed_at": null,
+  "area": {
+    "type": "state",
+    "state": "Utah",
+    "bbox": [-114.053, 37.000, -109.041, 42.001],
+    "states": ["Utah"]
+  },
+  "sources": [
+    {
+      "id": "ugrc_utah_trails",
+      "name": "Utah UGRC Trails",
+      "process": "trails_list_area",
+      "status": "completed",
+      "imported": 47932,
+      "completed_at": "2026-08-18T14:35:22"
+    },
+    {
+      "id": "blm_gtlf",
+      "name": "BLM GTLF Designations",
+      "process": "trails_list_area",
+      "status": "in_progress",
+      "imported": 2100,
+      "last_item": "BLM_GTLF_row_2100",
+      "started_at": "2026-08-18T14:35:23"
+    },
+    {
+      "id": "geofabrik_utah",
+      "name": "Utah OSM Trails",
+      "process": "geofabrik_full_state",
+      "status": "pending",
+      "imported": 0
+    }
+  ]
+}</code></pre>
+
+<h3>Drawn Bbox Example (three states)</h3>
+<pre><code>{
+  "process_state": "completed",
+  "started_at": "2026-08-18T16:10:00",
+  "completed_at": "2026-08-18T16:48:33",
+  "area": {
+    "type": "bbox",
+    "bbox": [-114.800, 35.200, -111.200, 37.500],
+    "states": ["Utah", "Nevada", "Arizona"]
+  },
+  "sources": [
+    {"id": "ugrc_utah_trails", "name": "Utah UGRC Trails", "process": "trails_list_area", "status": "completed", "imported": 29000},
+    {"id": "az_state_trails", "name": "Arizona State Trails", "process": "trails_list_area", "status": "completed", "imported": 18000},
+    {"id": "blm_gtlf", "name": "BLM GTLF Designations", "process": "trails_list_area", "status": "completed", "imported": 4200},
+    {"id": "geofabrik_utah", "name": "Utah OSM Trails", "process": "geofabrik_area", "status": "completed", "imported": 68000},
+    {"id": "geofabrik_nevada", "name": "Nevada OSM Trails", "process": "geofabrik_area", "status": "completed", "imported": 12000},
+    {"id": "geofabrik_arizona", "name": "Arizona OSM Trails", "process": "geofabrik_area", "status": "completed", "imported": 22000}
+  ]
+}</code></pre>
+
+<h3>Two Levels of State</h3>
+<table>
+<tr><th>Level</th><th>Values</th><th>Meaning</th></tr>
+<tr><td><b>Manifest</b> (<code>process_state</code>)</td><td><code>in_progress</code> / <code>completed</code></td><td>Is this import run finished?</td></tr>
+<tr><td><b>Source</b> (<code>status</code>)</td><td><code>pending</code> / <code>in_progress</code> / <code>completed</code></td><td>Per-source progress</td></tr>
+</table>
+
+<p><code>in_progress</code> source carries <code>last_item</code> for recovery pickup. <code>completed</code> source carries <code>imported</code> count.</p>
+
+<h3>Controller Loop</h3>
+<ol>
+<li>Build the manifest from bbox intersection against catalog + Geofabrik asset.</li>
+<li>Write to <code>Documents/GroupTrack/imports/import_[date]_[area].json</code>.</li>
+<li>Loop: find first source where <code>status != "completed"</code> → dispatch to its <code>process</code> wrapper → on success mark <code>"completed"</code> + write count → update JSON on disk → next.</li>
+<li>All completed → set <code>process_state = "completed"</code> + <code>completed_at</code> → show summary → done.</li>
+</ol>
+
+<h3>Recovery on App Restart</h3>
+<ol>
+<li>Authority gate scans <code>Documents/GroupTrack/imports/</code> for any JSON with <code>"process_state": "in_progress"</code>.</li>
+<li>Found → <b>"A trail import for [area] was not finished. Complete now?"</b> — Yes / Not Now.</li>
+<li><b>Yes</b> → find first source where <code>status != "completed"</code>. If <code>in_progress</code>, resume from <code>last_item</code>. If <code>pending</code>, start fresh. Upsert on <code>geom_hash</code> absorbs anything already in the DB.</li>
+<li><b>Not Now</b> → proceed to Ride Map. Same prompt next launch.</li>
+</ol>
+
+<div class="warn"><b>Incomplete import check runs BEFORE zero-data check</b> in the gate — a half-finished import means they already started and should finish.</div>
+
+<h3>History</h3>
+<p>Completed manifests stay on disk. They accumulate as a record of what was imported, when, from which area, how many from each source:</p>
+<pre>Documents/GroupTrack/imports/
+  import_2026-08-18_utah_state.json       ← fresh install
+  import_2026-09-02_ut-nv-az_bbox.json    ← added a riding area
+  import_2026-10-15_colorado_state.json    ← trip to Colorado</pre>
+
+<h2>8. What Must Be Modified</h2>
+
+<table>
+<tr><th>Change</th><th>File(s)</th><th>Description</th></tr>
+<tr>
+<td class="status modify">MODIFY</td>
+<td><code>SpatialDbManager.kt:1659</code></td>
+<td><b>Upsert SQL.</b> Change <code>INSERT OR IGNORE ... ON CONFLICT DO NOTHING</code> to <code>ON CONFLICT(geom_hash) DO UPDATE SET</code> with the fill-blank / alias rules from Section 4.</td>
+</tr>
+<tr>
+<td class="status modify">MODIFY</td>
+<td><code>ConvoyDownloadPanel.kt:295</code></td>
+<td><b>Remove</b> the "Import OSM by Area" row.</td>
+</tr>
+<tr>
+<td class="status modify">MODIFY</td>
+<td><code>ConvoyDownloadPanel.kt:294</code></td>
+<td>"Import Trails by Area" stays greyed on the panel. Activated only when passed in pre-checked from Map Features.</td>
+</tr>
+<tr>
+<td class="status modify">MODIFY</td>
+<td>Map Features panel (hamburger)</td>
+<td>"Import Trails" → renamed to "Import Trails by Area". "Import OSM Data" removed. Tapping opens download panel with Import Trails by Area pre-checked.</td>
+</tr>
+<tr>
+<td class="status modify">MODIFY</td>
+<td><code>ConvoyAuthorityGateScreenV2.kt</code></td>
+<td>Add zero-data condition: <code>trails.count == 0 AND waypoints.count == 0</code>. Resolution screen = fresh install state picker → import flow.</td>
+</tr>
+<tr>
+<td class="status modify">MODIFY</td>
+<td><code>TrailImporter.importByArea()</code></td>
+<td>Extend to handle ALL source types (currently catalog only). Add Geofabrik/OSM as another source type dispatched by format. Add alias insertion on name collision.</td>
+</tr>
+</table>
+
+<!-- ================================================================ -->
+<h2>9. What Must Be Created</h2>
+
+<table>
+<tr><th>Component</th><th>Description</th></tr>
+<tr>
+<td class="status create">CREATE</td>
+<td><b>Geofabrik State JSON Asset</b> — mine the Geofabrik listing for: state name, slug, bbox, URL template. Ship in <code>assets/geofabrik_states.json</code>. 50 states + DC + territories.</td>
+</tr>
+<tr>
+<td class="status create">CREATE</td>
+<td><b>State Picker Screen</b> — GPS auto-detect → "Your Home state is [State]" → LOAD button + "Select a different Home state". Used by the authority gate for fresh installs only.</td>
+</tr>
+<tr>
+<td class="status create">CREATE</td>
+<td><b>Import Controller / Orchestrator</b> — accepts a bbox, queries catalog for intersecting sources, sorts (OSM last), loops each source dispatching to the right handler by format, reports progress, generates completion summary. This is the glue that strings the existing components together.</td>
+</tr>
+<tr>
+<td class="status create">CREATE</td>
+<td><b>Bbox Confirmation Screen</b> — shows drawn bbox coordinates, map of the area, which states intersect, flat list of all sources with estimated counts, GO button. Used by the post-install path.</td>
+</tr>
+<tr>
+<td class="status create">CREATE</td>
+<td><b>Progress UI</b> — "Processing N sources for [area]", per-source step list (✅/►/○), per-source counts, completion summary with totals and enrichment notes.</td>
+</tr>
+<tr>
+<td class="status create">CREATE</td>
+<td><b>Alias table / insertion logic</b> — when <code>geom_hash</code> matches and both names are real (not "Unnamed"), insert the incoming name as an alias. Alias lookup for search.</td>
+</tr>
+</table>
+
+<!-- ================================================================ -->
+<h2>10. Data Flow Diagram</h2>
+
+<pre>
+FRESH INSTALL                              POST-INSTALL
+─────────────                              ────────────
+Authority Gate                             Map Features panel
+  │                                           │
+  ▼                                           ▼
+trails=0 AND waypoints=0?                  "Import Trails by Area"
+  │ YES                                       │
+  ▼                                           ▼
+GPS → detect state                         Download panel (pre-checked)
+  │                                           │
+  ▼                                           ▼
+State Picker                               Draw bbox on map
+("Utah" · LOAD / Select different)            │
+  │                                           ▼
+  │                                        Bbox Confirmation
+  │                                        (coords, map, sources)
+  │                                           │
+  ▼                                           ▼
+  └──────────────┐          ┌─────────────────┘
+                 │          │
+                 ▼          ▼
+           ┌─────────────────────┐
+           │  IMPORT CONTROLLER  │
+           │                     │
+           │  bbox (from state   │
+           │    or drawn)        │
+           │         │           │
+           │         ▼           │
+           │  Query catalog for  │
+           │  intersecting srcs  │
+           │         │           │
+           │         ▼           │
+           │  Sort (OSM last)    │
+           │         │           │
+           │         ▼           │
+           │  LOOP per source:   │
+           │    ┌──────────────┐ │
+           │    │ Download     │ │
+           │    │ Extract      │ │
+           │    │ Import+Upsert│ │
+           │    │ Alias check  │ │
+           │    │ Cleanup      │ │
+           │    └──────────────┘ │
+           │         │           │
+           │         ▼           │
+           │  Completion summary │
+           └─────────────────────┘
+                     │
+                     ▼
+              Gate clears (fresh)
+              or return to map (post)
+</pre>
+
+<!-- ================================================================ -->
+
+<h2>11. Processing Order + Sources</h2>
+<ul>
+<li><b>Sources are FLAT</b> &mdash; not tiered by state vs federal vs OSM. Each source has a format (Geofabrik GPKG, ArcGIS REST, GeoJSON, Shapefile) and the pipeline dispatches to the right handler per format.</li>
+<li><b>Order does NOT affect correctness.</b> The upsert rules guarantee the same result regardless of source order. Blank/Unnamed fields get filled by any source. Real names get aliased. Non-blank attributes are kept.</li>
+<li><b>OSM (Geofabrik) processes LAST</b> as an efficiency choice &mdash; 70% of OSM trails have minimal data, so downloading 663 MB last avoids it when other sources already covered the trails.</li>
+<li><b>Source discovery:</b> intersect the drawn/derived bbox against each catalog source&rsquo;s bbox. If they overlap, the source has trails in the area. Typical import: 4&ndash;7 sources.</li>
+<li><b>Time estimate:</b> 7 minutes per source. Remaining = (sources not completed) &times; 7 min.</li>
+</ul>
+
+<h2>12. Release-Assets Folder</h2>
+<p>A <code>release-assets/</code> folder in the repo holds dated docs and scripts:</p>
+<ul>
+<li><code>prepare_release_assets.py</code> &mdash; one-command pre-release: finds newest dated docs, refreshes Geofabrik, copies/renames to app assets, verifies markers.</li>
+<li><code>update_geofabrik_states.py</code> &mdash; scrapes Geofabrik&rsquo;s live index, rebuilds <code>geofabrik_states.json</code> with accurate download URLs. Runnable independently.</li>
+<li><code>geofabrik_states.json</code> &mdash; 54 entries (50 states + DC + PR + USVI, California split into North/South). Refreshed each release.</li>
+<li>Dated HTML docs: manual, release notes, quickstart. Newest version wins on copy.</li>
+</ul>
+<p>The app also fetches the live Geofabrik index on startup (when online) and updates its local copy, so stale URLs self-correct without an app update.</p>
+
+<h2>13. Test Harness</h2>
+<ul>
+<li><b>Phase 1 (testing):</b> &ldquo;Import OSM Data&rdquo; on Map Features panel renamed to &ldquo;Setup Home State&rdquo;. Always visible &mdash; allows repeated testing regardless of trail count.</li>
+<li><b>Phase 2 (certified):</b> Gate the button on <code>trails.count == 0</code>. Disappears once trails exist. Only the authority gate and &ldquo;Import Trails by Area&rdquo; remain as entry points.</li>
+</ul>
+
+<h2>14. Open Questions</h2>
+
+
+<ol>
+<li><b>Alias table:</b> Does one already exist, or does it need to be created? What schema — <code>(trail_id, alias_name, source_id)</code>?</li>
+<li><b>Recovery on failure:</b> If a source fails mid-import, log it and continue to next? Or halt? (Design says: log and continue, report at end.)</li>
+<li><b>Re-import same area:</b> What happens if the rider imports the same area twice? Upsert handles it (no-ops on existing data), but should the UI warn?</li>
+<li><b>Tile downloads:</b> Should tile map downloads for the area be included as another source in the same flow, or stay separate?</li>
+<li><b>Trail count estimates:</b> Can we show estimated counts before downloading, or show "available" and update during download?</li>
+<li><b>Skip on fresh install:</b> If the rider cancels the state picker, does the gate re-trigger next launch, or let them through with zero data?</li>
+</ol>
+
+<!-- ================================================================ -->
+<h2>12. Build Sequence (Suggested)</h2>
+
+<ol>
+<li><b>Geofabrik State JSON Asset</b> — mine the listing, ship the file. Zero code dependencies.</li>
+<li><b>Upsert SQL</b> — change the one INSERT statement. Test with existing import paths.</li>
+<li><b>Alias table + insertion logic</b> — create table, wire alias check into upsert flow.</li>
+<li><b>Import Controller</b> — the orchestrator loop. Test with existing sources and existing bbox drawing.</li>
+<li><b>Progress UI</b> — step-state display, completion summary.</li>
+<li><b>Menu/panel changes</b> — rename, remove, pre-check wiring.</li>
+<li><b>State Picker + GPS detect</b> — the fresh install screen.</li>
+<li><b>Gate integration</b> — add zero-data condition, wire state picker as resolution.</li>
+<li><b>Bbox Confirmation Screen</b> — coordinates, map, source list.</li>
+</ol>
+
+<div class="box"><b>Every step except #7 and #9 is usable independently.</b> The upsert improves existing imports immediately. The controller can be tested from the existing greyed-out button. The menu changes are cosmetic. The state picker and confirmation screen are the only genuinely new UI.</div>
+
+</body></html>
