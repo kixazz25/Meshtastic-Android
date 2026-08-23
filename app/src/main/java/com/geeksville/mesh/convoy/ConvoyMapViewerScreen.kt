@@ -1460,25 +1460,24 @@ fun ConvoyMapViewerScreen(
             // tells the rider this route came with a description.
             if (routeMode && !showAiDesign && !showWipNotes &&
                 routeName.isNotBlank() && RouteDraftStore.hasNotes(routeName)) {
+                // NARRBTN-2026-08-23Y: "ROUTE DETAILS", not "DETAIL". The short
+                // label was an abbreviation to fit a 44dp circle; the real one
+                // does not, so the shape follows the text. Same position.
                 Surface(
-                    shape = androidx.compose.foundation.shape.CircleShape,
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(6.dp),
                     color = Color(0xEE131820),
                     modifier = Modifier.align(Alignment.TopEnd)
                         .padding(top = 168.dp, end = 12.dp)
-                        .size(44.dp)
                         .clickable { showWipNotes = true }
                 ) {
-                    androidx.compose.foundation.layout.Box(
-                        contentAlignment = Alignment.Center
-                    ) {
-                        androidx.compose.material3.Text(
-                            "DETAIL",
-                            color = Color(0xFFBC8CFF),
-                            fontSize = 8.sp,
-                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
-                        )
-                    }
+                    androidx.compose.material3.Text(
+                        "ROUTE DETAILS",
+                        color = Color(0xFFBC8CFF),
+                        fontSize = 10.sp,
+                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 11.dp, vertical = 9.dp)
+                    )
                 }
             }
 

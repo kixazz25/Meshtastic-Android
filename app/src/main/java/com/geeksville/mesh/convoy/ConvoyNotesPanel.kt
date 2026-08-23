@@ -247,4 +247,12 @@ fun notesFromDraft(notes: JSONObject?): List<NoteSection> {
  * source. ⚠ Written when route_notes exists — the point of the builder pattern
  * is that adding it changes nothing above.
  */
-fun notesFromRouteId(routeId: String): List<NoteSection> = emptyList()
+fun notesFromRouteId(routeId: String): List<NoteSection> {
+    // NARRBTN-2026-08-23Y: the narrative payload is stored VERBATIM in
+    // route_notes.payload, so the draft builder renders it unchanged. That is
+    // the point of keeping the payload rather than exploding it into columns --
+    // a shape change in the generator needs no schema change and no second
+    // renderer.
+    val payload = SpatialDbManager.readRouteNotes(routeId) ?: return emptyList()
+    return notesFromDraft(payload)
+}

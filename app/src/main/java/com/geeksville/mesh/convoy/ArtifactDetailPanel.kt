@@ -42,6 +42,14 @@ fun ArtifactDetailPanel(
     onDelete: ((String) -> Unit)? = null,
     onShare: ((String) -> Unit)? = null,
     onExport: ((String) -> Unit)? = null,
+    /**
+     * NARRBTN-2026-08-23Y: open this artifact's narrative. Fred, 08-23: "narrative
+     * is just a button on details" -- so no conditional visibility and no
+     * existence check. Tap it and either the narrative appears or the notes
+     * panel says nothing is recorded.
+     * Nullable like its siblings: a screen that does not offer it passes nothing.
+     */
+    onShowNotes: ((String) -> Unit)? = null,
     onDownloadMaps: ((String) -> Unit)? = null,
     // CORRIDOR-WORKER-2026-07-24: side-by-side with SAVE MAPS so the same track can be
     // run both ways and compared. Nullable like its sibling - a screen that
@@ -95,6 +103,8 @@ fun ArtifactDetailPanel(
                     }
                     if (onShare != null) { DetailActionButton("SHARE", aGreen) { onShare(id) } }
                     if (onExport != null) { DetailActionButton("EXPORT", aGreen) { onExport(id) } }
+                    // NARRBTN-2026-08-23Y
+                    if (onShowNotes != null) { DetailActionButton("NARRATIVE", aOrange) { onShowNotes(id) } }
                     if (artifactType == "Waypoints" && onChangeType != null) {
                         DetailActionButton("CHANGE TYPE", aOrange) { showTypeChooser = true }
                     }
