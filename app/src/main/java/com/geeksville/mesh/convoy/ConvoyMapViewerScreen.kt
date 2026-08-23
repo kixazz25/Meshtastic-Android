@@ -1815,7 +1815,11 @@ fun ConvoyMapViewerScreen(
                     }
                 )
             }
-            if (routeMode) {
+            // ROUTEAI-2026-08-23Q: the AI panel is full-screen; the toolbar drew
+            // AFTER it and sat on top. Hiding it is better than reordering --
+            // a floating draggable toolbar over a full-screen panel is confusing
+            // even with the z-order right, and its controls do nothing there.
+            if (routeMode && !showAiDesign) {
                 ConvoyRouteToolbar(
                     isConvoyMap = false,
                     vertexCount = RouteManager.routeVertexCount(),

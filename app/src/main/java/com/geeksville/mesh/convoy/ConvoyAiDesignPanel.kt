@@ -155,9 +155,10 @@ fun ConvoyAiDesignPanel(
 
                 AiOption(
                     title = "Include places I choose",
-                    body = "The same, but you drop the places that have to be in the ride. " +
-                        "GroupTrack fits in as many as the distance allows and tells you " +
-                        "which it could not.",
+                    body = "Drop the places you want in the ride. GroupTrack will draw " +
+                        "routes containing as many of your points as it can within your " +
+                        "distance limit, then backfill the route with as many other " +
+                        "features as it can accommodate.",
                     hint = "Expect fewer options back \u2014 every place you add is one more " +
                         "thing the ride has to satisfy.",
                     selected = mode == AI_MODE_INCLUDE
@@ -166,7 +167,7 @@ fun ConvoyAiDesignPanel(
                 Spacer(Modifier.height(6.dp))
 
                 // ── name ─────────────────────────────────────────────
-                Text("NAME THIS EXPLORATION", color = aiFaint, fontSize = 9.5.sp,
+                Text("NAME THESE ROUTES BEING CREATED", color = aiFaint, fontSize = 9.5.sp,
                     fontFamily = aiMono)
                 Spacer(Modifier.height(5.dp))
                 Surface(shape = RoundedCornerShape(6.dp), color = aiCard,

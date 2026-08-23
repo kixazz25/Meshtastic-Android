@@ -78,6 +78,13 @@ fun ConvoyRouteToolbar(
     onExit: () -> Unit = {},
     // -- route lifecycle (Layer 2) --
     routeLifecycleState: Int = ROUTE_LS_NEW,
+    /**
+     * ROUTEMETHOD-2026-08-23R: the rider tapped the collapsed METHOD row with a route
+     * underway. The CALLER raises save-or-discard -- this component is stateless
+     * and has two call sites, so it must not own a dialog.
+     * Default no-op so the frozen ConvoyScreen call site needs no edit.
+     */
+    onMethodLockedTap: () -> Unit = {},
     onSaveRequested: () -> Unit = {},
     onDiscardRequested: () -> Unit = {},
     onSelectInProgress: () -> Unit = {},
@@ -88,6 +95,16 @@ fun ConvoyRouteToolbar(
     var offsetY by remember { mutableFloatStateOf(0f) }
     var building by remember { mutableStateOf(true) }   // toolbar only opens post-entry-choice; build controls live on open
     var minimized by remember { mutableStateOf(false) }
+    // ROUTEMETHOD-2026-08-23R: the METHOD row folds itself once a vertex exists -- the
+    // method is committed at that point and cannot change without save/discard.
+    // ⚠ SEPARATE from `minimized` above, which is rider-driven and folds the
+    // WHOLE panel. This one is action-driven and folds one row.
+    var methodOpen by remember { mutableStateOf(true) }
+    androidx.compose.runtime.LaunchedEffect(vertexCount > 0) {
+        if (vertexCount > 0) methodOpen = false
+    }
+    // A new route session re-opens it -- routeEntryNonce already signals that.
+    androidx.compose.runtime.LaunchedEffect(routeEntryNonce) { methodOpen = true }
     // Add button armed-state (pact): GREEN = ON (taps place points),
     // RED = OFF (taps pan/reposition). ON on entry for Point; selecting
     // Draw/Suggest sets it OFF (those methods don't tap-to-place).
@@ -135,7 +152,27 @@ fun ConvoyRouteToolbar(
             // Entry buttons removed: New-vs-In-Progress is chosen at +ROUTE (entry prompt)
             // BEFORE the toolbar opens, so the toolbar starts in build mode.
             if (!minimized) {
-            Text("METHOD", color = if (building) rtTxtD else rtDis, fontSize = 9.sp, fontFamily = rtMono)
+            // ROUTEMETHOD-2026-08-23R: collapsed once a point is down. The header still
+            // says WHICH method is active -- a fold should not lose information.
+            Row(
+                modifier = Modifier.fillMaxWidth().clickable {
+                    if (!methodOpen) {
+                        if (vertexCount > 0) onMethodLockedTap() else methodOpen = true
+                    }
+                },
+                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+            ) {
+                Text("METHOD", color = if (building) rtTxtD else rtDis,
+                    fontSize = 9.sp, fontFamily = rtMono)
+                if (!methodOpen) {
+                    Text("  \u00b7  " + (if (selectedMethod == ROUTE_METHOD_SUGGEST)
+                            "AI design" else "Drop points"),
+                        color = rtGreen, fontSize = 9.sp, fontFamily = rtMono,
+                        modifier = Modifier.weight(1f))
+                    Text("\u25b8", color = rtTxtD, fontSize = 10.sp, fontFamily = rtMono)
+                }
+            }
+            if (methodOpen) {
             // ROUTEPANEL-2026-08-23O: two methods, not three. DRAW is gone from this
             // panel -- Fred 08-23. ⚠ The TOOL is not gone: Import Trails -> BY AREA
             // on the download panel still needs box drawing. Only this entry to it.
@@ -157,6 +194,7 @@ fun ConvoyRouteToolbar(
                     if (building) { onSelectMethod(ROUTE_METHOD_SUGGEST); onAddModeChanged(false) }
                 }
             }
+            } // ROUTEMETHOD-2026-08-23R: end if(methodOpen)
 
             // ROUTEPANEL-2026-08-23O: the BUILD row is shown ONLY while the rider is
             // building by hand. Fred 08-23: "I would only show draw or popup when
@@ -172,10 +210,12 @@ fun ConvoyRouteToolbar(
             // behaviour. addArmed true = taps place vertices; false = taps open
             // artifact popups.
             Row(modifier = Modifier.fillMaxWidth()) {
-                SegHalf("ADD ROUTE POINTS",    addArmed && building, building, Modifier.weight(1f)) {
+                // ROUTEAI-2026-08-23Q: shorter, and they read as STATES rather than
+                // actions -- which is what a segmented toggle is.
+                SegHalf("DRAW ROUTE ON", addArmed && building, building, Modifier.weight(1f)) {
                     if (building && !addArmed) { onAddModeChanged(true) }
                 }
-                SegHalf("ACTIVATE MAP POPUPS", !addArmed && building, building, Modifier.weight(1f)) {
+                SegHalf("MAP TAPS ON",   !addArmed && building, building, Modifier.weight(1f)) {
                     if (building && addArmed) { onAddModeChanged(false) }
                 }
             }
