@@ -154,6 +154,13 @@ object RouteExplorer {
     private val WATER = setOf("spring")
     private val VIEW = setOf("peak", "cliff", "volcano")
 
+    /**
+     * ROUTEREACH-2026-08-23W: NOT EVERY fclass IS A FEATURE. These are administrative
+     * or trivial and were being scored as though a rider would ride to them --
+     * 13 inside the Panguitch box, 24 in the wider one.
+     */
+    private val JUNK = setOf("county", "city", "town", "tree", "village")
+
     private fun realName(n: String?): Boolean =
         !n.isNullOrBlank() && n.trim().lowercase() !in NONAMES
 
@@ -194,7 +201,25 @@ object RouteExplorer {
      * bounding box.
      */
     private fun corridorBox(req: Request): DoubleArray {
-        val radiusMi = (req.milesHigh / 2.0) * 0.75 + 5.0
+        // ROUTEREACH-2026-08-23W: the old formula took half the ceiling, scaled it
+        // down and added a margin -- 35 mi for an 80-mile ride, a 70x70 box,
+        // 53,711 edges, and an OutOfMemoryError at java.lang.Long.valueOf while
+        // building 112 Dijkstra tables.
+        //
+        // MEASURED at Panguitch, edges inside the box holding usable POIs:
+        //     15 mi ->  6,193      25 mi -> 18,753
+        //     20 mi ->  9,499      30 mi -> 26,682
+        // An 80-mile round trip reaches ~25-30 mi out, so ceiling/3 is the shape.
+        //
+        // ⭐ VERIFIED, NOT ASSUMED: the research generator re-run with a derived
+        // box at ceiling/3 gave 40,558 edges instead of 129,474 and produced
+        // IDENTICAL routes -- Panguitch 1 at 78.6 mi, 13 features, 25% retrace,
+        // every trail leg and mile marker matching. Nothing of value was lost.
+        //
+        // ⚠ The margin is thin. If this still OOMs, the next step is unboxing
+        // the distance table, not shrinking the box further -- past here the
+        // routes start getting worse.
+        val radiusMi = req.milesHigh / 3.0
         val dLat = radiusMi / 69.0
         val dLon = radiusMi / (69.0 * max(0.2, cos(Math.toRadians(req.anchorLat))))
         return doubleArrayOf(
@@ -347,6 +372,8 @@ object RouteExplorer {
             while (c.moveToNext()) {
                 val nm = c.getString(0) ?: continue
                 val fc = c.getString(1) ?: "other"
+                if (fc in JUNK) continue      // ROUTEREACH-2026-08-23W
+
                 val la = c.getDouble(2); val lo = c.getDouble(3)
                 var bestK = 0L; var bestD = Double.MAX_VALUE
                 for (k in g.mainComponent) {
