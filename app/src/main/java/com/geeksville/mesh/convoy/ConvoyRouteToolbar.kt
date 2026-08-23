@@ -136,33 +136,50 @@ fun ConvoyRouteToolbar(
             // BEFORE the toolbar opens, so the toolbar starts in build mode.
             if (!minimized) {
             Text("METHOD", color = if (building) rtTxtD else rtDis, fontSize = 9.sp, fontFamily = rtMono)
+            // ROUTEPANEL-2026-08-23O: two methods, not three. DRAW is gone from this
+            // panel -- Fred 08-23. ⚠ The TOOL is not gone: Import Trails -> BY AREA
+            // on the download panel still needs box drawing. Only this entry to it.
+            //
+            // The labels now say WHO BUILDS THE ROUTE rather than naming a thing.
+            // "Point / Draw / Suggest" left a rider to work out what each did.
             Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                MethodChip("Point", selectedMethod == ROUTE_METHOD_P2P, true, building) {
-                    // Point = tap-to-place -> Add ON
+                MethodChip("DROP POINTS &\nBUILD YOURSELF",
+                           selectedMethod == ROUTE_METHOD_P2P, true, building) {
+                    // tap-to-place -> Add ON
                     if (building) { onSelectMethod(ROUTE_METHOD_P2P); onAddModeChanged(true) }
                 }
-                MethodChip("Draw", selectedMethod == ROUTE_METHOD_DRAW, false, false) {
-                    // Draw/Suggest don't tap-to-place -> Add OFF (placeholder methods)
-                    onAddModeChanged(false)
-                }
-                MethodChip("Suggest", selectedMethod == ROUTE_METHOD_SUGGEST, false, false) {
-                    onAddModeChanged(false)
+                MethodChip("AI DESIGN w/\nRIDER GUIDANCE",
+                           selectedMethod == ROUTE_METHOD_SUGGEST, true, building) {
+                    // STUB:AIDESIGN -- opens the AI Design panel (mode + goals),
+                    // which closes on confirm so it does not hog the map. Until it
+                    // exists this selects the method and disarms tap-to-place,
+                    // because nothing is being drawn by hand in this mode.
+                    if (building) { onSelectMethod(ROUTE_METHOD_SUGGEST); onAddModeChanged(false) }
                 }
             }
 
+            // ROUTEPANEL-2026-08-23O: the BUILD row is shown ONLY while the rider is
+            // building by hand. Fred 08-23: "I would only show draw or popup when
+            // in user control mode." In AI mode nothing is being drawn, so neither
+            // control has a meaning to offer -- and showing them at the same level
+            // as the method was what made the old panel confusing.
+            if (selectedMethod != ROUTE_METHOD_SUGGEST) {
             Text("BUILD  ($vertexCount pts)", color = if (building) rtTxtD else rtDis, fontSize = 9.sp, fontFamily = rtMono)
-            // Segmented Route|Artifact switch: BOTH halves visible, ACTIVE half
-            // reverse-video (filled block + knockout text) so it reads on a B/W
-            // device. Route = addArmed true (taps place vertices);
-            // Artifact = addArmed false (taps do artifact/waypoint).
+            // Segmented switch: BOTH halves visible, ACTIVE half reverse-video
+            // (filled block + knockout text) so it reads on a B/W device.
+            // ROUTEPANEL-2026-08-23O: labels now say what a TAP DOES rather than naming a
+            // thing. "Route / Artifact" named the targets; a rider had to infer the
+            // behaviour. addArmed true = taps place vertices; false = taps open
+            // artifact popups.
             Row(modifier = Modifier.fillMaxWidth()) {
-                SegHalf("Route",    addArmed && building, building, Modifier.weight(1f)) {
+                SegHalf("ADD ROUTE POINTS",    addArmed && building, building, Modifier.weight(1f)) {
                     if (building && !addArmed) { onAddModeChanged(true) }
                 }
-                SegHalf("Artifact", !addArmed && building, building, Modifier.weight(1f)) {
+                SegHalf("ACTIVATE MAP POPUPS", !addArmed && building, building, Modifier.weight(1f)) {
                     if (building && addArmed) { onAddModeChanged(false) }
                 }
             }
+            } // end if(method != SUGGEST)
             // Undo on its own row, centered.
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
                 BuildBtn("Undo", if (building) rtBlue else rtDis, Modifier.width(120.dp)) { if (building) onUndo() }
