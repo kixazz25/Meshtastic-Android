@@ -444,7 +444,11 @@ object ConvoyTrackOps {
      */
     fun parseGpxRoutes(gpxText: String): List<GpxRoute> {
         val results = mutableListOf<GpxRoute>()
-        val rtePattern = Regex("""<rte>([\s\S]*?)</rte>""")
+        // GPXIMPORT-2026-08-22N: was <rte> -- a BARE tag only. A GPX writing
+        // <rte xmlns=...> or even "<rte >" matched nothing and imported silently as
+        // zero routes, which is indistinguishable from a file with no routes in it.
+        // The <wpt> pattern already tolerated attributes; this one did not.
+        val rtePattern = Regex("""<rte(?:\s[^>]*)?>([\s\S]*?)</rte>""")
         val namePattern = Regex("""<name>([^<]*)</name>""")
         val rteptPattern = Regex("""<rtept\s+lat="([^"]+)"\s+lon="([^"]+)"""")
 
@@ -525,8 +529,13 @@ object ConvoyTrackOps {
 
             // PROVEN regex track-detection (mirrors importTrackFile): match <trk>..</trk>
             // across newlines with findAll. Replaces the line-streamer that found 0 tracks.
+            // GPXIMPORT-2026-08-22N3: hoisted OUT of the run block. It was scoped inside,
+            // so the waypoint and route parsers below could not see it. Reading the
+            // file a SECOND time down there would compile, but the comment above
+            // records that the whole-file approach OOM'd on large onX exports --
+            // two reads doubles that. One read, both consumers.
+            val fullText = sourceFile.readText()
             run {
-                val fullText = sourceFile.readText()
                 val trkPattern = Regex("""<trk>([\s\S]*?)</trk>""")
                 val matchCount = trkPattern.findAll(fullText).count()
                 diag("READ len=${fullText.length} contains<trk>=${fullText.contains("<trk>")} regexMatches=$matchCount")
@@ -631,10 +640,13 @@ object ConvoyTrackOps {
             }
 
             // ── 2. Process Waypoints (<wpt> elements) ──
-            // TEMP BYPASS 2026-06-02: GPX import of waypoints/routes is a separate untested task.
-            // In-app waypoint/route creation is UNAFFECTED. Re-enable the parseGpx* call when import
-            // logic is built + tested. See STATE_OF_PLAY_2026-06-02.
-            val waypoints = emptyList<GpxWaypoint>()  // was: parseGpxWaypoints(text)
+            // GPXIMPORT-2026-08-22N: BYPASS LIFTED. The 2026-06-02 hold said "re-enable when
+            // import logic is built + tested" -- the logic below was already complete
+            // the whole time; only this call was stubbed. Testers could not import
+            // routes because of it.
+            // ⚠ The source file is deleted once anything imports (see step 4). Before
+            // this, a waypoints-only GPX imported nothing and survived.
+            val waypoints = parseGpxWaypoints(fullText)
             for (wpt in waypoints) {
                 try {
                     SpatialDbManager.insertWaypoint(wpt.name, wpt.lat, wpt.lon, wpt.type)
@@ -645,10 +657,14 @@ object ConvoyTrackOps {
             }
 
             // ── 3. Process Routes (<rte> elements) ──
-            // TEMP BYPASS 2026-06-02: GPX import of waypoints/routes is a separate untested task.
-            // In-app waypoint/route creation is UNAFFECTED. Re-enable the parseGpx* call when import
-            // logic is built + tested. See STATE_OF_PLAY_2026-06-02.
-            val routes = emptyList<GpxRoute>()  // was: parseGpxRoutes(text)
+            // GPXIMPORT-2026-08-22N: BYPASS LIFTED. Coordinate order verified end to end
+            // before enabling: the parser stores Pair(lon, lat), the data class
+            // documents it, the loop below destructures (lon, lat), and the WKT emits
+            // lon lat. No transposition.
+            // ⛔ insertRoute writes a PERMANENT spatial-DB row -- an imported route
+            // skips draft-then-graduate and is permanent immediately. Permanent routes
+            // are the only unrecoverable class on this project.
+            val routes = parseGpxRoutes(fullText)
             for (route in routes) {
                 try {
                     val pts = route.points
