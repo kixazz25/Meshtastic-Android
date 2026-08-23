@@ -1844,7 +1844,18 @@ fun ConvoyMapViewerScreen(
                         val built = RouteManager.buildWktAndBbox { lineId -> byId[lineId]?.let { RouteManager.parseWktLine(it) } }
                         if (built != null) {
                             val (wkt, bbox) = built
-                            SpatialDbManager.insertRoute(routeName.ifBlank { "Route " + System.currentTimeMillis() }, wkt, bbox[0], bbox[1], bbox[2], bbox[3])
+                            // ROUTENOTES-2026-08-23X: capture the id -- every existing
+                            // call site discarded it, and the notes need it.
+                            val newRouteId = SpatialDbManager.insertRoute(
+                                routeName.ifBlank { "Route " + System.currentTimeMillis() },
+                                wkt, bbox[0], bbox[1], bbox[2], bbox[3])
+                            // ⛔ ORDER IS LOAD-BEARING. The id does not exist until
+                            // insertRoute returns, and the draft below must NOT be
+                            // deleted until these rows have landed -- otherwise the
+                            // narrative is gone with no way back.
+                            RouteDraftStore.readNotes(routeName)?.let { nts ->
+                                SpatialDbManager.writeRouteNotes(newRouteId, nts)
+                            }
                             true
                         } else false
                     }

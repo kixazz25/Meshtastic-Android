@@ -316,6 +316,32 @@ object SpatialDbManager {
                     android.util.Log.w(TAG, "area_downloads migration: ${e.message}")
                 }
             }
+            // ROUTENOTES-2026-08-23X: route_notes. Same shape as the area_downloads
+            // migration above -- hasTable guard, CREATE IF NOT EXISTS, indexes.
+            // ⭐ Existing devices get an empty table on next launch: no version
+            // bump, no data migration. And existing routes correctly get NO
+            // notes, because a route saved last week never had a narrative.
+            //
+            // ⚠ IT LIVES IN THE EXTENSION DB, not the spatial one. The split is
+            // geometry in spatial, everything descriptive in data -- trails
+            // already follow it with trail_properties. Putting notes in spatial
+            // because it is convenient would blur the line that makes the rest
+            // of the schema predictable.
+            if (!hasTable(extensionDb!!, "route_notes")) {
+                try {
+                    extensionDb!!.execSQL("""CREATE TABLE IF NOT EXISTS route_notes (
+                        note_id TEXT PRIMARY KEY, route_id TEXT NOT NULL,
+                        geom_hash TEXT, seq INTEGER DEFAULT 0,
+                        kind TEXT, at_mile REAL, lat REAL, lon REAL,
+                        title TEXT, body TEXT, payload TEXT,
+                        author TEXT DEFAULT 'generated', created_at TEXT NOT NULL)""")
+                    extensionDb!!.execSQL("CREATE INDEX IF NOT EXISTS idx_route_notes_route ON route_notes(route_id, seq)")
+                    extensionDb!!.execSQL("CREATE INDEX IF NOT EXISTS idx_route_notes_hash ON route_notes(geom_hash)")
+                    android.util.Log.i(TAG, "Migrated: added route_notes table")
+                } catch (e: Exception) {
+                    android.util.Log.w(TAG, "route_notes migration: ${e.message}")
+                }
+            }
             initialized = true
             val trailCount = countRows(spatialDb!!, "trails")
             val trackCount = countRows(spatialDb!!, "tracks")
@@ -1024,6 +1050,109 @@ object SpatialDbManager {
             android.util.Log.e("SpatialDb", "Route insert failed: ${e.message}")
         }
         return id
+    }
+
+    /**
+     * ROUTENOTES-2026-08-23X: move a draft's `notes` block into route_notes.
+     *
+     * The narrative is stored as ONE row of kind='narrative' carrying the whole
+     * JSON in `payload`, plus a row per feature and per caution so they can be
+     * queried by position later. ⭐ The payload is kept VERBATIM: the panel's
+     * builder already knows how to render it, and a shape change in the
+     * generator must not need a schema change here.
+     *
+     * ⚠ author='generated'. The same table carries RIDER observations later --
+     * the 3.0 work -- and "history is information, not current fact" means those
+     * are dated rows, never a replacement for these.
+     *
+     * Returns rows written, or -1 if the route does not exist.
+     */
+    fun writeRouteNotes(routeId: String, notes: org.json.JSONObject): Int {
+        val db = extensionDb ?: return -1
+        // ⛔ insertRoute uses INSERT OR IGNORE -- if the row was ignored the id
+        // points at nothing and these notes would belong to a phantom route.
+        val gh = routeGeomHash(routeId) ?: run {
+            android.util.Log.w("SpatialDb", "writeRouteNotes: no route $routeId")
+            return -1
+        }
+        val ts = now()
+        var n = 0
+        try {
+            db.execSQL("DELETE FROM route_notes WHERE route_id=?", arrayOf<Any>(routeId))
+            val nar = notes.optJSONObject("narrative")
+            db.execSQL(
+                "INSERT INTO route_notes (note_id,route_id,geom_hash,seq,kind,title,body,payload,author,created_at) " +
+                    "VALUES (?,?,?,?,?,?,?,?,?,?)",
+                arrayOf<Any?>(newId(), routeId, gh, 0, "narrative",
+                    null, nar?.optString("headline"), notes.toString(), "generated", ts))
+            n++
+            val feats = notes.optJSONArray("features")
+            if (feats != null) for (i in 0 until feats.length()) {
+                val f = feats.optJSONObject(i) ?: continue
+                db.execSQL(
+                    "INSERT INTO route_notes (note_id,route_id,geom_hash,seq,kind,at_mile,lat,lon,title,body,payload,author,created_at) " +
+                        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    arrayOf<Any?>(newId(), routeId, gh, i + 1, "feature",
+                        f.optDouble("at_mi", 0.0), f.optDouble("lat", 0.0),
+                        f.optDouble("lon", 0.0), f.optString("name"),
+                        f.optString("fclass"), f.toString(), "generated", ts))
+                n++
+            }
+            val cauts = notes.optJSONArray("cautions")
+            if (cauts != null) for (i in 0 until cauts.length()) {
+                val c = cauts.optJSONObject(i) ?: continue
+                db.execSQL(
+                    "INSERT INTO route_notes (note_id,route_id,geom_hash,seq,kind,at_mile,lat,lon,body,payload,author,created_at) " +
+                        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                    arrayOf<Any?>(newId(), routeId, gh, 1000 + i, "caution",
+                        c.optDouble("at_mi", 0.0), c.optDouble("lat", 0.0),
+                        c.optDouble("lon", 0.0),
+                        "Trails mapped ${c.optDouble("gap_ft", 0.0).toInt()} ft apart",
+                        c.toString(), "generated", ts))
+                n++
+            }
+            android.util.Log.i("SpatialDb", "route_notes: wrote $n rows for $routeId")
+        } catch (e: Exception) {
+            android.util.Log.e("SpatialDb", "writeRouteNotes failed: ${e.message}")
+            return -1
+        }
+        return n
+    }
+
+    /** ROUTENOTES-2026-08-23X: the narrative payload for a saved route, or null. */
+    fun readRouteNotes(routeId: String): org.json.JSONObject? {
+        val db = extensionDb ?: return null
+        return try {
+            db.rawQuery("SELECT payload FROM route_notes WHERE route_id=? AND kind='narrative' LIMIT 1",
+                arrayOf(routeId)).use { c ->
+                if (c.moveToNext()) org.json.JSONObject(c.getString(0)) else null
+            }
+        } catch (e: Exception) {
+            android.util.Log.w("SpatialDb", "readRouteNotes: ${e.message}"); null
+        }
+    }
+
+    /**
+     * ROUTENOTES-2026-08-23X: notes die with the route.
+     * ⚠ MUST BE CALLED FROM APP CODE. Cross-database triggers do not work on
+     * this project -- the spatial DB cannot cascade into the extension DB.
+     */
+    fun deleteRouteNotes(routeId: String): Int {
+        val db = extensionDb ?: return 0
+        return try {
+            db.execSQL("DELETE FROM route_notes WHERE route_id=?", arrayOf<Any>(routeId)); 1
+        } catch (e: Exception) {
+            android.util.Log.w("SpatialDb", "deleteRouteNotes: ${e.message}"); 0
+        }
+    }
+
+    /** ROUTENOTES-2026-08-23X: geom_hash for a route, or null if it does not exist. */
+    fun routeGeomHash(routeId: String): String? {
+        val db = spatialDb ?: return null
+        return try {
+            db.rawQuery("SELECT geom_hash FROM routes WHERE route_id=? LIMIT 1",
+                arrayOf(routeId)).use { c -> if (c.moveToNext()) c.getString(0) else null }
+        } catch (e: Exception) { null }
     }
 
     /**
