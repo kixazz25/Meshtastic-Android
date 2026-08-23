@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GroupTrack — Route Notes: Create / Import / Export / Display — 2026-08-23</title>
+<style>
+ :root{--bg:#0f1216;--panel:#161b22;--line:#26303b;--fg:#c9d1d9;--muted:#8b949e;
+   --accent:#58a6ff;--amber:#e3b341;--red:#f85149;--green:#3fb950;}
+ *{box-sizing:border-box}
+ body{margin:0;padding:26px 20px 80px;background:var(--bg);color:var(--fg);
+  font:15px/1.65 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+ .wrap{max-width:980px;margin:0 auto}
+ header{border-bottom:2px solid var(--accent);padding-bottom:14px;margin-bottom:24px}
+ h1{margin:0 0 6px;font-size:25px;color:var(--accent)}
+ .sub{color:var(--muted);font-size:13.5px}
+ h2{font-size:19px;margin:32px 0 10px;padding-bottom:6px;
+   border-bottom:1px solid var(--line);color:var(--accent)}
+ h3{font-size:16px;margin:22px 0 8px}
+ h4{font-size:14.5px;margin:16px 0 6px;color:var(--fg)}
+ .card{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--line);
+   border-radius:6px;padding:12px 15px;margin:10px 0}
+ .card.key{border-left-color:var(--accent)} .card.warn{border-left-color:var(--amber)}
+ .card.stop{border-left-color:var(--red)} .card.good{border-left-color:var(--green)}
+ code{background:#0d1117;border:1px solid var(--line);border-radius:4px;padding:1px 5px;
+   font:13px ui-monospace,Consolas,monospace;color:#a5d6ff}
+ pre{background:#0d1117;border:1px solid var(--line);border-radius:6px;padding:12px;
+   overflow-x:auto;font:12.5px ui-monospace,Consolas,monospace;color:#c9d1d9}
+ ul,ol{margin:7px 0 7px 22px} li{margin:5px 0}
+ table{border-collapse:collapse;width:100%;margin:10px 0}
+ td,th{border:1px solid var(--line);padding:6px 10px;font-size:13.5px;text-align:left;
+   vertical-align:top}
+ th{background:#1c2531;color:var(--accent)}
+ .hi{color:var(--amber)} .muted{color:var(--muted)} .ok{color:var(--green)}
+ .no{color:var(--red)}
+ .ascii{background:#0d1117;border:1px solid var(--line);border-radius:6px;padding:14px;
+   font:12.5px/1.5 ui-monospace,Consolas,monospace;color:#8b949e;overflow-x:auto}
+</style></head><body><div class="wrap">
+
+<header>
+<h1>Route Notes — Create, Import, Export, Display</h1>
+<div class="sub">Pickup design for 2026-08-23 &middot; settled with Fred late 08-22<br>
+<span class="hi">Everything here already half-exists.</span> The draft JSON, the WIP flow, the
+import function and the detail panel are all built. This is mostly wiring plus one new
+database.</div>
+</header>
+
+<div class="card key">
+<h3 style="margin-top:0">⭐⭐⭐ THE IDEA, IN ONE LINE</h3>
+<p><b>A route's notes ARE its detail panel</b>, they travel inside the same file as its geometry,
+and <b>one handler processes both formats</b>.</p>
+<p>Fred, 08-22: <i>"i wonder if the route artifact panel is the notes. that is what we are
+after."</i></p>
+</div>
+
+<h2>1. How this got simple — the ideas that were discarded</h2>
+<div class="card warn">
+<p>Worth recording, because the discarded versions each looked reasonable and someone will
+re-propose them:</p>
+<table>
+<tr><th>Considered</th><th>Dropped because</th></tr>
+<tr><td>A separate <code>.highlights.json</code> sidecar file</td>
+    <td>It appeared in the route picker as a zero-point route (Fred found this in testing).
+    Needed a subdirectory, a pairing id, and a flush at <b>six</b> delete sites.</td></tr>
+<tr><td>A sidecar subdirectory</td>
+    <td>Solved the picker problem but kept the pairing and flush problems.</td></tr>
+<tr><td>A throwaway pairing id — year + Julian day + sequence, as a filename suffix</td>
+    <td>Correct solution to a problem that stopped existing.</td></tr>
+<tr><td>Two email attachments — GPX plus a text summary</td>
+    <td>This is what Fred has been sending BY HAND, so the need is proven — but the receiving
+    device had no way to marry them.</td></tr>
+<tr><td>GPX <code>&lt;extensions&gt;</code> with our own namespace</td>
+    <td>Viable, but a namespace to define and defend. <code>&lt;desc&gt;</code> is simpler.</td></tr>
+</table>
+<p>⭐ <b>Fred's collapse, and it removed every one of those problems at once:</b> <i>"may be
+easier to use the same approach on the wip json, and the description in json format to the real
+track file, and have one json."</i> <b>One file. No sidecar. No pairing. No flush.</b></p>
+<p class="muted">⚠ It only became obvious after working the two-file version through properly.
+That is normal, and it is why the discarded list is here rather than deleted.</p>
+</div>
+
+<h2>2. The shape</h2>
+
+<div class="ascii">
+CREATE                      PUBLISH                    DISPLAY
+  suggester / Route+          WIP graduates              artifact panel
+  writes ONE draft JSON  -->  insertRoute() -> row  -->  name + actions left
+  { name, vertices,           notes block ------------>  scrollable body
+    notes }                   into route notes DB        = the notes
+
+EXPORT                                      IMPORT
+  route row + notes DB                        GPX arrives (email, file)
+    |                                           |
+    v                                           v
+  ONE GPX:                                    split &lt;desc&gt; on marker
+    &lt;rte&gt; geometry                              |            |
+    &lt;desc&gt; prose                                v            v
+           ---GTNOTES---                    geometry      notes JSON
+           {json}                           -> route row  -> notes DB
+
+              ^                                    ^
+              |                                    |
+              +--- ONE HANDLER, format is an input, not a branch ---+
+</div>
+
+<h2>3. ⭐⭐ ONE HANDLER — the rule this whole design serves</h2>
+<div class="card key">
+<p>Fred, 08-22: <i>"one process for all gpx route handling. so our json handler and our import
+handler can be a common process over command passed from a json or gpx file. same process."</i></p>
+<p><b>Both formats carry the same two things: geometry and a notes block.</b> GPX wraps them in
+XML with the JSON behind a marker in <code>&lt;desc&gt;</code>; the draft JSON has them as fields.
+So the format-specific code is a <b>reader that produces one common shape</b>, and everything
+after it is written once.</p>
+<pre>readDraftJson(file)  --\
+                        >--&gt;  RouteBundle { name, vertices, notes }  --&gt;  ONE path
+readGpx(file)        --/</pre>
+<p><b>Export is the same reader in reverse.</b></p>
+<p>⭐ <b>STUB-FIRST applies here.</b> Mark every call site that currently handles a route file,
+build the one handler, then grep to confirm nothing still does it the old way. This is exactly
+the case the rule exists for — there are already two import paths and they disagree.</p>
+</div>
+
+<h2>4. What already exists (do not rebuild any of this)</h2>
+<div class="card good">
+<table>
+<tr><th>Piece</th><th>Where</th><th>State</th></tr>
+<tr><td>Draft JSON format</td><td><code>RouteDraftStore.kt</code></td>
+    <td class="ok">documented at the top of the file: schemaVersion, name, createdAt, updatedAt,
+    method, vertices[]</td></tr>
+<tr><td>WIP write / overwrite / graduate</td><td><code>RouteDraftStore.kt</code></td>
+    <td class="ok">built. <code>writeDraft</code>, <code>overwriteDraft</code>, and the
+    draft-or-DB-never-both invariant</td></tr>
+<tr><td>GPX route parser</td><td><code>ConvoyTrackOps.parseGpxRoutes</code></td>
+    <td class="ok">enabled 08-22, device-verified. Handles <code>&lt;rte&gt;</code> with
+    attributes</td></tr>
+<tr><td>GPX waypoint parser</td><td><code>ConvoyTrackOps.parseGpxWaypoints</code></td>
+    <td class="ok">enabled 08-22. Type mapping already sensible: spring→water,
+    viewpoint→scenic, caution→hazard</td></tr>
+<tr><td>Full import</td><td><code>ConvoyTrackOps.importGpxAllArtifacts</code></td>
+    <td class="ok">works from Downloads → Map Features</td></tr>
+<tr><td>Route insert</td><td><code>SpatialDbManager.insertRoute(name, wkt, bbox)</code></td>
+    <td class="ok">built. ⚠ writes a PERMANENT row</td></tr>
+<tr><td>GPX export</td><td><code>ConvoyArtifactOps.buildGpx()</code></td>
+    <td class="hi">built, but see the known bug below</td></tr>
+<tr><td>Unified detail panel</td><td>from <code>62dffa858</code></td>
+    <td class="ok">rename / delete / share / export across artifact types</td></tr>
+<tr><td>The notes CONTENT</td><td>generated 08-22</td>
+    <td class="ok">narrative block: headline, what you will see, stops in order, ground covered,
+    before you go</td></tr>
+</table>
+</div>
+
+<h2>5. 🆕 The one new thing — a route notes database</h2>
+<div class="card">
+<p>Fred, 08-22: <b>"no new subdirectories, but a new database for route info data."</b></p>
+<p>⚠ <b>Worth a two-minute decision before writing it</b>, then never revisit: the architecture
+today is <b>two</b> databases — <code>grouptrack_spatial.db</code> for geometry,
+<code>grouptrack_data.db</code> for properties and extension data. Trails already follow that
+split (<code>trail_properties</code> lives in the data DB).</p>
+<table>
+<tr><th></th><th>A third DB file</th><th>A table in <code>grouptrack_data.db</code></th></tr>
+<tr><td>ATTACH handling</td><td>new, its own</td><td class="ok">already solved</td></tr>
+<tr><td>Cascade on route delete</td><td>needs its own ATTACH to work at all</td>
+    <td class="ok">same connection, works</td></tr>
+<tr><td>Authority gate / startup</td><td>another file to account for</td><td class="ok">nothing to change</td></tr>
+<tr><td>Matches the existing split</td><td>no — a third category</td>
+    <td class="ok">yes — notes are descriptive, not geometric</td></tr>
+</table>
+<p>⛔ <b>The constraint that decides it:</b> SQLite cross-database triggers DO NOT WORK on this
+project — <code>grouptrack_data.db</code> must be ATTACHed to the same connection, and file
+deletes must be app code. A third file inherits that problem again for no benefit.</p>
+<p class="hi"><b>Recommendation: <code>route_notes</code> as a table in
+<code>grouptrack_data.db</code></b>, mirroring <code>trail_properties</code>. If Fred wants a
+genuinely separate file, it works — it just needs its own ATTACH and its own cascade code.</p>
+</div>
+
+<h4>Proposed table</h4>
+<pre>CREATE TABLE IF NOT EXISTS route_notes (
+  note_id      TEXT PRIMARY KEY,     -- uuid
+  route_id     TEXT NOT NULL,        -- FK to routes.route_id (spatial db)
+  geom_hash    TEXT,                 -- ⚠ see the identity note below
+  seq          INTEGER,              -- display order within a route
+  kind         TEXT,                 -- 'narrative' | 'leg' | 'feature' | 'caution' | 'rider'
+  at_mile      REAL,                 -- null for whole-route entries
+  lat          REAL,                 -- null unless the entry is a point
+  lon          REAL,
+  title        TEXT,
+  body         TEXT,                 -- the human-readable line
+  payload      TEXT,                 -- the original JSON fragment, kept verbatim
+  author       TEXT,                 -- 'generated' | 'rider' | 'server'
+  created_at   TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_route_notes_route ON route_notes(route_id);</pre>
+
+<div class="card warn">
+<p><b>Why <code>kind</code> and <code>author</code> rather than one blob:</b> this is the same
+table that eventually carries <b>rider observations</b> (the 3.0 work). Fred, 08-22:
+<i>"history is information, not current fact. it is what it was."</i> A dated observation is a
+row, newest first, nothing collapsed and nothing deleted. Generated narrative and rider notes
+are the same structure with a different <code>author</code>.</p>
+<p>⭐ <b>And it generalises to trails.</b> Fred: <i>"used a joined logical to service the artifact
+popup and wallah we have trail notes."</i> Same join shape against <code>trail_id</code>.</p>
+</div>
+
+<div class="card stop">
+<h4>⛔ THE IDENTITY CHAIN — three ids, each alive for one stretch</h4>
+<p>This is the part that caused the most back-and-forth last night. It is not one id.</p>
+<table>
+<tr><th>Stage</th><th>Key</th><th>Why</th></tr>
+<tr><td>While a DRAFT</td><td class="ok">none needed</td>
+    <td>⭐ notes live INSIDE the draft JSON, so there is nothing to pair. This is what the
+    one-file collapse bought.</td></tr>
+<tr><td>Once PUBLISHED</td><td><code>route_id</code></td>
+    <td>exists only after <code>insertRoute</code> returns. Locally generated UUID.</td></tr>
+<tr><td>Across DEVICES</td><td><code>geom_hash</code></td>
+    <td>⚠ <code>route_id</code> is <b>useless</b> off-device — each device generates its own.</td></tr>
+</table>
+<p>⚠⚠ <b>UNVERIFIED AND IT MATTERS:</b> do routes even get a <code>geom_hash</code>? Trails and
+tracks do. The <code>insertRoute(name, wkt, minLat, maxLat, minLon, maxLon)</code> signature seen
+on 08-22 mentions no hash. <b>Check this first thing</b> — if routes have no hash, the
+cross-device join needs solving another way.</p>
+<pre>cd /c/Users/kixaz/Meshtastic-Android
+python -c "import sqlite3;c=sqlite3.connect('file:D:/nav_test/grouptrack_spatial.db?mode=ro',uri=True);print([r[1] for r in c.execute('PRAGMA table_info(routes)')])"</pre>
+</div>
+
+<h2>6. CREATE — the draft carries its own notes</h2>
+<div class="card">
+<p>One file. The existing draft format plus a <code>notes</code> block. Nothing else changes.</p>
+<pre>{
+  "schemaVersion": 2,                    // ⚠ bumped -- see the compatibility note
+  "name": "Panguitch 1",
+  "createdAt": "...", "updatedAt": "...",
+  "method": "point",
+  "vertices": [ { "lat":.., "lon":.., "lineId":.., "lineType":"trail",
+                  "segmentIndex":-1, "t":0.0, "snapped":true }, ... ],
+
+  "notes": {
+    "generated": "2026-08-22T...Z",
+    "summary": { "total_miles": 78.6, "est_hours": [4.4, 6.6],
+                 "features": 13, "of_available": 51,
+                 "unconfirmed_junctions": 104, "retrace_pct": 25.0 },
+    "narrative": {
+      "headline": "79 miles, roughly 4 to 6 hours of riding. 8 springs and 5 summits along the way.",
+      "stops_in_order": [ "mile 10  Fivemile Ridge -- summit", ... ],
+      "ground_covered": "Named trail: Upper Bear Valley Road (16 mi), Showalter Mountain (6 mi)...",
+      "before_you_go": [ "About 25% of the ride doubles back on itself...", ... ]
+    },
+    "legs":     [ { "trail":"Trail Creek", "from_mi":14.0, "to_mi":15.3, "miles":1.3, "pois":[...] } ],
+    "features": [ { "name":"Slide Spring", "fclass":"spring", "lat":.., "lon":.., "at_mi":17.7 } ],
+    "cautions": [ { "at_mi":9.2, "gap_ft":15.0, "lat":.., "lon":.. } ]
+  }
+}</pre>
+<p class="hi">⚠ <b>CHECK BEFORE WRITING:</b> does the planner tolerate unknown keys? It should
+read <code>vertices</code> and ignore the rest — but a strict parser would reject the file, and
+that is the difference between one line and a rewrite. <b>Verify, do not assume.</b></p>
+<p>⚠ <b>schemaVersion 2.</b> A v1 draft has no <code>notes</code> — that must read as "no notes",
+never as broken. <b>Absent fields mean old, not broken</b> (the same rule that saved the 08-20
+manifests during the sweep work).</p>
+</div>
+
+<h2>7. PUBLISH — graduate, then write the notes</h2>
+<div class="card">
+<ol>
+<li>WIP graduates → <code>insertRoute(name, wkt, bbox)</code> → returns <code>route_id</code></li>
+<li><b>Then</b> the <code>notes</code> block is expanded into <code>route_notes</code> rows,
+stamped with that <code>route_id</code></li>
+<li>Draft file deleted — the draft-or-DB-never-both invariant</li>
+</ol>
+<p>⛔ <b>ORDER IS LOAD-BEARING.</b> The id does not exist until step 1 returns. And the draft must
+not be deleted until step 2 succeeds, or the notes are gone with no way to recover them. Same
+stamp-then-move discipline as the 08-21 manifest sweep.</p>
+</div>
+
+<h2>8. EXPORT — prose for the human, JSON for the app, one file</h2>
+<div class="card">
+<pre>&lt;rte&gt;
+  &lt;name&gt;Panguitch 1&lt;/name&gt;
+  &lt;desc&gt;79 miles, roughly 4 to 6 hours of riding. 8 springs and 5 summits
+along the way.
+
+mile 10  Fivemile Ridge -- summit
+mile 18  Slide Spring -- spring
+...
+
+Before you go: about 25% of the ride doubles back on itself...
+
+---GTNOTES---
+{"summary":{...},"legs":[...],"features":[...],"cautions":[...]}&lt;/desc&gt;
+  &lt;rtept lat="37.8222" lon="-112.4358"/&gt;
+  ...
+&lt;/rte&gt;</pre>
+<p><b>Degrades gracefully.</b> Another app shows the whole <code>&lt;desc&gt;</code> as text —
+untidy after the marker, but not broken. GroupTrack splits on the marker.</p>
+<p>⚠ <b>Escaping.</b> JSON inside XML needs the quotes and brackets escaped once and only once.
+The export already escapes for GPX — <b>the risk is DOUBLE-escaping</b>, which works in testing
+and breaks on the first trail name with an apostrophe.</p>
+<p>⚠ <b>Size.</b> A full mile-by-mile is several KB in a single attribute. Fine for GPX; confirm
+nothing downstream truncates.</p>
+<p class="hi">⛔ <b>KNOWN BUG IN THIS EXACT FUNCTION:</b> Fred, 08-22 — <code>buildGpx()</code>
+writes a <b>hardcoded label instead of the artifact name</b>. Not yet diagnosed. <b>Fix it in the
+same pass</b> rather than building notes on top of a defect.</p>
+</div>
+
+<h2>9. IMPORT — the mirror</h2>
+<div class="card">
+<ol>
+<li>Parse the GPX (<code>parseGpxRoutes</code>, working as of 08-22)</li>
+<li>Split <code>&lt;desc&gt;</code> on <code>---GTNOTES---</code> — prose before, JSON after</li>
+<li>Geometry → <code>insertRoute</code> → <code>route_id</code></li>
+<li>Notes JSON → <code>route_notes</code> rows, <code>author = 'generated'</code> preserved</li>
+<li>No marker present → import the route with the prose as a single narrative note. <b>Never fail
+an import over missing notes.</b></li>
+</ol>
+<p>⭐ Steps 3–4 are <b>the same code</b> the publish path uses. That is the point of the one
+handler.</p>
+</div>
+
+<div class="card stop">
+<h4>⛔ THE AUTO-IMPORT PATH IS STILL BROKEN — carried from 08-22</h4>
+<p><b>Manual from Downloads → Map Features works. Tapping a GPX in email does not</b> — the
+intent filter routes it to the old track-only function.</p>
+<p>The filters live on <code>com.geeksville.mesh.MainActivity</code> — Meshtastic's own activity —
+and every one declares <code>&lt;data android:scheme="content" /&gt;</code>. So the intent hands
+over a <b>content:// URI</b> while <code>importGpxAllArtifacts</code> takes a <code>File</code>
+and calls <code>readText</code>/<code>delete</code> on it. The stream must be copied to a temp
+file first — <b>the same problem the OSM import already solved</b> ("SQLite needs a real path").</p>
+<p>⭐ <b>This belongs to 2.7</b>, not 2.6g: GroupTrack behaviour inside Meshtastic's activity is
+exactly what the mesh separation removes.</p>
+<p class="hi"><b>TESTER WORKAROUND, works today:</b> save the attachment to Downloads, then import
+from Map Features → IMPORT TRACKS, WAYPOINTS &amp; ROUTES.</p>
+</div>
+
+<h2>10. DISPLAY — the panel IS the notes</h2>
+<div class="card">
+<p>Fred's layout, 08-22: <i>"we have the action share export rename delete etc on the left, trail
+name up top, but the body is the scrollable attributes."</i></p>
+<pre>┌──────────────────────────────────────────────┐
+│  Panguitch 1                                 │  &lt;- name
+├────────┬─────────────────────────────────────┤
+│ SHARE  │  79 miles · 4-6 hours               │
+│ EXPORT │  8 springs, 5 summits               │  &lt;- scrollable body
+│ RENAME │                                     │     = route_notes rows,
+│ DELETE │  mile 10  Fivemile Ridge            │       ordered by seq
+│ FIT    │  mile 18  Slide Spring              │
+│        │  mile 24  Iron Peak                 │
+│        │  ...                                │
+│        │  ⚠ 104 junctions unconfirmed        │
+│        │  ⚠ 25% doubles back                 │
+└────────┴─────────────────────────────────────┘</pre>
+<p>⭐ <b>This IS the pre-2.6 backlog item</b> "artifact detail shown IN PLACE (inline panel, not
+popups) on BOTH maps, for routes/tracks/trails" — now with something worth scrolling.</p>
+<p><b>One query, three sources.</b> The panel asks for notes on an artifact. Some rows were
+generated, some typed by the rider, some will come from the server in 3.0. It does not care.</p>
+<p><b>Same body works for all three artifact types:</b></p>
+<ul>
+<li><b>Route</b> — narrative, mileage, time, features by mile, unconfirmed junctions</li>
+<li><b>Trail</b> — source, surface, motorized designation, <b>dated rider observations</b></li>
+<li><b>Track</b> — recorded date, distance, the ride it came from</li>
+</ul>
+</div>
+
+<h2>11. SHARE — what Fred already does by hand</h2>
+<div class="card good">
+<p>Fred, 08-22: <i>"that is how I have been delivering them"</i> — a GPX and a text summary.
+<b>The need is proven, not hypothesised.</b></p>
+<ul>
+<li><b>Body:</b> the narrative as plain text. ⚠ <b>Not HTML</b> — clients mangle it, and the
+narrative is already prose plus a mile-ordered list, which survives as text.</li>
+<li><b>Attachment:</b> the one GPX, notes embedded.</li>
+</ul>
+<p>⭐ <b>It also softens the auto-import failure:</b> a tester who cannot get the attachment to
+import still knows what the ride is from the body.</p>
+</div>
+
+<h2>12. Morning order</h2>
+<div class="card key">
+<ol>
+<li><b>Verify three things before writing any code</b> (each is one command):
+  <ul>
+  <li>Does <code>routes</code> have a <code>geom_hash</code>? (§5)</li>
+  <li>Does the planner tolerate unknown keys in the draft JSON? (§6)</li>
+  <li>What does <code>buildGpx()</code> actually write for <code>&lt;name&gt;</code>? (§8)</li>
+  </ul></li>
+<li><b>Decide:</b> <code>route_notes</code> as a table in <code>grouptrack_data.db</code>
+(recommended) or a third DB file.</li>
+<li><b>Fix <code>buildGpx()</code>'s hardcoded label</b> before extending it.</li>
+<li><b>Build the one reader</b> → <code>RouteBundle</code>, stub-first, then grep the old paths.</li>
+<li><b>Then</b> publish → notes, import → notes, panel → notes.</li>
+</ol>
+<p class="hi">⚠ <b>AND FIRST, BEFORE ANY OF IT</b> — Fred, 08-22: <i>"before we begin the area
+exploratory trail process, let's fix the existing trail method to function properly and
+re-examine them."</i> That is the <b>trace-not-snap</b> work: a vertex carrying
+<code>lineId</code> follows its known trail through known junctions; snap only runs where a
+rider's tap needs resolving. <code>ConvoyMapViewerScreen.kt:786</code> —
+<code>snapRadiusM = (44.0 * mPerPx).coerceIn(15.0, 150.0)</code> is a zoom-scaled
+GESTURE-uncertainty radius (49–492 ft) being applied to points that have no gesture in them.</p>
+</div>
+
+</div></body></html>

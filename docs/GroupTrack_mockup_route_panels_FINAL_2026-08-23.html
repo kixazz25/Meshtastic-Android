@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GroupTrack — Route panels, FINAL labels — 2026-08-23</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,-apple-system,sans-serif;background:#0d1117;color:#e6edf3;
+  padding:26px 18px 70px}
+.wrap{max-width:1080px;margin:0 auto}
+h1{font-size:23px;color:#7bb661;margin-bottom:4px}
+.sub{color:#8899aa;font-size:13px;margin-bottom:6px}
+.note{background:#131820;border:1px solid #2a3444;border-left:3px solid #4da6ff;
+  border-radius:6px;padding:11px 14px;margin:14px 0;font-size:13.5px;line-height:1.6}
+.note.warn{border-left-color:#e3b341}
+.note.ok{border-left-color:#3fb950}
+.note.stop{border-left-color:#f85149}
+.lbl{color:#667788;font-size:12px;margin:28px 0 6px;text-transform:uppercase;letter-spacing:.6px}
+
+.device{width:820px;background:#0f1419;border:2px solid #333;border-radius:12px;
+  overflow:hidden;display:flex;flex-direction:column;margin-bottom:6px}
+.chrome{background:#0b0f14;padding:9px 14px;display:flex;align-items:center;gap:14px;
+  border-bottom:1px solid #1e2630}
+.chrome .b{color:#c9d1d9;font:12px ui-monospace,Consolas,monospace}
+.chrome .sat{background:#1f6feb;color:#fff;padding:3px 9px;border-radius:4px;
+  font:12px ui-monospace,Consolas,monospace}
+.chrome .sp{margin-left:auto}
+.stage{position:relative;min-height:500px;background:#11161c}
+.map{position:absolute;inset:0;background:
+  repeating-linear-gradient(58deg,#1a1f26 0 2px,transparent 2px 26px),
+  repeating-linear-gradient(-31deg,#171c22 0 2px,transparent 2px 34px),#141a20}
+.tl{position:absolute;height:2px;background:#2fd4d4;opacity:.42}
+
+.panel{position:absolute;left:0;top:0;width:348px;background:#131a24;
+  border-right:1px solid #223040;padding:11px 13px 15px}
+.panel.full{width:100%;border:none;background:#0f1419;bottom:0;overflow:auto;padding:16px 20px}
+.ptitle{font:12px ui-monospace,Consolas,monospace;color:#c9d1d9;display:flex;
+  align-items:center;justify-content:space-between;margin-bottom:10px}
+.route-chip{background:#0d1520;border:1px solid #2a3a4a;border-radius:4px;color:#7bb661;
+  font:11px ui-monospace,monospace;padding:4px 9px}
+.hdr{display:flex;justify-content:space-between;font:10px ui-monospace,monospace;
+  color:#8899aa;padding:0 2px 6px}
+.row{display:flex;align-items:center;justify-content:space-between;padding:7px 2px;
+  border-bottom:1px solid #1b2532}
+.row .nm{font:12px ui-monospace,monospace;color:#e6edf3}
+.btns{display:flex;gap:5px}
+.b2{border-radius:4px;padding:4px 11px;font:10px ui-monospace,monospace;font-weight:bold;color:#fff}
+.off{background:#2f9e44} .all{background:#1f6feb} .sel{background:#2f9e44}
+
+/* the two mode buttons -- FINAL labels */
+.acts{display:flex;gap:7px;margin-top:13px}
+.act{flex:1;border-radius:4px;padding:9px 5px;text-align:center;
+  font:10px/1.3 ui-monospace,monospace;font-weight:bold;letter-spacing:.3px}
+.act.sel{background:#16241b;border:1.5px solid #7bb661;color:#8fd8a4}
+.act.idle{background:#0d1520;border:1px solid #24313f;color:#ff5ce0}
+.act.dis{background:#0d1520;border:1px dashed #24313f;color:#3f4a56}
+.was{margin-top:9px;font:9.5px ui-monospace,monospace;color:#4a5560;line-height:1.5}
+.modenote{margin-top:7px;font:9.5px ui-monospace,monospace;color:#6b7a8a;line-height:1.5}
+
+.sh-h{font-size:18px;color:#7bb661;font-weight:700}
+.sh-s{font-size:12.5px;color:#8899aa;margin:5px 0 15px;line-height:1.6}
+.opt{background:#0f1720;border:1px solid #24313f;border-radius:8px;padding:12px 13px;
+  margin-bottom:10px}
+.opt.on{border-color:#7bb661;background:#131f18}
+.opt-t{display:flex;align-items:flex-start;gap:9px;font-size:13.5px;font-weight:700;
+  color:#e6edf3;line-height:1.35}
+.radio{width:15px;height:15px;border-radius:50%;border:2px solid #4a5b6b;flex:0 0 auto;margin-top:2px}
+.opt.on .radio{border-color:#7bb661;background:radial-gradient(#7bb661 45%,transparent 47%)}
+.opt-d{font-size:12px;color:#8899aa;margin:7px 0 0 24px;line-height:1.62}
+.opt-d b{color:#c9d1d9}
+.eg{margin:7px 0 0 24px;font-size:11.5px;color:#6b7a8a;font-style:italic}
+
+.pick2{display:flex;gap:8px;margin:4px 0 14px}
+.p2{flex:1;background:#0f1720;border:1px solid #24313f;border-radius:7px;padding:10px 11px;
+  text-align:center}
+.p2.on{border-color:#7bb661;background:#131f18}
+.p2 .t{font-size:12.5px;font-weight:700;color:#e6edf3}
+.p2 .s{font-size:11px;color:#8899aa;margin-top:3px}
+
+.field{margin:13px 0 0}
+.f-l{font-size:12px;color:#8899aa;margin-bottom:6px;display:flex;justify-content:space-between;
+  align-items:baseline}
+.f-l b{color:#e6edf3;font-size:13.5px}
+.slider{position:relative;height:5px;background:#1e2833;border-radius:3px;margin:12px 4px}
+.fill{position:absolute;height:100%;background:#7bb661;border-radius:3px}
+.knob{position:absolute;top:-6px;width:16px;height:16px;border-radius:50%;background:#7bb661;
+  border:2px solid #0f1419;margin-left:-8px}
+.ticks{display:flex;justify-content:space-between;font:9px ui-monospace,monospace;
+  color:#5a6a7a;margin:5px 4px 0}
+.derived{background:#0d1520;border:1px solid #24313f;border-radius:6px;padding:9px 11px;
+  margin-top:11px;font-size:12px;color:#c9d1d9;line-height:1.55}
+.derived b{color:#7bb661}
+.spd{background:#0f1720;border:1px solid #24313f;border-radius:7px;padding:11px 12px;margin-top:13px}
+.spd-t{display:flex;justify-content:space-between;align-items:baseline;font-size:12px;
+  color:#8899aa;margin-bottom:8px}
+.spd-t b{color:#e6edf3;font-size:14px}
+.spd-n{font-size:11.5px;color:#8899aa;line-height:1.62;margin-top:9px}
+.spd-n b{color:#c9d1d9}
+.terr{background:#241d0e;border:1px solid #6b5520;border-left:3px solid #e3b341;
+  border-radius:7px;padding:11px 12px;margin-top:13px}
+.terr h4{font-size:12.5px;color:#e3b341;margin-bottom:6px}
+.terr p{font-size:11.5px;color:#d8cba8;line-height:1.6}
+.go{background:#7bb661;color:#0d1117;border:none;border-radius:8px;width:100%;padding:12px;
+  font-size:14.5px;font-weight:700;margin-top:16px}
+.go .s{display:block;font-size:10.5px;font-weight:400;opacity:.78;margin-top:2px}
+.cancel{text-align:center;color:#8899aa;font-size:12.5px;margin-top:11px}
+
+/* save-or-discard */
+.dlg{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:330px;
+  background:#131a24;border:1px solid #2a3a4a;border-radius:10px;padding:17px 18px;
+  box-shadow:0 10px 40px #000a}
+.dlg h3{font-size:15px;color:#e6edf3;margin-bottom:7px}
+.dlg p{font-size:12.5px;color:#8899aa;line-height:1.6}
+.dlg .btns2{display:flex;gap:8px;margin-top:15px}
+.dlg .db{flex:1;border-radius:6px;padding:9px;text-align:center;font-size:12.5px;font-weight:700}
+.db.save{background:#7bb661;color:#0d1117}
+.db.disc{background:#2e1616;border:1px solid #7a2f2f;color:#f0a0a0}
+.db.back{background:#16202b;border:1px solid #2a3a4a;color:#aabbcc}
+.scrim{position:absolute;inset:0;background:#00000088}
+
+.rowlbl{font:9.5px ui-monospace,monospace;color:#8899aa;letter-spacing:.5px;
+  text-transform:uppercase;margin:13px 0 5px}
+.rowlbl.sub2{margin-top:11px;color:#6b7a8a}
+.rowlbl span{text-transform:none;letter-spacing:0;color:#4a5560;font-style:italic}
+.act.sub{padding:7px 5px;font-size:9.5px}
+.act.idle2{background:#0d1520;border:1px solid #24313f;color:#8fbfe0}
+.airow{display:flex;gap:7px;align-items:center;margin-bottom:14px;padding-bottom:12px;
+  border-bottom:1px solid #1e2833}
+.airow-n{font-size:11px;color:#6b7a8a;font-style:italic;line-height:1.5}
+</style></head><body><div class="wrap">
+
+<h1>Route panels — final labels</h1>
+<div class="sub">2026-08-23 · labels settled with Fred · this supersedes the earlier mockups</div>
+
+<div class="note ok">
+<b>FINAL BUTTON LABELS</b><br>
+<code>DROP POINTS &amp; BUILD YOURSELF</code> &nbsp;·&nbsp; <code>AI DESIGN w/ RIDER GUIDANCE</code><br>
+DRAW is gone. <b>DROP POINTS is preselected on entry</b> — the map is live for taps immediately.
+</div>
+
+<!-- ═══ 1 ═══ -->
+<div class="lbl">1 · Route mode — on entry</div>
+<div class="device">
+  <div class="chrome"><span class="b">Back to Ride</span><span class="sat">SAT</span>
+    <span class="b">TOPO</span><span class="b">TOPO+</span><span class="b sp">QUEUES</span></div>
+  <div class="stage">
+    <div class="map">
+      <div class="tl" style="left:40%;top:28%;width:40%;transform:rotate(11deg)"></div>
+      <div class="tl" style="left:48%;top:55%;width:44%;transform:rotate(-16deg)"></div>
+      <div class="tl" style="left:56%;top:73%;width:30%;transform:rotate(26deg)"></div>
+    </div>
+    <div class="panel">
+      <div class="ptitle"><span>∨ WORK WITH MAP FEATURES</span>
+        <span class="route-chip">+ ROUTE</span></div>
+      <div class="hdr"><span>Map Feature</span><span>Display Action</span></div>
+      <div class="row"><span class="nm">Tracks</span><span class="btns">
+        <span class="b2 off">OFF</span><span class="b2 all">ALL</span><span class="b2 sel">SELECT</span></span></div>
+      <div class="row"><span class="nm">Trails</span><span class="btns">
+        <span class="b2 off">OFF</span><span class="b2 all">ALL</span><span class="b2 sel">SELECT</span></span></div>
+      <div class="row"><span class="nm">Waypoints</span><span class="btns">
+        <span class="b2 off">OFF</span><span class="b2 all">ALL</span><span class="b2 sel">SELECT</span></span></div>
+      <div class="row" style="border:none"><span class="nm">Routes</span><span class="btns">
+        <span class="b2 off">OFF</span><span class="b2 all">ALL</span><span class="b2 sel">SELECT</span></span></div>
+
+      <div class="rowlbl">How is the route built?</div>
+      <div class="acts">
+        <div class="act sel">DROP POINTS &amp;<br>BUILD YOURSELF</div>
+        <div class="act idle">AI DESIGN w/<br>RIDER GUIDANCE</div>
+      </div>
+
+      <div class="rowlbl sub2">What does a tap do? <span>— only while you are building</span></div>
+      <div class="acts">
+        <div class="act sub sel">ADD ROUTE<br>POINTS</div>
+        <div class="act sub idle2">ACTIVATE MAP<br>POPUPS</div>
+      </div>
+      <div class="modenote">Tap the map to start dropping. Switch to popups any time to check
+        what a trail is.</div>
+      <div class="was">was:&nbsp; POINT · <span style="text-decoration:line-through">DRAW</span> · SUGGEST
+        <br>DRAW / ARTIFACTS named things; these name what the tap DOES.</div>
+    </div>
+  </div>
+</div>
+<div class="note ok">
+<b>⭐ TWO ROWS, NOT THREE BUTTONS.</b> Fred, 08-23: <i>"we have two methods, user or AI. In user
+we have controls for draw or popup. I would only show draw or popup when in user control
+mode."</i><br><br>
+<b>Row 1 — how the route is built.</b> Always shown. You, or AI.<br>
+<b>Row 2 — what a tap does.</b> Shown ONLY in manual mode, because in AI mode nothing is being
+drawn and neither control means anything.<br><br>
+⭐ This fixes something the old panel got wrong: <b>DRAW and ARTIFACTS sat at the same level as
+SUGGEST</b>, implying they were alternatives to it. They never were — they are controls
+<i>within</i> building a route. And the new labels name <b>what the tap does</b> rather than
+naming a thing.
+</div>
+
+<div class="note warn">
+<b>⚠ DRAW leaves THIS panel only.</b> Box drawing is still needed by
+<b>Import Trails → BY AREA</b> on the download panel. Remove the button, keep the tool.
+</div>
+
+<!-- ═══ 2 ═══ -->
+<div class="lbl">2 · Points already down — the AI button is not available</div>
+<div class="device">
+  <div class="chrome"><span class="b">Back to Ride</span><span class="sat">SAT</span>
+    <span class="b">TOPO</span><span class="b">TOPO+</span><span class="b sp">QUEUES</span></div>
+  <div class="stage">
+    <div class="map">
+      <div class="tl" style="left:40%;top:28%;width:40%;transform:rotate(11deg)"></div>
+      <div class="tl" style="left:48%;top:55%;width:44%;transform:rotate(-16deg)"></div>
+    </div>
+    <div class="panel">
+      <div class="ptitle"><span>∨ WORK WITH MAP FEATURES</span>
+        <span class="route-chip">+ ROUTE</span></div>
+      <div class="hdr"><span>Map Feature</span><span>Display Action</span></div>
+      <div class="row"><span class="nm">Tracks</span><span class="btns">
+        <span class="b2 off">OFF</span><span class="b2 all">ALL</span><span class="b2 sel">SELECT</span></span></div>
+      <div class="row" style="border:none"><span class="nm">Trails</span><span class="btns">
+        <span class="b2 off">OFF</span><span class="b2 all">ALL</span><span class="b2 sel">SELECT</span></span></div>
+      <div class="rowlbl">How is the route built?</div>
+      <div class="acts">
+        <div class="act sel">DROP POINTS &amp;<br>BUILD YOURSELF</div>
+        <div class="act idle">AI DESIGN w/<br>RIDER GUIDANCE</div>
+      </div>
+      <div class="rowlbl sub2">What does a tap do?</div>
+      <div class="acts">
+        <div class="act sub sel">ADD ROUTE<br>POINTS</div>
+        <div class="act sub idle2">ACTIVATE MAP<br>POPUPS</div>
+      </div>
+      <div class="modenote">7 points down · 4.2 mi — the buttons stay live; tapping one asks you
+        to save or discard first.</div>
+    </div>
+    <div class="scrim"></div>
+    <div class="dlg">
+      <h3>You have a route in progress</h3>
+      <p>Seven points, 4.2 miles. Save it or discard it before starting an AI design —
+        GroupTrack keeps one route at a time.</p>
+      <div class="btns2">
+        <div class="db save">SAVE</div>
+        <div class="db disc">DISCARD</div>
+        <div class="db back">BACK</div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="note">
+<b>No switching mid-route</b> (Fred) — but the buttons stay LIVE rather than greying out. Tapping one explains why it cannot happen yet, instead of leaving the rider guessing at a dead control. A route underway is a draft, and changing mode without resolving it would leave two half-built things — the same draft-or-DB-never-both rule the WIP flow
+already follows.
+</div>
+
+<!-- ═══ 3 ═══ -->
+<div class="lbl">3 · AI DESIGN — which kind of suggestion</div>
+<div class="device">
+  <div class="chrome"><span class="b">Back to Ride</span><span class="sat">SAT</span>
+    <span class="b">TOPO</span><span class="b">TOPO+</span><span class="b sp">QUEUES</span></div>
+  <div class="stage">
+    <div class="map" style="filter:brightness(.6)"></div>
+    <div class="panel full">
+      <div class="airow">
+        <div class="act idle" style="flex:0 0 152px">DROP POINTS &amp;<br>BUILD YOURSELF</div>
+        <div class="act sel" style="flex:0 0 152px">AI DESIGN w/<br>RIDER GUIDANCE</div>
+        <div class="airow-n">No tap-behaviour row here — nothing is being drawn, so neither
+          control has a meaning to offer.</div>
+      </div>
+      <div class="sh-h">AI Design</div>
+      <div class="sh-s">Rides are worked out from the <b style="color:#c9d1d9">trail data for this
+        area</b>, the <b style="color:#c9d1d9">natural features</b> on it — springs, summits,
+        cliffs, cones — and the <b style="color:#c9d1d9">points of interest</b>. Two ways to ask.</div>
+
+      <div class="opt on">
+        <div class="opt-t"><span class="radio"></span>Explore the area</div>
+        <div class="opt-d"><b>You give a starting point and how long you want to be out.</b>
+          GroupTrack picks everything else — it looks for the rides that take in the most features
+          for the distance you have.</div>
+        <div class="eg">Use this when you do not know the area, or want to be shown something you
+          would not have found.</div>
+      </div>
+
+      <div class="opt">
+        <div class="opt-t"><span class="radio"></span>Include places I choose</div>
+        <div class="opt-d"><b>The same, but you drop the places that have to be in the ride.</b>
+          GroupTrack fits in as many as the distance allows and tells you which it could not.</div>
+        <div class="eg">Expect fewer options back — every place you add is one more thing the ride
+          has to satisfy.</div>
+      </div>
+
+      <button class="go">CONTINUE<span class="s">Next: drop your starting point</span></button>
+      <div class="cancel">Cancel</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ 4 ═══ -->
+<div class="lbl">4 · Ride goals — set ONE, the other follows</div>
+<div class="device">
+  <div class="chrome"><span class="b">Back to Ride</span><span class="sat">SAT</span>
+    <span class="b">TOPO</span><span class="b">TOPO+</span><span class="b sp">QUEUES</span></div>
+  <div class="stage">
+    <div class="map" style="filter:brightness(.6)"></div>
+    <div class="panel full">
+      <div class="sh-h">What kind of ride?</div>
+      <div class="sh-s">Starting from <b style="color:#c9d1d9">Bar 10 Ranch</b>.</div>
+
+      <div class="pick2">
+        <div class="p2 on"><div class="t">Time out</div><div class="s">how long you want to be gone</div></div>
+        <div class="p2"><div class="t">Mileage</div><div class="s">how far you want to ride</div></div>
+      </div>
+
+      <div class="field">
+        <div class="f-l"><span>How long do you want to be out?</span><b>5 – 7 hours</b></div>
+        <div class="slider">
+          <div class="fill" style="left:34%;width:22%"></div>
+          <div class="knob" style="left:34%"></div><div class="knob" style="left:56%"></div>
+        </div>
+        <div class="ticks"><span>1h</span><span>3h</span><span>5h</span><span>7h</span><span>9h</span><span>11h</span></div>
+        <div class="derived">That works out at roughly <b>75 to 105 miles</b> at your average speed.</div>
+      </div>
+
+      <div class="spd">
+        <div class="spd-t"><span>Your average speed</span><b>15 mph</b></div>
+        <div class="slider" style="margin-top:2px">
+          <div class="fill" style="left:0;width:50%"></div>
+          <div class="knob" style="left:50%"></div>
+        </div>
+        <div class="ticks"><span>8</span><span>12</span><span>15</span><span>18</span><span>24</span></div>
+        <div class="spd-n">
+          This comes from <b>real rides recorded across varied terrain</b> — and it already includes
+          the stops those riders took. So the estimate is <b>your whole day out</b>, not just the
+          time you are moving.
+          <br><br>
+          <b>If your group gets back earlier or later than the estimate, change this number</b> and
+          the next suggestion will fit you better.
+        </div>
+      </div>
+
+      <div class="terr">
+        <h4>⚠ It has not seen the ground</h4>
+        <p>GroupTrack knows a trail is <b>there</b>. It does not know <b>how wide it is, what the
+          surface is like, or what is on it</b> — that is not in the trail data. Zoom in on the
+          satellite view before you commit, and use the width tool to check your machine will fit.</p>
+      </div>
+
+      <button class="go">FIND MY RIDES
+        <span class="s">Saved as work in progress — nothing is committed</span></button>
+      <div class="cancel">Back</div>
+    </div>
+  </div>
+</div>
+
+<div class="note warn">
+<b>⚠ Still to settle.</b><br>
+<b>1. Minimum spread.</b> Fred suggested a floor of 20 miles or 1 hour between the ends. Yesterday
+a narrow band strangled the search until it was widened — <b>the slider should refuse to close
+tighter</b> rather than returning nothing.<br>
+<b>2. The default.</b> 5–7 hours at 15 mph is 75–105 miles. Yesterday's runs used an 80-mile
+ceiling and produced 74–79 mile rides with 10–13 features. <b>This default asks for slightly more
+than anything tested</b> — the first real run at this setting is the check.<br>
+<b>3. Route count.</b> Panel says nothing about how many come back. The research produced four with
+a positive-score floor that sometimes cut it to two. <b>Say a number or say "up to four" — do not
+promise three and return two.</b>
+</div>
+
+<div class="note ok">
+<b>✅ Settled today and not up for revisiting:</b> generated routes place every point ON a trail
+(measured: 7,523 of 7,523) · every trail switch is at a real junction (525 of 525) · a
+<b>junction pair</b> is now emitted at each switch — centre with the incoming lineId, then 10 ft
+along the outgoing trail — because snap cannot resolve a junction where both trails are equally
+near · remaining visual mismatch is <b>trail data versus imagery</b>, which is not fixable and is
+covered by the terrain warning above.
+</div>
+
+</div></body></html>

@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GroupTrack — screens added or revised — 2026-08-23</title>
+<style>
+ :root{--bg:#0f1216;--panel:#161b22;--line:#26303b;--fg:#c9d1d9;--muted:#8b949e;
+   --accent:#58a6ff;--amber:#e3b341;--red:#f85149;--green:#3fb950;}
+ *{box-sizing:border-box}
+ body{margin:0;padding:26px 20px 70px;background:var(--bg);color:var(--fg);
+  font:14.5px/1.65 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+ .wrap{max-width:1000px;margin:0 auto}
+ header{border-bottom:2px solid var(--accent);padding-bottom:12px;margin-bottom:20px}
+ h1{margin:0 0 5px;font-size:23px;color:var(--accent)}
+ .sub{color:var(--muted);font-size:13px}
+ h2{font-size:17px;margin:28px 0 8px;padding-bottom:5px;
+   border-bottom:1px solid var(--line);color:var(--accent)}
+ h3{font-size:14.5px;margin:18px 0 5px}
+ .card{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--line);
+   border-radius:6px;padding:11px 14px;margin:9px 0}
+ .card.key{border-left-color:var(--accent)} .card.warn{border-left-color:var(--amber)}
+ .card.stop{border-left-color:var(--red)} .card.good{border-left-color:var(--green)}
+ code{background:#0d1117;border:1px solid var(--line);border-radius:4px;padding:1px 5px;
+   font:12.5px ui-monospace,Consolas,monospace;color:#a5d6ff}
+ ul,ol{margin:6px 0 6px 21px} li{margin:5px 0}
+ table{border-collapse:collapse;width:100%;margin:9px 0}
+ td,th{border:1px solid var(--line);padding:6px 10px;font-size:13px;text-align:left;
+   vertical-align:top}
+ th{background:#1c2531;color:var(--accent)}
+ .hi{color:var(--amber)} .muted{color:var(--muted)} .ok{color:var(--green)}
+ .no{color:var(--red)}
+ .tag{display:inline-block;padding:1px 7px;border-radius:3px;font-size:10.5px;
+   font-weight:bold;margin-right:5px}
+ .t-new{background:#1f6feb;color:#fff} .t-chg{background:#8855aa;color:#fff}
+ .t-int{background:#3a4450;color:#c9d1d9}
+</style></head><body><div class="wrap">
+
+<header>
+<h1>Screens added or revised — 2026-08-23</h1>
+<div class="sub">For the user manual and release notes · release 2.6g ·
+versionCode 29320906<br>
+<span class="hi">Everything below is on the Ride Planning Map. Nothing on the Ride Map
+changed.</span></div>
+</header>
+
+<div class="card stop">
+<b>⛔ DO NOT DOCUMENT ANY OF THIS FOR RIDERS YET.</b> The AI Design flow is <b>not
+finished</b> — the trailhead is currently forced to a fixed test location, the mileage and
+speed controls do not move, and the must-include-places mode does nothing. See "Not yet
+true" at the bottom. <b>This list is for tracking what has changed, not for publishing.</b>
+</div>
+
+<h2>1 · Route+ toolbar — REVISED</h2>
+<div class="card">
+<p>The floating panel that appears when you tap <b>+ ROUTE</b>. It had one row of three
+method buttons and a Route/Artifact switch; it now has a clearer two-level structure.</p>
+
+<h3>Method row — three buttons became two</h3>
+<table>
+<tr><th>Was</th><th>Now</th><th></th></tr>
+<tr><td><code>Point</code> <span class="muted">(live)</span></td>
+    <td><code>DROP POINTS &amp; BUILD YOURSELF</code></td>
+    <td><span class="tag t-chg">RENAMED</span> Same behaviour. The label now says who builds
+    the route rather than naming a technique.</td></tr>
+<tr><td><code>Draw</code> <span class="muted">(soon)</span></td>
+    <td class="no">removed</td>
+    <td><span class="tag t-chg">REMOVED</span> Never worked. ⚠ <b>Box drawing itself is
+    NOT gone</b> — Import Trails → BY AREA still uses it. Only this entry point went.</td></tr>
+<tr><td><code>Suggest</code> <span class="muted">(soon)</span></td>
+    <td><code>AI DESIGN w/ RIDER GUIDANCE</code></td>
+    <td><span class="tag t-new">NOW LIVE</span> Was a placeholder that did nothing. Opens
+    the new AI Design panel.</td></tr>
+</table>
+
+<h3>Build row — renamed, and now says what a tap does</h3>
+<table>
+<tr><th>Was</th><th>Now</th></tr>
+<tr><td><code>Route</code></td><td><code>DRAW ROUTE ON</code></td></tr>
+<tr><td><code>Artifact</code></td><td><code>MAP TAPS ON</code></td></tr>
+</table>
+<p><span class="tag t-chg">RENAMED</span> The old labels named the <i>targets</i>; a rider had
+to work out what tapping would do. These name the behaviour, and read as states rather than
+actions.</p>
+
+<h3>New behaviours</h3>
+<ul>
+<li><span class="tag t-new">NEW</span> <b>DROP POINTS is selected when you open route
+mode</b>, so the map is live for taps straight away.</li>
+<li><span class="tag t-new">NEW</span> <b>The Build row is hidden in AI mode.</b> Nothing is
+being drawn, so neither tap control means anything there.</li>
+<li><span class="tag t-new">NEW</span> <b>The method row folds itself once you drop a
+point.</b> It collapses to <code>METHOD · Drop points ▸</code> — you can still see which
+method is active. The method is committed at that point and changing it needs a save or a
+discard.</li>
+</ul>
+<p class="muted">⚠ This fold is separate from the <code>^</code> chevron, which still
+minimises the whole panel. One is action-driven, the other is yours.</p>
+</div>
+
+<h2>2 · AI Design panel — NEW</h2>
+<div class="card key">
+<p><span class="tag t-new">NEW SCREEN</span> Full-screen, opened from <b>AI DESIGN w/ RIDER
+GUIDANCE</b>. The route toolbar hides while it is open so the panel has the screen to
+itself.</p>
+
+<p><b>It opens by saying what suggestions are based on</b> — the trail data for the area, the
+natural features on it (springs, summits, cliffs, cones), and the points of interest.</p>
+
+<h3>Two ways to ask</h3>
+<table>
+<tr><th>Option</th><th>What it does</th></tr>
+<tr><td><b>Explore the area</b></td>
+    <td>You give a starting point and how long you want to be out. GroupTrack picks
+    everything else — the rides that take in the most features for the distance.</td></tr>
+<tr><td><b>Include places I choose</b></td>
+    <td>You drop the places that have to be in the ride. GroupTrack draws routes containing
+    as many of your points as it can within the distance limit, then backfills with as many
+    other features as it can accommodate. <span class="hi">⚠ NOT BUILT YET.</span></td></tr>
+</table>
+
+<h3>What you set</h3>
+<ul>
+<li><b>A name for these routes.</b> GroupTrack appends <code>Route 1</code>,
+<code>Route 2</code> and so on. You rename whichever you keep.</li>
+<li><b>How far you want to ride</b> — a range. A wide range gives more choices; it is what
+the search has room to work with.</li>
+<li><b>Your average speed</b> — a range, default 12–18 mph.</li>
+</ul>
+
+<div class="card warn" style="margin-top:10px">
+<p><b>⭐ THE SPEED WORDING MATTERS AND IS DELIBERATE.</b> It is measured from real recorded
+rides across varied terrain, <b>and it already includes the stops those riders took</b>. So
+the estimate is the whole day out, not moving time. That is why the band is 12–18 and not
+25–35 — the machines go faster, but the <i>rides</i> average out this way once stops are
+counted.</p>
+<p>Riders are told: <b>if your group gets back earlier or later than the estimate, change
+this number</b> and the next suggestion fits better.</p>
+<p class="muted">⚠ Narrowing the speed range does not change which rides come back — only how
+tightly the time is estimated. The manual should say so, or riders will tighten it expecting
+better routes.</p>
+</div>
+
+<p><b>Time is never entered.</b> It is worked out from the mileage and speed, and shown as an
+envelope: <i>"every ride suggested will be between X and Y hours."</i></p>
+
+<h3>The results, in the same panel</h3>
+<p>The panel does not close after searching — it switches to showing what came back: how many
+routes, their names, each with distance, riding time, feature count and mix. They are saved
+as work in progress; keep one and discard the rest.</p>
+<p><b>CONTINUE</b> returns to the route in progress.</p>
+
+<div class="card warn" style="margin-top:10px">
+<p><b>⚠ "It has not seen the ground."</b> The panel carries this and the manual must not
+soften it: GroupTrack knows a trail is <b>there</b>. It does not know how wide it is, what the
+surface is like, or what is on it — <b>that is not in the trail data at all</b>. Measured:
+surface is populated on about 30% of trails, width is not in the data, and motorized
+designation is empty in every source imported.</p>
+<p>On an OHV route that is a safety line, not a disclaimer. It is deliberately phrased as what
+the app <i>does not know</i> rather than "ride at your own risk", because the first is useful
+and the second is noise riders learn to skip.</p>
+</div>
+</div>
+
+<h2>3 · Route DETAIL button and panel — NEW</h2>
+<div class="card">
+<p><span class="tag t-new">NEW</span> A round <b>DETAIL</b> button on the upper right, under
+Help. <b>It only appears when the route you have open actually has a description</b> — routes
+you draw yourself do not get one, so no button.</p>
+<p>It opens a scrollable panel describing the ride:</p>
+<ul>
+<li>A headline — distance, hours, and what is on it</li>
+<li>Distance, riding time, feature count, how much doubles back</li>
+<li><b>What you will see</b> — the features in plain words (summit, spring, volcanic cone)</li>
+<li><b>In order</b> — each one with its mile, with features at the same spot grouped</li>
+<li><b>Ground covered</b> — which named trails, and how much is unnamed track</li>
+<li><b>Before you go</b> — unconfirmed junctions, and how much of the ride is on unnamed
+tracks</li>
+</ul>
+<p class="muted">⭐ Internally this is one panel that will also serve saved routes and
+eventually trail notes — it takes prepared content rather than reading any particular source.
+Riders will not see that, but it means the same screen appears in more places later.</p>
+</div>
+
+<h2>4 · What a suggested route looks like on the map</h2>
+<div class="card">
+<p>No new screen, but worth a manual note: <b>a suggested route is saved as a work-in-progress
+route</b> and appears in the route picker like any draft. Open it in the planner to see it,
+keep it or discard it, and rename it when you save.</p>
+<p><span class="tag t-int">INTERNAL</span> Routes now carry a vertex at each junction plus one
+ten feet along the trail being joined, so the line follows turns correctly. Riders will not
+notice this except that routes no longer cut corners at junctions.</p>
+</div>
+
+<h2>⛔ NOT YET TRUE — do not write these into the manual</h2>
+<div class="card stop">
+<table>
+<tr><th>What the panel implies</th><th>Reality today</th></tr>
+<tr><td>You drop a trailhead pin to say where you start</td>
+    <td class="no"><b>Not built.</b> The start is currently forced to a fixed test location
+    (Panguitch) so the results can be compared against a known answer.</td></tr>
+<tr><td>You set the mileage and speed ranges</td>
+    <td class="no"><b>The controls do not move.</b> They show the defaults — 55–80 miles,
+    12–18 mph — and the search uses those.</td></tr>
+<tr><td>"Include places I choose" drops must-visit points</td>
+    <td class="no"><b>Does nothing different.</b> Needs the pin drops.</td></tr>
+<tr><td>Tapping the collapsed method row asks you to save or discard</td>
+    <td class="no"><b>Currently does nothing.</b> The prompt is not wired.</td></tr>
+<tr><td>A saved route shows its description</td>
+    <td class="no"><b>Not built.</b> Only work-in-progress routes have descriptions so far —
+    the storage for saved routes does not exist yet.</td></tr>
+<tr><td>Sharing a route sends its description too</td>
+    <td class="no"><b>Not built.</b></td></tr>
+</table>
+</div>
+
+<h2>Release-notes wording, when it is ready</h2>
+<div class="card good">
+<p>Suggested phrasing for the eventual notes — <b>hold until the flow is finished</b>:</p>
+<p><b>Route building has two ways now.</b> Draw it yourself by dropping points along the
+trails, as before — or let GroupTrack work out rides for you from the trail data, natural
+features and points of interest already on your map. Say roughly how far you want to ride and
+it will offer several rides to choose from, each saved as work in progress so nothing is
+committed until you keep one.</p>
+<p><b>Each suggested ride comes with a description</b> — what you will see, at what mile, which
+named trails it uses, and what to check before you go.</p>
+<p class="muted">⚠ Keep the "it has not seen the ground" paragraph in the notes as well as the
+panel. It is the thing a rider most needs to know and the thing most easily lost in a
+summary.</p>
+</div>
+
+</div></body></html>

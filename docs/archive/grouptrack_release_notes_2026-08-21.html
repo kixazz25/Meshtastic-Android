@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<title>GroupTrack Release Notes — 2026-08-20</title>
+<style>
+body{font:14px/1.6 system-ui,sans-serif;max-width:900px;margin:20px auto;padding:0 16px;background:#fdfdfd;color:#222}
+h1{font-size:20px;border-bottom:2px solid #7bb661;padding-bottom:6px}
+h2{font-size:16px;color:#2a6e1a;margin:22px 0 6px;border-bottom:1px solid #ddd;padding-bottom:4px}
+h3{font-size:14px;margin:12px 0 4px;color:#333}
+code{background:#eef;padding:1px 4px;border-radius:3px;font-size:12px}
+.tag{display:inline-block;background:#7bb661;color:#fff;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:bold;margin-right:4px}
+.new{background:#4da6ff} .fix{background:#cc6600} .change{background:#8855aa}
+</style></head><body>
+
+<h1>GroupTrack Release Notes</h1>
+<p>RELNOTES-2026-08-21</p>
+
+<h2>V2.6g — Home State Import Pipeline</h2>
+<p>Release date: In development · Branch: <code>feature/convoy-event-ride</code></p>
+
+<h3>Import Trails — by State or by Area (New)</h3>
+<p><span class="tag new">NEW</span> <b>Import Trails now asks how you want to choose your ground.</b>
+One button on the Map Features panel, two ways in:</p>
+<ul>
+<li><b>By State</b> — pick any state from the list. Every available source for that state is
+processed. Use this when you're planning a trip somewhere new.</li>
+<li><b>By Area</b> — draw a box on the map. GroupTrack works out which states your box reaches and
+processes every source that covers it. <b>Your box can cross state lines</b> — a ride that runs from
+Utah into Arizona brings in both.</li>
+</ul>
+<p>Either way there is no source checklist. Every source that covers your ground runs, because that
+is what lets one source fill in what another is missing.</p>
+
+<h3>Import Progress Detail</h3>
+<p><span class="tag new">NEW</span> <b>Every import now records what happened to each record, not just
+how many were added.</b> Per source: how many were read, how many fell inside your state or area, how
+many you already had, how many were added, and how many could not be processed.</p>
+<p>The summary still shows one number — records added. The detail sits behind the source name if you
+want it, and it is written into the import record on your device either way, so it can be looked up
+later.</p>
+<p><span class="tag change">CHANGE</span> Each import run now carries an identifier, so a run can be
+identified exactly when something needs looking into.</p>
+
+<h3>Known Issues — added 2026-08-21</h3>
+<ul>
+<li><b>Some sources report errors on every record.</b> US Geological Survey National Trails is
+affected in every area tested; other sources are affected in some areas and not others. Under
+investigation. These sources previously reported zero records with no indication anything had gone
+wrong — the new counts are what made it visible.</li>
+<li><b>A state may be listed for your area without having trails in it.</b> States are matched using
+a rectangle around each state and those rectangles overlap, so a neighbouring state can be included
+and then contribute nothing. It costs download time; it does not affect your data. A way to skip
+those states is coming.</li>
+<li><b>The per-source detail does not open on the completion screen yet.</b> The figures are recorded
+correctly; only the on-screen expansion is affected.</li>
+<li><b>Re-importing the same state on the same day</b> replaces that day's earlier import record.</li>
+</ul>
+
+
+<h3>Home State Setup (New)</h3>
+<p><span class="tag new">NEW</span> <b>One-tap trail data setup on first launch.</b> When GroupTrack detects no trail data, it offers to load your home state's trails automatically:</p>
+<ul>
+<li>GPS auto-detection suggests your state (uses Android Geocoder for accuracy at state borders)</li>
+<li>Searchable state picker with all 50 US states + DC + PR + USVI</li>
+<li>California split into North (San Luis Obispo area and north) and South (Santa Barbara/Bakersfield area and south)</li>
+<li>All available data sources processed automatically — US Forest Service, US Geological Survey, National Park Service, state agencies, and Open Source Maps (Geofabrik OSM)</li>
+<li>Progress display: per-source step indicators (✅/►/○), download progress in MB, running elapsed clock</li>
+<li>Blinking "Do not close GroupTrack" banner during processing</li>
+<li>Completion summary with per-source record counts and grand total</li>
+<li>New Hampshire verified: 42,338 OSM trails + 1,010 catalog trails imported in ~4 minutes</li>
+</ul>
+
+<h3>Geofabrik State Asset</h3>
+<p><span class="tag new">NEW</span> <b>Shipped <code>geofabrik_states.json</code></b> — 54 entries with download URLs for every US state and territory. Supports the automatic Geofabrik GPKG download (302 redirect handling included). Refreshable via <code>update_geofabrik_states.py</code>.</p>
+
+<h3>Release-Assets Folder</h3>
+<p><span class="tag new">NEW</span> <b><code>release-assets/</code> folder</b> in the repo. Holds dated docs (manual, release notes, quickstart) and two Python scripts. One command (<code>python release-assets/prepare_release_assets.py</code>) refreshes Geofabrik URLs, copies newest dated docs to app assets, and verifies markers.</p>
+
+<h3>Source Name Improvements</h3>
+<p><span class="tag change">CHANGE</span> <b>Plain-language source names</b> throughout — no unexplained acronyms:</p>
+<ul>
+<li>UGRC Utah Trails → Utah Trails and Pathways</li>
+<li>BLM Ground Transportation → Bureau of Land Management Trails</li>
+<li>USFS National Forest System Trails → US Forest Service Trails</li>
+<li>USGS National Trails → US Geological Survey National Trails</li>
+<li>NPS Public Trails → National Park Service Trails</li>
+<li>USFS Motor Vehicle Use Maps → US Forest Service Motor Vehicle Use Maps</li>
+<li>OSM Trails → Open Source Maps</li>
+</ul>
+
+<h3>Bug Fixes</h3>
+<p><span class="tag fix">FIX</span> Geofabrik <code>-latest-</code> URL 302 redirect now followed automatically.</p>
+<p><span class="tag fix">FIX</span> GPS state detection at border areas (NH/MA) now uses Android Geocoder instead of bbox matching.</p>
+<p><span class="tag fix">FIX</span> OSM import ledger creation before pending bbox set (prevented silent import failure).</p>
+
+<h3>Known Issues</h3>
+<ul>
+<li>Authority gate integration not yet wired (home state setup accessible from Map Features → IMPORT OSM DATA, not from the gate)</li>
+<li>Import Trails by Area (drawn bbox) not yet built — Pass 2</li>
+<li>Completion screen shows inserted count only, not processed/skipped/duped</li>
+</ul>
+
+</body></html>
