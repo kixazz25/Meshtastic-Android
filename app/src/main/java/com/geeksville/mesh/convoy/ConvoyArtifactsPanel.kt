@@ -105,8 +105,18 @@ fun ConvoyArtifactsPanel(
                     .padding(vertical = 4.dp, horizontal = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                // CLEANUP-2026-08-24H: a CLOSE glyph, not a chevron.
+                //
+                // The whole Row is one clickable calling onDismiss(), so v/>
+                // promised expand-and-collapse and delivered close -- and the
+                // collapsed bar then hid under other panels while the FAB that
+                // would reopen it stayed hidden, because the panel was still
+                // technically open.
+                //
+                // Fred: "wasted functionality -- open it when you need it, close
+                // it otherwise."
                 Text(
-                    if (expanded) "v" else ">",
+                    "\u2715",
                     color = aBlue, fontSize = 10.sp, fontFamily = aMono, fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.width(6.dp))
@@ -118,7 +128,9 @@ fun ConvoyArtifactsPanel(
                 )
                 if (!isConvoyMap) {
                 Surface(
-                    modifier = Modifier.clickable { expanded = false; onCreateRoute() },
+                    // CLEANUP-2026-08-24H: dismiss, not collapse. Leaving a stub
+                    // behind was what made the panel unfindable afterwards.
+                    modifier = Modifier.clickable { onDismiss(); onCreateRoute() },
                     shape = RoundedCornerShape(4.dp),
                     color = Color(0xFF1A2A3A)
                 ) {
@@ -132,8 +144,11 @@ fun ConvoyArtifactsPanel(
             }
 
             // ── Expandable grid ──
+            // CLEANUP-2026-08-24H: always visible. `expanded` is retained so the
+            // AnimatedVisibility and startExpanded parameter stay wired, but
+            // nothing sets it false any more -- the panel is open or gone.
             AnimatedVisibility(
-                visible = expanded,
+                visible = true,
                 enter = expandVertically(),
                 exit = shrinkVertically()
             ) {

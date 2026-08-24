@@ -195,6 +195,100 @@ fun ConvoyGuidedPinPanel(
     }
 }
 
+/**
+ * SUMMARY-2026-08-24I -- the decision, and then the work.
+ *
+ * Shown once the checklist is answered. Scrim plus a centred card, because
+ * this is the last thing between the rider and a build that takes real time
+ * and it deserves to be read rather than skimmed past in a bottom bar.
+ *
+ * ONE PANEL, TWO STATES:
+ *   working = false   the prose, PROCEED and START OVER
+ *   working = true    the same prose, a spinner and the build's own progress,
+ *                     and NO BUTTONS
+ *
+ * Dropping the buttons while it works is deliberate. Fred, 08-24: "start over
+ * shows on the bottom with no idea what is happening." A control offered
+ * during work that cannot safely be taken is worse than no control.
+ *
+ * Presentation only, like everything else in this file: the prose arrives as
+ * a string, the actions leave as callbacks. It does not know what a route is.
+ */
+@Composable
+fun ConvoyGuidedSummaryPanel(
+    title: String,
+    body: String,
+    working: Boolean,
+    progress: String,
+    onProceed: () -> Unit,
+    onStartOver: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier
+            .fillMaxSize()
+            .background(Color(0xCC090C10)),
+        contentAlignment = Alignment.Center
+    ) {
+        Surface(
+            color = gpPanel,
+            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier.widthIn(min = 280.dp, max = 360.dp).padding(18.dp)
+        ) {
+            Column(Modifier.padding(18.dp, 16.dp)) {
+
+                Text(
+                    if (working) "BUILDING YOUR RIDES" else "HERE IS THE PLAN",
+                    color = if (working) gpBlue else gpGreen,
+                    fontSize = 11.sp, fontFamily = gpMono,
+                    fontWeight = FontWeight.Bold, letterSpacing = 1.1.sp
+                )
+                if (title.isNotBlank()) {
+                    Spacer(Modifier.height(3.dp))
+                    Text(title, color = gpDim, fontSize = 11.5.sp)
+                }
+                Spacer(Modifier.height(12.dp))
+
+                Column(
+                    Modifier
+                        .heightIn(max = 260.dp)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    Text(body, color = gpTxt, fontSize = 13.sp, lineHeight = 19.sp)
+                }
+
+                if (working) {
+                    Spacer(Modifier.height(16.dp))
+                    Spacer(Modifier.fillMaxWidth().height(1.dp).background(gpLine))
+                    Spacer(Modifier.height(14.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        androidx.compose.material3.CircularProgressIndicator(
+                            color = gpBlue,
+                            strokeWidth = 2.dp,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(Modifier.width(11.dp))
+                        Text(
+                            progress.ifBlank { "Working\u2026" },
+                            color = gpBlue, fontSize = 12.sp, fontFamily = gpMono
+                        )
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        "This can take a minute on ground the app has not seen before.",
+                        color = gpFaint, fontSize = 11.sp, lineHeight = 15.sp
+                    )
+                } else {
+                    Spacer(Modifier.height(18.dp))
+                    GpButton("PROCEED", primary = true, onClick = onProceed)
+                    Spacer(Modifier.height(7.dp))
+                    GpButton("START OVER", primary = false, onClick = onStartOver)
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun GuidedStepRow(number: Int, s: GuidedStep) {
     val marker = when (s.state) {

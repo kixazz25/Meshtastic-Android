@@ -117,7 +117,11 @@ fun ConvoyRouteToolbar(
     androidx.compose.runtime.LaunchedEffect(routeEntryNonce) { building = true }
     Surface(
         modifier = modifier
-            .width(248.dp)
+            // SUMMARY-2026-08-24I: was .width(248.dp), a hard number set before
+            // ConvoyArtifactsPanel existed. That panel uses a RANGE, and it is
+            // the width Fred remembers this one having. Same modifier and the
+            // same numbers, so the two can no longer drift apart.
+            .widthIn(min = 280.dp, max = 340.dp)
             .offset { IntOffset(offsetX.roundToInt(), offsetY.roundToInt()) },
         shape = RoundedCornerShape(10.dp),
         color = rtPanelBg,
@@ -186,12 +190,14 @@ fun ConvoyRouteToolbar(
             Row(modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                 MethodChip("DROP POINTS &\nBUILD YOURSELF",
-                           selectedMethod == ROUTE_METHOD_P2P, true, building) {
+                           selectedMethod == ROUTE_METHOD_P2P, building,
+                           Modifier.weight(1f)) {
                     // tap-to-place -> Add ON
                     if (building) { onSelectMethod(ROUTE_METHOD_P2P); onAddModeChanged(true) }
                 }
                 MethodChip("AI DESIGN w/\nRIDER GUIDANCE",
-                           selectedMethod == ROUTE_METHOD_SUGGEST, true, building) {
+                           selectedMethod == ROUTE_METHOD_SUGGEST, building,
+                           Modifier.weight(1f)) {
                     // ROUTEBAR-2026-08-24F: NO LONGER DISARMS.
                     //
                     // This called onAddModeChanged(false), and that is the
@@ -285,9 +291,20 @@ fun ConvoyRouteToolbar(
 }
 
 @Composable
-private fun MethodChip(label: String, selected: Boolean, live: Boolean, enabled: Boolean, onClick: () -> Unit) {
+// CHIPLIVE-2026-08-24J2: `live` removed. It marked a method that did not work
+// yet; both work now, so it printed the same word under both chips and cost a
+// line of height. The PARAMETER goes with the label -- an unused flag both
+// callers pass `true` to is one someone re-wires later believing it means
+// something.
+private fun MethodChip(label: String, selected: Boolean, enabled: Boolean,
+                       modifier: Modifier = Modifier, onClick: () -> Unit) {
+    // CLEANUP-2026-08-24H: takes a Modifier now, and CHAINS it rather than
+    // starting from a fresh one. Without this the chip cannot be given a
+    // weight, so it sizes itself from its own two-line label -- which is why
+    // ROUTEBAR-F's fillMaxWidth() on the parent Row did not widen anything and
+    // the panel stretched vertically instead.
     Surface(
-        modifier = Modifier.clickable(enabled = enabled) { onClick() },
+        modifier = modifier.clickable(enabled = enabled) { onClick() },
         shape = RoundedCornerShape(5.dp),
         color = if (selected) rtSelBg else rtRowBg
     ) {
@@ -295,9 +312,6 @@ private fun MethodChip(label: String, selected: Boolean, live: Boolean, enabled:
             horizontalAlignment = Alignment.CenterHorizontally) {
             Text(label, color = if (selected) rtGreen else rtTxtD,
                 fontSize = 10.sp, fontFamily = rtMono, fontWeight = FontWeight.Bold)
-            Text(if (live) "live" else "soon",
-                color = if (live) rtGreen else rtAmber,
-                fontSize = 8.sp, fontFamily = rtMono)
         }
     }
 }

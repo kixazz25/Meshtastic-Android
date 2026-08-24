@@ -1752,7 +1752,25 @@ fun ConvoyMapViewerScreen(
                             aiProgress = ""
                             pinReset()
                         },
-                        onContinue = { showAiDesign = false },
+                        onContinue = {
+                            // CLEANUP-2026-08-24H: to the WIP list, not the map.
+                            //
+                            // The results panel explains that the routes are Work
+                            // in Progress; the WIP list is where they are kept or
+                            // discarded. Dropping to the map left the rider to go
+                            // and find them.
+                            //
+                            // ⚠ draftListTick++ IS LOAD-BEARING. The explorer
+                            // writes drafts through writeRawDraft, which is not one
+                            // of the ten sites that bump this -- so the list is
+                            // built from a stale remember() and shows nothing.
+                            // Fred: "WIP in process did not show. I had to exit and
+                            // return from planning map." Same cause as
+                            // SAVEWIP-LISTTICK-2026-08-17.
+                            showAiDesign = false
+                            draftListTick++
+                            showInProgressPicker = true
+                        },
                         onClose = {
                             showAiDesign = false
                             // Nothing was built, so do not leave the rider in a mode
@@ -1929,15 +1947,40 @@ fun ConvoyMapViewerScreen(
                     else -> emptyList()
                 }
 
-                ConvoyGuidedPinPanel(
-                    steps = steps,
-                    expanded = pinExpanded,
-                    onToggle = { pinExpanded = !pinExpanded },
-                    onStartOver = { pinReset() },
-                    actions = actions,
-                    notice = pinNotice,
-                    modifier = Modifier.align(Alignment.BottomCenter)
-                )
+                // SUMMARY-2026-08-24I: the PANEL swaps, the BLOCK does not.
+                //
+                // ⚠ Gating the whole block on pinStep would kill the search-done
+                // LaunchedEffect above -- and that is exactly how Patch C's
+                // trailhead capture came to never fire. Only the render changes.
+                if (pinStep < PIN_STEP_REVIEW) {
+                    ConvoyGuidedPinPanel(
+                        steps = steps,
+                        expanded = pinExpanded,
+                        onToggle = { pinExpanded = !pinExpanded },
+                        onStartOver = { pinReset() },
+                        actions = actions,
+                        notice = pinNotice,
+                        modifier = Modifier.align(Alignment.BottomCenter)
+                    )
+                } else {
+                    ConvoyGuidedSummaryPanel(
+                        title = pinRideName,
+                        body = summary,
+                        working = pinStep == PIN_STEP_SEARCH,
+                        progress = aiProgress,
+                        // ⚠ ONE DEFINITION. This invokes the same FIND MY RIDES
+                        // lambda the checklist's action list already holds, rather
+                        // than a second copy of the search launch. Two copies of
+                        // that Thread block is the duplicate this project has a
+                        // standing rule against.
+                        onProceed = { actions.firstOrNull()?.second?.invoke() },
+                        // Fred, 08-24: START OVER returns to the CHECKLIST, not to
+                        // the setup panel. A rider changing their mind here is
+                        // changing the trailhead or the loop answer, not the name
+                        // or the mileage.
+                        onStartOver = { pinReset() }
+                    )
+                }
             }
 
             if (showHomeStatePicker) {
@@ -2310,6 +2353,30 @@ fun ConvoyMapViewerScreen(
                         // toolbar already reports the change, so no new callback is
                         // needed on the shared component.
                         if (it == ROUTE_METHOD_SUGGEST) {
+                            // CHIPLIVE-2026-08-24J2: A FRESH SESSION STARTS EMPTY.
+                            //
+                            // The panel decides its phase from `results` at first
+                            // composition, so a previous run's routes still sitting
+                            // in aiResults reopened it straight onto PHASE_RESULTS
+                            // -- last time's answer, dressed as this time's.
+                            //
+                            // onFindRides clears these already, but it fires at
+                            // PROCEED, by which point the panel has read them.
+                            // Clear where the session BEGINS.
+                            //
+                            // ⚠ pinTrailName and its coordinates live out here
+                            // rather than in the panel, so they survive a reopen
+                            // too -- a second run would have started from the first
+                            // run's trailhead without asking. Same bug, one step on.
+                            aiResults = emptyList()
+                            aiProgress = ""
+                            aiBusy = false
+                            pinStep = PIN_STEP_NONE
+                            pinTrailName = ""
+                            pinTrailLat = 0.0
+                            pinTrailLon = 0.0
+                            pinNotice = ""
+
                             // PINSELECT-2026-08-24G: trails and waypoints ON.
                             //
                             // Step 1 of the checklist asks the rider to TAP a

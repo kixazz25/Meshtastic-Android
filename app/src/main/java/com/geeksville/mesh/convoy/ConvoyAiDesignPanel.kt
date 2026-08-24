@@ -84,7 +84,15 @@ private val aiFaint   = Color(0xFF667788)
  *  rather than as more background. aiCard is three points away from aiBg,
  *  which is right for a panel that should barely separate and wrong for an
  *  input that must obviously be one. */
-private val aiField   = Color(0xFF1E2A38)
+/** CLEANUP-2026-08-24H: light blue, and every colour on the field is stated
+ *  EXPLICITLY -- background, text and cursor.
+ *
+ *  ⚠ AIPANEL-E lightened only the background and the text stayed invisible.
+ *  Fred found why: "dark model or theme overrides unless color is explicit."
+ *  BasicTextField's textStyle inherits from the theme when the colour is left
+ *  unsaid, so the box lightened and the glyphs did not. */
+private val aiField   = Color(0xFF2B4A6F)
+private val aiFieldTx = Color(0xFFEAF4FF)
 private val aiMono    = FontFamily.Monospace
 
 const val AI_MODE_EXPLORE = 0   // start point + goals, the app picks everything
@@ -168,8 +176,8 @@ fun ConvoyAiDesignPanel(
                         value = name,
                         onValueChange = { name = it },
                         singleLine = true,
-                        textStyle = TextStyle(color = aiTxt, fontSize = 13.sp),
-                        cursorBrush = SolidColor(aiGreen),
+                        textStyle = TextStyle(color = aiFieldTx, fontSize = 13.sp),
+                        cursorBrush = SolidColor(aiFieldTx),
                         modifier = Modifier.fillMaxWidth().padding(11.dp, 10.dp)
                     )
                 }
