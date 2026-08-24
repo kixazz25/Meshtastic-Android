@@ -179,7 +179,12 @@ fun ConvoyRouteToolbar(
             //
             // The labels now say WHO BUILDS THE ROUTE rather than naming a thing.
             // "Point / Draw / Suggest" left a rider to work out what each did.
-            Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+            // ROUTEBAR-2026-08-24F: fillMaxWidth() was missing HERE and present on
+            // every other Row in this panel, so these two chips wrapped to their
+            // own labels instead of splitting the panel width -- which is why they
+            // stopped lining up with the heading.
+            Row(modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                 MethodChip("DROP POINTS &\nBUILD YOURSELF",
                            selectedMethod == ROUTE_METHOD_P2P, true, building) {
                     // tap-to-place -> Add ON
@@ -187,21 +192,43 @@ fun ConvoyRouteToolbar(
                 }
                 MethodChip("AI DESIGN w/\nRIDER GUIDANCE",
                            selectedMethod == ROUTE_METHOD_SUGGEST, true, building) {
-                    // STUB:AIDESIGN -- opens the AI Design panel (mode + goals),
-                    // which closes on confirm so it does not hog the map. Until it
-                    // exists this selects the method and disarms tap-to-place,
-                    // because nothing is being drawn by hand in this mode.
-                    if (building) { onSelectMethod(ROUTE_METHOD_SUGGEST); onAddModeChanged(false) }
+                    // ROUTEBAR-2026-08-24F: NO LONGER DISARMS.
+                    //
+                    // This called onAddModeChanged(false), and that is the
+                    // `ROUTEMODE -> false` logged 1.3s after +ROUTE armed it. With
+                    // route mode off the JS artifact handlers stop returning early,
+                    // so a tap opened a popup and never reached onProximityTap --
+                    // which is where the guided flow selects a trailhead.
+                    //
+                    // The original reason was sound: in AI mode nothing is drawn by
+                    // hand, so taps were better spent reading trail names. What
+                    // changed is that AI mode now OPENS with a step that needs taps
+                    // to reach Kotlin.
+                    //
+                    // ⭐ The behaviour moves to the rider rather than being deleted.
+                    // The BUILD row below is visible again in this mode, so
+                    // "MAP TAPS ON" is one tap away whenever they want to research
+                    // the map instead of place something.
+                    if (building) { onSelectMethod(ROUTE_METHOD_SUGGEST) }
                 }
             }
             } // ROUTEMETHOD-2026-08-23R: end if(methodOpen)
 
-            // ROUTEPANEL-2026-08-23O: the BUILD row is shown ONLY while the rider is
-            // building by hand. Fred 08-23: "I would only show draw or popup when
-            // in user control mode." In AI mode nothing is being drawn, so neither
-            // control has a meaning to offer -- and showing them at the same level
-            // as the method was what made the old panel confusing.
-            if (selectedMethod != ROUTE_METHOD_SUGGEST) {
+            // ROUTEPANEL-2026-08-23O hid this row in AI mode. Fred 08-23: "I would
+            // only show draw or popup when in user control mode." Correct then --
+            // in AI mode nothing was being drawn, so neither control had a meaning
+            // to offer.
+            //
+            // ROUTEBAR-2026-08-24F: SHOWN AGAIN, in every mode. Pin collection gave
+            // a tap a third meaning -- select the trailhead the checklist is asking
+            // for -- and the control governing that was invisible. A panel that
+            // reports a state it does not display is worse than a panel with one
+            // more row on it.
+            //
+            // ⚠ WORKAROUND, BY AGREEMENT. Fred 08-24: a floating toggle is the
+            // preferred home. When it is built it REPLACES this row. "IT CANNOT BE
+            // BOTH" -- two controls on one flag is exactly how they come to
+            // disagree.
             Text("BUILD  ($vertexCount pts)", color = if (building) rtTxtD else rtDis, fontSize = 9.sp, fontFamily = rtMono)
             // Segmented switch: BOTH halves visible, ACTIVE half reverse-video
             // (filled block + knockout text) so it reads on a B/W device.
@@ -219,7 +246,7 @@ fun ConvoyRouteToolbar(
                     if (building && addArmed) { onAddModeChanged(false) }
                 }
             }
-            } // end if(method != SUGGEST)
+            // ROUTEBAR-2026-08-24F: end of the removed if(method != SUGGEST)
             // Undo on its own row, centered.
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
                 BuildBtn("Undo", if (building) rtBlue else rtDis, Modifier.width(120.dp)) { if (building) onUndo() }

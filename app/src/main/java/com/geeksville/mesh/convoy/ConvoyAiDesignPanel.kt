@@ -78,6 +78,13 @@ private val aiAmber   = Color(0xFFE3B341)
 private val aiTxt     = Color(0xFFE6EDF3)
 private val aiDim     = Color(0xFF8899AA)
 private val aiFaint   = Color(0xFF667788)
+/** AIPANEL-2026-08-24E: input fields only.
+ *
+ *  Distinctly lighter than aiBg so a text field reads as somewhere you TYPE
+ *  rather than as more background. aiCard is three points away from aiBg,
+ *  which is right for a panel that should barely separate and wrong for an
+ *  input that must obviously be one. */
+private val aiField   = Color(0xFF1E2A38)
 private val aiMono    = FontFamily.Monospace
 
 const val AI_MODE_EXPLORE = 0   // start point + goals, the app picks everything
@@ -120,6 +127,20 @@ fun ConvoyAiDesignPanel(
     var mphLow by remember { mutableIntStateOf(12) }
     var mphHigh by remember { mutableIntStateOf(18) }
 
+    // AIPANEL-2026-08-24B: the two explainer twisties.
+    //
+    // "How does this work?" opens by default -- the first time anyone sees
+    // this panel is the one time the explanation matters most. "How are trails
+    // recommended?" is a different question, asked by the riders who want to
+    // know why a route came back the way it did, so it starts closed.
+    //
+    // STUB:TWISTYPREF -- these reset to their defaults every time the panel
+    // opens. Fred, 08-24: "always open to the last state." That needs a
+    // preference, NOT draft state: a twisty in the draft JSON would travel
+    // inside the GPX and get restored on another rider's phone.
+    var twHow by remember { mutableStateOf(true) }
+    var twRec by remember { mutableStateOf(false) }
+
     // The envelope: slowest case is the LOW mileage over the HIGH speed only if
     // you want the shortest possible; the honest bounds are low/high and
     // high/low, so every route that comes back falls inside.
@@ -133,44 +154,15 @@ fun ConvoyAiDesignPanel(
             if (phase == PHASE_SETUP) {
                 Text("AI Design", color = aiGreen, fontSize = 19.sp,
                     fontWeight = FontWeight.Bold)
-                Spacer(Modifier.height(5.dp))
-                Text(
-                    "Rides are worked out from the trail data for this area, the natural " +
-                        "features on it \u2014 springs, summits, cliffs, cones \u2014 and the " +
-                        "points of interest.",
-                    color = aiDim, fontSize = 12.5.sp, lineHeight = 18.sp
-                )
                 Spacer(Modifier.height(14.dp))
 
-                // ── the two ways to ask ──────────────────────────────
-                AiOption(
-                    title = "Explore the area",
-                    body = "You give a starting point and how long you want to be out. " +
-                        "GroupTrack picks everything else \u2014 it looks for the rides that " +
-                        "take in the most features for the distance you have.",
-                    hint = "Use this when you do not know the area, or want to be shown " +
-                        "something you would not have found.",
-                    selected = mode == AI_MODE_EXPLORE
-                ) { mode = AI_MODE_EXPLORE }
-
-                AiOption(
-                    title = "Include places I choose",
-                    body = "Drop the places you want in the ride. GroupTrack will draw " +
-                        "routes containing as many of your points as it can within your " +
-                        "distance limit, then backfill the route with as many other " +
-                        "features as it can accommodate.",
-                    hint = "Expect fewer options back \u2014 every place you add is one more " +
-                        "thing the ride has to satisfy.",
-                    selected = mode == AI_MODE_INCLUDE
-                ) { mode = AI_MODE_INCLUDE }
-
-                Spacer(Modifier.height(6.dp))
-
-                // ── name ─────────────────────────────────────────────
+                // ── 1. NAME, first ───────────────────────────────────
+                // AIPANEL-2026-08-24B: was mid-panel. It names four routes,
+                // so the rider decides it before anything else.
                 Text("NAME THESE ROUTES BEING CREATED", color = aiFaint, fontSize = 9.5.sp,
                     fontFamily = aiMono)
                 Spacer(Modifier.height(5.dp))
-                Surface(shape = RoundedCornerShape(6.dp), color = aiCard,
+                Surface(shape = RoundedCornerShape(6.dp), color = aiField,
                     modifier = Modifier.fillMaxWidth()) {
                     BasicTextField(
                         value = name,
@@ -188,45 +180,95 @@ fun ConvoyAiDesignPanel(
                         "you keep.",
                     color = aiFaint, fontSize = 11.sp, lineHeight = 15.sp
                 )
-                Spacer(Modifier.height(14.dp))
+                Spacer(Modifier.height(16.dp))
 
-                // ── mileage: the real constraint ─────────────────────
+                // ── 2. HOW FAR, AND HOW FAST ─────────────────────────
+                Text("HOW FAR, AND HOW FAST", color = aiFaint, fontSize = 9.5.sp,
+                    fontFamily = aiMono)
+                Spacer(Modifier.height(7.dp))
                 RangeRow("How far do you want to ride?", "$miLow \u2013 $miHigh miles")
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    "A wide range gives more choices \u2014 it is what the search has room " +
-                        "to work with.",
-                    color = aiFaint, fontSize = 11.sp, lineHeight = 15.sp
-                )
-                Spacer(Modifier.height(13.dp))
-
-                // ── speed: presentation only ─────────────────────────
+                Spacer(Modifier.height(7.dp))
                 RangeRow("Your average speed", "$mphLow \u2013 $mphHigh mph")
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    "This comes from real rides recorded across varied terrain \u2014 and it " +
-                        "already includes the stops those riders took. So the estimate is your " +
-                        "whole day out, not just the time you are moving.\n\n" +
-                        "Narrowing it does not change which rides come back, only how tightly " +
-                        "the time is estimated. If your group gets back earlier or later than " +
-                        "the estimate, change this and the next suggestion will fit you better.",
-                    color = aiFaint, fontSize = 11.sp, lineHeight = 15.sp
-                )
-                Spacer(Modifier.height(13.dp))
+                Spacer(Modifier.height(11.dp))
 
-                // ── the envelope ─────────────────────────────────────
+                // ── 3. TARGETED RIDE DURATION ────────────────────────
+                // Fred's wording, 08-24. "Targeted" rather than "estimated":
+                // this is what the rider is aiming for, not a prediction about
+                // a route that does not exist yet. The per-route card carries
+                // the real estimate, from that route's own mileage.
                 Surface(shape = RoundedCornerShape(6.dp), color = aiCard,
                     modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(11.dp, 10.dp)) {
+                        Text("TARGETED RIDE DURATION", color = aiGreen, fontSize = 9.5.sp,
+                            fontFamily = aiMono)
+                        Spacer(Modifier.height(4.dp))
+                        Text("%.1f \u2013 %.1f hours".format(hrLow, hrHigh),
+                            color = aiTxt, fontSize = 14.sp, fontFamily = aiMono)
+                        Spacer(Modifier.height(5.dp))
+                        Text(
+                            "Calculated from the average speed and miles above. Changing " +
+                                "these values will change the ride duration estimated.",
+                            color = aiFaint, fontSize = 11.sp, lineHeight = 15.sp
+                        )
+                    }
+                }
+                Spacer(Modifier.height(9.dp))
+                Text(
+                    "Adjust defaults with caution. Adjustments to the above values will " +
+                        "result in fewer trail options selected.",
+                    color = aiAmber, fontSize = 11.sp, lineHeight = 15.sp
+                )
+                Spacer(Modifier.height(16.dp))
+
+                // ── 4. THE TWO TWISTIES ──────────────────────────────
+                AiTwisty("How does this work?", twHow, aiGreen, { twHow = !twHow }) {
                     Text(
-                        "Every ride suggested will be between %.1f and %.1f hours."
-                            .format(hrLow, hrHigh),
-                        color = aiTxt, fontSize = 12.sp, lineHeight = 17.sp,
-                        modifier = Modifier.padding(11.dp, 10.dp)
+                        "You will be guided throughout this process. This option analyzes " +
+                            "all the trails around you and your choices to create several " +
+                            "Work in Progress ride alternatives for you to review.",
+                        color = aiDim, fontSize = 12.sp, lineHeight = 17.sp
+                    )
+                    Spacer(Modifier.height(7.dp))
+                    Text(
+                        "You may complete and save or discard these works in progress at " +
+                            "your leisure.",
+                        color = aiDim, fontSize = 12.sp, lineHeight = 17.sp
                     )
                 }
-                Spacer(Modifier.height(13.dp))
 
-                // ── it has not seen the ground ───────────────────────
+                AiTwisty("How are trails recommended?", twRec, aiBlue, { twRec = !twRec }) {
+                    Text(
+                        "The app scores a ride on what it passes and how much of it you " +
+                            "ride twice. Rides that reach named features \u2014 springs, " +
+                            "canyons, overlooks, ruins, mines \u2014 score higher than rides " +
+                            "that just cover ground.",
+                        color = aiDim, fontSize = 12.sp, lineHeight = 17.sp
+                    )
+                    Spacer(Modifier.height(7.dp))
+                    Text(
+                        "Riding the same trail back the way you came counts against a ride, " +
+                            "so loops and new ground are favoured over out-and-backs. " +
+                            "Distance is a budget, not a goal \u2014 a ride that hits your " +
+                            "mileage but passes nothing interesting scores below a shorter " +
+                            "one that does.",
+                        color = aiDim, fontSize = 12.sp, lineHeight = 17.sp
+                    )
+                    Spacer(Modifier.height(7.dp))
+                    // The line that earns its keep. Panguitch's main connected
+                    // component is 40,599 of 70,741 nodes -- 43% of the network
+                    // is fragments joined to nothing. A rider who knows a trail
+                    // is out there and never sees it used will file a bug.
+                    Text(
+                        "It only builds on trails that are actually connected to each other " +
+                            "in the map data. Some trails in your area are recorded as " +
+                            "isolated pieces with nothing joining them, and those cannot be " +
+                            "used until better data exists.",
+                        color = aiFaint, fontSize = 11.sp, lineHeight = 16.sp
+                    )
+                }
+                Spacer(Modifier.height(14.dp))
+
+                // ── 5. it has not seen the ground ────────────────────
                 Surface(shape = RoundedCornerShape(7.dp), color = Color(0xFF241D0E),
                     modifier = Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(12.dp, 11.dp)) {
@@ -244,10 +286,25 @@ fun ConvoyAiDesignPanel(
                 }
                 Spacer(Modifier.height(18.dp))
 
-                AiButton("FIND MY RIDES", "Saved as work in progress \u2014 nothing is committed") {
+                // ── 6. PROCEED ───────────────────────────────────────
+                // ⚠ STILL CALLS onFindRides DIRECTLY. Pin collection lands in
+                // Patch C; until then this panel behaves exactly as it did and
+                // the explorer keeps working. The LABEL is ahead of the wiring
+                // on purpose -- it is the layout that is being reviewed.
+                AiButton(
+                    "PROCEED TO MAP",
+                    "Dropping a trailhead pin is a required step. Dropping any other " +
+                        "pins is optional."
+                ) {
                     // STUB:AISEARCH -- the exploratory search attaches here. It
                     // returns 1-4 routes; the panel then switches to PHASE_RESULTS.
-                    onFindRides(mode, name.ifBlank { anchorName }, miLow, miHigh, mphLow, mphHigh)
+                    // AIPANEL-2026-08-24B: mode is no longer chosen on this panel.
+                    // It is DERIVED from the pins the rider drops -- trailhead only
+                    // is Explore, any include points is Assist -- and Patch C
+                    // supplies it. AI_MODE_EXPLORE until then, which is what a
+                    // trailhead-only search is.
+                    onFindRides(AI_MODE_EXPLORE, name.ifBlank { anchorName },
+                        miLow, miHigh, mphLow, mphHigh)
                     phase = PHASE_RESULTS
                 }
                 Spacer(Modifier.height(11.dp))
@@ -344,6 +401,48 @@ private fun AiOption(
             Spacer(Modifier.height(6.dp))
             Text(hint, color = aiFaint, fontSize = 11.5.sp, lineHeight = 16.sp,
                 modifier = Modifier.padding(start = 23.dp))
+        }
+    }
+}
+
+/**
+ * AIPANEL-2026-08-24B: a collapsible explainer.
+ *
+ * Collapsed shows only the QUESTION -- one line instead of three paragraphs.
+ * A rider who already knows scrolls past in a second; one who does not taps it.
+ *
+ * The body is a slot rather than a String so a twisty can hold several
+ * paragraphs at different weights without this function growing parameters for
+ * each of them.
+ */
+@Composable
+private fun AiTwisty(
+    question: String,
+    open: Boolean,
+    accent: Color,
+    onToggle: () -> Unit,
+    body: @Composable ColumnScope.() -> Unit
+) {
+    Surface(
+        shape = RoundedCornerShape(6.dp), color = aiCard,
+        modifier = Modifier.fillMaxWidth().padding(bottom = 7.dp)
+    ) {
+        Column(Modifier.fillMaxWidth()) {
+            Row(
+                Modifier.fillMaxWidth().clickable { onToggle() }.padding(11.dp, 10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(if (open) "\u25BE" else "\u25B8", color = aiFaint,
+                    fontSize = 11.sp, fontFamily = aiMono,
+                    modifier = Modifier.padding(end = 9.dp))
+                Text(question, color = accent, fontSize = 12.8.sp,
+                    fontWeight = FontWeight.Bold)
+            }
+            if (open) {
+                Column(Modifier.fillMaxWidth().padding(11.dp, 0.dp, 11.dp, 11.dp)) {
+                    body()
+                }
+            }
         }
     }
 }

@@ -63,6 +63,83 @@ import androidx.compose.foundation.layout.Box
 // Three-state display: OFF=0, ON=1, SELECTED=2
 private const val DS_OFF = 0
 // Canonical 12 waypoint types (B1 + rally). label shown in picker; key stored in DB.
+// GUIDEDPIN-2026-08-24C ── the guided pin flow's steps ──────────────────────
+private const val PIN_STEP_NONE      = 0
+private const val PIN_STEP_TRAILHEAD = 1
+private const val PIN_STEP_RETURN    = 2
+private const val PIN_STEP_REVIEW    = 3
+private const val PIN_STEP_SEARCH    = 4
+
+/** A trailhead is a large physical area -- trucks and trailers. Two riders
+ *  pinning opposite ends of the same gravel lot are 400 ft apart and BOTH
+ *  CORRECT, so identity here is PROXIMITY, not geom_hash. Fred, 08-24:
+ *  "a trailhead is huge to staging trailers and carts ... a quarter mile is
+ *  generous enough." */
+private const val TRAILHEAD_DEDUP_MI = 0.25
+
+/** How close a tap has to be to COUNT AS pointing at a trailhead. ~100 m, the
+ *  same tolerance onProximityTap already uses for every other artifact.
+ *
+ *  ⚠ DELIBERATELY NOT the dedup radius. Selection is the rider pointing at one
+ *  specific pin and a quarter mile would grab the wrong one on a busy map.
+ *  Dedup is asking whether two coordinates mean the same parking area, where a
+ *  quarter mile is barely generous. Same question, two tolerances. */
+private const val TRAILHEAD_SELECT_MI = 0.062
+
+/** Miles between two lat/lon, flat-earth. Good to a fraction of a percent at
+ *  quarter-mile scale and it costs one sqrt -- haversine here would be
+ *  precision nobody can use. */
+private fun gpMilesBetween(
+    lat1: Double, lon1: Double, lat2: Double, lon2: Double
+): Double {
+    val dLat = (lat2 - lat1) * 69.0
+    val dLon = (lon2 - lon1) * 69.0 *
+        kotlin.math.cos(Math.toRadians((lat1 + lat2) / 2.0))
+    return kotlin.math.sqrt(dLat * dLat + dLon * dLon)
+}
+
+/** "POINT(lon lat)" -> [lat, lon], or null.
+ *  ⚠ WKT IS LON LAT and this app stores lat lon. Getting that backwards puts
+ *  a Utah trailhead in the Indian Ocean, and it would look like a dedup bug
+ *  rather than a parse bug. */
+private fun gpParsePointWkt(wkt: String?): DoubleArray? {
+    if (wkt.isNullOrBlank()) return null
+    val m = Regex("-?\\d+\\.?\\d*").findAll(wkt).map { it.value }.toList()
+    if (m.size < 2) return null
+    val lon = m[0].toDoubleOrNull() ?: return null
+    val lat = m[1].toDoubleOrNull() ?: return null
+    return doubleArrayOf(lat, lon)
+}
+
+/**
+ * The nearest EXISTING trailhead within a quarter mile, or null.
+ *
+ * Reuses queryWaypointsByViewport rather than adding a DB function: a quarter
+ * mile is a tiny box and the type filter is cheap in Kotlin. A second spatial
+ * query would be a second place that decides what "near" means.
+ *
+ * Background thread only -- it opens the spatial DB.
+ */
+private fun gpNearestTrailhead(
+    lat: Double, lon: Double, withinMi: Double = TRAILHEAD_DEDUP_MI
+): Map<String, String?>? {
+    val dLat = withinMi / 69.0
+    val dLon = withinMi /
+        (69.0 * kotlin.math.max(0.2, kotlin.math.cos(Math.toRadians(lat))))
+    val found = SpatialDbManager.queryWaypointsByViewport(
+        lat - dLat, lon - dLon, lat + dLat, lon + dLon, 200
+    )
+    var best: Map<String, String?>? = null
+    var bestMi = withinMi
+    for (w in found) {
+        if ((w["type"] ?: "") != "trailhead") continue
+        val p = gpParsePointWkt(w["geometry"]) ?: continue
+        val mi = gpMilesBetween(lat, lon, p[0], p[1])
+        if (mi <= bestMi) { bestMi = mi; best = w }
+    }
+    return best
+}
+
 private val WAYPOINT_TYPES: List<Pair<String, String>> = listOf(
     "hazard" to "☠ Hazard",
     "gate" to "⛔ Gate",
@@ -178,6 +255,54 @@ fun ConvoyMapViewerScreen(
     // the results list, which the toolbar has no room for. Same pattern as
     // showHomeStatePicker.
     var showAiDesign by remember { mutableStateOf(false) }
+
+    // GUIDEDPIN-2026-08-24C ── guided pin collection ─────────────────────────
+    // Which checklist step is live. PIN_STEP_NONE means the flow is not
+    // running and long press keeps its ordinary meaning.
+    var pinStep by remember { mutableStateOf(PIN_STEP_NONE) }
+    var pinExpanded by remember { mutableStateOf(true) }
+    // An unexpected result the rider must see. The panel force-expands when
+    // this is set: a warning nobody sees is worse than a panel that reappears.
+    var pinNotice by remember { mutableStateOf("") }
+
+    // The collected trailhead. Durable -- the waypoint survives START OVER and
+    // survives promotion, because the place where road meets trail does not
+    // stop being true when a route is saved.
+    var pinTrailName by remember { mutableStateOf("") }
+    var pinTrailLat by remember { mutableStateOf(0.0) }
+    var pinTrailLon by remember { mutableStateOf(0.0) }
+
+    // Stashed from the AI panel so the search can run after pin collection.
+    var pinRideName by remember { mutableStateOf("") }
+    var pinMiLow by remember { mutableIntStateOf(55) }
+    var pinMiHigh by remember { mutableIntStateOf(80) }
+    var pinMphLow by remember { mutableIntStateOf(12) }
+    var pinMphHigh by remember { mutableIntStateOf(18) }
+
+    /** Clears the SELECTION, never the waypoint. Fred, 08-24: "only thing
+     *  saved for start over is the trailhead waypoint but it still must be
+     *  selected to restart the process." The waypoint is ground truth; the
+     *  selection of it is not, and nothing carries forward implicitly. */
+    val pinReset = {
+        pinTrailName = ""; pinTrailLat = 0.0; pinTrailLon = 0.0
+        pinNotice = ""; pinExpanded = true
+        pinStep = PIN_STEP_TRAILHEAD
+    }
+
+    // PINSELECT-2026-08-24G: mirror pinStep into the map as __pinSelect.
+    //
+    // True ONLY while the checklist is asking which trailhead. The JS waypoint
+    // handler branches on this BEFORE its __routeMode check, so the tap reaches
+    // onProximityTap instead of falling through to the vertex path.
+    //
+    // ⚠ Driven by an effect rather than set at each transition. pinStep moves
+    // from four places already -- proceed, select, start over, back -- and a
+    // flag written at each of them is a flag that gets missed at the fifth.
+    androidx.compose.runtime.LaunchedEffect(pinStep) {
+        val on = pinStep == PIN_STEP_TRAILHEAD
+        webViewRef?.evaluateJavascript("window.__pinSelect=" + on + ";", null)
+        android.util.Log.i("GuidedPin", "__pinSelect=" + on + " (pinStep=" + pinStep + ")")
+    }
     // WIPNOTES-2026-08-23S: the WIP narrative panel. Only reachable while a draft is
     // open, and only when that draft actually carries notes.
     var showWipNotes by remember { mutableStateOf(false) }
@@ -665,6 +790,14 @@ fun ConvoyMapViewerScreen(
         }
         // Track panel removed
         // -- Back navigation guard --
+                    // GUIDEDPIN-2026-08-24D: C's trailhead-capture effect stood
+                    // here and NEVER RAN. This block is above `// -- WebView --`
+                    // and is not live while the map is in use -- the indent drop
+                    // from 20 spaces to 8 at its close is the tell.
+                    //
+                    // Selection now happens on TAP, in onProximityTap, which is a
+                    // plain @JavascriptInterface callback with none of this
+                    // problem. Long press keeps its ONE meaning: create a waypoint.
                     pendingWaypoint?.let { (wLat, wLon) ->
                         androidx.compose.material3.AlertDialog(
                             onDismissRequest = { pendingWaypoint = null },
@@ -875,6 +1008,62 @@ fun ConvoyMapViewerScreen(
                                         "trail=$trailState track=$trackState " +
                                         "wpt=$waypointState route=$routeState"
                                 )
+                                // GUIDEDPIN-2026-08-24D: SELECT A TRAILHEAD.
+                                //
+                                // ⚠ BEFORE the routeMode guard on the next line, not
+                                // after it. The checklist runs DURING route mode, so a
+                                // branch below that guard would never be reached -- the
+                                // same mistake that killed Patch C, one line lower.
+                                //
+                                // Returns immediately: no proximity popup, no artifact
+                                // panel. While the checklist is asking which trailhead,
+                                // a tap means that and nothing else.
+                                if (pinStep == PIN_STEP_TRAILHEAD) {
+                                    Thread {
+                                        var nm: String? = null
+                                        var la = 0.0
+                                        var lo = 0.0
+                                        try {
+                                            SpatialDbManager.init(context)
+                                            val hit = gpNearestTrailhead(
+                                                lat, lon, TRAILHEAD_SELECT_MI
+                                            )
+                                            if (hit != null) {
+                                                nm = hit["name"] ?: "Trailhead"
+                                                gpParsePointWkt(hit["geometry"])?.let {
+                                                    la = it[0]; lo = it[1]
+                                                }
+                                            }
+                                        } catch (e: Exception) {
+                                            android.util.Log.e("GuidedPin",
+                                                "select failed: " + e.message)
+                                        }
+                                        val fnm = nm
+                                        android.os.Handler(
+                                            android.os.Looper.getMainLooper()
+                                        ).post {
+                                            if (fnm == null) {
+                                                // ⚠ SAY SO. A tap that does nothing is
+                                                // indistinguishable from a broken app,
+                                                // and this one misses often -- the
+                                                // rider is aiming at a small marker.
+                                                pinNotice = "No trailhead there. Tap the " +
+                                                    "trailhead marker itself, or add one " +
+                                                    "with a long press."
+                                                pinExpanded = true
+                                            } else {
+                                                pinTrailName = fnm
+                                                pinTrailLat = la
+                                                pinTrailLon = lo
+                                                pinNotice = ""
+                                                pinExpanded = true
+                                                pinStep = PIN_STEP_RETURN
+                                            }
+                                        }
+                                    }.start()
+                                    return
+                                }
+
                                 // Query all artifact types near tap point from spatial DB
                                 if (routeMode) return  // ROUTETAP-2026-08-02: placing route points -- no artifact popups
                                 val radius = 0.0009 // ~100 meters in degrees (ROUTETAP-2026-08-02: was 0.002/200m)
@@ -1545,60 +1734,23 @@ fun ConvoyMapViewerScreen(
                         // step -- ~27,000 edges for a corridor this size. It is
                         // cached per corridor afterwards, but the FIRST run in an
                         // area takes real time and would freeze the map.
-                        onFindRides = { mode, rname, miLow, miHigh, mphLow, mphHigh ->
-                            // ROUTEEXPLORE-2026-08-23U: the anchor.
-                            // ⚠ STAND-IN, NOT THE DESIGN. The panel is meant to take a
-                            // DROPPED PIN as the trailhead. Until that is wired, the map
-                            // centre is a fair proxy -- a rider setting up a ride has
-                            // almost certainly centred on where they mean to start -- but
-                            // a rider who has panned away gets a corridor around the wrong
-                            // place. Replacing this is one line once the pin drop exists.
-                            // ROUTEEXPLORE-2026-08-23V: TEMPORARY -- Panguitch town park,
-                            // Main St. The exact anchor the research used on 08-22, so
-                            // this run can be held against a known answer instead of
-                            // producing routes on unknown ground.
-                            // ⚠ REMOVE when the pin drop is wired; the viewport midpoint
-                            // below is what it replaces.
-                            val cLat = 37.8222
-                            val cLon = -112.4358
-                            @Suppress("UNUSED_EXPRESSION")
-                            run { lastViewportSouth; lastViewportNorth
-                                  lastViewportWest; lastViewportEast }
-                            aiBusy = true
+                        // GUIDEDPIN-2026-08-24C: PROCEED TO MAP no longer searches.
+                        // It stashes what the rider typed, closes this panel, and
+                        // hands over to pin collection. The search runs from the
+                        // checklist's FIND MY RIDES, with the trailhead they drop.
+                        //
+                        // ⚠ The panel's own parameter is still called onFindRides
+                        // and its `mode` argument is ignored -- mode is DERIVED from
+                        // the pins now. Renaming the parameter would mean editing a
+                        // file Patch B rewrote this morning, for no behaviour.
+                        onFindRides = { _, rname, miLow, miHigh, mphLow, mphHigh ->
+                            pinRideName = rname
+                            pinMiLow = miLow; pinMiHigh = miHigh
+                            pinMphLow = mphLow; pinMphHigh = mphHigh
+                            showAiDesign = false
                             aiResults = emptyList()
-                            Thread {
-                                try {
-                                    // ROUTEEXPLORE-2026-08-23U: getSpatialDb() is NULLABLE -- the DB
-                                    // is absent before any import has run. Fail with something
-                                    // readable rather than an NPE inside a worker thread.
-                                    val db = SpatialDbManager.getSpatialDb()
-                                    if (db == null) {
-                                        aiProgress = "No trail data on this device yet"
-                                        aiBusy = false
-                                        return@Thread
-                                    }
-                                    val out = RouteExplorer.explore(
-                                        db,
-                                        RouteExplorer.Request(
-                                            anchorLat = cLat, anchorLon = cLon,
-                                            name = rname,
-                                            milesLow = miLow.toDouble(),
-                                            milesHigh = miHigh.toDouble(),
-                                            mphLow = mphLow.toDouble(),
-                                            mphHigh = mphHigh.toDouble()
-                                        )
-                                    ) { p -> aiProgress = p.step + (if (p.detail.isNotBlank()) " \u2014 " + p.detail else "") }
-                                    aiResults = out.map {
-                                        AiRouteResult(it.name, it.miles, it.hoursLow,
-                                            it.hoursHigh, it.featureCount, it.featureMix)
-                                    }
-                                } catch (e: Exception) {
-                                    android.util.Log.e("RouteExplorer", "explore failed", e)
-                                    aiProgress = "Could not build rides: " + (e.message ?: "error")
-                                } finally {
-                                    aiBusy = false
-                                }
-                            }.start()
+                            aiProgress = ""
+                            pinReset()
                         },
                         onContinue = { showAiDesign = false },
                         onClose = {
@@ -1609,6 +1761,183 @@ fun ConvoyMapViewerScreen(
                         }
                     )
                 }
+            }
+
+            // GUIDEDPIN-2026-08-24C ── the checklist ─────────────────────────
+            //
+            // THE CHECKLIST IS THE CONTROLLING FEATURE. Fred, 08-24: "it explains
+            // where you are in the process and what is left." Completed steps
+            // carry their ANSWER, which is the verification -- a long press that
+            // did not register is otherwise invisible and the rider presses again
+            // and gets two waypoints.
+            if (pinStep != PIN_STEP_NONE) {
+                androidx.activity.compose.BackHandler(enabled = true) {
+                    pinStep = PIN_STEP_NONE
+                    showAiDesign = true
+                }
+
+                // GUIDEDPIN-2026-08-24D: the search finished while the checklist
+                // was streaming its progress. Hand back to the AI panel -- results
+                // are populated NOW, so it opens on PHASE_RESULTS rather than
+                // asking the rider everything a second time.
+                //
+                // ⚠ MOVED HERE FROM THE DIALOG BLOCK, where C put it and where it
+                // could not run. This block composes whenever the checklist is up,
+                // which is exactly when this needs to be watching.
+                androidx.compose.runtime.LaunchedEffect(aiBusy, pinStep) {
+                    if (pinStep == PIN_STEP_SEARCH && !aiBusy) {
+                        pinStep = PIN_STEP_NONE
+                        showAiDesign = true
+                    }
+                }
+
+                val hrLo = pinMiLow.toDouble() / pinMphHigh.toDouble()
+                val hrHi = pinMiHigh.toDouble() / pinMphLow.toDouble()
+
+                // ⚠ ROUNDED TO WHOLE HOURS, deliberately. This envelope compounds
+                // TWO ranges; a decimal would imply a precision that does not
+                // exist. The per-route card can be tighter because it has one real
+                // mileage.
+                val summary =
+                    "I am about to design a route beginning at " +
+                        pinTrailName.ifBlank { "your trailhead" } +
+                        ", extending for between " + pinMiLow + " and " + pinMiHigh +
+                        " miles and returning to where it started. The ride duration " +
+                        "is estimated at " + Math.round(hrLo) + " to " + Math.round(hrHi) +
+                        " hours at " + pinMphLow + " to " + pinMphHigh + " mph, which " +
+                        "already includes stops and break pauses.\n\n" +
+                        "I will favour rides that pass named features and that avoid " +
+                        "riding the same trail twice, and will bring back up to four " +
+                        "alternatives as Work in Progress for you to review."
+
+                val steps = listOf(
+                    GuidedStep(
+                        title = "Select your trailhead",
+                        instruction = "Use search to navigate to your area, then tap the " +
+                            "trailhead you are starting from.",
+                        answer = pinTrailName,
+                        state = if (pinStep == PIN_STEP_TRAILHEAD) GP_STATE_CURRENT
+                                else GP_STATE_DONE
+                    ),
+                    // ⭐ TWO STEPS, NOT ONE. Creating a trailhead and choosing one
+                    // are different acts, and most riders only do the second --
+                    // they are starting from ground they have ridden before. This
+                    // step stays visible so the rider on NEW ground knows what to
+                    // do, and is simply skipped by everyone else.
+                    GuidedStep(
+                        title = "Add one if none exists",
+                        instruction = "Long press at the start of the trail, choose " +
+                            "Trailhead, and give it a name. Then tap it to select it.",
+                        answer = if (pinTrailName.isBlank()) "" else "Not needed",
+                        state = if (pinStep == PIN_STEP_TRAILHEAD) GP_STATE_CURRENT
+                                else GP_STATE_DONE
+                    ),
+                    GuidedStep(
+                        title = "Does the ride return there?",
+                        instruction = "Answer yes for a loop back to your trailhead.",
+                        answer = if (pinTrailName.isBlank()) ""
+                                 else "Returns to " + pinTrailName,
+                        state = when {
+                            pinStep < PIN_STEP_RETURN  -> GP_STATE_TODO
+                            pinStep == PIN_STEP_RETURN -> GP_STATE_CURRENT
+                            else                       -> GP_STATE_DONE
+                        }
+                    ),
+                    GuidedStep(
+                        title = "Review and search",
+                        instruction = if (pinStep == PIN_STEP_SEARCH)
+                            (aiProgress.ifBlank { "Working\u2026" }) else summary,
+                        answer = "",
+                        state = when {
+                            pinStep < PIN_STEP_REVIEW -> GP_STATE_TODO
+                            else                      -> GP_STATE_CURRENT
+                        }
+                    )
+                )
+
+                val actions: List<Pair<String, () -> Unit>> = when (pinStep) {
+                    PIN_STEP_RETURN -> listOf(
+                        "YES \u2014 LOOP" to {
+                            pinNotice = ""
+                            pinExpanded = true
+                            pinStep = PIN_STEP_REVIEW
+                        },
+                        "DROP ENDPOINT PIN NOW" to {
+                            // STUB:ENDPOINT -- point-to-point rides. The step is asked
+                            // in its FINAL POSITION so Phase 2 fills this in rather
+                            // than inserting a step and moving everything below it.
+                            //
+                            // ⚠ IT MUST SAY SOMETHING. An unresponsive button reads as
+                            // a bug, and the rider answered honestly -- they are owed
+                            // an honest answer back.
+                            pinNotice = "Rides that finish somewhere other than the " +
+                                "trailhead are not available yet. This ride will " +
+                                "return to " + pinTrailName + "."
+                            pinExpanded = true
+                            pinStep = PIN_STEP_REVIEW
+                        }
+                    )
+                    PIN_STEP_REVIEW -> listOf(
+                        "FIND MY RIDES" to {
+                            pinNotice = ""
+                            pinExpanded = true
+                            pinStep = PIN_STEP_SEARCH
+                            aiBusy = true
+                            aiResults = emptyList()
+                            aiProgress = "Starting"
+                            val aLat = pinTrailLat
+                            val aLon = pinTrailLon
+                            val rn = pinRideName
+                            val mLo = pinMiLow; val mHi = pinMiHigh
+                            val sLo = pinMphLow; val sHi = pinMphHigh
+                            Thread {
+                                try {
+                                    val db = SpatialDbManager.getSpatialDb()
+                                    if (db == null) {
+                                        aiProgress = "No trail data on this device yet"
+                                        aiBusy = false
+                                        return@Thread
+                                    }
+                                    val out = RouteExplorer.explore(
+                                        db,
+                                        RouteExplorer.Request(
+                                            anchorLat = aLat, anchorLon = aLon,
+                                            name = rn,
+                                            milesLow = mLo.toDouble(),
+                                            milesHigh = mHi.toDouble(),
+                                            mphLow = sLo.toDouble(),
+                                            mphHigh = sHi.toDouble()
+                                        )
+                                    ) { p ->
+                                        aiProgress = p.step +
+                                            (if (p.detail.isNotBlank()) " \u2014 " + p.detail else "")
+                                    }
+                                    aiResults = out.map {
+                                        AiRouteResult(it.name, it.miles, it.hoursLow,
+                                            it.hoursHigh, it.featureCount, it.featureMix)
+                                    }
+                                } catch (e: Exception) {
+                                    android.util.Log.e("RouteExplorer", "explore failed", e)
+                                    aiProgress = "Could not build rides: " +
+                                        (e.message ?: "error")
+                                } finally {
+                                    aiBusy = false
+                                }
+                            }.start()
+                        }
+                    )
+                    else -> emptyList()
+                }
+
+                ConvoyGuidedPinPanel(
+                    steps = steps,
+                    expanded = pinExpanded,
+                    onToggle = { pinExpanded = !pinExpanded },
+                    onStartOver = { pinReset() },
+                    actions = actions,
+                    notice = pinNotice,
+                    modifier = Modifier.align(Alignment.BottomCenter)
+                )
             }
 
             if (showHomeStatePicker) {
@@ -1980,7 +2309,42 @@ fun ConvoyMapViewerScreen(
                         // ROUTEAI-2026-08-23P: STUB:AIDESIGN is satisfied here. The
                         // toolbar already reports the change, so no new callback is
                         // needed on the shared component.
-                        if (it == ROUTE_METHOD_SUGGEST) showAiDesign = true
+                        if (it == ROUTE_METHOD_SUGGEST) {
+                            // PINSELECT-2026-08-24G: trails and waypoints ON.
+                            //
+                            // Step 1 of the checklist asks the rider to TAP a
+                            // trailhead. With waypoints switched off it is not
+                            // drawn, so there is nothing to tap -- which is exactly
+                            // what happened on the first device run, and the error
+                            // message ("No trailhead there") was misleading because
+                            // one WAS there.
+                            //
+                            // Set HERE rather than at pin collection, per Fred:
+                            // upstream of everything, so search results and every
+                            // later draw already have them on and nothing
+                            // downstream has to re-assert it.
+                            //
+                            // ⚠ SEVENTH COPY OF THIS WRITE. Six others live in this
+                            // file (panel, list editor, select-all/none, two restore
+                            // paths). The four steps below are what onSetState does
+                            // and they have to match it or the layer state and the
+                            // map disagree. Consolidating into one
+                            // setDisplayState(type, state) is owed -- it is not this
+                            // patch's job.
+                            if (trailState == DS_OFF) {
+                                trailState = DS_ON
+                                trailCheckedIds = null
+                                webViewRef?.evaluateJavascript("showTrails()", null)
+                            }
+                            if (waypointState == DS_OFF) {
+                                waypointState = DS_ON
+                                waypointCheckedIds = null
+                                webViewRef?.evaluateJavascript("showWaypoints()", null)
+                            }
+                            webViewRef?.evaluateJavascript("triggerViewportUpdate()", null)
+                            savePlanningState()
+                            showAiDesign = true
+                        }
                     },
                     onNewRoute = {
                         routeLifecycleState = ROUTE_LS_NEW

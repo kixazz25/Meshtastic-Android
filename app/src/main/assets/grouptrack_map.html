@@ -354,7 +354,22 @@
           if (window.__routeMode) { layer._savedPopupContent = popup; }
           else { layer.bindPopup(popup); }
           layer.on('click', function(e){
-            console.log('ARTIFACTTAP waypoint name=' + name + ' routeMode=' + window.__routeMode);
+            console.log('ARTIFACTTAP waypoint name=' + name + ' routeMode=' + window.__routeMode + ' pinSelect=' + window.__pinSelect);
+            // PINSELECT-2026-08-24G: the guided flow is asking WHICH TRAILHEAD.
+            // A tap means that and nothing else, so this one DOES stop
+            // propagation -- no vertex, no popup.
+            //
+            // ⚠ A SEPARATE FLAG, deliberately. __routeMode is also on while the
+            // rider is drawing by hand, and branching on it here would stop a
+            // waypoint tap placing a vertex -- the exact gesture the
+            // ROUTEFALLTHROUGH note below exists to protect.
+            if (window.__pinSelect) {
+              L.DomEvent.stopPropagation(e);
+              if (window.Android && Android.onProximityTap) {
+                Android.onProximityTap(e.latlng.lat, e.latlng.lng);
+              }
+              return;
+            }
             if (window.__routeMode) return;   // ROUTEFALLTHROUGH-2026-07-30: let the tap reach map.on('click')
             // -> Android.onMapTap so a vertex is placed. Tapping ON a trail is
             // the commonest route-building gesture; swallowing it here would
