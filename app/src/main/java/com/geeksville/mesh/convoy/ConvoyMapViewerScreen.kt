@@ -71,11 +71,21 @@ private const val PIN_STEP_RETURN    = 2
 // floor mileage, the order and each pin's cost as they accumulate, so a
 // review afterwards repeats what the rider already watched.
 private const val PIN_STEP_ENDPOINT  = 3
-private const val PIN_STEP_INCLUDE   = 4
+/* ROUTEASSIST-2026-08-25S1: DO YOU WANT TO DROP PINS AT ALL?
+ *
+ * Without this the checklist has no bypass and explore mode is
+ * unreachable: DONE is absent while pinFeas is null, and with zero pins
+ * assess() returns null, so the rider could only Start Over.
+ *
+ * The NO path needs nothing in the engine -- Request.includePoints already
+ * documents empty as explore mode.
+ */
+private const val PIN_STEP_ASK       = 4
+private const val PIN_STEP_INCLUDE   = 5
 // ROUTEASSIST-2026-08-25B1b: SUMMARY is the DECISION state -- the prose,
 // PROCEED and START OVER. SEARCH is the same card working, with no
 // buttons. B1 collapsed the two and lost the decision surface.
-private const val PIN_STEP_SUMMARY   = 5
+private const val PIN_STEP_SUMMARY   = 6
 
 /* ROUTEASSIST-2026-08-25B2 -- ten is the cap because it is what bounds the
  * Held-Karp table and the Dijkstra count, not because ten is a nice number.
@@ -88,7 +98,7 @@ private const val PIN_STEP_SUMMARY   = 5
  */
 private const val PIN_MAX = 10
 private const val PIN_REMOVE_MI = 0.15
-private const val PIN_STEP_SEARCH    = 6
+private const val PIN_STEP_SEARCH    = 7
 
 /** A trailhead is a large physical area -- trucks and trailers. Two riders
  *  pinning opposite ends of the same gravel lot are 400 ft apart and BOTH
@@ -2124,6 +2134,22 @@ fun ConvoyMapViewerScreen(
                             else                         -> GP_STATE_TODO
                         }
                     ),
+                    // ROUTEASSIST-2026-08-25S1: the bypass, as a question.
+                    GuidedStep(
+                        title = "Add your own places?",
+                        instruction = "Answer yes to drop pins on places the ride " +
+                            "should reach. Answer no and the ride is designed for you.",
+                        answer = when {
+                            pinStep <= PIN_STEP_ASK -> ""
+                            pinPoints.isEmpty()     -> "Designed for you"
+                            else                    -> "Adding your own places"
+                        },
+                        state = when {
+                            pinStep < PIN_STEP_ASK  -> GP_STATE_TODO
+                            pinStep == PIN_STEP_ASK -> GP_STATE_CURRENT
+                            else                    -> GP_STATE_DONE
+                        }
+                    ),
                     GuidedStep(
                         title = "Places to pass through",
                         instruction = "Tap up to ten places the ride should reach. " +
@@ -2157,7 +2183,8 @@ fun ConvoyMapViewerScreen(
                             // ROUTEASSIST-2026-08-25B1: a loop needs no finish
                             // point -- the trailhead is both ends.
                             pinIsLoop = true
-                            pinStep = PIN_STEP_INCLUDE
+                            // S1: ask before assuming they want to drop pins.
+                            pinStep = PIN_STEP_ASK
                         },
                         "DROP ENDPOINT PIN NOW" to {
                             // STUB:ENDPOINT -- point-to-point rides. The step is asked
@@ -2181,7 +2208,27 @@ fun ConvoyMapViewerScreen(
                         "CONTINUE" to {
                             pinNotice = ""
                             pinExpanded = true
+                            // S1: ask before assuming they want to drop pins.
+                            pinStep = PIN_STEP_ASK
+                        }
+                    )
+                    /* ROUTEASSIST-2026-08-25S1: THE BYPASS.
+                     *
+                     * NO goes straight to the summary with no points, which is
+                     * explore mode -- the four-route behaviour the checklist had
+                     * accidentally made unreachable.
+                     */
+                    PIN_STEP_ASK -> listOf(
+                        "YES \u2014 I'LL DROP PINS" to {
+                            pinNotice = ""
+                            pinExpanded = true
                             pinStep = PIN_STEP_INCLUDE
+                        },
+                        "NO \u2014 DESIGN IT FOR ME" to {
+                            pinNotice = ""
+                            pinExpanded = true
+                            pinPoints = emptyList()
+                            pinStep = PIN_STEP_SUMMARY
                         }
                     )
                     // ROUTEASSIST-2026-08-25C: DONE EXISTS ONLY WHEN THE PIN

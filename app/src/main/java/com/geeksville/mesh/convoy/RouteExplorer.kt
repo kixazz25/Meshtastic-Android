@@ -165,6 +165,20 @@ object RouteExplorer {
     private val NONAMES = setOf("", "not named", "unnamed", "none", "null", "n/a", "-")
     private val WATER = setOf("spring")
     private val VIEW = setOf("peak", "cliff", "volcano")
+    /* USERPOI-2026-08-25E: the rider's own dropped points.
+     *
+     * ⚠ A CLASS OF ITS OWN, deliberately. scoreSet decays base value per
+     * class -- base/(1+0.22*(n-1)) -- so pins sharing a natural class would
+     * dilute each other AND the natural POIs of that class.
+     *
+     * ⛔ The decay still applies WITHIN this class, because scoreSet is
+     * shared and changing it would move every natural POI too. So the base
+     * is set high enough that the TENTH pin -- 60/(1+0.22*9) = 20.1 -- still
+     * far outweighs a peak at 3.0. The pins percolate to the top on gain
+     * per mile, which is what Fred specified.
+     */
+    private const val USERPIN = "userpin"
+    private const val USERPIN_BASE = 60.0
 
     /**
      * ROUTEREACH-2026-08-23W: NOT EVERY fclass IS A FEATURE. These are administrative
@@ -414,7 +428,9 @@ object RouteExplorer {
             if (!seen.add(p.name)) continue
             val n = (byClass[p.fclass] ?: 0) + 1
             byClass[p.fclass] = n
-            val base = if (p.fclass in VIEW) 3.0 else if (p.fclass in WATER) 2.0 else 1.0
+            // USERPOI-2026-08-25E: the rider's pins outrank every natural class.
+            val base = if (p.fclass == USERPIN) USERPIN_BASE
+                else if (p.fclass in VIEW) 3.0 else if (p.fclass in WATER) 2.0 else 1.0
             v += base / (1.0 + 0.22 * (n - 1))
         }
         return v
@@ -1022,6 +1038,24 @@ object RouteExplorer {
 
         onProgress?.invoke(Progress("Finding features"))
         val poiAt = loadPois(spatialDb, box, g)
+        /* USERPOI-2026-08-25E: THE RIDER'S PINS ENTER THE SCORER HERE.
+         *
+         * Until this, includePoints set the mileage band and the search box
+         * and nothing else -- the pins were never in poiAt, so the greedy
+         * could not select them and had no reason to go near them. The route
+         * was scored entirely on the corridor's own features.
+         *
+         * ⭐ Snapped with nearestNode(), the same function assess() uses, so
+         * there is one snap implementation rather than two that can drift.
+         */
+        if (req.includePoints.isNotEmpty()) {
+            req.includePoints.forEachIndexed { i, (plat, plon) ->
+                val node = nearestNode(plat, plon, g)
+                poiAt.getOrPut(node) { ArrayList() }
+                    .add(Poi("Your place " + (i + 1), USERPIN, plat, plon, 0.0))
+            }
+            Log.i(TAG, "added " + req.includePoints.size + " rider pin(s) as POIs")
+        }
         val poiNodes = poiAt.keys.toList()
         Log.i(TAG, "corridor: ${g.edges.size} edges, ${poiNodes.size} POI nodes")
 
