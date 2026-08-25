@@ -294,6 +294,123 @@ fun ConvoyGuidedSummaryPanel(
     }
 }
 
+/**
+ * ROUTEASSIST-2026-08-25C -- the Target Distance HUD.
+ *
+ * Modelled on the ride map's RECORDING readout, ConvoyScreen.kt:1390-1406:
+ * a label, a big number, a small "mi", all Color(0xFFFF0000) at 0.75 alpha,
+ * right-aligned, no card behind it. Fred, 08-25: "big transparent and tucked
+ * out of sight."
+ *
+ * ⛔ The convoy map is FROZEN and is not touched. Same TREATMENT, no shared
+ * code -- one call site on frozen code becoming two is how this project
+ * acquired a second saveCompleted.
+ *
+ * ⭐ The alpha is doing real work: at 0.75 the trail UNDER the number stays
+ * visible, and the rider is reading it while deciding where to tap next.
+ *
+ * ⭐ THE COUNT IS NOT HERE. "3 of 10 places" is an EVENT, not a status -- it
+ * matters at the moment a pin lands and not for the ten seconds after. It
+ * toasts on each drop instead of taking a permanent line.
+ *
+ * Presentation only. Handed numbers, hands back taps.
+ */
+@Composable
+fun ConvoyPinMileageHud(
+    floorMiles: Double,
+    overMiles: Double,
+    underMiles: Double,
+    floorBand: Int,
+    ceiling: Int,
+    problem: String,
+    busy: Boolean,
+    onCeilingChange: (Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val red = Color(0xFFFF0000).copy(alpha = 0.75f)
+
+    // ⭐ BLINK ONLY WHEN IT IS EXCEEDED. A readout that always blinks is
+    // wallpaper within a minute; one that starts blinking is an event. Driven
+    // by a LaunchedEffect keyed on the condition, so it does not run at all
+    // while the ride fits.
+    var blinkOn by remember { mutableStateOf(true) }
+    val exceeded = overMiles > 0.0
+    LaunchedEffect(exceeded) {
+        blinkOn = true
+        while (exceeded) {
+            kotlinx.coroutines.delay(650)
+            blinkOn = !blinkOn
+        }
+    }
+
+    Column(
+        modifier = modifier.padding(end = 14.dp, top = 10.dp),
+        horizontalAlignment = Alignment.End
+    ) {
+        Text(
+            "Target Distance  " + floorBand + "\u2013" + ceiling + " mi",
+            color = red, fontSize = 11.sp, fontWeight = FontWeight.Bold
+        )
+
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(
+                if (busy) "\u2026" else "%.1f".format(floorMiles),
+                color = red, fontSize = 44.sp, fontWeight = FontWeight.Black,
+                lineHeight = 44.sp
+            )
+            Text(
+                " mi", color = red, fontSize = 16.sp,
+                modifier = Modifier.padding(bottom = 6.dp)
+            )
+        }
+
+        // THREE STATES, because assess() reports three.
+        when {
+            exceeded -> {
+                Text(
+                    "REMOVE POINT(S) \u2014 MILEAGE EXCEEDED",
+                    color = if (blinkOn) red else Color.Transparent,
+                    fontSize = 12.sp, fontWeight = FontWeight.Black
+                )
+                Text(
+                    "or Start Over to drop points again",
+                    color = red, fontSize = 11.sp
+                )
+            }
+            underMiles > 0.0 -> Text(
+                "Fits, %.0f mi to spare".format(underMiles),
+                color = red, fontSize = 11.5.sp
+            )
+            else -> Text("Fits your ride", color = red, fontSize = 11.5.sp)
+        }
+
+        if (problem.isNotBlank()) {
+            Spacer(Modifier.height(3.dp))
+            Text(problem, color = red, fontSize = 11.sp, lineHeight = 14.sp)
+        }
+
+        Spacer(Modifier.height(6.dp))
+
+        // The other half of the trade. A rider seeing 93 miles may raise the
+        // ceiling rather than drop a point, and cannot if the control was left
+        // behind on the setup panel.
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                "\u2212", color = red, fontSize = 20.sp, fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(horizontal = 8.dp)
+                    .clickable { onCeilingChange(-5) }
+            )
+            Text("up to " + ceiling + " mi", color = red, fontSize = 13.sp,
+                fontWeight = FontWeight.Bold)
+            Text(
+                "+", color = red, fontSize = 20.sp, fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(horizontal = 8.dp)
+                    .clickable { onCeilingChange(5) }
+            )
+        }
+    }
+}
+
 @Composable
 private fun GuidedStepRow(number: Int, s: GuidedStep) {
     val marker = when (s.state) {
