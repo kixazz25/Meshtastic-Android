@@ -445,14 +445,25 @@ fun ConvoyMapViewerScreen(
      */
     androidx.compose.runtime.LaunchedEffect(showAiDesign) {
         if (showAiDesign) {
-            routeMode = false
+            // AIMODE-2026-08-25B4c: AI STATE ONLY. Route mode is NOT ours to clear.
+            //
+            // ⛔ B4b cleared it here and that was the defect: the AI chip lives
+            // inside the route toolbar, which renders on `routeMode`, so route
+            // mode is ALREADY ON before the chip can be reached. Clearing it
+            // shut the tap handler's outer gate, and every rider tap fell
+            // through to Leaflet as an artifact popup instead of a pin.
+            //
+            // Fred, 08-25: "it should be armed as it is only accessible through
+            // the route+ panel which sets routes on."
+            //
+            // ⭐ Nothing in the AI flow arms route mode, so nothing in the AI
+            // flow disarms it. The crash-recovery purpose is unaffected: stale
+            // AI flags are what a re-entry must clear, and route mode is not a
+            // stale flag -- it is the session the rider is already in.
             pinStep = PIN_STEP_NONE
             pinFeas = null
-            webViewRef?.evaluateJavascript(
-                "window.__routeMode=false;window.__pinSelect=false;setRouteMode(false)",
-                null
-            )
-            android.util.Log.i("GuidedPin", "AI panel entry -- both modes reset off")
+            webViewRef?.evaluateJavascript("window.__pinSelect=false;", null)
+            android.util.Log.i("GuidedPin", "AI panel entry -- AI state reset, route mode untouched")
         }
     }
     // WIPNOTES-2026-08-23S: the WIP narrative panel. Only reachable while a draft is

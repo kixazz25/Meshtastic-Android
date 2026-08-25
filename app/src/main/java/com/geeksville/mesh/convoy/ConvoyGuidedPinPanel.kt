@@ -129,7 +129,12 @@ fun ConvoyGuidedPinPanel(
     Surface(
         color = gpPanel,
         shape = RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp),
-        modifier = modifier.fillMaxWidth()
+        // ROUTEASSIST-2026-08-25C4: HALF WIDTH, and the reason is functional.
+        // The space alongside is where the point task reports that a pin has
+        // landed and hands control back to the checklist -- a full-width panel
+        // leaves nowhere to say it, so the only feedback is a toast that
+        // vanishes. Fred, 08-25.
+        modifier = modifier.fillMaxWidth(0.5f)
     ) {
         Column(Modifier.fillMaxWidth()) {
 
