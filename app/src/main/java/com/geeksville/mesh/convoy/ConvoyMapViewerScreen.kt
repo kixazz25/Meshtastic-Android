@@ -67,28 +67,8 @@ private const val DS_OFF = 0
 private const val PIN_STEP_NONE      = 0
 private const val PIN_STEP_TRAILHEAD = 1
 private const val PIN_STEP_RETURN    = 2
-// ROUTEASSIST-2026-08-25B1: REVIEW retired -- the include step shows the
-// floor mileage, the order and each pin's cost as they accumulate, so a
-// review afterwards repeats what the rider already watched.
-private const val PIN_STEP_ENDPOINT  = 3
-private const val PIN_STEP_INCLUDE   = 4
-// ROUTEASSIST-2026-08-25B1b: SUMMARY is the DECISION state -- the prose,
-// PROCEED and START OVER. SEARCH is the same card working, with no
-// buttons. B1 collapsed the two and lost the decision surface.
-private const val PIN_STEP_SUMMARY   = 5
-
-/* ROUTEASSIST-2026-08-25B2 -- ten is the cap because it is what bounds the
- * Held-Karp table and the Dijkstra count, not because ten is a nice number.
- * An eleventh tap SAYS SO rather than being ignored: a tap that does
- * nothing reads as a broken map, not as a limit.
- *
- * PIN_REMOVE_MI is the toggle radius -- a tap this close to a pin removes
- * it. ~800 ft, comfortably bigger than a fingertip at trail zoom and
- * smaller than the distance between two places worth visiting.
- */
-private const val PIN_MAX = 10
-private const val PIN_REMOVE_MI = 0.15
-private const val PIN_STEP_SEARCH    = 6
+private const val PIN_STEP_REVIEW    = 3
+private const val PIN_STEP_SEARCH    = 4
 
 /** A trailhead is a large physical area -- trucks and trailers. Two riders
  *  pinning opposite ends of the same gravel lot are 400 ft apart and BOTH
@@ -299,93 +279,6 @@ fun ConvoyMapViewerScreen(
     var pinMphLow by remember { mutableIntStateOf(12) }
     var pinMphHigh by remember { mutableIntStateOf(18) }
 
-    /* ROUTEASSIST-2026-08-25B1 -- the ride's SHAPE and the rider's points.
-     *
-     * pinIsLoop is NULLABLE and that is the point: null means UNANSWERED,
-     * which is a third state the UI must show differently from either
-     * answer. Same reasoning as Row3Choice? in OsmImportPanel -- absent is
-     * exactly what keeps the next step from arming, and a default would
-     * mean choosing a shape the rider never picked. (CODE RULE 1.)
-     *
-     * pinPoints is a plain immutable List in mutableStateOf rather than a
-     * mutableStateListOf, so this patch introduces no Compose symbol that
-     * is not already imported in this file. Reassignment is the update.
-     */
-    var pinIsLoop by remember { mutableStateOf<Boolean?>(null) }
-    var pinEndLat by remember { mutableStateOf(0.0) }
-    var pinEndLon by remember { mutableStateOf(0.0) }
-    var pinPoints by remember { mutableStateOf(listOf<Pair<Double, Double>>()) }
-
-    /* ROUTEASSIST-2026-08-25B2 -- the latest feasibility result, and the
-     * sequence number that decides whether an arriving result is still the
-     * newest. assess() takes 1.5-2.4 s; a rider taps faster than that, so
-     * runs overlap and can finish out of order. Without this the panel can
-     * settle on the answer for a pin set the rider has already changed.
-     */
-    var pinFeas by remember {
-        mutableStateOf<RouteExplorer.PinFeasibility?>(null)
-    }
-    var pinAssessSeq by remember { mutableIntStateOf(0) }
-
-    /**
-     * Recompute the shortest ride through the rider's pins.
-     *
-     * ⚠ EVERY PIECE OF STATE IS READ HERE, ON THE MAIN THREAD, and only
-     * the captured copies cross into the worker. Reading Compose state
-     * inside the thread would be the same defect as calling a main-thread
-     * API from a bridge method -- it works until it does not.
-     */
-    fun gpRunAssess() {
-        val aLat = pinTrailLat
-        val aLon = pinTrailLon
-        if (aLat == 0.0 && aLon == 0.0) { pinFeas = null; return }
-        val loop = pinIsLoop
-        val eLat = pinEndLat
-        val eLon = pinEndLon
-        val pts = pinPoints
-        val nm = pinRideName
-        val mLo = pinMiLow.toDouble()
-        val mHi = pinMiHigh.toDouble()
-        val sLo = pinMphLow.toDouble()
-        val sHi = pinMphHigh.toDouble()
-        pinAssessSeq += 1
-        val seq = pinAssessSeq
-        Thread {
-            var out: RouteExplorer.PinFeasibility? = null
-            try {
-                SpatialDbManager.init(context)
-                val db = SpatialDbManager.getSpatialDb()
-                if (db != null) {
-                    val shape = if (loop == false) {
-                        RouteExplorer.RouteShape.PointToPoint(eLat, eLon)
-                    } else {
-                        RouteExplorer.RouteShape.Loop
-                    }
-                    out = RouteExplorer.assess(
-                        db,
-                        RouteExplorer.Request(
-                            anchorLat = aLat, anchorLon = aLon,
-                            name = nm,
-                            milesLow = mLo, milesHigh = mHi,
-                            mphLow = sLo, mphHigh = sHi
-                        ),
-                        pts,
-                        shape
-                    )
-                }
-            } catch (e: Exception) {
-                android.util.Log.e("GuidedPin", "assess failed: " + e.message)
-            }
-            val res = out
-            android.os.Handler(
-                android.os.Looper.getMainLooper()
-            ).post {
-                // Stale results are dropped, not shown. See the note above.
-                if (seq == pinAssessSeq) pinFeas = res
-            }
-        }.start()
-    }
-
     /** Clears the SELECTION, never the waypoint. Fred, 08-24: "only thing
      *  saved for start over is the trailhead waypoint but it still must be
      *  selected to restart the process." The waypoint is ground truth; the
@@ -393,12 +286,6 @@ fun ConvoyMapViewerScreen(
     val pinReset = {
         pinTrailName = ""; pinTrailLat = 0.0; pinTrailLon = 0.0
         pinNotice = ""; pinExpanded = true
-        // ROUTEASSIST-2026-08-25B1: start over means the SHAPE is unanswered
-        // again, not silently a loop, and every dropped point is gone.
-        pinIsLoop = null
-        pinEndLat = 0.0; pinEndLon = 0.0
-        pinPoints = emptyList()
-        pinFeas = null
         pinStep = PIN_STEP_TRAILHEAD
     }
 
@@ -412,12 +299,7 @@ fun ConvoyMapViewerScreen(
     // from four places already -- proceed, select, start over, back -- and a
     // flag written at each of them is a flag that gets missed at the fifth.
     androidx.compose.runtime.LaunchedEffect(pinStep) {
-        // ROUTEASSIST-2026-08-25B2: the finish point and the include points
-        // are taps on open ground, so the bridge has to be live for those
-        // steps too -- not only while a trailhead marker is being picked.
-        val on = pinStep == PIN_STEP_TRAILHEAD ||
-            pinStep == PIN_STEP_ENDPOINT ||
-            pinStep == PIN_STEP_INCLUDE
+        val on = pinStep == PIN_STEP_TRAILHEAD
         webViewRef?.evaluateJavascript("window.__pinSelect=" + on + ";", null)
         android.util.Log.i("GuidedPin", "__pinSelect=" + on + " (pinStep=" + pinStep + ")")
     }
@@ -1201,72 +1083,6 @@ fun ConvoyMapViewerScreen(
                                 // Returns immediately: no proximity popup, no artifact
                                 // panel. While the checklist is asking which trailhead,
                                 // a tap means that and nothing else.
-                                // ROUTEASSIST-2026-08-25B2: same placement rule as
-                                // the trailhead branch below -- BEFORE the routeMode
-                                // guard, because the checklist runs during route
-                                // mode and anything after it is never reached.
-                                //
-                                // ⚠ This method is on a background thread. Every
-                                // state write goes through the main looper; the
-                                // work itself is inside gpRunAssess's own Thread.
-                                if (pinStep == PIN_STEP_ENDPOINT) {
-                                    android.os.Handler(
-                                        android.os.Looper.getMainLooper()
-                                    ).post {
-                                        pinEndLat = lat
-                                        pinEndLon = lon
-                                        pinNotice = ""
-                                        pinExpanded = true
-                                        gpRunAssess()
-                                    }
-                                    return
-                                }
-                                if (pinStep == PIN_STEP_INCLUDE) {
-                                    android.os.Handler(
-                                        android.os.Looper.getMainLooper()
-                                    ).post {
-                                        val cosLat = Math.cos(Math.toRadians(lat))
-                                        val hit = pinPoints.indexOfFirst { p ->
-                                            val dy = (p.first - lat) * 69.0
-                                            val dx = (p.second - lon) * 69.0 * cosLat
-                                            Math.hypot(dy, dx) < PIN_REMOVE_MI
-                                        }
-                                        if (hit >= 0) {
-                                            pinPoints = pinPoints.filterIndexed { i, _ ->
-                                                i != hit
-                                            }
-                                            pinNotice = ""
-                                        } else if (pinPoints.size >= PIN_MAX) {
-                                            pinNotice = "Ten places is the most a ride " +
-                                                "can be planned around. Tap one of your " +
-                                                "pins to remove it first."
-                                        } else {
-                                            pinPoints = pinPoints + (lat to lon)
-                                            pinNotice = ""
-                                        }
-                                        pinExpanded = true
-                                        // ROUTEASSIST-2026-08-25C: the count is
-                                        // an EVENT, not a status. It matters as
-                                        // the pin lands and not after, so it
-                                        // toasts rather than holding a line in
-                                        // the HUD.
-                                        //
-                                        // ⚠ INSIDE this post, never outside it.
-                                        // Toast.makeText throws off the main
-                                        // thread, and onProximityTap is a
-                                        // @JavascriptInterface method -- that
-                                        // exact throw killed convoy's artifact
-                                        // draw on 2026-08-01.
-                                        android.widget.Toast.makeText(
-                                            context,
-                                            pinPoints.size.toString() + " of " +
-                                                PIN_MAX + " places",
-                                            android.widget.Toast.LENGTH_SHORT
-                                        ).show()
-                                        gpRunAssess()
-                                    }
-                                    return
-                                }
                                 if (pinStep == PIN_STEP_TRAILHEAD) {
                                     Thread {
                                         var nm: String? = null
@@ -2069,9 +1885,7 @@ fun ConvoyMapViewerScreen(
                     "I am about to design a route beginning at " +
                         pinTrailName.ifBlank { "your trailhead" } +
                         ", extending for between " + pinMiLow + " and " + pinMiHigh +
-                        (if (pinIsLoop == false) " miles and finishing where you " +
-                            "marked the end. The ride duration " else
-                            " miles and returning to where it started. The ride duration ") +
+                        " miles and returning to where it started. The ride duration " +
                         "is estimated at " + Math.round(hrLo) + " to " + Math.round(hrHi) +
                         " hours at " + pinMphLow + " to " + pinMphHigh + " mph, which " +
                         "already includes stops and break pauses.\n\n" +
@@ -2113,37 +1927,12 @@ fun ConvoyMapViewerScreen(
                         }
                     ),
                     GuidedStep(
-                        title = "Where does the ride finish?",
-                        instruction = "Tap the place you want the ride to end.",
-                        answer = if (pinIsLoop == false && pinEndLat != 0.0)
-                                     "Finish point set" else "",
-                        state = when {
-                            pinIsLoop != false          -> GP_STATE_TODO
-                            pinStep == PIN_STEP_ENDPOINT -> GP_STATE_CURRENT
-                            pinStep > PIN_STEP_ENDPOINT  -> GP_STATE_DONE
-                            else                         -> GP_STATE_TODO
-                        }
-                    ),
-                    GuidedStep(
-                        title = "Places to pass through",
-                        instruction = "Tap up to ten places the ride should reach. " +
-                            "Optional \u2014 tap a pin again to remove it.",
-                        answer = if (pinPoints.isEmpty()) ""
-                                 else pinPoints.size.toString() + " place" +
-                                     (if (pinPoints.size == 1) "" else "s") + " included",
-                        state = when {
-                            pinStep < PIN_STEP_INCLUDE  -> GP_STATE_TODO
-                            pinStep == PIN_STEP_INCLUDE -> GP_STATE_CURRENT
-                            else                        -> GP_STATE_DONE
-                        }
-                    ),
-                    GuidedStep(
                         title = "Review and search",
                         instruction = if (pinStep == PIN_STEP_SEARCH)
                             (aiProgress.ifBlank { "Working\u2026" }) else summary,
                         answer = "",
                         state = when {
-                            pinStep < PIN_STEP_SUMMARY -> GP_STATE_TODO
+                            pinStep < PIN_STEP_REVIEW -> GP_STATE_TODO
                             else                      -> GP_STATE_CURRENT
                         }
                     )
@@ -2154,10 +1943,7 @@ fun ConvoyMapViewerScreen(
                         "YES \u2014 LOOP" to {
                             pinNotice = ""
                             pinExpanded = true
-                            // ROUTEASSIST-2026-08-25B1: a loop needs no finish
-                            // point -- the trailhead is both ends.
-                            pinIsLoop = true
-                            pinStep = PIN_STEP_INCLUDE
+                            pinStep = PIN_STEP_REVIEW
                         },
                         "DROP ENDPOINT PIN NOW" to {
                             // STUB:ENDPOINT -- point-to-point rides. The step is asked
@@ -2167,43 +1953,14 @@ fun ConvoyMapViewerScreen(
                             // ⚠ IT MUST SAY SOMETHING. An unresponsive button reads as
                             // a bug, and the rider answered honestly -- they are owed
                             // an honest answer back.
-                            // ROUTEASSIST-2026-08-25B1: STUB:ENDPOINT is closed.
-                            // A point-to-point ride is a different SHAPE, not a
-                            // loop with a caveat -- RouteExplorer.RouteShape and
-                            // its own corridor box handle it.
-                            pinNotice = ""
+                            pinNotice = "Rides that finish somewhere other than the " +
+                                "trailhead are not available yet. This ride will " +
+                                "return to " + pinTrailName + "."
                             pinExpanded = true
-                            pinIsLoop = false
-                            pinStep = PIN_STEP_ENDPOINT
+                            pinStep = PIN_STEP_REVIEW
                         }
                     )
-                    PIN_STEP_ENDPOINT -> listOf(
-                        "CONTINUE" to {
-                            pinNotice = ""
-                            pinExpanded = true
-                            pinStep = PIN_STEP_INCLUDE
-                        }
-                    )
-                    // ROUTEASSIST-2026-08-25C: DONE EXISTS ONLY WHEN THE PIN
-                    // SET FITS. Fred, 08-25: only a feasible pin set proceeds.
-                    // Absent beats present-and-scolding -- and while assess()
-                    // is still running there is no answer yet, so no button.
-                    // Zero include points is feasible: that is explore mode.
-                    PIN_STEP_INCLUDE -> if (
-                        pinFeas == null || pinFeas!!.overMiles > 0.0
-                    ) emptyList() else listOf(
-                        "DONE" to {
-                            pinNotice = ""
-                            pinExpanded = true
-                            pinStep = PIN_STEP_SUMMARY
-                        }
-                    )
-                    // ⚠ THE SEARCH LAUNCH BELONGS TO SUMMARY, not to
-                    // INCLUDE. ConvoyGuidedSummaryPanel's onProceed calls
-                    // actions.firstOrNull() -- SUMMARY-2026-08-24I put the
-                    // launch in exactly one place on purpose, and moving it
-                    // to a checklist button would make PROCEED a no-op.
-                    PIN_STEP_SUMMARY -> listOf(
+                    PIN_STEP_REVIEW -> listOf(
                         "FIND MY RIDES" to {
                             pinNotice = ""
                             pinExpanded = true
@@ -2260,38 +2017,7 @@ fun ConvoyMapViewerScreen(
                 // ⚠ Gating the whole block on pinStep would kill the search-done
                 // LaunchedEffect above -- and that is exactly how Patch C's
                 // trailhead capture came to never fire. Only the render changes.
-                // ROUTEASSIST-2026-08-25C: the readout lives on the MAP,
-                // not in the panel. The rider is looking at the ground
-                // deciding where to tap next, and that is where the number
-                // has to be. Only while pins are actually being placed.
-                if (pinStep == PIN_STEP_ENDPOINT || pinStep == PIN_STEP_INCLUDE) {
-                    val f = pinFeas
-                    val problem = when {
-                        f == null -> ""
-                        f.onFragment.any { it in 1..pinPoints.size } ->
-                            "One place sits on a trail that does not join " +
-                            "the rest of the network."
-                        f.unreachable.any { it in 1..pinPoints.size } ->
-                            "One place is too far from any trail to reach."
-                        else -> ""
-                    }
-                    ConvoyPinMileageHud(
-                        floorMiles = f?.totalMiles ?: 0.0,
-                        overMiles = f?.overMiles ?: 0.0,
-                        underMiles = f?.underMiles ?: 0.0,
-                        floorBand = pinMiLow,
-                        ceiling = pinMiHigh,
-                        problem = problem,
-                        busy = f == null,
-                        onCeilingChange = { d ->
-                            // The ceiling never drops under the floor.
-                            pinMiHigh = (pinMiHigh + d).coerceIn(pinMiLow + 5, 200)
-                            gpRunAssess()
-                        },
-                        modifier = Modifier.align(Alignment.TopEnd)
-                    )
-                }
-                if (pinStep < PIN_STEP_SUMMARY) {
+                if (pinStep < PIN_STEP_REVIEW) {
                     ConvoyGuidedPinPanel(
                         steps = steps,
                         expanded = pinExpanded,
