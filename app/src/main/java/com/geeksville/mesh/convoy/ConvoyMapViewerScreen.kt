@@ -2279,7 +2279,16 @@ fun ConvoyMapViewerScreen(
                                             milesLow = mLo.toDouble(),
                                             milesHigh = mHi.toDouble(),
                                             mphLow = sLo.toDouble(),
-                                            mphHigh = sHi.toDouble()
+                                            mphHigh = sHi.toDouble(),
+                                            // USERPOI-2026-08-25W1: THE PINS REACH THE SEARCH.
+                                            //
+                                            // Without this the Request took the default
+                                            // emptyList(), so patch E ran against no points
+                                            // and the routes had no reason to go near the
+                                            // rider's places. assess() gets its points
+                                            // through a separate argument, which is why the
+                                            // mileage readout worked all along and hid this.
+                                            includePoints = pinPoints
                                         )
                                     ) { p ->
                                         aiProgress = p.step +
