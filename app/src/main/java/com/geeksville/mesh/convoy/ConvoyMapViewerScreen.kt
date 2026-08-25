@@ -422,6 +422,26 @@ fun ConvoyMapViewerScreen(
         android.util.Log.i("GuidedPin", "__pinSelect=" + on + " (pinStep=" + pinStep + ")")
     }
 
+    /* PINDRAW-2026-08-25P2b: the dropped points, drawn.
+     *
+     * ⛔ WITHOUT THIS A DROP IS INVISIBLE. Fred, 08-25: "since there is no
+     * pin you cannot tell if your point registered visibly." The mileage is
+     * the only feedback, and a point that adds little does not move it
+     * perceptibly. No silent processes.
+     *
+     * ⭐ KEYED ON THE LIST, NOT HUNG OFF THE THREE MUTATION SITES. pinPoints
+     * changes in pinReset(), in the remove branch and in the add branch; an
+     * effect on the list covers all three by construction, and a fourth
+     * mutation added later cannot silently fail to draw.
+     */
+    androidx.compose.runtime.LaunchedEffect(pinPoints) {
+        val json = pinPoints.joinToString(",", "[", "]") {
+            "[%.6f,%.6f]".format(it.first, it.second)
+        }
+        webViewRef?.evaluateJavascript("renderPins('" + json + "')", null)
+        android.util.Log.i("GuidedPin", "renderPins " + pinPoints.size + " point(s)")
+    }
+
     /* AIMODE-2026-08-25B4b: ENTERING THE AI PANEL RESETS BOTH MODES.
      *
      * Fred, 08-25: reset on entry, "you then have to enter route mode to
@@ -2279,7 +2299,13 @@ fun ConvoyMapViewerScreen(
                         onStartOver = { pinReset() },
                         actions = actions,
                         notice = pinNotice,
-                        modifier = Modifier.align(Alignment.BottomCenter)
+                        // ROUTEASSIST-2026-08-25C5: HARD LEFT, ZERO PADDING.
+                        // C4 halved the width and BottomCenter then centred that
+                        // half, leaving a gutter each side instead of one usable
+                        // column. BottomStart gives the whole right-hand side to
+                        // the map, which is where the point task reports a pin
+                        // landing and hands control back to the checklist.
+                        modifier = Modifier.align(Alignment.BottomStart)
                     )
                 } else {
                     ConvoyGuidedSummaryPanel(

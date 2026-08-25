@@ -869,6 +869,50 @@
     window.clearBuildLine = function() {
       if (window.__buildLayer) { map.removeLayer(window.__buildLayer); window.__buildLayer = null; }
     };
+    /* PINDRAW-2026-08-25P1: the rider's dropped points, drawn.
+     *
+     * Without these a drop is invisible -- the only feedback is the mileage
+     * moving, and a point that adds little does not move it perceptibly.
+     *
+     * renderPins() CLEARS AND REDRAWS THE WHOLE SET. The Kotlin side sends the
+     * complete list on every change, so add, remove and Start Over are one
+     * path. An incremental addPin() would need every mutation site kept in
+     * step, and the next one added would silently not draw.
+     *
+     * The label is DROP ORDER. Tour order changes as points are added, so a
+     * tour-numbered marker would renumber under the rider's finger.
+     */
+    window.__pinLayers = [];
+    window.clearPins = function() {
+      try {
+        for (var i = 0; i < window.__pinLayers.length; i++) {
+          map.removeLayer(window.__pinLayers[i]);
+        }
+      } catch (err) {}
+      window.__pinLayers = [];
+    };
+    window.renderPins = function(json) {
+      window.clearPins();
+      try {
+        var pts = JSON.parse(json);
+        for (var i = 0; i < pts.length; i++) {
+          var icon = L.divIcon({
+            className: "",
+            html: '<div style="background:#FF0000;color:#fff;border:2px solid #fff;'
+                + 'border-radius:50%;width:26px;height:26px;line-height:22px;'
+                + 'text-align:center;font-weight:900;font-size:13px;'
+                + 'box-shadow:0 1px 4px rgba(0,0,0,0.5)">' + (i + 1) + '</div>',
+            iconSize: [26, 26],
+            iconAnchor: [13, 13]
+          });
+          var m = L.marker([pts[i][0], pts[i][1]], { icon: icon }).addTo(map);
+          window.__pinLayers.push(m);
+        }
+        console.log('PINDRAW rendered ' + pts.length + ' pin(s)');
+      } catch (err) {
+        console.log('PINDRAW failed: ' + err);
+      }
+    };
 
 
         map.whenReady(function() {
