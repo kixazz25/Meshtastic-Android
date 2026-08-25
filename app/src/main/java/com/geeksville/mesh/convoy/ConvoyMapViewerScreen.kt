@@ -421,6 +421,40 @@ fun ConvoyMapViewerScreen(
         webViewRef?.evaluateJavascript("window.__pinSelect=" + on + ";", null)
         android.util.Log.i("GuidedPin", "__pinSelect=" + on + " (pinStep=" + pinStep + ")")
     }
+
+    /* AIMODE-2026-08-25B4b: ENTERING THE AI PANEL RESETS BOTH MODES.
+     *
+     * Fred, 08-25: reset on entry, "you then have to enter route mode to
+     * do anything and the natural progression takes over -- that's what we
+     * do with route mode."
+     *
+     * ⛔ NOTHING HERE ARMS ROUTE MODE, deliberately. An earlier draft did,
+     * and a blast analysis found six consumers that would have moved with
+     * it: the Route+ toolbar render, the WIP-notes button, two action
+     * blocks including the tile-source bar, and persistence into
+     * planning_panel.json, which the unnamed-draft resolver reads on the
+     * next launch. The rider arms route mode; we only ever clear.
+     *
+     * ⭐ THIS IS ALSO THE CRASH RECOVERY. A crash or abrupt exit mid-flow
+     * leaves stale flags behind; re-entering the panel clears them before
+     * anything can act on them. It is the one case the entry and exit
+     * rules do not otherwise cover, and it needs no extra mechanism.
+     *
+     * Keyed on showAiDesign rather than hung off the three sites that set
+     * it true -- one seam, and a fourth entry point cannot miss it.
+     */
+    androidx.compose.runtime.LaunchedEffect(showAiDesign) {
+        if (showAiDesign) {
+            routeMode = false
+            pinStep = PIN_STEP_NONE
+            pinFeas = null
+            webViewRef?.evaluateJavascript(
+                "window.__routeMode=false;window.__pinSelect=false;setRouteMode(false)",
+                null
+            )
+            android.util.Log.i("GuidedPin", "AI panel entry -- both modes reset off")
+        }
+    }
     // WIPNOTES-2026-08-23S: the WIP narrative panel. Only reachable while a draft is
     // open, and only when that draft actually carries notes.
     var showWipNotes by remember { mutableStateOf(false) }
@@ -2696,6 +2730,18 @@ fun ConvoyMapViewerScreen(
                     addArmed = addPointMode,
                     onAddModeChanged = { armed ->
                         addPointMode = armed
+                        // AIMODE-2026-08-25B4b: choosing Draw ENDS the AI flow.
+                        // The rider has said they want to place vertices by hand.
+                        //
+                        // ⚠ armed == true ONLY. Per the note below, selecting
+                        // Artifact ends draw mode but NOT the route session, so
+                        // treating both alike would throw away a rider's pins
+                        // for tapping the wrong chip.
+                        if (armed && pinStep != PIN_STEP_NONE) {
+                            pinStep = PIN_STEP_NONE
+                            pinFeas = null
+                            android.util.Log.i("GuidedPin", "ADD selected -- AI flow ended")
+                        }
                         // `armed` true = Draw selected, false = Artifact selected.
                         // Per Fred: selecting Artifact ends DRAW MODE but the route
                         // SESSION continues -- it is not an exit.

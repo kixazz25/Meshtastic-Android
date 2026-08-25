@@ -780,8 +780,42 @@
       window.__buildLayer = null;
       map.on('click', function(e) {
         try {
-          if (window.__routeMode && window.Android && Android.onMapTap) {
-            Android.onMapTap(e.latlng.lat, e.latlng.lng);
+          // PINTAP-2026-08-25B3: AI PIN TAPS, BEFORE THE ROUTE-MODE TEST.
+          //
+          // The finish point and the include points are taps on OPEN GROUND,
+          // so they never touch the waypoint handler where __pinSelect was
+          // previously read -- which is why the trailhead worked and nothing
+          // after it did.
+          //
+          // ⭐ AHEAD of __routeMode, deliberately. The checklist runs DURING
+          // route mode, so a branch below that guard is never reached. Same
+          // rule PINSELECT-G2 follows in the waypoint handler, and the same
+          // one Patch C broke on 08-24.
+          //
+          // ⭐ The two flags are not alternatives: __routeMode means a route
+          // session is open, __pinSelect means what a tap MEANS right now.
+          // Both are true during the AI flow, which is what keeps route mode
+          // suppressing artifact popups while taps still drop pins.
+          // PINTAP-2026-08-25B3a: TWO NESTED TESTS, not two sequential ones.
+          //
+          // Fred, 08-25: "route add is on, ai mode yes drop pins for ai, ai
+          // mode off drop vertices."
+          //
+          // ⭐ ROUTE ADD IS THE OUTER GATE; AI MODE IS THE INNER
+          // DISCRIMINATOR. They are not alternatives. Route mode stays on for
+          // the whole AI flow -- which is what keeps artifact popups
+          // suppressed, since setRouteMode stashes and unbinds them -- and AI
+          // mode only decides what a tap MEANS inside that session.
+          //
+          // ⚠ B3 had these as siblings with the pin test first, so pins
+          // dropped even with route add off. That is a different machine.
+          if (window.__routeMode && window.Android) {
+            if (window.__pinSelect && Android.onProximityTap) {
+              console.log('PINTAP -> onProximityTap ' + e.latlng.lat + ',' + e.latlng.lng);
+              Android.onProximityTap(e.latlng.lat, e.latlng.lng);
+            } else if (Android.onMapTap) {
+              Android.onMapTap(e.latlng.lat, e.latlng.lng);
+            }
           }
         } catch (err) {}
       });
