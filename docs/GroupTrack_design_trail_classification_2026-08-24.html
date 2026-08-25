@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GroupTrack — Trail Classification: the problem, the PBF proposal, the obstacles — 2026-08-24</title>
+<style>
+ :root{--bg:#0f1216;--panel:#161b22;--line:#26303b;--fg:#c9d1d9;--muted:#8b949e;
+   --accent:#58a6ff;--amber:#e3b341;--red:#f85149;--green:#3fb950;}
+ *{box-sizing:border-box}
+ body{margin:0;padding:26px 20px 80px;background:var(--bg);color:var(--fg);
+  font:15px/1.65 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+ .wrap{max-width:1000px;margin:0 auto}
+ header{border-bottom:2px solid var(--accent);padding-bottom:14px;margin-bottom:24px}
+ h1{margin:0 0 6px;font-size:25px;color:var(--accent)}
+ .sub{color:var(--muted);font-size:13.5px}
+ h2{font-size:19px;margin:32px 0 10px;padding-bottom:6px;
+   border-bottom:1px solid var(--line);color:var(--accent)}
+ h3{font-size:16px;margin:22px 0 8px}
+ h4{font-size:14.5px;margin:16px 0 6px;color:var(--fg)}
+ .card{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--line);
+   border-radius:6px;padding:12px 15px;margin:10px 0}
+ .card.key{border-left-color:var(--accent)} .card.warn{border-left-color:var(--amber)}
+ .card.stop{border-left-color:var(--red)} .card.good{border-left-color:var(--green)}
+ code{background:#0d1117;border:1px solid var(--line);border-radius:4px;padding:1px 5px;
+   font:13px ui-monospace,Consolas,monospace;color:#a5d6ff}
+ pre{background:#0d1117;border:1px solid var(--line);border-radius:6px;padding:12px;
+   overflow-x:auto;font:12.5px ui-monospace,Consolas,monospace;color:#c9d1d9}
+ ul,ol{margin:7px 0 7px 22px} li{margin:5px 0}
+ table{border-collapse:collapse;width:100%;margin:10px 0}
+ td,th{border:1px solid var(--line);padding:6px 10px;font-size:13.5px;text-align:left;
+   vertical-align:top}
+ th{background:#1c2531;color:var(--accent)}
+ .hi{color:var(--amber)} .muted{color:var(--muted)} .ok{color:var(--green)}
+ .no{color:var(--red)} .num{font-family:ui-monospace,Consolas,monospace}
+</style></head><body><div class="wrap">
+
+<header>
+<h1>Trail Classification — the problem, the proposal, the obstacles</h1>
+<div class="sub">2026-08-24 &middot; research record, for review &middot; <b>no decision taken</b><br>
+Written so the measurement work is not repeated. Every number here came from
+querying the actual files, not from documentation.<br>
+<b>Revised same day:</b> the PBF read is WAYS ONLY — geometry is reused from the
+GeoPackage, which removes the node-resolution problem entirely.</div>
+</header>
+
+<div class="card key">
+<h3 style="margin-top:0">⭐ THE QUESTION THIS DOCUMENT EXISTS TO ANSWER</h3>
+<p><b>What are we reloading?</b> The trails clear and re-import are built and
+working. Before forty testers spend a Geofabrik download each, the data they
+pull down should be the data we actually want — and today's is not.</p>
+<p style="margin-bottom:0">Fred, 08-24: <i>"we are not going to send a release until all
+these items are addressed. We have the clear and the reload. The question is
+what are we reloading."</i></p>
+</div>
+
+<h2>1. The problem</h2>
+
+<p>GroupTrack cannot tell a hiking trail from an OHV trail outside Utah. The
+route explorer will happily build a ride down a footpath, and the map legend —
+which already names eight categories — describes almost nothing that is drawn.</p>
+
+<h3>What we thought we had</h3>
+<div class="card warn">
+<p style="margin-top:0">The morning's plan was to filter on OSM's access tags:
+<code>ohv</code>, <code>motor_vehicle</code>, <code>atv</code>,
+<code>4wd_only</code>, <code>access</code>. These exist in OpenStreetMap and
+they answer the question exactly.</p>
+<p style="margin-bottom:0"><b>They are not in the files we import.</b></p>
+</div>
+
+<h3>What the data actually holds</h3>
+<p>PRAGMA against both <code>.gpkg</code> extracts on D:, the roads layer:</p>
+<pre>osm_id  code  fclass  name  ref  oneway  maxspeed  layer  bridge  tunnel</pre>
+<p>Ten columns. <b>No access field of any kind.</b> Not <code>ohv</code>, not
+<code>motor_vehicle</code>, not <code>access</code>, not <code>private</code>.</p>
+
+<div class="card stop">
+<p style="margin-top:0"><b>⚠ THE CAUSE, and it is documented behaviour rather than a
+bug.</b> Geofabrik's free GeoPackage is derived from their shapefile product,
+which flattens OSM's open-ended tag model into a fixed schema. Anything outside
+that schema is dropped at export.</p>
+<p style="margin-bottom:0">Confirmed independently: <i>"Do not download the
+Shapefiles, as they strip out the complex access tags needed for OHV/4x4
+filtering."</i></p>
+</div>
+
+<h3>So <code>fclass</code> is all there is</h3>
+<p>And <code>fclass</code> describes <b>physical form</b>, not permitted use. A
+<code>track</code> is "unpaved way for agricultural or forestry access" — usually
+OHV-ridable, which makes it a fair inference, but it is not the statement UGRC
+makes when it assigns a category.</p>
+
+<h3>What the importer keeps today</h3>
+<p><code>osm_layers.json</code>, trails layer, nine values — and <b>no road
+classes at all</b>:</p>
+<table>
+<tr><th><code>fclass</code></th><th>Arizona</th><th>Nevada</th><th>Inferred carto</th></tr>
+<tr><td><code>track</code> + <code>track_grade1–5</code></td>
+<td class="num">108,655</td><td class="num">103,106</td><td><b>4</b> OHV</td></tr>
+<tr><td><code>unclassified</code></td>
+<td class="num">20,349</td><td class="num">9,576</td><td><b>4</b> OHV</td></tr>
+<tr><td class="hi"><code>path</code></td>
+<td class="num hi">25,247</td><td class="num hi">13,492</td><td><b>2</b> Hiking &amp; Biking</td></tr>
+<tr><td class="hi"><code>bridleway</code></td>
+<td class="num hi">338</td><td class="num hi">247</td><td><b>6</b> Equestrian</td></tr>
+<tr><th>foot/equestrian share</th><th class="hi">16.5%</th><th class="hi">11.8%</th><th></th></tr>
+</table>
+
+<div class="card">
+<p style="margin-top:0"><b>Only three carto codes are reachable by inference</b> —
+4, 2 and 6 — and 83% of rows fall into code 4. A legend filter built on this
+offers eight categories to describe three.</p>
+<p style="margin-bottom:0"><code>path</code> is the judgment call and it has no
+right answer from this data. OSM defines it as "narrow way, mode unspecified":
+excluding it is correct for a SxS or Jeep and wrong for a dirt bike.</p>
+</div>
+
+<h3>Two other fields that are also empty</h3>
+<div class="card warn">
+<p style="margin-top:0"><code>carto_code</code> and <code>motorized_allowed</code>
+exist in <code>trail_properties</code> and are populated by the UGRC importer.
+<code>OsmImportWorker:468</code> writes both <b>BLANK</b>, deliberately and with a
+comment saying so.</p>
+<p style="margin-bottom:0">So every OSM trail renders cyan "Unspecified" — which
+is every state except the third of Utah that came from UGRC. Fred, 08-24:
+<i>"two-thirds of our Utah trails are OSM."</i></p>
+</div>
+
+<h2>2. What was done today, and why it may be discardable</h2>
+
+<div class="card">
+<p style="margin-top:0"><b>TRAILFILTER-2026-08-24K</b> removed <code>path</code>
+and <code>bridleway</code> from <code>filter_values</code>. Stops the clearly
+non-motorized types arriving in future imports.</p>
+<p><b>TRAILCLEAR-2026-08-24L</b> clears <code>trails</code> AND
+<code>trail_properties</code> once per device, so the home-state picker
+re-imports under the new filter.</p>
+<p style="margin-bottom:0" class="hi">⚠ <b>The filter change did not take effect on
+the device.</b> Extract kept 87,067 trails before the patch and 87,067 after.
+Unexplained — most likely an on-disk override at
+<code>/sdcard/Documents/GroupTrack/config/osm_layers.json</code> winning over the
+bundled asset, which <code>OsmLayerCatalog</code> is designed to allow. Two
+commands would settle it and they have not been run.</p>
+</div>
+
+<div class="card good">
+<h4 style="margin-top:0">⭐ AND L FOUND SOMETHING BIGGER THAN THE FILTER</h4>
+<p>The clear reported <b class="num">86,969 trails and 303,585
+trail_properties rows</b> — three and a half times as many property rows as
+trails. Accumulated orphans from repeated imports, invisible until counted.</p>
+<p>The damage was active, not cosmetic. <code>trail_properties</code> is keyed on
+<code>trail_id</code>, a UUID minted at insert — NOT on <code>geom_hash</code>.
+Once trails are deleted those rows join to nothing, and
+<code>TrailImporter</code> inserts with <code>INSERT OR IGNORE</code> on
+<code>(source_id, source_unique_id)</code>, so a stale row <b>keeps the slot</b>
+and the re-imported trail gets no properties at all.</p>
+<p style="margin-bottom:0">Visible in the ledger:</p>
+<pre>15:41  inserted=30      geomChanged=86893     <- before the clear
+16:41  inserted=86923   geomChanged=0         <- after</pre>
+</div>
+
+<h2>3. The proposal — import from <code>.osm.pbf</code></h2>
+
+<div class="card key">
+<p style="margin-top:0">Fred, 08-24: <i>"my gut is PBF is a new data type but it
+more closely matches the USGS codes and we can quickly remap our import."</i></p>
+<p style="margin-bottom:0">The <code>.osm.pbf</code> is the untouched OSM data
+model. Every tag survives, including all the access keys the GeoPackage drops.</p>
+</div>
+
+<h3>It resolves the categories directly rather than by inference</h3>
+<table>
+<tr><th>carto</th><th>label</th><th>OSM tags</th></tr>
+<tr><td><b>1</b></td><td>Hiking-Only</td>
+<td><code>foot=designated</code> + <code>motor_vehicle=no</code></td></tr>
+<tr><td><b>2</b></td><td>Hiking &amp; Biking</td>
+<td><code>foot</code> + <code>bicycle</code>, no motor</td></tr>
+<tr><td><b>4</b></td><td>OHV / Road-Concurrent</td>
+<td><code>ohv=yes</code> / <code>atv=yes</code> / <code>motorcycle=yes</code></td></tr>
+<tr><td><b>5</b></td><td>Biking-Only</td><td><code>bicycle=designated</code></td></tr>
+<tr><td><b>6</b></td><td>Equestrian</td><td><code>horse=designated</code></td></tr>
+<tr><td><b>7</b></td><td>Steps</td><td><code>highway=steps</code></td></tr>
+</table>
+<p class="muted" style="font-size:13px">Plus <code>4wd_only=yes</code>,
+<code>sac_scale</code> (hiking difficulty) and <code>mtb:scale</code> — none of
+which have any equivalent in what is imported today.</p>
+
+<h3>The two questions that were asked, and their answers</h3>
+<table>
+<tr><th>Question</th><th>Answer</th></tr>
+<tr><td>Is it available by state?</td>
+<td class="ok"><b>Yes.</b> Same Geofabrik server, same per-state granularity,
+same directory structure — <code>north-america/us/utah-latest.osm.pbf</code>.
+<code>GeofabrikCatalog</code> already knows these paths; it is a different
+extension on the same URL.</td></tr>
+<tr><td>How big is it?</td>
+<td class="ok"><b>Smaller</b>, not larger. PBF is compressed binary and is
+typically well under the <code>.gpkg.zip</code> for the same extract. The
+download gets cheaper.</td></tr>
+</table>
+
+<h2>4. The approach — ways only, one preprocess</h2>
+
+<div class="card key">
+<h3 style="margin-top:0">⭐⭐ THE INSIGHT THAT SHRINKS THIS BY AN ORDER OF MAGNITUDE</h3>
+<p>Fred, 08-24: <i>"isn't the route id for the table we use the same route id as
+the protobuf file? Can't we just mine the attributes attached to the route?"</i></p>
+<p><b>Yes.</b> <code>trail_properties.source_unique_id</code> already holds the
+<code>osm_id</code>, written at <code>OsmImportWorker:483</code>. The PBF's ways
+carry the same ids. So the PBF is read for <b>id and tags only</b> — the geometry
+is already imported and correct, and comes from the GeoPackage as it does today.</p>
+<p style="margin-bottom:0">⭐ <b>THAT KILLS THE EXPENSIVE PART.</b> The hard problem
+in reading OSM PBF is that a way references nodes by id, so building geometry
+means resolving millions of node entries — delta-encoded inside dense blocks,
+unseekable, and the reason a naive reader OOMs. <b>None of that is needed if we
+never build geometry.</b> Way blocks carry their own tags; node blocks are
+skipped entirely.</p>
+</div>
+
+<h3>And the mapping happens ONCE, at import</h3>
+<div class="card good">
+<p style="margin-top:0">Fred, 08-24: <i>"clear the trails file, download the
+geopackage and PBF, use the PBF route ids and attributes to update a field that
+is not used by OSM, and use that field in the import — so we are not running
+updates after the import with a chance for the values to be different ... all our
+OSM mapping takes place in one preprocess. One touch point."</i></p>
+<ol>
+<li>Clear trails (built — TRAILCLEAR-L)</li>
+<li>Download the <code>.gpkg</code> AND the <code>.pbf</code> for the state</li>
+<li>Read the PBF <b>ways only</b>: <code>osm_id</code> → tags</li>
+<li>Map tags → carto code in <b>one preprocess</b>, write to a new column on
+<code>osm_trails</code> in the skinny DB</li>
+<li>C3 imports geometry as it does today and carries the classification through
+in the SAME insert</li>
+</ol>
+<p style="margin-bottom:0"><b>No update pass. No window where geometry and
+attributes disagree.</b> <code>carto_code</code> and
+<code>motorized_allowed</code> are populated at insert from real access tags.</p>
+</div>
+
+<div class="card">
+<p style="margin-top:0"><b>⭐ AND IT MAKES THE <code>fclass</code> WORK
+UNNECESSARY RATHER THAN INTERIM.</b> No <code>fclass</code> → code table, no
+<code>path</code> judgment call, no "code 4 by inference". The tags say what the
+trail is. Everything downstream — router, legend filter, map colour — reads one
+field and means one thing by it.</p>
+<p style="margin-bottom:0">Which is the principle held all day: one place where
+classification happens, not compensations scattered downstream that nobody
+remembers the reason for.</p>
+</div>
+
+<h3>What it still needs</h3>
+<table>
+<tr><th>Piece</th><th>Size</th></tr>
+<tr><td>A protobuf reader on Android</td>
+<td class="ok">Solved problem — <code>protobuf-javalite</code> is the standard
+answer and is built for exactly this. The ENCODING was never the obstacle.</td></tr>
+<tr><td>Skip node blocks cheaply</td>
+<td>Blocks are typed, so headers can be decoded and non-way blocks skipped. <b>Worth
+confirming</b> — it is what makes the read fast.</td></tr>
+<tr><td>A column on <code>osm_trails</code></td>
+<td class="ok">One addition to the target table, which
+<code>OsmExtractWorker.createTarget</code> already builds from the layer
+catalogue</td></tr>
+<tr><td>One extra download per state</td>
+<td class="ok">PBF is SMALLER than the <code>.gpkg.zip</code>, so roughly 40% more
+total, not double</td></tr>
+<tr><td><code>osm_id</code> type match</td>
+<td class="hi">Stored as TEXT in <code>source_unique_id</code>; PBF gives int64.
+Same value, but the comparison must be type-honest</td></tr>
+</table>
+
+<h2>5. The first task — MEASURE, do not build</h2>
+
+<div class="card key">
+<p style="margin-top:0">Before any of the above, one desktop pass answers whether
+it is worth doing at all: <b>are the access tags actually there, and how
+densely?</b></p>
+<p>Python against a downloaded <code>utah-latest.osm.pbf</code> and the extension
+DB pulled from Droid 2. <b>No Android reader, no Kotlin, no build.</b> It should
+report:</p>
+<ul>
+<li>How many stored <code>osm_id</code> values are found in the PBF at all</li>
+<li>Which access tags appear, and on what fraction —
+<code>ohv</code>, <code>atv</code>, <code>motorcycle</code>,
+<code>4wd_only</code>, <code>motor_vehicle</code>, <code>foot</code>,
+<code>bicycle</code>, <code>horse</code></li>
+<li>The tag combinations, mapped through the existing UGRC 1–8 scheme</li>
+<li>How many rows land in each category, and how many stay unclassified</li>
+</ul>
+<p style="margin-bottom:0">⚠ <b>THIS IS THE DECIDING NUMBER.</b> If 90% of Utah's
+tracks carry no access tag, the proposal changes — the tags existing in the
+schema is not the same as them being populated on the ground. Same rule that
+caught <code>ohv</code> not being in the GeoPackage: <b>examine the data before
+categorising.</b></p>
+</div>
+
+<h2>5b. The decision, stated plainly</h2>
+
+<div class="card">
+<p style="margin-top:0"><b>Is <code>fclass</code> filtering worth shipping as an
+interim, or does the reload wait for proper classification?</b></p>
+<p style="margin-bottom:0" class="hi"><b>The ways-only approach tips this toward
+waiting.</b> The clear-and-reload is the expensive thing to ask of testers, and
+it is now built. Asking them to do it ONCE, with data carrying real
+classification, beats asking twice — and with geometry reuse the PBF work is far
+smaller than it looked when it seemed to require a full geometry reader.</p>
+</div>
+
+<h2>6. What is finished, so it is not redone</h2>
+<table>
+<tr><th>Established</th><th>Evidence</th></tr>
+<tr><td>Access tags absent from <code>.gpkg</code></td>
+<td>PRAGMA on both extracts, ten columns, no access field</td></tr>
+<tr><td><code>fclass</code> vocabulary and volumes</td>
+<td>GROUP BY on Arizona and Nevada, table in §1</td></tr>
+<tr><td>Importer keeps nine values, no roads</td>
+<td><code>osm_layers.json</code> read directly</td></tr>
+<tr><td><code>fclass</code> is NOT stored on <code>trails</code></td>
+<td>PRAGMA: twelve columns, none of them fclass — so no surgical delete is
+possible and a clear is the only option</td></tr>
+<tr><td>OSM writes carto blank</td>
+<td><code>OsmImportWorker:468</code>, comment states it</td></tr>
+<tr><td>303,585 orphaned property rows</td>
+<td>Clear log, 08-24 16:31</td></tr>
+<tr><td>Orphans block re-import silently</td>
+<td>Ledger: inserted=30 before, inserted=86,923 after</td></tr>
+<tr><td>PBF is per-state and smaller</td>
+<td>Geofabrik publishes both at the same path</td></tr>
+</table>
+
+<h2>7. Open, for tomorrow</h2>
+<ol>
+<li><b>Why did the filter change not take?</b> Two commands:
+<code>ls /sdcard/Documents/GroupTrack/config/</code> and
+<code>logcat | grep OsmLayers</code> — the catalogue logs OVERRIDE vs ASSET.
+Matters beyond this one filter: an override that silently wins means ANY shipped
+config change can be ignored on a device that has one.</li>
+<li><b>Is there a streaming PBF reader for Android?</b> The read that turns this
+proposal into an estimate.</li>
+<li><b>Does <code>path</code> stay excluded, or come in as code 2</b> and let the
+rider filter it? The second makes the legend real and serves dirt bikes; it needs
+the classification to exist first.</li>
+<li><b>Dead-end spurs.</b> Measured at Panguitch: 1,388 spurs, only 38 carry a
+feature (2.7%). A "short AND featureless" cut at 300 yd removes 606 and loses
+none of the 38 worth riding. Separate from classification, cheap, and it is a
+data problem rather than a scoring one.</li>
+</ol>
+
+</div></body></html>

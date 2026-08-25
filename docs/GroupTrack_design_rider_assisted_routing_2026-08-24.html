@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GroupTrack — Rider-Assisted Routing: the 10-point design — 2026-08-24</title>
+<style>
+ :root{--bg:#0f1216;--panel:#161b22;--line:#26303b;--fg:#c9d1d9;--muted:#8b949e;
+   --accent:#58a6ff;--amber:#e3b341;--red:#f85149;--green:#3fb950;}
+ *{box-sizing:border-box}
+ body{margin:0;padding:26px 20px 80px;background:var(--bg);color:var(--fg);
+  font:15px/1.65 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+ .wrap{max-width:1000px;margin:0 auto}
+ header{border-bottom:2px solid var(--accent);padding-bottom:14px;margin-bottom:24px}
+ h1{margin:0 0 6px;font-size:25px;color:var(--accent)}
+ .sub{color:var(--muted);font-size:13.5px}
+ h2{font-size:19px;margin:32px 0 10px;padding-bottom:6px;
+   border-bottom:1px solid var(--line);color:var(--accent)}
+ h3{font-size:16px;margin:22px 0 8px}
+ h4{font-size:14.5px;margin:16px 0 6px;color:var(--fg)}
+ .card{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--line);
+   border-radius:6px;padding:12px 15px;margin:10px 0}
+ .card.key{border-left-color:var(--accent)} .card.warn{border-left-color:var(--amber)}
+ .card.stop{border-left-color:var(--red)} .card.good{border-left-color:var(--green)}
+ code{background:#0d1117;border:1px solid var(--line);border-radius:4px;padding:1px 5px;
+   font:13px ui-monospace,Consolas,monospace;color:#a5d6ff}
+ pre{background:#0d1117;border:1px solid var(--line);border-radius:6px;padding:12px;
+   overflow-x:auto;font:12.5px ui-monospace,Consolas,monospace;color:#c9d1d9}
+ ul,ol{margin:7px 0 7px 22px} li{margin:5px 0}
+ table{border-collapse:collapse;width:100%;margin:10px 0}
+ td,th{border:1px solid var(--line);padding:6px 10px;font-size:13.5px;text-align:left;
+   vertical-align:top}
+ th{background:#1c2531;color:var(--accent)}
+ .hi{color:var(--amber)} .muted{color:var(--muted)} .ok{color:var(--green)}
+ .no{color:var(--red)} .num{font-family:ui-monospace,Consolas,monospace}
+</style></head><body><div class="wrap">
+
+<header>
+<h1>Rider-Assisted Routing — the 10-point design</h1>
+<div class="sub">2026-08-24 &middot; design settled, <b>not built</b> &middot; tomorrow's task<br>
+Prototype: <code>nav_pass6b_sweep_2026-08-24.py</code>. Every number below was
+measured against the spatial DB, not estimated.</div>
+</header>
+
+<div class="card key">
+<h3 style="margin-top:0">⭐⭐ THE ONE FINDING THAT SHAPED EVERYTHING</h3>
+<p><b>The base cost dominates. The point count barely matters.</b></p>
+<table>
+<tr><th>points</th><th>shortest possible ride</th><th>vs 80 mi ceiling</th></tr>
+<tr><td class="num">3</td><td class="num">93.5 mi</td><td class="no">over by 13.5</td></tr>
+<tr><td class="num">5</td><td class="num">97.3 mi</td><td class="no">over by 17.3</td></tr>
+<tr><td class="num">7</td><td class="num">110.6 mi</td><td class="no">over by 30.6</td></tr>
+<tr><td class="num">10</td><td class="num">139.0 mi</td><td class="no">over by 59.0</td></tr>
+</table>
+<p>Three points already blow the ceiling. Adding seven more costs only 45 miles.
+So the expensive thing is <b>getting into the region at all</b> — roughly 60
+miles of it — and the points themselves are nearly free once you are there.</p>
+<p style="margin-bottom:0">Panguitch anchor, points all within 13 miles of the
+trailhead. This is the easy case, not a stress test.</p>
+</div>
+
+<h2>1. Why the network costs so much</h2>
+
+<div class="card warn">
+<p style="margin-top:0"><b>Network distance bears almost no relation to
+straight-line distance.</b></p>
+<table>
+<tr><th>leg</th><th>straight line</th><th>network</th><th>ratio</th></tr>
+<tr><td>Trailhead → Rock Quarry Spring</td><td class="num">11.7 mi</td>
+<td class="num">21.3 mi</td><td class="num">1.8 : 1</td></tr>
+<tr><td>Cooper Knoll → Trailhead</td><td class="num">12.7 mi</td>
+<td class="num">28.5 mi</td><td class="num">2.2 : 1</td></tr>
+<tr><td class="hi">Rock Quarry → Panguitch Lake Resort</td><td class="num hi">~2 mi</td>
+<td class="num hi">32.9 mi</td><td class="num hi">~16 : 1</td></tr>
+<tr><td>Cooper Knoll → Lake View Resort</td><td class="num">~2 mi</td>
+<td class="num ok">2.2 mi</td><td class="num ok">1 : 1</td></tr>
+</table>
+<p style="margin-bottom:0">Two points two miles apart can cost 33 miles or 2,
+depending entirely on whether the trails happen to connect. <b>A rider looking
+at a map cannot predict this</b>, and that is the whole argument for showing it
+rather than making them guess.</p>
+</div>
+
+<div class="card">
+<p style="margin-top:0">Supporting conditions, same run:</p>
+<ul style="margin-bottom:0">
+<li>Main connected component is <b>51%</b> of nodes — half the network is
+fragments joined to nothing</li>
+<li>Only <b>91 of 214</b> POIs snap to the routable network within half a mile</li>
+<li>The Panguitch trailhead itself snapped <b class="hi">3,814 ft</b> — over half
+a mile from anything routable</li>
+</ul>
+</div>
+
+<h2>2. The design</h2>
+
+<div class="card good">
+<p style="margin-top:0">Fred, 08-24: <i>"we are adding intelligence to the point
+drop to ensure the points are realistic to the mileage ... then a scoring model
+that includes high scored user points ... the rest is adding scoring and
+mileage."</i></p>
+</div>
+
+<h3>Stage 1 — live feasibility while pins are being dropped</h3>
+<p><b>Not a gate at the end.</b> Every drop recomputes and redraws.</p>
+<table>
+<tr><th>on each drop</th><th>what the rider sees</th></tr>
+<tr><td>Snap to nearest node on the <b>main component</b></td>
+<td>How far the pin moved. A point that snaps to a fragment is unreachable and
+says so — a different problem from being far.</td></tr>
+<tr><td>Rebuild the distance matrix</td>
+<td>Running total: "your points now need at least 93 miles"</td></tr>
+<tr><td>Solve the exact tour</td>
+<td>The <b>shortest route so far, drawn on the map</b>, updating as points are
+added and removed</td></tr>
+<tr><td>Report the marginal cost</td>
+<td>What THIS pin added. 32 miles reads very differently from 2.</td></tr>
+</table>
+
+<div class="card key">
+<h4 style="margin-top:0">⭐ THE LINE IS THE EXPLANATION</h4>
+<p>Fred: <i>"while we are doing this we can show the shortest route as it evolves
+between point selections."</i></p>
+<p style="margin-bottom:0">A number saying 93 miles is abstract. A line jumping
+thirty miles across country and back to reach one pin is immediately obvious,
+and it shows the <b>visiting order</b> too — which is not the order they were
+dropped.</p>
+</div>
+
+<h3>Stage 2 — the scorer, unchanged</h3>
+<div class="card">
+<p style="margin-top:0">On PROCEED the tour becomes the <b>skeleton</b> and its
+length the <b>floor</b>. <code>ceiling − tour</code> is the surplus, and the
+existing engine spends it backfilling features and avoiding retrace.</p>
+<p><b>⭐ THE ENGINE DOES NOT FORK.</b> A rider point is a feature worth a great
+deal more, nothing else. Explore mode is the same call with no user points and
+the whole budget as surplus.</p>
+<p style="margin-bottom:0">Which also means a point it cannot afford is simply
+not picked up, rather than the search failing — and that is exactly what "to the
+best of my ability" should mean on the summary panel.</p>
+</div>
+
+<div class="card warn">
+<p style="margin:0">⚠ <b>ZERO SURPLUS IS THE COMMON CASE, not an edge case.</b> At
+Panguitch three points cost 93.5 against an 80 ceiling. The scorer must handle a
+negative or zero surplus gracefully — the route is then just the tour — rather
+than assuming it always has miles to spend.</p>
+</div>
+
+<h2>3. Costs, measured</h2>
+<table>
+<tr><th>step</th><th>cost</th><th>note</th></tr>
+<tr><td>Distance matrix, 11 points</td><td class="num">1.5–2.4 s</td>
+<td>ONE Dijkstra per point, not 121 searches — single-source is
+all-targets, so each run fills a whole row</td></tr>
+<tr><td>Exact tour, 10 points</td><td class="num">microseconds</td>
+<td>Held-Karp, 2<sup>10</sup> × 10². <b>Exact, not approximate</b> — the answer
+is "the best possible is 93.5 miles", which a rider can act on, not "we could
+not find one under 80", which they cannot</td></tr>
+</table>
+
+<div class="card stop">
+<p style="margin:0">⚠ <b>RUN THE DIJKSTRAS SEQUENTIALLY AND RELEASE EACH.</b> The
+08-23 OOM was 112 simultaneous distance tables with boxed keys on a 256 MB heap.
+Eleven is nothing, but the habit costs nothing either.</p>
+</div>
+
+<h2>4. Decisions taken</h2>
+<table>
+<tr><th>Question</th><th>Decision</th></tr>
+<tr><td>Hard limit on points?</td>
+<td><b>No.</b> The rider watches the number climb and stops. Blocking would hide
+the option of raising the mileage band instead.</td></tr>
+<tr><td>Mileage editable during pin drop?</td>
+<td><b>Yes</b> — it is the other half of the trade. A rider seeing 93 miles may
+raise the ceiling rather than drop a point, and cannot if the control was left
+behind on the setup panel.</td></tr>
+<tr><td>Style of the evolving line?</td>
+<td><b>Provisional</b> — thinner, dashed, distinct. It is a feasibility sketch,
+not the ride. Cleared when the search starts so real routes are not drawn over
+it.</td></tr>
+<tr><td>Subset search — "which of your ten fit"?</td>
+<td class="hi"><b>Held back.</b> It cleans up after a bad situation; live feedback
+prevents it. And the data says the answer is often <i>none</i>, which is not a
+useful thing to compute.</td></tr>
+<tr><td>Seed points from an existing track?</td>
+<td><b>Nothing to build.</b> Fred: "a user can display his track on the map, pick
+things he liked and then run the engine." The track is already displayable and
+the pin drop already exists — the app need not know a track was involved.</td></tr>
+</table>
+
+<h2>5. Implementation notes</h2>
+<div class="card">
+<ul style="margin-bottom:0">
+<li><b>Dijkstra must return PATHS, not just distances</b> — predecessor tracking.
+The evolving line needs the geometry. Cheap, but it changes what the matrix
+function hands back, and it is worth writing that way from the start rather than
+retrofitting.</li>
+<li><b>Drop any point unreachable in EITHER direction</b>, not just from the
+trailhead. Same-component membership makes a one-way failure unlikely, but
+unlikely is not checked, and an infinite entry reaching Held-Karp returns
+infinity for a reason nobody can see.</li>
+<li><b>Duplicate POIs exist.</b> Scenario B drew "Navajo Lake Spring" twice, 0.01
+miles apart. Dedup the pool before offering it.</li>
+</ul>
+</div>
+
+<h2>6. Also measured — dead-end spurs</h2>
+<div class="card">
+<p style="margin-top:0">Fred, 08-24: <i>"a trail that is a spur with no feature at
+the end is a dead end trail. But it must have a view, a cave, a water feature.
+Some go 300 yards and dead end in the middle of nowhere."</i></p>
+<p><b>1,388 dead-end spurs on the main component. Only 38 — 2.7% — have a feature
+on them.</b></p>
+<table>
+<tr><th>cut</th><th>spurs</th><th>of which featureless</th></tr>
+<tr><td>≤ 100 yd</td><td class="num">255</td><td class="num">253</td></tr>
+<tr><td>≤ 300 yd</td><td class="num">615</td><td class="num">606</td></tr>
+<tr><td>≤ 500 yd</td><td class="num">846</td><td class="num">831</td></tr>
+</table>
+<p style="margin-bottom:0"><b>The clean cut is "short AND featureless", not length
+alone.</b> At 300 yd that removes 606 and loses none of the 38 worth riding.
+Median spur length 0.198 mi. This is a <b>data cleanup, not a scoring
+change</b> — a 300-yard stub ending at nothing is a digitising artefact and no
+retrace penalty makes its presence correct.</p>
+</div>
+
+<h2>7. ⚠ Caveat on every number here</h2>
+<div class="card stop">
+<p style="margin-top:0">The prototype ran against
+<code>D:\nav_test\grouptrack_spatial.db</code>, which holds <b>216,616 trails</b>
+across several states and reported <b>276,407 corridor edges</b> at this anchor.</p>
+<p>Droid 2, holding Utah alone, reported <b>27,215 edges and 62 POI nodes</b> for
+the same anchor and built four routes with no OOM.</p>
+<p style="margin-bottom:0">The queries are identical — both a bbox overlap with
+the same argument order — so the difference is the DATA. <b>The shape of these
+findings holds; the magnitudes should be re-measured against a single-state
+copy before any threshold is set from them.</b></p>
+</div>
+
+<div class="card good">
+<p style="margin:0"><b>One thing that caveat settles positively:</b> the 08-23
+<code>REACH = ceiling / 3</code> OOM fix is holding comfortably. 27,215 edges and
+62 POI nodes on device, against the 53,711 edges and 112 POI nodes that
+exhausted the heap. A 60×60 mile cap on the corridor box is belt-and-braces
+rather than urgent — the current formula gives 53.4×53.4 at an 80-mile ceiling
+and only exceeds 60 above a 90-mile band.</p>
+</div>
+
+</div></body></html>

@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GroupTrack — AI Design Panel FINAL — 2026-08-24</title>
+<style>
+ :root{--bg:#0f1216;--panel:#161b22;--line:#26303b;--fg:#c9d1d9;--muted:#8b949e;
+   --accent:#58a6ff;--amber:#e3b341;--red:#f85149;--green:#3fb950;
+   --aiBg:#0F1419;--aiPanel:#131A24;--aiCard:#0F1720;--aiLine:#24313F;
+   --aiGreen:#7BB661;--aiBlue:#4DA6FF;--aiAmber:#E3B341;
+   --aiTxt:#E6EDF3;--aiDim:#8899AA;--aiFaint:#667788;}
+ *{box-sizing:border-box}
+ body{margin:0;padding:26px 20px 80px;background:var(--bg);color:var(--fg);
+  font:15px/1.65 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+ .wrap{max-width:1240px;margin:0 auto}
+ header{border-bottom:2px solid var(--accent);padding-bottom:14px;margin-bottom:24px}
+ h1{margin:0 0 6px;font-size:25px;color:var(--accent)}
+ .sub{color:var(--muted);font-size:13.5px}
+ h2{font-size:19px;margin:32px 0 10px;padding-bottom:6px;
+   border-bottom:1px solid var(--line);color:var(--accent)}
+ h3{font-size:15px;margin:18px 0 7px;color:var(--fg)}
+ .card{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--line);
+   border-radius:6px;padding:12px 15px;margin:10px 0}
+ .card.key{border-left-color:var(--accent)} .card.warn{border-left-color:var(--amber)}
+ .card.good{border-left-color:var(--green)} .card.stop{border-left-color:var(--red)}
+ code{background:#0d1117;border:1px solid var(--line);border-radius:4px;padding:1px 5px;
+   font:13px ui-monospace,Consolas,monospace;color:#a5d6ff}
+ ul,ol{margin:7px 0 7px 22px} li{margin:5px 0}
+ table{border-collapse:collapse;width:100%;margin:10px 0}
+ td,th{border:1px solid var(--line);padding:6px 10px;font-size:13.5px;text-align:left;
+   vertical-align:top}
+ th{background:#1c2531;color:var(--accent)}
+ .hi{color:var(--amber)} .muted{color:var(--muted)} .ok{color:var(--green)}
+ .no{color:var(--red)}
+
+ .split{display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap}
+ .phonecol{flex:0 0 372px}
+ .notecol{flex:1 1 340px;min-width:310px}
+ .caption{color:var(--accent);font:11px ui-monospace,Consolas,monospace;
+   letter-spacing:1px;margin:0 0 8px}
+
+ .phone{width:372px;border:1px solid #2b3947;border-radius:14px;overflow:hidden;
+   background:var(--aiBg);box-shadow:0 0 0 5px #0a0d11}
+ .statusbar{height:21px;background:#0a0e13;color:var(--aiFaint);
+   font:10px ui-monospace,Consolas,monospace;display:flex;align-items:center;
+   justify-content:space-between;padding:0 10px}
+ .pnl{background:var(--aiPanel);padding:0 0 13px}
+
+ .ptitle{padding:12px 13px 10px;border-bottom:1px solid var(--aiLine);
+   display:flex;align-items:center;justify-content:space-between}
+ .ptitle b{color:var(--aiTxt);font-size:14px;letter-spacing:.4px}
+ .xbtn{color:var(--aiDim);font:12.5px ui-monospace,Consolas,monospace}
+
+ .sect{padding:11px 13px 0}
+ .lbl{color:var(--aiDim);font:10px ui-monospace,Consolas,monospace;
+   letter-spacing:1.1px;margin:0 0 6px}
+ .field{background:var(--aiCard);border:1px solid var(--aiLine);border-radius:5px;
+   padding:9px 11px;color:var(--aiTxt);font-size:14px}
+ .hintline{color:var(--aiFaint);font-size:11.2px;margin:5px 2px 0;line-height:1.45}
+ .hintline b{color:var(--aiAmber);font-weight:600}
+
+ .rangerow{display:flex;align-items:center;gap:8px;margin:0 0 7px}
+ .rangerow .rl{color:var(--aiDim);font:10.5px ui-monospace,Consolas,monospace;
+   width:48px;letter-spacing:.6px}
+ .stepper{flex:1;display:flex;align-items:center;justify-content:space-between;
+   background:var(--aiCard);border:1px solid var(--aiLine);border-radius:5px;padding:6px 8px}
+ .stepper .mm{color:var(--aiBlue);font:15px ui-monospace,Consolas,monospace;
+   width:20px;text-align:center}
+ .stepper .vv{color:var(--aiTxt);font:13px ui-monospace,Consolas,monospace}
+
+ .calcbox{background:#101a15;border:1px solid #26402e;border-left:3px solid var(--aiGreen);
+   border-radius:5px;padding:9px 11px;margin-top:2px}
+ .calcbox .ct{color:var(--aiGreen);font:10px ui-monospace,Consolas,monospace;
+   letter-spacing:1.1px;margin-bottom:3px}
+ .calcbox .cv{color:var(--aiTxt);font:14.5px ui-monospace,Consolas,monospace}
+ .calcbox .cs{color:var(--aiFaint);font-size:10.8px;margin-top:4px;line-height:1.4}
+
+ .tw{background:var(--aiCard);border:1px solid var(--aiLine);border-radius:6px;
+   margin-bottom:7px;overflow:hidden}
+ .twh{padding:10px 11px;display:flex;align-items:center;gap:9px}
+ .twh .chev{color:var(--aiFaint);font:11px ui-monospace,Consolas,monospace;flex:0 0 10px}
+ .twh .q{color:var(--aiGreen);font-size:12.8px;font-weight:600;flex:1}
+ .twb{padding:0 11px 11px;border-top:1px solid var(--aiLine)}
+ .twb p{margin:9px 0 6px;color:var(--aiDim);font-size:12.1px;line-height:1.5}
+ .twb p:last-of-type{margin-bottom:0}
+ .twb .eu{color:var(--aiFaint);font-size:11.1px;margin-top:7px;line-height:1.45;
+   border-top:1px dashed var(--aiLine);padding-top:7px}
+
+ .proceed{margin:11px 13px 0;background:#16301c;border:1px solid var(--aiGreen);
+   border-radius:6px;padding:11px;text-align:center}
+ .proceed .pb{color:var(--aiGreen);font:13.5px ui-monospace,Consolas,monospace;
+   letter-spacing:1.2px;font-weight:700}
+ .proceed .ps{color:var(--aiDim);font-size:11.1px;margin-top:6px;line-height:1.5}
+
+ .safety{margin:10px 13px 0;color:var(--aiFaint);font-size:10.5px;line-height:1.5;
+   border-top:1px solid var(--aiLine);padding-top:8px}
+
+ /* pin panel bar */
+ .mapstub{height:330px;background:
+   repeating-linear-gradient(48deg,#16202a 0 22px,#141d26 22px 44px);
+   position:relative}
+ .mapstub .trail{position:absolute;border-radius:2px;background:#3a4c5e}
+ .pinmk{position:absolute;transform:translate(-50%,-100%);text-align:center}
+ .pinmk .dot{width:15px;height:15px;border-radius:50% 50% 50% 0;
+   transform:rotate(-45deg);margin:0 auto;border:2px solid #0a0e13}
+ .pinmk .cap{color:var(--aiTxt);font:9.5px ui-monospace,Consolas,monospace;
+   margin-top:4px;background:rgba(10,14,19,.85);padding:1px 4px;border-radius:3px;
+   white-space:nowrap}
+ .pinbar{background:var(--aiPanel);border-top:1px solid var(--aiLine);padding:11px 13px 13px}
+ .pinbar .pq{color:var(--aiTxt);font-size:13.4px;font-weight:600;margin-bottom:4px}
+ .pinbar .pn{color:var(--aiDim);font-size:11.4px;line-height:1.45}
+ .pinbar .cnt{color:var(--aiBlue);font:11px ui-monospace,Consolas,monospace;float:right}
+ .pbtns{display:flex;gap:8px;margin-top:11px}
+ .pbtn{flex:1;text-align:center;border-radius:5px;padding:9px;
+   font:11.5px ui-monospace,Consolas,monospace;letter-spacing:.9px;
+   border:1px solid var(--aiLine);color:var(--aiDim);background:var(--aiCard)}
+ .pbtn.go{border-color:var(--aiGreen);color:var(--aiGreen);background:#16301c;font-weight:700}
+ .pbtn.dis{color:#556677;border-color:#2a343e}
+ .steps{display:flex;gap:5px;margin-bottom:9px}
+ .stp{flex:1;height:3px;border-radius:2px;background:#2a343e}
+ .stp.on{background:var(--aiGreen)} .stp.done{background:#3d5c45}
+ .arrowlist li{margin:9px 0}
+</style></head><body><div class="wrap">
+
+<header>
+<h1>AI Design Panel — FINAL</h1>
+<div class="sub">2026-08-24 &middot; supersedes v1 and v2 &middot;
+<code>ConvoyAiDesignPanel.kt</code> PHASE_SETUP + shared pin panel<br>
+<b>Final changes:</b> mode is <span class="ok">derived from the pins</span>, not chosen &middot;
+<b>two twisties</b> above PROCEED — "How does this work?" open by default, "How are trails
+recommended?" closed &middot; <b>Targeted ride duration</b> &middot; speed and mileage text cut
+to a one-line disclaimer &middot; PROCEED sub-text states required vs optional &middot;
+Fred's wording throughout.</div>
+</header>
+
+<div class="card key">
+<p style="margin-top:0"><b>The mode is no longer a question.</b> The rider's pins already say
+which one they meant — trailhead only, or trailhead plus a finish, is Explore; any include
+points dropped is Assist. Asking at the top would have made them decide with a radio button
+what they are about to decide again with their thumbs.</p>
+<p style="margin-bottom:0"><code>AI_MODE_EXPLORE</code> and <code>AI_MODE_INCLUDE</code> still
+exist for the search. They are <b>computed from the pin set</b> instead of declared on the
+panel.</p>
+</div>
+
+<h2>The two surfaces</h2>
+
+<div class="split">
+
+<div class="phonecol">
+<div class="caption">1 · SETUP PANEL — TWISTY COLLAPSED</div>
+<div class="phone">
+<div class="statusbar"><span>GroupTrack</span><span>9:41</span></div>
+<div class="pnl">
+
+  <div class="ptitle"><b>AI ROUTE DESIGN</b><span class="xbtn">CLOSE ✕</span></div>
+
+  <div class="sect">
+    <div class="lbl">RIDE NAME</div>
+    <div class="field">Panguitch Loop</div>
+    <div class="hintline">Routes come back named
+      <b>Panguitch Loop Route-1</b> … <b>Route-4</b>. Rename any you keep.</div>
+  </div>
+
+  <div class="sect">
+    <div class="lbl">HOW FAR, AND HOW FAST</div>
+    <div class="rangerow"><span class="rl">MILES</span>
+      <span class="stepper"><span class="mm">−</span>
+        <span class="vv">55 &nbsp;to&nbsp; 80</span><span class="mm">+</span></span></div>
+    <div class="rangerow"><span class="rl">MPH</span>
+      <span class="stepper"><span class="mm">−</span>
+        <span class="vv">12 &nbsp;to&nbsp; 18</span><span class="mm">+</span></span></div>
+
+    <div class="calcbox">
+      <div class="ct">TARGETED RIDE DURATION</div>
+      <div class="cv">3.1 – 6.7 hrs</div>
+      <div class="cs">Calculated from the average speed and miles above. Changing these values
+        will change the ride duration estimated.</div>
+    </div>
+
+    <div class="hintline" style="margin-top:7px"><b>Adjust defaults with caution. Adjustments
+      to the above values will result in fewer trail options selected.</b></div>
+  </div>
+
+  <div class="sect">
+    <div class="tw">
+      <div class="twh"><span class="chev">▾</span>
+        <span class="q">How does this work?</span></div>
+      <div class="twb">
+        <p>You will be guided throughout this process. This option analyzes all the trails
+          around you and your choices to create several Work in Progress ride alternatives for
+          you to review.</p>
+        <p>You may complete and save or discard these works in progress at your leisure.</p>
+      </div>
+    </div>
+
+    <div class="tw"><div class="twh"><span class="chev">▸</span>
+      <span class="q">How are trails recommended?</span></div></div>
+  </div>
+
+  <div class="proceed">
+    <div class="pb">PROCEED TO MAP</div>
+    <div class="ps">Dropping a trailhead pin is a <b style="color:#E3B341">required</b> step.
+      Dropping any other pins is optional.</div>
+  </div>
+
+  <div class="safety">The app does not know how wide a trail is, what its surface is, or what
+    is on it. Ride it with that in mind.</div>
+
+</div></div>
+
+<div class="caption" style="margin-top:22px">1b · BOTH TWISTIES OPEN</div>
+<div class="phone">
+<div class="statusbar"><span>GroupTrack</span><span>9:41</span></div>
+<div class="pnl">
+  <div class="sect" style="padding-top:13px">
+    <div class="tw">
+      <div class="twh"><span class="chev">▾</span>
+        <span class="q">How does this work?</span></div>
+      <div class="twb">
+        <p>You will be guided throughout this process. This option analyzes all the trails
+          around you and your choices to create several Work in Progress ride alternatives for
+          you to review.</p>
+        <p>You may complete and save or discard these works in progress at your leisure.</p>
+      </div>
+    </div>
+
+    <div class="tw">
+      <div class="twh"><span class="chev">▾</span>
+        <span class="q">How are trails recommended?</span></div>
+      <div class="twb">
+        <p>The app scores a ride on what it passes and how much of it you ride twice. Rides
+          that reach named features — springs, canyons, overlooks, ruins, mines — score higher
+          than rides that just cover ground.</p>
+        <p>Riding the same trail back the way you came counts against a ride, so loops and new
+          ground are favoured over out-and-backs.</p>
+        <p>Distance is a budget, not a goal. A ride that hits your mileage but passes nothing
+          interesting scores below a shorter one that does.</p>
+        <div class="eu">It only builds on trails that are actually connected to each other in
+          the map data. Some trails in your area are recorded as isolated pieces with nothing
+          joining them, and those cannot be used until better data exists.</div>
+      </div>
+    </div>
+  </div>
+</div></div>
+</div>
+
+<div class="phonecol">
+<div class="caption">2 · PIN PANEL — SHARED, PROMPT-DRIVEN</div>
+
+<div class="phone">
+<div class="statusbar"><span>GroupTrack</span><span>9:42</span></div>
+<div class="mapstub">
+  <span class="trail" style="left:14%;top:22%;width:62%;height:3px;transform:rotate(9deg)"></span>
+  <span class="trail" style="left:32%;top:18%;width:3px;height:56%"></span>
+  <span class="trail" style="left:40%;top:58%;width:48%;height:3px;transform:rotate(-13deg)"></span>
+  <span class="trail" style="left:60%;top:30%;width:3px;height:44%"></span>
+  <span class="pinmk" style="left:32%;top:52%">
+    <span class="dot" style="background:#7BB661"></span>
+    <span class="cap">TRAILHEAD</span></span>
+  <span class="pinmk" style="left:60%;top:40%">
+    <span class="dot" style="background:#4DA6FF"></span>
+    <span class="cap">1</span></span>
+  <span class="pinmk" style="left:79%;top:66%">
+    <span class="dot" style="background:#4DA6FF"></span>
+    <span class="cap">2</span></span>
+</div>
+<div class="pinbar">
+  <div class="steps"><span class="stp done"></span><span class="stp done"></span>
+    <span class="stp on"></span></div>
+  <div class="pq">Tap places you want the ride to pass through
+    <span class="cnt">2 of 10</span></div>
+  <div class="pn">Optional. Tap a pin again to remove it.</div>
+  <div class="pbtns">
+    <span class="pbtn">BACK</span>
+    <span class="pbtn go">DONE — FIND MY RIDES</span>
+  </div>
+</div>
+</div>
+
+<div class="caption" style="margin-top:22px">2a · FIRST STEP — THE GATE</div>
+<div class="phone">
+<div class="statusbar"><span>GroupTrack</span><span>9:42</span></div>
+<div class="mapstub" style="height:190px">
+  <span class="trail" style="left:14%;top:34%;width:62%;height:3px;transform:rotate(9deg)"></span>
+  <span class="trail" style="left:32%;top:22%;width:3px;height:60%"></span>
+</div>
+<div class="pinbar">
+  <div class="steps"><span class="stp on"></span><span class="stp"></span>
+    <span class="stp"></span></div>
+  <div class="pq">Tap where the ride starts</div>
+  <div class="pn">Tap an existing trailhead, or anywhere to make a new one.</div>
+  <div class="pbtns">
+    <span class="pbtn">CANCEL</span>
+    <span class="pbtn dis">NEXT</span>
+  </div>
+</div>
+</div>
+</div>
+
+<div class="notecol">
+
+<h2 style="margin-top:0">Mode derivation</h2>
+<table>
+<tr><th>Pins dropped</th><th>Mode sent to the search</th></tr>
+<tr><td>Trailhead only</td><td><code>AI_MODE_EXPLORE</code> · loop</td></tr>
+<tr><td>Trailhead + finish</td><td><code>AI_MODE_EXPLORE</code> · point to point</td></tr>
+<tr><td>Trailhead + any includes</td><td><code>AI_MODE_INCLUDE</code></td></tr>
+<tr><td>Trailhead + finish + includes</td><td><code>AI_MODE_INCLUDE</code> · point to point</td></tr>
+</table>
+<div class="card good">
+<p style="margin:0">Nothing ambiguous, nothing to ask. The rider never sees the words Explore or
+Assist — they drop pins and the app does the right thing.</p>
+</div>
+
+<h2>The pin panel</h2>
+<div class="card">
+<p style="margin-top:0"><b>One component, three prompts.</b> Drop mechanic, snap and map
+behaviour are identical; only the prompt, the counter and the button labels change.</p>
+<table>
+<tr><th>Step</th><th>Prompt</th><th>Pins</th><th>Exit</th></tr>
+<tr><td>1 Trailhead</td><td>Tap where the ride starts</td><td>One, replaces</td>
+<td class="hi">No skip — the gate</td></tr>
+<tr><td>2 Finish</td><td>Tap where the ride ends, or skip for a loop</td><td>One, replaces</td>
+<td>SKIP → NEXT once set</td></tr>
+<tr><td>3 Includes</td><td>Tap places you want the ride to pass through</td><td>Up to 10</td>
+<td>SKIP → DONE once set</td></tr>
+</table>
+<p style="margin-bottom:0">BACK returns to the prior step with its pin still shown and
+replaceable. Tapping an existing include pin removes it.</p>
+</div>
+
+<div class="card warn">
+<p style="margin-top:0"><b>Step 3's prompt now carries feature discovery.</b> With the mode
+derived, a rider who only ever drops a trailhead would never learn include points exist — except
+that this step asks every single time, whether they use it or not.</p>
+<p style="margin-bottom:0">That makes its wording load-bearing in a way it wasn't when a radio
+button announced the feature.</p>
+</div>
+
+<h3>Rendering</h3>
+<ul>
+<li>Trailhead — <span style="color:#7BB661">green</span>, labelled</li>
+<li>Finish — <span class="hi">amber</span>, labelled</li>
+<li>Includes — <span style="color:#4DA6FF">blue</span>, numbered 1–10</li>
+</ul>
+<p class="muted" style="font-size:12.5px">Three symbols means a rider looking at the map after
+step 3 sees the whole shape of what they asked for, without reading anything.</p>
+
+<h2>The two twisties</h2>
+<table>
+<tr><th>Twisty</th><th>Default</th><th>Why</th></tr>
+<tr><td>How does this work?</td><td class="ok">Open</td>
+<td>Sets the expectation that pins are coming and that nothing is permanent. Most riders need
+it once.</td></tr>
+<tr><td>How are trails recommended?</td><td class="hi">Closed</td>
+<td>A different question, asked by the riders who want to know why a route came back the way it
+did. Not everyone asks.</td></tr>
+</table>
+<div class="card warn">
+<p style="margin-top:0"><b>The last line of the second twisty is the one that earns its
+keep.</b> Panguitch's main connected component is 57% of nodes — 43% of the network is fragments
+joined to nothing. A rider who knows a trail is out there and never sees it used will assume the
+app is broken.</p>
+<p style="margin-bottom:0">Saying it plainly turns a bug report into an understood limitation.</p>
+</div>
+<div class="card muted" style="font-size:12.6px">
+<b>Peaks left out of the "reaches" list deliberately.</b> Fred, 08-23: <i>"a view is not
+something you route to get to."</i> Only 10% of peaks sit within 200 ft of a trail, so listing
+them would promise something the router mostly cannot deliver.
+</div>
+<p class="muted" style="font-size:12.6px">Both states persist as preferences
+(<code>ai_tw_how_open</code> default true, <code>ai_tw_rec_open</code> default false) — not in
+the draft JSON, or they would travel in the GPX to another rider's phone.</p>
+
+<h2>Wording — final</h2>
+<table>
+<tr><th>Was</th><th>Now</th></tr>
+<tr><td>Estimated day out / Estimated ride duration</td>
+<td><b>Targeted ride duration</b> — "Calculated from the average speed and miles above. Changing
+these values will change the ride duration estimated."</td></tr>
+<tr><td>Two hint lines about speed provenance and mileage narrowing</td>
+<td>One disclaimer: <b>"Adjust defaults with caution. Adjustments to the above values will
+result in fewer trail options selected."</b></td></tr>
+</table>
+
+<h2>Sequence</h2>
+<ol class="arrowlist">
+<li><b>Setup panel</b> — name, miles/mph, two twisties, PROCEED TO MAP</li>
+<li><b>Pin panel</b> — trailhead → finish → includes. Mode derived on exit.</li>
+<li><b>Progress panel</b> — the search running, streamed, not silent</li>
+<li><b>WIP list opens</b> — drafts with narratives, keep or discard</li>
+</ol>
+
+<div class="card stop">
+<p style="margin-top:0"><b>Read before patching.</b> Does the map JS draw the build line itself
+on tap, or does Kotlin drive it via <code>drawBuildLine</code>?</p>
+<p>Route mode already does most of what pin mode needs — <code>onProximityTap</code> early-returns
+at <code>ConvoyMapViewerScreen.kt:879</code>, so popups are suppressed, and taps arrive at
+<code>onMapTap</code> at <code>:760</code>.</p>
+<p style="margin-bottom:0">If Kotlin drives the line, pin mode is a Kotlin-side state and
+<b>no JS changes</b>. If JS draws on tap, <code>window.__routeMode</code> becomes a three-state.
+That answer sizes the patch.</p>
+</div>
+
+<div class="card">
+<p style="margin:0"><b>Still not true after this mockup ships:</b> the steppers do not move, and
+the anchor is hard-coded at <code>ConvoyMapViewerScreen.kt:1562-1563</code>. Both die with the
+pin work.</p>
+</div>
+
+</div>
+</div>
+
+</div></body></html>
