@@ -627,10 +627,207 @@ object HomeStateImportController {
      * ⚠ NEVER call this anywhere but the startup job. Run while an import is
      * live, it would archive the controller's own manifest out from under it.
      */
+    /**
+     * TRAILFILTER-2026-08-24K -- wipe the trails table exactly once per device.
+     *
+     * WHY A WIPE. The filter change above stops `path` and `bridleway` arriving
+     * in FUTURE imports. It does nothing about the ones already stored, and
+     * they cannot be picked out: `fclass` is extracted into the skinny DB and
+     * never carried into `trails`, so a foot path and a jeep track are the same
+     * twelve columns once they land. There is no WHERE clause that finds them.
+     *
+     * Fred, 08-24: "clear the trails period. They all import together in the
+     * install." Which is the honest move and costs nothing extra -- the gate
+     * already launches the home-state picker at trails.count == 0, so the wipe
+     * IS the trigger. No dialog: the picker explains itself.
+     *
+     * ⚠⚠ UNREADABLE IS NOT ABSENT. If the marker cannot be read we must NOT
+     * conclude "never ran" -- that is the create-if-missing shape that
+     * destroyed the spatial DB on 2026-08-01, and here it would wipe a rider's
+     * trails on every launch. exists() is the whole test, and a File.exists()
+     * that throws means we do nothing.
+     *
+     * ⚠ THE MARKER IS WRITTEN AFTER THE DELETE, never before. A run that dies
+     * half way leaves no marker and retries; a marker written first would turn
+     * one interruption into a permanent half-cleared database.
+     *
+     * Returns rows removed, or -1 when it did not run.
+     */
+    fun clearTrailsOnce(ctx: Context): Int {
+        // TRAILCLEAR-2026-08-24L: NEW NAME. K's marker already exists on any
+        // device that ran the broken clear, and reusing it would leave those
+        // devices with orphaned trail_properties forever. A corrected clear
+        // needs a marker the broken one cannot satisfy.
+        // MARKERFIX-2026-08-25M: THE MARKER LIVES BESIDE THE DATABASES IT
+        // PROTECTS, not in imports/. sweepManifests empties that directory
+        // every launch and could not tell a marker from a manifest, so the
+        // guard was swept to history/ and the clear ran again on the next
+        // launch. Every launch. Both K's and L's markers were found in
+        // history/ on Droid 2, which is the proof.
+        //
+        // ⭐ A GUARD AND THE THING IT GUARDS MUST SHARE A LIFETIME. Same
+        // defect as the 08-16 reinstall wipe -- there the guard was
+        // app-private and the data public; here the guard sits in a
+        // directory another routine is chartered to empty.
+        //
+        // No .json extension, deliberately: it is not a manifest and must
+        // never again be mistaken for one by a filter that only reads
+        // filenames.
+        val marker = File(SpatialDbManager.dbDir(), ".trails_cleared_2026-08-24L")
+
+        // ⭐ ADOPT A MARKER THE OLD CODE WROTE, wherever the sweep left it.
+        // It is proof the clear already ran, and honouring it costs a
+        // rider zero further wipes instead of exactly one more. Devices
+        // that never ran the old code have neither file and fall through.
+        if (!marker.exists()) {
+            val legacy = listOf(
+                File(importsDir(ctx), "trails_cleared_2026-08-24L.json"),
+                File(File(importsDir(ctx), "history"),
+                    "trails_cleared_2026-08-24L.json")
+            )
+            val found = try {
+                legacy.firstOrNull { it.exists() }
+            } catch (e: Exception) {
+                // Same standing-down rule as below: cannot tell, do nothing.
+                Log.e(TAG, "clearTrailsOnce: legacy marker unreadable: " + e.message)
+                return -1
+            }
+            if (found != null) {
+                writeClearMarker(marker, -1, -1)
+                Log.i(
+                    TAG,
+                    "clearTrailsOnce: adopted the prior marker at " +
+                        found.absolutePath + " -- NOT clearing again"
+                )
+                return -1
+            }
+        }
+
+        val alreadyRan = try {
+            marker.exists()
+        } catch (e: Exception) {
+            // Cannot tell. Do NOTHING -- see the note above. A wipe we are not
+            // certain is needed is worse than a wipe we skip.
+            Log.e(TAG, "clearTrailsOnce: marker unreadable, standing down: " + e.message)
+            return -1
+        }
+        if (alreadyRan) return -1
+
+        val dbFile = File(SpatialDbManager.dbDir(), "grouptrack_spatial.db")
+        if (!dbFile.exists()) {
+            // Nothing to clear. Still mark it: a fresh install imports under the
+            // new filter anyway, and leaving the marker off would run this again
+            // after the rider's first import.
+            writeClearMarker(marker, 0)
+            Log.i(TAG, "clearTrailsOnce: no spatial DB yet, marked and skipped")
+            return 0
+        }
+
+        var removed = 0
+        var props = 0
+        try {
+            val db = android.database.sqlite.SQLiteDatabase.openDatabase(
+                dbFile.absolutePath, null,
+                android.database.sqlite.SQLiteDatabase.OPEN_READWRITE
+            )
+            db.use { d ->
+                d.rawQuery("SELECT COUNT(*) FROM trails", null).use { c ->
+                    if (c.moveToFirst()) removed = c.getInt(0)
+                }
+                d.execSQL("DELETE FROM trails")
+            }
+
+            // TRAILCLEAR-2026-08-24L: AND THE EXTENSION DB, which K missed.
+            //
+            // Every UGRC identifier lives here -- carto_code, motorized_allowed,
+            // designated_uses, surface_type, owner_steward, county. Keyed on
+            // trail_id, which is a UUID minted at insert, NOT on geom_hash. So
+            // once the trails are gone these rows join to nothing and can never
+            // be reached again.
+            //
+            // ⚠ Worse than orphaned: TrailImporter inserts properties with
+            // INSERT OR IGNORE on (source_id, source_unique_id). A re-imported
+            // trail whose uid a stale row already holds is silently ignored, so
+            // the orphan KEEPS THE SLOT and the new trail gets no properties.
+            // Utah would come back uncategorised with nothing reporting an
+            // error.
+            //
+            // source_ingestions is deliberately NOT cleared -- it is the record
+            // of what each import brought in, and comparing the old counts to
+            // the next ones is how the filter change gets measured on real
+            // imports rather than inferred from the .gpkg.
+            val extFile = File(SpatialDbManager.dbDir(), "grouptrack_data.db")
+            if (extFile.exists()) {
+                val ext = android.database.sqlite.SQLiteDatabase.openDatabase(
+                    extFile.absolutePath, null,
+                    android.database.sqlite.SQLiteDatabase.OPEN_READWRITE
+                )
+                ext.use { e ->
+                    try {
+                        e.rawQuery("SELECT COUNT(*) FROM trail_properties", null).use { c ->
+                            if (c.moveToFirst()) props = c.getInt(0)
+                        }
+                        e.execSQL("DELETE FROM trail_properties")
+                    } catch (inner: Exception) {
+                        // Absent on a device that never imported. Not an error,
+                        // and not a reason to fail the whole clear.
+                        Log.i(TAG, "clearTrailsOnce: no trail_properties (" +
+                            inner.message + ")")
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            // No marker written, so this retries next launch.
+            Log.e(TAG, "clearTrailsOnce: FAILED, will retry: " + e.message)
+            return -1
+        }
+
+        writeClearMarker(marker, removed, props)
+        Log.i(TAG, "clearTrailsOnce: removed " + removed + " trail(s) and " +
+            props + " trail_properties row(s) -- home state picker will " +
+            "re-import under the new filter")
+        return removed
+    }
+
+    /** Best effort. The delete has already happened by the time this is called,
+     *  so a failure here costs one repeated wipe, not a corrupt database. */
+    private fun writeClearMarker(marker: File, removed: Int, props: Int = 0) {
+        try {
+            marker.parentFile?.mkdirs()
+            val o = JSONObject()
+            o.put("reason", "TRAILCLEAR-2026-08-24L: path and bridleway dropped from the OSM filter; trails and trail_properties both cleared")
+            o.put("trails_removed", removed)
+            o.put("properties_removed", props)
+            o.put("cleared_at", java.time.Instant.now().toString())
+            marker.writeText(o.toString(2))
+        } catch (e: Exception) {
+            Log.e(TAG, "clearTrailsOnce: marker write failed: " + e.message)
+        }
+    }
+
     fun sweepManifests(ctx: Context): Int {
         val dir = importsDir(ctx)
         val history = File(dir, "history").apply { if (!exists()) mkdirs() }
-        val files = dir.listFiles { f -> f.isFile && f.extension == "json" } ?: return 0
+        // MARKERFIX-2026-08-25M: A MANIFEST HAS A `sources` ARRAY. Filtering
+        // on the extension alone is what swept clearTrailsOnce's own marker
+        // into history/ and stamped it "killed" -- a file this routine had
+        // no business touching.
+        //
+        // ⭐ THIS IS THE DURABLE HALF OF THE FIX. Moving the marker solves
+        // today's file; this stops the NEXT file parked here from being
+        // eaten the same way.
+        //
+        // ⚠ Unreadable is left in place, not swept. The same rule the rest
+        // of this routine already follows.
+        val files = (dir.listFiles { f -> f.isFile && f.extension == "json" } ?: return 0)
+            .filter { f ->
+                try {
+                    JSONObject(f.readText()).optJSONArray("sources") != null
+                } catch (e: Exception) {
+                    Log.w(TAG, "sweep: " + f.name + " is not a manifest, left alone")
+                    false
+                }
+            }
         if (files.isEmpty()) {
             Log.i(TAG, "sweep: imports/ is empty, nothing to do")
             return 0

@@ -156,6 +156,11 @@ private fun evaluateState(context: android.content.Context, attempt: Int): Autho
     if (storage && background && !startupJobDone) {
         startupJobDone = true
         try {
+            // TRAILFILTER-2026-08-24K: BEFORE needsTrailData below, so the count
+            // it reads is already zero and the picker launches. Runs once per
+            // device; every launch after the first returns -1 and costs one
+            // File.exists().
+            HomeStateImportController.clearTrailsOnce(context)
             HomeStateImportController.sweepManifests(context)
         } catch (e: Exception) {
             // Housekeeping must never block the gate. A sweep that fails leaves
