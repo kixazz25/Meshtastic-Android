@@ -96,7 +96,23 @@ private const val PIN_STEP_SUMMARY   = 6
  * it. ~800 ft, comfortably bigger than a fingertip at trail zoom and
  * smaller than the distance between two places worth visiting.
  */
-private const val PIN_MAX = 10
+/* PINCAP-2026-08-26: FIVE, and it is a COMPUTE BOUND.
+ *
+ * MEASURED 08-26: ten pins took the tested ceiling from FOUR (explore mode,
+ * same ground) to ELEVEN, and the route build ran five minutes and was still
+ * slowing.
+ *
+ * The pins are WHY the pair table could not prune it. All ten sat within a
+ * 14.9-mile tour of each other (assess: floor=14.9 mi), so no pair was
+ * impossible, the table had nothing to reject, the clique came back at 19, and
+ * orderTour brute-forces permutations for any set of eight or fewer.
+ *
+ * NOT a judgement about riding. Fred's better answer, not yet built: over five
+ * pins the pin set is not a variable at all -- every route contains all of them
+ * -- so take assess()'s optimal tour as the skeleton and ENRICH it. No
+ * combinations, no clique. Until that exists, this bound holds.
+ */
+private const val PIN_MAX = 5
 private const val PIN_REMOVE_MI = 0.15
 private const val PIN_STEP_SEARCH    = 7
 
@@ -332,6 +348,8 @@ fun ConvoyMapViewerScreen(
      * runs overlap and can finish out of order. Without this the panel can
      * settle on the answer for a pin set the rider has already changed.
      */
+    // PINCAP-2026-08-26: which assess() request the panel is showing.
+    var pinFeasSeq by remember { mutableStateOf(0) }
     var pinFeas by remember {
         mutableStateOf<RouteExplorer.PinFeasibility?>(null)
     }
@@ -391,7 +409,26 @@ fun ConvoyMapViewerScreen(
                 android.os.Looper.getMainLooper()
             ).post {
                 // Stale results are dropped, not shown. See the note above.
-                if (seq == pinAssessSeq) pinFeas = res
+                /* PINCAP-2026-08-26: KEEP A STALE RESULT.
+                 *
+                 * ⛔ This discarded anything that was not the newest request.
+                 * assess() takes 1.5-2.4 s and ten pins were dropped in NINE
+                 * SECONDS on 08-26, so every result came back stale, pinFeas
+                 * stayed null, and DONE never rendered -- while the log showed
+                 * assess() succeeding on every single drop.
+                 *
+                 * ⭐ A stale result is still a TRUE measurement of the pins it
+                 * was given. It is merely not the newest. Keep it; a newer one
+                 * overwrites it a second later, and in the meantime the rider
+                 * has a mileage figure and a DONE button instead of nothing.
+                 *
+                 * ⚠ The guard still has a job -- an OLDER result must not
+                 * overwrite a NEWER one -- so compare sequences instead.
+                 */
+                if (res != null && seq >= pinFeasSeq) {
+                    pinFeasSeq = seq
+                    pinFeas = res
+                }
             }
         }.start()
     }
@@ -2236,9 +2273,25 @@ fun ConvoyMapViewerScreen(
                     // Absent beats present-and-scolding -- and while assess()
                     // is still running there is no answer yet, so no button.
                     // Zero include points is feasible: that is explore mode.
-                    PIN_STEP_INCLUDE -> if (
-                        pinFeas == null || pinFeas!!.overMiles > 0.0
-                    ) emptyList() else listOf(
+                    /* DONEALWAYS-2026-08-26: DONE IS ALWAYS THERE.
+                     *
+                     * It was hidden when pinFeas was null or the pins busted
+                     * the ceiling. That ignored what the button IS -- the only
+                     * way out of the step. Fred, 08-26: "if i drop 4 pins i
+                     * don't want to drop six more to exit."
+                     *
+                     * pinFeas == null could mean assess() has not answered
+                     * yet, or its result was discarded as stale, or something
+                     * reset it on the next drop -- and the rider sees the same
+                     * nothing for all three.
+                     *
+                     * Over the ceiling belongs in the notice beside the
+                     * button, not in its absence. And PROCEED is not blocked:
+                     * the engine already says "there are N features here but
+                     * none fit that distance", which tells the rider what
+                     * happened.
+                     */
+                    PIN_STEP_INCLUDE -> listOf(
                         "DONE" to {
                             pinNotice = ""
                             pinExpanded = true
