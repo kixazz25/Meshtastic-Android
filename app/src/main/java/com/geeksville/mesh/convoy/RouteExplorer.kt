@@ -1202,6 +1202,33 @@ object RouteExplorer {
         return order to (t + back)
     }
 
+    /**
+     * How many candidates survive the overlap rule.
+     *
+     * ⚠ Best first — more features, then more miles — so the ride that
+     * survives a collision is the better one, never the dominated subset.
+     */
+    private fun survivorsOf(
+        cands: List<Triple<Int, Double, List<Int>>>, maxOverlap: Double,
+    ): Int {
+        val sorted = cands.sortedWith(
+            compareByDescending<Triple<Int, Double, List<Int>>> { it.first }
+                .thenByDescending { it.second })
+        val kept = ArrayList<Set<Int>>()
+        for (c in sorted) {
+            val es = c.third.toSet()
+            var dup = false
+            for (k in kept) {
+                val u = (es + k).size
+                if (u > 0 && (es intersect k).size.toDouble() / u >= maxOverlap) {
+                    dup = true; break
+                }
+            }
+            if (!dup) kept.add(es)
+        }
+        return kept.size
+    }
+
     fun explore(
         spatialDb: SQLiteDatabase,
         req: Request,
@@ -1216,6 +1243,9 @@ object RouteExplorer {
         val startYds = 600.0
         val wantRides = 6
         val minApart = 5.0
+        // 75% sits in a clean measured gap: 80/77/72 above, then 65,
+        // then nothing over 44%.
+        val maxOverlap = 0.75
 
         val box = corridorBox(req)
         var trailCount = 0
@@ -1420,8 +1450,19 @@ object RouteExplorer {
         val found = ArrayList<Cand>()
         var size = minOf(ceilingSize, poiNodes.size)
         while (size >= 1) {
-            val distinct = found.map { it.combo.sorted() }.toHashSet()
-            if (distinct.size >= wantRides) break
+            /* ⭐ STOP ON RIDES THAT SURVIVE THE OVERLAP RULE, not on raw finds.
+             *
+             * ⛔ Stopping at six FOUND gave five OFFERED once duplicates were
+             * removed. Continuing to size 4 produced NINE survivors, and the
+             * sixth -- 79.7 mi, Boy Scout Spring and Olsen -- shares only
+             * 18-38% with anything else. It was being thrown away.
+             *
+             * ⚠ A subset proxy was tried and failed: two rides can have
+             * non-subset feature sets and still share 80% of their trails.
+             */
+            if (survivorsOf(found.map {
+                    Triple(it.combo.size, it.miles, it.eids) },
+                    maxOverlap) >= wantRides) break
             for ((ok, _, onm) in liveOrigins) {
                 val pool = perOrigin[ok] ?: continue
                 if (pool.size < size) continue
@@ -1484,14 +1525,41 @@ object RouteExplorer {
         }
         val p2 = HashMap<String, ArrayList<Cand>>()
         for (c in afterP1) p2.getOrPut(c.combo.sorted().joinToString(",")) { ArrayList() }.add(c)
-        val finalC = ArrayList<Cand>()
+        val afterP2 = ArrayList<Cand>()
         for ((_, lst) in p2) {
             lst.sortByDescending { it.miles }
             val keep = ArrayList<Cand>()
             for (c in lst) if (keep.all { Math.abs(c.miles - it.miles) >= minApart }) keep.add(c)
-            finalC.addAll(keep)
+            afterP2.addAll(keep)
         }
-        finalC.sortWith(compareByDescending<Cand> { it.combo.size }.thenByDescending { it.miles })
+
+        /* ── PASS 3: 75%+ SHARED TRAILS IS ONE RIDE ──────────────────────
+         * ⛔ Measured: ride 6 was ride 4 with one knoll dropped -- the knoll
+         * sat close to the line already taken, so 80% of the trails were the
+         * same. Same ground, one fewer feature, 9.7 fewer miles. DOMINATED.
+         * ⚠ "Better" is unambiguous: more features, then more miles.
+         */
+        afterP2.sortWith(compareByDescending<Cand> { it.combo.size }
+            .thenByDescending { it.miles })
+        val finalC = ArrayList<Cand>()
+        val kept = ArrayList<Set<Int>>()
+        for (c in afterP2) {
+            val es = c.eids.toSet()
+            var dup = false
+            for (k in kept) {
+                val u = (es + k).size
+                if (u > 0 && (es intersect k).size.toDouble() / u >= maxOverlap) {
+                    dup = true; break
+                }
+            }
+            if (!dup) { finalC.add(c); kept.add(es) }
+        }
+        Log.i(TAG, "dedupe: ${found.size} raw -> ${afterP2.size} -> ${finalC.size} distinct")
+        if (finalC.size < wantRides) {
+            Log.i(TAG, "only ${finalC.size} genuinely different ride(s) here — " +
+                "padding would mean offering rides sharing most of their trails " +
+                "with one already shown")
+        }
 
         val picks = ArrayList<Triple<List<Int>, Double, List<Long>>>()
         for (c in finalC.take(wantRides)) {
