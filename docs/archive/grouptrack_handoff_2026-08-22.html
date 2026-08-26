@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GroupTrack — Session Handoff — 2026-08-22</title>
+<style>
+ :root{--bg:#0f1216;--panel:#161b22;--line:#26303b;--fg:#c9d1d9;--muted:#8b949e;
+   --accent:#58a6ff;--amber:#e3b341;--red:#f85149;--green:#3fb950;}
+ *{box-sizing:border-box}
+ body{margin:0;padding:26px 20px 70px;background:var(--bg);color:var(--fg);
+  font:14.5px/1.6 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+ .wrap{max-width:980px;margin:0 auto}
+ header{border-bottom:2px solid var(--accent);padding-bottom:12px;margin-bottom:22px}
+ h1{margin:0 0 5px;font-size:24px;color:var(--accent)}
+ .sub{color:var(--muted);font-size:13px}
+ h2{font-size:17px;margin:28px 0 8px;padding-bottom:5px;
+   border-bottom:1px solid var(--line);color:var(--accent)}
+ h3{font-size:14.5px;margin:16px 0 5px}
+ .card{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--line);
+   border-radius:6px;padding:11px 14px;margin:9px 0}
+ .card.key{border-left-color:var(--accent)} .card.warn{border-left-color:var(--amber)}
+ .card.stop{border-left-color:var(--red)} .card.good{border-left-color:var(--green)}
+ code{background:#0d1117;border:1px solid var(--line);border-radius:4px;padding:1px 5px;
+   font:12.5px ui-monospace,Consolas,monospace;color:#a5d6ff}
+ pre{background:#0d1117;border:1px solid var(--line);border-radius:6px;padding:10px;
+   overflow-x:auto;font:12px ui-monospace,Consolas,monospace}
+ ul,ol{margin:6px 0 6px 21px} li{margin:4px 0}
+ table{border-collapse:collapse;width:100%;margin:8px 0}
+ td,th{border:1px solid var(--line);padding:5px 9px;font-size:12.5px;text-align:left;
+   vertical-align:top}
+ th{background:#1c2531;color:var(--accent)}
+ .hi{color:var(--amber)} .muted{color:var(--muted)} .ok{color:var(--green)}
+ .no{color:var(--red)}
+</style></head><body><div class="wrap">
+
+<header>
+<h1>GroupTrack — Session Handoff — 2026-08-22</h1>
+<div class="sub">Release 2.6g · branch <code>feature/convoy-event-ride</code> · AAB built, version code 29320899<br>
+Session focus: <b>route suggester proven across three corridors, GPX import bypass found and lifted, 2.7 redefined as the mesh separation.</b></div>
+</header>
+
+<div class="card good">
+<b>⭐⭐⭐ THE ROUTE SUGGESTER WORKS.</b> Built from nothing to four usable route recommendations,
+run against the live 216,616-trail database in three separate corridors with no retuning between
+them. Panguitch produced a 79-mile ride reaching 13 features at 25% retrace on named ground.
+<p class="muted" style="margin:6px 0 0">Research only — nothing of the suggester is in the app.
+The output is WIP drafts the planner opens.</p>
+</div>
+
+<h2>1. Shipped and committed</h2>
+<table>
+<tr><th>What</th><th>Marker</th><th>State</th></tr>
+<tr><td><b>GPX waypoint + route import re-enabled</b> — bypassed since 2026-06-02</td>
+    <td><code>GPXIMPORT-2026-08-22N</code></td><td class="ok">device-verified on Droid 1</td></tr>
+<tr><td>AAB built for the closed track</td><td>29320899</td><td class="ok">built, not yet uploaded</td></tr>
+</table>
+<p class="muted">⚠ The manual and release notes inside that AAB are <b>yesterday's</b>. Today's
+items are in the updated assets in this doc set but were not rebuilt into the bundle.</p>
+
+<h2>2. 🔴 THE GPX IMPORT STORY — read this first</h2>
+<div class="card key">
+<p><b>Testers could not import routes.</b> <code>ConvoyTrackOps.kt</code> carried a TEMP BYPASS
+from <b>2026-06-02</b>:</p>
+<pre>val waypoints = emptyList&lt;GpxWaypoint&gt;()  // was: parseGpxWaypoints(text)
+val routes    = emptyList&lt;GpxRoute&gt;()     // was: parseGpxRoutes(text)</pre>
+<p>⭐ <b>Everything downstream was already complete</b> — insert loops, WKT build, bbox, type
+mapping. Only the two parser calls were stubbed. A deliberate hold that outlived its reason by
+nearly three months. AllDocs had recorded it: <i>"import currently processes tracks only."</i></p>
+<p class="ok"><b>✅ FIXED.</b> Broken Ridge 2 imported to Droid 1 — 31,845 chars of geometry,
+correct bbox. Also fixed: the <code>&lt;rte&gt;</code> regex matched only a bare tag, so
+<code>&lt;rte xmlns=...&gt;</code> imported silently as zero routes.</p>
+</div>
+
+<div class="card stop">
+<h3>⛔ STILL BROKEN — the auto-import path, which is the one testers use</h3>
+<p><b>Manual from Downloads → Map Features: works.</b> <b>Tapping a GPX in email: fails for
+routes.</b> The intent filter routes it to the old track-only function.</p>
+<p><b>Why it is not a quick fix:</b> the filters live on
+<code>com.geeksville.mesh.MainActivity</code> — Meshtastic's own activity — and declare
+<code>&lt;data android:scheme="content" /&gt;</code>. The intent hands over a <b>content:// URI</b>
+while <code>importGpxAllArtifacts</code> takes a <code>File</code>. The stream must be copied to a
+temp file first — the same problem the OSM import already solved (<i>"SQLite needs a real
+path"</i>).</p>
+<p>⭐⭐ <b>THIS BELONGS TO 2.7.</b> GroupTrack behaviour inside Meshtastic's activity is exactly
+the entanglement the mesh separation removes.</p>
+<p class="hi"><b>TELL TESTERS:</b> save the attachment to Downloads, then import from Map Features
+→ IMPORT TRACKS, WAYPOINTS &amp; ROUTES.</p>
+</div>
+
+<div class="card warn">
+<h3>⚠ Consequences and one open bug</h3>
+<ul>
+<li>The source file is now <b>deleted</b> once anything imports.</li>
+<li>⛔ <code>insertRoute</code> writes a <b>permanent</b> spatial-DB row, bypassing
+draft-then-graduate. Permanent routes are the only unrecoverable class on this project.</li>
+<li>⚠ <b>GPX EXPORT writes a hardcoded label instead of the artifact name</b> — spotted by Fred,
+not yet diagnosed. <code>ConvoyArtifactOps.buildGpx()</code>. <b>Tomorrow.</b></li>
+<li>⚠ Whole-file <code>readText</code> <b>OOM'd on large onX exports</b> historically. The risk is
+unchanged by today's work — still open against this function.</li>
+</ul>
+</div>
+
+<h2>3. ⭐⭐ The route suggester — research, not app code</h2>
+<div class="card">
+<p>Full detail and <b>the working scripts are embedded in the living master</b> under the
+"MOST INTERESTING ROUTE" planner section, so they are not recreated.</p>
+<table>
+<tr><th></th><th>Toroweap</th><th>Bar 10</th><th>Panguitch</th><th>Broken Ridge</th></tr>
+<tr><td>Best route</td><td>78 mi / 6 feats</td><td>74 / 10</td><td><b>79 / 13</b></td><td>79 / 9</td></tr>
+<tr><td>Retrace</td><td class="no">50%</td><td>36%</td><td>25%</td><td class="ok">16%</td></tr>
+<tr><td>Unconfirmed junctions</td><td>176</td><td>53</td><td>104</td><td class="ok">1</td></tr>
+</table>
+<p>⭐ <b>Panguitch produced the best rides because its ground is NAMED</b> — Trail Creek, Upper
+Bear Valley Road, Showalter Mountain. The Arizona Strip is 77% unnamed track and its routes could
+not be described. <b>Naming is what makes a suggestion communicable</b> — the argument for the
+rider-naming channel in 3.0.</p>
+<p>⭐ <b>Broken Ridge: ONE unconfirmed junction in 79 miles</b> against 176 on the Strip, same
+tolerance and code. <b>The caution count is a property of the DATA, not the setting.</b></p>
+<p><b>Four wrong turns, all recorded in the living master:</b> distance must not be in the score
+(it is a budget, not a cost) · penalise edges, do not filter for distinctness · rank, do not
+pre-constrain · each restart needs its own target distance. Plus: <b>a positive-score floor is
+required</b> — two good routes beat four padded ones.</p>
+<p><b>Coverage curve, measured:</b> ~12 miles per feature, near-linear, no knee. All 39 features
+reachable at 448.7 mi. So a 60-mile ride reaching 4 features is what the corridor costs, not a
+bug.</p>
+</div>
+
+<div class="card warn">
+<h3>🔴 Planner prerequisites, found by using it</h3>
+<ol>
+<li><b>A WIP must open in ARTIFACT mode, not draw mode.</b> One stray tap took Toroweap 1 from
+78.8 to <b>109.0 miles</b> with a 21.9-mile straight line. Two undos restored it — the geometry
+was never damaged.</li>
+<li><b>A lock field in the draft JSON</b> — soft, rider unlocks deliberately.</li>
+<li><b>Fit-to-route on open</b>, as track fit already does.</li>
+<li>⚠ Sidecars currently sit in <code>route_drafts/</code> beside the drafts.</li>
+</ol>
+<p>⭐ <b>NO POI WAYPOINTS NEEDED</b> — Fred: <i>"they are already on the map."</i>
+<code>reference_points</code> came in with the OSM import and already renders.</p>
+</div>
+
+<h2>4. 2.7 REDEFINED — mesh / GroupTrack separation</h2>
+<div class="card key">
+<p><b>Scope, deliberately narrow:</b> separate GroupTrack from mesh messaging · mesh becomes a
+<b>plugin</b> · a switch for mesh or IP-based GPS relay · <b>IP is a STUB</b>.</p>
+<p>⭐ The stub is what proves the boundary is real — an interface with one implementation is a
+wrapper.</p>
+<p>⛔ <b>Explicitly NOT 2.7:</b> relay rules, 3-second broadcast, hop limits, dedup, enrolment
+scoping, <b>group addressing over IP</b>. Fred pulled back when it started becoming a network
+protocol, and that was right.</p>
+<p>⭐⭐ <b>The hard part dissolves in 3.0:</b> a ride already defines the radio broadcast group
+and its keys. Fred: <i>"the same registration of a user with both radio and ip config groups
+available."</i> One registration, both channels. So IP lands in 3.0 with the server and the
+paygate.</p>
+<p><b>Licensing:</b> the plugin boundary is a stronger argument than the April "convoy/ files are
+original work" claim, because it is about what depends on what. ⛔ <b>Still a question for a
+lawyer</b> — neither claim has been checked. Attribution (splash or per map source) is the easy
+half and has been open on the Play checklist since April.</p>
+</div>
+
+<h2>5. Documents in this set</h2>
+<div class="card">
+<ul>
+<li><b>Living master v29</b> — 2.7 redefinition, the auto-explore research <b>with the working
+scripts embedded</b>, the rider-naming spec for 3.0, and the GPX import story.</li>
+<li><b>QuickStart v7</b> — six stale items fixed: duplicate version header, July footer, 9×
+"Planning Map" → "Ride Planning Map", the removed OSM button, "Work with Artifacts" → "Work with
+Map Features", and the V2.6 tile-migration heading scoped to its audience.</li>
+<li><b>Release notes 2026-08-22</b> — GPX import fix with the Downloads workaround stated
+plainly, and the USGS source fix.</li>
+</ul>
+</div>
+
+<h2>6. ⚠ Method — mine</h2>
+<div class="card warn">
+<p><b>Three compile failures on a two-line change, all the same mistake.</b> The bypass comment
+said <code>parseGpxWaypoints(text)</code>; I restored it verbatim → unresolved. Substituted
+<code>fullText</code> from a grep → unresolved, because it was declared inside a
+<code>run { }</code> block.</p>
+<p>⭐⭐⭐ <b>Both failures were reaching for a variable NAME without checking its SCOPE.</b> And
+<b>a three-month-old comment is a record, not a specification.</b></p>
+<p>⭐⭐ <b>THE XREFS WOULD HAVE ANSWERED IT IN ONE LOOK.</b>
+<code>where_used_raw.txt</code> showed <code>fullText</code> used only at 531–533, all inside the
+block. They were open the whole time. Fred: <i>"we need to use the xrefs more to research."</i>
+<b>Standing correction: xref first, grep second, guess never.</b></p>
+<p>⭐ <b>And the obvious fix was wrong</b> — a second <code>readText</code> would have compiled but
+doubles memory on files that already OOM'd. Hoisting the single read was correct.</p>
+</div>
+
+<h2>7. Next session</h2>
+<div class="card key">
+<ol>
+<li><b>GPX export hardcoded label</b> — <code>ConvoyArtifactOps.buildGpx()</code>. Waypoint test
+alongside it.</li>
+<li><b>Upload the AAB</b> if not done, and decide whether to rebuild with today's assets.</li>
+<li><b>Planner prerequisites</b> (§3) — artifact mode, lock, fit-to-route. These block the
+suggester being usable.</li>
+<li><b>Multi-point route build</b> — the other half of the suggester. Exploratory inputs are
+settled (anchor, optional end point, ceiling); this is the sequence-of-fixed-points version.</li>
+<li><b>Testers</b> — routes distributed to the trail-knowledgeable ones. Feedback separates three
+claims: does the route exist, is it rideable, is it a good ride.</li>
+<li><b>Auto-import via intent</b> — with 2.7, not patched into 2.6g.</li>
+</ol>
+</div>
+
+</div></body></html>

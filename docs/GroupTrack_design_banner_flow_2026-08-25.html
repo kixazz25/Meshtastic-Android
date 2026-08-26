@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GroupTrack — Banner flow: the checklist replacement</title>
+<style>
+ :root{--bg:#12141A;--card:#1B1E26;--line:#2E3440;--tx:#E6E9EF;--dim:#9AA4B2;
+       --red:#FF5C5C;--amb:#FFC53D;--grn:#4ADE80;--blu:#60A5FA;}
+ *{box-sizing:border-box}
+ body{margin:0 auto;background:var(--bg);color:var(--tx);max-width:940px;
+   font:15px/1.65 -apple-system,"Segoe UI",Roboto,sans-serif;padding:34px 22px 90px}
+ h1{font-size:24px;margin:0 0 4px}
+ .sub{color:var(--dim);font-size:13.5px;margin:0 0 26px}
+ h2{font-size:16px;margin:32px 0 10px;padding-bottom:7px;border-bottom:1px solid var(--line)}
+ h3{font-size:14px;margin:20px 0 6px;color:var(--blu)}
+ .card{background:var(--card);border:1px solid var(--line);border-radius:9px;padding:15px 17px;margin:13px 0}
+ .card.stop{border-color:#5C2A2A;background:#20161A}
+ .card.warn{border-color:#5C4A1E;background:#1F1C14}
+ .card.good{border-color:#26502F;background:#141E17}
+ code{background:#0C0E13;padding:1.5px 5px;border-radius:4px;font-size:12.5px;color:#C8D4E4;
+   font-family:ui-monospace,Menlo,Consolas,monospace}
+ pre{background:#0C0E13;border:1px solid var(--line);border-radius:7px;padding:11px 13px;
+   overflow-x:auto;font-size:12.5px;line-height:1.5;color:#C8D4E4;
+   font-family:ui-monospace,Menlo,Consolas,monospace}
+ table{border-collapse:collapse;width:100%;font-size:13.5px;margin:10px 0}
+ th,td{border:1px solid var(--line);padding:7px 9px;text-align:left;vertical-align:top}
+ th{background:#171A21;color:var(--dim);font-weight:600}
+ ul{padding-left:20px;margin:7px 0} li{margin:5px 0}
+ .k{color:var(--amb);font-weight:700} .g{color:var(--grn);font-weight:700} .r{color:var(--red);font-weight:700}
+ .banner{background:#1B1E23;border:1px solid #333941;border-radius:8px;padding:12px 14px;margin:11px 0}
+ .eyebrow{font-size:10.5px;color:#6B7481;letter-spacing:.6px;text-transform:uppercase;font-weight:700}
+ .instr{font-size:15.5px;font-weight:600;margin:6px 0 4px}
+ .q{color:#9AA3AE;font-weight:500;font-size:14px}
+ .state{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11.5px;color:#9AA3AE;margin:8px 0 10px}
+ .btns{display:flex;gap:8px}
+ .b{flex:1;text-align:center;padding:11px;border-radius:7px;font-size:12.5px;font-weight:800;
+    background:#3A4049;color:#fff}
+ .b.go{background:#2FBF5B} .b.alt{background:#242830;border:1px solid #333941}
+</style>
+</head>
+<body>
+
+<h1>Banner flow — the checklist replacement</h1>
+<p class="sub">Design, 2026-08-25 · supersedes <code>ConvoyGuidedPinPanel</code>'s
+step checklist · interactive companion:
+<code>GroupTrack_mockup_banner_flow_v2_2026-08-25.html</code></p>
+
+<div class="card stop">
+<p><span class="r">⛔ BUILD THE ORIGIN FIX FIRST.</span> Rider-placed points do not become
+graph nodes — the ride starts ~600 ft from the tapped waypoint and pins snap up to
+6,001 ft. <b>This UI is a revision to a process that must first be correct.</b> Fred,
+08-25: <i>"these are ui revisions to a then proven process."</i></p>
+</div>
+
+<h2>1. Why the checklist goes</h2>
+<ul>
+<li><b>It covers the map.</b> A full-width panel of steps sits on the ground the rider is
+trying to tap.</li>
+<li><b>It shows every step at once</b> — overwhelming, and the live one competes with five
+others for attention.</li>
+<li><b>Its exit is load-bearing by accident.</b> PROCEED sets
+<code>showAiDesign = false</code>, and that is the only reason the route toolbar — which
+carries MAP TAPS ON/OFF — comes back. Close the panel differently and the rider loses the
+taps toggle entirely.</li>
+<li><b>It made explore mode unreachable.</b> DONE is absent while
+<code>pinFeas == null</code>, and zero pins returns null. Patch S1 added a question as a
+bypass; the banner removes the need for it.</li>
+</ul>
+
+<h2>2. The five steps, in Fred's words</h2>
+
+<div class="banner">
+<div class="eyebrow">1 · Find your area</div>
+<div class="instr">Use search to navigate to the area you want to plan.
+<span class="q">Search a place, or open one of your tracks to position you.</span></div>
+<div class="state">Nothing placed yet</div>
+<div class="btns"><div class="b go">I'M IN THE RIGHT AREA</div></div>
+</div>
+
+<div class="banner">
+<div class="eyebrow">2 · Trailhead</div>
+<div class="instr">Tap the trailhead where the ride begins.
+<span class="q">No trailhead there? Press and hold for one second to create one.</span></div>
+<div class="state">Nothing placed yet</div>
+<div class="btns"><div class="b">TAP OR LONG PRESS THE MAP</div></div>
+</div>
+
+<div class="card">
+<p><span class="k">⭐ SELECT ON SAVE.</span> Long press → name → SAVE <b>is</b> the
+selection. Do not ask the rider to tap the waypoint again — they created it precisely to
+start from it. Label the button <b>SAVE AND START HERE</b> so the double duty is honest.</p>
+<p><span class="k">⚠ The ride always starts from a saved waypoint</span> — never bare
+ground. That is a firmer rule than it looks, and it means the start always has a name the
+ride can inherit.</p>
+</div>
+
+<div class="banner">
+<div class="eyebrow">3 · Points to cover</div>
+<div class="instr">Any points of interest you want this route to cover?
+<span class="q">Drop up to ten pins on trails around the map. Press CONTINUE if you have
+none, or when you are finished.</span></div>
+<div class="state">Panguitch Lake TH · <b>3</b> points · 18.4 mi</div>
+<div class="btns"><div class="b go">CONTINUE</div></div>
+</div>
+
+<div class="banner">
+<div class="eyebrow">4 · Finish point</div>
+<div class="instr">We bring you back to your trailhead to complete the loop.
+<span class="q">Finishing somewhere else? Drop a pin there now. Press CONTINUE when you
+are done.</span></div>
+<div class="state">Panguitch Lake TH · <b>3</b> points · loop · 18.4 mi</div>
+<div class="btns"><div class="b go">FIND MY RIDES</div></div>
+</div>
+
+<div class="banner">
+<div class="eyebrow">5 · Searching</div>
+<div class="instr">Finding rides…</div>
+<div class="state">Panguitch Lake TH · <b>3</b> points · loop · 18.4 mi</div>
+<div class="btns"><div class="b">WORKING…</div></div>
+</div>
+
+<h2>3. What the shape buys</h2>
+<table>
+<tr><th>Property</th><th>Why</th></tr>
+<tr><td><b>One instruction at a time</b></td><td>Finished steps disappear rather than
+stacking. Nothing to collapse, nothing to scroll.</td></tr>
+<tr><td><b>The state line</b></td><td>What the checklist was really carrying. A rider who
+panned away still knows what they have built.</td></tr>
+<tr><td><b>One CONTINUE for two meanings</b></td><td>"I have none" and "I am finished" are
+the same button. No yes/no question, so S1's ASK step disappears.</td></tr>
+<tr><td><b>The loop question answers itself</b></td><td>No finish pin = loop. Nobody
+promises a ride shape before seeing the ground.</td></tr>
+<tr><td><b>Green means viable</b></td><td>Grey says the button exists but the ride is not
+ready. Better than absent, which said nothing. Same language as the radio config
+screens.</td></tr>
+</table>
+
+<h2>4. Three marker kinds</h2>
+<table>
+<tr><th>Marker</th><th>Look</th><th>Meaning</th></tr>
+<tr><td>Trailhead</td><td>Blue square, <code>TH</code></td><td>Always visible. The rider
+must see where the ride begins even after panning.</td></tr>
+<tr><td>Places</td><td>Red circle, numbered</td><td>Drop order, <b>not tour order</b> —
+Held-Karp reorders on every drop and markers must not renumber under the rider's
+finger.</td></tr>
+<tr><td>Finish</td><td>Amber square, <code>FIN</code></td><td>Only exists if placed.</td></tr>
+</table>
+
+<div class="card warn">
+<p><span class="k">⚠ MARKERS MUST SHOW THREE STATES, not one.</span> Today every pin draws
+solid red including ones the engine discarded. <code>PinFeasibility</code> already carries
+<code>snapFeet</code> and <code>unreachable</code>.</p>
+<ul>
+<li><b>On-trail</b> — solid, drawn where tapped</li>
+<li><b>Snapped</b> — drawn at the <i>snapped</i> position, so the rider sees where the
+route will actually pass</li>
+<li><b>Unreachable</b> — hollow or grey, visibly not in the ride</li>
+</ul>
+<p>Six of ten pins were dead on one run and the app said nothing. Same class as the
+invisible drop.</p>
+</div>
+
+<h2>5. ⛔ The dependency that must not be missed</h2>
+<div class="card stop">
+<p><b>MAP TAPS ON/OFF lives in the route toolbar</b>, which renders on
+<code>routeMode &amp;&amp; !showAiDesign</code>. While the AI panel is open the toolbar is
+gone — so a rider mid-flow cannot toggle taps to read a trail name and get back.</p>
+<p><span class="r">The banner must carry MAP TAPS ON/OFF.</span> That is not a
+nice-to-have; it is the reason the banner can stay on screen at all.</p>
+</div>
+
+<h2>6. Mileage: the rider's job and the app's job</h2>
+<div class="card good">
+<p><span class="g">⭐ The rider is concerned with places, not distance.</span>
+Fred, 08-25: <i>"they should be concerned with mandatory points of interest, not using all
+the mileage."</i></p>
+<p><b>Only the ceiling blocks.</b> Under the floor is not a failure — it is headroom, and
+the engine fills it with the best features it can find. Leaving mileage spare is how the
+app earns its keep: ten pins consuming all 80 miles leave nothing to discover.</p>
+<p>So the panel says: <i>Drop pins on the places this ride must reach. Leave some mileage
+spare and we'll find more worth seeing along the way.</i> And nothing else, until the
+ceiling is exceeded.</p>
+</div>
+<p><span class="k">⚠ Consequence:</span> the HUD's under-floor commentary should go. The
+Distance number earns its place — watching it move confirms a pin registered — but the
+line beneath it only matters when exceeded.</p>
+
+<h2>7. What this replaces in code</h2>
+<pre>RETIRED   PIN_STEP_RETURN      the loop question — answered by placement
+RETIRED   PIN_STEP_ASK (S1)    the bypass — CONTINUE covers it
+RETIRED   the step checklist   GuidedStepRow, the six GuidedStep declarations
+KEPT      PIN_STEP_NONE / TRAILHEAD / INCLUDE / ENDPOINT / SUMMARY / SEARCH
+KEPT      pinPoints, pinFeas, assess(), the Distance HUD
+NEW       banner: eyebrow + instruction + state line + actions
+NEW       MAP TAPS ON/OFF on the banner</pre>
+<p><span class="k">⚠ <code>ConvoyGuidedPinPanel</code> already takes
+<code>expanded</code>/<code>onToggle</code></span> and already scrolls
+(<code>verticalScroll</code>, <code>heightIn(max = 300.dp)</code>). Collapse behaviour is
+wiring, not new machinery.</p>
+
+<h2>8. Open questions</h2>
+<ul>
+<li>Does removing a pin renumber the rest, or leave a gap? (Renumbering moves markers the
+rider is not touching.)</li>
+<li>Does step 1 complete on its own, or does the trailhead tap advance it? Leaning: the tap
+is the signal, no button.</li>
+<li>Where does START OVER live once the checklist is gone?</li>
+</ul>
+
+</body>
+</html>
