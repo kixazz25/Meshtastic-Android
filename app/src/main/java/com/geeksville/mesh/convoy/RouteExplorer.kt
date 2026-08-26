@@ -1243,6 +1243,9 @@ object RouteExplorer {
         val startYds = 600.0
         val wantRides = 6
         val minApart = 5.0
+        // ⚠ 24 measured: at 14 this ground gave rides of 3 features, at
+        // 24 rides of 7. Beyond that, a longer tail and the same rides.
+        val maxPoi = 24
         // 75% sits in a clean measured gap: 80/77/72 above, then 65,
         // then nothing over 44%.
         val maxOverlap = 0.75
@@ -1347,6 +1350,34 @@ object RouteExplorer {
         val usable = HashSet<Long>()
         for ((n, ci) in compOf) if (ci in originComps) usable.add(n)
         val poiAt = loadPoisGrid(spatialDb, box, g, usable)
+
+        /* MAXPOI-2026-08-26: CAP THE FEATURE COUNT BEFORE ANYTHING EXPENSIVE.
+         *
+         * ⛔ Measured on device without this: 55 of 81 features usable, and the
+         * clique bound then started the descent at TWENTY-TWO. C(55,22) is
+         * about 2.9e15 -- the run never finished and had to be killed.
+         *
+         * ⭐ A ride visits five or six features. The 25th-best feature in a
+         * corridor never appears in a six-feature ride that also holds the top
+         * five: the enumeration reaches it only at sizes that cannot fit the
+         * mileage anyway.
+         *
+         * ⚠ And more features is NOT more variety. Measured at
+         * 37.7235,-112.613: capping at 14 gave rides of 3 features, at 24 the
+         * same ground gave rides of 7. Beyond that they are lower-scoring and
+         * further out -- a longer tail, the same rides.
+         */
+        if (poiAt.size > maxPoi) {
+            val top = poiAt.entries
+                .sortedByDescending { scoreSet(listOf(it.key), poiAt) }
+                .take(maxPoi)
+                .map { it.key }
+                .toHashSet()
+            val dropped = poiAt.size - top.size
+            poiAt.keys.retainAll(top)
+            Log.i(TAG, "capped to the $maxPoi highest-scoring features " +
+                "($dropped dropped)")
+        }
 
         if (req.includePoints.isNotEmpty()) {
             req.includePoints.forEachIndexed { i, (plat, plon) ->
