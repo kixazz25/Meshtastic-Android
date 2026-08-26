@@ -185,7 +185,22 @@ object RouteExplorer {
      * or trivial and were being scored as though a rider would ride to them --
      * 13 inside the Panguitch box, 24 in the wider one.
      */
-    private val JUNK = setOf("county", "city", "town", "tree", "village")
+    /* JUNKCLASS-2026-08-26: settlements are not features to ride to.
+     *
+     * ⛔ locality (3,271), hamlet (1,220) and suburb (47) were NOT in this set,
+     * so they scored 1.0 each and pulled routes into towns -- Fred, 08-26:
+     * "my route created in towns and developments". A locality sits on roads,
+     * so a route built to reach one FOLLOWS ROADS to get there.
+     *
+     * ⚠ locality is also where trailheads live: "Devils Garden Trailhead" is
+     * fclass=locality, so the engine was scoring trailheads as destinations.
+     *
+     * ⭐ An ALLOW-LIST would be safer than this block-list -- an unrecognised
+     * class currently scores 1.0 and gets ridden to by default. Left as a
+     * separate decision.
+     */
+    private val JUNK = setOf("county", "city", "town", "tree", "village",
+        "locality", "hamlet", "suburb", "farm")
 
     private fun realName(n: String?): Boolean =
         !n.isNullOrBlank() && n.trim().lowercase() !in NONAMES
