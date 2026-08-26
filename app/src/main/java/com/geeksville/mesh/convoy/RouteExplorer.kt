@@ -1229,6 +1229,18 @@ object RouteExplorer {
         return kept.size
     }
 
+
+    /** Edge ids along a node sequence, or null if any leg has no path. */
+    private fun pathOf(dij: Map<Long, Dij>, seq: List<Long>): List<Int>? {
+        val out = ArrayList<Int>()
+        for (i in 0 until seq.size - 1) {
+            val d = dij[seq[i]] ?: return null
+            val pe = pathEdges(d, seq[i], seq[i + 1]) ?: return null
+            out.addAll(pe)
+        }
+        return out
+    }
+
     fun explore(
         spatialDb: SQLiteDatabase,
         req: Request,
@@ -1245,6 +1257,14 @@ object RouteExplorer {
         val minApart = 5.0
         // ⚠ 24 measured: at 14 this ground gave rides of 3 features, at
         // 24 rides of 7. Beyond that, a longer tail and the same rides.
+        // ⚠ A GUARD AGAINST PATHOLOGICAL GROUND, not a decision about
+        // which features count. Features earn their way into the working
+        // array below; on good ground this never binds. Measured: 23
+        // rides found at 15 features, 41 never needed.
+        val workingMax = 40
+        // ⚠ TWENTY, MEASURED: two of the presented six came from ranks
+        // 15 and 17 before enrichment. Ten would have lost both.
+        val enrichN = 20
         val maxPoi = 24
         // 75% sits in a clean measured gap: 80/77/72 above, then 65,
         // then nothing over 44%.
@@ -1478,55 +1498,92 @@ object RouteExplorer {
         onProgress?.invoke(Progress("Building rides"))
         data class Cand(val score: Double, val miles: Double, val combo: List<Long>,
                         val origin: String, val eids: List<Int>)
-        val found = ArrayList<Cand>()
-        var size = minOf(ceilingSize, poiNodes.size)
-        while (size >= 1) {
-            /* ⭐ STOP ON RIDES THAT SURVIVE THE OVERLAP RULE, not on raw finds.
-             *
-             * ⛔ Stopping at six FOUND gave five OFFERED once duplicates were
-             * removed. Continuing to size 4 produced NINE survivors, and the
-             * sixth -- 79.7 mi, Boy Scout Spring and Olsen -- shares only
-             * 18-38% with anything else. It was being thrown away.
-             *
-             * ⚠ A subset proxy was tried and failed: two rides can have
-             * non-subset feature sets and still share 80% of their trails.
-             */
-            if (survivorsOf(found.map {
-                    Triple(it.combo.size, it.miles, it.eids) },
-                    maxOverlap) >= wantRides) break
+
+        /* ── 2b. TEST THE CEILING, DO NOT TRUST IT ───────────────────────
+         * ⛔ The clique is the largest set with no impossible PAIR -- pairwise
+         * compatibility does not mean they all fit TOGETHER. Measured on
+         * device: 55 features gave a clique of 22 and C(55,22) never finished.
+         * ⭐ Solve it; if it busts, drop the weakest and solve again.
+         * Measured: clique 25 -> tested ceiling 9 in 17 solves.
+         */
+        run {
+            var tested = 0
             for ((ok, _, onm) in liveOrigins) {
                 val pool = perOrigin[ok] ?: continue
-                if (pool.size < size) continue
                 val bad = badPair[ok] ?: HashSet()
-                forEachCombo(pool, size) { combo ->
-                    var ok2 = true
-                    outer@ for (i in combo.indices) for (j in i + 1 until combo.size) {
-                        if ((combo[i] xor combo[j]) in bad) { ok2 = false; break@outer }
+                var grp = ArrayList<Long>()
+                for (seed in pool) {
+                    val g2 = ArrayList<Long>(); g2.add(seed)
+                    for (p in pool) {
+                        if (p == seed) continue
+                        if (g2.all { (p xor it) !in bad }) g2.add(p)
                     }
-                    if (ok2) {
-                        val ord = orderTour(combo, ok, ::dist)
-                        if (ord != null) {
-                            val mi = ord.second
-                            if (mi >= req.milesLow && mi <= req.milesHigh) {
-                                val seq = listOf(ok) + ord.first + listOf(ok)
-                                val eids = ArrayList<Int>()
-                                var good = true
-                                for (i in 0 until seq.size - 1) {
-                                    val d = dij[seq[i]]
-                                    val pe = if (d == null) null else pathEdges(d, seq[i], seq[i + 1])
-                                    if (pe == null) { good = false; break }
-                                    eids.addAll(pe)
+                    if (g2.size > grp.size) grp = g2
+                }
+                val cliqueWas = grp.size
+                while (grp.isNotEmpty()) {
+                    tested++
+                    val t = orderTour(grp, ok) { a, b -> dist(a, b) }
+                    if (t != null && t.second <= req.milesHigh) break
+                    grp.sortBy { n -> scoreSet(listOf(n), poiAt) }
+                    grp.removeAt(0)
+                }
+                if (grp.size < ceilingSize) ceilingSize = grp.size
+                Log.i(TAG, "$onm: clique $cliqueWas -> tested ceiling ${grp.size}")
+            }
+            Log.i(TAG, "ceiling tested in $tested solve(s) -> $ceilingSize")
+        }
+
+        /* ── 3. WORKING ARRAY: FEATURES EARN THEIR WAY IN ────────────────
+         * ⛔ Fred, 08-26: "i am still confused why you think eliminating 40
+         * features without knowing what they are is a better solution than
+         * knowing which features remain." He was right -- the pre-cap dropped
+         * features BY SCORE before anything about them was measured.
+         * ⭐ Measured: 23 rides found at 15 features, 41 never needed.
+         */
+        val ranked = poiNodes.sortedByDescending { scoreSet(listOf(it), poiAt) }
+        val working = ArrayList<Long>()
+        val found = ArrayList<Cand>()
+        var gen = 0L
+        var killed = 0L
+        var solved = 0L
+        for (feat in ranked) {
+            if (working.size >= workingMax) break
+            if (survivorsOf(found.map { Triple(it.combo.size, it.miles, it.eids) },
+                    maxOverlap) >= enrichN) break
+            working.add(feat)
+            if (working.size < 2) continue
+            for ((ok, _, onm) in liveOrigins) {
+                val pool = working.filter { it in (perOrigin[ok] ?: emptyList()) }
+                if (pool.size < 2) continue
+                val bad = badPair[ok] ?: HashSet()
+                var size = minOf(pool.size, ceilingSize)
+                while (size >= 2) {
+                    forEachCombo(pool, size) { combo ->
+                        gen++
+                        var bad2 = false
+                        outer@ for (i in combo.indices)
+                            for (j in i + 1 until combo.size)
+                                if ((combo[i] xor combo[j]) in bad) { bad2 = true; break@outer }
+                        if (bad2) { killed++ } else {
+                            solved++
+                            val ord = orderTour(combo, ok) { a, b -> dist(a, b) }
+                            if (ord != null && ord.second >= req.milesLow &&
+                                ord.second <= req.milesHigh) {
+                                val eids = pathOf(dij, listOf(ok) + ord.first + listOf(ok))
+                                if (eids != null && found.none { it.combo.toSet() == combo.toSet() }) {
+                                    found.add(Cand(scoreSet(combo, poiAt), ord.second,
+                                        combo, onm, eids))
                                 }
-                                if (good) found.add(Cand(
-                                    scoreSet(combo, poiAt), mi, combo, onm, eids))
                             }
                         }
                     }
+                    size--
                 }
             }
-            Log.i(TAG, "size $size: ${found.size} candidate(s) so far")
-            size--
         }
+        Log.i(TAG, "working array ${working.size} feature(s) of ${ranked.size}; " +
+            "$gen combos, $killed killed by the pair table, $solved solved")
 
         if (found.isEmpty()) {
             onProgress?.invoke(Progress("No rides found",
@@ -1535,15 +1592,80 @@ object RouteExplorer {
             return emptyList()
         }
 
-        /* ── 10. dedupe ──────────────────────────────────────────────────
-         * PASS 1 same origin AND same features, within minApart -> keep the
-         *        LONGEST (the rider asked for up to milesHigh).
-         * PASS 2 same features, ANY origin -> one ride found from several car
-         *        parks.
-         * ⛔ PASS 2 MUST NOT collapse rides reaching DIFFERENT features. A
-         *    trail heading the other way is a different ride at the same
-         *    mileage, and that is the whole point of multi-origin.
+        /* ── 4. ENRICHMENT ───────────────────────────────────────────────
+         * ⭐ Fred, 08-26: "easier to process and modify six than process
+         * 36,000 for no reason." RIDES x FEATURES, not combinations.
+         * ⭐ Measured: 36 features added, best ride 6 -> 8, every ride between
+         * 74.6 and the 80-mile ceiling.
+         * ⚠ TWENTY, not ten: two of the presented six came from ranks 15 and
+         * 17. Enrichment rewards headroom, so short rides overtake long ones.
          */
+        onProgress?.invoke(Progress("Adding what fits"))
+        val pre = found.sortedWith(compareByDescending<Cand> { it.combo.size }
+            .thenByDescending { it.miles })
+        val enriched = ArrayList<Cand>()
+        var added = 0
+        var screened = 0L
+        var tried = 0L
+        for (c in pre.take(enrichN)) {
+            var combo = ArrayList(c.combo)
+            var miles = c.miles
+            var eids = c.eids
+            var origin = c.origin
+            val ok = liveOrigins.firstOrNull { it.third == origin }?.first
+            if (ok != null) {
+                var improving = true
+                while (improving && combo.size < 8) {
+                    improving = false
+                    val headroom = req.milesHigh - miles
+                    /* ⭐ THE DETOUR SCREEN, and it is EXACT here. Adding a
+                     * feature means leaving the route and coming back, so it
+                     * costs at least twice the distance from the ROUTE to it.
+                     * ⚠ The POC could only measure from feature nodes, because
+                     * Python kept terminal-to-terminal distances only -- and it
+                     * under-enriched as a result. Dij holds distances to EVERY
+                     * node, so this measures from the real path.
+                     */
+                    val onRoute = HashSet<Long>()
+                    for (ei in eids) { onRoute.add(g.edges[ei].u); onRoute.add(g.edges[ei].v) }
+                    var best: Triple<Double, Long, Pair<List<Long>, Double>>? = null
+                    for (p in poiNodes) {
+                        if (p in combo) continue
+                        if (p !in (perOrigin[ok] ?: emptyList())) continue
+                        val bad = badPair[ok] ?: HashSet()
+                        if (combo.any { (p xor it) in bad }) continue
+                        val dp = dij[p]?.dist
+                        var near = Double.MAX_VALUE
+                        if (dp != null) for (n in onRoute) {
+                            val d = dp[n] ?: continue
+                            if (d < near) near = d
+                        }
+                        if (near * 2.0 > headroom) { screened++; continue }
+                        tried++
+                        val trial = ArrayList(combo); trial.add(p)
+                        val ord = orderTour(trial, ok) { a, b -> dist(a, b) } ?: continue
+                        if (ord.second > req.milesHigh) continue
+                        val gain = scoreSet(trial, poiAt) - scoreSet(combo, poiAt)
+                        if (gain <= 0.0) continue
+                        if (best == null || gain > best!!.first) best = Triple(gain, p, ord)
+                    }
+                    val b = best
+                    if (b != null) {
+                        combo.add(b.second)
+                        val seq = listOf(ok) + b.third.first + listOf(ok)
+                        val pe = pathOf(dij, seq)
+                        if (pe != null) {
+                            eids = pe; miles = b.third.second; added++; improving = true
+                        }
+                    }
+                }
+            }
+            enriched.add(Cand(scoreSet(combo, poiAt), miles, combo, origin, eids))
+        }
+        Log.i(TAG, "enriched ${enriched.size} ride(s), $added feature(s) added; " +
+            "$screened screened by detour, $tried solved")
+        found.clear(); found.addAll(enriched)
+
         val p1 = HashMap<String, ArrayList<Cand>>()
         for (c in found) p1.getOrPut(c.origin + "|" + c.combo.sorted().joinToString(",")) {
             ArrayList() }.add(c)
