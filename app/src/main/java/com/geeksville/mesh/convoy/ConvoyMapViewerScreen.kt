@@ -1936,12 +1936,33 @@ fun ConvoyMapViewerScreen(
                      * it.
                      */
                     if (RouteDraftStore.hasOpenBatch()) {
-                        batchRows = RouteDraftStore.drawBatch(webViewRef)
-                        batchName = RouteDraftStore.readBatch()
-                            ?.optString("batchName") ?: ""
+                        /* FORKGUARD-2026-08-27: THE LOCK HOLDS EVEN IF THE DRAW
+                         * FAILS.
+                         *
+                         * ⛔ On 08-27 drawBatch threw -- a WebView call off the
+                         * main thread -- the throw was swallowed upstream, and
+                         * Route+ fell through into the old In-Progress picker.
+                         * The batch and all five drafts were on disk and
+                         * correct; the guard simply stopped guarding.
+                         *
+                         * ⭐ hasOpenBatch() decides. Nothing below runs whatever
+                         * the drawing does, so a failure costs a picture rather
+                         * than the lock.
+                         */
+                        runCatching {
+                            batchRows = RouteDraftStore.drawBatch(webViewRef)
+                            batchName = RouteDraftStore.readBatch()
+                                ?.optString("batchName") ?: ""
+                        }.onFailure {
+                            // ⚠ VISIBLE. An empty grid with no explanation is
+                            // worse than the fall-through was -- at least the
+                            // picker was a screen the rider recognised.
+                            android.util.Log.e("BatchGrid",
+                                "batch draw failed: " + it.message, it)
+                        }
                         batchCompare = emptySet()
                         batchSave = emptySet()
-                        batchGridOpen = batchRows.isNotEmpty()
+                        batchGridOpen = true
                         /* ⚠ ROUTE MODE STAYS OFF. With it live, every tap on a
                          * drawn route -- which is how the rider inspects them --
                          * becomes a vertex on a route they never meant to edit.

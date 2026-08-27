@@ -239,10 +239,32 @@ object RouteDraftStore {
      * the route editor would leave the rider one tap from editing a route they
      * were only looking at.
      */
+    /* BATCHTHREAD-2026-08-27: every WebView call goes through main.
+     *
+     * ⛔ drawBatch runs on the SEARCH thread -- opening five drafts is file I/O
+     * and belongs off main, which is why it is there. But WebView methods must
+     * be called on the thread that created the view, and calling one from here
+     * threw:
+     *
+     *   "A WebView method was called on thread 'Thread-38'."
+     *
+     * ⚠ It was caught upstream by "explore failed", so the batch and all five
+     * drafts were written correctly and NOTHING DREW. Perfect state, no
+     * picture, and a cause a long way from the symptom.
+     *
+     * ⭐ Read here, draw on main. The same convention as VIEWPORTMAIN-2026-08-05
+     * in ConvoyMapViewerScreen, which posts every evaluateJavascript through
+     * main.post for exactly this reason.
+     */
+    private fun onMain(wv: android.webkit.WebView?, js: String) {
+        val v = wv ?: return
+        v.post { runCatching { v.evaluateJavascript(js, null) } }
+    }
+
     fun drawBatch(wv: android.webkit.WebView?): List<BatchRow> {
         val b = readBatch() ?: return emptyList()
         val arr = b.optJSONArray("routes") ?: return emptyList()
-        wv?.evaluateJavascript("clearBatchRoutes()", null)
+        onMain(wv, "clearBatchRoutes()")
         val rows = ArrayList<BatchRow>()
         for (i in 0 until arr.length()) {
             val o = arr.optJSONObject(i) ?: continue
@@ -262,13 +284,13 @@ object RouteDraftStore {
             // ⚠ ESCAPED. Draft names carry spaces and could carry an
             // apostrophe, which would end the JS string literal silently.
             val safe = nm.replace("\\", "\\\\").replace("'", "\\'")
-            wv?.evaluateJavascript("drawBatchRoute('$safe', '$pts', '$col')", null)
+            onMain(wv, "drawBatchRoute('$safe', '$pts', '$col')")
             rows.add(BatchRow(nm, col,
                 o.optDouble("miles", 0.0),
                 o.optDouble("hoursLow", 0.0),
                 o.optDouble("hoursHigh", 0.0)))
         }
-        wv?.evaluateJavascript("fitBatchRoutes()", null)
+        onMain(wv, "fitBatchRoutes()")
         Log.i(TAG, "drew ${rows.size} batch route(s)")
         return rows
     }
