@@ -2,9 +2,10 @@ package com.geeksville.mesh.convoy
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.Surface
@@ -15,171 +16,189 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlin.math.roundToInt
 
 /**
- * BATCHGRID-2026-08-27 — the AI batch, listed.
+ * COMPARETABLE-2026-08-27 — the AI batch, compared.
  *
- * ⭐ THIS IS A LEGEND, NOT A RESULTS LIST. Each row is a route's name in the
- * SAME COLOUR as its line on the map. That tie is the panel's whole job: a
- * colour cannot be spoken about or listed, and a name cannot be found on a
- * map. Both, or the comparison does not work.
+ * ⭐ ONE PANEL. Rows are the universe — every feature and every trail across
+ * every route gets a row — and a column is that route's ✓, – or mileage. The
+ * columns stay narrow whatever the route names are, which is why there is
+ * nothing to expand and no second screen.
  *
- * ⚠ NO HIDE CONTROL. All routes are always drawn; narrowing happens by ticking
- * two or three and pressing COMPARE. One way to do it, not two.
+ * ⭐ THE HEADER DOES THREE THINGS: its colour ties the column to the line on
+ * the map, tapping it shows or hides that line, and the tick beside it marks
+ * the route to be saved.
  *
- * ⚠ Styled to match ConvoyDisplayPanel — its panelBg/accentBlue/mono are
- * private to that file, so they are redeclared here rather than moved. Making
- * them shared would touch three panels and is a separate refactor.
+ * ⛔ TAPPING HIDES THE LINE, NEVER THE COLUMN. "If we remove it we cannot put
+ * it back" — the tap target has to survive its own action.
  */
 
 private val panelBg = Color(0xEE131820)
 private val accentBlue = Color(0xFF4DA6FF)
 private val dimText = Color(0xFF9AA4B2)
+private val faint = Color(0xFF6B7481)
 private val mono = FontFamily.Monospace
 
+/** One route's column. [features] and [trails] are name -> mileage (0 = present, no mileage). */
 data class BatchRow(
     val name: String,
     val colour: String,
     val miles: Double,
     val hoursLow: Double,
     val hoursHigh: Double,
+    val features: Map<String, Double> = emptyMap(),
+    val trails: Map<String, Double> = emptyMap(),
 )
 
 @Composable
 fun ConvoyBatchGridPanel(
     batchName: String,
     rows: List<BatchRow>,
-    compareTicks: Set<String>,
+    hidden: Set<String>,
     saveTicks: Set<String>,
-    onCompareTick: (String, Boolean) -> Unit,
+    onToggleShown: (String) -> Unit,
     onSaveTick: (String, Boolean) -> Unit,
-    onCompare: () -> Unit,
     onSaveSelected: () -> Unit,
     onExit: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var expanded by remember { mutableStateOf(true) }
-    var offsetX by remember { mutableFloatStateOf(0f) }
-    var offsetY by remember { mutableFloatStateOf(0f) }
+    if (rows.isEmpty()) return
+    // ⭐ ROWS ARE THE UNION across every route, in first-appearance order, so a
+    // feature only one route reaches still gets a line of its own.
+    val featureRows = remember(rows) {
+        LinkedHashSet<String>().apply { rows.forEach { addAll(it.features.keys) } }.toList()
+    }
+    val trailRows = remember(rows) {
+        LinkedHashSet<String>().apply { rows.forEach { addAll(it.trails.keys) } }.toList()
+    }
 
     Surface(
-        modifier = modifier
-            .offset { IntOffset(offsetX.roundToInt(), offsetY.roundToInt()) }
-            .pointerInput(Unit) {
-                detectDragGestures { change, dragAmount ->
-                    change.consume()
-                    offsetX += dragAmount.x
-                    offsetY += dragAmount.y
-                }
-            },
+        modifier = modifier,
         shape = RoundedCornerShape(10.dp),
         color = panelBg,
         shadowElevation = 6.dp
     ) {
-        Column(modifier = Modifier.padding(8.dp).width(268.dp)) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { expanded = !expanded }
-                    .padding(vertical = 2.dp, horizontal = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Text(if (expanded) "v" else ">", color = accentBlue,
-                    fontSize = 11.sp, fontFamily = mono, fontWeight = FontWeight.Bold)
-                Text(batchName.uppercase(), color = accentBlue, fontSize = 10.sp,
-                    fontFamily = mono, fontWeight = FontWeight.Bold,
-                    modifier = Modifier.weight(1f))
-                Text("${rows.size}", color = dimText, fontSize = 10.sp, fontFamily = mono)
-            }
+        Column(modifier = Modifier.padding(8.dp)) {
+            Text(batchName.uppercase(), color = accentBlue, fontSize = 10.sp,
+                fontFamily = mono, fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(bottom = 6.dp))
 
-            if (expanded) {
-                // column hints — without these the two ticks are unlabelled and
-                // a rider has to guess which is which
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 2.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("CMP", color = dimText, fontSize = 8.sp, fontFamily = mono,
-                        modifier = Modifier.width(34.dp))
-                    Spacer(Modifier.weight(1f))
-                    Text("SAVE", color = dimText, fontSize = 8.sp, fontFamily = mono)
-                }
-
+            // ── header: colour, tap to show/hide, tick to save ──────────
+            Row(verticalAlignment = Alignment.Bottom) {
+                Spacer(Modifier.width(LABEL_W))
                 rows.forEach { r ->
-                    val cmp = r.name in compareTicks
-                    // ⚠ ceiling of three: more than three lines over the same
-                    // ground cannot be told apart, and the compare table has
-                    // three columns.
-                    val cmpEnabled = cmp || compareTicks.size < 3
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 1.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                    val shown = r.name !in hidden
+                    Column(
+                        modifier = Modifier
+                            .width(COL_W)
+                            // ⛔ hides the LINE, never the column
+                            .clickable { onToggleShown(r.name) },
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Checkbox(
-                            checked = cmp,
-                            enabled = cmpEnabled,
-                            onCheckedChange = { onCompareTick(r.name, it) },
-                            colors = CheckboxDefaults.colors(checkedColor = accentBlue),
-                            modifier = Modifier.size(30.dp).alpha(if (cmpEnabled) 1f else 0.4f)
+                        Text(
+                            shortName(r.name, batchName),
+                            color = parseColour(r.colour),
+                            fontSize = 10.sp, fontFamily = mono,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.alpha(if (shown) 1f else 0.35f)
                         )
-                        // ⭐ the tie to the map: same colour as the line
                         Box(
-                            Modifier.size(11.dp)
+                            Modifier.padding(top = 2.dp).width(COL_W - 8.dp).height(3.dp)
                                 .clip(RoundedCornerShape(2.dp))
                                 .background(parseColour(r.colour))
+                                .alpha(if (shown) 1f else 0.25f)
                         )
-                        Spacer(Modifier.width(6.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                shortName(r.name, batchName),
-                                color = parseColour(r.colour),
-                                fontSize = 12.sp, fontFamily = mono,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                "%.1f mi  %.1f-%.1f h".format(r.miles, r.hoursLow, r.hoursHigh),
-                                color = dimText, fontSize = 9.sp, fontFamily = mono
-                            )
-                        }
-                        // ⚠ FAR END OF THE ROW, deliberately. Compare and save
-                        // mean entirely different things and a mis-tap is
-                        // expensive — one is reading, the other is what is kept.
                         Checkbox(
                             checked = r.name in saveTicks,
                             onCheckedChange = { onSaveTick(r.name, it) },
                             colors = CheckboxDefaults.colors(checkedColor = Color(0xFF4ADE80)),
-                            modifier = Modifier.size(30.dp)
+                            modifier = Modifier.size(26.dp)
                         )
                     }
                 }
+            }
 
-                Spacer(Modifier.height(8.dp))
-                val canCompare = compareTicks.size in 2..3
-                GridButton(
-                    if (canCompare) "COMPARE (${compareTicks.size})" else "TICK 2 OR 3 TO COMPARE",
-                    accentBlue, canCompare, Modifier.fillMaxWidth()
-                ) { onCompare() }
-                Spacer(Modifier.height(4.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    GridButton("SAVE SELECTED", Color(0xFF4ADE80), true, Modifier.weight(1f)) {
-                        onSaveSelected()
+            /* ⚠ HEIGHT IS THE CONSTRAINT, NOT WIDTH. Twenty rows will not fit,
+             * so the table scrolls inside a capped height and the map keeps the
+             * rest of the screen. */
+            Column(
+                modifier = Modifier
+                    .heightIn(max = 260.dp)
+                    .verticalScroll(rememberScrollState())
+            ) {
+                DataRow("Miles", rows) { "%.1f".format(it.miles) }
+                DataRow("Hours", rows) { "%.1f".format(it.hoursLow) }
+
+                if (featureRows.isNotEmpty()) {
+                    SectionRow("FEATURES")
+                    featureRows.forEach { f ->
+                        DataRow(f, rows) { r ->
+                            if (r.features.containsKey(f)) {
+                                val mi = r.features[f] ?: 0.0
+                                if (mi > 0) "%.0f".format(mi) else "\u2713"
+                            } else "\u2013"
+                        }
                     }
-                    GridButton("EXIT", dimText, true, Modifier.weight(1f)) { onExit() }
                 }
+                if (trailRows.isNotEmpty()) {
+                    SectionRow("TRAILS")
+                    trailRows.forEach { t ->
+                        DataRow(t, rows) { r ->
+                            val mi = r.trails[t]
+                            if (mi != null && mi > 0) "%.1f".format(mi) else "\u2013"
+                        }
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                TableButton("SAVE SELECTED", Color(0xFF4ADE80), Modifier.weight(1f)) {
+                    onSaveSelected()
+                }
+                TableButton("EXIT", dimText, Modifier.weight(1f)) { onExit() }
             }
         }
     }
 }
 
-/** ⭐ "broken ridge Route 3" -> "Route 3". The batch name is already in the header. */
+private val LABEL_W = 130.dp
+private val COL_W = 52.dp
+
+@Composable
+private fun SectionRow(label: String) {
+    Text(label, color = faint, fontSize = 8.sp, fontFamily = mono,
+        fontWeight = FontWeight.Bold,
+        modifier = Modifier.padding(top = 7.dp, bottom = 2.dp))
+}
+
+@Composable
+private fun DataRow(label: String, rows: List<BatchRow>, cell: (BatchRow) -> String) {
+    Row(verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.padding(vertical = 1.dp)) {
+        Text(label, color = dimText, fontSize = 9.5.sp, fontFamily = mono,
+            maxLines = 1, modifier = Modifier.width(LABEL_W))
+        rows.forEach { r ->
+            val v = cell(r)
+            Text(
+                v,
+                // ⚠ a dash is absence and should recede; a value is the point
+                color = if (v == "\u2013") faint else parseColour(r.colour),
+                fontSize = 9.5.sp, fontFamily = mono,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.width(COL_W)
+            )
+        }
+    }
+}
+
+/** ⭐ "broken ridge ai Route 3" -> "Route 3". The batch name is in the header. */
 private fun shortName(name: String, batchName: String): String =
     if (name.startsWith(batchName)) name.removePrefix(batchName).trim().ifBlank { name }
     else name
@@ -188,29 +207,17 @@ private fun parseColour(hex: String): Color =
     runCatching { Color(android.graphics.Color.parseColor(hex)) }.getOrDefault(accentBlue)
 
 @Composable
-private fun GridButton(
-    label: String, tint: Color, enabled: Boolean,
-    modifier: Modifier = Modifier, onClick: () -> Unit,
+private fun TableButton(
+    label: String, tint: Color, modifier: Modifier = Modifier, onClick: () -> Unit,
 ) {
-    /* GRIDFIX-2026-08-27: THE CLICKABLE MOVES OFF THE SURFACE.
-     *
-     * ⛔ It was on the Surface's own modifier. Material3 Surface handles
-     * pointer input for its shape and elevation, and a clickable in that chain
-     * can be swallowed before it fires -- COMPARE did nothing at all.
-     *
-     * ⭐ The inner Box is a plain layout node and does not compete for the
-     * gesture.
-     */
     Surface(
-        modifier = modifier.height(30.dp).alpha(if (enabled) 1f else 0.45f),
+        modifier = modifier.height(30.dp),
         shape = RoundedCornerShape(6.dp),
         color = Color(0xFF1D2430)
     ) {
         Box(
             contentAlignment = Alignment.Center,
-            modifier = Modifier
-                .fillMaxSize()
-                .then(if (enabled) Modifier.clickable { onClick() } else Modifier)
+            modifier = Modifier.fillMaxSize().clickable { onClick() }
         ) {
             Text(label, color = tint, fontSize = 9.sp, fontFamily = mono,
                 fontWeight = FontWeight.Bold)

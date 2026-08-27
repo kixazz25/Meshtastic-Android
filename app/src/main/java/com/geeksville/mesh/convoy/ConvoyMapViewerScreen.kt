@@ -353,7 +353,9 @@ fun ConvoyMapViewerScreen(
     var batchGridOpen by remember { mutableStateOf(false) }
     var batchName by remember { mutableStateOf("") }
     var batchRows by remember { mutableStateOf<List<BatchRow>>(emptyList()) }
-    var batchCompare by remember { mutableStateOf<Set<String>>(emptySet()) }
+    // COMPARETABLE-2026-08-27: hidden, not 'compare' — every route is
+    // always in the table; tapping a header hides only its LINE.
+    var batchHidden by remember { mutableStateOf<Set<String>>(emptySet()) }
     var batchSave by remember { mutableStateOf<Set<String>>(emptySet()) }
     var pinFeasSeq by remember { mutableStateOf(0) }
     var pinFeas by remember {
@@ -1869,51 +1871,33 @@ fun ConvoyMapViewerScreen(
                 ConvoyBatchGridPanel(
                     batchName = batchName,
                     rows = batchRows,
-                    compareTicks = batchCompare,
+                    hidden = batchHidden,
                     saveTicks = batchSave,
-                    onCompareTick = { n, on ->
-                        batchCompare = if (on) batchCompare + n else batchCompare - n
+                    onToggleShown = { n ->
+                        val nowHidden = n !in batchHidden
+                        batchHidden = if (nowHidden) batchHidden + n else batchHidden - n
+                        val safe = n.replace("\\", "\\\\").replace("'", "\\'")
+                        webViewRef?.evaluateJavascript(
+                            "showBatchRoute('" + safe + "', " + (!nowHidden) + ", 5)", null)
                     },
                     onSaveTick = { n, on ->
                         batchSave = if (on) batchSave + n else batchSave - n
                     },
-                    onCompare = {
-                        /* ⚠ VISIBLE. Without this there was no way to tell a
-                         * button that never fired from a JS call that did
-                         * nothing -- which is why COMPARE took two rounds. */
-                        android.util.Log.i("BatchGrid",
-                            "COMPARE pressed: " + batchCompare.joinToString(", "))
-                        /* ⚠ NOT BUILT YET -- the compare sheet is the next
-                         * patch. Narrowing the map is the visible half and it
-                         * works now: show only what was ticked.
-                         */
-                        batchRows.forEach { r ->
-                            val on = r.name in batchCompare
-                            val safe = r.name.replace("\\", "\\\\").replace("'", "\\'")
-                            webViewRef?.evaluateJavascript(
-                                "showBatchRoute('" + safe + "', " + on + ", 6)", null)
-                        }
-                        webViewRef?.evaluateJavascript("fitBatchRoutes()", null)
-                    },
                     onSaveSelected = {
-                        /* ⚠ NOT BUILT YET. Promotion, deleting the rest and
-                         * clearing the batch is the patch after compare. Doing
-                         * half of it here would leave a batch that is partly
-                         * resolved, which is worse than one that is not.
-                         */
+                        /* ⚠ NOT BUILT. Promotion, deleting the rest and clearing
+                         * the batch is the next patch. Half of it would leave a
+                         * partly resolved batch, which is worse than none. */
                         android.util.Log.i("BatchGrid",
                             "SAVE SELECTED: " + batchSave.joinToString(", "))
                     },
                     onExit = {
-                        /* ⭐ EXIT LEAVES EVERYTHING. The batch stays open, the
-                         * drafts stay, and route creation stays blocked --
-                         * Route+ reopens exactly this. Only SAVE SELECTED
-                         * clears the lock.
-                         */
+                        /* ⭐ EXIT LEAVES EVERYTHING — the batch stays open and
+                         * Route+ reopens exactly this. */
                         batchGridOpen = false
                         webViewRef?.evaluateJavascript("clearBatchRoutes()", null)
                     },
-                    modifier = Modifier.align(Alignment.TopStart).padding(8.dp)
+                    modifier = Modifier.align(Alignment.TopStart)
+                        .padding(8.dp).fillMaxWidth(0.75f)
                 )
             }
             // -- WORK WITH ARTIFACTS (V2.5 scaffold) -- FAB-gated, opens expanded --
@@ -1965,7 +1949,7 @@ fun ConvoyMapViewerScreen(
                             android.util.Log.e("BatchGrid",
                                 "batch draw failed: " + it.message, it)
                         }
-                        batchCompare = emptySet()
+                        batchHidden = emptySet()
                         batchSave = emptySet()
                         batchGridOpen = true
                         /* ⚠ ROUTE MODE STAYS OFF. With it live, every tap on a

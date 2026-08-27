@@ -290,10 +290,18 @@ object RouteDraftStore {
             // apostrophe, which would end the JS string literal silently.
             val safe = nm.replace("\\", "\\\\").replace("'", "\\'")
             onMain(wv, "drawBatchRoute('$safe', '$pts', '$col')")
+            /* COMPARETABLE-2026-08-27: the notes already hold everything.
+             *
+             * ⭐ Nothing new is computed. Each draft carries summary.total_miles,
+             * narrative.stops_in_order ("mile 29  Upper Point — summit") and
+             * legs[] with per-trail mileage. The table is a rendering job.
+             */
+            val notes = readNotes(nm)
             rows.add(BatchRow(nm, col,
                 o.optDouble("miles", 0.0),
                 o.optDouble("hoursLow", 0.0),
-                o.optDouble("hoursHigh", 0.0)))
+                o.optDouble("hoursHigh", 0.0),
+                featuresOf(notes), trailsOf(notes)))
         }
         /* GRIDFIX-2026-08-27: ZOOM, NOT FIT.
          *
@@ -309,6 +317,51 @@ object RouteDraftStore {
         onMain(wv, "map.setZoom(11)")
         Log.i(TAG, "drew ${rows.size} batch route(s)")
         return rows
+    }
+
+    /* COMPARETABLE-2026-08-27: notes -> table rows.
+     *
+     * ⚠ THE MOJIBAKE IS REAL AND IT IS ON EVERY DRAFT ALREADY WRITTEN.
+     * stops_in_order reads "Upper Point \u00e2\u20ac\u201d summit" -- a UTF-8
+     * em-dash decoded as Latin-1. Repaired on READ, because fixing the writer
+     * would do nothing for the drafts that exist.
+     */
+    private fun demojibake(s: String): String =
+        s.replace("\u00e2\u20ac\u201d", "-")
+         .replace("\u00e2\u20ac\u2122", "'")
+         .replace("\u00e2\u20ac\u0153", "\"")
+         .replace("\u00e2\u20ac\u009d", "\"")
+
+    /** "mile 29  Upper Point - summit" -> "Upper Point" to 29.0 */
+    private fun featuresOf(notes: org.json.JSONObject?): Map<String, Double> {
+        val out = LinkedHashMap<String, Double>()
+        val arr = notes?.optJSONObject("narrative")?.optJSONArray("stops_in_order")
+            ?: return out
+        for (i in 0 until arr.length()) {
+            val raw = demojibake(arr.optString(i)).trim()
+            val m = Regex("""^mile\s+([\d.]+)\s+(.+?)(?:\s+-\s+.*)?$""").find(raw)
+            if (m != null) {
+                out[m.groupValues[2].trim()] = m.groupValues[1].toDoubleOrNull() ?: 0.0
+            } else if (raw.isNotBlank()) {
+                out[raw] = 0.0
+            }
+        }
+        return out
+    }
+
+    /** legs[] -> trail name to total miles. ⚠ SUMMED: a route can use one
+     *  trail in several separate legs, and three rows saying "Avon Road" would
+     *  be noise where one saying 12.4 is the answer. */
+    private fun trailsOf(notes: org.json.JSONObject?): Map<String, Double> {
+        val out = LinkedHashMap<String, Double>()
+        val arr = notes?.optJSONArray("legs") ?: return out
+        for (i in 0 until arr.length()) {
+            val o = arr.optJSONObject(i) ?: continue
+            val t = demojibake(o.optString("trail")).trim()
+            if (t.isBlank()) continue
+            out[t] = (out[t] ?: 0.0) + o.optDouble("miles", 0.0)
+        }
+        return out
     }
 
     // ----- locations -------------------------------------------------------
