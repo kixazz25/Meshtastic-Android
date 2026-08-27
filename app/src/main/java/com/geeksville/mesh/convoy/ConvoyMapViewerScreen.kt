@@ -1859,6 +1859,58 @@ fun ConvoyMapViewerScreen(
                 }
             }
 
+            /* BATCHFORK-2026-08-27: the batch grid.
+             *
+             * ⭐ A sibling of the artifacts panel inside the map Box, aligned
+             * TopStart -- clear of the Distance HUD at TopEnd, and draggable
+             * away from anything it does cover.
+             */
+            if (batchGridOpen && batchRows.isNotEmpty()) {
+                ConvoyBatchGridPanel(
+                    batchName = batchName,
+                    rows = batchRows,
+                    compareTicks = batchCompare,
+                    saveTicks = batchSave,
+                    onCompareTick = { n, on ->
+                        batchCompare = if (on) batchCompare + n else batchCompare - n
+                    },
+                    onSaveTick = { n, on ->
+                        batchSave = if (on) batchSave + n else batchSave - n
+                    },
+                    onCompare = {
+                        /* ⚠ NOT BUILT YET -- the compare sheet is the next
+                         * patch. Narrowing the map is the visible half and it
+                         * works now: show only what was ticked.
+                         */
+                        batchRows.forEach { r ->
+                            val on = r.name in batchCompare
+                            val safe = r.name.replace("\\", "\\\\").replace("'", "\\'")
+                            webViewRef?.evaluateJavascript(
+                                "showBatchRoute('" + safe + "', " + on + ")", null)
+                        }
+                        webViewRef?.evaluateJavascript("fitBatchRoutes()", null)
+                    },
+                    onSaveSelected = {
+                        /* ⚠ NOT BUILT YET. Promotion, deleting the rest and
+                         * clearing the batch is the patch after compare. Doing
+                         * half of it here would leave a batch that is partly
+                         * resolved, which is worse than one that is not.
+                         */
+                        android.util.Log.i("BatchGrid",
+                            "SAVE SELECTED: " + batchSave.joinToString(", "))
+                    },
+                    onExit = {
+                        /* ⭐ EXIT LEAVES EVERYTHING. The batch stays open, the
+                         * drafts stay, and route creation stays blocked --
+                         * Route+ reopens exactly this. Only SAVE SELECTED
+                         * clears the lock.
+                         */
+                        batchGridOpen = false
+                        webViewRef?.evaluateJavascript("clearBatchRoutes()", null)
+                    },
+                    modifier = Modifier.align(Alignment.TopStart).padding(8.dp)
+                )
+            }
             // -- WORK WITH ARTIFACTS (V2.5 scaffold) -- FAB-gated, opens expanded --
             if (showArtifactsPanel) {
             ConvoyArtifactsPanel(
@@ -1866,6 +1918,40 @@ fun ConvoyMapViewerScreen(
                 onDismiss = { showArtifactsPanel = false },
                 isConvoyMap = false,
                 onCreateRoute = {
+                    /* BATCHFORK-2026-08-27: AN OPEN BATCH TAKES PRECEDENCE.
+                     *
+                     * ⛔ Nothing below runs while a batch is unresolved -- not
+                     * the UNNAMED resolver, not addPointMode, not routeMode,
+                     * not the picker. The rider is taken to the six routes
+                     * already waiting for a decision.
+                     *
+                     * ⭐ ONLY BATCHES ARE FORCED. A batch is six routes the app
+                     * made unasked, so it is the app's mess to clear, and a
+                     * second batch on top would be twelve. A hand-drawn draft
+                     * is one route the rider chose to start and can leave as
+                     * long as they like.
+                     *
+                     * ⭐ IT REDIRECTS RATHER THAN REFUSING -- the rider is put
+                     * in front of the thing in the way, with the tools to clear
+                     * it.
+                     */
+                    if (RouteDraftStore.hasOpenBatch()) {
+                        batchRows = RouteDraftStore.drawBatch(webViewRef)
+                        batchName = RouteDraftStore.readBatch()
+                            ?.optString("batchName") ?: ""
+                        batchCompare = emptySet()
+                        batchSave = emptySet()
+                        batchGridOpen = batchRows.isNotEmpty()
+                        /* ⚠ ROUTE MODE STAYS OFF. With it live, every tap on a
+                         * drawn route -- which is how the rider inspects them --
+                         * becomes a vertex on a route they never meant to edit.
+                         */
+                        webViewRef?.evaluateJavascript("setRouteMode(false)", null)
+                        // ⚠ Route+ lives inside this panel; leaving it open
+                        // would put the grid behind it.
+                        showArtifactsPanel = false
+                        return@ConvoyArtifactsPanel
+                    }
                     // +ROUTE -> choose New vs In-Progress BEFORE the toolbar opens.
                     // Recovery test: if the SAVED state still had a route open, a prior
                     // session left it open (crash/kill never closed cleanly) = recovery.
