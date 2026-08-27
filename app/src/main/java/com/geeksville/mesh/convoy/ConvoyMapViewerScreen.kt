@@ -358,6 +358,11 @@ fun ConvoyMapViewerScreen(
     var batchHidden by remember { mutableStateOf<Set<String>>(emptySet()) }
     // TABLEPOLISH-2026-08-27: what the layers were before the table opened.
     var batchPrevLayers by remember { mutableStateOf<List<Int>?>(null) }
+    // SAVESELECTED-2026-08-27
+    var batchAreaPrompt by remember { mutableStateOf(false) }
+    var batchAreaName by remember { mutableStateOf("") }
+    var batchDeleteConfirm by remember { mutableStateOf(false) }
+    var batchSaving by remember { mutableStateOf(false) }
     var batchSave by remember { mutableStateOf<Set<String>>(emptySet()) }
     var pinFeasSeq by remember { mutableStateOf(0) }
     var pinFeas by remember {
@@ -1886,11 +1891,13 @@ fun ConvoyMapViewerScreen(
                         batchSave = if (on) batchSave + n else batchSave - n
                     },
                     onSaveSelected = {
-                        /* ⚠ NOT BUILT. Promotion, deleting the rest and clearing
-                         * the batch is the next patch. Half of it would leave a
-                         * partly resolved batch, which is worse than none. */
-                        android.util.Log.i("BatchGrid",
-                            "SAVE SELECTED: " + batchSave.joinToString(", "))
+                        /* ⚠ TICKING NONE IS A LEGITIMATE ANSWER -- they looked and
+                         * liked none of them -- but it deletes everything, so it
+                         * asks first. ⛔ And "start over" is literal: the recipe
+                         * lives in the batch file, so keeping one route keeps the
+                         * parameters and keeping none loses them. */
+                        if (batchSave.isEmpty()) batchDeleteConfirm = true
+                        else { batchAreaName = ""; batchAreaPrompt = true }
                     },
                     onExit = {
                         /* ⭐ EXIT LEAVES EVERYTHING — the batch stays open and
@@ -2844,6 +2851,170 @@ fun ConvoyMapViewerScreen(
                 }
             }
 
+            /* SAVESELECTED-2026-08-27: resolving the batch.
+             *
+             * ⛔ ORDER IS LOAD-BEARING, and the existing graduation path says so
+             * in its own comment: the id does not exist until insertRoute
+             * returns, and the draft must not be deleted until the notes have
+             * landed, or the narrative is gone with no way back.
+             *
+             *   per route: load -> buildWkt -> insertRoute -> notes -> delete
+             *   then:      delete the unticked
+             *   LAST:      delete the batch file
+             *
+             * ⚠ THE BATCH FILE GOES LAST because its absence IS "resolved". If
+             * it went first and a promotion then failed, the lock would be clear
+             * and the drafts stranded.
+             *
+             * ⭐ Same calls, same order as saveCompleted -- but sequential, with
+             * names as LOCALS. saveCompleted reads routeName from Compose state
+             * and is fire-and-forget: five of them would race on RouteManager,
+             * and the second load would clear the route the first was saving.
+             */
+            val runBatchSave: (String) -> Unit = { area ->
+                batchSaving = true
+                val keep = batchRows.filter { it.name in batchSave }
+                val drop = batchRows.filter { it.name !in batchSave }
+                val sLat = lastViewportSouth; val wLon = lastViewportWest
+                val nLat = lastViewportNorth; val eLon = lastViewportEast
+                kotlinx.coroutines.MainScope().launch {
+                    val saved = kotlinx.coroutines.withContext(
+                        kotlinx.coroutines.Dispatchers.IO) {
+                        SpatialDbManager.init(context)
+                        /* ⚠ THE VIEWPORT QUERY IS KEPT DELIBERATELY.
+                         * buildWktAndBbox resolves each vertex against its TRAIL
+                         * geometry -- that is what makes a route follow the
+                         * switchbacks. Building from the draft's raw lat/lon
+                         * would give chords across the mountain that look fine
+                         * at zoom 11. */
+                        val lines = SpatialDbManager.queryTrailsByViewport(sLat, wLon, nLat, eLon) +
+                                SpatialDbManager.queryTracksByViewport(sLat, wLon, nLat, eLon)
+                        val byId = HashMap<String, String>()
+                        for (m in lines) {
+                            val id = m["trail_id"] ?: m["track_id"]
+                            val g = m["geometry"]
+                            if (id != null && g != null) byId[id] = g
+                        }
+                        var ok = 0
+                        for (r in keep) {
+                            if (RouteDraftStore.loadIntoRouteManager(r.name) == null) {
+                                android.util.Log.e("BatchGrid", "load failed: " + r.name)
+                                continue
+                            }
+                            val built = RouteManager.buildWktAndBbox { lineId ->
+                                byId[lineId]?.let { RouteManager.parseWktLine(it) }
+                            }
+                            if (built == null) {
+                                android.util.Log.e("BatchGrid", "build failed: " + r.name)
+                                continue
+                            }
+                            val (wkt, bbox) = built
+                            /* ⭐ "Panguitch Mi. 79 Pts. 7" -- both numbers mean
+                             * something, and two routes from one batch differ in
+                             * both, so they stay unique without the rider naming
+                             * each one. */
+                            val nm = area.trim() + " Mi. " + Math.round(r.miles) +
+                                " Pts. " + r.features.size
+                            val id = SpatialDbManager.insertRoute(
+                                nm, wkt, bbox[0], bbox[1], bbox[2], bbox[3])
+                            // ⛔ notes BEFORE the delete -- the narrative and the
+                            // recipe both live in them
+                            RouteDraftStore.readNotes(r.name)?.let { nts ->
+                                SpatialDbManager.writeRouteNotes(id, nts)
+                            }
+                            RouteDraftStore.deleteDraft(r.name)
+                            ok++
+                        }
+                        // the ones nobody kept
+                        for (r in drop) RouteDraftStore.deleteDraft(r.name)
+                        // ⛔ LAST
+                        RouteDraftStore.clearBatch()
+                        ok
+                    }
+                    RouteManager.clearRoute()
+                    RouteDraftStore.deleteDraft(RouteDraftStore.UNNAMED)
+                    draftListTick++
+                    batchSaving = false
+                    batchGridOpen = false
+                    batchRows = emptyList()
+                    batchSave = emptySet()
+                    batchHidden = emptySet()
+                    webViewRef?.evaluateJavascript("clearBatchRoutes()", null)
+                    // ⛔ the layers go back exactly as they were
+                    batchPrevLayers?.let { prev ->
+                        listOf("Trails", "Tracks", "Waypoints", "Routes")
+                            .forEachIndexed { i, ly ->
+                                if (prev[i] != DS_OFF) {
+                                    webViewRef?.evaluateJavascript("show" + ly + "()", null)
+                                }
+                            }
+                        webViewRef?.evaluateJavascript("triggerViewportUpdate()", null)
+                    }
+                    batchPrevLayers = null
+                    android.widget.Toast.makeText(context,
+                        if (saved > 0) "Saved " + saved + " route(s)" else "Batch cleared",
+                        android.widget.Toast.LENGTH_SHORT).show()
+                }
+            }
+            if (batchAreaPrompt) {
+                androidx.compose.material3.AlertDialog(
+                    onDismissRequest = { batchAreaPrompt = false },
+                    title = { androidx.compose.material3.Text("Name the area") },
+                    text = {
+                        androidx.compose.foundation.layout.Column {
+                            androidx.compose.material3.OutlinedTextField(
+                                value = batchAreaName,
+                                onValueChange = { batchAreaName = it },
+                                singleLine = true,
+                                label = { androidx.compose.material3.Text("Area") }
+                            )
+                            androidx.compose.material3.Text(
+                                "Saved as \"" + batchAreaName.trim().ifBlank { "Area" } +
+                                    " Mi. 79 Pts. 7\"",
+                                fontSize = 11.sp,
+                                color = Color(0xFF9AA4B2),
+                                modifier = Modifier.padding(top = 8.dp)
+                            )
+                        }
+                    },
+                    confirmButton = {
+                        androidx.compose.material3.TextButton(
+                            enabled = batchAreaName.isNotBlank() && !batchSaving,
+                            onClick = {
+                                batchAreaPrompt = false
+                                runBatchSave(batchAreaName)
+                            }) { androidx.compose.material3.Text("Save") }
+                    },
+                    dismissButton = {
+                        androidx.compose.material3.TextButton(
+                            onClick = { batchAreaPrompt = false }
+                        ) { androidx.compose.material3.Text("Cancel") }
+                    }
+                )
+            }
+            if (batchDeleteConfirm) {
+                androidx.compose.material3.AlertDialog(
+                    onDismissRequest = { batchDeleteConfirm = false },
+                    title = { androidx.compose.material3.Text("Delete all routes?") },
+                    text = {
+                        androidx.compose.material3.Text(
+                            "No routes selected. All " + batchRows.size +
+                                " will be deleted. If you proceed you must start over."
+                        )
+                    },
+                    confirmButton = {
+                        androidx.compose.material3.TextButton(onClick = {
+                            batchDeleteConfirm = false
+                            runBatchSave("")
+                        }) { androidx.compose.material3.Text("Delete") }
+                    },
+                    dismissButton = {
+                        androidx.compose.material3.TextButton(
+                            onClick = { batchDeleteConfirm = false }
+                        ) { androidx.compose.material3.Text("Cancel") }
+                    }
+                )
+            }
             // -- ARTIFACT LIST PANEL (SELECT/EDIT) --
             if (showEntryChoice) {
                 androidx.compose.material3.AlertDialog(

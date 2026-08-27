@@ -197,18 +197,23 @@ fun ConvoyBatchGridPanel(
                     }
                 }
                 }
+                /* SAVESELECTED-2026-08-27: the bar was invisible.
+                 * ⚠ 3dp wide at 13% white on a near-black panel is nothing. It
+                 * WAS drawing -- Fred could scroll and saw no bar. Wider, and
+                 * the track is now visible in its own right. */
                 if (tableScroll.maxValue > 0) {
                     val frac = tableScroll.value.toFloat() /
                         tableScroll.maxValue.toFloat().coerceAtLeast(1f)
                     Box(
-                        Modifier.width(3.dp).height(260.dp).padding(start = 2.dp)
-                            .background(Color(0x22FFFFFF))
+                        Modifier.padding(start = 4.dp).width(6.dp).height(260.dp)
+                            .clip(RoundedCornerShape(3.dp))
+                            .background(Color(0x55000000))
                     ) {
                         Box(
-                            Modifier.fillMaxWidth().height(60.dp)
-                                .offset(y = ((260 - 60) * frac).dp)
-                                .clip(RoundedCornerShape(2.dp))
-                                .background(accentBlue.copy(alpha = 0.55f))
+                            Modifier.fillMaxWidth().height(56.dp)
+                                .offset(y = ((260 - 56) * frac).dp)
+                                .clip(RoundedCornerShape(3.dp))
+                                .background(accentBlue)
                         )
                     }
                 }
