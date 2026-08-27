@@ -2875,32 +2875,43 @@ fun ConvoyMapViewerScreen(
                 batchSaving = true
                 val keep = batchRows.filter { it.name in batchSave }
                 val drop = batchRows.filter { it.name !in batchSave }
-                val sLat = lastViewportSouth; val wLon = lastViewportWest
-                val nLat = lastViewportNorth; val eLon = lastViewportEast
                 kotlinx.coroutines.MainScope().launch {
                     val saved = kotlinx.coroutines.withContext(
                         kotlinx.coroutines.Dispatchers.IO) {
                         SpatialDbManager.init(context)
-                        /* ⚠ THE VIEWPORT QUERY IS KEPT DELIBERATELY.
-                         * buildWktAndBbox resolves each vertex against its TRAIL
-                         * geometry -- that is what makes a route follow the
-                         * switchbacks. Building from the draft's raw lat/lon
-                         * would give chords across the mountain that look fine
-                         * at zoom 11. */
-                        val lines = SpatialDbManager.queryTrailsByViewport(sLat, wLon, nLat, eLon) +
-                                SpatialDbManager.queryTracksByViewport(sLat, wLon, nLat, eLon)
-                        val byId = HashMap<String, String>()
-                        for (m in lines) {
-                            val id = m["trail_id"] ?: m["track_id"]
-                            val g = m["geometry"]
-                            if (id != null && g != null) byId[id] = g
-                        }
+                        /* THREEFIX-2026-08-27: BY ID, NOT BY VIEWPORT.
+                         *
+                         * ⛔ Fred, this morning: "cannot rely on viewport." He was
+                         * right and I argued the opposite -- buildWktAndBbox does
+                         * need trail geometry, or the route saves as chords
+                         * between vertices instead of following the switchbacks,
+                         * but the viewport is not how to get it.
+                         *
+                         * ⭐ queryGeomByIds already exists and the resume path
+                         * uses it: "fetch the snap-referenced geometry by the
+                         * lineIds the vertices carry (NOT by viewport) so reload
+                         * draws the snapped shape regardless of where the map is
+                         * looking. Fixes resume chords."
+                         *
+                         * ⚠ Same bug, already fixed once, in this file. It worked
+                         * only because zoom 11 happens to show the whole route.
+                         */
                         var ok = 0
                         for (r in keep) {
                             if (RouteDraftStore.loadIntoRouteManager(r.name) == null) {
                                 android.util.Log.e("BatchGrid", "load failed: " + r.name)
                                 continue
                             }
+                            // ⭐ the vertices carry their own lineIds -- nothing
+                            // needs to be on screen
+                            val verts = RouteManager.routeVertices()
+                            val byId = HashMap<String, String>()
+                            byId.putAll(SpatialDbManager.queryGeomByIds(
+                                verts.filter { it.snapped && it.lineType == "trail" }
+                                    .mapNotNull { it.lineId }, "trail"))
+                            byId.putAll(SpatialDbManager.queryGeomByIds(
+                                verts.filter { it.snapped && it.lineType == "track" }
+                                    .mapNotNull { it.lineId }, "track"))
                             val built = RouteManager.buildWktAndBbox { lineId ->
                                 byId[lineId]?.let { RouteManager.parseWktLine(it) }
                             }
@@ -3526,10 +3537,38 @@ fun ConvoyMapViewerScreen(
                 )
             }
 
-            if (showInProgressPicker) {
+            /* THREEFIX-2026-08-27: A PICKER WITH NOTHING TO PICK.
+             *
+             * ⛔ After the first successful SAVE SELECTED the batch had resolved
+             * and route_drafts/ was empty -- and Route+ still raised this dialog
+             * with an empty list, offering Cancel and + Plan a New Route.
+             *
+             * ⭐ Guarded at the RENDER, not at the three setters: "is there
+             * anything to pick" is a property of the list, not of any caller,
+             * and three guards would be three places to forget.
+             *
+             * ⚠ It does not merely hide the dialog -- it runs what + Plan a New
+             * Route does, so the tap starts a route. A silently ignored tap
+             * would be worse than the empty dialog.
+             */
+            if (showInProgressPicker && emulatedDrafts.isEmpty()) {
+                androidx.compose.runtime.LaunchedEffect(routeEntryNonce, showInProgressPicker) {
+                    showInProgressPicker = false
+                    routeLifecycleState = ROUTE_LS_NEW
+                    routeMethod = ROUTE_METHOD_P2P
+                    routeName = RouteDraftStore.UNNAMED
+                    routeNameTaken = false
+                    routeEntryNonce++
+                    addPointMode = true
+                    routeMode = true
+                    webViewRef?.evaluateJavascript(
+                        "window.__routeMode=true;setRouteMode(true)", null)
+                }
+            }
+            if (showInProgressPicker && emulatedDrafts.isNotEmpty()) {
                 androidx.compose.material3.AlertDialog(
                     onDismissRequest = { showInProgressPicker = false; routeMode = false; webViewRef?.evaluateJavascript("window.__routeMode=false;setRouteMode(false)", null) },
-                    title = { androidx.compose.material3.Text("Start a new route") },
+                    title = { androidx.compose.material3.Text("Continue editing or create a new route") },
                     text = {
                         androidx.compose.foundation.layout.Column {
                             emulatedDrafts.forEach { di -> val d = di.name
@@ -3573,7 +3612,13 @@ fun ConvoyMapViewerScreen(
                                             }, 400)
                                         }
                                     }) { androidx.compose.foundation.layout.Column { androidx.compose.material3.Text(d); androidx.compose.material3.Text((if (di.createdAt.length >= 10) di.createdAt.substring(0, 10) else di.createdAt) + "  ·  " + di.pointCount + " pts", style = androidx.compose.material3.MaterialTheme.typography.bodySmall) } }
-                                    androidx.compose.material3.TextButton(onClick = { draftRenameTarget = d; draftRenameText = if (d == RouteDraftStore.UNNAMED) "" else d; draftRenameErr = "" }) { androidx.compose.material3.Text("Rename") }
+                                    // THREEFIX-2026-08-27: rename removed. ⭐ A draft's
+                                    // name is a working label -- the real name is
+                                    // chosen at save, and the batch names its own
+                                    // routes. ⛔ Renaming a draft that a batch file
+                                    // names BY STRING would break the batch
+                                    // silently: the file would still list
+                                    // "x Route 3" and no such draft would exist.
                                     androidx.compose.material3.TextButton(onClick = {
                                         RouteDraftStore.deleteDraft(d)
                                         draftListTick++   // refresh the picker list
@@ -3610,15 +3655,10 @@ fun ConvoyMapViewerScreen(
                     }
                 )
             }
-            if (draftRenameTarget != null) {
-                androidx.compose.material3.AlertDialog(
-                    onDismissRequest = { draftRenameTarget = null },
-                    title = { androidx.compose.material3.Text("Rename route") },
-                    text = { androidx.compose.foundation.layout.Column { androidx.compose.material3.OutlinedTextField(value = draftRenameText, onValueChange = { draftRenameText = it; draftRenameErr = "" }, singleLine = true, isError = draftRenameErr.isNotEmpty(), label = { androidx.compose.material3.Text("Route name") }); if (draftRenameErr.isNotEmpty()) androidx.compose.material3.Text(draftRenameErr, color = androidx.compose.material3.MaterialTheme.colorScheme.error) } },
-                    confirmButton = { androidx.compose.material3.TextButton(onClick = { val nm = draftRenameText.trim(); val old = draftRenameTarget; if (nm.isBlank()) draftRenameErr = "Enter a name" else if (RouteDraftStore.isNameTaken(nm)) draftRenameErr = "That name is already used" else if (old != null && RouteDraftStore.renameDraft(old, nm)) { draftRenameTarget = null; draftListTick++ } else draftRenameErr = "Rename failed" }) { androidx.compose.material3.Text("Save") } },
-                    dismissButton = { androidx.compose.material3.TextButton(onClick = { draftRenameTarget = null }) { androidx.compose.material3.Text("Cancel") } }
-                )
-            }
+            // THREEFIX-2026-08-27: the rename dialog is gone with its button.
+            // ⚠ draftRenameTarget/Text/Err stay declared -- unused state is
+            // harmless, and chasing every reference at the end of a long day is
+            // how a small change becomes a big one.
             if (activeListType != null) {
                 ArtifactListPanel(
                     mapKey = "planning",
