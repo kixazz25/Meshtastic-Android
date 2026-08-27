@@ -2167,7 +2167,26 @@ fun ConvoyMapViewerScreen(
                             // SAVEWIP-LISTTICK-2026-08-17.
                             showAiDesign = false
                             draftListTick++
-                            showInProgressPicker = true
+                            /* KILLWIPPICKER-2026-08-27: THE TABLE IS THE RESULTS NOW.
+                             *
+                             * ⛔ This line put the old WIP picker on top of the
+                             * compare table. It is how the rider reached the
+                             * results BEFORE batches existed, and it was still
+                             * firing after the seam had drawn the batch and
+                             * opened the grid.
+                             *
+                             * ⚠ Gating the picker's render would have hidden the
+                             * symptom and left this path running. Fred: "gating
+                             * the screen is just deferring the problem."
+                             *
+                             * ⚠ KEPT FOR THE NO-BATCH CASE. If the search
+                             * produced nothing, or writeBatch failed, the picker
+                             * is the rider's only way to whatever WAS produced.
+                             * Removing it outright would strand them.
+                             */
+                            if (!RouteDraftStore.hasOpenBatch()) {
+                                showInProgressPicker = true
+                            }
                         },
                         onClose = {
                             showAiDesign = false
