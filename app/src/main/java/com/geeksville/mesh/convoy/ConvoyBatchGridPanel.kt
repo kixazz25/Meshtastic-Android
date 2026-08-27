@@ -192,15 +192,26 @@ private fun GridButton(
     label: String, tint: Color, enabled: Boolean,
     modifier: Modifier = Modifier, onClick: () -> Unit,
 ) {
+    /* GRIDFIX-2026-08-27: THE CLICKABLE MOVES OFF THE SURFACE.
+     *
+     * ⛔ It was on the Surface's own modifier. Material3 Surface handles
+     * pointer input for its shape and elevation, and a clickable in that chain
+     * can be swallowed before it fires -- COMPARE did nothing at all.
+     *
+     * ⭐ The inner Box is a plain layout node and does not compete for the
+     * gesture.
+     */
     Surface(
-        modifier = modifier
-            .height(30.dp)
-            .then(if (enabled) Modifier.clickable { onClick() } else Modifier)
-            .alpha(if (enabled) 1f else 0.45f),
+        modifier = modifier.height(30.dp).alpha(if (enabled) 1f else 0.45f),
         shape = RoundedCornerShape(6.dp),
         color = Color(0xFF1D2430)
     ) {
-        Box(contentAlignment = Alignment.Center) {
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .fillMaxSize()
+                .then(if (enabled) Modifier.clickable { onClick() } else Modifier)
+        ) {
             Text(label, color = tint, fontSize = 9.sp, fontFamily = mono,
                 fontWeight = FontWeight.Bold)
         }

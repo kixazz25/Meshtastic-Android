@@ -1878,6 +1878,11 @@ fun ConvoyMapViewerScreen(
                         batchSave = if (on) batchSave + n else batchSave - n
                     },
                     onCompare = {
+                        /* ⚠ VISIBLE. Without this there was no way to tell a
+                         * button that never fired from a JS call that did
+                         * nothing -- which is why COMPARE took two rounds. */
+                        android.util.Log.i("BatchGrid",
+                            "COMPARE pressed: " + batchCompare.joinToString(", "))
                         /* ⚠ NOT BUILT YET -- the compare sheet is the next
                          * patch. Narrowing the map is the visible half and it
                          * works now: show only what was ticked.
@@ -1886,7 +1891,7 @@ fun ConvoyMapViewerScreen(
                             val on = r.name in batchCompare
                             val safe = r.name.replace("\\", "\\\\").replace("'", "\\'")
                             webViewRef?.evaluateJavascript(
-                                "showBatchRoute('" + safe + "', " + on + ")", null)
+                                "showBatchRoute('" + safe + "', " + on + ", 6)", null)
                         }
                         webViewRef?.evaluateJavascript("fitBatchRoutes()", null)
                     },

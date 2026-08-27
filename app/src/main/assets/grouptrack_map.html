@@ -902,7 +902,7 @@
         } else {
           /* ⚠ WEIGHT 3, not drawBuildLine's 4. That draws one line; six at
            * weight 4 over the same ground is soup. */
-          lyr = L.polyline(pts, {color:c, weight:3, opacity:0.95});
+          lyr = L.polyline(pts, {color:c, weight:4, opacity:0.95});
         }
         lyr.addTo(map);
         window.__batchLayers[name] = lyr;
@@ -920,11 +920,17 @@
      * geometry each time would be wasteful and would throw away the map's own
      * render caching -- toggling an existing layer is what this is for.
      */
-    window.showBatchRoute = function(name, on) {
+    window.showBatchRoute = function(name, on, weight) {
       var lyr = window.__batchLayers[name];
-      if (!lyr) return false;
+      if (!lyr) { console.log('SHOWBATCH no layer ' + name); return false; }
+      /* GRIDFIX-2026-08-27: lift the survivors.
+       * ⚠ Weight cannot fix routes that SHARE TRAIL -- they merge whatever it
+       * is, which is exactly why toggling inside compare matters. This only
+       * makes the two or three left unmistakable against the ground. */
+      if (weight && lyr.setStyle) { try { lyr.setStyle({weight: weight}); } catch (e) {} }
       if (on) { if (!map.hasLayer(lyr)) lyr.addTo(map); }
       else    { if (map.hasLayer(lyr)) map.removeLayer(lyr); }
+      console.log('SHOWBATCH ' + name + ' ' + on);
       return true;
     };
 

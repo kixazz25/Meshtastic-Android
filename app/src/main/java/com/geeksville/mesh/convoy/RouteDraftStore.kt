@@ -78,7 +78,12 @@ object RouteDraftStore {
         "#FFC53D",   // amber
         "#4ADE80",   // green
         "#C084FC",   // violet
-        "#FB923C",   // orange
+        /* ⚠ RED WAS EXCLUDED ON PURPOSE -- the Distance HUD and the rider's
+         * pins own #FF0000. Fred's call, 08-27, and the reasoning holds: the
+         * HUD is corner text and a pin is a small circle, while this is a thin
+         * line across the ground. The amber/orange collision it replaces was
+         * real -- they read as the same colour on satellite. */
+        "#FF3B30",   // red
         "#22D3EE",   // cyan
     )
 
@@ -290,7 +295,18 @@ object RouteDraftStore {
                 o.optDouble("hoursLow", 0.0),
                 o.optDouble("hoursHigh", 0.0)))
         }
-        onMain(wv, "fitBatchRoutes()")
+        /* GRIDFIX-2026-08-27: ZOOM, NOT FIT.
+         *
+         * Fred: "just z11 from wherever the map is centred -- trails are
+         * showing centred now, just the zoom is off."
+         *
+         * ⚠ AND fitBatchRoutes COULD NOT WORK HERE. It posts to main like every
+         * other WebView call, so it can run BEFORE the draws it is meant to
+         * frame. setZoom has no such dependency.
+         *
+         * ⚠ Once, not locked -- the rider pans and zooms from there.
+         */
+        onMain(wv, "map.setZoom(11)")
         Log.i(TAG, "drew ${rows.size} batch route(s)")
         return rows
     }
