@@ -356,6 +356,8 @@ fun ConvoyMapViewerScreen(
     // COMPARETABLE-2026-08-27: hidden, not 'compare' — every route is
     // always in the table; tapping a header hides only its LINE.
     var batchHidden by remember { mutableStateOf<Set<String>>(emptySet()) }
+    // TABLEPOLISH-2026-08-27: what the layers were before the table opened.
+    var batchPrevLayers by remember { mutableStateOf<List<Int>?>(null) }
     var batchSave by remember { mutableStateOf<Set<String>>(emptySet()) }
     var pinFeasSeq by remember { mutableStateOf(0) }
     var pinFeas by remember {
@@ -1895,6 +1897,17 @@ fun ConvoyMapViewerScreen(
                          * Route+ reopens exactly this. */
                         batchGridOpen = false
                         webViewRef?.evaluateJavascript("clearBatchRoutes()", null)
+                        // ⛔ put them back exactly as they were
+                        batchPrevLayers?.let { prev ->
+                            listOf("Trails", "Tracks", "Waypoints", "Routes")
+                                .forEachIndexed { i, ly ->
+                                    if (prev[i] != DS_OFF) {
+                                        webViewRef?.evaluateJavascript("show" + ly + "()", null)
+                                    }
+                                }
+                            webViewRef?.evaluateJavascript("triggerViewportUpdate()", null)
+                        }
+                        batchPrevLayers = null
                     },
                     modifier = Modifier.align(Alignment.TopStart)
                         .padding(8.dp).fillMaxWidth(0.75f)
@@ -1957,6 +1970,24 @@ fun ConvoyMapViewerScreen(
                          * becomes a vertex on a route they never meant to edit.
                          */
                         webViewRef?.evaluateJavascript("setRouteMode(false)", null)
+                        /* TABLEPOLISH-2026-08-27: LAYERS OFF, AND REMEMBERED.
+                         *
+                         * Five coloured routes over a full trail layer is
+                         * unreadable.
+                         *
+                         * ⛔ RESTORED TO WHAT THEY WERE, not to all-on. A rider
+                         * who had trails off must not come back to them on, and
+                         * one who had them on must not lose them. The table is a
+                         * DETOUR — anything changed to show it gets undone.
+                         *
+                         * ⚠ Skipping this is the failure that gets reported as
+                         * "the app lost my trails".
+                         */
+                        batchPrevLayers = listOf(trailState, trackState,
+                            waypointState, routeState)
+                        listOf("Trails", "Tracks", "Waypoints", "Routes").forEach { ly ->
+                            webViewRef?.evaluateJavascript("hide" + ly + "()", null)
+                        }
                         // ⚠ Route+ lives inside this panel; leaving it open
                         // would put the grid behind it.
                         showArtifactsPanel = false

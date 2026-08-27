@@ -70,11 +70,34 @@ fun ConvoyBatchGridPanel(
     if (rows.isEmpty()) return
     // ⭐ ROWS ARE THE UNION across every route, in first-appearance order, so a
     // feature only one route reaches still gets a line of its own.
+    /* TABLEPOLISH-2026-08-27: SORTED BY TOTAL ACROSS ALL ROUTES.
+     *
+     * ⭐⭐ Fred, 08-27: "the most used trail will appear first ... we can spot
+     * similar backbones very quickly."
+     *
+     * The trails at the top are what these routes are MADE OF; the ones at the
+     * bottom are what DISTINGUISHES them. Two routes carrying high mileage on
+     * the same top three trails are variations on one ride, and it reads off
+     * the screen in a second.
+     *
+     * ⚠ It does visually what dedupe pass 3 does numerically — the 75%
+     * edge-overlap rule catches duplicates the search PRODUCED; this shows the
+     * rider the same thing about the ones it KEPT.
+     *
+     * ⚠ The totals drive the order but are not shown: the sequence speaks for
+     * itself and the panel stays narrow.
+     */
     val featureRows = remember(rows) {
-        LinkedHashSet<String>().apply { rows.forEach { addAll(it.features.keys) } }.toList()
+        val n = HashMap<String, Int>()
+        rows.forEach { r -> r.features.keys.forEach { n[it] = (n[it] ?: 0) + 1 } }
+        n.entries.sortedWith(compareByDescending<Map.Entry<String, Int>> { it.value }
+            .thenBy { it.key }).map { it.key }
     }
     val trailRows = remember(rows) {
-        LinkedHashSet<String>().apply { rows.forEach { addAll(it.trails.keys) } }.toList()
+        val m = HashMap<String, Double>()
+        rows.forEach { r -> r.trails.forEach { (k, v) -> m[k] = (m[k] ?: 0.0) + v } }
+        m.entries.sortedWith(compareByDescending<Map.Entry<String, Double>> { it.value }
+            .thenBy { it.key }).map { it.key }
     }
 
     Surface(
@@ -127,32 +150,66 @@ fun ConvoyBatchGridPanel(
             /* ⚠ HEIGHT IS THE CONSTRAINT, NOT WIDTH. Twenty rows will not fit,
              * so the table scrolls inside a capped height and the map keeps the
              * rest of the screen. */
-            Column(
-                modifier = Modifier
-                    .heightIn(max = 260.dp)
-                    .verticalScroll(rememberScrollState())
-            ) {
+            /* ⚠ A VISIBLE BAR, because the section is capped and has buttons
+             * underneath it — without one there is nothing to say the list
+             * continues, and twenty rows will not fit. */
+            val tableScroll = rememberScrollState()
+            Row {
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .heightIn(max = 260.dp)
+                        .verticalScroll(tableScroll)
+                ) {
                 DataRow("Miles", rows) { "%.1f".format(it.miles) }
                 DataRow("Hours", rows) { "%.1f".format(it.hoursLow) }
 
                 if (featureRows.isNotEmpty()) {
                     SectionRow("FEATURES")
+                    /* ⭐ THE COUNT. Fred, 08-27: "there are no totals." The table
+                     * showed WHICH features each route reached and never HOW
+                     * MANY, so "Route 1 gets seven, Route 4 gets three" could not
+                     * be seen at a glance. */
+                    DataRow("", rows, bold = true) { r -> r.features.size.toString() }
                     featureRows.forEach { f ->
+                        /* ⭐ A CHECK OR NOTHING. The mile marker was noise: in a
+                         * COMPARISON the only question a feature row answers is
+                         * whether this route reaches it. "Mile 29" is a fact
+                         * about one route read alone and tells the eye nothing
+                         * when it is scanning five columns.
+                         * ⚠ Absence is BLANK, not a dash — a column of dashes
+                         * draws the eye to what is missing. */
                         DataRow(f, rows) { r ->
-                            if (r.features.containsKey(f)) {
-                                val mi = r.features[f] ?: 0.0
-                                if (mi > 0) "%.0f".format(mi) else "\u2713"
-                            } else "\u2013"
+                            if (r.features.containsKey(f)) "\u2713" else ""
                         }
                     }
                 }
                 if (trailRows.isNotEmpty()) {
                     SectionRow("TRAILS")
+                    DataRow("", rows, bold = true) { r -> r.trails.size.toString() }
                     trailRows.forEach { t ->
                         DataRow(t, rows) { r ->
                             val mi = r.trails[t]
-                            if (mi != null && mi > 0) "%.1f".format(mi) else "\u2013"
+                            // ⚠ mileage STAYS on trails — 12 miles of a trail is
+                            // a different ride from 2, and that IS the comparison
+                            if (mi != null && mi > 0) "%.1f".format(mi) else ""
                         }
+                    }
+                }
+                }
+                if (tableScroll.maxValue > 0) {
+                    val frac = tableScroll.value.toFloat() /
+                        tableScroll.maxValue.toFloat().coerceAtLeast(1f)
+                    Box(
+                        Modifier.width(3.dp).height(260.dp).padding(start = 2.dp)
+                            .background(Color(0x22FFFFFF))
+                    ) {
+                        Box(
+                            Modifier.fillMaxWidth().height(60.dp)
+                                .offset(y = ((260 - 60) * frac).dp)
+                                .clip(RoundedCornerShape(2.dp))
+                                .background(accentBlue.copy(alpha = 0.55f))
+                        )
                     }
                 }
             }
@@ -179,7 +236,10 @@ private fun SectionRow(label: String) {
 }
 
 @Composable
-private fun DataRow(label: String, rows: List<BatchRow>, cell: (BatchRow) -> String) {
+private fun DataRow(
+    label: String, rows: List<BatchRow>, bold: Boolean = false,
+    cell: (BatchRow) -> String,
+) {
     Row(verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.padding(vertical = 1.dp)) {
         Text(label, color = dimText, fontSize = 9.5.sp, fontFamily = mono,
@@ -188,9 +248,12 @@ private fun DataRow(label: String, rows: List<BatchRow>, cell: (BatchRow) -> Str
             val v = cell(r)
             Text(
                 v,
-                // ⚠ a dash is absence and should recede; a value is the point
-                color = if (v == "\u2013") faint else parseColour(r.colour),
-                fontSize = 9.5.sp, fontFamily = mono,
+                // ⭐ a check is green and unmistakable; everything else takes the
+                // route's own colour so the column stays tied to its line
+                color = if (v == "\u2713") Color(0xFF4ADE80) else parseColour(r.colour),
+                fontSize = if (v == "\u2713") 13.sp else 9.5.sp,
+                fontFamily = mono,
+                fontWeight = if (bold || v == "\u2713") FontWeight.Bold else FontWeight.Normal,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.width(COL_W)
             )
