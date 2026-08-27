@@ -349,6 +349,12 @@ fun ConvoyMapViewerScreen(
      * settle on the answer for a pin set the rider has already changed.
      */
     // PINCAP-2026-08-26: which assess() request the panel is showing.
+    // BATCHGRID-2026-08-27
+    var batchGridOpen by remember { mutableStateOf(false) }
+    var batchName by remember { mutableStateOf("") }
+    var batchRows by remember { mutableStateOf<List<BatchRow>>(emptyList()) }
+    var batchCompare by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var batchSave by remember { mutableStateOf<Set<String>>(emptySet()) }
     var pinFeasSeq by remember { mutableStateOf(0) }
     var pinFeas by remember {
         mutableStateOf<RouteExplorer.PinFeasibility?>(null)
@@ -2365,6 +2371,9 @@ fun ConvoyMapViewerScreen(
                                     RouteDraftStore.writeBatch(
                                         batchName = rn,
                                         draftNames = out.map { it.draftName },
+                                        miles = out.map { it.miles },
+                                        hoursLow = out.map { it.hoursLow },
+                                        hoursHigh = out.map { it.hoursHigh },
                                         anchorLat = aLat, anchorLon = aLon,
                                         // ⚠ Nothing stores the tapped waypoint's NAME
                                         // today. Capturing it belongs with item 3; the
@@ -2381,6 +2390,19 @@ fun ConvoyMapViewerScreen(
                                         finish = if (pinIsLoop == false)
                                             pinEndLat to pinEndLon else null,
                                     )
+                                    /* BATCHGRID-2026-08-27: DRAW THE BATCH.
+                                     *
+                                     * ⛔ openDraft, NOT loadIntoRouteManager.
+                                     * The store's own comment: openDraft "does
+                                     * NOT mutate RouteManager".
+                                     * loadIntoRouteManager is the RESUME path --
+                                     * using it here would leave RouteManager
+                                     * holding the last of six routes the rider
+                                     * was only looking at.
+                                     */
+                                    batchRows = RouteDraftStore.drawBatch(webViewRef)
+                                    batchName = rn
+                                    batchGridOpen = batchRows.isNotEmpty()
                                 } catch (e: Exception) {
                                     android.util.Log.e("RouteExplorer", "explore failed", e)
                                     aiProgress = "Could not build rides: " +

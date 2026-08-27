@@ -153,9 +153,21 @@ object RouteDraftStore {
      * ⚠ PINS ARE STORED AS TAPPED, NOT AS SNAPPED. A rebuild that used the
      * snapped point would creep a little further along the trail every time.
      */
+    /**
+     * BATCHGRID-2026-08-27: [miles], [hoursLow] and [hoursHigh] are parallel to
+     * [draftNames].
+     *
+     * ⭐ THE GRID MUST WORK FROM A COLD START. Route+ opening a batch tomorrow
+     * has nothing in memory -- so everything the panel shows has to be IN the
+     * file. Reading it back out of each draft would mean opening six files to
+     * draw one list.
+     */
     fun writeBatch(
         batchName: String,
         draftNames: List<String>,
+        miles: List<Double> = emptyList(),
+        hoursLow: List<Double> = emptyList(),
+        hoursHigh: List<Double> = emptyList(),
         anchorLat: Double, anchorLon: Double, anchorName: String?,
         milesLow: Double, milesHigh: Double,
         mphLow: Double, mphHigh: Double,
@@ -177,7 +189,12 @@ object RouteDraftStore {
                 /* ⭐ NAME AND COLOUR TOGETHER. The grid and the map read the same
                  * value, so a legend entry and a line on the ground cannot
                  * disagree — and the colour survives a restart. */
-                arr.put(JSONObject().put("name", n).put("colour", batchColour(i)))
+                arr.put(JSONObject()
+                    .put("name", n)
+                    .put("colour", batchColour(i))
+                    .put("miles", miles.getOrElse(i) { 0.0 })
+                    .put("hoursLow", hoursLow.getOrElse(i) { 0.0 })
+                    .put("hoursHigh", hoursHigh.getOrElse(i) { 0.0 }))
             }
         })
 
@@ -208,6 +225,52 @@ object RouteDraftStore {
             tmp.renameTo(f)
             Log.i(TAG, "batch '$batchName' written with ${draftNames.size} route(s)")
         }.onFailure { Log.e(TAG, "batch write failed: ${it.message}") }
+    }
+
+    /**
+     * BATCHGRID-2026-08-27: draw every route in the open batch, and return the
+     * rows the grid needs.
+     *
+     * ⭐ ONE FUNCTION, TWO CALLERS -- straight after a search, and from the
+     * Route+ guard when a batch is found on a cold start. Neither has anything
+     * in memory the other does not, because both read the same file.
+     *
+     * ⛔ openDraft, NOT loadIntoRouteManager: read-only. Six drafts loaded into
+     * the route editor would leave the rider one tap from editing a route they
+     * were only looking at.
+     */
+    fun drawBatch(wv: android.webkit.WebView?): List<BatchRow> {
+        val b = readBatch() ?: return emptyList()
+        val arr = b.optJSONArray("routes") ?: return emptyList()
+        wv?.evaluateJavascript("clearBatchRoutes()", null)
+        val rows = ArrayList<BatchRow>()
+        for (i in 0 until arr.length()) {
+            val o = arr.optJSONObject(i) ?: continue
+            val nm = o.optString("name")
+            val col = o.optString("colour", "#FF00FF")
+            val dr = openDraft(nm)
+            if (dr == null) {
+                // ⚠ VISIBLE. A draft named by the batch but missing from disk
+                // would otherwise leave the rider comparing five lines against
+                // a legend showing six.
+                Log.w(TAG, "batch names '$nm' but the draft is gone")
+                continue
+            }
+            val pts = dr.vertices.joinToString(",", "[", "]") {
+                "[%.6f,%.6f]".format(it.lat, it.lon)
+            }
+            // ⚠ ESCAPED. Draft names carry spaces and could carry an
+            // apostrophe, which would end the JS string literal silently.
+            val safe = nm.replace("\\", "\\\\").replace("'", "\\'")
+            wv?.evaluateJavascript("drawBatchRoute('$safe', '$pts', '$col')", null)
+            rows.add(BatchRow(nm, col,
+                o.optDouble("miles", 0.0),
+                o.optDouble("hoursLow", 0.0),
+                o.optDouble("hoursHigh", 0.0)))
+        }
+        wv?.evaluateJavascript("fitBatchRoutes()", null)
+        Log.i(TAG, "drew ${rows.size} batch route(s)")
+        return rows
     }
 
     // ----- locations -------------------------------------------------------
