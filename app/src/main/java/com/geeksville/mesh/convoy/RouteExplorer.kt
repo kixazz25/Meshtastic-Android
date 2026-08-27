@@ -1078,10 +1078,44 @@ object RouteExplorer {
         if (tot <= 0.0) return e.u
         val k = -1000000L - (splitSeq++).toLong()
         g.nodes[k] = proj
+
+        /* SPLITGEOM-2026-08-26: CUT THE POLYLINE, do not hand both halves the
+         * whole thing.
+         *
+         * Both halves used to carry e.pts. The miles split correctly so every
+         * distance was right, but buildDraft() draws from ed.pts -- so a route
+         * crossing a split edge emitted the parent polyline TWICE, the
+         * orientation check reversed one copy, and the drawn line ran out and
+         * back. That is the straight lines seen near the pins on 08-26.
+         *
+         * ⭐ Pins and origins are the ONLY places edges split, which is why it
+         * showed there and nowhere else.
+         *
+         * The projected point is inserted as a vertex in BOTH halves so they
+         * meet exactly -- and so a pin marker sits ON the drawn line.
+         */
+        var cut = 0
+        var bestD = Double.MAX_VALUE
+        for (j in 0 until e.pts.size - 1) {
+            val d = hav(proj[0], proj[1], e.pts[j][0], e.pts[j][1]) +
+                hav(proj[0], proj[1], e.pts[j + 1][0], e.pts[j + 1][1]) -
+                hav(e.pts[j][0], e.pts[j][1], e.pts[j + 1][0], e.pts[j + 1][1])
+            if (d < bestD) { bestD = d; cut = j }
+        }
+        val headPts = ArrayList<DoubleArray>(e.pts.subList(0, cut + 1))
+        headPts.add(proj)
+        val tailPts = ArrayList<DoubleArray>()
+        tailPts.add(proj)
+        tailPts.addAll(e.pts.subList(cut + 1, e.pts.size))
+
+        /* ⚠ MILES ARE LEFT ALONE. They come from the true network distance to
+         * each end and are already correct. Recomputing them from the cut
+         * geometry would give the same number a second source of truth.
+         */
         val ia = g.edges.size
-        g.edges.add(Edge(e.u, k, e.miles * du / tot, e.name, e.trailId, e.pts))
+        g.edges.add(Edge(e.u, k, e.miles * du / tot, e.name, e.trailId, headPts))
         val ib = g.edges.size
-        g.edges.add(Edge(k, e.v, e.miles * dv / tot, e.name, e.trailId, e.pts))
+        g.edges.add(Edge(k, e.v, e.miles * dv / tot, e.name, e.trailId, tailPts))
         gAdj.getOrPut(e.u) { ArrayList() }.add(longArrayOf(k, ia.toLong()))
         gAdj.getOrPut(k) { ArrayList() }.add(longArrayOf(e.u, ia.toLong()))
         gAdj.getOrPut(k) { ArrayList() }.add(longArrayOf(e.v, ib.toLong()))
