@@ -3244,6 +3244,20 @@ fun ConvoyMapViewerScreen(
                             }
                             webViewRef?.evaluateJavascript("triggerViewportUpdate()", null)
                             savePlanningState()
+                            /* AICLOSES-2026-08-27: the panel that launched the
+                             * flow closes when the flow starts.
+                             *
+                             * ⛔ It did not, so the picker sat behind the whole
+                             * AI flow and then ON TOP OF THE COMPARE TABLE --
+                             * covering the header where the route names and the
+                             * save ticks are, which made the table unusable.
+                             *
+                             * ⚠ Every other exit from this panel already closes
+                             * it: both dismiss buttons and the + Plan a New Route
+                             * confirm. The AI option was the one path that
+                             * forgot.
+                             */
+                            showInProgressPicker = false
                             showAiDesign = true
                         }
                     },
