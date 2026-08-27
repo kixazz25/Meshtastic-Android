@@ -47,6 +47,96 @@ object RouteDraftStore {
     private const val SCHEMA_VERSION = 1
     private const val DIR_NAME = "route_drafts"
 
+    // ----- BATCHJSON-2026-08-27: the open batch ----------------------------
+    //
+    // ⚠ This does NOT own the drafts -- RouteDraftStore already does. It records
+    // WHICH drafts belong to one AI search, and the parameters that produced
+    // them, so that:
+    //
+    //   * Route+ can fork: batch present -> COMPARE, absent -> the WIP list
+    //   * COMPARE can be built and tested against a hand-written file
+    //   * a saved route can carry the RECIPE that rebuilds its alternatives
+    //
+    // ⭐ NAMES, NOT A COUNT. Fred, 08-27: "we will not always have 6 routes."
+    // Yesterday's ground gave five after the overlap dedupe.
+    private const val BATCH_FILE = "open_batch.json"
+
+    private fun batchFile(): File = File(draftDir(), BATCH_FILE)
+
+    /** The open batch, or null. Safe to call at any time. */
+    fun readBatch(): JSONObject? {
+        val f = batchFile()
+        if (!f.exists()) return null
+        return runCatching { JSONObject(f.readText()) }.getOrElse {
+            // ⚠ A corrupt batch must not strand the rider. Report it and let the
+            // caller fall through to the ordinary WIP list.
+            Log.w(TAG, "batch unreadable, ignoring: ${it.message}")
+            null
+        }
+    }
+
+    fun hasOpenBatch(): Boolean = readBatch() != null
+
+    fun clearBatch() {
+        runCatching { batchFile().delete() }
+    }
+
+    /**
+     * Record the drafts one AI search produced, with the recipe that built them.
+     *
+     * ⚠ PINS ARE STORED AS TAPPED, NOT AS SNAPPED. A rebuild that used the
+     * snapped point would creep a little further along the trail every time.
+     */
+    fun writeBatch(
+        batchName: String,
+        draftNames: List<String>,
+        anchorLat: Double, anchorLon: Double, anchorName: String?,
+        milesLow: Double, milesHigh: Double,
+        mphLow: Double, mphHigh: Double,
+        pins: List<Pair<Double, Double>>,
+        finish: Pair<Double, Double>?,
+    ) {
+        if (draftNames.isEmpty()) {
+            // ⚠ No drafts means nothing to resolve. Writing a batch here would
+            // lock route creation behind an empty compare screen.
+            Log.i(TAG, "no drafts, no batch written")
+            return
+        }
+        val o = JSONObject()
+        o.put("schemaVersion", 1)
+        o.put("batchName", batchName)
+        o.put("createdAt", Instant.now().toString())
+        o.put("routes", JSONArray().also { a -> draftNames.forEach { a.put(it) } })
+
+        // ⭐ THE RECIPE. Every parameter the rider chose, and nothing derived --
+        // the parameter list IS the recipe, so the two cannot drift apart.
+        val r = JSONObject()
+        r.put("anchorLat", anchorLat)
+        r.put("anchorLon", anchorLon)
+        r.put("anchorName", anchorName ?: JSONObject.NULL)
+        r.put("milesLow", milesLow); r.put("milesHigh", milesHigh)
+        r.put("mphLow", mphLow); r.put("mphHigh", mphHigh)
+        r.put("pins", JSONArray().also { a ->
+            pins.forEach { p ->
+                a.put(JSONObject().put("lat", p.first).put("lon", p.second))
+            }
+        })
+        r.put("finish", if (finish == null) JSONObject.NULL
+            else JSONObject().put("lat", finish.first).put("lon", finish.second))
+        o.put("recipe", r)
+
+        // ⚠ ATOMIC, matching this store's own convention. A half-written batch
+        // on a crash would send Route+ into compare with a corrupt list.
+        val f = batchFile()
+        val tmp = File(f.parentFile, "$BATCH_FILE.tmp")
+        runCatching {
+            tmp.writeText(o.toString(2))
+            if (f.exists()) f.delete()
+            tmp.renameTo(f)
+            Log.i(TAG, "batch '$batchName' written with ${draftNames.size} route(s)")
+        }.onFailure { Log.e(TAG, "batch write failed: ${it.message}") }
+    }
+
     // ----- locations -------------------------------------------------------
 
     private fun baseDir(): File =

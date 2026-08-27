@@ -2351,6 +2351,36 @@ fun ConvoyMapViewerScreen(
                                         AiRouteResult(it.name, it.miles, it.hoursLow,
                                             it.hoursHigh, it.featureCount, it.featureMix)
                                     }
+                                    /* BATCHJSON-2026-08-27: THE SEAM.
+                                     *
+                                     * ⚠ The WIP creation above is untouched. This
+                                     * records WHICH drafts this search produced and
+                                     * the parameters that built them, then returns.
+                                     *
+                                     * ⭐ Route+ will fork on this file (item 3), and
+                                     * COMPARE (item 2) opens it. Writing it here
+                                     * means compare can be built and tested against
+                                     * a hand-written file with no engine run.
+                                     */
+                                    RouteDraftStore.writeBatch(
+                                        batchName = rn,
+                                        draftNames = out.map { it.draftName },
+                                        anchorLat = aLat, anchorLon = aLon,
+                                        // ⚠ Nothing stores the tapped waypoint's NAME
+                                        // today. Capturing it belongs with item 3; the
+                                        // rebuild uses the coordinates regardless.
+                                        anchorName = null,
+                                        milesLow = mLo.toDouble(),
+                                        milesHigh = mHi.toDouble(),
+                                        mphLow = sLo.toDouble(),
+                                        mphHigh = sHi.toDouble(),
+                                        pins = pinPoints,
+                                        // ⭐ null IS a real answer -- "come back to where
+                                        // I parked". Storing (0.0, 0.0) instead would aim
+                                        // a rebuild at the Gulf of Guinea.
+                                        finish = if (pinIsLoop == false)
+                                            pinEndLat to pinEndLon else null,
+                                    )
                                 } catch (e: Exception) {
                                     android.util.Log.e("RouteExplorer", "explore failed", e)
                                     aiProgress = "Could not build rides: " +
