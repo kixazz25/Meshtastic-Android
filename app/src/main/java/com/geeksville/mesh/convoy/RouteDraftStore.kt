@@ -60,8 +60,48 @@ object RouteDraftStore {
     // ⭐ NAMES, NOT A COUNT. Fred, 08-27: "we will not always have 6 routes."
     // Yesterday's ground gave five after the overlap dedupe.
     private const val BATCH_FILE = "open_batch.json"
+    private const val BATCH_DIR = "batch"
 
-    private fun batchFile(): File = File(draftDir(), BATCH_FILE)
+    /* BATCHDIR-2026-08-27: its own subdirectory, not beside the drafts.
+     *
+     * The WIP list scans route_drafts/ for *.json, so open_batch.json appeared
+     * there as an entry. Invisible once the Route+ fork lands -- but a batch
+     * that failed to write cleanly would leave a bogus row with nothing to say
+     * what it was, and a .tmp could be caught mid-rename.
+     *
+     * A subdirectory rather than a filename skip: it can never collide with a
+     * draft a rider happens to name "open batch", and the drafts directory
+     * stays purely drafts.
+     */
+    private fun batchDir(): File {
+        val dir = File(draftDir(), BATCH_DIR)
+        if (!dir.exists()) dir.mkdirs()
+        val noMedia = File(dir, ".nomedia")
+        if (!noMedia.exists()) runCatching { noMedia.createNewFile() }
+        return dir
+    }
+
+    private fun batchFile(): File {
+        val f = File(batchDir(), BATCH_FILE)
+        /* ⚠ MIGRATE FROM THE OLD LOCATION, ONCE.
+         *
+         * A batch written by the previous build sits in route_drafts/. Without
+         * this a rider mid-batch when they update would silently lose it -- and
+         * the lock could never clear, because nothing would be able to find the
+         * file to delete.
+         */
+        if (!f.exists()) {
+            val legacy = File(draftDir(), BATCH_FILE)
+            if (legacy.exists()) {
+                runCatching {
+                    legacy.copyTo(f, overwrite = true)
+                    legacy.delete()
+                    Log.i(TAG, "migrated open batch out of the drafts directory")
+                }.onFailure { Log.w(TAG, "batch migration failed: ${it.message}") }
+            }
+        }
+        return f
+    }
 
     /** The open batch, or null. Safe to call at any time. */
     fun readBatch(): JSONObject? {
