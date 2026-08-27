@@ -869,6 +869,92 @@
     window.clearBuildLine = function() {
       if (window.__buildLayer) { map.removeLayer(window.__buildLayer); window.__buildLayer = null; }
     };
+    /* BATCHDRAW-2026-08-27: the AI batch, six routes at once.
+     *
+     * drawBuildLine above draws ONE work-in-progress route into one named
+     * global, in hard-coded magenta, replaced on every call. Compare needs all
+     * six on the map together, each in its own colour, and then two or three
+     * left visible.
+     *
+     * This mirrors drawBuildLine's shape on purpose -- same try/catch, same
+     * string-or-object handling, same single-point circleMarker case. A route
+     * drawn from one point should not behave differently because it is in a
+     * batch.
+     *
+     * KEYED BY DRAFT NAME, because that is a route's identity everywhere else
+     * in GroupTrack (RouteDraftStore: "identity in the in-progress world = the
+     * typed NAME").
+     */
+    window.__batchLayers = {};
+
+    window.drawBatchRoute = function(name, jsonPts, color) {
+      try {
+        var pts = (typeof jsonPts === 'string') ? JSON.parse(jsonPts) : jsonPts;
+        if (window.__batchLayers[name]) {
+          map.removeLayer(window.__batchLayers[name]);
+          delete window.__batchLayers[name];
+        }
+        if (!pts || pts.length === 0) return;
+        var c = color || '#FF00FF';
+        var lyr;
+        if (pts.length === 1) {
+          lyr = L.circleMarker(pts[0], {radius:5, color:c, fillColor:c, fillOpacity:1});
+        } else {
+          /* ⚠ WEIGHT 3, not drawBuildLine's 4. That draws one line; six at
+           * weight 4 over the same ground is soup. */
+          lyr = L.polyline(pts, {color:c, weight:3, opacity:0.95});
+        }
+        lyr.addTo(map);
+        window.__batchLayers[name] = lyr;
+        console.log('BATCHDRAW ' + name + ' ' + c + ' ' + pts.length + ' pts');
+      } catch (err) {
+        /* ⚠ VISIBLE ON PURPOSE. A route that silently fails to draw leaves the
+         * rider comparing five lines against a legend showing six. */
+        console.log('BATCHDRAW FAILED ' + name + ' ' + err);
+      }
+    };
+
+    /* Show or hide one route WITHOUT redrawing it.
+     *
+     * ⭐ Compare narrows from six to three and back constantly. Rebuilding the
+     * geometry each time would be wasteful and would throw away the map's own
+     * render caching -- toggling an existing layer is what this is for.
+     */
+    window.showBatchRoute = function(name, on) {
+      var lyr = window.__batchLayers[name];
+      if (!lyr) return false;
+      if (on) { if (!map.hasLayer(lyr)) lyr.addTo(map); }
+      else    { if (map.hasLayer(lyr)) map.removeLayer(lyr); }
+      return true;
+    };
+
+    window.clearBatchRoutes = function() {
+      for (var k in window.__batchLayers) {
+        if (window.__batchLayers[k]) map.removeLayer(window.__batchLayers[k]);
+      }
+      window.__batchLayers = {};
+    };
+
+    /* Fit the map to the routes currently shown.
+     *
+     * ⚠ Compare must not open with the rider zoomed somewhere the compared
+     * routes barely appear. Called on entry; the previous view is restored on
+     * exit by the caller.
+     */
+    window.fitBatchRoutes = function() {
+      try {
+        var b = null;
+        for (var k in window.__batchLayers) {
+          var lyr = window.__batchLayers[k];
+          if (!lyr || !map.hasLayer(lyr)) continue;
+          var lb = lyr.getBounds ? lyr.getBounds() : null;
+          if (!lb) continue;
+          b = b ? b.extend(lb) : lb;
+        }
+        if (b && b.isValid()) map.fitBounds(b, {padding:[30,30]});
+      } catch (err) {}
+    };
+
     /* PINDRAW-2026-08-25P1: the rider's dropped points, drawn.
      *
      * Without these a drop is invisible -- the only feedback is the mileage

@@ -59,6 +59,32 @@ object RouteDraftStore {
     //
     // ⭐ NAMES, NOT A COUNT. Fred, 08-27: "we will not always have 6 routes."
     // Yesterday's ground gave five after the overlap dedupe.
+    /* BATCHDRAW-2026-08-27: the batch palette.
+     *
+     * ⭐ ASSIGNED ONCE, AT WRITE TIME, and stored with the route. The grid reads
+     * the same value the map draws, so a legend entry and a line on the ground
+     * cannot disagree -- which is the entire job of a legend. It also survives a
+     * restart: reopening a batch tomorrow gives each route the colour it had.
+     *
+     * ⚠ RED IS UNAVAILABLE. The Distance HUD and the rider's dropped pins both
+     * own #FF0000, and a seventh red line would be unreadable against them.
+     *
+     * ⚠ A FIRST ATTEMPT, NOT A SETTLED PALETTE. Six colours that separate from
+     * each other AND from green, tan and grey satellite ground, at thin line
+     * width, is genuinely hard. These have not been tested over real imagery.
+     */
+    private val BATCH_COLOURS = listOf(
+        "#4FA3E3",   // blue
+        "#FFC53D",   // amber
+        "#4ADE80",   // green
+        "#C084FC",   // violet
+        "#FB923C",   // orange
+        "#22D3EE",   // cyan
+    )
+
+    /** The colour for route [i] of a batch. Wraps if a batch ever exceeds six. */
+    fun batchColour(i: Int): String = BATCH_COLOURS[i % BATCH_COLOURS.size]
+
     private const val BATCH_FILE = "open_batch.json"
     private const val BATCH_DIR = "batch"
 
@@ -146,7 +172,14 @@ object RouteDraftStore {
         o.put("schemaVersion", 1)
         o.put("batchName", batchName)
         o.put("createdAt", Instant.now().toString())
-        o.put("routes", JSONArray().also { a -> draftNames.forEach { a.put(it) } })
+        o.put("routes", JSONArray().also { arr ->
+            draftNames.forEachIndexed { i, n ->
+                /* ⭐ NAME AND COLOUR TOGETHER. The grid and the map read the same
+                 * value, so a legend entry and a line on the ground cannot
+                 * disagree — and the colour survives a restart. */
+                arr.put(JSONObject().put("name", n).put("colour", batchColour(i)))
+            }
+        })
 
         // ⭐ THE RECIPE. Every parameter the rider chose, and nothing derived --
         // the parameter list IS the recipe, so the two cannot drift apart.
