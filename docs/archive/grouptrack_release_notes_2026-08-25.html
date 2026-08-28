@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<title>GroupTrack Release Notes — 2026-08-25</title>
+<style>
+body{font:14px/1.6 system-ui,sans-serif;max-width:900px;margin:20px auto;padding:0 16px;background:#fdfdfd;color:#222}
+h1{font-size:20px;border-bottom:2px solid #7bb661;padding-bottom:6px}
+h2{font-size:16px;color:#2a6e1a;margin:22px 0 6px;border-bottom:1px solid #ddd;padding-bottom:4px}
+h3{font-size:14px;margin:12px 0 4px;color:#333}
+code{background:#eef;padding:1px 4px;border-radius:3px;font-size:12px}
+.tag{display:inline-block;background:#7bb661;color:#fff;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:bold;margin-right:4px}
+.new{background:#4da6ff} .fix{background:#cc6600} .change{background:#8855aa}
+</style></head><body>
+
+<h1>GroupTrack Release Notes</h1>
+<p>RELNOTES-2026-08-25</p>
+
+<h2>V2.6h — In development</h2>
+<p>Release date: In development &middot; Branch: <code>feature/convoy-event-ride</code></p>
+
+<h3>Trail data no longer cleared on every launch</h3>
+<p><span class="tag fix">FIX</span> <b>A one-time trail cleanup was running every time the app
+opened.</b> The marker recording that it had already run was written into the imports folder,
+which is emptied at startup &mdash; so the marker was swept away and the cleanup ran again on
+the next launch, and the one after that.</p>
+<p>Riders who reloaded their state and found the trails gone again the following day were
+seeing this. The marker now lives alongside the trail data it protects, and an old marker is
+recognised rather than ignored, so no further clearing happens on any device.</p>
+<p><b>If your trails are already missing</b>, import your state once more. It will stay this
+time.</p>
+
+<h3>Known issue &mdash; a state import can stop partway</h3>
+<p><span class="tag fix">KNOWN</span> An import can finish some sources and never start the
+rest. The trail count looks plausible, but the largest source &mdash; <b>Open Source Maps</b>
+&mdash; is usually the one that did not run, and it carries most of the network used for
+building routes.</p>
+<p><b>What it looks like:</b> route building comes back with one route where several would be
+expected, or routes that are shorter than the distance asked for.</p>
+<p><b>What to do:</b> run the state import again. Trails already on your device are skipped, so
+only what is missing is fetched, and nothing is duplicated.</p>
+<p class="muted">The import record on your device names which sources completed and which did
+not, so a run can be checked afterwards.</p>
+
+<h3>Route planning &mdash; still in development</h3>
+<p><span class="tag change">CHANGE</span> Work continued on rider-guided route design. It is
+<b>not finished and not yet in testers' hands</b>, and nothing in this area should be relied
+on. Two things worth recording:</p>
+<ul>
+<li><b>Places you mark on the map are now used when routes are built.</b> Previously they set
+the search area and the distance estimate and nothing else &mdash; the routes had no reason to
+go near them.</li>
+<li><b>A known limitation:</b> a point tapped on a trail is currently attached to the nearest
+trail junction rather than the spot itself, which can be several hundred feet away. This
+affects where a ride starts as well as the places it reaches, and is the next thing being
+fixed.</li>
+</ul>
+
+<h2>V2.6g — Home State Import Pipeline</h2>
+<p>Release date: In development · Branch: <code>feature/convoy-event-ride</code></p>
+
+<h3>Importing routes and waypoints from a GPX file</h3>
+<p><span class="tag fix">FIX</span> <b>GPX files containing routes or waypoints now import.</b>
+Previously only the tracks in a file were read — routes and waypoints were skipped without any
+message, so a file that contained them appeared to import nothing.</p>
+<p>This affects files shared between riders, and exports from other apps.</p>
+<p class="tag" style="background:#cc6600">HOW TO IMPORT</p>
+<p><b>Save the file to your Downloads folder first</b>, then open <b>Map Features</b> on the Ride
+Planning Map and choose <b>IMPORT TRACKS, WAYPOINTS &amp; ROUTES</b>.</p>
+<p><b>Tapping a GPX attachment directly in your email will not import routes yet</b> — it still
+reads tracks only. Save it to Downloads and import it from Map Features instead. This is being
+worked on.</p>
+<p class="muted">Note: the file is removed from Downloads once it has been imported.</p>
+
+<h3>Trail sources</h3>
+<p><span class="tag fix">FIX</span> <b>US Geological Survey National Trails now imports.</b> Every
+record from this source was failing, in every state, and the source appeared simply to have no
+data for your area. It was reading the wrong field names from the service. In New Hampshire it
+now brings in 390 trails where it previously brought none.</p>
+
+<h3>Import Trails — by State or by Area (New)</h3>
+<p><span class="tag new">NEW</span> <b>Import Trails now asks how you want to choose your ground.</b>
+One button on the Map Features panel, two ways in:</p>
+<ul>
+<li><b>By State</b> — pick any state from the list. Every available source for that state is
+processed. Use this when you're planning a trip somewhere new.</li>
+<li><b>By Area</b> — draw a box on the map. GroupTrack works out which states your box reaches and
+processes every source that covers it. <b>Your box can cross state lines</b> — a ride that runs from
+Utah into Arizona brings in both.</li>
+</ul>
+<p>Either way there is no source checklist. Every source that covers your ground runs, because that
+is what lets one source fill in what another is missing.</p>
+
+<h3>Import Progress Detail</h3>
+<p><span class="tag new">NEW</span> <b>Every import now records what happened to each record, not just
+how many were added.</b> Per source: how many were read, how many fell inside your state or area, how
+many you already had, how many were added, and how many could not be processed.</p>
+<p>The summary still shows one number — records added. The detail sits behind the source name if you
+want it, and it is written into the import record on your device either way, so it can be looked up
+later.</p>
+<p><span class="tag change">CHANGE</span> Each import run now carries an identifier, so a run can be
+identified exactly when something needs looking into.</p>
+
+<h3>Known Issues</h3>
+<ul>
+<li><b>Some sources report errors on every record in some areas.</b> US Geological Survey
+National Trails is <b>fixed</b> (see above). Other sources are still affected in some areas and not
+others — under investigation. These sources previously reported zero records with no indication
+anything had gone wrong; the new counts are what made it visible.</li>
+<li><b>A state may be listed for your area without having trails in it.</b> States are matched using
+a rectangle around each state and those rectangles overlap, so a neighbouring state can be included
+and then contribute nothing. It costs download time; it does not affect your data. A way to skip
+those states is coming.</li>
+
+<li><b>Re-importing the same state on the same day</b> replaces that day's earlier import record.</li>
+</ul>
+
+
+<h3>Home State Setup (New)</h3>
+<p><span class="tag new">NEW</span> <b>One-tap trail data setup on first launch.</b> When GroupTrack detects no trail data, it offers to load your home state's trails automatically:</p>
+<ul>
+<li>GPS auto-detection suggests your state (uses Android Geocoder for accuracy at state borders)</li>
+<li>Searchable state picker with all 50 US states + DC + PR + USVI</li>
+<li>California split into North (San Luis Obispo area and north) and South (Santa Barbara/Bakersfield area and south)</li>
+<li>All available data sources processed automatically — US Forest Service, US Geological Survey, National Park Service, state agencies, and Open Source Maps (Geofabrik OSM)</li>
+<li>Progress display: per-source step indicators (✅/►/○), download progress in MB, running elapsed clock</li>
+<li>Blinking "Do not close GroupTrack" banner during processing</li>
+<li>Completion summary with per-source record counts and grand total</li>
+<li>New Hampshire verified: 42,338 OSM trails + 1,010 catalog trails imported in ~4 minutes</li>
+</ul>
+
+<h3>Geofabrik State Asset</h3>
+<p><span class="tag new">NEW</span> <b>Shipped <code>geofabrik_states.json</code></b> — 54 entries with download URLs for every US state and territory. Supports the automatic Geofabrik GPKG download (302 redirect handling included). Refreshable via <code>update_geofabrik_states.py</code>.</p>
+
+<h3>Release-Assets Folder</h3>
+<p><span class="tag new">NEW</span> <b><code>release-assets/</code> folder</b> in the repo. Holds dated docs (manual, release notes, quickstart) and two Python scripts. One command (<code>python release-assets/prepare_release_assets.py</code>) refreshes Geofabrik URLs, copies newest dated docs to app assets, and verifies markers.</p>
+
+<h3>Source Name Improvements</h3>
+<p><span class="tag change">CHANGE</span> <b>Plain-language source names</b> throughout — no unexplained acronyms:</p>
+<ul>
+<li>UGRC Utah Trails → Utah Trails and Pathways</li>
+<li>BLM Ground Transportation → Bureau of Land Management Trails</li>
+<li>USFS National Forest System Trails → US Forest Service Trails</li>
+<li>USGS National Trails → US Geological Survey National Trails</li>
+<li>NPS Public Trails → National Park Service Trails</li>
+<li>USFS Motor Vehicle Use Maps → US Forest Service Motor Vehicle Use Maps</li>
+<li>OSM Trails → Open Source Maps</li>
+</ul>
+
+<h3>Bug Fixes</h3>
+<p><span class="tag fix">FIX</span> Geofabrik <code>-latest-</code> URL 302 redirect now followed automatically.</p>
+<p><span class="tag fix">FIX</span> GPS state detection at border areas (NH/MA) now uses Android Geocoder instead of bbox matching.</p>
+<p><span class="tag fix">FIX</span> OSM import ledger creation before pending bbox set (prevented silent import failure).</p>
+
+<h3>Resolved since the 20 August notes</h3>
+<ul>
+<li><b>Home State setup now runs on first launch</b> — it no longer has to be found on the Map
+Features panel.</li>
+<li><b>Import Trails by Area is built</b> — draw a box, and every source covering it is processed,
+across state lines.</li>
+<li><b>The completion screen shows the full picture</b> — records read, records in your area,
+duplicates, added, and anything that could not be processed.</li>
+</ul>
+
+</body></html>

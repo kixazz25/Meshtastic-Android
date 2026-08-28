@@ -1,0 +1,229 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GroupTrack — Radio link design — 2026-08-27</title>
+<style>
+:root{--bg:#0f1216;--panel:#161b22;--ink:#e6edf3;--dim:#8b949e;--line:#30363d;
+--accent:#58a6ff;--good:#3fb950;--warn:#d29922;--stop:#f85149;
+--ui:-apple-system,"Segoe UI",Roboto,sans-serif;--mono:"SF Mono",Consolas,monospace}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.6 var(--ui);padding:0 0 60px}
+header{border-bottom:1px solid var(--line);padding:14px 20px;background:#0d1117}
+.ttl{font:700 18px var(--ui)}.ttl b{color:var(--accent)}
+.sub{font:11px var(--mono);color:var(--dim);margin-top:3px}
+main{max-width:860px;margin:0 auto;padding:20px}
+h2{font:700 15px var(--ui);color:var(--accent);margin:30px 0 10px;
+border-bottom:1px solid var(--line);padding-bottom:6px}
+h3{font:700 13.5px var(--ui);margin:20px 0 8px}
+pre{background:#0d1117;border:1px solid var(--line);border-radius:6px;padding:11px 13px;
+overflow-x:auto;font:12px/1.5 var(--mono);color:#c9d1d9}
+code{font:12.5px var(--mono);background:#1c2128;padding:1px 5px;border-radius:3px}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:13.5px}
+th{background:#1c2128;text-align:left;padding:7px 9px;border:1px solid var(--line);
+font:600 12px var(--ui);color:var(--dim)}
+td{padding:7px 9px;border:1px solid var(--line);vertical-align:top}
+.card{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--accent);
+border-radius:0 7px 7px 0;padding:11px 14px;margin:14px 0}
+.good{border-left-color:var(--good)}.warn{border-left-color:var(--warn)}
+.stop{border-left-color:var(--stop)}
+.g{color:var(--good);font-weight:700}.k{color:var(--warn);font-weight:700}
+.r{color:var(--stop);font-weight:700}
+</style></head><body>
+<header><div class="ttl">GroupTrack — <b>Radio link design</b></div>
+<div class="sub">RADIOLINK-2026-08-27 · slotted position reporting over KISS · 10 nodes · 10 miles</div>
+</header>
+<main>
+
+<div class="card stop">
+<p><span class="r">⛔ THE CONCLUSION FIRST: DO NOT SEND APRS.</span> Send your own packet over the
+same hardware. APRS is a payload format, and it is a wasteful one — it was designed to be
+human-readable and route across a continent-wide public network. <b>You need neither.</b></p>
+<p>The tablet already holds the roster, the dedupe table and the relay logic. Once that is true,
+AX.25 addressing, digipeater path strings and ASCII position encoding are <b>70 bytes of overhead
+carrying 8 bytes of information.</b></p>
+</div>
+
+<h2>1 · The airtime budget — why the design follows from it</h2>
+
+<p>Everything below is forced by one measurement. At 1200 baud:</p>
+
+<table>
+<tr><th>Transmission</th><th>TXDELAY</th><th>Data</th><th>Total</th></tr>
+<tr><td>APRS position report (~90 bytes)</td><td>150 ms</td><td>600 ms</td><td><b>780 ms</b></td></tr>
+<tr><td>Compact position packet (12 bytes)</td><td>150 ms</td><td>80 ms</td><td><b>260 ms</b></td></tr>
+</table>
+
+<div class="card warn">
+<p><span class="k">⚠ NOTICE WHAT DOMINATES THE SMALL PACKET: TXDELAY.</span> 150 ms of the 260 ms
+is the radio's PTT-to-stable-carrier settling time, and <b>it is paid per transmission regardless
+of payload size.</b></p>
+<p><b>⭐ So the thing to minimise is the NUMBER OF TRANSMISSIONS, not their length.</b> That single
+fact rules out chatty protocols, acknowledgements, and per-message handshakes — and it is the
+argument for fixed slots, where every node transmits exactly once per frame.</p>
+<p>⚠ TXDELAY is a radio property. A Baofeng may need 300–500 ms; a radio with a real data port
+manages 100–150 ms. <b>Measure it on your actual radio before trusting any number here</b> — it is
+the single most influential constant in the system.</p>
+</div>
+
+<h2>2 · Slots, not contention</h2>
+
+<p>Every tablet has GPS, and GPS gives every tablet <b>the same clock</b>. That is the whole
+design: if all ten nodes agree on the time, they can agree on who transmits when, and
+<b>collisions stop being possible</b> rather than being recovered from.</p>
+
+<pre>FRAME = 5.2 s, divided into 20 slots of 260 ms
+
+ slot   0  1  2  3  4  5  6  7  8  9   10 11 12 13 14 15 16 17 18 19
+        └──────── riders 0–9 ────────┘  └──── relay pass ──────────┘
+
+ node N transmits its own position in slot N
+ node N relays what it heard in slot 10+N, if nobody else has
+
+ slot boundary = GPS second × 4, modulo the frame</pre>
+
+<table>
+<tr><th>Design</th><th>10 nodes, 1 relay pass</th></tr>
+<tr><td><b>Slotted (this design)</b></td><td><b>5.2 s</b> update, deterministic, zero
+collisions</td></tr>
+<tr><td>CSMA at 30% channel utilisation</td><td>17 s update, probabilistic, degrades as the group
+bunches</td></tr>
+<tr><td>Standard APRS with SmartBeaconing</td><td>30–60 s update</td></tr>
+</table>
+
+<div class="card good">
+<p><span class="g">⭐ THE SLOTTED VERSION IS 3× FASTER THAN CSMA AT THE SAME LOAD, AND IT DOES NOT
+DEGRADE.</span> Contention-based schemes get worse exactly when the group closes up and every
+radio hears every other — which is the moment tracking matters most. <b>A slot allocation does not
+care how many nodes can hear each other.</b></p>
+</div>
+
+<h3>Scaling</h3>
+<table>
+<tr><th>Nodes</th><th>No relay</th><th>1 relay pass</th><th>2 relay passes</th></tr>
+<tr><td>10</td><td>2.6 s</td><td><b>5.2 s</b></td><td>7.8 s</td></tr>
+<tr><td>16</td><td>4.2 s</td><td>8.3 s</td><td>12.5 s</td></tr>
+</table>
+<p>⚠ <b>The relay pass doubles the frame.</b> It buys range and it costs update rate — which is
+the central trade in this system and should be a setting, not a constant.</p>
+
+<h2>3 · The packet</h2>
+
+<pre>12 bytes total, including CRC
+
+ byte  0   node_id (4b) │ hop (2b) │ flags (2b)
+ byte  1   sequence  (wraps at 256 — enough for dedupe)
+ bytes 2-3 latitude   offset from origin, 16-bit
+ bytes 4-5 longitude  offset from origin, 16-bit
+ byte  6   speed      0–63 mph │ heading high bits
+ byte  7   heading low bits │ altitude, coarse
+ bytes 8-9 flags/battery/status
+ bytes 10-11 CRC-16</pre>
+
+<div class="card">
+<p><b>⭐ THE POSITION TRICK: OFFSETS FROM A SHARED ORIGIN.</b> Absolute lat/lon needs 8 bytes for
+useful precision. But the group is operating inside a box perhaps 20 miles across, and every
+tablet already knows where that box is — it was agreed when the ride was set up.</p>
+<p>16 bits across 20 miles is <b>roughly half-metre resolution</b>, in 4 bytes instead of 8.</p>
+<p><b>⚠ The origin must be part of the ride configuration</b>, distributed once when the group
+forms, not per packet. A node with the wrong origin reports positions that are confidently and
+precisely wrong — which is worse than reporting none.</p>
+</div>
+
+<h2>4 · Relay — two topologies</h2>
+
+<h3>A · Hub (recommended to build first)</h3>
+<pre>riders never relay.
+one node on high ground repeats everything, once.
+
+  rider ──┐
+  rider ──┼──→ [ hilltop digi ] ──→ everyone
+  rider ──┘</pre>
+<p><b>⭐ Simplest thing that reaches 10 miles</b>, and it is how APRS actually scales. The frame is
+riders + one relay pass. No dedupe needed at the riders at all — a repeat is just another
+packet.</p>
+<p><b>⚠ It needs a node on high ground</b>, which may be a parked vehicle, a base camp, or a
+rider who stays put. <b>That is a real operational constraint</b>, not just a technical one.</p>
+
+<h3>B · Flood (every node relays, slot-limited)</h3>
+<pre>node N relays in slot 10+N, but ONLY if:
+    the packet is not already in its seen-set   (node_id, sequence)
+    AND hop &lt; max
+    AND it did not hear another node relay it first</pre>
+<p><b>⭐ No infrastructure</b> — the group carries its own network. And the seen-set lives on the
+tablet, which is far more reliable than configuring digipeat rules on ten handhelds.</p>
+<p><b>⚠ But every relay pass doubles the frame</b>, and in the bunched case most relays are
+redundant — ten nodes that all hear each other will each try to relay the same packet, and only
+the slot ordering stops them.</p>
+
+<h2>5 · What the tablet does</h2>
+
+<table>
+<tr><th>Job</th><th>Note</th></tr>
+<tr><td><b>Keep frame time</b></td><td>From GPS. ⚠ Nodes that lose GPS lock lose their slot —
+they must fall back to listen-then-transmit-in-a-gap, and rejoin when lock returns.</td></tr>
+<tr><td><b>Encode and decode</b></td><td>The TNC is a modem only. <b>It cannot relay, dedupe or
+store</b> — every bit of intelligence is yours.</td></tr>
+<tr><td><b>Hold the seen-set</b></td><td><code>(node_id, sequence)</code>, aged out after a few
+frames.</td></tr>
+<tr><td><b>Hold the roster</b></td><td>Who is node 0–9, and the shared origin. Distributed at ride
+setup.</td></tr>
+<tr><td><b>Dead reckoning between updates</b></td><td>⭐ At 15 mph, 5 s is 36 yards. Interpolating
+from last position, speed and heading makes the map read as continuous rather than
+stepping.</td></tr>
+<tr><td><b>Show staleness honestly</b></td><td>⛔ <b>The most important one.</b> A cart that has
+missed four frames must LOOK different from one reporting now. A map that shows a stale position
+as if it were current is worse than showing nothing.</td></tr>
+</table>
+
+<h2>6 · Hardware</h2>
+
+<table>
+<tr><th>Part</th><th>Choice</th><th>Note</th></tr>
+<tr><td>Modem</td><td>Mobilinkd TNC4</td><td>Bluetooth KISS, 1200/9600, ~$120</td></tr>
+<tr><td>Cable</td><td>Kenwood K-plug</td><td>~$20, fits Baofeng and most HTs</td></tr>
+<tr><td>Radio (rider)</td><td>⚠ better than a Baofeng if the budget allows</td><td>The TNC4 manual
+is blunt that radio quality drives decode rate</td></tr>
+<tr><td>Radio (hilltop)</td><td>Kenwood TH-D75A</td><td>Built-in KISS TNC and standalone
+digipeater — no tablet needed at the relay</td></tr>
+<tr><td><b>Antennas</b></td><td><b>⭐ spend here first</b></td><td>Rubber duck to rubber duck in
+canyons is 1–3 miles. A proper whip is the cheapest range available.</td></tr>
+</table>
+
+<div class="card warn">
+<p><span class="k">⚠ 9600 BAUD IS 8× THE BUDGET AND CHANGES EVERYTHING</span> — 10 nodes with a
+relay pass would frame in well under a second. But it needs flat discriminator audio and direct
+modulator access, which rules out speaker/mic connections entirely. <b>If update rate turns out to
+be the binding constraint, the answer is a radio with a real data port, not a cleverer
+protocol.</b></p>
+</div>
+
+<h2>7 · What to prove before building any of it</h2>
+
+<table>
+<tr><th>#</th><th>Test</th><th>Kills the design if…</th></tr>
+<tr><td>1</td><td><b>Measure TXDELAY on the actual radio</b></td><td>…it is 400 ms+. The frame
+doubles and the whole budget shifts.</td></tr>
+<tr><td>2</td><td><b>Two nodes, one mile, line of sight</b></td><td>…packets do not decode
+reliably. Everything else is moot.</td></tr>
+<tr><td>3</td><td><b>Two nodes, terrain between them</b></td><td>…range is under a mile in
+canyons. Then the hilltop relay is not optional, it is the product.</td></tr>
+<tr><td>4</td><td><b>GPS time alignment across two tablets</b></td><td>…slot boundaries drift more
+than ~50 ms. The whole slotted premise rests on this.</td></tr>
+<tr><td>5</td><td><b>Ten simulated nodes on the bench</b></td><td>…the frame does not hold when
+every node transmits.</td></tr>
+</table>
+
+<div class="card good">
+<p><span class="g">⭐ TESTS 1 AND 4 ARE CHEAP AND THEY GATE EVERYTHING.</span> One TNC, one radio,
+two tablets and an afternoon. If TXDELAY is bad or GPS alignment is loose, the design changes
+before any money is spent on ten nodes.</p>
+</div>
+
+<div class="card warn">
+<p><span class="k">⚠ AND THE QUESTION THIS DESIGN DOES NOT ANSWER: THE FREQUENCY.</span> Whichever
+band this runs on determines who may legally transmit, whether the payload may be encrypted, and
+whether the group's positions are public. <b>It is not a technical detail and it should be settled
+before hardware is bought</b> — it decides whether this ships to riders or stays a licensed
+operator's tool.</p>
+</div>
+
+</main></body></html>

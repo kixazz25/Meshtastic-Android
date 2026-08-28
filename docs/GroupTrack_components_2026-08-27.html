@@ -811,6 +811,116 @@ backlog, and a partial import looks exactly like missing track. Confirm the segm
 absent from OSM before building a feature to work around them.</p>
 </div>
 
+<h2>⬜ OPEN — pins are validated AT DROP, and rejected with a reason</h2>
+
+<div class="card good">
+<p><span class="g">⭐ SETTLED 2026-08-28.</span> Fred: <i>"the goal of step 2 is to know how many
+pins are included in routes before routes are enhanced. No surprises."</i> And then, more sharply:
+<i>"point 2 should drop for unroutable or over max limit as soon as the pin is placed."</i></p>
+</div>
+
+<h3>The rule</h3>
+<pre>rider taps a pin
+   ├─ not reachable over existing trails   → REFUSED, toast says why
+   ├─ would push the minimum route past the
+   │  distance ceiling                     → REFUSED, toast says why
+   └─ otherwise                            → accepted, count goes up</pre>
+
+<table>
+<tr><th>Decision</th><th>Why</th></tr>
+<tr><td><b>Validated AT DROP, not at search</b></td><td>⭐ One pin against a graph that already
+exists — cheap. And the rider learns immediately instead of at the end.</td></tr>
+<tr><td><b>Refused, not accepted-then-removed</b></td><td>⛔ A pin that is placed and later
+dropped has already been NUMBERED. Remove it and everything after renumbers under the rider's
+finger — and a toast naming "point 2" then points at what used to be point 3. <b>Refusing at drop
+means it never becomes a point at all.</b></td></tr>
+<tr><td><b>Toast, 5 seconds, with the reason</b></td><td>Two different reasons needing two
+different responses: <b>unreachable</b> is only fixed by pinning elsewhere; <b>too far</b> is also
+fixed by raising the mileage.</td></tr>
+<tr><td><b>The pin that breaks it is the pin refused</b></td><td>⚠ The mileage test is
+ORDER-DEPENDENT: pins 1–4 may fit and the fifth push it over. The fifth is refused. A rider who
+would rather have dropped the second removes it and re-drops. <b>Simple rule beats a
+cost-ordered eviction the rider cannot predict.</b></td></tr>
+</table>
+
+<div class="card good">
+<p><span class="g">⭐ AND IT DELIVERS "NO SURPRISES" EARLIER THAN PLANNED.</span> With every pin
+validated at drop, <b>every pin on the map is one that will be honoured</b> — the count the rider
+sees IS the count in the routes. No reconciliation report between DONE and the search, and nothing
+silently missing from the enriched results.</p>
+</div>
+
+<div class="card warn">
+<p><span class="k">⚠ STEP 4's NARRATION MUST CHANGE.</span> It currently promises <i>"I will stop
+and advise you to remove that pin"</i> — that was written before this decision. The system refuses
+the pin itself, so the wording becomes something like: <i>"Any point I cannot reach over existing
+trails, or that would push the ride past your distance, I will refuse and tell you why."</i></p>
+</div>
+
+<div class="card stop">
+<p><span class="r">⛔ THE REACHABILITY HALF DOES NOT EXIST YET.</span> <code>assess()</code>
+validates DISTANCE between points that can be connected. It does not check whether a route over
+existing trails can reach a pin at all.</p>
+<p><b>⚠ And it is the same root cause as the 08-27 device finding:</b>
+<code>buildGraph</code> reads <code>FROM trails</code> only, so a pin on a visible TRACK is
+unreachable by construction. Until tracks are in the graph, "I cannot reach that pin" will
+sometimes mean "that trail is real but I cannot see it".</p>
+</div>
+
+<h2>⬜ SUPERSEDED — an unreachable pin must be named before the search runs</h2>
+
+<div class="card stop">
+<p><span class="r">⛔ WE VALIDATE DISTANCE, NOT REACHABILITY.</span> Fred, 08-28: <i>"we currently
+validate distance between points that can be connected, but we do not warn that points are not
+reachable. We want to fix that."</i></p>
+<p><code>assess()</code> checks whether the pinned points fit inside the mileage band. It does
+<b>not</b> check whether a route over existing trails can reach a pin at all — so a pin on ground
+the graph cannot serve passes validation and then quietly fails, or drags the whole search
+somewhere it should not go.</p>
+</div>
+
+<div class="card good">
+<p><span class="g">⭐ AND THE BANNER NOW PROMISES OTHERWISE.</span> Step 4, Fred's words:
+<i>"I promise to include as many of your preferred points in your final route creations as long as
+I can find a route over existing trails to those points... the minute your pins exceed that
+distance, or we find a pin I cannot route to, I will stop and advise you to remove that pin."</i>
+</p>
+<p><b>⛔ That promise is not currently kept.</b> Building the banner without the reachability check
+would state a guarantee the engine does not honour — worse than saying nothing.</p>
+</div>
+
+<h3>What it has to do</h3>
+<table>
+<tr><th>Requirement</th><th>Note</th></tr>
+<tr><td><b>Check reachability, not just distance</b></td><td>Is the pin's snapped edge in the same
+graph component as the trailhead? A component check is cheap — the graph is already built and
+components are already collapsed per origin.</td></tr>
+<tr><td><b>Name the pin that failed</b></td><td>⛔ "One of your pins is unreachable" is not
+actionable with ten on the map. Say which.</td></tr>
+<tr><td><b>Stop AT THE PIN, not at the search</b></td><td>⭐ Fred: <b>"level set expectations
+before the map is built."</b> A rider who drops five more pins after the bad one has wasted the
+work; and a failure that arrives with the results reads as the tool being broken.</td></tr>
+<tr><td><b>Distinguish the two failures</b></td><td>⚠ <b>Too far</b> (fits no route inside the
+band) and <b>unreachable</b> (no trail path exists) need different words — the first is fixed by
+raising the mileage, the second only by removing the pin.</td></tr>
+</table>
+
+<div class="card warn">
+<p><span class="k">⚠ AND IT IS THE SAME ROOT CAUSE AS THE 08-27 DEVICE FINDING.</span>
+<code>buildGraph</code> reads <code>FROM trails</code> only, so a pin dropped on a visible TRACK is
+unreachable by construction — the rider can see the ground and the planner cannot. <b>Until tracks
+are in the graph, "I cannot route to that pin" will sometimes mean "that trail is real but I
+cannot see it".</b></p>
+<p><b>⭐ Which argues for doing the tracks-fill prototype BEFORE this message is written</b> — or
+the wording has to carry a caveat that the tracks work would remove.</p>
+</div>
+
+<div class="card">
+<p><b>⚠ ALSO OPEN, SAME STEP: <code>PIN_MAX</code> IS 5, THE BANNER SAYS TEN.</b> It was lowered
+from 10 to 5 on 08-26 (commit <code>bdfaface7</code>, DONEALWAYS+PINCAP). <b>Raising it back needs
+the reason it was lowered</b> — check that commit before changing the constant.</p>
+</div>
+
 <h2>Build order — 2026-08-27</h2>
 <div class="card">
 <p><b>⚠ COMPONENT 1 ALREADY EXISTS</b>, in line at the end of the current process, and it
