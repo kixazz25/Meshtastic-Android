@@ -358,6 +358,12 @@ fun ConvoyMapViewerScreen(
     var batchHidden by remember { mutableStateOf<Set<String>>(emptySet()) }
     // TABLEPOLISH-2026-08-27: what the layers were before the table opened.
     var batchPrevLayers by remember { mutableStateOf<List<Int>?>(null) }
+    /* AIWELCOME-2026-08-28: the first banner step.
+     * ⭐ aiStartOk is the GATE — true when a trail lies within a quarter mile
+     * of map centre, i.e. when there is somewhere a ride could actually start.
+     */
+    var aiWelcomeOpen by remember { mutableStateOf(false) }
+    var aiStartOk by remember { mutableStateOf(false) }
     // SAVESELECTED-2026-08-27
     var batchAreaPrompt by remember { mutableStateOf(false) }
     var batchAreaName by remember { mutableStateOf("") }
@@ -3026,6 +3032,192 @@ fun ConvoyMapViewerScreen(
                     }
                 )
             }
+            /* AIWELCOME-2026-08-28: the Welcome banner.
+             *
+             * ⛔ BOTTOM OF THE SCREEN. The zXX zoom readout sits top-centre
+             * under the map selection line and the rider needs it while
+             * navigating — Fred: "do not cover this area".
+             */
+            if (aiWelcomeOpen) {
+                /* ⭐ THE GATE: a trail within a quarter mile of map centre.
+                 *
+                 * Not a zoom level. Zoom says how close the rider is looking;
+                 * this says whether there is anywhere to start. A rider centred
+                 * on a housing estate at z18 gets a red button.
+                 *
+                 * ⚠ 440 yards against the engine's own 600-yard candidate-start
+                 * radius, so passing this gate means being inside the radius the
+                 * engine will search.
+                 */
+                androidx.compose.runtime.LaunchedEffect(
+                    lastViewportNorth, lastViewportSouth,
+                    lastViewportEast, lastViewportWest
+                ) {
+                    val cLat = (lastViewportNorth + lastViewportSouth) / 2.0
+                    val cLon = (lastViewportEast + lastViewportWest) / 2.0
+                    aiStartOk = if (cLat == 0.0 && cLon == 0.0) false else
+                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                            runCatching {
+                                SpatialDbManager.init(context)
+                                // quarter mile in degrees; lon scaled by latitude
+                                val dLat = 0.25 / 69.0
+                                val dLon = dLat / Math.max(0.2,
+                                    Math.cos(Math.toRadians(cLat)))
+                                SpatialDbManager.queryTrailsByViewport(
+                                    cLat - dLat, cLon - dLon, cLat + dLat, cLon + dLon
+                                ).isNotEmpty()
+                            }.getOrDefault(false)
+                        }
+                }
+                androidx.compose.material3.Surface(
+                    modifier = Modifier.align(Alignment.BottomCenter)
+                        .padding(10.dp).fillMaxWidth(),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp),
+                    color = Color(0xF2131820),
+                    shadowElevation = 8.dp
+                ) {
+                    androidx.compose.foundation.layout.Column(
+                        modifier = Modifier.padding(14.dp)
+                    ) {
+                        androidx.compose.material3.Text(
+                            "AI ROUTE PLANNER",
+                            color = Color(0xFF4DA6FF), fontSize = 11.sp,
+                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                        )
+                        androidx.compose.foundation.layout.Spacer(Modifier.height(8.dp))
+                        androidx.compose.material3.Text(
+                            "Together we develop the criteria to build six rides that " +
+                                "satisfy your stated requirements. Your answers provide " +
+                                "much-needed focus while I analyse the area's trails \u2014 " +
+                                "up to 10,000 in some areas \u2014 for every route I develop.",
+                            color = Color(0xFFE6EDF3), fontSize = 13.sp, lineHeight = 18.sp
+                        )
+                        androidx.compose.foundation.layout.Spacer(Modifier.height(8.dp))
+                        /* ⛔ THE JUSTIFICATION FOR DISCARDING FIVE RIDES, and it
+                         * is said BEFORE the rider starts. A rider who does not
+                         * know the recipe survives is being asked to throw away
+                         * work. */
+                        androidx.compose.material3.Text(
+                            "At the end you compare the six side by side and choose which " +
+                                "to keep. The rest are deleted \u2014 but the values used to " +
+                                "build them are saved with the routes you keep, and can " +
+                                "generate six again at any time.",
+                            color = Color(0xFF9AA4B2), fontSize = 12.sp, lineHeight = 17.sp
+                        )
+                        androidx.compose.foundation.layout.Spacer(Modifier.height(8.dp))
+                        /* ⭐ SAID HERE SO THE PROMPT IS NOT A SURPRISE. Fred,
+                         * 08-28: the worry is not the download, it is that the
+                         * rider gets the STANDARD map-download prompt after
+                         * saving and does not know why it appeared — a familiar
+                         * dialog with no cause reads as a bug.
+                         * ⚠ Step 6 restates it: Welcome is read once and
+                         * forgotten by the time the search finishes. */
+                        androidx.compose.material3.Text(
+                            "When you save your routes I will offer to download the map " +
+                                "tiles along them, so the ground you plan to ride is on " +
+                                "the device before you leave.",
+                            color = Color(0xFF9AA4B2), fontSize = 12.sp, lineHeight = 17.sp
+                        )
+                        androidx.compose.foundation.layout.Spacer(Modifier.height(8.dp))
+                        androidx.compose.material3.Text(
+                            "Planning stays in portrait throughout \u2014 the comparison " +
+                                "needs the height.",
+                            color = Color(0xFF9AA4B2), fontSize = 12.sp
+                        )
+                        androidx.compose.foundation.layout.Spacer(Modifier.height(10.dp))
+                        androidx.compose.material3.Text(
+                            "Search for a town, region or feature, or open one of your own " +
+                                "tracks or waypoints. Centre the map where you will start. " +
+                                "Use Map Features to turn layers off or pick individual " +
+                                "tracks until you can see the ground you want.",
+                            color = Color(0xFFE6EDF3), fontSize = 12.5.sp, lineHeight = 17.sp
+                        )
+                        androidx.compose.foundation.layout.Spacer(Modifier.height(10.dp))
+                        /* ⭐ RED UNTIL THE GATE IS MET, GREEN AFTER — the same
+                         * convention as the radio config screens, and it says WHY
+                         * rather than just refusing. */
+                        androidx.compose.material3.Text(
+                            if (aiStartOk) "Trail found near the centre of the map."
+                            else "No trail within a quarter mile of the centre of the " +
+                                "map yet \u2014 a ride cannot start here.",
+                            color = if (aiStartOk) Color(0xFF4ADE80) else Color(0xFFFF6B6B),
+                            fontSize = 11.5.sp
+                        )
+                        androidx.compose.foundation.layout.Spacer(Modifier.height(8.dp))
+                        androidx.compose.foundation.layout.Row(
+                            horizontalArrangement =
+                                androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)
+                        ) {
+                            androidx.compose.material3.Surface(
+                                modifier = Modifier.weight(1f).height(38.dp),
+                                shape = androidx.compose.foundation.shape.RoundedCornerShape(7.dp),
+                                color = Color(0xFF1D2430)
+                            ) {
+                                androidx.compose.foundation.layout.Box(
+                                    contentAlignment = Alignment.Center,
+                                    modifier = Modifier.fillMaxSize().clickable {
+                                        aiWelcomeOpen = false
+                                    }
+                                ) {
+                                    androidx.compose.material3.Text(
+                                        "CANCEL", color = Color(0xFF9AA4B2), fontSize = 11.sp,
+                                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                                    )
+                                }
+                            }
+                            androidx.compose.material3.Surface(
+                                modifier = Modifier.weight(2f).height(38.dp),
+                                shape = androidx.compose.foundation.shape.RoundedCornerShape(7.dp),
+                                color = if (aiStartOk) Color(0xFF14532D) else Color(0xFF3A1518)
+                            ) {
+                                androidx.compose.foundation.layout.Box(
+                                    contentAlignment = Alignment.Center,
+                                    modifier = Modifier.fillMaxSize().then(
+                                        if (aiStartOk) Modifier.clickable {
+                                            /* ⭐ PROCEED hands to the existing flow
+                                             * unchanged. pinStep is untouched by
+                                             * this whole patch. */
+                                            aiWelcomeOpen = false
+                                            showAiDesign = true
+                                        } else Modifier
+                                    )
+                                ) {
+                                    androidx.compose.material3.Text(
+                                        "PROCEED",
+                                        color = if (aiStartOk) Color(0xFF4ADE80)
+                                                else Color(0xFF8B5055),
+                                        fontSize = 11.sp,
+                                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            /* AIWELCOME-2026-08-28: on entry — portrait, layers, Map Features.
+             *
+             * ⭐ THE LAYERS ARE A STARTING DEFAULT, NOT A SETTING. Fred: riders
+             * "toggle off and on as they research and even select specific
+             * tracks to narrow their search". Whatever they leave it as is their
+             * work — nothing here undoes it later.
+             */
+            androidx.compose.runtime.LaunchedEffect(aiWelcomeOpen) {
+                if (aiWelcomeOpen) {
+                    (context as? android.app.Activity)?.requestedOrientation =
+                        android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                    if (trailState == DS_OFF) trailState = DS_ON
+                    if (trackState == DS_OFF) trackState = DS_ON
+                    if (waypointState == DS_OFF) waypointState = DS_ON
+                    listOf("Trails", "Tracks", "Waypoints").forEach { ly ->
+                        webViewRef?.evaluateJavascript("show" + ly + "()", null)
+                    }
+                    webViewRef?.evaluateJavascript("triggerViewportUpdate()", null)
+                    // ⭐ the toggles in front of the rider, not something to find
+                    showArtifactsPanel = true
+                }
+            }
             // -- ARTIFACT LIST PANEL (SELECT/EDIT) --
             if (showEntryChoice) {
                 androidx.compose.material3.AlertDialog(
@@ -3258,7 +3450,11 @@ fun ConvoyMapViewerScreen(
                              * forgot.
                              */
                             showInProgressPicker = false
-                            showAiDesign = true
+                            /* AIWELCOME-2026-08-28: the banner comes first.
+                             * ⚠ PROCEED sets showAiDesign, so everything past
+                             * this point is unchanged — if the banner is wrong,
+                             * the old flow still works. */
+                            aiWelcomeOpen = true
                         }
                     },
                     onNewRoute = {
