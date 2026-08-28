@@ -377,6 +377,8 @@ fun ConvoyMapViewerScreen(
      * ⚠ Not persisted yet — it resets each session until there is a
      * settings home for it. */
     var aiSkipOverview by remember { mutableStateOf(false) }
+    // AISTEPSCREEN-2026-08-28: the map furniture is set up once per flow
+    var aiMapReady by remember { mutableStateOf(false) }
     // SAVESELECTED-2026-08-27
     var batchAreaPrompt by remember { mutableStateOf(false) }
     var batchAreaName by remember { mutableStateOf("") }
@@ -2628,20 +2630,28 @@ fun ConvoyMapViewerScreen(
                     )
                 }
                 if (pinStep < PIN_STEP_SUMMARY) {
-                    ConvoyGuidedPinPanel(
+                    /* AISTEPSCREEN-2026-08-28: one screen per step.
+                     *
+                     * Same inputs, same call site — the steps, the actions, the
+                     * notice, START OVER. Only what is DRAWN changes: the
+                     * current step full screen with its own buttons, instead of
+                     * seven rows in a half-width panel under a header.
+                     *
+                     * expanded/onToggle are gone: there is nothing to collapse
+                     * on a screen that opens and closes around the map gesture.
+                     */
+                    ConvoyAiStepScreen(
                         steps = steps,
-                        expanded = pinExpanded,
-                        onToggle = { pinExpanded = !pinExpanded },
                         onStartOver = { pinReset() },
                         actions = actions,
                         notice = pinNotice,
-                        // ROUTEASSIST-2026-08-25C5: HARD LEFT, ZERO PADDING.
-                        // C4 halved the width and BottomCenter then centred that
-                        // half, leaving a gutter each side instead of one usable
-                        // column. BottomStart gives the whole right-hand side to
-                        // the map, which is where the point task reports a pin
-                        // landing and hands control back to the checklist.
-                        modifier = Modifier.align(Alignment.BottomStart)
+                        /* ⚠ The half-width, hard-left rule was for a panel
+                         * that sat PERMANENTLY over a live map, where the space
+                         * alongside was the only place a pin landing could be
+                         * reported. This screen opens and closes around the
+                         * gesture, so it has the whole screen and the notice has
+                         * room. */
+                        modifier = Modifier.fillMaxSize()
                     )
                 } else {
                     ConvoyGuidedSummaryPanel(
@@ -3060,9 +3070,23 @@ fun ConvoyMapViewerScreen(
              * narrow down — whatever they leave it as is their work.
              */
             androidx.compose.runtime.LaunchedEffect(pinStep) {
+                // ⚠ invisible either way, and it must be set before the
+                // rider is deep in the flow
                 if (pinStep == PIN_STEP_WELCOME) {
                     (context as? android.app.Activity)?.requestedOrientation =
                         android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                }
+                /* ⛔ AT THE TRAILHEAD, NOT THE OVERVIEW. Map Features is the panel
+                 * Route+ lives in, and opening it at the overview put it over the
+                 * full-screen panel. The map first matters here.
+                 *
+                 * ⛔ AND ONCE PER FLOW. LaunchedEffect re-runs on every key
+                 * change, so returning to this step forced the panel open again
+                 * over whatever layer arrangement the rider had made — and they
+                 * were told to use it to toggle layers off and pick tracks.
+                 */
+                if (pinStep == PIN_STEP_TRAILHEAD && !aiMapReady) {
+                    aiMapReady = true
                     if (trailState == DS_OFF) trailState = DS_ON
                     if (trackState == DS_OFF) trackState = DS_ON
                     if (waypointState == DS_OFF) waypointState = DS_ON
@@ -3070,9 +3094,10 @@ fun ConvoyMapViewerScreen(
                         webViewRef?.evaluateJavascript("show" + ly + "()", null)
                     }
                     webViewRef?.evaluateJavascript("triggerViewportUpdate()", null)
-                    // the toggles in front of the rider, ready underneath
                     showArtifactsPanel = true
                 }
+                // the next run gets its defaults; this one never fights the rider
+                if (pinStep == PIN_STEP_NONE) aiMapReady = false
             }
             /* AISTEPS-2026-08-28: the front of the flow — overview, then
              * parameters. Full screen and no map behind either: neither is map

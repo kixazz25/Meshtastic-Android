@@ -94,113 +94,6 @@ data class GuidedStep(
 )
 
 /**
- * @param steps        the whole process, in order. Phase 1 passes three.
- * @param expanded     caller-owned. See the note above on auto-open.
- * @param onToggle     header tapped.
- * @param onStartOver  always offered, on every step. Fred, 08-24: every step
- *                     has exactly two exits, PROCEED or START OVER. There is no
- *                     BACK and no per-step redo -- every edit path is a branch
- *                     and branches go stale.
- * @param actions      the buttons for the CURRENT step. Empty means the step is
- *                     waiting on a map gesture rather than a tap, which is the
- *                     normal case for the trailhead step.
- * @param notice       an unexpected result the rider must see -- no routable
- *                     trail nearby, an existing trailhead used instead of a new
- *                     one. Rendered in amber above the actions. The caller
- *                     force-expands when it sets this: a warning nobody sees is
- *                     worse than a panel that reappears.
- */
-@Composable
-fun ConvoyGuidedPinPanel(
-    steps: List<GuidedStep>,
-    expanded: Boolean,
-    onToggle: () -> Unit,
-    onStartOver: () -> Unit,
-    actions: List<Pair<String, () -> Unit>> = emptyList(),
-    notice: String = "",
-    modifier: Modifier = Modifier
-) {
-    if (steps.isEmpty()) return
-
-    val currentIdx = steps.indexOfFirst { it.state == GP_STATE_CURRENT }
-    val stepNo = if (currentIdx >= 0) currentIdx + 1 else steps.size
-    val currentTitle = if (currentIdx >= 0) steps[currentIdx].title else ""
-
-    Surface(
-        color = gpPanel,
-        shape = RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp),
-        // ROUTEASSIST-2026-08-25C4: HALF WIDTH, and the reason is functional.
-        // The space alongside is where the point task reports that a pin has
-        // landed and hands control back to the checklist -- a full-width panel
-        // leaves nowhere to say it, so the only feedback is a toast that
-        // vanishes. Fred, 08-25.
-        modifier = modifier.fillMaxWidth(0.5f)
-    ) {
-        Column(Modifier.fillMaxWidth()) {
-
-            // ---- header: progress at a glance, survives collapse ----
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .clickable { onToggle() }
-                    .padding(horizontal = 13.dp, vertical = 11.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    if (expanded) "\u25BE" else "\u25B8",
-                    color = gpFaint, fontSize = 12.sp, fontFamily = gpMono,
-                    modifier = Modifier.padding(end = 9.dp)
-                )
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        "DESIGNING YOUR RIDE",
-                        color = gpTxt, fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold, letterSpacing = 0.4.sp
-                    )
-                    if (!expanded && currentTitle.isNotBlank()) {
-                        Text(
-                            currentTitle,
-                            color = gpDim, fontSize = 11.5.sp,
-                            modifier = Modifier.padding(top = 2.dp)
-                        )
-                    }
-                }
-                Text(
-                    "step $stepNo of ${steps.size}",
-                    color = gpBlue, fontSize = 10.5.sp, fontFamily = gpMono
-                )
-            }
-
-            if (expanded) {
-                Spacer(
-                    Modifier.fillMaxWidth().height(1.dp).background(gpLine)
-                )
-                Column(
-                    Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = 300.dp)
-                        .verticalScroll(rememberScrollState())
-                        .padding(horizontal = 13.dp, vertical = 10.dp)
-                ) {
-                    steps.forEachIndexed { i, s -> GuidedStepRow(i + 1, s) }
-                }
-            }
-
-            if (notice.isNotBlank()) NoticeBlock(notice)
-
-            // ---- actions: current step's buttons, then START OVER ----
-            Column(Modifier.fillMaxWidth().padding(13.dp, 4.dp, 13.dp, 13.dp)) {
-                actions.forEach { (label, onClick) ->
-                    GpButton(label, primary = true, onClick = onClick)
-                    Spacer(Modifier.height(7.dp))
-                }
-                GpButton("START OVER", primary = false, onClick = onStartOver)
-            }
-        }
-    }
-}
-
-/**
  * SUMMARY-2026-08-24I -- the decision, and then the work.
  *
  * Shown once the checklist is answered. Scrim plus a centred card, because
@@ -412,57 +305,6 @@ fun ConvoyPinMileageHud(
 }
 
 @Composable
-private fun GuidedStepRow(number: Int, s: GuidedStep) {
-    val marker = when (s.state) {
-        GP_STATE_DONE    -> "[x]"
-        GP_STATE_CURRENT -> "[>]"
-        else             -> "[ ]"
-    }
-    val markerColor = when (s.state) {
-        GP_STATE_DONE    -> gpGreen
-        GP_STATE_CURRENT -> gpBlue
-        else             -> gpFaint
-    }
-    val titleColor = when (s.state) {
-        GP_STATE_CURRENT -> gpTxt
-        GP_STATE_DONE    -> gpDim
-        else             -> gpFaint
-    }
-
-    Row(Modifier.fillMaxWidth().padding(bottom = 11.dp)) {
-        Text(
-            marker,
-            color = markerColor, fontSize = 12.sp, fontFamily = gpMono,
-            modifier = Modifier.padding(end = 8.dp, top = 1.dp)
-        )
-        Column(Modifier.weight(1f)) {
-            Text(
-                "$number. ${s.title}",
-                color = titleColor, fontSize = 13.sp,
-                fontWeight = if (s.state == GP_STATE_CURRENT)
-                    FontWeight.Bold else FontWeight.Normal
-            )
-            // CURRENT shows how to do it. DONE shows what was done. TODO shows
-            // neither -- that is what keeps the list short.
-            if (s.state == GP_STATE_CURRENT && s.instruction.isNotBlank()) {
-                Text(
-                    s.instruction,
-                    color = gpDim, fontSize = 11.8.sp, lineHeight = 16.5.sp,
-                    modifier = Modifier.padding(top = 3.dp)
-                )
-            }
-            if (s.state == GP_STATE_DONE && s.answer.isNotBlank()) {
-                Text(
-                    s.answer,
-                    color = gpGreen, fontSize = 11.8.sp,
-                    modifier = Modifier.padding(top = 3.dp)
-                )
-            }
-        }
-    }
-}
-
-@Composable
 private fun NoticeBlock(text: String) {
     Surface(
         color = Color(0xFF241D0E),
@@ -496,5 +338,106 @@ private fun GpButton(label: String, primary: Boolean, onClick: () -> Unit) {
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth().padding(vertical = 11.dp)
         )
+    }
+}
+/**
+ * AISTEPSCREEN-2026-08-28 — ONE SCREEN PER STEP.
+ *
+ * A drop-in for ConvoyGuidedPinPanel at the same call site, taking the same
+ * inputs. The difference is what it draws: the CURRENT step only, full screen,
+ * with its own buttons — not a scrolling list of seven rows in a half-width
+ * panel with a header above them.
+ *
+ * ⭐ WHY THE HALF-WIDTH RULE NO LONGER APPLIES. That panel is 0.5f wide because
+ * the space alongside was where a pin landing got reported, and a full-width
+ * panel left nowhere to say it. That was true when the panel sat permanently
+ * over a live map. These screens OPEN AND CLOSE around the map gesture, so the
+ * map is not competing with them and the notice has the whole screen.
+ *
+ * ⚠ PRESENTATION ONLY, like the file it sits in. The prose arrives as a string,
+ * the actions leave as callbacks. It does not know what a route is, does not
+ * touch pinStep, and does not decide when it is shown.
+ */
+@Composable
+fun ConvoyAiStepScreen(
+    steps: List<GuidedStep>,
+    actions: List<Pair<String, () -> Unit>> = emptyList(),
+    notice: String = "",
+    onStartOver: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    // ⚠ the CURRENT step, or the last one — the same rule the header used
+    val idx = steps.indexOfFirst { it.state == GP_STATE_CURRENT }
+    val cur = if (idx >= 0) steps[idx] else steps.lastOrNull() ?: return
+    val stepNo = if (idx >= 0) idx + 1 else steps.size
+
+    Box(
+        modifier.fillMaxSize().background(Color(0xF2090C10)),
+        contentAlignment = Alignment.TopCenter
+    ) {
+        Column(Modifier.fillMaxSize().padding(18.dp)) {
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    cur.title.uppercase(),
+                    color = gpGreen, fontSize = 12.sp, fontFamily = gpMono,
+                    fontWeight = FontWeight.Bold, letterSpacing = 0.8.sp,
+                    modifier = Modifier.weight(1f)
+                )
+                Text("step $stepNo of ${steps.size}", color = gpBlue,
+                    fontSize = 10.5.sp, fontFamily = gpMono)
+            }
+            Spacer(Modifier.height(16.dp))
+
+            Column(
+                Modifier.weight(1f).fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+            ) {
+                Text(cur.instruction, color = gpTxt, fontSize = 14.sp,
+                    lineHeight = 21.sp)
+
+                /* ⭐ THE ANSWER IS THE VERIFICATION. Its original comment: a long
+                 * press that did not register is otherwise invisible, and the
+                 * rider presses again and gets two waypoints. */
+                if (cur.answer.isNotBlank()) {
+                    Spacer(Modifier.height(16.dp))
+                    Surface(color = gpCard, shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(13.dp, 11.dp)) {
+                            Text("SO FAR", color = gpFaint, fontSize = 9.5.sp,
+                                fontFamily = gpMono)
+                            Spacer(Modifier.height(3.dp))
+                            Text(cur.answer, color = gpGreen, fontSize = 14.sp)
+                        }
+                    }
+                }
+
+                /* ⚠ A WARNING NOBODY SEES IS WORSE THAN A PANEL THAT REAPPEARS —
+                 * the old panel force-expanded for this. Here it simply has the
+                 * room. */
+                if (notice.isNotBlank()) {
+                    Spacer(Modifier.height(14.dp))
+                    NoticeBlock(notice)
+                }
+            }
+
+            /* ⚠ EMPTY ACTIONS MEANS THE STEP IS WAITING ON A MAP GESTURE, which
+             * is the normal case for the trailhead. The rider is told to go to
+             * the map rather than left looking at a screen with no way on. */
+            Spacer(Modifier.height(12.dp))
+            if (actions.isEmpty()) {
+                Text(
+                    "Go to the map to do this step.",
+                    color = gpDim, fontSize = 12.sp,
+                    modifier = Modifier.padding(bottom = 10.dp)
+                )
+            }
+            actions.forEach { (label, onClick) ->
+                GpButton(label, primary = true, onClick = onClick)
+                Spacer(Modifier.height(7.dp))
+            }
+            // ⚠ every step has exactly two exits: proceed, or start over
+            GpButton("START OVER", primary = false, onClick = onStartOver)
+        }
     }
 }
