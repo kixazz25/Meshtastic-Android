@@ -370,6 +370,55 @@ fun ConvoyAiStepScreen(
     val idx = steps.indexOfFirst { it.state == GP_STATE_CURRENT }
     val cur = if (idx >= 0) steps[idx] else steps.lastOrNull() ?: return
     val stepNo = if (idx >= 0) idx + 1 else steps.size
+    /* AISTEPBANNER-2026-08-28: TWO FORMS, decided by the step itself.
+     *
+     * ⛔ A gesture-only step full screen is a DEAD END. The trailhead waits on
+     * a map tap, so its actions list is empty, so the screen showed the
+     * instruction and START OVER and nothing else — the rider is told to go to
+     * the map with no way to reach it.
+     *
+     * ⭐ actions.isEmpty() ALREADY SAYS WHICH FORM IS RIGHT. No new state and
+     * no flag: a step with buttons is a step where the rider is choosing, and
+     * it takes the screen. A step without them is worked on the map, and the
+     * instruction becomes a banner over it.
+     */
+    if (actions.isEmpty()) {
+        Surface(
+            color = gpPanel,
+            shape = RoundedCornerShape(bottomStart = 10.dp, bottomEnd = 10.dp),
+            modifier = modifier.fillMaxWidth()
+        ) {
+            Column(Modifier.padding(13.dp, 11.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        cur.title.uppercase(),
+                        color = gpGreen, fontSize = 11.sp, fontFamily = gpMono,
+                        fontWeight = FontWeight.Bold, letterSpacing = 0.6.sp,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Text("step $stepNo of ${steps.size}", color = gpBlue,
+                        fontSize = 10.sp, fontFamily = gpMono)
+                }
+                Spacer(Modifier.height(5.dp))
+                Text(cur.instruction, color = gpTxt, fontSize = 13.sp,
+                    lineHeight = 18.sp)
+                // ⚠ what has been captured, so a tap that did not register is
+                // visible rather than silent
+                if (cur.answer.isNotBlank()) {
+                    Spacer(Modifier.height(6.dp))
+                    Text(cur.answer, color = gpGreen, fontSize = 13.sp)
+                }
+                if (notice.isNotBlank()) {
+                    Spacer(Modifier.height(8.dp))
+                    NoticeBlock(notice)
+                }
+                Spacer(Modifier.height(9.dp))
+                GpButton("START OVER", primary = false, onClick = onStartOver)
+            }
+        }
+        return
+    }
+
 
     Box(
         modifier.fillMaxSize().background(Color(0xF2090C10)),
@@ -425,13 +474,6 @@ fun ConvoyAiStepScreen(
              * is the normal case for the trailhead. The rider is told to go to
              * the map rather than left looking at a screen with no way on. */
             Spacer(Modifier.height(12.dp))
-            if (actions.isEmpty()) {
-                Text(
-                    "Go to the map to do this step.",
-                    color = gpDim, fontSize = 12.sp,
-                    modifier = Modifier.padding(bottom = 10.dp)
-                )
-            }
             actions.forEach { (label, onClick) ->
                 GpButton(label, primary = true, onClick = onClick)
                 Spacer(Modifier.height(7.dp))

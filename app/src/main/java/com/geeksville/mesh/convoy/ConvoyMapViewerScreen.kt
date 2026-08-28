@@ -2651,7 +2651,7 @@ fun ConvoyMapViewerScreen(
                          * reported. This screen opens and closes around the
                          * gesture, so it has the whole screen and the notice has
                          * room. */
-                        modifier = Modifier.fillMaxSize()
+                        modifier = Modifier.align(Alignment.TopCenter)
                     )
                 } else {
                     ConvoyGuidedSummaryPanel(
@@ -3396,6 +3396,13 @@ fun ConvoyMapViewerScreen(
                              * ⚠ PROCEED sets showAiDesign, so everything past
                              * this point is unchanged — if the banner is wrong,
                              * the old flow still works. */
+                            /* CLOSEROUTEPANEL-2026-08-28: the panel that
+                             * launched the flow closes when the flow starts.
+                             * ⚠ Every other exit from it already does this —
+                             * both dismiss buttons and the + Plan a New Route
+                             * confirm. This path forgot, and the overview
+                             * cannot be read through it. */
+                            showInProgressPicker = false
                             pinStep = PIN_STEP_WELCOME
                         }
                     },
