@@ -64,6 +64,21 @@ import androidx.compose.foundation.layout.Box
 private const val DS_OFF = 0
 // Canonical 12 waypoint types (B1 + rally). label shown in picker; key stored in DB.
 // GUIDEDPIN-2026-08-24C ── the guided pin flow's steps ──────────────────────
+/* AISTEPS-2026-08-28: the overview and the parameters are STATES ON THIS
+ * MACHINE, not a parallel counter.
+ *
+ * ⭐ Fred, 08-28: the checklist "becomes the background process evoking all new
+ * panels -- becomes a screenless process at the end." One machine drives both
+ * the old rows and the new panels, so they cannot drift apart, and when the
+ * last row is ported nothing is left over to delete.
+ *
+ * ⚠ NEGATIVE, so that every existing ordering comparison still holds. The
+ * constants below are compared by order -- "pinStep < PIN_STEP_RETURN" --
+ * and renumbering to make room at the front would mean touching all of them
+ * for no behaviour.
+ */
+private const val PIN_STEP_WELCOME   = -2
+private const val PIN_STEP_DISTANCE  = -1
 private const val PIN_STEP_NONE      = 0
 private const val PIN_STEP_TRAILHEAD = 1
 private const val PIN_STEP_RETURN    = 2
@@ -358,12 +373,10 @@ fun ConvoyMapViewerScreen(
     var batchHidden by remember { mutableStateOf<Set<String>>(emptySet()) }
     // TABLEPOLISH-2026-08-27: what the layers were before the table opened.
     var batchPrevLayers by remember { mutableStateOf<List<Int>?>(null) }
-    /* AIWELCOME-2026-08-28: the first banner step.
-     * ⭐ aiStartOk is the GATE — true when a trail lies within a quarter mile
-     * of map centre, i.e. when there is somewhere a ride could actually start.
-     */
-    var aiWelcomeOpen by remember { mutableStateOf(false) }
-    var aiStartOk by remember { mutableStateOf(false) }
+    /* AISTEPS-2026-08-28: the overview is skippable; the values are not.
+     * ⚠ Not persisted yet — it resets each session until there is a
+     * settings home for it. */
+    var aiSkipOverview by remember { mutableStateOf(false) }
     // SAVESELECTED-2026-08-27
     var batchAreaPrompt by remember { mutableStateOf(false) }
     var batchAreaName by remember { mutableStateOf("") }
@@ -2249,7 +2262,10 @@ fun ConvoyMapViewerScreen(
             // carry their ANSWER, which is the verification -- a long press that
             // did not register is otherwise invisible and the rider presses again
             // and gets two waypoints.
-            if (pinStep != PIN_STEP_NONE) {
+            /* ⚠ "> NONE", not "!= NONE". The two new states are NEGATIVE, so
+             * the old test was true for them and the checklist would have
+             * rendered underneath the overview and the parameter panel. */
+            if (pinStep > PIN_STEP_NONE) {
                 androidx.activity.compose.BackHandler(enabled = true) {
                     pinStep = PIN_STEP_NONE
                     showAiDesign = true
@@ -3032,179 +3048,19 @@ fun ConvoyMapViewerScreen(
                     }
                 )
             }
-            /* AIWELCOME-2026-08-28: the Welcome banner.
+            /* AISTEPS-2026-08-28: on entering the flow.
              *
-             * ⛔ BOTTOM OF THE SCREEN. The zXX zoom readout sits top-centre
-             * under the map selection line and the rider needs it while
-             * navigating — Fred: "do not cover this area".
-             */
-            if (aiWelcomeOpen) {
-                /* ⭐ THE GATE: a trail within a quarter mile of map centre.
-                 *
-                 * Not a zoom level. Zoom says how close the rider is looking;
-                 * this says whether there is anywhere to start. A rider centred
-                 * on a housing estate at z18 gets a red button.
-                 *
-                 * ⚠ 440 yards against the engine's own 600-yard candidate-start
-                 * radius, so passing this gate means being inside the radius the
-                 * engine will search.
-                 */
-                androidx.compose.runtime.LaunchedEffect(
-                    lastViewportNorth, lastViewportSouth,
-                    lastViewportEast, lastViewportWest
-                ) {
-                    val cLat = (lastViewportNorth + lastViewportSouth) / 2.0
-                    val cLon = (lastViewportEast + lastViewportWest) / 2.0
-                    aiStartOk = if (cLat == 0.0 && cLon == 0.0) false else
-                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                            runCatching {
-                                SpatialDbManager.init(context)
-                                // quarter mile in degrees; lon scaled by latitude
-                                val dLat = 0.25 / 69.0
-                                val dLon = dLat / Math.max(0.2,
-                                    Math.cos(Math.toRadians(cLat)))
-                                SpatialDbManager.queryTrailsByViewport(
-                                    cLat - dLat, cLon - dLon, cLat + dLat, cLon + dLon
-                                ).isNotEmpty()
-                            }.getOrDefault(false)
-                        }
-                }
-                androidx.compose.material3.Surface(
-                    modifier = Modifier.align(Alignment.BottomCenter)
-                        .padding(10.dp).fillMaxWidth(),
-                    shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp),
-                    color = Color(0xF2131820),
-                    shadowElevation = 8.dp
-                ) {
-                    androidx.compose.foundation.layout.Column(
-                        modifier = Modifier.padding(14.dp)
-                    ) {
-                        androidx.compose.material3.Text(
-                            "AI ROUTE PLANNER",
-                            color = Color(0xFF4DA6FF), fontSize = 11.sp,
-                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
-                        )
-                        androidx.compose.foundation.layout.Spacer(Modifier.height(8.dp))
-                        androidx.compose.material3.Text(
-                            "Together we develop the criteria to build six rides that " +
-                                "satisfy your stated requirements. Your answers provide " +
-                                "much-needed focus while I analyse the area's trails \u2014 " +
-                                "up to 10,000 in some areas \u2014 for every route I develop.",
-                            color = Color(0xFFE6EDF3), fontSize = 13.sp, lineHeight = 18.sp
-                        )
-                        androidx.compose.foundation.layout.Spacer(Modifier.height(8.dp))
-                        /* ⛔ THE JUSTIFICATION FOR DISCARDING FIVE RIDES, and it
-                         * is said BEFORE the rider starts. A rider who does not
-                         * know the recipe survives is being asked to throw away
-                         * work. */
-                        androidx.compose.material3.Text(
-                            "At the end you compare the six side by side and choose which " +
-                                "to keep. The rest are deleted \u2014 but the values used to " +
-                                "build them are saved with the routes you keep, and can " +
-                                "generate six again at any time.",
-                            color = Color(0xFF9AA4B2), fontSize = 12.sp, lineHeight = 17.sp
-                        )
-                        androidx.compose.foundation.layout.Spacer(Modifier.height(8.dp))
-                        /* ⭐ SAID HERE SO THE PROMPT IS NOT A SURPRISE. Fred,
-                         * 08-28: the worry is not the download, it is that the
-                         * rider gets the STANDARD map-download prompt after
-                         * saving and does not know why it appeared — a familiar
-                         * dialog with no cause reads as a bug.
-                         * ⚠ Step 6 restates it: Welcome is read once and
-                         * forgotten by the time the search finishes. */
-                        androidx.compose.material3.Text(
-                            "When you save your routes I will offer to download the map " +
-                                "tiles along them, so the ground you plan to ride is on " +
-                                "the device before you leave.",
-                            color = Color(0xFF9AA4B2), fontSize = 12.sp, lineHeight = 17.sp
-                        )
-                        androidx.compose.foundation.layout.Spacer(Modifier.height(8.dp))
-                        androidx.compose.material3.Text(
-                            "Planning stays in portrait throughout \u2014 the comparison " +
-                                "needs the height.",
-                            color = Color(0xFF9AA4B2), fontSize = 12.sp
-                        )
-                        androidx.compose.foundation.layout.Spacer(Modifier.height(10.dp))
-                        androidx.compose.material3.Text(
-                            "Search for a town, region or feature, or open one of your own " +
-                                "tracks or waypoints. Centre the map where you will start. " +
-                                "Use Map Features to turn layers off or pick individual " +
-                                "tracks until you can see the ground you want.",
-                            color = Color(0xFFE6EDF3), fontSize = 12.5.sp, lineHeight = 17.sp
-                        )
-                        androidx.compose.foundation.layout.Spacer(Modifier.height(10.dp))
-                        /* ⭐ RED UNTIL THE GATE IS MET, GREEN AFTER — the same
-                         * convention as the radio config screens, and it says WHY
-                         * rather than just refusing. */
-                        androidx.compose.material3.Text(
-                            if (aiStartOk) "Trail found near the centre of the map."
-                            else "No trail within a quarter mile of the centre of the " +
-                                "map yet \u2014 a ride cannot start here.",
-                            color = if (aiStartOk) Color(0xFF4ADE80) else Color(0xFFFF6B6B),
-                            fontSize = 11.5.sp
-                        )
-                        androidx.compose.foundation.layout.Spacer(Modifier.height(8.dp))
-                        androidx.compose.foundation.layout.Row(
-                            horizontalArrangement =
-                                androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)
-                        ) {
-                            androidx.compose.material3.Surface(
-                                modifier = Modifier.weight(1f).height(38.dp),
-                                shape = androidx.compose.foundation.shape.RoundedCornerShape(7.dp),
-                                color = Color(0xFF1D2430)
-                            ) {
-                                androidx.compose.foundation.layout.Box(
-                                    contentAlignment = Alignment.Center,
-                                    modifier = Modifier.fillMaxSize().clickable {
-                                        aiWelcomeOpen = false
-                                    }
-                                ) {
-                                    androidx.compose.material3.Text(
-                                        "CANCEL", color = Color(0xFF9AA4B2), fontSize = 11.sp,
-                                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
-                                    )
-                                }
-                            }
-                            androidx.compose.material3.Surface(
-                                modifier = Modifier.weight(2f).height(38.dp),
-                                shape = androidx.compose.foundation.shape.RoundedCornerShape(7.dp),
-                                color = if (aiStartOk) Color(0xFF14532D) else Color(0xFF3A1518)
-                            ) {
-                                androidx.compose.foundation.layout.Box(
-                                    contentAlignment = Alignment.Center,
-                                    modifier = Modifier.fillMaxSize().then(
-                                        if (aiStartOk) Modifier.clickable {
-                                            /* ⭐ PROCEED hands to the existing flow
-                                             * unchanged. pinStep is untouched by
-                                             * this whole patch. */
-                                            aiWelcomeOpen = false
-                                            showAiDesign = true
-                                        } else Modifier
-                                    )
-                                ) {
-                                    androidx.compose.material3.Text(
-                                        "PROCEED",
-                                        color = if (aiStartOk) Color(0xFF4ADE80)
-                                                else Color(0xFF8B5055),
-                                        fontSize = 11.sp,
-                                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            /* AIWELCOME-2026-08-28: on entry — portrait, layers, Map Features.
+             * ⚠ THIS WAS ALMOST LOST. It lived inside the inline Welcome block
+             * that this patch replaces, so removing that block took the portrait
+             * lock, the layer defaults and the Map Features panel with it. The
+             * guard that caught it now asserts all three survive.
              *
-             * ⭐ THE LAYERS ARE A STARTING DEFAULT, NOT A SETTING. Fred: riders
-             * "toggle off and on as they research and even select specific
-             * tracks to narrow their search". Whatever they leave it as is their
-             * work — nothing here undoes it later.
+             * ⭐ THE LAYERS ARE A STARTING DEFAULT, NOT A SETTING. Riders toggle
+             * off and on as they research, and select individual tracks to
+             * narrow down — whatever they leave it as is their work.
              */
-            androidx.compose.runtime.LaunchedEffect(aiWelcomeOpen) {
-                if (aiWelcomeOpen) {
+            androidx.compose.runtime.LaunchedEffect(pinStep) {
+                if (pinStep == PIN_STEP_WELCOME) {
                     (context as? android.app.Activity)?.requestedOrientation =
                         android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
                     if (trailState == DS_OFF) trailState = DS_ON
@@ -3214,8 +3070,69 @@ fun ConvoyMapViewerScreen(
                         webViewRef?.evaluateJavascript("show" + ly + "()", null)
                     }
                     webViewRef?.evaluateJavascript("triggerViewportUpdate()", null)
-                    // ⭐ the toggles in front of the rider, not something to find
+                    // the toggles in front of the rider, ready underneath
                     showArtifactsPanel = true
+                }
+            }
+            /* AISTEPS-2026-08-28: the front of the flow — overview, then
+             * parameters. Full screen and no map behind either: neither is map
+             * work, and Fred was explicit that the map is a distraction while
+             * end-state parameters are being set.
+             */
+            if (pinStep == PIN_STEP_WELCOME || pinStep == PIN_STEP_DISTANCE) {
+                ConvoyAiStepPanel(
+                    isOverview = pinStep == PIN_STEP_WELCOME,
+                    // ⚠ the label is the SCREEN's business, not the panel's
+                    stepLabel = if (pinStep == PIN_STEP_WELCOME) "1 / 6" else "2 / 6",
+                    dontShowAgain = aiSkipOverview,
+                    onDontShowAgain = { aiSkipOverview = it },
+                    miLow = pinMiLow, miHigh = pinMiHigh,
+                    mphLow = pinMphLow, mphHigh = pinMphHigh,
+                    onMiles = { lo, hi -> pinMiLow = lo; pinMiHigh = hi },
+                    onSpeed = { lo, hi -> pinMphLow = lo; pinMphHigh = hi },
+                    /* ⚠ WHOLE HOURS. This envelope compounds TWO ranges and a
+                     * decimal would imply a precision that does not exist —
+                     * the same reasoning the checklist summary already uses. */
+                    hoursText = run {
+                        val lo = Math.round(
+                            pinMiLow.toDouble() / pinMphHigh.toDouble().coerceAtLeast(1.0))
+                        val hi = Math.round(
+                            pinMiHigh.toDouble() / pinMphLow.toDouble().coerceAtLeast(1.0))
+                        "$lo to $hi hours"
+                    },
+                    onCancel = { pinStep = PIN_STEP_NONE },
+                    onContinue = {
+                        if (pinStep == PIN_STEP_WELCOME) {
+                            pinStep = PIN_STEP_DISTANCE
+                        } else {
+                            /* ⭐ EXACTLY WHAT onFindRides DID — stash the values,
+                             * clear the last run, hand to pin collection. The
+                             * search itself still runs from the checklist's own
+                             * FIND MY RIDES with the trailhead the rider drops.
+                             */
+                            pinRideName = ""
+                            showAiDesign = false
+                            aiResults = emptyList()
+                            aiProgress = ""
+                            pinReset()
+                            pinStep = PIN_STEP_TRAILHEAD
+                        }
+                    },
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+            /* AISTEPS-2026-08-28: portrait is released when the screen leaves
+             * composition, not at a named step.
+             *
+             * ⛔ Tied to the last step, abandoning at the trailhead — back
+             * button, cancel, the screen being lost — would leave the device
+             * locked in portrait with nothing to unlock it. No step has to
+             * remember; the lock cannot outlive the flow.
+             */
+            androidx.compose.runtime.DisposableEffect(Unit) {
+                onDispose {
+                    (context as? android.app.Activity)?.requestedOrientation =
+                        android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
                 }
             }
             // -- ARTIFACT LIST PANEL (SELECT/EDIT) --
@@ -3454,7 +3371,7 @@ fun ConvoyMapViewerScreen(
                              * ⚠ PROCEED sets showAiDesign, so everything past
                              * this point is unchanged — if the banner is wrong,
                              * the old flow still works. */
-                            aiWelcomeOpen = true
+                            pinStep = PIN_STEP_WELCOME
                         }
                     },
                     onNewRoute = {
