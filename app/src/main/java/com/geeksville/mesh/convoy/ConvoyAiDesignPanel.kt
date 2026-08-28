@@ -372,7 +372,11 @@ fun ConvoyAiDesignPanel(
                 }
 
                 Spacer(Modifier.height(8.dp))
-                AiButton("CONTINUE", "Back to the route in progress") { onContinue() }
+                // ⚠ (2) says where it goes. The subtitle was stale too — this has not
+                // gone "back to the route in progress" since the compare
+                // table replaced the WIP list.
+                AiButton("CONTINUE TO COMPARE",
+                    "Review the routes side by side") { onContinue() }
                 Spacer(Modifier.height(11.dp))
                 Text("Close", color = aiDim, fontSize = 12.5.sp,
                     textAlign = TextAlign.Center,

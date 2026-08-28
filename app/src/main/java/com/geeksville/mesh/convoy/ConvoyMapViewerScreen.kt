@@ -483,6 +483,38 @@ fun ConvoyMapViewerScreen(
                 if (res != null && seq >= pinFeasSeq) {
                     pinFeasSeq = seq
                     pinFeas = res
+                        /* PATCHB-2026-08-28 (11): ACT ON WHAT ASSESS ALREADY KNOWS.
+                         *
+                         * ⭐⭐ Fred, 08-28: "we test reachability already — we
+                         * build a route to the launch point to measure distance.
+                         * The work is already done, we just need to monitor the
+                         * result and take action."
+                         *
+                         * PinFeasibility has carried `unreachable`, `onFragment`
+                         * and `overMiles` all along and nothing read them. This
+                         * is not new logic.
+                         *
+                         * ⚠ NO DIALOG. Fred: "not routable, bye bye pin." A pin
+                         * argued over has already been numbered, and removing it
+                         * later renumbers everything after it under the rider's
+                         * finger.
+                         */
+                        if (res != null && pinPoints.isNotEmpty()) {
+                            val last = pinPoints.size - 1
+                            val noRoute = res.unreachable.contains(last) ||
+                                res.onFragment.contains(last)
+                            if (noRoute) {
+                                pinPoints = pinPoints.dropLast(1)
+                                pinNotice = "No route to this pin."
+                                android.util.Log.i("PanelTrace",
+                                    "PIN removed: no route")
+                            } else if (res.overMiles > 0.0) {
+                                pinPoints = pinPoints.dropLast(1)
+                                pinNotice = "That pin puts the ride past your distance."
+                                android.util.Log.i("PanelTrace",
+                                    "PIN removed: over by " + res.overMiles + " mi")
+                            }
+                        }
                 }
             }
         }.start()
@@ -2339,7 +2371,11 @@ fun ConvoyMapViewerScreen(
 
                 val steps = listOf(
                     GuidedStep(
-                        title = "Select your trailhead",
+                        // (13) both actions in the title. The banner shows
+                        // ONE row, and the "add one if none exists" row that
+                        // follows never gets its turn — so the long press has
+                        // to be named here or it is invisible.
+                        title = "Select your trailhead / long press to add the trailhead",
                         instruction = "Use search to navigate to your area, then tap the " +
                             "trailhead you are starting from.",
                         answer = pinTrailName,
@@ -2520,6 +2556,23 @@ fun ConvoyMapViewerScreen(
                         "FIND MY RIDES" to {
                             pinNotice = ""
                             pinExpanded = true
+                            /* ⭐ (6) THE MAP IS HANDED OVER CLEAN. The compare
+                             * table draws six coloured routes; trails, tracks and
+                             * waypoints under them make it unreadable, and Map
+                             * Features belongs to the rider's own arrangement,
+                             * not to the table.
+                             *
+                             * ⚠ The table captures the layer states on entry and
+                             * restores them on exit, so this runs BEFORE it opens
+                             * — otherwise it would capture "off" and give the
+                             * rider back nothing.
+                             */
+                            listOf("Trails", "Tracks", "Waypoints", "Routes")
+                                .forEach { ly ->
+                                    webViewRef?.evaluateJavascript(
+                                        "hide" + ly + "()", null)
+                                }
+                            showArtifactsPanel = false
                             android.util.Log.i("PanelTrace", "STEP " + pinStepName(pinStep) + " -> SEARCH"); pinStep = PIN_STEP_SEARCH
                             aiBusy = true
                             aiResults = emptyList()
@@ -2684,7 +2737,9 @@ fun ConvoyMapViewerScreen(
                          * reported. This screen opens and closes around the
                          * gesture, so it has the whole screen and the notice has
                          * room. */
-                        modifier = Modifier.align(Alignment.TopCenter)
+                        // ⚠ (1) BOTTOM. At the top it covered the search
+                        // button, which is the one control that step needs.
+                        modifier = Modifier.align(Alignment.BottomCenter)
                     )
                 } else {
                     ConvoyGuidedSummaryPanel(
@@ -3342,7 +3397,18 @@ fun ConvoyMapViewerScreen(
             // AFTER it and sat on top. Hiding it is better than reordering --
             // a floating draggable toolbar over a full-screen panel is confusing
             // even with the z-order right, and its controls do nothing there.
-            if (routeMode && !showAiDesign) {
+            /* PATCHB-2026-08-28 (4): the new panels hide it too.
+             *
+             * ⚠ TRACED, NOT GUESSED. PanelTrace showed the picker closing and
+             * never rendering, so the thing on screen was neither it nor the
+             * artifacts panel — "ROUTE +" is this toolbar.
+             *
+             * ⭐ Extending the SAME gate rather than tearing route mode down:
+             * six sites arm it, three already tear it down, and a fourth
+             * divergent copy is how the autosave-discard bug happened. The
+             * rider armed draw mode deliberately, so the arm stays.
+             */
+            if (routeMode && !showAiDesign && pinStep >= PIN_STEP_NONE) {
                 ConvoyRouteToolbar(
                     isConvoyMap = false,
                     vertexCount = RouteManager.routeVertexCount(),

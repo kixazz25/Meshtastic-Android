@@ -108,8 +108,12 @@ fun ConvoyBatchGridPanel(
     ) {
         Column(modifier = Modifier.padding(8.dp)) {
             Text(batchName.uppercase(), color = accentBlue, fontSize = 10.sp,
-                fontFamily = mono, fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(bottom = 6.dp))
+                fontFamily = mono, fontWeight = FontWeight.Bold)
+            // ⚠ (7) tapping a header is not discoverable, and the dimming only
+            // makes sense once the rider knows it is a control
+            Text("Click on route to hide / unhide on map",
+                color = dimText, fontSize = 9.5.sp, fontFamily = mono,
+                modifier = Modifier.padding(top = 2.dp, bottom = 6.dp))
 
             // ── header: colour, tap to show/hide, tick to save ──────────
             Row(verticalAlignment = Alignment.Bottom) {
@@ -221,7 +225,10 @@ fun ConvoyBatchGridPanel(
 
             Spacer(Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                TableButton("SAVE SELECTED", Color(0xFF4ADE80), Modifier.weight(1f)) {
+                // ⚠ the deletion is the half a rider would otherwise find out about
+                // afterwards, so it is on the button
+                TableButton("SAVE SELECTED / DELETE UNSELECTED",
+                    Color(0xFF4ADE80), Modifier.weight(1f)) {
                     onSaveSelected()
                 }
                 TableButton("EXIT", dimText, Modifier.weight(1f)) { onExit() }
