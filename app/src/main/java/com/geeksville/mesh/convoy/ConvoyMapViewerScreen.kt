@@ -1896,6 +1896,7 @@ fun ConvoyMapViewerScreen(
              * away from anything it does cover.
              */
             if (batchGridOpen && batchRows.isNotEmpty()) {
+                android.util.Log.i("PanelTrace", "BATCH renders rows=" + batchRows.size)
                 ConvoyBatchGridPanel(
                     batchName = batchName,
                     rows = batchRows,
@@ -1923,7 +1924,7 @@ fun ConvoyMapViewerScreen(
                     onExit = {
                         /* ⭐ EXIT LEAVES EVERYTHING — the batch stays open and
                          * Route+ reopens exactly this. */
-                        batchGridOpen = false
+                        android.util.Log.i("PanelTrace", "BATCH <- false"); batchGridOpen = false
                         webViewRef?.evaluateJavascript("clearBatchRoutes()", null)
                         // ⛔ put them back exactly as they were
                         batchPrevLayers?.let { prev ->
@@ -1992,7 +1993,7 @@ fun ConvoyMapViewerScreen(
                         }
                         batchHidden = emptySet()
                         batchSave = emptySet()
-                        batchGridOpen = true
+                        android.util.Log.i("PanelTrace", "BATCH <- true"); batchGridOpen = true
                         /* ⚠ ROUTE MODE STAYS OFF. With it live, every tap on a
                          * drawn route -- which is how the rider inspects them --
                          * becomes a vertex on a route they never meant to edit.
@@ -2038,7 +2039,7 @@ fun ConvoyMapViewerScreen(
                     // ARMSTATE-2026-08-13F: keep the armed state in step with the session.
                     addPointMode = true
                     routeMode = true   // route-add selected: panel has no cancel, both picks build a route
-                    showInProgressPicker = true
+                    android.util.Log.i("PanelTrace", "PICKER <- true"); showInProgressPicker = true
                 },
                 onSearch = { type, term ->
                     coroutineScope.launch {
@@ -2244,7 +2245,7 @@ fun ConvoyMapViewerScreen(
                              * Removing it outright would strand them.
                              */
                             if (!RouteDraftStore.hasOpenBatch()) {
-                                showInProgressPicker = true
+                                android.util.Log.i("PanelTrace", "PICKER <- true"); showInProgressPicker = true
                             }
                         },
                         onClose = {
@@ -2372,8 +2373,10 @@ fun ConvoyMapViewerScreen(
                     ),
                     GuidedStep(
                         title = "Places to pass through",
-                        instruction = "Tap up to ten places the ride should reach. " +
-                            "Optional \u2014 tap a pin again to remove it.",
+                        instruction = "Tap the closest trail to each place you want " +
+                            "the ride to reach \u2014 up to " + PIN_MAX + ". Tap a pin " +
+                            "again to remove it. I will favour rides that pass named " +
+                            "points of interest.",
                         answer = if (pinPoints.isEmpty()) ""
                                  else pinPoints.size.toString() + " place" +
                                      (if (pinPoints.size == 1) "" else "s") + " included",
@@ -2978,7 +2981,7 @@ fun ConvoyMapViewerScreen(
                     RouteDraftStore.deleteDraft(RouteDraftStore.UNNAMED)
                     draftListTick++
                     batchSaving = false
-                    batchGridOpen = false
+                    android.util.Log.i("PanelTrace", "BATCH <- false"); batchGridOpen = false
                     batchRows = emptyList()
                     batchSave = emptySet()
                     batchHidden = emptySet()
@@ -3193,7 +3196,7 @@ fun ConvoyMapViewerScreen(
                     dismissButton = {
                         androidx.compose.material3.TextButton(onClick = {
                             showEntryChoice = false
-                            showInProgressPicker = true
+                            android.util.Log.i("PanelTrace", "PICKER <- true"); showInProgressPicker = true
                         }) { androidx.compose.material3.Text("In Progress") }
                     }
                 )
@@ -3391,7 +3394,7 @@ fun ConvoyMapViewerScreen(
                              * confirm. The AI option was the one path that
                              * forgot.
                              */
-                            showInProgressPicker = false
+                            android.util.Log.i("PanelTrace", "PICKER <- false"); showInProgressPicker = false
                             /* AIWELCOME-2026-08-28: the banner comes first.
                              * ⚠ PROCEED sets showAiDesign, so everything past
                              * this point is unchanged — if the banner is wrong,
@@ -3402,7 +3405,7 @@ fun ConvoyMapViewerScreen(
                              * both dismiss buttons and the + Plan a New Route
                              * confirm. This path forgot, and the overview
                              * cannot be read through it. */
-                            showInProgressPicker = false
+                            android.util.Log.i("PanelTrace", "PICKER <- false"); showInProgressPicker = false
                             pinStep = PIN_STEP_WELCOME
                         }
                     },
@@ -3459,7 +3462,7 @@ fun ConvoyMapViewerScreen(
                     routeLifecycleState = routeLifecycleState,
                     onSaveRequested = { saveOrigName = routeName; showSaveChoice = true },
                     onDiscardRequested = { showDiscardChoice = true },
-                    onSelectInProgress = { showInProgressPicker = true },
+                    onSelectInProgress = { android.util.Log.i("PanelTrace", "PICKER <- true"); showInProgressPicker = true },
                     onExit = {
                         RouteManager.clearRoute()
                         // ONEXITDELETE-2026-08-13: NEW-route Discard routes here (toolbar sends
@@ -3712,7 +3715,7 @@ fun ConvoyMapViewerScreen(
              */
             if (showInProgressPicker && emulatedDrafts.isEmpty()) {
                 androidx.compose.runtime.LaunchedEffect(routeEntryNonce, showInProgressPicker) {
-                    showInProgressPicker = false
+                    android.util.Log.i("PanelTrace", "PICKER <- false"); showInProgressPicker = false
                     routeLifecycleState = ROUTE_LS_NEW
                     routeMethod = ROUTE_METHOD_P2P
                     routeName = RouteDraftStore.UNNAMED
@@ -3725,8 +3728,11 @@ fun ConvoyMapViewerScreen(
                 }
             }
             if (showInProgressPicker && emulatedDrafts.isNotEmpty()) {
+                // ⚠ logs the RENDER, so a flag that will not clear can
+                // be told apart from a render that ignores it
+                android.util.Log.i("PanelTrace", "PICKER renders")
                 androidx.compose.material3.AlertDialog(
-                    onDismissRequest = { showInProgressPicker = false; routeMode = false; webViewRef?.evaluateJavascript("window.__routeMode=false;setRouteMode(false)", null) },
+                    onDismissRequest = { android.util.Log.i("PanelTrace", "PICKER <- false"); showInProgressPicker = false; routeMode = false; webViewRef?.evaluateJavascript("window.__routeMode=false;setRouteMode(false)", null) },
                     title = { androidx.compose.material3.Text("Continue editing or create a new route") },
                     text = {
                         androidx.compose.foundation.layout.Column {
@@ -3741,7 +3747,7 @@ fun ConvoyMapViewerScreen(
                                         routeName = d
                                         routeMethod = when (od?.method) { "draw" -> ROUTE_METHOD_DRAW; "suggest" -> ROUTE_METHOD_SUGGEST; else -> ROUTE_METHOD_P2P }
                                         routeLifecycleState = ROUTE_LS_RESUMED
-                                        showInProgressPicker = false
+                                        android.util.Log.i("PanelTrace", "PICKER <- false"); showInProgressPicker = false
                                         routeEntryNonce++
                                         // ARMSTATE-2026-08-13F: keep the armed state in step with the session.
                                         addPointMode = true
@@ -3795,7 +3801,7 @@ fun ConvoyMapViewerScreen(
                                 android.widget.Toast.makeText(context, "Rename or delete \"" + RouteDraftStore.UNNAMED + "\" before starting a new route.", android.widget.Toast.LENGTH_LONG).show()
                                 return@TextButton
                             }
-                            showInProgressPicker = false
+                            android.util.Log.i("PanelTrace", "PICKER <- false"); showInProgressPicker = false
                             routeLifecycleState = ROUTE_LS_NEW
                             routeMethod = ROUTE_METHOD_P2P
                             routeName = RouteDraftStore.UNNAMED
@@ -3808,7 +3814,7 @@ fun ConvoyMapViewerScreen(
                         }) { androidx.compose.material3.Text("+ Plan a New Route") }
                     },
                     dismissButton = {
-                        androidx.compose.material3.TextButton(onClick = { showInProgressPicker = false; routeMode = false; webViewRef?.evaluateJavascript("window.__routeMode=false;setRouteMode(false)", null) }) {
+                        androidx.compose.material3.TextButton(onClick = { android.util.Log.i("PanelTrace", "PICKER <- false"); showInProgressPicker = false; routeMode = false; webViewRef?.evaluateJavascript("window.__routeMode=false;setRouteMode(false)", null) }) {
                             androidx.compose.material3.Text("Cancel")
                         }
                     }

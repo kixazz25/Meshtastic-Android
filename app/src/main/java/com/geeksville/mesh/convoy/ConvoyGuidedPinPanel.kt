@@ -178,7 +178,9 @@ fun ConvoyGuidedSummaryPanel(
                     )
                 } else {
                     Spacer(Modifier.height(18.dp))
-                    GpButton("PROCEED", primary = true, onClick = onProceed)
+                    // ⭐ says where it goes: the compare table, not a vague "proceed"
+                    GpButton("CONTINUE TO COMPARE", primary = true,
+                        onClick = onProceed)
                     Spacer(Modifier.height(7.dp))
                     GpButton("START OVER", primary = false, onClick = onStartOver)
                 }
@@ -382,7 +384,17 @@ fun ConvoyAiStepScreen(
      * it takes the screen. A step without them is worked on the map, and the
      * instruction becomes a banner over it.
      */
-    if (actions.isEmpty()) {
+    /* PATCHA-2026-08-28: EVERY step is a banner now.
+     *
+     * ⭐ Buttons no longer force a full screen. The rider is looking
+     * at the map for the whole flow — the loop answer and the pins
+     * question are decisions made ABOUT what is on the map, so
+     * covering it to ask them was wrong.
+     *
+     * ⚠ Only the summary keeps the full screen, and it earns it: it
+     * is the last thing before a build that takes real time.
+     */
+    if (true) {
         Surface(
             color = gpPanel,
             shape = RoundedCornerShape(bottomStart = 10.dp, bottomEnd = 10.dp),
@@ -412,74 +424,15 @@ fun ConvoyAiStepScreen(
                     Spacer(Modifier.height(8.dp))
                     NoticeBlock(notice)
                 }
+                // ⚠ the step's own buttons, in the banner
+                actions.forEach { (label, onClick) ->
+                    Spacer(Modifier.height(8.dp))
+                    GpButton(label, primary = true, onClick = onClick)
+                }
                 Spacer(Modifier.height(9.dp))
                 GpButton("START OVER", primary = false, onClick = onStartOver)
             }
         }
         return
-    }
-
-
-    Box(
-        modifier.fillMaxSize().background(Color(0xF2090C10)),
-        contentAlignment = Alignment.TopCenter
-    ) {
-        Column(Modifier.fillMaxSize().padding(18.dp)) {
-
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    cur.title.uppercase(),
-                    color = gpGreen, fontSize = 12.sp, fontFamily = gpMono,
-                    fontWeight = FontWeight.Bold, letterSpacing = 0.8.sp,
-                    modifier = Modifier.weight(1f)
-                )
-                Text("step $stepNo of ${steps.size}", color = gpBlue,
-                    fontSize = 10.5.sp, fontFamily = gpMono)
-            }
-            Spacer(Modifier.height(16.dp))
-
-            Column(
-                Modifier.weight(1f).fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
-            ) {
-                Text(cur.instruction, color = gpTxt, fontSize = 14.sp,
-                    lineHeight = 21.sp)
-
-                /* ⭐ THE ANSWER IS THE VERIFICATION. Its original comment: a long
-                 * press that did not register is otherwise invisible, and the
-                 * rider presses again and gets two waypoints. */
-                if (cur.answer.isNotBlank()) {
-                    Spacer(Modifier.height(16.dp))
-                    Surface(color = gpCard, shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier.fillMaxWidth()) {
-                        Column(Modifier.padding(13.dp, 11.dp)) {
-                            Text("SO FAR", color = gpFaint, fontSize = 9.5.sp,
-                                fontFamily = gpMono)
-                            Spacer(Modifier.height(3.dp))
-                            Text(cur.answer, color = gpGreen, fontSize = 14.sp)
-                        }
-                    }
-                }
-
-                /* ⚠ A WARNING NOBODY SEES IS WORSE THAN A PANEL THAT REAPPEARS —
-                 * the old panel force-expanded for this. Here it simply has the
-                 * room. */
-                if (notice.isNotBlank()) {
-                    Spacer(Modifier.height(14.dp))
-                    NoticeBlock(notice)
-                }
-            }
-
-            /* ⚠ EMPTY ACTIONS MEANS THE STEP IS WAITING ON A MAP GESTURE, which
-             * is the normal case for the trailhead. The rider is told to go to
-             * the map rather than left looking at a screen with no way on. */
-            Spacer(Modifier.height(12.dp))
-            actions.forEach { (label, onClick) ->
-                GpButton(label, primary = true, onClick = onClick)
-                Spacer(Modifier.height(7.dp))
-            }
-            // ⚠ every step has exactly two exits: proceed, or start over
-            GpButton("START OVER", primary = false, onClick = onStartOver)
-        }
     }
 }
