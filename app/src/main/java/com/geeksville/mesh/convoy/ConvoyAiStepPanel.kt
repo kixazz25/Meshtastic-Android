@@ -96,29 +96,31 @@ fun ConvoyAiStepPanel(
                 modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())
             ) {
                 if (isOverview) {
-                    Body("Together we develop the criteria to build six rides that " +
-                        "satisfy your stated requirements. Your answers provide " +
-                        "much-needed focus while I analyse the area's trails \u2014 up " +
-                        "to 10,000 in some areas \u2014 for every route I develop.")
+                    /* WELCOMETEXT-2026-08-28: matches the voice of the summary
+                     * the rider reads two screens later — plain, first person,
+                     * says what it will do. */
+                    Body("A few questions, then I search the area's trails \u2014 up to " +
+                        "10,000 of them in some places \u2014 and bring back as many as " +
+                        "six rides that fit what you asked for.")
                     /* ⛔ THE JUSTIFICATION FOR DISCARDING FIVE RIDES, said before the
                      * rider commits rather than after they are asked to throw work
                      * away. ⚠ The save panel repeats it, so a rider who dismisses
                      * this overview is not caught out. */
-                    Body("At the end you compare the six side by side, each drawn in " +
-                        "its own colour, and keep the ones you want. The rest are " +
-                        "deleted \u2014 but the values used to build them are saved " +
-                        "with the routes you keep, and can generate six again at any " +
-                        "time.")
+                    Body("You compare them side by side, each drawn in its own " +
+                        "colour, and keep the ones you want. The rest are deleted. " +
+                        "What you answer here is saved with the routes you keep, so you " +
+                        "can build six more from it at any time.")
                     // ⚠ so the standard download prompt after saving is not a surprise
-                    Body("When you save, I will offer to download the map tiles along " +
-                        "your routes so the ground you plan to ride is on the device " +
-                        "before you leave.")
-                    Body("Search for a town, region or feature, or open one of your own " +
-                        "tracks or waypoints. Centre the map where you will start. Use " +
-                        "Map Features to turn layers off or pick individual tracks " +
-                        "until you can see the ground you want.")
-                    Note("Planning stays in portrait throughout \u2014 the comparison " +
-                        "needs the height.")
+                    Body("When you save, I will offer to download the map tiles " +
+                        "along your routes, so the ground is on your device before you " +
+                        "leave.")
+                    Body("First, get to where you want to ride. Search for a town, " +
+                        "region or feature, or open one of your own tracks or " +
+                        "waypoints, and centre the map on your starting point. " +
+                        "Map Features lets you turn layers off or pick out single " +
+                        "tracks until you can see what you need.")
+                    Note("Planning stays in portrait \u2014 the comparison needs the " +
+                        "height.")
                 } else {
                     Body("Set a range of distance and an average speed. Together they " +
                         "calculate a ride duration range. Throttle the mileage up or " +

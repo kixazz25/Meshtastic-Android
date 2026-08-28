@@ -77,6 +77,25 @@ private const val DS_OFF = 0
  * and renumbering to make room at the front would mean touching all of them
  * for no behaviour.
  */
+/* FLOWTRACE-2026-08-28: the flow, readable in one log.
+ *
+ * ⚠ NAMES, NOT NUMBERS. "TRAILHEAD -> ASK" is readable; "1 -> 4" means opening
+ * this file to decode it, which is what makes a log go unread.
+ */
+private fun pinStepName(v: Int): String = when (v) {
+    PIN_STEP_WELCOME   -> "WELCOME"
+    PIN_STEP_DISTANCE  -> "DISTANCE"
+    PIN_STEP_NONE      -> "NONE"
+    PIN_STEP_TRAILHEAD -> "TRAILHEAD"
+    PIN_STEP_RETURN    -> "RETURN"
+    PIN_STEP_ENDPOINT  -> "ENDPOINT"
+    PIN_STEP_ASK       -> "ASK"
+    PIN_STEP_INCLUDE   -> "INCLUDE"
+    PIN_STEP_SUMMARY   -> "SUMMARY"
+    PIN_STEP_SEARCH    -> "SEARCH"
+    else               -> "?" + v
+}
+
 private const val PIN_STEP_WELCOME   = -2
 private const val PIN_STEP_DISTANCE  = -1
 private const val PIN_STEP_NONE      = 0
@@ -482,7 +501,7 @@ fun ConvoyMapViewerScreen(
         pinEndLat = 0.0; pinEndLon = 0.0
         pinPoints = emptyList()
         pinFeas = null
-        pinStep = PIN_STEP_TRAILHEAD
+        android.util.Log.i("PanelTrace", "STEP " + pinStepName(pinStep) + " -> TRAILHEAD"); pinStep = PIN_STEP_TRAILHEAD
     }
 
     // PINSELECT-2026-08-24G: mirror pinStep into the map as __pinSelect.
@@ -563,7 +582,7 @@ fun ConvoyMapViewerScreen(
             // flow disarms it. The crash-recovery purpose is unaffected: stale
             // AI flags are what a re-entry must clear, and route mode is not a
             // stale flag -- it is the session the rider is already in.
-            pinStep = PIN_STEP_NONE
+            android.util.Log.i("PanelTrace", "STEP " + pinStepName(pinStep) + " -> NONE"); pinStep = PIN_STEP_NONE
             pinFeas = null
             webViewRef?.evaluateJavascript("window.__pinSelect=false;", null)
             android.util.Log.i("GuidedPin", "AI panel entry -- AI state reset, route mode untouched")
@@ -1300,7 +1319,10 @@ fun ConvoyMapViewerScreen(
                                         pinEndLon = lon
                                         pinNotice = ""
                                         pinExpanded = true
-                                        gpRunAssess()
+                                        android.util.Log.i("PanelTrace",
+                                "ASSESS " + pinPoints.size + " pin(s), ceiling " +
+                                pinMiHigh + " mi")
+                            gpRunAssess()
                                     }
                                     return
                                 }
@@ -1320,6 +1342,8 @@ fun ConvoyMapViewerScreen(
                                             }
                                             pinNotice = ""
                                         } else if (pinPoints.size >= PIN_MAX) {
+                                            android.util.Log.i("PanelTrace",
+                                                "PIN refused: at cap " + PIN_MAX)
                                             pinNotice = "Ten places is the most a ride " +
                                                 "can be planned around. Tap one of your " +
                                                 "pins to remove it first."
@@ -1346,7 +1370,10 @@ fun ConvoyMapViewerScreen(
                                                 PIN_MAX + " places",
                                             android.widget.Toast.LENGTH_SHORT
                                         ).show()
-                                        gpRunAssess()
+                                        android.util.Log.i("PanelTrace",
+                                "ASSESS " + pinPoints.size + " pin(s), ceiling " +
+                                pinMiHigh + " mi")
+                            gpRunAssess()
                                     }
                                     return
                                 }
@@ -1389,7 +1416,7 @@ fun ConvoyMapViewerScreen(
                                                 pinTrailLon = lo
                                                 pinNotice = ""
                                                 pinExpanded = true
-                                                pinStep = PIN_STEP_RETURN
+                                                android.util.Log.i("PanelTrace", "STEP " + pinStepName(pinStep) + " -> RETURN"); pinStep = PIN_STEP_RETURN
                                             }
                                         }
                                     }.start()
@@ -2270,7 +2297,7 @@ fun ConvoyMapViewerScreen(
              * rendered underneath the overview and the parameter panel. */
             if (pinStep > PIN_STEP_NONE) {
                 androidx.activity.compose.BackHandler(enabled = true) {
-                    pinStep = PIN_STEP_NONE
+                    android.util.Log.i("PanelTrace", "STEP " + pinStepName(pinStep) + " -> NONE"); pinStep = PIN_STEP_NONE
                     showAiDesign = true
                 }
 
@@ -2284,7 +2311,7 @@ fun ConvoyMapViewerScreen(
                 // which is exactly when this needs to be watching.
                 androidx.compose.runtime.LaunchedEffect(aiBusy, pinStep) {
                     if (pinStep == PIN_STEP_SEARCH && !aiBusy) {
-                        pinStep = PIN_STEP_NONE
+                        android.util.Log.i("PanelTrace", "STEP " + pinStepName(pinStep) + " -> NONE"); pinStep = PIN_STEP_NONE
                         showAiDesign = true
                     }
                 }
@@ -2407,7 +2434,7 @@ fun ConvoyMapViewerScreen(
                             // point -- the trailhead is both ends.
                             pinIsLoop = true
                             // S1: ask before assuming they want to drop pins.
-                            pinStep = PIN_STEP_ASK
+                            android.util.Log.i("PanelTrace", "STEP " + pinStepName(pinStep) + " -> ASK"); pinStep = PIN_STEP_ASK
                         },
                         "DROP ENDPOINT PIN NOW" to {
                             // STUB:ENDPOINT -- point-to-point rides. The step is asked
@@ -2424,7 +2451,7 @@ fun ConvoyMapViewerScreen(
                             pinNotice = ""
                             pinExpanded = true
                             pinIsLoop = false
-                            pinStep = PIN_STEP_ENDPOINT
+                            android.util.Log.i("PanelTrace", "STEP " + pinStepName(pinStep) + " -> ENDPOINT"); pinStep = PIN_STEP_ENDPOINT
                         }
                     )
                     PIN_STEP_ENDPOINT -> listOf(
@@ -2432,7 +2459,7 @@ fun ConvoyMapViewerScreen(
                             pinNotice = ""
                             pinExpanded = true
                             // S1: ask before assuming they want to drop pins.
-                            pinStep = PIN_STEP_ASK
+                            android.util.Log.i("PanelTrace", "STEP " + pinStepName(pinStep) + " -> ASK"); pinStep = PIN_STEP_ASK
                         }
                     )
                     /* ROUTEASSIST-2026-08-25S1: THE BYPASS.
@@ -2445,13 +2472,13 @@ fun ConvoyMapViewerScreen(
                         "YES \u2014 I'LL DROP PINS" to {
                             pinNotice = ""
                             pinExpanded = true
-                            pinStep = PIN_STEP_INCLUDE
+                            android.util.Log.i("PanelTrace", "STEP " + pinStepName(pinStep) + " -> INCLUDE"); pinStep = PIN_STEP_INCLUDE
                         },
                         "NO \u2014 DESIGN IT FOR ME" to {
                             pinNotice = ""
                             pinExpanded = true
                             pinPoints = emptyList()
-                            pinStep = PIN_STEP_SUMMARY
+                            android.util.Log.i("PanelTrace", "STEP " + pinStepName(pinStep) + " -> SUMMARY"); pinStep = PIN_STEP_SUMMARY
                         }
                     )
                     // ROUTEASSIST-2026-08-25C: DONE EXISTS ONLY WHEN THE PIN
@@ -2481,7 +2508,7 @@ fun ConvoyMapViewerScreen(
                         "DONE" to {
                             pinNotice = ""
                             pinExpanded = true
-                            pinStep = PIN_STEP_SUMMARY
+                            android.util.Log.i("PanelTrace", "STEP " + pinStepName(pinStep) + " -> SUMMARY"); pinStep = PIN_STEP_SUMMARY
                         }
                     )
                     // ⚠ THE SEARCH LAUNCH BELONGS TO SUMMARY, not to
@@ -2493,7 +2520,7 @@ fun ConvoyMapViewerScreen(
                         "FIND MY RIDES" to {
                             pinNotice = ""
                             pinExpanded = true
-                            pinStep = PIN_STEP_SEARCH
+                            android.util.Log.i("PanelTrace", "STEP " + pinStepName(pinStep) + " -> SEARCH"); pinStep = PIN_STEP_SEARCH
                             aiBusy = true
                             aiResults = emptyList()
                             aiProgress = "Starting"
@@ -2627,6 +2654,9 @@ fun ConvoyMapViewerScreen(
                         onCeilingChange = { d ->
                             // The ceiling never drops under the floor.
                             pinMiHigh = (pinMiHigh + d).coerceIn(pinMiLow + 5, 200)
+                            android.util.Log.i("PanelTrace",
+                                "ASSESS " + pinPoints.size + " pin(s), ceiling " +
+                                pinMiHigh + " mi")
                             gpRunAssess()
                         },
                         modifier = Modifier.align(Alignment.TopEnd)
@@ -3128,10 +3158,10 @@ fun ConvoyMapViewerScreen(
                             pinMiHigh.toDouble() / pinMphLow.toDouble().coerceAtLeast(1.0))
                         "$lo to $hi hours"
                     },
-                    onCancel = { pinStep = PIN_STEP_NONE },
+                    onCancel = { android.util.Log.i("PanelTrace", "STEP " + pinStepName(pinStep) + " -> NONE"); pinStep = PIN_STEP_NONE },
                     onContinue = {
                         if (pinStep == PIN_STEP_WELCOME) {
-                            pinStep = PIN_STEP_DISTANCE
+                            android.util.Log.i("PanelTrace", "STEP " + pinStepName(pinStep) + " -> DISTANCE"); pinStep = PIN_STEP_DISTANCE
                         } else {
                             /* ⭐ EXACTLY WHAT onFindRides DID — stash the values,
                              * clear the last run, hand to pin collection. The
@@ -3143,7 +3173,7 @@ fun ConvoyMapViewerScreen(
                             aiResults = emptyList()
                             aiProgress = ""
                             pinReset()
-                            pinStep = PIN_STEP_TRAILHEAD
+                            android.util.Log.i("PanelTrace", "STEP " + pinStepName(pinStep) + " -> TRAILHEAD"); pinStep = PIN_STEP_TRAILHEAD
                         }
                     },
                     modifier = Modifier.fillMaxSize()
@@ -3342,7 +3372,7 @@ fun ConvoyMapViewerScreen(
                             aiResults = emptyList()
                             aiProgress = ""
                             aiBusy = false
-                            pinStep = PIN_STEP_NONE
+                            android.util.Log.i("PanelTrace", "STEP " + pinStepName(pinStep) + " -> NONE"); pinStep = PIN_STEP_NONE
                             pinTrailName = ""
                             pinTrailLat = 0.0
                             pinTrailLon = 0.0
@@ -3406,7 +3436,7 @@ fun ConvoyMapViewerScreen(
                              * confirm. This path forgot, and the overview
                              * cannot be read through it. */
                             android.util.Log.i("PanelTrace", "PICKER <- false"); showInProgressPicker = false
-                            pinStep = PIN_STEP_WELCOME
+                            android.util.Log.i("PanelTrace", "STEP " + pinStepName(pinStep) + " -> WELCOME"); pinStep = PIN_STEP_WELCOME
                         }
                     },
                     onNewRoute = {
@@ -3426,7 +3456,7 @@ fun ConvoyMapViewerScreen(
                         // treating both alike would throw away a rider's pins
                         // for tapping the wrong chip.
                         if (armed && pinStep != PIN_STEP_NONE) {
-                            pinStep = PIN_STEP_NONE
+                            android.util.Log.i("PanelTrace", "STEP " + pinStepName(pinStep) + " -> NONE"); pinStep = PIN_STEP_NONE
                             pinFeas = null
                             android.util.Log.i("GuidedPin", "ADD selected -- AI flow ended")
                         }
