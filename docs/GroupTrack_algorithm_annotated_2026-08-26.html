@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GroupTrack — The route search algorithm, annotated</title>
+<style>
+ :root{--bg:#12141A;--card:#1B1E26;--line:#2E3440;--tx:#E6E9EF;--dim:#9AA4B2;
+       --red:#FF5C5C;--amb:#FFC53D;--grn:#4ADE80;--blu:#60A5FA;}
+ *{box-sizing:border-box}
+ body{margin:0 auto;background:var(--bg);color:var(--tx);max-width:960px;
+   font:15px/1.65 -apple-system,"Segoe UI",Roboto,sans-serif;padding:34px 22px 90px}
+ h1{font-size:24px;margin:0 0 4px}
+ .sub{color:var(--dim);font-size:13.5px;margin:0 0 26px}
+ h2{font-size:17px;margin:34px 0 10px;padding-bottom:7px;border-bottom:2px solid var(--blu);
+    color:var(--blu)}
+ h3{font-size:14px;margin:20px 0 6px;color:var(--amb)}
+ .card{background:var(--card);border:1px solid var(--line);border-radius:9px;padding:14px 16px;margin:12px 0}
+ .card.stop{border-color:#5C2A2A;background:#20161A}
+ .card.warn{border-color:#5C4A1E;background:#1F1C14}
+ .card.good{border-color:#26502F;background:#141E17}
+ .rule{border-left:3px solid var(--grn);padding-left:13px;margin:12px 0}
+ .why{color:var(--dim);font-size:14px;margin-top:5px}
+ code{background:#0C0E13;padding:1.5px 5px;border-radius:4px;font-size:12.5px;color:#C8D4E4;
+   font-family:ui-monospace,Menlo,Consolas,monospace}
+ pre{background:#0C0E13;border:1px solid var(--line);border-radius:7px;padding:11px 13px;
+   overflow-x:auto;font-size:12.5px;line-height:1.5;color:#C8D4E4;
+   font-family:ui-monospace,Menlo,Consolas,monospace}
+ table{border-collapse:collapse;width:100%;font-size:13.5px;margin:10px 0}
+ th,td{border:1px solid var(--line);padding:7px 9px;text-align:left;vertical-align:top}
+ th{background:#171A21;color:var(--dim);font-weight:600}
+ ul,ol{padding-left:20px;margin:7px 0} li{margin:5px 0}
+ .k{color:var(--amb);font-weight:700} .g{color:var(--grn);font-weight:700} .r{color:var(--red);font-weight:700}
+ .step{background:#171A21;border-radius:6px;padding:3px 9px;font-size:12px;
+   color:var(--blu);font-family:ui-monospace,monospace;margin-right:8px}
+</style>
+</head>
+<body>
+
+<h1>The route search — annotated</h1>
+<p class="sub">2026-08-26 · <code>ALGORITHM-2026-08-26</code> · every step, the rule it applies,
+and why · measured against <code>spatial_after.db</code></p>
+
+<div class="card stop">
+<p><span class="r">⛔ THIS REPLACES THE RANDOMISED GREEDY.</span> The shipping engine runs 2,500
+restarts of a gain-per-mile greedy with a stochastic beam pick and a route-level
+<code>PENALTY</code>. None of that survives. The new search is <b>enumerate, filter, score</b>
+— deterministic, explainable, and it can say WHY a feature was rejected.</p>
+</div>
+
+<h2><span class="step">1</span> Read the corridor</h2>
+<div class="rule">
+<b>RULE.</b> A box of <code>milesHigh / 3</code> around the staging point.
+<p class="why">⭐ <b>Why a third.</b> Measured 2026-08-23: an 80-mile round trip reaches about
+25–30 mi out, so the ceiling divided by three is the shape. The previous formula — half the
+ceiling, scaled, plus a margin — gave a 70×70 box, 53,711 edges and an
+<b>OutOfMemoryError</b> building 112 Dijkstra tables on a 256 MB heap.</p>
+<p class="why">⚠ <b>Do not widen this without measuring edges.</b> 53,711 is the number that
+died. At <code>SNAP_FT</code> 50 the same corridor produces 51,569 — within 4% of it.</p>
+</div>
+<p><b>Measured:</b> 8,065 trails at 37.7235,-112.613.</p>
+
+<h2><span class="step">2</span> Build the graph</h2>
+<div class="rule">
+<b>RULE.</b> Two passes. <b>A:</b> any grid cell holding vertices from 2+ trails is a junction.
+<b>B:</b> split every trail at its endpoints and at every junction.
+<p class="why">⭐ <b>Intersection splitting already exists</b> and works. An earlier prototype
+compared only ENDPOINTS, reported 114 components, and sent us chasing a connectivity problem
+the app does not have. <b>Pass A uses every vertex.</b></p>
+<p class="why">⚠ <b><code>cellKey</code> is a GRID, not a radius.</b> Two points six feet apart
+land in different cells when they straddle a boundary. Measured on the map: a 6 ft gap at a
+trailhead was not joined. Widening the cell halves how often that happens but never removes
+it — the fix is checking the eight neighbouring cells, and it is not built.</p>
+<p class="why">⚠ <b><code>SNAP_FT</code> is a HARD CEILING</b> on how far apart two trails can
+be digitised and still join. At 25 ft, measured 30 ft and 60 ft gaps can never join. Raising it
+to 50 was <b>tried and reverted</b> 08-26: +53.5% edges for no measured benefit — spokes stayed
+at 1 at every tolerance from 25 to 100.</p>
+</div>
+<p><b>Measured:</b> 24,877 nodes, 40,115 edges, 635 components, largest 12,231.</p>
+
+<h2><span class="step">3</span> Find the candidate starts</h2>
+<div class="rule">
+<b>RULE.</b> Every trail passing within <b>600 yards</b> of the staging point is a candidate
+start. Split that trail at the point it passes closest, and use the new node as an origin.
+<p class="why">⭐ <b>This is the defect the whole of 08-25 traced back to.</b>
+<code>nearestNode</code> returns the closest EXISTING node — nodes only exist at junctions, so a
+tap mid-trail is dragged to whichever end is nearer. Measured: <b>613 ft from the staging point,
+with ONE spoke.</b> Every one of the 2,500 restarts then began down that single spoke, and the
+other directions were not under-explored — they were <b>structurally excluded</b>.</p>
+<p class="why">⭐ <b>Fred's framing.</b> A staging area is the hub of a spoked wheel. Picking one
+arbitrary node picks one spoke.</p>
+<p class="why">⚠ <b>Why 600 yards.</b> Measured at 37.8189,-112.416: 200 yds gave <b>1 trail, 1
+component</b>; 300 gave 3 trails and <b>2 components</b>; 600 gave 12 trails and <b>5
+components</b>. Below 300 the only network reachable was a six-node island. A fixed distance,
+not "collect until you have N components" — that would give a different radius depending on how
+local topology happens to fall.</p>
+<p class="why">⭐ <b>Not a trailhead — a staging area.</b> The word matters: "trailhead" implies
+a trail begins there, and it does not. A rider picks the parking lot, which is obvious from
+satellite imagery and needs no trail knowledge.</p>
+</div>
+<p><b>Measured:</b> 13 candidate starts, all with 2 spokes, against <code>nearestNode</code>'s
+single node at 179 ft.</p>
+
+<h2><span class="step">3b</span> Collapse origins to one per component</h2>
+<div class="rule">
+<b>RULE.</b> One origin per connected component, the closest. Every other origin on that
+component is recorded as an <b>alternative start for the same ride</b>.
+<p class="why">⭐ <b>Why.</b> Thirteen origins at 37.7235,-112.613 all had the SAME 13 usable
+POIs — thirteen car parks onto one network. Solving every combination thirteen times to get
+thirteen near-identical answers cost <b>15,093 tour solves at one size alone</b>, and the
+dedupe collapsed them afterwards anyway.</p>
+<p class="why">⚠ <b>The alternatives must be KEPT, not discarded.</b> Throwing them away made
+the origin column read "1 of 5" and the multi-origin search look broken when it was working. A
+rider deciding where to park needs every start a ride can be reached from.</p>
+</div>
+
+<h2><span class="step">4</span> Load and attach the features</h2>
+<div class="rule">
+<b>RULE.</b> <code>reference_points</code> inside the box, minus <code>JUNK</code>
+(<code>county, city, town, tree, village</code>), attached to the nearest graph node within
+<code>POI_BUF_MI = 0.5</code>.
+<p class="why">⛔ <b>NOT to <code>mainComponent</code>.</b> The shipping code attaches POIs only
+to the largest component. Measured 08-26: that component held <b>1</b> of Fred's ten pins while
+another held <b>7</b>. "Largest" is not "the one the rider is near", and binding POIs to it
+makes most of the map invisible.</p>
+<p class="why">⚠ <b><code>MAX_POI</code> matters more than it looks.</b> Capping at 14 gave
+rides of 3 features; at 24 the same location gave rides of 7. The cap was discarding the
+variety.</p>
+</div>
+<p><b>Measured:</b> 274 rows, 99 attached to 93 nodes.</p>
+
+<h2><span class="step">5</span> Distance matrix</h2>
+<div class="rule">
+<b>RULE.</b> One Dijkstra per terminal — every origin and every feature node — giving
+<code>dm[(a,b)]</code> for all pairs.
+<p class="why">⚠ <b>This is the memory risk.</b> One table is one entry per node per terminal.
+The 08-23 OOM was 112 tables on a 256 MB heap; the pin cap of ten and the collapse at step 3b
+are what bound it now.</p>
+</div>
+
+<h2><span class="step">5b</span> Eliminate features by out-and-back</h2>
+<div class="rule">
+<b>RULE.</b> For each origin, drop any feature where
+<code>dm[(origin,poi)] + dm[(poi,origin)] &gt; ceiling</code>. An origin left with nothing is
+dropped entirely.
+<p class="why">⭐ <b>Why this is the cheapest possible filter.</b> Removing ONE feature removes
+every combination containing it. Dropping 1 of 14 loses 8,192 subsets; dropping 4 leaves 1,024
+instead of 16,384 — <b>and none of them are ever generated</b>. A per-combination test still has
+to enumerate all 16,384 to reject them.</p>
+<p class="why">⚠ <b>Conservative by design.</b> This only removes features impossible ON THEIR
+OWN. A feature at 45 mi out-and-back survives here and will still bust when paired with anything
+else — that is what step 5c is for.</p>
+</div>
+<p><b>Measured:</b> 24 features to 13; 24 origins to 13.</p>
+
+<h2><span class="step">5c</span> ⭐ PAIRWISE TABLE — not yet built</h2>
+<div class="card warn">
+<p><span class="k">⚠ THIS IS THE MISSING STEP, and it is where the time goes.</span></p>
+<p><b>RULE.</b> For every pair of surviving features, the minimum ride containing both:
+<code>dm[(o,A)] + dm[(A,B)] + dm[(B,o)]</code>. That is 78 numbers for 13 features, from the
+matrix already computed.</p>
+<p><b>Any combination containing a pair that busts the ceiling is dead — at EVERY size.</b> If
+features 3 and 9 cannot share a ride, every combination containing both disappears at once,
+without being generated.</p>
+<p><b>⭐ And it gives the maximum feasible size directly.</b> Measured 08-26: sizes 13 down to 6
+produced <b>nothing</b> — 3,302 combinations generated, tested and rejected, consuming most of
+the 67.8 seconds. All six rides appeared at size 5. The pair table would have said "5" in 78
+lookups.</p>
+<p><b>⚠ The existing bound is weaker.</b> It uses <code>2 × largest pairwise distance</code>,
+which underestimates because it ignores reaching the origin and returning.</p>
+</div>
+
+<h2><span class="step">6</span> Enumerate, filter, score</h2>
+<div class="rule">
+<b>RULE.</b> Descend by feature count from the largest set down. For each combination, one path
+per origin. Keep only rides between floor and ceiling. Score the survivors.
+<p class="why">⭐ <b>Why descend from all.</b> If the full set fits, it is the answer by
+construction — most features collected. Dropping a level is only necessary when the full set is
+too long.</p>
+<p class="why">⭐ <b>One path per combination per origin.</b> Not 2–3 routings through the same
+features: <b>the variation comes from the origins</b>, which is the point of multi-start.</p>
+<p class="why">⚠ <b>Exact tour up to 8 features, nearest-neighbour above.</b> Permutations of 9+
+are not affordable and the answer only has to be good enough to FILTER on.</p>
+</div>
+
+<h3>Ordering and stopping</h3>
+<div class="rule">
+<b>RULE.</b> Within a feature count, <b>longest ride first</b>. Stop once <b>six distinct
+rides</b> are found.
+<p class="why">⭐ A rider who asked for up to 80 is offered the fullest ride at each level
+before shorter ones. And the descent is largest-first, so anything below collects fewer features
+and scores lower <b>by construction</b> — once six are banked, everything below is wasted work.</p>
+<p class="why">⚠ <b>Six DISTINCT rides</b>, counted on the feature set — not six raw candidates,
+which from one component could be the same ride six times.</p>
+</div>
+
+<h2><span class="step">7</span> Dedupe, in two passes</h2>
+<div class="rule">
+<b>PASS 1.</b> Same origin AND same feature set, within <b>5 miles</b> → keep the highest
+mileage.
+<p class="why">Near-duplicates of one ride found by slightly different tours.</p>
+</div>
+<div class="rule">
+<b>PASS 2.</b> Same feature set, <b>ANY origin</b>, within 5 miles → keep the highest mileage,
+<b>and record every origin it was found from</b>.
+<p class="why">⭐ Measured: Pole Hollow, Little Valley Road and an unnamed trail returned the
+same five knolls at 79.6 / 79.6 / 79.5. One ride, three car parks.</p>
+<p class="why">⛔ <b>WHAT PASS 2 MUST NOT DO:</b> collapse rides that reach DIFFERENT features.
+A trail heading the opposite way is a genuinely different ride at the same mileage, and that is
+the entire point of multi-origin.</p>
+<p class="why">⚠ <b>Highest mileage, not shortest</b> — the rider asked for up to 80.</p>
+</div>
+
+<h2>Where the time goes — measured 08-26</h2>
+<table>
+<tr><th>Location</th><th>Result</th><th>Time</th></tr>
+<tr><td>37.8189,-112.416</td><td>2 rides (POI cap 14) → 20 sets (cap 24)</td><td>25.1s</td></tr>
+<tr><td>37.7678,-112.547</td><td>64 distinct rides</td><td>116.7s</td></tr>
+<tr><td>37.7235,-112.613</td><td>6 distinct rides, stopped on its own</td><td>67.8s</td></tr>
+</table>
+<div class="card warn">
+<p><span class="k">⚠ FIVE MINUTES IS ACCEPTABLE IF THE RIDER SEES PROGRESS</span> (Fred, 08-26)
+— <b>but only if the progress display costs less than the phase it describes</b>. Drawing 99
+pins during a 0.3s phase costs more than the phase. Instrument first, narrate second.</p>
+</div>
+
+<h2>⭐⭐ THE PLAN — Fred, 2026-08-26. Three phases, in this order.</h2>
+
+<div class="card good">
+<p><span class="g">PHASE 1 — REPLACE THE ROUTE BUILD.</span> Port this POC into
+<code>RouteExplorer.explore()</code>, replacing the randomised greedy. <b>Explore mode only,
+no user points.</b> Existing UI, existing WIP process, nothing else touched.</p>
+<p><b>Then evaluate.</b> Six rides on the device from a real staging area, judged on the map.</p>
+</div>
+
+<div class="card good">
+<p><span class="g">PHASE 2 — INTEGRATE THE USER POINTS, END TO END.</span> Rider pins into the
+same build, with the existing UI and WIP steps. <b>The goal is a product that can be tested and
+evaluated</b>, not a demo.</p>
+<p>⭐ The pins are mandatory here, not scored: every origin must reach them all or it is
+eliminated, and every ride must contain them all or it is discarded. What varies is what ELSE
+each ride picks up.</p>
+</div>
+
+<div class="card good">
+<p><span class="g">PHASE 3 — THE EVALUATION PANEL. Only once phase 2 is steady.</span></p>
+<ul>
+<li><b>A new directory, same WIP structure</b> — the six built rides live together</li>
+<li><b>All six drawn on the map in unique colours</b></li>
+<li><b>A grid of six</b>; press a ride's name for its narrative</li>
+<li><b>Hide and unhide</b> any ride, reversibly</li>
+<li><b>Save one to completed routes, delete the rest</b> at the end</li>
+</ul>
+<p><b class="hi">⛔ NO RANKING.</b> Fred, 08-26: <i>"we don't rank, we present 6 recommended
+rides."</i> The score's only job is getting six good candidates into the list — <b>it never
+faces the rider</b>. That is why "2 of 6 unique scores" was never a real problem: the rider
+compares by WHAT IS ON each ride, and the feature sets are 6 of 6 distinct.</p>
+<p><b>⭐ The rider has the narrative and the display with all routes on it, and decides what to
+make permanent.</b> No "best", no recommendation of a recommendation.</p>
+</div>
+
+<div class="card warn">
+<p><span class="k">⚠ WHAT PHASE 1 MUST CARRY WITH IT</span> — these are not optional, each was
+measured:</p>
+<ul>
+<li><b>Candidate starts within 600 yds</b>, edge-split at the closest approach — not
+<code>nearestNode</code></li>
+<li><b>Collapse to one origin per component</b>, keeping the alternatives for display</li>
+<li><b>POIs attach to any component an origin is on</b> — NOT <code>mainComponent</code></li>
+<li><b>Out-and-back filter</b> (5b) and the <b>pairwise table</b> (5c) — together these took
+67.8s to 3.8s</li>
+<li><b>Spatial grid for POI attachment</b> — 5.8s to 0.1s. <code>nearestNode</code> has the
+same defect and the same fix.</li>
+<li><b>Descend from the clique bound</b>, longest ride first within a size, stop at six
+distinct</li>
+<li><b>Both dedupe passes</b>, pass 2 keeping the origins it collapses</li>
+</ul>
+</div>
+
+<h2>⭐ SETTLED 08-26 — the ordering, and what is still owed</h2>
+
+<div class="card good">
+<p><span class="g">THE ALGORITHM, STATED PLAINLY:</span></p>
+<p><b>Filter to feasible → solve in points-descending order → keep what fits the band → stop
+at six → present ranked by points, then mileage descending.</b></p>
+<p><b>⭐ Points are the only SEARCH ordering.</b> <code>scoreSet</code> depends only on which
+features are in a set, not on the route through them — so candidates can be sorted before a
+single tour is solved. Six solves of the thing that costs anything, not thousands.</p>
+<p><b>⚠ DISTANCE IS A FILTER, NEVER A SORT KEY during the search.</b> Fred, 08-26: <i>"you
+cannot take distance until completion of a score. each route may expand beyond the
+minimum."</i> The pair table gives a MINIMUM; a combination bounded at 72 may solve to 78 or to
+65 and fail the floor. Actual mileage exists only once the tour is done.</p>
+<p><b>⭐ Mileage ranks only AMONG EQUALS, at presentation.</b> Two rides collecting the same
+features: the longer wins, because a rider who asked for up to 80 wants the fullest ride.</p>
+</div>
+
+<div class="card warn">
+<p><span class="k">⚠ STOP-AT-SIX IS CHECKED BETWEEN SIZES, NOT INSIDE ONE.</span> So the current
+size completes before stopping. At the top size in a POI-dense area that is the blow-up —
+C(30,15) is 155 million. <b>Solving in points order and checking after each solve removes it
+entirely.</b></p>
+<p><b>⚠ And it may be worth solving ten, presenting six.</b> Stopping at exactly six means a
+seventh solve might have found a longer ride at the same points — so "longest at each point
+level" is approximately true rather than guaranteed. Ten solves instead of six costs nothing.</p>
+</div>
+
+<div class="card">
+<p><b>⭐⭐ OWED: ROUTE-DIVERSITY DEDUPE.</b> Fred, 08-26: <i>"if 60 miles of an 80 mile trail
+are the same trails to the same POIs, are they really different routes?"</i></p>
+<p>Today's dedupe compares the POI set and the mileage. It gets BOTH errors:</p>
+<ul>
+<li>Two rides on the same trails, differing only at the end, are kept as different</li>
+<li>Two rides reaching the same features by <b>genuinely different trails</b> — which IS
+diversity — would be collapsed</li>
+</ul>
+<p><b>⭐ Edge overlap fixes both.</b> Every ride is already a list of edge ids
+(<code>eids</code> in <code>picks</code>), so <code>|A ∩ B| / |A ∪ B|</code> is computable from
+data already in hand. Two rides sharing most of their edges are one ride.</p>
+<p><b>⚠ The threshold is empirical</b> — 50%? 70%? — and the comparison panel is exactly what
+would show it: shared versus unique trails per ride. <b>Add the dedupe section once results
+are being evaluated</b>, not before.</p>
+</div>
+
+<div class="card">
+<p><b>⭐ SCORING BY SOMETHING OTHER THAN FEATURES — Fred, 08-26.</b> POI scoring assumes a
+ride's value is what you stop and look at. For OHV riding it may mostly be <b>what the trail is
+like to ride</b>. Candidates:</p>
+<ul>
+<li><b>Difficulty</b> — GPX carries elevation, so climb and grade are derivable from what is
+already imported. Surface is ~30% populated in OSM.</li>
+<li><b>Popularity</b> — in no current source. The track survey (<code>enjoyment</code>,
+<code>ride_again</code>) is the only rider-supplied signal that exists.</li>
+<li><b>Proximity to services</b> — <code>reference_points.fclass</code> may already carry
+this. <b>Worth listing the actual fclass values before designing anything.</b></li>
+</ul>
+<p><b>⚠ And a different SHAPE of ride:</b> "20–30 miles to lunch and then home" is not a loop
+optimising features — it is a destination ride where the POI that matters is a café and the
+metric is somewhere to eat at roughly half distance.</p>
+</div>
+
+<div class="card warn">
+<p><span class="k">⚠ AREAS WITH NO FEATURES AT ALL.</span> With <code>poiNodes</code> empty
+every combination is empty and the engine returns nothing. <b>Fred's answer: require a pin.</b>
+"We don't have any named features here — drop a pin where you'd like the ride to go." The rider
+supplies the target the data lacks, and the existing pipeline runs unchanged.</p>
+<p><b>⚠ Probably a threshold, not a zero test</b> — one feature in range is barely better than
+none. And one pin gives one destination, so the six rides would differ only by route: ask for
+two or three.</p>
+</div>
+
+<h2>Open</h2>
+<ul>
+<li><b>Step 5c is not built.</b> It is the single biggest performance win available.</li>
+<li><b>Scores do not separate well</b> — six rides at 37.7235 produced only 2 unique scores
+(13.0 and 12.3). Five features of similar class score alike, so ranking between them is
+effectively arbitrary.</li>
+<li><b>Neighbour-cell check</b> in <code>cellKey</code> — the grid-vs-radius flaw, unfixed.</li>
+<li><b>Nothing here is in Kotlin.</b> The POC is the specification; the port comes after the
+endstate is agreed.</li>
+</ul>
+
+</body>
+</html>

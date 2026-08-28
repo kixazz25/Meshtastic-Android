@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GroupTrack — Candidate routes: shortlist, compare, promote</title>
+<style>
+ :root{--bg:#12141A;--card:#1B1E26;--line:#2E3440;--tx:#E6E9EF;--dim:#9AA4B2;
+       --red:#FF5C5C;--amb:#FFC53D;--grn:#4ADE80;--blu:#60A5FA;}
+ *{box-sizing:border-box}
+ body{margin:0 auto;background:var(--bg);color:var(--tx);max-width:940px;
+   font:15px/1.65 -apple-system,"Segoe UI",Roboto,sans-serif;padding:34px 22px 90px}
+ h1{font-size:24px;margin:0 0 4px}
+ .sub{color:var(--dim);font-size:13.5px;margin:0 0 26px}
+ h2{font-size:16px;margin:32px 0 10px;padding-bottom:7px;border-bottom:1px solid var(--line)}
+ h3{font-size:14px;margin:20px 0 6px;color:var(--blu)}
+ .card{background:var(--card);border:1px solid var(--line);border-radius:9px;padding:15px 17px;margin:13px 0}
+ .card.stop{border-color:#5C2A2A;background:#20161A}
+ .card.warn{border-color:#5C4A1E;background:#1F1C14}
+ .card.good{border-color:#26502F;background:#141E17}
+ code{background:#0C0E13;padding:1.5px 5px;border-radius:4px;font-size:12.5px;color:#C8D4E4;
+   font-family:ui-monospace,Menlo,Consolas,monospace}
+ pre{background:#0C0E13;border:1px solid var(--line);border-radius:7px;padding:11px 13px;
+   overflow-x:auto;font-size:12.5px;line-height:1.5;color:#C8D4E4;
+   font-family:ui-monospace,Menlo,Consolas,monospace}
+ table{border-collapse:collapse;width:100%;font-size:13.5px;margin:10px 0}
+ th,td{border:1px solid var(--line);padding:7px 9px;text-align:left;vertical-align:top}
+ th{background:#171A21;color:var(--dim);font-weight:600}
+ ul,ol{padding-left:20px;margin:7px 0} li{margin:5px 0}
+ .k{color:var(--amb);font-weight:700} .g{color:var(--grn);font-weight:700} .r{color:var(--red);font-weight:700}
+ .sw{display:inline-block;width:11px;height:11px;border-radius:2px;margin-right:6px;
+     vertical-align:baseline}
+ /* ── live legend mockup ─────────────────────────────────────────────── */
+ .demo{display:flex;gap:16px;flex-wrap:wrap;margin:16px 0;align-items:flex-start}
+ .mapbox{position:relative;width:400px;height:400px;border-radius:12px;overflow:hidden;
+   border:1px solid #2A2F37;background:
+     radial-gradient(circle at 28% 30%,#6E7C5F 0 110px,transparent 111px),
+     radial-gradient(circle at 70% 66%,#6A7A5C 0 130px,transparent 131px),
+     linear-gradient(160deg,#5F6E54,#4E5B46)}
+ .mapbox svg{position:absolute;inset:0}
+ .thmark{position:absolute;transform:translate(-50%,-50%);width:30px;height:30px;
+   border-radius:6px;background:#1B1E23;border:2px solid #4FA3E3;color:#4FA3E3;
+   display:flex;align-items:center;justify-content:center;font:900 10px/1 sans-serif}
+ .legend{width:330px;background:var(--card);border:1px solid var(--line);
+   border-radius:10px;overflow:hidden}
+ .legend h4{margin:0;padding:11px 13px;font-size:12px;letter-spacing:.6px;
+   text-transform:uppercase;color:var(--dim);border-bottom:1px solid var(--line)}
+ .lrow{border-bottom:1px solid var(--line)}
+ .lhead{display:flex;align-items:center;gap:9px;padding:9px 12px;cursor:pointer}
+ .lhead:hover{background:#20242D}
+ .dot{width:13px;height:13px;border-radius:3px;flex:none}
+ .lname{flex:1;font-size:13.5px;font-weight:700}
+ .lmeta{font-size:11px;color:var(--dim);font-family:ui-monospace,monospace}
+ .eye{width:30px;height:26px;border-radius:5px;border:1px solid var(--line);
+   background:#171A21;color:var(--dim);font-size:12px;cursor:pointer;flex:none}
+ .eye.off{opacity:.4}
+ .pick{width:19px;height:19px;flex:none;accent-color:#4ADE80}
+ .narr{display:none;padding:2px 13px 13px 46px;font-size:12.5px;color:var(--dim);
+   line-height:1.6}
+ .narr.open{display:block}
+ .narr b{color:var(--tx)}
+ .lfoot{padding:11px 13px;display:flex;gap:9px;align-items:center}
+ .lfoot button{flex:1;padding:10px;border-radius:7px;border:0;font-weight:800;
+   font-size:12.5px;cursor:pointer;background:#2FBF5B;color:#fff}
+ .lfoot .cnt{font-size:11.5px;color:var(--dim)}
+</style>
+</head>
+<body>
+
+<h1>Candidate routes — shortlist, compare, promote</h1>
+<p class="sub">Design, 2026-08-26 · <code>CANDIDATES-2026-08-26</code> ·
+supersedes the four-route results list</p>
+
+<div class="card stop">
+<p><span class="r">⛔ DEPENDS ON THE ORIGIN FIX.</span> None of this is worth building while
+every route starts from one arbitrary spoke — nine candidates that all leave in the same
+direction is a worse experience than four, not a better one. <b>Fix the origin first, then
+build this.</b></p>
+</div>
+
+<h2>1. Where the candidates come from</h2>
+<p><b>Every trail within 200 yards of the trailhead is a candidate start</b>, not just the one
+nearest node. Each start gets its own search, so each spoke produces its own route sequences.</p>
+<p>You may get four routes east and three north — <b>and that asymmetry is information</b>, not
+a fault. It says where the riding is.</p>
+
+<div class="card good">
+<p><span class="g">⭐ THIS REPLACES THE PENALTY MECHANISM.</span> Today route 2 is found by
+penalising route 1's edges (<code>PENALTY = 2.2</code>), which pushes the search <b>away from
+the hub</b> rather than down a different spoke. Independent searches from each start make the
+routes different <b>by construction</b> rather than by discouragement.</p>
+</div>
+
+<p><b>⚠ Open:</b> 200 yards from the pin, or 200 yards along each trail? A trail passing 50 ft
+away and one passing 190 yards away are both candidates, but the second starts the ride 190
+yards from where the rider stood. And each start is a full 2,500-restart search — four starts is
+10,000. <b>Measure the cost before fixing the candidate count.</b></p>
+
+<div class="card good">
+<p><span class="g">⭐ THE SEARCH MAY PRODUCE TWENTY. THE PANEL SHOWS THE NINE HIGHEST.</span>
+Fred, 08-26. Four starts producing five sequences each is twenty candidates — that is the
+normal case, not an edge case. <b>Every candidate is scored, ranked across all starts, and the
+top nine surface.</b></p>
+<p><b>⚠ Ranking across starts, not within them.</b> If the east spoke genuinely holds the six
+best rides, the rider should see six east routes — <b>not one per direction for fairness</b>.
+The asymmetry is the information.</p>
+<p><b class="hi">⭐ AND THE RIDER ALREADY HAS THE CONTROL FOR THIS: THE PINS.</b> Fred, 08-26:
+<i>"if the rider wants focus he drops pins to control the area."</i> Balancing directions
+artificially would be the app second-guessing a rider who has not asked for anything. A rider
+who wants the ride to go north <b>drops a pin north</b> — and the high-value user POI pulls the
+search there by scoring, which is the mechanism that already exists.</p>
+<p><b>So: no direction quota, no spreading, no fairness rule.</b> Unpinned means "show me the
+best rides here"; pinned means "these places must be in it". Two clear modes, and the rider
+chooses which by dropping pins or not.</p>
+<div class="card good" style="margin-top:10px">
+<p><span class="g">⭐ HOW TO SAY IT TO A RIDER: PINS PROVIDE FOCUS TO THE SEARCH.</span>
+Fred, 08-26. Same functionality, and it is what a rider can actually hold in their head —
+<b>"Drop pins on the areas or features you want included."</b></p>
+<p>That wording is doing real work: <b>"areas or features"</b> covers both ways a rider thinks
+about it. Sometimes they know the exact thing — a spring, an overlook, a climb. Sometimes they
+only know the part of the map they want the ride to spend time in. <b>Both are legitimate and
+the app treats them the same way.</b></p>
+<p>The mechanism underneath is unchanged and is two jobs at once: the pins <b>bound the region
+worth searching</b>, and each is a <b>high-value POI the route is pulled to reach</b>. But
+neither of those is a sentence a rider needs. <b>Focus</b> is.</p>
+<p><b>⚠ The boundary is DERIVED FROM the pins, never a filter that excludes them</b> — and it
+must carry mileage headroom. Ten pins inside a 10-mile circle with a 55–80 mile band means the
+ride has to range well beyond the pins' own extent. <b>Boundary from pins PLUS headroom</b>,
+not pins alone. Tightening the region to the pins is what starves the search.</p>
+</div>
+<p><b>⚠ Open:</b> are the other eleven written as WIPs too, or discarded at ranking? Writing
+twenty and showing nine means eleven files nobody asked for; discarding means a route that
+ranked tenth is gone for good. <b>Leaning: rank first, write only the nine.</b></p>
+</div>
+
+<h2>1b. ⭐⭐ THE ALGORITHM — enumerate, filter, score (Fred, 08-26)</h2>
+<p><b>This replaces the randomised greedy entirely.</b> No gain-per-mile ordering, no beam
+pick, no 2,500 restarts, no route-level <code>PENALTY</code>.</p>
+<ol>
+<li><b>List the POIs</b> in range.</li>
+<li><b>List the starting points</b> — every trail within 200 yards of the trailhead.</li>
+<li><b>Start with ALL POIs together</b>, then work down through combinations: all, then every
+set of N−1, then N−2, and so on.</li>
+<li><b>One path per POI combination, per origin.</b> Not 2–3 routings through the same POIs —
+<b>the variation comes from the origins</b>, which is the point of multi-start.</li>
+<li><b>Throw out anything over the ceiling or under the floor.</b></li>
+<li><b>Score everything that survives</b>, rank across all origins, surface the top nine.</li>
+</ol>
+
+<div class="card good">
+<p><span class="g">⭐ WHY DESCENDING FROM ALL POIs.</span> If the full set fits the mileage, it
+is the answer by construction — most features collected. Dropping a level only becomes
+necessary when the full set is too long, and the search <b>stops at the first level that
+yields feasible routes</b> rather than enumerating everything.</p>
+</div>
+
+<div class="card warn">
+<p><span class="k">⚠ THE COMBINATORIAL COST IS THE THING TO MEASURE FIRST.</span> With 18 POIs:
+1 set at level 18, 18 at level 17, 153 at 16, 816 at 15. If the mileage only permits 8, that is
+43,758 sets — each needing a tour solve, multiplied by the number of origins.</p>
+<p>Fine at 12 POIs, not at 30. <b>Measure before building:</b> how many POIs are typically in
+range, and how deep the descent goes before routes fit.</p>
+</div>
+
+<div class="card">
+<p><b>⭐ Clustering is not a fault.</b> The high scores may all be in one direction because
+that is where the riding is. <b>The rider drops pins if they want focus</b> — no direction
+quota, no spreading.</p>
+</div>
+
+<h2>1c. ⭐⭐ THE SEARCH IS WATCHED ON THE MAP, NOT NARRATED (Fred, 08-26)</h2>
+
+<div class="card good">
+<p><span class="g">⭐ FIVE MINUTES IS FINE IF THE RIDER KNOWS WHAT IS HAPPENING.</span>
+Fred, 08-26: <i>"laying out 5 tracks in 5 minutes is ok if we post completion one track at
+a time ... the longer it takes the more messaging we must produce."</i></p>
+<p><b>Silence is the problem, not duration.</b> So the work is SHOWN on the map rather than
+described in a progress bar — and each step is real work completing, so progress is literal
+rather than guessed.</p>
+</div>
+
+<h3>The sequence a rider watches</h3>
+<ol>
+<li><b>Banner names the step</b> — before each stage, so the rider knows what they are about
+to see happen.</li>
+<li><b>Every feature drops as a coloured pin</b> — all of them in the corridor, coloured by
+type.</li>
+<li><b>Mileage elimination.</b> Pins that cannot be reached out-and-back inside the ceiling
+<b>vanish</b>. Measured: 24 down to 13. The rider is seeing the true reach of an 80-mile
+ride.</li>
+<li><b>Combination elimination.</b> Pins in no valid combination vanish — the bound prune,
+made visible.</li>
+<li><b>Survivors stay lit.</b> These are what every route will be built from.</li>
+<li><b>Routes draw one at a time</b>, each in its own colour, appearing as they are found
+rather than all at the end.</li>
+</ol>
+
+<div class="card">
+<p><b>⭐ STEP 4 IS THE ONE THAT TEACHES SOMETHING.</b> A pin that survives mileage and then
+dies on combinations is telling the rider <i>"you can reach this, but not together with
+anything else worth having."</i> That is real terrain knowledge and it is completely invisible
+today.</p>
+<p><b>⭐ And the rider keeps what they learn.</b> By the time six routes are drawn they
+understand where the features are, which trails they could have started from, and what an
+80-mile ride actually reaches from that staging area.</p>
+</div>
+
+<div class="card warn">
+<p><span class="k">⚠ PINS VANISH, THEY DO NOT GREY OUT</span> (Fred, 08-26). Cleaner, and it
+keeps the map readable — 99 pins greyed is still 99 pins.</p>
+<p><b>⚠ The banner comes BEFORE each step, not during.</b> The rider is told what is about to
+happen, then watches it happen. A banner that appears afterwards is a report; one that appears
+first is an explanation.</p>
+</div>
+
+<div class="card warn">
+<p><span class="k">⚠ WHERE THE TIME ACTUALLY GOES — measured 08-26 at 37.7235,-112.613.</span>
+Sizes 13 down to 6 produced <b>nothing</b> and consumed most of the 67.8 seconds; all six rides
+appeared at size 5 in quick succession.</p>
+<p>So the rider would watch a long "weighing combinations" phase and then six routes arrive
+almost together. <b>That phase needs an honest count</b> — combinations tested, ticking down —
+rather than a generic "working".</p>
+</div>
+
+<div class="card">
+<p><b>⭐ IT MERGES WITH THE COMPARISON PANEL.</b> The routes are already drawn in distinct
+colours by the time the search ends, so selection and comparison happen on the same screen the
+search happened on. No transition, no separate results view.</p>
+<p><b>⚠ Real work, though:</b> the map must draw progressively from a background search, which
+is a different pattern from the current build-then-render.</p>
+</div>
+
+<h2>2. The nine shown are saved as WIPs immediately</h2>
+<p><b>Nothing is lost to a crash or a back button.</b> The WIPs are the safety net, not a
+decision.</p>
+
+<div class="card good">
+<p><span class="g">⭐ SAVING STOPS BEING A DECISION.</span> Today a rider must save a route
+before it can be seen on the map with the others — so every save is ambiguous: did they want
+this route, or did they just want to look at it? Writing all nine automatically makes the
+rider's <b>selection</b> the only decision that carries meaning.</p>
+</div>
+
+<h2>3. The panel: nine on the map, toggled</h2>
+<table>
+<tr><th>Column</th><th>Why it is there</th></tr>
+<tr><td><b>Show</b></td><td>Draw or hide this candidate on the map</td></tr>
+<tr><td><b>Score</b></td><td>The ranking that produced the nine</td></tr>
+<tr><td><b>Direction</b></td><td>Which spoke it leaves on — lets a rider work by direction,
+which is the fan they are looking for</td></tr>
+<tr><td><b>Distance / hours</b></td><td>The band check</td></tr>
+<tr><td><b>Feature mix</b></td><td>In words: "2 summits, a spring, 4 unnamed tracks"</td></tr>
+<tr><td><b>Retrace %</b></td><td>How much doubles back</td></tr>
+</table>
+
+<div class="card warn">
+<p><span class="k">⚠ THE MAP CANNOT TELL THEM APART, and that is the central problem.</span>
+Fred, 08-26: <i>"most or all cover the same ground."</i> Nine lines over the same trails is
+spaghetti. <b>What distinguishes them is what is ON them</b> — which is why the narrative
+content belongs in the table, not behind a button.</p>
+<p><b>Where they differ least, the differences matter most.</b> If eight routes all read "2
+summits and a spring", the one with three summits is the answer — and that must be visible
+without opening nine panels.</p>
+</div>
+
+<h2>4. Compare — two or three, properly</h2>
+<p>Nine is a <b>shortlist</b>. The compare takes <b>two or three finalists</b>.</p>
+<ol>
+<li>Tick two or three in the panel</li>
+<li><b>Each gets a distinct colour</b> on the map; the others hide</li>
+<li>The colour is echoed in the comparison, so a column and a line are visibly the same
+route</li>
+<li>Rule one out and hide it — <b>reversible</b>, it can be turned back on</li>
+</ol>
+
+<div class="card good">
+<p><span class="g">⭐ THE COMPARISON IS AUTOMATED, AND IT SPLITS SHARED FROM UNIQUE.</span></p>
+<p><b>Shared</b> — features and trails all the selected routes hit. Over the same ground this
+is most of the content, and <b>it is noise for the purpose of choosing</b>.</p>
+<p><b>Unique</b> — what only one route reaches. <b>This is the whole answer.</b></p>
+<p>Three narratives printed side by side is not a comparison. Computing the difference is.</p>
+</div>
+
+<p><b>⭐ Colour is why the shortlist matters:</b> three colours that read on satellite imagery is
+achievable; nine is not. Note that <b>red is already taken</b> — the Distance HUD and the rider's
+pins both use <code>#FF0000</code>.</p>
+
+<h2>4b. ⭐⭐ THE PANEL IS A LEGEND (Fred, 2026-08-26)</h2>
+
+<div class="card good">
+<p><span class="g">That single word settles the whole design.</span> A legend is not a
+results list — it is the key that ties what is drawn on the map to what it is called.</p>
+<p><b>So each row is: the route name, in the same colour as its line on the map.</b> Nothing
+else is needed to know which is which.</p>
+</div>
+
+<h3>What a row does</h3>
+<table>
+<tr><th>Element</th><th>Behaviour</th></tr>
+<tr><td><b>Name, in the route's colour</b></td><td>The tie between the legend and the map.
+⚠ Colour alone cannot be spoken about or listed; a name alone cannot be found on a map.
+<b>Both, or the comparison does not work.</b></td></tr>
+<tr><td><b>Tap the name</b></td><td>Opens that route's narrative — what is on it, at what
+mile, which named trails, how much doubles back.</td></tr>
+<tr><td><b>Show / hide</b></td><td>Draws or removes that route from the map. Reversible at
+any time.</td></tr>
+<tr><td><b>Select</b></td><td>Marks it to be saved as a permanent route. ⚠ <b>Multi-select</b>
+— a rider who finds two good rides keeps both.</td></tr>
+</table>
+
+<div class="card">
+<p><b>⭐ HIDE AND UNHIDE IS THE COMPARISON TOOL.</b> Fred, 08-26: <i>"look at two, look at
+three."</i> Six routes drawn at once over the same ground is spaghetti — the rider narrows it
+by turning routes off, compares two or three, brings others back.</p>
+<p>That is why hiding must be <b>free and reversible</b>. It is not a decision, it is how
+looking works. Nothing is discarded until the rider chooses at the end.</p>
+</div>
+
+<div class="card warn">
+<p><span class="k">⚠ SIX COLOURS THAT READ ON SATELLITE IMAGERY.</span> Harder than it
+sounds: <code>#FF0000</code> is already spoken for by the Distance HUD and the rider's pins.
+The imagery underneath is green, tan and grey, and a route line is thin.</p>
+<p>⭐ Hiding helps here too — with two or three shown, the colours only have to be distinct
+from each other and from the ground, not from five others as well.</p>
+</div>
+
+<h2>4c. THE PANEL, LIVE</h2>
+<p style="color:var(--dim);font-size:13.5px">Tap a name for its narrative. Use the eye to
+hide a route and the box to keep it. Try showing two, then three.</p>
+
+<div class="demo">
+  <div class="mapbox" id="mb">
+    <svg viewBox="0 0 400 400" id="lines"></svg>
+    <div class="thmark" style="left:50%;top:52%">TH</div>
+  </div>
+
+  <div class="legend">
+    <h4>Six recommended rides</h4>
+    <div id="rows"></div>
+    <div class="lfoot">
+      <span class="cnt" id="cnt">none selected</span>
+      <button onclick="save()">SAVE SELECTED</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const R=[
+ {n:"Asay Knoll Loop",c:"#4FA3E3",mi:79.7,f:7,
+  d:"M200,208 C120,150 90,90 150,60 C210,30 300,70 320,130 C340,190 280,240 200,208 Z",
+  t:"<b>7 features, 79.7 mi, 5.5\u20136.6 hours.</b> Asay Knoll, Bowers Knoll, Buck Knoll, Henrie Knoll, Little Mountain, Markagunt Plateau, Strawberry Point.<br><br>Climbs out on Birch Spring\u2013Pass Creek Loop, works the plateau rim, drops to Strawberry Point at mile 41. <b>18% doubles back.</b> Nine miles unnamed track."},
+ {n:"Castle Rock Circuit",c:"#FFC53D",mi:79.2,f:6,
+  d:"M200,208 C260,170 330,180 340,240 C350,300 280,340 220,320 C170,300 160,240 200,208 Z",
+  t:"<b>6 features, 79.2 mi, 5.5\u20136.6 hours.</b> Bowers Knoll, Buck Knoll, Castle Rock, Henrie Knoll, Little Mountain, Strawberry Knolls.<br><br>East from the staging area on Pass Creek Road, Castle Rock at mile 28. <b>24% doubles back.</b> Mostly named trail."},
+ {n:"Haycock Mountain Run",c:"#4ADE80",mi:79.0,f:6,
+  d:"M200,208 C150,250 70,260 60,200 C50,140 110,110 160,140 C200,165 220,185 200,208 Z",
+  t:"<b>6 features, 79.0 mi, 5.5\u20136.6 hours.</b> Asay Knoll, Boy Scout Spring, Buck Knoll, Haycock Mountain, Olsen Spring, Pine Knoll.<br><br>West on Haycock Mountain OHV Route, two springs in the first twenty miles. <b>31% doubles back</b> \u2014 the west side is a spur network."},
+ {n:"Strawberry Point Out",c:"#C084FC",mi:80.0,f:5,
+  d:"M200,208 C240,140 300,100 350,140 C390,175 370,250 310,260 C255,270 215,250 200,208 Z",
+  t:"<b>5 features, 80.0 mi, 5.6\u20136.7 hours.</b> Bowers Knoll, Buck Knoll, Castle Rock, Henrie Knoll, Little Mountain.<br><br>The longest of the six, right on your ceiling. Northeast, high ground most of the way. <b>12% doubles back</b> \u2014 the cleanest loop here."},
+ {n:"Pass Creek Short",c:"#FB923C",mi:74.6,f:5,
+  d:"M200,208 C170,160 190,110 250,110 C310,110 330,160 300,200 C270,240 230,250 200,208 Z",
+  t:"<b>5 features, 74.6 mi, 5.2\u20136.2 hours.</b> Asay Knoll, Bowers Knoll, Buck Knoll, Markagunt Plateau, Strawberry Knolls.<br><br>The shortest here, five miles under the rest. <b>22% doubles back.</b> Good if the group is slower than you planned."},
+ {n:"Olsen Spring Way",c:"#22D3EE",mi:76.9,f:5,
+  d:"M200,208 C160,270 90,300 70,260 C50,215 100,170 150,180 C185,188 210,195 200,208 Z",
+  t:"<b>5 features, 76.9 mi, 5.3\u20136.4 hours.</b> Asay Knoll, Boy Scout Spring, Buck Knoll, Olsen Spring, Pine Knoll.<br><br>Southwest, two springs and a knoll cluster. Shares only 18\u201338% of its trails with anything else \u2014 <b>the most different ride of the six.</b>"}
+];
+const shown=R.map(()=>true), picked=R.map(()=>false);
+function paint(){
+  document.getElementById('lines').innerHTML=R.map((r,i)=>shown[i]
+    ?`<path d="${r.d}" fill="none" stroke="${r.c}" stroke-width="3.5"
+        stroke-linecap="round" opacity=".95"/>`:'').join('');
+  document.getElementById('rows').innerHTML=R.map((r,i)=>`
+    <div class="lrow">
+      <div class="lhead">
+        <input class="pick" type="checkbox" ${picked[i]?'checked':''}
+               onclick="event.stopPropagation();pick(${i})">
+        <span class="dot" style="background:${r.c}"></span>
+        <span class="lname" style="color:${r.c}" onclick="narr(${i})">${r.n}</span>
+        <span class="lmeta">${r.mi} mi &middot; ${r.f}</span>
+        <button class="eye ${shown[i]?'':'off'}" onclick="event.stopPropagation();eye(${i})"
+          >${shown[i]?'\u25c9':'\u25cb'}</button>
+      </div>
+      <div class="narr" id="n${i}">${r.t}</div>
+    </div>`).join('');
+  const k=picked.filter(Boolean).length;
+  document.getElementById('cnt').textContent=
+    k===0?'none selected':k+' route'+(k>1?'s':'')+' to save';
+}
+function eye(i){shown[i]=!shown[i];const o=document.getElementById('n'+i);
+  const was=o&&o.classList.contains('open');paint();
+  if(was)document.getElementById('n'+i).classList.add('open');}
+function pick(i){picked[i]=!picked[i];const o=document.getElementById('n'+i);
+  const was=o&&o.classList.contains('open');paint();
+  if(was)document.getElementById('n'+i).classList.add('open');}
+function narr(i){const e=document.getElementById('n'+i);e.classList.toggle('open');}
+function save(){const k=picked.map((p,i)=>p?R[i].n:null).filter(Boolean);
+  alert(k.length?'Saved as permanent route(s):\n\n'+k.join('\n')+
+    '\n\nThe other '+(6-k.length)+' are cleared away.'
+   :'Nothing selected \u2014 tick the routes you want to keep.');}
+paint();
+</script>
+
+<div class="card warn">
+<p><span class="k">⚠ THE MOCKUP USES REAL MEASURED DATA.</span> Distances, feature counts and
+retrace percentages are from the 08-26 device run at Birch Spring / Pass Creek. The route
+shapes are drawn, not routed.</p>
+<p><b>⚠ Six colours is the hard part.</b> Red is unavailable — the Distance HUD and the
+rider's pins own <code>#FF0000</code>. These six were chosen to separate on green and tan
+ground, but they have not been tested over real imagery at trail-line width.</p>
+</div>
+
+<h2>4d. ⭐⭐ ONE BATCH AT A TIME — the open-batch lock</h2>
+
+<div class="card good">
+<p><span class="g">Fred, 2026-08-26:</span> <i>"suggest a json to not allow another route be
+created until this batch is completed and resolved — one set of six at a time."</i></p>
+<p><b>Right, and it prevents a real mess.</b> Six unresolved routes plus six more is twelve
+drafts with no way to tell which search produced which. The rider loses track and the WIP
+list becomes unusable by Friday.</p>
+</div>
+
+<h3>The lock file</h3>
+<p><code>/sdcard/Documents/GroupTrack/route_batches/open_batch.json</code></p>
+<pre>{
+  "batch_id":   "panguitch-september-2026-08-26T14-22-11",
+  "name":       "Panguitch September",
+  "created_at": "2026-08-26T14:22:11Z",
+  "state":      "open",
+
+  "staging":    { "lat": 37.7235, "lon": -112.6130,
+                  "waypoint": "Birch Spring staging" },
+  "band":       { "miles_low": 55, "miles_high": 80,
+                  "mph_low": 12, "mph_high": 18 },
+  "pins":       [ { "lat": 37.7301, "lon": -112.5998,
+                    "moved_ft": 33, "onto": "Horse Valley Road" } ],
+
+  "routes": [
+    { "n": 1, "draft": "Panguitch September Route 1",
+      "colour": "#4FA3E3", "miles": 79.7, "features": 7,
+      "state": "offered" },
+    { "n": 2, "draft": "Panguitch September Route 2",
+      "colour": "#FFC53D", "miles": 79.2, "features": 6,
+      "state": "offered" }
+  ]
+}</pre>
+
+<h3>The rules</h3>
+<table>
+<tr><th>Rule</th><th>Why</th></tr>
+<tr><td><b>An open batch STOPS the route build and opens the batch on the map</b></td>
+<td>⭐ Fred, 08-26: the JSON does not merely refuse — it <b>launches the WIP map for that
+batch</b>. The rider is taken to the six routes they already have, drawn and legended, and
+resolves them there. No dialog, no "you cannot do that": the app goes to the thing that is in
+the way.</td></tr>
+<tr><td><b>No further route activity of ANY kind until it is resolved</b></td>
+<td>Not just the AI planner. Drawing a route by hand, starting another search, promoting from
+elsewhere — all of it waits. ⚠ One unresolved set at a time, by hand or automatically.</td></tr>
+<tr><td><b>Per route: <code>offered</code> → <code>saved</code> or <code>discarded</code></b></td>
+<td>The batch resolves when no route is still <code>offered</code>, and the file is then
+deleted. ⚠ <b>Multi-select</b> — several may be <code>saved</code>.</td></tr>
+<tr><td><b>Resolved → the file is DELETED</b></td><td>⭐ Fred, 08-26: no history. The
+<b>saved routes</b> are the record and they carry their own feature lists. Keeping resolved
+batches would accumulate files nobody opens and hold the rider's pins in two places.
+<br>⚠ Deliberately unlike the import manifests, which are kept because an import can fail
+silently and be found days later. A batch cannot — the rider is standing in front of it when
+it resolves.</td></tr>
+<tr><td><b>The batch carries the REQUEST, not just the results</b></td><td>Staging point,
+band, speed, pins, and where each pin was moved to. ⚠ Without this a rider cannot tell why a
+route came back the way it did, which is exactly what cost 08-25.</td></tr>
+</table>
+
+<div class="card warn">
+<p><span class="k">⚠ THE LOCK MUST BE ESCAPABLE.</span> A batch left open by a crash would
+block the planner forever. <b>Reopening must always offer "discard this batch and start
+again"</b>, and the file must be safe to delete by hand.</p>
+<p><b>⚠ And it must not repeat the MARKERFIX lesson.</b> The trails-clear marker was written
+into a folder that is emptied at startup, so it vanished and the clear ran on every launch.
+<b>This file lives with the drafts it describes</b>, not in a swept directory.</p>
+</div>
+
+<div class="card good">
+<p><span class="g">⭐ THE LOCK IS A REDIRECT, NOT A REFUSAL.</span> That is the whole
+difference. A refusal leaves the rider holding a problem they did not know they had; a
+redirect puts them in front of it with the tools to clear it.</p>
+<p><b>So the sequence is:</b> rider asks for routes → an open batch exists → <b>the WIP map
+opens on that batch</b> with its six routes drawn, named and colour coded → they keep what
+they want and the rest go → the batch resolves → the planner is available again.</p>
+<p><b>⚠ Resolution can be automatic</b> — saving one route and dismissing the panel could
+discard the rest, if that is what the rider means. But it must be <b>explicit and reversible
+until confirmed</b>: six routes deleted by an accidental back-press is the same class of loss
+as the autosave-discard bug.</p>
+</div>
+
+<div class="card">
+<p><b>⭐ It also gives the WIP list something it lacks: a grouping.</b> Today six drafts are
+six unrelated entries. With a batch id they are one search, with the request that produced
+them attached — which is what makes "show me the six" possible at all.</p>
+</div>
+
+<h2>5. Promote one, delete the rest</h2>
+<ol>
+<li>Rider picks the winner from the comparison</li>
+<li><b>It is promoted to a completed route</b></li>
+<li><b>The other eight are deleted</b> — the WIP list does not accumulate nine per search</li>
+</ol>
+<p><b>⚠ Open:</b> does promotion delete the rest automatically, or offer it? Automatic keeps the
+list clean; offering protects a rider who wanted two. Leaning automatic <b>with the deletion
+named on the button</b>, so it is not a surprise.</p>
+<p><b>⭐ Consistent with the pin decision (08-25):</b> the rider's pins live in the WIP JSON and
+are dropped on promotion. Same principle — <b>the WIP carries working state, the completed route
+carries only the ride.</b></p>
+
+<h2>6. What this needs that does not exist</h2>
+<ul>
+<li><b>Multiple routes drawn at once, in assigned colours.</b> The map draws one route in
+progress today.</li>
+<li><b>A shared-vs-unique diff</b> over feature sets and named trails. The inputs exist —
+<code>featureMix</code>, <code>featureCount</code>, the trail list in
+<code>RouteDetail</code> — but nothing computes a difference across routes.</li>
+<li><b>Direction</b> as a route property. Not recorded today; it falls out of which start the
+search used, so it is free once candidate starts exist.</li>
+<li><b>A candidate table</b> that survives leaving the panel and coming back.</li>
+</ul>
+
+<h2>7. Sequence</h2>
+<ol>
+<li><b>Origin fix</b> — every trail within 200 yards is a candidate start. Nothing here works
+without it.</li>
+<li><b>Measure the cost</b> of N searches, and fix the candidate count from that.</li>
+<li><b>Candidate table + rank-then-write-nine</b>, replacing the four-route results list.</li>
+<li><b>Toggle-on-map</b> with per-candidate colour.</li>
+<li><b>The automated compare</b> — shared vs unique.</li>
+<li><b>Promote + delete the rest.</b></li>
+</ol>
+
+</body>
+</html>

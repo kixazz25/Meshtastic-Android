@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GroupTrack — AI Route Planner: process specification</title>
+<style>
+ :root{--bg:#12141A;--card:#1B1E26;--line:#2E3440;--tx:#E6E9EF;--dim:#9AA4B2;
+       --red:#FF5C5C;--amb:#FFC53D;--grn:#4ADE80;--blu:#60A5FA;}
+ *{box-sizing:border-box}
+ body{margin:0 auto;background:var(--bg);color:var(--tx);max-width:1000px;
+   font:15px/1.65 -apple-system,"Segoe UI",Roboto,sans-serif;padding:34px 22px 90px}
+ h1{font-size:25px;margin:0 0 4px}
+ .sub{color:var(--dim);font-size:13.5px;margin:0 0 28px}
+ h2{font-size:17px;margin:36px 0 10px;padding-bottom:7px;border-bottom:2px solid var(--blu);
+    color:var(--blu)}
+ h3{font-size:14.5px;margin:22px 0 7px;color:var(--amb)}
+ h4{font-size:13px;margin:16px 0 5px;color:var(--tx)}
+ .card{background:var(--card);border:1px solid var(--line);border-radius:9px;
+   padding:14px 16px;margin:12px 0}
+ .card.stop{border-color:#5C2A2A;background:#20161A}
+ .card.warn{border-color:#5C4A1E;background:#1F1C14}
+ .card.good{border-color:#26502F;background:#141E17}
+ code{background:#0C0E13;padding:1.5px 5px;border-radius:4px;font-size:12.5px;color:#C8D4E4;
+   font-family:ui-monospace,Menlo,Consolas,monospace}
+ pre{background:#0C0E13;border:1px solid var(--line);border-radius:7px;padding:12px 14px;
+   overflow-x:auto;font-size:12.5px;line-height:1.5;color:#C8D4E4;
+   font-family:ui-monospace,Menlo,Consolas,monospace}
+ table{border-collapse:collapse;width:100%;font-size:13.5px;margin:10px 0}
+ th,td{border:1px solid var(--line);padding:7px 9px;text-align:left;vertical-align:top}
+ th{background:#171A21;color:var(--dim);font-weight:600}
+ ul,ol{padding-left:20px;margin:7px 0} li{margin:5px 0}
+ .k{color:var(--amb);font-weight:700} .g{color:var(--grn);font-weight:700}
+ .r{color:var(--red);font-weight:700}
+ .step{display:inline-block;background:#171A21;border-radius:5px;padding:2px 9px;
+   font:12px ui-monospace,monospace;color:var(--blu);margin-right:8px}
+ .toc a{color:var(--blu);text-decoration:none} .toc li{margin:3px 0}
+ .flow{background:#0C0E13;border:1px solid var(--line);border-radius:8px;padding:14px;
+   font:12.5px/1.7 ui-monospace,Menlo,Consolas,monospace;color:#C8D4E4;overflow-x:auto}
+ .doc{display:block;padding:9px 12px;background:#171A21;border:1px solid var(--line);
+   border-radius:7px;margin:6px 0;font-size:13px}
+ .doc b{color:var(--blu)}
+</style>
+</head>
+<body>
+
+<h1>AI Route Planner — process specification</h1>
+<p class="sub">2026-08-26 · <code>PROCESS-2026-08-26</code> · the three processes, what each
+owns, and the documents that specify them</p>
+
+<div class="card">
+<p><b>This document is the map of the other documents.</b> Three separable processes came out
+of the 08-25/26 sessions. Each has its own state, its own screens and its own reasons to fail,
+and <b>each can be built and tested without the others existing</b>.</p>
+<ol class="toc">
+<li><a href="#p1">Process 1 — Requirement gathering</a> (the guided banner flow)</li>
+<li><a href="#p2">Process 2 — Route generation</a> (the engine)</li>
+<li><a href="#p3">Process 3 — Approval</a> (the map + legend, <b>standalone</b>)</li>
+</ol>
+</div>
+
+<div class="flow">
+  ┌──────────────────────────┐
+  │  1. REQUIREMENTS         │   banner over the map, six steps
+  │  name · band · staging   │   → writes the REQUEST
+  │  pins · finish           │
+  └───────────┬──────────────┘
+              │  open_batch.json  (state: building)
+              ▼
+  ┌──────────────────────────┐
+  │  2. GENERATION           │   RouteExplorer.explore()
+  │  origins → features →    │   → writes up to six DRAFTS
+  │  enumerate → enrich →    │
+  │  dedupe → six            │
+  └───────────┬──────────────┘
+              │  open_batch.json  (state: open)
+              ▼
+  ┌──────────────────────────┐
+  │  3. APPROVAL             │   ⭐ STANDALONE. Opens from Route+
+  │  six drawn · legend ·    │      whenever a batch is open.
+  │  narrative · keep/clear  │
+  └───────────┬──────────────┘
+              │  open_batch.json  DELETED
+              ▼
+        permanent routes
+</div>
+
+<div class="card stop">
+<p><span class="r">⛔ THE LOCK: ONE BATCH AT A TIME.</span> While
+<code>open_batch.json</code> exists with <code>state</code> of <code>building</code> or
+<code>open</code>, <b>no route activity of any kind starts</b> — not the planner, not drawing
+by hand, not promoting from elsewhere.</p>
+<p><b>⭐ And it REDIRECTS rather than refuses.</b> Tapping Route+ with an open batch opens
+process 3 on that batch. The rider is put in front of the thing that is in the way, with the
+tools to clear it. A refusal leaves them holding a problem they did not know they had.</p>
+</div>
+
+<h2 id="p1"><span class="step">1</span> Requirement gathering</h2>
+<p><b>Owns:</b> everything the rider says before a route exists.
+<b>Produces:</b> the request half of <code>open_batch.json</code>.
+<b>Screens:</b> a banner over the map, one instruction at a time.</p>
+
+<table>
+<tr><th>#</th><th>Step</th><th>What it gathers</th></tr>
+<tr><td>1</td><td><b>Welcome, and get on the ground</b></td>
+  <td>Nothing. It states the outcome — up to six recommended rides, presented together on the
+  area map, named and colour coded, with narratives — then asks the rider to search a town,
+  region or feature, or open a track or waypoint by name.
+  <br>⭐ <b>"Zoom in where the trails meet a road"</b> is the instruction that matters: it is
+  visible on satellite imagery and needs no local knowledge.</td></tr>
+<tr><td>2</td><td><b>Name and length</b></td>
+  <td>The batch name (<i>Panguitch September</i> → <i>Route 1 … Route 6</i>), the shortest
+  ride worth taking, the furthest they will go, and the pace band.
+  <br>⭐ Two sliders produce a <b>time window</b> — shortest ÷ fastest pace to furthest ÷
+  slowest pace — and the rider adjusts until it is the day they have.</td></tr>
+<tr><td>3</td><td><b>Where you will park</b></td>
+  <td>The staging point. Tap an existing waypoint, or long press one second to create one —
+  <b>SAVE selects it</b>, no second tap.
+  <br>⚠ <b>Not "trailhead".</b> A staging area is the parking lot; it needs no trail
+  knowledge. Guidance: somewhere several trails leave in different directions,
+  <b>not a dead-end spur</b>.</td></tr>
+<tr><td>4</td><td><b>Points to cover</b></td>
+  <td>Up to five pins. Opens by saying the rider has already done enough — <i>"we have enough
+  now to build you a set of rides"</i> — so pins read as refinement, not another hurdle.
+  CONTINUE means both "none" and "finished".</td></tr>
+<tr><td>5</td><td><b>Finish point</b></td>
+  <td>A pin, or nothing. <b>The loop question answers itself</b> — no finish pin means a loop.
+  ⭐ Asked at the END, once the rider has seen the ground.</td></tr>
+<tr><td>6</td><td><b>Searching</b></td><td>Hands off to process 2.</td></tr>
+</table>
+
+<div class="card warn">
+<p><span class="k">⚠ WHAT PROCESS 1 MUST CARRY, each measured:</span></p>
+<ul>
+<li><b>MAP TAPS ON/OFF on the banner.</b> The route toolbar carrying it renders on
+<code>routeMode &amp;&amp; !showAiDesign</code> — while the panel is open it is gone, so a
+rider mid-flow cannot read a trail name and get back.</li>
+<li><b>DONE always renders.</b> It was hidden when feasibility was unknown or the pins busted
+the ceiling, which removed the only way out of the step.</li>
+<li><b>Pins move to the nearest trail and say so</b> — measured 16–150 ft onto named trails.
+The marker draws at the <b>snapped</b> position, not the tap, or the map contradicts the
+message.</li>
+<li><b>Five pins, not ten.</b> Ten took the tested ceiling from 4 to 11 and the build never
+finished.</li>
+</ul>
+</div>
+
+<h2 id="p2"><span class="step">2</span> Route generation</h2>
+<p><b>Owns:</b> turning a request into up to six distinct rides.
+<b>Produces:</b> drafts, and the results half of <code>open_batch.json</code>.
+<b>Screens:</b> progress only.</p>
+
+<p>Fully specified in
+<code>GroupTrack_algorithm_annotated_2026-08-26.html</code> — every step, the rule it applies,
+and the measurement behind each constant. In outline:</p>
+
+<pre>corridor (ceiling/3)  →  graph  →  candidate starts within 600 yds, edge-split
+  →  collapse to one origin per component  →  attach features via spatial grid
+  →  rider pins as high-value features, split onto their trail
+  →  distance matrix  →  out-and-back filter  →  pairwise table + tested ceiling
+  →  working array: features earn their way in  →  enrich the top 20
+  →  dedupe (same origin+features · any origin · 75% shared trails)  →  six</pre>
+
+<div class="card good">
+<p><span class="g">⭐ MEASURED ON DEVICE 2026-08-26, Birch Spring / Pass Creek:</span>
+12 trails → 1 network, tested ceiling 4, enrichment to 7 features, <b>six routes between 79.0
+and 80.0 miles against an 80-mile ceiling, in four seconds.</b></p>
+<p>The morning of 08-25 produced one route to Brian Head from an origin 613 ft away down a
+single spoke.</p>
+</div>
+
+<h2 id="p3"><span class="step">3</span> Approval — ⭐ STANDALONE</h2>
+
+<div class="card good">
+<p><span class="g">THIS IS A PROCESS IN ITS OWN RIGHT, not the tail of the planner.</span></p>
+<p>It reads <code>open_batch.json</code> and the drafts it names. <b>It does not care how they
+were produced.</b> That means it opens from <b>Route+</b> whenever a batch is open — after a
+crash, days later, from a cold start — and it is testable against a hand-written JSON file
+with no engine run at all.</p>
+</div>
+
+<h3>The panel is a legend</h3>
+<p>Not a results list. A legend ties what is drawn to what it is called, so <b>each row is the
+route name in the same colour as its line</b>.</p>
+<table>
+<tr><th>Element</th><th>Behaviour</th></tr>
+<tr><td><b>Name, in the route's colour</b></td><td>⚠ Colour alone cannot be spoken about or
+listed; a name alone cannot be found on a map. <b>Both.</b></td></tr>
+<tr><td><b>Tap the name</b></td><td>Opens that route's narrative.</td></tr>
+<tr><td><b>Show / hide</b></td><td>⭐ <b>The comparison tool.</b> Six over the same ground is
+spaghetti — look at two, look at three. Free and reversible: it is how looking works, not a
+decision.</td></tr>
+<tr><td><b>Select</b></td><td>⚠ <b>Multi-select.</b> A rider who finds two good rides keeps
+both.</td></tr>
+<tr><td><b>Save selected</b></td><td>Promotes the chosen routes; the rest are cleared. Batch
+resolves.</td></tr>
+</table>
+<p>Working mockup in <code>GroupTrack_design_candidate_routes_2026-08-26.html</code> §4c, with
+real measured data from the 08-26 device run.</p>
+
+<h3>The batch file</h3>
+<p><code>/sdcard/Documents/GroupTrack/route_batches/open_batch.json</code></p>
+<pre>{
+  "batch_id":   "panguitch-september-2026-08-26T14-22-11",
+  "name":       "Panguitch September",
+  "created_at": "2026-08-26T14:22:11Z",
+  "state":      "open",            // building | open  (resolved = deleted)
+
+  "staging":  { "lat": 37.7235, "lon": -112.6130,
+                "waypoint": "Birch Spring staging" },
+  "band":     { "miles_low": 55, "miles_high": 80,
+                "mph_low": 12, "mph_high": 18 },
+  "pins":     [ { "lat": 37.7301, "lon": -112.5998,
+                  "moved_ft": 33, "onto": "Horse Valley Road" } ],
+  "finish":   null,                // null = loop back to staging
+
+  "routes": [
+    { "n": 1, "draft": "Panguitch September Route 1", "colour": "#4FA3E3",
+      "miles": 79.7, "features": 7, "retrace_pct": 18, "state": "offered" }
+  ]
+}</pre>
+
+<div class="card good">
+<p><span class="g">⭐⭐ THE PINS ARE SAVED WITH THE FEATURE DATA, NOT SEPARATELY</span>
+(Fred, 2026-08-26). Every route in the batch records what it reaches, and a rider's own place
+appears in that list <b>alongside the natural features, marked as theirs</b>.</p>
+<p><b>Why it matters:</b> when the six routes are drawn, the rider needs to see each one
+<b>relative to what they asked for</b>. "This route reaches two of your three places and picks
+up a spring on the way" is the sentence the approval panel has to be able to write, and it can
+only write it if the pins live in the same structure as the features.</p>
+</div>
+
+<h4>Per-route features, pins included</h4>
+<pre>"routes": [
+  { "n": 1, "draft": "Panguitch September Route 1", "colour": "#4FA3E3",
+    "miles": 79.7, "hours": [5.5, 6.6], "retrace_pct": 18,
+    "state": "offered",
+
+    "features": [
+      { "name": "Your place 1", "class": "userpin", "mine": true,
+        "mile": 6.2, "moved_ft": 33, "onto": "Horse Valley Road" },
+      { "name": "Asay Knoll",   "class": "peak",    "mine": false, "mile": 14.8 },
+      { "name": "Boy Scout Spring", "class": "spring", "mine": false, "mile": 31.0 },
+      { "name": "Your place 2", "class": "userpin", "mine": true,
+        "mile": 44.7, "moved_ft": 19, "onto": "FSR 082" }
+    ],
+    "yours_reached": 2, "yours_asked": 3
+  }
+]</pre>
+
+<table>
+<tr><th>Field</th><th>Why it is there</th></tr>
+<tr><td><code>mine</code></td><td>⭐ The legend and narrative can style a rider's own place
+differently and lead with it. Without this flag they are indistinguishable from a peak.</td></tr>
+<tr><td><code>mile</code></td><td>Where on the ride it falls. The narrative already lists
+features in order; the rider's places should be findable in that order.</td></tr>
+<tr><td><code>moved_ft</code>, <code>onto</code></td><td>⚠ <b>The honest record of the snap.</b>
+Measured 16–150 ft onto named trails. A rider seeing "your place 2, moved 19 ft to FSR 082"
+knows exactly what the app did with their tap.</td></tr>
+<tr><td><code>yours_reached</code> / <code>yours_asked</code></td><td>⭐⭐ <b>The number that
+decides whether a route is worth keeping.</b> Pins are high-value features, not a membership
+rule — a device run took <b>two of three</b>. The rider must be able to see that at a glance
+rather than reading four feature lists to work it out.</td></tr>
+</table>
+
+<div class="card warn">
+<p><span class="k">⚠ THIS IS WHAT MAKES THE COMPARISON MEAN ANYTHING.</span> Six routes over
+the same ground differ mostly in what they reach. If the panel can say "three of your three"
+against "one of your three", the choice is obvious. Without the pins in the feature data it
+can only show mileage and a count, and the rider is back to guessing.</p>
+</div>
+
+<h4>Rules</h4>
+<table>
+<tr><th>Rule</th><th>Why</th></tr>
+<tr><td><b>The file carries the REQUEST, not just the results</b></td>
+  <td>Staging, band, pins and <b>where each pin was moved to</b>. ⚠ Without it a rider cannot
+  tell why a route came back as it did — which is exactly what cost 08-25.</td></tr>
+<tr><td><b>Per route: <code>offered</code> → <code>saved</code> or
+  <code>discarded</code></b></td>
+  <td>The batch resolves when none is still <code>offered</code> — and the file is then deleted.</td></tr>
+<tr><td><b>Resolved → the file is DELETED</b></td>
+  <td>⭐ Fred, 08-26: no history. Once the rider has kept what they wanted and the rest are
+  cleared, the batch has no further use — the <b>saved routes</b> are the record, and they
+  carry their own feature lists. Keeping resolved batches would accumulate files nobody opens
+  and put the pins in two places.
+  <br>⚠ Deliberately UNLIKE the import manifests, which are kept because an import can fail
+  silently and be discovered days later. A batch cannot: the rider is standing in front of it
+  when it resolves.</td></tr>
+<tr><td><b>Lives WITH the drafts it describes</b></td>
+  <td>⛔ Not in a swept directory. The trails-clear marker went into a folder emptied at
+  startup, vanished, and the clear ran on every launch for days.</td></tr>
+<tr><td><b>Always escapable</b></td>
+  <td>⚠ A batch left open by a crash would block the planner forever. Reopening offers
+  <b>"discard this batch and start again"</b>, and the file is safe to delete by hand.</td></tr>
+</table>
+
+<div class="card warn">
+<p><span class="k">⚠ RESOLUTION MUST BE EXPLICIT AND REVERSIBLE UNTIL CONFIRMED.</span> Six
+routes deleted by an accidental back-press is the same class of loss as the autosave-discard
+bug that cost six divergent teardown copies.</p>
+</div>
+
+<h2>The documents</h2>
+<span class="doc"><b>GroupTrack_process_spec_2026-08-26.html</b> — this file. The map of the
+others.</span>
+<span class="doc"><b>GroupTrack_algorithm_annotated_2026-08-26.html</b> — process 2 in full:
+every step, its rule, why, and the measurement behind each constant. The three-phase build
+plan.</span>
+<span class="doc"><b>GroupTrack_design_candidate_routes_2026-08-26.html</b> — process 3:
+candidate model, the legend panel with a <b>working mockup</b> (§4c), the batch lock (§4d),
+on-map search progress.</span>
+<span class="doc"><b>GroupTrack_mockup_banner_flow_v11_2026-08-26.html</b> — process 1:
+interactive. Six steps, name and band controls, long-press waypoint creation.</span>
+<span class="doc"><b>GroupTrack_design_banner_flow_2026-08-25.html</b> — process 1 rationale:
+why the checklist goes, the MAP TAPS dependency, marker states.</span>
+<span class="doc"><b>GroupTrack_osm_access_tags_reference_2026-08-25.md</b> — the PBF /
+carto work that process 2 depends on. ⛔ <b>Currently the top issue</b>: the
+<code>trails</code> table contains roads, so a staging area in a town returns residential
+streets as candidate starts.</span>
+
+<h2>⚠ What is NOT built</h2>
+<table>
+<tr><th>Process</th><th>State</th></tr>
+<tr><td><b>1 — Requirements</b></td><td>⚠ The <b>old checklist</b> is what ships. The banner
+flow is designed and mocked, not built. Pins, the Distance HUD, DONE and the five-pin cap are
+live.</td></tr>
+<tr><td><b>2 — Generation</b></td><td><span class="g">BUILT AND DEVICE-PROVEN.</span> Six
+routes in four seconds on 08-26.</td></tr>
+<tr><td><b>3 — Approval</b></td><td>⛔ <b>Not built.</b> No batch file, no legend, no
+multi-select, no colours. Drafts land in the WIP list as six unrelated entries.</td></tr>
+</table>
+
+<div class="card stop">
+<p><span class="r">⛔ AND THE WELCOME COPY PROMISES PROCESS 3.</span> "They are presented
+together on the area map, each one named and colour coded, with a detailed narrative." <b>Do
+not ship that wording until the approval panel exists</b>, or the rider is told about
+something they will not get.</p>
+</div>
+
+</body>
+</html>

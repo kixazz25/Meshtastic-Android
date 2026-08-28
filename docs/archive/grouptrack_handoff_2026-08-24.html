@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GroupTrack — Session Handoff — 2026-08-24</title>
+<style>
+ :root{--bg:#0f1216;--panel:#161b22;--line:#26303b;--fg:#c9d1d9;--muted:#8b949e;
+   --accent:#58a6ff;--amber:#e3b341;--red:#f85149;--green:#3fb950;}
+ *{box-sizing:border-box}
+ body{margin:0;padding:26px 20px 80px;background:var(--bg);color:var(--fg);
+  font:15px/1.65 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+ .wrap{max-width:1000px;margin:0 auto}
+ header{border-bottom:2px solid var(--accent);padding-bottom:14px;margin-bottom:24px}
+ h1{margin:0 0 6px;font-size:25px;color:var(--accent)}
+ .sub{color:var(--muted);font-size:13.5px}
+ h2{font-size:19px;margin:32px 0 10px;padding-bottom:6px;
+   border-bottom:1px solid var(--line);color:var(--accent)}
+ h3{font-size:16px;margin:22px 0 8px}
+ .card{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--line);
+   border-radius:6px;padding:12px 15px;margin:10px 0}
+ .card.key{border-left-color:var(--accent)} .card.warn{border-left-color:var(--amber)}
+ .card.stop{border-left-color:var(--red)} .card.good{border-left-color:var(--green)}
+ code{background:#0d1117;border:1px solid var(--line);border-radius:4px;padding:1px 5px;
+   font:13px ui-monospace,Consolas,monospace;color:#a5d6ff}
+ pre{background:#0d1117;border:1px solid var(--line);border-radius:6px;padding:12px;
+   overflow-x:auto;font:12.5px ui-monospace,Consolas,monospace;color:#c9d1d9}
+ ul,ol{margin:7px 0 7px 22px} li{margin:5px 0}
+ table{border-collapse:collapse;width:100%;margin:10px 0}
+ td,th{border:1px solid var(--line);padding:6px 10px;font-size:13.5px;text-align:left;
+   vertical-align:top}
+ th{background:#1c2531;color:var(--accent)}
+ .hi{color:var(--amber)} .muted{color:var(--muted)} .ok{color:var(--green)}
+ .no{color:var(--red)} .num{font-family:ui-monospace,Consolas,monospace}
+</style></head><body><div class="wrap">
+
+<header>
+<h1>Session Handoff — 2026-08-24</h1>
+<div class="sub">branch <code>feature/convoy-event-ride</code> &middot; commits
+<code>09c5f5b27</code> and <code>70e122d1a</code> &middot; twelve patches, seven builds<br>
+Droid 2 <code>24039703201775</code> — cleared and re-imported, Utah, 86,923 trails.
+Droid 1 untouched.</div>
+</header>
+
+<div class="card key">
+<h3 style="margin-top:0">⭐⭐⭐ STATE AT END</h3>
+<p><b>The AI route explorer runs from a trailhead the rider selects on the map.</b> The
+hard-coded Panguitch anchor is gone. Verified end to end on Droid 2: three routes built,
+promoted to saved routes.</p>
+<p style="margin-bottom:0">Flow: AI Design panel → PROCEED TO MAP → guided checklist over
+the live map → tap a trailhead → return question → prose summary → route build with
+streamed progress → results → CONTINUE → Work in Progress list.</p>
+</div>
+
+<h2>1. ⭐ THE DESIGN REVERSAL THAT MATTERS MOST</h2>
+<div class="card">
+<p style="margin-top:0"><b>Trailheads are SELECTED, not captured.</b> Patch C intercepted
+long press to create a trailhead directly. It never fired — the effect sat in a block above
+<code>// -- WebView --</code> that is not live while the map is in use, and the indentation
+drop from 20 spaces to 8 was the tell, visible before the patch was written.</p>
+<p><b>The fix was not to move the effect.</b> Fred: <i>"why not make this two steps, create
+the trailhead then select it?"</i> Long press had ONE meaning in this app for weeks; C gave
+it a second one that depended on hidden state. Creating and selecting are genuinely two
+acts, and making them two acts in the UI removed the interception entirely.</p>
+<p style="margin-bottom:0">⭐ Checklist step 2 is <b>"Add one if none exists"</b> — visible
+for a rider on new ground, skipped by everyone returning to ground they know, which is the
+common case.</p>
+</div>
+
+<h2>2. ⛔ WHY THE TAP DID NOT REACH KOTLIN — three wrong theories</h2>
+<div class="card stop">
+<table>
+<tr><th>Theory</th><th>Reality</th></tr>
+<tr><td>The marker consumes the click</td><td class="no">No. There is no
+<code>stopPropagation</code> on that path — the tap falls through to
+<code>map.on('click')</code> and places a route vertex. Deliberate:
+<code>ROUTEFALLTHROUGH-2026-07-30</code>.</td></tr>
+<tr><td>Popups bound after <code>setRouteMode(true)</code> escape suppression</td>
+<td class="no">No. <code>POPUPBIND-2026-08-13H</code> stashes instead of binding and
+re-checks on every rebuild. <b>Fred said this before the read confirmed it.</b></td></tr>
+<tr><td>The corridor graph grew sevenfold</td><td class="no">No. My DB copy holds 216,616
+trails across several states; Droid 2 holds Utah alone. Same query, different data.</td></tr>
+</table>
+<p style="margin-bottom:0"><b>The actual cause:</b> <code>ConvoyRouteToolbar:194</code>, the
+AI chip calling <code>onAddModeChanged(false)</code>. That is the <code>ROUTEMODE -&gt;
+false</code> logged 1.3 seconds after <code>+ROUTE</code> armed it. Its comment was correct
+when written — in AI mode nothing was drawn by hand, so taps were better spent reading trail
+names. What changed is that AI mode now OPENS with a step that needs taps to reach
+Kotlin.</p>
+</div>
+
+<div class="card good">
+<p style="margin:0">⭐ <b>THE FIX PUT THE BEHAVIOUR BACK IN THE RIDER'S HANDS</b> rather than
+deleting it. The BUILD row is visible in every mode again, so MAP TAPS ON is one tap away
+whenever they want to research the map. A panel reporting a state it does not display was
+the real defect.</p>
+</div>
+
+<h2>3. ⛔⛔ THE ORPHAN BUG — the most consequential find</h2>
+<div class="card stop">
+<p style="margin-top:0">The trails clear removed <b class="num">86,969 trails and 303,585
+<code>trail_properties</code> rows</b> — three and a half times as many property rows as
+trails. Fred called it: <i>"the Utah identifiers are in the trails extension db which we did
+not clear."</i></p>
+<p><b>⚠ <code>geom_hash</code> is the IDENTITY; <code>trail_id</code> is the KEY.</b>
+<code>trail_properties</code> joins on <code>trail_id</code>, a UUID minted at insert. Delete
+the trails and those rows join to nothing, ever.</p>
+<p><b>And the damage was active.</b> <code>TrailImporter:461</code> inserts with
+<code>INSERT OR IGNORE</code> on <code>(source_id, source_unique_id)</code>. A re-imported
+trail whose uid a stale row already held was <b>silently ignored</b> — the orphan kept the
+slot, the new trail got no properties, and nothing reported an error.</p>
+<p style="margin-bottom:0">Visible in the ledger:</p>
+<pre>15:41  inserted=30      geomChanged=86893     <- orphans holding the slots
+16:41  inserted=86923   geomChanged=0         <- after the corrected clear</pre>
+</div>
+
+<h2>4. ⚠⚠ METHOD — seven guard failures, one root cause</h2>
+<div class="card stop">
+<p style="margin-top:0">Every patch guard that failed today failed the same way: <b>the
+expected NUMBER was written from what the edit was meant to do, rather than derived from
+what it does.</b></p>
+<table>
+<tr><th>Patch</th><th>Guard</th><th>Why it was wrong</th></tr>
+<tr><td>B</td><td><code>TARGETED RIDE DURATION</code> == 1</td><td>Also appears in the
+section comment</td></tr>
+<tr><td>C</td><td><code>"trailhead"</code> == 1</td><td>Already in
+<code>WAYPOINT_TYPES</code></td></tr>
+<tr><td>C</td><td>braces balanced</td><td>File was 952/951 <b>before</b> the patch — strings
+and comments carry braces</td></tr>
+<tr><td>D</td><td><code>gpNearestTrailhead</code> == 3</td><td>D removes a call and adds
+one; 2 is correct</td></tr>
+<tr><td>G</td><td><code>ROUTEFALLTHROUGH</code> line == 1</td><td>Appears in three handlers,
+all legitimate</td></tr>
+<tr><td>H</td><td><code>weight(1f)) {</code> == 2</td><td>Three others already in the
+file</td></tr>
+<tr><td>H</td><td><code>draftListTick++</code> == 11</td><td>Miscounted from a grep of
+mentions, not increments</td></tr>
+</table>
+<p style="margin-bottom:0">⭐⭐ <b>THE STANDING FIX, adopted from patch E onward:</b> count
+the token in the OLD blocks and the NEW blocks and compute
+<code>before − removed + added</code>. It caught a correct edit in patch I where a comment
+mentioned <code>.width(248.dp)</code> while replacing it — an assertion of 0 would have
+failed. <b>Never write an expected count by hand again.</b></p>
+<p class="muted" style="font-size:13px;margin-bottom:0">And the bracket invariant is
+<b>"unchanged"</b>, not "balanced". Asserting a property the file never had cost a cycle.</p>
+</div>
+
+<h2>5. What shipped</h2>
+<table>
+<tr><th>Patch</th><th>What</th></tr>
+<tr><td><code>GUIDEDPIN-A</code></td><td><code>ConvoyGuidedPinPanel.kt</code> — the checklist.
+Presentation only: steps in, callbacks out, no state and no DB</td></tr>
+<tr><td><code>AIPANEL-B2</code></td><td>PHASE_SETUP restructured — name first, TARGETED RIDE
+DURATION, two twisties, <b>mode selection removed</b> (derived from the pins)</td></tr>
+<tr><td><code>GUIDEDPIN-C3</code></td><td>Pin state, checklist render,
+<code>STUB:ENDPOINT</code>, hard-coded anchor removed</td></tr>
+<tr><td><code>GUIDEDPIN-D2</code></td><td>Select-by-tap replaces capture-by-long-press</td></tr>
+<tr><td><code>AIPANEL-E</code></td><td>Name field readable — <b>every colour stated
+explicitly</b>; the dark theme overrides anything left unsaid</td></tr>
+<tr><td><code>ROUTEBAR-F</code></td><td>BUILD row unhidden, AI chip stops disarming, chip Row
+width</td></tr>
+<tr><td><code>PINSELECT-G2</code></td><td><code>__pinSelect</code> in the JS waypoint handler,
+<b>before</b> the <code>__routeMode</code> check; trails and waypoints on at AI selection</td></tr>
+<tr><td><code>CLEANUP-H3</code></td><td>MethodChip weight, Map Features collapse removed,
+CONTINUE → WIP list, <code>draftListTick++</code></td></tr>
+<tr><td><code>SUMMARY-I</code></td><td>Summary panel with progress; Route+ width matches
+Map Features</td></tr>
+<tr><td><code>CHIPLIVE-J2</code></td><td>live/soon sublabel and parameter removed; fresh AI
+session on reopen</td></tr>
+<tr><td><code>TRAILFILTER-K</code></td><td><code>path</code> and <code>bridleway</code> out of
+the import filter <span class="hi">(did not take effect — see §7)</span></td></tr>
+<tr><td><code>TRAILCLEAR-L</code></td><td>Clear <b>both</b> tables once per device</td></tr>
+</table>
+
+<h2>6. ⭐ MEASURED TODAY — the numbers that shape tomorrow</h2>
+<div class="card key">
+<h3 style="margin-top:0">Rider points: the base cost dominates</h3>
+<table>
+<tr><th>points</th><th>3</th><th>5</th><th>7</th><th>10</th></tr>
+<tr><td>shortest possible ride</td><td class="num">93.5</td><td class="num">97.3</td>
+<td class="num">110.6</td><td class="num">139.0</td></tr>
+</table>
+<p style="margin-bottom:0"><b>Three points already blow an 80-mile ceiling.</b> Seven more
+cost only 45 miles. Getting into the region costs ~60; the points are nearly free once you
+are there. Two points two miles apart cost <b>32.9 network miles</b>. <b>A rider cannot
+predict this from a map</b> — which is the whole argument for live feedback while pins are
+dropped.</p>
+</div>
+
+<div class="card">
+<h3 style="margin-top:0">Dead-end spurs — the cut is clean</h3>
+<p style="margin-bottom:0"><b>1,388 spurs, only 38 carry a feature (2.7%).</b> A
+"short AND featureless" cut at 300 yd removes 606 and loses none of the 38 worth riding.
+Length alone is the wrong test.</p>
+</div>
+
+<div class="card">
+<h3 style="margin-top:0">OSM access tags do not exist in what we import</h3>
+<p style="margin-bottom:0">PRAGMA on both <code>.gpkg</code> extracts: ten columns on the
+roads layer, <b>no access field of any kind</b>. Geofabrik's GeoPackage is shapefile-derived
+and flattens OSM's tag model. <code>ohv</code>, <code>motor_vehicle</code>,
+<code>access</code>, <code>4wd_only</code> — none survive the export.</p>
+</div>
+
+<div class="card good">
+<p style="margin:0">⭐ <b>The 08-23 OOM fix is holding.</b> Device at Panguitch: <b>27,215
+edges, 62 POI nodes</b>, four routes, no OOM — against the 53,711 edges and 112 POI nodes
+that exhausted the heap. A 60×60 mile corridor cap is belt-and-braces; the current
+<code>ceiling / 3</code> gives 53.4×53.4 at an 80-mile band.</p>
+</div>
+
+<h2>7. 🔴 TOMORROW — Fred's order</h2>
+<ol>
+<li><b>Complete the ten-point rider-assisted routing.</b> Live feasibility while pins are
+dropped, the evolving shortest-route line, then the existing scorer with rider points
+weighted high. <b>Dead-end spur removal goes in the same build</b> — same graph, same pass:
+drawn on the map, skipped by the router, filtered in
+<code>RouteExplorer</code>'s graph build rather than the importer so it stays reversible.
+Design settled — see
+<code>GroupTrack_design_rider_assisted_routing_2026-08-24.html</code>.</li>
+<li><b>Turn the map key legend into a filter.</b> Selector with persisted state, affecting
+both maps, current state shown in the AI flow so a forgotten setting is never silent.</li>
+</ol>
+
+<h2>8. Carried, not forgotten</h2>
+<div class="card warn">
+<ul style="margin-bottom:0">
+<li class="hi"><b>The trail-maintenance panel is NOT built.</b> The clear runs silently — a
+rider opens the app and their trails are gone with no explanation until the picker appears.
+Fine on Droid 2, <b>not fine on forty phones</b>. QuickStart v8 covers it in writing; the
+app does not.</li>
+<li class="hi"><b>The filter change did not take.</b> 87,067 trails extracted before the
+patch and after. Two commands settle it:
+<code>ls /sdcard/Documents/GroupTrack/config/</code> and
+<code>logcat | grep OsmLayers</code> — the catalogue logs OVERRIDE vs ASSET. <b>Matters
+beyond this filter:</b> an override that silently wins means any shipped config change can
+be ignored.</li>
+<li><b>PBF classification</b> — the proper fix, and much smaller than it first looked. See §9.</li>
+<li>Landscape framing on the AI Design panel</li>
+<li><code>+ ROUTE</code> should skip the entry prompt when no drafts exist</li>
+<li>Draw/tap toggle: BUILD row or a floating draggable — <b>cannot be both</b></li>
+<li><code>STUB:TWISTYPREF</code>, <code>STUB:ENDPOINT</code></li>
+<li>Display-state writes duplicated across seven sites in the planner; a seventh copy was
+added knowingly and is recorded in the code</li>
+<li><code>AiOption</code> and <code>mode</code> now dead in
+<code>ConvoyAiDesignPanel</code></li>
+<li>Duplicate POIs in <code>reference_points</code> — "Navajo Lake Spring" twice, 0.01 mi
+apart</li>
+<li>End-of-ride feedback — route rating, trail condition, share-with-riders. May be the only
+real answer to trail quality, since no tag in the data can vet a trail</li>
+</ul>
+</div>
+
+<h2>9. ⭐ THE PBF INSIGHT — recorded so it is not lost</h2>
+<div class="card key">
+<p style="margin-top:0">Fred: <i>"isn't the route id for the table we use the same route id as
+the protobuf file? Can't we just mine the attributes attached to the route?"</i></p>
+<p><b>Yes — and it collapses the problem.</b>
+<code>trail_properties.source_unique_id</code> already holds the <code>osm_id</code>, and the
+PBF's ways carry the same ids. So the PBF is read for <b>id and tags only</b>; geometry keeps
+coming from the GeoPackage.</p>
+<p style="margin-bottom:0"><b>That removes node resolution entirely</b> — the millions of
+delta-encoded node entries that make a PBF reader hard are never touched. And the mapping is
+<b>one preprocess at import</b>, written into the skinny DB and carried through C3 in the same
+insert, so there is no update pass and no window where geometry and attributes disagree.</p>
+</div>
+<p><b>First task if that path is taken: MEASURE, do not build.</b> A desktop Python pass
+against a downloaded Utah PBF, reporting how densely the access tags are actually populated.
+The tags existing in the schema is not the same as them being on the ground — the same rule
+that caught <code>ohv</code> missing from the GeoPackage.</p>
+
+<h2>10. Documents in this set</h2>
+<table>
+<tr><th>File</th><th>What</th></tr>
+<tr><td><code>grouptrack_handoff_2026-08-24.html</code></td><td>this</td></tr>
+<tr><td><code>grouptrack_living_master_2026-08-24_v33.html</code></td><td>full carry-forward
+with today's sections at the top</td></tr>
+<tr><td><code>grouptrack_release_notes_2026-08-24.html</code></td><td>route creation with no
+points, rider-assisted, the trails reload</td></tr>
+<tr><td><code>GroupTrack_QuickStart_..._2026-08-24_v8.html</code></td><td>NEW section:
+updating to this release, your trails reload once</td></tr>
+<tr><td><code>GroupTrack_screens_changed_2026-08-24.html</code></td><td>six panels to capture,
+three to recapture, and what the panels imply that is not true</td></tr>
+<tr><td><code>GroupTrack_design_rider_assisted_routing_2026-08-24.html</code></td>
+<td>tomorrow's task 1 — measured findings and the settled design</td></tr>
+<tr><td><code>GroupTrack_design_trail_classification_2026-08-24.html</code></td>
+<td>the PBF proposal, obstacles, and the decision stated as a question</td></tr>
+<tr><td><code>nav_pass6b_sweep_2026-08-24.py</code></td><td>the prototype — feasibility
+sweep and dead-end measurement</td></tr>
+</table>
+
+</div></body></html>

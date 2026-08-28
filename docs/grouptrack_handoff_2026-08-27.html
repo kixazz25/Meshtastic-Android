@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GroupTrack — Session Handoff 2026-08-27</title>
+<style>
+ :root{--bg:#12141A;--card:#1B1E26;--line:#2E3440;--tx:#E6E9EF;--dim:#9AA4B2;
+       --red:#FF5C5C;--amb:#FFC53D;--grn:#4ADE80;--blu:#60A5FA;}
+ *{box-sizing:border-box}
+ body{margin:0 auto;background:var(--bg);color:var(--tx);max-width:980px;
+   font:15px/1.65 -apple-system,"Segoe UI",Roboto,sans-serif;padding:34px 22px 90px}
+ h1{font-size:25px;margin:0 0 4px;letter-spacing:-.3px}
+ .sub{color:var(--dim);font-size:13.5px;margin:0 0 26px}
+ h2{font-size:16px;margin:34px 0 10px;padding-bottom:7px;border-bottom:1px solid var(--line)}
+ h3{font-size:14px;margin:20px 0 6px;color:var(--blu)}
+ .card{background:var(--card);border:1px solid var(--line);border-radius:9px;padding:15px 17px;margin:13px 0}
+ .card.stop{border-color:#5C2A2A;background:#20161A}
+ .card.warn{border-color:#5C4A1E;background:#1F1C14}
+ .card.good{border-color:#26502F;background:#141E17}
+ code{background:#0C0E13;padding:1.5px 5px;border-radius:4px;font-size:12.5px;color:#C8D4E4;
+   font-family:ui-monospace,Menlo,Consolas,monospace}
+ pre{background:#0C0E13;border:1px solid var(--line);border-radius:7px;padding:11px 13px;
+   overflow-x:auto;font-size:12.5px;line-height:1.5;color:#C8D4E4;
+   font-family:ui-monospace,Menlo,Consolas,monospace}
+ table{border-collapse:collapse;width:100%;font-size:13.5px;margin:10px 0}
+ th,td{border:1px solid var(--line);padding:7px 9px;text-align:left;vertical-align:top}
+ th{background:#171A21;font-weight:600;color:var(--dim)}
+ ul,ol{padding-left:20px;margin:7px 0} li{margin:5px 0}
+ .k{color:var(--amb);font-weight:700} .g{color:var(--grn);font-weight:700}
+ .r{color:var(--red);font-weight:700} .lead{font-size:15.5px}
+</style>
+</head>
+<body>
+<p style="font:11px monospace;color:#8b949e">DOCUMENT ID: HANDOFF-2026-08-27</p>
+
+<h2>Where things stand</h2>
+<p><b>The AI route-planning backend is complete.</b> A search writes a batch and draws its routes
+in colour; Route+ opens a table that compares them; SAVE SELECTED promotes what was kept, deletes
+the rest and clears the lock. Eleven commits, all device-proven.</p>
+
+<h2>Start here tomorrow</h2>
+<table border="0" cellpadding="6">
+<tr><th>#</th><th>Task</th><th>Why now</th></tr>
+<tr><td>1</td><td><b>Item 4 — the checklist replacement</b></td><td>The last piece of the planner.
+Banner prompts replacing the checklist, incrementally: banner alongside, migrate one step at a
+time, <code>pinStep</code> machine unchanged. Least-coupled step first; trailhead step last.
+⭐ The only process change is the recipe section in the narrative.</td></tr>
+<tr><td>2</td><td><b>The recipe button</b></td><td>⛔ Until this exists the batch design is
+LOSSY. The whole argument for discarding five of six was that the kept one can rebuild them.
+A MODIFICATION to the existing narrative display; <b>saved routes only</b> — on a WIP it would be
+a second door into building six more from inside the batch that is blocking route work.</td></tr>
+<tr><td>3</td><td><b>Picker checkboxes + multi-delete</b></td><td>Needs a button and selectors.
+Rename and the empty-list case landed today.</td></tr>
+</table>
+
+<h2>Verify first</h2>
+<ul>
+<li><b>The scroll bar.</b> It was drawing but invisible — 3dp at 13% white on a near-black panel.
+Widened to 6dp opaque, <b>not yet seen on device</b>.</li>
+<li><b>The by-id geometry.</b> SAVE SELECTED now fetches trail shapes by lineId rather than
+viewport. Save a route whose far end is off-screen and confirm it still follows the trail.</li>
+<li><b>The empty picker.</b> With no drafts, Route+ should start a route directly — no dialog.</li>
+</ul>
+
+<h2>⚠ Traps</h2>
+<p><b>Four setters call <code>showInProgressPicker</code>.</b> The render is deliberately NOT
+gated — Fred: <i>"gating the screen is just deferring the problem."</i> Fix causes, not
+symptoms.</p>
+<p><b>A guard is only as good as the code before its <code>return</code>.</b> The Route+ fork fell
+through into the old picker when <code>drawBatch</code> threw. Anything that can throw between the
+test and the return silently unlocks what the guard exists to prevent.</p>
+<p><b>Every WebView call posts to main</b> via <code>onMain()</code> in RouteDraftStore. Reads stay
+on the calling thread; drawing does not.</p>
+<p><b>The xrefs are stale.</b> Generated 08-24; several hundred lines have moved. Structure right,
+line numbers wrong — worth regenerating before the next session.</p>
+<p><b>57 <code>.bak_*</code> files</b> sit inside <code>app/src/main/java</code> and appear in
+every recursive grep.</p>
+
+<h2>The state on disk</h2>
+<pre>route_drafts/batch/open_batch.json   the lock. Its ABSENCE means resolved.
+route_drafts/&lt;name&gt;.json             one per generated route
+  notes.summary      total_miles, est_hours, features, unconfirmed_junctions
+  notes.narrative    headline, what_you_will_see, stops_in_order, ground_covered
+  notes.legs[]       { trail, from_mi, to_mi, miles }
+open_batch.recipe    anchorLat/Lon, milesLow/High, mphLow/High, pins, finish</pre>
+<p>⚠ <code>anchorName</code> is null — nothing stores the tapped waypoint's name.</p>
+<p>⚠ <code>stops_in_order</code> carries Latin-1 mojibake on every draft already written; it is
+repaired on read, not at the writer.</p>
+
+<hr><p style="font:11px monospace;color:#8b949e">— carried forward from 2026-08-26 —</p>
+
+<div style="font:11.5px ui-monospace,Menlo,Consolas,monospace;color:#8b949e;letter-spacing:.4px;margin:0 0 14px">DOCUMENT ID <b style="color:#60A5FA">HANDOFF-2026-08-26</b> &middot; issued 26 August 2026</div>
+
+
+<h1>Session Handoff — 2026-08-26</h1>
+<p class="sub">Rel 2.6h · branch <code>feature/convoy-event-ride</code> · ten commits ·
+Droid 2 <code>24039703201775</code> · <b>35 engine revisions</b>, nearly all in Python</p>
+
+<div class="card good">
+<p class="lead"><span class="g">⭐⭐⭐ THE ROUTE ENGINE IS REBUILT, DEVICE-PROVEN AND
+FAST.</span></p>
+<p><b>Measured on device at Birch Spring / Pass Creek:</b> 12 trails → 1 network, tested
+ceiling 4, enrichment to 7 features, <b>six routes between 79.0 and 80.0 miles against an
+80-mile ceiling, in four seconds.</b></p>
+<p>Yesterday morning the same ground gave <b>one route to Brian Head</b>, from an origin 613 ft
+away down a single spoke.</p>
+<p><span class="g">Fred, 08-26:</span> <i>"six routes are all different enough to warrant
+judgement"</i> — which was the whole target.</p>
+</div>
+
+<h2>⭐⭐ THE TURNING POINT, and it was not technical</h2>
+<div class="card">
+<p><span class="k">Fred, 08-26:</span> <i>"trying to rationalise the old engine with components
+that were not built for the problem we were solving was the turning point. Natural resistance
+to replacing the familiar with the unknown. But the familiar was a round peg in a square
+hole."</i></p>
+<p><b>The greedy was built for "find me a ride somewhere near here."</b> Once the question
+became "reach these places, from where I am standing, and show me options", it was the wrong
+tool — and no amount of tuning fixes a wrong tool. Yesterday afternoon went on adjusting
+weights and thresholds on a mechanism that could not answer the question.</p>
+<p><span class="r">⚠ The resistance was mine.</span> Fred proposed replacing it early; I kept
+proposing patches. Every wrong theory yesterday was an attempt to make the familiar thing
+correct.</p>
+<p><b>⭐ RULE EARNED — it will come up again in the convoy rewrite:</b> when the question
+changes, check whether the mechanism was built for it BEFORE tuning.</p>
+</div>
+
+<h2>⭐⭐ PROTOTYPE-FIRST PAID FOR ITSELF SEVERAL TIMES OVER</h2>
+<div class="card good">
+<p><b>35 engine revisions in a day</b>, at ten seconds a run instead of thirty minutes a build.
+Fred set the rule this morning after the previous day; it is now standing.</p>
+<p><span class="g">⭐ And it was not only speed — it was the freedom to be WRONG.</span></p>
+<ul>
+<li>The <b>subset proxy</b> looked obviously correct and was not — it counted six independent
+feature sets, stopped, and the real overlap test then dropped one to five.</li>
+<li>The <b>detour screen</b> measured from the wrong points twice.</li>
+<li><b>Removing the cap</b> entirely ran forever.</li>
+</ul>
+<p>Each was a ten-second lesson instead of a wasted evening. And the things they found —
+<b>ride 6 at 79.7 mi that stopping early would have thrown away</b>, the <b>80% overlap</b>
+between rides 4 and 6 — would otherwise have shipped silently.</p>
+<p><b>⚠ Carry it into the next phases.</b> The approval panel reads a JSON file, so it is
+testable against a hand-written batch with no engine run at all. Same principle, applied to
+UI.</p>
+</div>
+
+<h2>The algorithm, settled</h2>
+<pre>corridor (ceiling/3) → graph → candidate starts within 600 yds, EDGE-SPLIT
+  → collapse to one origin per component (alternatives kept)
+  → features via spatial grid, on ANY origin's component
+  → rider pins as high-value features, split onto their trail
+  → distance matrix → out-and-back filter → pairwise table + TESTED ceiling
+  → working array: features earn their way in
+  → ENRICH the top 20 (rides x features, not combinations)
+  → dedupe: same origin+features · any origin · 75% shared trails
+  → six</pre>
+<p>Fully annotated with every measurement in
+<code>GroupTrack_algorithm_annotated_2026-08-26.html</code>.</p>
+
+<div class="card good">
+<p><span class="g">⭐ FRED'S TWO IDEAS DID ~94% OF THE PERFORMANCE WORK.</span></p>
+<table>
+<tr><th>Change</th><th>Effect</th></tr>
+<tr><td><b>Pairwise table</b> — the minimum ride holding both A and B is
+<code>origin→A + A→B + B→origin</code></td><td>98% of combinations killed without a tour
+solve. Whole branches never generated.</td></tr>
+<tr><td><b>Collapse origins per component</b></td><td>13 car parks onto one network were being
+solved 13 times for near-identical answers.</td></tr>
+<tr><td><b>Spatial grid for features</b></td><td>5.8s → 0.1s. 274 POIs × 12,231 nodes was 3.3
+million haversines.</td></tr>
+<tr><td><b>Enrich rather than enumerate</b></td><td>Best ride 6 → 8 features, scores 6.0–8.5 →
+12.3–14.8, every ride within 5.4 mi of the ceiling.</td></tr>
+</table>
+<p><b>67.8s → 3.8s with identical results</b>, then 4s on device.</p>
+</div>
+
+<h2>What shipped today</h2>
+<table>
+<tr><th>Commit</th><th>What</th></tr>
+<tr><td><code>8174c03a6</code></td><td><b>NEWENGINE</b> — the greedy replaced.
+436 insertions, 115 deletions.</td></tr>
+<tr><td><code>3ded23447</code></td><td><b>MAXPOI</b> — feature cap; the port omitted it and
+55 features gave a descent starting at 22.</td></tr>
+<tr><td><code>a1a4fb39e</code></td><td><b>ENRICH</b> — working array, tested ceiling,
+enrichment of the top 20.</td></tr>
+<tr><td><code>bdfaface7</code></td><td><b>DONEALWAYS + PINCAP</b> — DONE unconditional,
+<code>PIN_MAX</code> 10 → 5, stale assess results kept.</td></tr>
+<tr><td><code>5e233bfe4</code></td><td><b>SPLITGEOM</b> — a split edge carries only its own
+polyline.</td></tr>
+<tr><td colspan="2">Plus JUNKCLASS (settlements out of scoring) and OVERLAP3
+(75% shared trails is one ride).</td></tr>
+</table>
+
+<h2>⛔ THE DEFECTS FOUND AND FIXED</h2>
+<table>
+<tr><th>Defect</th><th>Measured</th></tr>
+<tr><td><b>The origin was 613 ft away with ONE spoke</b></td><td>Every one of 2,500 restarts
+began down that spoke; other directions were structurally excluded. <b>Now 24 ft, 2 spokes,
+12 candidate starts.</b></td></tr>
+<tr><td><b>Pins snapped up to 6,001 ft</b>, ten collapsing onto four nodes</td><td><b>Now
+16–150 ft onto named trails</b> — Horse Valley Road, FSR 082.</td></tr>
+<tr><td><b>Settlements were scoring</b></td><td><code>locality</code> 3,271,
+<code>hamlet</code> 1,220, <code>suburb</code> 47, <code>farm</code> 21 — 4,559 of 16,992.
+A locality sits on roads, so routes followed roads to reach one. <b>Fred: "my route created in
+towns and developments."</b></td></tr>
+<tr><td><b>DONE was hidden</b> when feasibility was unknown</td><td>Removed the only way out of
+the step. <b>Fred: "if i drop 4 pins i don't want to drop six more to exit."</b></td></tr>
+<tr><td><b>Split edges drew the parent's whole polyline</b></td><td>Both halves carried
+<code>e.pts</code>, so a route crossing one emitted it twice and the drawn line ran out and
+back — the straight segments near the pins.</td></tr>
+</table>
+
+<h2>🔴 TOMORROW</h2>
+<ol>
+<li><b>Verify SPLITGEOM on device</b> — straight lines near pins gone, each pin sitting ON the
+drawn route. Distances must not move.</li>
+<li><b>Process 3, the approval panel.</b> ⭐ Standalone: reads
+<code>open_batch.json</code> and the drafts it names, opens from Route+, <b>testable against a
+hand-written JSON with no engine run</b>.</li>
+<li><b>Process 1, the banner flow</b> — designed and mocked at v11, not built.</li>
+<li><b>Then the carto / PBF work.</b></li>
+</ol>
+
+<div class="card stop">
+<p><span class="r">⛔ THE PRODUCT RISK, and Fred named it:</span> <i>"it is a better tool in
+the deep wilds than near towns — and most people will test near towns."</i></p>
+<p>Measured at 37.8963,-113.659: <b>sixteen candidate starts, all residential streets</b> —
+Avenue B, Avenue C, Cutter Street, McGarry Street, Taylor Street. The <code>trails</code>
+table contains roads and the engine cannot tell them apart.</p>
+<p><b>A tester who runs it from their driveway gets road loops and concludes the app does not
+work.</b> First impressions do not get a second chance.</p>
+<p><b>⭐ Two answers, and the second is cheap:</b> the carto work moves up the queue — and
+until it lands, <b>the app can say so</b>. If every candidate start is a residential street
+that is detectable, and "you are in town; move to where the trails start" beats six road
+loops.</p>
+</div>
+
+<h2>⚠ Still open</h2>
+<ul>
+<li><b>Pins do not survive promotion</b>, so Fred saves routes he does not want purely to
+compare them. ⭐ The <code>mine: true</code> feature data fixes the record; process 3 fixes
+the need.</li>
+<li><b>Over five pins</b> — the designed answer is not built: pins as a fixed skeleton from
+<code>assess()</code>'s tour, enriched rather than enumerated. Until then <code>PIN_MAX</code>
+is 5, and it is a compute bound: ten pins took the tested ceiling from 4 to 11 and the build
+ran five minutes without finishing.</li>
+<li><b>Six colours that read on satellite</b> — untested. Red is unavailable; the HUD and pins
+own <code>#FF0000</code>.</li>
+<li><b>The welcome copy promises process 3.</b> ⛔ Do not ship that wording until the panel
+exists.</li>
+<li><b>Orphaned route notes</b> — <code>writeRouteNotes: no route aa328c07-…</code>, predates
+this session.</li>
+<li><b>Six import sources failing in nine seconds</b> — 08-24, unexplained.</li>
+</ul>
+
+<h2>Documents in this set</h2>
+<ul>
+<li><code>GroupTrack_process_spec_2026-08-26.html</code> — ⭐ <b>the map of the others.</b>
+Three processes, what each owns, the batch JSON, what is and is not built.</li>
+<li><code>GroupTrack_algorithm_annotated_2026-08-26.html</code> — the engine, every rule and
+the measurement behind it.</li>
+<li><code>GroupTrack_design_candidate_routes_2026-08-26.html</code> — the approval panel, with
+a <b>working legend mockup</b> on real 08-26 data.</li>
+<li><code>GroupTrack_mockup_banner_flow_v11_2026-08-26.html</code> — the guided flow,
+interactive.</li>
+<li><code>grouptrack_living_master_2026-08-26_v35.html</code></li>
+<li>Release notes, QuickStart, manual — carried forward.</li>
+</ul>
+
+</body></html>

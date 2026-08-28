@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GroupTrack — AI components: builder and review/resolve — 2026-08-27</title>
+<style>
+ :root{--bg:#12141A;--card:#1B1E26;--line:#2E3440;--tx:#E6E9EF;--dim:#9AA4B2;
+       --red:#FF5C5C;--amb:#FFC53D;--grn:#4ADE80;--blu:#60A5FA;}
+ *{box-sizing:border-box}
+ body{margin:0 auto;background:var(--bg);color:var(--tx);max-width:1000px;
+   font:15px/1.65 -apple-system,"Segoe UI",Roboto,sans-serif;padding:30px 22px 90px}
+ h1{font-size:24px;margin:0 0 4px}
+ .sub{color:var(--dim);font-size:13.5px;margin:0 0 24px}
+ h2{font-size:17px;margin:34px 0 10px;padding-bottom:7px;border-bottom:2px solid var(--blu);
+    color:var(--blu)}
+ h3{font-size:14.5px;margin:22px 0 7px;color:var(--amb)}
+ h4{font-size:13px;margin:16px 0 5px}
+ .card{background:var(--card);border:1px solid var(--line);border-radius:9px;
+   padding:14px 16px;margin:12px 0}
+ .card.stop{border-color:#5C2A2A;background:#20161A}
+ .card.warn{border-color:#5C4A1E;background:#1F1C14}
+ .card.good{border-color:#26502F;background:#141E17}
+ code{background:#0C0E13;padding:1.5px 5px;border-radius:4px;font-size:12.5px;color:#C8D4E4;
+   font-family:ui-monospace,Menlo,Consolas,monospace}
+ pre{background:#0C0E13;border:1px solid var(--line);border-radius:7px;padding:12px 14px;
+   overflow-x:auto;font-size:12.5px;line-height:1.5;color:#C8D4E4;
+   font-family:ui-monospace,Menlo,Consolas,monospace}
+ table{border-collapse:collapse;width:100%;font-size:13.5px;margin:10px 0}
+ th,td{border:1px solid var(--line);padding:7px 9px;text-align:left;vertical-align:top}
+ th{background:#171A21;color:var(--dim);font-weight:600}
+ ul,ol{padding-left:20px;margin:7px 0} li{margin:5px 0}
+ .k{color:var(--amb);font-weight:700} .g{color:var(--grn);font-weight:700}
+ .r{color:var(--red);font-weight:700}
+ .comp{display:inline-block;background:#171A21;border-radius:5px;padding:2px 10px;
+   font:12px ui-monospace,monospace;color:var(--blu);margin-right:8px}
+</style>
+</head>
+<body>
+<div style="font:11.5px ui-monospace,Menlo,Consolas,monospace;color:#8b949e;
+     letter-spacing:.4px;margin:0 0 14px">DOCUMENT ID
+     <b style="color:#60A5FA">COMPONENTS-2026-08-27</b> &middot; issued 27 August 2026</div>
+
+<h1>AI components — builder and review/resolve</h1>
+<p class="sub">2026-08-27 · two callable processes, specified for build ·
+supersedes the process-3 sketch in <code>PROCESS-2026-08-26</code></p>
+
+<div class="card good">
+<p class="lead"><span class="g">⭐⭐ THE RECIPE IS THE IDEA THAT MAKES THIS WORK.</span></p>
+<p>Every route carries, inside its own narrative, the complete set of inputs that produced it —
+staging waypoint and name, the mileage band, the pace band, and every rider pin. A button on
+that section <b>rebuilds the identical batch</b>.</p>
+<p><b>So discarding five of six stops being lossy.</b> Yesterday Fred saved routes he did not
+want purely to be able to compare them, because saving was the only way to see them. With a
+recipe on the kept route, <b>the five that were cleared can be recreated exactly, any
+time</b> — and the decision to discard costs nothing.</p>
+</div>
+
+<h2><span class="comp">COMPONENT 1</span> Build routes</h2>
+<p><b>Takes</b> the complete requirement set. <b>Produces</b> six named WIP routes, a narrative
+for each, and the batch state file. <b>Knows nothing</b> about how the requirements were
+gathered.</p>
+
+<h3>Signature</h3>
+<pre>buildRouteBatch(
+    batchName:   String,           // "Panguitch September"
+    staging:     Waypoint,         // lat, lon, name
+    milesLow:    Double,           // shortest ride worth taking
+    milesHigh:   Double,           // furthest they will go
+    mphLow:      Double,           // 12
+    mphHigh:     Double,           // 18
+    pins:        List&lt;LatLon&gt;,     // 0..5, may be empty
+    finish:      LatLon?,          // null = loop back to staging
+): BatchResult</pre>
+
+<div class="card">
+<p><b>⭐ EVERY PARAMETER IS A RIDER DECISION.</b> Nothing derived, nothing implicit. That is
+what makes the recipe possible — the parameter list IS the recipe, so the two cannot drift
+apart.</p>
+<p><b>⚠ And it is why this must be callable, not inlined in a screen.</b> The recipe button
+calls exactly this function with exactly the stored values. If the screen held any of the
+logic, a rerun would not be a rerun.</p>
+</div>
+
+<h3>What it produces</h3>
+<ol>
+<li><b>Six named WIP routes</b> — <code>Panguitch September Route 1 … Route 6</code>, drafts in
+the WIP directory.</li>
+<li><b>A narrative per route</b>, ending with the recipe section.</li>
+<li><b>The batch state file</b>, which stops any further route creation until resolved.</li>
+</ol>
+
+<h3>⭐ The recipe section</h3>
+<p>Appended to every route's narrative. It is <b>the rider's own inputs read back</b>, not a
+description of what the engine did.</p>
+<pre>── RECIPE ──────────────────────────────────────────────
+Built 26 August 2026 from:
+
+  Start        Birch Spring staging   37.72350, -112.61300
+  Distance     55 to 80 miles
+  Pace         12 to 18 mph  (5.5 – 6.6 hours)
+  Your places  3
+                 1  moved 33 ft to Horse Valley Road
+                 2  moved 19 ft to FSR 082
+                 3  moved 115 ft to FSR 082
+  Finish       loop back to the start
+
+            [ BUILD THESE ROUTES AGAIN ]
+────────────────────────────────────────────────────────</pre>
+
+<table>
+<tr><th>Field</th><th>Why it is in the recipe</th></tr>
+<tr><td><b>Staging waypoint, name AND coordinates</b></td><td>The name is for the rider; the
+coordinates are what the rerun uses. ⚠ A waypoint can be renamed or deleted — the coordinates
+must stand alone.</td></tr>
+<tr><td><b>Both mileage bounds</b></td><td>Not the achieved distance. The rider asked for a
+range and the rerun must ask for the same range.</td></tr>
+<tr><td><b>Both pace bounds</b></td><td>⚠ Shown with the resulting hours, because that is what
+the rider actually set them by.</td></tr>
+<tr><td><b>Every pin, with where it moved to</b></td><td>⭐ The rerun uses the ORIGINAL tap, not
+the snapped point — otherwise repeated reruns would creep along the trail. The moved-to line is
+the honest record for the rider, not an input.</td></tr>
+<tr><td><b>Finish, or "loop"</b></td><td>Null is a real answer and must be recorded as one.</td></tr>
+</table>
+
+<div class="card warn">
+<p><span class="k">⚠ THE RECIPE MUST SURVIVE PROMOTION.</span> It is written into the
+narrative, and the narrative travels with the route when it becomes permanent. A recipe that
+lived only in the batch file would die when the batch was deleted — which is exactly when it
+becomes useful.</p>
+</div>
+
+<h2><span class="comp">COMPONENT 2</span> Compare and resolve</h2>
+
+<div class="card good">
+<p><span class="g">⭐⭐ THE WIP TRACKS ARE THE TRUTH, NOT THE JSON.</span> Fred, 08-27.</p>
+<p><b>WIP EXISTING IS THE GATE. The JSON decides WHICH compare.</b> Fred, 08-27:</p>
+<pre>Route+ tapped
+  → WIP exists + batch JSON   →  AI COMPARE   (the six, legend, colours)
+  → WIP exists, no JSON       →  the ordinary WIP list
+  → no WIP                    →  straight into a new route, no prompt</pre>
+<p><b>⭐ And the third line kills the confirm-new-route prompt.</b> Fred, 08-27: <i>"we just
+selected Add Route+ — we do not need to confirm our intent on a button we just selected."</i>
+The prompt was standing in for a decision the app can now make properly.</p>
+<p><b>⚠ Plus: delete a zero-point autosave on entry.</b> An autosave with no vertices is not a
+draft, it is residue, and clearing it at the point of entry means it never reaches the WIP
+list. ⚠ ZERO specifically — a one-point draft is a rider who tapped once and left.</p>
+<p>That is the whole trigger and the whole lock. The batch file is <b>not</b> consulted to decide whether something is
+outstanding — the drafts on disk answer that directly.</p>
+<p><b>⭐ Why this is better than what was specified yesterday:</b> a JSON that claims six
+routes exist while the directory holds four is a lie the app would act on. The directory cannot
+be wrong about its own contents. And a batch file lost to a crash cannot strand the rider,
+because it was never what held the lock.</p>
+</div>
+
+<h3>What the JSON is actually for</h3>
+<p><b>Restarting the compare session, and nothing else.</b></p>
+<pre>{
+  "batch_name": "Panguitch September",
+  "recipe":     { ...the parameters that built these... },
+
+  "session": {
+    "save":      ["Route 2"],
+    "compare":   ["Route 1", "Route 3"],
+    "open_narrative": "Route 2"
+  }
+}</pre>
+<table>
+<tr><th>Field</th><th>Why</th></tr>
+<tr><td><code>session.save</code></td><td>⭐ A rider halfway through deciding, interrupted,
+comes back to their ticks still ticked. Without this the comparison restarts from nothing every
+time.</td></tr>
+<tr><td><code>session.compare</code></td><td>Which routes were ticked for comparison. ⚠ NOT
+"hidden" — there is no hide control on the grid; the compare selection is the only narrowing
+there is.</td></tr>
+<tr><td><code>recipe</code></td><td>Carried so it can be written into whichever routes are
+saved. ⚠ It must reach the saved narratives, or it dies with the batch.</td></tr>
+</table>
+
+<div class="card warn">
+<p><span class="k">⚠ THE JSON IS DISPOSABLE, AND THE DESIGN MUST TREAT IT THAT WAY.</span> If
+it is missing or unreadable, compare still opens — every route shown, nothing hidden, nothing
+selected. The rider loses their narrowing, not their routes.</p>
+<p><b>⭐ That is the MARKERFIX lesson applied properly.</b> The trails-clear marker was load
+bearing and lived somewhere it could vanish. This file can vanish safely by design.</p>
+</div>
+
+<h3>Signature</h3>
+<pre>hasOpenBatch(): Boolean          // are there WIP routes? — the directory decides
+openCompare(): Unit              // draw them, restore session state if any</pre>
+
+<h3>What compare does</h3>
+<ol>
+<li>Lists the WIP routes on disk</li>
+<li>Loads and draws them all, <b>each in its own colour</b></li>
+<li>Restores selections and hidden state from the JSON <b>if it is there</b></li>
+<li>Shows the legend: name in its colour, tap for narrative, show/hide, select</li>
+<li>Writes session state back on every change</li>
+</ol>
+
+<h3>⛔ COMPARE OWNS THE MAP WHILE IT IS OPEN</h3>
+<div class="card stop">
+<p><span class="r">Route mode OFF on entry, restored on exit.</span> Fred, 08-27: <i>"it needs
+to turn Route+ mode off so we do not draw vertexes in this compare function."</i></p>
+<p><b>⭐ And it is more than a flag.</b> Compare needs the map for its OWN gestures — tapping a
+drawn route to select it, tapping a name in the legend. With route mode live underneath, every
+one of those becomes a vertex on a route the rider never meant to edit.</p>
+<p><b>⚠ Restore it to WHAT IT WAS</b>, not to a fixed value. A rider can reach compare from
+more than one place, and coming back to a different mode than they left is the kind of small
+wrongness that is very hard to report.</p>
+<p><b>⚠ AND IT TAKES MAP TAPS ON/OFF WITH IT.</b> That control lives in the route toolbar,
+which renders on <code>routeMode &amp;&amp; !showAiDesign</code> — so with route mode off the
+toolbar is gone. <b>Correct here</b>, since compare does not want vertex editing, but it means
+<b>compare must supply any map control it needs itself</b>.</p>
+</div>
+
+<h3>⭐⭐ ONE PANEL, ONE TABLE — settled 2026-08-27</h3>
+
+<div class="card good">
+<p><span class="g">Fred:</span> <i>"simpler is better. No compare checkbox, open with compare
+all routes, we only have to scroll up and down, colour the columns to agree with route
+colours."</i></p>
+<p><b>⛔ Everything below this replaced a design with two screens, a compare tick, a COMPARE
+button, hide/unhide, expand/shrink and a sheet.</b> None of it survives. What killed it was
+Fred's own observation: <b>if rows are the universe and columns are ticks, dashes or mileage
+numbers, three columns are 90dp and there is nothing to expand.</b> The width problem that
+justified all the machinery did not exist.</p>
+</div>
+
+<pre>         R1    R2    R3    R4    R5      &lt;- header, in route colour
+         ☐     ☐     ☐     ☐     ☐      &lt;- save tick, beside the name
+─────────────────────────────────────
+Miles   79.7  79.2  76.9  78.1  75.4
+Hours    5.5   5.5   5.3   5.4   5.2
+─── FEATURES ───────────────────────
+Asay       ✓     ✓     ✓     –     ✓
+Castle     –     ✓     –     ✓     –
+─── TRAILS ─────────────────────────
+Pass Ck  12.4  12.4    –    8.2     –
+FSR 082   6.7    –     –     –     4.1
+─────────────────────────────────────
+    [ SAVE SELECTED ]    [ EXIT ]</pre>
+
+<table>
+<tr><th>Decision</th><th>Why</th></tr>
+<tr><td><b>Every route, always</b></td><td>No selection, no narrowing, no mode. ⭐ <b>The
+colour does the work the ticks were doing</b> — a blue column ties to the blue line, and
+reading across a row shows which routes reach that feature.</td></tr>
+<tr><td><b>Rows are the universe</b></td><td>Every feature and every trail across all routes
+gets a row. Columns are ✓, – or a number, so they stay narrow whatever the route names
+are.</td></tr>
+<tr><td><b>ONE control per route</b></td><td>The save tick sits <b>beside the route name</b> in
+the header. Fred, 08-27: <i>"why two controls?"</i> — there was no reason. The separate grid
+panel disappears entirely.</td></tr>
+<tr><td><b>Height is the constraint, not width</b></td><td>⚠ Twenty rows will not fit; the
+table scrolls internally. Width was never the problem, which is why expand/shrink was
+dropped.</td></tr>
+<tr><td><b>Two buttons</b></td><td>SAVE SELECTED and EXIT. ⭐ EXIT leaves everything — the
+batch stays open and Route+ reopens exactly this. Only SAVE SELECTED clears the lock.</td></tr>
+</table>
+
+<div class="card warn">
+<p><span class="k">⚠ WHAT THIS COSTS: the map narrowing is gone.</span> With every route drawn,
+lines that share trail still merge — and no amount of weight fixes that. <b>The bet is that the
+table answers the question instead</b>, because reading which routes hit which features does not
+need the map at all.</p>
+<p><b>⚠ AND IT NEEDS DATA THAT DOES NOT EXIST YET.</b> Per-route features and per-trail mileage
+are computed inside <code>buildDraft</code> — <code>legs</code> is
+<code>Triple(trail, from, to)</code> and the POIs are tracked in order — but none of it reaches
+the draft file or the batch. <b>That is the next piece of work, and the table cannot be built
+without it.</b></p>
+</div>
+
+<div class="card">
+<p><b>⚠ WHAT IS ALREADY BUILT AND NOW PARTLY OBSOLETE:</b>
+<code>ConvoyBatchGridPanel</code> exists and works — draggable, coloured names, compare and save
+ticks, COMPARE narrowing the map (device-proven 08-27). <b>The compare tick and the COMPARE
+button come out; the save tick and the buttons move into the table header.</b> The drawing
+underneath — <code>drawBatchRoute</code>, colours in the batch file, the Route+ fork — is
+unaffected.</p>
+</div>
+
+<h3>⛔ PORTRAIT ONLY, FOR EVERY AI PLANNING FUNCTION</h3><h3>⛔ PORTRAIT ONLY, FOR EVERY AI PLANNING FUNCTION</h3>
+<div class="card stop">
+<p><span class="r">Fred, 08-27:</span> <i>"all AI planning functions should exist only in
+portrait."</i> Locked on entry to the flow, restored on exit — the same shape as the route-mode
+rule: <b>the AI flow owns the screen while it is open and hands it back as it found it.</b></p>
+<p><b>⭐ The compare table is what demands it.</b> Three columns of numbers, stacked under a
+map — that is a vertical layout, and landscape leaves no room for either half.</p>
+<p><b>⭐ And consistency across the flow matters more than optimising each screen.</b> A rider
+whose phone flips between steps is fighting the app while trying to think about a ride.</p>
+<p><b>⚠ AN ORIENTATION CHANGE RECREATES THE ACTIVITY.</b> If compare's state — which routes are
+ticked, scroll position — lives only in a composable's <code>remember</code>, locking portrait
+on entry could wipe it before it is used. <b>Set the lock BEFORE that state initialises</b>, or
+hold it outside the composable.</p>
+<p><b>⚠ Restore what was there</b>, not a fixed value. A rider on a bar mount may live in
+landscape, and coming back to portrait after the flow would be the app quietly changing their
+setup.</p>
+</div>
+
+<h3>The two exits</h3>
+<table>
+<tr><th>Button</th><th>Behaviour</th></tr>
+<tr><td><b>EXIT</b></td><td>Leaves everything. WIP routes stay, session state is written, route
+creation stays blocked. ⭐ Route+ reopens exactly this screen with the same routes hidden and
+the same ones ticked.</td></tr>
+<tr><td><b>SAVE SELECTED</b></td><td>Promotes the ticked routes — <b>writing the recipe into
+each saved narrative</b> — deletes the unticked WIP routes, deletes the JSON. Route creation is
+available again.</td></tr>
+</table>
+
+<div class="card">
+<p><b>⭐ THE TWO EXITS MEAN DIFFERENT THINGS AND BOTH ARE NEEDED.</b> EXIT is "I have not
+decided"; a rider interrupted mid-comparison must be able to walk away. SAVE SELECTED is "I
+have decided", and it is the only thing that clears the lock.</p>
+<p><b>⚠ Saving nothing is a valid decision</b> — ticked none, pressed SAVE SELECTED: they
+looked and liked none of them. All six go and the lock clears. ⛔ But <b>the recipe goes with
+them</b>, so it must say plainly that these cannot be rebuilt afterwards.</p>
+</div>
+
+<div class="card good">
+<p><span class="g">⭐ DELETION IS REVERSIBLE — AS LONG AS SOMETHING IS KEPT.</span> Fred,
+08-27: <i>"non-selected can be recreated anytime by clicking on the recipe section of the saved
+track narrative."</i></p>
+<p>Keep one route and the other five are gone — but the kept route carries the recipe that
+built all six, so <b>BUILD THESE ROUTES AGAIN</b> reproduces the identical batch.</p>
+<p><b>⚠ Identical, not similar.</b> The engine is deterministic: same inputs, same rides.
+Anything that makes generation depend on time, random seeds or mutable state breaks the recipe
+<b>silently</b>.</p>
+</div>
+
+<h3>⚠ What must be true for a rerun to be identical</h3>
+<ul>
+<li><b>Same trail data.</b> A state reimported in between changes the network and therefore the
+rides. ⭐ Record the trail count in the recipe so a changed corpus is visible rather than
+mysterious.</li>
+<li><b>No random seed.</b> The new engine has none. <code>Request.seed</code> survives from the
+old greedy and should go with <code>TRIES</code> and <code>BEAM_TOP</code>.</li>
+<li><b>The graph cache must not leak between runs.</b> <code>splitEdgeAt</code> mutates the
+cached graph, so a rerun could inherit synthetic split nodes from a previous search.
+<b>⛔ NOT YET VERIFIED, and it would break the recipe silently.</b></li>
+<li><b>The rerun uses the ORIGINAL tap</b>, not the snapped point — or repeated reruns creep
+along the trail.</li>
+</ul>
+
+<h2>⭐⭐ THE RECIPE TRAVELS IN THE GPX — and that changes what a shared route is</h2>
+
+<div class="card good">
+<p><span class="g">Fred, 2026-08-27:</span> <i>"placing the recipe ingredients into the GPX
+narrative section for every trail is an important detail ... so if you share one route, a user
+can recreate any other alternative with one button click."</i></p>
+<p><b>A shared route stops being a line on a map.</b> It carries the ingredients to rebuild its
+own alternatives. Someone who has never used the planner opens your file, presses one button,
+and gets the other five rides from your parameters.</p>
+</div>
+
+<div class="card warn">
+<p><span class="k">⚠ THIS PUTS A REQUIREMENT ON THE GPX ROUND TRIP.</span> The recipe must
+survive export AND import. If the importer drops or truncates the description field, the recipe
+dies <b>exactly where it is most useful — on the shared copy</b>.</p>
+<p><b>⭐ Cheap to check and worth doing early:</b> export a route with a long description,
+reimport it, see what comes back.</p>
+</div>
+
+<h3>The button pre-fills the prompt — it does not replay</h3>
+<div class="card">
+<p><b>Fred, 08-27:</b> <i>"one prompt, so maybe you change the mileage but basically rerun the
+same waypoint route creation."</i></p>
+<p><b>⭐ So the recipe is a STARTING POSITION, not a replay button.</b> It lands the rider in
+the parameters step with everything filled in — staging point, pins, band, pace — and they
+adjust before running. <i>"Same place, same must-sees, but give me a shorter day"</i> is
+probably the commonest use, and it is one field changed rather than the whole flow
+re-entered.</p>
+<p><b>⭐ And it solves the shared case properly.</b> Someone opening your GPX sees YOUR
+parameters and can adjust them to their own group. They are not stuck with your 55–80 band or
+your pace.</p>
+</div>
+
+<h3>⛔ WHAT MAY BE CHANGED ON A REBUILD — and what may not</h3>
+<table>
+<tr><th>The recipe had</th><th>The rider may</th></tr>
+<tr><td><b>No pins</b></td><td>Change the mileage freely and rerun.</td></tr>
+<tr><td><b>Pins</b></td><td><b>Rerun as it is.</b> Mileage is fixed.</td></tr>
+<tr><td><b>Pins, but wants a different mileage</b></td><td>Rerun <b>without the pins</b>.</td></tr>
+</table>
+
+<div class="card stop">
+<p><span class="r">⛔ WHY THE MILEAGE IS LOCKED WHEN THERE ARE PINS.</span>
+<code>assess()</code> validated those pins against <b>that</b> mileage band — it confirmed a
+tour through them fits. Change the band and the validation no longer holds, so the pins would
+be carried forward on a promise nobody checked.</p>
+<p><b>⭐ And the third row is the honest option rather than a refusal:</b> <i>"Your places were
+checked against 55–80 miles. To change the distance, run it without them."</i> The rider gets
+what they asked for and knows exactly what they gave up.</p>
+<p><b>⚠ It also keeps <code>assess()</code> out of the rebuild prompt.</b> Re-validating inside
+a screen meant to be a starting position would pull the feasibility engine into the UI — and
+that is the coupling this whole exercise is removing.</p>
+</div>
+
+<h2>How they compose</h2>
+<pre>REQUIREMENTS  ──parameters──▶  COMPONENT 1        six WIP routes
+(any UI at all)                buildRouteBatch()   + narratives w/ recipe
+                                                   + open_batch.json
+                                                          │
+                                                          ▼
+Route+ tapped, WIP routes exist  ──────────────▶  COMPONENT 2
+                                                   openCompare()
+                                                   (JSON only restores
+                                                    the session)
+                                                          │
+                                    ┌─────────────────────┴──────────┐
+                                 EXIT                          SAVE SELECTED
+                          batch stays open            saved routes + batch deleted
+                                                                     │
+                                                          recipe on the kept route
+                                                                     │
+                                                          [BUILD AGAIN] ──▶ COMPONENT 1</pre>
+
+<div class="card">
+<p><b>⭐ COMPONENT 1 HAS THREE CALLERS, AND THEY ARE ALL THE SAME CALL:</b> the guided flow,
+the recipe button, and any future entry point. None of them contains logic. That is the whole
+value of isolating it.</p>
+</div>
+
+<h2>⚠ Open questions</h2>
+<ul>
+<li><b>Where does the recipe live physically?</b> Inside the narrative text, or as structured
+data beside it? Text is simple and survives anything; structured data is what the button needs.
+<b>Probably both — rendered text for the rider, JSON for the button.</b></li>
+<li><b>Does a rerun replace or add?</b> Rebuilding from a saved route's recipe creates six new
+WIP routes. Are they the same names — <code>Route 1 … Route 6</code> — colliding with the
+saved one? <b>Leaning: the batch name gains a suffix.</b></li>
+<li><b>What if the recipe's staging waypoint no longer exists?</b> The coordinates still work.
+⚠ The rerun should say the waypoint is gone rather than silently using a bare point.</li>
+</ul>
+
+<h2>⚠ OPEN — the recipe button is not built</h2>
+
+<div class="card good">
+<p><span class="g">⭐ THIS IS A MODIFICATION TO AN EXISTING FUNCTION, NOT A NEW ONE.</span>
+Fred, 08-27: the narrative display already exists, and it already serves <b>both</b> WIP drafts
+and saved routes.</p>
+<p><b>So the recipe section is a block added to a display that is already written</b>, and the
+button sits in it. Nothing new is created.</p>
+<p><b class="hi">⛔ BUT ONLY ON SAVED ROUTES.</b> Fred, 08-27: <i>"the last thing we want is
+somebody executing the recipe again while a batch is pending."</i></p>
+<p><b>⭐ And it would be a direct contradiction of the lock.</b> Route+ forces an open batch to
+be resolved before any route work starts — a recipe button on a WIP narrative would be a second
+door into building six more, from inside the very batch that is blocking it. Twelve unresolved
+routes and no way to tell which search produced which.</p>
+<p><b>⚠ So the display takes a flag</b>, and the recipe block renders only for the saved case.
+The same function, one parameter, no second implementation.</p>
+<p><b>⚠ Find it before designing around it</b> — <code>where_used_raw.txt</code> and
+<code>function_universe_raw.txt</code> will name it. Writing a second narrative display would be
+exactly the duplication the 2.6f consolidation rule exists to prevent.</p>
+</div>
+
+<div class="card warn">
+<p><span class="k">⭐ THE RECIPE IS WRITTEN BUT NOTHING READS IT.</span> Every route saved from
+a batch will carry, in its narrative, the parameters that produced it. There is no way yet to
+press anything and get the alternatives back.</p>
+<p><b>⛔ Until that exists the batch design is lossy after all.</b> The whole argument for
+letting a rider discard five of six was that the kept one can rebuild them. Without the button,
+discarding is permanent — which is the behaviour the design was written to avoid.</p>
+</div>
+
+<h3>What it needs</h3>
+<table>
+<tr><th>Piece</th><th>Detail</th></tr>
+<tr><td><b>The recipe rendered in the narrative</b></td><td>Read back as the rider's own inputs
+— start, distance, pace, their places, finish — not a description of what the engine did.</td></tr>
+<tr><td><b>A button on that section</b></td><td><b>BUILD THESE ROUTES AGAIN.</b></td></tr>
+<tr><td><b>It PRE-FILLS, it does not replay</b></td><td>⭐ Lands the rider in the parameters
+step with everything filled, so they can adjust before running. <i>"Same place, same must-sees,
+shorter day"</i> is one field changed.</td></tr>
+<tr><td><b>Structured data beside the text</b></td><td>⚠ The rendered text is for the rider;
+the button needs values. <b>Both</b> — parsing the display text back into parameters would
+break the first time the wording changed.</td></tr>
+</table>
+
+<div class="card stop">
+<p><span class="r">⛔ AND THE RECIPE MUST SURVIVE THE GPX ROUND TRIP.</span> A shared route
+carries the ingredients to rebuild its own alternatives — someone who has never used the
+planner opens the file, presses one button, and gets the other five rides from your parameters.
+<b>If the importer drops or truncates the description field, the recipe dies exactly where it is
+most useful.</b></p>
+<p><b>⭐ Cheap to check and worth doing before building the button:</b> export a route with a
+long description, reimport it, see what comes back.</p>
+</div>
+
+<div class="card warn">
+<p><span class="k">⚠ AND THE MILEAGE LOCK APPLIES.</span> <code>assess()</code> validated the
+pins against THAT band. So: no pins → change the mileage freely; pins → rerun as it is; pins and
+a different mileage → rerun <b>without</b> them. The third is the honest option rather than a
+refusal.</p>
+</div>
+
+<h2>⬜ OPEN — the In-Progress picker</h2>
+
+<div class="card warn">
+<p><span class="k">⛔ IT OPENS WITH NOTHING IN IT.</span> Found 08-27, straight after the first
+successful SAVE SELECTED: the batch had resolved, <code>route_drafts/</code> was empty, and
+Route+ still put up a dialog titled <b>"Start a new route"</b> with Cancel and
+<b>+ Plan a New Route</b> — the picker, with an empty list.</p>
+<p><b>⭐ A picker with nothing to pick should not open.</b> With no drafts, Route+ should do what
+the confirm button does and start a new route.</p>
+<p><b>⚠ Three setters call it</b>, so the guard belongs in ONE helper rather than at each site —
+that is the pattern that cost an hour this morning chasing
+<code>showInProgressPicker</code>.</p>
+</div>
+
+<h3>And two changes to the picker itself</h3>
+
+<table>
+<tr><th>Change</th><th>Why</th></tr>
+<tr><td><b>Checkboxes, multi-delete</b></td><td>Clearing several drafts is one-at-a-time today.
+⚠ After a batch is discarded by hand, or a search the rider abandons, there can be five or six
+at once.</td></tr>
+<tr><td><b>Remove rename</b></td><td>⭐ A draft's name is a working label, not something worth a
+dialog — the real name is chosen at save. And renaming a draft that a batch file names by
+string would break the batch silently.</td></tr>
+</table>
+
+<div class="card">
+<p><b>⚠ NOT TOUCHED 08-27, DELIBERATELY.</b> The picker's full role was only understood at the
+end of a long session — it is the WIP list, not a redundant confirmation, so removing it
+outright would remove the way to open an existing draft. It belongs with the checklist
+replacement: same flow, same screen, and it deserves the read first.</p>
+</div>
+
+<h2>⬜ OPEN — detect a failed import at startup</h2>
+
+<div class="card">
+<p><b>⛔ NOT A MANUAL ENTRY. A STARTUP CHECK.</b> The import record on the device already lists
+which sources completed. <b>If one did not, the app knows — so the app should say so</b>, on the
+next launch, with an offer to run it again.</p>
+<p><b>⭐ Documenting it asks the rider to diagnose something the app can already see.</b> And the
+symptom is exactly the kind nobody reports: the map still shows plenty of trails, route building
+just quietly offers one route where it should offer six.</p>
+</div>
+
+<table>
+<tr><th>Piece</th><th>Detail</th></tr>
+<tr><td><b>Read the import record on launch</b></td><td>It already records which sources
+completed.</td></tr>
+<tr><td><b>Any source incomplete → say so</b></td><td>Name the source. <b>Open Source Maps</b> is
+usually the one, and it carries most of the network.</td></tr>
+<tr><td><b>Offer to rerun</b></td><td>⭐ Trails already on the device are skipped, so a rerun only
+fetches what is missing and duplicates nothing. The rider risks nothing by accepting.</td></tr>
+</table>
+
+<div class="card warn">
+<p><span class="k">⚠ AND THE "TRAILS DISAPPEARED" WARNING IS OUT OF THE MANUAL ENTIRELY.</span>
+Fred, 08-27: the incident was <b>his own tablet stacked on another</b>, inadvertently launching an
+upgrade on a device that was powered down. Not a defect, not reproducible, not something a rider
+will hit.</p>
+<p><b>⛔ It had been sitting on page one of Installation</b> — a new rider's first four pages were
+warnings, one of them about a bug that was fixed and one about an accident. Fred: <i>"you might as
+well say don't use this app."</i></p>
+<p><b>⚠ The rule this leaves:</b> a warning earns its place by being reproducible and current.
+A fixed defect and a one-off accident both read to a new user as "this app loses your
+data".</p>
+</div>
+
+<h2>⬜ DEFERRED — QuickStart references the manual</h2>
+
+<div class="card">
+<p><b>The QuickStart carries the SEQUENCE; the manual carries the HOW.</b> Each QuickStart step
+says what to do and links to the manual section that explains it, rather than repeating the
+instructions in two documents that then drift apart.</p>
+<p><b>⚠ Deferred deliberately.</b> Fred, 08-27: settle it when the QuickStart goes into the
+product alongside the install process — the link targets depend on where it lives and how it is
+reached, and guessing at that now would mean doing it twice.</p>
+<p><b>⭐ Restructured today</b> into the order a new rider actually moves through: install → first
+launch → radio (optional) → tracks from another app (optional) → maps → downloads → planning, with
+troubleshooting at the end. Two duplicate install sections merged, and the radio restrictions moved
+out of the opening — a new tester's first screen was two critical warnings about hardware they may
+not own.</p>
+</div>
+
+<h2>⬜ OPEN — creating a trail where the data has none</h2>
+
+<div class="card stop">
+<p><span class="r">⛔ THE PROBLEM, found on device 08-27.</span> Fred dropped pins along an
+existing track — one visible on the map, with trails and roads around it — and <b>routes would not
+build</b>. The segments he pinned are not in the OSM definitions.</p>
+<p><b>⚠ This is the INVERSE of the roads-near-town problem</b>, and the two will be easy to
+conflate later. Near town, the trails table contains roads that should not route. Here it is
+MISSING track that should.</p>
+<p><b>⭐ The real gap is that the picture and the routing data are two different things, and
+nothing says which is which.</b> The rider sees a track on the satellite tile, drops a pin on it,
+and the router has never heard of it. Nothing in the interface distinguishes <i>drawn</i> from
+<i>routable</i>.</p>
+</div>
+
+<div class="card stop">
+<p><span class="r">⛔⛔ ROOT CAUSE FOUND — THE PLANNER READS TRAILS ONLY.</span>
+<code>buildGraph</code> in <code>RouteExplorer.kt</code> is one query:</p>
+<pre>SELECT trail_id,name,geometry FROM trails
+ WHERE min_lat&lt;=? AND max_lat&gt;=? AND min_lon&lt;=? AND max_lon&gt;=?</pre>
+<p><b>The tracks table is never read.</b> So Fred's pins failed for a STRUCTURAL reason, not a
+data-quality one — a recorded track is visible on the map and snappable when drawing by hand
+(vertices carry <code>lineType</code> of <code>"trail"</code> or <code>"track"</code>, and the
+graduation path fetches geometry for both), but the planner's graph is built from trails alone.</p>
+<p><b>⭐⭐ It is not that the ground is missing. It is that the planner cannot read where it
+lives.</b></p>
+</div>
+
+<div class="card good">
+<p><span class="g">⭐ WHICH REFRAMES THE WHOLE FEATURE.</span> Before building a process for
+riders to hand-create trails, try the query: bring tracks into the graph alongside trails.
+<b>Every rider with recorded tracks benefits, and nobody hand-fixes data.</b></p>
+<p><b>⚠ What it needs deciding:</b> tracks are unvetted rider recordings. A track recorded riding
+a trail is good routing data; one recorded in a truck on the highway is not — and that is the same
+roads-vs-trails problem arriving by a different door. Some rule has to say which tracks
+count.</p>
+<p><b>⚠ And the graph rules must hold</b> — <code>wktPoints</code>, the dedup, and the junk
+classifier all assume trail-shaped input.</p>
+<p><b>⭐ The create-a-trail process below stays as the FALLBACK</b>, for ground that is genuinely
+absent from both tables.</p>
+</div>
+
+<h3>⭐ PROTOTYPE IN PYTHON FIRST — the coverage test</h3>
+
+<div class="card good">
+<p><b>The rule Fred wants:</b> <i>"use trails unless trails do not exist and tracks do."</i> Trails
+are the better data wherever they exist; a track only earns a place in the graph where it is
+filling a gap.</p>
+<p><b>⭐ The test is geometric, per track:</b> sample points along it and ask how many fall within
+a few yards of an existing trail.</p>
+<pre>mostly covered      → drop it, the trail is better data
+mostly not covered  → include it, it is filling a gap</pre>
+<p><b>⭐ And the spatial grid already answers this cheaply.</b> It is the same proximity question
+that took feature lookup from 5.8s to 0.1s, with different input — and tracks in a corridor are
+few, because they are the rider's own recordings.</p>
+</div>
+
+<div class="card good">
+<p><span class="g">⭐⭐ THE TARGET IS A PER-SEGMENT UNION, NOT A PER-TRACK ONE.</span> Fred,
+08-27: <i>"we would really want to build our graph tables with a union of data, with trails
+defaulting and tracks filling missing segments."</i></p>
+<p><b>That is a stronger rule than include-or-drop a whole track, and it is the right one.</b> The
+graph is assembled from both tables with <b>trails winning wherever they exist</b>; a track
+contributes only the stretches where no trail does.</p>
+<pre>for each track:
+    where a trail already covers it   →  contribute nothing
+    where no trail covers it          →  contribute that segment
+
+trails DEFAULT · tracks FILL</pre>
+<p><b>⭐ It removes the awkward case rather than handling it.</b> A recording that runs along a
+known trail and then continues past where the data ends stops being a judgement call — the covered
+part is dropped and the continuation is kept, because that is simply what the rule says.</p>
+<p><b>⭐ And it is honest about provenance:</b> every edge in the graph comes from the better
+source available for that piece of ground, rather than from whichever whole object won a
+threshold.</p>
+</div>
+
+<div class="card warn">
+<p><span class="k">⚠ WHAT IT COSTS OVER THE WHOLE-TRACK VERSION:</span> splitting on coverage
+means finding the boundaries, not just scoring a fraction — walk the track's points, mark each
+covered or not, and cut where the answer changes. <code>splitEdgeAt</code> already cuts edges for
+pin snapping and candidate starts, so the machinery exists.</p>
+<p><b>⚠ Two things the prototype has to settle:</b> how short a fragment is worth keeping — a
+20-yard gap between two trails is noise, not a segment — and whether the fragments actually
+CONNECT at their ends, because a filled segment that does not meet the trails either side of it
+fills nothing.</p>
+<p><b>⭐ Whole-track include/exclude is still worth running FIRST</b>, as one line of the same
+prototype: if tracks make no difference even when added wholesale, the per-segment version is not
+worth building.</p>
+</div>
+
+<div class="card warn">
+<p><span class="k">⚠ THE ORIGINAL AWKWARD CASE, kept for the record</span> — a recording that runs
+along a known trail and then continues past where the data ends. <b>Dropping it loses the useful
+part; keeping it whole duplicates the trail.</b></p>
+<p>The clean answer is to SPLIT it, and the engine already knows how — <code>splitEdgeAt</code>
+exists for pin snapping and for edge-splitting at candidate starts.</p>
+<p><b>⚠ But splitting on coverage is more than a first cut needs.</b> Whole-track
+include/exclude proves the idea; the split follows if the boundary case turns out to matter in
+practice.</p>
+</div>
+
+<h3>⭐ SCOPED TO AI MODE ONLY</h3>
+<div class="card">
+<p><code>buildGraph</code> is the planner's own function and <b>nothing else calls it</b>. Manual
+route drawing already handles both types on its own path — vertices carry <code>lineType</code>,
+and the graduation path fetches trail and track geometry separately.</p>
+<p><b>⭐ So this is a UNION in one query, inside one function, with no other caller to consider —
+tried and reverted cheaply, with the manual path untouched either way.</b></p>
+<p><b>⚠ It needs a <code>lineType</code> on each geometry.</b> The graph carries
+<code>trail_id</code> and treats every id as a trail; an unmarked track id would send route-saving
+to the wrong table. The convention already exists on <code>Vertex</code>.</p>
+</div>
+
+<h3>⭐⭐ THE RECIPE IS THE CONTROL — Fred, 08-27</h3>
+
+<div class="card good">
+<p><i>"If I save one of these routes we can use the recipe to duplicate the run, subbing tracks for
+missing trails."</i></p>
+<p><b>⭐ That turns the prototype from a demo into a controlled experiment.</b> The recipe is
+exactly the parameter set the engine takes — anchor, both mileage bounds, both pace bounds, pins,
+finish. Run it twice against the same DB, changing only whether tracks are in the graph, and
+<b>every difference in the output is attributable to that one change.</b> Nothing else moved.</p>
+<pre>run A   recipe + trails only        →  the routes already on the device
+run B   recipe + trails and tracks  →  ?
+
+same anchor · same band · same pace · same pins · same DB</pre>
+<p><b>⭐ And run A is already validated</b> — it produced the routes Fred is looking at, so the
+prototype can be checked against a known-good result before the change is even applied. If run A
+does not reproduce the device's routes, the harness is wrong and nothing downstream can be
+trusted.</p>
+</div>
+
+<div class="card">
+<p><b>⭐ THIS IS THE FIRST REAL USE OF THE RECIPE</b>, and it is not the one it was designed for.
+It was written so a rider could rebuild the alternatives they discarded; it turns out to be an
+exact reproduction of an engine run, which makes it a test fixture as much as a feature.</p>
+<p><b>⚠ Which is an argument for saving a route from every interesting batch</b> — each one is a
+reproducible case, and the awkward ones are worth keeping.</p>
+</div>
+
+<div class="card warn">
+<p><span class="k">⚠ WHAT TO CHECK BEFORE RUNNING IT:</span></p>
+<p><b>1 — Does the test DB have tracks?</b> <code>D:\nav_test\spatial_after.db</code> is the Utah
+trails import; if its tracks table is empty there is nothing to union in, and the run needs a DB
+pulled from the device instead.</p>
+<p><b>2 — Are Fred's pins in the recipe?</b> The batch that produced these routes had
+<code>"pins": []</code>. The pins he dropped on missing track were a LATER attempt that failed to
+build — <b>so the interesting recipe may be one that never produced a batch at all.</b> If routes
+did not build, no batch was written, and there is no recipe to replay.</p>
+<p><b>⭐ If that is the case, capture the parameters by hand</b> — anchor, band, pace, pin
+coordinates — and hand-build the recipe JSON. It is six fields.</p>
+</div>
+
+<div class="card good">
+<p><span class="g">⭐ THE CONTROL EXISTS — saved 2026-08-27.</span> Route saved as
+<b>beryl broken ridge</b>, carrying its recipe in the notes copied to the DB row by
+<code>writeRouteNotes</code>.</p>
+<p><b>So run A has a known-good answer to reproduce</b>: anchor 37.896252892854186,
+-113.65942158037798 · 55&ndash;80 miles · 12&ndash;18 mph · no pins · no finish. The batch it came
+from produced five routes at 64&ndash;77 miles.</p>
+<p><b>⚠ Read the recipe from the SAVED ROUTE, not from the batch file</b> — the batch was deleted
+when the route was saved, which is exactly what resolving a batch is supposed to do. The route row
+is the record now.</p>
+</div>
+
+<h3>The prototype run</h3>
+<p><b>Rule: prototype every change in Python and evaluate the trails produced before touching
+Kotlin.</b> 35 iterations validated the engine rewrite in a day; ten seconds a run instead of
+thirty minutes a build.</p>
+<table>
+<tr><th>Step</th><th>What it answers</th></tr>
+<tr><td>Load tracks in the corridor beside the trails</td><td>How many are there? If it is
+thousands, the cost assumption is wrong.</td></tr>
+<tr><td>Run the coverage test at a few thresholds</td><td>What fraction get dropped? A test that
+keeps everything or nothing is not discriminating.</td></tr>
+<tr><td>Build the graph both ways</td><td>Does the component count fall — i.e. do tracks actually
+JOIN networks that were separate?</td></tr>
+<tr><td>Run the full pipeline</td><td>⭐ <b>The real question: are the routes BETTER?</b> More
+reachable features, less retrace, or just more mileage on unnamed ground.</td></tr>
+<tr><td>Check against Fred's pin locations</td><td>The case that started this. Do routes build
+where they would not before?</td></tr>
+</table>
+
+<div class="card warn">
+<p><span class="k">⚠ WHAT WOULD MAKE THIS A BAD IDEA, and the prototype should look for it:</span>
+a track recorded in a truck on the highway is the roads-vs-trails problem <b>arriving by a
+different door</b>. If the coverage test lets those in, routes near towns get worse, not
+better.</p>
+</div>
+
+<h3>The process</h3>
+<p>The rider selects the missing part of a track they can see, and the app makes it a routable
+trail. <b>Unnamed</b>, because it has no name to give it.</p>
+
+<div class="card good">
+<p><span class="g">⭐⭐ IT GOES IN AS ITS OWN TRAIL SOURCE.</span> Fred, 08-27: <i>"I think it is a
+different trail source so it can survive."</i></p>
+<p><b>That solves the hard part with machinery that already exists.</b> Imports are per-source, so
+a <b>user source</b> is simply never one of the sources a state reimport touches — it survives
+<b>by construction</b>, not by remembering to protect it.</p>
+<p><b>⛔ And survival was the risk that decided the design.</b> A created trail sitting in the
+trails table alongside OSM data would vanish on the next state reimport, and routing would quietly
+break again with no explanation. Worse than not offering the feature.</p>
+<p><b>⭐ It gets more for free:</b> the source appears in the import record, so created trails are
+countable, inspectable and separable. And the data stays honest — a rider-drawn connector is not
+OSM data and should not claim to be.</p>
+</div>
+
+<h3>⚠ Still to answer before code</h3>
+<table>
+<tr><th>Question</th><th>Why it matters</th></tr>
+<tr><td><b>What is the source geometry?</b></td><td>A recorded track from
+<code>my_tracks</code>, or a track already in the spatial DB? Different stores, different
+identity.</td></tr>
+<tr><td><b>Will the junk classifier eat it?</b></td><td>⛔ Dead-end spurs are excluded from the
+routing graph by a <b>"short AND featureless"</b> filter — and an unnamed connector segment is
+exactly that shape. A trail created to close a gap could be discarded by the rule that hides
+noise.</td></tr>
+<tr><td><b>Does it actually connect?</b></td><td>A trail that does not share endpoints with the
+network is still unroutable. <b>The whole point is closing a gap, so the endpoints matter more
+than the line.</b></td></tr>
+</table>
+
+<div class="card">
+<p><b>⭐ This is the honest counterpart to "stop rather than bastardise".</b> Rather than snapping
+a pin thousands of feet to something that IS in the data, the rider is given a way to fix the
+data.</p>
+<p><b>⚠ And check the import first.</b> Six sources failing in nine seconds is still on the
+backlog, and a partial import looks exactly like missing track. Confirm the segments are genuinely
+absent from OSM before building a feature to work around them.</p>
+</div>
+
+<h2>Build order — 2026-08-27</h2>
+<div class="card">
+<p><b>⚠ COMPONENT 1 ALREADY EXISTS</b>, in line at the end of the current process, and it
+creates the WIP drafts. Do not rewrite it. What it needs is a <b>thin seam after it</b>.</p>
+</div>
+<ol>
+<li><b>The seam</b> — after WIP creation, write the batch JSON and the recipe into each
+narrative. Return. ⭐ Quick, and it gives item 2 a real file to open.</li>
+<li><b>Compare</b> — the standalone process. Reads the JSON, draws the routes each in its own
+colour, legend with narrative and hide/unhide, two exits. ⚠ <b>The largest of the four by some
+distance</b> — nothing in it exists today.</li>
+<li><b>The fork</b> — Route+ checks for the JSON: exists → compare, otherwise → the WIP list as
+today. ⭐ One decision point, one place it can be wrong. The create-new-route prompt gets
+cleaned up while we are in there.</li>
+<li><b>The recipe button</b> — ⭐ a MODIFICATION to the existing narrative display, which
+already serves both WIP drafts and saved routes. ⛔ <b>The recipe block renders on SAVED routes
+only</b> — on a WIP it would be a second door into building six more from inside the batch that
+is blocking route work. Add the block and wire
+<b>BUILD THESE ROUTES AGAIN</b> to the parameters step, pre-filled. ⛔ <b>Until this exists,
+discarding five of six is permanent</b> — which is the behaviour the batch design was written to
+avoid.</li>
+<li><b>The new UI</b> — banner prompts replacing the checklist. ⭐ <b>The ONLY process change
+is the recipe section in the narrative</b>; the engine call, the parameters and the WIP output
+are identical, so the new UI swaps in without touching what is proven.</li>
+</ol>
+<p><b>⚠ The recipe must be written where the NARRATIVE is built, not in the UI</b> — otherwise
+the old checklist path would produce narratives without one, and a route saved from there could
+never be rebuilt.</p>
+
+</body>
+</html>

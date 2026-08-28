@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GroupTrack — route planning, step by step</title>
+<style>
+  :root{
+    --panel:#1B1E23;--panel-hi:#242830;--line:#333941;
+    --txt:#E8EAED;--dim:#9AA3AE;--faint:#6B7481;
+    --blue:#4FA3E3;--green:#2FBF5B;--amber:#FFC53D;--red:#FF0000;
+    --grey-btn:#3A4049;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#0E1013;color:var(--txt);
+    font-family:-apple-system,"Segoe UI",Roboto,sans-serif;
+    display:flex;flex-direction:column;align-items:center;padding:22px 16px 60px}
+  h1{font-size:17px;font-weight:700;margin:0 0 4px}
+  .sub{color:var(--dim);font-size:13px;margin:0 0 18px;text-align:center;max-width:620px;line-height:1.5}
+
+  .phone{width:380px;height:700px;position:relative;border-radius:22px;overflow:hidden;
+    border:1px solid #2A2F37;background:#5C6B52;box-shadow:0 18px 50px rgba(0,0,0,.5)}
+  .map{position:absolute;inset:0;cursor:crosshair;
+    background:radial-gradient(circle at 25% 28%,#6E7C5F 0 90px,transparent 91px),
+      radial-gradient(circle at 72% 60%,#6A7A5C 0 110px,transparent 111px),
+      linear-gradient(160deg,#5F6E54,#4E5B46)}
+  .trail{position:absolute;border-top:2px dashed rgba(255,255,255,.30)}
+
+  .searchbar{position:absolute;top:12px;left:12px;right:120px;background:rgba(27,30,35,.94);
+    border:1px solid var(--line);border-radius:8px;padding:9px 11px;font-size:13px;
+    color:var(--dim);display:flex;gap:8px;align-items:center}
+  .searchbar.hot{border-color:var(--blue);color:var(--txt)}
+
+  .mk{position:absolute;transform:translate(-50%,-50%);display:flex;align-items:center;
+    justify-content:center;font-weight:900;border:2px solid #fff;
+    box-shadow:0 1px 5px rgba(0,0,0,.55);font-size:13px;color:#fff}
+  .mk.pin{width:26px;height:26px;border-radius:50%;background:var(--red)}
+  .mk.head{width:32px;height:32px;border-radius:6px;background:#1B1E23;
+    border-color:var(--blue);color:var(--blue);font-size:10px}
+  .mk.fin{width:32px;height:32px;border-radius:6px;background:#1B1E23;
+    border-color:var(--amber);color:var(--amber);font-size:10px}
+  .ghost{position:absolute;transform:translate(-50%,-50%);width:34px;height:34px;
+    border-radius:6px;border:2px dashed rgba(255,255,255,.5)}
+
+  .hud{position:absolute;top:56px;right:12px;text-align:right;
+    color:rgba(255,0,0,.78);pointer-events:none}
+  .hud .lbl{font-size:11px;font-weight:700}
+  .hud .big{font-size:42px;font-weight:900;line-height:1}
+  .hud .u{font-size:15px;font-weight:900}
+
+  .banner{position:absolute;left:0;right:0;bottom:0;background:var(--panel);
+    border-top:1px solid var(--line);padding:12px 14px 14px}
+  .eyebrow{display:flex;align-items:baseline;gap:8px;margin-bottom:6px}
+  .eyebrow .n{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:10.5px;
+    color:var(--blue);letter-spacing:.5px}
+  .eyebrow .t{font-size:10.5px;color:var(--faint);letter-spacing:.6px;
+    text-transform:uppercase;font-weight:700}
+  .instr{font-size:16px;line-height:1.35;font-weight:600;margin-bottom:9px}
+  .instr .q{color:var(--dim);font-weight:500;font-size:14.5px}
+  .state{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11.5px;
+    color:var(--dim);margin-bottom:11px}
+  .state b{color:var(--txt);font-weight:700}
+  .row{display:flex;gap:9px}
+  button{flex:1;padding:14px 10px;border-radius:8px;border:0;cursor:pointer;
+    font-size:13.5px;font-weight:800;letter-spacing:.4px;color:#fff;
+    background:var(--grey-btn);font-family:inherit;transition:background .15s}
+  button.go{background:var(--green)}
+  button.alt{background:var(--panel-hi);border:1px solid var(--line);color:var(--txt)}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  button:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+
+  .dlg{position:absolute;inset:0;background:rgba(0,0,0,.6);display:flex;
+    align-items:center;justify-content:center;padding:24px}
+  .dlg .box{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    padding:18px;width:100%}
+  .dlg h3{margin:0 0 10px;font-size:15px}
+  .dlg input{width:100%;padding:11px;border-radius:7px;border:1px solid var(--line);
+    background:#12151A;color:var(--txt);font-size:14px;font-family:inherit;margin-bottom:12px}
+
+  .notes{max-width:560px;margin-top:24px;font-size:13.5px;line-height:1.65;color:var(--dim)}
+  .notes h2{color:var(--txt);font-size:12.5px;text-transform:uppercase;
+    letter-spacing:.7px;margin:20px 0 7px}
+  .notes b{color:var(--txt)}
+  .notes ul{padding-left:18px;margin:6px 0}
+  .reset{margin-top:14px;background:none;border:1px solid var(--line);
+    color:var(--dim);padding:8px 16px;flex:none;font-size:12px}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<h1>GroupTrack AI Route Planner — one banner, one step at a time</h1>
+<p class="sub">Tap the map to place things. Long press for one second where no waypoint exists. The banner says what to do now and what you have so far.</p>
+
+<div class="phone">
+  <div class="map" id="map">
+    <div class="trail" style="top:30%;left:8%;width:60%;transform:rotate(-8deg)"></div>
+    <div class="trail" style="top:46%;left:20%;width:70%;transform:rotate(12deg)"></div>
+    <div class="trail" style="top:63%;left:5%;width:80%;transform:rotate(-4deg)"></div>
+    <div class="trail" style="top:20%;left:35%;width:45%;transform:rotate(28deg)"></div>
+    <div class="trail" style="top:52%;left:12%;width:50%;transform:rotate(-22deg)"></div>
+  </div>
+
+  <div class="searchbar" id="sb">🔍 <span id="sbTxt">Search a place, or open a track</span></div>
+
+  <div class="hud" id="hud" style="display:none">
+    <div class="lbl" id="hudLbl">Target Distance 55–80 mi</div>
+    <div><span class="big" id="hudMi">0.0</span><span class="u"> mi</span></div>
+  </div>
+
+  <div class="banner">
+    <div class="eyebrow"><span class="n" id="stepNo">1</span><span class="t" id="stepName">Find your area</span></div>
+    <div class="instr" id="instr"></div>
+    <div class="state" id="state">Nothing placed yet</div>
+    <div id="params" style="display:none;margin-bottom:11px">
+      <div style="display:flex;justify-content:space-between;font-size:11.5px;color:var(--dim)">
+        <span>Shortest ride worth taking</span>
+        <span id="pLo" style="color:var(--txt);font-weight:700">55 mi</span>
+      </div>
+      <input id="sLo" type="range" min="20" max="120" value="55" style="width:100%">
+      <div style="display:flex;justify-content:space-between;font-size:11.5px;color:var(--dim);margin-top:6px">
+        <span>Furthest you will go</span>
+        <span id="pHi" style="color:var(--txt);font-weight:700">80 mi</span>
+      </div>
+      <input id="sHi" type="range" min="20" max="120" value="80" style="width:100%">
+      <div style="background:#12151A;border-radius:7px;padding:9px 11px;margin-top:8px">
+        <div style="font-size:12px;color:var(--dim)">Your time window</div>
+        <div id="pHrs" style="font-size:19px;font-weight:800">3.1 – 6.7 hours</div>
+        <div style="font-size:11px;color:var(--faint);line-height:1.45;margin-top:5px">
+          <b style="color:var(--dim)">Shortest ride</b> &divide; fastest pace, to
+          <b style="color:var(--dim)">furthest ride</b> &divide; slowest pace.
+          Adjust the sliders until this window is the day you have.
+        </div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;
+                  color:var(--dim);margin-top:9px">
+        <span>Average speed</span><span style="color:var(--txt)">12 – 18 mph</span>
+      </div>
+      <div style="font-size:11.5px;color:var(--faint);line-height:1.45;margin-top:4px">
+        Measured from real rides over varied ground, and it already includes the
+        stops those riders took &mdash; so it is the whole day out, not moving time.
+        <b style="color:var(--dim)">Leave it alone</b> until you have ridden enough
+        to know your group runs faster or slower.
+      </div>
+    </div>
+    <div class="row" id="row"></div>
+  </div>
+
+  <div class="dlg" id="dlg" style="display:none">
+    <div class="box">
+      <h3>New trailhead</h3>
+      <input id="whName" placeholder="Name this trailhead" value="Panguitch Lake">
+      <div class="row">
+        <button class="alt" onclick="cancelWp()">CANCEL</button>
+        <button class="go" onclick="saveWp()">SAVE</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<button class="reset" onclick="reset()">Start over</button>
+
+<div class="notes">
+  <h2>The five steps</h2>
+  <ul>
+    <li><b>1 — Welcome, and get on the ground.</b> ⭐ Three ways in: a place by name (town, region, feature), one of your tracks, or one of your waypoints. Then the instruction that matters — <b>zoom to where trails meet a road</b>. That is where a ride can start, and it is a thing a rider can see on satellite imagery without knowing the area.</li>
+    <li><b>2 — How long a day?</b> ⭐ NEW. Two sliders, footnoted for what they actually mean: <b>the shortest ride worth taking</b> and <b>the furthest you will go</b>. Together they produce a time window — shortest ÷ fastest pace to furthest ÷ slowest pace — and the rider adjusts until that window is the day they have. Time is the constraint, miles is the control. The 12–18 mph band is measured from real rides and already includes stops, so it is the whole day out, not moving time. It is shown but discouraged: leave it alone until you have ridden enough to know your pace differs.</li>
+    <li><b>1 — Find your area.</b> Search a place, or open one of your tracks to put you there. No button: moving the map is the step.</li>
+    <li><b>3 — Tap where you will park.</b> ⚠ Not "trailhead" — a staging area is the parking lot, obvious from imagery and needing no trail knowledge. The 600-yard candidate radius is what makes that work.
+    <br>⭐ And the guidance is <b>visual and checkable</b>: pick somewhere several trails leave in different directions, not a dead-end spur. Measured 08-25 — a staging point on a six-node island could reach two of ten pins and produced one route. If one is there, tap it. If not, press and hold one second, name it, save, then tap it. The ride always starts from a saved waypoint.</li>
+    <li><b>4 — Points to cover.</b> Drop up to five on trails (PIN_MAX 10 → 5, 08-26: ten pins took the tested ceiling from 4 to 11 and the build never finished). CONTINUE means both "none" and "finished" — one button, no yes/no question.</li>
+    <li><b>5 — Finish point.</b> We return to your trailhead unless you drop a pin somewhere else. The loop question answers itself.</li>
+    <li><b>6 — Searching.</b></li>
+  </ul>
+  <h2>Worth deciding</h2>
+  <ul>
+    <li><b>Pins draw where you tapped, not where they snap.</b> The engine snaps to the nearest routable node within half a mile — so a pin dropped off-trail is accepted but the route may pass a quarter-mile away. Drawing the marker at the snapped position would make that honest.</li>
+    <li>Where MAP TAPS ON/OFF lives — a rider mid-flow needs it to read a trail name.</li>
+    <li>Whether removing a pin renumbers the rest, or leaves a gap.</li>
+  </ul>
+</div>
+
+<script>
+const S={head:null,headName:'',pins:[],fin:null,step:0,pending:null,lo:55,hi:80,mphLo:12,mphHi:18};
+const map=document.getElementById('map');
+let pressTimer=null;
+
+const STEPS=[
+  {n:'1',name:'Welcome',
+   instr:'Welcome to the GroupTrack AI Route Planner.',
+   q:'Start by getting yourself onto the ground you want to ride. Search a town, region or feature \u2014 or open one of your tracks or waypoints by name. Then zoom in where the trails meet a road: that is where a ride can start.'},
+  {n:'2',name:'How long a day?',
+   instr:'How far do you want to ride?',
+   q:'The two sliders are the shortest ride you would accept and the furthest you are willing to go. Together they give you a time window. Adjust them until that window is the day you have.'},
+  {n:'3',name:'Where you will park',
+   instr:'Tap where you will park and unload.',
+   q:'Pick a spot that visibly reaches the trail network \u2014 several trails leaving in different directions, not a single dead-end spur. No waypoint there? Press and hold for one second to create one.'},
+  {n:'4',name:'Points to cover',
+   instr:'Any points of interest you want this route to cover?',
+   q:'Drop up to ten pins on trails around the map. Press CONTINUE if you have none, or when you are finished.'},
+  {n:'5',name:'Finish point',
+   instr:'We bring you back to your trailhead to complete the loop.',
+   q:'Finishing somewhere else? Drop a pin there now. Press CONTINUE when you are done.'},
+  {n:'6',name:'Searching',
+   instr:'Finding rides\u2026',q:''}
+];
+
+function miles(){
+  if(!S.head) return 0;
+  let pts=[S.head,...S.pins]; if(S.fin) pts.push(S.fin);
+  let d=0;
+  for(let i=0;i<pts.length-1;i++) d+=Math.hypot(pts[i].x-pts[i+1].x,pts[i].y-pts[i+1].y)*0.55;
+  if(!S.fin&&pts.length>1) d+=Math.hypot(pts[0].x-pts[pts.length-1].x,pts[0].y-pts[pts.length-1].y)*0.55;
+  return d;
+}
+
+function draw(){
+  map.querySelectorAll('.mk,.ghost').forEach(e=>e.remove());
+  const add=(p,cls,txt)=>{const d=document.createElement('div');
+    d.className='mk '+cls;d.style.left=p.x+'%';d.style.top=p.y+'%';d.textContent=txt;
+    map.appendChild(d);};
+  if(S.pending){const g=document.createElement('div');g.className='ghost';
+    g.style.left=S.pending.x+'%';g.style.top=S.pending.y+'%';map.appendChild(g);}
+  if(S.head) add(S.head,'head','TH');
+  S.pins.forEach((p,i)=>add(p,'pin',i+1));
+  if(S.fin) add(S.fin,'fin','FIN');
+
+  const mi=miles();
+  document.getElementById('hud').style.display=S.step>=3?'block':'none';
+  document.getElementById('hudMi').textContent=mi.toFixed(1);
+  document.getElementById('sb').className='searchbar'+(S.step===0?' hot':'');
+  document.getElementById('sbTxt').textContent=S.step===0?'Search a place, or open a track':'Panguitch, UT';
+
+  const st=STEPS[S.step];
+  document.getElementById('stepNo').textContent=st.n;
+  document.getElementById('stepName').textContent=st.name;
+  document.getElementById('instr').innerHTML=st.instr+(st.q?' <span class="q">'+st.q+'</span>':'');
+
+  let bits=[];
+  if(S.head) bits.push(S.headName||'Trailhead');
+  if(S.pins.length) bits.push('<b>'+S.pins.length+'</b> point'+(S.pins.length>1?'s':''));
+  if(S.head&&S.step>=4) bits.push(S.fin?'point to point':'loop');
+  if(mi>0) bits.push('<b>'+mi.toFixed(1)+'</b> mi');
+  document.getElementById('state').innerHTML=bits.length?bits.join(' \u00b7 '):'Nothing placed yet';
+
+  document.getElementById('params').style.display=S.step===1?'block':'none';
+  document.getElementById('pLo').textContent=S.lo+' mi';
+  document.getElementById('pHi').textContent=S.hi+' mi';
+  document.getElementById('pHrs').textContent=
+    (S.lo/S.mphHi).toFixed(1)+' – '+(S.hi/S.mphLo).toFixed(1)+' hours';
+  const hl=document.getElementById('hudLbl');
+  if(hl) hl.textContent='Target Distance '+S.lo+'–'+S.hi+' mi';
+
+  const row=document.getElementById('row'); row.innerHTML='';
+  const btn=(l,c,f,d)=>{const b=document.createElement('button');b.textContent=l;
+    if(c)b.className=c;b.disabled=!!d;b.onclick=f;row.appendChild(b);};
+
+  const viable=mi>=25;
+  if(S.step===0) btn("I'M ON THE RIGHT GROUND",'go',()=>{S.step=1;draw();});
+  else if(S.step===1) btn('CONTINUE','go',()=>{S.step=2;draw();});
+  else if(S.step===2) btn('TAP OR LONG PRESS THE MAP',null,null,true);
+  else if(S.step===3) btn('CONTINUE','go',()=>{S.step=4;draw();});
+  else if(S.step===4) btn('FIND MY RIDES','go',()=>{S.step=5;draw();});
+  else btn('WORKING\u2026',null,null,true);
+}
+
+function pos(e){const r=map.getBoundingClientRect();
+  return{x:(e.clientX-r.left)/r.width*100,y:(e.clientY-r.top)/r.height*100};}
+
+map.addEventListener('mousedown',e=>{
+  if(S.step!==2) return;
+  const p=pos(e);
+  pressTimer=setTimeout(()=>{S.pending=p;document.getElementById('dlg').style.display='flex';
+    draw();pressTimer=null;},1000);
+});
+map.addEventListener('mouseup',()=>{if(pressTimer){clearTimeout(pressTimer);pressTimer=null;}});
+
+map.onclick=e=>{
+  if(S.pending||S.step<=1||S.step>=5) return;
+  const p=pos(e);
+  if(S.step===2){S.head=p;S.headName='Panguitch Lake staging';S.step=3;}
+  else if(S.step===3){if(S.pins.length<5)S.pins.push(p);}
+  else if(S.step===4){S.fin=p;}
+  draw();
+};
+
+function saveWp(){S.head=S.pending;S.headName=document.getElementById('whName').value||'Trailhead';
+  S.pending=null;S.step=3;document.getElementById('dlg').style.display='none';draw();}
+function cancelWp(){S.pending=null;document.getElementById('dlg').style.display='none';draw();}
+['sLo','sHi'].forEach(id=>{
+  const el=document.getElementById(id);
+  el.oninput=()=>{
+    S.lo=Math.min(+document.getElementById('sLo').value,+document.getElementById('sHi').value);
+    S.hi=Math.max(+document.getElementById('sLo').value,+document.getElementById('sHi').value);
+    draw();
+  };
+});
+
+function reset(){S.head=null;S.headName='';S.pins=[];S.fin=null;S.step=0;S.pending=null;S.lo=55;S.hi=80;
+  document.getElementById('dlg').style.display='none';draw();}
+draw();
+</script>
+</body>
+</html>
