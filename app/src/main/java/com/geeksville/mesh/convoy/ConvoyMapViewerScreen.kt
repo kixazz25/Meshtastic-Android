@@ -483,6 +483,16 @@ fun ConvoyMapViewerScreen(
                 if (res != null && seq >= pinFeasSeq) {
                     pinFeasSeq = seq
                     pinFeas = res
+                        /* SATFIXES-2026-08-29 (8): what the engine ACTUALLY did.
+                         * ⚠ Two pins were accepted on 08-28 and neither was
+                         * reached, with `unreachable` empty — so the engine is
+                         * likely routing to a SUBSET and reporting no failure.
+                         * `order` is the pins actually in the tour. */
+                        if (res != null) android.util.Log.i("PanelTrace",
+                            "ASSESS -> order=" + res.order +
+                            " unreachable=" + res.unreachable +
+                            " onFragment=" + res.onFragment +
+                            " over=" + res.overMiles)
                         /* PATCHB-2026-08-28 (11): ACT ON WHAT ASSESS ALREADY KNOWS.
                          *
                          * ⭐⭐ Fred, 08-28: "we test reachability already — we
@@ -1152,6 +1162,28 @@ fun ConvoyMapViewerScreen(
                                         try {
                                             SpatialDbManager.init(context)
                                             SpatialDbManager.insertWaypoint(nm, wLat, wLon, ty)
+                                            /* SATFIXES-2026-08-29 (2): creating one
+                                             * SELECTS it.
+                                             *
+                                             * ⛔ Selection is a proximity search
+                                             * (gpNearestTrailhead). Creating wrote the
+                                             * waypoint and stopped, so the step sat
+                                             * waiting for a selection that never came.
+                                             *
+                                             * ⭐ NOT by re-running the search — the
+                                             * name and coordinates are already in hand
+                                             * here, and searching for a row we just
+                                             * wrote would race the commit.
+                                             */
+                                            if (ty == "trailhead" &&
+                                                pinStep == PIN_STEP_TRAILHEAD) {
+                                                pinTrailName = nm
+                                                pinTrailLat = wLat
+                                                pinTrailLon = wLon
+                                                pinNotice = ""
+                                                android.util.Log.i("PanelTrace",
+                                                    "TRAILHEAD created and selected: " + nm)
+                                            }
                                             android.os.Handler(android.os.Looper.getMainLooper()).post {
                                                 webViewRef?.evaluateJavascript("try{var b=map.getBounds();Android.onViewportChanged(b.getNorth(),b.getSouth(),b.getEast(),b.getWest(),map.getZoom())}catch(e){}", null)
                                             }
@@ -1797,6 +1829,9 @@ fun ConvoyMapViewerScreen(
                     pendingDetailId = id
                 },
                 stackDown = true,
+                // ⭐ open on arriving at the trailhead step — that is where the
+                // rider finds their area, and the banner tells them to search
+                startOpen = pinStep == PIN_STEP_TRAILHEAD,
                 modifier = Modifier.align(Alignment.TopEnd).padding(top = 12.dp, end = 12.dp)
             )
 
@@ -2567,6 +2602,14 @@ fun ConvoyMapViewerScreen(
                              * — otherwise it would capture "off" and give the
                              * rider back nothing.
                              */
+                            /* SATFIXES-2026-08-29 (4): the STATE and the JS
+                             * move together. The hide() calls ran and the states
+                             * still said DS_ON, so anything re-reading them put
+                             * the layers straight back. */
+                            trailState = DS_OFF
+                            trackState = DS_OFF
+                            waypointState = DS_OFF
+                            routeState = DS_OFF
                             listOf("Trails", "Tracks", "Waypoints", "Routes")
                                 .forEach { ly ->
                                     webViewRef?.evaluateJavascript(
@@ -3173,6 +3216,9 @@ fun ConvoyMapViewerScreen(
                  * over whatever layer arrangement the rider had made — and they
                  * were told to use it to toggle layers off and pick tracks.
                  */
+                // ⚠ (5) on for the trailhead step, off for every other
+                webViewRef?.evaluateJavascript(
+                    "showAimRing(" + (pinStep == PIN_STEP_TRAILHEAD) + ")", null)
                 if (pinStep == PIN_STEP_TRAILHEAD && !aiMapReady) {
                     aiMapReady = true
                     if (trailState == DS_OFF) trailState = DS_ON
@@ -3408,7 +3454,11 @@ fun ConvoyMapViewerScreen(
              * divergent copy is how the autosave-discard bug happened. The
              * rider armed draw mode deliberately, so the arm stays.
              */
-            if (routeMode && !showAiDesign && pinStep >= PIN_STEP_NONE) {
+            /* SATFIXES-2026-08-29 (3): >= was true for EVERY positive step,
+             * so the toolbar hid during the two negative ones and came back from
+             * the trailhead onward. == PIN_STEP_NONE means "no AI flow running",
+             * which is the actual condition. */
+            if (routeMode && !showAiDesign && pinStep == PIN_STEP_NONE) {
                 ConvoyRouteToolbar(
                     isConvoyMap = false,
                     vertexCount = RouteManager.routeVertexCount(),
@@ -3991,6 +4041,56 @@ fun ConvoyMapViewerScreen(
                     // ⚠ ROUTES ONLY for now -- tracks and waypoints have no narrative
                     // to show, and a button that opens an empty panel is worse than
                     // no button.
+                    /* SATFIXES-2026-08-29: shown only when a recipe exists.
+                     * ⭐ One press loads the recipe's parameters and lands on the
+                     * SUMMARY — the same panel the flow ends on — so the rider
+                     * reads back what is about to be built before committing. */
+                    onBuildFromRecipe = if (pendingDetailType == "Routes" &&
+                        pendingDetailId?.let {
+                            SpatialDbManager.routeRecipe(it) != null } == true) {
+                        { rid: String ->
+                            SpatialDbManager.routeRecipe(rid)?.let { r ->
+                                val aLat = r.optDouble("anchorLat", 0.0)
+                                val aLon = r.optDouble("anchorLon", 0.0)
+                                pinTrailLat = aLat
+                                pinTrailLon = aLon
+                                /* ⭐ THE NAME COMES BACK BY LOOKUP. The anchor IS
+                                 * the waypoint's own coordinates, stored when the
+                                 * rider tapped it — so this resolves on every
+                                 * recipe already written, including the ones whose
+                                 * anchorName was never captured. */
+                                pinTrailName = SpatialDbManager
+                                    .waypointNameAt(aLat, aLon) ?: ""
+                                pinMiLow = r.optInt("milesLow", pinMiLow)
+                                pinMiHigh = r.optInt("milesHigh", pinMiHigh)
+                                pinMphLow = r.optInt("mphLow", pinMphLow)
+                                pinMphHigh = r.optInt("mphHigh", pinMphHigh)
+                                val fin = r.optJSONObject("finish")
+                                pinIsLoop = fin == null
+                                if (fin != null) {
+                                    pinEndLat = fin.optDouble("lat", 0.0)
+                                    pinEndLon = fin.optDouble("lon", 0.0)
+                                }
+                                val ps = r.optJSONArray("pins")
+                                pinPoints = if (ps == null) emptyList() else
+                                    (0 until ps.length()).mapNotNull { i ->
+                                        ps.optJSONObject(i)?.let { p ->
+                                            Pair(p.optDouble("lat", 0.0),
+                                                p.optDouble("lon", 0.0))
+                                        }
+                                    }
+                                pendingDetailType = null
+                                pendingDetailId = null
+                                android.util.Log.i("PanelTrace",
+                                    "RECIPE loaded: " + pinMiLow + "-" + pinMiHigh +
+                                    " mi, " + pinPoints.size + " pin(s)")
+                                android.util.Log.i("PanelTrace",
+                                    "STEP " + pinStepName(pinStep) + " -> SUMMARY")
+                                pinStep = PIN_STEP_SUMMARY
+                            }
+                            Unit
+                        }
+                    } else null,
                     onShowNotes = if (pendingDetailType == "Routes") {
                         { rid -> savedNotesRouteId = rid }
                     } else null,

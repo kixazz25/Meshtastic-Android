@@ -1123,6 +1123,43 @@ object SpatialDbManager {
         return n
     }
 
+    /* RECIPEBTN-2026-08-29: does this route carry a recipe?
+     *
+     * ⭐ The button is SHOWN OR NOT — Fred: "just check for the existence in
+     * the route db before showing button." A route drawn by hand or imported
+     * has no recipe and simply offers nothing.
+     */
+    fun routeRecipe(routeId: String): org.json.JSONObject? =
+        readRouteNotes(routeId)?.optJSONObject("recipe")
+
+    /* RECIPEBTN-2026-08-29: the waypoint at these coordinates, by name.
+     *
+     * ⭐ EXACT, NOT NEAREST. The recipe's anchor is the waypoint's own
+     * coordinates, stored when the rider tapped it — so this resolves the name
+     * for every recipe already written, including the ones whose anchorName
+     * was never captured.
+     *
+     * ⚠ A tiny box rather than equality: the stored value is a double and the
+     * geometry is text, so a hair of tolerance costs nothing and equality
+     * would be brittle.
+     */
+    fun waypointNameAt(lat: Double, lon: Double): String? {
+        val db = spatialDb ?: return null
+        val d = 0.00002   // ~2 metres
+        return try {
+            db.rawQuery(
+                "SELECT name FROM waypoints WHERE min_lat IS NOT NULL AND " +
+                    "max_lat >= ? AND min_lat <= ? AND max_lon >= ? AND min_lon <= ? LIMIT 1",
+                arrayOf((lat - d).toString(), (lat + d).toString(),
+                        (lon - d).toString(), (lon + d).toString())
+            ).use { c -> if (c.moveToFirst()) c.getString(0)?.takeIf { it.isNotBlank() }
+                         else null }
+        } catch (e: Exception) {
+            android.util.Log.w("SpatialDb", "waypointNameAt failed: ${e.message}")
+            null
+        }
+    }
+
     /** ROUTENOTES-2026-08-23X: the narrative payload for a saved route, or null. */
     fun readRouteNotes(routeId: String): org.json.JSONObject? {
         val db = extensionDb ?: return null

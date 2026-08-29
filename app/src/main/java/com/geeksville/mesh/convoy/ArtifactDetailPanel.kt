@@ -50,6 +50,11 @@ fun ArtifactDetailPanel(
      * Nullable like its siblings: a screen that does not offer it passes nothing.
      */
     onShowNotes: ((String) -> Unit)? = null,
+    /* SATFIXES-2026-08-29: build six more from this route's recipe.
+     * ⚠ Unlike onShowNotes, which is offered unconditionally, this one is
+     * passed only when the route DB actually holds a recipe — a hand-drawn or
+     * imported route has none and simply offers nothing. */
+    onBuildFromRecipe: ((String) -> Unit)? = null,
     onDownloadMaps: ((String) -> Unit)? = null,
     // CORRIDOR-WORKER-2026-07-24: side-by-side with SAVE MAPS so the same track can be
     // run both ways and compared. Nullable like its sibling - a screen that
@@ -104,7 +109,17 @@ fun ArtifactDetailPanel(
                     if (onShare != null) { DetailActionButton("SHARE", aGreen) { onShare(id) } }
                     if (onExport != null) { DetailActionButton("EXPORT", aGreen) { onExport(id) } }
                     // NARRBTN-2026-08-23Y
-                    if (onShowNotes != null) { DetailActionButton("NARRATIVE", aOrange) { onShowNotes(id) } }
+                    // ⭐ RECIPEBTN-2026-08-29: a rider knows what an overview is.
+                    // "Narrative" is our word for the generated prose.
+                    if (onShowNotes != null) { DetailActionButton("ROUTE OVERVIEW", aOrange) { onShowNotes(id) } }
+                    /* ⭐ Shown only when this route carries a recipe. Absent for
+                     * hand-drawn and imported routes, and for drafts, which are
+                     * not in the route DB at all — so no flag is needed. */
+                    if (onBuildFromRecipe != null) {
+                        DetailActionButton("BUILD ROUTES FROM RECIPE", aOrange) {
+                            onBuildFromRecipe(id)
+                        }
+                    }
                     if (artifactType == "Waypoints" && onChangeType != null) {
                         DetailActionButton("CHANGE TYPE", aOrange) { showTypeChooser = true }
                     }

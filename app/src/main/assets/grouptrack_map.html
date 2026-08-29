@@ -866,6 +866,40 @@
         }
       } catch (err) {}
     };
+    /* SATFIXES-2026-08-29: the quarter-mile ring.
+     *
+     * ⭐ CENTRED, not tap-placed. It is a targeting aid while the rider pans —
+     * fixed at the centre it moves with the map and they hunt by dragging until
+     * trails fall inside it. Tap-to-place would make it a result rather than a
+     * guide, and tap is already the waypoint selection.
+     *
+     * ⚠ TRAILHEAD STEP ONLY. During pins it would mislead: pins have a
+     * different radius and a different rule.
+     */
+    window.__aimRing = null;
+    window.showAimRing = function(on) {
+      try {
+        if (!on) {
+          if (window.__aimRing) { map.removeLayer(window.__aimRing); window.__aimRing = null; }
+          if (window.__aimMove) { map.off('move', window.__aimMove); window.__aimMove = null; }
+          return;
+        }
+        if (window.__aimRing) return;
+        var draw = function() {
+          var c = map.getCenter();
+          if (window.__aimRing) { window.__aimRing.setLatLng(c); return; }
+          window.__aimRing = L.circle(c, {
+            radius: 402,                 // a quarter mile
+            color: '#7FC8FF', weight: 2, opacity: 0.9,
+            fillColor: '#7FC8FF', fillOpacity: 0.08,
+            interactive: false
+          }).addTo(map);
+        };
+        draw();
+        window.__aimMove = draw;
+        map.on('move', window.__aimMove);
+      } catch (e) { console.log('aim ring: ' + e); }
+    };
     window.clearBuildLine = function() {
       if (window.__buildLayer) { map.removeLayer(window.__buildLayer); window.__buildLayer = null; }
     };

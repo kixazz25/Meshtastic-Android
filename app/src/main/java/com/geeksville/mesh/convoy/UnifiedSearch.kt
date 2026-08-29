@@ -64,6 +64,9 @@ fun UnifiedSearch(
     context: Context,
     onOpenDetail: (String, String) -> Unit,
     stackDown: Boolean = false,
+    /* ⚠ DEFAULT FALSE. UnifiedSearch is shared — the convoy map uses it too,
+     * and only the planner asks for this. */
+    startOpen: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val mono = FontFamily.Monospace
@@ -83,7 +86,17 @@ fun UnifiedSearch(
         "Waypoint" to ("waypoints" to Color(0xFFD29922))
     )
 
-    var barOpen by remember { mutableStateOf(false) }
+    /* SEARCHOPEN-2026-08-29: startOpen SEEDS this, it does not force it.
+     *
+     * ⛔ Holding the bar open for a whole step means a rider who closes it
+     * watches it reopen with no way to dismiss it — the same fault as the Map
+     * Features relaunch.
+     *
+     * ⚠ remember(startOpen), not remember(): a plain remember takes its value
+     * ONCE, so a rider reaching the step after this composable already exists
+     * would never see it open. Keying on the flag re-seeds when it flips.
+     */
+    var barOpen by remember(startOpen) { mutableStateOf(startOpen) }
     var selMode by remember { mutableStateOf("area") }   // default = Area (design)
     var term by remember { mutableStateOf("") }
     var results by remember { mutableStateOf(emptyList<ArtifactResult>()) }
