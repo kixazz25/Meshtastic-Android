@@ -2400,6 +2400,10 @@ fun ConvoyMapViewerScreen(
                         "is estimated at " + Math.round(hrLo) + " to " + Math.round(hrHi) +
                         " hours at " + pinMphLow + " to " + pinMphHigh + " mph, which " +
                         "already includes stops and break pauses.\n\n" +
+                        // ⭐ CLOSEPLANNER-2026-08-29: said once, and honest.
+                        // What comes back depends on the trails this device
+                        // happens to hold.
+                        "Results depend on the trails available on this device.\n\n" +
                         "I will favour rides that pass named features and that avoid " +
                         "riding the same trail twice, and will bring back up to four " +
                         "alternatives as Work in Progress for you to review."
@@ -4099,6 +4103,20 @@ fun ConvoyMapViewerScreen(
                                     " mi, " + pinPoints.size + " pin(s)")
                                 android.util.Log.i("PanelTrace",
                                     "STEP " + pinStepName(pinStep) + " -> SUMMARY")
+                                /* CLOSEPLANNER-2026-08-29: QUALIFY THE PINS.
+                                 *
+                                 * ⛔ The normal flow validates every pin as it is
+                                 * dropped. The recipe loads them wholesale and
+                                 * validated nothing — so pins whose trails are not
+                                 * on THIS device sent the search hunting for
+                                 * ground it cannot reach.
+                                 *
+                                 * ⚠ A PINLESS RECIPE NEEDS NO CHECK: it explores
+                                 * what is there and returns fewer routes if the
+                                 * ground is thin. That is the common case and it
+                                 * proceeds untouched.
+                                 */
+                                if (pinPoints.isNotEmpty()) gpRunAssess()
                                 pinStep = PIN_STEP_SUMMARY
                             }
                             Unit

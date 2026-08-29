@@ -2086,7 +2086,21 @@ object SpatialDbManager {
                 if (!c.moveToFirst()) return null
                 val name = c.getString(0) ?: "Unnamed"
                 val geom = c.getString(1) ?: return null
-                val desc = if (c.columnCount > 2) (c.getString(2) ?: "") else ""
+                /* CLOSEPLANNER-2026-08-29: THE NARRATIVE, AT LAST.
+                 *
+                 * ⛔ This read `columnCount > 2` against a two-column SELECT, so
+                 * it has NEVER fired and no narrative has ever been shared. It
+                 * was written for a description column that does not exist.
+                 *
+                 * ⭐ It lives in route_notes, and readRouteNotes() returns it.
+                 *
+                 * ⚠ <desc> GETS THE HEADLINE, NOT THE JSON. Gaia and onX put
+                 * human prose here, and a rider opening this route there should
+                 * see a sentence rather than a payload. The structured block
+                 * goes in <extensions>, which other apps ignore.
+                 */
+                val notes = readRouteNotes(routeId)
+                val desc = notes?.optJSONObject("narrative")?.optString("headline") ?: ""
                 val coordStr = geom.removePrefix("LINESTRING(").removeSuffix(")")
                 val points = coordStr.split(",").mapNotNull { pt ->
                     val parts = pt.trim().split(" ")
@@ -2103,6 +2117,17 @@ object SpatialDbManager {
                     sb.append("      <name>Pt ").append(idx).append("</name>\n")
                     sb.append("    </rtept>\n")
                     idx++
+                }
+                /* THE WHOLE PAYLOAD, so the recipe travels with the route.
+                 * A recipient presses one button and gets six rides from the
+                 * sender's parameters -- the entire point of keeping a recipe.
+                 * Other apps ignore extensions they do not recognise. */
+                if (notes != null) {
+                    sb.append("    <extensions>\n")
+                    sb.append("      <grouptrack:notes>")
+                    sb.append(xmlEscape(notes.toString()))
+                    sb.append("</grouptrack:notes>\n")
+                    sb.append("    </extensions>\n")
                 }
                 sb.append("  </rte>\n")
                 sb.append(GPX_FOOTER)

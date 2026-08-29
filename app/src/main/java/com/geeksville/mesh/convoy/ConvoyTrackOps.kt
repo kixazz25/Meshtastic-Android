@@ -368,7 +368,11 @@ object ConvoyTrackOps {
 
     data class GpxRoute(
         val name: String,
-        val points: List<Pair<Double, Double>>  // (lon, lat) pairs
+        val points: List<Pair<Double, Double>>,  // (lon, lat) pairs
+        /* CLOSEPLANNER-2026-08-29: a Gaia or onX <desc> IS the narrative --
+         * same field, same purpose -- and our own extensions payload brings
+         * the recipe home. Defaulted, so existing callers are unaffected. */
+        val description: String = ""
     )
 
     data class ImportArtifactsSummary(
@@ -450,6 +454,15 @@ object ConvoyTrackOps {
         // The <wpt> pattern already tolerated attributes; this one did not.
         val rtePattern = Regex("""<rte(?:\s[^>]*)?>([\s\S]*?)</rte>""")
         val namePattern = Regex("""<name>([^<]*)</name>""")
+        /* CLOSEPLANNER-2026-08-29: the route parser ignored <desc>, though the
+         * waypoint parser has always read it.
+         *
+         * ⭐ A Gaia or onX route's description IS its narrative — same field,
+         * same purpose — so it should arrive as one rather than be discarded.
+         * And our own <extensions> payload carries the recipe home. */
+        val descPattern = Regex("""<desc>([^<]*)</desc>""")
+        val notesPattern = Regex(
+            """<grouptrack:notes>([\s\S]*?)</grouptrack:notes>""")
         val rteptPattern = Regex("""<rtept\s+lat="([^"]+)"\s+lon="([^"]+)"""")
 
         for (match in rtePattern.findAll(gpxText)) {
@@ -464,7 +477,11 @@ object ConvoyTrackOps {
             }
 
             if (points.size >= 2) {
-                results.add(GpxRoute(name, points))
+                // ⚠ the payload wins where present — it is ours and complete;
+                // <desc> is one line and may be another app's
+                val notes = notesPattern.find(inner)?.groupValues?.get(1)?.trim() ?: ""
+                val desc = descPattern.find(inner)?.groupValues?.get(1)?.trim() ?: ""
+                results.add(GpxRoute(name, points, notes.ifBlank { desc }))
             }
         }
         return results
