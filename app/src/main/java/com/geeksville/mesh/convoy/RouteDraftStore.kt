@@ -219,6 +219,37 @@ object RouteDraftStore {
         r.put("finish", if (finish == null) JSONObject.NULL
             else JSONObject().put("lat", finish.first).put("lon", finish.second))
         o.put("recipe", r)
+        /* RECIPEINDRAFT-2026-08-29: AND INTO EVERY DRAFT THIS BATCH NAMES.
+         *
+         * ⛔ The recipe used to live here and nowhere else. SAVE SELECTED
+         * promotes a draft by copying its `notes` into route_notes, then
+         * deletes the batch file — so the narrative survived and the recipe
+         * died with the batch. Every route saved before today has one and not
+         * the other, which is why the rebuild button never appeared.
+         *
+         * ⭐ The notes block ALREADY makes the journey draft -> route_notes ->
+         * GPX. Putting the recipe inside it means the recipe makes the same
+         * journey with no new plumbing at any step.
+         *
+         * ⚠ THE SAME OBJECT, not a second copy: `r` is what the batch file
+         * holds, so the two cannot drift.
+         */
+        draftNames.forEach { nm ->
+            runCatching {
+                val df = fileFor(nm)
+                if (df.exists()) {
+                    val dj = JSONObject(df.readText())
+                    val notes = dj.optJSONObject("notes") ?: JSONObject()
+                    notes.put("recipe", JSONObject(r.toString()))
+                    dj.put("notes", notes)
+                    // ⚠ atomic, like every other write in this store
+                    val dtmp = File(df.parentFile, df.name + ".tmp")
+                    dtmp.writeText(dj.toString())
+                    if (df.exists()) df.delete()
+                    dtmp.renameTo(df)
+                }
+            }.onFailure { Log.w(TAG, "recipe into draft '$nm' failed: ${it.message}") }
+        }
 
         // ⚠ ATOMIC, matching this store's own convention. A half-written batch
         // on a crash would send Route+ into compare with a corrupt list.

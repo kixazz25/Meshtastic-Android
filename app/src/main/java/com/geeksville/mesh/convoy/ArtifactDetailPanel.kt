@@ -111,7 +111,7 @@ fun ArtifactDetailPanel(
                     // NARRBTN-2026-08-23Y
                     // ⭐ RECIPEBTN-2026-08-29: a rider knows what an overview is.
                     // "Narrative" is our word for the generated prose.
-                    if (onShowNotes != null) { DetailActionButton("ROUTE OVERVIEW", aOrange) { onShowNotes(id) } }
+                    if (onShowNotes != null) { DetailActionButton("OVERVIEW", aOrange) { onShowNotes(id) } }
                     /* ⭐ Shown only when this route carries a recipe. Absent for
                      * hand-drawn and imported routes, and for drafts, which are
                      * not in the route DB at all — so no flag is needed. */
