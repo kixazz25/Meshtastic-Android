@@ -2411,8 +2411,21 @@ fun ConvoyMapViewerScreen(
                         // follows never gets its turn — so the long press has
                         // to be named here or it is invisible.
                         title = "Select your trailhead / long press to add the trailhead",
-                        instruction = "Use search to navigate to your area, then tap the " +
-                            "trailhead you are starting from.",
+                        /* RINGTEXT-2026-08-29: the circle needs saying.
+                         * ⚠ Unexplained it is decoration — the rider has to
+                         * infer that it bounds anything, then infer that panning
+                         * changes what is in it. ⭐ Said, it is an instruction. */
+                        // STATEHINT-2026-08-29: a wrong-state match is not an
+                        // obvious failure — the map moves, trails draw, the circle
+                        // finds starts. The rider is simply somewhere else.
+                        instruction = "Use search to navigate to your area \u2014 " +
+                            "follow the area name with the two-character state, " +
+                            "since names repeat across states.\n\n" +
+                            "The blue circle shows the trails that can " +
+                            "start your route. Move the map if the trail you want " +
+                            "to launch from is not inside it.\n\n" +
+                            "Tap the trailhead you are starting from, or press and " +
+                            "hold for a second to add one.",
                         answer = pinTrailName,
                         state = if (pinStep == PIN_STEP_TRAILHEAD) GP_STATE_CURRENT
                                 else GP_STATE_DONE

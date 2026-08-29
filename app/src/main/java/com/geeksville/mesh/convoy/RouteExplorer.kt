@@ -162,6 +162,37 @@ object RouteExplorer {
 
     private var cached: Graph? = null
 
+    /* GRAPHCOPY-2026-08-29: a cache hit hands back a COPY, never the original.
+     *
+     * ⛔ THE BUG THIS FIXES. splitEdgeAt(g, ..) writes into the graph it is
+     * given, and a cache hit used to return the cached object itself. So the
+     * first run's pins carved up the cache, and every later run in that
+     * corridor started from a topology no rider ever asked for.
+     *
+     * Fred, 08-29: "one was the first run of the day and another followed a
+     * previous run in that area." A cold cache was right; a warm one was not.
+     *
+     * ⚠ NOT A CACHE KEY. Adding the pin set to the key would rebuild when the
+     * pins differ, but two identical runs would still hit, and the second would
+     * inherit the first's splits. This is unconditional.
+     *
+     * ⭐ EVERY MUTABLE FIELD. adj's lists are appended to by splitEdgeAt, so
+     * each list is copied, not just the map. edges is appended to, so the list
+     * is copied. The DoubleArray values in nodes/gapFt/jCentre are replaced
+     * rather than written through, so sharing them is safe and cheap.
+     */
+    private fun copyOf(g: Graph): Graph = Graph(
+        key = g.key,
+        nodes = HashMap(g.nodes),
+        edges = ArrayList(g.edges),
+        adj = HashMap<Long, ArrayList<IntArray>>(g.adj.size).also { m ->
+            for ((k, v) in g.adj) m[k] = ArrayList(v)
+        },
+        gapFt = HashMap(g.gapFt),
+        jCentre = HashMap(g.jCentre),
+        mainComponent = HashSet(g.mainComponent),
+    )
+
     private val NONAMES = setOf("", "not named", "unnamed", "none", "null", "n/a", "-")
     private val WATER = setOf("spring")
     private val VIEW = setOf("peak", "cliff", "volcano")
@@ -274,7 +305,15 @@ object RouteExplorer {
         onProgress: ((Progress) -> Unit)?,
     ): Graph {
         val key = "%.3f_%.3f_%.3f_%.3f_%d".format(box[0], box[1], box[2], box[3], trailCount)
-        cached?.let { if (it.key == key) { onProgress?.invoke(Progress("Using cached map")); return it } }
+        // ⛔ COPY. Returning the cached graph itself let one run's pin splits
+        // become the next run's starting topology — silently, and only when the
+        // rider searched the same area twice.
+        cached?.let {
+            if (it.key == key) {
+                onProgress?.invoke(Progress("Using cached map"))
+                return copyOf(it)
+            }
+        }
 
         onProgress?.invoke(Progress("Reading trails"))
         val geoms = ArrayList<Triple<String, String?, List<DoubleArray>>>()
