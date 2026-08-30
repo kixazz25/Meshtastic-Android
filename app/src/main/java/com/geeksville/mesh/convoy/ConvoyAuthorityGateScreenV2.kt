@@ -37,6 +37,10 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import java.io.File
 import androidx.compose.runtime.LaunchedEffect
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
 
 // Meshtastic palette (matches ConvoyEmailGateScreen)
 private val MshBg        = Color(0xFF101510)
@@ -200,8 +204,28 @@ fun ConvoyAuthorityGateScreenV2(
     onExit: () -> Unit
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()   // GATEASYNC-2026-08-30
 
-    var state by remember { mutableStateOf<AuthorityState>(evaluateState(context)) }
+    // GATEASYNC-2026-08-30: was mutableStateOf(evaluateState(context)) -- the
+    // remember initialiser runs DURING COMPOSITION, on the main thread, and the
+    // first evaluation is the one that runs the startup job. The ANR stack of
+    // 08-30 10:50:54 showed sqlite3BtreeClearTable under
+    // ConvoyAuthorityGateScreenV2 itself: 38s to first frame while 279,376 rows
+    // were deleted. CheckingStorage already exists and already renders.
+    var state by remember { mutableStateOf<AuthorityState>(AuthorityState.CheckingStorage) }
+
+    // GATEASYNC-2026-08-30: null until the first evaluation lands. It CANNOT be
+    // computed during composition any more, and it must not be guessed -- it
+    // governs the certified clean pass ("authority already real, proceed
+    // without showing a screen"). Reading it as false too early would put a
+    // gate screen in front of every established rider.
+    var firstEval by remember { mutableStateOf<Boolean?>(null) }
+
+    LaunchedEffect(Unit) {
+        val first = withContext(Dispatchers.IO) { evaluateState(context) }
+        firstEval = first is AuthorityState.Granted
+        state = first
+    }
 
     // === GATESTATES-2026-08-16B ===
     // Was authority ALREADY real on the first evaluation of this session? If so nothing
@@ -209,7 +233,8 @@ fun ConvoyAuthorityGateScreenV2(
     // proceed without showing a screen. The Continue barrier below is retained for the
     // path where the state changed to Granted during this session (returning from the
     // settings page), which is the case that raced the DB open.
-    val passedOnEntry = remember { state is AuthorityState.Granted }
+    // GATEASYNC-2026-08-30: decided by the effect above, not during composition.
+    val passedOnEntry = firstEval == true
     // GATEJOB-2026-08-21G: NeedTrailData is deliberately NOT part of passedOnEntry.
     // passedOnEntry means "nothing to say, proceed without a screen"; this state
     // exists precisely to show one. Keeping them separate is what leaves the
@@ -220,8 +245,11 @@ fun ConvoyAuthorityGateScreenV2(
     // different thing to say than the first-time prompt.
     var settingsVisited by remember { mutableStateOf(false) }
 
-    LaunchedEffect(passedOnEntry) {
-        if (passedOnEntry) onProceed()
+    // GATEASYNC-2026-08-30: keyed on firstEval, which is null until known --
+    // so this cannot fire on the unknown state. Behaviour once known is
+    // unchanged: passed on entry means proceed with no screen.
+    LaunchedEffect(firstEval) {
+        if (firstEval == true) onProceed()
     }
 
     // Background ("all the time") location request launcher.
@@ -230,7 +258,11 @@ fun ConvoyAuthorityGateScreenV2(
     val bgLocationLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { _ ->
-        state = evaluateState(context)
+        // GATEASYNC-2026-08-30: off the main thread. Cheap in practice --
+        // startupJobDone has latched by now -- but it opens a database.
+        scope.launch {
+            state = withContext(Dispatchers.IO) { evaluateState(context) }
+        }
     }
 
     // Re-evaluate every time we return to this screen (e.g. back from the
@@ -255,7 +287,9 @@ fun ConvoyAuthorityGateScreenV2(
 
     LaunchedEffect(resumeTick) {
         if (resumeTick == 0) return@LaunchedEffect
-        var fresh = evaluateState(context, 0)
+        // GATEASYNC-2026-08-30: a LaunchedEffect body runs on the MAIN
+        // dispatcher. These were main-thread disk reads too.
+        var fresh = withContext(Dispatchers.IO) { evaluateState(context, 0) }
         // Only the post-settings case needs patience: the user has just been sent to grant
         // all-files access, so a negative read here is more likely to be a grant still
         // settling than a real refusal. Re-check a few times before concluding.
@@ -264,7 +298,7 @@ fun ConvoyAuthorityGateScreenV2(
             var attempt = 1
             while (attempt <= 4 && fresh is AuthorityState.NeedStorage) {
                 kotlinx.coroutines.delay(400L)
-                fresh = evaluateState(context, attempt)
+                fresh = withContext(Dispatchers.IO) { evaluateState(context, attempt) }   // GATEASYNC-2026-08-30
                 attempt++
             }
         }
