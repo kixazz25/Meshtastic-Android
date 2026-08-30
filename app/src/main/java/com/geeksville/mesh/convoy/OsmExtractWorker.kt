@@ -149,7 +149,7 @@ class OsmExtractWorker(
             val classes = mutableListOf<String>()
 
             for (layer in ordered) {
-                val res = runLayer(src, db, layer) ?: return fail(
+                val res = runLayer(src, db, layer, slug) ?: return fail(
                     "layer '${layer.id}' aborted -- see log"
                 )
                 candidateTotal += res.candidates
@@ -384,7 +384,8 @@ class OsmExtractWorker(
     private fun runLayer(
         src: SQLiteDatabase,
         dst: SQLiteDatabase,
-        layer: OsmLayerCatalog.Layer
+        layer: OsmLayerCatalog.Layer,
+        slug: String,          // CARTO0-2026-08-30
     ): LayerResult? {
         val types = sourceColumnTypes(src, layer.sourceTable)
         if (types.isEmpty()) {
@@ -438,6 +439,18 @@ class OsmExtractWorker(
         var badGeom = 0
         var noName = 0
         var seen = 0
+        // EXTRACTJOIN-2026-08-30: opened once per layer, read-only, closed in
+        // the finally below. ⚠ Absent or unreadable is NOT fatal -- every row
+        // then classifies on shape alone, which is exactly today's behaviour,
+        // and the log says so rather than the import failing.
+        var classified = 0
+        // CARTO0-2026-08-30: slug is a LOCAL in doWork (:90), not a property.
+        val tagDb: SQLiteDatabase? =
+            if (layer.targetTable == "osm_trails") openTagDb(slug) else null
+        if (layer.targetTable == "osm_trails" && tagDb == null) {
+            Log.w(TAG, "no tag table for ${layer.id} -- classifying on shape alone")
+        }
+        try {
 
         while (true) {
             if (isStopped) return null
@@ -491,6 +504,19 @@ class OsmExtractWorker(
                             vals.add(g.geomHash)
                             vals.add(g.minLat); vals.add(g.maxLat)
                             vals.add(g.minLon); vals.add(g.maxLon)
+                            // EXTRACTJOIN-2026-08-30: classify here, once.
+                            // ⚠ osm_id is layer.columns[0] -- see the catalogue.
+                            // A row with no tag match keeps its shape answer
+                            // rather than being dropped: the join is a lookup,
+                            // not a gate.
+                            if (layer.targetTable == "osm_trails") {
+                                val oid = (vals.getOrNull(0) as? String)?.toLongOrNull()
+                                val r = classifyRow(tagDb, oid)
+                                vals.add(r.type)
+                                vals.add(r.carto)
+                                vals.add(if (r.motorized) 1 else 0)
+                                if (r.carto != null) classified++
+                            }
                         }
                         insertRow(dst, layer, vals)
                         kept++
@@ -508,8 +534,75 @@ class OsmExtractWorker(
 
         createIndexes(dst, layer)
         Log.i(TAG, "layer ${layer.id}: kept=$kept badGeom=$badGeom " +
-            "noName=$noName of $candidates")
+            "noName=$noName classified=$classified of $candidates")
         return LayerResult(candidates, kept, badGeom, noName)
+        } finally {
+            // EXTRACTJOIN-2026-08-30
+            try { tagDb?.close() } catch (_: Exception) {}
+        }
+    }
+
+    /**
+     * EXTRACTJOIN-2026-08-30. The interim tag table built by OsmPbfTagReader,
+     * read-only. ⛔ NOT deleted when the skinny is built: it is the input the
+     * rules run against, so keeping it makes a rule tweak a local
+     * reclassification pass rather than a re-download and re-extract.
+     */
+    private fun openTagDb(slug: String): SQLiteDatabase? {
+        return try {
+            // CARTO0-2026-08-30: applicationContext -- OsmExtractWorker is a
+            // CoroutineWorker (:50), so it is a real property here. The ctx at
+            // :89 is a local alias inside doWork and not visible from here.
+            val f = OsmImportStage.tagsFor(applicationContext, slug)
+            if (!OsmImportStage.verifyTags(f)) return null
+            SQLiteDatabase.openDatabase(
+                f.absolutePath, null, SQLiteDatabase.OPEN_READONLY
+            )
+        } catch (e: Exception) {
+            Log.w(TAG, "tag table would not open: ${e.message}")
+            null
+        }
+    }
+
+    /**
+     * EXTRACTJOIN-2026-08-30. One lookup, one classification. A miss returns
+     * the shape answer -- unclassified unknown, motorized -- which is what
+     * every row got before this existed.
+     */
+    private fun classifyRow(tagDb: SQLiteDatabase?, osmId: Long?):
+        OsmTrailClassifier.Result {
+        if (tagDb == null || osmId == null) {
+            return OsmTrailClassifier.Result(
+                OsmTrailClassifier.UNCLASSIFIED_UNKNOWN, null, true
+            )
+        }
+        return try {
+            tagDb.rawQuery(
+                "SELECT highway,surface,tracktype,access,motor_vehicle,vehicle," +
+                    "four_wd_only,ohv,atv,motorcar,foot,bicycle " +
+                    "FROM ${OsmPbfTagReader.TABLE} WHERE osm_id=?",
+                arrayOf(osmId.toString())
+            ).use { c ->
+                if (!c.moveToFirst()) {
+                    OsmTrailClassifier.Result(
+                        OsmTrailClassifier.UNCLASSIFIED_UNKNOWN, null, true
+                    )
+                } else {
+                    fun s(i: Int) = if (c.isNull(i)) null else c.getString(i)
+                    OsmTrailClassifier.classify(
+                        highway = s(0), surface = s(1), tracktype = s(2),
+                        access = s(3), motorVehicle = s(4), vehicle = s(5),
+                        fourWdOnly = s(6), ohv = s(7), atv = s(8),
+                        motorcar = s(9), foot = s(10), bicycle = s(11),
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "tag lookup failed for $osmId: ${e.message}")
+            OsmTrailClassifier.Result(
+                OsmTrailClassifier.UNCLASSIFIED_UNKNOWN, null, true
+            )
+        }
     }
 
     private fun sourceColumnTypes(db: SQLiteDatabase, table: String): Map<String, String> {
@@ -564,6 +657,15 @@ class OsmExtractWorker(
             defs.add("geom_hash TEXT NOT NULL")
             defs.add("min_lat REAL"); defs.add("max_lat REAL")
             defs.add("min_lon REAL"); defs.add("max_lon REAL")
+            // EXTRACTJOIN-2026-08-30: derived, like the geometry columns above
+            // -- NOT catalogue columns, because the GeoPackage does not supply
+            // them. ⛔ This order must match the order they are appended to
+            // `vals` in runLayer; insertRow binds positionally.
+            if (layer.targetTable == "osm_trails") {
+                defs.add("trail_type TEXT")
+                defs.add("carto_code TEXT")
+                defs.add("motorized INTEGER")
+            }
         }
         db.execSQL("DROP TABLE IF EXISTS " + layer.targetTable)
         db.execSQL("CREATE TABLE " + layer.targetTable + " (" + defs.joinToString(",") + ")")

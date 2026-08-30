@@ -10,13 +10,33 @@
       "source_table": "gis_osm_roads_free",
       "geometry": "line",
       "target_table": "osm_trails",
-      "columns": ["osm_id", "fclass", "name", "ref", "maxspeed"],
+      "columns": [
+        "osm_id",
+        "fclass",
+        "name",
+        "ref",
+        "maxspeed"
+      ],
       "filter_column": "fclass",
-      "_filter_comment": "TRAILFILTER-2026-08-24K: path and bridleway REMOVED. path is OSM's 'narrow way, mode unspecified' and is overwhelmingly hiking trail; bridleway is equestrian. Together 16.5% of Arizona and 11.8% of Nevada, and neither is ground a SxS, UTV or Jeep can use. Measured against the raw .gpkg extracts, not assumed. NOTE: the access tags that would answer this properly (ohv, motor_vehicle, access) are NOT in Geofabrik's GeoPackage at all -- the roads layer has no access field of any kind -- so fclass answers by SHAPE, not by permission.",
+      "_filter_comment": "EXTRACTJOIN-2026-08-30: WIDENED, and the reason the old comment gave is now answered. It said the access tags (ohv, motor_vehicle, access) are NOT in Geofabrik's GeoPackage -- true, and that is why fclass answered by SHAPE rather than permission. The PBF carries them, so the import now downloads it alongside the GeoPackage, joins on osm_id and classifies at extract (OsmPbfTagReader + OsmTrailClassifier). STAGE ONE therefore casts a WIDE net -- everything a side-by-side could plausibly be on -- and STAGE TWO narrows it by real tags. path and bridleway are back IN, no longer excluded by shape: they are now labelled hiking/equestrian and filtered at the point of use. Measured on Utah 08-30: candidates 87,079 -> 125,831, of which 83,916 carry a type from real tags where the baseline was zero. Nothing is dropped -- rows the rules reject arrive as 'private' or 'paved or restricted' with motorized=0.",
       "filter_values": [
-        "track", "track_grade1", "track_grade2", "track_grade3",
-        "track_grade4", "track_grade5",
-        "unclassified"
+        "track",
+        "track_grade1",
+        "track_grade2",
+        "track_grade3",
+        "track_grade4",
+        "track_grade5",
+        "unclassified",
+        "residential",
+        "service",
+        "path",
+        "tertiary",
+        "cycleway",
+        "bridleway",
+        "byway",
+        "road",
+        "footway",
+        "living_street"
       ]
     },
     {
@@ -27,7 +47,12 @@
       "source_table": "gis_osm_places_free",
       "geometry": "point",
       "target_table": "osm_places",
-      "columns": ["osm_id", "fclass", "name", "population"]
+      "columns": [
+        "osm_id",
+        "fclass",
+        "name",
+        "population"
+      ]
     },
     {
       "id": "natural",
@@ -37,7 +62,11 @@
       "source_table": "gis_osm_natural_free",
       "geometry": "point",
       "target_table": "osm_natural",
-      "columns": ["osm_id", "fclass", "name"]
+      "columns": [
+        "osm_id",
+        "fclass",
+        "name"
+      ]
     },
     {
       "id": "pois",
@@ -47,7 +76,11 @@
       "source_table": "gis_osm_pois_free",
       "geometry": "point",
       "target_table": "osm_pois",
-      "columns": ["osm_id", "fclass", "name"]
+      "columns": [
+        "osm_id",
+        "fclass",
+        "name"
+      ]
     }
   ]
 }

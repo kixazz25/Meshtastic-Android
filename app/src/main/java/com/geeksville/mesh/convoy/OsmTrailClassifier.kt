@@ -54,10 +54,18 @@ object OsmTrailClassifier {
      * STAY A SINGLE DIGIT — a two-character code would silently match on its
      * first digit only.
      *
-     * ⛔ THE NUMBER 6 IS A PLACEHOLDER pending Fred's decision. The string is
-     * what the legend shows and what the vocabulary gains permanently.
+     * ⭐ SETTLED 2026-08-30: the digit is ZERO. Every digit 1-9 was already
+     * taken in real data -- 1 Hiking Only, 2 Hiking and Biking, 3 Paved Shared
+     * Use, 4 Road-concurrent, 5 Biking Only, 6 Equestrian Primary, 7 Steps,
+     * 8 Bridge/Tunnel, 9 Link. ⚠ And 3, 6, 7, 8, 9 have NO colour case in
+     * either map file, so they draw in the cyan fallback today.
      */
-    const val CARTO_MOTORIZED = "6 - Motorized Access"
+    // CARTO0-2026-08-30: ZERO, not 6. Measured against Droid 2's real
+    // trail_properties: every digit 1-9 is already in use, and 6 is
+    // "6 - Equestrian Primary" (72 rows). A collision would have been SILENT --
+    // trailColor switches on charAt(0), so motorized trails would simply have
+    // drawn as equestrian. 0 is free. Fred's call.
+    const val CARTO_MOTORIZED = "0 - Motorized Access"
     const val CARTO_HIKING = "1 - Hiking Only"
     const val CARTO_HIKE_BIKE = "2 - Hiking and Biking Allowed"
     const val CARTO_EQUESTRIAN = "3 - Equestrian"
