@@ -18,7 +18,7 @@
         "maxspeed"
       ],
       "filter_column": "fclass",
-      "_filter_comment": "EXTRACTJOIN-2026-08-30: WIDENED, and the reason the old comment gave is now answered. It said the access tags (ohv, motor_vehicle, access) are NOT in Geofabrik's GeoPackage -- true, and that is why fclass answered by SHAPE rather than permission. The PBF carries them, so the import now downloads it alongside the GeoPackage, joins on osm_id and classifies at extract (OsmPbfTagReader + OsmTrailClassifier). STAGE ONE therefore casts a WIDE net -- everything a side-by-side could plausibly be on -- and STAGE TWO narrows it by real tags. path and bridleway are back IN, no longer excluded by shape: they are now labelled hiking/equestrian and filtered at the point of use. Measured on Utah 08-30: candidates 87,079 -> 125,831, of which 83,916 carry a type from real tags where the baseline was zero. Nothing is dropped -- rows the rules reject arrive as 'private' or 'paved or restricted' with motorized=0.",
+      "_filter_comment": "EXTRACTJOIN-2026-08-30: WIDENED, and the reason the old comment gave is now answered. It said the access tags (ohv, motor_vehicle, access) are NOT in Geofabrik's GeoPackage -- true, and that is why fclass answered by SHAPE rather than permission. The PBF carries them, so the import now downloads it alongside the GeoPackage, joins on osm_id and classifies at extract (OsmPbfTagReader + OsmTrailClassifier). STAGE ONE therefore casts a WIDE net -- everything a side-by-side could plausibly be on -- and STAGE TWO narrows it by real tags. path and bridleway are back IN, no longer excluded by shape: they are now labelled hiking/equestrian and filtered at the point of use. Measured on Utah 08-30: candidates 87,079 -> 125,831, of which 83,916 carry a type from real tags where the baseline was zero. Nothing is dropped -- rows the rules reject arrive as 'private' or 'paved or restricted' with motorized=0. FILTERALIGN-2026-08-30: footway and living_street REMOVED -- they were never in OsmTrailClassifier.WIDE, so the rules could not type them and they fell through to unclassified-unknown with motorized=TRUE. On device that produced 667,546 candidate rows against an expected 125,831, of which 242,525 were footways that would have been offered to the router. THESE TWO LISTS DESCRIBE ONE NET AND NOTHING CHECKS THEM AGAINST EACH OTHER: the classifier's WIDE set is the authority. If you add a value here, add it there and give the rules a branch for it.",
       "filter_values": [
         "track",
         "track_grade1",
@@ -34,9 +34,7 @@
         "cycleway",
         "bridleway",
         "byway",
-        "road",
-        "footway",
-        "living_street"
+        "road"
       ]
     },
     {
