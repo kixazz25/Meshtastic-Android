@@ -444,6 +444,7 @@ class OsmExtractWorker(
         // then classifies on shape alone, which is exactly today's behaviour,
         // and the log says so rather than the import failing.
         var classified = 0
+        var excluded = 0   // EXTRACTSKIP-2026-08-30
         // CARTO0-2026-08-30: slug is a LOCAL in doWork (:90), not a property.
         val tagDb: SQLiteDatabase? =
             if (layer.targetTable == "osm_trails") openTagDb(slug) else null
@@ -512,9 +513,23 @@ class OsmExtractWorker(
                             if (layer.targetTable == "osm_trails") {
                                 val oid = (vals.getOrNull(0) as? String)?.toLongOrNull()
                                 val r = classifyRow(tagDb, oid)
+                                // EXTRACTSKIP-2026-08-30: only what a machine can
+                                // be on. The widened net casts 423,255 candidates
+                                // on Utah; the rules include ~125,831. Writing the
+                                // rest would triple the trails table with service
+                                // roads, residential streets and footpaths, each
+                                // carrying WKT.
+                                // ⭐ The reclassification benefit does NOT depend
+                                // on storing them: osm_way_tags.db is kept, so a
+                                // rule change re-reads the tags and rebuilds the
+                                // skinny. Keeping unrideable rows adds nothing.
+                                // ⚠ `unclassified unknown` IS still written --
+                                // motorized=true, in on shape alone, which is
+                                // exactly today's behaviour for every OSM trail.
+                                if (!r.motorized) { excluded++; continue }
                                 vals.add(r.type)
                                 vals.add(r.carto)
-                                vals.add(if (r.motorized) 1 else 0)
+                                vals.add(1)
                                 if (r.carto != null) classified++
                             }
                         }
@@ -534,7 +549,8 @@ class OsmExtractWorker(
 
         createIndexes(dst, layer)
         Log.i(TAG, "layer ${layer.id}: kept=$kept badGeom=$badGeom " +
-            "noName=$noName classified=$classified of $candidates")
+            "noName=$noName classified=$classified excluded=$excluded " +   // EXTRACTSKIP-2026-08-30
+            "of $candidates")
         return LayerResult(candidates, kept, badGeom, noName)
         } finally {
             // EXTRACTJOIN-2026-08-30
