@@ -14,7 +14,13 @@ import org.json.JSONObject
  *   // detected?.name == "Utah", detected?.gpkgUrl == "https://..."
  *
  * The asset is a JSON file with a "states" array, each entry:
- *   { "name", "slug", "bbox": [west, south, east, north], "gpkg_url", ... }
+ *   { "name", "slug", "bbox": [west, south, east, north], "gpkg_url",
+ *     "pbf_url", ... }
+ *
+ * PBFURL-2026-08-30: BOTH urls are required. The GeoPackage carries geometry
+ * cleanly; the PBF carries the access tags (ohv, motor_vehicle, access,
+ * 4wd_only) that Geofabrik's shapefile-derived GeoPackage drops entirely.
+ * The import needs both and joins them on osm_id.
  *
  * California is split into "California North" and "California South".
  * When the user picks "California" from the picker, both entries
@@ -32,6 +38,12 @@ data class GeofabrikState(
     val bboxEast: Double,
     val bboxNorth: Double,
     val gpkgUrl: String,
+    // PBFURL-2026-08-30: REQUIRED, not optional. The PBF carries the access
+    // tags Geofabrik strips from the GeoPackage, so an import without it
+    // classifies by shape alone -- silently. A row that cannot say where its
+    // PBF is should fail at catalogue load, not at download time on a rider's
+    // phone in a state nobody tested.
+    val pbfUrl: String,
     val description: String? = null,
     val parentState: String? = null,
 ) {
@@ -76,6 +88,7 @@ object GeofabrikCatalog {
                         bboxEast = bbox.getDouble(2),
                         bboxNorth = bbox.getDouble(3),
                         gpkgUrl = obj.getString("gpkg_url"),
+                        pbfUrl = obj.getString("pbf_url"),  // PBFURL-2026-08-30
                         description = obj.optString("description", null),
                         parentState = obj.optString("parent_state", null),
                     )

@@ -14,7 +14,13 @@ import java.util.zip.ZipFile
 /**
  * Which stage a state's OSM import is at. DERIVED FROM DISK, never stored.
  */
-enum class OsmStage { ACQUIRE, REDUCE, IMPORT }
+// PBFSTAGE-2026-08-30: two rungs added between ACQUIRE and REDUCE.
+// ACQUIRE       nothing usable on disk
+// ACQUIRE_GPKG  the PBF is down and verified; the GeoPackage is not
+// PREPARE_TAGS  both files down; the PBF tag pass has not produced its table
+// REDUCE        the tag table exists -- the join has both its inputs
+// IMPORT        the skinny exists
+enum class OsmStage { ACQUIRE, ACQUIRE_GPKG, PREPARE_TAGS, REDUCE, IMPORT }
 
 /**
  * What a C3 import covers.
@@ -241,6 +247,16 @@ object OsmImportStage {
     fun skinnyFor(ctx: Context, slug: String): File =
         File(dirFor(ctx, slug), SKINNY_NAME)
 
+    // ── PBFSTAGE-2026-08-30 ────────────────────────────────────────────
+    /** The interim tag table: osm_id -> the access tags Geofabrik strips. */
+    const val TAGS_NAME = "osm_way_tags.db"
+
+    fun pbfFor(ctx: Context, slug: String): File =
+        File(dirFor(ctx, slug), "$slug-latest.osm.pbf")
+
+    fun tagsFor(ctx: Context, slug: String): File =
+        File(dirFor(ctx, slug), TAGS_NAME)
+
     // -- derivation ---------------------------------------------------------
 
     /**
@@ -257,12 +273,38 @@ object OsmImportStage {
             Log.w(TAG, "skinny DB failed verification, removing: ${skinny.name}")
             skinny.delete()
         }
-        val zip = zipFor(ctx, slug)
-        if (zip.exists()) {
-            if (verifyZip(zip)) return OsmStage.REDUCE
-            Log.w(TAG, "zip failed verification, removing: ${zip.name}")
-            zip.delete()
+        // PBFSTAGE-2026-08-30: the tag table is the join's second input, and it
+        // stands alone -- the PBF that produced it may already have been cleaned
+        // up, exactly as the .gpkg outlives its zip. Requiring both here would
+        // send a tidied state back to ACQUIRE and re-download 167 MB.
+        val tags = tagsFor(ctx, slug)
+        if (tags.exists()) {
+            if (verifyTags(tags)) return OsmStage.REDUCE
+            Log.w(TAG, "tag table failed verification, removing: ${tags.name}")
+            tags.delete()
         }
+        val zip = zipFor(ctx, slug)
+        val pbf = pbfFor(ctx, slug)
+        var zipOk = false
+        if (zip.exists()) {
+            zipOk = verifyZip(zip)
+            if (!zipOk) {
+                Log.w(TAG, "zip failed verification, removing: ${zip.name}")
+                zip.delete()
+            }
+        }
+        var pbfOk = false
+        if (pbf.exists()) {
+            pbfOk = verifyPbf(pbf)
+            if (!pbfOk) {
+                Log.w(TAG, "pbf failed verification, removing: ${pbf.name}")
+                pbf.delete()
+            }
+        }
+        // ⛔ THE GATE. The join needs BOTH inputs, so neither file alone
+        // advances past the acquire tier.
+        if (zipOk && pbfOk) return OsmStage.PREPARE_TAGS
+        if (pbfOk) return OsmStage.ACQUIRE_GPKG
         return OsmStage.ACQUIRE
     }
 
@@ -280,6 +322,12 @@ object OsmImportStage {
             ?.filter { dir ->
                 dir.isDirectory && (
                     File(dir, "${dir.name}-latest-free.gpkg.zip").exists() ||
+                        // PBFSTAGE-2026-08-30: the PBF and the tag table are
+                        // recovery points too. Without these, a state holding
+                        // only a PBF reports as NOT in flight and nothing
+                        // offers to resume it.
+                        File(dir, "${dir.name}-latest.osm.pbf").exists() ||
+                        File(dir, TAGS_NAME).exists() ||
                         File(dir, SKINNY_NAME).exists()
                     )
             }
@@ -304,6 +352,60 @@ object OsmImportStage {
      * is actually inside, so picking the wrong file fails here at the gate
      * instead of part-way through C2.
      */
+    /**
+     * PBFSTAGE-2026-08-30. Same reasoning as verifyZip directly below: there is
+     * no Content-Length to compare against, so OPENING the artifact is the
+     * primary check. A .osm.pbf begins with a 4-byte big-endian BlobHeader
+     * length followed by that BlobHeader, whose type field reads "OSMHeader".
+     * A truncated download fails here rather than part-way through the tag pass.
+     */
+    fun verifyPbf(f: File): Boolean {
+        if (!f.exists() || f.length() < 1024L) return false
+        return try {
+            java.io.DataInputStream(java.io.BufferedInputStream(f.inputStream())).use { din ->
+                val hdrLen = din.readInt()
+                if (hdrLen <= 0 || hdrLen > 64 * 1024) {
+                    Log.w(TAG, "pbf header length implausible ($hdrLen): ${f.name}")
+                    return false
+                }
+                val hdr = ByteArray(hdrLen)
+                din.readFully(hdr)
+                val ok = String(hdr, Charsets.ISO_8859_1).contains("OSMHeader")
+                if (!ok) Log.w(TAG, "pbf first blob is not OSMHeader: ${f.name}")
+                ok
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "pbf unreadable ${f.name}: ${e.javaClass.simpleName} ${e.message}")
+            false
+        }
+    }
+
+    /**
+     * PBFSTAGE-2026-08-30. Modelled on verifySkinny: open it and count, because
+     * an empty table is the failure that matters -- a tag pass that produced
+     * nothing would classify every trail from shape alone and report success.
+     */
+    fun verifyTags(f: File): Boolean {
+        if (!f.exists() || f.length() < 4096L) return false
+        var db: SQLiteDatabase? = null
+        return try {
+            db = SQLiteDatabase.openDatabase(
+                f.absolutePath, null, SQLiteDatabase.OPEN_READONLY
+            )
+            var rows = -1
+            db.rawQuery("SELECT COUNT(*) FROM osm_way_tags", null).use { c ->
+                if (c.moveToFirst()) rows = c.getInt(0)
+            }
+            if (rows <= 0) Log.w(TAG, "tag table has no rows: ${f.name}")
+            rows > 0
+        } catch (e: Exception) {
+            Log.w(TAG, "tag table unreadable ${f.name}: ${e.javaClass.simpleName} ${e.message}")
+            false
+        } finally {
+            try { db?.close() } catch (_: Exception) {}
+        }
+    }
+
     fun verifyZip(f: File): Boolean {
         if (!f.exists() || f.length() < 1024L) return false
         return try {

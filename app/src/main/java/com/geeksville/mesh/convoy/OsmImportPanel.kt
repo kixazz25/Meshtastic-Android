@@ -545,7 +545,12 @@ fun OsmImportPanel(
         }
     }
 
-    val zipExists = stage == OsmStage.REDUCE || stage == OsmStage.IMPORT
+    // PBFSTAGE-2026-08-30: PREPARE_TAGS and REDUCE both mean the zip is down
+    // and verified -- see OsmStage. Listed explicitly rather than compared by
+    // ordinal so a rung added later must be considered, not inherited.
+    val zipExists = stage == OsmStage.PREPARE_TAGS ||
+        stage == OsmStage.REDUCE ||
+        stage == OsmStage.IMPORT
     val skinnyExists = stage == OsmStage.IMPORT
 
     val rows = listOf(

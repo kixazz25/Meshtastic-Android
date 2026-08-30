@@ -144,6 +144,7 @@ object HomeStateImportController {
                 put("process", geofabrikProcess)
                 put("slug", gs.slug)
                 put("gpkg_url", gs.gpkgUrl)
+                put("pbf_url", gs.pbfUrl)   // PBFURL-2026-08-30
                 put("status", "pending")
                 put("imported", 0)
                 // MANIFESTCOUNTS-2026-08-21: recap counters. selected = dupes + adds + errors.
@@ -315,8 +316,43 @@ object HomeStateImportController {
     ): Boolean {
         val slug = src.getString("slug")
         val gpkgUrl = src.getString("gpkg_url")
+        val pbfUrl = src.getString("pbf_url")   // PBFDL-2026-08-30
 
-        // Step 1: Download
+        // ── PBFDL-2026-08-30 ──────────────────────────────────────────────
+        // Step 1a: the PBF, FIRST and on its own.
+        //
+        // WHY FIRST: it is the smaller file (~167 MB vs ~332 MB) and it carries
+        // the NEW capability -- the access tags (ohv, motor_vehicle, access,
+        // 4wd_only) that Geofabrik's shapefile-derived GeoPackage drops
+        // entirely. A wrong catalogue row therefore fails at 167 MB rather
+        // than after half a gigabyte.
+        //
+        // WHY NOT CONCURRENT: both report through downloadDetailFlow, so two
+        // at once interleave into one string and the rider watches two
+        // counters fight over the same line.
+        updateSourceStep(src, "Downloading tags", pbfUrl)
+        val pbfFile = OsmImportStage.pbfFor(context, slug)
+        if (!pbfFile.exists()) {
+            val okPbf = downloadFile(pbfUrl, pbfFile, src)
+            if (!okPbf) {
+                Log.e(TAG, "PBF download failed for $slug")
+                return false
+            }
+        }
+        // ⚠ VERIFIED HERE, unlike the zip. stageOf() checks both on the next
+        // derivation, but a truncated PBF would otherwise reach the tag pass,
+        // which would classify from a partial tag set and report success --
+        // the failure class that marked three FAILED runs as imported on
+        // 07-27. Delete it so the retry starts clean.
+        if (!OsmImportStage.verifyPbf(pbfFile)) {
+            Log.e(TAG, "PBF failed verification for $slug, removing: ${pbfFile.name}")
+            pbfFile.delete()
+            return false
+        }
+        downloadDetailFlow.value = null
+        Log.i(TAG, "PBF complete: ${pbfFile.name} (${pbfFile.length() / 1_048_576} MB)")
+
+        // Step 1b: Download the GeoPackage
         updateSourceStep(src, "Downloading", "$gpkgUrl")
         val zipFile = OsmImportStage.zipFor(context, slug)
         if (!zipFile.exists()) {
@@ -328,6 +364,40 @@ object HomeStateImportController {
         }
         downloadDetailFlow.value = null
         Log.i(TAG, "Download complete: ${zipFile.name} (${zipFile.length() / 1_048_576} MB)")
+
+        // ── TAGPASS-2026-08-30 ────────────────────────────────────────────
+        // Step 1c: read the PBF into the interim tag table.
+        //
+        // ⭐ SYNCHRONOUS AND VISIBLE, not a worker (Fred 08-30): a background
+        // job nobody can watch is one a rider doubts and force-quits, and a
+        // force-quit mid-parse leaves a half-written artifact. The extract
+        // uses a worker because it is short; a 167 MB parse is not.
+        //
+        // ⚠ THE DEAD STRETCH IS THE FILE LAYOUT. PBF stores every node before
+        // any way, so ROWS stays at 0 for most of the run -- measured on Utah:
+        // 3,400 blocks with 0 ways, then 2.1M ways in the last ~80. The line
+        // therefore reports WAYS WALKED too, which moves immediately.
+        val tagsFile = OsmImportStage.tagsFor(context, slug)
+        if (!OsmImportStage.verifyTags(tagsFile)) {
+            updateSourceStep(src, "Reading permissions", "starting")
+            val builtRows = withContext(Dispatchers.IO) {
+                OsmPbfTagReader.build(pbfFile, tagsFile) { waysWalked, rowsWritten ->
+                    downloadDetailFlow.value =
+                        "Reading trail permissions - " +
+                            "${waysWalked / 1000}k ways read, $rowsWritten kept"
+                }
+            }
+            downloadDetailFlow.value = null
+            if (builtRows <= 0) {
+                // ⛔ build() already removed its own output. Fail the source
+                // rather than let the join run on a partial tag set.
+                Log.e(TAG, "Tag pass failed for $slug (rows=$builtRows)")
+                return false
+            }
+            Log.i(TAG, "Tag pass complete for $slug: $builtRows rows")
+        } else {
+            Log.i(TAG, "Tag table already present for $slug, skipping tag pass")
+        }
 
         // Step 2: Create the ledger (required before setPendingImport)
         OsmImportLedger.create(
