@@ -293,6 +293,46 @@ object HomeStateImportController {
                 publishProgress(areaLabel, totalSources, sources, "running", startMs)
             }
 
+            // ── STEP8-2026-08-31 ──────────────────────────────────
+            // STEP 8: land-ownership reclass. Utah only, and LAST -- it is BY
+            // VALUE, not by source, so it must see every source's rows.
+            //
+            // ⛔ A CATEGORY, NOT A DELETION. Rows found to sit entirely on
+            // private land become "R - Residential Roads". Nothing is removed;
+            // the rider turns the category off and the town grid goes.
+            //
+            // ⚠ NEVER FAILS THE IMPORT. Six sources may have imported
+            // perfectly; a missing ownership file is not a reason to call the
+            // run bad. run() returns -1 and we carry on.
+            try {
+                // STEP8-2026-08-31: properties, not functions.
+                val sDb = SpatialDbManager.getSpatialDb()
+                val eDb = SpatialDbManager.getExtensionDb()
+                if (sDb != null && eDb != null) {
+                    updateSourceStep(
+                        sources.optJSONObject(sources.length() - 1) ?: JSONObject(),
+                        "Classifying roads", "reading land ownership")
+                    val changed = withContext(Dispatchers.IO) {
+                        OwnershipReclass.run(sDb, eDb) { done, total ->
+                            downloadDetailFlow.value =
+                                "Classifying roads - $done of $total"
+                        }
+                    }
+                    downloadDetailFlow.value = null
+                    when {
+                        changed < 0 -> Log.i(TAG, "step 8 skipped (no ownership data)")
+                        changed == 0 -> Log.i(TAG, "step 8: nothing reclassified")
+                        else -> Log.i(TAG, "step 8: $changed road(s) -> residential")
+                    }
+                } else {
+                    Log.w(TAG, "step 8 skipped: databases unavailable")
+                }
+            } catch (e: Exception) {
+                // Housekeeping must never block a completed import.
+                Log.e(TAG, "step 8 failed, import stands: ${e.message}")
+                downloadDetailFlow.value = null
+            }
+
             // 5. Mark manifest complete
             manifest.put("process_state", if (allOk) "completed" else "completed")
             manifest.put("completed_at", iso8601Now())

@@ -5061,6 +5061,12 @@ fun ConvoyMapViewerScreen(
                             LegendItem(Color(0xFFAA44FF), "Biking Only", "line")
                             Spacer(Modifier.height(3.dp))
                             LegendItem(Color(0xFF00FFFF), "Paved / other", "line")
+                            Spacer(Modifier.height(3.dp))
+                            // STEP8-2026-08-31: roads found to sit entirely on
+                            // private land. Deep pink -- NOT magenta, which is
+                            // Route. Drawn thin: present so it can be seen and
+                            // turned off, not ground to ride.
+                            LegendItem(Color(0xFFFF1493), "Residential", "line")
                             Spacer(Modifier.height(5.dp))
                             LegendItem(Color(0xFF39FF14), "Track", "dash")
                             Spacer(Modifier.height(3.dp))

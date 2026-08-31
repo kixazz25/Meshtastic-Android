@@ -477,6 +477,9 @@ function trailColor(cartoCode) {
   // CARTO0-2026-08-30: '0' is motorized access -- orange, distinct from
   // blue (4), yellow (1), purple (5) and the cyan no-code fallback.
   if (code === '0') return '#FF8800';
+  // RESIDENTIAL-R-2026-08-31: 'R' is a town street, reclassified from land
+  // ownership. Deep pink -- NOT magenta, which is Route.
+  if (code === 'R') return '#FF1493';
   switch (code) {
     case '4': return '#00AAFF'; // OHV / Road-concurrent
     case '2': return '#FF8800'; // Hiking and Biking
@@ -491,6 +494,9 @@ function trailWeight(cartoCode) {
   // CARTO0-2026-08-30: motorized reads thick. '0' joins '4' -- a rider needs
   // to pick out what they can ride, and the thin default was backwards.
   var c0 = String(cartoCode).charAt(0);
+  // RESIDENTIAL-R-2026-08-31: thin. Present so it can be seen and turned off,
+  // not ground to ride.
+  if (c0 === 'R') return 2;
   return (c0 === '4' || c0 === '0') ? 5 : 4;
 }
 

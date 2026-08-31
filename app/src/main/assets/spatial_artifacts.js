@@ -21,6 +21,10 @@ function triggerViewportUpdate() {
 function trailColor(cartoCode) {
   if (!cartoCode) return '#00FFFF';
   var code = String(cartoCode).charAt(0);
+  // RESIDENTIAL-R-2026-08-31: this file was MISSED by the 08-30 carto-0 patch
+  // and had already diverged from the two map HTMLs. Both cases added here.
+  if (code === '0') return '#FF8800';
+  if (code === 'R') return '#FF1493';
   switch (code) {
     case '4': return '#00AAFF'; // OHV / Road-concurrent
     case '2': return '#FF8800'; // Hiking and Biking
@@ -32,7 +36,10 @@ function trailColor(cartoCode) {
 }
 function trailWeight(cartoCode) {
   if (!cartoCode) return 2;
-  return String(cartoCode).charAt(0) === '4' ? 5 : 4;
+  // RESIDENTIAL-R-2026-08-31: brought into line with the map HTMLs.
+  var c0 = String(cartoCode).charAt(0);
+  if (c0 === 'R') return 2;
+  return (c0 === '4' || c0 === '0') ? 5 : 4;
 }
 
 function loadTrails(geojsonData) {

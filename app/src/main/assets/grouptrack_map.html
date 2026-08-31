@@ -44,6 +44,8 @@
       // CARTO0-2026-08-30: '0' is motorized access -- orange. Kept identical
       // to convoy_map.html; these two must never diverge.
       if (code === '0') return '#FF8800';
+      // RESIDENTIAL-R-2026-08-31: town street. Deep pink, not magenta (Route).
+      if (code === 'R') return '#FF1493';
       switch (code) {
         case '4': return '#00AAFF'; // Bright blue -- Road-concurrent / OHV
         case '2': return '#FF8800'; // Orange -- Hiking and Biking
@@ -58,6 +60,7 @@
       if (!cartoCode) return 2;
       // CARTO0-2026-08-30: motorized reads thick -- '0' joins '4'.
       var c0 = cartoCode.charAt(0);
+      if (c0 === 'R') return 2;   // RESIDENTIAL-R-2026-08-31
       return (c0 === '4' || c0 === '0') ? 5 : 4;
     }
 
