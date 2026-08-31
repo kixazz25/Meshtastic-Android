@@ -150,8 +150,13 @@ class OsmImportWorker(
 
             var lastRow = 0L
             var seen = 0
+            // CARTOCARRY-2026-08-31: the classification was computed at
+            // extract and never read here, so every OSM row arrived with an
+            // empty carto_code. Appended at indices 9, 10, 11 so every
+            // existing getString(n) keeps its meaning.
             val sql = "SELECT rowid, osm_id, name, wkt, geom_hash, " +
-                "min_lat, max_lat, min_lon, max_lon FROM osm_trails " +
+                "min_lat, max_lat, min_lon, max_lon, " +
+                "trail_type, carto_code, motorized FROM osm_trails " +
                 "WHERE rowid > ? AND $where ORDER BY rowid LIMIT $PAGE"
 
             while (true) {
@@ -173,6 +178,10 @@ class OsmImportWorker(
                             val name = c.getString(2)?.ifBlank { null }
                             val wkt = c.getString(3) ?: ""
                             val hash = c.getString(4) ?: ""
+                            // CARTOCARRY-2026-08-31
+                            val trailType = if (c.isNull(9)) null else c.getString(9)
+                            val cartoCode = if (c.isNull(10)) null else c.getString(10)
+                            val motorized = if (c.isNull(11)) null else c.getInt(11)
                             val minLat = c.getDouble(5); val maxLat = c.getDouble(6)
                             val minLon = c.getDouble(7); val maxLon = c.getDouble(8)
                             if (wkt.isEmpty()) { errors++; continue }
@@ -197,7 +206,9 @@ class OsmImportWorker(
                                 // reinsert, which orphans every saved route that
                                 // snapped to this lineId. Adding touches nothing.
                                 if (insertNew(sDb, eDb, uid, name, wkt,
-                                        minLat, maxLat, minLon, maxLon, now, changed = true)) {
+                                        minLat, maxLat, minLon, maxLon, now, changed = true,
+                                        trailType = trailType, cartoCode = cartoCode,
+                                        motorized = motorized)) {
                                     geomChanged++
                                 } else {
                                     errors++
@@ -210,7 +221,11 @@ class OsmImportWorker(
                                 tid, name, wkt, minLat, maxLat, minLon, maxLon, now
                             )
                             SpatialDbManager.markSourceUid(OSM_SOURCE_ID, uid)
-                            writeProperties(eDb, anchorId, uid, now, orIgnore = true)
+                            // CARTOCARRY-2026-08-31
+                            writeProperties(eDb, anchorId, uid, now, orIgnore = true,
+                                trailType = trailType, cartoCode = cartoCode,
+                                motorized = motorized)
+                            writeSpatialCarto(sDb, anchorId, cartoCode)
 
                             when (decision) {
                                 SpatialDbManager.AddDecision.INSERT -> inserted++
@@ -446,14 +461,22 @@ class OsmImportWorker(
     private fun insertNew(
         sDb: SQLiteDatabase, eDb: SQLiteDatabase, uid: String, name: String?,
         wkt: String, minLat: Double, maxLat: Double, minLon: Double, maxLon: Double,
-        now: String, changed: Boolean
+        now: String, changed: Boolean,
+        // CARTOCARRY-INSERTNEW-2026-08-31: required, not defaulted. A
+        // geometry-changed row must carry the same classification as any other
+        // -- otherwise this one branch keeps writing the empty strings the
+        // whole change exists to remove. 0.74% of Utah geometries changed in a
+        // month, so it is not a rare path.
+        trailType: String?, cartoCode: String?, motorized: Int?
     ): Boolean {
         return try {
             val tid = UUID.randomUUID().toString()
             val (anchorId, _) = SpatialDbManager.insertTrail(
                 tid, name, wkt, minLat, maxLat, minLon, maxLon, now
             )
-            writeProperties(eDb, anchorId, uid, now, orIgnore = !changed)
+            writeProperties(eDb, anchorId, uid, now, orIgnore = !changed,
+                trailType = trailType, cartoCode = cartoCode, motorized = motorized)
+            writeSpatialCarto(sDb, anchorId, cartoCode)   // CARTOCARRY-INSERTNEW-2026-08-31
             true
         } catch (ex: Exception) {
             Log.w(TAG, "second-geometry insert for uid=$uid failed: " +
@@ -465,23 +488,67 @@ class OsmImportWorker(
     }
 
     /**
-     * carto_code is written BLANK, deliberately.
+     * CARTOCARRY-2026-08-31: THE PARAGRAPH BELOW IS NO LONGER TRUE and is
+     * kept only so the reversal is visible. OSM now HAS a carto classification
+     * -- OsmTrailClassifier assigns one from the access tags the PBF carries,
+     * and the extract writes it into the skinny. What was missing was this
+     * method reading it. (superseded text follows)
+     *
+     * carto_code was written BLANK, deliberately.
      *
      * OSM has no carto classification, so anything else would be invented. Blank
      * renders cyan "Unspecified", which is visually distinct from every coded
      * government source and touches none of the three hand-synchronised files
      * that map carto_code to colour.
      */
+    /**
+     * CARTOCARRY-2026-08-31. Was passing EMPTY STRINGS for every attribute,
+     * carto_code included -- so the classification computed at extract was
+     * thrown away at the moment of import and 93,153 OSM rows landed untyped.
+     *
+     * ⚠ The parameters are REQUIRED, not defaulted. A caller that does not know
+     * the classification is the bug this signature exists to catch (CODE RULE
+     * 1): an optional would silently reinstate the empty-string behaviour for
+     * whichever path forgot to pass it.
+     */
     private fun writeProperties(
-        eDb: SQLiteDatabase, trailId: String, uid: String, now: String, orIgnore: Boolean
+        eDb: SQLiteDatabase, trailId: String, uid: String, now: String, orIgnore: Boolean,
+        trailType: String?, cartoCode: String?, motorized: Int?
     ) {
         val verb = if (orIgnore) "INSERT OR IGNORE" else "INSERT"
+        // motorized_allowed carries a real value for the first time -- the
+        // classifier already decides it, and it is what the router filters on.
+        val motorizedText = when (motorized) {
+            1 -> "Y"
+            0 -> "N"
+            else -> ""
+        }
         eDb.execSQL(
             "$verb INTO trail_properties (trail_id,source_id,source_unique_id," +
                 "designated_uses,motorized_allowed,surface_type,carto_code," +
                 "owner_steward,county,agency_id,ingested_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
-            arrayOf<Any?>(trailId, OSM_SOURCE_ID, uid, "", "", "", "", "", "", uid, now)
+            arrayOf<Any?>(trailId, OSM_SOURCE_ID, uid, trailType ?: "", motorizedText,
+                "", cartoCode ?: "", "", "", uid, now)
         )
+    }
+
+    /**
+     * CARTOCARRY-2026-08-31. TrailImporter writes carto to `trails` as well as
+     * trail_properties -- "both stores populated" since 06-21, and
+     * SpatialDbManager:1689 arbitrates between them ("spatial wins only if it
+     * has a real value"). The OSM path must do the same or the two stores
+     * disagree about the same trail.
+     * ⚠ Guarded: a failure here must never fail the import. The extension DB
+     * has the value regardless.
+     */
+    private fun writeSpatialCarto(sDb: SQLiteDatabase, trailId: String, cartoCode: String?) {
+        if (cartoCode.isNullOrEmpty()) return
+        try {
+            sDb.execSQL("UPDATE trails SET carto_code=? WHERE trail_id=?",
+                arrayOf<Any?>(cartoCode, trailId))
+        } catch (ex: Exception) {
+            Log.w(TAG, "spatial carto write failed for $trailId: ${ex.message}")
+        }
     }
 
     private fun logIngestion(
