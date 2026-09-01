@@ -5058,7 +5058,15 @@ fun ConvoyMapViewerScreen(
                 // always drew cyan. A key that cannot disagree with the map is
                 // the point of sharing one definition.
                 Popup(onDismissRequest = { legendExpanded = false }) {
-                    MapKeysPanel(onDismiss = { legendExpanded = false })
+                    MapKeysPanel(
+                        onDismiss = { legendExpanded = false },
+                        // MAPKEYS-2026-09-01: same refetch Work with Map
+                        // Features uses -- a synthetic viewport event, so
+                        // the next query picks up the new predicate.
+                        onFilterChanged = {
+                            webViewRef?.evaluateJavascript("try{var b=map.getBounds();Android.onViewportChanged(b.getNorth(),b.getSouth(),b.getEast(),b.getWest(),map.getZoom())}catch(e){}", null)
+                        }
+                    )
                 }
             }
         }

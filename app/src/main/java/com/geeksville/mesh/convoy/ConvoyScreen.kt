@@ -1562,7 +1562,12 @@ fun ConvoyScreen(
             androidx.compose.ui.window.Popup(
                 onDismissRequest = { mapKeysOpen = false }
             ) {
-                MapKeysPanel(onDismiss = { mapKeysOpen = false })
+                MapKeysPanel(
+                    onDismiss = { mapKeysOpen = false },
+                    onFilterChanged = {
+                        webViewRef.value?.evaluateJavascript("try{var b=map.getBounds();Android.onViewportChanged(b.getNorth(),b.getSouth(),b.getEast(),b.getWest(),map.getZoom())}catch(e){}", null)
+                    }
+                )
             }
         }
         androidx.compose.material3.Surface(
