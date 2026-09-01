@@ -441,9 +441,27 @@ object SpatialDbManager {
             // Named first (OSM carries no carto_code), then largest extent —
             // squared bbox diagonal, no sqrt needed for ordering, and both
             // columns already exist and are indexed.
-            "SELECT trail_id, name, geometry, carto_code AS CartoCode FROM trails " +
+            // MAPFILTER-2026-09-01: ⭐ ONE PLACE, BOTH MAPS. Everything reaches
+            // the map through SpatialDisplayManager.processViewport, which
+            // calls this and only this -- so the rider's Map Keys selection is
+            // applied here and cannot be applied inconsistently anywhere else.
+            //
+            // ⛔ ALWAYS APPLIED, NEVER CONDITIONAL (Fred, 09-01): "that filter
+            // should always be there with current values." An empty selection
+            // yields an empty clause and the query is exactly what it was.
+            //
+            // ⚠ whereOrEmpty(), not where(): this can run before the map
+            // composable's load() on a cold path, and a viewport query is the
+            // wrong place to throw. TrailFilterState.load() is called at the
+            // FRONT of both map screens precisely so that does not happen.
+            //
+            // ⭐ status joins the SELECT so CLOSED draws red and PLANNED
+            // ghosted -- trailStyleOf() in the assets already handles it and
+            // has been waiting for the property to arrive.
+            "SELECT trail_id, name, geometry, carto_code AS CartoCode, status AS Status FROM trails " +
                 "WHERE max_lat >= ? AND min_lat <= ? AND max_lon >= ? AND min_lon <= ? " +
-                "ORDER BY (CASE WHEN name IS NULL OR name = '' THEN 1 ELSE 0 END), " +
+                TrailFilterState.whereOrEmpty() +
+                " ORDER BY (CASE WHEN name IS NULL OR name = '' THEN 1 ELSE 0 END), " +
                 "((max_lat-min_lat)*(max_lat-min_lat)+(max_lon-min_lon)*(max_lon-min_lon)) DESC " +
                 "LIMIT ?",
             arrayOf(south.toString(), north.toString(), west.toString(), east.toString(), limit.toString())
@@ -452,6 +470,9 @@ object SpatialDbManager {
             val wkt = cursor.getString(2)
             if (!wkt.isNullOrEmpty()) {
                 results.add(mutableMapOf(
+                    // MAPFILTER-2026-09-01: Status rides along so the WebView
+                    // can colour closed and planned.
+                    "Status" to (if (cursor.columnCount > 4) cursor.getString(4) else null),
                     "trail_id" to cursor.getString(0),
                     "name" to cursor.getString(1),
                     "geometry" to wkt,
