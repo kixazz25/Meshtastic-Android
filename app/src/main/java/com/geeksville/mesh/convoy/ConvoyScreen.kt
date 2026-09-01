@@ -222,6 +222,15 @@ fun ConvoyScreen(
     var convoyTrackFiles by remember { mutableStateOf<List<String>>(emptyList()) }
     var convoyLoadedTracks by remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
     var convoyTrackSearch by remember { mutableStateOf("") }
+
+    // MAPKEYS-2026-09-01: the convoy map's own key state, and the saved filter
+    // state read BEFORE the map draws. ⛔ Fred, 09-01: "not just a frame,
+    // everything until something changes that causes the filter to recalc" --
+    // an unloaded filter shows everything for the whole session, and a rider
+    // whose panel says private-off over a map full of private roads is a
+    // support call. Idempotent: the planner may have loaded it already.
+    var mapKeysOpen by remember { mutableStateOf(false) }
+    remember { TrailFilterState.load(); true }
         var showMapSettings by remember { mutableStateOf(false) }
         // Spatial DB display states — per-map state from MapStateStore (independent of planning map)
         val cmSeed = remember { MapStateStore.readMap("convoy") }
@@ -1517,14 +1526,54 @@ fun ConvoyScreen(
         )
 
         // -- "?" HELP BUTTON (ported from planning 2026-06-18; TopStart to clear QUEUES) --
+        // MAPKEYS-2026-09-01: Map Keys goes BETWEEN Map Features (152) and Help,
+        // so Help moves 184 -> 216. The column is absolute top padding, not a
+        // stack, so inserting a control means moving the ones below it.
         androidx.compose.material3.Surface(
-            onClick = { showDocsChooser = true },
-            // PLAINCTRL3-2026-08-18B: circle + fixed size dropped so the word renders in full;
-            // top padding tightened from 252 to 184 to close the gap in the text column.
+            onClick = { mapKeysOpen = true },
             shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp),
             color = androidx.compose.ui.graphics.Color.Transparent,
             contentColor = androidx.compose.ui.graphics.Color(0xFFFF00FF),
             modifier = Modifier.align(Alignment.TopEnd).padding(top = 184.dp, end = 12.dp)
+        ) {
+            androidx.compose.foundation.layout.Box(contentAlignment = Alignment.Center) {
+                // PLAINCTRL-2026-08-17: words, not a glyph -- riders are 65-75
+                // and icon literacy cannot be assumed. The white blur shadow is
+                // what keeps it readable over bright satellite.
+                androidx.compose.material3.Text(
+                    "Map Keys",
+                    fontSize = 13.sp,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                    style = androidx.compose.ui.text.TextStyle(
+                        shadow = androidx.compose.ui.graphics.Shadow(
+                            color = androidx.compose.ui.graphics.Color.White,
+                            offset = androidx.compose.ui.geometry.Offset(0f, 0f),
+                            blurRadius = 6f
+                        )
+                    ),
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp)
+                )
+            }
+        }
+        // MAPKEYS-2026-09-01: the panel itself. Same composable as the planner
+        // -- ⛔ the convoy map has had NO key at all until now, and a second
+        // copy is how the three trailColor functions drifted apart.
+        if (mapKeysOpen) {
+            androidx.compose.ui.window.Popup(
+                onDismissRequest = { mapKeysOpen = false }
+            ) {
+                MapKeysPanel(onDismiss = { mapKeysOpen = false })
+            }
+        }
+        androidx.compose.material3.Surface(
+            onClick = { showDocsChooser = true },
+            // PLAINCTRL3-2026-08-18B: circle + fixed size dropped so the word renders in full;
+            // top padding tightened from 252 to 184 to close the gap in the text column.
+            // MAPKEYS-2026-09-01: 184 -> 216, Map Keys took 184.
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp),
+            color = androidx.compose.ui.graphics.Color.Transparent,
+            contentColor = androidx.compose.ui.graphics.Color(0xFFFF00FF),
+            modifier = Modifier.align(Alignment.TopEnd).padding(top = 216.dp, end = 12.dp)
         ) {
             androidx.compose.foundation.layout.Box(contentAlignment = Alignment.Center) {
                 // PLAINCTRL2-2026-08-17: the word, for the same reason as the others.

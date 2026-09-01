@@ -248,6 +248,19 @@ fun ConvoyMapViewerScreen(
     convoyViewModel: ConvoyViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
+
+    // MAPKEYS-2026-09-01: read the saved Map Key state BEFORE the WebView
+    // exists. ⛔ NOT a cosmetic ordering point -- Fred, 09-01: "not just a
+    // frame, everything until something changes that causes the filter to
+    // recalc." An unloaded filter shows EVERYTHING for the whole session, so a
+    // rider who set private off, closed the app and reopened it would see their
+    // filter apparently ignored: "I will get bombed with questions if they
+    // open, the state is right but the display is wrong."
+    // ⭐ Here rather than at splash: this runs AFTER the authority gate, and
+    // the file is in shared storage which nothing may touch before the gate
+    // passes. It is a small file read during the GPS fix -- dead time anyway.
+    remember { TrailFilterState.load(); true }
+
     var webViewRef by remember { mutableStateOf<WebView?>(null) }
 
     // Clean up WebView when leaving Planning Map
@@ -5036,45 +5049,16 @@ fun ConvoyMapViewerScreen(
                 }
             }
             if (legendExpanded) {
+                // MAPKEYS-2026-09-01: the hardcoded legend is gone. One shared
+                // composable now serves BOTH maps -- the old one lived only
+                // here on the planner and the convoy map had none at all.
+                // ⛔ It also LIED: it said orange was "Hiking & Biking" while
+                // the map drew motorized in that colour, and trailColor never
+                // had a case for '2' at all, so 7,513 hiking-and-biking rows
+                // always drew cyan. A key that cannot disagree with the map is
+                // the point of sharing one definition.
                 Popup(onDismissRequest = { legendExpanded = false }) {
-                    Surface(
-                        shape = RoundedCornerShape(6.dp),
-                        color = Color(0xF2000000),
-                        shadowElevation = 8.dp
-                    ) {
-                        Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.clickable { legendExpanded = false }
-                                    .padding(bottom = 4.dp)
-                            ) {
-                                Text("Legend", color = Color(0xFF8FD0FF), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
-                                Spacer(Modifier.width(6.dp))
-                                Text("\u00D7", color = Color(0xFF8FD0FF), fontSize = 12.sp)
-                            }
-                            LegendItem(Color(0xFF00AAFF), "OHV / Road", "line")
-                            Spacer(Modifier.height(3.dp))
-                            LegendItem(Color(0xFFFF8800), "Hiking & Biking", "line")
-                            Spacer(Modifier.height(3.dp))
-                            LegendItem(Color(0xFFFFCC00), "Hiking Only", "line")
-                            Spacer(Modifier.height(3.dp))
-                            LegendItem(Color(0xFFAA44FF), "Biking Only", "line")
-                            Spacer(Modifier.height(3.dp))
-                            LegendItem(Color(0xFF00FFFF), "Paved / other", "line")
-                            Spacer(Modifier.height(3.dp))
-                            // STEP8-2026-08-31: roads found to sit entirely on
-                            // private land. Deep pink -- NOT magenta, which is
-                            // Route. Drawn thin: present so it can be seen and
-                            // turned off, not ground to ride.
-                            LegendItem(Color(0xFFFF1493), "Residential", "line")
-                            Spacer(Modifier.height(5.dp))
-                            LegendItem(Color(0xFF39FF14), "Track", "dash")
-                            Spacer(Modifier.height(3.dp))
-                            LegendItem(Color(0xFFFF00FF), "Route", "dash")
-                            Spacer(Modifier.height(3.dp))
-                            LegendItem(Color(0xFF2ECC40), "Waypoint", "pin")
-                        }
-                    }
+                    MapKeysPanel(onDismiss = { legendExpanded = false })
                 }
             }
         }
