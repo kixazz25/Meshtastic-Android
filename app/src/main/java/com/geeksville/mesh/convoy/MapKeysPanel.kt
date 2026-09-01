@@ -82,6 +82,15 @@ val MOTORIZED_ROWS = listOf(
     MapKeyRow("track", "Track", Color(0xFF00AAFF), 5),
     MapKeyRow("forestry/access road", "Forestry / access", Color(0xFF0077DD), 4),
     MapKeyRow("shape only", "Shape only", Color(0xFF0044AA), 3, dashed = true),
+    // ⭐ UNOFFICIAL / UNCERTAIN sits HERE, not in a column of its own (Fred,
+    // 09-01: "there should be no other column, one extra row for the non
+    // active states"). ⚠ It acts on `status`, NOT carto_code -- a trail is
+    // unofficial AND a track, not one instead of the other. 501 rows: too few
+    // to subset across nine categories, so one summary row.
+    // ⚠ RED even though unofficial is not forbidden. Fred: "if they ask the
+    // question we have done our job" -- a question beats a wrong assumption.
+    MapKeyRow(TrailFilterState.ROW_UNOFFICIAL, "Unofficial / uncertain",
+        Color(0xFFFF2222), 3, dashed = true),
 )
 
 val NON_MOTORIZED_ROWS = listOf(
@@ -92,27 +101,6 @@ val NON_MOTORIZED_ROWS = listOf(
     MapKeyRow("steps/bridge", "Steps / bridge", Color(0xFF888888), 2, dashed = true),
 )
 
-/**
- * ⛔ Private is a SLICE, not a category (Fred, 08-31): "public and private and
- * motorized/non-motorized are FILTERS. Cats exist in those four subsets."
- * It is listed here so the colour is identifiable, but it is not a category the
- * classifier assigns — it is land_status, and the filter will act on that.
- */
-val OTHER_ROWS = listOf(
-    MapKeyRow("R - Residential Roads", "Residential (private)", Color(0xFFFF1493), 2),
-    // ⭐ UNOFFICIAL / UNCERTAIN acts on `status`, not carto_code -- a trail is
-    // unofficial AND a track, not one instead of the other. 501 rows on the
-    // motorized set: too few to subset across nine categories (Fred, 09-01),
-    // so they are grouped into one summary row.
-    // ⚠ RED even though unofficial is not forbidden. Fred: "if they ask the
-    // question we have done our job" -- a question beats a wrong assumption.
-    MapKeyRow(TrailFilterState.ROW_UNOFFICIAL, "Unofficial / uncertain",
-        Color(0xFFFF2222), 3, dashed = true),
-    // ⛔ NO "Closed" ROW. Fred, 09-01: "closed never display, it is just in
-    // db." Kept on import so a future reopening costs nothing, but excluded
-    // from every viewport query unconditionally -- not a rider toggle, so it
-    // has no key entry either.
-)
 
 /** The rider's own artifacts. ⚠ No checkbox — these are theirs, not source data. */
 val ARTIFACT_ROWS = listOf(
@@ -135,22 +123,38 @@ fun MapKeysPanel(
         shape = RoundedCornerShape(8.dp),
         color = Color(0xF2000000),
         shadowElevation = 8.dp,
-        modifier = modifier,
+        // ⚠ Fred, 09-01: "map key is full width on the screen." Nothing
+        // constrained it, so it filled. 330dp is what the mockup used and what
+        // two columns need.
+        modifier = modifier.width(330.dp),
     ) {
         Column(modifier = Modifier.padding(horizontal = 9.dp, vertical = 7.dp)) {
+            // ⚠ Fred, 09-01: "no exit from Map Key." The whole header row was
+            // clickable but nothing said so. The X is now a real target --
+            // sized, boxed, and on the right where a close control belongs.
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.clickable { onDismiss() }.padding(bottom = 5.dp)
+                modifier = Modifier.fillMaxWidth().padding(bottom = 7.dp)
             ) {
                 Text(
                     "MAP KEY / FILTERS",
                     color = Color(0xFF8FD0FF),
-                    fontSize = 10.sp,
+                    fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
-                    fontFamily = FontFamily.Monospace
+                    fontFamily = FontFamily.Monospace,
+                    modifier = Modifier.weight(1f)
                 )
-                Spacer(Modifier.width(8.dp))
-                Text("\u00D7", color = Color(0xFF8FD0FF), fontSize = 12.sp)
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier.width(26.dp).height(22.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(Color(0xFF1B2027))
+                        .border(1.dp, Color(0xFF47505A), RoundedCornerShape(4.dp))
+                        .clickable { onDismiss() }
+                ) {
+                    Text("\u2715", color = Color(0xFFE6EDF3), fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold)
+                }
             }
 
             // ── the ONE slice: LAND ────────────────────────────────────
@@ -186,19 +190,22 @@ fun MapKeysPanel(
             Spacer(Modifier.fillMaxWidth().height(1.dp).background(Color(0xFF30363D)))
             Spacer(Modifier.height(5.dp))
 
-            Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                KeyColumn("OTHER", OTHER_ROWS, tick, ::changed, Modifier.weight(1f))
-                Spacer(
-                    Modifier.width(1.dp).height(52.dp)
-                        .background(Color(0xFF30363D))
-                )
-                KeyColumn("MINE", ARTIFACT_ROWS, tick, null, Modifier.weight(1f))
-            }
+            // ⛔ NO "OTHER" COLUMN, and NO Residential row (Fred, 09-01).
+            // Residential is simply what PRIVATE land looks like, and the
+            // Both/Public/Private buttons above already control it -- as a row
+            // as well it put the same concept in the panel twice.
+            KeyColumn("MINE", ARTIFACT_ROWS, tick, null, Modifier.fillMaxWidth())
 
             Spacer(Modifier.height(6.dp))
             Text(
-                "select a column header to turn all types on or off",
-                color = Color(0xFF5B646E), fontSize = 8.sp,
+                // ⚠ Fred, 09-01: "I really had no idea, then solved that
+                // checking removed the blue box and rechecking put the trails
+                // back -- must be more intuitive." The mechanism was right; the
+                // affordance said nothing. Everything starts CHECKED, and this
+                // states the DIRECTION rather than the mechanism.
+                "Everything is shown. UNCHECK a row to hide it.\n" +
+                    "Tap a heading to hide the whole group.",
+                color = Color(0xFF8B949E), fontSize = 9.sp,
                 fontFamily = FontFamily.Monospace
             )
         }
@@ -227,12 +234,17 @@ private fun SliceButton(
 private fun CheckBox(on: Boolean) {
     Box(
         contentAlignment = Alignment.Center,
-        modifier = Modifier.width(12.dp).height(12.dp)
+        // ⚠ Was 12dp with an 8sp tick -- effectively a plain blue square,
+        // which is why Fred had to experiment to learn which way round it was.
+        // It has to READ as a checkbox, not a colour chip.
+        modifier = Modifier.width(15.dp).height(15.dp)
             .clip(RoundedCornerShape(3.dp))
-            .background(if (on) Color(0xFF58A6FF) else Color.Transparent)
-            .border(1.dp, Color(0xFF47505A), RoundedCornerShape(3.dp))
+            .background(if (on) Color(0xFF58A6FF) else Color(0xFF11161C))
+            .border(1.dp, if (on) Color(0xFF58A6FF) else Color(0xFF6B7580),
+                RoundedCornerShape(3.dp))
     ) {
-        if (on) Text("\u2713", color = Color(0xFF0A0D10), fontSize = 8.sp)
+        if (on) Text("\u2713", color = Color(0xFF0A0D10), fontSize = 11.sp,
+            fontWeight = FontWeight.Bold)
     }
 }
 
