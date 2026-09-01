@@ -355,6 +355,7 @@ private fun ResultsList(
     val aMono = FontFamily.Monospace
     Spacer(modifier = Modifier.height(4.dp))
     Surface(
+        // SELCAP-2026-09-01: the LIST height, not the row cap -- left alone.
         modifier = Modifier.fillMaxWidth().heightIn(min = 36.dp, max = 200.dp),
         shape = RoundedCornerShape(4.dp),
         color = Color(0xFF0D1520)
@@ -366,8 +367,8 @@ private fun ResultsList(
             }
         } else {
             Column(modifier = Modifier.verticalScroll(rememberScrollState()).padding(vertical = 2.dp)) {
-                if (results.size >= 200) {
-                    Text("showing first 200 — refine",
+                if (results.size >= 2000) {
+                    Text("showing first 2000 — refine",
                         color = aOrange, fontSize = 8.sp, fontFamily = aMono,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp))
                 }
@@ -400,7 +401,18 @@ private fun ArtifactRow(
     displayStates: Map<String, Int> = emptyMap()
 ) {
     val aMono = FontFamily.Monospace
-    val state = displayStates[typeName] ?: 0
+    // SELCAP-2026-09-01: ⛔ TRAILS HAVE NO PER-TRAIL SELECTION. Fred, 09-01:
+    // "I cannot think of a reason why a trail would be selected since we have
+    // so many unnamed" -- ~69% of rows are the literal string "Not Named", so
+    // a rider cannot meaningfully pick from that list.
+    // ⚠ AND IT WAS A TRAP: SpatialDisplayManager filters to checkedIds when the
+    // state is SELECTED, so a trail imported after that list was saved silently
+    // never drew. That is the shape of the missing-trail problem.
+    // ⭐ A saved SELECTED reads as ALL for trails, so a device already stuck in
+    // that state recovers on its own rather than showing an empty map.
+    val noSelect = typeName == "Trails"
+    val rawState = displayStates[typeName] ?: 0
+    val state = if (noSelect && rawState == 2) 1 else rawState
     Surface(
         modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
         shape = RoundedCornerShape(4.dp),
@@ -431,12 +443,26 @@ private fun ArtifactRow(
             }
             Spacer(Modifier.width(4.dp))
             // SEL/EDIT button
+            // SELCAP-2026-09-01: greyed and inert for Trails. It still SHOWS so
+            // the four rows stay aligned and the panel reads consistently --
+            // Fred: "if you grey out the box as not selectable then the only
+            // two choices are on and off."
             Surface(shape = RoundedCornerShape(3.dp),
-                color = if (state == 2) Color(0xFF2266CC) else Color(0xFF2D8B2D),
-                modifier = Modifier.clickable { onEditDisplay(typeName) }.padding(2.dp)) {
+                color = when {
+                    noSelect -> Color(0xFF2A3038)
+                    state == 2 -> Color(0xFF2266CC)
+                    else -> Color(0xFF2D8B2D)
+                },
+                modifier = (if (noSelect) Modifier
+                            else Modifier.clickable { onEditDisplay(typeName) })
+                    .padding(2.dp)) {
                 // PLAINLABELS-2026-08-17D: plain-language label for the third toggle.
                 // These three are ACTIONS you tap, not states you read.
-                Text("SELECT", color = if (state == 2) Color.White else Color(0xFF39FF14),
+                Text("SELECT", color = when {
+                        noSelect -> Color(0xFF5B646E)
+                        state == 2 -> Color.White
+                        else -> Color(0xFF39FF14)
+                    },
                     fontSize = 10.sp, fontFamily = aMono, fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp))
             }

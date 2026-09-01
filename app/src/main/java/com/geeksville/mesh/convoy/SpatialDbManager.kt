@@ -342,50 +342,16 @@ object SpatialDbManager {
                 }
             }
 
-            // BACKFILL status onto trails from trail_properties.
-            // ⚠ Runs ONLY when trails.status is entirely empty, so it is a
-            // one-time repair rather than something that fights the importer on
-            // every launch.
-            // ⚠ Cross-database, so it cannot be a single UPDATE...FROM: read
-            // the pairs from the extension db, write them to spatial.
-            try {
-                val need = spatialDb!!.rawQuery(
-                    "SELECT COUNT(*) FROM trails WHERE status IS NOT NULL LIMIT 1", null
-                ).use { if (it.moveToFirst()) it.getInt(0) else 0 }
-                if (need == 0) {
-                    val pairs = ArrayList<Pair<String, String>>()
-                    extensionDb!!.rawQuery(
-                        "SELECT trail_id, status FROM trail_properties " +
-                            "WHERE status IS NOT NULL AND TRIM(status) <> ''", null
-                    ).use { c ->
-                        while (c.moveToNext()) {
-                            val id = c.getString(0); val st = c.getString(1)
-                            if (id != null && st != null) pairs.add(id to st)
-                        }
-                    }
-                    if (pairs.isNotEmpty()) {
-                        android.util.Log.i("SpatialDb",
-                            "Backfilling status onto ${pairs.size} trail(s)")
-                        spatialDb!!.beginTransaction()
-                        try {
-                            val st = spatialDb!!.compileStatement(
-                                "UPDATE trails SET status=? WHERE trail_id=?")
-                            for ((id, v) in pairs) {
-                                st.clearBindings()
-                                st.bindString(1, v); st.bindString(2, id)
-                                st.executeUpdateDelete()
-                            }
-                            spatialDb!!.setTransactionSuccessful()
-                        } finally {
-                            spatialDb!!.endTransaction()
-                        }
-                    }
-                }
-            } catch (e: Exception) {
-                // A failed backfill must never stop the app opening: the filter
-                // treats NULL status as "not closed", so the map still draws.
-                android.util.Log.w("SpatialDb", "status backfill: ${e.message}")
-            }
+            // NOBACKFILL-2026-09-01: a status backfill lived here and has been
+            // REMOVED. It walked ~47,000 rows one at a time on the
+            // database-open path and ANR'd the first launch.
+            // ⛔ It was also unnecessary: this release CLEARS the trails table,
+            // so every updating rider reimports from empty and there is nothing
+            // to backfill. ⚠ Worse, it would have sat here waiting to fire on
+            // some future edge case -- a guarded heavy job on the startup path
+            // is a trap, not a safeguard.
+            // ⭐ The real fix is TrailImporter writing status to BOTH stores at
+            // import, the way carto_code already is.
 
             // Attach extension db to spatial for cross-db views (optional, for future use)
             // spatialDb?.execSQL("ATTACH DATABASE '${extFile.absolutePath}' AS ext")
@@ -535,7 +501,21 @@ object SpatialDbManager {
             "SELECT trail_id, name, geometry, carto_code AS CartoCode, status AS Status FROM trails " +
                 "WHERE max_lat >= ? AND min_lat <= ? AND max_lon >= ? AND min_lon <= ? " +
                 TrailFilterState.whereOrEmpty() +
-                " ORDER BY (CASE WHEN name IS NULL OR name = '' THEN 1 ELSE 0 END), " +
+                // ORDERBY-2026-09-01: ⛔ THE NAME CLAUSE IS GONE. It sorted
+                // named trails first -- but "Not Named" IS A NAME (Fred,
+                // 09-01), and ~69% of rows carry that literal string, so it
+                // only ever sorted the truly NULL ones last. Tens of thousands
+                // of placeholders competed as "named", and a 200-foot named
+                // connector outranked a ten-mile track.
+                // ⭐ Length alone. Fred: "real unnamed trails can be long. I
+                // would rather load by trail length so meaningful artifacts are
+                // loaded first."
+                // ⚠ This is the BBOX DIAGONAL, not true length -- close for a
+                // straight road, an understatement for a switchbacked trail.
+                // Real length would need a column computed at extract; Fred
+                // called that too much work for the gain, and this is still
+                // strictly better than name-first.
+                " ORDER BY " +
                 "((max_lat-min_lat)*(max_lat-min_lat)+(max_lon-min_lon)*(max_lon-min_lon)) DESC " +
                 "LIMIT ?",
             arrayOf(south.toString(), north.toString(), west.toString(), east.toString(), limit.toString())
