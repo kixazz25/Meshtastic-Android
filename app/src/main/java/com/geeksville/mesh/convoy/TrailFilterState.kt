@@ -49,6 +49,10 @@ object TrailFilterState {
     private const val TAG = "TrailFilter"
     private const val FILE_NAME = "map_keys.json"
 
+    /** ⭐ A panel row that acts on `status`, not `carto_code`. Prefixed so it
+     *  can never collide with a real category value. */
+    const val ROW_UNOFFICIAL = "__unofficial"
+
     /** Current schema of the saved file. ⚠ Bump when the SHAPE changes so an
      *  old file is discarded rather than half-read. */
     private const val VERSION = 1
@@ -158,19 +162,45 @@ object TrailFilterState {
 
     @Synchronized
     private fun regenerate() {
+        // ⚠ NO TABLE ALIAS. queryTrailsByViewport selects `FROM trails` with no
+        // alias, so `t.land_status` would not compile as SQL. Bare column names.
         val sb = StringBuilder()
+
+        // ⛔⛔ CLOSED NEVER DRAWS, AND THIS IS NOT A RIDER TOGGLE (Fred, 09-01):
+        // "closed never display, it is just in db." Kept on import so the row
+        // exists and a future reopening costs nothing, but excluded from every
+        // viewport query unconditionally. ⚠ status is NULL on all 93,166 OSM
+        // rows -- OSM carries no status at all -- so the NULL test is what
+        // stops this hiding the entire OSM contribution.
+        sb.append(" AND (status IS NULL OR status <> 'CLOSED')")
+
         if (land == "PUBLIC" || land == "PRIVATE") {
-            sb.append(" AND t.land_status='").append(land).append("'")
+            sb.append(" AND land_status='").append(land).append("'")
         }
         if (use == "MOTORIZED" || use == "NON-MOTORIZED") {
-            sb.append(" AND t.use_type='").append(use).append("'")
+            sb.append(" AND use_type='").append(use).append("'")
         }
-        if (off.isNotEmpty()) {
+
+        // ⭐ UNOFFICIAL / UNCERTAIN is a ROW LIKE ANY OTHER in the panel, but it
+        // acts on `status`, not `carto_code` -- a trail is unofficial AND a
+        // track, not one instead of the other. Fred, 09-01: too few to subset
+        // across nine categories (501 rows on the motorized set), so they are
+        // grouped into one summary row.
+        // ⚠ RED, deliberately, even though "unofficial" is not "forbidden".
+        // Fred: "if they ask the question we have done our job." A question is
+        // a better outcome than a wrong assumption.
+        if (off.contains(ROW_UNOFFICIAL)) {
+            sb.append(" AND (status IS NULL OR status NOT IN ('UNOFFICIAL','UNCERTAIN'))")
+        }
+
+        // the real categories
+        val cats = off.filter { it != ROW_UNOFFICIAL }
+        if (cats.isNotEmpty()) {
             // ⚠ Categories are our own controlled vocabulary, not rider text,
             // so they cannot carry a quote. The apostrophe strip is belt and
             // braces: a category that somehow did would break the statement.
-            sb.append(" AND t.carto_code NOT IN (")
-            sb.append(off.joinToString(",") { "'" + it.replace("'", "") + "'" })
+            sb.append(" AND carto_code NOT IN (")
+            sb.append(cats.joinToString(",") { "'" + it.replace("'", "") + "'" })
             sb.append(")")
         }
         cachedWhere = sb.toString()

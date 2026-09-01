@@ -1,6 +1,7 @@
 package com.geeksville.mesh.convoy
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -14,7 +15,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -94,8 +100,18 @@ val NON_MOTORIZED_ROWS = listOf(
  */
 val OTHER_ROWS = listOf(
     MapKeyRow("R - Residential Roads", "Residential (private)", Color(0xFFFF1493), 2),
-    MapKeyRow("__closed", "Closed", Color(0xFFFF2222), 3),
-    MapKeyRow("__planned", "Planned", Color(0xFF556070), 2, dashed = true),
+    // ⭐ UNOFFICIAL / UNCERTAIN acts on `status`, not carto_code -- a trail is
+    // unofficial AND a track, not one instead of the other. 501 rows on the
+    // motorized set: too few to subset across nine categories (Fred, 09-01),
+    // so they are grouped into one summary row.
+    // ⚠ RED even though unofficial is not forbidden. Fred: "if they ask the
+    // question we have done our job" -- a question beats a wrong assumption.
+    MapKeyRow(TrailFilterState.ROW_UNOFFICIAL, "Unofficial / uncertain",
+        Color(0xFFFF2222), 3, dashed = true),
+    // ⛔ NO "Closed" ROW. Fred, 09-01: "closed never display, it is just in
+    // db." Kept on import so a future reopening costs nothing, but excluded
+    // from every viewport query unconditionally -- not a rider toggle, so it
+    // has no key entry either.
 )
 
 /** The rider's own artifacts. ⚠ No checkbox — these are theirs, not source data. */
@@ -107,8 +123,14 @@ val ARTIFACT_ROWS = listOf(
 @Composable
 fun MapKeysPanel(
     onDismiss: () -> Unit,
+    onFilterChanged: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
+    // ⚠ TrailFilterState is a singleton, not Compose state, so a change does
+    // not recompose on its own. This counter is what redraws the ticks.
+    var tick by remember { mutableIntStateOf(0) }
+    fun changed() { tick++; onFilterChanged() }
+
     Surface(
         shape = RoundedCornerShape(8.dp),
         color = Color(0xF2000000),
@@ -131,16 +153,33 @@ fun MapKeysPanel(
                 Text("\u00D7", color = Color(0xFF8FD0FF), fontSize = 12.sp)
             }
 
+            // ── the ONE slice: LAND ────────────────────────────────────
+            // ⛔ NO use slice (Fred, 09-01): "drop the motorized/non-motorized
+            // slice, those controls are in the column headers now." Two
+            // controls doing the same job through different mechanisms is how
+            // a UI starts lying about itself.
+            Row(Modifier.fillMaxWidth().padding(bottom = 6.dp)) {
+                SliceButton("Both", TrailFilterState.land == "ALL", tick) {
+                    TrailFilterState.setLand("ALL"); changed()
+                }
+                SliceButton("Public", TrailFilterState.land == "PUBLIC", tick) {
+                    TrailFilterState.setLand("PUBLIC"); changed()
+                }
+                SliceButton("Private", TrailFilterState.land == "PRIVATE", tick) {
+                    TrailFilterState.setLand("PRIVATE"); changed()
+                }
+            }
+
             // ⭐ Two groups SIDE BY SIDE with a divider (Fred, 08-31): "move
             // motorized and non motorized side by side with borders to
             // separate."
             Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                KeyColumn("MOTORIZED", MOTORIZED_ROWS, Modifier.weight(1f))
+                KeyColumn("MOTORIZED", MOTORIZED_ROWS, tick, ::changed, Modifier.weight(1f))
                 Spacer(
                     Modifier.width(1.dp).height(78.dp)
                         .background(Color(0xFF30363D))
                 )
-                KeyColumn("NON-MOTORIZED", NON_MOTORIZED_ROWS, Modifier.weight(1f))
+                KeyColumn("NON-MOTORIZED", NON_MOTORIZED_ROWS, tick, ::changed, Modifier.weight(1f))
             }
 
             Spacer(Modifier.height(6.dp))
@@ -148,14 +187,52 @@ fun MapKeysPanel(
             Spacer(Modifier.height(5.dp))
 
             Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                KeyColumn("STATUS / LAND", OTHER_ROWS, Modifier.weight(1f))
+                KeyColumn("OTHER", OTHER_ROWS, tick, ::changed, Modifier.weight(1f))
                 Spacer(
                     Modifier.width(1.dp).height(52.dp)
                         .background(Color(0xFF30363D))
                 )
-                KeyColumn("MINE", ARTIFACT_ROWS, Modifier.weight(1f))
+                KeyColumn("MINE", ARTIFACT_ROWS, tick, null, Modifier.weight(1f))
             }
+
+            Spacer(Modifier.height(6.dp))
+            Text(
+                "select a column header to turn all types on or off",
+                color = Color(0xFF5B646E), fontSize = 8.sp,
+                fontFamily = FontFamily.Monospace
+            )
         }
+    }
+}
+
+@Composable
+private fun SliceButton(
+    label: String, selected: Boolean, tick: Int, onClick: () -> Unit,
+) {
+    @Suppress("UNUSED_EXPRESSION") tick   // read so the button recomposes
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier.width(58.dp).clip(RoundedCornerShape(4.dp))
+            .background(if (selected) Color(0xFF12203A) else Color(0xFF0C1015))
+            .border(1.dp, Color(0xFF30363D), RoundedCornerShape(4.dp))
+            .clickable { onClick() }.padding(vertical = 4.dp)
+    ) {
+        Text(label,
+            color = if (selected) Color(0xFF58A6FF) else Color(0xFF8B949E),
+            fontSize = 9.sp, fontWeight = FontWeight.Bold)
+    }
+}
+
+@Composable
+private fun CheckBox(on: Boolean) {
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier.width(12.dp).height(12.dp)
+            .clip(RoundedCornerShape(3.dp))
+            .background(if (on) Color(0xFF58A6FF) else Color.Transparent)
+            .border(1.dp, Color(0xFF47505A), RoundedCornerShape(3.dp))
+    ) {
+        if (on) Text("\u2713", color = Color(0xFF0A0D10), fontSize = 8.sp)
     }
 }
 
@@ -163,21 +240,39 @@ fun MapKeysPanel(
 private fun KeyColumn(
     title: String,
     rows: List<MapKeyRow>,
+    tick: Int,
+    onChanged: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
+    @Suppress("UNUSED_EXPRESSION") tick
+    val names = rows.map { it.name }
+    // ⭐ The header tick reflects the ROWS, not a separate flag -- so checking
+    // one row brings the column back on (Fred, 08-31). A header flag of its own
+    // could disagree with what is under it.
+    val anyOn = onChanged != null && names.any { TrailFilterState.isOn(it) }
+
     Column(modifier = modifier) {
-        // ⭐ Centred and larger than the rows (Fred, 08-31): "center column
-        // headings with a font larger."
-        Text(
-            title,
-            color = Color(0xFFB8C2CC),
-            fontSize = 9.sp,
-            fontWeight = FontWeight.Bold,
-            fontFamily = FontFamily.Monospace,
-            modifier = Modifier.fillMaxWidth().padding(bottom = 3.dp)
-        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
+            modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp).then(
+                if (onChanged != null)
+                    Modifier.clickable {
+                        TrailFilterState.setGroup(names, !anyOn); onChanged()
+                    }
+                else Modifier
+            )
+        ) {
+            if (onChanged != null) { CheckBox(anyOn); Spacer(Modifier.width(5.dp)) }
+            // ⭐ Centred and larger than the rows (Fred, 08-31): "center column
+            // headings with a font larger."
+            Text(title,
+                color = if (onChanged == null || anyOn) Color(0xFFE6EDF3)
+                        else Color(0xFF5B646E),
+                fontSize = 11.sp, fontWeight = FontWeight.Bold)
+        }
         rows.forEach { r ->
-            KeyRowItem(r)
+            KeyRowItem(r, onChanged)
             Spacer(Modifier.height(3.dp))
         }
     }
@@ -190,29 +285,40 @@ private fun KeyColumn(
  * what opens the row's details; no separate edit button.
  */
 @Composable
-private fun KeyRowItem(r: MapKeyRow) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
+private fun KeyRowItem(r: MapKeyRow, onChanged: (() -> Unit)?) {
+    // ⚠ MINE rows pass null: the rider's own tracks and routes are theirs, not
+    // source data, and have no filter toggle.
+    val on = onChanged == null || TrailFilterState.isOn(r.name)
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = if (onChanged != null)
+            Modifier.clickable {
+                TrailFilterState.toggleCategory(r.name); onChanged()
+            } else Modifier
+    ) {
+        if (onChanged != null) { CheckBox(on); Spacer(Modifier.width(5.dp)) }
+        val c = if (on) r.color else r.color.copy(alpha = 0.25f)
         if (r.dashed) {
             // ⚠ Compose has no dashArray on a Box; three short segments read as
             // a dashed line at this size and cost nothing.
             Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                 repeat(3) {
                     Spacer(
-                        Modifier.width(6.dp).height(r.weight.dp)
-                            .clip(RoundedCornerShape(1.dp)).background(r.color)
+                        Modifier.width(5.dp).height(r.weight.dp)
+                            .clip(RoundedCornerShape(1.dp)).background(c)
                     )
                 }
             }
         } else {
             Spacer(
-                Modifier.width(22.dp).height(r.weight.dp)
-                    .clip(RoundedCornerShape(1.dp)).background(r.color)
+                Modifier.width(19.dp).height(r.weight.dp)
+                    .clip(RoundedCornerShape(1.dp)).background(c)
             )
         }
-        Spacer(Modifier.width(6.dp))
+        Spacer(Modifier.width(5.dp))
         Text(
             r.label,
-            color = Color(0xFFDDE3E9),
+            color = if (on) Color(0xFFDDE3E9) else Color(0xFF4A5158),
             fontSize = 9.sp,
             fontFamily = FontFamily.Monospace
         )
