@@ -24,6 +24,15 @@ import android.webkit.WebView
 //
 object SpatialDisplayManager {
 
+    /**
+     * TRACE-2026-09-01. Set to a trail name (or part of one) to follow ONE
+     * artifact through every stage between the query and the WebView. Empty
+     * string logs the counts only.
+     * ⚠ TEMPORARY DIAGNOSTIC -- remove with the TRACE block below once the
+     * missing-trail cause is found.
+     */
+    private const val TRACE_NAME = "Spanish George"
+
     const val DS_OFF = 0
     const val DS_ON = 1
     const val DS_SELECTED = 2
@@ -237,6 +246,70 @@ object SpatialDisplayManager {
             raw.filter { it[b.idField] in checkedIds } else raw
 
         val json = b.build(items)
+
+        // ── TRACE-2026-09-01 ────────────────────────────────────────────
+        // ⛔ WHY THIS EXISTS. Spanish George Road is in the trails table with
+        // valid geometry, five miles long, the query returns it when run BY
+        // HAND against the device's own database -- and it does not draw. Two
+        // readable causes were found and fixed (name-first ordering, and the
+        // DS_SELECTED filter) and it STILL does not draw. Fred: "I have no
+        // confidence that any of my other impressions are valid until this is
+        // solved."
+        // ⭐ So stop reasoning and measure. Every stage between the query and
+        // the WebView reports its count, and one named trail is followed
+        // through each of them.
+        // ⚠ TEMPORARY. Remove once the cause is found -- it logs on EVERY
+        // viewport change, which is every pan and every zoom.
+        try {
+            val probe = TRACE_NAME
+            if (probe.isNotEmpty()) {
+                val inRaw = raw.count { r ->
+                    val nm: String = r["name"] ?: ""
+                    nm.contains(probe, ignoreCase = true)
+                }
+                val inItems = items.count { r ->
+                    val nm: String = r["name"] ?: ""
+                    nm.contains(probe, ignoreCase = true)
+                }
+                // ⚠ The JSON is the LAST thing before the WebView. If the row
+                // is in `items` but its name is not in the JSON, the failure is
+                // in b.build() -- the WKT-to-GeoJSON conversion -- and not in
+                // any query or filter.
+                val inJson = json.contains(probe, ignoreCase = true)
+                android.util.Log.i("SpatialDisplay",
+                    "TRACE $type: raw=${raw.size} items=${items.size} " +
+                        "json=${json.length}b state=$state " +
+                        "checked=${checkedIds?.size ?: -1} limit=$limit | " +
+                        "'$probe' raw=$inRaw items=$inItems json=$inJson")
+                // ⭐ When the trail IS in raw but NOT in the json, dump the row
+                // so we can see what is different about it. Geometry length is
+                // the first suspect: this one is a 5-mile line inside a bbox
+                // 120 FEET tall, which is as close to degenerate as a real
+                // trail gets.
+                if (inRaw > 0 && !inJson) {
+                    raw.filter { r ->
+                        val nm: String = r["name"] ?: ""
+                        nm.contains(probe, ignoreCase = true)
+                    }.forEach { r ->
+                        val dump = StringBuilder()
+                        for ((k, v) in r) {
+                            val sv: String = v ?: "null"
+                            dump.append(k).append("=")
+                                .append(if (sv.length > 90) sv.substring(0, 90) else sv)
+                                .append("  ")
+                        }
+                        android.util.Log.w("SpatialDisplay", "TRACE DROPPED: $dump")
+                    }
+                }
+            } else {
+                android.util.Log.i("SpatialDisplay",
+                    "TRACE $type: raw=${raw.size} items=${items.size} " +
+                        "json=${json.length}b state=$state " +
+                        "checked=${checkedIds?.size ?: -1} limit=$limit")
+            }
+        } catch (e: Exception) {
+            android.util.Log.w("SpatialDisplay", "TRACE failed: ${e.message}")
+        }
 
         main.post {
             wv.evaluateJavascript(b.jsUpdate + "(" + json + ")", null)
