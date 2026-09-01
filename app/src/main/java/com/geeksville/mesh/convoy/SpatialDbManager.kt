@@ -254,35 +254,36 @@ object SpatialDbManager {
                     spatialDb!!.execSQL("CREATE INDEX IF NOT EXISTS idx_waypoints_bbox ON waypoints(min_lat, max_lat, min_lon, max_lon)")
                 } catch (e3: Exception) { android.util.Log.w("SpatialDb", "waypoint bbox migration: " + e3.message) }
             }
+            // STATUS-2026-09-01: `status` on TRAILS.
+            // ⛔ THIS IS WHAT CRASHED THE 09-01 BUILD. queryTrailsByViewport
+            // selects `status AS Status` and the filter excludes CLOSED, but
+            // status lived ONLY on trail_properties -- so every viewport query
+            // threw and the map died on first draw.
+            // ⭐ Carto is already kept in BOTH stores for exactly this reason
+            // (see :1689, "spatial wins only if it has a real value"): the
+            // viewport query reads `trails` alone and cannot afford a join.
+            // Status is the same kind of value and gets the same treatment.
+            try {
+                spatialDb!!.rawQuery("SELECT status FROM trails LIMIT 1", null)
+                    .use { it.moveToFirst() }
+            } catch (_: Exception) {
+                android.util.Log.i("SpatialDb", "Applying migration: status on trails")
+                try {
+                    spatialDb!!.execSQL("ALTER TABLE trails ADD COLUMN status TEXT")
+                } catch (e: Exception) {
+                    android.util.Log.w("SpatialDb", "status column: ${e.message}")
+                }
+            }
+
             // v3 migration: ensure routes columns on tracks table (routes share tracks table per decision log)
             // Routes are tracks with type='ROUTE'
 
-            // CAPTURE-2026-09-01: v5 -- the nine attribute columns on
-            // trail_properties. Same shape as the v4 carto_code migration
-            // below: probe with a SELECT, ALTER only if it throws. An existing
-            // device has the table already and CREATE TABLE IF NOT EXISTS will
-            // not add a column to it.
-            try {
-                extensionDb!!.rawQuery(
-                    "SELECT ref_code FROM trail_properties LIMIT 1", null
-                ).use { it.moveToFirst() }
-            } catch (_: Exception) {
-                android.util.Log.i("SpatialDb",
-                    "Applying v5 migration: attribute columns on trail_properties")
-                for (c in listOf("ref_code", "operator", "width_raw",
-                                 "maxwidth_raw", "incline", "sac_scale",
-                                 "mtb_scale", "trail_visibility",
-                                 "other_restrictions")) {
-                    try {
-                        extensionDb!!.execSQL(
-                            "ALTER TABLE trail_properties ADD COLUMN $c TEXT")
-                    } catch (e: Exception) {
-                        // one column already there is not a reason to abandon
-                        // the rest -- a half-applied earlier run must converge.
-                        android.util.Log.w("SpatialDb", "v5 $c: ${e.message}")
-                    }
-                }
-            }
+            // STATUS-2026-09-01: the v5 block MOVED from here to after the
+            // extension database is opened at :308. ⛔ It ran against a null
+            // extensionDb and all nine ALTERs threw -- visible in the 09-01
+            // logcat as nine "null object reference" warnings. Harmless on this
+            // device because the Python had already added the columns, but a
+            // FRESH INSTALL would have got none of them.
 
             // v4 migration: add carto_code to trails for color display
             try {
@@ -311,6 +312,79 @@ object SpatialDbManager {
                 android.util.Log.i(TAG, "Applied extension schema: \${extFile.absolutePath}")
             } else {
                 android.util.Log.i(TAG, "Opened extension database: \${extFile.absolutePath}")
+            }
+
+            // ── STATUS-2026-09-01: both databases are open from here ──────
+            // ⚠ Everything below needs extensionDb. Anything placed above the
+            // open at :308 gets a null -- which is exactly what happened to the
+            // v5 block on 09-01.
+
+            // v5: the attribute columns the sources supply and we used to drop.
+            try {
+                extensionDb!!.rawQuery(
+                    "SELECT ref_code FROM trail_properties LIMIT 1", null
+                ).use { it.moveToFirst() }
+            } catch (_: Exception) {
+                android.util.Log.i("SpatialDb",
+                    "Applying v5 migration: attribute columns on trail_properties")
+                for (c in listOf("ref_code", "operator", "width_raw",
+                                 "maxwidth_raw", "incline", "sac_scale",
+                                 "mtb_scale", "trail_visibility",
+                                 "other_restrictions")) {
+                    try {
+                        extensionDb!!.execSQL(
+                            "ALTER TABLE trail_properties ADD COLUMN $c TEXT")
+                    } catch (e: Exception) {
+                        // One column already present is not a reason to abandon
+                        // the rest -- a half-applied earlier run must converge.
+                        android.util.Log.w("SpatialDb", "v5 $c: ${e.message}")
+                    }
+                }
+            }
+
+            // BACKFILL status onto trails from trail_properties.
+            // ⚠ Runs ONLY when trails.status is entirely empty, so it is a
+            // one-time repair rather than something that fights the importer on
+            // every launch.
+            // ⚠ Cross-database, so it cannot be a single UPDATE...FROM: read
+            // the pairs from the extension db, write them to spatial.
+            try {
+                val need = spatialDb!!.rawQuery(
+                    "SELECT COUNT(*) FROM trails WHERE status IS NOT NULL LIMIT 1", null
+                ).use { if (it.moveToFirst()) it.getInt(0) else 0 }
+                if (need == 0) {
+                    val pairs = ArrayList<Pair<String, String>>()
+                    extensionDb!!.rawQuery(
+                        "SELECT trail_id, status FROM trail_properties " +
+                            "WHERE status IS NOT NULL AND TRIM(status) <> ''", null
+                    ).use { c ->
+                        while (c.moveToNext()) {
+                            val id = c.getString(0); val st = c.getString(1)
+                            if (id != null && st != null) pairs.add(id to st)
+                        }
+                    }
+                    if (pairs.isNotEmpty()) {
+                        android.util.Log.i("SpatialDb",
+                            "Backfilling status onto ${pairs.size} trail(s)")
+                        spatialDb!!.beginTransaction()
+                        try {
+                            val st = spatialDb!!.compileStatement(
+                                "UPDATE trails SET status=? WHERE trail_id=?")
+                            for ((id, v) in pairs) {
+                                st.clearBindings()
+                                st.bindString(1, v); st.bindString(2, id)
+                                st.executeUpdateDelete()
+                            }
+                            spatialDb!!.setTransactionSuccessful()
+                        } finally {
+                            spatialDb!!.endTransaction()
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                // A failed backfill must never stop the app opening: the filter
+                // treats NULL status as "not closed", so the map still draws.
+                android.util.Log.w("SpatialDb", "status backfill: ${e.message}")
             }
 
             // Attach extension db to spatial for cross-db views (optional, for future use)
