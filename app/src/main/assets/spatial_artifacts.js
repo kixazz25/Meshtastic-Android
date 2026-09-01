@@ -16,40 +16,51 @@ function triggerViewportUpdate() {
 }
 
 // ══════════════════════════════════════════════
-// TRAIL DISPLAY (CartoCode-based colors)
+// TRAIL DISPLAY -- CATCOLOR-2026-08-31
+// carto_code now holds CATEGORY NAMES, not digit-prefixed source values, so
+// charAt(0) cannot work: "hiking" and "hiking and biking" share 'h'.
+// ⭐ Blue = rideable; the SHADE CARRIES CONFIDENCE.
+// ⛔ Status OVERRIDES the category -- red is closed, period.
 // ══════════════════════════════════════════════
-function trailColor(cartoCode) {
-  if (!cartoCode) return '#00FFFF';
-  var code = String(cartoCode).charAt(0);
-  // RESIDENTIAL-R-2026-08-31: this file was MISSED by the 08-30 carto-0 patch
-  // and had already diverged from the two map HTMLs. Both cases added here.
-  if (code === '0') return '#FF8800';
-  if (code === 'R') return '#FF1493';
-  switch (code) {
-    case '4': return '#00AAFF'; // OHV / Road-concurrent
-    case '2': return '#FF8800'; // Hiking and Biking
-    case '1': return '#FFCC00'; // Hiking Only
-    case '5': return '#AA44FF'; // Biking Only
-    case '3': return '#00FFFF'; // Paved Shared Use
-    default:  return '#00FFFF';
-  }
+var TRAIL_STYLE = {
+  'OHV':                  { c: '#00CCFF', w: 5, d: null },
+  'track':                { c: '#00AAFF', w: 5, d: null },
+  'forestry/access road': { c: '#0077DD', w: 4, d: null },
+  'shape only':           { c: '#0044AA', w: 3, d: '9,5' },
+  'hiking and biking':    { c: '#66CC66', w: 2, d: null },
+  'hiking':               { c: '#FFCC00', w: 2, d: null },
+  'biking':               { c: '#AA44FF', w: 2, d: null },
+  'equestrian':           { c: '#CC8844', w: 2, d: '2,4' },
+  'steps/bridge':         { c: '#888888', w: 2, d: '2,4' },
+  'unknown':              { c: '#00FFFF', w: 2, d: null }
+};
+var STATUS_STYLE = {
+  'CLOSED':  { c: '#FF2222', w: 3, d: null },
+  'PLANNED': { c: '#556070', w: 2, d: '3,6' }
+};
+function trailStyleOf(cartoCode, status) {
+  var s = status ? String(status).toUpperCase() : '';
+  if (STATUS_STYLE[s]) return STATUS_STYLE[s];
+  var k = cartoCode ? String(cartoCode).trim() : '';
+  if (TRAIL_STYLE[k]) return TRAIL_STYLE[k];
+  if (k.indexOf('R -') === 0) return { c: '#FF1493', w: 2, d: null };
+  return { c: '#00FFFF', w: 2, d: null };
 }
-function trailWeight(cartoCode) {
-  if (!cartoCode) return 2;
-  // RESIDENTIAL-R-2026-08-31: brought into line with the map HTMLs.
-  var c0 = String(cartoCode).charAt(0);
-  if (c0 === 'R') return 2;
-  return (c0 === '4' || c0 === '0') ? 5 : 4;
-}
+function trailColor(cartoCode, status)  { return trailStyleOf(cartoCode, status).c; }
+function trailWeight(cartoCode, status) { return trailStyleOf(cartoCode, status).w; }
+function trailDash(cartoCode, status)   { return trailStyleOf(cartoCode, status).d; }
 
 function loadTrails(geojsonData) {
   if (trailLayer) map.removeLayer(trailLayer);
   trailLayer = L.geoJSON(geojsonData, {
     style: function(feature) {
       var cc = feature.properties.CartoCode || '';
+      // CATCOLOR-2026-08-31: status overrides the category.
+      var st = feature.properties.Status || '';
       return {
-        color: trailColor(cc),
-        weight: trailWeight(cc),
+        color: trailColor(cc, st),
+        weight: trailWeight(cc, st),
+        dashArray: trailDash(cc, st),
         opacity: 0.85
       };
     },

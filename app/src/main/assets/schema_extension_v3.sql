@@ -28,7 +28,21 @@ CREATE TABLE IF NOT EXISTS trail_properties (
     hike_difficulty TEXT, bike_difficulty TEXT, ada_accessible TEXT, owner_steward TEXT, county TEXT,
     recreation_area TEXT, system_name TEXT, trans_network TEXT, data_source TEXT, agency_id TEXT,
     status TEXT, comments TEXT, distance_miles REAL, elevation_gain_ft INTEGER,
-    shared INTEGER NOT NULL DEFAULT 0, source_created_at TEXT, source_updated_at TEXT, ingested_at TEXT
+    shared INTEGER NOT NULL DEFAULT 0, source_created_at TEXT, source_updated_at TEXT, ingested_at TEXT,
+    -- CAPTURE-2026-09-01: attributes the sources supply and we were discarding.
+    -- Coverage measured on the 117,432-row motorized set, 2026-08-31:
+    --   ref_code 13%  FR 0068 / NF 70403 / CR 5120 -- Forest Service and county
+    --                 road numbers, and we SAW these arriving as trail NAMES
+    --   operator 6.5% BLM 2,867 / Forest Service 2,041
+    --   other_restrictions -- UGRC free text. The width limit hunt ended here:
+    --                 only 2 motorized rows carry one, so it is INFORMATION for
+    --                 the detail panel, never a filter.
+    --   width_raw 0.2% / maxwidth_raw 0.0% -- 155 and 34 ways statewide.
+    --                 ⚠ Units are a CONVENTION, not a rule: "3", "3 m", "50"".
+    --                 Stored RAW; normalise at read, never at capture.
+    ref_code TEXT, operator TEXT, width_raw TEXT, maxwidth_raw TEXT,
+    incline TEXT, sac_scale TEXT, mtb_scale TEXT, trail_visibility TEXT,
+    other_restrictions TEXT
 );
 CREATE TABLE IF NOT EXISTS track_properties (
     track_id TEXT PRIMARY KEY, filename TEXT UNIQUE, source_format TEXT, recorded_at TEXT,

@@ -257,6 +257,33 @@ object SpatialDbManager {
             // v3 migration: ensure routes columns on tracks table (routes share tracks table per decision log)
             // Routes are tracks with type='ROUTE'
 
+            // CAPTURE-2026-09-01: v5 -- the nine attribute columns on
+            // trail_properties. Same shape as the v4 carto_code migration
+            // below: probe with a SELECT, ALTER only if it throws. An existing
+            // device has the table already and CREATE TABLE IF NOT EXISTS will
+            // not add a column to it.
+            try {
+                extensionDb!!.rawQuery(
+                    "SELECT ref_code FROM trail_properties LIMIT 1", null
+                ).use { it.moveToFirst() }
+            } catch (_: Exception) {
+                android.util.Log.i("SpatialDb",
+                    "Applying v5 migration: attribute columns on trail_properties")
+                for (c in listOf("ref_code", "operator", "width_raw",
+                                 "maxwidth_raw", "incline", "sac_scale",
+                                 "mtb_scale", "trail_visibility",
+                                 "other_restrictions")) {
+                    try {
+                        extensionDb!!.execSQL(
+                            "ALTER TABLE trail_properties ADD COLUMN $c TEXT")
+                    } catch (e: Exception) {
+                        // one column already there is not a reason to abandon
+                        // the rest -- a half-applied earlier run must converge.
+                        android.util.Log.w("SpatialDb", "v5 $c: ${e.message}")
+                    }
+                }
+            }
+
             // v4 migration: add carto_code to trails for color display
             try {
                 spatialDb!!.rawQuery("SELECT carto_code FROM trails LIMIT 1", null).use { it.moveToFirst() }

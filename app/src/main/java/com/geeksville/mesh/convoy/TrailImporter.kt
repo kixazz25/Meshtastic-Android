@@ -456,10 +456,25 @@ object TrailImporter {
         val steward = props.optString(src.fieldExtras.getOrDefault("manager", src.fieldExtras.getOrDefault("steward", "")), "")
         val uses = props.optString(src.fieldUse, "")
         val cartoCode = props.optString(src.fieldType, "")
+        // CAPTURE-2026-09-01: the attributes the sources supply and we were
+        // discarding. Read through fieldExtras so the mapping stays in
+        // trail_sources.json with every other field mapping -- a new source
+        // adds a catalogue entry, not Kotlin.
+        val extra = captureExtras(src, props)
 
         eDb.execSQL(
-            "INSERT OR IGNORE INTO trail_properties (trail_id,source_id,source_unique_id,designated_uses,motorized_allowed,surface_type,carto_code,owner_steward,county,agency_id,ingested_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
-            arrayOf<Any?>(anchorId, src.id, uid, uses, motorized, surface, cartoCode, steward, county, uid, now)
+            "INSERT OR IGNORE INTO trail_properties (trail_id,source_id,source_unique_id,designated_uses,motorized_allowed,surface_type,carto_code,owner_steward,county,agency_id,ingested_at," +
+                "status,trail_class,system_name,recreation_area,trans_network,data_source,comments,horse_allowed,hike_difficulty,bike_difficulty," +
+                "ref_code,operator,width_raw,maxwidth_raw,incline,sac_scale,mtb_scale,trail_visibility,other_restrictions) " +
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            arrayOf<Any?>(anchorId, src.id, uid, uses, motorized, surface, cartoCode, steward, county, uid, now,
+                extra["status"], extra["trail_class"], extra["system_name"],
+                extra["recreation_area"], extra["trans_network"], extra["data_source"],
+                extra["comments"], extra["horse_allowed"], extra["hike_difficulty"],
+                extra["bike_difficulty"], extra["ref_code"], extra["operator"],
+                extra["width_raw"], extra["maxwidth_raw"], extra["incline"],
+                extra["sac_scale"], extra["mtb_scale"], extra["trail_visibility"],
+                extra["other_restrictions"])
         )
         // [2026-06-21] Write carto to SPATIAL trails too on create (both stores populated).
         if (cartoCode.isNotEmpty()) {
@@ -540,6 +555,37 @@ object TrailImporter {
             "Point" -> "POINT(${coords.getDouble(0)} ${coords.getDouble(1)})"
             else -> ""
         }
+    }
+
+    /**
+     * CAPTURE-2026-09-01. Pulls every optional attribute a source supplies,
+     * through fieldExtras so the mapping lives in trail_sources.json.
+     *
+     * ⚠ A source that does not map a key gets "" for it -- NOT null and NOT a
+     * guess. Absence of a mapping is absence of data, and the column stays
+     * empty rather than borrowing a value from somewhere plausible.
+     *
+     * ⭐ RAW, ALWAYS. width "3" and maxwidth "50\"" are stored as the source
+     * wrote them. Units in OSM are a convention rather than a rule, so
+     * normalising at capture would bake in a guess we cannot undo; normalise
+     * at read, where the guess is visible and changeable.
+     */
+    private fun captureExtras(
+        src: Src, props: JSONObject
+    ): Map<String, String> {
+        val keys = listOf(
+            "status", "trail_class", "system_name", "recreation_area",
+            "trans_network", "data_source", "comments", "horse_allowed",
+            "hike_difficulty", "bike_difficulty", "ref_code", "operator",
+            "width_raw", "maxwidth_raw", "incline", "sac_scale", "mtb_scale",
+            "trail_visibility", "other_restrictions"
+        )
+        val out = HashMap<String, String>(keys.size)
+        for (k in keys) {
+            val field = src.fieldExtras[k]
+            out[k] = if (field.isNullOrEmpty()) "" else props.optString(field, "")
+        }
+        return out
     }
 
     private fun coordRingToWkt(arr: JSONArray): String {
