@@ -232,6 +232,13 @@
           // tap before it reaches the map handler - so no vertex is recorded and
           // it looks like route mode dropped. setRouteMode's OFF branch restores
           // anything holding _savedPopupContent, so this is symmetric with it.
+          // TRAILTAP-2026-09-02: ⭐ TRAILS OPEN THE DETAIL PANEL NOW, like
+          // tracks and routes. The Leaflet popup above is kept ONLY as the
+          // fallback for when the bridge is absent -- the panel can show the
+          // classification fields (land_status, use_type, carto_code) that live
+          // on the trails table and were never in this popup at all.
+          // ⚠ onRouteTap's comment used to read "trails and waypoints keep
+          // their popups". That was deliberate then; this supersedes it.
           if (window.__routeMode) { layer._savedPopupContent = popup; }
           else { layer.bindPopup(popup); }
           layer.on('click', function(e){
@@ -241,6 +248,15 @@
             // the commonest route-building gesture; swallowing it here would
             // break drawing. Mirrors what the track handlers already do.
             L.DomEvent.stopPropagation(e);
+            // ⚠ The bridge takes precedence: close the popup Leaflet is about
+            // to open, and hand the id to Kotlin. If the bridge is missing the
+            // popup stands, so nothing is lost on an older shell.
+            var __tid = (feature.properties && (feature.properties.trail_id ||
+                         feature.properties.id)) || '';
+            if (__tid && window.Android && window.Android.onTrailTap) {
+              try { layer.closePopup(); } catch (err) {}
+              window.Android.onTrailTap(__tid);
+            }
           });
         }
       });

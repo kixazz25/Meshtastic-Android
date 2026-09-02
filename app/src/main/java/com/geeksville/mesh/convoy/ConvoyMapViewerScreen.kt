@@ -1064,6 +1064,10 @@ fun ConvoyMapViewerScreen(
     var legendOffsetX by remember { mutableStateOf(0f) }
     var legendOffsetY by remember { mutableStateOf(0f) }
     var legendExpanded by remember { mutableStateOf(false) }
+    // TRAILSELECT-2026-09-02: the category filter, opened from Map Features >
+    // Trails > SELECT. ⚠ Separate from legendExpanded: one panel chooses WHAT
+    // SHOWS, the other shows the key and changes HOW IT LOOKS.
+    var showTrailFilter by remember { mutableStateOf(false) }
     var downloadBbox by remember { mutableStateOf(DownloadBbox()) }
     var isDrawingArea by remember { mutableStateOf(false) }
     // OSM-C3B-AREA-2026-07-29: the IMPORT OSM checkbox on the download panel.
@@ -1566,6 +1570,27 @@ fun ConvoyMapViewerScreen(
                                 android.os.Handler(android.os.Looper.getMainLooper()).post {
                                     android.util.Log.d("TrackTap", "PLANNER post -> setting state id=$id")
                                     pendingDetailType = "Tracks"
+                                    pendingDetailId = id
+                                }
+                            }
+                            @JavascriptInterface
+                            fun onTrailTap(id: String) {
+                                // TRAILTAP-2026-09-02: mirrors onTrackTap and
+                                // onRouteTap exactly -- copied, not invented, so
+                                // the three behave alike.
+                                // ⚠ SAME addPointMode SUPPRESSION. Opening a
+                                // detail panel mid-draw would interrupt route
+                                // building, and the tap has already been allowed
+                                // through to place a vertex.
+                                android.util.Log.d(
+                                    "TrailTap", "PLANNER bridge id=$id addPointMode=$addPointMode"
+                                )
+                                if (addPointMode) {
+                                    android.util.Log.d("TrailTap", "PLANNER SUPPRESSED by addPointMode")
+                                    return
+                                }
+                                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                    pendingDetailType = "Trails"
                                     pendingDetailId = id
                                 }
                             }
@@ -2214,6 +2239,19 @@ fun ConvoyMapViewerScreen(
                     savePlanningState()
                 },
                 onEditDisplay = { typeName ->
+                    // TRAILSELECT-2026-09-02: ⭐ SELECT on Trails opens the
+                    // CATEGORY filter, not a per-trail list. Fred, 09-02: "now
+                    // all the selects for all features are in one place, not
+                    // sometimes here and sometimes there."
+                    // ⛔ The per-trail list was a trap -- SpatialDisplayManager
+                    // filters to checkedIds in the SELECTED state, so a trail
+                    // imported after that list was saved silently never drew.
+                    // And nobody could build such a list from ~146,000 mostly
+                    // unnamed trails anyway.
+                    if (typeName == "Trails") {
+                        showTrailFilter = true
+                        return@ConvoyArtifactsPanel
+                    }
                     val table = when (typeName) {
                         "Tracks" -> "tracks"
                         "Trails" -> "trails"
@@ -5111,6 +5149,18 @@ fun ConvoyMapViewerScreen(
                         contentDescription = "Legend",
                         tint = Color(0xFFAABBCC),
                         modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+            if (showTrailFilter) {
+                Popup(onDismissRequest = { showTrailFilter = false }) {
+                    TrailFilterPanel(
+                        onDismiss = { showTrailFilter = false },
+                        onFilterChanged = {
+                            webViewRef?.evaluateJavascript(
+                                "try{var b=map.getBounds();Android.onViewportChanged(b.getNorth(),b.getSouth(),b.getEast(),b.getWest(),map.getZoom())}catch(e){}",
+                                null)
+                        }
                     )
                 }
             }

@@ -623,7 +623,12 @@ object SpatialDbManager {
             val geoType = if (wkt.startsWith("MULTI")) "MultiLineString" else "LineString"
             fun s(k: String): String = (trail[k] ?: "").replace("\\", "\\\\").replace("\"", "\\\\\"")
             sb.append("{\"type\":\"Feature\",\"properties\":{")
-            sb.append("\"PrimaryName\":\"" + s("name") + "\"")
+            // TRAILTAP-2026-09-02: ⛔ THE ID WAS NEVER IN THE PROPERTIES. Every
+            // other artifact hands its id to Kotlin on tap; a trail had nothing
+            // to hand over, which is why trails kept a Leaflet popup while
+            // tracks and routes got the detail panel.
+            sb.append("\"trail_id\":\"" + s("trail_id") + "\"")
+            sb.append(",\"PrimaryName\":\"" + s("name") + "\"")
             sb.append(",\"CartoCode\":\"" + s("CartoCode") + "\"")
             sb.append(",\"SurfaceType\":\"" + s("SurfaceType") + "\"")
             sb.append(",\"DesignatedUses\":\"" + s("DesignatedUses") + "\"")

@@ -303,8 +303,33 @@ object RouteExplorer {
     private fun buildGraph(
         db: SQLiteDatabase, box: DoubleArray, trailCount: Int,
         onProgress: ((Progress) -> Unit)?,
+        /**
+         * ROUTEFILTER-2026-09-02: the trail selection this build runs on.
+         *
+         * ⭐⭐ "WE ROUTE WHAT YOU PUT ON THE MAP" (Fred, 09-01). Until now the
+         * map was filtered and the router was not, so a rider hid private roads
+         * and the router kept building on them -- and picked a trailhead from a
+         * picture that did not match the network underneath it.
+         *
+         * ⭐ A PARAMETER, NOT A GLOBAL READ (Fred, 09-02, choosing between
+         * swapping the rider's settings for a rebuild and passing the value:
+         * "option B is my preference"). A recipe rebuild passes the predicate
+         * the recipe was BUILT with; nothing touches TrailFilterState, so a
+         * crash mid-rebuild cannot strand the rider with someone else's filter.
+         *
+         * ⚠ whereOrEmpty(), not where(): a route build can run before a map
+         * screen has loaded the state, and an unfiltered build is a far better
+         * failure than a thrown exception halfway through a search.
+         */
+        filter: String = TrailFilterState.whereOrEmpty(),
     ): Graph {
-        val key = "%.3f_%.3f_%.3f_%.3f_%d".format(box[0], box[1], box[2], box[3], trailCount)
+        // ⛔⛔ THE FILTER IS PART OF THE CACHE KEY. Without it, two searches over
+        // the same box with DIFFERENT filters collide on the same key and the
+        // second silently gets the first one's graph -- the same class of bug
+        // as the cached-graph copy note below, and harder to see because the
+        // routes would look plausible.
+        val key = "%.3f_%.3f_%.3f_%.3f_%d_%d".format(
+            box[0], box[1], box[2], box[3], trailCount, filter.hashCode())
         // ⛔ COPY. Returning the cached graph itself let one run's pin splits
         // become the next run's starting topology — silently, and only when the
         // rider searched the same area twice.
@@ -318,8 +343,11 @@ object RouteExplorer {
         onProgress?.invoke(Progress("Reading trails"))
         val geoms = ArrayList<Triple<String, String?, List<DoubleArray>>>()
         db.rawQuery(
+            // ROUTEFILTER-2026-09-02: the rider's selection, appended. Empty
+            // when nothing is filtered, so the statement is what it always was.
             "SELECT trail_id,name,geometry FROM trails " +
-                "WHERE min_lat<=? AND max_lat>=? AND min_lon<=? AND max_lon>=?",
+                "WHERE min_lat<=? AND max_lat>=? AND min_lon<=? AND max_lon>=?" +
+                filter,
             arrayOf(box[1].toString(), box[0].toString(), box[3].toString(), box[2].toString())
         ).use { c ->
             while (c.moveToNext()) {
@@ -327,6 +355,9 @@ object RouteExplorer {
                 if (pts.size >= 2) geoms.add(Triple(c.getString(0), c.getString(1), pts))
             }
         }
+        // ⚠ The count now reflects the FILTER, so a rider who has hidden half
+        // the categories sees a smaller number here. That is the point -- it is
+        // the network being searched, not the network that exists.
         onProgress?.invoke(Progress("Building the trail network", "${geoms.size} trails"))
 
         // pass A: which snapped vertices are shared by 2+ trails -> junctions

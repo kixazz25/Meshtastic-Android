@@ -436,9 +436,16 @@ private fun ArtifactRow(
     // never drew. That is the shape of the missing-trail problem.
     // ⭐ A saved SELECTED reads as ALL for trails, so a device already stuck in
     // that state recovers on its own rather than showing an empty map.
-    val noSelect = typeName == "Trails"
+    // TRAILSELECT-2026-09-02: ⭐ SELECT IS LIVE AGAIN FOR TRAILS. It was greyed
+    // on 09-02 because per-trail selection was a trap; it now opens the CATEGORY
+    // filter instead, which is what the button should always have meant for an
+    // artifact type with ~146,000 rows.
+    val noSelect = false
     val rawState = displayStates[typeName] ?: 0
-    val state = if (noSelect && rawState == 2) 1 else rawState
+    // ⚠ The SELECTED state is still coerced to ALL for trails: any checkedIds
+    // list saved by the old per-trail panel would still be applied by
+    // SpatialDisplayManager and would still silently drop trails.
+    val state = if (typeName == "Trails" && rawState == 2) 1 else rawState
     Surface(
         modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
         shape = RoundedCornerShape(4.dp),

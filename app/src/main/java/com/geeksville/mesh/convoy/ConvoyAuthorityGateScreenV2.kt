@@ -166,6 +166,17 @@ private fun evaluateState(context: android.content.Context, attempt: Int): Autho
             // File.exists().
             HomeStateImportController.clearTrailsOnce(context)
             HomeStateImportController.sweepManifests(context)
+            // DEFAULTS-2026-09-02: the shipped map-key palette, copied out of
+            // the APK if the rider has no file of their own.
+            // ⭐ HERE, not at panel-open. Fred, 09-02: "right in your authority
+            // setup where we have the clear." Setup work belongs in ONE place
+            // that runs before the app, which is the rule agreed on 09-01 after
+            // a migration was smuggled into a database open and ANR'd.
+            // ⚠ Safe in this slot for the same reason clearTrailsOnce is: the
+            // gate has already granted authority, so shared storage is
+            // readable. And it costs one File.exists() on every launch after
+            // the first.
+            TrailFilterState.ensureDefaults(context)
         } catch (e: Exception) {
             // Housekeeping must never block the gate. A sweep that fails leaves
             // the manifests where they are and retries next launch.

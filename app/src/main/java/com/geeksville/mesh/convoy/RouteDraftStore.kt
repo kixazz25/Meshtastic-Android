@@ -218,6 +218,27 @@ object RouteDraftStore {
         })
         r.put("finish", if (finish == null) JSONObject.NULL
             else JSONObject().put("lat", finish.first).put("lon", finish.second))
+        // RECIPEFILTER-2026-09-02: ⭐ THE TRAIL SELECTION IS A PARAMETER THE
+        // RIDER CHOSE, so by this block's own rule it belongs in the recipe.
+        // Fred, 09-02: "modify the recipe to include the selection format from
+        // when the routes were created."
+        //
+        // ⛔ WITHOUT IT A REBUILD IS NOT A REBUILD. The search runs over
+        // whatever filter happens to be set that day, so the same recipe can
+        // return a different network and the comparison means nothing.
+        //
+        // ⚠ THE PREDICATE STRING, not the state (Fred's choice). It is exactly
+        // what buildGraph appends, so a rebuild reproduces the network without
+        // re-deriving anything. ⚠ The cost is staleness: rename a column or a
+        // category and an old recipe carries SQL that no longer matches. A
+        // rebuild would then return nothing rather than something wrong, which
+        // is the better of the two failures -- but it is a real edge and worth
+        // remembering when the schema next moves.
+        //
+        // ⚠ An EMPTY string means "no filter was set", which is different from
+        // the key being absent -- that means a recipe written before this
+        // existed. The rebuild path must tell those apart.
+        r.put("trailFilter", TrailFilterState.whereOrEmpty())
         o.put("recipe", r)
         /* RECIPEINDRAFT-2026-08-29: AND INTO EVERY DRAFT THIS BATCH NAMES.
          *

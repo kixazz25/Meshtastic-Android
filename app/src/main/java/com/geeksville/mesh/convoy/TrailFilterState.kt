@@ -94,6 +94,53 @@ object TrailFilterState {
      *
      * @param force re-read even if already loaded (after an external edit)
      */
+    /**
+     * DEFAULTS-2026-09-02: the shipped palette, copied out of the APK the first
+     * time the panel is opened.
+     *
+     * ⭐ Fred, 09-02: "I would ship the json in a private directory to the app
+     * and copy over -- that way we can have a reset-to-defaults function."
+     * The asset stays pristine inside the APK, so a reset is just copying it
+     * again and CANNOT fail for want of a source file.
+     *
+     * ⚠ Copied only when the working file is ABSENT. A rider who has changed
+     * something owns their file from then on, and an app update never
+     * overwrites their palette.
+     */
+    private const val DEFAULTS_ASSET = "map_keys_defaults.json"
+
+    /** Copy the shipped defaults over the working file. Used on first open and
+     *  by a reset. ⚠ Returns false rather than throwing: a missing or malformed
+     *  asset must not stop the panel opening. */
+    @Synchronized
+    fun installDefaults(context: android.content.Context): Boolean = try {
+        val text = context.assets.open(DEFAULTS_ASSET)
+            .bufferedReader().use { it.readText() }
+        val f = file()
+        f.parentFile?.mkdirs()
+        f.writeText(text)
+        Log.i(TAG, "installed defaults from $DEFAULTS_ASSET (${text.length} bytes)")
+        true
+    } catch (e: Exception) {
+        Log.e(TAG, "installDefaults failed: ${e.message}")
+        false
+    }
+
+    /**
+     * Call before [load] when opening the key panel. ⭐ Copies the shipped
+     * palette out ONLY if the rider has no file of their own -- which is what
+     * makes the defaults a starting point rather than something that keeps
+     * coming back.
+     */
+    @Synchronized
+    fun ensureDefaults(context: android.content.Context) {
+        val f = file()
+        if (!f.exists() || f.length() < 2L) {
+            Log.i(TAG, "no map_keys.json -- installing shipped defaults")
+            if (installDefaults(context)) load(force = true)
+        }
+    }
+
     @Synchronized
     fun load(force: Boolean = false) {
         if (loaded && !force) return
