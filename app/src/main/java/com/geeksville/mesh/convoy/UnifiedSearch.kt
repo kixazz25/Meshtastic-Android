@@ -7,6 +7,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -355,17 +356,22 @@ fun UnifiedSearch(
         }
     }
 
+    // SEARCHLEFT-2026-09-02: the bar and results shift LEFT; the word does not.
+    // Fred, 09-02: the launcher word and the panel were one component, so moving
+    // the panel moved the word out of the column with Map Features and Help --
+    // and leaving it in place put the words inside the open panel.
+    val panelShift = Modifier.offset(x = (-120).dp)
     Box(modifier = modifier) {
         Column(horizontalAlignment = Alignment.End) {
             if (stackDown) {
                 // PLANNING: FAB on top, bar/results grow downward.
                 Fab()
-                if (barOpen) { Spacer(Modifier.height(6.dp)); SearchBar() }
-                if (showResults) { Spacer(Modifier.height(6.dp)); ResultsBox() }
+                if (barOpen) { Spacer(Modifier.height(6.dp)); Box(panelShift) { SearchBar() } }
+                if (showResults) { Spacer(Modifier.height(6.dp)); Box(panelShift) { ResultsBox() } }
             } else {
                 // CONVOY (default): bar/results above, FAB at the bottom.
-                if (barOpen) { SearchBar(); Spacer(Modifier.height(6.dp)) }
-                if (showResults) { ResultsBox(); Spacer(Modifier.height(6.dp)) }
+                if (barOpen) { Box(panelShift) { SearchBar() }; Spacer(Modifier.height(6.dp)) }
+                if (showResults) { Box(panelShift) { ResultsBox() }; Spacer(Modifier.height(6.dp)) }
                 Fab()
             }
         }

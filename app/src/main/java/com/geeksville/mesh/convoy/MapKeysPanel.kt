@@ -116,23 +116,12 @@ fun MapKeysPanel(
                 }
             }
 
-            // ── LAND: ONE checkbox ────────────────────────────────────────
-            // ⭐⭐ Fred, 09-02: "just keep public on -- the only thing we are
-            // toggling is private." And, asked whether private-only is ever
-            // wanted: "no, never private alone."
-            // ⭐ So this is not a three-way slice and never was. Public ground
-            // is always shown; the only question is whether private comes with
-            // it -- which is the near-town case, where a private road is how
-            // you get from one piece of public land to the next.
-            // ⚠ It cannot reach an empty map, because it cannot turn public off.
-            Row(Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
-                val includePrivate = TrailFilterState.land == "ALL"
-                LandCheck("Include private land", includePrivate, tick,
-                    Modifier.fillMaxWidth()) {
-                    TrailFilterState.setLand(if (includePrivate) "PUBLIC" else "ALL")
-                    changed()
-                }
-            }
+            // KEYONLY-2026-09-02: the land checkbox and the row
+            // ticks have MOVED to Map Features > Trails > SELECT.
+            // ⭐ Fred, 09-02: "everything is filtered in one place
+            // and we have not complicated the legend." This panel
+            // is now the KEY and the styling -- what things look
+            // like, not which of them show.
 
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Category("MOTORIZED", MOTORIZED_ROWS, tick, ::changed,
@@ -160,7 +149,8 @@ fun MapKeysPanel(
             }
 
             Spacer(Modifier.height(6.dp))
-            Text("Tap a row to show or hide it. Tap its name to change the colour.",
+            Text("Tap a name to change its colour, pattern or thickness.\n" +
+                "Choose which trails show in Map Features \u2192 Trails \u2192 SELECT.",
                 color = Color(0xFF8B949E), fontSize = 10.sp)
         }
     }
@@ -185,17 +175,10 @@ private fun Category(
     val allOn = names.all { TrailFilterState.isOn(it) }
 
     Column(modifier = modifier) {
+        // KEYONLY-2026-09-02: a heading, not a control.
         Row(verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth()
-                .clickable {
-                    // all on -> clear; otherwise -> set them all
-                    TrailFilterState.setGroup(names, !allOn)
-                    onChanged()
-                }
-                .padding(vertical = 6.dp)) {
-            Tick(anyOn)
-            Spacer(Modifier.width(4.dp))
-            Text(title, color = if (anyOn) Color(0xFFE6EDF3) else Color(0xFF5B646E),
+            modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+            Text(title, color = Color(0xFFE6EDF3),
                 fontSize = 12.sp, fontWeight = FontWeight.Bold)
         }
         Spacer(Modifier.fillMaxWidth().height(1.dp).background(Color(0xFF30363D)))
@@ -216,13 +199,11 @@ private fun KeyRow(
     onStyle: (MapKeyRow) -> Unit,
 ) {
     @Suppress("UNUSED_EXPRESSION") tick
-    val on = TrailFilterState.isOn(r.name)
+    // KEYONLY-2026-09-02: always drawn lit. Whether it SHOWS is decided in
+    // Map Features; this panel says what it looks like.
+    val on = true
     Row(verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.fillMaxWidth()
-            .clickable { TrailFilterState.toggleCategory(r.name); onChanged() }
-            .padding(vertical = 6.dp)) {
-        Tick(on)
-        Spacer(Modifier.width(4.dp))
+        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
         LineSwatch(r, on)
         Spacer(Modifier.width(6.dp))
         Text(r.label,

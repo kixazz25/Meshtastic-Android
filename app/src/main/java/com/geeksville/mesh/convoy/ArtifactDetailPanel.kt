@@ -384,6 +384,69 @@ private fun formatDetailValue(key: String, raw: String): String {
         "shared" -> if (v == "1") "Yes" else if (v == "0") "No" else v
         "source_format" -> v.uppercase()
         "recorded_at" -> v.take(10)   // YYYY-MM-DD
+
+        // READABLE-2026-09-02: ⛔ INTERNAL IDENTIFIERS WERE REACHING THE RIDER.
+        // Fred, 09-02, tapping a trail: "trail source is a code." `osm` and
+        // `ugrc_utah_trails` are how the catalogue keys its sources; they mean
+        // nothing on a screen.
+        // ⭐ The catalogue already carries proper names -- these mirror them.
+        // ⚠ Unknown ids fall through UNCHANGED rather than being prettified by
+        // a rule: a source added later shows its key, which is ugly and honest,
+        // instead of a guess.
+        "source_id", "data_source" -> when (v) {
+            "osm" -> "OpenStreetMap"
+            "ugrc_utah_trails" -> "Utah Trails and Pathways"
+            "usfs_nfs_trails" -> "US Forest Service"
+            "nps_public_trails" -> "National Park Service"
+            "blm_gtlf_all" -> "Bureau of Land Management"
+            "usgs_national_trails" -> "USGS National Trails"
+            "azsp_trails" -> "Arizona State Parks"
+            else -> v
+        }
+
+        // ⭐⭐ ROUGHNESS IS THE FIELD THAT CHANGES A DECISION, and OSM writes it
+        // as VEHICLE CAPABILITY rather than terrain. Untranslated it is
+        // meaningless -- "very_horrible" tells a rider nothing, and it is the
+        // one attribute that says whether a machine physically gets through.
+        // ⚠ The raw token is kept in brackets: it is the thing to search for
+        // when comparing against OSM, and hiding it would cost more than the
+        // few characters it takes.
+        "smoothness" -> when (v) {
+            "excellent" -> "Smooth \u2014 any vehicle (excellent)"
+            "good" -> "Good \u2014 any vehicle (good)"
+            "intermediate" -> "Fair \u2014 normal car (intermediate)"
+            "bad" -> "Rough \u2014 careful in a car (bad)"
+            "very_bad" -> "Rough \u2014 high clearance (very_bad)"
+            "horrible" -> "Very rough \u2014 4WD (horrible)"
+            "very_horrible" -> "Severe \u2014 ATV or tractor (very_horrible)"
+            "impassable" -> "Impassable \u2014 nothing wheeled (impassable)"
+            else -> v
+        }
+
+        // ⚠ tracktype is OSM's firmness scale, and grade1..grade5 is no more
+        // self-explanatory than smoothness was.
+        "tracktype" -> when (v) {
+            "grade1" -> "Solid surface (grade1)"
+            "grade2" -> "Mostly solid (grade2)"
+            "grade3" -> "Even mix (grade3)"
+            "grade4" -> "Mostly soft (grade4)"
+            "grade5" -> "Soft \u2014 barely a track (grade5)"
+            else -> v
+        }
+
+        // ⚠ Our own vocabulary, but SHOUTED. Title case reads as a value
+        // rather than a constant.
+        "land_status" -> when (v) {
+            "PUBLIC" -> "Public land"
+            "PRIVATE" -> "Private land"
+            else -> v
+        }
+        "use_type" -> when (v) {
+            "MOTORIZED" -> "Motorized"
+            "NON-MOTORIZED" -> "Non-motorized"
+            else -> v
+        }
+
         else -> v
     }
 }

@@ -230,6 +230,10 @@ fun ConvoyScreen(
     // whose panel says private-off over a map full of private roads is a
     // support call. Idempotent: the planner may have loaded it already.
     var mapKeysOpen by remember { mutableStateOf(false) }
+    // TRAILSELECT-2026-09-02: the category filter, opened from Map
+    // Features > Trails > SELECT -- the same place every other artifact
+    // type has always chosen what shows.
+    var showTrailFilter by remember { mutableStateOf(false) }
     remember { TrailFilterState.load(); true }
         var showMapSettings by remember { mutableStateOf(false) }
         // Spatial DB display states — per-map state from MapStateStore (independent of planning map)
@@ -1558,6 +1562,18 @@ fun ConvoyScreen(
         // MAPKEYS-2026-09-01: the panel itself. Same composable as the planner
         // -- ⛔ the convoy map has had NO key at all until now, and a second
         // copy is how the three trailColor functions drifted apart.
+        if (showTrailFilter) {
+            androidx.compose.ui.window.Popup(
+                onDismissRequest = { showTrailFilter = false }
+            ) {
+                TrailFilterPanel(
+                    onDismiss = { showTrailFilter = false },
+                    onFilterChanged = {
+                        webViewRef.value?.evaluateJavascript("try{var b=map.getBounds();Android.onViewportChanged(b.getNorth(),b.getSouth(),b.getEast(),b.getWest(),map.getZoom())}catch(e){}", null)
+                    }
+                )
+            }
+        }
         if (mapKeysOpen) {
             androidx.compose.ui.window.Popup(
                 onDismissRequest = { mapKeysOpen = false }
@@ -1855,6 +1871,13 @@ fun ConvoyScreen(
                         }
                     },
                     onEditDisplay = { typeName ->
+                        // TRAILSELECT-2026-09-02: SELECT on Trails opens the
+                        // CATEGORY filter, as on the planner. Fred, 09-02: all
+                        // the selects in one place.
+                        if (typeName == "Trails") {
+                            showTrailFilter = true
+                            return@ConvoyArtifactsPanel
+                        }
                         val table = when(typeName) { "Tracks"->"tracks"; "Trails"->"trails"; "Waypoints"->"waypoints"; "Routes"->"routes"; else->return@ConvoyArtifactsPanel }
                         // [viewport fix] Query the SELECT list against the LIVE map bounds (the displayed
                         // frame) -- not stale lastViewport* (cache can lag/hold GPS point -> empty list).
