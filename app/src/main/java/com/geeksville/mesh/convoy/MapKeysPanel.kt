@@ -126,7 +126,9 @@ fun MapKeysPanel(
         // ⚠ Fred, 09-01: "map key is full width on the screen." Nothing
         // constrained it, so it filled. 330dp is what the mockup used and what
         // two columns need.
-        modifier = modifier.width(330.dp),
+        // TAPTARGET-2026-09-02: 330 -> 370 to carry the larger type without
+        // the two columns crushing their labels.
+        modifier = modifier.width(370.dp),
     ) {
         Column(modifier = Modifier.padding(horizontal = 9.dp, vertical = 7.dp)) {
             // ⚠ Fred, 09-01: "no exit from Map Key." The whole header row was
@@ -139,7 +141,7 @@ fun MapKeysPanel(
                 Text(
                     "MAP KEY / FILTERS",
                     color = Color(0xFF8FD0FF),
-                    fontSize = 11.sp,
+                    fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
                     fontFamily = FontFamily.Monospace,
                     modifier = Modifier.weight(1f)
@@ -205,7 +207,7 @@ fun MapKeysPanel(
                 // states the DIRECTION rather than the mechanism.
                 "Everything is shown. UNCHECK a row to hide it.\n" +
                     "Tap a heading to hide the whole group.",
-                color = Color(0xFF8B949E), fontSize = 9.sp,
+                color = Color(0xFF8B949E), fontSize = 11.sp,
                 fontFamily = FontFamily.Monospace
             )
         }
@@ -219,14 +221,15 @@ private fun SliceButton(
     @Suppress("UNUSED_EXPRESSION") tick   // read so the button recomposes
     Box(
         contentAlignment = Alignment.Center,
-        modifier = Modifier.width(58.dp).clip(RoundedCornerShape(4.dp))
+        modifier = Modifier.width(72.dp).clip(RoundedCornerShape(4.dp))
             .background(if (selected) Color(0xFF12203A) else Color(0xFF0C1015))
             .border(1.dp, Color(0xFF30363D), RoundedCornerShape(4.dp))
-            .clickable { onClick() }.padding(vertical = 4.dp)
+            .clickable { onClick() }.padding(vertical = 7.dp)
     ) {
+        // TAPTARGET-2026-09-02: 9sp -> 12sp, and the button widened to suit.
         Text(label,
             color = if (selected) Color(0xFF58A6FF) else Color(0xFF8B949E),
-            fontSize = 9.sp, fontWeight = FontWeight.Bold)
+            fontSize = 12.sp, fontWeight = FontWeight.Bold)
     }
 }
 
@@ -267,13 +270,16 @@ private fun KeyColumn(
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Center,
-            modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp).then(
+            // TAPTARGET-2026-09-02: the clickable now comes BEFORE the
+            // padding so the padded area is part of the target, not a dead
+            // margin around it.
+            modifier = Modifier.fillMaxWidth().then(
                 if (onChanged != null)
                     Modifier.clickable {
                         TrailFilterState.setGroup(names, !anyOn); onChanged()
                     }
                 else Modifier
-            )
+            ).padding(vertical = 5.dp)
         ) {
             if (onChanged != null) { CheckBox(anyOn); Spacer(Modifier.width(5.dp)) }
             // ⭐ Centred and larger than the rows (Fred, 08-31): "center column
@@ -281,12 +287,12 @@ private fun KeyColumn(
             Text(title,
                 color = if (onChanged == null || anyOn) Color(0xFFE6EDF3)
                         else Color(0xFF5B646E),
-                fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                fontSize = 13.sp, fontWeight = FontWeight.Bold)
         }
-        rows.forEach { r ->
-            KeyRowItem(r, onChanged)
-            Spacer(Modifier.height(3.dp))
-        }
+        // TAPTARGET-2026-09-02: the 3dp spacer is gone -- each row now carries
+        // its own vertical padding, which is part of the tap target rather than
+        // dead space between targets.
+        rows.forEach { r -> KeyRowItem(r, onChanged) }
     }
 }
 
@@ -301,12 +307,21 @@ private fun KeyRowItem(r: MapKeyRow, onChanged: (() -> Unit)?) {
     // ⚠ MINE rows pass null: the rider's own tracks and routes are theirs, not
     // source data, and have no filter toggle.
     val on = onChanged == null || TrailFilterState.isOn(r.name)
+    // TAPTARGET-2026-09-02: ⛔ THE ROWS COULD NOT BE TAPPED. The clickable was
+    // wired correctly, but the modifier carried NOTHING ELSE -- no width, no
+    // padding -- so the touch area was exactly the content: a 15dp checkbox and
+    // 9sp text. About 2.4mm tall. The column HEADERS worked all along because
+    // they have fillMaxWidth() and padding.
+    // ⚠ Fred could toggle groups and not rows, and that asymmetry is the tell.
+    // ⭐ And it is worse than a bug: the locked notes record that riders are
+    // 65-75. A 15dp target is unusable for anyone, in gloves, on a machine.
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = if (onChanged != null)
-            Modifier.clickable {
+        modifier = (if (onChanged != null)
+            Modifier.fillMaxWidth().clickable {
                 TrailFilterState.toggleCategory(r.name); onChanged()
-            } else Modifier
+            } else Modifier.fillMaxWidth())
+            .padding(vertical = 5.dp)
     ) {
         if (onChanged != null) { CheckBox(on); Spacer(Modifier.width(5.dp)) }
         val c = if (on) r.color else r.color.copy(alpha = 0.25f)
@@ -328,11 +343,14 @@ private fun KeyRowItem(r: MapKeyRow, onChanged: (() -> Unit)?) {
             )
         }
         Spacer(Modifier.width(5.dp))
+        // TAPTARGET-2026-09-02: 9sp was unreadable over satellite for riders
+        // 65-75 -- the same reason PLAINCTRL-2026-08-17 chose words over
+        // glyphs. Monospace dropped too: it is narrower per point and buys
+        // nothing here.
         Text(
             r.label,
             color = if (on) Color(0xFFDDE3E9) else Color(0xFF4A5158),
-            fontSize = 9.sp,
-            fontFamily = FontFamily.Monospace
+            fontSize = 12.sp
         )
     }
 }

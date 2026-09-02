@@ -665,7 +665,10 @@ object SpatialDbManager {
         val nameHitIds = HashSet<String>()
         try {
             val cursor = db.rawQuery(
-                "SELECT $idCol, name, geom_hash FROM $table " +
+                // SEARCHFIT-2026-09-02: bbox columns added so a result can be
+                // framed on selection. ⚠ They are already indexed -- the
+                // viewport queries use them -- so this costs nothing.
+                "SELECT $idCol, name, geom_hash, min_lat, max_lat, min_lon, max_lon FROM $table " +
                 "WHERE name LIKE ? AND name IS NOT NULL AND TRIM(name) <> '' AND name <> 'Not Named' " +
                 "ORDER BY name COLLATE NOCASE, geom_hash LIMIT ?",
                 arrayOf("%" + term + "%", limit.toString())
@@ -680,7 +683,16 @@ object SpatialDbManager {
                         "geom_hash" to it.getString(2),
                         "type" to type,
                         "matched_via_alias" to "false",
-                        "matched_alias" to null
+                        "matched_alias" to null,
+                        // SEARCHFIT-2026-09-02: bounds ride along so a result
+                        // can be framed on selection. ⚠ The ALIAS pass below
+                        // does NOT set these -- an alias hit gets nulls and the
+                        // fit is skipped, which is correct: it still opens the
+                        // card, it just does not move the map.
+                        "min_lat" to it.getString(3),
+                        "max_lat" to it.getString(4),
+                        "min_lon" to it.getString(5),
+                        "max_lon" to it.getString(6)
                     ))
                 }
             }

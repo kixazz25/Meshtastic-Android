@@ -3,6 +3,8 @@ package com.geeksville.mesh.convoy
 import android.content.Context
 import android.location.Geocoder
 import android.webkit.WebView
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -18,6 +20,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.font.FontFamily
@@ -162,6 +165,28 @@ fun UnifiedSearch(
             modifier = Modifier.widthIn(min = 280.dp, max = 340.dp)
         ) {
             Column(modifier = Modifier.padding(8.dp)) {
+                // SEARCHFIT-2026-09-02: a CLOSE. ⛔ The FAB that used to dismiss
+                // this is gone (icons were dropped for words), so the bar had no
+                // exit at all. Fred, 09-01: "it is insane trying to get back to
+                // the desktop once we have things open."
+                // ⚠ Boxed, because three times this week a close control existed
+                // and was invisible -- Map Keys, Map Features and Route+ all had
+                // one too small and too dim to read as a button.
+                Row(modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End) {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier.width(26.dp).height(22.dp)
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(Color(0xFF1B2027))
+                            .border(1.dp, Color(0xFF47505A), RoundedCornerShape(4.dp))
+                            .clickable { barOpen = false; showResults = false }
+                    ) {
+                        Text("\u2715", color = Color(0xFFE6EDF3), fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold)
+                    }
+                }
+                Spacer(Modifier.height(6.dp))
                 // 5 chips on ONE line
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -259,6 +284,22 @@ fun UnifiedSearch(
                             modifier = Modifier.fillMaxWidth()
                                 .clickable {
                                     showResults = false
+                                    // SEARCHFIT-2026-09-02: ⭐ FRAME IT, THEN
+                                    // open the card. Fred, 09-02: "we select the
+                                    // returned item from the list and then hit
+                                    // fit from the popup menu. Silly." You
+                                    // searched for it -- you want to see it.
+                                    // ⚠ No padding, per NOPAD-2026-08-04: this
+                                    // is the only other Kotlin caller of
+                                    // fitBounds and it must not reintroduce the
+                                    // compounding pad that bug removed.
+                                    val s = r.minLat; val n = r.maxLat
+                                    val w = r.minLon; val e = r.maxLon
+                                    if (s != null && n != null &&
+                                        w != null && e != null) {
+                                        webView?.evaluateJavascript(
+                                            "fitBounds([$s,$n],[$w,$e])", null)
+                                    }
                                     val cap = r.type.replaceFirstChar { it.uppercase() }
                                     onOpenDetail(cap, r.id)
                                 }

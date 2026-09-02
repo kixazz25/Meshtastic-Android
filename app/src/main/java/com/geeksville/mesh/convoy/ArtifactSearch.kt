@@ -73,7 +73,17 @@ data class ArtifactResult(
     val name: String,
     val geomHash: String,
     val type: String,
-    val seq: Int
+    val seq: Int,
+    // SEARCHFIT-2026-09-02: the artifact's own bounds, so selecting a result can
+    // FRAME it instead of only opening its card. Fred, 09-02: "we select the
+    // returned item from the list and then hit fit from the popup menu. Silly."
+    // ⚠ NULLABLE WITH DEFAULTS, deliberately -- assignNameSequence and every
+    // other construction site keeps working untouched. A required field here
+    // would break all of them for a feature only search uses.
+    val minLat: Double? = null,
+    val maxLat: Double? = null,
+    val minLon: Double? = null,
+    val maxLon: Double? = null
 )
 
 /**
@@ -89,7 +99,14 @@ fun assignNameSequence(rows: List<Map<String, String?>>): List<ArtifactResult> {
                 name = row["name"] ?: "Not Named",                    // R5
                 geomHash = row["geom_hash"] ?: "",                    // R5
                 type = row["type"] ?: "",                             // R5
-                seq = 0
+                seq = 0,
+                // SEARCHFIT-2026-09-02: nulls where the source did not supply
+                // bounds -- alias hits, and any caller that builds rows without
+                // them. The fit is skipped in that case rather than guessing.
+                minLat = row["min_lat"]?.toDoubleOrNull(),
+                maxLat = row["max_lat"]?.toDoubleOrNull(),
+                minLon = row["min_lon"]?.toDoubleOrNull(),
+                maxLon = row["max_lon"]?.toDoubleOrNull()
             )
         }
         .sortedWith(compareBy({ it.name.lowercase() }, { it.geomHash })) // R2, R3

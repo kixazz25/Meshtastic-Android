@@ -1845,7 +1845,7 @@ fun ConvoyMapViewerScreen(
                 // ⭐ open on arriving at the trailhead step — that is where the
                 // rider finds their area, and the banner tells them to search
                 startOpen = pinStep == PIN_STEP_TRAILHEAD,
-                modifier = Modifier.align(Alignment.TopEnd).padding(top = 12.dp, end = 12.dp)
+                modifier = Modifier.align(Alignment.TopEnd).padding(top = 12.dp, end = 132.dp)
             )
 
             // PLANNERKEYS-2026-09-02: Map Keys goes BETWEEN Map Features (64)

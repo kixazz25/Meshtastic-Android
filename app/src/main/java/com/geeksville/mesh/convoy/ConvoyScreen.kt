@@ -1522,7 +1522,7 @@ fun ConvoyScreen(
                 pendingDetailType = type
                 pendingDetailId = id
             },
-            modifier = Modifier.align(Alignment.TopEnd).padding(top = 120.dp, end = 12.dp)
+            modifier = Modifier.align(Alignment.TopEnd).padding(top = 120.dp, end = 132.dp)
         )
 
         // -- "?" HELP BUTTON (ported from planning 2026-06-18; TopStart to clear QUEUES) --

@@ -1,6 +1,7 @@
 package com.geeksville.mesh.convoy
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 // DRAGCOMPARE-2026-09-02: the four symbols the drag introduces. ⚠ The locked
 // notes record THREE compile failures from patches that added a Compose symbol
@@ -133,8 +134,33 @@ fun ConvoyBatchGridPanel(
         shadowElevation = 6.dp
     ) {
         Column(modifier = Modifier.padding(8.dp)) {
-            Text(batchName.uppercase(), color = accentBlue, fontSize = 10.sp,
-                fontFamily = mono, fontWeight = FontWeight.Bold)
+            // COMPARECLOSE-2026-09-02: ⛔ THE COMPARE PANEL HAD NO CLOSE. I
+            // added the DRAG here this morning and not the exit -- Fred tested
+            // it and reported "no close on compare", which is the fifth panel
+            // this week with a missing or invisible one.
+            // ⭐ onExit already exists as a parameter, so this is an
+            // affordance, not new behaviour.
+            // ⚠ Boxed and 26x22, matching Map Keys, Map Features and Route+ --
+            // the earlier ones were 10sp glyphs the same colour as the title
+            // beside them and nobody could find them.
+            Row(modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically) {
+                Text(batchName.uppercase(), color = accentBlue, fontSize = 10.sp,
+                    fontFamily = mono, fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f))
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier.width(26.dp).height(22.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(Color(0xFF1B2027))
+                        .border(1.dp, Color(0xFF47505A), RoundedCornerShape(4.dp))
+                        .clickable { onExit() }
+                ) {
+                    Text("\u2715", color = Color(0xFFE6EDF3), fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold)
+                }
+            }
             // ⚠ (7) tapping a header is not discoverable, and the dimming only
             // makes sense once the rider knows it is a control
             Text("Click on route to hide / unhide on map",
