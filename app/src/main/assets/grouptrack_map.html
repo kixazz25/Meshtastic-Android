@@ -71,6 +71,47 @@
     function trailColor(cartoCode, status)  { return trailStyleOf(cartoCode, status).c; }
     function trailWeight(cartoCode, status) { return trailStyleOf(cartoCode, status).w; }
     function trailDash(cartoCode, status)   { return trailStyleOf(cartoCode, status).d; }
+    function setTrailStyles(json) {
+      // TRAILSTYLE-2026-09-02: the rider's own colours, patterns and weights.
+      // ⭐ MERGE, not replace: a category the rider has never touched keeps its
+      // shipped default, so a category added in a later release still draws before
+      // anyone has an opinion about it.
+      // ⚠ Nothing is stored on this side. TrailFilterState owns map_keys.json and
+      // hands the table here; this function is a sink, not a source.
+      try {
+        var o = (typeof json === 'string') ? JSON.parse(json) : json;
+        for (var k in o) {
+          if (!o.hasOwnProperty(k)) continue;
+          var v = o[k];
+          TRAIL_STYLE[k] = {
+            c: v.c || '#00FFFF',
+            w: (typeof v.w === 'number') ? v.w : 2,
+            d: (v.d === null || v.d === undefined || v.d === '') ? null : v.d
+          };
+        }
+        // ⛔ THE REDRAW IS NOT OPTIONAL. Leaflet applies the style function ONCE, at
+        // add time, and caches the result -- so changing the table alone changes
+        // nothing already on screen. setStyle re-runs it over every layer in place.
+        // ⭐ In place, NOT a rebuild: rebuilding the GeoJSON layer would rebind
+        // every popup and click handler, and POPUPBIND-2026-08-13H documents what
+        // that costs during route mode.
+        if (trailLayer) {
+          trailLayer.setStyle(function(feature) {
+            var cc = feature.properties.CartoCode || '';
+            var st = feature.properties.Status || '';
+            return {
+              color: trailColor(cc, st),
+              weight: trailWeight(cc, st),
+              dashArray: trailDash(cc, st),
+              opacity: 0.85,
+              smoothFactor: 0
+            };
+          });
+        }
+      } catch (e) {
+        console.log('setTrailStyles failed: ' + e);
+      }
+    }
 
     // -- Tile source --
     function setTileUrl(url, label) {

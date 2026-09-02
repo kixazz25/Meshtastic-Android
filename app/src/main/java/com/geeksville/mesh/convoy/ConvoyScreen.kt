@@ -1564,6 +1564,9 @@ fun ConvoyScreen(
             ) {
                 MapKeysPanel(
                     onDismiss = { mapKeysOpen = false },
+                    onStyleChanged = {
+                        webViewRef.value?.evaluateJavascript("setTrailStyles(" + TrailFilterState.styleJson() + ")", null)
+                    },
                     onFilterChanged = {
                         webViewRef.value?.evaluateJavascript("try{var b=map.getBounds();Android.onViewportChanged(b.getNorth(),b.getSouth(),b.getEast(),b.getWest(),map.getZoom())}catch(e){}", null)
                     }

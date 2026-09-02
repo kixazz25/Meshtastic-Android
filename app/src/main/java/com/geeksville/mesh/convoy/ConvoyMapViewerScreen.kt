@@ -5126,6 +5126,9 @@ fun ConvoyMapViewerScreen(
                 Popup(onDismissRequest = { legendExpanded = false }) {
                     MapKeysPanel(
                         onDismiss = { legendExpanded = false },
+                        onStyleChanged = {
+                            webViewRef?.evaluateJavascript("setTrailStyles(" + TrailFilterState.styleJson() + ")", null)
+                        },
                         // MAPKEYS-2026-09-01: same refetch Work with Map
                         // Features uses -- a synthetic viewport event, so
                         // the next query picks up the new predicate.
