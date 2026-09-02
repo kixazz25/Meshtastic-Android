@@ -1870,7 +1870,7 @@ fun ConvoyMapViewerScreen(
                 // ⭐ open on arriving at the trailhead step — that is where the
                 // rider finds their area, and the banner tells them to search
                 startOpen = pinStep == PIN_STEP_TRAILHEAD,
-                modifier = Modifier.align(Alignment.TopEnd).padding(top = 12.dp, end = 132.dp)
+                modifier = Modifier.align(Alignment.TopEnd).padding(top = 12.dp, end = 12.dp)
             )
 
             // PLANNERKEYS-2026-09-02: Map Keys goes BETWEEN Map Features (64)
@@ -5138,20 +5138,12 @@ fun ConvoyMapViewerScreen(
                 .padding(start = 10.dp, bottom = 12.dp)
                 .navigationBarsPadding()
         ) {
-            Surface(
-                shape = RoundedCornerShape(6.dp),
-                color = Color(0xCC1A2E4A),
-                modifier = Modifier.size(32.dp).clickable { legendExpanded = !legendExpanded }
-            ) {
-                Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                    Icon(
-                        Icons.Filled.VpnKey,
-                        contentDescription = "Legend",
-                        tint = Color(0xFFAABBCC),
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-            }
+            // NOFAB-2026-09-02: the key ICON is gone. Map Keys is a word in
+            // the launcher column now, and two ways into one panel is one too
+            // many. ⭐ Fred, 09-02: "there is less issues aligning text" -- the
+            // same reason PLAINCTRL-2026-08-17 chose words over glyphs.
+            // ⚠ The Box stays: both popups live in it, and it exists so a popup
+            // can escape the Column's width.
             if (showTrailFilter) {
                 Popup(onDismissRequest = { showTrailFilter = false }) {
                     TrailFilterPanel(

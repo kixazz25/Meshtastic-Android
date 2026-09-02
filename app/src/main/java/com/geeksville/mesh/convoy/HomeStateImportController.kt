@@ -783,7 +783,7 @@ object HomeStateImportController {
         // No .json extension, deliberately: it is not a manifest and must
         // never again be mistaken for one by a filter that only reads
         // filenames.
-        val marker = File(SpatialDbManager.dbDir(), ".trails_cleared_2026-08-24L")
+        val marker = File(SpatialDbManager.dbDir(), ".trails_cleared_2026-09-02A")
 
         // ⭐ ADOPT A MARKER THE OLD CODE WROTE, wherever the sweep left it.
         // It is proof the clear already ran, and honouring it costs a
@@ -791,9 +791,9 @@ object HomeStateImportController {
         // that never ran the old code have neither file and fall through.
         if (!marker.exists()) {
             val legacy = listOf(
-                File(importsDir(ctx), "trails_cleared_2026-08-24L.json"),
+                File(importsDir(ctx), "trails_cleared_2026-09-02A.json"),
                 File(File(importsDir(ctx), "history"),
-                    "trails_cleared_2026-08-24L.json")
+                    "trails_cleared_2026-09-02A.json")
             )
             val found = try {
                 legacy.firstOrNull { it.exists() }
