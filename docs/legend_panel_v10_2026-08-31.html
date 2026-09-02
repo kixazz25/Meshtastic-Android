@@ -1,0 +1,289 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GroupTrack — Map Keys / Filter — v6 2026-08-31</title>
+<style>
+:root{--bg:#0f1216;--ink:#e6edf3;--dim:#8b949e;--line:#2a3038;--accent:#58a6ff;
+--good:#3fb950;--ui:-apple-system,"Segoe UI",Roboto,sans-serif;--mono:"SF Mono",Consolas,monospace}
+*{box-sizing:border-box}
+body{margin:0;background:#0a0d10;color:var(--ink);font:15px/1.5 var(--ui)}
+.map{position:relative;height:100vh;overflow:hidden;
+background:radial-gradient(ellipse at 30% 40%,#2b2f24 0%,#1a1d16 55%),
+linear-gradient(140deg,#1c2119 0%,#242a1e 40%,#1a1f18 100%)}
+.map:after{content:"satellite";position:absolute;left:12px;bottom:10px;
+font:10px var(--mono);color:#3f4a3a}
+
+.fabs{position:absolute;top:12px;right:12px;display:flex;flex-direction:column;
+gap:6px;z-index:6;align-items:flex-end}
+.fab{background:#0f1216e8;border:1px solid var(--line);border-radius:8px;
+color:var(--ink);font:600 12px var(--ui);padding:7px 12px;cursor:pointer;
+backdrop-filter:blur(4px);white-space:nowrap}
+.fab.on{border-color:var(--accent);color:var(--accent)}
+
+.legend{position:absolute;bottom:12px;left:12px;width:330px;z-index:7;
+background:#0f1216f2;border:1px solid var(--line);border-radius:12px;
+padding:8px 9px;backdrop-filter:blur(6px);box-shadow:0 6px 22px #0009}
+.lhd{display:flex;align-items:center;justify-content:space-between;
+font:700 10px var(--mono);color:var(--accent);letter-spacing:.06em;padding:0 1px 6px}
+.x{background:none;border:0;color:var(--dim);font-size:15px;cursor:pointer;line-height:1;padding:0 2px}
+
+.seg{display:flex;border:1px solid var(--line);border-radius:7px;overflow:hidden;margin-bottom:6px}
+.seg button{flex:1;background:#0c1015;color:var(--dim);border:0;padding:5px 2px;
+font:600 10px var(--ui);cursor:pointer;border-right:1px solid var(--line)}
+.seg button:last-child{border-right:0}
+.seg button.on{background:#12203a;color:var(--accent)}
+
+/* two groups side by side, bordered */
+.cols{display:flex;gap:0;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.col{flex:1;min-width:0;padding:5px 6px 6px}
+.col + .col{border-left:1px solid var(--line)}
+.chd{display:flex;align-items:center;justify-content:center;gap:6px;padding:2px 0 5px;
+border-bottom:1px solid var(--line);margin-bottom:4px;cursor:pointer;user-select:none}
+.chd .t{font:700 11px var(--ui);color:var(--ink);letter-spacing:.03em;
+white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center}
+.chd.off .t{opacity:.3}
+
+.cb{width:12px;height:12px;border:1px solid #47505a;border-radius:3px;flex:none;
+display:flex;align-items:center;justify-content:center;font:700 9px var(--mono);
+color:#0a0d10;line-height:1}
+.cb.on{background:var(--accent);border-color:var(--accent)}
+
+.row{display:flex;align-items:center;gap:6px;padding:3px 0;cursor:pointer;user-select:none}
+.row.off .nm{opacity:.28}
+.row.off .swwrap{opacity:.2}
+.swwrap{width:32px;height:13px;flex:none;display:flex;align-items:center;border-radius:3px;cursor:pointer}
+.swwrap:hover{background:#ffffff14}
+.nm{flex:1;font:11px var(--ui);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* artifacts: styling only, NO checkbox */
+.arts{margin-top:6px}
+.acols{margin-top:0}
+.arow{display:flex;align-items:center;gap:6px;padding:3px 1px}
+.icon{font-size:12px;line-height:1}
+.tw{cursor:pointer}
+.tri{width:12px;text-align:center;font-size:9px;color:#7d8792;flex:none}
+.swwrap.wpt{justify-content:center}
+.hint{font:9px var(--mono);color:#5b646e;margin-top:7px;padding-top:6px;
+border-top:1px solid var(--line);line-height:1.45}
+.rst{background:none;border:0;color:var(--dim);font:9px var(--mono);
+cursor:pointer;text-decoration:underline;padding:0}
+
+.pop{position:absolute;z-index:9;width:214px;background:#12161c;
+border:1px solid var(--accent);border-radius:11px;padding:10px 11px;
+box-shadow:0 10px 30px #000b;display:none}
+.pop.show{display:block}
+.pt{font:700 10px var(--mono);color:var(--accent);margin-bottom:7px;
+display:flex;justify-content:space-between;align-items:center}
+.pl{font:9px var(--mono);color:var(--dim);margin:7px 0 3px;letter-spacing:.05em}
+.swatches{display:flex;flex-wrap:wrap;gap:5px}
+.ch{width:20px;height:20px;border-radius:5px;border:2px solid transparent;cursor:pointer}
+.ch.sel{border-color:#fff}
+.opts{display:flex;gap:5px}
+.opt{flex:1;background:#0c1015;border:1px solid var(--line);border-radius:6px;
+padding:5px 3px;cursor:pointer;display:flex;align-items:center;justify-content:center;height:24px}
+.opt.sel{border-color:var(--accent);background:#12203a}
+.pv{margin-top:9px;padding-top:8px;border-top:1px solid var(--line);
+display:flex;align-items:center;gap:8px}
+.pv .lbl{font:9px var(--mono);color:var(--dim)}
+</style></head><body>
+
+<div class="map">
+  <div class="fabs">
+    <div class="fab">Search</div>
+    <div class="fab">Map Features</div>
+    <div class="fab on" id="legendFab">Map Keys</div>
+    <div class="fab">Help</div>
+  </div>
+
+  <div class="legend" id="legend">
+    <div class="lhd"><span>MAP KEYS / FILTER</span><button class="x" id="close">&times;</button></div>
+
+    <div class="seg" id="landSeg">
+      <button data-v="all">Land: both</button>
+      <button data-v="PUBLIC">Public</button>
+      <button data-v="PRIVATE">Private</button>
+    </div>
+
+    <div class="cols" id="cols"></div>
+    <div class="arts" id="arts"></div>
+
+    <div class="hint"><span>select MOTORIZED or NON-MOTORIZED to remove or add all rows &middot; selecting one row changes that row</span></div>
+  </div>
+
+  <div class="pop" id="pop">
+    <div class="pt"><span id="popName">—</span><button class="x" id="popClose">&times;</button></div>
+    <div class="pl">COLOUR</div><div class="swatches" id="colors"></div>
+    <div class="pl">PATTERN</div><div class="opts" id="patterns"></div>
+    <div class="pl">THICKNESS</div><div class="opts" id="weights"></div>
+    <div class="pv"><span class="lbl">preview</span>
+      <canvas id="preview" width="120" height="14"></canvas></div>
+  </div>
+</div>
+
+<script>
+var PALETTE=["#00CCFF","#00AAFF","#0077DD","#0044AA","#66CC66","#FFCC00",
+             "#AA44FF","#CC8844","#FF1493","#00FFFF","#39FF14","#888888"];
+var PATTERNS=["solid","dash","dot","dashdot"];
+var WEIGHTS=[2,3,4,5];
+
+var CATS=[
+ {k:"ohv", n:"OHV",              g:"MOTORIZED",    c:"#00CCFF",p:"solid",w:5,pub:2695, pri:81},
+ {k:"trk", n:"Track",            g:"MOTORIZED",    c:"#00AAFF",p:"solid",w:5,pub:16648,pri:3841},
+ {k:"far", n:"Forestry / access",g:"MOTORIZED",    c:"#0077DD",p:"solid",w:4,pub:33985,pri:13361},
+ {k:"shp", n:"Shape only",       g:"MOTORIZED",    c:"#0044AA",p:"dash", w:3,pub:29945,pri:16875},
+ {k:"hb",  n:"Hiking & biking",  g:"NON-MOTORIZED",c:"#66CC66",p:"solid",w:2,pub:5618, pri:18796},
+ {k:"hike",n:"Hiking",           g:"NON-MOTORIZED",c:"#FFCC00",p:"solid",w:2,pub:2123, pri:375},
+ {k:"bike",n:"Biking",           g:"NON-MOTORIZED",c:"#AA44FF",p:"solid",w:2,pub:701,  pri:534},
+ {k:"eq",  n:"Equestrian",       g:"NON-MOTORIZED",c:"#CC8844",p:"dot",  w:2,pub:39,   pri:32},
+ {k:"sb",  n:"Steps / bridge",   g:"NON-MOTORIZED",c:"#888888",p:"dot",  w:2,pub:5,    pri:276}
+];
+// artifacts: styling only, no checkbox -- they are the rider's own
+var LINES=[
+ {k:"track", n:"My tracks", c:"#39FF14",p:"dash",w:3},
+ {k:"route", n:"My routes", c:"#FF00FF",p:"dash",w:3}
+];
+var WPTS=[
+ {k:"wpt",     n:"Waypoint",  ic:"&#128205;",c:"#2ECC40",p:"solid",w:0},
+ {k:"trailhd", n:"Trailhead", ic:"&#127957;",c:"#FFCC00",p:"solid",w:0},
+ {k:"camp",    n:"Camp",      ic:"&#9978;",  c:"#66CC66",p:"solid",w:0},
+ {k:"water",   n:"Water",     ic:"&#128167;",c:"#00AAFF",p:"solid",w:0},
+ {k:"hazard",  n:"Hazard",    ic:"&#9888;",  c:"#FF1493",p:"solid",w:0}
+];
+var ARTS=LINES.concat(WPTS);
+var GROUPS=["MOTORIZED","NON-MOTORIZED"];
+var state={land:"all",off:{},goff:{},wptOpen:true};
+var KEY="gt_mapkeys_v6";
+
+function save(){try{localStorage.setItem(KEY,JSON.stringify({land:state.land,
+  off:state.off,goff:state.goff,wptOpen:state.wptOpen,
+  style:CATS.concat(ARTS).map(function(c){return{k:c.k,c:c.c,p:c.p,w:c.w};})}));}catch(e){}}
+function load(){try{var s=JSON.parse(localStorage.getItem(KEY)||"null");if(!s)return;
+  state.land=s.land||"all";state.off=s.off||{};state.goff=s.goff||{};
+  if(typeof s.wptOpen==="boolean")state.wptOpen=s.wptOpen;
+  (s.style||[]).forEach(function(x){
+    var c=CATS.concat(ARTS).filter(function(y){return y.k===x.k;})[0];
+    if(c){c.c=x.c;c.p=x.p;c.w=x.w;}});}catch(e){}}
+
+function dashOf(ctx,p){ctx.setLineDash(p==="dash"?[9,5]:p==="dot"?[2,4]:
+  p==="dashdot"?[10,4,2,4]:[]);}
+function drawLine(cv,col,pat,w){var x=cv.getContext("2d");
+  x.clearRect(0,0,cv.width,cv.height);x.strokeStyle=col;x.lineWidth=w;
+  dashOf(x,pat);x.beginPath();x.moveTo(1,cv.height/2);x.lineTo(cv.width-1,cv.height/2);x.stroke();}
+
+function sliced(c){
+  if(state.land==="PUBLIC")return c.pub;
+  if(state.land==="PRIVATE")return c.pri;
+  return c.pub+c.pri;}
+
+function render(){
+  var html="";
+  GROUPS.forEach(function(g){
+    var rows=CATS.filter(function(c){return c.g===g && sliced(c)>0;});
+    if(!rows.length)return;                       // drop only when zero
+    // header state DERIVES from the rows: on if any row is on
+    var anyOn=rows.some(function(c){return !state.off[c.k];});
+    html+='<div class="col"><div class="chd'+(anyOn?"":" off")+'" data-g="'+g+'">'+
+      '<div class="cb'+(anyOn?" on":"")+'">'+(anyOn?"&#10003;":"")+'</div>'+
+      '<div class="t">'+g+'</div></div>';
+    rows.forEach(function(c){
+      var on=!state.off[c.k];
+      html+='<div class="row'+(on?"":" off")+'" data-k="'+c.k+'">'+
+        '<div class="cb'+(on?" on":"")+'">'+(on?"&#10003;":"")+'</div>'+
+        '<div class="swwrap" data-sw="'+c.k+'"><canvas width="32" height="13"></canvas></div>'+
+        '<div class="nm">'+c.n+'</div></div>';
+    });
+    html+='</div>';
+  });
+  document.getElementById("cols").innerHTML=html||'<div class="col"><div class="nm">nothing in this slice</div></div>';
+
+  var a='<div class="cols acols">';
+  a+='<div class="col">';
+  LINES.forEach(function(c){
+    a+='<div class="arow"><div class="swwrap" data-sw="'+c.k+'">'+
+       '<canvas width="32" height="13"></canvas></div>'+
+       '<div class="nm">'+c.n+'</div></div>';
+  });
+  a+='</div><div class="col">';
+  a+='<div class="chd tw" id="wptHead">'+
+     '<div class="t">WAYPOINTS '+(state.wptOpen?"&#9662;":"&#9656;")+'</div></div>';
+  if(state.wptOpen){
+    WPTS.forEach(function(c){
+      a+='<div class="arow"><div class="swwrap wpt" data-sw="'+c.k+'">'+
+         '<span class="icon" style="color:'+c.c+'">'+c.ic+'</span></div>'+
+         '<div class="nm">'+c.n+'</div></div>';
+    });
+  }
+  a+='</div></div>';
+  document.getElementById("arts").innerHTML=a;
+
+  document.querySelectorAll(".swwrap canvas").forEach(function(cv){
+    var k=cv.parentNode.getAttribute("data-sw");
+    var c=CATS.concat(ARTS).filter(function(x){return x.k===k;})[0];
+    if(c)drawLine(cv,c.c,c.p,c.w||3);
+  });
+  document.getElementById("landSeg").querySelectorAll("button").forEach(function(b){
+    b.classList.toggle("on",b.getAttribute("data-v")===state.land);});
+}
+
+var cur=null;
+function openPop(k,el){
+  cur=CATS.concat(ARTS).filter(function(x){return x.k===k;})[0];
+  document.getElementById("popName").textContent=cur.n;
+  var cw=document.getElementById("colors");cw.innerHTML="";
+  PALETTE.forEach(function(col){var d=document.createElement("div");
+    d.className="ch"+(col===cur.c?" sel":"");d.style.background=col;
+    d.onclick=function(){cur.c=col;save();openPop(k,el);render();};cw.appendChild(d);});
+  var pw=document.getElementById("patterns");pw.innerHTML="";
+  PATTERNS.forEach(function(p){var d=document.createElement("div");
+    d.className="opt"+(p===cur.p?" sel":"");var cv=document.createElement("canvas");
+    cv.width=38;cv.height=12;d.appendChild(cv);drawLine(cv,cur.c,p,3);
+    d.onclick=function(){cur.p=p;save();openPop(k,el);render();};pw.appendChild(d);});
+  var ww=document.getElementById("weights");ww.innerHTML="";
+  WEIGHTS.forEach(function(w){var d=document.createElement("div");
+    d.className="opt"+(w===cur.w?" sel":"");var cv=document.createElement("canvas");
+    cv.width=38;cv.height=12;d.appendChild(cv);drawLine(cv,cur.c,cur.p,w);
+    d.onclick=function(){cur.w=w;save();openPop(k,el);render();};ww.appendChild(d);});
+  drawLine(document.getElementById("preview"),cur.c,cur.p,cur.w||3);
+  var pop=document.getElementById("pop"),r=el.getBoundingClientRect();
+  pop.style.top=Math.max(8,r.top-40)+"px";
+  pop.style.left=Math.max(8,r.left-232)+"px";
+  pop.classList.add("show");
+}
+
+document.getElementById("legend").addEventListener("click",function(e){
+  var sw=e.target.closest(".swwrap");
+  if(sw){openPop(sw.getAttribute("data-sw"),sw);return;}
+  if(e.target.closest("#wptHead")){state.wptOpen=!state.wptOpen;save();render();return;}
+  var hd=e.target.closest(".chd");
+  if(hd && hd.getAttribute("data-g")){
+    var g=hd.getAttribute("data-g");
+    // ⭐ unchecking the column turns EVERY row in it off; checking turns them
+    // all back on. The header is not a separate flag -- it reflects the rows.
+    var rows=CATS.filter(function(c){return c.g===g && sliced(c)>0;});
+    var anyOn=rows.some(function(c){return !state.off[c.k];});
+    rows.forEach(function(c){ state.off[c.k]=anyOn; });
+    save();render();return;
+  }
+  var row=e.target.closest(".row");
+  if(row){
+    var k=row.getAttribute("data-k");
+    // ⭐ selecting one row turns the column on -- the header follows the rows,
+    // so a single check is enough to bring the group back.
+    state.off[k]=!state.off[k];
+    save();render();
+  }
+});
+document.getElementById("popClose").onclick=function(){
+  document.getElementById("pop").classList.remove("show");};
+document.getElementById("landSeg").addEventListener("click",function(e){
+  var b=e.target.closest("button");if(!b)return;
+  state.land=b.getAttribute("data-v");save();render();});
+document.getElementById("close").onclick=function(){
+  document.getElementById("legend").style.display="none";
+  document.getElementById("legendFab").classList.remove("on");};
+document.getElementById("legendFab").onclick=function(){
+  var l=document.getElementById("legend"),v=l.style.display!=="none";
+  l.style.display=v?"none":"block";this.classList.toggle("on",!v);};
+
+load();render();
+</script>
+</body></html>

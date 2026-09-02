@@ -1,0 +1,221 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GroupTrack — Route Legend / Filter — v2 mockup 2026-08-31</title>
+<style>
+:root{--bg:#0f1216;--panel:#161b22;--ink:#e6edf3;--dim:#8b949e;--line:#30363d;
+--accent:#58a6ff;--good:#3fb950;--warn:#d29922;
+--ui:-apple-system,"Segoe UI",Roboto,sans-serif;--mono:"SF Mono",Consolas,monospace}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 var(--ui);padding:0 0 50px}
+header{background:#0f1216f0;border-bottom:1px solid var(--line);padding:12px 18px}
+.ttl{font:700 17px var(--ui)}.ttl b{color:var(--accent)}
+.sub{font:11px var(--mono);color:var(--dim);margin-top:3px}
+main{max-width:760px;margin:0 auto;padding:14px 16px}
+.panel{border:1px solid var(--line);border-radius:10px;background:var(--panel);
+padding:14px 16px;margin:12px 0}
+.ph{font:700 12px var(--mono);color:var(--accent);letter-spacing:.06em;
+text-transform:uppercase;margin-bottom:10px;display:flex;justify-content:space-between}
+.rst{font:600 11px var(--ui);color:var(--dim);background:none;border:1px solid var(--line);
+border-radius:6px;padding:3px 9px;cursor:pointer}
+.rst:hover{color:var(--accent);border-color:var(--accent)}
+
+.seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-bottom:6px}
+.seg button{flex:1;background:#0c1015;color:var(--dim);border:0;padding:9px 4px;
+font:600 12px var(--ui);cursor:pointer;border-right:1px solid var(--line)}
+.seg button:last-child{border-right:0}
+.seg button.on{background:#12203a;color:var(--accent)}
+.flabel{font:11px var(--mono);color:var(--dim);margin:10px 0 4px}
+
+.row{display:flex;align-items:center;gap:10px;padding:7px 2px;border-bottom:1px solid #1b2027;
+cursor:pointer;user-select:none}
+.row:last-child{border-bottom:0}
+.row.off .nm,.row.off .ct{opacity:.3}
+.row.off .sw{opacity:.18}
+.box{width:16px;height:16px;border:1px solid var(--line);border-radius:4px;flex:none;
+display:flex;align-items:center;justify-content:center;font:700 11px var(--mono);color:var(--bg)}
+.box.on{background:var(--accent);border-color:var(--accent)}
+.sw{width:40px;height:0;border-top-style:solid;flex:none;border-radius:2px}
+.nm{flex:1;font:13px var(--ui)}
+.ct{font:11px var(--mono);color:var(--dim);text-align:right;min-width:92px}
+.grp{font:700 11px var(--mono);color:var(--dim);margin:13px 0 3px;letter-spacing:.05em}
+
+.tot{display:flex;justify-content:space-between;font:12px var(--mono);
+padding:7px 0;border-top:1px solid var(--line);margin-top:8px}
+.big{color:var(--good);font-weight:700}
+.note{font:11.5px var(--mono);color:var(--dim);border-left:3px solid var(--line);
+padding:5px 10px;margin:10px 0;line-height:1.55}
+.saved{font:11px var(--mono);color:var(--warn);margin-top:6px;min-height:14px}
+</style></head><body>
+
+<header>
+<div class="ttl">GroupTrack — <b>Route Legend / Filter</b></div>
+<div class="sub">MOCKUP v2 · 2026-08-31 · real counts from Droid 2, 145,931 trails</div>
+</header>
+
+<main>
+
+<div class="panel">
+<div class="ph"><span>Filters</span>
+<button class="rst" id="reset">Reset all</button></div>
+
+<div class="flabel">LAND</div>
+<div class="seg" id="landSeg">
+  <button data-v="all">Both</button>
+  <button data-v="PUBLIC">Public</button>
+  <button data-v="PRIVATE">Private</button>
+</div>
+
+<div class="flabel">USE</div>
+<div class="seg" id="useSeg">
+  <button data-v="all">Both</button>
+  <button data-v="MOTORIZED">Motorized</button>
+  <button data-v="NON-MOTORIZED">Non-motorized</button>
+</div>
+
+<div class="tot"><span>Showing</span><span class="big" id="shown">—</span></div>
+<div class="tot"><span>Hidden</span><span id="hidden">—</span></div>
+<div class="saved" id="saved"></div>
+</div>
+
+<div class="panel">
+<div class="ph">Legend &middot; tap a row to hide that category</div>
+<div id="legend"></div>
+</div>
+
+<div class="note">
+Blue is rideable and the <b>shade carries confidence</b> — OHV is stated in the
+data, shape-only means nothing was said and it is in on shape alone. Thin lines
+are not for riding.<br><br>
+Private is a <b>filter</b>, not a colour: a private forestry road keeps its blue
+and simply disappears when Land is set to Public.<br><br>
+<b>Categories with nothing in them drop out of the legend entirely</b> — a state
+with no OHV-designated trails shows no OHV row.<br><br>
+Category toggles work <b>inside</b> the slice. Set Land to Public and
+hiking &amp; biking falls from 24,414 to 5,618 whatever its own toggle says;
+the count shows visible over total so it is obvious why.
+</div>
+
+</main>
+
+<script>
+// real counts, 2026-08-31 full Utah import
+var CATS = [
+  {k:"ohv",   n:"OHV",                   use:"MOTORIZED",     c:"#00CCFF", w:5, pub:2695,  pri:81},
+  {k:"trk",   n:"Track",                 use:"MOTORIZED",     c:"#00AAFF", w:5, pub:16648, pri:3841},
+  {k:"far",   n:"Forestry / access road",use:"MOTORIZED",     c:"#0077DD", w:4, pub:33985, pri:13361},
+  {k:"shp",   n:"Shape only",            use:"MOTORIZED",     c:"#0044AA", w:3, pub:29945, pri:16875},
+  {k:"hb",    n:"Hiking & biking",       use:"NON-MOTORIZED", c:"#66CC66", w:2, pub:5618,  pri:18796},
+  {k:"hike",  n:"Hiking",                use:"NON-MOTORIZED", c:"#FFCC00", w:2, pub:2123,  pri:375},
+  {k:"bike",  n:"Biking",                use:"NON-MOTORIZED", c:"#AA44FF", w:2, pub:701,   pri:534},
+  {k:"eq",    n:"Equestrian",            use:"NON-MOTORIZED", c:"#CC8844", w:2, pub:39,    pri:32},
+  {k:"sb",    n:"Steps / bridge",        use:"NON-MOTORIZED", c:"#888888", w:2, pub:5,     pri:276}
+];
+var TOTAL = 145931;
+var KEY = "gt_legend_filter_v1";
+
+var state = { land:"all", use:"all", cats:{} };
+CATS.forEach(function(c){ state.cats[c.k] = true; });   // all ON by default
+
+function load(){
+  try{
+    var raw = localStorage.getItem(KEY);
+    if (!raw) return false;
+    var s = JSON.parse(raw);
+    if (s.land) state.land = s.land;
+    if (s.use)  state.use  = s.use;
+    if (s.cats) CATS.forEach(function(c){
+      if (typeof s.cats[c.k] === "boolean") state.cats[c.k] = s.cats[c.k];
+    });
+    return true;
+  }catch(e){ return false; }
+}
+function save(){
+  try{
+    localStorage.setItem(KEY, JSON.stringify(state));
+    var el = document.getElementById("saved");
+    el.textContent = "panel saved — restored next time";
+    clearTimeout(save._t);
+    save._t = setTimeout(function(){ el.textContent = ""; }, 1600);
+  }catch(e){}
+}
+
+function fmt(n){ return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ","); }
+
+// how many rows this category contributes under the current SLICE,
+// ignoring its own toggle
+function sliced(cat){
+  if (state.use !== "all" && cat.use !== state.use) return 0;
+  if (state.land === "PUBLIC")  return cat.pub;
+  if (state.land === "PRIVATE") return cat.pri;
+  return cat.pub + cat.pri;
+}
+
+function draw(){
+  var html = "", shown = 0, lastUse = "", anyGroup = {};
+
+  // which groups have any non-zero row? decides whether to print the header
+  CATS.forEach(function(c){ if (sliced(c) > 0) anyGroup[c.use] = true; });
+
+  CATS.forEach(function(cat){
+    var inSlice = sliced(cat);
+    if (inSlice === 0) return;                    // ⭐ drop only when ZERO
+    if (cat.use !== lastUse && anyGroup[cat.use]){
+      html += '<div class="grp">' + cat.use + '</div>';
+      lastUse = cat.use;
+    }
+    var on = state.cats[cat.k];
+    if (on) shown += inSlice;
+    var full = cat.pub + cat.pri;
+    html += '<div class="row' + (on ? '' : ' off') + '" data-k="' + cat.k + '">' +
+      '<div class="box' + (on ? ' on' : '') + '">' + (on ? '&#10003;' : '') + '</div>' +
+      '<div class="sw" style="border-top-color:' + cat.c +
+        ';border-top-width:' + cat.w + 'px"></div>' +
+      '<div class="nm">' + cat.n + '</div>' +
+      '<div class="ct">' + fmt(inSlice) +
+        (inSlice !== full ? ' / ' + fmt(full) : '') + '</div>' +
+      '</div>';
+  });
+
+  if (!html) html = '<div class="ct" style="text-align:left">nothing in this slice</div>';
+  document.getElementById("legend").innerHTML = html;
+  document.getElementById("shown").textContent  = fmt(shown);
+  document.getElementById("hidden").textContent = fmt(TOTAL - shown);
+
+  ["landSeg","useSeg"].forEach(function(id){
+    var v = (id === "landSeg") ? state.land : state.use;
+    document.getElementById(id).querySelectorAll("button").forEach(function(b){
+      b.classList.toggle("on", b.getAttribute("data-v") === v);
+    });
+  });
+}
+
+function wireSeg(id, field){
+  document.getElementById(id).addEventListener("click", function(e){
+    var b = e.target.closest("button");
+    if (!b) return;
+    state[field] = b.getAttribute("data-v");
+    save(); draw();
+  });
+}
+wireSeg("landSeg", "land");
+wireSeg("useSeg",  "use");
+
+document.getElementById("legend").addEventListener("click", function(e){
+  var r = e.target.closest(".row");
+  if (!r) return;
+  var k = r.getAttribute("data-k");
+  if (!k) return;
+  state.cats[k] = !state.cats[k];
+  save(); draw();
+});
+
+document.getElementById("reset").addEventListener("click", function(){
+  state.land = "all"; state.use = "all";
+  CATS.forEach(function(c){ state.cats[c.k] = true; });
+  save(); draw();
+});
+
+load();
+draw();
+</script>
+</body></html>

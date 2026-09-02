@@ -1,0 +1,188 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GroupTrack — Session Handoff 2026-08-30</title>
+<style>
+:root{--bg:#0f1216;--panel:#161b22;--ink:#e6edf3;--dim:#8b949e;--line:#30363d;--accent:#58a6ff;--good:#3fb950;--warn:#d29922;--bad:#f85149;--ui:-apple-system,"Segoe UI",Roboto,sans-serif;--mono:"SF Mono",Consolas,monospace}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 var(--ui);padding:0 0 60px}
+header{position:sticky;top:0;background:#0f1216f0;border-bottom:1px solid var(--line);padding:12px 18px;z-index:5}
+.ttl{font:700 17px var(--ui)}.ttl b{color:var(--accent)}.sub{font:12px var(--mono);color:var(--dim);margin-top:2px}
+main{max-width:900px;margin:0 auto;padding:16px 18px}
+h2{font:700 15px var(--ui);color:var(--accent);margin:22px 0 8px;border-bottom:1px solid var(--line);padding-bottom:4px}
+h3{font:700 13px var(--ui);color:var(--ink);margin:14px 0 4px}
+.tag{display:inline-block;font:700 10px var(--mono);padding:1px 6px;border-radius:4px;margin-right:6px;vertical-align:middle}
+.t-good{background:#12261a;color:var(--good);border:1px solid #1f6f3f}
+.t-warn{background:#2a2312;color:var(--warn);border:1px solid #6f5a1f}
+.t-bad{background:#2a1414;color:var(--bad);border:1px solid #6f2020}
+.t-prog{background:#12203a;color:var(--accent);border:1px solid #1f4f8f}
+.card{border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin:10px 0;background:var(--panel)}
+ul{margin:6px 0;padding-left:20px}li{margin:4px 0}ol{margin:6px 0;padding-left:22px}
+code{background:#0c0f0a;padding:1px 5px;border-radius:3px;font:12px var(--mono);color:#e6edf3}
+.note{font:12px var(--mono);color:var(--dim);border-left:3px solid var(--line);padding:4px 10px;margin:8px 0}
+table{border-collapse:collapse;width:100%;font:12.5px var(--mono);margin:8px 0}
+th,td{border:1px solid var(--line);padding:5px 7px;text-align:left;vertical-align:top}
+th{background:#12203a;color:var(--accent)}
+</style></head><body>
+<header><div class="ttl">GroupTrack — <b>Session Handoff</b> 2026-08-30</div>
+<div class="sub">INTERNAL · read first · living master = grouptrack_living_master_2026-08-30_v39.html</div></header>
+<main>
+
+<h2>▶ START HERE TOMORROW</h2>
+<div class="card">
+<p><b>ONE DEFECT BLOCKS EVERYTHING ELSE.</b> The extract computes
+<code>trail_type</code> and <code>carto_code</code> and writes them into the skinny —
+<b>51,400 rows classified</b> — but <b>none of it reaches the spatial DB</b>. Every OSM row on the
+device has a null carto code: 93,153 of 145,918 trails.</p>
+<p><code>OsmImportWorker</code> reads the skinny and calls <code>SpatialDbManager.insertTrail</code>
+without the two new columns. <code>TrailImporter</code> already shows the pattern to follow — it
+writes carto to <b>both</b> stores, <code>trails</code> at :464 and
+<code>trail_properties</code> at :461.</p>
+<p>⛔ Until this is fixed: the legend has nothing to colour, the filter nothing to filter, the A/B no
+difference to measure, and the touches-a-trail probe cannot even identify a track.</p>
+</div>
+
+<div class="card">
+<p><b>THEN: the town-grid problem.</b> Two candidates left, both measurable against LOCAL files with
+no device and no build. Eight approaches were eliminated today — the list and the evidence are in the
+living master under <code>CLUTTER-0830</code>; <b>read it before proposing anything</b>, because four
+of the eight looked convincing until they were measured.</p>
+<ul>
+<li><b>(A) <code>unclassified</code> with no surface tag.</b> ⚠ Fred's objection is unanswered and it
+is a good one — absence of a surface tag is more likely in remote places nobody has detailed. The
+counts do not separate cleanly either (Broken Ridge 3: 16 unclassified vs 91 tracks; Beryl grid: 8 vs
+45). <b>Measure with names before building.</b></li>
+<li><b>(B) <code>access=private</code> density.</b> 34,511 Utah ways carry it — the best-populated
+tag in the extract and well covered where Fred rides. Private is already excluded, so it is not the
+clutter, but a cluster marks a ranch or development. ⚠ Also check whether Tierra / Sundown / Palomar
+Drive are themselves tagged private.</li>
+</ul>
+</div>
+
+<h2>WHAT SHIPPED — five commits, all pushed</h2>
+<div class="card">
+<table>
+<tr><th>Commit</th><th>What</th></tr>
+<tr><td><code>c52daa728</code></td><td>PBF acquired alongside the GeoPackage; the stage machine; the
+hand-written PBF tag reader; the classifier. 7 files, 943 insertions.</td></tr>
+<tr><td><code>1af4c7a93</code></td><td><code>filter_values</code> realigned to
+<code>OsmPbfTagReader.WIDE</code> — footway and living_street removed.</td></tr>
+<tr><td><code>fdf396de3</code></td><td>Authority gate evaluates off the main thread (the ANR).</td></tr>
+<tr><td><code>e3ca7b840</code></td><td>Extract writes only rows the rules include.</td></tr>
+<tr><td><code>d5409ce8a</code></td><td>Classify at extract; carto code <b>0</b>, not 6; the colour in
+both map files.</td></tr>
+</table>
+</div>
+
+<h2>✅ THE PIPELINE WORKS ON DEVICE</h2>
+<div class="card">
+<p><span class="tag t-good">FIRST TIME</span> Utah, Droid 2:</p>
+<ul>
+<li><b>Tag pass: 425,000 rows from 2,085,068 ways in 25.7s.</b> Matches the Python exactly —
+unclassified 14,391, track 72,700 (vs 72,688 on the day-older extract), bridleway 111, and
+<code>no @ (full-sized)</code> intact, which a mis-indexed string table cannot produce.
+⭐ The hand-written reader is verified on hardware.</li>
+<li><b>Extract: kept=93,314 classified=51,400 excluded=329,941 of 423,255</b>, 5m49s, skinny
+106 MB.</li>
+<li>⭐ 51,400 reproduces the figure derived from the prototype that morning, <b>from an entirely
+different code path</b>.</li>
+<li>The resume worked: <i>"Tag table already present for utah, skipping tag pass"</i>.</li>
+</ul>
+<p class="note">⚠ 25.7s settles the synchronous-vs-worker question for good: it needs a progress bar,
+not a background job.</p>
+</div>
+
+<h2>⚠ THE HONEST RESULT</h2>
+<div class="card">
+<p>Fred, end of day: <i>"virtually the same map."</i> <b>That is correct.</b> 87,079 rows yesterday,
+93,314 today, and the town grids look the same <b>because they always came in through
+<code>unclassified</code></b> — Avenue A–G and 1st–7th Street were arriving before today's work too.</p>
+<p>⭐ What changed is underneath: 51,400 rows carry a type that did not exist before, the tag table is
+on the device, and the rules can be re-run without a reimport. <b>None of it is visible yet</b>,
+largely because of the blocking defect above.</p>
+<p>⛔ <b>And falling back to yesterday's filter does not fix the grid</b> — it only removes Mountain
+Spring Road again.</p>
+<p>Fred: <i>"I thought I would be happy when we finished this but for all the time and complexity we
+added I just do not know."</i> Recorded as said. The complexity is real; so is the fact that the
+visible result after a full day is a map that looks the same.</p>
+</div>
+
+<h2>THE ANR — understood, fixed, and not ours</h2>
+<div class="card">
+<p>The bugreport stack named it exactly: <code>sqlite3BtreeClearTable</code> under
+<code>ConvoyAuthorityGateScreenV2</code> itself — <code>clearTrailsOnce</code> running <b>inside the
+composable, on the main thread</b>, 279,376 row deletions, 38s to first frame.</p>
+<p>⚠ <b>NOT a regression from today's build.</b> The morning launch was fast because it SKIPPED the
+clear, having adopted a prior marker. Fixed by <code>GATEASYNC-2026-08-30</code>: async and wait, not
+async and continue.</p>
+<p>⚠ <b>Side effect:</b> the gate now briefly shows a screen it used to skip. Cosmetic.
+<b>A plain housekeeping message is owed</b> — Fred: <i>"just a housekeeping message, nothing
+complex."</i></p>
+</div>
+
+<h2>TRAPS FOUND TODAY — worth carrying</h2>
+<div class="card">
+<ul>
+<li>⚠⚠ <b>THE CLEAR MARKER IS TWO FILES.</b> <code>.trails_cleared_&lt;tag&gt;</code> in
+<code>Documents/GroupTrack/</code> AND a copy in <code>imports/history/</code>. Delete only the first
+and the code <b>re-adopts the history copy</b>. ⛔ NEVER on Droid 1 — it holds the A/B control.</li>
+<li>⛔ <b>EVERY DIGIT 1–9 IS TAKEN in <code>carto_code</code>.</b> Measured on real
+<code>trail_properties</code>: 1 Hiking Only · 2 Hiking and Biking · 3 <b>Paved Shared Use</b> ·
+4 Road-concurrent · 5 Biking Only · 6 <b>Equestrian Primary</b> · 7 Steps · 8 Bridge/Tunnel · 9 Link.
+My placeholder "6 - Motorized Access" would have collided with equestrian — and since
+<code>trailColor</code> switches on <code>charAt(0)</code>, <b>silently</b>. Fred chose <b>0</b>.</li>
+<li>⚠ 3, 6, 7, 8, 9 all exist in real data and <b>none has a colour case</b> in either map file, so
+they draw in the cyan fallback today. The vocabulary is also messier than recorded — TERRA, SNOW,
+Wash, Canal, Road, the literal string <code>'null'</code>, and a bare space.</li>
+<li>⚠ <b>Adding enum values broke nothing at compile time</b> — there is no exhaustive
+<code>when</code> over <code>OsmStage</code>. The real exposure was an <b>equality test</b> at
+<code>OsmImportPanel:548</code>, which compiles happily and reads wrong.</li>
+<li>⚠ <b>Geofabrik was down most of the afternoon</b> — 503, 502, then a Squid read error on the
+plain directory page, from three networks. Not us. Worked around by pushing the 08-28 files from D:.</li>
+<li>⚠ Owed in <code>downloadFile</code>: retry-with-backoff on 5xx; the redirect recursion has
+<b>no depth limit</b>; <code>instanceFollowRedirects</code> is set AFTER <code>connect()</code>.</li>
+<li>⚠ <b><code>azsp_trails</code>: 1,694 errors of 1,694 selected on a clean empty database</b>, and
+still records <code>completed</code>. Predates today's work.</li>
+<li>⚠ Python on this machine has an <b>expired CA bundle</b> — every https request fails with
+CERTIFICATE_VERIFY_FAILED. curl has its own store and works. Machine-level, not GroupTrack.</li>
+</ul>
+</div>
+
+<h2>⚠ METHOD — MINE</h2>
+<div class="card">
+<ul>
+<li><b>Nothing was committed all day</b> until Fred asked: <i>"you know we have not committed
+anything all day? lots at risk."</i> Eight file edits and four verified compiles sat uncommitted.
+⭐ <b>Commit at each green compile.</b></li>
+<li><b>I quoted 125,831 as the expected count all afternoon</b> after we had agreed to write every
+row rather than only the included ones — incompatible numbers. And I <b>misrepresented the scale</b>
+of that storage decision: Fred took it understanding ~30,000 rows; it was ~300,000, each carrying
+WKT.</li>
+<li><b>I seeded the touches-a-trail test from <code>fclass LIKE 'track%'</code></b> — a shape answer
+— which is the exact fault the project exists to remove, reintroduced inside the test meant to
+measure it. It kept Sundown Drive and I called it a pass. Fred caught it.</li>
+<li><b>I reissued a patch under a name already used</b> and Fred ran the stale copy — the Windows
+rename mechanism. ⭐ Unique names, and a patch should PRINT ITS OWN IDENTITY first.</li>
+<li><b>Two wrong marker counts and one wrong source file</b> in patch guards. Each time the guard
+refused to write, which is the guard working.</li>
+<li><b>I argued from inference against Fred's direct observations</b> on the ANR for the better part
+of an hour, proposing four mechanisms in turn, when the bugreport stack settled it in one command.
+⭐ Read the evidence before theorising.</li>
+</ul>
+</div>
+
+<h2>ARTIFACTS ON DISK</h2>
+<div class="card">
+<table>
+<tr><th>Where</th><th>What</th></tr>
+<tr><td>Droid 2 <code>osm/utah/</code></td><td><code>utah-latest.osm.pbf</code> 167 MB ·
+<code>utah-latest-free.gpkg.zip</code> 332 MB · <code>osm_way_tags.db</code> 22.9 MB / 425,000 rows.
+⛔ <b>The tag table is NOT deleted when the skinny is built</b> — it is the input the rules run
+against, and keeping it is what makes a rule tweak a local reclassification.</td></tr>
+<tr><td>Downloads</td><td><code>d2_way_tags.db</code> · <code>d2_spatial.db</code> ·
+<code>d2_data_after.db</code> · <code>d2_imports_before_0830/</code> ·
+<code>anr_0830.zip</code></td></tr>
+<tr><td>D:</td><td><code>osm_trails_utah_classified_2026-08-30.db</code> — the offline classified
+skinny. ⚠ Still carries 299,120 excluded rows it does not need.</td></tr>
+</table>
+</div>
+
+</main></body></html>

@@ -1,0 +1,154 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GroupTrack — Route Legend / Filter — mockup 2026-08-31</title>
+<style>
+:root{--bg:#0f1216;--panel:#161b22;--ink:#e6edf3;--dim:#8b949e;--line:#30363d;
+--accent:#58a6ff;--good:#3fb950;--warn:#d29922;
+--ui:-apple-system,"Segoe UI",Roboto,sans-serif;--mono:"SF Mono",Consolas,monospace}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 var(--ui);padding:0 0 50px}
+header{background:#0f1216f0;border-bottom:1px solid var(--line);padding:12px 18px}
+.ttl{font:700 17px var(--ui)}.ttl b{color:var(--accent)}
+.sub{font:11px var(--mono);color:var(--dim);margin-top:3px}
+main{max-width:760px;margin:0 auto;padding:14px 16px}
+.panel{border:1px solid var(--line);border-radius:10px;background:var(--panel);
+padding:14px 16px;margin:12px 0}
+.ph{font:700 12px var(--mono);color:var(--accent);letter-spacing:.06em;
+text-transform:uppercase;margin-bottom:10px}
+
+/* three-state segmented control */
+.seg{display:flex;gap:0;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-bottom:6px}
+.seg button{flex:1;background:#0c1015;color:var(--dim);border:0;padding:9px 4px;
+font:600 12px var(--ui);cursor:pointer;border-right:1px solid var(--line)}
+.seg button:last-child{border-right:0}
+.seg button.on{background:#12203a;color:var(--accent)}
+.flabel{font:11px var(--mono);color:var(--dim);margin:10px 0 4px}
+
+/* legend rows */
+.row{display:flex;align-items:center;gap:10px;padding:6px 2px;border-bottom:1px solid #1b2027}
+.row:last-child{border-bottom:0}
+.row.off{opacity:.25}
+.sw{width:42px;height:0;border-top-width:4px;border-top-style:solid;flex:none;border-radius:2px}
+.sw.thin{border-top-width:2px}
+.nm{flex:1;font:13px var(--ui)}
+.ct{font:11px var(--mono);color:var(--dim);text-align:right;min-width:96px}
+.grp{font:700 11px var(--mono);color:var(--dim);margin:12px 0 4px;letter-spacing:.05em}
+
+.tot{display:flex;justify-content:space-between;font:12px var(--mono);
+padding:8px 0;border-top:1px solid var(--line);margin-top:8px}
+.big{color:var(--good);font-weight:700}
+.note{font:11.5px var(--mono);color:var(--dim);border-left:3px solid var(--line);
+padding:5px 10px;margin:10px 0;line-height:1.5}
+</style></head><body>
+
+<header>
+<div class="ttl">GroupTrack — <b>Route Legend / Filter</b></div>
+<div class="sub">MOCKUP 2026-08-31 · counts are real, from Droid 2 after the 08-31 Utah import (145,931 trails)</div>
+</header>
+
+<main>
+
+<div class="panel">
+<div class="ph">Filters</div>
+
+<div class="flabel">LAND</div>
+<div class="seg" id="landSeg">
+  <button data-v="all" class="on">Both</button>
+  <button data-v="PUBLIC">Public</button>
+  <button data-v="PRIVATE">Private</button>
+</div>
+
+<div class="flabel">USE</div>
+<div class="seg" id="useSeg">
+  <button data-v="all" class="on">Both</button>
+  <button data-v="MOTORIZED">Motorized</button>
+  <button data-v="NON-MOTORIZED">Non-motorized</button>
+</div>
+
+<div class="tot"><span>Showing</span><span class="big" id="shown">145,931</span></div>
+<div class="tot"><span>Hidden</span><span id="hidden">0</span></div>
+</div>
+
+<div class="panel">
+<div class="ph">Legend</div>
+<div id="legend"></div>
+</div>
+
+<div class="note">
+Blue = rideable, and the <b>shade carries confidence</b>: OHV is stated in the data,
+shape-only means nothing was said and it is in on shape alone. Thin lines are
+not for riding.<br><br>
+Private is a <b>filter</b>, not a colour — a private forestry road keeps its
+category and simply disappears when Land is set to Public. That is why ownership
+is a separate field and not part of the category.
+</div>
+
+<div class="note">
+Try: <b>Land = Public</b> hides 54,171 · <b>Use = Motorized</b> hides 28,499 ·
+both together leave the riding set of <b>83,274</b>.
+</div>
+
+</main>
+
+<script>
+// real counts, 2026-08-31 full Utah import
+var CATS = [
+  {n:"OHV",                  use:"MOTORIZED",     c:"#00CCFF", w:5, pub:2695,  pri:81},
+  {n:"Track",                use:"MOTORIZED",     c:"#00AAFF", w:5, pub:16648, pri:3841},
+  {n:"Forestry / access road",use:"MOTORIZED",    c:"#0077DD", w:4, pub:33985, pri:13361},
+  {n:"Shape only",           use:"MOTORIZED",     c:"#0044AA", w:3, pub:29945, pri:16875},
+  {n:"Hiking &amp; biking",  use:"NON-MOTORIZED", c:"#66CC66", w:2, pub:5618,  pri:18796},
+  {n:"Hiking",               use:"NON-MOTORIZED", c:"#FFCC00", w:2, pub:2123,  pri:375},
+  {n:"Biking",               use:"NON-MOTORIZED", c:"#AA44FF", w:2, pub:701,   pri:534},
+  {n:"Equestrian",           use:"NON-MOTORIZED", c:"#CC8844", w:2, pub:39,    pri:32},
+  {n:"Steps / bridge",       use:"NON-MOTORIZED", c:"#888888", w:2, pub:5,     pri:276}
+];
+var land = "all", use = "all", TOTAL = 145931;
+
+function fmt(n){ return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ","); }
+
+function visible(cat){
+  if (use !== "all" && cat.use !== use) return 0;
+  if (land === "PUBLIC")  return cat.pub;
+  if (land === "PRIVATE") return cat.pri;
+  return cat.pub + cat.pri;
+}
+
+function draw(){
+  var html = "", shown = 0, lastUse = "";
+  CATS.forEach(function(cat){
+    if (cat.use !== lastUse){
+      html += '<div class="grp">' + cat.use + '</div>';
+      lastUse = cat.use;
+    }
+    var v = visible(cat);
+    shown += v;
+    var full = cat.pub + cat.pri;
+    html += '<div class="row' + (v === 0 ? ' off' : '') + '">' +
+      '<div class="sw' + (cat.w < 4 ? ' thin' : '') +
+        '" style="border-top-color:' + cat.c + ';border-top-width:' + cat.w + 'px"></div>' +
+      '<div class="nm">' + cat.n + '</div>' +
+      '<div class="ct">' + fmt(v) + (v !== full ? ' / ' + fmt(full) : '') + '</div>' +
+      '</div>';
+  });
+  document.getElementById("legend").innerHTML = html;
+  document.getElementById("shown").textContent  = fmt(shown);
+  document.getElementById("hidden").textContent = fmt(TOTAL - shown);
+}
+
+function wire(id, set){
+  var seg = document.getElementById(id);
+  seg.addEventListener("click", function(e){
+    var b = e.target.closest("button");
+    if (!b) return;
+    seg.querySelectorAll("button").forEach(function(x){ x.classList.remove("on"); });
+    b.classList.add("on");
+    set(b.getAttribute("data-v"));
+    draw();
+  });
+}
+wire("landSeg", function(v){ land = v; });
+wire("useSeg",  function(v){ use  = v; });
+draw();
+</script>
+</body></html>
