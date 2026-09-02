@@ -1631,24 +1631,81 @@ fun ConvoyScreen(
             }
         }
         if (showDocsChooser) {
+            // DOCSCHOOSER-2026-09-02: ⛔ THIS DIALOG HAD NO WAY OUT. Material3's
+            // AlertDialog gives exactly two slots, and both were spent on the
+            // two documents -- so `dismissButton` was "Full Manual", not a
+            // cancel. The only exits were a back press or a tap outside, and
+            // neither is visible. Fred, 09-01: "it is insane trying to get back
+            // to the desktop once we have things open."
+            // ⭐ THE DOCUMENTS MOVE INTO THE BODY as a vertical list, which
+            // frees dismissButton for a real Cancel and reads as a MENU rather
+            // than three buttons competing for the same row.
+            // ⚠ And it scales: a fourth document is one more row, not a layout
+            // problem. Quick Start is a STUB this release (Fred) -- the row is
+            // here so the layout is settled before the asset lands.
             androidx.compose.material3.AlertDialog(
                 onDismissRequest = { showDocsChooser = false },
                 title = { androidx.compose.material3.Text("Help & Info") },
-                text = { androidx.compose.material3.Text("View the release notes or the full user manual.") },
-                confirmButton = {
-                    androidx.compose.material3.TextButton(onClick = { showDocsChooser = false; docsView = "notes" }) {
-                        androidx.compose.material3.Text("Release Notes")
+                text = {
+                    androidx.compose.foundation.layout.Column {
+                        androidx.compose.material3.Text(
+                            "Which document would you like?",
+                            fontSize = 13.sp
+                        )
+                        androidx.compose.foundation.layout.Spacer(
+                            Modifier.height(10.dp))
+                        // ⚠ INLINED, not a shared helper: a `private fun` in
+                        // another file is invisible here -- Kotlin's private is
+                        // FILE-scoped, not package-scoped. Caught before
+                        // shipping; it would have been a compile failure.
+                        for ((key, title, sub) in listOf(
+                            Triple("quickstart", "Quick Start",
+                                "The short version \u2014 set up and go"),
+                            Triple("notes", "Release Notes",
+                                "What changed, newest first"),
+                            Triple("manual", "Full Manual",
+                                "Everything, in detail")
+                        )) {
+                            androidx.compose.foundation.layout.Column(
+                                modifier = Modifier.fillMaxWidth()
+                                    .clickable {
+                                        showDocsChooser = false; docsView = key
+                                    }
+                                    .padding(vertical = 10.dp)
+                            ) {
+                                androidx.compose.material3.Text(
+                                    title, fontSize = 15.sp,
+                                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                                    color = androidx.compose.ui.graphics.Color(0xFF58A6FF)
+                                )
+                                androidx.compose.material3.Text(
+                                    sub, fontSize = 11.sp,
+                                    color = androidx.compose.ui.graphics.Color(0xFF8B949E)
+                                )
+                            }
+                        }
                     }
                 },
+                confirmButton = {},
                 dismissButton = {
-                    androidx.compose.material3.TextButton(onClick = { showDocsChooser = false; docsView = "manual" }) {
-                        androidx.compose.material3.Text("Full Manual")
+                    androidx.compose.material3.TextButton(
+                        onClick = { showDocsChooser = false }
+                    ) {
+                        androidx.compose.material3.Text("Cancel")
                     }
                 }
             )
         }
         if (docsView != null) {
-            val assetFile = if (docsView == "notes") "grouptrack_release_notes.html" else "grouptrack_manual.html"
+            // DOCSCHOOSER-2026-09-02: ⚠ grouptrack_quickstart.html is a STUB
+            // until the asset ships. The WebView shows its own "not found" page
+            // if it is missing, which is ugly but harmless -- and it is the
+            // layout we are proving this release, not the document.
+            val assetFile = when (docsView) {
+                "notes" -> "grouptrack_release_notes.html"
+                "quickstart" -> "grouptrack_quickstart.html"
+                else -> "grouptrack_manual.html"
+            }
             androidx.compose.material3.Surface(
                 modifier = Modifier.fillMaxSize(),
                 color = androidx.compose.ui.graphics.Color(0xFF10130F)

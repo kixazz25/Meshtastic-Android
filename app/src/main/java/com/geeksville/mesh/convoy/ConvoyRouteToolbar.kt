@@ -1,7 +1,15 @@
 package com.geeksville.mesh.convoy
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
+// ROUTECLOSE-2026-09-02: background, border and clip for the X's box. ⭐ The
+// patch's own import check caught all three MISSING and refused to write --
+// which is the locked-notes rule working as an assertion instead of a memory.
+// Three compile failures are on record from patches that named their missing
+// import in their own output and shipped anyway.
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.IntOffset
 import kotlin.math.roundToInt
@@ -88,6 +96,24 @@ fun ConvoyRouteToolbar(
     onSaveRequested: () -> Unit = {},
     onDiscardRequested: () -> Unit = {},
     onSelectInProgress: () -> Unit = {},
+    /**
+     * ROUTECLOSE-2026-09-02: CLOSE THE TOOL. Not discard.
+     *
+     * ⛔ Fred, 09-02: "I can exit with discard but it is not intuitive if you
+     * are not doing anything with the tool. We are not discarding."
+     * Opening Route+, looking at it, and wanting out is not throwing work away
+     * -- and the only exit said DISCARD, which is a different and frightening
+     * word.
+     *
+     * ⚠ THIS DOES NOT TEAR ANYTHING DOWN. Fred: "the restart functions protect
+     * anything left open -- it is built to handle a cancel or a crash and
+     * recover." So the X closes the panel and turns Route+ off; whatever is on
+     * disk stays on disk and the resume path finds it.
+     *
+     * ⭐ No-op default, the same trick onMethodLockedTap uses, so the frozen
+     * ConvoyScreen call site needs no edit.
+     */
+    onClose: () -> Unit = {},
     routeEntryNonce: Int = 0,
     modifier: Modifier = Modifier
 ) {
@@ -144,13 +170,34 @@ fun ConvoyRouteToolbar(
                             }
                         }
                         .padding(end = 6.dp))
+                // ROUTECLOSE-2026-09-02: the accordion chevron moves to the LEFT
+                // corner (Fred, 09-02), beside the grip. ⭐ It leaves the right
+                // corner free for the X -- and the right corner is where a
+                // close belongs, so the two controls stop competing for it.
+                Text(if (minimized) "v" else "^", color = rtTxtD, fontSize = 11.sp,
+                    fontFamily = rtMono, fontWeight = FontWeight.Bold,
+                    modifier = Modifier.clickable { minimized = !minimized }.padding(end = 6.dp))
                 Text(if (minimized) "ROUTE + ($vertexCount pts)" else "ROUTE +",
                     color = rtPurple, fontSize = 12.sp,
                     fontFamily = rtMono, fontWeight = FontWeight.Bold,
                     modifier = Modifier.weight(1f).clickable { minimized = !minimized })
-                Text(if (minimized) "v" else "^", color = rtTxtD, fontSize = 11.sp,
-                    fontFamily = rtMono, fontWeight = FontWeight.Bold,
-                    modifier = Modifier.clickable { minimized = !minimized }.padding(start = 6.dp))
+                // ROUTECLOSE-2026-09-02: boxed so it reads as a BUTTON. ⚠ Twice
+                // today a close control existed and was invisible -- Map Keys
+                // and Map Features both had one at 10sp, unboxed, the same
+                // colour as the text beside it. A close nobody can see is the
+                // same as no close.
+                androidx.compose.foundation.layout.Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier.padding(start = 8.dp)
+                        .width(26.dp).height(22.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(Color(0xFF2A1B22))
+                        .border(1.dp, Color(0xFF6B4A55), RoundedCornerShape(4.dp))
+                        .clickable { onClose() }
+                ) {
+                    Text("\u2715", color = Color(0xFFE6EDF3), fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold)
+                }
             }
 
             // Entry buttons removed: New-vs-In-Progress is chosen at +ROUTE (entry prompt)

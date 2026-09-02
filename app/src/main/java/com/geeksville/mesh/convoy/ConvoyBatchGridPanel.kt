@@ -2,6 +2,15 @@ package com.geeksville.mesh.convoy
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+// DRAGCOMPARE-2026-09-02: the four symbols the drag introduces. ⚠ The locked
+// notes record THREE compile failures from patches that added a Compose symbol
+// without its import, each naming the missing import in its own output.
+// Checked against this file first: layout.* already gives offset(), runtime.*
+// gives remember/mutableStateOf, and clip was here.
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.unit.IntOffset
+import kotlin.math.roundToInt
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -100,8 +109,25 @@ fun ConvoyBatchGridPanel(
             .thenBy { it.key }).map { it.key }
     }
 
+    // DRAGCOMPARE-2026-09-02: the compare panel drags, like Map Features
+    // (Fred, 09-01). ⭐ COPIED, NOT INVENTED -- ConvoyArtifactsPanel:81-90 has
+    // had this exact pattern working for weeks, so the panels behave alike
+    // rather than each having its own feel.
+    // ⚠ The offset is deliberately NOT persisted: it resets when the panel
+    // closes. A panel that reopens off-screen because of where it was dragged
+    // last time is worse than one that always opens where you expect.
+    var offsetX by remember { mutableStateOf(0f) }
+    var offsetY by remember { mutableStateOf(0f) }
     Surface(
-        modifier = modifier,
+        modifier = modifier
+            .offset { IntOffset(offsetX.roundToInt(), offsetY.roundToInt()) }
+            .pointerInput(Unit) {
+                detectDragGestures { change, dragAmount ->
+                    change.consume()
+                    offsetX += dragAmount.x
+                    offsetY += dragAmount.y
+                }
+            },
         shape = RoundedCornerShape(10.dp),
         color = panelBg,
         shadowElevation = 6.dp

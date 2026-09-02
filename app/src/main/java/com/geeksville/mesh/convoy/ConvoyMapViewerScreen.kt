@@ -1848,14 +1848,47 @@ fun ConvoyMapViewerScreen(
                 modifier = Modifier.align(Alignment.TopEnd).padding(top = 12.dp, end = 12.dp)
             )
 
-            // -- "?" HELP BUTTON (opens bundled release notes / manual) --
+            // PLANNERKEYS-2026-09-02: Map Keys goes BETWEEN Map Features (64)
+            // and Help, so Help moves 116 -> 168. ⚠ The column is absolute top
+            // padding, not a stack: inserting a control means moving the ones
+            // below it, and anything added later pays the same cost.
+            // ⭐ The convoy map got this button on 09-01; the planner kept its
+            // old legend FAB because the panel was not proven yet. It is now.
             androidx.compose.material3.Surface(
-                onClick = { showDocsChooser = true },
-                // PLAINCTRL3-2026-08-18B: circle + fixed size dropped so the word renders in full.
+                onClick = { legendExpanded = true },
                 shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp),
                 color = Color.Transparent,
                 contentColor = Color(0xFFFF00FF),
                 modifier = Modifier.align(Alignment.TopEnd).padding(top = 116.dp, end = 12.dp)
+            ) {
+                androidx.compose.foundation.layout.Box(contentAlignment = Alignment.Center) {
+                    // PLAINCTRL-2026-08-17: words, not a glyph -- riders are
+                    // 65-75 and icon literacy cannot be assumed. The white blur
+                    // shadow is what keeps it readable over bright satellite.
+                    androidx.compose.material3.Text(
+                        "Map Keys",
+                        fontSize = 13.sp,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                        style = androidx.compose.ui.text.TextStyle(
+                            shadow = androidx.compose.ui.graphics.Shadow(
+                                color = androidx.compose.ui.graphics.Color.White,
+                                offset = androidx.compose.ui.geometry.Offset(0f, 0f),
+                                blurRadius = 6f
+                            )
+                        ),
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp)
+                    )
+                }
+            }
+            // -- "?" HELP BUTTON (opens bundled release notes / manual) --
+            androidx.compose.material3.Surface(
+                onClick = { showDocsChooser = true },
+                // PLAINCTRL3-2026-08-18B: circle + fixed size dropped so the word renders in full.
+                // PLANNERKEYS-2026-09-02: 116 -> 168, Map Keys took 116.
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp),
+                color = Color.Transparent,
+                contentColor = Color(0xFFFF00FF),
+                modifier = Modifier.align(Alignment.TopEnd).padding(top = 168.dp, end = 12.dp)
             ) {
                 androidx.compose.foundation.layout.Box(contentAlignment = Alignment.Center) {
                     // PLAINCTRL2-2026-08-17: the word, for the same reason as the others.
@@ -2193,6 +2226,19 @@ fun ConvoyMapViewerScreen(
                             SpatialDbManager.init(context)
                             SpatialDbManager.queryArtifactList(table, lastViewportSouth, lastViewportWest, lastViewportNorth, lastViewportEast)
                         }
+                        // LIFECYCLE-2026-09-01 stage 3: what came back to the
+                        // caller, and the viewport it asked for.
+                        // ⚠ lastViewport* are only written by onViewportChanged.
+                        // If the list is opened before one fires, or after a
+                        // screen change, these are STALE and the box is not what
+                        // is on screen.
+                        android.util.Log.i("LIFECYCLE",
+                            "3 caller got ${list.size} for $typeName; box S=" +
+                                "$lastViewportSouth W=$lastViewportWest N=" +
+                                "$lastViewportNorth E=$lastViewportEast; '" +
+                                SpatialDbManager.LIFECYCLE_NAME + "' = " +
+                                list.count { (it["name"] ?: "")
+                                    .contains(SpatialDbManager.LIFECYCLE_NAME, true) })
                         if (list.isNotEmpty()) {
                             artifactList = list
                             val curState = when(typeName) { "Trails"->trailState; "Tracks"->trackState; "Waypoints"->waypointState; "Routes"->routeState; else->DS_OFF }
@@ -2203,6 +2249,13 @@ fun ConvoyMapViewerScreen(
                                 else -> emptySet()
                             }
                             activeListType = typeName
+                            // LIFECYCLE-2026-09-01 stage 4: after assignment and
+                            // auto-selection. A row present but UNSELECTED will
+                            // not draw, so both numbers matter.
+                            android.util.Log.i("LIFECYCLE",
+                                "4 artifactList=${artifactList.size} " +
+                                    "selected=${selectedArtifactIds.size} " +
+                                    "state=$curState checked=${curChecked?.size ?: -1}")
                         } else {
                             android.widget.Toast.makeText(context, "No " + typeName + " in current view", android.widget.Toast.LENGTH_SHORT).show()
                         }
@@ -3639,6 +3692,19 @@ fun ConvoyMapViewerScreen(
                     onSaveRequested = { saveOrigName = routeName; showSaveChoice = true },
                     onDiscardRequested = { showDiscardChoice = true },
                     onSelectInProgress = { android.util.Log.i("PanelTrace", "PICKER <- true"); showInProgressPicker = true },
+                    // ROUTECLOSE-2026-09-02: close, not discard. ⭐ Both sides
+                    // together -- the Kotlin flag AND the JS -- copied verbatim
+                    // from the in-progress picker's dismiss at :3931, which is
+                    // the one place that already turns Route+ off correctly.
+                    // ⚠ Setting only `routeMode = false` leaves the map still
+                    // in route mode; setRouteMode(false) also reasserts the
+                    // popup unbind/rebind, which the raw flag does not.
+                    onClose = {
+                        android.util.Log.i("PanelTrace", "ROUTE+ <- closed by X")
+                        routeMode = false
+                        webViewRef?.evaluateJavascript(
+                            "window.__routeMode=false;setRouteMode(false)", null)
+                    },
                     onExit = {
                         RouteManager.clearRoute()
                         // ONEXITDELETE-2026-08-13: NEW-route Discard routes here (toolbar sends

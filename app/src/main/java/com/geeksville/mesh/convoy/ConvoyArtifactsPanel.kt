@@ -34,6 +34,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.roundToInt
 import androidx.compose.foundation.background
+// CLOSEBTN-2026-09-02: border + clip for the close button's box. ⚠ The locked
+// notes record THREE compile failures from patches that introduced a Compose
+// symbol without its import, each one naming the missing import in its own
+// output. Checked against the file's existing imports before shipping this
+// time: RoundedCornerShape, background and layout.* (Box) were already here.
+import androidx.compose.foundation.border
+import androidx.compose.ui.draw.clip
 
 // ----------------------------------------------------------------
 // ConvoyArtifactsPanel -- V2.5 Scaffold
@@ -115,11 +122,30 @@ fun ConvoyArtifactsPanel(
                 //
                 // Fred: "wasted functionality -- open it when you need it, close
                 // it otherwise."
-                Text(
-                    "\u2715",
-                    color = aBlue, fontSize = 10.sp, fontFamily = aMono, fontWeight = FontWeight.Bold
-                )
-                Spacer(modifier = Modifier.width(6.dp))
+                // CLOSEBTN-2026-09-02: ⛔ THE X WAS ALREADY HERE and nobody
+                // could see it. 10sp, unboxed, the same blue as the title
+                // beside it -- it read as decoration, not a control. Fred,
+                // 09-01: "it is insane trying to get back to the desktop once
+                // we have things open."
+                // ⭐ The lesson generalises: a close action that EXISTS but is
+                // not legible as a button is the same as no close action. Three
+                // panels have now had this shape.
+                // ⚠ The whole Row is still clickable, so this is about making
+                // the affordance visible, not about adding behaviour.
+                androidx.compose.foundation.layout.Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier.width(26.dp).height(22.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(Color(0xFF1B2027))
+                        .border(1.dp, Color(0xFF47505A), RoundedCornerShape(4.dp))
+                ) {
+                    Text(
+                        "\u2715",
+                        color = Color(0xFFE6EDF3), fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     // PLAINCTRL2-2026-08-17: matches the FAB that opens this panel.
                     "WORK WITH MAP FEATURES",

@@ -429,6 +429,29 @@ fun ConvoyAiStepScreen(
                     Spacer(Modifier.height(8.dp))
                     GpButton(label, primary = true, onClick = onClick)
                 }
+                // STARTOVER-2026-09-02: ⛔ WITH NO ACTIONS, START OVER WAS THE
+                // ONLY BUTTON ON SCREEN -- so it read as the only option and
+                // riders pressed it before reading anything else. Fred, 09-02:
+                // "when you arrive in the function it reads as your only option
+                // is to start over."
+                // ⚠ DONE already exists, but only AFTER the first waypoint is
+                // dropped. The gap before that first drop is the whole problem.
+                // ⭐ actions.isEmpty() is the same signal the banner form
+                // already uses to know the step is worked ON THE MAP -- no new
+                // state, no flag.
+                if (actions.isEmpty()) {
+                    Spacer(Modifier.height(9.dp))
+                    Text(
+                        "Drop waypoints on the map to continue,",
+                        color = gpTxt, fontSize = 12.sp,
+                        fontFamily = FontFamily.Monospace
+                    )
+                    Text(
+                        "or Start Over to begin again.",
+                        color = gpDim, fontSize = 12.sp,
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
                 Spacer(Modifier.height(9.dp))
                 GpButton("START OVER", primary = false, onClick = onStartOver)
             }
