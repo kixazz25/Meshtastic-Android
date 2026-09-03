@@ -357,6 +357,11 @@ object HomeStateImportController {
             for (i in 0 until totalSources) {
                 val src = sources.getJSONObject(i)
                 if (src.getString("status") == "completed") continue
+                // CLASSIFYSTAGE-2026-09-03: the classify stage IS tracked -- it
+                // keeps its manifest entry, step 8 writes its status and counts,
+                // and it appears in the summary. It is simply not a SOURCE the
+                // download loop can run, so the loop passes over it.
+                if (src.optString("process") == "classify_land_and_use") continue
 
                 // Mark in_progress
                 src.put("status", "in_progress")
