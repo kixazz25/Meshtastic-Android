@@ -725,6 +725,16 @@ fun ConvoyScreen(
                             }
                         }
                         @android.webkit.JavascriptInterface
+                        fun onTrailTap(id: String) {
+                            // CONVOYTRAILTAP-2026-09-03: mirrors onTrackTap. ⚠ There
+                            // are TWO bridge objects in this file -- reuse and create
+                            // -- and a method on one is invisible to the other.
+                            android.util.Log.d("TrailTap", "CONVOY(reuse) bridge id=$id")
+                            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                pendingDetailType = "Trails"
+                                pendingDetailId = id
+                            }
+                        }
                         fun onTrackTap(id: String) {
                             // [2026-07-02] track tap -> open the shared ArtifactDetailPanel (metrics + SAVE MAPS).
                             android.util.Log.d("TrackTap", "CONVOY(reuse :652) bridge id=$id")
@@ -1022,6 +1032,14 @@ fun ConvoyScreen(
                                 }
                             }
                             @android.webkit.JavascriptInterface
+                            fun onTrailTap(id: String) {
+                                // CONVOYTRAILTAP-2026-09-03: the create-path bridge.
+                                android.util.Log.d("TrailTap", "CONVOY(create) bridge id=$id")
+                                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                    pendingDetailType = "Trails"
+                                    pendingDetailId = id
+                                }
+                            }
                             fun onTrackTap(id: String) {
                                 // [2026-07-02] track tap -> open the shared ArtifactDetailPanel (metrics + SAVE MAPS).
                                 android.util.Log.d("TrackTap", "CONVOY(create :916) bridge id=$id")
@@ -1526,7 +1544,7 @@ fun ConvoyScreen(
                 pendingDetailType = type
                 pendingDetailId = id
             },
-            modifier = Modifier.align(Alignment.TopEnd).padding(top = 120.dp, end = 132.dp)
+            modifier = Modifier.align(Alignment.TopEnd).padding(top = 120.dp, end = 12.dp)
         )
 
         // -- "?" HELP BUTTON (ported from planning 2026-06-18; TopStart to clear QUEUES) --

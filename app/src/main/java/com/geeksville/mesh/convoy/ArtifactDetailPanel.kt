@@ -364,6 +364,41 @@ private fun prettyLabel(key: String): String = when (key) {
     "shared"            -> "Shared"
     "distance"          -> "Distance"
     "length_miles"      -> "Length"
+
+    // TRAILLABELS-2026-09-03: the trail fields. ⚠ The fallback below
+    // title-cases, so these read as "Carto Code Source" and "Ugrc Trail Class"
+    // without it -- not raw, but not language either.
+    // ⭐ The four classification fields get names that say what they MEAN
+    // rather than what the column is called.
+    "carto_code"        -> "Type"
+    "carto_code_source" -> "Source said"
+    "land_status"       -> "Land"
+    "use_type"          -> "Use"
+    "source_id"         -> "Source"
+    "data_source"       -> "Source"
+    "smoothness"        -> "Roughness"
+    "tracktype"         -> "Firmness"
+    "surface"           -> "Surface"
+    "surface_type"      -> "Surface"
+    "designated_uses"   -> "Uses"
+    "motorized_allowed" -> "Motorized"
+    "horse_allowed"     -> "Horses"
+    "ada_accessible"    -> "Accessible"
+    "owner_steward"     -> "Managed by"
+    "other_restrictions"-> "Restrictions"
+    "hike_difficulty"   -> "Hiking"
+    "bike_difficulty"   -> "Biking"
+    "trail_class"       -> "Class"
+    "system_name"       -> "System"
+    "recreation_area"   -> "Area"
+    "ref_code"          -> "Road number"
+    "trans_network"     -> "Network"
+    "geom_hash"         -> "Shape id"
+    "trail_id"          -> "Id"
+    "osm_id"            -> "OSM id"
+    "status"            -> "Status"
+    "county"            -> "County"
+
     else -> key.replace('_', ' ')
         .split(' ').joinToString(" ") { w -> w.replaceFirstChar { it.uppercase() } }
 }

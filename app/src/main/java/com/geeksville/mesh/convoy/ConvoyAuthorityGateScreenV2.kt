@@ -390,7 +390,16 @@ fun ConvoyAuthorityGateScreenV2(
                 // ⚠ Fully qualified rather than imported -- only one of the two
                 // names this needs was already in the file.
                 is AuthorityState.CheckingStorage -> {
-                    if (housekeepingRunning) {
+                    // BANNERMOVE-2026-09-03: ⛔ THE BANNER WAS HERE AND FLASHED
+                    // PAST. Fred, 09-03: "it was on the first screen -- the
+                    // second screen with the continue button titled GroupTrack
+                    // Access Setup is where it belongs. That has the continue
+                    // button."
+                    // ⭐ He is right, and he predicted the consequence before I
+                    // saw it: the screen a rider SITS ON is the one with a
+                    // button, so that is the screen that has to say wait -- and
+                    // the button has to refuse until it is safe.
+                    if (false) {
                         // ⚠ A plain timer, not animateFloat: that is an
                         // EXTENSION function and cannot be fully qualified at
                         // the call site, which cost one compile.
@@ -533,8 +542,39 @@ fun ConvoyAuthorityGateScreenV2(
                         body = "All-files and location access confirmed. Tap Continue " +
                             "to start GroupTrack."
                     )
+                    // BANNERMOVE-2026-09-03: ⭐ HERE, because this is the screen
+                    // with the button. A one-shot destructive operation should
+                    // be the loudest thing the app does (the 08-16 rule) -- and
+                    // on the screen where the rider is deciding whether to tap.
+                    // ⚠ CONTINUE IS DISABLED WHILE IT RUNS. Fred, 09-03: "my
+                    // fear is that if there is a response required and we put a
+                    // red banner that says do not continue ... we will stop
+                    // users waiting for something to finish that is not
+                    // running." The inverse is the real risk: a rider tapping
+                    // Continue INTO a half-cleared database. Greyed, not
+                    // hidden, so nothing shifts under the thumb.
+                    if (housekeepingRunning) {
+                        Spacer(Modifier.height(18.dp))
+                        Text(
+                            "SYSTEM HOUSEKEEPING",
+                            color = Color(0xFFFF4444),
+                            fontSize = 18.sp,
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        )
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            "Updating trail data for this release.\n" +
+                                "Please wait \u2014 do not interrupt.",
+                            color = Color(0xFFE6EDF3), fontSize = 13.sp,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        )
+                    }
                     Spacer(Modifier.height(24.dp))
-                    GateButton("Continue") {
+                    GateButton(
+                        if (housekeepingRunning) "Please wait\u2026" else "Continue",
+                        enabled = !housekeepingRunning
+                    ) {
                         // Final settle barrier: re-verify authority is STILL real
                         // at the moment of proceeding (not a stale earlier check),
                         // then hand off to convoy. The user's tap gave the grant
@@ -576,9 +616,18 @@ private fun GateBody(title: String, body: String) {
 }
 
 @Composable
-private fun GateButton(label: String, onClick: () -> Unit) {
+private fun GateButton(
+    label: String,
+    enabled: Boolean = true,
+    onClick: () -> Unit,
+) {
     Button(
         onClick = onClick,
+        // BANNERMOVE-2026-09-03: ⚠ `enabled` added with a default of true, so
+        // the four existing call sites need no edit. Only the Continue button
+        // on the Granted screen passes it -- it must refuse while housekeeping
+        // is clearing and altering the database underneath it.
+        enabled = enabled,
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
         colors = ButtonDefaults.buttonColors(

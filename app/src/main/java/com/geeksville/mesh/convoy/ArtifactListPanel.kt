@@ -52,16 +52,8 @@ fun ArtifactListPanel(
     fitWebView: android.webkit.WebView? = null,
     onOpenDetail: (String, String) -> Unit = { _, _ -> }
 ) {
-    // LIFECYCLE-2026-09-01 stage 5: what the PANEL was handed. If the target
-    // is here but not on screen, the loss is in the rendering below; if it is
-    // already gone, the loss is upstream and stages 1-4 say where.
-    androidx.compose.runtime.SideEffect {
-        android.util.Log.i("LIFECYCLE",
-            "5 panel got ${artifacts.size} $artifactType, selected=" +
-                "${selectedIds.size}, '" + SpatialDbManager.LIFECYCLE_NAME +
-                "' = " + artifacts.count { (it["name"] ?: "")
-                    .contains(SpatialDbManager.LIFECYCLE_NAME, true) })
-    }
+    // PROBESOUT-2026-09-03: stage 5 removed with the rest. The trail it was
+    // hunting was two roads sharing a name; there was never a display bug.
     val aMono = FontFamily.Monospace
     val aGreen = Color(0xFF39FF14)
     val aBlue = Color(0xFF4DA6FF)

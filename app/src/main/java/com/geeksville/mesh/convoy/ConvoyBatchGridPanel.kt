@@ -117,6 +117,58 @@ fun ConvoyBatchGridPanel(
     // ⚠ The offset is deliberately NOT persisted: it resets when the panel
     // closes. A panel that reopens off-screen because of where it was dragged
     // last time is worse than one that always opens where you expect.
+    // SURFACECOL-2026-09-03: trail name -> surface, read ONCE when the panel
+    // opens.
+    // ⛔ TWO QUERIES, NOT A JOIN. `trails` is in the spatial database and
+    // `trail_properties` is in the extension database -- they cannot be joined
+    // in one statement. Step 8 hit exactly this and had to read
+    // designated_uses into a map the same way. My first draft was a JOIN and
+    // would have failed at runtime, not compile time.
+    // ⚠ Keyed on NAME because that is what BatchRow.trails carries; duplicate
+    // names collapse to whichever row comes first, which is fine for a label
+    // and would NOT be for anything that routes.
+    val surfaceOf = remember(rows) {
+        val out = HashMap<String, String>()
+        try {
+            val names = rows.flatMap { it.trails.keys }.distinct()
+            val sdb = SpatialDbManager.getSpatialDb()
+            val edb = SpatialDbManager.getExtensionDb()
+            if (names.isNotEmpty() && sdb != null && edb != null) {
+                // 1. names -> ids, from the spatial database
+                val idToName = HashMap<String, String>()
+                val marks = names.joinToString(",") { "?" }
+                sdb.rawQuery(
+                    "SELECT trail_id, name FROM trails WHERE name IN ($marks)",
+                    names.toTypedArray()
+                ).use { c ->
+                    while (c.moveToNext()) {
+                        val id = c.getString(0) ?: continue
+                        idToName[id] = c.getString(1) ?: continue
+                    }
+                }
+                // 2. ids -> surface, from the extension database
+                if (idToName.isNotEmpty()) {
+                    val ids = idToName.keys.toList()
+                    val m2 = ids.joinToString(",") { "?" }
+                    edb.rawQuery(
+                        "SELECT trail_id, surface_type FROM trail_properties " +
+                            "WHERE trail_id IN ($m2) AND surface_type IS NOT NULL " +
+                            "AND TRIM(surface_type) <> ''",
+                        ids.toTypedArray()
+                    ).use { c ->
+                        while (c.moveToNext()) {
+                            val n = idToName[c.getString(0)] ?: continue
+                            if (!out.containsKey(n)) out[n] = c.getString(1)
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.w("BatchGrid", "surface lookup: ${e.message}")
+        }
+        out
+    }
+
     var offsetX by remember { mutableStateOf(0f) }
     var offsetY by remember { mutableStateOf(0f) }
     Surface(
@@ -244,7 +296,20 @@ fun ConvoyBatchGridPanel(
                     SectionRow("TRAILS")
                     DataRow("", rows, bold = true) { r -> r.trails.size.toString() }
                     trailRows.forEach { t ->
-                        DataRow(t, rows) { r ->
+                        // SURFACECOL-2026-09-03: ⭐ THE SURFACE, ON THE TRAIL'S
+                        // OWN LABEL. Fred, 09-02: "just append the surface type
+                        // to each trail -- that will tell us how long on this
+                        // surface type."
+                        // ⭐ And the table is ALREADY SORTED BY TOTAL MILEAGE, so
+                        // the surfaces a rider is actually covering land at the
+                        // top where they are read. No new arithmetic: the row
+                        // already carries the miles.
+                        // ⚠ BLANK STAYS BLANK. Surface is recorded on about 39%
+                        // of the motorized set -- the best-covered attribute we
+                        // have, and still a minority. A trail with none says
+                        // nothing rather than guessing.
+                        val label = surfaceOf[t]?.let { s -> "$t  ·  $s" } ?: t
+                        DataRow(label, rows) { r ->
                             val mi = r.trails[t]
                             // ⚠ mileage STAYS on trails — 12 miles of a trail is
                             // a different ride from 2, and that IS the comparison

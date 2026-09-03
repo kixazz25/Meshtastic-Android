@@ -2012,7 +2012,9 @@ object SpatialDbManager {
     // ── CRUD OPERATIONS (for ArtifactListPanel) ──────────────────
 
     /** Query artifact list for display in ArtifactListPanel */
-    /** LIFECYCLE-2026-09-01: the trail followed from retrieve to display.
+    /** PROBESOUT-2026-09-03: kept only because ArtifactListPanel referenced it.
+     *  ⚠ Unused now; safe to delete with the next tidy.
+     *  (was) LIFECYCLE-2026-09-01: the trail followed from retrieve to display.
      *  ⚠ TEMPORARY -- remove with the probes once the cause is found. */
     const val LIFECYCLE_NAME = "Spanish George"
 
@@ -2029,15 +2031,16 @@ object SpatialDbManager {
             }
             val typeCol = if (table == "waypoints") ", type" else ""
             val typeFilter = if (table == "tracks") " AND (type='TRACK' OR type IS NULL)" else ""
-            // LIFECYCLE-2026-09-01 stage 1: the SQL and its box, verbatim.
-            // ⛔ NOTE THE TWO DIFFERENCES FROM queryTrailsByViewport, which DOES
-            // return the missing trail: this one has `min_lat IS NOT NULL` and
-            // `ORDER BY name LIMIT 200`. Alphabetical order with ~69% of rows
-            // called "Not Named" and numbered roads sorting before letters is a
-            // real hazard -- but it cannot explain a list of 34.
+            // PROBESOUT-2026-09-03: the LIFECYCLE probes are gone. They were
+            // hunting a trail that turned out to be TWO ROADS SHARING A NAME --
+            // the one in the database drew correctly, ten miles from the one
+            // Fred was looking at, which is not in any source. There was never
+            // a display bug.
+            // ⚠ WHAT THE PROBE'S COMMENT RECORDED IS STILL TRUE and stays on the
+            // list: this query has `ORDER BY name LIMIT 200`, and with ~69% of
+            // rows called "Not Named" and numbered roads sorting before letters,
+            // it will bite at 200+ trails in view.
             val sql = "SELECT $idCol, name$typeCol FROM $table WHERE min_lat IS NOT NULL AND max_lat >= ? AND min_lat <= ? AND max_lon >= ? AND min_lon <= ?$typeFilter ORDER BY name LIMIT 200"
-            android.util.Log.i("LIFECYCLE",
-                "1 queryArtifactList($table) box S=$south W=$west N=$north E=$east")
             val cursor = db.rawQuery(sql, arrayOf(south.toString(), north.toString(), west.toString(), east.toString()))
             cursor.use {
                 while (it.moveToNext()) {
@@ -2050,39 +2053,6 @@ object SpatialDbManager {
                         map["type"] = ""
                     }
                     results.add(map)
-                }
-            }
-            // LIFECYCLE-2026-09-01 stage 2: what the cursor actually produced.
-            val hit1 = results.count { (it["name"] ?: "").contains(LIFECYCLE_NAME, true) }
-            android.util.Log.i("LIFECYCLE",
-                "2 cursor -> ${results.size} row(s), '$LIFECYCLE_NAME' = $hit1" +
-                    (if (results.size >= 200) "  ⚠ AT THE 200 LIMIT" else ""))
-            // ⭐ When the target is absent, run the SAME box WITHOUT the limit and
-            // the ordering. If it appears then, the LIMIT or ORDER BY ate it; if
-            // it does not, the BOX is wrong and the ordering is innocent.
-            if (hit1 == 0) {
-                try {
-                    db.rawQuery(
-                        "SELECT COUNT(*) FROM $table WHERE min_lat IS NOT NULL " +
-                            "AND max_lat >= ? AND min_lat <= ? AND max_lon >= ? " +
-                            "AND min_lon <= ?$typeFilter",
-                        arrayOf(south.toString(), north.toString(),
-                                west.toString(), east.toString())
-                    ).use { c -> if (c.moveToFirst())
-                        android.util.Log.w("LIFECYCLE",
-                            "2b UNLIMITED count in the same box = ${c.getInt(0)}") }
-                    db.rawQuery(
-                        "SELECT name, min_lat, max_lat, min_lon, max_lon FROM $table " +
-                            "WHERE name LIKE ?", arrayOf("%" + LIFECYCLE_NAME + "%")
-                    ).use { c ->
-                        while (c.moveToNext())
-                            android.util.Log.w("LIFECYCLE",
-                                "2c target row: name='${c.getString(0)}' " +
-                                    "lat ${c.getDouble(1)}..${c.getDouble(2)} " +
-                                    "lon ${c.getDouble(3)}..${c.getDouble(4)}")
-                    }
-                } catch (e2: Exception) {
-                    android.util.Log.w("LIFECYCLE", "2b/2c failed: ${e2.message}")
                 }
             }
         } catch (e: Exception) {

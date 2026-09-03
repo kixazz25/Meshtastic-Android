@@ -566,7 +566,20 @@ function loadTrails(geojsonData) {
     onEachFeature: function(feature, layer) {
       var p = feature.properties;
       var name = p.PrimaryName || p.SystemName || p.name || 'Unnamed Trail';
-      layer.on('click', function(){ console.log('ARTIFACTTAP trail name=' + name + ' routeMode=' + window.__routeMode); });
+      // CONVOYTRAILTAP-2026-09-03: the RIDE MAP opens the detail panel too.
+      // ⛔ The planner got this on 09-02 and convoy did not -- the fifth time
+      // this week a thing was done on one screen and not the other.
+      // ⚠ The popup stays as the fallback: if the bridge is absent the layer
+      // still opens its bubble, so nothing is lost on an older shell.
+      layer.on('click', function(e){
+        console.log('ARTIFACTTAP trail name=' + name + ' routeMode=' + window.__routeMode);
+        if (window.__routeMode) return;
+        var __tid = (p && (p.trail_id || p.id)) || '';
+        if (__tid && window.Android && window.Android.onTrailTap) {
+          try { layer.closePopup(); } catch (err) {}
+          window.Android.onTrailTap(__tid);
+        }
+      });
       var cc = p.CartoCode || 'Unknown';
       var surface = p.SurfaceType || 'Unknown';
       var uses = p.DesignatedUses || 'Unknown';
