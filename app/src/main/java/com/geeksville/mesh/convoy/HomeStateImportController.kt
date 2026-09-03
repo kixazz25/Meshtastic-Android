@@ -305,6 +305,34 @@ object HomeStateImportController {
             // perfectly; a missing ownership file is not a reason to call the
             // run bad. run() returns -1 and we carry on.
             try {
+                // OWNFETCH-2026-09-02: ⭐ FETCH THE OWNERSHIP DATA IF IT IS NOT
+                // THERE. Until tonight this file existed on ONE DEVICE, put
+                // there by hand -- so step 8 logged "no ownership data" and
+                // skipped on every other phone, and nothing said why.
+                // ⛔ Which meant land_status was NULL for every rider but Fred,
+                // and the private-land filter had nothing to act on.
+                // ⭐ A DIRECT URL, no token and no queued export: Fred found it
+                // on the ArcGIS Hub download button, 78 MB, seconds to pull.
+                // spatialRefId=4326 gives lat/lon, which is what the polygon
+                // test expects -- ⚠ the layer is named "WM" (web mercator) and
+                // WOULD arrive projected without it.
+                // ⚠ ONLY WHEN ABSENT. It is state data that changes weekly at
+                // most, and re-pulling 78 MB on every import buys nothing.
+                val ownFile = OwnershipReclass.ownershipFile()
+                if (!ownFile.exists() || ownFile.length() < 1_000_000L) {
+                    updateSourceStep(
+                        sources.optJSONObject(sources.length() - 1) ?: JSONObject(),
+                        "Land ownership", "downloading")
+                    val got = withContext(Dispatchers.IO) {
+                        downloadFile(OWNERSHIP_URL, ownFile)
+                    }
+                    // ⚠ NOT FATAL. A failed ownership pull leaves trails
+                    // classified by category with land_status null -- degraded,
+                    // not broken, and the null-tolerant predicate keeps the map
+                    // working. Same reasoning as the missing-file case below.
+                    Log.i(TAG, "ownership download: " +
+                        if (got) "ok, ${ownFile.length()} bytes" else "FAILED")
+                }
                 // STEP8-2026-08-31: properties, not functions.
                 val sDb = SpatialDbManager.getSpatialDb()
                 val eDb = SpatialDbManager.getExtensionDb()
@@ -577,7 +605,54 @@ object HomeStateImportController {
 
     // ── HTTP download ────────────────────────────────────────────
 
-    private fun downloadFile(urlStr: String, dest: File, activeSrc: JSONObject? = null): Boolean {
+    /**
+     * OWNFETCH-2026-09-02: retry with backoff, and a redirect DEPTH LIMIT.
+     *
+     * ⛔ Geofabrik has failed THREE times in one evening -- twice on the network
+     * and once when a crash killed the process mid-transfer -- and each failure
+     * silently skipped everything downstream, including step 8. There was no
+     * retry at all; one bad moment lost a twenty-minute import.
+     * ⚠ And the redirect follow was UNBOUNDED recursion. A server that redirects
+     * to itself would have blown the stack.
+     */
+    /**
+     * OWNFETCH-2026-09-02: SITLA surface land ownership, from the UGRC hub.
+     * ⚠ THE ITEM ID IS UTAH'S. A second state needs its own id, so this belongs
+     * in the source catalogue eventually rather than as a constant here. It is
+     * a constant tonight because one URL closes the loop and the catalogue
+     * change is a bigger edit.
+     */
+    private const val OWNERSHIP_URL =
+        "https://hub.arcgis.com/api/v3/datasets/" +
+            "2f59731608274691922d2d16bde2404f_0/downloads/data" +
+            "?format=geojson&spatialRefId=4326&where=1%3D1"
+
+    private fun downloadFile(
+        urlStr: String, dest: File, activeSrc: JSONObject? = null,
+        attempt: Int = 1, depth: Int = 0,
+    ): Boolean {
+        if (depth > 5) {
+            Log.e(TAG, "Download: too many redirects for $urlStr")
+            return false
+        }
+        val ok = downloadOnce(urlStr, dest, activeSrc, depth)
+        if (ok) return true
+        // ⭐ 3 attempts, 2s then 8s. Long enough to outlast a dropped handover
+        // or a moment of no signal; short enough that a genuinely dead URL does
+        // not hold the import for a minute.
+        if (attempt >= 3) {
+            Log.e(TAG, "Download: giving up on $urlStr after $attempt attempts")
+            return false
+        }
+        val wait = if (attempt == 1) 2000L else 8000L
+        Log.w(TAG, "Download: attempt $attempt failed, retrying in ${wait}ms")
+        try { Thread.sleep(wait) } catch (_: InterruptedException) { return false }
+        return downloadFile(urlStr, dest, activeSrc, attempt + 1, depth)
+    }
+
+    private fun downloadOnce(
+        urlStr: String, dest: File, activeSrc: JSONObject?, depth: Int,
+    ): Boolean {
         return try {
             dest.parentFile?.mkdirs()
             val conn = URL(urlStr).openConnection() as HttpURLConnection
@@ -588,7 +663,9 @@ object HomeStateImportController {
             if (conn.responseCode == 302 || conn.responseCode == 301) {
                 val redirect = conn.getHeaderField("Location")
                 conn.disconnect()
-                if (redirect != null) return downloadFile(redirect, dest, activeSrc)
+                // ⚠ Depth carried through so a redirect LOOP terminates.
+                if (redirect != null)
+                    return downloadFile(redirect, dest, activeSrc, 1, depth + 1)
                 return false
             }
             if (conn.responseCode != 200) {
