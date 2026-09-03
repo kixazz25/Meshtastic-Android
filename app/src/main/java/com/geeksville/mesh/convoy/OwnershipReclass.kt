@@ -139,48 +139,104 @@ object OwnershipReclass {
         // ── the rows: no usable carto, whatever source wrote them ──────────
         // ⭐ BY VALUE, NOT BY SOURCE (Fred 08-31): an unspecified UGRC road
         // through a subdivision is the same clutter as an unspecified OSM one.
+        // CLASSIFY4-2026-09-02: ⛔ EVERY ROW, NOT JUST THE UNCLASSIFIED ONES.
+        // This query used to read only rows with no usable carto_code -- about
+        // 28,000 of 146,000 -- because step 8's job was to FLIP those to a
+        // residential category. The four-field design replaced that: ownership
+        // is its own field, so EVERY trail needs an answer.
+        // ⚠ The 08-31 measurement of the old behaviour: it missed 17,283
+        // private motorized and 20,013 private non-motorized rows.
+        // ⚠ AND IT COSTS TIME. ~146,000 point-in-polygon tests instead of
+        // ~28,000. It is already inside a progress-reporting step, which is
+        // why this is tolerable here and would not be anywhere else.
         val ids = ArrayList<String>()
         val wkts = ArrayList<String>()
+        val srcs = ArrayList<String>()
+        val uses = ArrayList<String>()
+        // ⚠ carto_code_source may be null on a database that predates it; fall
+        // back to carto_code, which IS the source value except where the old
+        // step 8 overwrote it. Same fallback classify4 used.
         sDb.rawQuery(
-            "SELECT trail_id, geometry FROM trails WHERE carto_code IS NULL " +
-                "OR TRIM(carto_code)='' OR TRIM(carto_code)='null'", null
+            "SELECT trail_id, COALESCE(NULLIF(TRIM(carto_code_source),''), carto_code), " +
+                "geometry FROM trails", null
         ).use { c ->
             while (c.moveToNext()) {
-                val g = c.getString(1)
-                if (!g.isNullOrEmpty()) { ids.add(c.getString(0)); wkts.add(g) }
+                val g = c.getString(2)
+                if (!g.isNullOrEmpty()) {
+                    ids.add(c.getString(0))
+                    srcs.add(c.getString(1) ?: "")
+                    wkts.add(g)
+                }
             }
         }
-        Log.i(TAG, "step 8: ${ids.size} rows with no usable carto")
+        // designated_uses lives in the OTHER database, so it cannot be joined
+        // in the query above -- read it into a map and look it up per row.
+        val useOf = HashMap<String, String>(ids.size)
+        try {
+            eDb.rawQuery(
+                "SELECT trail_id, designated_uses FROM trail_properties " +
+                    "WHERE designated_uses IS NOT NULL AND TRIM(designated_uses) <> ''",
+                null
+            ).use { c ->
+                while (c.moveToNext()) useOf[c.getString(0)] = c.getString(1)
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "designated_uses read failed: ${e.message}")
+        }
+        for (id in ids) uses.add(useOf[id] ?: "")
+
+        Log.i(TAG, "step 8: classifying ${ids.size} rows (${useOf.size} with uses)")
         if (ids.isEmpty()) return 0
 
-        val flip = ArrayList<String>()
+        // ⭐ THE FOUR FIELDS. carto_code_source keeps what the source said;
+        // carto_code is OUR category and carries nothing about ownership or
+        // motorisation; land_status and use_type each answer one question.
+        val cats = ArrayList<String>(ids.size)
+        val lands = ArrayList<String>(ids.size)
+        val usets = ArrayList<String>(ids.size)
         for (i in ids.indices) {
             if (i % 2000 == 0) onProgress?.invoke(i, ids.size)
-            if (allPrivate(wkts[i], rings, grid)) flip.add(ids[i])
+            val cat = TrailClassifier.categoryOf(srcs[i], uses[i])
+            cats.add(cat)
+            usets.add(TrailClassifier.useOf(cat))
+            // ⭐ ANY PUBLIC SEGMENT WINS (Fred, 08-31): a feature with any
+            // sampled point on public land is PUBLIC. allPrivate() already
+            // samples every half mile plus both ends.
+            lands.add(if (allPrivate(wkts[i], rings, grid)) "PRIVATE" else "PUBLIC")
         }
         onProgress?.invoke(ids.size, ids.size)
-
-        if (flip.isEmpty()) {
-            Log.i(TAG, "step 8: nothing to reclassify")
-            return 0
-        }
 
         // ⚠ BOTH STORES. SpatialDbManager:1689 arbitrates between them
         // ("spatial wins only if it has a real value"), so leaving one behind
         // means the same trail disagrees with itself.
         var n = 0
+        var priv = 0
         sDb.beginTransaction()
         eDb.beginTransaction()
         try {
+            // ⛔ NO MORE `R - Residential Roads`. Fred, 08-31: "ownership is a
+            // SEPARATE FIELD, not folded into the category" -- folding it in is
+            // what made the old step 8 destroy identity, and 201 rows still
+            // cannot say what they used to be. A private road now KEEPS its
+            // category and answers PRIVATE on land_status.
             val s1 = sDb.compileStatement(
-                "UPDATE trails SET carto_code=? WHERE trail_id=?")
+                "UPDATE trails SET carto_code_source=?, carto_code=?, " +
+                    "land_status=?, use_type=? WHERE trail_id=?")
+            // ⚠ BOTH STORES. SpatialDbManager:1689 arbitrates between them
+            // ("spatial wins only if it has a real value"), so leaving one
+            // behind means the same trail disagrees with itself.
             val s2 = eDb.compileStatement(
                 "UPDATE trail_properties SET carto_code=? WHERE trail_id=?")
-            for (id in flip) {
-                s1.clearBindings(); s1.bindString(1, RESIDENTIAL); s1.bindString(2, id)
+            for (i in ids.indices) {
+                s1.clearBindings()
+                s1.bindString(1, srcs[i]); s1.bindString(2, cats[i])
+                s1.bindString(3, lands[i]); s1.bindString(4, usets[i])
+                s1.bindString(5, ids[i])
                 s1.executeUpdateDelete()
-                s2.clearBindings(); s2.bindString(1, RESIDENTIAL); s2.bindString(2, id)
+                s2.clearBindings()
+                s2.bindString(1, cats[i]); s2.bindString(2, ids[i])
                 s2.executeUpdateDelete()
+                if (lands[i] == "PRIVATE") priv++
                 n++
             }
             sDb.setTransactionSuccessful()
@@ -193,7 +249,7 @@ object OwnershipReclass {
             sDb.endTransaction()
         }
 
-        Log.i(TAG, "step 8 complete: $n of ${ids.size} -> $RESIDENTIAL " +
+        Log.i(TAG, "step 8 complete: $n classified, $priv private, " +
             "in ${(System.currentTimeMillis() - started) / 1000}s")
         return n
     }

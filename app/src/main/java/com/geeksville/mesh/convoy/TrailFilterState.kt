@@ -221,11 +221,23 @@ object TrailFilterState {
         // stops this hiding the entire OSM contribution.
         sb.append(" AND (status IS NULL OR status <> 'CLOSED')")
 
+        // CLASSIFYCOLS-2026-09-02: ⛔ NULL PASSES, IT DOES NOT FILTER.
+        // The columns exist now, but NOTHING POPULATES THEM yet -- classify4
+        // was written as the specification for the Kotlin import and never
+        // ported. A plain land_status='PUBLIC' matches nothing when every row
+        // is null, so a rider on the shipped default would get AN EMPTY MAP.
+        // ⚠ An empty map is not better than a crash; it is worse, because it
+        // looks like the data is gone.
+        // ⭐ So an unclassified row passes through and the app behaves as it did
+        // before any of this existed. Once the import populates them the nulls
+        // disappear and this costs nothing -- a floor, not a workaround.
         if (land == "PUBLIC" || land == "PRIVATE") {
-            sb.append(" AND land_status='").append(land).append("'")
+            sb.append(" AND (land_status IS NULL OR land_status='")
+                .append(land).append("')")
         }
         if (use == "MOTORIZED" || use == "NON-MOTORIZED") {
-            sb.append(" AND use_type='").append(use).append("'")
+            sb.append(" AND (use_type IS NULL OR use_type='")
+                .append(use).append("')")
         }
 
         // ⭐ UNOFFICIAL / UNCERTAIN is a ROW LIKE ANY OTHER in the panel, but it

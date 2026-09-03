@@ -275,6 +275,30 @@ object SpatialDbManager {
                 }
             }
 
+            // CLASSIFYCOLS-2026-09-02: ⛔ THE FOUR-FIELD CLASSIFICATION COLUMNS
+            // EXISTED ON EXACTLY ONE DEVICE. A Python script added land_status,
+            // use_type and carto_code_source to Droid 2 on 08-31; they were
+            // never put in a schema or a migration, and nothing in the app
+            // writes them. Droid 1 crashed on the first viewport query --
+            // "no such column: land_status" -- because the filter references
+            // them.
+            // ⚠ Each is probed SEPARATELY. A device that got one and not the
+            // others (there is at least one) must converge, and a single probe
+            // on the first column would skip the rest.
+            for (col in listOf("land_status", "use_type", "carto_code_source")) {
+                try {
+                    spatialDb!!.rawQuery("SELECT $col FROM trails LIMIT 1", null)
+                        .use { it.moveToFirst() }
+                } catch (_: Exception) {
+                    android.util.Log.i("SpatialDb", "Applying migration: $col on trails")
+                    try {
+                        spatialDb!!.execSQL("ALTER TABLE trails ADD COLUMN $col TEXT")
+                    } catch (e: Exception) {
+                        android.util.Log.w("SpatialDb", "$col column: ${e.message}")
+                    }
+                }
+            }
+
             // v3 migration: ensure routes columns on tracks table (routes share tracks table per decision log)
             // Routes are tracks with type='ROUTE'
 
