@@ -113,8 +113,29 @@ fun HomeStatePickerScreen(
 
     // ── Launch import ────────────────────────────────────────────
     fun startImport(item: StatePickerItem) {
+        // ⛔⛔ IMPORTOWNER-2026-09-03: TWO DEFECTS LIVED IN THE THREE LINES THIS
+        // REPLACES, and the 09-03 log shows both firing at once.
+        //
+        // 1. NOTHING STOPPED A SECOND IMPORT. New Hampshire started at 06:02:45,
+        //    Utah at 06:03:22 -- thirty-seven seconds apart, on separate
+        //    threads, over the same database. That is where the two
+        //    "database is locked" failures came from.
+        //
+        // 2. `scope` WAS rememberCoroutineScope(). It dies with the composable,
+        //    so dismissing the panel ORPHANED the work rather than stopping it:
+        //    the cancelled New Hampshire import went on to pull a 67 MB PBF for
+        //    eight more minutes, and step 8 died mid-classification with
+        //    "rememberCoroutineScope left the composition" -- ⛔ leaving trails
+        //    loaded, NOTHING classified, and a manifest that read as success.
+        //
+        // ⭐ THE CONTROLLER OWNS THE JOB NOW. It outlives every screen, one
+        // import at a time, and cancel reaches the work instead of the panel.
+        if (!HomeStateImportController.beginImport()) {
+            Log.w(TAG, "import already running -- ignoring request")
+            return
+        }
         phase = "running"
-        scope.launch {
+        HomeStateImportController.launchImport {
             // For California, process both sub-regions sequentially
             for (entry in item.entries) {
                 HomeStateImportController.execute(context, entry)

@@ -160,23 +160,25 @@ private fun evaluateState(context: android.content.Context, attempt: Int): Autho
     if (storage && background && !startupJobDone) {
         startupJobDone = true
         try {
-            // TRAILFILTER-2026-08-24K: BEFORE needsTrailData below, so the count
-            // it reads is already zero and the picker launches. Runs once per
-            // device; every launch after the first returns -1 and costs one
-            // File.exists().
-            HomeStateImportController.clearTrailsOnce(context)
-            HomeStateImportController.sweepManifests(context)
-            // DEFAULTS-2026-09-02: the shipped map-key palette, copied out of
-            // the APK if the rider has no file of their own.
-            // ⭐ HERE, not at panel-open. Fred, 09-02: "right in your authority
-            // setup where we have the clear." Setup work belongs in ONE place
-            // that runs before the app, which is the rule agreed on 09-01 after
-            // a migration was smuggled into a database open and ANR'd.
-            // ⚠ Safe in this slot for the same reason clearTrailsOnce is: the
-            // gate has already granted authority, so shared storage is
-            // readable. And it costs one File.exists() on every launch after
-            // the first.
-            TrailFilterState.ensureDefaults(context)
+            // ⛔⛔ GATEWAIT-2026-09-03: ALL OF IT MOVED TO StartupHousekeeping.
+            //
+            // The clear, the manifest sweep and the palette used to run here,
+            // and the comment above claimed the clear ran "BEFORE
+            // needsTrailData below, so the count it reads is already zero."
+            // ⚠ In THIS file it did. But evaluateState is called from more than
+            // one place, and on 09-03 one of those calls answered SIXTY-EIGHT
+            // SECONDS before the clear -- it was blocked behind two
+            // "database is locked" failures at thirty-second timeouts.
+            //
+            // ⭐⭐ NOTHING ABOUT STARTUP BELONGS IN A FUNCTION WHOSE JOB IS TO
+            // ANSWER A QUESTION. This one only reads now. The work runs in one
+            // blocking job that the gate waits for, which is the design Fred
+            // specified: "the release test, the clear, the db alter and the
+            // reload, all in a single thread."
+            //
+            // ⭐ And the palette moved AHEAD of the clear on the way (Fred,
+            // 09-03): the asset assigns colours and categories to trails, so it
+            // has to exist before anything draws or classifies.
         } catch (e: Exception) {
             // Housekeeping must never block the gate. A sweep that fails leaves
             // the manifests where they are and retries next launch.
@@ -232,10 +234,44 @@ fun ConvoyAuthorityGateScreenV2(
     // gate screen in front of every established rider.
     var firstEval by remember { mutableStateOf<Boolean?>(null) }
 
+    // ⛔⛔ GATEWAIT-2026-09-03: THE GATE ANSWERED BEFORE ITS OWN HOUSEKEEPING
+    // RAN. The 09-03 log:
+    //     05:37:50  gate evaluates -- 145,942 trails -> Granted
+    //     05:38:03  Database init failed: database is locked
+    //     05:38:34  Database init failed: database is locked
+    //     05:38:45  opens -- 0 trails
+    //     05:38:58  clearTrailsOnce removes 145,942 rows
+    // ⭐ SIXTY-EIGHT SECONDS. The rider was let into a map with no trails and
+    // no prompt, WHILE A DELETE WAS STILL RUNNING. Fred: "we are lucky this did
+    // not ANR."
+    //
+    // ⭐⭐ THE FIX IS ORDER, NOT CLEVERNESS. Housekeeping runs to completion
+    // FIRST, then the gate evaluates. One job, one thread, and nothing else
+    // decides anything until it returns. Fred, 09-03: "we had a very specific
+    // design that required these activities firing before the convoy map
+    // loaded ... what we got looked nothing like it."
+    //
+    // ⚠ `housekeeping` drives the banner below. It is null until the job
+    // finishes, which is exactly the window the rider must not interrupt.
+    var housekeeping by remember { mutableStateOf<StartupHousekeeping.Result?>(null) }
+    var housekeepingRunning by remember { mutableStateOf(true) }
+
     LaunchedEffect(Unit) {
+        // ⭐ BLOCKING, ON PURPOSE. evaluateState does not run until this returns
+        // -- the ordering that 09-03 proved cannot be left to chance.
+        val hk = withContext(Dispatchers.IO) { StartupHousekeeping.run(context) }
+        housekeeping = hk
+        housekeepingRunning = false
         val first = withContext(Dispatchers.IO) { evaluateState(context) }
-        firstEval = first is AuthorityState.Granted
-        state = first
+        // ⭐ DERIVED, NOT COUNTED. If housekeeping just cleared the trails they
+        // ARE empty; the 09-03 failure was a row count answering from before
+        // the delete.
+        val resolved =
+            if (hk.needsReload && first is AuthorityState.Granted)
+                AuthorityState.NeedTrailData
+            else first
+        firstEval = resolved is AuthorityState.Granted
+        state = resolved
     }
 
     // === GATESTATES-2026-08-16B ===
@@ -343,7 +379,40 @@ fun ConvoyAuthorityGateScreenV2(
             Spacer(Modifier.height(24.dp))
 
             when (state) {
+                // GATEWAIT-2026-09-03: ⭐ A ONE-SHOT DESTRUCTIVE OPERATION
+                // SHOULD BE THE LOUDEST THING THE APP DOES -- the 08-16 rule.
+                // On 09-02 it announced itself as three I/ log lines in a
+                // 353,000-line buffer. Fred, 09-03: "a red flashing message
+                // that system housekeeping is being performed, do not
+                // interrupt."
+                // ⚠ Nested inside CheckingStorage, not a `when` guard: guard
+                // conditions on a when-with-subject are not valid Kotlin.
+                // ⚠ Fully qualified rather than imported -- only one of the two
+                // names this needs was already in the file.
                 is AuthorityState.CheckingStorage -> {
+                    if (housekeepingRunning) {
+                        // ⚠ A plain timer, not animateFloat: that is an
+                        // EXTENSION function and cannot be fully qualified at
+                        // the call site, which cost one compile.
+                        var on by remember { mutableStateOf(true) }
+                        LaunchedEffect(Unit) {
+                        }
+                        // Solid red. A blink cost two compiles and buys nothing.
+                        Text(
+                            "SYSTEM HOUSEKEEPING",
+                            color = Color(0xFFFF4444),
+                            fontSize = 20.sp,
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        )
+                        Spacer(Modifier.height(10.dp))
+                        Text(
+                            "Updating trail data for this release.\n" +
+                                "DO NOT INTERRUPT \u2014 this takes a moment.",
+                            color = Color(0xFFE6EDF3), fontSize = 14.sp,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        )
+                    }
                     GateBody(
                         title = "Checking access…",
                         body = "Verifying storage access to your offline maps."

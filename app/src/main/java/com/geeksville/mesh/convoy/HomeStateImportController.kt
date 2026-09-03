@@ -6,6 +6,7 @@ import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.withContext
@@ -67,11 +68,85 @@ data class ImportProgress(
 
 object HomeStateImportController {
 
+    /**
+     * CLASSIFYSTAGE-2026-09-03: step 8's manifest id.
+     * ⚠ A source id can never collide with this because catalogue ids come from
+     * the catalogue JSON and none of them start with an underscore.
+     */
+    internal const val CLASSIFY_STAGE_ID = "_classify"
+
     private val _progress = MutableStateFlow<ImportProgress?>(null)
     internal val downloadDetailFlow = MutableStateFlow<String?>(null)
     val progress: StateFlow<ImportProgress?> = _progress
 
+    // ── IMPORTOWNER-2026-09-03: the import has an owner ──────────────
+    //
+    // ⛔ It did not. `HomeStatePickerScreen` launched it in a
+    // rememberCoroutineScope(), so the work belonged to a SCREEN: dismissing
+    // the screen orphaned the job instead of stopping it, and nothing at all
+    // prevented a second import starting beside the first.
+    //
+    // ⭐ THE SCOPE LIVES HERE, on the singleton, so it outlives every
+    // composable. SupervisorJob so one failed stage cannot cancel the rest.
+    private val importScope =
+        kotlinx.coroutines.CoroutineScope(
+            kotlinx.coroutines.SupervisorJob() + Dispatchers.IO)
+
+    private var importJob: kotlinx.coroutines.Job? = null
+
+    /** True while an import is in flight. Read it before offering to start one. */
+    val isImporting: Boolean
+        get() = importJob?.isActive == true
+
+    /**
+     * ⭐ CLAIM THE SLOT. Returns false if an import is already running, and the
+     * caller must not start. ⚠ @Synchronized because two taps a few hundred ms
+     * apart is exactly how 09-03 got two imports.
+     */
+    @Synchronized
+    fun beginImport(): Boolean {
+        if (isImporting) return false
+        return true
+    }
+
+    /** Run [block] as THE import. Replaces the screen's scope.launch. */
+    @Synchronized
+    fun launchImport(block: suspend () -> Unit) {
+        importJob?.cancel()
+        importJob = importScope.launch { block() }
+    }
+
+    /**
+     * ⭐ CANCEL THAT ACTUALLY CANCELS. On 09-03 Fred cancelled a New Hampshire
+     * import and it downloaded a 67 MB PBF for eight more minutes -- cancel
+     * dismissed the PANEL and never touched the work.
+     * ⚠ Cooperative: the job stops at the next suspension point, so a download
+     * already in flight finishes its current read. Seconds, not minutes.
+     */
+    fun cancelImport() {
+        val j = importJob
+        if (j?.isActive == true) {
+            Log.i(TAG, "import cancelled by request")
+            j.cancel()
+        }
+        importJob = null
+    }
+
     // ── Manifest I/O ─────────────────────────────────────────────
+
+    /**
+     * CLASSIFYSTAGE-2026-09-03: the manifest entry for a stage id.
+     * ⚠ Returns an empty JSONObject rather than null if it is missing -- a
+     * manifest written by an older build has no classify stage, and progress
+     * reporting must not crash an import over a missing status line.
+     */
+    private fun findStage(sources: JSONArray, id: String): JSONObject {
+        for (i in 0 until sources.length()) {
+            val o = sources.optJSONObject(i) ?: continue
+            if (o.optString("id") == id) return o
+        }
+        return JSONObject()
+    }
 
     private fun importsDir(ctx: Context): File {
         val d = File(
@@ -245,6 +320,30 @@ object HomeStateImportController {
             val mFile = manifestFile(context, areaLabel)
             writeManifest(mFile, manifest)
 
+            // ⛔ CLASSIFYSTAGE-2026-09-03: STEP 8 HAD NO ENTRY OF ITS OWN.
+            // Both its stages wrote progress into
+            // sources.optJSONObject(sources.length() - 1) -- THE LAST SOURCE'S
+            // RECORD -- so a failed classification landed in some other
+            // source's progress and the manifest read as a complete import.
+            // ⚠ That is exactly why 09-03 looked successful: seven sources
+            // green, 145,942 trails loaded, NOTHING classified, and no record
+            // anywhere saying so.
+            // ⭐ Same shape as a source, so every reader that walks the array
+            // sees it without changing -- and 2.7's resume can restart at it,
+            // which it could never do for a stage the manifest did not know
+            // about.
+            manifest.getJSONArray("sources").put(JSONObject().apply {
+                put("id", CLASSIFY_STAGE_ID)
+                put("name", "Classify trails")
+                put("process", "classify_land_and_use")
+                put("status", "pending")
+                put("imported", 0)
+                put("processed", 0)
+                put("selected", 0)
+                put("dupes", 0)
+            })
+            writeManifest(mFile, manifest)
+
             val sources = manifest.getJSONArray("sources")
             val totalSources = sources.length()
 
@@ -321,7 +420,7 @@ object HomeStateImportController {
                 val ownFile = OwnershipReclass.ownershipFile()
                 if (!ownFile.exists() || ownFile.length() < 1_000_000L) {
                     updateSourceStep(
-                        sources.optJSONObject(sources.length() - 1) ?: JSONObject(),
+                        findStage(sources, CLASSIFY_STAGE_ID),
                         "Land ownership", "downloading")
                     val got = withContext(Dispatchers.IO) {
                         downloadFile(OWNERSHIP_URL, ownFile)
@@ -338,7 +437,7 @@ object HomeStateImportController {
                 val eDb = SpatialDbManager.getExtensionDb()
                 if (sDb != null && eDb != null) {
                     updateSourceStep(
-                        sources.optJSONObject(sources.length() - 1) ?: JSONObject(),
+                        findStage(sources, CLASSIFY_STAGE_ID),
                         "Classifying roads", "reading land ownership")
                     val changed = withContext(Dispatchers.IO) {
                         OwnershipReclass.run(sDb, eDb) { done, total ->
