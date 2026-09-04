@@ -70,8 +70,15 @@ fun ConvoySubMenu(
         Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 32.dp)) {
 
             // ── CONVOY header — long press = developer settings ──────────
+            // MESHMENU-2026-09-04: ⭐ THE MENU SAYS WHAT IT IS FOR. Fred, 09-04:
+            // the sheet title becomes "Meshtastic Radio Setup". Everything left
+            // in it is radio work, and a rider with no radio can see at a glance
+            // that none of it is theirs.
+            // ⚠ The long-press to developer settings is UNCHANGED -- it is not
+            // discoverable and renaming the label would have quietly removed the
+            // only way in.
             Text(
-                text          = "GroupTrack",
+                text          = "Meshtastic Radio Setup",
                 color         = Color(0xFF97D5A5),
                 fontSize      = 13.sp,
                 fontFamily    = FontFamily.Monospace,
@@ -90,26 +97,26 @@ fun ConvoySubMenu(
                     )
             )
 
-            // ── EVENT / RIDE ─────────────────────────────────────────────
-            AccordionHeader(
-                label    = "EVENT / RIDE",
-                icon     = "🏁",
-                expanded = expanded == "EVENT_RIDE",
-                onClick  = { expanded = if (expanded == "EVENT_RIDE") null else "EVENT_RIDE" }
-            )
-            AnimatedVisibility(
-                visible = expanded == "EVENT_RIDE",
-                enter   = expandVertically(),
-                exit    = shrinkVertically()
+            // MESHMENU-2026-09-04: ⛔ NO MORE SUBMENUS. Fred, 09-04: "just show
+            // the five items."
+            // ⭐ With MAP SETTINGS gone there is one section left, and an
+            // accordion holding a single section is a closed door in front of
+            // the only room. Open the sheet, see the five things.
+            //
+            // ⭐⭐ AND THE LABELS NOW SAY WHAT THEY DO. A "ride" here is ONE
+            // THING: a radio config generated for a group and passed between
+            // them. Fred, 09-04: the full ride definition -- route selection,
+            // distribution, the calendar side -- lands in 3.0, and these names
+            // stay accurate when it does BECAUSE they describe the radio half
+            // specifically.
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 4.dp, bottom = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(start = 16.dp, top = 4.dp, bottom = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
                     SubMenuItem(
-                        label   = "Create a Ride",
+                        label   = "Create Rides Unique Radio Config",
                         enabled = true,
                         onClick = {
                             expanded = null
@@ -119,7 +126,7 @@ fun ConvoySubMenu(
                         }
                     )
                     SubMenuItem(
-                        label   = "Transfer Event/Ride Details via Email",
+                        label   = "Send Meshtastic Ride Config via email",
                         sub     = "Select a ride and send via email attachment",
                         enabled = true,
                         onClick = {
@@ -128,7 +135,7 @@ fun ConvoySubMenu(
                         }
                     )
                     SubMenuItem(
-                        label   = "Import Ride from Downloads",
+                        label   = "Import Meshtastic Ride Config from Email",
                         sub     = "Scan Downloads for .convoy files and import",
                         enabled = true,
                         onClick = {
@@ -138,7 +145,7 @@ fun ConvoySubMenu(
                         }
                     )
                     SubMenuItem(
-                        label   = "Apply Ride Info to Radio",
+                        label   = "Apply Meshtastic Config to your Radio",
                         sub     = "Apply master config or ride to connected radio",
                         enabled = true,
                         onClick = {
@@ -148,66 +155,21 @@ fun ConvoySubMenu(
                         }
                     )
                     SubMenuItem(
-                        label   = "Restore Prior Config Post Ride",
+                        label   = "Restore Saved config to your Radio",
                         sub     = "Select and restore from saved archive",
                         enabled = true,
                         onClick = { onDismiss(); onNavigateToArchiveRestore() }
                     )
-                }
             }
 
-            Spacer(Modifier.height(4.dp))
-
-            // ── MAP SETTINGS ─────────────────────────────────────────────
-            AccordionHeader(
-                label    = "MAP SETTINGS",
-                icon     = "🗺",
-                expanded = expanded == "MAP_SETTINGS",
-                onClick  = { expanded = if (expanded == "MAP_SETTINGS") null else "MAP_SETTINGS" }
-            )
-            AnimatedVisibility(
-                visible = expanded == "MAP_SETTINGS",
-                enter   = expandVertically(),
-                exit    = shrinkVertically()
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(start = 16.dp, top = 4.dp, bottom = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    SubMenuItem(
-                        label   = "Work With Tracks",
-                        sub     = "Rename, delete, share, export, fix dates",
-                        enabled = true,
-                        onClick = {
-                            expanded = null
-                            onNavigateToTrackExport()
-                        }
-                    )
-                    SubMenuItem(
-                        label   = "Planning Map",
-                        sub     = "View trails and recorded tracks",
-                        enabled = true,
-                        onClick = {
-                            expanded = null
-                            onNavigateToMapViewer()
-                        }
-                    )
-                    SubMenuItem(
-                        label   = "Upload Maps to AWS",
-                        sub     = "Sync tile areas to GroupTrack cloud — Coming in V2.4.2",
-                        enabled = false,
-                        onClick = {}
-                    )
-                    SubMenuItem(
-                        label   = "Download Maps from AWS",
-                        sub     = "Restore tile areas from GroupTrack cloud — Coming in V2.4.2",
-                        enabled = false,
-                        onClick = {}
-                    )
-                }
-            }
+            // MESHMENU-2026-09-04: ⛔ MAP SETTINGS REMOVED ENTIRELY.
+            // ⚠ It held Work With Tracks, Planning Map, and two disabled AWS
+            // items promised for V2.4.2. Fred, 09-04: the live ones are "all
+            // repositioned elsewhere in the current navigation" -- checked
+            // before cutting, because removing the only route to the planner
+            // would have stranded it.
+            // ⭐ The AWS pair went with it. A menu item that has said "coming
+            // soon" since V2.4.2 is not a promise, it is furniture.
 
             Spacer(Modifier.height(12.dp))
 

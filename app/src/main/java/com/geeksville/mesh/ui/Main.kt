@@ -61,6 +61,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import com.geeksville.mesh.convoy.MeshNavFold
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
@@ -267,7 +269,32 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
                 },
             )
         }
-    val navSuiteType = NavigationSuiteScaffoldDefaults.navigationSuiteType(currentWindowAdaptiveInfo())
+    val computedSuiteType =
+        NavigationSuiteScaffoldDefaults.navigationSuiteType(currentWindowAdaptiveInfo())
+
+    // ⭐⭐ MESHFOLD-2026-09-04: THE FIRST CUT ALONG THE 2.7 LINE.
+    //
+    // Fred, 09-04: this is "the start of separating the mesh product from the
+    // core GroupTrack, and the shape of what the plugin delivers." Whatever
+    // hides behind this strip is, roughly, what the plugin will own -- and
+    // drawing that boundary in the UI first means living with it before
+    // committing to it in code.
+    //
+    // ⛔ THE IMMEDIATE PROBLEM IT SOLVES: a rider with no radio opens the app
+    // and sees a navigation rail full of Meshtastic destinations that mean
+    // nothing to them. The Quick Start's first job was going to be explaining
+    // that away. Better to let them fold it.
+    //
+    // ⭐ NOT A RIDER-TYPE SETTING. Earlier designs wanted the app to know which
+    // kind of rider it had; this needs nothing of the sort. They decide, it
+    // sticks.
+    // ⚠ AND IT NEVER HIDES COMPLETELY -- the strip is always there, so a rider
+    // who folds it can always get back. A control that can remove its own way
+    // home is a trap.
+    val ctx = LocalContext.current
+    var meshFolded by remember { mutableStateOf(MeshNavFold.isFolded(ctx)) }
+    val navSuiteType =
+        if (meshFolded) NavigationSuiteType.None else computedSuiteType
     val currentDestination = navController.currentBackStackEntryAsState().value?.destination
     val topLevelDestination = TopLevelDestination.fromNavDestination(currentDestination)
 
@@ -306,6 +333,9 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
 
     NavigationSuiteScaffold(
         modifier = Modifier.fillMaxSize(),
+        // MESHFOLD-2026-09-04: ⚠ EXPLICIT NOW. It defaulted to the computed
+        // value, so folding had nowhere to take effect.
+        layoutType = navSuiteType,
         navigationSuiteItems = {
             TopLevelDestination.entries
             .filter { it != TopLevelDestination.EventRideServices || ConvoyConfig.V3_FEATURES_ENABLED }
@@ -409,7 +439,10 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
                     selected = isSelected,
                     label = {
                         Text(
-                            text = when (destination) { TopLevelDestination.Convoy -> "GroupTrack"; TopLevelDestination.EventRideServices -> "Services"; else -> stringResource(destination.label) },
+                            // MESHFOLD-2026-09-04: ⭐ the tab says what it opens.
+                        // Fred, 09-04: "GroupTrack" told a rider nothing -- the
+                        // sheet behind it is radio setup and nothing else.
+                        text = when (destination) { TopLevelDestination.Convoy -> "GroupTrack Mesh Radio Setup"; TopLevelDestination.EventRideServices -> "Services"; else -> stringResource(destination.label) },
                             modifier =
                             if (navSuiteType == NavigationSuiteType.ShortNavigationBarCompact) {
                                 Modifier.width(1.dp)
@@ -480,6 +513,10 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
             }
         },
     ) {
+        // MESHFOLD-2026-09-04: the fold controls, over the content.
+        // ⚠ A Box so the strip OVERLAYS rather than displacing -- the NavHost
+        // keeps the whole window and the strip sits on top of its left edge.
+        androidx.compose.foundation.layout.Box(Modifier.fillMaxSize()) {
         NavHost(
             navController = navController,
             startDestination = ConvoyRoutes.ConvoyAuthorityGate,
@@ -549,6 +586,23 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
                     navController.navigate(ConvoyRoutes.ConvoyFieldRadio)
                 }
             )
+
+            // MESHFOLD-2026-09-04: the fold control. ⭐ The composable lives in
+            // the convoy package, so this file's diff stays four lines -- it is
+            // UPSTREAM Meshtastic code and every line changed here is a rebase
+            // conflict later.
+            com.geeksville.mesh.convoy.MeshFoldControl(
+                folded = meshFolded,
+                onToggle = { f ->
+                    meshFolded = f
+                    com.geeksville.mesh.convoy.MeshNavFold.setFolded(ctx, f)
+                },
+                modifier = Modifier.align(
+                    if (meshFolded) androidx.compose.ui.Alignment.CenterStart
+                    else androidx.compose.ui.Alignment.TopStart
+                ).padding(top = if (meshFolded) 0.dp else 6.dp)
+            )
+        }
         }
     }
 }
