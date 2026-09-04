@@ -49,19 +49,50 @@ object MeshNavFold {
     private fun file(): File = File(SpatialDbManager.dbDir(), FILE)
 
     /**
+     * MESHBTN-2026-09-04: ⭐⭐ COMPOSE STATE, NOT A PLAIN FIELD.
+     *
+     * Both Main.kt (the rail) and the map screens (the Mesh button that brings
+     * it back) read this, so it cannot be local to either.
+     *
+     * ⛔ AND IT IS mutableStateOf ON PURPOSE. TrailFilterState is a plain
+     * singleton, and every composable reading it has to take a `tick`
+     * parameter or Compose skips the recomposition — that cost EIGHT BUILDS on
+     * 09-02, with taps registering and the screen never moving. Compose
+     * observes this one directly and no counter is needed anywhere.
+     *
+     * ⚠ Backed by the file, so it survives a restart. The state is the truth
+     * in memory; the file is the truth across launches.
+     */
+    private val _folded = androidx.compose.runtime.mutableStateOf(false)
+    private var loaded = false
+
+    /** Read this from a composable — Compose recomposes when it changes. */
+    val folded: Boolean get() = _folded.value
+
+    /**
      * ⚠ DEFAULTS TO FALSE — the rail shows until a rider folds it. A new
      * install must not hide navigation nobody asked to hide; the Meshtastic
      * rider would have no idea it existed.
      */
-    fun isFolded(ctx: Context): Boolean = try {
-        file().exists()
-    } catch (e: Exception) {
-        Log.w(TAG, "isFolded: ${e.message}")
-        false
+    fun isFolded(ctx: Context): Boolean {
+        if (!loaded) {
+            _folded.value = try {
+                file().exists()
+            } catch (e: Exception) {
+                Log.w(TAG, "isFolded: ${e.message}")
+                false
+            }
+            loaded = true
+        }
+        return _folded.value
     }
 
     /** ⚠ Presence IS the flag — no contents to parse and nothing to corrupt. */
     fun setFolded(ctx: Context, folded: Boolean) {
+        // ⭐ The in-memory state moves FIRST, so every composable reading it
+        // recomposes immediately rather than waiting on a file write.
+        _folded.value = folded
+        loaded = true
         try {
             val f = file()
             if (folded) {
@@ -77,67 +108,11 @@ object MeshNavFold {
     }
 }
 
-/**
- * MESHFOLD-2026-09-04: the fold control, as its own composable.
- *
- * ⭐ IT LIVES HERE, NOT IN Main.kt, ON PURPOSE. Main.kt is UPSTREAM Meshtastic
- * code and every line changed there is a rebase conflict later. This keeps that
- * file's diff to four lines — and when 2.7 lifts mesh out as a plugin, the
- * boundary is already drawn around this file rather than tangled through
- * someone else's.
- *
- * ⚠ Two states, one composable. Folded: a strip reading OPEN MESHTASTIC.
- * Unfolded: a small chevron at the top of the rail to fold it again.
- * ⛔ NEITHER STATE CAN HIDE ITS OWN WAY BACK. A control that removes the route
- * to itself is a trap, and folded navigation with no visible handle is exactly
- * that.
- */
-@Composable
-fun MeshFoldControl(
-    folded: Boolean,
-    onToggle: (Boolean) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    if (folded) {
-        // ⭐ "OPEN MESHTASTIC" — Fred, 09-04, correcting "OPEN MESH": once IP
-        // transport arrives, "mesh" describes that too. Meshtastic names the
-        // actual thing and stays correct.
-        // ⚠ Vertically centred, clear of the map controls that live in the top
-        // corners.
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier = modifier
-                .width(24.dp)
-                .height(210.dp)
-                .clip(RoundedCornerShape(topEnd = 6.dp, bottomEnd = 6.dp))
-                .background(Color(0xEE141B23))
-                .border(1.dp, Color(0xFF2F3945),
-                    RoundedCornerShape(topEnd = 6.dp, bottomEnd = 6.dp))
-                .clickable { onToggle(false) }
-        ) {
-            Text(
-                "\u25B8  OPEN MESHTASTIC",
-                color = Color(0xFF8FD0FF),
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold,
-                // ⚠ Rotated 90°, so it reads top-to-bottom down the strip.
-                modifier = Modifier.rotate(90f).width(200.dp)
-            )
-        }
-    } else {
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier = modifier
-                .width(30.dp)
-                .height(26.dp)
-                .clip(RoundedCornerShape(4.dp))
-                .background(Color(0xEE141B23))
-                .border(1.dp, Color(0xFF2F3945), RoundedCornerShape(4.dp))
-                .clickable { onToggle(true) }
-                .padding(1.dp)
-        ) {
-            Text("\u25C2", color = Color(0xFF8FD0FF), fontSize = 13.sp,
-                fontWeight = FontWeight.Bold)
-        }
-    }
-}
+// MESHBTN-2026-09-04: ⛔ MeshFoldControl IS GONE. The folded strip on the left
+// edge rendered inside the scaffold's content and the map WebView drew over it,
+// so a rider who folded the rail had no visible way back. Fred: "how do I bring
+// it back... looked good with it missing."
+// ⭐ Replaced by a "Mesh" launcher in the RIGHT-HAND COLUMN of each map, with
+// Map Features, Map Keys, Search and Help — where every other GroupTrack
+// control already lives, where it cannot be covered, and where a rider is
+// already looking. It shows only while the rail is folded.

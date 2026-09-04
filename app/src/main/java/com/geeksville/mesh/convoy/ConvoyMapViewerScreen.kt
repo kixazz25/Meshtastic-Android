@@ -1920,6 +1920,45 @@ fun ConvoyMapViewerScreen(
                     )
                 }
             }
+
+            // MESHBTN-2026-09-04: ⭐ BRING THE RADIO NAVIGATION BACK, from the column
+            // where every other GroupTrack control already lives.
+            // ⛔ The folded strip on the left edge could not be seen -- it rendered
+            // inside the scaffold's content and the map WebView drew over it. Fred:
+            // "how do I bring it back... looked good with it missing."
+            // ⭐ Here it cannot be covered, and it sits where a rider already looks.
+            // ⚠ ONLY WHILE FOLDED (Fred): no dead control when the rail is showing.
+            if (com.geeksville.mesh.convoy.MeshNavFold.folded) {
+                androidx.compose.material3.Surface(
+                    onClick = {
+                        com.geeksville.mesh.convoy.MeshNavFold.setFolded(context, false)
+                    },
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp),
+                    color = Color.Transparent,
+                    contentColor = Color(0xFFFF00FF),
+                    modifier = Modifier.align(Alignment.TopEnd)
+                        .padding(top = 220.dp, end = 12.dp)
+                ) {
+                    androidx.compose.foundation.layout.Box(
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            "Mesh",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            style = androidx.compose.ui.text.TextStyle(
+                                shadow = androidx.compose.ui.graphics.Shadow(
+                                    color = androidx.compose.ui.graphics.Color.White,
+                                    offset = androidx.compose.ui.geometry.Offset(0f, 0f),
+                                    blurRadius = 6f
+                                )
+                            ),
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp)
+                        )
+                    }
+                }
+            }
+
             // -- "?" HELP BUTTON (opens bundled release notes / manual) --
             androidx.compose.material3.Surface(
                 onClick = { showDocsChooser = true },

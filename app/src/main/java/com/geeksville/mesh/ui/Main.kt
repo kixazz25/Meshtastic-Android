@@ -293,8 +293,15 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
     // ⚠ AND IT NEVER HIDES COMPLETELY -- the strip is always there, so a rider
     // who folds it can always get back. A control that can remove its own way
     // home is a trap.
+    // MESHBTN-2026-09-04: ⚠ THE STATE MOVED INTO MeshNavFold. It was local
+    // here, so the map screens -- which host the "Mesh" button that brings the
+    // rail back -- could not see it.
+    // ⭐ And it is Compose state there, not a plain field: TrailFilterState is a
+    // plain singleton and every reader needs a `tick` parameter or the screen
+    // never moves. That cost EIGHT BUILDS on 09-02.
     val ctx = LocalContext.current
-    var meshFolded by remember { mutableStateOf(MeshNavFold.isFolded(ctx)) }
+    MeshNavFold.isFolded(ctx)          // loads the saved choice once
+    val meshFolded = MeshNavFold.folded
     val navSuiteType =
         if (meshFolded) NavigationSuiteType.None else computedSuiteType
     val currentDestination = navController.currentBackStackEntryAsState().value?.destination
@@ -532,10 +539,7 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
                 },
                 selected = false,
                 label = { Text("Hide Mesh") },
-                onClick = {
-                    meshFolded = true
-                    MeshNavFold.setFolded(ctx, true)
-                },
+                onClick = { MeshNavFold.setFolded(ctx, true) },
             )
         },
     ) {
@@ -617,19 +621,11 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
             // the convoy package, so this file's diff stays four lines -- it is
             // UPSTREAM Meshtastic code and every line changed here is a rebase
             // conflict later.
-            // MESHFOLD2-2026-09-04: ⚠ ONLY THE FOLDED STRIP LIVES HERE NOW.
-            // The unfold control moved into the rail, where it cannot be
-            // covered -- so this renders nothing when the rail is showing.
-            if (meshFolded) {
-                com.geeksville.mesh.convoy.MeshFoldControl(
-                    folded = true,
-                    onToggle = { f ->
-                        meshFolded = f
-                        com.geeksville.mesh.convoy.MeshNavFold.setFolded(ctx, f)
-                    },
-                    modifier = Modifier.align(androidx.compose.ui.Alignment.CenterStart)
-                )
-            }
+            // MESHBTN-2026-09-04: ⛔ THE STRIP IS GONE. It rendered here, inside
+            // the scaffold's content, and the map WebView drew over it -- so a
+            // rider who folded the rail had no visible way back.
+            // ⭐ The "Mesh" launcher in each map's right-hand column replaces
+            // it, beside Map Features and Help, where nothing can cover it.
         }
         }
     }
