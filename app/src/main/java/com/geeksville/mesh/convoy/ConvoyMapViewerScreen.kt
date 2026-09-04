@@ -3258,8 +3258,25 @@ fun ConvoyMapViewerScreen(
                              * something, and two routes from one batch differ in
                              * both, so they stay unique without the rider naming
                              * each one. */
-                            val nm = area.trim() + " Mi. " + Math.round(r.miles) +
-                                " Pts. " + r.features.size
+                            // ROUTESEQ-2026-09-04: ⭐ NAME PLUS A SEQUENCE
+                            // NUMBER. Fred, 09-04: testers type one name and
+                            // then save SEVERAL routes from the same batch --
+                            // "my fault, I thought they would save one trail,
+                            // but they are saving multiples."
+                            // ⭐ The miles and points came OUT of the name. They
+                            // were there because there was nowhere else to see
+                            // them; tapping a route now shows distance and
+                            // riding time, so the name can just be a name.
+                            // ⚠ The count is of EXISTING SAVED ROUTES, not of
+                            // this batch -- three saved today are 1..3 and two
+                            // more next week are 4 and 5, with no collision
+                            // against anything already on the device.
+                            // ⚠ OLD ROUTES KEEP THEIR OLD NAMES. Renaming them
+                            // would touch route identity -- name takes part in
+                            // UNIQUE(name, geom_hash) -- for no gain.
+                            val base = area.trim()
+                            val nm = base + " " +
+                                (SpatialDbManager.routeNameCount(base) + 1)
                             val id = SpatialDbManager.insertRoute(
                                 nm, wkt, bbox[0], bbox[1], bbox[2], bbox[3])
                             // ⛔ notes BEFORE the delete -- the narrative and the

@@ -1344,6 +1344,40 @@ object SpatialDbManager {
      * Case-insensitive, trimmed. Used by RouteDraftStore.isNameTaken to enforce the
      * demand-unique-name rule across drafts + routes DB.
      */
+    /**
+     * ROUTESEQ-2026-09-04: how many saved routes already start with [base]?
+     *
+     * ⭐ Testers type ONE name and save SEVERAL routes from a batch, so the
+     * saved name gets a sequence number. Counting what is ALREADY SAVED rather
+     * than numbering within the batch means three today are 1..3 and two more
+     * next week are 4 and 5 -- no collision with anything on the device.
+     *
+     * ⚠ LIKE, not equality: the stored names carry the number, so
+     * "Broken Ridge Route 2" must count against a base of "Broken Ridge Route".
+     * ⚠ The base is escaped for LIKE -- a name containing % or _ would
+     * otherwise match far more than it should, and rider-typed names can
+     * contain anything.
+     */
+    fun routeNameCount(base: String): Int {
+        val db = spatialDb ?: return 0
+        val needle = base.trim()
+        if (needle.isEmpty()) return 0
+        return try {
+            val esc = needle.replace("\\", "\\\\")
+                .replace("%", "\\%").replace("_", "\\_")
+            var n = 0
+            db.rawQuery(
+                "SELECT COUNT(*) FROM routes WHERE name IS NOT NULL " +
+                    "AND lower(trim(name)) LIKE lower(?) ESCAPE '\\'",
+                arrayOf("$esc%")
+            ).use { c -> if (c.moveToFirst()) n = c.getInt(0) }
+            n
+        } catch (e: Exception) {
+            android.util.Log.w("SpatialDb", "routeNameCount: ${e.message}")
+            0
+        }
+    }
+
     fun routeNameExists(name: String): Boolean {
         val db = spatialDb ?: return false
         val needle = name.trim()

@@ -61,6 +61,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalContext
 import com.geeksville.mesh.convoy.MeshNavFold
 import androidx.compose.ui.draw.drawWithCache
@@ -511,6 +513,30 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
                     },
                 )
             }
+
+            // MESHFOLD2-2026-09-04: ⛔ THE CHEVRON WAS INVISIBLE. It was drawn in
+            // the scaffold's CONTENT, and the scaffold draws the rail OUTSIDE
+            // that content -- so the control sat to the right of the rail or
+            // under it. Fred: "chevron does not appear."
+            // ⭐ IT BELONGS IN THE RAIL. As an item it sits with the
+            // destinations it hides, cannot be covered by them, and reads as a
+            // labelled control rather than a glyph to decode. Fred, 09-04:
+            // "put the control under the mesh radio setup with text that says
+            // collapse or hide mesh."
+            // ⚠ Arrow LEFT to collapse, arrow RIGHT to expand -- directional, so
+            // it reads as motion rather than a symbol to learn.
+            item(
+                icon = {
+                    Text("\u25C2", fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold)
+                },
+                selected = false,
+                label = { Text("Hide Mesh") },
+                onClick = {
+                    meshFolded = true
+                    MeshNavFold.setFolded(ctx, true)
+                },
+            )
         },
     ) {
         // MESHFOLD-2026-09-04: the fold controls, over the content.
@@ -591,17 +617,19 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
             // the convoy package, so this file's diff stays four lines -- it is
             // UPSTREAM Meshtastic code and every line changed here is a rebase
             // conflict later.
-            com.geeksville.mesh.convoy.MeshFoldControl(
-                folded = meshFolded,
-                onToggle = { f ->
-                    meshFolded = f
-                    com.geeksville.mesh.convoy.MeshNavFold.setFolded(ctx, f)
-                },
-                modifier = Modifier.align(
-                    if (meshFolded) androidx.compose.ui.Alignment.CenterStart
-                    else androidx.compose.ui.Alignment.TopStart
-                ).padding(top = if (meshFolded) 0.dp else 6.dp)
-            )
+            // MESHFOLD2-2026-09-04: ⚠ ONLY THE FOLDED STRIP LIVES HERE NOW.
+            // The unfold control moved into the rail, where it cannot be
+            // covered -- so this renders nothing when the rail is showing.
+            if (meshFolded) {
+                com.geeksville.mesh.convoy.MeshFoldControl(
+                    folded = true,
+                    onToggle = { f ->
+                        meshFolded = f
+                        com.geeksville.mesh.convoy.MeshNavFold.setFolded(ctx, f)
+                    },
+                    modifier = Modifier.align(androidx.compose.ui.Alignment.CenterStart)
+                )
+            }
         }
         }
     }
