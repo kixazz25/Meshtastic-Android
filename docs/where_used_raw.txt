@@ -1448,6 +1448,7 @@ convoy/ConvoyApplyListScreen.kt:461:            fontFamily = FontFamily.Monospac
 convoy/ConvoyApplyListScreen.kt:463:            fontFamily = FontFamily.Monospace, modifier = Modifier.weight(2f))
 convoy/ConvoyApplyListScreen.kt:468:private fun ConfirmRow(field: String, current: String, newVal: String, rule: String, changing: Boolean) {
 convoy/ConvoyApplyListScreen.kt:469:    val ruleColor = when (rule) {
+convoy/ConvoyApplyListScreen.kt:472:        "RIDE FILE"    -> Color(0xFFF9C835)
 convoy/ConvoyApplyListScreen.kt:479:        shape    = RoundedCornerShape(6.dp),
 convoy/ConvoyApplyListScreen.kt:486:                fontWeight = FontWeight.Bold, modifier = Modifier.weight(2f))
 convoy/ConvoyApplyListScreen.kt:487:            Text(current, color = Color(0xFF8B938A), fontSize = 9.sp,
@@ -1768,6 +1769,7 @@ convoy/ConvoyApplyRadioScreen.kt:550:            fontFamily = FontFamily.Monospa
 convoy/ConvoyApplyRadioScreen.kt:552:            fontFamily = FontFamily.Monospace, modifier = Modifier.weight(2f))
 convoy/ConvoyApplyRadioScreen.kt:557:private fun ConfirmRow(field: String, current: String, newVal: String, rule: String, changing: Boolean) {
 convoy/ConvoyApplyRadioScreen.kt:558:    val ruleColor = when (rule) {
+convoy/ConvoyApplyRadioScreen.kt:561:        "RIDE FILE"      -> Color(0xFFF9C835)
 convoy/ConvoyApplyRadioScreen.kt:568:        shape = RoundedCornerShape(6.dp),
 convoy/ConvoyApplyRadioScreen.kt:574:                fontWeight = FontWeight.Bold, modifier = Modifier.weight(2f))
 convoy/ConvoyApplyRadioScreen.kt:575:            Text(current, color = Color(0xFF8B938A), fontSize = 9.sp,
@@ -2364,9 +2366,11 @@ convoy/ConvoyAuthorityGateScreenV2.kt:436:                            "\"Allow a
 convoy/ConvoyAuthorityGateScreenV2.kt:439:                    GateButton("Grant all-files access") {
 convoy/ConvoyAuthorityGateScreenV2.kt:442:                        settingsVisited = true
 convoy/ConvoyAuthorityGateScreenV2.kt:445:                            val intent = Intent(
+convoy/ConvoyAuthorityGateScreenV2.kt:446:                                Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
 convoy/ConvoyAuthorityGateScreenV2.kt:447:                                Uri.parse("package:" + context.packageName)
 convoy/ConvoyAuthorityGateScreenV2.kt:449:                            context.startActivity(intent)
 convoy/ConvoyAuthorityGateScreenV2.kt:455:                                context.startActivity(
+convoy/ConvoyAuthorityGateScreenV2.kt:456:                                    Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
 convoy/ConvoyAuthorityGateScreenV2.kt:458:                            } catch (_: Exception) { /* no-op: user can retry */ }
 convoy/ConvoyAuthorityGateScreenV2.kt:463:                is AuthorityState.StorageDeclined -> {
 convoy/ConvoyAuthorityGateScreenV2.kt:469:                    GateBody(
@@ -2380,9 +2384,11 @@ convoy/ConvoyAuthorityGateScreenV2.kt:476:                            "as you le
 convoy/ConvoyAuthorityGateScreenV2.kt:479:                    GateButton("Try again") {
 convoy/ConvoyAuthorityGateScreenV2.kt:480:                        settingsVisited = true
 convoy/ConvoyAuthorityGateScreenV2.kt:482:                            val intent = Intent(
+convoy/ConvoyAuthorityGateScreenV2.kt:483:                                Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
 convoy/ConvoyAuthorityGateScreenV2.kt:484:                                Uri.parse("package:" + context.packageName)
 convoy/ConvoyAuthorityGateScreenV2.kt:486:                            context.startActivity(intent)
 convoy/ConvoyAuthorityGateScreenV2.kt:489:                                context.startActivity(
+convoy/ConvoyAuthorityGateScreenV2.kt:490:                                    Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
 convoy/ConvoyAuthorityGateScreenV2.kt:492:                            } catch (_: Exception) { /* no-op: user can retry */ }
 convoy/ConvoyAuthorityGateScreenV2.kt:497:                is AuthorityState.NeedBackground -> {
 convoy/ConvoyAuthorityGateScreenV2.kt:498:                    GateBody(
@@ -3849,6 +3855,7 @@ convoy/ConvoyDashboardScreen.kt:105:                    if (firstName.isNotEmpty
 convoy/ConvoyDashboardScreen.kt:112:                                text = "WELCOME, ${firstName.uppercase()}",
 convoy/ConvoyDashboardScreen.kt:113:                                color = GroupTrackColors.SkyBlue,
 convoy/ConvoyDashboardScreen.kt:115:                                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+convoy/ConvoyDashboardScreen.kt:121:                                text = "PROFILE \u2192",
 convoy/ConvoyDashboardScreen.kt:125:                                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
 convoy/ConvoyDashboardScreen.kt:128:                                    .background(Color(0xFF1A3050))
 convoy/ConvoyDashboardScreen.kt:129:                                    .clickable { onNavigateToProfile() }
@@ -3869,6 +3876,7 @@ convoy/ConvoyDashboardScreen.kt:182:                if (ConvoyConfig.V3_FEATURES
 convoy/ConvoyDashboardScreen.kt:187:                            .background(Color(0xFF1A3050))
 convoy/ConvoyDashboardScreen.kt:188:                            .clickable { showDevMenu = true }
 convoy/ConvoyDashboardScreen.kt:194:                if (!isSubscribed) {
+convoy/ConvoyDashboardScreen.kt:202:                    text = "PROFILE \u2192",
 convoy/ConvoyDashboardScreen.kt:204:                    modifier = Modifier.clickable { onNavigateToProfile() }
 convoy/ConvoyDashboardScreen.kt:210:        if (showDevMenu) {
 convoy/ConvoyDashboardScreen.kt:211:            androidx.compose.ui.window.Dialog(onDismissRequest = { showDevMenu = false }) {
@@ -6692,6 +6700,7 @@ convoy/ConvoyEnrollment.kt:253:                            ConvoyUserStore.save(
 convoy/ConvoyEnrollment.kt:254:                            ConvoyUserStore.setActiveUser(context, user.userId)
 convoy/ConvoyEnrollment.kt:258:                shape = RoundedCornerShape(12.dp),
 convoy/ConvoyEnrollment.kt:259:                color = if (allFilled) Color(0xFF15512C) else Color(0xFF101510)
+convoy/ConvoyEnrollment.kt:262:                    text = "CREATE PROFILE",
 convoy/ConvoyEnrollment.kt:263:                    color = if (allFilled) Color(0xFF97D5A5) else Color(0xFF262B26),
 convoy/ConvoyEnrollment.kt:276:                text = "Your profile is valid for one year from creation.",
 convoy/ConvoyEnrollment.kt:291:fun ConvoyTextField(
@@ -12325,6 +12334,7 @@ convoy/ConvoyProfileScreen.kt:150:                        uncheckedThumbColor = 
 convoy/ConvoyProfileScreen.kt:151:                        uncheckedTrackColor = Color(0xFF0A1628)
 convoy/ConvoyProfileScreen.kt:161:                    .background(GroupTrackColors.SkyBlue)
 convoy/ConvoyProfileScreen.kt:162:                    .clickable { /* Phase C: PUT /users/profile */ }
+convoy/ConvoyProfileScreen.kt:167:                    text = "SAVE PROFILE",
 convoy/ConvoyProfileScreen.kt:168:                    color = GroupTrackColors.Navy, fontSize = 14.sp,
 convoy/ConvoyProfileScreen.kt:174:            if (!isSubscribed) {
 convoy/ConvoyProfileScreen.kt:178:                        .background(Color(0xFF1A0A00))
@@ -13909,9 +13919,11 @@ convoy/ConvoyScreen.kt:477:            text = { Text("GroupTrack needs file acce
 convoy/ConvoyScreen.kt:478:            confirmButton = {
 convoy/ConvoyScreen.kt:480:                    showStoragePermissionDialog = false
 convoy/ConvoyScreen.kt:482:                        val intent = android.content.Intent(
+convoy/ConvoyScreen.kt:483:                            android.provider.Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
 convoy/ConvoyScreen.kt:484:                            android.net.Uri.parse("package:" + context.packageName)
 convoy/ConvoyScreen.kt:486:                        context.startActivity(intent)
 convoy/ConvoyScreen.kt:488:                        val intent = android.content.Intent(
+convoy/ConvoyScreen.kt:489:                            android.provider.Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION
 convoy/ConvoyScreen.kt:491:                        context.startActivity(intent)
 convoy/ConvoyScreen.kt:496:                TextButton(onClick = { showStoragePermissionDialog = false }) { Text("Later") }
 convoy/ConvoyScreen.kt:502:    pendingDownload?.let { pending ->
@@ -16357,76 +16369,49 @@ convoy/ConvoySubMenu.kt:62:        onDismissRequest = onDismiss,
 convoy/ConvoySubMenu.kt:63:        sheetState       = sheetState,
 convoy/ConvoySubMenu.kt:65:        shape            = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
 convoy/ConvoySubMenu.kt:68:        var expanded by remember { mutableStateOf<String?>(null) }
-convoy/ConvoySubMenu.kt:94:            AccordionHeader(
-convoy/ConvoySubMenu.kt:96:                icon     = "🏁",
-convoy/ConvoySubMenu.kt:97:                expanded = expanded == "EVENT_RIDE",
-convoy/ConvoySubMenu.kt:98:                onClick  = { expanded = if (expanded == "EVENT_RIDE") null else "EVENT_RIDE" }
-convoy/ConvoySubMenu.kt:101:                visible = expanded == "EVENT_RIDE",
-convoy/ConvoySubMenu.kt:108:                        .padding(start = 16.dp, top = 4.dp, bottom = 8.dp),
-convoy/ConvoySubMenu.kt:111:                    SubMenuItem(
-convoy/ConvoySubMenu.kt:113:                        enabled = true,
-convoy/ConvoySubMenu.kt:115:                            expanded = null
-convoy/ConvoySubMenu.kt:116:                            onCreateEventRide()
-convoy/ConvoySubMenu.kt:121:                    SubMenuItem(
-convoy/ConvoySubMenu.kt:122:                        label   = "Transfer Event/Ride Details via Email",
-convoy/ConvoySubMenu.kt:123:                        sub     = "Select a ride and send via email attachment",
-convoy/ConvoySubMenu.kt:124:                        enabled = true,
-convoy/ConvoySubMenu.kt:126:                            expanded = null
-convoy/ConvoySubMenu.kt:130:                    SubMenuItem(
-convoy/ConvoySubMenu.kt:131:                        label   = "Import Ride from Downloads",
-convoy/ConvoySubMenu.kt:132:                        sub     = "Scan Downloads for .convoy files and import",
-convoy/ConvoySubMenu.kt:133:                        enabled = true,
-convoy/ConvoySubMenu.kt:135:                            expanded = null
-convoy/ConvoySubMenu.kt:137:                            onImportFromDownloads()
-convoy/ConvoySubMenu.kt:140:                    SubMenuItem(
-convoy/ConvoySubMenu.kt:142:                        sub     = "Apply master config or ride to connected radio",
-convoy/ConvoySubMenu.kt:143:                        enabled = true,
-convoy/ConvoySubMenu.kt:145:                            expanded = null
-convoy/ConvoySubMenu.kt:150:                    SubMenuItem(
-convoy/ConvoySubMenu.kt:152:                        sub     = "Select and restore from saved archive",
-convoy/ConvoySubMenu.kt:153:                        enabled = true,
-convoy/ConvoySubMenu.kt:162:            AccordionHeader(
-convoy/ConvoySubMenu.kt:164:                icon     = "🗺",
-convoy/ConvoySubMenu.kt:165:                expanded = expanded == "MAP_SETTINGS",
-convoy/ConvoySubMenu.kt:166:                onClick  = { expanded = if (expanded == "MAP_SETTINGS") null else "MAP_SETTINGS" }
-convoy/ConvoySubMenu.kt:169:                visible = expanded == "MAP_SETTINGS",
-convoy/ConvoySubMenu.kt:176:                        .padding(start = 16.dp, top = 4.dp, bottom = 8.dp),
-convoy/ConvoySubMenu.kt:179:                    SubMenuItem(
-convoy/ConvoySubMenu.kt:181:                        sub     = "Rename, delete, share, export, fix dates",
-convoy/ConvoySubMenu.kt:182:                        enabled = true,
-convoy/ConvoySubMenu.kt:184:                            expanded = null
-convoy/ConvoySubMenu.kt:188:                    SubMenuItem(
-convoy/ConvoySubMenu.kt:190:                        sub     = "View trails and recorded tracks",
-convoy/ConvoySubMenu.kt:191:                        enabled = true,
-convoy/ConvoySubMenu.kt:193:                            expanded = null
-convoy/ConvoySubMenu.kt:197:                    SubMenuItem(
-convoy/ConvoySubMenu.kt:198:                        label   = "Upload Maps to AWS",
-convoy/ConvoySubMenu.kt:199:                        sub     = "Sync tile areas to GroupTrack cloud — Coming in V2.4.2",
-convoy/ConvoySubMenu.kt:200:                        enabled = false,
-convoy/ConvoySubMenu.kt:203:                    SubMenuItem(
-convoy/ConvoySubMenu.kt:204:                        label   = "Download Maps from AWS",
-convoy/ConvoySubMenu.kt:205:                        sub     = "Restore tile areas from GroupTrack cloud — Coming in V2.4.2",
-convoy/ConvoySubMenu.kt:206:                        enabled = false,
-convoy/ConvoySubMenu.kt:219:                shape = RoundedCornerShape(10.dp),
-convoy/ConvoySubMenu.kt:243:private fun AccordionHeader(
-convoy/ConvoySubMenu.kt:245:    icon: String,
-convoy/ConvoySubMenu.kt:246:    expanded: Boolean,
-convoy/ConvoySubMenu.kt:253:        shape = RoundedCornerShape(10.dp),
-convoy/ConvoySubMenu.kt:254:        color = if (expanded) Color(0xFF15512C) else Color(0xFF262B26)
-convoy/ConvoySubMenu.kt:264:                Text(icon, fontSize = 16.sp, modifier = Modifier.padding(end = 10.dp))
-convoy/ConvoySubMenu.kt:267:                    color      = if (expanded) Color(0xFF97D5A5) else Color(0xFFDFE4DC),
-convoy/ConvoySubMenu.kt:274:                text     = if (expanded) "▲" else "▼",
-convoy/ConvoySubMenu.kt:285:private fun SubMenuItem(
-convoy/ConvoySubMenu.kt:288:    enabled: Boolean,
-convoy/ConvoySubMenu.kt:294:            .clickable(enabled = enabled) { onClick() },
-convoy/ConvoySubMenu.kt:295:        shape = RoundedCornerShape(8.dp),
-convoy/ConvoySubMenu.kt:296:        color = if (enabled) Color(0xFF313631) else Color(0xFF1C211C)
-convoy/ConvoySubMenu.kt:305:            Column(modifier = Modifier.weight(1f)) {
-convoy/ConvoySubMenu.kt:308:                    color      = if (enabled) Color(0xFFDFE4DC) else Color(0xFF8B938A),
-convoy/ConvoySubMenu.kt:317:                        color      = if (enabled) Color(0xFFC1C9BF) else Color(0xFF8B938A),
-convoy/ConvoySubMenu.kt:325:                text     = if (enabled) "▶" else "🔒",
-convoy/ConvoySubMenu.kt:326:                color    = if (enabled) Color(0xFF97D5A5) else Color(0xFF8B938A),
-convoy/ConvoySubMenu.kt:327:                fontSize = if (enabled) 12.sp else 10.sp
+convoy/ConvoySubMenu.kt:118:                    SubMenuItem(
+convoy/ConvoySubMenu.kt:120:                        enabled = true,
+convoy/ConvoySubMenu.kt:122:                            expanded = null
+convoy/ConvoySubMenu.kt:123:                            onCreateEventRide()
+convoy/ConvoySubMenu.kt:128:                    SubMenuItem(
+convoy/ConvoySubMenu.kt:129:                        label   = "Send Meshtastic Ride Config via email",
+convoy/ConvoySubMenu.kt:130:                        sub     = "Select a ride and send via email attachment",
+convoy/ConvoySubMenu.kt:131:                        enabled = true,
+convoy/ConvoySubMenu.kt:133:                            expanded = null
+convoy/ConvoySubMenu.kt:137:                    SubMenuItem(
+convoy/ConvoySubMenu.kt:138:                        label   = "Import Meshtastic Ride Config from Email",
+convoy/ConvoySubMenu.kt:139:                        sub     = "Scan Downloads for .convoy files and import",
+convoy/ConvoySubMenu.kt:140:                        enabled = true,
+convoy/ConvoySubMenu.kt:142:                            expanded = null
+convoy/ConvoySubMenu.kt:144:                            onImportFromDownloads()
+convoy/ConvoySubMenu.kt:147:                    SubMenuItem(
+convoy/ConvoySubMenu.kt:149:                        sub     = "Apply master config or ride to connected radio",
+convoy/ConvoySubMenu.kt:150:                        enabled = true,
+convoy/ConvoySubMenu.kt:152:                            expanded = null
+convoy/ConvoySubMenu.kt:157:                    SubMenuItem(
+convoy/ConvoySubMenu.kt:158:                        label   = "Restore Saved config to your Radio",
+convoy/ConvoySubMenu.kt:159:                        sub     = "Select and restore from saved archive",
+convoy/ConvoySubMenu.kt:160:                        enabled = true,
+convoy/ConvoySubMenu.kt:181:                shape = RoundedCornerShape(10.dp),
+convoy/ConvoySubMenu.kt:205:private fun AccordionHeader(
+convoy/ConvoySubMenu.kt:207:    icon: String,
+convoy/ConvoySubMenu.kt:208:    expanded: Boolean,
+convoy/ConvoySubMenu.kt:215:        shape = RoundedCornerShape(10.dp),
+convoy/ConvoySubMenu.kt:216:        color = if (expanded) Color(0xFF15512C) else Color(0xFF262B26)
+convoy/ConvoySubMenu.kt:226:                Text(icon, fontSize = 16.sp, modifier = Modifier.padding(end = 10.dp))
+convoy/ConvoySubMenu.kt:229:                    color      = if (expanded) Color(0xFF97D5A5) else Color(0xFFDFE4DC),
+convoy/ConvoySubMenu.kt:236:                text     = if (expanded) "▲" else "▼",
+convoy/ConvoySubMenu.kt:247:private fun SubMenuItem(
+convoy/ConvoySubMenu.kt:250:    enabled: Boolean,
+convoy/ConvoySubMenu.kt:256:            .clickable(enabled = enabled) { onClick() },
+convoy/ConvoySubMenu.kt:257:        shape = RoundedCornerShape(8.dp),
+convoy/ConvoySubMenu.kt:258:        color = if (enabled) Color(0xFF313631) else Color(0xFF1C211C)
+convoy/ConvoySubMenu.kt:267:            Column(modifier = Modifier.weight(1f)) {
+convoy/ConvoySubMenu.kt:270:                    color      = if (enabled) Color(0xFFDFE4DC) else Color(0xFF8B938A),
+convoy/ConvoySubMenu.kt:279:                        color      = if (enabled) Color(0xFFC1C9BF) else Color(0xFF8B938A),
+convoy/ConvoySubMenu.kt:287:                text     = if (enabled) "▶" else "🔒",
+convoy/ConvoySubMenu.kt:288:                color    = if (enabled) Color(0xFF97D5A5) else Color(0xFF8B938A),
+convoy/ConvoySubMenu.kt:289:                fontSize = if (enabled) 12.sp else 10.sp
 convoy/ConvoySubscriptionScreen.kt:3:import androidx.compose.animation.animateColorAsState
 convoy/ConvoySubscriptionScreen.kt:4:import androidx.compose.foundation.ExperimentalFoundationApi
 convoy/ConvoySubscriptionScreen.kt:5:import androidx.compose.foundation.background
@@ -17341,6 +17326,7 @@ convoy/ConvoyTrackImportScreen.kt:363:                        "No GPX or KML fil
 convoy/ConvoyTrackImportScreen.kt:372:                        shape = RoundedCornerShape(10.dp),
 convoy/ConvoyTrackImportScreen.kt:395:                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
 convoy/ConvoyTrackImportScreen.kt:399:                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+convoy/ConvoyTrackImportScreen.kt:401:                Text("FILE", color = Color(0xFF8B938A), fontSize = 8.sp,
 convoy/ConvoyTrackImportScreen.kt:403:                    modifier = Modifier.weight(1f).padding(start = 6.dp))
 convoy/ConvoyTrackImportScreen.kt:407:                    .weight(1f)
 convoy/ConvoyTrackImportScreen.kt:412:                items(files, key = { it.absolutePath }) { file ->
@@ -20728,6 +20714,7 @@ convoy/MapSourceManager.kt:132:            writeColumnFile(vc, existing)
 convoy/MapSourceManager.kt:136:            readColumnFileOrNull()?.let { applyColumnFile(it) }
 convoy/MapSourceManager.kt:138:            android.util.Log.i("MapSourceMgr", "COLUMNFILE-2026-08-03: column file ABSENT - seeding from defaults")
 convoy/MapSourceManager.kt:139:            writeColumnFile(vc, null)
+convoy/MapSourceManager.kt:144:     * COLUMNFILE-PHASE2-2026-08-04: THE COLUMN FILE IS NOW AUTHORITATIVE FOR ASSIGNMENT.
 convoy/MapSourceManager.kt:146:     * Replaces defaultSlots with the user's column table and sets the active
 convoy/MapSourceManager.kt:147:     * column from it. Called ONLY after the asset has parsed, so `sources`
 convoy/MapSourceManager.kt:148:     * (URLs, layers, cache_dir) still comes from the catalogue and a release
@@ -21357,6 +21344,68 @@ convoy/MBTilesStore.kt:583:    /** Close all open handles (app teardown). */
 convoy/MBTilesStore.kt:585:    fun closeAll() {
 convoy/MBTilesStore.kt:586:        for ((_, d) in handles) try { d.close() } catch (_: Exception) {}
 convoy/MBTilesStore.kt:587:        handles.clear()
+convoy/MeshNavFold.kt:3:import android.content.Context
+convoy/MeshNavFold.kt:5:import androidx.compose.foundation.background
+convoy/MeshNavFold.kt:6:import androidx.compose.foundation.border
+convoy/MeshNavFold.kt:7:import androidx.compose.foundation.clickable
+convoy/MeshNavFold.kt:8:import androidx.compose.foundation.layout.Box
+convoy/MeshNavFold.kt:9:import androidx.compose.foundation.layout.height
+convoy/MeshNavFold.kt:10:import androidx.compose.foundation.layout.padding
+convoy/MeshNavFold.kt:11:import androidx.compose.foundation.layout.width
+convoy/MeshNavFold.kt:12:import androidx.compose.foundation.shape.RoundedCornerShape
+convoy/MeshNavFold.kt:13:import androidx.compose.material3.Text
+convoy/MeshNavFold.kt:14:import androidx.compose.runtime.Composable
+convoy/MeshNavFold.kt:15:import androidx.compose.ui.Alignment
+convoy/MeshNavFold.kt:16:import androidx.compose.ui.Modifier
+convoy/MeshNavFold.kt:17:import androidx.compose.ui.draw.clip
+convoy/MeshNavFold.kt:18:import androidx.compose.ui.draw.rotate
+convoy/MeshNavFold.kt:19:import androidx.compose.ui.graphics.Color
+convoy/MeshNavFold.kt:20:import androidx.compose.ui.text.font.FontWeight
+convoy/MeshNavFold.kt:21:import androidx.compose.ui.unit.dp
+convoy/MeshNavFold.kt:22:import androidx.compose.ui.unit.sp
+convoy/MeshNavFold.kt:26: * MeshNavFold — is the Meshtastic navigation rail folded away?
+convoy/MeshNavFold.kt:29: * ⭐⭐ THE FIRST CUT ALONG THE 2.7 LINE. Fred, 09-04: this is *"the start of
+convoy/MeshNavFold.kt:30: * separating the mesh product from the core GroupTrack, and the shape of what
+convoy/MeshNavFold.kt:31: * the plugin delivers."* Whatever hides behind the strip is roughly what the
+convoy/MeshNavFold.kt:32: * plugin will own — and drawing that boundary in the UI first means living with
+convoy/MeshNavFold.kt:33: * it before committing to it in code.
+convoy/MeshNavFold.kt:35: * ⛔ THE IMMEDIATE PROBLEM: a rider with no radio opens the app and sees a
+convoy/MeshNavFold.kt:36: * navigation rail full of Meshtastic destinations that mean nothing to them.
+convoy/MeshNavFold.kt:37: * The Quick Start's first job was going to be explaining that away.
+convoy/MeshNavFold.kt:39: * ⚠ STORED BESIDE THE DATABASES, not in SharedPreferences — same reasoning as
+convoy/MeshNavFold.kt:40: * the schema marker: prefs are wiped by "clear data" while the rider's own
+convoy/MeshNavFold.kt:41: * files survive, and losing this would unfold the rail under someone who chose
+convoy/MeshNavFold.kt:44:object MeshNavFold {
+convoy/MeshNavFold.kt:46:    private const val TAG = "MeshNavFold"
+convoy/MeshNavFold.kt:47:    private const val FILE = "mesh_nav_folded"
+convoy/MeshNavFold.kt:49:    private fun file(): File = File(SpatialDbManager.dbDir(), FILE)
+convoy/MeshNavFold.kt:52:     * ⚠ DEFAULTS TO FALSE — the rail shows until a rider folds it. A new
+convoy/MeshNavFold.kt:53:     * install must not hide navigation nobody asked to hide; the Meshtastic
+convoy/MeshNavFold.kt:54:     * rider would have no idea it existed.
+convoy/MeshNavFold.kt:56:    fun isFolded(ctx: Context): Boolean = try {
+convoy/MeshNavFold.kt:57:        file().exists()
+convoy/MeshNavFold.kt:59:        Log.w(TAG, "isFolded: ${e.message}")
+convoy/MeshNavFold.kt:63:    /** ⚠ Presence IS the flag — no contents to parse and nothing to corrupt. */
+convoy/MeshNavFold.kt:64:    fun setFolded(ctx: Context, folded: Boolean) {
+convoy/MeshNavFold.kt:66:            val f = file()
+convoy/MeshNavFold.kt:68:                f.parentFile?.mkdirs()
+convoy/MeshNavFold.kt:69:                f.writeText("folded")
+convoy/MeshNavFold.kt:71:                f.delete()
+convoy/MeshNavFold.kt:75:            Log.w(TAG, "setFolded: ${e.message}")
+convoy/MeshNavFold.kt:81: * MESHFOLD-2026-09-04: the fold control, as its own composable.
+convoy/MeshNavFold.kt:84: * code and every line changed there is a rebase conflict later. This keeps that
+convoy/MeshNavFold.kt:85: * file's diff to four lines — and when 2.7 lifts mesh out as a plugin, the
+convoy/MeshNavFold.kt:86: * boundary is already drawn around this file rather than tangled through
+convoy/MeshNavFold.kt:89: * ⚠ Two states, one composable. Folded: a strip reading OPEN MESHTASTIC.
+convoy/MeshNavFold.kt:90: * Unfolded: a small chevron at the top of the rail to fold it again.
+convoy/MeshNavFold.kt:91: * ⛔ NEITHER STATE CAN HIDE ITS OWN WAY BACK. A control that removes the route
+convoy/MeshNavFold.kt:92: * to itself is a trap, and folded navigation with no visible handle is exactly
+convoy/MeshNavFold.kt:93: * that.
+convoy/MeshNavFold.kt:96:fun MeshFoldControl(
+convoy/MeshNavFold.kt:113:                .background(Color(0xEE141B23))
+convoy/MeshNavFold.kt:114:                .border(1.dp, Color(0xFF2F3945),
+convoy/MeshNavFold.kt:134:                .background(Color(0xEE141B23))
+convoy/MeshNavFold.kt:135:                .border(1.dp, Color(0xFF2F3945), RoundedCornerShape(4.dp))
 convoy/OsmExtractProgress.kt:3:import org.json.JSONArray
 convoy/OsmExtractProgress.kt:4:import org.json.JSONObject
 convoy/OsmExtractProgress.kt:7: * Per-type extract progress, shared between the worker and whatever renders it.
@@ -27534,6 +27583,7 @@ convoy/TileCodec.kt:63:            bmp.compress(Bitmap.CompressFormat.WEBP, qual
 convoy/TrackManager.kt:9:object TrackManager {
 convoy/TrackManager.kt:10:    fun stub() { /* Pass 1 scaffold -- functions in Pass 2 */ }
 convoy/TrailClassifier.kt:4: * TrailClassifier — source values in, our four fields out. CLASSIFY4-2026-09-02.
+convoy/TrailClassifier.kt:6: * ⛔⛔ WHY THIS FILE EXISTS, AND IT IS NOT A HAPPY REASON. The four-field design
 convoy/TrailClassifier.kt:8: * (classify4_2026-08-31_v1.py), whose own header called itself "THE
 convoy/TrailClassifier.kt:9: * SPECIFICATION for Kotlin". It was never ported. So land_status, use_type and
 convoy/TrailClassifier.kt:10: * carto_code_source existed on ONE DEVICE, in no schema, written by nothing --
@@ -32812,273 +32862,284 @@ ui/Main.kt:60:import androidx.compose.runtime.remember
 ui/Main.kt:61:import androidx.compose.runtime.rememberCoroutineScope
 ui/Main.kt:62:import androidx.compose.runtime.setValue
 ui/Main.kt:63:import androidx.compose.ui.Modifier
-ui/Main.kt:64:import androidx.compose.ui.draw.drawWithCache
-ui/Main.kt:65:import androidx.compose.ui.graphics.BlendMode
-ui/Main.kt:66:import androidx.compose.ui.graphics.Brush
-ui/Main.kt:67:import androidx.compose.ui.graphics.Color
-ui/Main.kt:68:import androidx.compose.ui.graphics.vector.ImageVector
-ui/Main.kt:69:import androidx.compose.ui.unit.dp
-ui/Main.kt:70:import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-ui/Main.kt:71:import androidx.lifecycle.compose.collectAsStateWithLifecycle
-ui/Main.kt:75:import androidx.navigation.NavGraph.Companion.findStartDestination
-ui/Main.kt:76:import androidx.navigation.compose.NavHost
-ui/Main.kt:77:import androidx.navigation.compose.currentBackStackEntryAsState
-ui/Main.kt:78:import androidx.navigation.compose.rememberNavController
-ui/Main.kt:79:import co.touchlab.kermit.Logger
-ui/Main.kt:81:import com.geeksville.mesh.model.UIViewModel
-ui/Main.kt:82:import com.geeksville.mesh.navigation.channelsGraph
-ui/Main.kt:83:import com.geeksville.mesh.navigation.connectionsGraph
-ui/Main.kt:84:import com.geeksville.mesh.navigation.contactsGraph
-ui/Main.kt:85:import com.geeksville.mesh.navigation.firmwareGraph
-ui/Main.kt:86:import com.geeksville.mesh.convoy.ConvoyViewModel
-ui/Main.kt:87:import androidx.compose.material3.rememberModalBottomSheetState
-ui/Main.kt:88:import com.geeksville.mesh.convoy.ConvoySubMenu
-ui/Main.kt:89:import com.geeksville.mesh.navigation.convoyGraph
-ui/Main.kt:92:import com.geeksville.mesh.navigation.mapGraph
-ui/Main.kt:93:import com.geeksville.mesh.navigation.nodesGraph
-ui/Main.kt:94:import com.geeksville.mesh.navigation.settingsGraph
-ui/Main.kt:96:import com.geeksville.mesh.ui.connections.DeviceType
-ui/Main.kt:97:import com.geeksville.mesh.ui.connections.ScannerViewModel
-ui/Main.kt:98:import com.geeksville.mesh.ui.connections.components.ConnectionsNavIcon
-ui/Main.kt:101:import no.nordicsemi.android.common.permissions.notification.RequestNotificationPermission
-ui/Main.kt:102:import org.jetbrains.compose.resources.StringResource
-ui/Main.kt:103:import org.jetbrains.compose.resources.getString
-ui/Main.kt:104:import org.jetbrains.compose.resources.stringResource
-ui/Main.kt:105:import org.meshtastic.core.model.ConnectionState
-ui/Main.kt:106:import org.meshtastic.core.model.DeviceVersion
-ui/Main.kt:107:import org.meshtastic.core.model.MeshActivity
-ui/Main.kt:109:import org.meshtastic.core.navigation.ContactsRoutes
-ui/Main.kt:111:import org.meshtastic.core.navigation.NodeDetailRoutes
-ui/Main.kt:115:import org.meshtastic.core.resources.Res
-ui/Main.kt:116:import org.meshtastic.core.resources.app_too_old
-ui/Main.kt:117:import org.meshtastic.core.resources.bottom_nav_settings
-ui/Main.kt:118:import org.meshtastic.core.resources.connected
-ui/Main.kt:119:import org.meshtastic.core.resources.connecting
-ui/Main.kt:120:import org.meshtastic.core.resources.connections
-ui/Main.kt:121:import org.meshtastic.core.resources.conversations
-ui/Main.kt:122:import org.meshtastic.core.resources.device_sleeping
-ui/Main.kt:123:import org.meshtastic.core.resources.disconnected
-ui/Main.kt:124:import org.meshtastic.core.resources.firmware_old
-ui/Main.kt:125:import org.meshtastic.core.resources.firmware_too_old
-ui/Main.kt:126:import org.meshtastic.core.resources.map
-ui/Main.kt:127:import org.meshtastic.core.resources.must_update
-ui/Main.kt:128:import org.meshtastic.core.resources.nodes
-ui/Main.kt:129:import org.meshtastic.core.resources.okay
-ui/Main.kt:130:import org.meshtastic.core.resources.should_update
-ui/Main.kt:131:import org.meshtastic.core.resources.should_update_firmware
-ui/Main.kt:132:import org.meshtastic.core.resources.traceroute
-ui/Main.kt:133:import org.meshtastic.core.resources.view_on_map
-ui/Main.kt:134:import org.meshtastic.core.ui.component.MeshtasticDialog
-ui/Main.kt:135:import org.meshtastic.core.ui.component.ScrollToTopEvent
-ui/Main.kt:136:import org.meshtastic.core.ui.icon.Conversations
-ui/Main.kt:137:import org.meshtastic.core.ui.icon.Map
-ui/Main.kt:138:import org.meshtastic.core.ui.icon.MeshtasticIcons
-ui/Main.kt:139:import org.meshtastic.core.ui.icon.Nodes
-ui/Main.kt:140:import org.meshtastic.core.ui.icon.Settings
-ui/Main.kt:141:import org.meshtastic.core.ui.icon.Wifi
-ui/Main.kt:143:import org.meshtastic.core.ui.share.SharedContactDialog
-ui/Main.kt:145:import org.meshtastic.core.ui.theme.StatusColors.StatusGreen
-ui/Main.kt:151:enum class TopLevelDestination(val label: StringResource, val icon: ImageVector, val route: Route) {
-ui/Main.kt:152:    Conversations(Res.string.conversations, MeshtasticIcons.Conversations, ContactsRoutes.ContactsGraph),
-ui/Main.kt:153:    Nodes(Res.string.nodes, MeshtasticIcons.Nodes, NodesRoutes.NodesGraph),
-ui/Main.kt:155:    Settings(Res.string.bottom_nav_settings, MeshtasticIcons.Settings, SettingsRoutes.SettingsGraph()),
-ui/Main.kt:156:    Connections(Res.string.connections, MeshtasticIcons.Wifi, ConnectionsRoutes.ConnectionsGraph),
-ui/Main.kt:161:    companion object {
-ui/Main.kt:162:        fun fromNavDestination(destination: NavDestination?): TopLevelDestination? =
-ui/Main.kt:163:            entries.find { dest -> destination?.hierarchy?.any { it.hasRoute(dest.route::class) } == true }
-ui/Main.kt:170:fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerViewModel = hiltViewModel(), convoyViewModel: ConvoyViewModel = hiltViewModel()) {
-ui/Main.kt:171:    var showConvoyMenu by remember { mutableStateOf(false) }
-ui/Main.kt:172:    var showServicesChooser by remember { mutableStateOf(false) }
-ui/Main.kt:173:    val convoyMenuSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-ui/Main.kt:176:    val connectionState by uIViewModel.connectionState.collectAsStateWithLifecycle()
-ui/Main.kt:177:    val requestChannelSet by uIViewModel.requestChannelSet.collectAsStateWithLifecycle()
-ui/Main.kt:178:    val sharedContactRequested by uIViewModel.sharedContactRequested.collectAsStateWithLifecycle()
-ui/Main.kt:179:    val unreadMessageCount by uIViewModel.unreadMessageCount.collectAsStateWithLifecycle()
-ui/Main.kt:181:    if (connectionState == ConnectionState.Connected) {
-ui/Main.kt:182:        RequestNotificationPermission {
-ui/Main.kt:186:        sharedContactRequested?.let {
-ui/Main.kt:187:            SharedContactDialog(sharedContact = it, onDismiss = { uIViewModel.clearSharedContactRequested() })
-ui/Main.kt:190:        requestChannelSet?.let { newChannelSet ->
-ui/Main.kt:191:            ScannedQrCodeDialog(newChannelSet, onDismiss = { uIViewModel.clearRequestChannelUrl() })
-ui/Main.kt:199:    val alertDialogState by uIViewModel.currentAlert.collectAsStateWithLifecycle()
-ui/Main.kt:200:    alertDialogState?.let { state ->
-ui/Main.kt:201:        val title = state.title ?: state.titleRes?.let { stringResource(it) } ?: ""
-ui/Main.kt:202:        val message = state.message ?: state.messageRes?.let { stringResource(it) }
-ui/Main.kt:203:        val confirmText = state.confirmText ?: state.confirmTextRes?.let { stringResource(it) }
-ui/Main.kt:204:        val dismissText = state.dismissText ?: state.dismissTextRes?.let { stringResource(it) }
-ui/Main.kt:208:            message = message,
-ui/Main.kt:209:            html = state.html,
-ui/Main.kt:210:            icon = state.icon,
-ui/Main.kt:211:            text = state.composableMessage?.let { msg -> { msg.Content() } },
-ui/Main.kt:212:            confirmText = confirmText,
-ui/Main.kt:221:    val traceRouteResponse by uIViewModel.tracerouteResponse.collectAsStateWithLifecycle(null)
-ui/Main.kt:222:    var dismissedTracerouteRequestId by remember { mutableStateOf<Int?>(null) }
-ui/Main.kt:224:        ?.takeIf { it.requestId != dismissedTracerouteRequestId }
-ui/Main.kt:225:        ?.let { response ->
-ui/Main.kt:226:            uIViewModel.showAlert(
-ui/Main.kt:228:                composableMessage = {
-ui/Main.kt:229:                    Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-ui/Main.kt:233:                                response.message,
-ui/Main.kt:234:                                statusGreen = colorScheme.StatusGreen,
-ui/Main.kt:235:                                statusYellow = colorScheme.StatusYellow,
-ui/Main.kt:236:                                statusOrange = colorScheme.StatusOrange,
-ui/Main.kt:241:                confirmTextRes = Res.string.view_on_map,
-ui/Main.kt:245:                            forwardRoute = response.forwardRoute,
-ui/Main.kt:246:                            returnRoute = response.returnRoute,
-ui/Main.kt:250:                        dismissedTracerouteRequestId = response.requestId
-ui/Main.kt:252:                            NodeDetailRoutes.TracerouteMap(
-ui/Main.kt:253:                                destNum = response.destinationNodeNum,
-ui/Main.kt:254:                                requestId = response.requestId,
-ui/Main.kt:255:                                logUuid = response.logUuid,
-ui/Main.kt:259:                        uIViewModel.showAlert(titleRes = Res.string.traceroute, messageRes = errorRes)
-ui/Main.kt:260:                        uIViewModel.clearTracerouteResponse()
-ui/Main.kt:265:                    uIViewModel.clearTracerouteResponse()
-ui/Main.kt:266:                    dismissedTracerouteRequestId = null
-ui/Main.kt:270:    val navSuiteType = NavigationSuiteScaffoldDefaults.navigationSuiteType(currentWindowAdaptiveInfo())
-ui/Main.kt:271:    val currentDestination = navController.currentBackStackEntryAsState().value?.destination
-ui/Main.kt:272:    val topLevelDestination = TopLevelDestination.fromNavDestination(currentDestination)
-ui/Main.kt:275:    val selectedDevice by scanModel.selectedNotNullFlow.collectAsStateWithLifecycle()
-ui/Main.kt:278:    var currentGlowColor by remember { mutableStateOf(Color.Transparent) }
-ui/Main.kt:279:    val animatedGlowAlpha = remember { Animatable(0f) }
-ui/Main.kt:280:    val coroutineScope = rememberCoroutineScope()
-ui/Main.kt:281:    val capturedColorScheme = colorScheme // Capture current colorScheme instance for LaunchedEffect
-ui/Main.kt:283:    val sendColor = capturedColorScheme.StatusGreen
-ui/Main.kt:293:            currentGlowColor = newTargetColor
-ui/Main.kt:296:            coroutineScope.launch {
-ui/Main.kt:297:                animatedGlowAlpha.stop() // Stop before snapping/animating
-ui/Main.kt:298:                animatedGlowAlpha.snapTo(1.0f) // Show glow instantly
-ui/Main.kt:300:                    targetValue = 0.0f, // Fade out
-ui/Main.kt:301:                    animationSpec = tween(durationMillis = 1000, easing = LinearEasing),
-ui/Main.kt:309:        navigationSuiteItems = {
-ui/Main.kt:310:            TopLevelDestination.entries
-ui/Main.kt:311:            .filter { it != TopLevelDestination.EventRideServices || ConvoyConfig.V3_FEATURES_ENABLED }
-ui/Main.kt:312:            .forEach { destination ->
-ui/Main.kt:313:                val isSelected = destination == topLevelDestination
-ui/Main.kt:314:                val isConnectionsRoute = destination == TopLevelDestination.Connections
-ui/Main.kt:316:                    icon = {
-ui/Main.kt:324:                                            when (connectionState) {
-ui/Main.kt:325:                                                ConnectionState.Connected -> stringResource(Res.string.connected)
-ui/Main.kt:326:                                                ConnectionState.Connecting -> stringResource(Res.string.connecting)
-ui/Main.kt:327:                                                ConnectionState.DeviceSleep ->
-ui/Main.kt:328:                                                    stringResource(Res.string.device_sleeping)
-ui/Main.kt:329:                                                ConnectionState.Disconnected -> stringResource(Res.string.disconnected)
-ui/Main.kt:332:                                            stringResource(destination.label)
-ui/Main.kt:337:                            state = rememberTooltipState(),
-ui/Main.kt:348:                                                    currentGlowColor.copy(alpha = 0.8f),
-ui/Main.kt:349:                                                    currentGlowColor.copy(alpha = 0.4f),
-ui/Main.kt:353:                                                androidx.compose.ui.geometry.Offset(
-ui/Main.kt:357:                                                radius = glowRadius,
-ui/Main.kt:361:                                            val alpha = animatedGlowAlpha.value
-ui/Main.kt:362:                                            if (alpha > 0f) {
-ui/Main.kt:365:                                                    radius = glowRadius,
-ui/Main.kt:366:                                                    alpha = alpha,
-ui/Main.kt:374:                                        connectionState = connectionState,
-ui/Main.kt:375:                                        deviceType = DeviceType.fromAddress(selectedDevice),
-ui/Main.kt:381:                                        if (destination == TopLevelDestination.Conversations) {
-ui/Main.kt:383:                                            var lastNonZeroCount by remember { mutableIntStateOf(unreadMessageCount) }
-ui/Main.kt:384:                                            if (unreadMessageCount > 0) {
-ui/Main.kt:385:                                                lastNonZeroCount = unreadMessageCount
-ui/Main.kt:388:                                                visible = unreadMessageCount > 0,
-ui/Main.kt:392:                                                Badge { Text(lastNonZeroCount.toString()) }
-ui/Main.kt:397:                                    Crossfade(isSelected, label = "BottomBarIcon") { isSelectedState ->
-ui/Main.kt:399:                                            imageVector = destination.icon,
-ui/Main.kt:400:                                            contentDescription = stringResource(destination.label),
-ui/Main.kt:402:                                            if (isSelectedState) colorScheme.primary else LocalContentColor.current,
-ui/Main.kt:409:                    selected = isSelected,
-ui/Main.kt:412:                            text = when (destination) { TopLevelDestination.Convoy -> "GroupTrack"; TopLevelDestination.EventRideServices -> "Services"; else -> stringResource(destination.label) },
-ui/Main.kt:416:                                    .height(1.dp) // hide on phone - min 1x1 or talkback won't see it.
-ui/Main.kt:423:                        val isRepress = destination == topLevelDestination
-ui/Main.kt:425:                            when (destination) {
-ui/Main.kt:427:                                    val onNodesList = currentDestination?.hasRoute(NodesRoutes.Nodes::class) == true
-ui/Main.kt:429:                                        navController.navigate(destination.route) {
-ui/Main.kt:430:                                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-ui/Main.kt:434:                                    uIViewModel.emitScrollToTopEvent(ScrollToTopEvent.NodesTabPressed)
-ui/Main.kt:438:                                        currentDestination?.hasRoute(ContactsRoutes.Contacts::class) == true
-ui/Main.kt:440:                                        navController.navigate(destination.route) {
-ui/Main.kt:441:                                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-ui/Main.kt:445:                                    uIViewModel.emitScrollToTopEvent(ScrollToTopEvent.ConversationsTabPressed)
-ui/Main.kt:449:                                        popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-ui/Main.kt:454:                                        showConvoyMenu = true
-ui/Main.kt:460:                            if (destination == TopLevelDestination.Convoy) {
-ui/Main.kt:462:                                    popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-ui/Main.kt:467:                                    showConvoyMenu = true
-ui/Main.kt:469:                            } else if (destination == TopLevelDestination.EventRideServices) {
-ui/Main.kt:470:                                showServicesChooser = true
-ui/Main.kt:472:                                navController.navigate(destination.route) {
-ui/Main.kt:473:                                    popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-ui/Main.kt:485:            startDestination = ConvoyRoutes.ConvoyAuthorityGate,
-ui/Main.kt:488:            contactsGraph(navController, uIViewModel.scrollToTopEventFlow)
-ui/Main.kt:489:            nodesGraph(navController, uIViewModel.scrollToTopEventFlow)
-ui/Main.kt:490:            mapGraph(navController)
-ui/Main.kt:491:            convoyGraph(navController, convoyViewModel)
-ui/Main.kt:492:            channelsGraph(navController)
-ui/Main.kt:493:            connectionsGraph(navController)
-ui/Main.kt:494:            settingsGraph(navController)
-ui/Main.kt:495:            firmwareGraph(navController)
-ui/Main.kt:499:        if (showConvoyMenu) {
-ui/Main.kt:500:            ConvoySubMenu(
-ui/Main.kt:501:                sheetState                = convoyMenuSheetState,
-ui/Main.kt:502:                onDismiss                 = { showConvoyMenu = false },
-ui/Main.kt:503:                onCreateEventRide         = { showConvoyMenu = false },
-ui/Main.kt:504:                onTransferConfig          = { showConvoyMenu = false; navController.navigate(ConvoyRoutes.ConvoyTransferRide) },
-ui/Main.kt:509:                    showConvoyMenu = false
-ui/Main.kt:513:                    showConvoyMenu = false
-ui/Main.kt:517:                    showConvoyMenu = false
-ui/Main.kt:521:                    showConvoyMenu = false
-ui/Main.kt:530:        if (showServicesChooser) {
-ui/Main.kt:531:            val servicesContext = androidx.compose.ui.platform.LocalContext.current
-ui/Main.kt:532:            com.geeksville.mesh.convoy.ConvoyServicesChooser(
-ui/Main.kt:533:                context = servicesContext,
-ui/Main.kt:534:                onDismiss = { showServicesChooser = false },
-ui/Main.kt:535:                onOnline = {
-ui/Main.kt:536:                    showServicesChooser = false
-ui/Main.kt:537:                    val route = com.geeksville.mesh.convoy.ConvoySessionManager.resolveLaunchRoute(servicesContext, true)
-ui/Main.kt:538:                    val dest = when (route) {
-ui/Main.kt:539:                        com.geeksville.mesh.convoy.ConvoySessionManager.LaunchRoute.TERMS        -> ConvoyRoutes.ConvoyTerms
-ui/Main.kt:540:                        com.geeksville.mesh.convoy.ConvoySessionManager.LaunchRoute.PRIVACY      -> ConvoyRoutes.ConvoyPrivacy
-ui/Main.kt:541:                        com.geeksville.mesh.convoy.ConvoySessionManager.LaunchRoute.SUBSCRIPTION -> ConvoyRoutes.ConvoySubscription
-ui/Main.kt:542:                        com.geeksville.mesh.convoy.ConvoySessionManager.LaunchRoute.DASHBOARD    -> ConvoyRoutes.ConvoyDashboard
-ui/Main.kt:545:                    navController.navigate(dest)
-ui/Main.kt:547:                onOffline = {
-ui/Main.kt:548:                    showServicesChooser = false
-ui/Main.kt:558:private fun VersionChecks(viewModel: UIViewModel) {
-ui/Main.kt:559:    val connectionState by viewModel.connectionState.collectAsStateWithLifecycle()
-ui/Main.kt:560:    val myNodeInfo by viewModel.myNodeInfo.collectAsStateWithLifecycle()
-ui/Main.kt:562:    val myFirmwareVersion = myNodeInfo?.firmwareVersion
-ui/Main.kt:564:    val firmwareEdition by viewModel.firmwareEdition.collectAsStateWithLifecycle(null)
-ui/Main.kt:566:    val latestStableFirmwareRelease by
-ui/Main.kt:567:        viewModel.latestStableFirmwareRelease.collectAsStateWithLifecycle(DeviceVersion("2.6.4"))
-ui/Main.kt:568:    LaunchedEffect(connectionState, firmwareEdition) {
-ui/Main.kt:569:        if (connectionState == ConnectionState.Connected) {
-ui/Main.kt:575:    LaunchedEffect(connectionState, myNodeInfo) {
-ui/Main.kt:576:        if (connectionState == ConnectionState.Connected) {
-ui/Main.kt:578:                "[FW_CHECK] Connection state: $connectionState, " +
-ui/Main.kt:579:                    "myNodeInfo: ${if (myNodeInfo != null) "present" else "null"}, " +
-ui/Main.kt:580:                    "firmwareVersion: ${myFirmwareVersion ?: "null"}"
-ui/Main.kt:583:            myNodeInfo?.let { info ->
-ui/Main.kt:584:                val isOld = info.minAppVersion > BuildConfig.VERSION_CODE && BuildConfig.DEBUG.not()
-ui/Main.kt:586:                    "[FW_CHECK] App version check - minAppVersion: ${info.minAppVersion}, " +
-ui/Main.kt:587:                        "currentVersion: ${BuildConfig.VERSION_CODE}, isOld: $isOld"
-ui/Main.kt:591:                    Logger.w { "[FW_CHECK] App too old - showing update prompt" }
-ui/Main.kt:592:                    viewModel.showAlert(
-ui/Main.kt:594:                        messageRes = Res.string.must_update,
-ui/Main.kt:595:                        onConfirm = { viewModel.setDeviceAddress("n") },
-ui/Main.kt:600:                        ?.let { fwVersion ->
-ui/Main.kt:601:                            val curVer = DeviceVersion(fwVersion)
-ui/Main.kt:603:                                "[FW_CHECK] Firmware version comparison - " +
-ui/Main.kt:604:                                    "device: $curVer (raw: $fwVersion), " +
-ui/Main.kt:615:                                val message = getString(Res.string.firmware_old)
-ui/Main.kt:616:                                viewModel.showAlert(
-ui/Main.kt:618:                                    html = message,
-ui/Main.kt:619:                                    onConfirm = { viewModel.setDeviceAddress("n") },
-ui/Main.kt:623:                                    "[FW_CHECK] Firmware should update - " +
-ui/Main.kt:626:                                val title = getString(Res.string.should_update_firmware)
-ui/Main.kt:627:                                val message = getString(Res.string.should_update, latestStableFirmwareRelease.asString)
-ui/Main.kt:628:                                viewModel.showAlert(title = title, message = message, onConfirm = {})
-ui/Main.kt:630:                                Logger.i { "[FW_CHECK] Firmware version OK - device: $curVer meets requirements" }
-ui/Main.kt:634:                            Logger.w { "[FW_CHECK] Firmware version is null or blank despite myNodeInfo being present" }
-ui/Main.kt:637:            } ?: run { Logger.d { "[FW_CHECK] myNodeInfo is null, skipping firmware check" } }
-ui/Main.kt:639:            Logger.d { "[FW_CHECK] Not connected (state: $connectionState), skipping firmware check" }
+ui/Main.kt:64:import androidx.compose.ui.platform.LocalContext
+ui/Main.kt:65:import com.geeksville.mesh.convoy.MeshNavFold
+ui/Main.kt:66:import androidx.compose.ui.draw.drawWithCache
+ui/Main.kt:67:import androidx.compose.ui.graphics.BlendMode
+ui/Main.kt:68:import androidx.compose.ui.graphics.Brush
+ui/Main.kt:69:import androidx.compose.ui.graphics.Color
+ui/Main.kt:70:import androidx.compose.ui.graphics.vector.ImageVector
+ui/Main.kt:71:import androidx.compose.ui.unit.dp
+ui/Main.kt:72:import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+ui/Main.kt:73:import androidx.lifecycle.compose.collectAsStateWithLifecycle
+ui/Main.kt:77:import androidx.navigation.NavGraph.Companion.findStartDestination
+ui/Main.kt:78:import androidx.navigation.compose.NavHost
+ui/Main.kt:79:import androidx.navigation.compose.currentBackStackEntryAsState
+ui/Main.kt:80:import androidx.navigation.compose.rememberNavController
+ui/Main.kt:81:import co.touchlab.kermit.Logger
+ui/Main.kt:83:import com.geeksville.mesh.model.UIViewModel
+ui/Main.kt:84:import com.geeksville.mesh.navigation.channelsGraph
+ui/Main.kt:85:import com.geeksville.mesh.navigation.connectionsGraph
+ui/Main.kt:86:import com.geeksville.mesh.navigation.contactsGraph
+ui/Main.kt:87:import com.geeksville.mesh.navigation.firmwareGraph
+ui/Main.kt:88:import com.geeksville.mesh.convoy.ConvoyViewModel
+ui/Main.kt:89:import androidx.compose.material3.rememberModalBottomSheetState
+ui/Main.kt:90:import com.geeksville.mesh.convoy.ConvoySubMenu
+ui/Main.kt:91:import com.geeksville.mesh.navigation.convoyGraph
+ui/Main.kt:94:import com.geeksville.mesh.navigation.mapGraph
+ui/Main.kt:95:import com.geeksville.mesh.navigation.nodesGraph
+ui/Main.kt:96:import com.geeksville.mesh.navigation.settingsGraph
+ui/Main.kt:98:import com.geeksville.mesh.ui.connections.DeviceType
+ui/Main.kt:99:import com.geeksville.mesh.ui.connections.ScannerViewModel
+ui/Main.kt:100:import com.geeksville.mesh.ui.connections.components.ConnectionsNavIcon
+ui/Main.kt:103:import no.nordicsemi.android.common.permissions.notification.RequestNotificationPermission
+ui/Main.kt:104:import org.jetbrains.compose.resources.StringResource
+ui/Main.kt:105:import org.jetbrains.compose.resources.getString
+ui/Main.kt:106:import org.jetbrains.compose.resources.stringResource
+ui/Main.kt:107:import org.meshtastic.core.model.ConnectionState
+ui/Main.kt:108:import org.meshtastic.core.model.DeviceVersion
+ui/Main.kt:109:import org.meshtastic.core.model.MeshActivity
+ui/Main.kt:111:import org.meshtastic.core.navigation.ContactsRoutes
+ui/Main.kt:113:import org.meshtastic.core.navigation.NodeDetailRoutes
+ui/Main.kt:117:import org.meshtastic.core.resources.Res
+ui/Main.kt:118:import org.meshtastic.core.resources.app_too_old
+ui/Main.kt:119:import org.meshtastic.core.resources.bottom_nav_settings
+ui/Main.kt:120:import org.meshtastic.core.resources.connected
+ui/Main.kt:121:import org.meshtastic.core.resources.connecting
+ui/Main.kt:122:import org.meshtastic.core.resources.connections
+ui/Main.kt:123:import org.meshtastic.core.resources.conversations
+ui/Main.kt:124:import org.meshtastic.core.resources.device_sleeping
+ui/Main.kt:125:import org.meshtastic.core.resources.disconnected
+ui/Main.kt:126:import org.meshtastic.core.resources.firmware_old
+ui/Main.kt:127:import org.meshtastic.core.resources.firmware_too_old
+ui/Main.kt:128:import org.meshtastic.core.resources.map
+ui/Main.kt:129:import org.meshtastic.core.resources.must_update
+ui/Main.kt:130:import org.meshtastic.core.resources.nodes
+ui/Main.kt:131:import org.meshtastic.core.resources.okay
+ui/Main.kt:132:import org.meshtastic.core.resources.should_update
+ui/Main.kt:133:import org.meshtastic.core.resources.should_update_firmware
+ui/Main.kt:134:import org.meshtastic.core.resources.traceroute
+ui/Main.kt:135:import org.meshtastic.core.resources.view_on_map
+ui/Main.kt:136:import org.meshtastic.core.ui.component.MeshtasticDialog
+ui/Main.kt:137:import org.meshtastic.core.ui.component.ScrollToTopEvent
+ui/Main.kt:138:import org.meshtastic.core.ui.icon.Conversations
+ui/Main.kt:139:import org.meshtastic.core.ui.icon.Map
+ui/Main.kt:140:import org.meshtastic.core.ui.icon.MeshtasticIcons
+ui/Main.kt:141:import org.meshtastic.core.ui.icon.Nodes
+ui/Main.kt:142:import org.meshtastic.core.ui.icon.Settings
+ui/Main.kt:143:import org.meshtastic.core.ui.icon.Wifi
+ui/Main.kt:145:import org.meshtastic.core.ui.share.SharedContactDialog
+ui/Main.kt:147:import org.meshtastic.core.ui.theme.StatusColors.StatusGreen
+ui/Main.kt:153:enum class TopLevelDestination(val label: StringResource, val icon: ImageVector, val route: Route) {
+ui/Main.kt:154:    Conversations(Res.string.conversations, MeshtasticIcons.Conversations, ContactsRoutes.ContactsGraph),
+ui/Main.kt:155:    Nodes(Res.string.nodes, MeshtasticIcons.Nodes, NodesRoutes.NodesGraph),
+ui/Main.kt:157:    Settings(Res.string.bottom_nav_settings, MeshtasticIcons.Settings, SettingsRoutes.SettingsGraph()),
+ui/Main.kt:158:    Connections(Res.string.connections, MeshtasticIcons.Wifi, ConnectionsRoutes.ConnectionsGraph),
+ui/Main.kt:163:    companion object {
+ui/Main.kt:164:        fun fromNavDestination(destination: NavDestination?): TopLevelDestination? =
+ui/Main.kt:165:            entries.find { dest -> destination?.hierarchy?.any { it.hasRoute(dest.route::class) } == true }
+ui/Main.kt:172:fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerViewModel = hiltViewModel(), convoyViewModel: ConvoyViewModel = hiltViewModel()) {
+ui/Main.kt:173:    var showConvoyMenu by remember { mutableStateOf(false) }
+ui/Main.kt:174:    var showServicesChooser by remember { mutableStateOf(false) }
+ui/Main.kt:175:    val convoyMenuSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+ui/Main.kt:178:    val connectionState by uIViewModel.connectionState.collectAsStateWithLifecycle()
+ui/Main.kt:179:    val requestChannelSet by uIViewModel.requestChannelSet.collectAsStateWithLifecycle()
+ui/Main.kt:180:    val sharedContactRequested by uIViewModel.sharedContactRequested.collectAsStateWithLifecycle()
+ui/Main.kt:181:    val unreadMessageCount by uIViewModel.unreadMessageCount.collectAsStateWithLifecycle()
+ui/Main.kt:183:    if (connectionState == ConnectionState.Connected) {
+ui/Main.kt:184:        RequestNotificationPermission {
+ui/Main.kt:188:        sharedContactRequested?.let {
+ui/Main.kt:189:            SharedContactDialog(sharedContact = it, onDismiss = { uIViewModel.clearSharedContactRequested() })
+ui/Main.kt:192:        requestChannelSet?.let { newChannelSet ->
+ui/Main.kt:193:            ScannedQrCodeDialog(newChannelSet, onDismiss = { uIViewModel.clearRequestChannelUrl() })
+ui/Main.kt:201:    val alertDialogState by uIViewModel.currentAlert.collectAsStateWithLifecycle()
+ui/Main.kt:202:    alertDialogState?.let { state ->
+ui/Main.kt:203:        val title = state.title ?: state.titleRes?.let { stringResource(it) } ?: ""
+ui/Main.kt:204:        val message = state.message ?: state.messageRes?.let { stringResource(it) }
+ui/Main.kt:205:        val confirmText = state.confirmText ?: state.confirmTextRes?.let { stringResource(it) }
+ui/Main.kt:206:        val dismissText = state.dismissText ?: state.dismissTextRes?.let { stringResource(it) }
+ui/Main.kt:210:            message = message,
+ui/Main.kt:211:            html = state.html,
+ui/Main.kt:212:            icon = state.icon,
+ui/Main.kt:213:            text = state.composableMessage?.let { msg -> { msg.Content() } },
+ui/Main.kt:214:            confirmText = confirmText,
+ui/Main.kt:223:    val traceRouteResponse by uIViewModel.tracerouteResponse.collectAsStateWithLifecycle(null)
+ui/Main.kt:224:    var dismissedTracerouteRequestId by remember { mutableStateOf<Int?>(null) }
+ui/Main.kt:226:        ?.takeIf { it.requestId != dismissedTracerouteRequestId }
+ui/Main.kt:227:        ?.let { response ->
+ui/Main.kt:228:            uIViewModel.showAlert(
+ui/Main.kt:230:                composableMessage = {
+ui/Main.kt:231:                    Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+ui/Main.kt:235:                                response.message,
+ui/Main.kt:236:                                statusGreen = colorScheme.StatusGreen,
+ui/Main.kt:237:                                statusYellow = colorScheme.StatusYellow,
+ui/Main.kt:238:                                statusOrange = colorScheme.StatusOrange,
+ui/Main.kt:243:                confirmTextRes = Res.string.view_on_map,
+ui/Main.kt:247:                            forwardRoute = response.forwardRoute,
+ui/Main.kt:248:                            returnRoute = response.returnRoute,
+ui/Main.kt:252:                        dismissedTracerouteRequestId = response.requestId
+ui/Main.kt:254:                            NodeDetailRoutes.TracerouteMap(
+ui/Main.kt:255:                                destNum = response.destinationNodeNum,
+ui/Main.kt:256:                                requestId = response.requestId,
+ui/Main.kt:257:                                logUuid = response.logUuid,
+ui/Main.kt:261:                        uIViewModel.showAlert(titleRes = Res.string.traceroute, messageRes = errorRes)
+ui/Main.kt:262:                        uIViewModel.clearTracerouteResponse()
+ui/Main.kt:267:                    uIViewModel.clearTracerouteResponse()
+ui/Main.kt:268:                    dismissedTracerouteRequestId = null
+ui/Main.kt:272:    val computedSuiteType =
+ui/Main.kt:273:        NavigationSuiteScaffoldDefaults.navigationSuiteType(currentWindowAdaptiveInfo())
+ui/Main.kt:294:    val ctx = LocalContext.current
+ui/Main.kt:295:    var meshFolded by remember { mutableStateOf(MeshNavFold.isFolded(ctx)) }
+ui/Main.kt:297:        if (meshFolded) NavigationSuiteType.None else computedSuiteType
+ui/Main.kt:298:    val currentDestination = navController.currentBackStackEntryAsState().value?.destination
+ui/Main.kt:299:    val topLevelDestination = TopLevelDestination.fromNavDestination(currentDestination)
+ui/Main.kt:302:    val selectedDevice by scanModel.selectedNotNullFlow.collectAsStateWithLifecycle()
+ui/Main.kt:305:    var currentGlowColor by remember { mutableStateOf(Color.Transparent) }
+ui/Main.kt:306:    val animatedGlowAlpha = remember { Animatable(0f) }
+ui/Main.kt:307:    val coroutineScope = rememberCoroutineScope()
+ui/Main.kt:308:    val capturedColorScheme = colorScheme // Capture current colorScheme instance for LaunchedEffect
+ui/Main.kt:310:    val sendColor = capturedColorScheme.StatusGreen
+ui/Main.kt:320:            currentGlowColor = newTargetColor
+ui/Main.kt:323:            coroutineScope.launch {
+ui/Main.kt:324:                animatedGlowAlpha.stop() // Stop before snapping/animating
+ui/Main.kt:325:                animatedGlowAlpha.snapTo(1.0f) // Show glow instantly
+ui/Main.kt:327:                    targetValue = 0.0f, // Fade out
+ui/Main.kt:328:                    animationSpec = tween(durationMillis = 1000, easing = LinearEasing),
+ui/Main.kt:339:        navigationSuiteItems = {
+ui/Main.kt:340:            TopLevelDestination.entries
+ui/Main.kt:341:            .filter { it != TopLevelDestination.EventRideServices || ConvoyConfig.V3_FEATURES_ENABLED }
+ui/Main.kt:342:            .forEach { destination ->
+ui/Main.kt:343:                val isSelected = destination == topLevelDestination
+ui/Main.kt:344:                val isConnectionsRoute = destination == TopLevelDestination.Connections
+ui/Main.kt:346:                    icon = {
+ui/Main.kt:354:                                            when (connectionState) {
+ui/Main.kt:355:                                                ConnectionState.Connected -> stringResource(Res.string.connected)
+ui/Main.kt:356:                                                ConnectionState.Connecting -> stringResource(Res.string.connecting)
+ui/Main.kt:357:                                                ConnectionState.DeviceSleep ->
+ui/Main.kt:358:                                                    stringResource(Res.string.device_sleeping)
+ui/Main.kt:359:                                                ConnectionState.Disconnected -> stringResource(Res.string.disconnected)
+ui/Main.kt:362:                                            stringResource(destination.label)
+ui/Main.kt:367:                            state = rememberTooltipState(),
+ui/Main.kt:378:                                                    currentGlowColor.copy(alpha = 0.8f),
+ui/Main.kt:379:                                                    currentGlowColor.copy(alpha = 0.4f),
+ui/Main.kt:383:                                                androidx.compose.ui.geometry.Offset(
+ui/Main.kt:387:                                                radius = glowRadius,
+ui/Main.kt:391:                                            val alpha = animatedGlowAlpha.value
+ui/Main.kt:392:                                            if (alpha > 0f) {
+ui/Main.kt:395:                                                    radius = glowRadius,
+ui/Main.kt:396:                                                    alpha = alpha,
+ui/Main.kt:404:                                        connectionState = connectionState,
+ui/Main.kt:405:                                        deviceType = DeviceType.fromAddress(selectedDevice),
+ui/Main.kt:411:                                        if (destination == TopLevelDestination.Conversations) {
+ui/Main.kt:413:                                            var lastNonZeroCount by remember { mutableIntStateOf(unreadMessageCount) }
+ui/Main.kt:414:                                            if (unreadMessageCount > 0) {
+ui/Main.kt:415:                                                lastNonZeroCount = unreadMessageCount
+ui/Main.kt:418:                                                visible = unreadMessageCount > 0,
+ui/Main.kt:422:                                                Badge { Text(lastNonZeroCount.toString()) }
+ui/Main.kt:427:                                    Crossfade(isSelected, label = "BottomBarIcon") { isSelectedState ->
+ui/Main.kt:429:                                            imageVector = destination.icon,
+ui/Main.kt:430:                                            contentDescription = stringResource(destination.label),
+ui/Main.kt:432:                                            if (isSelectedState) colorScheme.primary else LocalContentColor.current,
+ui/Main.kt:439:                    selected = isSelected,
+ui/Main.kt:445:                        text = when (destination) { TopLevelDestination.Convoy -> "GroupTrack Mesh Radio Setup"; TopLevelDestination.EventRideServices -> "Services"; else -> stringResource(destination.label) },
+ui/Main.kt:449:                                    .height(1.dp) // hide on phone - min 1x1 or talkback won't see it.
+ui/Main.kt:456:                        val isRepress = destination == topLevelDestination
+ui/Main.kt:458:                            when (destination) {
+ui/Main.kt:460:                                    val onNodesList = currentDestination?.hasRoute(NodesRoutes.Nodes::class) == true
+ui/Main.kt:462:                                        navController.navigate(destination.route) {
+ui/Main.kt:463:                                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+ui/Main.kt:467:                                    uIViewModel.emitScrollToTopEvent(ScrollToTopEvent.NodesTabPressed)
+ui/Main.kt:471:                                        currentDestination?.hasRoute(ContactsRoutes.Contacts::class) == true
+ui/Main.kt:473:                                        navController.navigate(destination.route) {
+ui/Main.kt:474:                                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+ui/Main.kt:478:                                    uIViewModel.emitScrollToTopEvent(ScrollToTopEvent.ConversationsTabPressed)
+ui/Main.kt:482:                                        popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+ui/Main.kt:487:                                        showConvoyMenu = true
+ui/Main.kt:493:                            if (destination == TopLevelDestination.Convoy) {
+ui/Main.kt:495:                                    popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+ui/Main.kt:500:                                    showConvoyMenu = true
+ui/Main.kt:502:                            } else if (destination == TopLevelDestination.EventRideServices) {
+ui/Main.kt:503:                                showServicesChooser = true
+ui/Main.kt:505:                                navController.navigate(destination.route) {
+ui/Main.kt:506:                                    popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+ui/Main.kt:519:        androidx.compose.foundation.layout.Box(Modifier.fillMaxSize()) {
+ui/Main.kt:522:            startDestination = ConvoyRoutes.ConvoyAuthorityGate,
+ui/Main.kt:525:            contactsGraph(navController, uIViewModel.scrollToTopEventFlow)
+ui/Main.kt:526:            nodesGraph(navController, uIViewModel.scrollToTopEventFlow)
+ui/Main.kt:527:            mapGraph(navController)
+ui/Main.kt:528:            convoyGraph(navController, convoyViewModel)
+ui/Main.kt:529:            channelsGraph(navController)
+ui/Main.kt:530:            connectionsGraph(navController)
+ui/Main.kt:531:            settingsGraph(navController)
+ui/Main.kt:532:            firmwareGraph(navController)
+ui/Main.kt:536:        if (showConvoyMenu) {
+ui/Main.kt:537:            ConvoySubMenu(
+ui/Main.kt:538:                sheetState                = convoyMenuSheetState,
+ui/Main.kt:539:                onDismiss                 = { showConvoyMenu = false },
+ui/Main.kt:540:                onCreateEventRide         = { showConvoyMenu = false },
+ui/Main.kt:541:                onTransferConfig          = { showConvoyMenu = false; navController.navigate(ConvoyRoutes.ConvoyTransferRide) },
+ui/Main.kt:546:                    showConvoyMenu = false
+ui/Main.kt:550:                    showConvoyMenu = false
+ui/Main.kt:554:                    showConvoyMenu = false
+ui/Main.kt:558:                    showConvoyMenu = false
+ui/Main.kt:567:        if (showServicesChooser) {
+ui/Main.kt:568:            val servicesContext = androidx.compose.ui.platform.LocalContext.current
+ui/Main.kt:569:            com.geeksville.mesh.convoy.ConvoyServicesChooser(
+ui/Main.kt:570:                context = servicesContext,
+ui/Main.kt:571:                onDismiss = { showServicesChooser = false },
+ui/Main.kt:572:                onOnline = {
+ui/Main.kt:573:                    showServicesChooser = false
+ui/Main.kt:574:                    val route = com.geeksville.mesh.convoy.ConvoySessionManager.resolveLaunchRoute(servicesContext, true)
+ui/Main.kt:575:                    val dest = when (route) {
+ui/Main.kt:576:                        com.geeksville.mesh.convoy.ConvoySessionManager.LaunchRoute.TERMS        -> ConvoyRoutes.ConvoyTerms
+ui/Main.kt:577:                        com.geeksville.mesh.convoy.ConvoySessionManager.LaunchRoute.PRIVACY      -> ConvoyRoutes.ConvoyPrivacy
+ui/Main.kt:578:                        com.geeksville.mesh.convoy.ConvoySessionManager.LaunchRoute.SUBSCRIPTION -> ConvoyRoutes.ConvoySubscription
+ui/Main.kt:579:                        com.geeksville.mesh.convoy.ConvoySessionManager.LaunchRoute.DASHBOARD    -> ConvoyRoutes.ConvoyDashboard
+ui/Main.kt:582:                    navController.navigate(dest)
+ui/Main.kt:584:                onOffline = {
+ui/Main.kt:585:                    showServicesChooser = false
+ui/Main.kt:594:            com.geeksville.mesh.convoy.MeshFoldControl(
+ui/Main.kt:598:                    com.geeksville.mesh.convoy.MeshNavFold.setFolded(ctx, f)
+ui/Main.kt:601:                    if (meshFolded) androidx.compose.ui.Alignment.CenterStart
+ui/Main.kt:602:                    else androidx.compose.ui.Alignment.TopStart
+ui/Main.kt:612:private fun VersionChecks(viewModel: UIViewModel) {
+ui/Main.kt:613:    val connectionState by viewModel.connectionState.collectAsStateWithLifecycle()
+ui/Main.kt:614:    val myNodeInfo by viewModel.myNodeInfo.collectAsStateWithLifecycle()
+ui/Main.kt:616:    val myFirmwareVersion = myNodeInfo?.firmwareVersion
+ui/Main.kt:618:    val firmwareEdition by viewModel.firmwareEdition.collectAsStateWithLifecycle(null)
+ui/Main.kt:620:    val latestStableFirmwareRelease by
+ui/Main.kt:621:        viewModel.latestStableFirmwareRelease.collectAsStateWithLifecycle(DeviceVersion("2.6.4"))
+ui/Main.kt:622:    LaunchedEffect(connectionState, firmwareEdition) {
+ui/Main.kt:623:        if (connectionState == ConnectionState.Connected) {
+ui/Main.kt:629:    LaunchedEffect(connectionState, myNodeInfo) {
+ui/Main.kt:630:        if (connectionState == ConnectionState.Connected) {
+ui/Main.kt:632:                "[FW_CHECK] Connection state: $connectionState, " +
+ui/Main.kt:633:                    "myNodeInfo: ${if (myNodeInfo != null) "present" else "null"}, " +
+ui/Main.kt:634:                    "firmwareVersion: ${myFirmwareVersion ?: "null"}"
+ui/Main.kt:637:            myNodeInfo?.let { info ->
+ui/Main.kt:638:                val isOld = info.minAppVersion > BuildConfig.VERSION_CODE && BuildConfig.DEBUG.not()
+ui/Main.kt:640:                    "[FW_CHECK] App version check - minAppVersion: ${info.minAppVersion}, " +
+ui/Main.kt:641:                        "currentVersion: ${BuildConfig.VERSION_CODE}, isOld: $isOld"
+ui/Main.kt:645:                    Logger.w { "[FW_CHECK] App too old - showing update prompt" }
+ui/Main.kt:646:                    viewModel.showAlert(
+ui/Main.kt:648:                        messageRes = Res.string.must_update,
+ui/Main.kt:649:                        onConfirm = { viewModel.setDeviceAddress("n") },
+ui/Main.kt:654:                        ?.let { fwVersion ->
+ui/Main.kt:655:                            val curVer = DeviceVersion(fwVersion)
+ui/Main.kt:657:                                "[FW_CHECK] Firmware version comparison - " +
+ui/Main.kt:658:                                    "device: $curVer (raw: $fwVersion), " +
+ui/Main.kt:669:                                val message = getString(Res.string.firmware_old)
+ui/Main.kt:670:                                viewModel.showAlert(
+ui/Main.kt:672:                                    html = message,
+ui/Main.kt:673:                                    onConfirm = { viewModel.setDeviceAddress("n") },
+ui/Main.kt:677:                                    "[FW_CHECK] Firmware should update - " +
+ui/Main.kt:680:                                val title = getString(Res.string.should_update_firmware)
+ui/Main.kt:681:                                val message = getString(Res.string.should_update, latestStableFirmwareRelease.asString)
+ui/Main.kt:682:                                viewModel.showAlert(title = title, message = message, onConfirm = {})
+ui/Main.kt:684:                                Logger.i { "[FW_CHECK] Firmware version OK - device: $curVer meets requirements" }
+ui/Main.kt:688:                            Logger.w { "[FW_CHECK] Firmware version is null or blank despite myNodeInfo being present" }
+ui/Main.kt:691:            } ?: run { Logger.d { "[FW_CHECK] myNodeInfo is null, skipping firmware check" } }
+ui/Main.kt:693:            Logger.d { "[FW_CHECK] Not connected (state: $connectionState), skipping firmware check" }
 ui/node/AdaptiveNodeListScreen.kt:4: * This program is free software: you can redistribute it and/or modify
 ui/node/AdaptiveNodeListScreen.kt:5: * it under the terms of the GNU General Public License as published by
 ui/node/AdaptiveNodeListScreen.kt:6: * the Free Software Foundation, either version 3 of the License, or

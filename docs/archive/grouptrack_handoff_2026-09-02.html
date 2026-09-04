@@ -1,0 +1,168 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<title>GroupTrack — Handoff 2026-09-02</title>
+<style>
+body{font:15px/1.65 -apple-system,"Segoe UI",Roboto,sans-serif;max-width:940px;
+margin:0 auto;padding:26px;background:#0f1216;color:#e6edf3}
+h1{font-size:21px;color:#58a6ff;border-bottom:2px solid #2a3038;padding-bottom:8px}
+h2{font-size:16px;color:#58a6ff;margin-top:30px;border-bottom:1px solid #2a3038;padding-bottom:5px}
+h3{font-size:14px;color:#b8c2cc;margin-top:20px}
+code{background:#1a2027;padding:1px 5px;border-radius:3px;font-size:12.5px;color:#8FD0FF}
+.card{background:#161b22;border:1px solid #2a3038;border-radius:8px;padding:13px 17px;margin:11px 0}
+.win{border-left:4px solid #3fb950}.bad{border-left:4px solid #f85149}
+.warn{border-left:4px solid #d29922}
+table{border-collapse:collapse;width:100%;margin:11px 0;font-size:13px}
+th,td{border:1px solid #2a3038;padding:6px 9px;text-align:left;vertical-align:top}
+th{background:#1a2027;color:#8FD0FF}
+li{margin:5px 0}
+.st{font:11px monospace;padding:1px 6px;border-radius:3px}
+.open{background:#3d2b12;color:#e3b341}.done{background:#12321c;color:#3fb950}
+.next{background:#12203a;color:#58a6ff}
+</style></head><body>
+
+<h1>GroupTrack — Handoff, 2026-09-02</h1>
+<p><code>feature/convoy-event-ride</code> · through <code>e3b8ed4cb</code> ·
+Droid 1 <code>8624SBCEDF00001789</code> · Droid 2 <code>24039703201775</code></p>
+
+<div class="card bad">
+<p>⭐⭐ <b>READ THIS FIRST, AND IT IS THE MOST IMPORTANT LINE IN THE DOCUMENT.</b>
+Fred, 09-02: <i>"never made the discussion list of open items — that was the
+failure."</i></p>
+<p>The four-field classification was designed 08-31, applied to ONE DEVICE by a
+Python prototype, and never ported. "Port classify4 into the import" was in the
+08-31 living master and <b>dropped out of the 09-01 handoff</b>. The next day's
+work ran off a list that no longer had it. Droid 1 crashed on
+<code>no such column: land_status</code> and the week's central work turned out to
+exist nowhere but one phone.</p>
+<p>⛔ <b>THE OPEN LIST BELOW IS CARRIED FORWARD, NOT RE-DERIVED.</b> Nothing leaves
+it except by being closed. Fred: <i>"make sure we have enough detail for a new
+conversation handoff to be efficient — we didn't even have a new conversation, we
+lost it between yesterday and today."</i></p>
+</div>
+
+<h2>State of the tree</h2>
+<div class="card">
+<table>
+<tr><th>Piece</th><th>State</th></tr>
+<tr><td>Map Keys panel — key + styling only</td><td><span class="st done">shipped</span> rewritten clean after 8 patch rounds</td></tr>
+<tr><td>Trail filter — Map Features › Trails › SELECT</td><td><span class="st done">shipped</span> both maps</td></tr>
+<tr><td>Trail styling — colour, pattern, weight</td><td><span class="st done">shipped</span> palette tuned and shipped as an asset</td></tr>
+<tr><td>Trail tap → detail panel</td><td><span class="st done">shipped</span> planner only — ⚠ convoy HTML NOT patched</td></tr>
+<tr><td>Readable detail values</td><td><span class="st done">shipped</span> source names, roughness, tracktype</td></tr>
+<tr><td>classify4 ported to Kotlin</td><td><span class="st next">verify</span> import running on Droid 1 at handoff time</td></tr>
+<tr><td>Router respects the filter</td><td><span class="st done">shipped</span> filter in the cache key</td></tr>
+<tr><td>Recipe records its predicate</td><td><span class="st done">shipped</span> ⚠ nothing READS it back yet</td></tr>
+<tr><td>Clear marker</td><td><span class="st done">2026-09-02B</span> every device reloads once</td></tr>
+</table>
+</div>
+
+<h2>⛔ VERIFY FIRST THING — the classification actually running</h2>
+<div class="card bad">
+<p>The import was still running on Droid 1 when this was written. <b>Nothing below
+matters until this line is seen:</b></p>
+<p><code>adb -s 8624SBCEDF00001789 logcat -d | grep -i "step 8"</code></p>
+<p>Expected: <code>step 8 complete: ~145931 classified, ~54000 private</code></p>
+<ul>
+<li>⚠ <b>If <code>private</code> is 0</b> — the SITLA ownership GeoJSON is not on
+the device and every row defaulted to PUBLIC. The file is
+<code>/sdcard/Documents/GroupTrack/Land_Ownership.geojson</code>, 72 MB.</li>
+<li>⚠ <b>If step 8 never ran</b> — check the import completed; it is the LAST step
+and an earlier failure skips it.</li>
+<li>⭐ <b>Then check the filter does something:</b> untick a category, and the
+progress line on the next route search should report FEWER trails.</li>
+</ul>
+</div>
+
+<h2>Open items — carried forward, in priority order</h2>
+
+<div class="card warn">
+<h3>Owed from the classification work</h3>
+<ul>
+<li><b>Convoy map's trail tap.</b> <code>grouptrack_map.html</code> got the
+<code>onTrailTap</code> handler; <code>convoy_map.html</code> did not. ⛔ Doing one
+screen and not the other has cost FIVE rounds this week.</li>
+<li><b>Recipe rebuild reading <code>trailFilter</code></b> and passing it to
+<code>buildGraph</code>. The recipe records the predicate now; nothing reads it,
+so a rebuild still uses whatever is set today.</li>
+<li><b><code>TrailImporter</code> writing <code>status</code> to both stores.</b>
+Step 8 writes the four fields; status still only lands in trail_properties.</li>
+<li><b>Detail panel key NAMES are still raw</b> — <code>carto_code_source</code>
+and the like. The VALUES are translated; the labels are not.</li>
+</ul>
+</div>
+
+<div class="card">
+<h3>Design, agreed and not built</h3>
+<ul>
+<li>⭐ <b>Private land as a shaded map LAYER</b>, from the SITLA polygons already on
+the device. Fred, 09-02: <i>"just a layer."</i> Replaces the earlier idea of
+dimming private trails — shade the ground, leave the lines alone. ⚠ Only if it
+proves a problem in use.</li>
+<li><b>Surface appended per trail in the compare table.</b> Fred: <i>"just append
+the surface type to each trail — that will tell us how long on this surface
+type."</i> The table already sorts by mileage, so the surfaces you actually ride
+land at the top. ⚠ Needs <code>surface_type</code> in whatever query builds those
+rows — not yet checked.</li>
+<li><b>Tracks and routes stylable</b> from the key. ⚠ Deliberately deferred: the
+Kotlin half is easy, but track and route styles are HARDCODED in the three asset
+files, so Apply would save and nothing would happen. Do it whole or not at all.</li>
+<li><b>Route+ and AI planning mutually exclusive</b>, and AI mode off when leaving
+the planner.</li>
+<li><b>Schema-version refactor</b> (SCHEMAPLAN-0901). The spatial DB has NO version
+number — just a pile of probe-and-ALTER blocks. ⭐ Fred's model: a version, a
+defined step per increment, and a floor below which the answer is clear-and-reload.</li>
+</ul>
+</div>
+
+<div class="card">
+<h3>Housekeeping</h3>
+<ul>
+<li>⚠ <b>The TRACE and LIFECYCLE probes are still in the build</b>, logging on every
+viewport change — for a problem that turned out to be two roads sharing a name.
+Remove them.</li>
+<li><b><code>downloadFile</code> retry-with-backoff</b> still owed; redirect
+recursion has no depth limit. Both USFS and UGRC have failed on it.</li>
+<li><b>OSM download parallelism</b> — could overlap the six catalogue sources,
+25 min → 10.</li>
+<li><b>The 200-row cap</b> in <code>queryArtifactList</code> with
+<code>ORDER BY name</code>. Alphabetical, so numbered roads fill it. Not the cause
+of anything yet, but it will bite at 200+ trails in view.</li>
+<li><b>Extend the xref tools to <code>assets/*.js</code> and <code>*.html</code>.</b>
+⛔ Neither covers them, which is how <code>spatial_artifacts.js</code> sat a version
+behind for two days. ⚠ AND that file is COPY-PASTED into convoy_map.html rather
+than loaded — editing it alone changes nothing at runtime.</li>
+</ul>
+</div>
+
+<h2>⚠ Things that will bite whoever picks this up</h2>
+<div class="card warn">
+<ul>
+<li>⛔⛔ <b><code>TrailFilterState</code> is a plain singleton, NOT Compose state.</b>
+EVERY composable that reads it must take <code>tick</code> as a parameter, or
+Compose skips it as unchanged and the screen does not move while the state
+underneath does. <b>That cost eight builds on 09-02.</b></li>
+<li>⛔ <b>Build anchors from <code>cat -A</code>, never <code>sed</code>.</b> Six
+failures this week on invisible blank lines, three in one patch. The rule is
+already in the locked file.</li>
+<li>⚠ <b>The launcher column is ABSOLUTE TOP PADDING, not a stack.</b> Inserting a
+control means moving every one below it. Convoy: 152/184/216. Planner: 64/116/168.</li>
+<li>⚠ <b>The shipped default hides all non-motorized and all private.</b> It will
+read as missing data. The Quick Start covers it and that coverage is load-bearing.</li>
+<li>⭐ <b>A close control that is not legible AS A BUTTON is the same as no close.</b>
+Five panels needed one this week; THREE already had one at 10sp, unboxed, the same
+colour as the title beside it.</li>
+</ul>
+</div>
+
+<h2>Documents</h2>
+<div class="card win">
+<ul>
+<li><code>grouptrack_living_master_2026-09-02_v43.html</code> — 385 h3, all originals intact</li>
+<li><code>grouptrack_release_notes_2026-09-02.html</code> — 09-02 section, including the reload warning</li>
+<li><code>grouptrack_manual_2026-09-02.html</code> — three new chapters: choosing trails, the key and colours, what is known about a trail</li>
+<li><code>GroupTrack_QuickStart_Checklist_2026-09-02_v16.html</code> — steps 5b and 5c: what is hidden, and how to read the lines</li>
+<li><code>GroupTrack_production_access_300char_2026-09-02.md</code> — all ten answers, verified under the limit</li>
+<li><code>map_keys_defaults.json</code> — Fred's palette, shipped as the asset</li>
+</ul>
+</div>
+
+</body></html>
