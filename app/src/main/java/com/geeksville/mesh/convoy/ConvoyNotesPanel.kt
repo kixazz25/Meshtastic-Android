@@ -9,6 +9,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -78,6 +82,18 @@ data class NoteSection(
     val lines: List<String> = emptyList(),
     val pairs: List<Pair<String, String>> = emptyList(),
     val style: NoteStyle = NoteStyle.PLAIN,
+    /**
+     * NOTESTWISTY-2026-09-03: start folded, opened by tapping the heading.
+     *
+     * ⭐ Fred, 09-03, on why this panel needs it: the route narrative is long --
+     * a headline, four stats, ten features, ten stops in order, ground covered
+     * and a warning. All of it worth having, and all of it at once buries the
+     * three things a rider decides on.
+     * ⚠ A section with NO HEADING cannot fold -- there would be nothing to tap.
+     * The headline is one of those, which is correct: it is the first thing you
+     * should see.
+     */
+    val collapsed: Boolean = false,
 )
 
 @Composable
@@ -91,6 +107,19 @@ fun ConvoyNotesPanel(
         "what the surface is like, or what is on it. Zoom in on the satellite view " +
         "before you commit.",
     onClose: () -> Unit = {},
+    /**
+     * NOTESACTIONS-2026-09-03: what a rider can DO from here, without leaving.
+     *
+     * ⭐⭐ Fred, 09-03: *"it was frustrating to demo and have to navigate three
+     * screens to show route info."* Reading about a ride and then acting on it
+     * were separate journeys; these join them.
+     * ⚠ Each is NULL BY DEFAULT and its button only renders when supplied, so
+     * the draft caller and any future caller are unaffected -- a WIP route has
+     * no recipe to rebuild and nothing saved to download.
+     */
+    onBuildFromRecipe: (() -> Unit)? = null,
+    onRouteDetails: (() -> Unit)? = null,
+    onDownloadMaps: (() -> Unit)? = null,
 ) {
     val scroll = rememberScrollState()
     val shown = sections.filter { it.lines.isNotEmpty() || it.pairs.isNotEmpty() }
@@ -129,10 +158,38 @@ fun ConvoyNotesPanel(
                     .padding(16.dp, 8.dp, 16.dp, 22.dp)
             ) {
                 shown.forEach { s ->
+                    // NOTESTWISTY-2026-09-03: a foldable section. ⚠ Keyed on the
+                    // HEADING, so a section that gains or loses one does not
+                    // inherit another's open state.
+                    var open by remember(s.heading) { mutableStateOf(!s.collapsed) }
+                    val canFold = s.collapsed && !s.heading.isNullOrBlank()
                     s.heading?.takeIf { it.isNotBlank() }?.let {
-                        Text(it, color = npFaint, fontSize = 9.5.sp, fontFamily = npMono,
-                            fontWeight = FontWeight.Bold)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = if (canFold)
+                                Modifier.fillMaxWidth().clickable { open = !open }
+                            else Modifier.fillMaxWidth()
+                        ) {
+                            if (canFold) {
+                                Text(if (open) "\u25BE" else "\u25B8", color = npDim,
+                                    fontSize = 11.sp)
+                                Spacer(Modifier.width(5.dp))
+                            }
+                            Text(it, color = npFaint, fontSize = 9.5.sp,
+                                fontFamily = npMono, fontWeight = FontWeight.Bold,
+                                modifier = Modifier.weight(1f))
+                            // ⭐ The COUNT on a folded section. Without it a
+                            // rider has no reason to open one.
+                            if (canFold && !open && s.lines.isNotEmpty()) {
+                                Text("${s.lines.size}", color = npDim, fontSize = 10.sp,
+                                    fontFamily = npMono)
+                            }
+                        }
                         Spacer(Modifier.height(7.dp))
+                    }
+                    if (!open) {
+                        Spacer(Modifier.height(6.dp))
+                        return@forEach
                     }
                     when (s.style) {
                         NoteStyle.STATS ->
@@ -173,6 +230,35 @@ fun ConvoyNotesPanel(
                             }
                     }
                     Spacer(Modifier.height(14.dp))
+                }
+
+                // NOTESACTIONS-2026-09-03: ⭐ ACT WITHOUT LEAVING. Fred, 09-03:
+                // "it was frustrating to demo and have to navigate three screens
+                // to show route info." Reading about a ride and doing something
+                // about it were separate journeys.
+                // ⚠ ABOVE the footer, because the footer is the width warning
+                // and that should be the last word on the screen.
+                val acts = listOfNotNull(
+                    onBuildFromRecipe?.let { "BUILD FROM RECIPE" to it },
+                    onRouteDetails?.let { "ROUTE DETAILS" to it },
+                    onDownloadMaps?.let { "DOWNLOAD MAPS" to it },
+                )
+                if (acts.isNotEmpty()) {
+                    Column(Modifier.fillMaxWidth().padding(bottom = 14.dp)) {
+                        acts.forEach { (label, action) ->
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = Color(0xFF12203A),
+                                modifier = Modifier.fillMaxWidth()
+                                    .padding(bottom = 7.dp)
+                                    .clickable { action() }
+                            ) {
+                                Text(label, color = Color(0xFF58A6FF), fontSize = 12.sp,
+                                    fontFamily = npMono, fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(13.dp, 11.dp))
+                            }
+                        }
+                    }
                 }
 
                 footer?.takeIf { it.isNotBlank() }?.let {
@@ -223,13 +309,19 @@ fun notesFromDraft(notes: JSONObject?): List<NoteSection> {
         if (p.isNotEmpty()) out.add(NoteSection(pairs = p, style = NoteStyle.STATS))
     }
 
-    fun arr(key: String, heading: String, style: NoteStyle = NoteStyle.PLAIN) {
+    fun arr(key: String, heading: String, style: NoteStyle = NoteStyle.PLAIN,
+            collapsed: Boolean = false) {
         val a = nar?.optJSONArray(key) ?: return
         val l = (0 until a.length()).map { a.optString(it) }.filter { it.isNotBlank() }
-        if (l.isNotEmpty()) out.add(NoteSection(heading, l, style = style))
+        if (l.isNotEmpty())
+            out.add(NoteSection(heading, l, style = style, collapsed = collapsed))
     }
-    arr("what_you_will_see", "WHAT YOU WILL SEE")
-    arr("stops_in_order", "IN ORDER")
+    // NOTESTWISTY-2026-09-03: ⭐ THE TWO LONG ONES START FOLDED. A ten-feature
+    // route lists ten under WHAT YOU WILL SEE and ten again under IN ORDER --
+    // twenty lines that push the stats, the ground covered and the warning off
+    // the screen. ⚠ The warning especially: BEFORE YOU GO stays open, always.
+    arr("what_you_will_see", "WHAT YOU WILL SEE", collapsed = true)
+    arr("stops_in_order", "IN ORDER", collapsed = true)
 
     nar?.optString("ground_covered")?.takeIf { it.isNotBlank() }?.let {
         out.add(NoteSection("GROUND COVERED", listOf(it)))

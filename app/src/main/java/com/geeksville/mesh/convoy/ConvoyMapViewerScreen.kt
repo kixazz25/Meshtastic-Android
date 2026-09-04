@@ -1610,8 +1610,23 @@ fun ConvoyMapViewerScreen(
                                     return
                                 }
                                 android.os.Handler(android.os.Looper.getMainLooper()).post {
-                                    pendingDetailType = "Routes"
-                                    pendingDetailId = id
+                                    // ⭐⭐ ROUTETAPNOTES-2026-09-03: ONE TAP TO THE
+                                    // NARRATIVE. Fred, 09-03: "it was frustrating
+                                    // to demo and have to navigate three screens
+                                    // to show route info. One click from the map
+                                    // would have been awesome."
+                                    // ⛔ AND AN OLD ROUTE WITH NO NARRATIVE GOES
+                                    // STRAIGHT TO THE DETAIL PANEL (Fred). A prose
+                                    // panel with no prose is the failure that
+                                    // would make this feel broken -- routes built
+                                    // before the generator existed still behave
+                                    // exactly as they do today.
+                                    if (SpatialDbManager.readRouteNotes(id) != null) {
+                                        savedNotesRouteId = id
+                                    } else {
+                                        pendingDetailType = "Routes"
+                                        pendingDetailId = id
+                                    }
                                 }
                             }
                             @JavascriptInterface
@@ -2360,7 +2375,42 @@ fun ConvoyMapViewerScreen(
                 ConvoyNotesPanel(
                     title = "Route details",
                     sections = notesFromRouteId(rid),
-                    onClose = { savedNotesRouteId = null }
+                    onClose = { savedNotesRouteId = null },
+                    // ROUTETAPNOTES-2026-09-03: act without leaving.
+                    // ⚠ BUILD FROM RECIPE IS NOT HERE. Its lambda on the detail
+                    // panel is fifty-odd lines of inline state restoration, and
+                    // calling it from a second place means extracting it
+                    // properly -- which is a real edit, not a rushed one.
+                    // ⭐ Fred, 09-03: take the shortcut, put the extraction in
+                    // 2.6h. It stays one tap further away on the detail panel
+                    // until then.
+                    onRouteDetails = {
+                        savedNotesRouteId = null
+                        pendingDetailType = "Routes"
+                        pendingDetailId = rid
+                    },
+                    onDownloadMaps = {
+                        // ⚠ The download path is keyed on GEOM HASH, not route
+                        // id -- routeGeomHash bridges it. Off the main thread
+                        // because getCorridorBbox reads the database.
+                        Thread {
+                            val hash = SpatialDbManager.routeGeomHash(rid)
+                            val bb = hash?.let {
+                                SpatialDbManager.getCorridorBbox(context, it) }
+                            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                if (bb != null && bb.isValid) {
+                                    savedNotesRouteId = null
+                                    pendingCorridorHash = hash
+                                    downloadBbox = bb
+                                    showDownloadConfirm = true
+                                } else {
+                                    android.widget.Toast.makeText(context,
+                                        "No map area for this route",
+                                        android.widget.Toast.LENGTH_LONG).show()
+                                }
+                            }
+                        }.start()
+                    }
                 )
             }
 
