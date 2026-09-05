@@ -348,6 +348,26 @@ fun ConvoyScreen(
     // "?" help: which bundled doc is open ("manual" | "notes" | null = chooser/closed)
     var docsView by remember { mutableStateOf<String?>(null) }
     var showDocsChooser by remember { mutableStateOf(false) }
+
+    // DOCLAUNCH-2026-09-05: ⭐ SHOW THE RIGHT DOCUMENT, ONCE.
+    // A new install opens the Quick Start; an update opens the release notes.
+    // Never both, and never twice.
+    // ⚠ LaunchedEffect(Unit) so it runs once per entry rather than on every
+    // recomposition -- and MeshNavFold.docToShow writes its marker as it
+    // answers, so even a second call would return NONE.
+    // ⚠ It sets the SAME `docsView` the Help chooser uses, so the viewer and
+    // its Close button are the ones already proven. Nothing new renders.
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        when (com.geeksville.mesh.convoy.MeshNavFold.docToShow(
+            context, com.geeksville.mesh.BuildConfig.VERSION_NAME
+        )) {
+            com.geeksville.mesh.convoy.MeshNavFold.DocToShow.QUICKSTART ->
+                docsView = "quickstart"
+            com.geeksville.mesh.convoy.MeshNavFold.DocToShow.RELEASE_NOTES ->
+                docsView = "notes"
+            else -> {}
+        }
+    }
     var showArtifactsPanel by remember { mutableStateOf(false) }   // FAB closed-state vs panel open-state
     var mapInitialized by remember { mutableStateOf(false) }
     var showRecMenu by viewModel.showRecMenu
@@ -1773,10 +1793,8 @@ fun ConvoyScreen(
             )
         }
         if (docsView != null) {
-            // DOCSCHOOSER-2026-09-02: ⚠ grouptrack_quickstart.html is a STUB
-            // until the asset ships. The WebView shows its own "not found" page
-            // if it is missing, which is ugly but harmless -- and it is the
-            // layout we are proving this release, not the document.
+            // DOCLAUNCH-2026-09-05: ⚠ the stub note that was here is gone --
+            // all three documents ship as real assets now.
             val assetFile = when (docsView) {
                 "notes" -> "grouptrack_release_notes.html"
                 "quickstart" -> "grouptrack_quickstart.html"

@@ -48,6 +48,39 @@ object MeshNavFold {
 
     private fun file(): File = File(SpatialDbManager.dbDir(), FILE)
 
+    // ── DOCLAUNCH-2026-09-05: which document to open on this launch ─────
+    //
+    // ⭐ THE RULE, from 08-30: the Quick Start on a NEW INSTALL, the release
+    // notes on a VERSION UPDATE, never both, once only, and dismissible.
+    // ⚠ An autolaunched document is an INTERRUPTION, not a tutorial. It gets one
+    // chance and then leaves the rider alone; Help has all three permanently.
+    private const val DOCMARK = "docs_shown_version"
+
+    enum class DocToShow { NONE, QUICKSTART, RELEASE_NOTES }
+
+    /**
+     * ⚠ Call ONCE per launch. It writes the marker as it answers, so a second
+     * call returns NONE -- which is what stops a recomposition reopening the
+     * document the rider just closed.
+     */
+    fun docToShow(ctx: Context, currentVersion: String): DocToShow {
+        return try {
+            val f = File(SpatialDbManager.dbDir(), DOCMARK)
+            val seen = if (f.exists()) f.readText().trim() else ""
+            if (seen == currentVersion) return DocToShow.NONE
+            f.parentFile?.mkdirs()
+            f.writeText(currentVersion)
+            // ⭐ NO MARKER AT ALL means nobody has run this build or any other:
+            // a new install, so the Quick Start. A marker with a DIFFERENT
+            // version means they have used GroupTrack before and something has
+            // changed -- the release notes.
+            if (seen.isEmpty()) DocToShow.QUICKSTART else DocToShow.RELEASE_NOTES
+        } catch (e: Exception) {
+            Log.w(TAG, "docToShow: ${e.message}")
+            DocToShow.NONE
+        }
+    }
+
     /**
      * MESHBTN-2026-09-04: ⭐⭐ COMPOSE STATE, NOT A PLAIN FIELD.
      *
