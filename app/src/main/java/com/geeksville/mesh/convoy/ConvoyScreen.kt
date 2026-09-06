@@ -59,6 +59,7 @@ import kotlinx.coroutines.withContext
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -348,6 +349,22 @@ fun ConvoyScreen(
     // "?" help: which bundled doc is open ("manual" | "notes" | null = chooser/closed)
     var docsView by remember { mutableStateOf<String?>(null) }
     var showDocsChooser by remember { mutableStateOf(false) }
+
+    // DOCSTACK-2026-09-06: ⭐ DOCUMENTS STACK. Fred: "keep document open with
+    // new doc launched on top so when we close we can return from where we
+    // exited."
+    // ⚠ Tapping a task in the Quick Start opens the manual. Closing it should
+    // put the rider back on the Quick Start where they were, not on the map --
+    // otherwise working through a checklist means reopening Help every time.
+    val docsStack = remember { mutableStateListOf<String>() }
+    fun docsOpen(name: String) {
+        docsView?.let { docsStack.add(it) }
+        docsView = name
+    }
+    fun docsBack() {
+        docsView = if (docsStack.isNotEmpty()) docsStack.removeAt(docsStack.size - 1)
+                   else null
+    }
 
     // DOCLAUNCH-2026-09-05: ⭐ SHOW THE RIGHT DOCUMENT, ONCE.
     // A new install opens the Quick Start; an update opens the release notes.
@@ -1765,7 +1782,7 @@ fun ConvoyScreen(
                             androidx.compose.foundation.layout.Column(
                                 modifier = Modifier.fillMaxWidth()
                                     .clickable {
-                                        showDocsChooser = false; docsView = key
+                                        showDocsChooser = false; docsOpen(key)
                                     }
                                     .padding(vertical = 10.dp)
                             ) {
@@ -1795,21 +1812,29 @@ fun ConvoyScreen(
         if (docsView != null) {
             // DOCLAUNCH-2026-09-05: ⚠ the stub note that was here is gone --
             // all three documents ship as real assets now.
-            val assetFile = when (docsView) {
+            // DOCSTACK-2026-09-06: ⚠ docsView may now carry a FRAGMENT --
+            // "manual#mapkeys" -- so a task in the Quick Start lands on the
+            // section that teaches it rather than the top of a 7 MB document.
+            val docKey = docsView!!.substringBefore("#")
+            val docFrag = docsView!!.substringAfter("#", "")
+            val assetFile = when (docKey) {
                 "notes" -> "grouptrack_release_notes.html"
                 "quickstart" -> "grouptrack_quickstart.html"
                 else -> "grouptrack_manual.html"
-            }
+            } + (if (docFrag.isNotEmpty()) "#$docFrag" else "")
             androidx.compose.material3.Surface(
                 modifier = Modifier.fillMaxSize(),
                 color = androidx.compose.ui.graphics.Color(0xFF10130F)
             ) {
                 androidx.compose.foundation.layout.Column(modifier = Modifier.fillMaxSize()) {
                     androidx.compose.foundation.layout.Row(
+                        // DOCSTACK-2026-09-06: ⛔ CLOSE WAS TOP RIGHT, UNDER
+                        // QUEUES. Fred: "queues overlays the text box." Centre
+                        // is the one place on this bar nothing else claims.
                         modifier = Modifier.fillMaxWidth().padding(8.dp),
-                        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.End
+                        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.Center
                     ) {
-                        androidx.compose.material3.TextButton(onClick = { docsView = null }) {
+                        androidx.compose.material3.TextButton(onClick = { docsBack() }) {
                             androidx.compose.material3.Text("Close")
                         }
                     }
@@ -1826,7 +1851,34 @@ fun ConvoyScreen(
                                 settings.allowFileAccess = true
                                 @Suppress("DEPRECATION")
                                 settings.allowFileAccessFromFileURLs = true
-                                webViewClient = android.webkit.WebViewClient()
+                                // DOCSTACK-2026-09-06: ⭐ A LINK TO ANOTHER
+                                // DOCUMENT PUSHES ONTO THE STACK instead of
+                                // navigating this WebView. That is what lets
+                                // Close come back to the Quick Start at the
+                                // task the rider was on.
+                                // ⚠ A link WITHIN the same document -- an
+                                // anchor -- is left alone, or every jump would
+                                // stack.
+                                webViewClient = object : android.webkit.WebViewClient() {
+                                    @Deprecated("Deprecated in Java")
+                                    override fun shouldOverrideUrlLoading(
+                                        view: android.webkit.WebView?, url: String?
+                                    ): Boolean {
+                                        val u = url ?: return false
+                                        if (!u.startsWith("file:///android_asset/")) return false
+                                        val name = u.removePrefix("file:///android_asset/")
+                                        val f = name.substringAfter("#", "")
+                                        val target = when {
+                                            name.startsWith("grouptrack_manual") -> "manual"
+                                            name.startsWith("grouptrack_quickstart") -> "quickstart"
+                                            name.startsWith("grouptrack_release_notes") -> "notes"
+                                            else -> return false
+                                        }
+                                        if (target == docKey) return false   // same doc: let it scroll
+                                        docsOpen(if (f.isEmpty()) target else "$target#$f")
+                                        return true
+                                    }
+                                }
                                 loadUrl("file:///android_asset/" + assetFile)
                             }
                         },
