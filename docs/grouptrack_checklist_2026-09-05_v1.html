@@ -1,0 +1,173 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<title>GroupTrack — Working Checklist 2026-09-04</title>
+<style>
+body{font:15px/1.65 -apple-system,"Segoe UI",Roboto,sans-serif;max-width:940px;
+margin:0 auto;padding:26px;background:#0f1216;color:#e6edf3}
+h1{font-size:21px;color:#58a6ff;border-bottom:2px solid #2a3038;padding-bottom:8px}
+h2{font-size:16px;color:#58a6ff;margin-top:30px;border-bottom:1px solid #2a3038;padding-bottom:5px}
+h3{font-size:14px;color:#b8c2cc;margin-top:18px}
+code{background:#1a2027;padding:1px 5px;border-radius:3px;font-size:12.5px;color:#8FD0FF}
+.card{background:#161b22;border:1px solid #2a3038;border-radius:8px;padding:13px 17px;margin:11px 0}
+.now{border-left:4px solid #f85149}.next{border-left:4px solid #d29922}
+.v27{border-left:4px solid #58a6ff}.done{border-left:4px solid #3fb950}
+table{border-collapse:collapse;width:100%;margin:11px 0;font-size:13px}
+th,td{border:1px solid #2a3038;padding:6px 9px;text-align:left;vertical-align:top}
+th{background:#1a2027;color:#8FD0FF}
+li{margin:6px 0}
+</style></head><body>
+
+<h1>GroupTrack — Working Checklist, 2026-09-05</h1>
+<p><code>feature/convoy-event-ride</code> · Droid 1 <code>8624SBCEDF00001789</code>
+· Droid 2 <code>24039703201775</code></p>
+
+<div class="card done">
+<p><b>Where things stand.</b> The app is in good shape. The import pipeline,
+the classification and the startup sequence all work and are proven on both
+devices. <b>2.6g releases 2026-09-08, and the only work required for it is the
+documents.</b></p>
+<table>
+<tr><th>2.6f</th><td>shipped, gone</td></tr>
+<tr><th>2.6g</th><td><b>2026-09-08</b> — the documents. Early build is with
+2–3 testers now.</td></tr>
+<tr><th>2.6h</th><td>Fifty-state land ownership · crashed-import restart ·
+deferred items</td></tr>
+<tr><th>2.7</th><td>3D map tools · mesh as a plugin · IP stack as a plugin ·
+GroupTrack as a mapping function showing one cart or all carts</td></tr>
+</table>
+</div>
+
+<h2>2.6g — required for 2026-09-08</h2>
+
+<div class="card done">
+<h3>✅ The documents are done</h3>
+<p>All three written, current, and shipping as assets. The Quick Start
+autolaunches on a new install and the release notes on a version update.</p>
+<ul>
+<li><b>User Manual</b> — rebuilt from scratch, 112 figures, four collapsed
+sections, five levels of nesting, accordion navigation. Shared controls
+duplicated per surface.</li>
+<li><b>Quick Start</b> — three surfaces with labelled figures and checklists, a
+mandatory five per surface.</li>
+<li><b>Release notes</b> — unbroken 08-27 to 09-04.</li>
+<li><b>Radio config table</b> regenerated from what ships. ⚠ The April v1
+reference was wrong on seven values — do not hand it out.</li>
+</ul>
+</div>
+
+<div class="card now">
+<h3>What is left: testing</h3>
+<ul>
+<li><b>The autolaunch</b> — delete <code>docs_shown_version</code>, launch, and
+the Quick Start should open once and not come back.</li>
+<li><b>The manual's navigation on a tablet</b> — four lines, open one, the others
+close, screens do not accumulate as you go deeper.</li>
+<li><b>The Quick Start's own checklists as acceptance tests</b> — they are the
+five things a rider must be able to do on each surface.</li>
+<li><b>Play Store open testing.</b> ⚠ Worth a line in the listing that a first
+install pulls a state's trail data — twenty minutes and a lot of bandwidth.</li>
+</ul>
+</div>
+
+<h2>✅ Closed — 2026-09-03 and 09-04</h2>
+<div class="card done">
+<ul>
+<li><b>Startup housekeeping as one blocking job</b> the gate waits for, with the
+red banner and Continue gated.</li>
+<li><b>One import at a time</b>, owned by the controller; cancel reaches the
+work.</li>
+<li><b>Step 8 tracked in the manifest</b>; the summary survives leaving the app;
+a failed import no longer records as a success.</li>
+<li><b>Land ownership downloads itself</b> — proven unattended, 145,942
+classified.</li>
+<li><b>Tap a route, get the narrative</b>, with foldable sections and actions.</li>
+<li><b>Meshtastic column folds</b> — Hide Mesh in the rail, Mesh in the map
+column to restore. Choice persists.</li>
+<li><b>Meshtastic Radio Setup menu</b> — retitled, five items, no submenus, MAP
+SETTINGS removed.</li>
+<li><b>Route names carry a sequence number</b>, mileage and points removed.</li>
+<li>Search alignment · hours as a range · surface on trail labels · ride-map
+trail taps · probes removed · readable field labels · both HTML versions
+bumped · settings panel says 2.6g.</li>
+</ul>
+</div>
+
+<h2>2.6h — after 2.6g</h2>
+<div class="card v27">
+<ul>
+<li><b>Land ownership for all fifty states.</b> ⚠ The URL pattern is fixed and
+only the item id changes — but a layer that lists PUBLIC land positively INVERTS
+our test, so absence would mean private <i>or</i> unmapped. Each catalogue entry
+needs: item id · which field carries ownership · continuous or positive.</li>
+<li><b>Crashed-import restart from the manifest.</b> Step 8 became a real stage,
+which was the prerequisite.</li>
+<li><b>The ride map has no route tap</b>, and <b>trails now win taps over
+routes</b> — layer order should be trails, tracks, routes, reasserted after every
+trail redraw.</li>
+<li><b>BUILD FROM RECIPE on the notes panel</b> — needs its fifty-line lambda
+extracted first.</li>
+<li><b>The import timer.</b> Suspect: <code>republishProgress</code> passes
+<code>currentTimeMillis()</code> as <code>startMs</code>.</li>
+<li><b>The private filter should say when land data is not loaded</b> rather than
+appearing to work.</li>
+<li>Two import bugs: 712 rows hold the literal <b>"null"</b>, 866 hold
+<b>"321"</b>.</li>
+</ul>
+</div>
+
+<h2>Backlog — not blocking any release</h2>
+<div class="card">
+<p>Untouched for two weeks and not required for 2.6g. Route
+archive-on-graduate is the one with real exposure, since graduated routes have
+nothing behind them and testers are building them.</p>
+<ul>
+<li>Route archive-on-graduate · refuse-to-create · the startup-task survey</li>
+<li>Discard/save module · rename/delete triggers · map-recipe re-import ·
+fit-route · route-dedup · shared extension DB · radio-meter crash-guard</li>
+<li>Remove <code>ConvoyTrackExportSheet</code></li>
+<li>Surface per trail in compare · tracks and routes stylable · schema-version
+refactor · extend the xref to <code>assets/*.js</code> and <code>*.html</code></li>
+</ul>
+</div>
+
+<h2>2.7 — the rewrite</h2>
+<div class="card v27">
+<ul>
+<li>Examine map tools for 3D</li>
+<li>Separate mesh as a plugin</li>
+<li>Add the IP stack as another plugin — IP and cellular share it</li>
+<li><b>GroupTrack as a mapping function</b> showing one cart or all carts</li>
+</ul>
+<p><b>Three layers:</b> transport describes a connection · identity says who is in
+the group and where · display takes identities and positions and knows nothing
+about their origin.</p>
+<p>⭐ The mesh fold shipped 09-04 is the first cut along this line — whatever
+hides behind it is roughly what the plugin owns.</p>
+</div>
+
+<h2>⚠ Things that will bite</h2>
+<div class="card">
+<ul>
+<li><b>Look for the existing component before writing a new one.</b> Four
+occurrences this week.</li>
+<li><b>Put a control where the working controls already are.</b> The mesh fold
+control was invisible twice, both times drawn in a layer it did not own.</li>
+<li><b><code>TrailFilterState</code> is a plain singleton, not Compose state.</b>
+Every composable reading it needs <code>tick</code>. Cost eight builds.</li>
+<li><b>Anchors from <code>cat -A</code>, never <code>sed</code>.</b></li>
+<li><b>Patch guards must strip comment lines</b> before checking for removed
+strings.</li>
+<li><b>Four hand-edited steps per release</b> that nothing prompts for: the
+label in <code>ConvoySettingsScreen.kt</code>, <code>__htmlVersion</code> in both
+map HTML files, the schema marker when the trail schema changes, and ⭐ <b>copying
+the three documents into <code>assets/</code></b> — the release notes asset sat
+three weeks stale because nobody did.</li>
+<li><b>Manual figures: 720 on the LONG edge</b>, not the short one. Portrait
+screenshots land at 450×720.</li>
+<li><b>Read what exists before writing something new.</b> Fifth occurrence this
+week.</li>
+<li><b>The shipped default hides all non-motorized and all private land.</b> It
+reads as missing data; the Quick Start coverage is load-bearing.</li>
+</ul>
+</div>
+
+</body></html>
