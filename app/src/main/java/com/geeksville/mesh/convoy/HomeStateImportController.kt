@@ -384,7 +384,19 @@ object HomeStateImportController {
                 // keeps its manifest entry, step 8 writes its status and counts,
                 // and it appears in the summary. It is simply not a SOURCE the
                 // download loop can run, so the loop passes over it.
-                if (src.optString("process") == "classify_land_and_use") continue
+                // STAGESKIP-2026-09-07: SKIP EVERY STAGE ENTRY, BY ID.
+                // ⛔ This tested `process == "classify_land_and_use"`, which
+                // handled exactly one stage. Adding the rider stage broke it:
+                // the loop could not dispatch derive_rider_trails, logged
+                // "Unknown process type", marked the row FAILED and carried on
+                // -- and the stage then ran further down and succeeded. Two
+                // green stages, two red rows, and COMPLETED WITH ERRORS on a
+                // clean import.
+                // ⭐ The id prefix is the durable test. Stage ids start with an
+                // underscore; catalogue ids come from the catalogue JSON and
+                // none of them do. A stage added later is skipped by
+                // construction rather than by someone remembering this line.
+                if (src.optString("id").startsWith("_")) continue
 
                 // Mark in_progress
                 src.put("status", "in_progress")
@@ -544,7 +556,12 @@ object HomeStateImportController {
                     when {
                         changed < 0 -> Log.i(TAG, "step 8 skipped (no ownership data)")
                         changed == 0 -> Log.i(TAG, "step 8: nothing reclassified")
-                        else -> Log.i(TAG, "step 8: $changed road(s) -> residential")
+                        // ⚠ CORRECTED 09-07: this said "-> residential". Nothing
+                        // has become residential since 08-31 -- land_status is
+                        // its own field, and a private road KEEPS its category.
+                        // A log line read while diagnosing must not describe
+                        // behaviour that was deliberately removed.
+                        else -> Log.i(TAG, "step 8: $changed trail(s) classified")
                     }
                 } else {
                     Log.w(TAG, "step 8 skipped: databases unavailable")
@@ -900,16 +917,69 @@ object HomeStateImportController {
 
     private suspend fun awaitWorker(context: Context, uniqueName: String): Boolean {
         val wm = WorkManager.getInstance(context)
-        while (true) {
-            val infos = wm.getWorkInfosForUniqueWork(uniqueName).get()
-            val wi = infos.firstOrNull() ?: break
-            when (wi.state) {
-                WorkInfo.State.SUCCEEDED -> return true
-                WorkInfo.State.FAILED, WorkInfo.State.CANCELLED -> return false
-                else -> delay(2_000)
+        try {
+            while (true) {
+                val infos = wm.getWorkInfosForUniqueWork(uniqueName).get()
+                val wi = infos.firstOrNull() ?: break
+                when (wi.state) {
+                    WorkInfo.State.SUCCEEDED -> return true
+                    WorkInfo.State.FAILED, WorkInfo.State.CANCELLED -> return false
+                    else -> {
+                        // WORKERPROGRESS-2026-09-07: say what the worker is
+                        // doing. Ten minutes of an unchanging "Processing" is
+                        // the shape of a hung app, and a rider who believes it
+                        // has hung force-quits mid-parse.
+                        workerDetail(wi)?.let { downloadDetailFlow.value = it }
+                        delay(2_000)
+                    }
+                }
             }
+            return false
+        } finally {
+            // ⚠ A stale count left under the NEXT stage reads as frozen, which
+            // is the problem this patch exists to fix, one stage later.
+            downloadDetailFlow.value = null
         }
-        return false
+    }
+
+    /**
+     * WORKERPROGRESS-2026-09-07: the worker's progress as one line, or null if
+     * it has not published anything yet.
+     *
+     * ⚠ PARSED HERE, not through OsmExtractProgress, and defensively -- the
+     * same stance OsmImportPanel takes on the same string. A format change must
+     * degrade this label; it must never crash a running import. Every failure
+     * path returns null, which leaves the previous line in place.
+     *
+     * The label is the FIRST INCOMPLETE ITEM, which is the one being serviced.
+     */
+    private fun workerDetail(wi: WorkInfo): String? {
+        return try {
+            val raw = wi.progress.getString("osm_extract_progress")
+            if (raw.isNullOrBlank()) return null
+            val arr = org.json.JSONArray(raw)
+            for (i in 0 until arr.length()) {
+                val o = arr.optJSONObject(i) ?: continue
+                if (o.optBoolean("complete", false)) continue
+                val label = o.optString("label", o.optString("id", "Working"))
+                val done = o.optInt("done", 0)
+                val total = o.optInt("total", 0)
+                val eta = o.optInt("eta_sec", -1)
+                val sb = StringBuilder(label)
+                if (total > 0) {
+                    sb.append(" - ").append(done).append(" of ").append(total)
+                } else if (done > 0) {
+                    sb.append(" - ").append(done)
+                }
+                // Only when the worker offers one. A made-up ETA is worse than
+                // none, because a rider plans around it.
+                if (eta > 0) sb.append(" (~").append(eta).append("s)")
+                return sb.toString()
+            }
+            null
+        } catch (_: Exception) {
+            null
+        }
     }
 
     // ── Progress publishing ──────────────────────────────────────
