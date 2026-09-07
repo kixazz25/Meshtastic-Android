@@ -493,14 +493,62 @@ private fun detailOrder(key: String): Int = listOf(
     "source_format", "shared", "recorded_at"
 ).indexOf(key).let { if (it < 0) 99 else it }
 
-private fun cartoStyle(code: String?): Pair<Color, String> = when (code?.trim()?.firstOrNull()) {
-    '1' -> Color(0xFFFFCC00) to "Hiking-Only"
-    '2' -> Color(0xFFFF8800) to "Hiking & Biking"
-    '3' -> Color(0xFF00C2A8) to "Paved Shared Use"
-    '4' -> Color(0xFF00AAFF) to "OHV / Road-Concurrent"
-    '5' -> Color(0xFFAA44FF) to "Biking-Only"
-    '6' -> Color(0xFFB5651D) to "Equestrian"
-    '7' -> Color(0xFF9AA0A6) to "Steps"
-    '8' -> Color(0xFFE0556E) to "Bridge / Tunnel"
-    else -> Color(0xFF00FFFF) to "Unspecified"
+/**
+ * CATCOLOR-2026-09-07. carto_code holds CATEGORY NAMES, not digit-prefixed
+ * source values -- it has since 08-31. The previous version of this function
+ * keyed off the first CHARACTER against '1'..'8', so 'OHV' fell to the else
+ * branch and every trail tapped reported "Unspecified" in cyan.
+ *
+ * ⭐ THE COLOUR COMES FROM TrailFilterState, which owns map_keys.json and is
+ * the same table both maps draw from. A fourth hand-kept copy of the palette is
+ * how the panel drifted from the map in the first place.
+ *
+ * ⚠ The literal fallback is for a panel somehow opened before the filter has
+ * loaded. It matches the SHIPPED table; a rider who has restyled a category
+ * sees their own colour through the branch above.
+ */
+private fun cartoStyle(code: String?): Pair<Color, String> {
+    val key = code?.trim().orEmpty()
+    if (key.isEmpty()) return Color(0xFF00FFFF) to "Unspecified"
+
+    // The rider's own palette, when it is loaded.
+    TrailFilterState.style[key]?.let { (hex, _, _) ->
+        try {
+            return Color(android.graphics.Color.parseColor(hex)) to labelOfCategory(key)
+        } catch (_: IllegalArgumentException) {
+            // A malformed colour in the rider's file must not break the panel.
+        }
+    }
+
+    val fallback = when (key) {
+        "OHV" -> 0xFF00CCFF
+        "track" -> 0xFF00AAFF
+        "forestry/access road" -> 0xFF0077DD
+        "shape only" -> 0xFF0044AA
+        "rider" -> 0xFF2196F3
+        "hiking and biking" -> 0xFF66CC66
+        "hiking" -> 0xFFFFCC00
+        "biking" -> 0xFFAA44FF
+        "equestrian" -> 0xFFCC8844
+        "steps/bridge" -> 0xFF888888
+        else -> 0xFF00FFFF
+    }
+    return Color(fallback) to labelOfCategory(key)
+}
+
+/** Category value -> what a rider reads. Unknown values show verbatim rather
+ *  than as "Unspecified": a value we did not anticipate is information. */
+private fun labelOfCategory(key: String): String = when (key) {
+    "OHV" -> "OHV"
+    "track" -> "Track"
+    "forestry/access road" -> "Forestry / Access Road"
+    "shape only" -> "Shape Only"
+    "rider" -> "Rider Trail"
+    "hiking and biking" -> "Hiking & Biking"
+    "hiking" -> "Hiking"
+    "biking" -> "Biking"
+    "equestrian" -> "Equestrian"
+    "steps/bridge" -> "Steps / Bridge"
+    "unknown" -> "Unknown"
+    else -> key
 }

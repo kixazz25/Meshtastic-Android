@@ -1497,6 +1497,23 @@ object SpatialDbManager {
                     }
                 } catch (e: Exception) { android.util.Log.w("TrackAdd", "materialize: ${e.message}") }
                 updateTrackPropertiesForHash(res.geomHash)
+                // RIDERTRAILS-2026-09-07 -- THE TRIGGER.
+                // Every track add runs the trail scan, from here, because this
+                // is where recording, file sync and import all converge. One
+                // hook; no caller has to remember it and no path can skip it.
+                //
+                // Inside wasNew deliberately: a duplicate re-add is the same
+                // geometry over ground already scanned.
+                //
+                // It can never fail the add. A track that saved but derived no
+                // trails is a far smaller loss than a track that did not save.
+                try {
+                    val rt = RiderTrailWriter.scanTrackByHash(res.geomHash)
+                    if (rt.first > 0) android.util.Log.i("TrackAdd",
+                        "rider trails: ${rt.first} from '$name'")
+                } catch (e: Exception) {
+                    android.util.Log.w("TrackAdd", "rider trails: ${e.message}")
+                }
                 android.util.Log.i("TrackAdd", "INSERT ${res.geomHash.take(12)} '$name'")
                 return AddOutcome.INSERT
             }

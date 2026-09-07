@@ -51,6 +51,11 @@ object TrailClassifier {
         "equestrian" to NON_MOTORIZED,
         "steps/bridge" to NON_MOTORIZED,
         "unknown" to MOTORIZED,
+        // RIDERTRAILS-2026-09-07: ground recorded by a rider, where no
+        // published trail existed. MOTORIZED is not an assumption here the way
+        // it is for "shape only" and "unknown" -- a UTV was driven along it.
+        // That is a stronger basis for the claim than any source supplies.
+        "rider" to MOTORIZED,
     )
 
     fun useOf(category: String): String = USE_OF[category] ?: MOTORIZED
@@ -69,6 +74,17 @@ object TrailClassifier {
     fun categoryOf(srcVal: String?, uses: String?): String {
         val c = (srcVal ?: "").trim()
         val u = (uses ?: "").trim().lowercase()
+
+        // ── OURS, AND IT PASSES STRAIGHT THROUGH ─────────────────
+        // RIDERTRAILS-2026-09-07. Every other branch below maps a SOURCE
+        // vocabulary onto our categories. This one is already ours, so it must
+        // not be reinterpreted -- and it is tested FIRST so nothing downstream
+        // can claim it.
+        //
+        // ⚠ WITHOUT THIS the row falls through to the final `return
+        // "unknown"`, and step 8 writes that over 'rider' in both stores. The
+        // trail survives; its identity does not.
+        if (c.equals("rider", ignoreCase = true)) return "rider"
 
         // ── OSM: the classifier's own type ──────────────────────────────
         if (u.startsWith("ohv") || u.startsWith("atv") || u.startsWith("4wd"))

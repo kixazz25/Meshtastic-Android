@@ -101,6 +101,14 @@ fun ConvoyTrackImportScreen(onDismiss: () -> Unit) {
     var syncLines by remember { mutableStateOf<List<String>>(emptyList()) }
     var syncRunning by remember { mutableStateOf(false) }
     var syncResult by remember { mutableStateOf<SpatialDbManager.TrackSyncResult?>(null) }
+
+    // RIDERTRAILS-2026-09-07: the same four-part shape as the sync state above.
+    // ⚠ riderResult null means NOT RUN, which is a different thing from a run
+    // that found nothing -- the dialog has to be able to say which.
+    var showRiderDialog by remember { mutableStateOf(false) }
+    var riderStatus by remember { mutableStateOf("") }
+    var riderRunning by remember { mutableStateOf(false) }
+    var riderResult by remember { mutableStateOf<RiderTrailWriter.Result?>(null) }
     val syncListState = rememberLazyListState()
 
     val context = LocalContext.current
@@ -306,6 +314,62 @@ fun ConvoyTrackImportScreen(onDismiss: () -> Unit) {
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp)
+            )
+        }
+
+        // ====================================================================
+        // RIDERTRAILS-2026-09-07 -- ADD TRAILS FROM TRACKS
+        //
+        // ⭐ A TRACK-BASED FUNCTION, which is why it sits with RESYNC TRACKS
+        // rather than with the file importers. It reads tracks already in the
+        // database and derives trails; nothing is imported and no file is read.
+        //
+        // ⚠ BLUE, NOT GREEN. RESYNC reconciles tracks against their files;
+        // this WRITES TRAILS. Two different outcomes should not wear the same
+        // colour on the same panel.
+        // ====================================================================
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 6.dp)
+                .clickable {
+                    riderStatus = ""; riderResult = null; showRiderDialog = true
+                },
+            shape = RoundedCornerShape(6.dp),
+            color = Color(0xFF14405E)
+        ) {
+            Text(
+                "ADD TRAILS FROM TRACKS",
+                color = Color(0xFF8FD0FF),
+                fontSize = 12.sp,
+                fontFamily = FontFamily.Monospace,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp)
+            )
+        }
+        if (showRiderDialog) {
+            RiderTrailsDialog(
+                status = riderStatus,
+                result = riderResult,
+                running = riderRunning,
+                onStart = {
+                    riderRunning = true
+                    riderStatus = "starting\u2026"
+                    riderResult = null
+                    scope.launch {
+                        val r = withContext(Dispatchers.IO) {
+                            SpatialDbManager.init(context)
+                            RiderTrailWriter.scanAll { done, total ->
+                                riderStatus = "scanning track $done of $total"
+                            }
+                        }
+                        riderResult = r
+                        riderRunning = false
+                        riderStatus = ""
+                    }
+                },
+                onClose = { showRiderDialog = false }
             )
         }
 

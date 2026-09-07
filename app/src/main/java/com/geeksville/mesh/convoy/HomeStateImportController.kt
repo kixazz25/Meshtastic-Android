@@ -75,6 +75,14 @@ object HomeStateImportController {
      */
     internal const val CLASSIFY_STAGE_ID = "_classify"
 
+    /**
+     * RIDERTRAILS-2026-09-07: the rider-trail extraction's manifest id.
+     * ⚠ Leading underscore for the same reason as the classify id -- catalogue
+     * ids come from the catalogue JSON and none of them start with one, so a
+     * source can never collide with this.
+     */
+    internal const val RIDER_STAGE_ID = "_ridertrails"
+
     private val _progress = MutableStateFlow<ImportProgress?>(null)
     internal val downloadDetailFlow = MutableStateFlow<String?>(null)
     val progress: StateFlow<ImportProgress?> = _progress
@@ -332,6 +340,21 @@ object HomeStateImportController {
             // sees it without changing -- and 2.7's resume can restart at it,
             // which it could never do for a stage the manifest did not know
             // about.
+            // RIDERTRAILS-2026-09-07: the same shape, and for the same reason
+            // the classify stage needed one -- a stage with no entry of its own
+            // writes into the last source's record, and its failure reads as a
+            // complete import. Added BEFORE classify because that is the order
+            // they run in, and the summary panel walks this array.
+            manifest.getJSONArray("sources").put(JSONObject().apply {
+                put("id", RIDER_STAGE_ID)
+                put("name", "Trails from tracks")
+                put("process", "derive_rider_trails")
+                put("status", "pending")
+                put("imported", 0)
+                put("processed", 0)
+                put("selected", 0)
+                put("dupes", 0)
+            })
             manifest.getJSONArray("sources").put(JSONObject().apply {
                 put("id", CLASSIFY_STAGE_ID)
                 put("name", "Classify trails")
@@ -398,12 +421,79 @@ object HomeStateImportController {
             }
 
             // ── STEP8-2026-08-31 ──────────────────────────────────
+            // RIDERTRAILS-2026-09-07 -- TRAILS FROM TRACKS.
+            // Every recorded track is walked; wherever the ride left the
+            // published network and later rejoined it, that whole run becomes
+            // one unnamed trail, source "rides".
+            //
+            // ⭐ HERE, NOT AFTER STEP 8. Step 8 classifies BY VALUE across every
+            // row, so these have to exist before it sweeps or they carry no
+            // land_status and no use_type.
+            //
+            // ⭐ AND AFTER THE SOURCES, NEVER AT THE CLEAR. The scan compares
+            // tracks against the trails table; run against an emptied one, every
+            // track reads as entirely off-network and all 3,651 miles are
+            // promoted whole.
+            //
+            // ⭐ TWO PASSES, MEASURED (Droid 1, 09-07): 1,537 trails, then 70,
+            // then 0. The second pass is the network settling around the
+            // connectors the first wrote. One pass leaves ~5% unsettled.
+            //
+            // ⚠ NEVER FAILS THE IMPORT, same stance as step 8 below.
+            try {
+                updateSourceStep(
+                    findStage(sources, RIDER_STAGE_ID),
+                    "Trails from tracks", "reading tracks")
+                val rider = withContext(Dispatchers.IO) {
+                    SpatialDbManager.init(context)
+                    val first = RiderTrailWriter.scanAll { done, total ->
+                        downloadDetailFlow.value =
+                            "Trails from tracks - $done of $total"
+                    }
+                    // The settling pass. Its count is added to the first --
+                    // both are trails that were not there before.
+                    val second = RiderTrailWriter.scanAll { done, total ->
+                        downloadDetailFlow.value =
+                            "Trails from tracks, second pass - $done of $total"
+                    }
+                    RiderTrailWriter.Result(
+                        first.tracksScanned,
+                        first.trailsAdded + second.trailsAdded,
+                        first.miles + second.miles,
+                        first.tracksRemoved + second.tracksRemoved
+                    )
+                }
+                downloadDetailFlow.value = null
+                findStage(sources, RIDER_STAGE_ID)?.apply {
+                    put("status", "done")
+                    put("imported", rider.trailsAdded)
+                    put("processed", rider.tracksScanned)
+                }
+                writeManifest(mFile, manifest)
+                Log.i(TAG, "rider trails: ${rider.trailsAdded} from " +
+                    "${rider.tracksScanned} track(s), ${rider.miles} mi")
+            } catch (e: Exception) {
+                // ⚠ A LINE THAT SAYS FAILED, not an absent line. A missing
+                // rider-trails row on the summary panel is indistinguishable
+                // from "nothing to add", which is a real and common outcome.
+                Log.e(TAG, "rider trails failed, import stands: ${e.message}")
+                downloadDetailFlow.value = null
+                try {
+                    findStage(sources, RIDER_STAGE_ID)?.put("status", "failed")
+                    writeManifest(mFile, manifest)
+                } catch (_: Exception) { }
+            }
+
             // STEP 8: land-ownership reclass. Utah only, and LAST -- it is BY
             // VALUE, not by source, so it must see every source's rows.
             //
             // ⛔ A CATEGORY, NOT A DELETION. Rows found to sit entirely on
-            // private land become "R - Residential Roads". Nothing is removed;
-            // the rider turns the category off and the town grid goes.
+            // private land KEEP their category and answer PRIVATE on
+            // land_status. Nothing is removed; the rider filters on land.
+            // ⚠ CORRECTED 09-07: this said such rows 'become "R - Residential
+            // Roads"'. They have not since 08-31 -- OwnershipReclass says so in
+            // as many words, because folding ownership into the category is what
+            // destroyed 201 rows' identity.
             //
             // ⚠ NEVER FAILS THE IMPORT. Six sources may have imported
             // perfectly; a missing ownership file is not a reason to call the
