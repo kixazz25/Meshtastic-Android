@@ -1,0 +1,230 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<title>GroupTrack — Handoff 2026-09-08</title>
+<style>
+body{font:15px/1.68 -apple-system,"Segoe UI",Roboto,sans-serif;max-width:960px;
+margin:0 auto;padding:26px;background:#0f1216;color:#e6edf3}
+h1{font-size:21px;color:#58a6ff;border-bottom:2px solid #2a3038;padding-bottom:8px}
+h2{font-size:16px;color:#58a6ff;margin-top:32px;border-bottom:1px solid #2a3038;padding-bottom:5px}
+h3{font-size:14px;color:#b8c2cc;margin-top:20px}
+code{background:#1a2027;padding:1px 5px;border-radius:3px;font-size:12.5px;color:#8FD0FF}
+.card{background:#161b22;border:1px solid #2a3038;border-radius:8px;padding:13px 17px;margin:11px 0}
+.done{border-left:4px solid #3fb950}.next{border-left:4px solid #58a6ff}
+.warn{border-left:4px solid #d29922}.bad{border-left:4px solid #f85149}
+table{border-collapse:collapse;width:100%;margin:11px 0;font-size:13px}
+th,td{border:1px solid #2a3038;padding:6px 9px;text-align:left;vertical-align:top}
+th{background:#1a2027;color:#8FD0FF}
+li{margin:5px 0}
+pre{background:#0d1117;border:1px solid #2a3038;padding:9px;border-radius:5px;
+font-size:11.5px;overflow-x:auto;color:#b8c2cc}
+</style></head><body>
+
+<h1>GroupTrack — Handoff, 2026-09-08</h1>
+<p><code>feature/convoy-event-ride</code> · commit <code>117e49753</code> plus
+uncommitted work · <b>2.6g, targeting 9/10</b></p>
+
+<div class="card done">
+<p><b>The GPX round trip passes.</b> Export a route on one device, import on the
+other, and the narrative and recipe both arrive. That was the one thing in 2.6g
+the checklist said had never been tested — and it found <b>four separate defects
+in one chain</b>, none of them visible to code inspection.</p>
+<p>Also in: rider-trail delete, the ride map's route tap, layer ordering, the
+key-legend row, and a second housekeeping entry point.</p>
+</div>
+
+<h2>⭐ The round trip — four defects, each hiding the next</h2>
+<div class="card bad">
+<ol>
+<li><b>The export never wrote the payload.</b> <code>parseGpxRoutes</code> has
+looked for <code>&lt;grouptrack:notes&gt;</code> since 08-29 and prefers it over
+<code>&lt;desc&gt;</code>. Nothing ever wrote it. ⚠ The parser's own comment says
+<i>"our own extensions payload carries the recipe home"</i> — present tense, about
+a writer that did not exist.</li>
+<li><b>The import never stored the notes.</b> <code>insertRoute</code> took the
+geometry and dropped <code>route.description</code> on the floor. 08-29 fixed the
+reader and left the writer.</li>
+<li>⭐ <b>The import wrapped the payload as a headline.</b> Mine — and correct
+right up until the export started working, because <code>description</code> had
+only ever held plain prose.</li>
+<li><b>Nothing decoded the XML entities.</b> The payload arrived as
+<code>{&amp;quot;generated&amp;quot;…}</code> and became gibberish in the
+narrative panel. ⚠ A regex is not an XML parser.</li>
+</ol>
+<p class="hi">⚠ <code>&amp;amp;</code> is decoded LAST. First, and a literal
+<code>&amp;amp;quot;</code> becomes a quote — silently corrupting text that
+legitimately contained an escaped entity.</p>
+</div>
+
+<h2>⛔⛔ How a half-finished item read as open for six weeks</h2>
+<div class="card bad">
+<p>Fred: <i>"how do we get to this point in release planning to find things that
+we just left incomplete?"</i></p>
+<p><b>The checklist was right and I overrode it.</b> This morning I read two
+greps, found the export fixed and the parser reading <code>&lt;desc&gt;</code>, and
+reported the item done and the checklist stale — then argued the rest of the list
+probably was too. I never checked whether the parsed value was <b>stored</b>. It
+was not, one function away from where I was looking.</p>
+<p class="hi">⛔ "THE CODE EXISTS" IS NOT "THE PATH WORKS."</p>
+<h3>The rules that come out of it</h3>
+<ul>
+<li>⭐ <b>Trust the record when it says open.</b> Prove it end to end, then strike
+it. Never reason that it must have been done.</li>
+<li>⭐ <b>Keep the checklist current as work lands</b>, in the session it lands.
+Amending a line costs seconds; re-deriving it six weeks later cost a day.</li>
+<li>⭐ <b>A line must be able to say PARTIAL.</b> <i>"export done, import not"</i>
+had no home, and that is the shape of every defect found today.</li>
+<li>⭐ <b>Only open items belong on the checklist</b> — already the stated rule.</li>
+<li>⚠ <b>Some items cannot be certified alone.</b> Export proves nothing until
+something imports.</li>
+</ul>
+</div>
+
+<h2>What went in today</h2>
+<div class="card done">
+<table>
+<tr><th>Change</th><th>Note</th></tr>
+<tr><td><b>Route notes export</b></td><td><code>&lt;extensions&gt;&lt;grouptrack:notes&gt;</code>,
+XML-escaped, namespace declared. The recipe rides inside the notes block, as
+RECIPEINDRAFT-2026-08-29 intended.</td></tr>
+<tr><td><b>Route notes import</b></td><td><code>findRouteIdByHash</code> (new) then
+the shared <code>writeRouteNotes</code> — ⚠ NOT <code>insertRoute</code>'s return
+value, which is INSERT OR IGNORE and may point at nothing.</td></tr>
+<tr><td><b>Payload vs prose</b></td><td>A real JSON parse decides which; prose
+from another app still wraps as a headline.</td></tr>
+<tr><td><b>XML unescape</b></td><td>On both <code>&lt;desc&gt;</code> and the
+payload. <code>&amp;amp;</code> last.</td></tr>
+<tr><td><b>Rider trail delete</b></td><td>Gated on <code>source_id == 'rides'</code>.
+Needed <code>deleteTrailFromDb</code> (did not exist) and a
+<code>"Trails"</code> branch in <code>ConvoyArtifactOps.delete</code> (silently
+absent).</td></tr>
+<tr><td><b>Ride map route tap</b></td><td>Both halves missing. ⚠ Added to BOTH
+JavascriptInterface objects in <code>ConvoyScreen</code>.</td></tr>
+<tr><td><b>Trail tap popup</b></td><td>Bound unconditionally, so Leaflet opened it
+alongside the bridge. Now a fallback.</td></tr>
+<tr><td><b>Layer order + weights</b></td><td>Trails 5, tracks 4, routes 3.
+<code>restackLayers()</code> after every trail rebuild.</td></tr>
+<tr><td><b>Key legend</b></td><td><code>rider</code> row added;
+<code>shape only</code> solid; <code>__track</code> to 4.</td></tr>
+<tr><td><b>everyLaunch</b></td><td>Second housekeeping entry point, no marker.</td></tr>
+<tr><td><b>Planner Help menu</b></td><td>Shared <code>ConvoyDocs</code> — the
+planner had two options and no Quick Start.</td></tr>
+</table>
+</div>
+
+<h2>⛔ A category lives in FOUR places</h2>
+<div class="card warn">
+<p><code>rider</code> shipped in three of them on 09-07 and was invisible in the
+legend until today:</p>
+<ul>
+<li><code>map_keys_defaults.json</code> — the shipped palette</li>
+<li><code>TRAIL_STYLE</code> in <code>grouptrack_map.html</code></li>
+<li><code>TRAIL_STYLE</code> in <code>convoy_map.html</code></li>
+<li>⛔ <code>MOTORIZED_ROWS</code> in <code>MapKeysPanel.kt</code> — <b>the legend
+reads this one</b></li>
+</ul>
+<p>⚠ And <code>TrailClassifier.USE_OF</code> is a fifth for a motorized category.
+Nothing enforces that they agree.</p>
+</div>
+
+<h2>⭐ The second housekeeping entry point</h2>
+<div class="card next">
+<p><code>run()</code> checks its marker first and returns, so nothing in it fires
+on a normal launch. <code>everyLaunch(ctx)</code> has no marker and runs every
+time.</p>
+<p class="hi">⭐⭐ NO MARKER, AND NONE IS WANTED. Fred: <i>"we are responsible for
+removing one time launch code from the next release."</i> ⚠ <b>REMOVE IT WHEN THE
+NEXT RELEASE IS CUT.</b></p>
+<p><b>Rules for anything put in it:</b> cheap, idempotent, non-destructive, never
+throws. ⚠ Called AFTER the gate resolves — it touches shared storage.</p>
+</div>
+
+<h2>⛔ Four anchor failures today, all the same mistake</h2>
+<div class="card warn">
+<p>Every one was an anchor built by eye from terminal output instead of
+<code>cat -A</code>, and every one was caught by its guard rather than by me: a
+miscounted dash run, and three missed blank lines — one of which broke the build
+for twenty minutes.</p>
+<p class="hi">⭐ THE FIX IS NOT A BETTER COUNT — stop anchoring on decorated lines.
+Plain ASCII prose, or locate the target structurally. ⚠ And an anchor starting at
+a declaration says nothing about what is attached ABOVE it.</p>
+<p>⚠ <b>Patch guards must strip comments</b> — fired twice more today, both times
+correctly refusing.</p>
+</div>
+
+<h2>Open</h2>
+<div class="card next">
+<ul>
+<li><b>2.7 — send the trailhead with a shared route.</b> The recipe carries
+<code>anchorLat</code>/<code>anchorLon</code> so a rebuild starts correctly, but
+<code>anchorName</code> is null and <code>pins</code> is empty, so nothing named
+reaches the far end and there is no marker on their map. ⛔ Decide WHICH point:
+recipe anchor, route's first point, or a dropped trailhead waypoint.</li>
+<li><b>The <code>unknown</code> category</b> is not in the palette — no legend row,
+cannot be filtered. Deliberately NOT added today; needs a row count first.</li>
+<li><b>Half-finished extraction</b> — the planner's old docs block sits behind
+<code>if (false)</code>; <code>ConvoyScreen</code> still has inline copies.</li>
+<li><b>Housekeeping can run twice and kill a live import</b> (seen 09-07).</li>
+<li><b>AllDocs was truncated</b> by the cancelled 09-07 recommit and committed
+that way. A clean run rebuilds it.</li>
+<li><b><code>recommit_docs_v17.sh</code> crawls</b> — 3,199 files in Downloads.
+⚠ Run with nothing competing.</li>
+</ul>
+</div>
+
+<h2>Play Store</h2>
+<div class="card warn">
+<ul>
+<li>⛔ <b>Open testing has never been approved</b> — the track was PAUSED, so
+nothing has reached a public tester. This will be the first build anyone outside
+sees.</li>
+<li><b>Plan:</b> closed testing first, trimmed to two or three, then promote to
+open. ⚠ Two separate reviews, ~15 hours each; 7am on 9/10 needs both.</li>
+<li>⚠ <b>Managed publishing has no timer.</b> It holds an approved release until
+you press Publish. Set an alarm.</li>
+<li>⛔ Internal outranks open — clear the internal list once open is live.</li>
+<li>⚠ Put the <b>~30 minute</b> first-install download in the listing. Measured
+1,543s on 09-07, and rider trails add ~5 minutes.</li>
+</ul>
+</div>
+
+<h2>Release procedure — five hand-edited steps</h2>
+<div class="card warn">
+<ol>
+<li>The release label in <code>ConvoySettingsScreen.kt</code> — <b>2.6g,
+confirmed</b>. Fred: a release that never shipped is more confusing than a label
+carrying more than its original scope.</li>
+<li><code>__htmlVersion</code> in <b>both</b> map files — at
+<code>2026-09-08a</code>.</li>
+<li>The schema marker in <code>StartupHousekeeping</code>.</li>
+<li>⭐ <b>Copy the three documents into <code>assets/</code>.</b></li>
+<li>⭐ <b>Increment the revision in every filename.</b></li>
+</ol>
+</div>
+
+<h2>⚠⚠ Retrigger a trails clear-and-reload</h2>
+<div class="card warn">
+<p>Dotfiles in <code>/sdcard/Documents/GroupTrack/</code>. ⛔ <code>grep mark</code>
+finds none of them.</p>
+<pre>MSYS_NO_PATHCONV=1 adb -s [serial] shell "rm -f \
+  /sdcard/Documents/GroupTrack/.schema_2026-09-03A \
+  /sdcard/Documents/GroupTrack/.trails_cleared_2026-09-02B \
+  /sdcard/Documents/GroupTrack/.db_schema_version"</pre>
+<p>⛔ Clearing two of three leaves the third standing down silently. ⚠ A reinstall
+does not remove them, and the picker imports without clearing.</p>
+</div>
+
+<h2>Files</h2>
+<div class="card done">
+<ul>
+<li><code>grouptrack_manual_2026-09-08_v8.html</code></li>
+<li><code>GroupTrack_QuickStart_2026-09-08_v49.html</code></li>
+<li><code>grouptrack_release_notes_2026-09-08_v4.html</code></li>
+<li><code>grouptrack_living_master_2026-09-08_v53.html</code> — 136 h2 / 418 h3</li>
+<li><code>ridertrails_2026-09-06_v3.py</code> — ⭐ if the Kotlin and the Python
+disagree, the Python is right until proven otherwise</li>
+<li><code>spatial_0907.db</code> — Droid 1 backup, verified</li>
+<li><code>GroupTrack_RadioConfig_Checklist_2026-09-05_v1.html</code> — ⚠ hand this
+out, not the April v1</li>
+</ul>
+</div>
+
+</body></html>

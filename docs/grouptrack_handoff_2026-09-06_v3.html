@@ -1,0 +1,269 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<title>GroupTrack — Handoff 2026-09-06</title>
+<style>
+body{font:15px/1.68 -apple-system,"Segoe UI",Roboto,sans-serif;max-width:960px;
+margin:0 auto;padding:26px;background:#0f1216;color:#e6edf3}
+h1{font-size:21px;color:#58a6ff;border-bottom:2px solid #2a3038;padding-bottom:8px}
+h2{font-size:16px;color:#58a6ff;margin-top:32px;border-bottom:1px solid #2a3038;padding-bottom:5px}
+h3{font-size:14px;color:#b8c2cc;margin-top:20px}
+code{background:#1a2027;padding:1px 5px;border-radius:3px;font-size:12.5px;color:#8FD0FF}
+.card{background:#161b22;border:1px solid #2a3038;border-radius:8px;padding:13px 17px;margin:11px 0}
+.done{border-left:4px solid #3fb950}.next{border-left:4px solid #58a6ff}
+.warn{border-left:4px solid #d29922}.bad{border-left:4px solid #f85149}
+table{border-collapse:collapse;width:100%;margin:11px 0;font-size:13px}
+th,td{border:1px solid #2a3038;padding:6px 9px;text-align:left;vertical-align:top}
+th{background:#1a2027;color:#8FD0FF}
+li{margin:5px 0}
+pre{background:#0d1117;border:1px solid #2a3038;padding:9px;border-radius:5px;
+font-size:11.5px;overflow-x:auto;color:#b8c2cc}
+</style></head><body>
+
+<h1>GroupTrack — Handoff, 2026-09-06</h1>
+<p><code>feature/convoy-event-ride</code> · <b>2.6g is on the Play Store for open
+testing</b></p>
+
+<div class="card done">
+<p><b>2.6g is out.</b> Open testing means anyone with the link can install — not
+just the testers enrolled by email. The documents are what stands between a new
+rider and confusion, and they are done.</p>
+<p><b>Tomorrow is 2.6h planning</b>, in a new conversation.</p>
+</div>
+
+<h2>2.6g — what shipped</h2>
+<div class="card done">
+<h3>The three documents, all current assets</h3>
+<ul>
+<li><b>Quick Start</b> — three lines to get running, then per-surface exercises.
+⭐ <b>32 tasks, each linked to the manual section that teaches it.</b></li>
+<li><b>User Manual</b> — rebuilt from scratch, 112 figures, four collapsed
+sections, five levels of nesting, accordion navigation. A section you have opened
+past folds its own figures away.</li>
+<li><b>Release notes</b> — unbroken 08-27 to 09-06.</li>
+</ul>
+<h3>And the behaviour around them</h3>
+<ul>
+<li><b>Autolaunch</b> — Quick Start on a new install, release notes on an update.
+Once each, never both.</li>
+<li><b>Documents stack</b> — tap a task, the manual opens at that section; Close
+returns you to the Quick Start at the task you were on.</li>
+<li><b>Close moved to centre</b> — it was top right, under QUEUES.</li>
+</ul>
+<h3>Earlier in 2.6g</h3>
+<ul>
+<li>One startup housekeeping job the gate waits for; the import owned by the
+controller with a concurrency guard; step 8 tracked in the manifest; the summary
+survives leaving the app.</li>
+<li>Land ownership downloads itself and classifies unattended.</li>
+<li>Tap a route, get the narrative. The Meshtastic column folds. Route names
+carry a sequence number.</li>
+</ul>
+</div>
+
+<div class="card warn">
+<h3>⚠ Worth putting in the store listing</h3>
+<p>A first install pulls a state's trail data — <b>about twenty minutes and a lot
+of bandwidth</b>. Nobody should start that on mobile data, and an open tester has
+no way to know unless the listing says so.</p>
+</div>
+
+<h2>What the manual review found today</h2>
+<div class="card bad">
+<p>Five corrections, all from Fred reading it against the app. ⭐ The shape of what
+happens when a section is written from screenshots rather than conversation.</p>
+<ul>
+<li><b>Connect before configuring.</b> Nothing can be applied to a radio the app
+cannot reach — Connection was filed as entry E, well after the new-radio
+instructions. Pairing code <b>1234</b> unless a unique one came with the
+device.</li>
+<li><b>The automated configuration is T1000-E only.</b> It was buried in "Which
+radio"; now a boxed statement where a rider meets it.</li>
+<li><b>Real range figures.</b> Seeed cite 2–5 km; dense urban or foliage gives
+0.5–1.3 miles; line of sight several miles. ⛔ <b>Wear it high, button
+outward</b> — buried in a backpack is the commonest reason a tracker
+underperforms.</li>
+<li>⭐⭐ <b>The radio menu exists for one problem</b>: another group on the same
+network in your area at the same time. If that is not happening, <b>go straight
+to Apply Master Config</b>. The section says so before the five options now.</li>
+<li>⛔ <b>Every radio must be moved to a new configuration.</b> Create,
+distribute, and <b>every rider installs it before the ride</b> — the third is the
+one that gets forgotten. One rider left behind is invisible to everybody.</li>
+</ul>
+</div>
+
+<h2>⭐ Rider trails — the big one for 2.6h</h2>
+<div class="card next">
+<p><b>Proven today in Python, and it works.</b> Broken Ridge and Steamboat gave
+about 80 miles of new connected ground. Rebuilding a recipe with it in returned
+genuinely different routes. Fred: <i>"those two trails open up riding all through
+the area."</i></p>
+
+<h3>What it does</h3>
+<p>Walk a recorded track. Where it leaves the published trail network and later
+rejoins it, <b>that whole run is one new trail</b> — unnamed, source
+<code>rides</code>. A short <b>connector</b> at each end joins it to the node the
+track came from, which is what makes it routable rather than decorative.</p>
+
+<h3>⛔ Three wrong turns, so they are not repeated</h3>
+<ol>
+<li><b>Distance alone gives nonsense.</b> "Is a trail within 20 m?" produced
+<b>271 fragments from one ride</b> — GPS drift stepping in and out of a
+threshold.</li>
+<li>⭐ <b>Direction is the test.</b> A trail nearby <b>going the same way</b> is
+the trail you are on, however the GPS wandered. Undirected — ridden the other way
+is the same trail. 271 became 69.</li>
+<li>⛔ <b>A run must not end the first time a trail appears.</b> Passing near
+something, or crossing a road, was cutting one stretch into several. Require a
+<b>sustained rejoin</b> — 120 m on the network — before closing a run. An
+out-and-back is ONE trail.</li>
+</ol>
+
+<h3>⚠ It cannot be a GPX import</h3>
+<p><code>&lt;trk&gt;</code> imports as a track, <code>&lt;rte&gt;</code> is a
+route, and <code>ConvoyTrackImportScreen</code> does not touch the
+<code>trails</code> table at all. <b>Trails only come from the catalogue
+import.</b></p>
+<p>⭐ So this belongs <b>in the app</b>: when a track is saved, find the ground
+with no trail under it and write those trails directly. Fred: <i>"every track
+processed should be checked for new unnamed trails to be created."</i></p>
+
+<h3>The rules</h3>
+<ul>
+<li><b>Unnamed, source "rides".</b> <i>"It doesn't have to be perfect, it has to
+be honest."</i></li>
+<li><b>Lumped in with every other trail</b> for filtering.</li>
+<li>⭐⭐ <b>They travel with the ROUTE, not the state import.</b> <i>"We know it is
+not on every setup — get a route or a ride that uses it and add it."</i> A state
+reimport clearing trails does not matter, because they come back with the routes
+that need them.</li>
+<li>⭐ <b>A shared route must carry everything it depends on</b> — waypoints and
+any rider trails it crosses.</li>
+</ul>
+
+<h3>The tuning, from today</h3>
+<table>
+<tr><th>Setting</th><th>Value</th><th></th></tr>
+<tr><td>NEAR_M</td><td>15–20 m</td><td>a trail this close, going your way, means you are on it</td></tr>
+<tr><td>BEARING_D</td><td>45°</td><td>...and within this many degrees is the same trail</td></tr>
+<tr><td>MIN_RUN_M</td><td>150 m</td><td>shorter is a wobble</td></tr>
+<tr><td>REJOIN_M</td><td>120 m</td><td>⭐ how long it must stay on the network to close a run</td></tr>
+<tr><td>MAX_CONN_M</td><td>60 m</td><td>longer is a guess, not a gap</td></tr>
+</table>
+<p><b>The prototype:</b> <code>ridertrails_2026-09-06_v3.py</code> — reads a
+pulled <code>grouptrack_spatial.db</code>, writes GPX, touches nothing.</p>
+<p>⚠ <b>Warn testers:</b> rebuilding an old recipe after rider trails are added
+returns different routes. That is the improvement working.</p>
+
+<h3>⭐ How it runs in the app — Fred's design, 09-06</h3>
+<ul>
+<li><b>A field on the track extension</b> recording that this track has been
+through the add-trails process. ⚠ Without it there is no way to tell a track that
+yielded nothing from one never examined.</li>
+<li><b>A batch process inside the import-trails flow</b> that adds trails from
+tracks — so it sits with the other trail-data work rather than somewhere of its
+own.</li>
+<li>⭐ <b>A green button under SYNCH, shown only when tracks exist that have not
+been checked.</b> No badge, no nagging — the control appears when there is
+something to do and is absent when there is not.</li>
+</ul>
+</div>
+
+<h2>⭐⭐ 2.6h is THE TRAILS RELEASE</h2>
+<div class="card next">
+<p>Fred, 09-06: <i>"the release is a fundamental redesign and rewrite of
+trails"</i> — <i>"and route building through those trails."</i></p>
+<p>⭐ That is the framing, not a list of leftovers. Everything in 2.6h is one
+subject: <b>better trail data, more of it, rider-contributed where the sources
+are silent, and route building that makes proper use of it.</b></p>
+<p>⚠ And they are not separable. Adding 80 miles of rider trails today changed
+what the planner returned — <b>the router is only as good as the network under
+it</b>.</p>
+</div>
+
+<div class="card next">
+<h3>The two big pieces</h3>
+<ul>
+<li><b>Land ownership for all fifty states.</b> ⚠ The URL pattern is fixed and
+only the item id changes — but a layer that lists PUBLIC land positively
+<b>inverts our test</b>, so absence would mean private <i>or</i> unmapped, and
+marking unmapped trails private hides them under the shipped default. Each
+catalogue entry needs: item id · which field carries ownership · continuous or
+positive.</li>
+<li><b>Crashed-import restart from the manifest.</b> Step 8 became a real stage
+in 2.6g, which was the prerequisite.</li>
+</ul>
+<h3>Known defects</h3>
+<ul>
+<li><b>The ride map has no route tap at all</b> — <code>convoy_map.html</code>
+has no <code>onRouteTap</code> wiring. The planner has it.</li>
+<li><b>Trails win taps over routes.</b> Layer order should be trails, tracks,
+routes — ⚠ reasserted after every trail redraw, because a pan rebuilds that
+layer.</li>
+<li><b>The import timer is gone.</b> Suspect: <code>republishProgress</code>
+passes <code>currentTimeMillis()</code> as <code>startMs</code>.</li>
+<li><b>The private filter should say when land data is not loaded</b> rather than
+appearing to work.</li>
+<li>Two import bugs: 712 rows hold the literal <b>"null"</b>, 866 hold
+<b>"321"</b>.</li>
+<li><b>BUILD FROM RECIPE on the notes panel</b> — needs its fifty-line lambda
+extracted first.</li>
+</ul>
+<h3>Backlog, not blocking</h3>
+<p><b>Route archive-on-graduate</b> is the one with real exposure — graduated
+routes are the only unrecoverable data class and testers are building them. Also:
+refuse-to-create · the startup-task survey · discard/save · rename/delete
+triggers · schema-version refactor · extending the xref to
+<code>assets/*.js</code> and <code>*.html</code>.</p>
+<h3>Set aside</h3>
+<p><b>Context Help</b> — a launcher opening the manual at the panel you are on.
+The 30 anchors exist. Fred stopped it: <i>"too complex. Panel with twisties
+closed is small space to be managed."</i></p>
+</div>
+
+<h2>Release procedure — five hand-edited steps</h2>
+<div class="card warn">
+<p>Nothing prompts for any of these, and every one has been missed at least once.</p>
+<ol>
+<li>The release label in <code>ConvoySettingsScreen.kt</code>.</li>
+<li><code>__htmlVersion</code> in <b>both</b> map HTML files.</li>
+<li>The schema marker in <code>StartupHousekeeping</code>, when the trail schema
+changes.</li>
+<li>⭐ <b>Copy the three documents into <code>assets/</code></b> — the release
+notes asset sat three weeks stale because nobody did.</li>
+<li>⭐ <b>Increment the revision in every document filename</b> — Windows appends
+"(1)" to duplicate downloads and you end up working from the wrong one.</li>
+</ol>
+</div>
+
+<h2>Worth remembering</h2>
+<div class="card warn">
+<ul>
+<li>⛔ <b>Read what exists before writing something new.</b> Five occurrences
+this week.</li>
+<li>⭐ <b>Manual figures: 720 on the LONG edge.</b> Portrait screenshots land at
+450×720, median 32 KB.</li>
+<li>⭐ <b>Shared content is DUPLICATED in a manual</b>, unlike code. A reader
+should never have to leave the section they are in.</li>
+<li><b>Anchors from <code>cat -A</code>, never <code>sed</code>.</b></li>
+<li><b>Patch guards must strip comment lines</b> before checking for removed
+strings.</li>
+<li><b><code>TrailFilterState</code> is a plain singleton, not Compose state</b> —
+every composable reading it needs <code>tick</code>.</li>
+</ul>
+</div>
+
+<h2>Files</h2>
+<div class="card done">
+<ul>
+<li><code>grouptrack_manual_2026-09-06_v5.html</code> — <b>the current
+manual</b></li>
+<li><code>GroupTrack_QuickStart_2026-09-06_v47.html</code></li>
+<li><code>grouptrack_release_notes_2026-09-06_v1.html</code></li>
+<li><code>grouptrack_living_master_2026-09-06_v50.html</code> — 393 h3</li>
+<li><code>grouptrack_checklist_2026-09-05_v1.html</code></li>
+<li><code>ridertrails_2026-09-06_v3.py</code> — the rider-trails prototype</li>
+<li><code>GroupTrack_RadioConfig_Checklist_2026-09-05_v1.html</code> — ⚠ hand
+this out, not the April v1, which is wrong on seven values</li>
+</ul>
+</div>
+
+</body></html>

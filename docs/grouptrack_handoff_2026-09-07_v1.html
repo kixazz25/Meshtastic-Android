@@ -1,0 +1,332 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<title>GroupTrack — Handoff 2026-09-07</title>
+<style>
+body{font:15px/1.68 -apple-system,"Segoe UI",Roboto,sans-serif;max-width:960px;
+margin:0 auto;padding:26px;background:#0f1216;color:#e6edf3}
+h1{font-size:21px;color:#58a6ff;border-bottom:2px solid #2a3038;padding-bottom:8px}
+h2{font-size:16px;color:#58a6ff;margin-top:32px;border-bottom:1px solid #2a3038;padding-bottom:5px}
+h3{font-size:14px;color:#b8c2cc;margin-top:20px}
+code{background:#1a2027;padding:1px 5px;border-radius:3px;font-size:12.5px;color:#8FD0FF}
+.card{background:#161b22;border:1px solid #2a3038;border-radius:8px;padding:13px 17px;margin:11px 0}
+.done{border-left:4px solid #3fb950}.next{border-left:4px solid #58a6ff}
+.warn{border-left:4px solid #d29922}.bad{border-left:4px solid #f85149}
+table{border-collapse:collapse;width:100%;margin:11px 0;font-size:13px}
+th,td{border:1px solid #2a3038;padding:6px 9px;text-align:left;vertical-align:top}
+th{background:#1a2027;color:#8FD0FF}
+li{margin:5px 0}
+pre{background:#0d1117;border:1px solid #2a3038;padding:9px;border-radius:5px;
+font-size:11.5px;overflow-x:auto;color:#b8c2cc}
+</style></head><body>
+
+<h1>GroupTrack — Handoff, 2026-09-07</h1>
+<p><code>feature/convoy-event-ride</code> · commit <code>61e3b2148</code> ·
+<b>rider trails are built, proven on both devices, and committed</b></p>
+
+<div class="card done">
+<p><b>Rider trails work end to end.</b> Recorded tracks become unnamed trails
+wherever a ride left the published network. Three entry points, all built.
+Droid 1: <b>1,537 trails / 2,279 miles</b>. Droid 2: <b>1,872 / 2,425</b>, and
+that number came back <b>identical across three separate runs</b>.</p>
+<p>Plus four fixes to the import path that today's testing turned up, three of
+which were pre-existing.</p>
+</div>
+
+<h2>⭐ Rider trails — what got built</h2>
+
+<div class="card done">
+<h3>The four pieces</h3>
+<table>
+<tr><th>File</th><th>What it is</th></tr>
+<tr><td><code>RiderTrailScanner.kt</code></td><td><b>Pure.</b> No database, no
+Android, no geometry serialisation. A line-for-line port of
+<code>ridertrails_2026-09-06_v3.py</code>, so it can be diffed against the
+prototype. Direction is the test, not distance; a run closes only on a sustained
+rejoin.</td></tr>
+<tr><td><code>RiderTrailWriter.kt</code></td><td>The only thing that touches the
+database. Candidates by the track's own bbox, writes both stores.
+<code>scanAll()</code>, <code>scanTrackByHash()</code>.</td></tr>
+<tr><td><code>TrailClassifier.kt</code></td><td>Two lines: recognises
+<code>rider</code> and maps it to MOTORIZED.</td></tr>
+<tr><td><code>RiderTrailsDialog.kt</code></td><td>The visible run for the
+button.</td></tr>
+</table>
+
+<h3>⭐ The 09-07 design change: connectors are part of the trail</h3>
+<p>v3 wrote connectors as separate lines. Fred: <i>"the connector is the start of
+the trail and connects to rest of trail points … we are adding one new trail
+including derived connector."</i></p>
+<p>So a rider trail is <b>anchor node → the ground you rode → anchor node</b>, one
+polyline. This removes a real failure mode: a run written whose connector write
+failed was an island the router could not reach.</p>
+
+<h3>Three entry points, one function</h3>
+<ul>
+<li><b>ADD TRAILS FROM TRACKS</b> — blue, under RESYNC TRACKS on the import
+panel. Always visible.</li>
+<li><b>Import stage <code>_ridertrails</code></b> — two passes, after the sources
+and <b>before step 8</b>.</li>
+<li><b>Trigger in <code>resolveTrackAdd</code></b> — every genuine INSERT, inline,
+wrapped so it can never fail the add.</li>
+</ul>
+</div>
+
+<div class="card warn">
+<h3>⚠ The five things that decide correctness</h3>
+<ol>
+<li>⛔ <b>Candidates PER TRACK, by bbox — never the whole table.</b> Utah is
+145,942 trails, ~5.6M segments. The Python indexes all of it because it runs on a
+laptop; that on a 3 GB device is an allocation that does not come back.</li>
+<li>⛔ <b>AFTER the reload, never at the clear.</b> <code>StartupHousekeeping</code>
+and <code>clearTrailsOnce</code> only CLEAR — they hand the reload to the import.
+Scanning an emptied table reads every track as fully off-network and promotes all
+3,651 miles.</li>
+<li>⛔ <b>BEFORE step 8, not after.</b> Step 8 classifies by VALUE across every
+row. Rider trails written after it carry no <code>land_status</code> and no
+<code>use_type</code>.</li>
+<li>⭐ <b>The dedup is the DIRECTION TEST, not the hash.</b> Two GPS traces over
+the same ground never hash alike — the same reason OSM and UGRC turned out to be
+independent surveys. A rider trail written on pass one lies under its own track
+going the same way, so pass two reads it as on-network.</li>
+<li>⭐ <b>Live data per track.</b> Two riders over the same unmapped ground: the
+first track's trail is already present when the second is scanned. Index once up
+front and the same ground is written twice, with different hashes, and nothing
+catches it.</li>
+</ol>
+</div>
+
+<div class="card done">
+<h3>⭐ TWO PASSES, and why — measured</h3>
+<p>Droid 1: pass one <b>1,537</b>, pass two <b>70</b>, pass three <b>0</b>.</p>
+<p>The second pass is the network <b>settling around the connectors the first one
+wrote</b> — new anchor nodes exist, so a few runs close at different points. Fred
+called it: <i>"we had breaks new trails and existing trails for them to connect
+to."</i> One pass leaves ~5% of the edge geometry unsettled; two converge every
+time. The import stage runs both.</p>
+</div>
+
+<div class="card next">
+<h3>What a rider trail carries</h3>
+<table>
+<tr><th>Field</th><th>Value</th><th>Why</th></tr>
+<tr><td><code>source_id</code></td><td><code>rides</code></td><td>the provenance
+a future filter would key on</td></tr>
+<tr><td><code>carto_code</code></td><td><code>rider</code></td><td>ours; blue
+<code>#2196F3</code>, weight 5, solid</td></tr>
+<tr><td><code>carto_code_source</code></td><td><code>rider</code></td><td>⛔ step 8
+reads the SOURCE value first. Without this it flattens to
+<code>unknown</code></td></tr>
+<tr><td><code>source_unique_id</code></td><td>the geom hash</td><td>stable across
+re-runs, so INSERT OR IGNORE drops an exact repeat</td></tr>
+<tr><td><code>name</code></td><td>unnamed</td><td><i>"it doesn't have to be
+perfect, it has to be honest"</i></td></tr>
+<tr><td><code>land_status</code> / <code>use_type</code></td><td>left null</td>
+<td>⭐ step 8 derives both. Hand-setting them is a second path that drifts</td></tr>
+</table>
+<h3>⛔ NO SCANNED FLAG — dropped 09-07</h3>
+<p>The earlier design had a field on the track extension. Fred killed it:
+<i>"no need to flag them as run."</i> It never needs re-running unless trails were
+cleared and reloaded, so there is no state to keep — and the flag would have been
+reset on every run of the job that used it. <b>Do not re-propose a column for
+this.</b></p>
+</div>
+
+<h2>The four import-path fixes</h2>
+
+<div class="card bad">
+<h3>⛔ Three of these were already broken. Nobody was watching those rows.</h3>
+<ol>
+<li><b>The loop could not dispatch a stage.</b> It skipped classify by testing
+<code>process == "classify_land_and_use"</code> — one hardcoded string. The rider
+stage hit <code>Unknown process type</code>, was marked FAILED, and then ran and
+succeeded further down. ⭐ Now skipped <b>by id prefix</b>: stage ids start with
+an underscore, catalogue ids never do, so the next stage is handled by
+construction.</li>
+<li><b>Neither stage had a status lifecycle.</b> Sources do
+<code>in_progress</code> → publish → work → <code>completed</code> → publish. The
+stages did none of it. ⚠ <b>Classify has never written its own status since
+09-03</b> — it recorded 147,836 rows classified as
+<code>"status": "pending", "imported": 0</code>. That is not just a red row: <b>a
+run that cannot report cannot be resumed</b>, and resumable imports read the
+manifest.</li>
+<li><b>My own error:</b> the rider stage wrote <code>"done"</code>, a string
+nothing else in the file uses and the panel does not treat as finished.</li>
+<li><b>Ten silent minutes in step 7.</b> ⭐ The progress was never missing —
+<code>OsmExtractWorker</code> publishes done/total/eta every two seconds under
+<code>osm_extract_progress</code>. It goes to <code>OsmImportPanel</code>; the
+picker reads <code>downloadDetailFlow</code>. <b>Two channels, and the rider is
+watching the other one.</b> <code>awaitWorker</code> already polls the WorkInfo
+and threw the data away — it now decodes it into the flow the picker renders.
+Fixes both worker stages.</li>
+</ol>
+<p>⚠ The stale <code>"$changed road(s) -&gt; residential"</code> log line was also
+corrected. Nothing has become residential since 08-31.</p>
+</div>
+
+<h2>⚠⚠ How to retrigger a clear-and-reload — this was never written down</h2>
+<div class="card warn">
+<p>Fred: <i>"how could there be no notes on how to clear and reset? we have been
+doing this for weeks and now we need to search?"</i> Fair. It cost time today and
+it has cost time before.</p>
+<p>The gates are <b>dotfiles</b> in <code>/sdcard/Documents/GroupTrack/</code>.
+⛔ <code>ls -la | grep mark</code> finds <b>none</b> of them — no name contains
+"mark". Use plain <code>ls -la</code>.</p>
+<table>
+<tr><th>File</th><th>Gates</th></tr>
+<tr><td><code>.schema_2026-09-03A</code></td><td><code>StartupHousekeeping</code>.
+Present → returns immediately. <b>Delete this one</b> to make the next launch
+clear trails and return <code>needsReload = true</code>.</td></tr>
+<tr><td><code>.trails_cleared_2026-09-02B</code></td><td><code>clearTrailsOnce</code></td></tr>
+<tr><td><code>.db_schema_version</code></td><td>the 08-16 reinstall-wipe fix</td></tr>
+</table>
+<p>⛔ <b>Clearing two of the three leaves the third standing down silently</b> —
+it looks exactly like the feature not working. Fred has hit this before.</p>
+<pre>MSYS_NO_PATHCONV=1 adb -s [serial] shell "rm -f \
+  /sdcard/Documents/GroupTrack/.schema_2026-09-03A \
+  /sdcard/Documents/GroupTrack/.trails_cleared_2026-09-02B \
+  /sdcard/Documents/GroupTrack/.db_schema_version"</pre>
+<p>⚠ A <b>reinstall does not remove these</b>, and the home-state picker imports
+<b>without clearing</b>. Neither retriggers the path.</p>
+</div>
+
+<h2>What today's runs showed</h2>
+<div class="card next">
+<table>
+<tr><th>Run</th><th>Result</th></tr>
+<tr><td>Python v3, Steamboat</td><td>24 trails, 62.55 mi, 22 joined at both
+ends</td></tr>
+<tr><td>Droid 1, button</td><td>1,537 → 70 → <b>0</b></td></tr>
+<tr><td>Droid 2, button</td><td>1,802 from 90 tracks</td></tr>
+<tr><td>Droid 2, import stage</td><td><b>1,872 from 88 tracks, three times,
+identical</b></td></tr>
+<tr><td>Full import</td><td>1,543s (~26 min). Rider trails ≈5 min of it</td></tr>
+<tr><td>Step 8 after</td><td>147,836 rows in 188s, 43,721 private — <b>includes
+the rider trails</b></td></tr>
+</table>
+<h3>⚠ Rider trails are relative to the states you have loaded</h3>
+<p>Bar 10 Overnighter came back as <b>one 146-mile trail</b>. Correct behaviour,
+wrong result: the ride crosses into Arizona and Arizona was never imported, so
+there was no network under it. Fred: <i>"I probably have no Arizona maps on that
+device."</i></p>
+<p>⭐ Self-correcting on the next full reload, since the trails are rederived
+against the fuller network. Not before. <b>This is now in the manual and the
+Quick Start</b> — load your states first.</p>
+</div>
+
+<h2>Not yet verified</h2>
+<div class="card warn">
+<ul>
+<li><b>The add trigger has never fired.</b> Import a single GPX or record a short
+track off known ground and watch for
+<code>TrackAdd: rider trails: N</code>.</li>
+<li><b>The last build is untested</b> — both status-lifecycle fixes went in after
+the APK Droid 2 is running. The panel showed 8 and 9 failed on the OLD
+build.</li>
+<li><b>The blue never reached a device.</b> <code>__htmlVersion</code> is still
+<code>2026-09-03a</code>; if the asset is version-gated, bump it to
+<code>2026-09-07a</code> or rider trails draw cyan.</li>
+<li><b>The detail panel rewrite is unseen.</b> It should now say "Rider Trail",
+and every other trail should show its real category — it reported "Unspecified"
+for <i>every</i> trail since carto became names on 08-31.</li>
+</ul>
+</div>
+
+<h2>Open, not blocking</h2>
+<div class="card next">
+<ul>
+<li>⚠ <b>Housekeeping can run twice and kill a live import.</b> Seen at 14:29:33:
+a second run on a different thread cleared the 1,400 trails an import had just
+loaded and swept its manifest to history as KILLED. Not ours, and it predates
+today.</li>
+<li><b><code>convoy_map.html</code> is frozen</b>, so rider trails draw cyan on
+the ride map. Deliberate.</li>
+<li><b>A track named with a bare geom hash</b> was seen in the logs.</li>
+<li><b><code>St George to Bar10</code> duplicated</b> — 1,763 and 1,736 points,
+62.282 and 62.281 miles.</li>
+<li><b>Each trigger call opens a dedup session</b>, reloading ~145,942 hashes. Fine
+for one add; a 90-file bulk import does it 90 times. First place to look if
+imports drag.</li>
+<li><b>The bulk import path could open one session around its loop.</b></li>
+</ul>
+</div>
+
+<h2>Play Store</h2>
+<div class="card warn">
+<p><b>Submission 18 is in review</b> — went in 19:22 on 09-06. It carries the
+resume, the country change and the feedback channel together. Submissions 16 and
+17 both published the same day, so review is working; this one is just not
+back.</p>
+<ul>
+<li>⛔ <b>The open track was PAUSED.</b> That, not search and not the link, is why
+nothing worked. "Resume track" is in submission 18.</li>
+<li><b>Countries reduced to 1</b>, deliberately — Utah data, and a tester in
+Germany downloading twenty minutes of it is a one-star.</li>
+<li>⭐ <b>Open testing apps are not reliably findable in search.</b> The LINK is
+the mechanism. Post it to the Facebook groups.</li>
+<li>⛔ <b>Internal outranks open.</b> Existing testers get internal builds
+whatever link they click, and a stranger clicking an internal link is told they
+are not enrolled — which is exactly the pair of symptoms seen today. Clear the
+internal list once open is live, and keep one slot for a fast lane.</li>
+<li>⚠ <b>Put the twenty-minute first-install download in the listing</b> before
+the link goes to several hundred riders.</li>
+</ul>
+</div>
+
+<h2>Release procedure — five hand-edited steps</h2>
+<div class="card warn">
+<p>Nothing prompts for any of these, and every one has been missed at least once.</p>
+<ol>
+<li>The release label in <code>ConvoySettingsScreen.kt</code>. ⚠ The open track
+reads <b>2.7.14</b> while the docs say 2.6g — worth reconciling.</li>
+<li><code>__htmlVersion</code> in <b>both</b> map HTML files. <b>Still
+<code>2026-09-03a</code> — needs the bump.</b></li>
+<li>The schema marker in <code>StartupHousekeeping</code>, when the trail schema
+changes.</li>
+<li>⭐ <b>Copy the three documents into <code>assets/</code>.</b></li>
+<li>⭐ <b>Increment the revision in every document filename.</b></li>
+</ol>
+</div>
+
+<h2>Worth remembering</h2>
+<div class="card warn">
+<ul>
+<li>⛔ <b>Anchors from <code>cat -A</code>, never from a terminal dump.</b> Cost a
+patch today: the step 8 header has <b>two</b> box dashes before and
+<b>thirty-four</b> after; I counted twenty-two off a <code>sed</code> dump.</li>
+<li>⛔ <b>Patch guards must strip comments before checking.</b> Fired again — the
+purity check found <code>computeGeomHash</code> inside the comment warning
+against duplicating it. The guard was right to refuse; the check was wrong.</li>
+<li>⛔ <b>Read what exists before writing something new.</b> Four greps were spent
+hunting <b>RESYNCH</b>; the button says <b>RESYNC</b> and the dialog is titled
+<b>SYNC TRACKS</b>. The navigation xref had neither. ⚠ That is the case for
+extending the xref to <code>assets/*.js</code> and <code>*.html</code>.</li>
+<li>⛔ <b>Fixing a symptom without reading what else keys off it.</b> The
+stage-skip removed the red rows and left them stuck, because skipping the row
+also skipped its whole visible lifecycle.</li>
+<li>⭐ <b>Check file timestamps before trusting a pull.</b> Two stale DBs were
+reported as showing zero unnamed tracks; the live device had 423.</li>
+<li><b>Do not paste multi-line commit messages into Git-Bash.</b> An apostrophe
+opened a continuation prompt. One line, detail in the docs.</li>
+</ul>
+</div>
+
+<h2>Files</h2>
+<div class="card done">
+<ul>
+<li><code>grouptrack_manual_2026-09-07_v6.html</code> — <b>the current
+manual</b></li>
+<li><code>GroupTrack_QuickStart_2026-09-07_v48.html</code></li>
+<li><code>grouptrack_release_notes_2026-09-07_v2.html</code></li>
+<li><code>grouptrack_living_master_2026-09-06_v51.html</code> — ⚠ <b>v51</b>, not
+the v50 the 09-06 handoff named</li>
+<li><code>grouptrack_checklist_2026-09-05_v1.html</code></li>
+<li><code>ridertrails_2026-09-06_v3.py</code> — the reference prototype. ⭐ If the
+Kotlin and the Python ever disagree, <b>the Python is right until proven
+otherwise</b></li>
+<li><code>spatial_0907.db</code> — Droid 1 backup, 301,023,232 bytes,
+verified</li>
+<li><code>GroupTrack_RadioConfig_Checklist_2026-09-05_v1.html</code> — ⚠ hand this
+out, not the April v1</li>
+</ul>
+</div>
+
+</body></html>
