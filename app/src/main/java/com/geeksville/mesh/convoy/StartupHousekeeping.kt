@@ -75,6 +75,41 @@ object StartupHousekeeping {
      * while this work was still going on.
      */
     @Synchronized
+    /**
+     * EVERYLAUNCH-2026-09-08: the SECOND housekeeping pass -- the one with no
+     * marker.
+     *
+     * ⭐ WHY THERE ARE TWO (Fred, 09-08). [run] checks its marker first and
+     * returns immediately when present, so everything inside it fires only on
+     * the launches that clear and reload trails. That is right for a
+     * destructive one-shot and wrong for convergence: a category added to the
+     * shipped palette today would reach a rider on their next full reload,
+     * which could be months.
+     *
+     * ⭐ AND THE POINT IS THE DECLARED PLACE, not the one task in it. The
+     * 08-16 startup survey exists because one-shots were scattered through the
+     * startup stack by hunt-seek-find. Anything that must converge a device to
+     * the current build belongs here, where it can be found.
+     *
+     * ⛔ THE RULES FOR ANYTHING ADDED HERE:
+     *   • CHEAP. It runs on every launch. A startup tax accumulates unnoticed.
+     *   • IDEMPOTENT. The second run must find nothing to do.
+     *   • NON-DESTRUCTIVE. Nothing here may delete or overwrite rider data --
+     *     that is [run]'s job, behind a marker, on purpose.
+     *   • It must never throw. A convergence failure is not a reason to stop
+     *     the app starting.
+     */
+    fun everyLaunch(ctx: Context) {
+        try {
+            val added = TrailFilterState.mergeShippedCategories(ctx)
+            if (added.isNotEmpty()) {
+                Log.i(TAG, "everyLaunch: added map key categor(y/ies) $added")
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "everyLaunch: category merge: ${e.message}")
+        }
+    }
+
     fun run(ctx: Context): Result {
         val marker = File(SpatialDbManager.dbDir(), SCHEMA_MARKER)
         if (marker.exists()) {

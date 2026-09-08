@@ -103,7 +103,18 @@ fun ArtifactDetailPanel(
                     if (artifactType != "Trails" && onRename != null) {
                         DetailActionButton("RENAME", aBlue) { renameText = dName; showRenameDialog = true }
                     }
-                    if (artifactType != "Trails" && onDelete != null) {
+                    // RIDERTRAILDELETE-2026-09-08: trails were excluded outright.
+                    // ⭐ Now: a trail YOU created can be deleted; a surveyed one
+                    // still cannot. Fred: "will only show delete as an option if
+                    // it was rider created."
+                    // ⚠ Deleting an OSM or UGRC trail would achieve nothing --
+                    // the next clear-and-reload brings it back from the
+                    // catalogue -- and an action that quietly undoes itself is
+                    // worse than no action.
+                    // ⚠ source_id arrives because getArtifactDetail does SELECT *
+                    // on the spatial row AND trail_properties and merges them.
+                    val riderMade = detailFields["source_id"] == "rides"
+                    if ((artifactType != "Trails" || riderMade) && onDelete != null) {
                         DetailActionButton("DELETE", Color(0xFFFF6B6B)) { showDeleteConfirm = true }
                     }
                     if (onShare != null) { DetailActionButton("SHARE", aGreen) { onShare(id) } }

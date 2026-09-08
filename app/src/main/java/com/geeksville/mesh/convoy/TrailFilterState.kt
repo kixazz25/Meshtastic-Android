@@ -296,6 +296,61 @@ object TrailFilterState {
 
     // ── save ────────────────────────────────────────────────────────────
 
+    /**
+     * EVERYLAUNCH-2026-09-08: add categories the shipped asset has and the
+     * rider's file does not. Returns the names added, empty if none.
+     *
+     * ⛔ EXISTING ENTRIES ARE NEVER TOUCHED. A rider who recoloured a category
+     * keeps that colour forever -- this only fills gaps. That is the whole
+     * difference between it and installDefaults, which replaces the file.
+     *
+     * ⚠ WHY IT IS NEEDED AT ALL. installDefaults runs only when the working
+     * file is ABSENT, which is right for a palette and wrong for a category
+     * that did not exist when the file was written. `rider` shipped on 09-07
+     * and no existing rider could see it in the legend or filter it.
+     *
+     * ⚠ STYLE ONLY. A new category is deliberately NOT added to `off` -- that
+     * list is what is switched OFF, so an absent name means visible, which is
+     * what a new category should be.
+     *
+     * ⚠ Cheap and idempotent: reads one small asset, and on every launch after
+     * the first it finds nothing and writes nothing.
+     */
+    @Synchronized
+    fun mergeShippedCategories(context: android.content.Context): List<String> {
+        return try {
+            val text = context.assets.open(DEFAULTS_ASSET)
+                .bufferedReader().use { it.readText() }
+            val shipped = JSONObject(text).optJSONObject("style")
+                ?: return emptyList()
+            // ⚠ The file must be read before it can be merged into. load() is
+            // idempotent, so this costs nothing when the caller has already
+            // loaded.
+            load()
+            val added = ArrayList<String>()
+            for (k in shipped.keys()) {
+                if (style.containsKey(k)) continue
+                val e = shipped.optJSONObject(k) ?: continue
+                style[k] = Triple(
+                    e.optString("c", "#00FFFF"),
+                    if (e.isNull("d")) null else e.optString("d"),
+                    e.optInt("w", 2)
+                )
+                added.add(k)
+            }
+            if (added.isNotEmpty()) {
+                Log.i(TAG, "merged ${added.size} new categor(y/ies): $added")
+                regenerate()
+                save()
+            }
+            added
+        } catch (e: Exception) {
+            // A missing or malformed asset must not stop the app starting.
+            Log.e(TAG, "mergeShippedCategories failed: ${e.message}")
+            emptyList()
+        }
+    }
+
     @Synchronized
     fun save() {
         try {

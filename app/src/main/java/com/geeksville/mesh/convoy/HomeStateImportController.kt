@@ -453,9 +453,20 @@ object HomeStateImportController {
             //
             // ⚠ NEVER FAILS THE IMPORT, same stance as step 8 below.
             try {
+                // STAGELIFECYCLE-2026-09-07: a stage must look like a SOURCE to
+                // the panel. in_progress + publish here, completed + publish at
+                // the end. ⚠ currentSourceIndex looks for exactly
+                // "in_progress" -- without it the panel cannot tell which row
+                // is live, and the step counter stalls on the last source.
+                findStage(sources, RIDER_STAGE_ID)?.apply {
+                    put("status", "in_progress")
+                    put("started_at", iso8601Now())
+                }
                 updateSourceStep(
                     findStage(sources, RIDER_STAGE_ID),
                     "Trails from tracks", "reading tracks")
+                writeManifest(mFile, manifest)
+                publishProgress(areaLabel, totalSources, sources, "running", startMs)
                 val rider = withContext(Dispatchers.IO) {
                     SpatialDbManager.init(context)
                     val first = RiderTrailWriter.scanAll { done, total ->
@@ -477,11 +488,16 @@ object HomeStateImportController {
                 }
                 downloadDetailFlow.value = null
                 findStage(sources, RIDER_STAGE_ID)?.apply {
-                    put("status", "done")
+                    // ⛔ "completed", NOT "done". Every other completion in this
+                    // file writes "completed" and the panel tests for it. "done"
+                    // was a string invented here and understood nowhere.
+                    put("status", "completed")
+                    put("completed_at", iso8601Now())
                     put("imported", rider.trailsAdded)
                     put("processed", rider.tracksScanned)
                 }
                 writeManifest(mFile, manifest)
+                publishProgress(areaLabel, totalSources, sources, "running", startMs)
                 Log.i(TAG, "rider trails: ${rider.trailsAdded} from " +
                     "${rider.tracksScanned} track(s), ${rider.miles} mi")
             } catch (e: Exception) {
@@ -493,6 +509,9 @@ object HomeStateImportController {
                 try {
                     findStage(sources, RIDER_STAGE_ID)?.put("status", "failed")
                     writeManifest(mFile, manifest)
+                    // A failure nobody can see is the same as a stage that
+                    // never ran.
+                    publishProgress(areaLabel, totalSources, sources, "running", startMs)
                 } catch (_: Exception) { }
             }
 
@@ -524,6 +543,17 @@ object HomeStateImportController {
                 // WOULD arrive projected without it.
                 // ⚠ ONLY WHEN ABSENT. It is state data that changes weekly at
                 // most, and re-pulling 78 MB on every import buys nothing.
+                // CLASSIFYLIFECYCLE-2026-09-07: announce the stage before any
+                // of its work, exactly as a source does. ⚠ currentSourceIndex
+                // looks for "in_progress"; without it the panel cannot tell
+                // this row is live and it reads as never started.
+                findStage(sources, CLASSIFY_STAGE_ID)?.apply {
+                    put("status", "in_progress")
+                    put("started_at", iso8601Now())
+                }
+                writeManifest(mFile, manifest)
+                publishProgress(areaLabel, totalSources, sources, "running", startMs)
+
                 val ownFile = OwnershipReclass.ownershipFile()
                 if (!ownFile.exists() || ownFile.length() < 1_000_000L) {
                     updateSourceStep(
@@ -553,6 +583,30 @@ object HomeStateImportController {
                         }
                     }
                     downloadDetailFlow.value = null
+                    // ⭐ COMPLETED EVEN WHEN changed < 0. Skipping for want of an
+                    // ownership file is a DEGRADED run, not a failed one -- the
+                    // trails still carry their categories and the null-tolerant
+                    // predicate keeps the map working. Reporting it as failed
+                    // would send a rider chasing a problem they do not have.
+                    // The count tells the two apart: 0 rows means it skipped.
+                    findStage(sources, CLASSIFY_STAGE_ID)?.apply {
+                        put("status", "completed")
+                        put("completed_at", iso8601Now())
+                        // CLASSIFYCOUNT-2026-09-07: ⛔ imported MUST STAY 0.
+                        // "imported" means rows this stage BROUGHT INTO the
+                        // table, and the panel SUMS it across every row for the
+                        // grand total. Classify brings in nothing -- it
+                        // recategorises rows that already exist -- so writing
+                        // the count here made the total exactly double:
+                        // 147,836 trails reported as 295,672.
+                        // "processed" is the right field: rows worked on, not
+                        // summed, and still enough to tell a classify that ran
+                        // from one that skipped for want of an ownership file.
+                        put("imported", 0)
+                        put("processed", if (changed > 0) changed else 0)
+                    }
+                    writeManifest(mFile, manifest)
+                    publishProgress(areaLabel, totalSources, sources, "running", startMs)
                     when {
                         changed < 0 -> Log.i(TAG, "step 8 skipped (no ownership data)")
                         changed == 0 -> Log.i(TAG, "step 8: nothing reclassified")
@@ -564,11 +618,22 @@ object HomeStateImportController {
                         else -> Log.i(TAG, "step 8: $changed trail(s) classified")
                     }
                 } else {
+                    // ⚠ THIS one is a real failure, unlike the missing-file case
+                    // above: with no database nothing was classified and nothing
+                    // can be. Recorded so the row does not sit at pending.
                     Log.w(TAG, "step 8 skipped: databases unavailable")
+                    findStage(sources, CLASSIFY_STAGE_ID)?.put("status", "failed")
+                    writeManifest(mFile, manifest)
+                    publishProgress(areaLabel, totalSources, sources, "running", startMs)
                 }
             } catch (e: Exception) {
                 // Housekeeping must never block a completed import.
                 Log.e(TAG, "step 8 failed, import stands: ${e.message}")
+                try {
+                    findStage(sources, CLASSIFY_STAGE_ID)?.put("status", "failed")
+                    writeManifest(mFile, manifest)
+                    publishProgress(areaLabel, totalSources, sources, "running", startMs)
+                } catch (_: Exception) { }
                 downloadDetailFlow.value = null
             }
 

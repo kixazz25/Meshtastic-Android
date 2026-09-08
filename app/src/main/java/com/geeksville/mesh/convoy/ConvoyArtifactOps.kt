@@ -82,6 +82,14 @@ object ConvoyArtifactOps {
                 "Waypoints" -> SpatialDbManager.deleteWaypoint(artifactId)
                 "Routes" -> SpatialDbManager.deleteRoute(artifactId)
                 "Tracks" -> SpatialDbManager.deleteTrackFromDb(artifactId)
+                // RIDERTRAILDELETE-2026-09-08: ⛔ THIS BRANCH DID NOT EXIST, so a
+                // delete on a trail fell through the when(), logged success and
+                // did nothing. The planner has always passed onDelete; only the
+                // panel's type check kept anyone from finding out.
+                // ⚠ The panel decides WHICH trails offer the button -- rider-
+                // created only. This function does not re-check, exactly as the
+                // other three do not.
+                "Trails" -> SpatialDbManager.deleteTrailFromDb(artifactId)
             }
         }
         Log.d(TAG, "DELETE $artifactType $artifactId")

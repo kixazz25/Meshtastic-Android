@@ -2191,6 +2191,43 @@ object SpatialDbManager {
      *  Ordered + logged; each step best-effort (a missing piece is a no-op).
      *  SEPARATE from the add-time dupe/alias source-file cleanup (that lives in
      *  the add resolver and deletes the INCOMING source file, not <hash>.gpx). */
+    /**
+     * RIDERTRAILDELETE-2026-09-08: remove one trail, both stores.
+     *
+     * ⚠ BOTH STORES, and the extension row is not optional. TRAILCLEAR-2026-08-24L
+     * is the precedent: trail_properties is keyed on trail_id, so once the
+     * spatial row is gone an orphan there joins to nothing and can never be
+     * reached again -- and worse, TrailImporter inserts with INSERT OR IGNORE
+     * on (source_id, source_unique_id), so a stale row KEEPS THE SLOT and a
+     * re-imported trail silently gets no properties.
+     *
+     * ⚠ THIS IS NOT PERMANENT FOR A RIDER TRAIL. They are derived from tracks
+     * and the scan rederives them on the next clear-and-reload. Deleting the
+     * track as well is what makes it stick.
+     */
+    fun deleteTrailFromDb(id: String) {
+        try {
+            spatialDb?.execSQL("DELETE FROM trails WHERE trail_id=?", arrayOf<Any>(id))
+        } catch (e: Exception) {
+            android.util.Log.w("TrailDelete", "spatial row: ${e.message}")
+        }
+        try {
+            extensionDb?.execSQL("DELETE FROM trail_properties WHERE trail_id=?",
+                arrayOf<Any>(id))
+        } catch (e: Exception) {
+            android.util.Log.w("TrailDelete", "trail_properties: ${e.message}")
+        }
+        try {
+            extensionDb?.execSQL(
+                "DELETE FROM artifact_aliases WHERE artifact_type=? AND artifact_id=?",
+                arrayOf<Any>("trail", id)
+            )
+        } catch (e: Exception) {
+            android.util.Log.w("TrailDelete", "aliases: ${e.message}")
+        }
+        android.util.Log.i("TrailDelete", "deleteTrailFromDb($id) complete")
+    }
+
     fun deleteTrackFromDb(id: String) {
         // 1. read geom_hash first (needed to locate the file before the row is gone)
         var geomHash: String? = null

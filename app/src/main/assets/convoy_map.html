@@ -32,7 +32,7 @@
     // page loads and shown in the settings panel. A tester can read it off the
     // screen, so stale bundled HTML is visible without logcat.
     // ⚠ BUMP THIS WHENEVER THIS FILE CHANGES, or the display starts lying.
-    window.__htmlVersion = "2026-09-03a";
+    window.__htmlVersion = "2026-09-08a";
     var currentMaxNative = 18;
     // -- Trail color by CartoCode --
 
@@ -282,7 +282,10 @@
       removeTrackFile(name);
       var coords = JSON.parse(coordsJson);
       if (coords.length < 2) return;
-      var line = L.polyline(coords, {color: color, weight: 3, opacity: 0.9}).addTo(map);
+      // TRACKWEIGHT-2026-09-08: 3 -> 4. The three tiers are trails 5, tracks
+      // 4, routes 3 -- widest underneath, so each type shows as a fringe
+      // outside the one above it where they share ground.
+      var line = L.polyline(coords, {color: color, weight: 4, opacity: 0.9}).addTo(map);
       var __tid = name.replace(/\.gpx$/i, '');
       line.on('click', function(e){
         console.log('ARTIFACTTAP track(file) name=' + name + ' tid=' + __tid + ' routeMode=' + window.__routeMode);
@@ -544,6 +547,40 @@ function setTrailStyles(json) {
   }
 }
 
+
+/* LAYERSTACK-2026-09-08: put the layers back in their intended order.
+ *
+ * ⭐ trails (widest, 5) underneath, then tracks (4), then routes (3) on top.
+ * Each shows as a fringe outside the one above it, and a tap reaches the
+ * narrowest feature the rider was aiming at instead of the widest.
+ *
+ * ⚠ THE LAST bringToFront WINS, so the calls run bottom-up. Reverse them and
+ * routes end up beneath tracks.
+ *
+ * ⚠ CALLED AFTER EVERY TRAIL REBUILD, not once at startup. loadTrails()
+ * removes and recreates the trail layer on every viewport update, which is
+ * what put trails back on top after each pan.
+ *
+ * Idempotent and cheap -- calling it more often than needed costs nothing and
+ * is the safe direction.
+ */
+function restackLayers() {
+  try {
+    if (typeof trackLayer !== 'undefined' && trackLayer && trackLayer.bringToFront) {
+      trackLayer.bringToFront();
+    }
+    if (typeof trackArrows !== 'undefined' && trackArrows && trackArrows.bringToFront) {
+      trackArrows.bringToFront();
+    }
+    if (typeof routeLayer !== 'undefined' && routeLayer && routeLayer.bringToFront) {
+      routeLayer.bringToFront();
+    }
+  } catch (e) {
+    /* A restack failure must never stop the map drawing. */
+    console.log('restackLayers: ' + e);
+  }
+}
+
 function loadTrails(geojsonData) {
   if (trailLayer) map.removeLayer(trailLayer);
   trailLayer = L.geoJSON(geojsonData, {
@@ -571,12 +608,16 @@ function loadTrails(geojsonData) {
       // this week a thing was done on one screen and not the other.
       // ⚠ The popup stays as the fallback: if the bridge is absent the layer
       // still opens its bubble, so nothing is lost on an older shell.
+      // TRAILTAPPOPUP-2026-09-08: is the bridge actually reachable, and do we
+      // have an id to send? Decided ONCE, here, because both the click handler
+      // and the popup binding below need the same answer.
+      var __tid = (p && (p.trail_id || p.id)) || '';
+      var __bridged = !!(__tid && window.Android && window.Android.onTrailTap);
       layer.on('click', function(e){
-        console.log('ARTIFACTTAP trail name=' + name + ' routeMode=' + window.__routeMode);
+        console.log('ARTIFACTTAP trail name=' + name + ' routeMode=' + window.__routeMode +
+                    ' bridged=' + __bridged);
         if (window.__routeMode) return;
-        var __tid = (p && (p.trail_id || p.id)) || '';
-        if (__tid && window.Android && window.Android.onTrailTap) {
-          try { layer.closePopup(); } catch (err) {}
+        if (__bridged) {
           window.Android.onTrailTap(__tid);
         }
       });
@@ -592,13 +633,24 @@ function loadTrails(geojsonData) {
         'Uses: ' + uses + '<br>' +
         'Motorized: ' + motor +
         '</div>';
-      layer.bindPopup(popup);
+      // TRAILTAPPOPUP-2026-09-08: ⛔ THIS WAS UNCONDITIONAL, and that is what
+      // stole the tap. Leaflet's own click handling opened the bubble
+      // alongside the custom handler, and the layer.closePopup() above ran
+      // BEFORE Leaflet opened it, so it closed nothing.
+      // ⭐ A FALLBACK MEANS ELSE. The comment above the click handler has
+      // always said the popup is for when the bridge is absent; now it is.
+      // ⚠ The popup is still BUILT either way -- an older shell with no
+      // bridge, or a feature that arrives without an id, still gets its
+      // bubble and loses nothing.
+      if (!__bridged) { layer.bindPopup(popup); }
     }
   });
 }
 
 function showTrails() {
   if (trailLayer && !trailsVisible) { trailLayer.addTo(map); trailsVisible = true; }
+  // LAYERSTACK-2026-09-08: the trail layer has just gone on top of everything.
+  restackLayers();
 }
 function hideTrails() {
   if (trailLayer && trailsVisible) { map.removeLayer(trailLayer); trailsVisible = false; }
@@ -790,8 +842,23 @@ function loadRoutes(geojsonData) {
     },
     onEachFeature: function(feature, layer) {
       var name = (feature.properties && feature.properties.name) || 'Unnamed Route';
-      layer.on('click', function(){ console.log('ARTIFACTTAP route name=' + name + ' routeMode=' + window.__routeMode); });
-      layer.bindPopup('<b style="color:#FF00FF;">' + name + '</b>');
+      // RIDEROUTETAP-2026-09-08: this logged the tap and did nothing else.
+      // ⭐ route_id has been in the feature properties since 08-23; nothing
+      // consumed it on this map. Now it opens the shared detail panel.
+      var __rid = (feature.properties && feature.properties.route_id) || '';
+      var __bridged = !!(__rid && window.Android && window.Android.onRouteTap);
+      layer.on('click', function(e){
+        console.log('ARTIFACTTAP route name=' + name + ' routeMode=' + window.__routeMode +
+                    ' bridged=' + __bridged);
+        if (window.__routeMode) return;
+        if (__bridged) { window.Android.onRouteTap(__rid); }
+      });
+      // ⚠ FALLBACK ONLY, same as trails. Bound unconditionally the popup opens
+      // alongside the bridge and steals the tap -- that is the defect fixed on
+      // the trail layer this morning, and this would have reintroduced it.
+      if (!__bridged) {
+        layer.bindPopup('<b style="color:#FF00FF;">' + name + '</b>');
+      }
     }
   });
 }

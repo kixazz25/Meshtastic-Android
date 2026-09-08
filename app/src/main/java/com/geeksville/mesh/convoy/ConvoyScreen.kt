@@ -761,6 +761,20 @@ fun ConvoyScreen(
                                 viewModel.setPendingDownload(pending)
                             }
                         }
+                        // RIDEROUTETAP-2026-09-08: the ride map had NO route tap at
+                        // all -- no handler here and only a console.log on the map
+                        // side. A route is an artifact we own, so it opens the shared
+                        // detail panel, exactly as tracks and trails do.
+                        // ⚠ No addPointMode test: there is no route building on this
+                        // screen, so there is no flag to suppress against.
+                        @android.webkit.JavascriptInterface
+                        fun onRouteTap(id: String) {
+                            android.util.Log.d("RouteTap", "CONVOY bridge id=$id")
+                            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                pendingDetailType = "Routes"
+                                pendingDetailId = id
+                            }
+                        }
                         @android.webkit.JavascriptInterface
                         fun onTrailTap(id: String) {
                             // CONVOYTRAILTAP-2026-09-03: mirrors onTrackTap. ⚠ There
@@ -1066,6 +1080,17 @@ fun ConvoyScreen(
                                             wv.evaluateJavascript("showDownloadedAreas($json)", null)
                                         }
                                     }.start()
+                                }
+                            }
+                            // RIDEROUTETAP-2026-09-08: the SECOND interface object.
+                            // ⛔ Both get it or the tap works on one WebView and not
+                            // the other -- the failure this codebase keeps recording.
+                            @android.webkit.JavascriptInterface
+                            fun onRouteTap(id: String) {
+                                android.util.Log.d("RouteTap", "CONVOY bridge id=$id")
+                                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                    pendingDetailType = "Routes"
+                                    pendingDetailId = id
                                 }
                             }
                             @android.webkit.JavascriptInterface

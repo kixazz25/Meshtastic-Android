@@ -272,6 +272,13 @@ fun ConvoyAuthorityGateScreenV2(
             else first
         firstEval = resolved is AuthorityState.Granted
         state = resolved
+        // EVERYLAUNCH-2026-09-08: AFTER THE GATE HAS RESOLVED, deliberately.
+        // ⛔ First written above run(), inside the same effect. Wrong: this
+        // touches map_keys.json in SHARED STORAGE, and the authority gate exists
+        // to stop anything doing that before all-files access is confirmed. Run
+        // early and it fails silently on a device that has not granted yet, and
+        // never retries -- the gate is passed by then.
+        withContext(Dispatchers.IO) { StartupHousekeeping.everyLaunch(context) }
     }
 
     // === GATESTATES-2026-08-16B ===

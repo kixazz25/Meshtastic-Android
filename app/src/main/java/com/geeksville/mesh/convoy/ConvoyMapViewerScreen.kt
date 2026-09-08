@@ -1053,6 +1053,21 @@ fun ConvoyMapViewerScreen(
     // "?" help: which bundled doc is open ("manual" | "notes" | null = chooser/closed)
     var docsView by remember { mutableStateOf<String?>(null) }
     var showDocsChooser by remember { mutableStateOf(false) }
+    // CONVOYDOCS-2026-09-07: the document stack, which this screen never had.
+    // ⚠ Tapping a task in the Quick Start opens the manual. Closing it should
+    // put the rider back on the Quick Start where they were, not on the map --
+    // otherwise working through a checklist means reopening Help every time.
+    val docsStack = androidx.compose.runtime.remember {
+        androidx.compose.runtime.mutableStateListOf<String>()
+    }
+    fun docsOpen(name: String) {
+        docsView?.let { docsStack.add(it) }
+        docsView = name
+    }
+    fun docsBack() {
+        docsView = if (docsStack.isNotEmpty()) docsStack.removeAt(docsStack.size - 1)
+                   else null
+    }
     var showArtifactsPanel by remember { mutableStateOf(false) }   // FAB closed-state vs panel open-state
     var pmDownloadedOn by remember { mutableStateOf(false) }
     var pmActiveSource by remember { mutableStateOf(ConvoyConfig.ACTIVE_TILE_SOURCE) }
@@ -2016,8 +2031,26 @@ fun ConvoyMapViewerScreen(
                     }
                 }
             }
-            // -- "?" CHOOSER: Release Notes / Full Manual --
+            // CONVOYDOCS-2026-09-07: the chooser and viewer are SHARED now.
+            // ⛔ This screen had its own two-item AlertDialog -- Release Notes
+            // and Full Manual, no Quick Start -- plus a viewer with no fragment
+            // handling, no stack, and Close top right. Every one of those was
+            // fixed on the other screen in 2.6g and none of it reached here,
+            // because the code was duplicated instead of called.
             if (showDocsChooser) {
+                ConvoyDocsChooser(
+                    onPick = { showDocsChooser = false; docsOpen(it) },
+                    onDismiss = { showDocsChooser = false }
+                )
+            }
+            if (docsView != null) {
+                ConvoyDocsViewer(
+                    docsView = docsView!!,
+                    onOpen = { docsOpen(it) },
+                    onBack = { docsBack() }
+                )
+            }
+            if (false) {
                 androidx.compose.material3.AlertDialog(
                     onDismissRequest = { showDocsChooser = false },
                     title = { androidx.compose.material3.Text("Help & Info") },
