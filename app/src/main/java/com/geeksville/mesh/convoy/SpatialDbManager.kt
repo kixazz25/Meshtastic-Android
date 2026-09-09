@@ -1331,6 +1331,23 @@ object SpatialDbManager {
     }
 
     /** ROUTENOTES-2026-08-23X: geom_hash for a route, or null if it does not exist. */
+    /**
+     * ROUTENOTESIMPORT-2026-09-08: the route id for a geometry hash, or null.
+     *
+     * ⛔ WHY IT IS NEEDED. insertRoute is INSERT OR IGNORE and returns the id it
+     * MINTED -- on a duplicate geometry the row is dropped and that id refers
+     * to nothing. Anything that must attach to the row actually in the table
+     * has to resolve it by hash instead, exactly as findTrailIdByHash does for
+     * trails.
+     */
+    fun findRouteIdByHash(geomHash: String): String? {
+        val db = spatialDb ?: return null
+        return try {
+            db.rawQuery("SELECT route_id FROM routes WHERE geom_hash=? LIMIT 1",
+                arrayOf(geomHash)).use { c -> if (c.moveToNext()) c.getString(0) else null }
+        } catch (e: Exception) { null }
+    }
+
     fun routeGeomHash(routeId: String): String? {
         val db = spatialDb ?: return null
         return try {
@@ -2280,9 +2297,16 @@ object SpatialDbManager {
     
     // ── GPX BUILDERS (for SHARE and EXPORT) ─────────────────
 
+    // ROUTEEXTENSIONS-2026-09-08: the grouptrack namespace is DECLARED now.
+    // \u26a0 buildRouteGpxById emits <grouptrack:notes> inside <extensions>, and an
+    // undeclared prefix makes the file invalid to a strict XML parser. Our own
+    // regex reader would not notice; someone else's parser will.
+    // \u26a0 Harmless on every other artifact -- an unused namespace declaration is
+    // legal and ignored.
     private val GPX_HEADER = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
         "<gpx version=\"1.1\" creator=\"GroupTrack\"\n" +
-        "     xmlns=\"http://www.topografix.com/GPX/1/1\">\n"
+        "     xmlns=\"http://www.topografix.com/GPX/1/1\"\n" +
+        "     xmlns:grouptrack=\"https://grouptrack.app/gpx/1\">\n"
     private const val GPX_FOOTER = "</gpx>"
 
     private fun xmlEscape(s: String): String =
@@ -2357,6 +2381,29 @@ object SpatialDbManager {
                 sb.append("  <rte>\n")
                 sb.append("    <name>").append(xmlEscape(name)).append("</name>\n")
                 if (desc.isNotEmpty()) sb.append("    <desc>").append(xmlEscape(desc)).append("</desc>\n")
+                /* ROUTEEXTENSIONS-2026-09-08: THE STRUCTURED BLOCK, AT LAST.
+                 *
+                 * \u26d4 parseGpxRoutes has looked for <grouptrack:notes> since
+                 * 08-29 and prefers it over <desc> -- "the payload wins where
+                 * present -- it is ours and complete." Nothing ever wrote it,
+                 * so every route we exported carried one sentence and lost its
+                 * narrative detail and its recipe.
+                 *
+                 * \u2b50 THE RECIPE RIDES INSIDE. RECIPEINDRAFT-2026-08-29 put it in
+                 * the notes block so it would make the same journey with no new
+                 * plumbing. This is the step that journey was missing.
+                 *
+                 * \u26a0 ESCAPED. The JSON is full of quotes and the recipe's
+                 * trailFilter clause can carry < and >; unescaped, one filtered
+                 * route produces a file nothing can parse.
+                 */
+                if (notes != null) {
+                    sb.append("    <extensions>\n")
+                    sb.append("      <grouptrack:notes>")
+                    sb.append(xmlEscape(notes.toString()))
+                    sb.append("</grouptrack:notes>\n")
+                    sb.append("    </extensions>\n")
+                }
                 var idx = 1
                 for ((lat, lon) in points) {
                     sb.append("    <rtept lat=\"").append(lat).append("\" lon=\"").append(lon).append("\">\n")

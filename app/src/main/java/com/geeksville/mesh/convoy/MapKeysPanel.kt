@@ -277,7 +277,16 @@ val MOTORIZED_ROWS = listOf(
     MapKeyRow("OHV", "OHV", Color(0xFF00CCFF), 5),
     MapKeyRow("track", "Track", Color(0xFF00AAFF), 5),
     MapKeyRow("forestry/access road", "Forestry / access", Color(0xFF0077DD), 4),
-    MapKeyRow("shape only", "Shape only", Color(0xFF0044AA), 3, dashed = true),
+    // MAPKEYROWS-2026-09-08: was weight 3 and dashed. The shipped asset now
+    // carries it SOLID at 5 -- Fred, 09-08: "all motorized a straight line, not
+    // dashes." The legend was drawing a line the map does not.
+    MapKeyRow("shape only", "Shape only", Color(0xFF0044AA), 5),
+    // MAPKEYROWS-2026-09-08: \u26d4 `rider` SHIPPED IN THREE OF THE FOUR PLACES A
+    // CATEGORY LIVES and was missing from this one -- so it drew correctly on
+    // the map and had no legend row, and could not be switched off.
+    // \u2b50 Ground a rider recorded where nothing was published. Its own blue, in
+    // the rideable family: a different KIND of claim from a survey.
+    MapKeyRow("rider", "Rider trails", Color(0xFF2196F3), 5),
     // ⚠ Acts on `status`, not carto_code -- a trail is unofficial AND a track.
     // 501 rows: too few to subset across nine categories, so one summary row.
     MapKeyRow(TrailFilterState.ROW_UNOFFICIAL, "Unofficial / uncertain",
@@ -293,6 +302,9 @@ val NON_MOTORIZED_ROWS = listOf(
 )
 
 val ARTIFACT_ROWS = listOf(
-    MapKeyRow("__track", "My tracks", Color(0xFF39FF14), 3, dashed = true),
+    // MAPKEYROWS-2026-09-08: 3 -> 4, matching the map. The three tiers are
+    // trails 5, tracks 4, routes 3 -- widest underneath, so each shows as a
+    // fringe outside the one above it. __route is already 3 and correct.
+    MapKeyRow("__track", "My tracks", Color(0xFF39FF14), 4, dashed = true),
     MapKeyRow("__route", "My routes", Color(0xFFFF00FF), 3, dashed = true),
 )

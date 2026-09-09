@@ -446,6 +446,28 @@ object ConvoyTrackOps {
      * Parse <rte> elements from GPX text.
      * GPX format: <rte><name>...</name><rtept lat="37.1" lon="-113.5">...</rtept></rte>
      */
+    /**
+     * GPXUNESCAPE-2026-09-08: XML entities back to characters.
+     *
+     * \u26d4 WHY IT IS NEEDED. buildRouteGpxById escapes what it writes -- it has
+     * to, the notes payload is full of quotes and its recipe can carry < and >.
+     * The readers here are REGEXES, not an XML parser, so they hand back the
+     * raw escaped text. The payload then fails to parse as JSON and lands in
+     * the narrative headline as gibberish, which is exactly what a real
+     * device-to-device transfer produced today.
+     *
+     * \u26a0 &amp; LAST. Decoding it first turns a literal "&amp;quot;" into
+     * "&quot;" and then into a quote, corrupting any text that legitimately
+     * contained an escaped entity. The order is the correctness.
+     */
+    private fun xmlUnescape(s: String): String =
+        s.replace("&lt;", "<")
+            .replace("&gt;", ">")
+            .replace("&quot;", "\"")
+            .replace("&apos;", "'")
+            .replace("&#39;", "'")
+            .replace("&amp;", "&")
+
     fun parseGpxRoutes(gpxText: String): List<GpxRoute> {
         val results = mutableListOf<GpxRoute>()
         // GPXIMPORT-2026-08-22N: was <rte> -- a BARE tag only. A GPX writing
@@ -479,8 +501,13 @@ object ConvoyTrackOps {
             if (points.size >= 2) {
                 // ⚠ the payload wins where present — it is ours and complete;
                 // <desc> is one line and may be another app's
-                val notes = notesPattern.find(inner)?.groupValues?.get(1)?.trim() ?: ""
-                val desc = descPattern.find(inner)?.groupValues?.get(1)?.trim() ?: ""
+                // GPXUNESCAPE-2026-09-08: decode before either is used. The
+                // payload is unreadable escaped, and a <desc> from another app
+                // can carry &amp; or &apos; just as legitimately.
+                val notes = xmlUnescape(
+                    notesPattern.find(inner)?.groupValues?.get(1)?.trim() ?: "")
+                val desc = xmlUnescape(
+                    descPattern.find(inner)?.groupValues?.get(1)?.trim() ?: "")
                 results.add(GpxRoute(name, points, notes.ifBlank { desc }))
             }
         }
@@ -693,6 +720,62 @@ object ConvoyTrackOps {
                     }
                     val wkt = "LINESTRING(" + pts.joinToString(",") { "${it.first} ${it.second}" } + ")"
                     SpatialDbManager.insertRoute(route.name, wkt, minLat, maxLat, minLon, maxLon)
+                    /* ROUTENOTESIMPORT-2026-09-08: AND ITS NARRATIVE.
+                     *
+                     * \u26d4 parseGpxRoutes has read <desc> into route.notes since
+                     * 08-29 and NOTHING STORED IT, so every imported route
+                     * arrived with an empty narrative -- proven on a real
+                     * device-to-device transfer today.
+                     *
+                     * \u2b50 writeRouteNotes is the SAME function draft promotion
+                     * uses. One writer; narrative and recipe cannot drift apart.
+                     *
+                     * \u26a0 THE ID IS RESOLVED BY HASH, not taken from insertRoute.
+                     * That call is INSERT OR IGNORE and hands back the id it
+                     * minted, which on a duplicate refers to no row at all.
+                     * Resolving by hash also does the right thing on a
+                     * re-import: the notes attach to the route that exists.
+                     */
+                    if (route.description.isNotBlank()) {
+                        try {
+                            val rgh = SpatialDbManager.computeGeomHash(wkt)
+                            val rid = SpatialDbManager.findRouteIdByHash(rgh)
+                            if (rid != null) {
+                                /* ROUTENOTESSHAPE-2026-09-08: WHICH IS IT?
+                                 *
+                                 * \u26d4 parseGpxRoutes returns EITHER our
+                                 * <grouptrack:notes> payload OR another app's
+                                 * plain <desc>, in the same field -- it prefers
+                                 * ours where present. Wrapping unconditionally
+                                 * put the entire JSON document into the
+                                 * headline, which is the gibberish Fred saw the
+                                 * moment the export side started working.
+                                 *
+                                 * \u2b50 A real parse, not a startsWith("{"): prose
+                                 * that happens to begin with a brace would be
+                                 * accepted and stored as a notes object with no
+                                 * narrative in it -- an empty panel rather than
+                                 * an error, which is harder to notice.
+                                 */
+                                val payload = try {
+                                    org.json.JSONObject(route.description)
+                                } catch (_: Exception) {
+                                    org.json.JSONObject().put(
+                                        "narrative",
+                                        org.json.JSONObject().put("headline", route.description)
+                                    )
+                                }
+                                SpatialDbManager.writeRouteNotes(rid, payload)
+                                android.util.Log.i("ConvoyTrackOps", "route '${route.name}': narrative stored")
+                            } else {
+                                android.util.Log.w("ConvoyTrackOps", "route '${route.name}': no row for hash, narrative dropped")
+                            }
+                        } catch (e: Exception) {
+                            // \u26a0 A narrative that fails to store must not fail the
+                            // import. The route itself is already in.
+                            android.util.Log.w("ConvoyTrackOps", "route '${route.name}': narrative: ${e.message}")
+                        }
+                    }
                     routeCount++
                 } catch (e: Exception) {
                     errors.add("Route ${route.name}: ${e.message}")
