@@ -677,6 +677,15 @@ function clearTrails() {
 // ══════════════════════════════════════════════
 function loadTracks(geojsonData) {
   if (trackLayer) map.removeLayer(trackLayer);
+  // TRACKHIT-2026-09-10: the hit lines are separate layers, so the removal
+  // above does not touch them. ⚠ Without this they stack on every reload and
+  // one tap fires several handlers.
+  if (window.__trackHitLayers) {
+    for (var hi = 0; hi < window.__trackHitLayers.length; hi++) {
+      try { map.removeLayer(window.__trackHitLayers[hi]); } catch (e) {}
+    }
+  }
+  window.__trackHitLayers = [];
   if (trackArrows) { map.removeLayer(trackArrows); trackArrows = null; }
   trackLayer = L.geoJSON(geojsonData, {
     // CANVAS-RENDERER-2026-07-31: tracks pinned to SVG -- see grouptrack_map.html.
@@ -688,7 +697,22 @@ function loadTracks(geojsonData) {
     onEachFeature: function(feature, layer) {
       var name = (feature.properties && feature.properties.name) || 'Unnamed Track';
       var tid = feature.properties && feature.properties.track_id;
-      layer.on('click', function(e){
+      // TRACKHIT-2026-09-10: the visible track is weight 3 AND dashed '10,5', so
+      // Leaflet hit-tests a 3px ribbon with a gap every 10px -- about a third of
+      // the line cannot be tapped at all. Two hits in ten taps (Fred, 09-10).
+      // A transparent line at weight 18 over the same geometry is the standard
+      // fix; it changes nothing visually and catches the tap.
+      var hit = L.polyline(layer.getLatLngs(), {
+        color: '#000', weight: 18, opacity: 0, interactive: true
+      });
+      hit.addTo(map);
+      // TRACKHITFRONT-2026-09-10: \u26d4 bringToFront() USED TO BE HERE AND DID
+      // NOTHING. onEachFeature runs while the GeoJSON layer is being built --
+      // trackLayer is not on the map yet, so there was nothing to get in front
+      // of. The raise moved to showTracks(), after the layer and its arrows.
+      if (!window.__trackHitLayers) window.__trackHitLayers = [];
+      window.__trackHitLayers.push(hit);
+      hit.on('click', function(e){
         console.log('ARTIFACTTAP track(db) name=' + name + ' tid=' + tid + ' routeMode=' + window.__routeMode);
         if (window.__routeMode) return;                       // BUG A: suppress while route-building
         L.DomEvent.stopPropagation(e);
@@ -718,6 +742,15 @@ function loadTracks(geojsonData) {
 
 function showTracks() {
   if (trackLayer && !tracksVisible) { trackLayer.addTo(map); if (trackArrows) trackArrows.addTo(map); tracksVisible = true; }
+  // TRACKHITFRONT-2026-09-10: NOW there is something to be in front of. The
+  // visible track is weight 3 and dashed '10,5' -- a 3px ribbon with a gap
+  // every 10px. These transparent weight-18 lines carry the click handler, and
+  // Leaflet hit-tests in stacking order, so they must sit on top.
+  if (window.__trackHitLayers) {
+    for (var hf = 0; hf < window.__trackHitLayers.length; hf++) {
+      try { window.__trackHitLayers[hf].bringToFront(); } catch (e) {}
+    }
+  }
 }
 function hideTracks() {
   if (trackLayer && tracksVisible) { map.removeLayer(trackLayer); if (trackArrows) map.removeLayer(trackArrows); tracksVisible = false; }

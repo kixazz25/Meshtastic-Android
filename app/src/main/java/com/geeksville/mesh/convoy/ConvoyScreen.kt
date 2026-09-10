@@ -786,6 +786,10 @@ fun ConvoyScreen(
                                 pendingDetailId = id
                             }
                         }
+                        // TRACKTAPANNO-2026-09-10: ⛔ THIS WAS MISSING and the
+                        // method was therefore invisible to JavaScript -- the tap
+                        // was made, nothing happened, nothing was logged.
+                        @android.webkit.JavascriptInterface
                         fun onTrackTap(id: String) {
                             // [2026-07-02] track tap -> open the shared ArtifactDetailPanel (metrics + SAVE MAPS).
                             android.util.Log.d("TrackTap", "CONVOY(reuse :652) bridge id=$id")
@@ -1102,6 +1106,10 @@ fun ConvoyScreen(
                                     pendingDetailId = id
                                 }
                             }
+                            // TRACKTAPANNO-2026-09-10: ⚠ THE SECOND OBJECT. Both
+                            // get it or the tap works on one WebView and not the
+                            // other -- the failure this codebase keeps recording.
+                            @android.webkit.JavascriptInterface
                             fun onTrackTap(id: String) {
                                 // [2026-07-02] track tap -> open the shared ArtifactDetailPanel (metrics + SAVE MAPS).
                                 android.util.Log.d("TrackTap", "CONVOY(create :916) bridge id=$id")
@@ -2330,131 +2338,6 @@ fun ConvoyScreen(
                         onOpenDetail = { t, id -> activeListType = null; pendingDetailType = t; pendingDetailId = id }
                     )
                 }
-                android.util.Log.d(
-                    "DetailGate",
-                    "CONVOY gate type=$pendingDetailType id=$pendingDetailId"
-                )
-                if (pendingDetailId != null && pendingDetailType != null) {
-                    ArtifactDetailPanel(
-                        artifactType = pendingDetailType!!,
-                        id = pendingDetailId!!,
-                        mapKey = "convoy",
-                        fitWebView = webViewRef.value,
-                        onLoadDetail = { t, did -> SpatialDbManager.getArtifactDetail(t, did) },
-                        onLoadAliases = { t, did -> SpatialDbManager.getAliasesFor(t, did) },
-                        // [2026-06-20] Full action parity on convoy. Handlers mirror planning
-                        // (ConvoyMapViewerScreen) verbatim; the ONLY divergence is the table is
-                        // keyed off pendingDetailType (detail can open from SEARCH, where
-                        // activeListType is null), not activeListType. Refresh uses convoy's
-                        // existing onViewportChanged JS round-trip.
-                        onRename = { id, newName ->
-                            val capType = pendingDetailType
-                            if (capType != null) coroutineScope.launch { ConvoyArtifactOps.rename(context, capType, id, newName); webViewRef.value?.evaluateJavascript("try{var b=map.getBounds();Android.onViewportChanged(b.getNorth(),b.getSouth(),b.getEast(),b.getWest(),map.getZoom())}catch(e){}", null) }
-                        },
-                        onDelete = { id ->
-                            val capType = pendingDetailType
-                            if (capType != null) coroutineScope.launch {
-                                ConvoyArtifactOps.delete(context, capType, id)
-                                artifactList = artifactList.filter { it["id"] != id }
-                                selectedArtifactIds = selectedArtifactIds - id
-                                webViewRef.value?.evaluateJavascript("try{var b=map.getBounds();Android.onViewportChanged(b.getNorth(),b.getSouth(),b.getEast(),b.getWest(),map.getZoom())}catch(e){}", null)
-                            }
-                        },
-                        onShare = { id -> val capType = pendingDetailType; if (capType != null) coroutineScope.launch { ConvoyArtifactOps.share(context, capType, id) } },
-                        onExport = { id -> val capType = pendingDetailType; if (capType != null) coroutineScope.launch { ConvoyArtifactOps.export(context, capType, id) } },
-                        onDownloadMaps = { hash ->
-                            // [V2.6a-CONVOY-DLPANEL] invoke the standard confirm panel (was old direct-queue)
-                            Thread {
-                                val bb = SpatialDbManager.getTrackBbox(context, hash)
-                                android.os.Handler(android.os.Looper.getMainLooper()).post {
-                                    if (bb != null && bb.isValid) {
-                                        pendingDetailId = null; pendingDetailType = null  // [V2.6a-DLPANEL-CLOSE] close detail when panel opens (mirror viewer)
-                                        downloadBbox = bb
-                                        showDownloadConfirm = true
-                                    } else {
-                                        android.widget.Toast.makeText(context,
-                                            "No map area for this track",
-                                            android.widget.Toast.LENGTH_LONG).show()
-                                    }
-                                }
-                            }.start()
-                        },
-                        // CORRIDOR-WIRING-2026-07-24: same prompt as area, different
-                        // submission. The bbox is for DISPLAY in the dialog only.
-                        onDownloadCorridor = { hash ->
-                            Thread {
-                                // ROUTECORR-2026-08-10C: tracks then routes - a route needs a box too.
-                                // The onDownloadMaps lambda above is the AREA path and
-                                // stays tracks-only.
-                                val bb = SpatialDbManager.getCorridorBbox(context, hash)
-                                android.os.Handler(android.os.Looper.getMainLooper()).post {
-                                    if (bb != null && bb.isValid) {
-                                        pendingDetailId = null; pendingDetailType = null
-                                        pendingCorridorHash = hash
-                                        downloadBbox = bb
-                                        showDownloadConfirm = true
-                                    } else {
-                                        android.widget.Toast.makeText(context,
-                                            "No geometry stored for this item",
-                                            android.widget.Toast.LENGTH_LONG).show()
-                                    }
-                                }
-                            }.start()
-                        },
-                        onChangeType = { id, newType ->
-                            coroutineScope.launch { ConvoyArtifactOps.changeType(context, id, newType); webViewRef.value?.evaluateJavascript("try{var b=map.getBounds();Android.onViewportChanged(b.getNorth(),b.getSouth(),b.getEast(),b.getWest(),map.getZoom())}catch(e){}", null) }
-                        },
-                        onDeleteAlias = { aliasId -> coroutineScope.launch { ConvoyArtifactOps.deleteAlias(context, aliasId) } },
-                        onDismiss = { fittedType, fittedId ->
-                            if (fittedType != null && fittedId != null) {
-                                // [FIT 2026-06-18] Emulate a manual row-select on the LIVE vars
-                                // (mirror of the ArtifactListPanel select at ~1669): set this type
-                                // SELECTED with exactly the fitted id. saveConvoyState then reads the
-                                // populated live var (no empty-row clobber) and the SEL/EDIT panel
-                                // reflects it. FIT = one artifact by definition.
-                                val sel = setOf(fittedId)
-                                // FIT = one artifact: all other types OFF, fitted type SELECTED.
-                                trailState = DS_OFF; trailCheckedIds = null
-                                trackState = DS_OFF; trackCheckedIds = null
-                                waypointState = DS_OFF; waypointCheckedIds = null
-                                routeState = DS_OFF; routeCheckedIds = null
-                                when (fittedType) {
-                                    "Trails"    -> { trailState = DS_SELECTED; trailCheckedIds = sel }
-                                    "Tracks"    -> { trackState = DS_SELECTED; trackCheckedIds = sel }
-                                    "Waypoints" -> { waypointState = DS_SELECTED; waypointCheckedIds = sel }
-                                    "Routes"    -> { routeState = DS_SELECTED; routeCheckedIds = sel }
-                                }
-                                // [FIT recenter 2026-06-20] Restore-to-artifact: bbox+10% pad -> lastViewport -> fitBounds,
-                                // so save + the getBounds() redraw below both use the artifact frame (no stale clobber).
-                                run {
-                                    val _bb = SpatialDbManager.bboxForArtifact(fittedType, fittedId)
-                                    if (_bb != null) {
-                                        val _s=_bb[0]; val _w=_bb[1]; val _n=_bb[2]; val _e=_bb[3]
-                                        val _latPad=((_n-_s).let{ if(it>0.0) it*0.10 else 0.01 })
-                                        val _lonPad=((_e-_w).let{ if(it>0.0) it*0.10 else 0.01 })
-                                        val _fS=_s-_latPad; val _fN=_n+_latPad; val _fW=_w-_lonPad; val _fE=_e+_lonPad
-                                        lastViewportSouth=_fS; lastViewportWest=_fW; lastViewportNorth=_fN; lastViewportEast=_fE
-                                        webViewRef.value?.evaluateJavascript("fitBounds(["+_fS+","+_fN+"],["+_fW+","+_fE+"])", null)
-                                    }
-                                }
-                                saveConvoyState()
-                                webViewRef.value?.evaluateJavascript("try{var b=map.getBounds();Android.onViewportChanged(b.getNorth(),b.getSouth(),b.getEast(),b.getWest(),map.getZoom())}catch(e){}", null)
-                            } else {
-                                // Non-FIT dismiss (CLOSE/rename/etc.): reflect persisted state.
-                                val rs = MapStateStore.readMap("convoy")
-                                trailState = rs.types["Trails"]?.state ?: DS_OFF
-                                trackState = rs.types["Tracks"]?.state ?: DS_OFF
-                                waypointState = rs.types["Waypoints"]?.state ?: DS_OFF
-                                routeState = rs.types["Routes"]?.state ?: DS_OFF
-                                trailCheckedIds = MapStateStore.checkedIdsFor(rs, "Trails")
-                                trackCheckedIds = MapStateStore.checkedIdsFor(rs, "Tracks")
-                                waypointCheckedIds = MapStateStore.checkedIdsFor(rs, "Waypoints")
-                                routeCheckedIds = MapStateStore.checkedIdsFor(rs, "Routes")
-                            }
-                            pendingDetailId = null; pendingDetailType = null
-                        }
-                    )
-                }
 
                 // [V2.6a-CONVOY-DLPANEL] standard source-select + replace confirm panel
                 if (showDownloadConfirm && downloadBbox.isValid) {
@@ -2662,6 +2545,143 @@ fun ConvoyScreen(
 
             // SIM/LIVE toggle removed (V2.5 cleanup)
         }
+
+        // GATEMOVE-2026-09-10: ⛔ THIS BLOCK USED TO LIVE INSIDE THE
+        // map-control Column above (align(TopEnd), padded, sized to its
+        // children). ArtifactDetailPanel is a FULL-SCREEN detail view --
+        // it does not belong in a narrow right-hand overlay, and the
+        // planner has always had its gate out here, one level shallower.
+        // ⚠ The symptom that sent us looking: the bridge fired and set
+        // pendingDetailType/Id, and the unconditional Log.d below NEVER
+        // RAN -- while the planner's identical gate logs continuously.
+        // Bridge, asset version, braces, exceptions and today's patches
+        // were all ruled out first. ⚠ THE MOVE IS CORRECT REGARDLESS; if
+        // the taps still fail, the log we finally get is the next clue.
+            android.util.Log.d(
+                "DetailGate",
+                "CONVOY gate type=$pendingDetailType id=$pendingDetailId"
+            )
+            if (pendingDetailId != null && pendingDetailType != null) {
+                ArtifactDetailPanel(
+                    artifactType = pendingDetailType!!,
+                    id = pendingDetailId!!,
+                    mapKey = "convoy",
+                    fitWebView = webViewRef.value,
+                    onLoadDetail = { t, did -> SpatialDbManager.getArtifactDetail(t, did) },
+                    onLoadAliases = { t, did -> SpatialDbManager.getAliasesFor(t, did) },
+                    // [2026-06-20] Full action parity on convoy. Handlers mirror planning
+                    // (ConvoyMapViewerScreen) verbatim; the ONLY divergence is the table is
+                    // keyed off pendingDetailType (detail can open from SEARCH, where
+                    // activeListType is null), not activeListType. Refresh uses convoy's
+                    // existing onViewportChanged JS round-trip.
+                    onRename = { id, newName ->
+                        val capType = pendingDetailType
+                        if (capType != null) coroutineScope.launch { ConvoyArtifactOps.rename(context, capType, id, newName); webViewRef.value?.evaluateJavascript("try{var b=map.getBounds();Android.onViewportChanged(b.getNorth(),b.getSouth(),b.getEast(),b.getWest(),map.getZoom())}catch(e){}", null) }
+                    },
+                    onDelete = { id ->
+                        val capType = pendingDetailType
+                        if (capType != null) coroutineScope.launch {
+                            ConvoyArtifactOps.delete(context, capType, id)
+                            artifactList = artifactList.filter { it["id"] != id }
+                            selectedArtifactIds = selectedArtifactIds - id
+                            webViewRef.value?.evaluateJavascript("try{var b=map.getBounds();Android.onViewportChanged(b.getNorth(),b.getSouth(),b.getEast(),b.getWest(),map.getZoom())}catch(e){}", null)
+                        }
+                    },
+                    onShare = { id -> val capType = pendingDetailType; if (capType != null) coroutineScope.launch { ConvoyArtifactOps.share(context, capType, id) } },
+                    onExport = { id -> val capType = pendingDetailType; if (capType != null) coroutineScope.launch { ConvoyArtifactOps.export(context, capType, id) } },
+                    onDownloadMaps = { hash ->
+                        // [V2.6a-CONVOY-DLPANEL] invoke the standard confirm panel (was old direct-queue)
+                        Thread {
+                            val bb = SpatialDbManager.getTrackBbox(context, hash)
+                            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                if (bb != null && bb.isValid) {
+                                    pendingDetailId = null; pendingDetailType = null  // [V2.6a-DLPANEL-CLOSE] close detail when panel opens (mirror viewer)
+                                    downloadBbox = bb
+                                    showDownloadConfirm = true
+                                } else {
+                                    android.widget.Toast.makeText(context,
+                                        "No map area for this track",
+                                        android.widget.Toast.LENGTH_LONG).show()
+                                }
+                            }
+                        }.start()
+                    },
+                    // CORRIDOR-WIRING-2026-07-24: same prompt as area, different
+                    // submission. The bbox is for DISPLAY in the dialog only.
+                    onDownloadCorridor = { hash ->
+                        Thread {
+                            // ROUTECORR-2026-08-10C: tracks then routes - a route needs a box too.
+                            // The onDownloadMaps lambda above is the AREA path and
+                            // stays tracks-only.
+                            val bb = SpatialDbManager.getCorridorBbox(context, hash)
+                            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                if (bb != null && bb.isValid) {
+                                    pendingDetailId = null; pendingDetailType = null
+                                    pendingCorridorHash = hash
+                                    downloadBbox = bb
+                                    showDownloadConfirm = true
+                                } else {
+                                    android.widget.Toast.makeText(context,
+                                        "No geometry stored for this item",
+                                        android.widget.Toast.LENGTH_LONG).show()
+                                }
+                            }
+                        }.start()
+                    },
+                    onChangeType = { id, newType ->
+                        coroutineScope.launch { ConvoyArtifactOps.changeType(context, id, newType); webViewRef.value?.evaluateJavascript("try{var b=map.getBounds();Android.onViewportChanged(b.getNorth(),b.getSouth(),b.getEast(),b.getWest(),map.getZoom())}catch(e){}", null) }
+                    },
+                    onDeleteAlias = { aliasId -> coroutineScope.launch { ConvoyArtifactOps.deleteAlias(context, aliasId) } },
+                    onDismiss = { fittedType, fittedId ->
+                        if (fittedType != null && fittedId != null) {
+                            // [FIT 2026-06-18] Emulate a manual row-select on the LIVE vars
+                            // (mirror of the ArtifactListPanel select at ~1669): set this type
+                            // SELECTED with exactly the fitted id. saveConvoyState then reads the
+                            // populated live var (no empty-row clobber) and the SEL/EDIT panel
+                            // reflects it. FIT = one artifact by definition.
+                            val sel = setOf(fittedId)
+                            // FIT = one artifact: all other types OFF, fitted type SELECTED.
+                            trailState = DS_OFF; trailCheckedIds = null
+                            trackState = DS_OFF; trackCheckedIds = null
+                            waypointState = DS_OFF; waypointCheckedIds = null
+                            routeState = DS_OFF; routeCheckedIds = null
+                            when (fittedType) {
+                                "Trails"    -> { trailState = DS_SELECTED; trailCheckedIds = sel }
+                                "Tracks"    -> { trackState = DS_SELECTED; trackCheckedIds = sel }
+                                "Waypoints" -> { waypointState = DS_SELECTED; waypointCheckedIds = sel }
+                                "Routes"    -> { routeState = DS_SELECTED; routeCheckedIds = sel }
+                            }
+                            // [FIT recenter 2026-06-20] Restore-to-artifact: bbox+10% pad -> lastViewport -> fitBounds,
+                            // so save + the getBounds() redraw below both use the artifact frame (no stale clobber).
+                            run {
+                                val _bb = SpatialDbManager.bboxForArtifact(fittedType, fittedId)
+                                if (_bb != null) {
+                                    val _s=_bb[0]; val _w=_bb[1]; val _n=_bb[2]; val _e=_bb[3]
+                                    val _latPad=((_n-_s).let{ if(it>0.0) it*0.10 else 0.01 })
+                                    val _lonPad=((_e-_w).let{ if(it>0.0) it*0.10 else 0.01 })
+                                    val _fS=_s-_latPad; val _fN=_n+_latPad; val _fW=_w-_lonPad; val _fE=_e+_lonPad
+                                    lastViewportSouth=_fS; lastViewportWest=_fW; lastViewportNorth=_fN; lastViewportEast=_fE
+                                    webViewRef.value?.evaluateJavascript("fitBounds(["+_fS+","+_fN+"],["+_fW+","+_fE+"])", null)
+                                }
+                            }
+                            saveConvoyState()
+                            webViewRef.value?.evaluateJavascript("try{var b=map.getBounds();Android.onViewportChanged(b.getNorth(),b.getSouth(),b.getEast(),b.getWest(),map.getZoom())}catch(e){}", null)
+                        } else {
+                            // Non-FIT dismiss (CLOSE/rename/etc.): reflect persisted state.
+                            val rs = MapStateStore.readMap("convoy")
+                            trailState = rs.types["Trails"]?.state ?: DS_OFF
+                            trackState = rs.types["Tracks"]?.state ?: DS_OFF
+                            waypointState = rs.types["Waypoints"]?.state ?: DS_OFF
+                            routeState = rs.types["Routes"]?.state ?: DS_OFF
+                            trailCheckedIds = MapStateStore.checkedIdsFor(rs, "Trails")
+                            trackCheckedIds = MapStateStore.checkedIdsFor(rs, "Tracks")
+                            waypointCheckedIds = MapStateStore.checkedIdsFor(rs, "Waypoints")
+                            routeCheckedIds = MapStateStore.checkedIdsFor(rs, "Routes")
+                        }
+                        pendingDetailId = null; pendingDetailType = null
+                    }
+                )
+            }
 
         // ── Convoy submenu bottom sheet ───────────────────────────────────────────────
 
