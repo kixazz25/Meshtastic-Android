@@ -342,6 +342,15 @@ object MapSourceManager {
             }
             defaultSlots = slots
             initialized = true
+            // FALLBACKLOCK-2026-09-10: \u2b50 AND CLEAR THE FALLBACK FLAG. Without
+            // this the fix is half done -- the catalogue loads, but
+            // syncColumnFile, applyColumnFile and saveExternalJson all test
+            // usedFallback and would still refuse to touch the rider's column
+            // file, because nothing ever cleared it after a fallback.
+            // \u26a0 HERE, NOT LATER: syncColumnFile() is called at the end of this
+            // block and reads the flag. Clearing it afterwards would leave the
+            // first good init still skipping the column file.
+            usedFallback = false
             loadApiKeys()
             android.util.Log.i("MapSourceMgr", "Loaded ${sources.size} sources, ${defaultSlots.size} slots, ${apiKeys.size} API keys")
             // COLUMNFILE-2026-08-03: seed / maintain the user column file. WRITE ONLY in
@@ -378,7 +387,19 @@ object MapSourceManager {
             SlotConfig(2, "esri-topo", "TOPO"),
             SlotConfig(3, "esri-usa-topo", "TOPO+")
         )
-        initialized = true
+        // FALLBACKLOCK-2026-09-10: \u26d4 `initialized = true` WAS HERE, AND IT WAS
+        // THE BUG. The fallback claimed to have initialised, so init()'s
+        // `if (initialized) return` turned all FOURTEEN of its callers into
+        // no-ops and the session could never recover. Killing the app was the
+        // only cure -- which is exactly the symptom seen on both devices.
+        //
+        // \u2b50 Leaving it FALSE makes the failure self-healing: an early reader
+        // still gets these three sources, because there is nothing else to give
+        // it, but the next init() -- a worker, a screen, anything -- does the
+        // real read and recovers within milliseconds.
+        //
+        // \u26a0 usedFallback STAYS TRUE until a successful init() clears it, so the
+        // three write guards keep the rider's column file safe in the meantime.
     }
 
     /** 3 slot sources for map bar buttons: (legacyKey, shortLabel, baseUrl) */

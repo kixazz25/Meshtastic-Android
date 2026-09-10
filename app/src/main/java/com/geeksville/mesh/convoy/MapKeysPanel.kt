@@ -1,6 +1,7 @@
 package com.geeksville.mesh.convoy
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -70,6 +71,8 @@ fun MapKeysPanel(
 ) {
     var tick by remember { mutableIntStateOf(0) }
     var styling by remember { mutableStateOf<MapKeyRow?>(null) }
+    // CATEGORYHELP-2026-09-10
+    var showCategoryHelp by remember { mutableStateOf(false) }
 
     fun changed() { tick++; onFilterChanged() }
 
@@ -123,6 +126,51 @@ fun MapKeysPanel(
             // is now the KEY and the styling -- what things look
             // like, not which of them show.
 
+            // CATEGORYHELP-2026-09-10: scrollable single column, grouped.
+            if (showCategoryHelp) {
+                androidx.compose.material3.AlertDialog(
+                    onDismissRequest = { showCategoryHelp = false },
+                    containerColor = Color(0xFF161B22),
+                    title = {
+                        Row(verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()) {
+                            Text("What these mean", color = Color(0xFF58A6FF),
+                                fontSize = 15.sp, fontWeight = FontWeight.Bold,
+                                modifier = Modifier.weight(1f))
+                            // \u2b50 X to close (Fred, 09-10), not a button.
+                            Text("\u2715", color = Color(0xFF8B949E), fontSize = 16.sp,
+                                modifier = Modifier
+                                    .clickable { showCategoryHelp = false }
+                                    .padding(start = 12.dp, end = 4.dp))
+                        }
+                    },
+                    text = {
+                        Column(
+                            modifier = Modifier.verticalScroll(
+                                androidx.compose.foundation.rememberScrollState())
+                        ) {
+                            var lastGroup = ""
+                            CATEGORY_HELP.forEach { (nm, meaning) ->
+                                val grp = groupOf(nm)
+                                if (grp != lastGroup) {
+                                    if (lastGroup.isNotEmpty()) Spacer(Modifier.height(12.dp))
+                                    Text(grp, color = Color(0xFF8B949E),
+                                        fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                    Spacer(Modifier.fillMaxWidth().height(1.dp)
+                                        .background(Color(0xFF30363D)))
+                                    lastGroup = grp
+                                }
+                                Text(nm, color = Color(0xFFDDE3E9),
+                                    fontSize = 12.sp, fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(top = 7.dp))
+                                Text(meaning, color = Color(0xFF8B949E), fontSize = 11.sp)
+                            }
+                        }
+                    },
+                    confirmButton = {}
+                )
+            }
+
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Category("MOTORIZED", MOTORIZED_ROWS, tick, ::changed,
                     { styling = it }, Modifier.weight(1f))
@@ -147,6 +195,16 @@ fun MapKeysPanel(
                     Text(r.label, color = Color(0xFFDDE3E9), fontSize = 12.sp)
                 }
             }
+
+            Spacer(Modifier.height(8.dp))
+            // CATEGORYHELP-2026-09-10: "at the bottom next to my tracks and my
+            // routes" (Fred, 09-10).
+            Text("CATEGORIES EXPLAINED",
+                color = Color(0xFF58A6FF), fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.fillMaxWidth()
+                    .clickable { showCategoryHelp = true }
+                    .padding(vertical = 6.dp))
 
             Spacer(Modifier.height(6.dp))
             Text("Tap a name to change its colour, pattern or thickness.\n" +
@@ -300,6 +358,33 @@ val NON_MOTORIZED_ROWS = listOf(
     MapKeyRow("equestrian", "Equestrian", Color(0xFFCC8844), 2, dashed = true),
     MapKeyRow("steps/bridge", "Steps / bridge", Color(0xFF888888), 2, dashed = true),
 )
+
+/**
+ * CATEGORYHELP-2026-09-10: what each row actually means. Fred's wording, 09-10.
+ */
+val CATEGORY_HELP: List<Pair<String, String>> = listOf(
+    "OHV" to "Posted trails for ATV/OHV use only",
+    "Track" to "Two wheel tracks, farm, forest or open country",
+    "Forestry / access" to "Access unless posted otherwise",
+    "Shape only" to "Mapped trails but unclassified",
+    "Rider trails" to "Ridden on a recorded ride \u2014 UTV accessible",
+    "Unofficial / uncertain" to "Not available for riding",
+    "Hiking & biking" to "Non-motorized, walkers and bicycles",
+    "Hiking" to "On foot only",
+    "Biking" to "Bicycles only",
+    "Equestrian" to "Horse trails",
+    "Steps / bridge" to "Stairs and footbridges \u2014 not rideable",
+    "My tracks" to "Rides you have recorded on this device",
+    "My routes" to "Routes you have planned or been sent",
+)
+
+/** CATEGORYHELP-2026-09-10: which heading a row sits under in the dialog. */
+private fun groupOf(name: String): String = when (name) {
+    "OHV", "Track", "Forestry / access", "Shape only",
+    "Rider trails", "Unofficial / uncertain" -> "MOTORIZED"
+    "My tracks", "My routes" -> "YOURS"
+    else -> "NON-MOTORIZED"
+}
 
 val ARTIFACT_ROWS = listOf(
     // MAPKEYROWS-2026-09-08: 3 -> 4, matching the map. The three tiers are
