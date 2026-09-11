@@ -148,7 +148,7 @@ object OsmImportStage {
      * user-chosen directory would be derived from later.
      */
     fun rootDir(ctx: Context): File {
-        val d = File(Environment.getExternalStorageDirectory(), "$GROUPTRACK_DIR/osm")
+        val d = GroupTrackStorage.dir("osm")   // STORAGEROOT-2026-09-11
         if (!d.exists()) d.mkdirs()
         if (!legacyChecked) {
             legacyChecked = true

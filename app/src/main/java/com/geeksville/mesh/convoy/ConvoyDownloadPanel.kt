@@ -414,8 +414,10 @@ fun ConvoyDownloadPanel(
                     }
                     return out
                 }
-                val ext = android.os.Environment.getExternalStorageDirectory()
-                archivedRows = scan(java.io.File(ext, "Documents/GroupTrack/recipes"))
+                // STORAGEROOT2-2026-09-11: archived recipes move with the root.
+                // ⛔ The Downloads scan on the next line does NOT -- that is outside
+                // GroupTrack and is how recipes arrive from other apps.
+                archivedRows = scan(GroupTrackStorage.dir("recipes"))
                 inboxRows = scan(android.os.Environment
                     .getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS))
             }

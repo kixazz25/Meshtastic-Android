@@ -85,9 +85,10 @@ object OwnershipReclass {
         val private: Boolean,
     )
 
-    fun ownershipFile(): File =
-        File(File(Environment.getExternalStorageDirectory(), "Documents/GroupTrack"),
-            FILE_NAME)
+    // STORAGEROOT2-2026-09-11: Land_Ownership.geojson -- 72 MB, a loose file
+    // at the root rather than in a subdirectory, which is what makes it easy to
+    // miss in the migration manifest.
+    fun ownershipFile(): File = File(GroupTrackStorage.root(), FILE_NAME)
 
     /**
      * Reclassify every row with no usable carto_code. Returns the number of

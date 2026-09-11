@@ -27,7 +27,10 @@ import java.io.File
 //
 object MapStateStore {
 
-    private const val DIR = "/sdcard/Documents/GroupTrack/state"
+    // STORAGEROOT-2026-09-11: was `const val DIR = "/sdcard/Documents/..."`.
+    // ⛔ A const cannot call anything, so this one had to become a function --
+    // the only non-mechanical redirect of the eight.
+    private fun dir(): java.io.File = GroupTrackStorage.dir("state")
     private val TYPES = listOf("Trails", "Tracks", "Waypoints", "Routes")
 
     // Which map ("convoy"/"planning") last ran its view refresh. Gates variable
@@ -72,7 +75,7 @@ object MapStateStore {
 
     // mapKey is "convoy" or "planning"
     private fun fileFor(mapKey: String): File {
-        val dir = File(DIR)
+        val dir = dir()
         if (!dir.exists()) dir.mkdirs()
         return File(dir, mapKey + "_panel.json")
     }

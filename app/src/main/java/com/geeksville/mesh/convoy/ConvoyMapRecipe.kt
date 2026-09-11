@@ -62,7 +62,7 @@ object ConvoyMapRecipe {
      * stay distinguishable.
      */
     private fun dir(): File =
-        File(Environment.getExternalStorageDirectory(), "Documents/GroupTrack/recipes")
+        GroupTrackStorage.dir("recipes")   // STORAGEROOT-2026-09-11
 
     private fun today(): String =
         SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())

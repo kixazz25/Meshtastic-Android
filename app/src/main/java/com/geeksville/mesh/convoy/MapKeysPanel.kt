@@ -391,5 +391,8 @@ val ARTIFACT_ROWS = listOf(
     // trails 5, tracks 4, routes 3 -- widest underneath, so each shows as a
     // fringe outside the one above it. __route is already 3 and correct.
     MapKeyRow("__track", "My tracks", Color(0xFF39FF14), 4, dashed = true),
-    MapKeyRow("__route", "My routes", Color(0xFFFF00FF), 3, dashed = true),
+    // ROUTESOLID-2026-09-11: routes draw solid now, like every other
+    // motorized line. ⚠ __track stays dashed -- loadTracks really
+    // does draw it dashed, and at 10,5 the gap is visible.
+    MapKeyRow("__route", "My routes", Color(0xFFFF00FF), 3, dashed = false),
 )

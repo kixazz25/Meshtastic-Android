@@ -44,25 +44,16 @@ object SpatialDbManager {
 
     /** Public GroupTrack dir (Documents/GroupTrack) -- same path the DBs use;
      *  survives reinstall. Exposed for the launch-time auto-resync receipt. */
-    internal fun groupTrackDir(): File = File(
-        Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS),
-        "GroupTrack"
-    )
+    // STORAGEROOT-2026-09-11: was a second, independent copy of the same
+    // path expression dbDir() used below. ⚠ Two functions, one truth, nothing
+    // keeping them in step.
+    internal fun groupTrackDir(): File = GroupTrackStorage.root()
     // GATEJOB-2026-08-21F: internal so the startup job can test for the DB FILE
     // without opening it. init() calls openOrCreateDatabase, which creates an
     // empty schema where real data should be -- the 08-01 mechanism.
-    internal fun dbDir(): File {
-        val dir = File(
-            Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS),
-            "GroupTrack"
-        )
-        if (!dir.exists()) dir.mkdirs()
-        val noMedia = File(dir, ".nomedia")
-        if (!noMedia.exists()) {
-            try { noMedia.createNewFile() } catch (_: Exception) {}
-        }
-        return dir
-    }
+    // STORAGEROOT-2026-09-11: the mkdirs and the .nomedia move with it --
+    // rootReady() does exactly what this did.
+    internal fun dbDir(): File = GroupTrackStorage.rootReady()
 
     /** Initialize both databases. Call from app startup. */
     fun init(context: Context) {

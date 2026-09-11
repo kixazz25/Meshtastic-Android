@@ -44,22 +44,19 @@
     // ⭐ Blue = rideable; the SHADE CARRIES CONFIDENCE.
     // ⛔ Status OVERRIDES the category -- red is closed, period.
     // ══════════════════════════════════════════════
-    var TRAIL_STYLE = {
-      'OHV':                  { c: '#00CCFF', w: 5, d: null },
-      'track':                { c: '#00AAFF', w: 5, d: null },
-      'forestry/access road': { c: '#0077DD', w: 4, d: null },
-      'shape only':           { c: '#0044AA', w: 3, d: '9,5' },
-      'hiking and biking':    { c: '#66CC66', w: 2, d: null },
-      'hiking':               { c: '#FFCC00', w: 2, d: null },
-      'biking':               { c: '#AA44FF', w: 2, d: null },
-      'equestrian':           { c: '#CC8844', w: 2, d: '2,4' },
-      'steps/bridge':         { c: '#888888', w: 2, d: '2,4' },
-      'unknown':              { c: '#00FFFF', w: 2, d: null },
-      // RIDERTRAILS-2026-09-07: ground a rider recorded where nothing was
-      // published. Blue family because it is rideable; its own shade because
-      // it is a different KIND of claim from a survey.
-      'rider':                { c: '#2196F3', w: 5, d: null }
-    };
+    // STYLEEMPTY-2026-09-11: \u26d4 DELIBERATELY EMPTY. This used to hold a
+    // hardcoded copy of the palette -- a stale snapshot that had drifted from both
+    // the shipped asset and the rider's file, and it was what the map actually drew
+    // from. A rider's own colours only arrived when they edited something in the key
+    // panel, so a solid line reverted to dashed on every restart.
+    // \u2b50 The palette now comes from ONE place: the rider's map_keys.json, pushed by
+    // setTrailStyles from Android.onMapReady (STYLEONREADY-2026-09-11). The file is
+    // guaranteed to exist and be complete by ensureDefaults + mergeShippedCategories
+    // on every launch (DEFAULTSEVERY-2026-09-11).
+    // \u26a0 DO NOT PUT DEFAULTS BACK HERE. A category with no entry falls through to
+    // the cyan default at the end of trailStyleOf, which is the correct behaviour for
+    // the moment before the push arrives. Re-adding a literal recreates the drift.
+    var TRAIL_STYLE = {};
     var STATUS_STYLE = {
       'CLOSED':  { c: '#FF2222', w: 3, d: null },
       'PLANNED': { c: '#556070', w: 2, d: '3,6' }
@@ -527,7 +524,10 @@
       if (routeLayer) map.removeLayer(routeLayer);
       routeLayer = L.geoJSON(geojsonData, {
         style: function() {
-          return { color: '#FF00FF', weight: 3, opacity: 0.9, dashArray: '15,5,5,5' };
+          // ROUTESOLID-2026-09-11: was dashArray '15,5,5,5'. A 15px dash with
+      // 5px gaps at weight 3 reads as solid over satellite anyway, and
+      // every other motorized line is solid. The legend matches.
+      return { color: '#FF00FF', weight: 3, opacity: 0.9 };
         },
         onEachFeature: function(feature, layer) {
           var name = (feature.properties && feature.properties.name) || 'Unnamed Route';

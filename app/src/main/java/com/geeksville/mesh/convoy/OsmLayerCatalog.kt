@@ -44,10 +44,11 @@ object OsmLayerCatalog {
     private const val ASSET_NAME = "osm_layers.json"
 
     /** Public on purpose: adb-pushable without run-as. */
-    fun overrideFile(): File = File(
-        Environment.getExternalStorageDirectory(),
-        "Documents/GroupTrack/config/$ASSET_NAME"
-    )
+    // STORAGEROOT2-2026-09-11: ⚠ the doc comment above says "adb-pushable
+    // without run-as" -- true today. Once the root moves internal it will NOT
+    // be, and that is a real loss of a debugging affordance worth knowing about
+    // before release 2.
+    fun overrideFile(): File = File(GroupTrackStorage.dir("config"), ASSET_NAME)
 
     /**
      * One extractable layer.

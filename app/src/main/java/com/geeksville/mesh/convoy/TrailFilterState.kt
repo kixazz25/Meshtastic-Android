@@ -81,9 +81,8 @@ object TrailFilterState {
 
     private var loaded = false
 
-    fun file(): File =
-        File(File(Environment.getExternalStorageDirectory(), "Documents/GroupTrack"),
-            FILE_NAME)
+    // STORAGEROOT2-2026-09-11: map_keys.json, at the root.
+    fun file(): File = File(GroupTrackStorage.root(), FILE_NAME)
 
     // ── load ────────────────────────────────────────────────────────────
 

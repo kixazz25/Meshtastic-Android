@@ -418,8 +418,10 @@ object RouteDraftStore {
 
     // ----- locations -------------------------------------------------------
 
-    private fun baseDir(): File =
-        File(android.os.Environment.getExternalStorageDirectory(), "Documents/GroupTrack")
+    // STORAGEROOT2-2026-09-11: ⚠ route_drafts hangs off this. In-progress
+    // routes live in those files and NOWHERE else -- a graduated route is a DB
+    // row, but a draft is only ever a file.
+    private fun baseDir(): File = GroupTrackStorage.root()
 
     private fun draftDir(): File {
         val dir = File(baseDir(), DIR_NAME)
