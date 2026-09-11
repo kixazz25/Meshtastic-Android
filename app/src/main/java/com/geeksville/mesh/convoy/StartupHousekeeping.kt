@@ -100,6 +100,23 @@ object StartupHousekeeping {
      *     the app starting.
      */
     fun everyLaunch(ctx: Context) {
+        // DEFAULTSEVERY-2026-09-11: \u26d4 THE FILE FIRST, THEN THE CATEGORIES.
+        // ensureDefaults used to run ONLY inside run(), behind the schema
+        // marker -- so a rider with no map_keys.json on an ordinary launch got
+        // no palette written at all. That was invisible while each map's HTML
+        // still carried a hardcoded TRAIL_STYLE to fall back on. \u26a0 Once that
+        // literal is emptied, the same gap draws EVERY TRAIL CYAN.
+        //
+        // \u2b50 It belongs here by this function's own rules: a File.exists()
+        // check is cheap, it does nothing when the file is present, and it
+        // writes only when absent -- it cannot overwrite anything the rider
+        // chose. \u26a0 It stays in run() as well, where the palette must exist
+        // before the import classifies anything.
+        try {
+            TrailFilterState.ensureDefaults(ctx)
+        } catch (e: Exception) {
+            Log.w(TAG, "everyLaunch: ensureDefaults: ${e.message}")
+        }
         try {
             val added = TrailFilterState.mergeShippedCategories(ctx)
             if (added.isNotEmpty()) {
