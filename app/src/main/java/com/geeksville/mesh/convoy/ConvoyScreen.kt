@@ -775,6 +775,16 @@ fun ConvoyScreen(
                                 pendingDetailId = id
                             }
                         }
+                        // STYLEONREADY-2026-09-11: the rider's palette, at the
+                        // one moment the map can take it. \u26a0 On BOTH interface
+                        // objects -- a method on one is invisible to the other.
+                        @android.webkit.JavascriptInterface
+                        fun onMapReady(n: Double, s: Double, e: Double, w: Double) {
+                            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                webViewRef.value?.evaluateJavascript(
+                                    "setTrailStyles(" + TrailFilterState.styleJson() + ")", null)
+                            }
+                        }
                         @android.webkit.JavascriptInterface
                         fun onTrailTap(id: String) {
                             // CONVOYTRAILTAP-2026-09-03: mirrors onTrackTap. ⚠ There
@@ -1095,6 +1105,14 @@ fun ConvoyScreen(
                                 android.os.Handler(android.os.Looper.getMainLooper()).post {
                                     pendingDetailType = "Routes"
                                     pendingDetailId = id
+                                }
+                            }
+                            // STYLEONREADY-2026-09-11: the second interface object.
+                            @android.webkit.JavascriptInterface
+                            fun onMapReady(n: Double, s: Double, e: Double, w: Double) {
+                                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                    webViewRef.value?.evaluateJavascript(
+                                        "setTrailStyles(" + TrailFilterState.styleJson() + ")", null)
                                 }
                             }
                             @android.webkit.JavascriptInterface

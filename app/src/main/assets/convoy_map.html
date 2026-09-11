@@ -341,6 +341,23 @@
       setTimeout(function() {
         map = L.map("map",{zoomControl:true,renderer:L.canvas({tolerance:44}),tapTolerance:30,doubleClickZoom:false}).setView([36.1069,-115.1711],4);
 
+    // ---- STYLEONREADY-2026-09-11: tell Kotlin when the map can be styled ----
+    // \u2b50 Leaflet's whenReady fires once the map has its first layer and view --
+    // exactly when setTrailStyles can be applied. The planner has had this since
+    // 07-31 ("no race condition"); the convoy map had no ready hook at all,
+    // which is why its onPageFinished resorted to postDelayed and a guess.
+    if (typeof map !== 'undefined' && map && !map.__readyWired) {
+      map.__readyWired = true;
+      map.whenReady(function() {
+        try {
+          if (window.Android && Android.onMapReady) {
+            var rb = map.getBounds();
+            Android.onMapReady(rb.getNorth(), rb.getSouth(), rb.getEast(), rb.getWest());
+          }
+        } catch (err) {}
+      });
+    }
+
     // ---- Waypoint create: long-press -> Kotlin ----
     if (typeof map !== 'undefined' && map && !map.__wptLongPressWired) {
       map.__wptLongPressWired = true;

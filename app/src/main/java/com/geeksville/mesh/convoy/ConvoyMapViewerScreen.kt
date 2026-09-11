@@ -1652,6 +1652,12 @@ fun ConvoyMapViewerScreen(
                                     val url = MapSourceManager.getSlotSources().find { it.first == src }?.third
                                         ?: tileSources.firstOrNull()?.third ?: return@post
                                     wv.evaluateJavascript("setTileUrl('" + url + "', '" + src + "')", null)
+                                    // STYLEONREADY-2026-09-11: the rider's palette, here
+                                    // rather than in onPageFinished. This handler already
+                                    // exists for exactly this reason -- "no race
+                                    // condition", 07-31.
+                                    wv.evaluateJavascript(
+                                        "setTrailStyles(" + TrailFilterState.styleJson() + ")", null)
                                     val ovJson = MapSourceManager.getOverlayJson(src)
                                     if (ovJson != "[]") {
                                         wv.evaluateJavascript("setOverlayLayers('" + ovJson.replace("'", "\'") + "')", null)
