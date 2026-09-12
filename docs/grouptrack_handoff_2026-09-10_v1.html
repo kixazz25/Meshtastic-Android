@@ -1,0 +1,227 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<title>GroupTrack — Handoff 2026-09-10</title>
+<style>
+body{font:15px/1.68 -apple-system,"Segoe UI",Roboto,sans-serif;max-width:960px;
+margin:0 auto;padding:26px;background:#0f1216;color:#e6edf3}
+h1{font-size:21px;color:#58a6ff;border-bottom:2px solid #2a3038;padding-bottom:8px}
+h2{font-size:16px;color:#58a6ff;margin-top:32px;border-bottom:1px solid #2a3038;padding-bottom:5px}
+h3{font-size:14px;color:#b8c2cc;margin-top:20px}
+code{background:#1a2027;padding:1px 5px;border-radius:3px;font-size:12.5px;color:#8FD0FF}
+.card{background:#161b22;border:1px solid #2a3038;border-radius:8px;padding:13px 17px;margin:11px 0}
+.done{border-left:4px solid #3fb950}.next{border-left:4px solid #58a6ff}
+.warn{border-left:4px solid #d29922}.bad{border-left:4px solid #f85149}
+table{border-collapse:collapse;width:100%;margin:11px 0;font-size:13px}
+th,td{border:1px solid #2a3038;padding:6px 9px;text-align:left;vertical-align:top}
+th{background:#1a2027;color:#8FD0FF}
+li{margin:5px 0}
+.hi{color:#e3b341}
+pre{background:#0d1117;border:1px solid #2a3038;padding:9px;border-radius:5px;
+font-size:11.5px;overflow-x:auto;color:#b8c2cc}
+</style></head><body>
+
+<h1>GroupTrack — Handoff, 2026-09-10</h1>
+<p><code>feature/convoy-event-ride</code> · <b>2.6g</b> · six fixes in, two built
+and rolled back</p>
+
+<div class="card done">
+<p><b>Six fixes, each applied and verified separately.</b> Two of them were
+structural things that had been wrong for a while and nobody had caught: the
+detail gate composing inside a narrow controls column, and
+<code>onTrackTap</code> never exposed to JavaScript at all — <b>track taps had
+never worked on the ride map.</b></p>
+<p class="hi">⚠ The middle of the day went badly. Two changes broke the ride map,
+the rollback was done with a blanket <code>git stash</code> when one file would
+have done, and roughly four hours produced nothing. Both failures are recorded
+below because the reasoning still teaches.</p>
+</div>
+
+<h2>What went in</h2>
+<div class="card done">
+<table>
+<tr><th>Fix</th><th>What it was</th></tr>
+<tr><td><b>Map source fallback lock</b><br><code>FALLBACKLOCK-2026-09-10</code></td>
+<td><code>loadFallback()</code> set <code>initialized = true</code>, so
+<code>init()</code>'s guard turned all FOURTEEN of its callers into no-ops and the
+session could never recover. Two lines.</td></tr>
+<tr><td><b>Detail gate moved</b><br><code>GATEMOVE-2026-09-10</code></td>
+<td>The gate and <code>ArtifactDetailPanel</code> lived inside the map-control
+Column. Moved out, where the planner has always had its. Trails and routes opened
+immediately.</td></tr>
+<tr><td><b><code>onTrackTap</code> annotated</b><br><code>TRACKTAPANNO-2026-09-10</code></td>
+<td>Missing <code>@JavascriptInterface</code> on BOTH bridge objects. A method
+without it is invisible to JS — call made, nothing happens, nothing logged.</td></tr>
+<tr><td><b>Track hit targets</b><br><code>TRACKHIT</code> + <code>TRACKHITFRONT</code></td>
+<td>Transparent weight-18 line over each track carries the click handler. Raised
+in <code>showTracks()</code>, not <code>onEachFeature</code>.</td></tr>
+<tr><td><b>Categories explained</b><br><code>CATEGORYHELP-2026-09-10</code></td>
+<td>Button at the foot of the key panel, scrollable dialog, thirteen definitions
+in Fred's words.</td></tr>
+</table>
+</div>
+
+<h2>⭐⭐ The fallback lock — the find of the day</h2>
+<div class="card bad">
+<p><b>Symptom:</b> first launch of the day, three ESRI sources instead of fifteen,
+Select Source empty, the rider's slots ignored. Only killing the app cleared it.</p>
+<p class="hi">⛔ <code>loadFallback()</code> ended with
+<code>initialized = true</code>. <code>init()</code> begins
+<code>if (initialized) return</code>. One line of bookkeeping made a transient
+failure permanent for the process.</p>
+<p>⭐ And <code>ensureInit()</code> does not FIND fallback data, it INSTALLS it —
+a reader arriving before <code>init()</code> calls <code>loadFallback()</code>
+itself. Cold start is when that race loses: no warm process, no page cache, and
+workers resuming from a previous session touch the manager before any screen
+renders.</p>
+<p class="hi">⭐⭐ <b>THE DURABLE LESSON:</b> a failure path that records itself as
+a success blocks its own recovery. Fred: <i>"we recorded a failure so well we
+didn't let it recover naturally."</i></p>
+<p>⚠ <b>NOT YET VERIFIED.</b> Needs a cold start, first launch of the day, before
+touching either device:</p>
+<pre>MSYS_NO_PATHCONV=1 adb -s 8624SBCEDF00001789 logcat -c &amp;&amp; \\
+MSYS_NO_PATHCONV=1 adb -s 8624SBCEDF00001789 logcat &gt; /c/Users/kixaz/Downloads/coldstart_0911.log</pre>
+<p>Fifteen sources = held. <code>FALLBACK REQUESTED</code> may still log — that
+stack trace names the early caller and is now useful rather than fatal.</p>
+</div>
+
+<h2>⛔ The gate that never composed — still unexplained</h2>
+<div class="card bad">
+<p>The bridge fired, set <code>pendingDetailType</code>/<code>Id</code>, and an
+<b>unconditional</b> <code>Log.d</code> 350 lines inside a <b>composing</b> Column
+never ran. Ruled out: the bridge, a stale asset (<code>HTMLVER 2026-09-08a</code>),
+composition exceptions, braces (Column 1973→2664, gate at 2333 genuinely inside),
+and that day's work (reproduced on a clean 09-08 build).</p>
+<p class="hi">⚠ Moving it out fixed the symptom. It did not explain it. If
+anything like this recurs, that is the thread.</p>
+</div>
+
+<h2>⛔⛔ The palette — three copies of the truth</h2>
+<div class="card bad">
+<p class="hi">⭐⭐ <b>Fred's diagnosis:</b> <i>"we were not defaulting to the
+shipped json, which was correct. we were not defaulting to the user values, which
+were correct to him. we were defaulting to a 3 month old version of the
+truth."</i></p>
+<p>The palette exists in THREE places: <code>map_keys_defaults.json</code>
+(shipped, current), the rider's <code>map_keys.json</code> (their tuning), and a
+hardcoded <code>TRAIL_STYLE</code> literal in <b>each</b> map HTML — a stale
+snapshot. ⛔ The HTML copy is what draws, and <code>setTrailStyles</code> is called
+from ONE place per screen: the key panel's <code>onStyleChanged</code>. So a
+rider's colours reach the map only when they edit something.</p>
+<p>⚠ The two HTML copies have already drifted: the planner carries
+<code>rider</code>, the convoy map does not.</p>
+
+<h3>🔴 TOMORROW'S DESIGN — settled, not built</h3>
+<ul>
+<li><b>One source: the rider's <code>map_keys.json</code>.</b> The asset is a
+seed, not a runtime default.</li>
+<li><b><code>installDefaults</code> runs EVERY launch, gated on CATEGORY existence
+rather than FILE existence</b> (Fred): no file → write the asset; file missing a
+category → add it with shipped values; complete → do nothing. ⚠ Never overwrite
+what the rider set. Folds together with <code>mergeShippedCategories</code>, which
+already does half the job.</li>
+<li><b>Then empty <code>TRAIL_STYLE</code> in both map files.</b></li>
+</ul>
+<p class="hi">⛔ <b>EMPTYING THE HTML ALONE IS NOT SAFE.</b> With no push at load,
+every trail falls through to the <code>unknown</code> fallback — cyan, weight 2 —
+until a rider opens the key panel. Both halves ship together or not at all.</p>
+</div>
+
+<h2>⛔ Two changes built, broken, rolled back</h2>
+<div class="card warn">
+<p><b>1. <code>SOURCEREREAD-2026-09-10</code>.</b> A fallback check at map open: a
+<code>remember { }</code> doing a blocking catalogue read DURING COMPOSITION plus
+a conditional <code>AlertDialog</code>, inserted at the TOP of the composable
+ahead of the entire map tree. ⛔ <b>And it was never needed</b> — the two-line
+<code>FALLBACKLOCK</code> fix is the actual answer. Written before that was found,
+applied after.</p>
+<p><b>2. <code>STYLEATLOAD-2026-09-10</code>.</b> One line per screen calling
+<code>setTrailStyles</code> in <code>onPageFinished</code>. ⭐ It WORKS on the
+planner. ⛔ On the convoy map it went inside the <code>postDelayed</code> before
+<code>drawPersistedState</code> and took the rest of that block with it — overlay
+layers, frame restore, the position marker. Rolled back from the convoy map only;
+<b>the planner keeps it.</b></p>
+<p class="hi">⚠⚠ <b>AND THE ROLLBACK WAS DONE BADLY.</b> A <code>git stash</code>
+of all five modified files when reverting ONE would have answered the question.
+⛔ The rule was already written on 08-01 — <i>"PREFER TARGETED REMOVAL OVER
+BLANKET REVERT when a file holds a day's work"</i> — after the same mistake.</p>
+</div>
+
+<h2>⚠ Process</h2>
+<div class="card warn">
+<p class="hi">⭐⭐ <b>Fred:</b> <i>"we spiral down into layers of complexity rather
+than up to levels of simplicity. overly complex solutions to simple problems."</i></p>
+<p>Both root causes were two lines. Before finding either, the session produced a
+retry mechanism, a reread function, instrumentation, a toast, a dialog and a
+hard-stop design — none of which shipped.</p>
+<p>⭐ <b>THE RECOVERY MOVE, THREE TIMES:</b> a question that changed the frame.
+<i>"Why wouldn't the init object be in front of this task?"</i> → the fallback
+lock. <i>"Why is it hardcoded?"</i> → the third copy of the palette. <i>"What is
+different between the planner and the convoy map?"</i> → the gate placement.</p>
+<p>⚠ <b>TWO PATCH GUARDS WERE WRONG</b>, both from searching file-wide for a
+pattern that was not mine alone: <code>bringToFront()</code> appears five times in
+the map HTML; <code>layer.on('click'</code> is bound for trails and waypoints too.
+⭐ Both refused correctly and wrote nothing. The existing rule (<i>guard the
+expression, not the token</i>) needs the corollary: <b>scope the check to the
+function you edited.</b></p>
+<p>⭐ <b>ONE CHANGE, ONE BUILD, ONE COMMIT</b> — the six fixes went in one at a
+time, each verified. The two failures went in stacked.</p>
+</div>
+
+<h2>Play Store</h2>
+<div class="card warn">
+<ul>
+<li><b>Submission 23</b> (Open testing + Store Listing) has been <b>in review ~34
+hours</b> — well past the ~15h norm. No warnings on Publishing overview; nothing
+pending on our side.</li>
+<li>⭐ <b>Open testing IS already live</b>, serving <b>29321101</b> from 09-07 to
+unlimited testers, US only. The links in the tester email work now — they just
+serve an older build.</li>
+<li><b>Store listing changes are already published</b> (submission 22). So
+discarding 23 costs only the release, not the listing.</li>
+<li><b>Fred's plan:</b> wait for the palette fix, then closed testing → wait for
+review → promote to open → wait → announce. If 23 is still sitting, discard it and
+submit this build instead.</li>
+<li>⚠ <b>The tester email and both Facebook posts are drafted and ready</b>
+(<code>GroupTrack_TesterEmail_2026-09-09.html</code>,
+<code>GroupTrack_Facebook_Announcement_2026-09-09.html</code>). ⛔ Test both links
+from an account on none of your tester lists before sending.</li>
+</ul>
+</div>
+
+<h2>Open</h2>
+<div class="card next">
+<ul>
+<li>🔴 <b>The palette</b> — the design above, both halves together.</li>
+<li>🔴 <b>Cold start verification</b> of the fallback fix.</li>
+<li><b>Track hit lines on the planner</b> — <code>grouptrack_map.html:348</code> is
+byte-identical to the convoy map's. Same two edits. ⚠ Routes there are
+<code>weight: 3, dashArray: '15,5,5,5'</code>.</li>
+<li>⚠ <b><code>window.__detailPanelEnabled</code></b> (convoy_map.html ~367) is a
+07-30 workaround for the gate bug fixed today. It is <code>true</code>, so the
+flag is vestigial. ⛔ Do not delete it yet — flipping it is the fastest way to
+tell a hit-testing problem from a bridge problem.</li>
+<li><b><code>EXTRACTORDER-2026-09-09</code> deliberately NOT applied</b> — 792s
+before, 868s after. No value.</li>
+<li><b>2.6h protected-area shading, scoped 09-10:</b> Geofabrik's free GeoPackage
+already carries <code>gis_osm_protected_areas_a_free</code>. Utah: 126×
+<code>iucn_1</code>, 6× <code>national_park</code>, 275 generic. ⭐ Shade
+<b>7301 + 7302</b> only, two light colours; the tiles already carry the labels.
+Planner exclusion and 50-state ownership deferred.</li>
+<li><b>Completed-items prune</b> — started 09-09, unfinished. Release-level
+completion docs still to be written.</li>
+</ul>
+</div>
+
+<h2>Files</h2>
+<div class="card done">
+<ul>
+<li><code>grouptrack_living_master_2026-09-10_v55.html</code> — 138 h2 / 436 h3</li>
+<li><code>grouptrack_manual_2026-09-10_v9.html</code></li>
+<li><code>GroupTrack_QuickStart_2026-09-10_v50.html</code></li>
+<li><code>grouptrack_release_notes_2026-09-10_v5.html</code></li>
+</ul>
+<p class="hi">⚠ Assets in the APK are still the 09-08 revisions. ⭐ Copy the three
+rider-facing documents into <code>assets/</code> and increment the revision in
+every filename before the release build.</p>
+</div>
+
+</body></html>

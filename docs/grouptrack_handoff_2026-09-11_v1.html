@@ -1,0 +1,250 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<title>GroupTrack — Handoff 2026-09-11</title>
+<style>
+body{font:15px/1.68 -apple-system,"Segoe UI",Roboto,sans-serif;max-width:960px;
+margin:0 auto;padding:26px;background:#0f1216;color:#e6edf3}
+h1{font-size:21px;color:#58a6ff;border-bottom:2px solid #2a3038;padding-bottom:8px}
+h2{font-size:16px;color:#58a6ff;margin-top:32px;border-bottom:1px solid #2a3038;padding-bottom:5px}
+h3{font-size:14px;color:#b8c2cc;margin-top:20px}
+code{background:#1a2027;padding:1px 5px;border-radius:3px;font-size:12.5px;color:#8FD0FF}
+.card{background:#161b22;border:1px solid #2a3038;border-radius:8px;padding:13px 17px;margin:11px 0}
+.done{border-left:4px solid #3fb950}.next{border-left:4px solid #58a6ff}
+.warn{border-left:4px solid #d29922}.bad{border-left:4px solid #f85149}
+table{border-collapse:collapse;width:100%;margin:11px 0;font-size:13px}
+th,td{border:1px solid #2a3038;padding:6px 9px;text-align:left;vertical-align:top}
+th{background:#1a2027;color:#8FD0FF}
+li{margin:6px 0}
+.hi{color:#e3b341}
+pre{background:#0d1117;border:1px solid #2a3038;padding:9px;border-radius:5px;
+font-size:11.5px;overflow-x:auto;color:#b8c2cc}
+</style></head><body>
+
+<h1>GroupTrack — Handoff, 2026-09-11</h1>
+<p><code>feature/convoy-event-ride</code> · <b>2.6g</b> · six commits, and the
+storage question answered</p>
+
+<div class="card done">
+<p><b>The palette work is closed.</b> One source, both maps, colours that survive
+a restart. It started with a dashed line on 09-10 and finished with
+<code>TRAIL_STYLE</code> empty in both HTML files.</p>
+<p class="hi">⛔ <b>AND THE ALL-FILES APPEAL WAS REJECTED.</b> The plan is now a
+clean internal-only install for ten riders — no migration, because a migration
+needs the permission it is trying to stop using.</p>
+</div>
+
+<h2>What went in — six commits</h2>
+<div class="card done">
+<table>
+<tr><th>Commit</th><th>What</th></tr>
+<tr><td><code>DEFAULTSEVERY</code></td>
+<td><code>ensureDefaults</code> moved from <code>run()</code> into
+<code>everyLaunch</code>. It was behind the schema marker, so it fired only on a
+clear-and-reload.</td></tr>
+<tr><td><code>STYLEONREADY</code></td>
+<td>The convoy map gains the <code>onMapReady</code> hook the planner has had
+since 07-31. The palette pushes from there on both maps.</td></tr>
+<tr><td><code>STYLEEMPTY</code> + <code>ROUTESOLID</code></td>
+<td><code>TRAIL_STYLE</code> emptied in both map files. Routes draw solid and the
+legend matches.</td></tr>
+<tr><td><code>STORAGEROOT</code> ×2</td>
+<td><code>GroupTrackStorage</code> — one accessor, eleven sites redirected, no
+behaviour change.</td></tr>
+<tr><td><code>CANARYOUT</code> + <code>TILEROOT</code></td>
+<td>The authority probe removed; <code>TILE_DIR</code> through
+<code>tileRoot()</code>. All thirteen sites through one accessor.</td></tr>
+</table>
+</div>
+
+<h2>⭐⭐ The palette — and why it was smaller than it looked</h2>
+<div class="card">
+<p class="hi">Fred, 09-11: <i>"so I was right, basically all the code exists; what
+was forgotten was we have HTML defaults loaded with the page."</i></p>
+<p>The Kotlin side was already built. <code>ensureDefaults</code> copies the asset
+when no file exists; <code>mergeShippedCategories</code> adds missing categories
+to an existing one. Both correct, both already there — they just ran in different
+places, and the HTML's own hardcoded copy was what the map actually drew.</p>
+<p>⭐⭐ <b>AND THE PLANNER HAD SOLVED THE PUSH ON 07-31.</b>
+<code>grouptrack_map.html:1167</code> calls <code>Android.onMapReady()</code> from
+Leaflet's <code>whenReady()</code>, with a comment saying exactly why: <i>"no race
+condition."</i> The convoy map had no ready hook at all — which is why 09-10's
+attempt used <code>postDelayed</code> and a guess, and took the whole block down
+with it.</p>
+<p>⚠ <b>The drift was measurable:</b> convoy carried 10 categories, the planner
+11. <code>rider</code> landed on 09-07 and never reached the convoy map.</p>
+</div>
+
+<h2>⛔⛔ The storage answer</h2>
+<div class="card bad">
+<p>The All Files Access declaration was rejected 09-10 — <i>"Access to device
+storage not required"</i> — and the appeal came back rejected. An extension
+request is in, asking for time to publish a compliant build. ⚠ That buys TIME,
+not the argument.</p>
+<p class="hi">⛔ Fred: <i>"I cannot publish with that in the manifest."</i></p>
+
+<h3>What the research established</h3>
+<ul>
+<li><b>OsmAnd does not have this permission.</b> Issue #16059, open since Dec
+2022, never granted. They ship offline maps inside their own folder tree and call
+it <i>"certainly a crippling mechanism"</i> — but it plainly works. ⛔ Any
+declaration built on "there is no alternative" invites that comparison.</li>
+<li>⭐ <b>The argument that might have worked</b>, found last: riders back their
+map store up to SD cards and restore it to replacement devices. App-private
+storage makes that impossible. That is data portability, and it fits Google's own
+permitted uses far better than performance.</li>
+<li>⚠ <b>Arguments discarded:</b> "the user downloads it, not the app" (the app
+builds the URLs, queues, retries and writes the files) and "it is third-party
+public-domain content" (the policy is about which process wrote the file).</li>
+</ul>
+</div>
+
+<h2>🔴 The plan — a clean install, not a migration</h2>
+<div class="card warn">
+<p class="hi">⭐ <b>Ten serious users is the number that decides it.</b> A
+migration needs the permission to read the source, so it would take two builds
+and a gap — and would still strand anyone who skipped the first.</p>
+<p><b>What riders do:</b> export routes and tracks with the share function,
+uninstall, delete <code>Documents/GroupTrack</code> and
+<code>Documents/my_tracks</code>, install, reimport. Trails and maps
+re-download.</p>
+<p class="hi">⛔ <b>THE EXPORT IS NOT OPTIONAL.</b> Graduated routes exist only as
+database rows — a WIP draft is a file and survives, but graduation stops
+maintaining one. Without the export they are gone.</p>
+<p>⚠ <b>~17 GB of maps and about an hour of trail import per rider.</b> Worth
+saying plainly.</p>
+
+<h3>⛔ Delete before building</h3>
+<p><code>GroupTrackMigration.kt</code>, <code>GroupTrackMigrationScreen.kt</code>,
+and the <code>MIGHOOK-2026-09-11</code> block in the gate. All written today, all
+unused. ⭐ Deleted rather than kept — the same rule that took out the canary
+probe.</p>
+</div>
+
+<h2>⛔ Twenty-three path sites still point at shared storage</h2>
+<div class="card bad">
+<p class="hi">⛔⛔ <b>WHY THE MORNING SWEEP MISSED THEM.</b> The thirteen found
+earlier were greps for <code>getExternalStorageDirectory()</code>. These use
+<code>getExternalStoragePublicDirectory(DIRECTORY_DOCUMENTS)</code>. <b>Two APIs,
+one destination.</b></p>
+<p>⭐⭐ <b>GREP FOR THE DESTINATION, NOT THE API.</b> Search the string literals —
+<code>"GroupTrack</code> and <code>"my_tracks</code> — those cannot be spelled two
+ways.</p>
+<pre>grep -rn 'DIRECTORY_DOCUMENTS\\|getExternalStorageDirectory' \\
+  app/src/main/java/com/geeksville/mesh/convoy/*.kt | grep -v GroupTrackStorage</pre>
+<p>⛔ Must return <b>zero</b> when finished. Today it returns 23.</p>
+<table>
+<tr><th>Group</th><th>Sites</th><th>Fix</th></tr>
+<tr><td><code>my_tracks</code></td><td>13 across 6 files</td>
+<td>⭐ <code>ConvoyTrackOps.tracksDir()</code> already exists and nobody uses it.
+Point it at the accessor; every other site calls it. ⚠
+<code>ConvoyGpsService:324, 372</code> is where RECORDING writes.</td></tr>
+<tr><td><code>TrailImporter</code></td><td>6, lines 632–758</td>
+<td>Six inline copies of <code>GroupTrack/data/trail_areas</code>. One helper.</td></tr>
+<tr><td>Singles</td><td>3</td>
+<td><code>MapSourceManager:58</code>,
+<code>HomeStateImportController:162</code>,
+<code>SpatialDbManager:897</code>.</td></tr>
+</table>
+<p>⭐ <code>ConvoyTrackOps.downloadsDir()</code> <b>STAYS</b> — Downloads is the
+rider's own folder and needs no permission.</p>
+</div>
+
+<h2>🔴 The real problem of the next session</h2>
+<div class="card warn">
+<p class="hi">⛔ <b><code>getExternalFilesDir()</code> needs a Context, and these
+are object singletons.</b> <code>MapStateStore</code> has none anywhere.
+<code>GroupTrackStorage</code> takes an optional one and falls back to the public
+path — fine while nothing had moved, useless once it must resolve internal.</p>
+<p>⭐ <code>MeshUtilApplication.onCreate</code> runs before everything and is the
+natural place. ⚠ It is an upstream Meshtastic file.</p>
+
+<h3>⚠ And the gate is riskier than it looks</h3>
+<p>✅ <b>Background location is safe</b> — <code>ConvoyScreen:1315</code> has its
+own launcher. Removing the gate does not lose it. That was the one thing that
+could have broken tracking silently.</p>
+<p class="hi">⛔ But the gate is the nav START destination
+(<code>ConvoyNavigation.kt:61</code>) and <code>ConvoyRoutes</code> lives in
+<code>org.meshtastic.core.navigation</code> — a different module. ⛔ And
+<code>StartupHousekeeping.run()</code> is called FROM the gate; it clears trails,
+runs the ALTERs and installs the palette. It needs a new home.</p>
+</div>
+
+<h2>Order of work</h2>
+<div class="card next">
+<ol>
+<li>Delete the three migration pieces.</li>
+<li><b>The gate</b> — first, while fresh. Riskiest edit.</li>
+<li><b>The context problem</b> — decide before any redirect depends on it.</li>
+<li>The 23 redirects, in three groups.</li>
+<li>The two-line switch in <code>GroupTrackStorage</code>.</li>
+<li>⛔ <b>The manifest LAST.</b></li>
+<li>Verification grep returns zero. Clean install on Droid 2.</li>
+</ol>
+</div>
+
+<h2>⚠ Five patch guards were wrong today — all the same way</h2>
+<div class="card warn">
+<p>Every one refused correctly and wrote nothing, so the discipline held. Each
+cost a round trip, and they share one cause: <b>counting a pattern across a whole
+file instead of measuring what the patch changed.</b></p>
+<ul>
+<li><code>classifyRow(</code> — counted the definition as a call</li>
+<li><code>bringToFront()</code> — five occurrences in the map HTML</li>
+<li><code>layer.on('click'</code> — bound for trails and waypoints too</li>
+<li><code>setTrailStyles</code> — the key panel's own call counted as mine</li>
+<li><code>fun evaluateState</code> — the file has overloads</li>
+<li>⛔ And one searched <code>getExternalFilesDir</code> in a source whose
+COMMENTS named it. ⚠ The mirror of the existing rule: <i>a guard that searches for
+the old code will find it in your own comment.</i></li>
+</ul>
+<p class="hi">⭐⭐ <b>MEASURE THE DELTA, NOT THE TOTAL.</b> Count before and after,
+assert the difference. Strip comments before any search.</p>
+</div>
+
+<h2>Play Store</h2>
+<div class="card warn">
+<ul>
+<li><b>Update rejected</b> 09-10. <b>Appeal rejected.</b> Extension requested for
+time to publish a compliant build.</li>
+<li>⚠ <b>The rejection blocks all tracks</b>, internal included — that is why the
+queued update would not go.</li>
+<li>⭐ <b>Open testing is still live</b> serving <b>29321101</b> from 09-07. The
+app is installable; only the update is blocked.</li>
+<li>⛔ <b>No open launch until the internal-only build is done</b> (Fred). The
+tester email and Facebook posts stay drafted.</li>
+<li>⭐ Promoting the compliant build to closed testers inside the window satisfies
+Google — compliance and launch are separate.</li>
+</ul>
+</div>
+
+<h2>Still open from before</h2>
+<div class="card next">
+<ul>
+<li>🔴 <b>Cold start verification</b> of the <code>FALLBACKLOCK</code> fix — first
+launch of the day, before touching either device.</li>
+<li><b>Track hit lines on the planner</b> — <code>grouptrack_map.html:348</code>
+is byte-identical to the convoy map's.</li>
+<li>⚠ <b><code>window.__detailPanelEnabled</code></b> — vestigial, but flipping it
+still distinguishes a hit-testing problem from a bridge problem.</li>
+<li><b>2.6h protected-area shading</b> — shade <code>7301</code> + <code>7302</code>
+from the Geofabrik layer already downloaded.</li>
+<li><b>The detail gate that never composed</b> — moving it fixed the symptom and
+did not explain it.</li>
+</ul>
+</div>
+
+<h2>Files</h2>
+<div class="card done">
+<ul>
+<li><code>grouptrack_living_master_2026-09-11_v56.html</code> — 139 h2 / 448 h3</li>
+<li><code>grouptrack_release_notes_2026-09-11_v6.html</code></li>
+<li><code>GroupTrack_QuickStart_2026-09-11_v51.html</code></li>
+<li><code>GroupTrack_InternalOnly_Inventory_2026-09-11.html</code> — the 23 sites</li>
+<li><code>grouptrack_manual_2026-09-10_v9.html</code> — ⭐ unchanged; nothing today
+altered what a rider is told about categories or trails</li>
+</ul>
+<p class="hi">⚠ Assets in the APK are still the 09-08 revisions. ⭐ Copy the
+rider-facing documents into <code>assets/</code> and increment the revision in
+every filename before the release build.</p>
+</div>
+
+</body></html>

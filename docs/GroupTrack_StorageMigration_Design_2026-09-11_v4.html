@@ -1,0 +1,408 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<title>GroupTrack — Storage Migration Design, 2026-09-11</title>
+<style>
+body{font:15px/1.68 -apple-system,"Segoe UI",Roboto,sans-serif;max-width:940px;
+margin:0 auto;padding:26px;background:#0f1216;color:#e6edf3}
+h1{font-size:21px;color:#58a6ff;border-bottom:2px solid #2a3038;padding-bottom:8px}
+h2{font-size:16px;color:#58a6ff;margin-top:32px;border-bottom:1px solid #2a3038;padding-bottom:5px}
+h3{font-size:14px;color:#b8c2cc;margin-top:20px}
+code{background:#1a2027;padding:1px 5px;border-radius:3px;font-size:12.5px;color:#8FD0FF}
+.card{background:#161b22;border:1px solid #2a3038;border-radius:8px;padding:13px 17px;margin:11px 0}
+.done{border-left:4px solid #3fb950}.next{border-left:4px solid #58a6ff}
+.warn{border-left:4px solid #d29922}.bad{border-left:4px solid #f85149}
+table{border-collapse:collapse;width:100%;margin:11px 0;font-size:13px}
+th,td{border:1px solid #2a3038;padding:6px 9px;text-align:left;vertical-align:top}
+th{background:#1a2027;color:#8FD0FF}
+li{margin:6px 0}
+.hi{color:#e3b341}
+pre{background:#0d1117;border:1px solid #2a3038;padding:9px;border-radius:5px;
+font-size:11.5px;overflow-x:auto;color:#b8c2cc}
+</style></head><body>
+
+<h1>Storage migration — design</h1>
+<p>2026-09-11 · two releases · <b>nothing built yet</b></p>
+
+<div class="card bad">
+<h3>Why this exists</h3>
+<p>Google rejected the All Files Access declaration on 09-10 —
+<i>"Access to device storage not required."</i> An appeal and a 30-day extension
+request are both filed. ⚠ This design does not depend on how they answer: the
+work is the same either way, and it is the thing that makes a refusal survivable
+rather than a crisis.</p>
+<p class="hi">⛔ AND IT IS WORTH DOING ANYWAY. App-private external storage needs
+no permission, no declaration and no review. Everything that can live there
+should, so the permission covers only what genuinely needs it.</p>
+</div>
+
+<h2>The plan \u2014 three releases</h2>
+<div class="card next">
+<table>
+<tr><th></th><th>Permission</th><th>What happens</th><th>Rider sees</th></tr>
+<tr><td><b>1</b></td><td>held</td>
+<td>Everything EXCEPT <code>maps/</code> moves internal. ~415 MB.</td>
+<td class="hi">\u2b50 NOTHING. Maps still work \u2014 they have not moved and the
+permission is still held. No prompt, no loss.</td></tr>
+<tr><td><b>2</b></td><td class="hi">\u26d4 held, and REQUIRED</td>
+<td>The tile decision. Either <code>maps/</code> is copied internal, or it is
+deleted from external and the rider re-downloads. \u26a0 <b>The destructive work
+happens here, because this is the last build that can reach the old
+location.</b></td>
+<td>\u26a0 This is where the rider conversation happens.</td></tr>
+<tr><td><b>3</b></td><td><b>OUT of the manifest</b></td>
+<td>Compliant build. Nothing left in external storage to reach.</td>
+<td>Nothing, IF they ran 2.</td></tr>
+</table>
+
+<h3>\u26d4 RELEASE 3 CANNOT REPAIR A DEVICE THAT SKIPPED RELEASE 2</h3>
+<p>Without the permission, release 3 cannot list or read
+<code>Documents/GroupTrack</code>. It cannot see the orphaned store, cannot check
+whether the migration ran, and cannot clean anything up. \u26a0 A rider who skipped 2
+has 17 GB stranded on their device that neither they nor the app can use.</p>
+
+<p class="hi">\u26d4 AND THERE IS NO WAY BACK. Play serves only the current build, so
+they cannot reinstall 2 from the store. A sideloaded APK is signed with the local
+key while Play builds are signed by Play App Signing \u2014 same package name,
+different keys \u2014 so it will not install over the top, and uninstalling first
+wipes the data being rescued.</p>
+
+<h3>What release 3 can do</h3>
+<ul>
+<li><b>Detect it indirectly.</b> Release 2 writes a completion record to INTERNAL
+storage; release 3 reads that. \u26a0 Absent means either "skipped 2" or "new
+install" and the app cannot tell which \u2014 so the wording must cover both without
+alarming a new rider.</li>
+<li><b>Tell them plainly:</b> the maps are in a place this version cannot reach,
+they need downloading again, and the folder can be removed with a file manager to
+reclaim the space. <code>Documents/</code> is visible to any file manager even
+though <code>Android/data</code> is not.</li>
+<li><b>Ask, and take their word.</b> \u26a0 The app CANNOT verify the folder was
+removed. The prompt must read <i>"I've removed it"</i>, never <i>"confirm
+removal"</i> \u2014 do not imply a check that did not happen. A "no" brings the
+reminder back on the next open.</li>
+</ul>
+
+<h3>\u2b50 The real mitigation is the gap, not the detection</h3>
+<p>Ship 2 as early in the extension window as possible and 3 as late as it allows
+\u2014 roughly three weeks of runway for riders to update. \u26a0 And with THIRTY
+TESTERS rather than thousands, you can simply tell them. That is a real advantage
+of being small right now.</p>
+
+<h3>\u2b50 COMPLIANCE AND LAUNCH ARE SEPARATE (Fred, 09-11)</h3>
+<p>Google needs to see the compliant build published, not installed by the
+public. \u2b50 <b>Promoting release 3 to closed testers inside the 30-day window
+satisfies them.</b></p>
+<p class="hi">\u26d4 SO OPEN TESTING AND THE ANNOUNCEMENT WAIT until the storage
+question is fully settled \u2014 they are not on Google's clock. Fred: <i>"no app
+open launch until 3 is ready."</i> The first build the public ever sees should be
+the settled one, not a build that will require an urgent update.</p>
+<p>\u26a0 The tester email and both Facebook posts are drafted and ready
+(<code>GroupTrack_TesterEmail_2026-09-09.html</code>,
+<code>GroupTrack_Facebook_Announcement_2026-09-09.html</code>). \u26d4 They are now
+gated on RELEASE 3, not on submission 23 clearing.</p>
+<p>\u26a0 <b>Track ordering bites here.</b> Internal outranks closed outranks open \u2014
+a tester left on the internal list keeps getting internal builds whatever else is
+published. Fred, 09-11: clear the internal list once 2 is up. \u26d4 But removing
+someone from a track does NOT uninstall anything \u2014 they keep the build they have
+and simply stop receiving updates. Get them onto the track carrying release 2
+BEFORE removing them from internal, or they sit on a stale build with no update
+path.</p>
+</div>
+
+<h2>The mapping</h2>
+<div class="card done">
+<table>
+<tr><th>Old</th><th>New</th></tr>
+<tr><td><code>/sdcard/Documents/GroupTrack/</code></td>
+<td><code>getExternalFilesDir(null)/</code></td></tr>
+</table>
+<p class="hi">\u2b50\u2b50 <b>THE GOVERNING PRINCIPLE (Fred, 09-11):</b> <i>"internal
+storage mirrors the directory structure of external storage, so we are just
+changing external for internal, not remapping everything."</i></p>
+<p>Everything below the root keeps its name and its nesting.
+<code>getExternalFilesDir()</code> returns an ordinary <code>File</code> path, so
+the same API, the same subdirectories and SQLite all work unchanged. \u2b50 The
+migration is a recursive directory copy and the code change is ONE ACCESSOR
+returning a different base. No path rewriting, no per-file logic.</p>
+<p>\u26a0 <b>This is also what keeps the scope from growing.</b> The moment the
+design starts mapping old names to new ones, back up.</p>
+</div>
+
+<h2>The manifest \u2014 measured on Droid 1, 09-11</h2>
+<div class="card next">
+<p>\u26d4 <b>AN EXCLUSION LIST, NOT AN INCLUSION LIST.</b> Walk the root and move
+everything EXCEPT the exclusions below. \u2b50 Anything added to the app later comes
+across automatically rather than being forgotten because nobody updated a list.</p>
+
+<table>
+<tr><th>Item</th><th>Size</th><th>Note</th></tr>
+<tr><td><code>grouptrack_spatial.db</code></td><td><b>303 MB</b></td>
+<td>147,836 trails. \u26a0 CLOSE BEFORE COPYING.</td></tr>
+<tr><td><code>Land_Ownership.geojson</code></td><td><b>72 MB</b></td>
+<td>\u26a0 Utah land ownership. Easy to forget \u2014 it is a loose file at the root,
+not in a subdirectory, and it is the second largest thing moving.</td></tr>
+<tr><td><code>grouptrack_data.db</code></td><td><b>39 MB</b></td>
+<td>88 tracks, 559 waypoints. \u26a0 CLOSE BEFORE COPYING.</td></tr>
+<tr><td><code>route_drafts/</code></td><td>1.2 MB</td>
+<td>\u26d4 IN-PROGRESS ROUTES LIVE HERE AND NOWHERE ELSE. A lost draft is
+unrecoverable \u2014 graduated routes are in the DB, drafts are only files.</td></tr>
+<tr><td><code>recipes/</code></td><td>296 K</td><td>map download recipes</td></tr>
+<tr><td><code>data/</code></td><td>179 K</td><td><code>trail_areas/</code></td></tr>
+<tr><td><code>imports/</code></td><td>31 K</td><td></td></tr>
+<tr><td><code>osm/</code></td><td>23 K</td>
+<td>\u26a0 Was 136 MB+ when it held a state GeoPackage. Size varies with what an
+import left behind \u2014 do not assume it is small.</td></tr>
+<tr><td><code>state/</code></td><td>12 K</td><td>per-map view state</td></tr>
+<tr><td><code>track_sync.log</code></td><td>16 K</td><td></td></tr>
+<tr><td>Root JSONs</td><td>KB</td>
+<td><code>map_keys.json</code>, <code>map_slots.json</code>,
+<code>autoresync_receipt.json</code>,
+<code>segmentation_analysis.json</code></td></tr>
+<tr><td>Dotfiles and markers</td><td>bytes</td>
+<td>\u26d4 <b>THREE</b> <code>.trails_cleared_*</code> markers \u2014 08-24L, 09-02A,
+09-02B \u2014 plus <code>.schema_2026-09-03A</code>,
+<code>.db_schema_version</code>, <code>docs_shown_version</code>,
+<code>mesh_nav_folded</code>. \u26a0 Miss any and housekeeping re-runs, a trails
+clear re-fires, or the Quick Start reopens.</td></tr>
+<tr><td><b>TOTAL MOVING</b></td><td><b>~415 MB</b></td>
+<td>Under a minute.</td></tr>
+</table>
+
+<h3>\u26d4 The exclusions</h3>
+<table>
+<tr><th>Excluded</th><th>Why</th></tr>
+<tr><td><code>maps/</code></td>
+<td class="hi"><b>17 GB</b> of MBTiles. Stays at the old root through release 1.
+Release 2 decides. \u26a0 Measured at 17 GB on Droid 1 \u2014 not the 60 GB assumed
+earlier, which makes a release-2 copy far more feasible than we thought.</td></tr>
+<tr><td><code>*-journal</code></td>
+<td>SQLite's working files. Both are zero bytes here, which confirms the databases
+closed cleanly. \u26d4 Copying a journal is wrong \u2014 it belongs to the database
+engine, not to us.</td></tr>
+</table>
+
+<h3>\u26a0 Two things the listing changed</h3>
+<ul>
+<li><b><code>.nomedia</code> is 40 bytes, not empty.</b> Read what is in it before
+assuming it can be recreated. \u26a0 And it must exist in BOTH roots afterwards \u2014
+<code>maps/</code> stays behind and still must not be indexed by the media
+scanner.</li>
+<li><b>The old root is NOT removed.</b> After the move
+<code>Documents/GroupTrack/</code> holds <code>maps/</code> and
+<code>.nomedia</code> only. The migration deletes what it moved, never the
+directory itself.</li>
+</ul>
+</div>
+
+<h2>Where it runs</h2>
+<div class="card warn">
+<p><b>In <code>StartupHousekeeping.run()</code>, FIRST — ahead of
+<code>ensureDefaults</code> and <code>SpatialDbManager.init()</code>.</b></p>
+<p class="hi">⛔ <b>ORDERING IS THE WHOLE SAFETY ARGUMENT.</b>
+<code>MapSourceManager</code>, <code>SpatialDbManager</code> and the tile store
+all resolve paths when they initialise. If the move happens after any of them has
+opened a file, they are holding handles to the old location and writing to a
+directory that is about to disappear.</p>
+<p>⭐ The gate blocks until <code>run()</code> returns, so nothing downstream ever
+sees a half-moved state. That property is why this belongs in housekeeping and
+nowhere else.</p>
+<p>⚠ <b>Post-authority, pre-everything.</b> The move reads shared storage, so it
+cannot run before all-files access is confirmed — the same reason
+<code>everyLaunch</code> sits after the gate.</p>
+</div>
+
+<h2>The checklist</h2>
+<div class="card next">
+<p>Fred: <i>"we do it all in housekeeping, a checklist of what is being moved so
+no interruptions."</i> A manifest of items, each marked done as it lands. An
+interrupted move resumes at the first unfinished item rather than starting over.</p>
+
+<h3>⛔ Where the checklist lives</h3>
+<p class="hi"><b>In INTERNAL storage, not in the directory being moved from.</b>
+Put it in the source and it vanishes with the move it is tracking.</p>
+
+<h3>\u2b50\u2b50 TWO PHASES \u2014 NOTHING IS DELETED UNTIL THE APP HAS RUN FROM THE NEW
+LOCATION</h3>
+<p class="hi">Fred, 09-11: <i>"we should not delete original files until we verify
+that everything is running on internal, then activate directory deletes on what
+we moved."</i> \u2b50 Right, and it is materially safer than deleting per item: a
+failed migration then costs DISK SPACE rather than DATA.</p>
+
+<p><b>PHASE 1 \u2014 copy and verify.</b> Per item:</p>
+<ol>
+<li><b>Copy</b> source \u2192 destination.</li>
+<li><b>Verify.</b> Row count for a database, byte size for a file. \u26a0 NOT
+existence \u2014 a zero-byte file exists.</li>
+<li><b>Record</b> the item as copied-and-verified in the checklist.</li>
+</ol>
+<p>\u26d4 <b>Nothing is deleted in phase 1.</b> At the end of it the data exists in
+BOTH places and the app switches to reading the new root.</p>
+
+<p><b>PHASE 2 \u2014 delete, on the NEXT launch.</b> If the app starts again, it
+started from internal storage, opened its databases and drew its map. \u2b50 That is
+the proof. Only then does it delete the sources the checklist recorded as
+verified.</p>
+<ul>
+<li>\u2b50 <b>One launch of proof, no judgement calls.</b> Not a launch count, not a
+health score \u2014 the app ran, so the copy is good.</li>
+<li>\u26a0 <b>Delete only what the checklist named.</b> Never walk the old directory
+and delete what is found: <code>maps/</code> lives there and must survive.</li>
+<li>\u26a0 During the gap ~415 MB exists twice. Harmless, and it is the price of the
+safety.</li>
+</ul>
+
+<p class="hi">\u26a0\u26a0 <b>MARK AFTER, NEVER BEFORE.</b> A marker written before the
+work is how a crash mid-operation leaves the app believing something finished
+that did not. <code>clearTrailsOnce</code> writes its marker after the clear for
+this reason, and the 08-16 reinstall wipe happened because a guard and the thing
+it guarded had different lifetimes.</p>
+<p>\u2b50 Every step is idempotent: a copy that already happened verifies and moves
+on; a delete of something already gone is a no-op; an interrupted run resumes at
+the first unfinished item.</p>
+</div>
+
+<h2>⛔ Close the databases first</h2>
+<div class="card bad">
+<p>An open SQLite database copied mid-write produces a corrupt file, and the
+corruption is not visible until something reads the damaged page.</p>
+<p><b>So: close → copy → verify → delete → reopen at the new root.</b>
+<code>SpatialDbManager</code> holds <code>spatialDb</code> and
+<code>extensionDb</code> as fields and has an <code>initialized</code> flag —
+both need resetting so the reopen resolves the new path rather than returning the
+stale handle.</p>
+<p class="hi">⚠ THIS IS THE SAME SHAPE AS THE FALLBACK LOCK FIXED 09-10: an
+<code>initialized</code> flag that outlives the state it describes. Check it
+explicitly rather than assuming the reopen re-resolves.</p>
+</div>
+
+<h2>Deriving the location — no preference file</h2>
+<div class="card next">
+<p>Fred: <i>"we should derive the current install; a simple existence check tells
+us which install we have, and we set it as if the choice was made already."</i></p>
+<table>
+<tr><th>On disk</th><th>Conclusion</th></tr>
+<tr><td>Data in <code>Documents/GroupTrack</code></td><td>Public — an existing
+install. Migrate it (release 1).</td></tr>
+<tr><td>Data in <code>getExternalFilesDir()</code></td><td>Internal — already
+migrated, or a new install. Nothing to do.</td></tr>
+<tr><td>Neither</td><td>New install. Start internal.</td></tr>
+<tr><td>⚠ BOTH</td><td>An interrupted migration. ⭐ Resume from the checklist —
+which is why the checklist is authoritative, not the directory contents.</td></tr>
+</table>
+<p>⭐ No preference to store, nothing to lose, and it self-heals. The data is the
+record.</p>
+</div>
+
+<h2>Release 2 — the tile decision</h2>
+<div class="card warn">
+<p><b>If the appeal succeeds:</b> MBTiles stay public. The rider keeps a map store
+that survives an uninstall and that they can see, back up and move between
+devices. Nothing further to build.</p>
+<p><b>If it is refused:</b> the permission comes out of the manifest, and the
+MBTiles have to go somewhere. Two options, and the choice is about time:</p>
+<ul>
+<li><b>Copy them internal.</b> They are a handful of large files, not millions of
+small ones, so a copy is feasible — hours, on wifi, with progress. ⚠ Needs 60 GB
+free on the destination at the same time.</li>
+<li><b>Abandon them and re-download.</b> ⭐ MBTiles makes discarding a store
+trivial — a few file deletes, instant. But the rider loses days of
+downloading.</li>
+</ul>
+<p class="hi">⛔ <b>AND THE FINAL BUILD MUST MIGRATE DURING THE UPDATE ITSELF</b>,
+while access still exists. Once the permission is out of the manifest the app
+cannot read the old location — a rider who ignored every prompt still needs their
+data to survive.</p>
+<p>⚠ <b>Do not delete an abandoned map store automatically.</b> Deleting 60 GB of
+the rider's data because of a settings change is not something the app should do
+quietly. Leave it; they can remove it with a file manager, which is one of the
+arguments for shared storage in the first place.</p>
+</div>
+
+<h2>What the rider is told in release 2</h2>
+<div class="card next">
+<p>⭐ The honest version, and it is much better than it first looked:</p>
+<blockquote style="border-left:3px solid #30363d;padding-left:14px;color:#b8c2cc">
+Your trails, tracks, routes and waypoints move with you — your whole riding
+history. Your downloaded maps do not, and will need to be downloaded again.
+</blockquote>
+<p>⚠ <b>Name the cost in time, not gigabytes.</b> "60 GB" means less to a rider
+than "a few days of downloading on wifi." They know what waiting feels like.</p>
+<p>⚠ <b>And say that the app works the same either way.</b> The only differences
+are what survives an uninstall and whether they can see their own files.
+Otherwise the choice reads as "the good one and the crippled one."</p>
+</div>
+
+<h2>The code</h2>
+<div class="card next">
+<h3>\u2b50 TWO accessors, not one</h3>
+<p class="hi">\u26d4 GIVE THE TILE STORE ITS OWN ACCESSOR IN RELEASE 1, separate from
+the general root. Release 2 then becomes a one-line change \u2014 point it at the new
+base \u2014 rather than reopening the migration. And release 3 removes it entirely.</p>
+<p>\u26a0 <code>ConvoyConfig:34</code> holds the tile path. In release 1 it keeps
+resolving to the PUBLIC root while everything else moves. That mixed state is
+what the app ships in for up to three weeks, so it has to work deliberately
+rather than by accident.</p>
+
+<h3>One accessor for everything else</h3>
+<p>Today there are TWO functions building the same path independently —
+<code>SpatialDbManager.groupTrackDir()</code> and
+<code>SpatialDbManager.dbDir()</code> — plus eight hardcoded
+<code>Environment.getExternalStorageDirectory()</code> sites.</p>
+<p class="hi">⚠ That duplication is the same pattern that produced the palette
+bug: more than one source for one truth, and nothing keeping them in step.</p>
+<p><b>A single <code>GroupTrackStorage.root(ctx)</code></b>, and everything else
+becomes a caller. <code>dbDir()</code> keeps its directory-create and
+<code>.nomedia</code> behaviour, delegating the path.</p>
+
+<h3>The eight to redirect</h3>
+<table>
+<tr><th>File</th><th>What</th></tr>
+<tr><td><code>ConvoyAuthorityGateScreenV2:103</code></td><td>canary dir</td></tr>
+<tr><td><code>ConvoyMapRecipe:65</code></td><td>recipes</td></tr>
+<tr><td><code>ConvoyDownloadPanel:418</code></td><td>archived recipes</td></tr>
+<tr><td><code>MapStateStore:30</code></td>
+<td class="hi">⛔ A <code>const</code> with a literal <code>/sdcard/</code> path.
+It cannot call a function — this one needs restructuring, not
+redirecting.</td></tr>
+<tr><td><code>OwnershipReclass:89</code></td><td></td></tr>
+<tr><td><code>RouteDraftStore:422</code></td><td>⚠ route drafts</td></tr>
+<tr><td><code>TrailFilterState:85</code></td><td><code>map_keys.json</code></td></tr>
+<tr><td><code>OsmLayerCatalog:49</code></td><td>config override</td></tr>
+<tr><td><code>OsmImportStage:123</code></td><td><code>GROUPTRACK_DIR</code> const</td></tr>
+</table>
+<p>⚠ <code>ConvoyConfig:34</code> holds the tile path
+(<code>maps/tiles/…</code>) — ⛔ that one does NOT move in release 1.</p>
+</div>
+
+<h2>⚠ Open questions</h2>
+<div class="card warn">
+<ol>
+<li><b>The canary dir in the authority gate.</b> It probes
+<code>Documents/GroupTrack</code> to test write access. ⛔ If the app no longer
+uses public storage, what is the gate still gating? The whole gate may become
+unnecessary in the internal-only build — which would be a simplification, but it
+is load-bearing today and wants thinking about separately.</li>
+<li><b>Does the tile store need the permission to READ an existing public
+store?</b> Release 1 leaves MBTiles public while everything else moves internal.
+That mixed state must work, and it is the state the app ships in for up to 30
+days.</li>
+<li><b>What verifies a database copy?</b> Row count is right but means opening
+the copy, which means a second open/close cycle. Byte-for-byte is simpler and
+catches truncation. ⚠ Size alone would pass an empty schema — but an empty schema
+cannot arise from a copy, only from a create.</li>
+<li><b>Free space.</b> 310 MB needs 310 MB free before the delete. Check first
+and abort cleanly rather than filling the device.</li>
+</ol>
+</div>
+
+<h2>⛔ Do not build yet</h2>
+<div class="card bad">
+<p>This is a design, not a plan to start today. ⚠ The immediate work is the map
+key palette — finished and committed — and the release that is already built and
+waiting on Google.</p>
+<p class="hi">⭐ And the 09-10 lesson applies directly: <i>"we spiral down into
+layers of complexity rather than up to levels of simplicity."</i> Release 1 is
+310 MB of files moving between two directories. If the design starts growing
+progress dialogs, rollback engines and preference screens, back up.</p>
+</div>
+
+</body></html>

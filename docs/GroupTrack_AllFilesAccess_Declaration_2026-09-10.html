@@ -1,0 +1,165 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<title>GroupTrack — All Files Access Declaration, 2026-09-10</title>
+<style>
+body{font:15px/1.68 -apple-system,"Segoe UI",Roboto,sans-serif;max-width:840px;
+margin:0 auto;padding:26px;background:#0f1216;color:#e6edf3}
+h1{font-size:20px;color:#58a6ff;border-bottom:2px solid #2a3038;padding-bottom:8px}
+h2{font-size:16px;color:#58a6ff;margin-top:30px;border-bottom:1px solid #2a3038;padding-bottom:5px}
+h3{font-size:14px;color:#b8c2cc;margin-top:20px}
+code{background:#1a2027;padding:1px 5px;border-radius:3px;font-size:12.5px;color:#8FD0FF}
+.card{background:#161b22;border:1px solid #2a3038;border-radius:8px;padding:13px 17px;margin:11px 0}
+.warn{border-left:4px solid #d29922}.bad{border-left:4px solid #f85149}
+.next{border-left:4px solid #58a6ff}
+.draft{background:#0d1117;border:1px solid #2a3038;border-left:4px solid #3fb950;
+padding:18px 22px;border-radius:6px;margin:14px 0;font:14.5px/1.72 -apple-system,"Segoe UI",Roboto,sans-serif}
+li{margin:6px 0}
+.hi{color:#e3b341}
+</style></head><body>
+
+<h1>All Files Access — declaration draft</h1>
+<p>2026-09-10 · for the Permissions Declaration Form in Play Console</p>
+
+<div class="card bad">
+<h3>⛔ Read this before you submit</h3>
+<p>The reviewer's finding was <b>"Access to device storage not required"</b> — they
+are not disputing that you use it, they are saying the job can be done another
+way. So the declaration has to answer <b>one question only</b>: why can this not
+be done with MediaStore or the file picker?</p>
+<p class="hi">⚠ The previous declaration argued <i>online maps and access time</i>.
+That is a performance argument, and a reviewer can read "it would be slower" as
+"it would still work." <b>The argument below is different: the APIs are
+technically incapable of the operation, not merely slower.</b></p>
+</div>
+
+<h2>The strongest ground you have</h2>
+<div class="card next">
+<p><b>SQLite cannot open a database through the Storage Access Framework.</b>
+Android's SQLite API takes a filesystem path. SAF hands out
+<code>content://</code> URIs and file descriptors. There is no supported way to
+open, query, or write a SQLite database over a SAF URI — this is a documented
+limitation, not a performance characteristic.</p>
+<p>GroupTrack's map tiles are stored in <b>MBTiles</b>, which is SQLite. The trail
+database is SQLite. So the alternative the reviewer is pointing at cannot perform
+the operation at all.</p>
+<p><b>And MediaStore is a media index.</b> It catalogues images, audio and video
+for the gallery and media apps. A tile database is not media, is not indexable by
+MediaStore, and cannot be read through it.</p>
+<p class="hi">⭐ That is the case. It is technical, it is checkable, and it does
+not depend on the reviewer believing a speed claim.</p>
+</div>
+
+<h2>⚠ The question they may ask back — be ready for it</h2>
+<div class="card warn">
+<p><b>"Why not <code>getExternalFilesDir()</code>?"</b> App-private external
+storage needs <b>no permission at all</b>, holds any amount of data, gives a real
+filesystem path, and SQLite works there normally.</p>
+<p>That is a fair question and it has a real answer, but you should decide which
+answer is true for GroupTrack before you write it:</p>
+<ul>
+<li><b>The rider owns the data.</b> A rider downloads 50–60 GB of maps over days
+or weeks. In app-private storage that is invisible to them — they cannot back it
+up, move it to a new phone, copy it to an SD card, or see what is using their
+space. In <code>Documents/GroupTrack/</code> it is theirs.</li>
+<li><b>It survives a reinstall.</b> Rebuilding a rider's maps is roughly a month
+of downloading. App-private storage is erased by uninstall and by Clear Data.</li>
+<li><b>Riders share map sets.</b> One rider downloads an area and copies the files
+to another's device rather than both spending a month on it.</li>
+</ul>
+<p class="hi">⛔ Only claim the ones that are actually true and visible in the app.
+If riders cannot currently share map sets through a documented feature, do not put
+it in the declaration.</p>
+</div>
+
+<h2>Draft — core functionality description</h2>
+<div class="draft">
+GroupTrack is an offline navigation app for off-highway vehicle riders. Riders
+ride in places with no cellular coverage, so every map, trail and route they need
+must already be on the device before they leave.
+<br><br>
+The core feature that requires All files access is <b>the offline map store</b>.
+Riders download map tiles by region or along a route corridor and build a personal
+store that commonly reaches 50–60 GB. The app reads from that store continuously
+while the map is on screen, and writes to it during downloads that run for hours.
+<br><br>
+The store is held in <code>Documents/GroupTrack/</code> as <b>MBTiles files and
+SQLite databases</b>. Without access to it the app cannot draw a map, cannot plan
+a route, and cannot show a rider where they are — which is the entire purpose of
+the app.
+</div>
+
+<h2>Draft — why the privacy-friendly alternatives cannot be used</h2>
+<div class="draft">
+<b>MediaStore cannot be used.</b> MediaStore indexes images, audio and video. Map
+tile databases are not media files, are not indexed by MediaStore, and cannot be
+opened or queried through it. There is no MediaStore collection that holds this
+data type.
+<br><br>
+<b>The Storage Access Framework cannot be used.</b> The map store consists of
+MBTiles and SQLite database files. Android's SQLite API requires a filesystem
+path; SAF provides <code>content://</code> URIs and file descriptors. A SQLite
+database cannot be opened for reading or writing through a SAF URI. This is a
+limitation of the API, not a performance trade-off — the operation is not
+possible.
+<br><br>
+<b>The system file picker cannot be used.</b> The picker is designed for a user to
+choose individual documents. Drawing a single map screen reads many tiles from the
+store, and this happens continuously as the rider moves. There is no point at
+which a rider could meaningfully pick a file, and no workflow in which doing so
+would make sense.
+<br><br>
+<b>The data belongs to the rider, not the app.</b> A rider's map store represents
+days or weeks of downloading. Holding it in app-private storage would make it
+invisible to them — they could not back it up, transfer it to a replacement
+device, or see what is occupying their storage — and it would be destroyed by an
+uninstall or a Clear Data, costing them the entire download again.
+</div>
+
+<h2>Draft — how the app is broken without it</h2>
+<div class="draft">
+Without All files access, GroupTrack cannot read the offline map store. The map
+draws nothing. Route planning has no trail data to plan on. A rider in an area
+with no cellular coverage — which is the situation the app exists for — has no
+map, no route and no position on a trail.
+<br><br>
+There is no reduced mode of the app that works without this. The offline map store
+is not a feature alongside others; it is what the app is.
+</div>
+
+<h2>⚠ Before you submit</h2>
+<div class="card warn">
+<ul>
+<li><b>The listing must document this prominently.</b> Policy requires the core
+functionality to be described in the app's description. ⭐ Check that the full
+description says plainly that the app stores offline maps on the device and that
+this is what makes it work without signal. If it only implies it, fix that
+first.</li>
+<li><b>The app must prompt clearly for the permission.</b> Policy requires apps to
+"clearly prompt users to enable All files access under Special app access
+settings." ⭐ The authority gate does this — make sure the wording on that screen
+explains WHY, not just that it is needed.</li>
+<li><b>Some forms ask for a video.</b> If so: launch, show the permission prompt
+and what it says, show a map drawing offline with the device in airplane mode,
+show the downloaded map store. ⭐ Airplane mode is the single most convincing
+thing you can show.</li>
+<li>⚠ <b>Do not repeat the earlier wording.</b> The rejection says "not resolving
+the previously communicated policy issue" — if the new declaration reads like the
+old one, it will be read as no change.</li>
+</ul>
+</div>
+
+<h2>⛔ If it is refused again</h2>
+<div class="card bad">
+<p>Be clear-eyed about this now rather than in a week. The fallback is
+<code>getExternalFilesDir()</code> — app-private external storage. It needs
+<b>no permission</b>, no declaration and no review. SQLite works there. The map
+store works there.</p>
+<p class="hi">⚠ <b>What it costs:</b> the map store no longer survives an
+uninstall or a Clear Data, and riders cannot see or manage their own map files.
+For a rider with 50 GB downloaded, an uninstall would mean rebuilding from
+nothing.</p>
+<p>⭐ That is a real product decision, not just a technical one — and it is worth
+deciding what you would do <b>before</b> the appeal comes back, so a refusal is a
+known path rather than a crisis.</p>
+</div>
+
+</body></html>

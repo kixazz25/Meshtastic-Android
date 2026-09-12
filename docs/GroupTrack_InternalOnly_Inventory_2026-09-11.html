@@ -1,0 +1,200 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<title>GroupTrack — Internal-Only Build: the remaining path sites, 2026-09-11</title>
+<style>
+body{font:15px/1.68 -apple-system,"Segoe UI",Roboto,sans-serif;max-width:940px;
+margin:0 auto;padding:26px;background:#0f1216;color:#e6edf3}
+h1{font-size:21px;color:#58a6ff;border-bottom:2px solid #2a3038;padding-bottom:8px}
+h2{font-size:16px;color:#58a6ff;margin-top:32px;border-bottom:1px solid #2a3038;padding-bottom:5px}
+h3{font-size:14px;color:#b8c2cc;margin-top:20px}
+code{background:#1a2027;padding:1px 5px;border-radius:3px;font-size:12.5px;color:#8FD0FF}
+.card{background:#161b22;border:1px solid #2a3038;border-radius:8px;padding:13px 17px;margin:11px 0}
+.done{border-left:4px solid #3fb950}.next{border-left:4px solid #58a6ff}
+.warn{border-left:4px solid #d29922}.bad{border-left:4px solid #f85149}
+table{border-collapse:collapse;width:100%;margin:11px 0;font-size:13px}
+th,td{border:1px solid #2a3038;padding:6px 9px;text-align:left;vertical-align:top}
+th{background:#1a2027;color:#8FD0FF}
+li{margin:6px 0}
+.hi{color:#e3b341}
+</style></head><body>
+
+<h1>Internal-only build — the remaining path sites</h1>
+<p>2026-09-11 · research, not a plan to start today</p>
+
+<div class="card bad">
+<h3>⛔ The decision that got us here</h3>
+<p><b>The All Files Access appeal was rejected.</b> The extension request buys time
+to publish a compliant build, not to win the argument. Fred, 09-11: <i>"I cannot
+publish with that in the manifest."</i></p>
+<p class="hi">⭐ AND THE MIGRATION IS OFF. With ten serious users, the answer is a
+clean install: riders export their routes and tracks with the share function,
+uninstall, delete <code>Documents/GroupTrack</code> and
+<code>Documents/my_tracks</code>, install the new build, reimport. Trails and maps
+re-download.</p>
+<p>⚠ <b>Which makes today's migration work dead.</b>
+<code>GroupTrackMigration.kt</code>, <code>GroupTrackMigrationScreen.kt</code> and
+the gate hook are all unused and should be deleted, not kept "in case" — the rule
+Fred applied twice today: <i>"the severity of forgetting to remove it is worse
+than removing it for an instance that does not occur."</i></p>
+<p>⭐ <b>The accessor was not wasted.</b> <code>GroupTrackStorage</code> is what
+makes this a two-line change instead of thirteen.</p>
+</div>
+
+<h2>⛔ Why this morning's sweep missed 23 sites</h2>
+<div class="card bad">
+<p>The thirteen found this morning were greps for
+<code>Environment.getExternalStorageDirectory()</code>. These 23 use
+<code>Environment.getExternalStoragePublicDirectory(DIRECTORY_DOCUMENTS)</code>.</p>
+<p class="hi">⭐⭐ <b>TWO APIs, ONE DESTINATION.</b> Both land in Documents.
+⚠ THE LESSON: <b>grep for the destination, not the API.</b> Search
+<code>"GroupTrack</code> and <code>"my_tracks</code> as string literals — those
+cannot be spelled two ways.</p>
+<p>⚠ Verification grep for tomorrow, after the work:</p>
+<p><code>grep -rn 'DIRECTORY_DOCUMENTS\|getExternalStorageDirectory' app/src/main/java/com/geeksville/mesh/convoy/*.kt | grep -v GroupTrackStorage</code></p>
+<p>⛔ Should return <b>zero</b> when finished. Today it returns 23.</p>
+</div>
+
+<h2>The 23, by group</h2>
+
+<h3>1 · <code>my_tracks</code> — GPS recording and track sync</h3>
+<div class="card next">
+<p class="hi">⭐ <b>A CANONICAL ACCESSOR ALREADY EXISTS AND NOBODY USES IT.</b>
+<code>ConvoyTrackOps.tracksDir()</code> is public, correct, and every other site
+builds the path itself instead. Same disease as the palette: one truth, a dozen
+copies.</p>
+<table>
+<tr><th>Site</th><th>What</th></tr>
+<tr><td><code>ConvoyTrackOps:16-22</code></td>
+<td>⭐ <b>THE ONE TO CHANGE.</b> <code>TRACKS_DIR_NAME</code> +
+<code>tracksDir()</code>. Point it at
+<code>GroupTrackStorage.dir("my_tracks")</code> and every caller follows.</td></tr>
+<tr><td><code>ConvoyGpsService:324, 372</code></td>
+<td>⚠ <b>RECORDING WRITES HERE.</b> A recording that lands somewhere the app
+cannot read back looks like it worked and then vanishes.</td></tr>
+<tr><td><code>SpatialDbManager:874, 1492, 1666, 2271, 2447</code></td>
+<td>Track sync, GPX read-back, export.</td></tr>
+<tr><td><code>ConvoyScreen:2476, 3442, 3466, 3489</code></td>
+<td><code>convoyListTracks</code> and neighbours.</td></tr>
+<tr><td><code>ConvoyMapViewerScreen:5405, 5435</code></td>
+<td><code>scanTrackDir</code>.</td></tr>
+</table>
+<p>⚠ <b><code>ConvoyTrackOps.downloadsDir()</code> sits right below
+<code>tracksDir()</code> and STAYS.</b> Downloads is the rider's own folder and
+how files get in and out — and reading it needs no permission, which is the
+pattern Google actually wants.</p>
+<p class="hi">⛔ <b>OPEN QUESTION:</b> <code>my_tracks</code> sits BESIDE
+<code>GroupTrack</code> in Documents today, not inside it. Internal, does it
+become <code>&lt;root&gt;/my_tracks</code>? ⭐ Inside is simpler — one root, one
+accessor — but it changes the shape riders see if they ever browse it. They
+cannot browse app-private storage anyway, so: inside.</p>
+</div>
+
+<h3>2 · <code>TrailImporter</code> — six copies of one path</h3>
+<div class="card next">
+<p>Lines <b>632, 695, 718, 730, 741, 758</b>, every one building
+<code>GroupTrack/data/trail_areas</code> inline.</p>
+<p>⭐ <b>One private helper collapses all six:</b></p>
+<p><code>private fun trailAreasDir(): File =
+GroupTrackStorage.dir("data/trail_areas").apply { if (!exists()) mkdirs() }</code></p>
+<p>Then the sites become <code>trailAreasDir()</code> or
+<code>File(trailAreasDir(), "pending_area.json")</code>.</p>
+</div>
+
+<h3>3 · Single functions — straight redirects</h3>
+<div class="card next">
+<table>
+<tr><th>Site</th><th>Becomes</th></tr>
+<tr><td><code>MapSourceManager.externalDir():58</code></td>
+<td><code>GroupTrackStorage.root()</code> ⚠ keeps its <code>mkdirs</code></td></tr>
+<tr><td><code>HomeStateImportController.importsDir():162</code></td>
+<td><code>GroupTrackStorage.dir("imports")</code></td></tr>
+<tr><td><code>SpatialDbManager:897</code></td>
+<td><code>File(GroupTrackStorage.root(), "track_sync.log")</code></td></tr>
+</table>
+</div>
+
+<h2>Then the two-line change</h2>
+<div class="card done">
+<p>Once every site resolves through the accessor:</p>
+<ul>
+<li><code>GroupTrackStorage.root()</code> → <code>ctx.getExternalFilesDir(null)</code></li>
+<li><code>GroupTrackStorage.tileRoot()</code> → the same</li>
+</ul>
+<p class="hi">⛔ <b>BOTH NEED A CONTEXT.</b> The accessor currently takes an
+optional one and falls back to the public path — which was correct while nothing
+had moved. ⚠ It now MUST have one, and these are <code>object</code> singletons:
+<code>MapStateStore</code> has no Context anywhere. <b>This is the real design
+problem of tomorrow</b>, not the redirects.</p>
+<p>⭐ The manifest declares <code>MeshUtilApplication</code>. Its
+<code>onCreate</code> is the natural place to hand the accessor a context, and it
+runs before everything. ⚠ It is an UPSTREAM Meshtastic file, so that is a change
+outside the convoy tree — small, but worth knowing.</p>
+</div>
+
+<h2>And the gate</h2>
+<div class="card warn">
+<p>Fred, 09-11: <b>the authority gate can go.</b> With no permission to check
+there is nothing to gate.</p>
+<p class="hi">✅ <b>SAFE TO REMOVE — background location is requested elsewhere.</b>
+<code>ConvoyScreen:1315</code> has its own <code>bgLocationLauncher</code> and
+<code>:1396</code> checks the permission. So removing the gate does not lose
+location. ⚠ Verified 09-11, and it was the one thing that could have broken
+tracking silently.</p>
+<p>⛔ <b>BUT THE GATE IS THE NAV START DESTINATION.</b>
+<code>ConvoyNavigation.kt:61</code>, and <code>ConvoyRoutes</code> lives in
+<code>org.meshtastic.core.navigation</code> — a DIFFERENT MODULE, outside the
+convoy tree. Removing the gate means changing where the app boots. ⚠ That is the
+edit most likely to break startup, and it wants doing on its own, first thing,
+not at the end of a long session.</p>
+<p>⚠ <b>And <code>StartupHousekeeping.run()</code> is called FROM the gate.</b>
+Kill the gate and housekeeping needs a new home — it clears trails, runs the
+ALTERs, and installs the palette. ⛔ It cannot simply be dropped.</p>
+</div>
+
+<h2>⚠ What the ten riders need to be told</h2>
+<div class="card warn">
+<ol>
+<li><b>Export routes and tracks with the share function FIRST.</b> ⛔ Graduated
+routes exist only as DB rows — WIP drafts are files and survive, but a graduated
+route has no file. Without the export they are gone.</li>
+<li>Uninstall.</li>
+<li><b>Delete <code>Documents/GroupTrack</code> and
+<code>Documents/my_tracks</code>.</b> ⭐ Deleting the whole folders is the right
+instruction — there are hidden marker dotfiles in GroupTrack that no file manager
+shows, and leaving them behind achieves nothing since the new build cannot read
+them anyway.</li>
+<li>Install, reimport, re-download trails and maps.</li>
+</ol>
+<p class="hi">⚠ <b>17 GB of maps and an hour of trail import per rider.</b> That is
+the real cost, and it is worth saying plainly rather than discovering.</p>
+</div>
+
+<h2>⛔ Delete before building</h2>
+<div class="card bad">
+<ul>
+<li><code>GroupTrackMigration.kt</code></li>
+<li><code>GroupTrackMigrationScreen.kt</code></li>
+<li>The <code>MIGHOOK-2026-09-11</code> block in
+<code>ConvoyAuthorityGateScreenV2.kt</code> — moot if the gate goes entirely</li>
+</ul>
+<p class="hi">⚠ All written today, all now unused. ⛔ Dead code that looks live
+survives because nobody is sure about it.</p>
+</div>
+
+<h2>Order of work</h2>
+<div class="card next">
+<ol>
+<li><b>Delete the migration pieces.</b> Clears the ground.</li>
+<li><b>The gate.</b> ⚠ First while fresh — it is the nav start destination and
+housekeeping is called from it. The riskiest edit.</li>
+<li><b>The context problem.</b> Decide how the accessor gets one before any
+redirect depends on it.</li>
+<li><b>The 23 redirects</b>, in three groups — <code>my_tracks</code>,
+<code>TrailImporter</code>, singles.</li>
+<li><b>The two-line switch.</b></li>
+<li><b>The manifest.</b> ⛔ LAST. Once the permission is gone nothing can read the
+old location, so every other step must already work.</li>
+<li>Verification grep returns zero. Clean install on Droid 2.</li>
+</ol>
+</div>
+
+</body></html>

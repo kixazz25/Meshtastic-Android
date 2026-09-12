@@ -1,0 +1,141 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<title>GroupTrack — All Files Access Declaration v2, 2026-09-10</title>
+<style>
+body{font:15px/1.68 -apple-system,"Segoe UI",Roboto,sans-serif;max-width:820px;
+margin:0 auto;padding:26px;background:#0f1216;color:#e6edf3}
+h1{font-size:20px;color:#58a6ff;border-bottom:2px solid #2a3038;padding-bottom:8px}
+h2{font-size:16px;color:#58a6ff;margin-top:30px;border-bottom:1px solid #2a3038;padding-bottom:5px}
+code{background:#1a2027;padding:1px 5px;border-radius:3px;font-size:12.5px;color:#8FD0FF}
+.card{background:#161b22;border:1px solid #2a3038;border-radius:8px;padding:13px 17px;margin:11px 0}
+.warn{border-left:4px solid #d29922}.bad{border-left:4px solid #f85149}
+.next{border-left:4px solid #58a6ff}
+.draft{background:#0d1117;border:1px solid #2a3038;border-left:4px solid #3fb950;
+padding:18px 22px;border-radius:6px;margin:14px 0;font:14.5px/1.7 -apple-system,"Segoe UI",Roboto,sans-serif}
+li{margin:6px 0}
+.hi{color:#e3b341}
+.ct{font:11px monospace;color:#8b949e;text-align:right;margin-top:6px}
+</style></head><body>
+
+<h1>All Files Access — declaration v2</h1>
+<p>2026-09-10 · rewritten after reading what OsmAnd actually does</p>
+
+<div class="card bad">
+<h3>⛔ Why v1 was wrong</h3>
+<p>v1 argued <b>"there is no alternative that doesn't render the app
+ineffective."</b> ⛔ That will not survive a reviewer who knows the category.
+<b>OsmAnd does not have this permission</b> — their request for it
+(issue #16059) has been open since Dec 2022, labelled "Nice to Have," never
+granted. They ship offline maps successfully without it, working inside their own
+folder tree, which they call <i>"certainly a crippling mechanism"</i> but which
+plainly works.</p>
+<p class="hi">⚠ So a comparable app proves the alternative is viable. Any
+declaration built on impossibility invites exactly that comparison.</p>
+</div>
+
+<div class="card next">
+<h3>⭐ What actually gets approved</h3>
+<p>Google's permitted uses are <b>file management, document management, backup and
+restore, search on device</b>. OsmAnd's own reasoning in that issue is that they
+would qualify under those — and they cite a live precedent: <b>MobileSheets</b>, a
+sheet-music viewer, holds the permission because it <i>"acts as a file manager for
+your sheet music files … and links directly to them on the device … allowing those
+files to be organized as desired by the user without them having to be copied or
+moved."</i></p>
+<p class="hi">⭐ <b>That is the shape.</b> Not "my app needs speed" — but "my app
+manages files the user owns, in place, where the user put them, without copying
+them."</p>
+</div>
+
+<h2>⚠⚠ Verify these before you submit</h2>
+<div class="card warn">
+<p>The draft below claims things about GroupTrack. ⛔ <b>Only submit the ones that
+are true of the app as it ships.</b> A declaration that overstates is worse than
+one that is narrow, because the reviewer can check.</p>
+<ul>
+<li><b>Does GroupTrack read GPX files from where the rider put them</b> — a
+Downloads folder, another app's folder, an SD card — or does it only read from
+<code>Documents/GroupTrack/</code>? ⭐ If it reads from arbitrary locations the
+rider chooses, that is the file-management case and it is strong. ⛔ If everything
+must first be inside <code>Documents/GroupTrack/</code>, you are doing what OsmAnd
+does and the case is much weaker.</li>
+<li><b>Can a rider copy map files in from another device or an SD card</b> and
+have the app find them in place?</li>
+<li><b>Does the app leave the rider's files organized as they chose</b>, or does
+it move and rename them into its own structure?</li>
+</ul>
+<p class="hi">⚠ If the honest answers are "only our own folder," then the strongest
+remaining ground is the 60 GB and uninstall argument alone — and you should expect
+that to be a harder sell, because Google considers app-private storage the correct
+answer to it.</p>
+</div>
+
+<h2>Draft A — the file-management case</h2>
+<p>Use this <b>only if</b> the app genuinely reads and writes the rider's files
+where the rider keeps them.</p>
+<div class="draft">
+GroupTrack manages a rider's off-road navigation files in place on the device:
+GPX tracks and routes exchanged with other apps and other riders, waypoint files,
+and offline map stores. It links directly to these files where the rider keeps
+them, so they stay organized as the rider chooses without being copied or moved
+into private storage.<br><br>
+The map stores are MBTiles and SQLite. Android's SQLite API requires a filesystem
+path; the Storage Access Framework provides content:// URIs, which SQLite cannot
+open. MediaStore indexes only images, audio and video, so it cannot hold or serve
+this data.<br><br>
+Riders ride off-grid with no cellular coverage, and hold over 60 GB of map data
+built up over weeks. Files held in app-private storage are erased by uninstall or
+Clear Data, costing the rider weeks of re-downloading and leaving them unable to
+see or back up their own data.<br><br>
+GroupTrack is free, captures no user data, and uses only publicly accessible map
+sources.
+</div>
+<p class="ct">968 characters</p>
+
+<h2>Draft B — narrower, if A is not true</h2>
+<p>Use this if the app only works inside its own folder. ⚠ Weaker, but honest.</p>
+<div class="draft">
+GroupTrack is offline navigation for off-highway riders, used where there is no
+cellular coverage. Its offline map stores are MBTiles and SQLite databases held in
+shared storage at Documents/GroupTrack/.<br><br>
+Android's SQLite API requires a filesystem path. The Storage Access Framework
+provides content:// URIs, which SQLite cannot open for reading or writing.
+MediaStore indexes only images, audio and video and cannot hold this data. The
+file picker asks a user to select one document, which has no meaning when drawing
+a single map screen reads many tiles while the rider is moving.<br><br>
+Riders hold over 60 GB of map data built up over weeks of downloading. In shared
+storage the rider can back it up, move it to a replacement device, and see what is
+using their space. App-private storage is erased by uninstall or Clear Data,
+costing them the entire download.<br><br>
+GroupTrack is free, captures no user data, and uses only public map sources.
+</div>
+<p class="ct">943 characters</p>
+
+<h2>⚠ Also</h2>
+<div class="card warn">
+<ul>
+<li><b>The listing must document this prominently.</b> Policy requires the core
+functionality to be in the app's description. ⭐ Check the full description says
+plainly that the app stores offline maps on the device.</li>
+<li><b>The app must clearly prompt for the permission</b> and explain why. The
+authority gate does — check its wording gives a reason, not just a request.</li>
+<li>⛔ <b>Do not include the process complaint</b> about not receiving a prior
+notice. That belongs in an appeal, not a declaration — here it gives the reviewer
+something to react to other than your case.</li>
+<li>⚠ <b>Check Play Console → Policy status and the Console inbox</b> before
+claiming you had no earlier notice. Google sometimes delivers these in Console
+rather than email, and an unread one there would undercut you.</li>
+</ul>
+</div>
+
+<h2>⛔ Decide the fallback now, not in a week</h2>
+<div class="card bad">
+<p>If this is refused again, the path is <code>getExternalFilesDir()</code> —
+app-private external storage. No permission, no declaration, no review. SQLite
+works there. It is what OsmAnd does.</p>
+<p class="hi">⚠ <b>What it costs:</b> the map store no longer survives uninstall or
+Clear Data. A rider with 60 GB downloaded would rebuild from nothing.</p>
+<p>⭐ Worth knowing which way you would go <b>before</b> the answer comes, so a
+refusal is a plan rather than a crisis two days from launch.</p>
+</div>
+
+</body></html>

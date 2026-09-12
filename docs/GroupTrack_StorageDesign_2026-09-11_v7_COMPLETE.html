@@ -1,0 +1,478 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<title>GroupTrack — Storage Design v7 (complete), 2026-09-11</title>
+<style>
+body{font:15px/1.68 -apple-system,"Segoe UI",Roboto,sans-serif;max-width:960px;
+margin:0 auto;padding:26px;background:#0f1216;color:#e6edf3}
+h1{font-size:21px;color:#58a6ff;border-bottom:2px solid #2a3038;padding-bottom:8px}
+h2{font-size:16px;color:#58a6ff;margin-top:32px;border-bottom:1px solid #2a3038;padding-bottom:5px}
+h3{font-size:14px;color:#b8c2cc;margin-top:20px}
+code{background:#1a2027;padding:1px 5px;border-radius:3px;font-size:12.5px;color:#8FD0FF}
+.card{background:#161b22;border:1px solid #2a3038;border-radius:8px;padding:13px 17px;margin:11px 0}
+.done{border-left:4px solid #3fb950}.next{border-left:4px solid #58a6ff}
+.warn{border-left:4px solid #d29922}.bad{border-left:4px solid #f85149}
+table{border-collapse:collapse;width:100%;margin:11px 0;font-size:13px}
+th,td{border:1px solid #2a3038;padding:6px 9px;text-align:left;vertical-align:top}
+th{background:#1a2027;color:#8FD0FF}
+li{margin:6px 0}
+.hi{color:#e3b341}
+pre{background:#0d1117;border:1px solid #2a3038;padding:9px;border-radius:5px;
+font-size:11.5px;overflow-x:auto;color:#b8c2cc}
+</style></head><body>
+
+<h1>Storage design v7 — complete</h1>
+<p>2026-09-11 · <b>self-contained: written so a fresh conversation can pick this
+up cold</b> · nothing built</p>
+
+<h2>The situation</h2>
+<div class="card bad">
+<p><b>GroupTrack is an Android OHV/convoy trail app</b> (Meshtastic fork, repo
+<code>C:\\Users\\kixaz\\Meshtastic-Android</code>, branch
+<code>feature/convoy-event-ride</code>, app id <code>com.grouptrack.android</code>).
+It keeps its data in <b>shared storage</b> at
+<code>Documents/GroupTrack</code> and <code>Documents/my_tracks</code>, which
+requires <code>MANAGE_EXTERNAL_STORAGE</code> (All Files Access).</p>
+
+<p><b>2026-09-10: Google rejected the All Files Access declaration</b> —
+<i>"Access to device storage not required."</i> The appeal filed the same day was
+also rejected. An extension request is in, asking for time to publish a compliant
+build.</p>
+<p class="hi">⛔ Fred: <i>"I cannot publish with that in the manifest."</i> The
+permission comes out. Everything must live in app-private external storage
+(<code>getExternalFilesDir()</code>), which needs no permission at all.</p>
+
+<h3>⭐ And Google's rejection notice named the way out</h3>
+<p><b>The Storage Access Framework.</b> <code>ACTION_OPEN_DOCUMENT_TREE</code>
+lets the rider pick a folder; the app receives a persistable URI with <b>read AND
+write</b> on that tree, and can copy the contents into its own storage. No
+permission, no declaration, no review.</p>
+<p class="hi">⭐⭐ THAT CHANGES THE WHOLE PLAN. Earlier designs assumed a migration
+needed the permission it was trying to stop using — which forced a three-release
+sequence, or a clean install where every rider lost everything. <b>Neither is
+needed.</b></p>
+</div>
+
+<h2>Who this affects</h2>
+<div class="card next">
+<ul>
+<li><b>Ten serious riders</b>, all on <b>Play builds</b>. ⭐ The new build
+installs as a normal update — <b>no uninstall needed</b> — and the picker offers
+their data.</li>
+<li>⚠ <b>Fred's two devices are sideloads</b> (Droid 1
+<code>8624SBCEDF00001789</code> — the field device whose data matters; Droid 2
+<code>24039703201775</code> — sacrificial). Different signing key from Play
+builds, same package name, so moving them to a Play build needs an uninstall
+first. Their data survives it: it is in <code>Documents</code>, not app
+storage.</li>
+<li>⚠ Open testing is live serving <b>29321101</b> from 09-07. The rejection
+blocks UPDATES on every track, internal included — but the app is still
+installable.</li>
+</ul>
+</div>
+
+<h2>What moves — measured on Droid 1, 2026-09-11</h2>
+<div class="card next">
+<table>
+<tr><th>From</th><th>Item</th><th>Size</th><th>Note</th></tr>
+<tr><td rowspan="6"><code>Documents/<br>GroupTrack</code></td>
+<td><code>grouptrack_spatial.db</code></td><td><b>303 MB</b></td>
+<td>147,836 trails</td></tr>
+<tr><td><code>Land_Ownership.geojson</code></td><td><b>72 MB</b></td>
+<td>⚠ loose file at the root, easy to miss — second largest thing moving</td></tr>
+<tr><td><code>grouptrack_data.db</code></td><td><b>39 MB</b></td>
+<td>88 tracks, 559 waypoints</td></tr>
+<tr><td><code>route_drafts/</code></td><td>1.2 MB</td>
+<td>⛔ IN-PROGRESS ROUTES LIVE HERE AND NOWHERE ELSE. A graduated route is a DB
+row; only a DRAFT is a file.</td></tr>
+<tr><td><code>recipes/ data/ imports/<br>osm/ state/ config/</code></td><td>~540 K</td>
+<td><code>data/</code> holds <code>trail_areas/</code></td></tr>
+<tr><td>root JSONs, markers, log</td><td>KB</td>
+<td><code>map_keys.json</code>, <code>map_slots.json</code>,
+<code>autoresync_receipt.json</code>, <code>segmentation_analysis.json</code>,
+<code>track_sync.log</code>. ⚠ Plus dotfiles: <b>THREE</b>
+<code>.trails_cleared_*</code> markers (08-24L, 09-02A, 09-02B),
+<code>.schema_2026-09-03A</code>, <code>.db_schema_version</code>,
+<code>docs_shown_version</code>, <code>mesh_nav_folded</code>,
+<code>.nomedia</code></td></tr>
+<tr><td><code>Documents/<br>my_tracks</code></td><td>recorded GPX</td><td>—</td>
+<td>⚠ A SEPARATE TREE — it sits BESIDE GroupTrack, not inside it</td></tr>
+<tr><td colspan="2"><b>TOTAL MOVING</b></td><td><b>~415 MB</b></td>
+<td>minutes over SAF</td></tr>
+<tr><td colspan="2"><b>DELETED, NOT MOVED</b></td><td><b>~17 GB</b></td>
+<td><code>maps/</code> — MBTiles. See below.</td></tr>
+<tr><td colspan="2"><b>EXCLUDED</b></td><td>0</td>
+<td><code>*-journal</code> — SQLite's own working files, both zero bytes on a
+cleanly closed DB. Not ours to copy.</td></tr>
+</table>
+</div>
+
+<h2>⛔ Maps: deleted, not copied</h2>
+<div class="card bad">
+<p class="hi">Fred: <i>"maps may be a bridge too far if storage is over 10 gigs."</i></p>
+<p><b>SAF HAS NO MOVE, ONLY COPY.</b> The source stays until deleted, so during
+the operation the device needs room for BOTH. <code>maps/</code> is ~17 GB on
+Droid 1 — a copy needs 17 GB free on top of the 17 GB already there. ⚠ Most
+devices will not have it.</p>
+<p>⭐ One-at-a-time would reduce the headroom to the largest SINGLE file, since
+MBTiles is one file per source. ⛔ But a failure partway leaves a rider split
+across three states with maps in neither place, and that complexity is hard to
+justify for ten riders who can re-download overnight on wifi.</p>
+<p><b>DECISION: maps re-download.</b> And the old ones are DELETED — Fred:
+<i>"we cannot risk leaving 50 GB of data on a device."</i></p>
+
+<h3>&#9940; THE DELETE IS A SECOND LAUNCH, NOT THE SAME PASS</h3>
+<p class="hi">Fred, 09-11: <i>"first pass is the copies... the app runs. Second
+load says: if your app is running we will delete your old maps and GroupTrack
+data."</i></p>
+<p><b>FIRST LAUNCH:</b> grant, copy both folders, verify. &#9940; NOTHING IS
+DELETED. The rider then runs the app on internal data with the originals still
+sitting there.</p>
+<p><b>SECOND LAUNCH:</b> the app came back, which is the proof the copy worked.
+NOW offer the delete.</p>
+<p>&#11088; <b>A FAILED COPY THEREFORE COSTS DISK SPACE, NOT DATA.</b> Same
+argument that made the earlier two-phase migration design right, before SAF
+changed the mechanism.</p>
+
+<h3>&#9940; AN OFFER, GATED ON THE LAUNCH HAVING ACTUALLY WORKED</h3>
+<p class="hi">Fred: <i>"offer &#8212; if we had a problem with the launch we do not
+want to continue."</i></p>
+<p>&#9888; <b>"THE APP STARTED" IS NOT ENOUGH.</b> The offer appearing is itself a
+statement that things worked, so it must be gated on something stronger: the
+spatial DB opens, the trails are there, startup completed. &#9940; A rider whose
+first launch went wrong must NOT see a delete offer &#8212; the originals are their
+way back.</p>
+<p>&#9888; <b>An offer, not automatic.</b> ~17 GB of the rider's storage; they
+should see what is going and confirm it.</p>
+
+<h3>&#9888; SO THE GRANT MUST PERSIST</h3>
+<p>&#9940; THIS REVERSES AN EARLIER NOTE IN THIS DOCUMENT. A second-launch delete
+needs the tree grant still valid, so the URI must be persisted with
+<code>takePersistableUriPermission()</code> rather than dying with the session.</p>
+<p>&#9888; And RELEASED once the delete completes &#8212; holding a persisted grant
+on the rider's Documents folder after the app has no further use for it is exactly
+the overreach the two-folders-only rule exists to prevent.</p>
+
+<h3>&#9940; WHAT GETS DELETED: BOTH FOLDERS, NOT JUST maps/</h3>
+<p>By the second launch the app reads internal, so
+<code>Documents/GroupTrack</code> AND <code>Documents/my_tracks</code> are both
+redundant &#8212; <code>maps/</code> included, since it sits inside GroupTrack.</p>
+<p>&#9888; <b>WHAT THE RIDER LOSES BY AGREEING:</b> their only fallback if
+something proves wrong later, and file-manager access to their recorded GPX in
+<code>my_tracks</code>, unreachable once internal. &#11088; Say it on the offer
+screen, not in a release note.</p>
+
+<h3>&#9940; THE TRIGGER IS THE COPIES, NOT THE DELETE</h3>
+<p class="hi">Fred: <i>"if everything is copied and maps is not deleted, the job
+doesn't run again."</i></p>
+<p>&#11088; Once the data is safely copied the migration must NEVER repeat.
+Leftover files are tidiness; re-running the copy over internal data the rider has
+since used would be far worse than 17 GB of clutter.</p>
+
+<h3>&#9888; TWO CASES THE RECORD MUST DISTINGUISH</h3>
+<ul>
+<li><b>Nothing found.</b> A new install grants Documents and there is no
+<code>GroupTrack</code>. &#9940; That is <b>SUCCEEDED WITH NOTHING TO DO</b>, not
+"did not run" &#8212; and it must satisfy the trigger, or a new rider is asked
+every launch forever.</li>
+<li><b>Partial failure.</b> The trigger does not fire and the next launch resumes
+&#8212; &#9888; <b>SKIPPING WHAT IS ALREADY DONE</b>, not starting over. Re-copying
+a completed folder over internal data that has since been used is the failure mode
+to avoid.</li>
+</ul>
+
+<h3>&#11088; THE RECORD IS THE FLAG</h3>
+<p>Fred: <i>"we can use the all-successfully-completed as the trigger not to
+migrate again."</i> &#11088; Nothing to keep in sync &#8212; the condition IS the
+record.</p>
+<ol>
+<li><b>Documents granted</b> &#8212; the tree URI</li>
+<li><b><code>GroupTrack</code> copied</b> &#8212; items, bytes, per-item comparison</li>
+<li><b><code>my_tracks</code> copied</b> &#8212; items, bytes, per-item comparison</li>
+<li><b>Old folders deleted</b> &#8212; SECOND LAUNCH, offered, bytes reclaimed</li>
+</ol>
+<p>&#9888; Steps 1&#8211;3 fire the trigger. Step 4 does not.</p>
+</div>
+
+<h2>The flow — and it is a GATE</h2>
+<div class="card next">
+<p class="hi">⛔⛔ <b>INCOMPLETE MIGRATION BLOCKS THE HOME STATE ENTIRELY.</b>
+Fred: <i>"if the import and delete are not completed we gate the home state
+launch."</i></p>
+<p>⚠ <b>WHY.</b> The home state picker imports ~145,000 trails and takes about an
+hour. A rider who skips the migration, imports fresh, and THEN wants their old
+data has wasted the hour and created a merge problem. ⭐ The gate removes that
+case rather than handling it.</p>
+
+<h3>The sequence</h3>
+<ol>
+<li>App starts, creates its empty structure in
+<code>getExternalFilesDir()</code>.</li>
+<li><b>Is the completion flag set?</b> If yes, proceed normally — never ask
+again. If no, present the migration and <b>go no further</b>.</li>
+<li><b>Rider grants a tree.</b> ⭐ The app then LISTS it —
+<code>DocumentFile.fromTreeUri()</code> then <code>listFiles()</code> — and sees
+for itself what is there.</li>
+<li>Copy <code>GroupTrack</code> contents over the empty install,
+<code>maps/</code> and <code>*-journal</code> excluded.</li>
+<li><b>Copy verified → <code>maps/</code> DELETED</b>, same pass, grant live.</li>
+<li>Copy <code>my_tracks</code> contents.</li>
+<li><b>Write the completion flag and the record.</b> Proceed. The home state
+picker runs only if trails are still needed — which after a successful copy they
+are not.</li>
+</ol>
+
+<h3>⭐ A NEW INSTALL GOES THROUGH THE SAME PROCESS</h3>
+<p class="hi">Fred: <i>"should go through the migration process with no
+directories to select. Same process."</i> ⭐ No special "I have nothing to import"
+button — which was the earlier design and was a mistake, because a rider tapping
+it by reflex would lose everything.</p>
+<p>The rider grants a tree; the app looks inside; there is no
+<code>GroupTrack</code> and no <code>my_tracks</code>; it records the migration as
+resolved and carries on. <b>One tap, and they never see it again.</b></p>
+<h3>⭐ DECIDED: ONE BROAD PICK ON <code>Documents</code></h3>
+<p class="hi">Fred, 09-11: <i>"one broad pick by user for documents. We pick it up
+from there."</i></p>
+<p>The rider grants <code>Documents</code> ONCE. The app then lists it and finds
+<code>GroupTrack</code> and <code>my_tracks</code> for itself — both, one, or
+neither.</p>
+<p>⭐ <b>WHY IT IS THE RIGHT TRADE:</b></p>
+<ul>
+<li><b>One tap, not two.</b> Two narrow picks means asking twice and handling the
+case where they grant one and not the other.</li>
+<li><b>It answers "is there anything there?"</b> Two narrow picks cannot — without
+a grant the app is blind, so a rider with nothing to import would be asked to
+find a folder that does not exist.</li>
+<li><b>A new install goes through the identical path.</b> Grant, look, find
+nothing, resolve. No special case and no "I have nothing" button to tap by
+reflex.</li>
+</ul>
+<p>⚠ <b>THE COST, STATED PLAINLY:</b> the grant is read AND write over everything
+else the rider keeps in <code>Documents</code>.</p>
+<p class="hi">⛔⛔ <b>SO THE RULE IS ABSOLUTE: THE APP READS EXACTLY TWO FOLDERS.</b>
+Fred, 09-11: <i>"I do not want to pick beyond select GroupTrack and my_tracks.
+Then everything comes over."</i> The grant is on <code>Documents</code> only
+because that is the one place from which both can be found — it is NOT a licence
+to look at anything else in it.</p>
+<p>⚠ Nothing the grant provides enforces that. It is a discipline in the code.
+⛔ A future change that walks the tree for any other reason — scanning for
+importable files, tidying, looking for something helpful — is a trust violation
+however well intentioned, and it would be invisible to the rider who tapped
+once.</p>
+
+<h3>⭐ AND INSIDE THOSE TWO, EVERYTHING COMES</h3>
+<p>Fred: <i>"too much is better than not enough."</i> A recursive copy takes
+whatever is there at whatever depth — JSON, logs, dotfiles, all of it — to the
+same relative place. ⭐ That is why the design is an EXCLUSION list: anything the
+app gains later arrives on its own rather than being forgotten because nobody
+updated a manifest.</p>
+<p>⚠ It does mean some clutter follows the rider —
+<code>autoresync_receipt.json</code> (from a feature that is now dead code),
+<code>segmentation_analysis.json</code> from July, <code>track_sync.log</code>.
+⛔ DO NOT TRIM IT. Every exclusion is a judgement that can be wrong, and a stale
+JSON costs kilobytes. The two exclusions that exist — <code>maps/</code> for size
+and <code>*-journal</code> for correctness — are there for reasons; adding more on
+tidiness grounds is how something load-bearing gets dropped. ⚠ The three
+<code>.trails_cleared_*</code> markers in particular look like clutter and are
+not: they stop housekeeping re-firing.</p>
+<p>⚠ And the grant is PERSISTABLE. Take only what is needed: if nothing further
+requires it after the copy, do not persist it at all — a one-shot grant that dies
+with the session is the smaller ask, and the flag means it is never needed
+again.</p>
+
+<h3>⛔ IT PERSISTS UNTIL RESOLVED</h3>
+<p>Every startup presents the same option until the flag is set. ⚠ A rider who
+taps past it would quietly lose their trails AND keep 17 GB of dead files, and
+know neither. The gate makes that impossible.</p>
+</div>
+
+<h2>⛔ The completion flag — and why it is a FLAG, not a disk check</h2>
+<div class="card bad">
+<p class="hi">Fred: <i>"we want to set a flag that data has been moved once
+completely. Do not want someone to save a document called GroupTrack or my_tracks
+and have an issue."</i></p>
+<p><b>THAT IS THE WHOLE ARGUMENT.</b> <code>Documents</code> is the RIDER'S folder.
+Anything can end up in it. A migration that decides what to do by looking for a
+folder NAME would re-fire on an unrelated file months later and offer to import
+over live data.</p>
+<p>⭐ <b>So the flag governs, and nothing else does.</b> Set = never ask again.
+Unset = ask. It supersedes the earlier "is the internal spatial DB still an empty
+schema?" test, which was cleverer and less reliable.</p>
+<p>⚠ <b>It lives in internal storage</b>, so it survives everything except an
+uninstall — which is correct, since an uninstall wipes internal storage anyway and
+a reinstall genuinely should offer the migration again.</p>
+<p>⚠ <b>"Resolved" includes "nothing found."</b> A new install that grants a tree
+with no GroupTrack in it is resolved, not pending.</p>
+</div>
+
+<h2>⭐ The record — because troubleshooting is the point</h2>
+<div class="card next">
+<p class="hi">⛔ ONCE STORAGE GOES INTERNAL, <code>adb shell cat</code> AND
+<code>ls</code> STOP WORKING on the app's files — <code>Android/data</code> is
+blocked to the shell on Android 11+, and <code>run-as</code> is refused on release
+builds. ⚠ Every diagnostic used during development this week stops working. That
+is the reason this record exists.</p>
+
+<p><b>Three steps to recap, each with its result:</b></p>
+<ol>
+<li><code>GroupTrack</code> contents copied — item count, bytes</li>
+<li><code>my_tracks</code> contents copied — item count, bytes</li>
+<li><code>maps/</code> deleted — bytes reclaimed</li>
+</ol>
+
+<h3>What it must hold to be troubleshootable rather than merely reassuring</h3>
+<ul>
+<li><b>Per item:</b> name, source bytes, destination bytes, matched yes/no.
+⭐ That tells you WHICH file failed, not that something did.</li>
+<li><b>The failure itself</b> — the exception message, not just "failed."</li>
+<li><b>The tree URIs granted</b> — so you can see whether they picked what you
+expected.</li>
+<li><b>Timestamps per step</b> — these distinguish a hang from an error.</li>
+</ul>
+
+<p>⭐ <b>The flag file and the record are the same file.</b> One JSON in internal
+storage, written as each step completes.</p>
+<p><b>Where to read it:</b> somewhere out of the way. ⭐ Fred suggested the radio
+control menu — riders do not wander in there. ⚠ <b>And it needs a SHARE
+button</b>, because that is the only way a rider's record reaches you.</p>
+</div>
+
+<h2>⚠ The ordering constraint that survives every redesign</h2>
+<div class="card warn">
+<p class="hi">⛔ <b>THE COPY MUST HAPPEN BEFORE ANYTHING OPENS A DATABASE.</b>
+Copying over an empty install is safe ONLY while those empty schemas are closed.
+An open SQLite file written underneath produces corruption invisible until
+something reads the damaged page.</p>
+<p>⚠ <code>StartupHousekeeping.run()</code> calls
+<code>SpatialDbManager.init()</code>, so by the time the authority gate resolves
+today, <b>the databases ARE open</b>.</p>
+<p>⭐ <code>SpatialDbManager.close()</code> (line ~2536) closes both AND clears
+<code>initialized</code>, so a reopen re-resolves the path. <b>Both halves
+matter</b> — a close leaving <code>initialized</code> true hands back a stale
+handle pointing at the old location, which is precisely the map-source fallback
+lock fixed on 2026-09-10.</p>
+</div>
+
+<h2>⛔ The picker solves the DATA. It does not solve the PATHS.</h2>
+<div class="card bad">
+<p><b>23 sites still resolve to shared storage</b>, and every one must point at
+internal before the permission leaves the manifest — otherwise the app writes
+somewhere it cannot read back.</p>
+
+<h3>⛔⛔ Why an earlier sweep missed them — the durable lesson</h3>
+<p>Thirteen sites were found and fixed on 09-11 by grepping
+<code>Environment.getExternalStorageDirectory()</code>. These 23 use
+<code>getExternalStoragePublicDirectory(DIRECTORY_DOCUMENTS)</code>.
+<b>TWO APIs, ONE DESTINATION.</b></p>
+<p class="hi">⭐⭐ <b>GREP FOR THE DESTINATION, NOT THE API.</b> Search the string
+literals — <code>"GroupTrack</code> and <code>"my_tracks</code> — because those
+cannot be spelled two ways.</p>
+<pre>grep -rn 'DIRECTORY_DOCUMENTS\\|getExternalStorageDirectory' \\
+  app/src/main/java/com/geeksville/mesh/convoy/*.kt | grep -v GroupTrackStorage</pre>
+<p>⛔ Must return <b>zero</b> when finished. Today it returns 23.</p>
+
+<table>
+<tr><th>Group</th><th>Sites</th><th>Fix</th></tr>
+<tr><td><b><code>my_tracks</code></b></td><td>13 across 6 files</td>
+<td>⭐ <code>ConvoyTrackOps.tracksDir()</code> ALREADY EXISTS as a public accessor
+and nobody uses it. Point it at <code>GroupTrackStorage.dir("my_tracks")</code>;
+every other site calls it. ⚠ <code>ConvoyGpsService:324, 372</code> is where
+RECORDING writes — a recording landing somewhere unreadable looks like it worked
+and then vanishes. Also <code>SpatialDbManager:874, 1492, 1666, 2271, 2447</code>,
+<code>ConvoyScreen:2476, 3442, 3466, 3489</code>,
+<code>ConvoyMapViewerScreen:5405, 5435</code>.</td></tr>
+<tr><td><b><code>TrailImporter</code></b></td><td>6 — lines 632, 695, 718, 730,
+741, 758</td>
+<td>Six inline copies of <code>GroupTrack/data/trail_areas</code>. One private
+helper collapses them.</td></tr>
+<tr><td><b>Singles</b></td><td>3</td>
+<td><code>MapSourceManager.externalDir():58</code>,
+<code>HomeStateImportController.importsDir():162</code>,
+<code>SpatialDbManager:897</code> (<code>track_sync.log</code>).</td></tr>
+</table>
+<p>⭐ <code>ConvoyTrackOps.downloadsDir()</code> sits beside
+<code>tracksDir()</code> and <b>STAYS</b> — Downloads is the rider's own folder,
+it is how files get in and out, and reading it needs no permission. That is the
+pattern Google actually wants.</p>
+</div>
+
+<h2>🔴 The real problem of the next session — not the redirects</h2>
+<div class="card warn">
+<p class="hi">⛔ <b><code>getExternalFilesDir()</code> NEEDS A CONTEXT, AND THESE
+ARE OBJECT SINGLETONS.</b> <code>MapStateStore</code> has no Context anywhere.</p>
+<p><code>GroupTrackStorage</code> (created 09-11) currently takes an OPTIONAL
+Context and falls back to the public path — correct while nothing had moved,
+useless once it must resolve internal.</p>
+<p>⭐ The manifest declares <code>MeshUtilApplication</code>
+(<code>AndroidManifest.xml:108</code>), whose <code>onCreate</code> runs before
+everything — the natural place to hand the accessor a context. ⚠ It is an UPSTREAM
+Meshtastic file, so that is a change outside the convoy tree.</p>
+</div>
+
+<h2>⚠ And the authority gate has to go</h2>
+<div class="card warn">
+<p>With no permission to check there is nothing to gate.</p>
+<p>✅ <b>Background location is SAFE.</b> <code>ConvoyScreen:1315</code> has its own
+<code>bgLocationLauncher</code> and <code>:1396</code> checks the permission, so
+removing the gate does not lose location. ⚠ Verified 09-11 — it was the one thing
+that could have broken tracking silently.</p>
+<p class="hi">⛔ <b>BUT THE GATE IS THE NAV START DESTINATION</b>
+(<code>ConvoyNavigation.kt:61</code>), and <code>ConvoyRoutes</code> lives in
+<code>org.meshtastic.core.navigation</code> — a DIFFERENT MODULE, outside the
+convoy tree. Removing it changes where the app boots.</p>
+<p>⛔ <b>AND <code>StartupHousekeeping.run()</code> IS CALLED FROM THE GATE.</b> It
+clears trails, runs the ALTERs and installs the palette. Kill the gate and
+housekeeping needs a new home — it cannot simply be dropped. ⚠ The migration gate
+needs a home too, and it is the same problem.</p>
+</div>
+
+<h2>Order of work</h2>
+<div class="card next">
+<ol>
+<li><b>Delete the three dead migration pieces</b> written on 09-11 and now
+superseded: <code>GroupTrackMigration.kt</code>,
+<code>GroupTrackMigrationScreen.kt</code>, and the
+<code>MIGHOOK-2026-09-11</code> block in the gate. ⭐ Some of the LOGIC is worth
+reading first — the exclusion list and stop-on-failure carry over — but the files
+go.</li>
+<li><b>The gate</b> — first, while fresh. Riskiest edit, and the migration gate
+needs the same home.</li>
+<li><b>The context problem</b> — decide before any redirect depends on it.</li>
+<li><b>The 23 redirects</b>, in three groups.</li>
+<li><b>The SAF picker</b> — flag, record, copy, delete, screen.</li>
+<li><b>The two-line switch</b> in <code>GroupTrackStorage</code>.</li>
+<li>⛔ <b>The manifest LAST.</b> Once the permission is gone nothing can read the
+old location, so everything else must already work.</li>
+<li>Verification grep returns zero. Clean install on <b>Droid 2</b> — the
+sacrificial device, per the standing rule.</li>
+</ol>
+</div>
+
+<h2>⚠ Still to settle</h2>
+<div class="card warn">
+<ol>
+<li><b>Does SAF reading handle a 303 MB database cleanly?</b> The write is to a
+real path, so the destination is an ordinary file. Worth proving first.</li>
+<li><b>Where do the two gates live</b> once the authority gate is gone?</li>
+<li><b>Row counts are not available on both sides.</b> Reading the source through
+SAF gives SQLite no path to open, so certification is byte length only. ⚠ That is
+weaker than the row-count comparison the earlier design had, and it is the price
+of losing the permission.</li>
+</ol>
+</div>
+
+<h2>What the rider gets</h2>
+<div class="card done">
+<table>
+<tr><th></th><th>Clean install (the plan before SAF)</th><th>Picker (this)</th></tr>
+<tr><td>Routes</td><td>export first or lose them</td><td class="hi">survive</td></tr>
+<tr><td>Trails</td><td>re-import, ~1 hour</td><td class="hi">survive</td></tr>
+<tr><td>Tracks</td><td>export and reimport</td><td class="hi">survive</td></tr>
+<tr><td>Waypoints, settings, drafts</td><td>gone or exported</td><td class="hi">survive</td></tr>
+<tr><td>Maps</td><td>re-download ~17 GB</td><td>re-download ~17 GB</td></tr>
+<tr><td>Rider effort</td><td>export, uninstall, delete, install, reimport</td>
+<td class="hi">one or two taps</td></tr>
+</table>
+<p class="hi">⭐ The difference between asking ten people for an evening and asking
+them for a minute.</p>
+</div>
+
+</body></html>

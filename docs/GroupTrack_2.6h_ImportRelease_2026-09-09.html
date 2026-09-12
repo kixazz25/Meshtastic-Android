@@ -1,0 +1,212 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<title>GroupTrack 2.6h — The Import Release, 2026-09-09</title>
+<style>
+body{font:15px/1.68 -apple-system,"Segoe UI",Roboto,sans-serif;max-width:920px;
+margin:0 auto;padding:26px;background:#0f1216;color:#e6edf3}
+h1{font-size:21px;color:#58a6ff;border-bottom:2px solid #2a3038;padding-bottom:8px}
+h2{font-size:16px;color:#58a6ff;margin-top:32px;border-bottom:1px solid #2a3038;padding-bottom:5px}
+h3{font-size:14px;color:#b8c2cc;margin-top:20px}
+code{background:#1a2027;padding:1px 5px;border-radius:3px;font-size:12.5px;color:#8FD0FF}
+.card{background:#161b22;border:1px solid #2a3038;border-radius:8px;padding:13px 17px;margin:11px 0}
+.done{border-left:4px solid #3fb950}.next{border-left:4px solid #58a6ff}
+.warn{border-left:4px solid #d29922}.bad{border-left:4px solid #f85149}
+table{border-collapse:collapse;width:100%;margin:11px 0;font-size:13px}
+th,td{border:1px solid #2a3038;padding:6px 9px;text-align:left;vertical-align:top}
+th{background:#1a2027;color:#8FD0FF}
+li{margin:5px 0}
+.hi{color:#e3b341}
+</style></head><body>
+
+<h1>2.6h — THE IMPORT RELEASE</h1>
+<p>2026-09-09 · restored and redefined · <b>not for the first public release</b></p>
+
+<div class="card bad">
+<h3>⛔ ONE SUBJECT: the import is too slow and too Utah-only</h3>
+<p>Fred, 09-09: <i>"we will not rush something this big into the first public
+release."</i> Early access ships on what exists today. This is what follows it.</p>
+<p>Measured on Droid 2, 09-09, Utah, end to end: <b>1,762 seconds</b>. Roughly 20
+minutes of base import plus 10 for rider trails — and the rider-trail half only
+applies to someone who has imported their own tracks, so a NEW rider sees about
+20.</p>
+<p class="hi">⚠ THAT ~20 MINUTES IS THE BIGGEST INSTALL RISK IN THE PRODUCT. It is
+what the store listing and every Facebook post has to warn about.</p>
+</div>
+
+<h2>1 · The prefilter</h2>
+<div class="card next">
+<h3>What was measured</h3>
+<p>From <code>d2_way_tags.db</code>, 425,000 rows:</p>
+<table>
+<tr><th>highway</th><th>rows</th><th>can never be rideable</th></tr>
+<tr><td><code>service</code></td><td>205,307</td><td>188,638</td></tr>
+<tr><td><code>residential</code></td><td>86,977</td><td>83,793</td></tr>
+<tr><td><code>tertiary</code></td><td>14,068</td><td>13,536</td></tr>
+<tr><td><code>unclassified</code></td><td>14,391</td><td>4,051</td></tr>
+<tr><td><code>track</code> / <code>path</code> / <code>cycleway</code> / <code>bridleway</code></td>
+<td>104,256</td><td>0</td></tr>
+<tr><td><b>TOTAL</b></td><td><b>425,000</b></td><td><b>290,019 (68.2%)</b></td></tr>
+</table>
+
+<h3>⛔ THE FALSE START, AND WHY IT FAILED</h3>
+<p><code>EXTRACTORDER-2026-09-09</code> moved <code>classifyRow</code> above
+<code>decodeLine</code> so geometry was only decoded for rows that survived.
+Sound reasoning, <b>no measurable gain</b>: 792s before, 868s after.</p>
+<p class="hi">⭐ THE GEOMETRY DECODE WAS NEVER THE COST. It is 425,000 individual
+SQLite lookups against <code>osm_way_tags</code>, one per row. Moving them earlier
+does not make them fewer. ⚠ I measured what could be SKIPPED and assumed it was
+what was EXPENSIVE. Those are not the same thing, and the profile should have
+come first.</p>
+<p>⚠ DECIDE: the reorder is harmless and correct but buys nothing. It is in the
+early-access AAB. Keep or revert.</p>
+
+<h3>⭐ THE ACTUAL FIX</h3>
+<p>Ask the tag table ONCE which ids can never be rideable, hold them in a
+<code>HashSet</code>, and let the extract loop skip them with a membership test.
+~280,000 lookups become one indexed query.</p>
+<p><b>⛔ AN EXCLUDE LIST, NOT A KEEP LIST.</b> Anything the query does not
+understand stays in and is classified properly. A keep list silently drops
+whatever the rules learn to handle next.</p>
+<p><b>⛔ AND ONLY THE ROAD-CLASS GROUP IS SAFE TO SKIP.</b> The legally-shut rows
+— <code>access=private</code>, <code>motor_vehicle=no</code> — are KEPT by the
+classifier and labelled, so a rider can see why a trail is not offered. Excluding
+those would change what lands.</p>
+<p>⚠ Every exclusion mirrors a rule in <code>OsmTrailClassifier</code>. <b>If the
+classifier changes and the query does not, ground is lost silently.</b> The two
+must move together, and the safety checks in
+<code>prefilter_check_2026-09-09.py</code> are what proves it:
+<code>unclassified</code> must never be excluded (it is in on shape alone), and
+no row rescued by <code>ohv</code>, <code>atv</code>,
+<code>motor_vehicle</code>, <code>motorcar</code> or <code>four_wd_only</code>
+may be caught.</p>
+</div>
+
+<h2>2 · Preprocess the downloads</h2>
+<div class="card next">
+<p>Fred, 09-09: <i>"the 10 minutes it takes to process the trails before step 7
+will have all the data here for step 7."</i> Fetch and tag ahead of the extract so
+step 7 opens with everything in place.</p>
+
+<h3>⛔ AN AREA DOWNLOAD MAY SPAN SEVERAL STATES</h3>
+<p>A state download is one PBF and one GeoPackage. An area download is N of each —
+Bar 10 crosses into Arizona, and the Nevada corner is right there. So this is not
+one job, it is a job per state, merging into one tag table.</p>
+<p>⚠ <b>The merge must be idempotent.</b> A rider who has Utah and then downloads
+an area crossing into Arizona must not refetch Utah. <code>osm_way_tags</code>
+keyed on <code>osm_id</code> handles it — OSM ids are globally unique — but only
+if the table PERSISTS between downloads rather than being rebuilt.</p>
+<p class="hi">🔴 OPEN, AND IT GATES EVERYTHING BELOW: does
+<code>osm_way_tags</code> survive between imports today, or is it dropped and
+rebuilt? If it is rebuilt, a second state download already pays the full tag cost
+again, and the ledger is meaningless until that changes.</p>
+</div>
+
+<h2>3 · The per-state ledger</h2>
+<div class="card next">
+<p>Fred, 09-09: <i>"nounce the state selection list against the preprocessing
+successful state and remove them from eval."</i></p>
+<p>Before preprocessing, take the states the download needs, subtract those
+already recorded done, fetch and tag only what is left.</p>
+
+<h3>⛔ RECORDED ON SUCCESS, NEVER ON START</h3>
+<p>A state marked done after a half-finished tag pass leaves a partial table
+nothing ever revisits. ⚠ That is the shape of the 09-07 marker problem —
+clearing two of three left the third standing down silently — and of
+<code>clearTrailsOnce</code>, which writes its marker AFTER the clear precisely so
+a crash retries.</p>
+
+<h3>⚠ AND IT MUST KNOW WHEN TO INVALIDATE</h3>
+<p>Geofabrik refreshes their extracts. Seen 09-09: 425,218 → 425,267 rows between
+two runs a day apart. A state done six months ago is stale. <b>Store the date
+alongside the state</b> so the policy can be decided later without redoing the
+structure.</p>
+</div>
+
+<h2>4 · Resume an unfinished download</h2>
+<div class="card next">
+<p>Fred, 09-09: <i>"a start for a failed process at that process step ... using
+the failure at step as the pickup point."</i></p>
+<p>Per state, the steps are: <b>fetch PBF → build tag rows → prefilter → fetch
+GeoPackage → extract</b>. The ledger records which one it died at; the restart
+re-enters there.</p>
+
+<h3>⛔ A STEP IS DONE ONLY WHEN ITS OUTPUT IS COMPLETE AND VERIFIED</h3>
+<p>A partly-written step RESTARTS. Only a verified one is skipped.</p>
+<ul>
+<li><b>Files are easy.</b> A PBF or GeoPackage of the expected size is a
+<code>stat</code>; a short one is a resume or a refetch.</li>
+<li>⚠ <b>The tag pass is not.</b> It is a table, not a file, and <b>row count
+alone does not prove it finished</b> — it proves it got somewhere. ⭐ SIMPLEST
+SAFE RULE: a tag pass that did not finish is redone from scratch. Minutes, not
+the twenty.</li>
+</ul>
+
+<h3>Where the resume check runs</h3>
+<p>⛔ <b>NOT in <code>StartupHousekeeping.run()</code></b> — it checks its marker
+first and returns, so anything inside fires only on launches that clear and
+reload.</p>
+<p>⭐ <b><code>everyLaunch(ctx)</code>, after the authority gate resolves.</b> That
+is the ungated pass built 09-08, and it already runs where shared storage is
+available.</p>
+<p class="hi">⚠ ITS RULES APPLY: cheap, idempotent, non-destructive, never throws.
+A resume check that finds nothing pending runs on every launch forever, so it must
+cost almost nothing.</p>
+
+<h3>🔴 TWO THINGS TO DECIDE FIRST</h3>
+<ul>
+<li><b>Resume automatically, or ask?</b> A 317 MB download restarting silently on
+mobile data is a one-star. Prompting is safer; automatic is smoother on wifi.</li>
+<li><b>What counts as unfinished?</b> A PBF at 90% is resumable. A tag pass that
+died mid-write is not. The ledger has to record which.</li>
+</ul>
+<p>⭐ This connects to the existing checklist item — <b>crashed-import restart
+from the manifest</b>. Same problem at the stage level, and step 8 becoming a
+tracked stage on 09-08 was its prerequisite.</p>
+</div>
+
+<h2>5 · Fifty-state land ownership</h2>
+<div class="card warn">
+<p><b>This is what makes the app Utah-only in practice.</b> Only Utah has the
+ownership polygon layer, so <code>land_status</code> is null everywhere else and
+the private filter cannot work.</p>
+<p>A rider in Colorado installs, waits twenty minutes, and gets trails with no
+ownership — which is a bad review and the honest reason the store listing has to
+name which states have good coverage.</p>
+<p class="hi">⚠ CARRIED FROM THE EXISTING 2.6h LIST: a layer that lists PUBLIC land
+positively INVERTS the test. Utah's layer answers "who owns this"; a layer that
+answers "this is public" means absence is not private. Getting that backwards
+would mark public land private across a whole state.</p>
+<p>⭐ And <code>allPrivate()</code> already samples every half mile plus both ends,
+with any public segment winning — so the sampling is settled. What is missing is
+the data source per state.</p>
+</div>
+
+<h2>What this closes</h2>
+<div class="card done">
+<p>Fred, 09-09: <i>"that closes the door on trail accuracy or loading
+issues."</i></p>
+<ul>
+<li><b>Loading</b> — the prefilter and preprocessing cut the base import; the
+ledger stops a second state paying the full cost; the resume stops a failed
+download costing everything.</li>
+<li><b>Accuracy</b> — fifty-state ownership makes <code>land_status</code> real
+outside Utah, which is what the private filter and the router both depend on.</li>
+</ul>
+</div>
+
+<h2>⚠ Open questions, in order</h2>
+<div class="card warn">
+<ol>
+<li><b>Does <code>osm_way_tags</code> persist between imports?</b> Gates the
+ledger and the merge.</li>
+<li><b>Are both downloads needed?</b> 160 MB PBF and 317 MB GeoPackage, 2:20 and
+4:47 today — about seven of the twenty minutes. The GeoPackage supplies geometry,
+the PBF supplies tags. Design question, not tuning.</li>
+<li><b>Keep or revert <code>EXTRACTORDER-2026-09-09</code>?</b> Harmless, correct,
+buys nothing, and it is in the early-access build.</li>
+<li><b>Resume automatically or prompt?</b></li>
+<li><b>Which states get ownership data first?</b> Follow where riders actually
+are, once early access shows you.</li>
+</ol>
+</div>
+
+</body></html>
