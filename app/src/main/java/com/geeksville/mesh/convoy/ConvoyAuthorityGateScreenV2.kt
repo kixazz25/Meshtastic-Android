@@ -369,41 +369,20 @@ fun ConvoyAuthorityGateScreenV2(
         }
     }
 
-    // MIGHOOK-2026-09-11: \u26d4 THE STORAGE MIGRATION, AND IT COMES FIRST.
+    // HOUSEKEEPING-2026-09-12: ⛔ the MIGHOOK-2026-09-11 block was
+    // here -- yesterday's migration screen, wired to a design that SAF
+    // superseded. It was still composing on every launch (Fred saw it
+    // flash by), which would have collided with the real conversion.
     //
-    // Two things must happen before the map loads, in this order: migrate to
-    // internal storage if shared storage still holds data, THEN load trails if
-    // none exist. \u26a0 Reversed, the trail import writes into whichever root is
-    // current -- into a location about to be superseded, or into internal, after
-    // which the migration copies stale external data over the top.
+    // ⭐ THE POSITION WAS RIGHT AND IS WORTH KEEPING IN MIND: after
+    // authority resolves, before anything else composes, rendering in
+    // place of the gate body so there is no Exit button to cancel with.
+    // ⚠ The conversion needs a RIDER for the SAF grant, so it owns a
+    // screen and cannot be a silent housekeeping job.
     //
-    // \u26a0 AFTER AUTHORITY, BECAUSE READING THE SOURCE NEEDS IT. On a reinstall
-    // the permission may not be granted yet, and a migration that runs early
-    // reads nothing, finds nothing, and would conclude it is COMPLETE when it
-    // simply could not see the source. Granted and NeedTrailData both mean
-    // authority is satisfied, so the source is readable in either.
-    //
-    // \u26d4 RENDERED BEFORE THE Surface, NOT INSIDE IT. The Surface below carries
-    // the title, the state dispatch AND the Exit button. This work must not be
-    // cancellable, so none of that is composed while it runs.
-    var migrationDone by remember { mutableStateOf(false) }
-    val needsMigration = remember(state, migrationDone) {
-        !migrationDone &&
-            (state is AuthorityState.Granted || state is AuthorityState.NeedTrailData) &&
-            GroupTrackMigration.externalHasData()
-    }
-    if (needsMigration) {
-        GroupTrackMigrationScreen(
-            onDone = {
-                // \u2b50 Re-evaluate rather than proceed, exactly as the trail picker
-                // does. The existing state machine decides what comes next --
-                // there is no second copy of that logic here.
-                migrationDone = true
-                state = evaluateState(context)
-            }
-        )
-        return
-    }
+    // ⛔ BUT IT MUST COMPLETE BEFORE StartupHousekeeping.run() IS
+    // CALLED, not merely before the state dispatch -- run() opens the
+    // database files the conversion replaces.
 
     Surface(color = MshBg, modifier = Modifier.fillMaxSize()) {
         Column(
