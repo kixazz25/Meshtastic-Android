@@ -93,35 +93,37 @@ private sealed class AuthorityState {
 private var startupJobDone = false
 
 /**
- * The accurate authority test. Attempts a REAL read of the spatial-DB directory
- * rather than trusting Environment.isExternalStorageManager(). Returns true only
- * if the directory is actually listable/creatable — i.e. we genuinely have access.
+ * CANARYOUT-2026-09-11: the authority test, simplified to what the platform
+ * actually guarantees.
  *
- * canaryDir defaults to the GroupTrack documents directory on shared storage.
+ * \u26d4 THIS USED TO WRITE AND DELETE A CANARY FILE in Documents/GroupTrack,
+ * because `isExternalStorageManager()` could return STALE-TRUE -- the OS said the
+ * app was the storage manager while a real write failed.
+ *
+ * \u2b50 THAT CONDITION NO LONGER OCCURS (Fred, 09-11). It came from authority
+ * being tied to the process identity of the newly installed program: after an
+ * uninstall and reinstall the new program never inherited the old authorities,
+ * and the API reported yes regardless. The current grant model does not behave
+ * that way.
+ *
+ * \u26a0 REMOVED NOW RATHER THAN LATER ON PURPOSE. Fred: *"the severity of
+ * forgetting to remove it is worse than removing it for an instance that does not
+ * occur."* Dead code that looks live survives because nobody is sure about it.
+ * And once the GroupTrack root moves to app-private storage the probe would test
+ * NOTHING -- a write to the app's own directory always succeeds -- while still
+ * looking like a real guard.
+ *
+ * \u26a0 The signature keeps its shape: both callers in this file pass no argument.
  */
-fun hasRealStorageAccess(
-    canaryDir: File = File(Environment.getExternalStorageDirectory(), "Documents/GroupTrack")
-): Boolean {
+fun hasRealStorageAccess(): Boolean {
     // Below API R the legacy model applies and this path is directly accessible.
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return true
 
-    // Necessary first gate: if the OS says we are NOT the storage manager, we
-    // definitely do not have all-files access. (This can go stale-TRUE after
-    // clear-data, so it is necessary but NOT sufficient — hence the write test.)
-    if (!Environment.isExternalStorageManager()) return false
-
-    // Sufficient test: actually exercise all-files authority by writing and
-    // deleting a canary file in the target dir. Scoped storage / MediaStore does
-    // NOT permit this in Documents/GroupTrack without MANAGE_EXTERNAL_STORAGE, so
-    // a successful write+delete is ground-truth proof of real access. This catches
-    // the stale-TRUE case: isExternalStorageManager() lies "yes" but the write fails.
+    // CANARYOUT-2026-09-11: the OS answer, which is now trustworthy. \u26a0 Wrapped
+    // because a SecurityException here must read as "no access", never as a
+    // crash on the path that decides whether the app can start.
     return try {
-        if (!canaryDir.exists() && !canaryDir.mkdirs()) return false
-        val canary = File(canaryDir, ".authority_probe")
-        canary.writeText("probe")           // throws if access is not real
-        val ok = canary.exists() && canary.canRead()
-        canary.delete()
-        ok
+        Environment.isExternalStorageManager()
     } catch (_: SecurityException) {
         false
     } catch (_: Exception) {
@@ -365,6 +367,42 @@ fun ConvoyAuthorityGateScreenV2(
         } else {
             fresh
         }
+    }
+
+    // MIGHOOK-2026-09-11: \u26d4 THE STORAGE MIGRATION, AND IT COMES FIRST.
+    //
+    // Two things must happen before the map loads, in this order: migrate to
+    // internal storage if shared storage still holds data, THEN load trails if
+    // none exist. \u26a0 Reversed, the trail import writes into whichever root is
+    // current -- into a location about to be superseded, or into internal, after
+    // which the migration copies stale external data over the top.
+    //
+    // \u26a0 AFTER AUTHORITY, BECAUSE READING THE SOURCE NEEDS IT. On a reinstall
+    // the permission may not be granted yet, and a migration that runs early
+    // reads nothing, finds nothing, and would conclude it is COMPLETE when it
+    // simply could not see the source. Granted and NeedTrailData both mean
+    // authority is satisfied, so the source is readable in either.
+    //
+    // \u26d4 RENDERED BEFORE THE Surface, NOT INSIDE IT. The Surface below carries
+    // the title, the state dispatch AND the Exit button. This work must not be
+    // cancellable, so none of that is composed while it runs.
+    var migrationDone by remember { mutableStateOf(false) }
+    val needsMigration = remember(state, migrationDone) {
+        !migrationDone &&
+            (state is AuthorityState.Granted || state is AuthorityState.NeedTrailData) &&
+            GroupTrackMigration.externalHasData()
+    }
+    if (needsMigration) {
+        GroupTrackMigrationScreen(
+            onDone = {
+                // \u2b50 Re-evaluate rather than proceed, exactly as the trail picker
+                // does. The existing state machine decides what comes next --
+                // there is no second copy of that logic here.
+                migrationDone = true
+                state = evaluateState(context)
+            }
+        )
+        return
     }
 
     Surface(color = MshBg, modifier = Modifier.fillMaxSize()) {

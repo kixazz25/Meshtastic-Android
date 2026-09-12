@@ -38,11 +38,58 @@ object GroupTrackStorage {
         if (appContext == null && ctx != null) appContext = ctx.applicationContext
     }
 
+    /** Has a Context been supplied yet? */
+    fun hasContext(): Boolean = appContext != null
+
+    /**
+     * INTERNALBASE-2026-09-12: the app-private external base.
+     *
+     * \u2b50 `getExternalFilesDir(null)` needs NO permission, is not visible to
+     * other apps, and gives a real filesystem path -- so SQLite, MBTiles and
+     * everything else work there unchanged.
+     *
+     * \u26d4 IT RETURNS NULL RATHER THAN FALLING BACK. A silent fallback to the
+     * public path after MANAGE_EXTERNAL_STORAGE has left the manifest means
+     * writing somewhere the app cannot read back -- and that looks exactly like
+     * it worked. Callers must handle null; the alternative is invisible data
+     * loss.
+     */
+    fun internalBase(): File? {
+        val ctx = appContext ?: return null
+        return try {
+            ctx.getExternalFilesDir(null)
+        } catch (e: Exception) {
+            android.util.Log.e("GTStorage", "internalBase failed: ${e.message}")
+            null
+        }
+    }
+
     /** `Documents/GroupTrack` -- the public root, as it has always been. */
     private fun publicRoot(): File = File(
         Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS),
         "GroupTrack"
     )
+
+    /**
+     * INTERNALBASE-2026-09-12: `Documents/my_tracks` -- where GPS recording
+     * writes today.
+     *
+     * \u26a0 IT IS A SIBLING OF GroupTrack, NOT A CHILD. Easy to get wrong, because
+     * every other GroupTrack path hangs off [root] -- but my_tracks sits beside
+     * it in Documents and must keep doing so internally, or the layout changes
+     * under the migration.
+     */
+    private fun publicTracksRoot(): File = File(
+        Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS),
+        "my_tracks"
+    )
+
+    /**
+     * INTERNALBASE-2026-09-12: the two internal counterparts. \u2b50 Same names, same
+     * relationship -- only the base differs.
+     */
+    private fun internalRoot(): File? = internalBase()?.let { File(it, "GroupTrack") }
+    private fun internalTracksRoot(): File? = internalBase()?.let { File(it, "my_tracks") }
 
     /**
      * The GroupTrack root. Everything except the tile store lives under here.
@@ -88,4 +135,30 @@ object GroupTrackStorage {
 
     /** A named child of the root, e.g. `dir("state")`. */
     fun dir(name: String, ctx: Context? = null): File = File(root(ctx), name)
+
+    /**
+     * INTERNALBASE-2026-09-12: the recorded-GPX root, `my_tracks`.
+     *
+     * \u26d4 USE THIS, NEVER `dir("my_tracks")`. The latter would nest it INSIDE
+     * GroupTrack and silently change a layout that has been flat since the
+     * beginning -- the migration copies Documents/my_tracks to its own place, and
+     * a caller resolving it under GroupTrack would look in the wrong one.
+     *
+     * \u26a0 RELEASE 1 RETURNS THE PUBLIC PATH, unchanged.
+     * `ConvoyTrackOps.tracksDir()` is the canonical caller and everything else
+     * should route through that.
+     */
+    fun tracksRoot(ctx: Context? = null): File {
+        remember(ctx)
+        return publicTracksRoot()
+    }
+
+    /**
+     * INTERNALBASE-2026-09-12: \u26a0 DIAGNOSTIC ONLY -- what the switch WILL return.
+     * Nothing in the app should call these to resolve a path; they exist so the
+     * migration and the record can name both sides while the switch is still
+     * off.
+     */
+    fun plannedInternalRoot(): File? = internalRoot()
+    fun plannedInternalTracksRoot(): File? = internalTracksRoot()
 }

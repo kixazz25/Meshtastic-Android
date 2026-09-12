@@ -31,14 +31,20 @@ object ConvoyConfig {
     const val LOCAL_TILE_BASE = "convoy://tiles/"
 
     // Shared tile storage — package-independent, survives app reinstall/rename
-    // /sdcard/Documents/GroupTrack/maps/tiles/{source}/{z}/{x}/{y}.png
+    // <tileRoot>/maps/tiles/{source}/{z}/{x}/{y}.png
+    //
+    // TILEROOT-2026-09-11: \u26d4 tileRoot(), NOT root(). The MBTiles store stays in
+    // PUBLIC storage through release 1 while everything else migrates to
+    // app-private -- ~17 GB that cannot move quickly, against ~415 MB that can.
+    // \u2b50 Release 2 changes this ONE accessor rather than reopening the migration.
+    //
+    // \u26a0 The line above is the property being traded away if the tiles ever move
+    // internal: a rider can back a public map store up to an SD card and restore
+    // it to a replacement device. Under Android 11+ an app-private directory is
+    // not reachable by any file manager, so none of that is possible there.
     val TILE_DIR: java.io.File
         get() {
-            val dir = java.io.File(
-                android.os.Environment.getExternalStoragePublicDirectory(
-                    android.os.Environment.DIRECTORY_DOCUMENTS
-                ), "GroupTrack/maps/tiles"
-            )
+            val dir = java.io.File(GroupTrackStorage.tileRoot(), "maps/tiles")
             if (!dir.exists()) dir.mkdirs()
             return dir
         }
