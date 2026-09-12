@@ -55,13 +55,9 @@ object MapSourceManager {
 
     private var appContext: Context? = null
 
-    private fun externalDir(): File {
-        val dir = File(android.os.Environment.getExternalStoragePublicDirectory(
-            android.os.Environment.DIRECTORY_DOCUMENTS
-        ), "GroupTrack")
-        if (!dir.exists()) dir.mkdirs()
-        return dir
-    }
+    // LASTPATHS-2026-09-12: was a second, independent copy of the GroupTrack
+    // root expression. \u26a0 rootReady() does the same mkdirs.
+    private fun externalDir(): File = GroupTrackStorage.rootReady(appContext)
 
     private fun externalJsonFile(): File = File(externalDir(), "map_sources.json")
     private fun apiKeysFile(): File = File(externalDir(), "api_keys.json")

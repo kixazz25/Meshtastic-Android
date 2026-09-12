@@ -627,12 +627,7 @@ object TrailImporter {
         south: Double?, west: Double?, north: Double?, east: Double?
     ) {
         try {
-            val dir = File(
-                android.os.Environment.getExternalStoragePublicDirectory(
-                    android.os.Environment.DIRECTORY_DOCUMENTS),
-                "GroupTrack/data/trail_areas"
-            )
-            if (!dir.exists()) dir.mkdirs()
+            val dir = trailAreasDir()   // TRAILAREAS-2026-09-12
             val isFullSource = (south == null && west == null && north == null && east == null)
             val json = JSONObject().apply {
                 put("type", if (isFullSource) "full_source" else "area")
@@ -690,12 +685,7 @@ object TrailImporter {
     /** Write pending area JSON (unprocessed) for Method B signal */
     fun writePendingArea(north: Double, south: Double, east: Double, west: Double) {
         try {
-            val dir = File(
-                android.os.Environment.getExternalStoragePublicDirectory(
-                    android.os.Environment.DIRECTORY_DOCUMENTS),
-                "GroupTrack/data/trail_areas"
-            )
-            if (!dir.exists()) dir.mkdirs()
+            val dir = trailAreasDir()   // TRAILAREAS-2026-09-12
             val json = JSONObject().apply {
                 put("type", "area")
                 put("status", "unprocessed")
@@ -713,11 +703,7 @@ object TrailImporter {
     /** Read pending area JSON, return bbox or null */
     fun readPendingArea(): JSONObject? {
         return try {
-            val f = File(
-                android.os.Environment.getExternalStoragePublicDirectory(
-                    android.os.Environment.DIRECTORY_DOCUMENTS),
-                "GroupTrack/data/trail_areas/pending_area.json"
-            )
+            val f = File(trailAreasDir(), "pending_area.json")   // TRAILAREAS-2026-09-12
             if (f.exists()) JSONObject(f.readText()) else null
         } catch (_: Exception) { null }
     }
@@ -725,22 +711,15 @@ object TrailImporter {
     /** Delete pending area JSON after processing */
     fun clearPendingArea() {
         try {
-            File(
-                android.os.Environment.getExternalStoragePublicDirectory(
-                    android.os.Environment.DIRECTORY_DOCUMENTS),
-                "GroupTrack/data/trail_areas/pending_area.json"
-            ).let { if (it.exists()) it.delete() }
+            File(trailAreasDir(), "pending_area.json")   // TRAILAREAS-2026-09-12
+                .let { if (it.exists()) it.delete() }
         } catch (_: Exception) {}
     }
 
     /** Scan all processed trail area JSONs for map overlay */
     fun scanTrailAreas(): List<JSONObject> {
         return try {
-            val dir = File(
-                android.os.Environment.getExternalStoragePublicDirectory(
-                    android.os.Environment.DIRECTORY_DOCUMENTS),
-                "GroupTrack/data/trail_areas"
-            )
+            val dir = trailAreasDir()   // TRAILAREAS-2026-09-12
             if (!dir.exists()) return emptyList()
             dir.listFiles()
                 ?.filter { it.extension == "json" && it.name != "pending_area.json" }
@@ -753,11 +732,7 @@ object TrailImporter {
     /** Check if a source has been fully imported */
     fun isSourceFullyImported(sourceId: String): Boolean {
         return try {
-            val f = File(
-                android.os.Environment.getExternalStoragePublicDirectory(
-                    android.os.Environment.DIRECTORY_DOCUMENTS),
-                "GroupTrack/data/trail_areas/source_${sourceId}.json"
-            )
+            val f = File(trailAreasDir(), "source_${sourceId}.json")   // TRAILAREAS-2026-09-12
             if (f.exists()) {
                 val j = JSONObject(f.readText())
                 // RESELECT-2026-07-27: writeTrailAreaJson sets status=processed
@@ -908,4 +883,24 @@ object TrailImporter {
             }
         } catch (ex: Exception) { Log.e(TAG, "Catalog: ${ex.message}"); null }
     }
+
+    /**
+     * TRAILAREAS-2026-09-12: \u2b50 the ONE place trail_areas is resolved.
+     *
+     * \u26d4 This path was constructed inline SIX times in this file. Three sites
+     * wanted the directory, three wanted a file inside it with the name glued
+     * onto the path string -- and three called mkdirs() while three did not.
+     *
+     * \u26a0 mkdirs() lives here now, so every caller behaves the same. The read
+     * paths never needed it; creating a directory in order to find it empty is
+     * harmless.
+     *
+     * \u26a0 private -- nothing outside this file uses trail_areas.
+     */
+    private fun trailAreasDir(): File {
+        val dir = GroupTrackStorage.dir("data/trail_areas")
+        if (!dir.exists()) dir.mkdirs()
+        return dir
+    }
+
 }

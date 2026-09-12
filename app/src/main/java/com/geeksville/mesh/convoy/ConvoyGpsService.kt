@@ -320,10 +320,8 @@ class ConvoyGpsService : Service() {
     // ── KML ───────────────────────────────────────────────────────────────────
 
     private fun createTempKmlFile(): File {
-        val dir = File(
-            android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOCUMENTS), "my_tracks"
-        )
-        if (!dir.exists()) dir.mkdirs()
+        // MYTRACKS-2026-09-12: ⚠ recording writes here.
+        val dir = ConvoyTrackOps.tracksDir()
         val sdf = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US)
         return File(dir, "convoy_track_temp_${sdf.format(Date())}.kml")
     }
@@ -368,10 +366,8 @@ class ConvoyGpsService : Service() {
     private var gpxWriter: java.io.BufferedWriter? = null
 
     private fun createTempGpxFile(): java.io.File {
-        val dir = java.io.File(
-            android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOCUMENTS), "my_tracks"
-        )
-        if (!dir.exists()) dir.mkdirs()
+        // MYTRACKS-2026-09-12: ⚠ recording writes here.
+        val dir = ConvoyTrackOps.tracksDir()
         val sdf = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.US)
         return java.io.File(dir, "convoy_track_temp_${sdf.format(java.util.Date())}.gpx")
     }

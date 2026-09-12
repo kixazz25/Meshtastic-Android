@@ -870,10 +870,7 @@ object SpatialDbManager {
         var syncFailures: List<String> = emptyList()
         try {
         try {
-            val tracksDir = java.io.File(
-                android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOCUMENTS),
-                "my_tracks"
-            )
+            val tracksDir = ConvoyTrackOps.tracksDir()   // MYTRACKSDB-2026-09-12
             if (!tracksDir.exists() || !tracksDir.isDirectory) {
                 android.util.Log.i("TrackSync", "my_tracks directory not found")
                 return TrackSyncResult(0, 0, 0, 0, emptyList())
@@ -893,10 +890,8 @@ object SpatialDbManager {
             android.util.Log.i("TrackSync", "Found ${gpxFiles.size} GPX files to sync")
 
             // Per-file decision log to disk (logcat unreliable here). Overwrite each run.
-            val logFile = java.io.File(
-                android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOCUMENTS),
-                "GroupTrack/track_sync.log"
-            )
+            // LASTPATHS-2026-09-12
+            val logFile = java.io.File(GroupTrackStorage.root(), "track_sync.log")
             val log = StringBuilder()
             fun L(msg: String) { log.append(msg).append("\n"); android.util.Log.i("TrackSync", msg); onProgress?.invoke(msg) }
             L("=== sync start: ${gpxFiles.size} gpx files ===")
@@ -1487,11 +1482,10 @@ object SpatialDbManager {
             val _embName = Regex("<name>([^<]*)</name>").find(gpxText)?.groupValues?.get(1)?.trim() ?: "?"
             android.util.Log.i("HASHTRACE", "RESOLVE file=${sourceFile.name} passedName='$name' embeddedName='$_embName' pts=${coords.size} first=(${coords.firstOrNull()}) last=(${coords.lastOrNull()}) wktLen=${wkt.length} hash=${computeGeomHash(wkt).take(16)}")
             val res = insertTrackToDb(name, wkt, minLat, maxLat, minLon, maxLon)
+            // MYTRACKSDB-2026-09-12: ⚠ inner replaced, outer kept -- it is
+            // what joins the directory to the filename.
             val hashFile = java.io.File(
-                java.io.File(
-                    android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOCUMENTS),
-                    "my_tracks"
-                ),
+                ConvoyTrackOps.tracksDir(),
                 "${res.geomHash}.gpx"
             )
 
@@ -1662,10 +1656,7 @@ object SpatialDbManager {
             return false
         }
 
-        val tracksDir = java.io.File(
-            android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOCUMENTS),
-            "my_tracks"
-        )
+        val tracksDir = ConvoyTrackOps.tracksDir()   // MYTRACKSDB-2026-09-12
         val gpxFile = java.io.File(tracksDir, "$geomHash.gpx")
         if (!gpxFile.exists()) {
             android.util.Log.w("TrackProps", "file missing: ${gpxFile.name} (track_id=$tid)")
@@ -2267,10 +2258,7 @@ object SpatialDbManager {
         val h = geomHash
         if (h != null && h.isNotBlank()) {
             try {
-                val tracksDir = java.io.File(
-                    android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOCUMENTS),
-                    "my_tracks"
-                )
+                val tracksDir = ConvoyTrackOps.tracksDir()   // MYTRACKSDB-2026-09-12
                 val f = java.io.File(tracksDir, "$h.gpx")
                 if (f.exists()) {
                     val ok = f.delete()
@@ -2441,12 +2429,8 @@ object SpatialDbManager {
             }
         } catch (_: Exception) { }
 
-        // Read the GPX file from Documents/my_tracks/{geom_hash}.gpx
-        val tracksDir = java.io.File(
-            android.os.Environment.getExternalStoragePublicDirectory(
-                android.os.Environment.DIRECTORY_DOCUMENTS),
-            "my_tracks"
-        )
+        // Read the GPX file from <tracks root>/{geom_hash}.gpx
+        val tracksDir = ConvoyTrackOps.tracksDir()   // MYTRACKSDB-2026-09-12
         val gpxFile = java.io.File(tracksDir, "$geomHash.gpx")
         if (!gpxFile.exists()) {
             android.util.Log.e("SpatialDb", "Track file not found: ${gpxFile.absolutePath}")

@@ -956,8 +956,12 @@ fun ConvoyScreen(
                                 return true
                             }
                         }
-                        // One-time tile migration: old package dir → shared Documents
-                        ConvoyConfig.migrateTiles(ctx)
+                        // LASTPATHS-2026-09-12: ⛔ ConvoyConfig.migrateTiles(ctx) was
+                        // called here. It moved tiles from app-private storage OUT
+                        // to shared Documents -- the pre-MBTiles migration, and
+                        // exactly backwards from where storage is now going. Once
+                        // tileRoot() resolves internal, its source and destination
+                        // would be the SAME directory. Deleted, not disabled.
                         loadUrl("file:///android_asset/convoy_map.html")
                         addJavascriptInterface(object : Any() {
                             @android.webkit.JavascriptInterface
@@ -2472,9 +2476,7 @@ fun ConvoyScreen(
                                 val wv = webViewRef.value
                                 kotlinx.coroutines.MainScope().launch {
                                     val trackColor = "#39FF14"
-                                    val dir = java.io.File(
-                                        android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOCUMENTS),
-                                        "my_tracks")
+                                    val dir = ConvoyTrackOps.tracksDir()   // MYTRACKSUI-2026-09-12
                                     val files = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                                         dir.listFiles()?.map { it.name }?.sorted() ?: emptyList()
                                     }
@@ -3437,11 +3439,7 @@ fun ConvoyButtonBar(
 
 // ── Convoy track file helpers ─────────────────────────────────────
 fun convoyListTracks(context: android.content.Context): List<String> {
-    val dir = java.io.File(
-        android.os.Environment.getExternalStoragePublicDirectory(
-            android.os.Environment.DIRECTORY_DOCUMENTS
-        ), "my_tracks"
-    )
+    val dir = ConvoyTrackOps.tracksDir()   // MYTRACKSUI-2026-09-12
     if (!dir.exists()) return emptyList()
     return dir.listFiles()
         ?.filter { f ->
@@ -3461,11 +3459,7 @@ fun convoyLoadTrackData(
     fileName: String
 ): String? {
     return try {
-        val dir = java.io.File(
-            android.os.Environment.getExternalStoragePublicDirectory(
-                android.os.Environment.DIRECTORY_DOCUMENTS
-            ), "my_tracks"
-        )
+        val dir = ConvoyTrackOps.tracksDir()   // MYTRACKSUI-2026-09-12
         val file = java.io.File(dir, fileName)
         if (!file.exists()) return null
         val text = file.readText()
@@ -3484,11 +3478,7 @@ fun convoyLoadTrack(
     webView: android.webkit.WebView?
 ) {
     try {
-        val dir = java.io.File(
-            android.os.Environment.getExternalStoragePublicDirectory(
-                android.os.Environment.DIRECTORY_DOCUMENTS
-            ), "my_tracks"
-        )
+        val dir = ConvoyTrackOps.tracksDir()   // MYTRACKSUI-2026-09-12
         val file = java.io.File(dir, fileName)
         if (!file.exists()) return
         val text = file.readText()

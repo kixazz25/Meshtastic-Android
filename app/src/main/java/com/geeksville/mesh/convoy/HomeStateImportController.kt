@@ -156,13 +156,11 @@ object HomeStateImportController {
         return JSONObject()
     }
 
+    // LASTPATHS-2026-09-12: \u2b50 ctx is passed through to the accessor, which
+    // remembers the first Context it is given -- the switch to app-private
+    // storage needs one and these are object singletons.
     private fun importsDir(ctx: Context): File {
-        val d = File(
-            android.os.Environment.getExternalStoragePublicDirectory(
-                android.os.Environment.DIRECTORY_DOCUMENTS
-            ),
-            "GroupTrack/imports"
-        )
+        val d = GroupTrackStorage.dir("imports", ctx)
         if (!d.exists()) d.mkdirs()
         return d
     }

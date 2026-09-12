@@ -5401,10 +5401,7 @@ fun ConvoyMapViewerScreen(
 
 // ── Track file helpers ─────────────────────────────────────────────
 private fun scanTrackDir(context: android.content.Context): List<String> {
-    val dir = java.io.File(
-        android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOCUMENTS),
-        "my_tracks"
-    )
+    val dir = ConvoyTrackOps.tracksDir()   // MYTRACKSUI-2026-09-12
     if (!dir.exists()) return emptyList()
     val files = dir.listFiles()
         ?.filter { f ->
@@ -5430,11 +5427,7 @@ private fun loadTrackOnMap(
     kotlinx.coroutines.MainScope().launch {
         try {
             val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                val dir = java.io.File(
-                    android.os.Environment.getExternalStoragePublicDirectory(
-                        android.os.Environment.DIRECTORY_DOCUMENTS
-                    ), "my_tracks"
-                )
+                val dir = ConvoyTrackOps.tracksDir()   // MYTRACKSUI-2026-09-12
                 val file = java.io.File(dir, fileName)
                 if (!file.exists()) return@withContext null
                 val text = file.readText()

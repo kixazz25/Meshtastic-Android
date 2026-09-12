@@ -15,10 +15,25 @@ object ConvoyTrackOps {
 
     private const val TRACKS_DIR_NAME = "my_tracks"
 
-    fun tracksDir(): File = File(
-        Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS),
-        TRACKS_DIR_NAME
-    )
+    /**
+     * MYTRACKS-2026-09-12: \u2b50 THE ONE PLACE my_tracks IS RESOLVED.
+     *
+     * \u26d4 THIS ACCESSOR ALREADY EXISTED AND NOTHING USED IT. Thirteen sites
+     * across five files built the path themselves, in five different shapes, and
+     * nothing kept them in step.
+     *
+     * \u26a0 mkdirs() IS HERE NOW, not at the call sites. Several created the
+     * directory and several assumed it existed -- a difference nobody intended
+     * and which only showed up as a missing folder on a fresh device.
+     *
+     * \u26a0 tracksRoot(), NOT dir("my_tracks"): my_tracks is a SIBLING of
+     * GroupTrack, not a child, exactly as the two sit in Documents today.
+     */
+    fun tracksDir(): File {
+        val dir = GroupTrackStorage.tracksRoot()
+        if (!dir.exists()) dir.mkdirs()
+        return dir
+    }
 
     fun downloadsDir(): File =
         Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)

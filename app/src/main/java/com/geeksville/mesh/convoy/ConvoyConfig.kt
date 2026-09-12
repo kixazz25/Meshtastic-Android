@@ -49,47 +49,18 @@ object ConvoyConfig {
             return dir
         }
 
-    // One-time migration: MOVE old package-specific tiles to shared location.
-    // File.renameTo() is instant — filesystem pointer change, not a copy.
-    fun migrateTiles(context: android.content.Context) {
-        val prefs = context.getSharedPreferences("grouptrack", android.content.Context.MODE_PRIVATE)
-        if (prefs.getBoolean("tiles_migrated", false)) return
-
-        val oldDir = java.io.File(context.getExternalFilesDir(null), "tiles")
-        val newDir = TILE_DIR
-
-        if (oldDir.exists() && oldDir.isDirectory) {
-            // Move each source directory (SAT, HYB, TOPO, TOPO+)
-            val sources = oldDir.listFiles() ?: emptyArray()
-            var moved = 0
-            for (sourceDir in sources) {
-                if (!sourceDir.isDirectory) continue
-                val dest = java.io.File(newDir, sourceDir.name)
-                if (dest.exists()) {
-                    // Destination already has this source — skip, don't overwrite
-                    android.util.Log.d("TileMigrate", "SKIP ${sourceDir.name} — already exists at destination")
-                    continue
-                }
-                val ok = sourceDir.renameTo(dest)
-                if (ok) {
-                    moved++
-                    android.util.Log.d("TileMigrate", "MOVED ${sourceDir.name} to shared storage")
-                } else {
-                    android.util.Log.e("TileMigrate", "FAILED to move ${sourceDir.name}")
-                }
-            }
-            // Clean up empty old directory
-            if ((oldDir.listFiles() ?: emptyArray()).isEmpty()) {
-                oldDir.delete()
-                android.util.Log.d("TileMigrate", "Deleted empty old tiles directory")
-            }
-            android.util.Log.d("TileMigrate", "Migration complete: $moved source(s) moved")
-        } else {
-            android.util.Log.d("TileMigrate", "No old tiles directory found — fresh install")
-        }
-
-        prefs.edit().putBoolean("tiles_migrated", true).apply()
-    } 
+    // LASTPATHS-2026-09-12: ⛔ migrateTiles() DELETED. It moved tiles
+    // from getExternalFilesDir()/tiles to TILE_DIR -- app-private OUT to
+    // shared storage -- which was correct before MBTiles, when tiles were
+    // moved out for persistence. ⚠ Storage is now going the other way, so
+    // once tileRoot() resolves internal its source and destination would be
+    // the SAME directory: it would rename each source onto itself and then
+    // delete the parent if the listing came back empty.
+    // ⚠ Its guard was a SharedPreferences flag while the data it guarded
+    // lived in shared storage -- a guard and its subject with different
+    // lifetimes, which is the shape of the 08-16 reinstall wipe.
+    // ⭐ Deleted rather than disabled: dead code that looks live survives
+    // because nobody is sure about it.
     const val MAP_GROUP_ZOOM_PADDING = 1.4f
     const val MAP_CART_ZOOM = 18.0
     const val MAP_MIN_ZOOM = 16.0
