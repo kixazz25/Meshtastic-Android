@@ -297,13 +297,10 @@ fun ConvoySubMenu(
                     //  The first attempt put them on ConvoyFieldRadioScreen,
                     //  which is V3 Phase B and unreachable.
                     // ══════════════════════════════════════════════════
-                    SubMenuItem(
-                        label   = "Run storage conversion",
-                        sub     = "Select Documents. Existing users migrate their " +
-                                  "data; new users just continue.",
-                        enabled = true,
-                        onClick = { pickTree.launch(null) }   // no onDismiss: closing the sheet disposes the launcher
-                    )
+                    // CONVGATE-2026-09-12: ⛔ the run item is GONE. The
+                    // conversion now happens at startup, in the gate, before
+                    // housekeeping opens anything. ⚠ The record viewer stays --
+                    // it is how you read what happened.
                     SubMenuItem(
                         label   = "View conversion record",
                         sub     = "What moved, what it weighed, and what failed",

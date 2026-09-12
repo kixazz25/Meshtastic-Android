@@ -59,7 +59,16 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <!-- Storage: required for shared offline tile and track access -->
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" tools:node="replace" />
-    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" tools:node="replace" />
+    <!-- NOALLFILES-2026-09-12: MANAGE_EXTERNAL_STORAGE removed.
+         Google rejected the All Files Access declaration on 09-10 and the appeal
+         with it. Everything the app owns now lives in app-private external
+         storage (getExternalFilesDir), which needs no permission, no declaration
+         and no review.
+         Data already in Documents comes across through a SAF tree grant the
+         rider gives once - see GroupTrackConversion.
+         NOTE: tools:node="replace" was overriding the upstream Meshtastic
+         manifest. Removing the line entirely also removes that override, which
+         is correct: nothing should be asking for it. -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
 
     <!-- We run our mesh code as a foreground service - FIXME, find a way to stop doing this -->

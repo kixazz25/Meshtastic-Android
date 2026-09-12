@@ -116,6 +116,25 @@ private var startupJobDone = false
  * \u26a0 The signature keeps its shape: both callers in this file pass no argument.
  */
 fun hasRealStorageAccess(): Boolean {
+    // NOALLFILES-2026-09-12: \u26d4 ALWAYS TRUE NOW, and it is not a fudge.
+    // MANAGE_EXTERNAL_STORAGE is out of the manifest, and app-private external
+    // storage (getExternalFilesDir) requires NO permission at all -- there is
+    // nothing left to check.
+    //
+    // \u26a0 WITHOUT THIS THE APP WOULD NOT START. isExternalStorageManager()
+    // returns false once the permission is not declared, evaluateState yields
+    // NeedStorage, and the gate shows a "grant all files" screen that no amount
+    // of tapping can satisfy.
+    //
+    // \u2b50 The NeedStorage and StorageDeclined states are deliberately LEFT IN
+    // PLACE. They cost nothing unreachable, and restoring the real check is one
+    // line if the permission is ever wanted back during testing.
+    //
+    // \u26a0 The rider's own files in Documents are reached through a SAF tree
+    // grant instead -- an active choice, once, which is the whole point of the
+    // framework Google pointed at in the rejection notice.
+    return true
+    @Suppress("UNREACHABLE_CODE")
     // Below API R the legacy model applies and this path is directly accessible.
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return true
 
@@ -270,6 +289,102 @@ fun ConvoyAuthorityGateScreenV2(
     // further down and would not compile.
     var modePicked by remember { mutableStateOf(GroupTrackStorage.isModeChosen()) }
 
+    // ══════════════════════════════════════════════════════════════════
+    //  CONVGATE-2026-09-12 -- the storage conversion, at startup.
+    //  \u26d4 BEFORE StartupHousekeeping.run(), which calls
+    //  SpatialDbManager.init() and OPENS the files the conversion replaces.
+    // ══════════════════════════════════════════════════════════════════
+    var convDone by remember {
+        mutableStateOf(GroupTrackConversion.isComplete(context))
+    }
+    var convTree by remember { mutableStateOf<android.net.Uri?>(null) }
+    var convBusy by remember { mutableStateOf(false) }
+    var convStep by remember { mutableStateOf("") }
+    var convResult by remember { mutableStateOf<String?>(null) }
+    var mapsInfo by remember {
+        mutableStateOf<GroupTrackConversion.MapsInfo?>(null)
+    }
+    var askRestore by remember { mutableStateOf(true) }
+    val convScope = rememberCoroutineScope()
+
+    // \u2b50 The whole run, once the rider has answered the maps question.
+    val runConversion: (android.net.Uri, Boolean) -> Unit = { uri, withMaps ->
+        convBusy = true
+        convScope.launch {
+            val text = withContext(Dispatchers.IO) {
+                val sb = StringBuilder()
+                // \u26a0 MAPS OUT FIRST, so GroupTrack can be renamed away without
+                // taking the tiles with it.
+                convStep = "moving maps out\u2026"
+                val movedOut = GroupTrackConversion.moveOutMaps(context, uri)
+                sb.append("maps moved out: ").append(movedOut).append("\n")
+
+                convStep = "copying data\u2026"
+                val out = GroupTrackConversion.run(context, uri) { p -> convStep = p }
+                sb.append(if (out.ok) "\u2713 data copied" else "\u2717 DATA COPY FAILED")
+                for (s in out.steps) {
+                    sb.append("\n  ").append(s.name).append(": ")
+                    sb.append(if (!s.found) "not present"
+                              else "${s.copied} item(s), ${s.bytes} bytes")
+                    for (i in s.items.filter { !it.ok }) {
+                        sb.append("\n    \u2717 ").append(i.path).append(" ")
+                        sb.append(i.error ?: "size ${i.srcBytes} -> ${i.dstBytes}")
+                    }
+                }
+
+                if (withMaps && out.ok) {
+                    convStep = "copying maps\u2026"
+                    val m = GroupTrackConversion.copyMaps(context, uri) { p -> convStep = p }
+                    sb.append("\n\nmaps: ").append(m.copied).append(" file(s), ")
+                    sb.append(m.bytes).append(" bytes")
+                    m.error?.let { sb.append(" \u2014 ").append(it) }
+                }
+
+                // \u26d4 RENAME ONLY AFTER A VERIFIED COPY. This is where the DELETE
+                // goes in the field build -- one operation swaps, nothing
+                // structural changes. \u26a0 Renaming a source that did not copy is
+                // how the data goes missing.
+                if (out.ok) {
+                    convStep = "renaming sources\u2026"
+                    val r = GroupTrackConversion.renameSources(context, uri)
+                    sb.append("\n\nrenamed: ").append(
+                        if (r.isEmpty()) "nothing" else r.joinToString(", "))
+                }
+                sb.toString()
+            }
+            convBusy = false
+            convStep = ""
+            convResult = text
+            convDone = GroupTrackConversion.isComplete(context)
+        }
+    }
+
+    val pickTree = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.OpenDocumentTree()
+    ) { uri: android.net.Uri? ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        // \u26a0 PERSIST IT. A later launch may still need the grant.
+        try {
+            context.contentResolver.takePersistableUriPermission(
+                uri,
+                android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                    android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+            )
+        } catch (e: Exception) {
+            android.util.Log.w("ConvGate", "persist grant: ${e.message}")
+        }
+        convTree = uri
+        // \u2b50 Look before asking: no maps means no question.
+        convScope.launch {
+            val info = withContext(Dispatchers.IO) {
+                androidx.documentfile.provider.DocumentFile.fromTreeUri(context, uri)
+                    ?.let { GroupTrackConversion.inspectMaps(context, it, false) }
+            }
+            if (info == null || info.files.isEmpty()) runConversion(uri, false)
+            else mapsInfo = info
+        }
+    }
+
     // CONVMENU-2026-09-12: ⛔ KEYED ON THE STORAGE CHOICE, not Unit.
     // ⚠ An early return further down does NOT unschedule an effect declared
     // here -- LaunchedEffect(Unit) fired on first composition, housekeeping ran,
@@ -277,8 +392,11 @@ fun ConvoyAuthorityGateScreenV2(
     // storage prompt. That is why SESSION MODE never logged.
     // ⭐ Keyed on isModeChosen(), the effect does not run until the choice is
     // made, and then runs once against the root that was chosen.
-    LaunchedEffect(modePicked) {
-        if (!modePicked) return@LaunchedEffect
+    // CONVGATE-2026-09-12: \u26d4 ALSO KEYED ON THE CONVERSION. run() calls
+    // SpatialDbManager.init(), which OPENS the database files the conversion
+    // REPLACES -- so housekeeping must not start until the conversion is done.
+    LaunchedEffect(modePicked, convDone) {
+        if (!modePicked || !convDone) return@LaunchedEffect
         // ⭐ BLOCKING, ON PURPOSE. evaluateState does not run until this returns
         // -- the ordering that 09-03 proved cannot be left to chance.
         val hk = withContext(Dispatchers.IO) { StartupHousekeeping.run(context) }
@@ -449,6 +567,127 @@ fun ConvoyAuthorityGateScreenV2(
                     GroupTrackStorage.chooseMode(true, context)
                     modePicked = true
                     state = evaluateState(context)
+                }
+            }
+        }
+        return
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    //  CONVGATE-2026-09-12 -- THE CONVERSION SCREEN.
+    //  \u26d4 Renders INSTEAD of the gate body, so there is no Exit button and
+    //  nothing to cancel with. The work must not be interrupted halfway.
+    //  \u26a0 And it returns before StartupHousekeeping.run() is ever called --
+    //  run() opens the database files this replaces.
+    // ══════════════════════════════════════════════════════════════════
+    if (!convDone) {
+        Surface(color = MshBg, modifier = Modifier.fillMaxSize()) {
+            Column(
+                modifier = Modifier.fillMaxSize().padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    text = "Storage Update",
+                    color = MshPrimary, fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(Modifier.height(20.dp))
+
+                when {
+                    convBusy -> {
+                        GateBody(
+                            title = "Working",
+                            body = "Do not leave this screen.\n\n$convStep"
+                        )
+                    }
+                    convResult != null -> {
+                        GateBody(title = "Result", body = convResult ?: "")
+                        Spacer(Modifier.height(20.dp))
+                        GateButton("CONTINUE") {
+                            convResult = null
+                            // \u26a0 If it did not complete, the screen comes back --
+                            // which is what we want while testing.
+                            convDone = GroupTrackConversion.isComplete(context)
+                        }
+                    }
+                    mapsInfo != null -> {
+                        val m = mapsInfo!!
+                        // \u26d4 THE SPACE CHECK IS AGAINST THE LARGEST SINGLE FILE.
+                        // SAT.mbtiles is 16 GB in ONE FILE and no loop can split
+                        // it, so that is the floor -- plus a reserve, because a
+                        // device run to nearly full slows badly.
+                        GateBody(
+                            title = "Your downloaded maps",
+                            body = if (m.canCopy)
+                                "${m.files.size} file(s), ${m.total / 1024 / 1024} MB.\n" +
+                                "Largest is ${m.largest / 1024 / 1024} MB and you have " +
+                                "${m.free / 1024 / 1024} MB free.\n\n" +
+                                "Copying takes a while. Skipping means downloading " +
+                                "them again."
+                            else
+                                "${m.files.size} file(s), ${m.total / 1024 / 1024} MB.\n\n" +
+                                "There is not enough room to copy them \u2014 the " +
+                                "largest is ${m.largest / 1024 / 1024} MB and you " +
+                                "need about ${m.shortfall / 1024 / 1024} MB more " +
+                                "free.\n\nThey will need downloading again."
+                        )
+                        Spacer(Modifier.height(20.dp))
+                        if (m.canCopy) {
+                            GateButton("COPY MY MAPS") {
+                                mapsInfo = null
+                                convTree?.let { runConversion(it, true) }
+                            }
+                            Spacer(Modifier.height(12.dp))
+                            GateOutlineButton("SKIP MAPS") {
+                                mapsInfo = null
+                                convTree?.let { runConversion(it, false) }
+                            }
+                        } else {
+                            GateButton("CONTINUE WITHOUT MAPS") {
+                                mapsInfo = null
+                                convTree?.let { runConversion(it, false) }
+                            }
+                        }
+                    }
+                    askRestore -> {
+                        // \u26a0\u26a0 SCAFFOLDING. Undoes a previous run so this can be
+                        // tested again. \u26d4 REMOVE FOR THE FIELD BUILD -- code that
+                        // reverses a migration, in a build where migration is
+                        // one-way, can only fire by accident.
+                        GateBody(
+                            title = "Test harness",
+                            body = "Restore a previous run first?\n\nThis renames " +
+                                "GroupTrack-EXT back and puts maps where they were."
+                        )
+                        Spacer(Modifier.height(20.dp))
+                        GateButton("NO \u2014 CARRY ON") { askRestore = false }
+                        Spacer(Modifier.height(12.dp))
+                        GateOutlineButton("RESTORE FIRST") {
+                            askRestore = false
+                            convBusy = true
+                            convScope.launch {
+                                val text = withContext(Dispatchers.IO) {
+                                    // \u26a0 needs a grant to undo anything
+                                    val u = convTree
+                                    if (u == null) "no grant yet \u2014 pick Documents first"
+                                    else GroupTrackConversion.restore(context, u)
+                                }
+                                convBusy = false
+                                convResult = text
+                            }
+                        }
+                    }
+                    else -> {
+                        GateBody(
+                            title = "Select Documents to continue",
+                            body = "Existing users will migrate their data. New " +
+                                "users will just continue with the install."
+                        )
+                        Spacer(Modifier.height(20.dp))
+                        GateButton("SELECT DOCUMENTS") { pickTree.launch(null) }
+                    }
                 }
             }
         }
