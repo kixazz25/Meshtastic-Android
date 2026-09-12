@@ -41,6 +41,48 @@ object GroupTrackStorage {
     /** Has a Context been supplied yet? */
     fun hasContext(): Boolean = appContext != null
 
+    // ══════════════════════════════════════════════════════════════════
+    //  SESSIONMODE-2026-09-12 -- \u26a0\u26a0 SCAFFOLDING. REMOVE FOR THE FIELD BUILD,
+    //  where the RELEASE owns this choice and there is nothing to ask.
+    // ══════════════════════════════════════════════════════════════════
+
+    /**
+     * \u26d4 PER LAUNCH, NOT PERSISTED. Fred, 09-12: *"it does not need to survive
+     * a restart -- each start is an internal or external instance."* Nothing is
+     * written to disk: no preference, no marker. The choice dies with the
+     * process, which is the point -- bouncing between the two is how a path
+     * still resolving to the old location gets found.
+     *
+     * \u26a0 DEFAULT FALSE = EXTERNAL. If the prompt is never answered the app
+     * behaves exactly as it does today. \u26d4 The failure mode of the default must
+     * be "nothing changed", never "silently writing somewhere the app cannot
+     * read back".
+     */
+    @Volatile
+    private var useInternal = false
+
+    /** Has the choice been made this launch? */
+    @Volatile
+    private var modeChosen = false
+
+    fun isInternal(): Boolean = useInternal
+    fun isModeChosen(): Boolean = modeChosen
+
+    /**
+     * \u26d4 CALL BEFORE ANY PATH RESOLVES -- before housekeeping, before the
+     * conversion, before init() opens a database. Calling it later means some
+     * paths resolved against one base and some against the other, which is worse
+     * than either choice on its own.
+     */
+    fun chooseMode(internal: Boolean, ctx: Context? = null) {
+        remember(ctx)
+        useInternal = internal
+        modeChosen = true
+        android.util.Log.i("GTStorage",
+            "SESSION MODE: " + (if (internal) "INTERNAL" else "EXTERNAL") +
+                " root=" + root().absolutePath)
+    }
+
     /**
      * INTERNALBASE-2026-09-12: the app-private external base.
      *
@@ -100,6 +142,10 @@ object GroupTrackStorage {
      */
     fun root(ctx: Context? = null): File {
         remember(ctx)
+        // SESSIONMODE-2026-09-12: \u26a0 internalRoot() returns null when there is no
+        // Context yet -- fall back to public rather than crash. \u26d4 The fallback is
+        // the SAFE direction: the app reads where it has always read.
+        if (useInternal) internalRoot()?.let { return it }
         return publicRoot()
     }
 
@@ -113,6 +159,8 @@ object GroupTrackStorage {
      */
     fun tileRoot(ctx: Context? = null): File {
         remember(ctx)
+        // SESSIONMODE-2026-09-12 \u2014 tiles follow the session mode too.
+        if (useInternal) internalRoot()?.let { return it }
         return publicRoot()
     }
 
@@ -150,6 +198,8 @@ object GroupTrackStorage {
      */
     fun tracksRoot(ctx: Context? = null): File {
         remember(ctx)
+        // SESSIONMODE-2026-09-12 \u2014 \u26a0 the SIBLING root, not a child of root().
+        if (useInternal) internalTracksRoot()?.let { return it }
         return publicTracksRoot()
     }
 

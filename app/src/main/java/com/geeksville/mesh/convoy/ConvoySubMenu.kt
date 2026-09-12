@@ -33,6 +33,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.launch
+import androidx.compose.foundation.verticalScroll
 
 /**
  * ConvoySubMenu — V2 accordion-style bottom sheet
@@ -66,6 +68,132 @@ fun ConvoySubMenu(
     ) {
         // Track which top-level item is expanded (null = none)
         var expanded by remember { mutableStateOf<String?>(null) }
+
+        // ══════════════════════════════════════════════════════════════
+        //  CONVMENU-2026-09-12 -- \u26a0\u26a0 SCAFFOLDING, REMOVE FOR THE FIELD BUILD
+        // ══════════════════════════════════════════════════════════════
+        val convCtx = androidx.compose.ui.platform.LocalContext.current
+        val convScope = androidx.compose.runtime.rememberCoroutineScope()
+        var convRunning by remember { mutableStateOf(false) }
+        var convProgress by remember { mutableStateOf("") }
+        var convSummary by remember { mutableStateOf<String?>(null) }
+        var showRecord by remember { mutableStateOf(false) }
+
+        // \u26d4 THE RIDER MUST TAP. SAF has no API to grant yourself a tree --
+        // that is its entire purpose. \u2b50 The grant is on Documents ONLY because
+        // that is where both folders can be found; it is NOT a licence to read
+        // anything else in there, and only discipline in the code enforces that.
+        val pickTree = androidx.activity.compose.rememberLauncherForActivityResult(
+            androidx.activity.result.contract.ActivityResultContracts.OpenDocumentTree()
+        ) { uri: android.net.Uri? ->
+            if (uri == null) {
+                convSummary = "No folder selected."
+                return@rememberLauncherForActivityResult
+            }
+            // \u26a0 PERSIST IT. The deletes -- and any resumed maps copy -- need the
+            // grant on a LATER launch, and one that dies with the session cannot
+            // serve them.
+            try {
+                convCtx.contentResolver.takePersistableUriPermission(
+                    uri,
+                    android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                        android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                )
+            } catch (e: Exception) {
+                android.util.Log.w("ConvMenu", "persist grant: ${e.message}")
+            }
+            convRunning = true
+            convSummary = null
+            convProgress = "starting\u2026"
+            convScope.launch {
+                val out = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    GroupTrackConversion.run(convCtx, uri) { p ->
+                        convScope.launch { convProgress = p }
+                    }
+                }
+                convRunning = false
+                convProgress = ""
+                convSummary = buildString {
+                    append(if (out.ok) "\u2713 CONVERSION OK" else "\u2717 CONVERSION FAILED")
+                    out.error?.let { append("\n").append(it) }
+                    for (s in out.steps) {
+                        append("\n\n").append(s.name).append(": ")
+                        append(if (!s.found) "not present"
+                               else "${s.copied} item(s), ${s.bytes} bytes")
+                        s.error?.let { append(" \u2014 ").append(it) }
+                        // \u26a0 Failures listed individually. "It failed" is not
+                        // troubleshootable; "which file and why" is.
+                        for (i in s.items.filter { !it.ok }) {
+                            append("\n  \u2717 ").append(i.path).append(" ")
+                            append(i.error ?: "size ${i.srcBytes} -> ${i.dstBytes}")
+                        }
+                    }
+                }
+            }
+        }
+
+        if (convRunning) {
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { },   // \u26d4 not dismissable -- do not interrupt a copy
+                confirmButton = { },
+                title = { Text("Converting storage", color = Color.White) },
+                text = { Text("Do not leave this screen.\n\n$convProgress",
+                    color = Color(0xFF97D5A5), fontSize = 12.sp) },
+                containerColor = Color(0xFF0A1628)
+            )
+        }
+
+        convSummary?.let { s ->
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { convSummary = null },
+                confirmButton = {
+                    Text("CLOSE", color = Color(0xFF97D5A5), fontSize = 13.sp,
+                        modifier = Modifier.clickable { convSummary = null }.padding(12.dp))
+                },
+                title = { Text("Conversion result", color = Color.White) },
+                text = {
+                    Text(s, color = Color(0xFF97D5A5), fontSize = 11.sp,
+                        modifier = Modifier.verticalScroll(
+                            androidx.compose.foundation.rememberScrollState()))
+                },
+                containerColor = Color(0xFF0A1628)
+            )
+        }
+
+        if (showRecord) {
+            val json = GroupTrackConversion.readRecord(convCtx)
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { showRecord = false },
+                confirmButton = {
+                    Text("CLOSE", color = Color(0xFF97D5A5), fontSize = 13.sp,
+                        modifier = Modifier.clickable { showRecord = false }.padding(12.dp))
+                },
+                dismissButton = {
+                    // \u2b50 SHARE, NOT JUST DISPLAY. On a rider's device this is the
+                    // only way the record reaches anyone who can read it.
+                    Text("SHARE", color = Color(0xFF97D5A5), fontSize = 13.sp,
+                        modifier = Modifier.clickable {
+                            val send = android.content.Intent(
+                                android.content.Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                putExtra(android.content.Intent.EXTRA_SUBJECT,
+                                    "GroupTrack conversion record")
+                                putExtra(android.content.Intent.EXTRA_TEXT, json ?: "no record")
+                            }
+                            convCtx.startActivity(
+                                android.content.Intent.createChooser(send, "Send record"))
+                        }.padding(12.dp))
+                },
+                title = { Text("Conversion record", color = Color.White) },
+                text = {
+                    Text(json ?: "No record yet \u2014 the conversion has not run.",
+                        color = Color(0xFF97D5A5), fontSize = 10.sp,
+                        modifier = Modifier.verticalScroll(
+                            androidx.compose.foundation.rememberScrollState()))
+                },
+                containerColor = Color(0xFF0A1628)
+            )
+        }
 
         Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 32.dp)) {
 
@@ -159,6 +287,28 @@ fun ConvoySubMenu(
                         sub     = "Select and restore from saved archive",
                         enabled = true,
                         onClick = { onDismiss(); onNavigateToArchiveRestore() }
+                    )
+
+                    // ══════════════════════════════════════════════════
+                    //  CONVMENU-2026-09-12 -- \u26a0\u26a0 SCAFFOLDING. REMOVE FOR THE
+                    //  FIELD BUILD, where the conversion runs from
+                    //  housekeeping and there is no menu at all.
+                    //  \u26d4 HERE because this is the sheet Fred actually opens.
+                    //  The first attempt put them on ConvoyFieldRadioScreen,
+                    //  which is V3 Phase B and unreachable.
+                    // ══════════════════════════════════════════════════
+                    SubMenuItem(
+                        label   = "Run storage conversion",
+                        sub     = "Select Documents. Existing users migrate their " +
+                                  "data; new users just continue.",
+                        enabled = true,
+                        onClick = { pickTree.launch(null) }   // no onDismiss: closing the sheet disposes the launcher
+                    )
+                    SubMenuItem(
+                        label   = "View conversion record",
+                        sub     = "What moved, what it weighed, and what failed",
+                        enabled = true,
+                        onClick = { showRecord = true }
                     )
             }
 

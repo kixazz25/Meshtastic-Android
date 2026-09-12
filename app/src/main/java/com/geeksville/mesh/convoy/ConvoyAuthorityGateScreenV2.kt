@@ -258,7 +258,27 @@ fun ConvoyAuthorityGateScreenV2(
     var housekeeping by remember { mutableStateOf<StartupHousekeeping.Result?>(null) }
     var housekeepingRunning by remember { mutableStateOf(true) }
 
-    LaunchedEffect(Unit) {
+    // MODESTATE-2026-09-12: \u26d4 COMPOSE REACTS TO STATE, NOT TO FACTS.
+    // GroupTrackStorage.modeChosen is a plain @Volatile field on an object, so
+    // the tap set it and nothing recomposed -- the prompt stayed put while the
+    // log happily reported SESSION MODE three times.
+    // \u2b50 The singleton still holds the truth; this is the UI's observable copy.
+    // \u26a0 Seeded from isModeChosen() so a later recomposition of the whole gate
+    // does not put the prompt back.
+    // MODEDECL-2026-09-12: \u26a0 DECLARED HERE, beside the other gate state, because
+    // the LaunchedEffect below reads it. It was declared with the prompt guard
+    // further down and would not compile.
+    var modePicked by remember { mutableStateOf(GroupTrackStorage.isModeChosen()) }
+
+    // CONVMENU-2026-09-12: ⛔ KEYED ON THE STORAGE CHOICE, not Unit.
+    // ⚠ An early return further down does NOT unschedule an effect declared
+    // here -- LaunchedEffect(Unit) fired on first composition, housekeeping ran,
+    // evaluateState set `state`, and the recomposition went straight past the
+    // storage prompt. That is why SESSION MODE never logged.
+    // ⭐ Keyed on isModeChosen(), the effect does not run until the choice is
+    // made, and then runs once against the root that was chosen.
+    LaunchedEffect(modePicked) {
+        if (!modePicked) return@LaunchedEffect
         // ⭐ BLOCKING, ON PURPOSE. evaluateState does not run until this returns
         // -- the ordering that 09-03 proved cannot be left to chance.
         val hk = withContext(Dispatchers.IO) { StartupHousekeeping.run(context) }
@@ -383,6 +403,57 @@ fun ConvoyAuthorityGateScreenV2(
     // ⛔ BUT IT MUST COMPLETE BEFORE StartupHousekeeping.run() IS
     // CALLED, not merely before the state dispatch -- run() opens the
     // database files the conversion replaces.
+
+    // ══════════════════════════════════════════════════════════════════
+    //  SESSIONMODE-2026-09-12 -- \u26a0\u26a0 SCAFFOLDING, REMOVE FOR THE FIELD BUILD
+    //
+    //  \u26d4 FIRST. Before housekeeping, before the conversion, before init()
+    //  opens anything. The base must be set before ANY path resolves, or some
+    //  resolve against one root and some against the other.
+    //
+    //  \u2b50 This is also where the conversion step goes when it is built: the
+    //  prompt is its first action, and both disappear together.
+    // ══════════════════════════════════════════════════════════════════
+    if (!modePicked) {
+        Surface(color = MshBg, modifier = Modifier.fillMaxSize()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    text = "Storage",
+                    color = MshPrimary,
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.Monospace,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(Modifier.height(24.dp))
+                GateBody(
+                    title = "Which store for this launch?",
+                    body = "EXTERNAL is where the app has always read. INTERNAL " +
+                        "is app-private storage \u2014 what the next release uses.\n\n" +
+                        "This is a test choice and is not remembered."
+                )
+                Spacer(Modifier.height(28.dp))
+                GateButton("EXTERNAL (as today)") {
+                    GroupTrackStorage.chooseMode(false, context)
+                    modePicked = true
+                    state = evaluateState(context)
+                }
+                Spacer(Modifier.height(12.dp))
+                GateOutlineButton("INTERNAL (app-private)") {
+                    GroupTrackStorage.chooseMode(true, context)
+                    modePicked = true
+                    state = evaluateState(context)
+                }
+            }
+        }
+        return
+    }
 
     Surface(color = MshBg, modifier = Modifier.fillMaxSize()) {
         Column(
