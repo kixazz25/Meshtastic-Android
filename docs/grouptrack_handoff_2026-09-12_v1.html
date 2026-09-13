@@ -1,0 +1,203 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<title>GroupTrack — Handoff 2026-09-12</title>
+<style>
+body{font:15px/1.68 -apple-system,"Segoe UI",Roboto,sans-serif;max-width:960px;
+margin:0 auto;padding:26px;background:#0f1216;color:#e6edf3}
+h1{font-size:21px;color:#58a6ff;border-bottom:2px solid #2a3038;padding-bottom:8px}
+h2{font-size:16px;color:#58a6ff;margin-top:32px;border-bottom:1px solid #2a3038;padding-bottom:5px}
+h3{font-size:14px;color:#b8c2cc;margin-top:20px}
+code{background:#1a2027;padding:1px 5px;border-radius:3px;font-size:12.5px;color:#8FD0FF}
+.card{background:#161b22;border:1px solid #2a3038;border-radius:8px;padding:13px 17px;margin:11px 0}
+.done{border-left:4px solid #3fb950}.next{border-left:4px solid #58a6ff}
+.warn{border-left:4px solid #d29922}.bad{border-left:4px solid #f85149}
+table{border-collapse:collapse;width:100%;margin:11px 0;font-size:13px}
+th,td{border:1px solid #2a3038;padding:6px 9px;text-align:left;vertical-align:top}
+th{background:#1a2027;color:#8FD0FF}
+li{margin:6px 0}
+.hi{color:#e3b341}
+pre{background:#0d1117;border:1px solid #2a3038;padding:9px;border-radius:5px;
+font-size:11.5px;overflow-x:auto;color:#b8c2cc}
+</style></head><body>
+
+<h1>GroupTrack — Handoff, 2026-09-12</h1>
+<p><code>feature/convoy-event-ride</code> · <b>the migration works, with no
+permission</b></p>
+
+<div class="card done">
+<p class="hi">⭐⭐ <b>THE WHOLE CHAIN RAN ON DEVICE WITH
+<code>MANAGE_EXTERNAL_STORAGE</code> OUT OF THE MANIFEST.</b> Confirmed by
+<code>appops</code> reading <code>default</code>, not <code>allow</code>.</p>
+<p>Tree grant → recursive copy → <code>moveDocument</code> → a 16 GB stream →
+<code>renameDocument</code> → delete-after-verify. The app then ran entirely from
+app-private storage with offline maps intact.</p>
+<p><b>415 MB in under a minute. 16 GB in four.</b> ⚠ Every estimate in the 09-11
+design assumed hours — SAF is not the bottleneck anybody feared.</p>
+<p>⭐ Installed OVER THE TOP, not a clean install, which is exactly how the ten
+riders will get it.</p>
+</div>
+
+<h2>⛔⛔ The landmine — and only the cross-reference found it</h2>
+<div class="card bad">
+<p><code>ConvoyConfig.migrateTiles()</code> was live, called from
+<code>ConvoyScreen:960</code>, and moved tiles FROM app-private storage OUT to
+shared storage — the pre-MBTiles migration, exactly backwards from where storage
+is going.</p>
+<p class="hi">⚠ Once <code>tileRoot()</code> resolves internal its source and
+destination are the SAME directory: it would walk the live tile store renaming
+each source onto itself, then delete the parent if the listing came back empty.
+⭐ A <code>dest.exists()</code> guard made every source skip — harmless BY
+ACCIDENT.</p>
+<p>⛔ Its guard was a SharedPreferences flag while the data it guarded lived in
+shared storage. <b>A guard and its subject with different lifetimes</b> — the
+exact shape of the 08-16 reinstall wipe. Deleted with its call site.</p>
+<p class="hi">⭐⭐ <b>NO DESTINATION-GREP WOULD HAVE CAUGHT IT.</b> The dangerous
+line reads <code>getExternalFilesDir</code>, which LOOKS like the place we are
+moving toward. Fred: <i>"that is why we created the tools. Too many scares."</i></p>
+<p>⭐ The same sweep proved the blast radius was contained: of 42 files doing file
+work, most use <code>context.filesDir</code> — already app-private — or derive
+from an accessor.</p>
+</div>
+
+<h2>What went in</h2>
+<div class="card done">
+<table>
+<tr><th>Change</th><th>What</th></tr>
+<tr><td><b>23 path sites</b></td>
+<td><code>my_tracks</code> ×13 through <code>ConvoyTrackOps.tracksDir()</code> —
+an accessor that already existed and nobody used. <code>TrailImporter</code>'s six
+copies into one helper. Three singles. ✅ <b>The verification grep now returns
+ZERO.</b></td></tr>
+<tr><td><b>Housekeeping</b></td>
+<td>One container, two phases around <code>init()</code>, jobs extracted and
+self-gating, six rules written on the function.</td></tr>
+<tr><td><b><code>GroupTrackConversion</code></b></td>
+<td>The SAF engine: copy, record, maps park and copy, renames, restore.</td></tr>
+<tr><td><b>Session storage mode</b></td>
+<td>Internal/external per launch, not persisted. ⚠ Scaffolding.</td></tr>
+<tr><td><b>Conversion at startup</b></td>
+<td>A screen in the gate, before housekeeping opens anything.</td></tr>
+<tr><td><b>Manifest</b></td>
+<td>⛔ <code>MANAGE_EXTERNAL_STORAGE</code> removed.</td></tr>
+</table>
+</div>
+
+<h2>⭐⭐ Housekeeping — the rules, and why rule 6 mattered</h2>
+<div class="card">
+<p class="hi">⛔ <b>THE BUG:</b> <code>run()</code>'s first line read the schema
+marker and returned, so ONE job's "nothing to do" skipped every other job. The
+manifest sweep never ran on a normal launch.</p>
+<ol>
+<li><b>ONE CONTAINER</b>, called once after authority, before any map loads.</li>
+<li><b>SEQUENTIAL, NEVER CONCURRENT</b> — what makes ordering meaningful.</li>
+<li>⛔ <b>TWO PHASES, <code>init()</code> IS THE BOUNDARY.</b> It OPENS the
+files. Movers above, content-touchers below.</li>
+<li>⛔ <b>EVERY JOB GATES ITSELF</b>, and no job's condition may stop the
+stream.</li>
+<li><b>INSERTION REQUIRES IMPACT ANALYSIS.</b></li>
+<li>⛔ <b>A JOB RETURNS FROM ITSELF, NEVER FROM THE CONTAINER.</b></li>
+</ol>
+<p class="hi">⭐⭐ <b>A JOB CANNOT GATE ITSELF UNTIL IT IS A FUNCTION.</b> With the
+body inline, "return when there is nothing to do" and "return from the container"
+are THE SAME STATEMENT. ⚠ The first attempt moved the marker check below
+<code>init()</code> and it STILL returned from <code>run()</code> — same bug, one
+phase lower, and it looked fixed.</p>
+<p>Fred, 09-12: <i>"you could embed a job in a condition you did not see. All the
+code is inline and that is a lot to read to insert a new task."</i></p>
+</div>
+
+<h2>The conversion, as built</h2>
+<div class="card next">
+<p><b>One broad pick on <code>Documents</code></b>; the app finds both folders
+itself. ⛔ It reads EXACTLY TWO — the grant is broader and only discipline in the
+code enforces the limit.</p>
+<p><b>The record IS the flag.</b> Per-item source and destination bytes, the
+exception text, the granted URI, a timestamp per step.</p>
+<p><b>Maps</b> parked to <code>Documents/maps</code> via
+<code>moveDocument</code>, then copied largest-first, each source deleted only
+once its size matches.</p>
+<p class="hi">⛔ <b>Why parked rather than left in place:</b> leaving
+<code>GroupTrack</code> to hold them <i>"masks the location of where we are
+retrieving other components — we could run fine until we finish copying
+maps."</i></p>
+<p><b>Space check against the LARGEST SINGLE FILE</b>, plus a reserve.
+<code>SAT.mbtiles</code> is 16 GB in one file and no loop can split it. Droid 1
+(86 GB free) copies; <b>Droid 2 (16 GB) will refuse — that branch is still
+untested.</b></p>
+<p>⛔ <b>The renames stand where the deletes go.</b> The field build swaps one
+operation. ⭐ And a rename makes a stale path fail LOUDLY.</p>
+</div>
+
+<h2>⚠ What went wrong today — all of it mine</h2>
+<div class="card warn">
+<p><b>1. The buttons were unreachable.</b> They went on
+<code>ConvoyFieldRadioScreen</code> — V3 Phase B, parked, nothing navigates to it.
+The conversion was never invoked: no logs, no record, files directory empty.
+⭐ <b>"Convoy radio menu" was matched to a FILENAME.</b> A LABEL search found the
+real sheet in one step. The guess cost a 24-minute build.</p>
+<p><b>2. <code>LaunchedEffect(Unit)</code> fires regardless of an early
+return.</b> The storage prompt flashed past because the effect was declared ABOVE
+the return.</p>
+<p><b>3. Compose reacts to State, not to facts.</b> <code>chooseMode()</code> set
+a plain <code>@Volatile</code> field; the log reported SESSION MODE three times
+while the screen sat there.</p>
+<p><b>4. <code>onDismiss()</code> disposes the launcher.</b> The menu item closed
+the sheet before launching the picker. ⚠ The other five items use that pattern
+correctly — they navigate away and never return.</p>
+<p class="hi">⭐⭐ <b>2, 3 and 4 share one cause: assuming a framework would notice
+something it was never watching.</b></p>
+<p><b>5. Literal escape text in the source.</b> Two patches wrote
+<code>\u005Cu26a0</code> into Kotlin comments as six characters. ⚠ Every anchor
+into those files now needs the literal form. ⛔ A cleanup pass is owed on
+<code>StartupHousekeeping</code> and <code>GroupTrackConversion</code>.</p>
+<p><b>6. Seven more guards refused correct patches</b>, same shape as yesterday's
+five. ⭐ <b>Brace-match the function, scope to what changed, strip comments first,
+and guard presence before comparing indices.</b></p>
+</div>
+
+<h2>Tomorrow</h2>
+<div class="card next">
+<ol>
+<li>🔴 <b>Progress during large files.</b> The 16 GB copy showed one line and then
+four minutes of silence. ⚠ A rider will kill the app. The callback fires per file;
+it needs to report bytes DURING the stream.</li>
+<li><b>Field build:</b> renames → deletes, storage prompt out, restore prompt out,
+decide on the record viewer.</li>
+<li><b>Cleanup:</b> <code>Documents/maps</code> holds five zero-byte journals —
+11K left from 17 GB. Remove them and the directory with the last real file.</li>
+<li><b>Delete the dead files</b> — <code>GroupTrackMigration.kt</code> and
+<code>GroupTrackMigrationScreen.kt</code>, unreferenced since MIGHOOK came out.</li>
+<li>🔴 <b>Droid 2</b> — the genuine first run, and the only device that exercises
+the maps refusal branch.</li>
+<li><b>Then the two internal testers.</b></li>
+</ol>
+<p class="hi">⚠ <b>KEEP DROID 1's <code>-EXT</code> FOLDERS ONE MORE DAY.</b> They
+are the only way back if Droid 2 turns something up, and they cost 415 MB.</p>
+</div>
+
+<h2>Play Store</h2>
+<div class="card warn">
+<ul>
+<li><b>Update rejected</b> 09-10, <b>appeal rejected</b>, extension requested.</li>
+<li>⭐ <b>The compliant build now exists</b> — the permission is out and the app
+works without it. That is what clears the violation.</li>
+<li><b>Open testing still serves 29321101</b> from 09-07.</li>
+<li>⛔ No open launch until the migration is finished and tested.</li>
+</ul>
+</div>
+
+<h2>Files</h2>
+<div class="card done">
+<ul>
+<li><code>grouptrack_living_master_2026-09-12_v57.html</code> — 140 h2 / 459 h3</li>
+<li><code>grouptrack_release_notes_2026-09-12_v7.html</code></li>
+<li><code>GroupTrack_QuickStart_2026-09-12_v52.html</code></li>
+<li><code>GroupTrack_StorageDesign_2026-09-12_v9.html</code> — ⭐ what was
+actually built and proven, superseding v7's plan</li>
+<li><code>grouptrack_manual_2026-09-10_v9.html</code> — unchanged</li>
+</ul>
+<p class="hi">⚠ Assets in the APK are still the 09-08 revisions. ⭐ Copy the
+rider-facing documents into <code>assets/</code> and increment the revision in
+every filename before the release build.</p>
+</div>
+
+</body></html>

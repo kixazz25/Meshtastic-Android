@@ -1,0 +1,200 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<title>GroupTrack — Storage Design v9 (AS BUILT), 2026-09-12</title>
+<style>
+body{font:15px/1.68 -apple-system,"Segoe UI",Roboto,sans-serif;max-width:960px;
+margin:0 auto;padding:26px;background:#0f1216;color:#e6edf3}
+h1{font-size:21px;color:#58a6ff;border-bottom:2px solid #2a3038;padding-bottom:8px}
+h2{font-size:16px;color:#58a6ff;margin-top:32px;border-bottom:1px solid #2a3038;padding-bottom:5px}
+h3{font-size:14px;color:#b8c2cc;margin-top:20px}
+code{background:#1a2027;padding:1px 5px;border-radius:3px;font-size:12.5px;color:#8FD0FF}
+.card{background:#161b22;border:1px solid #2a3038;border-radius:8px;padding:13px 17px;margin:11px 0}
+.done{border-left:4px solid #3fb950}.next{border-left:4px solid #58a6ff}
+.warn{border-left:4px solid #d29922}.bad{border-left:4px solid #f85149}
+table{border-collapse:collapse;width:100%;margin:11px 0;font-size:13px}
+th,td{border:1px solid #2a3038;padding:6px 9px;text-align:left;vertical-align:top}
+th{background:#1a2027;color:#8FD0FF}
+li{margin:6px 0}
+.hi{color:#e3b341}
+pre{background:#0d1117;border:1px solid #2a3038;padding:9px;border-radius:5px;
+font-size:11.5px;overflow-x:auto;color:#b8c2cc}
+</style></head><body>
+
+<h1>Storage design v9 — AS BUILT</h1>
+<p>2026-09-12 · <b>supersedes v7/v8, which were plans. This is what exists and
+what was measured.</b> Self-contained for a fresh conversation.</p>
+
+<h2>The situation</h2>
+<div class="card bad">
+<p><b>GroupTrack</b> is an Android OHV/convoy trail app (Meshtastic fork, repo
+<code>C:\\Users\\kixaz\\Meshtastic-Android</code>, branch
+<code>feature/convoy-event-ride</code>, app id <code>com.grouptrack.android</code>).
+It kept its data in shared storage at <code>Documents/GroupTrack</code> and
+<code>Documents/my_tracks</code>, which required
+<code>MANAGE_EXTERNAL_STORAGE</code>.</p>
+<p><b>2026-09-10:</b> Google rejected the All Files Access declaration —
+<i>"Access to device storage not required"</i> — and the appeal with it.</p>
+<p class="hi">⭐ Google's own rejection notice named the way out: the <b>Storage
+Access Framework</b>. A tree grant the rider gives once, read AND write, no
+permission, no declaration, no review.</p>
+<p><b>2026-09-12:</b> built, and proven end to end on device with the permission
+OUT of the manifest.</p>
+</div>
+
+<h2>⭐⭐ What was measured, not estimated</h2>
+<div class="card done">
+<table>
+<tr><th></th><th>Measured, Droid 1, 09-12</th></tr>
+<tr><td>Data copy (415 MB)</td><td class="hi"><b>under one minute</b></td></tr>
+<tr><td>Maps copy (16 GB)</td><td class="hi"><b>four minutes, ~70 MB/s</b></td></tr>
+<tr><td>Size verification</td><td>exact on every file</td></tr>
+<tr><td><code>moveDocument</code></td><td>✅ works</td></tr>
+<tr><td><code>renameDocument</code></td><td>✅ works</td></tr>
+<tr><td>Permission during the run</td>
+<td class="hi">✅ <code>appops</code> = <code>default</code>, NOT
+<code>allow</code></td></tr>
+</table>
+<p class="hi">⚠ <b>EVERY TIMING ESTIMATE IN v7 AND v8 WAS WRONG BY AN ORDER OF
+MAGNITUDE.</b> Those designs assumed hours for the maps copy and treated it as
+barely feasible — the space check, the resumability, the per-file loop were all
+shaped by that. ⭐ It takes four minutes. The design still holds, but the reasons
+for parts of it do not.</p>
+</div>
+
+<h2>The flow, as built</h2>
+<div class="card next">
+<ol>
+<li><b>Gate resolves authority</b> (location only now).</li>
+<li><b>Storage prompt</b> — internal or external, per launch. ⚠ SCAFFOLDING.</li>
+<li><b>Conversion screen</b>, if the record says incomplete. ⛔ Renders INSTEAD of
+the gate body, so there is no Exit and nothing to cancel with.
+<ul>
+<li>Restore? ⚠ SCAFFOLDING — undoes a previous run.</li>
+<li><b>Select Documents</b> — one broad pick.</li>
+<li><b>Maps?</b> — space check, then copy or skip.</li>
+<li>Move maps out → copy both folders → copy maps → rename sources →
+write the record.</li>
+</ul></li>
+<li><b>StartupHousekeeping.run()</b> — and not before, because it calls
+<code>init()</code>, which OPENS the files the conversion replaces.</li>
+<li>Convoy.</li>
+</ol>
+<p class="hi">⛔ <b>THE CONVERSION OWNS A SCREEN BECAUSE IT NEEDS A RIDER.</b> A
+SAF tree grant cannot be taken unattended, and housekeeping runs off the main
+thread where no prompt can happen. That is why it is a gate step and not a
+housekeeping job.</p>
+</div>
+
+<h2>⛔ The rules that hold it together</h2>
+<div class="card warn">
+<h3>One broad pick, two folders read</h3>
+<p>The grant is on <code>Documents</code> only because that is where both folders
+can be found. ⛔ <b>It is NOT a licence to read anything else there</b>, and
+nothing enforces that — it is a discipline in the code. A future change that walks
+the tree for any other reason is a trust violation however well intentioned.</p>
+
+<h3>Inside those two, everything comes</h3>
+<p>Exclusion list, not inclusion — only <code>maps</code> (handled separately) and
+<code>*-journal</code>. ⚠ Do not trim the clutter: the three
+<code>.trails_cleared_*</code> markers look like junk and are not.</p>
+
+<h3>⭐ The record IS the flag</h3>
+<p>One JSON in internal storage. Present and complete means never again. ⛔ A
+FLAG, NOT A DISK CHECK — <code>Documents</code> is the rider's folder and a stray
+file named GroupTrack must never re-fire a migration over live data.</p>
+<p>⚠ It holds per-item source and destination bytes, the exception TEXT (not just
+"failed"), the granted URI, and a timestamp per step — which distinguishes a hang
+from an error.</p>
+
+<h3>⭐ "Found nothing" is SUCCESS</h3>
+<p>A new install grants the tree, the engine looks, there is no GroupTrack — that
+RESOLVES the conversion. ⛔ Treat it as incomplete and a new rider is asked every
+launch forever.</p>
+
+<h3>Maps: parked, then copied</h3>
+<p><code>GroupTrack/maps</code> → <code>Documents/maps</code> via
+<code>moveDocument</code>, so <code>GroupTrack</code> can be renamed away without
+taking the tiles. ⛔ Leaving <code>GroupTrack</code> in place instead would
+<i>"mask the location of where we are retrieving other components — we could run
+fine until we finish copying maps."</i></p>
+<p>⭐ <b>Space check against the LARGEST SINGLE FILE</b>, not the total, plus a
+reserve — a device run to nearly full slows badly.
+<code>SAT.mbtiles</code> is 16 GB in ONE FILE and no loop can split it.</p>
+<p>⚠ Copy largest-first, delete each source ONLY after its size matches. ⛔ A
+source removed on a short write is the one loss this design exists to avoid.</p>
+
+<h3>⛔ The renames stand where the deletes go</h3>
+<p>The field build swaps ONE operation and nothing structural changes. ⭐ And a
+rename makes a stale path fail LOUDLY — anything still reading
+<code>Documents/GroupTrack</code> hits a name that does not exist.</p>
+</div>
+
+<h2>Housekeeping — the container</h2>
+<div class="card next">
+<ol>
+<li><b>ONE CONTAINER</b>, called once after authority, before any map loads.</li>
+<li><b>SEQUENTIAL, NEVER CONCURRENT.</b></li>
+<li>⛔ <b>TWO PHASES, <code>init()</code> IS THE BOUNDARY.</b> It OPENS the
+database files: movers above, content-touchers below. Not a position — a
+consequence.</li>
+<li>⛔ <b>EVERY JOB GATES ITSELF.</b> No job's condition may stop the stream.</li>
+<li><b>INSERTION REQUIRES IMPACT ANALYSIS.</b></li>
+<li>⛔ <b>A JOB RETURNS FROM ITSELF, NEVER FROM THE CONTAINER.</b></li>
+</ol>
+<p class="hi">⭐⭐ <b>A JOB CANNOT GATE ITSELF UNTIL IT IS A FUNCTION.</b> With the
+body inline, "return when there is nothing to do" and "return from the container"
+are the same statement.</p>
+<p>⭐ <b>NO RELEASE OR UPDATE SECTIONS.</b> Every job runs every launch and decides
+for itself: once ever → a marker it writes; once per release → a marker whose NAME
+changes; always → nothing.</p>
+</div>
+
+<h2>⚠ Still to do</h2>
+<div class="card warn">
+<ol>
+<li>🔴 <b>Progress during large files.</b> The 16 GB copy showed one line then
+four minutes of silence — the callback fires per FILE. ⚠ A rider will kill the
+app. It needs to report bytes DURING the stream.</li>
+<li><b>The field build:</b> renames → deletes; storage prompt out; restore prompt
+out; decide whether the record viewer stays on the menu.</li>
+<li><b>Cleanup:</b> <code>Documents/maps</code> is left holding five zero-byte
+journals — 11K from 17 GB. Remove them and the directory with the last real
+file.</li>
+<li><b>Dead files:</b> <code>GroupTrackMigration.kt</code> and
+<code>GroupTrackMigrationScreen.kt</code>, unreferenced.</li>
+<li><b>Literal escape text</b> — <code>\u005Cu26a0</code> as six characters in
+<code>StartupHousekeeping</code> and <code>GroupTrackConversion</code> comments.
+Cosmetic, but every anchor into those files needs the literal form.</li>
+<li>🔴 <b>Droid 2</b> — the genuine first run, and the ONLY device that exercises
+the maps refusal branch (16 GB free against a 16 GB file).</li>
+<li><b>The version floor</b> — how old a build can be and still migrate. Tabled
+09-12; probably academic if the ten are on recent Play builds.</li>
+</ol>
+</div>
+
+<h2>⭐ Things learned that outlive this work</h2>
+<div class="card done">
+<ul>
+<li><b>Grep for the destination, not the API.</b> Two APIs reach Documents:
+<code>getExternalStorageDirectory()</code> and
+<code>getExternalStoragePublicDirectory(DIRECTORY_DOCUMENTS)</code>. A sweep on
+one found 13 and missed 23.</li>
+<li>⭐⭐ <b>The cross-reference finds what grep cannot.</b>
+<code>migrateTiles()</code> was a live landmine whose dangerous line reads
+<code>getExternalFilesDir</code> — it LOOKS like the destination, not a problem.
+A function index of everything doing file work is what surfaced it.</li>
+<li><b>Compose reacts to State, not to facts.</b> An early return does not
+unschedule an effect already declared; a plain field set on a singleton triggers
+no recomposition.</li>
+<li><b><code>onDismiss()</code> disposes the launcher.</b> A menu item that waits
+for a result must not close the sheet that owns it.</li>
+<li><b>Search by label, not by filename.</b> "Convoy radio menu" matched
+<code>ConvoyFieldRadioScreen</code> — a parked V3 screen nothing navigates to. The
+real sheet was found by its visible title in one grep.</li>
+<li>⭐ <b><code>/sdcard/Android/data/&lt;pkg&gt;/files/</code> IS readable by the
+adb shell.</b> Two days were spent designing around a diagnostic blackout that
+does not exist for development. The in-app record still earns its place for a
+RIDER's device.</li>
+</ul>
+</div>
+
+</body></html>

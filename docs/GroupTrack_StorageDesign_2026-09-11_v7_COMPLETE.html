@@ -190,6 +190,41 @@ record.</p>
 <li><b>Old folders deleted</b> &#8212; SECOND LAUNCH, offered, bytes reclaimed</li>
 </ol>
 <p>&#9888; Steps 1&#8211;3 fire the trigger. Step 4 does not.</p>
+
+<h3>&#11088; THE SECOND-LAUNCH SCREEN &#8212; wording</h3>
+<p class="hi">&#9940; THE ORDER OF THE SENTENCES MATTERS. An early draft opened
+with <i>"your data has been converted successfully"</i> and then asked <i>"if your
+app launched and everything behaved OK"</i> &#8212; the first sentence asserts what
+the second is asking. A rider skims the first and taps.</p>
+<p>The screen states a fact, then asks a question:</p>
+<blockquote style="border-left:3px solid #30363d;padding-left:14px;color:#b8c2cc">
+<b>Your data was copied on the last launch.</b><br><br>
+If the app has been working normally since &#8212; your trails, tracks and routes
+are all there &#8212; we'll delete the old copies from Documents now. Your
+downloaded maps were not copied and will need downloading again.<br><br>
+<b>[ Delete the old copies ]</b><br><br>
+<b>[ Something's wrong &#8212; send me the details ]</b><br>
+<i>The app will close so nothing changes until we've looked at it.</i>
+</blockquote>
+<p>&#11088; <b>THE TERMINATION IS THE HONEST PART.</b> A rider with a problem must
+not be nudged past it, and closing makes clear that nothing is being changed
+behind them. &#9888; Say WHY it closes, or it reads as a crash.</p>
+
+<h3>&#11088; THE PROBLEM REPORT &#8212; attach the record</h3>
+<p>The "something's wrong" path emails the record JSON as an ATTACHMENT (Fred has
+a reader that decodes and displays it), not pasted into the body.</p>
+<p>&#9989; <b>NO MANIFEST WORK NEEDED.</b> A <code>FileProvider</code> is already
+declared (<code>AndroidManifest.xml:355</code>) and
+<code>res/xml/convoy_file_paths.xml</code> already exposes
+<code>external-files-path</code> with <code>path="."</code> &#8212; the whole
+internal tree, wherever the record lands. &#11088; It also covers
+<code>cache-path</code>, <code>external-path</code> and <code>files-path</code>,
+so the existing share function keeps working after the storage move.</p>
+<p>&#9888; The intent still needs <code>FLAG_GRANT_READ_URI_PERMISSION</code> and a
+<code>FileProvider</code> URI &#8212; a raw <code>file://</code> path attaches
+nothing and fails SILENTLY: the mail app opens, and the attachment simply is not
+there. &#9940; That failure would happen at exactly the moment it matters least to
+discover it.</p>
 </div>
 
 <h2>The flow — and it is a GATE</h2>
@@ -444,6 +479,35 @@ old location, so everything else must already work.</li>
 <li>Verification grep returns zero. Clean install on <b>Droid 2</b> — the
 sacrificial device, per the standing rule.</li>
 </ol>
+</div>
+
+<h2>&#9940; How much of this is worth building for ten riders?</h2>
+<div class="card bad">
+<p class="hi">Fred, 09-11: <i>"for 10 users how much work do we want to do?"</i>
+&#11088; A fair question, and the honest answer is: <b>less than the full design
+above.</b></p>
+<table>
+<tr><th>Option</th><th>Cost</th><th>What the rider gets</th></tr>
+<tr><td><b>Minimum</b> &#8212; manifest + the 23 redirects. Riders export routes,
+delete two folders, reinstall.</td><td>~2 days</td>
+<td>Loses maps AND an hour of trail import. Must remember to export or lose
+graduated routes.</td></tr>
+<tr><td><b>Middle</b> &#8212; the picker and the copy, NO second-phase delete.
+Riders remove the old folders themselves with a file manager.</td><td>~3 days</td>
+<td class="hi">Keeps everything but maps. &#11088; Drops the persisted grant, the
+gated offer, the resume-from-partial logic and most of the edge cases.</td></tr>
+<tr><td><b>Full</b> &#8212; everything in this document.</td><td>~4&#8211;5 days</td>
+<td>Keeps everything but maps, and the app tidies up after itself.</td></tr>
+</table>
+<p>&#9888; <b>The 23 redirects and the manifest are unavoidable in every row.</b>
+The choice is only about the migration.</p>
+<p class="hi">&#11088; <b>THE MIDDLE IS PROBABLY THE RIGHT SIZE.</b> Every edge
+case in the delete phase is a place to be wrong on someone's real data, and the
+thing it saves a rider is a file-manager tap they are perfectly capable of. Ten
+engaged riders who have tested for six months will delete a folder if asked.</p>
+<p>&#9940; Decide this BEFORE building, not halfway through. The scope-creep
+detector in the environment file is the relevant rule: <i>when you cannot
+precisely describe the options and their benefits, back up.</i></p>
 </div>
 
 <h2>⚠ Still to settle</h2>
