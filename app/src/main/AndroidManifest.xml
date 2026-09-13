@@ -58,7 +58,18 @@
      -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <!-- Storage: required for shared offline tile and track access -->
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" tools:node="replace" />
+    <!-- NOSTORAGEPERMS-2026-09-13: WRITE_EXTERNAL_STORAGE removed.
+         Rejected 09-13 for "all file permissions" - MANAGE_EXTERNAL_STORAGE had
+         already gone, but this and READ_EXTERNAL_STORAGE were still declared.
+         This line was WORSE than upstream's: tools:node="replace" stripped the
+         maxSdkVersion cap Meshtastic applies, declaring it for every API level.
+         Not needed: an app may write to Downloads with no permission on API 29+,
+         which is how track export works - verified on device 09-13.
+         node="remove" rather than deleting the line, because upstream Meshtastic
+         declares this permission too and the MERGED manifest is what Google
+         reviews. -->
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        tools:node="remove" />
     <!-- NOALLFILES-2026-09-12: MANAGE_EXTERNAL_STORAGE removed.
          Google rejected the All Files Access declaration on 09-10 and the appeal
          with it. Everything the app owns now lives in app-private external
@@ -69,7 +80,15 @@
          NOTE: tools:node="replace" was overriding the upstream Meshtastic
          manifest. Removing the line entirely also removes that override, which
          is correct: nothing should be asking for it. -->
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+    <!-- NOSTORAGEPERMS-2026-09-13: READ_EXTERNAL_STORAGE removed.
+         Reading shared storage now happens through SAF grants only - the
+         conversion's Documents tree grant and the import picker's per-file
+         grants. The picker IS the permission: the rider's selection is the
+         grant, which is the whole point of the framework Google pointed at in
+         the original rejection.
+         node="remove" so upstream's declaration cannot merge back in. -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
+        tools:node="remove" />
 
     <!-- We run our mesh code as a foreground service - FIXME, find a way to stop doing this -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
