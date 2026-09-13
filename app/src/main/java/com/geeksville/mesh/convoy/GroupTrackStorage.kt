@@ -59,7 +59,17 @@ object GroupTrackStorage {
      * read back".
      */
     @Volatile
-    private var useInternal = false
+    // INTERNALON-2026-09-13: \u26d4 TRUE, AND THERE IS NO LONGER A WAY TO CHANGE IT.
+    // The storage prompt is gone: it was skipped on some launches -- rendered
+    // and dismissed before input -- which left this FALSE, sent the app to
+    // external, and had it seed defaults into a freshly created
+    // Documents/GroupTrack that the migration had just finished emptying.
+    //
+    // \u2b50 EXTERNAL STAYS IN THE CODE. chooseMode() and the public branch of every
+    // accessor below are untouched and still work; nothing in the app reaches
+    // them. \u26a0 If external is ever wanted for testing, change this ONE LINE --
+    // there is no screen to restore.
+    private var useInternal = true
 
     /** Has the choice been made this launch? */
     @Volatile

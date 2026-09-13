@@ -110,6 +110,47 @@ object GroupTrackConversion {
         }
     }
 
+    /**
+     * FRESHINSTALL-2026-09-13: has this package ever been updated?
+     *
+     * \u2b50 Android records firstInstallTime and lastUpdateTime per package. On a
+     * FRESH install they are IDENTICAL -- the install IS the last update. After
+     * any update they differ.
+     *
+     * \u26d4 THIS IS A FACT THE SYSTEM RECORDS, not an inference. Detecting a fresh
+     * install from a granted permission, or from the size of a database, is a
+     * guess that can be wrong about the rider who least deserves it.
+     *
+     * \u26a0 It reads a deliberate uninstall-and-reinstall as FRESH. That is
+     * correct: the uninstall took the app-private data with it, so there is
+     * nothing of theirs to migrate either way.
+     *
+     * \u26a0 On failure it returns FALSE -- "treat it as an update". The cost of
+     * being wrong that way is one screen a rider did not need; the cost of the
+     * other way is data left behind in a folder the app can no longer read.
+     */
+    fun isFreshInstall(ctx: Context): Boolean = try {
+        val pi = ctx.packageManager.getPackageInfo(ctx.packageName, 0)
+        val fresh = pi.firstInstallTime == pi.lastUpdateTime
+        Log.i(TAG, "isFreshInstall=$fresh (first=${pi.firstInstallTime} " +
+            "last=${pi.lastUpdateTime})")
+        fresh
+    } catch (e: Exception) {
+        Log.w(TAG, "isFreshInstall failed, assuming update: ${e.message}")
+        false
+    }
+
+    /**
+     * FRESHINSTALL-2026-09-13: close the record with nothing having been moved.
+     *
+     * \u2b50 "Nothing to migrate" is a RESOLVED conversion, not a pending one --
+     * otherwise a new rider is asked on every launch forever.
+     */
+    fun recordFreshInstall(ctx: Context) {
+        Log.i(TAG, "fresh install -- no migration, closing the record")
+        writeRecord(ctx, Outcome(true, "none (fresh install)", emptyList()))
+    }
+
     /** The raw record, for the diagnostics screen and the problem report. */
     fun readRecord(ctx: Context): String? =
         recordFile(ctx)?.takeIf { it.exists() }?.let {
@@ -191,6 +232,17 @@ object GroupTrackConversion {
      */
     fun run(ctx: Context, treeUri: Uri, onProgress: ((String) -> Unit)? = null): Outcome {
         Log.i(TAG, "=== CONVERSION START === tree=$treeUri")
+
+        // CONVFIX-2026-09-13: \u26d4 THE ACCESSOR NEEDS A CONTEXT AND HAD NONE.
+        // GroupTrackStorage learns one only through remember(), and the ONLY
+        // caller that passed one was chooseMode() -- from the storage prompt
+        // that INTERNALON-2026-09-13 removed this morning. So internalBase()
+        // returned null, and the first Droid 2 run failed with "no internal
+        // base -- cannot copy".
+        // \u26a0 Removing the screen removed a side effect nobody had written down.
+        // \u2b50 This function has ctx in its own signature; it should never have
+        // depended on some other screen having run first.
+        GroupTrackStorage.remember(ctx)
 
         try { SpatialDbManager.close() } catch (e: Exception) {
             Log.w(TAG, "close before copy: ${e.message}")
@@ -373,6 +425,9 @@ object GroupTrackConversion {
             } ?: return StepResult("maps", false, items, true, null,
                 started, System.currentTimeMillis())
 
+            // CONVFIX-2026-09-13: \u26a0 same reason as run() -- this can be reached
+            // without run() having primed the accessor.
+            GroupTrackStorage.remember(ctx)
             val internal = GroupTrackStorage.internalBase()
                 ?: return StepResult("maps", true, items, false,
                     "no internal base", started, System.currentTimeMillis())
@@ -410,7 +465,16 @@ object GroupTrackConversion {
                 continue
             }
             val srcBytes = child.length()
-            onProgress?.invoke("$prefix/$cname (${srcBytes / 1024 / 1024} MB)")
+            // CONVPROGRESS-2026-09-13: \u26a0 this fires ONCE PER FILE, so a 16 GB
+            // file shows one line for minutes. \u2b50 Say so, rather than leaving the
+            // rider to guess whether it has stopped.
+            val mb = srcBytes / 1024 / 1024
+            onProgress?.invoke(
+                if (mb >= 1024)
+                    "$cname \u2014 $mb MB\n\nThis is a large file and can take " +
+                    "several minutes. Leave this screen open."
+                else "$cname \u2014 $mb MB"
+            )
             try {
                 ctx.contentResolver.openInputStream(child.uri).use { input ->
                     if (input == null) throw IllegalStateException("no input stream")
@@ -451,22 +515,46 @@ object GroupTrackConversion {
         val done = ArrayList<String>()
         try {
             val tree = DocumentFile.fromTreeUri(ctx, treeUri) ?: return done
+
+            // FIELDVERSION-2026-09-13: \u26d4 DELETE, NOT RENAME. Through the
+            // testing passes these two folders were renamed to *-EXT so a run
+            // could be repeated and a stale path would fail loudly. The rename
+            // stood exactly where the delete belongs, so this is ONE operation
+            // swapped and nothing structural moved.
+            //
+            // \u26a0 REACHED ONLY AFTER A VERIFIED COPY. Every file was checked
+            // size-for-size and every step reported ok before the caller gets
+            // here. Deleting a source that did not copy is the one loss this
+            // whole design exists to avoid.
             for (name in listOf(DIR_GROUPTRACK, DIR_MYTRACKS)) {
                 val d = tree.listFiles().firstOrNull {
                     it.isDirectory && it.name == name
                 } ?: continue
-                val to = name + EXT_SUFFIX
                 val ok = try {
-                    android.provider.DocumentsContract.renameDocument(
-                        ctx.contentResolver, d.uri, to) != null
+                    d.delete()
                 } catch (e: Exception) {
-                    Log.e(TAG, "rename $name: ${e.message}"); false
+                    Log.e(TAG, "delete $name: ${e.message}"); false
                 }
-                Log.i(TAG, "renameSources: $name -> $to " + (if (ok) "OK" else "FAILED"))
-                if (ok) done.add(to)
+                Log.i(TAG, "deleteSources: $name " + (if (ok) "DELETED" else "FAILED"))
+                if (ok) done.add(name)
+            }
+
+            // \u26d4 AND THE PARKED MAPS FOLDER. Documents/maps existed only so the
+            // tiles survived a failed copy -- Fred, 09-13: *"we only saved in
+            // case we had a failure."* Every .mbtiles was already deleted as it
+            // landed; what is left is the directory and a few zero-byte
+            // journals. Nothing to keep.
+            tree.listFiles().firstOrNull {
+                it.isDirectory && it.name == DIR_MAPS_PARKED
+            }?.let { parked ->
+                val ok = try { parked.delete() } catch (e: Exception) {
+                    Log.e(TAG, "delete parked maps: ${e.message}"); false
+                }
+                Log.i(TAG, "deleteSources: maps " + (if (ok) "DELETED" else "FAILED"))
+                if (ok) done.add(DIR_MAPS_PARKED)
             }
         } catch (e: Exception) {
-            Log.e(TAG, "renameSources FAILED: ${e.message}")
+            Log.e(TAG, "deleteSources FAILED: ${e.message}")
         }
         return done
     }
@@ -485,57 +573,12 @@ object GroupTrackConversion {
      * \u2b50 AND IT IS NOT THE ONLY WAY BACK. Documents is shared storage, so a file
      * manager can rename GroupTrack-EXT by hand if this ever fails.
      */
-    fun restore(ctx: Context, treeUri: Uri): String {
-        val log = StringBuilder()
-        try {
-            val tree = DocumentFile.fromTreeUri(ctx, treeUri)
-                ?: return "tree unreadable"
+    // FIELDVERSION-2026-09-13: ⛔ restore() WAS HERE and is gone.
+    // It renamed *-EXT back and put maps where they were, so a test
+    // run could be repeated. ⚠ Once the sources are DELETED rather
+    // than renamed there is nothing to restore FROM, and code that
+    // reverses a one-way migration can only ever fire by accident.
 
-            for (name in listOf(DIR_GROUPTRACK, DIR_MYTRACKS)) {
-                val from = name + EXT_SUFFIX
-                val d = tree.listFiles().firstOrNull {
-                    it.isDirectory && it.name == from
-                } ?: continue
-                if (tree.listFiles().any { it.name == name }) {
-                    log.append("$name already exists -- left $from alone\n")
-                    continue
-                }
-                val ok = try {
-                    android.provider.DocumentsContract.renameDocument(
-                        ctx.contentResolver, d.uri, name) != null
-                } catch (e: Exception) { false }
-                log.append("$from -> $name ").append(if (ok) "OK" else "FAILED").append("\n")
-            }
-
-            // maps back inside GroupTrack
-            val parked = tree.listFiles().firstOrNull {
-                it.isDirectory && it.name == DIR_MAPS_PARKED
-            }
-            val gt = tree.listFiles().firstOrNull {
-                it.isDirectory && it.name == DIR_GROUPTRACK
-            }
-            if (parked != null && gt != null) {
-                val ok = try {
-                    android.provider.DocumentsContract.moveDocument(
-                        ctx.contentResolver, parked.uri, tree.uri, gt.uri) != null
-                } catch (e: Exception) { false }
-                log.append("maps -> GroupTrack/maps ")
-                    .append(if (ok) "OK" else "FAILED").append("\n")
-            }
-
-            // \u26a0 and the record, or the conversion will not offer itself again
-            GroupTrackStorage.internalBase()?.let { base ->
-                val f = File(base, RECORD_NAME)
-                if (f.exists()) {
-                    log.append("record deleted ").append(f.delete()).append("\n")
-                }
-            }
-        } catch (e: Exception) {
-            log.append("restore FAILED: ").append(e.message)
-        }
-        Log.i(TAG, "restore:\n$log")
-        return log.toString()
-    }
 
     /**
      * \u26a0 ONE OF THE TWO FOLDERS. Nothing else in the tree is looked at -- the

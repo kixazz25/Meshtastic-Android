@@ -287,15 +287,31 @@ fun ConvoyAuthorityGateScreenV2(
     // MODEDECL-2026-09-12: \u26a0 DECLARED HERE, beside the other gate state, because
     // the LaunchedEffect below reads it. It was declared with the prompt guard
     // further down and would not compile.
-    var modePicked by remember { mutableStateOf(GroupTrackStorage.isModeChosen()) }
+    // INTERNALON-2026-09-13: modePicked removed with the prompt.
 
     // ══════════════════════════════════════════════════════════════════
     //  CONVGATE-2026-09-12 -- the storage conversion, at startup.
     //  \u26d4 BEFORE StartupHousekeeping.run(), which calls
     //  SpatialDbManager.init() and OPENS the files the conversion replaces.
     // ══════════════════════════════════════════════════════════════════
+    // FRESHINSTALL-2026-09-13: \u26d4 A NEW RIDER NEVER SEES THE CONVERSION.
+    // Fred, 09-13: *"I do not want to scare 100 new users for 10 testers"* --
+    // the migration is a courtesy for riders who already have data, not a step
+    // in the install.
+    // \u2b50 On a fresh install the record is closed immediately and the screen
+    // never renders: no picker, no folder to choose, nothing about Google's
+    // storage restrictions.
     var convDone by remember {
-        mutableStateOf(GroupTrackConversion.isComplete(context))
+        mutableStateOf(
+            if (GroupTrackConversion.isComplete(context)) {
+                true
+            } else if (GroupTrackConversion.isFreshInstall(context)) {
+                GroupTrackConversion.recordFreshInstall(context)
+                true
+            } else {
+                false
+            }
+        )
     }
     var convTree by remember { mutableStateOf<android.net.Uri?>(null) }
     var convBusy by remember { mutableStateOf(false) }
@@ -304,7 +320,6 @@ fun ConvoyAuthorityGateScreenV2(
     var mapsInfo by remember {
         mutableStateOf<GroupTrackConversion.MapsInfo?>(null)
     }
-    var askRestore by remember { mutableStateOf(true) }
     val convScope = rememberCoroutineScope()
 
     // \u2b50 The whole run, once the rider has answered the maps question.
@@ -347,7 +362,7 @@ fun ConvoyAuthorityGateScreenV2(
                 if (out.ok) {
                     convStep = "renaming sources\u2026"
                     val r = GroupTrackConversion.renameSources(context, uri)
-                    sb.append("\n\nrenamed: ").append(
+                    sb.append("\n\nremoved: ").append(
                         if (r.isEmpty()) "nothing" else r.joinToString(", "))
                 }
                 sb.toString()
@@ -395,8 +410,11 @@ fun ConvoyAuthorityGateScreenV2(
     // CONVGATE-2026-09-12: \u26d4 ALSO KEYED ON THE CONVERSION. run() calls
     // SpatialDbManager.init(), which OPENS the database files the conversion
     // REPLACES -- so housekeeping must not start until the conversion is done.
-    LaunchedEffect(modePicked, convDone) {
-        if (!modePicked || !convDone) return@LaunchedEffect
+    // INTERNALON-2026-09-13: \u26a0 keyed on convDone alone now. The conversion must
+    // still finish before run() -- it calls SpatialDbManager.init(), which OPENS
+    // the files the conversion replaces.
+    LaunchedEffect(convDone) {
+        if (!convDone) return@LaunchedEffect
         // ⭐ BLOCKING, ON PURPOSE. evaluateState does not run until this returns
         // -- the ordering that 09-03 proved cannot be left to chance.
         val hk = withContext(Dispatchers.IO) { StartupHousekeeping.run(context) }
@@ -532,46 +550,12 @@ fun ConvoyAuthorityGateScreenV2(
     //  \u2b50 This is also where the conversion step goes when it is built: the
     //  prompt is its first action, and both disappear together.
     // ══════════════════════════════════════════════════════════════════
-    if (!modePicked) {
-        Surface(color = MshBg, modifier = Modifier.fillMaxSize()) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                Text(
-                    text = "Storage",
-                    color = MshPrimary,
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold,
-                    fontFamily = FontFamily.Monospace,
-                    textAlign = TextAlign.Center
-                )
-                Spacer(Modifier.height(24.dp))
-                GateBody(
-                    title = "Which store for this launch?",
-                    body = "EXTERNAL is where the app has always read. INTERNAL " +
-                        "is app-private storage \u2014 what the next release uses.\n\n" +
-                        "This is a test choice and is not remembered."
-                )
-                Spacer(Modifier.height(28.dp))
-                GateButton("EXTERNAL (as today)") {
-                    GroupTrackStorage.chooseMode(false, context)
-                    modePicked = true
-                    state = evaluateState(context)
-                }
-                Spacer(Modifier.height(12.dp))
-                GateOutlineButton("INTERNAL (app-private)") {
-                    GroupTrackStorage.chooseMode(true, context)
-                    modePicked = true
-                    state = evaluateState(context)
-                }
-            }
-        }
-        return
-    }
+    // INTERNALON-2026-09-13: \u26d4 THE STORAGE PROMPT WAS HERE and is gone.
+    // \u26a0 It was skipped on some launches, leaving the mode unset and the app
+    // running external -- which recreated Documents/GroupTrack and seeded it
+    // with defaults after the migration had emptied it.
+    // \u2b50 GroupTrackStorage.useInternal is now true at its declaration. Nothing
+    // chooses at runtime, so nothing can fail to choose.
 
     // ══════════════════════════════════════════════════════════════════
     //  CONVGATE-2026-09-12 -- THE CONVERSION SCREEN.
@@ -597,9 +581,24 @@ fun ConvoyAuthorityGateScreenV2(
 
                 when {
                     convBusy -> {
+                        // CONVPROGRESS-2026-09-13: \u2b50 THE COUNTER IS THE DIAGNOSTIC.
+                        // It proves the app is alive during a four-minute file, and
+                        // \u26d4 it settles whether "frozen" was ever real: if this
+                        // ticks while a 16 GB file copies, the screen was fine and
+                        // only the message was stale. If it freezes too, the
+                        // problem is elsewhere and a nicer message would have hidden
+                        // it.
+                        var elapsed by remember { mutableStateOf(0) }
+                        LaunchedEffect(Unit) {
+                            while (true) {
+                                kotlinx.coroutines.delay(1000)
+                                elapsed++
+                            }
+                        }
                         GateBody(
                             title = "Working",
-                            body = "Do not leave this screen.\n\n$convStep"
+                            body = "Do not leave this screen.\n\n$convStep\n\n" +
+                                "%d:%02d elapsed".format(elapsed / 60, elapsed % 60)
                         )
                     }
                     convResult != null -> {
@@ -627,11 +626,16 @@ fun ConvoyAuthorityGateScreenV2(
                                 "Copying takes a while. Skipping means downloading " +
                                 "them again."
                             else
+                                // CONVFIX-2026-09-13: \u26d4 SAY THAT THEY ARE BEING
+                                // DELETED. The old wording said they "will need
+                                // downloading again", which reads as a future
+                                // inconvenience rather than 16 GB going now.
                                 "${m.files.size} file(s), ${m.total / 1024 / 1024} MB.\n\n" +
                                 "There is not enough room to copy them \u2014 the " +
                                 "largest is ${m.largest / 1024 / 1024} MB and you " +
                                 "need about ${m.shortfall / 1024 / 1024} MB more " +
-                                "free.\n\nThey will need downloading again."
+                                "free.\n\nTHESE MAPS WILL BE DELETED. You will " +
+                                "need to download them again when you have room."
                         )
                         Spacer(Modifier.height(20.dp))
                         if (m.canCopy) {
@@ -651,42 +655,42 @@ fun ConvoyAuthorityGateScreenV2(
                             }
                         }
                     }
-                    askRestore -> {
-                        // \u26a0\u26a0 SCAFFOLDING. Undoes a previous run so this can be
-                        // tested again. \u26d4 REMOVE FOR THE FIELD BUILD -- code that
-                        // reverses a migration, in a build where migration is
-                        // one-way, can only fire by accident.
-                        GateBody(
-                            title = "Test harness",
-                            body = "Restore a previous run first?\n\nThis renames " +
-                                "GroupTrack-EXT back and puts maps where they were."
-                        )
-                        Spacer(Modifier.height(20.dp))
-                        GateButton("NO \u2014 CARRY ON") { askRestore = false }
-                        Spacer(Modifier.height(12.dp))
-                        GateOutlineButton("RESTORE FIRST") {
-                            askRestore = false
-                            convBusy = true
-                            convScope.launch {
-                                val text = withContext(Dispatchers.IO) {
-                                    // \u26a0 needs a grant to undo anything
-                                    val u = convTree
-                                    if (u == null) "no grant yet \u2014 pick Documents first"
-                                    else GroupTrackConversion.restore(context, u)
-                                }
-                                convBusy = false
-                                convResult = text
-                            }
-                        }
-                    }
+                    // FIELDVERSION-2026-09-13: ⛔ the RESTORE branch
+                    // was here. It undid a previous run so the
+                    // conversion could be tested again -- scaffolding,
+                    // and gone now that the sources are DELETED rather
+                    // than renamed. ⚠ There is nothing left to restore
+                    // from on a device that has run this.
                     else -> {
+                        // FIELDVERSION-2026-09-13: \u2b50 THE RIDER READS THIS ONCE,
+                        // unprompted, with no idea it was coming. It has to say
+                        // WHAT is happening, WHY, and WHAT TO TAP -- the system
+                        // picker looks like a file browser and people hunt for a
+                        // file to select when the answer is a folder.
                         GateBody(
-                            title = "Select Documents to continue",
-                            body = "Existing users will migrate their data. New " +
-                                "users will just continue with the install."
+                            title = "Storage update",
+                            body = "Your GroupTrack data is moving from the " +
+                                "public Documents folder to a private " +
+                                "application area. This is to satisfy Google's " +
+                                "All Files Access restrictions.\n\n" +
+                                "Select the Documents folder so the migration " +
+                                "continues. All data will be moved first. Your " +
+                                "maps are handled separately in the next step."
                         )
                         Spacer(Modifier.height(20.dp))
-                        GateButton("SELECT DOCUMENTS") { pickTree.launch(null) }
+                        GateButton("SELECT DOCUMENTS") {
+                            // CONVFIX-2026-09-13: \u26a0 open AT Documents where the
+                            // provider allows it. It did on Droid 1 by luck and
+                            // did not on Droid 2, which is how this surfaced.
+                            // \u2b50 A HINT, NOT A GUARANTEE -- some providers ignore
+                            // it, so the wording above must stand on its own.
+                            val hint = try {
+                                android.net.Uri.parse(
+                                    "content://com.android.externalstorage.documents/" +
+                                        "document/primary%3ADocuments")
+                            } catch (e: Exception) { null }
+                            pickTree.launch(hint)
+                        }
                     }
                 }
             }
