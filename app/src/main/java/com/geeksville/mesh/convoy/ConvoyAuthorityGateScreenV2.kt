@@ -360,7 +360,8 @@ fun ConvoyAuthorityGateScreenV2(
                 // structural changes. \u26a0 Renaming a source that did not copy is
                 // how the data goes missing.
                 if (out.ok) {
-                    convStep = "renaming sources\u2026"
+                    // WORDING-2026-09-13: they are DELETED now, not renamed.
+                    convStep = "removing the old files\u2026"
                     val r = GroupTrackConversion.renameSources(context, uri)
                     sb.append("\n\nremoved: ").append(
                         if (r.isEmpty()) "nothing" else r.joinToString(", "))
@@ -620,11 +621,17 @@ fun ConvoyAuthorityGateScreenV2(
                         GateBody(
                             title = "Your downloaded maps",
                             body = if (m.canCopy)
+                                // WORDING-2026-09-13: \u26a0 SAY HOW LONG. Measured
+                                // 09-12: 16 GB in four minutes at ~70 MB/s, so a
+                                // 50 GB store is about twelve. "A while" tells a
+                                // rider nothing and they will leave the screen.
                                 "${m.files.size} file(s), ${m.total / 1024 / 1024} MB.\n" +
                                 "Largest is ${m.largest / 1024 / 1024} MB and you have " +
                                 "${m.free / 1024 / 1024} MB free.\n\n" +
-                                "Copying takes a while. Skipping means downloading " +
-                                "them again."
+                                "Copying time depends on how much you have \u2014 a " +
+                                "large map store can run up to 15 minutes. Leave " +
+                                "this screen open.\n\n" +
+                                "Skipping means downloading them again."
                             else
                                 // CONVFIX-2026-09-13: \u26d4 SAY THAT THEY ARE BEING
                                 // DELETED. The old wording said they "will need
@@ -669,16 +676,22 @@ fun ConvoyAuthorityGateScreenV2(
                         // file to select when the answer is a folder.
                         GateBody(
                             title = "Storage update",
+                            // WORDING-2026-09-13: \u26a0 the instruction moved INTO the
+                            // body and the button became a plain GO. The old
+                            // button said SELECT DOCUMENTS and then the system
+                            // picker opened showing the CONTENTS of Documents,
+                            // which reads as a contradiction.
                             body = "Your GroupTrack data is moving from the " +
                                 "public Documents folder to a private " +
                                 "application area. This is to satisfy Google's " +
                                 "All Files Access restrictions.\n\n" +
-                                "Select the Documents folder so the migration " +
-                                "continues. All data will be moved first. Your " +
-                                "maps are handled separately in the next step."
+                                "Your phone will open a folder chooser. " +
+                                "Choose the Documents folder and allow access.\n\n" +
+                                "All your data is moved first. Your maps are " +
+                                "handled separately in the next step."
                         )
                         Spacer(Modifier.height(20.dp))
-                        GateButton("SELECT DOCUMENTS") {
+                        GateButton("CONTINUE") {
                             // CONVFIX-2026-09-13: \u26a0 open AT Documents where the
                             // provider allows it. It did on Droid 1 by luck and
                             // did not on Droid 2, which is how this surfaced.

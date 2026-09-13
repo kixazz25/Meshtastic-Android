@@ -33,7 +33,12 @@ import java.net.URL
  */
 
 private const val TAG = "HomeStateImport"
-private const val MINUTES_PER_SOURCE = 7
+// WORDING-2026-09-13: \u26d4 WAS 7, WHICH PREDICTED ABOUT AN HOUR across nine
+// sources. Utah -- 145,000 trails, the heaviest state there is -- finished in
+// FIFTEEN MINUTES on Droid 2 today. \u26a0 Three predicts ~27: honest cover for a
+// slow device or connection, without an hour-long warning in front of the first
+// thing the product asks a new rider to do.
+private const val MINUTES_PER_SOURCE = 3
 
 // ── Progress data exposed to the UI ──────────────────────────────
 

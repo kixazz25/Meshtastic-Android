@@ -70,6 +70,18 @@ open class MeshUtilApplication :
     override fun onCreate() {
         super.onCreate()
         ContextServices.app = this
+        // STORAGECTX-2026-09-13: \u26d4 THE STORAGE ACCESSOR NEEDS A CONTEXT AND
+        // THIS IS THE ONLY PLACE THAT RUNS BEFORE EVERY CALLER.
+        // getExternalFilesDir() cannot be called without one, and several
+        // callers are object singletons with none to give -- MapStateStore has
+        // no Context anywhere, so GroupTrackStorage.dir("state") resolved to
+        // null, fell back to PUBLIC storage, and recreated Documents/GroupTrack
+        // on a device that had just finished migrating away from it.
+        // \u26a0 Priming it inside GroupTrackConversion.run() covered the migration
+        // path only: a FRESH INSTALL skips the conversion, so nothing primed it.
+        // \u2b50 After this line internalBase() can never return null and the public
+        // fallback can never fire.
+        com.geeksville.mesh.convoy.GroupTrackStorage.remember(this)
         // Initialize OSMDroid for convoy map tile caching
         org.osmdroid.config.Configuration.getInstance().userAgentValue = packageName
         org.osmdroid.config.Configuration.getInstance().osmdroidBasePath = getExternalFilesDir(null) ?: filesDir

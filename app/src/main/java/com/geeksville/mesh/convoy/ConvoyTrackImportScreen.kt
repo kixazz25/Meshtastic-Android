@@ -71,7 +71,8 @@ fun ConvoyTrackImportScreen(onDismiss: () -> Unit) {
     var showSourcePopup by remember { mutableStateOf(false) }
     var selectedSlots by remember { mutableStateOf<List<String>>(emptyList()) }
     var replaceExisting by remember { mutableStateOf(false) }
-    var scanning by remember { mutableStateOf(true) }
+    // IMPORTPICKER-2026-09-13: nothing is scanned now; this covers STAGING.
+    var scanning by remember { mutableStateOf(false) }
 
     // Progress dialog state
     var showProgress by remember { mutableStateOf(false) }
@@ -114,20 +115,108 @@ fun ConvoyTrackImportScreen(onDismiss: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    // -- Scan Downloads on launch -------------------------------------
-    LaunchedEffect(Unit) {
-        withContext(Dispatchers.IO) {
-            val dlDir = Environment.getExternalStoragePublicDirectory(
-                Environment.DIRECTORY_DOWNLOADS
-            )
-            val found = dlDir.listFiles()
-                ?.filter { it.isFile && it.extension.lowercase() in listOf("gpx", "kml") }
-                ?.sortedByDescending { it.lastModified() }
-                ?: emptyList()
-            withContext(Dispatchers.Main) {
-                files = found
-                scanning = false
+    // IMPORTPICKER-2026-09-13: \u26d4 THE DOWNLOADS SCAN IS GONE.
+    // It returned an EMPTY LIST once MANAGE_EXTERNAL_STORAGE left the manifest
+    // -- not an error, an empty list, which reads as "you have no files".
+    // \u26a0 An app may WRITE to Downloads without permission but not READ what
+    // another app put there. Export still works; only this was broken.
+    // \u2b50 The picker IS the permission: the rider's selection is the grant.
+    var deleteOriginals by remember { mutableStateOf(true) }
+    var staging by remember { mutableStateOf(false) }
+    var stageNote by remember { mutableStateOf("") }
+
+    /**
+     * \u2b50 STAGING, AND IT IS SELF-CONTAINED. Copy each picked file into storage
+     * the app owns, verify the size, and delete the original if asked -- all
+     * while the URI grant is live. By the time the import runs the URIs are
+     * finished with entirely.
+     *
+     * \u26a0 APP-PRIVATE, not Documents. A visible folder would need the Documents
+     * tree grant, and a FRESH INSTALL never takes one because the conversion
+     * skips. This needs nothing and works everywhere.
+     */
+    fun stageAndList(uris: List<android.net.Uri>) {
+        if (uris.isEmpty()) return
+        staging = true
+        scope.launch {
+            val staged = withContext(Dispatchers.IO) {
+                val dir = java.io.File(context.filesDir, "gpx_staging")
+                // \u26a0 CLEARED AT THE START TOO. A previous run that died leaves
+                // files here, and importing yesterday's selection silently would
+                // be worse than losing it.
+                if (dir.exists()) dir.listFiles()?.forEach { it.delete() }
+                dir.mkdirs()
+                val out = ArrayList<java.io.File>()
+                for (uri in uris) {
+                    val doc = androidx.documentfile.provider.DocumentFile
+                        .fromSingleUri(context, uri)
+                    val name = doc?.name ?: "import_${System.currentTimeMillis()}.gpx"
+                    stageNote = name
+                    val target = java.io.File(dir, name)
+                    try {
+                        context.contentResolver.openInputStream(uri).use { input ->
+                            if (input == null) throw IllegalStateException("no input stream")
+                            target.outputStream().use { o -> input.copyTo(o) }
+                        }
+                        // \u26d4 VERIFY BEFORE DELETING. A source removed on a short
+                        // write is the one loss worth preventing.
+                        val srcLen = doc?.length() ?: -1L
+                        if (srcLen > 0 && target.length() != srcLen) {
+                            android.util.Log.e("ImportPicker",
+                                "$name SIZE MISMATCH $srcLen != ${target.length()}")
+                            target.delete()
+                            continue
+                        }
+                        out.add(target)
+                        if (deleteOriginals) {
+                            // \u26a0 NEEDS THE WRITE FLAG ON THE PICKER INTENT. Without
+                            // it this fails silently and the rider thinks the
+                            // original went.
+                            val gone = try { doc?.delete() ?: false }
+                            catch (e: Exception) {
+                                android.util.Log.w("ImportPicker",
+                                    "delete $name: ${e.message}"); false
+                            }
+                            android.util.Log.i("ImportPicker",
+                                "$name staged, original " +
+                                    (if (gone) "deleted" else "KEPT"))
+                        }
+                    } catch (e: Exception) {
+                        android.util.Log.e("ImportPicker", "$name FAILED: ${e.message}")
+                    }
+                }
+                out
             }
+            files = staged
+            selected = staged.map { it.name }.toSet()   // \u2b50 all selected by default
+            staging = false
+            stageNote = ""
+        }
+    }
+
+    val pickFiles = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.OpenMultipleDocuments()
+    ) { uris: List<android.net.Uri> ->
+        // \u26a0 Persist nothing here: these are per-file grants, used and finished
+        // with inside stageAndList.
+        stageAndList(uris)
+    }
+
+    // \u26a0 scanning starts FALSE -- there is nothing to scan any more.
+    // STORAGECTX-2026-09-13: \u2b50 AND THE PICKER OPENS ITSELF. The entry panel
+    // existed only to hold a button that launched it -- with no files there is
+    // nothing to configure, so the rider went screen -> picker -> back to the
+    // same screen. \u26a0 The delete choice was already defaulted on and happens
+    // during staging, so asking first was the redundant step; the list reports
+    // what was deleted.
+    var pickerOpened by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        scanning = false
+        if (!pickerOpened && files.isEmpty()) {
+            pickerOpened = true
+            pickFiles.launch(arrayOf(
+                "application/gpx+xml", "application/vnd.google-earth.kml+xml",
+                "application/octet-stream", "text/xml", "*/*"))
         }
     }
 
@@ -417,19 +506,66 @@ fun ConvoyTrackImportScreen(onDismiss: () -> Unit) {
                     )
                 }
             }
+        } else if (staging) {
+            // IMPORTPICKER-2026-09-13: copying the picked files in.
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    CircularProgressIndicator(color = Color(0xFF39FF14))
+                    Spacer(Modifier.height(12.dp))
+                    Text(stageNote.ifBlank { "Copying files..." },
+                        color = Color(0xFF8B938A), fontSize = 11.sp,
+                        fontFamily = FontFamily.Monospace)
+                }
+            }
         } else if (files.isEmpty()) {
             Box(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    // IMPORTPICKER-2026-09-13: \u2b50 THE ENTRY POINT, not an error.
+                    // The old text said no files were FOUND, which was a lie once
+                    // the scan could not see them.
                     Text(
-                        "No GPX or KML files found\nin Downloads.",
+                        "Select the GPX or KML files\nyou want to import.",
                         color = Color(0xFF8B938A),
                         fontSize = 12.sp,
                         fontFamily = FontFamily.Monospace,
                         textAlign = TextAlign.Center
                     )
+                    Spacer(Modifier.height(16.dp))
+                    // \u26a0 ONE CHOICE FOR THE RUN, DEFAULT ON. Fred, 09-13.
+                    Row(verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.clickable {
+                            deleteOriginals = !deleteOriginals
+                        }) {
+                        Text(if (deleteOriginals) "[x]" else "[ ]",
+                            color = Color(0xFF39FF14), fontSize = 13.sp,
+                            fontFamily = FontFamily.Monospace)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Delete the originals after copying",
+                            color = Color(0xFF8B938A), fontSize = 11.sp,
+                            fontFamily = FontFamily.Monospace)
+                    }
+                    Spacer(Modifier.height(16.dp))
+                    Surface(
+                        modifier = Modifier.clickable {
+                            // \u26a0 GPX and KML are frequently reported as
+                            // octet-stream, so the wildcard has to be there or
+                            // the rider sees an empty picker.
+                            pickFiles.launch(arrayOf(
+                                "application/gpx+xml", "application/vnd.google-earth.kml+xml",
+                                "application/octet-stream", "text/xml", "*/*"))
+                        },
+                        shape = RoundedCornerShape(10.dp),
+                        color = Color(0xFF1A3A1A)
+                    ) {
+                        Text("  SELECT FILES  ",
+                            color = Color(0xFF39FF14),
+                            fontSize = 12.sp,
+                            fontFamily = FontFamily.Monospace,
+                            modifier = Modifier.padding(vertical = 10.dp))
+                    }
                     Spacer(Modifier.height(16.dp))
                     Surface(
                         modifier = Modifier.clickable { onDismiss() },
