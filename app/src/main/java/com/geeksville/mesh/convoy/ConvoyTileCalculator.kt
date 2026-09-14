@@ -109,7 +109,10 @@ object ConvoyTileCalculator {
         "" -> ConvoyConfig.DOWNLOAD_ZOOM
         "SAT" -> minOf(18, ConvoyConfig.DOWNLOAD_ZOOM)
         "TOPO" -> minOf(16, ConvoyConfig.DOWNLOAD_ZOOM)
-        "TOPO+" -> minOf(17, ConvoyConfig.DOWNLOAD_ZOOM)
+        // ZCAP3-2026-09-14: TOPO+ is 16, NOT 17. OpenTopoMap serves z18, but a DRAWN map has
+        // said everything it has by 16 -- z17 is ~4x the tiles for the same
+        // information. Do not re-raise this from "the source supports it".
+        "TOPO+" -> minOf(16, ConvoyConfig.DOWNLOAD_ZOOM)
         else -> minOf(16, ConvoyConfig.DOWNLOAD_ZOOM)
     }
 
