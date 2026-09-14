@@ -435,7 +435,7 @@ fun ConvoyScreen(
             val myCart = convoyState.nodes.firstOrNull { it.nodeId == myCartId }
             myCart?.let {
                 if (it.latitude != 0.0 && it.longitude != 0.0) {
-                    wv.evaluateJavascript("setView(${it.latitude}, ${it.longitude}, ${ConvoyTileCalculator.cartZoom()})", null)
+                    wv.evaluateJavascript("setView(${it.latitude}, ${it.longitude}, ${ConvoyConfig.MAP_CART_ZOOM})", null)
                 }
             }
         }
@@ -449,12 +449,12 @@ fun ConvoyScreen(
             HudMode.MY_CART -> {
                 val myCart = nodes.firstOrNull { it.isMyCart }
                 myCart?.let {
-                    wv.evaluateJavascript("setView(${it.latitude}, ${it.longitude}, ${ConvoyTileCalculator.cartZoom()})", null)
+                    wv.evaluateJavascript("setView(${it.latitude}, ${it.longitude}, ${ConvoyConfig.MAP_CART_ZOOM})", null)
                 }
             }
             HudMode.NODE -> {
                 selectedNode?.let {
-                    wv.evaluateJavascript("setView(${it.latitude}, ${it.longitude}, ${ConvoyTileCalculator.cartZoom()})", null)
+                    wv.evaluateJavascript("setView(${it.latitude}, ${it.longitude}, ${ConvoyConfig.MAP_CART_ZOOM})", null)
                 }
             }
             else -> {

@@ -87,29 +87,9 @@ object ConvoyTileCalculator {
      *
      * An empty slot means NO CAP - see the note on corridorTiles.
      */
-    /** ZCAP-2026-09-14: the zoom My Cart auto-pan asks for, clamped to the active slot's
-     *  ceiling. Asking past the ceiling is what produced the 18 <-> 16 bounce:
-     *  Kotlin asserted 18 on every tick, the display clamped it back, repeat.
-     *  Reads the slot at call time, so it follows a source change with no
-     *  plumbing. If MapSourceManager has not initialised yet, activeSourceKey
-     *  is "SAT" and this returns 18 -- i.e. today's behaviour, not a wrong cap. */
-    fun cartZoom(): Double =
-        minOf(ConvoyConfig.MAP_CART_ZOOM,
-              maxZoomForSlot(ConvoyConfig.ACTIVE_TILE_SOURCE).toDouble())
-
-    /** ZCAP-2026-09-14: per-slot ceilings, stated explicitly instead of SAT-or-everything-else.
-     *  SAT is photography and rewards zooming. A rendered map has said everything
-     *  it has by its ceiling; levels above cost 4x each and return nothing.
-     *  VALUES ASSUME: SAT = Google Hybrid, TOPO = Esri World Topo, TOPO+ = OpenTopoMap.
-     *  Re-check these when a slot's source changes -- the old "else -> 16" was written
-     *  for esri-usa-topo in TOPO+ and went stale silently when the source was swapped.
-     *  "" MEANS NO CAP and both delete paths depend on it: a capped delete computes a
-     *  smaller set than an older build stored, stranding tiles nothing can ever find. */
     fun maxZoomForSlot(slotName: String): Int = when (slotName.uppercase()) {
         "" -> ConvoyConfig.DOWNLOAD_ZOOM
         "SAT" -> minOf(18, ConvoyConfig.DOWNLOAD_ZOOM)
-        "TOPO" -> minOf(16, ConvoyConfig.DOWNLOAD_ZOOM)
-        "TOPO+" -> minOf(17, ConvoyConfig.DOWNLOAD_ZOOM)
         else -> minOf(16, ConvoyConfig.DOWNLOAD_ZOOM)
     }
 
