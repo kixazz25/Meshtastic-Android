@@ -1239,6 +1239,77 @@ fun ConvoyScreen(
             }
         }
 
+        // ── NOGPSMSG-2026-09-15: position-source messages ────────────────────────────
+        // Both gated on !showSplash: a dialog raised under a full-screen image
+        // is the 09-13 storage-prompt trap (rendered and dismissed before input).
+        val noPositionError by viewModel.noPositionError.collectAsStateWithLifecycle()
+        val networkPositionWarning by viewModel.networkPositionWarning.collectAsStateWithLifecycle()
+        val nogpsContext = androidx.compose.ui.platform.LocalContext.current
+        // Own prefs file: ConvoyDevSeeder clears a LIST of pref files, and a
+        // rider acknowledgement must not be collateral damage of a dev reset.
+        var netPosAck by remember {
+            mutableStateOf(
+                nogpsContext.getSharedPreferences(
+                    "grouptrack_device", android.content.Context.MODE_PRIVATE
+                ).getBoolean("net_pos_ack", false)
+            )
+        }
+        // Not persisted. The hard error returns every app start while it holds.
+        var noPosDismissed by remember { mutableStateOf(false) }
+
+        if (!showSplash && noPositionError && !noPosDismissed) {
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { noPosDismissed = true },
+                title = { androidx.compose.material3.Text("No location available") },
+                text = {
+                    androidx.compose.material3.Text(
+                        "GroupTrack cannot determine your location.\n\n" +
+                        "There is no GPS position, no mesh radio supplying one, " +
+                        "and no network position available.\n\n" +
+                        "Connect a mesh radio, or move somewhere with network " +
+                        "coverage, for the app to know where you are."
+                    )
+                },
+                confirmButton = {
+                    androidx.compose.material3.TextButton(
+                        onClick = { noPosDismissed = true }
+                    ) { androidx.compose.material3.Text("OK") }
+                }
+            )
+        } else if (!showSplash && networkPositionWarning && !netPosAck) {
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { netPosAck = true },
+                title = { androidx.compose.material3.Text("Not a standalone trail device") },
+                text = {
+                    androidx.compose.material3.Text(
+                        "As equipped, this device will not function as a standalone " +
+                        "Android trail device.\n\n" +
+                        "It has no GPS of its own right now, so it can only find your " +
+                        "location through a network connection \u2014 and there is no " +
+                        "network on the trail.\n\n" +
+                        "It requires a mesh radio to function off-grid. We recommend " +
+                        "the Seeed SenseCAP Card Tracker T1000-E, which integrates " +
+                        "tightly with GroupTrack."
+                    )
+                },
+                confirmButton = {
+                    androidx.compose.material3.TextButton(
+                        onClick = { netPosAck = true }
+                    ) { androidx.compose.material3.Text("OK") }
+                },
+                dismissButton = {
+                    androidx.compose.material3.TextButton(
+                        onClick = {
+                            nogpsContext.getSharedPreferences(
+                                "grouptrack_device", android.content.Context.MODE_PRIVATE
+                            ).edit().putBoolean("net_pos_ack", true).apply()
+                            netPosAck = true
+                        }
+                    ) { androidx.compose.material3.Text("Don't show again") }
+                }
+            )
+        }
+
                     // WAYPOINT-TRACE-2026-07-31: does this gate even evaluate?
                     // ⚠ Logging in composition is a side effect and comes OUT
                     // once this path is understood. It is here because nothing

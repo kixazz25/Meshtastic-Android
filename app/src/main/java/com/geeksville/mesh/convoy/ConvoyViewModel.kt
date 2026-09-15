@@ -109,6 +109,25 @@ class ConvoyViewModel @Inject constructor(
     private var phoneLocationListener: android.location.LocationListener? = null
 
     /**
+     * NOGPSMSG-2026-09-15: the two position states the ride panel reports to the rider.
+     *
+     * HARD -- no position from any source. The device cannot function. Shown
+     * every time; NOT dismissible.
+     * SOFT -- position came from the phone's own NETWORK fallback, not GPS
+     * hardware and not a radio. Works here, will not work on the trail.
+     * Dismissible permanently (the flag itself lives in ConvoyScreen; this is
+     * only the condition).
+     *
+     * Both are set in readLiveNodes()'s no-radio branch and cleared at the top
+     * of that function, so the radio path resets them with no edit of its own.
+     */
+    private val _noPositionError = kotlinx.coroutines.flow.MutableStateFlow(false)
+    val noPositionError: kotlinx.coroutines.flow.StateFlow<Boolean> = _noPositionError
+
+    private val _networkPositionWarning = kotlinx.coroutines.flow.MutableStateFlow(false)
+    val networkPositionWarning: kotlinx.coroutines.flow.StateFlow<Boolean> = _networkPositionWarning
+
+    /**
      * NETLOC-2026-09-15: ASK EVERY PROVIDER THAT EXISTS, NOT JUST GPS.
      *
      * This is the live feed that drives the cart when there is no radio. It used
@@ -879,6 +898,11 @@ if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
 
     private fun readLiveNodes(nowMs: Long): List<ConvoyNode> {
         val nodeMap = try { nodeRepository.nodeDBbyNum.value } catch (e: Exception) { emptyMap() }
+        // NOGPSMSG-2026-09-15: clear both here so the RADIO path resets them without its own edit.
+        // A radio supplies position through a different route entirely; neither
+        // message applies once nodes are present.
+        _noPositionError.value = false
+        _networkPositionWarning.value = false
         // No radio — device IS a node. Phone GPS only after permission granted.
         if (nodeMap.isEmpty()) {
             if (androidx.core.content.ContextCompat.checkSelfPermission(
@@ -888,6 +912,27 @@ if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
             }
             // _myCartId no longer set here — set ONCE in startGroupTrack()
             val loc = getPhoneLocation()
+
+            // NOGPSMSG-2026-09-15: report WHICH state we are in. See the declarations above.
+            // provider is reliable for this: sources 1 and 3 of getPhoneLocation
+            // build Location("gps") explicitly, so only the live listener can
+            // report "network".
+            val fromNetwork = loc != null &&
+                loc.provider == android.location.LocationManager.NETWORK_PROVIDER
+            if (loc == null) {
+                if (!_noPositionError.value) {
+                    android.util.Log.e("ConvoyVM",
+                        "NOGPSMSG-2026-09-15: NO POSITION from any source -- device cannot function")
+                }
+                _noPositionError.value = true
+            } else if (fromNetwork) {
+                if (!_networkPositionWarning.value) {
+                    android.util.Log.w("ConvoyVM",
+                        "NOGPSMSG-2026-09-15: position is NETWORK-derived -- will not work on the trail")
+                }
+                _networkPositionWarning.value = true
+            }
+
             val lat = loc?.latitude ?: 0.0
             val lon = loc?.longitude ?: 0.0
             val alt = ((loc?.altitude ?: 0.0) * 3.28084).toInt()
