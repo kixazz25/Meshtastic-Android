@@ -34,7 +34,7 @@
     // page loads and shown in the settings panel. A tester can read it off the
     // screen, so stale bundled HTML is visible without logcat.
     // ⚠ BUMP THIS WHENEVER THIS FILE CHANGES, or the display starts lying.
-    window.__htmlVersion = "2026-09-08a";
+    window.__htmlVersion = "2026-09-14a";
     var currentMaxNative = 18;
 
     // ══════════════════════════════════════════════
@@ -783,7 +783,26 @@
         try { Android.onViewportChanged(b.getNorth(), b.getSouth(), b.getEast(), b.getWest(), z); } catch(e) {}
       }, 450);
     }
-    function setView(lat, lon, zoom) { map.setView([lat, lon], zoom); reportViewport(); }
+    function setView(lat, lon, zoom) {
+      // ZCAPJS-2026-09-14: CLAMP TO THE SOURCE CEILING. Kotlin sends a source-blind 18
+      // (ConvoyConfig.MAP_CART_ZOOM) on every My Cart auto-pan tick. currentMaxNative
+      // already knows the real ceiling -- setTileUrl sets it per source, SAT 18 and
+      // rendered maps 16 -- so the ceiling stays in ONE place and every caller of
+      // setView inherits it.
+      // This is what killed the 18 <-> 16 bounce: the zoomend handler snapped any
+      // zoom above currentMaxNative back down, the next tick asked for 18 again, and
+      // round it went. Asking for the ceiling in the first place gives it nothing to
+      // snap back from.
+      // ⛔ DO NOT move this clamp into Kotlin. The attempt to do so (reverted) read
+      // the active slot from MapSourceManager inside a JS string template on the main
+      // thread; it threw, took the evaluateJavascript call with it, and the map went
+      // blank with no tile requests and no errors logged.
+      if (typeof currentMaxNative === "number" && zoom > currentMaxNative) {
+        zoom = currentMaxNative;
+      }
+      map.setView([lat, lon], zoom);
+      reportViewport();
+    }
     function panTo(lat, lon) { map.panTo([lat, lon]); }
     function fitBounds(lats, lons) {
       if (!lats.length) return;
