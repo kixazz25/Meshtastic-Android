@@ -132,16 +132,35 @@ object ConvoyTileDownloader {  // [V2.6b-CONCBACKOFF]
         onProgress: (downloaded: Int, total: Int, failCount: Int) -> Unit
     ): Result<DownloadSummary> {
         return try {
+            // ZCAP2-2026-09-14: THE CAP IS ENFORCED HERE, NOT IN THE CALCULATOR.
+            // The tile set arrives from calculateTiles/corridorTiles unchanged, so
+            // segmentation, cell slicing and the queue's stored estimate are all
+            // untouched -- the estimate reads HIGH and that is accepted. We simply
+            // do not fetch above the slot ceiling.
+            // Covers corridor and area both: every download path calls this function.
+            // NOTE total is taken AFTER the filter, so the job's own progress still
+            // reaches 100%. markComplete() records counts and is not gated on the
+            // stored estimate, so a filtered run completes normally.
+            // Both DELETE paths are deliberately NOT capped -- they must still reach
+            // tiles stored above the cap by older builds.
+            val zCap = ConvoyTileCalculator.maxZoomForSlot(sourceName)
+            val capTiles = tiles.filter { it.z <= zCap }
+            if (capTiles.size != tiles.size) {
+                android.util.Log.i(
+                    "TileDownloader",
+                    "ZCAP2-2026-09-14: $sourceName cap z$zCap -- skipping ${tiles.size - capTiles.size} of ${tiles.size} tiles"
+                )
+            }
             var downloaded = 0
             var failed = 0
-            val total = tiles.size
+            val total = capTiles.size
 
             // [V2.6b-CONCURRENCY] Fetch tiles in parallel batches (network is the
             // bottleneck; OkHttp is thread-safe). INSERT serially per batch —
             // MBTilesStore holds one cached SQLite handle per type, so concurrent
             // inserts are unsafe. Overlaps network waits without racing the DB.
             var loggedZ18 = 0
-            for (fetchBatch in tiles.chunked(TILE_FETCH_CONCURRENCY)) {
+            for (fetchBatch in capTiles.chunked(TILE_FETCH_CONCURRENCY)) {
                 if (!coroutineContext.isActive) {
                     return Result.failure(
                         kotlinx.coroutines.CancellationException("Download cancelled")

@@ -1707,6 +1707,11 @@ fun ConvoyScreen(
                 pendingDetailType = type
                 pendingDetailId = id
             },
+            // SEARCHPAN-2026-09-15: a search moved the map -- stop following the cart, or the next
+            // convoyState tick drags the rider back off the place they searched
+            // for. Tapping MY CART re-arms it (:2764 sets autoPan true) and snaps
+            // back deliberately.
+            onMapRepositioned = { viewModel.setAutoPan(false) },
             modifier = Modifier.align(Alignment.TopEnd).padding(top = 120.dp, end = 12.dp)
         )
 

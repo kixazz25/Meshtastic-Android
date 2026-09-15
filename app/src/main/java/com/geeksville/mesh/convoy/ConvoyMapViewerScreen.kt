@@ -1902,6 +1902,9 @@ fun ConvoyMapViewerScreen(
                     pendingDetailType = type
                     pendingDetailId = id
                 },
+                // SEARCHPAN-2026-09-15: nothing to do. The planner has no auto-pan -- no cart is
+                // being followed here, so no reposition needs cancelling.
+                onMapRepositioned = { },
                 stackDown = true,
                 // ⭐ open on arriving at the trailhead step — that is where the
                 // rider finds their area, and the banner tells them to search

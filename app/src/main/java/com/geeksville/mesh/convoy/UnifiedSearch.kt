@@ -67,6 +67,13 @@ fun UnifiedSearch(
     webView: WebView?,
     context: Context,
     onOpenDetail: (String, String) -> Unit,
+    /* SEARCHPAN-2026-09-15: called when an AREA search MOVES THE MAP, so the caller can cancel
+     * anything that would pull the view back. The ride map's auto-pan re-asserts
+     * the cart position on every tick and a programmatic move never trips the
+     * ACTION_UP handler that normally stops it.
+     * ⚠ REQUIRED, no default (code rule 1): there are two callers and both must
+     * make the decision explicitly rather than inherit it silently. */
+    onMapRepositioned: () -> Unit,
     stackDown: Boolean = false,
     /* ⚠ DEFAULT FALSE. UnifiedSearch is shared — the convoy map uses it too,
      * and only the planner asks for this. */
@@ -124,6 +131,11 @@ fun UnifiedSearch(
                     return@launch
                 }
                 val a = addrs[0]
+                // SEARCHPAN-2026-09-15: the map is about to move. Tell the caller BEFORE the move,
+                // so auto-pan is already off when the next tick lands.
+                // ⚠ AREA BRANCH ONLY -- the artifact modes open a detail panel and
+                // do not reposition, so a rider looking up a waypoint stays followed.
+                onMapRepositioned()
                 webView?.evaluateJavascript("setView(${a.latitude}, ${a.longitude}, 13)", null)
                 webView?.evaluateJavascript(
                     "try{showSearchCenter(${a.latitude}, ${a.longitude})}catch(e){}", null
