@@ -108,22 +108,69 @@ class ConvoyViewModel @Inject constructor(
     @Volatile private var livePhoneLocation: android.location.Location? = null
     private var phoneLocationListener: android.location.LocationListener? = null
 
+    /**
+     * NETLOC-2026-09-15: ASK EVERY PROVIDER THAT EXISTS, NOT JUST GPS.
+     *
+     * This is the live feed that drives the cart when there is no radio. It used
+     * to subscribe to GPS_PROVIDER alone. On a device with NO GPS CHIP that
+     * delivers nothing, the legacy NETWORK_PROVIDER is dormant on modern Android
+     * (Play Services moved network-derived positioning into FUSED), and the cart
+     * ended up with a name and 0.0/0.0 -- silently, with the map left at its
+     * construction default.
+     *
+     * Bluetooth GPS from a paired phone needs no special case: it arrives through
+     * these same providers and the chain picks it up transparently.
+     *
+     * Each registration is guarded on its own. A provider that does not exist on
+     * a given device throws, and before this one throw lost the entire feed.
+     */
     private fun startPhoneGps() {
         if (phoneLocationListener != null) return
-        try {
-            val lm = appContext.getSystemService(android.content.Context.LOCATION_SERVICE) as? android.location.LocationManager ?: return
-            phoneLocationListener = android.location.LocationListener { loc ->
-                livePhoneLocation = loc
+        val lm = appContext.getSystemService(android.content.Context.LOCATION_SERVICE) as? android.location.LocationManager ?: return
+
+        // NETLOC-2026-09-15: keep the BETTER fix, not the latest one. Registering several
+        // providers against one listener means fixes of very different quality
+        // arrive interleaved; last-write-wins would let a 30 m network fix
+        // overwrite a 3 m GPS fix two seconds later.
+        val listener = android.location.LocationListener { loc ->
+            val held = livePhoneLocation
+            val staleMs = 15000L
+            val take = held == null ||
+                (System.currentTimeMillis() - held.time) > staleMs ||
+                loc.accuracy <= held.accuracy
+            if (take) livePhoneLocation = loc
+        }
+        phoneLocationListener = listener
+
+        val providers = listOf(
+            android.location.LocationManager.GPS_PROVIDER,
+            android.location.LocationManager.NETWORK_PROVIDER
+        )
+
+        var registered = 0
+        for (p in providers) {
+            try {
+                lm.requestLocationUpdates(
+                    p,
+                    2000L,  // 2 second interval
+                    1f,     // 1 meter minimum distance
+                    listener,
+                    android.os.Looper.getMainLooper()
+                )
+                registered++
+                android.util.Log.i("ConvoyVM", "NETLOC-2026-09-15: subscribed to $p")
+            } catch (e: SecurityException) {
+                android.util.Log.e("ConvoyVM", "NETLOC-2026-09-15: permission denied for $p: ${e.message}")
+            } catch (e: Exception) {
+                // Provider absent on this device. Expected, not an error.
+                android.util.Log.w("ConvoyVM", "NETLOC-2026-09-15: no provider $p (${e.javaClass.simpleName})")
             }
-            lm.requestLocationUpdates(
-                android.location.LocationManager.GPS_PROVIDER,
-                2000L,  // 2 second interval
-                1f,     // 1 meter minimum distance
-                phoneLocationListener!!,
-                android.os.Looper.getMainLooper()
-            )
-        } catch (e: SecurityException) {
-            android.util.Log.e("ConvoyVM", "Phone GPS permission denied: ${e.message}")
+        }
+        if (registered == 0) {
+            android.util.Log.e("ConvoyVM", "NETLOC-2026-09-15: NO LOCATION PROVIDER AVAILABLE -- " +
+                "this device cannot determine its position without a mesh radio " +
+                "or a Bluetooth-paired phone.")
+            phoneLocationListener = null
         }
     }
 
