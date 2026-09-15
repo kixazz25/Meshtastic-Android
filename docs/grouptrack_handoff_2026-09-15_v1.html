@@ -1,0 +1,184 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<title>GroupTrack — Handoff 2026-09-15</title>
+<style>
+body{font:15px/1.68 -apple-system,"Segoe UI",Roboto,sans-serif;max-width:960px;
+margin:0 auto;padding:26px;background:#0f1216;color:#e6edf3}
+h1{font-size:21px;color:#58a6ff;border-bottom:2px solid #2a3038;padding-bottom:8px}
+h2{font-size:16px;color:#58a6ff;margin-top:32px;border-bottom:1px solid #2a3038;padding-bottom:5px}
+h3{font-size:14px;color:#b8c2cc;margin-top:20px}
+code{background:#1a2027;padding:1px 5px;border-radius:3px;font-size:12.5px;color:#8FD0FF}
+.card{background:#161b22;border:1px solid #2a3038;border-radius:8px;padding:13px 17px;margin:11px 0}
+.done{border-left:4px solid #3fb950}.next{border-left:4px solid #58a6ff}
+.warn{border-left:4px solid #d29922}.bad{border-left:4px solid #f85149}
+table{border-collapse:collapse;width:100%;margin:11px 0;font-size:13px}
+th,td{border:1px solid #2a3038;padding:6px 9px;text-align:left;vertical-align:top}
+th{background:#1a2027;color:#8FD0FF}
+li{margin:6px 0}
+.hi{color:#e3b341}
+pre{background:#0d1117;border:1px solid #2a3038;padding:9px;border-radius:5px;
+font-size:11.5px;overflow-x:auto;color:#b8c2cc}
+</style></head><body>
+
+<h1>GroupTrack — Handoff, 2026-09-15</h1>
+<p><code>feature/convoy-event-ride</code> · <b>29321134 BUILT, VERIFIED AND
+PUBLISHED</b> · Fred away until ~09-22</p>
+
+<div class="card done">
+<p class="hi">⭐⭐ <b>A RELEASE SHIPPED after a fortnight of trying, five
+rider-visible fixes in it, and the mesh/IP architecture question effectively
+answered by a file that was already in the repo.</b></p>
+<p>⚠ <b>NAMING, CORRECTED:</b> the handoff convention is
+<code>grouptrack_handoff_&lt;date&gt;_v1.html</code> — lowercase, unbroken
+08-01 → 09-12 in AllDocs. Yesterday's was written as
+<code>GroupTrack_handoff_2026-09-14.html</code> and did not sort with the rest.
+⛔ <b>Match the previous day's name exactly; change the date and version and
+nothing else.</b> ⚠ There is no <code>grouptrack_handoff_2026-09-13_v1.html</code>
+in AllDocs — that day's handoff was uploaded as <code>hd_26011.html</code> and
+never landed under its proper name, so the series actually breaks at 09-12.</p>
+</div>
+
+<h2>What shipped — 29321134</h2>
+<div class="card done">
+<table>
+<tr><th>Marker</th><th>What it does</th></tr>
+<tr><td><code>NETLOC-2026-09-15</code></td><td><b>The position fix.</b> <code>startPhoneGps</code> now registers one listener against GPS <b>and NETWORK</b>, each guarded separately, keeping the BETTER fix rather than the latest.</td></tr>
+<tr><td><code>NOGPSMSG-2026-09-15</code></td><td>Two rider messages — hard (no position, every time, not dismissible) and soft (network-derived, dismissible permanently, with the T1000-E recommendation).</td></tr>
+<tr><td><code>ZCAPJS-2026-09-14</code></td><td>JS <code>setView</code> clamps to <code>currentMaxNative</code>. Kills the 18↔16 bounce.</td></tr>
+<tr><td><code>INITFIX-2026-09-14</code></td><td><code>ensureInit</code> tests <code>sources.isNotEmpty()</code> and does the real read instead of substituting hardcoded Esri sources.</td></tr>
+<tr><td><code>ZCAP2-2026-09-14</code></td><td>Zoom cap enforced at <code>downloadTiles</code>. Calculator and segmentation untouched, so the estimate reads high — accepted.</td></tr>
+<tr><td><code>SEARCHPAN-2026-09-15</code></td><td>An area search clears auto-pan, so the cart stops dragging the rider back. Artifact searches do NOT clear it.</td></tr>
+</table>
+<p>⭐ <b>All six verified on Droid 2, no radio.</b> Release notes updated and
+verified inside the AAB. ⛔ <code>ZCAP3</code> was NOT needed —
+<code>maxZoomForSlot</code> is back to its two-branch form (SAT 18, else 16), so
+TOPO+ is already 16 and the Kotlin matches the JS on all three slots.</p>
+</div>
+
+<h2>⭐⭐⭐ The finding — the mesh wire format is already in the repo</h2>
+<div class="card done">
+<p><code>core/proto/src/main/proto/meshtastic/atak.proto</code>, with
+<code>TAKPacket.kt</code> already generated. <b>Portnum 72
+(<code>ATAK_FORWARDER</code>). Standard Meshtastic — every node relays it, every
+TAK-aware app reads it.</b></p>
+<table>
+<tr><th>GroupTrack</th><th>TAKPacket</th></tr>
+<tr><td><code>callsign</code></td><td><code>Contact.callsign</code></td></tr>
+<tr><td>lat / lon</td><td><code>PLI.latitude_i</code>/<code>longitude_i</code> — <b>same <code>1e-7</code> encoding we already parse</b></td></tr>
+<tr><td>altitude · speed · heading</td><td><code>PLI.altitude</code> · <code>speed</code> · <code>course</code></td></tr>
+<tr><td>battery</td><td><code>Status.battery</code></td></tr>
+<tr><td><b>lead cart</b></td><td><b><code>Group.role = TeamLead</code></b></td></tr>
+<tr><td>ride identity + trail colour</td><td><b><code>Group.team</code> — 14 colours</b></td></tr>
+<tr><td>rider messaging</td><td><code>GeoChat</code>, with <code>to</code>/<code>to_callsign</code></td></tr>
+<tr><td>anything else</td><td><code>detail</code> — generic CoT detail XML</td></tr>
+</table>
+<p class="hi">⭐ <b>So the layer 1 / layer 2 contract is settled and it is not
+ours to design.</b> <code>TAKPacket</code> in, <code>TAKPacket</code> out; layer 2
+cannot tell which transport it came from. That is Fred's parity rule expressed as
+a published format rather than an interface we would have had to invent.</p>
+<p>⛔ <b>But the internal model must NOT become TAKPacket.</b> Parse at the
+boundary into <code>ConvoyNode</code>, emit at the boundary — or a tactical
+vocabulary leaks upward.</p>
+<p>⭐ <b>And most of "convoy" never goes on the wire.</b> Gaps, distance to lead
+and tail, off-track — <code>ConvoyEngine</code> computes all of it locally. The
+payload question was only ever position, identity and role.</p>
+</div>
+
+<h2>⛔ Three things I asserted today that were wrong</h2>
+<div class="card bad">
+<p>⛔ <b>"A stock radio can only carry a Position packet."</b> The radio carries
+whatever port a connected app pushes through <code>IMeshService</code>. <b>The
+constraint is on the APP, not the radio.</b></p>
+<p>⛔ <b>"Lead must be local because role cannot travel."</b>
+<code>Group.role</code> travels natively. ⚠ <b>Local selection is still the better
+default</b> — no configuration, no election, no conflict when two riders claim it,
+works before any role is received — but it is now a CHOICE, not a constraint.</p>
+<p>⛔ <b>"The CoT bridge is Natak's and they would have to extend it."</b> The
+Nucleus bridge is theirs; the Meshtastic ATAK path is upstream and in our fork.</p>
+<p>⚠ <b>UNVERIFIED — DO NOT BUILD ON IT:</b> that Meshtastic Android 2.8.0+ ships
+a built-in local TAK server. If true and if our fork is recent enough, <b>we may
+already hold the merge component.</b> ⛔ Check what we forked from first.</p>
+</div>
+
+<h2>Natak Mesh — vendor answers, same day</h2>
+<div class="card done">
+<p>Nathan Boyette answered all 24 questions. Full detail in the master under
+<code>NATAK-0915</code>. The four that matter:</p>
+<ul>
+<li>⭐⭐ <b><code>Nucleus_OS</code> is MIT.</b> No obligations. Clean, against the
+GPL entanglement we are removing.</li>
+<li>⭐ <b>Multicast forwards across the whole mesh</b> — L3 routing, all nodes see
+all. <b>The broadcast model holds.</b></li>
+<li>⭐ <b>~25 nodes at 5 s updates, ~80 at 15 s.</b> Ten riders is comfortably
+inside. <b>"The radios are being pushed" does not hold for this hardware.</b></li>
+<li>⛔ <b>The V3 has NO Bluetooth</b> — everything through the 5.8 GHz AP and
+<code>meshtasticd</code>. <b>On a Nucleus, even mesh is reached over IP.</b> Layer
+1 needs two connection paths (BLE for a bare radio, TCP for a Nucleus) and
+neither visible above the line.</li>
+</ul>
+<p>⚠ Gaps he named himself: <b>no 12 V input</b> (5 V, 0.65 A), <b>no shock
+provisions</b> (suggests potting), <b>UFW only</b> and internet-facing security
+not a focus. All three are partnership deliverables rather than objections.</p>
+<p>⭐ <b>He is in on partnership</b> — tailoring hardware/software, a Nucleus
+preconfigured for a GroupTrack club, bundling to SxS manufacturers and software
+vendors.</p>
+</div>
+
+<h2>Where to pick up</h2>
+<div class="card next">
+<ol>
+<li>🔴 <b>Ask Nathan: with bridge mode gone in V3, who relays between LoRa and the
+WiFi mesh — the node or the app?</b> Decides whether we inherit the mixed-network
+bridge or build it.</li>
+<li>🔴 <b>Check what we forked from</b> and whether the local TAK server is in our
+tree.</li>
+<li>🔴 <b>2.6h planning</b> — public/private trail compliance. Definition lives in
+<code>OWNSTATES-0903</code>, NOT in a section named 2.6h.</li>
+<li>🔴 <b>The mesh separation</b> — <code>MESHSEP-0904</code> now carries the
+three-layer design, the measured 15-import coupling, the GPL constraint and
+<code>TAKPacket</code>.</li>
+<li>⚠ <b>Position work still open:</b> <code>getPhoneLocation</code>'s last-known
+fallback and <code>ConvoyGpsService</code>'s recording subscription are both still
+GPS-only. Neither bit today because the live feed covers them in practice.</li>
+<li>⚠ <b>Doc gap:</b> the release notes now describe behaviour the manual and
+Quick Start do not. <b>The Quick Start is where the trail-requirement line
+belongs</b> — it is read before leaving home, which is when it matters.</li>
+<li>⚠ <b>Move the <code>*.kt.bak_*</code> files out of
+<code>app/src/main/java/</code>.</b> A grep for two filenames returned ~250 lines
+of which ~12 were real.</li>
+</ol>
+</div>
+
+<h2>Standing lessons from this week</h2>
+<div class="card warn">
+<ul>
+<li>⛔ <b>Ordering and lifecycle changes get a where-used pass on the CALLEES,
+shown to Fred, before the patch is written.</b> Moving a load into
+<code>Application.onCreate</code> without doing that cost 09-14.</li>
+<li>⛔ <b>Absence is not evidence until the search covers the thing.</b>
+<code>find /sdcard</code> missed a file we had just <code>cat</code>'d — the shell
+cannot traverse <code>Android/data</code>. A <code>*.proto</code> grep under
+<code>app/src/main/</code> missed <code>atak.proto</code> in
+<code>core/proto/</code>.</li>
+<li>⛔ <b>Droid 2's clock is on Utah time, two hours behind the laptop.</b> Compare
+against the device's own clock.</li>
+<li>⛔ <b>Assert that a count is UNCHANGED rather than guessing what it should be</b>,
+and never put the searched-for literal in a patch's replacement text. Three
+scripts failed their own verifiers on correct edits.</li>
+<li>⚠ <b><code>dumpsys location</code> shows what the SYSTEM holds, not what the
+app can obtain.</b> Only an in-app read answers the second.</li>
+</ul>
+</div>
+
+<h2>Files</h2>
+<div class="card done">
+<ul>
+<li><code>grouptrack_living_master_2026-09-15_v63.html</code> — 143 h2 / 481 h3,
+additive on v62</li>
+<li><code>grouptrack_release_notes_2026-09-15_v8.html</code> — shipped in
+29321134</li>
+<li>⚠ Manual and Quick Start NOT updated — nothing in them changed today, and the
+trail-requirement line is still owed to the Quick Start.</li>
+</ul>
+</div>
+
+</body></html>
