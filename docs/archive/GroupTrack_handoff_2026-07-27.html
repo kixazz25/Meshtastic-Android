@@ -1,0 +1,97 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>GroupTrack — EOD Handoff 2026-07-27</title>
+<style>
+:root{--bg:#0f1216;--panel:#161b22;--ink:#e6edf3;--dim:#8b949e;--line:#30363d;--accent:#58a6ff;--good:#3fb950;--warn:#d29922;--bad:#f85149;--ui:-apple-system,"Segoe UI",Roboto,sans-serif;--mono:"SF Mono",Consolas,monospace}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 var(--ui);padding:0 0 60px}
+header{position:sticky;top:0;background:#0f1216f0;border-bottom:1px solid var(--line);padding:12px 18px;z-index:5}
+.ttl{font:700 17px var(--ui)}.ttl b{color:var(--accent)}.sub{font:12px var(--mono);color:var(--dim);margin-top:2px}
+main{max-width:900px;margin:0 auto;padding:16px 18px}
+h2{font:700 15px var(--ui);color:var(--accent);margin:22px 0 8px;border-bottom:1px solid var(--line);padding-bottom:4px}
+h3{font:700 13px var(--ui);color:var(--ink);margin:14px 0 4px}
+.tag{display:inline-block;font:700 10px var(--mono);padding:1px 6px;border-radius:4px;margin-right:6px;vertical-align:middle}
+.t-good{background:#12261a;color:var(--good);border:1px solid #1f6f3f}
+.t-warn{background:#2a2312;color:var(--warn);border:1px solid #6f5a1f}
+.t-bad{background:#2a1414;color:var(--bad);border:1px solid #6f2020}
+.t-prog{background:#12203a;color:var(--accent);border:1px solid #1f4f8f}
+.card{border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin:10px 0;background:var(--panel)}
+ul{margin:6px 0 6px 0;padding-left:20px}li{margin:4px 0}ol{margin:6px 0;padding-left:22px}
+code{background:#0c0f0a;padding:1px 5px;border-radius:3px;font:12px var(--mono);color:#e6edf3}
+.note{font:12px var(--mono);color:var(--dim);border-left:3px solid var(--line);padding:4px 10px;margin:8px 0}
+.hi{color:var(--warn);font-weight:700}.step{background:#12203a;border-left:3px solid var(--accent);padding:6px 10px;margin:8px 0}
+</style>
+</head><body>
+<header><div class="ttl"><b>GroupTrack</b> &mdash; EOD Handoff</div><div class="sub">2026-07-27 &middot; INTERNAL &middot; OSM trail import BUILT &middot; 106,879 trails staged offline &middot; AllDocs root cause fixed &middot; commit <code>7e2173da2</code></div></header>
+<main>
+
+<div class="note">Read with <code>GroupTrack_workplan_2026-07-28.html</code>. Everything below is committed and pushed; working tree is clean.</div>
+
+<h2>&#11088;&#11088; THE ARCHITECTURE DECIDED AT END OF DAY (Fred) &mdash; TWO-TIER STAGING</h2>
+<div class="card">
+<p><b>Fred:</b> <i>"end with an import spatial DB we can use the download map regions tools to draw areas to be imported from second spatial DB."</i></p>
+<p><b>A STAGED reference DB sits on the device; the LIVE spatial DB holds only what the user deliberately pulls.</b> The user draws an area with the existing region tools and imports just that area's trails across.</p>
+<p><b>&#11088; This solves the volume problem outright.</b> 106,879 trails never need to land in <code>grouptrack_spatial.db</code> &mdash; so the worry about tripling the viewport bbox-scan working set disappears. The full state costs disk, not query time.</p>
+<p><b>The subset schema ALREADY supports it:</b> every row carries <code>min_lat/max_lat/min_lon/max_lon</code> with a bbox index, so an area query against the staged DB is fast. Built for the import step; exactly what this needs.</p>
+<p><b>It also makes the 50-state ambition clean</b> &mdash; each state is another staged file and nothing changes app-side. Fred: <i>"we need a process that is repeatable for other states &hellip; identify the state, download and process without intervention."</i> DISCUSS AFTER the three states are imported.</p>
+</div>
+
+<h2>&#9989; STAGED AND READY &mdash; 106,879 TRAILS, OFFLINE</h2>
+<div class="card">
+<table style="width:100%;border-collapse:collapse;font:12px var(--mono)">
+<tr style="color:var(--accent)"><td><b>file (on D:)</b></td><td><b>trails</b></td><td><b>size</b></td><td><b>dupes pruned</b></td></tr>
+<tr><td>osm_trails_utah.db</td><td>87,533</td><td>108 MB</td><td>2,021</td></tr>
+<tr><td>osm_trails_az_strip.db</td><td>10,714</td><td>12.3 MB</td><td>7</td></tr>
+<tr><td>osm_trails_nv_corner.db</td><td>8,632</td><td>7.9 MB</td><td>41</td></tr>
+<tr style="color:var(--accent2)"><td><b>TOTAL</b></td><td><b>106,879</b></td><td><b>~128 MB</b></td><td></td></tr>
+</table>
+<p>Against <b>49,125</b> UGRC trails today. Source: Geofabrik <code>-latest-free.gpkg.zip</code> per state, subset by <code>osm_gpkg_subset_v2_2026-07-27.py</code>.</p>
+<p><b>&#11088; DEDUP MEASURED, NOT ASSUMED.</b> Utah: <b>9 hash matches</b> out of 89,554. AZ and NV: <b>ZERO</b>. So <b>OSM and UGRC are INDEPENDENT SURVEYS, not a shared import</b> &mdash; which was genuinely open this morning. Name-matches (same trail, two drawings) were 2,021 / 7 / 41 and are all pruned. Fred: <i>"skip the 2000+ trails identified as dupes, not worth the hassle when we are talking about 120,000 trails."</i></p>
+<p><b>&#9888; The hash only catches BYTE-IDENTICAL geometry.</b> Independent surveys of the same trail produce different WKT and therefore different hashes &mdash; dedup is blind to them. That is why name-matching was used as the second filter, and why the pruning happened on the laptop rather than being left to the app.</p>
+</div>
+
+<h2>&#11088; THE FINDING THAT MATTERS &mdash; and the cost of the Geofabrik path</h2>
+<div class="card">
+<p><b>OSM is the ONLY source in the database carrying <code>motorized_allowed</code>.</b> Measured on the live DB:</p>
+<pre style="background:#0c0f0a;padding:8px;border-radius:4px;font:11px var(--mono)">source_id          rows    motorized  surface  uses   carto
+osm_trails            9        7         0       7       0
+nps_public_trails    18        0        18      18      18
+ugrc_utah_trails  49,098        0    49,098  44,583  49,098</pre>
+<p>UGRC has 49,098 trails and <b>not one</b> carries a motorized value. Neither does NPS. For an OHV app that reframes OSM from a coverage supplement into <b>the only source of legal-access data</b>.</p>
+<p><b>&#9888; BUT THAT FIELD DOES NOT SURVIVE THE GEOFABRIK PATH.</b> The free roads layer columns are <code>osm_id, code, fclass, name, ref, oneway, maxspeed, layer, bridge, tunnel</code> &mdash; confirmed against the real file. <b>No motor_vehicle / atv / 4wd_only / surface at any price</b> (surface is commercial-only; the access tags do not exist in either tier).</p>
+<p><b>What is gained instead:</b> <code>fclass</code> carries <b>track_grade1..5</b>, real OHV difficulty data, and it is present on every track rather than sparsely tagged. Utah: track 49,499 &middot; grade5 9,840 &middot; grade3 5,507 &middot; grade2 3,868 &middot; grade4 3,479 &middot; grade1 327 &middot; path 15,563 &middot; bridleway 1,471.</p>
+<p><b>&#9940; <code>motorized_hint</code> in the subset is INFERRED from fclass</b> &mdash; a track is physically wide enough for a vehicle, a footway is not. That is PHYSICAL CAPABILITY, NOT LEGAL ACCESS. It sits in its own column so it can never be mistaken for the real field. <b>Do not map it onto <code>motorized_allowed</code> without deciding, deliberately, that an inference is acceptable there.</b></p>
+</div>
+
+<h2>&#128295; WHAT SHIPPED IN CODE (commit <code>7e2173da2</code>)</h2>
+<div class="card">
+<ul>
+<li><b>Patch R</b> &mdash; OSM as trail source #9. <code>sourceType</code> on <code>Src</code> (defaulted <code>arcgis_rest</code>, so all 8 existing entries untouched), <code>buildUrl</code> branches to Overpass, response transform, catalog entry. <b>&#11088; Fred's insight made it small:</b> <code>buildUrl</code> appends <code>f=geojson</code>, so <b>nothing Esri-specific is in the RESPONSE, only the QUERY STRING</b> &mdash; <code>insertFeature</code> and everything below it stayed untouched.</li>
+<li><b>Patch S</b> &mdash; Overpass gets a 180s read timeout; ArcGIS keeps 60s. The first import died at exactly 60s while the server was still working.</li>
+<li><b>Patch T</b> &mdash; an Overpass source with no bbox is now REFUSED. It used to default to <code>-90,-180,90,180</code> and ask for <b>every track and path on Earth</b>. Harmless for ArcGIS (it pages and the server caps records); catastrophic for Overpass. <b>A default meaning "everything" is only safe when the consumer is bounded.</b></li>
+<li><b>Patch U</b> &mdash; reverted a name fallback I should never have added. <code>SpatialDbManager.notNamed()</code> (:1297) already turns blank into the <code>'Not Named'</code> SENTINEL for all four artifact types, and search deliberately EXCLUDES it (:422). My synthesized <code>"OSM track 12345678"</code> looked real, so search would have INCLUDED it &mdash; filling results with numeric IDs. <b>Check whether the shared core already applies a fallback before adding one.</b></li>
+<li><b>Patch V</b> &mdash; <code>httpGet</code> now logs the HTTP code, the server's error body, and the exception CLASS. <b>This was the most valuable thing built today</b> (see below).</li>
+<li><b>launchMode fix</b> &mdash; the execute button at MVS:1608 wrote the pending area but never set <code>launchMode = BY_AREA</code>, so the trail screen opened on SELECT_SOURCE and ignored the bbox just written. The panel callback at :1711 always did it. <b>Pre-existing and invisible</b>, because for ArcGIS a missing bbox degrades into an ordinary full-source import.</li>
+<li><b>Re-selectable sources</b> &mdash; B2 blocked already-imported sources three ways; A1 was fixed for this in <code>60a7c6de2</code> and B2 never was. Also <code>isSourceFullyImported</code> now requires <code>trail_count &gt; 0</code>: three FAILED runs had marked OSM permanently imported.</li>
+</ul>
+</div>
+
+<h2>&#128196; ALLDOCS &mdash; ROOT CAUSE FOUND AFTER TWO WEEKS</h2>
+<div class="card">
+<p><b>Not one HTML doc had ever reached <code>GroupTrack_AllDocs.txt</code>.</b> Every section marker was <code>=== GroupTrack_*.docx ===</code>; zero HTML markup anywhere.</p>
+<p><b>Cause:</b> Step 4's HTML-folding loop (added in V13) was CORRECT &mdash; but Steps 2/3 copy into <code>$DOCS</code> with the glob <code>"$DOWNLOADS"/GroupTrack*."$ext"</code>, and <b>bash globs are CASE-SENSITIVE</b>. Filenames like <code>grouptrack_*</code>, <code>SCOPING_*</code>, <code>BLUEPRINT_*</code> matched none of it. <b>V13 fixed the folding; the copy filter silently starved it.</b></p>
+<p>Fixed via patches O &rarr; P &rarr; Q: collect by EXTENSION not name prefix (a prefix whitelist is the same bug in a new coat), drop <code>json</code>, exclude the script's own generated outputs (a stale Downloads copy would CLOBBER the fresh xref), skip <code>(n)</code> duplicates, 10 MB cap, 45-day recency window.</p>
+<p><b>&#9940;&#9940; SECURITY INCIDENT ALONG THE WAY.</b> Patch P removed the name filter with NOTHING in its place, so the sweep committed and pushed <code>ngrok_recovery_codes.txt</code>, MySQL connection details and a personal PDF in <code>151fffb79</code>. Removed from HEAD in <code>ddb48650b</code>; <b>STILL PRESENT IN THAT COMMIT'S HISTORY</b>. <b>&#9888; REVOKE THE NGROK CODES if not already done</b>, and decide separately about scrubbing history with filter-repo. Patch Q added a hard secrets gate (ngrok/mysql/credential/password/secret/token/apikey/recovery/regform/.pem/.jks/.p12/.env/id_rsa), logged when it fires.</p>
+<p><b>&#9888; After the first successful backlog run, drop <code>DOC_MAX_AGE_DAYS</code> from 45 to ~14</b> &mdash; older files will already be tracked.</p>
+</div>
+
+<h2>&#9888; WHAT WENT WRONG TODAY, AND WHY (worth not repeating)</h2>
+<div class="card">
+<p><b>&#11088; THE SINGLE BIGGEST CAUSE: every HTTP failure looked identical.</b> <code>httpGet</code> read only <code>inputStream</code>, which THROWS on any non-2xx, and logged <code>ex.message</code> &mdash; which for several common exceptions IS THE URL. So a timeout, a rate limit, a rejected query and an OOM all produced the same line. <b>Overpass had been explaining itself in the response body the whole time, into a stream never opened.</b></p>
+<p>The moment patch V landed, the answer appeared immediately: <code>HTTP 504 Gateway Timeout &mdash; "Dispatcher_Client::request_read_and_idx::timeout. The server is probably too busy."</code> Nothing was broken after the launchMode and bbox fixes; <b>the public Overpass instances were simply overloaded all afternoon.</b></p>
+<ul>
+<li><b>&#9940; I switched the endpoint to kumi.systems on a hunch</b> that it was the faster mirror. It refused every request for hours. Overpass Turbo then answered the SAME query against the main endpoint in seconds. <b>Changing a working default on an untested assumption cost most of the afternoon.</b></li>
+<li><b>&#9940; I sized cells from one bad sample.</b> A 63-second query on a congested server became "3-mile cells", which for Utah is 29,299 cells. The real capacity, measured in the browser: <b>2,658 ways over 900 square miles in a couple of seconds.</b> ~640&times; the area I had assumed was the limit.</li>
+<li><b>&#9940; I chased alternatives for an hour</b> &mdash; PBF (needs a node index; no maintained Android library), Bunting Labs (right shape, EXPIRED CERTIFICATE on the endpoint), BBBike (right output, request-and-email). Fred's original instinct &mdash; bulk extract, process locally &mdash; was correct; I just picked a QUERY api when the job needed an EXTRACT service.</li>
+<li><b>&#9888; My laptop certificate failures were REAL but unrelated</b> &mdash; Python (stale CA bundle), curl (HTTP 000), Chrome (ERR_CERT_DATE_INVALID on buntinglabs). Clock was correct. Android uses the system trust store and was unaffected throughout.</li>
+</ul>
+</div>
+
+</main></body></html>

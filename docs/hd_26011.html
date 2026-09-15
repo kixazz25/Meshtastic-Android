@@ -1,0 +1,190 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<title>GroupTrack — Handoff 2026-09-13</title>
+<style>
+body{font:15px/1.68 -apple-system,"Segoe UI",Roboto,sans-serif;max-width:960px;
+margin:0 auto;padding:26px;background:#0f1216;color:#e6edf3}
+h1{font-size:21px;color:#58a6ff;border-bottom:2px solid #2a3038;padding-bottom:8px}
+h2{font-size:16px;color:#58a6ff;margin-top:32px;border-bottom:1px solid #2a3038;padding-bottom:5px}
+h3{font-size:14px;color:#b8c2cc;margin-top:20px}
+code{background:#1a2027;padding:1px 5px;border-radius:3px;font-size:12.5px;color:#8FD0FF}
+.card{background:#161b22;border:1px solid #2a3038;border-radius:8px;padding:13px 17px;margin:11px 0}
+.done{border-left:4px solid #3fb950}.next{border-left:4px solid #58a6ff}
+.warn{border-left:4px solid #d29922}.bad{border-left:4px solid #f85149}
+table{border-collapse:collapse;width:100%;margin:11px 0;font-size:13px}
+th,td{border:1px solid #2a3038;padding:6px 9px;text-align:left;vertical-align:top}
+th{background:#1a2027;color:#8FD0FF}
+li{margin:6px 0}
+.hi{color:#e3b341}
+pre{background:#0d1117;border:1px solid #2a3038;padding:9px;border-radius:5px;
+font-size:11.5px;overflow-x:auto;color:#b8c2cc}
+</style></head><body>
+
+<h1>GroupTrack — Handoff, 2026-09-13</h1>
+<p><code>feature/convoy-event-ride</code> · <b>Rel. 2.6g — 29321121 — PUBLISHED
+on all three tracks</b></p>
+
+<div class="card done">
+<p class="hi">⭐⭐ <b>COMPLIANT AND LIVE.</b> Zero storage permissions in the
+merged manifest. Migration proven on two devices. GPX import rebuilt around a SAF
+picker. Three days from the appeal rejection.</p>
+<p>⛔ <b>ALL THREE TRACKS HAD TO BE UPDATED, NOT PROMOTED.</b> A non-compliant
+build on ANY track keeps the violation open — promotion moves a build up and
+leaves the others serving what they were. ⚠ The usual promote-up workflow does
+not clear a violation.</p>
+<p>Now waiting on Google's review.</p>
+</div>
+
+<h2>⛔⛔ Rejected a second time — the permissions nobody looked for</h2>
+<div class="card bad">
+<p>The build went up with <code>MANAGE_EXTERNAL_STORAGE</code> removed, the whole
+migration built and tested, and <b>was rejected again for "all file
+permissions."</b></p>
+<table>
+<tr><th>Still declared</th><th>Why it was worse than it looked</th></tr>
+<tr><td><code>WRITE_EXTERNAL_STORAGE</code></td>
+<td>⛔ <code>tools:node="replace"</code> stripped the
+<code>maxSdkVersion</code> cap Meshtastic itself applies — the fork declared it
+for EVERY API level, unbounded.</td></tr>
+<tr><td><code>READ_EXTERNAL_STORAGE</code></td>
+<td>Capped at 32. More defensible, same policy family.</td></tr>
+</table>
+<p class="hi">⭐⭐ <b>GREP THE CATEGORY, NOT THE INSTANCE.</b> The 09-11 path sweep
+missed 23 sites because it grepped ONE API when two reached the same destination.
+This missed two permissions because it removed ONE NAME when three belong to the
+same family. <b>Same mistake, different domain, two days apart.</b></p>
+<p>⭐ <b><code>node="remove"</code>, not deletion</b> — upstream Meshtastic
+declares both, and <b>the MERGED manifest is what Google reviews</b>.</p>
+<pre>app/build/intermediates/merged_manifests/googleRelease/
+  processGoogleReleaseManifest/AndroidManifest.xml</pre>
+<p>⛔ <b>CHECK THAT FILE BEFORE EVERY UPLOAD.</b> It was never checked the first
+time. It must return nothing for storage or media.</p>
+<p>✅ Neither permission was needed, verified on device: export writes to
+Downloads with no permission on API 29+, reads go through SAF grants.</p>
+</div>
+
+<h2>⛔⛔ Both GPX import paths were dead</h2>
+<div class="card bad">
+<p class="hi">The in-app Downloads scan returned <b>an EMPTY LIST</b> — not an
+error — with a folder full of files. ⚠ <b>The worst kind of failure: it looks like
+a correct answer.</b> And the manifest route went with it.</p>
+<p>⛔ <b>So there was no way to import a GPX at all</b> — and the Quick Start and
+manual both tell a new rider to import their tracks BEFORE building routes.
+<b>The first instruction in the product was one the app could not carry
+out.</b></p>
+
+<h3>⭐ The rule that shaped the fix</h3>
+<p>Confirmed on device: <b>an app may WRITE to Downloads freely; READING what
+another app put there needs permission.</b> Export never broke. ⭐ <b>Only import
+was broken, and the picker IS the permission — the rider's selection is the
+grant.</b></p>
+
+<h3>What was built</h3>
+<ul>
+<li><code>OpenMultipleDocuments</code>, GPX/KML filtered, ⚠ with a
+<code>*/*</code> fallback because GPX is frequently reported as
+octet-stream.</li>
+<li>Each selection copied into app-private staging, size-verified, original
+deleted — all while the grant is live. ⭐ By the time the import runs the URIs are
+finished with.</li>
+<li>⛔ <b><code>importGpxAllArtifacts</code> untouched.</b> It takes a
+<code>File</code>, so the file just has to be somewhere the app owns.</li>
+<li>Staging cleared every run. The picker opens itself.</li>
+</ul>
+<p>✅ <b>90 tracks imported and displaying, originals deleted.</b></p>
+<p class="hi">⚠ <b>MULTI-SELECT NEEDS A LONG-PRESS.</b> Android's convention, not
+a bug — a plain tap selects one and returns. ⭐ Now in all three rider docs,
+because nobody would guess it.</p>
+</div>
+
+<h2>⛔ Documents/GroupTrack kept coming back</h2>
+<div class="card warn">
+<p><code>MapStateStore.kt:33</code> calls
+<code>GroupTrackStorage.dir("state")</code>, and <b>MapStateStore is an object
+singleton with no Context anywhere</b> — the 09-11 handoff named it. So
+<code>internalBase()</code> returned null and <b>the public fallback fired</b>,
+creating a folder in shared storage the app could barely reach.</p>
+<p class="hi">⛔ <b>MISSED TWICE.</b> 09-11 wrote it up as "the real problem of
+the next session" and the day went into the conversion. 09-13's CONVFIX primed
+the Context inside the conversion, which fixed the migration path only — ⚠ <b>a
+fresh install skips the conversion entirely.</b></p>
+<p>✅ One line in <code>Application.onCreate</code>, the only place that runs
+before every caller. ⭐ Convoy code was already in that function, so the
+upstream-file objection was smaller than it looked.</p>
+<p>⭐ <b>The fallback itself was left alone, deliberately</b> — changing the
+failure behaviour of every accessor is a different job with its own risk.</p>
+</div>
+
+<h2>The field version</h2>
+<div class="card done">
+<ul>
+<li><b>Storage hardcoded internal.</b> ⛔ The prompt was skipped on some launches
+— rendered and dismissed before input — leaving the mode unset and the app
+writing external. ⭐ Nothing chooses now, so nothing can fail to choose. External
+stays in the code, one line away.</li>
+<li><b>Renames became deletes</b>, same position.
+<code>Documents/maps</code> removed at the end.</li>
+<li>⭐ <b>A fresh install skips the conversion entirely.</b> Fred: <i>"I do not
+want to scare 100 new users for 10 testers"</i> — the migration is a courtesy for
+the ten. Detected by <code>firstInstallTime == lastUpdateTime</code>, a fact the
+system records. ⛔ Location-permission detection was REJECTED: a rider with
+location off would look new and their data would be stranded silently.</li>
+</ul>
+<p>✅ <b>Droid 2, over the top:</b> data copied, sources deleted,
+<code>Documents</code> left empty of GroupTrack's, ~16 GB reclaimed.
+<b>Then uninstalled and reinstalled:</b> no conversion screen, home state,
+145,000 Utah trails in <b>fifteen minutes</b>, Quick Start fired.</p>
+</div>
+
+<h2>Wording — all four from watching the runs</h2>
+<div class="card next">
+<ul>
+<li>"renaming sources" → "removing the old files" — the build deletes now.</li>
+<li>Maps prompt states <b>up to 15 minutes</b> and that the maps <b>WILL BE
+DELETED</b> if there is no room.</li>
+<li>Button → CONTINUE, instruction moved into the body.</li>
+<li>⛔ <b><code>MINUTES_PER_SOURCE</code> 7 → 3.</b> Out by a factor of four —
+nine sources × 7 promised an hour, and Utah took fifteen minutes.</li>
+</ul>
+<p>⚠ <b>The Quick Start had no import PROCEDURE at all</b> — it made the case for
+importing and never said how. Added to all three docs.</p>
+</div>
+
+<h2>⚠ Process — it cost real time today</h2>
+<div class="card warn">
+<p>⛔ <b>Chaining a build behind <code>git commit</code> with
+<code>&amp;&amp;</code> hid it.</b> A build launched inside a chain is invisible,
+and a cancelled second build nearly took the first down. ⭐ <b>One command at a
+time.</b></p>
+<p>⚠ A bare <code>0</code> is a terrible success signal forty messages in.
+<code>grep -E "^BUILD|^e:"</code> says which.</p>
+<p>⛔ <b>The worst guard failure was self-inflicted:</b> the <code>"*/*"</code>
+mime literal added by the import patch opens a block-comment match in the guard's
+own comment stripper, swallowing the line it was checking for. <b>The patch
+created the string that broke the check.</b></p>
+</div>
+
+<h2>Tomorrow</h2>
+<div class="card next">
+<ol>
+<li>🔴 <b>Z settings on My Cart, per map.</b> The zoom bounces between 18 and 16
+because the values are hardcoded in two places. ⭐ Fred: <i>"just set the My Cart
+max zoom to the current source max zoom."</i> ⚠
+<code>maxZoomForSource</code> is a stub that ignores its argument.</li>
+<li>🔴 <b>2.6g planning — all states, public and private trails.</b></li>
+<li>⚠ Google's review of 29321121.</li>
+<li>Droid 1 still holds <code>GroupTrack-EXT</code> and
+<code>my_tracks-EXT</code> — delete by hand when satisfied.</li>
+</ol>
+</div>
+
+<h2>Files</h2>
+<div class="card done">
+<ul>
+<li><code>grouptrack_living_master_2026-09-13_v58.html</code> — 141 h2 / 468 h3</li>
+<li>Quick Start, release notes and manual: ✅ <b>shipped in the APK</b>, import
+procedure and long-press note in all three</li>
+<li><code>GroupTrack_StorageDesign_2026-09-12_v9.html</code> — still current</li>
+</ul>
+</div>
+
+</body></html>
