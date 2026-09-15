@@ -565,42 +565,10 @@ object MapSourceManager {
         return urlTemplate.replace("{key}", key)
     }
 
-    /**
-     * INITFIX-2026-09-14: TEST THE DATA, NOT A FLAG.
-     *
-     * `sources` IS the state -- populated means loaded, by definition. The old
-     * test was `initialized`, a second variable describing the first, and two
-     * variables describing one fact are free to disagree. They did: a session
-     * that had been rendering maps for an hour dropped to hardcoded sources.
-     *
-     * A miss now means GO AND READ IT, not invent something. init() is loaded at
-     * process start from Application.onCreate, so in practice this never misses;
-     * if it somehow does and a Context is on hand, do the real read.
-     *
-     * loadFallback() is now a genuine emergency -- the bundled asset is
-     * unreadable -- so it logs at ERROR with the caller stack rather than a
-     * warning nobody reads.
-     */
     private fun ensureInit() {
-        if (sources.isNotEmpty()) return
-
-        val ctx = appContext
-        if (ctx != null) {
-            android.util.Log.w(
-                "MapSourceMgr",
-                "INITFIX-2026-09-14: sources empty -- reading map_sources.json rather than falling back"
-            )
-            initialized = false
-            init(ctx)
-            if (sources.isNotEmpty()) return
+        if (!initialized) {
+            android.util.Log.w("MapSourceMgr", "Not initialized, using fallback")
+            loadFallback()
         }
-
-        android.util.Log.e(
-            "MapSourceMgr",
-            "INITFIX-2026-09-14: NO SOURCES AND NO WAY TO READ THEM -- hardcoded fallback in use. " +
-                "appContext=" + (if (ctx == null) "NULL" else "present"),
-            Throwable("ensureInit fallback caller")
-        )
-        loadFallback()
     }
 }

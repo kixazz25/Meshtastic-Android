@@ -82,16 +82,6 @@ open class MeshUtilApplication :
         // \u2b50 After this line internalBase() can never return null and the public
         // fallback can never fire.
         com.geeksville.mesh.convoy.GroupTrackStorage.remember(this)
-        // INITFIX-2026-09-14: LOAD THE MAP SOURCES HERE, ONCE, BEFORE ANY CALLER EXISTS.
-        // MapSourceManager is an `object`, so `initialized` is false in every new
-        // process. When a caller arrived first, ensureInit() substituted three
-        // HARDCODED Esri sources instead of reading the json it could have read --
-        // google-hybrid is not among them, so slot 1 rendered nothing.
-        // Reading needs a Context and appContext is only set inside init(), so the
-        // manager cannot heal itself. This is the only place that runs before
-        // everything. Must come AFTER GroupTrackStorage.remember() above --
-        // columnFile() resolves through it.
-        com.geeksville.mesh.convoy.MapSourceManager.init(this)
         // Initialize OSMDroid for convoy map tile caching
         org.osmdroid.config.Configuration.getInstance().userAgentValue = packageName
         org.osmdroid.config.Configuration.getInstance().osmdroidBasePath = getExternalFilesDir(null) ?: filesDir
