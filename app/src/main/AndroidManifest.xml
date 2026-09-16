@@ -132,7 +132,13 @@
         </intent>
     </queries>
 
+    <!-- LARGEHEAP-2026-09-16: the spatial DB (145k trails), map tiles and a
+         Leaflet WebView are a legitimate large-heap case. A 78 MB GeoJSON read
+         crashed six new installs on devices with a 192 MB growth limit (~2 GB
+         RAM). OOMGUARD skips that read; largeHeap raises the ceiling for every
+         allocation instead of just that one. Trade: longer GC pauses. -->
     <application
+        android:largeHeap="true"
         android:name="com.geeksville.mesh.MeshUtilApplication"
         android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
