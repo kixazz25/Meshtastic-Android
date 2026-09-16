@@ -350,7 +350,33 @@ object OwnershipReclass {
      */
     private fun loadRings(f: File): List<Ring> {
         val out = ArrayList<Ring>(20000)
-        val text = f.readText()           // ~72 MB as a String
+
+        // OOMGUARD-2026-09-15: DO NOT READ A FILE THIS HEAP CANNOT HOLD.
+        // readText() decodes UTF-8 into a UTF-16 String, so the file DOUBLES,
+        // and StringBuilder growth asks for one contiguous block on the way
+        // there. Measured crash: a 78.7 MB file requesting a single 128 MB
+        // allocation against a 192 MB growth limit. Six of six new installs.
+        // Peak is estimated at 3x the file: 2x for the decode, plus a doubling
+        // step that briefly holds old and new buffers together.
+        // ⚠ Returning EMPTY is a supported outcome -- step 8 treats a missing
+        // ownership file as a DEGRADED run, not a failure. A rider gets a
+        // working map without ownership classification instead of no app.
+        val rt = Runtime.getRuntime()
+        val available = rt.maxMemory() - (rt.totalMemory() - rt.freeMemory())
+        val needed = f.length() * 3
+        if (needed > available / 2) {
+            android.util.Log.e(
+                "OwnershipReclass",
+                "OOMGUARD-2026-09-15: SKIPPING land-ownership reclass -- file is " +
+                    "${f.length() / 1048576} MB, estimated peak " +
+                    "${needed / 1048576} MB, heap can spare " +
+                    "${available / 1048576} MB. Trails keep their categories; " +
+                    "only ownership classification is skipped."
+            )
+            return out
+        }
+
+        val text = f.readText()           // ⚠ guarded above -- see OOMGUARD-2026-09-15
         var pos = 0
         while (true) {
             val fi = text.indexOf("\"owner\"", pos)

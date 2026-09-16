@@ -579,11 +579,29 @@ object HomeStateImportController {
                     updateSourceStep(
                         findStage(sources, CLASSIFY_STAGE_ID),
                         "Classifying roads", "reading land ownership")
-                    val changed = withContext(Dispatchers.IO) {
-                        OwnershipReclass.run(sDb, eDb) { done, total ->
-                            downloadDetailFlow.value =
-                                "Classifying roads - $done of $total"
+                    // OOMGUARD-2026-09-15: BACKSTOP. The heap guard in
+                    // OwnershipReclass.loadRings should prevent this, but an
+                    // OOM here must never take down the FIRST RUN -- this is the
+                    // path every new user takes, and it crashed six of six.
+                    // -1 is the EXISTING skipped sentinel, logged below as
+                    // "step 8 skipped (no ownership data)", so a failure lands
+                    // in the degraded path this stage was already built for.
+                    // ⛔ Catching OutOfMemoryError is normally wrong. It is
+                    // justified here because the work is OPTIONAL and ISOLATED
+                    // and the alternative is a crash on launch. It is a
+                    // backstop, not the fix -- streaming the read is the fix.
+                    val changed = try {
+                        withContext(Dispatchers.IO) {
+                            OwnershipReclass.run(sDb, eDb) { done, total ->
+                                downloadDetailFlow.value =
+                                    "Classifying roads - $done of $total"
+                            }
                         }
+                    } catch (e: OutOfMemoryError) {
+                        Log.e(TAG, "OOMGUARD-2026-09-15: step 8 ran out of memory -- " +
+                            "treating as skipped. The map still works; only " +
+                            "land-ownership classification is missing.", e)
+                        -1
                     }
                     downloadDetailFlow.value = null
                     // ⭐ COMPLETED EVEN WHEN changed < 0. Skipping for want of an
