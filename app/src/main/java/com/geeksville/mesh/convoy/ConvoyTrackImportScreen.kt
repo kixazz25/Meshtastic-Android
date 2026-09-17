@@ -67,7 +67,12 @@ fun ConvoyTrackImportScreen(onDismiss: () -> Unit) {
     // -- State --------------------------------------------------------
     var files by remember { mutableStateOf<List<File>>(emptyList()) }
     var selected by remember { mutableStateOf<Set<String>>(emptySet()) }
-    var mapsFor by remember { mutableStateOf<Set<String>>(emptySet()) }   // per-file: include map download on import
+    // MAPSDEFAULT-2026-09-16: INVERTED. This set previously held the files INCLUDED, default
+    // empty = none, which made map download default OFF and -- with the checkbox
+    // invisible -- effectively unreachable. It now holds the files EXCLUDED, so
+    // an empty set means EVERY file gets maps. ⭐ Inverting avoids hooking file
+    // loading: the picker can stage any list and the default still holds.
+    var mapsSkip by remember { mutableStateOf<Set<String>>(emptySet()) }   // per-file: EXCLUDE map download on import
     var showSourcePopup by remember { mutableStateOf(false) }
     var selectedSlots by remember { mutableStateOf<List<String>>(emptyList()) }
     var replaceExisting by remember { mutableStateOf(false) }
@@ -244,7 +249,8 @@ fun ConvoyTrackImportScreen(onDismiss: () -> Unit) {
                 progressName = f.name
                 importLines = importLines + "— ${f.name} —"
                 try {
-                    val summary = ConvoyTrackOps.importGpxAllArtifacts(f, context, if (mapsFor.contains(f.name)) selectedSlots else emptyList(), replaceExisting) { line ->
+                    // MAPSDEFAULT-2026-09-16: maps unless this file was explicitly excluded.
+                    val summary = ConvoyTrackOps.importGpxAllArtifacts(f, context, if (!mapsSkip.contains(f.name)) selectedSlots else emptyList(), replaceExisting) { line ->
                         importLines = importLines + line
                     }
                     imported.addAll(summary.trackFiles)
@@ -641,17 +647,22 @@ fun ConvoyTrackImportScreen(onDismiss: () -> Unit) {
                                     )
                                 )
                             }
-                            // [2026-07-02] second box: include map-tile download for THIS file on import (default off).
+                            // [2026-07-02] second box: include map-tile download for THIS file on import.
+                            // MAPSDEFAULT-2026-09-16: DEFAULT ON (was off) and legible (was
+                            // 0xFF445566, which read as texture rather than a control on
+                            // a dark panel). Measured: 90 tracks with maps = 6 hours
+                            // unattended, three years of riding on the tablet by morning.
+                            // That is the feature; a rider who does not want it unticks.
                             Box(modifier = Modifier.width(44.dp), contentAlignment = Alignment.Center) {
                                 Checkbox(
-                                    checked = mapsFor.contains(file.name),
+                                    checked = !mapsSkip.contains(file.name),
                                     onCheckedChange = {
-                                        mapsFor = if (it) mapsFor + file.name
-                                        else mapsFor - file.name
+                                        mapsSkip = if (it) mapsSkip - file.name
+                                        else mapsSkip + file.name
                                     },
                                     colors = CheckboxDefaults.colors(
                                         checkedColor = Color(0xFF4DA6FF),
-                                        uncheckedColor = Color(0xFF445566),
+                                        uncheckedColor = Color(0xFF8FA8C0),
                                         checkmarkColor = Color(0xFF101510)
                                     )
                                 )
@@ -739,7 +750,11 @@ fun ConvoyTrackImportScreen(onDismiss: () -> Unit) {
                     Surface(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable(enabled = selected.isNotEmpty()) { if (mapsFor.isNotEmpty()) showSourcePopup = true else doImport() },
+                            // MAPSDEFAULT-2026-09-16: open the source popup if ANY selected file still
+                            // wants maps. The previous test asked whether the INCLUDED
+                            // set was non-empty -- false by default, so the popup was
+                            // unreachable.
+                            .clickable(enabled = selected.isNotEmpty()) { if (selected.any { !mapsSkip.contains(it) }) showSourcePopup = true else doImport() },
                         shape = RoundedCornerShape(10.dp),
                         color = if (selected.isNotEmpty()) Color(0xFF15512C)
                         else Color(0xFF1C211C)
