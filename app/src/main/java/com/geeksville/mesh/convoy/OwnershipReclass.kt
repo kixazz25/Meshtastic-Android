@@ -376,24 +376,103 @@ object OwnershipReclass {
             return out
         }
 
-        val text = f.readText()           // ⚠ guarded above -- see OOMGUARD-2026-09-15
-        var pos = 0
-        while (true) {
-            val fi = text.indexOf("\"owner\"", pos)
-            if (fi < 0) break
-            val q1 = text.indexOf('"', text.indexOf(':', fi) + 1)
-            if (q1 < 0) break
-            val q2 = text.indexOf('"', q1 + 1)
-            if (q2 < 0) break
-            val owner = text.substring(q1 + 1, q2)
-            val gi = text.indexOf("\"coordinates\"", q2)
-            if (gi < 0) break
-            var end = text.indexOf("\"owner\"", gi)
-            if (end < 0) end = text.length
-            parseRings(text, gi, end, owner == "Private", out)
-            pos = end
+        // STREAMRINGS-2026-09-17: STREAMED. Nothing is held as a String.
+        // ⚠ The heap pre-check that used to sit above this line is GONE ON
+        // PURPOSE. It existed because the whole file had to fit in memory; it
+        // does not any more, and leaving it would SKIP files we can now read.
+        // The OOM backstop at the call site is untouched.
+        f.bufferedReader().use { r ->
+            while (true) {
+                if (!scanTo(r, "\"owner\"")) break
+                if (!scanTo(r, ":")) break
+                val owner = readQuoted(r) ?: break
+                if (!scanTo(r, "\"coordinates\"")) break
+                parseRingsStream(r, owner == "Private", out)
+            }
         }
         return out
+    }
+
+    /**
+     * STREAMRINGS-2026-09-17: advance the reader until [literal] has been consumed.
+     * Rolling match, one character at a time -- no buffering of the document.
+     * Returns false at EOF.
+     */
+    private fun scanTo(r: java.io.Reader, literal: String): Boolean {
+        var m = 0
+        while (true) {
+            val c = r.read()
+            if (c < 0) return false
+            val ch = c.toChar()
+            // ⭐ On a mismatch, fall back to matching this char against the
+            // START of the literal rather than dropping it -- otherwise
+            // "\"\"owner\"" would be missed.
+            m = if (ch == literal[m]) m + 1 else if (ch == literal[0]) 1 else 0
+            if (m == literal.length) return true
+        }
+    }
+
+    /** STREAMRINGS-2026-09-17: the next double-quoted string, or null at EOF. */
+    private fun readQuoted(r: java.io.Reader): String? {
+        while (true) {
+            val c = r.read()
+            if (c < 0) return null
+            if (c.toChar() == '"') break
+        }
+        val sb = StringBuilder(32)
+        while (true) {
+            val c = r.read()
+            if (c < 0) return null
+            val ch = c.toChar()
+            if (ch == '"') return sb.toString()
+            sb.append(ch)
+        }
+    }
+
+    /**
+     * STREAMRINGS-2026-09-17: the streaming twin of parseRings. Identical accumulation logic --
+     * bracket depth, a digit buffer, x/y pairing -- reading from the stream
+     * instead of indexing a String.
+     *
+     * ⭐ IT ENDS AT DEPTH ZERO, not at a lookahead for the next "owner".
+     * Depth returning to zero is what actually closes a coordinate array; the
+     * old boundary search was a proxy for it that a stream cannot perform.
+     */
+    private fun parseRingsStream(
+        r: java.io.Reader, isPrivate: Boolean, out: MutableList<Ring>,
+    ) {
+        val xs = ArrayList<Double>(512)
+        val ys = ArrayList<Double>(512)
+        val sb = StringBuilder(24)
+        var x: Double? = null
+        var depth = 0
+        var opened = false
+        while (true) {
+            val ci = r.read()
+            if (ci < 0) break
+            val c = ci.toChar()
+            when {
+                c == '[' -> { depth++; opened = true }
+                c == ']' -> {
+                    if (sb.isNotEmpty()) {
+                        val v = sb.toString().toDoubleOrNull(); sb.setLength(0)
+                        if (v != null && x != null) { xs.add(x!!); ys.add(v); x = null }
+                    }
+                    depth--
+                    if (depth <= 1 && xs.size >= 4) {
+                        out.add(Ring(xs.min(), xs.max(), ys.min(), ys.max(),
+                            xs.toDoubleArray(), ys.toDoubleArray(), isPrivate))
+                        xs.clear(); ys.clear()
+                    }
+                    if (opened && depth <= 0) break
+                }
+                c == '-' || c == '.' || c in '0'..'9' || c == 'e' || c == 'E' -> sb.append(c)
+                else -> if (sb.isNotEmpty()) {
+                    val v = sb.toString().toDoubleOrNull(); sb.setLength(0)
+                    if (v != null) { if (x == null) x = v else { xs.add(x!!); ys.add(v); x = null } }
+                }
+            }
+        }
     }
 
     /** Every bracket-run of coordinate pairs between [from, to). */
