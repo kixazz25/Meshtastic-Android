@@ -3831,74 +3831,74 @@ ConvoyTrackExportSheet.kt:306:    val isInProgress = ConvoyTrackOps.isInProgress
 ConvoyTrackImportScreen.kt:65:fun ConvoyTrackImportScreen(onDismiss: () -> Unit) {
 ConvoyTrackImportScreen.kt:68:    var files by remember { mutableStateOf<List<File>>(emptyList()) }
 ConvoyTrackImportScreen.kt:69:    var selected by remember { mutableStateOf<Set<String>>(emptySet()) }
-ConvoyTrackImportScreen.kt:71:    var showSourcePopup by remember { mutableStateOf(false) }
-ConvoyTrackImportScreen.kt:72:    var selectedSlots by remember { mutableStateOf<List<String>>(emptyList()) }
-ConvoyTrackImportScreen.kt:73:    var replaceExisting by remember { mutableStateOf(false) }
-ConvoyTrackImportScreen.kt:75:    var scanning by remember { mutableStateOf(false) }
-ConvoyTrackImportScreen.kt:78:    var showProgress by remember { mutableStateOf(false) }
-ConvoyTrackImportScreen.kt:79:    var progressCurrent by remember { mutableStateOf(0) }
-ConvoyTrackImportScreen.kt:80:    var progressTotal by remember { mutableStateOf(0) }
-ConvoyTrackImportScreen.kt:81:    var progressName by remember { mutableStateOf("") }
-ConvoyTrackImportScreen.kt:84:    var showRecap by remember { mutableStateOf(false) }
-ConvoyTrackImportScreen.kt:85:    var recapImported by remember { mutableStateOf<List<String>>(emptyList()) }
-ConvoyTrackImportScreen.kt:86:    var recapSkipped by remember { mutableStateOf<List<String>>(emptyList()) }
-ConvoyTrackImportScreen.kt:87:    var recapFailed by remember { mutableStateOf<List<String>>(emptyList()) }
-ConvoyTrackImportScreen.kt:88:    var recapDatesCorrected by remember { mutableStateOf(0) }
-ConvoyTrackImportScreen.kt:94:    var importLines by remember { mutableStateOf<List<String>>(emptyList()) }
-ConvoyTrackImportScreen.kt:95:    val importListState = androidx.compose.foundation.lazy.rememberLazyListState()
-ConvoyTrackImportScreen.kt:96:    var recapWaypoints by remember { mutableStateOf(0) }
-ConvoyTrackImportScreen.kt:97:    var recapRoutes by remember { mutableStateOf(0) }
-ConvoyTrackImportScreen.kt:98:    var processedFiles by remember { mutableStateOf<List<File>>(emptyList()) }
-ConvoyTrackImportScreen.kt:101:    var showSyncDialog by remember { mutableStateOf(false) }
-ConvoyTrackImportScreen.kt:102:    var syncLines by remember { mutableStateOf<List<String>>(emptyList()) }
-ConvoyTrackImportScreen.kt:103:    var syncRunning by remember { mutableStateOf(false) }
-ConvoyTrackImportScreen.kt:104:    var syncResult by remember { mutableStateOf<SpatialDbManager.TrackSyncResult?>(null) }
-ConvoyTrackImportScreen.kt:109:    var showRiderDialog by remember { mutableStateOf(false) }
-ConvoyTrackImportScreen.kt:110:    var riderStatus by remember { mutableStateOf("") }
-ConvoyTrackImportScreen.kt:111:    var riderRunning by remember { mutableStateOf(false) }
-ConvoyTrackImportScreen.kt:112:    var riderResult by remember { mutableStateOf<RiderTrailWriter.Result?>(null) }
-ConvoyTrackImportScreen.kt:113:    val syncListState = rememberLazyListState()
-ConvoyTrackImportScreen.kt:115:    val context = LocalContext.current
-ConvoyTrackImportScreen.kt:116:    val scope = rememberCoroutineScope()
-ConvoyTrackImportScreen.kt:124:    var deleteOriginals by remember { mutableStateOf(true) }
-ConvoyTrackImportScreen.kt:125:    var staging by remember { mutableStateOf(false) }
-ConvoyTrackImportScreen.kt:126:    var stageNote by remember { mutableStateOf("") }
-ConvoyTrackImportScreen.kt:138:    fun stageAndList(uris: List<android.net.Uri>) {
-ConvoyTrackImportScreen.kt:142:            val staged = withContext(Dispatchers.IO) {
-ConvoyTrackImportScreen.kt:143:                val dir = java.io.File(context.filesDir, "gpx_staging")
-ConvoyTrackImportScreen.kt:149:                val out = ArrayList<java.io.File>()
-ConvoyTrackImportScreen.kt:151:                    val doc = androidx.documentfile.provider.DocumentFile
-ConvoyTrackImportScreen.kt:153:                    val name = doc?.name ?: "import_${System.currentTimeMillis()}.gpx"
-ConvoyTrackImportScreen.kt:155:                    val target = java.io.File(dir, name)
-ConvoyTrackImportScreen.kt:163:                        val srcLen = doc?.length() ?: -1L
-ConvoyTrackImportScreen.kt:175:                            val gone = try { doc?.delete() ?: false }
-ConvoyTrackImportScreen.kt:197:    val pickFiles = androidx.activity.compose.rememberLauncherForActivityResult(
-ConvoyTrackImportScreen.kt:212:    var pickerOpened by remember { mutableStateOf(false) }
-ConvoyTrackImportScreen.kt:224:    fun doImport() {
-ConvoyTrackImportScreen.kt:225:        val sel = files.filter { selected.contains(it.name) }
-ConvoyTrackImportScreen.kt:232:            val imported = mutableListOf<String>()
-ConvoyTrackImportScreen.kt:233:            val skipped = mutableListOf<String>()
-ConvoyTrackImportScreen.kt:234:            val failed = mutableListOf<String>()
-ConvoyTrackImportScreen.kt:235:            var datesCorrected = 0
-ConvoyTrackImportScreen.kt:236:            var wptTotal = 0
-ConvoyTrackImportScreen.kt:237:            var rteTotal = 0
-ConvoyTrackImportScreen.kt:238:            var newTotal = 0
-ConvoyTrackImportScreen.kt:239:            var dupeTotal = 0
-ConvoyTrackImportScreen.kt:240:            var aliasedTotal = 0
-ConvoyTrackImportScreen.kt:241:            var skippedTotal = 0
-ConvoyTrackImportScreen.kt:247:                    val summary = ConvoyTrackOps.importGpxAllArtifacts(f, context, if (mapsFor.contains(f.name)) selectedSlots else emptyList(), replaceExisting) { line ->
-ConvoyTrackImportScreen.kt:284:        val slotSources = remember { MapSourceManager.getSlotSources() }
-ConvoyTrackImportScreen.kt:285:        val popupSlots = remember(slotSources) {
-ConvoyTrackImportScreen.kt:450:                        val r = withContext(Dispatchers.IO) {
-ConvoyTrackImportScreen.kt:478:                        val r = withContext(Dispatchers.IO) {
-ConvoyTrackImportScreen.kt:613:                    val checked = selected.contains(file.name)
-ConvoyTrackImportScreen.kt:770:private fun ImportProgressDialog(
-ConvoyTrackImportScreen.kt:821:                            val line = feedLines[idx]
-ConvoyTrackImportScreen.kt:822:                            val col = when {
-ConvoyTrackImportScreen.kt:847:private fun ImportRecapDialog(
-ConvoyTrackImportScreen.kt:975:                    val shown = imported.take(20)
-ConvoyTrackImportScreen.kt:1023:private fun formatFileSize(bytes: Long): String {
-ConvoyTrackImportScreen.kt:1031:private fun formatFileDate(millis: Long): String {
+ConvoyTrackImportScreen.kt:76:    var showSourcePopup by remember { mutableStateOf(false) }
+ConvoyTrackImportScreen.kt:77:    var selectedSlots by remember { mutableStateOf<List<String>>(emptyList()) }
+ConvoyTrackImportScreen.kt:78:    var replaceExisting by remember { mutableStateOf(false) }
+ConvoyTrackImportScreen.kt:80:    var scanning by remember { mutableStateOf(false) }
+ConvoyTrackImportScreen.kt:83:    var showProgress by remember { mutableStateOf(false) }
+ConvoyTrackImportScreen.kt:84:    var progressCurrent by remember { mutableStateOf(0) }
+ConvoyTrackImportScreen.kt:85:    var progressTotal by remember { mutableStateOf(0) }
+ConvoyTrackImportScreen.kt:86:    var progressName by remember { mutableStateOf("") }
+ConvoyTrackImportScreen.kt:89:    var showRecap by remember { mutableStateOf(false) }
+ConvoyTrackImportScreen.kt:90:    var recapImported by remember { mutableStateOf<List<String>>(emptyList()) }
+ConvoyTrackImportScreen.kt:91:    var recapSkipped by remember { mutableStateOf<List<String>>(emptyList()) }
+ConvoyTrackImportScreen.kt:92:    var recapFailed by remember { mutableStateOf<List<String>>(emptyList()) }
+ConvoyTrackImportScreen.kt:93:    var recapDatesCorrected by remember { mutableStateOf(0) }
+ConvoyTrackImportScreen.kt:99:    var importLines by remember { mutableStateOf<List<String>>(emptyList()) }
+ConvoyTrackImportScreen.kt:100:    val importListState = androidx.compose.foundation.lazy.rememberLazyListState()
+ConvoyTrackImportScreen.kt:101:    var recapWaypoints by remember { mutableStateOf(0) }
+ConvoyTrackImportScreen.kt:102:    var recapRoutes by remember { mutableStateOf(0) }
+ConvoyTrackImportScreen.kt:103:    var processedFiles by remember { mutableStateOf<List<File>>(emptyList()) }
+ConvoyTrackImportScreen.kt:106:    var showSyncDialog by remember { mutableStateOf(false) }
+ConvoyTrackImportScreen.kt:107:    var syncLines by remember { mutableStateOf<List<String>>(emptyList()) }
+ConvoyTrackImportScreen.kt:108:    var syncRunning by remember { mutableStateOf(false) }
+ConvoyTrackImportScreen.kt:109:    var syncResult by remember { mutableStateOf<SpatialDbManager.TrackSyncResult?>(null) }
+ConvoyTrackImportScreen.kt:114:    var showRiderDialog by remember { mutableStateOf(false) }
+ConvoyTrackImportScreen.kt:115:    var riderStatus by remember { mutableStateOf("") }
+ConvoyTrackImportScreen.kt:116:    var riderRunning by remember { mutableStateOf(false) }
+ConvoyTrackImportScreen.kt:117:    var riderResult by remember { mutableStateOf<RiderTrailWriter.Result?>(null) }
+ConvoyTrackImportScreen.kt:118:    val syncListState = rememberLazyListState()
+ConvoyTrackImportScreen.kt:120:    val context = LocalContext.current
+ConvoyTrackImportScreen.kt:121:    val scope = rememberCoroutineScope()
+ConvoyTrackImportScreen.kt:129:    var deleteOriginals by remember { mutableStateOf(true) }
+ConvoyTrackImportScreen.kt:130:    var staging by remember { mutableStateOf(false) }
+ConvoyTrackImportScreen.kt:131:    var stageNote by remember { mutableStateOf("") }
+ConvoyTrackImportScreen.kt:143:    fun stageAndList(uris: List<android.net.Uri>) {
+ConvoyTrackImportScreen.kt:147:            val staged = withContext(Dispatchers.IO) {
+ConvoyTrackImportScreen.kt:148:                val dir = java.io.File(context.filesDir, "gpx_staging")
+ConvoyTrackImportScreen.kt:154:                val out = ArrayList<java.io.File>()
+ConvoyTrackImportScreen.kt:156:                    val doc = androidx.documentfile.provider.DocumentFile
+ConvoyTrackImportScreen.kt:158:                    val name = doc?.name ?: "import_${System.currentTimeMillis()}.gpx"
+ConvoyTrackImportScreen.kt:160:                    val target = java.io.File(dir, name)
+ConvoyTrackImportScreen.kt:168:                        val srcLen = doc?.length() ?: -1L
+ConvoyTrackImportScreen.kt:180:                            val gone = try { doc?.delete() ?: false }
+ConvoyTrackImportScreen.kt:202:    val pickFiles = androidx.activity.compose.rememberLauncherForActivityResult(
+ConvoyTrackImportScreen.kt:217:    var pickerOpened by remember { mutableStateOf(false) }
+ConvoyTrackImportScreen.kt:229:    fun doImport() {
+ConvoyTrackImportScreen.kt:230:        val sel = files.filter { selected.contains(it.name) }
+ConvoyTrackImportScreen.kt:237:            val imported = mutableListOf<String>()
+ConvoyTrackImportScreen.kt:238:            val skipped = mutableListOf<String>()
+ConvoyTrackImportScreen.kt:239:            val failed = mutableListOf<String>()
+ConvoyTrackImportScreen.kt:240:            var datesCorrected = 0
+ConvoyTrackImportScreen.kt:241:            var wptTotal = 0
+ConvoyTrackImportScreen.kt:242:            var rteTotal = 0
+ConvoyTrackImportScreen.kt:243:            var newTotal = 0
+ConvoyTrackImportScreen.kt:244:            var dupeTotal = 0
+ConvoyTrackImportScreen.kt:245:            var aliasedTotal = 0
+ConvoyTrackImportScreen.kt:246:            var skippedTotal = 0
+ConvoyTrackImportScreen.kt:253:                    val summary = ConvoyTrackOps.importGpxAllArtifacts(f, context, if (!mapsSkip.contains(f.name)) selectedSlots else emptyList(), replaceExisting) { line ->
+ConvoyTrackImportScreen.kt:290:        val slotSources = remember { MapSourceManager.getSlotSources() }
+ConvoyTrackImportScreen.kt:291:        val popupSlots = remember(slotSources) {
+ConvoyTrackImportScreen.kt:456:                        val r = withContext(Dispatchers.IO) {
+ConvoyTrackImportScreen.kt:484:                        val r = withContext(Dispatchers.IO) {
+ConvoyTrackImportScreen.kt:619:                    val checked = selected.contains(file.name)
+ConvoyTrackImportScreen.kt:785:private fun ImportProgressDialog(
+ConvoyTrackImportScreen.kt:836:                            val line = feedLines[idx]
+ConvoyTrackImportScreen.kt:837:                            val col = when {
+ConvoyTrackImportScreen.kt:862:private fun ImportRecapDialog(
+ConvoyTrackImportScreen.kt:990:                    val shown = imported.take(20)
+ConvoyTrackImportScreen.kt:1038:private fun formatFileSize(bytes: Long): String {
+ConvoyTrackImportScreen.kt:1046:private fun formatFileDate(millis: Long): String {
 ConvoyTrackOps.kt:14:object ConvoyTrackOps {
 ConvoyTrackOps.kt:16:    private const val TRACKS_DIR_NAME = "my_tracks"
 ConvoyTrackOps.kt:32:    fun tracksDir(): File {
@@ -4900,112 +4900,112 @@ HomeStateImportController.kt:560:                val ownFile = OwnershipReclass.
 HomeStateImportController.kt:565:                    val got = withContext(Dispatchers.IO) {
 HomeStateImportController.kt:576:                val sDb = SpatialDbManager.getSpatialDb()
 HomeStateImportController.kt:577:                val eDb = SpatialDbManager.getExtensionDb()
-HomeStateImportController.kt:582:                    val changed = withContext(Dispatchers.IO) {
-HomeStateImportController.kt:660:    private suspend fun runGeofabrikSource(
-HomeStateImportController.kt:664:        val slug = src.getString("slug")
-HomeStateImportController.kt:665:        val gpkgUrl = src.getString("gpkg_url")
-HomeStateImportController.kt:681:        val pbfFile = OsmImportStage.pbfFor(context, slug)
-HomeStateImportController.kt:683:            val okPbf = downloadFile(pbfUrl, pbfFile, src)
-HomeStateImportController.kt:704:        val zipFile = OsmImportStage.zipFor(context, slug)
-HomeStateImportController.kt:706:            val ok = downloadFile(gpkgUrl, zipFile, src)
-HomeStateImportController.kt:727:        val tagsFile = OsmImportStage.tagsFor(context, slug)
-HomeStateImportController.kt:730:            val builtRows = withContext(Dispatchers.IO) {
-HomeStateImportController.kt:761:        val extractOk = awaitWorker(context, OsmExtractWorker.uniqueName(slug))
-HomeStateImportController.kt:772:        val bbox = doubleArrayOf(bboxSouth, bboxWest, bboxNorth, bboxEast)
-HomeStateImportController.kt:775:        val scope = if (src.optString("process") == "geofabrik_area") "area" else "state"
-HomeStateImportController.kt:783:        val importOk = awaitWorker(context, OsmImportWorker.uniqueName(slug))
-HomeStateImportController.kt:790:        val ledger = OsmImportLedger.read(context, slug)
-HomeStateImportController.kt:791:        val imports = ledger?.optJSONArray("imports")
-HomeStateImportController.kt:793:            val last = imports.getJSONObject(imports.length() - 1)
-HomeStateImportController.kt:794:            val count = last.optInt("inserted", 0) + last.optInt("updated", 0)
-HomeStateImportController.kt:800:            val gAdds    = last.optInt("inserted", -1)
-HomeStateImportController.kt:801:            val gDropped = last.optInt("dropped", -1)
-HomeStateImportController.kt:802:            val gAliased = last.optInt("aliased", -1)
-HomeStateImportController.kt:803:            val gErrors  = last.optInt("errors", -1)
-HomeStateImportController.kt:804:            val gFound   = last.optInt("found", -1)
-HomeStateImportController.kt:805:            val gDupes   = if (gDropped < 0 && gAliased < 0) -1
-HomeStateImportController.kt:827:    private suspend fun runCatalogSource(
-HomeStateImportController.kt:831:        val sourceId = src.getString("id")
-HomeStateImportController.kt:835:            val results = TrailImporter.importByArea(
-HomeStateImportController.kt:839:            val total = results.sumOf { it.inserted }
-HomeStateImportController.kt:845:            val pDropped  = results.sumOf { it.dropped }
-HomeStateImportController.kt:846:            val pAliased  = results.sumOf { it.aliased }
-HomeStateImportController.kt:847:            val pSkipped  = results.sumOf { it.skipped }
-HomeStateImportController.kt:848:            val pRejected = results.sumOf { it.rejected }
-HomeStateImportController.kt:849:            val pErrors   = results.sumOf { it.errors }
-HomeStateImportController.kt:850:            val pProcessed = total + pDropped + pAliased + pSkipped + pRejected + pErrors
-HomeStateImportController.kt:866:    private fun findCatalogSourcesInBbox(
-HomeStateImportController.kt:873:            val all = loadSourceCatalog(context)
-HomeStateImportController.kt:904:    private const val OWNERSHIP_URL =
-HomeStateImportController.kt:909:    private fun downloadFile(
-HomeStateImportController.kt:917:        val ok = downloadOnce(urlStr, dest, activeSrc, depth)
-HomeStateImportController.kt:926:        val wait = if (attempt == 1) 2000L else 8000L
-HomeStateImportController.kt:932:    private fun downloadOnce(
-HomeStateImportController.kt:937:            val conn = URL(urlStr).openConnection() as HttpURLConnection
-HomeStateImportController.kt:943:                val redirect = conn.getHeaderField("Location")
-HomeStateImportController.kt:955:            val totalBytes = conn.contentLength.toLong()
-HomeStateImportController.kt:956:            var downloaded = 0L
-HomeStateImportController.kt:957:            val tmp = File(dest.parent, dest.name + ".tmp")
-HomeStateImportController.kt:960:                    val buf = ByteArray(1 shl 16)
-HomeStateImportController.kt:961:                    var n: Int
-HomeStateImportController.kt:966:                            val dlMB = downloaded / 1_048_576
-HomeStateImportController.kt:967:                            val totMB = totalBytes / 1_048_576
-HomeStateImportController.kt:968:                            val detail = "$dlMB MB of $totMB MB"
-HomeStateImportController.kt:986:    private suspend fun awaitWorker(context: Context, uniqueName: String): Boolean {
-HomeStateImportController.kt:987:        val wm = WorkManager.getInstance(context)
-HomeStateImportController.kt:990:                val infos = wm.getWorkInfosForUniqueWork(uniqueName).get()
-HomeStateImportController.kt:991:                val wi = infos.firstOrNull() ?: break
-HomeStateImportController.kt:1024:    private fun workerDetail(wi: WorkInfo): String? {
-HomeStateImportController.kt:1026:            val raw = wi.progress.getString("osm_extract_progress")
-HomeStateImportController.kt:1028:            val arr = org.json.JSONArray(raw)
-HomeStateImportController.kt:1030:                val o = arr.optJSONObject(i) ?: continue
-HomeStateImportController.kt:1032:                val label = o.optString("label", o.optString("id", "Working"))
-HomeStateImportController.kt:1033:                val done = o.optInt("done", 0)
-HomeStateImportController.kt:1034:                val total = o.optInt("total", 0)
-HomeStateImportController.kt:1035:                val eta = o.optInt("eta_sec", -1)
-HomeStateImportController.kt:1036:                val sb = StringBuilder(label)
-HomeStateImportController.kt:1055:    private fun updateSourceStep(src: JSONObject, step: String, detail: String?) {
-HomeStateImportController.kt:1061:    private fun publishProgress(
-HomeStateImportController.kt:1065:        val list = (0 until sources.length()).map { i ->
-HomeStateImportController.kt:1066:            val s = sources.getJSONObject(i)
-HomeStateImportController.kt:1100:    fun findIncompleteImport(ctx: Context): Pair<File, JSONObject>? {
-HomeStateImportController.kt:1101:        val dir = importsDir(ctx)
-HomeStateImportController.kt:1107:                    val j = JSONObject(f.readText())
-HomeStateImportController.kt:1175:    fun clearTrailsOnce(ctx: Context): Int {
-HomeStateImportController.kt:1195:        val marker = File(SpatialDbManager.dbDir(), ".trails_cleared_2026-09-02B")
-HomeStateImportController.kt:1202:            val legacy = listOf(
-HomeStateImportController.kt:1207:            val found = try {
-HomeStateImportController.kt:1225:        val alreadyRan = try {
-HomeStateImportController.kt:1235:        val dbFile = File(SpatialDbManager.dbDir(), "grouptrack_spatial.db")
-HomeStateImportController.kt:1245:        var removed = 0
-HomeStateImportController.kt:1246:        var props = 0
-HomeStateImportController.kt:1248:            val db = android.database.sqlite.SQLiteDatabase.openDatabase(
-HomeStateImportController.kt:1278:            val extFile = File(SpatialDbManager.dbDir(), "grouptrack_data.db")
-HomeStateImportController.kt:1280:                val ext = android.database.sqlite.SQLiteDatabase.openDatabase(
-HomeStateImportController.kt:1313:    private fun writeClearMarker(marker: File, removed: Int, props: Int = 0) {
-HomeStateImportController.kt:1316:            val o = JSONObject()
-HomeStateImportController.kt:1327:    fun sweepManifests(ctx: Context): Int {
-HomeStateImportController.kt:1328:        val dir = importsDir(ctx)
-HomeStateImportController.kt:1329:        val history = File(dir, "history").apply { if (!exists()) mkdirs() }
-HomeStateImportController.kt:1341:        val files = (dir.listFiles { f -> f.isFile && f.extension == "json" } ?: return 0)
-HomeStateImportController.kt:1355:        var swept = 0
-HomeStateImportController.kt:1358:                val json = JSONObject(f.readText())
-HomeStateImportController.kt:1359:                val sources = json.optJSONArray("sources")
-HomeStateImportController.kt:1363:                var allCounted = sources != null && sources.length() > 0
-HomeStateImportController.kt:1366:                        val s = sources.getJSONObject(i)
-HomeStateImportController.kt:1367:                        val counted = s.has("imported") &&
-HomeStateImportController.kt:1383:                val id = json.optString("manifest_id", "")
-HomeStateImportController.kt:1390:                val safeId = id.replace(':', '-')
-HomeStateImportController.kt:1391:                val target = if (safeId.isBlank()) File(history, f.name)
-HomeStateImportController.kt:1397:                val verdict = if (allCounted) "completed" else "KILLED"
-HomeStateImportController.kt:1407:                var moved = false
-HomeStateImportController.kt:1457:    fun needsTrailData(ctx: Context): Boolean {
-HomeStateImportController.kt:1458:        val dbFile = File(SpatialDbManager.dbDir(), "grouptrack_spatial.db")
-HomeStateImportController.kt:1464:            val db = android.database.sqlite.SQLiteDatabase.openDatabase(
-HomeStateImportController.kt:1468:            val count = db.use { d ->
-HomeStateImportController.kt:1493:    fun hasCompletedImport(ctx: Context): Boolean {
-HomeStateImportController.kt:1494:        val dir = importsDir(ctx)
-HomeStateImportController.kt:1504:    private fun iso8601Now(): String =
+HomeStateImportController.kt:593:                    val changed = try {
+HomeStateImportController.kt:678:    private suspend fun runGeofabrikSource(
+HomeStateImportController.kt:682:        val slug = src.getString("slug")
+HomeStateImportController.kt:683:        val gpkgUrl = src.getString("gpkg_url")
+HomeStateImportController.kt:699:        val pbfFile = OsmImportStage.pbfFor(context, slug)
+HomeStateImportController.kt:701:            val okPbf = downloadFile(pbfUrl, pbfFile, src)
+HomeStateImportController.kt:722:        val zipFile = OsmImportStage.zipFor(context, slug)
+HomeStateImportController.kt:724:            val ok = downloadFile(gpkgUrl, zipFile, src)
+HomeStateImportController.kt:745:        val tagsFile = OsmImportStage.tagsFor(context, slug)
+HomeStateImportController.kt:748:            val builtRows = withContext(Dispatchers.IO) {
+HomeStateImportController.kt:779:        val extractOk = awaitWorker(context, OsmExtractWorker.uniqueName(slug))
+HomeStateImportController.kt:790:        val bbox = doubleArrayOf(bboxSouth, bboxWest, bboxNorth, bboxEast)
+HomeStateImportController.kt:793:        val scope = if (src.optString("process") == "geofabrik_area") "area" else "state"
+HomeStateImportController.kt:801:        val importOk = awaitWorker(context, OsmImportWorker.uniqueName(slug))
+HomeStateImportController.kt:808:        val ledger = OsmImportLedger.read(context, slug)
+HomeStateImportController.kt:809:        val imports = ledger?.optJSONArray("imports")
+HomeStateImportController.kt:811:            val last = imports.getJSONObject(imports.length() - 1)
+HomeStateImportController.kt:812:            val count = last.optInt("inserted", 0) + last.optInt("updated", 0)
+HomeStateImportController.kt:818:            val gAdds    = last.optInt("inserted", -1)
+HomeStateImportController.kt:819:            val gDropped = last.optInt("dropped", -1)
+HomeStateImportController.kt:820:            val gAliased = last.optInt("aliased", -1)
+HomeStateImportController.kt:821:            val gErrors  = last.optInt("errors", -1)
+HomeStateImportController.kt:822:            val gFound   = last.optInt("found", -1)
+HomeStateImportController.kt:823:            val gDupes   = if (gDropped < 0 && gAliased < 0) -1
+HomeStateImportController.kt:845:    private suspend fun runCatalogSource(
+HomeStateImportController.kt:849:        val sourceId = src.getString("id")
+HomeStateImportController.kt:853:            val results = TrailImporter.importByArea(
+HomeStateImportController.kt:857:            val total = results.sumOf { it.inserted }
+HomeStateImportController.kt:863:            val pDropped  = results.sumOf { it.dropped }
+HomeStateImportController.kt:864:            val pAliased  = results.sumOf { it.aliased }
+HomeStateImportController.kt:865:            val pSkipped  = results.sumOf { it.skipped }
+HomeStateImportController.kt:866:            val pRejected = results.sumOf { it.rejected }
+HomeStateImportController.kt:867:            val pErrors   = results.sumOf { it.errors }
+HomeStateImportController.kt:868:            val pProcessed = total + pDropped + pAliased + pSkipped + pRejected + pErrors
+HomeStateImportController.kt:884:    private fun findCatalogSourcesInBbox(
+HomeStateImportController.kt:891:            val all = loadSourceCatalog(context)
+HomeStateImportController.kt:922:    private const val OWNERSHIP_URL =
+HomeStateImportController.kt:927:    private fun downloadFile(
+HomeStateImportController.kt:935:        val ok = downloadOnce(urlStr, dest, activeSrc, depth)
+HomeStateImportController.kt:944:        val wait = if (attempt == 1) 2000L else 8000L
+HomeStateImportController.kt:950:    private fun downloadOnce(
+HomeStateImportController.kt:955:            val conn = URL(urlStr).openConnection() as HttpURLConnection
+HomeStateImportController.kt:961:                val redirect = conn.getHeaderField("Location")
+HomeStateImportController.kt:973:            val totalBytes = conn.contentLength.toLong()
+HomeStateImportController.kt:974:            var downloaded = 0L
+HomeStateImportController.kt:975:            val tmp = File(dest.parent, dest.name + ".tmp")
+HomeStateImportController.kt:978:                    val buf = ByteArray(1 shl 16)
+HomeStateImportController.kt:979:                    var n: Int
+HomeStateImportController.kt:984:                            val dlMB = downloaded / 1_048_576
+HomeStateImportController.kt:985:                            val totMB = totalBytes / 1_048_576
+HomeStateImportController.kt:986:                            val detail = "$dlMB MB of $totMB MB"
+HomeStateImportController.kt:1004:    private suspend fun awaitWorker(context: Context, uniqueName: String): Boolean {
+HomeStateImportController.kt:1005:        val wm = WorkManager.getInstance(context)
+HomeStateImportController.kt:1008:                val infos = wm.getWorkInfosForUniqueWork(uniqueName).get()
+HomeStateImportController.kt:1009:                val wi = infos.firstOrNull() ?: break
+HomeStateImportController.kt:1042:    private fun workerDetail(wi: WorkInfo): String? {
+HomeStateImportController.kt:1044:            val raw = wi.progress.getString("osm_extract_progress")
+HomeStateImportController.kt:1046:            val arr = org.json.JSONArray(raw)
+HomeStateImportController.kt:1048:                val o = arr.optJSONObject(i) ?: continue
+HomeStateImportController.kt:1050:                val label = o.optString("label", o.optString("id", "Working"))
+HomeStateImportController.kt:1051:                val done = o.optInt("done", 0)
+HomeStateImportController.kt:1052:                val total = o.optInt("total", 0)
+HomeStateImportController.kt:1053:                val eta = o.optInt("eta_sec", -1)
+HomeStateImportController.kt:1054:                val sb = StringBuilder(label)
+HomeStateImportController.kt:1073:    private fun updateSourceStep(src: JSONObject, step: String, detail: String?) {
+HomeStateImportController.kt:1079:    private fun publishProgress(
+HomeStateImportController.kt:1083:        val list = (0 until sources.length()).map { i ->
+HomeStateImportController.kt:1084:            val s = sources.getJSONObject(i)
+HomeStateImportController.kt:1118:    fun findIncompleteImport(ctx: Context): Pair<File, JSONObject>? {
+HomeStateImportController.kt:1119:        val dir = importsDir(ctx)
+HomeStateImportController.kt:1125:                    val j = JSONObject(f.readText())
+HomeStateImportController.kt:1193:    fun clearTrailsOnce(ctx: Context): Int {
+HomeStateImportController.kt:1213:        val marker = File(SpatialDbManager.dbDir(), ".trails_cleared_2026-09-02B")
+HomeStateImportController.kt:1220:            val legacy = listOf(
+HomeStateImportController.kt:1225:            val found = try {
+HomeStateImportController.kt:1243:        val alreadyRan = try {
+HomeStateImportController.kt:1253:        val dbFile = File(SpatialDbManager.dbDir(), "grouptrack_spatial.db")
+HomeStateImportController.kt:1263:        var removed = 0
+HomeStateImportController.kt:1264:        var props = 0
+HomeStateImportController.kt:1266:            val db = android.database.sqlite.SQLiteDatabase.openDatabase(
+HomeStateImportController.kt:1296:            val extFile = File(SpatialDbManager.dbDir(), "grouptrack_data.db")
+HomeStateImportController.kt:1298:                val ext = android.database.sqlite.SQLiteDatabase.openDatabase(
+HomeStateImportController.kt:1331:    private fun writeClearMarker(marker: File, removed: Int, props: Int = 0) {
+HomeStateImportController.kt:1334:            val o = JSONObject()
+HomeStateImportController.kt:1345:    fun sweepManifests(ctx: Context): Int {
+HomeStateImportController.kt:1346:        val dir = importsDir(ctx)
+HomeStateImportController.kt:1347:        val history = File(dir, "history").apply { if (!exists()) mkdirs() }
+HomeStateImportController.kt:1359:        val files = (dir.listFiles { f -> f.isFile && f.extension == "json" } ?: return 0)
+HomeStateImportController.kt:1373:        var swept = 0
+HomeStateImportController.kt:1376:                val json = JSONObject(f.readText())
+HomeStateImportController.kt:1377:                val sources = json.optJSONArray("sources")
+HomeStateImportController.kt:1381:                var allCounted = sources != null && sources.length() > 0
+HomeStateImportController.kt:1384:                        val s = sources.getJSONObject(i)
+HomeStateImportController.kt:1385:                        val counted = s.has("imported") &&
+HomeStateImportController.kt:1401:                val id = json.optString("manifest_id", "")
+HomeStateImportController.kt:1408:                val safeId = id.replace(':', '-')
+HomeStateImportController.kt:1409:                val target = if (safeId.isBlank()) File(history, f.name)
+HomeStateImportController.kt:1415:                val verdict = if (allCounted) "completed" else "KILLED"
+HomeStateImportController.kt:1425:                var moved = false
+HomeStateImportController.kt:1475:    fun needsTrailData(ctx: Context): Boolean {
+HomeStateImportController.kt:1476:        val dbFile = File(SpatialDbManager.dbDir(), "grouptrack_spatial.db")
+HomeStateImportController.kt:1482:            val db = android.database.sqlite.SQLiteDatabase.openDatabase(
+HomeStateImportController.kt:1486:            val count = db.use { d ->
+HomeStateImportController.kt:1511:    fun hasCompletedImport(ctx: Context): Boolean {
+HomeStateImportController.kt:1512:        val dir = importsDir(ctx)
+HomeStateImportController.kt:1522:    private fun iso8601Now(): String =
 HomeStatePickerScreen.kt:37:private const val TAG = "HomeStatePicker"
 HomeStatePickerScreen.kt:38:private val mono = FontFamily.Monospace
 HomeStatePickerScreen.kt:39:private val bg = Color(0xFF0F1216)
@@ -6147,23 +6147,27 @@ OwnershipReclass.kt:338:        val last = pts[pts.size - 1]
 OwnershipReclass.kt:347:     * object graph on a phone, so this pulls the fields it needs with a scan
 OwnershipReclass.kt:351:    private fun loadRings(f: File): List<Ring> {
 OwnershipReclass.kt:352:        val out = ArrayList<Ring>(20000)
-OwnershipReclass.kt:354:        var pos = 0
-OwnershipReclass.kt:356:            val fi = text.indexOf("\"owner\"", pos)
-OwnershipReclass.kt:358:            val q1 = text.indexOf('"', text.indexOf(':', fi) + 1)
-OwnershipReclass.kt:360:            val q2 = text.indexOf('"', q1 + 1)
-OwnershipReclass.kt:362:            val owner = text.substring(q1 + 1, q2)
-OwnershipReclass.kt:363:            val gi = text.indexOf("\"coordinates\"", q2)
-OwnershipReclass.kt:365:            var end = text.indexOf("\"owner\"", gi)
-OwnershipReclass.kt:374:    private fun parseRings(
-OwnershipReclass.kt:377:        var i = from
-OwnershipReclass.kt:378:        val xs = ArrayList<Double>(512)
-OwnershipReclass.kt:379:        val ys = ArrayList<Double>(512)
-OwnershipReclass.kt:380:        val sb = StringBuilder(24)
-OwnershipReclass.kt:381:        var x: Double? = null
-OwnershipReclass.kt:382:        var depth = 0
-OwnershipReclass.kt:384:            val c = text[i]
-OwnershipReclass.kt:389:                        val v = sb.toString().toDoubleOrNull(); sb.setLength(0)
-OwnershipReclass.kt:401:                    val v = sb.toString().toDoubleOrNull(); sb.setLength(0)
+OwnershipReclass.kt:364:        val rt = Runtime.getRuntime()
+OwnershipReclass.kt:365:        val available = rt.maxMemory() - (rt.totalMemory() - rt.freeMemory())
+OwnershipReclass.kt:366:        val needed = f.length() * 3
+OwnershipReclass.kt:370:                "OOMGUARD-2026-09-15: SKIPPING land-ownership reclass -- file is " +
+OwnershipReclass.kt:380:        var pos = 0
+OwnershipReclass.kt:382:            val fi = text.indexOf("\"owner\"", pos)
+OwnershipReclass.kt:384:            val q1 = text.indexOf('"', text.indexOf(':', fi) + 1)
+OwnershipReclass.kt:386:            val q2 = text.indexOf('"', q1 + 1)
+OwnershipReclass.kt:388:            val owner = text.substring(q1 + 1, q2)
+OwnershipReclass.kt:389:            val gi = text.indexOf("\"coordinates\"", q2)
+OwnershipReclass.kt:391:            var end = text.indexOf("\"owner\"", gi)
+OwnershipReclass.kt:400:    private fun parseRings(
+OwnershipReclass.kt:403:        var i = from
+OwnershipReclass.kt:404:        val xs = ArrayList<Double>(512)
+OwnershipReclass.kt:405:        val ys = ArrayList<Double>(512)
+OwnershipReclass.kt:406:        val sb = StringBuilder(24)
+OwnershipReclass.kt:407:        var x: Double? = null
+OwnershipReclass.kt:408:        var depth = 0
+OwnershipReclass.kt:410:            val c = text[i]
+OwnershipReclass.kt:415:                        val v = sb.toString().toDoubleOrNull(); sb.setLength(0)
+OwnershipReclass.kt:427:                    val v = sb.toString().toDoubleOrNull(); sb.setLength(0)
 RiderTrailScanner.kt:53:object RiderTrailScanner {
 RiderTrailScanner.kt:57:    const val NEAR_M = 20.0
 RiderTrailScanner.kt:59:    const val BEARING_D = 45.0

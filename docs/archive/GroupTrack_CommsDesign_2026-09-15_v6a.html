@@ -1,0 +1,841 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<title>GroupTrack — Communications Layer Design v6, 2026-09-15</title>
+<style>
+body{font:15px/1.68 -apple-system,"Segoe UI",Roboto,sans-serif;max-width:960px;
+margin:0 auto;padding:26px;background:#0f1216;color:#e6edf3}
+h1{font-size:21px;color:#58a6ff;border-bottom:2px solid #2a3038;padding-bottom:8px}
+h2{font-size:16px;color:#58a6ff;margin-top:32px;border-bottom:1px solid #2a3038;padding-bottom:5px}
+h3{font-size:14px;color:#b8c2cc;margin-top:20px}
+code{background:#1a2027;padding:1px 5px;border-radius:3px;font-size:12.5px;color:#8FD0FF}
+.card{background:#161b22;border:1px solid #2a3038;border-radius:8px;padding:13px 17px;margin:11px 0}
+.done{border-left:4px solid #3fb950}.next{border-left:4px solid #58a6ff}
+.warn{border-left:4px solid #d29922}.bad{border-left:4px solid #f85149}
+table{border-collapse:collapse;width:100%;margin:11px 0;font-size:13px}
+th,td{border:1px solid #2a3038;padding:6px 9px;text-align:left;vertical-align:top}
+th{background:#1a2027;color:#8FD0FF}
+li{margin:6px 0}
+.hi{color:#e3b341}
+pre{background:#0d1117;border:1px solid #2a3038;padding:9px;border-radius:5px;
+font-size:11.5px;overflow-x:auto;color:#b8c2cc}
+</style></head><body>
+
+<h1>Communications layer — design v6</h1>
+<p>2026-09-15 · <b>v6 — THE RESOLUTION: read config FROM the Nucleus and deliver three ways (nothing / automated / displayed). Tier 1\u2019s spec becomes a live SCREEN, not a document. Plus this release\u2019s scope — screen-at-a-time config with the Android utility alongside Connect.</b><br><b>LEVEL 1 of the three-layer separation.</b> Level 2 (group
+visibility) follows in its own document. Self-contained for a fresh
+conversation.</p>
+
+<div class="card done">
+<p class="hi">⭐⭐⭐ <b>THE PRODUCT IN ONE SENTENCE (GroupTrack, 09-15):
+"One setup for temporary or permanent network IDs, and joining that net is all a
+user must do."</b></p>
+<p><b>The rider sees TWO FIELDS: network name and password.</b> Everything
+else — Meshtastic channel and PSK, WiFi mesh SSID and key, Nucleus enrollment,
+IP config, which transport carries what — is invisible, always.</p>
+<p>⭐ <b>THIS IS THE ACCEPTANCE TEST FOR THE WHOLE LAYER.</b> If a rider ever has
+to know which transport they are on, or configure anything twice, level 1 has
+failed. That is a better test than any code metric because it is the thing the
+product is for.</p>
+<p>⚠ It is also the honest measure of the gap to ATAK. TAK expects a trained
+operator with a data package. This is closer to joining a wifi network — <b>and
+that simplification IS the product</b>, which is exactly the market Natak Mesh
+says it wants to reach and cannot with the TAK model.</p>
+</div>
+
+<h2>⭐⭐⭐ THREE TARGET CUSTOMERS — this is why each goal exists</h2>
+<div class="card done">
+<table>
+<tr><th></th><th>Customer</th><th>Hardware</th><th>Config path</th></tr>
+<tr><td><b>1</b></td>
+    <td>Existing commitment to mesh hardware</td>
+    <td>Their own radios, any family</td>
+    <td><b>SELF-CONFIGURED to a distributed spec, per ride.</b> We publish the spec; they apply it.</td></tr>
+<tr><td><b>2</b></td>
+    <td>No mesh, small budget</td>
+    <td><b>T1000-E</b></td>
+    <td><b>AUTOMATED FROM THE APP, per ride.</b> The one radio we configure ourselves.</td></tr>
+<tr><td><b>3</b></td>
+    <td>Lead riders and club organisations</td>
+    <td>Multiple <b>Nucleus</b></td>
+    <td><b>JOIN A WIFI NETWORK FROM THE ANDROID.</b> Enrollment — no radio config at all.</td></tr>
+</table>
+
+<p>⭐⭐ <b>THE TIERS ARE NOT PARALLEL MARKETS — THEY COMPOSE INTO ONE RIDE.</b>
+Tier 3 carries the other two: a club with Nucleus nodes provides the bridge that
+makes tier 1 and tier 2 riders visible to each other. <b>That is the mixed
+network this whole design exists to serve.</b></p>
+
+<p>⭐⭐ <b>AND IT SETTLES WHO PAYS.</b> Tier 2 is a $50 entry with no ongoing cost.
+Tier 3 is the club spending real money on infrastructure that benefits everyone.
+<b>The revenue is where the budget already is</b> — a club buying infrastructure,
+not ten individuals each finding $200.</p>
+
+<h3>⛔ Why tier 1 gets a spec and not code</h3>
+<p><b>Meshtastic is a raw open-source standard and it is still evolving.</b>
+Chasing config parity across a hardware ecosystem that moves underneath you is a
+losing job for a solo developer, and it is not what this product is for.
+<b>Mesh people want the config and they will apply it.</b></p>
+<p>⛔⛔ <b>SUPPORTING A DEVICE AND CONFIGURING A DEVICE ARE DIFFERENT
+COMMITMENTS.</b> <b>Any Meshtastic radio can participate in a ride</b> — it sends
+position packets and GroupTrack reads them. What is limited is which devices get
+CONFIGURED FROM THE APP. ⚠ <b>Record this so it is not relitigated:</b> tier 1
+needs no code, and "supporting them properly" with in-app config is the thing not
+to build.</p>
+<p>🔴 <b>DELIVERABLE: the distributed spec.</b> Channel name, PSK derivation,
+modem preset, hop limit, region — precise enough that a competent Meshtastic user
+gets it right first time. ⭐⭐ <b>SUPERSEDED IN PART: this is now a SCREEN read
+from the live ride, not a static document</b> — see "read from the Nucleus,
+deliver three ways" below. The manual section remains as a fallback.</p>
+<p>⛔⛔ <b>AND IT IS NOT JUST CHANNEL NAME AND PSK. THE RIDE DEPENDS ON POSITION
+PARAMETERS</b> — broadcast interval and distance threshold drive the app. <b>A
+rider on the right channel with a 60-second interval is not in the same ride as
+one at 3 seconds</b>, whatever key they share. ⚠ If the spec omits them, a tier-1
+rider joins correctly and still behaves wrongly — <b>and that failure looks like
+our app is broken rather than like a config mismatch.</b></p>
+<p>⭐ <b>WHICH ALSO GIVES TIER 1 A CLEAN SUPPORT BOUNDARY: if the spec was
+applied, it works; if not, it does not.</b> We publish the spec and we are done.
+No support for how they applied it.</p>
+
+<h3>⚠ The one unsolved piece, and how small it is</h3>
+<p><b>Getting a channel name and PSK onto a standalone mesh radio that is NOT a
+T1000-E, from a device the rider is carrying.</b> The current in-app path works
+for the T1000-E only.</p>
+<p>⭐ <b>It does not block the architecture</b> — layer 1's design is unchanged by
+how a radio got configured. <b>It blocks the RIDER EXPERIENCE, and only for
+hardware we do not recommend.</b> The customer model above is what resolves it:
+tier 1 self-configures, tier 2 is the device we automate, tier 3 never touches
+radio config.</p>
+<h3>⛔ WHY THE CURRENT PATH IS T1000-E ONLY — root cause</h3>
+<p><b>The method builds a radio config from a SAVED IMAGE OF A T1000-E, injects
+new values via protobuf, and writes the whole thing back.</b> So the image
+carries device-specific content — firmware release level, device config,
+hardware-specific fields — and applying it to a different radio writes a
+T1000-E's identity onto it.</p>
+<p>⛔ <b>IT IS A WHOLE-CONFIG RESTORE WEARING THE CLOTHES OF A CONFIG EDIT</b>,
+and whole-config restores are device-bound by nature. Meshtastic's own docs say
+the same of <code>--export-config</code>: it is a backup for THAT node. ⭐ It is
+also the blind write rejected elsewhere in this document, arriving through a
+different door.</p>
+<p>⚠ <b>AND CHANNEL-ONLY IS NOT THE ESCAPE.</b> The obvious fix — use the
+channel-set mechanism, which carries no device identity — <b>does not work,
+because the ride also depends on POSITION parameters</b> (broadcast interval,
+distance threshold). Those are device/position-module config, not channel
+config. <b>That is precisely why the method had to carry more than channels, so
+it ended up carrying an image, so it is device-bound.</b></p>
+<p>⭐⭐ <b>WHICH IS THE ARGUMENT FOR STANDARDISING THE HARDWARE, NOT FOR SOLVING
+IT.</b> Natak's model works because they control the device. <b>Open in-app
+config to arbitrary radios and you are tracking an ever-changing config surface
+across hardware you do not own, with results that depend on the skill of whoever
+holds the radio or on a developer's knowledge of options that keep moving.</b>
+⛔ <b>That is the nightmare. The three-customer model is the answer: T1000-E for
+tier 2, Nucleus for tier 3, a published spec for tier 1. No in-app config for
+arbitrary devices, ever.</b></p>
+</div>
+
+<h2>The three layers, for context</h2>
+<div class="card next">
+<p><b>LAYER 1 — COMMUNICATIONS (this document).</b> GroupTrack: <i>"the point of
+contact is the mesh messages being forwarded to a receiver in GroupTrack. This
+communication layer should support mesh radios AND a standard IP network stack,
+both of which can contribute nodes to the same group layer."</i></p>
+<p><b>LAYER 2 — GROUP VISIBILITY.</b> <i>"Identifies all network traffic from IP
+or mesh sources, assigns unique node IDs, blends IP and mesh devices, tracks GPS
+locations, and creates a map layer that plots the lead cart's track as well as
+all other nodes' locations."</i></p>
+<p><b>LAYER 3 — THE STANDALONE ANDROID APP.</b> Own-device tracking, trails,
+maps, recording, routing. Works with no radio present. ⛔ <b>Nothing in layer 3
+may reference layer 1 or 2 at all, not even to ask whether they exist.</b></p>
+<p>⭐ <b>THE GOVERNING RULE (GroupTrack):</b> <i>"Mesh has to look and function like the
+IP plugin. Any interaction between radios and GroupTrack belongs in that comms
+layer."</i> <b>Mesh gets no privileges.</b> If anything above layer 1 knows what
+a radio is — pairing, connection state, channel config, signal quality — the
+boundary is in the wrong place.</p>
+</div>
+
+<h2>⭐⭐ LEVEL 1 DELIVERABLE GOALS</h2>
+<div class="card next">
+
+<h3>G1 — Standard config for LoRa and IP nets, distributed before rides</h3>
+<p><b>A network config definition: name, password, and whatever each transport
+derives from them.</b> Distributed ahead of a ride so a club arrives configured.
+⭐ <b>One artifact, several delivery routes</b> — enrollment over the air at the
+trailhead, an emailed file, a QR code, or a leader-run setup utility. Applying it
+is ONE code path regardless of how it arrived, which keeps the fallbacks cheap.</p>
+<p>⚠ <b>Two groups riding the same area is the case that proves this matters.</b>
+Same LoRa frequency, same 5.8 GHz band, two convoys. Without distinct identity
+and keys they see each other's traffic — <b>forty nodes of congestion on a mesh
+that already saturates at four.</b></p>
+
+<h3>G2 — Network IDs issued, not invented. THREE OWNERS.</h3>
+<table>
+<tr><th>Owner</th><th>Tenure</th></tr>
+<tr><td><b>Club / org</b></td><td>Permanent, reserved. The club's identity — survives leaders coming and going.</td></tr>
+<tr><td><b>Ride leader</b></td><td>Permanent, reserved. Belongs to the PERSON, usable across any club they lead for.</td></tr>
+<tr><td><b>One-time ride key</b></td><td>Deployed per ride, <b>with an expiration date.</b></td></tr>
+</table>
+<p>Central issue is what makes collision impossible; a locally generated config
+can never guarantee it.</p>
+<p>⭐⭐ <b>EXPIRY IS WHAT MAKES THIS A SERVICE RATHER THAN A GIVEAWAY.</b> Without
+it a leader draws one key and uses it forever, and the reserved tiers have no
+value. With it, the reserved tiers ARE the product and the one-time key is
+genuinely one-time.</p>
+<p>⭐ <b>ENFORCEMENT: self-describing, offline.</b> The expiry travels INSIDE the
+config and the app enforces it — no check-in, no signal needed, which matters
+because a trailhead has none. Sign it if tamper-evidence is wanted. ⚠ A rider
+could edit an unsigned one; for a recreational product that is the honest
+security level.</p>
+<p>⭐ <b>ON EXPIRY, DELETE THE SAVED NETWORK</b> (GroupTrack) — it simply stops being
+available to select, which fits the wifi model exactly. No enforcement mechanism,
+no error state, no interruption.</p>
+<p>⛔ <b>BUT NEVER WHILE IT IS ACTIVE.</b> A key expiring at midnight must not
+pull the network out from under riders still out on the trail. <b>Remove it on
+the next launch when it is not the active network.</b> Rule: <b>expiry blocks
+JOINING, never STAYING JOINED.</b></p>
+<p>⚠ <b>And say so.</b> A network that silently vanishes from the list looks like
+a bug. One line — "this ride's network has expired" — prevents a support
+question, and is the natural moment to fall back to the rider's own network.</p>
+<p>⭐ <b>LATE JOINERS ARE NOT AN EXPIRY PROBLEM.</b> GroupTrack: <i>"if wifi exists on
+the leader device he only needs a password to join."</i> The leader's node is
+broadcasting — a late rider needs the password and nothing else. Nothing to
+issue, nothing to download, no signal. ⚠ <b>The LoRa side is the part that is not
+automatic</b> — a bare radio is not listening to the leader's AP. <b>Which is
+what G3 solves: derive both transports from name + password and "just tell them
+the password" works for LoRa too.</b></p>
+<p>⭐ <b>A natural home for the paid service</b> — a club registers and holds a
+permanent network identity; a leader draws one for the day. Fits the V3 backend
+already built through Phase B.</p>
+<p>⛔ <b>BUT IT MUST WORK WITH NO SIGNAL.</b> A trailhead usually has none. So:
+<b>pre-issued blocks</b> the leader collects while in coverage, and a
+<b>collision-resistant local fallback</b> (club prefix + random) for the leader
+who did not plan ahead — which is most of them.</p>
+
+<h3>G3 — Two fields for the rider; keys are GENERATED</h3>
+<p><b>Network name + password. The password is NOT the key — it derives it.</b>
+GroupTrack: <i>"I prefer generates it. Hides the complexity."</i></p>
+<p>⭐⭐ <b>AND IT IS WHAT MAKES "JUST TELL THEM THE PASSWORD" WORK ON BOTH
+TRANSPORTS.</b> A late rider joins the leader's WiFi with a password like any
+network — but their LoRa radio needs a channel and PSK, and it is not listening
+to the AP. <b>If both derive from name + password, a rider given those two things
+is on both transports with nothing transmitted.</b> The derivation was never only
+about key strength.</p>
+<p>⭐⭐⭐ <b>AND THE CHANNEL NAME AND PSK MUST AGREE WITH THE NETWORK NAME AND
+KEY.</b> One derivation feeds both transports: the rider types name and password,
+the app derives the WiFi key, derives the channel PSK, applies the channel URL to
+the radio and enrolls the Nucleus. <b>Two fields in, two devices configured.</b>
+⭐ Which makes the ANDROID THE SOURCE of the configuration rather than a conduit
+for it — <b>nothing has to be fetched, emailed or scanned in the normal case,
+because the app has the inputs.</b></p>
+<p>⛔⛔ <b>THIS PUTS THE ENTIRE JOIN MECHANISM ON ONE POINT.</b> Two riders on
+different builds deriving different PSKs from the same password is a silent,
+total failure. <b>The derivation must be identical everywhere and versioned from
+day one</b> — see the traps below.</p>
+<p>⭐ Two further reasons, and the second matters architecturally:
+strength (riders pick weak passwords, and a PSK taken verbatim from "ride2026" is
+a weak PSK), and <b>decoupling</b> — a Meshtastic PSK and a WiFi key have
+different length and format rules, so deriving both means the rider's input never
+has to satisfy either.</p>
+<p>⛔ <b>TWO TRAPS, both standard and both fatal if missed:</b></p>
+<ul>
+<li><b>Deterministic and identical on every device.</b> Same KDF, same
+parameters, same salt policy — and the salt is probably the network name, since
+there is nowhere else to get one. Different keys from the same password means
+nothing connects.</li>
+<li><b>It can never change once riders have joined.</b> Altering the derivation in
+a later release silently splits a club into old-build and new-build riders who
+cannot see each other. <b>Version it from day one.</b></li>
+</ul>
+
+<h3>G4 — Joining is wifi-shaped: a saved-networks list, one active</h3>
+<p>GroupTrack: <i>"This is standard wifi config selection with the exception that we
+need to apply to Raspberry and mesh radios."</i> ⭐ <b>So no ride lifecycle, no
+stack, no automatic restore.</b> The rider picks their home network again when
+they are done, exactly as on a phone. That removes the "explicit end of ride" and
+"restore after a crash" problems entirely.</p>
+<p>⛔ <b>WHAT IS NOT STANDARD IS APPLYING ONE SELECTION TO TWO DEVICES</b> — the
+Meshtastic radio's channel and the Nucleus's WiFi mesh, different mechanisms on
+different hardware. <b>That is the layer 1 work: one act of joining, two things
+configured underneath.</b></p>
+<p>⚠ <b>The failure mode is PARTIAL APPLICATION</b> — the radio takes the new
+channel, the node does not. The rider is half-joined and it looks like the app is
+broken. <b>Apply both or neither, and say which failed.</b></p>
+
+<h3>G5 — One interface, two directions, TAKPacket on the wire</h3>
+<p>Publish my own state; receive other nodes'. ⭐ <b>The payload is
+<code>TAKPacket</code> and that decision is already made for us</b> — see the
+wire-format section below.</p>
+<p>⛔ <b>But the internal model must NOT become TAKPacket.</b> Parse at the
+boundary into <code>ConvoyNode</code>, emit at the boundary. Otherwise a tactical
+vocabulary leaks upward and every future change has to be expressible in a
+military schema.</p>
+
+<h3>G6 — Two implementations at stage 1</h3>
+<p><b>Mesh</b> (BLE to a bare radio) and <b>IP</b> (sockets over the Nucleus AP).
+Both satisfy the same interface. A third — internet/uplink — fits later with no
+change above the line.</p>
+<p>⭐⭐ <b>AND THE SPLIT IS CLEANER THAN "two implementations" SUGGESTS.</b> Natak:
+the Nucleus <i>"natively transports any IP traffic out to the Wi-Fi mesh... grabs
+the traffic we decide, converts, compresses and forwards to the Meshtastic radio
+for transmission. It also handles receiving, decompression and sending to the
+tablet back across the AP."</i> <b>So on a Nucleus the tablet speaks IP in BOTH
+directions and may never speak Meshtastic at all</b> — layer 1 there is a single
+socket implementation. ⚠ <b>The BLE implementation exists only for riders with NO
+Nucleus.</b> Tier 3 is pure IP; tier 2 is where the app does everything it does
+today.</p>
+<p>🔴 <b>CONFIRM WITH NATAK:</b> does the tablet ever need to speak Meshtastic
+directly when a Nucleus is present? <b>One sentence from him settles the shape of
+layer 1.</b></p>
+<p>⚠ <b>The V3 Nucleus has NO BLUETOOTH</b>, so a Nucleus-attached radio is
+reached over TCP to <code>meshtasticd</code>, not BLE. <b>Two connection paths
+inside the mesh implementation</b>, neither visible above it.</p>
+
+<h3>G7 — Transport identification passed up: IP, mesh, or BOTH</h3>
+<p>Layer 1 tells layer 2 how each rider is reachable. <b>Derived from what layer
+1 actually knows</b> — which connections are live locally, and which transports a
+given node's packets arrived on. Not inferred upward from payload content.</p>
+<p>⭐ <b>"Both" is the interesting value — that is the rider who is bridging.</b>
+It is also how layer 2 can eventually answer <i>"who is still reachable if we
+lose the Nucleus"</i>, which is a real safety question.</p>
+<p>⛔ <b>Layer 2 may DISPLAY transport. Nothing in its logic may BRANCH on it.</b></p>
+
+<h3>G8 — Connection lifecycle owned entirely here</h3>
+<p>Pairing, connect, drop, reconnect, permissions. <b>Layer 2 never knows a
+connection exists, let alone that one failed.</b></p>
+
+<h3>G9 — Cadence and airtime budget live here</h3>
+<p>⭐ <b>Congestion is a TRANSPORT fact, not a product fact.</b> The mesh
+implementation throttles; the IP implementation does not need to. Layer 2 asks
+for "my position published" and does not care what that costs.</p>
+
+<h3>G10 — Failures reported, never swallowed</h3>
+<p>A transport that cannot deliver says so. ⛔ <b>This week's lesson made
+structural</b> — silent nothing is how two days disappeared.</p>
+
+<h3>G11 — Remove ALL Meshtastic functions from GroupTrack</h3>
+<p><b>The extraction is a level 1 deliverable, not a precondition for it.</b>
+Everything measured 09-14 moves below the line:</p>
+<table>
+<tr><th>Reaching outside convoy</th><th>Sites</th></tr>
+<tr><td><code>UIViewModel</code></td><td>7</td></tr>
+<tr><td><code>DeviceProfile</code> (proto)</td><td>5</td></tr>
+<tr><td><code>ConnectionState</code></td><td>2</td></tr>
+<tr><td><code>MyNodeInfo</code> · <code>NodeRepository</code> · <code>RadioConfigRepository</code></td><td>1 each</td></tr>
+<tr><td><code>Import</code>/<code>Export</code>/<code>InstallProfileUseCase</code></td><td>1 each</td></tr>
+<tr><td><code>Res</code> · <code>vectorResource</code></td><td>1 each (icons)</td></tr>
+</table>
+<p>⭐ <b>Fifteen imports, eleven single-use, and almost all of it lands in
+<code>ConvoyViewModel</code> — almost all of it layer 1 by GroupTrack's own
+definition.</b></p>
+<p>⚠ <b>TWO CAVEATS:</b> that counts IMPORTS, not same-package references
+(anything in <code>com.geeksville.mesh</code> needs no import and does not
+appear); and it does not count <b>THE HOST</b> — activity, navigation graph, DI
+graph, manifest. <b>Fifteen is the FLOOR on the code side. The hosting is the
+real work.</b></p>
+<p>⭐ <b>MECHANICAL TEST FOR DONE:</b> grep for Meshtastic imports anywhere above
+the boundary returns zero.</p>
+
+<h3>G12 — The radio menu becomes a communications menu</h3>
+<p>The 09-04 nav-rail fold into "Meshtastic Radio Setup"
+(<code>MESHSEP-0904</code>) was the first cut; this is where it lands properly.
+Covers Nucleus configuration, IP setup, network selection, and tooling TBD.</p>
+<p>🔴 <b>OPEN: does GroupTrack configure the Nucleus, or point at its web UI?</b>
+Nathan runs a local web server on the node. Wrapping it is less work and less to
+maintain; owning it is a better rider experience. <b>Decide before the menu is
+designed.</b></p>
+
+</div>
+
+<h2>⭐⭐ The wire format is already in the repo</h2>
+<div class="card done">
+<p><code>core/proto/src/main/proto/meshtastic/atak.proto</code> →
+<code>TAKPacket.kt</code> generated. <b>Portnum 72
+(<code>ATAK_FORWARDER</code>). Standard Meshtastic — every node relays it, every
+TAK-aware app reads it. No custom port, no repurposed field, no radio
+reconfiguration, no vendor dependency.</b></p>
+<table>
+<tr><th>GroupTrack</th><th>TAKPacket</th></tr>
+<tr><td><code>callsign</code></td><td><code>Contact.callsign</code></td></tr>
+<tr><td>lat / lon</td><td><code>PLI.latitude_i</code>/<code>longitude_i</code> — <b>same <code>1e-7</code> encoding <code>ConvoyViewModel:869</code> already parses</b></td></tr>
+<tr><td>altitude · speed · heading</td><td><code>PLI.altitude</code> · <code>speed</code> · <code>course</code></td></tr>
+<tr><td>battery</td><td><code>Status.battery</code></td></tr>
+<tr><td>lead cart</td><td><code>Group.role = TeamLead</code></td></tr>
+<tr><td>ride identity + trail colour</td><td><code>Group.team</code> — 14 named colours</td></tr>
+<tr><td>rider messaging</td><td><code>GeoChat</code>, with <code>to</code>/<code>to_callsign</code></td></tr>
+<tr><td>anything else</td><td><code>detail</code> — generic CoT detail XML, <code>is_compressed</code> flags it</td></tr>
+</table>
+<p>⭐ <b><code>Group.team</code> solves something we never asked about:</b> group
+identity AND map colour in one field, already agreed ecosystem-wide, and
+GroupTrack already colours node trails by <code>markerColor</code>.</p>
+<p>⚠ <b><code>MemberRole</code> is a FIXED protobuf enum</b> —
+<code>TeamMember</code>, <code>TeamLead</code>, <code>HQ</code>,
+<code>Sniper</code>, <code>Medic</code>, <code>ForwardObserver</code>,
+<code>RTO</code>, <code>K9</code>. <b>You cannot add to it without every other
+node having the same change.</b> Use TeamLead/TeamMember; put anything
+GroupTrack-specific in <code>detail</code>.</p>
+<p>⛔ <b>ONE NODE, ONE POSITION REPORT.</b> <code>payload_variant</code> is a
+<code>oneof</code> and there is no repeated field — <b>positions cannot be
+bundled.</b> Sender identity is the packet's <code>from</code>. So the IP→LoRa
+bridge does not aggregate: four IP riders means four LoRa transmissions.</p>
+</div>
+
+<h2>⚠ Transport reality — measured, not marketed</h2>
+<div class="card warn">
+<table>
+<tr><th>Source</th><th>Figure</th></tr>
+<tr><td><b>GroupTrack, observed in the field</b></td><td class="hi"><b>3–4 radios at a 3-second update is tolerable. More and traffic congests.</b></td></tr>
+<tr><td>Nathan, calculated</td><td>~25 nodes at 5 s, ~80 at 15 s. Max packet ~0.25 s airtime; ATAK PLI ~0.07 s</td></tr>
+<tr><td>WiFi mesh</td><td>~30 Mbps first hop, <b>halving per hop</b> (half duplex); ~30 node ceiling (32 direct peers); rejoin in seconds</td></tr>
+<tr><td>LoRa V3 at 1 W</td><td>10+ miles with elevation and clean LoS; <b>will not punch through dirt</b></td></tr>
+</table>
+<p>⛔⛔ <b>THE GAP BETWEEN 4 AND 25 IS THE MOST IMPORTANT NUMBER IN THIS
+DOCUMENT.</b> Likely explanation: <b>flood rebroadcast multiplication.</b>
+Meshtastic floods — every node that hears a packet rebroadcasts it up to the hop
+limit. So ten riders is not ten transmissions; it is ten times the relaying nodes
+in range. <b>Nathan's figure is a bandwidth calculation; ours is observed
+congestion.</b> ⚠ Put it to him — it affects how he tunes his forwarding module.</p>
+<p>⭐⭐ <b>LOWER POWER MULTIPLIES TRAFFIC.</b> A low-power radio reaches fewer
+nodes directly, so packets need more hops, and every hop is airtime everyone
+waits through. <b>A high-power node is not just longer range — it is a congestion
+REDUCER for the whole group.</b></p>
+<p>⭐ <b>GROUPTRACK'S RATIO: one high-power IP/LoRa node per three low-power radios.</b>
+⚠ Placement matters as much as count — distributed through the string (lead,
+middle, sweep) rather than one in four by position in a list.</p>
+<p>⚠ <b>TWO SETTINGS IN TENSION: update rate and hop limit.</b> A low hop limit
+keeps local traffic local — which suits a convoy, where the riders who matter are
+the ones ahead and behind. <b>But it cuts against the rider who dropped ten miles
+back, and that is the rider the product exists for.</b></p>
+<p>⛔ <b>CONGESTION IS A PROPERTY OF THE GROUP, NOT OF ONE RADIO.</b> Testing two
+or three units tells you almost nothing about ten, because rebroadcast
+multiplication is where it breaks. <b>Needs real riders on real ground — January,
+in Utah.</b></p>
+</div>
+
+<h2>⚠ Hardware reality — this may force a device re-evaluation</h2>
+<div class="card warn">
+<p><code>config.proto:495 NetworkConfig</code> carries <code>wifi_ssid</code>,
+<code>wifi_psk</code>, <code>eth_enabled</code> and a full
+<code>IpV4Config</code>. <b>It binds the DEVICE to a network, from the device
+side</b> — the radio joins the SSID itself and takes a DHCP address. It has
+nothing to do with the Android connection.</p>
+<p>⛔ <b>AND THE COMMENT ON FIELD 1 IS DECISIVE: "Enable WiFi (disables
+Bluetooth)."</b> A radio that joins WiFi can no longer be reached over BLE — you
+would talk to it over TCP instead, which is exactly what the Nucleus does with
+<code>meshtasticd</code>.</p>
+<p>⚠ <b>IT IS HARDWARE-DEPENDENT and the protobuf cannot tell you which.</b>
+The field exists on every device because it is one shared schema; setting it on a
+radio with no WiFi silicon does nothing.</p>
+<table>
+<tr><th>Class</th><th>Examples</th><th>WiFi?</th><th>Fit</th></tr>
+<tr><td>nRF52</td><td>T1000-E, RAK4631</td><td><b>No</b> — BLE only</td><td>Cheap, small, all-day battery. <b>The rider's radio.</b></td></tr>
+<tr><td>ESP32</td><td>Heltec, T-Beam</td><td>Yes — <code>NetworkConfig</code> applies</td><td>Bulkier, shorter battery</td></tr>
+</table>
+<p>⛔ <b>THE TENSION:</b> the T1000-E is the device to recommend precisely because
+it is cheap, small and lasts a day — <b>and it is the one that cannot join a WiFi
+network.</b> The devices that can are the ones least suited to a rider's pocket.</p>
+<p>⚠ <b>SO <code>NetworkConfig</code> IS PROBABLY NOT OUR SIMPLIFICATION.</b> It
+is how a NODE reaches a network, and the Nucleus already solves that. <b>The
+rider's radio stays on BLE or on LoRa, and the key-derivation approach (G3)
+stands.</b> ⚠ Verify against real devices before building on it.</p>
+<p>🔴 <b>WORK ITEM: re-evaluate supported devices</b> — hardware capability
+against rider requirements against what the architecture needs from each. <b>The
+hardware recommendation and the architecture are the same decision.</b></p>
+</div>
+
+<h2>🔴 The mesh radio config problem — UNRESOLVED</h2>
+<div class="card warn">
+<p>G4 says one act of joining configures two devices. <b>The Nucleus side is
+Nathan's. The RADIO side is ours, and it is the hard half.</b></p>
+
+<h3>⛔ Why a written method is hard: the solution is device-targeted</h3>
+<p>GroupTrack: <i>"it only works for T1000-Es. That is the problem with writing the
+method — the solution is targeted, the screen values presented are unique to the
+device."</i> Config surfaces differ per device family: different fields,
+different sequences, different reboot behaviour. <b>Writing a path means writing
+one per family, each needing that hardware in hand to develop and test.</b></p>
+<p>⚠ <b>AND DRIVING THE SCREENS HAS THE SAME PROBLEM IN A DIFFERENT SHAPE.</b>
+Simulating the manual process — presenting screen titles, controlling values,
+navigating, waiting for reboot and reconnect — still encodes per-device knowledge,
+just as a script of screens rather than a set of calls. <b>The matrix does not go
+away; it moves.</b> ⚠ It also re-exposes the Meshtastic UI surface that
+<code>MESHSEP-0904</code> was folding away, and a Meshtastic release that renames
+or reorders a screen breaks the sequence silently.</p>
+
+<h3>⭐⭐⭐ THE MECHANISM ALREADY EXISTS — CHANNEL URLs</h3>
+<p>Meshtastic has two config-transfer mechanisms, and <b>the second is exactly
+the shape a ride needs.</b></p>
+<table>
+<tr><th>Mechanism</th><th>Scope</th><th>Fit</th></tr>
+<tr><td><code>--export-config</code> / <code>--configure &lt;file&gt;</code></td>
+    <td><b>EVERYTHING</b> — radio, module and channel settings, as YAML</td>
+    <td>⛔ <b>Wrong tool.</b> Writes the whole config, so a rider's own settings are clobbered. This is the blind write already rejected.</td></tr>
+<tr><td><b>Channel URL</b> (<code>--seturl &lt;URL&gt;</code>)</td>
+    <td><b>CHANNELS ONLY</b> — the channel set, including names and encryption keys</td>
+    <td>⭐⭐ <b>Exactly right.</b> A ride needs a channel name and a PSK and nothing else.</td></tr>
+</table>
+<p>⭐⭐ <b>THE CHANNEL URL SOLVES THREE PROBLEMS AT ONCE:</b></p>
+<ul>
+<li><b>It is channel-scoped</b>, so read-modify-write stops being a concern — the
+mechanism cannot touch the rider's other settings because it does not carry
+them.</li>
+<li><b>It is a shareable string.</b> That is the distributable config artifact G1
+asks for, already defined and understood ecosystem-wide. It is what the
+Meshtastic app's own channel-share QR code encodes.</li>
+<li><b>It is device-agnostic.</b> Channels are a protocol concept, not a
+per-model screen — <b>which removes the device matrix from the part of config we
+actually need to set.</b></li>
+</ul>
+<p>⭐ <b>AND OUR FORK ALREADY HAS IT.</b> The Meshtastic app generates and applies
+channel URLs natively — <b>the CLI is one front end to a mechanism that lives in
+the protocol and in the app we forked.</b> 🔴 Grep for
+<code>ChannelSet</code>/<code>getChannelUrl</code>/<code>setChannels</code>
+before designing anything: <b>we are very likely EXPOSING an existing mechanism
+rather than building one.</b></p>
+<p>⛔⛔ <b>SECURITY — THIS CONFIRMS THE EMAIL-DISTRIBUTION CONCERN.</b> Meshtastic's
+own documentation warns that exported configs contain <b>private keys, channel
+PSKs and WiFi passwords</b>, and to share or store them with extreme caution.
+⚠ <b>A channel URL IS the key</b> — anyone holding it is on the ride. An emailed
+config is therefore a key sitting in an inbox: forwardable, on a shared family
+account. <b>Decide deliberately whether the distributed artifact carries the key
+or a join token that must be redeemed.</b> Not a reason to avoid email — a reason
+to design it.</p>
+<p>⚠ <b>The CLI itself is Python on a computer and is NOT available to us on
+Android.</b> What transfers is the URL format and the underlying channel-set
+mechanism, which the app implements natively.</p>
+
+<h3>⭐⭐⭐ THE RESOLUTION — READ FROM THE NUCLEUS, DELIVER THREE WAYS</h3>
+<p><b>The Nucleus is the SOURCE OF TRUTH for a ride's configuration, not
+something we configure.</b> Read the values from it, then deliver them by
+whichever route the rider's tier requires.</p>
+<table>
+<tr><th>Tier</th><th>What happens</th></tr>
+<tr><td><b>3</b> — Nucleus</td><td><b>Nothing.</b> The node already has it.</td></tr>
+<tr><td><b>2</b> — T1000-E</td><td>Feed the values to the existing configuration module. <b>Automated.</b></td></tr>
+<tr><td><b>1</b> — own mesh hardware</td><td><b>DISPLAY OR PRINT the values.</b> The rider applies them with whatever utility they prefer.</td></tr>
+</table>
+<p>⭐⭐ <b>AND TIER 1 STOPS BEING A SEPARATE PROBLEM.</b> The "distributed spec"
+named as a deliverable above becomes <b>A SCREEN, not a document</b> — the app
+shows the exact parameter set for the CURRENT ride, read from the node that
+defines it. <b>No document to maintain and no drift between what is published and
+what is actually in use.</b> ⚠ The manual's default-config section becomes the
+FALLBACK rather than the primary: a document goes stale the moment a value
+changes; a screen reads the live ride.</p>
+<p>⭐⭐ <b>ONE SOURCE FEEDING EVERY TIER, so the values cannot disagree.</b> Same
+principle as the key derivation: one truth, several consumers.</p>
+
+<h3>⭐ THIS RELEASE — screen-at-a-time config, plus the Android utility</h3>
+<p><b>Present the config ONE SCREEN AT A TIME</b>, the same content the manual's
+default-config section carries, generated from live ride values. The rider works
+through it with whatever utility they prefer — the Meshtastic app, the CLI, a web
+flasher. <b>We present; they apply.</b></p>
+<p><b>Plus the default Android setup utility alongside Connect</b>, so a rider who
+does not want to leave GroupTrack has a path and everyone else has the
+values.</p>
+<p>⭐⭐ <b>THE SCREEN APPROACH IS DEVICE-AGNOSTIC BY CONSTRUCTION</b> — we are
+displaying values, not driving hardware. <b>Nothing breaks when a new radio
+appears or Meshtastic moves a setting.</b> That is the property the in-app config
+path can never have.</p>
+<p>⚠ <b>BE PRECISE ABOUT WHAT THE UTILITY COVERS.</b> If it is the existing
+T1000-E method, it works for that device and the screens serve the rest — which
+is consistent with the three-tier model and is honest. <b>If it is intended to be
+broader, that is the device matrix again.</b></p>
+<p>🔴 <b>NEEDS A READ PATH FROM THE NUCLEUS</b> — his web UI or an API exposing
+the current config, and in what form. ⚠ <b>And it presumes the Nucleus is the
+authority.</b> That holds when a club node defines the ride; for a group with NO
+Nucleus at all the values must come from the derivation or the backend
+instead.</p>
+
+<h3>⚠ WHO RUNS THE CONFIG — and what a browser cannot do</h3>
+<p><b>The Python CLI runs on a computer with the radio attached over USB or
+serial.</b> ⭐ Which means a Raspberry Pi with a radio on serial — <b>a Nucleus —
+can configure its own radio directly</b>, with no Android involved. That is
+almost certainly how Natak does it, and it explains why their model is
+"preconfigured per group": the node has always been able to do it locally.</p>
+<p>⛔ <b>THERE IS NO PYTHON ON ANDROID, AND A BROWSER CANNOT REACH THE RADIO.</b>
+A web page has no reliable USB, serial or BLE access on Android — WebUSB and Web
+Bluetooth are Chrome-only, permission-gated, and cannot drive a Meshtastic device
+over BLE. <b>A hosted tool cannot configure a radio attached to the tablet.</b></p>
+<p>⭐⭐ <b>BUT IT DOES NOT NEED TO. The web app's job is to GENERATE the config,
+not apply it</b> — issue the network ID, derive the channel name and PSK, produce
+the channel URL. <b>That is a string</b>, deliverable by API call, link or QR
+code. Applying it is the Android's job, natively.</p>
+<table>
+<tr><th>Where</th><th>Does what</th></tr>
+<tr><td><b>Web / backend</b> (AWS + REST API, already built)</td><td>Issues the ID, derives keys, produces the channel URL. ⭐ <b>ID issuing and config generation in the same place.</b></td></tr>
+<tr><td><b>Android</b></td><td>Derives locally from name + password, or receives the URL, and applies it to the radio. ⚠ <b>T1000-E only today.</b></td></tr>
+<tr><td><b>PC + Python CLI</b></td><td>Covers EVERY supported device with ONE implementation. ⭐ <b>The fallback, and the tier-1 path.</b></td></tr>
+</table>
+<p>⭐ <b>THE HONEST LINE: the T1000-E gets trailhead configuration; everything
+else gets configured at home.</b> Which makes the hardware recommendation do
+double duty — recommend the T1000-E and most riders never see a PC.</p>
+
+<h3>⭐⭐ THE MODEL — read the device, present what it has, change what we need</h3>
+<p>GroupTrack: <i>"retrieve the values from the existing device, populate the screen
+from the values, normal maintenance functions, and then change the values used by
+the app."</i></p>
+<p>⭐ <b>This inverts the problem and removes most of the device matrix.</b> We do
+not encode what each model should have — <b>the device tells us what it has and we
+edit specific fields.</b> A device with extra fields shows them; one without does
+not. ⭐ Same principle as the <code>ensureInit</code> fix of 09-15: <b>test the
+data, do not assume the shape.</b></p>
+<p>⛔ <b>READ-MODIFY-WRITE, NEVER BLIND WRITE.</b> Pull the current config, change
+only what the ride needs (channel name, PSK), write it back with everything else
+intact. <b>A blind write clobbers settings the rider set for their own
+reasons.</b></p>
+<p>⚠ <b>SCOPE CONSEQUENCE:</b> if the screen shows the device's real config,
+riders will edit other things there. That is arguably good — one place for radio
+settings instead of bouncing to the Meshtastic app — but <b>it grows G12's
+communications menu into a device manager.</b> Decide deliberately.</p>
+<p>🔴 <b>CHECK BEFORE BUILDING:</b> radio config is <code>AdminMessage</code> over
+the mesh protocol, not a UI operation, and <b>our fork is a fork of the app that
+already does it</b>. Grep for
+<code>AdminMessage</code>/<code>beginEditSettings</code>/<code>commitEditSettings</code>
+— <b>we may be EXPOSING an existing mechanism rather than building one.</b>
+⚠ Unverified.</p>
+<p>⚠ <b>THIS IS THE SECOND THING DRIVING THE DEVICE RE-EVALUATION</b> (the first
+was the WiFi capability split). <b>The supported-hardware list and the
+architecture keep turning out to be the same decision.</b> If the recommendation
+is the T1000-E and everything else is "configure it yourself in the Meshtastic
+app", a targeted solution for one device is honest and cheap. Supporting five
+families properly is a different product.</p>
+</div>
+
+<h2>The target configuration</h2>
+<div class="card next">
+<p><b>Mesh-only riders on cheap radios, with a bridged Nucleus in the group doing
+conversion in both directions.</b> Nathan: <i>"The Nucleus handles all the
+routing/forwarding... the tablet/phone just runs the app, everything else runs
+onboard the radio."</i></p>
+<p>⭐ <b>So the bridge is a DEVICE function, not an app function</b> — on a
+Nucleus. GroupTrack emits once, to the AP, and the node fans it out to both
+networks. <b>Layer 1 collapses for Nucleus riders to "send and receive over a
+socket."</b></p>
+<p>⭐⭐ <b>AND A BARE-RADIO RIDER SEES EVERYTHING.</b> Other LoRa riders directly,
+and the IP riders because a Nucleus already converted and transmitted them. From
+that rider's point of view it is all just mesh traffic — <b>their app sees one
+group, not two networks.</b> The layer-2 rule satisfied by hardware rather than
+by code we write.</p>
+<p>⚠ <b>CONDITION: it needs a Nucleus in the group.</b> Ten T1000-E riders and no
+Nucleus is a LoRa-only group — fine, and it works, but nobody is bridging because
+there is nothing to bridge.</p>
+<p>⛔ <b>MESH IS NOT A COURTESY TIER.</b> $50 vs $150–200 means most riders will
+carry LoRa, and <b>the rider who is separated — off the WiFi mesh, out of sight —
+is exactly who the product exists for.</b> Anything GroupTrack REQUIRES must work
+on a bare radio. Everything richer is an enhancement for riders with a Nucleus.</p>
+<p>⭐ <b>The Nucleus does not make LoRa better; it takes riders OFF it</b>, leaving
+airtime for those who need it. <b>That is the pitch: a club buys infrastructure,
+not ten individuals buying $200 each.</b></p>
+</div>
+
+<h2>🔴 Open questions for Natak Mesh</h2>
+<div class="card next">
+<h3>The bridge</h3>
+<ol>
+<li><b>With bridge mode gone in V3, who relays between LoRa and the WiFi mesh —
+the node or the app?</b> Most consequential remaining question.</li>
+<li>Does the module handle <code>TAKPacket</code> on portnum 72 specifically, or
+CoT off the ATAK multicast port only? <b>If a bare radio sends a TAKPacket, does
+it reach the WiFi mesh?</b></li>
+<li>Exact multicast group and port the module reads and writes.</li>
+<li>Four IP riders on WiFi — does the module send four LoRa packets? Is the
+forwarding rate configurable per node?</li>
+</ol>
+<h3>Config and enrollment</h3>
+<ol start="5">
+<li>⭐⭐ <b>HOW DO YOU CONFIGURE YOUR MESH RADIOS?</b> Flashed at build, over
+serial from the node, through the module, or <code>AdminMessage</code> over the
+protocol? <b>Do you drive the Meshtastic UI, or write config programmatically?</b>
+⚠ <b>We have the same problem and you have already solved it for your
+hardware</b> — config surfaces differ per device family and we do not want to own
+a device matrix.</li>
+<li>Do you read the device's EXISTING config first and modify it, or write a
+standard one over the top? <b>Do a rider's own radio settings survive being
+enrolled into a ride?</b></li>
+<li>⭐ <b>Do you use CHANNEL URLs (<code>--seturl</code>) or full config export
+(<code>--configure</code>)?</b> Channel-only looks like the right scope for a ride
+— it cannot clobber a rider's other settings. <b>Is there a reason you went the
+other way?</b></li>
+<li>Which radios have you actually made this work on, and what broke on the ones
+you did not?</li>
+<li><b>Can the Nucleus accept an ENROLLMENT from an Android app at runtime</b>
+rather than being preconfigured? API, or web UI only?</li>
+<li><b>Two groups riding the same area — what separates them today?</b> Different
+channel and PSK on LoRa, different SSID and mesh ID on WiFi? One act or two?</li>
+<li>Can a node join an existing mesh with just a password, wifi-style?</li>
+<li>Do you already have a config bundle format from the ATAK zero-touch work?</li>
+<li>Settling time after a config change before the mesh is usable.</li>
+<li>Does applying a config succeed or fail ATOMICALLY, and how does it report
+which? <b>GroupTrack needs to know whether the join took.</b></li>
+<li>If the leader's node defines the network — <b>what happens to riders already
+joined if the leader's Nucleus drops?</b></li>
+</ol>
+<h3>Capacity</h3>
+<ol start="13">
+<li><b>I see congestion at 3–4 radios on a 3-second update; your figures suggest
+25 at 5 seconds. Is the difference flood rebroadcast multiplication?</b> How do
+you tune hop limit in practice?</li>
+<li><b>One high-power node per three low-power radios</b> — does that ratio match
+what you see in ATAK deployments?</li>
+</ol>
+<h3>Hardware</h3>
+<ol start="15">
+<li><b>Does or could the Nucleus carry onboard GPS</b> and publish position to
+connected clients? ⭐ That would fully position a chipless tablet — the problem
+that cost two days this week.</li>
+<li>Which Meshtastic radios do you recommend for riders, and does
+<code>NetworkConfig</code> (WiFi join) matter at all in your model?</li>
+<li>12 V input and shock/vibration provisions — both named as gaps, both open to
+being built.</li>
+<li>Internet-facing security: UFW only today, and <i>"not a huge point of
+focus."</i> <b>Needs review before a club runs a Starlink uplink.</b></li>
+</ol>
+<h3>The framing for the call</h3>
+<p>⭐⭐ <b>His model is a preconfigured team. Ours is individuals who join and
+switch per ride.</b> He ships a standard config applied per group at build time;
+GroupTrack's rider belongs to several clubs and joins a different ride each
+weekend. <b>That gap is the difference between ATAK and the SxS market he says he
+wants to reach.</b></p>
+</div>
+
+<h2>⛔ Explicitly NOT level 1</h2>
+<div class="card bad">
+<ul>
+<li><b>Merge and dedup</b>, node identity assignment, blending mesh and IP into
+one list — <b>all layer 2.</b></li>
+<li>Display, gaps, distance to lead/tail, off-track, lead selection, recording.
+⭐ <b><code>ConvoyEngine</code> computes all of those LOCALLY from node positions
+— they were never transmitted and do not need to be.</b> The payload question was
+only ever position, identity and role.</li>
+<li>🔴 <b>OPEN, and it is a layer-2 decision:</b> what a LoRa-only rider receives
+when the group is large and airtime is short — everyone at a reduced rate,
+nearest N, or lead and tail only. <b>That rider is the one who is separated.</b>
+⭐ Nathan's forwarding rate is configurable, so this may be a setting on his side
+that we choose rather than code we write.</li>
+</ul>
+</div>
+
+<h2>⛔ Rejected — and why</h2>
+<div class="card bad">
+<ul>
+<li><b>Dynamic-feature module for the plugin split.</b> Runs in the SAME PROCESS
+— the weak end of the FSF's arm's-length test. Would leave us exactly where we
+are now with better packaging. ⛔ <b>Someone will reach for it as the obvious
+Android answer; it fails the one requirement that matters.</b> GroupTrack: <i>"I do not
+want to publish my software in the mesh open-source world."</i></li>
+<li><b>Repurposing a Meshtastic field to carry role.</b> Every field is
+load-bearing; <code>short_name</code> is 4 characters and changing it is a device
+config change that persists past the ride. <b>And a rider would have to change it
+on the radio, which is the cost we are removing.</b></li>
+<li><b>Requiring role on the wire.</b> ⚠ <code>Group.role</code> DOES travel — the
+earlier claim that it could not was wrong — but <b>local lead selection remains
+the better default</b>: no configuration, no election, no conflict when two
+riders claim it, and it works before any role is received.</li>
+<li><b>Bundling multiple riders' positions into one packet.</b> Structurally
+impossible — <code>oneof</code>, no repeated field, and sender identity is the
+packet's <code>from</code>.</li>
+<li><b>Lifting an ATAK CoT plugin.</b> ATAK plugins ARE ATAK — built against its
+SDK, running in its process. ⭐ <b>What we want is a CoT/TAKPacket
+parser-serialiser, and <code>TAKPacket</code> already gives us that.</b></li>
+</ul>
+</div>
+
+<h2>🔴🔴 DISCUSSION ITEMS — holes that impact this design</h2>
+<div class="card bad">
+<p class="hi">⭐ <b>These are not questions of curiosity. Each one changes
+something proposed in this document, and the design is provisional until they are
+answered.</b> Ordered by blast radius.</p>
+
+<h3>Would change the ARCHITECTURE</h3>
+<ol>
+<li>⭐⭐ <b>With bridge mode gone in V3, who relays between LoRa and the WiFi mesh
+— the node or the app?</b> <b>IMPACT:</b> the whole target-configuration section
+assumes the node. If it is the app, <b>layer 1 grows a bridge</b> and G6's two
+implementations become three jobs.</li>
+<li>⭐⭐ <b>Does the module handle <code>TAKPacket</code> on portnum 72, or only
+CoT off the ATAK multicast port?</b> <b>IMPACT:</b> if CoT-only, GroupTrack
+either speaks CoT or loses the bridge — <b>that is a payload decision, not a
+detail</b>, and G5 names TAKPacket as settled.</li>
+<li>⭐⭐ <b>Can the Nucleus accept an ENROLLMENT from the Android at runtime?</b>
+API, or web UI only? <b>IMPACT: G4's entire model</b> — one act of joining
+configures both devices — rests on this. Without it, tier 3 needs preconfigured
+nodes and the rider experience changes.</li>
+</ol>
+
+<h3>Would change the CONFIG design</h3>
+<ol start="4">
+<li>⭐⭐ <b>Does the Nucleus configure its own attached radio, and can it do so
+from parameters the app supplies?</b> <b>IMPACT:</b> if yes, <b>tier 3 riders
+never need radio config at all</b> and the app's only job there is joining a
+network. <b>More consequential than first rated.</b></li>
+<li>⭐⭐ <b>Can the app READ the current network and radio config FROM the Nucleus,
+and in what form?</b> API or web UI? <b>IMPACT: the entire "read from the
+Nucleus, deliver three ways" resolution depends on it</b> — it is what turns
+tier 1's spec from a document into a live screen.</li>
+<li><b>Does the tablet ever need to speak Meshtastic directly when a Nucleus is
+present</b>, or is it IP in both directions? <b>IMPACT:</b> decides whether
+layer 1 on a Nucleus is one socket implementation or two.</li>
+<li>⭐⭐ <b>What does your ride spec actually CONTAIN?</b> Not just channel and
+PSK — position interval, distance threshold, modem preset, hop limit, region.
+<b>IMPACT: we cannot write tier 1's distributed spec without his parameter
+set.</b></li>
+<li><b>Two groups in the same area — what separates them today, and is it one act
+or two?</b> <b>IMPACT:</b> G1's collision argument, and whether joining is one
+operation or two on the rider's side.</li>
+<li><b>Does a rider's own radio config survive enrolment, or is it overwritten?</b>
+<b>IMPACT:</b> G4's saved-networks model assumes a rider gets their own setup
+back.</li>
+<li>Do you use CHANNEL URLs (<code>--seturl</code>) or full config export
+(<code>--configure</code>)? <b>If full export, why?</b> <b>IMPACT:</b> we
+concluded channel-scope is safer and then found position parameters force a wider
+write — he may have hit the same wall.</li>
+</ol>
+
+<h3>Would change CAPACITY PLANNING</h3>
+<ol start="9">
+<li>⭐⭐ <b>The gap: 3–4 radios at 3 seconds observed, 25 at 5 seconds
+calculated. Is the difference flood rebroadcast multiplication?</b> How do you
+tune hop limit in practice? <b>IMPACT: every group-size claim in this
+document.</b></li>
+<li><b>Does the module aggregate, or is it four LoRa packets for four IP
+riders?</b> Is the forwarding rate configurable per node? <b>IMPACT:</b> the
+open layer-2 question of what a LoRa-only rider receives may be HIS setting
+rather than our code.</li>
+<li><b>One high-power node per three low-power radios</b> — does that ratio match
+what you see in ATAK deployments? <b>IMPACT:</b> the recommended club
+configuration, and therefore the cost of entry.</li>
+</ol>
+
+<h3>PRODUCT and COMMERCIAL</h3>
+<ol start="12">
+<li>⭐ <b>Onboard GPS on the Nucleus — does it, could it, and can it publish to
+connected clients?</b> <b>IMPACT:</b> would fully position a chipless tablet —
+the problem that cost two days on 09-14/15.</li>
+<li><b>12 V input and shock/vibration provisions.</b> Both named as gaps, both
+open to being built. <b>IMPACT:</b> whether a Nucleus is mountable on a UTV
+today.</li>
+<li><b>What do you want from GroupTrack to make the SxS push real?</b>
+Co-marketing, a bundled configuration, a tested pairing, a preconfigured
+club node?</li>
+<li><b>Internet-facing security</b> — UFW only, and "not a huge point of focus".
+<b>IMPACT:</b> needed before a club is told to run a Starlink uplink.</li>
+</ol>
+
+<p>⭐⭐ <b>IF ONLY THREE GET ASKED: 1, 3 and 5.</b> The first decides whether we
+build a bridge; the second decides whether the joining model works at all; the
+third is a prerequisite for a deliverable we owe tier 1.</p>
+
+<h3>⚠ The framing for the whole conversation</h3>
+<p>⭐⭐ <b>His model is a preconfigured team. Ours is individuals who join and
+switch per ride.</b> He ships a standard config applied per group at build time;
+a GroupTrack rider belongs to several clubs and joins a different ride each
+weekend. <b>That gap is the difference between ATAK and the SxS market he says he
+wants to reach — and it is the thing a partnership would close.</b></p>
+</div>
+
+<h2>⚠ Unverified — do not build on it</h2>
+<div class="card warn">
+<p><b>Meshtastic Android 2.8.0+ reportedly ships a BUILT-IN LOCAL TAK SERVER</b>,
+making the ATAK plugin unnecessary. If true, and if our fork is recent enough,
+<b>we may already hold the merge component.</b></p>
+<p>⛔ <b>Check what we forked from before assuming anything.</b> This is exactly
+the class of inference that cost two days this week.</p>
+</div>
+
+</body></html>

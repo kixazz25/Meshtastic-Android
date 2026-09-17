@@ -12204,6 +12204,7 @@ convoy/ConvoyNotesPanel.kt:299:            ?.let { p.add("Distance" to "%.1f mil
 convoy/ConvoyNotesPanel.kt:300:        sum.optJSONArray("est_hours")?.takeIf { it.length() >= 2 }
 convoy/ConvoyNotesPanel.kt:301:            ?.let { p.add("Riding time" to "%.1f \u2013 %.1f hours"
 convoy/ConvoyNotesPanel.kt:303:        sum.optInt("features", -1).takeIf { it >= 0 }?.let { f ->
+convoy/ConvoyNotesPanel.kt:304:            val of = sum.optInt("of_available", 0)
 convoy/ConvoyNotesPanel.kt:305:            p.add("Features" to if (of > 0) "$f of $of in this area" else "$f")
 convoy/ConvoyNotesPanel.kt:307:        sum.optDouble("retrace_pct", -1.0).takeIf { it >= 0 }
 convoy/ConvoyNotesPanel.kt:308:            ?.let { p.add("Doubles back" to "%.0f%%".format(it)) }
@@ -17620,336 +17621,336 @@ convoy/ConvoyTrackImportScreen.kt:62: * gets its mtime set from the earliest GPS
 convoy/ConvoyTrackImportScreen.kt:65:fun ConvoyTrackImportScreen(onDismiss: () -> Unit) {
 convoy/ConvoyTrackImportScreen.kt:68:    var files by remember { mutableStateOf<List<File>>(emptyList()) }
 convoy/ConvoyTrackImportScreen.kt:69:    var selected by remember { mutableStateOf<Set<String>>(emptySet()) }
-convoy/ConvoyTrackImportScreen.kt:70:    var mapsFor by remember { mutableStateOf<Set<String>>(emptySet()) }   // per-file: include map download on import
-convoy/ConvoyTrackImportScreen.kt:71:    var showSourcePopup by remember { mutableStateOf(false) }
-convoy/ConvoyTrackImportScreen.kt:72:    var selectedSlots by remember { mutableStateOf<List<String>>(emptyList()) }
-convoy/ConvoyTrackImportScreen.kt:73:    var replaceExisting by remember { mutableStateOf(false) }
-convoy/ConvoyTrackImportScreen.kt:75:    var scanning by remember { mutableStateOf(false) }
-convoy/ConvoyTrackImportScreen.kt:78:    var showProgress by remember { mutableStateOf(false) }
-convoy/ConvoyTrackImportScreen.kt:79:    var progressCurrent by remember { mutableStateOf(0) }
-convoy/ConvoyTrackImportScreen.kt:80:    var progressTotal by remember { mutableStateOf(0) }
-convoy/ConvoyTrackImportScreen.kt:81:    var progressName by remember { mutableStateOf("") }
-convoy/ConvoyTrackImportScreen.kt:84:    var showRecap by remember { mutableStateOf(false) }
-convoy/ConvoyTrackImportScreen.kt:85:    var recapImported by remember { mutableStateOf<List<String>>(emptyList()) }
-convoy/ConvoyTrackImportScreen.kt:86:    var recapSkipped by remember { mutableStateOf<List<String>>(emptyList()) }
-convoy/ConvoyTrackImportScreen.kt:87:    var recapFailed by remember { mutableStateOf<List<String>>(emptyList()) }
-convoy/ConvoyTrackImportScreen.kt:88:    var recapDatesCorrected by remember { mutableStateOf(0) }
-convoy/ConvoyTrackImportScreen.kt:89:    var recapNew by remember { mutableStateOf(0) }    // ADDED 2026-06-02
-convoy/ConvoyTrackImportScreen.kt:90:    var recapDupe by remember { mutableStateOf(0) }   // ADDED 2026-06-02
-convoy/ConvoyTrackImportScreen.kt:91:    var recapAliased by remember { mutableStateOf(0) }  // ADDED 2026-06-30
-convoy/ConvoyTrackImportScreen.kt:92:    var recapSkippedCount by remember { mutableStateOf(0) }  // ADDED 2026-06-30
-convoy/ConvoyTrackImportScreen.kt:94:    var importLines by remember { mutableStateOf<List<String>>(emptyList()) }
-convoy/ConvoyTrackImportScreen.kt:95:    val importListState = androidx.compose.foundation.lazy.rememberLazyListState()
-convoy/ConvoyTrackImportScreen.kt:96:    var recapWaypoints by remember { mutableStateOf(0) }
-convoy/ConvoyTrackImportScreen.kt:97:    var recapRoutes by remember { mutableStateOf(0) }
-convoy/ConvoyTrackImportScreen.kt:98:    var processedFiles by remember { mutableStateOf<List<File>>(emptyList()) }
-convoy/ConvoyTrackImportScreen.kt:101:    var showSyncDialog by remember { mutableStateOf(false) }
-convoy/ConvoyTrackImportScreen.kt:102:    var syncLines by remember { mutableStateOf<List<String>>(emptyList()) }
-convoy/ConvoyTrackImportScreen.kt:103:    var syncRunning by remember { mutableStateOf(false) }
-convoy/ConvoyTrackImportScreen.kt:104:    var syncResult by remember { mutableStateOf<SpatialDbManager.TrackSyncResult?>(null) }
-convoy/ConvoyTrackImportScreen.kt:109:    var showRiderDialog by remember { mutableStateOf(false) }
-convoy/ConvoyTrackImportScreen.kt:110:    var riderStatus by remember { mutableStateOf("") }
-convoy/ConvoyTrackImportScreen.kt:111:    var riderRunning by remember { mutableStateOf(false) }
-convoy/ConvoyTrackImportScreen.kt:112:    var riderResult by remember { mutableStateOf<RiderTrailWriter.Result?>(null) }
-convoy/ConvoyTrackImportScreen.kt:113:    val syncListState = rememberLazyListState()
-convoy/ConvoyTrackImportScreen.kt:115:    val context = LocalContext.current
-convoy/ConvoyTrackImportScreen.kt:116:    val scope = rememberCoroutineScope()
-convoy/ConvoyTrackImportScreen.kt:124:    var deleteOriginals by remember { mutableStateOf(true) }
-convoy/ConvoyTrackImportScreen.kt:125:    var staging by remember { mutableStateOf(false) }
-convoy/ConvoyTrackImportScreen.kt:126:    var stageNote by remember { mutableStateOf("") }
-convoy/ConvoyTrackImportScreen.kt:129:     * \u2b50 STAGING, AND IT IS SELF-CONTAINED. Copy each picked file into storage
-convoy/ConvoyTrackImportScreen.kt:130:     * the app owns, verify the size, and delete the original if asked -- all
-convoy/ConvoyTrackImportScreen.kt:131:     * while the URI grant is live. By the time the import runs the URIs are
-convoy/ConvoyTrackImportScreen.kt:132:     * finished with entirely.
-convoy/ConvoyTrackImportScreen.kt:134:     * \u26a0 APP-PRIVATE, not Documents. A visible folder would need the Documents
-convoy/ConvoyTrackImportScreen.kt:135:     * tree grant, and a FRESH INSTALL never takes one because the conversion
-convoy/ConvoyTrackImportScreen.kt:136:     * skips. This needs nothing and works everywhere.
-convoy/ConvoyTrackImportScreen.kt:138:    fun stageAndList(uris: List<android.net.Uri>) {
-convoy/ConvoyTrackImportScreen.kt:140:        staging = true
-convoy/ConvoyTrackImportScreen.kt:142:            val staged = withContext(Dispatchers.IO) {
-convoy/ConvoyTrackImportScreen.kt:143:                val dir = java.io.File(context.filesDir, "gpx_staging")
-convoy/ConvoyTrackImportScreen.kt:147:                if (dir.exists()) dir.listFiles()?.forEach { it.delete() }
-convoy/ConvoyTrackImportScreen.kt:148:                dir.mkdirs()
-convoy/ConvoyTrackImportScreen.kt:151:                    val doc = androidx.documentfile.provider.DocumentFile
-convoy/ConvoyTrackImportScreen.kt:152:                        .fromSingleUri(context, uri)
-convoy/ConvoyTrackImportScreen.kt:153:                    val name = doc?.name ?: "import_${System.currentTimeMillis()}.gpx"
-convoy/ConvoyTrackImportScreen.kt:154:                    stageNote = name
-convoy/ConvoyTrackImportScreen.kt:155:                    val target = java.io.File(dir, name)
-convoy/ConvoyTrackImportScreen.kt:157:                        context.contentResolver.openInputStream(uri).use { input ->
-convoy/ConvoyTrackImportScreen.kt:158:                            if (input == null) throw IllegalStateException("no input stream")
-convoy/ConvoyTrackImportScreen.kt:159:                            target.outputStream().use { o -> input.copyTo(o) }
-convoy/ConvoyTrackImportScreen.kt:163:                        val srcLen = doc?.length() ?: -1L
-convoy/ConvoyTrackImportScreen.kt:164:                        if (srcLen > 0 && target.length() != srcLen) {
-convoy/ConvoyTrackImportScreen.kt:166:                                "$name SIZE MISMATCH $srcLen != ${target.length()}")
-convoy/ConvoyTrackImportScreen.kt:167:                            target.delete()
-convoy/ConvoyTrackImportScreen.kt:170:                        out.add(target)
-convoy/ConvoyTrackImportScreen.kt:171:                        if (deleteOriginals) {
-convoy/ConvoyTrackImportScreen.kt:175:                            val gone = try { doc?.delete() ?: false }
-convoy/ConvoyTrackImportScreen.kt:178:                                    "delete $name: ${e.message}"); false
-convoy/ConvoyTrackImportScreen.kt:181:                                "$name staged, original " +
-convoy/ConvoyTrackImportScreen.kt:182:                                    (if (gone) "deleted" else "KEPT"))
-convoy/ConvoyTrackImportScreen.kt:185:                        android.util.Log.e("ImportPicker", "$name FAILED: ${e.message}")
-convoy/ConvoyTrackImportScreen.kt:190:            files = staged
-convoy/ConvoyTrackImportScreen.kt:191:            selected = staged.map { it.name }.toSet()   // \u2b50 all selected by default
-convoy/ConvoyTrackImportScreen.kt:192:            staging = false
-convoy/ConvoyTrackImportScreen.kt:193:            stageNote = ""
-convoy/ConvoyTrackImportScreen.kt:197:    val pickFiles = androidx.activity.compose.rememberLauncherForActivityResult(
-convoy/ConvoyTrackImportScreen.kt:198:        androidx.activity.result.contract.ActivityResultContracts.OpenMultipleDocuments()
-convoy/ConvoyTrackImportScreen.kt:202:        stageAndList(uris)
-convoy/ConvoyTrackImportScreen.kt:212:    var pickerOpened by remember { mutableStateOf(false) }
-convoy/ConvoyTrackImportScreen.kt:214:        scanning = false
-convoy/ConvoyTrackImportScreen.kt:215:        if (!pickerOpened && files.isEmpty()) {
-convoy/ConvoyTrackImportScreen.kt:216:            pickerOpened = true
-convoy/ConvoyTrackImportScreen.kt:217:            pickFiles.launch(arrayOf(
-convoy/ConvoyTrackImportScreen.kt:224:    fun doImport() {
-convoy/ConvoyTrackImportScreen.kt:225:        val sel = files.filter { selected.contains(it.name) }
-convoy/ConvoyTrackImportScreen.kt:227:        showProgress = true
-convoy/ConvoyTrackImportScreen.kt:228:        progressCurrent = 0
-convoy/ConvoyTrackImportScreen.kt:229:        progressTotal = sel.size
-convoy/ConvoyTrackImportScreen.kt:230:        processedFiles = sel
-convoy/ConvoyTrackImportScreen.kt:232:            val imported = mutableListOf<String>()
-convoy/ConvoyTrackImportScreen.kt:233:            val skipped = mutableListOf<String>()
-convoy/ConvoyTrackImportScreen.kt:234:            val failed = mutableListOf<String>()
-convoy/ConvoyTrackImportScreen.kt:235:            var datesCorrected = 0
-convoy/ConvoyTrackImportScreen.kt:236:            var wptTotal = 0
-convoy/ConvoyTrackImportScreen.kt:237:            var rteTotal = 0
-convoy/ConvoyTrackImportScreen.kt:238:            var newTotal = 0
-convoy/ConvoyTrackImportScreen.kt:239:            var dupeTotal = 0
-convoy/ConvoyTrackImportScreen.kt:240:            var aliasedTotal = 0
-convoy/ConvoyTrackImportScreen.kt:241:            var skippedTotal = 0
-convoy/ConvoyTrackImportScreen.kt:242:            for ((i, f) in sel.withIndex()) {
-convoy/ConvoyTrackImportScreen.kt:243:                progressCurrent = i + 1
-convoy/ConvoyTrackImportScreen.kt:244:                progressName = f.name
-convoy/ConvoyTrackImportScreen.kt:245:                importLines = importLines + "— ${f.name} —"
-convoy/ConvoyTrackImportScreen.kt:247:                    val summary = ConvoyTrackOps.importGpxAllArtifacts(f, context, if (mapsFor.contains(f.name)) selectedSlots else emptyList(), replaceExisting) { line ->
-convoy/ConvoyTrackImportScreen.kt:248:                        importLines = importLines + line
-convoy/ConvoyTrackImportScreen.kt:250:                    imported.addAll(summary.trackFiles)
-convoy/ConvoyTrackImportScreen.kt:251:                    wptTotal += summary.waypointCount
-convoy/ConvoyTrackImportScreen.kt:252:                    rteTotal += summary.routeCount
-convoy/ConvoyTrackImportScreen.kt:253:                    datesCorrected += summary.trackFiles.size
-convoy/ConvoyTrackImportScreen.kt:254:                    newTotal += summary.inserted
-convoy/ConvoyTrackImportScreen.kt:255:                    dupeTotal += summary.dropped
-convoy/ConvoyTrackImportScreen.kt:256:                    aliasedTotal += summary.aliased
-convoy/ConvoyTrackImportScreen.kt:257:                    skippedTotal += summary.skipped
-convoy/ConvoyTrackImportScreen.kt:258:                    if (summary.errors.isNotEmpty()) {
-convoy/ConvoyTrackImportScreen.kt:259:                        failed.addAll(summary.errors.map { f.name + ": " + it })
-convoy/ConvoyTrackImportScreen.kt:262:                    failed.add(f.name + ": " + (e.message ?: "unknown error"))
-convoy/ConvoyTrackImportScreen.kt:263:                    importLines = importLines + "ERROR: ${f.name}: ${e.message ?: "unknown"}"
-convoy/ConvoyTrackImportScreen.kt:266:            recapImported = imported
-convoy/ConvoyTrackImportScreen.kt:267:            recapSkipped = skipped
-convoy/ConvoyTrackImportScreen.kt:268:            recapFailed = failed
-convoy/ConvoyTrackImportScreen.kt:269:            recapDatesCorrected = datesCorrected
-convoy/ConvoyTrackImportScreen.kt:270:            recapWaypoints = wptTotal
-convoy/ConvoyTrackImportScreen.kt:271:            recapRoutes = rteTotal
-convoy/ConvoyTrackImportScreen.kt:272:            recapNew = newTotal
-convoy/ConvoyTrackImportScreen.kt:273:            recapDupe = dupeTotal
-convoy/ConvoyTrackImportScreen.kt:274:            recapAliased = aliasedTotal
-convoy/ConvoyTrackImportScreen.kt:275:            recapSkippedCount = skippedTotal
-convoy/ConvoyTrackImportScreen.kt:276:            android.util.Log.i("Import", "RECAP TRIGGER: new=$newTotal dupe=$dupeTotal files=${imported.size}")
-convoy/ConvoyTrackImportScreen.kt:277:            showProgress = false
-convoy/ConvoyTrackImportScreen.kt:278:            showRecap = true
-convoy/ConvoyTrackImportScreen.kt:283:    if (showSourcePopup) {
-convoy/ConvoyTrackImportScreen.kt:284:        val slotSources = remember { MapSourceManager.getSlotSources() }
-convoy/ConvoyTrackImportScreen.kt:285:        val popupSlots = remember(slotSources) {
-convoy/ConvoyTrackImportScreen.kt:286:            slotSources.map { (k, label, _) ->
-convoy/ConvoyTrackImportScreen.kt:287:                SlotDisplayInfo(
-convoy/ConvoyTrackImportScreen.kt:288:                    slotName = k, sourceName = label, directory = k,
-convoy/ConvoyTrackImportScreen.kt:289:                    tileCount = 0, sizeMB = 0f, preSelected = true
-convoy/ConvoyTrackImportScreen.kt:293:        androidx.compose.ui.window.Dialog(onDismissRequest = { showSourcePopup = false }) {
-convoy/ConvoyTrackImportScreen.kt:294:            ConvoyDownloadConfirm(
-convoy/ConvoyTrackImportScreen.kt:295:                estimatedTiles = 0,
-convoy/ConvoyTrackImportScreen.kt:296:                estimatedMB = 0f,
-convoy/ConvoyTrackImportScreen.kt:297:                areaDesc = "Import: download maps for selected tracks",
-convoy/ConvoyTrackImportScreen.kt:298:                bbox = DownloadBbox(),
-convoy/ConvoyTrackImportScreen.kt:299:                slots = popupSlots,
-convoy/ConvoyTrackImportScreen.kt:301:                    selectedSlots = sel
-convoy/ConvoyTrackImportScreen.kt:302:                    replaceExisting = replace
-convoy/ConvoyTrackImportScreen.kt:303:                    showSourcePopup = false
-convoy/ConvoyTrackImportScreen.kt:304:                    doImport()
-convoy/ConvoyTrackImportScreen.kt:306:                onCancel = { showSourcePopup = false }
-convoy/ConvoyTrackImportScreen.kt:311:    if (showProgress) {
-convoy/ConvoyTrackImportScreen.kt:312:        ImportProgressDialog(
-convoy/ConvoyTrackImportScreen.kt:313:            current = progressCurrent,
-convoy/ConvoyTrackImportScreen.kt:314:            total = progressTotal,
-convoy/ConvoyTrackImportScreen.kt:315:            currentName = progressName,
-convoy/ConvoyTrackImportScreen.kt:316:            feedLines = importLines,
-convoy/ConvoyTrackImportScreen.kt:317:            listState = importListState
-convoy/ConvoyTrackImportScreen.kt:320:    if (showRecap) {
-convoy/ConvoyTrackImportScreen.kt:321:        ImportRecapDialog(
-convoy/ConvoyTrackImportScreen.kt:322:            imported = recapImported,
-convoy/ConvoyTrackImportScreen.kt:323:            skipped = recapSkipped,
-convoy/ConvoyTrackImportScreen.kt:324:            failed = recapFailed,
-convoy/ConvoyTrackImportScreen.kt:325:            datesCorrected = recapDatesCorrected,
-convoy/ConvoyTrackImportScreen.kt:326:            waypoints = recapWaypoints,
-convoy/ConvoyTrackImportScreen.kt:327:            routes = recapRoutes,
-convoy/ConvoyTrackImportScreen.kt:328:            newCount = recapNew,
-convoy/ConvoyTrackImportScreen.kt:329:            dupeCount = recapDupe,
-convoy/ConvoyTrackImportScreen.kt:330:            aliasedCount = recapAliased,
-convoy/ConvoyTrackImportScreen.kt:331:            skippedTrkCount = recapSkippedCount,
-convoy/ConvoyTrackImportScreen.kt:334:                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-convoy/ConvoyTrackImportScreen.kt:335:                        for (f in processedFiles) {
-convoy/ConvoyTrackImportScreen.kt:336:                            try { f.delete() } catch (_: Exception) {}
-convoy/ConvoyTrackImportScreen.kt:341:            onDismiss = { showRecap = false; onDismiss() }
-convoy/ConvoyTrackImportScreen.kt:349:            .background(Color(0xFF101510))
-convoy/ConvoyTrackImportScreen.kt:355:                .background(Color(0xFF1A2A1A))
-convoy/ConvoyTrackImportScreen.kt:370:                    "Import Tracks from Downloads",
-convoy/ConvoyTrackImportScreen.kt:377:                    if (scanning) "Scanning Downloads folder..."
-convoy/ConvoyTrackImportScreen.kt:378:                    else "${files.size} GPX/KML files found",
-convoy/ConvoyTrackImportScreen.kt:393:                    syncLines = emptyList(); syncResult = null; showSyncDialog = true
-convoy/ConvoyTrackImportScreen.kt:395:            shape = RoundedCornerShape(6.dp),
-convoy/ConvoyTrackImportScreen.kt:425:                    riderStatus = ""; riderResult = null; showRiderDialog = true
-convoy/ConvoyTrackImportScreen.kt:427:            shape = RoundedCornerShape(6.dp),
-convoy/ConvoyTrackImportScreen.kt:440:        if (showRiderDialog) {
-convoy/ConvoyTrackImportScreen.kt:441:            RiderTrailsDialog(
-convoy/ConvoyTrackImportScreen.kt:442:                status = riderStatus,
-convoy/ConvoyTrackImportScreen.kt:443:                result = riderResult,
-convoy/ConvoyTrackImportScreen.kt:444:                running = riderRunning,
-convoy/ConvoyTrackImportScreen.kt:446:                    riderRunning = true
-convoy/ConvoyTrackImportScreen.kt:447:                    riderStatus = "starting\u2026"
-convoy/ConvoyTrackImportScreen.kt:448:                    riderResult = null
-convoy/ConvoyTrackImportScreen.kt:450:                        val r = withContext(Dispatchers.IO) {
-convoy/ConvoyTrackImportScreen.kt:451:                            SpatialDbManager.init(context)
-convoy/ConvoyTrackImportScreen.kt:452:                            RiderTrailWriter.scanAll { done, total ->
-convoy/ConvoyTrackImportScreen.kt:453:                                riderStatus = "scanning track $done of $total"
-convoy/ConvoyTrackImportScreen.kt:456:                        riderResult = r
-convoy/ConvoyTrackImportScreen.kt:457:                        riderRunning = false
-convoy/ConvoyTrackImportScreen.kt:458:                        riderStatus = ""
-convoy/ConvoyTrackImportScreen.kt:461:                onClose = { showRiderDialog = false }
-convoy/ConvoyTrackImportScreen.kt:468:        if (showSyncDialog) {
-convoy/ConvoyTrackImportScreen.kt:469:            SyncTracksDialog(
-convoy/ConvoyTrackImportScreen.kt:470:                syncLines = syncLines,
-convoy/ConvoyTrackImportScreen.kt:471:                syncResult = syncResult,
-convoy/ConvoyTrackImportScreen.kt:472:                syncRunning = syncRunning,
-convoy/ConvoyTrackImportScreen.kt:474:                    syncRunning = true
-convoy/ConvoyTrackImportScreen.kt:475:                    syncLines = listOf("— starting sync —")
-convoy/ConvoyTrackImportScreen.kt:476:                    syncResult = null
-convoy/ConvoyTrackImportScreen.kt:478:                        val r = withContext(Dispatchers.IO) {
-convoy/ConvoyTrackImportScreen.kt:479:                            SpatialDbManager.init(context)
-convoy/ConvoyTrackImportScreen.kt:480:                            SpatialDbManager.syncTracksFromFiles(context) { line ->
-convoy/ConvoyTrackImportScreen.kt:481:                                syncLines = syncLines + line
-convoy/ConvoyTrackImportScreen.kt:484:                        syncResult = r
-convoy/ConvoyTrackImportScreen.kt:485:                        syncRunning = false
-convoy/ConvoyTrackImportScreen.kt:488:                onClose = { showSyncDialog = false }
-convoy/ConvoyTrackImportScreen.kt:493:        if (scanning) {
-convoy/ConvoyTrackImportScreen.kt:502:                        "Scanning Downloads...",
-convoy/ConvoyTrackImportScreen.kt:509:        } else if (staging) {
-convoy/ConvoyTrackImportScreen.kt:515:                    Text(stageNote.ifBlank { "Copying files..." },
-convoy/ConvoyTrackImportScreen.kt:520:        } else if (files.isEmpty()) {
-convoy/ConvoyTrackImportScreen.kt:530:                        "Select the GPX or KML files\nyou want to import.",
-convoy/ConvoyTrackImportScreen.kt:540:                            deleteOriginals = !deleteOriginals
-convoy/ConvoyTrackImportScreen.kt:542:                        Text(if (deleteOriginals) "[x]" else "[ ]",
-convoy/ConvoyTrackImportScreen.kt:546:                        Text("Delete the originals after copying",
-convoy/ConvoyTrackImportScreen.kt:556:                            pickFiles.launch(arrayOf(
-convoy/ConvoyTrackImportScreen.kt:560:                        shape = RoundedCornerShape(10.dp),
-convoy/ConvoyTrackImportScreen.kt:563:                        Text("  SELECT FILES  ",
-convoy/ConvoyTrackImportScreen.kt:572:                        shape = RoundedCornerShape(10.dp),
-convoy/ConvoyTrackImportScreen.kt:595:                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-convoy/ConvoyTrackImportScreen.kt:599:                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-convoy/ConvoyTrackImportScreen.kt:601:                Text("FILE", color = Color(0xFF8B938A), fontSize = 8.sp,
-convoy/ConvoyTrackImportScreen.kt:603:                    modifier = Modifier.weight(1f).padding(start = 6.dp))
-convoy/ConvoyTrackImportScreen.kt:607:                    .weight(1f)
-convoy/ConvoyTrackImportScreen.kt:612:                items(files, key = { it.absolutePath }) { file ->
-convoy/ConvoyTrackImportScreen.kt:613:                    val checked = selected.contains(file.name)
-convoy/ConvoyTrackImportScreen.kt:618:                                selected = if (checked) selected - file.name
-convoy/ConvoyTrackImportScreen.kt:619:                                else selected + file.name
-convoy/ConvoyTrackImportScreen.kt:621:                        shape = RoundedCornerShape(8.dp),
-convoy/ConvoyTrackImportScreen.kt:622:                        color = if (checked) Color(0xFF15512C) else Color(0xFF262B26)
-convoy/ConvoyTrackImportScreen.kt:632:                                    checked = checked,
-convoy/ConvoyTrackImportScreen.kt:634:                                        selected = if (it) selected + file.name
-convoy/ConvoyTrackImportScreen.kt:635:                                        else selected - file.name
-convoy/ConvoyTrackImportScreen.kt:638:                                        checkedColor = Color(0xFF39FF14),
-convoy/ConvoyTrackImportScreen.kt:639:                                        uncheckedColor = Color(0xFF445566),
-convoy/ConvoyTrackImportScreen.kt:647:                                    checked = mapsFor.contains(file.name),
-convoy/ConvoyTrackImportScreen.kt:649:                                        mapsFor = if (it) mapsFor + file.name
-convoy/ConvoyTrackImportScreen.kt:650:                                        else mapsFor - file.name
-convoy/ConvoyTrackImportScreen.kt:653:                                        checkedColor = Color(0xFF4DA6FF),
-convoy/ConvoyTrackImportScreen.kt:654:                                        uncheckedColor = Color(0xFF445566),
-convoy/ConvoyTrackImportScreen.kt:661:                                    .weight(1f)
-convoy/ConvoyTrackImportScreen.kt:662:                                    .padding(start = 6.dp)
-convoy/ConvoyTrackImportScreen.kt:665:                                    file.name,
-convoy/ConvoyTrackImportScreen.kt:676:                                        formatFileSize(file.length()),
-convoy/ConvoyTrackImportScreen.kt:682:                                        formatFileDate(file.lastModified()),
-convoy/ConvoyTrackImportScreen.kt:688:                                        file.extension.uppercase(),
-convoy/ConvoyTrackImportScreen.kt:713:                                selected = if (selected.size == files.size) emptySet()
-convoy/ConvoyTrackImportScreen.kt:714:                                else files.map { it.name }.toSet()
-convoy/ConvoyTrackImportScreen.kt:718:                            checked = selected.size == files.size && files.isNotEmpty(),
-convoy/ConvoyTrackImportScreen.kt:719:                            onCheckedChange = { checked ->
-convoy/ConvoyTrackImportScreen.kt:720:                                selected = if (checked) files.map { it.name }.toSet()
-convoy/ConvoyTrackImportScreen.kt:721:                                else emptySet()
-convoy/ConvoyTrackImportScreen.kt:724:                                checkedColor = Color(0xFF39FF14),
-convoy/ConvoyTrackImportScreen.kt:725:                                uncheckedColor = Color(0xFF445566),
-convoy/ConvoyTrackImportScreen.kt:730:                            "Select All  (${selected.size} of ${files.size})",
-convoy/ConvoyTrackImportScreen.kt:742:                            .clickable(enabled = selected.isNotEmpty()) { if (mapsFor.isNotEmpty()) showSourcePopup = true else doImport() },
-convoy/ConvoyTrackImportScreen.kt:743:                        shape = RoundedCornerShape(10.dp),
-convoy/ConvoyTrackImportScreen.kt:744:                        color = if (selected.isNotEmpty()) Color(0xFF15512C)
-convoy/ConvoyTrackImportScreen.kt:748:                            text = if (selected.isEmpty()) "Select files to import"
-convoy/ConvoyTrackImportScreen.kt:749:                            else "Import ${selected.size} Selected",
-convoy/ConvoyTrackImportScreen.kt:750:                            color = if (selected.isNotEmpty()) Color(0xFF97D5A5)
-convoy/ConvoyTrackImportScreen.kt:770:private fun ImportProgressDialog(
-convoy/ConvoyTrackImportScreen.kt:771:    current: Int,
-convoy/ConvoyTrackImportScreen.kt:772:    total: Int,
-convoy/ConvoyTrackImportScreen.kt:773:    currentName: String,
-convoy/ConvoyTrackImportScreen.kt:774:    feedLines: List<String> = emptyList(),
-convoy/ConvoyTrackImportScreen.kt:775:    listState: androidx.compose.foundation.lazy.LazyListState = androidx.compose.foundation.lazy.rememberLazyListState()
-convoy/ConvoyTrackImportScreen.kt:778:        onDismissRequest = { /* non-dismissable */ },
-convoy/ConvoyTrackImportScreen.kt:779:        confirmButton = {},
-convoy/ConvoyTrackImportScreen.kt:797:                    "Processing $current of $total",
-convoy/ConvoyTrackImportScreen.kt:805:                    currentName,
-convoy/ConvoyTrackImportScreen.kt:814:                        listState.animateScrollToItem(feedLines.size - 1)
-convoy/ConvoyTrackImportScreen.kt:816:                    androidx.compose.foundation.lazy.LazyColumn(
-convoy/ConvoyTrackImportScreen.kt:817:                        state = listState,
-convoy/ConvoyTrackImportScreen.kt:820:                        items(feedLines.size) { idx ->
-convoy/ConvoyTrackImportScreen.kt:821:                            val line = feedLines[idx]
-convoy/ConvoyTrackImportScreen.kt:823:                                line.startsWith("INSERT") -> Color(0xFF39FF14)
-convoy/ConvoyTrackImportScreen.kt:824:                                line.startsWith("ALIAS") -> Color(0xFF6FB6FF)
-convoy/ConvoyTrackImportScreen.kt:825:                                line.startsWith("DUPLICATE") -> Color(0xFF7A8DA0)
-convoy/ConvoyTrackImportScreen.kt:826:                                line.startsWith("SKIP") -> Color(0xFFFFB74D)
-convoy/ConvoyTrackImportScreen.kt:827:                                line.startsWith("ERROR") -> Color(0xFFFF6B6B)
-convoy/ConvoyTrackImportScreen.kt:828:                                line.startsWith("—") -> Color(0xFF97D5A5)
-convoy/ConvoyTrackImportScreen.kt:831:                            Text(line, color = col, fontFamily = FontFamily.Monospace,
-convoy/ConvoyTrackImportScreen.kt:840:        shape = RoundedCornerShape(16.dp)
-convoy/ConvoyTrackImportScreen.kt:847:private fun ImportRecapDialog(
-convoy/ConvoyTrackImportScreen.kt:848:    imported: List<String>,
-convoy/ConvoyTrackImportScreen.kt:849:    skipped: List<String>,
-convoy/ConvoyTrackImportScreen.kt:850:    failed: List<String>,
-convoy/ConvoyTrackImportScreen.kt:851:    datesCorrected: Int,
-convoy/ConvoyTrackImportScreen.kt:852:    waypoints: Int = 0,
-convoy/ConvoyTrackImportScreen.kt:853:    routes: Int = 0,
-convoy/ConvoyTrackImportScreen.kt:855:    dupeCount: Int = 0,
-convoy/ConvoyTrackImportScreen.kt:856:    aliasedCount: Int = 0,
-convoy/ConvoyTrackImportScreen.kt:857:    skippedTrkCount: Int = 0,
-convoy/ConvoyTrackImportScreen.kt:862:        onDismissRequest = onDismiss,
-convoy/ConvoyTrackImportScreen.kt:863:        confirmButton = {
-convoy/ConvoyTrackImportScreen.kt:868:                            "DELETE FILES & CLOSE",
-convoy/ConvoyTrackImportScreen.kt:878:                        "KEEP FILES & CLOSE",
-convoy/ConvoyTrackImportScreen.kt:899:                if (imported.isNotEmpty()) {
-convoy/ConvoyTrackImportScreen.kt:901:                        "${imported.size} tracks imported",
-convoy/ConvoyTrackImportScreen.kt:910:                    "$newCount new   ·   $aliasedCount aliased",
-convoy/ConvoyTrackImportScreen.kt:916:                    "$dupeCount duplicate   ·   $skippedTrkCount skipped",
-convoy/ConvoyTrackImportScreen.kt:921:                if (skipped.isNotEmpty()) {
-convoy/ConvoyTrackImportScreen.kt:923:                        "${skipped.size} skipped (already exist)",
-convoy/ConvoyTrackImportScreen.kt:929:                if (failed.isNotEmpty()) {
-convoy/ConvoyTrackImportScreen.kt:931:                        "${failed.size} failed",
-convoy/ConvoyTrackImportScreen.kt:937:                if (datesCorrected > 0) {
-convoy/ConvoyTrackImportScreen.kt:939:                        "Dates corrected: $datesCorrected of ${imported.size}",
-convoy/ConvoyTrackImportScreen.kt:945:                if (waypoints > 0) {
-convoy/ConvoyTrackImportScreen.kt:947:                        "$waypoints waypoints imported",
-convoy/ConvoyTrackImportScreen.kt:954:                if (routes > 0) {
-convoy/ConvoyTrackImportScreen.kt:956:                        "$routes routes imported",
-convoy/ConvoyTrackImportScreen.kt:965:                if (imported.isNotEmpty()) {
-convoy/ConvoyTrackImportScreen.kt:975:                    val shown = imported.take(20)
-convoy/ConvoyTrackImportScreen.kt:976:                    for (name in shown) {
-convoy/ConvoyTrackImportScreen.kt:984:                    if (imported.size > 20) {
-convoy/ConvoyTrackImportScreen.kt:986:                            "  ...and ${imported.size - 20} more",
-convoy/ConvoyTrackImportScreen.kt:995:                if (failed.isNotEmpty()) {
-convoy/ConvoyTrackImportScreen.kt:998:                        "Failed:",
-convoy/ConvoyTrackImportScreen.kt:1005:                    for (msg in failed.take(10)) {
-convoy/ConvoyTrackImportScreen.kt:1017:        shape = RoundedCornerShape(16.dp)
-convoy/ConvoyTrackImportScreen.kt:1023:private fun formatFileSize(bytes: Long): String {
-convoy/ConvoyTrackImportScreen.kt:1025:        bytes < 1024 -> "${bytes}B"
-convoy/ConvoyTrackImportScreen.kt:1026:        bytes < 1024 * 1024 -> "${bytes / 1024}KB"
-convoy/ConvoyTrackImportScreen.kt:1027:        else -> String.format(Locale.US, "%.1fMB", bytes / (1024.0 * 1024.0))
-convoy/ConvoyTrackImportScreen.kt:1031:private fun formatFileDate(millis: Long): String {
+convoy/ConvoyTrackImportScreen.kt:75:    var mapsSkip by remember { mutableStateOf<Set<String>>(emptySet()) }   // per-file: EXCLUDE map download on import
+convoy/ConvoyTrackImportScreen.kt:76:    var showSourcePopup by remember { mutableStateOf(false) }
+convoy/ConvoyTrackImportScreen.kt:77:    var selectedSlots by remember { mutableStateOf<List<String>>(emptyList()) }
+convoy/ConvoyTrackImportScreen.kt:78:    var replaceExisting by remember { mutableStateOf(false) }
+convoy/ConvoyTrackImportScreen.kt:80:    var scanning by remember { mutableStateOf(false) }
+convoy/ConvoyTrackImportScreen.kt:83:    var showProgress by remember { mutableStateOf(false) }
+convoy/ConvoyTrackImportScreen.kt:84:    var progressCurrent by remember { mutableStateOf(0) }
+convoy/ConvoyTrackImportScreen.kt:85:    var progressTotal by remember { mutableStateOf(0) }
+convoy/ConvoyTrackImportScreen.kt:86:    var progressName by remember { mutableStateOf("") }
+convoy/ConvoyTrackImportScreen.kt:89:    var showRecap by remember { mutableStateOf(false) }
+convoy/ConvoyTrackImportScreen.kt:90:    var recapImported by remember { mutableStateOf<List<String>>(emptyList()) }
+convoy/ConvoyTrackImportScreen.kt:91:    var recapSkipped by remember { mutableStateOf<List<String>>(emptyList()) }
+convoy/ConvoyTrackImportScreen.kt:92:    var recapFailed by remember { mutableStateOf<List<String>>(emptyList()) }
+convoy/ConvoyTrackImportScreen.kt:93:    var recapDatesCorrected by remember { mutableStateOf(0) }
+convoy/ConvoyTrackImportScreen.kt:94:    var recapNew by remember { mutableStateOf(0) }    // ADDED 2026-06-02
+convoy/ConvoyTrackImportScreen.kt:95:    var recapDupe by remember { mutableStateOf(0) }   // ADDED 2026-06-02
+convoy/ConvoyTrackImportScreen.kt:96:    var recapAliased by remember { mutableStateOf(0) }  // ADDED 2026-06-30
+convoy/ConvoyTrackImportScreen.kt:97:    var recapSkippedCount by remember { mutableStateOf(0) }  // ADDED 2026-06-30
+convoy/ConvoyTrackImportScreen.kt:99:    var importLines by remember { mutableStateOf<List<String>>(emptyList()) }
+convoy/ConvoyTrackImportScreen.kt:100:    val importListState = androidx.compose.foundation.lazy.rememberLazyListState()
+convoy/ConvoyTrackImportScreen.kt:101:    var recapWaypoints by remember { mutableStateOf(0) }
+convoy/ConvoyTrackImportScreen.kt:102:    var recapRoutes by remember { mutableStateOf(0) }
+convoy/ConvoyTrackImportScreen.kt:103:    var processedFiles by remember { mutableStateOf<List<File>>(emptyList()) }
+convoy/ConvoyTrackImportScreen.kt:106:    var showSyncDialog by remember { mutableStateOf(false) }
+convoy/ConvoyTrackImportScreen.kt:107:    var syncLines by remember { mutableStateOf<List<String>>(emptyList()) }
+convoy/ConvoyTrackImportScreen.kt:108:    var syncRunning by remember { mutableStateOf(false) }
+convoy/ConvoyTrackImportScreen.kt:109:    var syncResult by remember { mutableStateOf<SpatialDbManager.TrackSyncResult?>(null) }
+convoy/ConvoyTrackImportScreen.kt:114:    var showRiderDialog by remember { mutableStateOf(false) }
+convoy/ConvoyTrackImportScreen.kt:115:    var riderStatus by remember { mutableStateOf("") }
+convoy/ConvoyTrackImportScreen.kt:116:    var riderRunning by remember { mutableStateOf(false) }
+convoy/ConvoyTrackImportScreen.kt:117:    var riderResult by remember { mutableStateOf<RiderTrailWriter.Result?>(null) }
+convoy/ConvoyTrackImportScreen.kt:118:    val syncListState = rememberLazyListState()
+convoy/ConvoyTrackImportScreen.kt:120:    val context = LocalContext.current
+convoy/ConvoyTrackImportScreen.kt:121:    val scope = rememberCoroutineScope()
+convoy/ConvoyTrackImportScreen.kt:129:    var deleteOriginals by remember { mutableStateOf(true) }
+convoy/ConvoyTrackImportScreen.kt:130:    var staging by remember { mutableStateOf(false) }
+convoy/ConvoyTrackImportScreen.kt:131:    var stageNote by remember { mutableStateOf("") }
+convoy/ConvoyTrackImportScreen.kt:134:     * \u2b50 STAGING, AND IT IS SELF-CONTAINED. Copy each picked file into storage
+convoy/ConvoyTrackImportScreen.kt:135:     * the app owns, verify the size, and delete the original if asked -- all
+convoy/ConvoyTrackImportScreen.kt:136:     * while the URI grant is live. By the time the import runs the URIs are
+convoy/ConvoyTrackImportScreen.kt:137:     * finished with entirely.
+convoy/ConvoyTrackImportScreen.kt:139:     * \u26a0 APP-PRIVATE, not Documents. A visible folder would need the Documents
+convoy/ConvoyTrackImportScreen.kt:140:     * tree grant, and a FRESH INSTALL never takes one because the conversion
+convoy/ConvoyTrackImportScreen.kt:141:     * skips. This needs nothing and works everywhere.
+convoy/ConvoyTrackImportScreen.kt:143:    fun stageAndList(uris: List<android.net.Uri>) {
+convoy/ConvoyTrackImportScreen.kt:145:        staging = true
+convoy/ConvoyTrackImportScreen.kt:147:            val staged = withContext(Dispatchers.IO) {
+convoy/ConvoyTrackImportScreen.kt:148:                val dir = java.io.File(context.filesDir, "gpx_staging")
+convoy/ConvoyTrackImportScreen.kt:152:                if (dir.exists()) dir.listFiles()?.forEach { it.delete() }
+convoy/ConvoyTrackImportScreen.kt:153:                dir.mkdirs()
+convoy/ConvoyTrackImportScreen.kt:156:                    val doc = androidx.documentfile.provider.DocumentFile
+convoy/ConvoyTrackImportScreen.kt:157:                        .fromSingleUri(context, uri)
+convoy/ConvoyTrackImportScreen.kt:158:                    val name = doc?.name ?: "import_${System.currentTimeMillis()}.gpx"
+convoy/ConvoyTrackImportScreen.kt:159:                    stageNote = name
+convoy/ConvoyTrackImportScreen.kt:160:                    val target = java.io.File(dir, name)
+convoy/ConvoyTrackImportScreen.kt:162:                        context.contentResolver.openInputStream(uri).use { input ->
+convoy/ConvoyTrackImportScreen.kt:163:                            if (input == null) throw IllegalStateException("no input stream")
+convoy/ConvoyTrackImportScreen.kt:164:                            target.outputStream().use { o -> input.copyTo(o) }
+convoy/ConvoyTrackImportScreen.kt:168:                        val srcLen = doc?.length() ?: -1L
+convoy/ConvoyTrackImportScreen.kt:169:                        if (srcLen > 0 && target.length() != srcLen) {
+convoy/ConvoyTrackImportScreen.kt:171:                                "$name SIZE MISMATCH $srcLen != ${target.length()}")
+convoy/ConvoyTrackImportScreen.kt:172:                            target.delete()
+convoy/ConvoyTrackImportScreen.kt:175:                        out.add(target)
+convoy/ConvoyTrackImportScreen.kt:176:                        if (deleteOriginals) {
+convoy/ConvoyTrackImportScreen.kt:180:                            val gone = try { doc?.delete() ?: false }
+convoy/ConvoyTrackImportScreen.kt:183:                                    "delete $name: ${e.message}"); false
+convoy/ConvoyTrackImportScreen.kt:186:                                "$name staged, original " +
+convoy/ConvoyTrackImportScreen.kt:187:                                    (if (gone) "deleted" else "KEPT"))
+convoy/ConvoyTrackImportScreen.kt:190:                        android.util.Log.e("ImportPicker", "$name FAILED: ${e.message}")
+convoy/ConvoyTrackImportScreen.kt:195:            files = staged
+convoy/ConvoyTrackImportScreen.kt:196:            selected = staged.map { it.name }.toSet()   // \u2b50 all selected by default
+convoy/ConvoyTrackImportScreen.kt:197:            staging = false
+convoy/ConvoyTrackImportScreen.kt:198:            stageNote = ""
+convoy/ConvoyTrackImportScreen.kt:202:    val pickFiles = androidx.activity.compose.rememberLauncherForActivityResult(
+convoy/ConvoyTrackImportScreen.kt:203:        androidx.activity.result.contract.ActivityResultContracts.OpenMultipleDocuments()
+convoy/ConvoyTrackImportScreen.kt:207:        stageAndList(uris)
+convoy/ConvoyTrackImportScreen.kt:217:    var pickerOpened by remember { mutableStateOf(false) }
+convoy/ConvoyTrackImportScreen.kt:219:        scanning = false
+convoy/ConvoyTrackImportScreen.kt:220:        if (!pickerOpened && files.isEmpty()) {
+convoy/ConvoyTrackImportScreen.kt:221:            pickerOpened = true
+convoy/ConvoyTrackImportScreen.kt:222:            pickFiles.launch(arrayOf(
+convoy/ConvoyTrackImportScreen.kt:229:    fun doImport() {
+convoy/ConvoyTrackImportScreen.kt:230:        val sel = files.filter { selected.contains(it.name) }
+convoy/ConvoyTrackImportScreen.kt:232:        showProgress = true
+convoy/ConvoyTrackImportScreen.kt:233:        progressCurrent = 0
+convoy/ConvoyTrackImportScreen.kt:234:        progressTotal = sel.size
+convoy/ConvoyTrackImportScreen.kt:235:        processedFiles = sel
+convoy/ConvoyTrackImportScreen.kt:237:            val imported = mutableListOf<String>()
+convoy/ConvoyTrackImportScreen.kt:238:            val skipped = mutableListOf<String>()
+convoy/ConvoyTrackImportScreen.kt:239:            val failed = mutableListOf<String>()
+convoy/ConvoyTrackImportScreen.kt:240:            var datesCorrected = 0
+convoy/ConvoyTrackImportScreen.kt:241:            var wptTotal = 0
+convoy/ConvoyTrackImportScreen.kt:242:            var rteTotal = 0
+convoy/ConvoyTrackImportScreen.kt:243:            var newTotal = 0
+convoy/ConvoyTrackImportScreen.kt:244:            var dupeTotal = 0
+convoy/ConvoyTrackImportScreen.kt:245:            var aliasedTotal = 0
+convoy/ConvoyTrackImportScreen.kt:246:            var skippedTotal = 0
+convoy/ConvoyTrackImportScreen.kt:247:            for ((i, f) in sel.withIndex()) {
+convoy/ConvoyTrackImportScreen.kt:248:                progressCurrent = i + 1
+convoy/ConvoyTrackImportScreen.kt:249:                progressName = f.name
+convoy/ConvoyTrackImportScreen.kt:250:                importLines = importLines + "— ${f.name} —"
+convoy/ConvoyTrackImportScreen.kt:253:                    val summary = ConvoyTrackOps.importGpxAllArtifacts(f, context, if (!mapsSkip.contains(f.name)) selectedSlots else emptyList(), replaceExisting) { line ->
+convoy/ConvoyTrackImportScreen.kt:254:                        importLines = importLines + line
+convoy/ConvoyTrackImportScreen.kt:256:                    imported.addAll(summary.trackFiles)
+convoy/ConvoyTrackImportScreen.kt:257:                    wptTotal += summary.waypointCount
+convoy/ConvoyTrackImportScreen.kt:258:                    rteTotal += summary.routeCount
+convoy/ConvoyTrackImportScreen.kt:259:                    datesCorrected += summary.trackFiles.size
+convoy/ConvoyTrackImportScreen.kt:260:                    newTotal += summary.inserted
+convoy/ConvoyTrackImportScreen.kt:261:                    dupeTotal += summary.dropped
+convoy/ConvoyTrackImportScreen.kt:262:                    aliasedTotal += summary.aliased
+convoy/ConvoyTrackImportScreen.kt:263:                    skippedTotal += summary.skipped
+convoy/ConvoyTrackImportScreen.kt:264:                    if (summary.errors.isNotEmpty()) {
+convoy/ConvoyTrackImportScreen.kt:265:                        failed.addAll(summary.errors.map { f.name + ": " + it })
+convoy/ConvoyTrackImportScreen.kt:268:                    failed.add(f.name + ": " + (e.message ?: "unknown error"))
+convoy/ConvoyTrackImportScreen.kt:269:                    importLines = importLines + "ERROR: ${f.name}: ${e.message ?: "unknown"}"
+convoy/ConvoyTrackImportScreen.kt:272:            recapImported = imported
+convoy/ConvoyTrackImportScreen.kt:273:            recapSkipped = skipped
+convoy/ConvoyTrackImportScreen.kt:274:            recapFailed = failed
+convoy/ConvoyTrackImportScreen.kt:275:            recapDatesCorrected = datesCorrected
+convoy/ConvoyTrackImportScreen.kt:276:            recapWaypoints = wptTotal
+convoy/ConvoyTrackImportScreen.kt:277:            recapRoutes = rteTotal
+convoy/ConvoyTrackImportScreen.kt:278:            recapNew = newTotal
+convoy/ConvoyTrackImportScreen.kt:279:            recapDupe = dupeTotal
+convoy/ConvoyTrackImportScreen.kt:280:            recapAliased = aliasedTotal
+convoy/ConvoyTrackImportScreen.kt:281:            recapSkippedCount = skippedTotal
+convoy/ConvoyTrackImportScreen.kt:282:            android.util.Log.i("Import", "RECAP TRIGGER: new=$newTotal dupe=$dupeTotal files=${imported.size}")
+convoy/ConvoyTrackImportScreen.kt:283:            showProgress = false
+convoy/ConvoyTrackImportScreen.kt:284:            showRecap = true
+convoy/ConvoyTrackImportScreen.kt:289:    if (showSourcePopup) {
+convoy/ConvoyTrackImportScreen.kt:290:        val slotSources = remember { MapSourceManager.getSlotSources() }
+convoy/ConvoyTrackImportScreen.kt:291:        val popupSlots = remember(slotSources) {
+convoy/ConvoyTrackImportScreen.kt:292:            slotSources.map { (k, label, _) ->
+convoy/ConvoyTrackImportScreen.kt:293:                SlotDisplayInfo(
+convoy/ConvoyTrackImportScreen.kt:294:                    slotName = k, sourceName = label, directory = k,
+convoy/ConvoyTrackImportScreen.kt:295:                    tileCount = 0, sizeMB = 0f, preSelected = true
+convoy/ConvoyTrackImportScreen.kt:299:        androidx.compose.ui.window.Dialog(onDismissRequest = { showSourcePopup = false }) {
+convoy/ConvoyTrackImportScreen.kt:300:            ConvoyDownloadConfirm(
+convoy/ConvoyTrackImportScreen.kt:301:                estimatedTiles = 0,
+convoy/ConvoyTrackImportScreen.kt:302:                estimatedMB = 0f,
+convoy/ConvoyTrackImportScreen.kt:303:                areaDesc = "Import: download maps for selected tracks",
+convoy/ConvoyTrackImportScreen.kt:304:                bbox = DownloadBbox(),
+convoy/ConvoyTrackImportScreen.kt:305:                slots = popupSlots,
+convoy/ConvoyTrackImportScreen.kt:307:                    selectedSlots = sel
+convoy/ConvoyTrackImportScreen.kt:308:                    replaceExisting = replace
+convoy/ConvoyTrackImportScreen.kt:309:                    showSourcePopup = false
+convoy/ConvoyTrackImportScreen.kt:310:                    doImport()
+convoy/ConvoyTrackImportScreen.kt:312:                onCancel = { showSourcePopup = false }
+convoy/ConvoyTrackImportScreen.kt:317:    if (showProgress) {
+convoy/ConvoyTrackImportScreen.kt:318:        ImportProgressDialog(
+convoy/ConvoyTrackImportScreen.kt:319:            current = progressCurrent,
+convoy/ConvoyTrackImportScreen.kt:320:            total = progressTotal,
+convoy/ConvoyTrackImportScreen.kt:321:            currentName = progressName,
+convoy/ConvoyTrackImportScreen.kt:322:            feedLines = importLines,
+convoy/ConvoyTrackImportScreen.kt:323:            listState = importListState
+convoy/ConvoyTrackImportScreen.kt:326:    if (showRecap) {
+convoy/ConvoyTrackImportScreen.kt:327:        ImportRecapDialog(
+convoy/ConvoyTrackImportScreen.kt:328:            imported = recapImported,
+convoy/ConvoyTrackImportScreen.kt:329:            skipped = recapSkipped,
+convoy/ConvoyTrackImportScreen.kt:330:            failed = recapFailed,
+convoy/ConvoyTrackImportScreen.kt:331:            datesCorrected = recapDatesCorrected,
+convoy/ConvoyTrackImportScreen.kt:332:            waypoints = recapWaypoints,
+convoy/ConvoyTrackImportScreen.kt:333:            routes = recapRoutes,
+convoy/ConvoyTrackImportScreen.kt:334:            newCount = recapNew,
+convoy/ConvoyTrackImportScreen.kt:335:            dupeCount = recapDupe,
+convoy/ConvoyTrackImportScreen.kt:336:            aliasedCount = recapAliased,
+convoy/ConvoyTrackImportScreen.kt:337:            skippedTrkCount = recapSkippedCount,
+convoy/ConvoyTrackImportScreen.kt:340:                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+convoy/ConvoyTrackImportScreen.kt:341:                        for (f in processedFiles) {
+convoy/ConvoyTrackImportScreen.kt:342:                            try { f.delete() } catch (_: Exception) {}
+convoy/ConvoyTrackImportScreen.kt:347:            onDismiss = { showRecap = false; onDismiss() }
+convoy/ConvoyTrackImportScreen.kt:355:            .background(Color(0xFF101510))
+convoy/ConvoyTrackImportScreen.kt:361:                .background(Color(0xFF1A2A1A))
+convoy/ConvoyTrackImportScreen.kt:376:                    "Import Tracks from Downloads",
+convoy/ConvoyTrackImportScreen.kt:383:                    if (scanning) "Scanning Downloads folder..."
+convoy/ConvoyTrackImportScreen.kt:384:                    else "${files.size} GPX/KML files found",
+convoy/ConvoyTrackImportScreen.kt:399:                    syncLines = emptyList(); syncResult = null; showSyncDialog = true
+convoy/ConvoyTrackImportScreen.kt:401:            shape = RoundedCornerShape(6.dp),
+convoy/ConvoyTrackImportScreen.kt:431:                    riderStatus = ""; riderResult = null; showRiderDialog = true
+convoy/ConvoyTrackImportScreen.kt:433:            shape = RoundedCornerShape(6.dp),
+convoy/ConvoyTrackImportScreen.kt:446:        if (showRiderDialog) {
+convoy/ConvoyTrackImportScreen.kt:447:            RiderTrailsDialog(
+convoy/ConvoyTrackImportScreen.kt:448:                status = riderStatus,
+convoy/ConvoyTrackImportScreen.kt:449:                result = riderResult,
+convoy/ConvoyTrackImportScreen.kt:450:                running = riderRunning,
+convoy/ConvoyTrackImportScreen.kt:452:                    riderRunning = true
+convoy/ConvoyTrackImportScreen.kt:453:                    riderStatus = "starting\u2026"
+convoy/ConvoyTrackImportScreen.kt:454:                    riderResult = null
+convoy/ConvoyTrackImportScreen.kt:456:                        val r = withContext(Dispatchers.IO) {
+convoy/ConvoyTrackImportScreen.kt:457:                            SpatialDbManager.init(context)
+convoy/ConvoyTrackImportScreen.kt:458:                            RiderTrailWriter.scanAll { done, total ->
+convoy/ConvoyTrackImportScreen.kt:459:                                riderStatus = "scanning track $done of $total"
+convoy/ConvoyTrackImportScreen.kt:462:                        riderResult = r
+convoy/ConvoyTrackImportScreen.kt:463:                        riderRunning = false
+convoy/ConvoyTrackImportScreen.kt:464:                        riderStatus = ""
+convoy/ConvoyTrackImportScreen.kt:467:                onClose = { showRiderDialog = false }
+convoy/ConvoyTrackImportScreen.kt:474:        if (showSyncDialog) {
+convoy/ConvoyTrackImportScreen.kt:475:            SyncTracksDialog(
+convoy/ConvoyTrackImportScreen.kt:476:                syncLines = syncLines,
+convoy/ConvoyTrackImportScreen.kt:477:                syncResult = syncResult,
+convoy/ConvoyTrackImportScreen.kt:478:                syncRunning = syncRunning,
+convoy/ConvoyTrackImportScreen.kt:480:                    syncRunning = true
+convoy/ConvoyTrackImportScreen.kt:481:                    syncLines = listOf("— starting sync —")
+convoy/ConvoyTrackImportScreen.kt:482:                    syncResult = null
+convoy/ConvoyTrackImportScreen.kt:484:                        val r = withContext(Dispatchers.IO) {
+convoy/ConvoyTrackImportScreen.kt:485:                            SpatialDbManager.init(context)
+convoy/ConvoyTrackImportScreen.kt:486:                            SpatialDbManager.syncTracksFromFiles(context) { line ->
+convoy/ConvoyTrackImportScreen.kt:487:                                syncLines = syncLines + line
+convoy/ConvoyTrackImportScreen.kt:490:                        syncResult = r
+convoy/ConvoyTrackImportScreen.kt:491:                        syncRunning = false
+convoy/ConvoyTrackImportScreen.kt:494:                onClose = { showSyncDialog = false }
+convoy/ConvoyTrackImportScreen.kt:499:        if (scanning) {
+convoy/ConvoyTrackImportScreen.kt:508:                        "Scanning Downloads...",
+convoy/ConvoyTrackImportScreen.kt:515:        } else if (staging) {
+convoy/ConvoyTrackImportScreen.kt:521:                    Text(stageNote.ifBlank { "Copying files..." },
+convoy/ConvoyTrackImportScreen.kt:526:        } else if (files.isEmpty()) {
+convoy/ConvoyTrackImportScreen.kt:536:                        "Select the GPX or KML files\nyou want to import.",
+convoy/ConvoyTrackImportScreen.kt:546:                            deleteOriginals = !deleteOriginals
+convoy/ConvoyTrackImportScreen.kt:548:                        Text(if (deleteOriginals) "[x]" else "[ ]",
+convoy/ConvoyTrackImportScreen.kt:552:                        Text("Delete the originals after copying",
+convoy/ConvoyTrackImportScreen.kt:562:                            pickFiles.launch(arrayOf(
+convoy/ConvoyTrackImportScreen.kt:566:                        shape = RoundedCornerShape(10.dp),
+convoy/ConvoyTrackImportScreen.kt:569:                        Text("  SELECT FILES  ",
+convoy/ConvoyTrackImportScreen.kt:578:                        shape = RoundedCornerShape(10.dp),
+convoy/ConvoyTrackImportScreen.kt:601:                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+convoy/ConvoyTrackImportScreen.kt:605:                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+convoy/ConvoyTrackImportScreen.kt:607:                Text("FILE", color = Color(0xFF8B938A), fontSize = 8.sp,
+convoy/ConvoyTrackImportScreen.kt:609:                    modifier = Modifier.weight(1f).padding(start = 6.dp))
+convoy/ConvoyTrackImportScreen.kt:613:                    .weight(1f)
+convoy/ConvoyTrackImportScreen.kt:618:                items(files, key = { it.absolutePath }) { file ->
+convoy/ConvoyTrackImportScreen.kt:619:                    val checked = selected.contains(file.name)
+convoy/ConvoyTrackImportScreen.kt:624:                                selected = if (checked) selected - file.name
+convoy/ConvoyTrackImportScreen.kt:625:                                else selected + file.name
+convoy/ConvoyTrackImportScreen.kt:627:                        shape = RoundedCornerShape(8.dp),
+convoy/ConvoyTrackImportScreen.kt:628:                        color = if (checked) Color(0xFF15512C) else Color(0xFF262B26)
+convoy/ConvoyTrackImportScreen.kt:638:                                    checked = checked,
+convoy/ConvoyTrackImportScreen.kt:640:                                        selected = if (it) selected + file.name
+convoy/ConvoyTrackImportScreen.kt:641:                                        else selected - file.name
+convoy/ConvoyTrackImportScreen.kt:644:                                        checkedColor = Color(0xFF39FF14),
+convoy/ConvoyTrackImportScreen.kt:645:                                        uncheckedColor = Color(0xFF445566),
+convoy/ConvoyTrackImportScreen.kt:658:                                    checked = !mapsSkip.contains(file.name),
+convoy/ConvoyTrackImportScreen.kt:660:                                        mapsSkip = if (it) mapsSkip - file.name
+convoy/ConvoyTrackImportScreen.kt:661:                                        else mapsSkip + file.name
+convoy/ConvoyTrackImportScreen.kt:664:                                        checkedColor = Color(0xFF4DA6FF),
+convoy/ConvoyTrackImportScreen.kt:665:                                        uncheckedColor = Color(0xFF8FA8C0),
+convoy/ConvoyTrackImportScreen.kt:672:                                    .weight(1f)
+convoy/ConvoyTrackImportScreen.kt:673:                                    .padding(start = 6.dp)
+convoy/ConvoyTrackImportScreen.kt:676:                                    file.name,
+convoy/ConvoyTrackImportScreen.kt:687:                                        formatFileSize(file.length()),
+convoy/ConvoyTrackImportScreen.kt:693:                                        formatFileDate(file.lastModified()),
+convoy/ConvoyTrackImportScreen.kt:699:                                        file.extension.uppercase(),
+convoy/ConvoyTrackImportScreen.kt:724:                                selected = if (selected.size == files.size) emptySet()
+convoy/ConvoyTrackImportScreen.kt:725:                                else files.map { it.name }.toSet()
+convoy/ConvoyTrackImportScreen.kt:729:                            checked = selected.size == files.size && files.isNotEmpty(),
+convoy/ConvoyTrackImportScreen.kt:730:                            onCheckedChange = { checked ->
+convoy/ConvoyTrackImportScreen.kt:731:                                selected = if (checked) files.map { it.name }.toSet()
+convoy/ConvoyTrackImportScreen.kt:732:                                else emptySet()
+convoy/ConvoyTrackImportScreen.kt:735:                                checkedColor = Color(0xFF39FF14),
+convoy/ConvoyTrackImportScreen.kt:736:                                uncheckedColor = Color(0xFF445566),
+convoy/ConvoyTrackImportScreen.kt:741:                            "Select All  (${selected.size} of ${files.size})",
+convoy/ConvoyTrackImportScreen.kt:757:                            .clickable(enabled = selected.isNotEmpty()) { if (selected.any { !mapsSkip.contains(it) }) showSourcePopup = true else doImport() },
+convoy/ConvoyTrackImportScreen.kt:758:                        shape = RoundedCornerShape(10.dp),
+convoy/ConvoyTrackImportScreen.kt:759:                        color = if (selected.isNotEmpty()) Color(0xFF15512C)
+convoy/ConvoyTrackImportScreen.kt:763:                            text = if (selected.isEmpty()) "Select files to import"
+convoy/ConvoyTrackImportScreen.kt:764:                            else "Import ${selected.size} Selected",
+convoy/ConvoyTrackImportScreen.kt:765:                            color = if (selected.isNotEmpty()) Color(0xFF97D5A5)
+convoy/ConvoyTrackImportScreen.kt:785:private fun ImportProgressDialog(
+convoy/ConvoyTrackImportScreen.kt:786:    current: Int,
+convoy/ConvoyTrackImportScreen.kt:787:    total: Int,
+convoy/ConvoyTrackImportScreen.kt:788:    currentName: String,
+convoy/ConvoyTrackImportScreen.kt:789:    feedLines: List<String> = emptyList(),
+convoy/ConvoyTrackImportScreen.kt:790:    listState: androidx.compose.foundation.lazy.LazyListState = androidx.compose.foundation.lazy.rememberLazyListState()
+convoy/ConvoyTrackImportScreen.kt:793:        onDismissRequest = { /* non-dismissable */ },
+convoy/ConvoyTrackImportScreen.kt:794:        confirmButton = {},
+convoy/ConvoyTrackImportScreen.kt:812:                    "Processing $current of $total",
+convoy/ConvoyTrackImportScreen.kt:820:                    currentName,
+convoy/ConvoyTrackImportScreen.kt:829:                        listState.animateScrollToItem(feedLines.size - 1)
+convoy/ConvoyTrackImportScreen.kt:831:                    androidx.compose.foundation.lazy.LazyColumn(
+convoy/ConvoyTrackImportScreen.kt:832:                        state = listState,
+convoy/ConvoyTrackImportScreen.kt:835:                        items(feedLines.size) { idx ->
+convoy/ConvoyTrackImportScreen.kt:836:                            val line = feedLines[idx]
+convoy/ConvoyTrackImportScreen.kt:838:                                line.startsWith("INSERT") -> Color(0xFF39FF14)
+convoy/ConvoyTrackImportScreen.kt:839:                                line.startsWith("ALIAS") -> Color(0xFF6FB6FF)
+convoy/ConvoyTrackImportScreen.kt:840:                                line.startsWith("DUPLICATE") -> Color(0xFF7A8DA0)
+convoy/ConvoyTrackImportScreen.kt:841:                                line.startsWith("SKIP") -> Color(0xFFFFB74D)
+convoy/ConvoyTrackImportScreen.kt:842:                                line.startsWith("ERROR") -> Color(0xFFFF6B6B)
+convoy/ConvoyTrackImportScreen.kt:843:                                line.startsWith("—") -> Color(0xFF97D5A5)
+convoy/ConvoyTrackImportScreen.kt:846:                            Text(line, color = col, fontFamily = FontFamily.Monospace,
+convoy/ConvoyTrackImportScreen.kt:855:        shape = RoundedCornerShape(16.dp)
+convoy/ConvoyTrackImportScreen.kt:862:private fun ImportRecapDialog(
+convoy/ConvoyTrackImportScreen.kt:863:    imported: List<String>,
+convoy/ConvoyTrackImportScreen.kt:864:    skipped: List<String>,
+convoy/ConvoyTrackImportScreen.kt:865:    failed: List<String>,
+convoy/ConvoyTrackImportScreen.kt:866:    datesCorrected: Int,
+convoy/ConvoyTrackImportScreen.kt:867:    waypoints: Int = 0,
+convoy/ConvoyTrackImportScreen.kt:868:    routes: Int = 0,
+convoy/ConvoyTrackImportScreen.kt:870:    dupeCount: Int = 0,
+convoy/ConvoyTrackImportScreen.kt:871:    aliasedCount: Int = 0,
+convoy/ConvoyTrackImportScreen.kt:872:    skippedTrkCount: Int = 0,
+convoy/ConvoyTrackImportScreen.kt:877:        onDismissRequest = onDismiss,
+convoy/ConvoyTrackImportScreen.kt:878:        confirmButton = {
+convoy/ConvoyTrackImportScreen.kt:883:                            "DELETE FILES & CLOSE",
+convoy/ConvoyTrackImportScreen.kt:893:                        "KEEP FILES & CLOSE",
+convoy/ConvoyTrackImportScreen.kt:914:                if (imported.isNotEmpty()) {
+convoy/ConvoyTrackImportScreen.kt:916:                        "${imported.size} tracks imported",
+convoy/ConvoyTrackImportScreen.kt:925:                    "$newCount new   ·   $aliasedCount aliased",
+convoy/ConvoyTrackImportScreen.kt:931:                    "$dupeCount duplicate   ·   $skippedTrkCount skipped",
+convoy/ConvoyTrackImportScreen.kt:936:                if (skipped.isNotEmpty()) {
+convoy/ConvoyTrackImportScreen.kt:938:                        "${skipped.size} skipped (already exist)",
+convoy/ConvoyTrackImportScreen.kt:944:                if (failed.isNotEmpty()) {
+convoy/ConvoyTrackImportScreen.kt:946:                        "${failed.size} failed",
+convoy/ConvoyTrackImportScreen.kt:952:                if (datesCorrected > 0) {
+convoy/ConvoyTrackImportScreen.kt:954:                        "Dates corrected: $datesCorrected of ${imported.size}",
+convoy/ConvoyTrackImportScreen.kt:960:                if (waypoints > 0) {
+convoy/ConvoyTrackImportScreen.kt:962:                        "$waypoints waypoints imported",
+convoy/ConvoyTrackImportScreen.kt:969:                if (routes > 0) {
+convoy/ConvoyTrackImportScreen.kt:971:                        "$routes routes imported",
+convoy/ConvoyTrackImportScreen.kt:980:                if (imported.isNotEmpty()) {
+convoy/ConvoyTrackImportScreen.kt:990:                    val shown = imported.take(20)
+convoy/ConvoyTrackImportScreen.kt:991:                    for (name in shown) {
+convoy/ConvoyTrackImportScreen.kt:999:                    if (imported.size > 20) {
+convoy/ConvoyTrackImportScreen.kt:1001:                            "  ...and ${imported.size - 20} more",
+convoy/ConvoyTrackImportScreen.kt:1010:                if (failed.isNotEmpty()) {
+convoy/ConvoyTrackImportScreen.kt:1013:                        "Failed:",
+convoy/ConvoyTrackImportScreen.kt:1020:                    for (msg in failed.take(10)) {
+convoy/ConvoyTrackImportScreen.kt:1032:        shape = RoundedCornerShape(16.dp)
+convoy/ConvoyTrackImportScreen.kt:1038:private fun formatFileSize(bytes: Long): String {
+convoy/ConvoyTrackImportScreen.kt:1040:        bytes < 1024 -> "${bytes}B"
+convoy/ConvoyTrackImportScreen.kt:1041:        bytes < 1024 * 1024 -> "${bytes / 1024}KB"
+convoy/ConvoyTrackImportScreen.kt:1042:        else -> String.format(Locale.US, "%.1fMB", bytes / (1024.0 * 1024.0))
+convoy/ConvoyTrackImportScreen.kt:1046:private fun formatFileDate(millis: Long): String {
 convoy/ConvoyTrackOps.kt:3:import android.content.Context
 convoy/ConvoyTrackOps.kt:8:import kotlinx.coroutines.withContext
 convoy/ConvoyTrackOps.kt:12: * Pure file operations for tracks. No UI, no Compose. Callable from any screen.
@@ -21283,437 +21284,441 @@ convoy/HomeStateImportController.kt:577:                val eDb = SpatialDbManag
 convoy/HomeStateImportController.kt:579:                    updateSourceStep(
 convoy/HomeStateImportController.kt:580:                        findStage(sources, CLASSIFY_STAGE_ID),
 convoy/HomeStateImportController.kt:581:                        "Classifying roads", "reading land ownership")
-convoy/HomeStateImportController.kt:582:                    val changed = withContext(Dispatchers.IO) {
-convoy/HomeStateImportController.kt:583:                        OwnershipReclass.run(sDb, eDb) { done, total ->
-convoy/HomeStateImportController.kt:584:                            downloadDetailFlow.value =
-convoy/HomeStateImportController.kt:585:                                "Classifying roads - $done of $total"
-convoy/HomeStateImportController.kt:588:                    downloadDetailFlow.value = null
-convoy/HomeStateImportController.kt:595:                    findStage(sources, CLASSIFY_STAGE_ID)?.apply {
-convoy/HomeStateImportController.kt:596:                        put("status", "completed")
-convoy/HomeStateImportController.kt:597:                        put("completed_at", iso8601Now())
-convoy/HomeStateImportController.kt:608:                        put("imported", 0)
-convoy/HomeStateImportController.kt:609:                        put("processed", if (changed > 0) changed else 0)
-convoy/HomeStateImportController.kt:611:                    writeManifest(mFile, manifest)
-convoy/HomeStateImportController.kt:612:                    publishProgress(areaLabel, totalSources, sources, "running", startMs)
-convoy/HomeStateImportController.kt:614:                        changed < 0 -> Log.i(TAG, "step 8 skipped (no ownership data)")
-convoy/HomeStateImportController.kt:615:                        changed == 0 -> Log.i(TAG, "step 8: nothing reclassified")
-convoy/HomeStateImportController.kt:621:                        else -> Log.i(TAG, "step 8: $changed trail(s) classified")
-convoy/HomeStateImportController.kt:627:                    Log.w(TAG, "step 8 skipped: databases unavailable")
-convoy/HomeStateImportController.kt:628:                    findStage(sources, CLASSIFY_STAGE_ID)?.put("status", "failed")
+convoy/HomeStateImportController.kt:593:                    val changed = try {
+convoy/HomeStateImportController.kt:594:                        withContext(Dispatchers.IO) {
+convoy/HomeStateImportController.kt:595:                            OwnershipReclass.run(sDb, eDb) { done, total ->
+convoy/HomeStateImportController.kt:596:                                downloadDetailFlow.value =
+convoy/HomeStateImportController.kt:597:                                    "Classifying roads - $done of $total"
+convoy/HomeStateImportController.kt:601:                        Log.e(TAG, "OOMGUARD-2026-09-15: step 8 ran out of memory -- " +
+convoy/HomeStateImportController.kt:602:                            "treating as skipped. The map still works; only " +
+convoy/HomeStateImportController.kt:603:                            "land-ownership classification is missing.", e)
+convoy/HomeStateImportController.kt:606:                    downloadDetailFlow.value = null
+convoy/HomeStateImportController.kt:613:                    findStage(sources, CLASSIFY_STAGE_ID)?.apply {
+convoy/HomeStateImportController.kt:614:                        put("status", "completed")
+convoy/HomeStateImportController.kt:615:                        put("completed_at", iso8601Now())
+convoy/HomeStateImportController.kt:626:                        put("imported", 0)
+convoy/HomeStateImportController.kt:627:                        put("processed", if (changed > 0) changed else 0)
 convoy/HomeStateImportController.kt:629:                    writeManifest(mFile, manifest)
 convoy/HomeStateImportController.kt:630:                    publishProgress(areaLabel, totalSources, sources, "running", startMs)
-convoy/HomeStateImportController.kt:634:                Log.e(TAG, "step 8 failed, import stands: ${e.message}")
-convoy/HomeStateImportController.kt:636:                    findStage(sources, CLASSIFY_STAGE_ID)?.put("status", "failed")
-convoy/HomeStateImportController.kt:637:                    writeManifest(mFile, manifest)
-convoy/HomeStateImportController.kt:638:                    publishProgress(areaLabel, totalSources, sources, "running", startMs)
-convoy/HomeStateImportController.kt:640:                downloadDetailFlow.value = null
-convoy/HomeStateImportController.kt:644:            manifest.put("process_state", if (allOk) "completed" else "completed")
-convoy/HomeStateImportController.kt:645:            manifest.put("completed_at", iso8601Now())
-convoy/HomeStateImportController.kt:646:            writeManifest(mFile, manifest)
-convoy/HomeStateImportController.kt:647:            publishProgress(areaLabel, totalSources, sources,
-convoy/HomeStateImportController.kt:648:                if (allOk) "completed" else "failed", startMs)
-convoy/HomeStateImportController.kt:650:            Log.i(TAG, "Home state import ${if (allOk) "COMPLETED" else "COMPLETED WITH ERRORS"} " +
-convoy/HomeStateImportController.kt:651:                "for ${areaLabel} in ${(System.currentTimeMillis() - startMs) / 1000}s")
-convoy/HomeStateImportController.kt:652:            allOk
-convoy/HomeStateImportController.kt:660:    private suspend fun runGeofabrikSource(
-convoy/HomeStateImportController.kt:661:        context: Context, src: JSONObject,
-convoy/HomeStateImportController.kt:662:        bboxSouth: Double, bboxWest: Double, bboxNorth: Double, bboxEast: Double
-convoy/HomeStateImportController.kt:664:        val slug = src.getString("slug")
-convoy/HomeStateImportController.kt:665:        val gpkgUrl = src.getString("gpkg_url")
-convoy/HomeStateImportController.kt:666:        val pbfUrl = src.getString("pbf_url")   // PBFDL-2026-08-30
-convoy/HomeStateImportController.kt:680:        updateSourceStep(src, "Downloading tags", pbfUrl)
-convoy/HomeStateImportController.kt:681:        val pbfFile = OsmImportStage.pbfFor(context, slug)
-convoy/HomeStateImportController.kt:682:        if (!pbfFile.exists()) {
-convoy/HomeStateImportController.kt:683:            val okPbf = downloadFile(pbfUrl, pbfFile, src)
-convoy/HomeStateImportController.kt:684:            if (!okPbf) {
-convoy/HomeStateImportController.kt:685:                Log.e(TAG, "PBF download failed for $slug")
-convoy/HomeStateImportController.kt:694:        if (!OsmImportStage.verifyPbf(pbfFile)) {
-convoy/HomeStateImportController.kt:695:            Log.e(TAG, "PBF failed verification for $slug, removing: ${pbfFile.name}")
-convoy/HomeStateImportController.kt:696:            pbfFile.delete()
-convoy/HomeStateImportController.kt:699:        downloadDetailFlow.value = null
-convoy/HomeStateImportController.kt:700:        Log.i(TAG, "PBF complete: ${pbfFile.name} (${pbfFile.length() / 1_048_576} MB)")
-convoy/HomeStateImportController.kt:703:        updateSourceStep(src, "Downloading", "$gpkgUrl")
-convoy/HomeStateImportController.kt:704:        val zipFile = OsmImportStage.zipFor(context, slug)
-convoy/HomeStateImportController.kt:705:        if (!zipFile.exists()) {
-convoy/HomeStateImportController.kt:706:            val ok = downloadFile(gpkgUrl, zipFile, src)
-convoy/HomeStateImportController.kt:708:                Log.e(TAG, "Download failed for $slug")
-convoy/HomeStateImportController.kt:712:        downloadDetailFlow.value = null
-convoy/HomeStateImportController.kt:713:        Log.i(TAG, "Download complete: ${zipFile.name} (${zipFile.length() / 1_048_576} MB)")
-convoy/HomeStateImportController.kt:727:        val tagsFile = OsmImportStage.tagsFor(context, slug)
-convoy/HomeStateImportController.kt:728:        if (!OsmImportStage.verifyTags(tagsFile)) {
-convoy/HomeStateImportController.kt:729:            updateSourceStep(src, "Reading permissions", "starting")
-convoy/HomeStateImportController.kt:730:            val builtRows = withContext(Dispatchers.IO) {
-convoy/HomeStateImportController.kt:731:                OsmPbfTagReader.build(pbfFile, tagsFile) { waysWalked, rowsWritten ->
-convoy/HomeStateImportController.kt:732:                    downloadDetailFlow.value =
-convoy/HomeStateImportController.kt:733:                        "Reading trail permissions - " +
-convoy/HomeStateImportController.kt:734:                            "${waysWalked / 1000}k ways read, $rowsWritten kept"
-convoy/HomeStateImportController.kt:737:            downloadDetailFlow.value = null
-convoy/HomeStateImportController.kt:738:            if (builtRows <= 0) {
-convoy/HomeStateImportController.kt:741:                Log.e(TAG, "Tag pass failed for $slug (rows=$builtRows)")
-convoy/HomeStateImportController.kt:744:            Log.i(TAG, "Tag pass complete for $slug: $builtRows rows")
-convoy/HomeStateImportController.kt:746:            Log.i(TAG, "Tag table already present for $slug, skipping tag pass")
-convoy/HomeStateImportController.kt:750:        OsmImportLedger.create(
-convoy/HomeStateImportController.kt:751:            context, slug,
-convoy/HomeStateImportController.kt:752:            OsmImportStage.displayName(slug),
-convoy/HomeStateImportController.kt:753:            "Geofabrik ${src.optString("name", slug)} (auto download)",
-convoy/HomeStateImportController.kt:754:            OsmImportLedger.priorImports(context, slug)
-convoy/HomeStateImportController.kt:756:        Log.i(TAG, "Ledger created for $slug")
-convoy/HomeStateImportController.kt:759:        updateSourceStep(src, "Extracting", null)
-convoy/HomeStateImportController.kt:760:        OsmExtractWorker.enqueue(context, slug)
-convoy/HomeStateImportController.kt:761:        val extractOk = awaitWorker(context, OsmExtractWorker.uniqueName(slug))
-convoy/HomeStateImportController.kt:762:        if (!extractOk) {
-convoy/HomeStateImportController.kt:763:            Log.e(TAG, "Extract failed for $slug")
-convoy/HomeStateImportController.kt:772:        val bbox = doubleArrayOf(bboxSouth, bboxWest, bboxNorth, bboxEast)
-convoy/HomeStateImportController.kt:775:        val scope = if (src.optString("process") == "geofabrik_area") "area" else "state"
-convoy/HomeStateImportController.kt:776:        OsmImportLedger.setPendingImport(context, slug, scope, bbox)
-convoy/HomeStateImportController.kt:777:        Log.i(TAG, "setPendingImport for $slug: bbox " +
-convoy/HomeStateImportController.kt:778:            "S=$bboxSouth W=$bboxWest N=$bboxNorth E=$bboxEast")
-convoy/HomeStateImportController.kt:781:        updateSourceStep(src, "Importing", null)
-convoy/HomeStateImportController.kt:782:        OsmImportWorker.enqueue(context, slug)
-convoy/HomeStateImportController.kt:783:        val importOk = awaitWorker(context, OsmImportWorker.uniqueName(slug))
-convoy/HomeStateImportController.kt:784:        if (!importOk) {
-convoy/HomeStateImportController.kt:785:            Log.e(TAG, "Import failed for $slug")
-convoy/HomeStateImportController.kt:790:        val ledger = OsmImportLedger.read(context, slug)
-convoy/HomeStateImportController.kt:791:        val imports = ledger?.optJSONArray("imports")
-convoy/HomeStateImportController.kt:792:        if (imports != null && imports.length() > 0) {
-convoy/HomeStateImportController.kt:793:            val last = imports.getJSONObject(imports.length() - 1)
-convoy/HomeStateImportController.kt:794:            val count = last.optInt("inserted", 0) + last.optInt("updated", 0)
-convoy/HomeStateImportController.kt:795:            src.put("imported", count)
-convoy/HomeStateImportController.kt:800:            val gAdds    = last.optInt("inserted", -1)
-convoy/HomeStateImportController.kt:801:            val gDropped = last.optInt("dropped", -1)
-convoy/HomeStateImportController.kt:802:            val gAliased = last.optInt("aliased", -1)
-convoy/HomeStateImportController.kt:803:            val gErrors  = last.optInt("errors", -1)
-convoy/HomeStateImportController.kt:804:            val gFound   = last.optInt("found", -1)
-convoy/HomeStateImportController.kt:805:            val gDupes   = if (gDropped < 0 && gAliased < 0) -1
-convoy/HomeStateImportController.kt:806:                           else maxOf(gDropped, 0) + maxOf(gAliased, 0)
-convoy/HomeStateImportController.kt:807:            src.put("processed", gFound)
-convoy/HomeStateImportController.kt:811:            src.put("selected", gFound)
-convoy/HomeStateImportController.kt:812:            src.put("dupes", gDupes)
-convoy/HomeStateImportController.kt:813:            src.put("adds", gAdds)
-convoy/HomeStateImportController.kt:814:            src.put("errors", gErrors)
-convoy/HomeStateImportController.kt:818:        updateSourceStep(src, "Cleanup", null)
-convoy/HomeStateImportController.kt:819:        OsmImportStage.discardState(context, slug)
-convoy/HomeStateImportController.kt:827:    private suspend fun runCatalogSource(
-convoy/HomeStateImportController.kt:828:        context: Context, src: JSONObject,
-convoy/HomeStateImportController.kt:829:        bboxSouth: Double, bboxWest: Double, bboxNorth: Double, bboxEast: Double
-convoy/HomeStateImportController.kt:831:        val sourceId = src.getString("id")
-convoy/HomeStateImportController.kt:832:        updateSourceStep(src, "Importing", null)
-convoy/HomeStateImportController.kt:835:            val results = TrailImporter.importByArea(
-convoy/HomeStateImportController.kt:836:                context, listOf(sourceId),
-convoy/HomeStateImportController.kt:837:                bboxSouth, bboxWest, bboxNorth, bboxEast
-convoy/HomeStateImportController.kt:839:            val total = results.sumOf { it.inserted }
-convoy/HomeStateImportController.kt:840:            src.put("imported", total)
-convoy/HomeStateImportController.kt:845:            val pDropped  = results.sumOf { it.dropped }
-convoy/HomeStateImportController.kt:846:            val pAliased  = results.sumOf { it.aliased }
-convoy/HomeStateImportController.kt:847:            val pSkipped  = results.sumOf { it.skipped }
-convoy/HomeStateImportController.kt:848:            val pRejected = results.sumOf { it.rejected }
-convoy/HomeStateImportController.kt:849:            val pErrors   = results.sumOf { it.errors }
-convoy/HomeStateImportController.kt:850:            val pProcessed = total + pDropped + pAliased + pSkipped + pRejected + pErrors
-convoy/HomeStateImportController.kt:851:            src.put("processed", pProcessed)
-convoy/HomeStateImportController.kt:852:            src.put("selected", pProcessed - pRejected)
-convoy/HomeStateImportController.kt:853:            src.put("dupes", pDropped + pAliased + pSkipped)
-convoy/HomeStateImportController.kt:854:            src.put("adds", total)
-convoy/HomeStateImportController.kt:855:            src.put("errors", pErrors)
-convoy/HomeStateImportController.kt:856:            Log.i(TAG, "Catalog source $sourceId: $total records")
-convoy/HomeStateImportController.kt:859:            Log.e(TAG, "Catalog source $sourceId failed", e)
-convoy/HomeStateImportController.kt:866:    private fun findCatalogSourcesInBbox(
-convoy/HomeStateImportController.kt:867:        context: Context,
-convoy/HomeStateImportController.kt:868:        south: Double, west: Double, north: Double, east: Double
-convoy/HomeStateImportController.kt:873:            val all = loadSourceCatalog(context)
-convoy/HomeStateImportController.kt:874:            all.filter { src ->
-convoy/HomeStateImportController.kt:875:                src.status != "display_only_not_queryable" &&
-convoy/HomeStateImportController.kt:876:                src.boundaryN >= south && src.boundaryS <= north &&
-convoy/HomeStateImportController.kt:877:                src.boundaryE >= west && src.boundaryW <= east
-convoy/HomeStateImportController.kt:880:            Log.e(TAG, "Failed to query catalog sources", e)
-convoy/HomeStateImportController.kt:881:            emptyList()
-convoy/HomeStateImportController.kt:888:     * OWNFETCH-2026-09-02: retry with backoff, and a redirect DEPTH LIMIT.
-convoy/HomeStateImportController.kt:890:     * ⛔ Geofabrik has failed THREE times in one evening -- twice on the network
-convoy/HomeStateImportController.kt:891:     * and once when a crash killed the process mid-transfer -- and each failure
-convoy/HomeStateImportController.kt:892:     * silently skipped everything downstream, including step 8. There was no
-convoy/HomeStateImportController.kt:893:     * retry at all; one bad moment lost a twenty-minute import.
-convoy/HomeStateImportController.kt:894:     * ⚠ And the redirect follow was UNBOUNDED recursion. A server that redirects
-convoy/HomeStateImportController.kt:895:     * to itself would have blown the stack.
-convoy/HomeStateImportController.kt:898:     * OWNFETCH-2026-09-02: SITLA surface land ownership, from the UGRC hub.
-convoy/HomeStateImportController.kt:899:     * ⚠ THE ITEM ID IS UTAH'S. A second state needs its own id, so this belongs
-convoy/HomeStateImportController.kt:900:     * in the source catalogue eventually rather than as a constant here. It is
-convoy/HomeStateImportController.kt:901:     * a constant tonight because one URL closes the loop and the catalogue
-convoy/HomeStateImportController.kt:904:    private const val OWNERSHIP_URL =
-convoy/HomeStateImportController.kt:906:            "2f59731608274691922d2d16bde2404f_0/downloads/data" +
-convoy/HomeStateImportController.kt:907:            "?format=geojson&spatialRefId=4326&where=1%3D1"
-convoy/HomeStateImportController.kt:909:    private fun downloadFile(
-convoy/HomeStateImportController.kt:910:        urlStr: String, dest: File, activeSrc: JSONObject? = null,
-convoy/HomeStateImportController.kt:911:        attempt: Int = 1, depth: Int = 0,
-convoy/HomeStateImportController.kt:913:        if (depth > 5) {
-convoy/HomeStateImportController.kt:914:            Log.e(TAG, "Download: too many redirects for $urlStr")
-convoy/HomeStateImportController.kt:917:        val ok = downloadOnce(urlStr, dest, activeSrc, depth)
-convoy/HomeStateImportController.kt:922:        if (attempt >= 3) {
-convoy/HomeStateImportController.kt:923:            Log.e(TAG, "Download: giving up on $urlStr after $attempt attempts")
-convoy/HomeStateImportController.kt:926:        val wait = if (attempt == 1) 2000L else 8000L
-convoy/HomeStateImportController.kt:927:        Log.w(TAG, "Download: attempt $attempt failed, retrying in ${wait}ms")
-convoy/HomeStateImportController.kt:928:        try { Thread.sleep(wait) } catch (_: InterruptedException) { return false }
-convoy/HomeStateImportController.kt:929:        return downloadFile(urlStr, dest, activeSrc, attempt + 1, depth)
-convoy/HomeStateImportController.kt:932:    private fun downloadOnce(
-convoy/HomeStateImportController.kt:933:        urlStr: String, dest: File, activeSrc: JSONObject?, depth: Int,
-convoy/HomeStateImportController.kt:936:            dest.parentFile?.mkdirs()
-convoy/HomeStateImportController.kt:937:            val conn = URL(urlStr).openConnection() as HttpURLConnection
-convoy/HomeStateImportController.kt:938:            conn.connectTimeout = 30_000
-convoy/HomeStateImportController.kt:939:            conn.readTimeout = 60_000
-convoy/HomeStateImportController.kt:940:            conn.connect()
-convoy/HomeStateImportController.kt:941:            conn.instanceFollowRedirects = true
-convoy/HomeStateImportController.kt:942:            if (conn.responseCode == 302 || conn.responseCode == 301) {
-convoy/HomeStateImportController.kt:943:                val redirect = conn.getHeaderField("Location")
-convoy/HomeStateImportController.kt:944:                conn.disconnect()
-convoy/HomeStateImportController.kt:946:                if (redirect != null)
-convoy/HomeStateImportController.kt:947:                    return downloadFile(redirect, dest, activeSrc, 1, depth + 1)
-convoy/HomeStateImportController.kt:950:            if (conn.responseCode != 200) {
-convoy/HomeStateImportController.kt:951:                Log.e(TAG, "Download HTTP ${conn.responseCode} for $urlStr")
-convoy/HomeStateImportController.kt:952:                conn.disconnect()
-convoy/HomeStateImportController.kt:955:            val totalBytes = conn.contentLength.toLong()
-convoy/HomeStateImportController.kt:956:            var downloaded = 0L
-convoy/HomeStateImportController.kt:957:            val tmp = File(dest.parent, dest.name + ".tmp")
-convoy/HomeStateImportController.kt:959:                conn.inputStream.use { inp ->
-convoy/HomeStateImportController.kt:962:                    while (inp.read(buf).also { n = it } > 0) {
-convoy/HomeStateImportController.kt:963:                        out.write(buf, 0, n)
-convoy/HomeStateImportController.kt:964:                        downloaded += n
-convoy/HomeStateImportController.kt:965:                        if (activeSrc != null && totalBytes > 0) {
-convoy/HomeStateImportController.kt:966:                            val dlMB = downloaded / 1_048_576
-convoy/HomeStateImportController.kt:967:                            val totMB = totalBytes / 1_048_576
-convoy/HomeStateImportController.kt:968:                            val detail = "$dlMB MB of $totMB MB"
-convoy/HomeStateImportController.kt:969:                            activeSrc.put("step_detail", detail)
-convoy/HomeStateImportController.kt:970:                            downloadDetailFlow.value = detail
-convoy/HomeStateImportController.kt:975:            conn.disconnect()
-convoy/HomeStateImportController.kt:976:            tmp.renameTo(dest)
-convoy/HomeStateImportController.kt:979:            Log.e(TAG, "Download failed: $urlStr", e)
-convoy/HomeStateImportController.kt:986:    private suspend fun awaitWorker(context: Context, uniqueName: String): Boolean {
-convoy/HomeStateImportController.kt:990:                val infos = wm.getWorkInfosForUniqueWork(uniqueName).get()
-convoy/HomeStateImportController.kt:991:                val wi = infos.firstOrNull() ?: break
-convoy/HomeStateImportController.kt:993:                    WorkInfo.State.SUCCEEDED -> return true
-convoy/HomeStateImportController.kt:994:                    WorkInfo.State.FAILED, WorkInfo.State.CANCELLED -> return false
-convoy/HomeStateImportController.kt:1000:                        workerDetail(wi)?.let { downloadDetailFlow.value = it }
-convoy/HomeStateImportController.kt:1009:            downloadDetailFlow.value = null
-convoy/HomeStateImportController.kt:1014:     * WORKERPROGRESS-2026-09-07: the worker's progress as one line, or null if
-convoy/HomeStateImportController.kt:1015:     * it has not published anything yet.
-convoy/HomeStateImportController.kt:1017:     * ⚠ PARSED HERE, not through OsmExtractProgress, and defensively -- the
-convoy/HomeStateImportController.kt:1018:     * same stance OsmImportPanel takes on the same string. A format change must
-convoy/HomeStateImportController.kt:1019:     * degrade this label; it must never crash a running import. Every failure
-convoy/HomeStateImportController.kt:1020:     * path returns null, which leaves the previous line in place.
-convoy/HomeStateImportController.kt:1024:    private fun workerDetail(wi: WorkInfo): String? {
-convoy/HomeStateImportController.kt:1026:            val raw = wi.progress.getString("osm_extract_progress")
-convoy/HomeStateImportController.kt:1028:            val arr = org.json.JSONArray(raw)
-convoy/HomeStateImportController.kt:1030:                val o = arr.optJSONObject(i) ?: continue
-convoy/HomeStateImportController.kt:1031:                if (o.optBoolean("complete", false)) continue
-convoy/HomeStateImportController.kt:1033:                val done = o.optInt("done", 0)
-convoy/HomeStateImportController.kt:1034:                val total = o.optInt("total", 0)
-convoy/HomeStateImportController.kt:1037:                if (total > 0) {
-convoy/HomeStateImportController.kt:1038:                    sb.append(" - ").append(done).append(" of ").append(total)
-convoy/HomeStateImportController.kt:1039:                } else if (done > 0) {
-convoy/HomeStateImportController.kt:1040:                    sb.append(" - ").append(done)
-convoy/HomeStateImportController.kt:1044:                if (eta > 0) sb.append(" (~").append(eta).append("s)")
-convoy/HomeStateImportController.kt:1045:                return sb.toString()
-convoy/HomeStateImportController.kt:1055:    private fun updateSourceStep(src: JSONObject, step: String, detail: String?) {
-convoy/HomeStateImportController.kt:1056:        src.put("current_step", step)
-convoy/HomeStateImportController.kt:1057:        if (detail != null) src.put("step_detail", detail)
-convoy/HomeStateImportController.kt:1058:        else src.remove("step_detail")
-convoy/HomeStateImportController.kt:1061:    private fun publishProgress(
-convoy/HomeStateImportController.kt:1062:        stateName: String, total: Int, sources: JSONArray,
-convoy/HomeStateImportController.kt:1063:        phase: String, startMs: Long
-convoy/HomeStateImportController.kt:1065:        val list = (0 until sources.length()).map { i ->
-convoy/HomeStateImportController.kt:1066:            val s = sources.getJSONObject(i)
-convoy/HomeStateImportController.kt:1067:            ImportSourceProgress(
-convoy/HomeStateImportController.kt:1071:                status = s.getString("status"),
-convoy/HomeStateImportController.kt:1072:                imported = s.optInt("imported", 0),
-convoy/HomeStateImportController.kt:1075:                processed = s.optInt("processed", -1),
-convoy/HomeStateImportController.kt:1076:                selected = s.optInt("selected", -1),
-convoy/HomeStateImportController.kt:1077:                dupes = s.optInt("dupes", -1),
-convoy/HomeStateImportController.kt:1078:                adds = s.optInt("adds", -1),
-convoy/HomeStateImportController.kt:1079:                errors = s.optInt("errors", -1),
-convoy/HomeStateImportController.kt:1080:                currentStep = s.optString("current_step", null),
-convoy/HomeStateImportController.kt:1081:                stepDetail = s.optString("step_detail", null),
-convoy/HomeStateImportController.kt:1084:        _progress.value = ImportProgress(
-convoy/HomeStateImportController.kt:1085:            stateName = stateName,
-convoy/HomeStateImportController.kt:1086:            totalSources = total,
-convoy/HomeStateImportController.kt:1087:            currentSourceIndex = list.indexOfFirst { it.status == "in_progress" },
-convoy/HomeStateImportController.kt:1088:            sources = list,
-convoy/HomeStateImportController.kt:1089:            phase = phase,
-convoy/HomeStateImportController.kt:1090:            elapsedMs = System.currentTimeMillis() - startMs,
-convoy/HomeStateImportController.kt:1097:     * Scan the imports directory for any manifest with process_state == "in_progress".
-convoy/HomeStateImportController.kt:1098:     * Returns the file and parsed JSON, or null if none found.
-convoy/HomeStateImportController.kt:1100:    fun findIncompleteImport(ctx: Context): Pair<File, JSONObject>? {
-convoy/HomeStateImportController.kt:1101:        val dir = importsDir(ctx)
-convoy/HomeStateImportController.kt:1102:        if (!dir.exists()) return null
-convoy/HomeStateImportController.kt:1104:            ?.filter { it.extension == "json" }
-convoy/HomeStateImportController.kt:1107:                    val j = JSONObject(f.readText())
-convoy/HomeStateImportController.kt:1108:                    if (j.optString("process_state") == "in_progress") f to j else null
-convoy/HomeStateImportController.kt:1111:            ?.firstOrNull()
-convoy/HomeStateImportController.kt:1115:     * True if at least one completed import manifest exists.
-convoy/HomeStateImportController.kt:1116:     * No completed manifests = never imported = fresh install.
-convoy/HomeStateImportController.kt:1125:     * Resolve every manifest left in imports/. Runs EVERY launch.
-convoy/HomeStateImportController.kt:1127:     *   every source has a count  -> completed -> move to history
-convoy/HomeStateImportController.kt:1128:     *   any source has no count   -> stamp killed -> move to history
-convoy/HomeStateImportController.kt:1130:     * Afterwards imports/ is empty. Fred, 08-21: "completed is swept,
-convoy/HomeStateImportController.kt:1131:     * incomplete is killed on startup. Period."
-convoy/HomeStateImportController.kt:1133:     * ⛔ ORDER IS LOAD-BEARING: STAMP FIRST, THEN MOVE. Same reason
-convoy/HomeStateImportController.kt:1134:     * OsmImportLedger.archiveLedger() renames before discardState() sweeps. If
-convoy/HomeStateImportController.kt:1135:     * the stamp fails nothing has moved and it retries next launch. If the move
-convoy/HomeStateImportController.kt:1136:     * fails after a good stamp, a marked file sits in imports/ -- visible and
-convoy/HomeStateImportController.kt:1137:     * recoverable. The state to avoid is a file in history that nobody stamped,
-convoy/HomeStateImportController.kt:1138:     * because then "killed" has to be INFERRED rather than read.
-convoy/HomeStateImportController.kt:1140:     * ⚠ Manifests written before 2026-08-21 have no manifest_id and none of the
-convoy/HomeStateImportController.kt:1141:     * five recap counters -- only `imported`. ABSENT FIELDS MEAN OLD, NOT BROKEN.
-convoy/HomeStateImportController.kt:1142:     * A pre-today completed manifest must sweep as completed; if this test
-convoy/HomeStateImportController.kt:1143:     * demanded the new fields, a device holding 43,348 records would read as
-convoy/HomeStateImportController.kt:1144:     * never-imported.
-convoy/HomeStateImportController.kt:1146:     * ⚠ NEVER call this anywhere but the startup job. Run while an import is
-convoy/HomeStateImportController.kt:1147:     * live, it would archive the controller's own manifest out from under it.
-convoy/HomeStateImportController.kt:1150:     * TRAILFILTER-2026-08-24K -- wipe the trails table exactly once per device.
-convoy/HomeStateImportController.kt:1152:     * WHY A WIPE. The filter change above stops `path` and `bridleway` arriving
-convoy/HomeStateImportController.kt:1153:     * in FUTURE imports. It does nothing about the ones already stored, and
-convoy/HomeStateImportController.kt:1154:     * they cannot be picked out: `fclass` is extracted into the skinny DB and
-convoy/HomeStateImportController.kt:1155:     * never carried into `trails`, so a foot path and a jeep track are the same
-convoy/HomeStateImportController.kt:1156:     * twelve columns once they land. There is no WHERE clause that finds them.
-convoy/HomeStateImportController.kt:1158:     * Fred, 08-24: "clear the trails period. They all import together in the
-convoy/HomeStateImportController.kt:1159:     * install." Which is the honest move and costs nothing extra -- the gate
-convoy/HomeStateImportController.kt:1160:     * already launches the home-state picker at trails.count == 0, so the wipe
-convoy/HomeStateImportController.kt:1161:     * IS the trigger. No dialog: the picker explains itself.
-convoy/HomeStateImportController.kt:1163:     * ⚠⚠ UNREADABLE IS NOT ABSENT. If the marker cannot be read we must NOT
-convoy/HomeStateImportController.kt:1164:     * conclude "never ran" -- that is the create-if-missing shape that
-convoy/HomeStateImportController.kt:1165:     * destroyed the spatial DB on 2026-08-01, and here it would wipe a rider's
-convoy/HomeStateImportController.kt:1166:     * trails on every launch. exists() is the whole test, and a File.exists()
-convoy/HomeStateImportController.kt:1167:     * that throws means we do nothing.
-convoy/HomeStateImportController.kt:1169:     * ⚠ THE MARKER IS WRITTEN AFTER THE DELETE, never before. A run that dies
-convoy/HomeStateImportController.kt:1170:     * half way leaves no marker and retries; a marker written first would turn
-convoy/HomeStateImportController.kt:1171:     * one interruption into a permanent half-cleared database.
-convoy/HomeStateImportController.kt:1173:     * Returns rows removed, or -1 when it did not run.
-convoy/HomeStateImportController.kt:1175:    fun clearTrailsOnce(ctx: Context): Int {
-convoy/HomeStateImportController.kt:1195:        val marker = File(SpatialDbManager.dbDir(), ".trails_cleared_2026-09-02B")
-convoy/HomeStateImportController.kt:1201:        if (!marker.exists()) {
-convoy/HomeStateImportController.kt:1202:            val legacy = listOf(
-convoy/HomeStateImportController.kt:1203:                File(importsDir(ctx), "trails_cleared_2026-09-02B.json"),
-convoy/HomeStateImportController.kt:1204:                File(File(importsDir(ctx), "history"),
-convoy/HomeStateImportController.kt:1205:                    "trails_cleared_2026-09-02B.json")
-convoy/HomeStateImportController.kt:1207:            val found = try {
-convoy/HomeStateImportController.kt:1208:                legacy.firstOrNull { it.exists() }
-convoy/HomeStateImportController.kt:1211:                Log.e(TAG, "clearTrailsOnce: legacy marker unreadable: " + e.message)
-convoy/HomeStateImportController.kt:1214:            if (found != null) {
-convoy/HomeStateImportController.kt:1215:                writeClearMarker(marker, -1, -1)
-convoy/HomeStateImportController.kt:1218:                    "clearTrailsOnce: adopted the prior marker at " +
-convoy/HomeStateImportController.kt:1219:                        found.absolutePath + " -- NOT clearing again"
-convoy/HomeStateImportController.kt:1225:        val alreadyRan = try {
-convoy/HomeStateImportController.kt:1226:            marker.exists()
-convoy/HomeStateImportController.kt:1230:            Log.e(TAG, "clearTrailsOnce: marker unreadable, standing down: " + e.message)
-convoy/HomeStateImportController.kt:1233:        if (alreadyRan) return -1
-convoy/HomeStateImportController.kt:1235:        val dbFile = File(SpatialDbManager.dbDir(), "grouptrack_spatial.db")
-convoy/HomeStateImportController.kt:1236:        if (!dbFile.exists()) {
-convoy/HomeStateImportController.kt:1240:            writeClearMarker(marker, 0)
-convoy/HomeStateImportController.kt:1241:            Log.i(TAG, "clearTrailsOnce: no spatial DB yet, marked and skipped")
-convoy/HomeStateImportController.kt:1245:        var removed = 0
-convoy/HomeStateImportController.kt:1246:        var props = 0
-convoy/HomeStateImportController.kt:1248:            val db = android.database.sqlite.SQLiteDatabase.openDatabase(
-convoy/HomeStateImportController.kt:1249:                dbFile.absolutePath, null,
-convoy/HomeStateImportController.kt:1250:                android.database.sqlite.SQLiteDatabase.OPEN_READWRITE
-convoy/HomeStateImportController.kt:1253:                d.rawQuery("SELECT COUNT(*) FROM trails", null).use { c ->
-convoy/HomeStateImportController.kt:1254:                    if (c.moveToFirst()) removed = c.getInt(0)
-convoy/HomeStateImportController.kt:1256:                d.execSQL("DELETE FROM trails")
-convoy/HomeStateImportController.kt:1278:            val extFile = File(SpatialDbManager.dbDir(), "grouptrack_data.db")
-convoy/HomeStateImportController.kt:1279:            if (extFile.exists()) {
-convoy/HomeStateImportController.kt:1280:                val ext = android.database.sqlite.SQLiteDatabase.openDatabase(
-convoy/HomeStateImportController.kt:1281:                    extFile.absolutePath, null,
-convoy/HomeStateImportController.kt:1282:                    android.database.sqlite.SQLiteDatabase.OPEN_READWRITE
-convoy/HomeStateImportController.kt:1287:                            if (c.moveToFirst()) props = c.getInt(0)
-convoy/HomeStateImportController.kt:1289:                        e.execSQL("DELETE FROM trail_properties")
-convoy/HomeStateImportController.kt:1290:                    } catch (inner: Exception) {
-convoy/HomeStateImportController.kt:1293:                        Log.i(TAG, "clearTrailsOnce: no trail_properties (" +
-convoy/HomeStateImportController.kt:1294:                            inner.message + ")")
-convoy/HomeStateImportController.kt:1300:            Log.e(TAG, "clearTrailsOnce: FAILED, will retry: " + e.message)
-convoy/HomeStateImportController.kt:1304:        writeClearMarker(marker, removed, props)
-convoy/HomeStateImportController.kt:1305:        Log.i(TAG, "clearTrailsOnce: removed " + removed + " trail(s) and " +
-convoy/HomeStateImportController.kt:1306:            props + " trail_properties row(s) -- home state picker will " +
-convoy/HomeStateImportController.kt:1307:            "re-import under the new filter")
-convoy/HomeStateImportController.kt:1308:        return removed
-convoy/HomeStateImportController.kt:1311:    /** Best effort. The delete has already happened by the time this is called,
-convoy/HomeStateImportController.kt:1312:     *  so a failure here costs one repeated wipe, not a corrupt database. */
-convoy/HomeStateImportController.kt:1313:    private fun writeClearMarker(marker: File, removed: Int, props: Int = 0) {
-convoy/HomeStateImportController.kt:1315:            marker.parentFile?.mkdirs()
-convoy/HomeStateImportController.kt:1316:            val o = JSONObject()
-convoy/HomeStateImportController.kt:1317:            o.put("reason", "TRAILCLEAR-2026-08-24L: path and bridleway dropped from the OSM filter; trails and trail_properties both cleared")
-convoy/HomeStateImportController.kt:1318:            o.put("trails_removed", removed)
-convoy/HomeStateImportController.kt:1319:            o.put("properties_removed", props)
-convoy/HomeStateImportController.kt:1320:            o.put("cleared_at", java.time.Instant.now().toString())
-convoy/HomeStateImportController.kt:1321:            marker.writeText(o.toString(2))
-convoy/HomeStateImportController.kt:1323:            Log.e(TAG, "clearTrailsOnce: marker write failed: " + e.message)
-convoy/HomeStateImportController.kt:1327:    fun sweepManifests(ctx: Context): Int {
-convoy/HomeStateImportController.kt:1328:        val dir = importsDir(ctx)
-convoy/HomeStateImportController.kt:1329:        val history = File(dir, "history").apply { if (!exists()) mkdirs() }
-convoy/HomeStateImportController.kt:1341:        val files = (dir.listFiles { f -> f.isFile && f.extension == "json" } ?: return 0)
-convoy/HomeStateImportController.kt:1342:            .filter { f ->
-convoy/HomeStateImportController.kt:1344:                    JSONObject(f.readText()).optJSONArray("sources") != null
-convoy/HomeStateImportController.kt:1346:                    Log.w(TAG, "sweep: " + f.name + " is not a manifest, left alone")
-convoy/HomeStateImportController.kt:1350:        if (files.isEmpty()) {
-convoy/HomeStateImportController.kt:1351:            Log.i(TAG, "sweep: imports/ is empty, nothing to do")
-convoy/HomeStateImportController.kt:1355:        var swept = 0
-convoy/HomeStateImportController.kt:1356:        for (f in files) {
-convoy/HomeStateImportController.kt:1358:                val json = JSONObject(f.readText())
-convoy/HomeStateImportController.kt:1359:                val sources = json.optJSONArray("sources")
-convoy/HomeStateImportController.kt:1363:                var allCounted = sources != null && sources.length() > 0
-convoy/HomeStateImportController.kt:1364:                if (sources != null) {
-convoy/HomeStateImportController.kt:1365:                    for (i in 0 until sources.length()) {
-convoy/HomeStateImportController.kt:1366:                        val s = sources.getJSONObject(i)
-convoy/HomeStateImportController.kt:1367:                        val counted = s.has("imported") &&
-convoy/HomeStateImportController.kt:1368:                            s.optString("status") == "completed"
-convoy/HomeStateImportController.kt:1369:                        if (!counted) { allCounted = false; break }
-convoy/HomeStateImportController.kt:1373:                if (!allCounted) {
-convoy/HomeStateImportController.kt:1375:                    json.put("process_state", "killed")
-convoy/HomeStateImportController.kt:1376:                    json.put("killed_at", iso8601Now())
-convoy/HomeStateImportController.kt:1377:                    f.writeText(json.toString(2))
-convoy/HomeStateImportController.kt:1383:                val id = json.optString("manifest_id", "")
-convoy/HomeStateImportController.kt:1390:                val safeId = id.replace(':', '-')
-convoy/HomeStateImportController.kt:1391:                val target = if (safeId.isBlank()) File(history, f.name)
-convoy/HomeStateImportController.kt:1392:                             else File(history, "$safeId.json")
-convoy/HomeStateImportController.kt:1397:                val verdict = if (allCounted) "completed" else "KILLED"
-convoy/HomeStateImportController.kt:1398:                Log.i(TAG, "sweep: ${f.name} classified $verdict -> history/${target.name}")
-convoy/HomeStateImportController.kt:1407:                var moved = false
-convoy/HomeStateImportController.kt:1409:                    target.writeText(f.readText())
-convoy/HomeStateImportController.kt:1410:                    if (target.exists() && target.length() == f.length()) {
-convoy/HomeStateImportController.kt:1411:                        if (f.delete()) {
-convoy/HomeStateImportController.kt:1412:                            moved = true
-convoy/HomeStateImportController.kt:1416:                            Log.w(TAG, "sweep: copied ${f.name} but could not delete " +
-convoy/HomeStateImportController.kt:1417:                                "the original -- duplicate left in imports/")
-convoy/HomeStateImportController.kt:1421:                            "(target ${target.length()}B vs source ${f.length()}B) -- " +
-convoy/HomeStateImportController.kt:1422:                            "original left in place")
-convoy/HomeStateImportController.kt:1423:                        target.delete()
-convoy/HomeStateImportController.kt:1426:                    Log.e(TAG, "sweep: move of ${f.name} failed: ${e.message} -- " +
-convoy/HomeStateImportController.kt:1427:                        "original left in place, will retry next launch")
-convoy/HomeStateImportController.kt:1430:                if (moved) swept++
-convoy/HomeStateImportController.kt:1433:                Log.e(TAG, "sweep: ${f.name} unreadable, left in place: ${e.message}")
-convoy/HomeStateImportController.kt:1436:        Log.i(TAG, "sweep: $swept of ${files.size} manifest(s) moved to history")
-convoy/HomeStateImportController.kt:1437:        return swept
-convoy/HomeStateImportController.kt:1441:     * Does this rider need trail data? Two tests, both misses land on Home State.
-convoy/HomeStateImportController.kt:1443:     *   1. spatial DB FILE does not exist  -> true  (fresh install)
-convoy/HomeStateImportController.kt:1444:     *   2. exists but holds zero trails    -> true
-convoy/HomeStateImportController.kt:1447:     * ⛔ THE FILE CHECK MUST NOT OPEN THE DATABASE. SpatialDbManager.init() calls
-convoy/HomeStateImportController.kt:1448:     * openOrCreateDatabase, which writes an empty schema where a file is missing.
-convoy/HomeStateImportController.kt:1449:     * On a genuinely new install that is harmless; where a file is missing for any
-convoy/HomeStateImportController.kt:1450:     * OTHER reason it is the 08-01 data-loss mechanism. One File.exists() buys the
-convoy/HomeStateImportController.kt:1451:     * guarantee outright instead of depending on when it is safe.
-convoy/HomeStateImportController.kt:1453:     * ⚠ A FAILED QUERY FALLS THROUGH TO THE MAP, not to Home State. Fred: "query
-convoy/HomeStateImportController.kt:1454:     * has to be successful to request home state add." Locked, mid-write or
-convoy/HomeStateImportController.kt:1455:     * unreadable is not evidence of emptiness, and the panel is always available.
-convoy/HomeStateImportController.kt:1457:    fun needsTrailData(ctx: Context): Boolean {
-convoy/HomeStateImportController.kt:1458:        val dbFile = File(SpatialDbManager.dbDir(), "grouptrack_spatial.db")
-convoy/HomeStateImportController.kt:1459:        if (!dbFile.exists()) {
-convoy/HomeStateImportController.kt:1460:            Log.i(TAG, "needsTrailData: no spatial DB file -> HOME STATE")
-convoy/HomeStateImportController.kt:1464:            val db = android.database.sqlite.SQLiteDatabase.openDatabase(
-convoy/HomeStateImportController.kt:1465:                dbFile.absolutePath, null,
-convoy/HomeStateImportController.kt:1466:                android.database.sqlite.SQLiteDatabase.OPEN_READONLY
-convoy/HomeStateImportController.kt:1469:                d.rawQuery("SELECT COUNT(*) FROM trails", null).use { c ->
-convoy/HomeStateImportController.kt:1475:                    Log.w(TAG, "needsTrailData: count unreadable -> RIDE MAP (panel available)")
-convoy/HomeStateImportController.kt:1479:                    Log.i(TAG, "needsTrailData: 0 trails -> HOME STATE")
-convoy/HomeStateImportController.kt:1483:                    Log.i(TAG, "needsTrailData: $count trails -> RIDE MAP")
-convoy/HomeStateImportController.kt:1488:            Log.w(TAG, "needsTrailData: query failed (${e.message}) -> RIDE MAP (panel available)")
-convoy/HomeStateImportController.kt:1493:    fun hasCompletedImport(ctx: Context): Boolean {
-convoy/HomeStateImportController.kt:1494:        val dir = importsDir(ctx)
-convoy/HomeStateImportController.kt:1497:                f.extension == "json" && JSONObject(f.readText()).optString("process_state") == "completed"
-convoy/HomeStateImportController.kt:1504:    private fun iso8601Now(): String =
+convoy/HomeStateImportController.kt:632:                        changed < 0 -> Log.i(TAG, "step 8 skipped (no ownership data)")
+convoy/HomeStateImportController.kt:633:                        changed == 0 -> Log.i(TAG, "step 8: nothing reclassified")
+convoy/HomeStateImportController.kt:639:                        else -> Log.i(TAG, "step 8: $changed trail(s) classified")
+convoy/HomeStateImportController.kt:645:                    Log.w(TAG, "step 8 skipped: databases unavailable")
+convoy/HomeStateImportController.kt:646:                    findStage(sources, CLASSIFY_STAGE_ID)?.put("status", "failed")
+convoy/HomeStateImportController.kt:647:                    writeManifest(mFile, manifest)
+convoy/HomeStateImportController.kt:648:                    publishProgress(areaLabel, totalSources, sources, "running", startMs)
+convoy/HomeStateImportController.kt:652:                Log.e(TAG, "step 8 failed, import stands: ${e.message}")
+convoy/HomeStateImportController.kt:654:                    findStage(sources, CLASSIFY_STAGE_ID)?.put("status", "failed")
+convoy/HomeStateImportController.kt:655:                    writeManifest(mFile, manifest)
+convoy/HomeStateImportController.kt:656:                    publishProgress(areaLabel, totalSources, sources, "running", startMs)
+convoy/HomeStateImportController.kt:658:                downloadDetailFlow.value = null
+convoy/HomeStateImportController.kt:662:            manifest.put("process_state", if (allOk) "completed" else "completed")
+convoy/HomeStateImportController.kt:663:            manifest.put("completed_at", iso8601Now())
+convoy/HomeStateImportController.kt:664:            writeManifest(mFile, manifest)
+convoy/HomeStateImportController.kt:665:            publishProgress(areaLabel, totalSources, sources,
+convoy/HomeStateImportController.kt:666:                if (allOk) "completed" else "failed", startMs)
+convoy/HomeStateImportController.kt:668:            Log.i(TAG, "Home state import ${if (allOk) "COMPLETED" else "COMPLETED WITH ERRORS"} " +
+convoy/HomeStateImportController.kt:669:                "for ${areaLabel} in ${(System.currentTimeMillis() - startMs) / 1000}s")
+convoy/HomeStateImportController.kt:670:            allOk
+convoy/HomeStateImportController.kt:678:    private suspend fun runGeofabrikSource(
+convoy/HomeStateImportController.kt:679:        context: Context, src: JSONObject,
+convoy/HomeStateImportController.kt:680:        bboxSouth: Double, bboxWest: Double, bboxNorth: Double, bboxEast: Double
+convoy/HomeStateImportController.kt:682:        val slug = src.getString("slug")
+convoy/HomeStateImportController.kt:683:        val gpkgUrl = src.getString("gpkg_url")
+convoy/HomeStateImportController.kt:684:        val pbfUrl = src.getString("pbf_url")   // PBFDL-2026-08-30
+convoy/HomeStateImportController.kt:698:        updateSourceStep(src, "Downloading tags", pbfUrl)
+convoy/HomeStateImportController.kt:699:        val pbfFile = OsmImportStage.pbfFor(context, slug)
+convoy/HomeStateImportController.kt:700:        if (!pbfFile.exists()) {
+convoy/HomeStateImportController.kt:701:            val okPbf = downloadFile(pbfUrl, pbfFile, src)
+convoy/HomeStateImportController.kt:702:            if (!okPbf) {
+convoy/HomeStateImportController.kt:703:                Log.e(TAG, "PBF download failed for $slug")
+convoy/HomeStateImportController.kt:712:        if (!OsmImportStage.verifyPbf(pbfFile)) {
+convoy/HomeStateImportController.kt:713:            Log.e(TAG, "PBF failed verification for $slug, removing: ${pbfFile.name}")
+convoy/HomeStateImportController.kt:714:            pbfFile.delete()
+convoy/HomeStateImportController.kt:717:        downloadDetailFlow.value = null
+convoy/HomeStateImportController.kt:718:        Log.i(TAG, "PBF complete: ${pbfFile.name} (${pbfFile.length() / 1_048_576} MB)")
+convoy/HomeStateImportController.kt:721:        updateSourceStep(src, "Downloading", "$gpkgUrl")
+convoy/HomeStateImportController.kt:722:        val zipFile = OsmImportStage.zipFor(context, slug)
+convoy/HomeStateImportController.kt:723:        if (!zipFile.exists()) {
+convoy/HomeStateImportController.kt:724:            val ok = downloadFile(gpkgUrl, zipFile, src)
+convoy/HomeStateImportController.kt:726:                Log.e(TAG, "Download failed for $slug")
+convoy/HomeStateImportController.kt:730:        downloadDetailFlow.value = null
+convoy/HomeStateImportController.kt:731:        Log.i(TAG, "Download complete: ${zipFile.name} (${zipFile.length() / 1_048_576} MB)")
+convoy/HomeStateImportController.kt:745:        val tagsFile = OsmImportStage.tagsFor(context, slug)
+convoy/HomeStateImportController.kt:746:        if (!OsmImportStage.verifyTags(tagsFile)) {
+convoy/HomeStateImportController.kt:747:            updateSourceStep(src, "Reading permissions", "starting")
+convoy/HomeStateImportController.kt:748:            val builtRows = withContext(Dispatchers.IO) {
+convoy/HomeStateImportController.kt:749:                OsmPbfTagReader.build(pbfFile, tagsFile) { waysWalked, rowsWritten ->
+convoy/HomeStateImportController.kt:750:                    downloadDetailFlow.value =
+convoy/HomeStateImportController.kt:751:                        "Reading trail permissions - " +
+convoy/HomeStateImportController.kt:752:                            "${waysWalked / 1000}k ways read, $rowsWritten kept"
+convoy/HomeStateImportController.kt:755:            downloadDetailFlow.value = null
+convoy/HomeStateImportController.kt:756:            if (builtRows <= 0) {
+convoy/HomeStateImportController.kt:759:                Log.e(TAG, "Tag pass failed for $slug (rows=$builtRows)")
+convoy/HomeStateImportController.kt:762:            Log.i(TAG, "Tag pass complete for $slug: $builtRows rows")
+convoy/HomeStateImportController.kt:764:            Log.i(TAG, "Tag table already present for $slug, skipping tag pass")
+convoy/HomeStateImportController.kt:768:        OsmImportLedger.create(
+convoy/HomeStateImportController.kt:769:            context, slug,
+convoy/HomeStateImportController.kt:770:            OsmImportStage.displayName(slug),
+convoy/HomeStateImportController.kt:771:            "Geofabrik ${src.optString("name", slug)} (auto download)",
+convoy/HomeStateImportController.kt:772:            OsmImportLedger.priorImports(context, slug)
+convoy/HomeStateImportController.kt:774:        Log.i(TAG, "Ledger created for $slug")
+convoy/HomeStateImportController.kt:777:        updateSourceStep(src, "Extracting", null)
+convoy/HomeStateImportController.kt:778:        OsmExtractWorker.enqueue(context, slug)
+convoy/HomeStateImportController.kt:779:        val extractOk = awaitWorker(context, OsmExtractWorker.uniqueName(slug))
+convoy/HomeStateImportController.kt:780:        if (!extractOk) {
+convoy/HomeStateImportController.kt:781:            Log.e(TAG, "Extract failed for $slug")
+convoy/HomeStateImportController.kt:790:        val bbox = doubleArrayOf(bboxSouth, bboxWest, bboxNorth, bboxEast)
+convoy/HomeStateImportController.kt:793:        val scope = if (src.optString("process") == "geofabrik_area") "area" else "state"
+convoy/HomeStateImportController.kt:794:        OsmImportLedger.setPendingImport(context, slug, scope, bbox)
+convoy/HomeStateImportController.kt:795:        Log.i(TAG, "setPendingImport for $slug: bbox " +
+convoy/HomeStateImportController.kt:796:            "S=$bboxSouth W=$bboxWest N=$bboxNorth E=$bboxEast")
+convoy/HomeStateImportController.kt:799:        updateSourceStep(src, "Importing", null)
+convoy/HomeStateImportController.kt:800:        OsmImportWorker.enqueue(context, slug)
+convoy/HomeStateImportController.kt:801:        val importOk = awaitWorker(context, OsmImportWorker.uniqueName(slug))
+convoy/HomeStateImportController.kt:802:        if (!importOk) {
+convoy/HomeStateImportController.kt:803:            Log.e(TAG, "Import failed for $slug")
+convoy/HomeStateImportController.kt:808:        val ledger = OsmImportLedger.read(context, slug)
+convoy/HomeStateImportController.kt:809:        val imports = ledger?.optJSONArray("imports")
+convoy/HomeStateImportController.kt:810:        if (imports != null && imports.length() > 0) {
+convoy/HomeStateImportController.kt:811:            val last = imports.getJSONObject(imports.length() - 1)
+convoy/HomeStateImportController.kt:812:            val count = last.optInt("inserted", 0) + last.optInt("updated", 0)
+convoy/HomeStateImportController.kt:813:            src.put("imported", count)
+convoy/HomeStateImportController.kt:818:            val gAdds    = last.optInt("inserted", -1)
+convoy/HomeStateImportController.kt:819:            val gDropped = last.optInt("dropped", -1)
+convoy/HomeStateImportController.kt:820:            val gAliased = last.optInt("aliased", -1)
+convoy/HomeStateImportController.kt:821:            val gErrors  = last.optInt("errors", -1)
+convoy/HomeStateImportController.kt:822:            val gFound   = last.optInt("found", -1)
+convoy/HomeStateImportController.kt:823:            val gDupes   = if (gDropped < 0 && gAliased < 0) -1
+convoy/HomeStateImportController.kt:824:                           else maxOf(gDropped, 0) + maxOf(gAliased, 0)
+convoy/HomeStateImportController.kt:825:            src.put("processed", gFound)
+convoy/HomeStateImportController.kt:829:            src.put("selected", gFound)
+convoy/HomeStateImportController.kt:830:            src.put("dupes", gDupes)
+convoy/HomeStateImportController.kt:831:            src.put("adds", gAdds)
+convoy/HomeStateImportController.kt:832:            src.put("errors", gErrors)
+convoy/HomeStateImportController.kt:836:        updateSourceStep(src, "Cleanup", null)
+convoy/HomeStateImportController.kt:837:        OsmImportStage.discardState(context, slug)
+convoy/HomeStateImportController.kt:845:    private suspend fun runCatalogSource(
+convoy/HomeStateImportController.kt:846:        context: Context, src: JSONObject,
+convoy/HomeStateImportController.kt:847:        bboxSouth: Double, bboxWest: Double, bboxNorth: Double, bboxEast: Double
+convoy/HomeStateImportController.kt:849:        val sourceId = src.getString("id")
+convoy/HomeStateImportController.kt:850:        updateSourceStep(src, "Importing", null)
+convoy/HomeStateImportController.kt:853:            val results = TrailImporter.importByArea(
+convoy/HomeStateImportController.kt:854:                context, listOf(sourceId),
+convoy/HomeStateImportController.kt:855:                bboxSouth, bboxWest, bboxNorth, bboxEast
+convoy/HomeStateImportController.kt:857:            val total = results.sumOf { it.inserted }
+convoy/HomeStateImportController.kt:858:            src.put("imported", total)
+convoy/HomeStateImportController.kt:863:            val pDropped  = results.sumOf { it.dropped }
+convoy/HomeStateImportController.kt:864:            val pAliased  = results.sumOf { it.aliased }
+convoy/HomeStateImportController.kt:865:            val pSkipped  = results.sumOf { it.skipped }
+convoy/HomeStateImportController.kt:866:            val pRejected = results.sumOf { it.rejected }
+convoy/HomeStateImportController.kt:867:            val pErrors   = results.sumOf { it.errors }
+convoy/HomeStateImportController.kt:868:            val pProcessed = total + pDropped + pAliased + pSkipped + pRejected + pErrors
+convoy/HomeStateImportController.kt:869:            src.put("processed", pProcessed)
+convoy/HomeStateImportController.kt:870:            src.put("selected", pProcessed - pRejected)
+convoy/HomeStateImportController.kt:871:            src.put("dupes", pDropped + pAliased + pSkipped)
+convoy/HomeStateImportController.kt:872:            src.put("adds", total)
+convoy/HomeStateImportController.kt:873:            src.put("errors", pErrors)
+convoy/HomeStateImportController.kt:874:            Log.i(TAG, "Catalog source $sourceId: $total records")
+convoy/HomeStateImportController.kt:877:            Log.e(TAG, "Catalog source $sourceId failed", e)
+convoy/HomeStateImportController.kt:884:    private fun findCatalogSourcesInBbox(
+convoy/HomeStateImportController.kt:885:        context: Context,
+convoy/HomeStateImportController.kt:886:        south: Double, west: Double, north: Double, east: Double
+convoy/HomeStateImportController.kt:891:            val all = loadSourceCatalog(context)
+convoy/HomeStateImportController.kt:892:            all.filter { src ->
+convoy/HomeStateImportController.kt:893:                src.status != "display_only_not_queryable" &&
+convoy/HomeStateImportController.kt:894:                src.boundaryN >= south && src.boundaryS <= north &&
+convoy/HomeStateImportController.kt:895:                src.boundaryE >= west && src.boundaryW <= east
+convoy/HomeStateImportController.kt:898:            Log.e(TAG, "Failed to query catalog sources", e)
+convoy/HomeStateImportController.kt:899:            emptyList()
+convoy/HomeStateImportController.kt:906:     * OWNFETCH-2026-09-02: retry with backoff, and a redirect DEPTH LIMIT.
+convoy/HomeStateImportController.kt:908:     * ⛔ Geofabrik has failed THREE times in one evening -- twice on the network
+convoy/HomeStateImportController.kt:909:     * and once when a crash killed the process mid-transfer -- and each failure
+convoy/HomeStateImportController.kt:910:     * silently skipped everything downstream, including step 8. There was no
+convoy/HomeStateImportController.kt:911:     * retry at all; one bad moment lost a twenty-minute import.
+convoy/HomeStateImportController.kt:912:     * ⚠ And the redirect follow was UNBOUNDED recursion. A server that redirects
+convoy/HomeStateImportController.kt:913:     * to itself would have blown the stack.
+convoy/HomeStateImportController.kt:916:     * OWNFETCH-2026-09-02: SITLA surface land ownership, from the UGRC hub.
+convoy/HomeStateImportController.kt:917:     * ⚠ THE ITEM ID IS UTAH'S. A second state needs its own id, so this belongs
+convoy/HomeStateImportController.kt:918:     * in the source catalogue eventually rather than as a constant here. It is
+convoy/HomeStateImportController.kt:919:     * a constant tonight because one URL closes the loop and the catalogue
+convoy/HomeStateImportController.kt:922:    private const val OWNERSHIP_URL =
+convoy/HomeStateImportController.kt:924:            "2f59731608274691922d2d16bde2404f_0/downloads/data" +
+convoy/HomeStateImportController.kt:925:            "?format=geojson&spatialRefId=4326&where=1%3D1"
+convoy/HomeStateImportController.kt:927:    private fun downloadFile(
+convoy/HomeStateImportController.kt:928:        urlStr: String, dest: File, activeSrc: JSONObject? = null,
+convoy/HomeStateImportController.kt:929:        attempt: Int = 1, depth: Int = 0,
+convoy/HomeStateImportController.kt:931:        if (depth > 5) {
+convoy/HomeStateImportController.kt:932:            Log.e(TAG, "Download: too many redirects for $urlStr")
+convoy/HomeStateImportController.kt:935:        val ok = downloadOnce(urlStr, dest, activeSrc, depth)
+convoy/HomeStateImportController.kt:940:        if (attempt >= 3) {
+convoy/HomeStateImportController.kt:941:            Log.e(TAG, "Download: giving up on $urlStr after $attempt attempts")
+convoy/HomeStateImportController.kt:944:        val wait = if (attempt == 1) 2000L else 8000L
+convoy/HomeStateImportController.kt:945:        Log.w(TAG, "Download: attempt $attempt failed, retrying in ${wait}ms")
+convoy/HomeStateImportController.kt:946:        try { Thread.sleep(wait) } catch (_: InterruptedException) { return false }
+convoy/HomeStateImportController.kt:947:        return downloadFile(urlStr, dest, activeSrc, attempt + 1, depth)
+convoy/HomeStateImportController.kt:950:    private fun downloadOnce(
+convoy/HomeStateImportController.kt:951:        urlStr: String, dest: File, activeSrc: JSONObject?, depth: Int,
+convoy/HomeStateImportController.kt:954:            dest.parentFile?.mkdirs()
+convoy/HomeStateImportController.kt:955:            val conn = URL(urlStr).openConnection() as HttpURLConnection
+convoy/HomeStateImportController.kt:956:            conn.connectTimeout = 30_000
+convoy/HomeStateImportController.kt:957:            conn.readTimeout = 60_000
+convoy/HomeStateImportController.kt:958:            conn.connect()
+convoy/HomeStateImportController.kt:959:            conn.instanceFollowRedirects = true
+convoy/HomeStateImportController.kt:960:            if (conn.responseCode == 302 || conn.responseCode == 301) {
+convoy/HomeStateImportController.kt:961:                val redirect = conn.getHeaderField("Location")
+convoy/HomeStateImportController.kt:962:                conn.disconnect()
+convoy/HomeStateImportController.kt:964:                if (redirect != null)
+convoy/HomeStateImportController.kt:965:                    return downloadFile(redirect, dest, activeSrc, 1, depth + 1)
+convoy/HomeStateImportController.kt:968:            if (conn.responseCode != 200) {
+convoy/HomeStateImportController.kt:969:                Log.e(TAG, "Download HTTP ${conn.responseCode} for $urlStr")
+convoy/HomeStateImportController.kt:970:                conn.disconnect()
+convoy/HomeStateImportController.kt:973:            val totalBytes = conn.contentLength.toLong()
+convoy/HomeStateImportController.kt:974:            var downloaded = 0L
+convoy/HomeStateImportController.kt:975:            val tmp = File(dest.parent, dest.name + ".tmp")
+convoy/HomeStateImportController.kt:977:                conn.inputStream.use { inp ->
+convoy/HomeStateImportController.kt:980:                    while (inp.read(buf).also { n = it } > 0) {
+convoy/HomeStateImportController.kt:981:                        out.write(buf, 0, n)
+convoy/HomeStateImportController.kt:982:                        downloaded += n
+convoy/HomeStateImportController.kt:983:                        if (activeSrc != null && totalBytes > 0) {
+convoy/HomeStateImportController.kt:984:                            val dlMB = downloaded / 1_048_576
+convoy/HomeStateImportController.kt:985:                            val totMB = totalBytes / 1_048_576
+convoy/HomeStateImportController.kt:986:                            val detail = "$dlMB MB of $totMB MB"
+convoy/HomeStateImportController.kt:987:                            activeSrc.put("step_detail", detail)
+convoy/HomeStateImportController.kt:988:                            downloadDetailFlow.value = detail
+convoy/HomeStateImportController.kt:993:            conn.disconnect()
+convoy/HomeStateImportController.kt:994:            tmp.renameTo(dest)
+convoy/HomeStateImportController.kt:997:            Log.e(TAG, "Download failed: $urlStr", e)
+convoy/HomeStateImportController.kt:1004:    private suspend fun awaitWorker(context: Context, uniqueName: String): Boolean {
+convoy/HomeStateImportController.kt:1008:                val infos = wm.getWorkInfosForUniqueWork(uniqueName).get()
+convoy/HomeStateImportController.kt:1009:                val wi = infos.firstOrNull() ?: break
+convoy/HomeStateImportController.kt:1011:                    WorkInfo.State.SUCCEEDED -> return true
+convoy/HomeStateImportController.kt:1012:                    WorkInfo.State.FAILED, WorkInfo.State.CANCELLED -> return false
+convoy/HomeStateImportController.kt:1018:                        workerDetail(wi)?.let { downloadDetailFlow.value = it }
+convoy/HomeStateImportController.kt:1027:            downloadDetailFlow.value = null
+convoy/HomeStateImportController.kt:1032:     * WORKERPROGRESS-2026-09-07: the worker's progress as one line, or null if
+convoy/HomeStateImportController.kt:1033:     * it has not published anything yet.
+convoy/HomeStateImportController.kt:1035:     * ⚠ PARSED HERE, not through OsmExtractProgress, and defensively -- the
+convoy/HomeStateImportController.kt:1036:     * same stance OsmImportPanel takes on the same string. A format change must
+convoy/HomeStateImportController.kt:1037:     * degrade this label; it must never crash a running import. Every failure
+convoy/HomeStateImportController.kt:1038:     * path returns null, which leaves the previous line in place.
+convoy/HomeStateImportController.kt:1042:    private fun workerDetail(wi: WorkInfo): String? {
+convoy/HomeStateImportController.kt:1044:            val raw = wi.progress.getString("osm_extract_progress")
+convoy/HomeStateImportController.kt:1046:            val arr = org.json.JSONArray(raw)
+convoy/HomeStateImportController.kt:1048:                val o = arr.optJSONObject(i) ?: continue
+convoy/HomeStateImportController.kt:1049:                if (o.optBoolean("complete", false)) continue
+convoy/HomeStateImportController.kt:1051:                val done = o.optInt("done", 0)
+convoy/HomeStateImportController.kt:1052:                val total = o.optInt("total", 0)
+convoy/HomeStateImportController.kt:1055:                if (total > 0) {
+convoy/HomeStateImportController.kt:1056:                    sb.append(" - ").append(done).append(" of ").append(total)
+convoy/HomeStateImportController.kt:1057:                } else if (done > 0) {
+convoy/HomeStateImportController.kt:1058:                    sb.append(" - ").append(done)
+convoy/HomeStateImportController.kt:1062:                if (eta > 0) sb.append(" (~").append(eta).append("s)")
+convoy/HomeStateImportController.kt:1063:                return sb.toString()
+convoy/HomeStateImportController.kt:1073:    private fun updateSourceStep(src: JSONObject, step: String, detail: String?) {
+convoy/HomeStateImportController.kt:1074:        src.put("current_step", step)
+convoy/HomeStateImportController.kt:1075:        if (detail != null) src.put("step_detail", detail)
+convoy/HomeStateImportController.kt:1076:        else src.remove("step_detail")
+convoy/HomeStateImportController.kt:1079:    private fun publishProgress(
+convoy/HomeStateImportController.kt:1080:        stateName: String, total: Int, sources: JSONArray,
+convoy/HomeStateImportController.kt:1081:        phase: String, startMs: Long
+convoy/HomeStateImportController.kt:1083:        val list = (0 until sources.length()).map { i ->
+convoy/HomeStateImportController.kt:1084:            val s = sources.getJSONObject(i)
+convoy/HomeStateImportController.kt:1085:            ImportSourceProgress(
+convoy/HomeStateImportController.kt:1089:                status = s.getString("status"),
+convoy/HomeStateImportController.kt:1090:                imported = s.optInt("imported", 0),
+convoy/HomeStateImportController.kt:1093:                processed = s.optInt("processed", -1),
+convoy/HomeStateImportController.kt:1094:                selected = s.optInt("selected", -1),
+convoy/HomeStateImportController.kt:1095:                dupes = s.optInt("dupes", -1),
+convoy/HomeStateImportController.kt:1096:                adds = s.optInt("adds", -1),
+convoy/HomeStateImportController.kt:1097:                errors = s.optInt("errors", -1),
+convoy/HomeStateImportController.kt:1098:                currentStep = s.optString("current_step", null),
+convoy/HomeStateImportController.kt:1099:                stepDetail = s.optString("step_detail", null),
+convoy/HomeStateImportController.kt:1102:        _progress.value = ImportProgress(
+convoy/HomeStateImportController.kt:1103:            stateName = stateName,
+convoy/HomeStateImportController.kt:1104:            totalSources = total,
+convoy/HomeStateImportController.kt:1105:            currentSourceIndex = list.indexOfFirst { it.status == "in_progress" },
+convoy/HomeStateImportController.kt:1106:            sources = list,
+convoy/HomeStateImportController.kt:1107:            phase = phase,
+convoy/HomeStateImportController.kt:1108:            elapsedMs = System.currentTimeMillis() - startMs,
+convoy/HomeStateImportController.kt:1115:     * Scan the imports directory for any manifest with process_state == "in_progress".
+convoy/HomeStateImportController.kt:1116:     * Returns the file and parsed JSON, or null if none found.
+convoy/HomeStateImportController.kt:1118:    fun findIncompleteImport(ctx: Context): Pair<File, JSONObject>? {
+convoy/HomeStateImportController.kt:1119:        val dir = importsDir(ctx)
+convoy/HomeStateImportController.kt:1120:        if (!dir.exists()) return null
+convoy/HomeStateImportController.kt:1122:            ?.filter { it.extension == "json" }
+convoy/HomeStateImportController.kt:1125:                    val j = JSONObject(f.readText())
+convoy/HomeStateImportController.kt:1126:                    if (j.optString("process_state") == "in_progress") f to j else null
+convoy/HomeStateImportController.kt:1129:            ?.firstOrNull()
+convoy/HomeStateImportController.kt:1133:     * True if at least one completed import manifest exists.
+convoy/HomeStateImportController.kt:1134:     * No completed manifests = never imported = fresh install.
+convoy/HomeStateImportController.kt:1143:     * Resolve every manifest left in imports/. Runs EVERY launch.
+convoy/HomeStateImportController.kt:1145:     *   every source has a count  -> completed -> move to history
+convoy/HomeStateImportController.kt:1146:     *   any source has no count   -> stamp killed -> move to history
+convoy/HomeStateImportController.kt:1148:     * Afterwards imports/ is empty. Fred, 08-21: "completed is swept,
+convoy/HomeStateImportController.kt:1149:     * incomplete is killed on startup. Period."
+convoy/HomeStateImportController.kt:1151:     * ⛔ ORDER IS LOAD-BEARING: STAMP FIRST, THEN MOVE. Same reason
+convoy/HomeStateImportController.kt:1152:     * OsmImportLedger.archiveLedger() renames before discardState() sweeps. If
+convoy/HomeStateImportController.kt:1153:     * the stamp fails nothing has moved and it retries next launch. If the move
+convoy/HomeStateImportController.kt:1154:     * fails after a good stamp, a marked file sits in imports/ -- visible and
+convoy/HomeStateImportController.kt:1155:     * recoverable. The state to avoid is a file in history that nobody stamped,
+convoy/HomeStateImportController.kt:1156:     * because then "killed" has to be INFERRED rather than read.
+convoy/HomeStateImportController.kt:1158:     * ⚠ Manifests written before 2026-08-21 have no manifest_id and none of the
+convoy/HomeStateImportController.kt:1159:     * five recap counters -- only `imported`. ABSENT FIELDS MEAN OLD, NOT BROKEN.
+convoy/HomeStateImportController.kt:1160:     * A pre-today completed manifest must sweep as completed; if this test
+convoy/HomeStateImportController.kt:1161:     * demanded the new fields, a device holding 43,348 records would read as
+convoy/HomeStateImportController.kt:1162:     * never-imported.
+convoy/HomeStateImportController.kt:1164:     * ⚠ NEVER call this anywhere but the startup job. Run while an import is
+convoy/HomeStateImportController.kt:1165:     * live, it would archive the controller's own manifest out from under it.
+convoy/HomeStateImportController.kt:1168:     * TRAILFILTER-2026-08-24K -- wipe the trails table exactly once per device.
+convoy/HomeStateImportController.kt:1170:     * WHY A WIPE. The filter change above stops `path` and `bridleway` arriving
+convoy/HomeStateImportController.kt:1171:     * in FUTURE imports. It does nothing about the ones already stored, and
+convoy/HomeStateImportController.kt:1172:     * they cannot be picked out: `fclass` is extracted into the skinny DB and
+convoy/HomeStateImportController.kt:1173:     * never carried into `trails`, so a foot path and a jeep track are the same
+convoy/HomeStateImportController.kt:1174:     * twelve columns once they land. There is no WHERE clause that finds them.
+convoy/HomeStateImportController.kt:1176:     * Fred, 08-24: "clear the trails period. They all import together in the
+convoy/HomeStateImportController.kt:1177:     * install." Which is the honest move and costs nothing extra -- the gate
+convoy/HomeStateImportController.kt:1178:     * already launches the home-state picker at trails.count == 0, so the wipe
+convoy/HomeStateImportController.kt:1179:     * IS the trigger. No dialog: the picker explains itself.
+convoy/HomeStateImportController.kt:1181:     * ⚠⚠ UNREADABLE IS NOT ABSENT. If the marker cannot be read we must NOT
+convoy/HomeStateImportController.kt:1182:     * conclude "never ran" -- that is the create-if-missing shape that
+convoy/HomeStateImportController.kt:1183:     * destroyed the spatial DB on 2026-08-01, and here it would wipe a rider's
+convoy/HomeStateImportController.kt:1184:     * trails on every launch. exists() is the whole test, and a File.exists()
+convoy/HomeStateImportController.kt:1185:     * that throws means we do nothing.
+convoy/HomeStateImportController.kt:1187:     * ⚠ THE MARKER IS WRITTEN AFTER THE DELETE, never before. A run that dies
+convoy/HomeStateImportController.kt:1188:     * half way leaves no marker and retries; a marker written first would turn
+convoy/HomeStateImportController.kt:1189:     * one interruption into a permanent half-cleared database.
+convoy/HomeStateImportController.kt:1191:     * Returns rows removed, or -1 when it did not run.
+convoy/HomeStateImportController.kt:1193:    fun clearTrailsOnce(ctx: Context): Int {
+convoy/HomeStateImportController.kt:1213:        val marker = File(SpatialDbManager.dbDir(), ".trails_cleared_2026-09-02B")
+convoy/HomeStateImportController.kt:1219:        if (!marker.exists()) {
+convoy/HomeStateImportController.kt:1220:            val legacy = listOf(
+convoy/HomeStateImportController.kt:1221:                File(importsDir(ctx), "trails_cleared_2026-09-02B.json"),
+convoy/HomeStateImportController.kt:1222:                File(File(importsDir(ctx), "history"),
+convoy/HomeStateImportController.kt:1223:                    "trails_cleared_2026-09-02B.json")
+convoy/HomeStateImportController.kt:1225:            val found = try {
+convoy/HomeStateImportController.kt:1226:                legacy.firstOrNull { it.exists() }
+convoy/HomeStateImportController.kt:1229:                Log.e(TAG, "clearTrailsOnce: legacy marker unreadable: " + e.message)
+convoy/HomeStateImportController.kt:1232:            if (found != null) {
+convoy/HomeStateImportController.kt:1233:                writeClearMarker(marker, -1, -1)
+convoy/HomeStateImportController.kt:1236:                    "clearTrailsOnce: adopted the prior marker at " +
+convoy/HomeStateImportController.kt:1237:                        found.absolutePath + " -- NOT clearing again"
+convoy/HomeStateImportController.kt:1243:        val alreadyRan = try {
+convoy/HomeStateImportController.kt:1244:            marker.exists()
+convoy/HomeStateImportController.kt:1248:            Log.e(TAG, "clearTrailsOnce: marker unreadable, standing down: " + e.message)
+convoy/HomeStateImportController.kt:1251:        if (alreadyRan) return -1
+convoy/HomeStateImportController.kt:1253:        val dbFile = File(SpatialDbManager.dbDir(), "grouptrack_spatial.db")
+convoy/HomeStateImportController.kt:1254:        if (!dbFile.exists()) {
+convoy/HomeStateImportController.kt:1258:            writeClearMarker(marker, 0)
+convoy/HomeStateImportController.kt:1259:            Log.i(TAG, "clearTrailsOnce: no spatial DB yet, marked and skipped")
+convoy/HomeStateImportController.kt:1263:        var removed = 0
+convoy/HomeStateImportController.kt:1264:        var props = 0
+convoy/HomeStateImportController.kt:1266:            val db = android.database.sqlite.SQLiteDatabase.openDatabase(
+convoy/HomeStateImportController.kt:1267:                dbFile.absolutePath, null,
+convoy/HomeStateImportController.kt:1268:                android.database.sqlite.SQLiteDatabase.OPEN_READWRITE
+convoy/HomeStateImportController.kt:1271:                d.rawQuery("SELECT COUNT(*) FROM trails", null).use { c ->
+convoy/HomeStateImportController.kt:1272:                    if (c.moveToFirst()) removed = c.getInt(0)
+convoy/HomeStateImportController.kt:1274:                d.execSQL("DELETE FROM trails")
+convoy/HomeStateImportController.kt:1296:            val extFile = File(SpatialDbManager.dbDir(), "grouptrack_data.db")
+convoy/HomeStateImportController.kt:1297:            if (extFile.exists()) {
+convoy/HomeStateImportController.kt:1298:                val ext = android.database.sqlite.SQLiteDatabase.openDatabase(
+convoy/HomeStateImportController.kt:1299:                    extFile.absolutePath, null,
+convoy/HomeStateImportController.kt:1300:                    android.database.sqlite.SQLiteDatabase.OPEN_READWRITE
+convoy/HomeStateImportController.kt:1305:                            if (c.moveToFirst()) props = c.getInt(0)
+convoy/HomeStateImportController.kt:1307:                        e.execSQL("DELETE FROM trail_properties")
+convoy/HomeStateImportController.kt:1308:                    } catch (inner: Exception) {
+convoy/HomeStateImportController.kt:1311:                        Log.i(TAG, "clearTrailsOnce: no trail_properties (" +
+convoy/HomeStateImportController.kt:1312:                            inner.message + ")")
+convoy/HomeStateImportController.kt:1318:            Log.e(TAG, "clearTrailsOnce: FAILED, will retry: " + e.message)
+convoy/HomeStateImportController.kt:1322:        writeClearMarker(marker, removed, props)
+convoy/HomeStateImportController.kt:1323:        Log.i(TAG, "clearTrailsOnce: removed " + removed + " trail(s) and " +
+convoy/HomeStateImportController.kt:1324:            props + " trail_properties row(s) -- home state picker will " +
+convoy/HomeStateImportController.kt:1325:            "re-import under the new filter")
+convoy/HomeStateImportController.kt:1326:        return removed
+convoy/HomeStateImportController.kt:1329:    /** Best effort. The delete has already happened by the time this is called,
+convoy/HomeStateImportController.kt:1330:     *  so a failure here costs one repeated wipe, not a corrupt database. */
+convoy/HomeStateImportController.kt:1331:    private fun writeClearMarker(marker: File, removed: Int, props: Int = 0) {
+convoy/HomeStateImportController.kt:1333:            marker.parentFile?.mkdirs()
+convoy/HomeStateImportController.kt:1334:            val o = JSONObject()
+convoy/HomeStateImportController.kt:1335:            o.put("reason", "TRAILCLEAR-2026-08-24L: path and bridleway dropped from the OSM filter; trails and trail_properties both cleared")
+convoy/HomeStateImportController.kt:1336:            o.put("trails_removed", removed)
+convoy/HomeStateImportController.kt:1337:            o.put("properties_removed", props)
+convoy/HomeStateImportController.kt:1338:            o.put("cleared_at", java.time.Instant.now().toString())
+convoy/HomeStateImportController.kt:1339:            marker.writeText(o.toString(2))
+convoy/HomeStateImportController.kt:1341:            Log.e(TAG, "clearTrailsOnce: marker write failed: " + e.message)
+convoy/HomeStateImportController.kt:1345:    fun sweepManifests(ctx: Context): Int {
+convoy/HomeStateImportController.kt:1346:        val dir = importsDir(ctx)
+convoy/HomeStateImportController.kt:1347:        val history = File(dir, "history").apply { if (!exists()) mkdirs() }
+convoy/HomeStateImportController.kt:1359:        val files = (dir.listFiles { f -> f.isFile && f.extension == "json" } ?: return 0)
+convoy/HomeStateImportController.kt:1360:            .filter { f ->
+convoy/HomeStateImportController.kt:1362:                    JSONObject(f.readText()).optJSONArray("sources") != null
+convoy/HomeStateImportController.kt:1364:                    Log.w(TAG, "sweep: " + f.name + " is not a manifest, left alone")
+convoy/HomeStateImportController.kt:1368:        if (files.isEmpty()) {
+convoy/HomeStateImportController.kt:1369:            Log.i(TAG, "sweep: imports/ is empty, nothing to do")
+convoy/HomeStateImportController.kt:1373:        var swept = 0
+convoy/HomeStateImportController.kt:1374:        for (f in files) {
+convoy/HomeStateImportController.kt:1376:                val json = JSONObject(f.readText())
+convoy/HomeStateImportController.kt:1377:                val sources = json.optJSONArray("sources")
+convoy/HomeStateImportController.kt:1381:                var allCounted = sources != null && sources.length() > 0
+convoy/HomeStateImportController.kt:1382:                if (sources != null) {
+convoy/HomeStateImportController.kt:1383:                    for (i in 0 until sources.length()) {
+convoy/HomeStateImportController.kt:1384:                        val s = sources.getJSONObject(i)
+convoy/HomeStateImportController.kt:1385:                        val counted = s.has("imported") &&
+convoy/HomeStateImportController.kt:1386:                            s.optString("status") == "completed"
+convoy/HomeStateImportController.kt:1387:                        if (!counted) { allCounted = false; break }
+convoy/HomeStateImportController.kt:1391:                if (!allCounted) {
+convoy/HomeStateImportController.kt:1393:                    json.put("process_state", "killed")
+convoy/HomeStateImportController.kt:1394:                    json.put("killed_at", iso8601Now())
+convoy/HomeStateImportController.kt:1395:                    f.writeText(json.toString(2))
+convoy/HomeStateImportController.kt:1401:                val id = json.optString("manifest_id", "")
+convoy/HomeStateImportController.kt:1408:                val safeId = id.replace(':', '-')
+convoy/HomeStateImportController.kt:1409:                val target = if (safeId.isBlank()) File(history, f.name)
+convoy/HomeStateImportController.kt:1410:                             else File(history, "$safeId.json")
+convoy/HomeStateImportController.kt:1415:                val verdict = if (allCounted) "completed" else "KILLED"
+convoy/HomeStateImportController.kt:1416:                Log.i(TAG, "sweep: ${f.name} classified $verdict -> history/${target.name}")
+convoy/HomeStateImportController.kt:1425:                var moved = false
+convoy/HomeStateImportController.kt:1427:                    target.writeText(f.readText())
+convoy/HomeStateImportController.kt:1428:                    if (target.exists() && target.length() == f.length()) {
+convoy/HomeStateImportController.kt:1429:                        if (f.delete()) {
+convoy/HomeStateImportController.kt:1430:                            moved = true
+convoy/HomeStateImportController.kt:1434:                            Log.w(TAG, "sweep: copied ${f.name} but could not delete " +
+convoy/HomeStateImportController.kt:1435:                                "the original -- duplicate left in imports/")
+convoy/HomeStateImportController.kt:1439:                            "(target ${target.length()}B vs source ${f.length()}B) -- " +
+convoy/HomeStateImportController.kt:1440:                            "original left in place")
+convoy/HomeStateImportController.kt:1441:                        target.delete()
+convoy/HomeStateImportController.kt:1444:                    Log.e(TAG, "sweep: move of ${f.name} failed: ${e.message} -- " +
+convoy/HomeStateImportController.kt:1445:                        "original left in place, will retry next launch")
+convoy/HomeStateImportController.kt:1448:                if (moved) swept++
+convoy/HomeStateImportController.kt:1451:                Log.e(TAG, "sweep: ${f.name} unreadable, left in place: ${e.message}")
+convoy/HomeStateImportController.kt:1454:        Log.i(TAG, "sweep: $swept of ${files.size} manifest(s) moved to history")
+convoy/HomeStateImportController.kt:1455:        return swept
+convoy/HomeStateImportController.kt:1459:     * Does this rider need trail data? Two tests, both misses land on Home State.
+convoy/HomeStateImportController.kt:1461:     *   1. spatial DB FILE does not exist  -> true  (fresh install)
+convoy/HomeStateImportController.kt:1462:     *   2. exists but holds zero trails    -> true
+convoy/HomeStateImportController.kt:1465:     * ⛔ THE FILE CHECK MUST NOT OPEN THE DATABASE. SpatialDbManager.init() calls
+convoy/HomeStateImportController.kt:1466:     * openOrCreateDatabase, which writes an empty schema where a file is missing.
+convoy/HomeStateImportController.kt:1467:     * On a genuinely new install that is harmless; where a file is missing for any
+convoy/HomeStateImportController.kt:1468:     * OTHER reason it is the 08-01 data-loss mechanism. One File.exists() buys the
+convoy/HomeStateImportController.kt:1469:     * guarantee outright instead of depending on when it is safe.
+convoy/HomeStateImportController.kt:1471:     * ⚠ A FAILED QUERY FALLS THROUGH TO THE MAP, not to Home State. Fred: "query
+convoy/HomeStateImportController.kt:1472:     * has to be successful to request home state add." Locked, mid-write or
+convoy/HomeStateImportController.kt:1473:     * unreadable is not evidence of emptiness, and the panel is always available.
+convoy/HomeStateImportController.kt:1475:    fun needsTrailData(ctx: Context): Boolean {
+convoy/HomeStateImportController.kt:1476:        val dbFile = File(SpatialDbManager.dbDir(), "grouptrack_spatial.db")
+convoy/HomeStateImportController.kt:1477:        if (!dbFile.exists()) {
+convoy/HomeStateImportController.kt:1478:            Log.i(TAG, "needsTrailData: no spatial DB file -> HOME STATE")
+convoy/HomeStateImportController.kt:1482:            val db = android.database.sqlite.SQLiteDatabase.openDatabase(
+convoy/HomeStateImportController.kt:1483:                dbFile.absolutePath, null,
+convoy/HomeStateImportController.kt:1484:                android.database.sqlite.SQLiteDatabase.OPEN_READONLY
+convoy/HomeStateImportController.kt:1487:                d.rawQuery("SELECT COUNT(*) FROM trails", null).use { c ->
+convoy/HomeStateImportController.kt:1493:                    Log.w(TAG, "needsTrailData: count unreadable -> RIDE MAP (panel available)")
+convoy/HomeStateImportController.kt:1497:                    Log.i(TAG, "needsTrailData: 0 trails -> HOME STATE")
+convoy/HomeStateImportController.kt:1501:                    Log.i(TAG, "needsTrailData: $count trails -> RIDE MAP")
+convoy/HomeStateImportController.kt:1506:            Log.w(TAG, "needsTrailData: query failed (${e.message}) -> RIDE MAP (panel available)")
+convoy/HomeStateImportController.kt:1511:    fun hasCompletedImport(ctx: Context): Boolean {
+convoy/HomeStateImportController.kt:1512:        val dir = importsDir(ctx)
+convoy/HomeStateImportController.kt:1515:                f.extension == "json" && JSONObject(f.readText()).optString("process_state") == "completed"
+convoy/HomeStateImportController.kt:1522:    private fun iso8601Now(): String =
 convoy/HomeStatePickerScreen.kt:4:import androidx.compose.foundation.background
 convoy/HomeStatePickerScreen.kt:5:import androidx.compose.foundation.clickable
 convoy/HomeStatePickerScreen.kt:6:import androidx.compose.foundation.layout.*
@@ -22104,6 +22109,7 @@ convoy/MapKeysPanel.kt:366:    "OHV" to "Posted trails for ATV/OHV use only",
 convoy/MapKeysPanel.kt:367:    "Track" to "Two wheel tracks, farm, forest or open country",
 convoy/MapKeysPanel.kt:369:    "Shape only" to "Mapped trails but unclassified",
 convoy/MapKeysPanel.kt:370:    "Rider trails" to "Ridden on a recorded ride \u2014 UTV accessible",
+convoy/MapKeysPanel.kt:371:    "Unofficial / uncertain" to "Not available for riding",
 convoy/MapKeysPanel.kt:372:    "Hiking & biking" to "Non-motorized, walkers and bicycles",
 convoy/MapKeysPanel.kt:375:    "Equestrian" to "Horse trails",
 convoy/MapKeysPanel.kt:376:    "Steps / bridge" to "Stairs and footbridges \u2014 not rideable",
@@ -25702,24 +25708,34 @@ convoy/OwnershipReclass.kt:348:     * rather than building a JSONObject for the 
 convoy/OwnershipReclass.kt:349:     * value and the coordinate runs, feature by feature.
 convoy/OwnershipReclass.kt:351:    private fun loadRings(f: File): List<Ring> {
 convoy/OwnershipReclass.kt:352:        val out = ArrayList<Ring>(20000)
-convoy/OwnershipReclass.kt:353:        val text = f.readText()           // ~72 MB as a String
-convoy/OwnershipReclass.kt:356:            val fi = text.indexOf("\"owner\"", pos)
-convoy/OwnershipReclass.kt:362:            val owner = text.substring(q1 + 1, q2)
-convoy/OwnershipReclass.kt:365:            var end = text.indexOf("\"owner\"", gi)
-convoy/OwnershipReclass.kt:367:            parseRings(text, gi, end, owner == "Private", out)
-convoy/OwnershipReclass.kt:373:    /** Every bracket-run of coordinate pairs between [from, to). */
-convoy/OwnershipReclass.kt:374:    private fun parseRings(
-convoy/OwnershipReclass.kt:375:        text: String, from: Int, to: Int, isPrivate: Boolean, out: MutableList<Ring>,
-convoy/OwnershipReclass.kt:377:        var i = from
-convoy/OwnershipReclass.kt:382:        var depth = 0
-convoy/OwnershipReclass.kt:386:                c == '[' -> depth++
-convoy/OwnershipReclass.kt:389:                        val v = sb.toString().toDoubleOrNull(); sb.setLength(0)
-convoy/OwnershipReclass.kt:392:                    depth--
-convoy/OwnershipReclass.kt:393:                    if (depth <= 1 && xs.size >= 4) {
-convoy/OwnershipReclass.kt:394:                        out.add(Ring(xs.min(), xs.max(), ys.min(), ys.max(),
-convoy/OwnershipReclass.kt:396:                        xs.clear(); ys.clear()
-convoy/OwnershipReclass.kt:399:                c == '-' || c == '.' || c in '0'..'9' || c == 'e' || c == 'E' -> sb.append(c)
-convoy/OwnershipReclass.kt:401:                    val v = sb.toString().toDoubleOrNull(); sb.setLength(0)
+convoy/OwnershipReclass.kt:364:        val rt = Runtime.getRuntime()
+convoy/OwnershipReclass.kt:365:        val available = rt.maxMemory() - (rt.totalMemory() - rt.freeMemory())
+convoy/OwnershipReclass.kt:366:        val needed = f.length() * 3
+convoy/OwnershipReclass.kt:367:        if (needed > available / 2) {
+convoy/OwnershipReclass.kt:369:                "OwnershipReclass",
+convoy/OwnershipReclass.kt:370:                "OOMGUARD-2026-09-15: SKIPPING land-ownership reclass -- file is " +
+convoy/OwnershipReclass.kt:371:                    "${f.length() / 1048576} MB, estimated peak " +
+convoy/OwnershipReclass.kt:372:                    "${needed / 1048576} MB, heap can spare " +
+convoy/OwnershipReclass.kt:373:                    "${available / 1048576} MB. Trails keep their categories; " +
+convoy/OwnershipReclass.kt:374:                    "only ownership classification is skipped."
+convoy/OwnershipReclass.kt:379:        val text = f.readText()           // ⚠ guarded above -- see OOMGUARD-2026-09-15
+convoy/OwnershipReclass.kt:382:            val fi = text.indexOf("\"owner\"", pos)
+convoy/OwnershipReclass.kt:388:            val owner = text.substring(q1 + 1, q2)
+convoy/OwnershipReclass.kt:391:            var end = text.indexOf("\"owner\"", gi)
+convoy/OwnershipReclass.kt:393:            parseRings(text, gi, end, owner == "Private", out)
+convoy/OwnershipReclass.kt:399:    /** Every bracket-run of coordinate pairs between [from, to). */
+convoy/OwnershipReclass.kt:400:    private fun parseRings(
+convoy/OwnershipReclass.kt:401:        text: String, from: Int, to: Int, isPrivate: Boolean, out: MutableList<Ring>,
+convoy/OwnershipReclass.kt:403:        var i = from
+convoy/OwnershipReclass.kt:408:        var depth = 0
+convoy/OwnershipReclass.kt:412:                c == '[' -> depth++
+convoy/OwnershipReclass.kt:415:                        val v = sb.toString().toDoubleOrNull(); sb.setLength(0)
+convoy/OwnershipReclass.kt:418:                    depth--
+convoy/OwnershipReclass.kt:419:                    if (depth <= 1 && xs.size >= 4) {
+convoy/OwnershipReclass.kt:420:                        out.add(Ring(xs.min(), xs.max(), ys.min(), ys.max(),
+convoy/OwnershipReclass.kt:422:                        xs.clear(); ys.clear()
+convoy/OwnershipReclass.kt:425:                c == '-' || c == '.' || c in '0'..'9' || c == 'e' || c == 'E' -> sb.append(c)
+convoy/OwnershipReclass.kt:427:                    val v = sb.toString().toDoubleOrNull(); sb.setLength(0)
 convoy/RiderTrailScanner.kt:4: * RIDERTRAILSCANNER-2026-09-07 -- rider trails from recorded tracks.
 convoy/RiderTrailScanner.kt:6: * A PORT of `ridertrails_2026-09-06_v3.py`, which was proven on Broken Ridge and
 convoy/RiderTrailScanner.kt:7: * Steamboat (about 80 miles of new connected ground). The Python is the
