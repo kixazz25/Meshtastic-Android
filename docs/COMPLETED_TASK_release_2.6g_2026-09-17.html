@@ -1,0 +1,1228 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<title>GroupTrack — 2.6g Archive — 2026-09-17</title><style>
+body{font:15px/1.68 -apple-system,"Segoe UI",Roboto,sans-serif;max-width:960px;
+margin:0 auto;padding:26px;background:#0f1216;color:#e6edf3}
+h1{font-size:21px;color:#58a6ff;border-bottom:2px solid #2a3038;padding-bottom:8px}
+h2{font-size:16px;color:#58a6ff;margin-top:32px;border-bottom:1px solid #2a3038;padding-bottom:5px}
+h3{font-size:14px;color:#b8c2cc;margin-top:20px}
+code{background:#1a2027;padding:1px 5px;border-radius:3px;font-size:12.5px;color:#8FD0FF}
+.card{background:#161b22;border:1px solid #2a3038;border-radius:8px;padding:13px 17px;margin:11px 0}
+.done{border-left:4px solid #3fb950}.next{border-left:4px solid #58a6ff}
+.warn{border-left:4px solid #d29922}.bad{border-left:4px solid #f85149}
+table{border-collapse:collapse;width:100%;margin:11px 0;font-size:13px}
+th,td{border:1px solid #2a3038;padding:6px 9px;text-align:left;vertical-align:top}
+th{background:#1a2027;color:#8FD0FF}
+li{margin:6px 0}.hi{color:#e3b341}
+pre{background:#0d1117;border:1px solid #2a3038;padding:9px;border-radius:5px;
+font-size:11.5px;overflow-x:auto;color:#b8c2cc}
+</style></head><body>
+
+<h1>2.6g — ARCHIVE OF A CLOSED RELEASE</h1>
+<p>2026-09-17 · <b>2.6g IS DEAD OFFICIALLY (Fred).</b> It shipped, it is published
+on all three tracks, the label retires. <b>Open items move to 2.6h.</b> This
+document holds everything that carried the 2.6g label so nothing is lost.</p>
+
+<div class="card done">
+<p class="hi">⭐⭐ <b>WHAT 2.6g ACTUALLY DELIVERED.</b> Published and compliant on
+all three tracks 09-13, then a run of fixes through 09-17:</p>
+<ul>
+<li>The trails work, shipped inside the 2.6g label (09-08 relabelling)</li>
+<li><code>MANREV-0906</code> — the manual review and what it found</li>
+<li>GPX import via SAF picker (<code>GPXIMPORT-EOD-2026-08-22</code>)</li>
+<li>Storage migration off shared storage, <code>MANAGE_EXTERNAL_STORAGE</code>
+removed, then <code>WRITE_</code>/<code>READ_EXTERNAL_STORAGE</code> too</li>
+<li>In-app documents — QuickStart, manual, release notes shipping in the APK</li>
+<li><code>ZCAPJS</code> zoom clamp · <code>NETLOC</code> network position ·
+<code>NOGPSMSG</code> · <code>SEARCHPAN</code> · <code>OWNSKIP</code> ·
+<code>STREAMRINGS</code></li>
+</ul>
+</div>
+
+<div class="card next">
+<p class="hi"><b>WHAT IS STILL OPEN AND MOVES TO 2.6h</b> — pick these up from the
+2.6h area, not from here:</p>
+<ul>
+<li><b><code>00-DISCARD-DESIGN</code> — the five-plus-one boundary.</b> DESIGN
+SETTLED 08-16, <b>NOT BUILT.</b></li>
+<li><b><code>GATEJOB-2026-08-21</code> — the startup job.</b> DESIGNED WITH FRED,
+<b>NOT BUILT.</b> ⚠ The largest single section here at ~11,000 chars.</li>
+<li><b><code>00-STARTUP-SURVEY</code></b> — the declared startup phase and the hunt
+for other one-shots. ⚠ Moved to 2.7 on 09-09; confirm which.</li>
+<li><b>Route notes — create / import / export / display.</b> Settled 08-22,
+~20,000 chars. ⚠ <b>Verify what of this was actually built</b> before treating it
+as open.</li>
+<li><b>Archive-on-graduate for routes</b> — the <code>completed/</code> copy. The
+08-16 design question was never answered.</li>
+<li>Refresh still does not log as a completed job (§16); corridor follow-ons and
+queue-panel residue (§18).</li>
+</ul>
+</div>
+
+<div class="card bad">
+<p>⚠⚠ <b>THREE SECTIONS BELOW CARRY BOTH LABELS</b> and are captured here only
+because they mention 2.6g. <b>They belong to 2.6h or 2.7 — do not treat them as
+closed:</b></p>
+<ul>
+<li><code>TRAILSRELEASE-0906</code> — 2.6h as the trails release</li>
+<li><b>PUBLIC/PRIVATE TRAIL COMPLIANCE</b> — the 2.6h definition (09-14), plus the
+⭐ <b>09-17 correction: ownership is CLUTTER REMOVAL, not labelling</b></li>
+<li><code>POLYROUTE-2026-09-17</code> — polygons and route scoring, filed under
+<b>2.7</b></li>
+</ul>
+<p>⛔ <b>AND THE DURABLE LESSON FROM <code>ROUTENOTES-0903</code> STAYS IN THE
+MASTER, not here:</b> <i>"LOOK FOR THE EXISTING COMPONENT BEFORE WRITING A NEW
+ONE."</i> Three times in one week — three copies of trailColor, two docs
+choosers, and a RouteProsePanel written before ConvoyNotesPanel was found already
+wired.</p>
+</div>
+
+<h2>CAPTURED SECTIONS — verbatim from living master v69</h2>
+<h3>📋 2.7 — OWNERSHIP, POLYGONS AND ROUTE SCORING. POLYROUTE-2026-09-17</h3>
+<div class="card next">
+<p>⚠ <b>RELEASE ASSIGNMENT: Fred said "the follow-up 2.6g release" earlier in the
+session and "2.7" at the end. Recorded here under 2.7; confirm before
+planning.</b></p>
+
+<p><b>THREE PIECES LAND TOGETHER:</b></p>
+<ol>
+<li><b>THE POLYGON DISPLAY LAYER.</b> Private areas in <b>red with ghosted
+diagonal stripes</b>, behind a <b>checkbox in the key</b>. ⭐ More honest than
+reclassifying trails — it shows a rider WHY, and lets them see a boundary they
+are APPROACHING rather than discovering a trail simply is not offered.
+⚠ Leaflet has no native hatch; it is an SVG pattern, needed on the frozen convoy
+map and the planner. ⚠ Polygons are light in COUNT, not always in VERTICES —
+<b>simplification at import is what makes it work.</b></li>
+<li><b>THE OHV RESTRICTION LAYER — SEPARATE MEANING, SEPARATE CHECKBOX.</b> BLM
+<code>OHV_DSG_PUB_POLY</code> and the USFS data with SEASONS OF USE. ⛔ <b>One
+hatch cannot serve both:</b> public land with OHV closed says go when the rider
+must not; private land with permission says stop when the trail is rideable.</li>
+<li><b>OWNERSHIP BEYOND UTAH — the western 10–12 states</b>, because that is
+where the land pattern makes clutter removal necessary. ⭐ Reached twice
+independently: the trail-volume-vs-layer test, and the land-pattern argument.</li>
+</ol>
+
+<p class="hi">⭐⭐⭐ <b>AND THE ROUTING ANSWER, WHICH IS THE ELEGANT PART
+(Fred 09-17).</b></p>
+<p><b>A trail crossing a restriction polygon takes −100 in the route
+scorer.</b></p>
+<ul>
+<li>⭐ <b>Negative totals cannot be ridden.</b> The sign carries the meaning — a
+scorer returning a negative number has said something CATEGORICAL, not just
+"worse".</li>
+<li>⭐ <b>Bottom of the list, never presented.</b> Same as the existing
+behaviour: only positives display. <b>So nothing new is needed in the
+presentation layer at all.</b></li>
+<li>⭐⭐ <b>IT IS NOT A NEW AVOIDANCE SYSTEM — it is another weight in the
+scorer that already exists.</b> The 2.7 work is really just <i>feed the polygons
+into the existing scorer.</i></li>
+<li>⭐ <b>And it degrades gracefully with bad data:</b> a wrong polygon costs a
+lower-ranked route, not a disappeared trail. Hard avoidance would silently remove
+legitimate ground with nothing to explain why.</li>
+</ul>
+<p>⚠ <b>ONE THING TO SETTLE AT BUILD TIME:</b> whether a high-scoring route can
+ABSORB a single −100 and still come out positive. If a long route with many
+points of interest scores +150, one crossing leaves it at +50 and rideable —
+<b>which would be wrong.</b> Either the penalty scales with crossings, or −100 is
+applied as a FLOOR rather than a summand.</p>
+<p>⚠ And if fewer than six routes score positive, <b>present fewer</b> — a short
+list is honest; backfilling from the negatives would put unrideable routes in
+front of a rider who assumes everything offered is valid.</p>
+</div>
+
+<h2>00-2026-09-13 — PUBLISHED, COMPLIANT, ON ALL THREE TRACKS</h2>
+
+<div class="card">
+<p class="hi">⭐⭐ <b>Rel. 2.6g — 29321121 — live on internal, closed and open
+testing.</b> Three days from the appeal rejection to a compliant build with the
+migration proven on two devices.</p>
+<p>⛔ <b>ALL THREE TRACKS HAD TO BE UPDATED, not promoted.</b> A non-compliant
+build on ANY track keeps the violation open — promotion moves a build up but
+leaves the others serving what they were. ⚠ Worth knowing before the next
+compliance deadline: the usual promote-up workflow does not clear a violation.</p>
+</div>
+
+<h3>Tomorrow</h3>
+<div class="card">
+<ul>
+<li>🔴 <b>Z settings on My Cart, per map.</b> My Cart's zoom bounces between 18
+and 16 because the values are hardcoded in two places. ⭐ Fred, 09-13:
+<i>"simplify this and just set the My Cart max zoom to the current source max
+zoom."</i> ⚠ <code>maxZoomForSource</code> is a stub that ignores its
+argument.</li>
+<li>🔴 <b>2.6g planning — all states, public and private trails.</b></li>
+<li>⚠ Waiting on Google's review of 29321121.</li>
+</ul>
+</div>
+
+<div class="src">Published 2026-09-13. Commits: field version · wording ·
+Context at onCreate · import picker · storage permissions removed.</div>
+
+<!-- MIGRATIONPROVEN-2026-09-12 -->
+
+<h3>⭐⭐ 2.6h IS THE TRAILS RELEASE. 2026-09-06. TRAILSRELEASE-0906</h3>
+
+<div class="card">
+<p>Fred, 09-06: <i>"the release is a fundamental redesign and rewrite of
+trails"</i> — and, a moment later, <i>"and route building through those
+trails."</i></p>
+<p>⭐⭐ <b>That is the framing, and it is better than a list of leftovers.</b>
+Everything in 2.6h is one subject: better trail data, more of it, rider-contributed
+where the sources are silent, and route building that makes proper use of it.</p>
+<p>⚠ <b>And they are not separable.</b> Adding 80 miles of rider trails today
+changed what the planner returned for the same recipe. The router is only as good
+as the network under it — improving one without the other is half a job.</p>
+<p>⛔ <b>It also settles what 2.6g is NOT.</b> Fred: <i>"just want to get trails
+organised and completed. Additional data besides mining unknown capture is
+out."</i> 2.6g stabilises what exists; the redesign waits.</p>
+</div>
+
+<div class="card">
+<p><b>⭐ HOW RIDER TRAILS RUN IN THE APP — Fred's design.</b></p>
+<ul>
+<li><b>A field on the track extension</b> recording that this track has been
+through the add-trails process. ⚠ Without it there is no way to distinguish a
+track that yielded nothing from one never examined — and re-running the analysis
+over 89 tracks every time would be pointless work.</li>
+<li><b>A batch process inside the import-trails flow.</b> It belongs with the
+other trail-data work rather than in a corner of its own.</li>
+<li>⭐ <b>A green button under SYNCH, shown only when unchecked tracks exist.</b>
+No badge, no nagging, no counter — <b>the control appears when there is something
+to do and is absent when there is not</b>, which is the same discipline as the
+Mesh word only appearing while the rail is folded.</li>
+</ul>
+</div>
+
+<h3>⭐ 2.6g SHIPPED TO OPEN TESTING — AND WHAT THE MANUAL REVIEW FOUND. 2026-09-06. MANREV-0906</h3>
+
+<div class="card">
+<p><b>2.6g is on the Play Store for open testing.</b> Anyone with the link can
+install it — not just the testers Fred enrolled by email. ⚠ That changes what the
+documents have to carry: an open tester has no relationship with Fred and no
+context at all.</p>
+</div>
+
+<div class="card">
+<p><b>⭐ THE QUICK START LANDED.</b> Fred: <i>"absolutely spot on... nice pace and
+progression, and if you use the Quick Start you will understand the app much
+better."</i></p>
+<p>⭐ It got there by CUTTING. The two rider paths, the prose between figures, the
+saved progress tracking, the narrative in the exercise sections — every removal
+made it better. ⚠ What survived is: three lines to get running, then permission to
+go and play with things before they matter.</p>
+</div>
+
+<div class="card">
+<p><b>⭐ EVERY TASK LINKS TO THE SECTION THAT TEACHES IT.</b> 32 checklist items,
+each linked to its manual anchor — <code>#mapkeys</code>, <code>#queues</code>,
+<code>#aiplanner</code>. ⛔ The three floating "open the manual for this section"
+buttons came out: Fred, <i>"remove the floating link on top of the exercise
+activities. Each activity should have its own link."</i></p>
+<p>⚠ And the anchors those buttons pointed at — <code>#planning</code>,
+<code>#ridemap</code>, <code>#meshtastic</code> — <b>had stopped existing</b>. They
+were on <code>&lt;h2&gt;</code> headings the restructure replaced with
+<code>&lt;details&gt;</code>. The per-control anchors survived, which is what the
+per-task links needed.</p>
+</div>
+
+<div class="card">
+<p><b>⭐ DOCUMENTS STACK NOW.</b> Fred: <i>"keep document open with new doc
+launched on top so when we close we can return from where we exited."</i> Tapping
+a task opens the manual; closing it returns to the Quick Start AT THE TASK. ⚠
+Otherwise working through a checklist means reopening Help every time.</p>
+<p>⚠ A link WITHIN a document is deliberately not intercepted, or every anchor
+jump would stack and Close would walk back through them one at a time.</p>
+<p>⛔ And <b>Close moved to centre</b> — it was top right, under QUEUES.</p>
+</div>
+
+<div class="card">
+<p><b>⛔⛔ THE MANUAL REVIEW CAUGHT FIVE THINGS, and they are the shape of what
+happens when a section is written from screenshots rather than conversation.</b></p>
+<ul>
+<li><b>CONNECT BEFORE CONFIGURING.</b> Nothing can be applied to a radio the app
+cannot reach — and I had Connection filed as entry E, well after the new-radio
+instructions. ⭐ Pairing code is <b>1234</b> unless a unique one came with the
+device.</li>
+<li><b>THE AUTOMATED CONFIGURATION IS T1000-E ONLY.</b> Any other radio is
+configured by hand. ⚠ It was buried in "Which radio"; it is now a boxed statement
+where a rider meets it.</li>
+<li>⭐ <b>REAL RANGE FIGURES.</b> Seeed cite 2–5 km; dense urban or heavy foliage
+gives half a mile to 1.3 miles; line of sight or across elevation gives several
+miles. ⛔ AND <b>WEAR IT HIGH, BUTTON OUTWARD</b> — buried in a backpack is the
+commonest reason a tracker underperforms, and it has nothing to do with the
+app.</li>
+<li>⭐⭐ <b>THE RADIO MENU EXISTS FOR ONE PROBLEM</b>, and it is one nobody has
+yet: another group riding the same network in your area at the same time, so
+their carts appear on your map. Fred: <i>"unless you are experiencing other
+riders in your vicinity riding the network config in the same area at the same
+time."</i> ⭐ If that is not you, <b>go straight to Apply Master Config</b> — the
+default works out of the box. The section now says so before the five options
+rather than after them.</li>
+<li>⛔ <b>EVERY RADIO MUST BE MOVED TO THE NEW CONFIGURATION.</b> Deploying one is
+three jobs — create, distribute, and <b>every rider installs it before the
+ride</b> — and the third is the one that gets forgotten. A configuration sitting
+in someone's Downloads does nothing, and one rider left on the old network is
+invisible to everybody else.</li>
+</ul>
+</div>
+
+<h3>⭐ ONE TAP TO THE RIDE — AND THE PANEL THAT ALREADY EXISTED. 2026-09-03. ROUTENOTES-0903</h3>
+
+<div class="card">
+<p>⛔⛔ <b>I NEARLY BUILT A SECOND PANEL.</b> Fred asked for a route popup showing
+prose, mileage and points. I mocked one, then wrote <code>RouteProsePanel.kt</code>
+— and only then found <code>ConvoyNotesPanel</code>, <code>notesFromRouteId</code>,
+a shared <code>NoteSection</code> model and an <code>onShowNotes</code> callback
+<b>already wired</b>. Fred: <i>"all the components existed, which is why I
+question."</i> The file was deleted.</p>
+<p>⭐⭐ <b>THE LESSON, AND IT IS THE THIRD TIME THIS WEEK:</b> three copies of
+trailColor, two docs choosers, and now this. <b>LOOK FOR THE EXISTING COMPONENT
+BEFORE WRITING A NEW ONE.</b> ⚠ Fred's instinct was right at every step — reuse
+the panel, twisties for the space problem, actions so nobody navigates away.</p>
+</div>
+
+<div class="card">
+<p><b>⭐ WHAT THE MOCKUP GOT WRONG, AND WHAT THE DATA ANSWERED.</b> I designed a
+Leaflet popup showing narrative, trails and points — ⛔ impossible, because a
+Leaflet popup can reach nothing but the GeoJSON properties. Fred: <i>"impossible
+to do from current construction, no route to artifacts from popup."</i></p>
+<p>⭐ And the POI question I had flagged as needing a corridor query and a
+distance calculation <b>was already solved in August</b>. The narrative payload
+carries <code>stops_in_order</code> with mile markers:
+<i>"mile 12 Jump-up — cliff"</i>. The generator did that work; I had not looked.</p>
+</div>
+
+<div class="card">
+<p><b>WHAT SHIPPED</b></p>
+<ul>
+<li><b>Tap a route → the narrative.</b> Headline, distance, the riding-time
+RANGE, what you will see, stops in order, ground covered, and the width warning
+that was already the panel's footer.</li>
+<li>⛔ <b>An old route with no narrative goes straight to the detail panel</b>
+(Fred). A prose panel with no prose is the failure that would make it feel
+broken.</li>
+<li><b>Foldable sections</b> — the two long lists start folded WITH THEIR COUNTS,
+or a rider has no reason to open them. ⚠ BEFORE YOU GO stays open, always.</li>
+<li><b>ROUTE DETAILS and DOWNLOAD MAPS</b> on the panel. ⚠ Download is keyed on
+GEOM HASH, not route id — <code>routeGeomHash</code> bridges it.</li>
+<li>⚠ <b>BUILD FROM RECIPE deliberately absent.</b> Its lambda is fifty-odd lines
+of inline state restoration; a second caller means extracting it properly. Fred:
+take the shortcut, put the extraction in 2.6h.</li>
+</ul>
+</div>
+
+<div class="card">
+<p>⛔⛔ <b>AND THE HTML VERSION HAD BEEN LYING FOR THREE WEEKS.</b> A tester
+reported Leaflet popups on the current build; Fred's device showed the new
+panels. The diagnostic that exists for exactly this —
+<code>window.__htmlVersion</code>, read back and shown in settings so a tester can
+report it without logcat — still said <code>2026-08-13a</code> on BOTH map files.</p>
+<p>⚠ Its own comment reads: <i>"BUMP THIS WHENEVER THIS FILE CHANGES, or the
+display starts lying."</i> ⭐ It was lying, so the one tool built to distinguish
+stale assets from a stale build could not do it.</p>
+<p><b>Both bumped.</b> ⭐ And it joins the release procedure beside the hardcoded
+2.6g label in ConvoySettingsScreen — <b>two hand-edited single lines that nothing
+prompts for, and both were missed.</b></p>
+</div>
+
+<h3>⭐⭐ PUBLIC/PRIVATE TRAIL COMPLIANCE — THE 2.6h DEFINITION (09-14). Land-ownership research 2026-09-03. OWNSTATES-0903, UPDATED 2026-09-14</h3>
+
+<div class="card">
+<p>⭐⭐⭐ <b>2.6h REDEFINED 09-14 (Fred): 50-STATE PUBLIC/PRIVATE TRAIL COMPLIANCE.</b>
+2.6g is CLOSED — published on all three tracks, and the zoom-cap work was the
+final piece for that update.</p>
+<p>⭐⭐ <b>THE DEFAULT INVERTS: ALL TRAILS ARE PUBLIC UNLESS A SOURCE SAYS
+OTHERWISE.</b> The release's job is to identify the PRIVATE ones.</p>
+<p>⛔ <b>This supersedes the 09-09 piece-5 framing</b> (<i>"only Utah has the
+ownership polygon layer, so <code>land_status</code> is null everywhere else and
+the private filter cannot work"</i>). Null now means PUBLIC. ⭐ The consequence is
+the whole point: <b>the app works in every state on day one</b>, and ownership
+data becomes an IMPROVEMENT rather than a PREREQUISITE. A Colorado rider is no
+longer waiting on forty-nine lookups before the product is usable there.</p>
+<p>⚠ <b>AND THE LIABILITY DIRECTION FLIPS WITH IT.</b> The failure mode is now
+ROUTING A RIDER ACROSS PRIVATE LAND, not hiding a legal trail. That is the
+direction with real-world consequence, so the rider-facing wording matters:
+say <i>ownership not verified in this state</i> rather than saying nothing.</p>
+</div>
+
+<div class="card">
+<p>⭐⭐ <b>TWO INDEPENDENT INPUTS. THEY STACK; NEITHER IS REQUIRED.</b></p>
+<table>
+<tr><th>Input</th><th>Answers</th><th>Availability</th></tr>
+<tr><td><b>PBF <code>access</code> tags</b> (Geofabrik)</td>
+    <td>is this WAY shut</td>
+    <td>every state, uniform URL, already fetched by the pipeline</td></tr>
+<tr><td><b>Ownership polygons</b> (state portals)</td>
+    <td>who owns the GROUND (BLM / USFS / state trust / tribal / private)</td>
+    <td>where a state publishes them</td></tr>
+</table>
+<p>⭐ <b>WHY BOTH, AND WHY THE WEST NEEDS THE SECOND</b> (Fred 09-14):
+<i>"western lands have significant public ownership."</i> Tags cannot see an
+UNTAGGED way crossing private ground, and they cannot tell a rider they are ON
+public land — which in the west is most of the map and most of the value.</p>
+<p>⭐ <b>THE TAG SOURCE IS ALREADY BUILT AND ALREADY MEASURED.</b>
+<code>access=private</code> is <b>the single best-populated tag in the
+extract</b> — better covered than <code>surface</code>, <code>tracktype</code> or
+anything else, and well covered where Fred rides. 34,511 Utah ways carry it. The
+classifier already KEEPS those rows and labels them so a rider can see why a
+trail is not offered. Files and links for the fifty states are already
+identified; ⛔ no ArcGIS portal hunt is required for the base case.</p>
+</div>
+
+<div class="card">
+<p>⛔⛔ <b>DO NOT REVERSE THIS FROM THE 08-30 FINDING. READ THE DIRECTION.</b></p>
+<p>08-30 measured that seeding <b>MOTORIZED</b> from tags failed decisively —
+9,019 tag-confirmed motorized ways statewide and <b>ZERO</b> in Broken Ridge 2
+and 3, the ground Fred actually rides. The conclusion recorded was <i>"OSM access
+tagging is too sparse in western Utah to seed anything from."</i></p>
+<p>⭐ <b>That was the POSITIVE direction — prove a trail IS something.</b> The
+default-public rule only needs the NEGATIVE direction — a trail is public unless
+a tag says shut — and <code>access=private</code> is the well-populated tag,
+unlike <code>ohv</code>/<code>atv</code>/<code>motor_vehicle</code>. <b>Sparse
+tagging breaks inference, not exclusion.</b> Without this distinction written
+down, someone reads "the access tags are too sparse" and reverses a correct
+design.</p>
+</div>
+
+<div class="card">
+<p>🔴 <b>OPEN — PRECEDENCE WHEN THE TWO INPUTS DISAGREE.</b> A way tagged
+<code>access=private</code> sitting on BLM ground; an untagged way crossing
+private. ⭐ Proposed: <b>the more restrictive wins for routing, and the rider is
+shown WHICH SOURCE said so</b> — because <i>"why won't it route me down this
+road"</i> is the next question. Not yet decided.</p>
+<p>🔴 <b>OPEN — SCOPE. THE WESTERN 10–12 STATES TEST (Fred 09-14):</b> review may
+conclude that only the western states need public/private, and that elsewhere
+<b>trail volume and data availability negate the benefit</b>. ⭐ Answerable with
+data rather than opinion: trail count per state against whether a usable
+ownership layer exists. Candidates carrying both the riding volume and the
+public-land patchwork: UT · AZ · NV · CO · ID · MT · WY · NM · OR · WA · CA.</p>
+<p>🔴 <b>CARRIED, STILL GATING (09-09):</b> does <code>osm_way_tags</code> PERSIST
+between imports, or is it dropped and rebuilt? If rebuilt, a second state pays
+the full tag cost again.</p>
+<p>⚠ <b>THE POLARITY TRAP BELOW APPLIES TO THE POLYGON HALF ONLY</b> — the
+per-state entry must record WHICH KIND of layer it is, not just a URL. The
+09-03 research that follows is unchanged and still correct.</p>
+</div>
+
+<h2>⭐ RELEASE STRATEGY — ship route creation, hold the trail work (2026-08-29)</h2>
+
+<div class="card good">
+<p><b>Fred:</b> <i>"We should be anticipating what needs to change in these docs based on what is
+currently completed and what needs to change based on route creation. We will need to make a
+decision on releasing route creation and holding trail data scrubbing and segmenting to the next
+release. The last should be the 90-day update cycle. In the interim we will have users beating on
+the route creation."</i></p>
+</div>
+
+<table>
+<tr><th>Release</th><th>Contains</th><th>Why here</th></tr>
+<tr><td><b>2.6g</b> — this one</td><td><b>Route creation, complete.</b> Six-screen planner, the compare
+table, the recipe rebuild, the narrative in the GPX, the cached-graph fix.</td>
+<td>⭐ <b>It is finished and device-proven, and it is the feature testers can exercise
+immediately.</b> Holding it back to travel with the trail work would waste the weeks the OSM
+stages will take.</td></tr>
+
+<tr><td><b>the next 2.6</b></td><td><b>Trail data: scrubbing and segmenting.</b> OSM stages 1–3 — the
+classification, the new import with ownership at creation, and the filter on both map panels and
+in route building.</td>
+<td>⛔ <b>These three ship together or not at all</b> — see the ship boundary above. Stage 2 alone
+puts hiking trails in the routing graph with nothing to keep them out.</td></tr>
+
+<tr><td><b>the LAST 2.6</b></td><td><b>The OSM refresh cycle</b> — ⛔ <b>fixed Jan 1 / Jul 1 as of 08-30</b>, not a 90-day rolling timer. Stage 4, and the last thing in 2.6 — after it, 2.7 is the convoy rewrite.</td>
+<td>⭐ <b>The runway is LONGER under the fixed dates, not shorter.</b> The clear-and-reimport at stage 2 makes the data current, and the next prompt is the next fixed date rather than 90 days after ship — so the refresh cycle cannot be needed before then. Same argument, more room.</td></tr>
+</table>
+
+<div class="card">
+<p><b>⭐ AND THE INTERIM IS THE POINT, not a gap.</b> Fred: <i>"in the interim we will have users
+beating on the route creation."</i> Around 40 beta testers exercising the planner on real ground,
+in real areas, while the trail work is built — <b>which surfaces the route-creation faults that a
+developer with two devices in one state will never find.</b></p>
+<p><b>⚠ It also front-loads the feedback that matters for the trail work.</b> A tester reporting
+"the planner would not use a road I ride every week" is exactly the Mountain Spring Road case, and
+each one is a rule to check before the classification ships.</p>
+</div>
+
+<div class="card warn">
+<p><span class="k">⚠ ONE THING THE INTERIM CHANGES:</span> testers will build routes on the OLD
+trail data, and the trail release will change the ground underneath. <b>Saved routes survive</b> —
+they are stored as geometry and referenced by id — but a recipe rebuilt after the trail release
+may return different alternatives than it did before. <b>That is correct behaviour and it will
+look like a regression</b> unless the release notes say so plainly.</p>
+</div>
+
+<h2>⭐ IN-APP DOCUMENTS — 2.6g requirement (2026-08-29)</h2>
+
+<div class="card good">
+<p><b>Fred:</b> <i>"This next release should incorporate the QuickStart document into assets and
+launch QuickStart on any user's new install. Release notes should autolaunch on any update —
+bullets referencing the manual, not bible-length instructions."</i></p>
+</div>
+
+<table>
+<tr><th>Document</th><th>Bundled</th><th>Shown</th></tr>
+<tr><td><b>QuickStart</b></td><td>In <code>assets/</code>, beside the manual and release
+notes</td><td>⭐ <b>On a NEW INSTALL, automatically.</b> A first-run rider has no idea what the app
+expects of them — the QuickStart is the shortest path from installed to riding.</td></tr>
+<tr><td><b>Release notes</b></td><td>In <code>assets/</code></td><td>⭐ <b>On any UPDATE,
+automatically.</b> Not on every launch — on the launch after a version change.</td></tr>
+<tr><td><b>Manual</b></td><td>Already bundled</td><td>On request, and <b>as the destination the
+other two point at.</b></td></tr>
+</table>
+
+<h3>SESSION 3 — peel away and ship 2.6g</h3>
+<ul>
+<li><b>Cut the release notes to bullets.</b> ⚠ Today's draft reads well as a document and is too
+long for an autolaunch. Bullets, each pointing at the manual.</li>
+<li><b>QuickStart into <code>assets/</code></b>, autolaunched on new install; release notes
+autolaunched on update. ⚠ <b>This is CODE, not documentation</b> — bundling, a stored version
+marker, two launch paths, dismissal. Cost it as a task.</li>
+<li><b>The GPX share round trip between the two devices</b> — the one thing in 2.6g that has never
+been tested. Export from Droid 2, import on Droid 1, confirm the narrative arrives AND the rebuild
+button appears.</li>
+<li>Then R1–R10 as time allows.</li>
+</ul>
+
+<div class="card warn">
+<p><span class="k">⚠ THE ONE THING THAT COULD REORDER ALL OF IT:</span> if extension rows turn out
+to key on something a reimport destroys, that has to be settled before stage 3 exists. <b>It costs
+one xref read during session 2</b>, and it is the cheapest question with the largest
+consequences.</p>
+</div>
+
+<h3>⚠ DOC DISCIPLINE — the daily set slipped</h3>
+<p>The manual carried <b>V2.6e in the title and V2.6g in the header</b> — a drift that only
+happens when nobody opens it. <code>PENDING-REDOC 2026-08-06</code> on the Map Sources screen
+has ridden along for nineteen days. Fred, 08-25: the docs are <b>looked at daily</b> and may be
+given back unchanged, but <b>they cannot go three or four days untouched</b>.</p>
+<p><b>⚠ QuickStart v7 (08-22) was not uploaded</b> — v8 was built from v6, so any 08-22 edits
+are missing and need reconciling.</p>
+
+<h3>Design Documents</h3>
+<ul>
+<li><code>grouptrack_design_unified_import_2026-08-20.html</code> — 16 sections, full design spec with JSON manifest examples.</li>
+<li><code>manual_new_sections_2026-08-20.html</code> — Installation &amp; First-Time Setup, Import Trails, Quickstart sections with screenshot placeholders.</li>
+<li><code>grouptrack_release_notes_2026-08-20.html</code> — V2.6g release notes.</li>
+<li><code>grouptrack_handoff_2026-08-20.html</code> — session handoff.</li>
+</ul>
+
+<!-- 08-18 UI LABELS + MANUAL + PLAY STORE -->
+<h3>⭐⭐ THE STARTUP JOB (settled with Fred 08-21 — DESIGNED, NOT BUILT). GATEJOB-2026-08-21</h3>
+<div class="card">
+<p><b>⛔ THIS SUPERSEDES <code>grouptrack_design_unified_import_2026-08-20.html</code> §8 (gate
+integration) and the <i>Recovery on App Restart</i> half of §7A.</b> The rest of that document — the
+upsert rules, source model, two entry points, manifest shape — is unchanged and still governing. The
+design lives HERE, in the checklist, not in a parallel design doc: design in flight expands in place,
+and a reader who finds §8 first must not get the superseded reasoning without the correction.</p>
+</div>
+
+<div class="card">
+<p><b>ONE JOB, TWO THINGS, before the rider reaches any map:</b></p>
+<ol>
+<li><b>Resolve every manifest in <code>imports/</code></b> — completed swept to history, incomplete
+stamped <b>killed</b> and swept to history. Fred: <i>"completed is swept, incomplete is killed on
+startup. Period."</i></li>
+<li><b>Decide whether the rider needs trail data</b> — and if so, hand off to the Home State picker.</li>
+</ol>
+<p>Afterwards <code>imports/</code> is empty and the rider is either on the Ride Map or in the
+picker. There is no third state.</p>
+</div>
+
+<h4>The sweep</h4>
+<div class="card">
+<table>
+<tr><th>Condition</th><th>Action</th></tr>
+<tr><td>Every source section carries a count</td><td>Leave <code>process_state</code> as written → move to history</td></tr>
+<tr><td>Any source section carries no count</td><td>Stamp <code>process_state = "killed"</code> + <code>killed_at</code> → move to history</td></tr>
+</table>
+<p>⭐ <b>ORDER IS LOAD-BEARING: stamp first, then move.</b> Same reason
+<code>OsmImportLedger.archiveLedger()</code> renames before <code>discardState()</code> sweeps. Stamp
+fails → nothing moved, retried next launch. Move fails after a good stamp → a marked file sits in
+<code>imports/</code>, visible and recoverable. <b>The state to avoid is a file in history nobody
+stamped</b>, because then <code>killed</code> must be inferred rather than read.</p>
+<p>⚠ <b>"Has a count" must tolerate pre-08-21 manifests.</b> The 08-20 NH manifest carries
+<code>imported</code> per source but none of the five recap counters and no <code>manifest_id</code>.
+<b>Absent fields mean OLD, not broken.</b> If the test requires the new fields, a device holding
+43,348 records reads as never-imported and gets sent to the picker.</p>
+<p>⚠ <b>The sweep must never touch a live manifest.</b> It would archive the controller's own file
+out from under a running import. The ordering that prevents it is the slot: inside the authority
+task, before anything can launch an import. <b>Do not call the sweep from anywhere else.</b></p>
+<p>⭐ <b>The one-time cleanup is the same code</b> — both droids hold several completed 08-20
+manifests in <code>imports/</code>; first launch after this ships sweeps them. No migration.</p>
+</div>
+
+<h4>The zero-data check — replaces §8's condition</h4>
+<div class="card">
+<p><b>Two tests, in order, both misses landing on Home State</b> (Fred 08-21):</p>
+<ol>
+<li><b>Spatial DB file exists?</b> No → Home State setup.</li>
+<li><b>Exists and holds zero trails?</b> Yes → Home State setup.</li>
+<li>Otherwise → straight through to the Ride Map.</li>
+</ol>
+<p>⛔⛔ <b>THE FILE CHECK MUST NOT OPEN THE DATABASE.</b> Refuse-to-create is still unbuilt and the
+gate halts before any DB opens by design — that ordering is what makes the declined path's <i>"exiting
+is safe, nothing on your device changes"</i> promise true. A create-if-missing open in front of that
+screen is the <b>08-01 mechanism</b>: an empty schema written over real data. The count runs only once
+the file is known to exist.</p>
+<p><b>Query failure falls through to the map.</b> Fred: <i>"query has to be successful to request home
+state add."</i> Locked/mid-write/unreadable → proceed; the panel remains available at any time. The
+consequence of being wrong here is a redundant import, not data loss.</p>
+<p>⚠ <b>This supersedes the 08-20 architecture note</b> "Gate uses manifest check
+(<code>hasCompletedImport</code>) not DB query" and §8's <code>trails.count == 0 AND waypoints.count
+== 0</code>. Waypoints are not the signal — a rider can hold waypoints with no trails — and the
+file-existence step is what keeps the check safe when no DB exists at all.</p>
+</div>
+
+<h4>Where it lives</h4>
+<div class="card">
+<p><b>Inside the authority task.</b> Not the nav handoff, not <code>ConvoyScreen</code>. The gate is
+already a state machine: <code>evaluateState()</code> at
+<code>ConvoyAuthorityGateScreenV2.kt:143</code> resolves a state, <code>:353</code> renders Granted.
+The zero-data condition is a <b>new state in that same structure</b>, rendered with the picker as its
+resolution. Slot confirmed by the 08-16 ordering finding: <b>after the authority gate, before
+Convoy</b> — which the gate already owns as the nav start destination, so no navigation change.</p>
+<p>⛔ <b>CONVOY IS FROZEN — <code>ConvoyScreen.kt</code> IS NOT TOUCHED.</b> Fred 08-21: <i>"too many
+competing threads."</i> Nothing here needs that file.</p>
+<p>⚠ <b>Do not disturb the three certified paths above:</b> clean pass renders no gate at all; the
+Continue settle-barrier survives only for the state-changed-during-session path
+(<code>passedOnEntry</code> at <code>:169</code>); <code>StorageDeclined</code> has <b>no proceed
+door</b>. The new state is <b>additive</b> — a branch beside them, not a modification of them.</p>
+<pre>authority checks pass
+   │
+   ▼
+SWEEP  imports/ ──► history/        (stamp killed where incomplete)
+   │
+   ▼
+spatial DB file exists?
+   │ NO ──────────────────► HOME STATE PICKER
+   │ YES
+   ▼
+trail count &gt; 0?
+   │ NO ───────────────────► HOME STATE PICKER
+   │ query failed ─────────► RIDE MAP  (panel remains available)
+   │ YES
+   ▼
+RIDE MAP</pre>
+</div>
+
+<h4>⛔ CUT FROM 2.6g — recorded so it is not re-proposed</h4>
+<div class="card">
+<table>
+<tr><th>Cut</th><th>Why</th></tr>
+<tr><td>Resume an interrupted import from <code>last_item</code> (§7A)</td>
+<td>Fred 08-21: <i>"for this release we do not need to engineer a recovery. they can simply rerun
+their process."</i> Re-running is safe — the Utah re-import measured <code>found 104,018 = inserted
+14,506 + dropped 89,436 + geometry_changed 76</code>. Resume buys time, not correctness, and costs a
+prompt with a decline path inside the screen certified across three paths on 08-16.</td></tr>
+<tr><td>"A trail import for [state] was not finished. Complete now?" prompt</td>
+<td>Goes with resume. Nothing prompts; the job kills and sweeps.</td></tr>
+<tr><td><code>restart_of</code> chain field</td><td>Belongs with restart. Revisit 2.7.</td></tr>
+</table>
+</div>
+
+<h4>⛔ REJECTED — AND WHY</h4>
+<div class="card">
+<table>
+<tr><th>Proposed</th><th>Rejected because</th></tr>
+<tr><td>Wire the check into the <code>onProceed</code> handler in <code>ConvoyNavigation.kt</code></td>
+<td>Claude's proposal 08-21, made without reading the design set — the work had been specified into
+the gate's own state machine days earlier. <b>Check AllDocs for an owning design before proposing a
+mechanism.</b></td></tr>
+<tr><td>Folder location alone carries the state (no <code>killed</code> field)</td>
+<td>Argued by Claude on the grounds that a stored verdict drifts from disk (the 07-27
+<code>status=="processed"</code> bug). <b>Overruled by Fred:</b> the stamp is what gets read on a
+support call, and "every section has counts" needs explaining to someone reading the file cold.
+<b>Constraint retained: nothing BRANCHES on <code>killed</code></b> — sweep and gate both test
+counts.</td></tr>
+<tr><td>A guard for the finished-but-not-moved window</td>
+<td>Folded into the sweep. One rule for every file removes the edge case rather than guarding it.</td></tr>
+<tr><td>Auto-recover an interrupted import silently at startup</td>
+<td>Silent one-shot work at startup is exactly the class the declared startup phase exists to make
+observable. Runs before anyone is watching.</td></tr>
+<tr><td>Gate scans for <code>in_progress</code> before the zero-data check (§7A)</td>
+<td>Only meaningful with resume, which is cut. The sweep handles those manifests, so the gate gets
+<b>one</b> new condition, not two.</td></tr>
+</table>
+</div>
+
+<h4>🔴 OPEN — not settled</h4>
+<div class="card">
+<ul>
+<li><b>Skip on fresh install.</b> Carried unresolved from unified spec §14. If the rider backs out of
+the picker, does the job re-offer next launch or let them through with zero data? The picker has a
+skip; the 08-20 manual says setup is offered again next launch. <b>Not settled in code.</b></li>
+<li><b>History folder path.</b> Assumed <code>Documents/GroupTrack/imports/history/</code> by analogy
+with <code>osm/history/</code>. Not confirmed against <code>importsDir()</code>.</li>
+<li><b>Where the picker is invoked from</b> once it is a gate state rather than the Map Features test
+harness (unified spec §13 keeps "Setup Home State" visible until certified).</li>
+</ul>
+</div>
+
+<h4>Build order</h4>
+<div class="card">
+<ol>
+<li><b>Sweep function</b> — standalone, testable without the gate. Walks <code>imports/</code>,
+stamps, moves. Loud logging: id and destination per file.</li>
+<li><b>Zero-data check</b> — file existence then count, read-only, failure falls through.</li>
+<li><b>New gate state</b> — added to <code>AuthorityState</code>, evaluated in
+<code>evaluateState()</code> after the authority checks, rendered as the picker.</li>
+<li><b>Retire the test-harness entry</b> — only after the gate path is device-verified.</li>
+</ol>
+<p>1 and 2 are independently useful and carry no risk to the certified gate. 3 is the only edit to
+<code>ConvoyAuthorityGateScreenV2.kt</code>.</p>
+</div>
+
+<h4>Manifest fields this depends on — LANDED 08-21</h4>
+<div class="card">
+<p><code>HomeStateImportController.kt</code>, marker <code>MANIFESTCOUNTS-2026-08-21</code>,
+compile-verified (BUILD SUCCESSFUL + marker count 5):</p>
+<ul>
+<li><b><code>manifest_id</code></b> — <code>&lt;slug&gt;-&lt;iso8601&gt;</code>, e.g.
+<code>new-hampshire-2026-08-21T08:58:21</code>. <b>A field, NOT a filename</b> — existing manifests
+are named <code>import_[date]_[area].json</code> and renaming them retroactively would invent
+history. Slug not name, because California ships as two entries.</li>
+<li><b>Per source: <code>processed</code> / <code>selected</code> / <code>dupes</code> /
+<code>adds</code> / <code>errors</code></b>, with <code>imported</code> retained so the existing
+completion screen is unaffected. <b><code>-1</code> means NOT REPORTED</b>, which is not zero.
+Identity: <code>selected = dupes + adds + errors</code>.</li>
+</ul>
+<p>⚠ <b>Known dead branch, deliberately not fixed:</b>
+<code>HomeStateImportController.kt:196</code> is <code>if (allOk) "completed" else "completed"</code>
+— both arms identical, so a run with a failed source is written as completed. <b>Safe under this
+design</b> because the sweep tests counts per section, not <code>process_state</code>, and a failed
+source carries no counts. Decide the line when the gate work is built, not inside an unrelated
+patch.</p>
+</div>
+
+<h2>🗣 00-DISCARD-DESIGN (08-16) — THE FIVE-PLUS-ONE BOUNDARY. DESIGN SETTLED, NOT BUILT. (2.6g)</h2>
+<div class="card blue">
+<p class="hi">⛔ <b>THE DIAGNOSIS (Fred):</b> <i>"that tangle is what caused unpredictable results — 6
+versions of discard all mixing and matching the 6 functions."</i></p>
+<p>Six sites, six independently-assembled combinations of the same operations. Each looked reasonable
+alone, so every fix was site-local and the next path exhibited a different variant. <b>The bug was the
+ABSENCE of the module; site-local fixes kept producing new variants.</b> The tell: each fix works and the
+next report describes <i>different</i> behaviour. This is worse than literal copy-paste — literal copies at
+least fail identically.</p>
+<p class="hi">⛔⛔ <b>And some sites are genuinely WRONG, not merely different</b> (Fred): they did not
+remove the in-memory data or the JSON, and <i>"those items are all joined."</i> The JSON on disk, the
+in-memory route and the drawn canvas are <b>three representations of one thing</b>. A site that updates a
+subset leaves them disagreeing, and the next operation reads whichever it happens to consult — <b>state
+divergence</b>. That is why the "phantom draft" looked recreated: it never left memory.</p>
+<p><b>⭐ VISIBLE SYMPTOM, now a signature:</b> the route reappears when the next vertex is dropped. Memory
+was never cleared, so the append redraws it with the new vertex attached. The divergence is created at
+discard and revealed later — which is why it resisted attribution. It points straight at the site; no
+bisecting needed.</p>
+</div>
+<div class="card green">
+<h2>🔎 00-STARTUP-SURVEY (08-16) — THE DECLARED STARTUP PHASE, AND THE HUNT FOR OTHER ONE-SHOTS. (2.6g)</h2>
+<div class="card blue">
+<p class="hi">⭐⭐⭐ <b>THE ARGUMENT IS OBSERVABILITY, NOT SEQUENCING</b> (Fred): <i>"the issue was the
+unobservability of a one-shot process that deleted and recreated DBs."</i></p>
+<p>It announced itself as three <code>I/</code> log lines inside a 353,608-line buffer. No UI, no
+user-facing consequence, no record that survives the session. We caught it only because the ring buffer had
+not rolled yet. <b>A one-shot destructive operation should be the loudest thing the app does.</b> Same
+principle already banked for the queue: the record is the artifact — filtering hides reversibly, deletion
+destroys evidence.</p>
+<p class="hi">⚠ <b>ORDERING CORRECTION.</b> "Ahead of the authority grants" does not work mechanically: the
+08-16 log shows the canary at <code>08:15:02.123</code> and the deletes at <code>.463</code> — the migration
+already ran AFTER authority. Running it earlier means operating without a verified grant, and a delete that
+fails on scoped storage takes the retry branch (<i>marker NOT advanced, will retry next launch</i>) = a loop
+where each attempt is another chance to half-delete. <b>⭐ Correct slot: AFTER the authority gate, BEFORE
+Convoy</b> — a slot the gate already owns as the nav start destination, so it needs no edit to
+<code>ConvoyScreen</code> at all.</p>
+<p><b>Fred on why this outranks the individual fix:</b> <i>"a big ball of yarn twisted into a circle — it
+rolls, but you are still afraid to untangle the strings."</i> Least-invasive is how a tangle keeps rolling.
+<b>The deliverable is the RULE about where work belongs, not the relocation.</b> A rule tells a future
+migration where to go without anyone having to remember today.</p>
+<p class="note">⚠ Recorded honestly: a pre-convoy job would have run the SAME logic against the SAME marker
+and produced the SAME wipe, just from a tidier place. The structural work buys observability and ordering;
+<b>refuse-to-create</b> buys protection. Keep the two credits separate.</p>
+</div>
+<div class="card">
+<h2>▶▶ 00-STARTHERE — 2026-08-14. (SUPERSEDED by 00-STARTHERE 08-16 above; 2.6f scope and status have both moved on)</h2>
+<div class="card red">
+<p class="hi">⭐⭐⭐ RELEASE RE-SEQUENCING (Fred 08-15) — READ FIRST, SUPERSEDES the 2.6f scope below. New arc:</p>
+<p><b>2.6f = PLAY STORE COMPLIANCE ONLY</b> — the authority gate + API 36 + all-files/background-location done properly. Narrow, focused, shippable; nothing else rides on it so nothing destabilizes the live Play distribution. This is the current active work (ConvoyAuthorityGateScreen built + compiling).<br>
+<b>2.6g = THE OPEN 2.6 ISSUES / CLEANUP</b> — everything previously bundled into 2.6f now DELAYED here: the discard module class, import-route, fit-route, map recovery from recipe (the RECOVERYFILE), route-dedup, shared extension DB, rename/delete triggers, radio-meter guard, and the host of other cleanup issues. Happens AFTER Play-compliant + stable.<br>
+<b>2.7 = CONVOY REWRITE</b> (unchanged).</p>
+<p>⚠ EFFECT: the old "2.6f DEFINITION OF DONE = every STUB wired" (00-2.6f-SEQUENCE below) now describes <b>2.6g</b>, NOT 2.6f. 2.6f's done-check is: authority gate wired + old grants removed + target 36 + Play-compliant + Droid-2 clear-data test passes. The STUB/module work is 2.6g. Reason for the split: keep the release feeding the live closed-test distribution STABLE — don't do module surgery on the compliance release.</p>
+</div>
+<div class="card green">
+<p class="hi"><b>State:</b> HEAD <code>f9652276c</code>, branch <code>feature/convoy-event-ride</code>.
+The days-long <b>autosave-survives-discard</b> bug is <b>CLOSED and device-verified</b>. A Play Store
+AAB build was in progress at EOD.</p>
+<p><b>What closed today (08-13 session):</b></p>
+<ul>
+<li class="hi"><b>THE DISCARD BUG — root cause found + fixed + device-verified.</b> The toolbar
+Discard button (<code>ConvoyRouteToolbar:196</code>) branches
+<code>if (routeLifecycleState == ROUTE_LS_RESUMED) onDiscardRequested() else onExit()</code>. For a
+<b>NEW</b> route it called <code>onExit()</code>, which cleared the screen + memory but had <b>no
+<code>deleteDraft</code></b> — so <code>Auto Saved In Progress.json</code> survived every discard. It
+was never a phantom being recreated; it was <b>one real autosave that discard never deleted</b>, so
+it looked like it "kept coming back" because it never left. Fix: added
+<code>RouteDraftStore.deleteDraft(routeName)</code> + <code>draftListTick++</code> to
+<code>onExit</code> (<code>ConvoyMapViewerScreen.kt</code> ~1651). Device-verified on Droid 2: create
+route, 5 pts, Discard → <code>route_drafts/</code> empty. Committed <code>f9652276c</code>.</li>
+<li>Also in that commit: <b>removed</b> the two inline entry-path <code>deleteDraft(UNNAMED)</code>
+branches we had bolted on during the earlier DISCARDWINS attempts (they fought the flow). Net
+<code>7 insertions, 22 deletions</code>.</li>
+<li>Earlier in the day: the convoy viewport-save fix was re-applied (lost to the 07-12 checkout) and
+committed <code>3bbb71484</code>, and an AAB was published. HEAD now carries both fixes.</li>
+</ul>
+<p class="note">⚠ LESSON banked: verify a fix by its <b>on-disk result</b> (grep the current file /
+<code>ls</code> the device), never by "the patch applied." The whole hunt turned on reading the
+actual <code>onExit</code> branch instead of theorizing — several plausible-but-wrong theories
+(empty-shell phantom, persist-guard, between-gates create, gut-the-autosave) were disproven by code +
+device evidence before the real cause surfaced.</p>
+</div>
+
+<h3>🔴 GPX IMPORT — THE BYPASS, THE FIX, AND THE PATH THAT STILL FAILS. GPXIMPORT-EOD-2026-08-22</h3>
+
+<div class="card key">
+<p><b>Testers could not import routes.</b> Cause found by reading the code, not guessing:
+<code>ConvoyTrackOps.kt</code> carried a <b>TEMP BYPASS from 2026-06-02</b> —</p>
+<pre>val waypoints = emptyList&lt;GpxWaypoint&gt;()  // was: parseGpxWaypoints(text)
+val routes    = emptyList&lt;GpxRoute&gt;()     // was: parseGpxRoutes(text)</pre>
+<p>with the comment <i>"GPX import of waypoints/routes is a separate untested task... re-enable
+when import logic is built + tested."</i> ⭐ <b>Everything downstream was already complete</b> —
+the insert loops, the WKT build, the bbox, the type mapping. Only the two parser calls were
+stubbed. A deliberate hold that outlived its reason by <b>nearly three months</b>.</p>
+<p>AllDocs had it recorded: <i>"import currently processes tracks only — waypoint/route GPX
+import is a TEMP BYPASS (2026-06-02, untested)."</i></p>
+</div>
+
+<div class="card good">
+<p><b>✅ FIXED AND DEVICE-VERIFIED.</b> Broken Ridge 2 imported to Droid 1 with 31,845 chars of
+geometry and a correct bbox (38.12–38.26 N, -113.64 to -113.41 W). Marker
+<code>GPXIMPORT-2026-08-22N</code>.</p>
+<p>Also fixed: the <code>&lt;rte&gt;</code> regex matched only a BARE tag, so a GPX writing
+<code>&lt;rte xmlns=...&gt;</code> imported silently as zero routes — indistinguishable from a
+file with no routes in it.</p>
+<p><b>Coordinate order verified before enabling, not assumed:</b> parser stores
+<code>Pair(lon, lat)</code>, the data class documents it, the consumer destructures to match,
+the WKT emits lon lat. No transposition.</p>
+</div>
+
+<div class="card stop">
+<h4>⛔ THE AUTO-IMPORT PATH STILL FAILS — and it is the one testers use</h4>
+<p>Two entry points, only one works:</p>
+<ul>
+<li><b>Manual, from Downloads → Map Features:</b> works. Runs
+<code>importGpxAllArtifacts</code>.</li>
+<li><b>Tapping a GPX attachment in email:</b> fails silently for routes. The intent filter routes
+it to the OLD track-only function.</li>
+</ul>
+<p><b>Why it is not a quick fix:</b> the filters live on
+<code>com.geeksville.mesh.MainActivity</code> — Meshtastic's own activity, not a convoy class —
+and every one declares <code>&lt;data android:scheme="content" /&gt;</code>. So the intent hands
+over a <b>content:// URI</b> while <code>importGpxAllArtifacts</code> takes a <code>File</code>
+and calls <code>readText</code> and <code>delete</code> on it. The stream must be copied to a temp
+file first. <b>Same problem the OSM import already solved</b> (<i>"SQLite needs a real path"</i>).</p>
+<p>⛔ <b>SUPERSEDED 2026-08-30 — see §00-2026-08-30 STEP 1.</b> The manifest entries STAY DECLARED and the existing import is REPOINTED at the new import function; the menu loses import entirely. Do not re-propose the 2.7 deferral or the removal of the intent filters. ⚠ The content:// → temp-file copy described above still applies.</p>
+<p>⭐⭐ <b>THIS BELONGED TO 2.7 (superseded).</b> GroupTrack behaviour living inside Meshtastic's activity is
+precisely the entanglement the mesh separation exists to remove. Patching it into 2.6g fixes the
+symptom in the wrong file.</p>
+<p><b>WORKAROUND for testers, works today:</b> save the attachment to Downloads, then import from
+Map Features → IMPORT TRACKS, WAYPOINTS &amp; ROUTES. One extra step.</p>
+</div>
+
+<div class="card warn">
+<h4>⚠ Two consequences of enabling import, and one open bug</h4>
+<ul>
+<li><b>The source file is now DELETED</b> once anything imports (<code>totalImported &gt; 0</code>).
+Before this a waypoints-only GPX imported nothing and survived.</li>
+<li>⛔ <b><code>insertRoute</code> writes a PERMANENT spatial-DB row</b>, bypassing
+draft-then-graduate. An imported route is permanent immediately — and permanent routes are the
+only unrecoverable class on this project.</li>
+<li>⚠ <b>GPX EXPORT writes a hardcoded label instead of the artifact name</b> (Fred, 08-22, not
+yet diagnosed). Lives in <code>ConvoyArtifactOps.buildGpx()</code>, the same file as the 08-20
+track fix. <b>Untested and open.</b></li>
+</ul>
+</div>
+
+<div class="card warn">
+<h4>⚠⚠ METHOD — three compile failures on a two-line change, all the same mistake</h4>
+<p>The bypass comment said <code>parseGpxWaypoints(text)</code>. I restored it verbatim →
+<b>Unresolved reference 'text'</b>. Then substituted <code>fullText</code> from a grep →
+<b>Unresolved reference 'fullText'</b>. It was declared inside a <code>run { }</code> block that
+closes before the call site.</p>
+<p>⭐⭐⭐ <b>BOTH FAILURES WERE THE SAME ERROR: reaching for a variable NAME without checking its
+SCOPE.</b> And <b>a three-month-old comment is a record, not a specification</b> — it named a
+variable in a function that has since been split.</p>
+<p>⭐ <b>THE XREFS WOULD HAVE ANSWERED IT IN ONE LOOK.</b>
+<code>where_used_raw.txt</code> showed <code>fullText</code> used ONLY at lines 531–533 — all
+inside the block. They were open the whole time and I reached for them only after the second
+failure. Fred, 08-22: <i>"we need to use the xrefs more to research."</i></p>
+<p>⭐ <b>And the obvious fix was wrong.</b> Calling <code>sourceFile.readText()</code> again would
+have compiled — but the comment at :520 records that the whole-file approach <b>OOM'd on large onX
+exports</b>, which is why the streaming rewrite happened. Two reads doubles that on exactly the
+files that already crashed. <b>Correct fix: hoist the single read above the block.</b> ⚠ The OOM
+risk is unchanged, not removed — it remains open against this function.</p>
+</div>
+
+<h3>🆕🆕🆕 ROUTE NOTES — CREATE / IMPORT / EXPORT / DISPLAY. Settled 2026-08-22 late. ROUTENOTES-2026-08-23</h3>
+<div class="card key">
+<p><b>Folded in from the pickup doc <code>GroupTrack_design_route_notes_2026-08-23.html</code>,
+first thing 08-23</b>, per the rule that design in flight expands IN PLACE in the checklist rather
+than sitting beside it. The standalone file was written after midnight as a morning pickup; this
+is the copy that governs.</p>
+<p>⭐ <b>The one-line version:</b> a route's notes ARE its detail panel, they travel inside the
+same file as its geometry, and ONE handler processes both formats.</p>
+</div>
+
+
+
+
+<div class="card key">
+<h5 style="margin-top:0">⭐⭐⭐ THE IDEA, IN ONE LINE</h5>
+<p><b>A route's notes ARE its detail panel</b>, they travel inside the same file as its geometry,
+and <b>one handler processes both formats</b>.</p>
+<p>Fred, 08-22: <i>"i wonder if the route artifact panel is the notes. that is what we are
+after."</i></p>
+</div>
+
+<h4>1. How this got simple — the ideas that were discarded</h4>
+<div class="card warn">
+<p>Worth recording, because the discarded versions each looked reasonable and someone will
+re-propose them:</p>
+<table>
+<tr><th>Considered</th><th>Dropped because</th></tr>
+<tr><td>A separate <code>.highlights.json</code> sidecar file</td>
+    <td>It appeared in the route picker as a zero-point route (Fred found this in testing).
+    Needed a subdirectory, a pairing id, and a flush at <b>six</b> delete sites.</td></tr>
+<tr><td>A sidecar subdirectory</td>
+    <td>Solved the picker problem but kept the pairing and flush problems.</td></tr>
+<tr><td>A throwaway pairing id — year + Julian day + sequence, as a filename suffix</td>
+    <td>Correct solution to a problem that stopped existing.</td></tr>
+<tr><td>Two email attachments — GPX plus a text summary</td>
+    <td>This is what Fred has been sending BY HAND, so the need is proven — but the receiving
+    device had no way to marry them.</td></tr>
+<tr><td>GPX <code>&lt;extensions&gt;</code> with our own namespace</td>
+    <td>Viable, but a namespace to define and defend. <code>&lt;desc&gt;</code> is simpler.</td></tr>
+</table>
+<p>⭐ <b>Fred's collapse, and it removed every one of those problems at once:</b> <i>"may be
+easier to use the same approach on the wip json, and the description in json format to the real
+track file, and have one json."</i> <b>One file. No sidecar. No pairing. No flush.</b></p>
+<p class="muted">⚠ It only became obvious after working the two-file version through properly.
+That is normal, and it is why the discarded list is here rather than deleted.</p>
+</div>
+
+<h4>2. The shape</h4>
+
+<div class="ascii">
+CREATE                      PUBLISH                    DISPLAY
+  suggester / Route+          WIP graduates              artifact panel
+  writes ONE draft JSON  -->  insertRoute() -> row  -->  name + actions left
+  { name, vertices,           notes block ------------>  scrollable body
+    notes }                   into route notes DB        = the notes
+
+EXPORT                                      IMPORT
+  route row + notes DB                        GPX arrives (email, file)
+    |                                           |
+    v                                           v
+  ONE GPX:                                    split &lt;desc&gt; on marker
+    &lt;rte&gt; geometry                              |            |
+    &lt;desc&gt; prose                                v            v
+           ---GTNOTES---                    geometry      notes JSON
+           {json}                           -> route row  -> notes DB
+
+              ^                                    ^
+              |                                    |
+              +--- ONE HANDLER, format is an input, not a branch ---+
+</div>
+
+<h4>3. ⭐⭐ ONE HANDLER — the rule this whole design serves</h4>
+<div class="card key">
+<p>Fred, 08-22: <i>"one process for all gpx route handling. so our json handler and our import
+handler can be a common process over command passed from a json or gpx file. same process."</i></p>
+<p><b>Both formats carry the same two things: geometry and a notes block.</b> GPX wraps them in
+XML with the JSON behind a marker in <code>&lt;desc&gt;</code>; the draft JSON has them as fields.
+So the format-specific code is a <b>reader that produces one common shape</b>, and everything
+after it is written once.</p>
+<pre>readDraftJson(file)  --\
+                        >--&gt;  RouteBundle { name, vertices, notes }  --&gt;  ONE path
+readGpx(file)        --/</pre>
+<p><b>Export is the same reader in reverse.</b></p>
+<p>⭐ <b>STUB-FIRST applies here.</b> Mark every call site that currently handles a route file,
+build the one handler, then grep to confirm nothing still does it the old way. This is exactly
+the case the rule exists for — there are already two import paths and they disagree.</p>
+</div>
+
+<h4>4. What already exists (do not rebuild any of this)</h4>
+<div class="card good">
+<table>
+<tr><th>Piece</th><th>Where</th><th>State</th></tr>
+<tr><td>Draft JSON format</td><td><code>RouteDraftStore.kt</code></td>
+    <td class="ok">documented at the top of the file: schemaVersion, name, createdAt, updatedAt,
+    method, vertices[]</td></tr>
+<tr><td>WIP write / overwrite / graduate</td><td><code>RouteDraftStore.kt</code></td>
+    <td class="ok">built. <code>writeDraft</code>, <code>overwriteDraft</code>, and the
+    draft-or-DB-never-both invariant</td></tr>
+<tr><td>GPX route parser</td><td><code>ConvoyTrackOps.parseGpxRoutes</code></td>
+    <td class="ok">enabled 08-22, device-verified. Handles <code>&lt;rte&gt;</code> with
+    attributes</td></tr>
+<tr><td>GPX waypoint parser</td><td><code>ConvoyTrackOps.parseGpxWaypoints</code></td>
+    <td class="ok">enabled 08-22. Type mapping already sensible: spring→water,
+    viewpoint→scenic, caution→hazard</td></tr>
+<tr><td>Full import</td><td><code>ConvoyTrackOps.importGpxAllArtifacts</code></td>
+    <td class="ok">works from Downloads → Map Features</td></tr>
+<tr><td>Route insert</td><td><code>SpatialDbManager.insertRoute(name, wkt, bbox)</code></td>
+    <td class="ok">built. ⚠ writes a PERMANENT row</td></tr>
+<tr><td>GPX export</td><td><code>ConvoyArtifactOps.buildGpx()</code></td>
+    <td class="hi">built, but see the known bug below</td></tr>
+<tr><td>Unified detail panel</td><td>from <code>62dffa858</code></td>
+    <td class="ok">rename / delete / share / export across artifact types</td></tr>
+<tr><td>The notes CONTENT</td><td>generated 08-22</td>
+    <td class="ok">narrative block: headline, what you will see, stops in order, ground covered,
+    before you go</td></tr>
+</table>
+</div>
+
+<h4>5. 🆕 The one new thing — a route notes database</h4>
+<div class="card">
+<p>Fred, 08-22: <b>"no new subdirectories, but a new database for route info data."</b></p>
+<p>⚠ <b>Worth a two-minute decision before writing it</b>, then never revisit: the architecture
+today is <b>two</b> databases — <code>grouptrack_spatial.db</code> for geometry,
+<code>grouptrack_data.db</code> for properties and extension data. Trails already follow that
+split (<code>trail_properties</code> lives in the data DB).</p>
+<table>
+<tr><th></th><th>A third DB file</th><th>A table in <code>grouptrack_data.db</code></th></tr>
+<tr><td>ATTACH handling</td><td>new, its own</td><td class="ok">already solved</td></tr>
+<tr><td>Cascade on route delete</td><td>needs its own ATTACH to work at all</td>
+    <td class="ok">same connection, works</td></tr>
+<tr><td>Authority gate / startup</td><td>another file to account for</td><td class="ok">nothing to change</td></tr>
+<tr><td>Matches the existing split</td><td>no — a third category</td>
+    <td class="ok">yes — notes are descriptive, not geometric</td></tr>
+</table>
+<p>⛔ <b>The constraint that decides it:</b> SQLite cross-database triggers DO NOT WORK on this
+project — <code>grouptrack_data.db</code> must be ATTACHed to the same connection, and file
+deletes must be app code. A third file inherits that problem again for no benefit.</p>
+<p class="hi"><b>Recommendation: <code>route_notes</code> as a table in
+<code>grouptrack_data.db</code></b>, mirroring <code>trail_properties</code>. If Fred wants a
+genuinely separate file, it works — it just needs its own ATTACH and its own cascade code.</p>
+</div>
+
+<h4>Proposed table</h4>
+<pre>CREATE TABLE IF NOT EXISTS route_notes (
+  note_id      TEXT PRIMARY KEY,     -- uuid
+  route_id     TEXT NOT NULL,        -- FK to routes.route_id (spatial db)
+  geom_hash    TEXT,                 -- ⚠ see the identity note below
+  seq          INTEGER,              -- display order within a route
+  kind         TEXT,                 -- 'narrative' | 'leg' | 'feature' | 'caution' | 'rider'
+  at_mile      REAL,                 -- null for whole-route entries
+  lat          REAL,                 -- null unless the entry is a point
+  lon          REAL,
+  title        TEXT,
+  body         TEXT,                 -- the human-readable line
+  payload      TEXT,                 -- the original JSON fragment, kept verbatim
+  author       TEXT,                 -- 'generated' | 'rider' | 'server'
+  created_at   TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_route_notes_route ON route_notes(route_id);</pre>
+
+<div class="card warn">
+<p><b>Why <code>kind</code> and <code>author</code> rather than one blob:</b> this is the same
+table that eventually carries <b>rider observations</b> (the 3.0 work). Fred, 08-22:
+<i>"history is information, not current fact. it is what it was."</i> A dated observation is a
+row, newest first, nothing collapsed and nothing deleted. Generated narrative and rider notes
+are the same structure with a different <code>author</code>.</p>
+<p>⭐ <b>And it generalises to trails.</b> Fred: <i>"used a joined logical to service the artifact
+popup and wallah we have trail notes."</i> Same join shape against <code>trail_id</code>.</p>
+</div>
+
+<div class="card stop">
+<h4>⛔ THE IDENTITY CHAIN — three ids, each alive for one stretch</h4>
+<p>This is the part that caused the most back-and-forth last night. It is not one id.</p>
+<table>
+<tr><th>Stage</th><th>Key</th><th>Why</th></tr>
+<tr><td>While a DRAFT</td><td class="ok">none needed</td>
+    <td>⭐ notes live INSIDE the draft JSON, so there is nothing to pair. This is what the
+    one-file collapse bought.</td></tr>
+<tr><td>Once PUBLISHED</td><td><code>route_id</code></td>
+    <td>exists only after <code>insertRoute</code> returns. Locally generated UUID.</td></tr>
+<tr><td>Across DEVICES</td><td><code>geom_hash</code></td>
+    <td>⚠ <code>route_id</code> is <b>useless</b> off-device — each device generates its own.</td></tr>
+</table>
+<p>⚠⚠ <b>UNVERIFIED AND IT MATTERS:</b> do routes even get a <code>geom_hash</code>? Trails and
+tracks do. The <code>insertRoute(name, wkt, minLat, maxLat, minLon, maxLon)</code> signature seen
+on 08-22 mentions no hash. <b>Check this first thing</b> — if routes have no hash, the
+cross-device join needs solving another way.</p>
+<pre>cd /c/Users/kixaz/Meshtastic-Android
+python -c "import sqlite3;c=sqlite3.connect('file:D:/nav_test/grouptrack_spatial.db?mode=ro',uri=True);print([r[1] for r in c.execute('PRAGMA table_info(routes)')])"</pre>
+</div>
+
+<h4>6. CREATE — the draft carries its own notes</h4>
+<div class="card">
+<p>One file. The existing draft format plus a <code>notes</code> block. Nothing else changes.</p>
+<pre>{
+  "schemaVersion": 2,                    // ⚠ bumped -- see the compatibility note
+  "name": "Panguitch 1",
+  "createdAt": "...", "updatedAt": "...",
+  "method": "point",
+  "vertices": [ { "lat":.., "lon":.., "lineId":.., "lineType":"trail",
+                  "segmentIndex":-1, "t":0.0, "snapped":true }, ... ],
+
+  "notes": {
+    "generated": "2026-08-22T...Z",
+    "summary": { "total_miles": 78.6, "est_hours": [4.4, 6.6],
+                 "features": 13, "of_available": 51,
+                 "unconfirmed_junctions": 104, "retrace_pct": 25.0 },
+    "narrative": {
+      "headline": "79 miles, roughly 4 to 6 hours of riding. 8 springs and 5 summits along the way.",
+      "stops_in_order": [ "mile 10  Fivemile Ridge -- summit", ... ],
+      "ground_covered": "Named trail: Upper Bear Valley Road (16 mi), Showalter Mountain (6 mi)...",
+      "before_you_go": [ "About 25% of the ride doubles back on itself...", ... ]
+    },
+    "legs":     [ { "trail":"Trail Creek", "from_mi":14.0, "to_mi":15.3, "miles":1.3, "pois":[...] } ],
+    "features": [ { "name":"Slide Spring", "fclass":"spring", "lat":.., "lon":.., "at_mi":17.7 } ],
+    "cautions": [ { "at_mi":9.2, "gap_ft":15.0, "lat":.., "lon":.. } ]
+  }
+}</pre>
+<p class="hi">⚠ <b>CHECK BEFORE WRITING:</b> does the planner tolerate unknown keys? It should
+read <code>vertices</code> and ignore the rest — but a strict parser would reject the file, and
+that is the difference between one line and a rewrite. <b>Verify, do not assume.</b></p>
+<p>⚠ <b>schemaVersion 2.</b> A v1 draft has no <code>notes</code> — that must read as "no notes",
+never as broken. <b>Absent fields mean old, not broken</b> (the same rule that saved the 08-20
+manifests during the sweep work).</p>
+</div>
+
+<h4>7. PUBLISH — graduate, then write the notes</h4>
+<div class="card">
+<ol>
+<li>WIP graduates → <code>insertRoute(name, wkt, bbox)</code> → returns <code>route_id</code></li>
+<li><b>Then</b> the <code>notes</code> block is expanded into <code>route_notes</code> rows,
+stamped with that <code>route_id</code></li>
+<li>Draft file deleted — the draft-or-DB-never-both invariant</li>
+</ol>
+<p>⛔ <b>ORDER IS LOAD-BEARING.</b> The id does not exist until step 1 returns. And the draft must
+not be deleted until step 2 succeeds, or the notes are gone with no way to recover them. Same
+stamp-then-move discipline as the 08-21 manifest sweep.</p>
+</div>
+
+<h4>8. EXPORT — prose for the human, JSON for the app, one file</h4>
+<div class="card">
+<pre>&lt;rte&gt;
+  &lt;name&gt;Panguitch 1&lt;/name&gt;
+  &lt;desc&gt;79 miles, roughly 4 to 6 hours of riding. 8 springs and 5 summits
+along the way.
+
+mile 10  Fivemile Ridge -- summit
+mile 18  Slide Spring -- spring
+...
+
+Before you go: about 25% of the ride doubles back on itself...
+
+---GTNOTES---
+{"summary":{...},"legs":[...],"features":[...],"cautions":[...]}&lt;/desc&gt;
+  &lt;rtept lat="37.8222" lon="-112.4358"/&gt;
+  ...
+&lt;/rte&gt;</pre>
+<p><b>Degrades gracefully.</b> Another app shows the whole <code>&lt;desc&gt;</code> as text —
+untidy after the marker, but not broken. GroupTrack splits on the marker.</p>
+<p>⚠ <b>Escaping.</b> JSON inside XML needs the quotes and brackets escaped once and only once.
+The export already escapes for GPX — <b>the risk is DOUBLE-escaping</b>, which works in testing
+and breaks on the first trail name with an apostrophe.</p>
+<p>⚠ <b>Size.</b> A full mile-by-mile is several KB in a single attribute. Fine for GPX; confirm
+nothing downstream truncates.</p>
+<p class="hi">⛔ <b>KNOWN BUG IN THIS EXACT FUNCTION:</b> Fred, 08-22 — <code>buildGpx()</code>
+writes a <b>hardcoded label instead of the artifact name</b>. Not yet diagnosed. <b>Fix it in the
+same pass</b> rather than building notes on top of a defect.</p>
+</div>
+
+<h4>9. IMPORT — the mirror</h4>
+<div class="card">
+<ol>
+<li>Parse the GPX (<code>parseGpxRoutes</code>, working as of 08-22)</li>
+<li>Split <code>&lt;desc&gt;</code> on <code>---GTNOTES---</code> — prose before, JSON after</li>
+<li>Geometry → <code>insertRoute</code> → <code>route_id</code></li>
+<li>Notes JSON → <code>route_notes</code> rows, <code>author = 'generated'</code> preserved</li>
+<li>No marker present → import the route with the prose as a single narrative note. <b>Never fail
+an import over missing notes.</b></li>
+</ol>
+<p>⭐ Steps 3–4 are <b>the same code</b> the publish path uses. That is the point of the one
+handler.</p>
+</div>
+
+<div class="card stop">
+<h4>⛔ THE AUTO-IMPORT PATH IS STILL BROKEN — carried from 08-22</h4>
+<p><b>Manual from Downloads → Map Features works. Tapping a GPX in email does not</b> — the
+intent filter routes it to the old track-only function.</p>
+<p>The filters live on <code>com.geeksville.mesh.MainActivity</code> — Meshtastic's own activity —
+and every one declares <code>&lt;data android:scheme="content" /&gt;</code>. So the intent hands
+over a <b>content:// URI</b> while <code>importGpxAllArtifacts</code> takes a <code>File</code>
+and calls <code>readText</code>/<code>delete</code> on it. The stream must be copied to a temp
+file first — <b>the same problem the OSM import already solved</b> ("SQLite needs a real path").</p>
+<p>⛔ <b>SUPERSEDED 2026-08-30 — see §00-2026-08-30 STEP 1.</b> Repoint the handler; the manifest is not edited. ⚠ The content:// → temp-file copy still applies.</p>
+<p>⭐ <b>This belonged to 2.7 (superseded)</b>, not 2.6g: GroupTrack behaviour inside Meshtastic's activity is
+exactly what the mesh separation removes.</p>
+<p class="hi"><b>TESTER WORKAROUND, works today:</b> save the attachment to Downloads, then import
+from Map Features → IMPORT TRACKS, WAYPOINTS &amp; ROUTES.</p>
+</div>
+
+<h4>10. DISPLAY — the panel IS the notes</h4>
+<div class="card">
+<p>Fred's layout, 08-22: <i>"we have the action share export rename delete etc on the left, trail
+name up top, but the body is the scrollable attributes."</i></p>
+<pre>┌──────────────────────────────────────────────┐
+│  Panguitch 1                                 │  &lt;- name
+├────────┬─────────────────────────────────────┤
+│ SHARE  │  79 miles · 4-6 hours               │
+│ EXPORT │  8 springs, 5 summits               │  &lt;- scrollable body
+│ RENAME │                                     │     = route_notes rows,
+│ DELETE │  mile 10  Fivemile Ridge            │       ordered by seq
+│ FIT    │  mile 18  Slide Spring              │
+│        │  mile 24  Iron Peak                 │
+│        │  ...                                │
+│        │  ⚠ 104 junctions unconfirmed        │
+│        │  ⚠ 25% doubles back                 │
+└────────┴─────────────────────────────────────┘</pre>
+<p>⭐ <b>This IS the pre-2.6 backlog item</b> "artifact detail shown IN PLACE (inline panel, not
+popups) on BOTH maps, for routes/tracks/trails" — now with something worth scrolling.</p>
+<p><b>One query, three sources.</b> The panel asks for notes on an artifact. Some rows were
+generated, some typed by the rider, some will come from the server in 3.0. It does not care.</p>
+<p><b>Same body works for all three artifact types:</b></p>
+<ul>
+<li><b>Route</b> — narrative, mileage, time, features by mile, unconfirmed junctions</li>
+<li><b>Trail</b> — source, surface, motorized designation, <b>dated rider observations</b></li>
+<li><b>Track</b> — recorded date, distance, the ride it came from</li>
+</ul>
+</div>
+
+<h4>11. SHARE — what Fred already does by hand</h4>
+<div class="card good">
+<p>Fred, 08-22: <i>"that is how I have been delivering them"</i> — a GPX and a text summary.
+<b>The need is proven, not hypothesised.</b></p>
+<ul>
+<li><b>Body:</b> the narrative as plain text. ⚠ <b>Not HTML</b> — clients mangle it, and the
+narrative is already prose plus a mile-ordered list, which survives as text.</li>
+<li><b>Attachment:</b> the one GPX, notes embedded.</li>
+</ul>
+<p>⭐ <b>It also softens the auto-import failure:</b> a tester who cannot get the attachment to
+import still knows what the ride is from the body.</p>
+</div>
+
+<h4>12. Morning order</h4>
+<div class="card key">
+<ol>
+<li><b>Verify three things before writing any code</b> (each is one command):
+  <ul>
+  <li>Does <code>routes</code> have a <code>geom_hash</code>? (§5)</li>
+  <li>Does the planner tolerate unknown keys in the draft JSON? (§6)</li>
+  <li>What does <code>buildGpx()</code> actually write for <code>&lt;name&gt;</code>? (§8)</li>
+  </ul></li>
+<li><b>Decide:</b> <code>route_notes</code> as a table in <code>grouptrack_data.db</code>
+(recommended) or a third DB file.</li>
+<li><b>Fix <code>buildGpx()</code>'s hardcoded label</b> before extending it.</li>
+<li><b>Build the one reader</b> → <code>RouteBundle</code>, stub-first, then grep the old paths.</li>
+<li><b>Then</b> publish → notes, import → notes, panel → notes.</li>
+</ol>
+<p class="hi">⚠ <b>AND FIRST, BEFORE ANY OF IT</b> — Fred, 08-22: <i>"before we begin the area
+exploratory trail process, let's fix the existing trail method to function properly and
+re-examine them."</i> That is the <b>trace-not-snap</b> work: a vertex carrying
+<code>lineId</code> follows its known trail through known junctions; snap only runs where a
+rider's tap needs resolving. <code>ConvoyMapViewerScreen.kt:786</code> —
+<code>snapRadiusM = (44.0 * mPerPx).coerceIn(15.0, 150.0)</code> is a zoom-scaled
+GESTURE-uncertainty radius (49–492 ft) being applied to points that have no gesture in them.</p>
+</div>
+
+
+
+</body></html>

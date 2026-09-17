@@ -1,0 +1,173 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<title>GroupTrack — Handoff 2026-09-17</title>
+<style>
+body{font:15px/1.68 -apple-system,"Segoe UI",Roboto,sans-serif;max-width:960px;
+margin:0 auto;padding:26px;background:#0f1216;color:#e6edf3}
+h1{font-size:21px;color:#58a6ff;border-bottom:2px solid #2a3038;padding-bottom:8px}
+h2{font-size:16px;color:#58a6ff;margin-top:32px;border-bottom:1px solid #2a3038;padding-bottom:5px}
+h3{font-size:14px;color:#b8c2cc;margin-top:20px}
+code{background:#1a2027;padding:1px 5px;border-radius:3px;font-size:12.5px;color:#8FD0FF}
+.card{background:#161b22;border:1px solid #2a3038;border-radius:8px;padding:13px 17px;margin:11px 0}
+.done{border-left:4px solid #3fb950}.next{border-left:4px solid #58a6ff}
+.warn{border-left:4px solid #d29922}.bad{border-left:4px solid #f85149}
+table{border-collapse:collapse;width:100%;margin:11px 0;font-size:13px}
+th,td{border:1px solid #2a3038;padding:6px 9px;text-align:left;vertical-align:top}
+th{background:#1a2027;color:#8FD0FF}
+li{margin:6px 0}
+.hi{color:#e3b341}
+pre{background:#0d1117;border:1px solid #2a3038;padding:9px;border-radius:5px;
+font-size:11.5px;overflow-x:auto;color:#b8c2cc}
+</style></head><body>
+
+<h1>GroupTrack — Handoff, 2026-09-17</h1>
+<p><code>feature/convoy-event-ride</code> · <b>PROMOTED TO PLAY</b> · Fred away
+until ~09-22</p>
+
+<div class="card done">
+<p class="hi">⭐⭐ <b>The crash every non-Utah rider was hitting is fixed and
+shipped, and the 78 MB read underneath it is gone — replaced by a streaming
+parser VERIFIED BY EXACT COUNT.</b></p>
+</div>
+
+<h2>⛔ The real cause: every non-Utah import was doing Utah's work</h2>
+<div class="card bad">
+<p>The ownership data is <b>UTAH SITLA</b>. The only test was whether the FILE
+EXISTS — <b>not whether it is relevant.</b> So importing New Hampshire:</p>
+<ol>
+<li><b>downloaded 78 MB of UTAH data over the network;</b></li>
+<li>parsed it into rings;</li>
+<li>built a cell grid indexing each ring into every cell it spans;</li>
+<li>walked the full trail cursor with both still held;</li>
+<li><b>and classified New Hampshire trails against Utah polygons.</b></li>
+</ol>
+<pre>OutOfMemoryError: Failed to allocate a 360 byte allocation
+with 1670512 free bytes, growth limit 268435456
+  at CursorWindow.nativeGetString
+  at HomeStateImportController$executeRun$2$changed$1</pre>
+<p>⛔ <b>A 360 BYTE allocation against a FULL 256 MB heap</b> — death by
+accumulation, and the failing frame is a DATABASE CURSOR, not
+<code>readText</code>. <b>This morning's heap guard never even runs on that
+path.</b></p>
+<p class="hi">⭐⭐⭐ <b>SO IT WAS NEVER A LOW-MEMORY-DEVICE PROBLEM. It was EVERY
+RIDER OUTSIDE UTAH, on any device.</b> Droid 1 has 256 MB and still died. ⛔ And
+it dies on the LAST stage, so a rider who tried and gave up appears nowhere but
+Crashlytics.</p>
+<p>⚠ <b>UTAH HAS NEVER CRASHED</b> — same code, MORE trails. Everything aimed at
+"protecting Utah" was solving a problem that did not exist.</p>
+</div>
+
+<h2>✅ What shipped</h2>
+<div class="card done">
+<table>
+<tr><th>Marker</th><th>What</th></tr>
+<tr><td><code>OWNSKIP-2026-09-17</code></td><td><b>One condition.</b> Non-Utah: skip the download, place an EMPTY file. <code>run()</code>'s existing <code>length() &lt; 1024</code> check returns <b>-1</b>, which the caller ALREADY treats as COMPLETED with zero records. <b>No new path, loop untouched.</b></td></tr>
+<tr><td><code>STREAMRINGS-2026-09-17</code></td><td><b>The actual fix.</b> <code>loadRings</code> streams instead of <code>readText()</code>. ⭐ Ends at bracket depth zero rather than looking ahead for the next <code>"owner"</code>.</td></tr>
+<tr><td><code>MAPSDEFAULT-2026-09-16</code></td><td>Import maps checkbox ON by default and legible.</td></tr>
+<tr><td>largeHeap</td><td><b>REVERTED.</b> Insurance against a crash that never happens, and the suspect for slower imports.</td></tr>
+<tr><td><code>OWNSTATE-2026-09-17</code></td><td>⛔ <b>REVERTED.</b> Stopped non-Utah imports dead — the screen never left the selection panel.</td></tr>
+</table>
+
+<p class="hi">⭐⭐⭐ <b>THE PARSER VERIFICATION — EXACT.</b> A misparse does not
+crash, it silently misclassifies. So the gate was a number:</p>
+<pre>BEFORE:  classify processed = 146,009
+AFTER:   classify processed = 146,139   difference = 130
+
+New rows, same run:  ugrc_utah_trails  52
+                     geofabrik_utah    74
+                     _ridertrails       4
+                                      ---
+                                      130   ✅ EXACT</pre>
+<p>⚠ <b>Still a SINGLE Utah run</b> on the one state that exercises the parser.
+<b>If ownership classification looks wrong in the next few weeks, look here
+first.</b></p>
+<p>⚠ <b>"52" is not a bug:</b> <code>imported: 49125, dupes: 49073, processed:
+52</code>. <b><code>processed</code> is NEW ROWS, not total.</b></p>
+</div>
+
+<h2>⛔ IMPORTLOCK-2026-09-17 — an incomplete manifest bricks the importer</h2>
+<div class="card bad">
+<p><b>The network dropped mid-import. After that, no state could be imported at
+all</b> — the screen never left the selection panel. <b>No message, no log.</b></p>
+<p>Two manifests were stranded in <code>imports/</code>. The New Hampshire one
+shows the shape: three federal sources <code>completed</code>, <b>Geofabrik
+<code>failed</code></b>, then rider trails and classify <code>completed</code>.
+⭐ <b>Classify completing confirms OWNSKIP works with the streaming parser even
+on an interrupted run.</b></p>
+<p>⛔⛔ <b>RESUME IS DESIGNED AND DOES NOT HAPPEN.</b> The loop at <code>:385</code>
+skips <code>completed</code> sources, so a rerun SHOULD pick up at the failed
+one. <b>It never gets the chance — nothing launches.</b></p>
+<p>⚠ <b>WE DO NOT KNOW WHICH OF TWO THINGS BLOCKS IT</b> — the manifests were
+deleted AND the process force-stopped together:</p>
+<ul>
+<li>the stale manifest in <code>imports/</code>, or</li>
+<li><code>beginImport()</code> at <code>HomeStatePickerScreen:133</code>, whose
+latch a dead run would leave set. In-memory, so force-stop clears it.</li>
+</ul>
+<p>🔴 <b>FIRST TASK: determine which, ONE AT A TIME.</b></p>
+<p><b>FIX:</b> (1) unblock it — a rider has no adb and no idea a manifest exists;
+(2) then offer <b>"An earlier import of X did not finish — [Resume] [Start over]
+[Cancel]"</b>. ⚠ Define "incomplete" carefully: a run genuinely still going also
+lives in <code>imports/</code>.</p>
+</div>
+
+<h2>🔵 SRCFRESH-2026-09-17 — skip sources that have not changed</h2>
+<div class="card next">
+<p><b>Test the DB for an existing source; if the remote has not changed since,
+skip it entirely.</b></p>
+<p>⭐⭐ <b>The evidence is in today's manifest:</b> the Utah rerun fetched 49,125
+UGRC records to insert <b>52</b>. <b>A rerun pays the full cost for almost none
+of the benefit</b> — 27–31 minutes.</p>
+<p>⭐ <b>And it is exactly what area downloads need</b> — an area download over a
+state already held re-imports everything to insert nothing.</p>
+<p>⚠ <b>Per source, not universal.</b> ArcGIS reports
+<code>editingInfo.lastEditDate</code>; Geofabrik exposes a file date. Check what
+each offers, store it on success, compare next time. ⚠ <b>Must be
+overridable</b> or it becomes a trap when data is suspect.</p>
+</div>
+
+<h2>⚠ Performance — inconclusive</h2>
+<div class="card warn">
+<p>Utah rerun: <b>27 min with largeHeap, 31 min without.</b> Step 1 alone was
+9 minutes both times.</p>
+<p>⭐ <b>Fred's observation is the better lead:</b> steps 7 and 8 are the longest
+and download ~1.2 GB — <b>allocation-bound, which is exactly where heap size
+tells.</b> Step 1 is database-bound.</p>
+<p>⚠ <b>No clean baseline exists</b> — nobody timed a Utah import before this
+week. <b>And a rerun over 145,000 existing rows is a different workload from a
+first import</b>; <code>IMPORTDIFF</code> alone logs two lines per row.</p>
+</div>
+
+<h2>Where to pick up</h2>
+<div class="card next">
+<ol>
+<li>🔴 <b>IMPORTLOCK</b> — determine which of the two blocks it, then unblock and
+prompt.</li>
+<li>🔴 <b>THE SEPARATION.</b> Still the focus: <i>"refactoring that convoy mess
+into three manageable separate layers."</i> ⛔ A refactor, NOT a rewrite.</li>
+<li>🔴 Nathan's outstanding question — does the bridge relay only TAKPackets, or
+generate CoT for any Meshtastic position? And our LoRa preset, which he asked
+for.</li>
+<li>⚠ New Hampshire's classify reported <code>failed</code> on one run this
+morning while completing on another. <b>Worth understanding.</b></li>
+<li>⚠ The import confirm popup still shows <code>estimatedTiles = 0</code>, and
+there is no wifi warning on an unattended six-hour import.</li>
+<li>⚠ The original <code>parseRings</code> is kept, UNUSED, as the reference for
+the stream. Remove only after a second clean Utah run.</li>
+<li>⚠ Website copy is drafted in the master; the doc swap is the biggest single
+win.</li>
+<li>⚠ AWS access before March.</li>
+</ol>
+</div>
+
+<h2>Files</h2>
+<div class="card done">
+<ul>
+<li><code>grouptrack_living_master_2026-09-17_v68.html</code> — 145 h2 / 493 h3,
+additive on v67</li>
+<li><code>GroupTrack_CommsDesign_2026-09-15_v7.html</code> — level 1 design, sent
+to Natak</li>
+<li>⚠ Manual, Quick Start and release notes NOT updated.</li>
+</ul>
+</div>
+
+</body></html>
