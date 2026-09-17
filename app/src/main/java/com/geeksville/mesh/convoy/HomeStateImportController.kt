@@ -558,7 +558,24 @@ object HomeStateImportController {
                 publishProgress(areaLabel, totalSources, sources, "running", startMs)
 
                 val ownFile = OwnershipReclass.ownershipFile()
-                if (!ownFile.exists() || ownFile.length() < 1_000_000L) {
+                // OWNSKIP-2026-09-17: THE OWNERSHIP DATA IS UTAH SITLA. Other states were
+                // downloading 78 MB of it, parsing it into rings, building the cell
+                // grid and walking the whole trail cursor against Utah polygons --
+                // then dying of OOM on the last stage of the import, leaving no
+                // manifest and no trace.
+                // ⭐ An EMPTY file makes OwnershipReclass.run() return -1 at its
+                // first check, which the caller ALREADY treats as a COMPLETED stage
+                // with zero records. No new path, no new sentinel.
+                val ownershipApplies = areaLabel.trim().equals("Utah", ignoreCase = true)
+                if (!ownershipApplies && !ownFile.exists()) {
+                    try {
+                        ownFile.parentFile?.mkdirs()
+                        ownFile.createNewFile()
+                    } catch (e: Exception) {
+                        Log.w(TAG, "OWNSKIP-2026-09-17: could not place empty ownership file: ${e.message}")
+                    }
+                }
+                if (ownershipApplies && (!ownFile.exists() || ownFile.length() < 1_000_000L)) {
                     updateSourceStep(
                         findStage(sources, CLASSIFY_STAGE_ID),
                         "Land ownership", "downloading")
