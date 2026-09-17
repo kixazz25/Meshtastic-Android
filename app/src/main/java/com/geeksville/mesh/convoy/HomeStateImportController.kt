@@ -557,8 +557,43 @@ object HomeStateImportController {
                 writeManifest(mFile, manifest)
                 publishProgress(areaLabel, totalSources, sources, "running", startMs)
 
+                // OWNSTATE-2026-09-17: ⛔ THE OWNERSHIP DATA IS UTAH SITLA. SKIP EVERY OTHER STATE.
+                // Importing New Hampshire downloaded a 78 MB UTAH file, parsed it,
+                // built the cell grid, then walked the trail cursor with both still
+                // held -- and ran out of heap on a 360 BYTE allocation. It was also
+                // classifying New Hampshire trails against Utah polygons, which is
+                // meaningless work even when it succeeds.
+                // ⭐ Gating on APPLICABILITY removes the whole class rather than
+                // guarding against it: no download, no parse, no cursor walk, and the
+                // skip is CORRECT and RECORDED rather than a degraded import nobody
+                // can distinguish from a memory failure.
+                // ⚠ The stage is marked completed HERE, before the guarded blocks,
+                // so no early exit is needed -- this is inline code with no lambda
+                // to return from.
+                // ⚠ Hardcoded to Utah for now. Better later: test whether an
+                // ownership layer EXISTS for the imported state, so adding Colorado
+                // needs no code change. Utah itself still runs the full path and the
+                // streaming work is still owed.
+                val ownershipApplies = areaLabel.trim().equals("Utah", ignoreCase = true)
+                if (!ownershipApplies) {
+                    Log.i(TAG, "OWNSTATE-2026-09-17: step 8 SKIPPED -- ownership data is Utah " +
+                        "SITLA and this import is '$areaLabel'. Not a failure: " +
+                        "trails keep their categories and land_status stays null.")
+                    findStage(sources, CLASSIFY_STAGE_ID)?.apply {
+                        put("status", "completed")
+                        put("completed_at", iso8601Now())
+                        put("imported", 0)
+                        put("processed", 0)
+                        // ⭐ So a future reader can tell THIS skip from a
+                        // missing-file skip or a memory failure.
+                        put("skipped_reason", "ownership data is Utah-only")
+                    }
+                    writeManifest(mFile, manifest)
+                    publishProgress(areaLabel, totalSources, sources, "running", startMs)
+                }
+
                 val ownFile = OwnershipReclass.ownershipFile()
-                if (!ownFile.exists() || ownFile.length() < 1_000_000L) {
+                if (ownershipApplies && (!ownFile.exists() || ownFile.length() < 1_000_000L)) {
                     updateSourceStep(
                         findStage(sources, CLASSIFY_STAGE_ID),
                         "Land ownership", "downloading")
@@ -575,7 +610,9 @@ object HomeStateImportController {
                 // STEP8-2026-08-31: properties, not functions.
                 val sDb = SpatialDbManager.getSpatialDb()
                 val eDb = SpatialDbManager.getExtensionDb()
-                if (sDb != null && eDb != null) {
+                // OWNSTATE-2026-09-17: guarded -- a non-Utah import must not parse
+                // the Utah ownership file or walk the trail cursor against it.
+                if (ownershipApplies && sDb != null && eDb != null) {
                     updateSourceStep(
                         findStage(sources, CLASSIFY_STAGE_ID),
                         "Classifying roads", "reading land ownership")
