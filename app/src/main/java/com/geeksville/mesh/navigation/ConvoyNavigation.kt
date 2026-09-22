@@ -62,7 +62,15 @@ fun NavGraphBuilder.convoyGraph(
         val navGateContext = androidx.compose.ui.platform.LocalContext.current
         com.geeksville.mesh.convoy.ConvoyAuthorityGateScreenV2(
             onProceed = {
-                navController?.navigate(ConvoyRoutes.Convoy) {
+                // PROFILE-2026-09-22: the callsign has to be in every TAK packet from
+                // the first broadcast, so the rider profile is created HERE -- not at
+                // ride creation. Existing profile: straight to the map, as before.
+                val dest: Any =
+                    if (com.geeksville.mesh.convoy.ConvoyProfileStore.exists())
+                        ConvoyRoutes.Convoy
+                    else
+                        ConvoyRoutes.ConvoyRiderProfile
+                navController?.navigate(dest) {
                     popUpTo(ConvoyRoutes.ConvoyAuthorityGate) { inclusive = true }
                 }
             },
@@ -85,6 +93,18 @@ fun NavGraphBuilder.convoyGraph(
     }
 
     // ── Legacy settings screen ────────────────────────────────────────────
+    // PROFILE-2026-09-22: first launch (no Cancel -- it cannot be skipped).
+    composable<ConvoyRoutes.ConvoyRiderProfile> {
+        com.geeksville.mesh.convoy.ConvoyRiderProfileScreen(
+            onSaved = {
+                navController?.navigate(ConvoyRoutes.Convoy) {
+                    popUpTo(ConvoyRoutes.ConvoyRiderProfile) { inclusive = true }
+                }
+            },
+            onCancel = null
+        )
+    }
+
     composable<ConvoyRoutes.ConvoySettings> {
         ConvoySettingsScreen(
             onNavigateBack = { navController?.popBackStack() },
