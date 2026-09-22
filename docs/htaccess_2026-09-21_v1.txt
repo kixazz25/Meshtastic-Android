@@ -1,0 +1,11 @@
+RewriteEngine On
+
+# HTTPSREDIR-2026-09-21: plain http goes to https.
+# Exempt /api/ -- redirecting an app's POST can silently turn it into a GET.
+# Exempt /.well-known/ -- Let's Encrypt renewal checks arrive there over http.
+RewriteCond %{HTTPS} off
+RewriteCond %{REQUEST_URI} !^/api/
+RewriteCond %{REQUEST_URI} !^/\.well-known/
+RewriteRule ^(.*)$ https://%{HTTP_HOST}/$1 [R=301,L]
+
+RewriteRule ^api/(.*)$ convoy_api.php/$1 [PT,L]

@@ -1,0 +1,103 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GroupTrack — Handoff 2026-09-21 v3</title><style>
+body{font:15px/1.68 -apple-system,"Segoe UI",Roboto,sans-serif;max-width:960px;
+margin:0 auto;padding:26px;background:#0f1216;color:#e6edf3}
+h1{font-size:21px;color:#58a6ff;border-bottom:2px solid #2a3038;padding-bottom:8px}
+h2{font-size:16px;color:#58a6ff;margin-top:32px;border-bottom:1px solid #2a3038;padding-bottom:5px}
+h3{font-size:14px;color:#b8c2cc;margin-top:20px}
+code{background:#1a2027;padding:1px 5px;border-radius:3px;font-size:12.5px;color:#8FD0FF}
+.card{background:#161b22;border:1px solid #2a3038;border-radius:8px;padding:13px 17px;margin:11px 0}
+.done{border-left:4px solid #3fb950}.next{border-left:4px solid #58a6ff}
+.warn{border-left:4px solid #d29922}.bad{border-left:4px solid #f85149}
+table{border-collapse:collapse;width:100%;margin:11px 0;font-size:13px}
+th,td{border:1px solid #2a3038;padding:6px 9px;text-align:left;vertical-align:top}
+th{background:#1a2027;color:#8FD0FF}
+li{margin:6px 0}
+.hi{color:#e3b341}
+pre{background:#0d1117;border:1px solid #2a3038;padding:9px;border-radius:5px;
+font-size:11.5px;overflow-x:auto;color:#b8c2cc}
+</style></head><body>
+<header><div class="ttl"><b>GroupTrack</b> — Handoff — <b class="hi">2026-09-21 v3</b></div>
+<div class="sub">INTERNAL · resume context for the next session · Living Master <code>grouptrack_living_master_2026-09-21_v78.html</code> (146 h2 / 512 h3)</div></header>
+
+<h2>▶ START HERE</h2>
+<div class="card next">
+<p><b>Branch</b> <code>feature/convoy-event-ride</code> · <b>devices</b> Droid 1 <code>8624SBCEDF00001789</code>, Droid 2 <code>24039703201775</code> ·
+<b>no app code changed today.</b> Today was the website, the Facebook plan, the ride-config model for Natak, and the 2.7 plan.</p>
+<p>⭐ <b>First action tomorrow (Fred):</b> build a fresh <b>field where-used cross-reference and a navigation where-used</b>, then do a
+proper blast-radius analysis before any 2.7 code. <b>Today's index is stale</b> — its line numbers had drifted from the real files
+(<code>ConvoyScreen.kt</code> sleep code sat at ~1606, not the indexed 1541).</p>
+</div>
+
+<h2>⚠ Travel-day reconciliation</h2>
+<div class="card next">
+<p>Eleven planning threads from <b>09-17 → 09-20</b> were in memory but not in the Living Master — the 09-20 gate (unify
+structures and APIs, agree ownership and process rules before Nathan builds), the device policy, the TX-power rule, the
+system of record, the T1000-E having no WiFi and the WiFi mode trap, the hotspot idea, the DEX obfuscation warning, import
+speed being the WiFi band, the ride-map corridor, and the design docs sent to Nathan. <b>All written into their owning
+sections in v78</b>; the list is under <i>TRAVEL-DAY RECONCILIATION</i> in the 09-21 section. ⛔ Reconcile after every away period.</p>
+</div>
+
+<h2>What is live</h2>
+<div class="card done">
+<ul>
+<li><b>grouptrack.org</b> — rebuilt site, page v7 (<code>grouptrack_index_2026-09-21_v7.html</code>), HTTPS enforced by <code>.htaccess</code> v2
+(<code>THE_REQUEST</code>; <code>/api/</code> and <code>/.well-known/</code> exempt), Let's Encrypt for both names renewing twice daily, Facebook
+preview (<code>og-image.jpg</code>) re-scraped.</li>
+<li><b>support@grouptrack.org</b> — ImprovMX catch-all → Fred's Gmail, filtered out of spam. DNS at GoDaddy (MX ×2, SPF added).</li>
+<li><b>Deploy:</b> <code>scp</code> to <code>~/</code>, then <code>sudo cp</code> (not <code>mv</code> — SELinux labels). Server backups <code>*.bak_2026-09-21</code>.</li>
+</ul>
+</div>
+
+<h2>What was decided — the 2.7 plan</h2>
+<div class="card done">
+<ol>
+<li><b>Order:</b> examine → T3 → <b>rationalize the radio config + the new default config</b> → <b>GPS to TAK packets</b> → delete the old →
+(later) the position seam. Config and TAK ship together in 2.7.</li>
+<li><b>Build over, don't pry apart</b> — keep the radio drivers and the frozen convoy map.</li>
+<li><b>Hard cut:</b> radio config = base + ride values; 2.6 and 2.7 never coexist; the default net renamed to a fixed <code>GT</code> id fences old radios.</li>
+<li><b>Firmware pinned <code>2.6.11.60ec05e</code> — no updates</b> (the T1000-E fails on newer firmware). Upgrade = confirm firmware → settings-only factory reset → base + default net → verify, keeping the owner's radio name.</li>
+<li><b>2.7 has two configs:</b> the shipped default net and one leader-named event ride config. Org/unique configs are V3.</li>
+<li><b>The ride config file is today's <code>.convoy</code> JSON, extended</b> with <code>formatVersion</code>, <code>role</code>, <code>frequencySlot</code>,
+<code>baseVersion</code> and <code>gpx</code>; <code>ConvoyTransferRideScreen</code> is rewritten.</li>
+<li><b>Components now, designed for separation</b> — <code>com.grouptrack.core</code> (pure Kotlin) and <code>com.grouptrack.mesh</code>.</li>
+<li><b>Tighten, don't add</b> — ten users. Nucleus integration is not in 2.7.</li>
+</ol>
+</div>
+
+<h2>What the examination found</h2>
+<div class="card done">
+<ul>
+<li>⭐⭐ <b>The 3–4 radio ceiling is likely airtime:</b> today's default sends a position <b>every 5 s on LONG_FAST</b> (~0.9 s on air each,
+estimated) — four radios fill ~70% of the channel before rebroadcasts. TAK's app cadence is the fix.</li>
+<li>Default: <code>Convoy</code>, <b>slot 5 fixed</b>, hop 3, 27 dBm, role <code>TRACKER</code>, modules off; captured long name <code>!1d5bdc79</code>
+(why the rename prompt existed).</li>
+<li>Apply list 48 fields → 8 ride values + a small base; the rest dropped.</li>
+<li>Naming: the ride config generates names (<code>CONVOY-</code> + 4); default <code>Convoy</code>.</li>
+<li>⛔⛔ <b>The T1000-E drops Bluetooth on its own and can't be reconnected from that state</b> — the app disconnects it deliberately (sleep)
+so the reconnect works. The new connection layer, and the apply's reconnect after a restart, must do the same.</li>
+</ul>
+</div>
+
+<h2>Open — in order</h2>
+<div class="card next">
+<ol>
+<li>The where-used cross-reference and blast-radius analysis.</li>
+<li>Bench tests: <b>T3</b> (does <code>TAK</code> role / broadcasting off quiet a radio?) · <b>T7</b> (V2 on port 78 through 2.6.11) · <b>T5</b> (T1000-E USB config) · which reset keeps pairing.</li>
+<li>Choose the default net's id.</li>
+<li>2.6g: <b>IMPORTLOCK</b> (release the latch on abnormal exit) and <b>SRCLIST</b>.</li>
+<li>Walk Natak through Agreement 1 (<code>GroupTrack_RideConfigPlanning_2026-09-21_v53.html</code>), then the endpoints (N1–N7, Q1–Q7).</li>
+<li>Play listing rewrite · week 1 of the Facebook plan (<code>GroupTrack_FacebookPlan_2026-09-21_v1.html</code>).</li>
+<li>Website tidy: Elastic IP, <code>test.php</code>, <code>uploads/</code>, <code>beta_signup.php</code>, site into the repo, RDS rule <code>sgr-0badd971ce0bd58e6</code>.</li>
+<li>TAKPacket-SDK licence.</li>
+<li>Copy Quick Start v53, Manual v10 and Release Notes v9 into <code>app/src/main/assets/</code> (canonical names), commit on their own, verify inside the AAB; release notes v9 to the website.</li>
+</ol>
+</div>
+
+<h2>Documents today</h2>
+<div class="card done">
+<p><code>grouptrack_living_master_2026-09-21_v78.html</code> · <code>GroupTrack_RideConfigPlanning_2026-09-21_v53.html</code> ·
+<code>GroupTrack_Nucleus_ImplementationTargets_2026-09-21_v22.html</code> · <code>GroupTrack_FacebookPlan_2026-09-21_v1.html</code> ·
+<code>grouptrack_fb_cards_2026-09-21_v1.zip</code> · this handoff. <b>User documents, issued 09-21:</b> <code>GroupTrack_QuickStart_2026-09-21_v53.html</code> (corrects v52: no <i>select your Documents folder</i> or <i>all files</i> access — GroupTrack keeps data in its own storage and asks only for location; adds how to import GPX files) · <code>grouptrack_manual_2026-09-21_v10.html</code> (adds the GPX import how-to and multi-select) · <code>grouptrack_release_notes_2026-09-21_v9.html</code> (adds <b>2026-09-17</b>: imports outside Utah now finish, the import-lock workaround, maps ticked by default). The quick start and manual match what is on grouptrack.org. ⚠ <b>All three still need copying into <code>app/src/main/assets/</code> under their canonical names — committed on their own and verified inside the next AAB</b>; release notes v9 also to <code>grouptrack.org/docs/</code>.</p>
+</div>
+</body></html>

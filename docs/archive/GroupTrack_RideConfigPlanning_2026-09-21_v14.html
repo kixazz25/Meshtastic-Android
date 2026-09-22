@@ -1,0 +1,591 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<title>GroupTrack ↔ Nucleus — Ride Config Planning v14, 2026-09-21</title>
+<style>
+body{font:15px/1.68 -apple-system,"Segoe UI",Roboto,sans-serif;max-width:980px;
+margin:0 auto;padding:26px;background:#0f1216;color:#e6edf3}
+h1{font-size:21px;color:#58a6ff;border-bottom:2px solid #2a3038;padding-bottom:8px}
+h2{font-size:16px;color:#58a6ff;margin-top:32px;border-bottom:1px solid #2a3038;padding-bottom:5px}
+h3{font-size:14px;color:#b8c2cc;margin-top:20px}
+h4{font-size:13px;color:#8FD0FF;margin-top:16px}
+code{background:#1a2027;padding:1px 5px;border-radius:3px;font-size:12.5px;color:#8FD0FF}
+.card{background:#161b22;border:1px solid #2a3038;border-radius:8px;padding:13px 17px;margin:11px 0}
+.done{border-left:4px solid #3fb950}.next{border-left:4px solid #58a6ff}
+.warn{border-left:4px solid #d29922}.bad{border-left:4px solid #f85149}
+table{border-collapse:collapse;width:100%;margin:11px 0;font-size:13px}
+th,td{border:1px solid #2a3038;padding:6px 9px;text-align:left;vertical-align:top}
+th{background:#1a2027;color:#8FD0FF}
+li{margin:6px 0}.hi{color:#e3b341}
+pre{background:#0d1117;border:1px solid #2a3038;padding:9px;border-radius:5px;
+font-size:11.5px;overflow-x:auto;color:#b8c2cc}
+</style></head><body>
+
+<h1>Ride config — planning document</h1>
+<p>2026-09-21 · <b>v14 — two de-duplication jobs: Natak's node filtering stops broadcast storms; GroupTrack's layer 2 stops showing a packet twice.</b><br>2026-09-21 · <b>v13 — the radios are the bridge; each Nucleus rebroadcasts packets between LoRa and IP. The open question narrows to packet-level vs CoT-level; layer 2 de-duplicates by packet id.</b><br>2026-09-21 · <b>v12 — radio-only is supported, not equal: it appears, and everything else needs GroupTrack — the incentive to participate.</b><br>2026-09-21 · <b>v11 — with the callsign in the TAK payload, the radio's long and short names no longer need setting at all.</b><br>2026-09-21 · <b>v10 — the callsign is the rider's USER ID, not a network parameter; GroupTrack applies it to the radio itself, including at the ride.</b><br>2026-09-21 · <b>v9 — section 1: the rider's CALLSIGN as a fourth identifier — the radio's long name, the TAK sender name, never part of a ride config.</b><br>2026-09-21 · <b>v8 — section 2A: the TAK payload plus a channel URL may be the whole ride config for any Meshtastic radio.</b><br>2026-09-21 · <b>v7 — adds the rider's steps at the event: join, pull, check whether already applied, apply over Bluetooth or USB.</b><br>2026-09-21 · <b>v6 — section 7 rewritten: the node COMPLETES configs without storing them (rides can be set months ahead), keeps a HISTORY of its previous configs on every apply, and GroupTrack restores from that history.</b><br>2026-09-21 · <b>v5 — adds section 7: the two-pass config flow — GroupTrack initiates, the Nucleus stages and completes, GroupTrack applies.</b><br>2026-09-21 · <b>v4 — the network ID is not typed: it is DERIVED, equal to the generated channel id.</b><br>2026-09-21 · <b>v3 — adds section 6: Natak's published API (V3 OS 0.8.0) mapped against these requirements, with what it answers and what is still open.</b><br>2026-09-20 · <b>v2 — the real 48-field radio contract from <code>convoy_apply_list.json</code>, a TAK-era classification of every field, and compression.</b><br><b>For the GroupTrack ↔ Natak Mesh conversation.</b> Field
+attributes, process flows, and the API surface each side owns. Companion to the
+Communications Layer Design and the Nucleus Integration Design. Self-contained.</p>
+
+<div class="card done">
+<p class="hi">⭐⭐⭐ <b>THE ONE-LINE SUMMARY</b></p>
+<p><b>Nothing is typed. One generated value names the ride's network AND its
+Meshtastic channel; everything a device needs — that value, the keys, the radio
+parameters — arrives in the ride config and is applied automatically.</b></p>
+<p>⭐ <b>PREFERRED PATH: the Nucleus-based IP attach.</b> Join the node's network,
+the config comes down, the device applies it to itself and its radio. The other
+delivery paths exist so nobody is stranded, not because they are the plan.</p>
+</div>
+
+<h2>1 — The three identifiers</h2>
+<div class="card warn">
+<p>⛔⛔ <b>WE DO NOT OWN THE CHANNEL ID. That is a hard stop from Meshtastic</b> —
+its length, format and semantics are theirs and can change.</p>
+<table>
+<tr><th>Value</th><th>Owner</th><th>Visible to</th><th>Rule</th></tr>
+<tr><td><b>Long description</b></td><td><b>GroupTrack</b></td><td>⭐ Rider, on every screen and panel</td><td>Always a long, readable description. What a rider recognises the ride by.</td></tr>
+<tr><td><b>Channel ID</b></td><td>Meshtastic constrains it</td><td><b>Nobody</b></td><td>⭐ <b>AUTO-GENERATED: <code>GT</code> + a system-generated unique id.</b> Sized to fit. Never typed, never displayed.</td></tr>
+<tr><td><b>Network ID</b></td><td>GroupTrack</td><td><b>Nobody types it</b></td><td>⭐⭐ <b>DERIVED — EQUAL TO THE CHANNEL ID.</b> The WiFi network a node broadcasts carries the same <code>GT</code>+unique value as the Meshtastic channel name. It arrives in the ride config, and the app joins the network with it. Eleven characters sits well inside WiFi's 32-byte limit for a network name.</td></tr>
+<tr><td><b>Callsign</b></td><td>⭐ <b>The rider</b></td><td>Everyone, on every ride</td><td>⭐⭐ <b>THE RIDER'S IDENTITY — exists outside the mesh.</b> <b>It is the user id — not a network parameter.</b> ⭐ It travels inside every <code>TAKPacket</code>, so <b>the radio's long and short names no longer need to mean anything</b> — GroupTrack never renames a radio, and a radio can change hands without being renamed. It never travels in the network config. It is also the sender name in every <code>TAKPacket</code> (<code>Contact.callsign</code>), so the same name appears on the LoRa mesh, the IP mesh and anything TAK-aware.</td></tr>
+</table>
+<p>⭐ <b>Two identities, never mixed: the RIDE's and the RIDER's.</b> The generated id,
+the network and the frequency belong to the ride and change every ride. The callsign
+belongs to the rider and never changes with a ride. ⛔ <b>So the network config sent to the
+node never carries the radio's long or short name</b> — and with the callsign in the TAK
+payload, GroupTrack doesn't set them either — in Natak's API, <code>owner</code> and
+<code>owner_short</code> are excluded from anything a ride sends.</p>
+<p>⭐ <b>RADIO-ONLY IS SUPPORTED, NOT EQUAL — BY DESIGN (Fred, 2026-09-21: "price of entry").</b>
+A radio used without the app <b>appears</b> — its position on everyone's map, under whatever
+the radio happens to be called. That keeps the promise that you can hand someone a radio and
+they show up. <b>Everything else needs GroupTrack:</b> the rider's callsign, the ride config
+applied for them, routes, maps and the group view. <b>That difference is the incentive to own
+the app and participate</b>, so no effort goes into polishing the radio-only path — it has to
+work, not be good.</p>
+<p>⚠ <b>The one thing the floor still depends on:</b> whether Natak's bridge carries a radio-only
+rider's positions onto the IP side at all. "Appears" is the minimum, so that answer matters even
+though nothing above the minimum does.</p>
+<p>⚠ <b>For the V3 schema:</b> <code>users.user_id</code> is a generated <code>char(36)</code> code, not a
+name. The callsign is the rider-facing identity — a callsign column alongside that code,
+not a replacement for it.</p>
+<p>🔴 <b>OPEN — unique within a ride?</b> Two riders both called "Fred" would look identical on
+every map. The radios' node ids still tell them apart underneath, so this is a display
+decision: warn when a callsign is already in use in the ride, or show a short suffix.</p>
+<p>⭐⭐ <b>ONE VALUE, THREE THINGS.</b> The generated id is the Meshtastic channel
+name, the WiFi network name — and, through Natak's <code>frequency_slot</code> 0
+(frequency derived from the channel name), the radio frequency too. <b>Two nodes given
+the same ride config land on the same channel, the same network and the same
+frequency, with no human input anywhere.</b></p>
+<p>🔴 <b>OPEN — the network password.</b> With nothing typed, it must also arrive in the
+ride config: either carried as a value, or derived with the Meshtastic PSK from one
+ride secret (the KDF below). <b>Decide which, and confirm Natak's node config accepts a
+network password we supply.</b></p>
+<p>⭐ <b>Generating the channel id removes the truncation trap.</b> An
+11-character limit does not matter when the value is generated to fit rather than
+derived from something a human typed — <b>and if Meshtastic moves the limit, only
+the generator changes.</b></p>
+<p>⚠ <b>THE KEYS ARE DERIVED, NOT SHARED.</b> A WPA2 passphrase and a Meshtastic
+PSK differ in format and length and <b>cannot be the same value</b>. One password
+feeds a KDF; each transport gets a correctly formatted key. ⛔ <b>The derivation
+must be identical on every build and versioned from day one</b> — two riders on
+different releases deriving different PSKs from one password is a silent, total
+failure.</p>
+<p>🔴 <b>OPEN:</b> what makes the generated id unique, and across what scope? Two
+clubs generating independently must not collide — central issuance, or enough
+entropy that collision is negligible.</p>
+</div>
+
+<h2>2 — Field attributes: THE RADIO CONTRACT (48 fields)</h2>
+<div class="card next">
+<p class="hi">⭐⭐ <b>SOURCE OF TRUTH: <code>app/src/main/assets/convoy_apply_list.json</code>.</b>
+This is the contract between GroupTrack and the radio — the same fields the user
+manual documents for config. <b>48 fields in six groups.</b></p>
+<p>⭐ <b>THE GOVERNING RULE: the config changes only these fields. ANYTHING NOT
+LISTED IS LEFT AS IS.</b> Applied via the existing apply-list process
+(<code>ConvoyApplyListScreen</code>), which already archives the radio's prior
+state before touching anything.</p>
+<p>⛔ <b>THIS LIST HAS NO IP SURFACE AT ALL.</b> It is purely the Meshtastic radio.
+<b>Everything the Nucleus needs is a SEPARATE contract that Natak defines</b> —
+see section 5.</p>
+
+<h4>⚠ Three fields that sound alike and are not</h4>
+<table>
+<tr><th>Field</th><th>Group</th><th>What it actually is</th></tr>
+<tr><td><code>CHANNEL_NAME</code></td><td>Channel</td><td>⭐ <b>The string.</b> Where the generated <code>GT</code>+unique id goes. ⚠ Capped at 11 characters by Meshtastic.</td></tr>
+<tr><td><code>CHANNEL_ID</code></td><td>Channel</td><td><b>Numeric slot index</b> — a LOCATION in the radio's channel table. Nothing to do with the name.</td></tr>
+<tr><td><code>CHANNEL_NUM</code></td><td>LoRa</td><td><b>Frequency slot</b> within the region. Different again.</td></tr>
+</table>
+<p>⚠ <b>Worth stating explicitly to any vendor</b> — "channel id" reads naturally
+as "the identifier", and here it is not.</p>
+</div>
+
+<h2>⭐⭐ 2A — WHAT CHANGES WHEN WE MOVE TO TAK PACKETS</h2>
+<div class="card warn">
+<p class="hi"><b>Most of these 48 fields exist to MANAGE AIRTIME</b> — how often a
+packet is sent, how far a rider must move before one is, and what other mesh
+traffic competes. Fred 09-20: <i>"most of our config has to do with changing
+values to optimise packet delivery, distance requiring packet send, frequency of
+packet send, and minimising any other mesh activity."</i></p>
+<p>⭐ <b>Once the APP emits <code>TAKPacket</code>, cadence and distance become
+APPLICATION decisions</b> — changed in a release, not on a device.</p>
+
+<p>⛔⛔ <b>BUT THE RADIO DOES NOT STOP DOING ITS OWN THINGS.</b> If it keeps
+broadcasting its own Position packets (portnum 3) alongside the app's TAKPackets
+(portnum 72), <b>airtime DOUBLES rather than falling.</b> So the TAK move is not
+"fewer settings" — <b>it is some settings turned DOWN OR OFF to stop the radio
+competing with the app.</b></p>
+
+<p>⛔⛔ <b>AND THAT COLLIDES WITH A CORE PROMISE.</b> A radio ATTACHED to the app
+should suppress its own position broadcast. <b>A STANDALONE radio with no phone
+MUST keep broadcasting</b>, or it vanishes — and "hand someone a radio and they
+appear" is a core promise of this product. <b>Same fields, OPPOSITE settings,
+depending on whether an app is present.</b></p>
+<p>🔴 <b>SO THE CONFIG CANNOT BE ONE VALUE PER FIELD for position.</b> Either two
+profiles (app-attached / standalone), or the app toggles the radio's own
+broadcast when it connects and restores it when it disconnects. <b>Decide before
+building.</b></p>
+
+<h4>⭐⭐⭐ The synthesis: TAK payload + channel URL = any radio, set up automatically</h4>
+<p><b>With the app emitting <code>TAKPacket</code>, what a radio needs per ride shrinks to
+transport</b> — channel name, key, region, modem preset, hop limit, transmit power. That is
+almost exactly what a Meshtastic <b>channel URL</b> already carries: the channel settings and
+the LoRa settings together, in Meshtastic's own format for moving a configuration between
+radios.</p>
+<p>⭐⭐ <b>So the TAK move may make the channel URL the whole ride config for ANY Meshtastic
+radio.</b> That removes what tied automatic setup to the T1000-E — a saved device image with
+values injected into it. No image, nothing device-specific.</p>
+<p>⚠ <b>The one setting a channel URL does not carry</b> is the radio's own position
+broadcasting — the two-profile problem above. That lives in the radio's role and position
+settings. Natak's radios run the <code>TAK</code> role, which may cover it.</p>
+<p class="hi">⭐ <b>The TAK-era ride config could be as small as a channel URL plus a role.</b>
+🔴 <b>Test on a T1000-E and one other Meshtastic radio before relying on it.</b> If it holds,
+it simplifies GroupTrack, simplifies what Natak's node has to hand out — his eleven
+radio fields are nearly the same set — and lets the website stop saying other radios are
+set up by hand.</p>
+
+<h4>Classification of all 48 for the TAK era</h4>
+<table>
+<tr><th>Group</th><th>Field</th><th>With TAK</th><th>Why</th></tr>
+
+<tr><td rowspan="9"><b>LoRa</b><br>(9)</td>
+<td><code>REGION</code></td><td>⭐ KEEP</td><td>Regulatory domain — carries the legal TX ceiling</td></tr>
+<tr><td><code>MODEM_PRESET</code></td><td>⭐ KEEP</td><td>⚠ Natak runs small packets on a fast preset — <b>likely why he sees 25 nodes where we see 3–4</b></td></tr>
+<tr><td><code>BANDWIDTH</code></td><td>⭐ KEEP</td><td>Only if not using the preset</td></tr>
+<tr><td><code>SPREAD_FACTOR</code></td><td>⭐ KEEP</td><td>Same</td></tr>
+<tr><td><code>CODING_RATE</code></td><td>⭐ KEEP</td><td>Same</td></tr>
+<tr><td><code>HOP_LIMIT</code></td><td>⭐ KEEP</td><td>The congestion lever — flood rebroadcast multiplies with every hop</td></tr>
+<tr><td><code>TX_ENABLED</code></td><td>⭐ KEEP</td><td>—</td></tr>
+<tr><td><code>TX_POWER</code></td><td>⭐ KEEP — ⛔ <b>CAPPED</b></td><td>⛔⛔ <b>The app sets this, so the legal ceiling is a real obligation.</b> Never above the licence-free limit for the region; the app never raises it.</td></tr>
+<tr><td><code>CHANNEL_NUM</code></td><td>⭐ KEEP</td><td>Frequency slot</td></tr>
+
+<tr><td rowspan="6"><b>Channel</b><br>(6)</td>
+<td><code>CHANNEL_NAME</code></td><td>⭐ KEEP</td><td>Generated <code>GT</code>+unique</td></tr>
+<tr><td><code>ENCRYPTION_KEY</code></td><td>⭐ KEEP</td><td>Derived from the ride password via KDF</td></tr>
+<tr><td><code>CHANNEL_ID</code></td><td>⭐ KEEP</td><td>Slot index</td></tr>
+<tr><td><code>UPLINK_ENABLED</code></td><td>🔵 ASK NATAK</td><td>MQTT uplink — does the bridge want this on or off?</td></tr>
+<tr><td><code>DOWNLINK_ENABLED</code></td><td>🔵 ASK NATAK</td><td>Same</td></tr>
+<tr><td><code>MODULE_SETTINGS</code></td><td>🔵 ASK NATAK</td><td>—</td></tr>
+
+<tr><td rowspan="4"><b>Device</b><br>(4)</td>
+<td><code>LONG_NAME</code></td><td>⚪ <b>NOT SET — leave as is</b></td><td>The callsign travels in the TAK payload instead. A radio used without the app shows under its own name — by design, the price of entry.</td></tr>
+<tr><td><code>NODE_ROLE</code></td><td>⭐ KEEP</td><td>⚠ Role affects rebroadcast behaviour — <b>directly an airtime setting</b></td></tr>
+<tr><td><code>IS_MANAGED</code></td><td>🔵 DECIDE</td><td>—</td></tr>
+<tr><td><code>SERIAL_ENABLED</code></td><td>🔵 ASK NATAK</td><td>⚠ The Nucleus reaches its radio OVER SERIAL — <b>turning this off on a Nucleus radio could strand it</b></td></tr>
+
+<tr><td rowspan="8"><b>Position</b><br>(8)</td>
+<td><code>GPS_ENABLED</code></td><td>⭐ KEEP</td><td>If the radio supplies position to the app</td></tr>
+<tr><td><code>GPS_MODE</code></td><td>⭐ KEEP</td><td>—</td></tr>
+<tr><td><code>GPS_UPDATE_INTERVAL</code></td><td>⭐ KEEP</td><td>How often the radio's GPS samples — distinct from broadcasting</td></tr>
+<tr><td><code>GPS_ATTEMPT_TIME</code></td><td>⭐ KEEP</td><td>—</td></tr>
+<tr><td><code>POSITION_BROADCAST_SECS</code></td><td>⛔ <b>TWO PROFILES</b></td><td>⛔ <b>App-attached: suppress. Standalone: must broadcast.</b></td></tr>
+<tr><td><code>POSITION_BROADCAST_SMART</code></td><td>⛔ <b>TWO PROFILES</b></td><td>Same — the distance-based send</td></tr>
+<tr><td><code>FIXED_POSITION</code></td><td>⭐ KEEP</td><td>—</td></tr>
+<tr><td><code>POSITION_FLAGS</code></td><td>⭐ MINIMISE</td><td>Fewer flags, smaller packet</td></tr>
+
+<tr><td rowspan="4"><b>Display</b><br>(4)</td>
+<td><code>UNITS</code></td><td>⚪ IRRELEVANT</td><td>No airtime effect</td></tr>
+<tr><td><code>SCREEN_TIMEOUT</code></td><td>⚪ IRRELEVANT</td><td>—</td></tr>
+<tr><td><code>AUTO_SCREEN_BRIGHTNESS</code></td><td>⚪ IRRELEVANT</td><td>—</td></tr>
+<tr><td><code>COMPASS_NORTH_TOP</code></td><td>⚪ IRRELEVANT</td><td>⚠ Arguably RIDER-owned rather than ride-set</td></tr>
+
+<tr><td rowspan="17"><b>Module</b><br>(17)</td>
+<td><code>TELEMETRY_DEVICE_INTERVAL</code></td><td>⭐ <b>MINIMISE</b></td><td>Every telemetry packet competes for airtime</td></tr>
+<tr><td><code>TELEMETRY_ENV_INTERVAL</code></td><td>⭐ <b>MINIMISE</b></td><td>Same</td></tr>
+<tr><td><code>TELEMETRY_ENV_ENABLED</code></td><td>⭐ <b>OFF</b></td><td>Environment sensors — no ride value</td></tr>
+<tr><td><code>MQTT_ENABLED</code></td><td>🔵 ASK NATAK</td><td>⚠ Meshtastic's OWN IP path — does it conflict with his bridge?</td></tr>
+<tr><td><code>MQTT_ADDRESS</code></td><td>🔵 ASK NATAK</td><td>Same</td></tr>
+<tr><td><code>MQTT_USERNAME</code></td><td>🔵 ASK NATAK</td><td>Same</td></tr>
+<tr><td><code>MQTT_ENCRYPTION_ENABLED</code></td><td>🔵 ASK NATAK</td><td>Same</td></tr>
+<tr><td><code>MQTT_JSON_ENABLED</code></td><td>🔵 ASK NATAK</td><td>Same</td></tr>
+<tr><td><code>SERIAL_ENABLED</code></td><td>🔵 ASK NATAK</td><td>⚠ Appears in Device too — same concern</td></tr>
+<tr><td><code>SERIAL_BAUD</code></td><td>🔵 ASK NATAK</td><td>Must match what the Nucleus expects</td></tr>
+<tr><td><code>EXT_NOTIFICATION_ENABLED</code></td><td>⚪ IRRELEVANT</td><td>Local buzzer/LED</td></tr>
+<tr><td><code>EXT_NOTIFICATION_ALERT_MSG</code></td><td>⚪ IRRELEVANT</td><td>—</td></tr>
+<tr><td><code>RANGE_TEST_ENABLED</code></td><td>⭐ <b>OFF</b></td><td>⛔ <b>Pure airtime consumer</b> during a ride</td></tr>
+<tr><td><code>STORE_FORWARD_ENABLED</code></td><td>🔵 ASK NATAK</td><td>Useful for a rider out of range — or a flood source</td></tr>
+<tr><td><code>NEIGHBOR_INFO_ENABLED</code></td><td>⭐ <b>MINIMISE / OFF</b></td><td>Periodic broadcast; competes for airtime</td></tr>
+<tr><td><code>DETECTION_SENSOR_ENABLED</code></td><td>⭐ <b>OFF</b></td><td>No ride value</td></tr>
+<tr><td><code>AUDIO_ENABLED</code></td><td>🔵 ASK NATAK</td><td>⭐ <b>He runs VOICE over LoRa</b> through his bridge — this may be the hook</td></tr>
+</table>
+<p>⚠ <b><code>SERIAL_ENABLED</code> appears in BOTH Device and Module.</b> Worth
+confirming whether that is one setting listed twice or two distinct ones.</p>
+<p>⭐ <b>Pattern in the table:</b> LoRa and Channel are transport and stay. Display
+is irrelevant. <b>Module is where the airtime savings are</b> — telemetry, range
+test, neighbour info and detection are all traffic nobody on a ride needs.</p>
+</div>
+
+<h2>⭐⭐ 2B — COMPRESSION</h2>
+<div class="card next">
+<p><b>Compression is already IN the protocol.</b> From
+<code>core/proto/.../meshtastic/atak.proto</code>:</p>
+<pre>message TAKPacket {
+  bool is_compressed = 1;   // "Are the payloads strings compressed for LoRA transport?"
+  ...
+  oneof payload_variant {
+    PLI     pli    = 5;
+    GeoChat chat   = 6;
+    bytes   detail = 7;     // "Generic CoT detail XML.
+                            //  May be compressed / truncated by the sender (EUD)"
+  }
+}</pre>
+<p>⭐ <b>And Natak already does it:</b> <i>"I'm using meshtastic takpacket sdk to
+handle the CoT → Meshtastic compression/transmission pipeline."</i></p>
+
+<p>🔴 <b>QUESTIONS FOR NATAK:</b></p>
+<ol>
+<li><b>WHAT METHOD?</b> The proto records WHETHER a payload is compressed, not
+HOW. <b>We need the algorithm, or both sides cannot interoperate.</b></li>
+<li><b>Does the app compress, or the bridge?</b> If the app emits compressed
+TAKPackets and the bridge compresses again, that is wasted work — or a broken
+payload.</li>
+<li><b>Is PLI compressed at all?</b> A PLI is already tight — five numeric fields.
+Compression may add overhead rather than save it on the packet we send most
+often.</li>
+<li><b>What does <code>detail</code> truncation do?</b> "May be compressed /
+truncated" — <b>truncated how, and does a receiver know it was?</b> A silently
+truncated payload is the worst kind of data loss.</li>
+<li><b>What is the actual on-air size</b> of a compressed PLI vs an uncompressed
+one? ⭐ That is the number that answers the congestion question.</li>
+</ol>
+<p>⚠ <b>Worth knowing before we emit anything:</b> if GroupTrack sends
+<code>TAKPacket</code>s in a form the bridge expects to compress, and they arrive
+already compressed or in an unexpected form, <b>the failure will be silent</b> —
+packets that decode as garbage or not at all.</p>
+</div>
+
+<h2>2C — The ride definition — what surrounds the config</h2><div class="card next">
+<p>From the live schema (<code>convoy_tracker.rides</code>, read 09-20):</p>
+<table>
+<tr><th>Attribute</th><th>Column</th><th>Carried how</th></tr>
+<tr><td>Ride name</td><td><code>ride_name varchar(255)</code></td><td>Value — the long description</td></tr>
+<tr><td>Network identity</td><td><code>channel_name varchar(11)</code>, <code>channel_psk varchar(512)</code></td><td>Value</td></tr>
+<tr><td><b>Route or track</b></td><td><code>route_id char(36)</code></td><td>⭐ <b>BY KEY</b> — the app resolves it</td></tr>
+<tr><td><b>Trailhead waypoint</b></td><td><code>trailhead_waypoint_id char(36)</code></td><td>⭐ <b>BY KEY</b></td></tr>
+<tr><td><b>Maps</b></td><td><code>map_bounds_*</code>, <code>map_tile_source</code>, <code>map_zoom_max</code></td><td>⭐⭐ <b>Imported via the existing import-GPX process — tiles FOLLOW the geometry</b></td></tr>
+<tr><td>When</td><td><code>ride_date</code>, <code>start_time</code></td><td>Value</td></tr>
+<tr><td>Expiry</td><td><code>expires_at datetime NOT NULL</code></td><td>Value</td></tr>
+<tr><td>Owner</td><td><code>organizer_id</code> NOT NULL, <code>org_id</code> nullable</td><td>Value</td></tr>
+</table>
+<p>⭐⭐⭐ <b>PASSING GEOMETRY BY KEY IS THE POINT.</b> The config stays small, the
+GPX travels a path that already works, and <b>the map download is DERIVED from
+the geometry rather than specified separately</b> — so the corridor model comes
+free, exactly as <code>downloadMapsForTrackHash</code> already does.</p>
+<p>⚠ <b>OPEN:</b> what happens when a key resolves to nothing on the receiving
+device. Either the handoff carries the GPX alongside the key, or the request path
+fetches it. <b>State the rule.</b></p>
+<p>⚠ <b>OPEN:</b> <code>rides.route_id</code> is ambiguous — <code>kml_routes</code>
+and <code>ride_tracks</code> both use <code>route_id</code> as their primary key
+and tracks exist in both. <b>The format must say WHICH.</b></p>
+</div>
+
+<h2>3 — Ownership model</h2>
+<div class="card next">
+<p>⭐ <b>A RIDE is an EVENT. A CONFIG is a NETWORK IDENTITY. A ride REFERENCES a
+config.</b> Today they are conflated — the channel fields live per-ride, so a club
+cannot hold a permanent identity reused across rides.</p>
+<table>
+<tr><th>Owner</th><th>Tenure</th></tr>
+<tr><td><b>Club / org</b></td><td>Permanent, reserved</td></tr>
+<tr><td><b>Ride leader</b></td><td>Permanent, reserved — belongs to the PERSON, across clubs</td></tr>
+<tr><td><b>One-time ride</b></td><td>Expires</td></tr>
+</table>
+<p>⭐⭐ <b>CONFIGS ARE NAMED BY RIDE NAME + DATE — WHICH MAKES RESTORE FREE.</b>
+"The prior config" is not a special case; it is the previous entry in the list,
+and <b>restore is the same operation as apply</b>. A rider's own home setup is
+just another named config sitting alongside the rides. <b>Nothing extra to
+build.</b></p>
+<p>🔴 <b>OPEN:</b> precedence when a ride references a club config AND holds its
+own.</p>
+</div>
+
+<h2>4 — Process flows</h2>
+<div class="card next">
+
+<h4>F1 — CREATE CONFIG (leader)</h4>
+<p>Mesh Radio menu. Builds a file holding the config: generated channel id,
+derived keys, region, preset, hop limit, and whatever position parameters survive
+the TAK move. Saved under <b>ride name + date</b>, owned by club, leader or ride.</p>
+
+<h4>F2 — APPLY CONFIG</h4>
+<p>List available configs → select → <b>archive current state FIRST</b> → apply
+to the radio and/or to the Nucleus.</p>
+
+<h4>⭐⭐ F3 — REQUEST OVER THE NETWORK (the preferred path)</h4>
+<p class="hi">⛔ <b>NOBODY PUSHES. THE RIDER REQUESTS; THE LEADER'S NODE
+RESPONDS.</b> The request is the consent — <b>no endpoint exists for a stranger
+to reconfigure someone's radio.</b></p>
+<ol>
+<li>Rider connects to the network — they already hold the name and password.</li>
+<li>Rider REQUESTS the config from the leader's node.</li>
+<li>Node returns it.</li>
+<li>Device applies it to itself and its radio, <b>archiving first</b>.</li>
+</ol>
+
+<h4>F4 — RESTORE</h4>
+<p>⭐ Select an earlier named config and apply it. <b>Same flow as F2. Nothing
+extra exists.</b></p>
+
+<h4>⭐ THE LOCAL CONFIG STORE — and why RECEIVE ≠ APPLY</h4>
+<p><b>A rider may receive a config a month or two before the ride.</b> Importing
+it must leave it <b>stored and inert</b>; applying is a later, deliberate step.
+⭐ <b>That store is a local version of the hosted database</b> — and the backend,
+when it returns, <b>delivers INTO it rather than replacing it.</b></p>
+
+<h4>Interim delivery by email</h4>
+<p>GPX for tracks and waypoints goes by email and loads through the existing
+import process; maps follow the geometry. ⛔ <b>Decide whether the config travels
+with it</b> — a config carries derived keys, and an emailed key is forwardable.</p>
+
+<h4>Three paths to a configured radio</h4>
+<table>
+<tr><th></th><th>Path</th><th>Needs</th></tr>
+<tr><td>⭐⭐</td><td><b>Pull over the IP network</b></td><td><b>PREFERRED.</b> A Nucleus present, rider connected.</td></tr>
+<tr><td>⭐</td><td><b>Apply from my device</b></td><td>The local store. Works with no Nucleus at all.</td></tr>
+<tr><td>⚠</td><td><b>Apply from any device</b></td><td>Physical access only — any Android can configure any radio. ⭐ Guarantees nobody is stranded; <b>ugly, and not the plan.</b></td></tr>
+</table>
+<p>⚠ <b>The trailhead path needs the leader's node present.</b> A group with no
+Nucleus has only the stored path — <b>so email delivery is not optional for
+them.</b></p>
+</div>
+
+<h2>5 — API definition: what is required of the Nucleus</h2>
+<div class="card bad">
+<p class="hi">⭐ <b>GroupTrack defines the REQUEST. The vendor implements the
+RECEIVER. Nothing here is Natak-specific by design</b> — the same contract should
+let us approach other LoRa/WiFi vendors.</p>
+<table>
+<tr><th></th><th>Requirement</th><th>Why</th></tr>
+<tr><td><b>READ</b></td><td>Serve the current ride config on request</td><td>⭐⭐ <b>THE ENDPOINT RIDERS USE.</b> F3 depends entirely on it.</td></tr>
+<tr><td><b>WRITE</b></td><td>Accept a network identity; provision the node AND its attached radio</td><td>Leader provisioning their OWN node only</td></tr>
+<tr><td><b>ARCHIVE + RESTORE</b></td><td>Save prior state; be able to reapply it</td><td>⛔ <b>METHOD IS NATHAN'S — they are his devices.</b> He chooses which backup parameters constitute a full reapply.</td></tr>
+<tr><td><b>AUTH</b></td><td>On write and restore</td><td>⚠ He flagged internet-facing security has not been a focus</td></tr>
+<tr><td><b>RESULT</b></td><td>Atomic success/failure</td><td>⛔ His node holds TWO things — WiFi mesh identity AND the radio. <b>A half-applied config is a node split across two networks.</b></td></tr>
+<tr><td><b>SETTLING</b></td><td>How long after a change before the mesh is usable</td><td>~60 s with a reboot today. The app must wait, not fail.</td></tr>
+<tr><td><b>MGMT PATH</b></td><td>Something that survives a network change</td><td>Otherwise a wrong push strands the node</td></tr>
+</table>
+<p>⭐⭐ <b>STATE THE RESTORE REQUIREMENT AS AN OUTCOME, NOT A FIELD LIST:</b>
+applying an archived config must return the node to a <b>WORKING state on its
+previous network</b> — not merely the same values. <b>Testable, and it leaves the
+method entirely to him.</b></p>
+<p>⭐ <b>Named configs make the ask smaller than "build me an undo"</b> — he needs
+the same named list, because applying an older entry IS the restore.</p>
+
+<h4>🔴 Outstanding questions</h4>
+<p class="hi">⚠ <b>Status after reviewing the published API is in section 6</b> — two of these are answered, and new ones are added there.</p>
+<ol>
+<li>⭐⭐ <b>Does the bridge relay ONLY <code>TAKPacket</code> (portnum 72), or
+generate a CoT event for ANY Meshtastic position (portnum 3)?</b> A plain radio
+with no phone still broadcasts on 3. <b>"Hand someone a radio and they appear" is
+a core promise</b> — if the bridge only carries 72, that rider is visible on LoRa
+and invisible on the IP mesh.</li>
+<li><b>Does the node keep ONE prior config or a HISTORY?</b> One is simpler; a
+history matches what GroupTrack already does.</li>
+<li><b>Nucleus config over USB or IP — which, and how?</b></li>
+<li>Exact multicast group and port the bridge reads and writes.</li>
+<li><b>Our packet size and preset</b>, which he asked for — likely the
+explanation for our congestion figures.</li>
+<li>Onboard GPS on the Nucleus: does it, could it, and can it publish to
+connected clients?</li>
+</ol>
+
+<h4>⚠ The framing</h4>
+<p>⭐⭐ <b>His model is a preconfigured team. Ours is individuals who join and
+switch per ride.</b> He ships a standard config applied per group at build time;
+a GroupTrack rider belongs to several clubs and joins a different ride each
+weekend. <b>That gap is the difference between ATAK and the SxS market he says he
+wants to reach — and closing it is what a partnership delivers.</b></p>
+</div>
+
+
+<h2>⭐⭐⭐ 6 — Natak's API as published: V3 OS 0.8.0, reviewed 2026-09-21</h2>
+<div class="card done">
+<p><b>Source:</b> <code>github.com/Natak-Mesh/V3_OS/blob/main/docs/API.md</code> — the node's own
+FastAPI server (<code>nucleusd</code>), serving the web UI and a JSON API under
+<code>/api/v1/</code>. <b>The web UI is itself a client of this API, so anything the UI can
+do, GroupTrack can do.</b></p>
+<p><b>Addressing:</b> from another machine on the mesh, <code>http://10.20.&lt;id&gt;.1</code>
+or <code>http://10.20.1.&lt;id&gt;</code> — nginx on port 80 forwards to <code>nucleusd</code> on
+8080. Live docs on the node at <code>/docs</code>, machine spec at <code>/openapi.json</code>.</p>
+
+<h4>What already exists, against section 5</h4>
+<table>
+<tr><th>Our requirement</th><th>His endpoint</th><th>Verdict</th></tr>
+<tr><td><b>READ</b> — a rider pulls the ride's config</td><td><code>GET /api/v1/meshtastic/config</code> — region, preset, frequency slot, hop limit, power, role, channel name, PSK <i>fingerprint</i>, and the <b>channel URL</b></td><td>✅ The channel URL carries the channel's key, so a rider can apply it without the PSK ever being shown. <code>GET /config/qr</code> gives the same as a QR image.</td></tr>
+<tr><td><b>WRITE</b> — radio</td><td><code>POST /meshtastic/config/apply</code> with only the changed fields · <code>POST /meshtastic/config/channel-url</code></td><td>✅ Validation fails with <code>400</code> <i>before</i> the radio is touched.</td></tr>
+<tr><td><b>WRITE</b> — node (WiFi mesh identity)</td><td><code>PUT /api/v1/config</code> (validate + save a complete config) then <code>POST /api/v1/apply</code></td><td>✅ Save and apply are separate steps.</td></tr>
+<tr><td><b>Review before writing</b></td><td><code>POST /api/v1/apply?dry_run=true</code> — reports what would change and which services restart</td><td>⭐ ✅ The same idea as GroupTrack's apply-list review screen.</td></tr>
+<tr><td><b>SETTLING</b></td><td>Radio ops are async: <code>read</code>/<code>apply</code> return at once; poll <code>GET /config/op-status</code> (<code>idle · running · done · error</code>). Each config group reboots the radio; a full apply takes ~30–120 s.</td><td>✅ A documented contract. One op at a time — a second returns <code>409</code>.</td></tr>
+<tr><td><b>ARCHIVE + RESTORE</b></td><td>No stored history on the node</td><td>🔴 <b>Needed — see section 7.</b> <i>(Corrected in v6: v3–v5 said GroupTrack could hold the history instead. It can't be the source of truth — only the node knows its real previous state.)</i></td></tr>
+<tr><td><b>AUTH</b></td><td><b>None.</b> Access is controlled by being on the network.</td><td>⛔ <b>Gap — see below.</b></td></tr>
+<tr><td><b>RESULT</b> — atomic</td><td>Per-group reboots; <code>op-status</code> reports <code>done</code> or <code>error</code></td><td>⚠ <b>Not atomic</b> — see below.</td></tr>
+<tr><td><b>MGMT PATH</b> surviving a network change</td><td>Not addressed</td><td>🔴 Ask.</td></tr>
+</table>
+
+<h4>His radio fields against our 48</h4>
+<p>His <code>config/apply</code> accepts <b>eleven</b> fields; anything else returns <code>400 Unknown fields</code>.</p>
+<table>
+<tr><th>His field</th><th>Our field</th><th>Note</th></tr>
+<tr><td><code>region</code></td><td><code>REGION</code></td><td>Full Meshtastic region list</td></tr>
+<tr><td><code>modem_preset</code></td><td><code>MODEM_PRESET</code></td><td>⭐ His example runs <code>SHORT_FAST</code>. <b>Likely the whole explanation for his 25 nodes vs our 3–4</b> — check what our riders run.</td></tr>
+<tr><td><code>hop_limit</code></td><td><code>HOP_LIMIT</code></td><td>1–7</td></tr>
+<tr><td><code>tx_power</code></td><td><code>TX_POWER</code></td><td>0–30 dBm. ⭐ 30 dBm is 1 W — <b>his cap already sits at the licence-free ceiling</b>, consistent with our never-raise rule.</td></tr>
+<tr><td><code>frequency_slot</code></td><td><code>CHANNEL_NUM</code></td><td>⭐ <code>0</code> = derived from the channel name, so <b>two nodes with the same name land on the same frequency</b></td></tr>
+<tr><td><code>channel_name</code></td><td><code>CHANNEL_NAME</code></td><td>⭐ <b>1–11 characters</b> — matches Meshtastic and <code>rides.channel_name varchar(11)</code>. The generated <code>GT</code>+unique id fits.</td></tr>
+<tr><td><code>psk</code> / <code>psk_random</code></td><td><code>ENCRYPTION_KEY</code></td><td><code>random</code>, <code>default</code>, <code>none</code>, or an explicit key</td></tr>
+<tr><td><code>role</code></td><td><code>NODE_ROLE</code></td><td>His radios run <code>TAK</code></td></tr>
+<tr><td><code>owner</code> / <code>owner_short</code></td><td><code>LONG_NAME</code></td><td>⛔ <b>Never part of the network config — and no longer needs setting at all.</b> The rider's callsign (their GroupTrack user id) travels in the <code>TAKPacket</code>, so the radio's own name can stay as it is.</td></tr>
+</table>
+<p>⭐ <b>Eleven against our 48 is fine.</b> Section 2A already concluded the TAK move shrinks what matters to transport settings — which is almost exactly his set. What he lacks (position broadcast, telemetry, MQTT, display, modules) is what a Nucleus radio in <code>TAK</code> role doesn't need set per ride.</p>
+
+<h4>⭐⭐ The finding with the most leverage: port 4403</h4>
+<p>The node runs <code>meshtasticd</code>, whose <b>native Meshtastic API is on TCP port 4403</b>. GroupTrack's fork already has a TCP connection type inherited from Meshtastic (<code>DeviceType.TCP</code>, <code>NetworkDevices</code>). <b>So a tablet on the Nucleus network may talk to the node's radio as an ordinary Meshtastic node, with no new transport code.</b></p>
+<p>🔴 <b>Confirm:</b> is 4403 reachable across the mesh, or bound to the node itself? The doc lists it under backend interfaces "for reference".</p>
+
+<h4>⭐ Finding the node: the tablet's gateway</h4>
+<p>Node addresses follow the node id (<code>10.20.&lt;id&gt;.1</code>). A tablet that joins a node's access point is handed an address by that node — so <b>the tablet's own network gateway is very likely its node's address</b>, with no discovery protocol needed. 🔴 Confirm with him.</p>
+
+<h4>⛔ Gaps to raise</h4>
+<ol>
+<li><b>No authentication.</b> On a ride network, anyone holding the password can reconfigure the leader's node and radio. That is a harder problem for us than for a pre-configured team, because our riders are individuals who join and leave. <b>Minimum ask: a token on the write endpoints</b> (<code>PUT /config</code>, <code>/apply</code>, <code>/meshtastic/config/apply</code>, <code>/channel-url</code>), with reads left open so any rider can still pull the ride config.</li>
+<li><b>Applies are not atomic.</b> Each config group reboots the radio separately, so an error partway leaves it half-changed. ⚠ <b>Mitigation on our side regardless:</b> read before write, apply only changed fields, and on <code>error</code> offer the saved config straight back.</li>
+<li><b>A management path that survives a network change</b> — still unaddressed.</li>
+</ol>
+
+<h4>⭐ Participants see every device on the mesh</h4>
+<p>A GroupTrack participant sees every mesh device through a radio — their own over
+Bluetooth, or the Nucleus radio over the network — because the app reads Meshtastic's own
+list of every node heard. <b>Radio-only riders appear either way.</b></p>
+<p>⭐ <b>Two de-duplication jobs, one on each side — so neither assumes the other has it:</b></p>
+<table>
+<tr><th>Who</th><th>Stops</th></tr>
+<tr><td><b>Natak — on the Nucleus</b></td><td><b>Broadcast storms.</b> The network rebroadcasting the same packet round and round between nodes. His filtering, already provided.</td></tr>
+<tr><td><b>GroupTrack — layer 2</b></td><td><b>Showing a packet twice.</b> A participant with their own radio <i>and</i> a network connection receives the same packet by two separate paths into the tablet — and their own radio over Bluetooth never passes through a Nucleus. One check on the Meshtastic packet id.</td></tr>
+</table>
+
+<h4>Status of the outstanding questions</h4>
+<table>
+<tr><th>Question</th><th>Status</th></tr>
+<tr><td>Does the node keep one prior config or a history?</td><td>🔴 <b>Neither today — and a history is now a requirement</b> (section 7).</td></tr>
+<tr><td>Nucleus config over USB or IP?</td><td>✅ <b>Answered — IP</b>, through this HTTP API.</td></tr>
+<tr><td>Our packet size and preset</td><td>⭐ <b>Half answered</b> — he runs <code>SHORT_FAST</code>. We owe him ours.</td></tr>
+<tr><td><b>Is the Nucleus rebroadcast packet-level or CoT-level?</b></td><td>🔴 <b>Reframed 2026-09-21.</b> Fred's model: <b>the mesh radios are the bridge, and each Nucleus rebroadcasts packets between LoRa and the IP side.</b> If that is packet-level, <b>every Meshtastic packet crosses</b> — radio-only positions included — and the old portnum-3-versus-72 question answers itself. Everything Natak has said about the parallel mesh points that way; the CoT bridge is why it's worth one line of confirmation.</td></tr>
+<tr><td>Which multicast group carries CoT / SA?</td><td>🔴 <b>New conflict.</b> The API lists messaging on <code>239.10.10.60:17020</code> and voice on <code>239.10.10.1</code>; earlier he gave SA on <code>239.2.3.1:6969</code> and chat on <code>224.10.10.1:17012</code>. SA isn't in this doc at all.</td></tr>
+<tr><td>Is TCP 4403 reachable across the mesh?</td><td>🔴 <b>New.</b></td></tr>
+<tr><td>Is the tablet's gateway its node?</td><td>🔴 <b>New.</b></td></tr>
+<tr><td>Authentication on writes</td><td>🔴 <b>New — the one to raise first.</b></td></tr>
+<tr><td>Onboard GPS</td><td>🔴 Still open.</td></tr>
+</table>
+</div>
+
+<h2>⭐⭐⭐ 7 — The config lifecycle: complete, apply, restore</h2>
+<div class="card done">
+<p class="hi"><b>GroupTrack initiates every step. The Nucleus completes configs it does not
+keep, applies them only when told, and keeps its own history so any earlier state can be
+restored.</b></p>
+<p>⚠ <b>Corrected 2026-09-21 (v6).</b> v5 had the node <i>store</i> a staged config until the
+ride. That fails because <b>rides can be set months in advance</b>: one staged slot would
+tie the node up for months, and several upcoming rides could not be prepared at once.
+<b>Completing a config and applying it are now separate.</b></p>
+
+<h4>1 — Complete (any time, including months ahead)</h4>
+<p>GroupTrack sends the ride config down. The node validates it, computes its derived
+values, and returns the finished config. <b>The node stores nothing.</b> GroupTrack keeps the
+completed config in its library and can distribute it to riders immediately.</p>
+<p>⭐ GroupTrack compares what came back with what it sent — anything the node rejected or
+adjusted surfaces at home, not at the trailhead.</p>
+<p>🔴 <b>Needs a new endpoint.</b> Today <code>PUT /api/v1/config</code> always replaces the
+saved config, and <code>apply?dry_run=true</code> compares against what is saved.
+<b>Ask: a validate-and-derive call that returns the completed config and saves nothing</b> —
+e.g. <code>POST /api/v1/config/complete</code>.</p>
+
+<h4>2 — Apply (just before the ride)</h4>
+<p>The leader selects the ride in GroupTrack's <b>Apply config</b> list. GroupTrack sends the
+completed config down and the node:</p>
+<ol>
+<li><b>writes its current config to a history file</b>, labelled and timestamped;</li>
+<li>applies the new one.</li>
+</ol>
+<p>A dry run first shows the leader what will change. The node restarts onto the ride
+network, and GroupTrack rejoins it on its own — it generated the network ID.</p>
+<p><span class="muted">Today: <code>PUT /api/v1/config</code> → <code>POST /api/v1/apply?dry_run=true</code>
+→ <code>POST /api/v1/apply</code>.</span> 🔴 <b>Ask: save the previous config to history as
+part of every apply</b> — in one step on the node, so no apply can happen without the
+previous state being kept.</p>
+
+<h4>3 — Restore (after the ride)</h4>
+<p>GroupTrack reads the node's history, the leader picks an entry, and the node reapplies it
+— which itself goes through step 2, so the ride config is kept in history too.</p>
+<p>🔴 <b>Ask: history endpoints</b> — list the entries (label, saved at), read one, reapply one.
+e.g. <code>GET /api/v1/config/history</code>,
+<code>GET /api/v1/config/history/{id}</code>,
+<code>POST /api/v1/config/history/{id}/apply</code>.</p>
+
+<h4>⭐ Why the history lives on the node, not in GroupTrack</h4>
+<p><b>Only the node knows its true previous state.</b> Its config may have been set from
+Natak's own web UI, from another leader's tablet, or before GroupTrack was ever used — and
+the leader's tablet may be lost or replaced. A history kept on the node survives all of
+those. GroupTrack's job is to navigate it, not to be it.</p>
+
+<h4>What the history must capture</h4>
+<ul>
+<li><b>Both halves of the node</b> — the WiFi mesh identity <i>and</i> the radio. A restore
+that brings back one without the other leaves a node split across two networks.</li>
+<li><b>A label GroupTrack can show</b> — the ride name and date (or "Home, 2026-09-20" for a
+node's own setup), so the leader picks from names, not timestamps. 🔴 <b>Ask: a free-text
+label field in the config</b> that validation accepts and history keeps.</li>
+</ul>
+
+<h4>How riders get the config</h4>
+<table>
+<tr><th>Rider</th><th>Path</th></tr>
+<tr><td><b>Ahead of time</b></td><td>The completed config (step 1) goes out with the ride's event, route and waypoints — by email today, by the backend later. Stored in the rider's local config store; applied when they choose.</td></tr>
+<tr><td><b>At the event, with a Nucleus</b></td><td><b>After the leader's apply</b>, the rider joins the ride's WiFi network, pulls the config from the leader's node, and applies it to their own radio over <b>Bluetooth or USB</b> — or to their own Nucleus, which keeps its own history the same way. <b>Only needed if they didn't pre-apply</b> from the distributed ride config.</td></tr>
+<tr><td><b>Solo radio, no Nucleus</b></td><td>Configured over Bluetooth or USB from any Android holding the config.</td></tr>
+</table>
+
+<h4>At the event — the rider's steps</h4>
+<ol>
+<li>The leader applies the ride config to the node (step 2). The node comes up on the ride network.</li>
+<li>The rider's tablet joins that network — ⭐ by scanning the leader's QR code, nothing typed.</li>
+<li>GroupTrack pulls the config from the node. <span class="muted">API: <code>GET /api/v1/meshtastic/config</code> — channel name, key <i>fingerprint</i>, LoRa settings, and the channel URL.</span></li>
+<li>⭐ <b>GroupTrack checks whether the rider's radio already matches</b> — same channel name, same key fingerprint. If it does, the rider pre-applied at home and is simply ready. <b>Nobody is asked to redo something that's already right.</b></li>
+<li>If not, GroupTrack applies it to the rider's radio over Bluetooth or USB, saving the radio's own settings first.</li>
+</ol>
+<p>⭐ <b>Worth testing: this may not need to be T1000-E only.</b> The channel URL is Meshtastic's
+own way of moving a configuration between radios — it carries the channel, its key and the
+LoRa settings, and the fork already handles channel URLs. If it covers the ride's
+essentials, riders with other Meshtastic radios could be set up automatically at the event
+too, rather than by hand. <b>Test before promising it</b> — the website currently says other
+radios are set up manually.</p>
+
+<h4>🔴 Also to resolve with Natak</h4>
+<ol>
+<li><b>Radio settings inside the node's config.</b> <code>/meshtastic/config/apply</code> writes
+the radio immediately and separately. For one apply — and one history entry — to cover
+both halves, the radio fields need to live in the node's config.</li>
+<li><b>Which derived values are ride-wide, and which are node-specific?</b> A completed
+config is shared with riders who may have their own Nucleus. Addresses keyed to node id
+must be recomputed by each node when it applies, not copied from the leader's.</li>
+<li><b>Riders arriving empty-handed.</b> ⭐ Proposal: a QR code on the leader's tablet at the
+trailhead with the network credentials — scan, join, pull the config.</li>
+<li><b>Transport for GroupTrack → node.</b> WiFi works today (this API). USB to a Raspberry
+Pi 4 needs setup on his side. Proposal: WiFi standard, USB only as a wired fallback.</li>
+</ol>
+</div>
+</body></html>

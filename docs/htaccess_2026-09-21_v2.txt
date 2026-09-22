@@ -1,0 +1,14 @@
+RewriteEngine On
+
+# HTTPSREDIR-2026-09-21 v2: plain http goes to https.
+# Exempt /api/ -- redirecting an app's POST can silently turn it into a GET.
+# Exempt /.well-known/ -- Let's Encrypt renewal checks arrive there over http.
+# v2: test THE_REQUEST (the original request line), not REQUEST_URI.
+# In .htaccess Apache re-runs these rules after the API rewrite below, and on
+# that second pass REQUEST_URI is /convoy_api.php/ -- so v1's /api/ exemption
+# stopped matching and the API was redirected anyway.
+RewriteCond %{HTTPS} off
+RewriteCond %{THE_REQUEST} !\s/(api|\.well-known)/ [NC]
+RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
+
+RewriteRule ^api/(.*)$ convoy_api.php/$1 [PT,L]

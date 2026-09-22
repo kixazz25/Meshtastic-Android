@@ -1,0 +1,55 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GroupTrack — the .convoy ride file, format 3 — 2026-09-22 v1</title><style>body{font:15px/1.6 -apple-system,"Segoe UI",Roboto,sans-serif;max-width:1200px;margin:0 auto;padding:26px;background:#0f1216;color:#e6edf3}
+h1{font-size:23px;color:#58a6ff;border-bottom:2px solid #2a3038;padding-bottom:8px}
+h2{font-size:18px;color:#58a6ff;margin-top:34px;border-bottom:1px solid #2a3038;padding-bottom:5px}
+h3{font-size:15px;color:#b8c2cc;margin:18px 0 6px}
+code{background:#1a2027;padding:1px 5px;border-radius:3px;font-size:12.5px;color:#8FD0FF}
+.card{background:#161b22;border:1px solid #2a3038;border-radius:8px;padding:13px 17px;margin:11px 0}
+.done{border-left:4px solid #3fb950}.next{border-left:4px solid #58a6ff}.warn{border-left:4px solid #d29922}.bad{border-left:4px solid #f85149}
+table{border-collapse:collapse;width:100%;margin:10px 0;font-size:13px}
+th,td{border:1px solid #2a3038;padding:6px 8px;text-align:left;vertical-align:top}
+th{background:#1a2027;color:#8FD0FF}
+td:first-child{font-weight:600;color:#e3b341;white-space:nowrap}
+.hi{color:#e3b341} .fig{overflow-x:auto;background:#161b22;border-radius:6px;padding:8px 0}
+.fig svg{max-width:100%;height:auto;display:block;margin:0 auto}
+li{margin:5px 0}</style></head><body>
+<h1>The <code>.convoy</code> ride file — format 3</h1>
+<p>2026-09-22 · v1 · replaces <code>ConvoyEventConfig</code>'s JSON (format 2, radio-first).</p>
+<div class="card done"><p class="hi"><b>A ride is a package of map, route and waypoint data with a leader and a date — and it is useful with no network at all.</b>
+The file is self-contained: emailed, opened offline, ridden, forwarded. The network is a property the ride <i>may</i> carry so the group's radios can find each other.</p></div>
+<h2>1 · The sections</h2><table><tr><th>Section</th><th>Presence</th><th>Contents</th></tr><tr><td><code>kind</code>, <code>formatVersion</code></td><td>required</td><td><code>"grouptrack.ride"</code> and <code>3</code>. A hard cut — a 2.6 tablet does not read a v3 file and says so plainly rather than half-importing it.</td></tr><tr><td><code>ride</code></td><td>required</td><td><code>rideId</code> (UUID — the identity between tablets), <code>name</code>, <code>date</code>, <code>startTime</code>, <code>description</code>, <code>zipCode</code>, <code>createdAt</code>.</td></tr><tr><td><code>leader</code></td><td>required</td><td><code>name</code>, <code>callsign</code>, <code>orgName</code> (empty for an independent leader). <b>No user id, no phone.</b> <code>email</code> only if the leader ticks "let riders reply to me" at send time.</td></tr><tr><td><code>network</code></td><td><b>optional</b></td><td>Absent when the leader has no radios — the ride still works. <code>id</code> (the GT id), <code>baseVersion</code>, and a block per transport: <code>mesh</code> and <code>nucleus</code>. Both are written whenever a network exists.</td></tr><tr><td><code>rideData</code></td><td><b>optional</b></td><td>One GPX document carrying the route as <code>&lt;rte&gt;</code> and the waypoints as <code>&lt;wpt&gt;</code>, plus <code>routeGeomHash</code>, <code>routeName</code> and <code>routeNotes</code> (JSON — GroupTrack's own, no GPX equivalent).</td></tr><tr><td><code>map</code></td><td><b>optional</b></td><td>The area the ride needs: <code>north/south/east/west</code> and <code>maxZoom</code>, so the receiver can fetch tiles. No tiles travel in the file.</td></tr></table>
+<h2>2 · The shape</h2>
+<pre style="background:#0E1317;border:1px solid #2E3A45;border-radius:8px;padding:14px;overflow-x:auto;font-size:13px;line-height:1.5;">{
+  "kind": "grouptrack.ride",
+  "formatVersion": 3,
+  "ride": { "rideId": "…", "name": "Sand Hollow loop", "date": "2026-10-03",
+             "startTime": "09:00", "description": "…", "zipCode": "84737",
+             "createdAt": "2026-09-22T19:00:00Z" },
+  "leader": { "name": "Fred", "callsign": "FRED", "orgName": "Iron County SxS" },
+  "network": {
+    "id": "GTxxxxxxxxx",
+    "baseVersion": 1,
+    "mesh":    { "region": "US", "preset": "LONG_FAST", "hopLimit": 3,
+                 "txPower": 27, "channelName": "GTxxxxxxxxx", "key": "base64" },
+    "nucleus": { "ssid": "", "password": "", "takSdkVersion": "",
+                 "cotPort": 0, "tailnet": "" }
+  },
+  "rideData": {
+    "gpx": "&lt;?xml version=\"1.0\"?&gt;&lt;gpx …&gt;&lt;wpt …/&gt;&lt;rte …/&gt;&lt;/gpx&gt;",
+    "routeGeomHash": "…", "routeName": "Sand Hollow loop", "routeNotes": { }
+  },
+  "map": { "north": 0, "south": 0, "east": 0, "west": 0, "maxZoom": 16 }
+}</pre>
+<h2>3 · The rules</h2><table><tr><th>Rule</th><th>Why</th></tr><tr><td>⛔ <b>Nothing OSM-derived travels</b></td><td>The leader's own drawn route and their waypoints are theirs to send. The trail layer underneath is not — and the receiver already has its own copy.</td></tr><tr><td><b>Unknown sections are KEPT</b></td><td>On import, a section this build does not recognise is stored with the ride, so a forwarded file stays complete for the next rider.</td></tr><tr><td><b>Whole sections are optional, fields inside them are not</b></td><td>If <code>network</code> is present it is complete. That keeps the reader simple: check the section, then trust it.</td></tr><tr><td><b>The route travels as its drawn line</b></td><td>The polyline the leader drew (the stored LINESTRING), not the recipe that built it. The receiver draws exactly what the leader drew, with no trail network required. <code>geom_hash</code> rides along so import dedupes without re-hashing.</td></tr><tr><td><b>One GPX, both kinds</b></td><td>Route as <code>&lt;rte&gt;</code>, waypoints as <code>&lt;wpt&gt;</code>. Recorded tracks, if they ever travel, stay <code>&lt;trk&gt;</code> — the distinction is free and worth keeping.</td></tr><tr><td><b>The ride id is the identity</b></td><td>Re-importing the same file updates that ride rather than making a second one. A leader can send a corrected ride and riders simply take it.</td></tr></table>
+<h2>4 · What format 2 carried and format 3 does not</h2><table><tr><th>Dropped</th><th>Why</th></tr><tr><td><code>hardwareId</code> as the primary key</td><td>The ride is not owned by a radio. <code>rideId</code> is the identity; the radio is a detail of one rider's kit.</td></tr><tr><td><code>deviceId</code>, <code>hardwareModel</code>, <code>firmwareVersion</code></td><td>The receiver's own radio is what matters, not the leader's.</td></tr><tr><td><code>organizerUserId</code>, <code>organizerPhone</code>, <code>organizerFirstName/LastName</code></td><td>A receiving tablet needs a <b>name and callsign</b> to show who leads. Nothing else about the leader is anyone's business.</td></tr><tr><td>Flat LoRa fields at the top level</td><td>They move inside <code>network.mesh</code>, so a ride with no radios is expressible at all.</td></tr><tr><td><code>expirationDate</code> (30 days past the ride)</td><td><b>DECIDE:</b> keep as a tidy-up hint, or drop and let rides age in the list? V2 set it and nothing enforced it.</td></tr></table>
+<h2>5 · The nucleus block — a placeholder, on purpose</h2>
+<div class="card"><p>Written <b>empty</b> until Natak's API settles. Named <code>nucleus</code> rather than <code>ip</code> because it is Natak's hardware with its own fields; another IP transport would get its own block rather than fight over one.</p>
+<p><b>What the fields are for:</b> <code>cotPort</code> — CoT v0 XML goes to the box on some port (Nathan, 09-22: plain CoT XML is the format; the SDK handles compression). <code>tailnet</code> — every Nucleus runs Tailscale, so a leader could push a ride straight to the group's boxes instead of emailing. Empty means email, which stays the universal path for mesh-only riders and anyone offline at a trailhead.</p>
+<p><b>Three answers owed by Natak:</b> which port and transport CoT arrives on · whether a Nucleus is already joined to a tailnet when it ships · whether the config API sets SSID and password, or they come preset. The last one decides whether GroupTrack can generate the IP half of a network itself.</p></div>
+<h2>6 · Still to decide</h2>
+<div class="card next"><ol>
+<li><b>The leader's email</b> — off by default, ticked at send time to let riders reply? Or never?</li>
+<li><b>Expiration</b> — keep the 30-day date as a tidy-up hint, or drop it?</li>
+<li><b>Zipped or plain</b> — a zipped <code>.convoy</code> is one attachment and much smaller with GPX inside; plain is readable in a text editor.</li>
+</ol></div>
+</body></html>
