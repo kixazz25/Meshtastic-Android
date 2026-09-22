@@ -424,6 +424,23 @@ object SpatialDbManager {
                     android.util.Log.w(TAG, "route_notes migration: ${e.message}")
                 }
             }
+            // DEVSCHEMA-2026-09-22: V3-shaped device tables (convergence doc v24).
+            // Idempotent CREATE IF NOT EXISTS from assets -- runs every launch, never touches
+            // the version marker or any existing table. Dormant in 2.6h except ride_surveys.
+            // runSchemaFromAsset logs and SKIPS failing statements, so the table count is
+            // logged before and after: first launch 18 -> 28, every launch after 28 -> 28.
+            try {
+                val tablesBefore = extensionDb!!.rawQuery(
+                    "SELECT count(*) FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'", null
+                ).use { c -> if (c.moveToFirst()) c.getInt(0) else -1 }
+                runSchemaFromAsset(context, extensionDb!!, "schema_device_additions.sql")
+                val tablesAfter = extensionDb!!.rawQuery(
+                    "SELECT count(*) FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'", null
+                ).use { c -> if (c.moveToFirst()) c.getInt(0) else -1 }
+                android.util.Log.i(TAG, "DEVSCHEMA-2026-09-22: extension tables $tablesBefore -> $tablesAfter")
+            } catch (e: Exception) {
+                android.util.Log.w(TAG, "DEVSCHEMA-2026-09-22: ${e.message}")
+            }
             initialized = true
             val trailCount = countRows(spatialDb!!, "trails")
             val trackCount = countRows(spatialDb!!, "tracks")
