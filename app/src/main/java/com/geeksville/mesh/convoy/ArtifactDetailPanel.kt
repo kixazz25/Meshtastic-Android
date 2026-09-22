@@ -50,6 +50,11 @@ fun ArtifactDetailPanel(
      * Nullable like its siblings: a screen that does not offer it passes nothing.
      */
     onShowNotes: ((String) -> Unit)? = null,
+    /* RIDECREATE-2026-09-22: make a ride from this route. Shown only for routes
+     * (and tracks, once the convert step is wired). Nullable like its siblings --
+     * the PLANNER passes it and gets the button; the frozen convoy map passes
+     * nothing and is untouched. Both callers are real, so the option belongs. */
+    onAddRide: ((String, String) -> Unit)? = null,
     /* SATFIXES-2026-08-29: build six more from this route's recipe.
      * ⚠ Unlike onShowNotes, which is offered unconditionally, this one is
      * passed only when the route DB actually holds a recipe — a hand-drawn or
@@ -123,6 +128,9 @@ fun ArtifactDetailPanel(
                     // ⭐ RECIPEBTN-2026-08-29: a rider knows what an overview is.
                     // "Narrative" is our word for the generated prose.
                     if (onShowNotes != null) { DetailActionButton("OVERVIEW", aOrange) { onShowNotes(id) } }
+                    if (onAddRide != null && singular == "route") {
+                        DetailActionButton("ADD A RIDE", aGreen) { onAddRide(singular, id) }
+                    }
                     /* ⭐ Shown only when this route carries a recipe. Absent for
                      * hand-drawn and imported routes, and for drafts, which are
                      * not in the route DB at all — so no flag is needed. */

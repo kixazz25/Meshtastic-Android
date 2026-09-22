@@ -11,6 +11,7 @@ import androidx.navigation.compose.composable
 import com.geeksville.mesh.convoy.ConvoyEmailGateScreen
 import com.geeksville.mesh.convoy.ConvoyCreateEventScreen
 import com.geeksville.mesh.convoy.ConvoyEnrollmentScreen
+import androidx.navigation.toRoute
 import com.geeksville.mesh.convoy.ConvoyMasterCaptureScreen
 import com.geeksville.mesh.convoy.ConvoyScreen
 import com.geeksville.mesh.convoy.ConvoyApplyListScreen
@@ -115,9 +116,9 @@ fun NavGraphBuilder.convoyGraph(
 
     // RIDECREATE-2026-09-22: opens empty from here; the planner's route detail
     // panel will open it with a route already chosen (backfilled later).
-    composable<ConvoyRoutes.ConvoyRideCreate> {
+    composable<ConvoyRoutes.ConvoyRideCreate> { entry ->
         com.geeksville.mesh.convoy.ConvoyRideCreateScreen(
-            initialRouteId = null,
+            initialRouteId = entry.toRoute<ConvoyRoutes.ConvoyRideCreate>().routeId,
             onRideCreated = { navController?.popBackStack() },
             onBack = { navController?.popBackStack() }
         )
@@ -262,6 +263,8 @@ fun NavGraphBuilder.convoyGraph(
     // ── Map Viewer with trail overlay ────────────────────────────────
     composable<ConvoyRoutes.ConvoyMapViewer> {
         com.geeksville.mesh.convoy.ConvoyMapViewerScreen(
+            // RIDECREATE-2026-09-22: ADD A RIDE on a route's detail panel.
+            onAddRide = { _, routeId -> navController?.navigate(ConvoyRoutes.ConvoyRideCreate(routeId)) },
             onBack = { navController?.popBackStack() },
             onNavigateToTrackExport = { navController?.navigate(ConvoyRoutes.ConvoyTracks) },
             onNavigateToTrackImport = { navController?.navigate(ConvoyRoutes.ConvoyTrackImport) },

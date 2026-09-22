@@ -245,6 +245,8 @@ fun ConvoyMapViewerScreen(
     onNavigateToTrackExport: () -> Unit = {},
     onNavigateToTrackImport: () -> Unit = {},
     onNavigateToTrailSources: () -> Unit = {},
+    // RIDECREATE-2026-09-22: (artifactType, id) -> open ride creation with it.
+    onAddRide: ((String, String) -> Unit)? = null,
     convoyViewModel: ConvoyViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
@@ -4301,6 +4303,7 @@ fun ConvoyMapViewerScreen(
             )
             if (pendingDetailId != null && pendingDetailType != null) {
                 ArtifactDetailPanel(
+                    onAddRide = onAddRide,
                     artifactType = pendingDetailType!!,
                     id = pendingDetailId!!,
                     mapKey = "planning",
