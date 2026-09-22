@@ -57,7 +57,7 @@ CREATE TABLE IF NOT EXISTS rides (
     zip_code                TEXT,
     is_public               INTEGER NOT NULL DEFAULT 0,
     config_mode             TEXT NOT NULL DEFAULT 'inherit_leader'
-                            CHECK (config_mode IN ('inherit_leader','unique')),
+                            CHECK (config_mode IN ('inherit_org','inherit_leader','unique')),
     config_id               TEXT,
     expires_at              TEXT,
     created_at              TEXT NOT NULL,
