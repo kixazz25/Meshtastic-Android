@@ -52,6 +52,7 @@ import kotlin.math.roundToInt
 fun ConvoySettingsScreen(
     onNavigateBack: () -> Unit,
     onNavigateToMapSources: () -> Unit = {},
+    onNavigateToProfile: () -> Unit = {},
     viewModel: ConvoySettingsViewModel = hiltViewModel(),
     convoyViewModel: ConvoyViewModel = hiltViewModel()
 ) {
@@ -90,6 +91,16 @@ fun ConvoySettingsScreen(
         ) {
 
             // ── Map Sources ──────────────────────────────────────────────
+            // PROFILE-2026-09-22: the rider profile -- same screen, edit mode.
+            SectionLabel("Your Profile")
+            androidx.compose.material3.ListItem(
+                headlineContent = { Text("Edit rider profile", style = MaterialTheme.typography.bodyLarge) },
+                supportingContent = { Text("Callsign, email, vehicle, team colour -- stays on this tablet", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                modifier = Modifier.clickable { onNavigateToProfile() }
+            )
+            HorizontalDivider()
+            Spacer(Modifier.height(8.dp))
+
             SectionLabel("Map Sources")
             androidx.compose.material3.ListItem(
                 headlineContent = { Text("Change Map Sources", style = MaterialTheme.typography.bodyLarge) },

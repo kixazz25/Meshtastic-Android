@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -87,7 +89,10 @@ fun ConvoyRiderProfileScreen(
 
     Box(modifier = Modifier.fillMaxSize().background(BG)) {
         Column(
-            modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
+            // KEYBOARD-2026-09-22: imePadding keeps Save reachable when the keyboard
+            // is up -- portrait and landscape both. The column already scrolls.
+            modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+                .imePadding().navigationBarsPadding().padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             Text(

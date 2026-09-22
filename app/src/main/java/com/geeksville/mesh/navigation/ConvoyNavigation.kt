@@ -95,20 +95,29 @@ fun NavGraphBuilder.convoyGraph(
     // ── Legacy settings screen ────────────────────────────────────────────
     // PROFILE-2026-09-22: first launch (no Cancel -- it cannot be skipped).
     composable<ConvoyRoutes.ConvoyRiderProfile> {
+        // PROFILE-2026-09-22: one screen, two modes. No profile yet -> first launch,
+        // no Cancel, and Save opens the map. Profile exists -> reached from settings,
+        // Cancel and Save both go back.
+        val hasProfile = com.geeksville.mesh.convoy.ConvoyProfileStore.exists()
         com.geeksville.mesh.convoy.ConvoyRiderProfileScreen(
             onSaved = {
-                navController?.navigate(ConvoyRoutes.Convoy) {
-                    popUpTo(ConvoyRoutes.ConvoyRiderProfile) { inclusive = true }
+                if (hasProfile) {
+                    navController?.popBackStack()
+                } else {
+                    navController?.navigate(ConvoyRoutes.Convoy) {
+                        popUpTo(ConvoyRoutes.ConvoyRiderProfile) { inclusive = true }
+                    }
                 }
             },
-            onCancel = null
+            onCancel = if (hasProfile) ({ navController?.popBackStack(); Unit }) else null
         )
     }
 
     composable<ConvoyRoutes.ConvoySettings> {
         ConvoySettingsScreen(
             onNavigateBack = { navController?.popBackStack() },
-            onNavigateToMapSources = { navController?.navigate(ConvoyRoutes.ConvoyMapSources) }
+            onNavigateToMapSources = { navController?.navigate(ConvoyRoutes.ConvoyMapSources) },
+            onNavigateToProfile = { navController?.navigate(ConvoyRoutes.ConvoyRiderProfile) }
         )
     }
 
