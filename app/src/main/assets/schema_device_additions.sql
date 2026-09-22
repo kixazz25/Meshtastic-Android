@@ -46,8 +46,10 @@ CREATE TABLE IF NOT EXISTS org_members (
 );
 CREATE TABLE IF NOT EXISTS rides (
     ride_id                 TEXT PRIMARY KEY,
-    organizer_id            TEXT NOT NULL,
+    organizer_id            TEXT,
+    organizer_name          TEXT NOT NULL,
     org_id                  TEXT,
+    org_name                TEXT,
     route_id                TEXT,
     trailhead_waypoint_id   TEXT,
     ride_name               TEXT NOT NULL,
@@ -68,7 +70,9 @@ CREATE INDEX IF NOT EXISTS idx_rides_organizer ON rides(organizer_id);
 CREATE TABLE IF NOT EXISTS enrollments (
     enrollment_id   TEXT PRIMARY KEY,
     ride_id         TEXT NOT NULL,
-    user_id         TEXT NOT NULL,
+    user_id         TEXT,
+    callsign        TEXT NOT NULL,
+    display_name    TEXT,
     role            TEXT NOT NULL DEFAULT 'rider'
                     CHECK (role IN ('leader','rider','middle','tail_gunner')),
     team            TEXT,
@@ -79,11 +83,11 @@ CREATE TABLE IF NOT EXISTS enrollments (
     created_by      TEXT NOT NULL CHECK (created_by IN ('login','packet')),
     enrolled_at     TEXT NOT NULL,
     first_seen      TEXT,
-    last_seen       TEXT,
-    UNIQUE(ride_id, user_id)
+    last_seen       TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_enroll_ride ON enrollments(ride_id);
 CREATE INDEX IF NOT EXISTS idx_enroll_node ON enrollments(ride_id, node_num);
+CREATE INDEX IF NOT EXISTS idx_enroll_tak ON enrollments(ride_id, tak_uid);
 CREATE TABLE IF NOT EXISTS ride_surveys (
     survey_id       TEXT PRIMARY KEY,
     track_id        TEXT NOT NULL,
