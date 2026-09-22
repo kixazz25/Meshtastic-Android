@@ -53,6 +53,7 @@ fun ConvoySettingsScreen(
     onNavigateBack: () -> Unit,
     onNavigateToMapSources: () -> Unit = {},
     onNavigateToProfile: () -> Unit = {},
+    onNavigateToRideCreate: () -> Unit = {},
     viewModel: ConvoySettingsViewModel = hiltViewModel(),
     convoyViewModel: ConvoyViewModel = hiltViewModel()
 ) {
@@ -92,6 +93,17 @@ fun ConvoySettingsScreen(
 
             // ── Map Sources ──────────────────────────────────────────────
             // PROFILE-2026-09-22: the rider profile -- same screen, edit mode.
+            // RIDECREATE-2026-09-22: TEMPORARY entry point so the shell is testable.
+            // The real entry is the ride panel; remove this row when that exists.
+            SectionLabel("Rides")
+            androidx.compose.material3.ListItem(
+                headlineContent = { Text("Create a ride (shell)", style = MaterialTheme.typography.bodyLarge) },
+                supportingContent = { Text("Pick a route, name it, save -- no network yet", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                modifier = Modifier.clickable { onNavigateToRideCreate() }
+            )
+            HorizontalDivider()
+            Spacer(Modifier.height(8.dp))
+
             SectionLabel("Your Profile")
             androidx.compose.material3.ListItem(
                 headlineContent = { Text("Edit rider profile", style = MaterialTheme.typography.bodyLarge) },

@@ -113,11 +113,22 @@ fun NavGraphBuilder.convoyGraph(
         )
     }
 
+    // RIDECREATE-2026-09-22: opens empty from here; the planner's route detail
+    // panel will open it with a route already chosen (backfilled later).
+    composable<ConvoyRoutes.ConvoyRideCreate> {
+        com.geeksville.mesh.convoy.ConvoyRideCreateScreen(
+            initialRouteId = null,
+            onRideCreated = { navController?.popBackStack() },
+            onBack = { navController?.popBackStack() }
+        )
+    }
+
     composable<ConvoyRoutes.ConvoySettings> {
         ConvoySettingsScreen(
             onNavigateBack = { navController?.popBackStack() },
             onNavigateToMapSources = { navController?.navigate(ConvoyRoutes.ConvoyMapSources) },
-            onNavigateToProfile = { navController?.navigate(ConvoyRoutes.ConvoyRiderProfile) }
+            onNavigateToProfile = { navController?.navigate(ConvoyRoutes.ConvoyRiderProfile) },
+            onNavigateToRideCreate = { navController?.navigate(ConvoyRoutes.ConvoyRideCreate) }
         )
     }
 

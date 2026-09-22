@@ -180,6 +180,7 @@ object ConvoyRoutes {
     @Serializable data object Convoy : Route
     @Serializable data object ConvoyAuthorityGate : Route  // 2.6f pre-convoy authority gate
     @Serializable data object ConvoyRiderProfile : Route  // PROFILE-2026-09-22 first launch + edit
+    @Serializable data object ConvoyRideCreate : Route  // RIDECREATE-2026-09-22 create a ride
     @Serializable data object ConvoySettings : Route
     @Serializable data object ConvoyMapSources : Route
     @Serializable data object ConvoyEnrollment : Route
