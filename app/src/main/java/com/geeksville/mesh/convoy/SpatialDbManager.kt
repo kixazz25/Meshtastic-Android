@@ -2309,6 +2309,63 @@ object SpatialDbManager {
         s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;")
 
     /** Build GPX for a single waypoint by ID. Returns Pair(name, gpxContent) or null. */
+    // ---- TRAILHEAD-2026-09-23 ----------------------------------------------------------------
+    /** One trailhead candidate near a point. */
+    data class TrailheadCandidate(
+        val waypointId: String, val name: String, val lat: Double, val lon: Double, val miles: Double
+    )
+
+    /**
+     * Trailhead waypoints within [radiusMiles] of (lat, lon), nearest first. Rule (Fred 09-23): a
+     * route's trailhead is within 1/2 mile of its start. One = use it, several = selector, none = the
+     * rider adds one on the map. Box query on the stored bounds, then an exact haversine check.
+     */
+    fun trailheadsNear(lat: Double, lon: Double, radiusMiles: Double = 0.5): List<TrailheadCandidate> {
+        val db = spatialDb ?: return emptyList()
+        val dLat = radiusMiles / 69.0
+        val dLon = radiusMiles / (69.0 * Math.cos(Math.toRadians(lat))).coerceAtLeast(0.01)
+        val out = mutableListOf<TrailheadCandidate>()
+        try {
+            db.rawQuery(
+                "SELECT waypoint_id, name, geometry FROM waypoints WHERE type='trailhead' AND " +
+                    "(min_lat IS NULL OR (max_lat >= ? AND min_lat <= ? AND max_lon >= ? AND min_lon <= ?))",
+                arrayOf((lat - dLat).toString(), (lat + dLat).toString(),
+                    (lon - dLon).toString(), (lon + dLon).toString())
+            ).use { c ->
+                while (c.moveToNext()) {
+                    val g = c.getString(2) ?: continue
+                    val p = g.removePrefix("POINT(").removeSuffix(")").trim().split(" ")
+                    if (p.size < 2) continue
+                    val wLon = p[0].toDoubleOrNull() ?: continue
+                    val wLat = p[1].toDoubleOrNull() ?: continue
+                    val mi = ConvoyEngine.haversineMiles(lat, lon, wLat, wLon).toDouble()
+                    val id = c.getString(0) ?: continue
+                    if (mi <= radiusMiles) {
+                        out += TrailheadCandidate(id, c.getString(1) ?: "Trailhead", wLat, wLon, mi)
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("SpatialDb", "trailheadsNear error: " + e.message)
+        }
+        return out.sortedBy { it.miles }
+    }
+
+    /**
+     * Writes the route's trailhead into its RECIPE as the anchor, so the route carries it from then
+     * on. A recipe that already has an anchor (AI routes) is left alone. A route with no notes gets
+     * notes holding just the recipe. Returns true when the recipe has an anchor afterwards.
+     */
+    fun setRouteAnchor(routeId: String, lat: Double, lon: Double, name: String): Boolean {
+        val notes = readRouteNotes(routeId) ?: org.json.JSONObject()
+        val recipe = notes.optJSONObject("recipe") ?: org.json.JSONObject()
+        if (recipe.has("anchorLat") && recipe.has("anchorLon")) return true
+        recipe.put("anchorLat", lat).put("anchorLon", lon).put("anchorName", name)
+        notes.put("recipe", recipe)
+        return writeRouteNotes(routeId, notes) >= 0
+    }
+    // ---- end TRAILHEAD-2026-09-23 ------------------------------------------------------------
+
     fun buildWaypointGpxById(waypointId: String): Pair<String, String>? {
         val db = spatialDb ?: return null
         try {
