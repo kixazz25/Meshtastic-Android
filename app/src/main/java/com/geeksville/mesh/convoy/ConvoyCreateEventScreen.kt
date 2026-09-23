@@ -65,7 +65,10 @@ fun ConvoyCreateEventScreen(
     var eventName    by remember { mutableStateOf("") }
     var eventDate    by remember { mutableStateOf("") }
     var description  by remember { mutableStateOf("") }
-    val channelName  = remember { "CONVOY-" + (1..4).map { "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789".random() }.joinToString("") }
+    // GROUPPREFIX-2026-09-23: the Group prefix + 6 replaces the old Convoy prefix + 4 -- 11 chars, Meshtastic's limit.
+    // "GroupTrack" is RESERVED for the default channel on every new radio; a generated
+    // suffix is 6 characters, so a generated name can never equal it.
+    val channelName  = remember { "Group" + (1..6).map { "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789".random() }.joinToString("") }
     var savedPsk     by remember { mutableStateOf("") }
     var statusMsg    by remember { mutableStateOf("") }
     var statusOk     by remember { mutableStateOf(true) }

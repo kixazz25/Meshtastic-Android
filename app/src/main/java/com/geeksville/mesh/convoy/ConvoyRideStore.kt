@@ -6,6 +6,8 @@ import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
 import java.util.UUID
+import com.grouptrack.core.OwnerType
+import java.time.LocalDate
 
 /**
  * RIDECREATE-2026-09-22 — local rides, first pass.
@@ -120,21 +122,151 @@ object ConvoyRideStore {
             .joinToString(" ").ifBlank { me.callsign }
         val now = nowUtc()
         val id = UUID.randomUUID().toString()
+        // RIDECFG-2026-09-23: the ride's OWN channel config -- channel id, key and WiFi password,
+        // generated together. Simple path: config_mode 'unique'. Org / organizer inheritance later.
+        val cfg = ConvoyNetworkStore.create(OwnerType.RIDE, id, rideName.trim()) ?: run {
+            Log.w(TAG, "saveRide refused: the ride's channel config was not created"); return null
+        }
+        val expires = expiresFor(rideDate)
         return try {
             db.execSQL(
                 "INSERT INTO rides (ride_id, organizer_id, organizer_name, route_id, " +
                     "ride_name, ride_date, start_time, description, zip_code, is_public, " +
-                    "created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
-                arrayOf<Any>(
+                    "config_mode, config_id, expires_at, " +
+                    "created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                arrayOf<Any?>(
                     id, me.userId, leaderName, routeId,
                     rideName.trim(), rideDate.trim(), startTime.trim(), description.trim(),
-                    zipCode.trim(), if (isPublic) 1 else 0, now, now
+                    zipCode.trim(), if (isPublic) 1 else 0,
+                    "unique", cfg.configId, expires, now, now
                 )
             )
             Log.i(TAG, "RIDECREATE-2026-09-22: ride saved $id name=$rideName route=$routeId")
             id
         } catch (e: Exception) {
-            Log.e(TAG, "saveRide failed: ${e.message}"); null
+            Log.e(TAG, "saveRide failed: ${e.message}")
+            ConvoyNetworkStore.deleteUnused(cfg.configId)   // RIDECFG: no ghost config
+            null
+        }
+    }
+
+    // ---- RIDECFG-2026-09-23: ride state, edits, waypoints -------------------------------------
+
+    /** Ride date + 30 days (the ride file's expiry), or null when the date is not yyyy-MM-dd yet. */
+    private fun expiresFor(rideDate: String): String? =
+        try { LocalDate.parse(rideDate.trim()).plusDays(30).toString() } catch (e: Exception) { null }
+
+    @Volatile private var schemaChecked = false
+
+    /**
+     * CODE RULE 3 -- one-time code, no marker. The ALTER exists only for tablets that already have
+     * the rides table (Droid 1); an existing column is fine. REMOVE the ALTER, and add
+     * distributed_at to schema_device_additions.sql, when 2.7 is cut.
+     */
+    private fun ensureSchema() {
+        if (schemaChecked) return
+        val db = SpatialDbManager.getExtensionDb() ?: return
+        try {
+            db.execSQL("ALTER TABLE rides ADD COLUMN distributed_at TEXT")
+            Log.i(TAG, "RIDECFG-2026-09-23: rides.distributed_at added")
+        } catch (e: Exception) {
+            Log.d(TAG, "rides.distributed_at already present")
+        }
+        try {
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS ride_waypoints (ride_id TEXT NOT NULL, " +
+                    "waypoint_id TEXT NOT NULL, seq INTEGER NOT NULL, PRIMARY KEY (ride_id, waypoint_id))"
+            )
+            schemaChecked = true
+        } catch (e: Exception) {
+            Log.e(TAG, "ensureSchema: ride_waypoints not created: ${e.message}")
+        }
+    }
+
+    /** In progress = distributed_at empty. DERIVED from the column, never a second flag. */
+    fun isDistributed(rideId: String): Boolean {
+        ensureSchema()
+        val db = SpatialDbManager.getExtensionDb() ?: return true
+        return try {
+            db.rawQuery("SELECT distributed_at FROM rides WHERE ride_id = ?", arrayOf(rideId)).use { c ->
+                c.moveToFirst() && !c.isNull(0) && c.getString(0).isNotBlank()
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "isDistributed failed: ${e.message}"); true
+        }
+    }
+
+    /** Changes an IN-PROGRESS ride. Refused once distributed (then only the date may change). */
+    fun updateRide(
+        rideId: String, rideName: String, rideDate: String, startTime: String,
+        description: String, zipCode: String, isPublic: Boolean, routeId: String
+    ): Boolean {
+        if (isDistributed(rideId)) {
+            Log.w(TAG, "updateRide refused: $rideId is distributed -- only the date can change"); return false
+        }
+        val db = SpatialDbManager.getExtensionDb() ?: return false
+        return try {
+            db.execSQL(
+                "UPDATE rides SET ride_name=?, ride_date=?, start_time=?, description=?, zip_code=?, " +
+                    "is_public=?, route_id=?, expires_at=?, updated_at=? " +
+                    "WHERE ride_id=? AND distributed_at IS NULL",
+                arrayOf<Any?>(
+                    rideName.trim(), rideDate.trim(), startTime.trim(), description.trim(),
+                    zipCode.trim(), if (isPublic) 1 else 0, routeId, expiresFor(rideDate), nowUtc(), rideId
+                )
+            )
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "updateRide failed: ${e.message}"); false
+        }
+    }
+
+    /** The ONLY change allowed after distribution. Moves the expiry with it. */
+    fun updateRideDate(rideId: String, rideDate: String): Boolean {
+        val db = SpatialDbManager.getExtensionDb() ?: return false
+        return try {
+            db.execSQL(
+                "UPDATE rides SET ride_date=?, expires_at=?, updated_at=? WHERE ride_id=?",
+                arrayOf<Any?>(rideDate.trim(), expiresFor(rideDate), nowUtc(), rideId)
+            )
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "updateRideDate failed: ${e.message}"); false
+        }
+    }
+
+    /** Sending is the lock. Called when the ride is first distributed; later calls change nothing. */
+    fun markDistributed(rideId: String): Boolean {
+        ensureSchema()
+        val db = SpatialDbManager.getExtensionDb() ?: return false
+        return try {
+            db.execSQL(
+                "UPDATE rides SET distributed_at=?, updated_at=? WHERE ride_id=? AND distributed_at IS NULL",
+                arrayOf<Any?>(nowUtc(), nowUtc(), rideId)
+            )
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "markDistributed failed: ${e.message}"); false
+        }
+    }
+
+    /** Replaces the ride's waypoint list, in order. IN PROGRESS only. */
+    fun setRideWaypoints(rideId: String, waypointIds: List<String>): Boolean {
+        if (isDistributed(rideId)) {
+            Log.w(TAG, "setRideWaypoints refused: $rideId is distributed"); return false
+        }
+        val db = SpatialDbManager.getExtensionDb() ?: return false
+        return try {
+            db.execSQL("DELETE FROM ride_waypoints WHERE ride_id=?", arrayOf<Any?>(rideId))
+            waypointIds.forEachIndexed { i, wp ->
+                db.execSQL(
+                    "INSERT OR IGNORE INTO ride_waypoints (ride_id, waypoint_id, seq) VALUES (?,?,?)",
+                    arrayOf<Any?>(rideId, wp, i)
+                )
+            }
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "setRideWaypoints failed: ${e.message}"); false
         }
     }
 
