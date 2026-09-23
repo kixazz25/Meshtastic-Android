@@ -265,7 +265,16 @@ fun ConvoyRideCreateScreen(
                         description = description, zipCode = zipCode,
                         isPublic = isPublic, routeId = routeId
                     )
-                    if (id != null) { status = "\u2713 Ride saved"; onRideCreated(id) }
+                    if (id != null) {
+                        // RIDEFILE-2026-09-23: the ride JSON is stored on every Save.
+                        val missing = ConvoyRideJsonWriter.save(context, id)
+                        status = when {
+                            missing == null -> "\u2713 Ride saved \u2014 \u2717 ride file not written"
+                            missing.isEmpty() -> "\u2713 Ride saved \u2014 ready to send"
+                            else -> "\u2713 Saved in progress \u2014 missing: " + missing.joinToString(", ")
+                        }
+                        onRideCreated(id)
+                    }
                     else status = "\u2717 Could not save \u2014 is there a rider profile?"
                 }
                 .padding(vertical = 14.dp), contentAlignment = Alignment.Center) {

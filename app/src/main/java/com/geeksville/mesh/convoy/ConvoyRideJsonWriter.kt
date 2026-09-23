@@ -171,6 +171,34 @@ object ConvoyRideJsonWriter {
         }
     }
 
+    // ---- RIDEFILE-2026-09-23: the ride JSON is a STORED FILE ----------------------------------
+    /** GroupTrack storage / rides / <rideId>.json -- one file per ride, on every device that holds it. */
+    fun rideFile(context: Context, rideId: String): java.io.File =
+        java.io.File(GroupTrackStorage.dir("rides", context).also { it.mkdirs() }, "$rideId.json")
+
+    /**
+     * Builds the ride JSON and STORES it. Called on every Save (and on a date change after
+     * distribution). Send attaches this file, apply reads it, import stores a received file here
+     * unchanged. Atomic: .tmp, then rename -- a half-written ride file never exists.
+     * Returns what is missing (empty = complete), or null when nothing was written.
+     */
+    fun save(context: Context, rideId: String): List<String>? {
+        val r = build(context, rideId) ?: return null
+        return try {
+            val f = rideFile(context, rideId)
+            val tmp = java.io.File(f.parentFile, f.name + ".tmp")
+            tmp.writeText(r.json.toString(2))
+            if (f.exists()) f.delete()
+            if (!tmp.renameTo(f)) {
+                Log.e(TAG, "save: rename failed for ${f.name}"); return null
+            }
+            Log.i(TAG, "RIDEFILE-2026-09-23: ${f.name} written, missing=${r.missing}")
+            r.missing
+        } catch (e: Exception) {
+            Log.e(TAG, "save failed: ${e.message}"); null
+        }
+    }
+
     /** One GPX: waypoints go after <metadata> (or the <gpx> tag), before the route — GPX order. */
     internal fun mergeWpts(routeGpx: String, wpts: String): String {
         if (wpts.isBlank()) return routeGpx
