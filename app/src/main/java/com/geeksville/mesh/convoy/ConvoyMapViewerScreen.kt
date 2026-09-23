@@ -1327,6 +1327,26 @@ fun ConvoyMapViewerScreen(
                                         )
                                         if (s != null) RouteManager.snapToVertex(s) else RouteManager.freeVertex(lat, lon)
                                     }
+                                    // TRAILHEADGATE-2026-09-23 (Fred): a route's FIRST point needs a trailhead
+                                    // waypoint within 1/2 mile. Existence check only -- the point still snaps to the
+                                    // trail as above. Nothing is stored: at save the trailhead is found again from
+                                    // the first point and written into the recipe, so discard has nothing to clear.
+                                    if (RouteManager.routeVertices().isEmpty()) {
+                                        val nearby = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                            SpatialDbManager.trailheadsNear(lat, lon)
+                                        }
+                                        if (nearby.isEmpty()) {
+                                            android.util.Log.i("RouteBridge", "TRAILHEADGATE: first point refused, no trailhead within 1/2 mile")
+                                            android.widget.Toast.makeText(
+                                                context,
+                                                "A route starts near a trailhead. Turn on Draw and long-press to add a " +
+                                                    "trailhead waypoint, then start your route again.",
+                                                android.widget.Toast.LENGTH_LONG
+                                            ).show()
+                                            return@launch
+                                        }
+                                        android.util.Log.i("RouteBridge", "TRAILHEADGATE: first point accepted, trailhead '${nearby.first().name}' at ${"%.2f".format(nearby.first().miles)} mi")
+                                    }
                                     RouteManager.addVertex(v)
                                     // AUTO-CHECKPOINT: persist in-progress draft after every point
                                     // so a teardown mid-build loses nothing (recover via start-route+ picker).
@@ -3633,6 +3653,16 @@ fun ConvoyMapViewerScreen(
                             // narrative is gone with no way back.
                             RouteDraftStore.readNotes(routeName)?.let { nts ->
                                 SpatialDbManager.writeRouteNotes(newRouteId, nts)
+                            }
+                            // ROUTEANCHOR-2026-09-23 (Fred): the trailhead goes into the RECIPE. The first
+                            // point passed the first-point trailhead check, so one is within 1/2 mile; the
+                            // nearest is recorded (the selector belongs to ride creation). AFTER the notes
+                            // write, which replaces every row, and BEFORE clearRoute empties the vertices.
+                            RouteManager.routeVertices().firstOrNull()?.let { first ->
+                                SpatialDbManager.trailheadsNear(first.lat, first.lon).firstOrNull()?.let { th ->
+                                    val ok = SpatialDbManager.setRouteAnchor(newRouteId, th.lat, th.lon, th.name)
+                                    android.util.Log.i("RouteSave", "ROUTEANCHOR: '${th.name}' -> recipe of $newRouteId ok=$ok")
+                                }
                             }
                             true
                         } else false
