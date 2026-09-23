@@ -77,6 +77,10 @@ fun ConvoyRideCreateScreen(
     var routePts by remember { mutableStateOf<List<Pair<Double, Double>>>(emptyList()) }
     var pickerOpen by remember { mutableStateOf(initialRouteId == null) }
     var status by remember { mutableStateOf("") }
+    // RIDETH-2026-09-23 (Fred): a ride cannot be built without a trailhead.
+    var thChoices by remember { mutableStateOf<List<SpatialDbManager.TrailheadCandidate>>(emptyList()) }
+    var trailhead by remember { mutableStateOf<SpatialDbManager.TrailheadCandidate?>(null) }
+    var thFromRecipe by remember { mutableStateOf(false) }
 
     val me = remember { ConvoyProfileStore.load() }
 
@@ -85,14 +89,34 @@ fun ConvoyRideCreateScreen(
         zipCode = ConvoySessionManager.getZipCode(context)
     }
     LaunchedEffect(routeId) {
-        if (routeId.isBlank()) { routePts = emptyList(); return@LaunchedEffect }
+        if (routeId.isBlank()) {
+            routePts = emptyList(); thChoices = emptyList(); trailhead = null; thFromRecipe = false
+            return@LaunchedEffect
+        }
         routeName = routes.firstOrNull { it.routeId == routeId }?.name ?: routeName
         routePts = ConvoyRideStore.routeGeometry(routeId)
             ?.let { ConvoyRideStore.parseWktLine(it) } ?: emptyList()
+        // Recipe anchor first; otherwise trailheads within 1/2 mile of the FIRST point.
+        // ⚠ parseWktLine gives (LON, LAT) -- WKT order.
+        val start = routePts.firstOrNull()
+        val resolved = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            val rec = SpatialDbManager.routeRecipe(routeId)
+            if (rec != null && rec.has("anchorLat") && rec.has("anchorLon")) {
+                Pair(true, listOf(SpatialDbManager.TrailheadCandidate(
+                    "", rec.optString("anchorName", "").ifBlank { "Trailhead" },
+                    rec.optDouble("anchorLat"), rec.optDouble("anchorLon"), 0.0)))
+            } else {
+                Pair(false, start?.let { SpatialDbManager.trailheadsNear(it.second, it.first) } ?: emptyList())
+            }
+        }
+        thFromRecipe = resolved.first
+        thChoices = resolved.second
+        trailhead = thChoices.singleOrNull()
         if (rideName.isBlank() && routeName.isNotBlank()) rideName = routeName
     }
 
-    val canSave = rideName.isNotBlank() && rideDate.isNotBlank() && routeId.isNotBlank()
+    val canSave = rideName.isNotBlank() && rideDate.isNotBlank() && routeId.isNotBlank() &&
+        trailhead != null   // RIDETH-2026-09-23
 
     Column(modifier = Modifier.fillMaxSize().background(GroupTrackColors.Navy)) {
 
@@ -198,6 +222,29 @@ fun ConvoyRideCreateScreen(
                 Text("\u26a0 comes with the transport work", color = GroupTrackColors.Amber, fontSize = 10.sp)
             }
 
+            // RIDETH-2026-09-23: the trailhead -- one, a choice, or how to add one.
+            if (routeId.isNotBlank()) {
+                when {
+                    thChoices.isEmpty() -> Text(
+                        "This route needs a trailhead near its start. Turn on Draw and long-press to add a " +
+                            "trailhead waypoint on the map, then come back and pick the route again.",
+                        color = Color(0xFFE8A33D), fontSize = 12.sp)
+                    thChoices.size == 1 -> Text("Trailhead: ${thChoices[0].name}",
+                        color = GroupTrackColors.Green, fontSize = 12.sp)
+                    else -> Column {
+                        Text("Choose the trailhead:", color = Color(0xFFE8EEF5), fontSize = 12.sp)
+                        thChoices.forEach { c ->
+                            Text((if (trailhead == c) "\u25C9  " else "\u25CB  ") + c.name +
+                                    "  \u00b7  " + "%.2f".format(c.miles) + " mi",
+                                color = if (trailhead == c) GroupTrackColors.SkyBlue else Color(0xFFB8C2CC),
+                                fontSize = 12.sp,
+                                modifier = Modifier.clickable { trailhead = c }.padding(vertical = 6.dp))
+                        }
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+            }
+
             if (status.isNotBlank()) {
                 Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
                     .background(Color(0xFF0D2010)).padding(12.dp)) {
@@ -209,6 +256,10 @@ fun ConvoyRideCreateScreen(
                 .background(if (canSave) Color(0xFF1A3050) else Color(0xFF0A1628))
                 .clickable(enabled = canSave) {
                     if (routeName.isNotBlank()) ConvoyRideStore.renameRoute(routeId, routeName)
+                    // RIDETH-2026-09-23: a trailhead found by the 1/2-mile search goes into the route's RECIPE.
+                    trailhead?.let { th ->
+                        if (!thFromRecipe) SpatialDbManager.setRouteAnchor(routeId, th.lat, th.lon, th.name)
+                    }
                     val id = ConvoyRideStore.saveRide(
                         rideName = rideName, rideDate = rideDate, startTime = startTime,
                         description = description, zipCode = zipCode,
