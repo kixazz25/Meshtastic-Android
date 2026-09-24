@@ -204,7 +204,13 @@ constructor(
                 shouldBroadcast = true
             }
 
-            PortNum.ATAK_PLUGIN,
+            // TAKPOS-2026-09-24: a TAK position is ALSO assigned to the sender's node, exactly like GPS.
+            // Broadcasting is unchanged.
+            PortNum.ATAK_PLUGIN -> {
+                handleTakPosition(packet, dataPacket, myNodeNum)
+                shouldBroadcast = true
+            }
+
             PortNum.ATAK_FORWARDER,
             PortNum.PRIVATE_APP,
             -> {
@@ -338,6 +344,29 @@ constructor(
         val payload = packet.decoded?.payload ?: return
         val p = Position.ADAPTER.decodeOrNull(payload, Logger) ?: return
         Logger.d { "Position from ${packet.from}: ${Position.ADAPTER.toOneLiner(p)}" }
+        nodeManager.handleReceivedPosition(packet.from, myNodeNum, p, dataPacket.time)
+    }
+
+    /**
+     * TAKPOS-2026-09-24 (GroupTrack) -- a TAK position report (ATAK_PLUGIN, port 72) is translated into a
+     * Meshtastic Position and assigned through the SAME handleReceivedPosition the GPS path uses, so every
+     * reader of node positions sees a TAK sender move exactly like a GPS one. Only the position is mapped;
+     * the TAK callsign, team and role are new fields, handled elsewhere. PLI is numeric, so string
+     * compression does not matter here. Speed is assumed m/s (to confirm); course is whole degrees.
+     */
+    private fun handleTakPosition(packet: MeshPacket, dataPacket: DataPacket, myNodeNum: Int) {
+        val payload = packet.decoded?.payload ?: return
+        val tak = org.meshtastic.proto.TAKPacket.ADAPTER.decodeOrNull(payload, Logger) ?: return
+        val pli = tak.pli ?: return
+        val p = Position(
+            latitude_i = pli.latitude_i,
+            longitude_i = pli.longitude_i,
+            altitude = pli.altitude,
+            ground_speed = pli.speed,
+            ground_track = pli.course * 100_000,
+            time = (dataPacket.time / 1000L).toInt(),
+        )
+        Logger.d { "TAKPOS-2026-09-24: TAK position from ${packet.from}: ${Position.ADAPTER.toOneLiner(p)}" }
         nodeManager.handleReceivedPosition(packet.from, myNodeNum, p, dataPacket.time)
     }
 
