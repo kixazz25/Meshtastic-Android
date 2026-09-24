@@ -563,6 +563,16 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
         }
 
         // ── Convoy submenu overlay ────────────────────────────────────────────
+        // WWRLAUNCH-2026-09-24: the WORK WITH RIDES menu, opened from either map's label.
+        if (com.geeksville.mesh.convoy.WorkWithRidesLauncher.showing) {
+            com.geeksville.mesh.convoy.WorkWithRidesMenu(
+                onDismiss            = { com.geeksville.mesh.convoy.WorkWithRidesLauncher.close() },
+                onApplyToT1000       = { navController.navigate(ConvoyRoutes.ConvoyApplyRadio) },
+                onReviewSavedConfigs = { navController.navigate(ConvoyRoutes.ConvoyArchiveRestore) },
+                onDeveloperSettings  = { navController.navigate(ConvoyRoutes.ConvoySettingsPanel) }
+            )
+        }
+
         if (showConvoyMenu) {
             ConvoySubMenu(
                 sheetState                = convoyMenuSheetState,

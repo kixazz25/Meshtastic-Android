@@ -93,16 +93,44 @@ fun ConvoySettingsScreen(
 
             // ── Map Sources ──────────────────────────────────────────────
             // PROFILE-2026-09-22: the rider profile -- same screen, edit mode.
-            // RIDECREATE-2026-09-22: TEMPORARY entry point so the shell is testable.
-            // The real entry is the ride panel; remove this row when that exists.
-            SectionLabel("Rides")
+            // CONVSETTINGS-2026-09-24: the temporary "Create a ride (shell)" row is gone -- rides are created
+            // from ADD A RIDE on the planner. The storage-conversion RECORD moved here from the old
+            // radio-setup menu (the conversion itself runs at startup, in the gate).
+            var showConversionRecord by remember { mutableStateOf(false) }
+            SectionLabel("Storage")
             androidx.compose.material3.ListItem(
-                headlineContent = { Text("Create a ride (shell)", style = MaterialTheme.typography.bodyLarge) },
-                supportingContent = { Text("Pick a route, name it, save -- no network yet", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) },
-                modifier = Modifier.clickable { onNavigateToRideCreate() }
+                headlineContent = { Text("View conversion record", style = MaterialTheme.typography.bodyLarge) },
+                supportingContent = { Text("What moved to private storage, what it weighed, and what failed", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                modifier = Modifier.clickable { showConversionRecord = true }
             )
             HorizontalDivider()
             Spacer(Modifier.height(8.dp))
+            if (showConversionRecord) {
+                val convCtx = androidx.compose.ui.platform.LocalContext.current
+                val recordJson = remember { GroupTrackConversion.readRecord(convCtx) }
+                androidx.compose.material3.AlertDialog(
+                    onDismissRequest = { showConversionRecord = false },
+                    confirmButton = { TextButton(onClick = { showConversionRecord = false }) { Text("CLOSE") } },
+                    dismissButton = {
+                        // SHARE, not just display: on a rider's device this is the only way the record
+                        // reaches anyone who can read it.
+                        TextButton(onClick = {
+                            val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                putExtra(android.content.Intent.EXTRA_SUBJECT, "GroupTrack conversion record")
+                                putExtra(android.content.Intent.EXTRA_TEXT, recordJson ?: "no record")
+                            }
+                            convCtx.startActivity(android.content.Intent.createChooser(send, "Send record"))
+                        }) { Text("SHARE") }
+                    },
+                    title = { Text("Conversion record") },
+                    text = {
+                        Text(recordJson ?: "No record yet \u2014 the conversion has not run.",
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.verticalScroll(rememberScrollState()))
+                    }
+                )
+            }
 
             SectionLabel("Your Profile")
             androidx.compose.material3.ListItem(
