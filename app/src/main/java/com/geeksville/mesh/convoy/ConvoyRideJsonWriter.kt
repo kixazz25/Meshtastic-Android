@@ -7,7 +7,8 @@ import org.json.JSONObject
 /**
  * RIDEJSON-2026-09-23 — writes the ride file (format 3) from the rows that already hold it.
  *
- * THE CONTRACT (Fred 09-23): kind · formatVersion · ride · leader · network{mesh,nucleus} · rideData.
+ * THE CONTRACT (Fred 09-23): kind · formatVersion · ride · originator · network{mesh,nucleus} · rideData.
+ * ORIGINATOR-2026-09-24: the ride LEADER is a ride-time role (enrollments); the file records who CREATED the ride.
  * No map block (the receiver runs a corridor download on the route). Every attribute comes from an
  * EXISTING provider; this object generates nothing. A value with no provider yet is written as an
  * explicit null placeholder, so the file's shape never changes as features fill them in.
@@ -65,8 +66,9 @@ object ConvoyRideJsonWriter {
             .put("expiresAt", nul(r[10]))
             .put("createdAt", nul(r[11]))
 
-        // ---- leader: the creator's own tablet is the only one that writes a ride file ------------
-        val leader = JSONObject()
+        // ---- originator: who created the ride (the creator's own tablet writes the file) --------
+        // ORIGINATOR-2026-09-24: fixed forever. The ride LEADER is a role claimed at ride time.
+        val originator = JSONObject()
             .put("name", nul(r[1]))
             .put("callsign", nul(ConvoyProfileStore.load()?.callsign))
             .put("orgName", nul(r[2]))
@@ -133,7 +135,7 @@ object ConvoyRideJsonWriter {
             .put("kind", KIND)
             .put("formatVersion", FORMAT_VERSION)
             .put("ride", ride)
-            .put("leader", leader)
+            .put("originator", originator)
             .put("network", network)
             .put("rideData", rideData)
         Log.i(TAG, "RIDEJSON-2026-09-23: $rideId built, missing=$missing")

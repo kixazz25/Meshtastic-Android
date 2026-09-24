@@ -66,6 +66,7 @@ fun ConvoyRideCreateScreen(
 
     var rideName by remember { mutableStateOf("") }
     var rideDate by remember { mutableStateOf("") }
+    var showDatePicker by remember { mutableStateOf(false) }   // CALDATE-2026-09-24
     var startTime by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var zipCode by remember { mutableStateOf("") }
@@ -178,7 +179,10 @@ fun ConvoyRideCreateScreen(
                     }
                 }
             } else {
-                RideField("Route name", routeName, "Route") { routeName = it }
+                // PROTECTROUTE-2026-09-24 (Fred): the route's name belongs to the route -- display only.
+                RideLabel("Route name")
+                Text(routeName.ifBlank { "\u2014" }, color = Color(0xFFE8EEF5), fontSize = 14.sp,
+                    modifier = Modifier.padding(vertical = 6.dp))
                 RouteVignette(routePts)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Box(modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(Color(0xFF1A3050))
@@ -193,7 +197,14 @@ fun ConvoyRideCreateScreen(
 
             RideLabel("RIDE INFO")
             RideField("Ride name *", rideName, "Sunday Desert Run") { rideName = it }
-            RideField("Date *", rideDate, "2026-10-03") { rideDate = it }
+            // CALDATE-2026-09-24 (Fred): the date of the ride comes from a calendar -- always yyyy-MM-dd.
+            RideLabel("Date *")
+            Text(rideDate.ifBlank { "Tap to choose the date" },
+                color = if (rideDate.isBlank()) Color(0xFF8B938A) else Color(0xFFE8EEF5), fontSize = 14.sp,
+                modifier = Modifier.fillMaxWidth().clickable { showDatePicker = true }.padding(vertical = 10.dp))
+            if (showDatePicker) RideDatePickerDialog(rideDate,
+                onPick = { rideDate = it; showDatePicker = false },
+                onDismiss = { showDatePicker = false })
             RideField("Rollout time", startTime, "8:00 AM") { startTime = it }
             RideField("Zip code", zipCode, "Ride area zip") { zipCode = it }
             RideField("Description", description, "Meeting point, notes...") { description = it }
@@ -268,7 +279,7 @@ fun ConvoyRideCreateScreen(
                         return@clickable
                     }
                     android.util.Log.i("ConvoyRideCreate", "SAVEWHY: save tapped, all conditions met")
-                    if (routeName.isNotBlank()) ConvoyRideStore.renameRoute(routeId, routeName)
+                    // PROTECTROUTE-2026-09-24: Save never renames the route.
                     // RIDETH-2026-09-23: a trailhead found by the 1/2-mile search goes into the route's RECIPE.
                     trailhead?.let { th ->
                         if (!thFromRecipe) SpatialDbManager.setRouteAnchor(routeId, th.lat, th.lon, th.name)
@@ -297,6 +308,34 @@ fun ConvoyRideCreateScreen(
             }
             Spacer(Modifier.height(12.dp))
         }
+    }
+}
+
+/**
+ * CALDATE-2026-09-24 -- the ride's date from a calendar. Always returns yyyy-MM-dd.
+ * initialMillis is nullable BY DESIGN (CODE RULE 1): a new ride has no date yet, and the picker
+ * then opens on today with nothing selected.
+ */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun RideDatePickerDialog(initial: String, onPick: (String) -> Unit, onDismiss: () -> Unit) {
+    val initialMillis: Long? = try {
+        java.time.LocalDate.parse(initial.trim()).atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toEpochMilli()
+    } catch (e: Exception) { null }
+    val state = androidx.compose.material3.rememberDatePickerState(initialSelectedDateMillis = initialMillis)
+    androidx.compose.material3.DatePickerDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            androidx.compose.material3.TextButton(onClick = {
+                val ms = state.selectedDateMillis
+                if (ms != null) {
+                    onPick(java.time.Instant.ofEpochMilli(ms).atZone(java.time.ZoneOffset.UTC).toLocalDate().toString())
+                } else onDismiss()
+            }) { Text("OK") }
+        },
+        dismissButton = { androidx.compose.material3.TextButton(onClick = onDismiss) { Text("Cancel") } }
+    ) {
+        androidx.compose.material3.DatePicker(state = state)
     }
 }
 
