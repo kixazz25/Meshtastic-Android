@@ -4356,7 +4356,11 @@ fun ConvoyMapViewerScreen(
             )
             if (pendingDetailId != null && pendingDetailType != null) {
                 ArtifactDetailPanel(
-                    onAddRide = onAddRide,
+                    // RIDEPREVIEW-2026-09-24: ADD A RIDE first fits THIS map to the route and captures a
+                    // square picture of it, then opens ride creation.
+                    onAddRide = onAddRide?.let { go -> { a: String, b: String ->
+                        RidePreview.captureThen(webViewRef, a, b) { go(a, b) }
+                    } },
                     artifactType = pendingDetailType!!,
                     id = pendingDetailId!!,
                     mapKey = "planning",

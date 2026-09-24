@@ -23,6 +23,8 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -183,7 +185,13 @@ fun ConvoyRideCreateScreen(
                 RideLabel("Route name")
                 Text(routeName.ifBlank { "\u2014" }, color = Color(0xFFE8EEF5), fontSize = 14.sp,
                     modifier = Modifier.padding(vertical = 6.dp))
-                RouteVignette(routePts)
+                // RIDEPREVIEW-2026-09-24: the planner map, fitted and captured at ADD A RIDE -- square.
+                val routePreview = remember(routeId) { RidePreview.load(context, routeId) }
+                if (routePreview != null) {
+                    androidx.compose.foundation.Image(
+                        bitmap = routePreview.asImageBitmap(), contentDescription = "Route map",
+                        modifier = Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(8.dp)))
+                } else RouteVignette(routePts)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Box(modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(Color(0xFF1A3050))
                         .clickable { pickerOpen = true }.padding(horizontal = 12.dp, vertical = 8.dp)) {
@@ -292,6 +300,7 @@ fun ConvoyRideCreateScreen(
                     if (id != null) {
                         // RIDEFILE-2026-09-23: the ride JSON is stored on every Save.
                         val missing = ConvoyRideJsonWriter.save(context, id)
+                        RidePreview.adopt(context, routeId, id)   // RIDEPREVIEW-2026-09-24
                         status = when {
                             missing == null -> "\u2713 Ride saved \u2014 \u2717 ride file not written"
                             missing.isEmpty() -> "\u2713 Ride saved \u2014 ready to send"
