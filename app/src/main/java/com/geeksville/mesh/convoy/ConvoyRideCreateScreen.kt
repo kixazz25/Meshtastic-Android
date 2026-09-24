@@ -254,7 +254,20 @@ fun ConvoyRideCreateScreen(
 
             Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
                 .background(if (canSave) Color(0xFF1A3050) else Color(0xFF0A1628))
-                .clickable(enabled = canSave) {
+                .clickable {
+                    // SAVEWHY-2026-09-23: the high-visibility palette hides a disabled button, so Save
+                    // is always tappable and SAYS what is missing instead of silently doing nothing.
+                    if (!canSave) {
+                        status = "\u2717 Cannot save yet \u2014 missing: " + listOfNotNull(
+                            if (rideName.isBlank()) "ride name" else null,
+                            if (rideDate.isBlank()) "date" else null,
+                            if (routeId.isBlank()) "route" else null,
+                            if (trailhead == null) "trailhead" else null
+                        ).joinToString(", ")
+                        android.util.Log.w("ConvoyRideCreate", "SAVEWHY: $status")
+                        return@clickable
+                    }
+                    android.util.Log.i("ConvoyRideCreate", "SAVEWHY: save tapped, all conditions met")
                     if (routeName.isNotBlank()) ConvoyRideStore.renameRoute(routeId, routeName)
                     // RIDETH-2026-09-23: a trailhead found by the 1/2-mile search goes into the route's RECIPE.
                     trailhead?.let { th ->
