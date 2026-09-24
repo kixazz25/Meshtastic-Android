@@ -563,6 +563,14 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
         }
 
         // ── Convoy submenu overlay ────────────────────────────────────────────
+        // RIDEIMPORT2-2026-09-24: an imported ride's GPX -- the existing import panel, file ticked, no picker.
+        com.geeksville.mesh.convoy.RideImportLauncher.pending?.let { rideGpx ->
+            com.geeksville.mesh.convoy.ConvoyTrackImportScreen(
+                onDismiss = { com.geeksville.mesh.convoy.RideImportLauncher.clear() },
+                preloaded = listOf(rideGpx)
+            )
+        }
+
         // WWRLAUNCH-2026-09-24: the WORK WITH RIDES menu, opened from either map's label.
         if (com.geeksville.mesh.convoy.WorkWithRidesLauncher.showing) {
             com.geeksville.mesh.convoy.WorkWithRidesMenu(

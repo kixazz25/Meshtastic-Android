@@ -62,7 +62,11 @@ import java.util.Locale
  * gets its mtime set from the earliest GPS <time> in the track data.
  */
 @Composable
-fun ConvoyTrackImportScreen(onDismiss: () -> Unit) {
+fun ConvoyTrackImportScreen(
+    onDismiss: () -> Unit,
+    // RIDEIMPORT2-2026-09-24: files already staged (an imported ride's GPX). Empty by default -- normal use unchanged.
+    preloaded: List<File> = emptyList()
+) {
 
     // -- State --------------------------------------------------------
     var files by remember { mutableStateOf<List<File>>(emptyList()) }
@@ -101,6 +105,10 @@ fun ConvoyTrackImportScreen(onDismiss: () -> Unit) {
     var recapWaypoints by remember { mutableStateOf(0) }
     var recapRoutes by remember { mutableStateOf(0) }
     var processedFiles by remember { mutableStateOf<List<File>>(emptyList()) }
+    // RIDEIMPORT2-2026-09-24: an imported ride's GPX arrives already staged -- listed and ticked, no picker.
+    androidx.compose.runtime.LaunchedEffect(preloaded) {
+        if (preloaded.isNotEmpty()) { files = preloaded; selected = preloaded.map { it.name }.toSet() }
+    }
 
     // -- SYNC CONTROL dialog state (visible run + failure-first recap) --
     var showSyncDialog by remember { mutableStateOf(false) }

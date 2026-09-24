@@ -51,6 +51,56 @@ class ConvoyFileReceiver : Activity() {
                 return
             }
 
+            // RIDEIMPORT2-2026-09-24 (Fred): a GroupTrack ride file (format 3). First, STORE it unchanged as
+            // rides/<rideId>.json -- Apply Ride and Send read rides from there. Then STAGE its GPX where the import
+            // panel stages picked files and open that panel with it ticked (no picker): route, trailhead, recipe
+            // and narrative come in, the maps download, and the panel deletes the staged file as always.
+            // Checked FIRST, before the old-format test below.
+            if (content.contains("\"grouptrack.ride\"")) {
+                val rideJson = try { JSONObject(content) } catch (e: Exception) { null }
+                val rideObj = rideJson?.optJSONObject("ride")
+                val rideId = rideObj?.optString("rideId", "")?.takeIf { it.isNotBlank() && it != "null" }
+                val rideName = rideObj?.optString("name", "")?.takeIf { it.isNotBlank() && it != "null" } ?: "Ride"
+                val message = if (rideJson == null || rideJson.optString("kind") != "grouptrack.ride" || rideId == null) {
+                    Log.w(TAG, "RIDEIMPORT2-2026-09-24: not a readable GroupTrack ride file")
+                    "Not a readable GroupTrack ride file."
+                } else try {
+                    val dir = GroupTrackStorage.dir("rides", this)
+                    val out = java.io.File(dir, rideId.replace(Regex("[^A-Za-z0-9_-]"), "_") + ".json")
+                    val tmp = java.io.File(dir, out.name + ".tmp")
+                    tmp.writeText(content)
+                    if (out.exists()) out.delete()
+                    if (!tmp.renameTo(out)) throw IllegalStateException("rename failed")
+                    Log.i(TAG, "RIDEIMPORT2-2026-09-24: stored ${out.name} (${out.length()} bytes)")
+                    val gpx = rideJson.optJSONObject("rideData")?.optString("gpx", "")
+                        ?.takeIf { it.isNotBlank() && it != "null" }
+                    if (gpx == null) {
+                        "Ride \"$rideName\" imported (it has no route yet)."
+                    } else {
+                        // The panel's own policy: staging holds only the current selection.
+                        val stage = java.io.File(filesDir, "gpx_staging")
+                        if (stage.exists()) stage.listFiles()?.forEach { it.delete() }
+                        stage.mkdirs()
+                        val g = java.io.File(stage, rideName.replace(Regex("[^A-Za-z0-9 _-]"), "_").trim().ifBlank { "ride" } + ".gpx")
+                        g.writeText(gpx)
+                        RideImportLauncher.offer(g)
+                        packageManager.getLaunchIntentForPackage(packageName)?.let { launch ->
+                            launch.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or
+                                android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                                android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                            startActivity(launch)
+                        }
+                        "Ride \"$rideName\" imported \u2014 choose maps and tap IMPORT to add its route."
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "RIDEIMPORT2-2026-09-24: store failed: ${e.message}")
+                    "Could not store the ride: ${e.message}"
+                }
+                android.widget.Toast.makeText(this, message, android.widget.Toast.LENGTH_LONG).show()
+                finish()
+                return
+            }
+
             // Validate this is actually a convoy file before processing
             if (!content.contains("convoyDocType")) {
                 Log.w(TAG, "Not a convoy file — ignoring")
