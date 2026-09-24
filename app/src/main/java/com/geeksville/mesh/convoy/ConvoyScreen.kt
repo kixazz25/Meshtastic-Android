@@ -1776,6 +1776,28 @@ fun ConvoyScreen(
             }
         }
 
+        // FROZENEXCEPTION-WWR-2026-09-24: (Fred approved) the ONLY change to the frozen screen -- WORK WITH RIDES below Mesh, always shown.
+        androidx.compose.material3.Surface(
+            onClick = { com.geeksville.mesh.convoy.WorkWithRidesLauncher.open() },
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp),
+            color = Color.Transparent,
+            contentColor = Color(0xFFFF00FF),
+            modifier = Modifier.align(Alignment.TopEnd).padding(top = 280.dp, end = 12.dp)
+        ) {
+            Text(
+                "Work with Rides",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                style = androidx.compose.ui.text.TextStyle(
+                    shadow = androidx.compose.ui.graphics.Shadow(
+                        color = androidx.compose.ui.graphics.Color.White,
+                        offset = androidx.compose.ui.geometry.Offset(0f, 0f),
+                        blurRadius = 6f
+                    )
+                ),
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp)
+            )
+        }
         // MESHBTN-2026-09-04: ⭐ BRING THE RADIO NAVIGATION BACK, from the column
         // where every other GroupTrack control already lives.
         // ⛔ The folded strip on the left edge could not be seen -- it rendered
