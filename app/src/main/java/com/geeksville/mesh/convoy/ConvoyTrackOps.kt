@@ -791,6 +791,26 @@ object ConvoyTrackOps {
                             android.util.Log.w("ConvoyTrackOps", "route '${route.name}': narrative: ${e.message}")
                         }
                     }
+                    // ROUTEMAPS-2026-09-24 (Fred): routes get their corridor maps too -- the SAME call the track
+                    // path above and the route detail panel use. The importer only knew tracks because route
+                    // corridors came later (ROUTECORR-2026-08-10C). Opt-in, exactly as for tracks.
+                    if (downloadMapSlots.isNotEmpty()) {
+                        try {
+                            val gh = SpatialDbManager.computeGeomHash(wkt)
+                            var queued = 0
+                            for (slot in downloadMapSlots) {
+                                queued += DownloadQueueManager.enqueueCorridor(context, gh, slot, replaceExisting)
+                            }
+                            onProgress?.invoke(
+                                if (queued > 0) "MAPS: route ${route.name} corridor queued " +
+                                    "(${downloadMapSlots.size} sources, $queued tiles)"
+                                else "MAPS: route ${route.name} no corridor")
+                            android.util.Log.i("ConvoyTrackOps", "ROUTEMAPS-2026-09-24: route '${route.name}' queued $queued tiles")
+                        } catch (e: Exception) {
+                            // A map failure must not fail the import -- the route is already in.
+                            android.util.Log.w("ConvoyTrackOps", "route '${route.name}': maps: ${e.message}")
+                        }
+                    }
                     routeCount++
                 } catch (e: Exception) {
                     errors.add("Route ${route.name}: ${e.message}")

@@ -66,6 +66,7 @@ class ConvoyFileReceiver : Activity() {
                     "Not a readable GroupTrack ride file."
                 } else try {
                     val dir = GroupTrackStorage.dir("rides", this)
+                    dir.mkdirs()   // RIDEMKDIR-2026-09-24: a tablet that never saved a ride has no rides folder yet
                     val out = java.io.File(dir, rideId.replace(Regex("[^A-Za-z0-9_-]"), "_") + ".json")
                     val tmp = java.io.File(dir, out.name + ".tmp")
                     tmp.writeText(content)
@@ -83,6 +84,7 @@ class ConvoyFileReceiver : Activity() {
                         stage.mkdirs()
                         val g = java.io.File(stage, rideName.replace(Regex("[^A-Za-z0-9 _-]"), "_").trim().ifBlank { "ride" } + ".gpx")
                         g.writeText(gpx)
+                        MapSourceManager.init(applicationContext)   // MAPINIT-2026-09-24: real sources, even from cold
                         RideImportLauncher.offer(g)
                         packageManager.getLaunchIntentForPackage(packageName)?.let { launch ->
                             launch.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or

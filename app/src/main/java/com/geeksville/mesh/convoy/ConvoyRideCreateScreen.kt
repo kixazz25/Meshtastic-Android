@@ -129,6 +129,24 @@ fun ConvoyRideCreateScreen(
         }
     }
 
+    // ZIPFROMTH-2026-09-24 (Fred): the zip code is DERIVED from the trailhead, never typed. Android's own
+    // geocoder, in the background; no connection or no answer leaves it empty (it is not a completion rule).
+    LaunchedEffect(trailhead) {
+        val th = trailhead ?: return@LaunchedEffect
+        val zip = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                if (!android.location.Geocoder.isPresent()) null
+                else @Suppress("DEPRECATION")
+                    android.location.Geocoder(context, java.util.Locale.US)
+                        .getFromLocation(th.lat, th.lon, 1)?.firstOrNull()?.postalCode
+            } catch (e: Exception) {
+                android.util.Log.w("ConvoyRideCreate", "ZIPFROMTH: geocoder failed: ${e.message}")
+                null
+            }
+        }
+        if (!zip.isNullOrBlank()) zipCode = zip
+    }
+
     // SAVEPLAN-2026-09-24 (Fred): a ride starts as a PLAN -- the NAME is the only minimum to save.
     // Anything else missing is reported after saving (in progress), never a reason to refuse.
     val canSave = rideName.isNotBlank()
@@ -232,7 +250,10 @@ fun ConvoyRideCreateScreen(
                 onPick = { rideDate = it; showDatePicker = false },
                 onDismiss = { showDatePicker = false })
             RideField("Rollout time", startTime, "8:00 AM") { startTime = it }
-            RideField("Zip code", zipCode, "Ride area zip") { zipCode = it }
+            // ZIPFROMTH-2026-09-24: derived from the trailhead -- display only.
+            RideLabel("Zip code")
+            Text(zipCode.ifBlank { "\u2014 (from the trailhead)" }, color = Color(0xFFE8EEF5), fontSize = 14.sp,
+                modifier = Modifier.padding(vertical = 6.dp))
             RideField("Description", description, "Meeting point, notes...") { description = it }
 
             Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))

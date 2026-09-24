@@ -295,7 +295,8 @@ fun ConvoyTrackImportScreen(
 
     // -- Dialogs ------------------------------------------------------
     if (showSourcePopup) {
-        val slotSources = remember { MapSourceManager.getSlotSources() }
+        // MAPINIT-2026-09-24: load the SAVED sources first -- never the hardcoded fallback.
+        val slotSources = remember { MapSourceManager.init(context.applicationContext); MapSourceManager.getSlotSources() }
         val popupSlots = remember(slotSources) {
             slotSources.map { (k, label, _) ->
                 SlotDisplayInfo(
