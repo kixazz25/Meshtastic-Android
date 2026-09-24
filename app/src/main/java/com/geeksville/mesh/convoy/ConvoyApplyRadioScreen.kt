@@ -39,7 +39,8 @@ fun ConvoyApplyRadioScreen(
     val scope        = rememberCoroutineScope()
     val applyList    = remember { ConvoyApplyList.load(context) }
     val masterConfig = remember { ConvoyMasterConfig.load(context) }
-    val rides        = remember { ConvoyEventStore.loadAll(context).sortedBy { it.eventDate } }
+    // RIDESEAM-2026-09-24: "Apply Ride" lists the STORED ride JSONs, not the old event store.
+    val rides        = remember { RideApplySource.loadAll(context) }
 
     val myNodeInfo  by uiViewModel.myNodeInfo.collectAsStateWithLifecycle()
     val localConfig by channelViewModel.localConfig.collectAsStateWithLifecycle()
@@ -49,7 +50,7 @@ fun ConvoyApplyRadioScreen(
     val writerState     by ConvoyRadioWriter.state.collectAsStateWithLifecycle()
 
     var applyMode    by remember { mutableStateOf("MASTER") }
-    var selectedRide by remember { mutableStateOf<ConvoyEventConfig?>(null) }
+    var selectedRide by remember { mutableStateOf<RideForApply?>(null) }   // RIDESEAM-2026-09-24
     var longName     by remember { mutableStateOf("") }
     var showConfirm  by remember { mutableStateOf(false) }
     var isProcessing by remember { mutableStateOf(false) }
@@ -429,15 +430,15 @@ fun ConvoyApplyRadioScreen(
                                 isManaged                = if (DeviceField.IS_MANAGED in al.deviceFields) m?.isManaged ?: false else dev?.is_managed ?: false,
                                 serialEnabled            = if (DeviceField.SERIAL_ENABLED in al.deviceFields) m?.serialEnabled ?: false else dev?.serial_enabled ?: false,
                                 // ── LoRa ──────────────────────────────────────────────────────
-                                loraRegion               = if (LoraField.REGION in al.loraFields) m?.loraRegion ?: "US" else lora?.region?.name ?: "US",
-                                loraModemPreset          = if (LoraField.MODEM_PRESET in al.loraFields) m?.loraModemPreset ?: "LONG_FAST" else lora?.modem_preset?.name ?: "LONG_FAST",
+                                loraRegion               = (if (rideChannel) selectedRide?.loraRegion else null) ?: if (LoraField.REGION in al.loraFields) m?.loraRegion ?: "US" else lora?.region?.name ?: "US",   // RIDESEAM-2026-09-24: ride value in RIDE mode
+                                loraModemPreset          = (if (rideChannel) selectedRide?.loraModemPreset else null) ?: if (LoraField.MODEM_PRESET in al.loraFields) m?.loraModemPreset ?: "LONG_FAST" else lora?.modem_preset?.name ?: "LONG_FAST",   // RIDESEAM-2026-09-24: ride value in RIDE mode
                                 loraBandwidth            = if (LoraField.BANDWIDTH in al.loraFields) m?.loraBandwidth ?: 0 else lora?.bandwidth ?: 0,
                                 loraSpreadFactor         = if (LoraField.SPREAD_FACTOR in al.loraFields) m?.loraSpreadFactor ?: 0 else lora?.spread_factor ?: 0,
                                 loraCodingRate           = if (LoraField.CODING_RATE in al.loraFields) m?.loraCodingRate ?: 0 else lora?.coding_rate ?: 0,
-                                loraHopLimit             = if (LoraField.HOP_LIMIT in al.loraFields) m?.loraHopLimit ?: 3 else lora?.hop_limit ?: 3,
+                                loraHopLimit             = (if (rideChannel) selectedRide?.loraHopLimit else null) ?: if (LoraField.HOP_LIMIT in al.loraFields) m?.loraHopLimit ?: 3 else lora?.hop_limit ?: 3,   // RIDESEAM-2026-09-24: ride value in RIDE mode
                                 loraTxEnabled            = if (LoraField.TX_ENABLED in al.loraFields) m?.loraTxEnabled ?: true else lora?.tx_enabled ?: true,
-                                loraTxPower              = if (LoraField.TX_POWER in al.loraFields) m?.loraTxPower ?: 27 else lora?.tx_power ?: 27,
-                                loraChannelNum           = if (LoraField.CHANNEL_NUM in al.loraFields) m?.loraChannelNum ?: 0 else lora?.channel_num ?: 0,
+                                loraTxPower              = (if (rideChannel) selectedRide?.loraTxPower else null) ?: if (LoraField.TX_POWER in al.loraFields) m?.loraTxPower ?: 27 else lora?.tx_power ?: 27,   // RIDESEAM-2026-09-24: ride value in RIDE mode
+                                loraChannelNum           = (if (rideChannel) selectedRide?.loraChannelNum else null) ?: if (LoraField.CHANNEL_NUM in al.loraFields) m?.loraChannelNum ?: 0 else lora?.channel_num ?: 0,   // RIDESEAM-2026-09-24: ride value in RIDE mode
                                 // ── Channel ───────────────────────────────────────────────────
                                 channelName              = channelName,
                                 channelPsk               = channelPsk,
