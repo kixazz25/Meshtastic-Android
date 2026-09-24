@@ -803,6 +803,12 @@
       map.setView([lat, lon], zoom);
       reportViewport();
     }
+    // RIDEFIT-2026-09-24: fit a route inside the centred square the ride picture captures (called from Kotlin).
+    function fitRouteSquare(minLat, minLon, maxLat, maxLon, padX, padY) {
+      var b = L.latLngBounds([[minLat, minLon], [maxLat, maxLon]]);
+      map.fitBounds(b, { paddingTopLeft: [padX, padY], paddingBottomRight: [padX, padY],
+                         maxZoom: currentMaxNative, animate: false });
+    }
     function panTo(lat, lon) { map.panTo([lat, lon]); }
     function fitBounds(lats, lons) {
       if (!lats.length) return;
