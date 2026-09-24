@@ -66,6 +66,12 @@ object ConvoyRideJsonWriter {
             .put("expiresAt", nul(r[10]))
             .put("createdAt", nul(r[11]))
 
+        // COMPLETE-2026-09-24 (Fred): a ride is COMPLETE with a route, a waypoint (the trailhead), a FUTURE
+        // date (today or later) and a description. Route and trailhead are checked further down.
+        if (r[7].isNullOrBlank()) missing += "description"
+        val rideDate = r[5]
+        if (rideDate.isNullOrBlank() || !RideApplySource.isCurrent(rideDate, false)) missing += "future date"
+
         // ---- originator: who created the ride (the creator's own tablet writes the file) --------
         // ORIGINATOR-2026-09-24: fixed forever. The ride LEADER is a role claimed at ride time.
         val originator = JSONObject()

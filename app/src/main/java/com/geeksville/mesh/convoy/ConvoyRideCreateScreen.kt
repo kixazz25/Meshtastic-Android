@@ -116,10 +116,22 @@ fun ConvoyRideCreateScreen(
         thChoices = resolved.second
         trailhead = thChoices.singleOrNull()
         if (rideName.isBlank() && routeName.isNotBlank()) rideName = routeName
+        // HEADLINE-2026-09-24 (Fred): the description starts with the route's narrative HEADLINE -- one sentence
+        // that already states distance and duration. Built routes only; never overwrites what was typed.
+        if (description.isBlank()) {
+            val headline = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                SpatialDbManager.readRouteNotes(routeId)?.optJSONObject("narrative")
+                    ?.optString("headline", "")?.trim()?.takeIf { it.isNotEmpty() && it != "null" }
+            }
+            // Attribution (Fred 09-24): "just to protect ourselves" -- always with the headline.
+            if (headline != null && description.isBlank()) description = headline +
+                "\n\nTrail data \u00a9 OpenStreetMap contributors"
+        }
     }
 
-    val canSave = rideName.isNotBlank() && rideDate.isNotBlank() && routeId.isNotBlank() &&
-        trailhead != null   // RIDETH-2026-09-23
+    // SAVEPLAN-2026-09-24 (Fred): a ride starts as a PLAN -- the NAME is the only minimum to save.
+    // Anything else missing is reported after saving (in progress), never a reason to refuse.
+    val canSave = rideName.isNotBlank()
 
     Column(modifier = Modifier.fillMaxSize().background(GroupTrackColors.Navy)) {
 
@@ -194,7 +206,13 @@ fun ConvoyRideCreateScreen(
                 } else RouteVignette(routePts)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Box(modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(Color(0xFF1A3050))
-                        .clickable { pickerOpen = true }.padding(horizontal = 12.dp, vertical = 8.dp)) {
+                        // ROUTELOCK-2026-09-24 (Fred): a ride's route is fixed -- say why, don't open a picker.
+                        .clickable {
+                            android.widget.Toast.makeText(context, "A ride's route can't be changed. To use a " +
+                                "different route, delete this ride and create a new one from the route on the " +
+                                "planning map.", android.widget.Toast.LENGTH_LONG).show()
+                        }
+                        .padding(horizontal = 12.dp, vertical = 8.dp)) {
                         Text("CHANGE ROUTE", color = GroupTrackColors.SkyBlue, fontSize = 10.sp,
                             fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
                     }
@@ -277,12 +295,7 @@ fun ConvoyRideCreateScreen(
                     // SAVEWHY-2026-09-23: the high-visibility palette hides a disabled button, so Save
                     // is always tappable and SAYS what is missing instead of silently doing nothing.
                     if (!canSave) {
-                        status = "\u2717 Cannot save yet \u2014 missing: " + listOfNotNull(
-                            if (rideName.isBlank()) "ride name" else null,
-                            if (rideDate.isBlank()) "date" else null,
-                            if (routeId.isBlank()) "route" else null,
-                            if (trailhead == null) "trailhead" else null
-                        ).joinToString(", ")
+                        status = "\u2717 Cannot save yet \u2014 a ride needs a name."   // SAVEPLAN-2026-09-24
                         android.util.Log.w("ConvoyRideCreate", "SAVEWHY: $status")
                         return@clickable
                     }

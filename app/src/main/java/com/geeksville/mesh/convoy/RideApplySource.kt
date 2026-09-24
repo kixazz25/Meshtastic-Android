@@ -23,8 +23,25 @@ data class RideForApply(
 
 object RideApplySource {
 
+    /**
+     * DATEFILTER-2026-09-24 (Fred): which rides the Send and Apply lists offer. Today or later by
+     * default; with includeRecent, the last 30 days too (the ride file's own lifetime). A date that
+     * cannot be read is kept -- Send and Apply judge the ride themselves.
+     */
+    fun isCurrent(date: String, includeRecent: Boolean): Boolean {
+        val d = parseDate(date) ?: return true
+        val cutoff = java.time.LocalDate.now().minusDays(if (includeRecent) 30L else 0L)
+        return !d.isBefore(cutoff)
+    }
+
+    /** Accepts 2026-09-30 and also older typed forms such as 2026-9-3. */
+    private fun parseDate(s: String): java.time.LocalDate? = try {
+        val p = s.trim().split("-").map { it.toInt() }
+        if (p.size == 3) java.time.LocalDate.of(p[0], p[1], p[2]) else null
+    } catch (e: Exception) { null }
+
     /** Every stored ride with a complete network block, earliest date first. Incomplete files are skipped. */
-    fun loadAll(context: android.content.Context): List<RideForApply> {
+    fun loadAll(context: android.content.Context, includeRecent: Boolean = false): List<RideForApply> {
         val dir = GroupTrackStorage.dir("rides", context)
         val files = dir.listFiles { f -> f.isFile && f.name.endsWith(".json") } ?: return emptyList()
         return files.mapNotNull { f ->
@@ -52,6 +69,6 @@ object RideApplySource {
                 android.util.Log.w("RideApplySource", "skipped ${f.name}: ${e.message}")
                 null
             }
-        }.sortedBy { it.eventDate }
+        }.filter { isCurrent(it.eventDate, includeRecent) }.sortedBy { it.eventDate }   // DATEFILTER-2026-09-24
     }
 }

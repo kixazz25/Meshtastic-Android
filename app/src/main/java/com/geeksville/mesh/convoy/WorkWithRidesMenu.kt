@@ -57,6 +57,7 @@ fun WorkWithRidesMenu(
     val context = LocalContext.current
     var status by remember { mutableStateOf("") }
     var picking by remember { mutableStateOf(false) }
+    var includeRecent by remember { mutableStateOf(false) }   // DATEFILTER-2026-09-24
 
     Dialog(onDismissRequest = onDismiss) {
         Surface(shape = RoundedCornerShape(12.dp), color = GroupTrackColors.Navy) {
@@ -78,13 +79,19 @@ fun WorkWithRidesMenu(
                 } else {
                     Text("Choose the ride to send", color = Color(0xFFE8EEF5), fontSize = 13.sp,
                         modifier = Modifier.padding(bottom = 8.dp))
-                    val rides = remember { loadRideChoices() }
+                    // DATEFILTER-2026-09-24: today or later; tick to include the last 30 days.
+                    Text((if (includeRecent) "\u2611" else "\u2610") + "  Include rides from the last 30 days",
+                        color = Color(0xFFE8EEF5), fontSize = 13.sp,
+                        modifier = Modifier.fillMaxWidth().clickable { includeRecent = !includeRecent }.padding(vertical = 8.dp))
+                    val rides = remember(includeRecent) {
+                        loadRideChoices(context).filter { RideApplySource.isCurrent(it.date, includeRecent) }
+                    }
                     if (rides.isEmpty()) {
                         Text("No rides on this tablet yet. Create one from a route on the planning map.",
                             color = Color(0xFFE8A33D), fontSize = 13.sp)
                     }
                     rides.forEach { r ->
-                        WwrEntry(r.name + "  \u00b7  " + r.date + if (r.sent) "  \u00b7  sent" else "", built = true) {
+                        WwrEntry(r.name + "  \u00b7  " + r.date + "  \u00b7  " + stateLabel(r), built = true) {
                             val why = ConvoyRideSend.send(context, r.id)
                             if (why == null) { onDismiss() } else { status = "\u2717 $why" }
                         }
@@ -125,10 +132,18 @@ private fun WwrEntry(label: String, built: Boolean, onClick: () -> Unit) {
     )
 }
 
-private data class RideChoice(val id: String, val name: String, val date: String, val sent: Boolean)
+private data class RideChoice(val id: String, val name: String, val date: String, val sent: Boolean,
+                              val complete: Boolean)   // RIDESTATE-2026-09-24
+
+/** RIDESTATE-2026-09-24: the label shown for a ride. "Sent" is information, never a lock. */
+private fun stateLabel(r: RideChoice) = when {
+    r.sent -> "sent previously"
+    r.complete -> "completed"
+    else -> "in progress"
+}
 
 /** Rides on this tablet, newest first. Read-only; "sent" comes from ConvoyRideStore (state is derived). */
-private fun loadRideChoices(): List<RideChoice> {
+private fun loadRideChoices(context: android.content.Context): List<RideChoice> {
     val db = SpatialDbManager.getExtensionDb() ?: return emptyList()
     return try {
         db.rawQuery("SELECT ride_id, ride_name, ride_date FROM rides ORDER BY created_at DESC LIMIT 100", null)
@@ -137,7 +152,9 @@ private fun loadRideChoices(): List<RideChoice> {
                 while (c.moveToNext()) {
                     val id = c.getString(0) ?: continue
                     out += RideChoice(id, c.getString(1) ?: "Ride", c.getString(2) ?: "",
-                        ConvoyRideStore.isDistributed(id))
+                        ConvoyRideStore.isDistributed(id),
+                        // RIDESTATE-2026-09-24: complete = the writer's own check, the one Send uses.
+                        ConvoyRideJsonWriter.build(context, id)?.missing?.isEmpty() == true)
                 }
                 out
             }

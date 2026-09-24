@@ -40,7 +40,8 @@ fun ConvoyApplyRadioScreen(
     val applyList    = remember { ConvoyApplyList.load(context) }
     val masterConfig = remember { ConvoyMasterConfig.load(context) }
     // RIDESEAM-2026-09-24: "Apply Ride" lists the STORED ride JSONs, not the old event store.
-    val rides        = remember { RideApplySource.loadAll(context) }
+    var includeRecentRides by remember { mutableStateOf(false) }   // DATEFILTER-2026-09-24
+    val rides        = remember(includeRecentRides) { RideApplySource.loadAll(context, includeRecentRides) }
 
     val myNodeInfo  by uiViewModel.myNodeInfo.collectAsStateWithLifecycle()
     val localConfig by channelViewModel.localConfig.collectAsStateWithLifecycle()
@@ -133,6 +134,11 @@ fun ConvoyApplyRadioScreen(
 
             // Ride picker
             if (applyMode == "RIDE") {
+                // DATEFILTER-2026-09-24: today or later; tick to include the last 30 days.
+                Text((if (includeRecentRides) "\u2611" else "\u2610") + "  Include rides from the last 30 days",
+                    color = Color(0xFFE8EEF5), fontSize = 13.sp,
+                    modifier = Modifier.fillMaxWidth().clickable { includeRecentRides = !includeRecentRides }.padding(vertical = 8.dp))
+
                 if (rides.isEmpty()) {
                     Surface(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp),
                         color = Color(0xFF2A1A1A)) {

@@ -25,7 +25,7 @@ import java.io.FileOutputStream
  */
 object RidePreview {
     private const val TAG = "RidePreview"
-    private const val SETTLE_MS = 1800L      // time for the fitted tiles to arrive
+    private const val SETTLE_MS = 2200L      // time for the fitted tiles to arrive (RIDEFIT-2026-09-24)
     private const val SIZE_PX = 720          // saved picture is 720 x 720
     private const val EDGE_CSS_PX = 16       // breathing room around the route inside the square
 
@@ -55,10 +55,14 @@ object RidePreview {
         val side = minOf(wv.width, wv.height)
         val padX = ((wv.width - side) / 2 / density).toInt() + EDGE_CSS_PX
         val padY = ((wv.height - side) / 2 / density).toInt() + EDGE_CSS_PX
-        val js = "map.fitBounds(L.latLngBounds([[$minLat,$minLon],[$maxLat,$maxLon]])," +
-            "{paddingTopLeft:[$padX,$padY],paddingBottomRight:[$padX,$padY]," +
-            "maxZoom:(typeof currentMaxNative!=='undefined'?currentMaxNative:18)});"
-        wv.evaluateJavascript(js, null)
+        // RIDEFIT-2026-09-24: call the PAGE's own function -- the page keeps its Leaflet map private, so a
+        // direct map.fitBounds from injected script did nothing and the picture showed the old view.
+        // The script reports back, so a failure is in the log, never silent.
+        val js = "(function(){try{" +
+            "if(typeof fitRouteSquare==='function'){fitRouteSquare($minLat,$minLon,$maxLat,$maxLon,$padX,$padY);return 'fitted';}" +
+            "fitBounds([$minLat,$maxLat],[$minLon,$maxLon]);return 'fitted-plain';" +
+            "}catch(e){return 'ERR '+e;}})()"
+        wv.evaluateJavascript(js) { r -> Log.i(TAG, "RIDEFIT-2026-09-24: fit -> $r") }
         Handler(Looper.getMainLooper()).postDelayed({
             try {
                 capture(wv, pendingFile(wv.context, routeId))
