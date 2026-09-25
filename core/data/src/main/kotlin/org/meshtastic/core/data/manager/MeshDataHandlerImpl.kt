@@ -211,7 +211,18 @@ constructor(
                 shouldBroadcast = true
             }
 
-            PortNum.ATAK_FORWARDER,
+            // TAKV2-2026-09-25: TAK V2 (TAKPacket-SDK v0.9.1 wire format) on the standard port 78, and on
+            // Natak's bridge port 257. Broadcasting is unchanged.
+            PortNum.ATAK_PLUGIN_V2 -> {
+                handleTakV2(packet, dataPacket, myNodeNum, bridged = false)
+                shouldBroadcast = true
+            }
+
+            PortNum.ATAK_FORWARDER -> {
+                handleTakV2(packet, dataPacket, myNodeNum, bridged = true)
+                shouldBroadcast = true
+            }
+
             PortNum.PRIVATE_APP,
             -> {
                 shouldBroadcast = true
@@ -367,6 +378,40 @@ constructor(
             time = (dataPacket.time / 1000L).toInt(),
         )
         Logger.d { "TAKPOS-2026-09-24: TAK position from ${packet.from}: ${Position.ADAPTER.toOneLiner(p)}" }
+        nodeManager.handleReceivedPosition(packet.from, myNodeNum, p, dataPacket.time)
+    }
+
+    /**
+     * TAKV2-2026-09-25 (GroupTrack) -- a TAK V2 packet (TAKPacket-SDK v0.9.1 wire format), on the standard
+     * port 78 (ATAK_PLUGIN_V2) or on Natak's bridge port 257 (ATAK_FORWARDER). Only a POSITION report is used.
+     *  - port 78: the sending radio reports its OWN position -> assigned to packet.from through the SAME
+     *    handleReceivedPosition as GPS (port 3) and V1 TAK (port 72).
+     *  - port 257 (bridged): packet.from is the NUCLEUS, not the rider -- the rider is the CoT uid. Assigning
+     *    by from would put every relayed rider on the Nucleus's cart, so this build LOGS the position only;
+     *    the uid-keyed rider entry is its own next step.
+     * Malformed input is logged and dropped, never thrown.
+     */
+    private fun handleTakV2(packet: MeshPacket, dataPacket: DataPacket, myNodeNum: Int, bridged: Boolean) {
+        val payload = packet.decoded?.payload ?: return
+        val tak = try {
+            TakV2Decoder.decode(payload.toByteArray())
+        } catch (e: Exception) {
+            Logger.w { "TAKV2-2026-09-25: undecodable TAK V2 from ${packet.from} (bridged=$bridged): ${e.message}" }
+            return
+        }
+        if (!TakV2Decoder.isPosition(tak)) {
+            Logger.d { "TAKV2-2026-09-25: non-position TAK V2 from ${packet.from} (uid=${tak.uid}) -- ignored" }
+            return
+        }
+        val p = TakV2Decoder.toPosition(tak, dataPacket.time) ?: return
+        if (bridged) {
+            Logger.i {
+                "TAKV2-2026-09-25: BRIDGED position (not assigned) uid=${tak.uid} callsign=${tak.callsign} " +
+                    "lat=${tak.latitude_i} lon=${tak.longitude_i} via=${packet.from}"
+            }
+            return
+        }
+        Logger.i { "TAKV2-2026-09-25: TAK V2 position from ${packet.from} callsign=${tak.callsign}" }
         nodeManager.handleReceivedPosition(packet.from, myNodeNum, p, dataPacket.time)
     }
 
