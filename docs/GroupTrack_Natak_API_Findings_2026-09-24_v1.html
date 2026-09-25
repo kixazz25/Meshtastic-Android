@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GroupTrack — Natak Nucleus V3: findings, design changes, open issues (2026-09-24 v1)</title>
+<style>
+body{font:15px/1.6 -apple-system,"Segoe UI",Roboto,sans-serif;max-width:1150px;margin:0 auto;padding:26px;background:#0f1216;color:#e6edf3}
+h1{font-size:23px;color:#58a6ff;border-bottom:2px solid #2a3038;padding-bottom:8px}
+h2{font-size:18px;color:#58a6ff;margin-top:32px;border-bottom:1px solid #2a3038;padding-bottom:5px}
+code{background:#1a2027;padding:1px 5px;border-radius:3px;font-size:12.5px;color:#8FD0FF}
+.card{background:#161b22;border:1px solid #2a3038;border-radius:8px;padding:13px 17px;margin:11px 0}
+.done{border-left:4px solid #3fb950}.next{border-left:4px solid #58a6ff}.warn{border-left:4px solid #d29922}.bad{border-left:4px solid #f85149}
+table{border-collapse:collapse;width:100%;margin:10px 0;font-size:13px}
+th,td{border:1px solid #2a3038;padding:6px 8px;text-align:left;vertical-align:top}
+th{background:#1a2027;color:#8FD0FF}
+li{margin:5px 0}
+</style></head><body>
+<h1>Natak Nucleus V3 — findings, design changes, open issues</h1>
+<p>2026-09-24 v1 · internal · from Natak's public <code>V3_OS</code> repository (README, <code>docs/API.md</code> v0.8.0, open issues), the
+earlier <code>Nucleus_OS</code> repository, and Meshtastic's port definitions. The V3 source code itself could not be read automatically
+(GitHub blocks it); a local <code>git clone</code> is needed for the radio-apply code.</p>
+
+<h2>1 · Findings</h2>
+<div class="card">
+<table>
+<tr><th>#</th><th>Finding</th><th>Source</th></tr>
+<tr><td>F1</td><td><b>Two separate configs.</b> The node config (<code>/etc/nucleus/config.yaml</code>) is replaced WHOLE by <code>PUT /api/v1/config</code> and made live by <code>POST /api/v1/apply</code> (dry-run available). The radio is configured separately under <code>/api/v1/meshtastic</code>.</td><td>API.md, README</td></tr>
+<tr><td>F2</td><td><b>Radio apply = changed fields only</b>: <code>POST /config/apply {"changes":{…}}</code>. Allowed: owner (1–39), owner_short (1–4), region, modem_preset, role, hop_limit (1–7), tx_power (0–30), frequency_slot (0–104, 0 = from channel name), channel_name (1–11), psk, psk_random. <b>Anything else → 400.</b></td><td>API.md</td></tr>
+<tr><td>F3</td><td><b>Async, one at a time, restarts:</b> read → poll op-status → get → apply → poll → get (confirm). A second op while busy → 409. The radio reboots once per config group; a full apply takes ~30–120 s.</td><td>API.md</td></tr>
+<tr><td>F4</td><td><b>Key format:</b> <code>psk</code> takes <code>random</code>/<code>default</code>/<code>none</code> or an explicit key as <code>base64:…</code>, hex, or <code>simpleN</code>.</td><td>API.md</td></tr>
+<tr><td>F5</td><td><b>No authentication.</b> Access is controlled by being on the network. An open issue (#2, 09-19) covers authorization.</td><td>API.md, issue #2</td></tr>
+<tr><td>F6</td><td><b>The AP SSID is DERIVED from the node id</b> (hostname <code>NNNN-nucleus</code> → SSID <code>0009-nucleus-ap</code>); operators set passwords (<code>ap.password</code>, <code>mesh.password</code>). A ride cannot name the Wi-Fi.</td><td>README</td></tr>
+<tr><td>F7</td><td><b>The box-to-box mesh</b> is 802.11s with its own WPA3 passphrase; any box is reachable over the mesh at <code>10.20.&lt;id&gt;.1</code> / <code>10.20.1.&lt;id&gt;</code>.</td><td>README, API.md</td></tr>
+<tr><td>F8</td><td><b>The LoRa CoT bridge uses port 257 (ATAK_FORWARDER)</b> on the earlier Nucleus OS — not port 72 (ATAK_PLUGIN), which GroupTrack now handles.</td><td>Nucleus_OS README</td></tr>
+<tr><td>F9</td><td><b>Text messaging</b> has its own daemon over Wi-Fi multicast <code>239.10.10.60:17020</code> + LoRa.</td><td>API.md</td></tr>
+<tr><td>F10</td><td><b>The radio is reachable other ways:</b> meshtasticd's native API on TCP <code>:4403</code>; the earlier OS could release the radio to Bluetooth for the Meshtastic phone app.</td><td>API.md, Nucleus_OS README</td></tr>
+<tr><td>F11</td><td><b>His defaults:</b> SHORT_FAST, TX 30, role TAK, channel <code>Natak</code>. Tailscale ships joined to the natakmesh tailnet.</td><td>API.md, Nucleus_OS README</td></tr>
+<tr><td>F12</td><td><b>V3 is Phase 1:</b> Wi-Fi mesh + config system; the Meshtastic CoT bridge, voice and Reticulum are later phases. No boot profiles, no reboot endpoint yet (issue #5).</td><td>README, issue #5</td></tr>
+</table>
+</div>
+
+<h2>2 · Design changes for GroupTrack</h2>
+<div class="card next">
+<ol>
+<li><b>Apply to a Nucleus = their flow, exactly (F2, F3):</b> read → wait → get (our snapshot / restore point) → apply only the ride's changed
+fields → wait → get (our verify). Show "the unit is restarting" for up to two minutes; retry on 409.</li>
+<li><b>Send the key as <code>base64:</code> + the ride's key (F4).</b> owner = the rider's callsign (≤ 39, already our rule); owner_short not sent.</li>
+<li><b>The ride's Wi-Fi is the box's own SSID plus the ride's password (F6).</b> <code>network.nucleus.ssid</code> in the ride file stops meaning
+"the Wi-Fi name"; the tablet learns each box's SSID from the box (or its id). A ride changes only <code>ap.password</code>.</li>
+<li><b>The AP password is the only lock (F5) — make it strong.</b> Replace "one word of 8+ letters" with three words (or 12+ random characters);
+still readable aloud. Revisit when Natak adds authorization.</li>
+<li><b>GroupTrack is a GUEST on the box (F1, F12).</b> Never PUT a hand-made config: GET, change only our fields, PUT, apply. Save the owner's
+config before a ride and restore it after. Ask for secondary-channel and extra-AP support so a ride never displaces the owner's use.</li>
+<li><b>Reaching a box:</b> (a) the ride file's password with the box's known SSID; (b) any box over the mesh (F7), IF rides leave the mesh
+link alone; (c) reset or Ethernet; (d) tailnet with internet.</li>
+<li><b>A third TAK translator for port 257 (F8)</b> — decompress the CoT, read uid/callsign/point/track, and assign through the SAME
+<code>handleReceivedPosition</code>. Encoding to confirm first (section 4).</li>
+<li><b>An IP translator</b> for the Wi-Fi side, for CoT on the multicast groups — same assignment, TAK-uid key when no node number.</li>
+<li><b>Option: use the Nucleus's radio as the tablet's radio</b> over TCP :4403 (F10) — existing Meshtastic connection code.</li>
+<li><b>The send interval is not in the radio API (F2)</b> — for app-attached radios the app owns cadence (app-sent TAK); for the Nucleus,
+it is the bridge's.</li>
+</ol>
+</div>
+
+<h2>3 · Open issues</h2>
+<div class="card warn">
+<table>
+<tr><th>#</th><th>Issue</th><th>Answered by</th></tr>
+<tr><td>O1</td><td>Does a ride change only the AP password, or also the mesh link (mesh password / channel)? Decides whether any box reaches every box.</td><td>Nathan</td></tr>
+<tr><td>O2</td><td>Can a ride be a guest: secondary LoRa channel, an extra AP, a temporary config with the owner's restored (boot profiles)?</td><td>Nathan</td></tr>
+<tr><td>O3</td><td>Which port and encoding does the V3 bridge use on LoRa — 257 (ATAK_FORWARDER) with libcotshrink, zlib, or plain CoT; fragmented or not? Does it also send PLI on 72?</td><td>Nathan / the repo</td></tr>
+<tr><td>O4</td><td>When the bridge relays, is the Meshtastic <code>from</code> the Nucleus's radio or the original sender?</td><td>Nathan</td></tr>
+<tr><td>O5</td><td>What does the box put on Wi-Fi multicast (CoT XML, protobuf), which fields, is the uid stable per device?</td><td>Nathan</td></tr>
+<tr><td>O6</td><td>What sets a Nucleus radio's position / TAK send interval?</td><td>Nathan</td></tr>
+<tr><td>O7</td><td>Do any units use a fixed frequency_slot? (The ride's <code>0</code> must win.)</td><td>Nathan</td></tr>
+<tr><td>O8</td><td>Authorization plans (issue #2): token, per-network? Our password rule depends on it.</td><td>Nathan</td></tr>
+<tr><td>O9</td><td>A reset to a known network for a box on an unknown ride; Ethernet access policy.</td><td>Nathan</td></tr>
+<tr><td>O10</td><td>Read the actual radio-apply code (local clone) to match order and reboot handling for our Bluetooth/USB apply.</td><td>Us</td></tr>
+<tr><td>O11</td><td>TAK speed unit and HAE altitude.</td><td>Nathan / SDK</td></tr>
+<tr><td>O12</td><td>Airtime: port 257 PLI ≈ 190 bytes (atak-forwarder's figure) — about 1.2–1.5 s on LONG_FAST; confirm the preset his units ride on.</td><td>Us + Nathan</td></tr>
+</table>
+</div>
+
+<h2>4 · Port 257 — why, and what it means for us</h2>
+<div class="card bad">
+<p><b>Why it isn't 72.</b> Meshtastic port numbers 0–63 are core, 64–127 are registered third-party apps, and 256–511 are for private apps.
+Port 72 (<code>ATAK_PLUGIN</code>) carries Meshtastic's own compact <code>TAKPacket</code> protobuf — PLI and GeoChat only. Port 257
+(<code>ATAK_FORWARDER</code>) is the ATAK Forwarder module (Paul Mandal's plugin): it carries <b>whole CoT events</b>, compressed
+(libcotshrink), so it can move anything ATAK makes — markers, shapes, routes — not just positions. Meshtastic's own V1 path falls
+back to 257 for everything that isn't PLI or chat. A bridge that forwards arbitrary ATAK traffic naturally uses 257.</p>
+<p><b>What it means.</b> Our port-72 routine will not see positions a Nucleus relays. We need a port-257 translator — decompress,
+parse the CoT's <code>uid</code>, callsign, <code>point</code> (lat/lon/hae) and <code>track</code> (speed/course), assign through the same
+function. Messages are bigger (~190 bytes for a PLI), so airtime per report is higher than on 72.</p>
+<p><b>Tooling.</b> The atak-forwarder plugin (an ATAK plugin, Android) is the reference encoder; libcotshrink is its compressor;
+Meshtastic's Apple app has a V1 ATAK_FORWARDER handler with packet reassembly; a Ruby library decodes 257 with plain zlib. The encoding
+differs between tools — which is exactly why O3 must be answered before we write the translator.</p>
+</div>
+
+</body></html>

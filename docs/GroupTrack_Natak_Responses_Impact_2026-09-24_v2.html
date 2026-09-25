@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GroupTrack — Natak: responses + API kit, design impact, open issues (2026-09-24 v2)</title>
+<style>
+body{font:15px/1.6 -apple-system,"Segoe UI",Roboto,sans-serif;max-width:1150px;margin:0 auto;padding:26px;background:#0f1216;color:#e6edf3}
+h1{font-size:23px;color:#58a6ff;border-bottom:2px solid #2a3038;padding-bottom:8px}
+h2{font-size:18px;color:#58a6ff;margin-top:32px;border-bottom:1px solid #2a3038;padding-bottom:5px}
+code{background:#1a2027;padding:1px 5px;border-radius:3px;font-size:12.5px;color:#8FD0FF}
+.card{background:#161b22;border:1px solid #2a3038;border-radius:8px;padding:13px 17px;margin:11px 0}
+.done{border-left:4px solid #3fb950}.next{border-left:4px solid #58a6ff}.warn{border-left:4px solid #d29922}.bad{border-left:4px solid #f85149}
+table{border-collapse:collapse;width:100%;margin:10px 0;font-size:13px}
+th,td{border:1px solid #2a3038;padding:6px 8px;text-align:left;vertical-align:top}
+th{background:#1a2027;color:#8FD0FF}
+li{margin:5px 0}
+</style></head><body>
+<h1>Natak — responses + API kit: what is settled, design impact, open issues</h1>
+<p>2026-09-24 v2 · internal · <b>v2 supersedes v1</b> (<code>GroupTrack_Natak_API_Findings_2026-09-24_v1.html</code>): adds Nathan's written answers
+(his reply to discussion document v2) and Fred's decisions of the evening (no box records; Wi-Fi via Android logins). Sources: Nathan's reply,
+<code>V3_OS</code> README and <code>docs/API.md</code> v0.8.0, the earlier <code>Nucleus_OS</code> README, Meshtastic's port definitions.</p>
+
+<h2>1 · Nathan's answers, in one table</h2>
+<div class="card done">
+<table>
+<tr><th>Topic</th><th>Nathan / the API says</th><th>Status</th></tr>
+<tr><td>Boot profiles</td><td>No profiles. One master <code>.yaml</code>; the API writes it, affected services restart with the new values, and <b>the configuration persists until changed</b>.</td><td>Settled</td></tr>
+<tr><td>Remote access</td><td>He would set up a <b>GroupTrack tailnet</b> for remote access with internet; on the tablet that is just the Tailscale app.</td><td>Offered</td></tr>
+<tr><td>At a trailhead</td><td>Connect via the <b>onboard Nucleus Wi-Fi AP</b>.</td><td>Settled</td></tr>
+<tr><td>Two APs at once</td><td>May be possible on the AP radio — no promises.</td><td>Open</td></tr>
+<tr><td>Apply code</td><td>No code sample: <b>the API guide is the contract</b> (async read → apply changed fields → poll → confirm).</td><td>Settled</td></tr>
+<tr><td>Who sent a relayed report</td><td><b>CoT carries the original sender's id</b> — always available. (So the Meshtastic <code>from</code> is not the identity.)</td><td>Settled</td></tr>
+<tr><td>What the bridge carries</td><td>Today <b>only CoT from ATAK</b>, moved over Meshtastic <b>as-is, no per-packet tinkering</b>. "We can do whatever we want" if we need more.</td><td>Settled + flexible</td></tr>
+<tr><td>LoRa port of the bridge</td><td>He must look up the exact port. (The earlier OS used <b>257, ATAK_FORWARDER</b>.)</td><td>Open</td></tr>
+<tr><td>TAK SDK</td><td>Kept pinned to the latest.</td><td>Settled</td></tr>
+<tr><td>Speed unit</td><td>In the CoT spec (CoT track speed is metres per second).</td><td>Settled (m/s)</td></tr>
+<tr><td>Altitude</td><td>Not converted — HAE as sent.</td><td>Settled (ours to handle)</td></tr>
+<tr><td>Airtime figures</td><td>Calculated, not measured.</td><td>Settled</td></tr>
+<tr><td>His preset</td><td><b>SHORT_FAST</b> (to allow voice over LoRa). MEDIUM_FAST: 8+ miles line of sight with elevation on a 22 dBm RAK4631; his radios are now 30 dBm. ~13 nodes at 3 s "seems reasonable". <b>Saturation test → to-do list.</b></td><td>Settled + joint test</td></tr>
+<tr><td>Radio-only unit</td><td><b>Yes, easy to build:</b> same use as a Nucleus, drop Wi-Fi mesh and extras, keep the 30 dBm radio, internal GPS, Pi Zero 2 (cuts cost hard), <b>configured via its Wi-Fi AP or USB</b>.</td><td>Agreed in principle</td></tr>
+<tr><td>Wi-Fi name / password (API)</td><td>The AP SSID is derived from the node id (<code>0009-nucleus-ap</code>); passwords are set by the owner.</td><td>Settled</td></tr>
+<tr><td>Security (API)</td><td>No login or token; access = being on the network. Authorization is an open issue on their side (#2).</td><td>Open (theirs)</td></tr>
+</table>
+</div>
+
+<h2>2 · Design changes this forces or allows</h2>
+<div class="card next">
+<ol>
+<li><b>No box records, no Wi-Fi credentials in GroupTrack</b> (Fred, 09-24). Riders join a box's Wi-Fi the ordinary Android way; GroupTrack
+finds the box through the current network's gateway (<code>10.20.&lt;id&gt;.1</code>) and <code>/api/v1/version</code>. The ride file's
+<code>nucleus.ssid</code> and <code>nucleus.password</code> are removed; the Wi-Fi word-password idea retires.</li>
+<li><b>A ride changes only the box's RADIO</b> (channel, key, LoRa values, owner) through <code>/api/v1/meshtastic/config/apply</code>, key sent as
+<code>base64:…</code>. The box's Wi-Fi and mesh link are the owner's and are never touched — the guest model.</li>
+<li><b>No boot profiles, and none needed:</b> the box's config persists until changed, so "last used" survives reboots (the lunch-stop case is solved),
+and "return to owner" is an explicit action: GroupTrack reads the radio config before a ride (the restore point) and re-applies it afterwards.</li>
+<li><b>Identity of bridged reports comes from the CoT uid</b>, not the Meshtastic <code>from</code>. The port-257 / IP translators key a rider by
+their TAK uid (<code>tak-</code> + hash), linked to a node number when that rider is also heard directly.</li>
+<li><b>A CoT translator is required</b> for anything the Nucleus relays (port 257, or whatever he confirms): read uid, callsign, point, track —
+assign through the same position function. Speed is m/s; altitude stays HAE (label it, or convert for display).</li>
+<li><b>The bridge must carry GroupTrack's traffic both ways</b> (he is open to it): today it moves ATAK's CoT only, so riders on LoRa sending
+TAKPacket (port 72) or plain position (port 3) may never reach riders on the box's Wi-Fi. Ask: bridge 72 and 3 into CoT on Wi-Fi, and CoT into 72 on LoRa.</li>
+<li><b>Preset per ride is real:</b> a ride that includes a Nucleus with voice runs SHORT_FAST; T1000 range drops sharply there. The ride's preset
+decides it; the organizer sees the trade.</li>
+<li><b>The replacement standalone radio = a small Nucleus</b> configured through the same HTTP API (via its AP) or USB — so GroupTrack's Nucleus apply
+covers it; no Bluetooth path needed for that unit.</li>
+<li><b>Remote access = a GroupTrack tailnet</b> (his offer): Tailscale on the organizer's tablet; decide who owns it.</li>
+<li><b>Our Bluetooth/USB apply for plain radios stays ours</b> (no code sample to copy): same eleven fields, same read → apply → confirm shape.</li>
+</ol>
+</div>
+
+<h2>3 · Open issues</h2>
+<div class="card warn">
+<table>
+<tr><th>#</th><th>Issue</th><th>Owner</th></tr>
+<tr><td>N1</td><td>Exact LoRa port and encoding of the bridge (257? compressed how? fragmented?).</td><td>Nathan</td></tr>
+<tr><td>N2</td><td>Bridge GroupTrack traffic both ways: port 72 (TAK PLI) and port 3 (position) → CoT on Wi-Fi; CoT → port 72 on LoRa.</td><td>Nathan (he is open)</td></tr>
+<tr><td>N3</td><td>A ride as a guest on the radio: can the ride's channel be ADDED (secondary) rather than replacing the owner's primary? (<code>/config/channel-url</code> may allow it.)</td><td>Nathan</td></tr>
+<tr><td>N4</td><td>Two APs at once — capability of the AP radio.</td><td>Nathan</td></tr>
+<tr><td>N5</td><td>What sets a radio's position / TAK send interval (not in the radio API)?</td><td>Nathan</td></tr>
+<tr><td>N6</td><td>Authorization roadmap (their issue #2) — relevant once boxes are shared beyond a club.</td><td>Nathan</td></tr>
+<tr><td>N7</td><td>GroupTrack tailnet: who owns and administers it.</td><td>Fred + Nathan</td></tr>
+<tr><td>N8</td><td>Saturation test: presets × group size × 3 s, measured on hardware.</td><td>Joint</td></tr>
+<tr><td>N9</td><td>Radio-only unit: spec, antenna options, 12 V + battery, OHV housing, cost, lead time, volume; does it report as a standalone (GPS or TAK)?</td><td>Nathan</td></tr>
+<tr><td>G1</td><td>Build the CoT translator (after N1).</td><td>GroupTrack</td></tr>
+<tr><td>G2</td><td>Build Nucleus apply over HTTP (read → apply → poll → confirm; restore afterwards).</td><td>GroupTrack</td></tr>
+<tr><td>G3</td><td>Box discovery from the current Wi-Fi (gateway + <code>/api/v1/version</code>).</td><td>GroupTrack</td></tr>
+<tr><td>G4</td><td>Remove <code>nucleus.ssid</code> / <code>password</code> from the ride file and the generator; retire the word password.</td><td>GroupTrack</td></tr>
+<tr><td>G5</td><td>Altitude: HAE → display (convert or label).</td><td>GroupTrack</td></tr>
+<tr><td>G6</td><td>App-sent TAK for app-attached radios (the app owns the send interval).</td><td>GroupTrack</td></tr>
+</table>
+<p><b>Now moot:</b> meshName / wifiChannel (the box's, not ours) · the Nucleus serving ride files (it keeps nothing of ours) · history endpoints
+(the tablet keeps history) · a GroupTrack Wi-Fi password rule · owner length (the API says 1–39, matching our rule).</p>
+</div>
+
+</body></html>

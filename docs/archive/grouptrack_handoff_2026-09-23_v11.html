@@ -1,0 +1,199 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GroupTrack handoff — 2026-09-23 v11 (complete)</title><style>body{font:15px/1.6 -apple-system,"Segoe UI",Roboto,sans-serif;max-width:1200px;margin:0 auto;padding:26px;background:#0f1216;color:#e6edf3}
+h1{font-size:23px;color:#58a6ff;border-bottom:2px solid #2a3038;padding-bottom:8px}
+h2{font-size:18px;color:#58a6ff;margin-top:34px;border-bottom:1px solid #2a3038;padding-bottom:5px}
+h3{font-size:15px;color:#b8c2cc;margin:18px 0 6px}
+code{background:#1a2027;padding:1px 5px;border-radius:3px;font-size:12.5px;color:#8FD0FF}
+.card{background:#161b22;border:1px solid #2a3038;border-radius:8px;padding:13px 17px;margin:11px 0}
+.done{border-left:4px solid #3fb950}.next{border-left:4px solid #58a6ff}.warn{border-left:4px solid #d29922}.bad{border-left:4px solid #f85149}
+table{border-collapse:collapse;width:100%;margin:10px 0;font-size:13px}
+th,td{border:1px solid #2a3038;padding:6px 8px;text-align:left;vertical-align:top}
+th{background:#1a2027;color:#8FD0FF}
+td:first-child{font-weight:600;color:#e3b341;white-space:nowrap}
+.hi{color:#e3b341} .fig{overflow-x:auto;background:#161b22;border-radius:6px;padding:8px 0}
+.fig svg{max-width:100%;height:auto;display:block;margin:0 auto}
+li{margin:5px 0}</style></head><body>
+<h1>GroupTrack handoff — end of 2026-09-23 (v11)</h1>
+<p><b>v11 supersedes v10</b> — the two-radio test PASSED; the TAK payload confirmed; tomorrow's plan. <b>v10 superseded v9</b> — adds the evening: the GroupTrack default set on a real T1000, committed as the master asset (<code>60e130d7d</code>), SAVEWHY committed, and the config-toolkit design. <b>v9 superseded v8</b> — adds the late afternoon: the first ride JSON written on Droid 1 (10/10), SAVEWHY, the Nucleus model and the email to Nathan. <b>v8 superseded v7.</b> Written for a cold start: read this, then the living master's <b>00-2026-09-23</b> section.
+<b>This release is 2.7</b> (mesh separation + IP through the Nucleus); the 50-state trail work queues behind it. Every open item from v7 is carried forward below — none were closed except where marked.</p>
+
+<div class="card done">
+<p class="hi"><b>09-23: the ride JSON became the contract, and it is written.</b> Seven commits: channel prefix <code>Group</code>+6, the network
+generator, the ride's own config and state, the writer, the trailhead rule end to end, the ride file stored on every Save, and Send.
+The device test (a ride saved to JSON on Droid 1) was running at handoff time.</p>
+<p><i>09-22 (kept for the record): the data model stopped moving and the identity chain exists in code — seven commits, two AWS migrations, ride created from a route on Droid 1.</i></p>
+</div>
+
+<h2>1 · The doc set — current versions</h2>
+<div class="card">
+<table>
+<tr><th>Document</th><th>Current</th><th>What it is</th></tr>
+<tr><td>Living master</td><td><code>grouptrack_living_master_2026-09-23_v90.html</code></td><td><b>The checklist. Every decision back to July.</b> Read RIDEMODEL / RIDEFILE / NUCLEUS / RIDEBUILD (all 09-22) and In-Progress.</td></tr>
+<tr><td>Handoff</td><td><b>this file (v11)</b></td><td>Where everything stands, today and outstanding.</td></tr>
+<tr><td>Release notes</td><td><code>grouptrack_release_notes_2026-09-22_v10.html</code></td><td>Rider-facing. Profile entry added; six 2.7 placeholders.</td></tr>
+<tr><td>Quick Start</td><td><code>GroupTrack_QuickStart_2026-09-22_v54.html</code></td><td>Profile section + four placeholder exercises.</td></tr>
+<tr><td>User manual</td><td><code>grouptrack_manual_2026-09-22_v11.html</code></td><td>Profile section written; Rides section = seven placeholders.</td></tr>
+</table>
+<p><b>09-23 supporting doc:</b> <code>GroupTrack_RideConfigPlanning_2026-09-23_v54.html</code> (⚠ partly overtaken the same day — API 1 dropped, no mesh-only rides; v55 owed).<br>
+<b>Release notes v10 · Quick Start v54 · Manual v11 are UNCHANGED since 09-22</b> — no user-facing change shipped today.</p>
+<p><b>09-22 supporting docs:</b> <code>GroupTrack_DataModel_Convergence_..._v24</code> · <code>GroupTrack_APITouchpoints_ProfileRideRadio_..._v1</code> ·
+<code>GroupTrack_ConvoyFileFormat3_..._v1</code> · <code>GroupTrack_BlastRadius_ConfigCut_..._v1</code> ·
+<code>GroupTrack_DeviceSchemaAdditions_..._v4.sql</code> · <code>GroupTrack_AWS_Alignment_PhaseA_..._v1.sql</code>.</p>
+</div>
+
+<h2>2 · 09-23's commits — branch <code>feature/convoy-event-ride</code> (seven, compile green, NOT yet on any device)</h2>
+<div class="card done">
+<ul>
+<li><code>4fbb5706f</code> Group+6 prefix · <code>NetworkGenerator</code> (<code>com.grouptrack.core</code>) · <code>ConvoyNetworkStore</code> · ride-level config, <code>distributed_at</code>, in-progress edits, <code>ride_waypoints</code></li>
+<li>writer — <code>ConvoyRideJsonWriter</code> (format 3 from existing providers; narrative held back pending the OSM decision)</li>
+<li><code>403ece4ea</code> <code>trailheadsNear</code> (½ mile) + <code>setRouteAnchor</code> (trailhead into the recipe)</li>
+<li>Route+ trailhead rule — first-point gate + save writes the anchor</li>
+<li><code>fff3d9e02</code> ride creation requires a trailhead (anchor, or search + selector)</li>
+<li><code>c3ac60570</code> ride JSON stored on every Save — <code>rides/&lt;rideId&gt;.json</code></li>
+<li>Send — <code>ConvoyRideSend.send</code> (refuses when incomplete; sending = the lock); no screen calls it yet</li>
+</ul>
+<p>🧰 In reserve, not applied: <code>patch_savesend_2026-09-23.py</code> (SAVE &amp; SEND button).</p>
+</div>
+
+<h2>2b · 09-22's seven commits (for the record)</h2>
+<div class="card done">
+<ul>
+<li><code>02fe5591f</code> ADD A RIDE on a route's detail panel (planner only; convoy untouched)</li>
+<li><code>eafe45cbd</code> the ride creation shell — <code>ConvoyRideStore</code>, <code>ConvoyRideCreateScreen</code></li>
+<li><code>fa055099a</code> profile reachable from settings + keyboard padding</li>
+<li><code>ce958b6b4</code> the rider profile at first launch — store, screen, gate check</li>
+<li><code>37153e7d0</code> distributed model — rides carry organizer_name / org_name, enrollments carry callsign / display_name, ids optional, callsign uniqueness removed</li>
+<li><code>1a758a8d9</code> <code>rides.config_mode</code> gains <code>inherit_org</code></li>
+<li><code>0dd20cd3d</code> ten V3-shaped tables added at startup</li>
+</ul>
+<p><b>Walked on Droid 1</b> (<code>8624SBCEDF00001789</code>, V3 OFF). <b>Droid 2 has NOT had this build.</b>
+<b>AWS:</b> mirror + rules + Phase A + <code>inherit_org</code> all applied and verified; <b>Phase B owed</b> (nothing writes it yet).</p>
+</div>
+
+<h2>3 · 🔴 Blocking riders — fix before anything else</h2>
+<div class="card bad">
+<p><b>IMPORTLOCK — the importer can be bricked, and a rider cannot clear it.</b>
+⭐ <b>Root cause ISOLATED 09-20: it is <code>beginImport()</code>'s IN-MEMORY LATCH at <code>HomeStatePickerScreen:133</code>, NOT the stranded manifest.</b>
+A dead run leaves the latch set and nothing launches — no message, no log. Force-stop alone frees it.
+<b>Fix is 2.6g, two parts:</b> release the latch, then <b>SRCLIST</b> — list the state's sources, tick what is already held (bypassed), untick to pull one back in.
+⭐ SRCLIST subsumes the resume prompt entirely: a failed source simply arrives unticked, so "resume" is pressing import again.
+⚠ Make the tick an ACTION, not a status — the maps checkbox had exactly that ambiguity and it cost a day.</p>
+<p><b>Why it pays:</b> the Utah rerun fetched 49,125 records to insert <b>52</b>, for 27–31 minutes. A rerun pays the full cost for almost none of the benefit — and area downloads over a held state have the same problem.</p>
+</div>
+
+<h2>4 · Releases in flight</h2>
+<div class="card">
+<p><b>2.6g</b> — IMPORTLOCK latch + SRCLIST (above). The short list for today's riders.</p>
+<p><b>2.6h</b> — 50-state PUBLIC/PRIVATE trail compliance: default all trails public, private from Geofabrik PBF access tags, ownership polygons. See the 2.6h section in the master.</p>
+<p><b>2.7</b> — the mesh/GroupTrack separation. Today built the identity chain and the ride shell; tomorrow's eight items are in the master's In-Progress. Config first (built for TAK), then TAK; hard cut to a new base config; T1000-E pinned at firmware <b>2.6.11.60ec05e</b>, no firmware updates.</p>
+<p><b>3.0</b> — server side. Parking lot: the ride sync queue · choosing other people's organizers and orgs · premium gating at RUNTIME, never by version code · AWS Phase B · what happens to downloaded community routes when premium lapses.</p>
+</div>
+
+<h2>5 · Outstanding, not release-specific</h2>
+<div class="card warn">
+<ul>
+<li><b>⚠ THE ASSET COPIES — owed since 09-21.</b> Quick Start, manual and release notes into <code>app/src/main/assets/</code> under their CANONICAL names, committed on their own, <b>verified in the AAB</b>; release notes also to the website. <b>Check the shipped names first:</b> <code>ls app/src/main/assets/ | grep -i -E "quick|manual|release"</code>.</li>
+<li>✅ <b>DONE 09-22: Play store listing rewrite</b> · <b>Facebook week 1</b> (all eight posted to the Page and shared to the groups) · <b>website tidy</b> (the WEBSITE-2026-09-21 list).
+⭐ <b>So the marketing side is now live and waiting on results</b> — watch Play impressions and first opens over the next fortnight, and week 2 of the Facebook plan follows.</li>
+<li><b>AWS:</b> the housekeeping list has MOVED to <b>tomorrow, item 9</b>. Kept here for the record: <b>AWS renewal March 2027</b>.</li>
+<li><b>Bench tests:</b> T3 (does the TAK role quiet position broadcasts — feeds the base config values) · T7 (V2 packets on port 78 through 2.6.11) · T5 (T1000-E over USB) · which factory reset keeps Bluetooth pairing.</li>
+<li><b>Natak:</b> walk Nathan through <b>Agreement 1</b>, then endpoints N1–N7 / Q1–Q7. Reply drafted 09-22 (delivery vs apply). <b>⚠ TAKPacket-SDK licence — check before deciding anything that depends on it.</b></li>
+<li><b>Choose the setup network's <code>GT</code> id</b> — GT + nine characters, once, never casually changed. Needed before the config step starts.</li>
+<li>✅ <b>CLOSED 09-22: the New Hampshire classify inconsistency</b> (failed on one 09-17 run, completed on another). Not recurring.
+⚠ If ownership classification ever looks wrong, the streaming ring parser (<code>STREAMRINGS-2026-09-17</code>) is still the place to look first — it was verified by an exact count on a SINGLE Utah run.</li>
+<li><b>⚠ The old <code>parseRings</code></b> is kept UNUSED as the reference for the stream parser. Remove only after a second clean Utah run.</li>
+<li><b>⚠ Import confirm popup</b> still shows <code>estimatedTiles = 0</code>; no wifi warning on an unattended six-hour import.</li>
+</ul>
+</div>
+
+<h2>6 · Next session (after 2026-09-23), in order</h2>
+<div class="card next">
+<p class="hi">⭐ <b>09-24 PLAN (Fred):</b> the MORNING on <b>TAK messaging</b> (V1, port 72, beside the old path — send from the profile + position; receive into the tick; merge by device, freshest wins; its own staleness guard, since the payload carries no timestamp) · <b>~2 pm: write the MEETING DOCUMENT for Nathan</b> from everything settled by then · <b>Thursday: the call.</b></p>
+<p class="hi">✅ <b>09-23 EOD: the two-radio test PASSED</b> — both radios on both maps, in sync, on GroupTrack. The tree is clean. Carried list:</p>
+<ol>
+<li>✅ <b>DONE 09-23 — two-radio test passed.</b> (was: <b>Two-radio test on GroupTrack</b> (the old T1000 process, only the channel new): <code>unzip -p app/build/outputs/apk/google/release/app-google-release.apk assets/master_config.json | grep -E '"primaryChannelName"|"positionBroadcastSecs"'</code> (expect GroupTrack, 3) → install on Droid 1 → archive the second T1000 → apply (long name from the apply screen's box) → both radios hear each other → the app shows both, each with its own name, positions every ~3 s → share the second radio's channel link to confirm.</li>
+<li><b>Update the capture screen's pull instructions</b> (old package, run-as) to the cache-folder pull.</li>
+<li>✅ <b>DONE — SAVEWHY committed.</b> (was: <code>git add app/src/main/java/com/geeksville/mesh/convoy/ConvoyRideCreateScreen.kt &amp;&amp; git commit -m "2.7: Save always tappable, says what is missing (SAVEWHY)"</code></li>
+<li><b>The GroupTrack default config tool</b> (Fred, tonight or next): generate → display → override inputs → calculated fields read-only + recalculated → save <code>configs/GroupTrack.json</code> on Droid 1 → the 2.7 asset.</li>
+<li><b>Ride-form polish:</b> route name PROTECTED (display only; Save never renames; JSON reads the detail panel's name) · calendar date · zip from the trailhead · word Wi-Fi password · callsign 39-char rule on the profile screen · blanks → null.</li>
+<li><b>Thursday 09-24: the call with Nathan</b> — the email is sent (nine questions); settle boot profiles, reaching a unit, his apply sequence, the request format.</li>
+<li><b>Then:</b> import from email (format 3) → Work with Rides replacing the Meshtastic GroupTrack Mesh Radio Setup, on both maps.</li>
+</ol>
+<p><b>The 09-23 morning list (kept):</b></p>
+<ol>
+<li><b>Finish the Droid 1 ride-JSON test</b> if it did not close on 09-23: create a ride from a route with a trailhead → SAVE → copy
+<code>/sdcard/Android/data/com.grouptrack.android/files/GroupTrack/rides/*.json</code> to the PC (adb CAN read it) and check it against the
+contract. Fold in: the Route+ first-point gate (far tap refused, near tap accepted) and that saving a Route+ route writes the anchor.</li>
+<li><b>IMPORT</b> — plan in the master's 09-23 section: receiver branch for <code>kind = grouptrack.ride</code> · <code>ConvoyRideImport</code> (validate all,
+date-only rule, store unchanged, temp .gpx → <code>importGpxAllArtifacts</code>) · <code>ConvoyNetworkStore.insertReceived</code> · route lookup by
+<code>geomHash</code>. ⛔ Until this lands a sent ride is REJECTED by the rider's tablet (<code>ConvoyFileReceiver:55</code>).</li>
+<li><b>A screen that calls Send</b> — the SAVE &amp; SEND patch in reserve, or Work with Rides.</li>
+<li><b>Thursday 09-24: Natak call packet</b> — payload + field map to his config API + the process flow + the questions (how to reach a box whose network we don't know: management net / boot fallback / API on Ethernet / USB drive · <code>owner</code> length + <code>owner_short</code> · plain radio positions across the bridge · N1/N2 history · N6 token · whose tailnet · our 8-letter rotating ride password).</li>
+<li>Decide the <b>narrative</b> (carries OSM feature names) — the recipe is cleared to travel.</li>
+<li>Check the <b>"Build routes from recipe"</b> button ignores an anchor-only recipe.</li>
+<li>Docs owed: <code>GroupTrack_ConvoyFileFormat3</code> v2 (needs the v1 original) · RideConfigPlanning v55 corrections.</li>
+</ol>
+</div>
+
+<h2>6b · Carried from v7's 09-23 list — NOT started, still open</h2>
+<div class="card next">
+<ol>
+<li><b>MESH ON / MESH OFF — three parts, one item:</b>
+<br>(a) <b>REMOVE the Meshtastic menu and its border</b> from the map. Mesh stops being a menu.
+<br>(b) <b>The existing control becomes coloured text</b> — the map always opens <b>MESH OFF</b>; tapping it is the toggle.
+<br>(c) <b>ON ties straight to the connection panel</b>, which <b>CLOSES AUTOMATICALLY</b> once the radio is connected, leaving <b>MESH ON</b> in green.
+<br>⭐ Everything a rider used the Meshtastic menu for moves into <b>WORK WITH RIDES</b> (item 2) — so mesh exposes nothing but its own on/off.
+<br>⚠ The word IS the status: no separate indicator, no hide/unhide setting. (Red usually reads as a fault — amber or grey may suit a resting state better; decide on the screen.)
+<br>⚠ Decide what ON does when tapped: disconnect, or reopen the panel to switch radios mid-trip.</li>
+<li><b>REMOVE the mesh radio setup from the mesh menu, and REPLACE it with WORK WITH RIDES</b> — on BOTH the planner and the ride map.
+<br>The new menu: <b>change a ride · send a ride by email · import a ride from email · connect my radio · apply a ride to my radio · restore my radio’s prior config</b>.
+<br>⭐⭐ <b>These stay available when the mesh is off</b> — they are GroupTrack’s, not the mesh plugin’s. That IS the 2.7 separation, and it is testable: turn the mesh off and everything but apply/restore still works.
+<br>⚠ <b>Apply and restore belong to the config cluster being deleted</b> (16 files — see the blast-radius doc). Wire the three RIDE items first; add the radio two alongside <code>RadioService</code>.
+<br>⚠ The temporary <i>Create a ride (shell)</i> row in settings comes OUT when this lands.</li>
+<li><b>My open rides</b> behind "Change an existing ride (adds done by tapping a route on the map)".</li>
+<li><b>A real date picker</b> — the date OF THE RIDE.</li>
+<li><b>Trailhead picker; zip derived from it, off the screen</b> — the zip is a SEARCH KEY for public rides within a rider's radius.</li>
+<li><b>The small planner map</b> instead of the Canvas vignette — gestures off, tiles offline. ⚠ second WebView: test memory on Droid 1; must not touch route mode, drafts or planner persistence.</li>
+<li><b>Exit returns to the planner</b> with the route open.</li>
+<li><b>ADD A RIDE on track panels</b> — <code>ConvoyArtifactOps.toRoute</code> (line 99) first; show the name for editing.</li>
+<li><b>AWS housekeeping</b> — a short pass, separate from the website tidy that closed 09-22:
+delete RDS inbound rule <code>sgr-0badd971ce0bd58e6</code> · <b>Elastic IP</b> (the public IP is auto-assigned, so it moves on a restart) ·
+<code>test.php</code> (41 bytes) · <code>uploads/</code> (beta tester details?) · retire <code>beta_signup.php</code> ·
+put the site in the repo (<code>website/</code>) · remove <code>~/site_new</code> and the tarballs on the server.
+&#11088; <b>The Elastic IP is the one that bites</b> — a restart changes the address and the site goes dark until DNS is chased.</li>
+</ol>
+</div>
+
+<h2>7 · Rules a new conversation must not break</h2>
+<div class="card">
+<ul>
+<li>⭐ <b>09-23: every apply starts from the ride JSON</b> — on every device, whatever the target. The JSON is a stored file written on every Save; Send attaches it; import stores a received one unchanged.</li>
+<li>⭐ <b>09-23: a ride is in progress until distributed, then ONLY the date changes.</b> State is derived from <code>distributed_at</code>. Complete = route + trailhead + network.</li>
+<li>⭐ <b>09-23: every route has a trailhead in its RECIPE</b> (anchor). Route+ first point needs one within ½ mile; ride creation needs one; track conversion WILL need one (task in the master).</li>
+<li>⭐ <b>09-23: nothing filters nodes by channel NAME</b> — the channel KEY does, at the radio. Prefix is <code>Group</code>+6; <code>GroupTrack</code> is the reserved default channel.</li>
+<li>⛔ <b>The convoy map is FROZEN</b> — <code>ConvoyScreen.kt</code> is not edited. The MENU (<code>ConvoySubMenu</code> from <code>ui/Main.kt</code>) and the planner are not frozen.</li>
+<li><b>Leader = organizer = a role on the profile.</b> Several orgs per rider. In 2.7 the leader of a ride you create is ALWAYS you.</li>
+<li><b>Networks generated in exactly three places</b> — org added · leader chooses "my own" · a unique ride network. GT id + 32-byte key + base values, TX at or below the licence-free limit. Immutable; rotation makes a new one. <b>ALWAYS write both mesh and nucleus blocks.</b></li>
+<li><b>ONE WRITE PATH</b> — profile maintenance creates every rider, org, leader setting and network.</li>
+<li><b>Other people exist only as ride data.</b> Callsigns may repeat; riders matched by DEVICE (tak_uid, or node_num).</li>
+<li><b>Four role rules</b> — single holder · release then claim · only a person changes a role (a quiet radio means nothing) · leaving releases it.</li>
+<li><b>Only ROUTES travel</b>, distilled to a polyline. Identity is <b>(type, geom_hash)</b>, never the hash alone.</li>
+<li><b>Nothing written until Save.</b> No ghosts.</li>
+<li><b>Nothing is sent to GroupTrack unless the rider shares</b> — and sharing sends only their ride and their email.</li>
+<li>⛔ <b>No OSM-derived data on GroupTrack infrastructure, ever.</b> ⚠ This may exclude the route RECIPE from ride files — check what <code>readRouteNotes</code> actually holds before building the writer.</li>
+<li><b>CODE RULES 1–3</b> and the <b>GOLDEN RULE</b> (never reuse a filename) — see the master.</li>
+</ul>
+</div>
+
+<h2>8 · Environment</h2>
+<div class="card">
+<p>⭐ <b>09-23: Droid 1 is in private (internal) mode, and its root is adb-READABLE:</b> <code>/sdcard/Android/data/com.grouptrack.android/files/GroupTrack/</code>.
+Copy with <code>MSYS_NO_PATHCONV=1 adb -s 8624SBCEDF00001789 exec-out sh -c 'cat …' &gt; file</code>. (<code>/data/data/…</code> stays blocked on release builds.)</p>
+<p><b>App id <code>com.grouptrack.android</code></b>; source path still <code>com/geeksville/mesh/convoy/</code>. Every adb path uses the app id.</p>
+<p><b>Install by serial, with <code>-r</code></b>: <code>adb -s 8624SBCEDF00001789 install -r …</code>. ⛔ <b>NEVER uninstall to get a build on</b> — it takes the database with it.</p>
+<p><b>Builds:</b> <code>:app:compileGoogleReleaseKotlin</code> ≈1.5 min · <code>:app:assembleGoogleRelease</code> ≈13 min.</p>
+<p><b>Patches:</b> dated Python to <code>~/Downloads</code>, idempotent, backs up, aborts without writing on a missing anchor.
+⚠ <b>Lesson 09-22:</b> embed Kotlin in a patch script as a RAW literal (<code>r"""…"""</code>) — a non-raw literal ate the backslashes and wrote a broken file.
+⚠ Long pastes break in CloudShell and Git Bash — keep commands under ~2,700 characters.</p>
+</div>
+</body></html>

@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GroupTrack + Nucleus — discussion document (v3, 2026-09-24)</title>
+<style>
+body{font:15px/1.6 -apple-system,"Segoe UI",Roboto,sans-serif;max-width:1000px;margin:0 auto;padding:28px;color:#1f2328;background:#fff}
+h1{font-size:24px;border-bottom:2px solid #d0d7de;padding-bottom:8px}
+h2{font-size:19px;margin-top:34px;border-bottom:1px solid #d0d7de;padding-bottom:5px}
+h3{font-size:16px;margin:20px 0 6px}
+table{border-collapse:collapse;width:100%;margin:10px 0;font-size:14px}
+th,td{border:1px solid #d0d7de;padding:6px 9px;text-align:left;vertical-align:top}
+th{background:#f6f8fa}
+code{background:#f6f8fa;padding:1px 5px;border-radius:3px;font-size:13px}
+.note{background:#fff8c5;border:1px solid #d4a72c;border-radius:6px;padding:10px 14px;margin:12px 0}
+.q{background:#ddf4ff;border:1px solid #54aeff;border-radius:6px;padding:10px 14px;margin:12px 0}
+li{margin:4px 0}
+</style></head><body>
+
+<h1>GroupTrack + Nucleus — discussion document</h1>
+<p><b>v3, 2026-09-24 (evening).</b> For the Thursday call with Nathan (Natak). Section 7 is what was proven on devices today; v3 adds the TAK test and two new questions (send interval, fixed frequency slots).</p>
+
+<h2>1 · Where GroupTrack is today</h2>
+<ul>
+<li><b>One JSON file per ride.</b> A ride leader creates it once; it is emailed to riders; every apply, on every device, starts from it. A real sample from our app was sent on 09-23.</li>
+<li><b>Names:</b> a network's id is also its Meshtastic channel name and its Wi-Fi SSID. A rider's callsign is also their radio's long name, taken from their own GroupTrack profile.</li>
+<li><b>Ride networks:</b> id <code>Group</code> + 6 generated characters, an explicit 256-bit key, and a Wi-Fi password (proposal: a real word of 8+ letters, new each ride).</li>
+<li><b>The GroupTrack default network</b> (setup and home network, never used for riding): channel <code>GroupTrack</code>. Set and verified on a real T1000-E on 09-23; two radios on it see each other.</li>
+<li><b>Apply:</b> GroupTrack writes only the fields it manages; it records the radio's full configuration before and after, and reports any other differences to the user rather than changing them.</li>
+</ul>
+
+<h2>2 · Boot profiles and reaching a unit</h2>
+<p>A Nucleus will serve more than GroupTrack. We would like each unit to hold a small set of boot profiles and start in the selected one:</p>
+<ol><li>GroupTrack default</li><li>GroupTrack last used (the last ride config applied)</li><li>Your team configuration</li><li>Meshtastic local emergency net</li></ol>
+<div class="q"><b>Questions.</b> How is the boot profile selected today (API, setting on the unit, physical control)? Can GroupTrack set it? If your apply restarts the unit, does it come up in the new config even when the boot profile is "default"?
+<br><b>Reaching a unit on a ride network:</b> with internet, your tailnet (what does a tablet need to join it?); without internet at a trailhead — boot profile 1, or GroupTrack kept up permanently beside the ride network? Can a unit run two Wi-Fi access points at once plus its mesh between boxes? Can its radio keep GroupTrack as a secondary channel while the ride is primary?</div>
+
+<h2>3 · Apply — your code as our model</h2>
+<p>Our new apply for app-attached radios: a <b>config-only factory reset</b> (keeps Bluetooth pairing), then the required fields written: region, modem preset, hop limit, TX power, frequency slot, channel name, key, role, owner (long name = callsign), with <code>psk_random</code> off and <code>owner_short</code> not written.</p>
+<div class="q"><b>Request.</b> A sample of your code that applies config to a radio (any language). What we most want to match: the write order and whether you batch in one admin session; set-channel vs channel URL; reboot, reconnect and how you confirm the values took; anything learned the hard way (firmware differences, ordering, timing).
+<br><b>Also:</b> the endpoint and exact format for an apply request; a token on write requests; your values for <code>meshName</code> and <code>wifiChannel</code>; the length limit on <code>owner</code>.
+<br><b>Send interval:</b> how often a radio reports its position (GPS or TAK) is <i>not</i> among the eleven fields. After a config-only reset it falls back to the firmware default, which is infrequent. What sets the position / TAK send interval on your radios -- does your apply write it (and smart-position settings) too?
+<br><b>Frequency slot:</b> do any of your units run a fixed frequency slot? Every ride file carries <code>frequencySlot 0</code> (frequency derived from the network name); a unit pinned to another slot would be on a different frequency and hear nobody, so the file's value must win at apply.</div>
+
+<h2>4 · Traffic in the mixed network</h2>
+<ul>
+<li><b>Each device transmits once, in one message type:</b> app-attached radios send <b>TAK-format messages only</b> (their own position broadcast off); standalone T1000-E radios send <b>Meshtastic position</b> only; devices on the Nucleus Wi-Fi send TAK-format messages on the multicast groups you named (239.2.3.1:6969, 224.10.10.1:17012).</li>
+<li><b>No device translates</b> one type into the other (that would double airtime). Every GroupTrack app reads both and shows one entry per device.</li>
+<li><b>Radios relay all traffic</b> on the channel, keeping the original sender's node number.</li>
+</ul>
+<div class="note"><b>Proven today:</b> one radio in TAK_TRACKER role (sending TAK PLI on port 72) and one in TRACKER role (sending ordinary position on port 3), on the same ride channel. Both tablets showed both radios moving; a tablet following the TAK radio as its lead drew its track; tracks saved normally. GroupTrack turns an incoming TAK position into the same node position a GPS report produces, so every existing feature works on either.
+<br><b>Our direction:</b> standalone radios may use TAK_TRACKER (cadence set in the radio); app-attached radios will have the <i>app</i> compose and send the TAK message, so the send interval can adapt while riding (moving vs parked, group size) without rewriting the radio's config.</div>
+<div class="q"><b>Questions.</b> When your bridge relays a TAK packet over LoRa, does the Meshtastic <code>from</code> show the Nucleus's radio or the original sender? Does the bridge carry ordinary Meshtastic position packets (port 3) as well as TAK? Which TAKPacket-SDK version do you run, and do V2 packets on port 78 pass through firmware 2.6.11? In <code>pli.speed</code>, what is the unit (m/s?)? <code>pli.altitude</code> is HAE — do you convert to sea level anywhere?
+<br><b>On the Wi-Fi side:</b> what exactly does your box put on 239.2.3.1:6969 -- CoT XML events, TAK protobuf, or both? Which fields does it fill (uid, callsign, point, track, group), and is the uid stable per device? We will receive it on the tablet and treat it exactly like the LoRa TAK report.</div>
+
+<h2>5 · Airtime, preset, range and group size</h2>
+<p>Airtime is set by the <b>modem preset</b> and the <b>packet size</b>, not by the device: any radio at the same preset takes the same time. Calculated with the standard LoRa (Semtech) formula, coding rate 4/5 to 4/8:</p>
+<table>
+<tr><th>Preset</th><th>30-byte packet</th><th>50-byte packet</th><th>80-byte packet</th></tr>
+<tr><td>LONG_FAST (SF11, 250 kHz)</td><td>0.48–0.63 s</td><td>0.64–0.89 s</td><td>0.85–1.2 s</td></tr>
+<tr><td>MEDIUM_FAST (SF9, 250 kHz)</td><td>0.13–0.17 s</td><td>0.18–0.25 s</td><td>0.24–0.35 s</td></tr>
+<tr><td>SHORT_FAST (SF7, 250 kHz)</td><td>0.04–0.06 s</td><td>0.05–0.08 s</td><td>0.08–0.11 s</td></tr>
+</table>
+<p>A position is roughly 30–50 bytes on air; a TAK V1 packet roughly 50–80 (callsign strings); V2 compression narrows the gap. The figures we had seen (≈0.25 s GPS, ≈0.09 s TAK) match MEDIUM_FAST and SHORT_FAST respectively — so most of that difference is the <b>preset</b>, not the message type.</p>
+<p><b>Channel load = riders × airtime per report ÷ interval.</b> At a 3-second interval, keeping the channel under a practical ~35%:</p>
+<table>
+<tr><th>Preset</th><th>Airtime per report (typical)</th><th>Riders at 3 s within ~35%</th></tr>
+<tr><td>LONG_FAST</td><td>≈0.64 s</td><td>about 1–2 (2 radios ≈43%, 4 ≈85% — saturated)</td></tr>
+<tr><td>MEDIUM_FAST</td><td>≈0.18 s</td><td>about 5–6</td></tr>
+<tr><td>SHORT_FAST</td><td>≈0.05–0.08 s</td><td>about 13+</td></tr>
+</table>
+<p><b>Range trade</b> (published comparison for the T1000-E, to be verified in the field):</p>
+<table>
+<tr><th></th><th>LONG_FAST</th><th>SHORT_FAST</th></tr>
+<tr><td>Typical direct range (T1000-E)</td><td>2–4 miles</td><td>0.5–1 mile</td></tr>
+<tr><td>Ideal line of sight</td><td>7+ miles</td><td>≈2 miles</td></tr>
+<tr><td>Sensitivity</td><td>−133 dBm</td><td>−121 dBm (12 dB less)</td></tr>
+<tr><td>Throughput</td><td>≈1.07 kbps</td><td>≈10.9 kbps</td></tr>
+</table>
+<div class="note"><b>Constraint:</b> every radio on a ride channel must use the same preset — it is part of the channel, like the name and key. On one ride, standalone T1000-E riders and TAK riders share one preset, so a fast preset shortens the T1000-E's already antenna-limited range.
+<br><b>Working plan (field test in Utah, January):</b> small group with T1000-Es → LONG_FAST, 5 s, smart position; mid-size → MEDIUM_FAST; larger group with a Nucleus → SHORT_FAST. The preset is a per-ride value.</div>
+<div class="q"><b>Questions.</b> For your 0.09 s and 0.25 s figures: which preset, how many bytes, V1 or V2, measured or calculated? Which preset do you run, and what range do you see on it in the field, in what terrain? What antennas do your radios use? What group size do you plan for at a 3-second interval?</div>
+
+<h2>6 · A radio-only unit with an external antenna, to replace the T1000-E</h2>
+<p>The T1000-E is the only standalone radio GroupTrack supports, and we intend to sunset it: its credit-card antenna limits range on every preset, and most of all on the faster presets that larger groups need. <b>Would Natak package a radio-only unit with an external antenna as its replacement?</b></p>
+<p>What it would need to do for GroupTrack riders:</p>
+<ul>
+<li><b>Meshtastic firmware</b> at a version we can pin, and configurable by GroupTrack's apply over Bluetooth or USB (same fields as section 3).</li>
+<li><b>GPS on board</b>, so it can report position as a standalone radio, and pair with the GroupTrack app to send TAK-format messages when a phone is attached.</li>
+<li><b>An external antenna connector</b> — vehicle-mounted antenna for UTVs, a whip for riders.</li>
+<li><b>Power:</b> 12 V vehicle power with a battery for off-vehicle use.</li>
+<li><b>Built for OHV use:</b> dust, vibration and water resistance; a mount.</li>
+<li><b>Ships on the GroupTrack default</b> (channel <code>GroupTrack</code>), ready for any GroupTrack user to set up.</li>
+</ul>
+<div class="q"><b>Questions.</b> Is this something you build or would build? Which radio module and antenna options? Expected range on LONG_FAST and SHORT_FAST with the external antenna? Rough unit cost, lead time and volumes? Could it run the same boot profiles as a Nucleus?</div>
+
+<h2>7 · Proven on devices, 2026-09-24</h2>
+<ul>
+<li><b>A ride created on a tablet drives real radios.</b> A ride was created from a route on the planning map, stored as its JSON file, and applied from that file to two T1000-E radios. Both radios landed on the ride's own network (id <code>GroupC9K7XE</code>, the ride's generated 256-bit key, LoRa values from the file) and exchanged positions and text.</li>
+<li><b>The GroupTrack default</b> is set from a real radio: channel <code>GroupTrack</code>, frequency derived from the name, and two radios on it see each other. Our apply of the default is the base; a ride's apply is the overlay.</li>
+<li><b>The ride file travels by email.</b> Sent from one tablet as an attachment (proven). On the receiving tablet it is stored unchanged and its route (with trailhead, recipe and narrative) comes in through our normal import, and the maps for the route's corridor download (proven, including from a cold start).</li>
+<li><b>The rider's own radio, from the emailed file.</b> The receiving tablet applied the imported ride to its own radio; both radios landed on the ride's network and exchanged positions and text.</li>
+<li><b>TAK and GPS together.</b> A TAK_TRACKER radio and a TRACKER radio on one channel: both seen moving on both tablets, the lead track drawn from TAK data, tracks saved (see section 4).</li>
+<li><b>Ride lifecycle, settled:</b> a ride is <i>planned</i> (a name), <i>in progress</i>, <i>completed</i> (route, trailhead, future date, description) and then <i>sent</i>. Once sent, only its date, time and description change; its network never does. Resending to late riders is always allowed.</li>
+<li><b>Not yet:</b> the app sending its own TAK messages (next), receiving CoT on the Nucleus Wi-Fi, and the minimal apply for app-attached radios and the Nucleus -- which is why section 3 asks for your apply code.</li>
+</ul>
+<div class="note">What this means for the Nucleus: every value your apply needs is already in the ride file's <code>network</code> block, generated once per ride and carried unchanged to every device. Nothing on your side has to generate or derive anything.</div>
+
+</body></html>

@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GroupTrack → Natak: requests and issues (running list, 2026-09-24 v2)</title>
+<style>
+body{font:15px/1.6 -apple-system,"Segoe UI",Roboto,sans-serif;max-width:1150px;margin:0 auto;padding:26px;background:#0f1216;color:#e6edf3}
+h1{font-size:23px;color:#58a6ff;border-bottom:2px solid #2a3038;padding-bottom:8px}
+h2{font-size:18px;color:#58a6ff;margin-top:30px;border-bottom:1px solid #2a3038;padding-bottom:5px}
+code{background:#1a2027;padding:1px 5px;border-radius:3px;font-size:12.5px;color:#8FD0FF}
+.card{background:#161b22;border:1px solid #2a3038;border-radius:8px;padding:13px 17px;margin:11px 0}
+.done{border-left:4px solid #3fb950}.next{border-left:4px solid #58a6ff}.warn{border-left:4px solid #d29922}
+table{border-collapse:collapse;width:100%;margin:10px 0;font-size:13px}
+th,td{border:1px solid #2a3038;padding:6px 8px;text-align:left;vertical-align:top}
+th{background:#1a2027;color:#8FD0FF}
+</style></head><body>
+<h1>GroupTrack → Natak: requests and issues</h1>
+<p>Running list · 2026-09-24 v2 (<b>v2 adds</b>: R1 refined against aliasing, R9 and R12 — config-API keys, the two-key model — and the follow-up list for Nathan) · built while reviewing Natak's public code (<code>Nucleus_OS/opt/nucleus/meshtastic/cot_bridge.py</code>,
+<code>V3_OS</code> API v0.8.0) and from Fred's call with Nathan. Each new version adds to it; items are closed, never dropped.</p>
+
+<h2>Agreed on the call (2026-09-24)</h2>
+<div class="card done">
+<table>
+<tr><th>#</th><th>Item</th><th>Status</th></tr>
+<tr><td>A1</td><td>The bridge's 30-second minimum between LoRa relays of the same rider (<code>TX_MIN_INTERVAL = 30</code>) was an arbitrary value. A <b>3–5 second</b> interval is not an issue.</td><td>Agreed</td></tr>
+<tr><td>A2</td><td>Making that interval a <b>setting GroupTrack can control</b> (not a constant) is acceptable.</td><td>Agreed in principle</td></tr>
+</table>
+</div>
+
+<h2>Requests</h2>
+<div class="card next">
+<table>
+<tr><th>#</th><th>Request</th><th>Why</th></tr>
+<tr><td>R1</td><td><b>The relay interval as a setting</b>, readable and writable through the API (config.yaml), <b>set BELOW the sender's rate</b> — e.g. 2 s for GroupTrack's 3 s — so every GroupTrack report passes and only faster senders are limited.</td><td>A1/A2. A cap EQUAL to the sender's rate aliases: jitter drops about half the reports and doubles the apparent age (3 s becomes ~6 s, ~9 s with the receiver's tick).</td></tr>
+<tr><td>R2</td><td><b>Movement-aware relaying</b> (optional, later): relay when a rider has moved more than N m, never faster than the interval, slowly when parked.</td><td>Keeps the LoRa channel quiet at stops; the ATAK "dynamic reporting" idea.</td></tr>
+<tr><td>R3</td><td><b>Bridge GroupTrack's LoRa traffic onto the Wi-Fi</b>: port 72 (TAK PLI from T1000s in TAK_TRACKER / from the GroupTrack app) and port 3 (plain position) → CoT on the SA multicast.</td><td>Today the bridge carries port 257 only; GroupTrack riders on LoRa would be invisible to riders on the box's Wi-Fi.</td></tr>
+<tr><td>R4</td><td><b>Publish the TAK SDK / compressor version</b> the bridge uses (e.g. in <code>/api/v1/version</code>).</td><td>GroupTrack must decompress port-257 TAKPacketV2 exactly as the bridge compresses it; a version mismatch must be detectable.</td></tr>
+<tr><td>R5</td><td><b>Add a ride's channel as a SECONDARY channel</b> on the box radio (keep the owner's primary).</td><td>GroupTrack as a guest: a ride never displaces the box's normal use.</td></tr>
+<tr><td>R6</td><td>Confirm whether a second tablet can use the box radio (TCP 4403) while the bridge holds it.</td><td>The bridge "owns the radio exclusively".</td></tr>
+<tr><td>R7</td><td>Per-ride control of voice on LoRa (ports 256 / 260).</td><td>Voice shares the ride's airtime; a ride may want it off.</td></tr>
+<tr><td>R8</td><td>Two APs at once (owner's + ride's), if the AP radio allows.</td><td>Guest model, optional.</td></tr>
+<tr><td>R9</td><td><b>Config API authorization:</b> a key required on every WRITE endpoint (config, apply, radio apply, channel URL, join-peer); READ endpoints stay open; an initial key per box set at provisioning (label / QR); a reset path back to it.</td><td>Today anyone on a box's Wi-Fi can rewrite its config (their issue #2). GroupTrack will hold the key on the organizer's tablet only (encrypted) — NEVER in a ride file.</td></tr>
+<tr><td>R10</td><td>The radio-only unit (Pi Zero 2, 30 dBm, GPS, AP/USB config): spec, antennas, 12 V + battery, OHV housing, cost, lead time.</td><td>T1000-E replacement.</td></tr>
+<tr><td>R11</td><td>A joint saturation test: presets × group size × 3–5 s, measured.</td><td>Sets the real interval per preset.</td></tr>
+<tr><td>R12</td><td><b>Key management — two keys.</b> (a) An <b>owner key</b>, rotatable by its holder through an authenticated <i>set-key</i> endpoint; the old key stays valid until the new one has been used once (no lockout). GroupTrack receives the initial key once, then generates and reassigns keys as part of reconfiguring a box. (b) A separate <b>Natak support key</b> for remote support, not changeable by the owner's tools. The owner can switch support access on and off; each write is logged with the key that made it.</td><td>Fred 09-24. Rotation/reassignment lets a box pass between organizers safely; the support key keeps Natak able to help without a permanent back door.</td></tr>
+</table>
+</div>
+
+<h2>Decisions on our side (for context)</h2>
+<div class="card">
+<p><b>The ride JSON stays constant</b> (Fred 09-24) — including its <code>nucleus</code> block — until the config-API security layer exists. The planned removal of <code>nucleus.ssid</code>/<code>password</code> is ON HOLD.</p>
+</div>
+
+<h2>Follow-up with Nathan (to review together — not sent yet)</h2>
+<div class="card next">
+<ol>
+<li><b>R1</b> — the relay interval setting, below the sender's rate (the aliasing point).</li>
+<li><b>R9 + R12</b> — config-API keys: write-endpoint authorization, the initial key, owner-key rotation and reassignment by GroupTrack, the separate support key.</li>
+<li><b>R3</b> — bridging GroupTrack's LoRa traffic (ports 72 and 3) onto the Wi-Fi.</li>
+<li><b>R4</b> — the compressor / SDK version for port-257 TAKPacketV2.</li>
+<li><b>R5</b> — a ride's channel as a secondary channel.</li>
+<li>The rest (R6–R8, R10, R11) once the bench tests on his two boards have run.</li>
+</ol>
+</div>
+
+<h2>Issues found in review (to confirm)</h2>
+<div class="card warn">
+<table>
+<tr><th>#</th><th>Issue</th><th>Next</th></tr>
+<tr><td>I1</td><td>The bridge rate-limits per CoT uid; confirm it applies only Wi-Fi → LoRa, and that LoRa → Wi-Fi is unthrottled.</td><td>Read <code>_tx_last_sent</code> use</td></tr>
+<tr><td>I2</td><td>Only multicast from the box's own subnet (<code>br-lan</code>) is bridged — a GroupTrack tablet on the AP qualifies; confirm across the box-to-box mesh.</td><td>Read + bench</td></tr>
+<tr><td>I3</td><td>One LoRa packet per message (<code>LORA_MTU = 237</code>) — no reassembly needed on our side; confirm large CoT is dropped, not split.</td><td>Read</td></tr>
+<tr><td>I4</td><td>Which compressor/library (TAKPacket SDK, zstd dictionary?) and message version (TAKPacketV2).</td><td>Read the imports</td></tr>
+</table>
+</div>
+
+</body></html>
