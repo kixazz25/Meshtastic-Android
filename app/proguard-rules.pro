@@ -52,3 +52,7 @@
 # ZSTDKEEP-2026-09-25: zstd-jni's native code finds Java fields by NAME (nativePtr, consumed, produced,
 # srcPos, dstPos) and its AAR ships no keep rules -- without this, R8 renames them and TAK V2 decode crashes.
 -keep class com.github.luben.zstd.** { *; }
+
+# CONFIGCOMPARE-2026-09-25: the config compare engine names differences by the protobuf classes' own field names
+# (found via Wire's @WireField) -- keep those names through R8, or the difference list reads "a.b: 3 -> 15".
+-keepclassmembers class org.meshtastic.proto.** { @com.squareup.wire.WireField <fields>; }
