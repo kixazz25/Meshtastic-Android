@@ -84,18 +84,9 @@ fun ConvoyArchiveRestoreScreen(
         logLines = logLines + msg
     }
 
-    fun formatFileName(file: File): String {
-        // !1d5bdc79_20260319_125157_pre_master.cfg → 2026-03-19 12:51:57
-        val parts = file.nameWithoutExtension.split("_")
-        return try {
-            val date = parts[1] // 20260319
-            val time = parts[2] // 125157
-            "${date.substring(0,4)}-${date.substring(4,6)}-${date.substring(6,8)} " +
-            "${time.substring(0,2)}:${time.substring(2,4)}:${time.substring(4,6)}"
-        } catch (e: Exception) {
-            file.name
-        }
-    }
+    // ARCHIVENAME-2026-09-25 (Fred): show WHAT was applied, not only when -- the SAME formatter as the new radio
+    // configurator: "2026-09-25 14:20 -- fred ride test"; old "..._pre_master" backups show "pre master".
+    fun formatFileName(file: File): String = RadioBackups.describe(file)
 
     fun formatFileSize(file: File): String {
         val bytes = file.length()

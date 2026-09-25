@@ -58,6 +58,29 @@ fun WorkWithRidesMenu(
     val context = LocalContext.current
     var status by remember { mutableStateOf("") }
     var picking by remember { mutableStateOf(false) }
+    // RIDEIMPORT3-2026-09-25: Import a ride -- Android's file picker, opening in Downloads. The picked file is
+    // checked inside (a GroupTrack ride) and imported through the SAME path as an emailed ride (RideImport).
+    val importPicker = androidx.activity.compose.rememberLauncherForActivityResult(
+        object : androidx.activity.result.contract.ActivityResultContracts.OpenDocument() {
+            override fun createIntent(context: android.content.Context, input: Array<String>): android.content.Intent =
+                super.createIntent(context, input).putExtra(
+                    android.provider.DocumentsContract.EXTRA_INITIAL_URI,
+                    android.provider.DocumentsContract.buildDocumentUri("com.android.externalstorage.documents", "primary:Download"),
+                )
+        }
+    ) { uri ->
+        if (uri != null) {
+            val msg = try {
+                val text = context.contentResolver.openInputStream(uri)?.use { it.readBytes().decodeToString() }
+                    ?: throw IllegalStateException("could not read the file")
+                RideImport.importRide(context, text, bringForward = false)
+            } catch (e: Exception) {
+                "Could not read the file: ${e.message}"
+            }
+            android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_LONG).show()
+            onDismiss()
+        }
+    }
     var includeRecent by remember { mutableStateOf(false) }   // DATEFILTER-2026-09-24
 
     Dialog(onDismissRequest = onDismiss) {
@@ -73,7 +96,7 @@ fun WorkWithRidesMenu(
                 if (!picking) {
                     WwrEntry("Edit ride", built = false) { status = notBuilt("Edit ride") }
                     WwrEntry("Send a ride via email", built = true) { status = ""; picking = true }
-                    WwrEntry("Import a ride", built = false) { status = notBuilt("Import a ride") }
+                    WwrEntry("Import a ride", built = true) { importPicker.launch(arrayOf("*/*")) } // RIDEIMPORT3-2026-09-25
                     WwrEntry("Apply ride to radio / Nucleus", built = true) { onDismiss(); onApplyToRadio() } // RADIOCFG4-2026-09-25
                     WwrEntry("Apply ride to standalone T1000-E", built = true) { onDismiss(); onApplyToT1000() }
                     WwrEntry("Review / apply saved configs", built = true) { onDismiss(); onReviewSavedConfigs() }

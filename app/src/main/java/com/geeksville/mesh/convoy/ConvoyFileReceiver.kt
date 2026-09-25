@@ -57,47 +57,8 @@ class ConvoyFileReceiver : Activity() {
             // and narrative come in, the maps download, and the panel deletes the staged file as always.
             // Checked FIRST, before the old-format test below.
             if (content.contains("\"grouptrack.ride\"")) {
-                val rideJson = try { JSONObject(content) } catch (e: Exception) { null }
-                val rideObj = rideJson?.optJSONObject("ride")
-                val rideId = rideObj?.optString("rideId", "")?.takeIf { it.isNotBlank() && it != "null" }
-                val rideName = rideObj?.optString("name", "")?.takeIf { it.isNotBlank() && it != "null" } ?: "Ride"
-                val message = if (rideJson == null || rideJson.optString("kind") != "grouptrack.ride" || rideId == null) {
-                    Log.w(TAG, "RIDEIMPORT2-2026-09-24: not a readable GroupTrack ride file")
-                    "Not a readable GroupTrack ride file."
-                } else try {
-                    val dir = GroupTrackStorage.dir("rides", this)
-                    dir.mkdirs()   // RIDEMKDIR-2026-09-24: a tablet that never saved a ride has no rides folder yet
-                    val out = java.io.File(dir, rideId.replace(Regex("[^A-Za-z0-9_-]"), "_") + ".json")
-                    val tmp = java.io.File(dir, out.name + ".tmp")
-                    tmp.writeText(content)
-                    if (out.exists()) out.delete()
-                    if (!tmp.renameTo(out)) throw IllegalStateException("rename failed")
-                    Log.i(TAG, "RIDEIMPORT2-2026-09-24: stored ${out.name} (${out.length()} bytes)")
-                    val gpx = rideJson.optJSONObject("rideData")?.optString("gpx", "")
-                        ?.takeIf { it.isNotBlank() && it != "null" }
-                    if (gpx == null) {
-                        "Ride \"$rideName\" imported (it has no route yet)."
-                    } else {
-                        // The panel's own policy: staging holds only the current selection.
-                        val stage = java.io.File(filesDir, "gpx_staging")
-                        if (stage.exists()) stage.listFiles()?.forEach { it.delete() }
-                        stage.mkdirs()
-                        val g = java.io.File(stage, rideName.replace(Regex("[^A-Za-z0-9 _-]"), "_").trim().ifBlank { "ride" } + ".gpx")
-                        g.writeText(gpx)
-                        MapSourceManager.init(applicationContext)   // MAPINIT-2026-09-24: real sources, even from cold
-                        RideImportLauncher.offer(g)
-                        packageManager.getLaunchIntentForPackage(packageName)?.let { launch ->
-                            launch.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or
-                                android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                                android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP)
-                            startActivity(launch)
-                        }
-                        "Ride \"$rideName\" imported \u2014 choose maps and tap IMPORT to add its route."
-                    }
-                } catch (e: Exception) {
-                    Log.e(TAG, "RIDEIMPORT2-2026-09-24: store failed: ${e.message}")
-                    "Could not store the ride: ${e.message}"
-                }
+                // RIDEIMPORT3-2026-09-25: the shared ride import (also used by Work with Rides -> Import a ride).
+                val message = RideImport.importRide(this, content, bringForward = true)
                 android.widget.Toast.makeText(this, message, android.widget.Toast.LENGTH_LONG).show()
                 finish()
                 return
@@ -155,5 +116,64 @@ class ConvoyFileReceiver : Activity() {
 
     companion object {
         private const val TAG = "ConvoyFileReceiver"
+    }
+}
+
+
+/**
+ * RIDEIMPORT3-2026-09-25 (Fred): THE ride import -- one path for an emailed ride (ConvoyFileReceiver) and for
+ * Work with Rides -> Import a ride (a file picked from Downloads). Moved here UNCHANGED from the receiver's
+ * RIDEIMPORT2 block: store the ride file as rides/<rideId>.json (tmp + rename), stage its GPX in gpx_staging,
+ * load the real map sources, and offer it to the import panel. [bringForward] = true only from outside the app
+ * (the email path), which must bring GroupTrack to the front; from the menu the app is already open.
+ * Returns the message to show the rider.
+ */
+object RideImport {
+    private const val TAG = "RideImport"
+
+    fun importRide(context: android.content.Context, content: String, bringForward: Boolean): String {
+        val rideJson = try { JSONObject(content) } catch (e: Exception) { null }
+        val rideObj = rideJson?.optJSONObject("ride")
+        val rideId = rideObj?.optString("rideId", "")?.takeIf { it.isNotBlank() && it != "null" }
+        val rideName = rideObj?.optString("name", "")?.takeIf { it.isNotBlank() && it != "null" } ?: "Ride"
+        return if (rideJson == null || rideJson.optString("kind") != "grouptrack.ride" || rideId == null) {
+            Log.w(TAG, "RIDEIMPORT3-2026-09-25: not a readable GroupTrack ride file")
+            "That isn't a GroupTrack ride file."
+        } else try {
+            val dir = GroupTrackStorage.dir("rides", context)
+            dir.mkdirs()   // RIDEMKDIR-2026-09-24: a tablet that never saved a ride has no rides folder yet
+            val out = java.io.File(dir, rideId.replace(Regex("[^A-Za-z0-9_-]"), "_") + ".json")
+            val tmp = java.io.File(dir, out.name + ".tmp")
+            tmp.writeText(content)
+            if (out.exists()) out.delete()
+            if (!tmp.renameTo(out)) throw IllegalStateException("rename failed")
+            Log.i(TAG, "RIDEIMPORT3-2026-09-25: stored ${out.name} (${out.length()} bytes)")
+            val gpx = rideJson.optJSONObject("rideData")?.optString("gpx", "")
+                ?.takeIf { it.isNotBlank() && it != "null" }
+            if (gpx == null) {
+                "Ride \"$rideName\" imported (it has no route yet)."
+            } else {
+                // The panel's own policy: staging holds only the current selection.
+                val stage = java.io.File(context.filesDir, "gpx_staging")
+                if (stage.exists()) stage.listFiles()?.forEach { it.delete() }
+                stage.mkdirs()
+                val g = java.io.File(stage, rideName.replace(Regex("[^A-Za-z0-9 _-]"), "_").trim().ifBlank { "ride" } + ".gpx")
+                g.writeText(gpx)
+                MapSourceManager.init(context.applicationContext)   // MAPINIT-2026-09-24: real sources, even from cold
+                RideImportLauncher.offer(g)
+                if (bringForward) {
+                    context.packageManager.getLaunchIntentForPackage(context.packageName)?.let { launch ->
+                        launch.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or
+                            android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                            android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                        context.startActivity(launch)
+                    }
+                }
+                "Ride \"$rideName\" imported \u2014 choose maps and tap IMPORT to add its route."
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "RIDEIMPORT3-2026-09-25: store failed: ${e.message}")
+            "Could not store the ride: ${e.message}"
+        }
     }
 }
