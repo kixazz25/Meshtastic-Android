@@ -50,6 +50,7 @@ class ConvoyViewModel @Inject constructor(
     private val importProfileUseCase: ImportProfileUseCase,
     private val exportProfileUseCase: ExportProfileUseCase,
     private val installProfileUseCase: InstallProfileUseCase,
+    private val radioController: org.meshtastic.core.model.RadioController, // RADIOCFG4-2026-09-25
 ) : ViewModel() {
 
     private val _convoyState = MutableStateFlow(ConvoyEngine.ConvoyState.empty())
@@ -309,6 +310,40 @@ class ConvoyViewModel @Inject constructor(
     fun importProfileFromFile(file: java.io.File): Result<DeviceProfile> = runCatching {
         file.inputStream().use { inputStream ->
             importProfileUseCase(inputStream).getOrElse { throw it }
+        }
+    }
+
+    // RADIOCFG4-2026-09-25: the radio configurator's links to the radio (RadioConfigWriter.RadioOps).
+    fun radioNodeNum(): Int? = nodeRepository.myNodeInfo.value?.myNodeNum
+
+    /** All values, as the app holds them after the latest (re)connect -- the same record exportProfileToFile saves. */
+    suspend fun currentProfile(): DeviceProfile = radioConfigRepository.deviceProfileFlow.first()
+
+    /**
+     * The Bluetooth adapter: the app's existing radio calls, AWAITED IN ORDER (not the fire-and-forget view-model
+     * wrappers), and the old reconnect wait's forced cycle (setDeviceAddress "n" / saved address).
+     * CODE RULE 1: null = no radio connected (no node number or no saved address) -- the screen says so.
+     */
+    fun radioOps(ui: com.geeksville.mesh.model.UIViewModel): RadioOps? {
+        val destNum = radioNodeNum() ?: return null
+        val saved = ui.getDeviceAddress()?.takeIf { it.isNotBlank() && it != "n" } ?: return null
+        return object : RadioOps {
+            override val connection = ui.connectionState
+            override suspend fun setOwner(longName: String) {
+                val user = requireNotNull(nodeRepository.ourNodeInfo.value?.user) { "no user record for this radio" }
+                radioController.setOwner(destNum, user.copy(long_name = longName), radioController.getPacketId())
+            }
+            override suspend fun beginEdit() { radioController.beginEditSettings(destNum) }
+            override suspend fun commitEdit() { radioController.commitEditSettings(destNum) }
+            override suspend fun writeConfig(config: org.meshtastic.proto.Config) {
+                radioController.setConfig(destNum, config, radioController.getPacketId())
+            }
+            override suspend fun writeChannel(channel: org.meshtastic.proto.Channel) {
+                radioController.setRemoteChannel(destNum, channel, radioController.getPacketId())
+            }
+            override suspend fun disconnect() { ui.setDeviceAddress("n") }
+            override suspend fun reconnect() { ui.setDeviceAddress(saved) }
+            override suspend fun retrieve(): DeviceProfile = currentProfile()
         }
     }
 

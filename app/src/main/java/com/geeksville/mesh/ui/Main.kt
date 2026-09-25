@@ -576,9 +576,15 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
             com.geeksville.mesh.convoy.WorkWithRidesMenu(
                 onDismiss            = { com.geeksville.mesh.convoy.WorkWithRidesLauncher.close() },
                 onApplyToT1000       = { navController.navigate(ConvoyRoutes.ConvoyApplyRadio) },
+                onApplyToRadio       = { com.geeksville.mesh.convoy.RadioConfigLauncher.open() }, // RADIOCFG4-2026-09-25
                 onReviewSavedConfigs = { navController.navigate(ConvoyRoutes.ConvoyArchiveRestore) },
                 onDeveloperSettings  = { navController.navigate(ConvoyRoutes.ConvoySettingsPanel) }
             )
+        }
+
+        // RADIOCFG4-2026-09-25: the new radio configurator (Work with Rides -> Apply ride to radio / Nucleus).
+        if (com.geeksville.mesh.convoy.RadioConfigLauncher.showing) {
+            com.geeksville.mesh.convoy.RadioConfigScreen(onClose = { com.geeksville.mesh.convoy.RadioConfigLauncher.close() })
         }
 
         if (showConvoyMenu) {

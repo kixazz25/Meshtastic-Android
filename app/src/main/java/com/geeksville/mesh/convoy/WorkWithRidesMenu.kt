@@ -51,6 +51,7 @@ import androidx.compose.ui.window.Dialog
 fun WorkWithRidesMenu(
     onDismiss: () -> Unit,
     onApplyToT1000: () -> Unit,
+    onApplyToRadio: () -> Unit, // RADIOCFG4-2026-09-25: the new radio configurator
     onReviewSavedConfigs: () -> Unit,
     onDeveloperSettings: () -> Unit
 ) {
@@ -73,7 +74,7 @@ fun WorkWithRidesMenu(
                     WwrEntry("Edit ride", built = false) { status = notBuilt("Edit ride") }
                     WwrEntry("Send a ride via email", built = true) { status = ""; picking = true }
                     WwrEntry("Import a ride", built = false) { status = notBuilt("Import a ride") }
-                    WwrEntry("Apply ride to radio / Nucleus", built = false) { status = notBuilt("Apply ride to radio / Nucleus") }
+                    WwrEntry("Apply ride to radio / Nucleus", built = true) { onDismiss(); onApplyToRadio() } // RADIOCFG4-2026-09-25
                     WwrEntry("Apply ride to standalone T1000-E", built = true) { onDismiss(); onApplyToT1000() }
                     WwrEntry("Review / apply saved configs", built = true) { onDismiss(); onReviewSavedConfigs() }
                 } else {
