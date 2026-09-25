@@ -38,9 +38,20 @@ object ConvoyRideSend {
             val intent = Intent(Intent.ACTION_SEND).apply {
                 type = MIME
                 putExtra(Intent.EXTRA_SUBJECT, "GroupTrack ride: $name \u2014 $date")
-                putExtra(Intent.EXTRA_TEXT,
-                    "You are invited to a GroupTrack ride.\n\nRide: $name\nDate: $date\n\n" +
-                        "Open the attached file with GroupTrack to add this ride.")
+                putExtra(Intent.EXTRA_TEXT, run {
+                    // RIDEMAIL-2026-09-25 (Fred): the email COACHES the rider -- tap the attachment, choose GroupTrack, "Always"
+                    // (after which every ride file opens in GroupTrack directly). Name and date as in the subject.
+                    val rideName = "$name"
+                    val rideDate = "$date"
+                    val day = runCatching {
+                        java.time.LocalDate.parse(rideDate).format(java.time.format.DateTimeFormatter.ofPattern("EEEE d MMMM", java.util.Locale.US))
+                    }.getOrDefault(rideDate)
+                    "You're invited: $rideName ($day)\n\n" +
+                        "If you're a GroupTrack user, tap the attachment below, choose GroupTrack, then tap \"Always\". " +
+                        "This imports the route, and downloads the maps for offline use during this ride.\n\n" +
+                        "Using a GroupTrack radio? Once the ride is added, open Work with Rides \u2192 Apply ride to radio.\n\n" +
+                        "Enjoy the ride!"
+                })
                 putExtra(Intent.EXTRA_STREAM, uri)
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
