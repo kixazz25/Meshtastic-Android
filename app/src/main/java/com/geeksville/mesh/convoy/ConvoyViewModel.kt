@@ -986,7 +986,15 @@ if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
                 status = ConvoyStatus.ACTIVE
             ))
         }
+        // STALEREAD-2026-09-25 (Fred): drop stale nodes AT THE READ -- never build a cart only to eliminate it later.
+        // A node not heard for 3 hours is not on the ride (phantoms from earlier / other channels); my own radio is
+        // always kept.
+        val myNum = nodeRepository.myNodeInfo.value?.myNodeNum
         val allNodes = nodeMap.values.mapNotNull { node ->
+            // SLIDERREAD-2026-09-25 (Fred): the hours come from the Settings slider (admissionWindowHours).
+            if (node.num != myNum && nowMs - node.lastHeard.toLong() * 1000L > admissionWindowHours * 3_600_000L) {
+                return@mapNotNull null
+            }
             val user = node.user
             val pos = node.position
             val callsign = user.long_name.ifBlank { user.short_name }.ifBlank { "!${node.num}" }
@@ -1074,13 +1082,11 @@ if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
                 } catch (e: Exception) { null }
             }.average().toFloat().takeIf { !it.isNaN() } ?: 0f
         _avgChannelUtil.value = avgUtil
-        val filterInput = allNodes.map { it.nodeId to (it.lastSeenMs / 1000L) }
-        val allowedIds = ConvoyNodeFilter.filter(
-            nodes = filterInput,
-            removedCartIds = emptySet(),
-            admissionWindowHours = admissionWindowHours
-        ).toSet()
-        return allNodes.filter { it.nodeId in allowedIds }
+        // ONEFILTER-2026-09-25 (Fred): staleness is decided ONCE, at the read (STALEREAD: not heard for 3 hours = no
+        // cart). ConvoyNodeFilter's time rules -- "heard today" (after local midnight) and the admission window --
+        // disagreed with it (a rider heard at 23:50 vanished at midnight; "once admitted, visible all day" kept
+        // phantoms) and are no longer applied. Its manual-removal rule was never wired (removedCartIds = emptySet()).
+        return allNodes
     }
 
     sealed class DownloadState {
