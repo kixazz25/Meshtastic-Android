@@ -8,9 +8,10 @@ import org.meshtastic.proto.ChannelSet
 import org.meshtastic.proto.ChannelSettings
 import org.meshtastic.proto.Config
 import org.meshtastic.proto.DeviceProfile
+import org.meshtastic.proto.ModuleSettings
 
 /*
- * RADIOCFG-2026-09-25 (GroupTrack 2.7) -- the new radio configurator, part 1: the OVERLAY BUILDER.
+ * RADIOCFG-2026-09-25 (GroupTrack 2.7) [GPSSET-2026-09-25: precision + fixed position managed] -- the new radio configurator, part 1: the OVERLAY BUILDER.
  *
  * Model: Natak's radio apply (V3_OS meshtastic_api.py), plus the reporting group proven necessary on 09-25.
  *   retrieve ALL values (a DeviceProfile) -> replace ONLY the managed fields -> write in Nathan's groups ->
@@ -20,7 +21,8 @@ import org.meshtastic.proto.DeviceProfile
  *   channel name, key; psk_random is implicitly off because the key is explicit; the short name is never written)
  *   + the REPORTING group a radio needs to report on its own (09-25: a radio with all eleven correct went silent
  *   for a night on a once-a-day broadcast interval): broadcast interval, smart position + its interval and
- *   distance, GPS mode, GPS update interval, and transmit enabled.
+ *   distance, GPS mode, GPS update interval, transmit enabled, fixed position OFF, and the channel's POSITION
+ *   PRECISION (precision 0 = "do not share my location on this channel" -- as silent as a once-a-day interval).
  * Everything else on the radio is left exactly as retrieved; differences are REPORTED, never written.
  *
  * This file is pure logic: no radio, no Android. It never builds a partial section: every section it returns is
@@ -38,6 +40,9 @@ data class ReportingValues(
     val gpsMode: Config.PositionConfig.GpsMode,
     val gpsUpdateSecs: Int,
     val txEnabled: Boolean,
+    val fixedPosition: Boolean,
+    /** On the CHANNEL (module settings), written with the channel in group 2. 32 = full precision; 0 = not shared. */
+    val positionPrecision: Int,
 )
 
 /** Every value the configurator manages. All required: a target without one of them is not a usable target. */
@@ -106,6 +111,8 @@ object RadioConfigurator {
                 gpsMode = Config.PositionConfig.GpsMode.valueOf(st.getString("gpsMode")),
                 gpsUpdateSecs = st.getInt("gpsUpdateSecs"),
                 txEnabled = st.getBoolean("txEnabled"),
+                fixedPosition = st.getBoolean("fixedPosition"),
+                positionPrecision = st.getInt("positionPrecision"),
             ),
         )
     }
@@ -117,7 +124,6 @@ object RadioConfigurator {
         val pos = requireNotNull(p.config?.position) { "backup has no position section" }
         val primary = primaryChannel(p)
         return ManagedValues(
-            // RADIOCFGFIX-2026-09-25: long_name is nullable in the generated class -- refuse, never default.
             ownerLongName = requireNotNull(p.long_name?.takeIf { it.isNotBlank() }) { "backup has no owner name" },
             region = lora.region, preset = lora.modem_preset, frequencySlot = lora.channel_num,
             hopLimit = lora.hop_limit, txPower = lora.tx_power, role = device.role,
@@ -126,6 +132,7 @@ object RadioConfigurator {
                 pos.position_broadcast_secs, pos.position_broadcast_smart_enabled,
                 pos.broadcast_smart_minimum_interval_secs, pos.broadcast_smart_minimum_distance,
                 pos.gps_mode, pos.gps_update_interval, lora.tx_enabled,
+                pos.fixed_position, primary.module_settings?.position_precision ?: 0,
             ),
         )
     }
@@ -156,22 +163,28 @@ object RadioConfigurator {
         val newDevice = device.copy(role = t.role)
         note("role", device.role, t.role)
 
-        val newPrimary = primary.copy(name = t.channelName, psk = t.key)
+        val r = t.reporting
+        val curPrecision = primary.module_settings?.position_precision ?: 0
+        val newPrimary = primary.copy(
+            name = t.channelName, psk = t.key,
+            module_settings = (primary.module_settings ?: ModuleSettings()).copy(position_precision = r.positionPrecision),
+        )
         note("channel name", primary.name, t.channelName)
+        note("position precision", curPrecision, r.positionPrecision)
         if (primary.psk != t.key) changes += "channel key: changed"
 
-        val r = t.reporting
         val newPos = pos.copy(
             position_broadcast_secs = r.broadcastSecs, position_broadcast_smart_enabled = r.smartEnabled,
             broadcast_smart_minimum_interval_secs = r.smartMinIntervalSecs,
             broadcast_smart_minimum_distance = r.smartMinDistanceMeters,
-            gps_mode = r.gpsMode, gps_update_interval = r.gpsUpdateSecs,
+            gps_mode = r.gpsMode, gps_update_interval = r.gpsUpdateSecs, fixed_position = r.fixedPosition,
         )
         note("broadcast interval", pos.position_broadcast_secs, r.broadcastSecs)
         note("smart position", pos.position_broadcast_smart_enabled, r.smartEnabled)
         note("smart interval", pos.broadcast_smart_minimum_interval_secs, r.smartMinIntervalSecs)
         note("smart distance", pos.broadcast_smart_minimum_distance, r.smartMinDistanceMeters)
         note("gps mode", pos.gps_mode, r.gpsMode); note("gps update", pos.gps_update_interval, r.gpsUpdateSecs)
+        note("fixed position", pos.fixed_position, r.fixedPosition)
 
         return ConfigPlan(
             ownerLongName = owner,
@@ -206,6 +219,8 @@ object RadioConfigurator {
             c("smart interval", r.smartMinIntervalSecs, pos?.broadcast_smart_minimum_interval_secs),
             c("smart distance", r.smartMinDistanceMeters, pos?.broadcast_smart_minimum_distance),
             c("gps mode", r.gpsMode, pos?.gps_mode), c("gps update", r.gpsUpdateSecs, pos?.gps_update_interval),
+            c("fixed position", r.fixedPosition, pos?.fixed_position),
+            c("position precision", r.positionPrecision, primary?.module_settings?.position_precision ?: 0),
         )
     }
 
@@ -213,7 +228,7 @@ object RadioConfigurator {
 
     /** The primary channel's settings, decoded from the profile's channel URL (".../e/#<base64url ChannelSet>"). */
     fun primaryChannel(p: DeviceProfile): ChannelSettings {
-        val url = requireNotNull(p.channel_url) { "profile has no channel URL -- nothing written" } // RADIOCFGFIX-2026-09-25
+        val url = requireNotNull(p.channel_url) { "profile has no channel URL -- nothing written" }
         val frag = url.substringAfter('#', "").substringBefore('?')
         require(frag.isNotEmpty()) { "profile has no channel URL -- nothing written" }
         val set = ChannelSet.ADAPTER.decode(java.util.Base64.getUrlDecoder().decode(frag))
