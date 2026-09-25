@@ -48,3 +48,7 @@
 -dontwarn no.nordicsemi.kotlin.ble.environment.android.mock.**
 -keep class no.nordicsemi.kotlin.ble.environment.android.mock.** { *; }
 -keep class no.nordicsemi.kotlin.ble.environment.android.compose.** { *; }
+
+# ZSTDKEEP-2026-09-25: zstd-jni's native code finds Java fields by NAME (nativePtr, consumed, produced,
+# srcPos, dstPos) and its AAR ships no keep rules -- without this, R8 renames them and TAK V2 decode crashes.
+-keep class com.github.luben.zstd.** { *; }

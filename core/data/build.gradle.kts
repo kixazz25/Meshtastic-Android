@@ -37,7 +37,8 @@ dependencies {
     implementation(projects.core.prefs)
     implementation(projects.core.proto)
     // TAKV2-2026-09-25: reference zstd (with dictionaries) for TAK V2 -- the Android AAR from Maven Central.
-    implementation("com.github.luben:zstd-jni:1.5.7-20@aar")
+    // ZSTDVER-2026-09-25: 1.5.7-12 = newest zstd-jni whose AAR accepts compileSdk 36 (1.5.7-13+ require 37).
+    implementation("com.github.luben:zstd-jni:1.5.7-12@aar")
 
     // Needed because core:data references MeshtasticDatabase (supertype RoomDatabase)
     implementation(libs.androidx.room.runtime)
