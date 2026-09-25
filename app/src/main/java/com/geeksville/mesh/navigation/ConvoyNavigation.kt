@@ -233,11 +233,10 @@ fun NavGraphBuilder.convoyGraph(
 
     // ── Archive Restore ──────────────────────────────────────────────────
     composable<ConvoyRoutes.ConvoyArchiveRestore> {
-        val vm = viewModel ?: androidx.hilt.navigation.compose.hiltViewModel<ConvoyViewModel>()
-        ConvoyArchiveRestoreScreen(
-            onDone = { navController?.navigate(ConvoyRoutes.Convoy) { popUpTo(ConvoyRoutes.Convoy) { inclusive = false } } },
-            onBack = { navController?.popBackStack() }
-        )
+        // NORESTORE-2026-09-25 (Fred): there is NO whole-image restore. Every path that led here (developer panel,
+        // old apply screens) now opens SAVED CONFIGS: Apply = the configurator, managed fields only; Compare =
+        // information. The old ConvoyArchiveRestoreScreen is unused and goes at the 2.7 cut.
+        com.geeksville.mesh.convoy.ConfigReviewScreen(onClose = { navController?.popBackStack() })
     }
 
     // ── Apply List Maintenance ────────────────────────────────────────────
