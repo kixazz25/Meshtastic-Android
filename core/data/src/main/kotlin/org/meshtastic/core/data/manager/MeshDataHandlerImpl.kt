@@ -368,7 +368,7 @@ constructor(
     private fun handleTakPosition(packet: MeshPacket, dataPacket: DataPacket, myNodeNum: Int) {
         val payload = packet.decoded?.payload ?: return
         val tak = org.meshtastic.proto.TAKPacket.ADAPTER.decodeOrNull(payload, Logger) ?: return
-        Logger.i { "TAKDUMP-2026-09-25 port 72 from ${packet.from}: ${org.meshtastic.proto.TAKPacket.ADAPTER.toOneLiner(tak)}" }
+        android.util.Log.i("TAKDUMP", "TAKDUMP-2026-09-25 port 72 from ${packet.from}: ${org.meshtastic.proto.TAKPacket.ADAPTER.toOneLiner(tak)}") // CLEANUP-2026-09-25
         val pli = tak.pli ?: return
         val p = Position(
             latitude_i = pli.latitude_i,
@@ -400,7 +400,7 @@ constructor(
             Logger.w { "TAKV2-2026-09-25: undecodable TAK V2 from ${packet.from} (bridged=$bridged): ${e.message}" }
             return
         }
-        Logger.i { "TAKDUMP-2026-09-25 V2 (bridged=$bridged) from ${packet.from}: ${org.meshtastic.proto.TAKPacketV2.ADAPTER.toOneLiner(tak)}" }
+        android.util.Log.i("TAKDUMP", "TAKDUMP-2026-09-25 V2 (bridged=$bridged) from ${packet.from}: ${org.meshtastic.proto.TAKPacketV2.ADAPTER.toOneLiner(tak)}") // CLEANUP-2026-09-25
         if (!TakV2Decoder.isPosition(tak)) {
             Logger.d { "TAKV2-2026-09-25: non-position TAK V2 from ${packet.from} (uid=${tak.uid}) -- ignored" }
             return

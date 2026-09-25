@@ -57,7 +57,7 @@ fun ConvoyArchiveRestoreScreen(
     val scope           = rememberCoroutineScope()
     val connectionState by uiViewModel.connectionState.collectAsStateWithLifecycle()
     val myNodeInfo      by convoyViewModel.myNodeInfo.collectAsStateWithLifecycle()
-    val isConnected     = connectionState.toString().contains("Connected", ignoreCase = true)
+    val isConnected     = (connectionState == org.meshtastic.core.model.ConnectionState.Connected) /* CLEANUP-2026-09-25: exact, not text */
 
     val nodeId   = myNodeInfo?.myNodeNum?.let { "!%08x".format(it) } ?: ""
     val archiveDir = remember(nodeId) {

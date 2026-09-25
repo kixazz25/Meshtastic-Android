@@ -267,6 +267,7 @@ fun RadioConfigScreen(
                 }
                 phase == "APPLYING" || phase == "RESULT" -> {
                     Text(if (phase == "APPLYING") "Applying \u2014 do not close. The radio restarts; Bluetooth reconnects after each step." else "Done", color = INK)
+                    if (phase == "RESULT") Button(onClick = onClose) { Text("Done \u2014 back to the map") } // CLEANUP-2026-09-25
                     Spacer(Modifier.height(6.dp))
                     log.forEach { Text(it, color = DIM, fontSize = 12.sp, fontFamily = FontFamily.Monospace) }
                     when (val r = result) {

@@ -281,7 +281,9 @@ fun NavGraphBuilder.convoyGraph(
         val vm = viewModel ?: androidx.hilt.navigation.compose.hiltViewModel<ConvoyViewModel>()
         ConvoyReconnectWaitScreen(
             convoyViewModel = vm,
-            onProceed = { navController?.navigate(ConvoyRoutes.ConvoyWriteVerify) },
+            // CLEANUP-2026-09-25: go to verify AND drop the wait screen -- Back from verify used to reopen the wait,
+            // which sent you straight back to verify (a loop only a force stop ended).
+            onProceed = { navController?.navigate(ConvoyRoutes.ConvoyWriteVerify) { popUpTo(ConvoyRoutes.ConvoyReconnectWait) { inclusive = true } } },
             onCancel  = { navController?.navigate(ConvoyRoutes.Convoy) { popUpTo(ConvoyRoutes.Convoy) { inclusive = false } } }
         )
     }

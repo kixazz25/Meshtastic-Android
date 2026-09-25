@@ -48,7 +48,7 @@ fun ConvoyReconnectWaitScreen(
 ) {
     val scope           = rememberCoroutineScope()
     val connectionState by uiViewModel.connectionState.collectAsStateWithLifecycle()
-    val rawConnected    = connectionState.toString().contains("Connected", ignoreCase = true)
+    val rawConnected    = (connectionState == org.meshtastic.core.model.ConnectionState.Connected) /* CLEANUP-2026-09-25: exact, not text */
 
     var countdown  by remember { mutableStateOf(60) }
     var phase      by remember { mutableStateOf("WAITING") }

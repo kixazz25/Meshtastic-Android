@@ -389,7 +389,7 @@ fun ConvoyApplyRadioScreen(
                 // BLE monitor — update writer during pauses
                 LaunchedEffect(connectionState) {
                     ConvoyRadioWriter.updateBleStatus(
-                        connectionState.toString().contains("Connected", ignoreCase = true)
+                        (connectionState == org.meshtastic.core.model.ConnectionState.Connected) /* CLEANUP-2026-09-25: exact, not text */
                     )
                 }
 
