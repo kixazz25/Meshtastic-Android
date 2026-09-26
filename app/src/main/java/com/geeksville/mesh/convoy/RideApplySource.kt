@@ -42,6 +42,7 @@ object RideApplySource {
 
     /** Every stored ride with a complete network block, earliest date first. Incomplete files are skipped. */
     fun loadAll(context: android.content.Context, includeRecent: Boolean = false): List<RideForApply> {
+        ConvoyRideStore.healFromFiles(context) // RIDEHEAL-2026-09-26: every ride list sees a reconciled library
         val dir = GroupTrackStorage.dir("rides", context)
         val files = dir.listFiles { f -> f.isFile && f.name.endsWith(".json") } ?: return emptyList()
         return files.mapNotNull { f ->

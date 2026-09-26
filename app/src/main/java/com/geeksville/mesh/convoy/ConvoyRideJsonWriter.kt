@@ -78,6 +78,9 @@ object ConvoyRideJsonWriter {
             .put("name", nul(r[1]))
             .put("callsign", nul(ConvoyProfileStore.load()?.callsign))
             .put("orgName", nul(r[2]))
+            // RIDEHEAL-2026-09-26: stable identity for "mine" + the owner's email (forwarding line and CC)
+            .put("userId", nul(ConvoyProfileStore.load()?.userId?.takeIf { it.isNotBlank() }))
+            .put("email", nul(ConvoyProfileStore.load()?.email?.takeIf { it.isNotBlank() }))
 
         // ---- network: the config the ride points at ---------------------------------------------
         val cfg = r[9]?.let { ConvoyNetworkStore.load(it) }

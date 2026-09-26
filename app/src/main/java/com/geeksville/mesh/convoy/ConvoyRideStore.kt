@@ -150,6 +150,118 @@ object ConvoyRideStore {
         }
     }
 
+    // ---- RIDEHEAL-2026-09-26 (Fred): the ride library heals itself ----------------------------------
+    /**
+     * Reconciles the ride FILES (rides/<id>.json) with the rides TABLE before any ride list is shown.
+     * ADDS OR REPAIRS -- and deletes ONLY on EXPIRY (RIDEEXPIRE: 30 days after the ride date, the ride's own
+     * published expiry). Never guesses at ghosts (Fred: a profile can be recreated; any other deletion is the
+     * rider's own Delete). Everything is observable: every repair and expiry is logged (RIDEHEAL / RIDEDELETE).
+     *  - a file with no row  -> a row created as an INCOMPLETE ride of its CREATOR (the file's originator
+     *    userId + name; distributed_at empty); the route matched by name; config_mode 'file' + the file's
+     *    network id (a received ride's network lives ONLY in its file).
+     *  - a short date (2026-10-5) -> padded to yyyy-MM-dd in the file and the row; the expiry recomputed.
+     *  - a row with no file  -> LOGGED only (a file is rebuilt from a row only for this tablet's own rides).
+     * Idempotent: a second run finds nothing to do.
+     */
+    fun healFromFiles(context: android.content.Context) {
+        ensureSchema()
+        val db = SpatialDbManager.getExtensionDb() ?: return
+        val files = GroupTrackStorage.dir("rides", context).listFiles { f -> f.isFile && f.name.endsWith(".json") } ?: return
+        val rows = mutableSetOf<String>()
+        try {
+            db.rawQuery("SELECT ride_id FROM rides", null).use { c -> while (c.moveToNext()) c.getString(0)?.let { rows += it } }
+        } catch (e: Exception) { Log.w(TAG, "RIDEHEAL: cannot read rides: ${e.message}"); return }
+        val routes by lazy { listRoutes(500) }
+        for (f in files) {
+            val j = try { org.json.JSONObject(f.readText()) } catch (e: Exception) { Log.w(TAG, "RIDEHEAL: unreadable ${f.name}"); continue }
+            if (j.optString("kind") != "grouptrack.ride") continue
+            val ride = j.optJSONObject("ride") ?: continue
+            val id = ride.optString("rideId").takeIf { it.isNotBlank() && it != "null" } ?: continue
+            val s = { k: String -> ride.optString(k).takeIf { it != "null" }.orEmpty() }
+            val rawDate = s("date")
+            val date = padDate(rawDate)
+            if (date != rawDate) {
+                ride.put("date", date).put("expiresAt", expiresFor(date) ?: org.json.JSONObject.NULL)
+                try { f.writeText(j.toString(2)); Log.i(TAG, "RIDEHEAL: $id date $rawDate -> $date (file)") }
+                catch (e: Exception) { Log.w(TAG, "RIDEHEAL: $id date not rewritten: ${e.message}") }
+                if (id in rows) try {
+                    db.execSQL("UPDATE rides SET ride_date=?, expires_at=?, updated_at=? WHERE ride_id=?", arrayOf<Any?>(date, expiresFor(date), nowUtc(), id))
+                    Log.i(TAG, "RIDEHEAL: $id date $rawDate -> $date (row)")
+                } catch (e: Exception) { Log.w(TAG, "RIDEHEAL: $id row date not updated: ${e.message}") }
+            }
+            if (id in rows) continue
+            val o = j.optJSONObject("originator")
+            val creatorId = o?.optString("userId")?.takeIf { it.isNotBlank() && it != "null" }.orEmpty()
+            val creatorName = o?.optString("name")?.takeIf { it != "null" }.orEmpty()
+            val routeName = j.optJSONObject("rideData")?.optJSONObject("route")?.optString("name")?.takeIf { it.isNotBlank() && it != "null" }
+            val routeId = routeName?.let { n -> routes.firstOrNull { it.name == n }?.routeId }
+            try {
+                db.execSQL(
+                    "INSERT INTO rides (ride_id, organizer_id, organizer_name, route_id, " +
+                        "ride_name, ride_date, start_time, description, zip_code, is_public, " +
+                        "config_mode, config_id, expires_at, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    arrayOf<Any?>(
+                        id, creatorId, creatorName, routeId, s("name"), date, s("startTime"), s("description"), s("zipCode"), 0,
+                        "file", j.optJSONObject("network")?.optString("id")?.takeIf { it.isNotBlank() && it != "null" },
+                        expiresFor(date), s("createdAt").ifEmpty { nowUtc() }, nowUtc()
+                    )
+                )
+                rows += id
+                Log.i(TAG, "RIDEHEAL: $id row created from ${f.name} -- incomplete ride of '$creatorName'" +
+                    (if (creatorId.isEmpty()) " (no creator id in the file)" else "") +
+                    ", route " + (routeId ?: "NOT FOUND ('$routeName')"))
+            } catch (e: Exception) { Log.w(TAG, "RIDEHEAL: $id row not created: ${e.message}") }
+        }
+        rows.filter { r -> files.none { it.nameWithoutExtension == r } }
+            .forEach { Log.w(TAG, "RIDEHEAL: row $it has no ride file (logged only)") }
+        // RIDEEXPIRE-2026-09-26 (Fred): a ride's data is deleted 30 days after its ride date (its own published
+        // expiry: expires_at = date + 30). A ride with no readable date is never expired -- it is logged instead.
+        try {
+            val today = LocalDate.now().toString()
+            val expired = mutableListOf<String>()
+            db.rawQuery("SELECT ride_id, ride_date, expires_at FROM rides", null).use { c ->
+                while (c.moveToNext()) {
+                    val rid = c.getString(0) ?: continue
+                    val exp = c.getString(2)?.takeIf { it.isNotBlank() } ?: expiresFor(padDate(c.getString(1) ?: ""))
+                    if (exp == null) { Log.w(TAG, "RIDEEXPIRE: $rid has no readable ride date -- kept"); continue }
+                    if (exp < today) expired += rid
+                }
+            }
+            expired.forEach { deleteRide(context, it, "expired: 30 days after its ride date") }
+        } catch (e: Exception) { Log.w(TAG, "RIDEEXPIRE: sweep failed: ${e.message}") }
+    }
+
+    /**
+     * RIDEEXPIRE-2026-09-26: removes a ride COMPLETELY -- its row, its waypoint links, its network when no other
+     * ride uses it, its ride file and its picture. Used by the expiry sweep AND by the rider's Delete (one
+     * delete, so a ride can never be half-removed). NEVER touches the route, the waypoints themselves, or radio
+     * backups (their ride titles live in the backups' own companion files). Logged (RIDEDELETE).
+     */
+    fun deleteRide(context: android.content.Context, rideId: String, reason: String): Boolean {
+        val db = SpatialDbManager.getExtensionDb() ?: return false
+        return try {
+            val cfgId = db.rawQuery("SELECT config_id FROM rides WHERE ride_id = ?", arrayOf(rideId)).use { c ->
+                if (c.moveToFirst() && !c.isNull(0)) c.getString(0) else null
+            }
+            db.execSQL("DELETE FROM ride_waypoints WHERE ride_id = ?", arrayOf<Any?>(rideId))
+            db.execSQL("DELETE FROM rides WHERE ride_id = ?", arrayOf<Any?>(rideId))
+            cfgId?.let { ConvoyNetworkStore.deleteUnused(it) }
+            val dir = GroupTrackStorage.dir("rides", context)
+            listOf("$rideId.json", "$rideId.jpg").forEach { n -> java.io.File(dir, n).takeIf { it.exists() }?.delete() }
+            Log.i(TAG, "RIDEDELETE: $rideId removed ($reason)")
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "RIDEDELETE: $rideId failed: ${e.message}"); false
+        }
+    }
+
+    /** yyyy-M-d -> yyyy-MM-dd (RIDEHEAL); anything else is returned unchanged. */
+    private fun padDate(d: String): String {
+        val m = Regex("""^(\d{4})-(\d{1,2})-(\d{1,2})$""").find(d.trim()) ?: return d
+        val (y, mo, da) = m.destructured
+        return "%s-%02d-%02d".format(y, mo.toInt(), da.toInt())
+    }
+
     // ---- RIDECFG-2026-09-23: ride state, edits, waypoints -------------------------------------
 
     /** Ride date + 30 days (the ride file's expiry), or null when the date is not yyyy-MM-dd yet. */
