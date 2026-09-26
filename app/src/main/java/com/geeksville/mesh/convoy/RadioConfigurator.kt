@@ -153,11 +153,11 @@ object RadioConfigurator {
 
         val newLora = lora.copy(
             use_preset = true, modem_preset = t.preset, region = t.region, channel_num = t.frequencySlot,
-            hop_limit = t.hopLimit, tx_power = t.txPower, tx_enabled = t.reporting.txEnabled,
+            hop_limit = t.hopLimit, tx_power = if (t.txPower == 0 && lora.tx_power > 0) lora.tx_power else t.txPower /* TXMAX-2026-09-26 */, tx_enabled = t.reporting.txEnabled,
         )
         note("use_preset", lora.use_preset, true); note("region", lora.region, t.region)
         note("preset", lora.modem_preset, t.preset); note("frequency slot", lora.channel_num, t.frequencySlot)
-        note("hop limit", lora.hop_limit, t.hopLimit); note("tx power", lora.tx_power, t.txPower)
+        note("hop limit", lora.hop_limit, t.hopLimit); note("tx power", lora.tx_power, if (t.txPower == 0 && lora.tx_power > 0) lora.tx_power else t.txPower /* TXMAX-2026-09-26 */)
         note("tx enabled", lora.tx_enabled, t.reporting.txEnabled)
 
         val newDevice = device.copy(role = t.role)
@@ -210,7 +210,7 @@ object RadioConfigurator {
             c("owner", t.ownerLongName, after.long_name),
             c("region", t.region, lora?.region), c("preset", t.preset, lora?.modem_preset),
             c("use preset", true, lora?.use_preset), c("frequency slot", t.frequencySlot, lora?.channel_num),
-            c("hop limit", t.hopLimit, lora?.hop_limit), c("tx power", t.txPower, lora?.tx_power),
+            c("hop limit", t.hopLimit, lora?.hop_limit), c("tx power", if (t.txPower == 0 && (lora?.tx_power ?: 0) > 0) (lora?.tx_power ?: 0) else t.txPower /* TXMAX-2026-09-26 */, lora?.tx_power),
             c("tx enabled", r.txEnabled, lora?.tx_enabled), c("role", t.role, device?.role),
             c("channel name", t.channelName, primary?.name),
             c("channel key", t.key.sha256().hex().take(12), primary?.psk?.sha256()?.hex()?.take(12)),

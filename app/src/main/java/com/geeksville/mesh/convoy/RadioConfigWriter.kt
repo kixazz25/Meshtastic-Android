@@ -47,12 +47,18 @@ interface RadioOps {
     suspend fun reconnect()
     /** All values, as the app holds them after the latest (re)connect -- a DeviceProfile. */
     suspend fun retrieve(): DeviceProfile
+    /** OWNNODE-2026-09-26: the node number of the app's OWN radio as the app currently holds it (its own entry in the node
+     *  list, sent only in the connect exchange). CODE RULE 1: null is the real state being waited for -- the app has not
+     *  (yet) received its own radio's record -- not a shortcut. */
+    fun ownNodeNum(): Int?
 }
 
 data class WriterTiming(
     val settleMs: Long = 15_000, // Nathan's settle
     val dropWaitMs: Long = 10_000, // after disconnect(): wait for the link to actually drop
-    val cycleGapMs: Long = 3_000, // disconnect -> reconnect gap (old wait: 3 s)
+    val cycleGapMs: Long = 3_000, // GAP3-2026-09-26 (Fred): 3 s is enough -- the reconnect then WAITS for Connected; the final clean cycle (FINALCYCLE) handles the radio's last restart
+    val ownNodeTimeoutMs: Long = 30_000, // OWNNODE: how long to wait for the app's own-radio record after the last reconnect
+    val finalWaitMs: Long = 30_000, // FINALCYCLE-2026-09-26 (Fred): wait after the last group, then ALWAYS one clean reconnect
     val reconnectTimeoutMs: Long = 60_000, // old wait: 60 s
     val afterConnectMs: Long = 1_500, // old wait: 1.5 s before proceeding
     val pollMs: Long = 1_000,
@@ -74,6 +80,7 @@ class RadioConfigWriter(
 ) {
     suspend fun apply(plan: ConfigPlan, target: ManagedValues): WriteResult {
         val written = mutableListOf<String>()
+        val ownAtStart = ops.ownNodeNum()   // OWNNODE-2026-09-26: the radio we started with
         if (plan.isEmpty) log("RADIOWRITER: nothing to change -- verify only")
 
         plan.ownerLongName?.let { name ->
@@ -106,6 +113,23 @@ class RadioConfigWriter(
             log("RADIOWRITER: not connected before the retrieve -- waiting")
             if (!waitConnected()) return WriteResult.Stopped("retrieve", "radio not connected", written)
         }
+        // FINALCYCLE-2026-09-26 (Fred): after the last write the radio may restart AGAIN while the app still believes it is
+        // connected (Android is slow to notice the dead link). Never trust that: wait 30 s, then ALWAYS one clean
+        // disconnect/reconnect -- exactly what Fred did by hand -- before the own-radio check and the verify.
+        if (written.isNotEmpty()) {
+            log("RADIOWRITER: final wait ${timing.finalWaitMs / 1000}s, then a clean reconnect")
+            delay(timing.finalWaitMs)
+            if (!cycle("final reconnect")) return WriteResult.Stopped("final reconnect", "radio did not come back", written)
+        }
+        // OWNNODE-2026-09-26 (Fred): "Connected" is not enough -- after a reconnect into a restarting radio the app kept
+        // seeing the mesh but lost its OWN radio (only a manual reconnect brought it back). Wait for the app's own-radio
+        // record; if it does not come, one more Bluetooth cycle (what Fred did by hand); only then stop, plainly.
+        if (written.isNotEmpty() && !waitOwnNode(ownAtStart)) {
+            log("RADIOWRITER: own radio record not received -- one more Bluetooth cycle")
+            if (!cycle("own-radio record") || !waitOwnNode(ownAtStart)) {
+                return WriteResult.Stopped("reconnect", "the app did not receive its own radio's record -- disconnect and reconnect the radio", written)
+            }
+        }
         val after = ops.retrieve()
         val checks = RadioConfigurator.verify(after, target)
         log("RADIOWRITER: verify ${checks.count { it.ok }}/${checks.size}" +
@@ -132,6 +156,34 @@ class RadioConfigWriter(
         val back = waitConnected()
         log("RADIOWRITER: $group -- " + if (back) "back (connected) after ${(System.currentTimeMillis() - t0) / 1000}s" else "NOT back")
         if (back) delay(timing.afterConnectMs)
+        return back
+    }
+
+    /** OWNNODE-2026-09-26: waits until the app holds its own radio's record (the same radio as at the start, when known). */
+    private suspend fun waitOwnNode(expected: Int?): Boolean {
+        val t0 = System.currentTimeMillis()
+        val ok = withTimeoutOrNull(timing.ownNodeTimeoutMs) {
+            while (true) {
+                val n = ops.ownNodeNum()
+                if (n != null && (expected == null || n == expected)) break
+                delay(timing.pollMs)
+            }
+            true
+        } ?: false
+        log("RADIOWRITER: own radio record " + (if (ok) "present after ${(System.currentTimeMillis() - t0) / 1000}s" else "NOT received within ${timing.ownNodeTimeoutMs / 1000}s"))
+        return ok
+    }
+
+    /** OWNNODE-2026-09-26: one forced Bluetooth cycle on its own (no write, no settle). */
+    private suspend fun cycle(label: String): Boolean {
+        log("RADIOWRITER: $label -- extra Bluetooth cycle")
+        ops.disconnect()
+        withTimeoutOrNull(timing.dropWaitMs) { ops.connection.first { it != ConnectionState.Connected } }
+        delay(timing.cycleGapMs)
+        ops.reconnect()
+        val back = waitConnected()
+        if (back) delay(timing.afterConnectMs)
+        log("RADIOWRITER: $label -- " + if (back) "back (connected)" else "NOT back")
         return back
     }
 

@@ -344,6 +344,8 @@ class ConvoyViewModel @Inject constructor(
             override suspend fun disconnect() { ui.setDeviceAddress("n") }
             override suspend fun reconnect() { ui.setDeviceAddress(saved) }
             override suspend fun retrieve(): DeviceProfile = currentProfile()
+            // OWNNODE-2026-09-26: the app's own radio as it holds it now -- its own entry in the node list.
+            override fun ownNodeNum(): Int? = nodeRepository.ourNodeInfo.value?.num
         }
     }
 

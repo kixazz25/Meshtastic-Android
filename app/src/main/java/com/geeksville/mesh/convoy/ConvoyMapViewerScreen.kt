@@ -2515,6 +2515,12 @@ fun ConvoyMapViewerScreen(
                         pendingDetailType = "Routes"
                         pendingDetailId = rid
                     },
+                    // RIDEFROMNOTES-2026-09-26 (Fred): CREATE RIDE -- the SAME path as the detail panel's ADD A RIDE
+                    // (RidePreview fits this map to the route and captures its picture, then the ride form opens).
+                    onCreateRide = onAddRide?.let { go -> {
+                        savedNotesRouteId = null
+                        RidePreview.captureThen(webViewRef, "Route", rid) { go("Route", rid) }
+                    } },
                     onDownloadMaps = {
                         // ⚠ The download path is keyed on GEOM HASH, not route
                         // id -- routeGeomHash bridges it. Off the main thread

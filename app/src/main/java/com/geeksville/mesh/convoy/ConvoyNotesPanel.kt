@@ -120,6 +120,9 @@ fun ConvoyNotesPanel(
     onBuildFromRecipe: (() -> Unit)? = null,
     onRouteDetails: (() -> Unit)? = null,
     onDownloadMaps: (() -> Unit)? = null,
+    // RIDEFROMNOTES-2026-09-26 (Fred): CREATE RIDE on a saved route's narrative. Optional for the same reason as its
+    // neighbours (CODE RULE 1): the panel also shows narratives that are not saved routes; those callers pass nothing.
+    onCreateRide: (() -> Unit)? = null,
 ) {
     val scroll = rememberScrollState()
     val shown = sections.filter { it.lines.isNotEmpty() || it.pairs.isNotEmpty() }
@@ -241,6 +244,7 @@ fun ConvoyNotesPanel(
                 val acts = listOfNotNull(
                     onBuildFromRecipe?.let { "BUILD FROM RECIPE" to it },
                     onRouteDetails?.let { "ROUTE DETAILS" to it },
+                    onCreateRide?.let { "CREATE RIDE" to it },   // RIDEFROMNOTES-2026-09-26
                     onDownloadMaps?.let { "DOWNLOAD MAPS" to it },
                 )
                 if (acts.isNotEmpty()) {
