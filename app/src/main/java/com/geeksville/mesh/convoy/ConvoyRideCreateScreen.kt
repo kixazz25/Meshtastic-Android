@@ -326,6 +326,8 @@ fun ConvoyRideCreateScreen(
                     trailhead?.let { th ->
                         if (!thFromRecipe) SpatialDbManager.setRouteAnchor(routeId, th.lat, th.lon, th.name)
                     }
+                    // ONEDEFAULT-2026-09-26: the new ride's radio values = the GroupTrack default, read now.
+                    com.grouptrack.core.NetworkGenerator.MeshDefaults.loadFrom(context)
                     val id = ConvoyRideStore.saveRide(
                         rideName = rideName, rideDate = rideDate, startTime = startTime,
                         description = description, zipCode = zipCode,

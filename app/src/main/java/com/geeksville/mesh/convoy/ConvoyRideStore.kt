@@ -157,7 +157,7 @@ object ConvoyRideStore {
      * published expiry). Never guesses at ghosts (Fred: a profile can be recreated; any other deletion is the
      * rider's own Delete). Everything is observable: every repair and expiry is logged (RIDEHEAL / RIDEDELETE).
      *  - a file with no row  -> a row created as an INCOMPLETE ride of its CREATOR (the file's originator
-     *    userId + name; distributed_at empty); the route matched by name; config_mode 'file' + the file's
+     *    userId + name; distributed_at empty); the route matched by name; config_mode 'unique' + the file's
      *    network id (a received ride's network lives ONLY in its file).
      *  - a short date (2026-10-5) -> padded to yyyy-MM-dd in the file and the row; the expiry recomputed.
      *  - a row with no file  -> LOGGED only (a file is rebuilt from a row only for this tablet's own rides).
@@ -202,7 +202,7 @@ object ConvoyRideStore {
                         "config_mode, config_id, expires_at, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                     arrayOf<Any?>(
                         id, creatorId, creatorName, routeId, s("name"), date, s("startTime"), s("description"), s("zipCode"), 0,
-                        "file", j.optJSONObject("network")?.optString("id")?.takeIf { it.isNotBlank() && it != "null" },
+                        "unique", j.optJSONObject("network") /* CLOSEFIX-2026-09-26: the CHECK allows inherit_org|inherit_leader|unique */?.optString("id")?.takeIf { it.isNotBlank() && it != "null" },
                         expiresFor(date), s("createdAt").ifEmpty { nowUtc() }, nowUtc()
                     )
                 )

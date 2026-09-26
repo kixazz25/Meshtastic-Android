@@ -616,7 +616,8 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
                 },
                 onNavigateToArchiveRestore = {
                     showConvoyMenu = false
-                    navController.navigate(ConvoyRoutes.ConvoyArchiveRestore)
+                    // CLOSEFIX-2026-09-26: the same Saved configs OVERLAY as Work with Rides (the route's Close had no way out)
+                    com.geeksville.mesh.convoy.ConfigReviewLauncher.open()
                 },
                 onNavigateToMapViewer = {
                     showConvoyMenu = false

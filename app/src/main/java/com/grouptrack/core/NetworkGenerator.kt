@@ -55,16 +55,37 @@ object NetworkGenerator {
     private val CALLSIGN_OK = Regex("^[A-Za-z0-9 .'\\-]{1,$CALLSIGN_MAX}$")
     fun isValidCallsign(s: String): Boolean = CALLSIGN_OK.matches(s)
 
-    // ---- mesh ride values: PROVISIONAL, ONE place (today's radios). Role waits on test T3. --
+    // ---- mesh ride values -------------------------------------------------------------------------
+    // ONEDEFAULT-2026-09-26 (Fred): ONE standard -- the radio values every new ride carries come from
+    // grouptrack_default.json (network.mesh). loadFrom() runs just before a ride is saved; the literals below are
+    // only the FALLBACK when the file cannot be read (logged -- never silent). They were LONG_FAST / 27 / TRACKER
+    // until 09-26, which is why every ride made before then carried those.
     object MeshDefaults {
         const val BASE_VERSION = 1          // provisional until T3 freezes base v1
-        const val REGION = "US"
-        const val MODEM_PRESET = "LONG_FAST"
-        const val HOP_LIMIT = 3
-        const val TX_POWER = 27             // dBm — never above the licence-free cap
         const val TX_POWER_CAP = 30         // 30 dBm = 1 W
-        const val FREQUENCY_SLOT = 0        // 0 = derived from the channel name
-        const val ROLE = "TRACKER"          // PROVISIONAL — TAK or CLIENT after T3
+        @Volatile var REGION = "US"
+        @Volatile var MODEM_PRESET = "MEDIUM_FAST"
+        @Volatile var HOP_LIMIT = 3
+        @Volatile var TX_POWER = 0          // 0 = the radio's own maximum within the legal limit
+        @Volatile var FREQUENCY_SLOT = 0    // 0 = derived from the channel name
+        @Volatile var ROLE = "TAK_TRACKER"
+
+        /** Reads network.mesh from the GroupTrack default asset. Returns false (and keeps the fallback) on failure. */
+        fun loadFrom(context: android.content.Context): Boolean = try {
+            val mesh = org.json.JSONObject(context.assets.open("grouptrack_default.json").bufferedReader().use { it.readText() })
+                .getJSONObject("network").getJSONObject("mesh")
+            REGION = mesh.getString("region")
+            MODEM_PRESET = mesh.getString("preset")
+            HOP_LIMIT = mesh.getInt("hopLimit")
+            TX_POWER = mesh.getInt("txPower")
+            FREQUENCY_SLOT = mesh.getInt("frequencySlot")
+            ROLE = mesh.getString("role")
+            android.util.Log.i("NetworkGenerator", "ONEDEFAULT: mesh values from grouptrack_default.json -- $REGION $MODEM_PRESET hop $HOP_LIMIT tx $TX_POWER slot $FREQUENCY_SLOT $ROLE")
+            true
+        } catch (e: Exception) {
+            android.util.Log.e("NetworkGenerator", "ONEDEFAULT: grouptrack_default.json not read (${e.message}) -- using the fallback values")
+            false
+        }
     }
 
     private val rng = SecureRandom()
