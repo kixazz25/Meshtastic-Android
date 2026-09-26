@@ -100,6 +100,68 @@ object ConvoyArtifactOps {
         Log.d(TAG, "TO ROUTE $trackId — Pass 1 stub")
     }
 
+    /**
+     * TRACKROUTE-2026-09-26 (Fred) -- PASS 1 (review): a TRACK's recorded line, simplified so every turn keeps its
+     * shape (a point wherever the heading has turned > 15 degrees, plus the corner before it; otherwise one every 20 m;
+     * GPS jitter under 3 m dropped), written as a Route+ DRAFT marked "method": "convertroute" -- NOT a route. Open it
+     * from Route+'s in-progress list, over the track, to approve the method. Pass 2 (final) writes the route and fits it.
+     * Refuses when Route+ already holds an unsaved route (single working route); leaves Route+ empty afterwards.
+     * Returns the number of points written, or a negative code: -1 no geometry, -2 too few points, -3 Route+ busy,
+     * -4 write failed.
+     */
+    suspend fun trackToConvertDraft(context: Context, trackId: String, name: String): Int = withContext(Dispatchers.IO) {
+        SpatialDbManager.init(context)
+        val wkt = SpatialDbManager.trackGeometry(trackId) ?: run { Log.w(TAG, "TRACKROUTE: no geometry for track $trackId"); return@withContext -1 }
+        val pts = ConvoyRideStore.parseWktLine(wkt)   // lon/lat pairs
+        if (pts.size < 2) { Log.w(TAG, "TRACKROUTE: track $trackId has ${pts.size} points"); return@withContext -2 }
+        if (RouteManager.routeVertices().isNotEmpty()) { Log.w(TAG, "TRACKROUTE: Route+ holds an unsaved route -- refused"); return@withContext -3 }
+        val kept = simplifyByHeading(pts)
+        RouteManager.clearRoute()
+        for (p in kept) RouteManager.addVertex(RouteManager.freeVertex(p.second, p.first))
+        val ok = try { RouteDraftStore.writeDraft(name.trim(), "convertroute") } catch (e: Exception) { Log.e(TAG, "TRACKROUTE: writeDraft failed: ${e.message}"); false }
+        RouteManager.clearRoute()
+        if (!ok) return@withContext -4
+        Log.i(TAG, "TRACKROUTE: convertroute draft '${name.trim()}' from track $trackId (${pts.size} points -> ${kept.size})")
+        kept.size
+    }
+
+    private fun trDistM(a: Pair<Double, Double>, b: Pair<Double, Double>): Double {
+        val k = 111_320.0
+        val dx = (b.first - a.first) * k * kotlin.math.cos(Math.toRadians((a.second + b.second) / 2))
+        val dy = (b.second - a.second) * k
+        return kotlin.math.sqrt(dx * dx + dy * dy)
+    }
+
+    private fun trBearing(a: Pair<Double, Double>, b: Pair<Double, Double>): Double {
+        val dx = (b.first - a.first) * kotlin.math.cos(Math.toRadians((a.second + b.second) / 2))
+        val dy = b.second - a.second
+        return (Math.toDegrees(kotlin.math.atan2(dx, dy)) + 360) % 360
+    }
+
+    private fun trTurn(a: Double, b: Double): Double { val d = kotlin.math.abs(a - b) % 360; return if (d > 180) 360 - d else d }
+
+    /** TRACKROUTE: heading-aware simplification (see trackToRoute). */
+    internal fun simplifyByHeading(
+        pts: List<Pair<Double, Double>>, turnDeg: Double = 15.0, maxGapM: Double = 20.0, minGapM: Double = 3.0,
+    ): List<Pair<Double, Double>> {
+        if (pts.size <= 2) return pts
+        val out = mutableListOf(pts.first())
+        var lastB: Double? = null
+        for (i in 1 until pts.size - 1) {
+            val p = pts[i]; val last = out.last(); val d = trDistM(last, p)
+            if (d < minGapM) continue
+            val b = trBearing(last, p)
+            val turned = lastB != null && trTurn(b, lastB!!) > turnDeg
+            if (turned) {
+                val prev = pts[i - 1]   // keep the CORNER, not just the point after it
+                if (prev != last && trDistM(last, prev) >= minGapM) out += prev
+                out += p; lastB = trBearing(out[out.size - 2], p)
+            } else if (d >= maxGapM) { out += p; lastB = b } else if (lastB == null && d >= minGapM * 3) { lastB = b }
+        }
+        out += pts.last()
+        return out
+    }
+
     /** TO TRACK: flip route type back to track */
     fun toTrack(routeId: String) {
         Log.d(TAG, "TO TRACK $routeId — Pass 1 stub")

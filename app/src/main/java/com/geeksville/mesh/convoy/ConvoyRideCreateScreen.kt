@@ -351,6 +351,14 @@ fun ConvoyRideCreateScreen(
                     color = if (canSave) GroupTrackColors.SkyBlue else Color(0xFF445566),
                     fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
             }
+            // RIDECANCEL-2026-09-26 (Fred): leave the form. NOTHING is written -- a ride is saved only by SAVE RIDE
+            // (no ghosts), so Cancel simply returns to where the form was opened from.
+            Spacer(Modifier.height(8.dp))
+            Box(modifier = Modifier.fillMaxWidth().clickable { onBack() }.padding(vertical = 12.dp),
+                contentAlignment = Alignment.Center) {
+                Text("CANCEL", color = Color(0xFF8B949E), fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+            }
             Spacer(Modifier.height(12.dp))
         }
     }

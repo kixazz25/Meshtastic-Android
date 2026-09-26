@@ -55,6 +55,9 @@ fun ArtifactDetailPanel(
      * the PLANNER passes it and gets the button; the frozen convoy map passes
      * nothing and is untouched. Both callers are real, so the option belongs. */
     onAddRide: ((String, String) -> Unit)? = null,
+    // TRACKRIDE-2026-09-26 (Fred): CREATE RIDE on a TRACK -> (track id, route name). Optional like onAddRide (CODE
+    // RULE 1): only the planner, which can create rides, passes it; other callers show no button.
+    onCreateRideFromTrack: ((String, String) -> Unit)? = null,
     /* SATFIXES-2026-08-29: build six more from this route's recipe.
      * ⚠ Unlike onShowNotes, which is offered unconditionally, this one is
      * passed only when the route DB actually holds a recipe — a hand-drawn or
@@ -77,6 +80,8 @@ fun ArtifactDetailPanel(
     val ctx = LocalContext.current
 
     val singular = artifactType.lowercase().removeSuffix("s")
+    var showRideNameDialog by remember { mutableStateOf(false) }   // TRACKRIDE-2026-09-26
+    var rideRouteName by remember { mutableStateOf("") }
     val detailFields = remember(id) { onLoadDetail?.invoke(singular, id) ?: emptyMap() }
     val dName = detailFields["name"] ?: name ?: "Unnamed"
 
@@ -128,6 +133,31 @@ fun ArtifactDetailPanel(
                     // ⭐ RECIPEBTN-2026-08-29: a rider knows what an overview is.
                     // "Narrative" is our word for the generated prose.
                     if (onShowNotes != null) { DetailActionButton("OVERVIEW", aOrange) { onShowNotes(id) } }
+                    // TRACKRIDE-2026-09-26 (Fred): a track -> a route (named, editable) -> the ride form.
+                    if (onCreateRideFromTrack != null && singular == "track") {
+                        DetailActionButton("CREATE RIDE", aGreen) { rideRouteName = dName; showRideNameDialog = true }
+                    }
+                    if (showRideNameDialog && onCreateRideFromTrack != null) {
+                        val taken = rideRouteName.isNotBlank() && SpatialDbManager.routeNameExists(rideRouteName.trim())
+                        androidx.compose.material3.AlertDialog(
+                            onDismissRequest = { showRideNameDialog = false },
+                            title = { androidx.compose.material3.Text("Convert this track (review draft)") },
+                            text = {
+                                androidx.compose.foundation.layout.Column {
+                                    androidx.compose.material3.Text("The track's line is simplified and saved as a Route+ draft marked convertroute \u2014 no route is written yet. Review it over the track, then save it from Route+.")
+                                    androidx.compose.material3.OutlinedTextField(value = rideRouteName, onValueChange = { rideRouteName = it }, singleLine = true,
+                                        label = { androidx.compose.material3.Text("Route name") })
+                                    if (taken) androidx.compose.material3.Text("A route with this name already exists \u2014 choose another.", color = Color(0xFFFF6B6B))
+                                }
+                            },
+                            confirmButton = {
+                                androidx.compose.material3.TextButton(enabled = rideRouteName.isNotBlank() && !taken, onClick = {
+                                    showRideNameDialog = false; onCreateRideFromTrack(id, rideRouteName.trim())
+                                }) { androidx.compose.material3.Text("CREATE REVIEW DRAFT") }
+                            },
+                            dismissButton = { androidx.compose.material3.TextButton(onClick = { showRideNameDialog = false }) { androidx.compose.material3.Text("Cancel") } },
+                        )
+                    }
                     if (onAddRide != null && singular == "route") {
                         DetailActionButton("ADD A RIDE", aGreen) { onAddRide(singular, id) }
                     }

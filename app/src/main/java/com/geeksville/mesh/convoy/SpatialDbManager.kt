@@ -1184,6 +1184,15 @@ object SpatialDbManager {
      * Insert a route into the spatial DB (dedicated routes table).
      * Returns the generated route_id.
      */
+    /** TRACKROUTE-2026-09-26: a track's recorded line (WKT) by id; null when the track is absent. */
+    fun trackGeometry(trackId: String): String? = try {
+        spatialDb?.rawQuery("SELECT geometry FROM tracks WHERE track_id=? LIMIT 1", arrayOf(trackId))?.use { c ->
+            if (c.moveToFirst()) c.getString(0) else null
+        }
+    } catch (e: Exception) {
+        android.util.Log.w("SpatialDbManager", "TRACKROUTE: trackGeometry failed: ${e.message}"); null
+    }
+
     fun insertRoute(name: String, geometryWkt: String, minLat: Double, maxLat: Double, minLon: Double, maxLon: Double): String {
         val db = spatialDb ?: throw IllegalStateException("SpatialDbManager not initialized")
         val id = newId()

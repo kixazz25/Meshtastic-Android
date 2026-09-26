@@ -4367,6 +4367,21 @@ fun ConvoyMapViewerScreen(
                     onAddRide = onAddRide?.let { go -> { a: String, b: String ->
                         RidePreview.captureThen(webViewRef, a, b) { go(a, b) }
                     } },
+                    // TRACKRIDE-2026-09-26 (Fred) -- PASS 1 (review): the track's simplified line becomes a Route+ DRAFT
+                    // marked convertroute; open it from Route+'s in-progress list, over the track. PASS 2 will write the
+                    // route, fit it on the map, then open the ride form.
+                    onCreateRideFromTrack = onAddRide?.let { _ -> { tid: String, name: String ->
+                        scope.launch {
+                            val n = ConvoyArtifactOps.trackToConvertDraft(context, tid, name)
+                            val msg = when {
+                                n > 0 -> "Draft '$name' (convertroute, $n points) saved \u2014 open it from Route+ in progress to review it over the track."
+                                n == -3 -> "Finish or clear the route in progress in Route+ first."
+                                else -> "Could not convert this track (code $n)."
+                            }
+                            android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_LONG).show()
+                            if (n > 0) { pendingDetailId = null; pendingDetailType = null }
+                        }
+                    } },
                     artifactType = pendingDetailType!!,
                     id = pendingDetailId!!,
                     mapKey = "planning",
