@@ -49,7 +49,7 @@ object ConvoyRideSend {
                     "You're invited: $rideName ($day)\n\n" +
                         "If you're a GroupTrack user, tap the attachment below, choose GroupTrack, then tap \"Always\". " +
                         "This imports the route, and downloads the maps for offline use during this ride.\n\n" +
-                        "Using a GroupTrack radio? Once the ride is added, open Work with Rides \u2192 Apply ride to radio.\n\n" +
+                        "Using a GroupTrack radio? Remember to apply the ride to your radio before your ride (Work with Rides \u2192 Apply ride to radio).\n\n" + // RIDEMAIL2-2026-09-26
                         "Enjoy the ride!"
                 })
                 putExtra(Intent.EXTRA_STREAM, uri)

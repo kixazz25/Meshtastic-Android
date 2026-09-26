@@ -94,7 +94,7 @@ fun WorkWithRidesMenu(
                         .combinedClickable(onClick = {}, onLongClick = { onDismiss(); onDeveloperSettings() }))
 
                 if (!picking) {
-                    WwrEntry("Edit ride", built = false) { status = notBuilt("Edit ride") }
+                    WwrEntry("Rides \u2014 send, edit, delete", built = true) { onDismiss(); RidesLauncher.open() } // RIDESLIST-2026-09-26
                     WwrEntry("Send a ride via email", built = true) { status = ""; picking = true }
                     WwrEntry("Import a ride", built = true) { importPicker.launch(arrayOf("*/*")) } // RIDEIMPORT3-2026-09-25
                     WwrEntry("Apply ride to radio / Nucleus", built = true) { onDismiss(); onApplyToRadio() } // RADIOCFG4-2026-09-25

@@ -592,6 +592,11 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
             com.geeksville.mesh.convoy.ConfigReviewScreen(onClose = { com.geeksville.mesh.convoy.ConfigReviewLauncher.close() })
         }
 
+        // RIDESLIST-2026-09-26: Rides -- send, edit, delete (Work with Rides).
+        if (com.geeksville.mesh.convoy.RidesLauncher.showing) {
+            com.geeksville.mesh.convoy.RidesScreen(onClose = { com.geeksville.mesh.convoy.RidesLauncher.close() })
+        }
+
         if (showConvoyMenu) {
             ConvoySubMenu(
                 sheetState                = convoyMenuSheetState,
