@@ -98,7 +98,11 @@ fun WorkWithRidesMenu(
                     WwrEntry("Send a ride via email", built = true) { status = ""; picking = true }
                     WwrEntry("Import a ride", built = true) { importPicker.launch(arrayOf("*/*")) } // RIDEIMPORT3-2026-09-25
                     WwrEntry("Apply ride to radio / Nucleus", built = true) { onDismiss(); onApplyToRadio() } // RADIOCFG4-2026-09-25
-                    WwrEntry("Apply ride to standalone T1000-E", built = true) { onDismiss(); onApplyToT1000() }
+                    // DISCONTINUED-2026-09-26 (Fred): the old T1000 write stays on the menu, switched off. The new process
+                    // (Apply ride to radio) writes and verifies every field GroupTrack uses; Compare shows the rest.
+                    Text("Apply ride to standalone T1000-E  (discontinued \u2014 use Apply ride to radio)",
+                        color = Color(0xFF5A6068), fontSize = 14.sp,
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 11.dp))
                     WwrEntry("Review / apply saved configs", built = true) { onDismiss(); onReviewSavedConfigs() }
                 } else {
                     Text("Choose the ride to send", color = Color(0xFFE8EEF5), fontSize = 13.sp,

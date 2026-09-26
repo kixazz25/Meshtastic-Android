@@ -16,6 +16,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -149,6 +150,9 @@ fun RadioConfigScreen(
     val nodeNum = convoyViewModel.radioNodeNum()
     val nodeId = nodeNum?.let { "!%08x".format(it) }
     val callsign = remember { ConvoyProfileStore.load()?.callsign?.trim().orEmpty() }
+    // CALLSIGNOVR-2026-09-26 (Fred): the callsign THIS radio gets -- defaults to the profile's; type another rider's to
+    // set up their radio. The profile never changes. Written to the radio's owner name and verified like the rest.
+    var radioCallsign by remember { mutableStateOf(callsign) }
     val defaultJson = remember {
         runCatching { JSONObject(context.assets.open("grouptrack_default.json").bufferedReader().use { it.readText() }) }.getOrNull()
     }
@@ -167,8 +171,10 @@ fun RadioConfigScreen(
                 val rid = r?.optString("rideId")?.takeIf { it.isNotBlank() && it != "null" }
                 list += RadioTarget(name, "Ride \u2022 " + (r?.optString("date")?.takeIf { it != "null" } ?: "no date"), j, null, rid)
             }
-        if (nodeId != null) RadioBackups.list(context, nodeId).forEach { f ->
-            list += RadioTarget(RadioBackups.title(f), "This radio's save \u2022 " + RadioBackups.detail(f), null, f, RadioBackups.rideId(f))
+        // SPLITLISTS-2026-09-26 (Fred): Apply ride to radio shows the DEFAULT and RIDES only -- saves are applied from
+        // Saved configs (Review / apply saved configs). A save chosen THERE arrives here as the preselect: it alone.
+        RadioConfigLauncher.preselect?.let { f ->
+            if (f.exists()) list += RadioTarget(RadioBackups.title(f), "This radio's save \u2022 " + RadioBackups.detail(f), null, f, RadioBackups.rideId(f))
         }
         targets = list
     }
@@ -178,7 +184,7 @@ fun RadioConfigScreen(
     fun choose(t: RadioTarget) {
         scope.launch {
             try {
-                val v = if (t.json != null) RadioConfigurator.fromRideFile(t.json, requireNotNull(defaultJson) { "default asset missing" }, callsign)
+                val v = if (t.json != null) RadioConfigurator.fromRideFile(t.json, requireNotNull(defaultJson) { "default asset missing" }, radioCallsign.trim().ifEmpty { callsign })
                 else RadioConfigurator.fromProfile(requireNotNull(convoyViewModel.importProfileFromFile(t.backup!!).getOrNull()) { "backup unreadable" })
                 val current = convoyViewModel.currentProfile()
                 val last = RadioBackups.list(context, nodeId!!).firstOrNull()?.let { convoyViewModel.importProfileFromFile(it).getOrNull() }
@@ -217,7 +223,7 @@ fun RadioConfigScreen(
                     val label = t.name + if (r.verified) "" else " unverified"
                     val f = RadioBackups.newFile(context, nodeId, label)
                     convoyViewModel.exportProfileToFile(context, f).getOrThrow()
-                    RadioBackups.writeMeta(f, t.name, t.rideId, r.verified) // SAVETITLE: the ride's own title, carried forward
+                    RadioBackups.writeMeta(f, t.name + (if (radioCallsign.trim().isNotEmpty() && radioCallsign.trim() != callsign) " \u2014 for ${radioCallsign.trim()}" else ""), t.rideId, r.verified) // SAVETITLE: the ride's own title, carried forward
                     savedAs = RadioBackups.describe(f)
                 }
             } catch (e: Exception) {
@@ -240,6 +246,12 @@ fun RadioConfigScreen(
                 phase == "PICK" && callsign.isEmpty() ->
                     Text("Set your rider profile first (Settings \u2192 Your Profile): your callsign becomes the radio's name.", color = BAD)
                 phase == "PICK" -> {
+                    // CALLSIGNOVR-2026-09-26: whose radio is this? Your callsign unless you type another rider's.
+                    OutlinedTextField(value = radioCallsign, onValueChange = { radioCallsign = it.take(39) }, singleLine = true,
+                        label = { Text("Callsign for this radio") }, modifier = Modifier.fillMaxWidth())
+                    if (radioCallsign.trim().isNotEmpty() && radioCallsign.trim() != callsign)
+                        Text("Setting up a radio for ${radioCallsign.trim()} \u2014 your own profile is not changed.", color = ACCENT, fontSize = 12.sp)
+                    Spacer(Modifier.height(8.dp))
                     Text("Choose what to put on the radio:", color = INK)
                     targets.forEach { t ->
                         Column(Modifier.fillMaxWidth().clickable { choose(t) }.padding(vertical = 9.dp)) {
