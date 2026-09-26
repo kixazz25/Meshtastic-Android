@@ -4379,7 +4379,9 @@ fun ConvoyMapViewerScreen(
                                 else -> "Could not convert this track (code $n)."
                             }
                             android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_LONG).show()
-                            if (n > 0) { pendingDetailId = null; pendingDetailType = null }
+                            // DRAFTTICK-2026-09-26: the in-progress list is rebuilt ONLY when draftListTick changes (DISCARDWINS);
+                            // a draft written from outside Route+ must bump it, or the list never shows the new draft.
+                            if (n > 0) { pendingDetailId = null; pendingDetailType = null; draftListTick++ }
                         }
                     } },
                     artifactType = pendingDetailType!!,
