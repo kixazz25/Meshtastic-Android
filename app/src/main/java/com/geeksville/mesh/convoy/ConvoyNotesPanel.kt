@@ -324,6 +324,10 @@ fun notesFromDraft(notes: JSONObject?): List<NoteSection> {
     // route lists ten under WHAT YOU WILL SEE and ten again under IN ORDER --
     // twenty lines that push the stats, the ground covered and the warning off
     // the screen. ⚠ The warning especially: BEFORE YOU GO stays open, always.
+    // TRACKDESC-2026-09-26 (Fred): a route's own description (a converted track's rider-written text), shown OPEN.
+    nar?.optString("description")?.takeIf { it.isNotBlank() }?.let {
+        out.add(NoteSection("ABOUT THIS ROUTE", listOf(it)))
+    }
     arr("what_you_will_see", "WHAT YOU WILL SEE", collapsed = true)
     arr("stops_in_order", "IN ORDER", collapsed = true)
 

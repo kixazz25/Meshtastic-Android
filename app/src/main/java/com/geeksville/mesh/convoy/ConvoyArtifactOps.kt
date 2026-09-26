@@ -125,6 +125,37 @@ object ConvoyArtifactOps {
         kept.size
     }
 
+    /**
+     * TRACKROUTE2-2026-09-26 (Fred) -- PASS 2 (final): the track's line, simplified as in trackToConvertDraft (method
+     * approved on the review draft), SAVED as a route with the existing insertRoute. The track is never changed.
+     * Returns the new route id, or null (logged).
+     */
+    suspend fun trackToRoute(context: Context, trackId: String, name: String, description: String): String? = withContext(Dispatchers.IO) {   // TRACKDESC-2026-09-26
+        SpatialDbManager.init(context)
+        val wkt = SpatialDbManager.trackGeometry(trackId) ?: run { Log.w(TAG, "TRACKROUTE: no geometry for track $trackId"); return@withContext null }
+        val pts = ConvoyRideStore.parseWktLine(wkt)   // lon/lat pairs
+        if (pts.size < 2) { Log.w(TAG, "TRACKROUTE: track $trackId has ${pts.size} points"); return@withContext null }
+        val kept = simplifyByHeading(pts)
+        val line = "LINESTRING(" + kept.joinToString(", ") { "${it.first} ${it.second}" } + ")"
+        val id = try {
+            SpatialDbManager.insertRoute(name.trim(), line, kept.minOf { it.second }, kept.maxOf { it.second }, kept.minOf { it.first }, kept.maxOf { it.first })
+        } catch (e: Exception) { Log.e(TAG, "TRACKROUTE: insertRoute failed: ${e.message}"); "" }
+        if (id.isBlank()) return@withContext null
+        // TRACKDESC-2026-09-26 (Fred): the route is born WITH its narrative -- the route owns it. Headline = automatic
+        // ("Created from track <track> -- <miles> miles", measured on the RECORDED points); description = the rider's words.
+        val miles = kotlin.math.round(pts.zipWithNext().sumOf { (a, b) -> trDistM(a, b) } / 1609.344 * 10) / 10.0
+        val trackName = SpatialDbManager.trackName(trackId) ?: name.trim()
+        val notes = org.json.JSONObject()
+            .put("source", "convertroute")
+            .put("narrative", org.json.JSONObject()
+                .put("headline", "Created from track $trackName \u2014 $miles miles")
+                .put("description", description.trim()))
+            .put("summary", org.json.JSONObject().put("total_miles", miles))
+        val rows = SpatialDbManager.writeRouteNotes(id, notes)
+        Log.i(TAG, "TRACKROUTE: track $trackId -> ROUTE $id '${name.trim()}' (${pts.size} points -> ${kept.size}; $miles mi; notes rows $rows)")
+        id
+    }
+
     private fun trDistM(a: Pair<Double, Double>, b: Pair<Double, Double>): Double {
         val k = 111_320.0
         val dx = (b.first - a.first) * k * kotlin.math.cos(Math.toRadians((a.second + b.second) / 2))

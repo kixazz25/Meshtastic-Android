@@ -57,7 +57,7 @@ fun ArtifactDetailPanel(
     onAddRide: ((String, String) -> Unit)? = null,
     // TRACKRIDE-2026-09-26 (Fred): CREATE RIDE on a TRACK -> (track id, route name). Optional like onAddRide (CODE
     // RULE 1): only the planner, which can create rides, passes it; other callers show no button.
-    onCreateRideFromTrack: ((String, String) -> Unit)? = null,
+    onCreateRideFromTrack: ((String, String, String) -> Unit)? = null,   // TRACKDESC-2026-09-26: (track id, route name, description)
     /* SATFIXES-2026-08-29: build six more from this route's recipe.
      * ⚠ Unlike onShowNotes, which is offered unconditionally, this one is
      * passed only when the route DB actually holds a recipe — a hand-drawn or
@@ -82,6 +82,7 @@ fun ArtifactDetailPanel(
     val singular = artifactType.lowercase().removeSuffix("s")
     var showRideNameDialog by remember { mutableStateOf(false) }   // TRACKRIDE-2026-09-26
     var rideRouteName by remember { mutableStateOf("") }
+    var rideRouteDesc by remember { mutableStateOf("") }   // TRACKDESC-2026-09-26
     val detailFields = remember(id) { onLoadDetail?.invoke(singular, id) ?: emptyMap() }
     val dName = detailFields["name"] ?: name ?: "Unnamed"
 
@@ -141,19 +142,24 @@ fun ArtifactDetailPanel(
                         val taken = rideRouteName.isNotBlank() && SpatialDbManager.routeNameExists(rideRouteName.trim())
                         androidx.compose.material3.AlertDialog(
                             onDismissRequest = { showRideNameDialog = false },
-                            title = { androidx.compose.material3.Text("Convert this track (review draft)") },
+                            title = { androidx.compose.material3.Text("Create a ride from this track" /* TRACKRIDE2-2026-09-26 */) },
                             text = {
                                 androidx.compose.foundation.layout.Column {
-                                    androidx.compose.material3.Text("The track's line is simplified and saved as a Route+ draft marked convertroute \u2014 no route is written yet. Review it over the track, then save it from Route+.")
+                                    androidx.compose.material3.Text("The track becomes a route with this name (the track itself is not changed). The map then fits to the route, and the ride form opens.")
                                     androidx.compose.material3.OutlinedTextField(value = rideRouteName, onValueChange = { rideRouteName = it }, singleLine = true,
                                         label = { androidx.compose.material3.Text("Route name") })
+                                    // TRACKDESC-2026-09-26 (Fred): the first line is automatic; the rider's description follows it.
+                                    androidx.compose.material3.Text("First line (automatic): Created from track $dName \u2014 its length in miles", color = aDim, fontSize = 11.sp)
+                                    androidx.compose.material3.OutlinedTextField(value = rideRouteDesc, onValueChange = { rideRouteDesc = it }, minLines = 3,
+                                        label = { androidx.compose.material3.Text("Route description") },
+                                        placeholder = { androidx.compose.material3.Text("Describe the route: skill level, terrain, highlights, cautions\u2026") })
                                     if (taken) androidx.compose.material3.Text("A route with this name already exists \u2014 choose another.", color = Color(0xFFFF6B6B))
                                 }
                             },
                             confirmButton = {
                                 androidx.compose.material3.TextButton(enabled = rideRouteName.isNotBlank() && !taken, onClick = {
-                                    showRideNameDialog = false; onCreateRideFromTrack(id, rideRouteName.trim())
-                                }) { androidx.compose.material3.Text("CREATE REVIEW DRAFT") }
+                                    showRideNameDialog = false; onCreateRideFromTrack(id, rideRouteName.trim(), rideRouteDesc.trim())
+                                }) { androidx.compose.material3.Text("CREATE ROUTE & RIDE") }
                             },
                             dismissButton = { androidx.compose.material3.TextButton(onClick = { showRideNameDialog = false }) { androidx.compose.material3.Text("Cancel") } },
                         )

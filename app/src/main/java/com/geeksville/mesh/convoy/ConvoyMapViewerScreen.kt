@@ -4367,21 +4367,19 @@ fun ConvoyMapViewerScreen(
                     onAddRide = onAddRide?.let { go -> { a: String, b: String ->
                         RidePreview.captureThen(webViewRef, a, b) { go(a, b) }
                     } },
-                    // TRACKRIDE-2026-09-26 (Fred) -- PASS 1 (review): the track's simplified line becomes a Route+ DRAFT
-                    // marked convertroute; open it from Route+'s in-progress list, over the track. PASS 2 will write the
-                    // route, fit it on the map, then open the ride form.
-                    onCreateRideFromTrack = onAddRide?.let { _ -> { tid: String, name: String ->
+                    // TRACKRIDE2-2026-09-26 (Fred) -- PASS 2 (final): the track's simplified line (method approved on the
+                    // convertroute review draft) is SAVED as a route, the map fits to it and captures the ride's picture,
+                    // then the ride form opens -- which asks for the trailhead within 1/2 mile, as for any route.
+                    onCreateRideFromTrack = onAddRide?.let { go -> { tid: String, name: String, desc: String ->   // TRACKDESC-2026-09-26
                         scope.launch {
-                            val n = ConvoyArtifactOps.trackToConvertDraft(context, tid, name)
-                            val msg = when {
-                                n > 0 -> "Draft '$name' (convertroute, $n points) saved \u2014 open it from Route+ in progress to review it over the track."
-                                n == -3 -> "Finish or clear the route in progress in Route+ first."
-                                else -> "Could not convert this track (code $n)."
+                            val rid = ConvoyArtifactOps.trackToRoute(context, tid, name, desc)
+                            if (rid == null) {
+                                android.widget.Toast.makeText(context, "Could not make a route from this track", android.widget.Toast.LENGTH_LONG).show()
+                            } else {
+                                pendingDetailId = null; pendingDetailType = null
+                                webViewRef?.evaluateJavascript("triggerViewportUpdate()", null)
+                                RidePreview.captureThen(webViewRef, "Route", rid) { go("Route", rid) }
                             }
-                            android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_LONG).show()
-                            // DRAFTTICK-2026-09-26: the in-progress list is rebuilt ONLY when draftListTick changes (DISCARDWINS);
-                            // a draft written from outside Route+ must bump it, or the list never shows the new draft.
-                            if (n > 0) { pendingDetailId = null; pendingDetailType = null; draftListTick++ }
                         }
                     } },
                     artifactType = pendingDetailType!!,
