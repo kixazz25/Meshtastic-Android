@@ -332,7 +332,8 @@ object ConvoyRideStore {
                         "ride_name, ride_date, start_time, description, zip_code, is_public, " +
                         "config_mode, config_id, expires_at, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                     arrayOf<Any?>(
-                        id, creatorId, creatorName, routeId, s("name"), date, s("startTime"), s("description"), s("zipCode"), 0,
+                        id, creatorId, creatorName, routeId, s("name"), date, s("startTime"), s("description"), s("zipCode"),
+                        if (j.optJSONObject("ride")?.optBoolean("isPublic", false) == true) 1 else 0,   // RIDEPUBLIC-2026-09-27: from the file (older files: private)
                         "unique", j.optJSONObject("network") /* CLOSEFIX-2026-09-26: the CHECK allows inherit_org|inherit_leader|unique */?.optString("id")?.takeIf { it.isNotBlank() && it != "null" },
                         expiresFor(date), s("createdAt").ifEmpty { nowUtc() }, nowUtc()
                     )

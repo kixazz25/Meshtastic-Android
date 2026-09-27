@@ -46,7 +46,12 @@ object ConvoyRideSend {
                     val day = runCatching {
                         java.time.LocalDate.parse(rideDate).format(java.time.format.DateTimeFormatter.ofPattern("EEEE d MMMM", java.util.Locale.US))
                     }.getOrDefault(rideDate)
-                    "You're invited: $rideName ($day)\n\n" +
+                    // RIDEPUBLIC-2026-09-27 (Fred): public rides may be forwarded; private rides may not.
+                    val forward = if (ride?.optBoolean("isPublic", false) == true)
+                        "This is an open ride. Feel free to forward this email to friends who would like to come.\n\n"
+                    else
+                        "This is a private ride for the riders invited. Please don't forward this email.\n\n"
+                    "You're invited: $rideName ($day)\n\n" + forward +
                         "If you're a GroupTrack user, tap the attachment below, choose GroupTrack, then tap \"Always\". " +
                         "This imports the route, and downloads the maps for offline use during this ride.\n\n" +
                         "Using a GroupTrack radio? Remember to apply the ride to your radio before your ride (Work with Rides \u2192 Apply ride to radio).\n\n" + // RIDEMAIL2-2026-09-26

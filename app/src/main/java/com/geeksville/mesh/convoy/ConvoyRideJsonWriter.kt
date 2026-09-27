@@ -46,11 +46,11 @@ object ConvoyRideJsonWriter {
         val r: Array<String?> = try {
             db.rawQuery(
                 "SELECT ride_id, organizer_name, org_name, route_id, ride_name, ride_date, " +
-                    "start_time, description, zip_code, config_id, expires_at, created_at " +
+                    "start_time, description, zip_code, config_id, expires_at, created_at, is_public " +   // RIDEPUBLIC-2026-09-27
                     "FROM rides WHERE ride_id = ?", arrayOf(rideId)
             ).use { c ->
                 if (!c.moveToFirst()) null
-                else Array(12) { i -> if (c.isNull(i)) null else c.getString(i) }
+                else Array(13) { i -> if (c.isNull(i)) null else c.getString(i) }
             }
         } catch (e: Exception) {
             Log.e(TAG, "ride read failed: ${e.message}"); null
@@ -63,6 +63,7 @@ object ConvoyRideJsonWriter {
             .put("startTime", nul(r[6]))
             .put("description", nul(r[7]))
             .put("zipCode", nul(r[8]))
+            .put("isPublic", r[12] == "1")   // RIDEPUBLIC-2026-09-27: every rider's tablet needs it at the end of the ride
             .put("expiresAt", nul(r[10]))
             .put("createdAt", nul(r[11]))
 
