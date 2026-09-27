@@ -112,6 +112,9 @@ object ConvoyRideStore {
         description: String,
         zipCode: String,
         isPublic: Boolean,
+        // RIDENET-2026-09-27: REQUIRED, no default (CODE RULE 1) -- every caller decides: false = the organizer's own
+        // network (created with their first ride, reused after); true = a new network for this ride only.
+        newNetworkForRide: Boolean,
         routeId: String
     ): String? {
         val db = SpatialDbManager.getExtensionDb() ?: return null
@@ -122,11 +125,15 @@ object ConvoyRideStore {
             .joinToString(" ").ifBlank { me.callsign }
         val now = nowUtc()
         val id = UUID.randomUUID().toString()
-        // RIDECFG-2026-09-23: the ride's OWN channel config -- channel id, key and WiFi password,
-        // generated together. Simple path: config_mode 'unique'. Org / organizer inheritance later.
-        val cfg = ConvoyNetworkStore.create(OwnerType.RIDE, id, rideName.trim()) ?: run {
-            Log.w(TAG, "saveRide refused: the ride's channel config was not created"); return null
+        // RIDENET-2026-09-27 (Fred): the ORGANIZER's network by default -- created with their first ride and reused for
+        // every ride after (users.config_id, config_mode 'own') -- or, when asked, a NEW network for this ride only.
+        // Every network is NAMED after the organizer. Only the rider's OWN network or a new one: never another
+        // organizer's (theirs arrive only to JOIN their rides). Supersedes RIDECFG-2026-09-23's always-unique path.
+        val cfg = (if (newNetworkForRide) ConvoyNetworkStore.create(OwnerType.RIDE, id, leaderName)
+                   else organizerNetwork(me.userId, leaderName)) ?: run {
+            Log.w(TAG, "saveRide refused: the ride's network was not available"); return null
         }
+        val mode = if (newNetworkForRide) "unique" else "inherit_leader"
         val expires = expiresFor(rideDate)
         return try {
             db.execSQL(
@@ -138,15 +145,74 @@ object ConvoyRideStore {
                     id, me.userId, leaderName, routeId,
                     rideName.trim(), rideDate.trim(), startTime.trim(), description.trim(),
                     zipCode.trim(), if (isPublic) 1 else 0,
-                    "unique", cfg.configId, expires, now, now
+                    mode, cfg.configId, expires, now, now
                 )
             )
             Log.i(TAG, "RIDECREATE-2026-09-22: ride saved $id name=$rideName route=$routeId")
+            markOrganizer(me.userId)   // RIDENET-2026-09-27: creating a ride makes you an organizer
+            Log.i(TAG, "RIDENET: ride $id on ${cfg.configId} ($mode)")
             id
         } catch (e: Exception) {
             Log.e(TAG, "saveRide failed: ${e.message}")
-            ConvoyNetworkStore.deleteUnused(cfg.configId)   // RIDECFG: no ghost config
+            if (newNetworkForRide) ConvoyNetworkStore.deleteUnused(cfg.configId)   // RIDECFG: no ghost config (never the organizer's own)
             null
+        }
+    }
+
+    // ---- RIDENET-2026-09-27 (Fred): the organizer's network ------------------------------------------------------
+    /** The rider's OWN organizer network id (users.config_id of the is_self row), or null before their first ride. */
+    private fun myConfigId(): String? = try {
+        SpatialDbManager.getExtensionDb()?.rawQuery(
+            "SELECT config_id FROM users WHERE is_self = 1 AND config_id IS NOT NULL LIMIT 1", null)?.use { c ->
+            if (c.moveToFirst()) c.getString(0) else null
+        }
+    } catch (e: Exception) { null }
+
+    /** For the ride form: "Fred K · GroupAB12CD". CODE RULE 1: null is a real state -- no network yet. */
+    fun myNetworkName(): String? =
+        myConfigId()?.let { ConvoyNetworkStore.load(it) }?.let { "${it.displayName} \u00b7 ${it.configId}" }
+
+    /** RIDENETWORDS2-2026-09-27: the rider's OWN network, created now if missing (named after them), returned by name
+     *  for the ride form. CODE RULE 1: null only when there is no rider profile or the network could not be made. */
+    fun ensureMyNetworkName(): String? {
+        val me = ConvoyProfileStore.load() ?: return null
+        val name = listOf(me.firstName, me.lastName).filter { it.isNotBlank() }.joinToString(" ").ifBlank { me.callsign }
+        organizerNetwork(me.userId, name) ?: return null
+        return myNetworkName()
+    }
+
+    /** True once this rider has created a ride (users.is_organizer). */
+    fun isOrganizer(): Boolean = try {
+        SpatialDbManager.getExtensionDb()?.rawQuery(
+            "SELECT is_organizer FROM users WHERE is_self = 1 LIMIT 1", null)?.use { c ->
+            c.moveToFirst() && c.getInt(0) == 1
+        } ?: false
+    } catch (e: Exception) { false }
+
+    /** The organizer's OWN network: the existing one, or created now (owner LEADER, named after the organizer) and
+     *  recorded on the rider (config_mode 'own'). Null only when it could not be created. */
+    private fun organizerNetwork(userId: String, name: String): com.grouptrack.core.NetworkConfig? {
+        myConfigId()?.let { id -> ConvoyNetworkStore.load(id)?.let { return it } }
+        val cfg = ConvoyNetworkStore.create(OwnerType.LEADER, userId, name) ?: return null
+        try {
+            SpatialDbManager.getExtensionDb()?.execSQL(
+                "UPDATE users SET config_mode = 'own', config_id = ?, updated_at = ? WHERE user_id = ?",
+                arrayOf<Any?>(cfg.configId, nowUtc(), userId))
+            Log.i(TAG, "RIDENET: organizer network ${cfg.configId} created for $name")
+        } catch (e: Exception) {
+            Log.e(TAG, "RIDENET: organizer network not recorded on the rider: ${e.message}")
+        }
+        return cfg
+    }
+
+    /** Creating a ride makes you an organizer (users.is_organizer = 1). */
+    private fun markOrganizer(userId: String) {
+        try {
+            SpatialDbManager.getExtensionDb()?.execSQL(
+                "UPDATE users SET is_organizer = 1, updated_at = ? WHERE user_id = ? AND is_organizer = 0",
+                arrayOf<Any?>(nowUtc(), userId))
+        } catch (e: Exception) {
+            Log.w(TAG, "RIDENET: is_organizer not set: ${e.message}")
         }
     }
 

@@ -72,7 +72,12 @@ fun ConvoyRideCreateScreen(
     var startTime by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var zipCode by remember { mutableStateOf("") }
-    var isPublic by remember { mutableStateOf(false) }
+    // RIDENET-2026-09-27: public by default (isPrivate off); the organizer's network by default (newNetworkForRide off).
+    var isPrivate by remember { mutableStateOf(false) }
+    var newNetworkForRide by remember { mutableStateOf(false) }
+    // CODE RULE 1: null is a real state -- this rider has no network yet; their first ride creates it.
+    // RIDENETWORDS2-2026-09-27: the rider's own network is made when the form opens, so it always exists and has a name.
+    val myNetworkName = remember { ConvoyRideStore.ensureMyNetworkName() }
 
     var routes by remember { mutableStateOf<List<RouteSummary>>(emptyList()) }
     var routeId by remember { mutableStateOf(initialRouteId ?: "") }
@@ -256,15 +261,20 @@ fun ConvoyRideCreateScreen(
                 modifier = Modifier.padding(vertical = 6.dp))
             RideField("Description", description, "Meeting point, notes...") { description = it }
 
+            // RIDENET-2026-09-27 (Fred): PUBLIC by default, PRIVATE the override -- and the screen says what each means.
             Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
                 .background(Color(0xFF0F2035)).padding(horizontal = 14.dp, vertical = 10.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically) {
-                Column {
-                    Text("PUBLIC RIDE", color = Color(0xFFAABBCC), fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                    Text("Shared with the community at 3.0", color = Color(0xFF445566), fontSize = 10.sp)
+                Column(modifier = Modifier.weight(1f).padding(end = 10.dp)) {
+                    Text("PRIVATE RIDE", color = Color(0xFFAABBCC), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Text(if (isPrivate)
+                            "Private \u2014 for the riders you invite; please don't forward. At the end of the ride there is no survey and no sharing: every rider's track stays on their own tablet, and no public trails are added."
+                        else
+                            "Public \u2014 riders may forward the invitation to friends. At the end of the ride, each rider rates it and decides whether to share their track with the community.",
+                        color = Color(0xFF8899AA), fontSize = 11.sp)
                 }
-                Switch(checked = isPublic, onCheckedChange = { isPublic = it },
+                Switch(checked = isPrivate, onCheckedChange = { isPrivate = it },
                     colors = SwitchDefaults.colors(
                         checkedThumbColor = GroupTrackColors.SkyBlue,
                         checkedTrackColor = Color(0xFF1A3050),
@@ -272,12 +282,28 @@ fun ConvoyRideCreateScreen(
                         uncheckedTrackColor = Color(0xFF0A1628)))
             }
 
+            // RIDENET-2026-09-27 (Fred): the ORGANIZER's network by default (created with the first ride, reused after);
+            // a new network only for this ride when asked. Never another organizer's network.
             Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-                .background(Color(0xFF1A0A00)).padding(14.dp),
+                .background(Color(0xFF1A0A00)).padding(horizontal = 14.dp, vertical = 10.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically) {
-                Text("NETWORK", color = GroupTrackColors.Amber, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                Text("\u26a0 comes with the transport work", color = GroupTrackColors.Amber, fontSize = 10.sp)
+                Column(modifier = Modifier.weight(1f).padding(end = 10.dp)) {
+                    Text("RADIO NETWORK", color = GroupTrackColors.Amber, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Text(if (newNetworkForRide)
+                            "A private network for this ride only. Every rider must set up their radio for it, even if they have ridden with you before."
+                        else "Your own private network has been created: ${myNetworkName ?: "(not available \u2014 check your rider profile)"}. " +
+                            "It is used for this ride and all new rides, unless you select Create a private network for this ride.",   /* RIDENETWORDS2-2026-09-27 */
+                        color = Color(0xFFCCBB99), fontSize = 11.sp)
+                    Text("Create a private network for this ride", color = Color(0xFFAABBCC), fontSize = 11.sp,
+                        modifier = Modifier.padding(top = 6.dp))
+                }
+                Switch(checked = newNetworkForRide, onCheckedChange = { newNetworkForRide = it },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = GroupTrackColors.SkyBlue,
+                        checkedTrackColor = Color(0xFF1A3050),
+                        uncheckedThumbColor = Color(0xFF445566),
+                        uncheckedTrackColor = Color(0xFF0A1628)))
             }
 
             // RIDETH-2026-09-23: the trailhead -- one, a choice, or how to add one.
@@ -328,10 +354,11 @@ fun ConvoyRideCreateScreen(
                     }
                     // ONEDEFAULT-2026-09-26: the new ride's radio values = the GroupTrack default, read now.
                     com.grouptrack.core.NetworkGenerator.MeshDefaults.loadFrom(context)
+                    val wasOrganizer = ConvoyRideStore.isOrganizer()   // RIDENET-2026-09-27: first ride -> say so once
                     val id = ConvoyRideStore.saveRide(
                         rideName = rideName, rideDate = rideDate, startTime = startTime,
                         description = description, zipCode = zipCode,
-                        isPublic = isPublic, routeId = routeId
+                        isPublic = !isPrivate, newNetworkForRide = newNetworkForRide, routeId = routeId
                     )
                     if (id != null) {
                         // RIDEFILE-2026-09-23: the ride JSON is stored on every Save.
@@ -342,6 +369,8 @@ fun ConvoyRideCreateScreen(
                             missing.isEmpty() -> "\u2713 Ride saved \u2014 ready to send"
                             else -> "\u2713 Saved in progress \u2014 missing: " + missing.joinToString(", ")
                         }
+                        if (!wasOrganizer) status += "\n\u2713 You're now an organizer \u2014 your rides use your own network: " +
+                            (ConvoyRideStore.myNetworkName() ?: "created with this ride") + "."   // RIDENET-2026-09-27
                         onRideCreated(id)
                     }
                     else status = "\u2717 Could not save \u2014 is there a rider profile?"

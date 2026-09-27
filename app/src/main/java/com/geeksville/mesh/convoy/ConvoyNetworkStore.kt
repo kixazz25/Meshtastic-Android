@@ -77,8 +77,12 @@ object ConvoyNetworkStore {
         val db = SpatialDbManager.getExtensionDb() ?: return
         try {
             db.execSQL(
+                // RIDENET-2026-09-27 (Fred): never the rider's OWN network or an organization's; another organizer's
+                // network may go once no ride on this tablet uses it (it comes back with their next ride).
                 "DELETE FROM network_configs WHERE config_id = ? AND config_id NOT IN " +
-                    "(SELECT config_id FROM rides WHERE config_id IS NOT NULL)",
+                    "(SELECT config_id FROM rides WHERE config_id IS NOT NULL) AND config_id NOT IN " +
+                    "(SELECT config_id FROM users WHERE is_self = 1 AND config_id IS NOT NULL) AND config_id NOT IN " +
+                    "(SELECT config_id FROM organizations WHERE config_id IS NOT NULL)",
                 arrayOf<Any?>(configId)
             )
         } catch (e: Exception) {
