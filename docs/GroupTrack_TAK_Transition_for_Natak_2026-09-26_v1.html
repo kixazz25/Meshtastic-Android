@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GroupTrack — Moving to TAK reports, and how we extended the radio model (for Natak Mesh, 2026-09-26)</title>
+<style>
+  :root { --ink:#1b2430; --dim:#5a6573; --line:#d9dee5; --accent:#1f6f4a; --soft:#f3f6f4; --warn:#8a5a00; --warnbg:#fff7e6; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:#fff; color:var(--ink); font:16px/1.55 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  main { max-width:880px; margin:0 auto; padding:32px 22px 60px; }
+  h1 { font-size:26px; line-height:1.25; margin:0 0 6px; }
+  .sub { color:var(--dim); margin:0 0 26px; }
+  h2 { font-size:19px; margin:36px 0 10px; padding-top:14px; border-top:1px solid var(--line); color:var(--accent); }
+  h3 { font-size:16px; margin:22px 0 6px; }
+  p { margin:8px 0; }
+  ul, ol { margin:6px 0 10px; padding-left:22px; }
+  li { margin:3px 0; }
+  .box { background:var(--soft); border-left:4px solid var(--accent); padding:12px 16px; margin:14px 0; border-radius:4px; }
+  .note { background:var(--warnbg); border-left:4px solid var(--warn); padding:12px 16px; margin:14px 0; border-radius:4px; }
+  .wrap { overflow-x:auto; margin:10px 0 14px; }
+  table { border-collapse:collapse; width:100%; font-size:14.5px; }
+  th, td { border:1px solid var(--line); padding:7px 9px; text-align:left; vertical-align:top; }
+  th { background:#eef2ef; }
+  code { font-family:ui-monospace, Consolas, Menlo, monospace; font-size:13.5px; background:#f1f3f5; padding:1px 4px; border-radius:3px; }
+  .muted { color:var(--dim); font-size:14px; }
+</style>
+</head>
+<body>
+<main>
+
+<h1>GroupTrack: moving to TAK reports, and how we extended the radio model</h1>
+<p class="sub">For Nathan Boyette, Natak Mesh · from Fred, GroupTrack · 26 September 2026</p>
+
+<div class="box">
+<p><strong>What this is.</strong> A report of what we built and measured this week, not a request to change how you configure your radios. Your eleven-value radio model was our starting point. This explains how GroupTrack moved its position reporting to TAK <em>without CoT</em>, which values we added to your model to make that work, what we found on real hardware, and the few things we would like to agree with you.</p>
+</div>
+
+<h2>1. In short</h2>
+<ul>
+<li><strong>Every GroupTrack radio now reports in TAK.</strong> The radio runs the <code>TAK_TRACKER</code> role, and each position report is a TAK packet carrying its own callsign. No CoT, no XML, no Wi-Fi and no TAK server are involved on a ride.</li>
+<li><strong>We kept your radio values and added a reporting group</strong>: how often and when a radio reports, and its GPS. That takes the managed set from your eleven to nineteen values. All nineteen are written and then read back and verified.</li>
+<li><strong>The added GPS and position values make a radio restart a second time</strong> after it is written. We found that the tablet then holds a dead Bluetooth link it believes is alive, and fixed it with a closing step: wait 30 s, then always one clean disconnect and reconnect.</li>
+<li><strong>GroupTrack's standard preset is now MEDIUM_FAST</strong> (it was LONG_FAST). With two radios, channel use fell from about 22% to 4–5%.</li>
+<li><strong>Radios on different presets cannot hear each other.</strong> You run SHORT_FAST, so a Nucleus on a GroupTrack ride needs to run the ride's preset. See section 7.</li>
+</ul>
+
+<h2>2. From position packets to TAK reports</h2>
+
+<h3>Before</h3>
+<p>GroupTrack drew each rider from Meshtastic's own messages: position packets for the location, and the node list for the name. A rider's name existed only if their node information had reached the tablet, and a radio with no tablet attached was little more than a number on the map.</p>
+
+<h3>Now</h3>
+<p>Each radio runs the <code>TAK_TRACKER</code> role. On the T1000-E, on firmware 2.6.11, that makes the radio itself send a TAK packet (<code>TAKPacket</code>, version 1) on <strong>port 72</strong> at every report. Each packet carries:</p>
+<ul>
+<li>the <strong>callsign</strong> (taken from the radio's owner name);</li>
+<li>the <strong>position</strong>: latitude, longitude, altitude, speed and course;</li>
+<li>the TAK <strong>group</strong>: role and team colour (today the firmware defaults, Team Member and Cyan);</li>
+<li>the <strong>battery</strong> level.</li>
+</ul>
+<p>So <strong>every report identifies its sender by itself</strong>. A radio with no tablet appears on every map under its callsign, as soon as its first report arrives.</p>
+
+<h3>What is required, without CoT</h3>
+<p>Only the radios themselves, set up consistently:</p>
+<ol>
+<li><strong>The role</strong> <code>TAK_TRACKER</code> on every radio.</li>
+<li><strong>The same channel and key</strong>, and <strong>the same preset</strong>, on every radio on the ride.</li>
+<li><strong>The owner name</strong> set to the rider's callsign, because it becomes the TAK callsign.</li>
+<li><strong>GPS on, and the reporting values</strong> (section 3), which now set how often TAK reports are sent.</li>
+</ol>
+<p>Nothing else: no ATAK app, no server, no XML. GroupTrack decodes the TAK packets directly on the tablet.</p>
+
+<h3>What GroupTrack decodes</h3>
+<div class="wrap"><table>
+<tr><th>Source</th><th>Port</th><th>Format</th><th>Status</th></tr>
+<tr><td>A radio on <code>TAK_TRACKER</code> (firmware 2.6.11)</td><td>72</td><td>TAKPacket V1</td><td>Decoded, and on the map</td></tr>
+<tr><td>Newer firmware / the TAK V2 format</td><td>78</td><td>TAKPacketV2 (zstd with the SDK dictionaries)</td><td>Decoded. All 47 golden frames from TAKPacket-SDK 0.9.1 decode byte-exact</td></tr>
+<tr><td>Your bridge (<code>cot_bridge.py</code>)</td><td>257</td><td>Compressed TAKPacketV2</td><td>Decoded. Bridged riders are logged, not yet drawn</td></tr>
+</table></div>
+
+<div class="note">
+<p><strong>Two copies of every report.</strong> A receiving radio passes each TAK report to the tablet twice: the over-the-air original, with the callsign in compressed form (<code>is_compressed=true</code>, unreadable as text), and a copy the receiving radio has already decompressed. GroupTrack uses only the decompressed copy, so each report is handled once, with a readable callsign. A tablet's <em>own</em> radio's reports arrive only as the compressed original, since there is no second radio to decompress them, which is fine: a tablet takes its own position from itself.</p>
+</div>
+
+<h2>3. Your radio model, and what we added</h2>
+<p>We started from your eleven values: the owner name, the LoRa settings (region, preset, frequency slot, hop limit, TX power), the device role, and the channel (name and key). GroupTrack writes them the same way, as the same kinds of change. To make the radios report usefully by themselves, we added a <strong>reporting group</strong>.</p>
+
+<div class="wrap"><table>
+<tr><th>Group</th><th>Values</th><th>GroupTrack's default</th></tr>
+<tr><td>Owner</td><td>Owner name (the callsign)</td><td>The rider's callsign</td></tr>
+<tr><td>LoRa</td><td>Region · preset · frequency slot · hop limit · TX power · transmit enabled</td><td>US · <strong>MEDIUM_FAST</strong> · 0 (from the channel name) · 3 · <strong>0 = the radio's maximum</strong> · on</td></tr>
+<tr><td>Device</td><td>Role</td><td><strong>TAK_TRACKER</strong></td></tr>
+<tr><td>Channel</td><td>Name · key · position precision</td><td>The ride's own name and key · full precision (32)</td></tr>
+<tr><td><strong>Reporting (added)</strong></td><td>Position broadcast interval · smart position (on, minimum interval, minimum distance) · GPS mode and update interval · fixed position off</td><td><strong>15 s</strong> standing · smart on, <strong>4 s</strong> minimum, <strong>20 m</strong> · GPS on, frequent updates · off</td></tr>
+</table></div>
+
+<p><strong>The principle:</strong> GroupTrack manages only the values GroupTrack uses. Those nineteen are written, then read back and verified one by one. Everything else on the radio stays as it was. Before the first write, GroupTrack saves the radio's full configuration (<em>As found</em>), so a radio can always be returned to exactly how it was.</p>
+
+<h3>How the values are written</h3>
+<p>In three groups, each followed by the same wait. This is your settle, plus the forced Bluetooth cycle from our earlier tooling:</p>
+<ol>
+<li><strong>1a</strong>: the owner name.</li>
+<li><strong>1b</strong>: LoRa, device and position together, as one edit (begin, write, commit).</li>
+<li><strong>2</strong>: the channel.</li>
+</ol>
+<p>After each group: <strong>a 15 s settle</strong> (the radio restarts by itself after most config writes), then <strong>disconnect → 3 s → reconnect</strong>, then wait for the connection (up to 60 s).</p>
+
+<h2>4. What we found: the second restart</h2>
+<p><strong>The symptom.</strong> After an apply, each tablet still saw the <em>other</em> radio, but not its <em>own</em>, until the rider disconnected and reconnected by hand.</p>
+<p><strong>The cause.</strong> Your process writes LoRa and channel values, and each group causes <strong>one</strong> restart, which your single wait fits exactly. The <strong>position and GPS values we added make the radio restart again</strong>, after the tablet has already reconnected. Android does not notice the dead Bluetooth link straight away, so the tablet reports <em>connected</em> while the radio is restarting underneath. Every check that trusts that state passes wrongly, and the tablet never receives its own radio's record, which is sent only in the exchange when a connection opens.</p>
+<p><strong>The fix.</strong> After the last group, GroupTrack <strong>waits 30 s, then always does one clean disconnect and reconnect</strong>, whatever the connection state says. Only then does it check that it holds its own radio's record (one more automatic cycle if not), and verify.</p>
+
+<h3>Measured on two T1000-E radios (26 September)</h3>
+<div class="wrap"><table>
+<tr><th>Step</th><th>Tablet 1</th><th>Tablet 2</th></tr>
+<tr><td>1b (LoRa + device + position): restarted by itself</td><td>—</td><td>Yes, ~1 s after the commit</td></tr>
+<tr><td>1b: back and connected</td><td>27 s</td><td>27 s</td></tr>
+<tr><td>2 (channel): restarted by itself</td><td>No</td><td>No</td></tr>
+<tr><td>2: back and connected</td><td>23 s</td><td>20 s</td></tr>
+<tr><td>Final 30 s wait, then clean reconnect</td><td>Back in 14 s</td><td>Back in 7 s</td></tr>
+<tr><td>Own radio's record present</td><td>At once</td><td>At once</td></tr>
+<tr><td>Verify</td><td colspan="2"><strong>19 of 19</strong> on both, with no manual reconnect</td></tr>
+</table></div>
+<p class="muted">A full apply with all three groups takes about three to four minutes.</p>
+
+<div class="box">
+<p><strong>Relevant to your radio API (request R14).</strong> If you add the position values to your API, the same second restart is likely to appear, and the same closing step (wait, then one clean reconnect) should cover it. For your own use, though, the timing that matters is the bridge's relay interval, not the radio's position settings, so R14 is optional (section 7).</p>
+</div>
+
+<h2>5. TX power 0 means the radio's maximum</h2>
+<p>GroupTrack's default TX power is <strong>0</strong>, which Meshtastic treats as the radio's own maximum within the region's legal limit. That lets one default suit every radio: a T1000-E and a 1 W radio each transmit at their own full power, and neither is capped, nor ever raised above the legal limit.</p>
+<p><strong>What we observed:</strong> the radio accepted 0 and <strong>stored and reported the resolved value, 30 dBm</strong>. So a literal read-back sees <em>expected 0, got 30</em>. GroupTrack now treats an expected 0 as <em>"any positive power the radio reports"</em>, so the verify passes, and the radio is not rewritten on every apply.</p>
+
+<h2>6. MEDIUM_FAST, measured</h2>
+<p>We moved GroupTrack's standard preset from LONG_FAST to <strong>MEDIUM_FAST</strong> (your 8+ miles line of sight on it helped settle that), and the fastest smart-position rhythm from 3 s to 4 s.</p>
+
+<div class="wrap"><table>
+<tr><th>Two radios, standing, indoors</th><th>Channel utilisation</th></tr>
+<tr><td>LONG_FAST, one radio still hand-set to a 3 s broadcast</td><td>~22%</td></tr>
+<tr><td>LONG_FAST, both on GroupTrack's reporting values</td><td>9–12%</td></tr>
+<tr><td>MEDIUM_FAST</td><td>4–6%</td></tr>
+<tr><td>MEDIUM_FAST, smart minimum 4 s</td><td><strong>4–5%</strong></td></tr>
+</table></div>
+
+<p><strong>What we take from it:</strong> the reporting values mattered as much as the preset (correcting one radio roughly halved the load before any preset change), and MEDIUM_FAST halved it again.</p>
+
+<p><strong>The range trade-off.</strong> MEDIUM_FAST has about 5 dB less link budget than LONG_FAST. On our T1000-Es, that turns roughly 1⅓ miles between radios on LONG_FAST into an expected <strong>¾ to 1 mile</strong> on MEDIUM_FAST. That's an estimate, to be measured on trails in January. Our guidance to riders will be:</p>
+<ul>
+<li>keep within about ¾ mile of the rider ahead;</li>
+<li><strong>strong radios</strong> (1 W, a good external antenna, mounted high) <strong>at the lead, the tail, and in the middle of long groups</strong>. A better antenna helps receiving as much as sending, so every link that includes a strong radio is longer, and relays favour them naturally.</li>
+</ul>
+<p>Your 30 dBm radio-only unit would fit that backbone role exactly.</p>
+
+<h2>7. What we would like to agree</h2>
+<div class="wrap"><table>
+<tr><th>Ref</th><th>Request</th><th>Status</th></tr>
+<tr><td><strong>R15</strong> (new)</td><td><strong>Preset alignment.</strong> GroupTrack's standard is now MEDIUM_FAST. Radios on different presets cannot hear each other, so a Nucleus on a GroupTrack ride must run the ride's preset. Can the box run MEDIUM_FAST on a GroupTrack ride, and does anything (voice?) require SHORT_FAST?</td><td>To discuss. It is also a bench prerequisite: the two boards need the ride's preset before anything is heard</td></tr>
+<tr><td><strong>R1</strong></td><td><strong>The bridge's relay interval as a setting</strong>, below the sender's rate (3–5 s, as agreed, in place of the fixed 30 s).</td><td>Essential: it sets the timing of everything relayed through a box</td></tr>
+<tr><td><strong>R3</strong></td><td><strong>Carry port 72 onto the Wi-Fi</strong>, alongside 257 and 78, since standalone radios on firmware 2.6.11 send TAK V1 on port 72.</td><td>Open</td></tr>
+<tr><td><strong>R14</strong></td><td>Position values in your radio API.</td><td><strong>Now optional</strong>: only if a Nucleus should report its own position like a rider's radio (for example, one mounted in a support vehicle). If added, see the second-restart note in section 4</td></tr>
+<tr><td>Joint</td><td><strong>A saturation test</strong>: how many radios a channel carries at these settings, with and without a Nucleus.</td><td>When the boards arrive</td></tr>
+</table></div>
+
+<p class="muted">Thank you for the boards, for the SDK, and for the answers so far. The TAK move has made GroupTrack's mesh side much simpler, and your model was the right place to start from.<br>— Fred</p>
+
+</main>
+</body>
+</html>
