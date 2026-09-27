@@ -75,22 +75,21 @@ fun CheckInSheet(onDone: (ConvoyRideStore.CheckIn) -> Unit, onCancel: () -> Unit
                     modifier = Modifier.fillMaxWidth(), label = { Text("Callsign for this ride") })
                 if (me != null && callsign.trim() != me.callsign)
                     Text("For this ride only \u2014 your profile is not changed.", color = dim, fontSize = 12.sp)
-                if (chosen != null) {
-                    Spacer(Modifier.height(8.dp))
-                    Text("Role on this ride", fontWeight = FontWeight.Bold)
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        roles.take(2).forEach { (v, l) -> FilterChip(selected = role == v, onClick = { role = v }, label = { Text(l) }) }
-                    }
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        roles.drop(2).forEach { (v, l) -> FilterChip(selected = role == v, onClick = { role = v }, label = { Text(l) }) }
-                    }
-                    TextButton(onClick = { onCancel(); RadioConfigLauncher.open() }) { Text("Set up radio for this ride") }
+                // CHECKINFIX2-2026-09-27 (Fred): the role is ALWAYS on this panel -- No scheduled ride included.
+                Spacer(Modifier.height(8.dp))
+                Text("Role", fontWeight = FontWeight.Bold)
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    roles.take(2).forEach { (v, l) -> FilterChip(selected = role == v, onClick = { role = v }, label = { Text(l) }) }
                 }
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    roles.drop(2).forEach { (v, l) -> FilterChip(selected = role == v, onClick = { role = v }, label = { Text(l) }) }
+                }
+                if (chosen != null) TextButton(onClick = { onCancel(); RadioConfigLauncher.open() }) { Text("Set up radio for this ride") }
             }
         },
         confirmButton = {
             TextButton(enabled = picked && callsign.isNotBlank(), onClick = {
-                ConvoyRideStore.checkIn(chosen, callsign, if (chosen == null) "rider" else role)?.let(onDone)
+                ConvoyRideStore.checkIn(chosen, callsign, role)?.let(onDone)
             }) { Text("CHECK IN") }
         },
         dismissButton = { TextButton(onClick = onCancel) { Text("Cancel") } },

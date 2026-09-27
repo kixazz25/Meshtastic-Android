@@ -149,12 +149,6 @@ object ConvoyArtifactOps {
             SpatialDbManager.insertRoute(name.trim(), line, kept.minOf { it.second }, kept.maxOf { it.second }, kept.minOf { it.first }, kept.maxOf { it.first })
         } catch (e: Exception) { Log.e(TAG, "TRACKROUTE: insertRoute failed: ${e.message}"); "" }
         if (id.isBlank()) return@withContext null
-        // ROUTETH-2026-09-27 (Fred): the trailhead is PART OF THE ROUTE -- a new one becomes a trailhead waypoint; either
-        // way it is written into the route's recipe (the anchor every ride of this route takes).
-        if (trailhead.isNew) runCatching { SpatialDbManager.insertWaypoint(trailhead.name, trailhead.lat, trailhead.lon, "trailhead") }
-            .onFailure { Log.e(TAG, "ROUTETH: new trailhead waypoint not saved: ${it.message}") }
-        val anchored = SpatialDbManager.setRouteAnchor(id, trailhead.lat, trailhead.lon, trailhead.name)
-        Log.i(TAG, "ROUTETH: route $id trailhead '${trailhead.name}' (new=${trailhead.isNew}) anchored=$anchored")
         // TRACKDESC-2026-09-26 (Fred): the route is born WITH its narrative -- the route owns it. Headline = automatic
         // ("Created from track <track> -- <miles> miles", measured on the RECORDED points); description = the rider's words.
         val miles = kotlin.math.round(pts.zipWithNext().sumOf { (a, b) -> trDistM(a, b) } / 1609.344 * 10) / 10.0
@@ -166,6 +160,14 @@ object ConvoyArtifactOps {
                 .put("description", description.trim()))
             .put("summary", org.json.JSONObject().put("total_miles", miles))
         val rows = SpatialDbManager.writeRouteNotes(id, notes)
+        // ORDERFIX-2026-09-27: the trailhead AFTER the notes -- writeRouteNotes replaces every row, so an anchor written
+        // before it was wiped out (the route lost its trailhead: FIT could not select it, rides had none).
+        // ROUTETH-2026-09-27 (Fred): the trailhead is PART OF THE ROUTE -- a new one becomes a trailhead waypoint; either
+        // way it is written into the route's recipe (the anchor every ride of this route takes).
+        if (trailhead.isNew) runCatching { SpatialDbManager.insertWaypoint(trailhead.name, trailhead.lat, trailhead.lon, "trailhead") }
+            .onFailure { Log.e(TAG, "ROUTETH: new trailhead waypoint not saved: ${it.message}") }
+        val anchored = SpatialDbManager.setRouteAnchor(id, trailhead.lat, trailhead.lon, trailhead.name)
+        Log.i(TAG, "ROUTETH: route $id trailhead '${trailhead.name}' (new=${trailhead.isNew}) anchored=$anchored")
         Log.i(TAG, "TRACKROUTE: track $trackId -> ROUTE $id '${name.trim()}' (${pts.size} points -> ${kept.size}; $miles mi; notes rows $rows)")
         id
     }

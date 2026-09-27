@@ -170,8 +170,10 @@ object ConvoyRideStore {
     fun openRecentRides(): List<RideChoice> = try {
         val today = java.time.LocalDate.now().toString()
         SpatialDbManager.getExtensionDb()?.rawQuery(
+            // CHECKINFIX2-2026-09-27 (Fred): EVERY ride not yet removed (30 days after its date) -- future ones too, since a
+            // ride can be rescheduled -- today's first, then by date. Never more than a handful.
             "SELECT ride_id, ride_name, ride_date, start_time, organizer_name, organizer_id, is_public FROM rides " +
-                "WHERE ride_date <= ? AND (expires_at IS NULL OR expires_at >= ?) ORDER BY ride_date DESC, start_time ASC",
+                "WHERE (expires_at IS NULL OR expires_at >= ?) ORDER BY CASE WHEN ride_date = ? THEN 0 ELSE 1 END, ride_date ASC, start_time ASC",
             arrayOf(today, today))?.use { c ->
             val out = ArrayList<RideChoice>()
             while (c.moveToNext()) out += RideChoice(c.getString(0), c.getString(1) ?: "Ride", c.getString(2) ?: "",
@@ -185,7 +187,7 @@ object ConvoyRideStore {
     fun checkIn(ride: RideChoice?, callsign: String, role: String): CheckIn? {
         val me = ConvoyProfileStore.load() ?: return null
         val cs = callsign.trim().ifBlank { me.callsign }
-        if (ride == null) { Log.i(TAG, "CHECKIN: no scheduled ride, callsign $cs"); return CheckIn(null, null, false, cs, "rider") }
+        if (ride == null) { Log.i(TAG, "CHECKIN: no scheduled ride, callsign $cs, role $role"); return CheckIn(null, null, false, cs, role) }
         return try {
             val db = SpatialDbManager.getExtensionDb() ?: return null
             db.execSQL("DELETE FROM enrollments WHERE ride_id = ? AND user_id = ?", arrayOf<Any?>(ride.rideId, me.userId))

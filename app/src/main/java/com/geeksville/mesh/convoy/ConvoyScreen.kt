@@ -1497,7 +1497,7 @@ fun ConvoyScreen(
                     },
                     shape = RoundedCornerShape(10.dp),
                     color = when (recordingState) {
-                        RecordingState.CHECK_IN -> Color(0xFF1F6B3A)
+                        RecordingState.CHECK_IN -> Color(0xFF8B0000)   // ORDERFIX-2026-09-27 (Fred): red, like REC
                         RecordingState.IDLE -> Color(0xFF8B0000)
                         RecordingState.RECORDING -> Color(0xFFCC0000)
                         RecordingState.PAUSED -> Color(0xFF994400)
@@ -1514,7 +1514,7 @@ fun ConvoyScreen(
                             RecordingState.SLEEPING -> "ZZZ  ASLEEP"
                         },
                         color = Color.White,
-                        fontSize = 15.sp,
+                        fontSize = if (recordingState == RecordingState.CHECK_IN) 12.sp else 15.sp,   // ORDERFIX-2026-09-27: the longer label fits
                         fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
