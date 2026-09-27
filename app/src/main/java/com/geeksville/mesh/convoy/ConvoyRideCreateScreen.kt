@@ -61,6 +61,9 @@ import androidx.compose.ui.unit.sp
 @Composable
 fun ConvoyRideCreateScreen(
     initialRouteId: String? = null,
+    // EDITRIDE-2026-09-27 (Fred): CODE RULE 1 -- null is a real choice: a NEW ride (every existing caller); a ride id opens
+    // the form FILLED IN from that ride, and SAVE updates it. Only the Rides list's Edit passes one.
+    editRideId: String? = null,
     onRideCreated: (String) -> Unit = {},
     onBack: () -> Unit = {}
 ) {
@@ -80,6 +83,14 @@ fun ConvoyRideCreateScreen(
     // FORMLAYOUT-2026-09-27: generated when you toggle to a new network; used only when the ride is added.
     // CODE RULE 1: null = not generated (the organizer network is chosen, or it has not been toggled yet).
     var rideNetwork by remember { mutableStateOf<com.grouptrack.core.NetworkConfig?>(null) }
+    // EDITRIDE-2026-09-27 (Fred): edit mode -- the form opens FILLED IN from the ride; a SENT ride may only change its date.
+    val editSent = remember(editRideId) { editRideId != null && ConvoyRideStore.isDistributed(editRideId) }
+    LaunchedEffect(editRideId) {
+        val e = editRideId?.let { ConvoyRideStore.rideForEdit(it) } ?: return@LaunchedEffect
+        rideName = e.name; rideDate = e.date; startTime = e.startTime; description = e.description
+        isPrivate = !e.isPublic; newNetworkForRide = e.unique
+        if (e.unique) rideNetwork = e.configId?.let { ConvoyNetworkStore.load(it) }
+    }
     // CODE RULE 1: null is a real state -- this rider has no network yet; their first ride creates it.
     // RIDENETWORDS2-2026-09-27: the rider's own network is made when the form opens, so it always exists and has a name.
     val myNetworkName = remember { ConvoyRideStore.ensureMyNetworkName() }
@@ -194,6 +205,9 @@ fun ConvoyRideCreateScreen(
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
 
+            // EDITRIDE-2026-09-27: a sent ride says what can still change.
+            if (editSent) Text("This ride has been sent \u2014 only its date can change. Send it again after saving.",
+                color = GroupTrackColors.Amber, fontSize = 12.sp, fontWeight = FontWeight.Bold)
             // FORMLAYOUT-2026-09-27 (Fred): the ride's NAME first.
             RideField("Ride name *", rideName, "Sunday Desert Run") { rideName = it }
             // FORMTOP-2026-09-27 (Fred): public/private and the radio network are the form's FIRST decision.
@@ -225,7 +239,7 @@ fun ConvoyRideCreateScreen(
                 listOf(false to "My organizer network", true to "Create a new network for this ride").forEach { (isNew, label) ->
                     Text((if (newNetworkForRide == isNew) "\u25C9  " else "\u25CB  ") + label,
                         color = if (newNetworkForRide == isNew) GroupTrackColors.SkyBlue else Color(0xFFAABBCC), fontSize = 13.sp,
-                        modifier = Modifier.fillMaxWidth().clickable {
+                        modifier = Modifier.fillMaxWidth().clickable(enabled = editRideId == null) {   // EDITRIDE: a ride's network is not changed here
                             newNetworkForRide = isNew
                             if (isNew && rideNetwork == null) rideNetwork = ConvoyRideStore.createRideNetwork()   // generated now, used only when the ride is added
                         }.padding(vertical = 6.dp))
@@ -259,8 +273,8 @@ fun ConvoyRideCreateScreen(
                 onDismiss = { showDatePicker = false })
             // FORMTRIM-2026-09-27 (Fred): the zip is still derived from the trailhead and saved -- just not shown.
             // FORMTRIM-2026-09-27 (Fred): only when the route has no description -- then required to send the ride.
-            if (!routeHasDescription)
-                RideField("Description *", description, "Describe the route: terrain, skill level, highlights...") { description = it }
+            if (!routeHasDescription || editRideId != null)   // EDITRIDE-2026-09-27: edit shows what riders get
+                RideField("Leader's Notes *", description, "Meeting point, what to bring, terrain, skill level...") { description = it }   /* LEADERNOTES-2026-09-27 (Fred) */
 
             // RIDETH-2026-09-23: the trailhead -- one, a choice, or how to add one.
             if (routeId.isNotBlank()) {
@@ -366,6 +380,20 @@ fun ConvoyRideCreateScreen(
                     if (routeId.isNotBlank() && thChoices.isEmpty() && thText.isNotBlank() &&
                         !description.trimStart().startsWith("Trailhead:"))
                         description = "Trailhead: " + thText.trim() + "\n\n" + description
+                    // EDITRIDE-2026-09-27 (Fred): edit mode UPDATES the ride -- everything but the route and network while not
+                    // sent; only the date once sent (the store's rule; either way the 30 days restart from the date). The ride
+                    // file is rewritten so a re-send carries the change.
+                    if (editRideId != null) {
+                        val ok = if (editSent) ConvoyRideStore.updateRideDate(editRideId, rideDate)
+                                 else ConvoyRideStore.updateRide(editRideId, rideName, rideDate, startTime, description, zipCode, !isPrivate, routeId)
+                        android.util.Log.i("ConvoyRideCreate", "EDITRIDE: $editRideId sent=$editSent ok=$ok")
+                        if (ok) {
+                            ConvoyRideJsonWriter.save(context, editRideId)
+                            status = "\u2713 Ride updated" + (if (editSent) " \u2014 send it again so riders get the new date" else "")
+                            onRideCreated(editRideId)
+                        } else status = "\u2717 Not saved"
+                        return@clickable
+                    }
                     val wasOrganizer = ConvoyRideStore.isOrganizer()   // RIDENET-2026-09-27: first ride -> say so once
                     val id = ConvoyRideStore.saveRide(
                         rideName = rideName, rideDate = rideDate, startTime = startTime,

@@ -437,6 +437,21 @@ object ConvoyRideStore {
         }
     }
 
+    /** EDITRIDE-2026-09-27: what the edit form shows. unique = the ride has its own network (config_id). */
+    data class EditRide(val name: String, val date: String, val startTime: String, val description: String,
+                        val isPublic: Boolean, val routeId: String, val unique: Boolean, val configId: String?)
+
+    /** EDITRIDE-2026-09-27: one ride, for the edit form. Null only if it is not on this tablet. */
+    fun rideForEdit(rideId: String): EditRide? = try {
+        SpatialDbManager.getExtensionDb()?.rawQuery(
+            "SELECT ride_name, ride_date, start_time, description, is_public, route_id, config_mode, config_id FROM rides WHERE ride_id = ?",
+            arrayOf(rideId))?.use { c ->
+            if (!c.moveToFirst()) null
+            else EditRide(c.getString(0) ?: "", c.getString(1) ?: "", c.getString(2) ?: "", c.getString(3) ?: "",
+                c.getInt(4) == 1, c.getString(5) ?: "", c.getString(6) == "unique", c.getString(7))
+        }
+    } catch (e: Exception) { Log.w(TAG, "EDITRIDE: rideForEdit failed: ${e.message}"); null }
+
     /** In progress = distributed_at empty. DERIVED from the column, never a second flag. */
     fun isDistributed(rideId: String): Boolean {
         ensureSchema()

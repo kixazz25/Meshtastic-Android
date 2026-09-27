@@ -103,6 +103,16 @@ fun RidesScreen(onClose: () -> Unit) {
     var rides by remember { mutableStateOf(loadRideLines(context)) }
     var filter by remember { mutableStateOf("All") }
     var selected by remember { mutableStateOf<String?>(null) }
+    // EDITRIDE-2026-09-27 (Fred): Edit opens the ride form OVER this list, filled in; SAVE or CANCEL comes back here.
+    var editing by remember { mutableStateOf<String?>(null) }   // CODE RULE 1: null = not editing
+    editing?.let { rid ->
+        ConvoyRideCreateScreen(
+            initialRouteId = ConvoyRideStore.rideForEdit(rid)?.routeId,
+            editRideId = rid,
+            onRideCreated = { editing = null; rides = loadRideLines(context) },
+            onBack = { editing = null })
+        return
+    }
     var confirmDelete by remember { mutableStateOf<RideLine?>(null) }
     var message by remember { mutableStateOf("") }
 
@@ -151,7 +161,7 @@ fun RidesScreen(onClose: () -> Unit) {
                             },
                             enabled = !r.mine || r.complete,
                         ) { Text("Send") }
-                        OutlinedButton(onClick = { message = "Editing ride details comes next." }, enabled = r.mine) { Text("Edit") }
+                        OutlinedButton(onClick = { editing = selected }, enabled = r.mine) { Text("Edit") }   /* EDITRIDE-2026-09-27 */
                         OutlinedButton(onClick = { confirmDelete = r }) { Text("Delete") }
                     }
                     if (r.mine && !r.complete) Text("Incomplete rides cannot be sent yet.", color = RLDIM, fontSize = 12.sp)
