@@ -122,7 +122,8 @@ object ConvoyRideJsonWriter {
 
             val recipe = SpatialDbManager.routeRecipe(routeId)
             val th = trailheadWpt(recipe)
-            if (th == null) missing += "trailhead"
+            // THTEXT-2026-09-27 (Fred): INTERIM -- a trailhead DESCRIBED at the front of the description also counts.
+            if (th == null && !(r[7] ?: "").trimStart().startsWith("Trailhead:")) missing += "trailhead"
 
             val wpts = StringBuilder()
             if (th != null) wpts.append(th)

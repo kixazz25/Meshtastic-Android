@@ -90,6 +90,9 @@ fun ConvoyRideCreateScreen(
     // RIDETH-2026-09-23 (Fred): a ride cannot be built without a trailhead.
     var thChoices by remember { mutableStateOf<List<SpatialDbManager.TrailheadCandidate>>(emptyList()) }
     var trailhead by remember { mutableStateOf<SpatialDbManager.TrailheadCandidate?>(null) }
+    // THTEXT-2026-09-27 (Fred): INTERIM -- when no trailhead waypoint is near the route's start, the organizer describes
+    // it; it goes at the FRONT of the ride's description. Goes away once every route carries its trailhead.
+    var thText by remember { mutableStateOf("") }
     var thFromRecipe by remember { mutableStateOf(false) }
 
     val me = remember { ConvoyProfileStore.load() }
@@ -307,10 +310,12 @@ fun ConvoyRideCreateScreen(
             // RIDETH-2026-09-23: the trailhead -- one, a choice, or how to add one.
             if (routeId.isNotBlank()) {
                 when {
-                    thChoices.isEmpty() -> Text(
-                        "This route needs a trailhead near its start. Turn on Draw and long-press to add a " +
-                            "trailhead waypoint on the map, then come back and pick the route again.",
-                        color = Color(0xFFE8A33D), fontSize = 12.sp)
+                    thChoices.isEmpty() -> Column {
+                        // THTEXT-2026-09-27 (Fred): no trailhead waypoint within 1/2 mile -- describe where to meet instead.
+                        Text("No trailhead waypoint near this route's start. Describe where to meet \u2014 it goes at the top of the ride's description.",
+                            color = Color(0xFFE8A33D), fontSize = 12.sp)
+                        RideField("Trailhead *", thText, "e.g. Casto Canyon parking area, off Hwy 12") { thText = it }
+                    }
                     thChoices.size == 1 -> Text("Trailhead: ${thChoices[0].name}",
                         color = GroupTrackColors.Green, fontSize = 12.sp)
                     else -> Column {
@@ -352,6 +357,10 @@ fun ConvoyRideCreateScreen(
                     }
                     // ONEDEFAULT-2026-09-26: the new ride's radio values = the GroupTrack default, read now.
                     com.grouptrack.core.NetworkGenerator.MeshDefaults.loadFrom(context)
+                    // THTEXT-2026-09-27: the typed trailhead goes at the FRONT of the description (once).
+                    if (routeId.isNotBlank() && thChoices.isEmpty() && thText.isNotBlank() &&
+                        !description.trimStart().startsWith("Trailhead:"))
+                        description = "Trailhead: " + thText.trim() + "\n\n" + description
                     val wasOrganizer = ConvoyRideStore.isOrganizer()   // RIDENET-2026-09-27: first ride -> say so once
                     val id = ConvoyRideStore.saveRide(
                         rideName = rideName, rideDate = rideDate, startTime = startTime,
