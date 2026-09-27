@@ -71,6 +71,8 @@ fun ConvoyRideCreateScreen(
     var showDatePicker by remember { mutableStateOf(false) }   // CALDATE-2026-09-24
     var startTime by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
+    // FORMTRIM-2026-09-27 (Fred): true when the ride's description came from the route -- the field is then not shown.
+    var routeHasDescription by remember { mutableStateOf(false) }
     var zipCode by remember { mutableStateOf("") }
     // RIDENET-2026-09-27: public by default (isPrivate off); the organizer's network by default (newNetworkForRide off).
     var isPrivate by remember { mutableStateOf(false) }
@@ -124,13 +126,19 @@ fun ConvoyRideCreateScreen(
         // HEADLINE-2026-09-24 (Fred): the description starts with the route's narrative HEADLINE -- one sentence
         // that already states distance and duration. Built routes only; never overwrites what was typed.
         if (description.isBlank()) {
-            val headline = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                SpatialDbManager.readRouteNotes(routeId)?.optJSONObject("narrative")
-                    ?.optString("headline", "")?.trim()?.takeIf { it.isNotEmpty() && it != "null" }
+            // FORMTRIM-2026-09-27 (Fred): the ride's description IS the route's -- its headline, plus (a converted track)
+            // the rider's own description. The trail-data credit only for planner routes (a converted track is the
+            // rider's own recording). A route with no description shows the (required) field instead.
+            val notes = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { SpatialDbManager.readRouteNotes(routeId) }
+            val nar = notes?.optJSONObject("narrative")
+            val headline = nar?.optString("headline", "")?.trim()?.takeIf { it.isNotEmpty() && it != "null" }
+            val about = nar?.optString("description", "")?.trim()?.takeIf { it.isNotEmpty() && it != "null" }
+            val converted = notes?.optString("source", "") == "convertroute"
+            if (headline != null && description.isBlank()) {
+                description = listOfNotNull(headline, about).joinToString("\n\n") +
+                    (if (converted) "" else "\n\nTrail data \u00a9 OpenStreetMap contributors")
+                routeHasDescription = true
             }
-            // Attribution (Fred 09-24): "just to protect ourselves" -- always with the headline.
-            if (headline != null && description.isBlank()) description = headline +
-                "\n\nTrail data \u00a9 OpenStreetMap contributors"
         }
     }
 
@@ -180,20 +188,56 @@ fun ConvoyRideCreateScreen(
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
 
-            RideLabel("LEADER")
-            Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-                .background(Color(0xFF0F2035)).padding(12.dp),
-                verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text(
-                    if (me == null) "\u26a0 No rider profile on this tablet"
-                    else listOf(me.firstName, me.lastName).filter { it.isNotBlank() }
-                        .joinToString(" ").ifBlank { me.callsign },
-                    color = if (me == null) GroupTrackColors.Amber else Color.White,
-                    fontSize = 13.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace
-                )
-                Text(me?.callsign ?: "settings \u2192 Your Profile",
-                    color = GroupTrackColors.SkyBlue, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+            // FORMTOP-2026-09-27 (Fred): public/private and the radio network are the form's FIRST decision.
+            // RIDENET-2026-09-27 (Fred): PUBLIC by default, PRIVATE the override -- and the screen says what each means.
+            Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
+                .background(Color(0xFF0F2035)).padding(horizontal = 14.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f).padding(end = 10.dp)) {
+                    Text("PRIVATE RIDE", color = Color(0xFFAABBCC), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Text(if (isPrivate)
+                            "Private \u2014 for the riders you invite; please don't forward. At the end of the ride there is no survey and no sharing: every rider's track stays on their own tablet, and no public trails are added."
+                        else
+                            "Public \u2014 riders may forward the invitation to friends. At the end of the ride, each rider rates it and decides whether to share their track with the community.",
+                        color = Color(0xFF8899AA), fontSize = 11.sp)
+                }
+                Switch(checked = isPrivate, onCheckedChange = { isPrivate = it },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = GroupTrackColors.SkyBlue,
+                        checkedTrackColor = Color(0xFF1A3050),
+                        uncheckedThumbColor = Color(0xFF445566),
+                        uncheckedTrackColor = Color(0xFF0A1628)))
             }
+
+            // RIDENET-2026-09-27 (Fred): the ORGANIZER's network by default (created with the first ride, reused after);
+            // a new network only for this ride when asked. Never another organizer's network.
+            Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
+                .background(Color(0xFF1A0A00)).padding(horizontal = 14.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f).padding(end = 10.dp)) {
+                    Text("RADIO NETWORK", color = GroupTrackColors.Amber, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Text(if (newNetworkForRide)
+                            "A private network for this ride only. Every rider must set up their radio for it, even if they have ridden with you before."
+                        else "Your own private network has been created: ${myNetworkName ?: "(not available \u2014 check your rider profile)"}. " +
+                            "It is used for this ride and all new rides, unless you select Create a private network for this ride.",   /* RIDENETWORDS2-2026-09-27 */
+                        color = Color(0xFFCCBB99), fontSize = 11.sp)
+                    Text("Create a private network for this ride", color = Color(0xFFAABBCC), fontSize = 11.sp,
+                        modifier = Modifier.padding(top = 6.dp))
+                }
+                Switch(checked = newNetworkForRide, onCheckedChange = { newNetworkForRide = it },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = GroupTrackColors.SkyBlue,
+                        checkedTrackColor = Color(0xFF1A3050),
+                        uncheckedThumbColor = Color(0xFF445566),
+                        uncheckedTrackColor = Color(0xFF0A1628)))
+            }
+
+            // FORMTRIM-2026-09-27 (Fred): the organizer's name and email are not shown (still recorded from the profile);
+            // only the no-profile warning remains -- without a profile a ride cannot be saved.
+            if (me == null) Text("\u26a0 No rider profile on this tablet \u2014 Settings \u2192 Your Profile",
+                color = GroupTrackColors.Amber, fontSize = 12.sp, fontWeight = FontWeight.Bold)
 
             RideLabel("ROUTE")
             if (pickerOpen) {
@@ -255,56 +299,10 @@ fun ConvoyRideCreateScreen(
                 onPick = { rideDate = it; showDatePicker = false },
                 onDismiss = { showDatePicker = false })
             RideField("Rollout time", startTime, "8:00 AM") { startTime = it }
-            // ZIPFROMTH-2026-09-24: derived from the trailhead -- display only.
-            RideLabel("Zip code")
-            Text(zipCode.ifBlank { "\u2014 (from the trailhead)" }, color = Color(0xFFE8EEF5), fontSize = 14.sp,
-                modifier = Modifier.padding(vertical = 6.dp))
-            RideField("Description", description, "Meeting point, notes...") { description = it }
-
-            // RIDENET-2026-09-27 (Fred): PUBLIC by default, PRIVATE the override -- and the screen says what each means.
-            Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-                .background(Color(0xFF0F2035)).padding(horizontal = 14.dp, vertical = 10.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically) {
-                Column(modifier = Modifier.weight(1f).padding(end = 10.dp)) {
-                    Text("PRIVATE RIDE", color = Color(0xFFAABBCC), fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                    Text(if (isPrivate)
-                            "Private \u2014 for the riders you invite; please don't forward. At the end of the ride there is no survey and no sharing: every rider's track stays on their own tablet, and no public trails are added."
-                        else
-                            "Public \u2014 riders may forward the invitation to friends. At the end of the ride, each rider rates it and decides whether to share their track with the community.",
-                        color = Color(0xFF8899AA), fontSize = 11.sp)
-                }
-                Switch(checked = isPrivate, onCheckedChange = { isPrivate = it },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = GroupTrackColors.SkyBlue,
-                        checkedTrackColor = Color(0xFF1A3050),
-                        uncheckedThumbColor = Color(0xFF445566),
-                        uncheckedTrackColor = Color(0xFF0A1628)))
-            }
-
-            // RIDENET-2026-09-27 (Fred): the ORGANIZER's network by default (created with the first ride, reused after);
-            // a new network only for this ride when asked. Never another organizer's network.
-            Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-                .background(Color(0xFF1A0A00)).padding(horizontal = 14.dp, vertical = 10.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically) {
-                Column(modifier = Modifier.weight(1f).padding(end = 10.dp)) {
-                    Text("RADIO NETWORK", color = GroupTrackColors.Amber, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                    Text(if (newNetworkForRide)
-                            "A private network for this ride only. Every rider must set up their radio for it, even if they have ridden with you before."
-                        else "Your own private network has been created: ${myNetworkName ?: "(not available \u2014 check your rider profile)"}. " +
-                            "It is used for this ride and all new rides, unless you select Create a private network for this ride.",   /* RIDENETWORDS2-2026-09-27 */
-                        color = Color(0xFFCCBB99), fontSize = 11.sp)
-                    Text("Create a private network for this ride", color = Color(0xFFAABBCC), fontSize = 11.sp,
-                        modifier = Modifier.padding(top = 6.dp))
-                }
-                Switch(checked = newNetworkForRide, onCheckedChange = { newNetworkForRide = it },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = GroupTrackColors.SkyBlue,
-                        checkedTrackColor = Color(0xFF1A3050),
-                        uncheckedThumbColor = Color(0xFF445566),
-                        uncheckedTrackColor = Color(0xFF0A1628)))
-            }
+            // FORMTRIM-2026-09-27 (Fred): the zip is still derived from the trailhead and saved -- just not shown.
+            // FORMTRIM-2026-09-27 (Fred): only when the route has no description -- then required to send the ride.
+            if (!routeHasDescription)
+                RideField("Description *", description, "Describe the route: terrain, skill level, highlights...") { description = it }
 
             // RIDETH-2026-09-23: the trailhead -- one, a choice, or how to add one.
             if (routeId.isNotBlank()) {
