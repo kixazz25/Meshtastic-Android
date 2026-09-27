@@ -696,6 +696,9 @@ fun ConvoyMapViewerScreen(
     var routeNameTaken by remember { mutableStateOf(false) }
     // live In-Progress list: real draft names from RouteDraftStore (refreshed on draftListTick)
     var draftListTick by remember { mutableStateOf(0) }
+    // ROUTETHB-2026-09-27 (Fred): a route is never saved without a trailhead -- the prompt at SAVE when none is near.
+    var routeThPrompt by remember { mutableStateOf(false) }
+    var routeThName by remember { mutableStateOf("") }
     // [route-panel 2026-08-02] ALL drafts including the unnamed auto-save. The auto-save
     // belongs in the picker -- it is renamed or deleted there, and New Route is blocked
     // until it is. Sorted oldest-first by createdAt for the list display.
@@ -2496,6 +2499,46 @@ fun ConvoyMapViewerScreen(
             // fit one.
             // ROUTETAP-2026-08-23Z: the saved-route narrative. Same panel as the WIP
             // one; only the builder differs.
+            // ROUTETHB-2026-09-27 (Fred): the route's trailhead -- add one at the start, or select one on the map.
+            if (routeThPrompt) {
+                androidx.compose.material3.AlertDialog(
+                    onDismissRequest = { routeThPrompt = false },
+                    title = { androidx.compose.material3.Text("This route needs a trailhead near its start") },
+                    text = {
+                        androidx.compose.foundation.layout.Column {
+                            androidx.compose.material3.Text("A route is saved with its trailhead. None is within \u00bd mile of the route's start.")
+                            androidx.compose.material3.OutlinedTextField(value = routeThName, onValueChange = { routeThName = it },
+                                singleLine = true, label = { androidx.compose.material3.Text("New trailhead's name") })
+                            androidx.compose.material3.Text("Or select one on the map: tap a waypoint within \u00bd mile of the start, CHANGE TYPE \u2192 Trailhead, then SAVE again.",
+                                fontSize = 12.sp)
+                        }
+                    },
+                    confirmButton = {
+                        androidx.compose.material3.TextButton(enabled = routeThName.isNotBlank(), onClick = {
+                            val f = RouteManager.routeVertices().firstOrNull()
+                            routeThPrompt = false
+                            if (f != null) scope.launch {
+                                val ok = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                    runCatching { SpatialDbManager.insertWaypoint(routeThName.trim(), f.lat, f.lon, "trailhead") }.isSuccess
+                                }
+                                android.util.Log.i("RouteSave", "ROUTETHB: trailhead '${routeThName.trim()}' added at the start ok=$ok")
+                                webViewRef?.evaluateJavascript("triggerViewportUpdate()", null)
+                                android.widget.Toast.makeText(context,
+                                    if (ok) "Trailhead added \u2014 tap SAVE again." else "The trailhead could not be added.",
+                                    android.widget.Toast.LENGTH_LONG).show()
+                            }
+                        }) { androidx.compose.material3.Text("ADD TRAILHEAD") }
+                    },
+                    dismissButton = {
+                        androidx.compose.material3.TextButton(onClick = {
+                            routeThPrompt = false
+                            android.widget.Toast.makeText(context,
+                                "Tap a waypoint within \u00bd mile of the start, CHANGE TYPE \u2192 Trailhead, then SAVE again.",
+                                android.widget.Toast.LENGTH_LONG).show()
+                        }) { androidx.compose.material3.Text("SELECT ON MAP") }
+                    },
+                )
+            }
             savedNotesRouteId?.let { rid ->
                 androidx.activity.compose.BackHandler(enabled = true) { savedNotesRouteId = null }
                 ConvoyNotesPanel(
@@ -3658,6 +3701,20 @@ fun ConvoyMapViewerScreen(
                 val sLat = lastViewportSouth; val wLon = lastViewportWest
                 val nLat = lastViewportNorth; val eLon = lastViewportEast
                 kotlinx.coroutines.MainScope().launch {
+                    // ROUTETHB-2026-09-27 (Fred): NO TRAILHEAD, NO ROUTE -- checked BEFORE anything is saved (every method,
+                    // Draw included, passes here). None within 1/2 mile of the first point: stop, and ask for one.
+                    val thFirst = RouteManager.routeVertices().firstOrNull()
+                    val thNear = thFirst?.let { f ->
+                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                            SpatialDbManager.init(context); SpatialDbManager.trailheadsNear(f.lat, f.lon)
+                        }
+                    } ?: emptyList()
+                    if (thFirst != null && thNear.isEmpty()) {
+                        android.util.Log.i("RouteSave", "ROUTETHB: save stopped -- no trailhead within 1/2 mile of the start")
+                        routeThName = routeName.ifBlank { "Route" } + " trailhead"
+                        routeThPrompt = true
+                        return@launch
+                    }
                     val res = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                         SpatialDbManager.init(context)
                         val lines = SpatialDbManager.queryTrailsByViewport(sLat, wLon, nLat, eLon) +
@@ -4370,9 +4427,9 @@ fun ConvoyMapViewerScreen(
                     // TRACKRIDE2-2026-09-26 (Fred) -- PASS 2 (final): the track's simplified line (method approved on the
                     // convertroute review draft) is SAVED as a route, the map fits to it and captures the ride's picture,
                     // then the ride form opens -- which asks for the trailhead within 1/2 mile, as for any route.
-                    onCreateRideFromTrack = onAddRide?.let { go -> { tid: String, name: String, desc: String ->   // TRACKDESC-2026-09-26
+                    onCreateRideFromTrack = onAddRide?.let { go -> { tid: String, name: String, desc: String, th: ConvoyArtifactOps.RouteTrailhead ->   // TRACKDESC-2026-09-26 + ROUTETH-2026-09-27
                         scope.launch {
-                            val rid = ConvoyArtifactOps.trackToRoute(context, tid, name, desc)
+                            val rid = ConvoyArtifactOps.trackToRoute(context, tid, name, desc, th)
                             if (rid == null) {
                                 android.widget.Toast.makeText(context, "Could not make a route from this track", android.widget.Toast.LENGTH_LONG).show()
                             } else {

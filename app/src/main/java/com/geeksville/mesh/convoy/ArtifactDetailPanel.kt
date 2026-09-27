@@ -57,7 +57,8 @@ fun ArtifactDetailPanel(
     onAddRide: ((String, String) -> Unit)? = null,
     // TRACKRIDE-2026-09-26 (Fred): CREATE RIDE on a TRACK -> (track id, route name). Optional like onAddRide (CODE
     // RULE 1): only the planner, which can create rides, passes it; other callers show no button.
-    onCreateRideFromTrack: ((String, String, String) -> Unit)? = null,   // TRACKDESC-2026-09-26: (track id, route name, description)
+    // ROUTETH-2026-09-27 (Fred): + the route's TRAILHEAD, chosen in the dialog (a route is never saved without one).
+    onCreateRideFromTrack: ((String, String, String, ConvoyArtifactOps.RouteTrailhead) -> Unit)? = null,   // TRACKDESC-2026-09-26: (track id, route name, description)
     /* SATFIXES-2026-08-29: build six more from this route's recipe.
      * ⚠ Unlike onShowNotes, which is offered unconditionally, this one is
      * passed only when the route DB actually holds a recipe — a hand-drawn or
@@ -83,6 +84,10 @@ fun ArtifactDetailPanel(
     var showRideNameDialog by remember { mutableStateOf(false) }   // TRACKRIDE-2026-09-26
     var rideRouteName by remember { mutableStateOf("") }
     var rideRouteDesc by remember { mutableStateOf("") }   // TRACKDESC-2026-09-26
+    // ROUTETH-2026-09-27: the trailhead choice -- an index into the nearby trailheads, NEW_TH = add one at the start, -1 = none yet.
+    val NEW_TH = -2
+    var thPick by remember { mutableStateOf(-1) }
+    var thNewName by remember { mutableStateOf("") }
     val detailFields = remember(id) { onLoadDetail?.invoke(singular, id) ?: emptyMap() }
     val dName = detailFields["name"] ?: name ?: "Unnamed"
 
@@ -136,9 +141,13 @@ fun ArtifactDetailPanel(
                     if (onShowNotes != null) { DetailActionButton("OVERVIEW", aOrange) { onShowNotes(id) } }
                     // TRACKRIDE-2026-09-26 (Fred): a track -> a route (named, editable) -> the ride form.
                     if (onCreateRideFromTrack != null && singular == "track") {
-                        DetailActionButton("CREATE RIDE", aGreen) { rideRouteName = dName; showRideNameDialog = true }
+                        DetailActionButton("CREATE RIDE", aGreen) { rideRouteName = dName; thPick = -1; thNewName = dName + " trailhead"; showRideNameDialog = true }
                     }
                     if (showRideNameDialog && onCreateRideFromTrack != null) {
+                        // ROUTETH-2026-09-27: the track's start (lon, lat) and the trailheads within 1/2 mile of it, nearest first.
+                        val trackStart = remember(id) { ConvoyArtifactOps.trackStart(id) }
+                        val thNear = remember(trackStart) { trackStart?.let { SpatialDbManager.trailheadsNear(it.second, it.first) } ?: emptyList() }
+                        val thReady = thPick in thNear.indices || (thPick == NEW_TH && thNewName.isNotBlank() && trackStart != null)
                         val taken = rideRouteName.isNotBlank() && SpatialDbManager.routeNameExists(rideRouteName.trim())
                         androidx.compose.material3.AlertDialog(
                             onDismissRequest = { showRideNameDialog = false },
@@ -153,12 +162,28 @@ fun ArtifactDetailPanel(
                                     androidx.compose.material3.OutlinedTextField(value = rideRouteDesc, onValueChange = { rideRouteDesc = it }, minLines = 3,
                                         label = { androidx.compose.material3.Text("Route description") },
                                         placeholder = { androidx.compose.material3.Text("Describe the route: skill level, terrain, highlights, cautions\u2026") })
+                                    // ROUTETH-2026-09-27 (Fred): the route's TRAILHEAD -- a nearby one, or a new one at the track's start.
+                                    androidx.compose.material3.Text("Trailhead (required)", fontSize = 13.sp)
+                                    if (trackStart == null) androidx.compose.material3.Text("This track has no start point.", color = Color(0xFFFF6B6B))
+                                    thNear.forEachIndexed { i, c ->
+                                        androidx.compose.material3.TextButton(onClick = { thPick = i }) {
+                                            androidx.compose.material3.Text((if (thPick == i) "\u25C9  " else "\u25CB  ") + c.name + "  \u00b7  " + "%.2f".format(c.miles) + " mi")
+                                        }
+                                    }
+                                    if (trackStart != null) androidx.compose.material3.TextButton(onClick = { thPick = NEW_TH }) {
+                                        androidx.compose.material3.Text((if (thPick == NEW_TH) "\u25C9  " else "\u25CB  ") + "Add a trailhead at the track's start")
+                                    }
+                                    if (thPick == NEW_TH) androidx.compose.material3.OutlinedTextField(value = thNewName, onValueChange = { thNewName = it }, singleLine = true,
+                                        label = { androidx.compose.material3.Text("New trailhead's name") })
+                                    if (thNear.isEmpty() && trackStart != null) androidx.compose.material3.Text("No trailhead within \u00bd mile of the track's start \u2014 add one here.", color = aDim, fontSize = 11.sp)
                                     if (taken) androidx.compose.material3.Text("A route with this name already exists \u2014 choose another.", color = Color(0xFFFF6B6B))
                                 }
                             },
                             confirmButton = {
-                                androidx.compose.material3.TextButton(enabled = rideRouteName.isNotBlank() && !taken, onClick = {
-                                    showRideNameDialog = false; onCreateRideFromTrack(id, rideRouteName.trim(), rideRouteDesc.trim())
+                                androidx.compose.material3.TextButton(enabled = rideRouteName.isNotBlank() && !taken && thReady, onClick = {
+                                    val th = if (thPick == NEW_TH) ConvoyArtifactOps.RouteTrailhead(thNewName.trim(), trackStart!!.second, trackStart.first, true)
+                                             else thNear[thPick].let { c -> ConvoyArtifactOps.RouteTrailhead(c.name, c.lat, c.lon, false) }
+                                    showRideNameDialog = false; onCreateRideFromTrack(id, rideRouteName.trim(), rideRouteDesc.trim(), th)
                                 }) { androidx.compose.material3.Text("CREATE ROUTE & RIDE") }
                             },
                             dismissButton = { androidx.compose.material3.TextButton(onClick = { showRideNameDialog = false }) { androidx.compose.material3.Text("Cancel") } },

@@ -125,12 +125,20 @@ object ConvoyArtifactOps {
         kept.size
     }
 
+    /** ROUTETH-2026-09-27 (Fred): the route's trailhead, chosen when the route is saved. isNew = add it as a waypoint. */
+    data class RouteTrailhead(val name: String, val lat: Double, val lon: Double, val isNew: Boolean)
+
+    /** ROUTETH-2026-09-27: a track's first recorded point (lon, lat). CODE RULE 1: null = no geometry. */
+    fun trackStart(trackId: String): Pair<Double, Double>? =
+        SpatialDbManager.trackGeometry(trackId)?.let { ConvoyRideStore.parseWktLine(it).firstOrNull() }
+
     /**
      * TRACKROUTE2-2026-09-26 (Fred) -- PASS 2 (final): the track's line, simplified as in trackToConvertDraft (method
      * approved on the review draft), SAVED as a route with the existing insertRoute. The track is never changed.
      * Returns the new route id, or null (logged).
      */
-    suspend fun trackToRoute(context: Context, trackId: String, name: String, description: String): String? = withContext(Dispatchers.IO) {   // TRACKDESC-2026-09-26
+    suspend fun trackToRoute(context: Context, trackId: String, name: String, description: String,
+                             trailhead: RouteTrailhead): String? = withContext(Dispatchers.IO) {   // TRACKDESC-2026-09-26 + ROUTETH-2026-09-27
         SpatialDbManager.init(context)
         val wkt = SpatialDbManager.trackGeometry(trackId) ?: run { Log.w(TAG, "TRACKROUTE: no geometry for track $trackId"); return@withContext null }
         val pts = ConvoyRideStore.parseWktLine(wkt)   // lon/lat pairs
@@ -141,6 +149,12 @@ object ConvoyArtifactOps {
             SpatialDbManager.insertRoute(name.trim(), line, kept.minOf { it.second }, kept.maxOf { it.second }, kept.minOf { it.first }, kept.maxOf { it.first })
         } catch (e: Exception) { Log.e(TAG, "TRACKROUTE: insertRoute failed: ${e.message}"); "" }
         if (id.isBlank()) return@withContext null
+        // ROUTETH-2026-09-27 (Fred): the trailhead is PART OF THE ROUTE -- a new one becomes a trailhead waypoint; either
+        // way it is written into the route's recipe (the anchor every ride of this route takes).
+        if (trailhead.isNew) runCatching { SpatialDbManager.insertWaypoint(trailhead.name, trailhead.lat, trailhead.lon, "trailhead") }
+            .onFailure { Log.e(TAG, "ROUTETH: new trailhead waypoint not saved: ${it.message}") }
+        val anchored = SpatialDbManager.setRouteAnchor(id, trailhead.lat, trailhead.lon, trailhead.name)
+        Log.i(TAG, "ROUTETH: route $id trailhead '${trailhead.name}' (new=${trailhead.isNew}) anchored=$anchored")
         // TRACKDESC-2026-09-26 (Fred): the route is born WITH its narrative -- the route owns it. Headline = automatic
         // ("Created from track <track> -- <miles> miles", measured on the RECORDED points); description = the rider's words.
         val miles = kotlin.math.round(pts.zipWithNext().sumOf { (a, b) -> trDistM(a, b) } / 1609.344 * 10) / 10.0
