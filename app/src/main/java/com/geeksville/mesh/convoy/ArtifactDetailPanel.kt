@@ -88,6 +88,8 @@ fun ArtifactDetailPanel(
     val NEW_TH = -2
     var thPick by remember { mutableStateOf(-1) }
     var thNewName by remember { mutableStateOf("") }
+    var showThPopup by remember { mutableStateOf(false) }   // FIRSTPOINT-2026-09-27
+    var chosenTh by remember { mutableStateOf<ConvoyArtifactOps.RouteTrailhead?>(null) }   // CODE RULE 1: null = not settled yet
     val detailFields = remember(id) { onLoadDetail?.invoke(singular, id) ?: emptyMap() }
     val dName = detailFields["name"] ?: name ?: "Unnamed"
 
@@ -141,13 +143,39 @@ fun ArtifactDetailPanel(
                     if (onShowNotes != null) { DetailActionButton("OVERVIEW", aOrange) { onShowNotes(id) } }
                     // TRACKRIDE-2026-09-26 (Fred): a track -> a route (named, editable) -> the ride form.
                     if (onCreateRideFromTrack != null && singular == "track") {
-                        DetailActionButton("CREATE RIDE", aGreen) { rideRouteName = dName; thPick = -1; thNewName = dName + " trailhead"; showRideNameDialog = true }
+                        DetailActionButton("CREATE RIDE", aGreen) { rideRouteName = dName; thPick = -1; thNewName = dName + " trailhead"; chosenTh = ConvoyArtifactOps.trackStart(id)?.let { f -> SpatialDbManager.trailheadsNear(f.second, f.first, 0.1).firstOrNull()?.let { t -> ConvoyArtifactOps.RouteTrailhead(t.name, t.lat, t.lon, false) } }; if (chosenTh != null) showRideNameDialog = true else showThPopup = true }
+                    }
+                    // FIRSTPOINT-2026-09-27 (Fred): the trail's FIRST POINT is its trailhead -- an existing Trailhead within 0.1 mile is
+                    // reused (no popup); otherwise this popup only asks for the new trailhead's NAME, creates it at the first point
+                    // right here and refreshes the map -- before the conversion, so the fit and the picture include it.
+                    if (showThPopup && onCreateRideFromTrack != null) {
+                        val first = remember(id) { ConvoyArtifactOps.trackStart(id) }   // (lon, lat)
+                        androidx.compose.material3.AlertDialog(
+                            onDismissRequest = { showThPopup = false },
+                            title = { androidx.compose.material3.Text("This route needs a trailhead") },
+                            text = {
+                                androidx.compose.foundation.layout.Column {
+                                    androidx.compose.material3.Text("Every route is saved with its trailhead \u2014 where riders meet and unload. " +
+                                        "The trail's first point is being created as a trailhead. Please name it:", fontSize = 13.sp)
+                                    androidx.compose.material3.OutlinedTextField(value = thNewName, onValueChange = { thNewName = it },
+                                        singleLine = true, label = { androidx.compose.material3.Text("Trailhead name") })
+                                    if (first == null) androidx.compose.material3.Text("This track has no start point.", color = Color(0xFFFF6B6B))
+                                }
+                            },
+                            confirmButton = {
+                                androidx.compose.material3.TextButton(enabled = thNewName.isNotBlank() && first != null, onClick = {
+                                    val f = first!!
+                                    runCatching { SpatialDbManager.insertWaypoint(thNewName.trim(), f.second, f.first, "trailhead") }
+                                    chosenTh = ConvoyArtifactOps.RouteTrailhead(thNewName.trim(), f.second, f.first, false)   // exists now
+                                    showThPopup = false; showRideNameDialog = true
+                                    fitWebView?.evaluateJavascript("triggerViewportUpdate()", null)
+                                }) { androidx.compose.material3.Text("CONTINUE") }
+                            },
+                            dismissButton = { androidx.compose.material3.TextButton(onClick = { showThPopup = false }) { androidx.compose.material3.Text("Cancel") } },
+                        )
                     }
                     if (showRideNameDialog && onCreateRideFromTrack != null) {
-                        // ROUTETH-2026-09-27: the track's start (lon, lat) and the trailheads within 1/2 mile of it, nearest first.
-                        val trackStart = remember(id) { ConvoyArtifactOps.trackStart(id) }
-                        val thNear = remember(trackStart) { trackStart?.let { SpatialDbManager.trailheadsNear(it.second, it.first) } ?: emptyList() }
-                        val thReady = thPick in thNear.indices || (thPick == NEW_TH && thNewName.isNotBlank() && trackStart != null)
+                        val thReady = chosenTh != null   // FIRSTPOINT-2026-09-27: settled before this dialog
                         val taken = rideRouteName.isNotBlank() && SpatialDbManager.routeNameExists(rideRouteName.trim())
                         androidx.compose.material3.AlertDialog(
                             onDismissRequest = { showRideNameDialog = false },
@@ -162,27 +190,13 @@ fun ArtifactDetailPanel(
                                     androidx.compose.material3.OutlinedTextField(value = rideRouteDesc, onValueChange = { rideRouteDesc = it }, minLines = 3,
                                         label = { androidx.compose.material3.Text("Route description") },
                                         placeholder = { androidx.compose.material3.Text("Describe the route: skill level, terrain, highlights, cautions\u2026") })
-                                    // ROUTETH-2026-09-27 (Fred): the route's TRAILHEAD -- a nearby one, or a new one at the track's start.
-                                    androidx.compose.material3.Text("Trailhead (required)", fontSize = 13.sp)
-                                    if (trackStart == null) androidx.compose.material3.Text("This track has no start point.", color = Color(0xFFFF6B6B))
-                                    thNear.forEachIndexed { i, c ->
-                                        androidx.compose.material3.TextButton(onClick = { thPick = i }) {
-                                            androidx.compose.material3.Text((if (thPick == i) "\u25C9  " else "\u25CB  ") + c.name + "  \u00b7  " + "%.2f".format(c.miles) + " mi")
-                                        }
-                                    }
-                                    if (trackStart != null) androidx.compose.material3.TextButton(onClick = { thPick = NEW_TH }) {
-                                        androidx.compose.material3.Text((if (thPick == NEW_TH) "\u25C9  " else "\u25CB  ") + "Add a trailhead at the track's start")
-                                    }
-                                    if (thPick == NEW_TH) androidx.compose.material3.OutlinedTextField(value = thNewName, onValueChange = { thNewName = it }, singleLine = true,
-                                        label = { androidx.compose.material3.Text("New trailhead's name") })
-                                    if (thNear.isEmpty() && trackStart != null) androidx.compose.material3.Text("No trailhead within \u00bd mile of the track's start \u2014 add one here.", color = aDim, fontSize = 11.sp)
+                                    androidx.compose.material3.Text("Trailhead: " + (chosenTh?.name ?: "\u2014"), fontSize = 13.sp)   // FIRSTPOINT-2026-09-27
                                     if (taken) androidx.compose.material3.Text("A route with this name already exists \u2014 choose another.", color = Color(0xFFFF6B6B))
                                 }
                             },
                             confirmButton = {
                                 androidx.compose.material3.TextButton(enabled = rideRouteName.isNotBlank() && !taken && thReady, onClick = {
-                                    val th = if (thPick == NEW_TH) ConvoyArtifactOps.RouteTrailhead(thNewName.trim(), trackStart!!.second, trackStart.first, true)
-                                             else thNear[thPick].let { c -> ConvoyArtifactOps.RouteTrailhead(c.name, c.lat, c.lon, false) }
+                                    val th = chosenTh!!   // FIRSTPOINT-2026-09-27
                                     showRideNameDialog = false; onCreateRideFromTrack(id, rideRouteName.trim(), rideRouteDesc.trim(), th)
                                 }) { androidx.compose.material3.Text("CREATE ROUTE & RIDE") }
                             },

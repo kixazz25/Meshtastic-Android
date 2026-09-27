@@ -1348,17 +1348,9 @@ fun ConvoyMapViewerScreen(
                                         val nearby = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                                             SpatialDbManager.trailheadsNear(lat, lon)
                                         }
-                                        if (nearby.isEmpty()) {
-                                            android.util.Log.i("RouteBridge", "TRAILHEADGATE: first point refused, no trailhead within 1/2 mile")
-                                            android.widget.Toast.makeText(
-                                                context,
-                                                "A route starts near a trailhead. Turn on Draw and long-press to add a " +
-                                                    "trailhead waypoint, then start your route again.",
-                                                android.widget.Toast.LENGTH_LONG
-                                            ).show()
-                                            return@launch
-                                        }
-                                        android.util.Log.i("RouteBridge", "TRAILHEADGATE: first point accepted, trailhead '${nearby.first().name}' at ${"%.2f".format(nearby.first().miles)} mi")
+                                        // FIRSTPOINT-2026-09-27 (Fred): the first-pin gate is RETIRED -- the first pin BECOMES the trailhead at
+                                        // save (an existing one within 0.1 mile is reused; otherwise it is named and created there).
+                                        android.util.Log.i("RouteBridge", "FIRSTPOINT: first pin at $lat,$lon -- trailheads near: ${nearby.size}")
                                     }
                                     RouteManager.addVertex(v)
                                     // AUTO-CHECKPOINT: persist in-progress draft after every point
@@ -2513,14 +2505,12 @@ fun ConvoyMapViewerScreen(
             if (routeThPrompt) {
                 androidx.compose.material3.AlertDialog(
                     onDismissRequest = { routeThPrompt = false },
-                    title = { androidx.compose.material3.Text("This route needs a trailhead near its start") },
+                    title = { androidx.compose.material3.Text("This route needs a trailhead") },
                     text = {
                         androidx.compose.foundation.layout.Column {
-                            androidx.compose.material3.Text("A route is saved with its trailhead. None is within \u00bd mile of the route's start.")
+                            androidx.compose.material3.Text("Every route is saved with its trailhead \u2014 where riders meet and unload. The route's first point is being created as a trailhead. Please name it:")
                             androidx.compose.material3.OutlinedTextField(value = routeThName, onValueChange = { routeThName = it },
                                 singleLine = true, label = { androidx.compose.material3.Text("New trailhead's name") })
-                            androidx.compose.material3.Text("Or select one on the map: tap a waypoint within \u00bd mile of the start, CHANGE TYPE \u2192 Trailhead, then SAVE again.",
-                                fontSize = 12.sp)
                         }
                     },
                     confirmButton = {
@@ -2537,15 +2527,10 @@ fun ConvoyMapViewerScreen(
                                     if (ok) "Trailhead added \u2014 tap SAVE again." else "The trailhead could not be added.",
                                     android.widget.Toast.LENGTH_LONG).show()
                             }
-                        }) { androidx.compose.material3.Text("ADD TRAILHEAD") }
+                        }) { androidx.compose.material3.Text("CREATE TRAILHEAD") }
                     },
                     dismissButton = {
-                        androidx.compose.material3.TextButton(onClick = {
-                            routeThPrompt = false
-                            android.widget.Toast.makeText(context,
-                                "Tap a waypoint within \u00bd mile of the start, CHANGE TYPE \u2192 Trailhead, then SAVE again.",
-                                android.widget.Toast.LENGTH_LONG).show()
-                        }) { androidx.compose.material3.Text("SELECT ON MAP") }
+                        androidx.compose.material3.TextButton(onClick = { routeThPrompt = false }) { androidx.compose.material3.Text("Cancel") }
                     },
                 )
             }
@@ -3716,7 +3701,7 @@ fun ConvoyMapViewerScreen(
                     val thFirst = RouteManager.routeVertices().firstOrNull()
                     val thNear = thFirst?.let { f ->
                         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                            SpatialDbManager.init(context); SpatialDbManager.trailheadsNear(f.lat, f.lon)
+                            SpatialDbManager.init(context); SpatialDbManager.trailheadsNear(f.lat, f.lon, 0.1)   // FIRSTPOINT-2026-09-27
                         }
                     } ?: emptyList()
                     if (thFirst != null && thNear.isEmpty()) {
@@ -3755,7 +3740,7 @@ fun ConvoyMapViewerScreen(
                             // nearest is recorded (the selector belongs to ride creation). AFTER the notes
                             // write, which replaces every row, and BEFORE clearRoute empties the vertices.
                             RouteManager.routeVertices().firstOrNull()?.let { first ->
-                                SpatialDbManager.trailheadsNear(first.lat, first.lon).firstOrNull()?.let { th ->
+                                SpatialDbManager.trailheadsNear(first.lat, first.lon, 0.1).firstOrNull()?.let { th ->   // FIRSTPOINT-2026-09-27
                                     val ok = SpatialDbManager.setRouteAnchor(newRouteId, th.lat, th.lon, th.name)
                                     android.util.Log.i("RouteSave", "ROUTEANCHOR: '${th.name}' -> recipe of $newRouteId ok=$ok")
                                 }
