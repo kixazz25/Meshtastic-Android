@@ -249,6 +249,9 @@ fun RadioConfigScreen(
                     // CALLSIGNOVR-2026-09-26: whose radio is this? Your callsign unless you type another rider's.
                     OutlinedTextField(value = radioCallsign, onValueChange = { radioCallsign = it.take(39) }, singleLine = true,
                         label = { Text("Callsign for this radio") }, modifier = Modifier.fillMaxWidth())
+                    // CALLSIGNHINT-2026-09-27 (Fred): what the field is for, on the screen itself.
+                    Text("Mainly for setting up someone else's radio at the trailhead: type their callsign, and their radio joins the ride under their name. For your own radio, leave it as it is.",
+                        color = Color(0xFF8899AA), fontSize = 12.sp)
                     if (radioCallsign.trim().isNotEmpty() && radioCallsign.trim() != callsign)
                         Text("Setting up a radio for ${radioCallsign.trim()} \u2014 your own profile is not changed.", color = ACCENT, fontSize = 12.sp)
                     Spacer(Modifier.height(8.dp))
