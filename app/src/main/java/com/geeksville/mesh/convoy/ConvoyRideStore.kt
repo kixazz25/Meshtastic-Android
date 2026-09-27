@@ -159,6 +159,71 @@ object ConvoyRideStore {
         }
     }
 
+    // ---- CHECKIN-2026-09-27 (Fred): the pre-ride check-in and the end of the ride ------------------------------
+    data class RideChoice(val rideId: String, val name: String, val date: String, val startTime: String,
+                          val organizerName: String, val organizerId: String, val isPublic: Boolean)
+
+    /** The check-in. CODE RULE 1: rideId null = "No scheduled ride" (a normal recording; no survey, no sharing). */
+    data class CheckIn(val rideId: String?, val rideName: String?, val isPublic: Boolean, val callsign: String, val role: String)
+
+    /** Open, recent rides: dated today or earlier and not expired -- today's first, then newest. */
+    fun openRecentRides(): List<RideChoice> = try {
+        val today = java.time.LocalDate.now().toString()
+        SpatialDbManager.getExtensionDb()?.rawQuery(
+            "SELECT ride_id, ride_name, ride_date, start_time, organizer_name, organizer_id, is_public FROM rides " +
+                "WHERE ride_date <= ? AND (expires_at IS NULL OR expires_at >= ?) ORDER BY ride_date DESC, start_time ASC",
+            arrayOf(today, today))?.use { c ->
+            val out = ArrayList<RideChoice>()
+            while (c.moveToNext()) out += RideChoice(c.getString(0), c.getString(1) ?: "Ride", c.getString(2) ?: "",
+                c.getString(3) ?: "", c.getString(4) ?: "", c.getString(5) ?: "", c.getInt(6) == 1)
+            out
+        } ?: emptyList()
+    } catch (e: Exception) { Log.w(TAG, "CHECKIN: openRecentRides failed: ${e.message}"); emptyList() }
+
+    /** Checks in: the enrollment (ride, me, callsign and role FOR THIS RIDE; created_by 'login'), replacing any earlier
+     *  check-in of mine to the same ride. No ride -> no enrollment. The profile is never changed. Null only on failure. */
+    fun checkIn(ride: RideChoice?, callsign: String, role: String): CheckIn? {
+        val me = ConvoyProfileStore.load() ?: return null
+        val cs = callsign.trim().ifBlank { me.callsign }
+        if (ride == null) { Log.i(TAG, "CHECKIN: no scheduled ride, callsign $cs"); return CheckIn(null, null, false, cs, "rider") }
+        return try {
+            val db = SpatialDbManager.getExtensionDb() ?: return null
+            db.execSQL("DELETE FROM enrollments WHERE ride_id = ? AND user_id = ?", arrayOf<Any?>(ride.rideId, me.userId))
+            db.execSQL(
+                "INSERT INTO enrollments (enrollment_id, ride_id, user_id, callsign, display_name, role, vehicle_type, team, " +
+                    "created_by, enrolled_at) VALUES (?,?,?,?,?,?,?,?,'login',?)",
+                arrayOf<Any?>(UUID.randomUUID().toString(), ride.rideId, me.userId, cs,
+                    listOf(me.firstName, me.lastName).filter { it.isNotBlank() }.joinToString(" ").ifBlank { cs },
+                    role, me.vehicleType.ifBlank { null }, me.team.ifBlank { null }, nowUtc()))
+            Log.i(TAG, "CHECKIN: ${ride.name} (${ride.rideId}) as $role, callsign $cs")
+            CheckIn(ride.rideId, ride.name, ride.isPublic, cs, role)
+        } catch (e: Exception) { Log.e(TAG, "CHECKIN: not saved: ${e.message}"); null }
+    }
+
+    /** What the end-of-ride form collected on a PUBLIC ride. shareTrack is the rider's own required choice. */
+    data class RideSurveyInput(val rideId: String, val rating: Int, val difficulty: String, val recommend: Boolean,
+                               val notes: String, val shareTrack: Boolean)
+
+    /** v2 (Fred): the survey belongs to the RIDE -- one per rider per ride; a re-save replaces it. trackId is the
+     *  rider's own local recording, kept only as the link the table requires (the server keeps ONE track per ride). */
+    fun saveSurvey(trackId: String, s: RideSurveyInput): Boolean {
+        val me = ConvoyProfileStore.load() ?: return false
+        return try {
+            SpatialDbManager.getExtensionDb()?.execSQL(
+                "DELETE FROM ride_surveys WHERE ride_id = ? AND user_id = ?", arrayOf<Any?>(s.rideId, me.userId))
+            // CHECKIN-2026-09-27: the alternate key -- one survey per rider per ride, enforced by the database.
+            SpatialDbManager.getExtensionDb()?.execSQL(
+                "CREATE UNIQUE INDEX IF NOT EXISTS ux_ride_surveys_ride_user ON ride_surveys(ride_id, user_id) WHERE ride_id IS NOT NULL")
+            SpatialDbManager.getExtensionDb()?.execSQL(
+                "INSERT OR REPLACE INTO ride_surveys (survey_id, track_id, ride_id, user_id, rating, difficulty, recommend, " +
+                    "notes, track_donated, submitted_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                arrayOf<Any?>(UUID.randomUUID().toString(), trackId, s.rideId, me.userId, s.rating, s.difficulty,
+                    if (s.recommend) 1 else 0, s.notes.ifBlank { null }, if (s.shareTrack) 1 else 0, nowUtc()))
+            Log.i(TAG, "ENDRIDE: survey saved track=$trackId ride=${s.rideId} rating=${s.rating} share=${s.shareTrack}")
+            true
+        } catch (e: Exception) { Log.e(TAG, "ENDRIDE: survey not saved: ${e.message}"); false }
+    }
+
     // ---- RIDENET-2026-09-27 (Fred): the organizer's network ------------------------------------------------------
     /** The rider's OWN organizer network id (users.config_id of the is_self row), or null before their first ride. */
     private fun myConfigId(): String? = try {

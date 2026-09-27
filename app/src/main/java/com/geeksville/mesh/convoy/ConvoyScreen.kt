@@ -95,7 +95,7 @@ import androidx.activity.result.contract.ActivityResultContracts
  * ConvoyScreen — IMP-001 Task 4.2 + 5.1 + 5.2 + 5.3 + 5.4
  * Full-screen WebView/Leaflet map + HUD strip.
  */
-enum class RecordingState { IDLE, RECORDING, PAUSED, SLEEPING }
+enum class RecordingState { CHECK_IN, IDLE, RECORDING, PAUSED, SLEEPING }   // CHECKIN-2026-09-27: CHECK_IN first
 
 // Display state constants for spatial DB artifacts
 private const val DS_OFF = 0
@@ -608,36 +608,31 @@ fun ConvoyScreen(
         )
     }
 
+    // CHECKIN-2026-09-27 (Fred): the pre-ride CHECK-IN (its own file) -- the first state of the recording sequence.
+    var showCheckIn by remember { mutableStateOf(false) }
+    if (showCheckIn) {
+        CheckInSheet(
+            onDone = { ci ->
+                viewModel.checkIn.value = ci
+                showCheckIn = false
+                recordingState = RecordingState.IDLE   // checked in: the button now reads REC (a second tap records)
+            },
+            onCancel = { showCheckIn = false },
+        )
+    }
     if (showNameDialog) {
-        AlertDialog(
-            // HARDENED: non-cancelable. Outside-touch / back / accidental bump do nothing.
-            onDismissRequest = { },
-            title = { Text("Save Track") },
-            text = {
-                OutlinedTextField(
-                    value = pendingTrackName,
-                    onValueChange = { pendingTrackName = it },
-                    label = { Text("Track name") },
-                    singleLine = true
-                )
+        // CHECKIN-2026-09-27: the END-OF-RIDE FORM (its own file) replaces the old "Save Track" dialog. It reads the check-in:
+        // a ride's track is named after the ride; the survey and the share choice only on a public ride.
+        EndOfRideForm(
+            name = pendingTrackName,
+            onNameChange = { pendingTrackName = it },
+            checkIn = viewModel.endingCheckIn,
+            onSave = { survey ->
+                showNameDialog = false
+                viewModel.pendingSurvey = survey
+                viewModel.finalizeTrack(pendingTrackName.trim(), context)
             },
-            confirmButton = {
-                TextButton(onClick = {
-                    if (pendingTrackName.isBlank()) {
-                        // No name -> ask to delete (do NOT save junk).
-                        showConfirmDelete = true
-                    } else {
-                        showNameDialog = false
-                        viewModel.finalizeTrack(pendingTrackName.trim(), context)
-                    }
-                }) { Text("SAVE") }
-            },
-            dismissButton = {
-                TextButton(onClick = {
-                    // Explicit discard request -> route through confirm, never silent.
-                    showConfirmDelete = true
-                }) { Text("DELETE") }
-            }
+            onDelete = { showConfirmDelete = true },
         )
     }
     if (showConfirmDelete) {
@@ -1465,6 +1460,7 @@ fun ConvoyScreen(
                 Surface(
                     modifier = Modifier.clickable {
                         when (recordingState) {
+                            RecordingState.CHECK_IN -> { showCheckIn = true }   // CHECKIN-2026-09-27: no recording before check-in
                             RecordingState.IDLE -> {
                                 val bgGranted = android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.Q ||
                                     androidx.core.content.ContextCompat.checkSelfPermission(
@@ -1501,6 +1497,7 @@ fun ConvoyScreen(
                     },
                     shape = RoundedCornerShape(10.dp),
                     color = when (recordingState) {
+                        RecordingState.CHECK_IN -> Color(0xFF1F6B3A)
                         RecordingState.IDLE -> Color(0xFF8B0000)
                         RecordingState.RECORDING -> Color(0xFFCC0000)
                         RecordingState.PAUSED -> Color(0xFF994400)
@@ -1510,6 +1507,7 @@ fun ConvoyScreen(
                 ) {
                     Text(
                         text = when (recordingState) {
+                            RecordingState.CHECK_IN -> "✔  CHK IN › REC"
                             RecordingState.IDLE -> "⏺  REC"
                             RecordingState.RECORDING -> "⏸  PAUSE"
                             RecordingState.PAUSED -> "⏺  RESUME"
@@ -1546,7 +1544,7 @@ fun ConvoyScreen(
                     }
                     Surface(
                         modifier = Modifier.clickable {
-                            recordingState = RecordingState.IDLE
+                            recordingState = RecordingState.CHECK_IN   // CHECKIN-2026-09-27: each recording starts with its own check-in
                             showRecMenu = false
                             pendingTrackName = ""
                             viewModel.stopRecording()
@@ -1582,7 +1580,7 @@ fun ConvoyScreen(
 
           // ── Distance odometer -- bottom right, only when recording ─────
           val distanceMiles by viewModel.distanceMiles.collectAsStateWithLifecycle()
-          if (recordingState != RecordingState.IDLE) {
+          if (recordingState != RecordingState.IDLE && recordingState != RecordingState.CHECK_IN) {   // CHECKIN-2026-09-27
               Column(
                   modifier = Modifier
                       .align(Alignment.BottomEnd)

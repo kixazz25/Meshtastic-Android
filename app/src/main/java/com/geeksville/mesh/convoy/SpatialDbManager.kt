@@ -1482,6 +1482,19 @@ object SpatialDbManager {
         return TrackInsertResult(inserted, resolvedId, gh, nm)
     }
 
+    /** CHECKIN-2026-09-27: the id of the track a GPX text resolves to -- the SAME parse, WKT and computeGeomHash as
+     *  resolveTrackAdd, then a lookup by geom_hash. Works for INSERT and for DROP/ALIAS (the existing track).
+     *  CODE RULE 1: null when there is no geometry or no such track. */
+    fun trackIdForGpxText(text: String): String? = try {
+        val coords = parseGpxTrackPoints(text)
+        if (coords.isEmpty()) null else {
+            val wkt = "LINESTRING(" + coords.joinToString(",") { "${it.first} ${it.second}" } + ")"
+            spatialDb?.rawQuery("SELECT track_id FROM tracks WHERE geom_hash=? LIMIT 1", arrayOf(computeGeomHash(wkt)))?.use { c ->
+                if (c.moveToFirst()) c.getString(0) else null
+            }
+        }
+    } catch (e: Exception) { android.util.Log.w("SpatialDb", "ENDRIDE: trackIdForGpxText failed: ${e.message}"); null }
+
     enum class AddOutcome { INSERT, DROP_NAME, DROP_ALIAS, ALIAS, NO_GEOMETRY, ERROR }
 
     /** THE unified track ADD service. All three capture processes (sync, create,

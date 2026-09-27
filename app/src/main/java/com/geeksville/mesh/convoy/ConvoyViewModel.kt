@@ -286,7 +286,12 @@ class ConvoyViewModel @Inject constructor(
         _trackLeadOnly.value = !_trackLeadOnly.value
     }
 
-    var recordingState = androidx.compose.runtime.mutableStateOf(com.geeksville.mesh.convoy.RecordingState.IDLE)
+    // CHECKIN-2026-09-27 (Fred): the recording sequence starts at CHECK_IN -- you cannot record until you have checked in.
+    var recordingState = androidx.compose.runtime.mutableStateOf(com.geeksville.mesh.convoy.RecordingState.CHECK_IN)
+    /** The current check-in (CODE RULE 1: null = not checked in). Set by the check-in; handed to the end form at END. */
+    val checkIn = androidx.compose.runtime.mutableStateOf<ConvoyRideStore.CheckIn?>(null)
+    /** The check-in of the recording being ended -- read by the end form; cleared on save or delete. */
+    var endingCheckIn: ConvoyRideStore.CheckIn? = null
     var pendingTrackName = androidx.compose.runtime.mutableStateOf("")
     var showRecMenu = androidx.compose.runtime.mutableStateOf(false)
     var pendingEnrollmentEmail = androidx.compose.runtime.mutableStateOf("")
@@ -575,10 +580,12 @@ class ConvoyViewModel @Inject constructor(
         } else { gpsService?.resumeTrack(); _routeRecording.value = true }
     }
     fun stopRecording() {
+        endingCheckIn = checkIn.value; checkIn.value = null   // CHECKIN-2026-09-27: the next recording needs a new check-in
         pendingTempFile = gpsService?.stopTrack()
     }
 
     fun deleteTempTrack() {
+        endingCheckIn = null; pendingSurvey = null   // CHECKIN-2026-09-27
         val temp = pendingTempFile ?: return
         if (temp.exists()) {
             temp.delete()
@@ -587,6 +594,10 @@ class ConvoyViewModel @Inject constructor(
         pendingTempFile = null
         lastGpsLat = null; lastGpsLon = null; _distanceMiles.value = 0.0; _routeRecording.value = false
     }
+    /** CHECKIN-2026-09-27: set by the end-of-ride form just before finalizeTrack; written only if the track exists.
+     *  CODE RULE 1: null = no survey (a private ride, or not part of a ride). */
+    var pendingSurvey: ConvoyRideStore.RideSurveyInput? = null
+
     fun finalizeTrack(name: String, context: android.content.Context) {
         val temp = pendingTempFile ?: return
         // Finalize the temp file to a clean {name}.gpx (GpsService no longer timestamps).
@@ -617,6 +628,16 @@ class ConvoyViewModel @Inject constructor(
             // <hash>.gpx, the source-file delete, the metric feed, and aliasing.
             val outcome = com.geeksville.mesh.convoy.SpatialDbManager.resolveTrackAdd(name.trim(), f)
             android.util.Log.i("ConvoyVM", "finalizeTrack resolveTrackAdd: $outcome name='${name.trim()}'")
+            // CHECKIN-2026-09-27: the survey is written only when the track exists (INSERT, or DROP/ALIAS onto an existing one).
+            pendingSurvey?.let { sv ->
+                if (outcome != com.geeksville.mesh.convoy.SpatialDbManager.AddOutcome.NO_GEOMETRY &&
+                    outcome != com.geeksville.mesh.convoy.SpatialDbManager.AddOutcome.ERROR) {
+                    val tid = com.geeksville.mesh.convoy.SpatialDbManager.trackIdForGpxText(text)
+                    if (tid != null) ConvoyRideStore.saveSurvey(tid, sv)
+                    else android.util.Log.w("ConvoyVM", "ENDRIDE: no track id -- survey not saved")
+                }
+            }
+            pendingSurvey = null; endingCheckIn = null   // CHECKIN-2026-09-27
         } catch (e: Exception) {
             android.util.Log.e("ConvoyVM", "finalizeTrack insert failed: ${e.message}")
         }
