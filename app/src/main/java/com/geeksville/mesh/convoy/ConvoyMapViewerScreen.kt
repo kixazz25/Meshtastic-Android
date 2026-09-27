@@ -816,6 +816,16 @@ fun ConvoyMapViewerScreen(
     // the per-item checked status (the real last state). Geometry is refreshed by the
     // viewport query separately and is not part of this save. Rows for the active list
     // type are built from artifactList + selectedArtifactIds when a list is open.
+    // FITROUTE2-2026-09-27 (Fred): "fitting a route" -- only this route and its trailhead: every other type OFF, the route
+    // SELECTED, its trailhead waypoint SELECTED. Callers then savePlanningState() and fit.
+    fun selectRouteWithTrailhead(rid: String) {
+        trailState = DS_OFF; trailCheckedIds = null
+        trackState = DS_OFF; trackCheckedIds = null
+        waypointState = DS_OFF; waypointCheckedIds = null
+        routeState = DS_SELECTED; routeCheckedIds = setOf(rid)
+        RidePreview.trailheadWaypointId(rid)?.let { waypointState = DS_SELECTED; waypointCheckedIds = setOf(it) }
+    }
+
     fun savePlanningState() {
         fun rowsFor(type: String): List<MapStateStore.Row> {
             // [3.1c] Source SELECTED rows from the persistent per-type checked-id set,
@@ -2562,7 +2572,7 @@ fun ConvoyMapViewerScreen(
                     // (RidePreview fits this map to the route and captures its picture, then the ride form opens).
                     onCreateRide = onAddRide?.let { go -> {
                         savedNotesRouteId = null
-                        RidePreview.captureThen(webViewRef, "Route", rid) { go("Route", rid) }
+                        selectRouteWithTrailhead(rid); savePlanningState(); RidePreview.captureThen(webViewRef, "Route", rid) { go("Route", rid) }   /* FITROUTE2-2026-09-27 */
                     } },
                     onDownloadMaps = {
                         // ⚠ The download path is keyed on GEOM HASH, not route
@@ -4422,6 +4432,7 @@ fun ConvoyMapViewerScreen(
                     // RIDEPREVIEW-2026-09-24: ADD A RIDE first fits THIS map to the route and captures a
                     // square picture of it, then opens ride creation.
                     onAddRide = onAddRide?.let { go -> { a: String, b: String ->
+                        selectRouteWithTrailhead(b); savePlanningState()   // FITROUTE2-2026-09-27: route + trailhead only
                         RidePreview.captureThen(webViewRef, a, b) { go(a, b) }
                     } },
                     // TRACKRIDE2-2026-09-26 (Fred) -- PASS 2 (final): the track's simplified line (method approved on the
@@ -4435,7 +4446,7 @@ fun ConvoyMapViewerScreen(
                             } else {
                                 pendingDetailId = null; pendingDetailType = null
                                 webViewRef?.evaluateJavascript("triggerViewportUpdate()", null)
-                                RidePreview.captureThen(webViewRef, "Route", rid) { go("Route", rid) }
+                                selectRouteWithTrailhead(rid); savePlanningState(); RidePreview.captureThen(webViewRef, "Route", rid) { go("Route", rid) }   /* FITROUTE2-2026-09-27 */
                             }
                         }
                     } },
@@ -4590,14 +4601,17 @@ fun ConvoyMapViewerScreen(
                                 "Trails"    -> { trailState = DS_SELECTED; trailCheckedIds = sel }
                                 "Tracks"    -> { trackState = DS_SELECTED; trackCheckedIds = sel }
                                 "Waypoints" -> { waypointState = DS_SELECTED; waypointCheckedIds = sel }
-                                "Routes"    -> { routeState = DS_SELECTED; routeCheckedIds = sel }
+                                "Routes"    -> selectRouteWithTrailhead(fittedId)   // FITROUTE2-2026-09-27: + its trailhead
                             }
                             // [FIT recenter 2026-06-20] Restore-to-artifact: bbox+10% pad -> lastViewport -> fitBounds,
                             // so save + the getBounds() redraw below both use the artifact frame (no stale clobber).
                             run {
                                 val _bb = SpatialDbManager.bboxForArtifact(fittedType, fittedId)
                                 if (_bb != null) {
-                                    val _s=_bb[0]; val _w=_bb[1]; val _n=_bb[2]; val _e=_bb[3]
+                                    // FITROUTE2-2026-09-27: a route's frame includes its trailhead.
+                                    val _a = if (fittedType == "Routes") RidePreview.anchorOf(fittedId) else null
+                                    val _s=minOf(_bb[0], _a?.first ?: _bb[0]); val _w=minOf(_bb[1], _a?.second ?: _bb[1])
+                                    val _n=maxOf(_bb[2], _a?.first ?: _bb[2]); val _e=maxOf(_bb[3], _a?.second ?: _bb[3])
                                     val _latPad=((_n-_s).let{ if(it>0.0) it*0.10 else 0.01 })
                                     val _lonPad=((_e-_w).let{ if(it>0.0) it*0.10 else 0.01 })
                                     val _fS=_s-_latPad; val _fN=_n+_latPad; val _fW=_w-_lonPad; val _fE=_e+_lonPad

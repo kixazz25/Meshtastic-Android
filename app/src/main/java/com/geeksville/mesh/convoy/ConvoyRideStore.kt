@@ -112,9 +112,9 @@ object ConvoyRideStore {
         description: String,
         zipCode: String,
         isPublic: Boolean,
-        // RIDENET-2026-09-27: REQUIRED, no default (CODE RULE 1) -- every caller decides: false = the organizer's own
-        // network (created with their first ride, reused after); true = a new network for this ride only.
-        newNetworkForRide: Boolean,
+        // FORMLAYOUT-2026-09-27: the network SHOWN on the form. REQUIRED, no default; CODE RULE 1: null is a real
+        // choice -- the organizer's own network; a value is the ride-only network generated when the rider toggled.
+        rideNetworkId: String?,
         routeId: String
     ): String? {
         val db = SpatialDbManager.getExtensionDb() ?: return null
@@ -129,11 +129,11 @@ object ConvoyRideStore {
         // every ride after (users.config_id, config_mode 'own') -- or, when asked, a NEW network for this ride only.
         // Every network is NAMED after the organizer. Only the rider's OWN network or a new one: never another
         // organizer's (theirs arrive only to JOIN their rides). Supersedes RIDECFG-2026-09-23's always-unique path.
-        val cfg = (if (newNetworkForRide) ConvoyNetworkStore.create(OwnerType.RIDE, id, leaderName)
+        val cfg = (if (rideNetworkId != null) ConvoyNetworkStore.load(rideNetworkId)
                    else organizerNetwork(me.userId, leaderName)) ?: run {
             Log.w(TAG, "saveRide refused: the ride's network was not available"); return null
         }
-        val mode = if (newNetworkForRide) "unique" else "inherit_leader"
+        val mode = if (rideNetworkId != null) "unique" else "inherit_leader"
         val expires = expiresFor(rideDate)
         return try {
             db.execSQL(
@@ -154,7 +154,7 @@ object ConvoyRideStore {
             id
         } catch (e: Exception) {
             Log.e(TAG, "saveRide failed: ${e.message}")
-            if (newNetworkForRide) ConvoyNetworkStore.deleteUnused(cfg.configId)   // RIDECFG: no ghost config (never the organizer's own)
+            if (rideNetworkId != null) ConvoyNetworkStore.deleteUnused(cfg.configId)   // RIDECFG: no ghost config (never the organizer's own)
             null
         }
     }
@@ -244,6 +244,14 @@ object ConvoyRideStore {
         val name = listOf(me.firstName, me.lastName).filter { it.isNotBlank() }.joinToString(" ").ifBlank { me.callsign }
         organizerNetwork(me.userId, name) ?: return null
         return myNetworkName()
+    }
+
+    /** FORMLAYOUT-2026-09-27: a ride-only network, generated when the rider toggles to it on the form (named after the
+     *  organizer). Used only when the ride is added; unused ones are removed by deleteUnused. Null only on failure. */
+    fun createRideNetwork(): com.grouptrack.core.NetworkConfig? {
+        val me = ConvoyProfileStore.load() ?: return null
+        val name = listOf(me.firstName, me.lastName).filter { it.isNotBlank() }.joinToString(" ").ifBlank { me.callsign }
+        return ConvoyNetworkStore.create(OwnerType.RIDE, "pending-" + UUID.randomUUID().toString(), name)
     }
 
     /** True once this rider has created a ride (users.is_organizer). */

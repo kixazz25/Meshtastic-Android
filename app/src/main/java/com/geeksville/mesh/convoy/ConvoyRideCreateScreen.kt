@@ -77,6 +77,9 @@ fun ConvoyRideCreateScreen(
     // RIDENET-2026-09-27: public by default (isPrivate off); the organizer's network by default (newNetworkForRide off).
     var isPrivate by remember { mutableStateOf(false) }
     var newNetworkForRide by remember { mutableStateOf(false) }
+    // FORMLAYOUT-2026-09-27: generated when you toggle to a new network; used only when the ride is added.
+    // CODE RULE 1: null = not generated (the organizer network is chosen, or it has not been toggled yet).
+    var rideNetwork by remember { mutableStateOf<com.grouptrack.core.NetworkConfig?>(null) }
     // CODE RULE 1: null is a real state -- this rider has no network yet; their first ride creates it.
     // RIDENETWORDS2-2026-09-27: the rider's own network is made when the form opens, so it always exists and has a name.
     val myNetworkName = remember { ConvoyRideStore.ensureMyNetworkName() }
@@ -191,6 +194,8 @@ fun ConvoyRideCreateScreen(
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
 
+            // FORMLAYOUT-2026-09-27 (Fred): the ride's NAME first.
+            RideField("Ride name *", rideName, "Sunday Desert Run") { rideName = it }
             // FORMTOP-2026-09-27 (Fred): public/private and the radio network are the form's FIRST decision.
             // RIDENET-2026-09-27 (Fred): PUBLIC by default, PRIVATE the override -- and the screen says what each means.
             Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
@@ -213,28 +218,25 @@ fun ConvoyRideCreateScreen(
                         uncheckedTrackColor = Color(0xFF0A1628)))
             }
 
-            // RIDENET-2026-09-27 (Fred): the ORGANIZER's network by default (created with the first ride, reused after);
-            // a new network only for this ride when asked. Never another organizer's network.
-            Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-                .background(Color(0xFF1A0A00)).padding(horizontal = 14.dp, vertical = 10.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically) {
-                Column(modifier = Modifier.weight(1f).padding(end = 10.dp)) {
-                    Text("RADIO NETWORK", color = GroupTrackColors.Amber, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                    Text(if (newNetworkForRide)
-                            "A private network for this ride only. Every rider must set up their radio for it, even if they have ridden with you before."
-                        else "Your own private network has been created: ${myNetworkName ?: "(not available \u2014 check your rider profile)"}. " +
-                            "It is used for this ride and all new rides, unless you select Create a private network for this ride.",   /* RIDENETWORDS2-2026-09-27 */
-                        color = Color(0xFFCCBB99), fontSize = 11.sp)
-                    Text("Create a private network for this ride", color = Color(0xFFAABBCC), fontSize = 11.sp,
-                        modifier = Modifier.padding(top = 6.dp))
+            // FORMLAYOUT-2026-09-27 (Fred): the radio network is a CHOICE; "Network assigned" shows the one in use.
+            Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
+                .background(Color(0xFF1A0A00)).padding(horizontal = 14.dp, vertical = 10.dp)) {
+                Text("RADIO NETWORK", color = GroupTrackColors.Amber, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                listOf(false to "My organizer network", true to "Create a new network for this ride").forEach { (isNew, label) ->
+                    Text((if (newNetworkForRide == isNew) "\u25C9  " else "\u25CB  ") + label,
+                        color = if (newNetworkForRide == isNew) GroupTrackColors.SkyBlue else Color(0xFFAABBCC), fontSize = 13.sp,
+                        modifier = Modifier.fillMaxWidth().clickable {
+                            newNetworkForRide = isNew
+                            if (isNew && rideNetwork == null) rideNetwork = ConvoyRideStore.createRideNetwork()   // generated now, used only when the ride is added
+                        }.padding(vertical = 6.dp))
                 }
-                Switch(checked = newNetworkForRide, onCheckedChange = { newNetworkForRide = it },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = GroupTrackColors.SkyBlue,
-                        checkedTrackColor = Color(0xFF1A3050),
-                        uncheckedThumbColor = Color(0xFF445566),
-                        uncheckedTrackColor = Color(0xFF0A1628)))
+                Text("Network assigned: " + (if (newNetworkForRide)
+                        (rideNetwork?.let { "Private \u2013 " + it.configId } ?: "\u26a0 not created \u2014 check your rider profile")
+                    else (myNetworkName ?: "\u26a0 not available \u2014 check your rider profile")),
+                    color = Color(0xFFE8C27A), fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 4.dp))
+                Text(if (newNetworkForRide) "Used only by this ride. Every rider sets up their radio for it, even if they have ridden with you before."
+                    else "Used for all your rides \u2014 riders who joined any of your rides are already on it.",
+                    color = Color(0xFFCCBB99), fontSize = 11.sp)
             }
 
             // FORMTRIM-2026-09-27 (Fred): the organizer's name and email are not shown (still recorded from the profile);
@@ -242,66 +244,19 @@ fun ConvoyRideCreateScreen(
             if (me == null) Text("\u26a0 No rider profile on this tablet \u2014 Settings \u2192 Your Profile",
                 color = GroupTrackColors.Amber, fontSize = 12.sp, fontWeight = FontWeight.Bold)
 
-            RideLabel("ROUTE")
-            if (pickerOpen) {
-                Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xFF0A1628)).padding(10.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    if (routes.isEmpty()) {
-                        Text("No routes yet \u2014 build one in the planner, or convert a track.",
-                            color = Color(0xFF445566), fontSize = 11.sp, fontFamily = FontFamily.Monospace)
-                    }
-                    routes.forEach { r ->
-                        Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(6.dp))
-                            .background(Color(0xFF0F2035))
-                            .clickable { routeId = r.routeId; routeName = r.name; pickerOpen = false }
-                            .padding(10.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(r.name, color = Color.White, fontSize = 12.sp,
-                                fontFamily = FontFamily.Monospace, modifier = Modifier.weight(1f))
-                            Text("\u203a", color = GroupTrackColors.SkyBlue, fontSize = 14.sp)
-                        }
-                    }
+            // FORMLAYOUT-2026-09-27 (Fred): date and rollout time on ONE line.
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(modifier = Modifier.weight(1f)) {
+                    RideLabel("Date *")
+                    Text(rideDate.ifBlank { "Tap to choose" },
+                        color = if (rideDate.isBlank()) Color(0xFF8B938A) else Color(0xFFE8EEF5), fontSize = 14.sp,
+                        modifier = Modifier.fillMaxWidth().clickable { showDatePicker = true }.padding(vertical = 10.dp))
                 }
-            } else {
-                // PROTECTROUTE-2026-09-24 (Fred): the route's name belongs to the route -- display only.
-                RideLabel("Route name")
-                Text(routeName.ifBlank { "\u2014" }, color = Color(0xFFE8EEF5), fontSize = 14.sp,
-                    modifier = Modifier.padding(vertical = 6.dp))
-                // RIDEPREVIEW-2026-09-24: the planner map, fitted and captured at ADD A RIDE -- square.
-                val routePreview = remember(routeId) { RidePreview.load(context, routeId) }
-                if (routePreview != null) {
-                    androidx.compose.foundation.Image(
-                        bitmap = routePreview.asImageBitmap(), contentDescription = "Route map",
-                        modifier = Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(8.dp)))
-                } else RouteVignette(routePts)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Box(modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(Color(0xFF1A3050))
-                        // ROUTELOCK-2026-09-24 (Fred): a ride's route is fixed -- say why, don't open a picker.
-                        .clickable {
-                            android.widget.Toast.makeText(context, "A ride's route can't be changed. To use a " +
-                                "different route, delete this ride and create a new one from the route on the " +
-                                "planning map.", android.widget.Toast.LENGTH_LONG).show()
-                        }
-                        .padding(horizontal = 12.dp, vertical = 8.dp)) {
-                        Text("CHANGE ROUTE", color = GroupTrackColors.SkyBlue, fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
-                    }
-                    Text("${routePts.size} points", color = Color(0xFF445566), fontSize = 10.sp,
-                        fontFamily = FontFamily.Monospace, modifier = Modifier.align(Alignment.CenterVertically))
-                }
+                Box(modifier = Modifier.weight(1f)) { RideField("Rollout time", startTime, "8:00 AM") { startTime = it } }
             }
-
-            RideLabel("RIDE INFO")
-            RideField("Ride name *", rideName, "Sunday Desert Run") { rideName = it }
-            // CALDATE-2026-09-24 (Fred): the date of the ride comes from a calendar -- always yyyy-MM-dd.
-            RideLabel("Date *")
-            Text(rideDate.ifBlank { "Tap to choose the date" },
-                color = if (rideDate.isBlank()) Color(0xFF8B938A) else Color(0xFFE8EEF5), fontSize = 14.sp,
-                modifier = Modifier.fillMaxWidth().clickable { showDatePicker = true }.padding(vertical = 10.dp))
             if (showDatePicker) RideDatePickerDialog(rideDate,
                 onPick = { rideDate = it; showDatePicker = false },
                 onDismiss = { showDatePicker = false })
-            RideField("Rollout time", startTime, "8:00 AM") { startTime = it }
             // FORMTRIM-2026-09-27 (Fred): the zip is still derived from the trailhead and saved -- just not shown.
             // FORMTRIM-2026-09-27 (Fred): only when the route has no description -- then required to send the ride.
             if (!routeHasDescription)
@@ -332,6 +287,56 @@ fun ConvoyRideCreateScreen(
                 Spacer(Modifier.height(8.dp))
             }
 
+            RideLabel("ROUTE")
+            if (pickerOpen) {
+                Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
+                    .background(Color(0xFF0A1628)).padding(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    if (routes.isEmpty()) {
+                        Text("No routes yet \u2014 build one in the planner, or convert a track.",
+                            color = Color(0xFF445566), fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                    }
+                    routes.forEach { r ->
+                        Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(6.dp))
+                            .background(Color(0xFF0F2035))
+                            .clickable { routeId = r.routeId; routeName = r.name; pickerOpen = false }
+                            .padding(10.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(r.name, color = Color.White, fontSize = 12.sp,
+                                fontFamily = FontFamily.Monospace, modifier = Modifier.weight(1f))
+                            Text("\u203a", color = GroupTrackColors.SkyBlue, fontSize = 14.sp)
+                        }
+                    }
+                }
+            } else {
+                // PROTECTROUTE-2026-09-24 (Fred): the route's name belongs to the route -- display only.
+                // FORMLAYOUT-2026-09-27: the route's name directly over its picture.
+                Text(routeName.ifBlank { "\u2014" }, color = Color(0xFFE8EEF5), fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold, modifier = Modifier.padding(vertical = 4.dp))
+                // RIDEPREVIEW-2026-09-24: the planner map, fitted and captured at ADD A RIDE -- square.
+                val routePreview = remember(routeId) { RidePreview.load(context, routeId) }
+                if (routePreview != null) {
+                    androidx.compose.foundation.Image(
+                        bitmap = routePreview.asImageBitmap(), contentDescription = "Route map",
+                        modifier = Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(8.dp)))
+                } else RouteVignette(routePts)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Box(modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(Color(0xFF1A3050))
+                        // ROUTELOCK-2026-09-24 (Fred): a ride's route is fixed -- say why, don't open a picker.
+                        .clickable {
+                            android.widget.Toast.makeText(context, "A ride's route can't be changed. To use a " +
+                                "different route, delete this ride and create a new one from the route on the " +
+                                "planning map.", android.widget.Toast.LENGTH_LONG).show()
+                        }
+                        .padding(horizontal = 12.dp, vertical = 8.dp)) {
+                        Text("CHANGE ROUTE", color = GroupTrackColors.SkyBlue, fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                    }
+                    Text("${routePts.size} points", color = Color(0xFF445566), fontSize = 10.sp,
+                        fontFamily = FontFamily.Monospace, modifier = Modifier.align(Alignment.CenterVertically))
+                }
+            }
+
+            // CALDATE-2026-09-24 (Fred): the date of the ride comes from a calendar -- always yyyy-MM-dd.
             if (status.isNotBlank()) {
                 Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
                     .background(Color(0xFF0D2010)).padding(12.dp)) {
@@ -365,7 +370,9 @@ fun ConvoyRideCreateScreen(
                     val id = ConvoyRideStore.saveRide(
                         rideName = rideName, rideDate = rideDate, startTime = startTime,
                         description = description, zipCode = zipCode,
-                        isPublic = !isPrivate, newNetworkForRide = newNetworkForRide, routeId = routeId
+                        isPublic = !isPrivate,
+                        rideNetworkId = if (newNetworkForRide) rideNetwork?.configId else null,   // FORMLAYOUT-2026-09-27
+                        routeId = routeId
                     )
                     if (id != null) {
                         // RIDEFILE-2026-09-23: the ride JSON is stored on every Save.
@@ -376,6 +383,7 @@ fun ConvoyRideCreateScreen(
                             missing.isEmpty() -> "\u2713 Ride saved \u2014 ready to send"
                             else -> "\u2713 Saved in progress \u2014 missing: " + missing.joinToString(", ")
                         }
+                        if (!newNetworkForRide) rideNetwork?.let { ConvoyNetworkStore.deleteUnused(it.configId); rideNetwork = null }   // FORMLAYOUT: unused
                         if (!wasOrganizer) status += "\n\u2713 You're now an organizer \u2014 your rides use your own network: " +
                             (ConvoyRideStore.myNetworkName() ?: "created with this ride") + "."   // RIDENET-2026-09-27
                         onRideCreated(id)
@@ -390,7 +398,10 @@ fun ConvoyRideCreateScreen(
             // RIDECANCEL-2026-09-26 (Fred): leave the form. NOTHING is written -- a ride is saved only by SAVE RIDE
             // (no ghosts), so Cancel simply returns to where the form was opened from.
             Spacer(Modifier.height(8.dp))
-            Box(modifier = Modifier.fillMaxWidth().clickable { onBack() }.padding(vertical = 12.dp),
+            Box(modifier = Modifier.fillMaxWidth().clickable {
+                    rideNetwork?.let { ConvoyNetworkStore.deleteUnused(it.configId) }   // FORMLAYOUT-2026-09-27: no ghost network
+                    onBack()
+                }.padding(vertical = 12.dp),
                 contentAlignment = Alignment.Center) {
                 Text("CANCEL", color = Color(0xFF8B949E), fontSize = 13.sp,
                     fontWeight = FontWeight.Bold, letterSpacing = 1.sp)

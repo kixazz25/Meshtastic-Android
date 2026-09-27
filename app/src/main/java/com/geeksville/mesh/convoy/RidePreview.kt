@@ -41,6 +41,17 @@ object RidePreview {
      * Fit [webView]'s map to the route, wait, capture the centred square, then run [then].
      * [a] and [b] are ADD A RIDE's two arguments; whichever one has stored geometry is the route id.
      */
+    /** FITROUTE2-2026-09-27: the route's trailhead from its recipe (lat, lon). CODE RULE 1: null = none recorded yet. */
+    fun anchorOf(routeId: String): Pair<Double, Double>? = runCatching {
+        val rec = SpatialDbManager.routeRecipe(routeId)
+        if (rec != null && rec.has("anchorLat") && rec.has("anchorLon")) Pair(rec.optDouble("anchorLat"), rec.optDouble("anchorLon")) else null
+    }.getOrNull()
+
+    /** FITROUTE2-2026-09-27: the trailhead waypoint at the route's anchor. CODE RULE 1: null = none found. */
+    fun trailheadWaypointId(routeId: String): String? = anchorOf(routeId)?.let { (la, lo) ->
+        runCatching { SpatialDbManager.trailheadsNear(la, lo, 0.02).firstOrNull()?.waypointId }.getOrNull()
+    }
+
     fun captureThen(webView: WebView?, a: String, b: String, then: () -> Unit) {
         val wv = webView ?: run { then(); return }
         val routeId = listOf(a, b).firstOrNull { ConvoyRideStore.routeGeometry(it) != null }
@@ -48,8 +59,12 @@ object RidePreview {
         val pts = ConvoyRideStore.routeGeometry(routeId)?.let { ConvoyRideStore.parseWktLine(it) } ?: emptyList()
         if (pts.isEmpty() || wv.width <= 0 || wv.height <= 0) { then(); return }
         // parseWktLine gives (LON, LAT). Only the extremes matter for a fit.
-        val minLat = pts.minOf { it.second }; val maxLat = pts.maxOf { it.second }
-        val minLon = pts.minOf { it.first }; val maxLon = pts.maxOf { it.first }
+        val minLat0 = pts.minOf { it.second }; val maxLat0 = pts.maxOf { it.second }
+        val minLon0 = pts.minOf { it.first }; val maxLon0 = pts.maxOf { it.first }
+        // FITROUTE2-2026-09-27: the frame includes the route's trailhead.
+        val anc = anchorOf(routeId)
+        val minLat = minOf(minLat0, anc?.first ?: minLat0); val maxLat = maxOf(maxLat0, anc?.first ?: maxLat0)
+        val minLon = minOf(minLon0, anc?.second ?: minLon0); val maxLon = maxOf(maxLon0, anc?.second ?: maxLon0)
         // Fit the route INSIDE the centred square that will be captured, not the whole map.
         val density = wv.resources.displayMetrics.density
         val side = minOf(wv.width, wv.height)
