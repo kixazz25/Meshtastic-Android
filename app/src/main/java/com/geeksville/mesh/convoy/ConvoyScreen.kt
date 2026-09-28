@@ -3429,7 +3429,13 @@ fun CartPickerPanel(
                 if (nodes.isEmpty()) {
                     Text("No radios heard yet", color = Color(0xFF7A8DA0), fontSize = 12.sp, fontFamily = FontFamily.Monospace)
                 } else {
-                    nodes.forEach { node ->
+                    // CARTPICKER5-2026-09-28 (Fred): Leader, Middle, Tail gunner first, then Riders -- checked-in Riders before bare
+                    // radios; alphabetical within each. (Until the roles piece only this cart can show a special role.)
+                    fun rank(n: com.geeksville.mesh.convoy.ConvoyNode): Int {
+                        val ci = n.isMyCart && myRole.isNotBlank()
+                        return when (if (ci) myRole else "rider") { "leader" -> 0; "middle" -> 1; "tail_gunner" -> 2; else -> if (ci) 3 else 4 }
+                    }
+                    nodes.sortedWith(compareBy<com.geeksville.mesh.convoy.ConvoyNode>({ rank(it) }, { it.callsign.lowercase() })).forEach { node ->
                         val checkedIn = node.isMyCart && myRole.isNotBlank()
                         val role = if (checkedIn) roleLabel(myRole) else "Rider"
                         Surface(
