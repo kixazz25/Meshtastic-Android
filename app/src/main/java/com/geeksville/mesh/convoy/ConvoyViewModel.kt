@@ -295,6 +295,16 @@ class ConvoyViewModel @Inject constructor(
     private val profileCallsign: String by lazy { runCatching { ConvoyProfileStore.load()?.callsign }.getOrNull()?.trim().orEmpty() }
     private fun tickCallsign(): String =
         checkIn.value?.callsign?.trim()?.takeIf { it.isNotEmpty() } ?: profileCallsign.takeIf { it.isNotEmpty() } ?: android.os.Build.MODEL
+
+    /** TAKROLE-2026-09-28 (Fred): a radio's RIDE ROLE from its TAK reports -- THE one mapping table (the send side uses the
+     *  same). TeamMember (every radio's default), no report, or anything else = "" = a bare radio. Display only. */
+    private fun takRideRole(nodeNum: Int): String = when (org.meshtastic.core.data.manager.TakRoleStore.roleOf(nodeNum)) {
+        "TeamLead" -> "leader"
+        "RTO" -> "middle"
+        "ForwardObserver" -> "tail_gunner"
+        "HQ" -> "rider"
+        else -> ""
+    }
     /** The check-in of the recording being ended -- read by the end form; cleared on save or delete. */
     var endingCheckIn: ConvoyRideStore.CheckIn? = null
     var pendingTrackName = androidx.compose.runtime.mutableStateOf("")
@@ -1071,7 +1081,7 @@ if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
                 callsign = callsign,
                 // TICKDATA-2026-09-28: this tablet's own radio carries the check-in's role; other radios' roles arrive from their
                 // reports in the next step ("" until then = bare radio). Display only.
-                rideRole = if (node.num == myNum) (checkIn.value?.role ?: "") else "",
+                rideRole = if (node.num == myNum) (checkIn.value?.role ?: "") else takRideRole(node.num),   // TAKROLE-2026-09-28
                 latitude = latLon.first,
                 longitude = latLon.second,
                 altitude_m = ((pos.altitude ?: 0) * 3.28084f).toInt(),

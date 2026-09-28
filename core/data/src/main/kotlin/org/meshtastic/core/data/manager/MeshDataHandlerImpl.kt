@@ -372,6 +372,8 @@ constructor(
         // TAKDUP-2026-09-26: every TAK report reaches the tablet twice -- the over-the-air original (is_compressed=true,
         // callsign unishox-compressed, unreadable) and a copy the RECEIVING radio decompresses for the phone. Use only that one.
         if (tak.is_compressed) return
+        // TAKROLE-2026-09-28 (GroupTrack, Fred): keep the report's ROLE per sending node, for the ride map -- display only.
+        tak.group?.role?.name?.let { TakRoleStore.put(packet.from, it) }
         val pli = tak.pli ?: return
         val p = Position(
             latitude_i = pli.latitude_i,
