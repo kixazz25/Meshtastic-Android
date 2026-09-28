@@ -347,6 +347,9 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
         layoutType = navSuiteType,
         navigationSuiteItems = {
             TopLevelDestination.entries
+            // MESHRAIL-2026-09-28 (Fred): "GroupTrack Mesh Radio Setup" is no longer in the Meshtastic side panel --
+            // GRP Awareness (on both maps) replaces it. Only the side panel's entry goes; nothing else changes.
+            .filter { it != TopLevelDestination.Convoy }
             .filter { it != TopLevelDestination.EventRideServices || ConvoyConfig.V3_FEATURES_ENABLED }
             .forEach { destination ->
                 val isSelected = destination == topLevelDestination
