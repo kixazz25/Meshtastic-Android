@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.horizontalScroll   // CHECKINORG-2026-09-28
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.OutlinedTextField
@@ -84,19 +85,21 @@ fun CheckInSheet(onDone: (ConvoyRideStore.CheckIn, Boolean) -> Unit, onCancel: (
         text = {
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 Text("Which ride?", fontWeight = FontWeight.Bold)
-                // CHECKINRIDES-2026-09-28 (Fred): All / Upcoming / Past -- one list by date, newest first (upcoming above today,
-                // past below), in its own scrolling box that opens POSITIONED AT TODAY: scroll up or down.
-                var rideFilter by remember { mutableStateOf("all") }
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    listOf("all" to "All", "upcoming" to "Upcoming", "past" to "Past").forEach { (v, l) ->
-                        FilterChip(selected = rideFilter == v, onClick = { rideFilter = v }, label = { Text(l) })
-                    }
+                // CHECKINRIDES-2026-09-28 (Fred): one list by date, newest first (upcoming above today, past below), in its own
+                // scrolling box that opens POSITIONED AT TODAY: scroll up or down.
+                // CHECKINORG-2026-09-28 (Fred): All, or one organizer -- the organizers taken from the rides themselves.
+                var rideFilter by remember { mutableStateOf("") }   // "" = All; otherwise an organizer's name
+                val organizers = remember(rides) { rides.map { it.organizerName }.filter { it.isNotBlank() }.distinct().sorted() }
+                if (organizers.isNotEmpty()) Row(modifier = Modifier.horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    FilterChip(selected = rideFilter.isEmpty(), onClick = { rideFilter = "" }, label = { Text("All") })
+                    organizers.forEach { o -> FilterChip(selected = rideFilter == o, onClick = { rideFilter = o }, label = { Text(o) }) }
                 }
-                val shown = rides.filter { r -> when (rideFilter) { "upcoming" -> r.date > today; "past" -> r.date < today; else -> true } }
+                val shown = rides.filter { r -> rideFilter.isEmpty() || r.organizerName == rideFilter }
                 val todayAt = shown.indexOfFirst { it.date <= today }.let { if (it < 0) (shown.size - 1).coerceAtLeast(0) else it }
                 val rideList = androidx.compose.foundation.lazy.rememberLazyListState()
                 androidx.compose.runtime.LaunchedEffect(rideFilter, shown.size) {
-                    if (shown.isNotEmpty()) rideList.scrollToItem(if (rideFilter == "all") todayAt else 0)
+                    if (shown.isNotEmpty()) rideList.scrollToItem(todayAt)   // CHECKINORG: always at today
                 }
                 if (shown.isEmpty()) Text(if (rides.isEmpty()) "No rides on this tablet." else "No rides here.", color = dim, fontSize = 12.sp)
                 else androidx.compose.foundation.lazy.LazyColumn(state = rideList, modifier = Modifier.fillMaxWidth().height(200.dp)) {
