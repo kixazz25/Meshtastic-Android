@@ -84,11 +84,30 @@ fun CheckInSheet(onDone: (ConvoyRideStore.CheckIn, Boolean) -> Unit, onCancel: (
         text = {
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 Text("Which ride?", fontWeight = FontWeight.Bold)
-                rides.forEach { r ->
-                    FilterChip(selected = picked && chosen?.rideId == r.rideId,
-                        onClick = { chosen = r; picked = true; role = defaultRole(r) },
-                        label = { Text(r.name + " \u00b7 " + r.date + (if (r.startTime.isNotBlank()) " " + r.startTime else "") +
-                            (if (r.organizerName.isNotBlank()) " \u00b7 " + r.organizerName else "")) })
+                // CHECKINRIDES-2026-09-28 (Fred): All / Upcoming / Past -- one list by date, newest first (upcoming above today,
+                // past below), in its own scrolling box that opens POSITIONED AT TODAY: scroll up or down.
+                var rideFilter by remember { mutableStateOf("all") }
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    listOf("all" to "All", "upcoming" to "Upcoming", "past" to "Past").forEach { (v, l) ->
+                        FilterChip(selected = rideFilter == v, onClick = { rideFilter = v }, label = { Text(l) })
+                    }
+                }
+                val shown = rides.filter { r -> when (rideFilter) { "upcoming" -> r.date > today; "past" -> r.date < today; else -> true } }
+                val todayAt = shown.indexOfFirst { it.date <= today }.let { if (it < 0) (shown.size - 1).coerceAtLeast(0) else it }
+                val rideList = androidx.compose.foundation.lazy.rememberLazyListState()
+                androidx.compose.runtime.LaunchedEffect(rideFilter, shown.size) {
+                    if (shown.isNotEmpty()) rideList.scrollToItem(if (rideFilter == "all") todayAt else 0)
+                }
+                if (shown.isEmpty()) Text(if (rides.isEmpty()) "No rides on this tablet." else "No rides here.", color = dim, fontSize = 12.sp)
+                else androidx.compose.foundation.lazy.LazyColumn(state = rideList, modifier = Modifier.fillMaxWidth().height(200.dp)) {
+                    items(shown.size) { i ->
+                        val r = shown[i]
+                        FilterChip(selected = picked && chosen?.rideId == r.rideId,
+                            onClick = { chosen = r; picked = true; role = defaultRole(r) },
+                            label = { Text((if (r.date == today) "TODAY \u00b7 " else "") + r.name + " \u00b7 " + r.date +
+                                (if (r.startTime.isNotBlank()) " " + r.startTime else "") +
+                                (if (r.organizerName.isNotBlank()) " \u00b7 " + r.organizerName else "")) })
+                    }
                 }
                 FilterChip(selected = picked && chosen == null, onClick = { chosen = null; picked = true },
                     label = { Text("No scheduled ride") })

@@ -167,20 +167,43 @@ object ConvoyRideStore {
     data class CheckIn(val rideId: String?, val rideName: String?, val isPublic: Boolean, val callsign: String, val role: String)
 
     /** Open, recent rides: dated today or earlier and not expired -- today's first, then newest. */
+    /**
+     * CHECKINRIDES-2026-09-28 (Fred): EVERY ride not yet removed -- future ones too -- sorted by date, NEWEST FIRST (upcoming
+     * above today, past below). "Not yet removed" is decided HERE, not by a text comparison in SQL: expires_at may be a
+     * date, a timestamp or missing (then ride date + 30); a ride with no readable date is never treated as removed (the
+     * expiry sweep's own rule). Logs what the table holds, so an empty list explains itself.
+     */
     fun openRecentRides(): List<RideChoice> = try {
-        val today = java.time.LocalDate.now().toString()
+        val today = java.time.LocalDate.now()
+        var rows = 0; var sample = ""
+        val out = ArrayList<RideChoice>()
         SpatialDbManager.getExtensionDb()?.rawQuery(
-            // CHECKINFIX2-2026-09-27 (Fred): EVERY ride not yet removed (30 days after its date) -- future ones too, since a
-            // ride can be rescheduled -- today's first, then by date. Never more than a handful.
-            "SELECT ride_id, ride_name, ride_date, start_time, organizer_name, organizer_id, is_public FROM rides " +
-                "WHERE (expires_at IS NULL OR expires_at >= ?) ORDER BY CASE WHEN ride_date = ? THEN 0 ELSE 1 END, ride_date ASC, start_time ASC",
-            arrayOf(today, today))?.use { c ->
-            val out = ArrayList<RideChoice>()
-            while (c.moveToNext()) out += RideChoice(c.getString(0), c.getString(1) ?: "Ride", c.getString(2) ?: "",
-                c.getString(3) ?: "", c.getString(4) ?: "", c.getString(5) ?: "", c.getInt(6) == 1)
-            out
-        } ?: emptyList()
+            "SELECT ride_id, ride_name, ride_date, start_time, organizer_name, organizer_id, is_public, expires_at FROM rides", null)?.use { c ->
+            while (c.moveToNext()) {
+                rows++
+                val exp = c.getString(7)
+                if (sample.isEmpty() && exp != null) sample = exp
+                val date = c.getString(2) ?: ""
+                if (!rideRemovedBy(exp, date, today)) out += RideChoice(c.getString(0), c.getString(1) ?: "Ride", date,
+                    c.getString(3) ?: "", c.getString(4) ?: "", c.getString(5) ?: "", c.getInt(6) == 1)
+            }
+        }
+        Log.i(TAG, "CHECKINRIDES: $rows rides in the table, ${out.size} not removed (expires_at e.g. '$sample')")
+        out.sortedWith(compareByDescending<RideChoice> { it.date }.thenByDescending { it.startTime })
     } catch (e: Exception) { Log.w(TAG, "CHECKIN: openRecentRides failed: ${e.message}"); emptyList() }
+
+    /** CHECKINRIDES: removed = past its expiry. expires_at as a date ("2026-10-28..."), a timestamp (s or ms), or missing
+     *  (then ride date + 30). Nothing readable -> never removed. */
+    private fun rideRemovedBy(exp: String?, date: String, today: java.time.LocalDate): Boolean {
+        exp?.trim()?.takeIf { it.isNotEmpty() && it != "null" }?.let { e ->
+            e.toLongOrNull()?.let { n ->
+                val ms = if (n < 100_000_000_000L) n * 1000 else n
+                return java.time.Instant.ofEpochMilli(ms).atZone(java.time.ZoneId.systemDefault()).toLocalDate().isBefore(today)
+            }
+            runCatching { java.time.LocalDate.parse(e.take(10)) }.getOrNull()?.let { return it.isBefore(today) }
+        }
+        return runCatching { java.time.LocalDate.parse(date.take(10)).plusDays(30).isBefore(today) }.getOrDefault(false)
+    }
 
     /** Checks in: the enrollment (ride, me, callsign and role FOR THIS RIDE; created_by 'login'), replacing any earlier
      *  check-in of mine to the same ride. No ride -> no enrollment. The profile is never changed. Null only on failure. */
