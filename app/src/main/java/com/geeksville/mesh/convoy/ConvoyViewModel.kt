@@ -258,6 +258,50 @@ class ConvoyViewModel @Inject constructor(
         rideStartTimeMs = 0L
     }
 
+    /**
+     * ROLEREPORT-2026-09-29 (Fred) -- TEST: the role travels in a standard TAK POSITION REPORT that the TABLET fills in
+     * (the radio only carries it; nothing on the radio changes). Only the three special roles report: Leader -> TeamLead,
+     * Middle -> RTO, Tail gunner -> ForwardObserver. Sent at check-in, then every 30 s for 3 minutes (7 reports), no ack.
+     * A report, not a message: nobody answers it. Logged "ROLEREPORT sent n/7 ...".
+     */
+    // CODE RULE 1: null = no report run in progress (a new check-in cancels the previous run).
+    private var roleReportJob: kotlinx.coroutines.Job? = null
+    fun startRoleReports(rideRole: String) {
+        val role = when (rideRole) {
+            "leader" -> org.meshtastic.proto.MemberRole.TeamLead
+            "middle" -> org.meshtastic.proto.MemberRole.RTO
+            "tail_gunner" -> org.meshtastic.proto.MemberRole.ForwardObserver
+            else -> { android.util.Log.i("ROLEREPORT", "ROLEREPORT: role '$rideRole' -- riders do not report"); return }
+        }
+        roleReportJob?.cancel()
+        roleReportJob = viewModelScope.launch {
+            for (n in 1..7) {
+                runCatching {
+                    val me = _convoyState.value.nodes.firstOrNull { it.isMyCart }
+                    val loc = getPhoneLocation()
+                    val lat = me?.latitude?.takeIf { it != 0.0 } ?: loc?.latitude
+                    val lon = me?.longitude?.takeIf { it != 0.0 } ?: loc?.longitude
+                    if (lat == null || lon == null) { android.util.Log.w("ROLEREPORT", "ROLEREPORT $n/7: no position -- skipped"); return@runCatching }
+                    val cs = checkIn.value?.callsign?.trim()?.ifEmpty { null } ?: profileCallsign.ifEmpty { "GroupTrack" }
+                    val tak = org.meshtastic.proto.TAKPacket(
+                        is_compressed = false,
+                        contact = org.meshtastic.proto.Contact(callsign = cs, device_callsign = cs),
+                        group = org.meshtastic.proto.Group(role = role, team = org.meshtastic.proto.Team.Cyan),
+                        pli = org.meshtastic.proto.PLI(latitude_i = (lat * 1e7).toInt(), longitude_i = (lon * 1e7).toInt()),
+                    )
+                    radioController.sendMessage(org.meshtastic.core.model.DataPacket(
+                        bytes = okio.ByteString.of(*org.meshtastic.proto.TAKPacket.ADAPTER.encode(tak)),
+                        dataType = org.meshtastic.proto.PortNum.ATAK_PLUGIN.value,
+                        wantAck = false,
+                    ))
+                    android.util.Log.i("ROLEREPORT", "ROLEREPORT sent $n/7: $cs as $role")
+                }.onFailure { android.util.Log.w("ROLEREPORT", "ROLEREPORT $n/7 not sent: ${it.message}") }
+                if (n < 7) kotlinx.coroutines.delay(30_000L)
+            }
+            android.util.Log.i("ROLEREPORT", "ROLEREPORT: run complete (7 reports, 3 minutes)")
+        }
+    }
+
     fun setLeadCart(nodeId: String?) {
         if (nodeId != null) {
             lockedLeadNodeId = nodeId

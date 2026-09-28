@@ -373,7 +373,12 @@ constructor(
         // callsign unishox-compressed, unreadable) and a copy the RECEIVING radio decompresses for the phone. Use only that one.
         if (tak.is_compressed) return
         // TAKROLE-2026-09-28 (GroupTrack, Fred): keep the report's ROLE per sending node, for the ride map -- display only.
-        tak.group?.role?.name?.let { TakRoleStore.put(packet.from, it) }
+        // ROLEREPORT-2026-09-29 (Fred): lift ONLY GroupTrack's three roles -- TeamMember (the radios' own reports) and every
+        // other role are ignored, so a radio's own report can never erase a role. Position reports only (no PLI -> returned above).
+        tak.group?.role?.name?.takeIf { it == "TeamLead" || it == "RTO" || it == "ForwardObserver" }?.let {
+            TakRoleStore.put(packet.from, it)
+            android.util.Log.i("ROLEREPORT", "ROLEREPORT received from ${packet.from}: $it")
+        }
         val pli = tak.pli ?: return
         val p = Position(
             latitude_i = pli.latitude_i,
