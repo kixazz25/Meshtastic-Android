@@ -597,6 +597,51 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
             com.geeksville.mesh.convoy.RidesScreen(onClose = { com.geeksville.mesh.convoy.RidesLauncher.close() })
         }
 
+        // GRPAWARE-2026-09-28 (Fred): GRP Awareness -- the label's state (connected; the pulse on every node-list update),
+        // and the panel (callable from either map) with our own connection section on Meshtastic's scanner.
+        androidx.compose.runtime.LaunchedEffect(connectionState) {
+            com.geeksville.mesh.convoy.GrpAwarenessLauncher.connected.value = connectionState == ConnectionState.Connected
+        }
+        val grpConvoy by convoyViewModel.convoyState.collectAsStateWithLifecycle()
+        androidx.compose.runtime.LaunchedEffect(grpConvoy.nodes) { com.geeksville.mesh.convoy.GrpAwarenessLauncher.pulse() }
+        val grpCtx = androidx.compose.ui.platform.LocalContext.current
+        val grpRadiosBle by scanModel.bleDevicesForUi.collectAsStateWithLifecycle()
+        val grpRadiosUsb by scanModel.usbDevicesForUi.collectAsStateWithLifecycle()
+        val grpSelected by scanModel.selectedAddressFlow.collectAsStateWithLifecycle()
+        // GRPAWARE-SYNC (Fred): no ghosts -- if the saved Bluetooth radio is no longer paired in Android (FORGET, Android's
+        // settings, another app), the app is set to no radio, so it stops trying to reach it. Always on, every 5 s.
+        androidx.compose.runtime.LaunchedEffect(Unit) {
+            while (true) {
+                if (com.geeksville.mesh.convoy.isGhostSelection(grpCtx, scanModel.selectedAddressFlow.value)) {
+                    android.util.Log.i("GrpAwareness", "SYNC: saved radio ${scanModel.selectedAddressFlow.value} is no longer paired in Android -> no radio")
+                    scanModel.disconnect()
+                }
+                kotlinx.coroutines.delay(5000)
+            }
+        }
+        if (com.geeksville.mesh.convoy.GrpAwarenessLauncher.showing.value) {
+            com.geeksville.mesh.convoy.GrpAwarenessPanel(
+                radios = grpRadiosBle + grpRadiosUsb,
+                selectedAddress = grpSelected ?: "",
+                connected = connectionState == ConnectionState.Connected,
+                onConnectRadio = { r -> scanModel.onSelected(r) },
+                onDisconnect = { scanModel.disconnect() },
+                onLocalSettings = {
+                    com.geeksville.mesh.convoy.GrpAwarenessLauncher.close()
+                    navController.navigate(SettingsRoutes.Settings())
+                },
+                onApplyRide = {
+                    com.geeksville.mesh.convoy.GrpAwarenessLauncher.close()
+                    com.geeksville.mesh.convoy.RadioConfigLauncher.open()
+                },
+                onMeshtastic = {   // TEMPORARY (Fred): today's "Mesh" action -- unfold the Meshtastic rail
+                    com.geeksville.mesh.convoy.GrpAwarenessLauncher.close()
+                    com.geeksville.mesh.convoy.MeshNavFold.setFolded(grpCtx, false)
+                },
+                onClose = { com.geeksville.mesh.convoy.GrpAwarenessLauncher.close() },
+            )
+        }
+
         if (showConvoyMenu) {
             ConvoySubMenu(
                 sheetState                = convoyMenuSheetState,

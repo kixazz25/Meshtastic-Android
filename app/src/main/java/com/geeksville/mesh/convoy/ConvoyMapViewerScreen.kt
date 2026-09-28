@@ -2002,10 +2002,10 @@ fun ConvoyMapViewerScreen(
             // "how do I bring it back... looked good with it missing."
             // ⭐ Here it cannot be covered, and it sits where a rider already looks.
             // ⚠ ONLY WHILE FOLDED (Fred): no dead control when the rail is showing.
-            if (com.geeksville.mesh.convoy.MeshNavFold.folded) {
+            if (true) {   // GRPAWARE-2026-09-28 (Fred): GRP Awareness is ALWAYS shown (was: Mesh, only while the rail was folded)
                 androidx.compose.material3.Surface(
                     onClick = {
-                        com.geeksville.mesh.convoy.MeshNavFold.setFolded(context, false)
+                        com.geeksville.mesh.convoy.GrpAwarenessLauncher.open()   // GRPAWARE: the panel (MESHTASTIC in it = the old unfold)
                     },
                     shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp),
                     color = Color.Transparent,
@@ -2017,7 +2017,8 @@ fun ConvoyMapViewerScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            "Mesh",
+                            "GRP Awareness",
+                            color = com.geeksville.mesh.convoy.grpAwarenessColor(),   // GRPAWARE: green/red, pulsing
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Bold,
                             style = androidx.compose.ui.text.TextStyle(
