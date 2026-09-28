@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -36,7 +37,7 @@ import androidx.compose.ui.unit.sp
  */
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
-fun CheckInSheet(onDone: (ConvoyRideStore.CheckIn) -> Unit, onCancel: () -> Unit) {
+fun CheckInSheet(onDone: (ConvoyRideStore.CheckIn, Boolean) -> Unit, onCancel: () -> Unit) {   // CHECKINMAP: + show on the ride map
     val me = remember { ConvoyProfileStore.load() }
     val rides = remember { ConvoyRideStore.openRecentRides() }
     val today = remember { java.time.LocalDate.now().toString() }
@@ -52,6 +53,8 @@ fun CheckInSheet(onDone: (ConvoyRideStore.CheckIn) -> Unit, onCancel: () -> Unit
     var picked by remember { mutableStateOf(todays.size == 1) }   // otherwise the rider must choose
     var callsign by remember { mutableStateOf(me?.callsign ?: "") }
     var role by remember { mutableStateOf(defaultRole(chosen)) }
+    // CHECKINMAP-2026-09-28 (Fred): show the checked-in ride's route and trailhead on the ride map (rides only).
+    var showOnMap by remember { mutableStateOf(true) }
     val dim = Color(0xFF8899AA)
 
     AlertDialog(
@@ -84,12 +87,16 @@ fun CheckInSheet(onDone: (ConvoyRideStore.CheckIn) -> Unit, onCancel: () -> Unit
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     roles.drop(2).forEach { (v, l) -> FilterChip(selected = role == v, onClick = { role = v }, label = { Text(l) }) }
                 }
+                if (chosen != null) Row {   // CHECKINMAP-2026-09-28
+                    androidx.compose.material3.Checkbox(checked = showOnMap, onCheckedChange = { showOnMap = it })
+                    Text("Show this ride's route and trailhead on the ride map", modifier = Modifier.padding(top = 12.dp), fontSize = 13.sp)
+                }
                 if (chosen != null) TextButton(onClick = { onCancel(); RadioConfigLauncher.open() }) { Text("Set up radio for this ride") }
             }
         },
         confirmButton = {
             TextButton(enabled = picked && callsign.isNotBlank(), onClick = {
-                ConvoyRideStore.checkIn(chosen, callsign, role)?.let(onDone)
+                ConvoyRideStore.checkIn(chosen, callsign, role)?.let { onDone(it, chosen != null && showOnMap) }
             }) { Text("CHECK IN") }
         },
         dismissButton = { TextButton(onClick = onCancel) { Text("Cancel") } },

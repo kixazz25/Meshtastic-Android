@@ -430,6 +430,7 @@ fun ConvoyScreen(
     // Eliminates the 1-3 second gap between RECORD press and next tick painting the cart
     LaunchedEffect(recordingState) {
         if (recordingState == RecordingState.RECORDING) {
+            CartPickerLauncher.close()   // CARTLIST2-2026-09-28 (Fred): the ride has started
             val wv = webViewRef.value ?: return@LaunchedEffect
             val myCartId = viewModel.myCartId.value
             val myCart = convoyState.nodes.firstOrNull { it.nodeId == myCartId }
@@ -612,8 +613,35 @@ fun ConvoyScreen(
     var showCheckIn by remember { mutableStateOf(false) }
     if (showCheckIn) {
         CheckInSheet(
-            onDone = { ci ->
+            onDone = { ci, showOnMap ->
                 viewModel.checkIn.value = ci
+                CartPickerLauncher.open()   // CARTLIST2-2026-09-28 (Fred): see who is on the network
+                // CHECKINMAP-2026-09-28 (Fred): the ride map shows THIS ride's route and its trailhead -- done the way FIT
+                // does it: every type OFF, the route + its trailhead waypoint SELECTED, the frame fitted to both, saved.
+                if (showOnMap && ci.rideId != null) {
+                    val rid = ConvoyRideStore.rideForEdit(ci.rideId)?.routeId?.takeIf { it.isNotBlank() }
+                    if (rid != null) {
+                        trailState = DS_OFF; trailCheckedIds = null
+                        trackState = DS_OFF; trackCheckedIds = null
+                        waypointState = DS_OFF; waypointCheckedIds = null
+                        routeState = DS_SELECTED; routeCheckedIds = setOf(rid)
+                        RidePreview.trailheadWaypointId(rid)?.let { waypointState = DS_SELECTED; waypointCheckedIds = setOf(it) }
+                        SpatialDbManager.bboxForArtifact("Routes", rid)?.let { bb ->
+                            val a = RidePreview.anchorOf(rid)
+                            val s = minOf(bb[0], a?.first ?: bb[0]); val w = minOf(bb[1], a?.second ?: bb[1])
+                            val n = maxOf(bb[2], a?.first ?: bb[2]); val e = maxOf(bb[3], a?.second ?: bb[3])
+                            val latPad = (n - s).let { if (it > 0.0) it * 0.10 else 0.01 }
+                            val lonPad = (e - w).let { if (it > 0.0) it * 0.10 else 0.01 }
+                            lastViewportSouth = s - latPad; lastViewportWest = w - lonPad
+                            lastViewportNorth = n + latPad; lastViewportEast = e + lonPad
+                            webViewRef.value?.evaluateJavascript("fitBounds([" + lastViewportSouth + "," + lastViewportNorth + "],[" +
+                                lastViewportWest + "," + lastViewportEast + "])", null)
+                        }
+                        saveConvoyState()
+                        webViewRef.value?.evaluateJavascript("try{var b=map.getBounds();Android.onViewportChanged(b.getNorth(),b.getSouth(),b.getEast(),b.getWest(),map.getZoom())}catch(e){}", null)
+                        android.util.Log.i("ConvoyScreen", "CHECKINMAP: ride ${ci.rideId} -> route $rid + its trailhead on the ride map")
+                    }
+                }
                 showCheckIn = false
                 recordingState = RecordingState.IDLE   // checked in: the button now reads REC (a second tap records)
             },
@@ -2854,7 +2882,7 @@ fun ConvoyScreen(
             if (pendingImportNav) { pendingImportNav = false; onNavigateToTrackImport() }
         }
         // ── Button bar ────────────────────────────────────────────────────
-        var showCartPicker by remember { mutableStateOf(false) }
+        var showCartPicker by CartPickerLauncher.showing   // CARTLIST2-2026-09-28: shared -- CartPickerLauncher.open()/close() from anywhere
         ConvoyButtonBar(
             hudMode = hudMode,
             onModeChange = { viewModel.setHudMode(it); viewModel.setAutoPan(true) },
@@ -3372,6 +3400,10 @@ fun CartPickerPanel(
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(bottom = 12.dp)
                 )
+                // CARTLIST2-2026-09-28 (Fred): the list's own CLOSE (tapping outside still closes it too).
+                androidx.compose.material3.TextButton(onClick = { onDismiss() }) {
+                    Text("CLOSE", color = Color(0xFFCAC4D0), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+                }
                 if (nodes.isEmpty()) {
                     Text(
                         text = "No radios detected",
