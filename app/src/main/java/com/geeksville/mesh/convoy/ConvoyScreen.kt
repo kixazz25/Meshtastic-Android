@@ -3405,7 +3405,7 @@ fun CartPickerPanel(
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp),
             shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
-            color = Color(0xD91A2E4A)
+            color = Color(0x8C1A2E4A)   // CARTPICKER4-2026-09-28 (Fred): ~55%, the map clearly visible
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 // The ride, on top.
@@ -3438,13 +3438,13 @@ fun CartPickerPanel(
                                 .padding(vertical = 3.dp)
                                 .clickable { onSelect(node) },
                             shape = RoundedCornerShape(8.dp),
-                            color = Color(0xFF2A3545)
+                            color = Color(0x802A3545)   // CARTPICKER4: ~50%
                         ) {
                             Row(modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Text("\u25CF", color = if (checkedIn) green else red, fontSize = 16.sp, modifier = Modifier.padding(end = 10.dp))
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(node.callsign, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                                    Text((if (checkedIn) "checked in" else "not checked in") + (if (node.isMyCart) " \u00b7 you" else ""),
+                                    Text((if (checkedIn) "checked in" else if (node.isMyCart) "not checked in" else "bare radio") + (if (node.isMyCart) " \u00b7 you" else ""),
                                         color = dim, fontSize = 11.sp)
                                 }
                                 Text(role.uppercase(), color = Color(0xFF9CC7F5), fontSize = 11.sp, fontWeight = FontWeight.Bold)
@@ -3452,8 +3452,8 @@ fun CartPickerPanel(
                         }
                     }
                 }
-                Text("\u25CF checked in    \u25CF not checked in \u2014 no check-in heard from that radio: counted as Rider. " +
-                    "Other radios' check-ins and roles arrive with the roles update.", color = dim, fontSize = 10.sp,
+                Text("\u25CF checked in    \u25CF bare radio \u2014 no GroupTrack role in its reports: counted as Rider. " +
+                    "Checked-in riders show green once the roles update carries their role.", color = dim, fontSize = 10.sp,
                     modifier = Modifier.padding(top = 8.dp))
                 }   // CARTPICKER3: end of the folding list
             }
