@@ -617,7 +617,6 @@ fun ConvoyScreen(
         CheckInSheet(
             onDone = { ci, showOnMap ->
                 viewModel.checkIn.value = ci
-                viewModel.sendTakRole(if (ci.rideId != null) ci.role else "")   // TAKSEND-2026-09-28 (Fred): the role to the radio
                 CartPickerLauncher.open()   // CARTLIST2-2026-09-28 (Fred): see who is on the network
                 // CHECKINMAP-2026-09-28 (Fred): the ride map shows THIS ride's route and its trailhead -- done the way FIT
                 // does it: every type OFF, the route + its trailhead waypoint SELECTED, the frame fitted to both, saved.
