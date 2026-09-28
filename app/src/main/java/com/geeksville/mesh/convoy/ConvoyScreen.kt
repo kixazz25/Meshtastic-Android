@@ -3553,13 +3553,13 @@ fun ConvoyButtonBar(
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = "SELECT\nCART",
+                text = "CHECKIN /\nSELECT\nCART",   // CARTBTN-2026-09-28 (Fred): who is checked in, and a cart to select
                 color = Color(0xFFCAC4D0),
                 fontSize = 8.sp,
                 fontFamily = FontFamily.Monospace,
                 fontWeight = FontWeight.SemiBold,
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                lineHeight = 10.sp
+                lineHeight = 9.sp   // CARTBTN: three lines in the same button
             )
         }
         // HIDE button

@@ -542,7 +542,15 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
                 },
                 selected = false,
                 label = { Text("Hide Mesh") },
-                onClick = { MeshNavFold.setFolded(ctx, true) },
+                onClick = {
+                    MeshNavFold.setFolded(ctx, true)
+                    // HIDEMESH-2026-09-28 (Fred): Hide Mesh also RETURNS TO THE RIDE MAP -- the map tab's own route (the
+                    // authority gate, the back stack reset to the start), without the GroupTrack menu that tab opened.
+                    navController.navigate(ConvoyRoutes.ConvoyAuthorityGate) {
+                        popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                        launchSingleTop = true
+                    }
+                },
             )
         },
     ) {
