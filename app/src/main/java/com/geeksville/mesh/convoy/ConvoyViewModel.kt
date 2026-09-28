@@ -258,6 +258,33 @@ class ConvoyViewModel @Inject constructor(
         rideStartTimeMs = 0L
     }
 
+    /**
+     * TAKSEND-2026-09-28 (Fred): write THIS tablet's radio's TAK IDENTITY ROLE -- ONE standard Meshtastic admin message
+     * (ModuleConfig.tak, the same write Meshtastic's own profile install makes) to the connected radio. Per Meshtastic's
+     * TAK Identity: "you'll see the change reflected in TAK clients on the next position report". Radios in the TAK /
+     * TAK_TRACKER role only (every GroupTrack ride sets TAK_TRACKER). Team stays Cyan (the radios' default).
+     * Leader -> TeamLead, Middle -> RTO, Tail gunner -> ForwardObserver, Rider -> HQ; "" (END / no ride) -> TeamMember.
+     */
+    fun sendTakRole(rideRole: String) {
+        val num = _myNodeInfo.value?.myNodeNum ?: run { android.util.Log.w("TAKSEND", "TAKSEND: no radio -- role not written"); return }
+        val role = when (rideRole) {
+            "leader" -> org.meshtastic.proto.MemberRole.TeamLead
+            "middle" -> org.meshtastic.proto.MemberRole.RTO
+            "tail_gunner" -> org.meshtastic.proto.MemberRole.ForwardObserver
+            "rider" -> org.meshtastic.proto.MemberRole.HQ
+            else -> org.meshtastic.proto.MemberRole.TeamMember
+        }
+        viewModelScope.launch {
+            runCatching {
+                radioController.setModuleConfig(num,
+                    org.meshtastic.proto.ModuleConfig(tak = org.meshtastic.proto.ModuleConfig.TAKConfig(
+                        team = org.meshtastic.proto.Team.Cyan, role = role)),
+                    radioController.getPacketId())
+                android.util.Log.i("TAKSEND", "TAKSEND: role $role written to radio $num")
+            }.onFailure { android.util.Log.w("TAKSEND", "TAKSEND: not written: ${it.message}") }
+        }
+    }
+
     fun setLeadCart(nodeId: String?) {
         if (nodeId != null) {
             lockedLeadNodeId = nodeId
@@ -596,6 +623,7 @@ class ConvoyViewModel @Inject constructor(
     }
     fun stopRecording() {
         endingCheckIn = checkIn.value; checkIn.value = null   // CHECKIN-2026-09-27: the next recording needs a new check-in
+        sendTakRole("")   // TAKSEND-2026-09-28 (Fred): END -- the radio reports Team Member again
         pendingTempFile = gpsService?.stopTrack()
     }
 
