@@ -2892,8 +2892,15 @@ fun ConvoyScreen(
         )
         // ── Cart Picker Panel (Phase 0 stub) ──────────────────────────────
         if (showCartPicker) {
+            // CARTPICKER-2026-09-28: the ride and this tablet's role, from the check-in.
+            val pickCi = viewModel.checkIn.value
+            val pickRide = remember(pickCi?.rideId) { pickCi?.rideId?.let { ConvoyRideStore.rideForEdit(it) } }
             CartPickerPanel(
                 nodes = convoyState.nodes,
+                rideTitle = pickRide?.name ?: (if (pickCi != null) "No scheduled ride" else ""),
+                rideSub = pickRide?.let { r -> listOf(r.date, if (r.startTime.isNotBlank()) "rollout " + r.startTime else "")
+                    .filter { it.isNotBlank() }.joinToString(" \u00b7 ") } ?: "",
+                myRole = pickCi?.role ?: "",
                 onSelect = { selectedNode ->
                     viewModel.onMarkerTapped(selectedNode)
                     showCartPicker = false
@@ -3369,18 +3376,27 @@ fun HudModeRow(current: HudMode, onModeChange: (HudMode) -> Unit, onNavigateToSe
 }
 
 
-// ── CART PICKER PANEL (Phase 0 stub) ──────────────────────────────────────────
+// ── CART PICKER PANEL ─────────────────────────────────────────────────────────
+// CARTPICKER-2026-09-28 (Fred): SELECT CART design v4 -- the ride on top; the radios on this network, each with its
+// status dot, callsign and role. Everything shown comes from each radio's own reports; until the roles piece, only THIS
+// tablet's check-in is known, so this cart is green with its role and every other radio is red, "not checked in", Rider.
 @Composable
 fun CartPickerPanel(
     nodes: List<com.geeksville.mesh.convoy.ConvoyNode>,
+    rideTitle: String,   // the checked-in ride's name, "No scheduled ride", or "" when not checked in
+    rideSub: String,     // its date and rollout, or ""
+    myRole: String,      // this tablet's check-in role ("leader"...), or "" when not checked in
     onSelect: (com.geeksville.mesh.convoy.ConvoyNode) -> Unit,
     onDismiss: () -> Unit
 ) {
+    fun roleLabel(r: String) = when (r) { "leader" -> "Leader"; "middle" -> "Middle"; "tail_gunner" -> "Tail gunner"; else -> "Rider" }
+    val green = Color(0xFF35C46A); val red = Color(0xFFE0453A); val dim = Color(0xFF8FA3B8)
+    var listOpen by remember { mutableStateOf(true) }   // CARTPICKER3-2026-09-28 (Fred): the twistie -- opens unfolded
+    // CARTPICKER2-2026-09-28 (Fred): shown OVER the map -- no dark curtain, a semi-transparent panel, and the map stays
+    // usable (taps outside the panel reach the map); the list closes with CLOSE or REC.
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color(0xCC000000))
-            .clickable { onDismiss() }
             .padding(bottom = 96.dp),
         contentAlignment = Alignment.BottomCenter
     ) {
@@ -3389,60 +3405,57 @@ fun CartPickerPanel(
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp),
             shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
-            color = Color(0xFF1A2E4A)
+            color = Color(0xD91A2E4A)
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = "SELECT CART HUD",
-                    color = Color(0xFF67EA94),
-                    fontSize = 14.sp,
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(bottom = 12.dp)
-                )
-                // CARTLIST2-2026-09-28 (Fred): the list's own CLOSE (tapping outside still closes it too).
-                androidx.compose.material3.TextButton(onClick = { onDismiss() }) {
-                    Text("CLOSE", color = Color(0xFFCAC4D0), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+                // The ride, on top.
+                if (rideTitle.isNotBlank()) {
+                    Text(rideTitle, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    if (rideSub.isNotBlank()) Text(rideSub, color = dim, fontSize = 12.sp)
+                } else Text("Not checked in to a ride", color = dim, fontSize = 13.sp)
+                // The title and the list's own CLOSE (tapping outside still closes it too).
+                Row(modifier = Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Text(if (listOpen) "\u25BE" else "\u25B8", color = Color(0xFF67EA94), fontSize = 18.sp,   // CARTPICKER3
+                        modifier = Modifier.clickable { listOpen = !listOpen }.padding(end = 8.dp))
+                    Text("SELECT CART \u00b7 ${nodes.size} radio" + (if (nodes.size == 1) "" else "s") + " on this network",
+                        color = Color(0xFF67EA94), fontSize = 13.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
+                        modifier = Modifier.weight(1f))
+                    androidx.compose.material3.TextButton(onClick = { onDismiss() }) {
+                        Text("CLOSE", color = Color(0xFFCAC4D0), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+                    }
                 }
+                if (listOpen) {   // CARTPICKER3: the radios and the legend fold away
                 if (nodes.isEmpty()) {
-                    Text(
-                        text = "No radios detected",
-                        color = Color(0xFF7A8DA0),
-                        fontSize = 12.sp,
-                        fontFamily = FontFamily.Monospace
-                    )
+                    Text("No radios heard yet", color = Color(0xFF7A8DA0), fontSize = 12.sp, fontFamily = FontFamily.Monospace)
                 } else {
                     nodes.forEach { node ->
+                        val checkedIn = node.isMyCart && myRole.isNotBlank()
+                        val role = if (checkedIn) roleLabel(myRole) else "Rider"
                         Surface(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = 4.dp)
+                                .padding(vertical = 3.dp)
                                 .clickable { onSelect(node) },
                             shape = RoundedCornerShape(8.dp),
                             color = Color(0xFF2A3545)
                         ) {
-                            Row(
-                                modifier = Modifier.padding(12.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = node.callsign,
-                                    color = Color.White,
-                                    fontSize = 13.sp,
-                                    fontFamily = FontFamily.Monospace,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Text(
-                                    text = if (node.isMyCart) "CURRENT" else "",
-                                    color = Color(0xFF67EA94),
-                                    fontSize = 10.sp,
-                                    fontFamily = FontFamily.Monospace
-                                )
+                            Row(modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text("\u25CF", color = if (checkedIn) green else red, fontSize = 16.sp, modifier = Modifier.padding(end = 10.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(node.callsign, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                    Text((if (checkedIn) "checked in" else "not checked in") + (if (node.isMyCart) " \u00b7 you" else ""),
+                                        color = dim, fontSize = 11.sp)
+                                }
+                                Text(role.uppercase(), color = Color(0xFF9CC7F5), fontSize = 11.sp, fontWeight = FontWeight.Bold)
                             }
                         }
                     }
                 }
+                Text("\u25CF checked in    \u25CF not checked in \u2014 no check-in heard from that radio: counted as Rider. " +
+                    "Other radios' check-ins and roles arrive with the roles update.", color = dim, fontSize = 10.sp,
+                    modifier = Modifier.padding(top = 8.dp))
+                }   // CARTPICKER3: end of the folding list
             }
         }
     }
