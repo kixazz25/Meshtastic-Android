@@ -1489,9 +1489,24 @@ fun ConvoyScreen(
                     modifier = Modifier.clickable {
                         when (recordingState) {
                             RecordingState.CHECK_IN -> {   // CHECKIN-2026-09-27: no recording before check-in
-                                // CHECKINCONNECT-2026-09-28 (Fred): a radio first -- none connected: GRP Awareness, then the check-in by itself.
+                                // SOLOREC-2026-09-28 (Fred): THE BUTTON FOLLOWS THE RADIO. A radio -> the check-in. No radio -> a
+                                // solo ride: a silent "No scheduled ride" check-in (no survey, no sharing), then REC's own solo path.
                                 if (GrpAwarenessLauncher.connected.value) showCheckIn = true
-                                else { GrpAwarenessLauncher.open(); GrpAwarenessLauncher.thenCheckIn = true }
+                                else {
+                                    ConvoyRideStore.checkIn(null, "", "rider")?.let { viewModel.checkIn.value = it }
+                                    recordingState = RecordingState.IDLE
+                                    val soloBg = android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.Q ||
+                                        androidx.core.content.ContextCompat.checkSelfPermission(
+                                            context, android.Manifest.permission.ACCESS_BACKGROUND_LOCATION
+                                        ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                                    if (soloBg) {   // as REC does for one cart or none: auto-assign the lead and record
+                                        viewModel.setLeadCart(viewModel.convoyState.value.nodes.firstOrNull()?.nodeId ?: "!phone")
+                                        recordingState = RecordingState.RECORDING
+                                        viewModel.startRecording(context)
+                                        viewModel.startGroupTrack()
+                                    }   // else it stays at REC: that tap asks for the permission, as always
+                                    android.util.Log.i("ConvoyScreen", "SOLOREC: no radio -> solo ride (no check-in), recording=$soloBg")
+                                }
                             }
                             RecordingState.IDLE -> {
                                 val bgGranted = android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.Q ||
@@ -1539,14 +1554,14 @@ fun ConvoyScreen(
                 ) {
                     Text(
                         text = when (recordingState) {
-                            RecordingState.CHECK_IN -> "✔  CHK IN › REC"
+                            RecordingState.CHECK_IN -> if (GrpAwarenessLauncher.connected.value) "✔  CHK IN › REC" else "⏺  REC"   // SOLOREC-2026-09-28
                             RecordingState.IDLE -> "⏺  REC"
                             RecordingState.RECORDING -> "⏸  PAUSE"
                             RecordingState.PAUSED -> "⏺  RESUME"
                             RecordingState.SLEEPING -> "ZZZ  ASLEEP"
                         },
                         color = Color.White,
-                        fontSize = if (recordingState == RecordingState.CHECK_IN) 12.sp else 15.sp,   // ORDERFIX-2026-09-27: the longer label fits
+                        fontSize = if (recordingState == RecordingState.CHECK_IN && GrpAwarenessLauncher.connected.value) 12.sp else 15.sp,   // SOLOREC   // ORDERFIX-2026-09-27: the longer label fits
                         fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
