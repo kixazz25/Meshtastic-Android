@@ -8,6 +8,13 @@ import android.net.Uri
 import android.bluetooth.BluetoothManager
 import android.provider.Settings
 import androidx.compose.material3.AlertDialog
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.size
+import no.nordicsemi.android.common.scanner.rememberFilterState
+import no.nordicsemi.android.common.scanner.view.ScannerView
+import org.meshtastic.core.ble.MeshtasticBleConstants.BLE_NAME_PATTERN
+import org.meshtastic.core.ble.MeshtasticBleConstants.SERVICE_UUID
+import org.json.JSONObject
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -38,7 +45,7 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 
 /**
- * GRPAWARE-2026-09-28 (Fred): GRP AWARENESS -- replaces the "Mesh" button on both maps.
+ * GRPAWARE-2026-09-28 / GRPAWARE2-2026-09-28 (Fred): GRP AWARENESS -- replaces the "Mesh" button on both maps.
  *  - The label: always shown; green when the radio is connected, red when not; it PULSES each time the group's radio
  *    traffic arrives (every update of the ride map's node list).
  *  - Tap -> this panel, callable from anywhere (open()/close()), hosted in Main beside the other shared overlays:
@@ -102,12 +109,49 @@ private fun openBluetoothSettings(ctx: Context) {
     runCatching { ctx.startActivity(Intent(Settings.ACTION_BLUETOOTH_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
 }
 
+/** GRPAWARE2: the radio's own name for itself (its long name), else the Bluetooth name until the radio is known. */
+fun radioLongName(d: com.geeksville.mesh.model.DeviceListEntry): String =
+    d.node?.user?.long_name?.takeIf { it.isNotBlank() } ?: d.name
+
+/**
+ * GRPAWARE2-2026-09-28 (Fred): "Last applied" for the connected radio -- the most recent APPLY the configurator recorded
+ * for it (convoy_backups/<radio>/<...>.json: title = the ride, appliedAt). "" = no radio; "none" = never applied by
+ * GroupTrack.
+ */
+fun lastAppliedLine(ctx: Context, nodeNum: Int?): String {
+    if (nodeNum == null || nodeNum == 0) return ""
+    val hex = "%08x".format(nodeNum)
+    val dir = java.io.File(ctx.filesDir, "convoy_backups").listFiles()?.firstOrNull { d ->
+        d.isDirectory && (d.name.lowercase().contains(hex) || d.name == nodeNum.toString() || d.name == (nodeNum.toLong() and 0xffffffffL).toString())
+    } ?: return "none"
+    val best = dir.listFiles { f -> f.extension == "json" }?.mapNotNull { f -> runCatching { JSONObject(f.readText()) }.getOrNull() }
+        ?.filter { it.optString("appliedAt").isNotBlank() }?.maxByOrNull { it.optString("appliedAt") } ?: return "none"
+    val whenText = runCatching {
+        java.time.LocalDateTime.parse(best.optString("appliedAt"))
+            .format(java.time.format.DateTimeFormatter.ofPattern("EEE d MMM, HH:mm"))
+    }.getOrDefault(best.optString("appliedAt"))
+    return best.optString("title").ifBlank { "a saved configuration" } + " \u00b7 " + whenText
+}
+
+/**
+ * GRPAWARE2-2026-09-28 (Fred): the GRP Awareness panel -- design v8.
+ *  - The title red until a radio is connected, then green.
+ *  - CONNECTED TO: the radio's long name with DISCONNECT, and "Last applied: <ride> . <date>"; empty when not connected.
+ *  - AVAILABLE RADIOS: the radios found nearby by Meshtastic's own scanner (Nordic ScannerView, Meshtastic's filter):
+ *    paired ones with CONNECT and FORGET; new ones marked NEW TO THIS ANDROID with PAIR. One radio at a time: CONNECT
+ *    and PAIR are greyed while a radio is connected (DISCONNECT first). The connected radio is only in its box.
+ *  - FORGET, confirmed: removed from GroupTrack and from Android's Bluetooth pairings.
+ *  - Three actions side by side: SELECT A RIDE AND APPLY SETTINGS TO THE RADIO . RADIO SETTINGS (experienced mesh
+ *    operators only; the web client with internet -- after DISCONNECT -- the app's settings without) . MESHTASTIC
+ *    SIDE MENU (temporary). The X closes.
+ */
 @Composable
 fun GrpAwarenessPanel(
-    radios: List<com.geeksville.mesh.model.DeviceListEntry>,   // the paired radios (Bluetooth + USB), from Meshtastic's scanner
-    selectedAddress: String,                                   // the radio GroupTrack is set to ("n" = none)
+    scanModel: com.geeksville.mesh.ui.connections.ScannerViewModel,
+    paired: List<com.geeksville.mesh.model.DeviceListEntry>,   // the paired radios (their long names)
+    selectedAddress: String,
     connected: Boolean,
-    onConnectRadio: (com.geeksville.mesh.model.DeviceListEntry) -> Unit,
+    lastApplied: String,   // lastAppliedLine(): "" no radio, "none" never applied, else "<ride> . <date>"
     onDisconnect: () -> Unit,
     onLocalSettings: () -> Unit,
     onApplyRide: () -> Unit,
@@ -117,85 +161,105 @@ fun GrpAwarenessPanel(
     val ctx = LocalContext.current
     var message by remember { mutableStateOf("") }
     var forgetting by remember { mutableStateOf<com.geeksville.mesh.model.DeviceListEntry?>(null) }
-    // GRPAWARE-SYNC: re-read Android's paired list every 2 s while open (catches a return from Bluetooth settings).
-    var syncTick by remember { mutableStateOf(0) }
-    LaunchedEffect(Unit) { while (true) { delay(2000); syncTick++ } }
-    val paired = remember(syncTick) { pairedMacs(ctx) }
-    val shown = radios.filter { r -> r !is com.geeksville.mesh.model.DeviceListEntry.Ble || r.address.uppercase() in paired }
-    val current = shown.firstOrNull { it.fullAddress == selectedAddress }
-    val connecting = !connected && selectedAddress.isNotBlank() && selectedAddress != "n"
-    Box(modifier = Modifier.fillMaxSize().background(Color(0x99000000)).clickable { onClose() },
-        contentAlignment = Alignment.Center) {
-        Surface(modifier = Modifier.fillMaxWidth().padding(20.dp).clickable(enabled = false) {},
-            shape = RoundedCornerShape(14.dp), color = Color(0xFF12213A)) {
-            Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("GRP Awareness", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                Text(when {
-                        connected -> "\u25CF Connected" + (current?.let { " \u00b7 " + it.name } ?: "")
-                        connecting -> "\u25CC Connecting\u2026"
-                        else -> "\u25CF No radio connected"
-                    },
-                    color = when { connected -> Color(0xFF35C46A); connecting -> Color(0xFFE8C27A); else -> Color(0xFFE0453A) },
-                    fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                Text("Your radios", color = Color(0xFF8FA3B8), fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                if (shown.isEmpty()) Text("No radios paired with this tablet yet \u2014 tap ADD A RADIO.", color = Color(0xFF8899AA), fontSize = 13.sp)
-                shown.forEach { r ->
-                    val isThis = r.fullAddress == selectedAddress
-                    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+    val busy = connected || (selectedAddress.isNotBlank() && selectedAddress != "n")   // one radio at a time
+    val current = paired.firstOrNull { it.fullAddress == selectedAddress }
+    val green = Color(0xFF35C46A); val red = Color(0xFFE0453A); val dim = Color(0xFF8899AA)
+    val filterState = rememberFilterState(filter = { Any { ServiceUuid(SERVICE_UUID); Name(Regex(BLE_NAME_PATTERN)) } })
+    Box(modifier = Modifier.fillMaxSize().background(Color(0x99000000)), contentAlignment = Alignment.Center) {
+        Surface(modifier = Modifier.fillMaxWidth().padding(16.dp), shape = RoundedCornerShape(14.dp), color = Color(0xFF12213A)) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text("GRP Awareness", color = if (connected) green else red, fontSize = 18.sp, fontWeight = FontWeight.Bold,
+                        modifier = Modifier.weight(1f))
+                    TextButton(onClick = onClose) { Text("\u2715", color = Color(0xFF7FB2E5), fontSize = 18.sp) }
+                }
+                // CONNECTED TO -- empty when nothing is connected
+                Surface(shape = RoundedCornerShape(10.dp), color = if (busy) Color(0xFF0E2A1A) else Color(0xFF0D1A2C)) {
+                    Row(modifier = Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(r.name, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                            Text(r.address, color = Color(0xFF8899AA), fontSize = 11.sp)
+                            Text(if (connected) "\u25CF CONNECTED TO" else if (busy) "\u25CC CONNECTING TO" else "CONNECTED TO",
+                                color = if (busy) Color(0xFF6EE0A5) else Color(0xFF5E7288), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            if (busy) {
+                                Text(current?.let { radioLongName(it) } ?: "your radio", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                                if (connected && lastApplied.isNotBlank()) Text(
+                                    if (lastApplied == "none") "No GroupTrack configuration applied to this radio yet" else "Last applied: " + lastApplied,
+                                    color = if (lastApplied == "none") Color(0xFFE8A33D) else Color(0xFFB8C8D8), fontSize = 12.sp)
+                            }
                         }
-                        when {
-                            isThis && connected -> TextButton(onClick = { onDisconnect(); message = "" }) { Text("DISCONNECT", color = Color(0xFFF08C84)) }
-                            isThis && connecting -> Text("Connecting\u2026", color = Color(0xFFE8C27A), fontSize = 12.sp)
-                            else -> TextButton(onClick = { onConnectRadio(r); message = "" }) { Text("CONNECT") }
-                        }
-                        if (r is com.geeksville.mesh.model.DeviceListEntry.Ble)
-                            TextButton(onClick = { forgetting = r }) { Text("FORGET", color = Color(0xFF8899AA)) }
+                        if (busy) TextButton(onClick = { onDisconnect(); message = "" }) { Text("DISCONNECT", color = Color(0xFFF08C84), fontWeight = FontWeight.Bold) }
                     }
                 }
+                Text("AVAILABLE RADIOS", color = Color(0xFF8FA3B8), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                if (!busy) Text("Select a radio from the list to connect.", color = Color(0xFFE8C27A), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                else Text("One radio at a time \u2014 DISCONNECT the one above to connect or pair another.", color = dim, fontSize = 11.sp)
+                Box(modifier = Modifier.fillMaxWidth().heightIn(max = 260.dp)) {
+                    ScannerView(
+                        state = filterState,
+                        onScanResultSelected = { result -> if (!busy) scanModel.onSelected(com.geeksville.mesh.model.DeviceListEntry.Ble(result.peripheral)) },
+                        deviceItem = { result ->
+                            val device = remember(result.peripheral.address, paired) {
+                                paired.find { it.fullAddress == "x${result.peripheral.address}" }
+                                    ?: com.geeksville.mesh.model.DeviceListEntry.Ble(result.peripheral)
+                            }
+                            if (!(device.fullAddress == selectedAddress && busy)) {   // the radio in use lives in its box
+                                Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(radioLongName(device), color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                        Text(if (device.bonded) device.address else "NEW TO THIS ANDROID \u00b7 " + device.address,
+                                            color = if (device.bonded) dim else Color(0xFFF2C14E), fontSize = 11.sp)
+                                    }
+                                    TextButton(enabled = !busy, onClick = { scanModel.onSelected(device); message = "" }) {
+                                        Text(if (device.bonded) "CONNECT" else "PAIR")
+                                    }
+                                    if (device.bonded) TextButton(onClick = { forgetting = device }) { Text("FORGET", color = Color(0xFFF08C84)) }
+                                }
+                            }
+                        },
+                    )
+                }
                 if (message.isNotBlank()) Text(message, color = Color(0xFFE8A33D), fontSize = 13.sp)
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    TextButton(onClick = {
-                        message = "Pair the radio in Android's Bluetooth settings (its PIN), then come back \u2014 it appears here."
-                        openBluetoothSettings(ctx)
-                    }) { Text("ADD A RADIO") }
-                    TextButton(onClick = {
+                // Three actions, side by side
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Surface(modifier = Modifier.weight(1f).clickable { onApplyRide() }, shape = RoundedCornerShape(8.dp), color = Color(0xFF12304F)) {
+                        Text("SELECT A RIDE AND APPLY SETTINGS TO THE RADIO", color = Color(0xFF7FC4FF), fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold, modifier = Modifier.padding(8.dp))
+                    }
+                    Surface(modifier = Modifier.weight(1f).clickable {
                         if (hasInternet(ctx)) {
-                            if (connected || connecting) message = "The radio must be disconnected to use the web client. " +
-                                "Tap DISCONNECT above, then SETTINGS again."
+                            if (busy) message = "The radio must be disconnected to use the web client. Tap DISCONNECT above, then RADIO SETTINGS again."
                             else {
                                 message = ""
                                 runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://client.meshtastic.org"))
                                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
                             }
                         } else onLocalSettings()
-                    }) { Text("SETTINGS") }
-                }
-                Text("Settings: experienced mesh operators only.", color = Color(0xFF8899AA), fontSize = 11.sp)
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    TextButton(onClick = onApplyRide) { Text("APPLY RIDE TO RADIO") }
-                    TextButton(onClick = onMeshtastic) { Text("MESHTASTIC") }
-                }
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    TextButton(onClick = onClose) { Text("CLOSE") }
+                    }, shape = RoundedCornerShape(8.dp), color = Color(0xFF2A2210)) {
+                        Column(modifier = Modifier.padding(8.dp)) {
+                            Text("RADIO SETTINGS", color = Color(0xFFF2C14E), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            Text("\u26A0 experienced mesh operators only", color = Color(0xFFC9A659), fontSize = 9.sp)
+                        }
+                    }
+                    Surface(modifier = Modifier.weight(1f).clickable { onMeshtastic() }, shape = RoundedCornerShape(8.dp), color = Color(0xFF16263E)) {
+                        Column(modifier = Modifier.padding(8.dp)) {
+                            Text("MESHTASTIC SIDE MENU", color = Color(0xFF9CC7F5), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            Text("temporary", color = Color(0xFF6F8196), fontSize = 9.sp)
+                        }
+                    }
                 }
             }
         }
     }
-    // FORGET: from BOTH lists -- the app's saved radio (disconnect if current) and Android's pairing.
+    // FORGET, confirmed: from GroupTrack and from Android's Bluetooth pairings.
     forgetting?.let { r ->
         AlertDialog(
             onDismissRequest = { forgetting = null },
-            title = { Text("Forget " + r.name + "?") },
-            text = { Text("It is disconnected if in use and removed from this tablet's paired radios. You will pair it again " +
-                "with ADD A RADIO (the radio's PIN).") },
+            title = { Text("Forget " + radioLongName(r) + "?") },
+            text = { Text("It will be removed from GroupTrack and from this tablet's Android Bluetooth pairings. To use it again it " +
+                "reappears as new to this Android while the panel scans \u2014 PAIR it with the radio's PIN.") },
             confirmButton = { TextButton(onClick = {
                 if (r.fullAddress == selectedAddress) onDisconnect()
                 val ok = forgetPairing(ctx, r.address)
-                message = if (ok) r.name + " is forgotten. ADD A RADIO to pair it again."
-                          else "Android needs you to do it: tap " + r.name + " \u2192 Forget, then come back."
+                message = if (ok) radioLongName(r) + " is forgotten." else "Android needs you to do it: tap " + r.name + " \u2192 Forget, then come back."
                 if (!ok) openBluetoothSettings(ctx)
                 forgetting = null
             }) { Text("FORGET") } },

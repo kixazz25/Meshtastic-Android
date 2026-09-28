@@ -619,12 +619,18 @@ fun MainScreen(uIViewModel: UIViewModel = hiltViewModel(), scanModel: ScannerVie
                 kotlinx.coroutines.delay(5000)
             }
         }
+        // GRPAWARE2-2026-09-28 (Fred): the panel, design v8 -- Meshtastic's own scanner inside, and the last apply.
+        val grpMyNode by uIViewModel.myNodeInfo.collectAsStateWithLifecycle()
         if (com.geeksville.mesh.convoy.GrpAwarenessLauncher.showing.value) {
+            val grpLast = androidx.compose.runtime.remember(grpMyNode, connectionState) {
+                com.geeksville.mesh.convoy.lastAppliedLine(grpCtx, grpMyNode?.myNodeNum)
+            }
             com.geeksville.mesh.convoy.GrpAwarenessPanel(
-                radios = grpRadiosBle + grpRadiosUsb,
+                scanModel = scanModel,
+                paired = grpRadiosBle + grpRadiosUsb,
                 selectedAddress = grpSelected ?: "",
                 connected = connectionState == ConnectionState.Connected,
-                onConnectRadio = { r -> scanModel.onSelected(r) },
+                lastApplied = grpLast,
                 onDisconnect = { scanModel.disconnect() },
                 onLocalSettings = {
                     com.geeksville.mesh.convoy.GrpAwarenessLauncher.close()
