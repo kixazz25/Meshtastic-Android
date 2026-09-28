@@ -273,6 +273,9 @@ class ConvoyViewModel @Inject constructor(
             "tail_gunner" -> org.meshtastic.proto.MemberRole.ForwardObserver
             else -> { android.util.Log.i("ROLEREPORT", "ROLEREPORT: role '$rideRole' -- riders do not report"); return }
         }
+        // OWNROLE-2026-09-28 (Fred): MY role lives in the SAME store as everyone else's (against my own radio's number) --
+        // not owned by the check-in, not dependent on the tick recognising my node. Displays from the node array like theirs.
+        _myNodeInfo.value?.myNodeNum?.let { org.meshtastic.core.data.manager.TakRoleStore.put(it, role.name) }
         roleReportJob?.cancel()
         roleReportJob = viewModelScope.launch {
             for (n in 1..7) {
@@ -1135,7 +1138,9 @@ if (_trackActive.value && _routeTrailSegments.value.isNotEmpty()) {
                 callsign = callsign,
                 // TICKDATA-2026-09-28: this tablet's own radio carries the check-in's role; other radios' roles arrive from their
                 // reports in the next step ("" until then = bare radio). Display only.
-                rideRole = if (node.num == myNum) (checkIn.value?.role ?: "") else takRideRole(node.num),   // TAKROLE-2026-09-28
+                // OWNROLE-2026-09-28 (Fred): EVERY radio node -- mine included -- takes its role from the store first; the check-in
+                // is only the fallback for my own node (a Rider, who sends no report).
+                rideRole = takRideRole(node.num).ifBlank { if (node.num == myNum) (checkIn.value?.role ?: "") else "" },
                 latitude = latLon.first,
                 longitude = latLon.second,
                 altitude_m = ((pos.altitude ?: 0) * 3.28084f).toInt(),
