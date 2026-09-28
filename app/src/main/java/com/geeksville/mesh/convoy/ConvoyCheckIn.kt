@@ -32,9 +32,19 @@ import androidx.compose.ui.unit.sp
  *  - The rides: open, recent rides on this tablet (dated today or earlier, not expired), today's first. Exactly one
  *    today -> pre-selected. "No scheduled ride" -> a normal recording: no survey, no sharing, the rider names the track.
  *  - The organizer of the chosen ride -> Leader pre-selected; others -> the profile's default role.
- *  - "Set up radio for this ride" -> Apply ride to radio (the configurator), closing the check-in.
+ *  - CHECKINAPPLY-2026-09-28: the radio is compared with the ride by NETWORK; when it is not set up for the ride,
+ *    CHECK IN runs the configurator's own apply on that ride first, then checks in (or reopens, choices kept).
  * Completing the check-in does NOT start recording: the button then reads REC (a second tap records).
  */
+/** CHECKINAPPLY-2026-09-28 (Fred): the check-in's switch, shared -- it closes while the radio is set up for the ride and
+ *  reopens with the rider's choices if that setup fails. */
+object CheckInLauncher {
+    val showing = androidx.compose.runtime.mutableStateOf(false)
+    /** The rider's choices kept while the radio is set up. CODE RULE 1: null = none kept (a fresh check-in). */
+    var pending: Pending? = null
+    data class Pending(val rideId: String?, val callsign: String, val role: String, val showOnMap: Boolean, val error: String)
+}
+
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun CheckInSheet(onDone: (ConvoyRideStore.CheckIn, Boolean) -> Unit, onCancel: () -> Unit) {   // CHECKINMAP: + show on the ride map
@@ -49,12 +59,23 @@ fun CheckInSheet(onDone: (ConvoyRideStore.CheckIn, Boolean) -> Unit, onCancel: (
         return if (roles.any { it.first == d }) d else "rider"
     }
     // CODE RULE 1: null is a real choice -- "No scheduled ride".
-    var chosen by remember { mutableStateOf(todays.singleOrNull()) }
-    var picked by remember { mutableStateOf(todays.size == 1) }   // otherwise the rider must choose
-    var callsign by remember { mutableStateOf(me?.callsign ?: "") }
-    var role by remember { mutableStateOf(defaultRole(chosen)) }
+    // CHECKINAPPLY-2026-09-28: a check-in reopened after a failed radio setup comes back with the rider's choices.
+    val kept = remember { CheckInLauncher.pending.also { CheckInLauncher.pending = null } }
+    var chosen by remember { mutableStateOf(kept?.let { k -> rides.firstOrNull { it.rideId == k.rideId } } ?: todays.singleOrNull()) }
+    var picked by remember { mutableStateOf(kept != null || todays.size == 1) }   // otherwise the rider must choose
+    var callsign by remember { mutableStateOf(kept?.callsign ?: me?.callsign ?: "") }
+    var role by remember { mutableStateOf(kept?.role ?: defaultRole(chosen)) }
     // CHECKINMAP-2026-09-28 (Fred): show the checked-in ride's route and trailhead on the ride map (rides only).
-    var showOnMap by remember { mutableStateOf(true) }
+    var showOnMap by remember { mutableStateOf(kept?.showOnMap ?: true) }
+    // CHECKINAPPLY-2026-09-28 (Fred): is the connected radio on THIS ride's network? Compared by NETWORK -- a radio
+    // applied from another ride on the same network (e.g. the organizer's own) is already right.
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val radioOn = GrpAwarenessLauncher.connected.value
+    val nodeNum = GrpAwarenessLauncher.myNodeNum.value
+    val last = remember(nodeNum, radioOn) { lastAppliedRide(ctx, nodeNum) }   // (rideId, title), or null
+    val chosenNet = remember(chosen?.rideId) { chosen?.rideId?.let { ConvoyRideStore.rideForEdit(it)?.configId } }
+    val lastNet = remember(last) { last?.first?.let { ConvoyRideStore.rideForEdit(it)?.configId } }
+    val needsSetup = chosen != null && radioOn && (lastNet == null || lastNet != chosenNet)
     val dim = Color(0xFF8899AA)
 
     AlertDialog(
@@ -91,12 +112,43 @@ fun CheckInSheet(onDone: (ConvoyRideStore.CheckIn, Boolean) -> Unit, onCancel: (
                     androidx.compose.material3.Checkbox(checked = showOnMap, onCheckedChange = { showOnMap = it })
                     Text("Show this ride's route and trailhead on the ride map", modifier = Modifier.padding(top = 12.dp), fontSize = 13.sp)
                 }
-                if (chosen != null) TextButton(onClick = { onCancel(); RadioConfigLauncher.open() }) { Text("Set up radio for this ride") }
+                // CHECKINRADIO-2026-09-28 (Fred): NO RADIO, NO CHECK-IN -- every check-in, No scheduled ride included.
+                if (!radioOn) {
+                    Text("\u26D4 You can't check in without a radio. Connect it in GRP Awareness.", color = Color(0xFFF08C84), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    TextButton(onClick = { onCancel(); GrpAwarenessLauncher.open() }) { Text("OPEN GRP AWARENESS") }
+                }
+                // CHECKINAPPLY-2026-09-28 (Fred): the radio against this ride -- CHECK IN sets it up when needed.
+                if (radioOn) chosen?.let { c ->
+                    when {
+                        needsSetup && last == null -> Text("\u26A0 Your radio has no GroupTrack configuration \u2014 it will be set up for " + c.name + " when you check in.", color = Color(0xFFE8A33D), fontSize = 13.sp)
+                        needsSetup -> Text("\u26A0 Your radio is set up for " + last!!.second + " \u2014 it will be set up for " + c.name + " when you check in.", color = Color(0xFFE8A33D), fontSize = 13.sp)
+                        else -> Text("\u2713 Radio ready for this ride", color = Color(0xFF35C46A), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+                kept?.error?.takeIf { it.isNotBlank() }?.let { Text(it, color = Color(0xFFF08C84), fontSize = 13.sp) }
             }
         },
         confirmButton = {
-            TextButton(enabled = picked && callsign.isNotBlank(), onClick = {
-                ConvoyRideStore.checkIn(chosen, callsign, role)?.let { onDone(it, chosen != null && showOnMap) }
+            TextButton(enabled = picked && callsign.isNotBlank() && radioOn, onClick = {   // CHECKINRADIO: a radio is required
+                if (needsSetup) {
+                    // CHECKINAPPLY-2026-09-28 (Fred): set the radio up for this ride FIRST (the configurator's own apply,
+                    // straight away), then check in -- or reopen with the choices kept if the setup fails.
+                    val c = chosen!!
+                    CheckInLauncher.pending = CheckInLauncher.Pending(c.rideId, callsign, role, showOnMap, "")
+                    RadioConfigLauncher.autoRideId = c.rideId
+                    RadioConfigLauncher.onAutoResult = { ok ->
+                        val p = CheckInLauncher.pending
+                        if (ok && p != null) {
+                            CheckInLauncher.pending = null
+                            ConvoyRideStore.checkIn(c, p.callsign, p.role)?.let { onDone(it, p.showOnMap) }
+                        } else {
+                            CheckInLauncher.pending = p?.copy(error = "The radio was not set up for " + c.name + " \u2014 CHECK IN to try again.")
+                            CheckInLauncher.showing.value = true
+                        }
+                    }
+                    onCancel()                 // the check-in closes while the radio is set up
+                    RadioConfigLauncher.open()
+                } else ConvoyRideStore.checkIn(chosen, callsign, role)?.let { onDone(it, chosen != null && showOnMap) }
             }) { Text("CHECK IN") }
         },
         dismissButton = { TextButton(onClick = onCancel) { Text("Cancel") } },

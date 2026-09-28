@@ -610,7 +610,7 @@ fun ConvoyScreen(
     }
 
     // CHECKIN-2026-09-27 (Fred): the pre-ride CHECK-IN (its own file) -- the first state of the recording sequence.
-    var showCheckIn by remember { mutableStateOf(false) }
+    var showCheckIn by CheckInLauncher.showing   // CHECKINAPPLY-2026-09-28: shared -- the check-in reopens after a radio setup that failed
     if (showCheckIn) {
         CheckInSheet(
             onDone = { ci, showOnMap ->
@@ -1488,7 +1488,11 @@ fun ConvoyScreen(
                 Surface(
                     modifier = Modifier.clickable {
                         when (recordingState) {
-                            RecordingState.CHECK_IN -> { showCheckIn = true }   // CHECKIN-2026-09-27: no recording before check-in
+                            RecordingState.CHECK_IN -> {   // CHECKIN-2026-09-27: no recording before check-in
+                                // CHECKINCONNECT-2026-09-28 (Fred): a radio first -- none connected: GRP Awareness, then the check-in by itself.
+                                if (GrpAwarenessLauncher.connected.value) showCheckIn = true
+                                else { GrpAwarenessLauncher.open(); GrpAwarenessLauncher.thenCheckIn = true }
+                            }
                             RecordingState.IDLE -> {
                                 val bgGranted = android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.Q ||
                                     androidx.core.content.ContextCompat.checkSelfPermission(

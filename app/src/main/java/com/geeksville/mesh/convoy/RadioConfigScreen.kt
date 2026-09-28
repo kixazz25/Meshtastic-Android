@@ -57,6 +57,11 @@ object RadioConfigLauncher {
     var showing by mutableStateOf(false)
     /** CONFIGREVIEW-2026-09-25: a save chosen in Saved configs -> Apply; cleared once used or on close. */
     var preselect: java.io.File? = null
+    /** CHECKINAPPLY-2026-09-28 (Fred): opened by CHECK IN -- apply THIS ride straight away, then report back.
+     *  CODE RULE 1: null = normal use (the rider picks). */
+    var autoRideId: String? = null
+    /** CHECKINAPPLY: told the result of that apply: true = done and verified. Null = nobody waiting. */
+    var onAutoResult: ((Boolean) -> Unit)? = null
     fun open() { showing = true }
     fun close() { showing = false; preselect = null }
 }
@@ -230,6 +235,31 @@ fun RadioConfigScreen(
                 addLog("ERROR: ${e.message}")
             }
             phase = "RESULT"
+        }
+    }
+
+    // CHECKINAPPLY-2026-09-28 (Fred): opened by CHECK IN -- that ride, no picking, no preview: apply, then report back.
+    LaunchedEffect(targets) {
+        val rid = RadioConfigLauncher.autoRideId ?: return@LaunchedEffect
+        if (targets.isEmpty()) return@LaunchedEffect
+        val t = targets.firstOrNull { it.rideId == rid }
+        if (t == null) {
+            addLog("CHECKINAPPLY: ride $rid not found on this tablet")
+            val cb = RadioConfigLauncher.onAutoResult
+            RadioConfigLauncher.autoRideId = null; RadioConfigLauncher.onAutoResult = null
+            onClose(); cb?.invoke(false)
+        } else choose(t)
+    }
+    LaunchedEffect(phase) {
+        if (RadioConfigLauncher.autoRideId == null) return@LaunchedEffect
+        if (phase == "PREVIEW" && chosen?.rideId == RadioConfigLauncher.autoRideId) apply()
+        if (phase == "RESULT") {
+            val ok = (result as? WriteResult.Done)?.verified == true
+            android.util.Log.i("RadioConfig", "CHECKINAPPLY: ride ${RadioConfigLauncher.autoRideId} applied, verified=$ok")
+            kotlinx.coroutines.delay(1500)   // the result shows briefly
+            val cb = RadioConfigLauncher.onAutoResult
+            RadioConfigLauncher.autoRideId = null; RadioConfigLauncher.onAutoResult = null
+            onClose(); cb?.invoke(ok)
         }
     }
 

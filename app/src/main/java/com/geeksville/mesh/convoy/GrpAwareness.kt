@@ -64,8 +64,12 @@ object GrpAwarenessLauncher {
     /** The time of the last radio traffic -- the label pulses when it changes. */
     val pulseAt = mutableStateOf(0L)
     fun open() { showing.value = true }
-    fun close() { showing.value = false }
+    /** CHECKINCONNECT-2026-09-28 (Fred): opened by CHK IN with no radio -- once a radio connects, the check-in opens. */
+    var thenCheckIn = false
+    fun close() { showing.value = false; thenCheckIn = false }
     fun pulse() { pulseAt.value = System.currentTimeMillis() }
+    /** CHECKINAPPLY-2026-09-28: the connected radio's node number (set from Main). CODE RULE 1: null = no radio. */
+    val myNodeNum = mutableStateOf<Int?>(null)
 }
 
 /** The label's colour: green / red by connection, brightening briefly on each pulse. */
@@ -118,6 +122,20 @@ fun radioLongName(d: com.geeksville.mesh.model.DeviceListEntry): String =
  * for it (convoy_backups/<radio>/<...>.json: title = the ride, appliedAt). "" = no radio; "none" = never applied by
  * GroupTrack.
  */
+/** CHECKINAPPLY-2026-09-28: the ride LAST APPLIED to this radio -- (rideId, title) from the configurator's records.
+ *  CODE RULE 1: null = nothing applied by GroupTrack (or no radio); rideId null = GroupTrack default / not a ride. */
+fun lastAppliedRide(ctx: Context, nodeNum: Int?): Pair<String?, String>? {
+    if (nodeNum == null || nodeNum == 0) return null
+    val hex = "%08x".format(nodeNum)
+    val dir = java.io.File(ctx.filesDir, "convoy_backups").listFiles()?.firstOrNull { d ->
+        d.isDirectory && (d.name.lowercase().contains(hex) || d.name == nodeNum.toString() || d.name == (nodeNum.toLong() and 0xffffffffL).toString())
+    } ?: return null
+    val best = dir.listFiles { f -> f.extension == "json" }?.mapNotNull { f -> runCatching { JSONObject(f.readText()) }.getOrNull() }
+        ?.filter { it.optString("appliedAt").isNotBlank() && it.optString("title") != "As found" }?.maxByOrNull { it.optString("appliedAt") } ?: return null
+    val rid = best.optString("rideId").takeIf { it.isNotBlank() && it != "null" }
+    return Pair(rid, best.optString("title").ifBlank { "a saved configuration" })
+}
+
 fun lastAppliedLine(ctx: Context, nodeNum: Int?): String {
     if (nodeNum == null || nodeNum == 0) return ""
     val hex = "%08x".format(nodeNum)
@@ -173,6 +191,8 @@ fun GrpAwarenessPanel(
                         modifier = Modifier.weight(1f))
                     TextButton(onClick = onClose) { Text("\u2715", color = Color(0xFF7FB2E5), fontSize = 18.sp) }
                 }
+                // CHECKINCONNECT-2026-09-28: opened by CHK IN with no radio
+                if (GrpAwarenessLauncher.thenCheckIn) Text("Connect your radio to check in.", color = Color(0xFFE8C27A), fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 // CONNECTED TO -- empty when nothing is connected
                 Surface(shape = RoundedCornerShape(10.dp), color = if (busy) Color(0xFF0E2A1A) else Color(0xFF0D1A2C)) {
                     Row(modifier = Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
