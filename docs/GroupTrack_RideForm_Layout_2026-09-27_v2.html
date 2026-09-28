@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GroupTrack — ride form layout (proposal v2, 2026-09-27)</title>
+<style>
+  body { margin:0; background:#1b2430; font:15px/1.4 -apple-system, "Segoe UI", Roboto, Arial, sans-serif; color:#E8EEF5; }
+  .wrap { display:flex; gap:28px; padding:24px; flex-wrap:wrap; justify-content:center; }
+  .phone { width:390px; background:#0A1628; border-radius:18px; box-shadow:0 8px 28px rgba(0,0,0,.45); overflow:hidden; }
+  .bar { display:flex; align-items:center; gap:10px; padding:14px 16px; background:#0F2035; font-weight:700; letter-spacing:1px; font-size:14px; }
+  .bar .back { color:#7FB2E5; font-size:18px; }
+  .body { padding:12px 14px 16px; display:flex; flex-direction:column; gap:8px; }
+  .row { display:flex; align-items:center; gap:10px; background:#0F2035; border-radius:8px; padding:9px 12px; }
+  .lbl { flex:0 0 auto; width:96px; color:#8FA3B8; font-size:11px; font-weight:700; letter-spacing:.8px; text-transform:uppercase; }
+  .val { flex:1; min-width:0; }
+  .input { background:#0A1628; border:1px solid #2A4260; border-radius:6px; padding:7px 9px; color:#E8EEF5; width:100%; box-sizing:border-box; }
+  .input.ph { color:#5E7288; }
+  .two { display:flex; gap:8px; }
+  .two .row { flex:1; }
+  .two .lbl { width:auto; }
+  .note { color:#8899AA; font-size:11.5px; margin-top:3px; }
+  .radio { display:inline-block; width:14px; height:14px; border-radius:50%; border:2px solid #5E7288; vertical-align:-2px; margin-right:6px; box-sizing:border-box; }
+  .radio.on { border-color:#7FC4FF; background:radial-gradient(circle,#7FC4FF 0 3px,transparent 4px); }
+  .switch { flex:0 0 auto; width:38px; height:22px; border-radius:11px; background:#0A1628; border:1px solid #445566; position:relative; }
+  .switch::after { content:""; position:absolute; top:2px; left:2px; width:16px; height:16px; border-radius:50%; background:#445566; }
+  .net { color:#E8C27A; }
+  .cond { border:1px dashed #6B5A2A; background:#1A1406; }
+  .cond .lbl { color:#E8A33D; }
+  .ok { color:#5FD08A; }
+  .pic { height:220px; border-radius:8px; background:
+      radial-gradient(circle at 30% 70%, rgba(95,208,138,.9) 0 5px, transparent 6px),
+      linear-gradient(135deg, #20331f, #2d3f28 40%, #3a4a30);
+      position:relative; }
+  .pic svg { position:absolute; inset:0; }
+  .btn { text-align:center; padding:13px; border-radius:8px; font-weight:700; letter-spacing:1px; font-size:13px; }
+  .save { background:#12304F; color:#7FC4FF; }
+  .cancel { color:#8B949E; padding:8px; }
+  .side { max-width:420px; color:#C9D3DD; }
+  .side h2 { margin:0 0 8px; font-size:17px; color:#fff; }
+  .side li { margin:5px 0; }
+  .tag { display:inline-block; font-size:10px; padding:1px 6px; border-radius:4px; background:#1A1406; border:1px dashed #6B5A2A; color:#E8A33D; margin-left:4px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="phone">
+    <div class="bar"><span class="back">←</span> ADD A RIDE</div>
+    <div class="body">
+
+      <!-- 1. the name first -->
+      <div class="row">
+        <div class="lbl">Ride name *</div>
+        <div class="val"><div class="input ph">Sunday Desert Run</div></div>
+      </div>
+
+      <!-- 2. the decision -->
+      <div class="row">
+        <div class="lbl">Private ride</div>
+        <div class="val">Public <div class="note">Riders may forward the invitation. At the end each rider rates it and decides whether to share their track.</div></div>
+        <div class="switch"></div>
+      </div>
+      <div class="row" style="align-items:flex-start">
+        <div class="lbl" style="padding-top:2px">Radio network</div>
+        <div class="val">
+          <div><span class="radio on"></span> My organizer network</div>
+          <div style="margin-top:4px"><span class="radio"></span> Private network for this ride</div>
+          <div class="note"><span class="net">Fred K · GroupAB12CD</span> — used for all your rides; riders who rode with you are already on it.</div>
+          <div class="note" style="color:#6B7D90"><i>With "Private network for this ride": a new private network, named after you, is created when you save — every rider sets up their radio for it.</i></div>
+        </div>
+      </div>
+
+      <!-- 3. date + time on one line -->
+      <div class="two">
+        <div class="row"><div class="lbl">Date *</div><div class="val"><div class="input">Sun 5 Oct 2026</div></div></div>
+        <div class="row"><div class="lbl">Rollout</div><div class="val"><div class="input ph">8:00 AM</div></div></div>
+      </div>
+
+      <!-- 4. only when needed -->
+      <div class="row cond">
+        <div class="lbl">Description *</div>
+        <div class="val"><div class="input ph">Describe the route…</div><div class="note">Only when the route has none.</div></div>
+      </div>
+
+      <!-- 5. information, one line each -->
+      <div class="row">
+        <div class="lbl">Trailhead</div>
+        <div class="val"><span class="ok">Casto Canyon TH</span> · 0.1 mi</div>
+      </div>
+      <div class="row">
+        <div class="lbl">Route</div>
+        <div class="val">Panguitch Loop · 42.6 mi</div>
+      </div>
+
+      <!-- 6. the picture, under its route name -->
+      <div class="pic">
+        <svg viewBox="0 0 360 220" preserveAspectRatio="none">
+          <path d="M40 170 C 90 120, 110 150, 150 100 S 230 40, 280 70 S 320 150, 250 180 S 120 200, 40 170"
+                fill="none" stroke="#FF8A3D" stroke-width="4" stroke-linecap="round"/>
+          <circle cx="40" cy="170" r="7" fill="#5FD08A" stroke="#0A1628" stroke-width="2"/>
+        </svg>
+      </div>
+
+      <div class="btn save">SAVE RIDE</div>
+      <div class="btn cancel">CANCEL</div>
+    </div>
+  </div>
+
+  <div class="side">
+    <h2>Ride form — proposed layout</h2>
+    <ol>
+      <li><b>Ride name</b> first — the one thing needed to save.</li>
+      <li><b>Private ride</b> (switch) and the <b>radio network</b> — <b>choose one</b>: <i>My organizer network</i> or <i>Private network for this ride</i>; the line underneath fills in from the choice.</li>
+      <li><b>Date</b> and <b>Rollout time</b> on one line.</li>
+      <li><b>Description *</b> and <b>Trailhead *</b> boxes <span class="tag">only when needed</span> — shown dashed here.</li>
+      <li><b>Information on one line each</b>: title on the left, content on the right — Trailhead, Route (name and length).</li>
+      <li><b>The picture</b> directly under the route line: only the route and its trailhead, fitted.</li>
+      <li><b>SAVE RIDE</b> · <b>CANCEL</b>.</li>
+    </ol>
+    <p>Everything you type is in the top half; the bottom half confirms it is the right route.</p>
+  </div>
+
+</div>
+</body>
+</html>
